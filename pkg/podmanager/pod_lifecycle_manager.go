@@ -26,6 +26,7 @@ import (
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
+	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -100,22 +101,26 @@ func (manager StandardPodLifecycleManager) GetPods(ctx context.Context, r client
 
 // CreatePod creates a new Pod based on a Pod definition
 func (manager StandardPodLifecycleManager) CreatePod(ctx context.Context, r client.Client, pod *corev1.Pod) error {
+	logr.FromContextOrDiscard(ctx).V(1).Info("Creating pod", "name", pod.Name)
 	return r.Create(ctx, pod)
 }
 
 // DeletePod shuts down a Pod
 func (manager StandardPodLifecycleManager) DeletePod(ctx context.Context, r client.Client, pod *corev1.Pod) error {
+	logr.FromContextOrDiscard(ctx).V(1).Info("Deleting pod", "name", pod.Name)
 	return r.Delete(ctx, pod)
 }
 
 // CanDeletePods checks whether it is safe to delete Pods.
-func (manager StandardPodLifecycleManager) CanDeletePods(_ context.Context, adminClient fdbadminclient.AdminClient, cluster *fdbv1beta2.FoundationDBCluster) (bool, error) {
-	return internal.HasDesiredFaultTolerance(adminClient, cluster)
+func (manager StandardPodLifecycleManager) CanDeletePods(ctx context.Context, adminClient fdbadminclient.AdminClient, cluster *fdbv1beta2.FoundationDBCluster) (bool, error) {
+	return internal.HasDesiredFaultTolerance(logr.FromContextOrDiscard(ctx), adminClient, cluster)
 }
 
 // UpdatePods updates a list of Pods to match the latest specs.
 func (manager StandardPodLifecycleManager) UpdatePods(ctx context.Context, r client.Client, _ *fdbv1beta2.FoundationDBCluster, pods []*corev1.Pod, _ bool) error {
+	logger := logr.FromContextOrDiscard(ctx)
 	for _, pod := range pods {
+		logger.V(1).Info("Deleting pod", "name", pod.Name)
 		err := r.Delete(ctx, pod)
 		if err != nil {
 			return err

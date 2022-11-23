@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+
 	"strings"
 
 	"github.com/spf13/viper"
@@ -68,6 +69,7 @@ func NewRootCmd(streams genericclioptions.IOStreams) *cobra.Command {
 	viper.SetDefault("license", "apache 2")
 	cmd.PersistentFlags().StringP("operator-name", "o", "fdb-kubernetes-operator-controller-manager", "Name of the Deployment for the operator.")
 	cmd.PersistentFlags().BoolP("wait", "w", true, "If the plugin should wait for confirmation before executing any action")
+	cmd.PersistentFlags().Uint16P("sleep", "z", 0, "The plugin should sleep between sequential operations for the defined time in seconds (default 0)")
 	o.configFlags.AddFlags(cmd.Flags())
 
 	cmd.AddCommand(
@@ -80,6 +82,8 @@ func NewRootCmd(streams genericclioptions.IOStreams) *cobra.Command {
 		newDeprecationCmd(streams),
 		newFixCoordinatorIPsCmd(streams),
 		newGetCmd(streams),
+		newBuggifyCmd(streams),
+		newProfileAnalyzerCmd(streams),
 	)
 
 	return cmd

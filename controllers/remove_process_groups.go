@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal/removals"
+	"github.com/go-logr/logr"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
@@ -64,10 +65,15 @@ func (u removeProcessGroups) reconcile(ctx context.Context, r *FoundationDBClust
 
 	// Update the cluster to reflect the new exclusions in our status
 	if newExclusions {
-		err = r.Status().Update(ctx, cluster)
+		err = r.updateOrApply(ctx, cluster)
 		if err != nil {
 			return &requeue{curError: err}
 		}
+	}
+
+	status, err := adminClient.GetStatus()
+	if err != nil {
+		return &requeue{curError: err}
 	}
 
 	// We don't use the "cached" of the cluster status from the CRD to minimize the window between data loss (e.g. a node
@@ -75,7 +81,7 @@ func (u removeProcessGroups) reconcile(ctx context.Context, r *FoundationDBClust
 	// query the cluster gets into a degraded state.
 	// We could be smarter here and only block removals that target stateful processes by e.g. filtering those out of the
 	// processGroupsToRemove slice.
-	hasDesiredFaultTolerance, err := internal.HasDesiredFaultTolerance(adminClient, cluster)
+	hasDesiredFaultTolerance, err := internal.HasDesiredFaultToleranceFromStatus(logger, status, cluster)
 	if err != nil {
 		return &requeue{curError: err}
 	}
@@ -85,11 +91,6 @@ func (u removeProcessGroups) reconcile(ctx context.Context, r *FoundationDBClust
 			message: "Removals cannot proceed because cluster has degraded fault tolerance",
 			delay:   30 * time.Second,
 		}
-	}
-
-	status, err := adminClient.GetStatus()
-	if err != nil {
-		return &requeue{curError: err}
 	}
 
 	// In addition to that we should add the same logic as in the exclude step
@@ -140,7 +141,7 @@ func removeProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, c
 		if err != nil {
 			return err
 		}
-	} else if len(pods) > 0 {
+	} else if len(pods) > 1 {
 		return fmt.Errorf("multiple pods found for cluster %s, processGroupID %s", cluster.Name, processGroupID)
 	}
 
@@ -150,11 +151,12 @@ func removeProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, c
 		return err
 	}
 	if len(pvcs.Items) == 1 && pvcs.Items[0].DeletionTimestamp.IsZero() {
+		logr.FromContextOrDiscard(ctx).V(1).Info("Deleting pvc", "name", pvcs.Items[0].Name)
 		err = r.Delete(ctx, &pvcs.Items[0])
 		if err != nil {
 			return err
 		}
-	} else if len(pvcs.Items) > 0 {
+	} else if len(pvcs.Items) > 1 {
 		return fmt.Errorf("multiple PVCs found for cluster %s, processGroupID %s", cluster.Name, processGroupID)
 	}
 
@@ -164,11 +166,12 @@ func removeProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, c
 		return err
 	}
 	if len(services.Items) == 1 && services.Items[0].DeletionTimestamp.IsZero() {
+		logr.FromContextOrDiscard(ctx).V(1).Info("Deleting service", "name", services.Items[0].Name)
 		err = r.Delete(ctx, &services.Items[0])
 		if err != nil {
 			return err
 		}
-	} else if len(services.Items) > 0 {
+	} else if len(services.Items) > 1 {
 		return fmt.Errorf("multiple services found for cluster %s, processGroupID %s", cluster.Name, processGroupID)
 	}
 
@@ -193,7 +196,7 @@ func confirmRemoval(ctx context.Context, r *FoundationDBClusterReconciler, clust
 		}
 		// Pod is in terminating state so we don't want to block but we also don't want to include it
 		canBeIncluded = false
-	} else if len(pods) > 0 {
+	} else if len(pods) > 1 {
 		return false, false, fmt.Errorf("multiple pods found for cluster %s, processGroupID %s", cluster.Name, processGroupID)
 	}
 
@@ -210,7 +213,7 @@ func confirmRemoval(ctx context.Context, r *FoundationDBClusterReconciler, clust
 		}
 		// PVC is in terminating state so we don't want to block but we also don't want to include it
 		canBeIncluded = false
-	} else if len(pvcs.Items) > 0 {
+	} else if len(pvcs.Items) > 1 {
 		return false, canBeIncluded, fmt.Errorf("multiple PVCs found for cluster %s, processGroupID %s", cluster.Name, processGroupID)
 	}
 
@@ -227,7 +230,7 @@ func confirmRemoval(ctx context.Context, r *FoundationDBClusterReconciler, clust
 		}
 		// service is in terminating state so we don't want to block but we also don't want to include it
 		canBeIncluded = false
-	} else if len(services.Items) > 0 {
+	} else if len(services.Items) > 1 {
 		return false, canBeIncluded, fmt.Errorf("multiple services found for cluster %s, processGroupID %s", cluster.Name, processGroupID)
 	}
 
@@ -241,40 +244,50 @@ func includeProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, 
 	}
 	defer adminClient.Close()
 
-	addresses := make([]fdbv1beta2.ProcessAddress, 0)
+	fdbProcessesToInclude := getProcessesToInclude(cluster, removedProcessGroups)
+	if len(fdbProcessesToInclude) > 0 {
+		r.Recorder.Event(cluster, corev1.EventTypeNormal, "IncludingProcesses", fmt.Sprintf("Including removed processes: %v", fdbProcessesToInclude))
 
-	hasStatusUpdate := false
-
-	processGroups := make([]*fdbv1beta2.ProcessGroupStatus, 0, len(cluster.Status.ProcessGroups))
-	for _, processGroup := range cluster.Status.ProcessGroups {
-		if processGroup.IsMarkedForRemoval() && removedProcessGroups[processGroup.ProcessGroupID] {
-			for _, pAddr := range processGroup.Addresses {
-				addresses = append(addresses, fdbv1beta2.ProcessAddress{IPAddress: net.ParseIP(pAddr)})
-			}
-			hasStatusUpdate = true
-		} else {
-			processGroups = append(processGroups, processGroup)
-		}
-	}
-
-	if len(addresses) > 0 {
-		r.Recorder.Event(cluster, corev1.EventTypeNormal, "IncludingProcesses", fmt.Sprintf("Including removed processes: %v", addresses))
-
-		err = adminClient.IncludeProcesses(addresses)
+		err = adminClient.IncludeProcesses(fdbProcessesToInclude)
 		if err != nil {
 			return err
 		}
-	}
 
-	if hasStatusUpdate {
-		cluster.Status.ProcessGroups = processGroups
-		err := r.Status().Update(ctx, cluster)
+		err := r.updateOrApply(ctx, cluster)
 		if err != nil {
 			return err
 		}
 	}
 
 	return nil
+}
+
+func getProcessesToInclude(cluster *fdbv1beta2.FoundationDBCluster, removedProcessGroups map[string]bool) []fdbv1beta2.ProcessAddress {
+	fdbProcessesToInclude := make([]fdbv1beta2.ProcessAddress, 0)
+
+	if len(removedProcessGroups) == 0 {
+		return fdbProcessesToInclude
+	}
+
+	idx := 0
+	for _, processGroup := range cluster.Status.ProcessGroups {
+		if processGroup.IsMarkedForRemoval() && removedProcessGroups[processGroup.ProcessGroupID] {
+			if cluster.UseLocalitiesForExclusion() {
+				fdbProcessesToInclude = append(fdbProcessesToInclude, fdbv1beta2.ProcessAddress{StringAddress: processGroup.GetExclusionString()})
+			}
+			for _, pAddr := range processGroup.Addresses {
+				fdbProcessesToInclude = append(fdbProcessesToInclude, fdbv1beta2.ProcessAddress{IPAddress: net.ParseIP(pAddr)})
+			}
+			continue
+		}
+		cluster.Status.ProcessGroups[idx] = processGroup
+		idx++
+	}
+
+	// Remove the trailing duplicates.
+	cluster.Status.ProcessGroups = cluster.Status.ProcessGroups[:idx]
+
+	return fdbProcessesToInclude
 }
 
 func (r *FoundationDBClusterReconciler) getProcessGroupsToRemove(cluster *fdbv1beta2.FoundationDBCluster, remainingMap map[string]bool) (bool, bool, []*fdbv1beta2.ProcessGroupStatus) {
@@ -336,7 +349,7 @@ func (r *FoundationDBClusterReconciler) removeProcessGroups(ctx context.Context,
 	processGroups := append(processGroupsToRemove, terminatingProcessGroups...)
 
 	for _, id := range processGroups {
-		err := removeProcessGroup(ctx, r, cluster, id)
+		err := removeProcessGroup(logr.NewContext(ctx, logger), r, cluster, id)
 		if err != nil {
 			logger.Error(err, "Error during remove process group", "processGroupID", id)
 			continue

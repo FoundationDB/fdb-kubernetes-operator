@@ -61,7 +61,7 @@ var (
 
 	descProcessGroupsToRemoveWithoutExclusion = prometheus.NewDesc(
 		"fdb_operator_process_group_to_remove_without_exclusion_total",
-		"the count of rocess groups that should be removed from the cluster without excluding.",
+		"the count of process groups that should be removed from the cluster without excluding.",
 		descClusterDefaultLabels,
 		nil,
 	)
@@ -90,6 +90,13 @@ var (
 	descProcessGroupMarkedExcluded = prometheus.NewDesc(
 		"fdb_operator_process_group_marked_excluded",
 		"the count of Fdb process groups that are marked as excluded.",
+		append(descClusterDefaultLabels, "process_class"),
+		nil,
+	)
+
+	desDesiredProcessGroups = prometheus.NewDesc(
+		"fdb_operator_desired_process_group_total",
+		"the count of the desired Fdb process groups",
 		append(descClusterDefaultLabels, "process_class"),
 		nil,
 	)
@@ -150,6 +157,15 @@ func collectMetrics(ch chan<- prometheus.Metric, cluster *fdbv1beta2.FoundationD
 
 		addGauge(descProcessGroupMarkedRemoval, float64(removals[pclass]), string(pclass))
 		addGauge(descProcessGroupMarkedExcluded, float64(exclusions[pclass]), string(pclass))
+	}
+
+	counts, err := cluster.GetProcessCountsWithDefaults()
+	if err != nil {
+		return
+	}
+
+	for processCount, count := range counts.Map() {
+		addGauge(desDesiredProcessGroups, float64(count), string(processCount))
 	}
 }
 

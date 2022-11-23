@@ -789,7 +789,6 @@ func (clusterStatus FoundationDBClusterStatus) ProcessGroupsByProcessClass(proce
 		if groupStatus.ProcessClass == processClass {
 			result = append(result, groupStatus)
 		}
-
 	}
 
 	return result
@@ -1107,7 +1106,7 @@ type AutomaticReplacementOptions struct {
 
 	// FailureDetectionTimeSeconds controls how long a process must be
 	// failed or missing before it is automatically replaced.
-	// The default is 1800 seconds, or 30 minutes.
+	// The default is 7200 seconds, or 2 hours.
 	FailureDetectionTimeSeconds *int `json:"failureDetectionTimeSeconds,omitempty"`
 
 	// MaxConcurrentReplacements controls how many automatic replacements are allowed to take part.

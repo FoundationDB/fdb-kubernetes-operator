@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2022 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,33 +25,21 @@ import (
 	"net"
 	"strings"
 
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 // IsNetworkError returns true if the network is a network error net.Error
 func IsNetworkError(err error) bool {
-	for err != nil {
-		if _, ok := err.(net.Error); ok {
-			return true
-		}
-
-		err = errors.Unwrap(err)
-	}
-
-	return false
+	var netError net.Error
+	return errors.As(err, &netError)
 }
 
 // IsTimeoutError returns true if the observed error was a timeout error
 func IsTimeoutError(err error) bool {
-	for err != nil {
-		if strings.Contains(err.Error(), "Specified timeout reached") {
-			return true
-		}
-
-		err = errors.Unwrap(err)
-	}
-
-	return false
+	var timeoutError fdbv1beta2.TimeoutError
+	return errors.As(err, &timeoutError)
 }
 
 // IsQuotaExceeded returns true if the error returned by the Kubernetes API is a forbidden error with the error message

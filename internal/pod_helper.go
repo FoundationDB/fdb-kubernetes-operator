@@ -50,7 +50,7 @@ func GetPublicIPsForPod(pod *corev1.Pod, log logr.Logger) []string {
 	}
 
 	for _, container := range pod.Spec.Containers {
-		if container.Name != "foundationdb-kubernetes-sidecar" {
+		if container.Name != fdbv1beta2.SidecarContainerName {
 			continue
 		}
 		for indexOfArgument, argument := range container.Args {
@@ -210,7 +210,7 @@ func GetSidecarImage(cluster *fdbv1beta2.FoundationDBCluster, pClass fdbv1beta2.
 	image := ""
 	if settings.PodTemplate != nil {
 		for _, container := range settings.PodTemplate.Spec.Containers {
-			if container.Name == "foundationdb-kubernetes-sidecar" && container.Image != "" {
+			if container.Name == fdbv1beta2.SidecarContainerName && container.Image != "" {
 				image = container.Image
 			}
 		}
@@ -223,7 +223,7 @@ func GetSidecarImage(cluster *fdbv1beta2.FoundationDBCluster, pClass fdbv1beta2.
 		imageConfigs = cluster.Spec.SidecarContainer.ImageConfigs
 	}
 
-	return GetImage(image, imageConfigs, cluster.Spec.Version)
+	return GetImage(image, imageConfigs, cluster.Spec.Version, false)
 }
 
 // CreatePodMap creates a map with the process group ID as a key and the according Pod as a value

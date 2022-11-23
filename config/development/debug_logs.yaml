@@ -7,5 +7,6 @@ spec:
     spec:
       containers:
         - name: manager
+          imagePullPolicy: Never
           args:
             - --zap-log-level=debug

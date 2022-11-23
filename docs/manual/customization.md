@@ -1,4 +1,4 @@
-# Customization
+# Customizing Your Deployments
 
 This document covers some of the options the operator provides for customizing your FoundationDB deployment.
 
@@ -19,7 +19,7 @@ spec:
     storageServersPerPod: 2
 ```
 
-A change to the `storageServersPerPod` will replace all of the storage pods. For more information about this feature read the [multiple storage servers per pod](/docs/design/multiple_storage_per_disk.md) design doc.
+A change to the `storageServersPerPod` will replace all of the storage pods. For more information about this feature read the [multiple storage servers per pod](/docs/design/implemented/multiple_storage_per_disk.md) design doc.
 
 ## Customizing the Volumes
 
@@ -230,7 +230,7 @@ Using pod IPs can present several challenges:
 
 ### Service IPs
 
-You can choose this option by setting `spec.routing.publicIPSource=service`. This feature is new, and still experimental, but we plan to make it the default in the future.
+You can choose this option by setting `spec.routing.publicIPSource=service`. This feature is still experimental, and is not fully supported. 
 
 In this mode, we create one service for each pod, and use that service's IP as the public IP for the pod. The pod IP will still be used as the listen address. This ensures that IPs stay fixed even when pods get rescheduled, which reduces the need for changing coordinators and protects against some unrecoverable failure modes.
 
@@ -440,4 +440,4 @@ For more information on how the interaction between the operator and these image
 
 ## Next
 
-You can continue on to the [next section](replacements_and_deletions.md) or go back to the [table of contents](index.md).
+You can continue on to the [next section](operator_customization.md) or go back to the [table of contents](index.md).

@@ -26,6 +26,7 @@ import (
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
+	"github.com/go-logr/logr"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	corev1 "k8s.io/api/core/v1"
@@ -70,7 +71,7 @@ func (a addPods) reconcile(ctx context.Context, r *FoundationDBClusterReconciler
 		// If this process group is marked for removal, we normally don't want to spin it back up
 		// again. However, in a downscaling scenario, it could be that this is a storage node that
 		// is still draining its data onto another one. Therefore, we only want to leave it off
-		// (by continue'ing) if the cluster says that this process group is fully drained and safe
+		// (by continuing) if the cluster says that this process group is fully drained and safe
 		// to delete, which is the case if a previous run of the `removeProcessGroups` subreconciler
 		// has marked it as excluded in the cluster status (it does so only after executing the
 		// `exclude` FDB command and being told that the nodes in question are fully excluded).
@@ -117,7 +118,7 @@ func (a addPods) reconcile(ctx context.Context, r *FoundationDBClusterReconciler
 			pod.Annotations[fdbv1beta2.PublicIPAnnotation] = ip
 		}
 
-		err = r.PodLifecycleManager.CreatePod(ctx, r, pod)
+		err = r.PodLifecycleManager.CreatePod(logr.NewContext(ctx, logger), r, pod)
 		if err != nil {
 			if internal.IsQuotaExceeded(err) {
 				return &requeue{curError: err, delayedRequeue: true}

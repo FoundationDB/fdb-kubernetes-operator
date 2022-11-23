@@ -28,11 +28,11 @@ import (
 	"math"
 	"regexp"
 	"sort"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"time"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 
@@ -52,21 +52,28 @@ import (
 // FoundationDBClusterReconciler reconciles a FoundationDBCluster object
 type FoundationDBClusterReconciler struct {
 	client.Client
-	Recorder               record.EventRecorder
-	Log                    logr.Logger
-	InSimulation           bool
-	PodLifecycleManager    podmanager.PodLifecycleManager
-	PodClientProvider      func(*fdbv1beta2.FoundationDBCluster, *corev1.Pod) (podclient.FdbPodClient, error)
-	DatabaseClientProvider DatabaseClientProvider
-	DeprecationOptions     internal.DeprecationOptions
+	Recorder                           record.EventRecorder
+	Log                                logr.Logger
+	InSimulation                       bool
+	EnableRestartIncompatibleProcesses bool
+	ServerSideApply                    bool
+	EnableRecoveryState                bool
+	PodLifecycleManager                podmanager.PodLifecycleManager
+	PodClientProvider                  func(*fdbv1beta2.FoundationDBCluster, *corev1.Pod) (podclient.FdbPodClient, error)
+	DatabaseClientProvider             DatabaseClientProvider
+	DeprecationOptions                 internal.DeprecationOptions
+	GetTimeout                         time.Duration
+	PostTimeout                        time.Duration
 }
 
 // NewFoundationDBClusterReconciler creates a new FoundationDBClusterReconciler with defaults.
 func NewFoundationDBClusterReconciler(podLifecycleManager podmanager.PodLifecycleManager) *FoundationDBClusterReconciler {
-	return &FoundationDBClusterReconciler{
+	r := &FoundationDBClusterReconciler{
 		PodLifecycleManager: podLifecycleManager,
-		PodClientProvider:   newFdbPodClient,
 	}
+	r.PodClientProvider = r.newFdbPodClient
+
+	return r
 }
 
 // +kubebuilder:rbac:groups=apps.foundationdb.org,resources=foundationdbclusters,verbs=get;list;watch;create;update;patch;delete
@@ -82,7 +89,6 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
-
 		}
 		// Error reading the object - requeue the request.
 		return ctrl.Result{}, err
@@ -115,13 +121,10 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 		return ctrl.Result{}, fmt.Errorf("version %s is not supported", cluster.Spec.Version)
 	}
 
-	storageEngineSupported, err := isStorageEngineSupported(cluster.Spec.Version, cluster.Spec.DatabaseConfiguration.StorageEngine)
+	err = cluster.Validate()
 	if err != nil {
-		return ctrl.Result{}, err
-	}
-	if !storageEngineSupported {
-		r.Recorder.Event(cluster, corev1.EventTypeWarning, "Storage engine not supported", fmt.Sprintf("storage engine %s is not supported on version %s", cluster.Spec.DatabaseConfiguration.StorageEngine, cluster.Spec.Version))
-		return ctrl.Result{}, fmt.Errorf("storage engine %s is not supported on version %s", cluster.Spec.DatabaseConfiguration.StorageEngine, cluster.Spec.Version)
+		r.Recorder.Event(cluster, corev1.EventTypeWarning, "ClusterSpec not valid", err.Error())
+		return ctrl.Result{}, fmt.Errorf("ClusterSpec is not valid: %w", err)
 	}
 
 	subReconcilers := []clusterSubReconciler{
@@ -129,14 +132,15 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 		updateLockConfiguration{},
 		updateConfigMap{},
 		checkClientCompatibility{},
+		deletePodsForBuggification{},
 		replaceMisconfiguredProcessGroups{},
 		replaceFailedProcessGroups{},
-		deletePodsForBuggification{},
 		addProcessGroups{},
 		addServices{},
 		addPVCs{},
 		addPods{},
 		generateInitialClusterFile{},
+		removeIncompatibleProcesses{},
 		updateSidecarVersions{},
 		updatePodConfig{},
 		updateLabels{},
@@ -145,9 +149,10 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 		excludeProcesses{},
 		changeCoordinators{},
 		bounceProcesses{},
+		maintenanceModeChecker{},
 		updatePods{},
-		removeServices{},
 		removeProcessGroups{},
+		removeServices{},
 		updateStatus{},
 	}
 
@@ -616,7 +621,7 @@ func checkCoordinatorValidity(cluster *fdbv1beta2.FoundationDBCluster, status *f
 		}
 
 		if process.ProcessClass == fdbv1beta2.ProcessClassTest {
-			pLogger.Info("Ignoring tester process")
+			pLogger.Info("Ignoring test process")
 			continue
 		}
 
@@ -731,8 +736,8 @@ func checkCoordinatorValidity(cluster *fdbv1beta2.FoundationDBCluster, status *f
 }
 
 // newFdbPodClient builds a client for working with an FDB Pod
-func newFdbPodClient(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod) (podclient.FdbPodClient, error) {
-	return internal.NewFdbPodClient(cluster, pod, log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "pod", pod.Name))
+func (r *FoundationDBClusterReconciler) newFdbPodClient(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod) (podclient.FdbPodClient, error) {
+	return internal.NewFdbPodClient(cluster, pod, log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "pod", pod.Name), r.GetTimeout, r.PostTimeout)
 }
 
 func (r *FoundationDBClusterReconciler) getCoordinatorSet(cluster *fdbv1beta2.FoundationDBCluster) (map[string]struct{}, error) {
@@ -745,10 +750,26 @@ func (r *FoundationDBClusterReconciler) getCoordinatorSet(cluster *fdbv1beta2.Fo
 	return adminClient.GetCoordinatorSet()
 }
 
-func isStorageEngineSupported(versionString string, storageEngine fdbv1beta2.StorageEngine) (bool, error) {
-	version, err := fdbv1beta2.ParseFdbVersion(versionString)
-	if err != nil {
-		return false, err
+// updateOrApply updates the status either with server-side apply or if disabled with the normal update call.
+func (r *FoundationDBClusterReconciler) updateOrApply(ctx context.Context, cluster *fdbv1beta2.FoundationDBCluster) error {
+	if r.ServerSideApply {
+		// TODO(johscheuer): We have to set the TypeMeta otherwise the Patch command will fail. This is the rudimentary
+		// support for server side apply which should be enough for the status use case. The controller runtime will
+		// add some additional support in the future: https://github.com/kubernetes-sigs/controller-runtime/issues/347.
+		patch := &fdbv1beta2.FoundationDBCluster{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       cluster.Kind,
+				APIVersion: cluster.APIVersion,
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      cluster.Name,
+				Namespace: cluster.Namespace,
+			},
+			Status: cluster.Status,
+		}
+
+		return r.Status().Patch(ctx, patch, client.Apply, client.FieldOwner("fdb-operator"), client.ForceOwnership)
 	}
-	return version.IsStorageEngineSupported(storageEngine), nil
+
+	return r.Status().Update(ctx, cluster)
 }

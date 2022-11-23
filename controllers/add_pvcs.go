@@ -38,6 +38,7 @@ type addPVCs struct{}
 
 // reconcile runs the reconciler's work.
 func (a addPVCs) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) *requeue {
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "addPVCs")
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup.IsMarkedForRemoval() {
 			continue
@@ -66,6 +67,7 @@ func (a addPVCs) reconcile(ctx context.Context, r *FoundationDBClusterReconciler
 
 			owner := internal.BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
 			pvc.ObjectMeta.OwnerReferences = owner
+			logger.V(1).Info("Creating PVC", "name", pvc.Name)
 			err = r.Create(ctx, pvc)
 			if err != nil {
 				if internal.IsQuotaExceeded(err) {

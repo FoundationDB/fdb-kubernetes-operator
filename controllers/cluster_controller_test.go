@@ -292,9 +292,11 @@ var _ = Describe("cluster_controller", func() {
 
 		When("converting a cluster to use unified images", func() {
 			BeforeEach(func() {
+				// There is a bug in the fake client that when updating the status the spec is updated.
+				cluster.Spec.MainContainer.ImageConfigs = nil
+				cluster.Spec.SidecarContainer.ImageConfigs = nil
 				cluster.Spec.UseUnifiedImage = pointer.Bool(true)
-				err = k8sClient.Update(context.TODO(), cluster)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
 			})
 
 			It("should update the pods", func() {
@@ -303,9 +305,9 @@ var _ = Describe("cluster_controller", func() {
 				Expect(len(pods.Items)).To(Equal(len(originalPods.Items)))
 
 				for _, pod := range pods.Items {
-					Expect(pod.Spec.Containers[0].Name).To(Equal("foundationdb"))
+					Expect(pod.Spec.Containers[0].Name).To(Equal(fdbv1beta2.MainContainerName))
 					Expect(pod.Spec.Containers[0].Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes:%s", fdbv1beta2.Versions.Default)))
-					Expect(pod.Spec.Containers[1].Name).To(Equal("foundationdb-kubernetes-sidecar"))
+					Expect(pod.Spec.Containers[1].Name).To(Equal(fdbv1beta2.SidecarContainerName))
 					Expect(pod.Spec.Containers[1].Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes:%s", fdbv1beta2.Versions.Default)))
 				}
 			})
@@ -352,7 +354,7 @@ var _ = Describe("cluster_controller", func() {
 				Expect(pod.ObjectMeta.Labels[fdbv1beta2.FDBProcessGroupIDLabel]).To(Equal("storage-1"))
 
 				mainContainer := pod.Spec.Containers[0]
-				Expect(mainContainer.Name).To(Equal("foundationdb"))
+				Expect(mainContainer.Name).To(Equal(fdbv1beta2.MainContainerName))
 				Expect(mainContainer.Args).To(Equal([]string{"crash-loop"}))
 			})
 		})
@@ -862,8 +864,7 @@ var _ = Describe("cluster_controller", func() {
 				Expect(processGroup.ProcessGroupConditions[0].ProcessGroupConditionType).To(Equal(fdbv1beta2.MissingProcesses))
 				Expect(processGroup.ProcessGroupConditions[0].Timestamp).NotTo(Equal(0))
 				processGroup.ProcessGroupConditions[0].Timestamp -= 3600
-				err = k8sClient.Status().Update(context.TODO(), cluster)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(k8sClient.Status().Update(context.TODO(), cluster)).NotTo(HaveOccurred())
 
 				generationGap = 0
 			})
@@ -1577,7 +1578,7 @@ var _ = Describe("cluster_controller", func() {
 					Spec: corev1.PodSpec{
 						Containers: []corev1.Container{
 							{
-								Name: "foundationdb",
+								Name: fdbv1beta2.MainContainerName,
 								Env: []corev1.EnvVar{
 									{
 										Name:  "TEST_CHANGE",
@@ -1740,8 +1741,7 @@ var _ = Describe("cluster_controller", func() {
 
 		Context("when enabling explicit listen addresses", func() {
 			BeforeEach(func() {
-				enabled := false
-				cluster.Spec.UseExplicitListenAddress = &enabled
+				cluster.Spec.UseExplicitListenAddress = pointer.Bool(false)
 				err = k8sClient.Update(context.TODO(), cluster)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -1749,8 +1749,10 @@ var _ = Describe("cluster_controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(result.Requeue).To(BeFalse())
 
-				enabled = true
-				cluster.Spec.UseExplicitListenAddress = &enabled
+				err = k8sClient.Get(context.TODO(), client.ObjectKeyFromObject(cluster), cluster)
+				Expect(err).NotTo(HaveOccurred())
+
+				cluster.Spec.UseExplicitListenAddress = pointer.Bool(true)
 				err = k8sClient.Update(context.TODO(), cluster)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -1763,7 +1765,7 @@ var _ = Describe("cluster_controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 				for _, pod := range pods.Items {
 					container := pod.Spec.Containers[1]
-					Expect(container.Name).To(Equal("foundationdb-kubernetes-sidecar"))
+					Expect(container.Name).To(Equal(fdbv1beta2.SidecarContainerName))
 					var podIPEnv corev1.EnvVar
 					for _, env := range container.Env {
 						if env.Name == "FDB_POD_IP" {
@@ -2025,18 +2027,31 @@ var _ = Describe("cluster_controller", func() {
 		})
 
 		Context("downgrade cluster", func() {
-			BeforeEach(func() {
-				shouldCompleteReconciliation = false
-				IncompatibleVersion := fdbv1beta2.Versions.Default
-				IncompatibleVersion.Patch--
-				cluster.Spec.Version = IncompatibleVersion.String()
-				err := k8sClient.Update(context.TODO(), cluster)
-				Expect(err).NotTo(HaveOccurred())
+			When("downgrading a cluster to another patch version", func() {
+				BeforeEach(func() {
+					cluster.Spec.Version = fdbv1beta2.Versions.PreviousPatchVersion.String()
+					err := k8sClient.Update(context.TODO(), cluster)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("should downgrade the cluster", func() {
+					Expect(cluster.Status.Generations.Reconciled).To(Equal(originalVersion + 1))
+					Expect(cluster.Status.RunningVersion).To(Equal(fdbv1beta2.Versions.PreviousPatchVersion.String()))
+				})
 			})
 
-			It("should not downgrade cluster", func() {
-				Expect(cluster.Status.Generations.Reconciled).To(Equal(originalVersion))
-				Expect(cluster.Status.RunningVersion).To(Equal(fdbv1beta2.Versions.Default.String()))
+			When("downgrading a cluster to another major version", func() {
+				BeforeEach(func() {
+					shouldCompleteReconciliation = false
+					cluster.Spec.Version = fdbv1beta2.Versions.IncompatibleVersion.String()
+					err := k8sClient.Update(context.TODO(), cluster)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("should not downgrade the cluster", func() {
+					Expect(cluster.Status.Generations.Reconciled).To(Equal(originalVersion))
+					Expect(cluster.Status.RunningVersion).To(Equal(fdbv1beta2.Versions.Default.String()))
+				})
 			})
 		})
 
@@ -2045,7 +2060,6 @@ var _ = Describe("cluster_controller", func() {
 
 			BeforeEach(func() {
 				cluster.Spec.Version = fdbv1beta2.Versions.NextMajorVersion.String()
-
 				adminClient, err = newMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -2230,7 +2244,6 @@ var _ = Describe("cluster_controller", func() {
 					adminClient.MockClientVersion(fdbv1beta2.Versions.NextMajorVersion.String(), []string{"127.0.0.2:3687"})
 					err = k8sClient.Update(context.TODO(), cluster)
 					Expect(err).NotTo(HaveOccurred())
-
 				})
 
 				It("should not set a message about the client upgradability", func() {
@@ -2369,7 +2382,6 @@ var _ = Describe("cluster_controller", func() {
 		Context("with a change to the process group ID prefix", func() {
 			BeforeEach(func() {
 				cluster.Spec.ProcessGroupIDPrefix = "dev"
-
 				err = k8sClient.Update(context.TODO(), cluster)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -2405,8 +2417,7 @@ var _ = Describe("cluster_controller", func() {
 
 		Context("when enabling a headless service", func() {
 			BeforeEach(func() {
-				var flag = true
-				cluster.Spec.Routing.HeadlessService = &flag
+				cluster.Spec.Routing.HeadlessService = pointer.Bool(true)
 				err = k8sClient.Update(context.TODO(), cluster)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -2423,8 +2434,7 @@ var _ = Describe("cluster_controller", func() {
 
 		Context("when disabling a headless service", func() {
 			BeforeEach(func() {
-				var flag = true
-				cluster.Spec.Routing.HeadlessService = &flag
+				cluster.Spec.Routing.HeadlessService = pointer.Bool(true)
 				err = k8sClient.Update(context.TODO(), cluster)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -2452,8 +2462,7 @@ var _ = Describe("cluster_controller", func() {
 		Context("with a lock deny list", func() {
 			BeforeEach(func() {
 				cluster.Spec.LockOptions.DenyList = append(cluster.Spec.LockOptions.DenyList, fdbv1beta2.LockDenyListEntry{ID: "dc2"})
-				var locksDisabled = false
-				cluster.Spec.LockOptions.DisableLocks = &locksDisabled
+				cluster.Spec.LockOptions.DisableLocks = pointer.Bool(false)
 				err = k8sClient.Update(context.TODO(), cluster)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -2649,6 +2658,50 @@ var _ = Describe("cluster_controller", func() {
 					})
 				})
 			})
+			When("using ssd-sharded-rocksdb", func() {
+				When("using 7.2.0", func() {
+					BeforeEach(func() {
+						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineShardedRocksDB
+						cluster.Spec.Version = "7.2.0"
+						err := k8sClient.Update(context.TODO(), cluster)
+						Expect(err).NotTo(HaveOccurred())
+					})
+					It("generations are matching", func() {
+						generations, err := reloadClusterGenerations(cluster)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(generations.Reconciled).To(Equal(cluster.ObjectMeta.Generation))
+					})
+				})
+				When("using 7.1.0", func() {
+					BeforeEach(func() {
+						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineShardedRocksDB
+						cluster.Spec.Version = "7.1.0"
+						err := k8sClient.Update(context.TODO(), cluster)
+						Expect(err).NotTo(HaveOccurred())
+						shouldCompleteReconciliation = false
+					})
+					It("generations are not matching", func() {
+						generations, err := reloadClusterGenerations(cluster)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(generations.Reconciled).ToNot(Equal(cluster.ObjectMeta.Generation))
+					})
+				})
+				When("using 6.3.24", func() {
+					BeforeEach(func() {
+						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineShardedRocksDB
+						cluster.Spec.Version = "6.3.24"
+						err := k8sClient.Update(context.TODO(), cluster)
+						Expect(err).NotTo(HaveOccurred())
+						shouldCompleteReconciliation = false
+					})
+					It("generations are not matching", func() {
+						generations, err := reloadClusterGenerations(cluster)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(generations.Reconciled).ToNot(Equal(cluster.ObjectMeta.Generation))
+					})
+				})
+			})
+
 		})
 
 		When("When a process have an incorrect commandline", func() {
@@ -2694,6 +2747,33 @@ var _ = Describe("cluster_controller", func() {
 
 		BeforeEach(func() {
 			cluster.Status.ConnectionString = fakeConnectionString
+		})
+
+		Context("with a test process group", func() {
+			BeforeEach(func() {
+				conf, err = internal.GetMonitorConf(cluster, fdbv1beta2.ProcessClassTest, nil, cluster.GetStorageServersPerPod())
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should generate the test conf", func() {
+				Expect(conf).To(Equal(strings.Join([]string{
+					"[general]",
+					"kill_on_configuration_change = false",
+					"restart_delay = 60",
+					"[fdbserver.1]",
+					"command = $BINARY_DIR/fdbserver",
+					"cluster_file = /var/fdb/data/fdb.cluster",
+					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
+					"public_address = $FDB_PUBLIC_IP:4501",
+					"class = test",
+					"logdir = /var/log/fdb-trace-logs",
+					"loggroup = " + cluster.Name,
+					"datadir = /var/fdb/data",
+					"locality_instance_id = $FDB_INSTANCE_ID",
+					"locality_machineid = $FDB_MACHINE_ID",
+					"locality_zoneid = $FDB_ZONE_ID",
+				}, "\n")))
+			})
 		})
 
 		Context("with a basic storage process group", func() {
@@ -3331,7 +3411,6 @@ var _ = Describe("cluster_controller", func() {
 			})
 
 			Context("when only distributing across data centers", func() {
-
 				BeforeEach(func() {
 					result, err = chooseDistributedProcesses(cluster, candidates, 5, processSelectionConstraint{
 						Fields: []string{"dcid"},

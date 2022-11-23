@@ -2,6 +2,8 @@
 
 # Image URL to use all building/pushing image targets
 IMG ?= fdb-kubernetes-operator:latest
+SIDECAR_IMG ?=
+REMOTE_BUILD ?= 0
 CRD_OPTIONS ?= "crd:maxDescLen=0,crdVersions=v1,generateEmbeddedObjectMeta=true"
 
 ifneq "$(FDB_WEBSITE)" ""
@@ -27,16 +29,17 @@ GOBIN=$(shell go env GOBIN)
 endif
 
 # Dependencies to fetch through `go`
-CONTROLLER_GEN_PKG?=sigs.k8s.io/controller-tools/cmd/controller-gen@v0.6.1
+CONTROLLER_GEN_PKG?=sigs.k8s.io/controller-tools/cmd/controller-gen@v0.9.2
 CONTROLLER_GEN=$(GOBIN)/controller-gen
-KUSTOMIZE_PKG?=sigs.k8s.io/kustomize/kustomize/v3@v3.9.4
+KUSTOMIZE_PKG?=sigs.k8s.io/kustomize/kustomize/v4@v4.5.2
 KUSTOMIZE=$(GOBIN)/kustomize
-GOLANGCI_LINT_PKG=github.com/golangci/golangci-lint/cmd/golangci-lint@v1.42.1
+GOLANGCI_LINT_PKG=github.com/golangci/golangci-lint/cmd/golangci-lint@v1.50.1
 GOLANGCI_LINT=$(GOBIN)/golangci-lint
 GORELEASER_PKG=github.com/goreleaser/goreleaser@v1.6.3
 GORELEASER=$(GOBIN)/goreleaser
 BUILD_DEPS?=
 BUILDER?="docker"
+KUBECTL_ARGS?=
 
 define godep
 BUILD_DEPS+=$(1)
@@ -61,12 +64,12 @@ MANIFESTS=config/crd/bases/apps.foundationdb.org_foundationdbbackups.yaml config
 SAMPLES=config/samples/deployment.yaml config/samples/cluster.yaml config/samples/backup.yaml config/samples/restore.yaml config/samples/client.yaml
 
 ifeq "$(TEST_RACE_CONDITIONS)" "1"
-	go_test_flags := $(go_test_flags) -race -timeout=30m
+	go_test_flags := $(go_test_flags) -race -timeout=90m
 endif
 
 all: deps generate fmt vet manager snapshot manifests samples documentation test_if_changed
 
-.PHONY: clean all manager samples documentation run install uninstall deploy manifests fmt vet generate container-build container-push rebuild-operator bounce lint
+.PHONY: clean all manager samples documentation run install uninstall deploy manifests fmt vet generate container-build container-push container-push-if-remote rebuild-operator bounce lint
 
 deps: $(BUILD_DEPS)
 
@@ -77,6 +80,7 @@ clean:
 	rm -r bin
 	rm -f $(SAMPLES)
 	rm -f config/rbac/role.yaml
+	rm -f config/development/kustomization.yaml
 	rm -rf ./dist/*
 	find . -name "cover.out" -delete
 
@@ -90,7 +94,7 @@ cover.out: ${GO_ALL} ${MANIFESTS}
 
 test:
 ifneq "$(SKIP_TEST)" "1"
-	go test ${go_test_flags} ./... -coverprofile cover.out
+	go test ${go_test_flags} ./... -coverprofile cover.out -ginkgo.timeout=2h
 endif
 
 # Build manager binary
@@ -113,16 +117,27 @@ run: generate manifests
 
 # Install CRDs into a cluster
 install: manifests
-	kustomize build config/crd | kubectl apply -f -
+	kustomize build config/crd | kubectl $(KUBECTL_ARGS) apply -f -
 
 # Uninstall CRDs from a cluster
 uninstall: manifests
-	kustomize build config/crd | kubectl delete -f -
+	kustomize build config/crd | kubectl $(KUBECTL_ARGS) delete -f -
+
+# Apply config to the local development environment based on environment
+# variables.
+config/development/kustomization.yaml: config/development/kustomization.yaml.sample
+	cp config/development/kustomization.yaml.sample config/development/kustomization.yaml
+	cd config/development && kustomize edit set image foundationdb/fdb-kubernetes-operator=${IMG}
+ifneq "$(SIDECAR_IMG)" ""
+	cd config/development && kustomize edit set image foundationdb/foundationdb-kubernetes-sidecar=${SIDECAR_IMG}
+endif
+ifeq "$(REMOTE_BUILD)" "1"
+	cd config/development && kustomize edit add patch --path=remote_build.yaml
+endif
 
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
-deploy: install manifests
-	cd config/development && kustomize edit set image foundationdb/fdb-kubernetes-operator=${IMG}
-	kustomize build config/development | kubectl apply -f -
+deploy: install manifests config/development/kustomization.yaml
+	kustomize build config/development | kubectl $(KUBECTL_ARGS) apply -f -
 
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: ${MANIFESTS}
@@ -131,7 +146,9 @@ ${MANIFESTS}: ${CONTROLLER_GEN} ${GO_SRC}
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 	# Per default controller-gen will generate a ClusterRole for our example we want to use a Role and the namespace marker doesn't
 	# work since it requires a namespace and kustomize doesn't support to change the Kind.
-	@sed -i 's/kind: ClusterRole/kind: Role/g' ./config/rbac/role.yaml
+	@mv ./config/rbac/role.yaml ./config/rbac/role.yaml.tmp
+	@sed 's/kind: ClusterRole/kind: Role/g' ./config/rbac/role.yaml.tmp > ./config/rbac/role.yaml
+	@rm ./config/rbac/role.yaml.tmp
 
 # Run go fmt against code
 fmt: bin/fmt_check
@@ -163,13 +180,19 @@ container-build: test_if_changed
 container-push:
 	$(BUILDER) push ${IMG}
 
+# Push the container image
+container-push-if-remote:
+ifeq "$(REMOTE_BUILD)" "1"
+	$(BUILDER) push ${IMG}
+endif
+
 # Rebuilds, deploys, and bounces the operator
-rebuild-operator: container-build deploy bounce
+rebuild-operator: container-build container-push-if-remote deploy bounce
 
 bounce:
-	kubectl delete pod -l app=fdb-kubernetes-operator-controller-manager
+	kubectl $(KUBECTL_ARGS) delete pod -l app=fdb-kubernetes-operator-controller-manager
 
-samples: ${SAMPLES}
+samples: kustomize ${SAMPLES}
 
 config/samples/deployment.yaml: config/deployment/*.yaml
 	kustomize build ./config/deployment > $@
@@ -189,13 +212,13 @@ config/samples/client.yaml: config/tests/client/*.yaml
 bin/po-docgen: cmd/po-docgen/*.go
 	go build -o bin/po-docgen cmd/po-docgen/main.go  cmd/po-docgen/api.go
 
-CLUSTER_DOCS_INPUT=api/v1beta2/foundationdbcluster_types.go api/v1beta2/foundationdb_custom_parameter.go api/v1beta2/foundationdb_database_configuration.go api/v1beta2/foundationdb_process_class.go
+CLUSTER_DOCS_INPUT=api/v1beta2/foundationdbcluster_types.go api/v1beta2/foundationdb_custom_parameter.go api/v1beta2/foundationdb_database_configuration.go api/v1beta2/foundationdb_process_class.go api/v1beta2/image_config.go
 
 docs/cluster_spec.md: bin/po-docgen $(CLUSTER_DOCS_INPUT)
 	bin/po-docgen api $(CLUSTER_DOCS_INPUT) > $@
 
 docs/backup_spec.md: bin/po-docgen api/v1beta2/foundationdbbackup_types.go
-	bin/po-docgen api api/v1beta2/foundationdbbackup_types.go api/v1beta2/foundationdb_custom_parameter.go > $@
+	bin/po-docgen api api/v1beta2/foundationdbbackup_types.go api/v1beta2/foundationdb_custom_parameter.go api/v1beta2/image_config.go > $@
 
 docs/restore_spec.md: bin/po-docgen api/v1beta2/foundationdbrestore_types.go
 	bin/po-docgen api api/v1beta2/foundationdbrestore_types.go api/v1beta2/foundationdb_custom_parameter.go > $@
@@ -224,3 +247,6 @@ bin/release: ${GO_SRC} $(GORELEASER)
 	$(GORELEASER) release --rm-dist
 	@mkdir -p bin
 	@touch $@
+
+chart-lint:
+	docker run --rm -it -w /repo -v `pwd`:/repo quay.io/helmpack/chart-testing:v3.3.1 ct lint --all

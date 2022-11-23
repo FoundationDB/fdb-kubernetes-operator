@@ -31,7 +31,7 @@ var _ = Describe("fdb_status_helper_test", func() {
 	When("Removing warnings in JSON", func() {
 		type testCase struct {
 			input       string
-			expected    string
+			expected    []byte
 			expectedErr error
 		}
 
@@ -53,7 +53,7 @@ var _ = Describe("fdb_status_helper_test", func() {
 			Entry("Valid JSON without warning",
 				testCase{
 					input:       "{}",
-					expected:    "{}",
+					expected:    []byte("{}"),
 					expectedErr: nil,
 				},
 			),
@@ -63,14 +63,14 @@ var _ = Describe("fdb_status_helper_test", func() {
  # Warning Slow response
 
  {}`,
-					expected:    "{}",
+					expected:    []byte("{}"),
 					expectedErr: nil,
 				},
 			),
 			Entry("Invalid JSON",
 				testCase{
 					input:       "}",
-					expected:    "",
+					expected:    nil,
 					expectedErr: fmt.Errorf("the JSON string doesn't contain a starting '{'"),
 				},
 			),

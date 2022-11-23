@@ -42,12 +42,6 @@ func (c checkClientCompatibility) reconcile(_ context.Context, r *FoundationDBCl
 		return nil
 	}
 
-	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
-	if err != nil {
-		return &requeue{curError: err}
-	}
-	defer adminClient.Close()
-
 	runningVersion, err := fdbv1beta2.ParseFdbVersion(cluster.Status.RunningVersion)
 	if err != nil {
 		return &requeue{curError: err}
@@ -58,8 +52,8 @@ func (c checkClientCompatibility) reconcile(_ context.Context, r *FoundationDBCl
 		return &requeue{curError: err}
 	}
 
-	if !version.IsAtLeast(runningVersion) {
-		return &requeue{message: "cluster downgrade operation is not supported"}
+	if !version.IsAtLeast(runningVersion) && !version.IsProtocolCompatible(runningVersion) {
+		return &requeue{message: fmt.Sprintf("cluster downgrade operation is only supported for protocol compatible versions, running version %s and desired version %s are not compatible", runningVersion, version)}
 	}
 
 	if version.IsProtocolCompatible(runningVersion) {
@@ -70,6 +64,11 @@ func (c checkClientCompatibility) reconcile(_ context.Context, r *FoundationDBCl
 		return nil
 	}
 
+	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
+	if err != nil {
+		return &requeue{curError: err}
+	}
+	defer adminClient.Close()
 	status, err := adminClient.GetStatus()
 	if err != nil {
 		return &requeue{curError: err}
@@ -85,9 +84,8 @@ func (c checkClientCompatibility) reconcile(_ context.Context, r *FoundationDBCl
 		if versionInfo.ProtocolVersion == "Unknown" {
 			continue
 		}
-		match := versionInfo.ProtocolVersion == protocolVersion
 
-		if !match {
+		if versionInfo.ProtocolVersion != protocolVersion {
 			for _, client := range versionInfo.MaxProtocolClients {
 				unsupportedClients = append(unsupportedClients, client.Description())
 			}

@@ -41,7 +41,6 @@ import (
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
@@ -50,22 +49,27 @@ var operatorVersion = "latest"
 
 // Options provides all configuration Options for the operator
 type Options struct {
-	MetricsAddr             string
-	EnableLeaderElection    bool
-	LeaderElectionID        string
-	LogFile                 string
-	CliTimeout              int
-	DeprecationOptions      internal.DeprecationOptions
-	MaxConcurrentReconciles int
-	CleanUpOldLogFile       bool
-	LogFileMinAge           time.Duration
-	LogFileMaxSize          int
-	LogFileMaxAge           int
-	MaxNumberOfOldLogFiles  int
-	CompressOldFiles        bool
-	PrintVersion            bool
-	LabelSelector           string
-	WatchNamespace          string
+	EnableLeaderElection               bool
+	CleanUpOldLogFile                  bool
+	CompressOldFiles                   bool
+	PrintVersion                       bool
+	EnableRestartIncompatibleProcesses bool
+	ServerSideApply                    bool
+	EnableRecoveryState                bool
+	MetricsAddr                        string
+	LeaderElectionID                   string
+	LogFile                            string
+	LabelSelector                      string
+	WatchNamespace                     string
+	CliTimeout                         int
+	MaxConcurrentReconciles            int
+	LogFileMaxSize                     int
+	LogFileMaxAge                      int
+	MaxNumberOfOldLogFiles             int
+	LogFileMinAge                      time.Duration
+	GetTimeout                         time.Duration
+	PostTimeout                        time.Duration
+	DeprecationOptions                 internal.DeprecationOptions
 }
 
 // BindFlags will parse the given flagset for the operator option flags
@@ -79,7 +83,7 @@ func (o *Options) BindFlags(fs *flag.FlagSet) {
 		"Apply defaults from the next major version of the operator. This is only intended for use in development.",
 	)
 	fs.StringVar(&o.LogFile, "log-file", "", "The path to a file to write logs to.")
-	fs.IntVar(&o.CliTimeout, "cli-timeout", 10, "The timeout to use for CLI commands.")
+	fs.IntVar(&o.CliTimeout, "cli-timeout", 10, "The timeout to use for CLI commands in seconds.")
 	fs.IntVar(&o.MaxConcurrentReconciles, "max-concurrent-reconciles", 1, "Defines the maximum number of concurrent reconciles for all controllers.")
 	fs.BoolVar(&o.CleanUpOldLogFile, "cleanup-old-cli-logs", true, "Defines if the operator should delete old fdbcli log files.")
 	fs.DurationVar(&o.LogFileMinAge, "log-file-min-age", 5*time.Minute, "Defines the minimum age of fdbcli log files before removing when \"--cleanup-old-cli-logs\" is set.")
@@ -89,7 +93,12 @@ func (o *Options) BindFlags(fs *flag.FlagSet) {
 	fs.BoolVar(&o.CompressOldFiles, "compress", false, "Defines whether the rotated log files should be compressed using gzip or not.")
 	fs.BoolVar(&o.PrintVersion, "version", false, "Prints the version of the operator and exits.")
 	fs.StringVar(&o.LabelSelector, "label-selector", "", "Defines a label-selector that will be used to select resources.")
-	fs.StringVar(&o.WatchNamespace, "watch-namespace", os.Getenv("WATCH_NAMESPACE"), "Defines which namespace the operator should watch")
+	fs.StringVar(&o.WatchNamespace, "watch-namespace", os.Getenv("WATCH_NAMESPACE"), "Defines which namespace the operator should watch.")
+	fs.DurationVar(&o.GetTimeout, "get-timeout", 5*time.Second, "http timeout for get requests to the FDB sidecar.")
+	fs.DurationVar(&o.PostTimeout, "post-timeout", 10*time.Second, "http timeout for post requests to the FDB sidecar.")
+	fs.BoolVar(&o.EnableRestartIncompatibleProcesses, "enable-restart-incompatible-processes", true, "This flag enables/disables in the operator to restart incompatible fdbserver processes.")
+	fs.BoolVar(&o.ServerSideApply, "server-side-apply", false, "This flag enables server side apply.")
+	fs.BoolVar(&o.EnableRecoveryState, "enable-recovery-state", true, "This flag enables the use of the recovery state for the minimum uptime between bounced if the FDB version supports it.")
 }
 
 // StartManager will start the FoundationDB operator manager.
@@ -102,7 +111,7 @@ func StartManager(
 	clusterReconciler *controllers.FoundationDBClusterReconciler,
 	backupReconciler *controllers.FoundationDBBackupReconciler,
 	restoreReconciler *controllers.FoundationDBRestoreReconciler,
-	logr *log.DelegatingLogger,
+	logr logr.Logger,
 	watchedObjects ...client.Object) (manager.Manager, *os.File) {
 	var logWriter io.Writer
 	var file *os.File
@@ -134,7 +143,7 @@ func StartManager(
 	klog.SetLogger(logger)
 
 	setupLog := logger.WithName("setup")
-	fdbclient.DefaultCLITimeout = operatorOpts.CliTimeout
+	fdbclient.DefaultCLITimeout = time.Duration(operatorOpts.CliTimeout) * time.Second
 
 	options := ctrl.Options{
 		Scheme:             scheme,
@@ -173,7 +182,12 @@ func StartManager(
 		clusterReconciler.Recorder = mgr.GetEventRecorderFor("foundationdbcluster-controller")
 		clusterReconciler.DeprecationOptions = operatorOpts.DeprecationOptions
 		clusterReconciler.DatabaseClientProvider = fdbclient.NewDatabaseClientProvider(logger)
+		clusterReconciler.GetTimeout = operatorOpts.GetTimeout
+		clusterReconciler.PostTimeout = operatorOpts.PostTimeout
 		clusterReconciler.Log = logr.WithName("controllers").WithName("FoundationDBCluster")
+		clusterReconciler.EnableRestartIncompatibleProcesses = operatorOpts.EnableRestartIncompatibleProcesses
+		clusterReconciler.ServerSideApply = operatorOpts.ServerSideApply
+		clusterReconciler.EnableRecoveryState = operatorOpts.EnableRecoveryState
 
 		if err := clusterReconciler.SetupWithManager(mgr, operatorOpts.MaxConcurrentReconciles, *labelSelector, watchedObjects...); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "FoundationDBCluster")
@@ -190,6 +204,7 @@ func StartManager(
 		backupReconciler.Recorder = mgr.GetEventRecorderFor("foundationdbbackup-controller")
 		backupReconciler.DatabaseClientProvider = fdbclient.NewDatabaseClientProvider(logger)
 		backupReconciler.Log = logr.WithName("controllers").WithName("FoundationDBBackup")
+		backupReconciler.ServerSideApply = operatorOpts.ServerSideApply
 
 		if err := backupReconciler.SetupWithManager(mgr, operatorOpts.MaxConcurrentReconciles, *labelSelector); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "FoundationDBBackup")
@@ -202,6 +217,7 @@ func StartManager(
 		restoreReconciler.Recorder = mgr.GetEventRecorderFor("foundationdbrestore-controller")
 		restoreReconciler.DatabaseClientProvider = fdbclient.NewDatabaseClientProvider(logger)
 		restoreReconciler.Log = logr.WithName("controllers").WithName("FoundationDBRestore")
+		restoreReconciler.ServerSideApply = operatorOpts.ServerSideApply
 
 		if err := restoreReconciler.SetupWithManager(mgr, operatorOpts.MaxConcurrentReconciles, *labelSelector); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "FoundationDBRestore")

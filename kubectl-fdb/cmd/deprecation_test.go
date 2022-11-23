@@ -22,6 +22,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"strings"
 
 	"k8s.io/utils/pointer"
@@ -34,20 +35,13 @@ import (
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var _ = Describe("[plugin] deprecation command", func() {
 	When("running the deprecation command", func() {
-		clusterName := "test"
-		namespace := "test"
-
 		type testCase struct {
 			cluster            fdbv1beta2.FoundationDBCluster
 			inputClusters      []string
@@ -65,13 +59,11 @@ var _ = Describe("[plugin] deprecation command", func() {
 				errBuffer := bytes.Buffer{}
 				inBuffer := bytes.Buffer{}
 
-				scheme := runtime.NewScheme()
-				_ = clientgoscheme.AddToScheme(scheme)
-				_ = fdbv1beta2.AddToScheme(scheme)
-				kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(&tc.cluster).Build()
+				Expect(k8sClient.Delete(context.TODO(), &tc.cluster)).NotTo(HaveOccurred())
+				Expect(k8sClient.Create(context.TODO(), &tc.cluster)).NotTo(HaveOccurred())
 
 				cmd := newDeprecationCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer})
-				err := checkDeprecation(cmd, kubeClient, tc.inputClusters, namespace, tc.deprecationOptions, tc.showClusterSpec)
+				err := checkDeprecation(cmd, k8sClient, tc.inputClusters, namespace, tc.deprecationOptions, tc.showClusterSpec)
 				if tc.expectedError != "" {
 					Expect(err).To(HaveOccurred())
 					Expect(err.Error()).To(Equal(tc.expectedError))
@@ -122,12 +114,12 @@ var _ = Describe("[plugin] deprecation command", func() {
 							},
 							UseExplicitListenAddress: pointer.Bool(true),
 							Processes: map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{
-								"general": {
+								fdbv1beta2.ProcessClassGeneral: {
 									PodTemplate: &corev1.PodTemplateSpec{
 										Spec: corev1.PodSpec{
 											Containers: []corev1.Container{
 												{
-													Name: "foundationdb-kubernetes-sidecar",
+													Name: fdbv1beta2.SidecarContainerName,
 													Resources: corev1.ResourceRequirements{
 														Limits: corev1.ResourceList{
 															"org.foundationdb/empty": *resource.NewQuantity(0, ""),
@@ -138,7 +130,7 @@ var _ = Describe("[plugin] deprecation command", func() {
 													},
 												},
 												{
-													Name: "foundationdb",
+													Name: fdbv1beta2.MainContainerName,
 													Resources: corev1.ResourceRequirements{
 														Limits: corev1.ResourceList{
 															"org.foundationdb/empty": *resource.NewQuantity(0, ""),
@@ -151,7 +143,7 @@ var _ = Describe("[plugin] deprecation command", func() {
 											},
 											InitContainers: []corev1.Container{
 												{
-													Name: "foundationdb-kubernetes-init",
+													Name: fdbv1beta2.InitContainerName,
 													Resources: corev1.ResourceRequirements{
 														Limits: corev1.ResourceList{
 															"org.foundationdb/empty": *resource.NewQuantity(0, ""),

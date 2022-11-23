@@ -31,6 +31,7 @@ import (
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // updatePods provides a reconciliation step for recreating pods with new pod
@@ -73,10 +74,11 @@ func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconcile
 			logger.V(1).Info("Could not find Pod for process group ID",
 				"processGroupID", processGroup.ProcessGroupID)
 			continue
+			// TODO should not be continue but rather be a requeue?
 		}
 
 		if shouldRequeueDueToTerminatingPod(pod, cluster, processGroup.ProcessGroupID) {
-			return &requeue{message: "Cluster has pod that is pending deletion", delay: podSchedulingDelayDuration}
+			return &requeue{message: "Cluster has pod that is pending deletion", delay: podSchedulingDelayDuration, delayedRequeue: true}
 		}
 
 		_, idNum, err := podmanager.ParseProcessGroupID(processGroup.ProcessGroupID)
@@ -137,7 +139,7 @@ func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconcile
 			r.Recorder.Event(cluster, corev1.EventTypeNormal,
 				"NeedsPodsDeletion", "Spec require deleting some pods, but deleting pods is disabled")
 			cluster.Status.Generations.NeedsPodDeletion = cluster.ObjectMeta.Generation
-			err = r.Status().Update(ctx, cluster)
+			err = r.updateOrApply(ctx, cluster)
 			if err != nil {
 				logger.Error(err, "Error updating cluster status")
 			}
@@ -145,15 +147,15 @@ func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconcile
 		}
 	}
 
+	if len(updates) == 0 {
+		return nil
+	}
+
 	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r.Client)
 	if err != nil {
 		return &requeue{curError: err}
 	}
 	defer adminClient.Close()
-
-	if len(updates) == 0 {
-		return nil
-	}
 
 	statusDrift, err := shouldRequeueDueToClusterStatusDrift(cluster, adminClient, podMap)
 	if err != nil {
@@ -234,7 +236,7 @@ func deletePodsForUpdates(ctx context.Context, r *FoundationDBClusterReconciler,
 		return &requeue{curError: err}
 	}
 
-	ready, err := r.PodLifecycleManager.CanDeletePods(ctx, adminClient, cluster)
+	ready, err := r.PodLifecycleManager.CanDeletePods(logr.NewContext(ctx, logger), adminClient, cluster)
 	if err != nil {
 		return &requeue{curError: err}
 	}
@@ -243,7 +245,7 @@ func deletePodsForUpdates(ctx context.Context, r *FoundationDBClusterReconciler,
 	}
 
 	// Only lock the cluster if we are not running in the delete "All" mode.
-	// Otherwise we want to delete all Pods and don't require a lock to sync with other clusters.
+	// Otherwise, we want to delete all Pods and don't require a lock to sync with other clusters.
 	if deletionMode != fdbv1beta2.PodUpdateModeAll {
 		hasLock, err := r.takeLock(cluster, "updating pods")
 		if !hasLock {
@@ -251,10 +253,32 @@ func deletePodsForUpdates(ctx context.Context, r *FoundationDBClusterReconciler,
 		}
 	}
 
+	if deletionMode == fdbv1beta2.PodUpdateModeZone && cluster.UseMaintenaceMode() {
+		var processGroups []string
+		for _, pod := range deletions {
+			processGroups = append(processGroups, pod.Labels[cluster.GetProcessGroupIDLabel()])
+		}
+
+		logger.Info("Setting maintenance mode", "zone", zone)
+		cluster.Status.MaintenanceModeInfo = fdbv1beta2.MaintenanceModeInfo{
+			StartTimestamp: &metav1.Time{Time: time.Now()},
+			ZoneID:         zone,
+			ProcessGroups:  processGroups,
+		}
+		err = r.updateOrApply(ctx, cluster)
+		if err != nil {
+			return &requeue{curError: err}
+		}
+		err = adminClient.SetMaintenanceZone(zone, cluster.GetMaintenaceModeTimeoutSeconds())
+		if err != nil {
+			return &requeue{curError: err}
+		}
+	}
+
 	logger.Info("Deleting pods", "zone", zone, "count", len(deletions), "deletionMode", string(cluster.Spec.AutomationOptions.DeletionMode))
 	r.Recorder.Event(cluster, corev1.EventTypeNormal, "UpdatingPods", fmt.Sprintf("Recreating pods in zone %s", zone))
 
-	err = r.PodLifecycleManager.UpdatePods(ctx, r, cluster, deletions, false)
+	err = r.PodLifecycleManager.UpdatePods(logr.NewContext(ctx, logger), r, cluster, deletions, false)
 	if err != nil {
 		return &requeue{curError: err}
 	}

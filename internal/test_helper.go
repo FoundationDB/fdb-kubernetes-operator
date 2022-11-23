@@ -44,7 +44,7 @@ func CreateDefaultCluster() *fdbv1beta2.FoundationDBCluster {
 				ClusterController: 1,
 			},
 			FaultDomain: fdbv1beta2.FoundationDBClusterFaultDomain{
-				Key: "foundationdb.org/none",
+				Key: fdbv1beta2.NoneFaultDomainKey,
 			},
 			AutomationOptions: fdbv1beta2.FoundationDBClusterAutomationOptions{
 				Replacements: fdbv1beta2.AutomaticReplacementOptions{

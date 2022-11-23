@@ -157,4 +157,37 @@ var _ = Describe("DatabaseConfiguration", func() {
 			})
 		})
 	})
+
+	When("using ProcessCounts", func() {
+		When("calculating the total number of processes", func() {
+			var counts ProcessCounts
+
+			When("no negative process counts are specified", func() {
+				BeforeEach(func() {
+					counts = ProcessCounts{
+						Storage: 5,
+						Log:     5,
+					}
+				})
+
+				It("should print the correct number of total processes", func() {
+					Expect(counts.Total()).To(BeNumerically("==", 10))
+				})
+			})
+
+			When("negative process counts are specified", func() {
+				BeforeEach(func() {
+					counts = ProcessCounts{
+						Storage:   5,
+						Log:       5,
+						Stateless: -1,
+					}
+				})
+
+				It("should print the correct number of total processes", func() {
+					Expect(counts.Total()).To(BeNumerically("==", 10))
+				})
+			})
+		})
+	})
 })

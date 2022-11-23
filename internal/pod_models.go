@@ -37,6 +37,17 @@ import (
 
 var processClassSanitizationPattern = regexp.MustCompile("[^a-z0-9-]")
 
+// GetProcessGroupIDFromPodName returns the process group ID for a given Pod name.
+func GetProcessGroupIDFromPodName(cluster *fdbv1beta2.FoundationDBCluster, podName string) string {
+	tmpName := strings.ReplaceAll(podName, cluster.Name, "")[1:]
+
+	if cluster.Spec.ProcessGroupIDPrefix != "" {
+		return fmt.Sprintf("%s-%s", cluster.Spec.ProcessGroupIDPrefix, tmpName)
+	}
+
+	return tmpName
+}
+
 // GetProcessGroupID generates an ID for a process group.
 //
 // This will return the pod name and the processGroupID ID.
@@ -127,10 +138,13 @@ func GetPod(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.Pro
 }
 
 // GetImage returns the image for container
-func GetImage(image string, configs []fdbv1beta2.ImageConfig, versionString string) (string, error) {
+func GetImage(image string, configs []fdbv1beta2.ImageConfig, versionString string, allowTagOverride bool) (string, error) {
 	if image != "" {
 		imageComponents := strings.Split(image, ":")
 		if len(imageComponents) > 1 {
+			if allowTagOverride {
+				return image, nil
+			}
 			// If the specified image contains a tag and allowOverride is false return an error
 			return "", fmt.Errorf("image should not contain a tag but contains the tag \"%s\", please remove the tag", imageComponents[1])
 		}
@@ -140,246 +154,124 @@ func GetImage(image string, configs []fdbv1beta2.ImageConfig, versionString stri
 	return fdbv1beta2.SelectImageConfig(configs, versionString).Image(), nil
 }
 
-// GetPodSpec builds a pod spec for a FoundationDB pod
-func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, idNum int) (*corev1.PodSpec, error) {
-	processSettings := cluster.GetProcessSettings(processClass)
-	podSpec := processSettings.PodTemplate.Spec.DeepCopy()
-	useUnifiedImages := pointer.BoolDeref(cluster.Spec.UseUnifiedImage, false)
+// getInitContainer returns the init container based on the provided PodSpec. If useUnifiedImages is true the init container
+// will be an empty container struct.
+func getInitContainer(useUnifiedImages bool, podSpec *corev1.PodSpec) (*corev1.Container, error) {
+	if useUnifiedImages {
+		return &corev1.Container{}, nil
+	}
 
+	for index, container := range podSpec.InitContainers {
+		if container.Name == fdbv1beta2.InitContainerName {
+			return &podSpec.InitContainers[index], nil
+		}
+	}
+
+	return nil, fmt.Errorf("could not create init container")
+}
+
+// getContainers returns the main and the sidecar container or an error if one of these is empty.
+func getContainers(podSpec *corev1.PodSpec) (*corev1.Container, *corev1.Container, error) {
 	var mainContainer *corev1.Container
 	var sidecarContainer *corev1.Container
-	var initContainer *corev1.Container
 
 	for index, container := range podSpec.Containers {
-		if container.Name == "foundationdb" {
+		if container.Name == fdbv1beta2.MainContainerName {
 			mainContainer = &podSpec.Containers[index]
-		} else if container.Name == "foundationdb-kubernetes-sidecar" {
+		} else if container.Name == fdbv1beta2.SidecarContainerName {
 			sidecarContainer = &podSpec.Containers[index]
 		}
 	}
 
 	if mainContainer == nil {
-		return nil, fmt.Errorf("could not create main container")
+		return nil, nil, fmt.Errorf("could not create main container")
 	}
 
 	if sidecarContainer == nil {
-		return nil, fmt.Errorf("could not create sidecar container")
+		return nil, nil, fmt.Errorf("could not create sidecar container")
 	}
 
-	if useUnifiedImages {
-		initContainer = &corev1.Container{}
-	} else {
-		for index, container := range podSpec.InitContainers {
-			if container.Name == "foundationdb-kubernetes-init" {
-				initContainer = &podSpec.InitContainers[index]
-			}
-		}
+	return mainContainer, sidecarContainer, nil
+}
 
-		if initContainer == nil {
-			return nil, fmt.Errorf("could not create init container")
-		}
+func configureContainersForUnifiedImages(cluster *fdbv1beta2.FoundationDBCluster, mainContainer *corev1.Container, sidecarContainer *corev1.Container, processGroupID string, processClass fdbv1beta2.ProcessClass) error {
+	mainContainer.Args = []string{
+		"--input-dir", "/var/dynamic-conf",
+		"--log-path", "/var/log/fdb-trace-logs/monitor.log",
 	}
 
-	podName, processGroupID := GetProcessGroupID(cluster, processClass, idNum)
-
-	versionString := cluster.Status.RunningVersion
-	if versionString == "" {
-		versionString = cluster.Spec.Version
+	if cluster.Spec.StorageServersPerPod > 1 && processClass == fdbv1beta2.ProcessClassStorage {
+		storageServers := strconv.Itoa(cluster.Spec.StorageServersPerPod)
+		mainContainer.Args = append(mainContainer.Args, "--process-count", storageServers)
+		mainContainer.Env = append(mainContainer.Env, corev1.EnvVar{Name: "STORAGE_SERVERS_PER_POD", Value: storageServers})
 	}
 
-	image, err := GetImage(mainContainer.Image, cluster.Spec.MainContainer.ImageConfigs, versionString)
-	if err != nil {
-		return nil, err
-	}
-	mainContainer.Image = image
-
-	extendEnv(mainContainer, corev1.EnvVar{Name: "FDB_CLUSTER_FILE", Value: "/var/dynamic-conf/fdb.cluster"})
-
-	useCustomCAs := len(cluster.Spec.TrustedCAs) > 0
-	if useCustomCAs {
-		extendEnv(mainContainer, corev1.EnvVar{Name: "FDB_TLS_CA_FILE", Value: "/var/dynamic-conf/ca.pem"})
-	}
-
-	logGroup := cluster.Spec.LogGroup
-	if logGroup == "" {
-		logGroup = cluster.Name
-	}
-
-	if useUnifiedImages {
-		mainContainer.Args = []string{
-			"--input-dir", "/var/dynamic-conf",
-			"--log-path", "/var/log/fdb-trace-logs/monitor.log",
-		}
-
-		if cluster.Spec.StorageServersPerPod > 1 && processClass == fdbv1beta2.ProcessClassStorage {
-			storageServers := fmt.Sprintf("%d", cluster.Spec.StorageServersPerPod)
-			mainContainer.Args = append(mainContainer.Args, "--process-count", storageServers)
-			mainContainer.Env = append(mainContainer.Env, corev1.EnvVar{Name: "STORAGE_SERVERS_PER_POD", Value: storageServers})
-		}
-
-		mainContainer.VolumeMounts = append(mainContainer.VolumeMounts,
-			corev1.VolumeMount{Name: "data", MountPath: "/var/fdb/data"},
-			corev1.VolumeMount{Name: "config-map", MountPath: "/var/dynamic-conf"},
-			corev1.VolumeMount{Name: "shared-binaries", MountPath: "/var/fdb/shared-binaries"},
-			corev1.VolumeMount{Name: "fdb-trace-logs", MountPath: "/var/log/fdb-trace-logs"},
-		)
-
-		mainContainer.Env = append(mainContainer.Env, getEnvForMonitorConfigSubstitution(cluster, processGroupID)...)
-		mainContainer.Env = append(mainContainer.Env, corev1.EnvVar{Name: "FDB_IMAGE_TYPE", Value: string(FDBImageTypeUnified)})
-		mainContainer.Env = append(mainContainer.Env, corev1.EnvVar{Name: "FDB_POD_NAME", ValueFrom: &corev1.EnvVarSource{
-			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
-		}})
-		mainContainer.Env = append(mainContainer.Env, corev1.EnvVar{Name: "FDB_POD_NAMESPACE", ValueFrom: &corev1.EnvVarSource{
-			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"},
-		}})
-
-		for _, crashLoopInstanceID := range cluster.Spec.Buggify.CrashLoop {
-			if processGroupID == crashLoopInstanceID || crashLoopInstanceID == "*" {
-				mainContainer.Command = []string{"crash-loop"}
-				mainContainer.Args = []string{"crash-loop"}
-			}
-		}
-	} else {
-		mainContainer.Command = []string{"sh", "-c"}
-
-		args := "fdbmonitor --conffile /var/dynamic-conf/fdbmonitor.conf" +
-			" --lockfile /var/dynamic-conf/fdbmonitor.lockfile" +
-			" --loggroup " + logGroup +
-			" >> /var/log/fdb-trace-logs/fdbmonitor-$(date '+%Y-%m-%d').log 2>&1"
-
-		for _, crashLoopID := range cluster.Spec.Buggify.CrashLoop {
-			if processGroupID == crashLoopID || crashLoopID == "*" {
-				args = "crash-loop"
-			}
-		}
-		mainContainer.Args = []string{args}
-
-		mainContainer.VolumeMounts = append(mainContainer.VolumeMounts,
-			corev1.VolumeMount{Name: "data", MountPath: "/var/fdb/data"},
-			corev1.VolumeMount{Name: "dynamic-conf", MountPath: "/var/dynamic-conf"},
-			corev1.VolumeMount{Name: "fdb-trace-logs", MountPath: "/var/log/fdb-trace-logs"},
-		)
-	}
-
-	var readOnlyRootFilesystem = true
-	if mainContainer.SecurityContext == nil {
-		mainContainer.SecurityContext = &corev1.SecurityContext{}
-	}
-
-	if mainContainer.SecurityContext.ReadOnlyRootFilesystem == nil {
-		mainContainer.SecurityContext.ReadOnlyRootFilesystem = &readOnlyRootFilesystem
-	}
-
-	if useUnifiedImages {
-		sidecarVersionString := cluster.Status.RunningVersion
-		if sidecarVersionString == "" {
-			sidecarVersionString = cluster.Spec.Version
-		}
-
-		sidecarImage, err := GetImage(sidecarContainer.Image, cluster.Spec.MainContainer.ImageConfigs, sidecarVersionString)
-		if err != nil {
-			return nil, err
-		}
-
-		sidecarContainer.Image = sidecarImage
-		sidecarContainer.Args = []string{
-			"--mode", "sidecar",
-			"--output-dir", "/var/fdb/shared-binaries",
-			"--main-container-version", versionString,
-			"--copy-binary", "fdbserver",
-			"--copy-binary", "fdbcli",
-			"--log-path", "/var/log/fdb-trace-logs/monitor.log",
-		}
-
-		sidecarContainer.VolumeMounts = append(sidecarContainer.VolumeMounts,
-			corev1.VolumeMount{Name: "shared-binaries", MountPath: "/var/fdb/shared-binaries"},
-			corev1.VolumeMount{Name: "fdb-trace-logs", MountPath: "/var/log/fdb-trace-logs"},
-		)
-
-		if sidecarContainer.SecurityContext == nil {
-			sidecarContainer.SecurityContext = &corev1.SecurityContext{}
-		}
-		if sidecarContainer.SecurityContext.ReadOnlyRootFilesystem == nil {
-			sidecarContainer.SecurityContext.ReadOnlyRootFilesystem = &readOnlyRootFilesystem
-		}
-	} else {
-		err = configureSidecarContainerForCluster(cluster, podName, initContainer, true, processGroupID)
-		if err != nil {
-			return nil, err
-		}
-
-		err = configureSidecarContainerForCluster(cluster, podName, sidecarContainer, false, processGroupID)
-		if err != nil {
-			return nil, err
-		}
-
-		if processClass == fdbv1beta2.ProcessClassStorage && cluster.GetStorageServersPerPod() > 1 {
-			sidecarContainer.Env = append(sidecarContainer.Env, corev1.EnvVar{Name: "STORAGE_SERVERS_PER_POD", Value: fmt.Sprintf("%d", cluster.GetStorageServersPerPod())})
-		}
-	}
-
-	var mainVolumeSource corev1.VolumeSource
-	if usePvc(cluster, processClass) {
-		var volumeClaimSourceName string
-		if processSettings.VolumeClaimTemplate != nil && processSettings.VolumeClaimTemplate.Name != "" {
-			volumeClaimSourceName = fmt.Sprintf("%s-%s", podName, processSettings.VolumeClaimTemplate.Name)
-		} else {
-			volumeClaimSourceName = fmt.Sprintf("%s-data", podName)
-		}
-		mainVolumeSource.PersistentVolumeClaim = &corev1.PersistentVolumeClaimVolumeSource{
-			ClaimName: volumeClaimSourceName,
-		}
-	} else {
-		mainVolumeSource.EmptyDir = &corev1.EmptyDirVolumeSource{}
-	}
-
-	monitorConfKey := GetConfigMapMonitorConfEntry(processClass, GetDesiredImageType(cluster), cluster.GetStorageServersPerPod())
-
-	var monitorConfFile string
-	if useUnifiedImages {
-		monitorConfFile = "config.json"
-	} else {
-		monitorConfFile = "fdbmonitor.conf"
-	}
-
-	configMapItems := []corev1.KeyToPath{
-		{Key: monitorConfKey, Path: monitorConfFile},
-		{Key: ClusterFileKey, Path: "fdb.cluster"},
-	}
-
-	if useCustomCAs {
-		configMapItems = append(configMapItems, corev1.KeyToPath{Key: "ca-file", Path: "ca.pem"})
-	}
-
-	var configMapRefName string
-	if cluster.Spec.ConfigMap != nil && cluster.Spec.ConfigMap.Name != "" {
-		configMapRefName = fmt.Sprintf("%s-%s", cluster.Name, cluster.Spec.ConfigMap.Name)
-	} else {
-		configMapRefName = fmt.Sprintf("%s-config", cluster.Name)
-	}
-
-	volumes := []corev1.Volume{
-		{Name: "data", VolumeSource: mainVolumeSource},
-	}
-	if useUnifiedImages {
-		volumes = append(volumes, corev1.Volume{Name: "shared-binaries", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}})
-	} else {
-		volumes = append(volumes, corev1.Volume{Name: "dynamic-conf", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}})
-	}
-	volumes = append(volumes,
-		corev1.Volume{Name: "config-map", VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
-			LocalObjectReference: corev1.LocalObjectReference{Name: configMapRefName},
-			Items:                configMapItems,
-		}}},
-		corev1.Volume{Name: "fdb-trace-logs", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
+	mainContainer.VolumeMounts = append(mainContainer.VolumeMounts,
+		corev1.VolumeMount{Name: "data", MountPath: "/var/fdb/data"},
+		corev1.VolumeMount{Name: "config-map", MountPath: "/var/dynamic-conf"},
+		corev1.VolumeMount{Name: "shared-binaries", MountPath: "/var/fdb/shared-binaries"},
+		corev1.VolumeMount{Name: "fdb-trace-logs", MountPath: "/var/log/fdb-trace-logs"},
 	)
 
-	faultDomainKey := cluster.Spec.FaultDomain.Key
-	if faultDomainKey == "" {
-		faultDomainKey = "kubernetes.io/hostname"
+	mainContainer.Env = append(mainContainer.Env, getEnvForMonitorConfigSubstitution(cluster, processGroupID)...)
+	mainContainer.Env = append(mainContainer.Env, corev1.EnvVar{Name: "FDB_IMAGE_TYPE", Value: string(FDBImageTypeUnified)})
+	mainContainer.Env = append(mainContainer.Env, corev1.EnvVar{Name: "FDB_POD_NAME", ValueFrom: &corev1.EnvVarSource{
+		FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+	}})
+	mainContainer.Env = append(mainContainer.Env, corev1.EnvVar{Name: "FDB_POD_NAMESPACE", ValueFrom: &corev1.EnvVarSource{
+		FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"},
+	}})
+
+	for _, crashLoopInstanceID := range cluster.Spec.Buggify.CrashLoop {
+		if processGroupID == crashLoopInstanceID || crashLoopInstanceID == "*" {
+			mainContainer.Command = []string{"crash-loop"}
+			mainContainer.Args = []string{"crash-loop"}
+		}
 	}
 
-	if faultDomainKey != "foundationdb.org/none" && faultDomainKey != "foundationdb.org/kubernetes-cluster" {
+	// Configure sidecar
+	sidecarImage, err := GetImage(sidecarContainer.Image, cluster.Spec.MainContainer.ImageConfigs, cluster.GetRunningVersion(), false)
+	if err != nil {
+		return err
+	}
+
+	sidecarContainer.Image = sidecarImage
+	sidecarContainer.Args = []string{
+		"--mode", "sidecar",
+		"--output-dir", "/var/fdb/shared-binaries",
+		"--main-container-version", cluster.GetRunningVersion(),
+		"--copy-binary", "fdbserver",
+		"--copy-binary", "fdbcli",
+		"--log-path", "/var/log/fdb-trace-logs/monitor.log",
+	}
+
+	sidecarContainer.VolumeMounts = append(sidecarContainer.VolumeMounts,
+		corev1.VolumeMount{Name: "shared-binaries", MountPath: "/var/fdb/shared-binaries"},
+		corev1.VolumeMount{Name: "fdb-trace-logs", MountPath: "/var/log/fdb-trace-logs"},
+	)
+
+	return nil
+}
+
+// ensureSecurityContextIsPresent sets the SecurityContext for a container is absent and ensures the ReadOnlyRootFilesystem
+// is set to true if not set.
+func ensureSecurityContextIsPresent(container *corev1.Container) {
+	if container.SecurityContext == nil {
+		container.SecurityContext = &corev1.SecurityContext{}
+	}
+
+	if container.SecurityContext.ReadOnlyRootFilesystem == nil {
+		container.SecurityContext.ReadOnlyRootFilesystem = pointer.Bool(true)
+	}
+}
+
+func setAffinityForFaultDomain(cluster *fdbv1beta2.FoundationDBCluster, podSpec *corev1.PodSpec, processClass fdbv1beta2.ProcessClass) {
+	faultDomainKey := cluster.Spec.FaultDomain.Key
+	if faultDomainKey == "" {
+		faultDomainKey = corev1.LabelHostname
+	}
+
+	if faultDomainKey != fdbv1beta2.NoneFaultDomainKey && faultDomainKey != "foundationdb.org/kubernetes-cluster" {
 		if podSpec.Affinity == nil {
 			podSpec.Affinity = &corev1.Affinity{}
 		}
@@ -405,8 +297,72 @@ func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 				},
 			})
 	}
+}
 
-	for _, noSchedulePID := range cluster.Spec.Buggify.NoSchedule {
+func configureVolumesForContainers(cluster *fdbv1beta2.FoundationDBCluster, podSpec *corev1.PodSpec, volumeClaimTemplate *corev1.PersistentVolumeClaim, podName string, processClass fdbv1beta2.ProcessClass) {
+	useUnifiedImages := pointer.BoolDeref(cluster.Spec.UseUnifiedImage, false)
+	monitorConfKey := GetConfigMapMonitorConfEntry(processClass, GetDesiredImageType(cluster), cluster.GetStorageServersPerPod())
+
+	var monitorConfFile string
+	if useUnifiedImages {
+		monitorConfFile = "config.json"
+	} else {
+		monitorConfFile = "fdbmonitor.conf"
+	}
+
+	configMapItems := []corev1.KeyToPath{
+		{Key: monitorConfKey, Path: monitorConfFile},
+		{Key: ClusterFileKey, Path: "fdb.cluster"},
+	}
+
+	if len(cluster.Spec.TrustedCAs) > 0 {
+		configMapItems = append(configMapItems, corev1.KeyToPath{Key: "ca-file", Path: "ca.pem"})
+	}
+
+	var configMapRefName string
+	if cluster.Spec.ConfigMap != nil && cluster.Spec.ConfigMap.Name != "" {
+		configMapRefName = fmt.Sprintf("%s-%s", cluster.Name, cluster.Spec.ConfigMap.Name)
+	} else {
+		configMapRefName = fmt.Sprintf("%s-config", cluster.Name)
+	}
+
+	var mainVolumeSource corev1.VolumeSource
+	if usePvc(cluster, processClass) {
+		var volumeClaimSourceName string
+		if volumeClaimTemplate != nil && volumeClaimTemplate.Name != "" {
+			volumeClaimSourceName = fmt.Sprintf("%s-%s", podName, volumeClaimTemplate.Name)
+		} else {
+			volumeClaimSourceName = fmt.Sprintf("%s-data", podName)
+		}
+		mainVolumeSource.PersistentVolumeClaim = &corev1.PersistentVolumeClaimVolumeSource{
+			ClaimName: volumeClaimSourceName,
+		}
+	} else {
+		mainVolumeSource.EmptyDir = &corev1.EmptyDirVolumeSource{}
+	}
+
+	volumes := []corev1.Volume{
+		{Name: "data", VolumeSource: mainVolumeSource},
+	}
+
+	if useUnifiedImages {
+		volumes = append(volumes, corev1.Volume{Name: "shared-binaries", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}})
+	} else {
+		volumes = append(volumes, corev1.Volume{Name: "dynamic-conf", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}})
+	}
+	volumes = append(volumes,
+		corev1.Volume{Name: "config-map", VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
+			LocalObjectReference: corev1.LocalObjectReference{Name: configMapRefName},
+			Items:                configMapItems,
+		}}},
+		corev1.Volume{Name: "fdb-trace-logs", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
+	)
+
+	podSpec.Volumes = append(podSpec.Volumes, volumes...)
+}
+
+func configureNoSchedule(podSpec *corev1.PodSpec, processGroupID string, noSchedules []string) {
+	for _, noSchedulePID := range noSchedules {
 		if processGroupID != noSchedulePID {
 			continue
 		}
@@ -426,18 +382,100 @@ func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 		podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = []corev1.NodeSelectorTerm{
 			{
 				MatchExpressions: []corev1.NodeSelectorRequirement{{
-					Key: fdbv1beta2.NodeSelectorNoScheduleLabel, Operator: corev1.NodeSelectorOpIn, Values: []string{"true"},
+					Key:      fdbv1beta2.NodeSelectorNoScheduleLabel,
+					Operator: corev1.NodeSelectorOpIn,
+					Values:   []string{"true"},
 				}},
 			},
 		}
 	}
+}
+
+// GetPodSpec builds a pod spec for a FoundationDB pod
+func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, idNum int) (*corev1.PodSpec, error) {
+	processSettings := cluster.GetProcessSettings(processClass)
+	podSpec := processSettings.PodTemplate.Spec.DeepCopy()
+	useUnifiedImages := pointer.BoolDeref(cluster.Spec.UseUnifiedImage, false)
+
+	mainContainer, sidecarContainer, err := getContainers(podSpec)
+	if err != nil {
+		return nil, err
+	}
+
+	initContainer, err := getInitContainer(useUnifiedImages, podSpec)
+	if err != nil {
+		return nil, err
+	}
+
+	podName, processGroupID := GetProcessGroupID(cluster, processClass, idNum)
+	image, err := GetImage(mainContainer.Image, cluster.Spec.MainContainer.ImageConfigs, cluster.GetRunningVersion(), false)
+	if err != nil {
+		return nil, err
+	}
+	mainContainer.Image = image
+
+	extendEnv(mainContainer, corev1.EnvVar{Name: "FDB_CLUSTER_FILE", Value: "/var/dynamic-conf/fdb.cluster"})
+
+	if len(cluster.Spec.TrustedCAs) > 0 {
+		extendEnv(mainContainer, corev1.EnvVar{Name: "FDB_TLS_CA_FILE", Value: "/var/dynamic-conf/ca.pem"})
+	}
+
+	logGroup := cluster.Spec.LogGroup
+	if logGroup == "" {
+		logGroup = cluster.Name
+	}
+
+	if useUnifiedImages {
+		err = configureContainersForUnifiedImages(cluster, mainContainer, sidecarContainer, processGroupID, processClass)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		mainContainer.Command = []string{"sh", "-c"}
+
+		args := "fdbmonitor --conffile /var/dynamic-conf/fdbmonitor.conf" +
+			" --lockfile /var/dynamic-conf/fdbmonitor.lockfile" +
+			" --loggroup " + logGroup +
+			" >> /var/log/fdb-trace-logs/fdbmonitor-$(date '+%Y-%m-%d').log 2>&1"
+
+		for _, crashLoopID := range cluster.Spec.Buggify.CrashLoop {
+			if processGroupID == crashLoopID || crashLoopID == "*" {
+				args = "crash-loop"
+			}
+		}
+		mainContainer.Args = []string{args}
+
+		mainContainer.VolumeMounts = append(mainContainer.VolumeMounts,
+			corev1.VolumeMount{Name: "data", MountPath: "/var/fdb/data"},
+			corev1.VolumeMount{Name: "dynamic-conf", MountPath: "/var/dynamic-conf"},
+			corev1.VolumeMount{Name: "fdb-trace-logs", MountPath: "/var/log/fdb-trace-logs"},
+		)
+
+		err = configureSidecarContainerForCluster(cluster, podName, initContainer, true, processGroupID)
+		if err != nil {
+			return nil, err
+		}
+
+		err = configureSidecarContainerForCluster(cluster, podName, sidecarContainer, false, processGroupID)
+		if err != nil {
+			return nil, err
+		}
+
+		if processClass == fdbv1beta2.ProcessClassStorage && cluster.GetStorageServersPerPod() > 1 {
+			sidecarContainer.Env = append(sidecarContainer.Env, corev1.EnvVar{Name: "STORAGE_SERVERS_PER_POD", Value: fmt.Sprintf("%d", cluster.GetStorageServersPerPod())})
+		}
+	}
+
+	ensureSecurityContextIsPresent(mainContainer)
+	ensureSecurityContextIsPresent(sidecarContainer)
+	setAffinityForFaultDomain(cluster, podSpec, processClass)
+	configureVolumesForContainers(cluster, podSpec, processSettings.VolumeClaimTemplate, podName, processClass)
+	configureNoSchedule(podSpec, processGroupID, cluster.Spec.Buggify.NoSchedule)
 
 	if !useUnifiedImages {
 		replaceContainers(podSpec.InitContainers, initContainer)
 	}
 	replaceContainers(podSpec.Containers, mainContainer, sidecarContainer)
-
-	podSpec.Volumes = append(podSpec.Volumes, volumes...)
 
 	headlessService := GetHeadlessService(cluster)
 
@@ -452,28 +490,17 @@ func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 // configureSidecarContainerForCluster sets up a sidecar container for a sidecar
 // in the FDB cluster.
 func configureSidecarContainerForCluster(cluster *fdbv1beta2.FoundationDBCluster, podName string, container *corev1.Container, initMode bool, processGroupID string) error {
-	versionString := cluster.Status.RunningVersion
-	if versionString == "" {
-		versionString = cluster.Spec.Version
-	}
-
-	return configureSidecarContainer(container, initMode, processGroupID, podName, versionString, cluster)
+	return configureSidecarContainer(container, initMode, processGroupID, podName, cluster.GetRunningVersion(), cluster, cluster.Spec.SidecarContainer.ImageConfigs, false)
 }
 
 // configureSidecarContainerForBackup sets up a sidecar container for the init
 // container for a backup process.
 func configureSidecarContainerForBackup(backup *fdbv1beta2.FoundationDBBackup, container *corev1.Container) error {
-	return configureSidecarContainer(container, true, "", "", backup.Spec.Version, nil)
+	return configureSidecarContainer(container, true, "", "", backup.Spec.Version, nil, backup.Spec.SidecarContainer.ImageConfigs, pointer.BoolDeref(backup.Spec.AllowTagOverride, false))
 }
 
-// configureSidecarContainer sets up a foundationdb-kubernetes-sidecar
-// container.
-func configureSidecarContainer(container *corev1.Container, initMode bool, processGroupID string, podName string, versionString string, optionalCluster *fdbv1beta2.FoundationDBCluster) error {
-	version, err := fdbv1beta2.ParseFdbVersion(versionString)
-	if err != nil {
-		return err
-	}
-
+// configureSidecarContainer sets up a foundationdb-kubernetes-sidecar container.
+func configureSidecarContainer(container *corev1.Container, initMode bool, processGroupID string, podName string, versionString string, optionalCluster *fdbv1beta2.FoundationDBCluster, imageConfigs []fdbv1beta2.ImageConfig, allowTagOverride bool) error {
 	sidecarEnv := make([]corev1.EnvVar, 0, 4)
 
 	hasTrustedCAs := optionalCluster != nil && len(optionalCluster.Spec.TrustedCAs) > 0
@@ -491,7 +518,7 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, proce
 			"--input-monitor-conf", "fdbmonitor.conf",
 			"--copy-binary", "fdbserver",
 			"--copy-binary", "fdbcli",
-			"--main-container-version", version.String(),
+			"--main-container-version", versionString,
 		)
 	}
 
@@ -523,28 +550,30 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, proce
 			sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_DNS_NAME", Value: GetPodDNSName(cluster, podName)})
 		}
 
-		if !initMode && cluster.GetSidecarContainerEnableLivenessProbe() && container.LivenessProbe == nil {
-			// We can't use a HTTP handler here since the server
-			// requires a client certificate
-			container.LivenessProbe = &corev1.Probe{
-				Handler: corev1.Handler{
-					TCPSocket: &corev1.TCPSocketAction{
-						Port: intstr.IntOrString{IntVal: 8080},
+		if !initMode {
+			if cluster.GetSidecarContainerEnableLivenessProbe() && container.LivenessProbe == nil {
+				// We can't use a HTTP handler here since the server
+				// requires a client certificate
+				container.LivenessProbe = &corev1.Probe{
+					ProbeHandler: corev1.ProbeHandler{
+						TCPSocket: &corev1.TCPSocketAction{
+							Port: intstr.IntOrString{IntVal: 8080},
+						},
 					},
-				},
-				TimeoutSeconds:   1,
-				PeriodSeconds:    30,
-				FailureThreshold: 5,
+					TimeoutSeconds:   1,
+					PeriodSeconds:    30,
+					FailureThreshold: 5,
+				}
 			}
-		}
 
-		if !initMode && cluster.GetSidecarContainerEnableReadinessProbe() && container.ReadinessProbe == nil {
-			container.ReadinessProbe = &corev1.Probe{
-				Handler: corev1.Handler{
-					TCPSocket: &corev1.TCPSocketAction{
-						Port: intstr.IntOrString{IntVal: 8080},
+			if cluster.GetSidecarContainerEnableReadinessProbe() && container.ReadinessProbe == nil {
+				container.ReadinessProbe = &corev1.Probe{
+					ProbeHandler: corev1.ProbeHandler{
+						TCPSocket: &corev1.TCPSocketAction{
+							Port: intstr.IntOrString{IntVal: 8080},
+						},
 					},
-				},
+				}
 			}
 		}
 	}
@@ -559,6 +588,10 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, proce
 
 	if optionalCluster != nil {
 		overrides = optionalCluster.Spec.SidecarContainer
+	}
+
+	if len(imageConfigs) > 0 {
+		overrides.ImageConfigs = imageConfigs
 	} else {
 		overrides.ImageConfigs = []fdbv1beta2.ImageConfig{{BaseImage: "foundationdb/foundationdb-kubernetes-sidecar", TagSuffix: "-1"}}
 	}
@@ -576,17 +609,13 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, proce
 		corev1.VolumeMount{Name: "dynamic-conf", MountPath: "/var/output-files"},
 	)
 
-	image, err := GetImage(container.Image, overrides.ImageConfigs, versionString)
+	image, err := GetImage(container.Image, overrides.ImageConfigs, versionString, allowTagOverride)
 	if err != nil {
 		return err
 	}
 	container.Image = image
 
-	var readOnlyRootFilesystem = true
-	if container.SecurityContext == nil {
-		container.SecurityContext = &corev1.SecurityContext{}
-	}
-	container.SecurityContext.ReadOnlyRootFilesystem = &readOnlyRootFilesystem
+	ensureSecurityContextIsPresent(container)
 
 	if initMode {
 		return nil
@@ -639,7 +668,7 @@ func getEnvForMonitorConfigSubstitution(cluster *fdbv1beta2.FoundationDBCluster,
 
 	faultDomainKey := cluster.Spec.FaultDomain.Key
 	if faultDomainKey == "" {
-		faultDomainKey = "kubernetes.io/hostname"
+		faultDomainKey = corev1.LabelHostname
 	}
 
 	faultDomainSource := cluster.Spec.FaultDomain.ValueFrom
@@ -647,7 +676,7 @@ func getEnvForMonitorConfigSubstitution(cluster *fdbv1beta2.FoundationDBCluster,
 		faultDomainSource = "spec.nodeName"
 	}
 
-	if faultDomainKey == "foundationdb.org/none" {
+	if faultDomainKey == fdbv1beta2.NoneFaultDomainKey {
 		env = append(env, corev1.EnvVar{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 		}})
@@ -805,27 +834,35 @@ func GetBackupDeployment(backup *fdbv1beta2.FoundationDBBackup) (*appsv1.Deploym
 	var initContainer *corev1.Container
 
 	for index, container := range podTemplate.Spec.Containers {
-		if container.Name == "foundationdb" {
+		if container.Name == fdbv1beta2.MainContainerName {
 			mainContainer = &podTemplate.Spec.Containers[index]
 		}
 	}
 
 	for index, container := range podTemplate.Spec.InitContainers {
-		if container.Name == "foundationdb-kubernetes-init" {
+		if container.Name == fdbv1beta2.InitContainerName {
 			initContainer = &podTemplate.Spec.InitContainers[index]
 		}
 	}
 
 	if mainContainer == nil {
 		containers := []corev1.Container{
-			{Name: "foundationdb"},
+			{
+				Name: fdbv1beta2.MainContainerName,
+			},
 		}
 		containers = append(containers, podTemplate.Spec.Containers...)
 		mainContainer = &containers[0]
 		podTemplate.Spec.Containers = containers
 	}
 
-	image, err := GetImage(mainContainer.Image, []fdbv1beta2.ImageConfig{{BaseImage: "foundationdb/foundationdb"}}, backup.Spec.Version)
+	if len(backup.Spec.MainContainer.ImageConfigs) == 0 {
+		backup.Spec.MainContainer.ImageConfigs = []fdbv1beta2.ImageConfig{
+			{BaseImage: "foundationdb/foundationdb"},
+		}
+	}
+
+	image, err := GetImage(mainContainer.Image, backup.Spec.MainContainer.ImageConfigs, backup.Spec.Version, pointer.BoolDeref(backup.Spec.AllowTagOverride, false))
 	if err != nil {
 		return nil, err
 	}
@@ -842,7 +879,6 @@ func GetBackupDeployment(backup *fdbv1beta2.FoundationDBBackup) (*appsv1.Deploym
 		for _, customParameter := range backup.Spec.CustomParameters {
 			args = append(args, fmt.Sprintf("--%s", customParameter))
 		}
-
 	}
 
 	mainContainer.Args = args
@@ -869,7 +905,7 @@ func GetBackupDeployment(backup *fdbv1beta2.FoundationDBBackup) (*appsv1.Deploym
 	}
 
 	if initContainer == nil {
-		podTemplate.Spec.InitContainers = append(podTemplate.Spec.InitContainers, corev1.Container{Name: "foundationdb-kubernetes-init"})
+		podTemplate.Spec.InitContainers = append(podTemplate.Spec.InitContainers, corev1.Container{Name: fdbv1beta2.InitContainerName})
 		initContainer = &podTemplate.Spec.InitContainers[0]
 	}
 

@@ -23,6 +23,7 @@ package cmd
 import (
 	"fmt"
 	"log"
+	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/spf13/cobra"
@@ -40,6 +41,10 @@ func newRestartCmd(streams genericclioptions.IOStreams) *cobra.Command {
 		Long:  "Restarts process(es) in a given FDB cluster.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			wait, err := cmd.Root().Flags().GetBool("wait")
+			if err != nil {
+				return err
+			}
+			sleep, err := cmd.Root().Flags().GetUint16("sleep")
 			if err != nil {
 				return err
 			}
@@ -108,7 +113,7 @@ func newRestartCmd(streams genericclioptions.IOStreams) *cobra.Command {
 				processes = args
 			}
 
-			return restartProcesses(cmd, config, clientSet, processes, namespace, clusterName, wait)
+			return restartProcesses(cmd, config, clientSet, processes, namespace, clusterName, wait, sleep)
 		},
 		Example: `
 # Restart processes for a cluster in the current namespace
@@ -157,7 +162,7 @@ func convertConditions(inputConditions []string) ([]fdbv1beta2.ProcessGroupCondi
 }
 
 //nolint:interfacer // golint has a false-positive here -> `cmd` can be `github.com/hashicorp/go-retryablehttp.Logger`
-func restartProcesses(cmd *cobra.Command, restConfig *rest.Config, kubeClient *kubernetes.Clientset, processes []string, namespace string, clusterName string, wait bool) error {
+func restartProcesses(cmd *cobra.Command, restConfig *rest.Config, kubeClient *kubernetes.Clientset, processes []string, namespace string, clusterName string, wait bool, sleep uint16) error {
 	if wait {
 		confirmed := confirmAction(fmt.Sprintf("Restart %v in cluster %s/%s", processes, namespace, clusterName))
 		if !confirmed {
@@ -171,6 +176,7 @@ func restartProcesses(cmd *cobra.Command, restConfig *rest.Config, kubeClient *k
 		if err != nil {
 			return err
 		}
+		time.Sleep(time.Duration(sleep) * time.Second)
 	}
 
 	return nil

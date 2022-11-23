@@ -31,6 +31,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"reflect"
 	"strings"
@@ -90,6 +91,12 @@ type realFdbPodSidecarClient struct {
 
 	// logger is used to add common fields to log messages.
 	logger logr.Logger
+
+	// getTimeout defines the timeout for get requests
+	getTimeout time.Duration
+
+	// postTimeout defines the timeout for post requests
+	postTimeout time.Duration
 }
 
 // realPodSidecarClient provides a client for use in real environments, using
@@ -106,7 +113,7 @@ type realFdbPodAnnotationClient struct {
 }
 
 // NewFdbPodClient builds a client for working with an FDB Pod
-func NewFdbPodClient(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod, log logr.Logger) (podclient.FdbPodClient, error) {
+func NewFdbPodClient(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod, log logr.Logger, getTimeout time.Duration, postTimeout time.Duration) (podclient.FdbPodClient, error) {
 	if GetImageType(pod) == FDBImageTypeUnified {
 		return &realFdbPodAnnotationClient{Cluster: cluster, Pod: pod, logger: log}, nil
 	}
@@ -115,7 +122,7 @@ func NewFdbPodClient(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod, l
 		return nil, fmt.Errorf("waiting for pod %s/%s/%s to be assigned an IP", cluster.Namespace, cluster.Name, pod.Name)
 	}
 	for _, container := range pod.Status.ContainerStatuses {
-		if container.Name == "foundationdb-kubernetes-sidecar" && !container.Ready {
+		if container.Name == fdbv1beta2.SidecarContainerName && !container.Ready {
 			return nil, fmt.Errorf("waiting for pod %s/%s/%s to be ready", cluster.Namespace, cluster.Name, pod.Name)
 		}
 	}
@@ -152,7 +159,7 @@ func NewFdbPodClient(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod, l
 		tlsConfig.RootCAs = certPool
 	}
 
-	return &realFdbPodSidecarClient{Cluster: cluster, Pod: pod, useTLS: useTLS, tlsConfig: tlsConfig, logger: log}, nil
+	return &realFdbPodSidecarClient{Cluster: cluster, Pod: pod, useTLS: useTLS, tlsConfig: tlsConfig, logger: log, getTimeout: getTimeout, postTimeout: postTimeout}, nil
 }
 
 // getListenIP gets the IP address that a pod listens on.
@@ -165,12 +172,35 @@ func (client *realFdbPodSidecarClient) getListenIP() string {
 	return ""
 }
 
+// generateRequest will generate a retryablehttp.Request for the provided parameters or an error if a request cannot be
+// generated.
+func generateRequest(retryClient *retryablehttp.Client, url string, method string, getTimeout time.Duration, postTimeout time.Duration) (*retryablehttp.Request, error) {
+	switch method {
+	case http.MethodGet:
+		retryClient.HTTPClient.Timeout = getTimeout
+		return retryablehttp.NewRequest(http.MethodGet, url, nil)
+	case http.MethodPost:
+		retryClient.HTTPClient.Timeout = postTimeout
+		req, err := retryablehttp.NewRequest(http.MethodPost, url, strings.NewReader(""))
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Content-Type", "application/json")
+		return req, nil
+	}
+
+	return nil, fmt.Errorf("unknown HTTP method %s", method)
+}
+
 // makeRequest submits a request to the sidecar.
-func (client *realFdbPodSidecarClient) makeRequest(method string, path string) (string, error) {
-	var resp *http.Response
+func (client *realFdbPodSidecarClient) makeRequest(method, path string) (string, int, error) {
 	var err error
 
-	protocol := "http"
+	target := url.URL{
+		Scheme: "http",
+		Host:   client.getListenIP() + ":8080",
+		Path:   path,
+	}
 	retryClient := retryablehttp.NewClient()
 	retryClient.RetryMax = 2
 	retryClient.RetryWaitMax = 1 * time.Second
@@ -180,53 +210,60 @@ func (client *realFdbPodSidecarClient) makeRequest(method string, path string) (
 
 	if client.useTLS {
 		retryClient.HTTPClient.Transport = &http.Transport{TLSClientConfig: client.tlsConfig}
-		protocol = "https"
+		target.Scheme = "https"
 	}
 
-	url := fmt.Sprintf("%s://%s:8080/%s", protocol, client.getListenIP(), path)
-	switch method {
-	case http.MethodGet:
-		// We assume that a get request should be relative fast.
-		retryClient.HTTPClient.Timeout = 5 * time.Second
-		resp, err = retryClient.Get(url)
-	case http.MethodPost:
-		// A post request could take a little bit longer since we copy sometimes files.
-		retryClient.HTTPClient.Timeout = 10 * time.Second
-		resp, err = retryClient.Post(url, "application/json", strings.NewReader(""))
-	default:
-		return "", fmt.Errorf("unknown HTTP method %s", method)
+	req, err := generateRequest(retryClient, target.String(), method, client.getTimeout, client.postTimeout)
+	if err != nil {
+		return "", 0, err
+	}
+
+	resp, err := retryClient.Do(req)
+	if resp != nil {
+		defer resp.Body.Close()
 	}
 
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
-
-	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	bodyText := string(body)
 
 	if err != nil {
-		return "", err
+		return "", resp.StatusCode, err
 	}
 
-	return bodyText, nil
+	return bodyText, resp.StatusCode, nil
 }
 
 // IsPresent checks whether a file in the sidecar is present.
 func (client *realFdbPodSidecarClient) IsPresent(filename string) (bool, error) {
-	_, err := client.makeRequest("GET", fmt.Sprintf("check_hash/%s", filename))
+	version, err := fdbv1beta2.ParseFdbVersion(client.Cluster.Spec.Version)
 	if err != nil {
-		client.logger.Info("Waiting for file", "file", filename)
 		return false, err
 	}
 
-	return true, nil
+	path := "check_hash"
+	// This endpoint was added in 7.1.4 and only checks if a file is present without calculating the hash of a file.
+	// The benefit of this approach is that the resource requirements for the sidecar is reduced and for larger files
+	// e.g. with debug symbols the response will be faster.
+	if version.SupportsIsPresent() {
+		path = "is_present"
+	}
+
+	_, code, err := client.makeRequest("GET", fmt.Sprintf("%s/%s", path, filename))
+	if err != nil || code != http.StatusOK {
+		client.logger.Info("Waiting for file", "file", filename, "response_code", code)
+		return false, err
+	}
+
+	return code == http.StatusOK, nil
 }
 
 // CheckHash checks whether a file in the sidecar has the expected contents.
 func (client *realFdbPodSidecarClient) checkHash(filename string, contents string) (bool, error) {
-	response, err := client.makeRequest("GET", fmt.Sprintf("check_hash/%s", filename))
+	response, _, err := client.makeRequest("GET", fmt.Sprintf("check_hash/%s", filename))
 	if err != nil {
 		return false, err
 	}
@@ -238,21 +275,21 @@ func (client *realFdbPodSidecarClient) checkHash(filename string, contents strin
 
 // GenerateMonitorConf updates the monitor conf file for a pod
 func (client *realFdbPodSidecarClient) generateMonitorConf() error {
-	_, err := client.makeRequest("POST", "copy_monitor_conf")
+	_, _, err := client.makeRequest("POST", "copy_monitor_conf")
 	return err
 }
 
 // copyFiles copies the files from the config map to the shared dynamic conf
 // volume
 func (client *realFdbPodSidecarClient) copyFiles() error {
-	_, err := client.makeRequest("POST", "copy_files")
+	_, _, err := client.makeRequest("POST", "copy_files")
 	return err
 }
 
 // GetVariableSubstitutions gets the current keys and values that this
 // process group will substitute into its monitor conf.
 func (client *realFdbPodSidecarClient) GetVariableSubstitutions() (map[string]string, error) {
-	contents, err := client.makeRequest("GET", "substitutions")
+	contents, _, err := client.makeRequest("GET", "substitutions")
 	if err != nil {
 		return nil, err
 	}
@@ -368,7 +405,7 @@ type mockFdbPodClient struct {
 
 // NewMockFdbPodClient builds a mock client for working with an FDB pod
 func NewMockFdbPodClient(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod) (podclient.FdbPodClient, error) {
-	return &mockFdbPodClient{Cluster: cluster, Pod: pod, logger: logf.NullLogger{}}, nil
+	return &mockFdbPodClient{Cluster: cluster, Pod: pod, logger: logr.New(logf.NewDelegatingLogSink(logf.NullLogSink{}))}, nil
 }
 
 // UpdateFile checks if a file is up-to-date and tries to update it.
@@ -406,7 +443,7 @@ func (client *mockFdbPodClient) GetVariableSubstitutions() (map[string]string, e
 	}
 	substitutions["FDB_POD_IP"] = substitutions["FDB_PUBLIC_IP"]
 
-	if client.Cluster.Spec.FaultDomain.Key == "foundationdb.org/none" {
+	if client.Cluster.Spec.FaultDomain.Key == fdbv1beta2.NoneFaultDomainKey {
 		substitutions["FDB_MACHINE_ID"] = client.Pod.Name
 		substitutions["FDB_ZONE_ID"] = client.Pod.Name
 	} else if client.Cluster.Spec.FaultDomain.Key == "foundationdb.org/kubernetes-cluster" {
@@ -454,7 +491,7 @@ func (client *mockFdbPodClient) GetVariableSubstitutions() (map[string]string, e
 // sidecar process.
 func podHasSidecarTLS(pod *corev1.Pod) bool {
 	for _, container := range pod.Spec.Containers {
-		if container.Name == "foundationdb-kubernetes-sidecar" {
+		if container.Name == fdbv1beta2.SidecarContainerName {
 			for _, arg := range container.Args {
 				if arg == "--tls" {
 					return true
@@ -470,7 +507,7 @@ func podHasSidecarTLS(pod *corev1.Pod) bool {
 // image.
 func GetImageType(pod *corev1.Pod) FDBImageType {
 	for _, container := range pod.Spec.Containers {
-		if container.Name != "foundationdb" {
+		if container.Name != fdbv1beta2.MainContainerName {
 			continue
 		}
 		for _, envVar := range container.Env {
@@ -479,6 +516,7 @@ func GetImageType(pod *corev1.Pod) FDBImageType {
 			}
 		}
 	}
+
 	return FDBImageTypeSplit
 }
 

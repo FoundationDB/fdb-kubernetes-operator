@@ -21,7 +21,12 @@
 package internal
 
 import (
+	"net/http"
+	"net/url"
+	"time"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	"github.com/hashicorp/go-retryablehttp"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -56,6 +61,49 @@ var _ = Describe("pod_client", func() {
 			pod, err := GetPod(cluster, fdbv1beta2.ProcessClassStorage, 1)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(podHasSidecarTLS(pod)).To(BeTrue())
+		})
+	})
+
+	When("generating a request", func() {
+		var retryClient *retryablehttp.Client
+		var target url.URL
+		getTimeout := 1 * time.Second
+		postTimeout := 10 * time.Second
+
+		BeforeEach(func() {
+			retryClient = retryablehttp.NewClient()
+			target = url.URL{
+				Scheme: "http",
+				Host:   "127.0.0.1:8080",
+				Path:   "test",
+			}
+		})
+
+		When("generating a http get request", func() {
+			It("should generate the request", func() {
+				req, err := generateRequest(retryClient, target.String(), http.MethodGet, getTimeout, postTimeout)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(req.Method).To(Equal(http.MethodGet))
+				Expect(retryClient.HTTPClient.Timeout).To(Equal(getTimeout))
+			})
+		})
+
+		When("generating a http post request", func() {
+			It("should generate the request", func() {
+				req, err := generateRequest(retryClient, target.String(), http.MethodPost, getTimeout, postTimeout)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(req.Method).To(Equal(http.MethodPost))
+				Expect(retryClient.HTTPClient.Timeout).To(Equal(postTimeout))
+				Expect(req.Header).To(HaveKeyWithValue("Content-Type", []string{"application/json"}))
+			})
+		})
+
+		When("generating a http delete request", func() {
+			It("should generate the request", func() {
+				req, err := generateRequest(retryClient, target.String(), http.MethodDelete, getTimeout, postTimeout)
+				Expect(err).To(HaveOccurred())
+				Expect(req).To(BeNil())
+			})
 		})
 	})
 })

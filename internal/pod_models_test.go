@@ -185,7 +185,7 @@ var _ = Describe("pod_models", func() {
 			It("should have the built-in init container", func() {
 				Expect(len(spec.InitContainers)).To(Equal(1))
 				initContainer := spec.InitContainers[0]
-				Expect(initContainer.Name).To(Equal("foundationdb-kubernetes-init"))
+				Expect(initContainer.Name).To(Equal(fdbv1beta2.InitContainerName))
 				Expect(initContainer.Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes-sidecar:%s-1", cluster.Spec.Version)))
 				Expect(initContainer.Args).To(Equal([]string{
 					"--copy-file",
@@ -197,7 +197,7 @@ var _ = Describe("pod_models", func() {
 					"--copy-binary",
 					"fdbcli",
 					"--main-container-version",
-					"6.2.20",
+					cluster.Spec.Version,
 					"--substitute-variable",
 					"FDB_POD_IP",
 					"--init-mode",
@@ -230,7 +230,7 @@ var _ = Describe("pod_models", func() {
 
 			It("should have the main foundationdb container", func() {
 				mainContainer := spec.Containers[0]
-				Expect(mainContainer.Name).To(Equal("foundationdb"))
+				Expect(mainContainer.Name).To(Equal(fdbv1beta2.MainContainerName))
 				Expect(mainContainer.Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb:%s", cluster.Spec.Version)))
 				Expect(mainContainer.Command).To(Equal([]string{"sh", "-c"}))
 				Expect(mainContainer.Args).To(Equal([]string{
@@ -262,7 +262,7 @@ var _ = Describe("pod_models", func() {
 
 			It("should have the sidecar container", func() {
 				sidecarContainer := spec.Containers[1]
-				Expect(sidecarContainer.Name).To(Equal("foundationdb-kubernetes-sidecar"))
+				Expect(sidecarContainer.Name).To(Equal(fdbv1beta2.SidecarContainerName))
 				Expect(sidecarContainer.Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes-sidecar:%s-1", cluster.Spec.Version)))
 				Expect(sidecarContainer.Args).To(Equal([]string{
 					"--copy-file",
@@ -274,7 +274,7 @@ var _ = Describe("pod_models", func() {
 					"--copy-binary",
 					"fdbcli",
 					"--main-container-version",
-					"6.2.20",
+					cluster.Spec.Version,
 					"--substitute-variable",
 					"FDB_POD_IP",
 				}))
@@ -299,7 +299,7 @@ var _ = Describe("pod_models", func() {
 					{Name: "dynamic-conf", MountPath: "/var/output-files"},
 				}))
 				Expect(sidecarContainer.LivenessProbe).To(Equal(&corev1.Probe{
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						TCPSocket: &corev1.TCPSocketAction{
 							Port: intstr.IntOrString{IntVal: 8080},
 						},
@@ -387,13 +387,13 @@ var _ = Describe("pod_models", func() {
 
 				It("should have a livenessProbe for the sidecar", func() {
 					sidecarContainer := spec.Containers[1]
-					Expect(sidecarContainer.Name).To(Equal("foundationdb-kubernetes-sidecar"))
+					Expect(sidecarContainer.Name).To(Equal(fdbv1beta2.SidecarContainerName))
 					Expect(sidecarContainer.LivenessProbe).NotTo(BeNil())
 				})
 
 				It("should not have a livenessProbe for the init container", func() {
 					sidecarContainer := spec.InitContainers[0]
-					Expect(sidecarContainer.Name).To(Equal("foundationdb-kubernetes-init"))
+					Expect(sidecarContainer.Name).To(Equal(fdbv1beta2.InitContainerName))
 					Expect(sidecarContainer.LivenessProbe).To(BeNil())
 				})
 			})
@@ -408,13 +408,13 @@ var _ = Describe("pod_models", func() {
 
 				It("should not have a readinessProbe for the sidecar", func() {
 					sidecarContainer := spec.Containers[1]
-					Expect(sidecarContainer.Name).To(Equal("foundationdb-kubernetes-sidecar"))
+					Expect(sidecarContainer.Name).To(Equal(fdbv1beta2.SidecarContainerName))
 					Expect(sidecarContainer.ReadinessProbe).To(BeNil())
 				})
 
 				It("should not have a readinessProbe for the init container", func() {
 					sidecarContainer := spec.InitContainers[0]
-					Expect(sidecarContainer.Name).To(Equal("foundationdb-kubernetes-init"))
+					Expect(sidecarContainer.Name).To(Equal(fdbv1beta2.InitContainerName))
 					Expect(sidecarContainer.ReadinessProbe).To(BeNil())
 				})
 			})
@@ -429,13 +429,13 @@ var _ = Describe("pod_models", func() {
 
 				It("should have a readinessProbe for the sidecar", func() {
 					sidecarContainer := spec.Containers[1]
-					Expect(sidecarContainer.Name).To(Equal("foundationdb-kubernetes-sidecar"))
+					Expect(sidecarContainer.Name).To(Equal(fdbv1beta2.SidecarContainerName))
 					Expect(sidecarContainer.ReadinessProbe).NotTo(BeNil())
 				})
 
 				It("should not have a readinessProbe for the init container", func() {
 					sidecarContainer := spec.InitContainers[0]
-					Expect(sidecarContainer.Name).To(Equal("foundationdb-kubernetes-init"))
+					Expect(sidecarContainer.Name).To(Equal(fdbv1beta2.InitContainerName))
 					Expect(sidecarContainer.ReadinessProbe).To(BeNil())
 				})
 			})
@@ -465,7 +465,7 @@ var _ = Describe("pod_models", func() {
 
 				It("should have the main foundationdb container", func() {
 					mainContainer := spec.Containers[0]
-					Expect(mainContainer.Name).To(Equal("foundationdb"))
+					Expect(mainContainer.Name).To(Equal(fdbv1beta2.MainContainerName))
 					Expect(mainContainer.Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes:%s", cluster.Spec.Version)))
 					Expect(mainContainer.Command).To(BeNil())
 					Expect(mainContainer.Args).To(Equal([]string{
@@ -514,12 +514,12 @@ var _ = Describe("pod_models", func() {
 
 				It("should have the sidecar container", func() {
 					sidecarContainer := spec.Containers[1]
-					Expect(sidecarContainer.Name).To(Equal("foundationdb-kubernetes-sidecar"))
+					Expect(sidecarContainer.Name).To(Equal(fdbv1beta2.SidecarContainerName))
 					Expect(sidecarContainer.Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes:%s", cluster.Spec.Version)))
 					Expect(sidecarContainer.Args).To(Equal([]string{
 						"--mode", "sidecar",
 						"--output-dir", "/var/fdb/shared-binaries",
-						"--main-container-version", "6.2.20",
+						"--main-container-version", cluster.Spec.Version,
 						"--copy-binary", "fdbserver",
 						"--copy-binary", "fdbcli",
 						"--log-path", "/var/log/fdb-trace-logs/monitor.log",
@@ -575,7 +575,7 @@ var _ = Describe("pod_models", func() {
 
 				It("should pass the process count to the main container", func() {
 					mainContainer := spec.Containers[0]
-					Expect(mainContainer.Name).To(Equal("foundationdb"))
+					Expect(mainContainer.Name).To(Equal(fdbv1beta2.MainContainerName))
 					Expect(mainContainer.Args).To(Equal([]string{
 						"--input-dir", "/var/dynamic-conf",
 						"--log-path", "/var/log/fdb-trace-logs/monitor.log",
@@ -631,7 +631,7 @@ var _ = Describe("pod_models", func() {
 
 				It("should not pass the process count to the main container", func() {
 					mainContainer := spec.Containers[0]
-					Expect(mainContainer.Name).To(Equal("foundationdb"))
+					Expect(mainContainer.Name).To(Equal(fdbv1beta2.MainContainerName))
 					Expect(mainContainer.Args).To(Equal([]string{
 						"--input-dir", "/var/dynamic-conf",
 						"--log-path", "/var/log/fdb-trace-logs/monitor.log",
@@ -685,7 +685,7 @@ var _ = Describe("pod_models", func() {
 
 				It("should have a crash loop arg", func() {
 					mainContainer := spec.Containers[0]
-					Expect(mainContainer.Name).To(Equal("foundationdb"))
+					Expect(mainContainer.Name).To(Equal(fdbv1beta2.MainContainerName))
 					Expect(mainContainer.Command).To(Equal([]string{"crash-loop"}))
 				})
 			})
@@ -702,7 +702,7 @@ var _ = Describe("pod_models", func() {
 			It("should have the built-in init container", func() {
 				Expect(len(spec.InitContainers)).To(Equal(1))
 				initContainer := spec.InitContainers[0]
-				Expect(initContainer.Name).To(Equal("foundationdb-kubernetes-init"))
+				Expect(initContainer.Name).To(Equal(fdbv1beta2.InitContainerName))
 				Expect(initContainer.Args).To(Equal([]string{
 					"--copy-file",
 					"fdb.cluster",
@@ -713,7 +713,7 @@ var _ = Describe("pod_models", func() {
 					"--copy-binary",
 					"fdbcli",
 					"--main-container-version",
-					"6.2.20",
+					cluster.Spec.Version,
 					"--public-ip-family",
 					"6",
 					"--substitute-variable",
@@ -739,7 +739,7 @@ var _ = Describe("pod_models", func() {
 
 			It("should have the sidecar container", func() {
 				sidecarContainer := spec.Containers[1]
-				Expect(sidecarContainer.Name).To(Equal("foundationdb-kubernetes-sidecar"))
+				Expect(sidecarContainer.Name).To(Equal(fdbv1beta2.SidecarContainerName))
 				Expect(sidecarContainer.Args).To(Equal([]string{
 					"--copy-file",
 					"fdb.cluster",
@@ -750,7 +750,7 @@ var _ = Describe("pod_models", func() {
 					"--copy-binary",
 					"fdbcli",
 					"--main-container-version",
-					"6.2.20",
+					cluster.Spec.Version,
 					"--public-ip-family",
 					"6",
 					"--substitute-variable",
@@ -784,7 +784,7 @@ var _ = Describe("pod_models", func() {
 			It("should set an additional environment variable on the init container", func() {
 				Expect(len(spec.InitContainers)).To(Equal(1))
 				initContainer := spec.InitContainers[0]
-				Expect(initContainer.Name).To(Equal("foundationdb-kubernetes-init"))
+				Expect(initContainer.Name).To(Equal(fdbv1beta2.InitContainerName))
 				Expect(initContainer.Args).To(Equal([]string{
 					"--copy-file",
 					"fdb.cluster",
@@ -795,7 +795,7 @@ var _ = Describe("pod_models", func() {
 					"--copy-binary",
 					"fdbcli",
 					"--main-container-version",
-					"6.2.20",
+					cluster.Spec.Version,
 					"--substitute-variable",
 					"FDB_POD_IP",
 					"--substitute-variable",
@@ -822,7 +822,7 @@ var _ = Describe("pod_models", func() {
 
 			It("should set an additional environment variable on the sidecar container", func() {
 				sidecarContainer := spec.Containers[1]
-				Expect(sidecarContainer.Name).To(Equal("foundationdb-kubernetes-sidecar"))
+				Expect(sidecarContainer.Name).To(Equal(fdbv1beta2.SidecarContainerName))
 				Expect(sidecarContainer.Args).To(Equal([]string{
 					"--copy-file",
 					"fdb.cluster",
@@ -833,7 +833,7 @@ var _ = Describe("pod_models", func() {
 					"--copy-binary",
 					"fdbcli",
 					"--main-container-version",
-					"6.2.20",
+					cluster.Spec.Version,
 					"--substitute-variable",
 					"FDB_POD_IP",
 					"--substitute-variable",
@@ -902,7 +902,7 @@ var _ = Describe("pod_models", func() {
 
 			It("should have a crash loop arg", func() {
 				mainContainer := spec.Containers[0]
-				Expect(mainContainer.Name).To(Equal("foundationdb"))
+				Expect(mainContainer.Name).To(Equal(fdbv1beta2.MainContainerName))
 				Expect(mainContainer.Args).To(Equal([]string{"crash-loop"}))
 			})
 		})
@@ -916,7 +916,7 @@ var _ = Describe("pod_models", func() {
 
 			It("should have a crash loop arg", func() {
 				mainContainer := spec.Containers[0]
-				Expect(mainContainer.Name).To(Equal("foundationdb"))
+				Expect(mainContainer.Name).To(Equal(fdbv1beta2.MainContainerName))
 				Expect(mainContainer.Args).To(Equal([]string{"crash-loop"}))
 			})
 		})
@@ -930,7 +930,7 @@ var _ = Describe("pod_models", func() {
 
 			It("should have the normal start command", func() {
 				mainContainer := spec.Containers[0]
-				Expect(mainContainer.Name).To(Equal("foundationdb"))
+				Expect(mainContainer.Name).To(Equal(fdbv1beta2.MainContainerName))
 				Expect(mainContainer.Args).To(Equal([]string{
 					"fdbmonitor --conffile /var/dynamic-conf/fdbmonitor.conf" +
 						" --lockfile /var/dynamic-conf/fdbmonitor.lockfile" +
@@ -969,7 +969,7 @@ var _ = Describe("pod_models", func() {
 			It("should have the built-in init container", func() {
 				Expect(len(spec.InitContainers)).To(Equal(1))
 				initContainer := spec.InitContainers[0]
-				Expect(initContainer.Name).To(Equal("foundationdb-kubernetes-init"))
+				Expect(initContainer.Name).To(Equal(fdbv1beta2.InitContainerName))
 				Expect(initContainer.Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes-sidecar:%s-1", cluster.Spec.Version)))
 				Expect(initContainer.Args).To(Equal([]string{
 					"--copy-file",
@@ -981,7 +981,7 @@ var _ = Describe("pod_models", func() {
 					"--copy-binary",
 					"fdbcli",
 					"--main-container-version",
-					"6.2.20",
+					cluster.Spec.Version,
 					"--substitute-variable",
 					"FDB_POD_IP",
 					"--init-mode",
@@ -1014,7 +1014,7 @@ var _ = Describe("pod_models", func() {
 
 			It("should have the main foundationdb container", func() {
 				mainContainer := spec.Containers[0]
-				Expect(mainContainer.Name).To(Equal("foundationdb"))
+				Expect(mainContainer.Name).To(Equal(fdbv1beta2.MainContainerName))
 				Expect(mainContainer.Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb:%s", cluster.Spec.Version)))
 				Expect(mainContainer.Command).To(Equal([]string{"sh", "-c"}))
 				Expect(mainContainer.Args).To(Equal([]string{
@@ -1046,7 +1046,7 @@ var _ = Describe("pod_models", func() {
 
 			It("should have the sidecar container", func() {
 				sidecarContainer := spec.Containers[1]
-				Expect(sidecarContainer.Name).To(Equal("foundationdb-kubernetes-sidecar"))
+				Expect(sidecarContainer.Name).To(Equal(fdbv1beta2.SidecarContainerName))
 				Expect(sidecarContainer.Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes-sidecar:%s-1", cluster.Spec.Version)))
 				Expect(sidecarContainer.Args).To(Equal([]string{
 					"--copy-file",
@@ -1058,7 +1058,7 @@ var _ = Describe("pod_models", func() {
 					"--copy-binary",
 					"fdbcli",
 					"--main-container-version",
-					"6.2.20",
+					cluster.Spec.Version,
 					"--substitute-variable",
 					"FDB_POD_IP",
 				}))
@@ -1084,7 +1084,7 @@ var _ = Describe("pod_models", func() {
 					{Name: "dynamic-conf", MountPath: "/var/output-files"},
 				}))
 				Expect(sidecarContainer.LivenessProbe).To(Equal(&corev1.Probe{
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						TCPSocket: &corev1.TCPSocketAction{
 							Port: intstr.IntOrString{IntVal: 8080},
 						},
@@ -1142,7 +1142,7 @@ var _ = Describe("pod_models", func() {
 			It("should not have the pod IP in the init container args", func() {
 				Expect(len(spec.InitContainers)).To(Equal(1))
 				initContainer := spec.InitContainers[0]
-				Expect(initContainer.Name).To(Equal("foundationdb-kubernetes-init"))
+				Expect(initContainer.Name).To(Equal(fdbv1beta2.InitContainerName))
 				Expect(initContainer.Args).To(Equal([]string{
 					"--copy-file",
 					"fdb.cluster",
@@ -1153,7 +1153,7 @@ var _ = Describe("pod_models", func() {
 					"--copy-binary",
 					"fdbcli",
 					"--main-container-version",
-					"6.2.20",
+					cluster.Spec.Version,
 					"--substitute-variable",
 					"FDB_POD_IP",
 					"--init-mode",
@@ -1163,7 +1163,7 @@ var _ = Describe("pod_models", func() {
 			It("should not have the pod IP in the sidecar container args", func() {
 				Expect(len(spec.Containers)).To(Equal(2))
 				sidecarContainer := spec.Containers[1]
-				Expect(sidecarContainer.Name).To(Equal("foundationdb-kubernetes-sidecar"))
+				Expect(sidecarContainer.Name).To(Equal(fdbv1beta2.SidecarContainerName))
 				Expect(sidecarContainer.Args).To(Equal([]string{
 					"--copy-file",
 					"fdb.cluster",
@@ -1174,7 +1174,7 @@ var _ = Describe("pod_models", func() {
 					"--copy-binary",
 					"fdbcli",
 					"--main-container-version",
-					"6.2.20",
+					cluster.Spec.Version,
 					"--substitute-variable",
 					"FDB_POD_IP",
 				}))
@@ -1210,7 +1210,7 @@ var _ = Describe("pod_models", func() {
 			It("should have the pod IP in the init container args", func() {
 				Expect(len(spec.InitContainers)).To(Equal(1))
 				initContainer := spec.InitContainers[0]
-				Expect(initContainer.Name).To(Equal("foundationdb-kubernetes-init"))
+				Expect(initContainer.Name).To(Equal(fdbv1beta2.InitContainerName))
 				Expect(initContainer.Args).To(Equal([]string{
 					"--copy-file",
 					"fdb.cluster",
@@ -1221,7 +1221,7 @@ var _ = Describe("pod_models", func() {
 					"--copy-binary",
 					"fdbcli",
 					"--main-container-version",
-					"6.2.20",
+					cluster.Spec.Version,
 					"--substitute-variable",
 					"FDB_POD_IP",
 					"--init-mode",
@@ -1231,7 +1231,7 @@ var _ = Describe("pod_models", func() {
 			It("should have the pod IP in the sidecar container args", func() {
 				Expect(len(spec.Containers)).To(Equal(2))
 				sidecarContainer := spec.Containers[1]
-				Expect(sidecarContainer.Name).To(Equal("foundationdb-kubernetes-sidecar"))
+				Expect(sidecarContainer.Name).To(Equal(fdbv1beta2.SidecarContainerName))
 				Expect(sidecarContainer.Args).To(Equal([]string{
 					"--copy-file",
 					"fdb.cluster",
@@ -1242,7 +1242,7 @@ var _ = Describe("pod_models", func() {
 					"--copy-binary",
 					"fdbcli",
 					"--main-container-version",
-					"6.2.20",
+					cluster.Spec.Version,
 					"--substitute-variable",
 					"FDB_POD_IP",
 				}))
@@ -1300,7 +1300,7 @@ var _ = Describe("pod_models", func() {
 			It("should have the pod IP in the init container args", func() {
 				Expect(len(spec.InitContainers)).To(Equal(1))
 				initContainer := spec.InitContainers[0]
-				Expect(initContainer.Name).To(Equal("foundationdb-kubernetes-init"))
+				Expect(initContainer.Name).To(Equal(fdbv1beta2.InitContainerName))
 				Expect(initContainer.Args).To(Equal([]string{
 					"--copy-file",
 					"fdb.cluster",
@@ -1311,7 +1311,7 @@ var _ = Describe("pod_models", func() {
 					"--copy-binary",
 					"fdbcli",
 					"--main-container-version",
-					"6.2.20",
+					cluster.Spec.Version,
 					"--substitute-variable",
 					"FDB_POD_IP",
 					"--init-mode",
@@ -1321,7 +1321,7 @@ var _ = Describe("pod_models", func() {
 			It("should have the pod IP in the sidecar container args", func() {
 				Expect(len(spec.Containers)).To(Equal(2))
 				sidecarContainer := spec.Containers[1]
-				Expect(sidecarContainer.Name).To(Equal("foundationdb-kubernetes-sidecar"))
+				Expect(sidecarContainer.Name).To(Equal(fdbv1beta2.SidecarContainerName))
 				Expect(sidecarContainer.Args).To(Equal([]string{
 					"--copy-file",
 					"fdb.cluster",
@@ -1332,7 +1332,7 @@ var _ = Describe("pod_models", func() {
 					"--copy-binary",
 					"fdbcli",
 					"--main-container-version",
-					"6.2.20",
+					cluster.Spec.Version,
 					"--substitute-variable",
 					"FDB_POD_IP",
 				}))
@@ -1374,7 +1374,7 @@ var _ = Describe("pod_models", func() {
 					Spec: corev1.PodSpec{
 						Containers: []corev1.Container{
 							{
-								Name: "foundationdb",
+								Name: fdbv1beta2.MainContainerName,
 								Resources: corev1.ResourceRequirements{
 									Requests: corev1.ResourceList{
 										"cpu":    resource.MustParse("2"),
@@ -1398,7 +1398,7 @@ var _ = Describe("pod_models", func() {
 
 			It("should set the resources on the main container", func() {
 				mainContainer := spec.Containers[0]
-				Expect(mainContainer.Name).To(Equal("foundationdb"))
+				Expect(mainContainer.Name).To(Equal(fdbv1beta2.MainContainerName))
 				Expect(*mainContainer.Resources.Limits.Cpu()).To(Equal(resource.MustParse("4")))
 				Expect(*mainContainer.Resources.Limits.Memory()).To(Equal(resource.MustParse("16Gi")))
 				Expect(*mainContainer.Resources.Requests.Cpu()).To(Equal(resource.MustParse("2")))
@@ -1440,7 +1440,7 @@ var _ = Describe("pod_models", func() {
 
 			It("should set the fault domain information in the sidecar environment", func() {
 				initContainer := spec.InitContainers[0]
-				Expect(initContainer.Name).To(Equal("foundationdb-kubernetes-init"))
+				Expect(initContainer.Name).To(Equal(fdbv1beta2.InitContainerName))
 				Expect(initContainer.Env).To(Equal([]corev1.EnvVar{
 					{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
@@ -1531,7 +1531,7 @@ var _ = Describe("pod_models", func() {
 
 			It("should set the fault domain information in the sidecar environment", func() {
 				initContainer := spec.InitContainers[0]
-				Expect(initContainer.Name).To(Equal("foundationdb-kubernetes-init"))
+				Expect(initContainer.Name).To(Equal(fdbv1beta2.InitContainerName))
 				Expect(initContainer.Env).To(Equal([]corev1.EnvVar{
 					{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
@@ -1581,7 +1581,7 @@ var _ = Describe("pod_models", func() {
 
 			It("should set the fault domain information in the sidecar environment", func() {
 				initContainer := spec.InitContainers[0]
-				Expect(initContainer.Name).To(Equal("foundationdb-kubernetes-init"))
+				Expect(initContainer.Name).To(Equal(fdbv1beta2.InitContainerName))
 				Expect(initContainer.Env).To(Equal([]corev1.EnvVar{
 					{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
@@ -1635,7 +1635,7 @@ var _ = Describe("pod_models", func() {
 				Expect(testInitContainer.Command).To(Equal([]string{"echo", "test1"}))
 
 				initContainer := spec.InitContainers[1]
-				Expect(initContainer.Name).To(Equal("foundationdb-kubernetes-init"))
+				Expect(initContainer.Name).To(Equal(fdbv1beta2.InitContainerName))
 				Expect(initContainer.Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes-sidecar:%s-1", cluster.Spec.Version)))
 			})
 
@@ -1643,7 +1643,7 @@ var _ = Describe("pod_models", func() {
 				Expect(len(spec.Containers)).To(Equal(3))
 
 				mainContainer := spec.Containers[0]
-				Expect(mainContainer.Name).To(Equal("foundationdb"))
+				Expect(mainContainer.Name).To(Equal(fdbv1beta2.MainContainerName))
 				Expect(mainContainer.Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb:%s", cluster.Spec.Version)))
 
 				testContainer := spec.Containers[1]
@@ -1652,7 +1652,7 @@ var _ = Describe("pod_models", func() {
 				Expect(testContainer.Command).To(Equal([]string{"echo", "test2"}))
 
 				sidecarContainer := spec.Containers[2]
-				Expect(sidecarContainer.Name).To(Equal("foundationdb-kubernetes-sidecar"))
+				Expect(sidecarContainer.Name).To(Equal(fdbv1beta2.SidecarContainerName))
 				Expect(sidecarContainer.Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes-sidecar:%s-1", cluster.Spec.Version)))
 			})
 		})
@@ -1663,14 +1663,14 @@ var _ = Describe("pod_models", func() {
 				cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{fdbv1beta2.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
 					Spec: corev1.PodSpec{
 						InitContainers: []corev1.Container{{
-							Name:  "foundationdb-kubernetes-init",
+							Name:  fdbv1beta2.InitContainerName,
 							Image: "test/foundationdb-kubernetes-sidecar:dummy",
 						}},
 						Containers: []corev1.Container{{
-							Name:  "foundationdb",
+							Name:  fdbv1beta2.MainContainerName,
 							Image: "test/foundationdb:dummy",
 						}, {
-							Name:  "foundationdb-kubernetes-sidecar",
+							Name:  fdbv1beta2.SidecarContainerName,
 							Image: "test/foundationdb-kubernetes-sidecar:dummy",
 						}},
 					},
@@ -1691,7 +1691,7 @@ var _ = Describe("pod_models", func() {
 					Spec: corev1.PodSpec{
 						Containers: []corev1.Container{
 							{
-								Name: "foundationdb",
+								Name: fdbv1beta2.MainContainerName,
 								Env: []corev1.EnvVar{
 									{Name: "FDB_TLS_CERTIFICATE_FILE", Value: "/var/secrets/cert.pem"},
 									{Name: "FDB_TLS_CA_FILE", Value: "/var/secrets/cert.pem"},
@@ -1699,7 +1699,7 @@ var _ = Describe("pod_models", func() {
 								},
 							},
 							{
-								Name: "foundationdb-kubernetes-sidecar",
+								Name: fdbv1beta2.SidecarContainerName,
 								Env: []corev1.EnvVar{
 									{Name: "ADDITIONAL_ENV_FILE", Value: "/var/custom-env"},
 								},
@@ -1707,7 +1707,7 @@ var _ = Describe("pod_models", func() {
 						},
 						InitContainers: []corev1.Container{
 							{
-								Name: "foundationdb-kubernetes-init",
+								Name: fdbv1beta2.InitContainerName,
 								Env: []corev1.EnvVar{
 									{Name: "ADDITIONAL_ENV_FILE", Value: "/var/custom-env-init"},
 								},
@@ -1722,7 +1722,7 @@ var _ = Describe("pod_models", func() {
 
 			It("should set the environment variables on the containers", func() {
 				initContainer := spec.InitContainers[0]
-				Expect(initContainer.Name).To(Equal("foundationdb-kubernetes-init"))
+				Expect(initContainer.Name).To(Equal(fdbv1beta2.InitContainerName))
 				Expect(initContainer.Env).To(Equal([]corev1.EnvVar{
 					{Name: "ADDITIONAL_ENV_FILE", Value: "/var/custom-env-init"},
 					{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
@@ -1741,7 +1741,7 @@ var _ = Describe("pod_models", func() {
 				}))
 
 				mainContainer := spec.Containers[0]
-				Expect(mainContainer.Name).To(Equal("foundationdb"))
+				Expect(mainContainer.Name).To(Equal(fdbv1beta2.MainContainerName))
 				Expect(mainContainer.Env).To(Equal([]corev1.EnvVar{
 					{Name: "FDB_TLS_CERTIFICATE_FILE", Value: "/var/secrets/cert.pem"},
 					{Name: "FDB_TLS_CA_FILE", Value: "/var/secrets/cert.pem"},
@@ -1750,7 +1750,7 @@ var _ = Describe("pod_models", func() {
 				}))
 
 				sidecarContainer := spec.Containers[1]
-				Expect(sidecarContainer.Name).To(Equal("foundationdb-kubernetes-sidecar"))
+				Expect(sidecarContainer.Name).To(Equal(fdbv1beta2.SidecarContainerName))
 				Expect(sidecarContainer.Env).To(Equal([]corev1.EnvVar{
 					{Name: "ADDITIONAL_ENV_FILE", Value: "/var/custom-env"},
 					{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
@@ -1782,7 +1782,7 @@ var _ = Describe("pod_models", func() {
 
 			It("does not pass the TLS flags to the init container", func() {
 				initContainer := spec.InitContainers[0]
-				Expect(initContainer.Name).To(Equal("foundationdb-kubernetes-init"))
+				Expect(initContainer.Name).To(Equal(fdbv1beta2.InitContainerName))
 				Expect(initContainer.Args).To(Equal([]string{
 					"--copy-file",
 					"fdb.cluster",
@@ -1793,7 +1793,7 @@ var _ = Describe("pod_models", func() {
 					"--copy-binary",
 					"fdbcli",
 					"--main-container-version",
-					"6.2.20",
+					cluster.Spec.Version,
 					"--substitute-variable",
 					"FDB_POD_IP",
 					"--init-mode",
@@ -1819,7 +1819,7 @@ var _ = Describe("pod_models", func() {
 				Expect(len(spec.Containers)).To(Equal(2))
 
 				sidecarContainer := spec.Containers[1]
-				Expect(sidecarContainer.Name).To(Equal("foundationdb-kubernetes-sidecar"))
+				Expect(sidecarContainer.Name).To(Equal(fdbv1beta2.SidecarContainerName))
 				Expect(sidecarContainer.Args).To(Equal([]string{
 					"--copy-file",
 					"fdb.cluster",
@@ -1867,7 +1867,7 @@ var _ = Describe("pod_models", func() {
 						}},
 						Containers: []corev1.Container{
 							{
-								Name: "foundationdb",
+								Name: fdbv1beta2.MainContainerName,
 								VolumeMounts: []corev1.VolumeMount{{
 									Name:      "test-secrets",
 									MountPath: "/var/secrets",
@@ -1885,7 +1885,7 @@ var _ = Describe("pod_models", func() {
 
 			It("adds volumes to the container", func() {
 				mainContainer := spec.Containers[0]
-				Expect(mainContainer.Name).To(Equal("foundationdb"))
+				Expect(mainContainer.Name).To(Equal(fdbv1beta2.MainContainerName))
 				Expect(mainContainer.VolumeMounts).To(Equal([]corev1.VolumeMount{
 					{Name: "test-secrets", MountPath: "/var/secrets"},
 					{Name: "data", MountPath: "/var/fdb/data"},
@@ -1896,7 +1896,7 @@ var _ = Describe("pod_models", func() {
 
 			It("does not add volumes to the sidecar container", func() {
 				sidecarContainer := spec.Containers[1]
-				Expect(sidecarContainer.Name).To(Equal("foundationdb-kubernetes-sidecar"))
+				Expect(sidecarContainer.Name).To(Equal(fdbv1beta2.SidecarContainerName))
 
 				Expect(sidecarContainer.VolumeMounts).To(Equal([]corev1.VolumeMount{
 					{Name: "config-map", MountPath: "/var/input-files"},
@@ -1954,15 +1954,15 @@ var _ = Describe("pod_models", func() {
 
 			It("sets the images on the containers", func() {
 				initContainer := spec.InitContainers[0]
-				Expect(initContainer.Name).To(Equal("foundationdb-kubernetes-init"))
+				Expect(initContainer.Name).To(Equal(fdbv1beta2.InitContainerName))
 				Expect(initContainer.Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes-sidecar:%s-2", cluster.Spec.Version)))
 
 				mainContainer := spec.Containers[0]
-				Expect(mainContainer.Name).To(Equal("foundationdb"))
+				Expect(mainContainer.Name).To(Equal(fdbv1beta2.MainContainerName))
 				Expect(mainContainer.Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb:%s", cluster.Spec.Version)))
 
 				sidecarContainer := spec.Containers[1]
-				Expect(sidecarContainer.Name).To(Equal("foundationdb-kubernetes-sidecar"))
+				Expect(sidecarContainer.Name).To(Equal(fdbv1beta2.SidecarContainerName))
 				Expect(sidecarContainer.Image).To(Equal(initContainer.Image))
 			})
 		})
@@ -1984,17 +1984,17 @@ var _ = Describe("pod_models", func() {
 						SecurityContext: podSecurityContext,
 						Containers: []corev1.Container{
 							{
-								Name:            "foundationdb",
+								Name:            fdbv1beta2.MainContainerName,
 								SecurityContext: mainSecurityContext,
 							},
 							{
-								Name:            "foundationdb-kubernetes-sidecar",
+								Name:            fdbv1beta2.SidecarContainerName,
 								SecurityContext: sidecarSecurityContext,
 							},
 						},
 						InitContainers: []corev1.Container{
 							{
-								Name:            "foundationdb-kubernetes-init",
+								Name:            fdbv1beta2.InitContainerName,
 								SecurityContext: sidecarSecurityContext,
 							},
 						},
@@ -2127,7 +2127,7 @@ var _ = Describe("pod_models", func() {
 					"--copy-binary",
 					"fdbcli",
 					"--main-container-version",
-					"6.2.20",
+					cluster.Spec.Version,
 					"--substitute-variable",
 					"FDB_POD_IP",
 					"--init-mode",
@@ -2149,7 +2149,7 @@ var _ = Describe("pod_models", func() {
 					"--copy-binary",
 					"fdbcli",
 					"--main-container-version",
-					"6.2.20",
+					cluster.Spec.Version,
 					"--substitute-variable",
 					"FDB_POD_IP",
 				}))
@@ -2197,7 +2197,7 @@ var _ = Describe("pod_models", func() {
 						Spec: corev1.PodSpec{
 							Containers: []corev1.Container{
 								{
-									Name: "foundationdb",
+									Name: fdbv1beta2.MainContainerName,
 									SecurityContext: &corev1.SecurityContext{
 										ReadOnlyRootFilesystem: &enabled,
 									},
@@ -2216,7 +2216,7 @@ var _ = Describe("pod_models", func() {
 				checked := false
 
 				for _, container := range spec.Containers {
-					if container.Name != "foundationdb" {
+					if container.Name != fdbv1beta2.MainContainerName {
 						continue
 					}
 					Expect(container.SecurityContext).ToNot(BeNil())
@@ -2235,7 +2235,7 @@ var _ = Describe("pod_models", func() {
 						Spec: corev1.PodSpec{
 							Containers: []corev1.Container{
 								{
-									Name: "foundationdb",
+									Name: fdbv1beta2.MainContainerName,
 								},
 							},
 						},
@@ -2251,7 +2251,7 @@ var _ = Describe("pod_models", func() {
 				checked := false
 
 				for _, container := range spec.Containers {
-					if container.Name != "foundationdb" {
+					if container.Name != fdbv1beta2.MainContainerName {
 						continue
 					}
 					Expect(container.SecurityContext).ToNot(BeNil())
@@ -2671,7 +2671,7 @@ var _ = Describe("pod_models", func() {
 					"foundationdb.org/backup-for": string(cluster.ObjectMeta.UID),
 				}))
 				Expect(deployment.ObjectMeta.Annotations).To(Equal(map[string]string{
-					"foundationdb.org/last-applied-spec": "53bf93c896578af51723c0db12e884751be4ee702c7487a1a57108fa111a23d6",
+					"foundationdb.org/last-applied-spec": "a1d6ee086624f097243eb14aefbedf84a9016ba0f85640f11020bf50ec9e6d9b",
 				}))
 			})
 
@@ -2718,7 +2718,7 @@ var _ = Describe("pod_models", func() {
 				})
 
 				It("should set the container name", func() {
-					Expect(container.Name).To(Equal("foundationdb"))
+					Expect(container.Name).To(Equal(fdbv1beta2.MainContainerName))
 				})
 
 				It("should set the image and command for the backup agent", func() {
@@ -2760,7 +2760,7 @@ var _ = Describe("pod_models", func() {
 				})
 
 				It("should set the container name", func() {
-					Expect(container.Name).To(Equal("foundationdb-kubernetes-init"))
+					Expect(container.Name).To(Equal(fdbv1beta2.InitContainerName))
 				})
 
 				It("should set the image and command for the container", func() {
@@ -2792,7 +2792,7 @@ var _ = Describe("pod_models", func() {
 						},
 						Containers: []corev1.Container{
 							{
-								Name: "foundationdb",
+								Name: fdbv1beta2.MainContainerName,
 								Env: []corev1.EnvVar{
 									{Name: "FDB_BLOB_CREDENTIALS", Value: "/var/secrets/blob_credentials.json"},
 								},
@@ -2833,7 +2833,7 @@ var _ = Describe("pod_models", func() {
 				})
 
 				It("should set the container name", func() {
-					Expect(container.Name).To(Equal("foundationdb"))
+					Expect(container.Name).To(Equal(fdbv1beta2.MainContainerName))
 				})
 
 				It("should customize the environment", func() {
@@ -2904,7 +2904,7 @@ var _ = Describe("pod_models", func() {
 				backup.Spec.PodTemplateSpec = &corev1.PodTemplateSpec{
 					Spec: corev1.PodSpec{
 						Containers: []corev1.Container{{
-							Name: "foundationdb",
+							Name: fdbv1beta2.MainContainerName,
 							Env: []corev1.EnvVar{{
 								Name:  "FDB_TLS_CA_FILE",
 								Value: "/tmp/ca.pem",
@@ -2941,10 +2941,61 @@ var _ = Describe("pod_models", func() {
 					"foundationdb.org/backup-for": string(cluster.ObjectMeta.UID),
 				}))
 				Expect(deployment.ObjectMeta.Annotations).To(Equal(map[string]string{
-					"foundationdb.org/last-applied-spec": "f0029ec076e325804d278982021203dc10c5a6e2e67abf8a609b87d4e7cf4129",
+					"foundationdb.org/last-applied-spec": "ab69c51bd609ab9bb94605b25fbfe49e25090040d66bb5af2b3c52e6a6ed4330",
 				}))
 
 				Expect(deployment.Spec.Template.Spec.Containers[0].Args).To(ContainElement("--customParameter=1337"))
+			})
+		})
+
+		When("defining an image config", func() {
+			BeforeEach(func() {
+				backup.Spec.MainContainer.ImageConfigs = []fdbv1beta2.ImageConfig{
+					{BaseImage: "foundationdb/foundationdb", Tag: "dev"},
+				}
+				backup.Spec.SidecarContainer.ImageConfigs = []fdbv1beta2.ImageConfig{
+					{BaseImage: "foundationdb/foundationdb-kubernetes-sidecar", Tag: "dev-1"},
+				}
+				deployment, err = GetBackupDeployment(backup)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(deployment).NotTo(BeNil())
+			})
+
+			It("should set the image based on the image configs", func() {
+				Expect(deployment.Spec.Template.Spec.Containers[0].Image).To(Equal("foundationdb/foundationdb:dev"))
+				Expect(deployment.Spec.Template.Spec.InitContainers[0].Image).To(Equal("foundationdb/foundationdb-kubernetes-sidecar:dev-1"))
+			})
+		})
+
+		When("AllowTagOverride is set to true", func() {
+			BeforeEach(func() {
+				backup.Spec.AllowTagOverride = pointer.Bool(true)
+				templateSpec := corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{
+							{
+								Name:  fdbv1beta2.MainContainerName,
+								Image: "test:main",
+							},
+						},
+						InitContainers: []corev1.Container{
+							{
+								Name:  fdbv1beta2.InitContainerName,
+								Image: "test:sidecar",
+							},
+						},
+					},
+				}
+
+				backup.Spec.PodTemplateSpec = &templateSpec
+				deployment, err = GetBackupDeployment(backup)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(deployment).NotTo(BeNil())
+			})
+
+			It("should set the image without validating the tag", func() {
+				Expect(deployment.Spec.Template.Spec.Containers[0].Image).To(Equal("test:main"))
+				Expect(deployment.Spec.Template.Spec.InitContainers[0].Image).To(Equal("test:sidecar"))
 			})
 		})
 	})
@@ -2957,11 +3008,8 @@ var _ = Describe("pod_models", func() {
 		}
 
 		DescribeTable("should return the correct image",
-			func(input testCase, expected string) {
-				image, _ := GetImage(
-					input.imageName,
-					input.imageConfigs,
-					input.versionString)
+			func(input testCase, allowTagOverride bool, expected string) {
+				image, _ := GetImage(input.imageName, input.imageConfigs, input.versionString, allowTagOverride)
 				Expect(image).To(Equal(expected))
 			},
 			Entry("only defaults used",
@@ -2971,7 +3019,7 @@ var _ = Describe("pod_models", func() {
 						{BaseImage: "test/test"},
 					},
 					versionString: "6.3.10",
-				}, "test/test:6.3.10"),
+				}, false, "test/test:6.3.10"),
 			Entry("imageName is set",
 				testCase{
 					imageName: "test/curImage",
@@ -2979,15 +3027,23 @@ var _ = Describe("pod_models", func() {
 						{BaseImage: "test/test"},
 					},
 					versionString: "6.3.10",
-				}, "test/curImage:6.3.10"),
+				}, false, "test/curImage:6.3.10"),
 			Entry("image tag is set but not allowOverride",
 				testCase{
-					imageName: "test/curImage:6.3.10",
+					imageName: "test/curImage:dev",
 					imageConfigs: []fdbv1beta2.ImageConfig{
 						{BaseImage: "test/test"},
 					},
 					versionString: "6.3.10",
-				}, ""),
+				}, false, ""),
+			Entry("image tag is set and allowOverride",
+				testCase{
+					imageName: "test/curImage:dev",
+					imageConfigs: []fdbv1beta2.ImageConfig{
+						{BaseImage: "test/test"},
+					},
+					versionString: "6.3.10",
+				}, true, "test/curImage:dev"),
 		)
 
 		Context("Configure the sidecar image", func() {
@@ -3015,7 +3071,7 @@ var _ = Describe("pod_models", func() {
 						initMode:       false,
 						processGroupID: "123",
 						hasError:       false,
-					}, "foundationdb/foundationdb-kubernetes-sidecar:6.2.20-1"),
+					}, "foundationdb/foundationdb-kubernetes-sidecar:6.2.21-1"),
 				Entry("set a tag in the image without override",
 					testCase{
 						container: &corev1.Container{
@@ -3125,4 +3181,21 @@ var _ = Describe("pod_models", func() {
 			Expect(GetPodDNSName(cluster, "operator-test-storage-1")).To(Equal("operator-test-storage-1.operator-test-1.my-ns.svc.cluster.example"))
 		})
 	})
+
+	DescribeTable("getting the process group ID from the Pod name", func(cluster *fdbv1beta2.FoundationDBCluster, podName string, expected string) {
+		Expect(GetProcessGroupIDFromPodName(cluster, podName)).To(Equal(expected))
+	},
+		Entry("cluster without prefix", &fdbv1beta2.FoundationDBCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test",
+			},
+		}, "test-storage-1", "storage-1"),
+		Entry("cluster with prefix", &fdbv1beta2.FoundationDBCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test",
+			},
+			Spec: fdbv1beta2.FoundationDBClusterSpec{
+				ProcessGroupIDPrefix: "prefix",
+			},
+		}, "test-storage-1", "prefix-storage-1"))
 })

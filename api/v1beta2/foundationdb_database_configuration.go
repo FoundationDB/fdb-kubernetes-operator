@@ -39,7 +39,7 @@ type DatabaseConfiguration struct {
 
 	// StorageEngine defines the storage engine the database uses.
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:validation:Enum=ssd;ssd-1;ssd-2;memory;memory-1;memory-2;ssd-redwood-1-experimental;ssd-rocksdb-experimental;ssd-rocksdb-v1;memory-radixtree-beta;custom
+	// +kubebuilder:validation:Enum=ssd;ssd-1;ssd-2;memory;memory-1;memory-2;ssd-redwood-1-experimental;ssd-rocksdb-experimental;ssd-rocksdb-v1;ssd-sharded-rocksdb;memory-radixtree-beta;custom
 	// +kubebuilder:default:=ssd-2
 	StorageEngine StorageEngine `json:"storage_engine,omitempty"`
 
@@ -48,6 +48,10 @@ type DatabaseConfiguration struct {
 
 	// Regions defines the regions that the database can replicate in.
 	Regions []Region `json:"regions,omitempty"`
+
+	// ExcludedServers defines the list  of excluded servers form the database.
+	// +kubebuilder:validation:MaxItems=1024
+	ExcludedServers []ExcludedServers `json:"excluded_servers,omitempty"`
 
 	// RoleCounts defines how many processes the database should recruit for
 	// each role.
@@ -68,6 +72,17 @@ type Region struct {
 
 	// The replication strategy for satellite logs.
 	SatelliteRedundancyMode RedundancyMode `json:"satellite_redundancy_mode,omitempty"`
+}
+
+// ExcludedServers represents the excluded servers in the database configuration
+type ExcludedServers struct {
+	// The Address of the excluded server.
+	// +kubebuilder:validation:MaxLength=48
+	Address string `json:"address,omitempty"`
+
+	// The Locality of the excluded server.
+	// +kubebuilder:validation:MaxLength=200
+	Locality string `json:"locality,omitempty"`
 }
 
 // DataCenter represents a data center in the region configuration
@@ -307,6 +322,7 @@ func (configuration *DatabaseConfiguration) GetRoleCountsWithDefaults(version Ve
 			counts.LogRouters = -1
 		}
 	}
+
 	return *counts
 }
 
@@ -428,7 +444,6 @@ func (configuration DatabaseConfiguration) GetNextConfigurationChange(finalConfi
 								} else if dataCenter.Priority > 0 {
 									hasAlternativePrimary = true
 								}
-
 							}
 						}
 					}
@@ -552,7 +567,7 @@ func (configuration DatabaseConfiguration) getRegionPriorities() map[string]int 
 // to 0
 func (configuration DatabaseConfiguration) AreSeparatedProxiesConfigured() bool {
 	counts := configuration.RoleCounts
-	return counts.Proxies == 0 && (counts.GrvProxies > 0 || counts.CommitProxies > 0)
+	return counts.GrvProxies > 0 || counts.CommitProxies > 0
 }
 
 // GetProxiesString returns a string that contains the correct fdbcli
@@ -563,7 +578,6 @@ func (configuration DatabaseConfiguration) AreSeparatedProxiesConfigured() bool 
 // AreSeparatedProxiesConfigured(), then this function will return the
 // string "commit_proxies=%d grv_proxies=%d", otherwise just
 // "proxies=%d" using the correct counts of the configuration object.
-//
 func (configuration DatabaseConfiguration) GetProxiesString(version Version) string {
 	counts := configuration.GetRoleCountsWithDefaults(version, DesiredFaultTolerance(configuration.RedundancyMode))
 	if version.HasSeparatedProxies() && configuration.AreSeparatedProxiesConfigured() {
@@ -721,6 +735,8 @@ const (
 	StorageEngineRocksDbExperimental StorageEngine = "ssd-rocksdb-experimental"
 	// StorageEngineRocksDbV1 defines the storage engine ssd-rocksdb-v1.
 	StorageEngineRocksDbV1 StorageEngine = "ssd-rocksdb-v1"
+	// StorageEngineShardedRocksDB defines the storage engine ssd-sharded-rocksdb.
+	StorageEngineShardedRocksDB StorageEngine = "ssd-sharded-rocksdb"
 )
 
 // RoleCounts represents the roles whose counts can be customized.
@@ -820,11 +836,14 @@ func fieldIndices(value interface{}, result interface{}, keyType reflect.Type) {
 // GetProcessCountsWithDefaults for more information on the rules for inferring
 // process counts.
 type ProcessCounts struct {
-	Unset             int `json:"unset,omitempty"`
-	Storage           int `json:"storage,omitempty"`
-	Transaction       int `json:"transaction,omitempty"`
-	Resolution        int `json:"resolution,omitempty"`
+	Unset       int `json:"unset,omitempty"`
+	Storage     int `json:"storage,omitempty"`
+	Transaction int `json:"transaction,omitempty"`
+	Resolution  int `json:"resolution,omitempty"`
+	// Deprecated: This setting will be removed in the next major release.
+	// use Test
 	Tester            int `json:"tester,omitempty"`
+	Test              int `json:"test,omitempty"`
 	Proxy             int `json:"proxy,omitempty"`
 	CommitProxy       int `json:"commit_proxy,omitempty"`
 	GrvProxy          int `json:"grv_proxy,omitempty"`
@@ -893,5 +912,20 @@ func (counts ProcessCounts) Diff(currentCounts ProcessCounts) map[ProcessClass]i
 			diff[label] = desired - current
 		}
 	}
+
 	return diff
+}
+
+// Total gets the total number of processes for the cluster configuration.
+func (counts ProcessCounts) Total() int {
+	var total int64
+	desiredValue := reflect.ValueOf(counts)
+	for _, index := range processClassIndices {
+		desired := desiredValue.Field(index).Int()
+		if desired > 0 {
+			total += desired
+		}
+	}
+
+	return int(total)
 }

@@ -23,6 +23,7 @@ package internal
 import (
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
+	"github.com/go-logr/logr"
 )
 
 func hasDesiredFaultTolerance(expectedFaultTolerance int, maxZoneFailuresWithoutLosingData int, maxZoneFailuresWithoutLosingAvailability int) bool {
@@ -32,27 +33,30 @@ func hasDesiredFaultTolerance(expectedFaultTolerance int, maxZoneFailuresWithout
 }
 
 // HasDesiredFaultTolerance checks if the cluster has the desired fault tolerance.
-func HasDesiredFaultTolerance(adminClient fdbadminclient.AdminClient, cluster *fdbv1beta2.FoundationDBCluster) (bool, error) {
+func HasDesiredFaultTolerance(log logr.Logger, adminClient fdbadminclient.AdminClient, cluster *fdbv1beta2.FoundationDBCluster) (bool, error) {
 	status, err := adminClient.GetStatus()
 	if err != nil {
 		return false, err
 	}
 
+	return HasDesiredFaultToleranceFromStatus(log, status, cluster)
+}
+
+// HasDesiredFaultToleranceFromStatus checks if the cluster has the desired fault tolerance based on the provided status.
+func HasDesiredFaultToleranceFromStatus(log logr.Logger, status *fdbv1beta2.FoundationDBStatus, cluster *fdbv1beta2.FoundationDBCluster) (bool, error) {
 	if !status.Client.DatabaseStatus.Available {
-		//log.V(0).Info("Cluster is not available",
-		//	"namespace", cluster.Namespace,
-		//	"cluster", cluster.Name)
+		log.Info("Cluster is not available",
+			"namespace", cluster.Namespace,
+			"cluster", cluster.Name)
 
 		return false, nil
 	}
 
 	expectedFaultTolerance := cluster.DesiredFaultTolerance()
-	//log.V(0).Info("Check desired fault tolerance",
-	//	"namespace", cluster.Namespace,
-	//	"cluster", cluster.Name,
-	//	"expectedFaultTolerance", expectedFaultTolerance,
-	//	"maxZoneFailuresWithoutLosingData", status.Cluster.FaultTolerance.MaxZoneFailuresWithoutLosingData,
-	//	"maxZoneFailuresWithoutLosingAvailability", status.Cluster.FaultTolerance.MaxZoneFailuresWithoutLosingAvailability)
+	log.Info("Check desired fault tolerance",
+		"expectedFaultTolerance", expectedFaultTolerance,
+		"maxZoneFailuresWithoutLosingData", status.Cluster.FaultTolerance.MaxZoneFailuresWithoutLosingData,
+		"maxZoneFailuresWithoutLosingAvailability", status.Cluster.FaultTolerance.MaxZoneFailuresWithoutLosingAvailability)
 
 	return hasDesiredFaultTolerance(
 		expectedFaultTolerance,

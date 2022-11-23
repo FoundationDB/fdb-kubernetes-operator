@@ -43,11 +43,16 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v1
         with:
-          go-version: 1.17.8
+          go-version: 1.19.3
+      #  https://github.com/goreleaser/goreleaser/issues/1311
+      - name: Get current semver tag
+        run: echo "::set-output name=CURRENT_TAG::$(git describe --tags --match "v*" --abbrev=0)"
+        id: current-tag
       - name: Release binaries
         run: make release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GORELEASER_CURRENT_TAG: ${{ steps.current-tag.outputs.CURRENT_TAG }}
   push_images:
     name: Push Docker images
     needs: create-release
@@ -64,16 +69,19 @@ jobs:
             name: foundationdb/fdb-kubernetes-operator
             tagSuffix: ""
             file: ./Dockerfile
+            baseImage: "docker.io/debian:bullseye"
           - image: fdb-kubernetes-operator-distroless
             context: ./
             name: foundationdb/fdb-kubernetes-operator
             tagSuffix: -distrolesss
-            file: ./distrolesss.dockerfile
+            file: ./Dockerfile
+            baseImage: "gcr.io/distroless/base"
           - image: fdb-data-loader
             context: ./sample-apps/data-loader
             name: foundationdb/fdb-data-loader
             tagSuffix: ""
             file: ./sample-apps/data-loader/Dockerfile
+            baseImage: ""
     steps:
       - name: Check out the repo
         uses: actions/checkout@v2
@@ -90,7 +98,9 @@ jobs:
       - name: Build and push to registry
         uses: docker/build-push-action@v2
         with:
-          build-args: TAG=${{ steps.get_tag.outputs.TAG }}
+          build-args: |
+            TAG=${{ steps.get_sha.outputs.TAG }}
+            BASE_IMAGE=${{ matrix.baseImage }}
           push: true
           context: ${{ matrix.context }}
           tags: ${{ matrix.name }}:${{ steps.get_tag.outputs.TAG }}${{ matrix.tagSuffix }}

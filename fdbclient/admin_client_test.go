@@ -105,139 +105,95 @@ var _ = Describe("admin_client_test", func() {
 		addr3 := fdbv1beta2.NewProcessAddress(net.ParseIP("127.0.0.3"), "", 0, nil)
 		addr4 := fdbv1beta2.NewProcessAddress(net.ParseIP("127.0.0.4"), "", 0, nil)
 		addr5 := fdbv1beta2.NewProcessAddress(net.ParseIP("127.0.0.5"), "", 0, nil)
-
-		DescribeTable("fetching the excluded and ramining processes from the status",
-			func(status *fdbv1beta2.FoundationDBStatus, addresses []fdbv1beta2.ProcessAddress, expectedExcluded []fdbv1beta2.ProcessAddress, expectedRemaining []fdbv1beta2.ProcessAddress) {
-				excluded, remaining := getRemainingAndExcludedFromStatus(status, addresses)
-				Expect(expectedExcluded).To(ContainElements(excluded))
-				Expect(len(expectedExcluded)).To(BeNumerically("==", len(excluded)))
-				Expect(expectedRemaining).To(ContainElements(remaining))
-				Expect(len(expectedRemaining)).To(BeNumerically("==", len(remaining)))
-			},
-			Entry("with an empty input address slice",
-				&fdbv1beta2.FoundationDBStatus{
-					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
-						Processes: map[string]fdbv1beta2.FoundationDBStatusProcessInfo{
-							"1": {
-								Address:  addr1,
-								Excluded: true,
-							},
-							"2": {
-								Address: addr2,
-							},
-							"3": {
-								Address: addr3,
-							},
-							"4": {
-								Address:  addr4,
-								Excluded: true,
+		status := &fdbv1beta2.FoundationDBStatus{
+			Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+				Processes: map[string]fdbv1beta2.FoundationDBStatusProcessInfo{
+					"1": {
+						Address:  addr1,
+						Excluded: true,
+					},
+					"2": {
+						Address: addr2,
+					},
+					"3": {
+						Address: addr3,
+					},
+					"4": {
+						Address:  addr4,
+						Excluded: true,
+						Roles: []fdbv1beta2.FoundationDBStatusProcessRoleInfo{
+							{
+								Role: "tester",
 							},
 						},
 					},
 				},
+			},
+		}
+
+		DescribeTable("fetching the excluded and remaining processes from the status",
+			func(status *fdbv1beta2.FoundationDBStatus, addresses []fdbv1beta2.ProcessAddress, expectedExcluded []fdbv1beta2.ProcessAddress, expectedRemaining []fdbv1beta2.ProcessAddress, expectedFullyExcluded []fdbv1beta2.ProcessAddress) {
+				exclusions := getRemainingAndExcludedFromStatus(status, addresses)
+				Expect(expectedExcluded).To(ContainElements(exclusions.inProgress))
+				Expect(len(expectedExcluded)).To(BeNumerically("==", len(exclusions.inProgress)))
+				Expect(expectedRemaining).To(ContainElements(exclusions.notExcluded))
+				Expect(len(expectedRemaining)).To(BeNumerically("==", len(exclusions.notExcluded)))
+				Expect(expectedFullyExcluded).To(ContainElements(exclusions.fullyExcluded))
+				Expect(len(expectedFullyExcluded)).To(BeNumerically("==", len(exclusions.fullyExcluded)))
+			},
+			Entry("with an empty input address slice",
+				status,
 				[]fdbv1beta2.ProcessAddress{},
+				nil,
 				nil,
 				nil,
 			),
 			Entry("when the process is excluded",
-				&fdbv1beta2.FoundationDBStatus{
-					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
-						Processes: map[string]fdbv1beta2.FoundationDBStatusProcessInfo{
-							"1": {
-								Address:  addr1,
-								Excluded: true,
-							},
-							"2": {
-								Address: addr2,
-							},
-							"3": {
-								Address: addr3,
-							},
-							"4": {
-								Address:  addr4,
-								Excluded: true,
-							},
-						},
-					},
-				},
+				status,
 				[]fdbv1beta2.ProcessAddress{addr4},
 				[]fdbv1beta2.ProcessAddress{addr4},
+				nil,
 				nil,
 			),
 			Entry("when the process is not excluded",
-				&fdbv1beta2.FoundationDBStatus{
-					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
-						Processes: map[string]fdbv1beta2.FoundationDBStatusProcessInfo{
-							"1": {
-								Address:  addr1,
-								Excluded: true,
-							},
-							"2": {
-								Address: addr2,
-							},
-							"3": {
-								Address: addr3,
-							},
-							"4": {
-								Address:  addr4,
-								Excluded: true,
-							},
-						},
-					},
-				},
+				status,
 				[]fdbv1beta2.ProcessAddress{addr3},
 				nil,
 				[]fdbv1beta2.ProcessAddress{addr3},
+				nil,
 			),
-			Entry("when some processes are excludeded and some not",
-				&fdbv1beta2.FoundationDBStatus{
-					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
-						Processes: map[string]fdbv1beta2.FoundationDBStatusProcessInfo{
-							"1": {
-								Address:  addr1,
-								Excluded: true,
-							},
-							"2": {
-								Address: addr2,
-							},
-							"3": {
-								Address: addr3,
-							},
-							"4": {
-								Address:  addr4,
-								Excluded: true,
-							},
-						},
-					},
-				},
+			Entry("when some processes are excluded and some not",
+				status,
 				[]fdbv1beta2.ProcessAddress{addr1, addr2, addr3, addr4},
-				[]fdbv1beta2.ProcessAddress{addr1, addr4},
+				[]fdbv1beta2.ProcessAddress{addr4},
 				[]fdbv1beta2.ProcessAddress{addr2, addr3},
+				[]fdbv1beta2.ProcessAddress{addr1},
 			),
 			Entry("when a process is missing",
-				&fdbv1beta2.FoundationDBStatus{
-					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
-						Processes: map[string]fdbv1beta2.FoundationDBStatusProcessInfo{
-							"1": {
-								Address:  addr1,
-								Excluded: true,
-							},
-							"2": {
-								Address: addr2,
-							},
-							"3": {
-								Address: addr3,
-							},
-							"4": {
-								Address:  addr4,
-								Excluded: true,
-							},
-						},
-					},
-				},
+				status,
 				[]fdbv1beta2.ProcessAddress{addr5},
 				[]fdbv1beta2.ProcessAddress{addr5},
 				[]fdbv1beta2.ProcessAddress{},
+				nil,
+			),
+		)
+	})
+
+	When("parsing the connection string", func() {
+		DescribeTable("it should return the correct connection string",
+			func(input string, expected string) {
+				connectingString, err := fdbv1beta2.ParseConnectionString(cleanConnectionStringOutput(input))
+				Expect(err).NotTo(HaveOccurred())
+				Expect(connectingString.String()).To(Equal(expected))
+			},
+			Entry("with a correct response from FDB",
+				">>> option on ACCESS_SYSTEM_KEYS\\nOption enabled for all transactions\\n>>> get \\\\xff/coordinators\\n`\\\\xff/coordinators' is `fdb_cluster_52v1bpr8:rhUbBjrtyweZBQO1U3Td81zyP9d46yEh@100.82.81.253:4500:tls,100.82.71.5:4500:tls,100.82.119.151:4500:tls,100.82.122.125:4500:tls,100.82.76.240:4500:tls'\\n",
+				"fdb_cluster_52v1bpr8:rhUbBjrtyweZBQO1U3Td81zyP9d46yEh@100.82.81.253:4500:tls,100.82.71.5:4500:tls,100.82.119.151:4500:tls,100.82.122.125:4500:tls,100.82.76.240:4500:tls",
+			),
+
+			Entry("without the byte string response",
+				"fdb_cluster_52v1bpr8:rhUbBjrtyweZBQO1U3Td81zyP9d46yEh@100.82.81.253:4500:tls,100.82.71.5:4500:tls,100.82.119.151:4500:tls,100.82.122.125:4500:tls,100.82.76.240:4500:tls",
+				"fdb_cluster_52v1bpr8:rhUbBjrtyweZBQO1U3Td81zyP9d46yEh@100.82.81.253:4500:tls,100.82.71.5:4500:tls,100.82.119.151:4500:tls,100.82.122.125:4500:tls,100.82.76.240:4500:tls",
 			),
 		)
 	})

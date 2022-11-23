@@ -39,6 +39,8 @@ import (
 // +kubebuilder:printcolumn:name="Reconciled",type="integer",JSONPath=".status.generations.reconciled",description="Last reconciled generation of the spec",priority=0
 // +kubebuilder:printcolumn:name="Available",type="boolean",JSONPath=".status.health.available",description="Database available",priority=0
 // +kubebuilder:printcolumn:name="FullReplication",type="boolean",JSONPath=".status.health.fullReplication",description="Database fully replicated",priority=0
+// +kubebuilder:printcolumn:name="ReconciledProcessGroups",type="integer",JSONPath=".status.reconciledProcessGroups",description="Number of reconciled process groups",priority=1
+// +kubebuilder:printcolumn:name="DesiredProcessGroups",type="integer",JSONPath=".status.desiredProcessGroups",description="Desired number of process groups",priority=1
 // +kubebuilder:printcolumn:name="Version",type="string",JSONPath=".status.runningVersion",description="Running version",priority=0
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:storageversion
@@ -61,7 +63,7 @@ type FoundationDBClusterList struct {
 	Items           []FoundationDBCluster `json:"items"`
 }
 
-var conditionsThatNeedReplacement = []ProcessGroupConditionType{MissingProcesses, PodFailing}
+var conditionsThatNeedReplacement = []ProcessGroupConditionType{MissingProcesses, PodFailing, MissingPod, MissingPVC, MissingService, PodPending}
 
 func init() {
 	SchemeBuilder.Register(&FoundationDBCluster{}, &FoundationDBClusterList{})
@@ -279,6 +281,26 @@ type FoundationDBClusterStatus struct {
 
 	// Locks contains information about the locking system.
 	Locks LockSystemStatus `json:"locks,omitempty"`
+
+	// MaintenenanceModeInfo contains information regarding process groups in maintenance mode
+	MaintenanceModeInfo MaintenanceModeInfo `json:"maintenanceModeInfo,omitempty"`
+
+	// DesiredProcessGroups reflects the number of expected running process groups.
+	DesiredProcessGroups int `json:"desiredProcessGroups,omitempty"`
+
+	// ReconciledProcessGroups reflects the number of process groups that have no condition and are not marked for removal.
+	ReconciledProcessGroups int `json:"reconciledProcessGroups,omitempty"`
+}
+
+// MaintenanceModeInfo contains information regarding the zone and process groups that are put
+// into maintenance mode by the operator
+type MaintenanceModeInfo struct {
+	// StartTimestamp provides the timestamp when this zone is put into maintenance mode
+	StartTimestamp *metav1.Time `json:"startTimestamp,omitempty"`
+	// ZoneID that is placed in maintenance mode
+	ZoneID string `json:"zoneID,omitempty"`
+	// ProcessGroups that are placed in maintenance mode
+	ProcessGroups []string `json:"processGroups,omitempty"`
 }
 
 // LockSystemStatus provides a summary of the status of the locking system.
@@ -305,6 +327,11 @@ type ProcessGroupStatus struct {
 	ExclusionSkipped bool `json:"exclusionSkipped,omitempty"`
 	// ProcessGroupConditions represents a list of degraded conditions that the process group is in.
 	ProcessGroupConditions []*ProcessGroupCondition `json:"processGroupConditions,omitempty"`
+}
+
+// GetExclusionString returns the exclusion string
+func (processGroupStatus *ProcessGroupStatus) GetExclusionString() string {
+	return fmt.Sprintf("locality_instance_id:%s", processGroupStatus.ProcessGroupID)
 }
 
 // IsExcluded returns if a process group is excluded
@@ -593,7 +620,6 @@ func (clusterStatus FoundationDBClusterStatus) ProcessGroupsByProcessClass(proce
 		if groupStatus.ProcessClass == processClass {
 			result = append(result, groupStatus)
 		}
-
 	}
 
 	return result
@@ -810,10 +836,18 @@ type FoundationDBClusterAutomationOptions struct {
 	// The default is false.
 	UseNonBlockingExcludes *bool `json:"useNonBlockingExcludes,omitempty"`
 
+	// UseLocalitiesForExclusion defines whether the exclusions are done using localities instead of IP addresses.
+	// The default is false.
+	UseLocalitiesForExclusion *bool `json:"useLocalitiesForExclusion,omitempty"`
+
 	// IgnoreTerminatingPodsSeconds defines how long a Pod has to be in the Terminating Phase before
 	// we ignore it during reconciliation. This prevents Pod that are stuck in Terminating to block
 	// further reconciliation.
 	IgnoreTerminatingPodsSeconds *int `json:"ignoreTerminatingPodsSeconds,omitempty"`
+
+	// IgnoreMissingProcessesSeconds defines how long a process group has to be in the MissingProcess condition until
+	// it will be ignored during reconciliation. This prevents that a process will block reconciliation.
+	IgnoreMissingProcessesSeconds *int `json:"ignoreMissingProcessesSeconds,omitempty"`
 
 	// MaxConcurrentReplacements defines how many process groups can be concurrently
 	// replaced if they are misconfigured. If the value will be set to 0 this will block replacements
@@ -857,6 +891,24 @@ type FoundationDBClusterAutomationOptions struct {
 	// +kubebuilder:validation:Enum=Replace;ReplaceTransactionSystem;Delete
 	// +kubebuilder:default:=ReplaceTransactionSystem
 	PodUpdateStrategy PodUpdateStrategy `json:"podUpdateStrategy,omitempty"`
+
+	// UseManagementAPI defines if the operator should make use of the management API instead of
+	// using fdbcli to interact with the FoundationDB cluster.
+	UseManagementAPI *bool `json:"useManagementAPI,omitempty"`
+
+	// MaintenanceModeOptions contains options for maintenance mode related settings.
+	MaintenanceModeOptions MaintenanceModeOptions `json:"maintenanceModeOptions,omitempty"`
+}
+
+// MaintenanceModeOptions controls options for placing zones in maintenance mode.
+type MaintenanceModeOptions struct {
+	// UseMaintenanceModeChecker defines whether the operator is allowed to use maintenance mode before updating pods.
+	// Default is false.
+	UseMaintenanceModeChecker *bool `json:"UseMaintenanceModeChecker,omitempty"`
+
+	// MaintenanceModeTimeSeconds provides the duration for the zone to be in maintenance. It will automatically be switched off after the time elapses.
+	// Default is 600.
+	MaintenanceModeTimeSeconds *int `json:"maintenanceModeTimeSeconds,omitempty"`
 }
 
 // AutomaticReplacementOptions controls options for automatically replacing
@@ -868,7 +920,7 @@ type AutomaticReplacementOptions struct {
 
 	// FailureDetectionTimeSeconds controls how long a process must be
 	// failed or missing before it is automatically replaced.
-	// The default is 1800 seconds, or 30 minutes.
+	// The default is 7200 seconds, or 2 hours.
 	FailureDetectionTimeSeconds *int `json:"failureDetectionTimeSeconds,omitempty"`
 
 	// MaxConcurrentReplacements controls how many automatic replacements are allowed to take part.
@@ -944,7 +996,7 @@ func (cluster *FoundationDBCluster) GetProcessSettings(processClass ProcessClass
 // UsableRegions is less than or equal to 1.
 func (cluster *FoundationDBCluster) GetRoleCountsWithDefaults() RoleCounts {
 	// We can ignore the error here since the version will be validated in an earlier step.
-	version, _ := ParseFdbVersion(cluster.Spec.Version)
+	version, _ := ParseFdbVersion(cluster.GetRunningVersion())
 	return cluster.Spec.DatabaseConfiguration.GetRoleCountsWithDefaults(version, cluster.DesiredFaultTolerance())
 }
 
@@ -1055,7 +1107,7 @@ func (cluster *FoundationDBCluster) GetProcessCountsWithDefaults() (ProcessCount
 		primaryStatelessCount += cluster.calculateProcessCountFromRole(1, processCounts.Ratekeeper) +
 			cluster.calculateProcessCountFromRole(1, processCounts.DataDistributor)
 
-		fdbVersion, err := ParseFdbVersion(cluster.Spec.Version)
+		fdbVersion, err := ParseFdbVersion(cluster.GetRunningVersion())
 		if err != nil {
 			return *processCounts, err
 		}
@@ -1072,6 +1124,7 @@ func (cluster *FoundationDBCluster) GetProcessCountsWithDefaults() (ProcessCount
 			cluster.calculateProcessCountFromRole(roleCounts.LogRouters),
 		)
 	}
+
 	return *processCounts, nil
 }
 
@@ -1108,7 +1161,6 @@ func (cluster *FoundationDBCluster) CheckReconciliation(log logr.Logger) (bool, 
 	}
 
 	cluster.Status.Generations = ClusterGenerationStatus{Reconciled: cluster.Status.Generations.Reconciled}
-
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if !processGroup.IsMarkedForRemoval() {
 			continue
@@ -1143,12 +1195,35 @@ func (cluster *FoundationDBCluster) CheckReconciliation(log logr.Logger) (bool, 
 		}
 	}
 
+	cluster.Status.DesiredProcessGroups = desiredCounts.Total()
+	cluster.Status.ReconciledProcessGroups = 0
+
 	for _, processGroup := range cluster.Status.ProcessGroups {
-		if len(processGroup.ProcessGroupConditions) > 0 && !processGroup.IsMarkedForRemoval() {
-			logger.Info("Has unhealthy process group", "processGroupID", processGroup.ProcessGroupID, "state", "HasUnhealthyProcess")
+		if processGroup.IsMarkedForRemoval() {
+			continue
+		}
+
+		if len(processGroup.ProcessGroupConditions) > 0 {
+			conditions := make([]ProcessGroupConditionType, 0, len(processGroup.ProcessGroupConditions))
+			for _, condition := range processGroup.ProcessGroupConditions {
+				if condition.ProcessGroupConditionType == IncorrectCommandLine && cluster.Status.Generations.NeedsBounce == 0 {
+					logger.Info("Pending restart of fdbserver processes", "state", "NeedsBounce")
+					cluster.Status.Generations.NeedsBounce = cluster.ObjectMeta.Generation
+				}
+				conditions = append(conditions, condition.ProcessGroupConditionType)
+			}
+
+			logger.Info("Has unhealthy process group", "processGroupID", processGroup.ProcessGroupID, "state", "HasUnhealthyProcess", "conditions", conditions)
 			cluster.Status.Generations.HasUnhealthyProcess = cluster.ObjectMeta.Generation
 			reconciled = false
+			continue
 		}
+
+		cluster.Status.ReconciledProcessGroups++
+	}
+
+	if cluster.Status.DesiredProcessGroups != cluster.Status.ReconciledProcessGroups {
+		logger.Info("Not all process groups are reconciled", "desiredProcessGroups", cluster.Status.DesiredProcessGroups, "reconciledProcessGroups", cluster.Status.ReconciledProcessGroups)
 	}
 
 	if !cluster.Status.Health.Available {
@@ -1404,74 +1479,24 @@ type ContainerOverrides struct {
 
 	// PeerVerificationRules provides the rules for what client certificates
 	// the process should accept.
+	// +kubebuilder:validation:MaxLength=10000
 	PeerVerificationRules string `json:"peerVerificationRules,omitempty"`
 
 	// ImageConfigs allows customizing the image that we use for
 	// a container.
+	// +kubebuilder:validation:MaxItems=100
 	ImageConfigs []ImageConfig `json:"imageConfigs,omitempty"`
-}
-
-// ImageConfig provides a policy for customizing an image.
-//
-// When multiple image configs are provided, they will be merged into a single
-// config that will be used to define the final image. For each field, we select
-// the value from the first entry in the config list that defines a value for
-// that field, and matches the version of FoundationDB the image is for. Any
-// config that specifies a different version than the one under consideration
-// will be ignored for the purposes of defining that image.
-type ImageConfig struct {
-	// Version is the version of FoundationDB this policy applies to. If this is
-	// blank, the policy applies to all FDB versions.
-	Version string `json:"version,omitempty"`
-
-	// BaseImage specifies the part of the image before the tag.
-	BaseImage string `json:"baseImage,omitempty"`
-
-	// Tag specifies a full image tag.
-	Tag string `json:"tag,omitempty"`
-
-	// TagSuffix specifies a suffix that will be added after the version to form
-	// the full tag.
-	TagSuffix string `json:"tagSuffix,omitempty"`
-}
-
-// SelectImageConfig selects image configs that apply to a version of FDB and
-// merges them into a single config.
-func SelectImageConfig(allConfigs []ImageConfig, versionString string) ImageConfig {
-	config := ImageConfig{Version: versionString}
-	for _, nextConfig := range allConfigs {
-		if nextConfig.Version != "" && nextConfig.Version != versionString {
-			continue
-		}
-		if config.BaseImage == "" {
-			config.BaseImage = nextConfig.BaseImage
-		}
-		if config.Tag == "" {
-			config.Tag = nextConfig.Tag
-		}
-		if config.TagSuffix == "" {
-			config.TagSuffix = nextConfig.TagSuffix
-		}
-	}
-	return config
-}
-
-// Image generates an image using a config.
-func (config ImageConfig) Image() string {
-	if config.Tag == "" {
-		return fmt.Sprintf("%s:%s%s", config.BaseImage, config.Version, config.TagSuffix)
-	}
-	return fmt.Sprintf("%s:%s", config.BaseImage, config.Tag)
 }
 
 // DesiredDatabaseConfiguration builds the database configuration for the
 // cluster based on its spec.
 func (cluster *FoundationDBCluster) DesiredDatabaseConfiguration() DatabaseConfiguration {
-	configuration := cluster.Spec.DatabaseConfiguration.NormalizeConfigurationWithSeparatedProxies(cluster.Spec.Version, cluster.Spec.DatabaseConfiguration.AreSeparatedProxiesConfigured())
+	configuration := cluster.Spec.DatabaseConfiguration.NormalizeConfigurationWithSeparatedProxies(cluster.GetRunningVersion(), cluster.Spec.DatabaseConfiguration.AreSeparatedProxiesConfigured())
 	configuration.RoleCounts = cluster.GetRoleCountsWithDefaults()
 	configuration.RoleCounts.Storage = 0
 
-	if cluster.Spec.DatabaseConfiguration.AreSeparatedProxiesConfigured() {
+	version, _ := ParseFdbVersion(cluster.GetRunningVersion())
+	if version.HasSeparatedProxies() && cluster.Spec.DatabaseConfiguration.AreSeparatedProxiesConfigured() {
 		configuration.RoleCounts.Proxies = 0
 	} else {
 		configuration.RoleCounts.GrvProxies = 0
@@ -1773,7 +1798,7 @@ func (cluster *FoundationDBCluster) ShouldFilterOnOwnerReferences() bool {
 	return pointer.BoolDeref(cluster.Spec.LabelConfig.FilterOnOwnerReferences, false)
 }
 
-// SkipProcessGroup checks if a ProcessGroupStatus should be skip during reconciliation.
+// SkipProcessGroup checks if a ProcessGroupStatus should be skipped during reconciliation.
 func (cluster *FoundationDBCluster) SkipProcessGroup(processGroup *ProcessGroupStatus) bool {
 	if processGroup == nil {
 		return true
@@ -1796,6 +1821,11 @@ func (cluster *FoundationDBCluster) GetIgnorePendingPodsDuration() time.Duration
 	return cluster.Spec.AutomationOptions.IgnorePendingPodsDuration
 }
 
+// GetIgnoreMissingProcessesSeconds returns the value of IgnoreMissingProcessesSecond or 30 seconds if unset.
+func (cluster *FoundationDBCluster) GetIgnoreMissingProcessesSeconds() time.Duration {
+	return time.Duration(pointer.IntDeref(cluster.Spec.AutomationOptions.IgnoreMissingProcessesSeconds, 30)) * time.Second
+}
+
 // GetUseNonBlockingExcludes returns the value of useNonBlockingExcludes or false if unset.
 func (cluster *FoundationDBCluster) GetUseNonBlockingExcludes() bool {
 	if cluster.Spec.AutomationOptions.UseNonBlockingExcludes == nil {
@@ -1803,6 +1833,17 @@ func (cluster *FoundationDBCluster) GetUseNonBlockingExcludes() bool {
 	}
 
 	return *cluster.Spec.AutomationOptions.UseNonBlockingExcludes
+}
+
+// UseLocalitiesForExclusion returns the value of UseLocalitiesForExclusion or false if unset.
+func (cluster *FoundationDBCluster) UseLocalitiesForExclusion() bool {
+	fdbVersion, err := ParseFdbVersion(cluster.Spec.Version)
+	if err != nil {
+		// Fall back to use exclusions with IP if we can't parse the version.
+		// This should never happen since the version is validated in earlier steps.
+		return false
+	}
+	return fdbVersion.IsAtLeast(Versions.NextMajorVersion) && pointer.BoolDeref(cluster.Spec.AutomationOptions.UseLocalitiesForExclusion, false)
 }
 
 // GetProcessClassLabel provides the label that this cluster is using for the
@@ -1828,6 +1869,11 @@ func (cluster *FoundationDBCluster) GetProcessGroupIDLabel() string {
 // GetMaxConcurrentReplacements returns the maxConcurrentReplacements or defaults to math.MaxInt64
 func (cluster *FoundationDBCluster) GetMaxConcurrentReplacements() int {
 	return pointer.IntDeref(cluster.Spec.AutomationOptions.MaxConcurrentReplacements, math.MaxInt64)
+}
+
+// UseManagementAPI returns the value of UseManagementAPI or false if unset.
+func (cluster *FoundationDBCluster) UseManagementAPI() bool {
+	return pointer.BoolDeref(cluster.Spec.AutomationOptions.UseManagementAPI, false)
 }
 
 // PodUpdateMode defines the deletion mode for the cluster
@@ -1879,6 +1925,16 @@ func (cluster *FoundationDBCluster) GetWaitBetweenRemovalsSeconds() int {
 	}
 
 	return duration
+}
+
+// UseMaintenaceMode returns true if UseMaintenanceModeChecker is set.
+func (cluster *FoundationDBCluster) UseMaintenaceMode() bool {
+	return pointer.BoolDeref(cluster.Spec.AutomationOptions.MaintenanceModeOptions.UseMaintenanceModeChecker, false)
+}
+
+// GetMaintenaceModeTimeoutSeconds returns the timeout for maintenance zone after which it will be reset.
+func (cluster *FoundationDBCluster) GetMaintenaceModeTimeoutSeconds() int {
+	return pointer.IntDeref(cluster.Spec.AutomationOptions.MaintenanceModeOptions.MaintenanceModeTimeSeconds, 600)
 }
 
 // PodUpdateStrategy defines how Pod spec changes should be applied.
@@ -1966,9 +2022,9 @@ func (cluster *FoundationDBCluster) GetEnableAutomaticReplacements() bool {
 	return pointer.BoolDeref(cluster.Spec.AutomationOptions.Replacements.Enabled, true)
 }
 
-// GetFailureDetectionTimeSeconds returns cluster.Spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds or if unset the default 1800
+// GetFailureDetectionTimeSeconds returns cluster.Spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds or if unset the default 7200
 func (cluster *FoundationDBCluster) GetFailureDetectionTimeSeconds() int {
-	return pointer.IntDeref(cluster.Spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds, 1800)
+	return pointer.IntDeref(cluster.Spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds, 7200)
 }
 
 // GetSidecarContainerEnableLivenessProbe returns cluster.Spec.SidecarContainer.EnableLivenessProbe or if unset the default true
@@ -2009,6 +2065,76 @@ func (cluster *FoundationDBCluster) AddProcessGroupsToRemovalList(processGroupID
 	}
 }
 
+// AddProcessGroupsToNoScheduleList adds the provided process group IDs to the no-schedule list.
+// If a process group ID is already present on that list it won't be added a second time.
+func (cluster *FoundationDBCluster) AddProcessGroupsToNoScheduleList(processGroupIDs []string) {
+	noScheduleProcesses := map[string]None{}
+
+	for _, id := range cluster.Spec.Buggify.NoSchedule {
+		noScheduleProcesses[id] = None{}
+	}
+
+	for _, processGroupID := range processGroupIDs {
+		if _, ok := noScheduleProcesses[processGroupID]; ok {
+			continue
+		}
+
+		cluster.Spec.Buggify.NoSchedule = append(cluster.Spec.Buggify.NoSchedule, processGroupID)
+	}
+}
+
+// RemoveProcessGroupsFromNoScheduleList removes the provided process group IDs from the no-schedule list.
+func (cluster *FoundationDBCluster) RemoveProcessGroupsFromNoScheduleList(processGroupIDs []string) {
+	processGroupIDsToRemove := make(map[string]None)
+	for _, processGroupID := range processGroupIDs {
+		processGroupIDsToRemove[processGroupID] = None{}
+	}
+
+	idx := 0
+	for _, processGroupID := range cluster.Spec.Buggify.NoSchedule {
+		if _, ok := processGroupIDsToRemove[processGroupID]; ok {
+			continue
+		}
+		cluster.Spec.Buggify.NoSchedule[idx] = processGroupID
+		idx++
+	}
+
+	cluster.Spec.Buggify.NoSchedule = cluster.Spec.Buggify.NoSchedule[:idx]
+}
+
+// AddProcessGroupsToCrashLoopList adds the provided process group IDs to the crash-loop list.
+// If a process group ID is already present on that list or all the processes are set into crash-loop
+// it won't be added a second time.
+func (cluster *FoundationDBCluster) AddProcessGroupsToCrashLoopList(processGroupIDs []string) {
+	crashLoop, _ := cluster.GetCrashLoopProcessGroups()
+
+	for _, processGroupID := range processGroupIDs {
+		if _, ok := crashLoop[processGroupID]; ok {
+			continue
+		}
+
+		cluster.Spec.Buggify.CrashLoop = append(cluster.Spec.Buggify.CrashLoop, processGroupID)
+	}
+}
+
+// RemoveProcessGroupsFromCrashLoopList removes the provided process group IDs from the crash-loop list.
+func (cluster *FoundationDBCluster) RemoveProcessGroupsFromCrashLoopList(processGroupIDs []string) {
+	processGroupIDsToRemove := make(map[string]None)
+	for _, processGroupID := range processGroupIDs {
+		processGroupIDsToRemove[processGroupID] = None{}
+	}
+
+	idx := 0
+	for _, processGroupID := range cluster.Spec.Buggify.CrashLoop {
+		if _, ok := processGroupIDsToRemove[processGroupID]; ok {
+			continue
+		}
+		cluster.Spec.Buggify.CrashLoop[idx] = processGroupID
+		idx++
+	}
+	cluster.Spec.Buggify.CrashLoop = cluster.Spec.Buggify.CrashLoop[:idx]
+}
+
 // AddProcessGroupsToRemovalWithoutExclusionList adds the provided process group IDs to the remove without exclusion list.
 // If a process group ID is already present on that list it won't be added a second time.
 func (cluster *FoundationDBCluster) AddProcessGroupsToRemovalWithoutExclusionList(processGroupIDs []string) {
@@ -2025,4 +2151,61 @@ func (cluster *FoundationDBCluster) AddProcessGroupsToRemovalWithoutExclusionLis
 
 		cluster.Spec.ProcessGroupsToRemoveWithoutExclusion = append(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion, processGroupID)
 	}
+}
+
+// GetRunningVersion returns the running version of the cluster defined in the cluster status or if not defined the version
+// defined in the cluster spec.
+func (cluster *FoundationDBCluster) GetRunningVersion() string {
+	// We have to use the running version here otherwise if the operator gets killed during an upgrade it will try to apply
+	// the grv and commit proxies.
+	versionString := cluster.Status.RunningVersion
+	if versionString == "" {
+		return cluster.Spec.Version
+	}
+
+	return versionString
+}
+
+// GetCrashLoopProcessGroups returns the process group IDs that are marked for crash looping. The second return value indicates
+// if all process group IDs in a cluster should be crash looping.
+func (cluster *FoundationDBCluster) GetCrashLoopProcessGroups() (map[string]None, bool) {
+	crashLoopPods := make(map[string]None, len(cluster.Spec.Buggify.CrashLoop))
+	crashLoopAll := false
+	for _, processGroupID := range cluster.Spec.Buggify.CrashLoop {
+		if processGroupID == "*" {
+			crashLoopAll = true
+		}
+		crashLoopPods[processGroupID] = None{}
+	}
+
+	return crashLoopPods, crashLoopAll
+}
+
+// Validate checks if all settings in the cluster are valid, if not and error will be returned. If multiple issues are
+// found all of them will be returned in a single error.
+func (cluster *FoundationDBCluster) Validate() error {
+	var validations []string
+
+	// Check if the provided storage engine is valid for the defined FDB version.
+	version, err := ParseFdbVersion(cluster.Spec.Version)
+	if err != nil {
+		return err
+	}
+
+	if !version.IsStorageEngineSupported(cluster.Spec.DatabaseConfiguration.StorageEngine) {
+		validations = append(validations, fmt.Sprintf("storage engine %s is not supported on version %s", cluster.Spec.DatabaseConfiguration.StorageEngine, cluster.Spec.Version))
+	}
+
+	// Check if all coordinator processes are stateful
+	for _, selection := range cluster.Spec.CoordinatorSelection {
+		if !selection.ProcessClass.IsStateful() {
+			validations = append(validations, fmt.Sprintf("%s is not a valid process class for coordinators", selection.ProcessClass))
+		}
+	}
+
+	if len(validations) == 0 {
+		return nil
+	}
+
+	return fmt.Errorf(strings.Join(validations, ", "))
 }

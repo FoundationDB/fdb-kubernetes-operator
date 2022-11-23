@@ -22,20 +22,17 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"strings"
 	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/cli-runtime/pkg/genericclioptions"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
 )
 
 func getCluster(clusterName string, namespace string, available bool, healthy bool, fullReplication bool, reconciled int64, processGroups []*fdbv1beta2.ProcessGroupStatus) *fdbv1beta2.FoundationDBCluster {
@@ -82,13 +79,9 @@ func getPodList(clusterName string, namespace string, status corev1.PodStatus, d
 			},
 		},
 	}
-
 }
 
 var _ = Describe("[plugin] analyze cluster", func() {
-	clusterName := "test"
-	namespace := "test"
-
 	When("analyzing the cluster", func() {
 		type testCase struct {
 			cluster           *fdbv1beta2.FoundationDBCluster
@@ -104,10 +97,11 @@ var _ = Describe("[plugin] analyze cluster", func() {
 
 		DescribeTable("return all successful and failed checks",
 			func(tc testCase) {
-				scheme := runtime.NewScheme()
-				_ = clientgoscheme.AddToScheme(scheme)
-				_ = fdbv1beta2.AddToScheme(scheme)
-				kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(tc.cluster, tc.podList).Build()
+				Expect(k8sClient.Delete(context.TODO(), tc.cluster)).NotTo(HaveOccurred())
+				Expect(k8sClient.Create(context.TODO(), tc.cluster)).NotTo(HaveOccurred())
+				for _, pod := range tc.podList.Items {
+					Expect(k8sClient.Create(context.TODO(), &pod)).NotTo(HaveOccurred())
+				}
 
 				// We use these buffers to check the input/output
 				outBuffer := bytes.Buffer{}
@@ -115,7 +109,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				inBuffer := bytes.Buffer{}
 
 				cmd := newAnalyzeCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer})
-				err := analyzeCluster(cmd, kubeClient, clusterName, namespace, tc.AutoFix, tc.NoWait, tc.IgnoredConditions, tc.IgnoreRemovals)
+				err := analyzeCluster(cmd, k8sClient, clusterName, namespace, tc.AutoFix, tc.NoWait, tc.IgnoredConditions, tc.IgnoreRemovals, 0)
 
 				if err != nil && !tc.HasErrors {
 					Expect(err).To(HaveOccurred())
@@ -126,7 +120,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 			},
 			Entry("Cluster is fine",
 				testCase{
-					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbv1beta2.ProcessGroupStatus{
+					cluster: getCluster(clusterName, namespace, true, true, true, 1, []*fdbv1beta2.ProcessGroupStatus{
 						{ProcessGroupID: "instance-1"},
 					}),
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
@@ -145,7 +139,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				}),
 			Entry("Cluster is unavailable",
 				testCase{
-					cluster: getCluster(clusterName, namespace, false, true, true, 0, []*fdbv1beta2.ProcessGroupStatus{
+					cluster: getCluster(clusterName, namespace, false, true, true, 1, []*fdbv1beta2.ProcessGroupStatus{
 						{ProcessGroupID: "instance-1"},
 					}),
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
@@ -163,7 +157,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				}),
 			Entry("Cluster is unhealthy",
 				testCase{
-					cluster: getCluster(clusterName, namespace, true, false, true, 0, []*fdbv1beta2.ProcessGroupStatus{
+					cluster: getCluster(clusterName, namespace, true, false, true, 1, []*fdbv1beta2.ProcessGroupStatus{
 						{ProcessGroupID: "instance-1"},
 					}),
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
@@ -182,7 +176,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				}),
 			Entry("Cluster is not fully replicated",
 				testCase{
-					cluster: getCluster(clusterName, namespace, true, true, false, 0, []*fdbv1beta2.ProcessGroupStatus{
+					cluster: getCluster(clusterName, namespace, true, true, false, 1, []*fdbv1beta2.ProcessGroupStatus{
 						{ProcessGroupID: "instance-1"},
 					}),
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
@@ -200,7 +194,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				}),
 			Entry("Cluster is not reconciled",
 				testCase{
-					cluster: getCluster(clusterName, namespace, true, true, true, 1, []*fdbv1beta2.ProcessGroupStatus{
+					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbv1beta2.ProcessGroupStatus{
 						{ProcessGroupID: "instance-1"},
 					}),
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
@@ -218,7 +212,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				}),
 			Entry("ProcessGroup has a missing process",
 				testCase{
-					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbv1beta2.ProcessGroupStatus{
+					cluster: getCluster(clusterName, namespace, true, true, true, 1, []*fdbv1beta2.ProcessGroupStatus{
 						{
 							ProcessGroupID: "instance-1",
 							ProcessGroupConditions: []*fdbv1beta2.ProcessGroupCondition{
@@ -241,7 +235,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				}),
 			Entry("ProcessGroup has a missing process but is marked for removal",
 				testCase{
-					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbv1beta2.ProcessGroupStatus{
+					cluster: getCluster(clusterName, namespace, true, true, true, 1, []*fdbv1beta2.ProcessGroupStatus{
 						{
 							ProcessGroupID: "instance-1",
 							ProcessGroupConditions: []*fdbv1beta2.ProcessGroupCondition{
@@ -266,7 +260,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				}),
 			Entry("Pod is in Pending phase",
 				testCase{
-					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbv1beta2.ProcessGroupStatus{
+					cluster: getCluster(clusterName, namespace, true, true, true, 1, []*fdbv1beta2.ProcessGroupStatus{
 						{ProcessGroupID: "instance-1"},
 					}),
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
@@ -284,14 +278,14 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				}),
 			Entry("Container is in terminated state",
 				testCase{
-					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbv1beta2.ProcessGroupStatus{
+					cluster: getCluster(clusterName, namespace, true, true, true, 1, []*fdbv1beta2.ProcessGroupStatus{
 						{ProcessGroupID: "instance-1"},
 					}),
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
 						Phase: corev1.PodRunning,
 						ContainerStatuses: []corev1.ContainerStatus{
 							{
-								Name:  "foundationdb",
+								Name:  fdbv1beta2.MainContainerName,
 								Ready: false,
 								State: corev1.ContainerState{
 									Terminated: &corev1.ContainerStateTerminated{
@@ -314,14 +308,14 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				}),
 			Entry("Container is in ready state",
 				testCase{
-					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbv1beta2.ProcessGroupStatus{
+					cluster: getCluster(clusterName, namespace, true, true, true, 1, []*fdbv1beta2.ProcessGroupStatus{
 						{ProcessGroupID: "instance-1"},
 					}),
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
 						Phase: corev1.PodRunning,
 						ContainerStatuses: []corev1.ContainerStatus{
 							{
-								Name:  "foundationdb",
+								Name:  fdbv1beta2.MainContainerName,
 								Ready: true,
 							},
 						},
@@ -339,7 +333,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				}),
 			Entry("Pod is stuck in terminating",
 				testCase{
-					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbv1beta2.ProcessGroupStatus{
+					cluster: getCluster(clusterName, namespace, true, true, true, 1, []*fdbv1beta2.ProcessGroupStatus{
 						{ProcessGroupID: "instance-1"},
 					}),
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
@@ -358,7 +352,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				}),
 			Entry("Pod is stuck in terminating and marked for removal",
 				testCase{
-					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbv1beta2.ProcessGroupStatus{
+					cluster: getCluster(clusterName, namespace, true, true, true, 1, []*fdbv1beta2.ProcessGroupStatus{
 						{
 							ProcessGroupID:     "instance-1",
 							RemovalTimestamp:   &metav1.Time{Time: time.Now()},
@@ -393,7 +387,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				}),
 			Entry("Pod is stuck in terminating and marked for removal and removals are ignored",
 				testCase{
-					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbv1beta2.ProcessGroupStatus{
+					cluster: getCluster(clusterName, namespace, true, true, true, 1, []*fdbv1beta2.ProcessGroupStatus{
 						{
 							ProcessGroupID:     "instance-1",
 							RemovalTimestamp:   &metav1.Time{Time: time.Now()},
@@ -428,7 +422,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				}),
 			Entry("Missing Pods",
 				testCase{
-					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbv1beta2.ProcessGroupStatus{
+					cluster: getCluster(clusterName, namespace, true, true, true, 1, []*fdbv1beta2.ProcessGroupStatus{
 						{ProcessGroupID: "instance-1"},
 					}),
 					podList:        &corev1.PodList{},
@@ -445,7 +439,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				}),
 			Entry("Missing entry in status",
 				testCase{
-					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbv1beta2.ProcessGroupStatus{}),
+					cluster: getCluster(clusterName, namespace, true, true, true, 1, []*fdbv1beta2.ProcessGroupStatus{}),
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
 						Phase: corev1.PodRunning,
 					}, nil),
@@ -461,7 +455,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				}),
 			Entry("ProcessGroup has a two conditions and we ignore one.",
 				testCase{
-					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbv1beta2.ProcessGroupStatus{
+					cluster: getCluster(clusterName, namespace, true, true, true, 1, []*fdbv1beta2.ProcessGroupStatus{
 						{
 							ProcessGroupID: "instance-1",
 							ProcessGroupConditions: []*fdbv1beta2.ProcessGroupCondition{

@@ -101,7 +101,7 @@ func (a addProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterR
 	}
 
 	if hasNewProcessGroups {
-		err = r.Status().Update(ctx, cluster)
+		err = r.updateOrApply(ctx, cluster)
 		if err != nil {
 			return &requeue{curError: err}
 		}

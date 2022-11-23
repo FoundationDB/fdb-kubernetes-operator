@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2022 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,8 @@ package internal
 import (
 	"fmt"
 	"net"
+
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -85,10 +87,38 @@ var _ = Describe("Internal error helper", func() {
 					err:      apierrors.NewForbidden(schema.GroupResource{}, "test", fmt.Errorf("not allowed")),
 					expected: false,
 				}),
-			Entry("simple errorr",
+			Entry("simple error",
 				testCase{
 					err:      fmt.Errorf("error"),
 					expected: false,
+				}),
+		)
+	})
+
+	When("checking if an error is a timeout error", func() {
+		type testCase struct {
+			err      error
+			expected bool
+		}
+
+		DescribeTable("it should detect the timeout error",
+			func(tc testCase) {
+				Expect(IsTimeoutError(tc.err)).To(Equal(tc.expected))
+			},
+			Entry("simple error",
+				testCase{
+					err:      fmt.Errorf("test"),
+					expected: false,
+				}),
+			Entry("simple timeout error",
+				testCase{
+					err:      fdbv1beta2.TimeoutError{Err: fmt.Errorf("not reachable")},
+					expected: true,
+				}),
+			Entry("wrapped timeout error",
+				testCase{
+					err:      fmt.Errorf("test : %w", fdbv1beta2.TimeoutError{Err: fmt.Errorf("not reachable")}),
+					expected: true,
 				}),
 		)
 	})

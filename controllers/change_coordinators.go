@@ -56,7 +56,7 @@ func (c changeCoordinators) reconcile(ctx context.Context, r *FoundationDBCluste
 		logger.Info("Updating out-of-date connection string")
 		r.Recorder.Event(cluster, corev1.EventTypeNormal, "UpdatingConnectionString", fmt.Sprintf("Setting connection string to %s", connectionString))
 		cluster.Status.ConnectionString = connectionString
-		err = r.Status().Update(ctx, cluster)
+		err = r.updateOrApply(ctx, cluster)
 
 		if err != nil {
 			return &requeue{curError: err}
@@ -112,7 +112,7 @@ func (c changeCoordinators) reconcile(ctx context.Context, r *FoundationDBCluste
 		return &requeue{curError: err}
 	}
 	cluster.Status.ConnectionString = connectionString
-	err = r.Status().Update(ctx, cluster)
+	err = r.updateOrApply(ctx, cluster)
 	if err != nil {
 		return &requeue{curError: err}
 	}
@@ -154,7 +154,7 @@ func selectCoordinators(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1be
 
 	candidates, err := selectCandidates(cluster, status)
 	if err != nil {
-		return []localityInfo{}, nil
+		return []localityInfo{}, err
 	}
 
 	coordinators, err := chooseDistributedProcesses(cluster, candidates, coordinatorCount, processSelectionConstraint{

@@ -28,6 +28,8 @@ published for each major version.
 | 0.x              | 0.51.1              | v1beta1                  | 6.1.12+                | 1.15.0+                       |
 | 1.x              | -                   | v1beta1,v1beta2          | 6.2.20+                | 1.19.0+                       |
 
+Note that the base operator image only supports a single version of FoundationDB. For more information about using different versions of FoundationDB, see the [Operator Customization](/docs/manual/operator_customization.md) guide in the user manual.
+
 ## Preparing for a Major Release
 
 Before you upgrade to a new major version, you should first update the operator

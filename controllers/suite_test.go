@@ -71,7 +71,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	// +kubebuilder:scaffold:scheme
-	k8sClient = &mockclient.MockClient{}
+	k8sClient = mockclient.NewMockClient(scheme.Scheme)
 
 	clusterReconciler = createTestClusterReconciler()
 

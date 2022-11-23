@@ -55,6 +55,7 @@ func (c chooseRemovals) reconcile(ctx context.Context, r *FoundationDBClusterRec
 	if err != nil {
 		return &requeue{curError: err}
 	}
+	defer adminClient.Close()
 	status, err := adminClient.GetStatus()
 	if err != nil {
 		return &requeue{curError: err}
@@ -114,7 +115,7 @@ func (c chooseRemovals) reconcile(ctx context.Context, r *FoundationDBClusterRec
 				processGroup.MarkForRemoval()
 			}
 		}
-		err := r.Status().Update(ctx, cluster)
+		err := r.updateOrApply(ctx, cluster)
 		if err != nil {
 			return &requeue{curError: err}
 		}

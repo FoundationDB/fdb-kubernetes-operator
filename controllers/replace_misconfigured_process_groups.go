@@ -56,7 +56,7 @@ func (c replaceMisconfiguredProcessGroups) reconcile(ctx context.Context, r *Fou
 	}
 
 	if hasReplacements {
-		err = r.Status().Update(ctx, cluster)
+		err = r.updateOrApply(ctx, cluster)
 		if err != nil {
 			return &requeue{curError: err}
 		}

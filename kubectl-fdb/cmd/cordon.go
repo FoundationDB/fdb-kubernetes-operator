@@ -51,6 +51,10 @@ func newCordonCmd(streams genericclioptions.IOStreams) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			sleep, err := cmd.Root().Flags().GetUint16("sleep")
+			if err != nil {
+				return err
+			}
 			clusterName, err := cmd.Flags().GetString("fdb-cluster")
 			if err != nil {
 				return err
@@ -89,10 +93,10 @@ func newCordonCmd(streams genericclioptions.IOStreams) *cobra.Command {
 					return err
 				}
 
-				return cordonNode(kubeClient, cluster, nodes, namespace, withExclusion, wait)
+				return cordonNode(kubeClient, cluster, nodes, namespace, withExclusion, wait, sleep)
 			}
 
-			return cordonNode(kubeClient, cluster, args, namespace, withExclusion, wait)
+			return cordonNode(kubeClient, cluster, args, namespace, withExclusion, wait, sleep)
 		},
 		Example: `
 # Evacuate all process groups for a cluster in the current namespace that are hosted on node-1
@@ -123,7 +127,7 @@ kubectl fdb cordon -c cluster --node-selector machine=a,disk=fast
 }
 
 // cordonNode gets all process groups of this cluster that run on the given nodes and add them to the remove list
-func cordonNode(kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluster, nodes []string, namespace string, withExclusion bool, wait bool) error {
+func cordonNode(kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluster, nodes []string, namespace string, withExclusion bool, wait bool, sleep uint16) error {
 	fmt.Printf("Start to cordon %d nodes\n", len(nodes))
 	if len(nodes) == 0 {
 		return nil
@@ -145,7 +149,7 @@ func cordonNode(kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluste
 		}
 
 		for _, pod := range pods.Items {
-			// With the field selector above this shouldn't be required but it's good to
+			// With the field selector above this shouldn't be required, but it's good to
 			// have a second check.
 			if pod.Spec.NodeName != node {
 				fmt.Printf("Pod: %s is not running on node %s will be ignored\n", pod.Name, node)
@@ -161,5 +165,5 @@ func cordonNode(kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluste
 		}
 	}
 
-	return replaceProcessGroups(kubeClient, cluster.Name, processGroups, namespace, withExclusion, false, wait, false)
+	return replaceProcessGroups(kubeClient, cluster.Name, processGroups, namespace, withExclusion, wait, false, true, sleep)
 }

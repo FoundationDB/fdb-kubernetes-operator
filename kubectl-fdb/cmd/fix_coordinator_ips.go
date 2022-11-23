@@ -141,7 +141,7 @@ func buildClusterFileUpdateCommands(cluster *fdbv1beta2.FoundationDBCluster, kub
 	if context != "" {
 		baseArgs = append(baseArgs, "--context", context)
 	}
-	baseArgs = append(baseArgs, "exec", "-it", "-c", "foundationdb")
+	baseArgs = append(baseArgs, "exec", "-it", "-c", fdbv1beta2.MainContainerName)
 
 	execArgs := []string{"--", "bash", "-c", fmt.Sprintf("echo %s > /var/fdb/data/fdb.cluster && pkill fdbserver", cluster.Status.ConnectionString)}
 	execCommands := make([]exec.Cmd, 0, len(pods.Items))

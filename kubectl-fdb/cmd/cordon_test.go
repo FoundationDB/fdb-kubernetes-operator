@@ -21,31 +21,19 @@
 package cmd
 
 import (
-	ctx "context"
-
-	"k8s.io/apimachinery/pkg/api/equality"
+	"context"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("[plugin] cordon command", func() {
 	When("running cordon command", func() {
-		clusterName := "test"
-		namespace := "test"
-
-		var cluster fdbv1beta2.FoundationDBCluster
-		var nodeList corev1.NodeList
-		var podList corev1.PodList
-
 		type testCase struct {
 			nodes                                     []string
 			WithExclusion                             bool
@@ -54,68 +42,49 @@ var _ = Describe("[plugin] cordon command", func() {
 		}
 
 		BeforeEach(func() {
-			cluster = fdbv1beta2.FoundationDBCluster{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      clusterName,
-					Namespace: namespace,
+			pods := []corev1.Pod{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "instance-1",
+						Namespace: namespace,
+						Labels: map[string]string{
+							fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStorage),
+							fdbv1beta2.FDBClusterLabel:        clusterName,
+							fdbv1beta2.FDBProcessGroupIDLabel: "instance-1",
+						},
+					},
+					Spec: corev1.PodSpec{
+						NodeName: "node-1",
+					},
 				},
-				Spec: fdbv1beta2.FoundationDBClusterSpec{
-					ProcessCounts: fdbv1beta2.ProcessCounts{
-						Storage: 1,
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "instance-2",
+						Namespace: namespace,
+						Labels: map[string]string{
+							fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStorage),
+							fdbv1beta2.FDBClusterLabel:        clusterName,
+							fdbv1beta2.FDBProcessGroupIDLabel: "instance-2",
+						},
+					},
+					Spec: corev1.PodSpec{
+						NodeName: "node-2",
 					},
 				},
 			}
 
-			nodeList = corev1.NodeList{
-				Items: []corev1.Node{},
-			}
-
-			podList = corev1.PodList{
-				Items: []corev1.Pod{
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "instance-1",
-							Namespace: namespace,
-							Labels: map[string]string{
-								fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStorage),
-								fdbv1beta2.FDBClusterLabel:        clusterName,
-								fdbv1beta2.FDBProcessGroupIDLabel: "instance-1",
-							},
-						},
-						Spec: corev1.PodSpec{
-							NodeName: "node-1",
-						},
-					},
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "instance-2",
-							Namespace: namespace,
-							Labels: map[string]string{
-								fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStorage),
-								fdbv1beta2.FDBClusterLabel:        clusterName,
-								fdbv1beta2.FDBProcessGroupIDLabel: "instance-2",
-							},
-						},
-						Spec: corev1.PodSpec{
-							NodeName: "node-2",
-						},
-					},
-				},
+			for _, pod := range pods {
+				Expect(k8sClient.Create(context.TODO(), &pod)).NotTo(HaveOccurred())
 			}
 		})
 
 		DescribeTable("should cordon all targeted processes",
 			func(input testCase) {
-				scheme := runtime.NewScheme()
-				_ = clientgoscheme.AddToScheme(scheme)
-				_ = fdbv1beta2.AddToScheme(scheme)
-				kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(&cluster, &podList, &nodeList).Build()
-
-				err := cordonNode(kubeClient, &cluster, input.nodes, namespace, input.WithExclusion, false)
+				err := cordonNode(k8sClient, cluster, input.nodes, namespace, input.WithExclusion, false, 0)
 				Expect(err).NotTo(HaveOccurred())
 
 				var resCluster fdbv1beta2.FoundationDBCluster
-				err = kubeClient.Get(ctx.Background(), client.ObjectKey{
+				err = k8sClient.Get(context.Background(), client.ObjectKey{
 					Namespace: namespace,
 					Name:      clusterName,
 				}, &resCluster)

@@ -23,11 +23,11 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"sort"
 	"time"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
+	"github.com/go-logr/logr"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
@@ -48,6 +48,8 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updateStatus")
 	originalStatus := cluster.Status.DeepCopy()
 	status := fdbv1beta2.FoundationDBClusterStatus{}
+	// Pass through Maintenance Mode Info as the maintenance_mode_checker reconciler takes care of updating it
+	originalStatus.MaintenanceModeInfo.DeepCopyInto(&status.MaintenanceModeInfo)
 	status.Generations.Reconciled = cluster.Status.Generations.Reconciled
 
 	// Initialize with the current desired storage servers per Pod
@@ -66,20 +68,19 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 			},
 		}
 	} else {
-		version, connectionString, err := tryConnectionOptions(cluster, r)
+		connectionString, err := tryConnectionOptions(cluster, r)
 		if err != nil {
 			return &requeue{curError: err}
 		}
-		cluster.Status.RunningVersion = version
 		cluster.Status.ConnectionString = connectionString
 
 		adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
 		if err != nil {
 			return &requeue{curError: err}
 		}
-		defer adminClient.Close()
 
 		databaseStatus, err = adminClient.GetStatus()
+		_ = adminClient.Close()
 		if err != nil {
 			if cluster.Status.Configured {
 				return &requeue{curError: err, delayedRequeue: true}
@@ -94,6 +95,7 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 		}
 	}
 
+	versionMap := map[string]int{}
 	for _, process := range databaseStatus.Cluster.Processes {
 		processID, ok := process.Locality["process_id"]
 		// if the processID is not set we fall back to the instanceID
@@ -101,10 +103,20 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 			processID = process.Locality["instance_id"]
 		}
 		processMap[processID] = append(processMap[processID], process)
+		versionMap[process.Version]++
 	}
+
+	// Update the running version based on the reported version of the FDB processes
+	version, err := getRunningVersion(versionMap, cluster.Status.RunningVersion)
+	if err != nil {
+		return &requeue{curError: err}
+	}
+	cluster.Status.RunningVersion = version
 
 	status.HasListenIPsForAllPods = cluster.NeedsExplicitListenAddress()
 	status.DatabaseConfiguration = databaseStatus.Cluster.DatabaseConfiguration.NormalizeConfigurationWithSeparatedProxies(cluster.Spec.Version, cluster.Spec.DatabaseConfiguration.AreSeparatedProxiesConfigured())
+	// Removing excluded servers as we don't want them during comparison.
+	status.DatabaseConfiguration.ExcludedServers = nil
 	cluster.ClearMissingVersionFlags(&status.DatabaseConfiguration)
 	status.Configured = cluster.Status.Configured || (databaseStatus.Client.DatabaseStatus.Available && databaseStatus.Cluster.Layers.Error != "configurationMissing")
 
@@ -148,12 +160,12 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 		}
 	}
 
-	err = refreshProcessGroupStatus(ctx, r, cluster, &status)
+	pods, pvcs, err := refreshProcessGroupStatus(ctx, r, cluster, &status)
 	if err != nil {
 		return &requeue{curError: err}
 	}
 
-	status.ProcessGroups, err = validateProcessGroups(ctx, r, cluster, &status, processMap, configMap)
+	status.ProcessGroups, err = validateProcessGroups(ctx, r, cluster, &status, processMap, configMap, pods, pvcs)
 	if err != nil {
 		return &requeue{curError: err}
 	}
@@ -189,7 +201,7 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 		status.ConnectionString = cluster.Spec.SeedConnectionString
 	}
 
-	status.HasIncorrectConfigMap = status.HasIncorrectConfigMap || !reflect.DeepEqual(existingConfigMap.Data, configMap.Data) || !metadataMatches(existingConfigMap.ObjectMeta, configMap.ObjectMeta)
+	status.HasIncorrectConfigMap = status.HasIncorrectConfigMap || !equality.Semantic.DeepEqual(existingConfigMap.Data, configMap.Data) || !metadataMatches(existingConfigMap.ObjectMeta, configMap.ObjectMeta)
 
 	service := internal.GetHeadlessService(cluster)
 	existingService := &corev1.Service{}
@@ -255,7 +267,7 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 	// If we use the default reflect.DeepEqual method it will be recreating the
 	// status multiple times because the pointers are different.
 	if !equality.Semantic.DeepEqual(cluster.Status, *originalStatus) {
-		err = r.Status().Update(ctx, cluster)
+		err = r.updateOrApply(ctx, cluster)
 		if err != nil {
 			logger.Error(err, "Error updating cluster status")
 			return &requeue{curError: err}
@@ -290,51 +302,45 @@ func optionList(options ...string) []string {
 	return values
 }
 
-// tryConnectionOptions attempts to connect with all the combinations of
-// versions and connection strings for this cluster and returns the set that
-// allow connecting to the cluster.
-func tryConnectionOptions(cluster *fdbv1beta2.FoundationDBCluster, r *FoundationDBClusterReconciler) (string, string, error) {
+// tryConnectionOptions attempts to connect with all the connection strings for this cluster and
+// returns the connection string that allows connecting to the cluster.
+func tryConnectionOptions(cluster *fdbv1beta2.FoundationDBCluster, r *FoundationDBClusterReconciler) (string, error) {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updateStatus")
-	versions := optionList(cluster.Status.RunningVersion, cluster.Spec.Version)
 	connectionStrings := optionList(cluster.Status.ConnectionString, cluster.Spec.SeedConnectionString)
 
-	originalVersion := cluster.Status.RunningVersion
-	originalConnectionString := cluster.Status.ConnectionString
-
-	if len(versions) == 1 && len(connectionStrings) == 1 {
-		return originalVersion, originalConnectionString, nil
+	if len(connectionStrings) == 1 {
+		return cluster.Status.ConnectionString, nil
 	}
 
-	logger.Info("Trying connection options",
-		"version", versions, "connectionString", connectionStrings)
+	logger.Info("Trying connection options", "connectionString", connectionStrings)
 
-	defer func() { cluster.Status.RunningVersion = originalVersion }()
+	originalConnectionString := cluster.Status.ConnectionString
 	defer func() { cluster.Status.ConnectionString = originalConnectionString }()
 
-	for _, version := range versions {
-		for _, connectionString := range connectionStrings {
-			logger.Info("Attempting to get connection string from cluster",
-				"version", version, "connectionString", connectionString)
-			cluster.Status.RunningVersion = version
-			cluster.Status.ConnectionString = connectionString
-			adminClient, clientErr := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
+	for _, connectionString := range connectionStrings {
+		logger.Info("Attempting to get connection string from cluster", "connectionString", connectionString)
+		cluster.Status.ConnectionString = connectionString
+		adminClient, clientErr := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
 
-			if clientErr != nil {
-				return originalVersion, originalConnectionString, clientErr
-			}
-			defer adminClient.Close()
-
-			activeConnectionString, err := adminClient.GetConnectionString()
-			if err == nil {
-				logger.Info("Chose connection option",
-					"version", version, "connectionString", activeConnectionString)
-				return version, activeConnectionString, err
-			}
-			logger.Error(err, "Error getting connection string from cluster",
-				"version", version, "connectionString", connectionString)
+		if clientErr != nil {
+			return originalConnectionString, clientErr
 		}
+
+		activeConnectionString, err := adminClient.GetConnectionString()
+
+		clientErr = adminClient.Close()
+		if clientErr != nil {
+			logger.V(1).Info("Could not close admin client")
+		}
+
+		if err == nil {
+			logger.Info("Chose connection option", "connectionString", activeConnectionString)
+			return activeConnectionString, nil
+		}
+		logger.Error(err, "Error getting connection string from cluster", "connectionString", connectionString)
 	}
-	return originalVersion, originalConnectionString, nil
+
+	return originalConnectionString, nil
 }
 
 // checkAndSetProcessStatus checks the status of the Process and if missing or incorrect add it to the related status field
@@ -388,7 +394,8 @@ func checkAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbv1be
 	return nil
 }
 
-func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBClusterStatus, processMap map[string][]fdbv1beta2.FoundationDBStatusProcessInfo, configMap *corev1.ConfigMap) ([]*fdbv1beta2.ProcessGroupStatus, error) {
+func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBClusterStatus, processMap map[string][]fdbv1beta2.FoundationDBStatusProcessInfo, configMap *corev1.ConfigMap, pods []*corev1.Pod, pvcs *corev1.PersistentVolumeClaimList) ([]*fdbv1beta2.ProcessGroupStatus, error) {
+	var err error
 	processGroups := status.ProcessGroups
 	processGroupsWithoutExclusion := make(map[string]fdbv1beta2.None, len(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion))
 
@@ -402,16 +409,15 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 		processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, false, nil, "")
 	}
 
-	for _, processGroup := range processGroups {
-		pods, err := r.PodLifecycleManager.GetPods(ctx, r, cluster, internal.GetPodListOptions(cluster, processGroup.ProcessClass, processGroup.ProcessGroupID)...)
-		if err != nil {
-			return processGroups, err
-		}
+	podMap := internal.CreatePodMap(cluster, pods)
+	pvcMap := internal.CreatePVCMap(cluster, pvcs)
 
+	for _, processGroup := range processGroups {
+		pod, podExists := podMap[processGroup.ProcessGroupID]
 		// If the process group is not being removed and the Pod is not set we need to put it into
 		// the failing list.
 		isBeingRemoved := cluster.ProcessGroupIsBeingRemoved(processGroup.ProcessGroupID)
-		if len(pods) == 0 {
+		if !podExists {
 			// Mark process groups as terminating if the pod has been deleted but other
 			// resources are stuck in terminating.
 			if isBeingRemoved {
@@ -421,8 +427,6 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 			}
 			continue
 		}
-
-		pod := pods[0]
 
 		processGroup.AddAddresses(podmanager.GetPublicIPs(pod, log), processGroup.IsMarkedForRemoval() || !status.Health.Available)
 		processCount := 1
@@ -467,7 +471,7 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 		if pod.ObjectMeta.DeletionTimestamp == nil && status.HasListenIPsForAllPods {
 			hasPodIP := false
 			for _, container := range pod.Spec.Containers {
-				if container.Name == "foundationdb-kubernetes-sidecar" || container.Name == "foundationdb" {
+				if container.Name == fdbv1beta2.SidecarContainerName || container.Name == fdbv1beta2.MainContainerName {
 					for _, env := range container.Env {
 						if env.Name == "FDB_POD_IP" {
 							hasPodIP = true
@@ -493,7 +497,13 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 			return processGroups, err
 		}
 
-		err = validateProcessGroup(ctx, r, cluster, pod, configMapHash, processGroup)
+		var pvc *corev1.PersistentVolumeClaim
+
+		pvcValue, pvcExists := pvcMap[processGroup.ProcessGroupID]
+		if pvcExists {
+			pvc = &pvcValue
+		}
+		err = validateProcessGroup(ctx, r, cluster, pod, pvc, configMapHash, processGroup)
 
 		if err != nil {
 			return processGroups, err
@@ -505,7 +515,7 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 
 // validateProcessGroup runs specific checks for the status of an process group.
 // returns failing, incorrect, error
-func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod, configMapHash string, processGroupStatus *fdbv1beta2.ProcessGroupStatus) error {
+func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod, currentPVC *corev1.PersistentVolumeClaim, configMapHash string, processGroupStatus *fdbv1beta2.ProcessGroupStatus) error {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updateStatus")
 	processGroupStatus.UpdateCondition(fdbv1beta2.MissingPod, pod == nil, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
 	if pod == nil {
@@ -536,19 +546,14 @@ func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler,
 	incorrectConfigMap := pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey] != configMapHash
 	processGroupStatus.UpdateCondition(fdbv1beta2.IncorrectConfigMap, incorrectConfigMap, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
 
-	pvcs := &corev1.PersistentVolumeClaimList{}
-	err = r.List(ctx, pvcs, internal.GetPodListOptions(cluster, processGroupStatus.ProcessClass, processGroupStatus.ProcessGroupID)...)
-	if err != nil {
-		return err
-	}
 	desiredPvc, err := internal.GetPvc(cluster, processGroupStatus.ProcessClass, idNum)
 	if err != nil {
 		return err
 	}
 
-	incorrectPVC := (len(pvcs.Items) == 1) != (desiredPvc != nil)
+	incorrectPVC := (currentPVC != nil) != (desiredPvc != nil)
 	if !incorrectPVC && desiredPvc != nil {
-		incorrectPVC = !metadataMatches(pvcs.Items[0].ObjectMeta, desiredPvc.ObjectMeta)
+		incorrectPVC = !metadataMatches(currentPVC.ObjectMeta, desiredPvc.ObjectMeta)
 	}
 
 	processGroupStatus.UpdateCondition(fdbv1beta2.MissingPVC, incorrectPVC, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
@@ -578,7 +583,7 @@ func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler,
 			logger.Info("Delete Pod that is stuck in NodeAffinity",
 				"processGroupID", processGroupStatus.ProcessGroupID)
 
-			err = r.PodLifecycleManager.DeletePod(ctx, r, pod)
+			err = r.PodLifecycleManager.DeletePod(logr.NewContext(ctx, logger), r, pod)
 			if err != nil {
 				return err
 			}
@@ -626,7 +631,7 @@ func removeDuplicateConditions(status fdbv1beta2.FoundationDBClusterStatus) {
 	}
 }
 
-func refreshProcessGroupStatus(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBClusterStatus) error {
+func refreshProcessGroupStatus(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBClusterStatus) ([]*corev1.Pod, *corev1.PersistentVolumeClaimList, error) {
 	status.ProcessGroups = make([]*fdbv1beta2.ProcessGroupStatus, 0, len(cluster.Status.ProcessGroups))
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup != nil && processGroup.ProcessGroupID != "" {
@@ -636,13 +641,12 @@ func refreshProcessGroupStatus(ctx context.Context, r *FoundationDBClusterReconc
 
 	// Track all created resources this will ensure that we catch all resources that are created by the operator
 	// even if the process group is currently missing for some reasons.
-	pods := &corev1.PodList{}
-	err := r.List(ctx, pods, internal.GetPodListOptions(cluster, "", "")...)
+	pods, err := r.PodLifecycleManager.GetPods(ctx, r, cluster, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
-	for _, pod := range pods.Items {
+	for _, pod := range pods {
 		processGroupID := pod.Labels[cluster.GetProcessGroupIDLabel()]
 		if fdbv1beta2.ContainsProcessGroupID(status.ProcessGroups, processGroupID) {
 			continue
@@ -654,7 +658,7 @@ func refreshProcessGroupStatus(ctx context.Context, r *FoundationDBClusterReconc
 	pvcs := &corev1.PersistentVolumeClaimList{}
 	err = r.List(ctx, pvcs, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
 	for _, pvc := range pvcs.Items {
@@ -669,7 +673,7 @@ func refreshProcessGroupStatus(ctx context.Context, r *FoundationDBClusterReconc
 	services := &corev1.ServiceList{}
 	err = r.List(ctx, services, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
 	for _, service := range services.Items {
@@ -681,5 +685,37 @@ func refreshProcessGroupStatus(ctx context.Context, r *FoundationDBClusterReconc
 		status.ProcessGroups = append(status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus(processGroupID, internal.ProcessClassFromLabels(cluster, service.Labels), nil))
 	}
 
-	return nil
+	return pods, pvcs, nil
+}
+
+func getRunningVersion(versionMap map[string]int, fallback string) (string, error) {
+	if len(versionMap) == 0 {
+		return fallback, nil
+	}
+
+	var currentCandidate fdbv1beta2.Version
+	var currentMaxCount int
+
+	for version, count := range versionMap {
+		if count < currentMaxCount {
+			continue
+		}
+
+		parsedVersion, err := fdbv1beta2.ParseFdbVersion(version)
+		if err != nil {
+			return fallback, err
+		}
+		// In this case we want to ensure we always pick the newer version to have a stable return value. Otherwise,
+		// it could happen that the version will be flapping between two versions.
+		if count == currentMaxCount {
+			if currentCandidate.IsAtLeast(parsedVersion) {
+				continue
+			}
+		}
+
+		currentCandidate = parsedVersion
+		currentMaxCount = count
+	}
+
+	return currentCandidate.String(), nil
 }
