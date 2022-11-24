@@ -588,6 +588,7 @@ func getHardLimits(cluster *fdbv1beta2.FoundationDBCluster) map[string]int {
 	if cluster.Spec.DatabaseConfiguration.RedundancyMode == fdbv1beta2.RedundancyModeThreeDataHall {
 		return map[string]int{fdbv1beta2.FDBLocalityZoneIDKey: maxCoordinatorsPerDC, fdbv1beta2.FDBLocalityDCIDKey: maxCoordinatorsPerDC}
 	}
+
 	return map[string]int{fdbv1beta2.FDBLocalityZoneIDKey: 1, fdbv1beta2.FDBLocalityDCIDKey: maxCoordinatorsPerDC}
 }
 

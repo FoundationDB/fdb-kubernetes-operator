@@ -21,6 +21,7 @@
 package fdbclient
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -74,9 +75,9 @@ func getFDBDatabase(cluster *fdbv1beta2.FoundationDBCluster) (fdb.Database, erro
 }
 
 func getValueFromDBUsingKey(cluster *fdbv1beta2.FoundationDBCluster, log logr.Logger, fdbKey string, timeout time.Duration) ([]byte, error) {
-	log.Info("Fetch values from FDB", "namespace", cluster.Namespace, "cluster", cluster.Name, "key", fdbKey)
+	log.Info("Fetch values from FDB", "key", fdbKey)
 	defer func() {
-		log.Info("Done fetching values from FDB", "namespace", cluster.Namespace, "cluster", cluster.Name, "key", fdbKey)
+		log.Info("Done fetching values from FDB", "key", fdbKey)
 	}()
 	database, err := getFDBDatabase(cluster)
 	if err != nil {
@@ -102,7 +103,8 @@ func getValueFromDBUsingKey(cluster *fdbv1beta2.FoundationDBCluster, log logr.Lo
 	})
 
 	if err != nil {
-		if fdbError, ok := err.(fdb.Error); ok {
+		var fdbError *fdb.Error
+		if errors.As(err, &fdbError) {
 			// See: https://apple.github.io/foundationdb/api-error-codes.html
 			// 1031: Operation aborted because the transaction timed out
 			if fdbError.Code == 1031 {

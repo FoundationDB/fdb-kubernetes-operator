@@ -23,6 +23,8 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal/locality"
+	"github.com/go-logr/logr"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -47,15 +49,15 @@ func (c changeCoordinators) reconcile(ctx context.Context, r *FoundationDBCluste
 	}
 	defer adminClient.Close()
 
-	connectionString, err := adminClient.GetConnectionString()
+	status, err := adminClient.GetStatus()
 	if err != nil {
 		return &requeue{curError: err}
 	}
 
-	if connectionString != cluster.Status.ConnectionString {
+	if status.Cluster.ConnectionString != cluster.Status.ConnectionString {
 		logger.Info("Updating out-of-date connection string")
-		r.Recorder.Event(cluster, corev1.EventTypeNormal, "UpdatingConnectionString", fmt.Sprintf("Setting connection string to %s", connectionString))
-		cluster.Status.ConnectionString = connectionString
+		r.Recorder.Event(cluster, corev1.EventTypeNormal, "UpdatingConnectionString", fmt.Sprintf("Setting connection string to %s", status.Cluster.ConnectionString))
+		cluster.Status.ConnectionString = status.Cluster.ConnectionString
 		err = r.updateOrApply(ctx, cluster)
 
 		if err != nil {
@@ -63,17 +65,12 @@ func (c changeCoordinators) reconcile(ctx context.Context, r *FoundationDBCluste
 		}
 	}
 
-	status, err := adminClient.GetStatus()
-	if err != nil {
-		return &requeue{curError: err}
-	}
-
 	coordinatorStatus := make(map[string]bool, len(status.Client.Coordinators.Coordinators))
 	for _, coordinator := range status.Client.Coordinators.Coordinators {
 		coordinatorStatus[coordinator.Address.String()] = false
 	}
 
-	hasValidCoordinators, allAddressesValid, err := checkCoordinatorValidity(cluster, status, coordinatorStatus)
+	hasValidCoordinators, allAddressesValid, err := locality.CheckCoordinatorValidity(logger, cluster, status, coordinatorStatus)
 	if err != nil {
 		return &requeue{curError: err}
 	}
@@ -96,7 +93,7 @@ func (c changeCoordinators) reconcile(ctx context.Context, r *FoundationDBCluste
 	logger.Info("Changing coordinators")
 	r.Recorder.Event(cluster, corev1.EventTypeNormal, "ChangingCoordinators", "Choosing new coordinators")
 
-	coordinators, err := selectCoordinators(cluster, status)
+	coordinators, err := selectCoordinators(logger, cluster, status)
 	if err != nil {
 		return &requeue{curError: err}
 	}
@@ -107,7 +104,7 @@ func (c changeCoordinators) reconcile(ctx context.Context, r *FoundationDBCluste
 	}
 
 	logger.Info("Final coordinators candidates", "coordinators", coordinatorAddresses)
-	connectionString, err = adminClient.ChangeCoordinators(coordinatorAddresses)
+	connectionString, err := adminClient.ChangeCoordinators(coordinatorAddresses)
 	if err != nil {
 		return &requeue{curError: err}
 	}
@@ -120,9 +117,10 @@ func (c changeCoordinators) reconcile(ctx context.Context, r *FoundationDBCluste
 	return nil
 }
 
+// TODO move them into separate package?
 // selectCandidates is a helper for Reconcile that picks non-excluded, not-being-removed class-matching process groups.
-func selectCandidates(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) ([]localityInfo, error) {
-	candidates := make([]localityInfo, 0, len(status.Cluster.Processes))
+func selectCandidates(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) ([]locality.Info, error) {
+	candidates := make([]locality.Info, 0, len(status.Cluster.Processes))
 	for _, process := range status.Cluster.Processes {
 		if process.Excluded {
 			continue
@@ -136,29 +134,28 @@ func selectCandidates(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta
 			continue
 		}
 
-		locality, err := localityInfoForProcess(process, cluster.Spec.MainContainer.EnableTLS)
+		currentLocality, err := locality.InfoForProcess(process, cluster.Spec.MainContainer.EnableTLS)
 		if err != nil {
 			return candidates, err
 		}
 
-		candidates = append(candidates, locality)
+		candidates = append(candidates, currentLocality)
 	}
 
 	return candidates, nil
 }
 
-func selectCoordinators(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) ([]localityInfo, error) {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "changeCoordinators")
+func selectCoordinators(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) ([]locality.Info, error) {
 	var err error
 	coordinatorCount := cluster.DesiredCoordinatorCount()
 
 	candidates, err := selectCandidates(cluster, status)
 	if err != nil {
-		return []localityInfo{}, err
+		return []locality.Info{}, err
 	}
 
-	coordinators, err := chooseDistributedProcesses(cluster, candidates, coordinatorCount, processSelectionConstraint{
-		HardLimits: getHardLimits(cluster),
+	coordinators, err := locality.ChooseDistributedProcesses(cluster, candidates, coordinatorCount, locality.ProcessSelectionConstraint{
+		HardLimits: locality.GetHardLimits(cluster),
 	})
 
 	logger.Info("Current coordinators", "coordinators", coordinators)
@@ -171,7 +168,7 @@ func selectCoordinators(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1be
 		coordinatorStatus[getCoordinatorAddress(cluster, coordinator).String()] = false
 	}
 
-	hasValidCoordinators, allAddressesValid, err := checkCoordinatorValidity(cluster, status, coordinatorStatus)
+	hasValidCoordinators, allAddressesValid, err := locality.CheckCoordinatorValidity(logger, cluster, status, coordinatorStatus)
 	if err != nil {
 		return coordinators, err
 	}
@@ -187,7 +184,7 @@ func selectCoordinators(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1be
 	return coordinators, nil
 }
 
-func getCoordinatorAddress(cluster *fdbv1beta2.FoundationDBCluster, locality localityInfo) fdbv1beta2.ProcessAddress {
+func getCoordinatorAddress(cluster *fdbv1beta2.FoundationDBCluster, locality locality.Info) fdbv1beta2.ProcessAddress {
 	dnsName := locality.LocalityData[fdbv1beta2.FDBLocalityDNSNameKey]
 
 	address := locality.Address
