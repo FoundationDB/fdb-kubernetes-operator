@@ -46,13 +46,48 @@ type MockClient struct {
 
 	// scheme will be used to initialize or reset the new fake client
 	scheme *runtime.Scheme
+
+	// createHooks allow to inject custom logic to the creation of objects. See serviceCreateHook and podCreateHook as
+	// examples
+	createHooks []func(ctx context.Context, client *MockClient, object ctrlClient.Object) error
 }
 
 // NewMockClient creates a new MockClient.
-func NewMockClient(scheme *runtime.Scheme) *MockClient {
+func NewMockClient(scheme *runtime.Scheme, hooks ...func(_ context.Context, client *MockClient, object ctrlClient.Object) error) *MockClient {
+	serviceCreateHook := func(_ context.Context, client *MockClient, object ctrlClient.Object) error {
+		svc, isSvc := object.(*corev1.Service)
+		if !isSvc {
+			return nil
+		}
+
+		if svc.Spec.ClusterIP == "" {
+			svc.Spec.ClusterIP = client.generateIP()
+		}
+
+		return nil
+	}
+
+	podCreateHook := func(_ context.Context, client *MockClient, object ctrlClient.Object) error {
+		pod, isPod := object.(*corev1.Pod)
+		if !isPod {
+			return nil
+		}
+
+		v4Address := client.generatePodIPv4()
+		pod.Status.PodIP = v4Address
+		pod.Status.PodIPs = []corev1.PodIP{{IP: v4Address}, {IP: client.generatePodIPv6()}}
+
+		if pod.Status.Phase == "" {
+			pod.Status.Phase = corev1.PodRunning
+		}
+
+		return nil
+	}
+
 	return &MockClient{
-		fakeClient: fake.NewClientBuilder().WithScheme(scheme).Build(),
-		scheme:     scheme,
+		fakeClient:  fake.NewClientBuilder().WithScheme(scheme).Build(),
+		scheme:      scheme,
+		createHooks: append(hooks, serviceCreateHook, podCreateHook),
 	}
 }
 
@@ -84,25 +119,11 @@ func (client *MockClient) Create(ctx context.Context, object ctrlClient.Object, 
 	object.SetGeneration(object.GetGeneration() + 1)
 	object.SetUID(uuid.NewUUID())
 
-	svc, isSvc := object.(*corev1.Service)
-	if isSvc {
-		if svc.Spec.ClusterIP == "" {
-			svc.Spec.ClusterIP = client.generateIP()
+	for _, hook := range client.createHooks {
+		err := hook(ctx, client, object)
+		if err != nil {
+			return err
 		}
-
-		object = svc.DeepCopyObject().(ctrlClient.Object)
-	}
-
-	pod, isPod := object.(*corev1.Pod)
-	if isPod {
-		v4Address := client.generatePodIPv4()
-		pod.Status.PodIP = v4Address
-		pod.Status.PodIPs = []corev1.PodIP{{IP: v4Address}, {IP: client.generatePodIPv6()}}
-
-		if pod.Status.Phase == "" {
-			pod.Status.Phase = corev1.PodRunning
-		}
-		object = pod.DeepCopyObject().(ctrlClient.Object)
 	}
 
 	return client.fakeClient.Create(ctx, object, options...)
