@@ -532,7 +532,7 @@ func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler,
 		return err
 	}
 
-	specHash, err := internal.GetPodSpecHash(cluster, processGroupStatus.ProcessClass, idNum, nil)
+	specHash, err := internal.GetPodSpecHash(cluster, processGroupStatus.ProcessClass, idNum, nil, processGroupStatus.ProcessGroupLocalityZoneID)
 	if err != nil {
 		return err
 	}

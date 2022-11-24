@@ -1302,7 +1302,7 @@ var _ = Describe("cluster_controller", func() {
 					_, id, err := podmanager.ParseProcessGroupID(item.Labels[fdbv1beta2.FDBProcessGroupIDLabel])
 					Expect(err).NotTo(HaveOccurred())
 
-					hash, err := internal.GetPodSpecHash(cluster, internal.ProcessClassFromLabels(cluster, item.Labels), id, nil)
+					hash, err := internal.GetPodSpecHash(cluster, internal.ProcessClassFromLabels(cluster, item.Labels), id, nil, "")
 					Expect(err).NotTo(HaveOccurred())
 
 					configMapHash, err := getConfigMapHash(cluster, internal.GetProcessClassFromMeta(cluster, item.ObjectMeta), &item)
@@ -1441,7 +1441,7 @@ var _ = Describe("cluster_controller", func() {
 						_, id, err := podmanager.ParseProcessGroupID(item.Labels[fdbv1beta2.FDBProcessGroupIDLabel])
 						Expect(err).NotTo(HaveOccurred())
 
-						hash, err := internal.GetPodSpecHash(cluster, internal.ProcessClassFromLabels(cluster, item.Labels), id, nil)
+						hash, err := internal.GetPodSpecHash(cluster, internal.ProcessClassFromLabels(cluster, item.Labels), id, nil, "")
 						Expect(err).NotTo(HaveOccurred())
 
 						configMapHash, err := getConfigMapHash(cluster, internal.GetProcessClassFromMeta(cluster, item.ObjectMeta), &item)
@@ -1549,7 +1549,7 @@ var _ = Describe("cluster_controller", func() {
 					_, id, err := podmanager.ParseProcessGroupID(item.Labels[fdbv1beta2.FDBProcessGroupIDLabel])
 					Expect(err).NotTo(HaveOccurred())
 
-					hash, err := internal.GetPodSpecHash(cluster, internal.ProcessClassFromLabels(cluster, item.Labels), id, nil)
+					hash, err := internal.GetPodSpecHash(cluster, internal.ProcessClassFromLabels(cluster, item.Labels), id, nil, "")
 					Expect(err).NotTo(HaveOccurred())
 
 					configMapHash, err := getConfigMapHash(cluster, internal.GetProcessClassFromMeta(cluster, item.ObjectMeta), &item)

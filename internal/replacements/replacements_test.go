@@ -78,10 +78,10 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				},
 			}
 
-			spec, err := internal.GetPodSpec(cluster, status.ProcessClass, 1337)
+			spec, err := internal.GetPodSpec(cluster, status.ProcessClass, 1337, "")
 			Expect(err).NotTo(HaveOccurred())
 
-			pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey], err = internal.GetPodSpecHash(cluster, status.ProcessClass, 1337, spec)
+			pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey], err = internal.GetPodSpecHash(cluster, status.ProcessClass, 1337, spec, "")
 			Expect(err).NotTo(HaveOccurred())
 
 			pod.Spec = *spec
@@ -297,7 +297,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				processGroupID := internal.GetProcessGroupIDFromMeta(cluster, pod.ObjectMeta)
 				_, idNum, err := internal.ParseProcessGroupID(processGroupID)
 				Expect(err).NotTo(HaveOccurred())
-				pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey], err = internal.GetPodSpecHash(cluster, processClass, idNum, nil)
+				pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey], err = internal.GetPodSpecHash(cluster, processClass, idNum, nil, "")
 				Expect(err).NotTo(HaveOccurred())
 				pod.Spec.NodeSelector = map[string]string{
 					"dummy": "test",

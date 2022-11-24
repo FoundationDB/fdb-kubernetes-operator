@@ -116,47 +116,27 @@ func GetService(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 func GetPod(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, idNum int, status *fdbv1beta2.FoundationDBStatus) (*corev1.Pod, error) {
 	name, id := GetProcessGroupID(cluster, processClass, idNum)
 
+	var tdh_locality fdbv1beta2.Locality
+
+	if cluster.Spec.DatabaseConfiguration.RedundancyMode == fdbv1beta2.RedundancyModeThreeDataHall {
+		var err error
+		tdh_locality, err = getPodLocality(cluster, processClass, status)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	owner := BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
-	spec, err := GetPodSpec(cluster, processClass, idNum)
+	spec, err := GetPodSpec(cluster, processClass, idNum, tdh_locality.Value)
 	if err != nil {
 		return nil, err
 	}
 
-	// TODO(manuel.fontan: cleanup the logic below and move it into a method.
-	// Set the spec.NodeSelector depending on the process distribution across fault domains.
 	if cluster.Spec.DatabaseConfiguration.RedundancyMode == fdbv1beta2.RedundancyModeThreeDataHall {
-		// Convert the process list into a map with the process zone ID as key.
-		processInfo := map[string][]fdbv1beta2.FoundationDBStatusProcessInfo{}
-		for _, p := range status.Cluster.Processes {
-			// skip process loclities not matching the cluster Localities. For example old Pods with locality set to instanceId.
-			_, err := cluster.GetLocality(p.Locality[fdbv1beta2.FDBLocalityZoneIDKey])
-			if err != nil {
-				continue
-			}
-
-			if p.ProcessClass == processClass {
-				processInfo[p.Locality[fdbv1beta2.FDBLocalityZoneIDKey]] = append(processInfo[p.Locality[fdbv1beta2.FDBLocalityZoneIDKey]], p)
-			}
-		}
-		// To keep the cluster balanced we will pick the locality with less processes.
-		minZone := ""
-		for z := range processInfo {
-			if minZone == "" {
-				minZone = z
-			}
-			if len(processInfo[z]) < len(processInfo[minZone]) {
-				minZone = z
-			}
-		}
-
-		l, err := cluster.GetLocality(minZone)
-		if err != nil {
-			return nil, err
-		}
-		spec.NodeSelector = l.NodeSelector
+		spec.NodeSelector = tdh_locality.NodeSelector
 	}
 
-	specHash, err := GetPodSpecHash(cluster, processClass, idNum, spec)
+	specHash, err := GetPodSpecHash(cluster, processClass, idNum, spec, tdh_locality.Value)
 	if err != nil {
 		return nil, err
 	}
@@ -169,6 +149,31 @@ func GetPod(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.Pro
 		ObjectMeta: metadata,
 		Spec:       *spec,
 	}, nil
+}
+
+func getPodLocality(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, status *fdbv1beta2.FoundationDBStatus) (fdbv1beta2.Locality, error) {
+	// Set the spec.NodeSelector depending on the process distribution across fault domains.
+	// Convert the process list into a map with the process zone ID as key.
+	processInfo := map[string][]fdbv1beta2.FoundationDBStatusProcessInfo{}
+	for _, p := range status.Cluster.Processes {
+		// skip process loclities not matching the cluster Localities. For example old Pods with locality set to instanceId.
+		_, err := cluster.GetLocality(p.Locality[fdbv1beta2.FDBLocalityZoneIDKey])
+		if err != nil {
+			continue
+		}
+
+		if p.ProcessClass == processClass {
+			processInfo[p.Locality[fdbv1beta2.FDBLocalityZoneIDKey]] = append(processInfo[p.Locality[fdbv1beta2.FDBLocalityZoneIDKey]], p)
+		}
+	}
+	// To keep the cluster balanced we will pick the locality with less processes.
+	minZone := ""
+	for z := range processInfo {
+		if minZone == "" || len(processInfo[z]) < len(processInfo[minZone]) {
+			minZone = z
+		}
+	}
+	return cluster.GetLocality(minZone)
 }
 
 // GetImage returns the image for container
@@ -228,7 +233,7 @@ func getContainers(podSpec *corev1.PodSpec) (*corev1.Container, *corev1.Containe
 	return mainContainer, sidecarContainer, nil
 }
 
-func configureContainersForUnifiedImages(cluster *fdbv1beta2.FoundationDBCluster, mainContainer *corev1.Container, sidecarContainer *corev1.Container, processGroupID string, processClass fdbv1beta2.ProcessClass) error {
+func configureContainersForUnifiedImages(cluster *fdbv1beta2.FoundationDBCluster, mainContainer *corev1.Container, sidecarContainer *corev1.Container, processGroupID string, processClass fdbv1beta2.ProcessClass, zoneID string) error {
 	mainContainer.Args = []string{
 		"--input-dir", "/var/dynamic-conf",
 		"--log-path", "/var/log/fdb-trace-logs/monitor.log",
@@ -247,7 +252,7 @@ func configureContainersForUnifiedImages(cluster *fdbv1beta2.FoundationDBCluster
 		corev1.VolumeMount{Name: "fdb-trace-logs", MountPath: "/var/log/fdb-trace-logs"},
 	)
 
-	mainContainer.Env = append(mainContainer.Env, getEnvForMonitorConfigSubstitution(cluster, processGroupID)...)
+	mainContainer.Env = append(mainContainer.Env, getEnvForMonitorConfigSubstitution(cluster, processGroupID, zoneID)...)
 	mainContainer.Env = append(mainContainer.Env, corev1.EnvVar{Name: "FDB_IMAGE_TYPE", Value: string(FDBImageTypeUnified)})
 	mainContainer.Env = append(mainContainer.Env, corev1.EnvVar{Name: "FDB_POD_NAME", ValueFrom: &corev1.EnvVarSource{
 		FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
@@ -426,7 +431,7 @@ func configureNoSchedule(podSpec *corev1.PodSpec, processGroupID string, noSched
 }
 
 // GetPodSpec builds a pod spec for a FoundationDB pod
-func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, idNum int) (*corev1.PodSpec, error) {
+func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, idNum int, zoneID string) (*corev1.PodSpec, error) {
 	processSettings := cluster.GetProcessSettings(processClass)
 	podSpec := processSettings.PodTemplate.Spec.DeepCopy()
 	useUnifiedImages := pointer.BoolDeref(cluster.Spec.UseUnifiedImage, false)
@@ -460,7 +465,7 @@ func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 	}
 
 	if useUnifiedImages {
-		err = configureContainersForUnifiedImages(cluster, mainContainer, sidecarContainer, processGroupID, processClass)
+		err = configureContainersForUnifiedImages(cluster, mainContainer, sidecarContainer, processGroupID, processClass, zoneID)
 		if err != nil {
 			return nil, err
 		}
@@ -485,12 +490,12 @@ func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 			corev1.VolumeMount{Name: "fdb-trace-logs", MountPath: "/var/log/fdb-trace-logs"},
 		)
 
-		err = configureSidecarContainerForCluster(cluster, podName, initContainer, true, processGroupID)
+		err = configureSidecarContainerForCluster(cluster, podName, initContainer, true, processGroupID, zoneID)
 		if err != nil {
 			return nil, err
 		}
 
-		err = configureSidecarContainerForCluster(cluster, podName, sidecarContainer, false, processGroupID)
+		err = configureSidecarContainerForCluster(cluster, podName, sidecarContainer, false, processGroupID, zoneID)
 		if err != nil {
 			return nil, err
 		}
@@ -523,18 +528,18 @@ func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 
 // configureSidecarContainerForCluster sets up a sidecar container for a sidecar
 // in the FDB cluster.
-func configureSidecarContainerForCluster(cluster *fdbv1beta2.FoundationDBCluster, podName string, container *corev1.Container, initMode bool, processGroupID string) error {
-	return configureSidecarContainer(container, initMode, processGroupID, podName, cluster.GetRunningVersion(), cluster, cluster.Spec.SidecarContainer.ImageConfigs, false)
+func configureSidecarContainerForCluster(cluster *fdbv1beta2.FoundationDBCluster, podName string, container *corev1.Container, initMode bool, processGroupID string, zoneID string) error {
+	return configureSidecarContainer(container, initMode, processGroupID, podName, cluster.GetRunningVersion(), cluster, cluster.Spec.SidecarContainer.ImageConfigs, false, zoneID)
 }
 
 // configureSidecarContainerForBackup sets up a sidecar container for the init
 // container for a backup process.
-func configureSidecarContainerForBackup(backup *fdbv1beta2.FoundationDBBackup, container *corev1.Container) error {
-	return configureSidecarContainer(container, true, "", "", backup.Spec.Version, nil, backup.Spec.SidecarContainer.ImageConfigs, pointer.BoolDeref(backup.Spec.AllowTagOverride, false))
+func configureSidecarContainerForBackup(backup *fdbv1beta2.FoundationDBBackup, container *corev1.Container, zoneID string) error {
+	return configureSidecarContainer(container, true, "", "", backup.Spec.Version, nil, backup.Spec.SidecarContainer.ImageConfigs, pointer.BoolDeref(backup.Spec.AllowTagOverride, false), zoneID)
 }
 
 // configureSidecarContainer sets up a foundationdb-kubernetes-sidecar container.
-func configureSidecarContainer(container *corev1.Container, initMode bool, processGroupID string, podName string, versionString string, optionalCluster *fdbv1beta2.FoundationDBCluster, imageConfigs []fdbv1beta2.ImageConfig, allowTagOverride bool) error {
+func configureSidecarContainer(container *corev1.Container, initMode bool, processGroupID string, podName string, versionString string, optionalCluster *fdbv1beta2.FoundationDBCluster, imageConfigs []fdbv1beta2.ImageConfig, allowTagOverride bool, zoneID string) error {
 	sidecarEnv := make([]corev1.EnvVar, 0, 4)
 
 	hasTrustedCAs := optionalCluster != nil && len(optionalCluster.Spec.TrustedCAs) > 0
@@ -577,7 +582,7 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, proce
 			sidecarArgs = append(sidecarArgs, "--substitute-variable", substitution)
 		}
 
-		sidecarEnv = append(sidecarEnv, getEnvForMonitorConfigSubstitution(cluster, processGroupID)...)
+		sidecarEnv = append(sidecarEnv, getEnvForMonitorConfigSubstitution(cluster, processGroupID, zoneID)...)
 
 		if cluster.UseDNSInClusterFile() {
 			sidecarArgs = append(sidecarArgs, "--substitute-variable", "FDB_DNS_NAME")
@@ -666,7 +671,7 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, proce
 
 // getEnvForMonitorConfigSubstitution provides the environment variables that
 // are used for substituting variables into the monitor config.
-func getEnvForMonitorConfigSubstitution(cluster *fdbv1beta2.FoundationDBCluster, instanceID string) []corev1.EnvVar {
+func getEnvForMonitorConfigSubstitution(cluster *fdbv1beta2.FoundationDBCluster, instanceID string, zoneID string) []corev1.EnvVar {
 	env := make([]corev1.EnvVar, 0)
 
 	publicIPSource := cluster.Spec.Routing.PublicIPSource
@@ -710,7 +715,12 @@ func getEnvForMonitorConfigSubstitution(cluster *fdbv1beta2.FoundationDBCluster,
 		faultDomainSource = "spec.nodeName"
 	}
 
-	if faultDomainKey == fdbv1beta2.NoneFaultDomainKey {
+	if cluster.Spec.DatabaseConfiguration.RedundancyMode == fdbv1beta2.RedundancyModeThreeDataHall {
+		env = append(env, corev1.EnvVar{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+		}})
+		env = append(env, corev1.EnvVar{Name: "FDB_ZONE_ID", Value: zoneID})
+	} else if faultDomainKey == fdbv1beta2.NoneFaultDomainKey {
 		env = append(env, corev1.EnvVar{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 		}})
@@ -732,7 +742,6 @@ func getEnvForMonitorConfigSubstitution(cluster *fdbv1beta2.FoundationDBCluster,
 			}})
 		}
 	}
-	//TODO(manuel.fontan) set zoneid for three_data_hall?
 
 	env = append(env, corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: instanceID})
 
@@ -944,7 +953,8 @@ func GetBackupDeployment(backup *fdbv1beta2.FoundationDBBackup) (*appsv1.Deploym
 		initContainer = &podTemplate.Spec.InitContainers[0]
 	}
 
-	err = configureSidecarContainerForBackup(backup, initContainer)
+	//TODO(manuel.fontan): confirm that and empty ZoneID for the backup agent is ok
+	err = configureSidecarContainerForBackup(backup, initContainer, "")
 	if err != nil {
 		return nil, err
 	}

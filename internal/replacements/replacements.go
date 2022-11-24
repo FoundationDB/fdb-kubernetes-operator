@@ -193,7 +193,7 @@ func processGroupNeedsRemoval(cluster *fdbv1beta2.FoundationDBCluster, pod *core
 	if cluster.Spec.DatabaseConfiguration.RedundancyMode != fdbv1beta2.RedundancyModeThreeDataHall {
 		expectedNodeSelector := cluster.GetProcessSettings(processClass).PodTemplate.Spec.NodeSelector
 		if !equality.Semantic.DeepEqual(pod.Spec.NodeSelector, expectedNodeSelector) {
-			specHash, err := internal.GetPodSpecHash(cluster, processClass, idNum, nil)
+			specHash, err := internal.GetPodSpecHash(cluster, processClass, idNum, nil, processGroupStatus.ProcessGroupLocalityZoneID)
 			if err != nil {
 				return false, err
 			}
@@ -208,7 +208,7 @@ func processGroupNeedsRemoval(cluster *fdbv1beta2.FoundationDBCluster, pod *core
 	//TODO(manuel.fontan) for three data hall if Localities Node Selector changes we should replace the affected nodes.
 
 	if cluster.NeedsReplacement(processGroupStatus) {
-		specHash, err := internal.GetPodSpecHash(cluster, processClass, idNum, nil)
+		specHash, err := internal.GetPodSpecHash(cluster, processClass, idNum, nil, processGroupStatus.ProcessGroupLocalityZoneID)
 		if err != nil {
 			return false, err
 		}
@@ -221,7 +221,7 @@ func processGroupNeedsRemoval(cluster *fdbv1beta2.FoundationDBCluster, pod *core
 	}
 
 	if pointer.BoolDeref(cluster.Spec.ReplaceInstancesWhenResourcesChange, false) {
-		desiredSpec, err := internal.GetPodSpec(cluster, processClass, idNum)
+		desiredSpec, err := internal.GetPodSpec(cluster, processClass, idNum, processGroupStatus.ProcessGroupLocalityZoneID)
 		if err != nil {
 			return false, err
 		}
