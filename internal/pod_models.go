@@ -116,27 +116,27 @@ func GetService(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 func GetPod(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, idNum int, status *fdbv1beta2.FoundationDBStatus) (*corev1.Pod, error) {
 	name, id := GetProcessGroupID(cluster, processClass, idNum)
 
-	var tdh_locality fdbv1beta2.Locality
+	var tdhLocality fdbv1beta2.Locality
 
 	if cluster.Spec.DatabaseConfiguration.RedundancyMode == fdbv1beta2.RedundancyModeThreeDataHall {
 		var err error
-		tdh_locality, err = getPodLocality(cluster, processClass, status)
+		tdhLocality, err = getPodLocality(cluster, processClass, status)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	owner := BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
-	spec, err := GetPodSpec(cluster, processClass, idNum, tdh_locality.Value)
+	spec, err := GetPodSpec(cluster, processClass, idNum, tdhLocality.Value)
 	if err != nil {
 		return nil, err
 	}
 
 	if cluster.Spec.DatabaseConfiguration.RedundancyMode == fdbv1beta2.RedundancyModeThreeDataHall {
-		spec.NodeSelector = tdh_locality.NodeSelector
+		spec.NodeSelector = tdhLocality.NodeSelector
 	}
 
-	specHash, err := GetPodSpecHash(cluster, processClass, idNum, spec, tdh_locality.Value)
+	specHash, err := GetPodSpecHash(cluster, processClass, idNum, spec, tdhLocality.Value)
 	if err != nil {
 		return nil, err
 	}
@@ -954,6 +954,7 @@ func GetBackupDeployment(backup *fdbv1beta2.FoundationDBBackup) (*appsv1.Deploym
 	}
 
 	//TODO(manuel.fontan): confirm that and empty ZoneID for the backup agent is ok
+	// zoneID is only used when three data hall redundancy is enabled.
 	err = configureSidecarContainerForBackup(backup, initContainer, "")
 	if err != nil {
 		return nil, err
