@@ -29,7 +29,6 @@ import (
 	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
 	"github.com/go-logr/logr"
@@ -165,7 +164,7 @@ func (p *realDatabaseClientProvider) GetAdminClient(cluster *fdbv1beta2.Foundati
 
 // NewDatabaseClientProvider generates a client provider for talking to real
 // databases.
-func NewDatabaseClientProvider(log logr.Logger) controllers.DatabaseClientProvider {
+func NewDatabaseClientProvider(log logr.Logger) fdbadminclient.DatabaseClientProvider {
 	return &realDatabaseClientProvider{
 		log: log.WithName("fdbclient"),
 	}

@@ -23,6 +23,8 @@ package controllers
 import (
 	"context"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient/mock"
+
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 
@@ -114,9 +116,9 @@ var _ = Describe("restart_incompatible_pods", func() {
 		When("the subreconciler is enabled", func() {
 			BeforeEach(func() {
 				clusterReconciler.EnableRestartIncompatibleProcesses = true
-				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+				adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
-				adminClient.frozenStatus = &fdbv1beta2.FoundationDBStatus{
+				adminClient.FrozenStatus = &fdbv1beta2.FoundationDBStatus{
 					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
 						IncompatibleConnections: []string{},
 					},
@@ -125,9 +127,9 @@ var _ = Describe("restart_incompatible_pods", func() {
 
 			When("no incompatible processes are reported", func() {
 				BeforeEach(func() {
-					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
-					adminClient.frozenStatus = &fdbv1beta2.FoundationDBStatus{
+					adminClient.FrozenStatus = &fdbv1beta2.FoundationDBStatus{
 						Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
 							IncompatibleConnections: []string{},
 						},
@@ -144,9 +146,9 @@ var _ = Describe("restart_incompatible_pods", func() {
 
 			When("no matching incompatible processes are reported", func() {
 				BeforeEach(func() {
-					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
-					adminClient.frozenStatus = &fdbv1beta2.FoundationDBStatus{
+					adminClient.FrozenStatus = &fdbv1beta2.FoundationDBStatus{
 						Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
 							IncompatibleConnections: []string{
 								"192.192.192.192:4500:tls",
@@ -165,9 +167,9 @@ var _ = Describe("restart_incompatible_pods", func() {
 
 			When("matching incompatible processes are reported", func() {
 				BeforeEach(func() {
-					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
-					adminClient.frozenStatus = &fdbv1beta2.FoundationDBStatus{
+					adminClient.FrozenStatus = &fdbv1beta2.FoundationDBStatus{
 						Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
 							DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
 								Available: true,
@@ -194,9 +196,9 @@ var _ = Describe("restart_incompatible_pods", func() {
 
 				When("the database is unavailable", func() {
 					BeforeEach(func() {
-						adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+						adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 						Expect(err).NotTo(HaveOccurred())
-						adminClient.frozenStatus.Client.DatabaseStatus.Available = false
+						adminClient.FrozenStatus.Client.DatabaseStatus.Available = false
 					})
 
 					It("should have no deletions", func() {
@@ -209,9 +211,9 @@ var _ = Describe("restart_incompatible_pods", func() {
 
 				When("matching incompatible processes are reported but port is zero", func() {
 					BeforeEach(func() {
-						adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+						adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 						Expect(err).NotTo(HaveOccurred())
-						adminClient.frozenStatus.Cluster.IncompatibleConnections[0] = cluster.Status.ProcessGroups[0].Addresses[0] + ":0:tls"
+						adminClient.FrozenStatus.Cluster.IncompatibleConnections[0] = cluster.Status.ProcessGroups[0].Addresses[0] + ":0:tls"
 					})
 
 					It("should have no deletions", func() {
@@ -242,9 +244,9 @@ var _ = Describe("restart_incompatible_pods", func() {
 		When("matching incompatible processes are reported and the subreconciler is disabled", func() {
 			BeforeEach(func() {
 				clusterReconciler.EnableRestartIncompatibleProcesses = false
-				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+				adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
-				adminClient.frozenStatus = &fdbv1beta2.FoundationDBStatus{
+				adminClient.FrozenStatus = &fdbv1beta2.FoundationDBStatus{
 					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
 						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
 							Available: true,

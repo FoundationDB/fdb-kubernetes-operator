@@ -22,6 +22,7 @@ package controllers
 
 import (
 	"context"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient/mock"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
@@ -32,7 +33,7 @@ import (
 
 var _ = Describe("update_lock_configuration", func() {
 	var cluster *fdbv1beta2.FoundationDBCluster
-	var lockClient *mockLockClient
+	var lockClient *mock.LockClient
 	var err error
 	var requeue *requeue
 
@@ -55,7 +56,7 @@ var _ = Describe("update_lock_configuration", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(generation).To(Equal(int64(1)))
 
-		lockClient = newMockLockClientUncast(cluster)
+		lockClient = mock.NewMockLockClientUncast(cluster)
 	})
 
 	JustBeforeEach(func() {

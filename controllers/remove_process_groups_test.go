@@ -25,6 +25,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient/mock"
+
 	"k8s.io/utils/pointer"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
@@ -94,7 +96,7 @@ var _ = Describe("remove_process_groups", func() {
 				Expect(marked).To(BeTrue())
 				Expect(processGroup).To(BeNil())
 				// Exclude the process group
-				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+				adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
 				adminClient.ExcludedAddresses = removedProcessGroup.Addresses
 			})
@@ -113,9 +115,9 @@ var _ = Describe("remove_process_groups", func() {
 
 				When("the cluster has degraded availability fault tolerance", func() {
 					BeforeEach(func() {
-						adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+						adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 						Expect(err).NotTo(HaveOccurred())
-						adminClient.maxZoneFailuresWithoutLosingAvailability = pointer.Int(0)
+						adminClient.MaxZoneFailuresWithoutLosingAvailability = pointer.Int(0)
 					})
 
 					It("should not remove that process group", func() {
@@ -131,9 +133,9 @@ var _ = Describe("remove_process_groups", func() {
 
 				When("the cluster has degraded data fault tolerance", func() {
 					BeforeEach(func() {
-						adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+						adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 						Expect(err).NotTo(HaveOccurred())
-						adminClient.maxZoneFailuresWithoutLosingData = pointer.Int(0)
+						adminClient.MaxZoneFailuresWithoutLosingData = pointer.Int(0)
 					})
 
 					It("should not remove that process group", func() {
@@ -149,9 +151,9 @@ var _ = Describe("remove_process_groups", func() {
 
 				When("the cluster is not available", func() {
 					BeforeEach(func() {
-						adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+						adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 						Expect(err).NotTo(HaveOccurred())
-						adminClient.frozenStatus = &fdbv1beta2.FoundationDBStatus{
+						adminClient.FrozenStatus = &fdbv1beta2.FoundationDBStatus{
 							Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
 								DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
 									Available: false,
@@ -188,7 +190,7 @@ var _ = Describe("remove_process_groups", func() {
 					Expect(marked).To(BeTrue())
 					Expect(processGroup).To(BeNil())
 					// Exclude the process group
-					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
 					adminClient.ExcludedAddresses = append(adminClient.ExcludedAddresses, secondRemovedProcessGroup.Addresses...)
 				})

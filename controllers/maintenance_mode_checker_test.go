@@ -24,6 +24,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient/mock"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 
@@ -39,7 +41,7 @@ var _ = Describe("maintenance_mode_checker", func() {
 	var cluster *fdbv1beta2.FoundationDBCluster
 	var err error
 	var requeue *requeue
-	var adminClient *mockAdminClient
+	var adminClient *mock.AdminClient
 
 	BeforeEach(func() {
 		cluster = internal.CreateDefaultCluster()
@@ -56,7 +58,7 @@ var _ = Describe("maintenance_mode_checker", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(generation).To(Equal(int64(1)))
 
-		adminClient, err = newMockAdminClientUncast(cluster, k8sClient)
+		adminClient, err = mock.NewMockAdminClientUncast(cluster, k8sClient)
 		Expect(err).NotTo(HaveOccurred())
 	})
 
@@ -148,7 +150,7 @@ var _ = Describe("maintenance_mode_checker", func() {
 	})
 
 	AfterEach(func() {
-		clearMockAdminClients()
+		mock.ClearMockAdminClients()
 		k8sClient.Clear()
 	})
 })
