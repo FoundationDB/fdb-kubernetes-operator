@@ -3364,13 +3364,13 @@ var _ = Describe("cluster_controller", func() {
 	Describe("GetPublicIPs", func() {
 		var pod *corev1.Pod
 		var status *fdbv1beta2.FoundationDBStatus
-		var adminClient fdbadminclient.AdminClient
+		var adminClient *mockAdminClient
 		var err error
 
 		BeforeEach(func() {
-			err := internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
+			err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			adminClient, err = newMockAdminClient(cluster, k8sClient)
+			adminClient, err = newMockAdminClientUncast(cluster, k8sClient)
 			Expect(err).NotTo(HaveOccurred())
 
 			status, err = adminClient.GetStatus()
