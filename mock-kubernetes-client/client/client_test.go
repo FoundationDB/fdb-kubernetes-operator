@@ -22,6 +22,8 @@ package client
 
 import (
 	"context"
+	"fmt"
+	"k8s.io/utils/pointer"
 	"sort"
 	"time"
 
@@ -455,6 +457,58 @@ var _ = Describe("[mock client]", func() {
 			Expect(events.Items[0].Reason).To(Equal("This is a test"))
 			Expect(events.Items[0].Message).To(Equal("Test message: 5"))
 			Expect(events.Items[0].ObjectMeta.Annotations).To(Equal(map[string]string{"anno": "value"}))
+		})
+	})
+
+	When("adding a custom create hook", func() {
+		var expectedPods = int32(4)
+
+		BeforeEach(func() {
+			client = NewMockClient(scheme.Scheme, func(ctx context.Context, client *MockClient, object ctrlClient.Object) error {
+				replicaSet, isReplicaSet := object.(*appsv1.ReplicaSet)
+				if !isReplicaSet {
+					return nil
+				}
+
+				expectedReplicas := pointer.Int32Deref(replicaSet.Spec.Replicas, 1)
+
+				for i := int32(0); i < expectedReplicas; i++ {
+					err := client.Create(ctx, &corev1.Pod{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: replicaSet.Namespace,
+							Name:      fmt.Sprintf("%s-%d", replicaSet.Name, i),
+						},
+					})
+					_ = err
+				}
+
+				replicaSet.Labels = map[string]string{
+					"test": "success",
+				}
+
+				return nil
+			})
+
+			Expect(client.Create(context.TODO(), &appsv1.ReplicaSet{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "unicorn",
+				},
+				Spec: appsv1.ReplicaSetSpec{
+					Replicas: pointer.Int32(expectedPods),
+				},
+			})).NotTo(HaveOccurred())
+		})
+
+		It("should run the webhook and create 4 Pods", func() {
+			podList := &corev1.PodList{}
+			Expect(client.List(context.TODO(), podList)).NotTo(HaveOccurred())
+			Expect(podList.Items).To(HaveLen(int(expectedPods)))
+
+			// Ensure the label is update
+			replicaSet := &appsv1.ReplicaSet{}
+			Expect(client.Get(context.TODO(), ctrlClient.ObjectKey{Name: "unicorn"}, replicaSet)).NotTo(HaveOccurred())
+			Expect(pointer.Int32Deref(replicaSet.Spec.Replicas, -1)).To(BeNumerically("==", expectedPods))
+			Expect(replicaSet.Labels).To(HaveKeyWithValue("test", "success"))
 		})
 	})
 })
