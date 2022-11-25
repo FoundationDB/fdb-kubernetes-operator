@@ -184,7 +184,7 @@ func shouldRequeueDueToClusterStatusDrift(adminClient fdbadminclient.AdminClient
 	}
 	//Check that all processes in fdbcli status have a matching pod.
 	for _, p := range status.Cluster.Processes {
-		if _, ok := podMap[p.Locality["instance_id"]]; !ok {
+		if _, ok := podMap[p.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]]; !ok {
 			return true, nil
 		}
 	}
