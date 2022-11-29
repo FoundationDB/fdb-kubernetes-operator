@@ -25,6 +25,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal/restarts"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
@@ -149,12 +151,7 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 // getProcessesReadyForRestart returns a slice of process addresses that can be restarted. If addresses are missing or not all processes
 // have the latest configuration this method will return a requeue struct with more details.
 func getProcessesReadyForRestart(ctx context.Context, logger logr.Logger, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, addressMap map[string][]fdbv1beta2.ProcessAddress) ([]fdbv1beta2.ProcessAddress, *requeue) {
-	processesToBounce := fdbv1beta2.FilterByConditions(cluster.Status.ProcessGroups, map[fdbv1beta2.ProcessGroupConditionType]bool{
-		fdbv1beta2.IncorrectCommandLine: true,
-		fdbv1beta2.IncorrectPodSpec:     false,
-		fdbv1beta2.SidecarUnreachable:   false, // ignore all Process groups that are not reachable and therefore will not get any ConfigMap updates.
-	}, true)
-
+	processesToBounce := fdbv1beta2.FilterByConditions(cluster.Status.ProcessGroups, restarts.GetFilterConditions(cluster), true)
 	addresses := make([]fdbv1beta2.ProcessAddress, 0, len(processesToBounce))
 	allSynced := true
 	var missingAddress []string
