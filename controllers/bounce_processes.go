@@ -167,6 +167,7 @@ func getProcessesReadyForRestart(ctx context.Context, logger logr.Logger, r *Fou
 		// missing in the status.
 		if missingTime := processGroup.GetConditionTime(fdbv1beta2.MissingProcesses); missingTime != nil {
 			if time.Unix(*missingTime, 0).Add(cluster.GetIgnoreMissingProcessesSeconds()).Before(time.Now()) {
+				logger.Info("ignore process group with missing process", "processGroupID", processGroup.ProcessGroupID)
 				continue
 			}
 		}
@@ -200,6 +201,22 @@ func getProcessesReadyForRestart(ctx context.Context, logger logr.Logger, r *Fou
 
 	if !allSynced {
 		return nil, &requeue{message: "Waiting for config map to sync to all pods", delayedRequeue: true}
+	}
+
+	counts, err := cluster.GetProcessCountsWithDefaults()
+	if err != nil {
+		return nil, &requeue{
+			curError: err,
+		}
+	}
+
+	// If we upgrade the cluster wait until all processes are ready for the restart. In the future we can adjust this
+	// to only be a requirement for version incompatible upgrades. In addition we probably only want to block for a
+	// certain threshold either as a percentage or as a fixed number (which could also be 0).
+	if cluster.IsBeingUpgraded() && counts.Total() != len(addresses) {
+		return nil, &requeue{
+			message:        fmt.Sprintf("expected %d processes, got %d processes ready to restart", counts.Total(), len(addresses)),
+			delayedRequeue: true}
 	}
 
 	return addresses, nil

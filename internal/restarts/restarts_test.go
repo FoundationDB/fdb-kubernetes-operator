@@ -67,5 +67,6 @@ var _ = Describe("restarts", func() {
 			map[fdbv1beta2.ProcessGroupConditionType]bool{
 				fdbv1beta2.IncorrectCommandLine: true,
 				fdbv1beta2.IncorrectPodSpec:     false,
-			}))
+			}),
+	)
 })
