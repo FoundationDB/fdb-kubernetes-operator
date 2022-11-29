@@ -25,6 +25,8 @@ import (
 	"fmt"
 	"time"
 
+	"k8s.io/utils/pointer"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -41,21 +43,17 @@ var _ = Describe("bounceProcesses", func() {
 
 	BeforeEach(func() {
 		cluster = internal.CreateDefaultCluster()
-		disabled := false
-		cluster.Spec.LockOptions.DisableLocks = &disabled
-		err = setupClusterForTest(cluster)
-		Expect(err).NotTo(HaveOccurred())
+		cluster.Spec.LockOptions.DisableLocks = pointer.Bool(false)
+		Expect(setupClusterForTest(cluster)).NotTo(HaveOccurred())
 
 		adminClient, err = newMockAdminClientUncast(cluster, k8sClient)
 		Expect(err).NotTo(HaveOccurred())
 
 		lockClient = newMockLockClientUncast(cluster)
-
 	})
 
 	JustBeforeEach(func() {
 		requeue = bounceProcesses{}.reconcile(context.TODO(), clusterReconciler, cluster)
-		Expect(err).NotTo(HaveOccurred())
 	})
 
 	Context("with a reconciled cluster", func() {
@@ -93,8 +91,7 @@ var _ = Describe("bounceProcesses", func() {
 				}
 			}
 
-			Expect(len(adminClient.KilledAddresses)).To(Equal(len(addresses)))
-			Expect(adminClient.KilledAddresses).To(ContainElements(addresses))
+			Expect(adminClient.KilledAddresses).To(ConsistOf(addresses))
 		})
 	})
 
@@ -123,8 +120,7 @@ var _ = Describe("bounceProcesses", func() {
 				}
 			}
 
-			Expect(len(adminClient.KilledAddresses)).To(Equal(len(addresses)))
-			Expect(adminClient.KilledAddresses).To(ContainElements(addresses))
+			Expect(adminClient.KilledAddresses).To(ConsistOf(addresses))
 		})
 	})
 
@@ -212,8 +208,7 @@ var _ = Describe("bounceProcesses", func() {
 	Context("with multiple storage servers per pod", func() {
 		BeforeEach(func() {
 			cluster.Spec.StorageServersPerPod = 2
-			err = k8sClient.Update(context.TODO(), cluster)
-			Expect(err).NotTo(HaveOccurred())
+			Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
 			result, err := reconcileCluster(cluster)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result.Requeue).To(BeFalse())
@@ -241,8 +236,7 @@ var _ = Describe("bounceProcesses", func() {
 					addresses = append(addresses, fmt.Sprintf("%s:4501", address), fmt.Sprintf("%s:4503", address))
 				}
 			}
-			Expect(len(adminClient.KilledAddresses)).To(BeNumerically("==", len(addresses)))
-			Expect(adminClient.KilledAddresses).To(ContainElements(addresses))
+			Expect(adminClient.KilledAddresses).To(ConsistOf(addresses))
 		})
 	})
 
@@ -265,8 +259,7 @@ var _ = Describe("bounceProcesses", func() {
 					addresses = append(addresses, fmt.Sprintf("%s:4501", address))
 				}
 			}
-			Expect(len(adminClient.KilledAddresses)).To(BeNumerically("==", len(addresses)))
-			Expect(adminClient.KilledAddresses).To(ContainElements(addresses))
+			Expect(adminClient.KilledAddresses).To(ConsistOf(addresses))
 		})
 
 		It("should update the running version in the status", func() {
@@ -333,8 +326,7 @@ var _ = Describe("bounceProcesses", func() {
 						}
 					}
 					addresses = append(addresses, "1.2.3.4:4501")
-					Expect(len(adminClient.KilledAddresses)).To(BeNumerically("==", len(addresses)))
-					Expect(adminClient.KilledAddresses).To(ContainElements(addresses))
+					Expect(adminClient.KilledAddresses).To(ConsistOf(addresses))
 				})
 			})
 
@@ -356,8 +348,7 @@ var _ = Describe("bounceProcesses", func() {
 
 			Context("with locks disabled", func() {
 				BeforeEach(func() {
-					disabled := true
-					cluster.Spec.LockOptions.DisableLocks = &disabled
+					cluster.Spec.LockOptions.DisableLocks = pointer.Bool(true)
 				})
 
 				It("should requeue", func() {
@@ -371,8 +362,30 @@ var _ = Describe("bounceProcesses", func() {
 							addresses = append(addresses, fmt.Sprintf("%s:4501", address))
 						}
 					}
-					Expect(len(adminClient.KilledAddresses)).To(BeNumerically("==", len(addresses)))
-					Expect(adminClient.KilledAddresses).To(ContainElements(addresses))
+					Expect(adminClient.KilledAddresses).To(ConsistOf(addresses))
+				})
+
+				It("should not submit pending upgrade information", func() {
+					Expect(lockClient.pendingUpgrades).To(BeEmpty())
+				})
+			})
+
+			When("one process is missing", func() {
+				BeforeEach(func() {
+					missingProcessGroup := cluster.Status.ProcessGroups[0]
+					adminClient.MockMissingProcessGroup(missingProcessGroup.ProcessGroupID, true)
+
+					missingProcessGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, false, cluster.Status.ProcessGroups, missingProcessGroup.ProcessGroupID)
+					missingProcessGroup.UpdateCondition(fdbv1beta2.MissingProcesses, true, cluster.Status.ProcessGroups, missingProcessGroup.ProcessGroupID)
+				})
+
+				It("should requeue", func() {
+					Expect(requeue).NotTo(BeNil())
+					Expect(requeue.message).To(Equal("expected 17 processes, got 16 processes ready to restart"))
+				})
+
+				It("shouldn't kill any processes", func() {
+					Expect(adminClient.KilledAddresses).To(BeEmpty())
 				})
 
 				It("should not submit pending upgrade information", func() {
