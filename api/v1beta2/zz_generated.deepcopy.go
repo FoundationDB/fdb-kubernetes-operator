@@ -1255,9 +1255,13 @@ func (in *Locality) DeepCopyInto(out *Locality) {
 	*out = *in
 	if in.NodeSelector != nil {
 		in, out := &in.NodeSelector, &out.NodeSelector
-		*out = make(map[string]string, len(*in))
-		for key, val := range *in {
-			(*out)[key] = val
+		*out = make([][]string, len(*in))
+		for i := range *in {
+			if (*in)[i] != nil {
+				in, out := &(*in)[i], &(*out)[i]
+				*out = make([]string, len(*in))
+				copy(*out, *in)
+			}
 		}
 	}
 }

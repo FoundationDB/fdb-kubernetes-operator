@@ -116,27 +116,28 @@ func GetService(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 func GetPod(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, idNum int, status *fdbv1beta2.FoundationDBStatus) (*corev1.Pod, error) {
 	name, id := GetProcessGroupID(cluster, processClass, idNum)
 
-	var tdhLocality fdbv1beta2.Locality
+	var podLocality fdbv1beta2.Locality
 
 	if cluster.Spec.DatabaseConfiguration.RedundancyMode == fdbv1beta2.RedundancyModeThreeDataHall {
 		var err error
-		tdhLocality, err = getPodLocality(cluster, processClass, status)
+		podLocality, err = getPodLocality(cluster, processClass, status)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	owner := BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
-	spec, err := GetPodSpec(cluster, processClass, idNum, tdhLocality.Value)
+	spec, err := GetPodSpec(cluster, processClass, idNum, podLocality.Value)
 	if err != nil {
 		return nil, err
 	}
 
 	if cluster.Spec.DatabaseConfiguration.RedundancyMode == fdbv1beta2.RedundancyModeThreeDataHall {
-		spec.NodeSelector = tdhLocality.NodeSelector
+		ns := map[string]string{podLocality.NodeSelector[0][0]: podLocality.NodeSelector[0][1]}
+		spec.NodeSelector = ns
 	}
 
-	specHash, err := GetPodSpecHash(cluster, processClass, idNum, spec, tdhLocality.Value)
+	specHash, err := GetPodSpecHash(cluster, processClass, idNum, spec, podLocality.Value)
 	if err != nil {
 		return nil, err
 	}

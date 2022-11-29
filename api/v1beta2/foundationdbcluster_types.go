@@ -220,6 +220,7 @@ type FoundationDBClusterSpec struct {
 
 	// Localities are used to specify the location of processes which in turn is used to
 	// determine fault and toleration domains.
+	// +kubebuilder:validation:MinItems=3
 	Localities []Locality `json:"localities,omitempty"`
 }
 
@@ -331,8 +332,8 @@ type ProcessGroupStatus struct {
 	ExclusionSkipped bool `json:"exclusionSkipped,omitempty"`
 	// ProcessGroupConditions represents a list of degraded conditions that the process group is in.
 	ProcessGroupConditions []*ProcessGroupCondition `json:"processGroupConditions,omitempty"`
-	// ProcessGroupLocalityZoneId represents the locality zone id the process group has.
-	ProcessGroupLocalityZoneID string `json:"processGroupLocalityZoneID,omitempty"`
+	// LocalityZoneId represents the locality zone id the process group has.
+	LocalityZoneID string `json:"localityZoneID,omitempty"`
 }
 
 // GetExclusionString returns the exclusion string
@@ -404,11 +405,6 @@ func (processGroupStatus *ProcessGroupStatus) AddAddresses(addresses []string, i
 		processGroupStatus.Addresses = cleanAddressList(append(processGroupStatus.Addresses, newAddresses...))
 		return
 	}
-}
-
-// SetLocalityZoneID sets the locality zone id for the ProcessGroupStatus.
-func (processGroupStatus *ProcessGroupStatus) SetLocalityZoneID(zoneID string) {
-	processGroupStatus.ProcessGroupLocalityZoneID = zoneID
 }
 
 // This method removes duplicates and empty strings from a list of addresses.
@@ -1155,7 +1151,7 @@ func (cluster *FoundationDBCluster) MinimumFaultDomains() int {
 // a cluster.
 func (cluster *FoundationDBCluster) DesiredCoordinatorCount() int {
 	if cluster.Spec.DatabaseConfiguration.RedundancyMode == RedundancyModeThreeDataHall {
-		return len(cluster.Spec.Localities) * 3
+		return 9
 	}
 
 	if cluster.Spec.DatabaseConfiguration.UsableRegions > 1 {
@@ -2199,13 +2195,17 @@ func (cluster *FoundationDBCluster) GetCrashLoopProcessGroups() (map[string]None
 // Locality represents a locality for the cluster processes.
 type Locality struct {
 	//The key identifying the locality
+	// +kubebuilder:validation:Required
 	Key string `json:"key,omitempty"`
 	//The value of the locality
+	// +kubebuilder:validation:Required
 	Value string `json:"value,omitempty"`
 	//The topology key (ex. topology.kubernetes.io/zone)
+	// +kubebuilder:validation:Required
 	TopologyKey string `json:"topologyKey,omitempty"`
 	//The node selector map
-	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+	// +kubebuilder:validation:Required
+	NodeSelector [][]string `json:"nodeSelector,omitempty"`
 }
 
 // GetLocalities returns the cluster localities
@@ -2247,9 +2247,6 @@ func (cluster *FoundationDBCluster) Validate() error {
 
 	// Check if localities have been defined when three data hall replication is configured.
 	if cluster.Spec.DatabaseConfiguration.RedundancyMode == RedundancyModeThreeDataHall {
-		if len(cluster.Spec.Localities) == 0 {
-			validations = append(validations, fmt.Sprintf("%s replication requires localities to be defined in the cluster spec", RedundancyModeThreeDataHall))
-		}
 		if len(cluster.Spec.Localities) < 3 {
 			validations = append(validations, fmt.Sprintf("%s replication requires at least three localities", RedundancyModeThreeDataHall))
 		}
@@ -2257,7 +2254,7 @@ func (cluster *FoundationDBCluster) Validate() error {
 			if l.TopologyKey == "" {
 				validations = append(validations, fmt.Sprintf("%s replication requires a topology key for all localities", RedundancyModeThreeDataHall))
 			}
-			if l.NodeSelector == nil || len(l.NodeSelector) == 0 {
+			if len(l.NodeSelector) == 0 {
 				validations = append(validations, fmt.Sprintf("%s replication requires a node selector for all localities", RedundancyModeThreeDataHall))
 			}
 			if l.Key == "" || l.Value == "" {
