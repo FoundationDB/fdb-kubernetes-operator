@@ -25,6 +25,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal/restarts"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
@@ -149,12 +151,7 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 // getProcessesReadyForRestart returns a slice of process addresses that can be restarted. If addresses are missing or not all processes
 // have the latest configuration this method will return a requeue struct with more details.
 func getProcessesReadyForRestart(ctx context.Context, logger logr.Logger, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, addressMap map[string][]fdbv1beta2.ProcessAddress) ([]fdbv1beta2.ProcessAddress, *requeue) {
-	processesToBounce := fdbv1beta2.FilterByConditions(cluster.Status.ProcessGroups, map[fdbv1beta2.ProcessGroupConditionType]bool{
-		fdbv1beta2.IncorrectCommandLine: true,
-		fdbv1beta2.IncorrectPodSpec:     false,
-		fdbv1beta2.SidecarUnreachable:   false, // ignore all Process groups that are not reachable and therefore will not get any ConfigMap updates.
-	}, true)
-
+	processesToBounce := fdbv1beta2.FilterByConditions(cluster.Status.ProcessGroups, restarts.GetFilterConditions(cluster), true)
 	addresses := make([]fdbv1beta2.ProcessAddress, 0, len(processesToBounce))
 	allSynced := true
 	var missingAddress []string
@@ -170,6 +167,7 @@ func getProcessesReadyForRestart(ctx context.Context, logger logr.Logger, r *Fou
 		// missing in the status.
 		if missingTime := processGroup.GetConditionTime(fdbv1beta2.MissingProcesses); missingTime != nil {
 			if time.Unix(*missingTime, 0).Add(cluster.GetIgnoreMissingProcessesSeconds()).Before(time.Now()) {
+				logger.Info("ignore process group with missing process", "processGroupID", processGroup.ProcessGroupID)
 				continue
 			}
 		}
@@ -203,6 +201,22 @@ func getProcessesReadyForRestart(ctx context.Context, logger logr.Logger, r *Fou
 
 	if !allSynced {
 		return nil, &requeue{message: "Waiting for config map to sync to all pods", delayedRequeue: true}
+	}
+
+	counts, err := cluster.GetProcessCountsWithDefaults()
+	if err != nil {
+		return nil, &requeue{
+			curError: err,
+		}
+	}
+
+	// If we upgrade the cluster wait until all processes are ready for the restart. In the future we can adjust this
+	// to only be a requirement for version incompatible upgrades. In addition we probably only want to block for a
+	// certain threshold either as a percentage or as a fixed number (which could also be 0).
+	if cluster.IsBeingUpgraded() && counts.Total() != len(addresses) {
+		return nil, &requeue{
+			message:        fmt.Sprintf("expected %d processes, got %d processes ready to restart", counts.Total(), len(addresses)),
+			delayedRequeue: true}
 	}
 
 	return addresses, nil
