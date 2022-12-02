@@ -23,7 +23,9 @@ package fdbclient
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
+	"path"
 	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -41,27 +43,40 @@ const (
 // DefaultCLITimeout is the default timeout for CLI commands.
 var DefaultCLITimeout = 10 * time.Second
 
-// getFDBDatabase opens an FDB database. The result will be cached for
-// subsequent calls, based on the cluster namespace and name.
+// createClusterFile will create or update the cluster file for the specified cluster.
+func createClusterFile(cluster *fdbv1beta2.FoundationDBCluster) (string, error) {
+	return ensureClusterFileIsPresent(os.TempDir(), string(cluster.UID), cluster.Status.ConnectionString)
+}
+
+// ensureClusterFileIsPresent will ensure that the cluster file with the specified connection string is present.
+func ensureClusterFileIsPresent(dir string, uid string, connectionString string) (string, error) {
+	clusterFileName := path.Join(dir, uid)
+
+	// Try to read the file to check if the file already exists and if so, if the content matches
+	content, err := os.ReadFile(clusterFileName)
+
+	// If the file doesn't exist we have to create it
+	if errors.Is(err, fs.ErrNotExist) {
+		return clusterFileName, os.WriteFile(clusterFileName, []byte(connectionString), 0777)
+	}
+
+	// The content of the cluster file is already correct.
+	if string(content) == connectionString {
+		return clusterFileName, nil
+	}
+
+	// The content doesn't match, so we have to write the new content to the cluster file.
+	return clusterFileName, os.WriteFile(clusterFileName, []byte(connectionString), 0777)
+}
+
+// getFDBDatabase opens an FDB database.
 func getFDBDatabase(cluster *fdbv1beta2.FoundationDBCluster) (fdb.Database, error) {
-	clusterFile, err := os.CreateTemp("", "")
+	clusterFile, err := createClusterFile(cluster)
 	if err != nil {
 		return fdb.Database{}, err
 	}
 
-	defer clusterFile.Close()
-	clusterFilePath := clusterFile.Name()
-
-	_, err = clusterFile.WriteString(cluster.Status.ConnectionString)
-	if err != nil {
-		return fdb.Database{}, err
-	}
-	err = clusterFile.Close()
-	if err != nil {
-		return fdb.Database{}, err
-	}
-
-	database, err := fdb.OpenDatabase(clusterFilePath)
+	database, err := fdb.OpenDatabase(clusterFile)
 	if err != nil {
 		return fdb.Database{}, err
 	}

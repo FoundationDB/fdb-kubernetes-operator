@@ -93,17 +93,7 @@ type cliAdminClient struct {
 
 // NewCliAdminClient generates an Admin client for a cluster
 func NewCliAdminClient(cluster *fdbv1beta2.FoundationDBCluster, _ client.Client, log logr.Logger) (fdbadminclient.AdminClient, error) {
-	clusterFile, err := os.CreateTemp("", "")
-	if err != nil {
-		return nil, err
-	}
-
-	defer clusterFile.Close()
-	_, err = clusterFile.WriteString(cluster.Status.ConnectionString)
-	if err != nil {
-		return nil, err
-	}
-	err = clusterFile.Close()
+	clusterFile, err := createClusterFile(cluster)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +101,7 @@ func NewCliAdminClient(cluster *fdbv1beta2.FoundationDBCluster, _ client.Client,
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name)
 	return &cliAdminClient{
 		Cluster:          cluster,
-		clusterFilePath:  clusterFile.Name(),
+		clusterFilePath:  clusterFile,
 		useClientLibrary: true,
 		log:              logger,
 		cmdRunner:        &realCommandRunner{log: logger},
@@ -856,10 +846,7 @@ func (client *cliAdminClient) GetRestoreStatus() (string, error) {
 
 // Close cleans up any pending resources.
 func (client *cliAdminClient) Close() error {
-	err := os.Remove(client.clusterFilePath)
-	if err != nil {
-		return err
-	}
+	// Allow to reuse the same file.
 	return nil
 }
 
