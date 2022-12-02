@@ -1,4 +1,6 @@
-#! /bin/bash
+#!/usr/bin/env bash
+
+set -eu
 
 # This directory provides an example of creating a cluster using the multi-KC
 # replication topology.
@@ -15,14 +17,24 @@ DIR="${BASH_SOURCE%/*}"
 
 . $DIR/functions.bash
 
-applyFile $DIR/stage_1.yaml dc1 '""'
-checkReconciliationLoop test-cluster-dc1
-connectionString=$(getConnectionString test-cluster-dc1)
+# To test a multi-region FDB cluster setup we need to have 3 Kubernetes clusters
+cluster1=${CLUSTER1:-cluster1}
+cluster2=${CLUSTER2:-cluster2}
+cluster3=${CLUSTER3:-cluster3}
 
-applyFile $DIR/final.yaml dc1 $connectionString
-applyFile $DIR/final.yaml dc2 $connectionString
-applyFile $DIR/final.yaml dc3 $connectionString
+# For all the clusters we have to create tha according kubeconfig
+kubeconfig1=${KUBECONFIG1:-"${cluster1}.kubeconfig"}
+kubeconfig2=${KUBECONFIG2:-"${cluster2}.kubeconfig"}
+kubeconfig3=${KUBECONFIG3:-"${cluster3}.kubeconfig"}
 
-checkReconciliationLoop test-cluster-dc1
-checkReconciliationLoop test-cluster-dc2
-checkReconciliationLoop test-cluster-dc3
+applyFile "${DIR}/stage_1.yaml" dc1 '""' "${kubeconfig1}"
+checkReconciliationLoop test-cluster-dc1 "${kubeconfig1}"
+connectionString=$(getConnectionString test-cluster-dc1 "${kubeconfig1}")
+
+applyFile "${DIR}/final.yaml" dc1 "${connectionString}" "${kubeconfig1}"
+applyFile "${DIR}/final.yaml" dc2 "${connectionString}" "${kubeconfig2}"
+applyFile "${DIR}/final.yaml" dc3 "${connectionString}" "${kubeconfig3}"
+
+checkReconciliationLoop test-cluster-dc1 "${kubeconfig1}"
+checkReconciliationLoop test-cluster-dc2 "${kubeconfig2}"
+checkReconciliationLoop test-cluster-dc3 "${kubeconfig3}"
