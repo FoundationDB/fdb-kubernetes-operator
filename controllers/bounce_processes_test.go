@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient/mock"
 	"k8s.io/utils/pointer"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
@@ -36,8 +37,8 @@ import (
 
 var _ = Describe("bounceProcesses", func() {
 	var cluster *fdbv1beta2.FoundationDBCluster
-	var adminClient *mockAdminClient
-	var lockClient *mockLockClient
+	var adminClient *mock.AdminClient
+	var lockClient *mock.LockClient
 	var requeue *requeue
 	var err error
 
@@ -46,10 +47,10 @@ var _ = Describe("bounceProcesses", func() {
 		cluster.Spec.LockOptions.DisableLocks = pointer.Bool(false)
 		Expect(setupClusterForTest(cluster)).NotTo(HaveOccurred())
 
-		adminClient, err = newMockAdminClientUncast(cluster, k8sClient)
+		adminClient, err = mock.NewMockAdminClientUncast(cluster, k8sClient)
 		Expect(err).NotTo(HaveOccurred())
 
-		lockClient = newMockLockClientUncast(cluster)
+		lockClient = mock.NewMockLockClientUncast(cluster)
 	})
 
 	JustBeforeEach(func() {
@@ -273,7 +274,9 @@ var _ = Describe("bounceProcesses", func() {
 			for _, processGroup := range cluster.Status.ProcessGroups {
 				expectedUpgrades[processGroup.ProcessGroupID] = true
 			}
-			Expect(lockClient.pendingUpgrades[fdbv1beta2.Versions.NextMajorVersion]).To(Equal(expectedUpgrades))
+			pendingUpgrades, err := lockClient.GetPendingUpgrades(fdbv1beta2.Versions.NextMajorVersion)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(pendingUpgrades).To(Equal(expectedUpgrades))
 		})
 
 		Context("with an unknown process", func() {
@@ -305,7 +308,9 @@ var _ = Describe("bounceProcesses", func() {
 				for _, processGroup := range cluster.Status.ProcessGroups {
 					expectedUpgrades[processGroup.ProcessGroupID] = true
 				}
-				Expect(lockClient.pendingUpgrades[fdbv1beta2.Versions.NextMajorVersion]).To(Equal(expectedUpgrades))
+				pendingUpgrades, err := lockClient.GetPendingUpgrades(fdbv1beta2.Versions.NextMajorVersion)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(pendingUpgrades).To(Equal(expectedUpgrades))
 			})
 
 			Context("with a pending upgrade for the unknown process", func() {
@@ -366,7 +371,9 @@ var _ = Describe("bounceProcesses", func() {
 				})
 
 				It("should not submit pending upgrade information", func() {
-					Expect(lockClient.pendingUpgrades).To(BeEmpty())
+					pendingUpgrades, err := lockClient.GetPendingUpgrades(fdbv1beta2.Versions.NextMajorVersion)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(pendingUpgrades).To(BeEmpty())
 				})
 			})
 
@@ -389,7 +396,9 @@ var _ = Describe("bounceProcesses", func() {
 				})
 
 				It("should not submit pending upgrade information", func() {
-					Expect(lockClient.pendingUpgrades).To(BeEmpty())
+					pendingUpgrades, err := lockClient.GetPendingUpgrades(fdbv1beta2.Versions.NextMajorVersion)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(pendingUpgrades).To(BeEmpty())
 				})
 			})
 		})

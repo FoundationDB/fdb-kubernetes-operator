@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2020-2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2020-2022 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package controllers
+package mock
 
 import (
 	"net"
@@ -43,7 +43,7 @@ var _ = Describe("mock_client", func() {
 
 		DescribeTable("should return the correct image",
 			func(input testCase) {
-				admin, err := newMockAdminClient(input.cluster, nil)
+				admin, err := NewMockAdminClient(input.cluster, nil)
 				Expect(err).NotTo(HaveOccurred())
 
 				err = admin.ExcludeProcesses(input.exclusions)

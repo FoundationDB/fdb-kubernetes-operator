@@ -23,6 +23,8 @@ package controllers
 import (
 	"context"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient/mock"
+
 	"k8s.io/utils/pointer"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
@@ -40,7 +42,7 @@ var _ = Describe("update_status", func() {
 	Context("validate process group", func() {
 		var cluster *fdbv1beta2.FoundationDBCluster
 		var configMap *corev1.ConfigMap
-		var adminClient *mockAdminClient
+		var adminClient *mock.AdminClient
 		var pods []*corev1.Pod
 		var processMap map[string][]fdbv1beta2.FoundationDBStatusProcessInfo
 		var err error
@@ -59,7 +61,7 @@ var _ = Describe("update_status", func() {
 				pods[0].Status.ContainerStatuses = append(pods[0].Status.ContainerStatuses, corev1.ContainerStatus{Ready: true, Name: container.Name})
 			}
 
-			adminClient, err = newMockAdminClientUncast(cluster, k8sClient)
+			adminClient, err = mock.NewMockAdminClientUncast(cluster, k8sClient)
 			Expect(err).NotTo(HaveOccurred())
 
 			configMap = &corev1.ConfigMap{}

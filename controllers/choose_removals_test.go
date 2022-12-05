@@ -23,6 +23,8 @@ package controllers
 import (
 	"context"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient/mock"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -32,7 +34,7 @@ import (
 
 var _ = Describe("choose_removals", func() {
 	var cluster *fdbv1beta2.FoundationDBCluster
-	var adminClient *mockAdminClient
+	var adminClient *mock.AdminClient
 	var err error
 	var requeue *requeue
 	var removals []string
@@ -50,7 +52,7 @@ var _ = Describe("choose_removals", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(generation).To(Equal(int64(1)))
 
-		adminClient, err = newMockAdminClientUncast(cluster, k8sClient)
+		adminClient, err = mock.NewMockAdminClientUncast(cluster, k8sClient)
 		Expect(err).NotTo(HaveOccurred())
 	})
 

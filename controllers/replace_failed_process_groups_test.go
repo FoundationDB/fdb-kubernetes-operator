@@ -24,6 +24,8 @@ import (
 	ctx "context"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient/mock"
+
 	"k8s.io/utils/pointer"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
@@ -53,7 +55,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 	})
 
 	JustBeforeEach(func() {
-		adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+		adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(adminClient).NotTo(BeNil())
 		result = replaceFailedProcessGroups{}.reconcile(ctx.Background(), clusterReconciler, cluster)
@@ -261,9 +263,9 @@ var _ = Describe("replace_failed_process_groups", func() {
 					processGroup := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-2")
 					processGroup.Addresses = nil
 
-					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
-					adminClient.frozenStatus = &fdbv1beta2.FoundationDBStatus{
+					adminClient.FrozenStatus = &fdbv1beta2.FoundationDBStatus{
 						Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
 							DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
 								Available: false,
@@ -286,9 +288,9 @@ var _ = Describe("replace_failed_process_groups", func() {
 					processGroup := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-2")
 					processGroup.Addresses = nil
 
-					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
-					adminClient.maxZoneFailuresWithoutLosingData = pointer.Int(0)
+					adminClient.MaxZoneFailuresWithoutLosingData = pointer.Int(0)
 				})
 
 				It("should return nil", func() {
