@@ -25,6 +25,8 @@ import (
 	"testing"
 	"time"
 
+	mockpodclient "github.com/FoundationDB/fdb-kubernetes-operator/pkg/podclient/mock"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient/mock"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
@@ -186,7 +188,7 @@ func createTestClusterReconciler() *FoundationDBClusterReconciler {
 		Recorder:               k8sClient,
 		InSimulation:           true,
 		PodLifecycleManager:    podmanager.StandardPodLifecycleManager{},
-		PodClientProvider:      internal.NewMockFdbPodClient,
+		PodClientProvider:      mockpodclient.NewMockFdbPodClient,
 		DatabaseClientProvider: mock.DatabaseClientProvider{},
 	}
 }

@@ -23,6 +23,7 @@ package mock
 import (
 	"context"
 	"fmt"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podclient/mock"
 	"net"
 	"strings"
 	"sync"
@@ -139,7 +140,7 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 	}
 
 	for _, pod := range pods.Items {
-		podClient, _ := internal.NewMockFdbPodClient(client.Cluster, &pod)
+		podClient, _ := mock.NewMockFdbPodClient(client.Cluster, &pod)
 
 		processCount, err := internal.GetStorageServersPerPodForPod(&pod)
 		if err != nil {
