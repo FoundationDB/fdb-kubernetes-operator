@@ -27,6 +27,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podclient/mock"
+
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -459,7 +461,7 @@ var _ = Describe("Change coordinators", func() {
 	)
 
 	DescribeTable("when getting the locality info from a sidecar", func(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod, expected Info, expectedError bool) {
-		client, err := internal.NewMockFdbPodClient(cluster, pod)
+		client, err := mock.NewMockFdbPodClient(cluster, pod)
 		Expect(err).NotTo(HaveOccurred())
 
 		info, err := InfoFromSidecar(cluster, client)
