@@ -434,9 +434,11 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 		processCount := 1
 
 		processStatus := processMap[processGroup.ProcessGroupID]
-		dataHall := processStatus[0].Locality[fdbv1beta2.FDBLocalityDataHallKey]
-		//TODO(manuel.fontan): add a unit test for this
-		processGroup.LocalityDataHall = dataHall
+		if len(processStatus) > 0 {
+			dataHall := processStatus[0].Locality[fdbv1beta2.FDBLocalityDataHallKey]
+			//TODO(manuel.fontan): add a unit test for this
+			processGroup.LocalityDataHall = dataHall
+		}
 
 		if processGroup.IsMarkedForRemoval() && pod.ObjectMeta.DeletionTimestamp != nil {
 			processGroup.UpdateCondition(fdbv1beta2.ResourcesTerminating, true, processGroups, processGroup.ProcessGroupID)
