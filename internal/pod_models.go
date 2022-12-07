@@ -120,7 +120,7 @@ func GetPod(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.Pro
 
 	if cluster.Spec.DatabaseConfiguration.RedundancyMode == fdbv1beta2.RedundancyModeThreeDataHall {
 		var err error
-		podLocality, err = getPodLocality(cluster, processClass, status)
+		podLocality, err = getPodLocalityDataHall(cluster, processClass, status)
 		if err != nil {
 			return nil, err
 		}
@@ -152,29 +152,29 @@ func GetPod(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.Pro
 	}, nil
 }
 
-func getPodLocality(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, status *fdbv1beta2.FoundationDBStatus) (fdbv1beta2.Locality, error) {
+func getPodLocalityDataHall(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, status *fdbv1beta2.FoundationDBStatus) (fdbv1beta2.Locality, error) {
 	// Set the spec.NodeSelector depending on the process distribution across fault domains.
 	// Convert the process list into a map with the process zone ID as key.
 	processInfo := map[string][]fdbv1beta2.FoundationDBStatusProcessInfo{}
 	for _, p := range status.Cluster.Processes {
 		// skip process loclities not matching the cluster Localities. For example old Pods with locality set to instanceId.
-		_, err := cluster.GetLocality(p.Locality[fdbv1beta2.FDBLocalityZoneIDKey])
+		_, err := cluster.GetLocality(p.Locality[fdbv1beta2.FDBLocalityDataHallKey])
 		if err != nil {
 			continue
 		}
 
 		if p.ProcessClass == processClass {
-			processInfo[p.Locality[fdbv1beta2.FDBLocalityZoneIDKey]] = append(processInfo[p.Locality[fdbv1beta2.FDBLocalityZoneIDKey]], p)
+			processInfo[p.Locality[fdbv1beta2.FDBLocalityDataHallKey]] = append(processInfo[p.Locality[fdbv1beta2.FDBLocalityDataHallKey]], p)
 		}
 	}
-	// To keep the cluster balanced we will pick the locality with less processes.
-	minZone := ""
-	for z := range processInfo {
-		if minZone == "" || len(processInfo[z]) < len(processInfo[minZone]) {
-			minZone = z
+	// To keep the cluster balanced we will pick the locality data hall with less processes.
+	minDataHall := ""
+	for dh := range processInfo {
+		if minDataHall == "" || len(processInfo[dh]) < len(processInfo[minDataHall]) {
+			minDataHall = dh
 		}
 	}
-	return cluster.GetLocality(minZone)
+	return cluster.GetLocality(minDataHall)
 }
 
 // GetImage returns the image for container
@@ -234,7 +234,7 @@ func getContainers(podSpec *corev1.PodSpec) (*corev1.Container, *corev1.Containe
 	return mainContainer, sidecarContainer, nil
 }
 
-func configureContainersForUnifiedImages(cluster *fdbv1beta2.FoundationDBCluster, mainContainer *corev1.Container, sidecarContainer *corev1.Container, processGroupID string, processClass fdbv1beta2.ProcessClass, zoneID string) error {
+func configureContainersForUnifiedImages(cluster *fdbv1beta2.FoundationDBCluster, mainContainer *corev1.Container, sidecarContainer *corev1.Container, processGroupID string, processClass fdbv1beta2.ProcessClass, dataHall string) error {
 	mainContainer.Args = []string{
 		"--input-dir", "/var/dynamic-conf",
 		"--log-path", "/var/log/fdb-trace-logs/monitor.log",
@@ -253,7 +253,7 @@ func configureContainersForUnifiedImages(cluster *fdbv1beta2.FoundationDBCluster
 		corev1.VolumeMount{Name: "fdb-trace-logs", MountPath: "/var/log/fdb-trace-logs"},
 	)
 
-	mainContainer.Env = append(mainContainer.Env, getEnvForMonitorConfigSubstitution(cluster, processGroupID, zoneID)...)
+	mainContainer.Env = append(mainContainer.Env, getEnvForMonitorConfigSubstitution(cluster, processGroupID, dataHall)...)
 	mainContainer.Env = append(mainContainer.Env, corev1.EnvVar{Name: "FDB_IMAGE_TYPE", Value: string(FDBImageTypeUnified)})
 	mainContainer.Env = append(mainContainer.Env, corev1.EnvVar{Name: "FDB_POD_NAME", ValueFrom: &corev1.EnvVarSource{
 		FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
@@ -432,7 +432,7 @@ func configureNoSchedule(podSpec *corev1.PodSpec, processGroupID string, noSched
 }
 
 // GetPodSpec builds a pod spec for a FoundationDB pod
-func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, idNum int, zoneID string) (*corev1.PodSpec, error) {
+func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, idNum int, dataHall string) (*corev1.PodSpec, error) {
 	processSettings := cluster.GetProcessSettings(processClass)
 	podSpec := processSettings.PodTemplate.Spec.DeepCopy()
 	useUnifiedImages := pointer.BoolDeref(cluster.Spec.UseUnifiedImage, false)
@@ -466,7 +466,7 @@ func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 	}
 
 	if useUnifiedImages {
-		err = configureContainersForUnifiedImages(cluster, mainContainer, sidecarContainer, processGroupID, processClass, zoneID)
+		err = configureContainersForUnifiedImages(cluster, mainContainer, sidecarContainer, processGroupID, processClass, dataHall)
 		if err != nil {
 			return nil, err
 		}
@@ -491,12 +491,12 @@ func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 			corev1.VolumeMount{Name: "fdb-trace-logs", MountPath: "/var/log/fdb-trace-logs"},
 		)
 
-		err = configureSidecarContainerForCluster(cluster, podName, initContainer, true, processGroupID, zoneID)
+		err = configureSidecarContainerForCluster(cluster, podName, initContainer, true, processGroupID, dataHall)
 		if err != nil {
 			return nil, err
 		}
 
-		err = configureSidecarContainerForCluster(cluster, podName, sidecarContainer, false, processGroupID, zoneID)
+		err = configureSidecarContainerForCluster(cluster, podName, sidecarContainer, false, processGroupID, dataHall)
 		if err != nil {
 			return nil, err
 		}
@@ -529,18 +529,18 @@ func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 
 // configureSidecarContainerForCluster sets up a sidecar container for a sidecar
 // in the FDB cluster.
-func configureSidecarContainerForCluster(cluster *fdbv1beta2.FoundationDBCluster, podName string, container *corev1.Container, initMode bool, processGroupID string, zoneID string) error {
-	return configureSidecarContainer(container, initMode, processGroupID, podName, cluster.GetRunningVersion(), cluster, cluster.Spec.SidecarContainer.ImageConfigs, false, zoneID)
+func configureSidecarContainerForCluster(cluster *fdbv1beta2.FoundationDBCluster, podName string, container *corev1.Container, initMode bool, processGroupID string, dataHall string) error {
+	return configureSidecarContainer(container, initMode, processGroupID, podName, cluster.GetRunningVersion(), cluster, cluster.Spec.SidecarContainer.ImageConfigs, false, dataHall)
 }
 
 // configureSidecarContainerForBackup sets up a sidecar container for the init
 // container for a backup process.
-func configureSidecarContainerForBackup(backup *fdbv1beta2.FoundationDBBackup, container *corev1.Container, zoneID string) error {
-	return configureSidecarContainer(container, true, "", "", backup.Spec.Version, nil, backup.Spec.SidecarContainer.ImageConfigs, pointer.BoolDeref(backup.Spec.AllowTagOverride, false), zoneID)
+func configureSidecarContainerForBackup(backup *fdbv1beta2.FoundationDBBackup, container *corev1.Container, dataHall string) error {
+	return configureSidecarContainer(container, true, "", "", backup.Spec.Version, nil, backup.Spec.SidecarContainer.ImageConfigs, pointer.BoolDeref(backup.Spec.AllowTagOverride, false), dataHall)
 }
 
 // configureSidecarContainer sets up a foundationdb-kubernetes-sidecar container.
-func configureSidecarContainer(container *corev1.Container, initMode bool, processGroupID string, podName string, versionString string, optionalCluster *fdbv1beta2.FoundationDBCluster, imageConfigs []fdbv1beta2.ImageConfig, allowTagOverride bool, zoneID string) error {
+func configureSidecarContainer(container *corev1.Container, initMode bool, processGroupID string, podName string, versionString string, optionalCluster *fdbv1beta2.FoundationDBCluster, imageConfigs []fdbv1beta2.ImageConfig, allowTagOverride bool, dataHall string) error {
 	sidecarEnv := make([]corev1.EnvVar, 0, 4)
 
 	hasTrustedCAs := optionalCluster != nil && len(optionalCluster.Spec.TrustedCAs) > 0
@@ -583,7 +583,7 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, proce
 			sidecarArgs = append(sidecarArgs, "--substitute-variable", substitution)
 		}
 
-		sidecarEnv = append(sidecarEnv, getEnvForMonitorConfigSubstitution(cluster, processGroupID, zoneID)...)
+		sidecarEnv = append(sidecarEnv, getEnvForMonitorConfigSubstitution(cluster, processGroupID, dataHall)...)
 
 		if cluster.UseDNSInClusterFile() {
 			sidecarArgs = append(sidecarArgs, "--substitute-variable", "FDB_DNS_NAME")
@@ -672,7 +672,7 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, proce
 
 // getEnvForMonitorConfigSubstitution provides the environment variables that
 // are used for substituting variables into the monitor config.
-func getEnvForMonitorConfigSubstitution(cluster *fdbv1beta2.FoundationDBCluster, instanceID string, zoneID string) []corev1.EnvVar {
+func getEnvForMonitorConfigSubstitution(cluster *fdbv1beta2.FoundationDBCluster, instanceID string, dataHall string) []corev1.EnvVar {
 	env := make([]corev1.EnvVar, 0)
 
 	publicIPSource := cluster.Spec.Routing.PublicIPSource
@@ -720,7 +720,7 @@ func getEnvForMonitorConfigSubstitution(cluster *fdbv1beta2.FoundationDBCluster,
 		env = append(env, corev1.EnvVar{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 		}})
-		env = append(env, corev1.EnvVar{Name: "FDB_ZONE_ID", Value: zoneID})
+		env = append(env, corev1.EnvVar{Name: "FDB_DATA_HALL", Value: dataHall})
 	} else if faultDomainKey == fdbv1beta2.NoneFaultDomainKey {
 		env = append(env, corev1.EnvVar{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
@@ -954,8 +954,8 @@ func GetBackupDeployment(backup *fdbv1beta2.FoundationDBBackup) (*appsv1.Deploym
 		initContainer = &podTemplate.Spec.InitContainers[0]
 	}
 
-	//TODO(manuel.fontan): confirm that and empty ZoneID for the backup agent is ok
-	// zoneID is only used when three data hall redundancy is enabled.
+	//TODO(manuel.fontan): confirm that and empty dataHall for the backup agent is ok
+	// dataHall is only used when three data hall redundancy is enabled.
 	err = configureSidecarContainerForBackup(backup, initContainer, "")
 	if err != nil {
 		return nil, err

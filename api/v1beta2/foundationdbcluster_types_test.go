@@ -4953,7 +4953,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						{
 							Key:          FDBLocalityDataHallKey,
 							Value:        "1",
-							TopologyKey:  "topology.kubernetes.io/zone",
+							TopologyKey:  corev1.LabelTopologyZone,
 							NodeSelector: [][]string{{"foundationdb", "1"}},
 						},
 						{
@@ -4970,7 +4970,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				{
 					Key:          FDBLocalityDataHallKey,
 					Value:        "1",
-					TopologyKey:  "topology.kubernetes.io/zone",
+					TopologyKey:  corev1.LabelTopologyZone,
 					NodeSelector: [][]string{{"foundationdb", "1"}},
 				},
 				{
@@ -4996,7 +4996,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						{
 							Key:          FDBLocalityDataHallKey,
 							Value:        "1",
-							TopologyKey:  "topology.kubernetes.io/zone",
+							TopologyKey:  corev1.LabelTopologyZone,
 							NodeSelector: [][]string{{"foundationdb", "1"}},
 						},
 						{
@@ -5012,7 +5012,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Expect(cluster.GetLocality("1")).To(Equal(Locality{
 				Key:          FDBLocalityDataHallKey,
 				Value:        "1",
-				TopologyKey:  "topology.kubernetes.io/zone",
+				TopologyKey:  corev1.LabelTopologyZone,
 				NodeSelector: [][]string{{"foundationdb", "1"}},
 			},
 			))

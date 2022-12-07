@@ -91,7 +91,7 @@ func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconcile
 			return &requeue{curError: err}
 		}
 
-		specHash, err := internal.GetPodSpecHash(cluster, processClass, idNum, nil, processGroup.LocalityZoneID)
+		specHash, err := internal.GetPodSpecHash(cluster, processClass, idNum, nil, processGroup.LocalityDataHall)
 		if err != nil {
 			return &requeue{curError: err}
 		}

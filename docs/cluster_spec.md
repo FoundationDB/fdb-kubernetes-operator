@@ -294,7 +294,7 @@ Locality represents a locality for the cluster processes.
 | key | The key identifying the locality | string | false |
 | value | The value of the locality | string | false |
 | topologyKey | The topology key (ex. topology.kubernetes.io/zone) | string | false |
-| nodeSelector | The node selector map | map[string]string | false |
+| nodeSelector | The node selector map | [][]string | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -397,7 +397,7 @@ ProcessGroupStatus represents the status of a ProcessGroup.
 | exclusionTimestamp | ExcludedTimestamp defines when the process group has been fully excluded. This is only used within the reconciliation process, and should not be considered authoritative. | *metav1.Time | false |
 | exclusionSkipped | ExclusionSkipped determines if exclusion has been skipped for a process, which will allow the process group to be removed without exclusion. | bool | false |
 | processGroupConditions | ProcessGroupConditions represents a list of degraded conditions that the process group is in. | []*[ProcessGroupCondition](#processgroupcondition) | false |
-| processGroupLocalityZoneID | ProcessGroupLocalityZoneId represents the locality zone id the process group has. | string | false |
+| localityDataHall | LocalityDataHall represents the locality data hall the process group has. | string | false |
 
 [Back to TOC](#table-of-contents)
 

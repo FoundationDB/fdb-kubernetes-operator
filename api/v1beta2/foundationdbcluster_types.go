@@ -332,8 +332,8 @@ type ProcessGroupStatus struct {
 	ExclusionSkipped bool `json:"exclusionSkipped,omitempty"`
 	// ProcessGroupConditions represents a list of degraded conditions that the process group is in.
 	ProcessGroupConditions []*ProcessGroupCondition `json:"processGroupConditions,omitempty"`
-	// LocalityZoneId represents the locality zone id the process group has.
-	LocalityZoneID string `json:"localityZoneID,omitempty"`
+	// LocalityDataHall represents the locality data hall the process group has.
+	LocalityDataHall string `json:"localityDataHall,omitempty"`
 }
 
 // GetExclusionString returns the exclusion string

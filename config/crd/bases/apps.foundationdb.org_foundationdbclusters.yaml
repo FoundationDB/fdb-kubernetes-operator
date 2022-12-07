@@ -10119,14 +10119,17 @@ spec:
                     key:
                       type: string
                     nodeSelector:
-                      additionalProperties:
-                        type: string
-                      type: object
+                      items:
+                        items:
+                          type: string
+                        type: array
+                      type: array
                     topologyKey:
                       type: string
                     value:
                       type: string
                   type: object
+                minItems: 3
                 type: array
               lockOptions:
                 properties:
@@ -13814,6 +13817,8 @@ spec:
                     exclusionTimestamp:
                       format: date-time
                       type: string
+                    localityDataHall:
+                      type: string
                     processClass:
                       type: string
                     processGroupConditions:
@@ -13827,8 +13832,6 @@ spec:
                         type: object
                       type: array
                     processGroupID:
-                      type: string
-                    processGroupLocalityZoneID:
                       type: string
                     removalTimestamp:
                       format: date-time

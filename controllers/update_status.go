@@ -434,9 +434,9 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 		processCount := 1
 
 		processStatus := processMap[processGroup.ProcessGroupID]
-		zone := processStatus[0].Locality[fdbv1beta2.FDBLocalityZoneIDKey]
+		dataHall := processStatus[0].Locality[fdbv1beta2.FDBLocalityDataHallKey]
 		//TODO(manuel.fontan): add a unit test for this
-		processGroup.LocalityZoneID = zone
+		processGroup.LocalityDataHall = dataHall
 
 		if processGroup.IsMarkedForRemoval() && pod.ObjectMeta.DeletionTimestamp != nil {
 			processGroup.UpdateCondition(fdbv1beta2.ResourcesTerminating, true, processGroups, processGroup.ProcessGroupID)
@@ -534,7 +534,7 @@ func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler,
 		return err
 	}
 
-	specHash, err := internal.GetPodSpecHash(cluster, processGroupStatus.ProcessClass, idNum, nil, processGroupStatus.LocalityZoneID)
+	specHash, err := internal.GetPodSpecHash(cluster, processGroupStatus.ProcessClass, idNum, nil, processGroupStatus.LocalityDataHall)
 	if err != nil {
 		return err
 	}
