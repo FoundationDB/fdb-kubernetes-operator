@@ -1198,8 +1198,7 @@ var _ = Describe("cluster_controller", func() {
 			Context("with changes disabled", func() {
 				BeforeEach(func() {
 					shouldCompleteReconciliation = false
-					var flag = false
-					cluster.Spec.AutomationOptions.ConfigureDatabase = &flag
+					cluster.Spec.AutomationOptions.ConfigureDatabase = pointer.Bool(false)
 					cluster.Spec.DatabaseConfiguration.RedundancyMode = fdbv1beta2.RedundancyModeTriple
 
 					err = k8sClient.Update(context.TODO(), cluster)
@@ -1212,14 +1211,12 @@ var _ = Describe("cluster_controller", func() {
 					Expect(generations).To(Equal(fdbv1beta2.ClusterGenerationStatus{
 						Reconciled:               originalVersion,
 						NeedsConfigurationChange: originalVersion + 1,
-						NeedsCoordinatorChange:   originalVersion + 1,
 					}))
 				})
 
 				It("should not change the database configuration", func() {
 					adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
-
 					Expect(adminClient.DatabaseConfiguration.RedundancyMode).To(Equal(fdbv1beta2.RedundancyModeDouble))
 				})
 			})
