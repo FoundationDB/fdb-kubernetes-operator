@@ -495,6 +495,11 @@ func (in *FoundationDBClusterAutomationOptions) DeepCopyInto(out *FoundationDBCl
 		*out = new(int)
 		**out = **in
 	}
+	if in.FailedPodDurationSeconds != nil {
+		in, out := &in.FailedPodDurationSeconds, &out.FailedPodDurationSeconds
+		*out = new(int)
+		**out = **in
+	}
 	if in.MaxConcurrentReplacements != nil {
 		in, out := &in.MaxConcurrentReplacements, &out.MaxConcurrentReplacements
 		*out = new(int)

@@ -849,6 +849,12 @@ type FoundationDBClusterAutomationOptions struct {
 	// it will be ignored during reconciliation. This prevents that a process will block reconciliation.
 	IgnoreMissingProcessesSeconds *int `json:"ignoreMissingProcessesSeconds,omitempty"`
 
+	// FailedPodDurationSeconds defines the duration a Pod can stay in the deleted state (deletionTimestamp != 0) before
+	// it gets marked as PodFailed. This is important in cases where a fdbserver process is still reporting but the
+	// Pod resource is marked for deletion. This can happen when the kubelet or a node fails. Setting this condition
+	// will ensure that the operator is replacing affected Pods.
+	FailedPodDurationSeconds *int `json:"failedPodDurationSeconds,omitempty"`
+
 	// MaxConcurrentReplacements defines how many process groups can be concurrently
 	// replaced if they are misconfigured. If the value will be set to 0 this will block replacements
 	// and these misconfigured Pods must be replaced manually or by another process. For each reconcile
@@ -1826,13 +1832,14 @@ func (cluster *FoundationDBCluster) GetIgnoreMissingProcessesSeconds() time.Dura
 	return time.Duration(pointer.IntDeref(cluster.Spec.AutomationOptions.IgnoreMissingProcessesSeconds, 30)) * time.Second
 }
 
+// GetFailedPodDuration returns the value of FailedPodDuration or 5 minutes if unset.
+func (cluster *FoundationDBCluster) GetFailedPodDuration() time.Duration {
+	return time.Duration(pointer.IntDeref(cluster.Spec.AutomationOptions.FailedPodDurationSeconds, 300)) * time.Second
+}
+
 // GetUseNonBlockingExcludes returns the value of useNonBlockingExcludes or false if unset.
 func (cluster *FoundationDBCluster) GetUseNonBlockingExcludes() bool {
-	if cluster.Spec.AutomationOptions.UseNonBlockingExcludes == nil {
-		return false
-	}
-
-	return *cluster.Spec.AutomationOptions.UseNonBlockingExcludes
+	return pointer.BoolDeref(cluster.Spec.AutomationOptions.UseNonBlockingExcludes, false)
 }
 
 // UseLocalitiesForExclusion returns the value of UseLocalitiesForExclusion or false if unset.

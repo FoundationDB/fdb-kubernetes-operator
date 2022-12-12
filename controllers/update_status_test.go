@@ -22,6 +22,8 @@ package controllers
 
 import (
 	"context"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"time"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient/mock"
 
@@ -183,6 +185,32 @@ var _ = Describe("update_status", func() {
 
 				incorrectPods := fdbv1beta2.FilterByCondition(processGroupStatus, fdbv1beta2.IncorrectPodSpec, false)
 				Expect(incorrectPods).To(Equal([]string{"storage-1"}))
+
+				Expect(len(processGroupStatus)).To(BeNumerically(">", 4))
+				processGroup := processGroupStatus[len(processGroupStatus)-4]
+				Expect(processGroup.ProcessGroupID).To(Equal("storage-1"))
+				Expect(len(processGroup.ProcessGroupConditions)).To(Equal(1))
+			})
+		})
+
+		When("the Pod is marked for deletion but still reporting to the cluster", func() {
+			BeforeEach(func() {
+				// We cannot use the k8sClient.MockStuckTermination() method because the deletionTimestamp must be
+				// older than 5 minutes to detect the Pod as PodFailed.
+				stuckPod := pods[0]
+				stuckPod.SetDeletionTimestamp(&metav1.Time{Time: time.Now().Add(-10 * time.Minute)})
+				stuckPod.SetFinalizers(append(stuckPod.GetFinalizers(), "foundationdb.org/testing"))
+				Expect(k8sClient.Update(context.Background(), stuckPod)).NotTo(HaveOccurred())
+			})
+
+			It("should get a condition assigned", func() {
+				// Ensure that we have the same number of Pods and processes
+				Expect(allPods).To(HaveLen(len(processMap)))
+				processGroupStatus, err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap, allPods, allPvcs)
+				Expect(err).NotTo(HaveOccurred())
+
+				missingProcesses := fdbv1beta2.FilterByCondition(processGroupStatus, fdbv1beta2.PodFailing, false)
+				Expect(missingProcesses).To(Equal([]string{"storage-1"}))
 
 				Expect(len(processGroupStatus)).To(BeNumerically(">", 4))
 				processGroup := processGroupStatus[len(processGroupStatus)-4]
