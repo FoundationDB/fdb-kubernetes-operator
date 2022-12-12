@@ -433,9 +433,21 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 		processGroup.AddAddresses(podmanager.GetPublicIPs(pod, log), processGroup.IsMarkedForRemoval() || !status.Health.Available)
 		processCount := 1
 
-		if processGroup.IsMarkedForRemoval() && pod.ObjectMeta.DeletionTimestamp != nil {
-			processGroup.UpdateCondition(fdbv1beta2.ResourcesTerminating, true, processGroups, processGroup.ProcessGroupID)
-			continue
+		// In this case the Pod has a DeletionTimestamp and should be deleted.
+		if !pod.ObjectMeta.DeletionTimestamp.IsZero() {
+			// If the ProcessGroup is marked for removal we can put the status into ResourcesTerminating
+			if processGroup.IsMarkedForRemoval() {
+				processGroup.UpdateCondition(fdbv1beta2.ResourcesTerminating, true, processGroups, processGroup.ProcessGroupID)
+				continue
+			}
+			// Otherwise we set PodFailing to ensure that the operator will trigger a replacement. This case can happen
+			// if a Pod is marked for terminating (e.g. node failure) but the process itself is still reporting to the
+			// cluster. We only set this condition if the Pod is in this state for GetFailedPodDuration(), the default
+			// here is 5 minutes.
+			if pod.ObjectMeta.DeletionTimestamp.Add(cluster.GetFailedPodDuration()).Before(time.Now()) {
+				processGroup.UpdateCondition(fdbv1beta2.PodFailing, true, processGroups, processGroup.ProcessGroupID)
+				continue
+			}
 		}
 
 		// Even the process group will be removed we need to keep the config around.
