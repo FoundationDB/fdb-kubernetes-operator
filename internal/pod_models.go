@@ -154,10 +154,10 @@ func GetPod(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.Pro
 
 func getPodLocalityDataHall(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, status *fdbv1beta2.FoundationDBStatus) (fdbv1beta2.Locality, error) {
 	// Set the spec.NodeSelector depending on the process distribution across fault domains.
-	// Convert the process list into a map with the process zone ID as key.
+	// Convert the process list into a map with the process data hall as key.
 	processInfo := map[string][]fdbv1beta2.FoundationDBStatusProcessInfo{}
 	for _, p := range status.Cluster.Processes {
-		// skip process loclities not matching the cluster Localities. For example old Pods with locality set to instanceId.
+		// skip process loclities not matching the cluster Localities. For example processes with empty data hall.
 		_, err := cluster.GetLocality(p.Locality[fdbv1beta2.FDBLocalityDataHallKey])
 		if err != nil {
 			continue
