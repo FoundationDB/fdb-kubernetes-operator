@@ -48,12 +48,20 @@ type MockClient struct {
 	scheme *runtime.Scheme
 
 	// createHooks allow to inject custom logic to the creation of objects. See serviceCreateHook and podCreateHook as
-	// examples
+	// examples.
 	createHooks []func(ctx context.Context, client *MockClient, object ctrlClient.Object) error
+
+	// updateHooks allow to inject custom logic to the update of objects.
+	updateHooks []func(ctx context.Context, client *MockClient, object ctrlClient.Object) error
 }
 
 // NewMockClient creates a new MockClient.
 func NewMockClient(scheme *runtime.Scheme, hooks ...func(_ context.Context, client *MockClient, object ctrlClient.Object) error) *MockClient {
+	return NewMockClientWithHooks(scheme, hooks, nil)
+}
+
+// NewMockClientWithHooks creates a new MockClient with hooks.
+func NewMockClientWithHooks(scheme *runtime.Scheme, createHooks []func(ctx context.Context, client *MockClient, object ctrlClient.Object) error, updateHooks []func(ctx context.Context, client *MockClient, object ctrlClient.Object) error) *MockClient {
 	serviceCreateHook := func(_ context.Context, client *MockClient, object ctrlClient.Object) error {
 		svc, isSvc := object.(*corev1.Service)
 		if !isSvc {
@@ -87,7 +95,8 @@ func NewMockClient(scheme *runtime.Scheme, hooks ...func(_ context.Context, clie
 	return &MockClient{
 		fakeClient:  fake.NewClientBuilder().WithScheme(scheme).Build(),
 		scheme:      scheme,
-		createHooks: append(hooks, serviceCreateHook, podCreateHook),
+		createHooks: append(createHooks, serviceCreateHook, podCreateHook),
+		updateHooks: updateHooks,
 	}
 }
 
@@ -181,6 +190,13 @@ func (client *MockClient) Update(ctx context.Context, object ctrlClient.Object, 
 	err := client.fakeClient.Get(ctx, ctrlClient.ObjectKeyFromObject(object), existingObject)
 	if err != nil {
 		return err
+	}
+
+	for _, hook := range client.updateHooks {
+		err = hook(ctx, client, object)
+		if err != nil {
+			return err
+		}
 	}
 
 	hasSpecChanges, err := client.hasSpecChanges(existingObject, object)
