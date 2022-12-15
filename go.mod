@@ -2,12 +2,6 @@ module github.com/FoundationDB/fdb-kubernetes-operator
 
 go 1.19
 
-replace github.com/prometheus/client_golang => github.com/prometheus/client_golang v1.12.1
-
-replace golang.org/x/text => golang.org/x/text v0.3.8
-
-replace golang.org/x/net => golang.org/x/net v0.0.0-20220906165146-f3363e06e74c
-
 require (
 	github.com/apple/foundationdb/bindings/go v0.0.0-20201222225940-f3aef311ccfb
 	github.com/apple/foundationdb/fdbkubernetesmonitor v0.0.0-20220513200452-e6fa4d7422d2
@@ -47,7 +41,7 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/emicklei/go-restful v2.9.5+incompatible // indirect
+	github.com/emicklei/go-restful v2.16.0+incompatible // indirect
 	github.com/evanphx/json-patch v4.12.0+incompatible // indirect
 	github.com/form3tech-oss/jwt-go v3.2.3+incompatible // indirect
 	github.com/fsnotify/fsnotify v1.5.1 // indirect
