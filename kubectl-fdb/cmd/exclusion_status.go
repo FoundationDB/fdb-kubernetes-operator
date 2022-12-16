@@ -79,7 +79,7 @@ func newExclusionStatusCmd(streams genericclioptions.IOStreams) *cobra.Command {
 				return err
 			}
 
-			pods, err := getPodsForCluster(kubeClient, cluster, namespace)
+			pods, err := getPodsForCluster(kubeClient, cluster)
 			if err != nil {
 				return err
 			}

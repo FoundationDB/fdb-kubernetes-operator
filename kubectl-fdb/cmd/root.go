@@ -24,7 +24,9 @@ import (
 	"bufio"
 	"fmt"
 	"log"
+	"math/rand"
 	"os"
+	"time"
 
 	"strings"
 
@@ -51,6 +53,8 @@ func newFDBOptions(streams genericclioptions.IOStreams) *fdbBOptions {
 
 // NewRootCmd provides a cobra command wrapping FDB actions
 func NewRootCmd(streams genericclioptions.IOStreams) *cobra.Command {
+	rand.Seed(time.Now().Unix())
+
 	o := newFDBOptions(streams)
 
 	cmd := &cobra.Command{
