@@ -43,6 +43,7 @@ var _ = Describe("restarts", func() {
 				fdbv1beta2.IncorrectCommandLine: true,
 				fdbv1beta2.IncorrectPodSpec:     false,
 				fdbv1beta2.SidecarUnreachable:   false,
+				fdbv1beta2.IncorrectConfigMap:   false,
 			}),
 		Entry("when the running version is missing",
 			&fdbv1beta2.FoundationDBCluster{
@@ -54,6 +55,7 @@ var _ = Describe("restarts", func() {
 				fdbv1beta2.IncorrectCommandLine: true,
 				fdbv1beta2.IncorrectPodSpec:     false,
 				fdbv1beta2.SidecarUnreachable:   false,
+				fdbv1beta2.IncorrectConfigMap:   false,
 			}),
 		Entry("when an upgrade is performed",
 			&fdbv1beta2.FoundationDBCluster{
@@ -67,6 +69,7 @@ var _ = Describe("restarts", func() {
 			map[fdbv1beta2.ProcessGroupConditionType]bool{
 				fdbv1beta2.IncorrectCommandLine: true,
 				fdbv1beta2.IncorrectPodSpec:     false,
+				fdbv1beta2.IncorrectConfigMap:   false,
 			}),
 	)
 })

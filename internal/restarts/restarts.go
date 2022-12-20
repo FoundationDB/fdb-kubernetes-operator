@@ -31,6 +31,7 @@ func GetFilterConditions(cluster *fdbv1beta2.FoundationDBCluster) map[fdbv1beta2
 			fdbv1beta2.IncorrectCommandLine: true,
 			fdbv1beta2.IncorrectPodSpec:     false,
 			fdbv1beta2.SidecarUnreachable:   false,
+			fdbv1beta2.IncorrectConfigMap:   false,
 		}
 	}
 
@@ -40,5 +41,6 @@ func GetFilterConditions(cluster *fdbv1beta2.FoundationDBCluster) map[fdbv1beta2
 	return map[fdbv1beta2.ProcessGroupConditionType]bool{
 		fdbv1beta2.IncorrectCommandLine: true,
 		fdbv1beta2.IncorrectPodSpec:     false,
+		fdbv1beta2.IncorrectConfigMap:   false,
 	}
 }
