@@ -24,6 +24,7 @@ import (
 	"bytes"
 	ctx "context"
 	"fmt"
+	"math/rand"
 	"strings"
 
 	fdbv1beta1 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
@@ -111,13 +112,13 @@ func getNodes(kubeClient client.Client, nodeSelector map[string]string) ([]strin
 	return nodes, nil
 }
 
-func getPodsForCluster(kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluster, namespace string) (*corev1.PodList, error) {
+func getPodsForCluster(kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluster) (*corev1.PodList, error) {
 	var podList corev1.PodList
 	err := kubeClient.List(
 		ctx.Background(),
 		&podList,
 		client.MatchingLabels(cluster.GetMatchLabels()),
-		client.InNamespace(namespace))
+		client.InNamespace(cluster.GetNamespace()))
 
 	return &podList, err
 }
@@ -178,7 +179,7 @@ func getAllPodsFromClusterWithCondition(kubeClient client.Client, clusterName st
 	}
 
 	processes := make([]string, 0, len(processesSet))
-	pods, err := getPodsForCluster(kubeClient, cluster, namespace)
+	pods, err := getPodsForCluster(kubeClient, cluster)
 	if err != nil {
 		return processes, err
 	}
@@ -218,4 +219,21 @@ func getProcessGroupIDsFromPodName(cluster *fdbv1beta2.FoundationDBCluster, podN
 	}
 
 	return processGroupIDs, nil
+}
+
+func chooseRandomPod(pods *corev1.PodList) (*corev1.Pod, error) {
+	items := pods.Items
+	if len(items) == 0 {
+		return nil, fmt.Errorf("no pods available")
+	}
+
+	var candidate *corev1.Pod
+
+	var tries int
+	for candidate == nil || !candidate.GetDeletionTimestamp().IsZero() || tries > 10 {
+		candidate = &items[rand.Intn(len(items))]
+		tries++
+	}
+
+	return candidate, nil
 }

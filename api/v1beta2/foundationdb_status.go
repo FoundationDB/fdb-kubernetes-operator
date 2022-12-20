@@ -139,6 +139,19 @@ type FoundationDBStatusProcessInfo struct {
 
 	// Roles contains a slice of all roles of the process
 	Roles []FoundationDBStatusProcessRoleInfo `json:"roles,omitempty"`
+
+	// Messages contains error messages from that fdbserver process instance
+	Messages []FoundationDBStatusProcessMessage `json:"messages,omitempty"`
+}
+
+// FoundationDBStatusProcessMessage represents an error message in the status json
+type FoundationDBStatusProcessMessage struct {
+	// Time when the error was observed
+	Time float64 `json:"time,omitempty"`
+	// The name of the error
+	Name string `json:"name,omitempty"`
+	// The type of the error
+	Type string `json:"type,omitempty"`
 }
 
 // FoundationDBStatusProcessRoleInfo contains the minimal information from the process status
