@@ -3444,26 +3444,35 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		It("should return the correct settings", func() {
 			cluster := &FoundationDBCluster{
 				Spec: FoundationDBClusterSpec{
-					Processes: map[ProcessClass]ProcessSettings{
-						ProcessClassGeneral: {
-							PodTemplate: &corev1.PodTemplateSpec{
-								ObjectMeta: metav1.ObjectMeta{
-									Labels: map[string]string{"test-label": "label1"},
+					ProcessesConfigs: []ProcessesConfig{
+						{
+							Class: ProcessClassGeneral,
+							Settings: ProcessSettings{
+								PodTemplate: &corev1.PodTemplateSpec{
+									ObjectMeta: metav1.ObjectMeta{
+										Labels: map[string]string{"test-label": "label1"},
+									},
 								},
-							},
-							CustomParameters: FoundationDBCustomParameters{"test_knob=value1"},
-						},
-						ProcessClassStorage: {
-							PodTemplate: &corev1.PodTemplateSpec{
-								ObjectMeta: metav1.ObjectMeta{
-									Labels: map[string]string{"test-label": "label2"},
-								},
+								CustomParameters: FoundationDBCustomParameters{"test_knob=value1"},
 							},
 						},
-						ProcessClassStateless: {
-							PodTemplate: &corev1.PodTemplateSpec{
-								ObjectMeta: metav1.ObjectMeta{
-									Labels: map[string]string{"test-label": "label3"},
+						{
+							Class: ProcessClassStorage,
+							Settings: ProcessSettings{
+								PodTemplate: &corev1.PodTemplateSpec{
+									ObjectMeta: metav1.ObjectMeta{
+										Labels: map[string]string{"test-label": "label2"},
+									},
+								},
+							},
+						},
+						{
+							Class: ProcessClassStateless,
+							Settings: ProcessSettings{
+								PodTemplate: &corev1.PodTemplateSpec{
+									ObjectMeta: metav1.ObjectMeta{
+										Labels: map[string]string{"test-label": "label3"},
+									},
 								},
 							},
 						},

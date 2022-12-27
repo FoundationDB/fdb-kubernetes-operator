@@ -106,8 +106,7 @@ var _ = Describe("cluster_controller", func() {
 		var shouldCompleteReconciliation bool
 
 		BeforeEach(func() {
-			err = k8sClient.Create(context.TODO(), cluster)
-			Expect(err).NotTo(HaveOccurred())
+			Expect(k8sClient.Create(context.TODO(), cluster)).NotTo(HaveOccurred())
 
 			result, err := reconcileCluster(cluster)
 			Expect(err).NotTo(HaveOccurred())
@@ -120,8 +119,7 @@ var _ = Describe("cluster_controller", func() {
 			originalVersion = cluster.ObjectMeta.Generation
 
 			originalPods = &corev1.PodList{}
-			err = k8sClient.List(context.TODO(), originalPods, getListOptions(cluster)...)
-			Expect(err).NotTo(HaveOccurred())
+			Expect(k8sClient.List(context.TODO(), originalPods, getListOptions(cluster)...)).NotTo(HaveOccurred())
 			Expect(len(originalPods.Items)).To(Equal(17))
 
 			sortPodsByName(originalPods)
@@ -138,7 +136,6 @@ var _ = Describe("cluster_controller", func() {
 			}
 
 			Expect(err).NotTo(HaveOccurred())
-
 			Expect(result.Requeue).To(Equal(!shouldCompleteReconciliation))
 
 			if shouldCompleteReconciliation {
@@ -159,8 +156,7 @@ var _ = Describe("cluster_controller", func() {
 
 			It("should create pods", func() {
 				pods := &corev1.PodList{}
-				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)).NotTo(HaveOccurred())
 				Expect(len(pods.Items)).To(Equal(17))
 
 				sortPodsByName(pods)
@@ -199,8 +195,7 @@ var _ = Describe("cluster_controller", func() {
 
 			It("should not create any services", func() {
 				services := &corev1.ServiceList{}
-				err := k8sClient.List(context.TODO(), services, getListOptions(cluster)...)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(k8sClient.List(context.TODO(), services, getListOptions(cluster)...)).NotTo(HaveOccurred())
 				Expect(len(services.Items)).To(Equal(0))
 			})
 
@@ -213,8 +208,7 @@ var _ = Describe("cluster_controller", func() {
 			It("should create a config map for the cluster", func() {
 				configMap := &corev1.ConfigMap{}
 				configMapName := types.NamespacedName{Namespace: "my-ns", Name: fmt.Sprintf("%s-config", cluster.Name)}
-				err = k8sClient.Get(context.TODO(), configMapName, configMap)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(k8sClient.Get(context.TODO(), configMapName, configMap)).NotTo(HaveOccurred())
 				expectedConfigMap, _ := internal.GetConfigMap(cluster)
 				Expect(configMap.Data).To(Equal(expectedConfigMap.Data))
 			})
@@ -254,9 +248,7 @@ var _ = Describe("cluster_controller", func() {
 			It("should update the status with the reconciliation result", func() {
 				adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
-
 				Expect(cluster.Status.Generations.Reconciled).To(Equal(int64(1)))
-
 				processCounts := fdbv1beta2.CreateProcessCountsFromProcessGroupStatus(cluster.Status.ProcessGroups, true)
 				Expect(processCounts).To(Equal(fdbv1beta2.ProcessCounts{
 					Storage:           4,
@@ -301,7 +293,7 @@ var _ = Describe("cluster_controller", func() {
 
 			It("should update the pods", func() {
 				pods := &corev1.PodList{}
-				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+				Expect(k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)).NotTo(HaveOccurred())
 				Expect(len(pods.Items)).To(Equal(len(originalPods.Items)))
 
 				for _, pod := range pods.Items {
@@ -320,14 +312,12 @@ var _ = Describe("cluster_controller", func() {
 		When("enabling the DNS names in the cluster file", func() {
 			BeforeEach(func() {
 				cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(true)
-				err = k8sClient.Update(context.TODO(), cluster)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
 			})
 
 			It("should update the pods", func() {
 				pods := &corev1.PodList{}
-				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)).NotTo(HaveOccurred())
 				for _, pod := range pods.Items {
 					env := make(map[string]string)
 					for _, envVar := range pod.Spec.InitContainers[0].Env {
@@ -340,13 +330,12 @@ var _ = Describe("cluster_controller", func() {
 		Context("when buggifying a pod to make it crash loop", func() {
 			BeforeEach(func() {
 				cluster.Spec.Buggify.CrashLoop = []string{"storage-1"}
-				err = k8sClient.Update(context.TODO(), cluster)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
 			})
 
 			It("should add the crash loop flag", func() {
 				pods := &corev1.PodList{}
-				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+				Expect(k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)).NotTo(HaveOccurred())
 				Expect(len(pods.Items)).To(Equal(len(originalPods.Items)))
 				sortPodsByName(pods)
 
@@ -1001,15 +990,16 @@ var _ = Describe("cluster_controller", func() {
 			BeforeEach(func() {
 				adminClient, err = mock.NewMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
-				err = adminClient.FreezeStatus()
-				Expect(err).NotTo(HaveOccurred())
-				cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{fdbv1beta2.ProcessClassGeneral: {CustomParameters: fdbv1beta2.FoundationDBCustomParameters{"knob_disable_posix_kernel_aio=1"}}}
+				Expect(adminClient.FreezeStatus()).NotTo(HaveOccurred())
+
+				generalSetting, _ := cluster.GetBareProcessSettings(fdbv1beta2.ProcessClassGeneral)
+				generalSetting.CustomParameters = fdbv1beta2.FoundationDBCustomParameters{"knob_disable_posix_kernel_aio=1"}
+				cluster.UpdateBareProcessSettings(fdbv1beta2.ProcessClassGeneral, generalSetting)
 			})
 
 			Context("with bounces enabled", func() {
 				BeforeEach(func() {
-					err = k8sClient.Update(context.TODO(), cluster)
-					Expect(err).NotTo(HaveOccurred())
+					Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
 				})
 
 				It("should bounce the processes", func() {
@@ -1034,12 +1024,11 @@ var _ = Describe("cluster_controller", func() {
 
 			Context("with a substitution variable", func() {
 				BeforeEach(func() {
-					settings := cluster.Spec.Processes["general"]
-					settings.CustomParameters = []fdbv1beta2.FoundationDBCustomParameter{"locality_disk_id=$FDB_INSTANCE_ID"}
-					cluster.Spec.Processes["general"] = settings
+					generalSetting, _ := cluster.GetBareProcessSettings(fdbv1beta2.ProcessClassGeneral)
+					generalSetting.CustomParameters = []fdbv1beta2.FoundationDBCustomParameter{"locality_disk_id=$FDB_INSTANCE_ID"}
+					cluster.UpdateBareProcessSettings(fdbv1beta2.ProcessClassGeneral, generalSetting)
 
-					err = k8sClient.Update(context.TODO(), cluster)
-					Expect(err).NotTo(HaveOccurred())
+					Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
 				})
 
 				It("should bounce the processes", func() {
@@ -1088,11 +1077,13 @@ var _ = Describe("cluster_controller", func() {
 
 			Context("with multiple storage servers per pod", func() {
 				BeforeEach(func() {
-					cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{fdbv1beta2.ProcessClassGeneral: {CustomParameters: fdbv1beta2.FoundationDBCustomParameters{}}}
+					generalSetting, _ := cluster.GetBareProcessSettings(fdbv1beta2.ProcessClassGeneral)
+					generalSetting.CustomParameters = []fdbv1beta2.FoundationDBCustomParameter{}
+					cluster.UpdateBareProcessSettings(fdbv1beta2.ProcessClassGeneral, generalSetting)
+
 					cluster.Spec.StorageServersPerPod = 2
 					adminClient.UnfreezeStatus()
-					Expect(err).NotTo(HaveOccurred())
-					err = k8sClient.Update(context.TODO(), cluster)
+					Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
 
 					result, err := reconcileCluster(cluster)
 					Expect(err).NotTo(HaveOccurred())
@@ -1103,18 +1094,18 @@ var _ = Describe("cluster_controller", func() {
 					Expect(generation).To(Equal(originalVersion + generationGap))
 					originalVersion = cluster.ObjectMeta.Generation
 
-					err = k8sClient.List(context.TODO(), originalPods, getListOptions(cluster)...)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(len(originalPods.Items)).To(Equal(17))
+					Expect(k8sClient.List(context.TODO(), originalPods, getListOptions(cluster)...)).NotTo(HaveOccurred())
+					Expect(originalPods.Items).To(HaveLen(17))
 
 					sortPodsByName(originalPods)
 
-					err = adminClient.FreezeStatus()
-					Expect(err).NotTo(HaveOccurred())
+					Expect(adminClient.FreezeStatus()).NotTo(HaveOccurred())
 
-					cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{fdbv1beta2.ProcessClassGeneral: {CustomParameters: fdbv1beta2.FoundationDBCustomParameters{"knob_disable_posix_kernel_aio=1"}}}
-					err = k8sClient.Update(context.TODO(), cluster)
-					Expect(err).NotTo(HaveOccurred())
+					generalSetting, _ = cluster.GetBareProcessSettings(fdbv1beta2.ProcessClassGeneral)
+					generalSetting.CustomParameters = []fdbv1beta2.FoundationDBCustomParameter{"knob_disable_posix_kernel_aio=1"}
+					cluster.UpdateBareProcessSettings(fdbv1beta2.ProcessClassGeneral, generalSetting)
+
+					Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
 				})
 
 				It("should bounce the processes", func() {
@@ -1224,7 +1215,8 @@ var _ = Describe("cluster_controller", func() {
 
 		Context("with a change to pod labels", func() {
 			BeforeEach(func() {
-				cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{fdbv1beta2.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
+				generalSetting, _ := cluster.GetBareProcessSettings(fdbv1beta2.ProcessClassGeneral)
+				generalSetting.PodTemplate = &corev1.PodTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{
 							"fdb-label": "value3",
@@ -1233,15 +1225,15 @@ var _ = Describe("cluster_controller", func() {
 					Spec: corev1.PodSpec{
 						Containers: []corev1.Container{},
 					},
-				}}}
-				err := k8sClient.Update(context.TODO(), cluster)
-				Expect(err).NotTo(HaveOccurred())
+				}
+				cluster.UpdateBareProcessSettings(fdbv1beta2.ProcessClassGeneral, generalSetting)
+
+				Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
 			})
 
 			It("should update the labels on the pods", func() {
 				pods := &corev1.PodList{}
-				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)).NotTo(HaveOccurred())
 				for _, item := range pods.Items {
 					Expect(item.ObjectMeta.Labels["fdb-label"]).To(Equal("value3"))
 				}
@@ -1267,13 +1259,12 @@ var _ = Describe("cluster_controller", func() {
 		Context("with annotations on pod", func() {
 			BeforeEach(func() {
 				pod := &corev1.Pod{}
-				err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: "operator-test-1-storage-1"}, pod)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: "operator-test-1-storage-1"}, pod)).NotTo(HaveOccurred())
 				pod.Annotations["foundationdb.org/existing-annotation"] = "test-value"
-				err = k8sClient.Update(context.TODO(), pod)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(k8sClient.Update(context.TODO(), pod)).NotTo(HaveOccurred())
 
-				cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{fdbv1beta2.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
+				generalSetting, _ := cluster.GetBareProcessSettings(fdbv1beta2.ProcessClassGeneral)
+				generalSetting.PodTemplate = &corev1.PodTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
 							"fdb-annotation": "value1",
@@ -1282,9 +1273,10 @@ var _ = Describe("cluster_controller", func() {
 					Spec: corev1.PodSpec{
 						Containers: []corev1.Container{},
 					},
-				}}}
-				err := k8sClient.Update(context.TODO(), cluster)
-				Expect(err).NotTo(HaveOccurred())
+				}
+				cluster.UpdateBareProcessSettings(fdbv1beta2.ProcessClassGeneral, generalSetting)
+
+				Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
 			})
 
 			It("should set the annotations on the pod", func() {
@@ -1345,15 +1337,17 @@ var _ = Describe("cluster_controller", func() {
 		Context("with a change to the PVC labels", func() {
 			Context("with the fields from the processes", func() {
 				BeforeEach(func() {
-					cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{fdbv1beta2.ProcessClassGeneral: {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
+					generalSetting, _ := cluster.GetBareProcessSettings(fdbv1beta2.ProcessClassGeneral)
+					generalSetting.VolumeClaimTemplate = &corev1.PersistentVolumeClaim{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
 								"fdb-label": "value3",
 							},
 						},
-					}}}
-					err := k8sClient.Update(context.TODO(), cluster)
-					Expect(err).NotTo(HaveOccurred())
+					}
+					cluster.UpdateBareProcessSettings(fdbv1beta2.ProcessClassGeneral, generalSetting)
+
+					Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
 				})
 
 				It("should update the labels on the PVCs", func() {
@@ -1388,21 +1382,21 @@ var _ = Describe("cluster_controller", func() {
 			Context("with the fields from the processes", func() {
 				BeforeEach(func() {
 					pvc := &corev1.PersistentVolumeClaim{}
-					err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: "operator-test-1-storage-1-data"}, pvc)
-					Expect(err).NotTo(HaveOccurred())
+					Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: "operator-test-1-storage-1-data"}, pvc)).NotTo(HaveOccurred())
 					pvc.Annotations["foundationdb.org/existing-annotation"] = "test-value"
-					err = k8sClient.Update(context.TODO(), pvc)
-					Expect(err).NotTo(HaveOccurred())
+					Expect(k8sClient.Update(context.TODO(), pvc)).NotTo(HaveOccurred())
 
-					cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{fdbv1beta2.ProcessClassGeneral: {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
+					generalSetting, _ := cluster.GetBareProcessSettings(fdbv1beta2.ProcessClassGeneral)
+					generalSetting.VolumeClaimTemplate = &corev1.PersistentVolumeClaim{
 						ObjectMeta: metav1.ObjectMeta{
 							Annotations: map[string]string{
 								"fdb-annotation": "value1",
 							},
 						},
-					}}}
-					err := k8sClient.Update(context.TODO(), cluster)
-					Expect(err).NotTo(HaveOccurred())
+					}
+					cluster.UpdateBareProcessSettings(fdbv1beta2.ProcessClassGeneral, generalSetting)
+
+					Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
 				})
 
 				It("should update the annotations on the PVCs", func() {
@@ -1571,7 +1565,8 @@ var _ = Describe("cluster_controller", func() {
 
 		Context("with a change to environment variables", func() {
 			BeforeEach(func() {
-				cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{fdbv1beta2.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
+				generalSetting, _ := cluster.GetBareProcessSettings(fdbv1beta2.ProcessClassGeneral)
+				generalSetting.PodTemplate = &corev1.PodTemplateSpec{
 					Spec: corev1.PodSpec{
 						Containers: []corev1.Container{
 							{
@@ -1585,7 +1580,8 @@ var _ = Describe("cluster_controller", func() {
 							},
 						},
 					},
-				}}}
+				}
+				cluster.UpdateBareProcessSettings(fdbv1beta2.ProcessClassGeneral, generalSetting)
 			})
 
 			Context("with deletion enabled", func() {
@@ -2324,7 +2320,8 @@ var _ = Describe("cluster_controller", func() {
 		Context("with a change to the volume size", func() {
 			Context("with the fields from the processes", func() {
 				BeforeEach(func() {
-					cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{fdbv1beta2.ProcessClassGeneral: {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
+					generalSetting, _ := cluster.GetBareProcessSettings(fdbv1beta2.ProcessClassGeneral)
+					generalSetting.VolumeClaimTemplate = &corev1.PersistentVolumeClaim{
 						Spec: corev1.PersistentVolumeClaimSpec{
 							Resources: corev1.ResourceRequirements{
 								Requests: corev1.ResourceList{
@@ -2332,10 +2329,10 @@ var _ = Describe("cluster_controller", func() {
 								},
 							},
 						},
-					}}}
+					}
+					cluster.UpdateBareProcessSettings(fdbv1beta2.ProcessClassGeneral, generalSetting)
 
-					err = k8sClient.Update(context.TODO(), cluster)
-					Expect(err).NotTo(HaveOccurred())
+					Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
 				})
 
 				It("should replace the process groups", func() {
@@ -3025,9 +3022,10 @@ var _ = Describe("cluster_controller", func() {
 		Context("with custom parameters", func() {
 			Context("with general parameters", func() {
 				BeforeEach(func() {
-					cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{fdbv1beta2.ProcessClassGeneral: {CustomParameters: fdbv1beta2.FoundationDBCustomParameters{
-						"knob_disable_posix_kernel_aio = 1",
-					}}}
+					generalSetting, _ := cluster.GetBareProcessSettings(fdbv1beta2.ProcessClassGeneral)
+					generalSetting.CustomParameters = fdbv1beta2.FoundationDBCustomParameters{"knob_disable_posix_kernel_aio = 1"}
+					cluster.UpdateBareProcessSettings(fdbv1beta2.ProcessClassGeneral, generalSetting)
+
 					conf, err = internal.GetMonitorConf(cluster, fdbv1beta2.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
 					Expect(err).NotTo(HaveOccurred())
 				})
@@ -3056,17 +3054,18 @@ var _ = Describe("cluster_controller", func() {
 
 			Context("with process-class parameters", func() {
 				BeforeEach(func() {
-					cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{
-						fdbv1beta2.ProcessClassGeneral: {CustomParameters: fdbv1beta2.FoundationDBCustomParameters{
-							"knob_disable_posix_kernel_aio = 1",
-						}},
-						fdbv1beta2.ProcessClassStorage: {CustomParameters: fdbv1beta2.FoundationDBCustomParameters{
-							"knob_test = test1",
-						}},
-						fdbv1beta2.ProcessClassStateless: {CustomParameters: fdbv1beta2.FoundationDBCustomParameters{
-							"knob_test = test2",
-						}},
-					}
+					generalSetting, _ := cluster.GetBareProcessSettings(fdbv1beta2.ProcessClassGeneral)
+					generalSetting.CustomParameters = fdbv1beta2.FoundationDBCustomParameters{"knob_disable_posix_kernel_aio = 1"}
+					cluster.UpdateBareProcessSettings(fdbv1beta2.ProcessClassGeneral, generalSetting)
+
+					storageSetting, _ := cluster.GetBareProcessSettings(fdbv1beta2.ProcessClassStorage)
+					storageSetting.CustomParameters = fdbv1beta2.FoundationDBCustomParameters{"knob_test = test1"}
+					cluster.UpdateBareProcessSettings(fdbv1beta2.ProcessClassStorage, storageSetting)
+
+					statelessSetting, _ := cluster.GetBareProcessSettings(fdbv1beta2.ProcessClassStateless)
+					statelessSetting.CustomParameters = fdbv1beta2.FoundationDBCustomParameters{"knob_test = test2"}
+					cluster.UpdateBareProcessSettings(fdbv1beta2.ProcessClassStateless, statelessSetting)
+
 					conf, err = internal.GetMonitorConf(cluster, fdbv1beta2.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
 					Expect(err).NotTo(HaveOccurred())
 				})

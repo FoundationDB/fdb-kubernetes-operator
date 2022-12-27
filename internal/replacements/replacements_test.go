@@ -277,9 +277,15 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				Expect(needsRemoval).To(BeFalse())
 				Expect(err).NotTo(HaveOccurred())
 
-				cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral].PodTemplate.Spec.NodeSelector = map[string]string{
+				setting, present := cluster.GetBareProcessSettings(fdbv1beta2.ProcessClassGeneral)
+				Expect(present).To(BeTrue())
+
+				setting.PodTemplate.Spec.NodeSelector = map[string]string{
 					"dummy": "test",
 				}
+
+				cluster.UpdateBareProcessSettings(fdbv1beta2.ProcessClassGeneral, setting)
+
 				needsRemoval, err = processGroupNeedsRemoval(cluster, pod, status, log)
 				Expect(needsRemoval).To(BeTrue())
 				Expect(err).NotTo(HaveOccurred())
@@ -429,11 +435,16 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					JustBeforeEach(func() {
 						newMemory, err := resource.ParseQuantity("1Ti")
 						Expect(err).NotTo(HaveOccurred())
-						cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral].PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
+						setting, present := cluster.GetBareProcessSettings(fdbv1beta2.ProcessClassGeneral)
+						Expect(present).To(BeTrue())
+
+						setting.PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
 								corev1.ResourceMemory: newMemory,
 							},
 						}
+
+						cluster.UpdateBareProcessSettings(fdbv1beta2.ProcessClassGeneral, setting)
 					})
 
 					It("should need a removal", func() {
@@ -447,11 +458,16 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					JustBeforeEach(func() {
 						newMemory, err := resource.ParseQuantity("1Ki")
 						Expect(err).NotTo(HaveOccurred())
-						cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral].PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
+						setting, present := cluster.GetBareProcessSettings(fdbv1beta2.ProcessClassGeneral)
+						Expect(present).To(BeTrue())
+
+						setting.PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
 								corev1.ResourceMemory: newMemory,
 							},
 						}
+
+						cluster.UpdateBareProcessSettings(fdbv1beta2.ProcessClassGeneral, setting)
 					})
 
 					It("should not need a removal", func() {
@@ -465,11 +481,16 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					BeforeEach(func() {
 						newCPU, err := resource.ParseQuantity("1000")
 						Expect(err).NotTo(HaveOccurred())
-						cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral].PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
+						setting, present := cluster.GetBareProcessSettings(fdbv1beta2.ProcessClassGeneral)
+						Expect(present).To(BeTrue())
+
+						setting.PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
 								corev1.ResourceCPU: newCPU,
 							},
 						}
+
+						cluster.UpdateBareProcessSettings(fdbv1beta2.ProcessClassGeneral, setting)
 					})
 
 					It("should need a removal", func() {
@@ -483,11 +504,16 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					BeforeEach(func() {
 						newCPU, err := resource.ParseQuantity("1m")
 						Expect(err).NotTo(HaveOccurred())
-						cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral].PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
+						setting, present := cluster.GetBareProcessSettings(fdbv1beta2.ProcessClassGeneral)
+						Expect(present).To(BeTrue())
+
+						setting.PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
 								corev1.ResourceCPU: newCPU,
 							},
 						}
+
+						cluster.UpdateBareProcessSettings(fdbv1beta2.ProcessClassGeneral, setting)
 					})
 
 					It("should not need a removal", func() {
@@ -501,7 +527,11 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					JustBeforeEach(func() {
 						newCPU, err := resource.ParseQuantity("1000")
 						Expect(err).NotTo(HaveOccurred())
-						cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral].PodTemplate.Spec.Containers = append(cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral].PodTemplate.Spec.Containers,
+
+						setting, present := cluster.GetBareProcessSettings(fdbv1beta2.ProcessClassGeneral)
+						Expect(present).To(BeTrue())
+
+						setting.PodTemplate.Spec.Containers = append(setting.PodTemplate.Spec.Containers,
 							corev1.Container{
 								Resources: corev1.ResourceRequirements{
 									Requests: corev1.ResourceList{
@@ -509,6 +539,8 @@ var _ = Describe("replace_misconfigured_pods", func() {
 									},
 								},
 							})
+
+						cluster.UpdateBareProcessSettings(fdbv1beta2.ProcessClassGeneral, setting)
 					})
 
 					It("should need a removal", func() {
@@ -528,11 +560,16 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					BeforeEach(func() {
 						newMemory, err := resource.ParseQuantity("1Ti")
 						Expect(err).NotTo(HaveOccurred())
-						cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral].PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
+						setting, present := cluster.GetBareProcessSettings(fdbv1beta2.ProcessClassGeneral)
+						Expect(present).To(BeTrue())
+
+						setting.PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
 								corev1.ResourceMemory: newMemory,
 							},
 						}
+
+						cluster.UpdateBareProcessSettings(fdbv1beta2.ProcessClassGeneral, setting)
 					})
 
 					It("should not need a removal", func() {
@@ -546,11 +583,16 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					BeforeEach(func() {
 						newMemory, err := resource.ParseQuantity("1Ki")
 						Expect(err).NotTo(HaveOccurred())
-						cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral].PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
+						setting, present := cluster.GetBareProcessSettings(fdbv1beta2.ProcessClassGeneral)
+						Expect(present).To(BeTrue())
+
+						setting.PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
 								corev1.ResourceMemory: newMemory,
 							},
 						}
+
+						cluster.UpdateBareProcessSettings(fdbv1beta2.ProcessClassGeneral, setting)
 					})
 
 					It("should not need a removal", func() {
@@ -564,11 +606,16 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					BeforeEach(func() {
 						newCPU, err := resource.ParseQuantity("1000")
 						Expect(err).NotTo(HaveOccurred())
-						cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral].PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
+						setting, present := cluster.GetBareProcessSettings(fdbv1beta2.ProcessClassGeneral)
+						Expect(present).To(BeTrue())
+
+						setting.PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
 								corev1.ResourceCPU: newCPU,
 							},
 						}
+
+						cluster.UpdateBareProcessSettings(fdbv1beta2.ProcessClassGeneral, setting)
 					})
 
 					It("should not need a removal", func() {
@@ -582,11 +629,16 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					BeforeEach(func() {
 						newCPU, err := resource.ParseQuantity("1m")
 						Expect(err).NotTo(HaveOccurred())
-						cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral].PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
+						setting, present := cluster.GetBareProcessSettings(fdbv1beta2.ProcessClassGeneral)
+						Expect(present).To(BeTrue())
+
+						setting.PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
 								corev1.ResourceCPU: newCPU,
 							},
 						}
+
+						cluster.UpdateBareProcessSettings(fdbv1beta2.ProcessClassGeneral, setting)
 					})
 
 					It("should not need a removal", func() {
@@ -632,9 +684,14 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			}
 
 			// Force a replacement of all processes
-			cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral].PodTemplate.Spec.NodeSelector = map[string]string{
+			setting, present := cluster.GetBareProcessSettings(fdbv1beta2.ProcessClassGeneral)
+			Expect(present).To(BeTrue())
+
+			setting.PodTemplate.Spec.NodeSelector = map[string]string{
 				"dummy": "test",
 			}
+
+			cluster.UpdateBareProcessSettings(fdbv1beta2.ProcessClassGeneral, setting)
 		})
 
 		When("No replacements are allowed", func() {
@@ -704,7 +761,12 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 		When("the image doesn't match with the desired image", func() {
 			BeforeEach(func() {
-				cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral].PodTemplate.Spec.NodeSelector = map[string]string{}
+				setting, present := cluster.GetBareProcessSettings(fdbv1beta2.ProcessClassGeneral)
+				Expect(present).To(BeTrue())
+
+				setting.PodTemplate.Spec.NodeSelector = map[string]string{}
+
+				cluster.UpdateBareProcessSettings(fdbv1beta2.ProcessClassGeneral, setting)
 			})
 
 			When("the process is a storage process", func() {

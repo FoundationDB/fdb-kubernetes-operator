@@ -113,43 +113,46 @@ var _ = Describe("[plugin] deprecation command", func() {
 								},
 							},
 							UseExplicitListenAddress: pointer.Bool(true),
-							Processes: map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{
-								fdbv1beta2.ProcessClassGeneral: {
-									PodTemplate: &corev1.PodTemplateSpec{
-										Spec: corev1.PodSpec{
-											Containers: []corev1.Container{
-												{
-													Name: fdbv1beta2.SidecarContainerName,
-													Resources: corev1.ResourceRequirements{
-														Limits: corev1.ResourceList{
-															"org.foundationdb/empty": *resource.NewQuantity(0, ""),
+							ProcessesConfigs: []fdbv1beta2.ProcessesConfig{
+								{
+									Class: fdbv1beta2.ProcessClassGeneral,
+									Settings: fdbv1beta2.ProcessSettings{
+										PodTemplate: &corev1.PodTemplateSpec{
+											Spec: corev1.PodSpec{
+												Containers: []corev1.Container{
+													{
+														Name: fdbv1beta2.SidecarContainerName,
+														Resources: corev1.ResourceRequirements{
+															Limits: corev1.ResourceList{
+																"org.foundationdb/empty": *resource.NewQuantity(0, ""),
+															},
+															Requests: corev1.ResourceList{
+																"org.foundationdb/empty": *resource.NewQuantity(0, ""),
+															},
 														},
-														Requests: corev1.ResourceList{
-															"org.foundationdb/empty": *resource.NewQuantity(0, ""),
+													},
+													{
+														Name: fdbv1beta2.MainContainerName,
+														Resources: corev1.ResourceRequirements{
+															Limits: corev1.ResourceList{
+																"org.foundationdb/empty": *resource.NewQuantity(0, ""),
+															},
+															Requests: corev1.ResourceList{
+																"org.foundationdb/empty": *resource.NewQuantity(0, ""),
+															},
 														},
 													},
 												},
-												{
-													Name: fdbv1beta2.MainContainerName,
-													Resources: corev1.ResourceRequirements{
-														Limits: corev1.ResourceList{
-															"org.foundationdb/empty": *resource.NewQuantity(0, ""),
-														},
-														Requests: corev1.ResourceList{
-															"org.foundationdb/empty": *resource.NewQuantity(0, ""),
-														},
-													},
-												},
-											},
-											InitContainers: []corev1.Container{
-												{
-													Name: fdbv1beta2.InitContainerName,
-													Resources: corev1.ResourceRequirements{
-														Limits: corev1.ResourceList{
-															"org.foundationdb/empty": *resource.NewQuantity(0, ""),
-														},
-														Requests: corev1.ResourceList{
-															"org.foundationdb/empty": *resource.NewQuantity(0, ""),
+												InitContainers: []corev1.Container{
+													{
+														Name: fdbv1beta2.InitContainerName,
+														Resources: corev1.ResourceRequirements{
+															Limits: corev1.ResourceList{
+																"org.foundationdb/empty": *resource.NewQuantity(0, ""),
+															},
+															Requests: corev1.ResourceList{
+																"org.foundationdb/empty": *resource.NewQuantity(0, ""),
+															},
 														},
 													},
 												},
@@ -215,9 +218,7 @@ var _ = Describe("[plugin] deprecation command", func() {
 		It("should print out the help information", func() {
 			args := []string{"deprecation", "--help"}
 			cmd.SetArgs(args)
-
-			err := cmd.Execute()
-			Expect(err).NotTo(HaveOccurred())
+			Expect(cmd.Execute()).NotTo(HaveOccurred())
 		})
 	})
 })

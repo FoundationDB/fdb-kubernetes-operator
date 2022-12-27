@@ -43,17 +43,39 @@ type DeprecationOptions struct {
 // future-proof form, by applying any implicit defaults and moving configuration
 // from deprecated fields into fully-supported fields.
 func NormalizeClusterSpec(cluster *fdbv1beta2.FoundationDBCluster, options DeprecationOptions) error {
-	// Validate customParameters
-	for processClass := range cluster.Spec.Processes {
-		if setting, ok := cluster.Spec.Processes[processClass]; ok {
-			if setting.CustomParameters == nil {
+	for processClass, settings := range cluster.Spec.Processes {
+		var found bool
+		for _, config := range cluster.Spec.ProcessesConfigs {
+			if config.Class != processClass {
 				continue
 			}
 
-			err := setting.CustomParameters.ValidateCustomParameters()
-			if err != nil {
-				return err
-			}
+			found = true
+			break
+		}
+
+		// Process Config is already set, ignore old setting
+		if found {
+			continue
+		}
+
+		cluster.Spec.ProcessesConfigs = append(cluster.Spec.ProcessesConfigs, fdbv1beta2.ProcessesConfig{
+			Class:    processClass,
+			Settings: settings,
+		})
+	}
+
+	cluster.Spec.Processes = nil
+
+	// Validate customParameters
+	for _, configs := range cluster.Spec.ProcessesConfigs {
+		if configs.Settings.CustomParameters == nil {
+			continue
+		}
+
+		err := configs.Settings.CustomParameters.ValidateCustomParameters()
+		if err != nil {
+			return err
 		}
 	}
 
@@ -65,8 +87,8 @@ func NormalizeClusterSpec(cluster *fdbv1beta2.FoundationDBCluster, options Depre
 			template.Spec.Containers = customizeContainerFromList(template.Spec.Containers, fdbv1beta2.MainContainerName, func(container *corev1.Container) {
 				if container.Resources.Requests == nil {
 					container.Resources.Requests = corev1.ResourceList{
-						"cpu":    resource.MustParse("1"),
-						"memory": resource.MustParse("1Gi"),
+						corev1.ResourceCPU:    resource.MustParse("1"),
+						corev1.ResourceMemory: resource.MustParse("1Gi"),
 					}
 				}
 
@@ -78,8 +100,8 @@ func NormalizeClusterSpec(cluster *fdbv1beta2.FoundationDBCluster, options Depre
 			sidecarUpdater := func(container *corev1.Container) {
 				if container.Resources.Requests == nil {
 					container.Resources.Requests = corev1.ResourceList{
-						"cpu":    resource.MustParse("100m"),
-						"memory": resource.MustParse("256Mi"),
+						corev1.ResourceCPU:    resource.MustParse("100m"),
+						corev1.ResourceMemory: resource.MustParse("256Mi"),
 					}
 				}
 
@@ -119,17 +141,39 @@ func ensureImageConfigPresent(imageConfigs *[]fdbv1beta2.ImageConfig, expected f
 	*imageConfigs = append(*imageConfigs, expected)
 }
 
+// TODO add test cases!!
+
 // ensurePodTemplatePresent defines a pod template in the general process
 // settings.
 func ensurePodTemplatePresent(spec *fdbv1beta2.FoundationDBClusterSpec) {
-	if spec.Processes == nil {
-		spec.Processes = make(map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings)
+	var generalConfig fdbv1beta2.ProcessesConfig
+	settingIdx := -1
+
+	for idx, config := range spec.ProcessesConfigs {
+		if config.Class != fdbv1beta2.ProcessClassGeneral {
+			continue
+		}
+
+		generalConfig = config
+		settingIdx = idx
 	}
-	generalSettings := spec.Processes[fdbv1beta2.ProcessClassGeneral]
-	if generalSettings.PodTemplate == nil {
-		generalSettings.PodTemplate = &corev1.PodTemplateSpec{}
+
+	if generalConfig.Settings.PodTemplate == nil {
+		generalConfig.Class = fdbv1beta2.ProcessClassGeneral
+		generalConfig.Settings.PodTemplate = &corev1.PodTemplateSpec{}
 	}
-	spec.Processes[fdbv1beta2.ProcessClassGeneral] = generalSettings
+
+	if settingIdx >= 0 {
+		spec.ProcessesConfigs[settingIdx] = generalConfig
+	} else {
+		spec.ProcessesConfigs = append(spec.ProcessesConfigs, generalConfig)
+	}
+
+	//generalSettings := spec.Processes[fdbv1beta2.ProcessClassGeneral]
+	//if generalSettings.PodTemplate == nil {
+	//	generalSettings.PodTemplate = &corev1.PodTemplateSpec{}
+	//}
+	//spec.Processes[fdbv1beta2.ProcessClassGeneral] = generalSettings
 }
 
 // updatePodTemplates updates all of the pod templates in the cluster spec.
@@ -148,9 +192,15 @@ func updatePodTemplates(spec *fdbv1beta2.FoundationDBClusterSpec, customizer fun
 // updateProcessSettings runs a customization function on all of the process
 // settings in the cluster spec.
 func updateProcessSettings(spec *fdbv1beta2.FoundationDBClusterSpec, customizer func(*fdbv1beta2.ProcessSettings)) {
-	for processClass, settings := range spec.Processes {
-		customizer(&settings)
-		spec.Processes[processClass] = settings
+	//for processClass, settings := range spec.Processes {
+	//	customizer(&settings)
+	//	spec.Processes[processClass] = settings
+	//}
+	//
+
+	for idx, config := range spec.ProcessesConfigs {
+		customizer(&config.Settings)
+		spec.ProcessesConfigs[idx] = config
 	}
 }
 

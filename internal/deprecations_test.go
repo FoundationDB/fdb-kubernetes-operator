@@ -50,30 +50,34 @@ var _ = Describe("[internal] deprecations", func() {
 		Describe("Validations", func() {
 			Context("with a duplicated custom parameter in the ProcessSettings", func() {
 				It("an error should be returned", func() {
-					spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{
-						fdbv1beta2.ProcessClassGeneral: {
-							CustomParameters: fdbv1beta2.FoundationDBCustomParameters{
-								"knob_disable_posix_kernel_aio = 1",
-								"knob_disable_posix_kernel_aio = 1",
+					spec.ProcessesConfigs = []fdbv1beta2.ProcessesConfig{
+						{
+							Class: fdbv1beta2.ProcessClassGeneral,
+							Settings: fdbv1beta2.ProcessSettings{
+								CustomParameters: fdbv1beta2.FoundationDBCustomParameters{
+									"knob_disable_posix_kernel_aio = 1",
+									"knob_disable_posix_kernel_aio = 1",
+								},
 							},
 						},
 					}
-					err := NormalizeClusterSpec(cluster, DeprecationOptions{})
-					Expect(err).To(HaveOccurred())
+					Expect(NormalizeClusterSpec(cluster, DeprecationOptions{})).To(HaveOccurred())
 				})
 			})
 
 			Context("with a protected custom parameter in the ProcessSettings", func() {
 				It("an error should be returned", func() {
-					spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{
-						fdbv1beta2.ProcessClassGeneral: {
-							CustomParameters: fdbv1beta2.FoundationDBCustomParameters{
-								"datadir=1",
+					spec.ProcessesConfigs = []fdbv1beta2.ProcessesConfig{
+						{
+							Class: fdbv1beta2.ProcessClassGeneral,
+							Settings: fdbv1beta2.ProcessSettings{
+								CustomParameters: fdbv1beta2.FoundationDBCustomParameters{
+									"datadir=1",
+								},
 							},
 						},
 					}
-					err := NormalizeClusterSpec(cluster, DeprecationOptions{})
-					Expect(err).To(HaveOccurred())
+					Expect(NormalizeClusterSpec(cluster, DeprecationOptions{})).To(HaveOccurred())
 				})
 			})
 		})
@@ -86,19 +90,18 @@ var _ = Describe("[internal] deprecations", func() {
 
 			Context("with the current defaults", func() {
 				JustBeforeEach(func() {
-					err := NormalizeClusterSpec(cluster, DeprecationOptions{UseFutureDefaults: false, OnlyShowChanges: false})
-					Expect(err).NotTo(HaveOccurred())
+					Expect(NormalizeClusterSpec(cluster, DeprecationOptions{UseFutureDefaults: false, OnlyShowChanges: false})).NotTo(HaveOccurred())
 				})
 
 				It("should have both containers", func() {
-					generalProcessConfig, present := spec.Processes[fdbv1beta2.ProcessClassGeneral]
+					generalProcessConfig, present := cluster.GetBareProcessSettings(fdbv1beta2.ProcessClassGeneral)
 					Expect(present).To(BeTrue())
 					containers := generalProcessConfig.PodTemplate.Spec.Containers
 					Expect(len(containers)).To(Equal(2))
 				})
 
 				It("should have a main container defined", func() {
-					generalProcessConfig, present := spec.Processes[fdbv1beta2.ProcessClassGeneral]
+					generalProcessConfig, present := cluster.GetBareProcessSettings(fdbv1beta2.ProcessClassGeneral)
 					Expect(present).To(BeTrue())
 					containers := generalProcessConfig.PodTemplate.Spec.Containers
 					Expect(len(containers)).To(Equal(2))
@@ -114,7 +117,7 @@ var _ = Describe("[internal] deprecations", func() {
 				})
 
 				It("should have empty sidecar resource requirements", func() {
-					generalProcessConfig, present := spec.Processes[fdbv1beta2.ProcessClassGeneral]
+					generalProcessConfig, present := cluster.GetBareProcessSettings(fdbv1beta2.ProcessClassGeneral)
 					Expect(present).To(BeTrue())
 					containers := generalProcessConfig.PodTemplate.Spec.Containers
 					Expect(len(containers)).To(Equal(2))
@@ -124,7 +127,7 @@ var _ = Describe("[internal] deprecations", func() {
 				})
 
 				It("should have empty init container resource requirements", func() {
-					generalProcessConfig, present := spec.Processes[fdbv1beta2.ProcessClassGeneral]
+					generalProcessConfig, present := cluster.GetBareProcessSettings(fdbv1beta2.ProcessClassGeneral)
 					Expect(present).To(BeTrue())
 					containers := generalProcessConfig.PodTemplate.Spec.InitContainers
 					Expect(len(containers)).To(Equal(1))
@@ -135,21 +138,24 @@ var _ = Describe("[internal] deprecations", func() {
 
 				Context("with explicit resource requests for the main container", func() {
 					BeforeEach(func() {
-						spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{
-							fdbv1beta2.ProcessClassGeneral: {
-								PodTemplate: &corev1.PodTemplateSpec{
-									Spec: corev1.PodSpec{
-										Containers: []corev1.Container{{
-											Name: fdbv1beta2.MainContainerName,
-											Resources: corev1.ResourceRequirements{
-												Requests: corev1.ResourceList{
-													"cpu": resource.MustParse("1"),
+						spec.ProcessesConfigs = []fdbv1beta2.ProcessesConfig{
+							{
+								Class: fdbv1beta2.ProcessClassGeneral,
+								Settings: fdbv1beta2.ProcessSettings{
+									PodTemplate: &corev1.PodTemplateSpec{
+										Spec: corev1.PodSpec{
+											Containers: []corev1.Container{{
+												Name: fdbv1beta2.MainContainerName,
+												Resources: corev1.ResourceRequirements{
+													Requests: corev1.ResourceList{
+														"cpu": resource.MustParse("1"),
+													},
+													Limits: corev1.ResourceList{
+														"cpu": resource.MustParse("2"),
+													},
 												},
-												Limits: corev1.ResourceList{
-													"cpu": resource.MustParse("2"),
-												},
-											},
-										}},
+											}},
+										},
 									},
 								},
 							},
@@ -157,7 +163,7 @@ var _ = Describe("[internal] deprecations", func() {
 					})
 
 					It("should respect the values given", func() {
-						generalProcessConfig, present := spec.Processes[fdbv1beta2.ProcessClassGeneral]
+						generalProcessConfig, present := cluster.GetBareProcessSettings(fdbv1beta2.ProcessClassGeneral)
 						Expect(present).To(BeTrue())
 						containers := generalProcessConfig.PodTemplate.Spec.Containers
 						Expect(len(containers)).To(Equal(2))
@@ -173,21 +179,24 @@ var _ = Describe("[internal] deprecations", func() {
 
 				Context("with explicit resource requests for the sidecar", func() {
 					BeforeEach(func() {
-						spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{
-							fdbv1beta2.ProcessClassGeneral: {
-								PodTemplate: &corev1.PodTemplateSpec{
-									Spec: corev1.PodSpec{
-										Containers: []corev1.Container{{
-											Name: fdbv1beta2.SidecarContainerName,
-											Resources: corev1.ResourceRequirements{
-												Requests: corev1.ResourceList{
-													"cpu": resource.MustParse("1"),
+						spec.ProcessesConfigs = []fdbv1beta2.ProcessesConfig{
+							{
+								Class: fdbv1beta2.ProcessClassGeneral,
+								Settings: fdbv1beta2.ProcessSettings{
+									PodTemplate: &corev1.PodTemplateSpec{
+										Spec: corev1.PodSpec{
+											Containers: []corev1.Container{{
+												Name: fdbv1beta2.SidecarContainerName,
+												Resources: corev1.ResourceRequirements{
+													Requests: corev1.ResourceList{
+														"cpu": resource.MustParse("1"),
+													},
+													Limits: corev1.ResourceList{
+														"cpu": resource.MustParse("2"),
+													},
 												},
-												Limits: corev1.ResourceList{
-													"cpu": resource.MustParse("2"),
-												},
-											},
-										}},
+											}},
+										},
 									},
 								},
 							},
@@ -195,7 +204,7 @@ var _ = Describe("[internal] deprecations", func() {
 					})
 
 					It("should respect the values given", func() {
-						generalProcessConfig, present := spec.Processes[fdbv1beta2.ProcessClassGeneral]
+						generalProcessConfig, present := cluster.GetBareProcessSettings(fdbv1beta2.ProcessClassGeneral)
 						Expect(present).To(BeTrue())
 						containers := generalProcessConfig.PodTemplate.Spec.Containers
 						Expect(len(containers)).To(Equal(2))
@@ -275,7 +284,30 @@ var _ = Describe("[internal] deprecations", func() {
 					})
 
 					It("should not have any init containers in the process settings", func() {
-						Expect(spec.Processes["general"].PodTemplate.Spec.InitContainers).To(HaveLen(0))
+						settings, present := cluster.GetBareProcessSettings(fdbv1beta2.ProcessClassGeneral)
+						Expect(present).To(BeTrue())
+						Expect(settings.PodTemplate.Spec.InitContainers).To(HaveLen(0))
+					})
+				})
+
+				When("converting process settings to process config", func() {
+					BeforeEach(func() {
+						cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{
+							fdbv1beta2.ProcessClassStorage: {
+								PodTemplate: &corev1.PodTemplateSpec{
+									Spec: corev1.PodSpec{
+										Containers: []corev1.Container{
+											{Name: "dummy"},
+										},
+									},
+								},
+							},
+						}
+					})
+
+					It("should convert the setting to the config", func() {
+						Expect(cluster.Spec.ProcessesConfigs).To(HaveLen(2))
+						Expect(cluster.Spec.Processes).To(BeNil())
 					})
 				})
 			})

@@ -316,9 +316,14 @@ var _ = Describe("monitor_conf", func() {
 		When("the cluster has custom parameters", func() {
 			When("there are parameters in the general section", func() {
 				BeforeEach(func() {
-					cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{fdbv1beta2.ProcessClassGeneral: {CustomParameters: fdbv1beta2.FoundationDBCustomParameters{
+					setting, present := cluster.GetBareProcessSettings(fdbv1beta2.ProcessClassGeneral)
+					Expect(present).To(BeTrue())
+
+					setting.CustomParameters = fdbv1beta2.FoundationDBCustomParameters{
 						"knob_disable_posix_kernel_aio = 1",
-					}}}
+					}
+
+					cluster.UpdateBareProcessSettings(fdbv1beta2.ProcessClassGeneral, setting)
 				})
 
 				It("includes the custom parameters", func() {
@@ -331,17 +336,17 @@ var _ = Describe("monitor_conf", func() {
 
 			When("there are parameters on different process classes", func() {
 				BeforeEach(func() {
-					cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{
-						fdbv1beta2.ProcessClassGeneral: {CustomParameters: fdbv1beta2.FoundationDBCustomParameters{
-							"knob_disable_posix_kernel_aio = 1",
-						}},
-						fdbv1beta2.ProcessClassStorage: {CustomParameters: fdbv1beta2.FoundationDBCustomParameters{
-							"knob_test = test1",
-						}},
-						fdbv1beta2.ProcessClassStateless: {CustomParameters: fdbv1beta2.FoundationDBCustomParameters{
-							"knob_test = test2",
-						}},
-					}
+					generalSetting, _ := cluster.GetBareProcessSettings(fdbv1beta2.ProcessClassGeneral)
+					generalSetting.CustomParameters = fdbv1beta2.FoundationDBCustomParameters{"knob_disable_posix_kernel_aio = 1"}
+					cluster.UpdateBareProcessSettings(fdbv1beta2.ProcessClassGeneral, generalSetting)
+
+					storageSetting, _ := cluster.GetBareProcessSettings(fdbv1beta2.ProcessClassStorage)
+					storageSetting.CustomParameters = fdbv1beta2.FoundationDBCustomParameters{"knob_test = test1"}
+					cluster.UpdateBareProcessSettings(fdbv1beta2.ProcessClassStorage, storageSetting)
+
+					statelessSetting, _ := cluster.GetBareProcessSettings(fdbv1beta2.ProcessClassStateless)
+					statelessSetting.CustomParameters = fdbv1beta2.FoundationDBCustomParameters{"knob_test = test2"}
+					cluster.UpdateBareProcessSettings(fdbv1beta2.ProcessClassStateless, statelessSetting)
 				})
 
 				It("includes the custom parameters for that class", func() {
@@ -463,9 +468,9 @@ var _ = Describe("monitor_conf", func() {
 
 			Context("with custom parameters with substitutions", func() {
 				It("should substitute the variables in the custom parameters", func() {
-					settings := cluster.Spec.Processes["general"]
-					settings.CustomParameters = []fdbv1beta2.FoundationDBCustomParameter{"locality_disk_id=$FDB_INSTANCE_ID"}
-					cluster.Spec.Processes["general"] = settings
+					setting, _ := cluster.GetBareProcessSettings(fdbv1beta2.ProcessClassGeneral)
+					setting.CustomParameters = []fdbv1beta2.FoundationDBCustomParameter{"locality_disk_id=$FDB_INSTANCE_ID"}
+					cluster.UpdateBareProcessSettings(fdbv1beta2.ProcessClassGeneral, setting)
 
 					substitutions, err := GetSubstitutionsFromClusterAndPod(logr.Discard(), cluster, pod)
 					Expect(err).NotTo(HaveOccurred())
@@ -1015,9 +1020,10 @@ var _ = Describe("monitor_conf", func() {
 		Context("with custom parameters", func() {
 			Context("with general parameters", func() {
 				BeforeEach(func() {
-					cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{fdbv1beta2.ProcessClassGeneral: {CustomParameters: fdbv1beta2.FoundationDBCustomParameters{
-						"knob_disable_posix_kernel_aio = 1",
-					}}}
+					setting, _ := cluster.GetBareProcessSettings(fdbv1beta2.ProcessClassGeneral)
+					setting.CustomParameters = []fdbv1beta2.FoundationDBCustomParameter{"knob_disable_posix_kernel_aio = 1"}
+					cluster.UpdateBareProcessSettings(fdbv1beta2.ProcessClassGeneral, setting)
+
 					conf, err = GetMonitorConf(cluster, fdbv1beta2.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
 					Expect(err).NotTo(HaveOccurred())
 				})
@@ -1046,17 +1052,17 @@ var _ = Describe("monitor_conf", func() {
 
 			Context("with process-class parameters", func() {
 				BeforeEach(func() {
-					cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{
-						fdbv1beta2.ProcessClassGeneral: {CustomParameters: fdbv1beta2.FoundationDBCustomParameters{
-							"knob_disable_posix_kernel_aio = 1",
-						}},
-						fdbv1beta2.ProcessClassStorage: {CustomParameters: fdbv1beta2.FoundationDBCustomParameters{
-							"knob_test = test1",
-						}},
-						fdbv1beta2.ProcessClassStateless: {CustomParameters: fdbv1beta2.FoundationDBCustomParameters{
-							"knob_test = test2",
-						}},
-					}
+					generalSetting, _ := cluster.GetBareProcessSettings(fdbv1beta2.ProcessClassGeneral)
+					generalSetting.CustomParameters = fdbv1beta2.FoundationDBCustomParameters{"knob_disable_posix_kernel_aio = 1"}
+					cluster.UpdateBareProcessSettings(fdbv1beta2.ProcessClassGeneral, generalSetting)
+
+					storageSetting, _ := cluster.GetBareProcessSettings(fdbv1beta2.ProcessClassStorage)
+					storageSetting.CustomParameters = fdbv1beta2.FoundationDBCustomParameters{"knob_test = test1"}
+					cluster.UpdateBareProcessSettings(fdbv1beta2.ProcessClassStorage, storageSetting)
+
+					statelessSetting, _ := cluster.GetBareProcessSettings(fdbv1beta2.ProcessClassStateless)
+					statelessSetting.CustomParameters = fdbv1beta2.FoundationDBCustomParameters{"knob_test = test2"}
+					cluster.UpdateBareProcessSettings(fdbv1beta2.ProcessClassStateless, statelessSetting)
 					conf, err = GetMonitorConf(cluster, fdbv1beta2.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
 					Expect(err).NotTo(HaveOccurred())
 				})

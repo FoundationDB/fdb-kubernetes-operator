@@ -79,7 +79,11 @@ type FoundationDBClusterSpec struct {
 	DatabaseConfiguration DatabaseConfiguration `json:"databaseConfiguration,omitempty"`
 
 	// Processes defines process-level settings.
+	// Deprecated: Use ProcessesConfigs instead.
 	Processes map[ProcessClass]ProcessSettings `json:"processes,omitempty"`
+
+	// ProcessesConfigs defines process-level settings.
+	ProcessesConfigs []ProcessesConfig `json:"processConfigs,omitempty"`
 
 	// ProcessCounts defines the number of processes to configure for each
 	// process class. You can generally omit this, to allow the operator to
@@ -217,6 +221,15 @@ type FoundationDBClusterSpec struct {
 	// UseUnifiedImage determines if we should use the unified image rather than
 	// separate images for the main container and the sidecar container.
 	UseUnifiedImage *bool `json:"useUnifiedImage,omitempty"`
+}
+
+// ProcessesConfig represents the configuration for a processes. This will be used as a template for all processes
+// of with the specified process class.
+type ProcessesConfig struct {
+	// Class the process class that is affected by this configuration.
+	Class ProcessClass `json:"class,omitempty"`
+	// Settings the process configuration.
+	Settings ProcessSettings `json:"settings,omitempty"`
 }
 
 // ImageType defines a single kind of images used in the cluster.
@@ -955,17 +968,34 @@ type ProcessSettings struct {
 	CustomParameters FoundationDBCustomParameters `json:"customParameters,omitempty"`
 }
 
-// GetProcessSettings gets settings for a process.
-func (cluster *FoundationDBCluster) GetProcessSettings(processClass ProcessClass) ProcessSettings {
-	merged := ProcessSettings{}
-	entries := make([]ProcessSettings, 0, 2)
+// getGeneralAndSpecificSetting returns the specific setting for the process class and the general setting for the
+// general settings.
+func (cluster *FoundationDBCluster) getGeneralAndSpecificSetting(processClass ProcessClass) (ProcessSettings, ProcessSettings) {
+	var specificSettings, generalSettings ProcessSettings
 
-	entry, present := cluster.Spec.Processes[processClass]
-	if present {
-		entries = append(entries, entry)
+	for _, config := range cluster.Spec.ProcessesConfigs {
+		if config.Class == ProcessClassGeneral {
+			generalSettings = config.Settings
+			continue
+		}
+
+		if config.Class != processClass {
+			continue
+		}
+
+		specificSettings = config.Settings
 	}
 
-	entries = append(entries, cluster.Spec.Processes[ProcessClassGeneral])
+	return specificSettings, generalSettings
+}
+
+// GetProcessSettings gets settings for a process. If the settings are not set they will be merged with the general
+// settings.
+func (cluster *FoundationDBCluster) GetProcessSettings(processClass ProcessClass) ProcessSettings {
+	merged := ProcessSettings{}
+	specificSettings, generalSettings := cluster.getGeneralAndSpecificSetting(processClass)
+
+	entries := []ProcessSettings{specificSettings, generalSettings}
 	for _, entry := range entries {
 		if merged.PodTemplate == nil {
 			merged.PodTemplate = entry.PodTemplate
@@ -979,6 +1009,42 @@ func (cluster *FoundationDBCluster) GetProcessSettings(processClass ProcessClass
 	}
 
 	return merged
+}
+
+// GetBareProcessSettings gets settings for a process and returns it directly without merging it with the general process.
+func (cluster *FoundationDBCluster) GetBareProcessSettings(processClass ProcessClass) (ProcessSettings, bool) {
+	for _, config := range cluster.Spec.ProcessesConfigs {
+		if config.Class != processClass {
+			continue
+		}
+
+		return config.Settings, true
+	}
+
+	return ProcessSettings{}, false
+}
+
+// UpdateBareProcessSettings will update the setting if it already exists or add it to the configs.
+func (cluster *FoundationDBCluster) UpdateBareProcessSettings(processClass ProcessClass, settings ProcessSettings) {
+	var found bool
+	for idx, config := range cluster.Spec.ProcessesConfigs {
+		if config.Class != processClass {
+			continue
+		}
+
+		cluster.Spec.ProcessesConfigs[idx].Settings = settings
+		found = true
+		break
+	}
+
+	if found {
+		return
+	}
+
+	cluster.Spec.ProcessesConfigs = append(cluster.Spec.ProcessesConfigs, ProcessesConfig{
+		Class:    processClass,
+		Settings: settings,
+	})
 }
 
 // GetRoleCountsWithDefaults gets the role counts from the cluster spec and

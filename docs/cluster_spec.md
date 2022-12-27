@@ -27,6 +27,7 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 * [ProcessGroupCondition](#processgroupcondition)
 * [ProcessGroupStatus](#processgroupstatus)
 * [ProcessSettings](#processsettings)
+* [ProcessesConfig](#processesconfig)
 * [RequiredAddressSet](#requiredaddressset)
 * [RoutingConfig](#routingconfig)
 * [DataCenter](#datacenter)
@@ -205,7 +206,8 @@ FoundationDBClusterSpec defines the desired state of a cluster.
 | ----- | ----------- | ------ | -------- |
 | version | Version defines the version of FoundationDB the cluster should run. | string | true |
 | databaseConfiguration | DatabaseConfiguration defines the database configuration. | [DatabaseConfiguration](#databaseconfiguration) | false |
-| processes | Processes defines process-level settings. | map[[ProcessClass](#processclass)][ProcessSettings](#processsettings) | false |
+| processes | Processes defines process-level settings. **Deprecated: Use ProcessesConfigs instead.** | map[[ProcessClass](#processclass)][ProcessSettings](#processsettings) | false |
+| processConfigs | ProcessesConfigs defines process-level settings. | [][ProcessesConfig](#processesconfig) | false |
 | processCounts | ProcessCounts defines the number of processes to configure for each process class. You can generally omit this, to allow the operator to infer the process counts based on the database configuration. | [ProcessCounts](#processcounts) | false |
 | seedConnectionString | SeedConnectionString provides a connection string for the initial reconciliation.  After the initial reconciliation, this will not be used. | string | false |
 | partialConnectionString | PartialConnectionString provides a way to specify part of the connection string (e.g. the database name and coordinator generation) without specifying the entire string. This does not allow for setting the coordinator IPs. If `SeedConnectionString` is set, `PartialConnectionString` will have no effect. They cannot be used together. | [ConnectionString](#connectionstring) | false |
@@ -395,6 +397,17 @@ ProcessSettings defines process-level settings.
 | podTemplate | PodTemplate allows customizing the pod. If a container image with a tag is specified the operator will throw an error and stop processing the cluster. | *[corev1.PodTemplateSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#podtemplatespec-v1-core) | false |
 | volumeClaimTemplate | VolumeClaimTemplate allows customizing the persistent volume claim for the pod. | *[corev1.PersistentVolumeClaim](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#persistentvolumeclaim-v1-core) | false |
 | customParameters | CustomParameters defines additional parameters to pass to the fdbserver process. | FoundationDBCustomParameters | false |
+
+[Back to TOC](#table-of-contents)
+
+## ProcessesConfig
+
+ProcessesConfig represents the configuration for a processes. This will be used as a template for all processes of with the specified process class.
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| class | Class the process class that is affected by this configuration. | [ProcessClass](#processclass) | false |
+| settings | Settings the process configuration. | [ProcessSettings](#processsettings) | false |
 
 [Back to TOC](#table-of-contents)
 

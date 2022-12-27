@@ -226,15 +226,10 @@ var _ = Describe("mock_client", func() {
 				break
 			}
 
-			// Update the knobs for storage
-			processes := cluster.Spec.Processes
-			if processes == nil {
-				processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{}
-			}
-			config := processes[fdbv1beta2.ProcessClassGeneral]
-			config.CustomParameters = append(config.CustomParameters, fdbv1beta2.FoundationDBCustomParameter(newKnob))
-			processes[fdbv1beta2.ProcessClassGeneral] = config
-			cluster.Spec.Processes = processes
+			// Update the knobs for general
+			settings, _ := cluster.GetBareProcessSettings(fdbv1beta2.ProcessClassGeneral)
+			settings.CustomParameters = append(settings.CustomParameters, fdbv1beta2.FoundationDBCustomParameter(newKnob))
+			cluster.UpdateBareProcessSettings(fdbv1beta2.ProcessClassGeneral, settings)
 			adminClient.Cluster = cluster
 		})
 
