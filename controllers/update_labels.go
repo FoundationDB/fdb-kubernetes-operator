@@ -80,7 +80,7 @@ func (updateLabels) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 		}
 
 		pvc, ok := pvcMap[processGroup.ProcessGroupID]
-		if !ok || pod == nil {
+		if !ok {
 			logger.V(1).Info("Could not find PVC for process group ID",
 				"processGroupID", processGroup.ProcessGroupID)
 			continue
@@ -103,16 +103,7 @@ func (updateLabels) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 }
 
 func metadataCorrect(desiredMetadata metav1.ObjectMeta, currentMetadata *metav1.ObjectMeta) bool {
-	metadataCorrect := true
 	desiredMetadata.Annotations[fdbtypes.LastSpecKey] = currentMetadata.Annotations[fdbtypes.LastSpecKey]
-
-	if mergeLabelsInMetadata(currentMetadata, desiredMetadata) {
-		metadataCorrect = false
-	}
-
-	if mergeAnnotations(currentMetadata, desiredMetadata) {
-		metadataCorrect = false
-	}
-
-	return metadataCorrect
+	// If the annotations or labels have changed the metadata has to be updated.
+	return !mergeLabelsInMetadata(currentMetadata, desiredMetadata) && !mergeAnnotations(currentMetadata, desiredMetadata)
 }
