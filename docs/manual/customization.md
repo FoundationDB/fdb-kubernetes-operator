@@ -253,7 +253,7 @@ Building the operator by yourself can be achieved with `docker build --build-arg
          # Install this library in a special location to force the operator to
          # use it as the primary library.
          - name: foundationdb-kubernetes-init-7-1-primary
-           image: foundationdb/foundationdb-kubernetes-sidecar:7.1.35
+           image: foundationdb/foundationdb-kubernetes-sidecar:7.1.25
            args:
              - "--copy-library"
              - "7.1"
