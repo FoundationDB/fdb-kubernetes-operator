@@ -1,6 +1,6 @@
 - op: add
   path: "/spec/version"
-  value: 7.1.5
+  value: 7.1.25
 - op: add
   path: "/spec/routing/useDNSInClusterFile"
   value: true
