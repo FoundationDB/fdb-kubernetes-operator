@@ -70,7 +70,7 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 			},
 		}
 	} else {
-		connectionString, err := tryConnectionOptions(cluster, r)
+		connectionString, err := tryConnectionOptions(logger, cluster, r)
 		if err != nil {
 			return &requeue{curError: err}
 		}
@@ -307,8 +307,7 @@ func optionList(options ...string) []string {
 
 // tryConnectionOptions attempts to connect with all the connection strings for this cluster and
 // returns the connection string that allows connecting to the cluster.
-func tryConnectionOptions(cluster *fdbv1beta2.FoundationDBCluster, r *FoundationDBClusterReconciler) (string, error) {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updateStatus")
+func tryConnectionOptions(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, r *FoundationDBClusterReconciler) (string, error) {
 	connectionStrings := optionList(cluster.Status.ConnectionString, cluster.Spec.SeedConnectionString)
 
 	if len(connectionStrings) == 1 {
