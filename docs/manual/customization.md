@@ -271,7 +271,7 @@ Building the operator by yourself can be achieved with `docker build --build-arg
                value: /usr/bin/fdb/primary/lib
 ```
 
-The important parts here is to add an additional init container with the 7.1 version and copy the library into `.../primary`, this library will be used by the operator as primary library.
+The important part here is to add an additional init container with the 7.1 version and copy the library into `.../primary`, this library will be used by the operator as primary library.
 Once you set `useDNSInClusterFile` to true the operator will make the required changes to use DNS instead of IPs in the cluster file.
 
 ```yaml
