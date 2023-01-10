@@ -21,6 +21,7 @@
 package internal
 
 import (
+	"fmt"
 	"net"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -214,4 +215,199 @@ var _ = Describe("Internal FoundationDBStatus", func() {
 				},
 			}),
 	)
+
+	When("Removing warnings in JSON", func() {
+		type testCase struct {
+			input       string
+			expected    []byte
+			expectedErr error
+		}
+
+		DescribeTable("Test remove warnings in JSON string",
+			func(tc testCase) {
+				result, err := RemoveWarningsInJSON(tc.input)
+				// We need the if statement to make ginkgo happy:
+				//   Refusing to compare <nil> to <nil>.
+				//   Be explicit and use BeNil() instead.
+				//   This is to avoid mistakes where both sides of an assertion are erroneously uninitialized.
+				// ¯\_(ツ)_/¯
+				if tc.expectedErr == nil {
+					Expect(err).To(BeNil())
+				} else {
+					Expect(err).To(Equal(tc.expectedErr))
+				}
+				Expect(result).To(Equal(tc.expected))
+			},
+			Entry("Valid JSON without warning",
+				testCase{
+					input:       "{}",
+					expected:    []byte("{}"),
+					expectedErr: nil,
+				},
+			),
+			Entry("Valid JSON with warning",
+				testCase{
+					input: `
+ # Warning Slow response
+
+ {}`,
+					expected:    []byte("{}"),
+					expectedErr: nil,
+				},
+			),
+			Entry("Invalid JSON",
+				testCase{
+					input:       "}",
+					expected:    nil,
+					expectedErr: fmt.Errorf("the JSON string doesn't contain a starting '{'"),
+				},
+			),
+		)
+	})
+
+	When("getting the unsupported clients", func() {
+		DescribeTable("", func(status *fdbv1beta2.FoundationDBStatus, protocolVersion string, expected []string) {
+			result, err := GetUnsupportedClients(status, protocolVersion)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(ConsistOf(expected))
+		},
+			Entry(
+				"no fdbserver processes are specified and all processes are compatible",
+				&fdbv1beta2.FoundationDBStatus{
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						Clients: fdbv1beta2.FoundationDBStatusClusterClientInfo{
+							SupportedVersions: []fdbv1beta2.FoundationDBStatusSupportedVersion{
+								{
+									ProtocolVersion: "fdb00b072000000",
+									MaxProtocolClients: []fdbv1beta2.FoundationDBStatusConnectedClient{
+										{
+											Address:  "192.168.0.1:33000:tls",
+											LogGroup: "default",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				"fdb00b072000000",
+				[]string{},
+			),
+			Entry(
+				"no fdbserver processes are specified and not all processes are compatible",
+				&fdbv1beta2.FoundationDBStatus{
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						Clients: fdbv1beta2.FoundationDBStatusClusterClientInfo{
+							SupportedVersions: []fdbv1beta2.FoundationDBStatusSupportedVersion{
+								{
+									ProtocolVersion: "fdb00b072000000",
+									MaxProtocolClients: []fdbv1beta2.FoundationDBStatusConnectedClient{
+										{
+											Address:  "192.168.0.1:33001:tls",
+											LogGroup: "default",
+										},
+									},
+								},
+								{
+									ProtocolVersion: "fdb00b071010000",
+									MaxProtocolClients: []fdbv1beta2.FoundationDBStatusConnectedClient{
+										{
+											Address:  "192.168.0.2:33002:tls",
+											LogGroup: "default",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				"fdb00b072000000",
+				[]string{"192.168.0.2:33002:tls"},
+			),
+			Entry(
+				"fdbserver processes is reported as incompatible and all other processes are compatible",
+				&fdbv1beta2.FoundationDBStatus{
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						Processes: map[string]fdbv1beta2.FoundationDBStatusProcessInfo{
+							"test": {
+								Address: fdbv1beta2.ProcessAddress{
+									IPAddress: net.ParseIP("192.168.0.2"),
+								},
+							},
+						},
+						Clients: fdbv1beta2.FoundationDBStatusClusterClientInfo{
+							SupportedVersions: []fdbv1beta2.FoundationDBStatusSupportedVersion{
+								{
+									ProtocolVersion: "fdb00b072000000",
+									MaxProtocolClients: []fdbv1beta2.FoundationDBStatusConnectedClient{
+										{
+											Address:  "192.168.0.1:33001:tls",
+											LogGroup: "default",
+										},
+									},
+								},
+								{
+									ProtocolVersion: "fdb00b071010000",
+									MaxProtocolClients: []fdbv1beta2.FoundationDBStatusConnectedClient{
+										{
+											Address:  "192.168.0.2:33002:tls",
+											LogGroup: "default",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				"fdb00b072000000",
+				[]string{},
+			),
+			Entry(
+				"should ignore unknown protocol versions",
+				&fdbv1beta2.FoundationDBStatus{
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						Processes: map[string]fdbv1beta2.FoundationDBStatusProcessInfo{
+							"test": {
+								Address: fdbv1beta2.ProcessAddress{
+									IPAddress: net.ParseIP("192.168.0.2"),
+								},
+							},
+						},
+						Clients: fdbv1beta2.FoundationDBStatusClusterClientInfo{
+							SupportedVersions: []fdbv1beta2.FoundationDBStatusSupportedVersion{
+								{
+									ProtocolVersion: "fdb00b072000000",
+									MaxProtocolClients: []fdbv1beta2.FoundationDBStatusConnectedClient{
+										{
+											Address:  "192.168.0.1:33001:tls",
+											LogGroup: "default",
+										},
+									},
+								},
+								{
+									ProtocolVersion: "fdb00b071010000",
+									MaxProtocolClients: []fdbv1beta2.FoundationDBStatusConnectedClient{
+										{
+											Address:  "192.168.0.2:33002:tls",
+											LogGroup: "default",
+										},
+									},
+								},
+								{
+									ProtocolVersion: "Unknown",
+									MaxProtocolClients: []fdbv1beta2.FoundationDBStatusConnectedClient{
+										{
+											Address:  "192.168.0.3:33003:tls",
+											LogGroup: "default",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				"fdb00b072000000",
+				[]string{},
+			))
+	})
 })

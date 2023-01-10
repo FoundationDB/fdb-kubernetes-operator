@@ -23,6 +23,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	"strings"
 	"time"
 
@@ -79,17 +80,9 @@ func (c checkClientCompatibility) reconcile(_ context.Context, r *FoundationDBCl
 		return &requeue{curError: err}
 	}
 
-	var unsupportedClients []string
-	for _, versionInfo := range status.Cluster.Clients.SupportedVersions {
-		if versionInfo.ProtocolVersion == "Unknown" {
-			continue
-		}
-
-		if versionInfo.ProtocolVersion != protocolVersion {
-			for _, client := range versionInfo.MaxProtocolClients {
-				unsupportedClients = append(unsupportedClients, client.Description())
-			}
-		}
+	unsupportedClients, err := internal.GetUnsupportedClients(status, protocolVersion)
+	if err != nil {
+		return &requeue{curError: err}
 	}
 
 	if len(unsupportedClients) > 0 {
