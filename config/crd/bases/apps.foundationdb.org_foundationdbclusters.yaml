@@ -9937,6 +9937,11 @@ spec:
                     type: array
                   emptyMonitorConf:
                     type: boolean
+                  ignoreDuringRestart:
+                    items:
+                      type: string
+                    maxItems: 1000
+                    type: array
                   noSchedule:
                     items:
                       type: string
