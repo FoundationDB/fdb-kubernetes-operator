@@ -39,7 +39,7 @@ jobs:
       matrix:
         # With a new supported Kubernetes version we should adjust the version
         # See https://kubernetes.io/releases for the current releases
-        kubever: [ "v1.19.0", "v1.20.0", "v1.21.1", "v1.22.0", "v1.23.0" ]
+        kubever: [ "v1.20.0", "v1.21.1", "v1.22.0", "v1.23.0" ]
     steps:
     - name: Set up Go
       uses: actions/setup-go@v1
