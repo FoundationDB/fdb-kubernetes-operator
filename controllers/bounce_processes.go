@@ -129,6 +129,11 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 		}
 	}
 
+	filteredAddresses, removedAddresses := filterIgnoredProcessGroups(cluster, addresses)
+	if removedAddresses {
+		addresses = filteredAddresses
+	}
+
 	logger.Info("Bouncing processes", "addresses", addresses, "upgrading", upgrading)
 	r.Recorder.Event(cluster, corev1.EventTypeNormal, "BouncingProcesses", fmt.Sprintf("Bouncing processes: %v", addresses))
 	err = adminClient.KillProcesses(addresses)
@@ -250,4 +255,42 @@ func getAddressesForUpgrade(logger logr.Logger, r *FoundationDBClusterReconciler
 	}
 
 	return addresses, nil
+}
+
+// filterIgnoredProcessGroups removes all addresses from the addresses slice that are associated with a process group that should be ignored
+// during a restart.
+func filterIgnoredProcessGroups(cluster *fdbv1beta2.FoundationDBCluster, addresses []fdbv1beta2.ProcessAddress) ([]fdbv1beta2.ProcessAddress, bool) {
+	if len(cluster.Spec.Buggify.IgnoreDuringRestart) == 0 {
+		return addresses, false
+	}
+
+	ignoredIDs := make(map[string]fdbv1beta2.None, len(cluster.Spec.Buggify.IgnoreDuringRestart))
+	ignoredAddresses := make(map[string]fdbv1beta2.None, len(cluster.Spec.Buggify.IgnoreDuringRestart))
+
+	for _, id := range cluster.Spec.Buggify.IgnoreDuringRestart {
+		ignoredIDs[id] = fdbv1beta2.None{}
+	}
+
+	for _, processGroup := range cluster.Status.ProcessGroups {
+		if _, ok := ignoredIDs[processGroup.ProcessGroupID]; !ok {
+			continue
+		}
+
+		for _, address := range processGroup.Addresses {
+			ignoredAddresses[address] = fdbv1beta2.None{}
+		}
+	}
+
+	filteredAddresses := make([]fdbv1beta2.ProcessAddress, 0, len(addresses)-len(ignoredAddresses))
+	removedAddresses := false
+	for _, address := range addresses {
+		if _, ok := ignoredAddresses[address.MachineAddress()]; ok {
+			continue
+		}
+
+		filteredAddresses = append(filteredAddresses, address)
+		removedAddresses = true
+	}
+
+	return filteredAddresses, removedAddresses
 }

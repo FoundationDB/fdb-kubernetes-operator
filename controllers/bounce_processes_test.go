@@ -403,4 +403,52 @@ var _ = Describe("bounceProcesses", func() {
 			})
 		})
 	})
+
+	When("the buggify option ignoreDuringRestart is set", func() {
+		var ignoredProcessGroup *fdbv1beta2.ProcessGroupStatus
+
+		BeforeEach(func() {
+			ignoredProcessGroup = cluster.Status.ProcessGroups[0]
+			cluster.Spec.Buggify.IgnoreDuringRestart = []string{ignoredProcessGroup.ProcessGroupID}
+			for _, processGroup := range cluster.Status.ProcessGroups {
+				processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true, nil, "")
+			}
+		})
+
+		It("should not requeue", func() {
+			Expect(err).NotTo(HaveOccurred())
+			Expect(requeue).To(BeNil())
+		})
+
+		It("should not kill any processes", func() {
+			ignoredAddress := ignoredProcessGroup.Addresses[0]
+
+			for _, address := range adminClient.KilledAddresses {
+				Expect(address).NotTo(HavePrefix(ignoredAddress))
+			}
+
+			Expect(adminClient.KilledAddresses).To(HaveLen(len(cluster.Status.ProcessGroups) - 1))
+		})
+
+		When("filtering process groups for buggify", func() {
+			var filteredAddresses []fdbv1beta2.ProcessAddress
+			var removed bool
+
+			BeforeEach(func() {
+				status, err := adminClient.GetStatus()
+				Expect(err).NotTo(HaveOccurred())
+				processAddresses := make([]fdbv1beta2.ProcessAddress, 0, len(cluster.Status.ProcessGroups))
+				for _, process := range status.Cluster.Processes {
+					processAddresses = append(processAddresses, process.Address)
+				}
+
+				filteredAddresses, removed = filterIgnoredProcessGroups(cluster, processAddresses)
+			})
+
+			It("should filter the ignored address", func() {
+				Expect(removed).To(BeTrue())
+				Expect(len(filteredAddresses)).To(BeNumerically("==", len(cluster.Status.ProcessGroups)-1))
+			})
+		})
+	})
 })

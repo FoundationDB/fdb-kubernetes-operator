@@ -1699,6 +1699,12 @@ type BuggifyConfig struct {
 	// EmptyMonitorConf instructs the operator to update all of the fdbmonitor.conf
 	// files to have zero fdbserver processes configured.
 	EmptyMonitorConf bool `json:"emptyMonitorConf,omitempty"`
+
+	// IgnoreDuringRestart instructs the operator to ignore the provided process groups IDs during the
+	// restart command. This can be useful to simulate cases where the kill command is not restarting all
+	// processes. IgnoreDuringRestart does not support the wildcard option to ignore all of this specific cluster processes.
+	// +kubebuilder:validation:MaxItems=1000
+	IgnoreDuringRestart []string `json:"ignoreDuringRestart,omitempty"`
 }
 
 // LabelConfig allows customizing labels used by the operator.
