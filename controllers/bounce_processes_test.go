@@ -23,6 +23,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"time"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient/mock"
@@ -377,8 +378,11 @@ var _ = Describe("bounceProcesses", func() {
 				})
 			})
 
-			When("one process is missing", func() {
+			When("one process is missing and all processes must be ready for the bounce", func() {
 				BeforeEach(func() {
+					intString := intstr.FromString("100%")
+					cluster.Spec.AutomationOptions.MinimumReadyProcessesForUpgradeRestart = &intString
+
 					missingProcessGroup := cluster.Status.ProcessGroups[0]
 					adminClient.MockMissingProcessGroup(missingProcessGroup.ProcessGroupID, true)
 

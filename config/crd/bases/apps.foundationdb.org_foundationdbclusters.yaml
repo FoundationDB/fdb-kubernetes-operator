@@ -9894,6 +9894,11 @@ spec:
                   maxConcurrentReplacements:
                     minimum: 0
                     type: integer
+                  minimumReadyProcessesForUpgradeRestart:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    x-kubernetes-int-or-string: true
                   podUpdateStrategy:
                     default: ReplaceTransactionSystem
                     enum:

@@ -25,6 +25,8 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/apimachinery/pkg/util/intstr"
+
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -904,6 +906,11 @@ type FoundationDBClusterAutomationOptions struct {
 
 	// MaintenanceModeOptions contains options for maintenance mode related settings.
 	MaintenanceModeOptions MaintenanceModeOptions `json:"maintenanceModeOptions,omitempty"`
+
+	// MinimumReadyProcessesForUpgrade defines how many processes must be ready before doing a bounce for the upgrade.
+	// This can be either an absolute value or a percentage. Default is 90% to allow a small number of partitioned
+	// processes to be ignored.
+	MinimumReadyProcessesForUpgradeRestart *intstr.IntOrString `json:"minimumReadyProcessesForUpgradeRestart,omitempty"`
 }
 
 // MaintenanceModeOptions controls options for placing zones in maintenance mode.
@@ -2215,4 +2222,14 @@ func (cluster *FoundationDBCluster) Validate() error {
 	}
 
 	return fmt.Errorf(strings.Join(validations, ", "))
+}
+
+// GetMinimumReadyProcessesForUpgradeRestart returns the minimum number of ready processes for proceeding with the bounce.
+func (cluster *FoundationDBCluster) GetMinimumReadyProcessesForUpgradeRestart() (int, error) {
+	counts, err := cluster.GetProcessCountsWithDefaults()
+	if err != nil {
+		return -1, err
+	}
+
+	return intstr.GetScaledValueFromIntOrPercent(intstr.ValueOrDefault(cluster.Spec.AutomationOptions.MinimumReadyProcessesForUpgradeRestart, intstr.FromString("90%")), counts.Total(), true)
 }
