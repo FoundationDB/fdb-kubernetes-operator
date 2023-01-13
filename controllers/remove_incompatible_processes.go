@@ -102,7 +102,7 @@ func processIncompatibleProcesses(ctx context.Context, r *FoundationDBClusterRec
 	}
 
 	// Ensure the cluster is running at fault tolerance before recreating Pods.
-	hasDesiredFaultTolerance, err := internal.HasDesiredFaultToleranceFromStatus(logger, status, cluster)
+	hasDesiredFaultTolerance := internal.HasDesiredFaultToleranceFromStatus(logger, status, cluster)
 	if err != nil {
 		logger.V(1).Info("Cluster doesn't have required fault tolerance won't delete Pods")
 		return err

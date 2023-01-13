@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
-	"reflect"
 	"regexp"
 	"strings"
 	"time"
@@ -588,28 +587,39 @@ func FilterByCondition(processGroupStatus []*ProcessGroupStatus, conditionType P
 // false in the conditionRules map, only process groups without that condition
 // will be returned.
 func FilterByConditions(processGroupStatus []*ProcessGroupStatus, conditionRules map[ProcessGroupConditionType]bool, ignoreRemoved bool) []string {
-	result := make([]string, 0)
+	result := make([]string, 0, len(processGroupStatus))
 
 	for _, groupStatus := range processGroupStatus {
 		if ignoreRemoved && groupStatus.IsMarkedForRemoval() {
 			continue
 		}
 
-		matchingConditions := make(map[ProcessGroupConditionType]bool, len(conditionRules))
-		for conditionRule := range conditionRules {
-			matchingConditions[conditionRule] = false
-		}
-		for _, condition := range groupStatus.ProcessGroupConditions {
-			if _, hasRule := conditionRules[condition.ProcessGroupConditionType]; hasRule {
-				matchingConditions[condition.ProcessGroupConditionType] = true
-			}
-		}
-		if reflect.DeepEqual(matchingConditions, conditionRules) {
+		if groupStatus.MatchesConditions(conditionRules) {
 			result = append(result, groupStatus.ProcessGroupID)
 		}
 	}
 
 	return result
+}
+
+// MatchesConditions checks if the provided conditions are matching the current conditions of the process group.
+//
+// If a condition is mapped to true in the conditionRules map, this condition must be present in the process group.
+// If a condition is mapped to false in the conditionRules map, the condition must be absent in the process group.
+func (processGroupStatus *ProcessGroupStatus) MatchesConditions(conditionRules map[ProcessGroupConditionType]bool) bool {
+	matchingConditions := make(map[ProcessGroupConditionType]bool, len(conditionRules))
+
+	for conditionRule := range conditionRules {
+		matchingConditions[conditionRule] = false
+	}
+
+	for _, condition := range processGroupStatus.ProcessGroupConditions {
+		if _, hasRule := conditionRules[condition.ProcessGroupConditionType]; hasRule {
+			matchingConditions[condition.ProcessGroupConditionType] = true
+		}
+	}
+
+	return equality.Semantic.DeepEqual(matchingConditions, conditionRules)
 }
 
 // ProcessGroupsByProcessClass returns a slice of all Process Groups that contains a given process class.
@@ -1536,6 +1546,19 @@ func (cluster *FoundationDBCluster) ClearMissingVersionFlags(configuration *Data
 // IsBeingUpgraded determines whether the cluster has a pending upgrade.
 func (cluster *FoundationDBCluster) IsBeingUpgraded() bool {
 	return cluster.Status.RunningVersion != "" && cluster.Status.RunningVersion != cluster.Spec.Version
+}
+
+// VersionCompatibleUpgradeIsProgress returns true if the cluster is currently being upgraded and the upgrade is to
+// a version compatible version.
+func (cluster *FoundationDBCluster) VersionCompatibleUpgradeIsProgress() bool {
+	if !cluster.IsBeingUpgraded() {
+		return false
+	}
+
+	runningVersion, _ := ParseFdbVersion(cluster.Status.RunningVersion)
+	desiredVersion, _ := ParseFdbVersion(cluster.Spec.Version)
+
+	return runningVersion.IsProtocolCompatible(desiredVersion)
 }
 
 // ProcessGroupIsBeingRemoved determines if an instance is pending removal.
