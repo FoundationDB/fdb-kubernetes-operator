@@ -82,10 +82,6 @@ func (u removeProcessGroups) reconcile(ctx context.Context, r *FoundationDBClust
 	// We could be smarter here and only block removals that target stateful processes by e.g. filtering those out of the
 	// processGroupsToRemove slice.
 	hasDesiredFaultTolerance := internal.HasDesiredFaultToleranceFromStatus(logger, status, cluster)
-	if err != nil {
-		return &requeue{curError: err}
-	}
-
 	if !hasDesiredFaultTolerance {
 		return &requeue{
 			message: "Removals cannot proceed because cluster has degraded fault tolerance",

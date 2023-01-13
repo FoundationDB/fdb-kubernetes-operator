@@ -65,7 +65,7 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 	// In the case of version compatible upgrades we have to check if some processes are already running with the new
 	// desired version e.g. because they were restarted by an event outside of the control of the operator.
 	var upgradedProcesses int
-	if cluster.VersionCompatibleUpgradeIsProgress() {
+	if cluster.VersionCompatibleUpgradeInProgress() {
 		for _, process := range status.Cluster.Processes {
 			dcID := process.Locality[fdbv1beta2.FDBLocalityDCIDKey]
 			// Ignore processes that are not managed by this operator instance

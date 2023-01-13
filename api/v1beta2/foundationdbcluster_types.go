@@ -1548,9 +1548,9 @@ func (cluster *FoundationDBCluster) IsBeingUpgraded() bool {
 	return cluster.Status.RunningVersion != "" && cluster.Status.RunningVersion != cluster.Spec.Version
 }
 
-// VersionCompatibleUpgradeIsProgress returns true if the cluster is currently being upgraded and the upgrade is to
+// VersionCompatibleUpgradeInProgress returns true if the cluster is currently being upgraded and the upgrade is to
 // a version compatible version.
-func (cluster *FoundationDBCluster) VersionCompatibleUpgradeIsProgress() bool {
+func (cluster *FoundationDBCluster) VersionCompatibleUpgradeInProgress() bool {
 	if !cluster.IsBeingUpgraded() {
 		return false
 	}
