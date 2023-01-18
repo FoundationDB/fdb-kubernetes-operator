@@ -386,12 +386,12 @@ var _ = Describe("cluster_controller", func() {
 				Expect(adminClient).NotTo(BeNil())
 
 				// All of the processes in the cluster should be killed.
-				processes := map[string]struct{}{}
+				processes := map[string]fdbv1beta2.None{}
 				for _, processGroup := range cluster.Status.ProcessGroups {
 					for i, addr := range processGroup.Addresses {
 						// +1 since the process list uses 1-based indexing.
 						fullAddr := cluster.GetFullAddress(addr, i+1)
-						processes[fullAddr.String()] = struct{}{}
+						processes[fullAddr.String()] = fdbv1beta2.None{}
 					}
 				}
 				Expect(adminClient.KilledAddresses).To(Equal(processes))
@@ -1007,9 +1007,9 @@ var _ = Describe("cluster_controller", func() {
 				})
 
 				It("should bounce the processes", func() {
-					addresses := make(map[string]struct{}, len(originalPods.Items))
+					addresses := make(map[string]fdbv1beta2.None, len(originalPods.Items))
 					for _, pod := range originalPods.Items {
-						addresses[cluster.GetFullAddress(pod.Status.PodIP, 1).String()] = struct{}{}
+						addresses[cluster.GetFullAddress(pod.Status.PodIP, 1).String()] = fdbv1beta2.None{}
 					}
 					Expect(adminClient.KilledAddresses).To(Equal(addresses))
 				})
@@ -1035,9 +1035,9 @@ var _ = Describe("cluster_controller", func() {
 				})
 
 				It("should bounce the processes", func() {
-					addresses := make(map[string]struct{}, len(originalPods.Items))
+					addresses := make(map[string]fdbv1beta2.None, len(originalPods.Items))
 					for _, pod := range originalPods.Items {
-						addresses[cluster.GetFullAddress(pod.Status.PodIP, 1).String()] = struct{}{}
+						addresses[cluster.GetFullAddress(pod.Status.PodIP, 1).String()] = fdbv1beta2.None{}
 					}
 
 					Expect(adminClient.KilledAddresses).To(Equal(addresses))
@@ -1109,11 +1109,11 @@ var _ = Describe("cluster_controller", func() {
 				})
 
 				It("should bounce the processes", func() {
-					addresses := make(map[string]struct{}, len(originalPods.Items))
+					addresses := make(map[string]fdbv1beta2.None, len(originalPods.Items))
 					for _, pod := range originalPods.Items {
-						addresses[cluster.GetFullAddress(pod.Status.PodIP, 1).String()] = struct{}{}
+						addresses[cluster.GetFullAddress(pod.Status.PodIP, 1).String()] = fdbv1beta2.None{}
 						if internal.ProcessClassFromLabels(cluster, pod.ObjectMeta.Labels) == fdbv1beta2.ProcessClassStorage {
-							addresses[cluster.GetFullAddress(pod.Status.PodIP, 2).String()] = struct{}{}
+							addresses[cluster.GetFullAddress(pod.Status.PodIP, 2).String()] = fdbv1beta2.None{}
 						}
 					}
 
@@ -1876,9 +1876,9 @@ var _ = Describe("cluster_controller", func() {
 			})
 
 			It("should bounce the processes", func() {
-				addresses := make(map[string]struct{}, len(originalPods.Items))
+				addresses := make(map[string]fdbv1beta2.None, len(originalPods.Items))
 				for _, pod := range originalPods.Items {
-					addresses[fmt.Sprintf("%s:4500:tls", pod.Status.PodIP)] = struct{}{}
+					addresses[fmt.Sprintf("%s:4500:tls", pod.Status.PodIP)] = fdbv1beta2.None{}
 				}
 
 				adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
@@ -2054,9 +2054,9 @@ var _ = Describe("cluster_controller", func() {
 				})
 
 				It("should bounce the processes", func() {
-					addresses := make(map[string]struct{}, len(originalPods.Items))
+					addresses := make(map[string]fdbv1beta2.None, len(originalPods.Items))
 					for _, pod := range originalPods.Items {
-						addresses[fmt.Sprintf("%s:4501", pod.Status.PodIP)] = struct{}{}
+						addresses[fmt.Sprintf("%s:4501", pod.Status.PodIP)] = fdbv1beta2.None{}
 					}
 					Expect(adminClient.KilledAddresses).To(Equal(addresses))
 				})
@@ -2084,9 +2084,9 @@ var _ = Describe("cluster_controller", func() {
 				})
 
 				It("should bounce the processes", func() {
-					addresses := make(map[string]struct{}, len(originalPods.Items))
+					addresses := make(map[string]fdbv1beta2.None, len(originalPods.Items))
 					for _, pod := range originalPods.Items {
-						addresses[fmt.Sprintf("%s:4501", pod.Status.PodIP)] = struct{}{}
+						addresses[fmt.Sprintf("%s:4501", pod.Status.PodIP)] = fdbv1beta2.None{}
 					}
 					Expect(adminClient.KilledAddresses).To(Equal(addresses))
 				})
@@ -2170,9 +2170,9 @@ var _ = Describe("cluster_controller", func() {
 				})
 
 				It("should bounce the processes", func() {
-					addresses := make(map[string]struct{}, len(originalPods.Items))
+					addresses := make(map[string]fdbv1beta2.None, len(originalPods.Items))
 					for _, pod := range originalPods.Items {
-						addresses[fmt.Sprintf("%s:4501", pod.Status.PodIP)] = struct{}{}
+						addresses[fmt.Sprintf("%s:4501", pod.Status.PodIP)] = fdbv1beta2.None{}
 					}
 					Expect(adminClient.KilledAddresses).To(Equal(addresses))
 				})

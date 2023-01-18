@@ -846,7 +846,7 @@ func (client *cliAdminClient) Close() error {
 }
 
 // GetCoordinatorSet gets the current coordinators from the status
-func (client *cliAdminClient) GetCoordinatorSet() (map[string]struct{}, error) {
+func (client *cliAdminClient) GetCoordinatorSet() (map[string]fdbv1beta2.None, error) {
 	status, err := client.GetStatus()
 	if err != nil {
 		return nil, err

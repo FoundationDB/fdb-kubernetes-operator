@@ -44,10 +44,10 @@ type AdminClient struct {
 	Cluster                                  *fdbv1beta2.FoundationDBCluster
 	KubeClient                               client.Client
 	DatabaseConfiguration                    *fdbv1beta2.DatabaseConfiguration
-	ExcludedAddresses                        map[string]struct{}
+	ExcludedAddresses                        map[string]fdbv1beta2.None
 	ReincludedAddresses                      map[string]bool
-	KilledAddresses                          map[string]struct{}
-	Knobs                                    map[string]struct{}
+	KilledAddresses                          map[string]fdbv1beta2.None
+	Knobs                                    map[string]fdbv1beta2.None
 	FrozenStatus                             *fdbv1beta2.FoundationDBStatus
 	Backups                                  map[string]fdbv1beta2.FoundationDBBackupStatusBackupDetails
 	clientVersions                           map[string][]string
@@ -86,13 +86,13 @@ func NewMockAdminClientUncast(cluster *fdbv1beta2.FoundationDBCluster, kubeClien
 		cachedClient = &AdminClient{
 			Cluster:              cluster.DeepCopy(),
 			KubeClient:           kubeClient,
-			ExcludedAddresses:    make(map[string]struct{}),
+			ExcludedAddresses:    make(map[string]fdbv1beta2.None),
 			ReincludedAddresses:  make(map[string]bool),
-			KilledAddresses:      make(map[string]struct{}),
+			KilledAddresses:      make(map[string]fdbv1beta2.None),
 			missingProcessGroups: make(map[string]bool),
 			localityInfo:         make(map[string]map[string]string),
 			currentCommandLines:  make(map[string]string),
-			Knobs:                make(map[string]struct{}),
+			Knobs:                make(map[string]fdbv1beta2.None),
 		}
 		adminClientCache[cluster.Name] = cachedClient
 		cachedClient.Backups = make(map[string]fdbv1beta2.FoundationDBBackupStatusBackupDetails)
@@ -377,7 +377,7 @@ func (client *AdminClient) ExcludeProcesses(addresses []fdbv1beta2.ProcessAddres
 
 	for _, pAddr := range addresses {
 		address := pAddr.String()
-		client.ExcludedAddresses[address] = struct{}{}
+		client.ExcludedAddresses[address] = fdbv1beta2.None{}
 	}
 	return nil
 }
@@ -390,8 +390,8 @@ func (client *AdminClient) IncludeProcesses(addresses []fdbv1beta2.ProcessAddres
 
 	for _, address := range addresses {
 		address := address.String()
-		_, found := client.ExcludedAddresses[address]
-		if found {
+		_, ok := client.ExcludedAddresses[address]
+		if ok {
 			client.ReincludedAddresses[address] = true
 			delete(client.ExcludedAddresses, address)
 		}
@@ -462,7 +462,7 @@ func (client *AdminClient) GetExclusions() ([]fdbv1beta2.ProcessAddress, error) 
 func (client *AdminClient) KillProcesses(addresses []fdbv1beta2.ProcessAddress) error {
 	adminClientMutex.Lock()
 	for _, addr := range addresses {
-		client.KilledAddresses[addr.String()] = struct{}{}
+		client.KilledAddresses[addr.String()] = fdbv1beta2.None{}
 		// Remove the commandline from the cached status and let it be recomputed in the next GetStatus request.
 		// This reflects that the commandline will only be updated if the processes are actually be restarted.
 		delete(client.currentCommandLines, addr.StringWithoutFlags())
@@ -704,7 +704,7 @@ func (client *AdminClient) UnfreezeStatus() {
 }
 
 // GetCoordinatorSet gets the current coordinators from the status
-func (client *AdminClient) GetCoordinatorSet() (map[string]struct{}, error) {
+func (client *AdminClient) GetCoordinatorSet() (map[string]fdbv1beta2.None, error) {
 	status, err := client.GetStatus()
 	if err != nil {
 		return nil, err
@@ -715,9 +715,9 @@ func (client *AdminClient) GetCoordinatorSet() (map[string]struct{}, error) {
 
 // SetKnobs sets the knobs that should be used for the commandline call.
 func (client *AdminClient) SetKnobs(knobs []string) {
-	client.Knobs = make(map[string]struct{}, len(knobs))
+	client.Knobs = make(map[string]fdbv1beta2.None, len(knobs))
 	for _, knob := range knobs {
-		client.Knobs[knob] = struct{}{}
+		client.Knobs[knob] = fdbv1beta2.None{}
 	}
 }
 

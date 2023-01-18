@@ -375,10 +375,10 @@ func (r *FoundationDBClusterReconciler) newFdbPodClient(cluster *fdbv1beta2.Foun
 	return internal.NewFdbPodClient(cluster, pod, log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "pod", pod.Name), r.GetTimeout, r.PostTimeout)
 }
 
-func (r *FoundationDBClusterReconciler) getCoordinatorSet(cluster *fdbv1beta2.FoundationDBCluster) (map[string]struct{}, error) {
+func (r *FoundationDBClusterReconciler) getCoordinatorSet(cluster *fdbv1beta2.FoundationDBCluster) (map[string]fdbv1beta2.None, error) {
 	adminClient, err := r.DatabaseClientProvider.GetAdminClient(cluster, r)
 	if err != nil {
-		return map[string]struct{}{}, err
+		return map[string]fdbv1beta2.None{}, err
 	}
 	defer adminClient.Close()
 

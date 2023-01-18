@@ -99,7 +99,7 @@ var _ = Describe("remove_process_groups", func() {
 				adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
 				for _, address := range removedProcessGroup.Addresses {
-					adminClient.ExcludedAddresses[address] = struct{}{}
+					adminClient.ExcludedAddresses[address] = fdbv1beta2.None{}
 				}
 			})
 
@@ -195,7 +195,7 @@ var _ = Describe("remove_process_groups", func() {
 					adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
 					for _, address := range secondRemovedProcessGroup.Addresses {
-						adminClient.ExcludedAddresses[address] = struct{}{}
+						adminClient.ExcludedAddresses[address] = fdbv1beta2.None{}
 					}
 				})
 
