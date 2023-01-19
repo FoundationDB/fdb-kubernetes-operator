@@ -29,6 +29,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/apple/foundationdb/bindings/go/src/fdb"
+
 	"github.com/go-logr/logr"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -119,6 +121,12 @@ func StartManager(
 	if operatorOpts.PrintVersion {
 		fmt.Printf("version: %s\n", operatorVersion)
 		os.Exit(0)
+	}
+
+	err := fdb.Options().SetDisableLocalClient()
+	if err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "error setting DisableLocalClient: %s\n", err.Error())
+		os.Exit(1)
 	}
 
 	if operatorOpts.LogFile != "" {
