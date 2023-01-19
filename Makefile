@@ -58,7 +58,7 @@ $(eval $(call godep,golangci-lint,GOLANGCI_LINT))
 $(eval $(call godep,kustomize,KUSTOMIZE))
 $(eval $(call godep,goreleaser,GORELEASER))
 
-GO_SRC=$(shell find . -name "*.go" -not -name "zz_generated.*.go")
+GO_SRC=$(shell find . -name "*.go" -not -name "zz_generated.*.go" -not -name ".\#*.go")
 GENERATED_GO=api/v1beta2/zz_generated.deepcopy.go
 GO_ALL=${GO_SRC} ${GENERATED_GO}
 MANIFESTS=config/crd/bases/apps.foundationdb.org_foundationdbbackups.yaml config/crd/bases/apps.foundationdb.org_foundationdbclusters.yaml config/crd/bases/apps.foundationdb.org_foundationdbrestores.yaml
