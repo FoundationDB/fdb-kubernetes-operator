@@ -45,18 +45,18 @@ type AdminClient struct {
 	KubeClient                               client.Client
 	DatabaseConfiguration                    *fdbv1beta2.DatabaseConfiguration
 	ExcludedAddresses                        map[string]fdbv1beta2.None
-	ReincludedAddresses                      map[string]bool
 	KilledAddresses                          map[string]fdbv1beta2.None
 	Knobs                                    map[string]fdbv1beta2.None
 	FrozenStatus                             *fdbv1beta2.FoundationDBStatus
 	Backups                                  map[string]fdbv1beta2.FoundationDBBackupStatusBackupDetails
 	clientVersions                           map[string][]string
-	missingProcessGroups                     map[string]bool
 	currentCommandLines                      map[string]string
 	VersionProcessGroups                     map[string]string
+	missingProcessGroups                     map[string]bool
+	incorrectCommandLines                    map[string]bool
+	ReincludedAddresses                      map[string]bool
 	additionalProcesses                      []fdbv1beta2.ProcessGroupStatus
 	localityInfo                             map[string]map[string]string
-	incorrectCommandLines                    map[string]bool
 	MaxZoneFailuresWithoutLosingData         *int
 	MaxZoneFailuresWithoutLosingAvailability *int
 	MaintenanceZone                          string
