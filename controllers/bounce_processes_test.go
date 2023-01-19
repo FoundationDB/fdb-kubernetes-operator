@@ -84,15 +84,14 @@ var _ = Describe("bounceProcesses", func() {
 		})
 
 		It("should kill the targeted processes", func() {
-			addresses := make([]string, 0, 2)
+			addresses := make(map[string]fdbv1beta2.None, 2)
 			for _, processGroupID := range []string{"storage-1", "storage-2"} {
 				processGroupAddresses := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, processGroupID).Addresses
 				for _, address := range processGroupAddresses {
-					addresses = append(addresses, fmt.Sprintf("%s:4501", address))
+					addresses[fmt.Sprintf("%s:4501", address)] = fdbv1beta2.None{}
 				}
 			}
-
-			Expect(adminClient.KilledAddresses).To(ConsistOf(addresses))
+			Expect(adminClient.KilledAddresses).To(Equal(addresses))
 		})
 	})
 
@@ -113,15 +112,14 @@ var _ = Describe("bounceProcesses", func() {
 		})
 
 		It("should kill the targeted processes", func() {
-			addresses := make([]string, 0, 1)
+			addresses := make(map[string]fdbv1beta2.None, 1)
 			for _, processGroupID := range []string{"storage-1"} {
 				processGroupAddresses := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, processGroupID).Addresses
 				for _, address := range processGroupAddresses {
-					addresses = append(addresses, fmt.Sprintf("%s:4501", address))
+					addresses[fmt.Sprintf("%s:4501", address)] = fdbv1beta2.None{}
 				}
 			}
-
-			Expect(adminClient.KilledAddresses).To(ConsistOf(addresses))
+			Expect(adminClient.KilledAddresses).To(Equal(addresses))
 		})
 	})
 
@@ -142,14 +140,18 @@ var _ = Describe("bounceProcesses", func() {
 		})
 
 		It("should kill the targeted processes", func() {
-			addresses := make([]string, 0, 1)
+			addresses := make(map[string]fdbv1beta2.None, 1)
 			for _, processGroupID := range []string{"storage-1"} {
 				processGroupAddresses := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, processGroupID).Addresses
 				for _, address := range processGroupAddresses {
-					addresses = append(addresses, fmt.Sprintf("%s:4501", address))
+					addresses[fmt.Sprintf("%s:4501", address)] = fdbv1beta2.None{}
 				}
 			}
-			Expect(adminClient.KilledAddresses).To(ContainElements(addresses))
+			// NOTE: Previously, this didn't check for equality.
+			// It checked that KilledAddresses was a superset of addresses.
+			// This was changed in a refactoring, under the assumption the old
+			// behavior was a typo.
+			Expect(adminClient.KilledAddresses).To(Equal(addresses))
 		})
 	})
 
@@ -167,12 +169,11 @@ var _ = Describe("bounceProcesses", func() {
 		})
 
 		It("should not kill the pending process", func() {
-			addresses := make([]string, 0, 1)
 			processGroupAddresses := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-1").Addresses
 			for _, address := range processGroupAddresses {
-				addresses = append(addresses, fmt.Sprintf("%s:4501", address))
+				addr := fmt.Sprintf("%s:4501", address)
+				Expect(adminClient.KilledAddresses).NotTo(HaveKey(addr))
 			}
-			Expect(adminClient.KilledAddresses).NotTo(ContainElements(addresses))
 		})
 	})
 
@@ -196,13 +197,12 @@ var _ = Describe("bounceProcesses", func() {
 		})
 
 		It("should not kill the missing process but all other processes", func() {
-			addresses := make([]string, 0, 1)
 			processGroupAddresses := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-1").Addresses
+			Expect(adminClient.KilledAddresses).To(HaveLen(1))
 			for _, address := range processGroupAddresses {
-				addresses = append(addresses, fmt.Sprintf("%s:4501", address))
+				addr := fmt.Sprintf("%s:4501", address)
+				Expect(adminClient.KilledAddresses).NotTo(HaveKey(addr))
 			}
-			Expect(adminClient.KilledAddresses).NotTo(ContainElements(addresses))
-			Expect(len(adminClient.KilledAddresses)).To(BeNumerically("==", 1))
 		})
 	})
 
@@ -230,14 +230,15 @@ var _ = Describe("bounceProcesses", func() {
 		})
 
 		It("should kill the targeted processes", func() {
-			addresses := make([]string, 0, 2)
+			addresses := make(map[string]fdbv1beta2.None, 2)
 			for _, processGroupID := range []string{"storage-5", "storage-6"} {
 				processGroupAddresses := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, processGroupID).Addresses
 				for _, address := range processGroupAddresses {
-					addresses = append(addresses, fmt.Sprintf("%s:4501", address), fmt.Sprintf("%s:4503", address))
+					addresses[fmt.Sprintf("%s:4501", address)] = fdbv1beta2.None{}
+					addresses[fmt.Sprintf("%s:4503", address)] = fdbv1beta2.None{}
 				}
 			}
-			Expect(adminClient.KilledAddresses).To(ConsistOf(addresses))
+			Expect(adminClient.KilledAddresses).To(Equal(addresses))
 		})
 	})
 
@@ -254,13 +255,13 @@ var _ = Describe("bounceProcesses", func() {
 		})
 
 		It("should kill all the processes", func() {
-			addresses := make([]string, 0, len(cluster.Status.ProcessGroups))
+			addresses := make(map[string]fdbv1beta2.None, len(cluster.Status.ProcessGroups))
 			for _, processGroup := range cluster.Status.ProcessGroups {
 				for _, address := range processGroup.Addresses {
-					addresses = append(addresses, fmt.Sprintf("%s:4501", address))
+					addresses[fmt.Sprintf("%s:4501", address)] = fdbv1beta2.None{}
 				}
 			}
-			Expect(adminClient.KilledAddresses).To(ConsistOf(addresses))
+			Expect(adminClient.KilledAddresses).To(Equal(addresses))
 		})
 
 		It("should update the running version in the status", func() {
@@ -324,14 +325,14 @@ var _ = Describe("bounceProcesses", func() {
 				})
 
 				It("should kill all the processes", func() {
-					addresses := make([]string, 0, len(cluster.Status.ProcessGroups)+1)
+					addresses := make(map[string]fdbv1beta2.None, len(cluster.Status.ProcessGroups)+1)
 					for _, processGroup := range cluster.Status.ProcessGroups {
 						for _, address := range processGroup.Addresses {
-							addresses = append(addresses, fmt.Sprintf("%s:4501", address))
+							addresses[fmt.Sprintf("%s:4501", address)] = fdbv1beta2.None{}
 						}
 					}
-					addresses = append(addresses, "1.2.3.4:4501")
-					Expect(adminClient.KilledAddresses).To(ConsistOf(addresses))
+					addresses["1.2.3.4:4501"] = fdbv1beta2.None{}
+					Expect(adminClient.KilledAddresses).To(Equal(addresses))
 				})
 			})
 
@@ -361,13 +362,13 @@ var _ = Describe("bounceProcesses", func() {
 				})
 
 				It("should kill all the processes", func() {
-					addresses := make([]string, 0, len(cluster.Status.ProcessGroups))
+					addresses := make(map[string]fdbv1beta2.None, len(cluster.Status.ProcessGroups))
 					for _, processGroup := range cluster.Status.ProcessGroups {
 						for _, address := range processGroup.Addresses {
-							addresses = append(addresses, fmt.Sprintf("%s:4501", address))
+							addresses[fmt.Sprintf("%s:4501", address)] = fdbv1beta2.None{}
 						}
 					}
-					Expect(adminClient.KilledAddresses).To(ConsistOf(addresses))
+					Expect(adminClient.KilledAddresses).To(Equal(addresses))
 				})
 
 				It("should not submit pending upgrade information", func() {
@@ -423,7 +424,7 @@ var _ = Describe("bounceProcesses", func() {
 		It("should not kill any processes", func() {
 			ignoredAddress := ignoredProcessGroup.Addresses[0]
 
-			for _, address := range adminClient.KilledAddresses {
+			for address := range adminClient.KilledAddresses {
 				Expect(address).NotTo(HavePrefix(ignoredAddress))
 			}
 

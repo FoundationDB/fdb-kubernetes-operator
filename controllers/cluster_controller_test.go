@@ -385,24 +385,16 @@ var _ = Describe("cluster_controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(adminClient).NotTo(BeNil())
 
-				// Converted the killed servers into a set since they may have been killed more than once during
-				// reconciliation.
-				killedSet := map[string]struct{}{}
-				for _, addr := range adminClient.KilledAddresses {
-					killedSet[addr] = struct{}{}
-				}
-
 				// All of the processes in the cluster should be killed.
-				processes := map[string]struct{}{}
+				processes := map[string]fdbv1beta2.None{}
 				for _, processGroup := range cluster.Status.ProcessGroups {
 					for i, addr := range processGroup.Addresses {
 						// +1 since the process list uses 1-based indexing.
 						fullAddr := cluster.GetFullAddress(addr, i+1)
-						processes[fullAddr.String()] = struct{}{}
+						processes[fullAddr.String()] = fdbv1beta2.None{}
 					}
 				}
-
-				Expect(killedSet).To(Equal(processes))
+				Expect(adminClient.KilledAddresses).To(Equal(processes))
 			})
 		})
 
@@ -435,7 +427,7 @@ var _ = Describe("cluster_controller", func() {
 				adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(adminClient).NotTo(BeNil())
-				Expect(adminClient.ExcludedAddresses).To(BeNil())
+				Expect(adminClient.ExcludedAddresses).To(BeEmpty())
 
 				removedItem := originalPods.Items[16]
 				Expect(adminClient.ReincludedAddresses).To(Equal(map[string]bool{
@@ -607,7 +599,7 @@ var _ = Describe("cluster_controller", func() {
 					adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(adminClient).NotTo(BeNil())
-					Expect(adminClient.ExcludedAddresses).To(BeNil())
+					Expect(adminClient.ExcludedAddresses).To(BeEmpty())
 
 					Expect(adminClient.ReincludedAddresses).To(Equal(map[string]bool{
 						originalPods.Items[firstStorageIndex].Status.PodIP: true,
@@ -670,9 +662,10 @@ var _ = Describe("cluster_controller", func() {
 						Expect(err).NotTo(HaveOccurred())
 						Expect(adminClient).NotTo(BeNil())
 						Expect(adminClient.ReincludedAddresses).To(HaveLen(0))
-						Expect(adminClient.ExcludedAddresses).To(Equal([]string{
+						Expect(adminClient.ExcludedAddresses).To(HaveLen(1))
+						Expect(adminClient.ExcludedAddresses).To(HaveKey(
 							originalPods.Items[firstStorageIndex].Status.PodIP,
-						}))
+						))
 					})
 				})
 
@@ -716,9 +709,10 @@ var _ = Describe("cluster_controller", func() {
 						Expect(err).NotTo(HaveOccurred())
 						Expect(adminClient).NotTo(BeNil())
 						Expect(adminClient.ReincludedAddresses).To(HaveLen(0))
-						Expect(adminClient.ExcludedAddresses).To(Equal([]string{
+						Expect(adminClient.ExcludedAddresses).To(HaveLen(1))
+						Expect(adminClient.ExcludedAddresses).To(HaveKey(
 							originalPods.Items[firstStorageIndex].Status.PodIP,
-						}))
+						))
 					})
 				})
 			})
@@ -788,7 +782,7 @@ var _ = Describe("cluster_controller", func() {
 					adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(adminClient).NotTo(BeNil())
-					Expect(adminClient.ExcludedAddresses).To(BeNil())
+					Expect(adminClient.ExcludedAddresses).To(BeEmpty())
 
 					Expect(adminClient.ReincludedAddresses).To(Equal(map[string]bool{podIP: true}))
 				})
@@ -829,8 +823,8 @@ var _ = Describe("cluster_controller", func() {
 					adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(adminClient).NotTo(BeNil())
-					Expect(adminClient.ExcludedAddresses).To(BeNil())
-					Expect(len(adminClient.ReincludedAddresses)).To(Equal(0))
+					Expect(adminClient.ExcludedAddresses).To(BeEmpty())
+					Expect(adminClient.ReincludedAddresses).To(BeEmpty())
 				})
 
 				It("should clear the removal list", func() {
@@ -926,8 +920,8 @@ var _ = Describe("cluster_controller", func() {
 				err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
-				Expect(adminClient.ExcludedAddresses).To(BeNil())
-				Expect(len(adminClient.ReincludedAddresses)).To(Equal(0))
+				Expect(adminClient.ExcludedAddresses).To(BeEmpty())
+				Expect(adminClient.ReincludedAddresses).To(BeEmpty())
 
 				pods := &corev1.PodList{}
 				err = k8sClient.List(context.TODO(), pods, internal.GetSinglePodListOptions(cluster, "storage-2")...)
@@ -1013,13 +1007,11 @@ var _ = Describe("cluster_controller", func() {
 				})
 
 				It("should bounce the processes", func() {
-					addresses := make([]string, 0, len(originalPods.Items))
+					addresses := make(map[string]fdbv1beta2.None, len(originalPods.Items))
 					for _, pod := range originalPods.Items {
-						addresses = append(addresses, cluster.GetFullAddress(pod.Status.PodIP, 1).String())
+						addresses[cluster.GetFullAddress(pod.Status.PodIP, 1).String()] = fdbv1beta2.None{}
 					}
-
-					Expect(len(adminClient.KilledAddresses)).To(BeNumerically("==", len(addresses)))
-					Expect(adminClient.KilledAddresses).To(ContainElements(addresses))
+					Expect(adminClient.KilledAddresses).To(Equal(addresses))
 				})
 
 				It("should update the config map", func() {
@@ -1043,13 +1035,12 @@ var _ = Describe("cluster_controller", func() {
 				})
 
 				It("should bounce the processes", func() {
-					addresses := make([]string, 0, len(originalPods.Items))
+					addresses := make(map[string]fdbv1beta2.None, len(originalPods.Items))
 					for _, pod := range originalPods.Items {
-						addresses = append(addresses, cluster.GetFullAddress(pod.Status.PodIP, 1).String())
+						addresses[cluster.GetFullAddress(pod.Status.PodIP, 1).String()] = fdbv1beta2.None{}
 					}
 
-					Expect(len(adminClient.KilledAddresses)).To(BeNumerically("==", len(addresses)))
-					Expect(adminClient.KilledAddresses).To(ContainElements(addresses))
+					Expect(adminClient.KilledAddresses).To(Equal(addresses))
 				})
 			})
 
@@ -1073,7 +1064,7 @@ var _ = Describe("cluster_controller", func() {
 				})
 
 				It("should not kill any processes", func() {
-					Expect(adminClient.KilledAddresses).To(BeNil())
+					Expect(adminClient.KilledAddresses).To(BeEmpty())
 				})
 
 				It("should update the config map", func() {
@@ -1118,16 +1109,15 @@ var _ = Describe("cluster_controller", func() {
 				})
 
 				It("should bounce the processes", func() {
-					addresses := make([]string, 0, len(originalPods.Items))
+					addresses := make(map[string]fdbv1beta2.None, len(originalPods.Items))
 					for _, pod := range originalPods.Items {
-						addresses = append(addresses, cluster.GetFullAddress(pod.Status.PodIP, 1).String())
+						addresses[cluster.GetFullAddress(pod.Status.PodIP, 1).String()] = fdbv1beta2.None{}
 						if internal.ProcessClassFromLabels(cluster, pod.ObjectMeta.Labels) == fdbv1beta2.ProcessClassStorage {
-							addresses = append(addresses, cluster.GetFullAddress(pod.Status.PodIP, 2).String())
+							addresses[cluster.GetFullAddress(pod.Status.PodIP, 2).String()] = fdbv1beta2.None{}
 						}
 					}
 
-					Expect(len(adminClient.KilledAddresses)).To(BeNumerically("==", len(addresses)))
-					Expect(adminClient.KilledAddresses).To(ContainElements(addresses))
+					Expect(adminClient.KilledAddresses).To(Equal(addresses))
 				})
 			})
 		})
@@ -1886,19 +1876,14 @@ var _ = Describe("cluster_controller", func() {
 			})
 
 			It("should bounce the processes", func() {
-				addresses := make(map[string]bool, len(originalPods.Items))
+				addresses := make(map[string]fdbv1beta2.None, len(originalPods.Items))
 				for _, pod := range originalPods.Items {
-					addresses[fmt.Sprintf("%s:4500:tls", pod.Status.PodIP)] = true
+					addresses[fmt.Sprintf("%s:4500:tls", pod.Status.PodIP)] = fdbv1beta2.None{}
 				}
 
 				adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
-
-				killedAddresses := make(map[string]bool, len(adminClient.KilledAddresses))
-				for _, address := range adminClient.KilledAddresses {
-					killedAddresses[address] = true
-				}
-				Expect(killedAddresses).To(Equal(addresses))
+				Expect(adminClient.KilledAddresses).To(Equal(addresses))
 			})
 
 			It("should change the coordinators to use TLS", func() {
@@ -2069,16 +2054,11 @@ var _ = Describe("cluster_controller", func() {
 				})
 
 				It("should bounce the processes", func() {
-					addresses := make(map[string]bool, len(originalPods.Items))
+					addresses := make(map[string]fdbv1beta2.None, len(originalPods.Items))
 					for _, pod := range originalPods.Items {
-						addresses[fmt.Sprintf("%s:4501", pod.Status.PodIP)] = true
+						addresses[fmt.Sprintf("%s:4501", pod.Status.PodIP)] = fdbv1beta2.None{}
 					}
-
-					killedAddresses := make(map[string]bool, len(adminClient.KilledAddresses))
-					for _, address := range adminClient.KilledAddresses {
-						killedAddresses[address] = true
-					}
-					Expect(killedAddresses).To(Equal(addresses))
+					Expect(adminClient.KilledAddresses).To(Equal(addresses))
 				})
 
 				It("should set the image on the pods", func() {
@@ -2104,16 +2084,11 @@ var _ = Describe("cluster_controller", func() {
 				})
 
 				It("should bounce the processes", func() {
-					addresses := make(map[string]bool, len(originalPods.Items))
+					addresses := make(map[string]fdbv1beta2.None, len(originalPods.Items))
 					for _, pod := range originalPods.Items {
-						addresses[fmt.Sprintf("%s:4501", pod.Status.PodIP)] = true
+						addresses[fmt.Sprintf("%s:4501", pod.Status.PodIP)] = fdbv1beta2.None{}
 					}
-
-					killedAddresses := make(map[string]bool, len(adminClient.KilledAddresses))
-					for _, address := range adminClient.KilledAddresses {
-						killedAddresses[address] = true
-					}
-					Expect(killedAddresses).To(Equal(addresses))
+					Expect(adminClient.KilledAddresses).To(Equal(addresses))
 				})
 
 				It("should set the image on the pods", func() {
@@ -2195,16 +2170,11 @@ var _ = Describe("cluster_controller", func() {
 				})
 
 				It("should bounce the processes", func() {
-					addresses := make(map[string]bool, len(originalPods.Items))
+					addresses := make(map[string]fdbv1beta2.None, len(originalPods.Items))
 					for _, pod := range originalPods.Items {
-						addresses[fmt.Sprintf("%s:4501", pod.Status.PodIP)] = true
+						addresses[fmt.Sprintf("%s:4501", pod.Status.PodIP)] = fdbv1beta2.None{}
 					}
-
-					killedAddresses := make(map[string]bool, len(adminClient.KilledAddresses))
-					for _, address := range adminClient.KilledAddresses {
-						killedAddresses[address] = true
-					}
-					Expect(killedAddresses).To(Equal(addresses))
+					Expect(adminClient.KilledAddresses).To(Equal(addresses))
 				})
 
 				It("should set the image on the pods", func() {

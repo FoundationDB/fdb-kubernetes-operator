@@ -28,8 +28,8 @@ import (
 
 // GetCoordinatorsFromStatus gets the current coordinators from the status.
 // The returning set will contain all processes by their process group ID.
-func GetCoordinatorsFromStatus(status *fdbv1beta2.FoundationDBStatus) map[string]struct{} {
-	coordinators := make(map[string]struct{})
+func GetCoordinatorsFromStatus(status *fdbv1beta2.FoundationDBStatus) map[string]fdbv1beta2.None {
+	coordinators := make(map[string]fdbv1beta2.None)
 
 	for _, pInfo := range status.Cluster.Processes {
 		for _, roleInfo := range pInfo.Roles {
@@ -39,7 +39,7 @@ func GetCoordinatorsFromStatus(status *fdbv1beta2.FoundationDBStatus) map[string
 
 			// We don't have to check for duplicates here, if the process group ID is already
 			// set we just overwrite it.
-			coordinators[pInfo.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]] = struct{}{}
+			coordinators[pInfo.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]] = fdbv1beta2.None{}
 			break
 		}
 	}

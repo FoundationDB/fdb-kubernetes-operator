@@ -362,10 +362,9 @@ var _ = Describe("admin_client_test", func() {
 				}
 
 				client = &cliAdminClient{
-					Cluster:          nil,
-					clusterFilePath:  "test",
-					useClientLibrary: true,
-					log:              logr.Discard(),
+					Cluster:         nil,
+					clusterFilePath: "test",
+					log:             logr.Discard(),
 				}
 			})
 
@@ -389,10 +388,9 @@ var _ = Describe("admin_client_test", func() {
 				}
 
 				client = &cliAdminClient{
-					Cluster:          nil,
-					clusterFilePath:  "test",
-					useClientLibrary: true,
-					log:              logr.Discard(),
+					Cluster:         nil,
+					clusterFilePath: "test",
+					log:             logr.Discard(),
 				}
 			})
 
@@ -459,10 +457,9 @@ var _ = Describe("admin_client_test", func() {
 				}
 
 				client = &cliAdminClient{
-					Cluster:          nil,
-					clusterFilePath:  "test",
-					useClientLibrary: true,
-					log:              logr.Discard(),
+					Cluster:         nil,
+					clusterFilePath: "test",
+					log:             logr.Discard(),
 				}
 			})
 
@@ -514,11 +511,10 @@ var _ = Describe("admin_client_test", func() {
 
 		JustBeforeEach(func() {
 			cliClient := &cliAdminClient{
-				Cluster:          nil,
-				clusterFilePath:  "test",
-				useClientLibrary: true,
-				log:              logr.Discard(),
-				cmdRunner:        mockRunner,
+				Cluster:         nil,
+				clusterFilePath: "test",
+				log:             logr.Discard(),
+				cmdRunner:       mockRunner,
 			}
 
 			protocolVersion, err = cliClient.GetProtocolVersion("7.1.21")
@@ -586,11 +582,10 @@ protocol fdb00b071010000`,
 
 		JustBeforeEach(func() {
 			cliClient := &cliAdminClient{
-				Cluster:          nil,
-				clusterFilePath:  "test",
-				useClientLibrary: true,
-				log:              logr.Discard(),
-				cmdRunner:        mockRunner,
+				Cluster:         nil,
+				clusterFilePath: "test",
+				log:             logr.Discard(),
+				cmdRunner:       mockRunner,
 			}
 
 			supported, err = cliClient.VersionSupported(fdbv1beta2.Versions.Default.String())

@@ -117,7 +117,7 @@ var _ = Describe("Change coordinators", func() {
 			When("when one storage process is excluded", func() {
 				BeforeEach(func() {
 					address := cluster.Status.ProcessGroups[firstStorageIndex+1].Addresses[0]
-					adminClient.ExcludedAddresses = append(adminClient.ExcludedAddresses, address)
+					adminClient.ExcludedAddresses[address] = fdbv1beta2.None{}
 				})
 
 				It("should only select storage processes and exclude the excluded process", func() {

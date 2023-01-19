@@ -77,7 +77,7 @@ func (maintenanceModeChecker) reconcile(ctx context.Context, r *FoundationDBClus
 	if err != nil {
 		return &requeue{curError: err}
 	}
-	processGroupsToCheck := make(map[string]struct{})
+	processGroupsToCheck := make(map[string]fdbv1beta2.None)
 	for _, id := range cluster.Status.MaintenanceModeInfo.ProcessGroups {
 		processGroupsToCheck[id] = fdbv1beta2.None{}
 	}
