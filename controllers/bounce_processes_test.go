@@ -377,30 +377,89 @@ var _ = Describe("bounceProcesses", func() {
 					Expect(pendingUpgrades).To(BeEmpty())
 				})
 			})
+		})
 
-			When("one process is missing", func() {
-				BeforeEach(func() {
-					missingProcessGroup := cluster.Status.ProcessGroups[0]
-					adminClient.MockMissingProcessGroup(missingProcessGroup.ProcessGroupID, true)
+		When("one process is missing for a short time", func() {
+			var missingProcessGroup *fdbv1beta2.ProcessGroupStatus
 
-					missingProcessGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, false, cluster.Status.ProcessGroups, missingProcessGroup.ProcessGroupID)
-					missingProcessGroup.UpdateCondition(fdbv1beta2.MissingProcesses, true, cluster.Status.ProcessGroups, missingProcessGroup.ProcessGroupID)
-				})
+			BeforeEach(func() {
+				missingProcessGroup = cluster.Status.ProcessGroups[0]
+				adminClient.MockMissingProcessGroup(missingProcessGroup.ProcessGroupID, true)
+				missingProcessGroup.UpdateCondition(fdbv1beta2.MissingProcesses, true, cluster.Status.ProcessGroups, missingProcessGroup.ProcessGroupID)
+			})
 
-				It("should requeue", func() {
-					Expect(requeue).NotTo(BeNil())
-					Expect(requeue.message).To(Equal("expected 17 processes, got 16 processes ready to restart"))
-				})
+			It("should requeue", func() {
+				Expect(requeue).NotTo(BeNil())
+				Expect(requeue.message).To(Equal(fmt.Sprintf("could not find address for processes: %s", []string{missingProcessGroup.ProcessGroupID})))
+			})
 
-				It("shouldn't kill any processes", func() {
-					Expect(adminClient.KilledAddresses).To(BeEmpty())
-				})
+			It("shouldn't kill any processes", func() {
+				Expect(adminClient.KilledAddresses).To(BeEmpty())
+			})
 
-				It("should not submit pending upgrade information", func() {
-					pendingUpgrades, err := lockClient.GetPendingUpgrades(fdbv1beta2.Versions.NextMajorVersion)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(pendingUpgrades).To(BeEmpty())
-				})
+			It("should not submit pending upgrade information", func() {
+				pendingUpgrades, err := lockClient.GetPendingUpgrades(fdbv1beta2.Versions.NextMajorVersion)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(pendingUpgrades).To(BeEmpty())
+			})
+		})
+
+		When("one process is missing is missing for a long time", func() {
+			var missingProcessGroup *fdbv1beta2.ProcessGroupStatus
+
+			BeforeEach(func() {
+				missingProcessGroup = cluster.Status.ProcessGroups[0]
+				adminClient.MockMissingProcessGroup(missingProcessGroup.ProcessGroupID, true)
+				missingProcessGroup.ProcessGroupConditions = []*fdbv1beta2.ProcessGroupCondition{
+					{
+						ProcessGroupConditionType: fdbv1beta2.MissingProcesses,
+						Timestamp:                 time.Now().Add(-5 * time.Minute).Unix(),
+					},
+				}
+			})
+
+			It("should requeue", func() {
+				Expect(requeue).NotTo(BeNil())
+				Expect(requeue.message).To(Equal("fetch latest status after upgrade"))
+			})
+
+			It("should kill the processes except the missing process", func() {
+				Expect(adminClient.KilledAddresses).NotTo(BeEmpty())
+				Expect(adminClient.KilledAddresses).NotTo(ContainElement(missingProcessGroup.Addresses))
+			})
+
+			It("should not submit pending upgrade information", func() {
+				pendingUpgrades, err := lockClient.GetPendingUpgrades(fdbv1beta2.Versions.NextMajorVersion)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(pendingUpgrades).NotTo(BeEmpty())
+			})
+		})
+
+		When("one process is already upgraded for a version compatible upgrade", func() {
+			var upgradedProcessGroup *fdbv1beta2.ProcessGroupStatus
+			var targetVersion fdbv1beta2.Version
+
+			BeforeEach(func() {
+				targetVersion = fdbv1beta2.Versions.Default.NextPatchVersion()
+				cluster.Spec.Version = targetVersion.String()
+				upgradedProcessGroup = cluster.Status.ProcessGroups[0]
+				adminClient.VersionProcessGroups[upgradedProcessGroup.ProcessGroupID] = targetVersion.String()
+			})
+
+			It("should requeue", func() {
+				Expect(requeue).NotTo(BeNil())
+				Expect(requeue.message).To(Equal("fetch latest status after upgrade"))
+			})
+
+			It("should kill all processes except the upgraded process", func() {
+				Expect(adminClient.KilledAddresses).NotTo(BeEmpty())
+				Expect(adminClient.KilledAddresses).NotTo(ContainElement(upgradedProcessGroup.Addresses))
+			})
+
+			It("should submit pending upgrade information", func() {
+				pendingUpgrades, err := lockClient.GetPendingUpgrades(targetVersion)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(pendingUpgrades).NotTo(BeEmpty())
 			})
 		})
 	})

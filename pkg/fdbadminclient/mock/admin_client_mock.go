@@ -45,17 +45,18 @@ type AdminClient struct {
 	KubeClient                               client.Client
 	DatabaseConfiguration                    *fdbv1beta2.DatabaseConfiguration
 	ExcludedAddresses                        map[string]fdbv1beta2.None
-	ReincludedAddresses                      map[string]bool
 	KilledAddresses                          map[string]fdbv1beta2.None
 	Knobs                                    map[string]fdbv1beta2.None
 	FrozenStatus                             *fdbv1beta2.FoundationDBStatus
 	Backups                                  map[string]fdbv1beta2.FoundationDBBackupStatusBackupDetails
 	clientVersions                           map[string][]string
-	missingProcessGroups                     map[string]bool
 	currentCommandLines                      map[string]string
+	VersionProcessGroups                     map[string]string
+	missingProcessGroups                     map[string]bool
+	incorrectCommandLines                    map[string]bool
+	ReincludedAddresses                      map[string]bool
 	additionalProcesses                      []fdbv1beta2.ProcessGroupStatus
 	localityInfo                             map[string]map[string]string
-	incorrectCommandLines                    map[string]bool
 	MaxZoneFailuresWithoutLosingData         *int
 	MaxZoneFailuresWithoutLosingAvailability *int
 	MaintenanceZone                          string
@@ -93,6 +94,7 @@ func NewMockAdminClientUncast(cluster *fdbv1beta2.FoundationDBCluster, kubeClien
 			localityInfo:         make(map[string]map[string]string),
 			currentCommandLines:  make(map[string]string),
 			Knobs:                make(map[string]fdbv1beta2.None),
+			VersionProcessGroups: make(map[string]string),
 		}
 		adminClientCache[cluster.Name] = cachedClient
 		cachedClient.Backups = make(map[string]fdbv1beta2.FoundationDBBackupStatusBackupDetails)
@@ -216,7 +218,7 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 			}
 
 			if processCount > 1 {
-				locality["process_id"] = fmt.Sprintf("%s-%d", processGroupID, processIndex)
+				locality[fdbv1beta2.FDBLocalityProcessIDKey] = fmt.Sprintf("%s-%d", processGroupID, processIndex)
 			}
 
 			var uptimeSeconds float64 = 60000
@@ -228,13 +230,18 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 				}
 			}
 
+			version, ok := client.VersionProcessGroups[locality[fdbv1beta2.FDBLocalityProcessIDKey]]
+			if !ok {
+				version = client.Cluster.Status.RunningVersion
+			}
+
 			status.Cluster.Processes[fmt.Sprintf("%s-%d", pod.Name, processIndex)] = fdbv1beta2.FoundationDBStatusProcessInfo{
 				Address:       fullAddress,
 				ProcessClass:  internal.GetProcessClassFromMeta(client.Cluster, pod.ObjectMeta),
 				CommandLine:   command,
 				Excluded:      excluded,
 				Locality:      locality,
-				Version:       client.Cluster.Status.RunningVersion,
+				Version:       version,
 				UptimeSeconds: uptimeSeconds,
 				Roles:         fdbRoles,
 			}

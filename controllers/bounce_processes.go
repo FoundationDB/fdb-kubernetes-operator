@@ -62,7 +62,24 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 		return &requeue{curError: err}
 	}
 
-	addresses, req := getProcessesReadyForRestart(logger, cluster, addressMap)
+	// In the case of version compatible upgrades we have to check if some processes are already running with the new
+	// desired version e.g. because they were restarted by an event outside of the control of the operator.
+	var upgradedProcesses int
+	if cluster.VersionCompatibleUpgradeInProgress() {
+		for _, process := range status.Cluster.Processes {
+			dcID := process.Locality[fdbv1beta2.FDBLocalityDCIDKey]
+			// Ignore processes that are not managed by this operator instance
+			if dcID != cluster.Spec.DataCenter {
+				continue
+			}
+
+			if process.Version == cluster.Spec.Version {
+				upgradedProcesses++
+			}
+		}
+	}
+
+	addresses, req := getProcessesReadyForRestart(logger, cluster, addressMap, upgradedProcesses)
 	if req != nil {
 		return req
 	}
@@ -154,34 +171,40 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 
 // getProcessesReadyForRestart returns a slice of process addresses that can be restarted. If addresses are missing or not all processes
 // have the latest configuration this method will return a requeue struct with more details.
-func getProcessesReadyForRestart(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, addressMap map[string][]fdbv1beta2.ProcessAddress) ([]fdbv1beta2.ProcessAddress, *requeue) {
-	processesToBounce := fdbv1beta2.FilterByConditions(cluster.Status.ProcessGroups, restarts.GetFilterConditions(cluster), true)
-	addresses := make([]fdbv1beta2.ProcessAddress, 0, len(processesToBounce))
+func getProcessesReadyForRestart(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, addressMap map[string][]fdbv1beta2.ProcessAddress, upgradedProcesses int) ([]fdbv1beta2.ProcessAddress, *requeue) {
+	addresses := make([]fdbv1beta2.ProcessAddress, 0, len(cluster.Status.ProcessGroups))
 	allSynced := true
 	var missingAddress []string
 
-	for _, process := range processesToBounce {
-		processGroup := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, process)
-		if cluster.SkipProcessGroup(processGroup) {
+	filterConditions := restarts.GetFilterConditions(cluster)
+	var missingProcesses int
+	for _, processGroup := range cluster.Status.ProcessGroups {
+		if cluster.SkipProcessGroup(processGroup) || processGroup.IsMarkedForRemoval() {
 			continue
 		}
 
-		// Ignore processes that are missing for more than 30 seconds e.g. if the process is network partitioned.
+		// Ignore processes that are missing for more than 30 seconds e.mg. if the process is network partitioned.
 		// This is required since the update status will not update the SidecarUnreachable setting if a process is
 		// missing in the status.
 		if missingTime := processGroup.GetConditionTime(fdbv1beta2.MissingProcesses); missingTime != nil {
 			if time.Unix(*missingTime, 0).Add(cluster.GetIgnoreMissingProcessesSeconds()).Before(time.Now()) {
 				logger.Info("ignore process group with missing process", "processGroupID", processGroup.ProcessGroupID)
+				missingProcesses++
 				continue
 			}
 		}
 
-		if addressMap[process] == nil {
-			missingAddress = append(missingAddress, process)
+		if !processGroup.MatchesConditions(filterConditions) {
+			logger.Info("ignore process group with non matching conditions", "processGroupID", processGroup.ProcessGroupID)
 			continue
 		}
 
-		addresses = append(addresses, addressMap[process]...)
+		if addressMap[processGroup.ProcessGroupID] == nil {
+			missingAddress = append(missingAddress, processGroup.ProcessGroupID)
+			continue
+		}
+
+		addresses = append(addresses, addressMap[processGroup.ProcessGroupID]...)
 
 		if processGroup.GetConditionTime(fdbv1beta2.IncorrectConfigMap) != nil {
 			allSynced = false
@@ -190,7 +213,7 @@ func getProcessesReadyForRestart(logger logr.Logger, cluster *fdbv1beta2.Foundat
 	}
 
 	if len(missingAddress) > 0 {
-		return nil, &requeue{curError: fmt.Errorf("could not find address for processes: %s", missingAddress), delayedRequeue: true}
+		return nil, &requeue{message: fmt.Sprintf("could not find address for processes: %s", missingAddress), delayedRequeue: true}
 	}
 
 	if !allSynced {
@@ -200,17 +223,21 @@ func getProcessesReadyForRestart(logger logr.Logger, cluster *fdbv1beta2.Foundat
 	counts, err := cluster.GetProcessCountsWithDefaults()
 	if err != nil {
 		return nil, &requeue{
-			curError: err,
+			curError:       err,
+			delayedRequeue: true,
 		}
 	}
 
-	// If we upgrade the cluster wait until all processes are ready for the restart. In the future we can adjust this
-	// to only be a requirement for version incompatible upgrades. In addition we probably only want to block for a
-	// certain threshold either as a percentage or as a fixed number (which could also be 0).
-	if cluster.IsBeingUpgraded() && counts.Total() != len(addresses) {
+	// If we upgrade the cluster wait until all processes are ready for the restart. We don't want to block the restart
+	// if some processes are already upgraded e.g. in the case of version compatible upgrades and we also don't want to
+	// block the restart command if a process is missing longer than the specified GetIgnoreMissingProcessesSeconds.
+	// Those checks should ensure we only run the restart command if all processes that have to be restarted and are connected
+	// to cluster are ready to be restarted.
+	if cluster.IsBeingUpgraded() && (counts.Total()-missingProcesses-upgradedProcesses) != len(addresses) {
 		return nil, &requeue{
 			message:        fmt.Sprintf("expected %d processes, got %d processes ready to restart", counts.Total(), len(addresses)),
-			delayedRequeue: true}
+			delayedRequeue: true,
+		}
 	}
 
 	return addresses, nil
@@ -224,9 +251,9 @@ func getAddressesForUpgrade(logger logr.Logger, r *FoundationDBClusterReconciler
 		return nil, &requeue{curError: err}
 	}
 
-	if !databaseStatus.Client.DatabaseStatus.Available {
-		r.Recorder.Event(cluster, corev1.EventTypeNormal, "UpgradeRequeued", "Database is unavailable")
-		return nil, &requeue{message: "Deferring upgrade until database is available"}
+	if !internal.HasDesiredFaultToleranceFromStatus(logger, databaseStatus, cluster) {
+		r.Recorder.Event(cluster, corev1.EventTypeNormal, "UpgradeRequeued", "Database is unavailable or doesn't have expected fault tolerance")
+		return nil, &requeue{message: "Deferring upgrade until database is available or expected fault tolerance is met"}
 	}
 
 	notReadyProcesses := make([]string, 0)
