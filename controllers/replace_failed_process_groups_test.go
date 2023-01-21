@@ -141,6 +141,44 @@ var _ = Describe("replace_failed_process_groups", func() {
 					Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{}))
 				})
 			})
+
+			When("Crash loop is set for the main container", func() {
+				BeforeEach(func() {
+					cluster.Spec.Buggify.CrashLoopContainers = []fdbv1beta2.CrashLoopContainerObject{
+						{
+							ContainerName: fdbv1beta2.MainContainerName,
+							Targets:       []string{"storage-2"},
+						},
+					}
+				})
+
+				It("should return nil", func() {
+					Expect(result).To(BeNil())
+				})
+
+				It("should not mark the process group for removal", func() {
+					Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{}))
+				})
+			})
+
+			When("Crash loop is set for the sidecar container", func() {
+				BeforeEach(func() {
+					cluster.Spec.Buggify.CrashLoopContainers = []fdbv1beta2.CrashLoopContainerObject{
+						{
+							ContainerName: fdbv1beta2.SidecarContainerName,
+							Targets:       []string{"storage-2"},
+						},
+					}
+				})
+
+				It("should return nil", func() {
+					Expect(result).To(BeNil())
+				})
+
+				It("should not mark the process group for removal", func() {
+					Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{}))
+				})
+			})
 		})
 
 		Context("with multiple failed processes", func() {

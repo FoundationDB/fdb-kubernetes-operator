@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -1687,6 +1687,15 @@ type RequiredAddressSet struct {
 	NonTLS bool `json:"nonTLS,omitempty"`
 }
 
+// CrashLoopContainerObject specifies crash-loop target for specific container.
+type CrashLoopContainerObject struct {
+	// Name of the target container.
+	ContainerName string `json:"containerName,omitempty"`
+
+	// Target processes to kill inside the container.
+	Targets []string `json:"targets,omitempty"`
+}
+
 // BuggifyConfig provides options for injecting faults into a cluster for testing.
 type BuggifyConfig struct {
 	// NoSchedule defines a list of process group IDs that should fail to schedule.
@@ -1694,7 +1703,12 @@ type BuggifyConfig struct {
 
 	// CrashLoops defines a list of process group IDs that should be put into a
 	// crash looping state.
+	// Deprecated: use CrashLoopContainers instead.
 	CrashLoop []string `json:"crashLoop,omitempty"`
+
+	// CrashLoopContainers defines a list of process group IDs and containers
+	// that should be put into a crash looping state.
+	CrashLoopContainers []CrashLoopContainerObject `json:"crashLoopContainers,omitempty"`
 
 	// EmptyMonitorConf instructs the operator to update all of the fdbmonitor.conf
 	// files to have zero fdbserver processes configured.
@@ -2192,6 +2206,22 @@ func (cluster *FoundationDBCluster) GetCrashLoopProcessGroups() (map[string]None
 	}
 
 	return crashLoopPods, crashLoopAll
+}
+
+// GetCrashLoopContainerProcessGroups returns the process group IDs in containers that are marked for crash looping.
+// Returns map[ContainerName](map[ProcessGroupID]None).
+func (cluster *FoundationDBCluster) GetCrashLoopContainerProcessGroups() map[string](map[string]None) {
+	crashLoopTargets := make(map[string](map[string]None))
+	for _, target := range cluster.Spec.Buggify.CrashLoopContainers {
+		if _, ok := crashLoopTargets[target.ContainerName]; !ok {
+			crashLoopTargets[target.ContainerName] = make(map[string]None)
+		}
+
+		for _, processID := range target.Targets {
+			crashLoopTargets[target.ContainerName][processID] = None{}
+		}
+	}
+	return crashLoopTargets
 }
 
 // Validate checks if all settings in the cluster are valid, if not and error will be returned. If multiple issues are

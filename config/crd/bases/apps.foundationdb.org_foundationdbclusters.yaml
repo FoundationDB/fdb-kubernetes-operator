@@ -9935,6 +9935,17 @@ spec:
                     items:
                       type: string
                     type: array
+                  crashLoopContainers:
+                    items:
+                      properties:
+                        containerName:
+                          type: string
+                        targets:
+                          items:
+                            type: string
+                          type: array
+                      type: object
+                    type: array
                   emptyMonitorConf:
                     type: boolean
                   ignoreDuringRestart:

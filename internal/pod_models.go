@@ -222,13 +222,6 @@ func configureContainersForUnifiedImages(cluster *fdbv1beta2.FoundationDBCluster
 		FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"},
 	}})
 
-	for _, crashLoopInstanceID := range cluster.Spec.Buggify.CrashLoop {
-		if processGroupID == crashLoopInstanceID || crashLoopInstanceID == "*" {
-			mainContainer.Command = []string{"crash-loop"}
-			mainContainer.Args = []string{"crash-loop"}
-		}
-	}
-
 	// Configure sidecar
 	sidecarImage, err := GetImage(sidecarContainer.Image, cluster.Spec.MainContainer.ImageConfigs, cluster.GetRunningVersion(), false)
 	if err != nil {
@@ -249,6 +242,27 @@ func configureContainersForUnifiedImages(cluster *fdbv1beta2.FoundationDBCluster
 		corev1.VolumeMount{Name: "shared-binaries", MountPath: "/var/fdb/shared-binaries"},
 		corev1.VolumeMount{Name: "fdb-trace-logs", MountPath: "/var/log/fdb-trace-logs"},
 	)
+
+	for _, crashLoopInstanceID := range cluster.Spec.Buggify.CrashLoop {
+		if processGroupID == crashLoopInstanceID || crashLoopInstanceID == "*" {
+			mainContainer.Command = []string{"crash-loop"}
+			mainContainer.Args = []string{"crash-loop"}
+		}
+	}
+
+	for _, crashObjs := range cluster.Spec.Buggify.CrashLoopContainers {
+		for _, pid := range crashObjs.Targets {
+			if pid == processGroupID {
+				if crashObjs.ContainerName == mainContainer.Name {
+					mainContainer.Command = []string{"crash-loop"}
+					mainContainer.Args = []string{"crash-loop"}
+				} else if crashObjs.ContainerName == sidecarContainer.Name {
+					sidecarContainer.Command = []string{"crash-loop"}
+					sidecarContainer.Args = []string{"crash-loop"}
+				}
+			}
+		}
+	}
 
 	return nil
 }
@@ -443,8 +457,16 @@ func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 				args = "crash-loop"
 			}
 		}
-		mainContainer.Args = []string{args}
 
+		for _, crashObjs := range cluster.Spec.Buggify.CrashLoopContainers {
+			for _, pid := range crashObjs.Targets {
+				if pid == processGroupID && crashObjs.ContainerName == mainContainer.Name {
+					args = "crash-loop"
+				}
+			}
+		}
+
+		mainContainer.Args = []string{args}
 		mainContainer.VolumeMounts = append(mainContainer.VolumeMounts,
 			corev1.VolumeMount{Name: "data", MountPath: "/var/fdb/data"},
 			corev1.VolumeMount{Name: "dynamic-conf", MountPath: "/var/dynamic-conf"},
@@ -598,6 +620,16 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, proce
 
 	if overrides.EnableTLS && !initMode {
 		sidecarArgs = append(sidecarArgs, "--tls")
+	}
+
+	if optionalCluster != nil {
+		for _, crashObjs := range optionalCluster.Spec.Buggify.CrashLoopContainers {
+			for _, pid := range crashObjs.Targets {
+				if pid == processGroupID && crashObjs.ContainerName == container.Name {
+					sidecarArgs = []string{"crash-loop"}
+				}
+			}
+		}
 	}
 
 	if len(sidecarArgs) > 0 {
