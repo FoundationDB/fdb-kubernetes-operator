@@ -16,6 +16,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# This script works out of box for Linux env (tested on Ubuntu 16.04.5 LTS), after installing dependent software;
+# It's not recommended to run on Mac without Docker native support because it may involve non-trivial debug effort.
 set -eo errexit
 
 # wait_for_node_setup is used to wait until the kubelet has started and the Pod CIDR is available.
