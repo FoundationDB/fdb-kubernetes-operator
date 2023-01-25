@@ -44,8 +44,7 @@ func (d deletePodsForBuggification) reconcile(ctx context.Context, r *Foundation
 	}
 
 	podMap := internal.CreatePodMap(cluster, pods)
-	crashLoopPods, crashLoopAll := cluster.GetCrashLoopProcessGroups()
-	crashLoopContainerPods := cluster.GetCrashLoopContainerProcessGroups()
+	crashLoopContainerProcessGroups := cluster.GetCrashLoopContainerProcessGroups()
 
 	noSchedulePods := make(map[string]fdbv1beta2.None, len(cluster.Spec.Buggify.NoSchedule))
 	for _, processGroupID := range cluster.Spec.Buggify.NoSchedule {
@@ -76,17 +75,11 @@ func (d deletePodsForBuggification) reconcile(ctx context.Context, r *Foundation
 			}
 		}
 
-		shouldCrashLoop := crashLoopAll
-		if !shouldCrashLoop {
-			_, shouldCrashLoop = crashLoopPods[processGroup.ProcessGroupID]
-		}
-
-		if !shouldCrashLoop {
-			for _, targets := range crashLoopContainerPods {
-				_, shouldCrashLoop = targets[processGroup.ProcessGroupID]
-				if shouldCrashLoop {
-					break
-				}
+		shouldCrashLoop := false
+		for _, targets := range crashLoopContainerProcessGroups {
+			_, shouldCrashLoop = targets[processGroup.ProcessGroupID]
+			if shouldCrashLoop {
+				break
 			}
 		}
 

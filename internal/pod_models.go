@@ -243,13 +243,6 @@ func configureContainersForUnifiedImages(cluster *fdbv1beta2.FoundationDBCluster
 		corev1.VolumeMount{Name: "fdb-trace-logs", MountPath: "/var/log/fdb-trace-logs"},
 	)
 
-	for _, crashLoopInstanceID := range cluster.Spec.Buggify.CrashLoop {
-		if processGroupID == crashLoopInstanceID || crashLoopInstanceID == "*" {
-			mainContainer.Command = []string{"crash-loop"}
-			mainContainer.Args = []string{"crash-loop"}
-		}
-	}
-
 	for _, crashObjs := range cluster.Spec.Buggify.CrashLoopContainers {
 		for _, pid := range crashObjs.Targets {
 			if pid == processGroupID {
@@ -451,12 +444,6 @@ func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 			" --lockfile /var/dynamic-conf/fdbmonitor.lockfile" +
 			" --loggroup " + logGroup +
 			" >> /var/log/fdb-trace-logs/fdbmonitor-$(date '+%Y-%m-%d').log 2>&1"
-
-		for _, crashLoopID := range cluster.Spec.Buggify.CrashLoop {
-			if processGroupID == crashLoopID || crashLoopID == "*" {
-				args = "crash-loop"
-			}
-		}
 
 		for _, crashObjs := range cluster.Spec.Buggify.CrashLoopContainers {
 			for _, pid := range crashObjs.Targets {
