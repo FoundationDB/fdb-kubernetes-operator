@@ -62,6 +62,9 @@ func ReplaceFailedProcessGroups(log logr.Logger, cluster *fdbv1beta2.FoundationD
 
 	maxReplacements := getMaxReplacements(cluster, cluster.GetMaxConcurrentAutomaticReplacements())
 	hasReplacement := false
+	containerProcessGroups := cluster.GetCrashLoopContainerProcessGroups()
+
+ProcessGroupLoop:
 	for _, processGroupStatus := range cluster.Status.ProcessGroups {
 		if maxReplacements <= 0 {
 			return hasReplacement
@@ -71,6 +74,12 @@ func ReplaceFailedProcessGroups(log logr.Logger, cluster *fdbv1beta2.FoundationD
 		// are in that state for debugging or stability.
 		if _, ok := crashLoopProcessGroups[processGroupStatus.ProcessGroupID]; ok {
 			continue
+		}
+
+		for _, targets := range containerProcessGroups {
+			if _, ok := targets[processGroupStatus.ProcessGroupID]; ok {
+				continue ProcessGroupLoop
+			}
 		}
 
 		needsReplacement, missingTime := processGroupStatus.NeedsReplacement(cluster.GetFailureDetectionTimeSeconds())
