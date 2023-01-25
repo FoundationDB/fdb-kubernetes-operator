@@ -77,6 +77,10 @@ func (d deletePodsForBuggification) reconcile(ctx context.Context, r *Foundation
 
 		shouldCrashLoop := false
 		for _, targets := range crashLoopContainerProcessGroups {
+			_, shouldCrashLoop = targets["*"]
+			if shouldCrashLoop {
+				break
+			}
 			_, shouldCrashLoop = targets[processGroup.ProcessGroupID]
 			if shouldCrashLoop {
 				break

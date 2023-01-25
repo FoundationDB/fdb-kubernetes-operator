@@ -104,12 +104,6 @@ func NormalizeClusterSpec(cluster *fdbv1beta2.FoundationDBCluster, options Depre
 		}
 
 		for _, pid := range cluster.Spec.Buggify.CrashLoop {
-			if pid == "*" {
-				for _, proc := range cluster.Status.ProcessGroups {
-					crashLoopContainers[fdbv1beta2.MainContainerName][proc.ProcessGroupID] = fdbv1beta2.None{}
-				}
-			}
-
 			crashLoopContainers[fdbv1beta2.MainContainerName][pid] = fdbv1beta2.None{}
 		}
 

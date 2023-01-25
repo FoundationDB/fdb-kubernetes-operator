@@ -44,6 +44,9 @@ var _ = Describe("delete_pods_for_buggification", func() {
 		err = k8sClient.Create(context.TODO(), cluster)
 		Expect(err).NotTo(HaveOccurred())
 
+		err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
 		result, err := reconcileCluster(cluster)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(result.Requeue).To(BeFalse())
@@ -52,15 +55,15 @@ var _ = Describe("delete_pods_for_buggification", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(generation).To(Equal(int64(1)))
 
-		err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
-		Expect(err).NotTo(HaveOccurred())
-
 		originalPods = &corev1.PodList{}
 		err = k8sClient.List(context.TODO(), originalPods, getListOptions(cluster)...)
 		Expect(err).NotTo(HaveOccurred())
 	})
 
 	JustBeforeEach(func() {
+		err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
 		requeue = deletePodsForBuggification{}.reconcile(context.TODO(), clusterReconciler, cluster)
 		if requeue != nil {
 			Expect(requeue.curError).NotTo(HaveOccurred())

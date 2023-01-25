@@ -245,7 +245,7 @@ func configureContainersForUnifiedImages(cluster *fdbv1beta2.FoundationDBCluster
 
 	for _, crashObjs := range cluster.Spec.Buggify.CrashLoopContainers {
 		for _, pid := range crashObjs.Targets {
-			if pid == processGroupID {
+			if pid == processGroupID || pid == "*" {
 				if crashObjs.ContainerName == mainContainer.Name {
 					mainContainer.Command = []string{"crash-loop"}
 					mainContainer.Args = []string{"crash-loop"}
@@ -447,8 +447,9 @@ func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 
 		for _, crashObjs := range cluster.Spec.Buggify.CrashLoopContainers {
 			for _, pid := range crashObjs.Targets {
-				if pid == processGroupID && crashObjs.ContainerName == mainContainer.Name {
+				if (pid == processGroupID || pid == "*") && crashObjs.ContainerName == mainContainer.Name {
 					args = "crash-loop"
+					break
 				}
 			}
 		}

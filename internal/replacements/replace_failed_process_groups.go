@@ -67,6 +67,8 @@ ProcessGroupLoop:
 		for _, targets := range crashLoopContainerProcessGroups {
 			if _, ok := targets[processGroupStatus.ProcessGroupID]; ok {
 				continue ProcessGroupLoop
+			} else if _, ok := targets["*"]; ok {
+				continue ProcessGroupLoop
 			}
 		}
 
