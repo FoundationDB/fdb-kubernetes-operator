@@ -2259,6 +2259,50 @@ func (cluster *FoundationDBCluster) GetCrashLoopContainerProcessGroups() map[str
 	return crashLoopTargets
 }
 
+func (cluster *FoundationDBCluster) shouldInjectTimeout() bool {
+	// Intn returns a number in the range [0, n).  We don't want it to return 100, since
+	// that would allow this function to return false when CliTimeoutPercent is 100.
+
+	return cluster.Spec.Buggify.CliTimeoutPercent > rand.Intn(100)
+}
+
+func (cluster *FoundationDBCluster) shouldInjectCliError() bool {
+	return cluster.Spec.Buggify.CliErrorPercent > rand.Intn(100)
+}
+
+func (cluster *FoundationDBCluster) shouldSucceedAnyway() bool {
+	return cluster.Spec.Buggify.CliErrorSucceedAnywayPercent > rand.Intn(100)
+}
+
+// GetCliBuggifyErrors returns a pair of errors.  If the first returned error is non-nil, then
+// the caller should return that error instead of attempting to run this CLI command.  If the second
+// error is non-nil, then the caller should run the CLI command, but return the error this function
+// produced instead of the data the command produced.
+func (cluster *FoundationDBCluster) GetCliBuggifyErrors(command string) (error, error) {
+	if cluster == nil {
+		return nil, nil
+	}
+	shouldTimeout := cluster.shouldInjectTimeout()
+	shouldError := cluster.shouldInjectCliError()
+	shouldSucceedAnyway := cluster.shouldSucceedAnyway()
+	if !shouldSucceedAnyway {
+		if shouldTimeout {
+			return TimeoutError{Err: fmt.Errorf("buggify injected a timeout for command %v", command)}, nil
+		}
+		if shouldError {
+			return fmt.Errorf("buggify injected a generic error for command %v", command), nil
+		}
+	} else {
+		if shouldTimeout {
+			return nil, TimeoutError{Err: fmt.Errorf("buggify injected a timeout after this command succeeded: %v", command)}
+		}
+		if shouldError {
+			return nil, fmt.Errorf("buggify injected a generic error after this command succeeded %v", command)
+		}
+	}
+	return nil, nil
+}
+
 // Validate checks if all settings in the cluster are valid, if not and error will be returned. If multiple issues are
 // found all of them will be returned in a single error.
 func (cluster *FoundationDBCluster) Validate() error {

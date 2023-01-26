@@ -115,6 +115,12 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
+	preError, postError := client.Cluster.GetCliBuggifyErrors("GetStatus")
+
+	if preError != nil {
+		return nil, preError
+	}
+
 	if client.FrozenStatus != nil {
 		return client.FrozenStatus, nil
 	}
@@ -353,6 +359,11 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 		status.Cluster.FaultTolerance.MaxZoneFailuresWithoutLosingAvailability = client.Cluster.DesiredFaultTolerance() - faultToleranceSubtractor
 	}
 	status.Cluster.MaintenanceZone = client.MaintenanceZone
+
+	if postError != nil {
+		// Any side effects the above has will be applied, but the caller will think the call failed.
+		return nil, postError
+	}
 	return status, nil
 }
 
@@ -360,6 +371,12 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 func (client *AdminClient) ConfigureDatabase(configuration fdbv1beta2.DatabaseConfiguration, _ bool, version string) error {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
+
+	preError, postError := client.Cluster.GetCliBuggifyErrors("ConfigureDatabase")
+
+	if preError != nil {
+		return preError
+	}
 
 	client.DatabaseConfiguration = configuration.DeepCopy()
 
@@ -373,6 +390,10 @@ func (client *AdminClient) ConfigureDatabase(configuration fdbv1beta2.DatabaseCo
 		client.DatabaseConfiguration.CommitProxies = 0
 	}
 
+	if postError != nil {
+		return postError
+	}
+
 	return nil
 }
 
@@ -382,10 +403,21 @@ func (client *AdminClient) ExcludeProcesses(addresses []fdbv1beta2.ProcessAddres
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
+	preError, postError := client.Cluster.GetCliBuggifyErrors("ExcludeProcesses")
+
+	if preError != nil {
+		return preError
+	}
+
 	for _, pAddr := range addresses {
 		address := pAddr.String()
 		client.ExcludedAddresses[address] = fdbv1beta2.None{}
 	}
+
+	if postError != nil {
+		return postError
+	}
+
 	return nil
 }
 
@@ -395,6 +427,12 @@ func (client *AdminClient) IncludeProcesses(addresses []fdbv1beta2.ProcessAddres
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
+	preError, postError := client.Cluster.GetCliBuggifyErrors("IncludeProcesses")
+
+	if preError != nil {
+		return preError
+	}
+
 	for _, address := range addresses {
 		address := address.String()
 		_, ok := client.ExcludedAddresses[address]
@@ -403,6 +441,11 @@ func (client *AdminClient) IncludeProcesses(addresses []fdbv1beta2.ProcessAddres
 			delete(client.ExcludedAddresses, address)
 		}
 	}
+
+	if postError != nil {
+		return postError
+	}
+
 	return nil
 }
 
@@ -413,6 +456,12 @@ func (client *AdminClient) IncludeProcesses(addresses []fdbv1beta2.ProcessAddres
 // safe to remove.
 func (client *AdminClient) CanSafelyRemove(addresses []fdbv1beta2.ProcessAddress) ([]fdbv1beta2.ProcessAddress, error) {
 	skipExclude := map[string]fdbv1beta2.None{}
+
+	preError, postError := client.Cluster.GetCliBuggifyErrors("CanSafelyRemove")
+
+	if preError != nil {
+		return nil, preError
+	}
 
 	// Check which process groups have the skip exclusion flag or are already
 	// excluded
@@ -444,6 +493,10 @@ func (client *AdminClient) CanSafelyRemove(addresses []fdbv1beta2.ProcessAddress
 		remaining = append(remaining, addr)
 	}
 
+	if postError != nil {
+		return nil, postError
+	}
+
 	return remaining, nil
 }
 
@@ -452,6 +505,12 @@ func (client *AdminClient) CanSafelyRemove(addresses []fdbv1beta2.ProcessAddress
 func (client *AdminClient) GetExclusions() ([]fdbv1beta2.ProcessAddress, error) {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
+
+	preError, postError := client.Cluster.GetCliBuggifyErrors("GetExclusions")
+
+	if preError != nil {
+		return nil, preError
+	}
 
 	pAddrs := make([]fdbv1beta2.ProcessAddress, len(client.ExcludedAddresses))
 	for addr := range client.ExcludedAddresses {
@@ -462,12 +521,23 @@ func (client *AdminClient) GetExclusions() ([]fdbv1beta2.ProcessAddress, error) 
 		})
 	}
 
+	if postError != nil {
+		return nil, postError
+	}
+
 	return pAddrs, nil
 }
 
 // KillProcesses restarts processes
 func (client *AdminClient) KillProcesses(addresses []fdbv1beta2.ProcessAddress) error {
 	adminClientMutex.Lock()
+
+	preError, postError := client.Cluster.GetCliBuggifyErrors("KillProcesses")
+
+	if preError != nil {
+		return preError
+	}
+
 	for _, addr := range addresses {
 		client.KilledAddresses[addr.String()] = fdbv1beta2.None{}
 		// Remove the commandline from the cached status and let it be recomputed in the next GetStatus request.
@@ -487,13 +557,20 @@ func (client *AdminClient) KillProcesses(addresses []fdbv1beta2.ProcessAddress) 
 	}
 
 	client.UnfreezeStatus()
-	return nil
+
+	return postError // nil unless buggify is on
 }
 
 // ChangeCoordinators changes the coordinator set
 func (client *AdminClient) ChangeCoordinators(addresses []fdbv1beta2.ProcessAddress) (string, error) {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
+
+	preError, postError := client.Cluster.GetCliBuggifyErrors("ChangeCoordinators")
+
+	if preError != nil {
+		return "", preError
+	}
 
 	connectionString, err := fdbv1beta2.ParseConnectionString(client.Cluster.Status.ConnectionString)
 	if err != nil {
@@ -509,6 +586,11 @@ func (client *AdminClient) ChangeCoordinators(addresses []fdbv1beta2.ProcessAddr
 	}
 
 	connectionString.Coordinators = newCoord
+
+	if postError != nil {
+		return "", postError
+	}
+
 	return connectionString.String(), err
 }
 
@@ -517,27 +599,52 @@ func (client *AdminClient) GetConnectionString() (string, error) {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
+	preError, postError := client.Cluster.GetCliBuggifyErrors("GetConnectionString")
+
+	if preError != nil {
+		return "", preError
+	}
+
+	if postError != nil {
+		return "", postError
+	}
 	return client.Cluster.Status.ConnectionString, nil
 }
 
 // VersionSupported reports whether we can support a cluster with a given
 // version.
 func (client *AdminClient) VersionSupported(versionString string) (bool, error) {
+	preError, postError := client.Cluster.GetCliBuggifyErrors("VersionSupported")
+
+	if preError != nil {
+		return false, preError
+	}
+
 	version, err := fdbv1beta2.ParseFdbVersion(versionString)
 	if err != nil {
 		return false, err
 	}
 
-	if !version.IsSupported() {
-		return false, nil
+	if postError != nil {
+		return false, postError
 	}
 
-	return true, nil
+	return version.IsSupported(), nil
 }
 
 // GetProtocolVersion determines the protocol version that is used by a
 // version of FDB.
 func (client *AdminClient) GetProtocolVersion(version string) (string, error) {
+	preError, postError := client.Cluster.GetCliBuggifyErrors("GetProtocolVersion")
+
+	if preError != nil {
+		return "", preError
+	}
+
+	if postError != nil {
+		return "", postError
+	}
+
 	return version, nil
 }
 
@@ -546,12 +653,19 @@ func (client *AdminClient) StartBackup(url string, snapshotPeriodSeconds int) er
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
+	preError, postError := client.Cluster.GetCliBuggifyErrors("StartBackup")
+
+	if preError != nil {
+		return preError
+	}
+
 	client.Backups["default"] = fdbv1beta2.FoundationDBBackupStatusBackupDetails{
 		URL:                   url,
 		Running:               true,
 		SnapshotPeriodSeconds: snapshotPeriodSeconds,
 	}
-	return nil
+
+	return postError // probably nil
 }
 
 // PauseBackups pauses backups.
@@ -559,11 +673,17 @@ func (client *AdminClient) PauseBackups() error {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
+	preError, postError := client.Cluster.GetCliBuggifyErrors("PauseBackups")
+
+	if preError != nil {
+		return preError
+	}
+
 	for tag, backup := range client.Backups {
 		backup.Paused = true
 		client.Backups[tag] = backup
 	}
-	return nil
+	return postError // probably nil
 }
 
 // ResumeBackups resumes backups.
@@ -571,11 +691,17 @@ func (client *AdminClient) ResumeBackups() error {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
+	preError, postError := client.Cluster.GetCliBuggifyErrors("ResumeBackups")
+
+	if preError != nil {
+		return preError
+	}
+
 	for tag, backup := range client.Backups {
 		backup.Paused = false
 		client.Backups[tag] = backup
 	}
-	return nil
+	return postError // probably nil
 }
 
 // ModifyBackup reconfigures the backup.
@@ -583,10 +709,16 @@ func (client *AdminClient) ModifyBackup(snapshotPeriodSeconds int) error {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
+	preError, postError := client.Cluster.GetCliBuggifyErrors("ModifyBackup")
+
+	if preError != nil {
+		return preError
+	}
+
 	backup := client.Backups["default"]
 	backup.SnapshotPeriodSeconds = snapshotPeriodSeconds
 	client.Backups["default"] = backup
-	return nil
+	return postError
 }
 
 // StopBackup stops a backup.
@@ -594,11 +726,17 @@ func (client *AdminClient) StopBackup(url string) error {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
+	preError, postError := client.Cluster.GetCliBuggifyErrors("StopBackup")
+
+	if preError != nil {
+		return preError
+	}
+
 	for tag, backup := range client.Backups {
 		if backup.URL == url {
 			backup.Running = false
 			client.Backups[tag] = backup
-			return nil
+			return postError // nil unless buggify is enabled
 		}
 	}
 	return fmt.Errorf("no backup found for URL %s", url)
@@ -608,6 +746,12 @@ func (client *AdminClient) StopBackup(url string) error {
 func (client *AdminClient) GetBackupStatus() (*fdbv1beta2.FoundationDBLiveBackupStatus, error) {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
+
+	preError, postError := client.Cluster.GetCliBuggifyErrors("GetBackupStatus")
+
+	if preError != nil {
+		return nil, preError
+	}
 
 	status := &fdbv1beta2.FoundationDBLiveBackupStatus{}
 
@@ -620,6 +764,10 @@ func (client *AdminClient) GetBackupStatus() (*fdbv1beta2.FoundationDBLiveBackup
 		status.SnapshotIntervalSeconds = backup.SnapshotPeriodSeconds
 	}
 
+	if postError != nil {
+		return nil, postError
+	}
+
 	return status, nil
 }
 
@@ -628,8 +776,14 @@ func (client *AdminClient) StartRestore(url string, _ []fdbv1beta2.FoundationDBK
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
+	preError, postError := client.Cluster.GetCliBuggifyErrors("StartRestore")
+
+	if preError != nil {
+		return preError
+	}
+
 	client.restoreURL = url
-	return nil
+	return postError
 }
 
 // GetRestoreStatus gets the status of the current restore.
@@ -637,6 +791,15 @@ func (client *AdminClient) GetRestoreStatus() (string, error) {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
+	preError, postError := client.Cluster.GetCliBuggifyErrors("GetRestoreStatus")
+
+	if preError != nil {
+		return "", preError
+	}
+
+	if postError != nil {
+		return "", postError
+	}
 	return fmt.Sprintf("%s\n", client.restoreURL), nil
 }
 
@@ -730,20 +893,43 @@ func (client *AdminClient) SetKnobs(knobs []string) {
 
 // GetMaintenanceZone gets current maintenance zone, if any
 func (client *AdminClient) GetMaintenanceZone() (string, error) {
+	preError, postError := client.Cluster.GetCliBuggifyErrors("GetMaintenanceZone")
+
+	if preError != nil {
+		return "", preError
+	}
+
+	if postError != nil {
+		return "", postError
+	}
+
 	return client.MaintenanceZone, nil
 }
 
 // SetMaintenanceZone places zone into maintenance mode
 func (client *AdminClient) SetMaintenanceZone(zone string, _ int) error {
+	preError, postError := client.Cluster.GetCliBuggifyErrors("SetMaintenanceZone")
+
+	if preError != nil {
+		return preError
+	}
+
 	client.MaintenanceZone = zone
 	client.maintenanceZoneStartTimestamp = time.Now()
-	return nil
+
+	return postError
 }
 
 // ResetMaintenanceMode resets the maintenance zone
 func (client *AdminClient) ResetMaintenanceMode() error {
+	preError, postError := client.Cluster.GetCliBuggifyErrors("ResetMaintenanceMode")
+
+	if preError != nil {
+		return preError
+	}
+
 	client.MaintenanceZone = ""
-	return nil
+	return postError
 }
 
 // MockUptimeSecondsForMaintenanceZone mocks the uptime for maintenance zone
