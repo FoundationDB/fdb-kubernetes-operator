@@ -9931,6 +9931,12 @@ spec:
                 type: object
               buggify:
                 properties:
+                  cliErrorFraction:
+                    type: integer
+                  cliErrorSucceedAnywayFraction:
+                    type: integer
+                  cliTimeoutFraction:
+                    type: integer
                   crashLoop:
                     items:
                       type: string

@@ -60,6 +60,9 @@ BuggifyConfig provides options for injecting faults into a cluster for testing.
 | noSchedule | NoSchedule defines a list of process group IDs that should fail to schedule. | []string | false |
 | crashLoop | CrashLoops defines a list of process group IDs that should be put into a crash looping state. **Deprecated: use CrashLoopContainers instead.** | []string | false |
 | crashLoopContainers | CrashLoopContainers defines a list of process group IDs and containers that should be put into a crash looping state. | [][CrashLoopContainerObject](#crashloopcontainerobject) | false |
+| cliTimeoutFraction | CliTimeoutFraction specifies the fraction (from 0 to 100) of fdbcli requests that should return spurious timeout errors | int | false |
+| cliErrorFraction | CliErrorFraction specifies the fraction (of non-timed-out requests) that should return spurious errors instead of running. | int | false |
+| cliErrorSucceedAnywayFraction | CliErrorSucceedAnyway specifies the fraction of spuriously-failed CLI commands that should run despite returning a timeout or explicit error code. | int | false |
 | emptyMonitorConf | EmptyMonitorConf instructs the operator to update all of the fdbmonitor.conf files to have zero fdbserver processes configured. | bool | false |
 | ignoreDuringRestart | IgnoreDuringRestart instructs the operator to ignore the provided process groups IDs during the restart command. This can be useful to simulate cases where the kill command is not restarting all processes. IgnoreDuringRestart does not support the wildcard option to ignore all of this specific cluster processes. | []string | false |
 

@@ -25,6 +25,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/rand"
 	"os"
 	"os/exec"
 	"path"
@@ -85,6 +86,21 @@ type cliAdminClient struct {
 	// cmdRunner is an interface to run commands. In the real runner we use the exec package to execute binaries. In
 	// the mock runner we can define mocked output for better integration tests,.
 	cmdRunner commandRunner
+}
+
+func shouldInjectTimeout(cluster *fdbv1beta2.FoundationDBCluster) bool {
+	// Intn returns a number in the range [0, n).  We don't want it to return 100, since
+	// that would allow this function to return false when CliTimeoutPercent is 100.
+
+	return cluster != nil && (true || cluster.Spec.Buggify.CliTimeoutPercent > rand.Intn(100))
+}
+
+func shouldInjectCliError(cluster *fdbv1beta2.FoundationDBCluster) bool {
+	return cluster != nil && cluster.Spec.Buggify.CliErrorPercent > rand.Intn(100)
+}
+
+func shouldSucceedAnyway(cluster *fdbv1beta2.FoundationDBCluster) bool {
+	return cluster != nil && cluster.Spec.Buggify.CliErrorSucceedAnywayPercent > rand.Intn(100)
 }
 
 // NewCliAdminClient generates an Admin client for a cluster
@@ -225,6 +241,17 @@ func (client *cliAdminClient) getArgsAndTimeout(command cliCommand) ([]string, t
 
 // runCommand executes a command in the CLI.
 func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
+	shouldTimeout := shouldInjectTimeout(client.Cluster)
+	shouldError := shouldInjectCliError(client.Cluster)
+	shouldSucceedAnyway := shouldSucceedAnyway(client.Cluster)
+	if !shouldSucceedAnyway {
+		if shouldTimeout {
+			return "", fdbv1beta2.TimeoutError{Err: fmt.Errorf("buggify injected a timeout for command %v", command)}
+		}
+		if shouldError {
+			return "", fmt.Errorf("buggify injected a generic error for command %v", command)
+		}
+	}
 	args, hardTimeout := client.getArgsAndTimeout(command)
 	timeoutContext, cancelFunction := context.WithTimeout(context.Background(), hardTimeout)
 	defer cancelFunction()
@@ -253,6 +280,13 @@ func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 		debugOutput = outputString[0:maxCommandOutput] + "..."
 	} else {
 		debugOutput = outputString
+	}
+	if shouldTimeout || shouldError {
+		client.log.Info("Command completed, but buggify injected an error", "output", outputString, "debugOutput", debugOutput)
+		if shouldTimeout {
+			return "", fdbv1beta2.TimeoutError{Err: fmt.Errorf("buggify injected a timeout after this command succeeded: %v", command)}
+		}
+		return "", fmt.Errorf("buggify injected a generic error after this command succeeded %v", command)
 	}
 	client.log.Info("Command completed", "output", debugOutput)
 

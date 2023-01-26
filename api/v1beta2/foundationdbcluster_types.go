@@ -1733,6 +1733,18 @@ type BuggifyConfig struct {
 	// that should be put into a crash looping state.
 	CrashLoopContainers []CrashLoopContainerObject `json:"crashLoopContainers,omitempty"`
 
+	// CliTimeoutFraction specifies the fraction (from 0 to 100) of fdbcli requests
+	// that should return spurious timeout errors
+	CliTimeoutPercent int `json:"cliTimeoutFraction,omitempty"`
+
+	// CliErrorFraction specifies the fraction (of non-timed-out requests) that should
+	// return spurious errors instead of running.
+	CliErrorPercent int `json:"cliErrorFraction,omitempty"`
+
+	// CliErrorSucceedAnyway specifies the fraction of spuriously-failed CLI commands
+	// that should run despite returning a timeout or explicit error code.
+	CliErrorSucceedAnywayPercent int `json:"cliErrorSucceedAnywayFraction,omitempty"`
+
 	// EmptyMonitorConf instructs the operator to update all of the fdbmonitor.conf
 	// files to have zero fdbserver processes configured.
 	EmptyMonitorConf bool `json:"emptyMonitorConf,omitempty"`
