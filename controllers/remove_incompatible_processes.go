@@ -42,7 +42,7 @@ func (removeIncompatibleProcesses) reconcile(ctx context.Context, r *FoundationD
 	err := processIncompatibleProcesses(ctx, r, logger, cluster)
 
 	if err != nil {
-		return &requeue{curError: err, delay: 15 * time.Second}
+		return &requeue{curError: err, delay: 15 * time.Second, delayedRequeue: true}
 	}
 
 	return nil
