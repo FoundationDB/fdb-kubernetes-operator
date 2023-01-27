@@ -511,7 +511,7 @@ var _ = Describe("bounceProcesses", func() {
 			})
 		})
 
-		FWhen("buggify ignore processes is set and only this process has the IncorrectCommandLine condition", func() {
+		When("buggify ignore processes is set and only this process has the IncorrectCommandLine condition", func() {
 			var filteredAddresses []fdbv1beta2.ProcessAddress
 			var removed bool
 
