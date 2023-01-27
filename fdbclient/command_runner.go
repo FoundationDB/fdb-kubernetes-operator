@@ -22,8 +22,11 @@ package fdbclient
 
 import (
 	"context"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/go-logr/logr"
+	"os"
 	"os/exec"
+	"strings"
 )
 
 // commandRunner is an interface to run commands.
@@ -37,9 +40,32 @@ type realCommandRunner struct {
 	log logr.Logger
 }
 
+// getEnvironmentVariablesWithoutBlacklisted returns the current environment variables for the new process with some
+// FDB specific variables filtered out to ensure we don't set any variables that could change the behaviour of fdbcli or
+// the other fdb tools.
+func getEnvironmentVariablesWithoutExcludedFdbEnv() []string {
+	blackListedEnvironmentVariables := map[string]fdbv1beta2.None{
+		"FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY":       {},
+		"FDB_NETWORK_OPTION_IGNORE_EXTERNAL_CLIENT_FAILURES": {},
+	}
+
+	osVariables := os.Environ()
+	cmdEnvironmentVariables := make([]string, 0, len(osVariables))
+	for _, env := range osVariables {
+		envKey := strings.Split(env, "=")[0]
+		if _, ok := blackListedEnvironmentVariables[envKey]; ok {
+			continue
+		}
+
+		cmdEnvironmentVariables = append(cmdEnvironmentVariables, env)
+	}
+
+	return cmdEnvironmentVariables
+}
+
 func (runner *realCommandRunner) runCommand(ctx context.Context, name string, arg ...string) ([]byte, error) {
 	execCommand := exec.CommandContext(ctx, name, arg...)
-
+	execCommand.Env = getEnvironmentVariablesWithoutExcludedFdbEnv()
 	runner.log.Info("Running command", "path", execCommand.Path, "args", execCommand.Args)
 	return execCommand.CombinedOutput()
 }

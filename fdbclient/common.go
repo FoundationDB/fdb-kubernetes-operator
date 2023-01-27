@@ -21,6 +21,7 @@
 package fdbclient
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -142,8 +143,19 @@ func getConnectionStringFromDB(cluster *fdbv1beta2.FoundationDBCluster, log logr
 }
 
 // getStatusFromDB gets the database's status directly from the system key
-func getStatusFromDB(cluster *fdbv1beta2.FoundationDBCluster, log logr.Logger) ([]byte, error) {
-	return getValueFromDBUsingKey(cluster, log, "\xff\xff/status/json", DefaultCLITimeout)
+func getStatusFromDB(cluster *fdbv1beta2.FoundationDBCluster, log logr.Logger) (*fdbv1beta2.FoundationDBStatus, error) {
+	contents, err := getValueFromDBUsingKey(cluster, log, "\xff\xff/status/json", DefaultCLITimeout)
+	if err != nil {
+		return nil, err
+	}
+
+	status := &fdbv1beta2.FoundationDBStatus{}
+	err = json.Unmarshal(contents, status)
+	if err != nil {
+		return nil, err
+	}
+
+	return status, err
 }
 
 type realDatabaseClientProvider struct {

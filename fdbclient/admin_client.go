@@ -291,24 +291,14 @@ func (client *cliAdminClient) runCommandWithBackoff(command string) (string, err
 	return rawResult, err
 }
 
-func (client *cliAdminClient) getStatus(useClientLibrary bool) (*fdbv1beta2.FoundationDBStatus, error) {
-	var contents []byte
-	var err error
-
-	if useClientLibrary {
-		// This will call directly the database and fetch the status information
-		// from the system key space.
-		contents, err = getStatusFromDB(client.Cluster, client.log)
-	} else {
-		var rawResult string
-		rawResult, err = client.runCommandWithBackoff("status json")
-		if err != nil {
-			return nil, err
-		}
-
-		contents, err = internal.RemoveWarningsInJSON(rawResult)
+// getStatusFromCli uses the fdbcli to connect to the FDB cluster
+func (client *cliAdminClient) getStatusFromCli() (*fdbv1beta2.FoundationDBStatus, error) {
+	output, err := client.runCommandWithBackoff("status json")
+	if err != nil {
+		return nil, err
 	}
 
+	contents, err := internal.RemoveWarningsInJSON(output)
 	if err != nil {
 		return nil, err
 	}
@@ -318,7 +308,30 @@ func (client *cliAdminClient) getStatus(useClientLibrary bool) (*fdbv1beta2.Foun
 	if err != nil {
 		return nil, err
 	}
-	client.log.V(1).Info("Fetched status JSON", "status", status)
+
+	client.log.V(1).Info("Fetched status JSON with fdbcli", "version", client.Cluster.GetRunningVersion(), "status", status)
+
+	return status, nil
+}
+
+// getStatus uses fdbcli to connect to the FDB cluster, if the cluster is upgraded and the initial version returns no processes
+// the new version for fdbcli will be tried.
+func (client *cliAdminClient) getStatus() (*fdbv1beta2.FoundationDBStatus, error) {
+	status, err := client.getStatusFromCli()
+	if err != nil {
+		return nil, err
+	}
+
+	// If the status doesn't contain any processes and we are doing an upgrade, we probably use the wrong fdbcli version
+	// and we have to fallback to the on specified in out spec.version.
+	if len(status.Cluster.Processes) == 0 && client.Cluster.IsBeingUpgraded() {
+		// Create a copy of the cluster and make use of the desired version instead of the last observed running version.
+		clusterCopy := client.Cluster.DeepCopy()
+		clusterCopy.Status.RunningVersion = clusterCopy.Spec.Version
+		client.Cluster = clusterCopy
+
+		return client.getStatusFromCli()
+	}
 
 	return status, nil
 }
@@ -328,7 +341,9 @@ func (client *cliAdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
-	status, err := client.getStatus(true)
+	// This will call directly the database and fetch the status information
+	// from the system key space.
+	status, err := getStatusFromDB(client.Cluster, client.log)
 	if err != nil {
 		return nil, err
 	}
@@ -339,7 +354,7 @@ func (client *cliAdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error
 	// In this case we want to fall back to use fdbcli which is version specific and will work.
 	if len(status.Cluster.Processes) == 0 && client.Cluster.Status.Configured {
 		client.log.Info("retry fetching status with fdbcli instead of using the client library")
-		return client.getStatus(false)
+		return client.getStatus()
 	}
 
 	return status, nil
