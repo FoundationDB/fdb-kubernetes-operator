@@ -613,7 +613,7 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, proce
 	if optionalCluster != nil {
 		for _, crashObjs := range optionalCluster.Spec.Buggify.CrashLoopContainers {
 			for _, pid := range crashObjs.Targets {
-				if pid == processGroupID && crashObjs.ContainerName == container.Name {
+				if (pid == "*" || pid == processGroupID) && crashObjs.ContainerName == container.Name {
 					sidecarArgs = []string{"crash-loop"}
 				}
 			}
