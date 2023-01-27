@@ -238,9 +238,10 @@ func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 
 		// If we hit a timeout report it as a timeout error
 		if strings.Contains(string(output), "Specified timeout reached") {
+			client.log.Info("runner has timeout issue")
 			// See: https://apple.github.io/foundationdb/api-error-codes.html
 			// 1031: Operation aborted because the transaction timed out
-			return "", fdbv1beta2.TimeoutError{Err: err}
+			return "", &fdbv1beta2.TimeoutError{Err: err}
 		}
 
 		return "", err
@@ -344,20 +345,19 @@ func (client *cliAdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error
 	// This will call directly the database and fetch the status information
 	// from the system key space.
 	status, err := getStatusFromDB(client.Cluster, client.log)
-	if err != nil {
-		return nil, err
-	}
-
 	// There is a limitation in the multi version client if the cluster is only partially upgraded e.g. because not
 	// all fdbserver processes are restarted, then the multi version client sometimes picks the wrong version
 	// to connect to the cluster. This will result in an empty status only reporting the unreachable coordinators.
-	// In this case we want to fall back to use fdbcli which is version specific and will work.
-	if len(status.Cluster.Processes) == 0 && client.Cluster.Status.Configured {
-		client.log.Info("retry fetching status with fdbcli instead of using the client library")
-		return client.getStatus()
+	// In this case we want to fall back to use fdbcli which is version specific and will (hopefully) work.
+	// If we hit a timeout we will also use fdbcli to retry the get status command.
+	if client.Cluster.Status.Configured {
+		if (err != nil && internal.IsTimeoutError(err)) || len(status.Cluster.Processes) == 0 {
+			client.log.Info("retry fetching status with fdbcli instead of using the client library")
+			return client.getStatus()
+		}
 	}
 
-	return status, nil
+	return status, err
 }
 
 // ConfigureDatabase sets the database configuration

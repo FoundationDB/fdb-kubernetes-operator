@@ -79,10 +79,6 @@ func processIncompatibleProcesses(ctx context.Context, r *FoundationDBClusterRec
 
 	status, err := adminClient.GetStatus()
 	if err != nil {
-		// If we hit a timeout issue we don't want to block any further steps.
-		if internal.IsTimeoutError(err) {
-			return nil
-		}
 		return err
 	}
 
@@ -101,15 +97,8 @@ func processIncompatibleProcesses(ctx context.Context, r *FoundationDBClusterRec
 		return nil
 	}
 
-	// Ensure the cluster is running at fault tolerance before recreating Pods.
-	hasDesiredFaultTolerance := internal.HasDesiredFaultToleranceFromStatus(logger, status, cluster)
-	if !hasDesiredFaultTolerance {
-		logger.V(1).Info("Skipping reconciler and waiting until cluster has desired fault tolerance")
-		return nil
-	}
-
 	logger.Info("incompatible connections", "incompatibleConnections", status.Cluster.IncompatibleConnections)
-	incompatibleConnections := parseIncompatibleConnections(logger, status.Cluster.IncompatibleConnections)
+	incompatibleConnections := parseIncompatibleConnections(logger, status)
 
 	incompatiblePods := make([]*corev1.Pod, 0, len(incompatibleConnections))
 	for _, processGroup := range cluster.Status.ProcessGroups {
@@ -136,22 +125,28 @@ func processIncompatibleProcesses(ctx context.Context, r *FoundationDBClusterRec
 	return r.PodLifecycleManager.UpdatePods(ctx, r, cluster, incompatiblePods, true)
 }
 
-// parseIncompatibleConnections parses the incompatible connections string slice to a map
-func parseIncompatibleConnections(logger logr.Logger, incompatibleConnections []string) map[string]fdbv1beta2.None {
+// parseIncompatibleConnections parses the incompatible connections string slice to a map and removes all false reported incompatible processes.
+// If a process is still part of the cluster status we can assume it's not an incompatible process.
+func parseIncompatibleConnections(logger logr.Logger, status *fdbv1beta2.FoundationDBStatus) map[string]fdbv1beta2.None {
+	processAddressMap := map[string]fdbv1beta2.None{}
+	for _, process := range status.Cluster.Processes {
+		processAddressMap[process.Address.MachineAddress()] = fdbv1beta2.None{}
+	}
+
 	result := make(map[string]fdbv1beta2.None)
-	for _, incompatibleAddress := range incompatibleConnections {
+	for _, incompatibleAddress := range status.Cluster.IncompatibleConnections {
 		address, err := fdbv1beta2.ParseProcessAddress(incompatibleAddress)
 		if err != nil {
 			logger.Error(err, "could not parse address in incompatible connections", "address", incompatibleAddress)
 			continue
 		}
 
-		if address.Port == 0 {
-			logger.V(1).Info("Ignore incompatible connection with port 0", "address", address)
+		if _, ok := processAddressMap[address.MachineAddress()]; ok {
+			logger.V(1).Info("Ignore incompatible connection with process being part of the process list", "address", address)
 			continue
 		}
 
-		result[address.IPAddress.String()] = fdbv1beta2.None{}
+		result[address.MachineAddress()] = fdbv1beta2.None{}
 	}
 
 	return result

@@ -22,6 +22,7 @@ package controllers
 
 import (
 	"context"
+	"net"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient/mock"
 
@@ -68,20 +69,57 @@ var _ = Describe("restart_incompatible_pods", func() {
 			true),
 	)
 
-	DescribeTable("when parsing incompatible connections", func(incompatibleConnections []string, expected map[string]fdbv1beta2.None) {
-		Expect(parseIncompatibleConnections(logr.Discard(), incompatibleConnections)).To(Equal(expected))
+	// TODO adjust tests! --> ensure we onlt select processes that are not part of the cluster
+	DescribeTable("when parsing incompatible connections", func(status *fdbv1beta2.FoundationDBStatus, expected map[string]fdbv1beta2.None) {
+		Expect(parseIncompatibleConnections(logr.Discard(), status)).To(Equal(expected))
 	},
 		Entry("empty incompatible map",
-			[]string{},
+			&fdbv1beta2.FoundationDBStatus{
+				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{},
+			},
 			map[string]fdbv1beta2.None{}),
-		Entry("nil incompatible map",
-			nil,
-			map[string]fdbv1beta2.None{}),
-		Entry("incompatible map contains one address",
-			[]string{"1.1.1.1:4500:tls"},
+		Entry("incompatible map contains one address which is missing from the processes list",
+			&fdbv1beta2.FoundationDBStatus{
+				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+					IncompatibleConnections: []string{
+						"1.1.1.1:0:tls",
+					},
+					Processes: map[string]fdbv1beta2.FoundationDBStatusProcessInfo{
+						"2": {
+							Address: fdbv1beta2.ProcessAddress{
+								IPAddress: net.ParseIP("1.1.1.2"),
+							},
+						},
+						"3": {
+							Address: fdbv1beta2.ProcessAddress{
+								IPAddress: net.ParseIP("1.1.1.3"),
+							},
+						},
+					},
+				},
+			},
 			map[string]fdbv1beta2.None{"1.1.1.1": {}}),
-		Entry("incompatible map contains multiple addresses",
-			[]string{"1.1.1.1:4500:tls", "1.1.1.2:0:tls"},
+		Entry("incompatible map contains multiple addresses but only one is missing",
+			&fdbv1beta2.FoundationDBStatus{
+				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+					IncompatibleConnections: []string{
+						"1.1.1.1:0:tls",
+						"1.1.1.2:0:tls",
+					},
+					Processes: map[string]fdbv1beta2.FoundationDBStatusProcessInfo{
+						"2": {
+							Address: fdbv1beta2.ProcessAddress{
+								IPAddress: net.ParseIP("1.1.1.2"),
+							},
+						},
+						"3": {
+							Address: fdbv1beta2.ProcessAddress{
+								IPAddress: net.ParseIP("1.1.1.3"),
+							},
+						},
+					},
+				},
+			},
 			map[string]fdbv1beta2.None{"1.1.1.1": {}}),
 	)
 
@@ -194,26 +232,17 @@ var _ = Describe("restart_incompatible_pods", func() {
 					Expect(len(pods.Items)).To(BeNumerically("==", initialCount-1))
 				})
 
-				When("the database is unavailable", func() {
+				When("matching incompatible processes are reported but are reported as processes", func() {
 					BeforeEach(func() {
 						adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 						Expect(err).NotTo(HaveOccurred())
-						adminClient.FrozenStatus.Client.DatabaseStatus.Available = false
-					})
-
-					It("should have no deletions", func() {
-						pods := &corev1.PodList{}
-						err := k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
-						Expect(err).NotTo(HaveOccurred())
-						Expect(len(pods.Items)).To(BeNumerically("==", initialCount))
-					})
-				})
-
-				When("matching incompatible processes are reported but port is zero", func() {
-					BeforeEach(func() {
-						adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
-						Expect(err).NotTo(HaveOccurred())
-						adminClient.FrozenStatus.Cluster.IncompatibleConnections[0] = cluster.Status.ProcessGroups[0].Addresses[0] + ":0:tls"
+						adminClient.FrozenStatus.Cluster.Processes = map[string]fdbv1beta2.FoundationDBStatusProcessInfo{
+							"1": {
+								Address: fdbv1beta2.ProcessAddress{
+									IPAddress: net.ParseIP(cluster.Status.ProcessGroups[0].Addresses[0]),
+								},
+							},
+						}
 					})
 
 					It("should have no deletions", func() {

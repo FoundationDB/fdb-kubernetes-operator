@@ -21,6 +21,7 @@
 package fdbclient
 
 import (
+	"encoding/json"
 	"errors"
 	"net"
 	"os"
@@ -627,4 +628,108 @@ protocol fdb00b071010000`,
 			})
 		})
 	})
+
+	When("getting the status from a cluster that is being upgraded", func() {
+		var mockRunner *mockCommandRunner
+		var status *fdbv1beta2.FoundationDBStatus
+		var err error
+		var oldBinary, newBinary string
+
+		JustBeforeEach(func() {
+			cliClient := &cliAdminClient{
+				Cluster: &fdbv1beta2.FoundationDBCluster{
+					Spec: fdbv1beta2.FoundationDBClusterSpec{
+						Version: fdbv1beta2.Versions.NextMajorVersion.String(),
+					},
+					Status: fdbv1beta2.FoundationDBClusterStatus{
+						RunningVersion: fdbv1beta2.Versions.Default.String(),
+					},
+				},
+				clusterFilePath: "test",
+				log:             logr.Discard(),
+				cmdRunner:       mockRunner,
+			}
+
+			status, err = cliClient.getStatus()
+		})
+
+		BeforeEach(func() {
+			tmpDir := GinkgoT().TempDir()
+			GinkgoT().Setenv("FDB_BINARY_DIR", tmpDir)
+
+			binaryDir := path.Join(tmpDir, fdbv1beta2.Versions.Default.GetBinaryVersion())
+			Expect(os.MkdirAll(binaryDir, 0700)).NotTo(HaveOccurred())
+			oldBinary = path.Join(binaryDir, fdbcliStr)
+			_, err := os.Create(oldBinary)
+			Expect(err).NotTo(HaveOccurred())
+
+			binaryDir = path.Join(tmpDir, fdbv1beta2.Versions.NextMajorVersion.GetBinaryVersion())
+			Expect(os.MkdirAll(binaryDir, 0700)).NotTo(HaveOccurred())
+			newBinary = path.Join(binaryDir, fdbcliStr)
+			_, err = os.Create(newBinary)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		When("the old version returns the correct result", func() {
+			BeforeEach(func() {
+				inputStatus := &fdbv1beta2.FoundationDBStatus{
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						Processes: map[string]fdbv1beta2.FoundationDBStatusProcessInfo{
+							"1": {},
+						},
+					},
+				}
+
+				out, err := json.Marshal(inputStatus)
+				Expect(err).NotTo(HaveOccurred())
+
+				mockRunner = &mockCommandRunner{
+					mockedError:  nil,
+					mockedOutput: string(out),
+				}
+			})
+
+			It("should the correct status", func() {
+				Expect(status).NotTo(BeNil())
+				Expect(status.Cluster.Processes).To(HaveLen(1))
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+
+		When("the old version returns the wrong result", func() {
+			emptyStatus := &fdbv1beta2.FoundationDBStatus{}
+
+			emptyOut, err := json.Marshal(emptyStatus)
+			Expect(err).NotTo(HaveOccurred())
+
+			inputStatus := &fdbv1beta2.FoundationDBStatus{
+				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+					Processes: map[string]fdbv1beta2.FoundationDBStatusProcessInfo{
+						"1": {},
+					},
+				},
+			}
+
+			statusOut, err := json.Marshal(inputStatus)
+			Expect(err).NotTo(HaveOccurred())
+
+			BeforeEach(func() {
+				mockRunner = &mockCommandRunner{
+					mockedError: nil,
+					mockedOutputPerBinary: map[string]string{
+						oldBinary: string(emptyOut),
+						newBinary: string(statusOut),
+					},
+				}
+			})
+
+			It("should the correct status", func() {
+				Expect(status).NotTo(BeNil())
+				Expect(status.Cluster.Processes).To(HaveLen(1))
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+	})
+
+	// TODO(johscheuer): Add test case for timeout.
 })
