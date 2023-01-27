@@ -510,5 +510,43 @@ var _ = Describe("bounceProcesses", func() {
 				Expect(len(filteredAddresses)).To(BeNumerically("==", len(cluster.Status.ProcessGroups)-1))
 			})
 		})
+
+		When("buggify ignore processes is set and only this process has the IncorrectCommandLine condition", func() {
+			var filteredAddresses []fdbv1beta2.ProcessAddress
+			var removed bool
+
+			BeforeEach(func() {
+				for _, processGroup := range cluster.Status.ProcessGroups {
+					processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, processGroup.ProcessGroupID == ignoredProcessGroup.ProcessGroupID, nil, "")
+				}
+
+				status, err := adminClient.GetStatus()
+				Expect(err).NotTo(HaveOccurred())
+				processAddresses := make([]fdbv1beta2.ProcessAddress, 0, len(cluster.Status.ProcessGroups))
+				for _, process := range status.Cluster.Processes {
+					if process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey] != ignoredProcessGroup.ProcessGroupID {
+						continue
+					}
+
+					processAddresses = append(processAddresses, process.Address)
+				}
+
+				filteredAddresses, removed = filterIgnoredProcessGroups(cluster, processAddresses)
+			})
+
+			It("should filter the ignored address", func() {
+				Expect(removed).To(BeTrue())
+				Expect(filteredAddresses).To(BeEmpty())
+			})
+
+			It("should not requeue", func() {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(requeue).To(BeNil())
+			})
+
+			It("should not kill any processes", func() {
+				Expect(adminClient.KilledAddresses).To(BeEmpty())
+			})
+		})
 	})
 })

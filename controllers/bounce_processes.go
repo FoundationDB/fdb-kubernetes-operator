@@ -151,6 +151,10 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 		addresses = filteredAddresses
 	}
 
+	if len(filteredAddresses) == 0 {
+		return nil
+	}
+
 	logger.Info("Bouncing processes", "addresses", addresses, "upgrading", upgrading)
 	r.Recorder.Event(cluster, corev1.EventTypeNormal, "BouncingProcesses", fmt.Sprintf("Bouncing processes: %v", addresses))
 	err = adminClient.KillProcesses(addresses)
@@ -312,11 +316,11 @@ func filterIgnoredProcessGroups(cluster *fdbv1beta2.FoundationDBCluster, address
 	removedAddresses := false
 	for _, address := range addresses {
 		if _, ok := ignoredAddresses[address.MachineAddress()]; ok {
+			removedAddresses = true
 			continue
 		}
 
 		filteredAddresses = append(filteredAddresses, address)
-		removedAddresses = true
 	}
 
 	return filteredAddresses, removedAddresses
