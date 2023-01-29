@@ -16,6 +16,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# This script works out of the box for Linux environments (tested on Ubuntu 16.04.5 LTS), after installing dependent software (kind, Docker, and kustomize);
+# Running in other environments may involve non-trivial debugging effort.
 set -eo errexit
 
 # wait_for_node_setup is used to wait until the kubelet has started and the Pod CIDR is available.
