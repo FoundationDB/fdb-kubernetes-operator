@@ -243,16 +243,9 @@ func configureContainersForUnifiedImages(cluster *fdbv1beta2.FoundationDBCluster
 		corev1.VolumeMount{Name: "fdb-trace-logs", MountPath: "/var/log/fdb-trace-logs"},
 	)
 
-	for _, crashLoopInstanceID := range cluster.Spec.Buggify.CrashLoop {
-		if processGroupID == crashLoopInstanceID || crashLoopInstanceID == "*" {
-			mainContainer.Command = []string{"crash-loop"}
-			mainContainer.Args = []string{"crash-loop"}
-		}
-	}
-
 	for _, crashObjs := range cluster.Spec.Buggify.CrashLoopContainers {
 		for _, pid := range crashObjs.Targets {
-			if pid == processGroupID {
+			if pid == processGroupID || pid == "*" {
 				if crashObjs.ContainerName == mainContainer.Name {
 					mainContainer.Command = []string{"crash-loop"}
 					mainContainer.Args = []string{"crash-loop"}
@@ -452,16 +445,11 @@ func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 			" --loggroup " + logGroup +
 			" >> /var/log/fdb-trace-logs/fdbmonitor-$(date '+%Y-%m-%d').log 2>&1"
 
-		for _, crashLoopID := range cluster.Spec.Buggify.CrashLoop {
-			if processGroupID == crashLoopID || crashLoopID == "*" {
-				args = "crash-loop"
-			}
-		}
-
 		for _, crashObjs := range cluster.Spec.Buggify.CrashLoopContainers {
 			for _, pid := range crashObjs.Targets {
-				if pid == processGroupID && crashObjs.ContainerName == mainContainer.Name {
+				if (pid == processGroupID || pid == "*") && crashObjs.ContainerName == mainContainer.Name {
 					args = "crash-loop"
+					break
 				}
 			}
 		}
@@ -625,7 +613,7 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, proce
 	if optionalCluster != nil {
 		for _, crashObjs := range optionalCluster.Spec.Buggify.CrashLoopContainers {
 			for _, pid := range crashObjs.Targets {
-				if pid == processGroupID && crashObjs.ContainerName == container.Name {
+				if (pid == "*" || pid == processGroupID) && crashObjs.ContainerName == container.Name {
 					sidecarArgs = []string{"crash-loop"}
 				}
 			}

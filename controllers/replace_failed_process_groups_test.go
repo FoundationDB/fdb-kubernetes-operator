@@ -58,13 +58,16 @@ var _ = Describe("replace_failed_process_groups", func() {
 		adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(adminClient).NotTo(BeNil())
+		err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
+		Expect(err).NotTo(HaveOccurred())
 		result = replaceFailedProcessGroups{}.reconcile(ctx.Background(), clusterReconciler, cluster)
 	})
 
 	Context("with no missing processes", func() {
-		It("should return nil", func() {
-			Expect(result).To(BeNil())
-		})
+		It("should return nil",
+			func() {
+				Expect(result).To(BeNil())
+			})
 
 		It("should not mark anything for removal", func() {
 			Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{}))

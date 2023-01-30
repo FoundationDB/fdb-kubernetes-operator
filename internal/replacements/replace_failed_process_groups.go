@@ -54,15 +54,9 @@ func ReplaceFailedProcessGroups(log logr.Logger, cluster *fdbv1beta2.FoundationD
 		return false
 	}
 
-	crashLoopProcessGroups, crashLoopAll := cluster.GetCrashLoopProcessGroups()
-	// If all process groups are in crash loop don't replace any process group.
-	if crashLoopAll {
-		return false
-	}
-
 	maxReplacements := getMaxReplacements(cluster, cluster.GetMaxConcurrentAutomaticReplacements())
 	hasReplacement := false
-	containerProcessGroups := cluster.GetCrashLoopContainerProcessGroups()
+	crashLoopContainerProcessGroups := cluster.GetCrashLoopContainerProcessGroups()
 
 ProcessGroupLoop:
 	for _, processGroupStatus := range cluster.Status.ProcessGroups {
@@ -70,14 +64,10 @@ ProcessGroupLoop:
 			return hasReplacement
 		}
 
-		// Don't replace processes that are in the crash loop setting. Otherwise, we might replace process groups that
-		// are in that state for debugging or stability.
-		if _, ok := crashLoopProcessGroups[processGroupStatus.ProcessGroupID]; ok {
-			continue
-		}
-
-		for _, targets := range containerProcessGroups {
+		for _, targets := range crashLoopContainerProcessGroups {
 			if _, ok := targets[processGroupStatus.ProcessGroupID]; ok {
+				continue ProcessGroupLoop
+			} else if _, ok := targets["*"]; ok {
 				continue ProcessGroupLoop
 			}
 		}
