@@ -40,11 +40,11 @@ type realCommandRunner struct {
 	log logr.Logger
 }
 
-// getEnvironmentVariablesWithoutBlacklisted returns the current environment variables for the new process with some
+// getEnvironmentVariablesWithoutExcludedFdbEnv returns the current environment variables for the new process with some
 // FDB specific variables filtered out to ensure we don't set any variables that could change the behaviour of fdbcli or
 // the other fdb tools.
 func getEnvironmentVariablesWithoutExcludedFdbEnv() []string {
-	blackListedEnvironmentVariables := map[string]fdbv1beta2.None{
+	excludedEnvironmentVariables := map[string]fdbv1beta2.None{
 		"FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY":       {},
 		"FDB_NETWORK_OPTION_IGNORE_EXTERNAL_CLIENT_FAILURES": {},
 	}
@@ -53,7 +53,7 @@ func getEnvironmentVariablesWithoutExcludedFdbEnv() []string {
 	cmdEnvironmentVariables := make([]string, 0, len(osVariables))
 	for _, env := range osVariables {
 		envKey := strings.Split(env, "=")[0]
-		if _, ok := blackListedEnvironmentVariables[envKey]; ok {
+		if _, ok := excludedEnvironmentVariables[envKey]; ok {
 			continue
 		}
 
