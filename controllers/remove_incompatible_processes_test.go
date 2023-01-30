@@ -69,7 +69,6 @@ var _ = Describe("restart_incompatible_pods", func() {
 			true),
 	)
 
-	// TODO adjust tests! --> ensure we onlt select processes that are not part of the cluster
 	DescribeTable("when parsing incompatible connections", func(status *fdbv1beta2.FoundationDBStatus, expected map[string]fdbv1beta2.None) {
 		Expect(parseIncompatibleConnections(logr.Discard(), status)).To(Equal(expected))
 	},

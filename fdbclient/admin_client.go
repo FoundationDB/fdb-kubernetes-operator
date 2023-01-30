@@ -342,20 +342,22 @@ func (client *cliAdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
-	// This will call directly the database and fetch the status information
-	// from the system key space.
+	// This will call directly the database and fetch the status information from the system key space.
 	status, err := getStatusFromDB(client.Cluster, client.log)
 	// There is a limitation in the multi version client if the cluster is only partially upgraded e.g. because not
 	// all fdbserver processes are restarted, then the multi version client sometimes picks the wrong version
 	// to connect to the cluster. This will result in an empty status only reporting the unreachable coordinators.
 	// In this case we want to fall back to use fdbcli which is version specific and will (hopefully) work.
 	// If we hit a timeout we will also use fdbcli to retry the get status command.
+	client.log.V(1).Info("Result from multi version client (bindings)", "error", err, "status", status)
 	if client.Cluster.Status.Configured {
-		if (err != nil && internal.IsTimeoutError(err)) || len(status.Cluster.Processes) == 0 {
+		if (err != nil && internal.IsTimeoutError(err)) || (status == nil || len(status.Cluster.Processes) == 0) {
 			client.log.Info("retry fetching status with fdbcli instead of using the client library")
-			return client.getStatus()
+			status, err = client.getStatus()
 		}
 	}
+
+	client.log.V(1).Info("Completed GetStatus() call", "error", err, "status", status)
 
 	return status, err
 }
