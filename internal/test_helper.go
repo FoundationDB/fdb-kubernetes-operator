@@ -36,6 +36,11 @@ func CreateDefaultCluster() *fdbv1beta2.FoundationDBCluster {
 		},
 		Spec: fdbv1beta2.FoundationDBClusterSpec{
 			Version: fdbv1beta2.Versions.Default.String(),
+			Buggify: fdbv1beta2.BuggifyConfig{
+				CliTimeoutPercent:            50,
+				CliErrorPercent:              50,
+				CliErrorSucceedAnywayPercent: 50,
+			},
 			ProcessCounts: fdbv1beta2.ProcessCounts{
 				Storage:           4,
 				ClusterController: 1,
