@@ -417,19 +417,21 @@ func (client *cliAdminClient) ExcludeProcesses(addresses []fdbv1beta2.ProcessAdd
 		return err
 	}
 
+	var excludeCommand string
 	if version.HasNonBlockingExcludes(client.Cluster.GetUseNonBlockingExcludes()) {
-		_, err = client.runCommand(cliCommand{
-			command: fmt.Sprintf(
-				"exclude no_wait %s",
-				fdbv1beta2.ProcessAddressesString(addresses, " "),
-			)})
+		excludeCommand = fmt.Sprintf(
+			"exclude no_wait %s",
+			fdbv1beta2.ProcessAddressesString(addresses, " "),
+		)
 	} else {
-		_, err = client.runCommand(cliCommand{
-			command: fmt.Sprintf(
-				"exclude %s",
-				fdbv1beta2.ProcessAddressesString(addresses, " "),
-			)})
+		excludeCommand = fmt.Sprintf(
+			"exclude %s",
+			fdbv1beta2.ProcessAddressesString(addresses, " "),
+		)
 	}
+
+	_, err = client.runCommandWithBackoff(excludeCommand)
+
 	return err
 }
 
@@ -579,20 +581,12 @@ func (client *cliAdminClient) CanSafelyRemove(addresses []fdbv1beta2.ProcessAddr
 
 	// We expect that this command always run without a timeout error since all processes should be fully excluded.
 	// We run this only as an additional safety check.
-	_, err = client.runCommand(cliCommand{command: fmt.Sprintf(
-		"exclude %s",
-		fdbv1beta2.ProcessAddressesString(exclusions.fullyExcluded, " "),
-	)})
-
+	err = client.ExcludeProcesses(exclusions.fullyExcluded)
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = client.runCommand(cliCommand{command: fmt.Sprintf(
-		"exclude %s",
-		fdbv1beta2.ProcessAddressesString(exclusions.inProgress, " "),
-	)})
-
+	err = client.ExcludeProcesses(exclusions.inProgress)
 	// When we hit a timeout error here we know that at least one of the inProgress is still not fully excluded for safety
 	// we just return the whole slice and don't do any further distinction. We have to return all addresses that are not excluded
 	// and are still in progress, but we don't want to return an error to block further actions on the successfully excluded
@@ -636,10 +630,12 @@ func (client *cliAdminClient) KillProcesses(addresses []fdbv1beta2.ProcessAddres
 		return nil
 	}
 
-	_, err := client.runCommand(cliCommand{command: fmt.Sprintf(
+	killCommand := fmt.Sprintf(
 		"kill; kill %[1]s; sleep 1; kill %[1]s; sleep 1; kill %[1]s",
 		fdbv1beta2.ProcessAddressesStringWithoutFlags(addresses, " "),
-	)})
+	)
+	_, err := client.runCommandWithBackoff(killCommand)
+
 	return err
 }
 
