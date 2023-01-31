@@ -22,7 +22,6 @@ package cmd
 
 import (
 	"context"
-
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -39,6 +38,8 @@ var _ = Describe("[plugin] cordon command", func() {
 			WithExclusion                             bool
 			ExpectedInstancesToRemove                 []string
 			ExpectedInstancesToRemoveWithoutExclusion []string
+			useCustomLabel                            bool
+			customLabel                               string
 		}
 
 		BeforeEach(func() {
@@ -80,7 +81,7 @@ var _ = Describe("[plugin] cordon command", func() {
 
 		DescribeTable("should cordon all targeted processes",
 			func(input testCase) {
-				err := cordonNode(k8sClient, cluster, input.nodes, namespace, input.WithExclusion, false, 0)
+				err := cordonNode(k8sClient, cluster, input.nodes, namespace, input.WithExclusion, false, 0, input.useCustomLabel, input.customLabel)
 				Expect(err).NotTo(HaveOccurred())
 
 				var resCluster fdbv1beta2.FoundationDBCluster
@@ -100,6 +101,8 @@ var _ = Describe("[plugin] cordon command", func() {
 					WithExclusion:             true,
 					ExpectedInstancesToRemove: []string{"instance-1"},
 					ExpectedInstancesToRemoveWithoutExclusion: []string{},
+					useCustomLabel: false,
+					customLabel:    fdbv1beta2.FDBClusterLabel,
 				}),
 			Entry("Cordon node without exclusion",
 				testCase{
@@ -107,6 +110,8 @@ var _ = Describe("[plugin] cordon command", func() {
 					WithExclusion:             false,
 					ExpectedInstancesToRemove: []string{},
 					ExpectedInstancesToRemoveWithoutExclusion: []string{"instance-1"},
+					useCustomLabel: false,
+					customLabel:    fdbv1beta2.FDBClusterLabel,
 				}),
 			Entry("Cordon no nodes with exclusion",
 				testCase{
@@ -114,6 +119,8 @@ var _ = Describe("[plugin] cordon command", func() {
 					WithExclusion:             true,
 					ExpectedInstancesToRemove: []string{},
 					ExpectedInstancesToRemoveWithoutExclusion: []string{},
+					useCustomLabel: false,
+					customLabel:    fdbv1beta2.FDBClusterLabel,
 				}),
 			Entry("Cordon no node nodes without exclusion",
 				testCase{
@@ -121,6 +128,8 @@ var _ = Describe("[plugin] cordon command", func() {
 					WithExclusion:             false,
 					ExpectedInstancesToRemove: []string{},
 					ExpectedInstancesToRemoveWithoutExclusion: []string{},
+					useCustomLabel: false,
+					customLabel:    fdbv1beta2.FDBClusterLabel,
 				}),
 			Entry("Cordon all nodes with exclusion",
 				testCase{
@@ -128,6 +137,8 @@ var _ = Describe("[plugin] cordon command", func() {
 					WithExclusion:             true,
 					ExpectedInstancesToRemove: []string{"instance-1", "instance-2"},
 					ExpectedInstancesToRemoveWithoutExclusion: []string{},
+					useCustomLabel: false,
+					customLabel:    fdbv1beta2.FDBClusterLabel,
 				}),
 			Entry("Cordon all nodes without exclusion",
 				testCase{
@@ -135,6 +146,35 @@ var _ = Describe("[plugin] cordon command", func() {
 					WithExclusion:             false,
 					ExpectedInstancesToRemove: []string{},
 					ExpectedInstancesToRemoveWithoutExclusion: []string{"instance-1", "instance-2"},
+					useCustomLabel: false,
+					customLabel:    fdbv1beta2.FDBClusterLabel,
+				}),
+			Entry("Cordon node with custom label without exclusion",
+				testCase{
+					nodes:                     []string{"node-1"},
+					WithExclusion:             true,
+					ExpectedInstancesToRemove: []string{"instance-1"},
+					ExpectedInstancesToRemoveWithoutExclusion: []string{},
+					useCustomLabel: true,
+					customLabel:    fdbv1beta2.FDBClusterLabel,
+				}),
+			Entry("Cordon nodes with custom label without exclusion",
+				testCase{
+					nodes:                     []string{"node-1", "node-2"},
+					WithExclusion:             false,
+					ExpectedInstancesToRemove: []string{},
+					ExpectedInstancesToRemoveWithoutExclusion: []string{"instance-1", "instance-2"},
+					useCustomLabel: true,
+					customLabel:    fdbv1beta2.FDBClusterLabel,
+				}),
+			Entry("Cordon no nodes with exclusion with custom label",
+				testCase{
+					nodes:                     []string{""},
+					WithExclusion:             true,
+					ExpectedInstancesToRemove: []string{},
+					ExpectedInstancesToRemoveWithoutExclusion: []string{},
+					useCustomLabel: true,
+					customLabel:    fdbv1beta2.FDBClusterLabel,
 				}),
 		)
 	})

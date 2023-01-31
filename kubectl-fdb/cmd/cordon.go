@@ -22,9 +22,8 @@ package cmd
 
 import (
 	"fmt"
-	"log"
-
 	"k8s.io/apimachinery/pkg/fields"
+	"strings"
 
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 
@@ -67,6 +66,14 @@ func newCordonCmd(streams genericclioptions.IOStreams) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			useCustomLabel, err := cmd.Flags().GetBool("use-custom-label")
+			if err != nil {
+				return err
+			}
+			customLabel, err := cmd.Flags().GetString("custom-label")
+			if err != nil {
+				return err
+			}
 
 			kubeClient, err := getKubeClient(o)
 			if err != nil {
@@ -76,6 +83,10 @@ func newCordonCmd(streams genericclioptions.IOStreams) *cobra.Command {
 			namespace, err := getNamespace(*o.configFlags.Namespace)
 			if err != nil {
 				return err
+			}
+
+			if !useCustomLabel && len(clusterName) == 0 {
+				return fmt.Errorf("either cluster name or custom label should be provided")
 			}
 
 			cluster, err := loadCluster(kubeClient, namespace, clusterName)
@@ -93,10 +104,10 @@ func newCordonCmd(streams genericclioptions.IOStreams) *cobra.Command {
 					return err
 				}
 
-				return cordonNode(kubeClient, cluster, nodes, namespace, withExclusion, wait, sleep)
+				return cordonNode(kubeClient, cluster, nodes, namespace, withExclusion, wait, sleep, useCustomLabel, customLabel)
 			}
 
-			return cordonNode(kubeClient, cluster, args, namespace, withExclusion, wait, sleep)
+			return cordonNode(kubeClient, cluster, args, namespace, withExclusion, wait, sleep, useCustomLabel, customLabel)
 		},
 		Example: `
 # Evacuate all process groups for a cluster in the current namespace that are hosted on node-1
@@ -107,6 +118,18 @@ kubectl fdb cordon -n default -c cluster node-1
 
 # Evacuate all process groups for a cluster in the current namespace that are hosted on nodes with the labels machine=a,disk=fast
 kubectl fdb cordon -c cluster --node-selector machine=a,disk=fast
+
+# Evacuate all process groups in the current namespace that are hosted on node-1, the default label is fdb-cluster-name
+kubectl fdb cordon --use-custom-label node-1
+
+# Evacuate all process groups in the current namespace that are hosted on node-1 with custom label
+kubectl fdb cordon --use-custom-label -l "fdb-cluster-name fdb-cluster-group" node-1
+
+# Evacuate all process groups for a cluster in the current namespace that are hosted on nodes with the labels machine=a,disk=fast
+kubectl fdb cordon -c cluster --node-selector machine=a,disk=fast
+
+# Evacuate all process groups in the current namespace that are hosted on nodes with the labels machine=a,disk=fast
+kubectl fdb cordon --use-custom-label --node-selector machine=a,disk=fast
 `,
 	}
 	cmd.SetOut(o.Out)
@@ -116,18 +139,15 @@ kubectl fdb cordon -c cluster --node-selector machine=a,disk=fast
 	cmd.Flags().StringP("fdb-cluster", "c", "", "evacuate process group(s) from the provided cluster.")
 	cmd.Flags().StringToStringVarP(&nodeSelectors, "node-selector", "", nil, "node-selector to select all nodes that should be cordoned. Can't be used with specific nodes.")
 	cmd.Flags().BoolP("exclusion", "e", true, "define if the process groups should be removed with exclusion.")
-	err := cmd.MarkFlagRequired("fdb-cluster")
-	if err != nil {
-		log.Fatal(err)
-	}
-
+	cmd.Flags().Bool("use-custom-label", false, "define if the process groups should be removed using label instead of cluster name.")
+	cmd.Flags().StringP("custom-label", "l", "fdb-cluster-name", "evacuate process group(s) from the provided cluster.")
 	o.configFlags.AddFlags(cmd.Flags())
 
 	return cmd
 }
 
 // cordonNode gets all process groups of this cluster that run on the given nodes and add them to the remove list
-func cordonNode(kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluster, nodes []string, namespace string, withExclusion bool, wait bool, sleep uint16) error {
+func cordonNode(kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluster, nodes []string, namespace string, withExclusion bool, wait bool, sleep uint16, useCustomLabel bool, customLabel string) error {
 	fmt.Printf("Start to cordon %d nodes\n", len(nodes))
 	if len(nodes) == 0 {
 		return nil
@@ -137,13 +157,22 @@ func cordonNode(kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluste
 
 	for _, node := range nodes {
 		var pods corev1.PodList
-		err := kubeClient.List(ctx.Background(), &pods,
-			client.InNamespace(namespace),
-			client.MatchingLabels(cluster.GetMatchLabels()),
-			client.MatchingFieldsSelector{
-				Selector: fields.OneTermEqualSelector("spec.nodeName", node),
-			})
-
+		var err error
+		if useCustomLabel {
+			err = kubeClient.List(ctx.Background(), &pods,
+				client.InNamespace(namespace),
+				client.HasLabels(strings.Split(customLabel, " ")),
+				client.MatchingFieldsSelector{
+					Selector: fields.OneTermEqualSelector("spec.nodeName", node),
+				})
+		} else {
+			err = kubeClient.List(ctx.Background(), &pods,
+				client.InNamespace(namespace),
+				client.MatchingLabels(cluster.GetMatchLabels()),
+				client.MatchingFieldsSelector{
+					Selector: fields.OneTermEqualSelector("spec.nodeName", node),
+				})
+		}
 		if err != nil {
 			return err
 		}
