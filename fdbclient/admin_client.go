@@ -240,7 +240,7 @@ func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 		if strings.Contains(string(output), "Specified timeout reached") {
 			// See: https://apple.github.io/foundationdb/api-error-codes.html
 			// 1031: Operation aborted because the transaction timed out
-			return "", fdbv1beta2.TimeoutError{Err: err}
+			return "", &fdbv1beta2.TimeoutError{Err: err}
 		}
 
 		return "", err
@@ -291,24 +291,14 @@ func (client *cliAdminClient) runCommandWithBackoff(command string) (string, err
 	return rawResult, err
 }
 
-func (client *cliAdminClient) getStatus(useClientLibrary bool) (*fdbv1beta2.FoundationDBStatus, error) {
-	var contents []byte
-	var err error
-
-	if useClientLibrary {
-		// This will call directly the database and fetch the status information
-		// from the system key space.
-		contents, err = getStatusFromDB(client.Cluster, client.log)
-	} else {
-		var rawResult string
-		rawResult, err = client.runCommandWithBackoff("status json")
-		if err != nil {
-			return nil, err
-		}
-
-		contents, err = internal.RemoveWarningsInJSON(rawResult)
+// getStatusFromCli uses the fdbcli to connect to the FDB cluster
+func (client *cliAdminClient) getStatusFromCli() (*fdbv1beta2.FoundationDBStatus, error) {
+	output, err := client.runCommandWithBackoff("status json")
+	if err != nil {
+		return nil, err
 	}
 
+	contents, err := internal.RemoveWarningsInJSON(output)
 	if err != nil {
 		return nil, err
 	}
@@ -318,7 +308,28 @@ func (client *cliAdminClient) getStatus(useClientLibrary bool) (*fdbv1beta2.Foun
 	if err != nil {
 		return nil, err
 	}
-	client.log.V(1).Info("Fetched status JSON", "status", status)
+
+	return status, nil
+}
+
+// getStatus uses fdbcli to connect to the FDB cluster, if the cluster is upgraded and the initial version returns no processes
+// the new version for fdbcli will be tried.
+func (client *cliAdminClient) getStatus() (*fdbv1beta2.FoundationDBStatus, error) {
+	status, err := client.getStatusFromCli()
+	if err != nil {
+		return nil, err
+	}
+
+	// If the status doesn't contain any processes and we are doing an upgrade, we probably use the wrong fdbcli version
+	// and we have to fallback to the on specified in out spec.version.
+	if (status == nil || len(status.Cluster.Processes) == 0) && client.Cluster.IsBeingUpgraded() {
+		// Create a copy of the cluster and make use of the desired version instead of the last observed running version.
+		clusterCopy := client.Cluster.DeepCopy()
+		clusterCopy.Status.RunningVersion = clusterCopy.Spec.Version
+		client.Cluster = clusterCopy
+
+		return client.getStatusFromCli()
+	}
 
 	return status, nil
 }
@@ -328,21 +339,24 @@ func (client *cliAdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
-	status, err := client.getStatus(true)
-	if err != nil {
-		return nil, err
-	}
-
+	// This will call directly the database and fetch the status information from the system key space.
+	status, err := getStatusFromDB(client.Cluster, client.log)
 	// There is a limitation in the multi version client if the cluster is only partially upgraded e.g. because not
 	// all fdbserver processes are restarted, then the multi version client sometimes picks the wrong version
 	// to connect to the cluster. This will result in an empty status only reporting the unreachable coordinators.
-	// In this case we want to fall back to use fdbcli which is version specific and will work.
-	if len(status.Cluster.Processes) == 0 && client.Cluster.Status.Configured {
-		client.log.Info("retry fetching status with fdbcli instead of using the client library")
-		return client.getStatus(false)
+	// In this case we want to fall back to use fdbcli which is version specific and will (hopefully) work.
+	// If we hit a timeout we will also use fdbcli to retry the get status command.
+	client.log.V(1).Info("Result from multi version client (bindings)", "error", err, "status", status)
+	if client.Cluster.Status.Configured {
+		if (err != nil && internal.IsTimeoutError(err)) || (status == nil || len(status.Cluster.Processes) == 0) {
+			client.log.Info("retry fetching status with fdbcli instead of using the client library")
+			status, err = client.getStatus()
+		}
 	}
 
-	return status, nil
+	client.log.V(1).Info("Completed GetStatus() call", "error", err, "status", status)
+
+	return status, err
 }
 
 // ConfigureDatabase sets the database configuration
@@ -400,19 +414,21 @@ func (client *cliAdminClient) ExcludeProcesses(addresses []fdbv1beta2.ProcessAdd
 		return err
 	}
 
+	var excludeCommand string
 	if version.HasNonBlockingExcludes(client.Cluster.GetUseNonBlockingExcludes()) {
-		_, err = client.runCommand(cliCommand{
-			command: fmt.Sprintf(
-				"exclude no_wait %s",
-				fdbv1beta2.ProcessAddressesString(addresses, " "),
-			)})
+		excludeCommand = fmt.Sprintf(
+			"exclude no_wait %s",
+			fdbv1beta2.ProcessAddressesString(addresses, " "),
+		)
 	} else {
-		_, err = client.runCommand(cliCommand{
-			command: fmt.Sprintf(
-				"exclude %s",
-				fdbv1beta2.ProcessAddressesString(addresses, " "),
-			)})
+		excludeCommand = fmt.Sprintf(
+			"exclude %s",
+			fdbv1beta2.ProcessAddressesString(addresses, " "),
+		)
 	}
+
+	_, err = client.runCommandWithBackoff(excludeCommand)
+
 	return err
 }
 
@@ -562,20 +578,12 @@ func (client *cliAdminClient) CanSafelyRemove(addresses []fdbv1beta2.ProcessAddr
 
 	// We expect that this command always run without a timeout error since all processes should be fully excluded.
 	// We run this only as an additional safety check.
-	_, err = client.runCommand(cliCommand{command: fmt.Sprintf(
-		"exclude %s",
-		fdbv1beta2.ProcessAddressesString(exclusions.fullyExcluded, " "),
-	)})
-
+	err = client.ExcludeProcesses(exclusions.fullyExcluded)
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = client.runCommand(cliCommand{command: fmt.Sprintf(
-		"exclude %s",
-		fdbv1beta2.ProcessAddressesString(exclusions.inProgress, " "),
-	)})
-
+	err = client.ExcludeProcesses(exclusions.inProgress)
 	// When we hit a timeout error here we know that at least one of the inProgress is still not fully excluded for safety
 	// we just return the whole slice and don't do any further distinction. We have to return all addresses that are not excluded
 	// and are still in progress, but we don't want to return an error to block further actions on the successfully excluded
@@ -619,10 +627,12 @@ func (client *cliAdminClient) KillProcesses(addresses []fdbv1beta2.ProcessAddres
 		return nil
 	}
 
-	_, err := client.runCommand(cliCommand{command: fmt.Sprintf(
+	killCommand := fmt.Sprintf(
 		"kill; kill %[1]s; sleep 1; kill %[1]s; sleep 1; kill %[1]s",
 		fdbv1beta2.ProcessAddressesStringWithoutFlags(addresses, " "),
-	)})
+	)
+	_, err := client.runCommandWithBackoff(killCommand)
+
 	return err
 }
 

@@ -42,15 +42,14 @@ func (u updateDatabaseConfiguration) reconcile(ctx context.Context, r *Foundatio
 
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updateDatabaseConfiguration")
 	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
-
 	if err != nil {
-		return &requeue{curError: err}
+		return &requeue{curError: err, delayedRequeue: true}
 	}
 	defer adminClient.Close()
 
 	status, err := adminClient.GetStatus()
 	if err != nil {
-		return &requeue{curError: err}
+		return &requeue{curError: err, delayedRequeue: true}
 	}
 
 	initialConfig := !cluster.Status.Configured
@@ -88,7 +87,7 @@ func (u updateDatabaseConfiguration) reconcile(ctx context.Context, r *Foundatio
 			hasLock, err := r.takeLock(cluster,
 				fmt.Sprintf("reconfiguring the database to `%s`", configurationString))
 			if !hasLock {
-				return &requeue{curError: err}
+				return &requeue{curError: err, delayedRequeue: true}
 			}
 		}
 
@@ -104,14 +103,14 @@ func (u updateDatabaseConfiguration) reconcile(ctx context.Context, r *Foundatio
 			cluster.Status.Configured = true
 			err = r.updateOrApply(ctx, cluster)
 			if err != nil {
-				return &requeue{curError: err}
+				return &requeue{curError: err, delayedRequeue: true}
 			}
 			return nil
 		}
 		logger.Info("Configured database")
 
 		if !equality.Semantic.DeepEqual(nextConfiguration, desiredConfiguration) {
-			return &requeue{message: "Requeuing for next stage of database configuration change"}
+			return &requeue{message: "Requeuing for next stage of database configuration change", delayedRequeue: true}
 		}
 	}
 

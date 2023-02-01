@@ -22,8 +22,11 @@ package fdbclient
 
 import (
 	"context"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/go-logr/logr"
+	"os"
 	"os/exec"
+	"strings"
 )
 
 // commandRunner is an interface to run commands.
@@ -37,28 +40,61 @@ type realCommandRunner struct {
 	log logr.Logger
 }
 
+// getEnvironmentVariablesWithoutExcludedFdbEnv returns the current environment variables for the new process with some
+// FDB specific variables filtered out to ensure we don't set any variables that could change the behaviour of fdbcli or
+// the other fdb tools.
+func getEnvironmentVariablesWithoutExcludedFdbEnv() []string {
+	excludedEnvironmentVariables := map[string]fdbv1beta2.None{
+		"FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY":       {},
+		"FDB_NETWORK_OPTION_IGNORE_EXTERNAL_CLIENT_FAILURES": {},
+	}
+
+	osVariables := os.Environ()
+	cmdEnvironmentVariables := make([]string, 0, len(osVariables))
+	for _, env := range osVariables {
+		envKey := strings.Split(env, "=")[0]
+		if _, ok := excludedEnvironmentVariables[envKey]; ok {
+			continue
+		}
+
+		cmdEnvironmentVariables = append(cmdEnvironmentVariables, env)
+	}
+
+	return cmdEnvironmentVariables
+}
+
 func (runner *realCommandRunner) runCommand(ctx context.Context, name string, arg ...string) ([]byte, error) {
 	execCommand := exec.CommandContext(ctx, name, arg...)
-
+	execCommand.Env = getEnvironmentVariablesWithoutExcludedFdbEnv()
 	runner.log.Info("Running command", "path", execCommand.Path, "args", execCommand.Args)
 	return execCommand.CombinedOutput()
 }
 
 // mockCommandRunner is a mock implementation of commandRunner and can be used for unit testing.
 type mockCommandRunner struct {
-	// mockedOutput is the output returned by runCommand
+	// mockedOutput is the output returned by runCommand.
 	mockedOutput string
-	// mockedError is the error returned by runCommand
+	// mockedError is the error returned by runCommand.
 	mockedError error
-	// receivedBinary will be the binary that was used to call runCommand
+	// receivedBinary will be the binary that was used to call runCommand.
 	receivedBinary string
-	// receivedArgs will be the args that were used to call runCommand
+	// receivedArgs will be the args that were used to call runCommand.
 	receivedArgs []string
+	// mockedOutputPerBinary is the output returned if the binary is matching. This can be helpful to test the behaviour for
+	// different versions.
+	mockedOutputPerBinary map[string]string
 }
 
 func (runner *mockCommandRunner) runCommand(_ context.Context, name string, arg ...string) ([]byte, error) {
 	runner.receivedBinary = name
 	runner.receivedArgs = arg
 
-	return []byte(runner.mockedOutput), runner.mockedError
+	var mockedOutput string
+	if output, ok := runner.mockedOutputPerBinary[name]; ok {
+		mockedOutput = output
+	} else {
+		mockedOutput = runner.mockedOutput
+	}
+
+	return []byte(mockedOutput), runner.mockedError
 }

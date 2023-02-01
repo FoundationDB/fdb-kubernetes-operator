@@ -29,7 +29,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 )
 
 // The fraction of processes that must be present in order to start a new
@@ -61,7 +60,7 @@ func (e excludeProcesses) reconcile(_ context.Context, r *FoundationDBClusterRec
 	if removalCount > 0 {
 		exclusions, err := adminClient.GetExclusions()
 		if err != nil {
-			return &requeue{curError: err}
+			return &requeue{curError: err, delayedRequeue: true}
 		}
 		logger.Info("current exclusions", "ex", exclusions)
 		fdbProcessesToExclude, processClassesToExclude = getProcessesToExclude(exclusions, cluster, removalCount)
@@ -84,18 +83,7 @@ func (e excludeProcesses) reconcile(_ context.Context, r *FoundationDBClusterRec
 
 		err = adminClient.ExcludeProcesses(fdbProcessesToExclude)
 		if err != nil {
-			// If we run into a timeout error don't requeue directly
-			// to allow the operator to take some other tasks.
-			// This can be useful with blocking exclusions and exclusions
-			// that take a longer time.
-			if internal.IsTimeoutError(err) {
-				return &requeue{
-					message:        err.Error(),
-					delayedRequeue: true,
-				}
-			}
-
-			return &requeue{curError: err}
+			return &requeue{curError: err, delayedRequeue: true}
 		}
 	}
 
