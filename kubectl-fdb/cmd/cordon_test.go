@@ -32,7 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var _ = FDescribe("[plugin] cordon command", func() {
+var _ = Describe("[plugin] cordon command", func() {
 	When("running cordon command", func() {
 		type testCase struct {
 			nodes                                     []string
@@ -142,6 +142,33 @@ var _ = FDescribe("[plugin] cordon command", func() {
 					ExpectedInstancesToRemove: []string{"instance-3"},
 					ExpectedInstancesToRemoveWithoutExclusion: []string{},
 					clusterName:  "test2",
+					customLabels: []string{fdbv1beta2.FDBClusterLabel},
+				}),
+			Entry("Cordon node from all clusters without exclusion",
+				testCase{
+					nodes:                     []string{"node-1"},
+					WithExclusion:             true,
+					ExpectedInstancesToRemove: []string{"instance-1", "instance-3"},
+					ExpectedInstancesToRemoveWithoutExclusion: []string{},
+					clusterName:  "",
+					customLabels: []string{fdbv1beta2.FDBClusterLabel},
+				}),
+			Entry("Cordon all node from all clusters with exclusion",
+				testCase{
+					nodes:                     []string{"node-1", "node-2"},
+					WithExclusion:             true,
+					ExpectedInstancesToRemove: []string{},
+					ExpectedInstancesToRemoveWithoutExclusion: []string{"instance-1", "instance-2", "instance-3", "instance-4"},
+					clusterName:  "",
+					customLabels: []string{fdbv1beta2.FDBClusterLabel},
+				}),
+			Entry("Cordon no node nodes without exclusion with custom label",
+				testCase{
+					nodes:                     []string{""},
+					WithExclusion:             false,
+					ExpectedInstancesToRemove: []string{},
+					ExpectedInstancesToRemoveWithoutExclusion: []string{},
+					clusterName:  "",
 					customLabels: []string{fdbv1beta2.FDBClusterLabel},
 				}),
 		)
