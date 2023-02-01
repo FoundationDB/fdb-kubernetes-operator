@@ -23,6 +23,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal/locality"
 	"github.com/go-logr/logr"
 

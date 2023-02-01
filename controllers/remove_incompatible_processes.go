@@ -42,7 +42,7 @@ func (removeIncompatibleProcesses) reconcile(ctx context.Context, r *FoundationD
 	err := processIncompatibleProcesses(ctx, r, logger, cluster)
 
 	if err != nil {
-		return &requeue{curError: err, delay: 15 * time.Second}
+		return &requeue{curError: err, delay: 15 * time.Second, delayedRequeue: true}
 	}
 
 	return nil
@@ -102,12 +102,7 @@ func processIncompatibleProcesses(ctx context.Context, r *FoundationDBClusterRec
 	}
 
 	// Ensure the cluster is running at fault tolerance before recreating Pods.
-	hasDesiredFaultTolerance, err := internal.HasDesiredFaultToleranceFromStatus(logger, status, cluster)
-	if err != nil {
-		logger.V(1).Info("Cluster doesn't have required fault tolerance won't delete Pods")
-		return err
-	}
-
+	hasDesiredFaultTolerance := internal.HasDesiredFaultToleranceFromStatus(logger, status, cluster)
 	if !hasDesiredFaultTolerance {
 		logger.V(1).Info("Skipping reconciler and waiting until cluster has desired fault tolerance")
 		return nil

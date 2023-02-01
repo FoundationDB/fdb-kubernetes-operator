@@ -37,7 +37,7 @@ import (
 	"strings"
 	"time"
 
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"k8s.io/utils/pointer"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podclient"
@@ -45,7 +45,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/hashicorp/go-retryablehttp"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/utils/pointer"
 )
 
 // FDBImageType describes a type of image a pod or cluster is using.
@@ -396,97 +395,6 @@ func (client *realFdbPodAnnotationClient) IsPresent(_ string) (bool, error) {
 	return true, nil
 }
 
-// MockFdbPodClient provides a mock connection to a pod
-type mockFdbPodClient struct {
-	Cluster *fdbv1beta2.FoundationDBCluster
-	Pod     *corev1.Pod
-	logger  logr.Logger
-}
-
-// NewMockFdbPodClient builds a mock client for working with an FDB pod
-func NewMockFdbPodClient(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod) (podclient.FdbPodClient, error) {
-	return &mockFdbPodClient{Cluster: cluster, Pod: pod, logger: logr.New(logf.NewDelegatingLogSink(logf.NullLogSink{}))}, nil
-}
-
-// UpdateFile checks if a file is up-to-date and tries to update it.
-func (client *mockFdbPodClient) UpdateFile(_ string, _ string) (bool, error) {
-	return true, nil
-}
-
-// IsPresent checks whether a file in the sidecar is present.
-func (client *mockFdbPodClient) IsPresent(_ string) (bool, error) {
-	return true, nil
-}
-
-// GetVariableSubstitutions gets the current keys and values that this
-// process group will substitute into its monitor conf.
-func (client *mockFdbPodClient) GetVariableSubstitutions() (map[string]string, error) {
-	substitutions := map[string]string{}
-
-	if client.Pod.Annotations != nil {
-		if _, ok := client.Pod.Annotations[MockUnreachableAnnotation]; ok {
-			return substitutions, &net.OpError{Op: "mock", Err: fmt.Errorf("not reachable")}
-		}
-	}
-
-	ipString := GetPublicIPsForPod(client.Pod, client.logger)[0]
-	substitutions["FDB_PUBLIC_IP"] = ipString
-	if ipString != "" {
-		ip := net.ParseIP(ipString)
-		if ip == nil {
-			return nil, fmt.Errorf("failed to parse IP from pod: %s", ipString)
-		}
-
-		if ip.To4() == nil {
-			substitutions["FDB_PUBLIC_IP"] = fmt.Sprintf("[%s]", ipString)
-		}
-	}
-	substitutions["FDB_POD_IP"] = substitutions["FDB_PUBLIC_IP"]
-
-	if client.Cluster.Spec.FaultDomain.Key == fdbv1beta2.NoneFaultDomainKey {
-		substitutions["FDB_MACHINE_ID"] = client.Pod.Name
-		substitutions["FDB_ZONE_ID"] = client.Pod.Name
-	} else if client.Cluster.Spec.FaultDomain.Key == "foundationdb.org/kubernetes-cluster" {
-		substitutions["FDB_MACHINE_ID"] = client.Pod.Spec.NodeName
-		substitutions["FDB_ZONE_ID"] = client.Cluster.Spec.FaultDomain.Value
-	} else {
-		faultDomainSource := client.Cluster.Spec.FaultDomain.ValueFrom
-		if faultDomainSource == "" {
-			faultDomainSource = "spec.nodeName"
-		}
-		substitutions["FDB_MACHINE_ID"] = client.Pod.Spec.NodeName
-
-		if faultDomainSource == "spec.nodeName" {
-			substitutions["FDB_ZONE_ID"] = client.Pod.Spec.NodeName
-		} else {
-			return nil, fmt.Errorf("unsupported fault domain source %s", faultDomainSource)
-		}
-	}
-
-	substitutions["FDB_INSTANCE_ID"] = GetProcessGroupIDFromMeta(client.Cluster, client.Pod.ObjectMeta)
-
-	if client.Cluster.IsBeingUpgraded() {
-		substitutions["BINARY_DIR"] = fmt.Sprintf("/var/dynamic-conf/bin/%s", client.Cluster.Spec.Version)
-	} else {
-		substitutions["BINARY_DIR"] = "/usr/bin"
-	}
-
-	copyableSubstitutions := map[string]fdbv1beta2.None{
-		"FDB_DNS_NAME":    {},
-		"FDB_INSTANCE_ID": {},
-	}
-	for _, container := range client.Pod.Spec.Containers {
-		for _, envVar := range container.Env {
-			_, copyable := copyableSubstitutions[envVar.Name]
-			if copyable {
-				substitutions[envVar.Name] = envVar.Value
-			}
-		}
-	}
-
-	return substitutions, nil
-}
-
 // podHasSidecarTLS determines whether a pod currently has TLS enabled for the
 // sidecar process.
 func podHasSidecarTLS(pod *corev1.Pod) bool {
@@ -527,4 +435,73 @@ func GetDesiredImageType(cluster *fdbv1beta2.FoundationDBCluster) FDBImageType {
 		return FDBImageTypeUnified
 	}
 	return FDBImageTypeSplit
+}
+
+// GetSubstitutionsFromClusterAndPod returns a map that contains the substitutions based on the provided cluster and Pod.
+// This method is used for testing and in the MockFdbPodClient.
+func GetSubstitutionsFromClusterAndPod(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod) (map[string]string, error) {
+	substitutions := map[string]string{}
+
+	if pod.Annotations != nil {
+		if _, ok := pod.Annotations[MockUnreachableAnnotation]; ok {
+			return substitutions, &net.OpError{Op: "mock", Err: fmt.Errorf("not reachable")}
+		}
+	}
+
+	ipString := GetPublicIPsForPod(pod, logger)[0]
+	substitutions["FDB_PUBLIC_IP"] = ipString
+	if ipString != "" {
+		ip := net.ParseIP(ipString)
+		if ip == nil {
+			return nil, fmt.Errorf("failed to parse IP from pod: %s", ipString)
+		}
+
+		if ip.To4() == nil {
+			substitutions["FDB_PUBLIC_IP"] = fmt.Sprintf("[%s]", ipString)
+		}
+	}
+	substitutions["FDB_POD_IP"] = substitutions["FDB_PUBLIC_IP"]
+
+	if cluster.Spec.FaultDomain.Key == fdbv1beta2.NoneFaultDomainKey {
+		substitutions["FDB_MACHINE_ID"] = pod.Name
+		substitutions["FDB_ZONE_ID"] = pod.Name
+	} else if cluster.Spec.FaultDomain.Key == "foundationdb.org/kubernetes-cluster" {
+		substitutions["FDB_MACHINE_ID"] = pod.Spec.NodeName
+		substitutions["FDB_ZONE_ID"] = cluster.Spec.FaultDomain.Value
+	} else {
+		faultDomainSource := cluster.Spec.FaultDomain.ValueFrom
+		if faultDomainSource == "" {
+			faultDomainSource = "spec.nodeName"
+		}
+		substitutions["FDB_MACHINE_ID"] = pod.Spec.NodeName
+
+		if faultDomainSource == "spec.nodeName" {
+			substitutions["FDB_ZONE_ID"] = pod.Spec.NodeName
+		} else {
+			return nil, fmt.Errorf("unsupported fault domain source %s", faultDomainSource)
+		}
+	}
+
+	substitutions["FDB_INSTANCE_ID"] = GetProcessGroupIDFromMeta(cluster, pod.ObjectMeta)
+
+	if cluster.IsBeingUpgraded() {
+		substitutions["BINARY_DIR"] = fmt.Sprintf("/var/dynamic-conf/bin/%s", cluster.Spec.Version)
+	} else {
+		substitutions["BINARY_DIR"] = "/usr/bin"
+	}
+
+	copyableSubstitutions := map[string]fdbv1beta2.None{
+		"FDB_DNS_NAME":    {},
+		"FDB_INSTANCE_ID": {},
+	}
+	for _, container := range pod.Spec.Containers {
+		for _, envVar := range container.Env {
+			_, copyable := copyableSubstitutions[envVar.Name]
+			if copyable {
+				substitutions[envVar.Name] = envVar.Value
+			}
+		}
+	}
+
+	return substitutions, nil
 }

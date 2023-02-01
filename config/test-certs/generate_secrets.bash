@@ -1,4 +1,4 @@
-#! /bin/bash
+#!/usr/bin/env bash
 
 set -eu
 
@@ -23,6 +23,9 @@ set -eu
 
 # This script generates secrets with test certs for use in local testing.
 
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
+cd "${SCRIPT_DIR}"
+
 kubectl delete secrets -l app=fdb-kubernetes-operator
-kubectl create secret tls fdb-kubernetes-operator-secrets --key=config/test-certs/key.pem --cert=config/test-certs/cert.pem
+kubectl create secret tls fdb-kubernetes-operator-secrets --key=${SCRIPT_DIR}/key.pem --cert=${SCRIPT_DIR}/cert.pem
 kubectl label secret fdb-kubernetes-operator-secrets app=fdb-kubernetes-operator

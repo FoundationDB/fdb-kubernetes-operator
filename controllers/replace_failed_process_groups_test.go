@@ -24,6 +24,8 @@ import (
 	ctx "context"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient/mock"
+
 	"k8s.io/utils/pointer"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
@@ -53,16 +55,19 @@ var _ = Describe("replace_failed_process_groups", func() {
 	})
 
 	JustBeforeEach(func() {
-		adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+		adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(adminClient).NotTo(BeNil())
+		err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
+		Expect(err).NotTo(HaveOccurred())
 		result = replaceFailedProcessGroups{}.reconcile(ctx.Background(), clusterReconciler, cluster)
 	})
 
 	Context("with no missing processes", func() {
-		It("should return nil", func() {
-			Expect(result).To(BeNil())
-		})
+		It("should return nil",
+			func() {
+				Expect(result).To(BeNil())
+			})
 
 		It("should not mark anything for removal", func() {
 			Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{}))
@@ -129,6 +134,44 @@ var _ = Describe("replace_failed_process_groups", func() {
 			When("Crash loop is set for the specific process group", func() {
 				BeforeEach(func() {
 					cluster.Spec.Buggify.CrashLoop = []string{"storage-2"}
+				})
+
+				It("should return nil", func() {
+					Expect(result).To(BeNil())
+				})
+
+				It("should not mark the process group for removal", func() {
+					Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{}))
+				})
+			})
+
+			When("Crash loop is set for the main container", func() {
+				BeforeEach(func() {
+					cluster.Spec.Buggify.CrashLoopContainers = []fdbv1beta2.CrashLoopContainerObject{
+						{
+							ContainerName: fdbv1beta2.MainContainerName,
+							Targets:       []string{"storage-2"},
+						},
+					}
+				})
+
+				It("should return nil", func() {
+					Expect(result).To(BeNil())
+				})
+
+				It("should not mark the process group for removal", func() {
+					Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{}))
+				})
+			})
+
+			When("Crash loop is set for the sidecar container", func() {
+				BeforeEach(func() {
+					cluster.Spec.Buggify.CrashLoopContainers = []fdbv1beta2.CrashLoopContainerObject{
+						{
+							ContainerName: fdbv1beta2.SidecarContainerName,
+							Targets:       []string{"storage-2"},
+						},
+					}
 				})
 
 				It("should return nil", func() {
@@ -261,9 +304,9 @@ var _ = Describe("replace_failed_process_groups", func() {
 					processGroup := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-2")
 					processGroup.Addresses = nil
 
-					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
-					adminClient.frozenStatus = &fdbv1beta2.FoundationDBStatus{
+					adminClient.FrozenStatus = &fdbv1beta2.FoundationDBStatus{
 						Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
 							DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
 								Available: false,
@@ -286,9 +329,9 @@ var _ = Describe("replace_failed_process_groups", func() {
 					processGroup := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-2")
 					processGroup.Addresses = nil
 
-					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
-					adminClient.maxZoneFailuresWithoutLosingData = pointer.Int(0)
+					adminClient.MaxZoneFailuresWithoutLosingData = pointer.Int(0)
 				})
 
 				It("should return nil", func() {

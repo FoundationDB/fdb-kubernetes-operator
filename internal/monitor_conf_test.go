@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/go-logr/logr"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	monitorapi "github.com/apple/foundationdb/fdbkubernetesmonitor/api"
 	. "github.com/onsi/ginkgo/v2"
@@ -440,9 +442,9 @@ var _ = Describe("monitor_conf", func() {
 
 		Context("for a basic storage process", func() {
 			It("should substitute the variables in the start command", func() {
-				podClient, err := NewMockFdbPodClient(cluster, pod)
+				substitutions, err := GetSubstitutionsFromClusterAndPod(logr.Discard(), cluster, pod)
 				Expect(err).NotTo(HaveOccurred())
-				command, err = GetStartCommand(cluster, processClass, podClient, 1, 1)
+				command, err = getStartCommandWithSubstitutions(cluster, processClass, substitutions, 1, 1)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(command).To(Equal(strings.Join([]string{
@@ -466,9 +468,9 @@ var _ = Describe("monitor_conf", func() {
 					settings.CustomParameters = []fdbv1beta2.FoundationDBCustomParameter{"locality_disk_id=$FDB_INSTANCE_ID"}
 					cluster.Spec.Processes["general"] = settings
 
-					podClient, err := NewMockFdbPodClient(cluster, pod)
+					substitutions, err := GetSubstitutionsFromClusterAndPod(logr.Discard(), cluster, pod)
 					Expect(err).NotTo(HaveOccurred())
-					command, err = GetStartCommand(cluster, processClass, podClient, 1, 1)
+					command, err = getStartCommandWithSubstitutions(cluster, processClass, substitutions, 1, 1)
 					Expect(err).NotTo(HaveOccurred())
 
 					Expect(command).To(Equal(strings.Join([]string{
@@ -495,9 +497,9 @@ var _ = Describe("monitor_conf", func() {
 			})
 
 			It("should generate the unsorted command-line", func() {
-				podClient, err := NewMockFdbPodClient(cluster, pod)
+				substitutions, err := GetSubstitutionsFromClusterAndPod(logr.Discard(), cluster, pod)
 				Expect(err).NotTo(HaveOccurred())
-				command, err = GetStartCommand(cluster, processClass, podClient, 1, 1)
+				command, err = getStartCommandWithSubstitutions(cluster, processClass, substitutions, 1, 1)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(command).To(Equal(strings.Join([]string{
@@ -517,9 +519,9 @@ var _ = Describe("monitor_conf", func() {
 
 			When("the pod has multiple processes", func() {
 				It("should fill in the process number", func() {
-					podClient, err := NewMockFdbPodClient(cluster, pod)
+					substitutions, err := GetSubstitutionsFromClusterAndPod(logr.Discard(), cluster, pod)
 					Expect(err).NotTo(HaveOccurred())
-					command, err = GetStartCommand(cluster, processClass, podClient, 2, 3)
+					command, err = getStartCommandWithSubstitutions(cluster, processClass, substitutions, 2, 3)
 					Expect(err).NotTo(HaveOccurred())
 
 					Expect(command).To(Equal(strings.Join([]string{
@@ -546,9 +548,9 @@ var _ = Describe("monitor_conf", func() {
 			})
 
 			It("should generate the sorted command-line", func() {
-				podClient, err := NewMockFdbPodClient(cluster, pod)
+				substitutions, err := GetSubstitutionsFromClusterAndPod(logr.Discard(), cluster, pod)
 				Expect(err).NotTo(HaveOccurred())
-				command, err = GetStartCommand(cluster, processClass, podClient, 1, 1)
+				command, err = getStartCommandWithSubstitutions(cluster, processClass, substitutions, 1, 1)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(command).To(Equal(strings.Join([]string{
@@ -569,9 +571,9 @@ var _ = Describe("monitor_conf", func() {
 
 		Context("for a basic storage process with multiple storage servers per Pod", func() {
 			It("should substitute the variables in the start command", func() {
-				podClient, err := NewMockFdbPodClient(cluster, pod)
+				substitutions, err := GetSubstitutionsFromClusterAndPod(logr.Discard(), cluster, pod)
 				Expect(err).NotTo(HaveOccurred())
-				command, err = GetStartCommand(cluster, processClass, podClient, 1, 2)
+				command, err = getStartCommandWithSubstitutions(cluster, processClass, substitutions, 1, 2)
 				Expect(err).NotTo(HaveOccurred())
 
 				id := "storage-1"
@@ -590,7 +592,7 @@ var _ = Describe("monitor_conf", func() {
 					"--seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 				}, " ")))
 
-				command, err = GetStartCommand(cluster, processClass, podClient, 2, 2)
+				command, err = getStartCommandWithSubstitutions(cluster, processClass, substitutions, 2, 2)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(command).To(Equal(strings.Join([]string{
 					"/usr/bin/fdbserver",
@@ -614,8 +616,9 @@ var _ = Describe("monitor_conf", func() {
 				pod.Spec.NodeName = "machine1"
 				cluster.Spec.FaultDomain = fdbv1beta2.FoundationDBClusterFaultDomain{}
 
-				podClient, _ := NewMockFdbPodClient(cluster, pod)
-				command, err = GetStartCommand(cluster, fdbv1beta2.ProcessClassStorage, podClient, 1, 1)
+				substitutions, err := GetSubstitutionsFromClusterAndPod(logr.Discard(), cluster, pod)
+				Expect(err).NotTo(HaveOccurred())
+				command, err = getStartCommandWithSubstitutions(cluster, fdbv1beta2.ProcessClassStorage, substitutions, 1, 1)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -645,8 +648,9 @@ var _ = Describe("monitor_conf", func() {
 					Value: "kc2",
 				}
 
-				podClient, _ := NewMockFdbPodClient(cluster, pod)
-				command, err = GetStartCommand(cluster, fdbv1beta2.ProcessClassStorage, podClient, 1, 1)
+				substitutions, err := GetSubstitutionsFromClusterAndPod(logr.Discard(), cluster, pod)
+				Expect(err).NotTo(HaveOccurred())
+				command, err = getStartCommandWithSubstitutions(cluster, fdbv1beta2.ProcessClassStorage, substitutions, 1, 1)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -671,9 +675,9 @@ var _ = Describe("monitor_conf", func() {
 			BeforeEach(func() {
 				cluster.Spec.Version = fdbv1beta2.Versions.Default.String()
 				cluster.Status.RunningVersion = fdbv1beta2.Versions.Default.String()
-				podClient, _ := NewMockFdbPodClient(cluster, pod)
-
-				command, err = GetStartCommand(cluster, fdbv1beta2.ProcessClassStorage, podClient, 1, 1)
+				substitutions, err := GetSubstitutionsFromClusterAndPod(logr.Discard(), cluster, pod)
+				Expect(err).NotTo(HaveOccurred())
+				command, err = getStartCommandWithSubstitutions(cluster, fdbv1beta2.ProcessClassStorage, substitutions, 1, 1)
 				Expect(err).NotTo(HaveOccurred())
 			})
 

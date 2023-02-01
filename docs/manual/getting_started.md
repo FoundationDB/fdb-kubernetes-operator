@@ -40,7 +40,7 @@ This will create a cluster with 3 storage processes, 4 log processes, and 7 stat
 
 You can run `kubectl get foundationdbcluster sample-cluster` to check the progress of reconciliation. Once the reconciled generation appears in this output, the cluster should be up and ready. After creating the cluster, you can connect to the cluster by running `kubectl exec -it sample-cluster-log-1 -- fdbcli`.
 
-This example requires non-trivial resources, based on what a process will need in a production environment. This means that is too large to run in a local testing environment. It also requires disk I/O features that are not present in Docker for Mac. If you want to run these tests in that kind of environment, you can try bringing in the resource requirements, knobs, and fault domain information from a [local testing example](../../config/samples/cluster_local.yaml).
+This example requires non-trivial resources, based on what a process will need in a production environment. This means that is too large to run in a local testing environment. It also requires disk I/O features that are not present in Docker for Mac. If you want to run these tests in that kind of environment, you can try bringing in the resource requirements, knobs, and fault domain information from a [local testing example](../../config/samples/cluster.yaml).
 
 In addition to the pods, the operator will create a Persistent Volume Claim for any stateful
 processes in the cluster. In this example, each volume will be 128 GB.

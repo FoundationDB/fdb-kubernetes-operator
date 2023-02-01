@@ -76,4 +76,8 @@ const (
 	// FDBLocalityDNSNameKey represents the key in the locality map that holds
 	// the DNS name for the pod.
 	FDBLocalityDNSNameKey = "dns_name"
+
+	// FDBLocalityProcessIDKey represents the key in the locality map that
+	// holds the process ID.
+	FDBLocalityProcessIDKey = "process_id"
 )

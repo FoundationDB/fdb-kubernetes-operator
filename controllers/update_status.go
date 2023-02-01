@@ -70,7 +70,7 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 			},
 		}
 	} else {
-		connectionString, err := tryConnectionOptions(cluster, r)
+		connectionString, err := tryConnectionOptions(logger, cluster, r)
 		if err != nil {
 			return &requeue{curError: err}
 		}
@@ -307,8 +307,7 @@ func optionList(options ...string) []string {
 
 // tryConnectionOptions attempts to connect with all the connection strings for this cluster and
 // returns the connection string that allows connecting to the cluster.
-func tryConnectionOptions(cluster *fdbv1beta2.FoundationDBCluster, r *FoundationDBClusterReconciler) (string, error) {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updateStatus")
+func tryConnectionOptions(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, r *FoundationDBClusterReconciler) (string, error) {
 	connectionStrings := optionList(cluster.Status.ConnectionString, cluster.Spec.SeedConnectionString)
 
 	if len(connectionStrings) == 1 {
@@ -439,10 +438,21 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 			//TODO(manuel.fontan): add a unit test for this
 			processGroup.LocalityDataHall = dataHall
 		}
-
-		if processGroup.IsMarkedForRemoval() && pod.ObjectMeta.DeletionTimestamp != nil {
-			processGroup.UpdateCondition(fdbv1beta2.ResourcesTerminating, true, processGroups, processGroup.ProcessGroupID)
-			continue
+		// In this case the Pod has a DeletionTimestamp and should be deleted.
+		if !pod.ObjectMeta.DeletionTimestamp.IsZero() {
+			// If the ProcessGroup is marked for removal we can put the status into ResourcesTerminating
+			if processGroup.IsMarkedForRemoval() {
+				processGroup.UpdateCondition(fdbv1beta2.ResourcesTerminating, true, processGroups, processGroup.ProcessGroupID)
+				continue
+			}
+			// Otherwise we set PodFailing to ensure that the operator will trigger a replacement. This case can happen
+			// if a Pod is marked for terminating (e.g. node failure) but the process itself is still reporting to the
+			// cluster. We only set this condition if the Pod is in this state for GetFailedPodDuration(), the default
+			// here is 5 minutes.
+			if pod.ObjectMeta.DeletionTimestamp.Add(cluster.GetFailedPodDuration()).Before(time.Now()) {
+				processGroup.UpdateCondition(fdbv1beta2.PodFailing, true, processGroups, processGroup.ProcessGroupID)
+				continue
+			}
 		}
 
 		// Even the process group will be removed we need to keep the config around.

@@ -21,7 +21,11 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"strings"
 	"time"
 
@@ -100,6 +104,17 @@ func newAnalyzeCmd(streams genericclioptions.IOStreams) *cobra.Command {
 				return err
 			}
 
+			config, err := o.configFlags.ToRESTConfig()
+			if err != nil {
+				return err
+			}
+
+			clientSet, err := kubernetes.NewForConfig(config)
+			if err != nil {
+				return err
+			}
+
+			// TODO (jscheuermann): Don't load clusters twice if we check all clusters
 			var clusters []string
 			if allClusters {
 				var clusterList fdbv1beta2.FoundationDBClusterList
@@ -116,8 +131,21 @@ func newAnalyzeCmd(streams genericclioptions.IOStreams) *cobra.Command {
 			}
 
 			var errs []error
-			for _, cluster := range clusters {
-				err := analyzeCluster(cmd, kubeClient, cluster, namespace, autoFix, wait, ignoreConditions, ignoreRemovals, sleep)
+			for _, clusterName := range clusters {
+				cluster, err := loadCluster(kubeClient, namespace, clusterName)
+				if err != nil {
+					if k8serrors.IsNotFound(err) {
+						errs = append(errs, fmt.Errorf("could not get cluster: %s/%s", namespace, clusterName))
+					}
+					errs = append(errs, err)
+				}
+
+				err = analyzeCluster(cmd, kubeClient, cluster, autoFix, wait, ignoreConditions, ignoreRemovals, sleep)
+				if err != nil {
+					errs = append(errs, err)
+				}
+
+				err = analyzeStatus(cmd, config, clientSet, kubeClient, cluster, autoFix)
 				if err != nil {
 					errs = append(errs, err)
 				}
@@ -194,12 +222,12 @@ func allConditionsValid(conditions []string) error {
 	return fmt.Errorf(errString.String())
 }
 
-type messageType string
+type messageType int
 
 const (
-	errorMessage messageType = "error"
-	warnMessage  messageType = "warn"
-	goodMessage  messageType = "good"
+	errorMessage messageType = iota
+	warnMessage
+	goodMessage
 )
 
 func printStatement(cmd *cobra.Command, line string, mesType messageType) {
@@ -222,18 +250,9 @@ func printStatement(cmd *cobra.Command, line string, mesType messageType) {
 	color.Unset()
 }
 
-func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName string, namespace string, autoFix bool, wait bool, ignoreConditions []string, ignoreRemovals bool, sleep uint16) error {
-	foundIssues := false
-	cluster, err := loadCluster(kubeClient, namespace, clusterName)
-
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			return fmt.Errorf("could not get cluster: %s/%s", namespace, clusterName)
-		}
-		return err
-	}
-
-	cmd.Printf("Checking cluster: %s/%s\n", namespace, clusterName)
+func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluster, autoFix bool, wait bool, ignoreConditions []string, ignoreRemovals bool, sleep uint16) error {
+	var foundIssues bool
+	cmd.Printf("Checking cluster: %s/%s\n", cluster.Namespace, cluster.Name)
 
 	// 1. Check if the cluster is available
 	if cluster.Status.Health.Available {
@@ -325,7 +344,7 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 	}
 
 	// 4. Check if all Pods are up and running
-	pods, err := getPodsForCluster(kubeClient, cluster, namespace)
+	pods, err := getPodsForCluster(kubeClient, cluster)
 	if err != nil {
 		return err
 	}
@@ -346,7 +365,7 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 
 		if pod.DeletionTimestamp != nil && pod.DeletionTimestamp.Add(5*time.Minute).Before(time.Now()) {
 			podIssue = true
-			statement := fmt.Sprintf("Pod %s/%s has been stuck in terminating since %s", namespace, pod.Name, pod.DeletionTimestamp)
+			statement := fmt.Sprintf("Pod %s/%s has been stuck in terminating since %s", pod.Namespace, pod.Name, pod.DeletionTimestamp)
 			printStatement(cmd, statement, errorMessage)
 
 			// The process groups that should be deleted, so we can safely replace it
@@ -359,7 +378,7 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 
 		if pod.Status.Phase != corev1.PodRunning {
 			podIssue = true
-			statement := fmt.Sprintf("Pod %s/%s has unexpected Phase %s with Reason: %s", namespace, pod.Name, pod.Status.Phase, pod.Status.Reason)
+			statement := fmt.Sprintf("Pod %s/%s has unexpected Phase %s with Reason: %s", pod.Namespace, pod.Name, pod.Status.Phase, pod.Status.Reason)
 			printStatement(cmd, statement, errorMessage)
 		}
 
@@ -370,7 +389,7 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 			}
 
 			podIssue = true
-			statement := fmt.Sprintf("Pod %s/%s has an unready container: %s", namespace, pod.Name, container.Name)
+			statement := fmt.Sprintf("Pod %s/%s has an unready container: %s", pod.Namespace, pod.Name, container.Name)
 			printStatement(cmd, statement, errorMessage)
 
 			// Replace the Pod if the container is unready for more then 30 minutes
@@ -386,7 +405,7 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 		id := pod.Labels[processGroupIDLabel]
 		if _, ok := processGroupMap[id]; !ok {
 			podIssue = true
-			statement := fmt.Sprintf("Pod %s/%s with the ID %s is not part of the cluster spec status", namespace, pod.Name, id)
+			statement := fmt.Sprintf("Pod %s/%s with the ID %s is not part of the cluster spec status", pod.Namespace, pod.Name, id)
 			printStatement(cmd, statement, errorMessage)
 		}
 	}
@@ -397,13 +416,12 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 		foundIssues = true
 	}
 
-	// TODO: add more checks using the FDB status directly e.g. error message or something else or overloaded or matching versions
 	// We could add more auto fixes in the future.
 	if autoFix {
 		confirmed := false
 
 		if len(failedProcessGroups) > 0 {
-			err := replaceProcessGroups(kubeClient, cluster.Name, failedProcessGroups, namespace, true, wait, false, true, sleep)
+			err := replaceProcessGroups(kubeClient, cluster.Name, failedProcessGroups, cluster.Namespace, true, wait, false, true, sleep)
 			if err != nil {
 				return err
 			}
@@ -416,7 +434,7 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 				podNames = append(podNames, pod.Name)
 			}
 
-			confirmed = confirmAction(fmt.Sprintf("Delete Pods %v in cluster %s/%s", strings.Join(podNames, ","), namespace, clusterName))
+			confirmed = confirmAction(fmt.Sprintf("Delete Pods %v in cluster %s/%s", strings.Join(podNames, ","), cluster.Namespace, cluster.Name))
 		}
 
 		if !wait || confirmed {
@@ -454,4 +472,102 @@ func filterDeletePods(replacements []string, killPods []corev1.Pod) []corev1.Pod
 	}
 
 	return res
+}
+
+func getStatus(restConfig *rest.Config, clientSet *kubernetes.Clientset, pod *corev1.Pod) (*fdbv1beta2.FoundationDBStatus, error) {
+	stdout, stderr, err := executeCmd(restConfig, clientSet, pod.Name, pod.Namespace, "fdbcli --exec 'status json'")
+	if err != nil {
+		return nil, fmt.Errorf("error getting status: %s, %w", stderr, err)
+	}
+
+	content, err := internal.RemoveWarningsInJSON(stdout.String())
+	if err != nil {
+		fmt.Println(stdout.String())
+		return nil, err
+	}
+
+	status := &fdbv1beta2.FoundationDBStatus{}
+	err = json.Unmarshal(content, status)
+	if err != nil {
+		return nil, err
+	}
+
+	return status, nil
+}
+
+func analyzeStatus(cmd *cobra.Command, restConfig *rest.Config, clientSet *kubernetes.Clientset, kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluster, autoFix bool) error {
+	cmd.Printf("Checking cluster: %s/%s with auto-fix: %t\n", cluster.Namespace, cluster.Name, autoFix)
+
+	pods, err := getPodsForCluster(kubeClient, cluster)
+	if err != nil {
+		return err
+	}
+
+	pod, err := chooseRandomPod(pods)
+	if err != nil {
+		return err
+	}
+
+	var status *fdbv1beta2.FoundationDBStatus
+	var tries int
+
+	// Try to get the status for 5 times
+	for tries < 5 {
+		status, err = getStatus(restConfig, clientSet, pod)
+		if err == nil {
+			break
+		}
+
+		tries++
+		printStatement(cmd, err.Error(), errorMessage)
+	}
+
+	if err != nil {
+		return err
+	}
+
+	return analyzeStatusInternal(cmd, restConfig, clientSet, status, pod, autoFix, cluster.Name)
+}
+
+func analyzeStatusInternal(cmd *cobra.Command, restConfig *rest.Config, clientSet *kubernetes.Clientset, status *fdbv1beta2.FoundationDBStatus, pod *corev1.Pod, autoFix bool, clusterName string) error {
+	var foundIssues bool
+
+	processesWithError := make([]string, 0)
+	for _, process := range status.Cluster.Processes {
+		if len(process.Messages) == 0 {
+			continue
+		}
+
+		foundIssues = true
+		addr := process.Address.StringWithoutFlags()
+		processesWithError = append(processesWithError, addr)
+		for _, message := range process.Messages {
+			printStatement(cmd, fmt.Sprintf("Process: %s with address: %s error: %s type: %s, time: %s",
+				process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey],
+				addr,
+				message.Name,
+				message.Type,
+				time.Unix(int64(int(message.Time)), 0).String()), errorMessage)
+		}
+	}
+
+	if len(processesWithError) > 0 && autoFix {
+		// Restart one process by another. The restart will remove the condition, assuming the condition was only
+		// intermediate.
+		for _, process := range processesWithError {
+			cmd.Println("Start killing", process)
+			killCmd := fmt.Sprintf("kill; kill %s; sleep 5; status", process)
+			_, stderr, err := executeCmd(restConfig, clientSet, pod.Name, pod.Namespace, fmt.Sprintf("fdbcli --exec '%s'", killCmd))
+			if err != nil {
+				return fmt.Errorf("error killing process %s status: %s, %w", process, stderr.String(), err)
+			}
+			time.Sleep(5 * time.Second)
+		}
+	}
+
+	if foundIssues {
+		return fmt.Errorf("found issues in status json for cluster %s. Please check them", clusterName)
+	}
+
+	return nil
 }

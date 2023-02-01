@@ -44,7 +44,8 @@ func (d deletePodsForBuggification) reconcile(ctx context.Context, r *Foundation
 	}
 
 	podMap := internal.CreatePodMap(cluster, pods)
-	crashLoopPods, crashLoopAll := cluster.GetCrashLoopProcessGroups()
+	crashLoopContainerProcessGroups := cluster.GetCrashLoopContainerProcessGroups()
+
 	noSchedulePods := make(map[string]fdbv1beta2.None, len(cluster.Spec.Buggify.NoSchedule))
 	for _, processGroupID := range cluster.Spec.Buggify.NoSchedule {
 		noSchedulePods[processGroupID] = fdbv1beta2.None{}
@@ -68,13 +69,22 @@ func (d deletePodsForBuggification) reconcile(ctx context.Context, r *Foundation
 		inCrashLoop := false
 		for _, container := range pod.Spec.Containers {
 			if container.Name == fdbv1beta2.MainContainerName && len(container.Args) > 0 {
-				inCrashLoop = container.Args[0] == "crash-loop"
+				inCrashLoop = inCrashLoop || container.Args[0] == "crash-loop"
+			} else if container.Name == fdbv1beta2.SidecarContainerName && len(container.Args) > 0 {
+				inCrashLoop = inCrashLoop || container.Args[0] == "crash-loop"
 			}
 		}
 
-		shouldCrashLoop := crashLoopAll
-		if !shouldCrashLoop {
-			_, shouldCrashLoop = crashLoopPods[processGroup.ProcessGroupID]
+		shouldCrashLoop := false
+		for _, targets := range crashLoopContainerProcessGroups {
+			_, shouldCrashLoop = targets["*"]
+			if shouldCrashLoop {
+				break
+			}
+			_, shouldCrashLoop = targets[processGroup.ProcessGroupID]
+			if shouldCrashLoop {
+				break
+			}
 		}
 
 		if shouldCrashLoop != inCrashLoop {
@@ -125,7 +135,6 @@ func (d deletePodsForBuggification) reconcile(ctx context.Context, r *Foundation
 	if len(updates) > 0 {
 		logger.Info("Deleting pods", "count", len(updates))
 		r.Recorder.Event(cluster, "Normal", "UpdatingPods", "Recreating pods for buggification")
-
 		err = r.PodLifecycleManager.UpdatePods(logr.NewContext(ctx, logger), r, cluster, updates, true)
 		if err != nil {
 			return &requeue{curError: err}

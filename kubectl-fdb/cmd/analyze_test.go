@@ -40,7 +40,7 @@ func getCluster(clusterName string, namespace string, available bool, healthy bo
 		ObjectMeta: metav1.ObjectMeta{
 			Name:       clusterName,
 			Namespace:  namespace,
-			Generation: 0,
+			Generation: 1,
 		},
 		Spec: fdbv1beta2.FoundationDBClusterSpec{
 			ProcessCounts: fdbv1beta2.ProcessCounts{
@@ -97,8 +97,6 @@ var _ = Describe("[plugin] analyze cluster", func() {
 
 		DescribeTable("return all successful and failed checks",
 			func(tc testCase) {
-				Expect(k8sClient.Delete(context.TODO(), tc.cluster)).NotTo(HaveOccurred())
-				Expect(k8sClient.Create(context.TODO(), tc.cluster)).NotTo(HaveOccurred())
 				for _, pod := range tc.podList.Items {
 					Expect(k8sClient.Create(context.TODO(), &pod)).NotTo(HaveOccurred())
 				}
@@ -109,7 +107,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				inBuffer := bytes.Buffer{}
 
 				cmd := newAnalyzeCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer})
-				err := analyzeCluster(cmd, k8sClient, clusterName, namespace, tc.AutoFix, tc.NoWait, tc.IgnoredConditions, tc.IgnoreRemovals, 0)
+				err := analyzeCluster(cmd, k8sClient, tc.cluster, tc.AutoFix, tc.NoWait, tc.IgnoredConditions, tc.IgnoreRemovals, 0)
 
 				if err != nil && !tc.HasErrors {
 					Expect(err).To(HaveOccurred())

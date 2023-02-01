@@ -27,6 +27,8 @@ import (
 	"net"
 	"strings"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient/mock"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal/locality"
 	"github.com/go-logr/logr"
 
@@ -41,7 +43,7 @@ import (
 
 var _ = Describe("Change coordinators", func() {
 	var cluster *fdbv1beta2.FoundationDBCluster
-	var adminClient *mockAdminClient
+	var adminClient *mock.AdminClient
 
 	BeforeEach(func() {
 		cluster = internal.CreateDefaultCluster()
@@ -60,7 +62,7 @@ var _ = Describe("Change coordinators", func() {
 		err := setupClusterForTest(cluster)
 		Expect(err).NotTo(HaveOccurred())
 
-		adminClient, err = newMockAdminClientUncast(cluster, k8sClient)
+		adminClient, err = mock.NewMockAdminClientUncast(cluster, k8sClient)
 		Expect(err).NotTo(HaveOccurred())
 	})
 
@@ -115,7 +117,7 @@ var _ = Describe("Change coordinators", func() {
 			When("when one storage process is excluded", func() {
 				BeforeEach(func() {
 					address := cluster.Status.ProcessGroups[firstStorageIndex+1].Addresses[0]
-					adminClient.ExcludedAddresses = append(adminClient.ExcludedAddresses, address)
+					adminClient.ExcludedAddresses[address] = fdbv1beta2.None{}
 				})
 
 				It("should only select storage processes and exclude the excluded process", func() {

@@ -96,7 +96,7 @@ func newRestartCmd(streams genericclioptions.IOStreams) *cobra.Command {
 
 			var processes []string
 			if allProcesses {
-				pods, err := getPodsForCluster(kubeClient, cluster, namespace)
+				pods, err := getPodsForCluster(kubeClient, cluster)
 				if err != nil {
 					return err
 				}

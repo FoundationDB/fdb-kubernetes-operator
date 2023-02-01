@@ -25,6 +25,10 @@ import (
 	"testing"
 	"time"
 
+	mockpodclient "github.com/FoundationDB/fdb-kubernetes-operator/pkg/podclient/mock"
+
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient/mock"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
@@ -80,14 +84,14 @@ var _ = BeforeSuite(func() {
 		Log:                    ctrl.Log.WithName("controllers").WithName("FoundationDBBackup"),
 		Recorder:               k8sClient,
 		InSimulation:           true,
-		DatabaseClientProvider: mockDatabaseClientProvider{},
+		DatabaseClientProvider: mock.DatabaseClientProvider{},
 	}
 
 	restoreReconciler = &FoundationDBRestoreReconciler{
 		Client:                 k8sClient,
 		Log:                    ctrl.Log.WithName("controllers").WithName("FoundationDBRestore"),
 		Recorder:               k8sClient,
-		DatabaseClientProvider: mockDatabaseClientProvider{},
+		DatabaseClientProvider: mock.DatabaseClientProvider{},
 	}
 })
 
@@ -98,8 +102,8 @@ var _ = AfterSuite(func() {
 
 var _ = AfterEach(func() {
 	k8sClient.Clear()
-	clearMockAdminClients()
-	clearMockLockClients()
+	mock.ClearMockAdminClients()
+	mock.ClearMockLockClients()
 })
 
 func createDefaultRestore(cluster *fdbv1beta2.FoundationDBCluster) *fdbv1beta2.FoundationDBRestore {
@@ -184,7 +188,7 @@ func createTestClusterReconciler() *FoundationDBClusterReconciler {
 		Recorder:               k8sClient,
 		InSimulation:           true,
 		PodLifecycleManager:    podmanager.StandardPodLifecycleManager{},
-		PodClientProvider:      internal.NewMockFdbPodClient,
-		DatabaseClientProvider: mockDatabaseClientProvider{},
+		PodClientProvider:      mockpodclient.NewMockFdbPodClient,
+		DatabaseClientProvider: mock.DatabaseClientProvider{},
 	}
 }

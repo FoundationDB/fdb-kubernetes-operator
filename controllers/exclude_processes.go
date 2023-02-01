@@ -80,11 +80,6 @@ func (e excludeProcesses) reconcile(_ context.Context, r *FoundationDBClusterRec
 			}
 		}
 
-		hasLock, err := r.takeLock(cluster, fmt.Sprintf("excluding processes: %v", fdbProcessesToExclude))
-		if !hasLock {
-			return &requeue{curError: err}
-		}
-
 		r.Recorder.Event(cluster, corev1.EventTypeNormal, "ExcludingProcesses", fmt.Sprintf("Excluding %v", fdbProcessesToExclude))
 
 		err = adminClient.ExcludeProcesses(fdbProcessesToExclude)

@@ -39,6 +39,11 @@ func GetStartCommand(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1
 		return "", err
 	}
 
+	return getStartCommandWithSubstitutions(cluster, processClass, substitutions, processNumber, processCount)
+}
+
+// getStartCommandWithSubstitutions will be used by GetStartCommand and for internal testing.
+func getStartCommandWithSubstitutions(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, substitutions map[string]string, processNumber int, processCount int) (string, error) {
 	if substitutions == nil {
 		return "", nil
 	}

@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
-	"reflect"
 	"regexp"
 	"strings"
 	"time"
@@ -595,28 +594,39 @@ func FilterByCondition(processGroupStatus []*ProcessGroupStatus, conditionType P
 // false in the conditionRules map, only process groups without that condition
 // will be returned.
 func FilterByConditions(processGroupStatus []*ProcessGroupStatus, conditionRules map[ProcessGroupConditionType]bool, ignoreRemoved bool) []string {
-	result := make([]string, 0)
+	result := make([]string, 0, len(processGroupStatus))
 
 	for _, groupStatus := range processGroupStatus {
 		if ignoreRemoved && groupStatus.IsMarkedForRemoval() {
 			continue
 		}
 
-		matchingConditions := make(map[ProcessGroupConditionType]bool, len(conditionRules))
-		for conditionRule := range conditionRules {
-			matchingConditions[conditionRule] = false
-		}
-		for _, condition := range groupStatus.ProcessGroupConditions {
-			if _, hasRule := conditionRules[condition.ProcessGroupConditionType]; hasRule {
-				matchingConditions[condition.ProcessGroupConditionType] = true
-			}
-		}
-		if reflect.DeepEqual(matchingConditions, conditionRules) {
+		if groupStatus.MatchesConditions(conditionRules) {
 			result = append(result, groupStatus.ProcessGroupID)
 		}
 	}
 
 	return result
+}
+
+// MatchesConditions checks if the provided conditions are matching the current conditions of the process group.
+//
+// If a condition is mapped to true in the conditionRules map, this condition must be present in the process group.
+// If a condition is mapped to false in the conditionRules map, the condition must be absent in the process group.
+func (processGroupStatus *ProcessGroupStatus) MatchesConditions(conditionRules map[ProcessGroupConditionType]bool) bool {
+	matchingConditions := make(map[ProcessGroupConditionType]bool, len(conditionRules))
+
+	for conditionRule := range conditionRules {
+		matchingConditions[conditionRule] = false
+	}
+
+	for _, condition := range processGroupStatus.ProcessGroupConditions {
+		if _, hasRule := conditionRules[condition.ProcessGroupConditionType]; hasRule {
+			matchingConditions[condition.ProcessGroupConditionType] = true
+		}
+	}
+
+	return equality.Semantic.DeepEqual(matchingConditions, conditionRules)
 }
 
 // ProcessGroupsByProcessClass returns a slice of all Process Groups that contains a given process class.
@@ -855,6 +865,12 @@ type FoundationDBClusterAutomationOptions struct {
 	// IgnoreMissingProcessesSeconds defines how long a process group has to be in the MissingProcess condition until
 	// it will be ignored during reconciliation. This prevents that a process will block reconciliation.
 	IgnoreMissingProcessesSeconds *int `json:"ignoreMissingProcessesSeconds,omitempty"`
+
+	// FailedPodDurationSeconds defines the duration a Pod can stay in the deleted state (deletionTimestamp != 0) before
+	// it gets marked as PodFailed. This is important in cases where a fdbserver process is still reporting but the
+	// Pod resource is marked for deletion. This can happen when the kubelet or a node fails. Setting this condition
+	// will ensure that the operator is replacing affected Pods.
+	FailedPodDurationSeconds *int `json:"failedPodDurationSeconds,omitempty"`
 
 	// MaxConcurrentReplacements defines how many process groups can be concurrently
 	// replaced if they are misconfigured. If the value will be set to 0 this will block replacements
@@ -1543,6 +1559,19 @@ func (cluster *FoundationDBCluster) IsBeingUpgraded() bool {
 	return cluster.Status.RunningVersion != "" && cluster.Status.RunningVersion != cluster.Spec.Version
 }
 
+// VersionCompatibleUpgradeInProgress returns true if the cluster is currently being upgraded and the upgrade is to
+// a version compatible version.
+func (cluster *FoundationDBCluster) VersionCompatibleUpgradeInProgress() bool {
+	if !cluster.IsBeingUpgraded() {
+		return false
+	}
+
+	runningVersion, _ := ParseFdbVersion(cluster.Status.RunningVersion)
+	desiredVersion, _ := ParseFdbVersion(cluster.Spec.Version)
+
+	return runningVersion.IsProtocolCompatible(desiredVersion)
+}
+
 // ProcessGroupIsBeingRemoved determines if an instance is pending removal.
 func (cluster *FoundationDBCluster) ProcessGroupIsBeingRemoved(processGroupID string) bool {
 	if processGroupID == "" {
@@ -1692,6 +1721,15 @@ type RequiredAddressSet struct {
 	NonTLS bool `json:"nonTLS,omitempty"`
 }
 
+// CrashLoopContainerObject specifies crash-loop target for specific container.
+type CrashLoopContainerObject struct {
+	// Name of the target container.
+	ContainerName string `json:"containerName,omitempty"`
+
+	// Target processes to kill inside the container.
+	Targets []string `json:"targets,omitempty"`
+}
+
 // BuggifyConfig provides options for injecting faults into a cluster for testing.
 type BuggifyConfig struct {
 	// NoSchedule defines a list of process group IDs that should fail to schedule.
@@ -1699,11 +1737,22 @@ type BuggifyConfig struct {
 
 	// CrashLoops defines a list of process group IDs that should be put into a
 	// crash looping state.
+	// Deprecated: use CrashLoopContainers instead.
 	CrashLoop []string `json:"crashLoop,omitempty"`
+
+	// CrashLoopContainers defines a list of process group IDs and containers
+	// that should be put into a crash looping state.
+	CrashLoopContainers []CrashLoopContainerObject `json:"crashLoopContainers,omitempty"`
 
 	// EmptyMonitorConf instructs the operator to update all of the fdbmonitor.conf
 	// files to have zero fdbserver processes configured.
 	EmptyMonitorConf bool `json:"emptyMonitorConf,omitempty"`
+
+	// IgnoreDuringRestart instructs the operator to ignore the provided process groups IDs during the
+	// restart command. This can be useful to simulate cases where the kill command is not restarting all
+	// processes. IgnoreDuringRestart does not support the wildcard option to ignore all of this specific cluster processes.
+	// +kubebuilder:validation:MaxItems=1000
+	IgnoreDuringRestart []string `json:"ignoreDuringRestart,omitempty"`
 }
 
 // LabelConfig allows customizing labels used by the operator.
@@ -1837,13 +1886,14 @@ func (cluster *FoundationDBCluster) GetIgnoreMissingProcessesSeconds() time.Dura
 	return time.Duration(pointer.IntDeref(cluster.Spec.AutomationOptions.IgnoreMissingProcessesSeconds, 30)) * time.Second
 }
 
+// GetFailedPodDuration returns the value of FailedPodDuration or 5 minutes if unset.
+func (cluster *FoundationDBCluster) GetFailedPodDuration() time.Duration {
+	return time.Duration(pointer.IntDeref(cluster.Spec.AutomationOptions.FailedPodDurationSeconds, 300)) * time.Second
+}
+
 // GetUseNonBlockingExcludes returns the value of useNonBlockingExcludes or false if unset.
 func (cluster *FoundationDBCluster) GetUseNonBlockingExcludes() bool {
-	if cluster.Spec.AutomationOptions.UseNonBlockingExcludes == nil {
-		return false
-	}
-
-	return *cluster.Spec.AutomationOptions.UseNonBlockingExcludes
+	return pointer.BoolDeref(cluster.Spec.AutomationOptions.UseNonBlockingExcludes, false)
 }
 
 // UseLocalitiesForExclusion returns the value of UseLocalitiesForExclusion or false if unset.
@@ -2221,6 +2271,22 @@ func (cluster *FoundationDBCluster) GetLocality(value string) (Locality, error) 
 		}
 	}
 	return Locality{}, fmt.Errorf("there are no localities with value {%s} in the cluster spec", value)
+}
+
+// GetCrashLoopContainerProcessGroups returns the process group IDs in containers that are marked for crash looping.
+// Returns map[ContainerName](map[ProcessGroupID]None).
+func (cluster *FoundationDBCluster) GetCrashLoopContainerProcessGroups() map[string](map[string]None) {
+	crashLoopTargets := make(map[string](map[string]None))
+	for _, target := range cluster.Spec.Buggify.CrashLoopContainers {
+		if _, ok := crashLoopTargets[target.ContainerName]; !ok {
+			crashLoopTargets[target.ContainerName] = make(map[string]None)
+		}
+
+		for _, processID := range target.Targets {
+			crashLoopTargets[target.ContainerName][processID] = None{}
+		}
+	}
+	return crashLoopTargets
 }
 
 // Validate checks if all settings in the cluster are valid, if not and error will be returned. If multiple issues are

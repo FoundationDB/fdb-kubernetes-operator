@@ -97,6 +97,33 @@ func NormalizeClusterSpec(cluster *fdbv1beta2.FoundationDBCluster, options Depre
 		updateImageConfigs(&cluster.Spec, cluster.GetUseUnifiedImage())
 	}
 
+	if len(cluster.Spec.Buggify.CrashLoop) > 0 {
+		crashLoopContainers := cluster.GetCrashLoopContainerProcessGroups()
+		if _, ok := crashLoopContainers[fdbv1beta2.MainContainerName]; !ok {
+			crashLoopContainers[fdbv1beta2.MainContainerName] = make(map[string]fdbv1beta2.None)
+		}
+
+		for _, pid := range cluster.Spec.Buggify.CrashLoop {
+			crashLoopContainers[fdbv1beta2.MainContainerName][pid] = fdbv1beta2.None{}
+		}
+
+		result := make([]fdbv1beta2.CrashLoopContainerObject, len(crashLoopContainers))
+		i := 0
+		for name, procs := range crashLoopContainers {
+			result[i].ContainerName = name
+			result[i].Targets = make([]string, len(procs))
+
+			j := 0
+			for pid := range procs {
+				result[i].Targets[j] = pid
+				j++
+			}
+			i++
+		}
+
+		cluster.Spec.Buggify.CrashLoopContainers = result
+	}
+
 	return nil
 }
 

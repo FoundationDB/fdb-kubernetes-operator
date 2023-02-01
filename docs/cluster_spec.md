@@ -12,6 +12,7 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 * [ConnectionString](#connectionstring)
 * [ContainerOverrides](#containeroverrides)
 * [CoordinatorSelectionSetting](#coordinatorselectionsetting)
+* [CrashLoopContainerObject](#crashloopcontainerobject)
 * [FoundationDBCluster](#foundationdbcluster)
 * [FoundationDBClusterAutomationOptions](#foundationdbclusterautomationoptions)
 * [FoundationDBClusterFaultDomain](#foundationdbclusterfaultdomain)
@@ -58,8 +59,10 @@ BuggifyConfig provides options for injecting faults into a cluster for testing.
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
 | noSchedule | NoSchedule defines a list of process group IDs that should fail to schedule. | []string | false |
-| crashLoop | CrashLoops defines a list of process group IDs that should be put into a crash looping state. | []string | false |
+| crashLoop | CrashLoops defines a list of process group IDs that should be put into a crash looping state. **Deprecated: use CrashLoopContainers instead.** | []string | false |
+| crashLoopContainers | CrashLoopContainers defines a list of process group IDs and containers that should be put into a crash looping state. | [][CrashLoopContainerObject](#crashloopcontainerobject) | false |
 | emptyMonitorConf | EmptyMonitorConf instructs the operator to update all of the fdbmonitor.conf files to have zero fdbserver processes configured. | bool | false |
+| ignoreDuringRestart | IgnoreDuringRestart instructs the operator to ignore the provided process groups IDs during the restart command. This can be useful to simulate cases where the kill command is not restarting all processes. IgnoreDuringRestart does not support the wildcard option to ignore all of this specific cluster processes. | []string | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -136,6 +139,17 @@ CoordinatorSelectionSetting defines the process class and the priority of it. A 
 
 [Back to TOC](#table-of-contents)
 
+## CrashLoopContainerObject
+
+CrashLoopContainerObject specifies crash-loop target for specific container.
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| containerName | Name of the target container. | string | false |
+| targets | Target processes to kill inside the container. | []string | false |
+
+[Back to TOC](#table-of-contents)
+
 ## FoundationDBCluster
 
 FoundationDBCluster is the Schema for the foundationdbclusters API
@@ -162,6 +176,7 @@ FoundationDBClusterAutomationOptions provides flags for enabling or disabling op
 | useLocalitiesForExclusion | UseLocalitiesForExclusion defines whether the exclusions are done using localities instead of IP addresses. The default is false. | *bool | false |
 | ignoreTerminatingPodsSeconds | IgnoreTerminatingPodsSeconds defines how long a Pod has to be in the Terminating Phase before we ignore it during reconciliation. This prevents Pod that are stuck in Terminating to block further reconciliation. | *int | false |
 | ignoreMissingProcessesSeconds | IgnoreMissingProcessesSeconds defines how long a process group has to be in the MissingProcess condition until it will be ignored during reconciliation. This prevents that a process will block reconciliation. | *int | false |
+| failedPodDurationSeconds | FailedPodDurationSeconds defines the duration a Pod can stay in the deleted state (deletionTimestamp != 0) before it gets marked as PodFailed. This is important in cases where a fdbserver process is still reporting but the Pod resource is marked for deletion. This can happen when the kubelet or a node fails. Setting this condition will ensure that the operator is replacing affected Pods. | *int | false |
 | maxConcurrentReplacements | MaxConcurrentReplacements defines how many process groups can be concurrently replaced if they are misconfigured. If the value will be set to 0 this will block replacements and these misconfigured Pods must be replaced manually or by another process. For each reconcile loop the operator calculates the maximum number of possible replacements by taken this value as the upper limit and removes all ongoing replacements that have not finished. Which means if the value is set to 5 and we have 4 ongoing replacements (process groups marked with remove but not excluded) the operator is allowed to replace on further process group. | *int | false |
 | deletionMode | DeletionMode defines the deletion mode for this cluster. This can be PodUpdateModeNone, PodUpdateModeAll, PodUpdateModeZone or PodUpdateModeProcessGroup. The DeletionMode defines how Pods are deleted in order to update them or when they are removed. | [PodUpdateMode](#podupdatemode) | false |
 | removalMode | RemovalMode defines the removal mode for this cluster. This can be PodUpdateModeNone, PodUpdateModeAll, PodUpdateModeZone or PodUpdateModeProcessGroup. The RemovalMode defines how process groups are deleted in order when they are marked for removal. | [PodUpdateMode](#podupdatemode) | false |

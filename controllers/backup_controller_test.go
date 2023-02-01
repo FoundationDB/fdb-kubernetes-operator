@@ -23,6 +23,8 @@ package controllers
 import (
 	"fmt"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient/mock"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -55,13 +57,13 @@ func reloadBackupGenerations(backup *fdbv1beta2.FoundationDBBackup) (fdbv1beta2.
 var _ = Describe("backup_controller", func() {
 	var cluster *fdbv1beta2.FoundationDBCluster
 	var backup *fdbv1beta2.FoundationDBBackup
-	var adminClient *mockAdminClient
+	var adminClient *mock.AdminClient
 	var err error
 
 	BeforeEach(func() {
 		cluster = internal.CreateDefaultCluster()
 		backup = internal.CreateDefaultBackup(cluster)
-		adminClient, err = newMockAdminClientUncast(cluster, k8sClient)
+		adminClient, err = mock.NewMockAdminClientUncast(cluster, k8sClient)
 		Expect(err).NotTo(HaveOccurred())
 	})
 
@@ -306,8 +308,8 @@ var _ = Describe("backup_controller", func() {
 			})
 
 			It("should append the custom parameters to the command", func() {
-				Expect(len(adminClient.knobs)).To(BeNumerically("==", 1))
-				Expect(adminClient.knobs).To(ContainElements("--knob_http_verbose_level=3"))
+				Expect(adminClient.Knobs).To(HaveLen(1))
+				Expect(adminClient.Knobs).To(HaveKey("--knob_http_verbose_level=3"))
 			})
 		})
 	})

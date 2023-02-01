@@ -46,7 +46,7 @@ type FoundationDBBackupReconciler struct {
 	Recorder               record.EventRecorder
 	Log                    logr.Logger
 	InSimulation           bool
-	DatabaseClientProvider DatabaseClientProvider
+	DatabaseClientProvider fdbadminclient.DatabaseClientProvider
 	ServerSideApply        bool
 }
 
@@ -105,7 +105,7 @@ func (r *FoundationDBBackupReconciler) Reconcile(ctx context.Context, request ct
 }
 
 // getDatabaseClientProvider gets the client provider for a reconciler.
-func (r *FoundationDBBackupReconciler) getDatabaseClientProvider() DatabaseClientProvider {
+func (r *FoundationDBBackupReconciler) getDatabaseClientProvider() fdbadminclient.DatabaseClientProvider {
 	if r.DatabaseClientProvider != nil {
 		return r.DatabaseClientProvider
 	}

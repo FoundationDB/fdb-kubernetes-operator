@@ -687,6 +687,8 @@ var _ = Describe("pod_models", func() {
 			Context("with an instance that is crash looping", func() {
 				BeforeEach(func() {
 					cluster.Spec.Buggify.CrashLoop = []string{"storage-1"}
+					err := NormalizeClusterSpec(cluster, DeprecationOptions{})
+					Expect(err).NotTo(HaveOccurred())
 					spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1, "")
 					Expect(err).NotTo(HaveOccurred())
 				})
@@ -695,6 +697,33 @@ var _ = Describe("pod_models", func() {
 					mainContainer := spec.Containers[0]
 					Expect(mainContainer.Name).To(Equal(fdbv1beta2.MainContainerName))
 					Expect(mainContainer.Command).To(Equal([]string{"crash-loop"}))
+				})
+			})
+
+			Context("with an instance that is crash looping container", func() {
+				BeforeEach(func() {
+					cluster.Spec.Buggify.CrashLoopContainers = []fdbv1beta2.CrashLoopContainerObject{
+						{
+							ContainerName: fdbv1beta2.MainContainerName,
+							Targets:       []string{"storage-1"},
+						},
+					}
+					err := NormalizeClusterSpec(cluster, DeprecationOptions{})
+					Expect(err).NotTo(HaveOccurred())
+					spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("should set the correct crash loop arg in main container", func() {
+					mainContainer := spec.Containers[0]
+					Expect(mainContainer.Name).To(Equal(fdbv1beta2.MainContainerName))
+					Expect(mainContainer.Command).To(Equal([]string{"crash-loop"}))
+				})
+
+				It("should set the correct crash loop arg in sidecar container", func() {
+					sidecarContainer := spec.Containers[1]
+					Expect(sidecarContainer.Name).To(Equal(fdbv1beta2.SidecarContainerName))
+					Expect(sidecarContainer.Command).ToNot(Equal([]string{"crash-loop"}))
 				})
 			})
 		})
@@ -904,7 +933,13 @@ var _ = Describe("pod_models", func() {
 		Context("with an process group that is crash looping", func() {
 			BeforeEach(func() {
 				cluster.Spec.Buggify.CrashLoop = []string{"storage-1"}
+<<<<<<< HEAD
 				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1, "")
+=======
+				err := NormalizeClusterSpec(cluster, DeprecationOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+>>>>>>> origin/master
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -918,7 +953,13 @@ var _ = Describe("pod_models", func() {
 		Context("with all process group crash looping", func() {
 			BeforeEach(func() {
 				cluster.Spec.Buggify.CrashLoop = []string{"*"}
+<<<<<<< HEAD
 				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1, "")
+=======
+				err := NormalizeClusterSpec(cluster, DeprecationOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+>>>>>>> origin/master
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -932,7 +973,13 @@ var _ = Describe("pod_models", func() {
 		Context("with a different process group crash looping", func() {
 			BeforeEach(func() {
 				cluster.Spec.Buggify.CrashLoop = []string{"storage-2"}
+<<<<<<< HEAD
 				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1, "")
+=======
+				err := NormalizeClusterSpec(cluster, DeprecationOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+>>>>>>> origin/master
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -945,6 +992,80 @@ var _ = Describe("pod_models", func() {
 						" --loggroup operator-test-1" +
 						" >> /var/log/fdb-trace-logs/fdbmonitor-$(date '+%Y-%m-%d').log 2>&1",
 				}))
+			})
+		})
+
+		Context("with a different process group crash looping in main container", func() {
+			BeforeEach(func() {
+				cluster.Spec.Buggify.CrashLoopContainers = []fdbv1beta2.CrashLoopContainerObject{
+					{
+						ContainerName: fdbv1beta2.MainContainerName,
+						Targets:       []string{"storage-2"},
+					},
+				}
+				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should have the normal start command", func() {
+				mainContainer := spec.Containers[0]
+				Expect(mainContainer.Name).To(Equal(fdbv1beta2.MainContainerName))
+				Expect(mainContainer.Args).To(Equal([]string{
+					"fdbmonitor --conffile /var/dynamic-conf/fdbmonitor.conf" +
+						" --lockfile /var/dynamic-conf/fdbmonitor.lockfile" +
+						" --loggroup operator-test-1" +
+						" >> /var/log/fdb-trace-logs/fdbmonitor-$(date '+%Y-%m-%d').log 2>&1",
+				}))
+			})
+		})
+
+		Context("with a process group that defines crash looping for the main container", func() {
+			BeforeEach(func() {
+				cluster.Spec.Buggify.CrashLoopContainers = []fdbv1beta2.CrashLoopContainerObject{
+					{
+						ContainerName: fdbv1beta2.MainContainerName,
+						Targets:       []string{"storage-1"},
+					},
+				}
+				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should set the correct start command in main container", func() {
+				mainContainer := spec.Containers[0]
+				Expect(mainContainer.Name).To(Equal(fdbv1beta2.MainContainerName))
+				Expect(mainContainer.Args).To(Equal([]string{"crash-loop"}))
+			})
+
+			It("should set the correct start command in sidecar container", func() {
+				sidecarContainer := spec.Containers[1]
+				Expect(sidecarContainer.Name).To(Equal(fdbv1beta2.SidecarContainerName))
+				Expect(sidecarContainer.Args).ToNot(Equal([]string{"crash-loop"}))
+			})
+		})
+
+		Context("with a process group that defines crash looping for the sidecar container", func() {
+			BeforeEach(func() {
+				cluster.Spec.Buggify.CrashLoopContainers = []fdbv1beta2.CrashLoopContainerObject{
+					{
+						ContainerName: fdbv1beta2.SidecarContainerName,
+						Targets:       []string{"storage-1"},
+					},
+				}
+				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should set the correct start command in main container", func() {
+				mainContainer := spec.Containers[0]
+				Expect(mainContainer.Name).To(Equal(fdbv1beta2.MainContainerName))
+				Expect(mainContainer.Args).NotTo(Equal([]string{"crash-loop"}))
+			})
+
+			It("should set the correct start command in sidecar container", func() {
+				sidecarContainer := spec.Containers[1]
+				Expect(sidecarContainer.Name).To(Equal(fdbv1beta2.SidecarContainerName))
+				Expect(sidecarContainer.Args).To(Equal([]string{"crash-loop"}))
 			})
 		})
 

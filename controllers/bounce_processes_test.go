@@ -25,6 +25,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient/mock"
+	"k8s.io/utils/pointer"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -34,28 +37,24 @@ import (
 
 var _ = Describe("bounceProcesses", func() {
 	var cluster *fdbv1beta2.FoundationDBCluster
-	var adminClient *mockAdminClient
-	var lockClient *mockLockClient
+	var adminClient *mock.AdminClient
+	var lockClient *mock.LockClient
 	var requeue *requeue
 	var err error
 
 	BeforeEach(func() {
 		cluster = internal.CreateDefaultCluster()
-		disabled := false
-		cluster.Spec.LockOptions.DisableLocks = &disabled
-		err = setupClusterForTest(cluster)
+		cluster.Spec.LockOptions.DisableLocks = pointer.Bool(false)
+		Expect(setupClusterForTest(cluster)).NotTo(HaveOccurred())
+
+		adminClient, err = mock.NewMockAdminClientUncast(cluster, k8sClient)
 		Expect(err).NotTo(HaveOccurred())
 
-		adminClient, err = newMockAdminClientUncast(cluster, k8sClient)
-		Expect(err).NotTo(HaveOccurred())
-
-		lockClient = newMockLockClientUncast(cluster)
-
+		lockClient = mock.NewMockLockClientUncast(cluster)
 	})
 
 	JustBeforeEach(func() {
 		requeue = bounceProcesses{}.reconcile(context.TODO(), clusterReconciler, cluster)
-		Expect(err).NotTo(HaveOccurred())
 	})
 
 	Context("with a reconciled cluster", func() {
@@ -85,16 +84,14 @@ var _ = Describe("bounceProcesses", func() {
 		})
 
 		It("should kill the targeted processes", func() {
-			addresses := make([]string, 0, 2)
+			addresses := make(map[string]fdbv1beta2.None, 2)
 			for _, processGroupID := range []string{"storage-1", "storage-2"} {
 				processGroupAddresses := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, processGroupID).Addresses
 				for _, address := range processGroupAddresses {
-					addresses = append(addresses, fmt.Sprintf("%s:4501", address))
+					addresses[fmt.Sprintf("%s:4501", address)] = fdbv1beta2.None{}
 				}
 			}
-
-			Expect(len(adminClient.KilledAddresses)).To(Equal(len(addresses)))
-			Expect(adminClient.KilledAddresses).To(ContainElements(addresses))
+			Expect(adminClient.KilledAddresses).To(Equal(addresses))
 		})
 	})
 
@@ -115,16 +112,14 @@ var _ = Describe("bounceProcesses", func() {
 		})
 
 		It("should kill the targeted processes", func() {
-			addresses := make([]string, 0, 1)
+			addresses := make(map[string]fdbv1beta2.None, 1)
 			for _, processGroupID := range []string{"storage-1"} {
 				processGroupAddresses := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, processGroupID).Addresses
 				for _, address := range processGroupAddresses {
-					addresses = append(addresses, fmt.Sprintf("%s:4501", address))
+					addresses[fmt.Sprintf("%s:4501", address)] = fdbv1beta2.None{}
 				}
 			}
-
-			Expect(len(adminClient.KilledAddresses)).To(Equal(len(addresses)))
-			Expect(adminClient.KilledAddresses).To(ContainElements(addresses))
+			Expect(adminClient.KilledAddresses).To(Equal(addresses))
 		})
 	})
 
@@ -145,14 +140,18 @@ var _ = Describe("bounceProcesses", func() {
 		})
 
 		It("should kill the targeted processes", func() {
-			addresses := make([]string, 0, 1)
+			addresses := make(map[string]fdbv1beta2.None, 1)
 			for _, processGroupID := range []string{"storage-1"} {
 				processGroupAddresses := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, processGroupID).Addresses
 				for _, address := range processGroupAddresses {
-					addresses = append(addresses, fmt.Sprintf("%s:4501", address))
+					addresses[fmt.Sprintf("%s:4501", address)] = fdbv1beta2.None{}
 				}
 			}
-			Expect(adminClient.KilledAddresses).To(ContainElements(addresses))
+			// NOTE: Previously, this didn't check for equality.
+			// It checked that KilledAddresses was a superset of addresses.
+			// This was changed in a refactoring, under the assumption the old
+			// behavior was a typo.
+			Expect(adminClient.KilledAddresses).To(Equal(addresses))
 		})
 	})
 
@@ -170,12 +169,11 @@ var _ = Describe("bounceProcesses", func() {
 		})
 
 		It("should not kill the pending process", func() {
-			addresses := make([]string, 0, 1)
 			processGroupAddresses := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-1").Addresses
 			for _, address := range processGroupAddresses {
-				addresses = append(addresses, fmt.Sprintf("%s:4501", address))
+				addr := fmt.Sprintf("%s:4501", address)
+				Expect(adminClient.KilledAddresses).NotTo(HaveKey(addr))
 			}
-			Expect(adminClient.KilledAddresses).NotTo(ContainElements(addresses))
 		})
 	})
 
@@ -199,21 +197,19 @@ var _ = Describe("bounceProcesses", func() {
 		})
 
 		It("should not kill the missing process but all other processes", func() {
-			addresses := make([]string, 0, 1)
 			processGroupAddresses := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-1").Addresses
+			Expect(adminClient.KilledAddresses).To(HaveLen(1))
 			for _, address := range processGroupAddresses {
-				addresses = append(addresses, fmt.Sprintf("%s:4501", address))
+				addr := fmt.Sprintf("%s:4501", address)
+				Expect(adminClient.KilledAddresses).NotTo(HaveKey(addr))
 			}
-			Expect(adminClient.KilledAddresses).NotTo(ContainElements(addresses))
-			Expect(len(adminClient.KilledAddresses)).To(BeNumerically("==", 1))
 		})
 	})
 
 	Context("with multiple storage servers per pod", func() {
 		BeforeEach(func() {
 			cluster.Spec.StorageServersPerPod = 2
-			err = k8sClient.Update(context.TODO(), cluster)
-			Expect(err).NotTo(HaveOccurred())
+			Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
 			result, err := reconcileCluster(cluster)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result.Requeue).To(BeFalse())
@@ -234,15 +230,15 @@ var _ = Describe("bounceProcesses", func() {
 		})
 
 		It("should kill the targeted processes", func() {
-			addresses := make([]string, 0, 2)
+			addresses := make(map[string]fdbv1beta2.None, 2)
 			for _, processGroupID := range []string{"storage-5", "storage-6"} {
 				processGroupAddresses := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, processGroupID).Addresses
 				for _, address := range processGroupAddresses {
-					addresses = append(addresses, fmt.Sprintf("%s:4501", address), fmt.Sprintf("%s:4503", address))
+					addresses[fmt.Sprintf("%s:4501", address)] = fdbv1beta2.None{}
+					addresses[fmt.Sprintf("%s:4503", address)] = fdbv1beta2.None{}
 				}
 			}
-			Expect(len(adminClient.KilledAddresses)).To(BeNumerically("==", len(addresses)))
-			Expect(adminClient.KilledAddresses).To(ContainElements(addresses))
+			Expect(adminClient.KilledAddresses).To(Equal(addresses))
 		})
 	})
 
@@ -259,14 +255,13 @@ var _ = Describe("bounceProcesses", func() {
 		})
 
 		It("should kill all the processes", func() {
-			addresses := make([]string, 0, len(cluster.Status.ProcessGroups))
+			addresses := make(map[string]fdbv1beta2.None, len(cluster.Status.ProcessGroups))
 			for _, processGroup := range cluster.Status.ProcessGroups {
 				for _, address := range processGroup.Addresses {
-					addresses = append(addresses, fmt.Sprintf("%s:4501", address))
+					addresses[fmt.Sprintf("%s:4501", address)] = fdbv1beta2.None{}
 				}
 			}
-			Expect(len(adminClient.KilledAddresses)).To(BeNumerically("==", len(addresses)))
-			Expect(adminClient.KilledAddresses).To(ContainElements(addresses))
+			Expect(adminClient.KilledAddresses).To(Equal(addresses))
 		})
 
 		It("should update the running version in the status", func() {
@@ -280,7 +275,9 @@ var _ = Describe("bounceProcesses", func() {
 			for _, processGroup := range cluster.Status.ProcessGroups {
 				expectedUpgrades[processGroup.ProcessGroupID] = true
 			}
-			Expect(lockClient.pendingUpgrades[fdbv1beta2.Versions.NextMajorVersion]).To(Equal(expectedUpgrades))
+			pendingUpgrades, err := lockClient.GetPendingUpgrades(fdbv1beta2.Versions.NextMajorVersion)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(pendingUpgrades).To(Equal(expectedUpgrades))
 		})
 
 		Context("with an unknown process", func() {
@@ -312,7 +309,9 @@ var _ = Describe("bounceProcesses", func() {
 				for _, processGroup := range cluster.Status.ProcessGroups {
 					expectedUpgrades[processGroup.ProcessGroupID] = true
 				}
-				Expect(lockClient.pendingUpgrades[fdbv1beta2.Versions.NextMajorVersion]).To(Equal(expectedUpgrades))
+				pendingUpgrades, err := lockClient.GetPendingUpgrades(fdbv1beta2.Versions.NextMajorVersion)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(pendingUpgrades).To(Equal(expectedUpgrades))
 			})
 
 			Context("with a pending upgrade for the unknown process", func() {
@@ -326,15 +325,14 @@ var _ = Describe("bounceProcesses", func() {
 				})
 
 				It("should kill all the processes", func() {
-					addresses := make([]string, 0, len(cluster.Status.ProcessGroups)+1)
+					addresses := make(map[string]fdbv1beta2.None, len(cluster.Status.ProcessGroups)+1)
 					for _, processGroup := range cluster.Status.ProcessGroups {
 						for _, address := range processGroup.Addresses {
-							addresses = append(addresses, fmt.Sprintf("%s:4501", address))
+							addresses[fmt.Sprintf("%s:4501", address)] = fdbv1beta2.None{}
 						}
 					}
-					addresses = append(addresses, "1.2.3.4:4501")
-					Expect(len(adminClient.KilledAddresses)).To(BeNumerically("==", len(addresses)))
-					Expect(adminClient.KilledAddresses).To(ContainElements(addresses))
+					addresses["1.2.3.4:4501"] = fdbv1beta2.None{}
+					Expect(adminClient.KilledAddresses).To(Equal(addresses))
 				})
 			})
 
@@ -356,8 +354,7 @@ var _ = Describe("bounceProcesses", func() {
 
 			Context("with locks disabled", func() {
 				BeforeEach(func() {
-					disabled := true
-					cluster.Spec.LockOptions.DisableLocks = &disabled
+					cluster.Spec.LockOptions.DisableLocks = pointer.Bool(true)
 				})
 
 				It("should requeue", func() {
@@ -365,19 +362,190 @@ var _ = Describe("bounceProcesses", func() {
 				})
 
 				It("should kill all the processes", func() {
-					addresses := make([]string, 0, len(cluster.Status.ProcessGroups))
+					addresses := make(map[string]fdbv1beta2.None, len(cluster.Status.ProcessGroups))
 					for _, processGroup := range cluster.Status.ProcessGroups {
 						for _, address := range processGroup.Addresses {
-							addresses = append(addresses, fmt.Sprintf("%s:4501", address))
+							addresses[fmt.Sprintf("%s:4501", address)] = fdbv1beta2.None{}
 						}
 					}
-					Expect(len(adminClient.KilledAddresses)).To(BeNumerically("==", len(addresses)))
-					Expect(adminClient.KilledAddresses).To(ContainElements(addresses))
+					Expect(adminClient.KilledAddresses).To(Equal(addresses))
 				})
 
 				It("should not submit pending upgrade information", func() {
-					Expect(lockClient.pendingUpgrades).To(BeEmpty())
+					pendingUpgrades, err := lockClient.GetPendingUpgrades(fdbv1beta2.Versions.NextMajorVersion)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(pendingUpgrades).To(BeEmpty())
 				})
+			})
+		})
+
+		When("one process is missing for a short time", func() {
+			var missingProcessGroup *fdbv1beta2.ProcessGroupStatus
+
+			BeforeEach(func() {
+				missingProcessGroup = cluster.Status.ProcessGroups[0]
+				adminClient.MockMissingProcessGroup(missingProcessGroup.ProcessGroupID, true)
+				missingProcessGroup.UpdateCondition(fdbv1beta2.MissingProcesses, true, cluster.Status.ProcessGroups, missingProcessGroup.ProcessGroupID)
+			})
+
+			It("should requeue", func() {
+				Expect(requeue).NotTo(BeNil())
+				Expect(requeue.message).To(Equal(fmt.Sprintf("could not find address for processes: %s", []string{missingProcessGroup.ProcessGroupID})))
+			})
+
+			It("shouldn't kill any processes", func() {
+				Expect(adminClient.KilledAddresses).To(BeEmpty())
+			})
+
+			It("should not submit pending upgrade information", func() {
+				pendingUpgrades, err := lockClient.GetPendingUpgrades(fdbv1beta2.Versions.NextMajorVersion)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(pendingUpgrades).To(BeEmpty())
+			})
+		})
+
+		When("one process is missing is missing for a long time", func() {
+			var missingProcessGroup *fdbv1beta2.ProcessGroupStatus
+
+			BeforeEach(func() {
+				missingProcessGroup = cluster.Status.ProcessGroups[0]
+				adminClient.MockMissingProcessGroup(missingProcessGroup.ProcessGroupID, true)
+				missingProcessGroup.ProcessGroupConditions = []*fdbv1beta2.ProcessGroupCondition{
+					{
+						ProcessGroupConditionType: fdbv1beta2.MissingProcesses,
+						Timestamp:                 time.Now().Add(-5 * time.Minute).Unix(),
+					},
+				}
+			})
+
+			It("should requeue", func() {
+				Expect(requeue).NotTo(BeNil())
+				Expect(requeue.message).To(Equal("fetch latest status after upgrade"))
+			})
+
+			It("should kill the processes except the missing process", func() {
+				Expect(adminClient.KilledAddresses).NotTo(BeEmpty())
+				Expect(adminClient.KilledAddresses).NotTo(ContainElement(missingProcessGroup.Addresses))
+			})
+
+			It("should not submit pending upgrade information", func() {
+				pendingUpgrades, err := lockClient.GetPendingUpgrades(fdbv1beta2.Versions.NextMajorVersion)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(pendingUpgrades).NotTo(BeEmpty())
+			})
+		})
+
+		When("one process is already upgraded for a version compatible upgrade", func() {
+			var upgradedProcessGroup *fdbv1beta2.ProcessGroupStatus
+			var targetVersion fdbv1beta2.Version
+
+			BeforeEach(func() {
+				targetVersion = fdbv1beta2.Versions.Default.NextPatchVersion()
+				cluster.Spec.Version = targetVersion.String()
+				upgradedProcessGroup = cluster.Status.ProcessGroups[0]
+				adminClient.VersionProcessGroups[upgradedProcessGroup.ProcessGroupID] = targetVersion.String()
+			})
+
+			It("should requeue", func() {
+				Expect(requeue).NotTo(BeNil())
+				Expect(requeue.message).To(Equal("fetch latest status after upgrade"))
+			})
+
+			It("should kill all processes except the upgraded process", func() {
+				Expect(adminClient.KilledAddresses).NotTo(BeEmpty())
+				Expect(adminClient.KilledAddresses).NotTo(ContainElement(upgradedProcessGroup.Addresses))
+			})
+
+			It("should submit pending upgrade information", func() {
+				pendingUpgrades, err := lockClient.GetPendingUpgrades(targetVersion)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(pendingUpgrades).NotTo(BeEmpty())
+			})
+		})
+	})
+
+	When("the buggify option ignoreDuringRestart is set", func() {
+		var ignoredProcessGroup *fdbv1beta2.ProcessGroupStatus
+
+		BeforeEach(func() {
+			ignoredProcessGroup = cluster.Status.ProcessGroups[0]
+			cluster.Spec.Buggify.IgnoreDuringRestart = []string{ignoredProcessGroup.ProcessGroupID}
+			for _, processGroup := range cluster.Status.ProcessGroups {
+				processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true, nil, "")
+			}
+		})
+
+		It("should not requeue", func() {
+			Expect(err).NotTo(HaveOccurred())
+			Expect(requeue).To(BeNil())
+		})
+
+		It("should not kill any processes", func() {
+			ignoredAddress := ignoredProcessGroup.Addresses[0]
+
+			for address := range adminClient.KilledAddresses {
+				Expect(address).NotTo(HavePrefix(ignoredAddress))
+			}
+
+			Expect(adminClient.KilledAddresses).To(HaveLen(len(cluster.Status.ProcessGroups) - 1))
+		})
+
+		When("filtering process groups for buggify", func() {
+			var filteredAddresses []fdbv1beta2.ProcessAddress
+			var removed bool
+
+			BeforeEach(func() {
+				status, err := adminClient.GetStatus()
+				Expect(err).NotTo(HaveOccurred())
+				processAddresses := make([]fdbv1beta2.ProcessAddress, 0, len(cluster.Status.ProcessGroups))
+				for _, process := range status.Cluster.Processes {
+					processAddresses = append(processAddresses, process.Address)
+				}
+
+				filteredAddresses, removed = filterIgnoredProcessGroups(cluster, processAddresses)
+			})
+
+			It("should filter the ignored address", func() {
+				Expect(removed).To(BeTrue())
+				Expect(len(filteredAddresses)).To(BeNumerically("==", len(cluster.Status.ProcessGroups)-1))
+			})
+		})
+
+		When("buggify ignore processes is set and only this process has the IncorrectCommandLine condition", func() {
+			var filteredAddresses []fdbv1beta2.ProcessAddress
+			var removed bool
+
+			BeforeEach(func() {
+				for _, processGroup := range cluster.Status.ProcessGroups {
+					processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, processGroup.ProcessGroupID == ignoredProcessGroup.ProcessGroupID, nil, "")
+				}
+
+				status, err := adminClient.GetStatus()
+				Expect(err).NotTo(HaveOccurred())
+				processAddresses := make([]fdbv1beta2.ProcessAddress, 0, len(cluster.Status.ProcessGroups))
+				for _, process := range status.Cluster.Processes {
+					if process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey] != ignoredProcessGroup.ProcessGroupID {
+						continue
+					}
+
+					processAddresses = append(processAddresses, process.Address)
+				}
+
+				filteredAddresses, removed = filterIgnoredProcessGroups(cluster, processAddresses)
+			})
+
+			It("should filter the ignored address", func() {
+				Expect(removed).To(BeTrue())
+				Expect(filteredAddresses).To(BeEmpty())
+			})
+
+			It("should not requeue", func() {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(requeue).To(BeNil())
+			})
+
+			It("should not kill any processes", func() {
+				Expect(adminClient.KilledAddresses).To(BeEmpty())
 			})
 		})
 	})

@@ -57,7 +57,7 @@ type FoundationDBClusterReconciler struct {
 	EnableRecoveryState                bool
 	PodLifecycleManager                podmanager.PodLifecycleManager
 	PodClientProvider                  func(*fdbv1beta2.FoundationDBCluster, *corev1.Pod) (podclient.FdbPodClient, error)
-	DatabaseClientProvider             DatabaseClientProvider
+	DatabaseClientProvider             fdbadminclient.DatabaseClientProvider
 	DeprecationOptions                 internal.DeprecationOptions
 	GetTimeout                         time.Duration
 	PostTimeout                        time.Duration
@@ -320,7 +320,7 @@ func (r *FoundationDBClusterReconciler) getPodClient(cluster *fdbv1beta2.Foundat
 }
 
 // getDatabaseClientProvider gets the client provider for a reconciler.
-func (r *FoundationDBClusterReconciler) getDatabaseClientProvider() DatabaseClientProvider {
+func (r *FoundationDBClusterReconciler) getDatabaseClientProvider() fdbadminclient.DatabaseClientProvider {
 	if r.DatabaseClientProvider != nil {
 		return r.DatabaseClientProvider
 	}
@@ -375,10 +375,10 @@ func (r *FoundationDBClusterReconciler) newFdbPodClient(cluster *fdbv1beta2.Foun
 	return internal.NewFdbPodClient(cluster, pod, log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "pod", pod.Name), r.GetTimeout, r.PostTimeout)
 }
 
-func (r *FoundationDBClusterReconciler) getCoordinatorSet(cluster *fdbv1beta2.FoundationDBCluster) (map[string]struct{}, error) {
+func (r *FoundationDBClusterReconciler) getCoordinatorSet(cluster *fdbv1beta2.FoundationDBCluster) (map[string]fdbv1beta2.None, error) {
 	adminClient, err := r.DatabaseClientProvider.GetAdminClient(cluster, r)
 	if err != nil {
-		return map[string]struct{}{}, err
+		return map[string]fdbv1beta2.None{}, err
 	}
 	defer adminClient.Close()
 

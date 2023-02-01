@@ -23,12 +23,11 @@ package controllers
 import (
 	"context"
 	"fmt"
-
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/utils/pointer"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 )
 
 // updateDatabaseConfiguration provides a reconciliation step for changing the
@@ -37,6 +36,10 @@ type updateDatabaseConfiguration struct{}
 
 // reconcile runs the reconciler's work.
 func (u updateDatabaseConfiguration) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
+	if !pointer.BoolDeref(cluster.Spec.AutomationOptions.ConfigureDatabase, true) {
+		return nil
+	}
+
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updateDatabaseConfiguration")
 	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
 
@@ -45,24 +48,20 @@ func (u updateDatabaseConfiguration) reconcile(ctx context.Context, r *Foundatio
 	}
 	defer adminClient.Close()
 
-	desiredConfiguration := cluster.DesiredDatabaseConfiguration()
-	desiredConfiguration.RoleCounts.Storage = 0
-	var currentConfiguration fdbtypes.DatabaseConfiguration
-
 	status, err := adminClient.GetStatus()
 	if err != nil {
 		return &requeue{curError: err}
 	}
 
 	initialConfig := !cluster.Status.Configured
-	dataState := status.Cluster.Data.State
-
 	if !(initialConfig || status.Client.DatabaseStatus.Available) {
 		logger.Info("Skipping database configuration change because database is unavailable")
 		return nil
 	}
 
-	currentConfiguration = status.Cluster.DatabaseConfiguration.NormalizeConfigurationWithSeparatedProxies(cluster.Spec.Version, cluster.Spec.DatabaseConfiguration.AreSeparatedProxiesConfigured())
+	desiredConfiguration := cluster.DesiredDatabaseConfiguration()
+	desiredConfiguration.RoleCounts.Storage = 0
+	currentConfiguration := status.Cluster.DatabaseConfiguration.NormalizeConfigurationWithSeparatedProxies(cluster.Spec.Version, cluster.Spec.DatabaseConfiguration.AreSeparatedProxiesConfigured())
 	// We have to reset the excluded servers here otherwise we will trigger a reconfiguration if one or more servers
 	// are excluded.
 	currentConfiguration.ExcludedServers = nil
@@ -77,22 +76,12 @@ func (u updateDatabaseConfiguration) reconcile(ctx context.Context, r *Foundatio
 		}
 		configurationString, _ := nextConfiguration.GetConfigurationString(cluster.Spec.Version)
 
+		dataState := status.Cluster.Data.State
 		if !(initialConfig || dataState.Healthy) {
 			logger.Info("Waiting for data distribution to be healthy", "stateName", dataState.Name, "stateDescription", dataState.Description)
 			r.Recorder.Event(cluster, corev1.EventTypeNormal, "NeedsConfigurationChange",
 				fmt.Sprintf("Spec require configuration change to `%s`, but data distribution is not fully healthy: %s (%s)", configurationString, dataState.Name, dataState.Description))
 			return nil
-		}
-
-		if !pointer.BoolDeref(cluster.Spec.AutomationOptions.ConfigureDatabase, true) {
-			r.Recorder.Event(cluster, corev1.EventTypeNormal, "NeedsConfigurationChange",
-				fmt.Sprintf("Spec require configuration change to `%s`, but configuration changes are disabled", configurationString))
-			cluster.Status.Generations.NeedsConfigurationChange = cluster.ObjectMeta.Generation
-			err = r.updateOrApply(ctx, cluster)
-			if err != nil {
-				logger.Error(err, "Error updating cluster status")
-			}
-			return &requeue{message: "Database configuration changes are disabled"}
 		}
 
 		if !initialConfig {

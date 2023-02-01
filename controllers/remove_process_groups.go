@@ -81,11 +81,7 @@ func (u removeProcessGroups) reconcile(ctx context.Context, r *FoundationDBClust
 	// query the cluster gets into a degraded state.
 	// We could be smarter here and only block removals that target stateful processes by e.g. filtering those out of the
 	// processGroupsToRemove slice.
-	hasDesiredFaultTolerance, err := internal.HasDesiredFaultToleranceFromStatus(logger, status, cluster)
-	if err != nil {
-		return &requeue{curError: err}
-	}
-
+	hasDesiredFaultTolerance := internal.HasDesiredFaultToleranceFromStatus(logger, status, cluster)
 	if !hasDesiredFaultTolerance {
 		return &requeue{
 			message: "Removals cannot proceed because cluster has degraded fault tolerance",
@@ -292,7 +288,7 @@ func getProcessesToInclude(cluster *fdbv1beta2.FoundationDBCluster, removedProce
 
 func (r *FoundationDBClusterReconciler) getProcessGroupsToRemove(cluster *fdbv1beta2.FoundationDBCluster, remainingMap map[string]bool) (bool, bool, []*fdbv1beta2.ProcessGroupStatus) {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "removeProcessGroups")
-	var cordSet map[string]struct{}
+	var cordSet map[string]fdbv1beta2.None
 	allExcluded := true
 	newExclusions := false
 	processGroupsToRemove := make([]*fdbv1beta2.ProcessGroupStatus, 0, len(cluster.Status.ProcessGroups))

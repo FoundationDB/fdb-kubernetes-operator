@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2020-2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2020-2022 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,11 +18,15 @@
  * limitations under the License.
  */
 
-package controllers
+package mock
 
 import (
+	"context"
 	"net"
 	"time"
+
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+	corev1 "k8s.io/api/core/v1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -43,7 +47,7 @@ var _ = Describe("mock_client", func() {
 
 		DescribeTable("should return the correct image",
 			func(input testCase) {
-				admin, err := newMockAdminClient(input.cluster, nil)
+				admin, err := NewMockAdminClient(input.cluster, nil)
 				Expect(err).NotTo(HaveOccurred())
 
 				err = admin.ExcludeProcesses(input.exclusions)
@@ -179,4 +183,93 @@ var _ = Describe("mock_client", func() {
 				}),
 		)
 	})
+
+	When("changing the commandline arguments", func() {
+		var adminClient *AdminClient
+		var initialCommandline string
+		var processAddress fdbv1beta2.ProcessAddress
+		targetProcess := "storage-1"
+		newKnob := "--knob_dummy=1"
+
+		BeforeEach(func() {
+			cluster := internal.CreateDefaultCluster()
+			Expect(k8sClient.Create(context.TODO(), cluster)).NotTo(HaveOccurred())
+
+			storagePod := &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      targetProcess,
+					Namespace: cluster.GetNamespace(),
+					Labels: map[string]string{
+						fdbv1beta2.FDBClusterLabel:        cluster.Name,
+						fdbv1beta2.FDBProcessGroupIDLabel: targetProcess,
+						fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStorage),
+					},
+				},
+			}
+			Expect(k8sClient.Create(context.TODO(), storagePod)).NotTo(HaveOccurred())
+
+			var err error
+			adminClient, err = NewMockAdminClientUncast(cluster, k8sClient)
+			Expect(err).NotTo(HaveOccurred())
+			status, err := adminClient.GetStatus()
+			Expect(err).NotTo(HaveOccurred())
+
+			initialCommandline = getCommandlineForProcessFromStatus(status, targetProcess)
+			Expect(initialCommandline).NotTo(BeEmpty())
+
+			for _, process := range status.Cluster.Processes {
+				if process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey] != targetProcess {
+					continue
+				}
+
+				processAddress = process.Address
+				break
+			}
+
+			// Update the knobs for storage
+			processes := cluster.Spec.Processes
+			if processes == nil {
+				processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{}
+			}
+			config := processes[fdbv1beta2.ProcessClassGeneral]
+			config.CustomParameters = append(config.CustomParameters, fdbv1beta2.FoundationDBCustomParameter(newKnob))
+			processes[fdbv1beta2.ProcessClassGeneral] = config
+			cluster.Spec.Processes = processes
+			adminClient.Cluster = cluster
+		})
+
+		When("the process is not restarted", func() {
+			It("should not update the command line arguments", func() {
+				status, err := adminClient.GetStatus()
+				Expect(err).NotTo(HaveOccurred())
+				newCommandline := getCommandlineForProcessFromStatus(status, targetProcess)
+				Expect(newCommandline).To(Equal(initialCommandline))
+				Expect(newCommandline).NotTo(ContainSubstring(newKnob))
+			})
+		})
+
+		When("the process is restarted", func() {
+			It("should update the command line arguments", func() {
+				Expect(adminClient.KillProcesses([]fdbv1beta2.ProcessAddress{processAddress})).NotTo(HaveOccurred())
+				Expect(adminClient.KilledAddresses).To(HaveLen(1))
+				status, err := adminClient.GetStatus()
+				Expect(err).NotTo(HaveOccurred())
+				newCommandline := getCommandlineForProcessFromStatus(status, targetProcess)
+				Expect(newCommandline).NotTo(Equal(initialCommandline))
+				Expect(newCommandline).To(ContainSubstring(newKnob))
+			})
+		})
+	})
 })
+
+func getCommandlineForProcessFromStatus(status *fdbv1beta2.FoundationDBStatus, targetProcess string) string {
+	for _, process := range status.Cluster.Processes {
+		if process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey] != targetProcess {
+			continue
+		}
+
+		return process.CommandLine
+	}
+
+	return ""
+}

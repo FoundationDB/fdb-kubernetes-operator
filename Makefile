@@ -39,6 +39,7 @@ GORELEASER_PKG=github.com/goreleaser/goreleaser@v1.6.3
 GORELEASER=$(GOBIN)/goreleaser
 BUILD_DEPS?=
 BUILDER?="docker"
+BUILDER_ARGS?=
 KUBECTL_ARGS?=
 
 define godep
@@ -57,7 +58,7 @@ $(eval $(call godep,golangci-lint,GOLANGCI_LINT))
 $(eval $(call godep,kustomize,KUSTOMIZE))
 $(eval $(call godep,goreleaser,GORELEASER))
 
-GO_SRC=$(shell find . -name "*.go" -not -name "zz_generated.*.go")
+GO_SRC=$(shell find . -name "*.go" -not -name "zz_generated.*.go" -not -name ".\#*.go")
 GENERATED_GO=api/v1beta2/zz_generated.deepcopy.go
 GO_ALL=${GO_SRC} ${GENERATED_GO}
 MANIFESTS=config/crd/bases/apps.foundationdb.org_foundationdbbackups.yaml config/crd/bases/apps.foundationdb.org_foundationdbclusters.yaml config/crd/bases/apps.foundationdb.org_foundationdbrestores.yaml
@@ -174,7 +175,7 @@ ${GENERATED_GO}: ${GO_SRC} hack/boilerplate.go.txt ${CONTROLLER_GEN}
 
 # Build the container image
 container-build: test_if_changed
-	$(BUILDER) build --build-arg=TAG=${TAG} ${img_build_args} -t ${IMG} .
+	$(BUILDER) build --build-arg=TAG=${TAG} ${img_build_args} $(BUILDER_ARGS) -t ${IMG} .
 
 # Push the container image
 container-push:

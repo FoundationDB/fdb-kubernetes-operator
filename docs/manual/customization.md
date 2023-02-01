@@ -154,7 +154,6 @@ This will produce pods where the `foundationdb` container runs the image `docker
 
 You can also specify multiple image configs, and customize image configs separately for different FoundationDB versions. The operator will determine each field in the image config by looking for the first entry that specifies that field and is applicable for the current version.
 
-
 ```yaml
 apiVersion: apps.foundationdb.org/v1beta2
 kind: FoundationDBCluster
@@ -240,6 +239,86 @@ Using service IPs presents its own challenges:
 * Creating one service for each pod may cause performance problems for the Kubernetes cluster
 * We currently only support services with the ClusterIP type. These IPs may not be routable from outside the Kubernetes cluster.
 * The Service IP space is often more limited than the pod IP space, which could cause you to run out of service IPs.
+
+## Using DNS
+
+Using Pod IPs has the limitation that Pods might get a new IP address if they are recreated and sometimes using service IPs is not the right approach.
+FDB supports to use DNS in the cluster file since 7.1 and the operator can make use of that.
+*Note*: This requires the following customization to inject the 7.1 library and use it as primary library (see code example below). As an alternative you can build the operator image by yourself that contains the 7.1 library as the primary library.
+Building the operator by yourself can be achieved with `docker build --build-arg FDB_VERSION=7.1.25 -t foundationdb/fdb-kubernetes-operator .`.
+
+```yaml
+      initContainers:
+         ...
+         # Install this library in a special location to force the operator to
+         # use it as the primary library.
+         - name: foundationdb-kubernetes-init-7-1-primary
+           image: foundationdb/foundationdb-kubernetes-sidecar:7.1.25
+           args:
+             - "--copy-library"
+             - "7.1"
+             - "--output-dir"
+             - "/var/output-files/primary"
+             - "--init-mode"
+           volumeMounts:
+             - name: fdb-binaries
+               mountPath: /var/output-files
+      containers:
+         - name: manager
+           imagePullPolicy: IfNotPresent
+           env:
+             - name: LD_LIBRARY_PATH
+               value: /usr/bin/fdb/primary/lib
+```
+
+The important part here is to add an additional init container with the 7.1 version and copy the library into `.../primary`, this library will be used by the operator as primary library.
+Once you set `useDNSInClusterFile` to true the operator will make the required changes to use DNS instead of IPs in the cluster file.
+
+```yaml
+apiVersion: apps.foundationdb.org/v1beta2
+kind: FoundationDBCluster
+metadata:
+    name: sample-cluster
+spec:
+  version: 7.1.25
+  routing:
+    useDNSInClusterFile: true
+```
+
+The generated connection string will look like this:
+
+```bash
+$ kubectl get cm test-cluster-config  -o jsonpath='{.data.cluster-file}'
+test_cluster:YeA03hA3hSC9vRnc2snrHf9o3rOZHe8o@test-cluster-storage-1.test-cluster.default.svc.cluster.local:4501,test-cluster-storage-2.test-cluster.default.svc.cluster.local:4501,test-cluster-storage-3.test-cluster.default.svc.cluster.local:4501
+```
+
+and the status command will show that the coordianators are resolved using the DNS names:
+
+```bash
+$ fdbcli --exec 'status details'
+Using cluster file `/var/dynamic-conf/fdb.cluster'.
+
+Configuration:
+...
+
+Coordination servers:
+  test-cluster-storage-1.test-cluster.default.svc.cluster.local:4501  (reachable)
+  test-cluster-storage-2.test-cluster.default.svc.cluster.local:4501  (reachable)
+  test-cluster-storage-3.test-cluster.default.svc.cluster.local:4501  (reachable)
+```
+
+The operator will add a special locality to the fdbserver processes called `dns_name` which stores the dns name for this process:
+
+```json
+     "locality" : {
+                    "dns_name" : "test-cluster-storage-3.test-cluster.default.svc.cluster.local",
+                    "instance_id" : "storage-3",
+                    "machineid" : "test-cluster-storage-3",
+                    "processid" : "fb1980fe9c2a6aef589ea0fd5c6131a2",
+                    "zoneid" : "test-cluster-storage-3"
+                },
+
+```
 
 ## Using Multiple Namespaces
 

@@ -25,6 +25,8 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient/mock"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	"k8s.io/utils/pointer"
 
@@ -36,7 +38,7 @@ import (
 
 var _ = Describe("admin_client_test", func() {
 	var cluster *fdbv1beta2.FoundationDBCluster
-	var client *mockAdminClient
+	var mockAdminClient *mock.AdminClient
 
 	var err error
 
@@ -53,14 +55,15 @@ var _ = Describe("admin_client_test", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(generation).NotTo(Equal(int64(0)))
 
-		client, err = newMockAdminClientUncast(cluster, k8sClient)
+		mockAdminClient, err = mock.NewMockAdminClientUncast(cluster, k8sClient)
 		Expect(err).NotTo(HaveOccurred())
 	})
 
 	Describe("JSON status", func() {
 		var status *fdbv1beta2.FoundationDBStatus
+
 		JustBeforeEach(func() {
-			status, err = client.GetStatus()
+			status, err = mockAdminClient.GetStatus()
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -79,7 +82,7 @@ var _ = Describe("admin_client_test", func() {
 					Expect(err).NotTo(HaveOccurred())
 					Expect(generation).NotTo(Equal(int64(0)))
 
-					client, err = newMockAdminClientUncast(cluster, k8sClient)
+					mockAdminClient, err = mock.NewMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -201,7 +204,7 @@ var _ = Describe("admin_client_test", func() {
 
 		Context("with an additional process", func() {
 			BeforeEach(func() {
-				client.MockAdditionalProcesses([]fdbv1beta2.ProcessGroupStatus{{
+				mockAdminClient.MockAdditionalProcesses([]fdbv1beta2.ProcessGroupStatus{{
 					ProcessGroupID: "dc2-storage-1",
 					ProcessClass:   "storage",
 					Addresses:      []string{"1.2.3.4"},
@@ -228,7 +231,7 @@ var _ = Describe("admin_client_test", func() {
 
 		Context("with a backup running", func() {
 			BeforeEach(func() {
-				err = client.StartBackup("blobstore://test@test-service/test-backup", 10)
+				err = mockAdminClient.StartBackup("blobstore://test@test-service/test-backup", 10)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -245,7 +248,7 @@ var _ = Describe("admin_client_test", func() {
 
 			Context("with a paused backup", func() {
 				BeforeEach(func() {
-					err = client.PauseBackups()
+					err = mockAdminClient.PauseBackups()
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -256,9 +259,9 @@ var _ = Describe("admin_client_test", func() {
 
 			Context("with an resume backup", func() {
 				BeforeEach(func() {
-					err = client.PauseBackups()
+					err = mockAdminClient.PauseBackups()
 					Expect(err).NotTo(HaveOccurred())
-					err = client.ResumeBackups()
+					err = mockAdminClient.ResumeBackups()
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -269,7 +272,7 @@ var _ = Describe("admin_client_test", func() {
 
 			Context("with a stopped backup", func() {
 				BeforeEach(func() {
-					err = client.StopBackup("blobstore://test@test-service/test-backup")
+					err = mockAdminClient.StopBackup("blobstore://test@test-service/test-backup")
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -289,7 +292,7 @@ var _ = Describe("admin_client_test", func() {
 	Describe("backup status", func() {
 		var status *fdbv1beta2.FoundationDBLiveBackupStatus
 		JustBeforeEach(func() {
-			status, err = client.GetBackupStatus()
+			status, err = mockAdminClient.GetBackupStatus()
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -303,7 +306,7 @@ var _ = Describe("admin_client_test", func() {
 
 		Context("with a backup running", func() {
 			BeforeEach(func() {
-				err = client.StartBackup("blobstore://test@test-service/test-backup", 10)
+				err = mockAdminClient.StartBackup("blobstore://test@test-service/test-backup", 10)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -316,7 +319,7 @@ var _ = Describe("admin_client_test", func() {
 
 			Context("with a paused backup", func() {
 				BeforeEach(func() {
-					err = client.PauseBackups()
+					err = mockAdminClient.PauseBackups()
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -327,9 +330,9 @@ var _ = Describe("admin_client_test", func() {
 
 			Context("with a resumed backup", func() {
 				BeforeEach(func() {
-					err = client.PauseBackups()
+					err = mockAdminClient.PauseBackups()
 					Expect(err).NotTo(HaveOccurred())
-					err = client.ResumeBackups()
+					err = mockAdminClient.ResumeBackups()
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -340,7 +343,7 @@ var _ = Describe("admin_client_test", func() {
 
 			Context("with a stopped backup", func() {
 				BeforeEach(func() {
-					err = client.StopBackup("blobstore://test@test-service/test-backup")
+					err = mockAdminClient.StopBackup("blobstore://test@test-service/test-backup")
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -351,7 +354,7 @@ var _ = Describe("admin_client_test", func() {
 
 			Context("with a modification to the snapshot time", func() {
 				BeforeEach(func() {
-					err = client.ModifyBackup(20)
+					err = mockAdminClient.ModifyBackup(20)
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -367,7 +370,7 @@ var _ = Describe("admin_client_test", func() {
 
 		Context("with no restore running", func() {
 			BeforeEach(func() {
-				status, err = client.GetRestoreStatus()
+				status, err = mockAdminClient.GetRestoreStatus()
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -378,10 +381,10 @@ var _ = Describe("admin_client_test", func() {
 
 		Context("with a restore running", func() {
 			BeforeEach(func() {
-				err = client.StartRestore("blobstore://test@test-service/test-backup", nil)
+				err = mockAdminClient.StartRestore("blobstore://test@test-service/test-backup", nil)
 				Expect(err).NotTo(HaveOccurred())
 
-				status, err = client.GetRestoreStatus()
+				status, err = mockAdminClient.GetRestoreStatus()
 				Expect(err).NotTo(HaveOccurred())
 			})
 
