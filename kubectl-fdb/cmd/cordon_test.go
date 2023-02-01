@@ -22,6 +22,7 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -39,61 +40,46 @@ var _ = FDescribe("[plugin] cordon command", func() {
 			ExpectedInstancesToRemove                 []string
 			ExpectedInstancesToRemoveWithoutExclusion []string
 			clusterName                               string
-			customLabel                               string
+			customLabels                              []string
 		}
 
 		BeforeEach(func() {
-			pods := []corev1.Pod{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "instance-1",
-						Namespace: namespace,
-						Labels: map[string]string{
-							fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStorage),
-							fdbv1beta2.FDBClusterLabel:        clusterName,
-							fdbv1beta2.FDBProcessGroupIDLabel: "instance-1",
-						},
-					},
-					Spec: corev1.PodSpec{
-						NodeName: "node-1",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "instance-2",
-						Namespace: namespace,
-						Labels: map[string]string{
-							fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStorage),
-							fdbv1beta2.FDBClusterLabel:        clusterName,
-							fdbv1beta2.FDBProcessGroupIDLabel: "instance-2",
-						},
-					},
-					Spec: corev1.PodSpec{
-						NodeName: "node-2",
-					},
-				},
-			}
+			// creating pods for first cluster.
+			createPods(clusterName, namespace, 1)
 
-			for _, pod := range pods {
-				Expect(k8sClient.Create(context.TODO(), &pod)).NotTo(HaveOccurred())
-			}
+			// creating a second cluster
+			cluster2 := createCluster("test2", namespace)
+			createPods(cluster2.Name, namespace, 3)
 		})
 
 		DescribeTable("should cordon all targeted processes",
 			func(input testCase) {
-				err := cordonNode(k8sClient, input.clusterName, input.nodes, namespace, input.WithExclusion, false, 0, input.customLabel)
+				err := cordonNode(k8sClient, input.clusterName, input.nodes, namespace, input.WithExclusion, false, 0, input.customLabels)
 				Expect(err).NotTo(HaveOccurred())
 
-				var resCluster fdbv1beta2.FoundationDBCluster
-				err = k8sClient.Get(context.Background(), client.ObjectKey{
-					Namespace: namespace,
-					Name:      clusterName,
-				}, &resCluster)
+				var clusterNames []string
+				if len(input.clusterName) == 0 {
+					clusterNames = []string{clusterName, "test2"}
+				} else {
+					clusterNames = []string{input.clusterName}
+				}
+
+				var currentInstancesToRemove []string
+				var currentInstancesToRemoveWithoutExclusion []string
+				for _, currentClusterName := range clusterNames {
+					var resCluster fdbv1beta2.FoundationDBCluster
+					err = k8sClient.Get(context.Background(), client.ObjectKey{
+						Namespace: namespace,
+						Name:      currentClusterName,
+					}, &resCluster)
+					currentInstancesToRemove = append(currentInstancesToRemove, resCluster.Spec.ProcessGroupsToRemove...)
+					currentInstancesToRemoveWithoutExclusion = append(currentInstancesToRemoveWithoutExclusion, resCluster.Spec.ProcessGroupsToRemoveWithoutExclusion...)
+				}
 
 				Expect(err).NotTo(HaveOccurred())
 				// Use equality.Semantic.DeepEqual here since the Equal check of gomega is to strict
-				Expect(equality.Semantic.DeepEqual(input.ExpectedInstancesToRemove, resCluster.Spec.ProcessGroupsToRemove)).To(BeTrue())
-				Expect(equality.Semantic.DeepEqual(input.ExpectedInstancesToRemoveWithoutExclusion, resCluster.Spec.ProcessGroupsToRemoveWithoutExclusion)).To(BeTrue())
+				Expect(equality.Semantic.DeepEqual(input.ExpectedInstancesToRemove, currentInstancesToRemove)).To(BeTrue())
+				Expect(equality.Semantic.DeepEqual(input.ExpectedInstancesToRemoveWithoutExclusion, currentInstancesToRemoveWithoutExclusion)).To(BeTrue())
 			},
 			Entry("Cordon node with exclusion",
 				testCase{
@@ -101,8 +87,8 @@ var _ = FDescribe("[plugin] cordon command", func() {
 					WithExclusion:             true,
 					ExpectedInstancesToRemove: []string{"instance-1"},
 					ExpectedInstancesToRemoveWithoutExclusion: []string{},
-					clusterName: cluster.Name,
-					customLabel: fdbv1beta2.FDBClusterLabel,
+					clusterName:  cluster.Name,
+					customLabels: nil,
 				}),
 			Entry("Cordon node without exclusion",
 				testCase{
@@ -110,8 +96,8 @@ var _ = FDescribe("[plugin] cordon command", func() {
 					WithExclusion:             false,
 					ExpectedInstancesToRemove: []string{},
 					ExpectedInstancesToRemoveWithoutExclusion: []string{"instance-1"},
-					clusterName: cluster.Name,
-					customLabel: fdbv1beta2.FDBClusterLabel,
+					clusterName:  cluster.Name,
+					customLabels: nil,
 				}),
 			Entry("Cordon no nodes with exclusion",
 				testCase{
@@ -119,8 +105,8 @@ var _ = FDescribe("[plugin] cordon command", func() {
 					WithExclusion:             true,
 					ExpectedInstancesToRemove: []string{},
 					ExpectedInstancesToRemoveWithoutExclusion: []string{},
-					clusterName: cluster.Name,
-					customLabel: fdbv1beta2.FDBClusterLabel,
+					clusterName:  cluster.Name,
+					customLabels: nil,
 				}),
 			Entry("Cordon no node nodes without exclusion",
 				testCase{
@@ -128,8 +114,8 @@ var _ = FDescribe("[plugin] cordon command", func() {
 					WithExclusion:             false,
 					ExpectedInstancesToRemove: []string{},
 					ExpectedInstancesToRemoveWithoutExclusion: []string{},
-					clusterName: cluster.Name,
-					customLabel: fdbv1beta2.FDBClusterLabel,
+					clusterName:  cluster.Name,
+					customLabels: nil,
 				}),
 			Entry("Cordon all nodes with exclusion",
 				testCase{
@@ -137,8 +123,8 @@ var _ = FDescribe("[plugin] cordon command", func() {
 					WithExclusion:             true,
 					ExpectedInstancesToRemove: []string{"instance-1", "instance-2"},
 					ExpectedInstancesToRemoveWithoutExclusion: []string{},
-					clusterName: cluster.Name,
-					customLabel: fdbv1beta2.FDBClusterLabel,
+					clusterName:  cluster.Name,
+					customLabels: []string{fdbv1beta2.FDBClusterLabel},
 				}),
 			Entry("Cordon all nodes without exclusion",
 				testCase{
@@ -146,36 +132,55 @@ var _ = FDescribe("[plugin] cordon command", func() {
 					WithExclusion:             false,
 					ExpectedInstancesToRemove: []string{},
 					ExpectedInstancesToRemoveWithoutExclusion: []string{"instance-1", "instance-2"},
-					clusterName: cluster.Name,
-					customLabel: fdbv1beta2.FDBClusterLabel,
+					clusterName:  cluster.Name,
+					customLabels: []string{fdbv1beta2.FDBClusterLabel},
 				}),
-			Entry("Cordon node with custom label without exclusion",
+			Entry("Cordon node from second cluster without exclusion",
 				testCase{
 					nodes:                     []string{"node-1"},
 					WithExclusion:             true,
-					ExpectedInstancesToRemove: []string{"instance-1"},
+					ExpectedInstancesToRemove: []string{"instance-3"},
 					ExpectedInstancesToRemoveWithoutExclusion: []string{},
-					clusterName: "",
-					customLabel: fdbv1beta2.FDBClusterLabel,
-				}),
-			Entry("Cordon nodes with custom label without exclusion",
-				testCase{
-					nodes:                     []string{"node-1", "node-2"},
-					WithExclusion:             false,
-					ExpectedInstancesToRemove: []string{},
-					ExpectedInstancesToRemoveWithoutExclusion: []string{"instance-1", "instance-2"},
-					clusterName: "",
-					customLabel: fdbv1beta2.FDBClusterLabel,
-				}),
-			Entry("Cordon no nodes with exclusion with custom label",
-				testCase{
-					nodes:                     []string{""},
-					WithExclusion:             true,
-					ExpectedInstancesToRemove: []string{},
-					ExpectedInstancesToRemoveWithoutExclusion: []string{},
-					clusterName: "",
-					customLabel: fdbv1beta2.FDBClusterLabel,
+					clusterName:  "test2",
+					customLabels: []string{fdbv1beta2.FDBClusterLabel},
 				}),
 		)
 	})
 })
+
+func createPods(inputClusterName string, inputNamespace string, id int) {
+	pods := []corev1.Pod{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      fmt.Sprintf("instance-%d", id),
+				Namespace: inputNamespace,
+				Labels: map[string]string{
+					fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStorage),
+					fdbv1beta2.FDBClusterLabel:        inputClusterName,
+					fdbv1beta2.FDBProcessGroupIDLabel: fmt.Sprintf("instance-%d", id),
+				},
+			},
+			Spec: corev1.PodSpec{
+				NodeName: "node-1",
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      fmt.Sprintf("instance-%d", id+1),
+				Namespace: inputNamespace,
+				Labels: map[string]string{
+					fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStorage),
+					fdbv1beta2.FDBClusterLabel:        inputClusterName,
+					fdbv1beta2.FDBProcessGroupIDLabel: fmt.Sprintf("instance-%d", id+1),
+				},
+			},
+			Spec: corev1.PodSpec{
+				NodeName: "node-2",
+			},
+		},
+	}
+
+	for _, pod := range pods {
+		Expect(k8sClient.Create(context.TODO(), &pod)).NotTo(HaveOccurred())
+	}
+}

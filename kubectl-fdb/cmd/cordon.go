@@ -22,11 +22,9 @@ package cmd
 
 import (
 	"fmt"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
-	"strings"
-
-	corev1 "k8s.io/api/core/v1"
 
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -63,7 +61,7 @@ func newCordonCmd(streams genericclioptions.IOStreams) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			customLabel, err := cmd.Flags().GetString("custom-label")
+			customLabels, err := cmd.Flags().GetStringArray("custom-labels")
 			if err != nil {
 				return err
 			}
@@ -88,10 +86,10 @@ func newCordonCmd(streams genericclioptions.IOStreams) *cobra.Command {
 					return err
 				}
 
-				return cordonNode(kubeClient, clusterName, nodes, namespace, withExclusion, wait, sleep, customLabel)
+				return cordonNode(kubeClient, clusterName, nodes, namespace, withExclusion, wait, sleep, customLabels)
 			}
 
-			return cordonNode(kubeClient, clusterName, args, namespace, withExclusion, wait, sleep, customLabel)
+			return cordonNode(kubeClient, clusterName, args, namespace, withExclusion, wait, sleep, customLabels)
 		},
 		Example: `
 # Evacuate all process groups for a cluster in the current namespace that are hosted on node-1
@@ -123,13 +121,13 @@ kubectl fdb cordon --node-selector machine=a,disk=fast
 	cmd.Flags().StringP("fdb-cluster", "c", "", "evacuate process group(s) from the provided cluster.")
 	cmd.Flags().StringToStringVarP(&nodeSelectors, "node-selector", "", nil, "node-selector to select all nodes that should be cordoned. Can't be used with specific nodes.")
 	cmd.Flags().BoolP("exclusion", "e", true, "define if the process groups should be removed with exclusion.")
-	cmd.Flags().StringP("custom-label", "l", "fdb-cluster-name", "space separated custom label to extract appropriate pods")
+	cmd.Flags().StringArrayP("custom-labels", "l", []string{"fdb-cluster-name"}, "space separated custom label to extract appropriate pods")
 	o.configFlags.AddFlags(cmd.Flags())
 
 	return cmd
 }
 
-func getClusterNames(kubeClient client.Client, inputClusterName string, namespace string, node string, customLabel string) ([]string, error) {
+func getClusterNames(kubeClient client.Client, inputClusterName string, namespace string, node string, customLabels []string) ([]string, error) {
 	if len(inputClusterName) != 0 {
 		// Cluster name already given.
 		return []string{inputClusterName}, nil
@@ -137,12 +135,12 @@ func getClusterNames(kubeClient client.Client, inputClusterName string, namespac
 	var pods corev1.PodList
 	err := kubeClient.List(ctx.Background(), &pods,
 		client.InNamespace(namespace),
-		client.HasLabels(strings.Split(customLabel, " ")),
+		client.HasLabels(customLabels),
 		client.MatchingFieldsSelector{
 			Selector: fields.OneTermEqualSelector("spec.nodeName", node),
 		})
 	if err != nil {
-		return nil, fmt.Errorf("error fetching pods with custom labels %v", strings.Split(customLabel, " "))
+		return nil, fmt.Errorf("error fetching pods with custom labels %v", customLabels)
 	}
 	clusterNames := make([]string, 0, len(pods.Items))
 	for _, pod := range pods.Items {
@@ -157,7 +155,7 @@ func getClusterNames(kubeClient client.Client, inputClusterName string, namespac
 }
 
 // cordonNode gets all process groups of this cluster that run on the given nodes and add them to the remove list
-func cordonNode(kubeClient client.Client, inputClusterName string, nodes []string, namespace string, withExclusion bool, wait bool, sleep uint16, customLabel string) error {
+func cordonNode(kubeClient client.Client, inputClusterName string, nodes []string, namespace string, withExclusion bool, wait bool, sleep uint16, customLabels []string) error {
 	fmt.Printf("Start to cordon %d nodes\n", len(nodes))
 	if len(nodes) == 0 {
 		return nil
@@ -165,7 +163,7 @@ func cordonNode(kubeClient client.Client, inputClusterName string, nodes []strin
 
 	operationFailed := false
 	for _, node := range nodes {
-		clusterNames, err := getClusterNames(kubeClient, inputClusterName, namespace, node, customLabel)
+		clusterNames, err := getClusterNames(kubeClient, inputClusterName, namespace, node, customLabels)
 		if err != nil {
 			return fmt.Errorf("unable to fetch cluster names")
 		}
