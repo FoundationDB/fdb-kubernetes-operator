@@ -22,6 +22,7 @@ package cmd
 
 import (
 	"fmt"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
@@ -61,7 +62,7 @@ func newCordonCmd(streams genericclioptions.IOStreams) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			customLabels, err := cmd.Flags().GetStringArray("custom-labels")
+			clusterLabel, err := cmd.Flags().GetString("cluster-label")
 			if err != nil {
 				return err
 			}
@@ -86,10 +87,10 @@ func newCordonCmd(streams genericclioptions.IOStreams) *cobra.Command {
 					return err
 				}
 
-				return cordonNode(kubeClient, clusterName, nodes, namespace, withExclusion, wait, sleep, customLabels)
+				return cordonNode(kubeClient, clusterName, nodes, namespace, withExclusion, wait, sleep, clusterLabel)
 			}
 
-			return cordonNode(kubeClient, clusterName, args, namespace, withExclusion, wait, sleep, customLabels)
+			return cordonNode(kubeClient, clusterName, args, namespace, withExclusion, wait, sleep, clusterLabel)
 		},
 		Example: `
 # Evacuate all process groups for a cluster in the current namespace that are hosted on node-1
@@ -101,17 +102,17 @@ kubectl fdb cordon -n default -c cluster node-1
 # Evacuate all process groups for a cluster in the current namespace that are hosted on nodes with the labels machine=a,disk=fast
 kubectl fdb cordon -c cluster --node-selector machine=a,disk=fast
 
-# Evacuate all process groups in the current namespace that are hosted on node-1, the default label is fdb-cluster-name
-kubectl fdb cordon node-1
+# Evacuate all process groups in the current namespace that are hosted on node-1 with cluster-label
+kubectl fdb cordon -l fdb-cluster-label node-1
 
-# Evacuate all process groups in the current namespace that are hosted on node-1 with custom label
-kubectl fdb cordon -l "fdb-cluster-name fdb-cluster-group" node-1
+# Evacuate all process groups for a cluster in the default namespace that are hosted on node-1 with cluster-label
+kubectl fdb cordon -n default -l fdb-cluster-label node-1
 
 # Evacuate all process groups for a cluster in the current namespace that are hosted on nodes with the labels machine=a,disk=fast
 kubectl fdb cordon -c cluster --node-selector machine=a,disk=fast
 
-# Evacuate all process groups in the current namespace that are hosted on nodes with the labels machine=a,disk=fast
-kubectl fdb cordon --node-selector machine=a,disk=fast
+# Evacuate all process groups in the current namespace that are hosted on nodes with the labels machine=a,disk=fast with cluster-label
+kubectl fdb cordon --node-selector machine=a,disk=fast -l fdb-cluster-label
 `,
 	}
 	cmd.SetOut(o.Out)
@@ -121,13 +122,13 @@ kubectl fdb cordon --node-selector machine=a,disk=fast
 	cmd.Flags().StringP("fdb-cluster", "c", "", "evacuate process group(s) from the provided cluster.")
 	cmd.Flags().StringToStringVarP(&nodeSelectors, "node-selector", "", nil, "node-selector to select all nodes that should be cordoned. Can't be used with specific nodes.")
 	cmd.Flags().BoolP("exclusion", "e", true, "define if the process groups should be removed with exclusion.")
-	cmd.Flags().StringArrayP("custom-labels", "l", []string{"fdb-cluster-name"}, "space separated custom label to extract appropriate pods")
+	cmd.Flags().StringP("cluster-label", "l", fdbv1beta2.FDBClusterLabel, "cluster label to fetch the appropriate pods, the default value is foundationdb.org/fdb-cluster-name.")
 	o.configFlags.AddFlags(cmd.Flags())
 
 	return cmd
 }
 
-func getClusterNames(kubeClient client.Client, inputClusterName string, namespace string, node string, customLabels []string) ([]string, error) {
+func getClusterNames(kubeClient client.Client, inputClusterName string, namespace string, node string, clusterLabel string) ([]string, error) {
 	if len(inputClusterName) != 0 {
 		// Cluster name already given.
 		return []string{inputClusterName}, nil
@@ -135,16 +136,16 @@ func getClusterNames(kubeClient client.Client, inputClusterName string, namespac
 	var pods corev1.PodList
 	err := kubeClient.List(ctx.Background(), &pods,
 		client.InNamespace(namespace),
-		client.HasLabels(customLabels),
+		client.HasLabels([]string{clusterLabel}),
 		client.MatchingFieldsSelector{
 			Selector: fields.OneTermEqualSelector("spec.nodeName", node),
 		})
 	if err != nil {
-		return nil, fmt.Errorf("error fetching pods with custom labels %v", customLabels)
+		return nil, fmt.Errorf("error fetching pods with cluster-label: %v", clusterLabel)
 	}
 	clusterNames := make([]string, 0, len(pods.Items))
 	for _, pod := range pods.Items {
-		clusterName, ok := pod.Labels["fdb-cluster-name"]
+		clusterName, ok := pod.Labels[clusterLabel]
 		if !ok {
 			fmt.Printf("could not fetch cluster name from Pod: %s\n", pod.Name)
 			continue
@@ -155,7 +156,7 @@ func getClusterNames(kubeClient client.Client, inputClusterName string, namespac
 }
 
 // cordonNode gets all process groups of this cluster that run on the given nodes and add them to the remove list
-func cordonNode(kubeClient client.Client, inputClusterName string, nodes []string, namespace string, withExclusion bool, wait bool, sleep uint16, customLabels []string) error {
+func cordonNode(kubeClient client.Client, inputClusterName string, nodes []string, namespace string, withExclusion bool, wait bool, sleep uint16, clusterLabel string) error {
 	fmt.Printf("Start to cordon %d nodes\n", len(nodes))
 	if len(nodes) == 0 {
 		return nil
@@ -163,12 +164,12 @@ func cordonNode(kubeClient client.Client, inputClusterName string, nodes []strin
 
 	operationFailed := false
 	for _, node := range nodes {
-		clusterNames, err := getClusterNames(kubeClient, inputClusterName, namespace, node, customLabels)
+		clusterNames, err := getClusterNames(kubeClient, inputClusterName, namespace, node, clusterLabel)
 		if err != nil {
 			return fmt.Errorf("unable to fetch cluster names")
 		}
 		for _, clusterName := range clusterNames {
-			fmt.Printf("Starting operation on %s\n", clusterName)
+			fmt.Printf("Starting operation on %s, node: %s\n", clusterName, node)
 			cluster, err := loadCluster(kubeClient, namespace, clusterName)
 			if err != nil {
 				fmt.Printf("unable to load cluster: %s, skipping\n", clusterName)
