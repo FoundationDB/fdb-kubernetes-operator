@@ -155,7 +155,7 @@ func getStatusFromDB(cluster *fdbv1beta2.FoundationDBCluster, log logr.Logger) (
 		return nil, err
 	}
 
-	return status, err
+	return status, nil
 }
 
 type realDatabaseClientProvider struct {

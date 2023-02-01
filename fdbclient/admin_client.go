@@ -238,7 +238,6 @@ func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 
 		// If we hit a timeout report it as a timeout error
 		if strings.Contains(string(output), "Specified timeout reached") {
-			client.log.Info("runner has timeout issue")
 			// See: https://apple.github.io/foundationdb/api-error-codes.html
 			// 1031: Operation aborted because the transaction timed out
 			return "", &fdbv1beta2.TimeoutError{Err: err}
@@ -310,8 +309,6 @@ func (client *cliAdminClient) getStatusFromCli() (*fdbv1beta2.FoundationDBStatus
 		return nil, err
 	}
 
-	client.log.V(1).Info("Fetched status JSON with fdbcli", "version", client.Cluster.GetRunningVersion(), "status", status)
-
 	return status, nil
 }
 
@@ -325,7 +322,7 @@ func (client *cliAdminClient) getStatus() (*fdbv1beta2.FoundationDBStatus, error
 
 	// If the status doesn't contain any processes and we are doing an upgrade, we probably use the wrong fdbcli version
 	// and we have to fallback to the on specified in out spec.version.
-	if len(status.Cluster.Processes) == 0 && client.Cluster.IsBeingUpgraded() {
+	if (status == nil || len(status.Cluster.Processes) == 0) && client.Cluster.IsBeingUpgraded() {
 		// Create a copy of the cluster and make use of the desired version instead of the last observed running version.
 		clusterCopy := client.Cluster.DeepCopy()
 		clusterCopy.Status.RunningVersion = clusterCopy.Spec.Version
