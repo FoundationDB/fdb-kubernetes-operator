@@ -48,9 +48,7 @@ var _ = Describe("[plugin] cordon command", func() {
 			Expect(createPods(clusterName, namespace, 1)).NotTo(HaveOccurred())
 
 			// creating a second cluster
-			cluster2 := createCluster("test2", namespace)
-			Expect(k8sClient.Create(context.TODO(), cluster2)).NotTo(HaveOccurred())
-			Expect(createPods(cluster2.Name, namespace, 3)).NotTo(HaveOccurred())
+			Expect(createPods(secondClusterName, namespace, 3)).NotTo(HaveOccurred())
 		})
 
 		DescribeTable("should cordon all targeted processes",
@@ -60,7 +58,7 @@ var _ = Describe("[plugin] cordon command", func() {
 
 				var clusterNames []string
 				if len(input.clusterName) == 0 {
-					clusterNames = []string{clusterName, "test2"}
+					clusterNames = []string{clusterName, secondClusterName}
 				} else {
 					clusterNames = []string{input.clusterName}
 				}
@@ -142,7 +140,7 @@ var _ = Describe("[plugin] cordon command", func() {
 					WithExclusion:             true,
 					ExpectedInstancesToRemove: []string{"instance-3"},
 					ExpectedInstancesToRemoveWithoutExclusion: []string{},
-					clusterName:  "test2",
+					clusterName:  secondCluster.Name,
 					customLabels: []string{fdbv1beta2.FDBClusterLabel},
 				}),
 			Entry("Cordon node from all clusters without exclusion",

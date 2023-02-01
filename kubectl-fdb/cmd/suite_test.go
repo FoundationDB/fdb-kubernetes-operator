@@ -17,6 +17,8 @@ import (
 var k8sClient *mockclient.MockClient
 var cluster *fdbv1beta2.FoundationDBCluster
 var clusterName = "test"
+var secondCluster *fdbv1beta2.FoundationDBCluster
+var secondClusterName = "test2"
 var namespace = "test"
 
 func TestCmd(t *testing.T) {
@@ -32,10 +34,12 @@ var _ = BeforeSuite(func() {
 
 var _ = BeforeEach(func() {
 	cluster = createCluster(clusterName, namespace)
+	secondCluster = createCluster(secondClusterName, namespace)
 })
 
 var _ = JustBeforeEach(func() {
 	Expect(k8sClient.Create(context.TODO(), cluster)).NotTo(HaveOccurred())
+	Expect(k8sClient.Create(context.TODO(), secondCluster)).NotTo(HaveOccurred())
 })
 
 var _ = AfterEach(func() {
