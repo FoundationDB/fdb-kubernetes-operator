@@ -45,11 +45,11 @@ var _ = FDescribe("[plugin] cordon command", func() {
 
 		BeforeEach(func() {
 			// creating pods for first cluster.
-			createPods(clusterName, namespace, 1)
+			Expect(createPods(clusterName, namespace, 1)).NotTo(HaveOccurred())
 
 			// creating a second cluster
 			cluster2 := createCluster("test2", namespace)
-			createPods(cluster2.Name, namespace, 3)
+			Expect(createPods(cluster2.Name, namespace, 3)).NotTo(HaveOccurred())
 		})
 
 		DescribeTable("should cordon all targeted processes",
@@ -148,7 +148,7 @@ var _ = FDescribe("[plugin] cordon command", func() {
 	})
 })
 
-func createPods(inputClusterName string, inputNamespace string, id int) {
+func createPods(inputClusterName string, inputNamespace string, id int) error {
 	pods := []corev1.Pod{
 		{
 			ObjectMeta: metav1.ObjectMeta{
@@ -181,6 +181,10 @@ func createPods(inputClusterName string, inputNamespace string, id int) {
 	}
 
 	for _, pod := range pods {
-		Expect(k8sClient.Create(context.TODO(), &pod)).NotTo(HaveOccurred())
+		err := k8sClient.Create(context.TODO(), &pod)
+		if err != nil {
+			return err
+		}
 	}
+	return nil
 }
