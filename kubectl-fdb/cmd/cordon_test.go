@@ -49,6 +49,7 @@ var _ = Describe("[plugin] cordon command", func() {
 
 			// creating a second cluster
 			cluster2 := createCluster("test2", namespace)
+			Expect(k8sClient.Create(context.TODO(), cluster2)).NotTo(HaveOccurred())
 			Expect(createPods(cluster2.Name, namespace, 3)).NotTo(HaveOccurred())
 		})
 
