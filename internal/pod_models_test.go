@@ -710,7 +710,7 @@ var _ = Describe("pod_models", func() {
 					}
 					err := NormalizeClusterSpec(cluster, DeprecationOptions{})
 					Expect(err).NotTo(HaveOccurred())
-					spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+					spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1, "")
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -933,13 +933,9 @@ var _ = Describe("pod_models", func() {
 		Context("with an process group that is crash looping", func() {
 			BeforeEach(func() {
 				cluster.Spec.Buggify.CrashLoop = []string{"storage-1"}
-<<<<<<< HEAD
-				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1, "")
-=======
 				err := NormalizeClusterSpec(cluster, DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
-				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
->>>>>>> origin/master
+				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1, "")
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -953,13 +949,9 @@ var _ = Describe("pod_models", func() {
 		Context("with all process group crash looping", func() {
 			BeforeEach(func() {
 				cluster.Spec.Buggify.CrashLoop = []string{"*"}
-<<<<<<< HEAD
-				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1, "")
-=======
 				err := NormalizeClusterSpec(cluster, DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
-				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
->>>>>>> origin/master
+				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1, "")
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -973,13 +965,9 @@ var _ = Describe("pod_models", func() {
 		Context("with a different process group crash looping", func() {
 			BeforeEach(func() {
 				cluster.Spec.Buggify.CrashLoop = []string{"storage-2"}
-<<<<<<< HEAD
-				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1, "")
-=======
 				err := NormalizeClusterSpec(cluster, DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
-				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
->>>>>>> origin/master
+				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1, "")
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -1003,7 +991,7 @@ var _ = Describe("pod_models", func() {
 						Targets:       []string{"storage-2"},
 					},
 				}
-				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1, "")
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -1027,7 +1015,7 @@ var _ = Describe("pod_models", func() {
 						Targets:       []string{"storage-1"},
 					},
 				}
-				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1, "")
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -1052,7 +1040,7 @@ var _ = Describe("pod_models", func() {
 						Targets:       []string{"storage-1"},
 					},
 				}
-				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1, "")
 				Expect(err).NotTo(HaveOccurred())
 			})
 

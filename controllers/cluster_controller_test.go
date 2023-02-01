@@ -3342,7 +3342,7 @@ var _ = Describe("cluster_controller", func() {
 
 		Context("with a default pod", func() {
 			BeforeEach(func() {
-				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+				adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
 				status, err = adminClient.GetStatus()
 				Expect(err).NotTo(HaveOccurred())
@@ -3364,7 +3364,7 @@ var _ = Describe("cluster_controller", func() {
 
 		Context("with a v6 pod IP family configured", func() {
 			BeforeEach(func() {
-				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+				adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
 				status, err = adminClient.GetStatus()
 				Expect(err).NotTo(HaveOccurred())
@@ -3387,7 +3387,7 @@ var _ = Describe("cluster_controller", func() {
 			Context("with no matching IPs in the Pod IP list", func() {
 				BeforeEach(func() {
 					Expect(err).NotTo(HaveOccurred())
-					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
 					status, err = adminClient.GetStatus()
 					Expect(err).NotTo(HaveOccurred())
@@ -3408,7 +3408,7 @@ var _ = Describe("cluster_controller", func() {
 		Context("with a v4 pod IP family configured", func() {
 			BeforeEach(func() {
 				var err error
-				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+				adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
 				var status *fdbv1beta2.FoundationDBStatus
 				status, err = adminClient.GetStatus()
