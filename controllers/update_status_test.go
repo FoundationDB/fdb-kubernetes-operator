@@ -72,8 +72,12 @@ var _ = Describe("update_status", func() {
 		})
 
 		JustBeforeEach(func() {
-			databaseStatus, err := adminClient.GetStatus()
-			Expect(err).NotTo(HaveOccurred())
+			var databaseStatus *fdbv1beta2.FoundationDBStatus
+			var err error
+			Eventually(func() error {
+				databaseStatus, err = adminClient.GetStatus()
+				return err
+			}).ShouldNot(HaveOccurred())
 			processMap = make(map[string][]fdbv1beta2.FoundationDBStatusProcessInfo)
 			for _, process := range databaseStatus.Cluster.Processes {
 				processID, ok := process.Locality["process_id"]

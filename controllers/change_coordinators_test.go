@@ -73,8 +73,10 @@ var _ = Describe("Change coordinators", func() {
 
 			JustBeforeEach(func() {
 				var err error
-				status, err = adminClient.GetStatus()
-				Expect(err).NotTo(HaveOccurred())
+				Eventually(func() error {
+					status, err = adminClient.GetStatus()
+					return err
+				}).ShouldNot(HaveOccurred())
 
 				candidates, err = selectCoordinators(logr.Discard(), cluster, status)
 				Expect(err).NotTo(HaveOccurred())
@@ -228,8 +230,10 @@ var _ = Describe("Change coordinators", func() {
 				cluster.Spec.ProcessGroupsToRemove = removals
 
 				var err error
-				status, err = adminClient.GetStatus()
-				Expect(err).NotTo(HaveOccurred())
+				Eventually(func() error {
+					status, err = adminClient.GetStatus()
+					return err
+				}).ShouldNot(HaveOccurred())
 
 				// generate status for 2 dcs and 1 sate
 				status.Cluster.Processes = generateProcessInfo(dcCnt, satCnt, excludes)

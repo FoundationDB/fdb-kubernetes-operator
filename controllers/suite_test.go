@@ -22,6 +22,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -125,38 +126,58 @@ func createDefaultRestore(cluster *fdbv1beta2.FoundationDBCluster) *fdbv1beta2.F
 }
 
 func reconcileCluster(cluster *fdbv1beta2.FoundationDBCluster) (reconcile.Result, error) {
-	return reconcileObject(clusterReconciler, cluster.ObjectMeta, 20)
+	return reconcileObject(clusterReconciler, cluster.ObjectMeta)
+}
+
+func reconcileClusterWithoutRetry(cluster *fdbv1beta2.FoundationDBCluster) (reconcile.Result, error) {
+	return reconcileObjectWithoutRetry(clusterReconciler, cluster.ObjectMeta)
 }
 
 func reconcileBackup(backup *fdbv1beta2.FoundationDBBackup) (reconcile.Result, error) {
-	return reconcileObject(backupReconciler, backup.ObjectMeta, 20)
+	return reconcileObject(backupReconciler, backup.ObjectMeta)
 }
 
 func reconcileRestore(restore *fdbv1beta2.FoundationDBRestore) (reconcile.Result, error) {
-	return reconcileObject(restoreReconciler, restore.ObjectMeta, 20)
+	return reconcileObject(restoreReconciler, restore.ObjectMeta)
 }
 
-func reconcileObject(reconciler reconcile.Reconciler, metadata metav1.ObjectMeta, requeueLimit int) (reconcile.Result, error) {
-	attempts := requeueLimit + 1
+func reconcileObject(reconciler reconcile.Reconciler, metadata metav1.ObjectMeta) (reconcile.Result, error) {
+	// attempts := requeueLimit + 1
 	result := reconcile.Result{Requeue: true}
 	var err error
-	for result.Requeue && attempts > 0 {
+	Eventually(func() bool {
 		log.Info("Running test reconciliation")
-		attempts--
 
 		result, err = reconciler.Reconcile(context.TODO(), reconcile.Request{NamespacedName: types.NamespacedName{Namespace: metadata.Namespace, Name: metadata.Name}})
-		if err != nil {
-			log.Error(err, "Error in reconciliation")
-			break
-		}
-
-		if !result.Requeue {
+		if err == nil && !result.Requeue {
 			log.Info("Reconciliation successful")
+			return true
 		}
+		return false
+	}, "60s").Should(BeTrue())
+
+	if err != nil {
+		log.Error(err, "Error in reconciliation")
+	} else if result.Requeue {
+		err = fmt.Errorf("reconciliation requeued indefinitely: %v", result)
+		log.Error(err, "reconcileObject failed")
 	}
 	return result, err
 }
-
+func reconcileObjectWithoutRequeue(reconciler reconcile.Reconciler, metadata metav1.ObjectMeta) (reconcile.Result, error) {
+	result := reconcile.Result{Requeue: true}
+	var err error
+	Eventually(func() error {
+		log.Info("Running test reconciliation")
+		result, err = reconciler.Reconcile(context.TODO(), reconcile.Request{NamespacedName: types.NamespacedName{Namespace: metadata.Namespace, Name: metadata.Name}})
+		return err
+	}).ShouldNot(HaveOccurred())
+	return result, err
+}
+func reconcileObjectWithoutRetry(reconciler reconcile.Reconciler, metadata metav1.ObjectMeta) (reconcile.Result, error) {
+	log.Info("Running test reconciliation")
+	return reconciler.Reconcile(context.TODO(), reconcile.Request{NamespacedName: types.NamespacedName{Namespace: metadata.Namespace, Name: metadata.Name}})
+}
 func setupClusterForTest(cluster *fdbv1beta2.FoundationDBCluster) error {
 	err := k8sClient.Create(context.TODO(), cluster)
 	if err != nil {

@@ -41,6 +41,7 @@ var _ = Describe("choose_removals", func() {
 
 	BeforeEach(func() {
 		cluster = internal.CreateDefaultCluster()
+
 		err = k8sClient.Create(context.TODO(), cluster)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -57,10 +58,15 @@ var _ = Describe("choose_removals", func() {
 	})
 
 	JustBeforeEach(func() {
-		requeue = chooseRemovals{}.reconcile(context.TODO(), clusterReconciler, cluster)
-		Expect(err).NotTo(HaveOccurred())
-		_, err = reloadCluster(cluster)
-		Expect(err).NotTo(HaveOccurred())
+		Eventually(func() error {
+			requeue = chooseRemovals{}.reconcile(context.TODO(), clusterReconciler, cluster)
+			return err
+		}).ShouldNot(HaveOccurred())
+
+		Eventually(func() error {
+			_, err = reloadCluster(cluster)
+			return err
+		}).ShouldNot(HaveOccurred())
 
 		removals = nil
 		for _, processGroup := range cluster.Status.ProcessGroups {
@@ -72,7 +78,7 @@ var _ = Describe("choose_removals", func() {
 	})
 
 	Context("with a reconciled cluster", func() {
-		It("should not requeue", func() {
+		It("should eventually stop requeuing", func() {
 			Expect(requeue).To(BeNil())
 		})
 

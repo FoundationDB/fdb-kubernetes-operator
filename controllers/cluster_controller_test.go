@@ -50,6 +50,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 )
@@ -131,10 +132,14 @@ var _ = Describe("cluster_controller", func() {
 		})
 
 		JustBeforeEach(func() {
-			result, err := reconcileCluster(cluster)
-
-			if err != nil && !shouldCompleteReconciliation {
-				return
+			var result reconcile.Result
+			if !shouldCompleteReconciliation {
+				result, err = reconcileClusterWithoutRetry(cluster)
+				if err != nil {
+					return
+				}
+			} else {
+				result, err = reconcileCluster(cluster)
 			}
 
 			Expect(err).NotTo(HaveOccurred())
@@ -845,7 +850,7 @@ var _ = Describe("cluster_controller", func() {
 				adminClient.MockMissingProcessGroup("storage-1", true)
 
 				// Run a single reconciliation to detect the missing process.
-				result, err := reconcileObject(clusterReconciler, cluster.ObjectMeta, 1)
+				result, err := reconcileObjectWithoutRequeue(clusterReconciler, cluster.ObjectMeta)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(result.Requeue).To(BeTrue())
 

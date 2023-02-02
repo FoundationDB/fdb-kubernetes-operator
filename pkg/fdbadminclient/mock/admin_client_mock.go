@@ -115,11 +115,14 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
-	preError, postError := client.Cluster.GetCliBuggifyErrors("GetStatus")
+	// Disable fault injection for GetStatus.  We should make the "real" version transparently retry, since it is
+	// side effect free.
 
-	if preError != nil {
-		return nil, preError
-	}
+	// preError, postError := client.Cluster.GetCliBuggifyErrors("GetStatus")
+
+	// if preError != nil {
+	// 	return nil, preError
+	// }
 
 	if client.FrozenStatus != nil {
 		return client.FrozenStatus, nil
@@ -360,10 +363,10 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 	}
 	status.Cluster.MaintenanceZone = client.MaintenanceZone
 
-	if postError != nil {
-		// Any side effects the above has will be applied, but the caller will think the call failed.
-		return nil, postError
-	}
+	// if postError != nil {
+	// 	// Any side effects the above has will be applied, but the caller will think the call failed.
+	// 	return nil, postError
+	// }
 	return status, nil
 }
 
@@ -535,6 +538,7 @@ func (client *AdminClient) KillProcesses(addresses []fdbv1beta2.ProcessAddress) 
 	preError, postError := client.Cluster.GetCliBuggifyErrors("KillProcesses")
 
 	if preError != nil {
+		adminClientMutex.Unlock()
 		return preError
 	}
 

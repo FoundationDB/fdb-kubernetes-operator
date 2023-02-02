@@ -146,7 +146,12 @@ var _ = Describe("backup_controller", func() {
 			})
 
 			It("should start a backup", func() {
-				status, err := adminClient.GetBackupStatus()
+				var status *fdbv1beta2.FoundationDBLiveBackupStatus
+				Eventually(func() error {
+					status, err = adminClient.GetBackupStatus()
+					return err
+				}).ShouldNot(HaveOccurred())
+
 				Expect(err).NotTo(HaveOccurred())
 				Expect(status.DestinationURL).To(Equal("blobstore://test@test-service/test-backup?bucket=fdb-backups"))
 				Expect(status.Status.Running).To(BeTrue())
@@ -194,8 +199,11 @@ var _ = Describe("backup_controller", func() {
 			})
 
 			It("should stop the backup", func() {
-				status, err := adminClient.GetBackupStatus()
-				Expect(err).NotTo(HaveOccurred())
+				var status *fdbv1beta2.FoundationDBLiveBackupStatus
+				Eventually(func() error {
+					status, err = adminClient.GetBackupStatus()
+					return err
+				}).ShouldNot(HaveOccurred())
 				Expect(status.Status.Running).To(BeFalse())
 			})
 		})
@@ -208,16 +216,21 @@ var _ = Describe("backup_controller", func() {
 			})
 
 			It("should pause the backup", func() {
-				status, err := adminClient.GetBackupStatus()
-				Expect(err).NotTo(HaveOccurred())
+				var status *fdbv1beta2.FoundationDBLiveBackupStatus
+				Eventually(func() error {
+					status, err = adminClient.GetBackupStatus()
+					return err
+				}).ShouldNot(HaveOccurred())
 				Expect(status.BackupAgentsPaused).To(BeTrue())
 			})
 		})
 
 		Context("when resuming a backup", func() {
 			BeforeEach(func() {
-				err = adminClient.PauseBackups()
-				Expect(err).NotTo(HaveOccurred())
+				Eventually(func() error {
+					err = adminClient.PauseBackups()
+					return err
+				}).ShouldNot(HaveOccurred())
 
 				backup.Spec.BackupState = ""
 				err = k8sClient.Update(context.TODO(), backup)
@@ -225,8 +238,11 @@ var _ = Describe("backup_controller", func() {
 			})
 
 			It("should resume the backup", func() {
-				status, err := adminClient.GetBackupStatus()
-				Expect(err).NotTo(HaveOccurred())
+				var status *fdbv1beta2.FoundationDBLiveBackupStatus
+				Eventually(func() error {
+					status, err = adminClient.GetBackupStatus()
+					return err
+				}).ShouldNot(HaveOccurred())
 				Expect(status.BackupAgentsPaused).To(BeFalse())
 			})
 		})
@@ -240,8 +256,11 @@ var _ = Describe("backup_controller", func() {
 			})
 
 			It("should modify the backup", func() {
-				status, err := adminClient.GetBackupStatus()
-				Expect(err).NotTo(HaveOccurred())
+				var status *fdbv1beta2.FoundationDBLiveBackupStatus
+				Eventually(func() error {
+					status, err = adminClient.GetBackupStatus()
+					return err
+				}).ShouldNot(HaveOccurred())
 				Expect(status.SnapshotIntervalSeconds).To(Equal(100000))
 			})
 		})

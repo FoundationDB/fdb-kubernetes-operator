@@ -54,11 +54,14 @@ var _ = Describe("bounceProcesses", func() {
 	})
 
 	JustBeforeEach(func() {
-		requeue = bounceProcesses{}.reconcile(context.TODO(), clusterReconciler, cluster)
+		Eventually(func() bool {
+			requeue = bounceProcesses{}.reconcile(context.TODO(), clusterReconciler, cluster)
+			return requeue == nil || requeue.curError == nil
+		}).Should(BeTrue())
 	})
 
 	Context("with a reconciled cluster", func() {
-		It("should not requeue", func() {
+		It("should eventually stop requeuing", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(requeue).To(BeNil())
 		})
@@ -129,8 +132,9 @@ var _ = Describe("bounceProcesses", func() {
 			Expect(processGroup.ProcessGroupID).To(Equal("storage-1"))
 			processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true, nil, "")
 			for _, address := range processGroup.Addresses {
-				err := adminClient.ExcludeProcesses([]fdbv1beta2.ProcessAddress{{StringAddress: address, Port: 4501}})
-				Expect(err).To(BeNil())
+				Eventually(func() error {
+					return adminClient.ExcludeProcesses([]fdbv1beta2.ProcessAddress{{StringAddress: address, Port: 4501}})
+				}).Should(BeNil())
 			}
 
 		})

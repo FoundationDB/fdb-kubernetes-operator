@@ -63,10 +63,15 @@ var _ = Describe("maintenance_mode_checker", func() {
 	})
 
 	JustBeforeEach(func() {
-		requeue = maintenanceModeChecker{}.reconcile(context.TODO(), clusterReconciler, cluster)
-		Expect(err).NotTo(HaveOccurred())
-		_, err = reloadCluster(cluster)
-		Expect(err).NotTo(HaveOccurred())
+		Eventually(func() error {
+			requeue = maintenanceModeChecker{}.reconcile(context.TODO(), clusterReconciler, cluster)
+			return err
+		}).ShouldNot(HaveOccurred())
+
+		Eventually(func() error {
+			_, err = reloadCluster(cluster)
+			return err
+		}).ShouldNot(HaveOccurred())
 	})
 
 	Context("maintenance mode is off", func() {
