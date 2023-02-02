@@ -21,6 +21,7 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -29,6 +30,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -47,49 +49,51 @@ var _ = Describe("[plugin] cordon command", func() {
 		}
 
 		BeforeEach(func() {
-			// creating pods for first cluster.
-			Expect(createPods(clusterName, namespace, 1)).NotTo(HaveOccurred())
+			// creating Pods for first cluster.
+			Expect(createPods(clusterName, namespace)).NotTo(HaveOccurred())
 
 			// creating a second cluster
-			secondCluster = createCluster(secondClusterName, namespace)
+			secondCluster = generateClusterStruct(secondClusterName, namespace)
 			Expect(k8sClient.Create(context.TODO(), secondCluster)).NotTo(HaveOccurred())
-			Expect(createPods(secondClusterName, namespace, 3)).NotTo(HaveOccurred())
+			Expect(createPods(secondClusterName, namespace)).NotTo(HaveOccurred())
 		})
 
 		DescribeTable("should cordon all targeted processes",
 			func(input testCase) {
-				err := cordonNode(k8sClient, input.clusterName, input.nodes, namespace, input.WithExclusion, false, 0, input.clusterLabel)
+				// We use these buffers to check the input/output
+				outBuffer := bytes.Buffer{}
+				errBuffer := bytes.Buffer{}
+				inBuffer := bytes.Buffer{}
+
+				cmd := newAnalyzeCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer})
+				err := cordonNode(cmd, k8sClient, input.clusterName, input.nodes, namespace, input.WithExclusion, false, 0, input.clusterLabel)
 				Expect(err).NotTo(HaveOccurred())
 
-				var clusterNames []string
-				if len(input.clusterName) == 0 {
-					clusterNames = []string{clusterName, secondClusterName}
-				} else {
-					clusterNames = []string{input.clusterName}
-				}
-
-				var currentInstancesToRemove []string
-				var currentInstancesToRemoveWithoutExclusion []string
-				for _, currentClusterName := range clusterNames {
+				clusterNames := []string{clusterName, secondClusterName}
+				var instancesToRemove []string
+				var instancesToRemoveWithoutExclusion []string
+				for _, clusterName := range clusterNames {
 					var resCluster fdbv1beta2.FoundationDBCluster
 					err = k8sClient.Get(context.Background(), client.ObjectKey{
 						Namespace: namespace,
-						Name:      currentClusterName,
+						Name:      clusterName,
 					}, &resCluster)
-					currentInstancesToRemove = append(currentInstancesToRemove, resCluster.Spec.ProcessGroupsToRemove...)
-					currentInstancesToRemoveWithoutExclusion = append(currentInstancesToRemoveWithoutExclusion, resCluster.Spec.ProcessGroupsToRemoveWithoutExclusion...)
+					instancesToRemove = append(instancesToRemove, resCluster.Spec.ProcessGroupsToRemove...)
+					instancesToRemoveWithoutExclusion = append(instancesToRemoveWithoutExclusion, resCluster.Spec.ProcessGroupsToRemoveWithoutExclusion...)
 				}
 
 				Expect(err).NotTo(HaveOccurred())
 				// Use equality.Semantic.DeepEqual here since the Equal check of gomega is to strict
-				Expect(equality.Semantic.DeepEqual(input.ExpectedInstancesToRemove, currentInstancesToRemove)).To(BeTrue())
-				Expect(equality.Semantic.DeepEqual(input.ExpectedInstancesToRemoveWithoutExclusion, currentInstancesToRemoveWithoutExclusion)).To(BeTrue())
+				fmt.Printf("\ninstancesToRemove: %v\n", instancesToRemove)
+				Expect(equality.Semantic.DeepEqual(input.ExpectedInstancesToRemove, instancesToRemove)).To(BeTrue())
+				fmt.Printf("\ninstancesToRemoveWithoutExclusion: %v\n", instancesToRemoveWithoutExclusion)
+				Expect(equality.Semantic.DeepEqual(input.ExpectedInstancesToRemoveWithoutExclusion, instancesToRemoveWithoutExclusion)).To(BeTrue())
 			},
 			Entry("Cordon node with exclusion",
 				testCase{
 					nodes:                     []string{"node-1"},
 					WithExclusion:             true,
-					ExpectedInstancesToRemove: []string{"instance-1"},
+					ExpectedInstancesToRemove: []string{fmt.Sprintf("%s-instance-1", clusterName)},
 					ExpectedInstancesToRemoveWithoutExclusion: []string{},
 					clusterName:  clusterName,
 					clusterLabel: "",
@@ -99,7 +103,7 @@ var _ = Describe("[plugin] cordon command", func() {
 					nodes:                     []string{"node-1"},
 					WithExclusion:             false,
 					ExpectedInstancesToRemove: []string{},
-					ExpectedInstancesToRemoveWithoutExclusion: []string{"instance-1"},
+					ExpectedInstancesToRemoveWithoutExclusion: []string{fmt.Sprintf("%s-instance-1", clusterName)},
 					clusterName:  clusterName,
 					clusterLabel: "",
 				}),
@@ -123,19 +127,25 @@ var _ = Describe("[plugin] cordon command", func() {
 				}),
 			Entry("Cordon all nodes with exclusion",
 				testCase{
-					nodes:                     []string{"node-1", "node-2"},
-					WithExclusion:             true,
-					ExpectedInstancesToRemove: []string{"instance-1", "instance-2"},
+					nodes:         []string{"node-1", "node-2"},
+					WithExclusion: true,
+					ExpectedInstancesToRemove: []string{
+						fmt.Sprintf("%s-instance-1", clusterName),
+						fmt.Sprintf("%s-instance-2", clusterName),
+					},
 					ExpectedInstancesToRemoveWithoutExclusion: []string{},
-					clusterLabel: fdbv1beta2.FDBClusterLabel,
 					clusterName:  clusterName,
+					clusterLabel: fdbv1beta2.FDBClusterLabel,
 				}),
 			Entry("Cordon all nodes without exclusion",
 				testCase{
 					nodes:                     []string{"node-1", "node-2"},
 					WithExclusion:             false,
 					ExpectedInstancesToRemove: []string{},
-					ExpectedInstancesToRemoveWithoutExclusion: []string{"instance-1", "instance-2"},
+					ExpectedInstancesToRemoveWithoutExclusion: []string{
+						fmt.Sprintf("%s-instance-1", clusterName),
+						fmt.Sprintf("%s-instance-2", clusterName),
+					},
 					clusterName:  clusterName,
 					clusterLabel: fdbv1beta2.FDBClusterLabel,
 				}),
@@ -143,16 +153,19 @@ var _ = Describe("[plugin] cordon command", func() {
 				testCase{
 					nodes:                     []string{"node-1"},
 					WithExclusion:             true,
-					ExpectedInstancesToRemove: []string{"instance-3"},
+					ExpectedInstancesToRemove: []string{fmt.Sprintf("%s-instance-1", secondClusterName)},
 					ExpectedInstancesToRemoveWithoutExclusion: []string{},
 					clusterName:  secondClusterName,
 					clusterLabel: fdbv1beta2.FDBClusterLabel,
 				}),
 			Entry("Cordon node from all clusters with exclusion",
 				testCase{
-					nodes:                     []string{"node-1"},
-					WithExclusion:             true,
-					ExpectedInstancesToRemove: []string{"instance-1", "instance-3"},
+					nodes:         []string{"node-1"},
+					WithExclusion: true,
+					ExpectedInstancesToRemove: []string{
+						fmt.Sprintf("%s-instance-1", clusterName),
+						fmt.Sprintf("%s-instance-1", secondClusterName),
+					},
 					ExpectedInstancesToRemoveWithoutExclusion: []string{},
 					clusterName:  "",
 					clusterLabel: fdbv1beta2.FDBClusterLabel,
@@ -162,7 +175,12 @@ var _ = Describe("[plugin] cordon command", func() {
 					nodes:                     []string{"node-1", "node-2"},
 					WithExclusion:             false,
 					ExpectedInstancesToRemove: []string{},
-					ExpectedInstancesToRemoveWithoutExclusion: []string{"instance-1", "instance-2", "instance-3", "instance-4"},
+					ExpectedInstancesToRemoveWithoutExclusion: []string{
+						fmt.Sprintf("%s-instance-1", clusterName),
+						fmt.Sprintf("%s-instance-2", clusterName),
+						fmt.Sprintf("%s-instance-1", secondClusterName),
+						fmt.Sprintf("%s-instance-2", secondClusterName),
+					},
 					clusterName:  "",
 					clusterLabel: fdbv1beta2.FDBClusterLabel,
 				}),
@@ -179,16 +197,16 @@ var _ = Describe("[plugin] cordon command", func() {
 	})
 })
 
-func createPods(inputClusterName string, inputNamespace string, id int) error {
+func createPods(clusterName string, namespace string) error {
 	pods := []corev1.Pod{
 		{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf("instance-%d", id),
-				Namespace: inputNamespace,
+				Name:      fmt.Sprintf("%s-instance-1", clusterName),
+				Namespace: namespace,
 				Labels: map[string]string{
 					fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStorage),
-					fdbv1beta2.FDBClusterLabel:        inputClusterName,
-					fdbv1beta2.FDBProcessGroupIDLabel: fmt.Sprintf("instance-%d", id),
+					fdbv1beta2.FDBClusterLabel:        clusterName,
+					fdbv1beta2.FDBProcessGroupIDLabel: fmt.Sprintf("%s-instance-1", clusterName),
 				},
 			},
 			Spec: corev1.PodSpec{
@@ -197,12 +215,12 @@ func createPods(inputClusterName string, inputNamespace string, id int) error {
 		},
 		{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf("instance-%d", id+1),
-				Namespace: inputNamespace,
+				Name:      fmt.Sprintf("%s-instance-2", clusterName),
+				Namespace: namespace,
 				Labels: map[string]string{
 					fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStorage),
-					fdbv1beta2.FDBClusterLabel:        inputClusterName,
-					fdbv1beta2.FDBProcessGroupIDLabel: fmt.Sprintf("instance-%d", id+1),
+					fdbv1beta2.FDBClusterLabel:        clusterName,
+					fdbv1beta2.FDBProcessGroupIDLabel: fmt.Sprintf("%s-instance-2", clusterName),
 				},
 			},
 			Spec: corev1.PodSpec{

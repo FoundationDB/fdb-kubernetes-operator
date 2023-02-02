@@ -31,7 +31,7 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = BeforeEach(func() {
-	cluster = createCluster(clusterName, namespace)
+	cluster = generateClusterStruct(clusterName, namespace)
 })
 
 var _ = JustBeforeEach(func() {
@@ -42,11 +42,11 @@ var _ = AfterEach(func() {
 	k8sClient.Clear()
 })
 
-func createCluster(givenName string, givenNamespace string) *fdbv1beta2.FoundationDBCluster {
+func generateClusterStruct(name string, namespace string) *fdbv1beta2.FoundationDBCluster {
 	return &fdbv1beta2.FoundationDBCluster{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      givenName,
-			Namespace: givenNamespace,
+			Name:      name,
+			Namespace: namespace,
 		},
 		Spec: fdbv1beta2.FoundationDBClusterSpec{
 			ProcessCounts: fdbv1beta2.ProcessCounts{

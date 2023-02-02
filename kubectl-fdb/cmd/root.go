@@ -23,6 +23,7 @@ package cmd
 import (
 	"bufio"
 	"fmt"
+	"github.com/fatih/color"
 	"log"
 	"math/rand"
 	"os"
@@ -115,4 +116,32 @@ func confirmAction(action string) bool {
 			return false
 		}
 	}
+}
+
+type messageType int
+
+const (
+	errorMessage messageType = iota
+	warnMessage
+	goodMessage
+)
+
+func printStatement(cmd *cobra.Command, line string, mesType messageType) {
+	if mesType == errorMessage {
+		color.Set(color.FgRed)
+		cmd.PrintErrf("✖ %s\n", line)
+		color.Unset()
+		return
+	}
+
+	if mesType == warnMessage {
+		color.Set(color.FgYellow)
+		cmd.PrintErrf("⚠ %s\n", line)
+		color.Unset()
+		return
+	}
+
+	color.Set(color.FgGreen)
+	cmd.Printf("✔ %s\n", line)
+	color.Unset()
 }

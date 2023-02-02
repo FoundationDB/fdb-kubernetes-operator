@@ -2275,3 +2275,17 @@ func (cluster *FoundationDBCluster) Validate() error {
 
 	return fmt.Errorf(strings.Join(validations, ", "))
 }
+
+func (cluster *FoundationDBCluster) ContainsPod(pod corev1.Pod) bool {
+	clusterMatchingLabels := cluster.GetMatchLabels()
+	podLabels := pod.GetLabels()
+	if len(clusterMatchingLabels) > len(podLabels) {
+		return false
+	}
+	for clusterLabelKey, clusterLabelValue := range clusterMatchingLabels {
+		if podLabelValue, found := podLabels[clusterLabelKey]; !found || clusterLabelValue != podLabelValue {
+			return false
+		}
+	}
+	return true
+}
