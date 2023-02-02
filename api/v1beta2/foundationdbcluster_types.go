@@ -2276,6 +2276,7 @@ func (cluster *FoundationDBCluster) Validate() error {
 	return fmt.Errorf(strings.Join(validations, ", "))
 }
 
+// ContainsPod checks if the given Pod is part of the cluster or not.
 func (cluster *FoundationDBCluster) ContainsPod(pod corev1.Pod) bool {
 	clusterMatchingLabels := cluster.GetMatchLabels()
 	podLabels := pod.GetLabels()

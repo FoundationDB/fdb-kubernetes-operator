@@ -197,9 +197,9 @@ func fetchPods(kubeClient client.Client, inputClusterName string, namespace stri
 				Selector: fields.OneTermEqualSelector("spec.nodeName", node),
 			})
 	} else {
-		cluster, err := loadCluster(kubeClient, namespace, inputClusterName)
-		if err != nil {
-			return pods, fmt.Errorf("unable to load cluster: %s, skipping\n", inputClusterName)
+		cluster, error := loadCluster(kubeClient, namespace, inputClusterName)
+		if error != nil {
+			return pods, fmt.Errorf("unable to load cluster: %s, skipping", inputClusterName)
 		}
 		err = kubeClient.List(ctx.Background(), &pods,
 			client.InNamespace(namespace),
