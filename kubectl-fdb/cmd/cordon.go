@@ -146,7 +146,7 @@ func cordonNode(cmd *cobra.Command, kubeClient client.Client, inputClusterName s
 		}
 
 		clusterNames := getClusterNames(cmd, inputClusterName, pods, clusterLabel)
-		for _, clusterName := range clusterNames {
+		for clusterName := range clusterNames {
 			cmd.Printf("Starting operation on %s, node: %s\n", clusterName, node)
 			cluster, err := loadCluster(kubeClient, namespace, clusterName)
 			if err != nil {
@@ -214,19 +214,19 @@ func fetchPods(kubeClient client.Client, inputClusterName string, namespace stri
 	return pods, nil
 }
 
-func getClusterNames(cmd *cobra.Command, inputClusterName string, pods corev1.PodList, clusterLabel string) []string {
+func getClusterNames(cmd *cobra.Command, inputClusterName string, pods corev1.PodList, clusterLabel string) map[string]fdbv1beta2.None {
 	if inputClusterName != "" {
-		return []string{inputClusterName}
+		return map[string]fdbv1beta2.None{inputClusterName: {}}
 	}
 
-	clusterNames := make([]string, 0, len(pods.Items))
+	clusterNames := make(map[string]fdbv1beta2.None)
 	for _, pod := range pods.Items {
 		clusterName, ok := pod.Labels[clusterLabel]
 		if !ok {
 			printStatement(cmd, fmt.Sprintf("could not fetch cluster name from Pod: %s\n", pod.Name), errorMessage)
 			continue
 		}
-		clusterNames = append(clusterNames, clusterName)
+		clusterNames[clusterName] = fdbv1beta2.None{}
 	}
 	return clusterNames
 }
