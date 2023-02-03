@@ -28,7 +28,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -78,16 +77,13 @@ var _ = Describe("[plugin] cordon command", func() {
 						Namespace: namespace,
 						Name:      clusterName,
 					}, &resCluster)
+					Expect(err).NotTo(HaveOccurred())
 					instancesToRemove = append(instancesToRemove, resCluster.Spec.ProcessGroupsToRemove...)
 					instancesToRemoveWithoutExclusion = append(instancesToRemoveWithoutExclusion, resCluster.Spec.ProcessGroupsToRemoveWithoutExclusion...)
 				}
 
-				Expect(err).NotTo(HaveOccurred())
-				// Use equality.Semantic.DeepEqual here since the Equal check of gomega is to strict
-				fmt.Printf("\ninstancesToRemove: %v\n", instancesToRemove)
-				Expect(equality.Semantic.DeepEqual(input.ExpectedInstancesToRemove, instancesToRemove)).To(BeTrue())
-				fmt.Printf("\ninstancesToRemoveWithoutExclusion: %v\n", instancesToRemoveWithoutExclusion)
-				Expect(equality.Semantic.DeepEqual(input.ExpectedInstancesToRemoveWithoutExclusion, instancesToRemoveWithoutExclusion)).To(BeTrue())
+				Expect(input.ExpectedInstancesToRemove).To(ConsistOf(instancesToRemove))
+				Expect(input.ExpectedInstancesToRemoveWithoutExclusion).To(ConsistOf(instancesToRemoveWithoutExclusion))
 			},
 			Entry("Cordon node with exclusion",
 				testCase{
@@ -135,7 +131,7 @@ var _ = Describe("[plugin] cordon command", func() {
 					},
 					ExpectedInstancesToRemoveWithoutExclusion: []string{},
 					clusterName:  clusterName,
-					clusterLabel: fdbv1beta2.FDBClusterLabel,
+					clusterLabel: "",
 				}),
 			Entry("Cordon all nodes without exclusion",
 				testCase{
@@ -147,9 +143,18 @@ var _ = Describe("[plugin] cordon command", func() {
 						fmt.Sprintf("%s-instance-2", clusterName),
 					},
 					clusterName:  clusterName,
-					clusterLabel: fdbv1beta2.FDBClusterLabel,
+					clusterLabel: "",
 				}),
 			Entry("Cordon node from second cluster without exclusion",
+				testCase{
+					nodes:                     []string{"node-1"},
+					WithExclusion:             true,
+					ExpectedInstancesToRemove: []string{fmt.Sprintf("%s-instance-1", secondClusterName)},
+					ExpectedInstancesToRemoveWithoutExclusion: []string{},
+					clusterName:  secondClusterName,
+					clusterLabel: "",
+				}),
+			Entry("Cordon node from second cluster without exclusion with cluster label",
 				testCase{
 					nodes:                     []string{"node-1"},
 					WithExclusion:             true,

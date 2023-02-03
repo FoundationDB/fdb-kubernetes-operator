@@ -23,6 +23,7 @@ package cmd
 import (
 	"fmt"
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
@@ -135,13 +136,13 @@ func cordonNode(cmd *cobra.Command, kubeClient client.Client, inputClusterName s
 		return nil
 	}
 
-	operationFailed := false
 	var errors []string
 	for _, node := range nodes {
 		pods, err := fetchPods(kubeClient, inputClusterName, namespace, node, clusterLabel)
 		if err != nil {
-			operationFailed = true
-			errors = append(errors, fmt.Sprintf("Issue fetching Pods running on node: %s. Error: %s\n", node, err))
+			error := fmt.Sprintf("Issue fetching Pods running on node: %s. Error: %s\n", node, err)
+			cmd.PrintErr(error)
+			errors = append(errors, error)
 			continue
 		}
 
@@ -150,8 +151,9 @@ func cordonNode(cmd *cobra.Command, kubeClient client.Client, inputClusterName s
 			cmd.Printf("Starting operation on %s, node: %s\n", clusterName, node)
 			cluster, err := loadCluster(kubeClient, namespace, clusterName)
 			if err != nil {
-				errors = append(errors, fmt.Sprintf("unable to load cluster: %s, skipping\n", clusterName))
-				operationFailed = true
+				error := fmt.Sprintf("unable to load cluster: %s, skipping\n", clusterName)
+				errors = append(errors, error)
+				cmd.PrintErr(error)
 				continue
 			}
 
@@ -164,7 +166,7 @@ func cordonNode(cmd *cobra.Command, kubeClient client.Client, inputClusterName s
 					continue
 				}
 
-				if cluster.ContainsPod(pod) {
+				if internal.ContainsPod(cluster, pod) {
 					processGroup, ok := pod.Labels[cluster.GetProcessGroupIDLabel()]
 					if !ok {
 						cmd.Printf("could not fetch process group ID from Pod: %s\n", pod.Name)
@@ -175,21 +177,22 @@ func cordonNode(cmd *cobra.Command, kubeClient client.Client, inputClusterName s
 			}
 			err = replaceProcessGroups(kubeClient, cluster.Name, processGroups, namespace, withExclusion, wait, false, true, sleep)
 			if err != nil {
-				operationFailed = true
-				errors = append(errors, fmt.Sprintf("unable to cordon all Pods for cluster %s\n", cluster.Name))
+				error := fmt.Sprintf("unable to cordon all Pods for cluster %s\n", cluster.Name)
+				errors = append(errors, error)
+				cmd.PrintErr(error)
 			}
 		}
 	}
-	if operationFailed {
+	if len(errors) > 0 {
 		return fmt.Errorf("following operation failed, please check and retry: \n, %s", errors)
 	}
 	return nil
 }
 
-func fetchPods(kubeClient client.Client, inputClusterName string, namespace string, node string, clusterLabel string) (corev1.PodList, error) {
+func fetchPods(kubeClient client.Client, clusterName string, namespace string, node string, clusterLabel string) (corev1.PodList, error) {
 	var pods corev1.PodList
 	var err error
-	if inputClusterName == "" {
+	if clusterName == "" {
 		err = kubeClient.List(ctx.Background(), &pods,
 			client.InNamespace(namespace),
 			client.HasLabels([]string{clusterLabel}),
@@ -197,9 +200,9 @@ func fetchPods(kubeClient client.Client, inputClusterName string, namespace stri
 				Selector: fields.OneTermEqualSelector("spec.nodeName", node),
 			})
 	} else {
-		cluster, error := loadCluster(kubeClient, namespace, inputClusterName)
+		cluster, error := loadCluster(kubeClient, namespace, clusterName)
 		if error != nil {
-			return pods, fmt.Errorf("unable to load cluster: %s, skipping", inputClusterName)
+			return pods, fmt.Errorf("unable to load cluster: %s. Error: %w", clusterName, err)
 		}
 		err = kubeClient.List(ctx.Background(), &pods,
 			client.InNamespace(namespace),
@@ -209,21 +212,21 @@ func fetchPods(kubeClient client.Client, inputClusterName string, namespace stri
 			})
 	}
 	if err != nil {
-		return pods, fmt.Errorf("unable to fetch pods")
+		return pods, fmt.Errorf("unable to fetch pods. Error: %w", err)
 	}
 	return pods, nil
 }
 
-func getClusterNames(cmd *cobra.Command, inputClusterName string, pods corev1.PodList, clusterLabel string) map[string]fdbv1beta2.None {
-	if inputClusterName != "" {
-		return map[string]fdbv1beta2.None{inputClusterName: {}}
+func getClusterNames(cmd *cobra.Command, clusterName string, pods corev1.PodList, clusterLabel string) map[string]fdbv1beta2.None {
+	if clusterName != "" {
+		return map[string]fdbv1beta2.None{clusterName: {}}
 	}
 
 	clusterNames := make(map[string]fdbv1beta2.None)
 	for _, pod := range pods.Items {
 		clusterName, ok := pod.Labels[clusterLabel]
 		if !ok {
-			printStatement(cmd, fmt.Sprintf("could not fetch cluster name from Pod: %s\n", pod.Name), errorMessage)
+			cmd.PrintErrf("could not fetch cluster name from Pod: %s\n", pod.Name)
 			continue
 		}
 		clusterNames[clusterName] = fdbv1beta2.None{}
