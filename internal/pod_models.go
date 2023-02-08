@@ -1039,3 +1039,18 @@ func GetObjectMetadata(cluster *fdbv1beta2.FoundationDBCluster, base *metav1.Obj
 func GetPodDNSName(cluster *fdbv1beta2.FoundationDBCluster, podName string) string {
 	return fmt.Sprintf("%s.%s.%s.svc.%s", podName, cluster.Name, cluster.Namespace, cluster.GetDNSDomain())
 }
+
+// ContainsPod checks if the given Pod is part of the cluster or not.
+func ContainsPod(cluster *fdbv1beta2.FoundationDBCluster, pod corev1.Pod) bool {
+	clusterMatchingLabels := cluster.GetMatchLabels()
+	podLabels := pod.GetLabels()
+	if len(clusterMatchingLabels) > len(podLabels) {
+		return false
+	}
+	for clusterLabelKey, clusterLabelValue := range clusterMatchingLabels {
+		if podLabelValue, found := podLabels[clusterLabelKey]; !found || clusterLabelValue != podLabelValue {
+			return false
+		}
+	}
+	return true
+}

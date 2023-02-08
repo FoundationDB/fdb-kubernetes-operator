@@ -222,34 +222,6 @@ func allConditionsValid(conditions []string) error {
 	return fmt.Errorf(errString.String())
 }
 
-type messageType int
-
-const (
-	errorMessage messageType = iota
-	warnMessage
-	goodMessage
-)
-
-func printStatement(cmd *cobra.Command, line string, mesType messageType) {
-	if mesType == errorMessage {
-		color.Set(color.FgRed)
-		cmd.PrintErrf("✖ %s\n", line)
-		color.Unset()
-		return
-	}
-
-	if mesType == warnMessage {
-		color.Set(color.FgYellow)
-		cmd.PrintErrf("⚠ %s\n", line)
-		color.Unset()
-		return
-	}
-
-	color.Set(color.FgGreen)
-	cmd.Printf("✔ %s\n", line)
-	color.Unset()
-}
-
 func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluster, autoFix bool, wait bool, ignoreConditions []string, ignoreRemovals bool, sleep uint16) error {
 	var foundIssues bool
 	cmd.Printf("Checking cluster: %s/%s\n", cluster.Namespace, cluster.Name)
