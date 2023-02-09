@@ -97,16 +97,16 @@ var _ = Describe("remove", func() {
 			Expect(len(zones)).To(BeNumerically("==", 4))
 
 			Expect(len(zones["zone1"])).To(BeNumerically("==", 2))
-			Expect(zones["zone1"]).To(ConsistOf("1", "2"))
+			Expect(zones["zone1"]).To(ConsistOf(fdbv1beta2.ProcessGroupID("1"), fdbv1beta2.ProcessGroupID("2")))
 
 			Expect(len(zones["zone3"])).To(BeNumerically("==", 1))
-			Expect(zones["zone3"]).To(ConsistOf("3"))
+			Expect(zones["zone3"]).To(ConsistOf(fdbv1beta2.ProcessGroupID("3")))
 
 			Expect(len(zones[UnknownZone])).To(BeNumerically("==", 1))
-			Expect(zones[UnknownZone]).To(ConsistOf("4"))
+			Expect(zones[UnknownZone]).To(ConsistOf(fdbv1beta2.ProcessGroupID("4")))
 
 			Expect(len(zones[TerminatingZone])).To(BeNumerically("==", 2))
-			Expect(zones[TerminatingZone]).To(ConsistOf("5", "6"))
+			Expect(zones[TerminatingZone]).To(ConsistOf(fdbv1beta2.ProcessGroupID("5"), fdbv1beta2.ProcessGroupID("6")))
 
 			Expect(timestamp).To(BeNumerically("==", 42))
 		})
@@ -136,7 +136,7 @@ var _ = Describe("remove", func() {
 				nil),
 			Entry("With the deletion mode Zone and only terminating process groupse",
 				fdbv1beta2.PodUpdateModeZone,
-				map[string][]string{
+				map[string][]fdbv1beta2.ProcessGroupID{
 					TerminatingZone: {"1", "2"},
 				},
 				0,
