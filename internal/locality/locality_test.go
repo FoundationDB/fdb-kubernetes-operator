@@ -109,7 +109,7 @@ func generateDefaultStatus(tls bool) *fdbv1beta2.FoundationDBStatus {
 			},
 		},
 		Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
-			Processes: map[string]fdbv1beta2.FoundationDBStatusProcessInfo{
+			Processes: map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{
 				"1": generateDummyProcessInfo("test-1", "dc1", port, tls),
 				"2": generateDummyProcessInfo("test-2", "dc1", port, tls),
 				"3": generateDummyProcessInfo("test-3", "dc1", port, tls),
@@ -711,7 +711,7 @@ var _ = Describe("Change coordinators", func() {
 					ProcessClass: fdbv1beta2.ProcessClassTest,
 				}
 				Expect(testProcess.Address.IsEmpty()).To(BeFalse())
-				status.Cluster.Processes[string(fdbv1beta2.ProcessClassTest)] = testProcess
+				status.Cluster.Processes[fdbv1beta2.ProcessGroupID(fdbv1beta2.ProcessClassTest)] = testProcess
 			})
 
 			It("should ignore the test process and report the coordinators as valid", func() {

@@ -93,10 +93,10 @@ var _ = Describe("Change coordinators", func() {
 			})
 
 			When("when one storage process is marked for removal", func() {
-				removedProcess := "storage-2"
+				removedProcess := fdbv1beta2.ProcessGroupID("storage-2")
 
 				BeforeEach(func() {
-					cluster.Spec.ProcessGroupsToRemove = []string{
+					cluster.Spec.ProcessGroupsToRemove = []fdbv1beta2.ProcessGroupID{
 						removedProcess,
 					}
 					Expect(cluster.ProcessGroupIsBeingRemoved(removedProcess)).To(BeTrue())
@@ -133,7 +133,7 @@ var _ = Describe("Change coordinators", func() {
 			})
 
 			When("when multiple storage process are marked for removal", func() {
-				removals := []string{
+				removals := []fdbv1beta2.ProcessGroupID{
 					"storage-2",
 					"storage-3",
 				}
@@ -209,7 +209,7 @@ var _ = Describe("Change coordinators", func() {
 			var status *fdbv1beta2.FoundationDBStatus
 			var candidates []locality.Info
 			var excludes []string
-			var removals []string
+			var removals []fdbv1beta2.ProcessGroupID
 			var dcCnt int
 			var satCnt int
 			var shouldFail bool
@@ -218,7 +218,7 @@ var _ = Describe("Change coordinators", func() {
 				// ensure a clean state
 				candidates = []locality.Info{}
 				excludes = []string{}
-				removals = []string{}
+				removals = []fdbv1beta2.ProcessGroupID{}
 				shouldFail = false
 			})
 
@@ -331,7 +331,7 @@ var _ = Describe("Change coordinators", func() {
 
 				When("some processes are removed", func() {
 					BeforeEach(func() {
-						removals = []string{
+						removals = []fdbv1beta2.ProcessGroupID{
 							"dc0-storage-1",
 							"dc0-storage-2",
 							"dc0-storage-3",
@@ -501,7 +501,7 @@ var _ = Describe("Change coordinators", func() {
 
 				When("some processes are removed", func() {
 					BeforeEach(func() {
-						removals = []string{
+						removals = []fdbv1beta2.ProcessGroupID{
 							"dc0-storage-1",
 							"dc0-storage-2",
 							"dc0-storage-3",
@@ -682,8 +682,8 @@ var _ = Describe("Change coordinators", func() {
 	})
 })
 
-func generateProcessInfo(dcCount int, satCount int, excludes []string) map[string]fdbv1beta2.FoundationDBStatusProcessInfo {
-	res := map[string]fdbv1beta2.FoundationDBStatusProcessInfo{}
+func generateProcessInfo(dcCount int, satCount int, excludes []string) map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo {
+	res := map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{}
 	logCnt := 4
 
 	for i := 0; i < dcCount; i++ {
@@ -702,7 +702,7 @@ func generateProcessInfo(dcCount int, satCount int, excludes []string) map[strin
 	return res
 }
 
-func generateProcessInfoDetails(res map[string]fdbv1beta2.FoundationDBStatusProcessInfo, dcID string, cnt int, excludes []string, pClass fdbv1beta2.ProcessClass) {
+func generateProcessInfoDetails(res map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo, dcID string, cnt int, excludes []string, pClass fdbv1beta2.ProcessClass) {
 	for idx := 0; idx < cnt; idx++ {
 		excluded := false
 		zoneID := fmt.Sprintf("%s-%s-%d", dcID, pClass, idx)
@@ -717,7 +717,7 @@ func generateProcessInfoDetails(res map[string]fdbv1beta2.FoundationDBStatusProc
 		}
 
 		addr := fmt.Sprintf("1.1.1.%d:4501", len(res))
-		res[zoneID] = fdbv1beta2.FoundationDBStatusProcessInfo{
+		res[fdbv1beta2.ProcessGroupID(zoneID)] = fdbv1beta2.FoundationDBStatusProcessInfo{
 			ProcessClass: pClass,
 			Locality: map[string]string{
 				fdbv1beta2.FDBLocalityInstanceIDKey: zoneID,

@@ -22,7 +22,7 @@ A better way would be to allow the operator to bin pack Pods in the same fault d
 ## Current Implementation
 
 The current implementation adds a `preferredDuringSchedulingIgnoredDuringExecution` `PodAntiAffinity` to every Pod [code](https://github.com/FoundationDB/fdb-kubernetes-operator/blob/master/internal/pod_models.go#L308-L334).
-The label selector will contain the process class and the cluster name, to ensure processes with the same class are distributed across different fault domains is possible.
+The label selector will contain the process class and the cluster name, to ensure podNames with the same class are distributed across different fault domains is possible.
 A user can define additional `PodAntiAffinity`s but can't prevent the operator from creating the default `PodAntiAffinity`.
 The only exception is the special fault domain `foundationdb.org/none` and `foundationdb.org/kubernetes-cluster`.
 
@@ -31,7 +31,7 @@ In the design we will use the following terms:
 - `physical fault domain`: This refers to a fault domain that is available in Kubernetes e.g. a machine running the Kubernetes worker or a higher level fault domain like a rack, data hall etc.
   This will reflect an underlying physical fault domain.
 - `logical fault domain`: The logical fault domain is not something that refers directly to a physical fault domain and can also be spread across multiple physical fault domains.
-  The idea is to have a way to group some processes of a FoundationDB cluster together with the same zone ID, this zone ID will be a logical value like "zone-1".
+  The idea is to have a way to group some podNames of a FoundationDB cluster together with the same zone ID, this zone ID will be a logical value like "zone-1".
 
 ## Proposed Design
 
@@ -92,7 +92,7 @@ type DistributionConfig struct {
 
 The operator will try to spread the Pods equally across the logical fault domains.
 Depending on the replacements for unreachable Pods we could use one logical fault domain more than another.
-We also don't guarantee that we use exactly the number of `DesiredFaultDomains` e.g. when we spawn fewer processes than `DesiredFaultDomains`.
+We also don't guarantee that we use exactly the number of `DesiredFaultDomains` e.g. when we spawn fewer podNames than `DesiredFaultDomains`.
 
 A change to `DesiredFaultDomains` will lead to a migration of a subset of Pods in order to honor the new affinity term.
 The operator only tries to replace as many Pods as required to have all pods equally distributed across the logical fault domains.

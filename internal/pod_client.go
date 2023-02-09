@@ -482,7 +482,7 @@ func GetSubstitutionsFromClusterAndPod(logger logr.Logger, cluster *fdbv1beta2.F
 		}
 	}
 
-	substitutions["FDB_INSTANCE_ID"] = GetProcessGroupIDFromMeta(cluster, pod.ObjectMeta)
+	substitutions["FDB_INSTANCE_ID"] = string(GetProcessGroupIDFromMeta(cluster, pod.ObjectMeta))
 
 	if cluster.IsBeingUpgraded() {
 		substitutions["BINARY_DIR"] = fmt.Sprintf("/var/dynamic-conf/bin/%s", cluster.Spec.Version)

@@ -125,7 +125,7 @@ func (u removeProcessGroups) reconcile(ctx context.Context, r *FoundationDBClust
 	return nil
 }
 
-func removeProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, processGroupID string) error {
+func removeProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, processGroupID fdbv1beta2.ProcessGroupID) error {
 	listOptions := internal.GetSinglePodListOptions(cluster, processGroupID)
 	pods, err := r.PodLifecycleManager.GetPods(ctx, r, cluster, listOptions...)
 	if err != nil {
@@ -174,7 +174,7 @@ func removeProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, c
 	return nil
 }
 
-func confirmRemoval(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, processGroupID string) (bool, bool, error) {
+func confirmRemoval(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, processGroupID fdbv1beta2.ProcessGroupID) (bool, bool, error) {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "removeProcessGroups")
 	canBeIncluded := true
 	listOptions := internal.GetSinglePodListOptions(cluster, processGroupID)
@@ -233,7 +233,7 @@ func confirmRemoval(ctx context.Context, r *FoundationDBClusterReconciler, clust
 	return true, canBeIncluded, nil
 }
 
-func includeProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, removedProcessGroups map[string]bool) error {
+func includeProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, removedProcessGroups map[fdbv1beta2.ProcessGroupID]bool) error {
 	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
 	if err != nil {
 		return err
@@ -258,7 +258,7 @@ func includeProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, 
 	return nil
 }
 
-func getProcessesToInclude(cluster *fdbv1beta2.FoundationDBCluster, removedProcessGroups map[string]bool) []fdbv1beta2.ProcessAddress {
+func getProcessesToInclude(cluster *fdbv1beta2.FoundationDBCluster, removedProcessGroups map[fdbv1beta2.ProcessGroupID]bool) []fdbv1beta2.ProcessAddress {
 	fdbProcessesToInclude := make([]fdbv1beta2.ProcessAddress, 0)
 
 	if len(removedProcessGroups) == 0 {
@@ -309,7 +309,7 @@ func (r *FoundationDBClusterReconciler) getProcessGroupsToRemove(cluster *fdbv1b
 			}
 		}
 
-		if _, ok := cordSet[processGroup.ProcessGroupID]; ok {
+		if _, ok := cordSet[string(processGroup.ProcessGroupID)]; ok {
 			logger.Info("Block removal of Coordinator", "processGroupID", processGroup.ProcessGroupID)
 			allExcluded = false
 			continue
@@ -338,7 +338,7 @@ func (r *FoundationDBClusterReconciler) getProcessGroupsToRemove(cluster *fdbv1b
 	return allExcluded, newExclusions, processGroupsToRemove
 }
 
-func (r *FoundationDBClusterReconciler) removeProcessGroups(ctx context.Context, cluster *fdbv1beta2.FoundationDBCluster, processGroupsToRemove []string, terminatingProcessGroups []string) map[string]bool {
+func (r *FoundationDBClusterReconciler) removeProcessGroups(ctx context.Context, cluster *fdbv1beta2.FoundationDBCluster, processGroupsToRemove []fdbv1beta2.ProcessGroupID, terminatingProcessGroups []fdbv1beta2.ProcessGroupID) map[fdbv1beta2.ProcessGroupID]bool {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "removeProcessGroups")
 	r.Recorder.Event(cluster, corev1.EventTypeNormal, "RemovingProcesses", fmt.Sprintf("Removing pods: %v", processGroupsToRemove))
 
@@ -352,7 +352,7 @@ func (r *FoundationDBClusterReconciler) removeProcessGroups(ctx context.Context,
 		}
 	}
 
-	removedProcessGroups := make(map[string]bool)
+	removedProcessGroups := make(map[fdbv1beta2.ProcessGroupID]bool)
 	// We have to check if the currently removed process groups are completely removed.
 	// In addition, we have to check if one of the terminating process groups has been cleaned up.
 	for _, id := range processGroups {

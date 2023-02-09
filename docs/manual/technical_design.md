@@ -53,7 +53,7 @@ For more using and configuring on the locking system, see the section on [Coordi
 
 The locking system works by setting a key in the database to indicate which instance of the operator can perform global operations. This key is `\xff\x02/org.foundationdb.kubernetes-operator/global`. This key will be set to a value of `tuple.Tuple{lockID,start,end}`. `lockID` is the `processGroupIDPrefix` from the cluster spec. `start` is a 64-bit integer representing a Unix timestamp with precision to the second, giving the time when this instance of the operator took the lock. `end` is a similar timestamp representing the time when the lock will automatically expire. The default lock duration is 10 minutes. If the operator tries to acquire a lock and sees that it already has the lock, it will extend it for another 10 minutes past the current time. If it sees that another instance of the operator has a lock, and the current time is past the end of the lock, it will clear the old lock and take a new lock for itself. If it sees that another instance of the operator has a lock, and the current time is before the end of the lock, it will requeue reconciliation until it can acquire the lock.
 
-The locking system is used to protect operations that have global scope or otherwise have a global impact. This includes operations like setting database configuration, which impacts the entire cluster. It also includes operations that trigger recoveries or that we want to restrict to one DC at a time, such as excluding processes.
+The locking system is used to protect operations that have global scope or otherwise have a global impact. This includes operations like setting database configuration, which impacts the entire cluster. It also includes operations that trigger recoveries or that we want to restrict to one DC at a time, such as excluding podNames.
 
 Because this locking system involves writing to the database, it will not work when the database is unavailable. In that situation any attempt to aquire a lock will fail. If the database is unavailable and you need the operator to take action to make it available, you can work around this by setting the `disableLocks` field in the lock options to `true`. However, many of the actions that require locks are activities that are impossible or unsafe when the database is unavailable, and often an unavailable database will require manual intervention.
 
@@ -120,7 +120,7 @@ We track the progress of reconciliation through a `Generations` object, in the `
 
 There are some cases where we set the `reconciled` field to the current generation even though we are requeuing reconciliation and continuing to do more work. These cases are listed below:
 
-1. Pods are in terminating. If we have fully excluded processes and have started the termination of the pods, we set both `reconciled` and `hasPendingRemoval` to the current generation. Termination cannot complete until the kubelet confirms the processes has been shut down, which can take an arbitrary long period of time if the kubelet is in a broken state. The processes will remain excluded until the termination completes, at which point the operator will include the processes again and the `hasPendingRemoval` field will be cleared. In general it should be fine for the cluster to stay in this state indefinitely, and you can continue to make other changes to the cluster. However, you may encounter issues with the stuck pods taking up resource quota until they are fully terminated.
+1. Pods are in terminating. If we have fully excluded podNames and have started the termination of the pods, we set both `reconciled` and `hasPendingRemoval` to the current generation. Termination cannot complete until the kubelet confirms the podNames has been shut down, which can take an arbitrary long period of time if the kubelet is in a broken state. The podNames will remain excluded until the termination completes, at which point the operator will include the podNames again and the `hasPendingRemoval` field will be cleared. In general it should be fine for the cluster to stay in this state indefinitely, and you can continue to make other changes to the cluster. However, you may encounter issues with the stuck pods taking up resource quota until they are fully terminated.
 
 ### UpdateStatus
 
@@ -148,13 +148,13 @@ When pods are deleted for buggification, we apply fewer safety checks, and buggi
 
 ### ReplaceMisconfiguredProcessGroups
 
-The `ReplaceMisconfiguredProcessGroups` subreconciler checks for process groups that need to be replaced in order to safely bring them up on a new configuration. The core action this subreconciler takes is setting the `removalTimestamp` field on the `ProcessGroup` in the cluster status. Later subreconcilers will do the work for handling the replacement, whether processes are marked for replacement through this subreconciler or another mechanism.
+The `ReplaceMisconfiguredProcessGroups` subreconciler checks for process groups that need to be replaced in order to safely bring them up on a new configuration. The core action this subreconciler takes is setting the `removalTimestamp` field on the `ProcessGroup` in the cluster status. Later subreconcilers will do the work for handling the replacement, whether podNames are marked for replacement through this subreconciler or another mechanism.
 
 See the [Replacements and Deletions](replacements_and_deletions.md) document for more details on when we do these replacements.
 
 ### ReplaceFailedProcessGroups
 
-The `ReplaceFailedProcessGroups` subreconciler checks for process groups that need to be replaced because they are in an unhealthy state. This only takes action when automatic replacements are enabled. The core action this subreconciler takes is setting the `removalTimestamp` field on the `ProcessGroup` in the cluster status. Later subreconcilers will do the work for handling the replacement, whether processes are marked for replacement through this subreconciler or another mechanism.
+The `ReplaceFailedProcessGroups` subreconciler checks for process groups that need to be replaced because they are in an unhealthy state. This only takes action when automatic replacements are enabled. The core action this subreconciler takes is setting the `removalTimestamp` field on the `ProcessGroup` in the cluster status. Later subreconcilers will do the work for handling the replacement, whether podNames are marked for replacement through this subreconciler or another mechanism.
 
 See the [Replacements and Deletions](replacements_and_deletions.md) document for more details on when we do these replacements.
 
@@ -176,7 +176,7 @@ The `AddPods` subreconciler creates any pods that are required for the cluster. 
 
 ### GenerateInitialClusterFile
 
-The `GenerateInitialClusterFile` creates the cluster file for the cluster. If the cluster already has a cluster file, this will take no action. The cluster file is the service discovery mechanism for the cluster. It includes addresses for coordinator processes, which are chosen statically. The coordinators are used to elect the cluster controller and inform servers and clients about which process is serving as cluster controller. The cluster file is stored in the `connectionString` field in the cluster status. You can manually specify the cluster file in the `seedConnectionString` field in the cluster spec. If both of these are blank, the operator will choose coordinators that satisfy the cluster's fault tolerance requirements. Coordinators cannot be chosen until the pods have been created and the processes have been assigned IP addresses, which by default comes from the pod's IP. Once the initial cluster file has been generated, we store it in the cluster status and requeue reconciliation so we can update the config map with the new cluster file.
+The `GenerateInitialClusterFile` creates the cluster file for the cluster. If the cluster already has a cluster file, this will take no action. The cluster file is the service discovery mechanism for the cluster. It includes addresses for coordinator podNames, which are chosen statically. The coordinators are used to elect the cluster controller and inform servers and clients about which process is serving as cluster controller. The cluster file is stored in the `connectionString` field in the cluster status. You can manually specify the cluster file in the `seedConnectionString` field in the cluster spec. If both of these are blank, the operator will choose coordinators that satisfy the cluster's fault tolerance requirements. Coordinators cannot be chosen until the pods have been created and the podNames have been assigned IP addresses, which by default comes from the pod's IP. Once the initial cluster file has been generated, we store it in the cluster status and requeue reconciliation so we can update the config map with the new cluster file.
 
 ### RemoveIncompatibleProcesses
 
@@ -188,7 +188,7 @@ For matching process groups the subrecociler will delete the associated Pod and 
 
 The `UpdateSidecarVersions` subreconciler updates the image for the `foundationdb-kubernetes-sidecar` container in each pod to match the `version` in the cluster spec.
 Once the sidecar container is upgraded to a version that is different from the main container version, it will copy the `fdbserver` binary from its own image to the volume it shares with the main container, and will rewrite the monitor conf file to direct `fdbmonitor` to start an `fdbserver` process using the binary in that shared volume rather than the binary from the image used to start the main container.
-This is done temporarily in order to enable a simultaneous cluster-wide upgrade of the `fdbserver` processes.
+This is done temporarily in order to enable a simultaneous cluster-wide upgrade of the `fdbserver` podNames.
 Once that upgrade is complete, we will update the image of the main container through a rolling bounce, and the newly updated main container will use the binary that is provided by its own image.
 
 ### UpdatePodConfig
@@ -219,13 +219,13 @@ This action requires a lock.
 
 ### ChooseRemovals
 
-The `ChooseRemovals` subreconciler flags processes for removal when the current process count is more than the desired process count. The processes that are removed will be chosen so that the remaining process are spread across as many fault domains as possible. The core action this subreconciler takes is setting the `removalTimestamp` field on the `ProcessGroup` in the cluster status. Later subreconcilers will do the work for handling the removal.
+The `ChooseRemovals` subreconciler flags podNames for removal when the current process count is more than the desired process count. The podNames that are removed will be chosen so that the remaining process are spread across as many fault domains as possible. The core action this subreconciler takes is setting the `removalTimestamp` field on the `ProcessGroup` in the cluster status. Later subreconcilers will do the work for handling the removal.
 
 ### ExcludeProcesses
 
-The `ExcludeProcesses` subreconciler runs an `exclude` command in `fdbcli` for any process group that is marked for removal and is not already being excluded. The `exclude` command tells FoundationDB that a process should not serve any roles, and that any data on that process should be moved to other processes. This exclusion can take a long time, but this subreconciler does not wait for exclusion to complete.
+The `ExcludeProcesses` subreconciler runs an `exclude` command in `fdbcli` for any process group that is marked for removal and is not already being excluded. The `exclude` command tells FoundationDB that a process should not serve any roles, and that any data on that process should be moved to other podNames. This exclusion can take a long time, but this subreconciler does not wait for exclusion to complete.
 
-If there are processes that are not reporting to the cluster and are not marked for removal, this subreconciler will not run any exclusion commands. This is designed to prevent the operator from triggering exclusions before the replacement processes are available. In the case where there are multiple processes that are failing, this can cause reconciliation to get stuck. You can work around this by telling the operator to replace all of the failing processes.
+If there are podNames that are not reporting to the cluster and are not marked for removal, this subreconciler will not run any exclusion commands. This is designed to prevent the operator from triggering exclusions before the replacement podNames are available. In the case where there are multiple podNames that are failing, this can cause reconciliation to get stuck. You can work around this by telling the operator to replace all of the failing podNames.
 
 This action requires a lock.
 
@@ -233,7 +233,7 @@ This action requires a lock.
 
 The `ChangeCoordinators` subreconciler ensures that the cluster has a healthy set of coordinators that fulfill the fault tolerance requirements for the cluster. If any coordinators have failed, or if the database configuration requires more coordinators or better-distributed coordinators, the operator will choose new coordinators and run a `coordinators` command to tell the database to use the new set. It will then read the new connection string and update it in the cluster status.
 
-This will recruit coordinators based on the process list in the database status to ensure that the coordinators it recruits are properly connecting to the database. This will prefer to recruit coordinators only from `storage` processes. If it cannot fulfill the fault tolerance requirements using storage requirements, it will expand the candidate list to include `log` processes, and then to include `transaction` processes if necessary. It will ensure that the coordinators are distributed across failure domains as evenly as possible. It will also require that every coordinator has a different `zoneid` locality. For multi-DC clusters, it will require that we do not have a majority of coordinators using the same value for the `dcid` locality.
+This will recruit coordinators based on the process list in the database status to ensure that the coordinators it recruits are properly connecting to the database. This will prefer to recruit coordinators only from `storage` podNames. If it cannot fulfill the fault tolerance requirements using storage requirements, it will expand the candidate list to include `log` podNames, and then to include `transaction` podNames if necessary. It will ensure that the coordinators are distributed across failure domains as evenly as possible. It will also require that every coordinator has a different `zoneid` locality. For multi-DC clusters, it will require that we do not have a majority of coordinators using the same value for the `dcid` locality.
 
 For single-DC clusters, the number of coordinators will be `2R-1`, where `R` is the replication factor. For multi-DC clusters, we will always use 9 coordinators.
 
@@ -241,15 +241,15 @@ This action requires a lock.
 
 ### BounceProcesses
 
-The `BounceProcesses` subreconciler restarts any `fdbserver` processes that do not have the correct command line. This is done through the `kill` command in fdbcli, which causes the processes to immediately exit, which causes `fdbmonitor` to restart them. This will restart any process for a process group that has the `IncorrectCommandLine` condition.
+The `BounceProcesses` subreconciler restarts any `fdbserver` podNames that do not have the correct command line. This is done through the `kill` command in fdbcli, which causes the podNames to immediately exit, which causes `fdbmonitor` to restart them. This will restart any process for a process group that has the `IncorrectCommandLine` condition.
 
-When upgrading a cluster to a new version of FoundationDB, we follow a special process. In most cases, each instance of the operator only restarts processes that are under its control, which means that in multi-KC clusters we will restart processes in multiple batches, with one batch for each KC. During an upgrade, we cannot use this strategy, because protocol-incompatible upgrades require all processes to be updated simultaneously. To make this work, we have each instance of the operator use the locking system to store a list of processes that it has prepared for the upgrade in the database. Each instance of the operator then checks that list and compares it against the database status to confirm that every process that is reporting to the database is ready for the upgrade. It will then restart all of the processes across the entire cluster and move forward with its own reconciliation. When the other instances of the operator run their next reconciliation, they will see that the processes they are managing have the correct command-line, and will move past the bounce stage.
+When upgrading a cluster to a new version of FoundationDB, we follow a special process. In most cases, each instance of the operator only restarts podNames that are under its control, which means that in multi-KC clusters we will restart podNames in multiple batches, with one batch for each KC. During an upgrade, we cannot use this strategy, because protocol-incompatible upgrades require all podNames to be updated simultaneously. To make this work, we have each instance of the operator use the locking system to store a list of podNames that it has prepared for the upgrade in the database. Each instance of the operator then checks that list and compares it against the database status to confirm that every process that is reporting to the database is ready for the upgrade. It will then restart all of the podNames across the entire cluster and move forward with its own reconciliation. When the other instances of the operator run their next reconciliation, they will see that the podNames they are managing have the correct command-line, and will move past the bounce stage.
 
 If a process needs to be restarted but is not reporting to the database, this will requeue reconciliation with an error.
 
 This will not attempt to restart any process that is flagged for removal.
 
-This will not restart processes until every process has been up for 600 seconds. This limit can be configured through the `minimumUptimeSecondsForBounce` field in the cluster spec.
+This will not restart podNames until every process has been up for 600 seconds. This limit can be configured through the `minimumUptimeSecondsForBounce` field in the cluster spec.
 
 This action requires a lock.
 
@@ -309,7 +309,7 @@ The `UpdateBackupStatus` subreconciler is responsible for updating the `status` 
 
 ### UpdateBackupAgents
 
-The `UpdateBackupAgents` subreconciler is responsible for creating and updating the deployment for running the `backup_agent` processes.
+The `UpdateBackupAgents` subreconciler is responsible for creating and updating the deployment for running the `backup_agent` podNames.
 
 ### StartBackup
 
@@ -345,13 +345,13 @@ The `StartRestore` subreconciler starts a restore. If there is no active restore
 
 ## Interaction Between the Operator and the Pods
 
-The operator communicates with processes running inside the FoundationDB pods at multiple stages in the reconciliation flow. The exact flow will depend on whether you are using split images (which is the current default) or unified images.
+The operator communicates with podNames running inside the FoundationDB pods at multiple stages in the reconciliation flow. The exact flow will depend on whether you are using split images (which is the current default) or unified images.
 
 ### Split Image
 
-When using split images, the `foundationdb` container runs a `fdbmonitor` process, which is responsible for starting the `fdbserver` processes. `fdbmonitor` receives its configuration in the form of a monitor conf file, which contains the start command and arguments for the fdbserver process. This configuration can vary based on dynamic information like the node where the pod is running, so the operator provides a templated configuration file, which contains placeholders that are filled in based on the environment variables. That templating process is handled by the sidecar process in the `foundationdb-kubernetes-sidecar` container. The sidecar also provides an HTTP API for getting information about the state of the configuration in the pod. The sidecar mounts the config map containing dynamic conf as its input directory, and shares an `emptyDir` volume with the `foundationdb` container where it can put its output.
+When using split images, the `foundationdb` container runs a `fdbmonitor` process, which is responsible for starting the `fdbserver` podNames. `fdbmonitor` receives its configuration in the form of a monitor conf file, which contains the start command and arguments for the fdbserver process. This configuration can vary based on dynamic information like the node where the pod is running, so the operator provides a templated configuration file, which contains placeholders that are filled in based on the environment variables. That templating process is handled by the sidecar process in the `foundationdb-kubernetes-sidecar` container. The sidecar also provides an HTTP API for getting information about the state of the configuration in the pod. The sidecar mounts the config map containing dynamic conf as its input directory, and shares an `emptyDir` volume with the `foundationdb` container where it can put its output.
 
-The flow for updating the fdbserver processes has the following steps:
+The flow for updating the fdbserver podNames has the following steps:
 
 1. The operator updates the monitor conf template in the `sample-cluster-config` config map. There is one monitor conf template for every process class the cluster uses.
 2. The operator calls the sidecar API to check the hash of the output monitor conf and compare the hash to the desired contents.
@@ -359,10 +359,10 @@ The flow for updating the fdbserver processes has the following steps:
 4. Kubernetes fetches the contents of the config map from the API server and updates the template in the sidecar container.
 5. The operator tells the sidecar to regenerate the monitor conf based on the new template. The sidecar places the generated monitor conf in its output directory.
 6. The operator checks the latest output monitor conf to see if it is correct.
-7. Once the monitor conf is correct, the operator uses the CLI to shut down the fdbserver processes.
-8. fdbmonitor sees that the processes have exited and starts new processes with the latest configuration.
+7. Once the monitor conf is correct, the operator uses the CLI to shut down the fdbserver podNames.
+8. fdbmonitor sees that the podNames have exited and starts new podNames with the latest configuration.
 
-The operator follows a similar process when the `fdb.cluster` file needs to be updated. However, because this file is not templated, the sidecar simply copies the file from the input directory to the output directory. Cluster file updates do not require restarting processes.
+The operator follows a similar process when the `fdb.cluster` file needs to be updated. However, because this file is not templated, the sidecar simply copies the file from the input directory to the output directory. Cluster file updates do not require restarting podNames.
 
 When the operator checks the status of the cluster, it needs to check if the process start commands are an exact match for the expected values based on the cluster spec. In order to make this comparison, it needs to fill in pod-specific information like the address and node name. The sidecar also provides an API for reading the environment variables that are being referenced in the monitor conf, and what their current values are. The operator uses this API when performing this check on the start command.
 
@@ -372,7 +372,7 @@ The sidecar has an important role to play in the upgrade flow. The monitor conf 
 
 **NOTE**: The unified image is still experimental, and is not recommended outside of development environments.
 
-When using the unified image, the `foundationdb` container runs a `fdb-kubernetes-monitor` process, which is responsible for starting `fdbserver` processes. `fdb-kubernetes-monitor` receives its configuration in the form of a JSON file, which provides the command-line arguments in a structured form. These arguments can reference environment variables, which will be filled in by `fdb-kubernetes-monitor`. They can also reference the process number, which allows `fdb-kubernetes-monitor` to start multiple `fdbserver` processes that use different ports and different data directories.
+When using the unified image, the `foundationdb` container runs a `fdb-kubernetes-monitor` process, which is responsible for starting `fdbserver` podNames. `fdb-kubernetes-monitor` receives its configuration in the form of a JSON file, which provides the command-line arguments in a structured form. These arguments can reference environment variables, which will be filled in by `fdb-kubernetes-monitor`. They can also reference the process number, which allows `fdb-kubernetes-monitor` to start multiple `fdbserver` podNames that use different ports and different data directories.
 
 The flow for updating the monitor conf file has the following steps:
 
@@ -382,18 +382,18 @@ The flow for updating the monitor conf file has the following steps:
 4. Kubernetes fetches the contents of the config map from the API server and updates the template in the sidecar container.
 5. fdb-kubernetes-monitor receives an event about the updated configuration file and loads it. It runs basic validations on the new conf.
 6. If the new config is usable, fdb-kubernetes-monitor will store the new configuration as its active configuration and updates the annotations on the pod with the new configuration.
-7. Once the operator sees that the active configuration matches the desired configuration, it uses the CLI to shut down the fdbserver processes.
-8. fdb-kubernetes-monitor sees that that processes have exited and starts new processes with the latest configuration.
+7. Once the operator sees that the active configuration matches the desired configuration, it uses the CLI to shut down the fdbserver podNames.
+8. fdb-kubernetes-monitor sees that that podNames have exited and starts new podNames with the latest configuration.
 
 The active configuration is stored on the pod under the annotation `foundationdb.org/launcher-current-configuration`.
 
 **NOTE**: Because the pod annotations are used to communicate the state in this flow, the pods must have a service account token that has permissions to read and write pods.
 
-fdb-kubernetes-monitor does not watch the `fdb.cluster` for updates. Changes to the connection string will be sent directly to the fdbserver processes through the `coordinators` command in the CLI.
+fdb-kubernetes-monitor does not watch the `fdb.cluster` for updates. Changes to the connection string will be sent directly to the fdbserver podNames through the `coordinators` command in the CLI.
 
 When the operator checks the status of the cluster, it needs to check if the process start commands are an exact match for the expected values based on the cluster spec. In order to make this comparison, it needs to fill in pod-specific information like the address and node name. fdb-kubernetes-monitor provides this information through the `foundationdb.org/launcher-environment` annotation on the pod, which contains a map of environment variables to their values. The operator uses this annotation when performing this check on the start command.
 
-All of the flows above go through the `foundationdb` container. The `foundationdb-kubernetes-sidecar` container is only used in the upgrade flow. The sidecar container runs the same image as the main container, but with a different set of arguments to tell it to run in sidecar mode. During the upgrade, the operator upgrades the sidecar to the new version of FDB while leaving the main container at the old version. The sidecar compares the version of FoundationDB that it is running against the main container version, which is provided in its start command. If these versions are the same, the sidecar will do nothing. If they are different, it will copy the FDB binaries from its own image into a volume that it shares with the main container. The main container will receive the desired version of FDB as part of its configuration file. When the main container sees a version of FDB that is different from the one it is running, it will look for the FDB binaries in the directory it shares with the sidecar. If it finds those new binaries, it will load the new configuration and run the binaries from that directory. If these binaries are missing, fdb-kubernetes-monitor will reject the new configuration. Once the new configuration is accepted by all of the pods, the operator will restart the processes so they start running with the new binaries. Once the new version is running, the operator will perform a rolling bounce to update the main container to the new FDB version.
+All of the flows above go through the `foundationdb` container. The `foundationdb-kubernetes-sidecar` container is only used in the upgrade flow. The sidecar container runs the same image as the main container, but with a different set of arguments to tell it to run in sidecar mode. During the upgrade, the operator upgrades the sidecar to the new version of FDB while leaving the main container at the old version. The sidecar compares the version of FoundationDB that it is running against the main container version, which is provided in its start command. If these versions are the same, the sidecar will do nothing. If they are different, it will copy the FDB binaries from its own image into a volume that it shares with the main container. The main container will receive the desired version of FDB as part of its configuration file. When the main container sees a version of FDB that is different from the one it is running, it will look for the FDB binaries in the directory it shares with the sidecar. If it finds those new binaries, it will load the new configuration and run the binaries from that directory. If these binaries are missing, fdb-kubernetes-monitor will reject the new configuration. Once the new configuration is accepted by all of the pods, the operator will restart the podNames so they start running with the new binaries. Once the new version is running, the operator will perform a rolling bounce to update the main container to the new FDB version.
 
 ## Next
 

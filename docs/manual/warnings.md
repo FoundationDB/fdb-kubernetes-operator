@@ -4,9 +4,9 @@ This operator aims to support as many different environments and use cases as we
 
 ## Risks when IPs Change
 
-FoundationDB's service discovery works through a cluster file, which contains a list of coordinator IPs. All processes in the cluster, and all client processes, start up by talking to the coordinators. If the pods that are serving as coordinators get deleted, the operator will recreate them, but they will come up with different IP addresses. If this happens to a majority of the coordinators, the database will not be available, and there is no established procedure for recovering from this. 
+FoundationDB's service discovery works through a cluster file, which contains a list of coordinator IPs. All podNames in the cluster, and all client podNames, start up by talking to the coordinators. If the pods that are serving as coordinators get deleted, the operator will recreate them, but they will come up with different IP addresses. If this happens to a majority of the coordinators, the database will not be available, and there is no established procedure for recovering from this. 
 
-One way to mitigate this risk is by using service IPs rather than pod IPs as the public IP for your processes. There is more discussion on how to do this in the section on [Choosing your Public IP Source](customization.md#choosing-your-public-ip-source). You may also want to look into using [Pod Disruption Budgets](fault_domains.md#managing-disruption).
+One way to mitigate this risk is by using service IPs rather than pod IPs as the public IP for your podNames. There is more discussion on how to do this in the section on [Choosing your Public IP Source](customization.md#choosing-your-public-ip-source). You may also want to look into using [Pod Disruption Budgets](fault_domains.md#managing-disruption).
 
 ## Securing Connections
 

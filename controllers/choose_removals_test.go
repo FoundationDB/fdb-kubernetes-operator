@@ -37,7 +37,7 @@ var _ = Describe("choose_removals", func() {
 	var adminClient *mock.AdminClient
 	var err error
 	var requeue *requeue
-	var removals []string
+	var removals []fdbv1beta2.ProcessGroupID
 
 	BeforeEach(func() {
 		cluster = internal.CreateDefaultCluster()
@@ -91,13 +91,13 @@ var _ = Describe("choose_removals", func() {
 		})
 
 		It("should mark one of the process groups for removal", func() {
-			Expect(removals).To(Equal([]string{"storage-4"}))
+			Expect(removals).To(Equal([]fdbv1beta2.ProcessGroupID{"storage-4"}))
 		})
 
 		Context("with a process group already marked", func() {
 			BeforeEach(func() {
 				processGroup := cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-3]
-				Expect(processGroup.ProcessGroupID).To(Equal("storage-2"))
+				Expect(processGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-2")))
 				processGroup.MarkForRemoval()
 				err = clusterReconciler.updateOrApply(context.TODO(), cluster)
 				Expect(err).NotTo(HaveOccurred())
@@ -108,7 +108,7 @@ var _ = Describe("choose_removals", func() {
 			})
 
 			It("should leave that process group for removal", func() {
-				Expect(removals).To(Equal([]string{"storage-2"}))
+				Expect(removals).To(Equal([]fdbv1beta2.ProcessGroupID{"storage-2"}))
 			})
 		})
 
@@ -123,7 +123,7 @@ var _ = Describe("choose_removals", func() {
 			})
 
 			It("should mark one of the process groups on that rack for removal", func() {
-				Expect(removals).To(Equal([]string{"storage-2"}))
+				Expect(removals).To(Equal([]fdbv1beta2.ProcessGroupID{"storage-2"}))
 			})
 		})
 	})
@@ -139,7 +139,7 @@ var _ = Describe("choose_removals", func() {
 		})
 
 		It("should mark two of the process groups for removal", func() {
-			Expect(removals).To(Equal([]string{"cluster_controller-1", "storage-4"}))
+			Expect(removals).To(Equal([]fdbv1beta2.ProcessGroupID{"cluster_controller-1", "storage-4"}))
 		})
 	})
 

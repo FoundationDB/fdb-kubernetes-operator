@@ -110,7 +110,7 @@ var _ = Describe("update_pods", func() {
 	})
 
 	Context("Validating shouldRequeueDueToTerminatingPod", func() {
-		var processGroup = ""
+		var processGroup = fdbv1beta2.ProcessGroupID("")
 
 		When("pod is without deletionTimestamp", func() {
 			var cluster *fdbv1beta2.FoundationDBCluster

@@ -150,8 +150,8 @@ spec:
     value: $az
 ```
 
-The processes in the other Kubernetes clusters will join the current `FoundationDBCluster`.
-Once enough processes joined the cluster one of the operator will select 9 Coordinators span across 3 `data_halls`.
+The podNames in the other Kubernetes clusters will join the current `FoundationDBCluster`.
+Once enough podNames joined the cluster one of the operator will select 9 Coordinators span across 3 `data_halls`.
 
 ### Coordinator selection
 

@@ -49,7 +49,7 @@ var _ = Describe("Internal FoundationDBStatus", func() {
 				testCase{
 					status: &fdbv1beta2.FoundationDBStatus{
 						Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
-							Processes: map[string]fdbv1beta2.FoundationDBStatusProcessInfo{
+							Processes: map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{
 								"foo": {
 									Locality: map[string]string{
 										fdbv1beta2.FDBLocalityInstanceIDKey: "foo",
@@ -76,7 +76,7 @@ var _ = Describe("Internal FoundationDBStatus", func() {
 				testCase{
 					status: &fdbv1beta2.FoundationDBStatus{
 						Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
-							Processes: map[string]fdbv1beta2.FoundationDBStatusProcessInfo{
+							Processes: map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{
 								"foo": {
 									Locality: map[string]string{
 										fdbv1beta2.FDBLocalityInstanceIDKey: "foo",
@@ -124,7 +124,7 @@ var _ = Describe("Internal FoundationDBStatus", func() {
 				},
 			}, &fdbv1beta2.FoundationDBStatus{
 				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
-					Processes: map[string]fdbv1beta2.FoundationDBStatusProcessInfo{
+					Processes: map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{
 						"test": {
 							Address: fdbv1beta2.ProcessAddress{
 								IPAddress: net.ParseIP("127.0.0.1"),
@@ -156,7 +156,7 @@ var _ = Describe("Internal FoundationDBStatus", func() {
 				},
 			}, &fdbv1beta2.FoundationDBStatus{
 				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
-					Processes: map[string]fdbv1beta2.FoundationDBStatusProcessInfo{
+					Processes: map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{
 						"test": {
 							Address: fdbv1beta2.ProcessAddress{
 								IPAddress: net.ParseIP("127.0.0.1"),
@@ -188,7 +188,7 @@ var _ = Describe("Internal FoundationDBStatus", func() {
 				},
 			}, &fdbv1beta2.FoundationDBStatus{
 				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
-					Processes: map[string]fdbv1beta2.FoundationDBStatusProcessInfo{
+					Processes: map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{
 						"test": {
 							Address: fdbv1beta2.ProcessAddress{
 								IPAddress: net.ParseIP("127.0.0.1"),

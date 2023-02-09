@@ -8,7 +8,7 @@
 
 ## Background
 
-Replacing failed processes can be a major source of operational toil when running FoundationDB. This is especially true when using local disks, which expose the service to a wide variety of failure modes both of the disks themselves and the hosts they run on. FoundationDB generally aims to be self-healing, but it will eventually be necessary to replace failing processes to regain capacity. People running FoundationDB may want to define restrictions on other operations while a cluster is in a degraded state, such as having a pod disruption budget to prevent voluntary deletion of pods while another pod is failing to schedule.
+Replacing failed podNames can be a major source of operational toil when running FoundationDB. This is especially true when using local disks, which expose the service to a wide variety of failure modes both of the disks themselves and the hosts they run on. FoundationDB generally aims to be self-healing, but it will eventually be necessary to replace failing podNames to regain capacity. People running FoundationDB may want to define restrictions on other operations while a cluster is in a degraded state, such as having a pod disruption budget to prevent voluntary deletion of pods while another pod is failing to schedule.
 
 ## General Design Goals
 
@@ -22,7 +22,7 @@ When the operator determines that a process is not reporting to the cluster, it 
 
 Users can manually replace an instance by adding it to the `processGroupsToRemove` field. The operator will also sometimes replace instances by its own logic, such as when changing volume sizes. The source of truth for what instances are going to be removed or replaced is the `pendingRemovals` field in the status.
 
-The operator treats replacements and removals as closely related operations. The spec defines the desired process counts for every process class. If there are currently more processes than is desired, the operator will choose to remove them, by placing them in the `pendingRemovals` field. Processes in that field are not counted in the current process counts. Conversely, if a process is placed in that field and the result would reduce the process counts before the desired value, the operator will add a new process to compensate. That logic is what results in a replacement.
+The operator treats replacements and removals as closely related operations. The spec defines the desired process counts for every process class. If there are currently more podNames than is desired, the operator will choose to remove them, by placing them in the `pendingRemovals` field. Processes in that field are not counted in the current process counts. Conversely, if a process is placed in that field and the result would reduce the process counts before the desired value, the operator will add a new process to compensate. That logic is what results in a replacement.
 
 Replacements through the operator currently have a number of sharp edges that become sharper with more automation.
 
@@ -36,7 +36,7 @@ If the user tries to replace too many pods at once, it can exhaust their resourc
 
 ### Initiating Replacements
 
-We will add an option to replace processes that have been marked as missing for a configurable duration of time. The default will be to disable this feature. When it is enabled, the default duration to wait before the replacement will be 30 minutes. Once a process has been selected for replacement, it will be added to the pending removals list, and reconciliation will continue with the normal replacement process. The selection of instances for replacement will be done in the ReplaceMisconfiguredPods action, which already has a similar responsibility.
+We will add an option to replace podNames that have been marked as missing for a configurable duration of time. The default will be to disable this feature. When it is enabled, the default duration to wait before the replacement will be 30 minutes. Once a process has been selected for replacement, it will be added to the pending removals list, and reconciliation will continue with the normal replacement process. The selection of instances for replacement will be done in the ReplaceMisconfiguredPods action, which already has a similar responsibility.
 
 In order to make sure we consistently detect failures, we will add a new cronjob that runs when automatic replacements are enabled. There will be one instance of the cronjob for every cluster. By default, the frequency of the job will be the same as the replacement wait time. It will use the same service account as the operator by default, and it will need access to the cluster spec, to the list of pods, and to the cluster itself. It will detect missing instances using the same logic that we already use, and if it detects any missing instances it will annotate the cluster resource with a custom annotation set to the current time. This will trigger reconciliation. The cluster spec will offer full customization of the cronjob.
 
@@ -52,4 +52,4 @@ We will also build a rollback mechanism for replacements that were not intended.
 
 ## Related Links
 
-* [Problems related to removing processes](https://github.com/FoundationDB/fdb-kubernetes-operator/issues?q=is%3Aissue+is%3Aopen+label%3Aremoval-problems)
+* [Problems related to removing podNames](https://github.com/FoundationDB/fdb-kubernetes-operator/issues?q=is%3Aissue+is%3Aopen+label%3Aremoval-problems)

@@ -60,7 +60,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 		JustBeforeEach(func() {
 			processGroupName := fmt.Sprintf("%s-%d", pClass, 1337)
 			status = &fdbv1beta2.ProcessGroupStatus{
-				ProcessGroupID: processGroupName,
+				ProcessGroupID: fdbv1beta2.ProcessGroupID(processGroupName),
 				ProcessClass:   pClass,
 			}
 
@@ -411,7 +411,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				pod, err = internal.GetPod(cluster, fdbv1beta2.ProcessClassStorage, 0)
 				Expect(err).NotTo(HaveOccurred())
 				status = &fdbv1beta2.ProcessGroupStatus{
-					ProcessGroupID: fmt.Sprintf("%s-%d", fdbv1beta2.ProcessClassStorage, 1337),
+					ProcessGroupID: fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%d", fdbv1beta2.ProcessClassStorage, 1337)),
 					ProcessClass:   fdbv1beta2.ProcessClassStorage,
 				}
 
@@ -600,12 +600,12 @@ var _ = Describe("replace_misconfigured_pods", func() {
 	})
 
 	When("using MaxConcurrentMisconfiguredReplacements", func() {
-		var pvcMap map[string]corev1.PersistentVolumeClaim
-		var podMap map[string]*corev1.Pod
+		var pvcMap map[fdbv1beta2.ProcessGroupID]corev1.PersistentVolumeClaim
+		var podMap map[fdbv1beta2.ProcessGroupID]*corev1.Pod
 
 		BeforeEach(func() {
-			pvcMap = map[string]corev1.PersistentVolumeClaim{}
-			podMap = map[string]*corev1.Pod{}
+			pvcMap = map[fdbv1beta2.ProcessGroupID]corev1.PersistentVolumeClaim{}
+			podMap = map[fdbv1beta2.ProcessGroupID]*corev1.Pod{}
 
 			for i := 0; i < 10; i++ {
 				_, id := internal.GetProcessGroupID(cluster, fdbv1beta2.ProcessClassStorage, i)

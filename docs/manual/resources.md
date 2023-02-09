@@ -3,15 +3,15 @@
 The operator creates the following resources for a FoundationDB cluster:
 
 * `ConfigMap`: The operator creates one config map for each cluster that holds configuration like the cluster file and the fdbmonitor conf files.
-* `Service`: By default, the operator creates no services. You can configure a cluster-wide headless service for DNS lookup, and you can configure a per-process-group service that can be used to provide the public IP for the processes, as an alternative to the default behavior of using the pod IP as the public IP.
+* `Service`: By default, the operator creates no services. You can configure a cluster-wide headless service for DNS lookup, and you can configure a per-process-group service that can be used to provide the public IP for the podNames, as an alternative to the default behavior of using the pod IP as the public IP.
 * `PersistentVolumeClaim (PVC)`:  We create one persistent volume claim for every stateful process group.
 * `Pod`: We create one pod for every process group, with one container for starting fdbmonitor and one container for starting a helper sidecar.
 
 ## Process Groups
 
-Inside the cluster status, we track an object called `ProcessGroup` which loosely corresponds to a pod in Kubernetes. A process group represents a set of processes that will run inside a single container. In the default case we run one `fdbserver` process in each process group, but if you configure your cluster to run multiple storage servers per disk then we will have multiple storage server processes inside a single process group, with each process group having its own disk. We use the process group to track information about processes that lives outside the lifecycle of any other Kubernetes object, such as an intention to remove the process or adverse conditions that the operator needs to remediate.
+Inside the cluster status, we track an object called `ProcessGroup` which loosely corresponds to a pod in Kubernetes. A process group represents a set of podNames that will run inside a single container. In the default case we run one `fdbserver` process in each process group, but if you configure your cluster to run multiple storage servers per disk then we will have multiple storage server podNames inside a single process group, with each process group having its own disk. We use the process group to track information about podNames that lives outside the lifecycle of any other Kubernetes object, such as an intention to remove the process or adverse conditions that the operator needs to remediate.
 
-The following conditions can appear on process groups to indicate a problem with those processes:
+The following conditions can appear on process groups to indicate a problem with those podNames:
 
 * `IncorrectPodSpec`: A process group that has an incorrect Pod spec.
 * `IncorrectConfigMap`: A process group that has outdated configuration in its local copy of the ConfigMap.
@@ -24,7 +24,7 @@ The following conditions can appear on process groups to indicate a problem with
 
 ## Process Classes
 
-FoundationDB processes can have several process classes, which determine what roles a process is capable of taking on. The [ProcessCounts](../cluster_spec.md#ProcessCounts) section in the cluster spec provides a list of all of the supported process classes. The most common process classes are `storage`, `log`, and `stateless`. `storage` is a stateful role that is responsible for long-term storage of data. `log` is a stateful role that accepts and stores committed mutations until they can be made durable on the storage servers. `stateless` is a stateless class that can serve multiple roles in the cluster, such as proxies, resolvers, and the cluster controller.
+FoundationDB podNames can have several process classes, which determine what roles a process is capable of taking on. The [ProcessCounts](../cluster_spec.md#ProcessCounts) section in the cluster spec provides a list of all of the supported process classes. The most common process classes are `storage`, `log`, and `stateless`. `storage` is a stateful role that is responsible for long-term storage of data. `log` is a stateful role that accepts and stores committed mutations until they can be made durable on the storage servers. `stateless` is a stateless class that can serve multiple roles in the cluster, such as proxies, resolvers, and the cluster controller.
 
 The only stateful process classes are `storage`, `log`, and `transaction`. Pods for these process classes will have persistent volume claims associated with them, and pods for other process classes will not have persistent volume claims.
 
@@ -34,7 +34,7 @@ Process groups have a naming convention that is different from the pod name. Pro
 
 Pod names are intended to be unique within a namespace and Kubernetes Cluster. Pods for a single FDB cluster that run in different Kubernetes Clusters can have the same pod name. Pod names have the format `$cluster-$class-$number`. `$cluster` is the name of the cluster. `$class` and `$number` have the same meaning and value as they have in the process group name. If the process class has an underscore, it will be replaced with a dash.
 
-Volume claims have the same name as a pod, with a suffix taken from the name in the `processes.volumeClaimTemplate` field in the cluster spec. If this field is not set, we will use the suffix `data`.
+Volume claims have the same name as a pod, with a suffix taken from the name in the `podNames.volumeClaimTemplate` field in the cluster spec. If this field is not set, we will use the suffix `data`.
 
 Per-pod services have the same name as the pod.
 

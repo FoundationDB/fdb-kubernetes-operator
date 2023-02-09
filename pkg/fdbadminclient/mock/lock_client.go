@@ -39,7 +39,7 @@ type LockClient struct {
 
 	// pendingUpgrades stores data about process groups that have a pending
 	// upgrade.
-	pendingUpgrades map[fdbv1beta2.Version]map[string]bool
+	pendingUpgrades map[fdbv1beta2.Version]map[fdbv1beta2.ProcessGroupID]bool
 }
 
 // TakeLock attempts to acquire a lock.
@@ -54,9 +54,9 @@ func (client *LockClient) Disabled() bool {
 
 // AddPendingUpgrades registers information about which process groups are
 // pending an upgrade to a new version.
-func (client *LockClient) AddPendingUpgrades(version fdbv1beta2.Version, processGroupIDs []string) error {
+func (client *LockClient) AddPendingUpgrades(version fdbv1beta2.Version, processGroupIDs []fdbv1beta2.ProcessGroupID) error {
 	if client.pendingUpgrades[version] == nil {
-		client.pendingUpgrades[version] = make(map[string]bool)
+		client.pendingUpgrades[version] = make(map[fdbv1beta2.ProcessGroupID]bool)
 	}
 	for _, processGroupID := range processGroupIDs {
 		client.pendingUpgrades[version][processGroupID] = true
@@ -66,10 +66,10 @@ func (client *LockClient) AddPendingUpgrades(version fdbv1beta2.Version, process
 
 // GetPendingUpgrades returns the stored information about which process
 // groups are pending an upgrade to a new version.
-func (client *LockClient) GetPendingUpgrades(version fdbv1beta2.Version) (map[string]bool, error) {
+func (client *LockClient) GetPendingUpgrades(version fdbv1beta2.Version) (map[fdbv1beta2.ProcessGroupID]bool, error) {
 	upgrades := client.pendingUpgrades[version]
 	if upgrades == nil {
-		return make(map[string]bool), nil
+		return make(map[fdbv1beta2.ProcessGroupID]bool), nil
 	}
 	return upgrades, nil
 }
@@ -123,7 +123,7 @@ func NewMockLockClientUncast(cluster *fdbv1beta2.FoundationDBCluster) *LockClien
 
 	client := lockClientCache[cluster.Name]
 	if client == nil {
-		client = &LockClient{cluster: cluster, pendingUpgrades: make(map[fdbv1beta2.Version]map[string]bool)}
+		client = &LockClient{cluster: cluster, pendingUpgrades: make(map[fdbv1beta2.Version]map[fdbv1beta2.ProcessGroupID]bool)}
 		lockClientCache[cluster.Name] = client
 	}
 	return client

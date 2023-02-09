@@ -106,7 +106,7 @@ type FoundationDBClusterSpec struct {
 	// cluster. This list contains the process group IDs.
 	// +kubebuilder:validation:MinItems=0
 	// +kubebuilder:validation:MaxItems=500
-	ProcessGroupsToRemove []string `json:"processGroupsToRemove,omitempty"`
+	ProcessGroupsToRemove []ProcessGroupID `json:"processGroupsToRemove,omitempty"`
 
 	// ProcessGroupsToRemoveWithoutExclusion defines the process groups that we should
 	// remove from the cluster without excluding them. This list contains the
@@ -117,7 +117,7 @@ type FoundationDBClusterSpec struct {
 	// is fully replicated.
 	// +kubebuilder:validation:MinItems=0
 	// +kubebuilder:validation:MaxItems=500
-	ProcessGroupsToRemoveWithoutExclusion []string `json:"processGroupsToRemoveWithoutExclusion,omitempty"`
+	ProcessGroupsToRemoveWithoutExclusion []ProcessGroupID `json:"processGroupsToRemoveWithoutExclusion,omitempty"`
 
 	// ConfigMap allows customizing the config map the operator creates.
 	ConfigMap *corev1.ConfigMap `json:"configMap,omitempty"`
@@ -312,7 +312,7 @@ type LockSystemStatus struct {
 // ProcessGroupStatus represents the status of a ProcessGroup.
 type ProcessGroupStatus struct {
 	// ProcessGroupID represents the ID of the process group
-	ProcessGroupID string `json:"processGroupID,omitempty"`
+	ProcessGroupID ProcessGroupID `json:"processGroupID,omitempty"`
 	// ProcessClass represents the class the process group has.
 	ProcessClass ProcessClass `json:"processClass,omitempty"`
 	// Addresses represents the list of addresses the process group has been known to have.
@@ -327,6 +327,10 @@ type ProcessGroupStatus struct {
 	// ProcessGroupConditions represents a list of degraded conditions that the process group is in.
 	ProcessGroupConditions []*ProcessGroupCondition `json:"processGroupConditions,omitempty"`
 }
+
+// ProcessGroupID represents the ID of the process group
+// +kubebuilder:validation:MaxLength=1024
+type ProcessGroupID string
 
 // GetExclusionString returns the exclusion string
 func (processGroupStatus *ProcessGroupStatus) GetExclusionString() string {
@@ -432,7 +436,7 @@ func (processGroupStatus *ProcessGroupStatus) AllAddressesExcluded(remainingMap 
 }
 
 // NewProcessGroupStatus returns a new GroupStatus for the given processGroupID and processClass.
-func NewProcessGroupStatus(processGroupID string, processClass ProcessClass, addresses []string) *ProcessGroupStatus {
+func NewProcessGroupStatus(processGroupID ProcessGroupID, processClass ProcessClass, addresses []string) *ProcessGroupStatus {
 	return &ProcessGroupStatus{
 		ProcessGroupID: processGroupID,
 		ProcessClass:   processClass,
@@ -448,7 +452,7 @@ func NewProcessGroupStatus(processGroupID string, processClass ProcessClass, add
 }
 
 // FindProcessGroupByID finds a process group status for a given processGroupID.
-func FindProcessGroupByID(processGroups []*ProcessGroupStatus, processGroupID string) *ProcessGroupStatus {
+func FindProcessGroupByID(processGroups []*ProcessGroupStatus, processGroupID ProcessGroupID) *ProcessGroupStatus {
 	for _, processGroup := range processGroups {
 		if processGroup.ProcessGroupID == processGroupID {
 			return processGroup
@@ -459,12 +463,12 @@ func FindProcessGroupByID(processGroups []*ProcessGroupStatus, processGroupID st
 }
 
 // ContainsProcessGroupID evaluates if the ProcessGroupStatus contains a given processGroupID.
-func ContainsProcessGroupID(processGroups []*ProcessGroupStatus, processGroupID string) bool {
+func ContainsProcessGroupID(processGroups []*ProcessGroupStatus, processGroupID ProcessGroupID) bool {
 	return FindProcessGroupByID(processGroups, processGroupID) != nil
 }
 
 // MarkProcessGroupForRemoval sets the remove flag for the given process and ensures that the address is added.
-func MarkProcessGroupForRemoval(processGroups []*ProcessGroupStatus, processGroupID string, processClass ProcessClass, address string) (bool, *ProcessGroupStatus) {
+func MarkProcessGroupForRemoval(processGroups []*ProcessGroupStatus, processGroupID ProcessGroupID, processClass ProcessClass, address string) (bool, *ProcessGroupStatus) {
 	for _, processGroup := range processGroups {
 		if processGroup.ProcessGroupID != processGroupID {
 			continue
@@ -504,7 +508,7 @@ func MarkProcessGroupForRemoval(processGroups []*ProcessGroupStatus, processGrou
 // UpdateCondition will add or remove a condition in the ProcessGroupStatus.
 // If the old ProcessGroupStatus already contains the condition, and the condition is being set,
 // the condition is reused to contain the same timestamp.
-func (processGroupStatus *ProcessGroupStatus) UpdateCondition(conditionType ProcessGroupConditionType, set bool, oldProcessGroups []*ProcessGroupStatus, processGroupID string) {
+func (processGroupStatus *ProcessGroupStatus) UpdateCondition(conditionType ProcessGroupConditionType, set bool, oldProcessGroups []*ProcessGroupStatus, processGroupID ProcessGroupID) {
 	if set {
 		processGroupStatus.addCondition(oldProcessGroups, processGroupID, conditionType)
 	} else {
@@ -514,7 +518,7 @@ func (processGroupStatus *ProcessGroupStatus) UpdateCondition(conditionType Proc
 
 // addCondition will add the condition to the ProcessGroupStatus.
 // If the old ProcessGroupStatus already contains the condition the condition is reused to contain the same timestamp.
-func (processGroupStatus *ProcessGroupStatus) addCondition(oldProcessGroups []*ProcessGroupStatus, processGroupID string, conditionType ProcessGroupConditionType) {
+func (processGroupStatus *ProcessGroupStatus) addCondition(oldProcessGroups []*ProcessGroupStatus, processGroupID ProcessGroupID, conditionType ProcessGroupConditionType) {
 	var oldProcessGroupStatus *ProcessGroupStatus
 
 	// Check if we got a ProcessGroupStatus for the processGroupID
@@ -575,7 +579,7 @@ func CreateProcessCountsFromProcessGroupStatus(processGroupStatus []*ProcessGrou
 }
 
 // FilterByCondition returns a string slice of all ProcessGroupIDs that contains a condition with the given type.
-func FilterByCondition(processGroupStatus []*ProcessGroupStatus, conditionType ProcessGroupConditionType, ignoreRemoved bool) []string {
+func FilterByCondition(processGroupStatus []*ProcessGroupStatus, conditionType ProcessGroupConditionType, ignoreRemoved bool) []ProcessGroupID {
 	return FilterByConditions(processGroupStatus, map[ProcessGroupConditionType]bool{conditionType: true}, ignoreRemoved)
 }
 
@@ -586,8 +590,8 @@ func FilterByCondition(processGroupStatus []*ProcessGroupStatus, conditionType P
 // groups with that condition will be returned. If a condition is mapped to
 // false in the conditionRules map, only process groups without that condition
 // will be returned.
-func FilterByConditions(processGroupStatus []*ProcessGroupStatus, conditionRules map[ProcessGroupConditionType]bool, ignoreRemoved bool) []string {
-	result := make([]string, 0, len(processGroupStatus))
+func FilterByConditions(processGroupStatus []*ProcessGroupStatus, conditionRules map[ProcessGroupConditionType]bool, ignoreRemoved bool) []ProcessGroupID {
+	result := make([]ProcessGroupID, 0, len(processGroupStatus))
 
 	for _, groupStatus := range processGroupStatus {
 		if ignoreRemoved && groupStatus.IsMarkedForRemoval() {
@@ -1562,7 +1566,7 @@ func (cluster *FoundationDBCluster) VersionCompatibleUpgradeInProgress() bool {
 }
 
 // ProcessGroupIsBeingRemoved determines if an instance is pending removal.
-func (cluster *FoundationDBCluster) ProcessGroupIsBeingRemoved(processGroupID string) bool {
+func (cluster *FoundationDBCluster) ProcessGroupIsBeingRemoved(processGroupID ProcessGroupID) bool {
 	if processGroupID == "" {
 		return false
 	}
@@ -1716,18 +1720,18 @@ type CrashLoopContainerObject struct {
 	ContainerName string `json:"containerName,omitempty"`
 
 	// Target processes to kill inside the container.
-	Targets []string `json:"targets,omitempty"`
+	Targets []ProcessGroupID `json:"targets,omitempty"`
 }
 
 // BuggifyConfig provides options for injecting faults into a cluster for testing.
 type BuggifyConfig struct {
 	// NoSchedule defines a list of process group IDs that should fail to schedule.
-	NoSchedule []string `json:"noSchedule,omitempty"`
+	NoSchedule []ProcessGroupID `json:"noSchedule,omitempty"`
 
 	// CrashLoops defines a list of process group IDs that should be put into a
 	// crash looping state.
 	// Deprecated: use CrashLoopContainers instead.
-	CrashLoop []string `json:"crashLoop,omitempty"`
+	CrashLoop []ProcessGroupID `json:"crashLoop,omitempty"`
 
 	// CrashLoopContainers defines a list of process group IDs and containers
 	// that should be put into a crash looping state.
@@ -1741,7 +1745,7 @@ type BuggifyConfig struct {
 	// restart command. This can be useful to simulate cases where the kill command is not restarting all
 	// processes. IgnoreDuringRestart does not support the wildcard option to ignore all of this specific cluster processes.
 	// +kubebuilder:validation:MaxItems=1000
-	IgnoreDuringRestart []string `json:"ignoreDuringRestart,omitempty"`
+	IgnoreDuringRestart []ProcessGroupID `json:"ignoreDuringRestart,omitempty"`
 }
 
 // LabelConfig allows customizing labels used by the operator.
@@ -2099,8 +2103,8 @@ func (cluster *FoundationDBCluster) GetIgnoreTerminatingPodsSeconds() int {
 
 // AddProcessGroupsToRemovalList adds the provided process group IDs to the remove list.
 // If a process group ID is already present on that list it won't be added a second time.
-func (cluster *FoundationDBCluster) AddProcessGroupsToRemovalList(processGroupIDs []string) {
-	removals := map[string]None{}
+func (cluster *FoundationDBCluster) AddProcessGroupsToRemovalList(processGroupIDs []ProcessGroupID) {
+	removals := map[ProcessGroupID]None{}
 
 	for _, id := range cluster.Spec.ProcessGroupsToRemove {
 		removals[id] = None{}
@@ -2117,8 +2121,8 @@ func (cluster *FoundationDBCluster) AddProcessGroupsToRemovalList(processGroupID
 
 // AddProcessGroupsToNoScheduleList adds the provided process group IDs to the no-schedule list.
 // If a process group ID is already present on that list it won't be added a second time.
-func (cluster *FoundationDBCluster) AddProcessGroupsToNoScheduleList(processGroupIDs []string) {
-	noScheduleProcesses := map[string]None{}
+func (cluster *FoundationDBCluster) AddProcessGroupsToNoScheduleList(processGroupIDs []ProcessGroupID) {
+	noScheduleProcesses := map[ProcessGroupID]None{}
 
 	for _, id := range cluster.Spec.Buggify.NoSchedule {
 		noScheduleProcesses[id] = None{}
@@ -2134,8 +2138,8 @@ func (cluster *FoundationDBCluster) AddProcessGroupsToNoScheduleList(processGrou
 }
 
 // RemoveProcessGroupsFromNoScheduleList removes the provided process group IDs from the no-schedule list.
-func (cluster *FoundationDBCluster) RemoveProcessGroupsFromNoScheduleList(processGroupIDs []string) {
-	processGroupIDsToRemove := make(map[string]None)
+func (cluster *FoundationDBCluster) RemoveProcessGroupsFromNoScheduleList(processGroupIDs []ProcessGroupID) {
+	processGroupIDsToRemove := make(map[ProcessGroupID]None)
 	for _, processGroupID := range processGroupIDs {
 		processGroupIDsToRemove[processGroupID] = None{}
 	}
@@ -2155,7 +2159,7 @@ func (cluster *FoundationDBCluster) RemoveProcessGroupsFromNoScheduleList(proces
 // AddProcessGroupsToCrashLoopList adds the provided process group IDs to the crash-loop list.
 // If a process group ID is already present on that list or all the processes are set into crash-loop
 // it won't be added a second time.
-func (cluster *FoundationDBCluster) AddProcessGroupsToCrashLoopList(processGroupIDs []string) {
+func (cluster *FoundationDBCluster) AddProcessGroupsToCrashLoopList(processGroupIDs []ProcessGroupID) {
 	crashLoop, _ := cluster.GetCrashLoopProcessGroups()
 
 	for _, processGroupID := range processGroupIDs {
@@ -2168,8 +2172,8 @@ func (cluster *FoundationDBCluster) AddProcessGroupsToCrashLoopList(processGroup
 }
 
 // RemoveProcessGroupsFromCrashLoopList removes the provided process group IDs from the crash-loop list.
-func (cluster *FoundationDBCluster) RemoveProcessGroupsFromCrashLoopList(processGroupIDs []string) {
-	processGroupIDsToRemove := make(map[string]None)
+func (cluster *FoundationDBCluster) RemoveProcessGroupsFromCrashLoopList(processGroupIDs []ProcessGroupID) {
+	processGroupIDsToRemove := make(map[ProcessGroupID]None)
 	for _, processGroupID := range processGroupIDs {
 		processGroupIDsToRemove[processGroupID] = None{}
 	}
@@ -2187,8 +2191,8 @@ func (cluster *FoundationDBCluster) RemoveProcessGroupsFromCrashLoopList(process
 
 // AddProcessGroupsToRemovalWithoutExclusionList adds the provided process group IDs to the remove without exclusion list.
 // If a process group ID is already present on that list it won't be added a second time.
-func (cluster *FoundationDBCluster) AddProcessGroupsToRemovalWithoutExclusionList(processGroupIDs []string) {
-	removals := map[string]None{}
+func (cluster *FoundationDBCluster) AddProcessGroupsToRemovalWithoutExclusionList(processGroupIDs []ProcessGroupID) {
+	removals := map[ProcessGroupID]None{}
 
 	for _, id := range cluster.Spec.ProcessGroupsToRemoveWithoutExclusion {
 		removals[id] = None{}
@@ -2218,8 +2222,8 @@ func (cluster *FoundationDBCluster) GetRunningVersion() string {
 
 // GetCrashLoopProcessGroups returns the process group IDs that are marked for crash looping. The second return value indicates
 // if all process group IDs in a cluster should be crash looping.
-func (cluster *FoundationDBCluster) GetCrashLoopProcessGroups() (map[string]None, bool) {
-	crashLoopPods := make(map[string]None, len(cluster.Spec.Buggify.CrashLoop))
+func (cluster *FoundationDBCluster) GetCrashLoopProcessGroups() (map[ProcessGroupID]None, bool) {
+	crashLoopPods := make(map[ProcessGroupID]None, len(cluster.Spec.Buggify.CrashLoop))
 	crashLoopAll := false
 	for _, processGroupID := range cluster.Spec.Buggify.CrashLoop {
 		if processGroupID == "*" {
@@ -2233,11 +2237,11 @@ func (cluster *FoundationDBCluster) GetCrashLoopProcessGroups() (map[string]None
 
 // GetCrashLoopContainerProcessGroups returns the process group IDs in containers that are marked for crash looping.
 // Returns map[ContainerName](map[ProcessGroupID]None).
-func (cluster *FoundationDBCluster) GetCrashLoopContainerProcessGroups() map[string](map[string]None) {
-	crashLoopTargets := make(map[string](map[string]None))
+func (cluster *FoundationDBCluster) GetCrashLoopContainerProcessGroups() map[string]map[ProcessGroupID]None {
+	crashLoopTargets := make(map[string]map[ProcessGroupID]None)
 	for _, target := range cluster.Spec.Buggify.CrashLoopContainers {
 		if _, ok := crashLoopTargets[target.ContainerName]; !ok {
-			crashLoopTargets[target.ContainerName] = make(map[string]None)
+			crashLoopTargets[target.ContainerName] = make(map[ProcessGroupID]None)
 		}
 
 		for _, processID := range target.Targets {

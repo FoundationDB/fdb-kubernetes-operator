@@ -41,7 +41,7 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 
 ## AutomaticReplacementOptions
 
-AutomaticReplacementOptions controls options for automatically replacing failed processes.
+AutomaticReplacementOptions controls options for automatically replacing failed podNames.
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
@@ -60,8 +60,8 @@ BuggifyConfig provides options for injecting faults into a cluster for testing.
 | noSchedule | NoSchedule defines a list of process group IDs that should fail to schedule. | []string | false |
 | crashLoop | CrashLoops defines a list of process group IDs that should be put into a crash looping state. **Deprecated: use CrashLoopContainers instead.** | []string | false |
 | crashLoopContainers | CrashLoopContainers defines a list of process group IDs and containers that should be put into a crash looping state. | [][CrashLoopContainerObject](#crashloopcontainerobject) | false |
-| emptyMonitorConf | EmptyMonitorConf instructs the operator to update all of the fdbmonitor.conf files to have zero fdbserver processes configured. | bool | false |
-| ignoreDuringRestart | IgnoreDuringRestart instructs the operator to ignore the provided process groups IDs during the restart command. This can be useful to simulate cases where the kill command is not restarting all processes. IgnoreDuringRestart does not support the wildcard option to ignore all of this specific cluster processes. | []string | false |
+| emptyMonitorConf | EmptyMonitorConf instructs the operator to update all of the fdbmonitor.conf files to have zero fdbserver podNames configured. | bool | false |
+| ignoreDuringRestart | IgnoreDuringRestart instructs the operator to ignore the provided process groups IDs during the restart command. This can be useful to simulate cases where the kill command is not restarting all podNames. IgnoreDuringRestart does not support the wildcard option to ignore all of this specific cluster podNames. | []string | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -145,7 +145,7 @@ CrashLoopContainerObject specifies crash-loop target for specific container.
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
 | containerName | Name of the target container. | string | false |
-| targets | Target processes to kill inside the container. | []string | false |
+| targets | Target podNames to kill inside the container. | []string | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -168,8 +168,8 @@ FoundationDBClusterAutomationOptions provides flags for enabling or disabling op
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
 | configureDatabase | ConfigureDatabase defines whether the operator is allowed to reconfigure the database. | *bool | false |
-| killProcesses | KillProcesses defines whether the operator is allowed to bounce fdbserver processes. | *bool | false |
-| replacements | Replacements contains options for automatically replacing failed processes. | [AutomaticReplacementOptions](#automaticreplacementoptions) | false |
+| killProcesses | KillProcesses defines whether the operator is allowed to bounce fdbserver podNames. | *bool | false |
+| replacements | Replacements contains options for automatically replacing failed podNames. | [AutomaticReplacementOptions](#automaticreplacementoptions) | false |
 | ignorePendingPodsDuration | IgnorePendingPodsDuration defines how long a Pod has to be in the Pending Phase before ignore it during reconciliation. This prevents Pod that are stuck in Pending to block further reconciliation. | time.Duration | false |
 | useNonBlockingExcludes | UseNonBlockingExcludes defines whether the operator is allowed to use non blocking exclude commands. The default is false. | *bool | false |
 | useLocalitiesForExclusion | UseLocalitiesForExclusion defines whether the exclusions are done using localities instead of IP addresses. The default is false. | *bool | false |
@@ -179,7 +179,7 @@ FoundationDBClusterAutomationOptions provides flags for enabling or disabling op
 | maxConcurrentReplacements | MaxConcurrentReplacements defines how many process groups can be concurrently replaced if they are misconfigured. If the value will be set to 0 this will block replacements and these misconfigured Pods must be replaced manually or by another process. For each reconcile loop the operator calculates the maximum number of possible replacements by taken this value as the upper limit and removes all ongoing replacements that have not finished. Which means if the value is set to 5 and we have 4 ongoing replacements (process groups marked with remove but not excluded) the operator is allowed to replace on further process group. | *int | false |
 | deletionMode | DeletionMode defines the deletion mode for this cluster. This can be PodUpdateModeNone, PodUpdateModeAll, PodUpdateModeZone or PodUpdateModeProcessGroup. The DeletionMode defines how Pods are deleted in order to update them or when they are removed. | [PodUpdateMode](#podupdatemode) | false |
 | removalMode | RemovalMode defines the removal mode for this cluster. This can be PodUpdateModeNone, PodUpdateModeAll, PodUpdateModeZone or PodUpdateModeProcessGroup. The RemovalMode defines how process groups are deleted in order when they are marked for removal. | [PodUpdateMode](#podupdatemode) | false |
-| waitBetweenRemovalsSeconds | WaitBetweenRemovalsSeconds defines how long to wait between the last removal and the next removal. This is only an upper limit if the process group and the according resources are deleted faster than the provided duration the operator will move on with the next removal. The idea is to prevent a race condition were the operator deletes a resource but the Kubernetes API is slower to trigger the actual deletion, and we are running into a situation where the fault tolerance check still includes the already deleted processes. Defaults to 60. | *int | false |
+| waitBetweenRemovalsSeconds | WaitBetweenRemovalsSeconds defines how long to wait between the last removal and the next removal. This is only an upper limit if the process group and the according resources are deleted faster than the provided duration the operator will move on with the next removal. The idea is to prevent a race condition were the operator deletes a resource but the Kubernetes API is slower to trigger the actual deletion, and we are running into a situation where the fault tolerance check still includes the already deleted podNames. Defaults to 60. | *int | false |
 | podUpdateStrategy | PodUpdateStrategy defines how Pod spec changes are rolled out either by replacing Pods or by deleting Pods. The default for this is ReplaceTransactionSystem. | [PodUpdateStrategy](#podupdatestrategy) | false |
 | useManagementAPI | UseManagementAPI defines if the operator should make use of the management API instead of using fdbcli to interact with the FoundationDB cluster. | *bool | false |
 | maintenanceModeOptions | MaintenanceModeOptions contains options for maintenance mode related settings. | [MaintenanceModeOptions](#maintenancemodeoptions) | false |
@@ -195,7 +195,7 @@ FoundationDBClusterFaultDomain describes the fault domain that a cluster is repl
 | key | Key provides a topology key for the fault domain to replicate across. | string | false |
 | value | Value provides a harcoded value to use for the zoneid for the pods. | string | false |
 | valueFrom | ValueFrom provides a field selector to use as the source of the fault domain. | string | false |
-| zoneCount | ZoneCount provides the number of fault domains in the data center where these processes are running. This is only used in the `kubernetes-cluster` fault domain strategy. | int | false |
+| zoneCount | ZoneCount provides the number of fault domains in the data center where these podNames are running. This is only used in the `kubernetes-cluster` fault domain strategy. | int | false |
 | zoneIndex | ZoneIndex provides the index of this Kubernetes cluster in the list of KCs in the data center. This is only used in the `kubernetes-cluster` fault domain strategy. | int | false |
 
 [Back to TOC](#table-of-contents)
@@ -219,8 +219,8 @@ FoundationDBClusterSpec defines the desired state of a cluster.
 | ----- | ----------- | ------ | -------- |
 | version | Version defines the version of FoundationDB the cluster should run. | string | true |
 | databaseConfiguration | DatabaseConfiguration defines the database configuration. | [DatabaseConfiguration](#databaseconfiguration) | false |
-| processes | Processes defines process-level settings. | map[[ProcessClass](#processclass)][ProcessSettings](#processsettings) | false |
-| processCounts | ProcessCounts defines the number of processes to configure for each process class. You can generally omit this, to allow the operator to infer the process counts based on the database configuration. | [ProcessCounts](#processcounts) | false |
+| podNames | Processes defines process-level settings. | map[[ProcessClass](#processclass)][ProcessSettings](#processsettings) | false |
+| processCounts | ProcessCounts defines the number of podNames to configure for each process class. You can generally omit this, to allow the operator to infer the process counts based on the database configuration. | [ProcessCounts](#processcounts) | false |
 | seedConnectionString | SeedConnectionString provides a connection string for the initial reconciliation.  After the initial reconciliation, this will not be used. | string | false |
 | partialConnectionString | PartialConnectionString provides a way to specify part of the connection string (e.g. the database name and coordinator generation) without specifying the entire string. This does not allow for setting the coordinator IPs. If `SeedConnectionString` is set, `PartialConnectionString` will have no effect. They cannot be used together. | [ConnectionString](#connectionstring) | false |
 | faultDomain | FaultDomain defines the rules for what fault domain to replicate across. | [FoundationDBClusterFaultDomain](#foundationdbclusterfaultdomain) | false |
@@ -232,19 +232,19 @@ FoundationDBClusterSpec defines the desired state of a cluster.
 | trustedCAs | TrustedCAs defines a list of root CAs the cluster should trust, in PEM format. | []string | false |
 | sidecarVariables | SidecarVariables defines Custom variables that the sidecar should make available for substitution in the monitor conf file. | []string | false |
 | logGroup | LogGroup defines the log group to use for the trace logs for the cluster. | string | false |
-| dataCenter | DataCenter defines the data center where these processes are running. | string | false |
-| dataHall | DataHall defines the data hall where these processes are running. | string | false |
+| dataCenter | DataCenter defines the data center where these podNames are running. | string | false |
+| dataHall | DataHall defines the data hall where these podNames are running. | string | false |
 | automationOptions | AutomationOptions defines customization for enabling or disabling certain operations in the operator. | [FoundationDBClusterAutomationOptions](#foundationdbclusterautomationoptions) | false |
 | processGroupIDPrefix | ProcessGroupIDPrefix defines a prefix to append to the process group IDs in the locality fields.  This must be a valid Kubernetes label value. See https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#syntax-and-character-set for more details on that. | string | false |
 | lockOptions | LockOptions allows customizing how we manage locks for global operations. | [LockOptions](#lockoptions) | false |
 | routing | Routing defines the configuration for routing to our pods. | [RoutingConfig](#routingconfig) | false |
 | ignoreUpgradabilityChecks | IgnoreUpgradabilityChecks determines whether we should skip the check for client compatibility when performing an upgrade. | bool | false |
 | buggify | Buggify defines settings for injecting faults into a cluster for testing. | [BuggifyConfig](#buggifyconfig) | false |
-| storageServersPerPod | StorageServersPerPod defines how many Storage Servers should run in a single process group (Pod). This number defines the number of processes running in one Pod whereas the ProcessCounts defines the number of Pods created. This means that you end up with ProcessCounts[\"storage\"] * StorageServersPerPod storage processes | int | false |
-| minimumUptimeSecondsForBounce | MinimumUptimeSecondsForBounce defines the minimum time, in seconds, that the processes in the cluster must have been up for before the operator can execute a bounce. | int | false |
+| storageServersPerPod | StorageServersPerPod defines how many Storage Servers should run in a single process group (Pod). This number defines the number of podNames running in one Pod whereas the ProcessCounts defines the number of Pods created. This means that you end up with ProcessCounts[\"storage\"] * StorageServersPerPod storage podNames | int | false |
+| minimumUptimeSecondsForBounce | MinimumUptimeSecondsForBounce defines the minimum time, in seconds, that the podNames in the cluster must have been up for before the operator can execute a bounce. | int | false |
 | replaceInstancesWhenResourcesChange | ReplaceInstancesWhenResourcesChange defines if an instance should be replaced when the resource requirements are increased. This can be useful with the combination of local storage. | *bool | false |
 | skip | Skip defines if the cluster should be skipped for reconciliation. This can be useful for investigating in issues or if the environment is unstable. | bool | false |
-| coordinatorSelection | CoordinatorSelection defines which process classes are eligible for coordinator selection. If empty all stateful processes classes are equally eligible. A higher priority means that a process class is preferred over another process class. If the FoundationDB cluster is spans across multiple Kubernetes clusters or DCs the CoordinatorSelection must match in all FoundationDB cluster resources otherwise the coordinator selection process could conflict. | [][CoordinatorSelectionSetting](#coordinatorselectionsetting) | false |
+| coordinatorSelection | CoordinatorSelection defines which process classes are eligible for coordinator selection. If empty all stateful podNames classes are equally eligible. A higher priority means that a process class is preferred over another process class. If the FoundationDB cluster is spans across multiple Kubernetes clusters or DCs the CoordinatorSelection must match in all FoundationDB cluster resources otherwise the coordinator selection process could conflict. | [][CoordinatorSelectionSetting](#coordinatorselectionsetting) | false |
 | labels | LabelConfig allows customizing labels used by the operator. | [LabelConfig](#labelconfig) | false |
 | useExplicitListenAddress | UseExplicitListenAddress determines if we should add a listen address that is separate from the public address. **Deprecated: This setting will be removed in the next major release.** | *bool | false |
 | useUnifiedImage | UseUnifiedImage determines if we should use the unified image rather than separate images for the main container and the sidecar container. | *bool | false |
@@ -260,7 +260,7 @@ FoundationDBClusterStatus defines the observed state of FoundationDBCluster
 | databaseConfiguration | DatabaseConfiguration provides the running configuration of the database. | [DatabaseConfiguration](#databaseconfiguration) | false |
 | generations | Generations provides information about the latest generation to be reconciled, or to reach other stages at which reconciliation can halt. | [ClusterGenerationStatus](#clustergenerationstatus) | false |
 | health | Health provides information about the health of the database. | [ClusterHealth](#clusterhealth) | false |
-| requiredAddresses | RequiredAddresses define that addresses that we need to enable for the processes in the cluster. | [RequiredAddressSet](#requiredaddressset) | false |
+| requiredAddresses | RequiredAddresses define that addresses that we need to enable for the podNames in the cluster. | [RequiredAddressSet](#requiredaddressset) | false |
 | hasIncorrectConfigMap | HasIncorrectConfigMap indicates whether the latest config map is out of date with the cluster spec. | bool | false |
 | hasIncorrectServiceConfig | HasIncorrectServiceConfig indicates whether the cluster has service config that is out of date with the cluster spec. | bool | false |
 | needsNewCoordinators | NeedsNewCoordinators indicates whether the cluster needs to recruit new coordinators to fulfill its fault tolerance requirements. | bool | false |
@@ -472,7 +472,7 @@ DatabaseConfiguration represents the configuration of the database
 | usable_regions | UsableRegions defines how many regions the database should store data in. | int | false |
 | regions | Regions defines the regions that the database can replicate in. | [][Region](#region) | false |
 | excluded_servers | ExcludedServers defines the list  of excluded servers form the database. | [][ExcludedServers](#excludedservers) | false |
-| RoleCounts | RoleCounts defines how many processes the database should recruit for each role. | [RoleCounts](#rolecounts) | true |
+| RoleCounts | RoleCounts defines how many podNames the database should recruit for each role. | [RoleCounts](#rolecounts) | true |
 | VersionFlags | VersionFlags defines internal flags for testing new features in the database. | [VersionFlags](#versionflags) | true |
 
 [Back to TOC](#table-of-contents)
@@ -490,7 +490,7 @@ ExcludedServers represents the excluded servers in the database configuration
 
 ## ProcessCounts
 
-ProcessCounts represents the number of processes we have for each valid process class.  If one of the counts in the spec is set to 0, we will infer the process count for that class from the role counts. If one of the counts in the spec is set to -1, we will not create any processes for that class. See GetProcessCountsWithDefaults for more information on the rules for inferring process counts.
+ProcessCounts represents the number of podNames we have for each valid process class.  If one of the counts in the spec is set to 0, we will infer the process count for that class from the role counts. If one of the counts in the spec is set to -1, we will not create any podNames for that class. See GetProcessCountsWithDefaults for more information on the rules for inferring process counts.
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |

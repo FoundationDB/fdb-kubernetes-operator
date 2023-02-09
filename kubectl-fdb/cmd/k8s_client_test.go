@@ -176,7 +176,7 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 	When("getting the process groups IDs from Pods", func() {
 		When("the cluster doesn't have a prefix", func() {
 			DescribeTable("should get all process groups IDs",
-				func(podNames []string, expected []string) {
+				func(podNames []string, expected []fdbv1beta2.ProcessGroupID) {
 					instances, err := getProcessGroupIDsFromPodName(cluster, podNames)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(instances).To(ContainElements(expected))
@@ -184,15 +184,15 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 				},
 				Entry("Filter one instance",
 					[]string{"test-storage-1"},
-					[]string{"storage-1"},
+					[]fdbv1beta2.ProcessGroupID{"storage-1"},
 				),
 				Entry("Filter two instances",
 					[]string{"test-storage-1", "test-storage-2"},
-					[]string{"storage-1", "storage-2"},
+					[]fdbv1beta2.ProcessGroupID{"storage-1", "storage-2"},
 				),
 				Entry("Filter no instance",
 					[]string{""},
-					[]string{},
+					[]fdbv1beta2.ProcessGroupID{},
 				),
 			)
 		})
@@ -214,7 +214,7 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 			})
 
 			DescribeTable("should get all process groups IDs",
-				func(podNames []string, expected []string) {
+				func(podNames []string, expected []fdbv1beta2.ProcessGroupID) {
 					instances, err := getProcessGroupIDsFromPodName(cluster, podNames)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(instances).To(ContainElements(expected))
@@ -222,15 +222,15 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 				},
 				Entry("Filter one instance",
 					[]string{"test-storage-1"},
-					[]string{"banana-storage-1"},
+					[]fdbv1beta2.ProcessGroupID{"banana-storage-1"},
 				),
 				Entry("Filter two instances",
 					[]string{"test-storage-1", "test-storage-2"},
-					[]string{"banana-storage-1", "banana-storage-2"},
+					[]fdbv1beta2.ProcessGroupID{"banana-storage-1", "banana-storage-2"},
 				),
 				Entry("Filter no instance",
 					[]string{""},
-					[]string{},
+					[]fdbv1beta2.ProcessGroupID{},
 				),
 			)
 		})

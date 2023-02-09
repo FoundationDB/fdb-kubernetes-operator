@@ -2,11 +2,11 @@
 
 This document covers some of the options the operator provides for customizing your FoundationDB deployment.
 
-Many of these customizations involve the `processes` field in the cluster spec, which we will refer to as the "process settings". This field is a dictionary, mapping a process class to a process settings object. This also supports a special key called `general` which is applied to all process classes. If a value is specified for a specific process class, the `general` value will be ignored. These values are merged at the top level of the process settings object. If you specify a `volumeClaimTemplate` object in the `storage` settings and a `podTemplate` object in the `general` settings, the storage processes will use both the custom `volumeClaimTemplate` and the general `podTemplate`. If you specify a `podTemplate` object in the `storage` settings and `podTemplate` object in the `general` settings, the storage processes will only use the values given in the `storage` settings, and will the pod template from the `general` settings completely.
+Many of these customizations involve the `podNames` field in the cluster spec, which we will refer to as the "process settings". This field is a dictionary, mapping a process class to a process settings object. This also supports a special key called `general` which is applied to all process classes. If a value is specified for a specific process class, the `general` value will be ignored. These values are merged at the top level of the process settings object. If you specify a `volumeClaimTemplate` object in the `storage` settings and a `podTemplate` object in the `general` settings, the storage podNames will use both the custom `volumeClaimTemplate` and the general `podTemplate`. If you specify a `podTemplate` object in the `storage` settings and `podTemplate` object in the `general` settings, the storage podNames will only use the values given in the `storage` settings, and will the pod template from the `general` settings completely.
 
 ## Running Multiple Storage Servers per Pod
 
-Since FoundationDB is limited to a single core it can make sense to run multiple storage server per disk. You can change the number of storage server per Pod with the `storageServersPerPod` setting. This will start multiple FDB processes inside of a single container, under a single `fdbmonitor` process.
+Since FoundationDB is limited to a single core it can make sense to run multiple storage server per disk. You can change the number of storage server per Pod with the `storageServersPerPod` setting. This will start multiple FDB podNames inside of a single container, under a single `fdbmonitor` process.
 
 ```yaml
 apiVersion: apps.foundationdb.org/v1beta2
@@ -32,7 +32,7 @@ metadata:
   name: sample-cluster
 spec:
   version: 6.2.30
-  processes:
+  podNames:
     general:
       volumeClaimTemplate:
         spec:
@@ -48,7 +48,7 @@ metadata:
   name: sample-cluster
 spec:
   version: 6.2.30
-  processes:
+  podNames:
     general:
       volumeClaimTemplate:
         spec:
@@ -57,7 +57,7 @@ spec:
               storage: "256G"
 ```
 
-A change to the volume claim template will replace all PVC' and the according Pods. You can also use different volume settings for different processes. For instance, you could use a slower but higher-capacity storage class for your storage processes:
+A change to the volume claim template will replace all PVC' and the according Pods. You can also use different volume settings for different podNames. For instance, you could use a slower but higher-capacity storage class for your storage podNames:
 
 ```yaml
 apiVersion: apps.foundationdb.org/v1beta2
@@ -66,7 +66,7 @@ metadata:
   name: sample-cluster
 spec:
   version: 6.2.30
-  processes:
+  podNames:
     log:
       volumeClaimTemplate:
         spec:
@@ -88,7 +88,7 @@ metadata:
     name: sample-cluster
 spec:
   version: 6.2.30
-  processes:
+  podNames:
     general:
       podTemplate:
         spec:
@@ -307,7 +307,7 @@ Coordination servers:
   test-cluster-storage-3.test-cluster.default.svc.cluster.local:4501  (reachable)
 ```
 
-The operator will add a special locality to the fdbserver processes called `dns_name` which stores the dns name for this process:
+The operator will add a special locality to the fdbserver podNames called `dns_name` which stores the dns name for this process:
 
 ```json
      "locality" : {
@@ -499,7 +499,7 @@ kubectl label pod,pvc,configmap,service -l foundationdb.org/fdb-cluster-name=sam
 
 ## Unified vs Split Images
 
-The operator currently supports two different image types: a split image and a unified image. The split image provides two different images for the `foundationdb` container and the `foundationdb-kubernetes-sidecar` container. The unified image provides a single image which handles launching `fdbserver` processes as well as providing feedback to the operator on locality information and updates to dynamic conf.
+The operator currently supports two different image types: a split image and a unified image. The split image provides two different images for the `foundationdb` container and the `foundationdb-kubernetes-sidecar` container. The unified image provides a single image which handles launching `fdbserver` podNames as well as providing feedback to the operator on locality information and updates to dynamic conf.
 
 **NOTE**: The unified image is still experimental, and is not recommended outside of development environments.
 

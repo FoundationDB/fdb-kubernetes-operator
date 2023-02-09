@@ -128,12 +128,12 @@ func getProcessesToExclude(exclusions []fdbv1beta2.ProcessAddress, cluster *fdbv
 	return fdbProcessesToExclude, processClassesToExclude
 }
 
-func canExcludeNewProcesses(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass) (bool, []string) {
+func canExcludeNewProcesses(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass) (bool, []fdbv1beta2.ProcessGroupID) {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "excludeProcesses")
 
 	// Block excludes on missing processes not marked for removal
-	missingProcesses := make([]string, 0)
-	validProcesses := make([]string, 0)
+	missingProcesses := make([]fdbv1beta2.ProcessGroupID, 0)
+	validProcesses := make([]fdbv1beta2.ProcessGroupID, 0)
 
 	for _, processGroupStatus := range cluster.Status.ProcessGroups {
 		if processGroupStatus.IsMarkedForRemoval() || processGroupStatus.ProcessClass != processClass {

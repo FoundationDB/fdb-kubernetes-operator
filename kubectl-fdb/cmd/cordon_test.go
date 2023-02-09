@@ -41,8 +41,8 @@ var _ = Describe("[plugin] cordon command", func() {
 		type testCase struct {
 			nodes                                     []string
 			WithExclusion                             bool
-			ExpectedInstancesToRemove                 []string
-			ExpectedInstancesToRemoveWithoutExclusion []string
+			ExpectedInstancesToRemove                 []fdbv1beta2.ProcessGroupID
+			ExpectedInstancesToRemoveWithoutExclusion []fdbv1beta2.ProcessGroupID
 			clusterName                               string
 			clusterLabel                              string
 		}
@@ -69,8 +69,8 @@ var _ = Describe("[plugin] cordon command", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				clusterNames := []string{clusterName, secondClusterName}
-				var instancesToRemove []string
-				var instancesToRemoveWithoutExclusion []string
+				var instancesToRemove []fdbv1beta2.ProcessGroupID
+				var instancesToRemoveWithoutExclusion []fdbv1beta2.ProcessGroupID
 				for _, clusterName := range clusterNames {
 					var resCluster fdbv1beta2.FoundationDBCluster
 					err = k8sClient.Get(context.Background(), client.ObjectKey{
@@ -89,8 +89,8 @@ var _ = Describe("[plugin] cordon command", func() {
 				testCase{
 					nodes:                     []string{"node-1"},
 					WithExclusion:             true,
-					ExpectedInstancesToRemove: []string{fmt.Sprintf("%s-instance-1", clusterName)},
-					ExpectedInstancesToRemoveWithoutExclusion: []string{},
+					ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-1", clusterName))},
+					ExpectedInstancesToRemoveWithoutExclusion: []fdbv1beta2.ProcessGroupID{},
 					clusterName:  clusterName,
 					clusterLabel: "",
 				}),
@@ -98,8 +98,8 @@ var _ = Describe("[plugin] cordon command", func() {
 				testCase{
 					nodes:                     []string{"node-1"},
 					WithExclusion:             false,
-					ExpectedInstancesToRemove: []string{},
-					ExpectedInstancesToRemoveWithoutExclusion: []string{fmt.Sprintf("%s-instance-1", clusterName)},
+					ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{},
+					ExpectedInstancesToRemoveWithoutExclusion: []fdbv1beta2.ProcessGroupID{fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-1", clusterName))},
 					clusterName:  clusterName,
 					clusterLabel: "",
 				}),
@@ -107,8 +107,8 @@ var _ = Describe("[plugin] cordon command", func() {
 				testCase{
 					nodes:                     []string{""},
 					WithExclusion:             true,
-					ExpectedInstancesToRemove: []string{},
-					ExpectedInstancesToRemoveWithoutExclusion: []string{},
+					ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{},
+					ExpectedInstancesToRemoveWithoutExclusion: []fdbv1beta2.ProcessGroupID{},
 					clusterName:  clusterName,
 					clusterLabel: "",
 				}),
@@ -116,8 +116,8 @@ var _ = Describe("[plugin] cordon command", func() {
 				testCase{
 					nodes:                     []string{""},
 					WithExclusion:             false,
-					ExpectedInstancesToRemove: []string{},
-					ExpectedInstancesToRemoveWithoutExclusion: []string{},
+					ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{},
+					ExpectedInstancesToRemoveWithoutExclusion: []fdbv1beta2.ProcessGroupID{},
 					clusterName:  clusterName,
 					clusterLabel: "",
 				}),
@@ -125,11 +125,11 @@ var _ = Describe("[plugin] cordon command", func() {
 				testCase{
 					nodes:         []string{"node-1", "node-2"},
 					WithExclusion: true,
-					ExpectedInstancesToRemove: []string{
-						fmt.Sprintf("%s-instance-1", clusterName),
-						fmt.Sprintf("%s-instance-2", clusterName),
+					ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{
+						fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-1", clusterName)),
+						fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-2", clusterName)),
 					},
-					ExpectedInstancesToRemoveWithoutExclusion: []string{},
+					ExpectedInstancesToRemoveWithoutExclusion: []fdbv1beta2.ProcessGroupID{},
 					clusterName:  clusterName,
 					clusterLabel: "",
 				}),
@@ -137,10 +137,10 @@ var _ = Describe("[plugin] cordon command", func() {
 				testCase{
 					nodes:                     []string{"node-1", "node-2"},
 					WithExclusion:             false,
-					ExpectedInstancesToRemove: []string{},
-					ExpectedInstancesToRemoveWithoutExclusion: []string{
-						fmt.Sprintf("%s-instance-1", clusterName),
-						fmt.Sprintf("%s-instance-2", clusterName),
+					ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{},
+					ExpectedInstancesToRemoveWithoutExclusion: []fdbv1beta2.ProcessGroupID{
+						fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-1", clusterName)),
+						fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-2", clusterName)),
 					},
 					clusterName:  clusterName,
 					clusterLabel: "",
@@ -149,8 +149,8 @@ var _ = Describe("[plugin] cordon command", func() {
 				testCase{
 					nodes:                     []string{"node-1"},
 					WithExclusion:             true,
-					ExpectedInstancesToRemove: []string{fmt.Sprintf("%s-instance-1", secondClusterName)},
-					ExpectedInstancesToRemoveWithoutExclusion: []string{},
+					ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-1", secondClusterName))},
+					ExpectedInstancesToRemoveWithoutExclusion: []fdbv1beta2.ProcessGroupID{},
 					clusterName:  secondClusterName,
 					clusterLabel: "",
 				}),
@@ -158,8 +158,8 @@ var _ = Describe("[plugin] cordon command", func() {
 				testCase{
 					nodes:                     []string{"node-1"},
 					WithExclusion:             true,
-					ExpectedInstancesToRemove: []string{fmt.Sprintf("%s-instance-1", secondClusterName)},
-					ExpectedInstancesToRemoveWithoutExclusion: []string{},
+					ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-1", secondClusterName))},
+					ExpectedInstancesToRemoveWithoutExclusion: []fdbv1beta2.ProcessGroupID{},
 					clusterName:  secondClusterName,
 					clusterLabel: fdbv1beta2.FDBClusterLabel,
 				}),
@@ -167,11 +167,11 @@ var _ = Describe("[plugin] cordon command", func() {
 				testCase{
 					nodes:         []string{"node-1"},
 					WithExclusion: true,
-					ExpectedInstancesToRemove: []string{
-						fmt.Sprintf("%s-instance-1", clusterName),
-						fmt.Sprintf("%s-instance-1", secondClusterName),
+					ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{
+						fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-1", clusterName)),
+						fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-1", secondClusterName)),
 					},
-					ExpectedInstancesToRemoveWithoutExclusion: []string{},
+					ExpectedInstancesToRemoveWithoutExclusion: []fdbv1beta2.ProcessGroupID{},
 					clusterName:  "",
 					clusterLabel: fdbv1beta2.FDBClusterLabel,
 				}),
@@ -179,12 +179,12 @@ var _ = Describe("[plugin] cordon command", func() {
 				testCase{
 					nodes:                     []string{"node-1", "node-2"},
 					WithExclusion:             false,
-					ExpectedInstancesToRemove: []string{},
-					ExpectedInstancesToRemoveWithoutExclusion: []string{
-						fmt.Sprintf("%s-instance-1", clusterName),
-						fmt.Sprintf("%s-instance-2", clusterName),
-						fmt.Sprintf("%s-instance-1", secondClusterName),
-						fmt.Sprintf("%s-instance-2", secondClusterName),
+					ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{},
+					ExpectedInstancesToRemoveWithoutExclusion: []fdbv1beta2.ProcessGroupID{
+						fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-1", clusterName)),
+						fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-2", clusterName)),
+						fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-1", secondClusterName)),
+						fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-2", secondClusterName)),
 					},
 					clusterName:  "",
 					clusterLabel: fdbv1beta2.FDBClusterLabel,
@@ -193,8 +193,8 @@ var _ = Describe("[plugin] cordon command", func() {
 				testCase{
 					nodes:                     []string{""},
 					WithExclusion:             false,
-					ExpectedInstancesToRemove: []string{},
-					ExpectedInstancesToRemoveWithoutExclusion: []string{},
+					ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{},
+					ExpectedInstancesToRemoveWithoutExclusion: []fdbv1beta2.ProcessGroupID{},
 					clusterName:  "",
 					clusterLabel: fdbv1beta2.FDBClusterLabel,
 				}),

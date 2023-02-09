@@ -9,10 +9,10 @@
 ## Background
 
 We have multiple places in the status where we track information about
-processes: `pendingRemovals`, `processCounts`, `incorrectProcesses`,
+podNames: `pendingRemovals`, `processCounts`, `incorrectProcesses`,
 `incorrectPods`, `failingPods`, `missingProcesses`. None of these lists contains
-a full accounting of processes, and most of them are empty in the stable state.
-The operator infers the full list of processes by fetching pods, but does not
+a full accounting of podNames, and most of them are empty in the stable state.
+The operator infers the full list of podNames by fetching pods, but does not
 persist that information or pass it between actions. This creates complex
 reconciliation behavior when handling PVCs without matching pods, or pods
 without matching PVCs. It gets even more complex when handling per-pod services,
@@ -22,13 +22,13 @@ manage.
 In addition to the challenges of reconciling process lists, we have areas where
 we lose track of important information once a pod is deleted. A particularly
 challenging area is the tracking of IP addresses. IP addresses are the only
-mechanism we have to safely exclude processes during shrinks and replacements.
+mechanism we have to safely exclude podNames during shrinks and replacements.
 If a pod is deleted, and the operator recreates it, it will go into a pending
 state while it waits to be scheduled. If the pod cannot be scheduled, it will
 never receive an IP address. This means the operator has no way of knowing if it
 is safe to remove the process. If we could track all of the IP addresses a
 process has had independently of the pod lifecycle, we could safely replace
-processes that are stuck in a pending state.
+podNames that are stuck in a pending state.
 
 The scope of this design is restricted to managing the FoundationDBCluster
 object, and resources that are downstream of that object. Managing backups,
@@ -51,7 +51,7 @@ will be times where a process group does not have a pod, in which case the
 operator will create one. The term "process" will refer to a single fdbserver
 process managed by the operator. In configurations where we are running multiple
 storage servers on a single disk, the pod will be represented by a single
-process group, with multiple fdbserver processes within it.
+process group, with multiple fdbserver podNames within it.
 
 We will have a map of `processGroups` in the status. The keys in the map will
 be the instance ID, which will be renamed to process group ID in the future. The
@@ -79,7 +79,7 @@ removal, we will replace the address list with the current address. The
 on the database status and the results of the calls to the resource list APIs.
 If a pod does not currently have an IP address, we will leave the address list
 unmodified, allowing us to continue to take actions that require an IP address,
-such as excluding processes, by optimistically re-using the previous address.
+such as excluding podNames, by optimistically re-using the previous address.
 
 The logic for adding new process groups will be extracted into its own action,
 which will compare the current process group map with the desired counts and

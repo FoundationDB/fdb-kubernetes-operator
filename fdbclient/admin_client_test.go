@@ -114,7 +114,7 @@ var _ = Describe("admin_client_test", func() {
 		addr5 := fdbv1beta2.NewProcessAddress(net.ParseIP("127.0.0.5"), "", 0, nil)
 		status := &fdbv1beta2.FoundationDBStatus{
 			Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
-				Processes: map[string]fdbv1beta2.FoundationDBStatusProcessInfo{
+				Processes: map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{
 					"1": {
 						Address:  addr1,
 						Excluded: true,
@@ -674,7 +674,7 @@ protocol fdb00b071010000`,
 			BeforeEach(func() {
 				inputStatus := &fdbv1beta2.FoundationDBStatus{
 					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
-						Processes: map[string]fdbv1beta2.FoundationDBStatusProcessInfo{
+						Processes: map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{
 							"1": {},
 						},
 					},
@@ -704,7 +704,7 @@ protocol fdb00b071010000`,
 
 			inputStatus := &fdbv1beta2.FoundationDBStatus{
 				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
-					Processes: map[string]fdbv1beta2.FoundationDBStatusProcessInfo{
+					Processes: map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{
 						"1": {},
 					},
 				},

@@ -70,7 +70,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 			})
 
 		It("should not mark anything for removal", func() {
-			Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{}))
+			Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]fdbv1beta2.ProcessGroupID{}))
 		})
 	})
 
@@ -90,7 +90,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 			})
 
 			It("should mark the process group for removal", func() {
-				Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{"storage-2"}))
+				Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]fdbv1beta2.ProcessGroupID{"storage-2"}))
 			})
 
 			It("should not be marked to skip exclusion", func() {
@@ -113,13 +113,13 @@ var _ = Describe("replace_failed_process_groups", func() {
 				})
 
 				It("should not mark the process group for removal", func() {
-					Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{}))
+					Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]fdbv1beta2.ProcessGroupID{}))
 				})
 			})
 
 			When("Crash loop is set for all process groups", func() {
 				BeforeEach(func() {
-					cluster.Spec.Buggify.CrashLoop = []string{"*"}
+					cluster.Spec.Buggify.CrashLoop = []fdbv1beta2.ProcessGroupID{"*"}
 				})
 
 				It("should return nil", func() {
@@ -127,13 +127,13 @@ var _ = Describe("replace_failed_process_groups", func() {
 				})
 
 				It("should not mark the process group for removal", func() {
-					Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{}))
+					Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]fdbv1beta2.ProcessGroupID{}))
 				})
 			})
 
 			When("Crash loop is set for the specific process group", func() {
 				BeforeEach(func() {
-					cluster.Spec.Buggify.CrashLoop = []string{"storage-2"}
+					cluster.Spec.Buggify.CrashLoop = []fdbv1beta2.ProcessGroupID{"storage-2"}
 				})
 
 				It("should return nil", func() {
@@ -141,7 +141,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 				})
 
 				It("should not mark the process group for removal", func() {
-					Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{}))
+					Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]fdbv1beta2.ProcessGroupID{}))
 				})
 			})
 
@@ -150,7 +150,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 					cluster.Spec.Buggify.CrashLoopContainers = []fdbv1beta2.CrashLoopContainerObject{
 						{
 							ContainerName: fdbv1beta2.MainContainerName,
-							Targets:       []string{"storage-2"},
+							Targets:       []fdbv1beta2.ProcessGroupID{"storage-2"},
 						},
 					}
 				})
@@ -160,7 +160,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 				})
 
 				It("should not mark the process group for removal", func() {
-					Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{}))
+					Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]fdbv1beta2.ProcessGroupID{}))
 				})
 			})
 
@@ -169,7 +169,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 					cluster.Spec.Buggify.CrashLoopContainers = []fdbv1beta2.CrashLoopContainerObject{
 						{
 							ContainerName: fdbv1beta2.SidecarContainerName,
-							Targets:       []string{"storage-2"},
+							Targets:       []fdbv1beta2.ProcessGroupID{"storage-2"},
 						},
 					}
 				})
@@ -179,7 +179,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 				})
 
 				It("should not mark the process group for removal", func() {
-					Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{}))
+					Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]fdbv1beta2.ProcessGroupID{}))
 				})
 			})
 		})
@@ -199,7 +199,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 			})
 
 			It("should mark the first process group for removal", func() {
-				Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{"storage-2"}))
+				Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]fdbv1beta2.ProcessGroupID{"storage-2"}))
 			})
 
 			It("should not be marked to skip exclusion", func() {
@@ -224,7 +224,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 			})
 
 			It("should not mark the process group for removal", func() {
-				Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{"storage-3"}))
+				Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]fdbv1beta2.ProcessGroupID{"storage-3"}))
 			})
 
 			When("max concurrent replacements is set to two", func() {
@@ -238,7 +238,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 				})
 
 				It("should mark the process group for removal", func() {
-					Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{"storage-2", "storage-3"}))
+					Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]fdbv1beta2.ProcessGroupID{"storage-2", "storage-3"}))
 				})
 			})
 
@@ -252,7 +252,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 				})
 
 				It("should not mark the process group for removal", func() {
-					Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{"storage-3"}))
+					Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]fdbv1beta2.ProcessGroupID{"storage-3"}))
 				})
 			})
 		})
@@ -270,7 +270,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 			})
 
 			It("should mark the process group for removal", func() {
-				Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{"storage-2", "storage-3"}))
+				Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]fdbv1beta2.ProcessGroupID{"storage-2", "storage-3"}))
 			})
 		})
 
@@ -286,7 +286,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 			})
 
 			It("should mark the process group for removal", func() {
-				Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{"storage-2"}))
+				Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]fdbv1beta2.ProcessGroupID{"storage-2"}))
 			})
 
 			It("should marked to skip exclusion", func() {
@@ -320,7 +320,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 				})
 
 				It("should not mark the process group for removal", func() {
-					Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{}))
+					Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]fdbv1beta2.ProcessGroupID{}))
 				})
 			})
 
@@ -339,7 +339,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 				})
 
 				It("should not mark the process group for removal", func() {
-					Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{}))
+					Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]fdbv1beta2.ProcessGroupID{}))
 				})
 			})
 		})
@@ -359,7 +359,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 		})
 
 		It("should not mark the process group for removal", func() {
-			Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{}))
+			Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]fdbv1beta2.ProcessGroupID{}))
 		})
 	})
 
@@ -377,15 +377,15 @@ var _ = Describe("replace_failed_process_groups", func() {
 		})
 
 		It("should not mark the process group for removal", func() {
-			Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{}))
+			Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]fdbv1beta2.ProcessGroupID{}))
 		})
 	})
 })
 
 // getRemovedProcessGroupIDs returns a list of ids for the process groups that
 // are marked for removal.
-func getRemovedProcessGroupIDs(cluster *fdbv1beta2.FoundationDBCluster) []string {
-	results := make([]string, 0)
+func getRemovedProcessGroupIDs(cluster *fdbv1beta2.FoundationDBCluster) []fdbv1beta2.ProcessGroupID {
+	results := make([]fdbv1beta2.ProcessGroupID, 0)
 	for _, processGroupStatus := range cluster.Status.ProcessGroups {
 		if processGroupStatus.IsMarkedForRemoval() {
 			results = append(results, processGroupStatus.ProcessGroupID)

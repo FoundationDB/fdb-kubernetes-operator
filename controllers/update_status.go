@@ -59,7 +59,7 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 	status.ImageTypes = []fdbv1beta2.ImageType{fdbv1beta2.ImageType(internal.GetDesiredImageType(cluster))}
 
 	var databaseStatus *fdbv1beta2.FoundationDBStatus
-	processMap := make(map[string][]fdbv1beta2.FoundationDBStatusProcessInfo)
+	processMap := make(map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo)
 
 	if cluster.Status.ConnectionString == "" {
 		databaseStatus = &fdbv1beta2.FoundationDBStatus{
@@ -105,7 +105,7 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 		if !ok {
 			processID = process.Locality["instance_id"]
 		}
-		processMap[processID] = append(processMap[processID], process)
+		processMap[fdbv1beta2.ProcessGroupID(processID)] = append(processMap[fdbv1beta2.ProcessGroupID(processID)], process)
 		versionMap[process.Version]++
 	}
 
@@ -345,12 +345,12 @@ func tryConnectionOptions(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCl
 }
 
 // checkAndSetProcessStatus checks the status of the Process and if missing or incorrect add it to the related status field
-func checkAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod, processMap map[string][]fdbv1beta2.FoundationDBStatusProcessInfo, processNumber int, processCount int, processGroupStatus *fdbv1beta2.ProcessGroupStatus) error {
+func checkAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod, processMap map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo, processNumber int, processCount int, processGroupStatus *fdbv1beta2.ProcessGroupStatus) error {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updateStatus")
 	processID := processGroupStatus.ProcessGroupID
 
 	if processCount > 1 {
-		processID = fmt.Sprintf("%s-%d", processID, processNumber)
+		processID = fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%d", processID, processNumber))
 	}
 
 	processStatus := processMap[processID]
@@ -395,10 +395,10 @@ func checkAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbv1be
 	return nil
 }
 
-func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBClusterStatus, processMap map[string][]fdbv1beta2.FoundationDBStatusProcessInfo, configMap *corev1.ConfigMap, pods []*corev1.Pod, pvcs *corev1.PersistentVolumeClaimList) ([]*fdbv1beta2.ProcessGroupStatus, error) {
+func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBClusterStatus, processMap map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo, configMap *corev1.ConfigMap, pods []*corev1.Pod, pvcs *corev1.PersistentVolumeClaimList) ([]*fdbv1beta2.ProcessGroupStatus, error) {
 	var err error
 	processGroups := status.ProcessGroups
-	processGroupsWithoutExclusion := make(map[string]fdbv1beta2.None, len(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion))
+	processGroupsWithoutExclusion := make(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None, len(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion))
 
 	for _, processGroupID := range cluster.Spec.ProcessGroupsToRemoveWithoutExclusion {
 		processGroupsWithoutExclusion[processGroupID] = fdbv1beta2.None{}
@@ -660,7 +660,7 @@ func refreshProcessGroupStatus(ctx context.Context, r *FoundationDBClusterReconc
 	}
 
 	for _, pod := range pods {
-		processGroupID := pod.Labels[cluster.GetProcessGroupIDLabel()]
+		processGroupID := fdbv1beta2.ProcessGroupID(pod.Labels[cluster.GetProcessGroupIDLabel()])
 		if fdbv1beta2.ContainsProcessGroupID(status.ProcessGroups, processGroupID) {
 			continue
 		}
@@ -675,7 +675,7 @@ func refreshProcessGroupStatus(ctx context.Context, r *FoundationDBClusterReconc
 	}
 
 	for _, pvc := range pvcs.Items {
-		processGroupID := pvc.Labels[cluster.GetProcessGroupIDLabel()]
+		processGroupID := fdbv1beta2.ProcessGroupID(pvc.Labels[cluster.GetProcessGroupIDLabel()])
 		if fdbv1beta2.ContainsProcessGroupID(status.ProcessGroups, processGroupID) {
 			continue
 		}
@@ -690,7 +690,7 @@ func refreshProcessGroupStatus(ctx context.Context, r *FoundationDBClusterReconc
 	}
 
 	for _, service := range services.Items {
-		processGroupID := service.Labels[cluster.GetProcessGroupIDLabel()]
+		processGroupID := fdbv1beta2.ProcessGroupID(service.Labels[cluster.GetProcessGroupIDLabel()])
 		if processGroupID == "" || fdbv1beta2.ContainsProcessGroupID(status.ProcessGroups, processGroupID) {
 			continue
 		}

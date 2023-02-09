@@ -116,7 +116,7 @@ var _ = Describe("[plugin] fix-coordinator-ips command", func() {
 			Context                  string
 			ExpectedConnectionString string
 			ExpectedError            string
-			AddressUpdates           map[string]string
+			AddressUpdates           map[fdbv1beta2.ProcessGroupID]string
 		}
 
 		BeforeEach(func() {
@@ -173,7 +173,7 @@ var _ = Describe("[plugin] fix-coordinator-ips command", func() {
 			),
 			Entry("updated address",
 				testCase{
-					AddressUpdates: map[string]string{
+					AddressUpdates: map[fdbv1beta2.ProcessGroupID]string{
 						"storage-1": "127.0.1.1",
 						"storage-2": "127.0.1.2",
 						"storage-5": "127.0.1.5",
@@ -183,7 +183,7 @@ var _ = Describe("[plugin] fix-coordinator-ips command", func() {
 			),
 			Entry("IP address with no process group",
 				testCase{
-					AddressUpdates: map[string]string{
+					AddressUpdates: map[fdbv1beta2.ProcessGroupID]string{
 						"storage-1": "",
 					},
 					ExpectedConnectionString: "test:asdfkjh@127.0.0.1:4501,127.0.0.2:4501,127.0.0.3:4501",

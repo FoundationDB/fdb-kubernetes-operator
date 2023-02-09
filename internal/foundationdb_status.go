@@ -50,7 +50,7 @@ func GetCoordinatorsFromStatus(status *fdbv1beta2.FoundationDBStatus) map[string
 // GetMinimumUptimeAndAddressMap returns address map of the processes included the the foundationdb status. The minimum
 // uptime will be either secondsSinceLastRecovered if the recovery state is supported and enabled otherwise we will
 // take the minimum uptime of all processes.
-func GetMinimumUptimeAndAddressMap(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, recoveryStateEnabled bool) (float64, map[string][]fdbv1beta2.ProcessAddress, error) {
+func GetMinimumUptimeAndAddressMap(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, recoveryStateEnabled bool) (float64, map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.ProcessAddress, error) {
 	runningVersion, err := fdbv1beta2.ParseFdbVersion(cluster.GetRunningVersion())
 	if err != nil {
 		return 0, nil, err
@@ -58,7 +58,7 @@ func GetMinimumUptimeAndAddressMap(cluster *fdbv1beta2.FoundationDBCluster, stat
 
 	useRecoveryState := runningVersion.SupportsRecoveryState() && recoveryStateEnabled
 
-	addressMap := make(map[string][]fdbv1beta2.ProcessAddress, len(status.Cluster.Processes))
+	addressMap := make(map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.ProcessAddress, len(status.Cluster.Processes))
 
 	minimumUptime := math.Inf(1)
 	if useRecoveryState {
@@ -66,7 +66,7 @@ func GetMinimumUptimeAndAddressMap(cluster *fdbv1beta2.FoundationDBCluster, stat
 	}
 
 	for _, process := range status.Cluster.Processes {
-		addressMap[process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]] = append(addressMap[process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]], process.Address)
+		addressMap[fdbv1beta2.ProcessGroupID(process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey])] = append(addressMap[fdbv1beta2.ProcessGroupID(process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey])], process.Address)
 
 		if useRecoveryState || process.Excluded {
 			continue

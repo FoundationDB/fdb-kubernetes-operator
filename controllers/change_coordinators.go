@@ -131,7 +131,7 @@ func selectCandidates(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta
 			continue
 		}
 
-		if cluster.ProcessGroupIsBeingRemoved(process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]) {
+		if cluster.ProcessGroupIsBeingRemoved(fdbv1beta2.ProcessGroupID(process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey])) {
 			continue
 		}
 

@@ -92,7 +92,7 @@ var _ = Describe("delete_pods_for_buggification", func() {
 	Context("with a buggification that needs to be enabled", func() {
 		When("using crashLoop", func() {
 			BeforeEach(func() {
-				cluster.Spec.Buggify.CrashLoop = []string{"storage-1"}
+				cluster.Spec.Buggify.CrashLoop = []fdbv1beta2.ProcessGroupID{"storage-1"}
 			})
 
 			It("should requeue", func() {
@@ -115,7 +115,7 @@ var _ = Describe("delete_pods_for_buggification", func() {
 
 		When("using noSchedule", func() {
 			BeforeEach(func() {
-				cluster.Spec.Buggify.NoSchedule = []string{"storage-1"}
+				cluster.Spec.Buggify.NoSchedule = []fdbv1beta2.ProcessGroupID{"storage-1"}
 			})
 
 			It("should requeue", func() {
@@ -139,7 +139,7 @@ var _ = Describe("delete_pods_for_buggification", func() {
 
 	Context("with a wildcard buggification", func() {
 		BeforeEach(func() {
-			cluster.Spec.Buggify.CrashLoop = []string{"*"}
+			cluster.Spec.Buggify.CrashLoop = []fdbv1beta2.ProcessGroupID{"*"}
 		})
 
 		It("should requeue", func() {
@@ -257,7 +257,7 @@ var _ = Describe("delete_pods_for_buggification", func() {
 				pod.Spec.Containers[0].Args = []string{"crash-loop"}
 				err = k8sClient.Create(context.TODO(), pod)
 				Expect(err).NotTo(HaveOccurred())
-				cluster.Spec.Buggify.CrashLoop = []string{"storage-1"}
+				cluster.Spec.Buggify.CrashLoop = []fdbv1beta2.ProcessGroupID{"storage-1"}
 			})
 
 			It("should not requeue", func() {
@@ -304,7 +304,7 @@ var _ = Describe("delete_pods_for_buggification", func() {
 				pod.ResourceVersion = ""
 				err = k8sClient.Create(context.TODO(), pod)
 				Expect(err).NotTo(HaveOccurred())
-				cluster.Spec.Buggify.NoSchedule = []string{"storage-1"}
+				cluster.Spec.Buggify.NoSchedule = []fdbv1beta2.ProcessGroupID{"storage-1"}
 			})
 
 			It("should not requeue", func() {

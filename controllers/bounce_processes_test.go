@@ -71,11 +71,11 @@ var _ = Describe("bounceProcesses", func() {
 	Context("with incorrect processes", func() {
 		BeforeEach(func() {
 			processGroup := cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-4]
-			Expect(processGroup.ProcessGroupID).To(Equal("storage-1"))
+			Expect(processGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
 			processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true, nil, "")
 
 			processGroup = cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-3]
-			Expect(processGroup.ProcessGroupID).To(Equal("storage-2"))
+			Expect(processGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-2")))
 			processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true, nil, "")
 		})
 
@@ -85,7 +85,7 @@ var _ = Describe("bounceProcesses", func() {
 
 		It("should kill the targeted processes", func() {
 			addresses := make(map[string]fdbv1beta2.None, 2)
-			for _, processGroupID := range []string{"storage-1", "storage-2"} {
+			for _, processGroupID := range []fdbv1beta2.ProcessGroupID{"storage-1", "storage-2"} {
 				processGroupAddresses := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, processGroupID).Addresses
 				for _, address := range processGroupAddresses {
 					addresses[fmt.Sprintf("%s:4501", address)] = fdbv1beta2.None{}
@@ -98,11 +98,11 @@ var _ = Describe("bounceProcesses", func() {
 	Context("with excluded and incorrect processes", func() {
 		BeforeEach(func() {
 			processGroup := cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-4]
-			Expect(processGroup.ProcessGroupID).To(Equal("storage-1"))
+			Expect(processGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
 			processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true, nil, "")
 
 			processGroup = cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-3]
-			Expect(processGroup.ProcessGroupID).To(Equal("storage-2"))
+			Expect(processGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-2")))
 			processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true, nil, "")
 			processGroup.MarkForRemoval()
 		})
@@ -113,7 +113,7 @@ var _ = Describe("bounceProcesses", func() {
 
 		It("should kill the targeted processes", func() {
 			addresses := make(map[string]fdbv1beta2.None, 1)
-			for _, processGroupID := range []string{"storage-1"} {
+			for _, processGroupID := range []fdbv1beta2.ProcessGroupID{"storage-1"} {
 				processGroupAddresses := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, processGroupID).Addresses
 				for _, address := range processGroupAddresses {
 					addresses[fmt.Sprintf("%s:4501", address)] = fdbv1beta2.None{}
@@ -126,7 +126,7 @@ var _ = Describe("bounceProcesses", func() {
 	Context("with a manually excluded process", func() {
 		BeforeEach(func() {
 			processGroup := cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-4]
-			Expect(processGroup.ProcessGroupID).To(Equal("storage-1"))
+			Expect(processGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
 			processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true, nil, "")
 			for _, address := range processGroup.Addresses {
 				err := adminClient.ExcludeProcesses([]fdbv1beta2.ProcessAddress{{StringAddress: address, Port: 4501}})
@@ -141,7 +141,7 @@ var _ = Describe("bounceProcesses", func() {
 
 		It("should kill the targeted processes", func() {
 			addresses := make(map[string]fdbv1beta2.None, 1)
-			for _, processGroupID := range []string{"storage-1"} {
+			for _, processGroupID := range []fdbv1beta2.ProcessGroupID{"storage-1"} {
 				processGroupAddresses := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, processGroupID).Addresses
 				for _, address := range processGroupAddresses {
 					addresses[fmt.Sprintf("%s:4501", address)] = fdbv1beta2.None{}
@@ -158,7 +158,7 @@ var _ = Describe("bounceProcesses", func() {
 	Context("with Pod in pending state", func() {
 		BeforeEach(func() {
 			processGroup := cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-4]
-			Expect(processGroup.ProcessGroupID).To(Equal("storage-1"))
+			Expect(processGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
 			processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true, nil, "")
 			processGroup.UpdateCondition(fdbv1beta2.PodPending, true, nil, "")
 			cluster.Spec.AutomationOptions.IgnorePendingPodsDuration = 1 * time.Nanosecond
@@ -180,7 +180,7 @@ var _ = Describe("bounceProcesses", func() {
 	When("a process group has the MissingProcess condition", func() {
 		BeforeEach(func() {
 			processGroup := cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-4]
-			Expect(processGroup.ProcessGroupID).To(Equal("storage-1"))
+			Expect(processGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
 			processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true, nil, "")
 			processGroup.ProcessGroupConditions = append(processGroup.ProcessGroupConditions, &fdbv1beta2.ProcessGroupCondition{
 				ProcessGroupConditionType: fdbv1beta2.MissingProcesses,
@@ -188,7 +188,7 @@ var _ = Describe("bounceProcesses", func() {
 			})
 
 			processGroup = cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-3]
-			Expect(processGroup.ProcessGroupID).To(Equal("storage-2"))
+			Expect(processGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-2")))
 			processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true, nil, "")
 		})
 
@@ -217,11 +217,11 @@ var _ = Describe("bounceProcesses", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			processGroup := cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-4]
-			Expect(processGroup.ProcessGroupID).To(Equal("storage-5"))
+			Expect(processGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-5")))
 			processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true, nil, "")
 
 			processGroup = cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-3]
-			Expect(processGroup.ProcessGroupID).To(Equal("storage-6"))
+			Expect(processGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-6")))
 			processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true, nil, "")
 		})
 
@@ -231,7 +231,7 @@ var _ = Describe("bounceProcesses", func() {
 
 		It("should kill the targeted processes", func() {
 			addresses := make(map[string]fdbv1beta2.None, 2)
-			for _, processGroupID := range []string{"storage-5", "storage-6"} {
+			for _, processGroupID := range []fdbv1beta2.ProcessGroupID{"storage-5", "storage-6"} {
 				processGroupAddresses := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, processGroupID).Addresses
 				for _, address := range processGroupAddresses {
 					addresses[fmt.Sprintf("%s:4501", address)] = fdbv1beta2.None{}
@@ -271,7 +271,7 @@ var _ = Describe("bounceProcesses", func() {
 		})
 
 		It("should submit pending upgrade information for all the processes", func() {
-			expectedUpgrades := make(map[string]bool, len(cluster.Status.ProcessGroups))
+			expectedUpgrades := make(map[fdbv1beta2.ProcessGroupID]bool, len(cluster.Status.ProcessGroups))
 			for _, processGroup := range cluster.Status.ProcessGroups {
 				expectedUpgrades[processGroup.ProcessGroupID] = true
 			}
@@ -305,7 +305,7 @@ var _ = Describe("bounceProcesses", func() {
 			})
 
 			It("should submit pending upgrade information for all the processes", func() {
-				expectedUpgrades := make(map[string]bool, len(cluster.Status.ProcessGroups))
+				expectedUpgrades := make(map[fdbv1beta2.ProcessGroupID]bool, len(cluster.Status.ProcessGroups))
 				for _, processGroup := range cluster.Status.ProcessGroups {
 					expectedUpgrades[processGroup.ProcessGroupID] = true
 				}
@@ -316,7 +316,7 @@ var _ = Describe("bounceProcesses", func() {
 
 			Context("with a pending upgrade for the unknown process", func() {
 				BeforeEach(func() {
-					err = lockClient.AddPendingUpgrades(fdbv1beta2.Versions.NextMajorVersion, []string{"dc2-storage-1"})
+					err = lockClient.AddPendingUpgrades(fdbv1beta2.Versions.NextMajorVersion, []fdbv1beta2.ProcessGroupID{"dc2-storage-1"})
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -338,7 +338,7 @@ var _ = Describe("bounceProcesses", func() {
 
 			Context("with a pending upgrade to an older version", func() {
 				BeforeEach(func() {
-					err = lockClient.AddPendingUpgrades(fdbv1beta2.Versions.NextPatchVersion, []string{"dc2-storage-1"})
+					err = lockClient.AddPendingUpgrades(fdbv1beta2.Versions.NextPatchVersion, []fdbv1beta2.ProcessGroupID{"dc2-storage-1"})
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -390,7 +390,7 @@ var _ = Describe("bounceProcesses", func() {
 
 			It("should requeue", func() {
 				Expect(requeue).NotTo(BeNil())
-				Expect(requeue.message).To(Equal(fmt.Sprintf("could not find address for processes: %s", []string{missingProcessGroup.ProcessGroupID})))
+				Expect(requeue.message).To(Equal(fmt.Sprintf("could not find address for processes: %s", []fdbv1beta2.ProcessGroupID{missingProcessGroup.ProcessGroupID})))
 			})
 
 			It("shouldn't kill any processes", func() {
@@ -469,7 +469,7 @@ var _ = Describe("bounceProcesses", func() {
 
 		BeforeEach(func() {
 			ignoredProcessGroup = cluster.Status.ProcessGroups[0]
-			cluster.Spec.Buggify.IgnoreDuringRestart = []string{ignoredProcessGroup.ProcessGroupID}
+			cluster.Spec.Buggify.IgnoreDuringRestart = []fdbv1beta2.ProcessGroupID{ignoredProcessGroup.ProcessGroupID}
 			for _, processGroup := range cluster.Status.ProcessGroups {
 				processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true, nil, "")
 			}
@@ -524,7 +524,7 @@ var _ = Describe("bounceProcesses", func() {
 				Expect(err).NotTo(HaveOccurred())
 				processAddresses := make([]fdbv1beta2.ProcessAddress, 0, len(cluster.Status.ProcessGroups))
 				for _, process := range status.Cluster.Processes {
-					if process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey] != ignoredProcessGroup.ProcessGroupID {
+					if fdbv1beta2.ProcessGroupID(process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]) != ignoredProcessGroup.ProcessGroupID {
 						continue
 					}
 
