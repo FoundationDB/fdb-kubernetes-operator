@@ -3291,14 +3291,14 @@ var _ = Describe("pod_models", func() {
 		})
 	})
 
-	DescribeTable("getting the process group ID from the Pod name", func(cluster *fdbv1beta2.FoundationDBCluster, podName string, expected string) {
+	DescribeTable("getting the process group ID from the Pod name", func(cluster *fdbv1beta2.FoundationDBCluster, podName string, expected fdbv1beta2.ProcessGroupID) {
 		Expect(GetProcessGroupIDFromPodName(cluster, podName)).To(Equal(expected))
 	},
 		Entry("cluster without prefix", &fdbv1beta2.FoundationDBCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "test",
 			},
-		}, "test-storage-1", "storage-1"),
+		}, "test-storage-1", fdbv1beta2.ProcessGroupID("storage-1")),
 		Entry("cluster with prefix", &fdbv1beta2.FoundationDBCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "test",
@@ -3306,7 +3306,7 @@ var _ = Describe("pod_models", func() {
 			Spec: fdbv1beta2.FoundationDBClusterSpec{
 				ProcessGroupIDPrefix: "prefix",
 			},
-		}, "test-storage-1", "prefix-storage-1"))
+		}, "test-storage-1", fdbv1beta2.ProcessGroupID("prefix-storage-1")))
 
 	Describe("ContainsPod", func() {
 		var pod1, pod2 *corev1.Pod

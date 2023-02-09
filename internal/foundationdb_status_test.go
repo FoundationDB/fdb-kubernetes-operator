@@ -108,7 +108,7 @@ var _ = Describe("Internal FoundationDBStatus", func() {
 		)
 	})
 
-	DescribeTable("when getting the minimum uptime and the address map", func(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, useRecoveryState bool, expectedMinimumUptime float64, expectedAddressMap map[string][]fdbv1beta2.ProcessAddress) {
+	DescribeTable("when getting the minimum uptime and the address map", func(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, useRecoveryState bool, expectedMinimumUptime float64, expectedAddressMap map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.ProcessAddress) {
 		minimumUptime, addressMap, err := GetMinimumUptimeAndAddressMap(cluster, status, useRecoveryState)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(minimumUptime).To(BeNumerically("==", expectedMinimumUptime))
@@ -142,7 +142,7 @@ var _ = Describe("Internal FoundationDBStatus", func() {
 			},
 			true,
 			30.0,
-			map[string][]fdbv1beta2.ProcessAddress{
+			map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.ProcessAddress{
 				"test": {
 					{
 						IPAddress: net.ParseIP("127.0.0.1"),
@@ -174,7 +174,7 @@ var _ = Describe("Internal FoundationDBStatus", func() {
 			},
 			true,
 			90.0,
-			map[string][]fdbv1beta2.ProcessAddress{
+			map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.ProcessAddress{
 				"test": {
 					{
 						IPAddress: net.ParseIP("127.0.0.1"),
@@ -206,7 +206,7 @@ var _ = Describe("Internal FoundationDBStatus", func() {
 			},
 			false,
 			30.0,
-			map[string][]fdbv1beta2.ProcessAddress{
+			map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.ProcessAddress{
 				"test": {
 					{
 						IPAddress: net.ParseIP("127.0.0.1"),
