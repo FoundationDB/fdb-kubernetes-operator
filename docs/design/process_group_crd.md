@@ -98,8 +98,8 @@ In this case we prevent conflicts since each controller takes care of either the
 This will be major change and will require some refactoring at multiple places.
 
 The `FDB cluster controller` will be still in charge of `excluding`, `including` and `removeing` `ProcessGroups`.
-Similar to the current implementation the `FDB cluster controller`  will exclude podNames that should be removed.
-When the `podNames` are successfully removed the `FoundationDBProcessGroup` will be removed and once the `FoundationDBProcessGroup` is removed it will be included.
+Similar to the current implementation the `FDB cluster controller`  will exclude processes that should be removed.
+When the `processes` are successfully removed the `FoundationDBProcessGroup` will be removed and once the `FoundationDBProcessGroup` is removed it will be included.
 
 ## Related Links
 

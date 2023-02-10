@@ -85,14 +85,14 @@ You should only due this after checking that the database is available, has not 
 
 ## Exclusions Not Starting Due to Missing Processes
 
-Before the operator excludes a process, it checks that the cluster will have a sufficient number of podNames remaining after the exclusion. If there are too many missing podNames, you will see reconciliation get requeued with a message of the form: `"Waiting for missing podNames: [storage-1 storage-2 storage-3 storage-4]. Addresses to exclude: [10.1.6.69 10.1.6.68]`. When this happens, there are a few options to get reconciliation unstuck:
+Before the operator excludes a process, it checks that the cluster will have a sufficient number of processes remaining after the exclusion. If there are too many missing processes, you will see reconciliation get requeued with a message of the form: `"Waiting for missing processes: [storage-1 storage-2 storage-3 storage-4]. Addresses to exclude: [10.1.6.69 10.1.6.68]`. When this happens, there are a few options to get reconciliation unstuck:
 
-1. Wait for the missing podNames to come online. If they are missing for a temporary reason, such as getting rescheduled or being in an initializing state, then once they come online the operator will be able to move forward with the exclusion.
-2. Fix the issue with the missing podNames. If the new podNames are not coming up due to a configuration error or something else that is not localized to specific podNames or machines, you should fix that error before doing any exclusions.
-3. Replace the missing podNames as well. After triggering a replacement, the operator will bring up replacement podNames, and once those podNames come on line all of the podNames can be excluded.
-4. Manually start an exclusion. You can open a CLI and run `exclude 10.1.6.69 10.1.6.68` to start an exclusion without these safety checks. Excluding too many podNames can also cause further problems, such as overloading the remaining podNames or leaving the database without enough workers to fulfill the required roles.
+1. Wait for the missing processes to come online. If they are missing for a temporary reason, such as getting rescheduled or being in an initializing state, then once they come online the operator will be able to move forward with the exclusion.
+2. Fix the issue with the missing processes. If the new processes are not coming up due to a configuration error or something else that is not localized to specific processes or machines, you should fix that error before doing any exclusions.
+3. Replace the missing processes as well. After triggering a replacement, the operator will bring up replacement processes, and once those processes come on line all of the processes can be excluded.
+4. Manually start an exclusion. You can open a CLI and run `exclude 10.1.6.69 10.1.6.68` to start an exclusion without these safety checks. Excluding too many processes can also cause further problems, such as overloading the remaining processes or leaving the database without enough workers to fulfill the required roles.
 
-The operator will prevent excluding a process if the remaining number of podNames for that process class is less than 80% of the desired number **and** the remaining number is 2+ fewer podNames than the desired number.
+The operator will prevent excluding a process if the remaining number of processes for that process class is less than 80% of the desired number **and** the remaining number is 2+ fewer processes than the desired number.
 
 ## Reconciliation Not Running
 
@@ -118,17 +118,17 @@ If reconciliation encounters an error in one subreconciler, it will generally st
 
 The `UpdatePodConfig` subreconciler can get stuck if it is unable to confirm that a pod has the latest config map contents. If this step is stuck, you can look in the logs for the message `Update dynamic Pod config` to determine what pods it is trying to update. If the pods are failing, you may need to delete them, or replace them.
 
-The `ExcludeProcesses` subreconciler can get stuck if it needs to exclude podNames, but there are podNames that are not flagged for removal and are not healthy. If this step is stuck, you can look in the logs for the message `Waiting for missing podNames` to determine what podNames are missing. If the pods are failing, you may need to delete them, or replace them.
+The `ExcludeProcesses` subreconciler can get stuck if it needs to exclude processes, but there are processes that are not flagged for removal and are not healthy. If this step is stuck, you can look in the logs for the message `Waiting for missing processes` to determine what processes are missing. If the pods are failing, you may need to delete them, or replace them.
 
 Any step that requires a lock can get stuck indefinitely if the locking is blocked. See the section on [Coordinating Global Operations](fault_domains.md#coordinating-global-operations) for more background on the locking system. You can see if the operator is trying to take a lock by looking in the logs for the message `Taking lock on cluster`. This will identify why the operator needs a lock. If another instance of the operator has a lock, you will see a log message `Failed to get lock`, which will have an `owner` field that tells you what instance has the lock, as well as an `endTime` field that tells you when the lock will expire. You can then look in the logs for the instance of the operator that has the lock and see if that operator is stuck in reconciliation, and try to get it unstuck. Once the operator completes reconciliation and the lock expires, your original instance of the operator should able to get the lock for itself.
 
 ## Coordinators Getting New IPs
 
-The FDB cluster file contains a list of coordinator IPs, and if the coordinator podNames are not listening on those IPs, the database will be unavailable. If you have your podNames listening on their pod IPs, and a majority of the coordinator pods are deleted in a short window, the operator will not be able to automatically recover the cluster. You can fix this through a manual recovery process:
+The FDB cluster file contains a list of coordinator IPs, and if the coordinator processes are not listening on those IPs, the database will be unavailable. If you have your processes listening on their pod IPs, and a majority of the coordinator pods are deleted in a short window, the operator will not be able to automatically recover the cluster. You can fix this through a manual recovery process:
 
-1. Identify the coordinator podNames based on the IPs in the connection string, and the addresses in the process group status
-2. Replace the coordinator IPs in the connection string with the new IPs for those podNames
-3. Edit the file `/var/fdb/data/fdb.cluster` in the `foundationdb` container in each pod to contain the new connection string, and kill the fdbserver podNames.
+1. Identify the coordinator processes based on the IPs in the connection string, and the addresses in the process group status
+2. Replace the coordinator IPs in the connection string with the new IPs for those processes
+3. Edit the file `/var/fdb/data/fdb.cluster` in the `foundationdb` container in each pod to contain the new connection string, and kill the fdbserver processes.
 4. Edit the `connectionString` in the cluster status, or the `seedConnectionString` in the cluster spec, to contain the new connection string.
 
 To simplify this process, the kubectl-fdb plugin has a command that encapsulates these steps. You can run `kubectl fdb fix-coordinator-ips -c example-cluster`, and that should update everything with the modified connection string, bring the cluster back up, and allow the operator to continue with any further reconciliation work.

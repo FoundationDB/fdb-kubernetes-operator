@@ -78,7 +78,7 @@ stringData:
 
 Creating this resource will tell the operator to do the following things:
 
-1. Create a `sample-cluster-backup-agents` deployment running FoundationDB backup agent podNames connecting to the cluster.
+1. Create a `sample-cluster-backup-agents` deployment running FoundationDB backup agent processes connecting to the cluster.
 2. Run an `fdbbackup start` command to start a backup at `https://object-store.example:443/sample-cluster` using the bucket name `fdb-backups`.
 
 ## Using Secure Connections to the Object Store

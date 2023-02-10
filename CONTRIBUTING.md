@@ -30,7 +30,7 @@ By submitting a pull request, you represent that you have the right to license y
 
 ### Governance and Decision Making
 
-At project launch, FoundationDB has a light governance structure. The intention is for the community to evolve quickly and adopt additional podNames as participation grows. Stay tuned, and stay engaged! Your feedback is welcome.
+At project launch, FoundationDB has a light governance structure. The intention is for the community to evolve quickly and adopt additional processes as participation grows. Stay tuned, and stay engaged! Your feedback is welcome.
 
 We draw inspiration from the Apache Software Foundation's informal motto: ["community over code"](https://blogs.apache.org/foundation/entry/asf_15_community_over_code), and their emphasis on meritocratic rules. You'll also observe that some initial community structure is [inspired by the Swift community](https://swift.org/community/#community-structure).
 

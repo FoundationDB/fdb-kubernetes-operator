@@ -17,7 +17,7 @@ spec:
     - storage-1
 ```
 
-When comparing the desired process count with the current pod count, any pods that are in the pending removal list are not counted. This means that the operator will only consider there to be 2 running storage pods, rather than 3, and will create a new one to fill the gap. Once this is done, it will go through the same removal process described under [Shrinking a Cluster](scaling.md#shrinking-a-cluster). The cluster will remain at full fault tolerance throughout the reconciliation. This allows you to replace an arbitrarily large number of podNames in a cluster without any risk of availability loss.
+When comparing the desired process count with the current pod count, any pods that are in the pending removal list are not counted. This means that the operator will only consider there to be 2 running storage pods, rather than 3, and will create a new one to fill the gap. Once this is done, it will go through the same removal process described under [Shrinking a Cluster](scaling.md#shrinking-a-cluster). The cluster will remain at full fault tolerance throughout the reconciliation. This allows you to replace an arbitrarily large number of processes in a cluster without any risk of availability loss.
 
 ## Adding a Knob
 
@@ -30,13 +30,13 @@ metadata:
   name: sample-cluster
 spec:
   version: 6.2.30
-  podNames:
+  processes:
     general:
       customParameters:
       - "knob_always_causal_read_risky=1"
 ```
 
-The operator will update the monitor conf to contain the new knob, and will then bounce all of the fdbserver podNames. As soon as fdbmonitor detects that the fdbserver process has died, it will create a new fdbserver process with the latest config. The cluster should be fully available within 10 seconds of executing the bounce, though this can vary based on cluster size.
+The operator will update the monitor conf to contain the new knob, and will then bounce all of the fdbserver processes. As soon as fdbmonitor detects that the fdbserver process has died, it will create a new fdbserver process with the latest config. The cluster should be fully available within 10 seconds of executing the bounce, though this can vary based on cluster size.
 
 The process for updating the monitor conf can take several minutes, based on the time it takes Kubernetes to update the config map in the pods.
 
@@ -53,9 +53,9 @@ spec:
   version: 6.3.12
 ```
 
-This will first update the sidecar image in the pod to match the new version, which will restart that container. On restart, it will copy the new FDB binaries into the config volume for the foundationdb container, which will make it available to run. We will then update the fdbmonitor conf to point to the new binaries and bounce all of the fdbserver podNames.
+This will first update the sidecar image in the pod to match the new version, which will restart that container. On restart, it will copy the new FDB binaries into the config volume for the foundationdb container, which will make it available to run. We will then update the fdbmonitor conf to point to the new binaries and bounce all of the fdbserver processes.
 
-Once all of the podNames are running at the new version, we will recreate all of the pods so that the `foundationdb` container uses the new version for its own image. This will use the strategies described in [Pod Update Strategy](customization.md#pod-update-strategy).
+Once all of the processes are running at the new version, we will recreate all of the pods so that the `foundationdb` container uses the new version for its own image. This will use the strategies described in [Pod Update Strategy](customization.md#pod-update-strategy).
 
 ## Renaming a Cluster
 

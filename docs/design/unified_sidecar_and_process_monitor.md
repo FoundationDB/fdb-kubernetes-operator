@@ -17,9 +17,9 @@ We currently make use of three different containers in our Kubernetes deployment
 
 ## Proposed Design
 
-We will build a new process called `fdb-kubernetes-monitor` that is designed to run fdbserver podNames itself. It will take a configuration file that specifies the podNames to launch, including explicit environment variable substitutions, and will not have any mechanism for fdbmonitor conf file management. It will also have APIs to copy files into another folder, and to check the hashes of files, like the sidecar does. This process will not be a drop-in replacement for either the sidecar or fdbmonitor, and will be designed specifically for use within the Kubernetes operator. It will be available to use for other purposes, such as injecting FDB client libraries into a client application.
+We will build a new process called `fdb-kubernetes-monitor` that is designed to run fdbserver processes itself. It will take a configuration file that specifies the processes to launch, including explicit environment variable substitutions, and will not have any mechanism for fdbmonitor conf file management. It will also have APIs to copy files into another folder, and to check the hashes of files, like the sidecar does. This process will not be a drop-in replacement for either the sidecar or fdbmonitor, and will be designed specifically for use within the Kubernetes operator. It will be available to use for other purposes, such as injecting FDB client libraries into a client application.
 
-fdb-kubernetes-monitor will automatically load new configuration from the local copy of the config map, but will not automatically relaunch podNames with new configuration. Instead, it will rely on having the operator do a synchronized kill so that we can instantly bounce all of the podNames in a coordinated fashion. When fdb-kubernetes-monitor detects that a child process has been killed, it will launch a new child process with the latest configuration. It will also do appropriate signal handling for SIGKILL and SIGTERM signals in accordance with Docker best practices. The configuration file will be designed such that all of the podNames of a single machine class can share a configuration file, with environment variables for command-line arguments that vary between podNames. fdb-kubernetes-monitor will have a command-line option for how many fdbserver podNames to spawn, and the configuration file will support defining arguments that vary between different podNames in the pod based on the process number.
+fdb-kubernetes-monitor will automatically load new configuration from the local copy of the config map, but will not automatically relaunch processes with new configuration. Instead, it will rely on having the operator do a synchronized kill so that we can instantly bounce all of the processes in a coordinated fashion. When fdb-kubernetes-monitor detects that a child process has been killed, it will launch a new child process with the latest configuration. It will also do appropriate signal handling for SIGKILL and SIGTERM signals in accordance with Docker best practices. The configuration file will be designed such that all of the processes of a single machine class can share a configuration file, with environment variables for command-line arguments that vary between processes. fdb-kubernetes-monitor will have a command-line option for how many fdbserver processes to spawn, and the configuration file will support defining arguments that vary between different processes in the pod based on the process number.
 
 During upgrades, we will have a sidecar container that we upgrade to the new version, with instructions to copy the binary into a shared volume. We will then update the configuration for fdb-kubernetes-monitor in the main container to tell it to use a newer version, which will cause it to use the version-scoped binary in the shared volume. We will include the sidecar container all the time in the initial work for this feature. In the future, we will explore an option to deploy it as an ephemeral container, once that feature is sufficiently stable in Kubernetes.
 
@@ -31,7 +31,7 @@ In order to keep the new image lightweight, and allow the development team for t
 
 We will have an option in the cluster spec to use the new launcher, which will be off by default. We will have a minor release of FoundationDB where we publish both the old sidecar image and the new kubernetes image, to aid with the transition. For any patch version of FoundationDB in that minor release, the user will have the option of which launch strategy to use. Upon the next minor release, we will stop publishing the old sidecar image, which means users will need to switch to the new launcher before that release.
 
-When the new launcher is used, both the main container and the sidecar container will run the same image, but the sidecar container will have a different set of arguments that cause it to only copy the fdbserver binary, where necessary. The main container will load its configuration file, launch the configured server podNames, and then wait.
+When the new launcher is used, both the main container and the sidecar container will run the same image, but the sidecar container will have a different set of arguments that cause it to only copy the fdbserver binary, where necessary. The main container will load its configuration file, launch the configured server processes, and then wait.
 
 The new launcher will retain most of the command-line arguments of the current sidecar, but will not open up a listener. Specifically, it will support the following arguments:
 
@@ -46,7 +46,7 @@ The new launcher will retain most of the command-line arguments of the current s
 * `--shared-binary-dir` - The directory where the binaries written by the sidecar will be mounted in the main container.
 * `--require-not-empty` - A file that must be present and non-empty in the input directory.
 * `--additional-env-file` - A file with additional environment variables to load and make available for environment substitution in the process configuration. This file must contain lines of the format `key=value`, where `key` is the name of the environment variable and `value` is the value.
-* `--server-count` - The number of fdbserver podNames to launch.
+* `--server-count` - The number of fdbserver processes to launch.
 
 This API will have an option to listen on a TLS connection and restrict the incoming connections using the same peer verification options we support in the current sidecar.
 
@@ -59,7 +59,7 @@ The process configuration will be represented in a JSON file that contains a Pro
 ```
 ProcessConfiguration {
 	version: string - The version of FoundationDB the process should run. This will determine the path to the fdbserver process.
-	runServers: bool - Defines whether we should run the server podNames. This defaults to true, but you can set it to false to prevent starting new fdbserver podNames.
+	runServers: bool - Defines whether we should run the server processes. This defaults to true, but you can set it to false to prevent starting new fdbserver processes.
 	-:BinaryPath: string - Provides the path to the binary to launch.
 	arguments: []Argument - The arguments to the fdbserver process
 }
@@ -77,7 +77,7 @@ ArgumentType enum {
 	Literal - A value provided in the argument
 	Concatenante - A combination of other arguments
 	Environment - A value from an environment variable
-	ProcessNumber - A value calculated from the process number. The podNames are numbered starting from 1.
+	ProcessNumber - A value calculated from the process number. The processes are numbered starting from 1.
 }
 ```
 
@@ -131,7 +131,7 @@ FDB_ZONE_ID=zone1
 FDB_INSTANCE_ID=storage-1
 ```
 
-This would spawn two podNames, with the following configuration:
+This would spawn two processes, with the following configuration:
 
 ```sh
 /usr/bin/fdbserver --public_address 10.0.0.1:4500:tls --listen_address 192.168.0.1:4500:tls --datadir /var/fdb/data/1 --class storage --locality_zoneid zone1 --locality_instance_id storage-1 --locality_process_id storage-1-1

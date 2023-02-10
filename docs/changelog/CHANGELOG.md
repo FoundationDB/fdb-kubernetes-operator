@@ -33,10 +33,10 @@
 
 *	Use the locking system to coordinate exclusions and bounces.
 *	Add a validation to prevent user-submitted tags for core images.
-*	Add an option to use service IPs for the public IPs for FDB podNames.
+*	Add an option to use service IPs for the public IPs for FDB processes.
 *	Use the zone and region configuration to infer whether locks are required by default.
 *	Simplify RBAC configuration.
-*	Take a lock when bouncing podNames.
+*	Take a lock when bouncing processes.
 *	Allow customizing lock durations.
 *	Add support for running with multiple storage servers per disk.
 *	Use a distroless image as the base image for the operator.
@@ -157,7 +157,7 @@
 
 *	Improve logging for the operator
 *	Improve logging for fdbmonitor
-*	Allow customizing pod configuration for different podNames based on process class.
+*	Allow customizing pod configuration for different processes based on process class.
 
 # v0.11.1
 
@@ -216,7 +216,7 @@
 *	Fix the name of the volume claim customization in the sample clusters.
 *	Fix the logic for checking whether pods are up-to-date when using a custom
 	pod lifecycle manager.
-*	Fix false positives when checking for podNames being up-to-date during
+*	Fix false positives when checking for processes being up-to-date during
 	upgrades.
 
 # v0.5.0
@@ -250,7 +250,7 @@
 *	Add a field to control the locality_data_hall parameter.
 *	Enable new features in the sidecar in FDB 6.2.15 rather than waiting for
 	7.0.0.
-*	Add additional stateless podNames starting in FDB 6.2.0.
+*	Add additional stateless processes starting in FDB 6.2.0.
 
 # v0.3.0
 

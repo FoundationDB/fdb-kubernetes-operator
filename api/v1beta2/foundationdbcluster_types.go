@@ -329,7 +329,7 @@ type ProcessGroupStatus struct {
 }
 
 // ProcessGroupID represents the ID of the process group
-// +kubebuilder:validation:MaxLength=1024
+// +kubebuilder:validation:MaxLength=63
 type ProcessGroupID string
 
 // GetExclusionString returns the exclusion string

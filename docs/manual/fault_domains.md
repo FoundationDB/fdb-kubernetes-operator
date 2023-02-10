@@ -1,6 +1,6 @@
 # Controlling Fault Domains
 
-The operator provides multiple options for defining fault domains for your cluster. The fault domain defines how data is replicated and how podNames and coordinators are distributed across machines. Choosing a fault domain is an important process of managing your deployments.
+The operator provides multiple options for defining fault domains for your cluster. The fault domain defines how data is replicated and how processes and coordinators are distributed across machines. Choosing a fault domain is an important process of managing your deployments.
 
 Fault domains are controlled through the `faultDomain` field in the cluster spec.
 
@@ -36,7 +36,7 @@ spec:
     valueFrom: spec.zoneName
 ```
 
-The example above divides podNames across nodes based on the label `topology.kubernetes.io/zone` on the node, and sets the zone locality information in FDB based on the field `spec.zoneName` on the pod. The latter field does not exist, so this configuration cannot work. There is no clear pattern in Kubernetes for allowing pods to access node information other than the host name, which presents challenges using any other kind of fault domain.
+The example above divides processes across nodes based on the label `topology.kubernetes.io/zone` on the node, and sets the zone locality information in FDB based on the field `spec.zoneName` on the pod. The latter field does not exist, so this configuration cannot work. There is no clear pattern in Kubernetes for allowing pods to access node information other than the host name, which presents challenges using any other kind of fault domain.
 
 If you have some other mechanism to make this information available in your pod's environment, you can tell the operator to use an environment variable as the source for the zone locality:
 
@@ -73,7 +73,7 @@ spec:
     zoneCount: 5
 ```
 
-This tells the operator to use the value "zone2" as the fault domain for every process it creates. The zoneIndex and zoneCount tell the operator where this fault domain is within the list of Kubernetes clusters (KCs) you are using in this DC. This is used to divide podNames across fault domains. For instance, this configuration has 7 stateless podNames, which need to be divided across 5 fault domains. The zones with zoneIndex 1 and 2 will allocate 2 stateless podNames each. The zones with zoneIndex 3, 4, and 5 will allocate 1 stateless process each.
+This tells the operator to use the value "zone2" as the fault domain for every process it creates. The zoneIndex and zoneCount tell the operator where this fault domain is within the list of Kubernetes clusters (KCs) you are using in this DC. This is used to divide processes across fault domains. For instance, this configuration has 7 stateless processes, which need to be divided across 5 fault domains. The zones with zoneIndex 1 and 2 will allocate 2 stateless processes each. The zones with zoneIndex 3, 4, and 5 will allocate 1 stateless process each.
 
 When running across multiple KCs, you will need to apply more care in managing the configurations to make sure all the KCs converge on the same view of the desired configuration. You will likely need some kind of external, global system to store the canonical configuration and push it out to all of your KCs. You will also need to make sure that the different KCs are not fighting each other to control the database configuration.
 
@@ -135,14 +135,14 @@ Replicating across data centers will likely mean running your cluster across mul
 
 ## Coordinating Global Operations
 
-When running a FoundationDB cluster that is deployed across multiple Kubernetes clusters, each Kubernetes cluster will have its own instance of the operator working on the podNames in its cluster. There will be some operations that cannot be scoped to a single Kubernetes cluster, such as changing the database configuration. The operator provides a locking system to ensure that only one instance of the operator can perform these operations at a time. You can enable this locking system by setting `lockOptions.disableLocks = false` in the cluster spec. The locking system is automatically enabled by default for any cluster that has multiple regions in its database configuration, or a `zoneCount` greater than 1 in its fault domain configuration.
+When running a FoundationDB cluster that is deployed across multiple Kubernetes clusters, each Kubernetes cluster will have its own instance of the operator working on the processes in its cluster. There will be some operations that cannot be scoped to a single Kubernetes cluster, such as changing the database configuration. The operator provides a locking system to ensure that only one instance of the operator can perform these operations at a time. You can enable this locking system by setting `lockOptions.disableLocks = false` in the cluster spec. The locking system is automatically enabled by default for any cluster that has multiple regions in its database configuration, or a `zoneCount` greater than 1 in its fault domain configuration.
 
 The locking system uses the `processGroupIDPrefix` from the cluster spec to identify an process group of the operator.
 Make sure to set this to a unique value for each Kubernetes cluster, both to support the locking system and to prevent duplicate process group IDs.
 
 This locking system uses the FoundationDB cluster as its data source. This means that if the cluster is unavailable, no instance of the operator will be able to get a lock. If you hit a case where this becomes an issue, you can disable the locking system by setting `lockOptions.disableLocks = true` in the cluster spec.
 
-In most cases, restarts will be done independently in each Kubernetes cluster, and the locking system will be used to ensure a minimum time between the different restarts and avoid multiple recoveries in a short span of time. During upgrades, however, all instances must be restarted at the same time. The operator will use the locking system to coordinate this. Each instance of the operator will store records indicating what podNames it is managing and what version they will be running after the restart. Each instance will then try to acquire a lock and confirm that every process reporting to the cluster is ready for the upgrade. If all podNames are prepared, the operator will restart all of them at once. If any instance of the operator is stuck and unable to prepare its podNames for the upgrade, the restart will not occur.
+In most cases, restarts will be done independently in each Kubernetes cluster, and the locking system will be used to ensure a minimum time between the different restarts and avoid multiple recoveries in a short span of time. During upgrades, however, all instances must be restarted at the same time. The operator will use the locking system to coordinate this. Each instance of the operator will store records indicating what processes it is managing and what version they will be running after the restart. Each instance will then try to acquire a lock and confirm that every process reporting to the cluster is ready for the upgrade. If all processes are prepared, the operator will restart all of them at once. If any instance of the operator is stuck and unable to prepare its processes for the upgrade, the restart will not occur.
 
 ### Deny List
 
@@ -194,8 +194,8 @@ well.
 
 ## Coordinators
 
-Per default the FDB operator will try to select the best fitting podNames to be coordinators.
-Depending on the requirements the operator can be configured to either prefer or exclude specific podNames.
+Per default the FDB operator will try to select the best fitting processes to be coordinators.
+Depending on the requirements the operator can be configured to either prefer or exclude specific processes.
 The number of coordinators is currently a hardcoded mechanism based on the [following algorithm](https://github.com/FoundationDB/fdb-kubernetes-operator/blob/v0.49.2/api/v1beta1/foundationdbcluster_types.go#L1500-L1508):
 
 ```go
@@ -225,7 +225,7 @@ across different zones.
 ### Coordinator selection
 
 The operator offers a flexible way to select different process classes to be eligible for coordinator selection.
-Per default the operator will choose all `stateful` podNames classes e.g. `storage`, `log` and `transaction`.
+Per default the operator will choose all `stateful` processes classes e.g. `storage`, `log` and `transaction`.
 In order to get a deterministic result the operator will sort the candidate by priority (per default all have the same priority) and then by the `instance-id`.
 
 If you want to modify the selection process you can add a `coordinatorSelection` in the `FoundationDBCluster` spec:
@@ -240,10 +240,10 @@ coordinatorSelection:
 ```
 
 Only process classes defined in the `coordinatorSelection` will be considered as possible candidates.
-In this example only podNames with the class `log` or `storage` will be used for coordinators.
+In this example only processes with the class `log` or `storage` will be used for coordinators.
 The priority defines if a specific process class should be preferred to another.
-In this example the podNames with the class `storage` will be preferred over podNames with the class `log`.
-That means that a `log` process will only be considered a valid coordinator if there are no other `storage` podNames that can be selected without hurting the fault domain requirements.
+In this example the processes with the class `storage` will be preferred over processes with the class `log`.
+That means that a `log` process will only be considered a valid coordinator if there are no other `storage` processes that can be selected without hurting the fault domain requirements.
 Changing the `coordinatorSelection` can result in new coordinators e.g. if the current preferred class will be removed.
 
 The operator supports the following classes as coordinators:
