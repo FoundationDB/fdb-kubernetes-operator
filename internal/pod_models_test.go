@@ -3315,4 +3315,20 @@ var _ = Describe("pod_models", func() {
 				ProcessGroupIDPrefix: "prefix",
 			},
 		}, "test-storage-1", "prefix-storage-1"))
+
+	Describe("ContainsPod", func() {
+		var pod1, pod2 *corev1.Pod
+		BeforeEach(func() {
+			pod1, err = GetPod(cluster, fdbv1beta2.ProcessClassStorage, 1)
+			Expect(err).NotTo(HaveOccurred())
+			pod2, err = GetPod(cluster, fdbv1beta2.ProcessClassStorage, 2)
+			Expect(err).NotTo(HaveOccurred())
+			pod2.Labels[fdbv1beta2.FDBClusterLabel] = "incorrect-cluster-name"
+		})
+
+		It("should check whether the Pod belongs to the cluster", func() {
+			Expect(ContainsPod(cluster, *pod1)).To(BeTrue())
+			Expect(ContainsPod(cluster, *pod2)).To(BeFalse())
+		})
+	})
 })
