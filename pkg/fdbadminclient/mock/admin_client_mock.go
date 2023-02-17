@@ -232,7 +232,27 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 
 			version, ok := client.VersionProcessGroups[fdbv1beta2.ProcessGroupID(locality[fdbv1beta2.FDBLocalityProcessIDKey])]
 			if !ok {
-				version = client.Cluster.Status.RunningVersion
+				if client.Cluster.VersionCompatibleUpgradeInProgress() {
+					for _, container := range pod.Spec.Containers {
+						if container.Name != fdbv1beta2.MainContainerName {
+							continue
+						}
+
+						parts := strings.Split(container.Image, ":")
+						if len(parts) > 1 {
+							parsedVersion, err := fdbv1beta2.ParseFdbVersion(parts[1])
+							if err != nil {
+								continue
+							}
+
+							version = parsedVersion.String()
+						}
+					}
+				}
+
+				if version == "" {
+					version = client.Cluster.Status.RunningVersion
+				}
 			}
 
 			status.Cluster.Processes[fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%d", pod.Name, processIndex))] = fdbv1beta2.FoundationDBStatusProcessInfo{

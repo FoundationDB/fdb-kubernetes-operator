@@ -41,7 +41,7 @@ type updateSidecarVersions struct{}
 func (updateSidecarVersions) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updateSidecarVersions")
 	// We don't need to upgrade the sidecar if no upgrade is in progress, we can skip any further work here.
-	if !cluster.IsBeingUpgraded() {
+	if !cluster.IsBeingUpgradedWithVersionIncompatibleVersion() {
 		return nil
 	}
 

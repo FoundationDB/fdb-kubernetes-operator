@@ -1552,6 +1552,18 @@ func (cluster *FoundationDBCluster) IsBeingUpgraded() bool {
 	return cluster.Status.RunningVersion != "" && cluster.Status.RunningVersion != cluster.Spec.Version
 }
 
+// IsBeingUpgradedWithVersionIncompatibleVersion determines whether the cluster has a pending upgrade to a version incompatible version.
+func (cluster *FoundationDBCluster) IsBeingUpgradedWithVersionIncompatibleVersion() bool {
+	if !cluster.IsBeingUpgraded() {
+		return false
+	}
+
+	runningVersion, _ := ParseFdbVersion(cluster.Status.RunningVersion)
+	desiredVersion, _ := ParseFdbVersion(cluster.Spec.Version)
+
+	return !runningVersion.IsProtocolCompatible(desiredVersion)
+}
+
 // VersionCompatibleUpgradeInProgress returns true if the cluster is currently being upgraded and the upgrade is to
 // a version compatible version.
 func (cluster *FoundationDBCluster) VersionCompatibleUpgradeInProgress() bool {

@@ -4939,4 +4939,51 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			)
 		})
 	})
+
+	DescribeTable("when checking if the cluster is being upgraded", func(cluster *FoundationDBCluster, isUpgraded bool, isCompatibleUpgrade bool) {
+		Expect(cluster.IsBeingUpgraded()).To(Equal(isUpgraded))
+
+		if !isUpgraded {
+			return
+		}
+
+		Expect(cluster.VersionCompatibleUpgradeInProgress()).To(Equal(isCompatibleUpgrade))
+		Expect(cluster.IsBeingUpgradedWithVersionIncompatibleVersion()).To(Equal(!isCompatibleUpgrade))
+	}, Entry("no upgrade in progress",
+		&FoundationDBCluster{
+			Spec: FoundationDBClusterSpec{
+				Version: "7.1.27",
+			},
+			Status: FoundationDBClusterStatus{
+				RunningVersion: "7.1.27",
+			},
+		}, false, false),
+		Entry("patch upgrade",
+			&FoundationDBCluster{
+				Spec: FoundationDBClusterSpec{
+					Version: "7.1.29",
+				},
+				Status: FoundationDBClusterStatus{
+					RunningVersion: "7.1.27",
+				},
+			}, true, true),
+		Entry("minor upgrade",
+			&FoundationDBCluster{
+				Spec: FoundationDBClusterSpec{
+					Version: "7.2.3",
+				},
+				Status: FoundationDBClusterStatus{
+					RunningVersion: "7.1.27",
+				},
+			}, true, false),
+		Entry("major upgrade",
+			&FoundationDBCluster{
+				Spec: FoundationDBClusterSpec{
+					Version: "8.0.0",
+				},
+				Status: FoundationDBClusterStatus{
+					RunningVersion: "7.1.27",
+				},
+			}, true, false),
+	)
 })
