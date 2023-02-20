@@ -23,11 +23,12 @@ package cmd
 import (
 	"bufio"
 	"fmt"
-	"github.com/fatih/color"
 	"log"
 	"math/rand"
 	"os"
 	"time"
+
+	"github.com/fatih/color"
 
 	"strings"
 
@@ -94,7 +95,7 @@ func NewRootCmd(streams genericclioptions.IOStreams) *cobra.Command {
 	return cmd
 }
 
-// confirmAction requests a user to confirm it's action
+// confirmAction requests a user to confirm its action
 func confirmAction(action string) bool {
 	reader := bufio.NewReader(os.Stdin)
 

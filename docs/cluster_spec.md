@@ -394,7 +394,7 @@ ProcessGroupStatus represents the status of a ProcessGroup.
 | processClass | ProcessClass represents the class the process group has. | [ProcessClass](#processclass) | false |
 | addresses | Addresses represents the list of addresses the process group has been known to have. | []string | false |
 | removalTimestamp | RemoveTimestamp if not empty defines when the process group was marked for removal. | *metav1.Time | false |
-| exclusionTimestamp | ExcludedTimestamp defines when the process group has been fully excluded. This is only used within the reconciliation process, and should not be considered authoritative. | *metav1.Time | false |
+| exclusionTimestamp | ExclusionTimestamp defines when the process group has been fully excluded. This is only used within the reconciliation process, and should not be considered authoritative. | *metav1.Time | false |
 | exclusionSkipped | ExclusionSkipped determines if exclusion has been skipped for a process, which will allow the process group to be removed without exclusion. | bool | false |
 | processGroupConditions | ProcessGroupConditions represents a list of degraded conditions that the process group is in. | []*[ProcessGroupCondition](#processgroupcondition) | false |
 

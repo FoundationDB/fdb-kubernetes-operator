@@ -490,7 +490,7 @@ type ProcessGroupStatus struct {
 	// This is only used within the reconciliation process, and should not be considered authoritative.
 	// Deprecated: Use ExclusionTimestamp instead.
 	Excluded bool `json:"excluded,omitempty"`
-	// ExcludedTimestamp defines when the process group has been fully excluded.
+	// ExclusionTimestamp defines when the process group has been fully excluded.
 	// This is only used within the reconciliation process, and should not be considered authoritative.
 	ExclusionTimestamp *metav1.Time `json:"exclusionTimestamp,omitempty"`
 	// ExclusionSkipped determines if exclusion has been skipped for a process, which will allow the process group to be removed without exclusion.
