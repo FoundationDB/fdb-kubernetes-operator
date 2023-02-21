@@ -80,7 +80,7 @@ func newRemoveProcessGroupCmd(streams genericclioptions.IOStreams) *cobra.Comman
 		},
 		Example: `
 # Remove process groups for a cluster in the current namespace
-kubectl fdb remove process-group -c cluster pod-1 -i pod-2
+kubectl fdb remove process-group -c cluster pod-1 pod-2
 
 # Remove process groups for a cluster in the namespace default
 kubectl fdb -n default remove process-group -c cluster pod-1 pod-2

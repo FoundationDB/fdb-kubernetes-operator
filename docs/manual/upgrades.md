@@ -32,6 +32,18 @@ In the main container the new binaries will be present in `/var/dynamic-conf/bin
 The `UpdatePodConfig` subreconciler will ensure that all Pods have the new configuration present, this configuration ensures that the `fdbmonitor` will restart processes with the new binary present in the shared volume.
 Once all Pods have the new configuration and binaries present the operator can move to the next phase.
 
+A potentional blocker for moving towards the next Phase can be an issue with a subset of the Pods e.g. if the sidecar is unreachable.
+If the sidecar is unreachable the operator is not able to confirm that the new configuration and binary is in place.
+All Process Groups affected by such an issue can be discovered with the `SidecarUnreachable` condition.
+The best way forward for this is to replace the affected Pods with the following [kubectl fdb plugin](../../kubectl-fdb/Readme.md) command:
+
+```bash
+kubectl fdb remove process-group -c cluster pod-1
+```
+
+If the whole Pod is affected by the networking issue the operator will replace the Pod automatically if automatic replacements are enabled, which is the default.
+In order to replace the Pod the operator will wait for the Process Group to have a [failure condition](https://github.com/FoundationDB/fdb-kubernetes-operator/blob/v1.14.0/api/v1beta2/foundationdbcluster_types.go#L65) for at least the defined [FailureDetectionTimeSeconds](../cluster_spec.md#automaticreplacementoptions), by default those are 7200 seconds (2 hours).
+
 #### Restart Phase
 
 The `BounceProcesses` subreconciler will handle the restart of all `fdbserver` processes.
@@ -41,20 +53,20 @@ After the `kill` command the operator will initiate a new reconciliation loop to
 
 #### Recreation of Pods Phase
 
---> Add info incompatbile clients
-
-
 Technically the upgrade is now done and the cluster is running on the new version but the operator has to do some cleanup.
 The cleanup includes the recreation of all Pods to ensure they use the new FoundationDB image for the desired version and the configuration will be updated to point again to the binary present in the container.
 Depending on the defined [Pod update strategy](../cluster_spec.md#podupdatestrategy) the operator will handle the recreation of the Pods differently.
 In the default setting `ReplaceTransactionSystem` the operator will recreate the storage Pods zone by zone and replaces Pods of the transaction system (log and stateless processes).
 The replacement of the transaction system has the benefit that the recoveries of the transaction system is reduced to potentially one recovery.
+During this phase the operator will also run the `RemoveIncompatibleProcesses` subreconciler, this reconciler will recreate all Pods that host a `fdbserver` process that is in the list of the `incompatible_connections` and is missing the the process list of the [cluster status json](https://apple.github.io/foundationdb/mr-status.html).
+This reconciler should ensure that the cluster is moving faster towards the desired configuration if some processes where not restarted properly.
+
 Once all Pods are updated to the new image the upgrade is done and the cluster status of the FoundationDB cluster resource in Kubernetes should show that the reconciliation is done.
 
 ### Known issues
 
 There are a number of known issues that can occur during an upgrade of FoundationDB running on Kubernetes.
-Most of the issues are only a challenged for version incompatible upgrades and most issues are handled automatically by the operator.
+Most of the issues are only a challenge for version incompatible upgrades and most issues are handled automatically by the operator.
 If an issue cannot be handled by the operator we will outline a way to manually resolve the issue.
 
 #### Process restarted during staging Phase
@@ -123,6 +135,32 @@ During an upgrade it can happen that the multi-version client tries to connect t
 In this case the operator will fallback using `fdbcli` for the different versions (the one that is desired and the current running version).
 In addition to that we will retry the command if the `fdbcli` hits a timeout responding.
 The code in the [fdbclient package](https://github.com/FoundationDB/fdb-kubernetes-operator/blob/v1.14.0/fdbclient/admin_client.go#L337-L360) has some additional details on how we handle those cases.
+
+#### Processes running on a different version
+
+We discussed in [Process restarted during staging Phase](#process-restarted-during-staging-phase) and [Processes are not restarted during the restart Phase](#processes-are-not-restarted-during-the-restart-phase) cases where a process could be running in a different version than expected.
+For version incompatible upgrades the operator has no way to differentiate between processes not reporting to the cluster and processes running in the incompatible version, both will be missing from the processes list.
+The only difference is that the incompatible processes might be reported in the `incompatible_connections` field.
+
+### How we test upgrades in the operator
+
+For every PR against the operator repository we run a set of tests in addition to that we are running those tests on a regular basis with different versions to ensure we test major, minor and patch upgrades.
+
+Those tests include:
+
+- Upgrades without any failure injection
+- Upgrading a cluster with a partitioned Pod
+- Upgrading a cluster with a partitioned Pod which eventually gets replaced
+- Upgrading a cluster with a random Pod deleted during rolling bounce phase
+- Upgrading a cluster where one coordinator gets restarted during the staging phase
+- Upgrading a cluster with a crash looping sidecar process
+- Upgrading a cluster and one coordinator is not restarted
+- Upgrading a cluster and multiple processes are not restarted
+- Upgrading a cluster with link that drops some packets
+- Upgrading a cluster and no coordinator is restarted
+
+In addition we have some more tests that will run against a cluster in multi-region configuration.
+Those tests are extended if some new edge cases are discovered.
 
 ## Next
 
