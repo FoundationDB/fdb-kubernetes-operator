@@ -19,5 +19,6 @@ For more information on that area, see the [Kubernetes documentation](https://ku
 1. [Running with TLS](tls.md)
 1. [Backup](backup.md)
 1. [Technical Design](technical_design.md)
+1. [Upgrades](upgrades.md)
 1. [Debugging](debugging.md)
 1. [More References](more.md)
