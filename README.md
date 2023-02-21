@@ -11,6 +11,7 @@ To learn more about FoundationDB, visit [foundationdb.org](https://www.foundatio
 [![CI for main branch](https://github.com/FoundationDB/fdb-kubernetes-operator/actions/workflows/pull_request.yml/badge.svg)](https://github.com/FoundationDB/fdb-kubernetes-operator/actions/workflows/pull_request.yml)
 
 This project provides an operator for managing FoundationDB clusters on Kubernetes.
+Some more details are covered in this YouTube video: [Operating FoundationDB on Kubernetes (DoK Day EU 2022)](https://www.youtube.com/watch?v=Kf3kquvuing).
 
 ## Running the Operator
 
