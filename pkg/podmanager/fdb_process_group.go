@@ -34,7 +34,7 @@ import (
 var processIDRegex = regexp.MustCompile(`^([\w-]+-\d)-\d$`)
 
 // ParseProcessGroupID extracts the components of a process group ID.
-func ParseProcessGroupID(id string) (fdbv1beta2.ProcessClass, int, error) {
+func ParseProcessGroupID(id fdbv1beta2.ProcessGroupID) (fdbv1beta2.ProcessClass, int, error) {
 	return internal.ParseProcessGroupID(id)
 }
 
@@ -50,7 +50,7 @@ func GetProcessGroupIDFromProcessID(id string) string {
 }
 
 // GetProcessGroupID returns the process group ID from the Pods metadata
-func GetProcessGroupID(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod) string {
+func GetProcessGroupID(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod) fdbv1beta2.ProcessGroupID {
 	if pod == nil {
 		return ""
 	}

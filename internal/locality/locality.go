@@ -264,7 +264,7 @@ func CheckCoordinatorValidity(logger logr.Logger, cluster *fdbv1beta2.Foundation
 
 	coordinatorZones := make(map[string]int, len(coordinatorStatus))
 	coordinatorDCs := make(map[string]int, len(coordinatorStatus))
-	processGroups := make(map[string]*fdbv1beta2.ProcessGroupStatus)
+	processGroups := make(map[fdbv1beta2.ProcessGroupID]*fdbv1beta2.ProcessGroupStatus)
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		processGroups[processGroup.ProcessGroupID] = processGroup
 	}
@@ -281,7 +281,7 @@ func CheckCoordinatorValidity(logger logr.Logger, cluster *fdbv1beta2.Foundation
 			continue
 		}
 
-		processGroupStatus := processGroups[process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]]
+		processGroupStatus := processGroups[fdbv1beta2.ProcessGroupID(process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey])]
 		pendingRemoval := processGroupStatus != nil && processGroupStatus.IsMarkedForRemoval()
 		if processGroupStatus != nil && cluster.SkipProcessGroup(processGroupStatus) {
 			pLogger.Info("Skipping process group with pending Pod",

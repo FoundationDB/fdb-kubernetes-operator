@@ -82,7 +82,7 @@ var _ = Describe("exclude_processes", func() {
 				It("should not allow the exclusion", func() {
 					canExclude, missing := canExcludeNewProcesses(cluster, fdbv1beta2.ProcessClassStorage)
 					Expect(canExclude).To(BeFalse())
-					Expect(missing).To(Equal([]string{"storage-1", "storage-2"}))
+					Expect(missing).To(Equal([]fdbv1beta2.ProcessGroupID{"storage-1", "storage-2"}))
 				})
 			})
 
@@ -133,7 +133,7 @@ var _ = Describe("exclude_processes", func() {
 				It("should not allow the exclusion", func() {
 					canExclude, missing := canExcludeNewProcesses(cluster, fdbv1beta2.ProcessClassStorage)
 					Expect(canExclude).To(BeFalse())
-					Expect(missing).To(Equal([]string{"storage-1", "storage-10", "storage-11", "storage-12", "storage-13"}))
+					Expect(missing).To(Equal([]fdbv1beta2.ProcessGroupID{"storage-1", "storage-10", "storage-11", "storage-12", "storage-13"}))
 				})
 			})
 		})
@@ -189,7 +189,7 @@ var _ = Describe("exclude_processes", func() {
 			When("excluding one process", func() {
 				BeforeEach(func() {
 					processGroup := cluster.Status.ProcessGroups[0]
-					Expect(processGroup.ProcessGroupID).To(Equal("storage-1"))
+					Expect(processGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
 					processGroup.MarkForRemoval()
 					cluster.Status.ProcessGroups[0] = processGroup
 				})
@@ -206,12 +206,12 @@ var _ = Describe("exclude_processes", func() {
 			When("excluding two process", func() {
 				BeforeEach(func() {
 					processGroup1 := cluster.Status.ProcessGroups[0]
-					Expect(processGroup1.ProcessGroupID).To(Equal("storage-1"))
+					Expect(processGroup1.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
 					processGroup1.MarkForRemoval()
 					cluster.Status.ProcessGroups[0] = processGroup1
 
 					processGroup2 := cluster.Status.ProcessGroups[1]
-					Expect(processGroup2.ProcessGroupID).To(Equal("storage-2"))
+					Expect(processGroup2.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-2")))
 					processGroup2.MarkForRemoval()
 					cluster.Status.ProcessGroups[1] = processGroup2
 				})
@@ -228,12 +228,12 @@ var _ = Describe("exclude_processes", func() {
 			When("excluding two process with one already excluded", func() {
 				BeforeEach(func() {
 					processGroup1 := cluster.Status.ProcessGroups[0]
-					Expect(processGroup1.ProcessGroupID).To(Equal("storage-1"))
+					Expect(processGroup1.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
 					processGroup1.MarkForRemoval()
 					cluster.Status.ProcessGroups[0] = processGroup1
 
 					processGroup2 := cluster.Status.ProcessGroups[1]
-					Expect(processGroup2.ProcessGroupID).To(Equal("storage-2"))
+					Expect(processGroup2.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-2")))
 					processGroup2.MarkForRemoval()
 					cluster.Status.ProcessGroups[1] = processGroup2
 
@@ -266,7 +266,7 @@ var _ = Describe("exclude_processes", func() {
 			When("excluding one process", func() {
 				BeforeEach(func() {
 					processGroup := cluster.Status.ProcessGroups[0]
-					Expect(processGroup.ProcessGroupID).To(Equal("storage-1"))
+					Expect(processGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
 					processGroup.MarkForRemoval()
 					cluster.Status.ProcessGroups[0] = processGroup
 				})
@@ -283,12 +283,12 @@ var _ = Describe("exclude_processes", func() {
 			When("excluding two process", func() {
 				BeforeEach(func() {
 					processGroup1 := cluster.Status.ProcessGroups[0]
-					Expect(processGroup1.ProcessGroupID).To(Equal("storage-1"))
+					Expect(processGroup1.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
 					processGroup1.MarkForRemoval()
 					cluster.Status.ProcessGroups[0] = processGroup1
 
 					processGroup2 := cluster.Status.ProcessGroups[1]
-					Expect(processGroup2.ProcessGroupID).To(Equal("storage-2"))
+					Expect(processGroup2.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-2")))
 					processGroup2.MarkForRemoval()
 					cluster.Status.ProcessGroups[1] = processGroup2
 				})
@@ -305,12 +305,12 @@ var _ = Describe("exclude_processes", func() {
 			When("excluding two process with one already excluded using IP", func() {
 				BeforeEach(func() {
 					processGroup1 := cluster.Status.ProcessGroups[0]
-					Expect(processGroup1.ProcessGroupID).To(Equal("storage-1"))
+					Expect(processGroup1.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
 					processGroup1.MarkForRemoval()
 					cluster.Status.ProcessGroups[0] = processGroup1
 
 					processGroup2 := cluster.Status.ProcessGroups[1]
-					Expect(processGroup2.ProcessGroupID).To(Equal("storage-2"))
+					Expect(processGroup2.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-2")))
 					processGroup2.MarkForRemoval()
 					cluster.Status.ProcessGroups[1] = processGroup2
 
@@ -329,12 +329,12 @@ var _ = Describe("exclude_processes", func() {
 			When("excluding two process with one already excluded using locality", func() {
 				BeforeEach(func() {
 					processGroup1 := cluster.Status.ProcessGroups[0]
-					Expect(processGroup1.ProcessGroupID).To(Equal("storage-1"))
+					Expect(processGroup1.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
 					processGroup1.MarkForRemoval()
 					cluster.Status.ProcessGroups[0] = processGroup1
 
 					processGroup2 := cluster.Status.ProcessGroups[1]
-					Expect(processGroup2.ProcessGroupID).To(Equal("storage-2"))
+					Expect(processGroup2.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-2")))
 					processGroup2.MarkForRemoval()
 					cluster.Status.ProcessGroups[1] = processGroup2
 

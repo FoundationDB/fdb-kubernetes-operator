@@ -51,12 +51,12 @@ type AdminClient struct {
 	Backups                                  map[string]fdbv1beta2.FoundationDBBackupStatusBackupDetails
 	clientVersions                           map[string][]string
 	currentCommandLines                      map[string]string
-	VersionProcessGroups                     map[string]string
-	missingProcessGroups                     map[string]bool
-	incorrectCommandLines                    map[string]bool
+	VersionProcessGroups                     map[fdbv1beta2.ProcessGroupID]string
+	missingProcessGroups                     map[fdbv1beta2.ProcessGroupID]bool
+	incorrectCommandLines                    map[fdbv1beta2.ProcessGroupID]bool
 	ReincludedAddresses                      map[string]bool
 	additionalProcesses                      []fdbv1beta2.ProcessGroupStatus
-	localityInfo                             map[string]map[string]string
+	localityInfo                             map[fdbv1beta2.ProcessGroupID]map[string]string
 	MaxZoneFailuresWithoutLosingData         *int
 	MaxZoneFailuresWithoutLosingAvailability *int
 	MaintenanceZone                          string
@@ -90,11 +90,11 @@ func NewMockAdminClientUncast(cluster *fdbv1beta2.FoundationDBCluster, kubeClien
 			ExcludedAddresses:    make(map[string]fdbv1beta2.None),
 			ReincludedAddresses:  make(map[string]bool),
 			KilledAddresses:      make(map[string]fdbv1beta2.None),
-			missingProcessGroups: make(map[string]bool),
-			localityInfo:         make(map[string]map[string]string),
+			missingProcessGroups: make(map[fdbv1beta2.ProcessGroupID]bool),
+			localityInfo:         make(map[fdbv1beta2.ProcessGroupID]map[string]string),
 			currentCommandLines:  make(map[string]string),
 			Knobs:                make(map[string]fdbv1beta2.None),
-			VersionProcessGroups: make(map[string]string),
+			VersionProcessGroups: make(map[fdbv1beta2.ProcessGroupID]string),
 		}
 		adminClientCache[cluster.Name] = cachedClient
 		cachedClient.Backups = make(map[string]fdbv1beta2.FoundationDBBackupStatusBackupDetails)
@@ -125,7 +125,7 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 	}
 	status := &fdbv1beta2.FoundationDBStatus{
 		Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
-			Processes: make(map[string]fdbv1beta2.FoundationDBStatusProcessInfo, len(pods.Items)),
+			Processes: make(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo, len(pods.Items)),
 		},
 	}
 
@@ -200,7 +200,7 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 			}
 
 			locality := map[string]string{
-				fdbv1beta2.FDBLocalityInstanceIDKey: processGroupID,
+				fdbv1beta2.FDBLocalityInstanceIDKey: string(processGroupID),
 				fdbv1beta2.FDBLocalityZoneIDKey:     pod.Name,
 				fdbv1beta2.FDBLocalityDCIDKey:       client.Cluster.Spec.DataCenter,
 			}
@@ -230,12 +230,12 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 				}
 			}
 
-			version, ok := client.VersionProcessGroups[locality[fdbv1beta2.FDBLocalityProcessIDKey]]
+			version, ok := client.VersionProcessGroups[fdbv1beta2.ProcessGroupID(locality[fdbv1beta2.FDBLocalityProcessIDKey])]
 			if !ok {
 				version = client.Cluster.Status.RunningVersion
 			}
 
-			status.Cluster.Processes[fmt.Sprintf("%s-%d", pod.Name, processIndex)] = fdbv1beta2.FoundationDBStatusProcessInfo{
+			status.Cluster.Processes[fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%d", pod.Name, processIndex))] = fdbv1beta2.FoundationDBStatusProcessInfo{
 				Address:       fullAddress,
 				ProcessClass:  internal.GetProcessClassFromMeta(client.Cluster, pod.ObjectMeta),
 				CommandLine:   command,
@@ -249,8 +249,8 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 
 		for _, processGroup := range client.additionalProcesses {
 			locality := map[string]string{
-				fdbv1beta2.FDBLocalityInstanceIDKey: processGroup.ProcessGroupID,
-				fdbv1beta2.FDBLocalityZoneIDKey:     processGroup.ProcessGroupID,
+				fdbv1beta2.FDBLocalityInstanceIDKey: string(processGroup.ProcessGroupID),
+				fdbv1beta2.FDBLocalityZoneIDKey:     string(processGroup.ProcessGroupID),
 			}
 
 			for key, value := range client.localityInfo[processGroupID] {
@@ -258,7 +258,7 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 			}
 
 			var uptimeSeconds float64 = 60000
-			if client.MaintenanceZone == processGroup.ProcessGroupID || client.MaintenanceZone == "simulation" {
+			if client.MaintenanceZone == string(processGroup.ProcessGroupID) || client.MaintenanceZone == "simulation" {
 				if client.uptimeSecondsForMaintenanceZone != 0.0 {
 					uptimeSeconds = client.uptimeSecondsForMaintenanceZone
 				} else {
@@ -661,20 +661,20 @@ func (client *AdminClient) MockAdditionalProcesses(processes []fdbv1beta2.Proces
 
 // MockMissingProcessGroup updates the mock for whether a process group should
 // be missing from the cluster status.
-func (client *AdminClient) MockMissingProcessGroup(processGroupID string, missing bool) {
+func (client *AdminClient) MockMissingProcessGroup(processGroupID fdbv1beta2.ProcessGroupID, missing bool) {
 	client.missingProcessGroups[processGroupID] = missing
 }
 
 // MockLocalityInfo sets mock locality information for a process.
-func (client *AdminClient) MockLocalityInfo(processGroupID string, locality map[string]string) {
+func (client *AdminClient) MockLocalityInfo(processGroupID fdbv1beta2.ProcessGroupID, locality map[string]string) {
 	client.localityInfo[processGroupID] = locality
 }
 
 // MockIncorrectCommandLine updates the mock for whether a process group should
 // be have an incorrect command-line.
-func (client *AdminClient) MockIncorrectCommandLine(processGroupID string, incorrect bool) {
+func (client *AdminClient) MockIncorrectCommandLine(processGroupID fdbv1beta2.ProcessGroupID, incorrect bool) {
 	if client.incorrectCommandLines == nil {
-		client.incorrectCommandLines = make(map[string]bool)
+		client.incorrectCommandLines = make(map[fdbv1beta2.ProcessGroupID]bool)
 	}
 	client.incorrectCommandLines[processGroupID] = incorrect
 }

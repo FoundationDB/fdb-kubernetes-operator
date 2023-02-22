@@ -251,8 +251,8 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, cluster *fdbv1
 
 	// We could add here more fields from cluster.Status.Generations and check if they are present.
 	var failedProcessGroups []string
-	processGroupMap := map[string]fdbv1beta2.None{}
-	removedProcessGroups := map[string]fdbv1beta2.None{}
+	processGroupMap := map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None{}
+	removedProcessGroups := map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None{}
 
 	// 3. Check for issues in processGroupID
 	processGroupIssue := false
@@ -297,7 +297,7 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, cluster *fdbv1
 
 		needsReplacement, _ := processGroup.NeedsReplacement(0)
 		if needsReplacement && autoFix {
-			failedProcessGroups = append(failedProcessGroups, processGroup.ProcessGroupID)
+			failedProcessGroups = append(failedProcessGroups, string(processGroup.ProcessGroupID))
 		}
 	}
 
@@ -331,7 +331,7 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, cluster *fdbv1
 	processGroupIDLabel := cluster.GetProcessGroupIDLabel()
 	for _, pod := range pods.Items {
 		// Skip Pods that are marked for removal those will probably be in a terminating state.
-		if _, ok := removedProcessGroups[pod.Labels[cluster.GetProcessGroupIDLabel()]]; ok {
+		if _, ok := removedProcessGroups[fdbv1beta2.ProcessGroupID(pod.Labels[cluster.GetProcessGroupIDLabel()])]; ok {
 			continue
 		}
 
@@ -374,7 +374,7 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, cluster *fdbv1
 			killPods = append(killPods, pod)
 		}
 
-		id := pod.Labels[processGroupIDLabel]
+		id := fdbv1beta2.ProcessGroupID(pod.Labels[processGroupIDLabel])
 		if _, ok := processGroupMap[id]; !ok {
 			podIssue = true
 			statement := fmt.Sprintf("Pod %s/%s with the ID %s is not part of the cluster spec status", pod.Namespace, pod.Name, id)

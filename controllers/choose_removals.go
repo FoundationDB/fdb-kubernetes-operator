@@ -39,7 +39,7 @@ func (c chooseRemovals) reconcile(ctx context.Context, r *FoundationDBClusterRec
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "chooseRemovals")
 	hasNewRemovals := false
 
-	var removals = make(map[string]bool)
+	var removals = make(map[fdbv1beta2.ProcessGroupID]bool)
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup.IsMarkedForRemoval() {
 			removals[processGroup.ProcessGroupID] = true
@@ -79,7 +79,7 @@ func (c chooseRemovals) reconcile(ctx context.Context, r *FoundationDBClusterRec
 			if processGroup.IsMarkedForRemoval() {
 				removedCount--
 			} else {
-				locality, present := localityMap[processGroup.ProcessGroupID]
+				locality, present := localityMap[string(processGroup.ProcessGroupID)]
 				if present {
 					processClassLocality = append(processClassLocality, locality)
 				}
@@ -113,7 +113,7 @@ func (c chooseRemovals) reconcile(ctx context.Context, r *FoundationDBClusterRec
 
 	if hasNewRemovals {
 		for _, processGroup := range cluster.Status.ProcessGroups {
-			if !remainingProcessMap[processGroup.ProcessGroupID] {
+			if !remainingProcessMap[string(processGroup.ProcessGroupID)] {
 				processGroup.MarkForRemoval()
 			}
 		}

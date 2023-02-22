@@ -85,13 +85,13 @@ var _ = Describe("add_process_groups", func() {
 		})
 
 		It("should add a storage process", func() {
-			storageProcesses := make([]string, 0, newProcessCounts.Storage)
+			storageProcesses := make([]fdbv1beta2.ProcessGroupID, 0, newProcessCounts.Storage)
 			for _, processGroup := range cluster.Status.ProcessGroups {
 				if processGroup.ProcessClass == "storage" {
 					storageProcesses = append(storageProcesses, processGroup.ProcessGroupID)
 				}
 			}
-			expectedStorageProcesses := []string{
+			expectedStorageProcesses := []fdbv1beta2.ProcessGroupID{
 				"storage-1",
 				"storage-2",
 				"storage-3",
@@ -119,13 +119,13 @@ var _ = Describe("add_process_groups", func() {
 		})
 
 		It("should add a storage process", func() {
-			storageProcesses := make([]string, 0, newProcessCounts.Storage)
+			storageProcesses := make([]fdbv1beta2.ProcessGroupID, 0, newProcessCounts.Storage)
 			for _, processGroup := range cluster.Status.ProcessGroups {
 				if processGroup.ProcessClass == "storage" {
 					storageProcesses = append(storageProcesses, processGroup.ProcessGroupID)
 				}
 			}
-			expectedStorageProcesses := []string{
+			expectedStorageProcesses := []fdbv1beta2.ProcessGroupID{
 				"old-prefix-storage-4",
 				"storage-1",
 				"storage-2",
@@ -152,13 +152,13 @@ var _ = Describe("add_process_groups", func() {
 		})
 
 		It("should add storage processes", func() {
-			storageProcesses := make([]string, 0, newProcessCounts.Storage)
+			storageProcesses := make([]fdbv1beta2.ProcessGroupID, 0, newProcessCounts.Storage)
 			for _, processGroup := range cluster.Status.ProcessGroups {
 				if processGroup.ProcessClass == "storage" {
 					storageProcesses = append(storageProcesses, processGroup.ProcessGroupID)
 				}
 			}
-			expectedStorageProcesses := []string{
+			expectedStorageProcesses := []fdbv1beta2.ProcessGroupID{
 				"storage-1",
 				"storage-2",
 				"storage-3",
@@ -185,13 +185,13 @@ var _ = Describe("add_process_groups", func() {
 			})
 
 			It("should fill in the gap", func() {
-				storageProcesses := make([]string, 0, newProcessCounts.Storage)
+				storageProcesses := make([]fdbv1beta2.ProcessGroupID, 0, newProcessCounts.Storage)
 				for _, processGroup := range cluster.Status.ProcessGroups {
 					if processGroup.ProcessClass == "storage" {
 						storageProcesses = append(storageProcesses, processGroup.ProcessGroupID)
 					}
 				}
-				expectedStorageProcesses := []string{
+				expectedStorageProcesses := []fdbv1beta2.ProcessGroupID{
 					"storage-1",
 					"storage-2",
 					"storage-3",

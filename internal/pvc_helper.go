@@ -26,8 +26,8 @@ import (
 )
 
 // CreatePVCMap creates a map with the process group ID as a key and the according PVC as a value
-func CreatePVCMap(cluster *fdbv1beta2.FoundationDBCluster, pvcs *corev1.PersistentVolumeClaimList) map[string]corev1.PersistentVolumeClaim {
-	pvcMap := make(map[string]corev1.PersistentVolumeClaim, len(pvcs.Items))
+func CreatePVCMap(cluster *fdbv1beta2.FoundationDBCluster, pvcs *corev1.PersistentVolumeClaimList) map[fdbv1beta2.ProcessGroupID]corev1.PersistentVolumeClaim {
+	pvcMap := make(map[fdbv1beta2.ProcessGroupID]corev1.PersistentVolumeClaim, len(pvcs.Items))
 	for _, pvc := range pvcs.Items {
 		processGroupID := GetProcessGroupIDFromMeta(cluster, pvc.ObjectMeta)
 		if processGroupID == "" {

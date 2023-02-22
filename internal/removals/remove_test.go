@@ -35,7 +35,7 @@ var _ = Describe("remove", func() {
 		BeforeEach(func() {
 			status = &fdbv1beta2.FoundationDBStatus{
 				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
-					Processes: map[string]fdbv1beta2.FoundationDBStatusProcessInfo{
+					Processes: map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{
 						"1": {
 							Locality: map[string]string{
 								fdbv1beta2.FDBLocalityInstanceIDKey: "1",
@@ -97,16 +97,16 @@ var _ = Describe("remove", func() {
 			Expect(len(zones)).To(BeNumerically("==", 4))
 
 			Expect(len(zones["zone1"])).To(BeNumerically("==", 2))
-			Expect(zones["zone1"]).To(ConsistOf("1", "2"))
+			Expect(zones["zone1"]).To(ConsistOf(fdbv1beta2.ProcessGroupID("1"), fdbv1beta2.ProcessGroupID("2")))
 
 			Expect(len(zones["zone3"])).To(BeNumerically("==", 1))
-			Expect(zones["zone3"]).To(ConsistOf("3"))
+			Expect(zones["zone3"]).To(ConsistOf(fdbv1beta2.ProcessGroupID("3")))
 
 			Expect(len(zones[UnknownZone])).To(BeNumerically("==", 1))
-			Expect(zones[UnknownZone]).To(ConsistOf("4"))
+			Expect(zones[UnknownZone]).To(ConsistOf(fdbv1beta2.ProcessGroupID("4")))
 
 			Expect(len(zones[TerminatingZone])).To(BeNumerically("==", 2))
-			Expect(zones[TerminatingZone]).To(ConsistOf("5", "6"))
+			Expect(zones[TerminatingZone]).To(ConsistOf(fdbv1beta2.ProcessGroupID("5"), fdbv1beta2.ProcessGroupID("6")))
 
 			Expect(timestamp).To(BeNumerically("==", 42))
 		})
@@ -114,14 +114,14 @@ var _ = Describe("remove", func() {
 	})
 
 	When("getting the process groups to remove", func() {
-		zones := map[string][]string{
+		zones := map[string][]fdbv1beta2.ProcessGroupID{
 			"zone1":     {"1", "2"},
 			"zone3":     {"3", "4"},
 			UnknownZone: {"4", "5"},
 		}
 
 		DescribeTable("should delete the Pods based on the deletion mode",
-			func(removalMode fdbv1beta2.PodUpdateMode, zones map[string][]string, expected int, expectedErr error) {
+			func(removalMode fdbv1beta2.PodUpdateMode, zones map[string][]fdbv1beta2.ProcessGroupID, expected int, expectedErr error) {
 				_, removals, err := GetProcessGroupsToRemove(removalMode, zones)
 				if expectedErr != nil {
 					Expect(err).To(Equal(expectedErr))
@@ -136,7 +136,7 @@ var _ = Describe("remove", func() {
 				nil),
 			Entry("With the deletion mode Zone and only terminating process groupse",
 				fdbv1beta2.PodUpdateModeZone,
-				map[string][]string{
+				map[string][]fdbv1beta2.ProcessGroupID{
 					TerminatingZone: {"1", "2"},
 				},
 				0,

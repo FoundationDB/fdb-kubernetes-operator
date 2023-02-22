@@ -46,7 +46,7 @@ func (d deletePodsForBuggification) reconcile(ctx context.Context, r *Foundation
 	podMap := internal.CreatePodMap(cluster, pods)
 	crashLoopContainerProcessGroups := cluster.GetCrashLoopContainerProcessGroups()
 
-	noSchedulePods := make(map[string]fdbv1beta2.None, len(cluster.Spec.Buggify.NoSchedule))
+	noSchedulePods := make(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None, len(cluster.Spec.Buggify.NoSchedule))
 	for _, processGroupID := range cluster.Spec.Buggify.NoSchedule {
 		noSchedulePods[processGroupID] = fdbv1beta2.None{}
 	}

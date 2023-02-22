@@ -98,12 +98,12 @@ func (in *BuggifyConfig) DeepCopyInto(out *BuggifyConfig) {
 	*out = *in
 	if in.NoSchedule != nil {
 		in, out := &in.NoSchedule, &out.NoSchedule
-		*out = make([]string, len(*in))
+		*out = make([]ProcessGroupID, len(*in))
 		copy(*out, *in)
 	}
 	if in.CrashLoop != nil {
 		in, out := &in.CrashLoop, &out.CrashLoop
-		*out = make([]string, len(*in))
+		*out = make([]ProcessGroupID, len(*in))
 		copy(*out, *in)
 	}
 	if in.CrashLoopContainers != nil {
@@ -115,7 +115,7 @@ func (in *BuggifyConfig) DeepCopyInto(out *BuggifyConfig) {
 	}
 	if in.IgnoreDuringRestart != nil {
 		in, out := &in.IgnoreDuringRestart, &out.IgnoreDuringRestart
-		*out = make([]string, len(*in))
+		*out = make([]ProcessGroupID, len(*in))
 		copy(*out, *in)
 	}
 }
@@ -230,7 +230,7 @@ func (in *CrashLoopContainerObject) DeepCopyInto(out *CrashLoopContainerObject) 
 	*out = *in
 	if in.Targets != nil {
 		in, out := &in.Targets, &out.Targets
-		*out = make([]string, len(*in))
+		*out = make([]ProcessGroupID, len(*in))
 		copy(*out, *in)
 	}
 }
@@ -623,12 +623,12 @@ func (in *FoundationDBClusterSpec) DeepCopyInto(out *FoundationDBClusterSpec) {
 	out.FaultDomain = in.FaultDomain
 	if in.ProcessGroupsToRemove != nil {
 		in, out := &in.ProcessGroupsToRemove, &out.ProcessGroupsToRemove
-		*out = make([]string, len(*in))
+		*out = make([]ProcessGroupID, len(*in))
 		copy(*out, *in)
 	}
 	if in.ProcessGroupsToRemoveWithoutExclusion != nil {
 		in, out := &in.ProcessGroupsToRemoveWithoutExclusion, &out.ProcessGroupsToRemoveWithoutExclusion
-		*out = make([]string, len(*in))
+		*out = make([]ProcessGroupID, len(*in))
 		copy(*out, *in)
 	}
 	if in.ConfigMap != nil {
@@ -993,7 +993,7 @@ func (in *FoundationDBStatusClusterInfo) DeepCopyInto(out *FoundationDBStatusClu
 	in.DatabaseConfiguration.DeepCopyInto(&out.DatabaseConfiguration)
 	if in.Processes != nil {
 		in, out := &in.Processes, &out.Processes
-		*out = make(map[string]FoundationDBStatusProcessInfo, len(*in))
+		*out = make(map[ProcessGroupID]FoundationDBStatusProcessInfo, len(*in))
 		for key, val := range *in {
 			(*out)[key] = *val.DeepCopy()
 		}

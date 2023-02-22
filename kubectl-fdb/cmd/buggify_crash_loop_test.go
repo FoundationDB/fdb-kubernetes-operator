@@ -34,7 +34,7 @@ var _ = Describe("[plugin] buggify crash-loop instances command", func() {
 		When("adding instances to crash-loop list from a cluster", func() {
 			type testCase struct {
 				Instances                    []string
-				ExpectedInstancesInCrashLoop []string
+				ExpectedInstancesInCrashLoop []fdbv1beta2.ProcessGroupID
 			}
 
 			DescribeTable("should add all targeted processes to crash-loop list",
@@ -54,23 +54,23 @@ var _ = Describe("[plugin] buggify crash-loop instances command", func() {
 				Entry("Adding single instance.",
 					testCase{
 						Instances:                    []string{"test-storage-1"},
-						ExpectedInstancesInCrashLoop: []string{"storage-1"},
+						ExpectedInstancesInCrashLoop: []fdbv1beta2.ProcessGroupID{"storage-1"},
 					}),
 				Entry("Adding multiple instances.",
 					testCase{
 						Instances:                    []string{"test-storage-1", "test-storage-2"},
-						ExpectedInstancesInCrashLoop: []string{"storage-1", "storage-2"},
+						ExpectedInstancesInCrashLoop: []fdbv1beta2.ProcessGroupID{"storage-1", "storage-2"},
 					}),
 			)
 
 			When("a process group was already in crash-loop", func() {
 				type testCase struct {
 					Instances                    []string
-					ExpectedInstancesInCrashLoop []string
+					ExpectedInstancesInCrashLoop []fdbv1beta2.ProcessGroupID
 				}
 
 				BeforeEach(func() {
-					cluster.Spec.Buggify.CrashLoop = []string{"storage-1"}
+					cluster.Spec.Buggify.CrashLoop = []fdbv1beta2.ProcessGroupID{"storage-1"}
 				})
 
 				DescribeTable("should add all targeted processes to crash-loop list",
@@ -90,17 +90,17 @@ var _ = Describe("[plugin] buggify crash-loop instances command", func() {
 					Entry("Adding the same instance.",
 						testCase{
 							Instances:                    []string{"test-storage-1"},
-							ExpectedInstancesInCrashLoop: []string{"storage-1"},
+							ExpectedInstancesInCrashLoop: []fdbv1beta2.ProcessGroupID{"storage-1"},
 						}),
 					Entry("Adding different instance.",
 						testCase{
 							Instances:                    []string{"test-storage-2"},
-							ExpectedInstancesInCrashLoop: []string{"storage-1", "storage-2"},
+							ExpectedInstancesInCrashLoop: []fdbv1beta2.ProcessGroupID{"storage-1", "storage-2"},
 						}),
 					Entry("Adding multiple instances.",
 						testCase{
 							Instances:                    []string{"test-storage-2", "test-storage-3"},
-							ExpectedInstancesInCrashLoop: []string{"storage-1", "storage-2", "storage-3"},
+							ExpectedInstancesInCrashLoop: []fdbv1beta2.ProcessGroupID{"storage-1", "storage-2", "storage-3"},
 						}),
 				)
 			})
@@ -108,12 +108,12 @@ var _ = Describe("[plugin] buggify crash-loop instances command", func() {
 
 		When("removing instances from crash-loop list from a cluster", func() {
 			BeforeEach(func() {
-				cluster.Spec.Buggify.CrashLoop = []string{"storage-1", "storage-2", "storage-3"}
+				cluster.Spec.Buggify.CrashLoop = []fdbv1beta2.ProcessGroupID{"storage-1", "storage-2", "storage-3"}
 			})
 
 			type testCase struct {
 				Instances                    []string
-				ExpectedInstancesInCrashLoop []string
+				ExpectedInstancesInCrashLoop []fdbv1beta2.ProcessGroupID
 			}
 
 			DescribeTable("should remove all targeted processes from the crash-loop list",
@@ -133,20 +133,19 @@ var _ = Describe("[plugin] buggify crash-loop instances command", func() {
 				Entry("Removing single instance.",
 					testCase{
 						Instances:                    []string{"test-storage-1"},
-						ExpectedInstancesInCrashLoop: []string{"storage-2", "storage-3"},
+						ExpectedInstancesInCrashLoop: []fdbv1beta2.ProcessGroupID{"storage-2", "storage-3"},
 					}),
 				Entry("Removing multiple instances.",
 					testCase{
 						Instances:                    []string{"test-storage-2", "test-storage-3"},
-						ExpectedInstancesInCrashLoop: []string{"storage-1"},
+						ExpectedInstancesInCrashLoop: []fdbv1beta2.ProcessGroupID{"storage-1"},
 					}),
 			)
-
 		})
 
 		When("clearing crash-loop list", func() {
 			BeforeEach(func() {
-				cluster.Spec.Buggify.CrashLoop = []string{"storage-1", "storage-2", "storage-3"}
+				cluster.Spec.Buggify.CrashLoop = []fdbv1beta2.ProcessGroupID{"storage-1", "storage-2", "storage-3"}
 			})
 
 			It("should clear the crash-loop list", func() {

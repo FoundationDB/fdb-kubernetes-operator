@@ -100,7 +100,7 @@ func NormalizeClusterSpec(cluster *fdbv1beta2.FoundationDBCluster, options Depre
 	if len(cluster.Spec.Buggify.CrashLoop) > 0 {
 		crashLoopContainers := cluster.GetCrashLoopContainerProcessGroups()
 		if _, ok := crashLoopContainers[fdbv1beta2.MainContainerName]; !ok {
-			crashLoopContainers[fdbv1beta2.MainContainerName] = make(map[string]fdbv1beta2.None)
+			crashLoopContainers[fdbv1beta2.MainContainerName] = make(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None)
 		}
 
 		for _, pid := range cluster.Spec.Buggify.CrashLoop {
@@ -111,7 +111,7 @@ func NormalizeClusterSpec(cluster *fdbv1beta2.FoundationDBCluster, options Depre
 		i := 0
 		for name, procs := range crashLoopContainers {
 			result[i].ContainerName = name
-			result[i].Targets = make([]string, len(procs))
+			result[i].Targets = make([]fdbv1beta2.ProcessGroupID, len(procs))
 
 			j := 0
 			for pid := range procs {

@@ -52,8 +52,8 @@ var _ = Describe("[plugin] remove process groups command", func() {
 			type testCase struct {
 				Instances                                 []string
 				WithExclusion                             bool
-				ExpectedInstancesToRemove                 []string
-				ExpectedInstancesToRemoveWithoutExclusion []string
+				ExpectedInstancesToRemove                 []fdbv1beta2.ProcessGroupID
+				ExpectedInstancesToRemoveWithoutExclusion []fdbv1beta2.ProcessGroupID
 				ExpectedProcessCounts                     fdbv1beta2.ProcessCounts
 				RemoveAllFailed                           bool
 			}
@@ -79,8 +79,8 @@ var _ = Describe("[plugin] remove process groups command", func() {
 					testCase{
 						Instances:                 []string{"test-storage-1"},
 						WithExclusion:             true,
-						ExpectedInstancesToRemove: []string{"storage-1"},
-						ExpectedInstancesToRemoveWithoutExclusion: []string{},
+						ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{"storage-1"},
+						ExpectedInstancesToRemoveWithoutExclusion: []fdbv1beta2.ProcessGroupID{},
 						ExpectedProcessCounts: fdbv1beta2.ProcessCounts{
 							Storage: 1,
 						},
@@ -90,8 +90,8 @@ var _ = Describe("[plugin] remove process groups command", func() {
 					testCase{
 						Instances:                 []string{"test-storage-1"},
 						WithExclusion:             false,
-						ExpectedInstancesToRemove: []string{},
-						ExpectedInstancesToRemoveWithoutExclusion: []string{"storage-1"},
+						ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{},
+						ExpectedInstancesToRemoveWithoutExclusion: []fdbv1beta2.ProcessGroupID{"storage-1"},
 						ExpectedProcessCounts: fdbv1beta2.ProcessCounts{
 							Storage: 1,
 						},
@@ -100,8 +100,8 @@ var _ = Describe("[plugin] remove process groups command", func() {
 					testCase{
 						Instances:                 []string{"test-storage-42"},
 						WithExclusion:             true,
-						ExpectedInstancesToRemove: []string{"storage-42"},
-						ExpectedInstancesToRemoveWithoutExclusion: []string{},
+						ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{"storage-42"},
+						ExpectedInstancesToRemoveWithoutExclusion: []fdbv1beta2.ProcessGroupID{},
 						ExpectedProcessCounts: fdbv1beta2.ProcessCounts{
 							Storage: 1,
 						},
@@ -111,7 +111,7 @@ var _ = Describe("[plugin] remove process groups command", func() {
 
 			When("a process group was already marked for removal", func() {
 				BeforeEach(func() {
-					cluster.Spec.ProcessGroupsToRemove = []string{"storage-1"}
+					cluster.Spec.ProcessGroupsToRemove = []fdbv1beta2.ProcessGroupID{"storage-1"}
 				})
 
 				When("adding the same process group to the removal list without exclusion", func() {
@@ -127,9 +127,9 @@ var _ = Describe("[plugin] remove process groups command", func() {
 						}, &resCluster)
 
 						Expect(err).NotTo(HaveOccurred())
-						Expect(resCluster.Spec.ProcessGroupsToRemove).To(ContainElements("storage-1"))
+						Expect(resCluster.Spec.ProcessGroupsToRemove).To(ContainElements(fdbv1beta2.ProcessGroupID("storage-1")))
 						Expect(len(resCluster.Spec.ProcessGroupsToRemove)).To(BeNumerically("==", len(removals)))
-						Expect(resCluster.Spec.ProcessGroupsToRemoveWithoutExclusion).To(ContainElements("storage-1"))
+						Expect(resCluster.Spec.ProcessGroupsToRemoveWithoutExclusion).To(ContainElements(fdbv1beta2.ProcessGroupID("storage-1")))
 						Expect(len(resCluster.Spec.ProcessGroupsToRemoveWithoutExclusion)).To(BeNumerically("==", len(removals)))
 					})
 				})
@@ -147,7 +147,7 @@ var _ = Describe("[plugin] remove process groups command", func() {
 						}, &resCluster)
 
 						Expect(err).NotTo(HaveOccurred())
-						Expect(resCluster.Spec.ProcessGroupsToRemove).To(ContainElements("storage-1"))
+						Expect(resCluster.Spec.ProcessGroupsToRemove).To(ContainElements(fdbv1beta2.ProcessGroupID("storage-1")))
 						Expect(len(resCluster.Spec.ProcessGroupsToRemove)).To(BeNumerically("==", len(removals)))
 						Expect(len(resCluster.Spec.ProcessGroupsToRemoveWithoutExclusion)).To(BeNumerically("==", 0))
 					})

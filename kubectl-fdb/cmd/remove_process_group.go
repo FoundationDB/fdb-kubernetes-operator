@@ -112,8 +112,8 @@ kubectl fdb -n default remove process-group -c cluster --remove-all-failed
 }
 
 // replaceProcessGroups adds process groups to the removal list of the cluster
-func replaceProcessGroups(kubeClient client.Client, clusterName string, processGroupIDs []string, namespace string, withExclusion bool, wait bool, removeAllFailed bool, useProcessGroupID bool, sleep uint16) error {
-	if len(processGroupIDs) == 0 && !removeAllFailed {
+func replaceProcessGroups(kubeClient client.Client, clusterName string, ids []string, namespace string, withExclusion bool, wait bool, removeAllFailed bool, useProcessGroupID bool, sleep uint16) error {
+	if len(ids) == 0 && !removeAllFailed {
 		return nil
 	}
 
@@ -127,16 +127,21 @@ func replaceProcessGroups(kubeClient client.Client, clusterName string, processG
 	}
 
 	// In this case the user has Pod name specified
+	var processGroupIDs []fdbv1beta2.ProcessGroupID
 	if !useProcessGroupID {
-		processGroupIDs, err = getProcessGroupIDsFromPodName(cluster, processGroupIDs)
+		processGroupIDs, err = getProcessGroupIDsFromPodName(cluster, ids)
 		if err != nil {
 			return err
+		}
+	} else {
+		for _, id := range ids {
+			processGroupIDs = append(processGroupIDs, fdbv1beta2.ProcessGroupID(id))
 		}
 	}
 
 	patch := client.MergeFrom(cluster.DeepCopy())
 
-	processGroupSet := map[string]fdbv1beta2.None{}
+	processGroupSet := map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None{}
 	for _, processGroup := range processGroupIDs {
 		processGroupSet[processGroup] = fdbv1beta2.None{}
 	}
@@ -163,7 +168,7 @@ func replaceProcessGroups(kubeClient client.Client, clusterName string, processG
 
 	if sleep > 0 {
 		for _, processGroupID := range processGroupIDs {
-			addProcessGroups([]string{processGroupID}, withExclusion, cluster)
+			addProcessGroups([]fdbv1beta2.ProcessGroupID{processGroupID}, withExclusion, cluster)
 			time.Sleep(time.Duration(sleep) * time.Second)
 		}
 	} else {
@@ -173,7 +178,7 @@ func replaceProcessGroups(kubeClient client.Client, clusterName string, processG
 	return kubeClient.Patch(ctx.TODO(), cluster, patch)
 }
 
-func addProcessGroups(processGroupIDs []string, withExclusion bool, cluster *fdbv1beta2.FoundationDBCluster) {
+func addProcessGroups(processGroupIDs []fdbv1beta2.ProcessGroupID, withExclusion bool, cluster *fdbv1beta2.FoundationDBCluster) {
 	if withExclusion {
 		cluster.AddProcessGroupsToRemovalList(processGroupIDs)
 	} else {

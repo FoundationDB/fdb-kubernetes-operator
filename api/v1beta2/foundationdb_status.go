@@ -70,7 +70,7 @@ type FoundationDBStatusClusterInfo struct {
 
 	// Processes provides details on the processes that are reporting to the
 	// cluster.
-	Processes map[string]FoundationDBStatusProcessInfo `json:"processes,omitempty"`
+	Processes map[ProcessGroupID]FoundationDBStatusProcessInfo `json:"processes,omitempty"`
 
 	// Data provides information about the data in the database.
 	Data FoundationDBStatusDataStatistics `json:"data,omitempty"`

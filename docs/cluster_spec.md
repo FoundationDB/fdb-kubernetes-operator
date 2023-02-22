@@ -57,11 +57,11 @@ BuggifyConfig provides options for injecting faults into a cluster for testing.
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
-| noSchedule | NoSchedule defines a list of process group IDs that should fail to schedule. | []string | false |
-| crashLoop | CrashLoops defines a list of process group IDs that should be put into a crash looping state. **Deprecated: use CrashLoopContainers instead.** | []string | false |
+| noSchedule | NoSchedule defines a list of process group IDs that should fail to schedule. | [][ProcessGroupID](#processgroupid) | false |
+| crashLoop | CrashLoops defines a list of process group IDs that should be put into a crash looping state. **Deprecated: use CrashLoopContainers instead.** | [][ProcessGroupID](#processgroupid) | false |
 | crashLoopContainers | CrashLoopContainers defines a list of process group IDs and containers that should be put into a crash looping state. | [][CrashLoopContainerObject](#crashloopcontainerobject) | false |
 | emptyMonitorConf | EmptyMonitorConf instructs the operator to update all of the fdbmonitor.conf files to have zero fdbserver processes configured. | bool | false |
-| ignoreDuringRestart | IgnoreDuringRestart instructs the operator to ignore the provided process groups IDs during the restart command. This can be useful to simulate cases where the kill command is not restarting all processes. IgnoreDuringRestart does not support the wildcard option to ignore all of this specific cluster processes. | []string | false |
+| ignoreDuringRestart | IgnoreDuringRestart instructs the operator to ignore the provided process groups IDs during the restart command. This can be useful to simulate cases where the kill command is not restarting all processes. IgnoreDuringRestart does not support the wildcard option to ignore all of this specific cluster processes. | [][ProcessGroupID](#processgroupid) | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -145,7 +145,7 @@ CrashLoopContainerObject specifies crash-loop target for specific container.
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
 | containerName | Name of the target container. | string | false |
-| targets | Target processes to kill inside the container. | []string | false |
+| targets | Target processes to kill inside the container. | [][ProcessGroupID](#processgroupid) | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -224,8 +224,8 @@ FoundationDBClusterSpec defines the desired state of a cluster.
 | seedConnectionString | SeedConnectionString provides a connection string for the initial reconciliation.  After the initial reconciliation, this will not be used. | string | false |
 | partialConnectionString | PartialConnectionString provides a way to specify part of the connection string (e.g. the database name and coordinator generation) without specifying the entire string. This does not allow for setting the coordinator IPs. If `SeedConnectionString` is set, `PartialConnectionString` will have no effect. They cannot be used together. | [ConnectionString](#connectionstring) | false |
 | faultDomain | FaultDomain defines the rules for what fault domain to replicate across. | [FoundationDBClusterFaultDomain](#foundationdbclusterfaultdomain) | false |
-| processGroupsToRemove | ProcessGroupsToRemove defines the process groups that we should remove from the cluster. This list contains the process group IDs. | []string | false |
-| processGroupsToRemoveWithoutExclusion | ProcessGroupsToRemoveWithoutExclusion defines the process groups that we should remove from the cluster without excluding them. This list contains the process group IDs.  This should be used for cases where a pod does not have an IP address and you want to remove it and destroy its volume without confirming the data is fully replicated. | []string | false |
+| processGroupsToRemove | ProcessGroupsToRemove defines the process groups that we should remove from the cluster. This list contains the process group IDs. | [][ProcessGroupID](#processgroupid) | false |
+| processGroupsToRemoveWithoutExclusion | ProcessGroupsToRemoveWithoutExclusion defines the process groups that we should remove from the cluster without excluding them. This list contains the process group IDs.  This should be used for cases where a pod does not have an IP address and you want to remove it and destroy its volume without confirming the data is fully replicated. | [][ProcessGroupID](#processgroupid) | false |
 | configMap | ConfigMap allows customizing the config map the operator creates. | *[corev1.ConfigMap](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#configmap-v1-core) | false |
 | mainContainer | MainContainer defines customization for the foundationdb container. | [ContainerOverrides](#containeroverrides) | false |
 | sidecarContainer | SidecarContainer defines customization for the foundationdb-kubernetes-sidecar container. | [ContainerOverrides](#containeroverrides) | false |
@@ -384,13 +384,19 @@ ProcessGroupConditionType represents a concrete ProcessGroupCondition.
 
 [Back to TOC](#table-of-contents)
 
+## ProcessGroupID
+
+ProcessGroupID represents the ID of the process group
+
+[Back to TOC](#table-of-contents)
+
 ## ProcessGroupStatus
 
 ProcessGroupStatus represents the status of a ProcessGroup.
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
-| processGroupID | ProcessGroupID represents the ID of the process group | string | false |
+| processGroupID | ProcessGroupID represents the ID of the process group | [ProcessGroupID](#processgroupid) | false |
 | processClass | ProcessClass represents the class the process group has. | [ProcessClass](#processclass) | false |
 | addresses | Addresses represents the list of addresses the process group has been known to have. | []string | false |
 | removalTimestamp | RemoveTimestamp if not empty defines when the process group was marked for removal. | *metav1.Time | false |

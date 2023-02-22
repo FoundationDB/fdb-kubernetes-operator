@@ -166,7 +166,7 @@ func getAllPodsFromClusterWithCondition(kubeClient client.Client, clusterName st
 		return []string{}, err
 	}
 
-	processesSet := make(map[string]bool)
+	processesSet := make(map[fdbv1beta2.ProcessGroupID]bool)
 
 	for _, condition := range conditions {
 		for _, process := range fdbv1beta2.FilterByCondition(cluster.Status.ProcessGroups, condition, true) {
@@ -178,10 +178,10 @@ func getAllPodsFromClusterWithCondition(kubeClient client.Client, clusterName st
 		}
 	}
 
-	processes := make([]string, 0, len(processesSet))
+	podNames := make([]string, 0, len(processesSet))
 	pods, err := getPodsForCluster(kubeClient, cluster)
 	if err != nil {
-		return processes, err
+		return podNames, err
 	}
 
 	for _, pod := range pods.Items {
@@ -190,20 +190,20 @@ func getAllPodsFromClusterWithCondition(kubeClient client.Client, clusterName st
 				continue
 			}
 
-			if pod.Labels[cluster.GetProcessGroupIDLabel()] != process {
+			if pod.Labels[cluster.GetProcessGroupIDLabel()] != string(process) {
 				continue
 			}
 
-			processes = append(processes, pod.Name)
+			podNames = append(podNames, pod.Name)
 		}
 	}
 
-	return processes, nil
+	return podNames, nil
 }
 
 // getProcessGroupIDsFromPodName returns the process group IDs based on the cluster configuration.
-func getProcessGroupIDsFromPodName(cluster *fdbv1beta2.FoundationDBCluster, podNames []string) ([]string, error) {
-	processGroupIDs := make([]string, 0, len(podNames))
+func getProcessGroupIDsFromPodName(cluster *fdbv1beta2.FoundationDBCluster, podNames []string) ([]fdbv1beta2.ProcessGroupID, error) {
+	processGroupIDs := make([]fdbv1beta2.ProcessGroupID, 0, len(podNames))
 
 	// TODO(johscheuer): We could validate if the provided process group is actually part of the cluster
 	for _, podName := range podNames {

@@ -33,7 +33,7 @@ import (
 )
 
 // ReplaceMisconfiguredProcessGroups checks if the cluster has any misconfigured process groups that must be replaced.
-func ReplaceMisconfiguredProcessGroups(log logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, pvcMap map[string]corev1.PersistentVolumeClaim, podMap map[string]*corev1.Pod) (bool, error) {
+func ReplaceMisconfiguredProcessGroups(log logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, pvcMap map[fdbv1beta2.ProcessGroupID]corev1.PersistentVolumeClaim, podMap map[fdbv1beta2.ProcessGroupID]*corev1.Pod) (bool, error) {
 	hasReplacements := false
 
 	maxReplacements := getMaxReplacements(cluster, cluster.GetMaxConcurrentReplacements())

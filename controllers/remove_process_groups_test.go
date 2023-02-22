@@ -62,7 +62,7 @@ var _ = Describe("remove_process_groups", func() {
 
 		When("trying to remove a coordinator", func() {
 			coordinatorIP := "1.1.1.1"
-			coordinatorID := "storage-1"
+			coordinatorID := fdbv1beta2.ProcessGroupID("storage-1")
 
 			BeforeEach(func() {
 				marked, processGroup := fdbv1beta2.MarkProcessGroupForRemoval(cluster.Status.ProcessGroups, coordinatorID, fdbv1beta2.ProcessClassStorage, coordinatorIP)
@@ -295,7 +295,7 @@ var _ = Describe("remove_process_groups", func() {
 	})
 
 	Context("validating getProcessesToInclude", func() {
-		var removedProcessGroups map[string]bool
+		var removedProcessGroups map[fdbv1beta2.ProcessGroupID]bool
 
 		BeforeEach(func() {
 			cluster = &fdbv1beta2.FoundationDBCluster{
@@ -325,7 +325,7 @@ var _ = Describe("remove_process_groups", func() {
 					},
 				},
 			}
-			removedProcessGroups = make(map[string]bool)
+			removedProcessGroups = make(map[fdbv1beta2.ProcessGroupID]bool)
 		})
 
 		Context("cluster doesn't support inclusions using locality", func() {
@@ -342,7 +342,7 @@ var _ = Describe("remove_process_groups", func() {
 			When("including one process", func() {
 				BeforeEach(func() {
 					processGroup := cluster.Status.ProcessGroups[0]
-					Expect(processGroup.ProcessGroupID).To(Equal("storage-1"))
+					Expect(processGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
 					processGroup.MarkForRemoval()
 					cluster.Status.ProcessGroups[0] = processGroup
 
@@ -376,7 +376,7 @@ var _ = Describe("remove_process_groups", func() {
 
 				BeforeEach(func() {
 					removedProcessGroup = cluster.Status.ProcessGroups[0]
-					Expect(removedProcessGroup.ProcessGroupID).To(Equal("storage-1"))
+					Expect(removedProcessGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
 					removedProcessGroup.MarkForRemoval()
 					cluster.Status.ProcessGroups[0] = removedProcessGroup
 

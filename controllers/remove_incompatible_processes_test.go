@@ -83,7 +83,7 @@ var _ = Describe("restart_incompatible_pods", func() {
 					IncompatibleConnections: []string{
 						"1.1.1.1:0:tls",
 					},
-					Processes: map[string]fdbv1beta2.FoundationDBStatusProcessInfo{
+					Processes: map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{
 						"2": {
 							Address: fdbv1beta2.ProcessAddress{
 								IPAddress: net.ParseIP("1.1.1.2"),
@@ -105,7 +105,7 @@ var _ = Describe("restart_incompatible_pods", func() {
 						"1.1.1.1:0:tls",
 						"1.1.1.2:0:tls",
 					},
-					Processes: map[string]fdbv1beta2.FoundationDBStatusProcessInfo{
+					Processes: map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{
 						"2": {
 							Address: fdbv1beta2.ProcessAddress{
 								IPAddress: net.ParseIP("1.1.1.2"),
@@ -235,7 +235,7 @@ var _ = Describe("restart_incompatible_pods", func() {
 					BeforeEach(func() {
 						adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 						Expect(err).NotTo(HaveOccurred())
-						adminClient.FrozenStatus.Cluster.Processes = map[string]fdbv1beta2.FoundationDBStatusProcessInfo{
+						adminClient.FrozenStatus.Cluster.Processes = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{
 							"1": {
 								Address: fdbv1beta2.ProcessAddress{
 									IPAddress: net.ParseIP(cluster.Status.ProcessGroups[0].Addresses[0]),

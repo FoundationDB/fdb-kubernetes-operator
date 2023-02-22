@@ -2919,12 +2919,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			}
 			Expect(cluster.ProcessGroupIsBeingRemoved("storage-1")).To(BeFalse())
 
-			cluster.Spec.ProcessGroupsToRemove = []string{"log-1"}
+			cluster.Spec.ProcessGroupsToRemove = []ProcessGroupID{"log-1"}
 			Expect(cluster.ProcessGroupIsBeingRemoved("storage-1")).To(BeFalse())
 			Expect(cluster.ProcessGroupIsBeingRemoved("log-1")).To(BeTrue())
 			cluster.Spec.ProcessGroupsToRemove = nil
 
-			cluster.Spec.ProcessGroupsToRemoveWithoutExclusion = []string{"log-1"}
+			cluster.Spec.ProcessGroupsToRemoveWithoutExclusion = []ProcessGroupID{"log-1"}
 			Expect(cluster.ProcessGroupIsBeingRemoved("storage-1")).To(BeFalse())
 			Expect(cluster.ProcessGroupIsBeingRemoved("log-1")).To(BeTrue())
 			cluster.Spec.ProcessGroupsToRemoveWithoutExclusion = nil
@@ -3555,21 +3555,21 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		Context("with a single condition", func() {
 			It("should return the process groups with that condition", func() {
 				groups := FilterByCondition(status, IncorrectCommandLine, false)
-				Expect(groups).To(Equal([]string{"storage-2", "storage-4", "storage-5"}))
+				Expect(groups).To(Equal([]ProcessGroupID{"storage-2", "storage-4", "storage-5"}))
 			})
 		})
 
 		When("ignoring removed processes", func() {
 			It("should return the process groups with that condition", func() {
 				groups := FilterByCondition(status, IncorrectCommandLine, true)
-				Expect(groups).To(Equal([]string{"storage-2", "storage-4"}))
+				Expect(groups).To(Equal([]ProcessGroupID{"storage-2", "storage-4"}))
 			})
 		})
 
 		Context("with a mix of required and forbidden conditions", func() {
 			It("should return the process groups that match all rules", func() {
 				groups := FilterByConditions(status, map[ProcessGroupConditionType]bool{IncorrectCommandLine: true, IncorrectPodSpec: false}, false)
-				Expect(groups).To(Equal([]string{"storage-2", "storage-5"}))
+				Expect(groups).To(Equal([]ProcessGroupID{"storage-2", "storage-5"}))
 			})
 		})
 	})
@@ -4448,7 +4448,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		When("removing with exclusion", func() {
 			When("a np process group is already included in the list", func() {
 				It("should add the process group to the removal list", func() {
-					removals := []string{"test1"}
+					removals := []ProcessGroupID{"test1"}
 					cluster.AddProcessGroupsToRemovalList(removals)
 					Expect(cluster.Spec.ProcessGroupsToRemove).To(ContainElements(removals))
 					Expect(len(cluster.Spec.ProcessGroupsToRemove)).To(Equal(len(removals)))
@@ -4462,8 +4462,8 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				})
 
 				It("should only add the missing process groups", func() {
-					Expect(cluster.Spec.ProcessGroupsToRemove).To(ContainElements("test1"))
-					removals := []string{"test1", "test2"}
+					Expect(cluster.Spec.ProcessGroupsToRemove).To(ContainElements(ProcessGroupID("test1")))
+					removals := []ProcessGroupID{"test1", "test2"}
 					cluster.AddProcessGroupsToRemovalList(removals)
 					Expect(cluster.Spec.ProcessGroupsToRemove).To(ContainElements(removals))
 					Expect(len(cluster.Spec.ProcessGroupsToRemove)).To(Equal(len(removals)))
@@ -4475,7 +4475,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		When("removing without exclusion", func() {
 			When("a process group is not already included in the list", func() {
 				It("should add the process group to the removal list", func() {
-					removals := []string{"test1"}
+					removals := []ProcessGroupID{"test1"}
 					cluster.AddProcessGroupsToRemovalWithoutExclusionList(removals)
 					Expect(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion).To(ContainElements(removals))
 					Expect(len(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion)).To(Equal(len(removals)))
@@ -4486,11 +4486,11 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			When("a process group is already included in the list", func() {
 				BeforeEach(func() {
 					cluster.Spec.ProcessGroupsToRemoveWithoutExclusion = append(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion, "test1")
-					Expect(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion).To(ContainElements("test1"))
+					Expect(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion).To(ContainElements(ProcessGroupID("test1")))
 				})
 
 				It("should only add the missing process groups", func() {
-					removals := []string{"test1", "test2"}
+					removals := []ProcessGroupID{"test1", "test2"}
 					cluster.AddProcessGroupsToRemovalWithoutExclusionList(removals)
 					Expect(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion).To(ContainElements(removals))
 					Expect(len(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion)).To(Equal(len(removals)))
@@ -4501,12 +4501,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			When("a process group is already included in the with exclusion list", func() {
 				BeforeEach(func() {
 					cluster.Spec.ProcessGroupsToRemove = append(cluster.Spec.ProcessGroupsToRemove, "test1")
-					Expect(cluster.Spec.ProcessGroupsToRemove).To(ContainElements("test1"))
+					Expect(cluster.Spec.ProcessGroupsToRemove).To(ContainElements(ProcessGroupID("test1")))
 					Expect(len(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion)).To(Equal(0))
 				})
 
 				It("should only add the missing process groups", func() {
-					removals := []string{"test1", "test2"}
+					removals := []ProcessGroupID{"test1", "test2"}
 					cluster.AddProcessGroupsToRemovalWithoutExclusionList(removals)
 					Expect(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion).To(ContainElements(removals))
 					Expect(len(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion)).To(Equal(len(removals)))
@@ -4662,8 +4662,8 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 		When("the no-schedule list is empty", func() {
 			type testCase struct {
-				Instances                     []string
-				ExpectedInstancesInNoSchedule []string
+				Instances                     []ProcessGroupID
+				ExpectedInstancesInNoSchedule []ProcessGroupID
 			}
 
 			DescribeTable("should add all targeted processes to the no-schedule list",
@@ -4674,25 +4674,25 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				},
 				Entry("Adding single instance",
 					testCase{
-						Instances:                     []string{"instance-1"},
-						ExpectedInstancesInNoSchedule: []string{"instance-1"},
+						Instances:                     []ProcessGroupID{"instance-1"},
+						ExpectedInstancesInNoSchedule: []ProcessGroupID{"instance-1"},
 					}),
 				Entry("Adding multiple instances",
 					testCase{
-						Instances:                     []string{"instance-1", "instance-2"},
-						ExpectedInstancesInNoSchedule: []string{"instance-1", "instance-2"},
+						Instances:                     []ProcessGroupID{"instance-1", "instance-2"},
+						ExpectedInstancesInNoSchedule: []ProcessGroupID{"instance-1", "instance-2"},
 					}),
 			)
 		})
 
 		When("the no-schedule list is not empty", func() {
 			BeforeEach(func() {
-				cluster.Spec.Buggify.NoSchedule = []string{"instance-1"}
+				cluster.Spec.Buggify.NoSchedule = []ProcessGroupID{"instance-1"}
 			})
 
 			type testCase struct {
-				Instances                     []string
-				ExpectedInstancesInNoSchedule []string
+				Instances                     []ProcessGroupID
+				ExpectedInstancesInNoSchedule []ProcessGroupID
 			}
 
 			DescribeTable("should add all targeted processes to no-schedule list",
@@ -4703,13 +4703,13 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				},
 				Entry("Adding single instance",
 					testCase{
-						Instances:                     []string{"instance-2"},
-						ExpectedInstancesInNoSchedule: []string{"instance-1", "instance-2"},
+						Instances:                     []ProcessGroupID{"instance-2"},
+						ExpectedInstancesInNoSchedule: []ProcessGroupID{"instance-1", "instance-2"},
 					}),
 				Entry("Adding multiple instances",
 					testCase{
-						Instances:                     []string{"instance-2", "instance-3"},
-						ExpectedInstancesInNoSchedule: []string{"instance-1", "instance-2", "instance-3"},
+						Instances:                     []ProcessGroupID{"instance-2", "instance-3"},
+						ExpectedInstancesInNoSchedule: []ProcessGroupID{"instance-1", "instance-2", "instance-3"},
 					}),
 			)
 		})
@@ -4723,15 +4723,15 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			cluster = &FoundationDBCluster{
 				Spec: FoundationDBClusterSpec{
 					Buggify: BuggifyConfig{
-						NoSchedule: []string{"instance-1", "instance-2", "instance-3"},
+						NoSchedule: []ProcessGroupID{"instance-1", "instance-2", "instance-3"},
 					},
 				},
 			}
 		})
 
 		type testCase struct {
-			Instances                         []string
-			ExpectedInstancesInNoScheduleList []string
+			Instances                         []ProcessGroupID
+			ExpectedInstancesInNoScheduleList []ProcessGroupID
 		}
 
 		DescribeTable("should remove all targeted processes from the no-schedule list",
@@ -4742,13 +4742,13 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			},
 			Entry("Removing single instance",
 				testCase{
-					Instances:                         []string{"instance-1"},
-					ExpectedInstancesInNoScheduleList: []string{"instance-2", "instance-3"},
+					Instances:                         []ProcessGroupID{"instance-1"},
+					ExpectedInstancesInNoScheduleList: []ProcessGroupID{"instance-2", "instance-3"},
 				}),
 			Entry("Removing multiple instances",
 				testCase{
-					Instances:                         []string{"instance-2", "instance-3"},
-					ExpectedInstancesInNoScheduleList: []string{"instance-1"},
+					Instances:                         []ProcessGroupID{"instance-2", "instance-3"},
+					ExpectedInstancesInNoScheduleList: []ProcessGroupID{"instance-1"},
 				}),
 		)
 
@@ -4763,8 +4763,8 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 		When("the crash-loop list is empty", func() {
 			type testCase struct {
-				Instances                    []string
-				ExpectedInstancesInCrashLoop []string
+				Instances                    []ProcessGroupID
+				ExpectedInstancesInCrashLoop []ProcessGroupID
 			}
 
 			DescribeTable("should add all targeted processes to the crash-loop list",
@@ -4775,30 +4775,30 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				},
 				Entry("Adding single instance",
 					testCase{
-						Instances:                    []string{"instance-1"},
-						ExpectedInstancesInCrashLoop: []string{"instance-1"},
+						Instances:                    []ProcessGroupID{"instance-1"},
+						ExpectedInstancesInCrashLoop: []ProcessGroupID{"instance-1"},
 					}),
 				Entry("Adding multiple instances",
 					testCase{
-						Instances:                    []string{"instance-1", "instance-2"},
-						ExpectedInstancesInCrashLoop: []string{"instance-1", "instance-2"},
+						Instances:                    []ProcessGroupID{"instance-1", "instance-2"},
+						ExpectedInstancesInCrashLoop: []ProcessGroupID{"instance-1", "instance-2"},
 					}),
 				Entry("Adding all instances",
 					testCase{
-						Instances:                    []string{"*"},
-						ExpectedInstancesInCrashLoop: []string{"*"},
+						Instances:                    []ProcessGroupID{"*"},
+						ExpectedInstancesInCrashLoop: []ProcessGroupID{"*"},
 					}),
 			)
 		})
 
 		When("the crash-loop list is not empty", func() {
 			BeforeEach(func() {
-				cluster.Spec.Buggify.CrashLoop = []string{"instance-1"}
+				cluster.Spec.Buggify.CrashLoop = []ProcessGroupID{"instance-1"}
 			})
 
 			type testCase struct {
-				Instances                    []string
-				ExpectedInstancesInCrashLoop []string
+				Instances                    []ProcessGroupID
+				ExpectedInstancesInCrashLoop []ProcessGroupID
 			}
 
 			DescribeTable("should add all targeted processes to crash-loop list",
@@ -4809,30 +4809,30 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				},
 				Entry("Adding single instance",
 					testCase{
-						Instances:                    []string{"instance-2"},
-						ExpectedInstancesInCrashLoop: []string{"instance-1", "instance-2"},
+						Instances:                    []ProcessGroupID{"instance-2"},
+						ExpectedInstancesInCrashLoop: []ProcessGroupID{"instance-1", "instance-2"},
 					}),
 				Entry("Adding multiple instances",
 					testCase{
-						Instances:                    []string{"instance-2", "instance-3"},
-						ExpectedInstancesInCrashLoop: []string{"instance-1", "instance-2", "instance-3"},
+						Instances:                    []ProcessGroupID{"instance-2", "instance-3"},
+						ExpectedInstancesInCrashLoop: []ProcessGroupID{"instance-1", "instance-2", "instance-3"},
 					}),
 				Entry("Adding all instances",
 					testCase{
-						Instances:                    []string{"*"},
-						ExpectedInstancesInCrashLoop: []string{"instance-1", "*"},
+						Instances:                    []ProcessGroupID{"*"},
+						ExpectedInstancesInCrashLoop: []ProcessGroupID{"instance-1", "*"},
 					}),
 			)
 		})
 
 		When("the crash-loop list contains *", func() {
 			BeforeEach(func() {
-				cluster.Spec.Buggify.CrashLoop = []string{"*"}
+				cluster.Spec.Buggify.CrashLoop = []ProcessGroupID{"*"}
 			})
 
 			type testCase struct {
-				Instances                    []string
-				ExpectedInstancesInCrashLoop []string
+				Instances                    []ProcessGroupID
+				ExpectedInstancesInCrashLoop []ProcessGroupID
 			}
 
 			DescribeTable("should add all targeted processes to crash-loop list",
@@ -4843,18 +4843,18 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				},
 				Entry("Adding single instance",
 					testCase{
-						Instances:                    []string{"instance-1"},
-						ExpectedInstancesInCrashLoop: []string{"instance-1", "*"},
+						Instances:                    []ProcessGroupID{"instance-1"},
+						ExpectedInstancesInCrashLoop: []ProcessGroupID{"instance-1", "*"},
 					}),
 				Entry("Adding multiple instances",
 					testCase{
-						Instances:                    []string{"instance-2", "instance-3"},
-						ExpectedInstancesInCrashLoop: []string{"*", "instance-2", "instance-3"},
+						Instances:                    []ProcessGroupID{"instance-2", "instance-3"},
+						ExpectedInstancesInCrashLoop: []ProcessGroupID{"*", "instance-2", "instance-3"},
 					}),
 				Entry("Adding all instances",
 					testCase{
-						Instances:                    []string{"*"},
-						ExpectedInstancesInCrashLoop: []string{"*"},
+						Instances:                    []ProcessGroupID{"*"},
+						ExpectedInstancesInCrashLoop: []ProcessGroupID{"*"},
 					}),
 			)
 		})
@@ -4869,15 +4869,15 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				cluster = &FoundationDBCluster{
 					Spec: FoundationDBClusterSpec{
 						Buggify: BuggifyConfig{
-							CrashLoop: []string{"instance-1", "instance-2", "instance-3"},
+							CrashLoop: []ProcessGroupID{"instance-1", "instance-2", "instance-3"},
 						},
 					},
 				}
 			})
 
 			type testCase struct {
-				Instances                    []string
-				ExpectedInstancesInCrashLoop []string
+				Instances                    []ProcessGroupID
+				ExpectedInstancesInCrashLoop []ProcessGroupID
 			}
 
 			DescribeTable("should remove all targeted processes from the crash-loop list",
@@ -4888,13 +4888,13 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				},
 				Entry("Removing single instance",
 					testCase{
-						Instances:                    []string{"instance-1"},
-						ExpectedInstancesInCrashLoop: []string{"instance-2", "instance-3"},
+						Instances:                    []ProcessGroupID{"instance-1"},
+						ExpectedInstancesInCrashLoop: []ProcessGroupID{"instance-2", "instance-3"},
 					}),
 				Entry("Removing multiple instances",
 					testCase{
-						Instances:                    []string{"instance-2", "instance-3"},
-						ExpectedInstancesInCrashLoop: []string{"instance-1"},
+						Instances:                    []ProcessGroupID{"instance-2", "instance-3"},
+						ExpectedInstancesInCrashLoop: []ProcessGroupID{"instance-1"},
 					}),
 			)
 		})
@@ -4904,15 +4904,15 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				cluster = &FoundationDBCluster{
 					Spec: FoundationDBClusterSpec{
 						Buggify: BuggifyConfig{
-							CrashLoop: []string{"*", "instance-1", "instance-2", "instance-3"},
+							CrashLoop: []ProcessGroupID{"*", "instance-1", "instance-2", "instance-3"},
 						},
 					},
 				}
 			})
 
 			type testCase struct {
-				Instances                    []string
-				ExpectedInstancesInCrashLoop []string
+				Instances                    []ProcessGroupID
+				ExpectedInstancesInCrashLoop []ProcessGroupID
 			}
 
 			DescribeTable("should remove all targeted processes from the crash-loop list",
@@ -4923,18 +4923,18 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				},
 				Entry("Removing single instance",
 					testCase{
-						Instances:                    []string{"instance-1"},
-						ExpectedInstancesInCrashLoop: []string{"*", "instance-2", "instance-3"},
+						Instances:                    []ProcessGroupID{"instance-1"},
+						ExpectedInstancesInCrashLoop: []ProcessGroupID{"*", "instance-2", "instance-3"},
 					}),
 				Entry("Removing multiple instances",
 					testCase{
-						Instances:                    []string{"instance-2", "instance-3"},
-						ExpectedInstancesInCrashLoop: []string{"*", "instance-1"},
+						Instances:                    []ProcessGroupID{"instance-2", "instance-3"},
+						ExpectedInstancesInCrashLoop: []ProcessGroupID{"*", "instance-1"},
 					}),
 				Entry("Removing *",
 					testCase{
-						Instances:                    []string{"*"},
-						ExpectedInstancesInCrashLoop: []string{"instance-1", "instance-2", "instance-3"},
+						Instances:                    []ProcessGroupID{"*"},
+						ExpectedInstancesInCrashLoop: []ProcessGroupID{"instance-1", "instance-2", "instance-3"},
 					}),
 			)
 		})

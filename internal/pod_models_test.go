@@ -678,7 +678,7 @@ var _ = Describe("pod_models", func() {
 
 			Context("with an instance that is crash looping", func() {
 				BeforeEach(func() {
-					cluster.Spec.Buggify.CrashLoop = []string{"storage-1"}
+					cluster.Spec.Buggify.CrashLoop = []fdbv1beta2.ProcessGroupID{"storage-1"}
 					err := NormalizeClusterSpec(cluster, DeprecationOptions{})
 					Expect(err).NotTo(HaveOccurred())
 					spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
@@ -697,7 +697,7 @@ var _ = Describe("pod_models", func() {
 					cluster.Spec.Buggify.CrashLoopContainers = []fdbv1beta2.CrashLoopContainerObject{
 						{
 							ContainerName: fdbv1beta2.MainContainerName,
-							Targets:       []string{"storage-1"},
+							Targets:       []fdbv1beta2.ProcessGroupID{"storage-1"},
 						},
 					}
 					err := NormalizeClusterSpec(cluster, DeprecationOptions{})
@@ -924,7 +924,7 @@ var _ = Describe("pod_models", func() {
 
 		Context("with an process group that is crash looping", func() {
 			BeforeEach(func() {
-				cluster.Spec.Buggify.CrashLoop = []string{"storage-1"}
+				cluster.Spec.Buggify.CrashLoop = []fdbv1beta2.ProcessGroupID{"storage-1"}
 				err := NormalizeClusterSpec(cluster, DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
@@ -940,7 +940,7 @@ var _ = Describe("pod_models", func() {
 
 		Context("with all process group crash looping", func() {
 			BeforeEach(func() {
-				cluster.Spec.Buggify.CrashLoop = []string{"*"}
+				cluster.Spec.Buggify.CrashLoop = []fdbv1beta2.ProcessGroupID{"*"}
 				err := NormalizeClusterSpec(cluster, DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
@@ -956,7 +956,7 @@ var _ = Describe("pod_models", func() {
 
 		Context("with a different process group crash looping", func() {
 			BeforeEach(func() {
-				cluster.Spec.Buggify.CrashLoop = []string{"storage-2"}
+				cluster.Spec.Buggify.CrashLoop = []fdbv1beta2.ProcessGroupID{"storage-2"}
 				err := NormalizeClusterSpec(cluster, DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
@@ -980,7 +980,7 @@ var _ = Describe("pod_models", func() {
 				cluster.Spec.Buggify.CrashLoopContainers = []fdbv1beta2.CrashLoopContainerObject{
 					{
 						ContainerName: fdbv1beta2.MainContainerName,
-						Targets:       []string{"storage-2"},
+						Targets:       []fdbv1beta2.ProcessGroupID{"storage-2"},
 					},
 				}
 				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
@@ -1004,7 +1004,7 @@ var _ = Describe("pod_models", func() {
 				cluster.Spec.Buggify.CrashLoopContainers = []fdbv1beta2.CrashLoopContainerObject{
 					{
 						ContainerName: fdbv1beta2.MainContainerName,
-						Targets:       []string{"storage-1"},
+						Targets:       []fdbv1beta2.ProcessGroupID{"storage-1"},
 					},
 				}
 				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
@@ -1029,7 +1029,7 @@ var _ = Describe("pod_models", func() {
 				cluster.Spec.Buggify.CrashLoopContainers = []fdbv1beta2.CrashLoopContainerObject{
 					{
 						ContainerName: fdbv1beta2.SidecarContainerName,
-						Targets:       []string{"storage-1"},
+						Targets:       []fdbv1beta2.ProcessGroupID{"storage-1"},
 					},
 				}
 				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
@@ -1051,7 +1051,7 @@ var _ = Describe("pod_models", func() {
 
 		Context("with an process group with scheduling broken", func() {
 			BeforeEach(func() {
-				cluster.Spec.Buggify.NoSchedule = []string{"storage-1"}
+				cluster.Spec.Buggify.NoSchedule = []fdbv1beta2.ProcessGroupID{"storage-1"}
 				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -3159,7 +3159,7 @@ var _ = Describe("pod_models", func() {
 			type testCase struct {
 				container      *corev1.Container
 				initMode       bool
-				processGroupID string
+				processGroupID fdbv1beta2.ProcessGroupID
 				hasError       bool
 			}
 
@@ -3291,14 +3291,14 @@ var _ = Describe("pod_models", func() {
 		})
 	})
 
-	DescribeTable("getting the process group ID from the Pod name", func(cluster *fdbv1beta2.FoundationDBCluster, podName string, expected string) {
+	DescribeTable("getting the process group ID from the Pod name", func(cluster *fdbv1beta2.FoundationDBCluster, podName string, expected fdbv1beta2.ProcessGroupID) {
 		Expect(GetProcessGroupIDFromPodName(cluster, podName)).To(Equal(expected))
 	},
 		Entry("cluster without prefix", &fdbv1beta2.FoundationDBCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "test",
 			},
-		}, "test-storage-1", "storage-1"),
+		}, "test-storage-1", fdbv1beta2.ProcessGroupID("storage-1")),
 		Entry("cluster with prefix", &fdbv1beta2.FoundationDBCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "test",
@@ -3306,7 +3306,7 @@ var _ = Describe("pod_models", func() {
 			Spec: fdbv1beta2.FoundationDBClusterSpec{
 				ProcessGroupIDPrefix: "prefix",
 			},
-		}, "test-storage-1", "prefix-storage-1"))
+		}, "test-storage-1", fdbv1beta2.ProcessGroupID("prefix-storage-1")))
 
 	Describe("ContainsPod", func() {
 		var pod1, pod2 *corev1.Pod
