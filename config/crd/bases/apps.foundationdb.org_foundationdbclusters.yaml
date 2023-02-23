@@ -9933,6 +9933,7 @@ spec:
                 properties:
                   crashLoop:
                     items:
+                      maxLength: 63
                       type: string
                     type: array
                   crashLoopContainers:
@@ -9942,6 +9943,7 @@ spec:
                           type: string
                         targets:
                           items:
+                            maxLength: 63
                             type: string
                           type: array
                       type: object
@@ -9950,11 +9952,13 @@ spec:
                     type: boolean
                   ignoreDuringRestart:
                     items:
+                      maxLength: 63
                       type: string
                     maxItems: 1000
                     type: array
                   noSchedule:
                     items:
+                      maxLength: 63
                       type: string
                     type: array
                 type: object
@@ -10262,12 +10266,14 @@ spec:
                 type: string
               processGroupsToRemove:
                 items:
+                  maxLength: 63
                   type: string
                 maxItems: 500
                 minItems: 0
                 type: array
               processGroupsToRemoveWithoutExclusion:
                 items:
+                  maxLength: 63
                   type: string
                 maxItems: 500
                 minItems: 0
@@ -13850,6 +13856,7 @@ spec:
                         type: object
                       type: array
                     processGroupID:
+                      maxLength: 63
                       type: string
                     removalTimestamp:
                       format: date-time

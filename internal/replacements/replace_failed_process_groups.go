@@ -37,8 +37,7 @@ func getMaxReplacements(cluster *fdbv1beta2.FoundationDBCluster, maxReplacements
 	removalCount := 0
 	for _, processGroupStatus := range cluster.Status.ProcessGroups {
 		if processGroupStatus.IsMarkedForRemoval() && !processGroupStatus.IsExcluded() {
-			// If we already have a removal in-flight, we should not try
-			// replacing more failed process groups.
+			// Count all removals that are in-flight.
 			removalCount++
 		}
 	}
@@ -58,11 +57,22 @@ func ReplaceFailedProcessGroups(log logr.Logger, cluster *fdbv1beta2.FoundationD
 	hasReplacement := false
 	crashLoopContainerProcessGroups := cluster.GetCrashLoopContainerProcessGroups()
 
+	// Only replace process groups without an address if the cluster has the desired fault tolerance
+	// and is available.
+	hasDesiredFaultTolerance, err := internal.HasDesiredFaultTolerance(log, adminClient, cluster)
+	if err != nil {
+		log.Error(err, "Could not fetch if cluster has desired fault tolerance")
+		return false
+	}
+
 ProcessGroupLoop:
 	for _, processGroupStatus := range cluster.Status.ProcessGroups {
-		if maxReplacements <= 0 {
-			return hasReplacement
+		// If a process group is already marked for removal we can skip it here.
+		if processGroupStatus.IsMarkedForRemoval() {
+			continue
 		}
+
+		canReplace := maxReplacements > 0
 
 		for _, targets := range crashLoopContainerProcessGroups {
 			if _, ok := targets[processGroupStatus.ProcessGroupID]; ok {
@@ -77,15 +87,8 @@ ProcessGroupLoop:
 			continue
 		}
 
+		skipExclusion := false
 		if len(processGroupStatus.Addresses) == 0 {
-			// Only replace process groups without an address if the cluster has the desired fault tolerance
-			// and is available.
-			hasDesiredFaultTolerance, err := internal.HasDesiredFaultTolerance(log, adminClient, cluster)
-			if err != nil {
-				log.Error(err, "Could not fetch if cluster has desired fault tolerance")
-				continue
-			}
-
 			if !hasDesiredFaultTolerance {
 				log.Info(
 					"Skip process group with missing address",
@@ -97,11 +100,19 @@ ProcessGroupLoop:
 			// Since the process groups doesn't contain any addresses we have to skip exclusion.
 			// The assumption here is that this is safe since we assume that the process group was never scheduled onto any node
 			// otherwise the process group should have an address associated.
-			processGroupStatus.ExclusionSkipped = true
+			skipExclusion = true
 			log.Info(
 				"Replace process group with missing address",
 				"processGroupID", processGroupStatus.ProcessGroupID,
 				"failureTime", time.Unix(missingTime, 0).UTC().String())
+		}
+
+		// We are not allowed to replace additional process groups
+		if !canReplace {
+			log.Info("Detected replace process group but cannot replace it because we hit the replacement limit",
+				"processGroupID", processGroupStatus.ProcessGroupID,
+				"reason", fmt.Sprintf("automatic replacement detected failure time: %s", time.Unix(missingTime, 0).UTC().String()))
+			continue
 		}
 
 		log.Info("Replace process group",
@@ -110,6 +121,7 @@ ProcessGroupLoop:
 
 		processGroupStatus.MarkForRemoval()
 		hasReplacement = true
+		processGroupStatus.ExclusionSkipped = skipExclusion
 		maxReplacements--
 	}
 

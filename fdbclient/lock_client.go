@@ -157,7 +157,7 @@ func (client *realLockClient) updateLock(transaction fdb.Transaction, start int6
 
 // AddPendingUpgrades registers information about which process groups are
 // pending an upgrade to a new version.
-func (client *realLockClient) AddPendingUpgrades(version fdbv1beta2.Version, processGroupIDs []string) error {
+func (client *realLockClient) AddPendingUpgrades(version fdbv1beta2.Version, processGroupIDs []fdbv1beta2.ProcessGroupID) error {
 	_, err := client.database.Transact(func(tr fdb.Transaction) (interface{}, error) {
 		err := tr.Options().SetAccessSystemKeys()
 		if err != nil {
@@ -174,7 +174,7 @@ func (client *realLockClient) AddPendingUpgrades(version fdbv1beta2.Version, pro
 
 // GetPendingUpgrades returns the stored information about which process
 // groups are pending an upgrade to a new version.
-func (client *realLockClient) GetPendingUpgrades(version fdbv1beta2.Version) (map[string]bool, error) {
+func (client *realLockClient) GetPendingUpgrades(version fdbv1beta2.Version) (map[fdbv1beta2.ProcessGroupID]bool, error) {
 	upgrades, err := client.database.Transact(func(tr fdb.Transaction) (interface{}, error) {
 		err := tr.Options().SetReadSystemKeys()
 		if err != nil {
@@ -187,19 +187,23 @@ func (client *realLockClient) GetPendingUpgrades(version fdbv1beta2.Version) (ma
 			return nil, err
 		}
 		results := tr.GetRange(keyRange, fdb.RangeOptions{}).GetSliceOrPanic()
-		upgrades := make(map[string]bool, len(results))
+		upgrades := make(map[fdbv1beta2.ProcessGroupID]bool, len(results))
 		for _, result := range results {
-			upgrades[string(result.Value)] = true
+			upgrades[fdbv1beta2.ProcessGroupID(result.Value)] = true
 		}
+
 		return upgrades, nil
 	})
+
 	if err != nil {
 		return nil, err
 	}
-	upgradeMap, isMap := upgrades.(map[string]bool)
+
+	upgradeMap, isMap := upgrades.(map[fdbv1beta2.ProcessGroupID]bool)
 	if !isMap {
 		return nil, fmt.Errorf("invalid return value from transaction in GetPendingUpgrades: %v", upgrades)
 	}
+
 	return upgradeMap, nil
 }
 
@@ -221,6 +225,7 @@ func (client *realLockClient) ClearPendingUpgrades() error {
 		tr.ClearRange(keyRange)
 		return nil, nil
 	})
+
 	return err
 }
 

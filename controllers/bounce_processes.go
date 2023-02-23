@@ -120,7 +120,7 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 	upgrading := cluster.Status.RunningVersion != cluster.Spec.Version
 
 	if useLocks && upgrading {
-		processGroupIDs := make([]string, 0, len(cluster.Status.ProcessGroups))
+		processGroupIDs := make([]fdbv1beta2.ProcessGroupID, 0, len(cluster.Status.ProcessGroups))
 		for _, processGroup := range cluster.Status.ProcessGroups {
 			processGroupIDs = append(processGroupIDs, processGroup.ProcessGroupID)
 		}
@@ -175,10 +175,10 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 
 // getProcessesReadyForRestart returns a slice of process addresses that can be restarted. If addresses are missing or not all processes
 // have the latest configuration this method will return a requeue struct with more details.
-func getProcessesReadyForRestart(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, addressMap map[string][]fdbv1beta2.ProcessAddress, upgradedProcesses int) ([]fdbv1beta2.ProcessAddress, *requeue) {
+func getProcessesReadyForRestart(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, addressMap map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.ProcessAddress, upgradedProcesses int) ([]fdbv1beta2.ProcessAddress, *requeue) {
 	addresses := make([]fdbv1beta2.ProcessAddress, 0, len(cluster.Status.ProcessGroups))
 	allSynced := true
-	var missingAddress []string
+	var missingAddress []fdbv1beta2.ProcessGroupID
 
 	filterConditions := restarts.GetFilterConditions(cluster)
 	var missingProcesses int
@@ -267,7 +267,7 @@ func getAddressesForUpgrade(logger logr.Logger, r *FoundationDBClusterReconciler
 		if process.Version == version.String() {
 			continue
 		}
-		if pendingUpgrades[processID] {
+		if pendingUpgrades[fdbv1beta2.ProcessGroupID(processID)] {
 			addresses = append(addresses, process.Address)
 		} else {
 			notReadyProcesses = append(notReadyProcesses, processID)
@@ -295,7 +295,7 @@ func filterIgnoredProcessGroups(cluster *fdbv1beta2.FoundationDBCluster, address
 		return addresses, false
 	}
 
-	ignoredIDs := make(map[string]fdbv1beta2.None, len(cluster.Spec.Buggify.IgnoreDuringRestart))
+	ignoredIDs := make(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None, len(cluster.Spec.Buggify.IgnoreDuringRestart))
 	ignoredAddresses := make(map[string]fdbv1beta2.None, len(cluster.Spec.Buggify.IgnoreDuringRestart))
 
 	for _, id := range cluster.Spec.Buggify.IgnoreDuringRestart {

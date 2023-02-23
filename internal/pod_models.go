@@ -38,25 +38,25 @@ import (
 var processClassSanitizationPattern = regexp.MustCompile("[^a-z0-9-]")
 
 // GetProcessGroupIDFromPodName returns the process group ID for a given Pod name.
-func GetProcessGroupIDFromPodName(cluster *fdbv1beta2.FoundationDBCluster, podName string) string {
+func GetProcessGroupIDFromPodName(cluster *fdbv1beta2.FoundationDBCluster, podName string) fdbv1beta2.ProcessGroupID {
 	tmpName := strings.ReplaceAll(podName, cluster.Name, "")[1:]
 
 	if cluster.Spec.ProcessGroupIDPrefix != "" {
-		return fmt.Sprintf("%s-%s", cluster.Spec.ProcessGroupIDPrefix, tmpName)
+		return fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s", cluster.Spec.ProcessGroupIDPrefix, tmpName))
 	}
 
-	return tmpName
+	return fdbv1beta2.ProcessGroupID(tmpName)
 }
 
 // GetProcessGroupID generates an ID for a process group.
 //
-// This will return the pod name and the processGroupID ID.
-func GetProcessGroupID(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, idNum int) (string, string) {
-	var processGroupID string
+// This will return the pod name and the processGroupID.
+func GetProcessGroupID(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, idNum int) (string, fdbv1beta2.ProcessGroupID) {
+	var processGroupID fdbv1beta2.ProcessGroupID
 	if cluster.Spec.ProcessGroupIDPrefix != "" {
-		processGroupID = fmt.Sprintf("%s-%s-%d", cluster.Spec.ProcessGroupIDPrefix, processClass, idNum)
+		processGroupID = fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-%d", cluster.Spec.ProcessGroupIDPrefix, processClass, idNum))
 	} else {
-		processGroupID = fmt.Sprintf("%s-%d", processClass, idNum)
+		processGroupID = fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%d", processClass, idNum))
 	}
 	return fmt.Sprintf("%s-%s-%d", cluster.Name, processClassSanitizationPattern.ReplaceAllString(string(processClass), "-"), idNum), processGroupID
 }
@@ -107,7 +107,7 @@ func GetService(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 			Type:                     corev1.ServiceTypeClusterIP,
 			Ports:                    generateServicePorts(processesPerPod),
 			PublishNotReadyAddresses: true,
-			Selector:                 GetPodMatchLabels(cluster, "", id),
+			Selector:                 GetPodMatchLabels(cluster, "", string(id)),
 		},
 	}, nil
 }
@@ -234,7 +234,7 @@ func getContainers(podSpec *corev1.PodSpec) (*corev1.Container, *corev1.Containe
 	return mainContainer, sidecarContainer, nil
 }
 
-func configureContainersForUnifiedImages(cluster *fdbv1beta2.FoundationDBCluster, mainContainer *corev1.Container, sidecarContainer *corev1.Container, processGroupID string, processClass fdbv1beta2.ProcessClass, dataHall string) error {
+func configureContainersForUnifiedImages(cluster *fdbv1beta2.FoundationDBCluster, mainContainer *corev1.Container, sidecarContainer *corev1.Container, processGroupID fdbv1beta2.ProcessGroupID, processClass fdbv1beta2.ProcessClass, dataHall string) error {
 	mainContainer.Args = []string{
 		"--input-dir", "/var/dynamic-conf",
 		"--log-path", "/var/log/fdb-trace-logs/monitor.log",
@@ -408,7 +408,7 @@ func configureVolumesForContainers(cluster *fdbv1beta2.FoundationDBCluster, podS
 	podSpec.Volumes = append(podSpec.Volumes, volumes...)
 }
 
-func configureNoSchedule(podSpec *corev1.PodSpec, processGroupID string, noSchedules []string) {
+func configureNoSchedule(podSpec *corev1.PodSpec, processGroupID fdbv1beta2.ProcessGroupID, noSchedules []fdbv1beta2.ProcessGroupID) {
 	for _, noSchedulePID := range noSchedules {
 		if processGroupID != noSchedulePID {
 			continue
@@ -539,7 +539,7 @@ func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 
 // configureSidecarContainerForCluster sets up a sidecar container for a sidecar
 // in the FDB cluster.
-func configureSidecarContainerForCluster(cluster *fdbv1beta2.FoundationDBCluster, podName string, container *corev1.Container, initMode bool, processGroupID string, dataHall string) error {
+func configureSidecarContainerForCluster(cluster *fdbv1beta2.FoundationDBCluster, podName string, container *corev1.Container, initMode bool, processGroupID fdbv1beta2.ProcessGroupID, , dataHall string)) error {
 	return configureSidecarContainer(container, initMode, processGroupID, podName, cluster.GetRunningVersion(), cluster, cluster.Spec.SidecarContainer.ImageConfigs, false, dataHall)
 }
 
@@ -550,7 +550,7 @@ func configureSidecarContainerForBackup(backup *fdbv1beta2.FoundationDBBackup, c
 }
 
 // configureSidecarContainer sets up a foundationdb-kubernetes-sidecar container.
-func configureSidecarContainer(container *corev1.Container, initMode bool, processGroupID string, podName string, versionString string, optionalCluster *fdbv1beta2.FoundationDBCluster, imageConfigs []fdbv1beta2.ImageConfig, allowTagOverride bool, dataHall string) error {
+func configureSidecarContainer(container *corev1.Container, initMode bool, processGroupID fdbv1beta2.ProcessGroupID, podName string, versionString string, optionalCluster *fdbv1beta2.FoundationDBCluster, imageConfigs []fdbv1beta2.ImageConfig, allowTagOverride bool,  dataHall string) error {
 	sidecarEnv := make([]corev1.EnvVar, 0, 4)
 
 	hasTrustedCAs := optionalCluster != nil && len(optionalCluster.Spec.TrustedCAs) > 0
@@ -692,7 +692,7 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, proce
 
 // getEnvForMonitorConfigSubstitution provides the environment variables that
 // are used for substituting variables into the monitor config.
-func getEnvForMonitorConfigSubstitution(cluster *fdbv1beta2.FoundationDBCluster, instanceID string, dataHall string) []corev1.EnvVar {
+func getEnvForMonitorConfigSubstitution(cluster *fdbv1beta2.FoundationDBCluster, instanceID fdbv1beta2.ProcessGroupID, dataHall string) []corev1.EnvVar {
 	env := make([]corev1.EnvVar, 0)
 
 	publicIPSource := cluster.Spec.Routing.PublicIPSource
@@ -764,7 +764,7 @@ func getEnvForMonitorConfigSubstitution(cluster *fdbv1beta2.FoundationDBCluster,
 		}
 	}
 
-	env = append(env, corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: instanceID})
+	env = append(env, corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: string(instanceID)})
 
 	return env
 }
@@ -1035,7 +1035,7 @@ func GetStorageServersPerPodForPod(pod *corev1.Pod) (int, error) {
 }
 
 // GetPodMetadata returns the metadata for a specific Pod
-func GetPodMetadata(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, id string, specHash string) metav1.ObjectMeta {
+func GetPodMetadata(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, id fdbv1beta2.ProcessGroupID, specHash string) metav1.ObjectMeta {
 	var customMetadata *metav1.ObjectMeta
 
 	processSettings := cluster.GetProcessSettings(processClass)
@@ -1057,7 +1057,7 @@ func GetPodMetadata(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1b
 }
 
 // GetObjectMetadata returns the ObjectMetadata for a process
-func GetObjectMetadata(cluster *fdbv1beta2.FoundationDBCluster, base *metav1.ObjectMeta, processClass fdbv1beta2.ProcessClass, id string) metav1.ObjectMeta {
+func GetObjectMetadata(cluster *fdbv1beta2.FoundationDBCluster, base *metav1.ObjectMeta, processClass fdbv1beta2.ProcessClass, id fdbv1beta2.ProcessGroupID) metav1.ObjectMeta {
 	var metadata *metav1.ObjectMeta
 
 	if base != nil {
@@ -1071,7 +1071,7 @@ func GetObjectMetadata(cluster *fdbv1beta2.FoundationDBCluster, base *metav1.Obj
 		metadata.Labels = make(map[string]string)
 	}
 
-	for label, value := range GetPodLabels(cluster, processClass, id) {
+	for label, value := range GetPodLabels(cluster, processClass, string(id)) {
 		metadata.Labels[label] = value
 	}
 

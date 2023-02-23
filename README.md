@@ -11,6 +11,7 @@ To learn more about FoundationDB, visit [foundationdb.org](https://www.foundatio
 [![CI for main branch](https://github.com/FoundationDB/fdb-kubernetes-operator/actions/workflows/pull_request.yml/badge.svg)](https://github.com/FoundationDB/fdb-kubernetes-operator/actions/workflows/pull_request.yml)
 
 This project provides an operator for managing FoundationDB clusters on Kubernetes.
+Some more details are covered in this YouTube video: [Operating FoundationDB on Kubernetes (DoK Day EU 2022)](https://www.youtube.com/watch?v=Kf3kquvuing).
 
 ## Running the Operator
 
@@ -111,7 +112,7 @@ If you already have Docker installed you can use the following steps to build an
 
 ```bash
 # Create a container with amd64 which contains go
-docker run --rm --entrypoint=/bin/bash -ti --platform="linux/amd64" -v $(pwd):/work -w /work docker.io/library/golang:1.18 ./scripts/setup_container.sh
+docker run --rm --entrypoint=/bin/bash -ti --platform="linux/amd64" -v $(pwd):/work -w /work docker.io/library/golang:1.19 ./scripts/setup_container.sh
 # Now we can run the lint and test steps
 make fmt lint test
 ```

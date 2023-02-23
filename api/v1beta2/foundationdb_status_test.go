@@ -85,7 +85,7 @@ var _ = Describe("FoundationDBStatus", func() {
 						RoleCounts:      RoleCounts{Storage: 0, Logs: 3, Proxies: 3, Resolvers: 1, LogRouters: 0, RemoteLogs: 0},
 						VersionFlags:    VersionFlags{LogSpill: 2},
 					},
-					Processes: map[string]FoundationDBStatusProcessInfo{
+					Processes: map[ProcessGroupID]FoundationDBStatusProcessInfo{
 						"b9c25278c0fa207bc2a73bda2300d0a9": {
 							Address: ProcessAddress{
 								IPAddress: net.ParseIP("10.1.38.93"),
@@ -482,7 +482,7 @@ var _ = Describe("FoundationDBStatus", func() {
 				RoleCounts:      RoleCounts{Storage: 0, Logs: 3, Proxies: 3, CommitProxies: 2, GrvProxies: 1, Resolvers: 1, LogRouters: -1, RemoteLogs: -1},
 				VersionFlags:    VersionFlags{LogSpill: 2, LogVersion: 0},
 			},
-			Processes: map[string]FoundationDBStatusProcessInfo{
+			Processes: map[ProcessGroupID]FoundationDBStatusProcessInfo{
 				"eb48ada3a682e86363f06aa89e1041fa": {
 					Address: ProcessAddress{
 						IPAddress: net.ParseIP("10.1.18.254"),
