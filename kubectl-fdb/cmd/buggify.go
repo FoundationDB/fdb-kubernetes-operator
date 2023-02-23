@@ -43,11 +43,23 @@ kubectl fdb -n <namespace> buggify <option> -c <cluster> pod-1 pod-2
 # Add process groups into crash loop state for a cluster in the current namespace
 kubectl fdb buggify crash-loop -c cluster pod-1 pod-2
 
+# Add process groups into crash loop state for a cluster in the current namespace with container name
+kubectl fdb buggify crash-loop -c cluster --container-name container-name pod-1 pod-2
+
 # Remove process groups from crash loop state from a cluster in the current namespace
 kubectl fdb buggify crash-loop --clear -c cluster pod-1 pod-2
 
+# Remove process groups from crash loop state from a cluster in the current namespace with container name
+kubectl fdb buggify crash-loop --clear -c cluster --container-name container-name pod-1 pod-2
+
 # Clean crash loop list of a cluster in the current namespace
 kubectl fdb buggify crash-loop --clean -c cluster
+
+# Clean crash loop list of a cluster in the current namespace with container name
+kubectl fdb buggify crash-loop --clean -c cluster --container-name container-name
+
+# Add process groups into crash loop state for a cluster in the namespace default
+kubectl fdb -n default buggify crash-loop -c cluster pod-1 pod-2
 
 # Add process groups into no-schedule state for a cluster in the current namespace
 kubectl fdb buggify no-schedule -c cluster pod-1 pod-2
