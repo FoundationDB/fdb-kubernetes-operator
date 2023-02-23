@@ -29,6 +29,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+var testContainerName = "test-container"
+
 var _ = Describe("[plugin] buggify crash-loop instances command", func() {
 	When("running buggify crash-loop instances command", func() {
 		When("adding instances to crash-loop list from a cluster", func() {
@@ -159,6 +161,232 @@ var _ = Describe("[plugin] buggify crash-loop instances command", func() {
 				}, &resCluster)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(len(resCluster.Spec.Buggify.CrashLoop)).To(Equal(0))
+			})
+		})
+
+		When("adding instances to crash-loop container list", func() {
+			type testCase struct {
+				ContainerName                string
+				Instances                    []string
+				ExpectedInstancesInCrashLoop []fdbv1beta2.ProcessGroupID
+			}
+
+			When("crash-loop container list is empty", func() {
+				DescribeTable("should add all targeted processes to crash-loop container list",
+					func(tc testCase) {
+						Expect(len(cluster.Spec.Buggify.CrashLoopContainers)).To(BeNumerically("==", 0))
+						Expect(updateCrashLoopContainerList(k8sClient, clusterName, tc.ContainerName, tc.Instances, namespace, false, false, false)).NotTo(HaveOccurred())
+
+						var resCluster fdbv1beta2.FoundationDBCluster
+						Expect(k8sClient.Get(context.Background(), client.ObjectKey{
+							Namespace: namespace,
+							Name:      clusterName,
+						}, &resCluster)).NotTo(HaveOccurred())
+						Expect(len(resCluster.Spec.Buggify.CrashLoopContainers)).To(BeNumerically("==", 1))
+						for _, crashLoopContainerObj := range resCluster.Spec.Buggify.CrashLoopContainers {
+							if crashLoopContainerObj.ContainerName != tc.ContainerName {
+								continue
+							}
+							Expect(tc.ExpectedInstancesInCrashLoop).To(ContainElements(crashLoopContainerObj.Targets))
+							Expect(len(tc.ExpectedInstancesInCrashLoop)).To(BeNumerically("==", len(crashLoopContainerObj.Targets)))
+						}
+					},
+					Entry("Adding single instance.",
+						testCase{
+							ContainerName:                testContainerName,
+							Instances:                    []string{"test-storage-1"},
+							ExpectedInstancesInCrashLoop: []fdbv1beta2.ProcessGroupID{"storage-1"},
+						}),
+					Entry("Adding multiple instances.",
+						testCase{
+							ContainerName:                testContainerName,
+							Instances:                    []string{"test-storage-1", "test-storage-2"},
+							ExpectedInstancesInCrashLoop: []fdbv1beta2.ProcessGroupID{"storage-1", "storage-2"},
+						}),
+				)
+
+			})
+
+			When("crash-loop container list contains the input container", func() {
+				BeforeEach(func() {
+					crashLoopContainerObj := fdbv1beta2.CrashLoopContainerObject{
+						ContainerName: testContainerName,
+						Targets:       []fdbv1beta2.ProcessGroupID{"storage-1"},
+					}
+					cluster.Spec.Buggify.CrashLoopContainers = append(cluster.Spec.Buggify.CrashLoopContainers, crashLoopContainerObj)
+				})
+
+				DescribeTable("should add all targeted processes to crash-loop container list",
+					func(tc testCase) {
+						Expect(len(cluster.Spec.Buggify.CrashLoopContainers)).To(BeNumerically("==", 1))
+						Expect(updateCrashLoopContainerList(k8sClient, clusterName, tc.ContainerName, tc.Instances, namespace, false, false, false)).NotTo(HaveOccurred())
+
+						var resCluster fdbv1beta2.FoundationDBCluster
+						Expect(k8sClient.Get(context.Background(), client.ObjectKey{
+							Namespace: namespace,
+							Name:      clusterName,
+						}, &resCluster)).NotTo(HaveOccurred())
+						Expect(len(resCluster.Spec.Buggify.CrashLoopContainers)).To(BeNumerically("==", 1))
+						for _, crashLoopContainerObj := range resCluster.Spec.Buggify.CrashLoopContainers {
+							if crashLoopContainerObj.ContainerName != tc.ContainerName {
+								continue
+							}
+							Expect(tc.ExpectedInstancesInCrashLoop).To(ContainElements(crashLoopContainerObj.Targets))
+							Expect(len(tc.ExpectedInstancesInCrashLoop)).To(BeNumerically("==", len(crashLoopContainerObj.Targets)))
+						}
+					},
+					Entry("Adding same instance.",
+						testCase{
+							ContainerName:                testContainerName,
+							Instances:                    []string{"test-storage-1"},
+							ExpectedInstancesInCrashLoop: []fdbv1beta2.ProcessGroupID{"storage-1"},
+						}),
+					Entry("Adding single different instance.",
+						testCase{
+							ContainerName:                testContainerName,
+							Instances:                    []string{"test-storage-2"},
+							ExpectedInstancesInCrashLoop: []fdbv1beta2.ProcessGroupID{"storage-1", "storage-2"},
+						}),
+					Entry("Adding multiple instances.",
+						testCase{
+							ContainerName:                testContainerName,
+							Instances:                    []string{"test-storage-1", "test-storage-2", "test-storage-3"},
+							ExpectedInstancesInCrashLoop: []fdbv1beta2.ProcessGroupID{"storage-1", "storage-2", "storage-3"},
+						}),
+				)
+			})
+
+			When("crash-loop container list contains doesn't the input container", func() {
+				BeforeEach(func() {
+					crashLoopContainerObj := fdbv1beta2.CrashLoopContainerObject{
+						ContainerName: "test-container-2",
+						Targets:       []fdbv1beta2.ProcessGroupID{"storage-1"},
+					}
+					cluster.Spec.Buggify.CrashLoopContainers = append(cluster.Spec.Buggify.CrashLoopContainers, crashLoopContainerObj)
+				})
+
+				DescribeTable("should add all targeted processes to crash-loop container list",
+					func(tc testCase) {
+						Expect(len(cluster.Spec.Buggify.CrashLoopContainers)).To(BeNumerically("==", 1))
+						Expect(updateCrashLoopContainerList(k8sClient, clusterName, tc.ContainerName, tc.Instances, namespace, false, false, false)).NotTo(HaveOccurred())
+
+						var resCluster fdbv1beta2.FoundationDBCluster
+						Expect(k8sClient.Get(context.Background(), client.ObjectKey{
+							Namespace: namespace,
+							Name:      clusterName,
+						}, &resCluster)).NotTo(HaveOccurred())
+						Expect(len(resCluster.Spec.Buggify.CrashLoopContainers)).To(BeNumerically("==", 2))
+						for _, crashLoopContainerObj := range resCluster.Spec.Buggify.CrashLoopContainers {
+							if crashLoopContainerObj.ContainerName != tc.ContainerName {
+								continue
+							}
+							Expect(tc.ExpectedInstancesInCrashLoop).To(ContainElements(crashLoopContainerObj.Targets))
+							Expect(len(tc.ExpectedInstancesInCrashLoop)).To(BeNumerically("==", len(crashLoopContainerObj.Targets)))
+						}
+					},
+					Entry("Adding single instance.",
+						testCase{
+							ContainerName:                testContainerName,
+							Instances:                    []string{"test-storage-1"},
+							ExpectedInstancesInCrashLoop: []fdbv1beta2.ProcessGroupID{"storage-1"},
+						}),
+					Entry("Adding multiple instances.",
+						testCase{
+							ContainerName:                testContainerName,
+							Instances:                    []string{"test-storage-1", "test-storage-2", "test-storage-3"},
+							ExpectedInstancesInCrashLoop: []fdbv1beta2.ProcessGroupID{"storage-1", "storage-2", "storage-3"},
+						}),
+				)
+
+			})
+		})
+
+		When("removing instances from crash-loop container list", func() {
+			type testCase struct {
+				ContainerName                string
+				Instances                    []string
+				ExpectedInstancesInCrashLoop []fdbv1beta2.ProcessGroupID
+			}
+
+			BeforeEach(func() {
+				crashLoopContainerObj := fdbv1beta2.CrashLoopContainerObject{
+					ContainerName: testContainerName,
+					Targets:       []fdbv1beta2.ProcessGroupID{"storage-1", "storage-2", "storage-3"},
+				}
+				cluster.Spec.Buggify.CrashLoopContainers = append(cluster.Spec.Buggify.CrashLoopContainers, crashLoopContainerObj)
+			})
+
+			DescribeTable("should remove all targeted processes from crash-loop container list",
+				func(tc testCase) {
+					Expect(len(cluster.Spec.Buggify.CrashLoopContainers)).To(BeNumerically("==", 1))
+					Expect(updateCrashLoopContainerList(k8sClient, clusterName, tc.ContainerName, tc.Instances, namespace, false, true, false)).NotTo(HaveOccurred())
+
+					var resCluster fdbv1beta2.FoundationDBCluster
+					Expect(k8sClient.Get(context.Background(), client.ObjectKey{
+						Namespace: namespace,
+						Name:      clusterName,
+					}, &resCluster)).NotTo(HaveOccurred())
+					Expect(len(resCluster.Spec.Buggify.CrashLoopContainers)).To(BeNumerically("==", 1))
+					for _, crashLoopContainerObj := range resCluster.Spec.Buggify.CrashLoopContainers {
+						if crashLoopContainerObj.ContainerName != tc.ContainerName {
+							continue
+						}
+						Expect(tc.ExpectedInstancesInCrashLoop).To(ContainElements(crashLoopContainerObj.Targets))
+						Expect(len(tc.ExpectedInstancesInCrashLoop)).To(BeNumerically("==", len(crashLoopContainerObj.Targets)))
+					}
+				},
+				Entry("Removing single instance.",
+					testCase{
+						ContainerName:                testContainerName,
+						Instances:                    []string{"test-storage-1"},
+						ExpectedInstancesInCrashLoop: []fdbv1beta2.ProcessGroupID{"storage-2", "storage-3"},
+					}),
+				Entry("Removing multiple instance.",
+					testCase{
+						ContainerName:                testContainerName,
+						Instances:                    []string{"test-storage-1", "test-storage-2"},
+						ExpectedInstancesInCrashLoop: []fdbv1beta2.ProcessGroupID{"storage-3"},
+					}),
+				Entry("Removing all instance.",
+					testCase{
+						ContainerName:                testContainerName,
+						Instances:                    []string{"test-storage-1", "test-storage-2", "test-storage-3"},
+						ExpectedInstancesInCrashLoop: []fdbv1beta2.ProcessGroupID{},
+					}),
+			)
+
+			When("removing from invalid container", func() {
+				It("should throw and error", func() {
+					Expect(updateCrashLoopContainerList(k8sClient, clusterName, "invalid-container", []string{}, namespace, false, true, false)).To(HaveOccurred())
+				})
+			})
+		})
+
+		When("removing everything from crash-loop container list", func() {
+			BeforeEach(func() {
+				crashLoopContainerObj := fdbv1beta2.CrashLoopContainerObject{
+					ContainerName: testContainerName,
+					Targets:       []fdbv1beta2.ProcessGroupID{"storage-1", "storage-2", "storage-3"},
+				}
+				cluster.Spec.Buggify.CrashLoopContainers = append(cluster.Spec.Buggify.CrashLoopContainers, crashLoopContainerObj)
+			})
+
+			It("should remove everything from the crash-loop container-list", func() {
+				Expect(len(cluster.Spec.Buggify.CrashLoopContainers)).To(BeNumerically("==", 1))
+				Expect(updateCrashLoopContainerList(k8sClient, clusterName, testContainerName, []string{}, namespace, false, false, true)).NotTo(HaveOccurred())
+
+				var resCluster fdbv1beta2.FoundationDBCluster
+				Expect(k8sClient.Get(context.Background(), client.ObjectKey{
+					Namespace: namespace,
+					Name:      clusterName,
+				}, &resCluster)).NotTo(HaveOccurred())
+				Expect(len(resCluster.Spec.Buggify.CrashLoopContainers)).To(BeNumerically("==", 1))
+				for _, crashLoopContainerObj := range resCluster.Spec.Buggify.CrashLoopContainers {
+					if crashLoopContainerObj.ContainerName != testContainerName {
+						continue
+					}
+					Expect(len(crashLoopContainerObj.Targets)).To(BeNumerically("==", 0))
+				}
 			})
 		})
 	})
