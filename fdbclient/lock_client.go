@@ -187,19 +187,23 @@ func (client *realLockClient) GetPendingUpgrades(version fdbv1beta2.Version) (ma
 			return nil, err
 		}
 		results := tr.GetRange(keyRange, fdb.RangeOptions{}).GetSliceOrPanic()
-		upgrades := make(map[string]bool, len(results))
+		upgrades := make(map[fdbv1beta2.ProcessGroupID]bool, len(results))
 		for _, result := range results {
-			upgrades[string(result.Value)] = true
+			upgrades[fdbv1beta2.ProcessGroupID(result.Value)] = true
 		}
+
 		return upgrades, nil
 	})
+
 	if err != nil {
 		return nil, err
 	}
+
 	upgradeMap, isMap := upgrades.(map[fdbv1beta2.ProcessGroupID]bool)
 	if !isMap {
 		return nil, fmt.Errorf("invalid return value from transaction in GetPendingUpgrades: %v", upgrades)
 	}
+
 	return upgradeMap, nil
 }
 
@@ -221,6 +225,7 @@ func (client *realLockClient) ClearPendingUpgrades() error {
 		tr.ClearRange(keyRange)
 		return nil, nil
 	})
+
 	return err
 }
 
