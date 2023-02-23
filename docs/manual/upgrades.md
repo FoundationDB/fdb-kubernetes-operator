@@ -2,7 +2,7 @@
 
 ## Overview
 
-The operator supports to upgrade FDB clusters by adjusting the `version` setting in the `FoundationDBCluster` spec.
+The FDB operator supports FDB clusters upgrades by adjusting the `version` setting in the `FoundationDBCluster` spec to the new desired version.
 It also offers limited support for downgrades, the limitation is that the operator only supports downgrades to an older patch version of the running FDB version.
 Upgrades of FoundationDB running on Kubernetes are challenging and the operator provides a way to handle a lot of the complexity on itself.
 The document will describe the upgrade process in details and some cases the operator cannot handle currently.
@@ -13,6 +13,15 @@ FoundationDB upgrades for major and minor versions are incompatible and require 
 
 This document describes the upgrade process based on the operator version `v1.14.0` for older versions there might be a slight difference in how the operator is handling the upgrades.
 In addition to that we are currently working on reducing the complexity for patch upgrades to reduce the upgrade steps to the [Recreation of old Pods](#recreation-of-pods-phase) phase.
+
+The graphic below represents the different stages in a Pod during the upgrade:
+
+<img src="./imgs/upgrade_mechanism.svg">
+
+The first state on the left is the initial state before the operator is doing any work.
+The second state in the middle is the state of the Pod during the [Staging Phase](#staging-phase) and the [Restart Phase](#restart-phase).
+The third and last state is the sta te after the [Recreation of Pods Phase](#recreation-of-pods-phase) where the according Pod was recreated with the new desired image version.
+
 
 #### Pre Upgrade Check Phase
 
@@ -29,7 +38,8 @@ The first step is the `UpdateSidecarVersions`, this subreconciler updates the im
 Updating the image of a single container doesn't require the recreation of the Pod and keeps the main container that runs the `fdbserver` process running.
 The sidecar container will copy the new binary inside the main container over a shared volume.
 In the main container the new binaries will be present in `/var/dynamic-conf/bin/$fdb_version`, this version will be used once the `fdbserver` process is restarted.
-The `UpdatePodConfig` subreconciler will ensure that all Pods have the new configuration present, this configuration ensures that the `fdbmonitor` will restart processes with the new binary present in the shared volume.
+The `UpdatePodConfig` subreconciler will ensure that all Pods have the new configuration present and that the new binary is present in the shared volume.
+This configuration ensures that the `fdbmonitor` will restart processes with the new binary located at `/var/dynamic-conf/bin/$fdb_version`.
 Once all Pods have the new configuration and binaries present the operator can move to the next phase.
 
 A potentional blocker for moving towards the next Phase can be an issue with a subset of the Pods e.g. if the sidecar is unreachable.
@@ -49,6 +59,7 @@ In order to replace the Pod the operator will wait for the Process Group to have
 The `BounceProcesses` subreconciler will handle the restart of all `fdbserver` processes.
 For FoundationDB clusters that are spanned across multiple Kubernetes clusters the operator will follow a special process which is document in the [technical design](technical_design.md#bounceprocesses).
 The subreconciler will also ensure to wait until all `fdbserver` processes are ready to be restarted to prevent cases where only a subset of processes are restarted.
+In this case ready means that all Pods have the new `fdbmonitor` configuration present and that the new binary is present in the shared volume at `/var/dynamic-conf/bin/$fdb_version`.
 After the `kill` command the operator will initiate a new reconciliation loop to detect the new running version, this is handled in the `UpdateState` subreconciler and the version is detected based on the output of the [cluster status json](https://apple.github.io/foundationdb/mr-status.html).
 
 #### Recreation of Pods Phase
@@ -77,7 +88,7 @@ The operator will mark this Process Group with the `MissingProcesses` condition,
 If the process has this condition longer than the [IgnoreMissingProcessesSeconds](../cluster_spec.md#foundationdbclusterautomationoptions) setting it will be ignored in the [Restart Phase](#restart-phase) to ensure the operator can move forward with the upgrade.
 This also means that for a short time the cluster might be running with less resources.
 
-Processes that a restarted to early can be identified with the `MissingProcesses` condition.
+Processes that are restarted too early can be identified with the `MissingProcesses` condition.
 Using `kubectl` to fetch the cluster status and searching for all Process Groups with this condition gives an overview of those processes restarted to early.
 
 The operator will handle those cases automatically and there is no need for manual intervention as long as not too many processes are restarted from the outside.
