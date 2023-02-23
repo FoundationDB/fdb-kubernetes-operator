@@ -255,9 +255,9 @@ func getAddressesForUpgrade(logger logr.Logger, r *FoundationDBClusterReconciler
 		return nil, &requeue{curError: err}
 	}
 
-	if !internal.HasDesiredFaultToleranceFromStatus(logger, databaseStatus, cluster) {
-		r.Recorder.Event(cluster, corev1.EventTypeNormal, "UpgradeRequeued", "Database is unavailable or doesn't have expected fault tolerance")
-		return nil, &requeue{message: "Deferring upgrade until database is available or expected fault tolerance is met"}
+	if !databaseStatus.Client.DatabaseStatus.Available {
+		r.Recorder.Event(cluster, corev1.EventTypeNormal, "UpgradeRequeued", "Database is unavailable")
+		return nil, &requeue{message: "Deferring upgrade until database is available"}
 	}
 
 	notReadyProcesses := make([]string, 0)
