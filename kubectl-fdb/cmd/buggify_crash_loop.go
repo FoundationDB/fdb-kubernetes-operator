@@ -77,26 +77,26 @@ func newBuggifyCrashLoop(streams genericclioptions.IOStreams) *cobra.Command {
 kubectl fdb buggify crash-loop -c cluster pod-1 pod-2
 
 # Add process groups into crash loop state for a cluster in the current namespace with container name
-kubectl fdb buggify crash-loop -c cluster -cn container-name pod-1 pod-2
+kubectl fdb buggify crash-loop -c cluster --container-name container-name pod-1 pod-2
 
 # Remove process groups from crash loop state from a cluster in the current namespace
 kubectl fdb buggify crash-loop --clear -c cluster pod-1 pod-2
 
 # Remove process groups from crash loop state from a cluster in the current namespace with container name
-kubectl fdb buggify crash-loop --clear -c cluster -cn container-name pod-1 pod-2
+kubectl fdb buggify crash-loop --clear -c cluster --container-name container-name pod-1 pod-2
 
 # Clean crash loop list of a cluster in the current namespace
 kubectl fdb buggify crash-loop --clean -c cluster
 
 # Clean crash loop list of a cluster in the current namespace with container name
-kubectl fdb buggify crash-loop --clean -c cluster -cn container-name
+kubectl fdb buggify crash-loop --clean -c cluster --container-name container-name
 
 # Add process groups into crash loop state for a cluster in the namespace default
 kubectl fdb -n default buggify crash-loop -c cluster pod-1 pod-2
 `,
 	}
 	cmd.Flags().StringP("fdb-cluster", "c", "", "updates the crash-loop list in the provided cluster.")
-	cmd.Flags().StringP("container-name", "cn", "", "container name to which we want to add/remove process groups.")
+	cmd.Flags().String("container-name", "", "container name to which we want to add/remove process groups.")
 	cmd.Flags().Bool("clear", false, "removes the process groups from the crash-loop list.")
 	cmd.Flags().Bool("clean", false, "removes all process groups from the crash-loop list.")
 	err := cmd.MarkFlagRequired("fdb-cluster")
@@ -167,7 +167,10 @@ func updateCrashLoopContainerList(kubeClient client.Client, clusterName string, 
 	}
 
 	if clear {
-		cluster.RemoveProcessGroupsFromCrashLoopContainerList(processGroupIDs, containerName)
+		err := cluster.RemoveProcessGroupsFromCrashLoopContainerList(processGroupIDs, containerName)
+		if err != nil {
+			return err
+		}
 	} else {
 		cluster.AddProcessGroupsToCrashLoopContainerList(processGroupIDs, containerName)
 	}

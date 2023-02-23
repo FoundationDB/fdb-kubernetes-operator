@@ -2209,7 +2209,7 @@ func (cluster *FoundationDBCluster) AddProcessGroupsToCrashLoopList(processGroup
 // AddProcessGroupsToCrashLoopContainerList adds the provided process group IDs to the crash-loop list.
 // If a process group ID is already present on that list it won't be added a second time.
 func (cluster *FoundationDBCluster) AddProcessGroupsToCrashLoopContainerList(processGroupIDs []ProcessGroupID, containerName string) {
-	crashLoopProcessIDs, _ := cluster.GetCrashLoopContainerProcessGroups()[containerName]
+	crashLoopProcessIDs := cluster.GetCrashLoopContainerProcessGroups()[containerName]
 
 	containerIdx := 0
 	for _, crashLoopContainerObj := range cluster.Spec.Buggify.CrashLoopContainers {
