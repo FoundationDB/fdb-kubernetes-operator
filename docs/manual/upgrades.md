@@ -44,7 +44,7 @@ Once all Pods have the new configuration and binaries present the operator can m
 
 A potentional blocker for moving towards the next Phase can be an issue with a subset of the Pods e.g. if the sidecar is unreachable.
 If the sidecar is unreachable the operator is not able to confirm that the new configuration and binary is in place.
-All Process Groups affected by such an issue can be discovered with the `SidecarUnreachable` condition.
+All Process Groups affected by such an issue can be discovered with the `SidecarUnreachable` condition, until this issue is resolved the upgrade will be blocked.
 The best way forward for this is to replace the affected Pods with the following [kubectl fdb plugin](../../kubectl-fdb/Readme.md) command:
 
 ```bash
@@ -98,12 +98,6 @@ In that case the best way forward is to restart all processes still running on t
 kubectl fdb restart -c cluster --process-condition=IncorrectCommandLine
 ```
 
-or
-
-```bash
-kubectl fdb restart -c cluster --process-condition=MissingProcesses
-```
-
 One special case here is when the majority of the coordinators are restarted and the rest of the processes are still running on the old version.
 In this case the operator is not able to handle the upgrade correctly since the returned cluster status has no information besides the coordinators that are reachable.
 During this time the FDB cluster will be unavailable.
@@ -144,6 +138,7 @@ kubectl fdb restart -c cluster --all-processes
 The operator tries per default to read the [cluster status json](https://apple.github.io/foundationdb/mr-status.html) with the [multi-version](https://apple.github.io/foundationdb/api-general.html#multi-version-client) from the system key-space.
 During an upgrade it can happen that the multi-version client tries to connect to the cluster with the wrong version especially if not all coordinators are upgraded.
 In this case the operator will fallback using `fdbcli` for the different versions (the one that is desired and the current running version).
+This requires that the majority of coordinators are upgraded to the new desired version.
 In addition to that we will retry the command if the `fdbcli` hits a timeout responding.
 The code in the [fdbclient package](https://github.com/FoundationDB/fdb-kubernetes-operator/blob/v1.14.0/fdbclient/admin_client.go#L337-L360) has some additional details on how we handle those cases.
 
