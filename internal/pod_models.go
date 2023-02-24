@@ -157,7 +157,7 @@ func getPodLocalityDataHall(cluster *fdbv1beta2.FoundationDBCluster, processClas
 	// Convert the process list into a map with the process data hall as key.
 	processInfo := map[string][]fdbv1beta2.FoundationDBStatusProcessInfo{}
 	for _, p := range status.Cluster.Processes {
-		// skip process loclities not matching the cluster Localities. For example processes with empty data hall.
+		// skip process localities not matching the cluster Localities. For example processes with empty data hall.
 		_, err := cluster.GetLocality(p.Locality[fdbv1beta2.FDBLocalityDataHallKey])
 		if err != nil {
 			continue
@@ -539,7 +539,7 @@ func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 
 // configureSidecarContainerForCluster sets up a sidecar container for a sidecar
 // in the FDB cluster.
-func configureSidecarContainerForCluster(cluster *fdbv1beta2.FoundationDBCluster, podName string, container *corev1.Container, initMode bool, processGroupID fdbv1beta2.ProcessGroupID, , dataHall string)) error {
+func configureSidecarContainerForCluster(cluster *fdbv1beta2.FoundationDBCluster, podName string, container *corev1.Container, initMode bool, processGroupID fdbv1beta2.ProcessGroupID, dataHall string) error {
 	return configureSidecarContainer(container, initMode, processGroupID, podName, cluster.GetRunningVersion(), cluster, cluster.Spec.SidecarContainer.ImageConfigs, false, dataHall)
 }
 
@@ -550,7 +550,7 @@ func configureSidecarContainerForBackup(backup *fdbv1beta2.FoundationDBBackup, c
 }
 
 // configureSidecarContainer sets up a foundationdb-kubernetes-sidecar container.
-func configureSidecarContainer(container *corev1.Container, initMode bool, processGroupID fdbv1beta2.ProcessGroupID, podName string, versionString string, optionalCluster *fdbv1beta2.FoundationDBCluster, imageConfigs []fdbv1beta2.ImageConfig, allowTagOverride bool,  dataHall string) error {
+func configureSidecarContainer(container *corev1.Container, initMode bool, processGroupID fdbv1beta2.ProcessGroupID, podName string, versionString string, optionalCluster *fdbv1beta2.FoundationDBCluster, imageConfigs []fdbv1beta2.ImageConfig, allowTagOverride bool, dataHall string) error {
 	sidecarEnv := make([]corev1.EnvVar, 0, 4)
 
 	hasTrustedCAs := optionalCluster != nil && len(optionalCluster.Spec.TrustedCAs) > 0
