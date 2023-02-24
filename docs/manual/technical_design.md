@@ -397,4 +397,4 @@ All of the flows above go through the `foundationdb` container. The `foundationd
 
 ## Next
 
-You can continue on to the [next section](debugging.md) or go back to the [table of contents](index.md).
+You can continue on to the [next section](upgrades.md) or go back to the [table of contents](index.md).

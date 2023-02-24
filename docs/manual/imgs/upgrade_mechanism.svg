@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xl="http://www.w3.org/1999/xlink" xmlns:dc="http://purl.org/dc/elements/1.1/" viewBox="-235 120 1668 523" width="1668" height="523">
+  <defs>
+    <marker orient="auto" overflow="visible" markerUnits="strokeWidth" id="FilledArrow_Marker" stroke-linejoin="miter" stroke-miterlimit="10" viewBox="-1 -4 10 8" markerWidth="10" markerHeight="8" color="black">
+      <g>
+        <path d="M 8 0 L 0 -3 L 0 3 Z" fill="currentColor" stroke="currentColor" stroke-width="1"/>
+      </g>
+    </marker>
+  </defs>
+  <g id="Canvas_1" stroke="none" fill="none" stroke-dasharray="none" stroke-opacity="1" fill-opacity="1">
+    <title>Canvas 1</title>
+    <rect fill="white" x="-235" y="120" width="1668" height="523"/>
+    <g id="Canvas_1_Layer_1">
+      <title>Layer 1</title>
+      <g id="Graphic_2">
+        <rect x="-234.5" y="120.5" width="428" height="522" fill="white"/>
+        <rect x="-234.5" y="120.5" width="428" height="522" stroke="black" stroke-linecap="round" stroke-linejoin="round" stroke-width="1"/>
+        <text transform="translate(-229.5 619.052)" fill="black">
+          <tspan font-family="Helvetica Neue" font-size="16" fill="black" x="173.296" y="15">Storage-1</tspan>
+        </text>
+      </g>
+      <g id="Graphic_3">
+        <rect x="-212" y="150.5" width="383.5" height="131.5" fill="#c0ffff"/>
+        <rect x="-212" y="150.5" width="383.5" height="131.5" stroke="black" stroke-linecap="round" stroke-linejoin="round" stroke-width="1"/>
+        <text transform="translate(-207 207.026)" fill="black">
+          <tspan font-family="Helvetica Neue" font-size="16" fill="black" x="34.702" y="15">foundationdb-kubernetes-sidecar:6.3.25-1</tspan>
+        </text>
+      </g>
+      <g id="Graphic_4">
+        <rect x="-212" y="463.5" width="383.5" height="131.5" fill="#c0ffff"/>
+        <rect x="-212" y="463.5" width="383.5" height="131.5" stroke="black" stroke-linecap="round" stroke-linejoin="round" stroke-width="1"/>
+        <text transform="translate(-207 520.026)" fill="black">
+          <tspan font-family="Helvetica Neue" font-size="16" fill="black" x="114.566" y="15">foundationdb:6.3.25</tspan>
+        </text>
+      </g>
+      <g id="Graphic_5">
+        <rect x="-212" y="317.25" width="383.5" height="111" fill="#ccc"/>
+        <rect x="-212" y="317.25" width="383.5" height="111" stroke="black" stroke-linecap="round" stroke-linejoin="round" stroke-width="1"/>
+        <text transform="translate(-207 345.078)" fill="black">
+          <tspan font-family="Helvetica Neue" font-size="16" fill="black" x="0" y="15">/bin/6.3.25/fdbserver</tspan>
+          <tspan font-family="Helvetica Neue" font-size="16" fill="black" x="0" y="33.448">/fdbmonitor.conf (pointing to /usr/..)</tspan>
+          <tspan font-family="Helvetica Neue" font-size="16" fill="black" x="0" y="51.895996">/fdb.cluster</tspan>
+        </text>
+      </g>
+      <g id="Line_6">
+        <line x1="-20.25" y1="463.5" x2="-20.25" y2="438.15" marker-end="url(#FilledArrow_Marker)" stroke="black" stroke-linecap="round" stroke-linejoin="miter" stroke-width="1"/>
+      </g>
+      <g id="Line_7">
+        <line x1="-20.25" y1="282" x2="-20.25" y2="307.35" marker-end="url(#FilledArrow_Marker)" stroke="black" stroke-linecap="round" stroke-linejoin="miter" stroke-width="1"/>
+      </g>
+      <g id="Graphic_13">
+        <rect x="385" y="120.5" width="428" height="522" fill="white"/>
+        <rect x="385" y="120.5" width="428" height="522" stroke="black" stroke-linecap="round" stroke-linejoin="round" stroke-width="1"/>
+        <text transform="translate(390 619.052)" fill="black">
+          <tspan font-family="Helvetica Neue" font-size="16" fill="black" x="173.296" y="15">Storage-1</tspan>
+        </text>
+      </g>
+      <g id="Graphic_12">
+        <rect x="407.5" y="150.5" width="383.5" height="131.5" fill="#c0ffc0"/>
+        <rect x="407.5" y="150.5" width="383.5" height="131.5" stroke="black" stroke-linecap="round" stroke-linejoin="round" stroke-width="1"/>
+        <text transform="translate(412.5 207.026)" fill="black">
+          <tspan font-family="Helvetica Neue" font-size="16" fill="black" x="34.702" y="15">foundationdb-kubernetes-sidecar:7.1.27-1</tspan>
+        </text>
+      </g>
+      <g id="Graphic_11">
+        <rect x="407.5" y="463.5" width="383.5" height="131.5" fill="#c0ffff"/>
+        <rect x="407.5" y="463.5" width="383.5" height="131.5" stroke="black" stroke-linecap="round" stroke-linejoin="round" stroke-width="1"/>
+        <text transform="translate(412.5 520.026)" fill="black">
+          <tspan font-family="Helvetica Neue" font-size="16" fill="black" x="114.566" y="15">foundationdb:6.3.25</tspan>
+        </text>
+      </g>
+      <g id="Graphic_10">
+        <rect x="407.5" y="317.25" width="383.5" height="111" fill="#ccc"/>
+        <rect x="407.5" y="317.25" width="383.5" height="111" stroke="black" stroke-linecap="round" stroke-linejoin="round" stroke-width="1"/>
+        <text transform="translate(412.5 345.078)" fill="black">
+          <tspan font-family="Helvetica Neue" font-size="16" fill="black" x="0" y="15">/bin/7.1.27/fdbserver</tspan>
+          <tspan font-family="Helvetica Neue" font-size="16" fill="black" x="0" y="33.448">/fdbmonitor.conf (pointing to /var/..)</tspan>
+          <tspan font-family="Helvetica Neue" font-size="16" fill="black" x="0" y="51.895996">/fdb.cluster</tspan>
+        </text>
+      </g>
+      <g id="Line_9">
+        <line x1="599.25" y1="463.5" x2="599.25" y2="438.15" marker-end="url(#FilledArrow_Marker)" stroke="black" stroke-linecap="round" stroke-linejoin="miter" stroke-width="1"/>
+      </g>
+      <g id="Line_8">
+        <line x1="599.25" y1="282" x2="599.25" y2="307.35" marker-end="url(#FilledArrow_Marker)" stroke="black" stroke-linecap="round" stroke-linejoin="miter" stroke-width="1"/>
+      </g>
+      <g id="Line_14">
+        <line x1="193.5" y1="381.5" x2="375.1" y2="381.5" marker-end="url(#FilledArrow_Marker)" stroke="black" stroke-linecap="round" stroke-linejoin="miter" stroke-width="1"/>
+      </g>
+      <g id="Graphic_16">
+        <text transform="translate(214.386 349)" fill="black">
+          <tspan font-family="Helvetica Neue" font-size="16" fill="black" x="0" y="15">Update Sidecar image</tspan>
+        </text>
+      </g>
+      <g id="Graphic_23">
+        <rect x="1004.5" y="120.5" width="428" height="522" fill="white"/>
+        <rect x="1004.5" y="120.5" width="428" height="522" stroke="black" stroke-linecap="round" stroke-linejoin="round" stroke-width="1"/>
+        <text transform="translate(1009.5 619.052)" fill="black">
+          <tspan font-family="Helvetica Neue" font-size="16" fill="black" x="173.296" y="15">Storage-1</tspan>
+        </text>
+      </g>
+      <g id="Graphic_22">
+        <rect x="1027" y="150.5" width="383.5" height="131.5" fill="#c0ffc0"/>
+        <rect x="1027" y="150.5" width="383.5" height="131.5" stroke="black" stroke-linecap="round" stroke-linejoin="round" stroke-width="1"/>
+        <text transform="translate(1032 207.026)" fill="black">
+          <tspan font-family="Helvetica Neue" font-size="16" fill="black" x="34.702" y="15">foundationdb-kubernetes-sidecar:7.1.27-1</tspan>
+        </text>
+      </g>
+      <g id="Graphic_21">
+        <rect x="1027" y="463.5" width="383.5" height="131.5" fill="#c0ffc0"/>
+        <rect x="1027" y="463.5" width="383.5" height="131.5" stroke="black" stroke-linecap="round" stroke-linejoin="round" stroke-width="1"/>
+        <text transform="translate(1032 520.026)" fill="black">
+          <tspan font-family="Helvetica Neue" font-size="16" fill="black" x="114.566" y="15">foundationdb:7.1.27</tspan>
+        </text>
+      </g>
+      <g id="Graphic_20">
+        <rect x="1027" y="317.25" width="383.5" height="111" fill="#ccc"/>
+        <rect x="1027" y="317.25" width="383.5" height="111" stroke="black" stroke-linecap="round" stroke-linejoin="round" stroke-width="1"/>
+        <text transform="translate(1032 345.078)" fill="black">
+          <tspan font-family="Helvetica Neue" font-size="16" fill="black" x="0" y="15">/bin/7.1.27/fdbserver</tspan>
+          <tspan font-family="Helvetica Neue" font-size="16" fill="black" x="0" y="33.448">/fdbmonitor.conf (pointing to /usr/…)</tspan>
+          <tspan font-family="Helvetica Neue" font-size="16" fill="black" x="0" y="51.895996">/fdb.cluster</tspan>
+        </text>
+      </g>
+      <g id="Line_19">
+        <line x1="1218.75" y1="463.5" x2="1218.75" y2="438.15" marker-end="url(#FilledArrow_Marker)" stroke="black" stroke-linecap="round" stroke-linejoin="miter" stroke-width="1"/>
+      </g>
+      <g id="Line_18">
+        <line x1="1218.75" y1="282" x2="1218.75" y2="307.35" marker-end="url(#FilledArrow_Marker)" stroke="black" stroke-linecap="round" stroke-linejoin="miter" stroke-width="1"/>
+      </g>
+      <g id="Line_24">
+        <line x1="813" y1="381.5" x2="994.6" y2="381.5" marker-end="url(#FilledArrow_Marker)" stroke="black" stroke-linecap="round" stroke-linejoin="miter" stroke-width="1"/>
+      </g>
+      <g id="Graphic_25">
+        <text transform="translate(860.006 349)" fill="black">
+          <tspan font-family="Helvetica Neue" font-size="16" fill="black" x="5897505e-19" y="15">Recreate Pod</tspan>
+        </text>
+      </g>
+      <g id="Graphic_30">
+        <text transform="translate(-154.5 404.802)" fill="black">
+          <tspan font-family="Helvetica Neue" font-size="16" fill="black" x="0" y="15">Shared volume /var/dynamic-config</tspan>
+        </text>
+      </g>
+      <g id="Graphic_31">
+        <text transform="translate(460.272 404.802)" fill="black">
+          <tspan font-family="Helvetica Neue" font-size="16" fill="black" x="0" y="15">Shared volume /var/dynamic-config</tspan>
+        </text>
+      </g>
+      <g id="Graphic_32">
+        <text transform="translate(1074.272 404.802)" fill="black">
+          <tspan font-family="Helvetica Neue" font-size="16" fill="black" x="0" y="15">Shared volume /var/dynamic-config</tspan>
+        </text>
+      </g>
+    </g>
+  </g>
+</svg>
