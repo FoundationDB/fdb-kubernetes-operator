@@ -64,13 +64,6 @@ func processIncompatibleProcesses(ctx context.Context, r *FoundationDBClusterRec
 		return nil
 	}
 
-	pods, err := r.PodLifecycleManager.GetPods(ctx, r, cluster, internal.GetPodListOptions(cluster, "", "")...)
-	if err != nil {
-		return err
-	}
-
-	podMap := internal.CreatePodMap(cluster, pods)
-
 	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r.Client)
 	if err != nil {
 		return err
@@ -86,20 +79,16 @@ func processIncompatibleProcesses(ctx context.Context, r *FoundationDBClusterRec
 		return nil
 	}
 
-	// Wait until the cluster is running for the minimum uptime before looking for incompatible processes.
-	minimumUptime, _, err := internal.GetMinimumUptimeAndAddressMap(cluster, status, r.EnableRecoveryState)
+	logger.Info("incompatible connections", "incompatibleConnections", status.Cluster.IncompatibleConnections)
+
+	pods, err := r.PodLifecycleManager.GetPods(ctx, r, cluster, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
 		return err
 	}
 
-	if minimumUptime < float64(cluster.GetMinimumUptimeSecondsForBounce()) {
-		logger.V(1).Info("Skipping reconciler and waiting until cluster is for up minimum uptime")
-		return nil
-	}
+	podMap := internal.CreatePodMap(cluster, pods)
 
-	logger.Info("incompatible connections", "incompatibleConnections", status.Cluster.IncompatibleConnections)
 	incompatibleConnections := parseIncompatibleConnections(logger, status)
-
 	incompatiblePods := make([]*corev1.Pod, 0, len(incompatibleConnections))
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		pod, ok := podMap[processGroup.ProcessGroupID]
@@ -109,7 +98,7 @@ func processIncompatibleProcesses(ctx context.Context, r *FoundationDBClusterRec
 			continue
 		}
 
-		if pod.DeletionTimestamp != nil {
+		if !pod.DeletionTimestamp.IsZero() {
 			logger.V(1).Info("Skipping Pod that is already marked for deletion",
 				"processGroupID", processGroup.ProcessGroupID)
 			continue
