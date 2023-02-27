@@ -1717,13 +1717,13 @@ type RequiredAddressSet struct {
 // CrashLoopContainerObject specifies crash-loop target for specific container.
 type CrashLoopContainerObject struct {
 	// Name of the target container.
-	// +kubebuilder:validation:MinItems=1
-	// +kubebuilder:validation:MaxItems=253
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
 	ContainerName string `json:"containerName,omitempty"`
 
 	// Target processes to kill inside the container.
-	// +kubebuilder:validation:MinLength=0
-	// +kubebuilder:validation:MaxLength=10000
+	// +kubebuilder:validation:MinItems=0
+	// +kubebuilder:validation:MaxItems=10000
 	Targets []ProcessGroupID `json:"targets,omitempty"`
 }
 
