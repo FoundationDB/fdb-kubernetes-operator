@@ -98,7 +98,7 @@ type realFdbPodSidecarClient struct {
 	postTimeout time.Duration
 }
 
-// realPodSidecarClient provides a client for use in real environments, using
+// realFdbPodAnnotationClient provides a client for use in real environments, using
 // the annotations from the unified Kubernetes image.
 type realFdbPodAnnotationClient struct {
 	// Cluster is the cluster we are connecting to.
@@ -163,7 +163,7 @@ func NewFdbPodClient(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod, l
 
 // getListenIP gets the IP address that a pod listens on.
 func (client *realFdbPodSidecarClient) getListenIP() string {
-	ips := GetPublicIPsForPod(client.Pod, client.logger)
+	ips := GetPodIPsForPod(client.Pod, client.logger)
 	if len(ips) > 0 {
 		return ips[0]
 	}
@@ -460,7 +460,19 @@ func GetSubstitutionsFromClusterAndPod(logger logr.Logger, cluster *fdbv1beta2.F
 			substitutions["FDB_PUBLIC_IP"] = fmt.Sprintf("[%s]", ipString)
 		}
 	}
-	substitutions["FDB_POD_IP"] = substitutions["FDB_PUBLIC_IP"]
+
+	ipString = GetPodIPsForPod(pod, logger)[0]
+	substitutions["FDB_POD_IP"] = ipString
+	if ipString != "" {
+		ip := net.ParseIP(ipString)
+		if ip == nil {
+			return nil, fmt.Errorf("failed to parse IP from pod: %s", ipString)
+		}
+
+		if ip.To4() == nil {
+			substitutions["FDB_POD_IP"] = fmt.Sprintf("[%s]", ipString)
+		}
+	}
 
 	if cluster.Spec.FaultDomain.Key == fdbv1beta2.NoneFaultDomainKey {
 		substitutions["FDB_MACHINE_ID"] = pod.Name

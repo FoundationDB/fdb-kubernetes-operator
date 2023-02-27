@@ -41,8 +41,8 @@ import (
 
 var processGroupIDRegex = regexp.MustCompile(`^([\w-]+)-(\d+)`)
 
-// GetPublicIPsForPod returns the public IPs for a Pod
-func GetPublicIPsForPod(pod *corev1.Pod, log logr.Logger) []string {
+// GetPodIPsForPod returns the pod IPs for a Pod
+func GetPodIPsForPod(pod *corev1.Pod, log logr.Logger) []string {
 	var podIPFamily *int
 
 	if pod == nil {
@@ -94,6 +94,14 @@ func GetPublicIPsForPod(pod *corev1.Pod, log logr.Logger) []string {
 	}
 
 	return []string{pod.Status.PodIP}
+}
+
+// GetPublicIPsForPod returns the public IPs for a Pod
+func GetPublicIPsForPod(pod *corev1.Pod, log logr.Logger) []string {
+	if pod == nil {
+		return []string{}
+	}
+	return []string{pod.ObjectMeta.Annotations[fdbv1beta2.PublicIPAnnotation]}
 }
 
 // GetProcessGroupIDFromMeta fetches the process group ID from an object's metadata.
