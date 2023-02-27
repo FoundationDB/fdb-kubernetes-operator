@@ -104,7 +104,7 @@ var _ = Describe("FoundationDBStatus", func() {
 							UptimeSeconds: 2955.58,
 							Roles: []FoundationDBStatusProcessRoleInfo{
 								{
-									Role: "log",
+									Role: string(ProcessRoleLog),
 								},
 							},
 							Messages: []FoundationDBStatusProcessMessage{},
@@ -127,10 +127,10 @@ var _ = Describe("FoundationDBStatus", func() {
 							UptimeSeconds: 2475.33,
 							Roles: []FoundationDBStatusProcessRoleInfo{
 								{
-									Role: "proxy",
+									Role: string(ProcessRoleProxy),
 								},
 								{
-									Role: "storage",
+									Role: string(ProcessRoleStorage),
 								},
 							},
 							Messages: []FoundationDBStatusProcessMessage{},
@@ -153,10 +153,10 @@ var _ = Describe("FoundationDBStatus", func() {
 							UptimeSeconds: 2951.17,
 							Roles: []FoundationDBStatusProcessRoleInfo{
 								{
-									Role: "proxy",
+									Role: string(ProcessRoleProxy),
 								},
 								{
-									Role: "storage",
+									Role: string(ProcessRoleStorage),
 								},
 							},
 							Messages: []FoundationDBStatusProcessMessage{},
@@ -179,10 +179,10 @@ var _ = Describe("FoundationDBStatus", func() {
 							UptimeSeconds: 710.119,
 							Roles: []FoundationDBStatusProcessRoleInfo{
 								{
-									Role: "cluster_controller",
+									Role: string(ProcessRoleClusterController),
 								},
 								{
-									Role: "log",
+									Role: string(ProcessRoleLog),
 								},
 							},
 							Messages: []FoundationDBStatusProcessMessage{},
@@ -208,7 +208,7 @@ var _ = Describe("FoundationDBStatus", func() {
 									Role: string(ProcessRoleCoordinator),
 								},
 								{
-									Role: "resolver",
+									Role: string(ProcessRoleResolver),
 								},
 							},
 							Messages: []FoundationDBStatusProcessMessage{},
@@ -231,19 +231,19 @@ var _ = Describe("FoundationDBStatus", func() {
 							UptimeSeconds: 880.18,
 							Roles: []FoundationDBStatusProcessRoleInfo{
 								{
-									Role: "master",
+									Role: string(ProcessRoleMaster),
 								},
 								{
-									Role: "data_distributor",
+									Role: string(ProcessRoleData_Distributor),
 								},
 								{
-									Role: "ratekeeper",
+									Role: string(ProcessRoleRatekeeper),
 								},
 								{
 									Role: string(ProcessRoleCoordinator),
 								},
 								{
-									Role: "log",
+									Role: string(ProcessRoleLog),
 								},
 							},
 							Messages: []FoundationDBStatusProcessMessage{},
@@ -269,10 +269,10 @@ var _ = Describe("FoundationDBStatus", func() {
 									Role: string(ProcessRoleCoordinator),
 								},
 								{
-									Role: "proxy",
+									Role: string(ProcessRoleProxy),
 								},
 								{
-									Role: "storage",
+									Role: string(ProcessRoleStorage),
 								},
 							},
 							Messages: []FoundationDBStatusProcessMessage{},
@@ -500,9 +500,9 @@ var _ = Describe("FoundationDBStatus", func() {
 					Version:       "7.1.0-rc1",
 					UptimeSeconds: 85.0026,
 					Roles: []FoundationDBStatusProcessRoleInfo{
-						{Role: "coordinator"},
-						{Role: "grv_proxy"},
-						{Role: "storage"},
+						{Role: string(ProcessRoleCoordinator)},
+						{Role: string(ProcessRoleGrvProxy)},
+						{Role: string(ProcessRoleStorage)},
 					},
 					Messages: []FoundationDBStatusProcessMessage{},
 				},
@@ -523,9 +523,9 @@ var _ = Describe("FoundationDBStatus", func() {
 					Version:       "7.1.0-rc1",
 					UptimeSeconds: 85.0031,
 					Roles: []FoundationDBStatusProcessRoleInfo{
-						{Role: "coordinator"},
+						{Role: string(ProcessRoleCoordinator)},
 						{Role: string(ProcessClassStorage)},
-						{Role: "resolver"},
+						{Role: string(ProcessRoleResolver)},
 					},
 					Messages: []FoundationDBStatusProcessMessage{},
 				},
@@ -546,9 +546,9 @@ var _ = Describe("FoundationDBStatus", func() {
 					Version:       "7.1.0-rc1",
 					UptimeSeconds: 85.0029,
 					Roles: []FoundationDBStatusProcessRoleInfo{
-						{Role: "coordinator"},
-						{Role: "commit_proxy"},
-						{Role: "storage"},
+						{Role: string(ProcessRoleCoordinator)},
+						{Role: string(ProcessRoleCommitProxy)},
+						{Role: string(ProcessRoleStorage)},
 					},
 					Messages: []FoundationDBStatusProcessMessage{},
 				},
@@ -569,9 +569,9 @@ var _ = Describe("FoundationDBStatus", func() {
 					Version:       "7.1.0-rc1",
 					UptimeSeconds: 85.0027,
 					Roles: []FoundationDBStatusProcessRoleInfo{
-						{Role: "master"},
-						{Role: "data_distributor"},
-						{Role: "ratekeeper"},
+						{Role: string(ProcessRoleMaster)},
+						{Role: string(ProcessRoleData_Distributor)},
+						{Role: string(ProcessRoleRatekeeper)},
 					},
 					Messages: []FoundationDBStatusProcessMessage{},
 				},
@@ -613,7 +613,7 @@ var _ = Describe("FoundationDBStatus", func() {
 					Version:       "7.1.0-rc1",
 					UptimeSeconds: 85.0029,
 					Roles: []FoundationDBStatusProcessRoleInfo{
-						{Role: "log"},
+						{Role: string(ProcessRoleLog)},
 					},
 					Messages: []FoundationDBStatusProcessMessage{},
 				},
@@ -634,7 +634,7 @@ var _ = Describe("FoundationDBStatus", func() {
 					Version:       "7.1.0-rc1",
 					UptimeSeconds: 85.003,
 					Roles: []FoundationDBStatusProcessRoleInfo{
-						{Role: "log"},
+						{Role: string(ProcessRoleLog)},
 					},
 					Messages: []FoundationDBStatusProcessMessage{},
 				},
@@ -655,7 +655,7 @@ var _ = Describe("FoundationDBStatus", func() {
 					Version:       "7.1.0-rc1",
 					UptimeSeconds: 85.0027,
 					Roles: []FoundationDBStatusProcessRoleInfo{
-						{Role: "log"},
+						{Role: string(ProcessRoleLog)},
 					},
 					Messages: []FoundationDBStatusProcessMessage{},
 				},
