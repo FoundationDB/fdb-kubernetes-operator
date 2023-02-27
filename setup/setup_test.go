@@ -52,7 +52,10 @@ var _ = Describe("setup", func() {
 		})
 
 		It("should create the log file with the right permissions", func() {
-			_, err := setupLogger(options)
+			writer, err := setupLogger(options)
+			Expect(err).NotTo(HaveOccurred())
+
+			_, err = writer.Write([]byte("Hello World!"))
 			Expect(err).NotTo(HaveOccurred())
 
 			resultFile, err := os.Stat(logFile)
@@ -60,6 +63,7 @@ var _ = Describe("setup", func() {
 			Expect(logFile).To(Equal(path.Join(tmpDir, resultFile.Name())))
 			// Default file mode is 0644
 			Expect(resultFile.Mode()).To(Equal(fs.FileMode(0644)))
+			Expect(resultFile.Size()).To(BeNumerically(">", 0))
 		})
 
 		When("the log file already exists with the wrong permissions", func() {
@@ -68,7 +72,10 @@ var _ = Describe("setup", func() {
 			})
 
 			It("should correct the permission", func() {
-				_, err := setupLogger(options)
+				writer, err := setupLogger(options)
+				Expect(err).NotTo(HaveOccurred())
+
+				_, err = writer.Write([]byte("Hello World!"))
 				Expect(err).NotTo(HaveOccurred())
 
 				resultFile, err := os.Stat(logFile)
@@ -76,6 +83,7 @@ var _ = Describe("setup", func() {
 				Expect(logFile).To(Equal(path.Join(tmpDir, resultFile.Name())))
 				// Default file mode is 0644
 				Expect(resultFile.Mode()).To(Equal(fs.FileMode(0644)))
+				Expect(resultFile.Size()).To(BeNumerically(">", 0))
 			})
 		})
 
@@ -85,13 +93,17 @@ var _ = Describe("setup", func() {
 			})
 
 			It("should correct the permission", func() {
-				_, err := setupLogger(options)
+				writer, err := setupLogger(options)
+				Expect(err).NotTo(HaveOccurred())
+
+				_, err = writer.Write([]byte("Hello World!"))
 				Expect(err).NotTo(HaveOccurred())
 
 				resultFile, err := os.Stat(logFile)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(logFile).To(Equal(path.Join(tmpDir, resultFile.Name())))
 				Expect(resultFile.Mode()).To(Equal(fs.FileMode(0600)))
+				Expect(resultFile.Size()).To(BeNumerically(">", 0))
 			})
 		})
 	})
