@@ -50,22 +50,26 @@ func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconcile
 	updates := make(map[string][]*corev1.Pod)
 	podMap := internal.CreatePodMap(cluster, pods)
 
+	numUnavailablePods := 0
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup.IsMarkedForRemoval() {
 			logger.V(1).Info("Ignore removed Pod",
 				"processGroupID", processGroup.ProcessGroupID)
+			numUnavailablePods++
 			continue
 		}
 
 		if cluster.SkipProcessGroup(processGroup) {
 			logger.V(1).Info("Ignore pending Pod",
 				"processGroupID", processGroup.ProcessGroupID)
+			numUnavailablePods++
 			continue
 		}
 
 		if cluster.NeedsReplacement(processGroup) {
 			logger.V(1).Info("Skip process group for deletion, requires a replacement",
 				"processGroupID", processGroup.ProcessGroupID)
+			numUnavailablePods++
 			continue
 		}
 
@@ -149,6 +153,10 @@ func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconcile
 
 	if len(updates) == 0 {
 		return nil
+	}
+
+	if cluster.Spec.MaxUnavailablePods > 0 && numUnavailablePods >= cluster.Spec.MaxUnavailablePods {
+		return &requeue{message: "Reached MaxUnavailablePods limit."}
 	}
 
 	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r.Client)
