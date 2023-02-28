@@ -1717,9 +1717,13 @@ type RequiredAddressSet struct {
 // CrashLoopContainerObject specifies crash-loop target for specific container.
 type CrashLoopContainerObject struct {
 	// Name of the target container.
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
 	ContainerName string `json:"containerName,omitempty"`
 
 	// Target processes to kill inside the container.
+	// +kubebuilder:validation:MinItems=0
+	// +kubebuilder:validation:MaxItems=10000
 	Targets []ProcessGroupID `json:"targets,omitempty"`
 }
 
@@ -1735,6 +1739,8 @@ type BuggifyConfig struct {
 
 	// CrashLoopContainers defines a list of process group IDs and containers
 	// that should be put into a crash looping state.
+	// +kubebuilder:validation:MinItems=0
+	// +kubebuilder:validation:MaxItems=8
 	CrashLoopContainers []CrashLoopContainerObject `json:"crashLoopContainers,omitempty"`
 
 	// EmptyMonitorConf instructs the operator to update all of the fdbmonitor.conf
