@@ -23,6 +23,7 @@ package cmd
 import (
 	ctx "context"
 	"fmt"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"log"
 
 	"github.com/spf13/cobra"
@@ -73,30 +74,19 @@ func newBuggifyCrashLoop(streams genericclioptions.IOStreams) *cobra.Command {
 			return updateCrashLoopContainerList(kubeClient, cluster, containerName, args, namespace, wait, clear, clean)
 		},
 		Example: `
-# Add process groups into crash loop state for a cluster in the current namespace
-kubectl fdb buggify crash-loop -c cluster pod-1 pod-2
 
 # Add process groups into crash loop state for a cluster in the current namespace with container name
 kubectl fdb buggify crash-loop -c cluster --container-name container-name pod-1 pod-2
 
-# Remove process groups from crash loop state from a cluster in the current namespace
-kubectl fdb buggify crash-loop --clear -c cluster pod-1 pod-2
-
 # Remove process groups from crash loop state from a cluster in the current namespace with container name
 kubectl fdb buggify crash-loop --clear -c cluster --container-name container-name pod-1 pod-2
 
-# Clean crash loop list of a cluster in the current namespace
-kubectl fdb buggify crash-loop --clean -c cluster
-
 # Clean crash loop list of a cluster in the current namespace with container name
 kubectl fdb buggify crash-loop --clean -c cluster --container-name container-name
-
-# Add process groups into crash loop state for a cluster in the namespace default
-kubectl fdb -n default buggify crash-loop -c cluster pod-1 pod-2
 `,
 	}
 	cmd.Flags().StringP("fdb-cluster", "c", "", "updates the crash-loop list in the provided cluster.")
-	cmd.Flags().String("container-name", "", "container name to which we want to add/remove process groups.")
+	cmd.Flags().String("container-name", fdbv1beta2.MainContainerName, "container name to which we want to add/remove process groups.")
 	cmd.Flags().Bool("clear", false, "removes the process groups from the crash-loop list.")
 	cmd.Flags().Bool("clean", false, "removes all process groups from the crash-loop list.")
 	err := cmd.MarkFlagRequired("fdb-cluster")
@@ -114,9 +104,6 @@ kubectl fdb -n default buggify crash-loop -c cluster pod-1 pod-2
 
 // updateCrashLoopContainerList updates the crash-loop container-list of the cluster
 func updateCrashLoopContainerList(kubeClient client.Client, clusterName string, containerName string, pods []string, namespace string, wait bool, clear bool, clean bool) error {
-	if len(containerName) == 0 {
-		return updateCrashLoopList(kubeClient, clusterName, pods, namespace, wait, clear, clean)
-	}
 	cluster, err := loadCluster(kubeClient, namespace, clusterName)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -151,79 +138,25 @@ func updateCrashLoopContainerList(kubeClient client.Client, clusterName string, 
 	}
 
 	if len(processGroupIDs) == 0 {
-		return fmt.Errorf("please provide atleast one pod")
+		return fmt.Errorf("please provide at least one Pod")
 	}
 
 	if wait {
 		if clear {
-			if !confirmAction(fmt.Sprintf("Removing %v in %s from crash-loop container list of the cluster %s/%s", containerName, processGroupIDs, namespace, clusterName)) {
+			if !confirmAction(fmt.Sprintf("Removing %v from container: %s in crash-loop container list of the cluster %s/%s", processGroupIDs, containerName, namespace, clusterName)) {
 				return fmt.Errorf("user aborted the removal")
 			}
 		} else {
-			if !confirmAction(fmt.Sprintf("Adding %v in %s from crash-loop container list of the cluster %s/%s", containerName, processGroupIDs, namespace, clusterName)) {
+			if !confirmAction(fmt.Sprintf("Adding %v to container: %s in crash-loop container list of the cluster %s/%s", processGroupIDs, containerName, namespace, clusterName)) {
 				return fmt.Errorf("user aborted the removal")
 			}
 		}
 	}
 
 	if clear {
-		err := cluster.RemoveProcessGroupsFromCrashLoopContainerList(processGroupIDs, containerName)
-		if err != nil {
-			return err
-		}
+		cluster.RemoveProcessGroupsFromCrashLoopContainerList(processGroupIDs, containerName)
 	} else {
 		cluster.AddProcessGroupsToCrashLoopContainerList(processGroupIDs, containerName)
-	}
-
-	return kubeClient.Patch(ctx.TODO(), cluster, patch)
-}
-
-// updateCrashLoopList updates the crash-loop list of the cluster
-func updateCrashLoopList(kubeClient client.Client, clusterName string, pods []string, namespace string, wait bool, clear bool, clean bool) error {
-	cluster, err := loadCluster(kubeClient, namespace, clusterName)
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			return fmt.Errorf("could not get cluster: %s/%s", namespace, clusterName)
-		}
-		return err
-	}
-
-	processGroupIDs, err := getProcessGroupIDsFromPodName(cluster, pods)
-	if err != nil {
-		return err
-	}
-
-	patch := client.MergeFrom(cluster.DeepCopy())
-	if clean {
-		if wait {
-			if !confirmAction(fmt.Sprintf("Clearing crash-loop list from cluster %s/%s", namespace, clusterName)) {
-				return fmt.Errorf("user aborted the removal")
-			}
-		}
-		cluster.Spec.Buggify.CrashLoop = nil
-		return kubeClient.Patch(ctx.TODO(), cluster, patch)
-	}
-
-	if len(processGroupIDs) == 0 {
-		return fmt.Errorf("please provide atleast one pod")
-	}
-
-	if wait {
-		if clear {
-			if !confirmAction(fmt.Sprintf("Removing %v to crash-loop from cluster %s/%s", processGroupIDs, namespace, clusterName)) {
-				return fmt.Errorf("user aborted the removal")
-			}
-		} else {
-			if !confirmAction(fmt.Sprintf("Adding %v to crash-loop from cluster %s/%s", processGroupIDs, namespace, clusterName)) {
-				return fmt.Errorf("user aborted the removal")
-			}
-		}
-	}
-
-	if clear {
-		cluster.RemoveProcessGroupsFromCrashLoopList(processGroupIDs)
-	} else {
-		cluster.AddProcessGroupsToCrashLoopList(processGroupIDs)
 	}
 
 	return kubeClient.Patch(ctx.TODO(), cluster, patch)
