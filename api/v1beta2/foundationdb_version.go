@@ -188,6 +188,8 @@ func (version Version) IsStorageEngineSupported(storageEngine StorageEngine) boo
 		return !version.IsAtLeast(Versions.SupportsRocksDBV1)
 	} else if storageEngine == StorageEngineShardedRocksDB {
 		return version.IsAtLeast(Versions.SupportsShardedRocksDB)
+	} else if storageEngine == StorageEngineRedwood1Experimental {
+		return version.IsAtLeast(Versions.SupportsRedwood1Experimental)
 	}
 	return true
 }
@@ -216,19 +218,21 @@ var Versions = struct {
 	SupportsRocksDBV1,
 	SupportsIsPresent,
 	SupportsShardedRocksDB,
+	SupportsRedwood1Experimental,
 	IncompatibleVersion,
 	PreviousPatchVersion,
 	SupportsRecoveryState,
 	Default Version
 }{
-	Default:                Version{Major: 6, Minor: 2, Patch: 21},
-	IncompatibleVersion:    Version{Major: 6, Minor: 1, Patch: 0},
-	PreviousPatchVersion:   Version{Major: 6, Minor: 2, Patch: 20},
-	NextPatchVersion:       Version{Major: 6, Minor: 2, Patch: 22},
-	NextMajorVersion:       Version{Major: 7, Minor: 0, Patch: 0},
-	MinimumVersion:         Version{Major: 6, Minor: 2, Patch: 20},
-	SupportsRocksDBV1:      Version{Major: 7, Minor: 1, Patch: 0, ReleaseCandidate: 4},
-	SupportsIsPresent:      Version{Major: 7, Minor: 1, Patch: 4},
-	SupportsShardedRocksDB: Version{Major: 7, Minor: 2, Patch: 0},
-	SupportsRecoveryState:  Version{Major: 7, Minor: 1, Patch: 22},
+	Default:                      Version{Major: 6, Minor: 2, Patch: 21},
+	IncompatibleVersion:          Version{Major: 6, Minor: 1, Patch: 0},
+	PreviousPatchVersion:         Version{Major: 6, Minor: 2, Patch: 20},
+	NextPatchVersion:             Version{Major: 6, Minor: 2, Patch: 22},
+	NextMajorVersion:             Version{Major: 7, Minor: 0, Patch: 0},
+	MinimumVersion:               Version{Major: 6, Minor: 2, Patch: 20},
+	SupportsRocksDBV1:            Version{Major: 7, Minor: 1, Patch: 0, ReleaseCandidate: 4},
+	SupportsIsPresent:            Version{Major: 7, Minor: 1, Patch: 4},
+	SupportsShardedRocksDB:       Version{Major: 7, Minor: 2, Patch: 0},
+	SupportsRedwood1Experimental: Version{Major: 7, Minor: 0, Patch: 0},
+	SupportsRecoveryState:        Version{Major: 7, Minor: 1, Patch: 22},
 }

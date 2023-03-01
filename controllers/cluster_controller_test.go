@@ -2668,6 +2668,10 @@ var _ = Describe("cluster_controller", func() {
 					})
 				})
 			})
+
+		})
+
+		When("creating a cluster with Redwood as storage engine", func() {
 			When("using ssd-redwood-1-experimental", func() {
 				When("using 7.2.0", func() {
 					BeforeEach(func() {
