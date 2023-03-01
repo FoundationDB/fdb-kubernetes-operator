@@ -234,7 +234,7 @@ var _ = Describe("FoundationDBStatus", func() {
 									Role: string(ProcessRoleMaster),
 								},
 								{
-									Role: string(ProcessRoleData_Distributor),
+									Role: string(ProcessRoleDataDistributor),
 								},
 								{
 									Role: string(ProcessRoleRatekeeper),
@@ -570,7 +570,7 @@ var _ = Describe("FoundationDBStatus", func() {
 					UptimeSeconds: 85.0027,
 					Roles: []FoundationDBStatusProcessRoleInfo{
 						{Role: string(ProcessRoleMaster)},
-						{Role: string(ProcessRoleData_Distributor)},
+						{Role: string(ProcessRoleDataDistributor)},
 						{Role: string(ProcessRoleRatekeeper)},
 					},
 					Messages: []FoundationDBStatusProcessMessage{},

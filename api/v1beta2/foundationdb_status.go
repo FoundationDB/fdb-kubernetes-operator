@@ -317,7 +317,7 @@ const (
 	ProcessRoleCommitProxy ProcessRole = "commit_proxy"
 	// ProcessRoleResolver model for FDB resolver role
 	ProcessRoleResolver ProcessRole = "resolver"
-	// ProcessRoleData_Distributor model for FDB data_distributor role
+	// ProcessRoleDataDistributor model for FDB data_distributor role
 	ProcessRoleDataDistributor ProcessRole = "data_distributor"
 	// ProcessRoleRatekeeper model for FDB ratekeeper role
 	ProcessRoleRatekeeper ProcessRole = "ratekeeper"
