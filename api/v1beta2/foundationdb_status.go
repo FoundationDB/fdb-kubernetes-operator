@@ -318,7 +318,7 @@ const (
 	// ProcessRoleResolver model for FDB resolver role
 	ProcessRoleResolver ProcessRole = "resolver"
 	// ProcessRoleData_Distributor model for FDB data_distributor role
-	ProcessRoleData_Distributor ProcessRole = "data_distributor"
+	ProcessRoleDataDistributor ProcessRole = "data_distributor"
 	// ProcessRoleRatekeeper model for FDB ratekeeper role
 	ProcessRoleRatekeeper ProcessRole = "ratekeeper"
 )
