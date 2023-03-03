@@ -296,10 +296,31 @@ type FoundationDBStatusBackupTag struct {
 // ProcessRole models the role of a pod.
 type ProcessRole string
 
-// TODO (johscheuer): add more roles to this list
 const (
 	// ProcessRoleCoordinator model for FDB coordinator role.
 	ProcessRoleCoordinator ProcessRole = "coordinator"
+	// ProcessRoleClusterController model for FDB cluster_controller role
+	ProcessRoleClusterController ProcessRole = "cluster_controller"
+	// ProcessRoleStorage model for FDB storage role
+	ProcessRoleStorage ProcessRole = "storage"
+	// ProcessRoleLog model for FDB log role
+	ProcessRoleLog ProcessRole = "log"
+	// ProcessRoleSequencer model for FDB sequencer role
+	ProcessRoleSequencer ProcessRole = "sequencer"
+	// ProcessRoleMaster model for FDB master role
+	ProcessRoleMaster ProcessRole = "master"
+	// ProcessRoleProxy model for FDB proxy role
+	ProcessRoleProxy ProcessRole = "proxy"
+	// ProcessRoleGrvProxy model for FDB grv_proxy role
+	ProcessRoleGrvProxy ProcessRole = "grv_proxy"
+	// ProcessRoleCommitProxy model for FDB commit_proxy role
+	ProcessRoleCommitProxy ProcessRole = "commit_proxy"
+	// ProcessRoleResolver model for FDB resolver role
+	ProcessRoleResolver ProcessRole = "resolver"
+	// ProcessRoleDataDistributor model for FDB data_distributor role
+	ProcessRoleDataDistributor ProcessRole = "data_distributor"
+	// ProcessRoleRatekeeper model for FDB ratekeeper role
+	ProcessRoleRatekeeper ProcessRole = "ratekeeper"
 )
 
 // RecoveryState represents the recovery state from the FDB cluster json.
