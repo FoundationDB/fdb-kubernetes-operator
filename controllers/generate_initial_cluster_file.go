@@ -46,9 +46,15 @@ func (g generateInitialClusterFile) reconcile(ctx context.Context, r *Foundation
 
 	logger.Info("Generating initial cluster file")
 	r.Recorder.Event(cluster, corev1.EventTypeNormal, "ChangingCoordinators", "Choosing initial coordinators")
-	initialPods, err := r.PodLifecycleManager.GetPods(ctx, r, cluster, internal.GetPodListOptions(cluster, fdbv1beta2.ProcessClassStorage, "")...)
-	if err != nil {
-		return &requeue{curError: err}
+
+	initialPods := []*corev1.Pod{}
+	candidateClasses := cluster.GetEligibleCandidateClasses()
+	for _, candidateClass := range candidateClasses {
+		pods, err := r.PodLifecycleManager.GetPods(ctx, r, cluster, internal.GetPodListOptions(cluster, candidateClass, "")...)
+		if err != nil {
+			return &requeue{curError: err}
+		}
+		initialPods = append(initialPods, pods...)
 	}
 
 	podMap := internal.CreatePodMap(cluster, initialPods)
@@ -96,7 +102,7 @@ func (g generateInitialClusterFile) reconcile(ctx context.Context, r *Foundation
 	if cluster.Spec.PartialConnectionString.GenerationID != "" {
 		connectionString.GenerationID = cluster.Spec.PartialConnectionString.GenerationID
 	} else {
-		err = connectionString.GenerateNewGenerationID()
+		err := connectionString.GenerateNewGenerationID()
 		if err != nil {
 			return &requeue{curError: err}
 		}

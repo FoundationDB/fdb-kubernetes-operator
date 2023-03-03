@@ -54,6 +54,7 @@ import (
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 )
 
+var firstLogIndex = 1
 var firstStorageIndex = 13
 
 func reloadCluster(cluster *fdbv1beta2.FoundationDBCluster) (int64, error) {
@@ -606,8 +607,8 @@ var _ = Describe("cluster_controller", func() {
 					}))
 				})
 
-				It("should change the connection string", func() {
-					Expect(cluster.Status.ConnectionString).NotTo(Equal(originalConnectionString))
+				It("should not change the connection string", func() {
+					Expect(cluster.Status.ConnectionString).To(Equal(originalConnectionString))
 				})
 
 				It("should clear the removal list", func() {
@@ -1946,9 +1947,9 @@ var _ = Describe("cluster_controller", func() {
 			})
 
 			It("should make the processes listen on an IPV6 address", func() {
-				address1 := cluster.Status.ProcessGroups[firstStorageIndex].Addresses[0]
-				address2 := cluster.Status.ProcessGroups[firstStorageIndex+1].Addresses[0]
-				address3 := cluster.Status.ProcessGroups[firstStorageIndex+2].Addresses[0]
+				address1 := cluster.Status.ProcessGroups[firstLogIndex].Addresses[0]
+				address2 := cluster.Status.ProcessGroups[firstLogIndex+1].Addresses[0]
+				address3 := cluster.Status.ProcessGroups[firstLogIndex+2].Addresses[0]
 				Expect(cluster.Status.ConnectionString).To(HaveSuffix(fmt.Sprintf("@[%s]:4501,[%s]:4501,[%s]:4501", address1, address2, address3)))
 			})
 		})

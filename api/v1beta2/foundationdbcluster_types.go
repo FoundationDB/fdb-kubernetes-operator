@@ -1840,6 +1840,19 @@ func (cluster *FoundationDBCluster) IsEligibleAsCandidate(pClass ProcessClass) b
 	return false
 }
 
+// GetEligibleCandidateClasses returns process classes that are eligible to become coordinators.
+func (cluster *FoundationDBCluster) GetEligibleCandidateClasses() []ProcessClass {
+	candidateClasses := []ProcessClass{}
+
+	for _, processGroup := range cluster.Status.ProcessGroups {
+		if cluster.IsEligibleAsCandidate(processGroup.ProcessClass) {
+			candidateClasses = append(candidateClasses, processGroup.ProcessClass)
+		}
+	}
+
+	return candidateClasses
+}
+
 // GetClassCandidatePriority returns the priority for a class. This will be used to sort the processes for coordinator selection
 func (cluster *FoundationDBCluster) GetClassCandidatePriority(pClass ProcessClass) int {
 	for _, setting := range cluster.Spec.CoordinatorSelection {
