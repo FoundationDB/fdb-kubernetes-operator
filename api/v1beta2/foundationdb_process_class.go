@@ -40,6 +40,12 @@ const (
 	ProcessClassTest ProcessClass = "test"
 	// ProcessClassCoordinator model for FDB class coordinator
 	ProcessClassCoordinator ProcessClass = "coordinator"
+	// ProcessClassProxy model for FDB proxy processes
+	ProcessClassProxy ProcessClass = "proxy"
+	// ProcessClassCommitProxy model for FDB commit_proxy processes
+	ProcessClassCommitProxy ProcessClass = "commit_proxy"
+	// ProcessClassGrvProxy model for FDB grv_proxy processes
+	ProcessClassGrvProxy ProcessClass = "grv_proxy"
 )
 
 // IsStateful determines whether a process class should store data.

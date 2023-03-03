@@ -4548,6 +4548,17 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				},
 				fmt.Errorf("storage engine ssd-rocksdb-v1 is not supported on version 6.3.2"),
 			),
+			Entry("using invalid storage engine",
+				&FoundationDBCluster{
+					Spec: FoundationDBClusterSpec{
+						Version: "6.3.24",
+						DatabaseConfiguration: DatabaseConfiguration{
+							StorageEngine: StorageEngineRedwood1Experimental,
+						},
+					},
+				},
+				fmt.Errorf("storage engine ssd-redwood-1-experimental is not supported on version 6.3.24"),
+			),
 			Entry("using valid storage engine",
 				&FoundationDBCluster{
 					Spec: FoundationDBClusterSpec{

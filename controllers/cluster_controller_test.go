@@ -2671,6 +2671,65 @@ var _ = Describe("cluster_controller", func() {
 
 		})
 
+		When("creating a cluster with Redwood as storage engine", func() {
+			When("using ssd-redwood-1-experimental", func() {
+				When("using 7.2.0", func() {
+					BeforeEach(func() {
+						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineRedwood1Experimental
+						cluster.Spec.Version = "7.2.0"
+						err := k8sClient.Update(context.TODO(), cluster)
+						Expect(err).NotTo(HaveOccurred())
+					})
+					It("generations are matching", func() {
+						generations, err := reloadClusterGenerations(cluster)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(generations.Reconciled).To(Equal(cluster.ObjectMeta.Generation))
+					})
+				})
+				When("using 7.1.0", func() {
+					BeforeEach(func() {
+						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineRedwood1Experimental
+						cluster.Spec.Version = "7.1.0"
+						err := k8sClient.Update(context.TODO(), cluster)
+						Expect(err).NotTo(HaveOccurred())
+					})
+					It("generations are matching", func() {
+						generations, err := reloadClusterGenerations(cluster)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(generations.Reconciled).To(Equal(cluster.ObjectMeta.Generation))
+					})
+				})
+				When("using 7.0.0", func() {
+					BeforeEach(func() {
+						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineRedwood1Experimental
+						cluster.Spec.Version = "7.0.0"
+						err := k8sClient.Update(context.TODO(), cluster)
+						Expect(err).NotTo(HaveOccurred())
+					})
+					It("generations are matching", func() {
+						generations, err := reloadClusterGenerations(cluster)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(generations.Reconciled).To(Equal(cluster.ObjectMeta.Generation))
+					})
+				})
+				When("using 6.3.24", func() {
+					BeforeEach(func() {
+						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineRedwood1Experimental
+						cluster.Spec.Version = "6.3.24"
+						err := k8sClient.Update(context.TODO(), cluster)
+						Expect(err).NotTo(HaveOccurred())
+						shouldCompleteReconciliation = false
+					})
+					It("generations are not matching", func() {
+						generations, err := reloadClusterGenerations(cluster)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(generations.Reconciled).ToNot(Equal(cluster.ObjectMeta.Generation))
+					})
+				})
+			})
+
+		})
+
 		When("When a process have an incorrect commandline", func() {
 			var adminClient *mock.AdminClient
 
