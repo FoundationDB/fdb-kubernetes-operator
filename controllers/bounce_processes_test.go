@@ -434,34 +434,6 @@ var _ = Describe("bounceProcesses", func() {
 				Expect(pendingUpgrades).NotTo(BeEmpty())
 			})
 		})
-
-		When("one process is already upgraded for a version compatible upgrade", func() {
-			var upgradedProcessGroup *fdbv1beta2.ProcessGroupStatus
-			var targetVersion fdbv1beta2.Version
-
-			BeforeEach(func() {
-				targetVersion = fdbv1beta2.Versions.Default.NextPatchVersion()
-				cluster.Spec.Version = targetVersion.String()
-				upgradedProcessGroup = cluster.Status.ProcessGroups[0]
-				adminClient.VersionProcessGroups[upgradedProcessGroup.ProcessGroupID] = targetVersion.String()
-			})
-
-			It("should requeue", func() {
-				Expect(requeue).NotTo(BeNil())
-				Expect(requeue.message).To(Equal("fetch latest status after upgrade"))
-			})
-
-			It("should kill all processes except the upgraded process", func() {
-				Expect(adminClient.KilledAddresses).NotTo(BeEmpty())
-				Expect(adminClient.KilledAddresses).NotTo(ContainElement(upgradedProcessGroup.Addresses))
-			})
-
-			It("should submit pending upgrade information", func() {
-				pendingUpgrades, err := lockClient.GetPendingUpgrades(targetVersion)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(pendingUpgrades).NotTo(BeEmpty())
-			})
-		})
 	})
 
 	When("the buggify option ignoreDuringRestart is set", func() {

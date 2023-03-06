@@ -46,13 +46,13 @@ func (c changeCoordinators) reconcile(ctx context.Context, r *FoundationDBCluste
 
 	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
 	if err != nil {
-		return &requeue{curError: err}
+		return &requeue{curError: err, delayedRequeue: true}
 	}
 	defer adminClient.Close()
 
 	status, err := adminClient.GetStatus()
 	if err != nil {
-		return &requeue{curError: err}
+		return &requeue{curError: err, delayedRequeue: true}
 	}
 
 	if status.Cluster.ConnectionString != cluster.Status.ConnectionString {
@@ -62,7 +62,7 @@ func (c changeCoordinators) reconcile(ctx context.Context, r *FoundationDBCluste
 		err = r.updateOrApply(ctx, cluster)
 
 		if err != nil {
-			return &requeue{curError: err}
+			return &requeue{curError: err, delayedRequeue: true}
 		}
 	}
 
@@ -73,7 +73,7 @@ func (c changeCoordinators) reconcile(ctx context.Context, r *FoundationDBCluste
 
 	hasValidCoordinators, allAddressesValid, err := locality.CheckCoordinatorValidity(logger, cluster, status, coordinatorStatus)
 	if err != nil {
-		return &requeue{curError: err}
+		return &requeue{curError: err, delayedRequeue: true}
 	}
 
 	if hasValidCoordinators {
@@ -88,7 +88,7 @@ func (c changeCoordinators) reconcile(ctx context.Context, r *FoundationDBCluste
 
 	hasLock, err := r.takeLock(cluster, "changing coordinators")
 	if !hasLock {
-		return &requeue{curError: err}
+		return &requeue{curError: err, delayedRequeue: true}
 	}
 
 	logger.Info("Changing coordinators")
@@ -96,7 +96,7 @@ func (c changeCoordinators) reconcile(ctx context.Context, r *FoundationDBCluste
 
 	coordinators, err := selectCoordinators(logger, cluster, status)
 	if err != nil {
-		return &requeue{curError: err}
+		return &requeue{curError: err, delayedRequeue: true}
 	}
 
 	coordinatorAddresses := make([]fdbv1beta2.ProcessAddress, len(coordinators))
@@ -107,12 +107,12 @@ func (c changeCoordinators) reconcile(ctx context.Context, r *FoundationDBCluste
 	logger.Info("Final coordinators candidates", "coordinators", coordinatorAddresses)
 	connectionString, err := adminClient.ChangeCoordinators(coordinatorAddresses)
 	if err != nil {
-		return &requeue{curError: err}
+		return &requeue{curError: err, delayedRequeue: true}
 	}
 	cluster.Status.ConnectionString = connectionString
 	err = r.updateOrApply(ctx, cluster)
 	if err != nil {
-		return &requeue{curError: err}
+		return &requeue{curError: err, delayedRequeue: true}
 	}
 
 	return nil

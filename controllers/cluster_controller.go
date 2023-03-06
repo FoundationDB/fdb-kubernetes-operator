@@ -299,7 +299,7 @@ func (r *FoundationDBClusterReconciler) updatePodDynamicConf(cluster *fdbv1beta2
 		return false, err
 	}
 
-	if cluster.IsBeingUpgraded() {
+	if cluster.IsBeingUpgradedWithVersionIncompatibleVersion() {
 		return podClient.IsPresent(fmt.Sprintf("bin/%s/fdbserver", cluster.Spec.Version))
 	}
 

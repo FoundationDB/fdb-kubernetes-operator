@@ -38,7 +38,7 @@ type checkClientCompatibility struct{}
 // reconcile runs the reconciler's work.
 func (c checkClientCompatibility) reconcile(_ context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "checkClientCompatibility")
-	if !cluster.Status.Configured {
+	if !cluster.Status.Configured && !cluster.IsBeingUpgraded() {
 		return nil
 	}
 
