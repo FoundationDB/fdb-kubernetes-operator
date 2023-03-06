@@ -83,8 +83,24 @@ func (c checkClientCompatibility) reconcile(_ context.Context, r *FoundationDBCl
 	for _, logGroup := range cluster.Spec.AutomationOptions.IgnoreLogGroupsForUpgrade {
 		ignoredLogGroups[logGroup] = fdbv1beta2.None{}
 	}
+	unsupportedClients := getUnsupportedClients(status.Cluster.Clients.SupportedVersions, protocolVersion, ignoredLogGroups)
+
+	if len(unsupportedClients) > 0 {
+		message := fmt.Sprintf(
+			"%d clients do not support version %s: %s", len(unsupportedClients),
+			cluster.Spec.Version, strings.Join(unsupportedClients, ", "),
+		)
+		r.Recorder.Event(cluster, corev1.EventTypeNormal, "UnsupportedClient", message)
+		logger.Info("Deferring reconciliation due to unsupported clients", "message", message)
+		return &requeue{message: message, delay: 1 * time.Minute}
+	}
+
+	return nil
+}
+
+func getUnsupportedClients(supportedVersions []fdbv1beta2.FoundationDBStatusSupportedVersion, protocolVersion string, ignoredLogGroups map[string]fdbv1beta2.None) []string {
 	var unsupportedClients []string
-	for _, versionInfo := range status.Cluster.Clients.SupportedVersions {
+	for _, versionInfo := range supportedVersions {
 		if versionInfo.ProtocolVersion == "Unknown" {
 			continue
 		}
@@ -98,16 +114,5 @@ func (c checkClientCompatibility) reconcile(_ context.Context, r *FoundationDBCl
 			}
 		}
 	}
-
-	if len(unsupportedClients) > 0 {
-		message := fmt.Sprintf(
-			"%d clients do not support version %s: %s", len(unsupportedClients),
-			cluster.Spec.Version, strings.Join(unsupportedClients, ", "),
-		)
-		r.Recorder.Event(cluster, corev1.EventTypeNormal, "UnsupportedClient", message)
-		logger.Info("Deferring reconciliation due to unsupported clients", "message", message)
-		return &requeue{message: message, delay: 1 * time.Minute}
-	}
-
-	return nil
+	return unsupportedClients
 }
