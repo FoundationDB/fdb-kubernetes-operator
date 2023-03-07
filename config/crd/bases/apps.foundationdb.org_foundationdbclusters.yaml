@@ -9925,6 +9925,16 @@ spec:
                         default: 1
                         minimum: 0
                         type: integer
+                      taintReplacementOptions:
+                        items:
+                          properties:
+                            durationInSeconds:
+                              format: int64
+                              type: integer
+                            key:
+                              type: string
+                          type: object
+                        type: array
                     type: object
                   useLocalitiesForExclusion:
                     type: boolean

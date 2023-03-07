@@ -1030,6 +1030,7 @@ type FoundationDBClusterAutomationOptions struct {
 
 	// Replacements contains options for automatically replacing failed
 	// processes.
+	// Q: what does the json field do? mechanism behind it?
 	Replacements AutomaticReplacementOptions `json:"replacements,omitempty"`
 
 	// IgnorePendingPodsDuration defines how long a Pod has to be in the Pending Phase before

@@ -62,7 +62,8 @@ type FoundationDBClusterList struct {
 	Items           []FoundationDBCluster `json:"items"`
 }
 
-var conditionsThatNeedReplacement = []ProcessGroupConditionType{MissingProcesses, PodFailing, MissingPod, MissingPVC, MissingService, PodPending}
+var conditionsThatNeedReplacement = []ProcessGroupConditionType{MissingProcesses, PodFailing, MissingPod, MissingPVC,
+	MissingService, PodPending, NodeTaintReplacing}
 
 func init() {
 	SchemeBuilder.Register(&FoundationDBCluster{}, &FoundationDBClusterList{})
@@ -519,6 +520,17 @@ func (processGroupStatus *ProcessGroupStatus) UpdateCondition(conditionType Proc
 	}
 }
 
+// UpdateConditionTime will update the conditionType's condition time to newTime
+// If the conditionType does not exist, the function is no-op
+func (processGroupStatus *ProcessGroupStatus) UpdateConditionTime(conditionType ProcessGroupConditionType, newTime int64) {
+	for i, condition := range processGroupStatus.ProcessGroupConditions {
+		if condition.ProcessGroupConditionType == conditionType {
+			processGroupStatus.ProcessGroupConditions[i].Timestamp = newTime
+			break
+		}
+	}
+}
+
 // addCondition will add the condition to the ProcessGroupStatus.
 // If the old ProcessGroupStatus already contains the condition the condition is reused to contain the same timestamp.
 func (processGroupStatus *ProcessGroupStatus) addCondition(oldProcessGroups []*ProcessGroupStatus, processGroupID ProcessGroupID, conditionType ProcessGroupConditionType) {
@@ -534,21 +546,23 @@ func (processGroupStatus *ProcessGroupStatus) addCondition(oldProcessGroups []*P
 		break
 	}
 
+	// Check if we already got this condition in the current ProcessGroupStatus
+	// This check must execute before checking oldProcessGroupStatus; otherwise, we will add duplicate condition
+	// when both processGroupStatus and oldProcessGroupStatus have the conditionType
+	for _, condition := range processGroupStatus.ProcessGroupConditions {
+		if condition.ProcessGroupConditionType == conditionType {
+			return
+		}
+	}
+
 	// Check if we got a condition for the condition type for the ProcessGroupStatus
 	if oldProcessGroupStatus != nil {
 		for _, condition := range oldProcessGroupStatus.ProcessGroupConditions {
 			if condition.ProcessGroupConditionType == conditionType {
-				// We found a condition with the above condition type
+				// Assumption: processGroupStatus doesn't have the conditionType
 				processGroupStatus.ProcessGroupConditions = append(processGroupStatus.ProcessGroupConditions, condition)
 				return
 			}
-		}
-	}
-
-	// Check if we already got this condition in the current ProcessGroupStatus
-	for _, condition := range processGroupStatus.ProcessGroupConditions {
-		if condition.ProcessGroupConditionType == conditionType {
-			return
 		}
 	}
 
@@ -609,7 +623,7 @@ func FilterByConditions(processGroupStatus []*ProcessGroupStatus, conditionRules
 	return result
 }
 
-// MatchesConditions checks if the provided conditions are matching the current conditions of the process group.
+// MatchesConditions checks if the provided conditionRules exist in the process group's conditions
 //
 // If a condition is mapped to true in the conditionRules map, this condition must be present in the process group.
 // If a condition is mapped to false in the conditionRules map, the condition must be absent in the process group.
@@ -649,6 +663,16 @@ func (processGroupStatus *ProcessGroupStatus) GetConditionTime(conditionType Pro
 	for _, condition := range processGroupStatus.ProcessGroupConditions {
 		if condition.ProcessGroupConditionType == conditionType {
 			return &condition.Timestamp
+		}
+	}
+
+	return nil
+}
+
+func (processGroupStatus *ProcessGroupStatus) GetCondition(conditionType ProcessGroupConditionType) *ProcessGroupCondition {
+	for _, condition := range processGroupStatus.ProcessGroupConditions {
+		if condition.ProcessGroupConditionType == conditionType {
+			return condition
 		}
 	}
 
@@ -701,6 +725,10 @@ const (
 	PodPending ProcessGroupConditionType = "PodPending"
 	// ReadyCondition is currently only used in the metrics.
 	ReadyCondition ProcessGroupConditionType = "Ready"
+	// NodeTaintDetected represents a pod's node is tainted but not long enough for operator to replace it
+	NodeTaintDetected ProcessGroupConditionType = "NodeTaintDetected"
+	// NodeTaintReplacing represents a pod whose node has been tainted for long enough and operator is replacing the pod
+	NodeTaintReplacing ProcessGroupConditionType = "NodeTaintReplacing"
 )
 
 // AllProcessGroupConditionTypes returns all ProcessGroupConditionType
@@ -717,6 +745,8 @@ func AllProcessGroupConditionTypes() []ProcessGroupConditionType {
 		SidecarUnreachable,
 		PodPending,
 		ReadyCondition,
+		NodeTaintDetected,
+		NodeTaintReplacing,
 	}
 }
 
@@ -743,6 +773,10 @@ func GetProcessGroupConditionType(processGroupConditionType string) (ProcessGrou
 		return SidecarUnreachable, nil
 	case "PodPending":
 		return PodPending, nil
+	case "NodeTaintDetected":
+		return NodeTaintDetected, nil
+	case "NodeTaintReplacing":
+		return NodeTaintReplacing, nil
 	}
 
 	return "", fmt.Errorf("unknown process group condition type: %s", processGroupConditionType)
@@ -943,6 +977,20 @@ type MaintenanceModeOptions struct {
 	MaintenanceModeTimeSeconds *int `json:"maintenanceModeTimeSeconds,omitempty"`
 }
 
+// TaintReplacementOption defines the taint key and taint duration the operator will react to a tainted node
+// Example of TaintReplacementOption
+//   - key: "example.org/maintenance"
+//     durationInSeconds: 7200 # Ensure the taint is present for at least 2 hours before replacing Pods on a node with this taint. -1 disable the handling of this tainted key
+//   - key: "*" # The wildcard would allow to define a catch all configuration
+//     durationInSeconds: 3600 # Ensure the taint is present for at least 1 hour before replacing Pods on a node with this taint
+type TaintReplacementOption struct {
+	// Tainted key
+	Key *string `json:"key,omitempty"`
+
+	// The tainted key must be present for DurationInSeconds before operator replaces pods on the node with this taint
+	DurationInSeconds *int64 `json:"durationInSeconds,omitempty"`
+}
+
 // AutomaticReplacementOptions controls options for automatically replacing
 // failed processes.
 type AutomaticReplacementOptions struct {
@@ -964,6 +1012,9 @@ type AutomaticReplacementOptions struct {
 	// +kubebuilder:default:=1
 	// +kubebuilder:validation:Minimum=0
 	MaxConcurrentReplacements *int `json:"maxConcurrentReplacements,omitempty"`
+
+	// TaintReplacementOption controls which taint label the operator will react to.
+	TaintReplacementOptions []TaintReplacementOption `json:"taintReplacementOptions,omitempty"`
 }
 
 // ProcessSettings defines process-level settings.

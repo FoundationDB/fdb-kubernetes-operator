@@ -22,8 +22,9 @@ package controllers
 
 import (
 	"context"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"time"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient/mock"
 
@@ -42,6 +43,302 @@ import (
 
 var _ = Describe("update_status", func() {
 	var storageOneProcessGroupID fdbv1beta2.ProcessGroupID = "storage-1"
+	FContext("validate process group on taint node", func() {
+		var cluster *fdbv1beta2.FoundationDBCluster
+		var configMap *corev1.ConfigMap
+		var adminClient *mock.AdminClient
+		var pods []*corev1.Pod
+		var processMap map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo
+		var err error
+		var allPods []*corev1.Pod
+		var allPvcs *corev1.PersistentVolumeClaimList
+		// var taint bool
+		var pod *corev1.Pod                                   // Pod to be tainted
+		var processGroupStatus *fdbv1beta2.ProcessGroupStatus // Target pod's processGroup
+		var node *corev1.Node                                 // Target pod's node
+		var pvc *corev1.PersistentVolumeClaim                 // Target pod's pvc
+		taintKeyWildcard := "*"
+		taintKeyWildcardDuration := int64(20)
+		taintKeyWildcardNegativeDuration := int64(-1)
+		taintKeyMaintenance := "foundationdb/maintenance"
+		taintKeyMaintenanceDuration := int64(5)
+		taintKeyUnhealthy := "foundationdb/unhealthy"
+		taintKeyUnhealthyDuration := int64(11)
+
+		BeforeEach(func() {
+			cluster = internal.CreateDefaultCluster()
+			err = setupClusterForTest(cluster)
+			Expect(err).NotTo(HaveOccurred())
+			// Define cluster's taint policy
+			cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions = []fdbv1beta2.TaintReplacementOption{
+				{
+					Key:               &taintKeyWildcard,
+					DurationInSeconds: &taintKeyWildcardDuration,
+				},
+				{
+					Key:               &taintKeyMaintenance,
+					DurationInSeconds: &taintKeyMaintenanceDuration,
+				},
+			}
+
+			pods, err = clusterReconciler.PodLifecycleManager.GetPods(context.TODO(), clusterReconciler, cluster, internal.GetSinglePodListOptions(cluster, storageOneProcessGroupID)...)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(len(pods)).To(Equal(1))
+
+			for _, container := range pods[0].Spec.Containers {
+				pods[0].Status.ContainerStatuses = append(pods[0].Status.ContainerStatuses, corev1.ContainerStatus{Ready: true, Name: container.Name})
+			}
+
+			adminClient, err = mock.NewMockAdminClientUncast(cluster, k8sClient)
+			Expect(err).NotTo(HaveOccurred())
+
+			configMap = &corev1.ConfigMap{}
+			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name + "-config"}, configMap)
+			Expect(err).NotTo(HaveOccurred())
+
+			pod = pods[0]
+			node = &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{Name: pod.Spec.NodeName},
+			}
+		})
+
+		JustBeforeEach(func() {
+			databaseStatus, err := adminClient.GetStatus()
+			Expect(err).NotTo(HaveOccurred())
+			processMap = make(map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo)
+			for _, process := range databaseStatus.Cluster.Processes {
+				processID, ok := process.Locality["process_id"]
+				// if the processID is not set we fall back to the instanceID
+				if !ok {
+					processID = process.Locality["instance_id"]
+				}
+				processMap[fdbv1beta2.ProcessGroupID(processID)] = append(processMap[fdbv1beta2.ProcessGroupID(processID)], process)
+			}
+
+			allPods, err = clusterReconciler.PodLifecycleManager.GetPods(context.TODO(), clusterReconciler, cluster, internal.GetPodListOptions(cluster, "", "")...)
+			Expect(err).NotTo(HaveOccurred())
+
+			allPvcs = &corev1.PersistentVolumeClaimList{}
+			err = clusterReconciler.List(context.TODO(), allPvcs, internal.GetPodListOptions(cluster, "", "")...)
+			Expect(err).NotTo(HaveOccurred())
+
+			processGroupStatus = fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, internal.GetProcessGroupIDFromMeta(cluster, pod.ObjectMeta))
+			pvcMap := internal.CreatePVCMap(cluster, allPvcs)
+			pvcValue, pvcExists := pvcMap[processGroupStatus.ProcessGroupID]
+			if pvcExists {
+				pvc = &pvcValue
+			}
+			log.Info("Target processGroupStatus Info", "ProcessGroupID", processGroupStatus.ProcessGroupID,
+				"Conditions size", len(processGroupStatus.ProcessGroupConditions),
+				"Conditions", processGroupStatus.ProcessGroupConditions,
+				"AllPods size", len(allPods))
+		})
+
+		When("process group's node is tainted", func() {
+			It("should get NodeTaintDetected condition", func() {
+				// Taint the node
+				node.Spec.Taints = []corev1.Taint{
+					{
+						Key:       taintKeyMaintenance,
+						Value:     "rack maintenance",
+						Effect:    corev1.TaintEffectNoExecute,
+						TimeAdded: &metav1.Time{Time: time.Now()},
+					},
+				}
+				log.Info("Taint node", "Node name", pod.Name, "Node taints", node.Spec.Taints)
+				// Make taint in effect
+				err = k8sClient.Update(context.TODO(), node)
+				Expect(err).NotTo(HaveOccurred())
+
+				err := validateProcessGroup(context.TODO(), clusterReconciler, cluster, pod, pvc, pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey], processGroupStatus)
+
+				Expect(err).NotTo(HaveOccurred())
+				Expect(len(processGroupStatus.ProcessGroupConditions)).To(Equal(1))
+				Expect(processGroupStatus.GetCondition(fdbv1beta2.NodeTaintDetected)).NotTo(Equal(nil))
+			})
+			It("should get both NodeTaintDetected and NodeTaintReplacing condition", func() {
+				// Taint node
+				node.Spec.Taints = []corev1.Taint{
+					{
+						Key:       taintKeyMaintenance,
+						Value:     "rack maintenance",
+						Effect:    corev1.TaintEffectNoExecute,
+						TimeAdded: &metav1.Time{Time: time.Now().Add(-time.Second * time.Duration(taintKeyMaintenanceDuration+1))},
+					},
+				}
+				log.Info("Taint node", "Node name", pod.Name, "Node taints", node.Spec.Taints, "Now", time.Now())
+				// Make taint in effect
+				err = k8sClient.Update(context.TODO(), node)
+				Expect(err).NotTo(HaveOccurred())
+
+				err := validateProcessGroup(context.TODO(), clusterReconciler, cluster, pod, pvc, pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey], processGroupStatus)
+
+				Expect(err).NotTo(HaveOccurred())
+				Expect(len(processGroupStatus.ProcessGroupConditions)).To(Equal(2))
+				Expect(processGroupStatus.GetCondition(fdbv1beta2.NodeTaintDetected)).NotTo(Equal(nil))
+				Expect(processGroupStatus.GetCondition(fdbv1beta2.NodeTaintReplacing)).NotTo(Equal(nil))
+			})
+			It("should disable taint feature with configured negative-duration wildcard taint key ", func() {
+				// Taint node
+				node.Spec.Taints = []corev1.Taint{
+					{
+						Key:       taintKeyMaintenance,
+						Value:     "rack maintenance",
+						Effect:    corev1.TaintEffectNoExecute,
+						TimeAdded: &metav1.Time{Time: time.Now().Add(-time.Second * time.Duration(taintKeyMaintenanceDuration+1))},
+					},
+				}
+				err = k8sClient.Update(context.TODO(), node)
+				Expect(err).NotTo(HaveOccurred())
+				log.Info("Taint node", "Node name", pod.Name, "Node taints", node.Spec.Taints, "Now", time.Now())
+
+				// Disable cluster's taint mechanism
+				cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions = []fdbv1beta2.TaintReplacementOption{
+					{
+						Key:               &taintKeyWildcard,
+						DurationInSeconds: &taintKeyWildcardNegativeDuration,
+					},
+					{
+						Key:               &taintKeyMaintenance,
+						DurationInSeconds: &taintKeyMaintenanceDuration,
+					},
+				}
+
+				err := validateProcessGroup(context.TODO(), clusterReconciler, cluster, pod, pvc, pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey], processGroupStatus)
+
+				Expect(len(processGroupStatus.ProcessGroupConditions)).To(Equal(0))
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should toggle taint feature with wildcard taint key ", func() {
+				// Taint node
+				node.Spec.Taints = []corev1.Taint{
+					{
+						Key:       taintKeyMaintenance,
+						Value:     "rack maintenance",
+						Effect:    corev1.TaintEffectNoExecute,
+						TimeAdded: &metav1.Time{Time: time.Now().Add(-time.Second * time.Duration(taintKeyMaintenanceDuration+1))},
+					},
+				}
+				err = k8sClient.Update(context.TODO(), node)
+				Expect(err).NotTo(HaveOccurred())
+				log.Info("Taint node", "Node name", pod.Name, "Node taints", node.Spec.Taints, "Now", time.Now())
+
+				// Disable cluster's taint mechanism
+				cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions = []fdbv1beta2.TaintReplacementOption{
+					{
+						Key:               &taintKeyWildcard,
+						DurationInSeconds: &taintKeyWildcardNegativeDuration,
+					},
+					{
+						Key:               &taintKeyMaintenance,
+						DurationInSeconds: &taintKeyMaintenanceDuration,
+					},
+				}
+
+				err := validateProcessGroup(context.TODO(), clusterReconciler, cluster, pod, pvc, pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey], processGroupStatus)
+
+				Expect(err).NotTo(HaveOccurred())
+				Expect(len(processGroupStatus.ProcessGroupConditions)).To(Equal(0))
+
+				// Enable taint feature
+				cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions = []fdbv1beta2.TaintReplacementOption{
+					{
+						Key:               &taintKeyWildcard,
+						DurationInSeconds: &taintKeyWildcardDuration,
+					},
+					{
+						Key:               &taintKeyMaintenance,
+						DurationInSeconds: &taintKeyMaintenanceDuration,
+					},
+				}
+
+				err = validateProcessGroup(context.TODO(), clusterReconciler, cluster, pod, pvc, pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey], processGroupStatus)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(len(processGroupStatus.ProcessGroupConditions)).To(Equal(2))
+				Expect(processGroupStatus.GetCondition(fdbv1beta2.NodeTaintDetected)).NotTo(Equal(nil))
+				Expect(processGroupStatus.GetCondition(fdbv1beta2.NodeTaintReplacing)).NotTo(Equal(nil))
+			})
+
+			It("should disable taint feature when cluster disable it but node has wildcard taint", func() {
+				// Taint node
+				node.Spec.Taints = []corev1.Taint{
+					{
+						Key:       taintKeyWildcard,
+						Value:     "rack maintenance",
+						Effect:    corev1.TaintEffectNoExecute,
+						TimeAdded: &metav1.Time{Time: time.Now().Add(-time.Second * time.Duration(taintKeyWildcardDuration+1))},
+					},
+				}
+				err = k8sClient.Update(context.TODO(), node)
+				Expect(err).NotTo(HaveOccurred())
+				log.Info("Taint node", "Node name", pod.Name, "Node taints", node.Spec.Taints, "Now", time.Now())
+
+				// Disable cluster's taint mechanism
+				cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions = []fdbv1beta2.TaintReplacementOption{
+					{
+						Key:               &taintKeyWildcard,
+						DurationInSeconds: &taintKeyWildcardNegativeDuration,
+					},
+					{
+						Key:               &taintKeyMaintenance,
+						DurationInSeconds: &taintKeyMaintenanceDuration,
+					},
+				}
+
+				err := validateProcessGroup(context.TODO(), clusterReconciler, cluster, pod, pvc, pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey], processGroupStatus)
+
+				Expect(err).NotTo(HaveOccurred())
+				Expect(len(processGroupStatus.ProcessGroupConditions)).To(Equal(0))
+			})
+			It("should have no effect when node is tainted with a different key", func() {
+				// Taint node
+				node.Spec.Taints = []corev1.Taint{
+					{
+						Key:       taintKeyUnhealthy,
+						Value:     "rack maintenance",
+						Effect:    corev1.TaintEffectNoExecute,
+						TimeAdded: &metav1.Time{Time: time.Now().Add(-time.Second * time.Duration(taintKeyUnhealthyDuration+1))},
+					},
+				}
+				err = k8sClient.Update(context.TODO(), node)
+				Expect(err).NotTo(HaveOccurred())
+				log.Info("Taint node", "Node name", pod.Name, "Node taints", node.Spec.Taints, "Now", time.Now())
+
+				// Only handle taintKeyMaintenance taint key
+				cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions = []fdbv1beta2.TaintReplacementOption{
+					{
+						Key:               &taintKeyMaintenance,
+						DurationInSeconds: &taintKeyMaintenanceDuration,
+					},
+				}
+
+				err := validateProcessGroup(context.TODO(), clusterReconciler, cluster, pod, pvc, pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey], processGroupStatus)
+
+				Expect(err).NotTo(HaveOccurred())
+				Expect(len(processGroupStatus.ProcessGroupConditions)).To(Equal(0))
+
+				// Add taintKeyUnhealthy to handle
+				cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions = []fdbv1beta2.TaintReplacementOption{
+					{
+						Key:               &taintKeyMaintenance,
+						DurationInSeconds: &taintKeyMaintenanceDuration,
+					},
+					{
+						Key:               &taintKeyUnhealthy,
+						DurationInSeconds: &taintKeyUnhealthyDuration,
+					},
+				}
+
+				err = validateProcessGroup(context.TODO(), clusterReconciler, cluster, pod, pvc, pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey], processGroupStatus)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(len(processGroupStatus.ProcessGroupConditions)).To(Equal(2))
+				Expect(processGroupStatus.GetCondition(fdbv1beta2.NodeTaintDetected)).NotTo(Equal(nil))
+				Expect(processGroupStatus.GetCondition(fdbv1beta2.NodeTaintReplacing)).NotTo(Equal(nil))
+			})
+			// TODO: Taint key is removed from tainted node. Detect condition should be removed, but replacing condition still exist
+		})
+	})
 
 	Context("validate process group", func() {
 		var cluster *fdbv1beta2.FoundationDBCluster

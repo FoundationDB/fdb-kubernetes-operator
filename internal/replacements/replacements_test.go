@@ -22,8 +22,10 @@ package replacements
 
 import (
 	"fmt"
+	"time"
 
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	"k8s.io/utils/pointer"
 
@@ -41,6 +43,7 @@ import (
 var _ = Describe("replace_misconfigured_pods", func() {
 	var cluster *fdbv1beta2.FoundationDBCluster
 	var log logr.Logger
+	logf.SetLogger(zap.New(zap.UseDevMode(true), zap.WriteTo(GinkgoWriter)))
 
 	BeforeEach(func() {
 		log = logf.Log.WithName("replacements")
@@ -53,9 +56,11 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 	When("checking process groups for replacements", func() {
 		var pod *corev1.Pod
+		var node *corev1.Node
 		var status *fdbv1beta2.ProcessGroupStatus
 		var pClass fdbv1beta2.ProcessClass
 		var remove bool
+		var taint bool
 
 		JustBeforeEach(func() {
 			processGroupName := fmt.Sprintf("%s-%d", pClass, 1337)
@@ -85,6 +90,32 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			pod.Spec = *spec
+			// Q: why isn't this log info printed out?
+			// go test -v ./internal/replacements/... --args --ginkgo.vv
+			log.Info("Created Pod", "Pod name", pod.Name, "Pods' node name", pod.Spec.NodeName)
+			fmt.Printf("Create Pod name:%s Pod's node name:%s\n", pod.Name, pod.Spec.NodeName)
+
+			//node = &corev1.Node{Name: pod.Spec.NodeName}
+			node = &corev1.Node{}
+			node.Name = pod.Spec.NodeName
+			if taint {
+				node.Spec.Taints = []corev1.Taint{
+					{
+						Key:       "*",
+						Value:     "unreachable",
+						Effect:    corev1.TaintEffectNoExecute,
+						TimeAdded: &metav1.Time{Time: time.Now()},
+					},
+					{
+						Key:       "foundationdb/maintenance",
+						Value:     "rack maintenance",
+						Effect:    corev1.TaintEffectNoExecute,
+						TimeAdded: &metav1.Time{Time: time.Now()},
+					},
+				}
+				log.Info("Created Node", "Node name", node.Name, "Node taints", node.Spec.Taints)
+				fmt.Printf("Create tainted node:%s\n", node.Name)
+			}
 
 			err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 			Expect(err).NotTo(HaveOccurred())
@@ -594,6 +625,64 @@ var _ = Describe("replace_misconfigured_pods", func() {
 						Expect(needsRemoval).To(BeFalse())
 						Expect(err).NotTo(HaveOccurred())
 					})
+				})
+			})
+		})
+
+		// TODO: May not need this test any more? Review it later
+		Context("when Node is tainted", func() {
+			BeforeEach(func() {
+				pClass = fdbv1beta2.ProcessClassLog
+				remove = false
+				// Define cluster's taint policy
+				taintKey1 := "*"
+				taintKey1Duration := int64(5)
+				taintKey2 := "example/maintenance"
+				taintKey2Duration := int64(10)
+				cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions = []fdbv1beta2.TaintReplacementOption{
+					{
+						Key:               &taintKey1,
+						DurationInSeconds: &taintKey1Duration,
+					},
+					{
+						Key:               &taintKey2,
+						DurationInSeconds: &taintKey2Duration,
+					},
+				}
+				taint = true
+			})
+
+			When("taint duration is not long enough", func() {
+				It("should not need a replacement", func() {
+					// Q: why processGroupNeedsRemoval() doesn't output any log?
+					needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
+					if len(status.ProcessGroupConditions) == 0 {
+						log.Info("MX Debug Info", "needsRemoval", needsRemoval, "ProcessConditions", len(status.ProcessGroupConditions))
+					} else {
+						log.Info("MX Debug Info", "needsRemoval", needsRemoval, "ProcessConditions", len(status.ProcessGroupConditions),
+							"ProcessGroupConditions[0]", status.ProcessGroupConditions[0].ProcessGroupConditionType)
+					}
+					Expect(len(status.ProcessGroupConditions)).To(Equal(1))
+					Expect(status.ProcessGroupConditions[0].ProcessGroupConditionType).To(Equal(fdbv1beta2.NodeTaintDetected))
+					Expect(needsRemoval).To(BeFalse())
+					Expect(err).NotTo(HaveOccurred())
+				})
+			})
+		})
+		Context("when Node is not tainted", func() {
+			BeforeEach(func() {
+				pClass = fdbv1beta2.ProcessClassLog
+				remove = false
+				// TODO: taint the node
+			})
+
+			When("should not mark any pod tainted", func() {
+				It("should not need a replacement", func() {
+					// pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] = "-1"
+					// cluster.Spec.AutomationOptions.PodUpdateStrategy = fdbv1beta2.PodUpdateStrategyTransactionReplacement
+					// needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
+					// Expect(needsRemoval).To(BeTrue())
+					// Expect(err).NotTo(HaveOccurred())
 				})
 			})
 		})
