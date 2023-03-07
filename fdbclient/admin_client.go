@@ -628,7 +628,7 @@ func (client *cliAdminClient) KillProcesses(addresses []fdbv1beta2.ProcessAddres
 	}
 
 	killCommand := fmt.Sprintf(
-		"kill; kill %[1]s; sleep 1; kill %[1]s; sleep 1; kill %[1]s",
+		"kill; kill %[1]s; sleep 1; kill %[1]s; sleep 5; status",
 		fdbv1beta2.ProcessAddressesStringWithoutFlags(addresses, " "),
 	)
 	_, err := client.runCommandWithBackoff(killCommand)
