@@ -1,4 +1,5 @@
-# four nodes (three workers) cluster config
+# Four nodes (three workers) cluster config
+# Used by setup-local-fdb-cluster.sh
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 nodes:

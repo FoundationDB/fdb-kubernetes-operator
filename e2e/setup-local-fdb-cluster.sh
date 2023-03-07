@@ -1,12 +1,13 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Set up local FDB non-HA cluster on a 4-node kind k8s cluster
+# This only works on x86 machines as FDB doesn't provide arm64 Linux binaries yet
+read -p "create kind cluster? (enter yes or no): " createKindCluster
 
-SkipCreatingLocalCluster=${1:-0}
+cluster=${cluster:-"local-cluster"}
 
-cluster="local-cluster"
-
-if ${SkipCreatingLocalCluster} != 0; then
+if [ "${createKindCluster}" = "yes" ]; then
     echo "===Start creating k8s cluster on kind"
+    #../scripts/setup_kind_local_registry.sh # the script doesn't work 
     kind create cluster --name ${cluster} --config ./local-cluster-config.yaml
 else
     echo "===Skip creating k8s cluster on kind"
@@ -30,5 +31,7 @@ kubectl apply -k ./config/tests/base
 echo "===Done==="
 
 kubectl get fdb
-kubectl get pods
+echo "Waiting for creating fdb pods..."
+sleep 2;
+kubectl wait --for=condition=ready pod -l foundationdb.org/fdb-cluster-name=test-cluster
 

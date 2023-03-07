@@ -3,7 +3,8 @@
 set -o errexit
 
 # create registry container unless it already exists
-version=$1
+# valid version is defined at https://github.com/FoundationDB/fdb-kubernetes-operator/blob/main/.github/workflows/pull_request.yml#L42
+version=${1:-v1.23.0}
 reg_name='kind-registry'
 reg_port='5000'
 running="$(docker inspect -f '{{.State.Running}}' "${reg_name}" 2>/dev/null || true)"
