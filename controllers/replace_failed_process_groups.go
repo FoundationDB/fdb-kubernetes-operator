@@ -32,6 +32,7 @@ import (
 type replaceFailedProcessGroups struct{}
 
 // reconcile runs the reconciler's work.
+// return non-nil requeue if a process has been replaced
 func (c replaceFailedProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "replaceFailedProcessGroups")
 	// If the EmptyMonitorConf setting is set we expect that all fdb processes in this part of the cluster are missing. In order
@@ -48,6 +49,8 @@ func (c replaceFailedProcessGroups) reconcile(ctx context.Context, r *Foundation
 	defer adminClient.Close()
 
 	if replacements.ReplaceFailedProcessGroups(logger, cluster, adminClient) {
+		// Q: Is fdb.status persistent in etcd in k8s apiserver? why?
+		// Q: why is updateOrApply needed?
 		err := r.updateOrApply(ctx, cluster)
 		if err != nil {
 			return &requeue{curError: err}
