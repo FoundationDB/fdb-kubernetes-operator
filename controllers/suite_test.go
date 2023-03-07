@@ -155,6 +155,7 @@ func reconcileObject(reconciler reconcile.Reconciler, metadata metav1.ObjectMeta
 			log.Info("Reconciliation successful")
 		}
 	}
+
 	return result, err
 }
 
