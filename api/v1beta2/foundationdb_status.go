@@ -49,6 +49,9 @@ type FoundationDBStatusLocalClientInfo struct {
 type FoundationDBStatusCoordinatorInfo struct {
 	// Coordinators provides a list with coordinator details.
 	Coordinators []FoundationDBStatusCoordinator `json:"coordinators,omitempty"`
+
+	// QuorumReachable provides a summary if a quorum of the coordinators are reachable
+	QuorumReachable bool `json:"quorum_reachable,omitempty"`
 }
 
 // FoundationDBStatusCoordinator contains information about one of the
@@ -161,6 +164,8 @@ type FoundationDBStatusProcessRoleInfo struct {
 	Role string `json:"role,omitempty"`
 	// StoredBytes defines the number of bytes that are currently stored for this process.
 	StoredBytes int `json:"stored_bytes,omitempty"`
+	// ID represent the role ID.
+	ID string `json:"id,omitempty"`
 }
 
 // FoundationDBStatusDataStatistics provides information about the data in

@@ -39,6 +39,7 @@ echo "===Start building operator"
 echo "---We should be at the repo's root directory: "
 pwd
 
+# TODO use script dir here
 ./config/test-certs/generate_secrets.bash
 make rebuild-operator
 
