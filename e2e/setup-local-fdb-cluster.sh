@@ -22,8 +22,11 @@ nodes:
 - role: control-plane
   image: kindest/node:${version}
 - role: worker
+  image: kindest/node:${version}
 - role: worker
+  image: kindest/node:${version}
 - role: worker
+  image: kindest/node:${version}
 EOF
 
 else
