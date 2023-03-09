@@ -136,7 +136,13 @@ The `UpdateConfigMap` subreconciler creates a `ConfigMap` object for the cluster
 
 ### CheckClientCompatibility
 
-The `CheckClientCompatibility` subreconciler is used during upgrades to ensure that every client is compatible with the new version of FoundationDB. When it detects that the `version` in the cluster spec is protocol-compatible with the `runningVersion` in the cluster status, this will do nothing. When these are different, it means there is a pending upgrade. This subreconciler will check the `connected_clients` field in the database status, and if it finds any clients whose max supported protocol version is not the same as the `version` from the cluster spec, it will fail reconciliation. This prevents upgrading a database until all clients have been updated with a compatible client library.
+The `CheckClientCompatibility` subreconciler is used during upgrades to ensure that every client is compatible with the new version of FoundationDB.
+When it detects that the `version` in the cluster spec is protocol-compatible with the `runningVersion` in the cluster status, this will do nothing.
+When these are different, it means there is a pending upgrade.
+This subreconciler will check the `connected_clients` field in the database status, and if it finds any clients whose max supported protocol version is not the same as or newer than the `version` from the cluster spec, it will fail reconciliation.
+In addition it check that all reported clients support a protocol compatible version for the desired upgrade version, if not all reported clients support a compatible version the reconcilation will fail and upgrades will be blocked.
+
+This prevents upgrading a database until all clients have been updated with a compatible client library.
 
 You can skip this check by setting the `ignoreUpgradabilityChecks` flag in the cluster spec.
 
