@@ -1563,6 +1563,18 @@ func (cluster *FoundationDBCluster) IsBeingUpgraded() bool {
 	return cluster.Status.RunningVersion != "" && cluster.Status.RunningVersion != cluster.Spec.Version
 }
 
+// IsBeingUpgradedWithVersionIncompatibleVersion determines whether the cluster has a pending upgrade to a version incompatible version.
+func (cluster *FoundationDBCluster) IsBeingUpgradedWithVersionIncompatibleVersion() bool {
+	if !cluster.IsBeingUpgraded() {
+		return false
+	}
+
+	runningVersion, _ := ParseFdbVersion(cluster.Status.RunningVersion)
+	desiredVersion, _ := ParseFdbVersion(cluster.Spec.Version)
+
+	return !runningVersion.IsProtocolCompatible(desiredVersion)
+}
+
 // VersionCompatibleUpgradeInProgress returns true if the cluster is currently being upgraded and the upgrade is to
 // a version compatible version.
 func (cluster *FoundationDBCluster) VersionCompatibleUpgradeInProgress() bool {
@@ -1728,9 +1740,13 @@ type RequiredAddressSet struct {
 // CrashLoopContainerObject specifies crash-loop target for specific container.
 type CrashLoopContainerObject struct {
 	// Name of the target container.
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
 	ContainerName string `json:"containerName,omitempty"`
 
 	// Target processes to kill inside the container.
+	// +kubebuilder:validation:MinItems=0
+	// +kubebuilder:validation:MaxItems=10000
 	Targets []ProcessGroupID `json:"targets,omitempty"`
 }
 
@@ -1746,6 +1762,8 @@ type BuggifyConfig struct {
 
 	// CrashLoopContainers defines a list of process group IDs and containers
 	// that should be put into a crash looping state.
+	// +kubebuilder:validation:MinItems=0
+	// +kubebuilder:validation:MaxItems=8
 	CrashLoopContainers []CrashLoopContainerObject `json:"crashLoopContainers,omitempty"`
 
 	// EmptyMonitorConf instructs the operator to update all of the fdbmonitor.conf
@@ -1843,6 +1861,19 @@ func (cluster *FoundationDBCluster) IsEligibleAsCandidate(pClass ProcessClass) b
 	}
 
 	return false
+}
+
+// GetEligibleCandidateClasses returns process classes that are eligible to become coordinators.
+func (cluster *FoundationDBCluster) GetEligibleCandidateClasses() []ProcessClass {
+	candidateClasses := []ProcessClass{}
+
+	for _, processGroup := range cluster.Status.ProcessGroups {
+		if cluster.IsEligibleAsCandidate(processGroup.ProcessClass) {
+			candidateClasses = append(candidateClasses, processGroup.ProcessClass)
+		}
+	}
+
+	return candidateClasses
 }
 
 // GetClassCandidatePriority returns the priority for a class. This will be used to sort the processes for coordinator selection

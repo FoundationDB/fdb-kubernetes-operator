@@ -40,12 +40,12 @@ var _ = Describe("pod_models", func() {
 
 	BeforeEach(func() {
 		cluster = CreateDefaultCluster()
-		err := NormalizeClusterSpec(cluster, DeprecationOptions{})
-		Expect(err).NotTo(HaveOccurred())
+		Expect(NormalizeClusterSpec(cluster, DeprecationOptions{})).NotTo(HaveOccurred())
 	})
 
 	Describe("GetPod", func() {
 		var pod *corev1.Pod
+
 		Context("with a basic storage process group", func() {
 			BeforeEach(func() {
 				status := &fdbv1beta2.FoundationDBStatus{}
@@ -183,6 +183,42 @@ var _ = Describe("pod_models", func() {
 
 	Describe("GetPodSpec", func() {
 		var spec *corev1.PodSpec
+
+		Context("with a version compatible upgrade in progress", func() {
+			BeforeEach(func() {
+				cluster.Spec.Version = fdbv1beta2.Versions.NextPatchVersion.String()
+				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should use the image tag defined in the desired version", func() {
+				for _, container := range spec.Containers {
+					if container.Name != fdbv1beta2.MainContainerName {
+						continue
+					}
+
+					Expect(container.Image).To(HaveSuffix(fdbv1beta2.Versions.NextPatchVersion.String()))
+				}
+			})
+		})
+
+		Context("with a version incompatible upgrade in progress", func() {
+			BeforeEach(func() {
+				cluster.Spec.Version = fdbv1beta2.Versions.NextMajorVersion.String()
+				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should use the image tag defined in the running version", func() {
+				for _, container := range spec.Containers {
+					if container.Name != fdbv1beta2.MainContainerName {
+						continue
+					}
+
+					Expect(container.Image).To(HaveSuffix(cluster.Status.RunningVersion))
+				}
+			})
+		})
 
 		Context("with a basic storage process group", func() {
 			BeforeEach(func() {

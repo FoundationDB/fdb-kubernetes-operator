@@ -322,7 +322,7 @@ func (client *cliAdminClient) getStatus() (*fdbv1beta2.FoundationDBStatus, error
 
 	// If the status doesn't contain any processes and we are doing an upgrade, we probably use the wrong fdbcli version
 	// and we have to fallback to the on specified in out spec.version.
-	if (status == nil || len(status.Cluster.Processes) == 0) && client.Cluster.IsBeingUpgraded() {
+	if (status == nil || len(status.Cluster.Processes) == 0) && client.Cluster.IsBeingUpgradedWithVersionIncompatibleVersion() {
 		// Create a copy of the cluster and make use of the desired version instead of the last observed running version.
 		clusterCopy := client.Cluster.DeepCopy()
 		clusterCopy.Status.RunningVersion = clusterCopy.Spec.Version
@@ -628,7 +628,7 @@ func (client *cliAdminClient) KillProcesses(addresses []fdbv1beta2.ProcessAddres
 	}
 
 	killCommand := fmt.Sprintf(
-		"kill; kill %[1]s; sleep 1; kill %[1]s; sleep 1; kill %[1]s",
+		"kill; kill %[1]s; sleep 1; kill %[1]s; sleep 5",
 		fdbv1beta2.ProcessAddressesStringWithoutFlags(addresses, " "),
 	)
 	_, err := client.runCommandWithBackoff(killCommand)

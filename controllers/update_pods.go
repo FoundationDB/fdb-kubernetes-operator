@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2019-2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2019-2023 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,89 +44,12 @@ func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconcile
 
 	pods, err := r.PodLifecycleManager.GetPods(ctx, r, cluster, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
-		return &requeue{curError: err}
+		return &requeue{curError: err, delayedRequeue: true}
 	}
 
-	updates := make(map[string][]*corev1.Pod)
-	podMap := internal.CreatePodMap(cluster, pods)
-
-	for _, processGroup := range cluster.Status.ProcessGroups {
-		if processGroup.IsMarkedForRemoval() {
-			logger.V(1).Info("Ignore removed Pod",
-				"processGroupID", processGroup.ProcessGroupID)
-			continue
-		}
-
-		if cluster.SkipProcessGroup(processGroup) {
-			logger.V(1).Info("Ignore pending Pod",
-				"processGroupID", processGroup.ProcessGroupID)
-			continue
-		}
-
-		if cluster.NeedsReplacement(processGroup) {
-			logger.V(1).Info("Skip process group for deletion, requires a replacement",
-				"processGroupID", processGroup.ProcessGroupID)
-			continue
-		}
-
-		pod, ok := podMap[processGroup.ProcessGroupID]
-		if !ok || pod == nil {
-			logger.V(1).Info("Could not find Pod for process group ID",
-				"processGroupID", processGroup.ProcessGroupID)
-			continue
-			// TODO should not be continue but rather be a requeue?
-		}
-
-		if shouldRequeueDueToTerminatingPod(pod, cluster, processGroup.ProcessGroupID) {
-			return &requeue{message: "Cluster has pod that is pending deletion", delay: podSchedulingDelayDuration, delayedRequeue: true}
-		}
-
-		_, idNum, err := podmanager.ParseProcessGroupID(processGroup.ProcessGroupID)
-		if err != nil {
-			return &requeue{curError: err}
-		}
-
-		processClass, err := podmanager.GetProcessClass(cluster, pod)
-		if err != nil {
-			return &requeue{curError: err}
-		}
-
-		specHash, err := internal.GetPodSpecHash(cluster, processClass, idNum, nil, processGroup.LocalityDataHall)
-		if err != nil {
-			return &requeue{curError: err}
-		}
-
-		if pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] != specHash {
-			logger.Info("Update Pod",
-				"processGroupID", processGroup.ProcessGroupID,
-				"reason", fmt.Sprintf("specHash has changed from %s to %s", specHash, pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey]))
-
-			podClient, message := r.getPodClient(cluster, pod)
-			if podClient == nil {
-				return &requeue{message: message, delay: podSchedulingDelayDuration}
-			}
-
-			substitutions, err := podClient.GetVariableSubstitutions()
-			if err != nil {
-				return &requeue{curError: err}
-			}
-
-			if substitutions == nil {
-				logger.Info("Skipping pod due to missing locality information",
-					"processGroupID", processGroup.ProcessGroupID)
-				continue
-			}
-
-			zone := substitutions["FDB_ZONE_ID"]
-			if r.InSimulation {
-				zone = "simulation"
-			}
-
-			if updates[zone] == nil {
-				updates[zone] = make([]*corev1.Pod, 0)
-			}
-			updates[zone] = append(updates[zone], pod)
-		}
+	updates, err := getPodsToUpdate(logger, r, cluster, internal.CreatePodMap(cluster, pods))
+	if err != nil {
+		return &requeue{curError: err, delay: podSchedulingDelayDuration, delayedRequeue: true}
 	}
 
 	if len(updates) > 0 {
@@ -153,11 +76,113 @@ func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconcile
 
 	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r.Client)
 	if err != nil {
-		return &requeue{curError: err}
+		return &requeue{curError: err, delayedRequeue: true}
 	}
 	defer adminClient.Close()
 
 	return deletePodsForUpdates(ctx, r, cluster, adminClient, updates, logger)
+}
+
+// getPodsToUpdate returns a map of Zone to Pods mapping. The map has the fault domain as key and all Pods in that fault domain will be present as a slice of *corev1.Pod.
+func getPodsToUpdate(logger logr.Logger, reconciler *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, podMap map[fdbv1beta2.ProcessGroupID]*corev1.Pod) (map[string][]*corev1.Pod, error) {
+	updates := make(map[string][]*corev1.Pod)
+
+	for _, processGroup := range cluster.Status.ProcessGroups {
+		if processGroup.IsMarkedForRemoval() {
+			logger.V(1).Info("Ignore removed Pod",
+				"processGroupID", processGroup.ProcessGroupID)
+			continue
+		}
+
+		if cluster.SkipProcessGroup(processGroup) {
+			logger.V(1).Info("Ignore pending Pod",
+				"processGroupID", processGroup.ProcessGroupID)
+			continue
+		}
+
+		if cluster.NeedsReplacement(processGroup) {
+			logger.V(1).Info("Skip process group for deletion, requires a replacement",
+				"processGroupID", processGroup.ProcessGroupID)
+			continue
+		}
+
+		pod, ok := podMap[processGroup.ProcessGroupID]
+		if !ok || pod == nil {
+			logger.V(1).Info("Could not find Pod for process group ID",
+				"processGroupID", processGroup.ProcessGroupID)
+			continue
+		}
+
+		if shouldRequeueDueToTerminatingPod(pod, cluster, processGroup.ProcessGroupID) {
+			return nil, fmt.Errorf("cluster has Pod %s that is pending deletion", pod.Name)
+		}
+
+		_, idNum, err := podmanager.ParseProcessGroupID(processGroup.ProcessGroupID)
+		if err != nil {
+			logger.Info("Skipping Pod due to error parsing Process Group ID",
+				"processGroupID", processGroup.ProcessGroupID,
+				"error", err.Error())
+			continue
+		}
+
+		processClass, err := podmanager.GetProcessClass(cluster, pod)
+		if err != nil {
+			logger.Info("Skipping Pod due to error fetching process class",
+				"processGroupID", processGroup.ProcessGroupID,
+				"error", err.Error())
+			continue
+		}
+
+		specHash, err := internal.GetPodSpecHash(cluster, processClass, idNum, nil, processGroup.LocalityDataHall)
+		if err != nil {
+			logger.Info("Skipping Pod due to error generating spec hash",
+				"processGroupID", processGroup.ProcessGroupID,
+				"error", err.Error())
+			continue
+		}
+
+		// The Pod is updated, so we can continue.
+		if pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] == specHash {
+			continue
+		}
+
+		logger.Info("Update Pod",
+			"processGroupID", processGroup.ProcessGroupID,
+			"reason", fmt.Sprintf("specHash has changed from %s to %s", specHash, pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey]))
+
+		podClient, message := reconciler.getPodClient(cluster, pod)
+		if podClient == nil {
+			logger.Info("Skipping Pod due to missing Pod client information",
+				"processGroupID", processGroup.ProcessGroupID,
+				"message", message)
+			continue
+		}
+
+		substitutions, err := podClient.GetVariableSubstitutions()
+		if err != nil {
+			logger.Info("Skipping Pod due to missing variable substitutions",
+				"processGroupID", processGroup.ProcessGroupID)
+			continue
+		}
+
+		if substitutions == nil {
+			logger.Info("Skipping Pod due to missing locality information",
+				"processGroupID", processGroup.ProcessGroupID)
+			continue
+		}
+
+		zone := substitutions["FDB_ZONE_ID"]
+		if reconciler.InSimulation {
+			zone = "simulation"
+		}
+
+		if updates[zone] == nil {
+			updates[zone] = make([]*corev1.Pod, 0)
+		}
+		updates[zone] = append(updates[zone], pod)
+	}
+
+	return updates, nil
 }
 
 func shouldRequeueDueToTerminatingPod(pod *corev1.Pod, cluster *fdbv1beta2.FoundationDBCluster, processGroupID fdbv1beta2.ProcessGroupID) bool {

@@ -9940,13 +9940,19 @@ spec:
                     items:
                       properties:
                         containerName:
+                          maxLength: 253
+                          minLength: 1
                           type: string
                         targets:
                           items:
                             maxLength: 63
                             type: string
+                          maxItems: 10000
+                          minItems: 0
                           type: array
                       type: object
+                    maxItems: 8
+                    minItems: 0
                     type: array
                   emptyMonitorConf:
                     type: boolean

@@ -59,6 +59,7 @@ var k8sClient *mockclient.MockClient
 var clusterReconciler *FoundationDBClusterReconciler
 var backupReconciler *FoundationDBBackupReconciler
 var restoreReconciler *FoundationDBRestoreReconciler
+var requeueLimit = 20
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -125,15 +126,15 @@ func createDefaultRestore(cluster *fdbv1beta2.FoundationDBCluster) *fdbv1beta2.F
 }
 
 func reconcileCluster(cluster *fdbv1beta2.FoundationDBCluster) (reconcile.Result, error) {
-	return reconcileObject(clusterReconciler, cluster.ObjectMeta, 20)
+	return reconcileObject(clusterReconciler, cluster.ObjectMeta, requeueLimit)
 }
 
 func reconcileBackup(backup *fdbv1beta2.FoundationDBBackup) (reconcile.Result, error) {
-	return reconcileObject(backupReconciler, backup.ObjectMeta, 20)
+	return reconcileObject(backupReconciler, backup.ObjectMeta, requeueLimit)
 }
 
 func reconcileRestore(restore *fdbv1beta2.FoundationDBRestore) (reconcile.Result, error) {
-	return reconcileObject(restoreReconciler, restore.ObjectMeta, 20)
+	return reconcileObject(restoreReconciler, restore.ObjectMeta, requeueLimit)
 }
 
 func reconcileObject(reconciler reconcile.Reconciler, metadata metav1.ObjectMeta, requeueLimit int) (reconcile.Result, error) {
@@ -154,6 +155,7 @@ func reconcileObject(reconciler reconcile.Reconciler, metadata metav1.ObjectMeta
 			log.Info("Reconciliation successful")
 		}
 	}
+
 	return result, err
 }
 

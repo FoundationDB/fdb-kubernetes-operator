@@ -62,24 +62,7 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 		return &requeue{curError: err}
 	}
 
-	// In the case of version compatible upgrades we have to check if some processes are already running with the new
-	// desired version e.g. because they were restarted by an event outside of the control of the operator.
-	var upgradedProcesses int
-	if cluster.VersionCompatibleUpgradeInProgress() {
-		for _, process := range status.Cluster.Processes {
-			dcID := process.Locality[fdbv1beta2.FDBLocalityDCIDKey]
-			// Ignore processes that are not managed by this operator instance
-			if dcID != cluster.Spec.DataCenter {
-				continue
-			}
-
-			if process.Version == cluster.Spec.Version {
-				upgradedProcesses++
-			}
-		}
-	}
-
-	addresses, req := getProcessesReadyForRestart(logger, cluster, addressMap, upgradedProcesses)
+	addresses, req := getProcessesReadyForRestart(logger, cluster, addressMap)
 	if req != nil {
 		return req
 	}
@@ -117,7 +100,7 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 		return &requeue{curError: err}
 	}
 
-	upgrading := cluster.Status.RunningVersion != cluster.Spec.Version
+	upgrading := cluster.IsBeingUpgradedWithVersionIncompatibleVersion()
 
 	if useLocks && upgrading {
 		processGroupIDs := make([]fdbv1beta2.ProcessGroupID, 0, len(cluster.Status.ProcessGroups))
@@ -175,7 +158,7 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 
 // getProcessesReadyForRestart returns a slice of process addresses that can be restarted. If addresses are missing or not all processes
 // have the latest configuration this method will return a requeue struct with more details.
-func getProcessesReadyForRestart(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, addressMap map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.ProcessAddress, upgradedProcesses int) ([]fdbv1beta2.ProcessAddress, *requeue) {
+func getProcessesReadyForRestart(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, addressMap map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.ProcessAddress) ([]fdbv1beta2.ProcessAddress, *requeue) {
 	addresses := make([]fdbv1beta2.ProcessAddress, 0, len(cluster.Status.ProcessGroups))
 	allSynced := true
 	var missingAddress []fdbv1beta2.ProcessGroupID
@@ -237,7 +220,7 @@ func getProcessesReadyForRestart(logger logr.Logger, cluster *fdbv1beta2.Foundat
 	// block the restart command if a process is missing longer than the specified GetIgnoreMissingProcessesSeconds.
 	// Those checks should ensure we only run the restart command if all processes that have to be restarted and are connected
 	// to cluster are ready to be restarted.
-	if cluster.IsBeingUpgraded() && (counts.Total()-missingProcesses-upgradedProcesses) != len(addresses) {
+	if cluster.IsBeingUpgradedWithVersionIncompatibleVersion() && (counts.Total()-missingProcesses) != len(addresses) {
 		return nil, &requeue{
 			message:        fmt.Sprintf("expected %d processes, got %d processes ready to restart", counts.Total(), len(addresses)),
 			delayedRequeue: true,
@@ -255,9 +238,13 @@ func getAddressesForUpgrade(logger logr.Logger, r *FoundationDBClusterReconciler
 		return nil, &requeue{curError: err}
 	}
 
-	if !internal.HasDesiredFaultToleranceFromStatus(logger, databaseStatus, cluster) {
-		r.Recorder.Event(cluster, corev1.EventTypeNormal, "UpgradeRequeued", "Database is unavailable or doesn't have expected fault tolerance")
-		return nil, &requeue{message: "Deferring upgrade until database is available or expected fault tolerance is met"}
+	// We don't want to check for fault tolerance here to make sure the operator is able to restart processes if some
+	// processes where restarted before the operator issued the cluster wide restart. For version incompatible upgrades
+	// that would mean that the processes restarted earlier are not part of the cluster anymore leading to a fault tolerance
+	// drop.
+	if !databaseStatus.Client.DatabaseStatus.Available {
+		r.Recorder.Event(cluster, corev1.EventTypeNormal, "UpgradeRequeued", "Database is unavailable")
+		return nil, &requeue{message: "Deferring upgrade until database is available"}
 	}
 
 	notReadyProcesses := make([]string, 0)

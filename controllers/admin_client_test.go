@@ -164,11 +164,7 @@ var _ = Describe("admin_client_test", func() {
 						},
 						Version:       cluster.Spec.Version,
 						UptimeSeconds: 60000,
-						Roles: []fdbv1beta2.FoundationDBStatusProcessRoleInfo{
-							{
-								Role: string(fdbv1beta2.ProcessRoleCoordinator),
-							},
-						},
+						Roles:         nil,
 					}))
 				})
 			})

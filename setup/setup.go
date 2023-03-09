@@ -24,8 +24,11 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/fs"
+	"log"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 	"time"
 
@@ -59,6 +62,7 @@ type Options struct {
 	MetricsAddr                        string
 	LeaderElectionID                   string
 	LogFile                            string
+	LogFilePermission                  string
 	LabelSelector                      string
 	WatchNamespace                     string
 	CliTimeout                         int
@@ -89,6 +93,8 @@ func (o *Options) BindFlags(fs *flag.FlagSet) {
 	fs.DurationVar(&o.LogFileMinAge, "log-file-min-age", 5*time.Minute, "Defines the minimum age of fdbcli log files before removing when \"--cleanup-old-cli-logs\" is set.")
 	fs.IntVar(&o.LogFileMaxAge, "log-file-max-age", 28, "Defines the maximum age to retain old operator log file in number of days.")
 	fs.IntVar(&o.LogFileMaxSize, "log-file-max-size", 250, "Defines the maximum size in megabytes of the operator log file before it gets rotated.")
+	fs.StringVar(&o.LogFilePermission, "log-file-permission", "0644",
+		"The file permission for the log file. Only used if log-file is set. Only the octal representation is supported.")
 	fs.IntVar(&o.MaxNumberOfOldLogFiles, "max-old-log-files", 3, "Defines the maximum number of old operator log files to retain.")
 	fs.BoolVar(&o.CompressOldFiles, "compress", false, "Defines whether the rotated log files should be compressed using gzip or not.")
 	fs.BoolVar(&o.PrintVersion, "version", false, "Prints the version of the operator and exits.")
@@ -113,25 +119,14 @@ func StartManager(
 	restoreReconciler *controllers.FoundationDBRestoreReconciler,
 	logr logr.Logger,
 	watchedObjects ...client.Object) (manager.Manager, *os.File) {
-	var logWriter io.Writer
-	var file *os.File
-
 	if operatorOpts.PrintVersion {
 		fmt.Printf("version: %s\n", operatorVersion)
 		os.Exit(0)
 	}
 
-	if operatorOpts.LogFile != "" {
-		lumberjackLogger := &lumberjack.Logger{
-			Filename:   operatorOpts.LogFile,
-			MaxSize:    operatorOpts.LogFileMaxSize,
-			MaxAge:     operatorOpts.LogFileMaxAge,
-			MaxBackups: operatorOpts.MaxNumberOfOldLogFiles,
-			Compress:   operatorOpts.CompressOldFiles,
-		}
-		logWriter = io.MultiWriter(os.Stdout, lumberjackLogger)
-	} else {
-		logWriter = os.Stdout
+	logWriter, err := setupLogger(operatorOpts)
+	if err != nil {
+		log.Fatalf("unable to setup logger: %s, got error: %s\n", operatorOpts.LogFile, err.Error())
 	}
 
 	logger := zap.New(
@@ -239,7 +234,7 @@ func StartManager(
 
 	// +kubebuilder:scaffold:builder
 	setupLog.Info("setup manager")
-	return mgr, file
+	return mgr, nil
 }
 
 // MoveFDBBinaries moves FDB binaries that are pulled from setup containers into
@@ -321,4 +316,52 @@ func moveFDBBinaries(log logr.Logger) error {
 	}
 
 	return nil
+}
+
+// setupLogger will return a MultiWriter if the operator should log to a file and stdout otherwise only the stdout
+// io.Writer is returned. If the operator should log to a file the operator will make sure to create the file with
+// the expected permissions.
+func setupLogger(operatorOpts Options) (io.Writer, error) {
+	if operatorOpts.LogFile != "" {
+		expectedPermission := fs.FileMode(0644)
+
+		if operatorOpts.LogFilePermission != "" {
+			expectedPermissionUnit, err := strconv.ParseUint(operatorOpts.LogFilePermission, 8, 32)
+			if err != nil {
+				return nil, err
+			}
+
+			expectedPermission = fs.FileMode(expectedPermissionUnit)
+		}
+
+		// We have to create the original file by ourself since lumberjack doesn't support to pass down the expected permissions
+		// see: https://github.com/natefinch/lumberjack/issues/82#issuecomment-482143273.
+		stat, err := os.Stat(operatorOpts.LogFile)
+		// File doesn't exist and must be created with the expected permission.
+		if os.IsNotExist(err) {
+			err := os.WriteFile(operatorOpts.LogFile, nil, expectedPermission)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		if err == nil && stat.Mode() != expectedPermission {
+			err = os.Chmod(operatorOpts.LogFile, expectedPermission)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		lumberjackLogger := &lumberjack.Logger{
+			Filename:   operatorOpts.LogFile,
+			MaxSize:    operatorOpts.LogFileMaxSize,
+			MaxAge:     operatorOpts.LogFileMaxAge,
+			MaxBackups: operatorOpts.MaxNumberOfOldLogFiles,
+			Compress:   operatorOpts.CompressOldFiles,
+		}
+
+		return io.MultiWriter(os.Stdout, lumberjackLogger), nil
+	}
+
+	return os.Stdout, nil
 }

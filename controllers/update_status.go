@@ -367,6 +367,7 @@ func checkAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbv1be
 	}
 
 	correct := false
+	versionCompatibleUpgrade := cluster.VersionCompatibleUpgradeInProgress()
 	for _, process := range processStatus {
 		commandLine, err := internal.GetStartCommand(cluster, processGroupStatus.ProcessClass, podClient, processNumber, processCount)
 		if err != nil {
@@ -378,7 +379,12 @@ func checkAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbv1be
 			return err
 		}
 
-		versionMatch := process.Version == cluster.Spec.Version || process.Version == fmt.Sprintf("%s-PRERELEASE", cluster.Spec.Version)
+		// If a version compatible upgrade is in progress, skip the version check since we will run a mixed set of versions
+		// until the cluster is fully reconciled.
+		versionMatch := true
+		if !versionCompatibleUpgrade {
+			versionMatch = process.Version == cluster.Spec.Version || process.Version == fmt.Sprintf("%s-PRERELEASE", cluster.Spec.Version)
+		}
 
 		// If the `EmptyMonitorConf` is set, the commandline is by definition wrong since there should be no running processes.
 		correct = commandLine == process.CommandLine && versionMatch && !cluster.Spec.Buggify.EmptyMonitorConf

@@ -54,6 +54,7 @@ import (
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 )
 
+var firstLogIndex = 1
 var firstStorageIndex = 13
 
 func reloadCluster(cluster *fdbv1beta2.FoundationDBCluster) (int64, error) {
@@ -606,8 +607,8 @@ var _ = Describe("cluster_controller", func() {
 					}))
 				})
 
-				It("should change the connection string", func() {
-					Expect(cluster.Status.ConnectionString).NotTo(Equal(originalConnectionString))
+				It("should not change the connection string", func() {
+					Expect(cluster.Status.ConnectionString).To(Equal(originalConnectionString))
 				})
 
 				It("should clear the removal list", func() {
@@ -1946,9 +1947,9 @@ var _ = Describe("cluster_controller", func() {
 			})
 
 			It("should make the processes listen on an IPV6 address", func() {
-				address1 := cluster.Status.ProcessGroups[firstStorageIndex].Addresses[0]
-				address2 := cluster.Status.ProcessGroups[firstStorageIndex+1].Addresses[0]
-				address3 := cluster.Status.ProcessGroups[firstStorageIndex+2].Addresses[0]
+				address1 := cluster.Status.ProcessGroups[firstLogIndex].Addresses[0]
+				address2 := cluster.Status.ProcessGroups[firstLogIndex+1].Addresses[0]
+				address3 := cluster.Status.ProcessGroups[firstLogIndex+2].Addresses[0]
 				Expect(cluster.Status.ConnectionString).To(HaveSuffix(fmt.Sprintf("@[%s]:4501,[%s]:4501,[%s]:4501", address1, address2, address3)))
 			})
 		})
@@ -2012,8 +2013,8 @@ var _ = Describe("cluster_controller", func() {
 			When("downgrading a cluster to another patch version", func() {
 				BeforeEach(func() {
 					cluster.Spec.Version = fdbv1beta2.Versions.PreviousPatchVersion.String()
-					err := k8sClient.Update(context.TODO(), cluster)
-					Expect(err).NotTo(HaveOccurred())
+					Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
+					requeueLimit = 50
 				})
 
 				It("should downgrade the cluster", func() {
@@ -2026,8 +2027,7 @@ var _ = Describe("cluster_controller", func() {
 				BeforeEach(func() {
 					shouldCompleteReconciliation = false
 					cluster.Spec.Version = fdbv1beta2.Versions.IncompatibleVersion.String()
-					err := k8sClient.Update(context.TODO(), cluster)
-					Expect(err).NotTo(HaveOccurred())
+					Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
 				})
 
 				It("should not downgrade the cluster", func() {
@@ -2037,7 +2037,161 @@ var _ = Describe("cluster_controller", func() {
 			})
 		})
 
-		Context("with an upgrade", func() {
+		Context("with a patch upgrade", func() {
+			var adminClient *mock.AdminClient
+
+			BeforeEach(func() {
+				cluster.Spec.Version = fdbv1beta2.Versions.NextPatchVersion.String()
+				adminClient, err = mock.NewMockAdminClientUncast(cluster, k8sClient)
+				Expect(err).NotTo(HaveOccurred())
+				// Increase the requeue limit here since the operator has do multiple things before being reconciled
+				requeueLimit = 50
+			})
+
+			Context("with the delete strategy", func() {
+				BeforeEach(func() {
+					cluster.Spec.AutomationOptions.PodUpdateStrategy = fdbv1beta2.PodUpdateStrategyDelete
+					Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
+				})
+
+				It("should upgrade the cluster", func() {
+					Expect(adminClient.KilledAddresses).To(BeEmpty())
+				})
+
+				It("should set the image on the pods", func() {
+					pods := &corev1.PodList{}
+					Expect(k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)).NotTo(HaveOccurred())
+
+					for _, pod := range pods.Items {
+						Expect(pod.Spec.Containers[0].Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb:%s", fdbv1beta2.Versions.NextPatchVersion.String())))
+					}
+				})
+
+				It("should update the running version", func() {
+					Expect(cluster.Status.RunningVersion).To(Equal(cluster.Spec.Version))
+				})
+			})
+
+			Context("with the replace transaction strategy", func() {
+				BeforeEach(func() {
+					cluster.Spec.AutomationOptions.PodUpdateStrategy = fdbv1beta2.PodUpdateStrategyTransactionReplacement
+					Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
+				})
+
+				It("should not bounce the processes", func() {
+					Expect(adminClient.KilledAddresses).To(BeEmpty())
+				})
+
+				It("should set the image on the pods", func() {
+					pods := &corev1.PodList{}
+					err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+					Expect(err).NotTo(HaveOccurred())
+
+					for _, pod := range pods.Items {
+						Expect(pod.Spec.Containers[0].Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb:%s", fdbv1beta2.Versions.NextPatchVersion.String())))
+					}
+				})
+
+				It("should update the running version", func() {
+					Expect(cluster.Status.RunningVersion).To(Equal(cluster.Spec.Version))
+				})
+
+				It("should replace the transaction system Pods", func() {
+					pods := &corev1.PodList{}
+					err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+					Expect(err).NotTo(HaveOccurred())
+
+					originalNames := make([]string, 0, len(originalPods.Items))
+					for _, pod := range originalPods.Items {
+						class := pod.Labels[fdbv1beta2.FDBProcessClassLabel]
+						if !fdbv1beta2.ProcessClass(class).IsTransaction() {
+							continue
+						}
+
+						originalNames = append(originalNames, pod.Name)
+					}
+
+					currentNames := make([]string, 0, len(originalPods.Items))
+					for _, pod := range pods.Items {
+						class := pod.Labels[fdbv1beta2.FDBProcessClassLabel]
+						if !fdbv1beta2.ProcessClass(class).IsTransaction() {
+							continue
+						}
+
+						currentNames = append(currentNames, pod.Name)
+					}
+
+					Expect(currentNames).NotTo(ContainElements(originalNames))
+				})
+
+				It("should not replace the storage Pods", func() {
+					pods := &corev1.PodList{}
+					err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+					Expect(err).NotTo(HaveOccurred())
+
+					originalNames := make([]string, 0, len(originalPods.Items))
+					for _, pod := range originalPods.Items {
+						class := pod.Labels[fdbv1beta2.FDBProcessClassLabel]
+						if fdbv1beta2.ProcessClass(class).IsTransaction() {
+							continue
+						}
+
+						originalNames = append(originalNames, pod.Name)
+					}
+
+					currentNames := make([]string, 0, len(originalPods.Items))
+					for _, pod := range pods.Items {
+						class := pod.Labels[fdbv1beta2.FDBProcessClassLabel]
+						if fdbv1beta2.ProcessClass(class).IsTransaction() {
+							continue
+						}
+
+						currentNames = append(currentNames, pod.Name)
+					}
+
+					Expect(currentNames).To(ContainElements(originalNames))
+				})
+			})
+
+			Context("with the replacement strategy", func() {
+				BeforeEach(func() {
+					cluster.Spec.AutomationOptions.PodUpdateStrategy = fdbv1beta2.PodUpdateStrategyReplacement
+					Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
+				})
+
+				It("should not bounce the processes", func() {
+					Expect(adminClient.KilledAddresses).To(BeEmpty())
+				})
+
+				It("should set the image on the pods", func() {
+					pods := &corev1.PodList{}
+					Expect(k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)).NotTo(HaveOccurred())
+
+					for _, pod := range pods.Items {
+						Expect(pod.Spec.Containers[0].Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb:%s", fdbv1beta2.Versions.NextPatchVersion.String())))
+					}
+				})
+
+				It("should replace the process group", func() {
+					pods := &corev1.PodList{}
+					Expect(k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)).NotTo(HaveOccurred())
+
+					originalNames := make([]string, 0, len(originalPods.Items))
+					for _, pod := range originalPods.Items {
+						originalNames = append(originalNames, pod.Name)
+					}
+
+					currentNames := make([]string, 0, len(originalPods.Items))
+					for _, pod := range pods.Items {
+						currentNames = append(currentNames, pod.Name)
+					}
+
+					Expect(currentNames).NotTo(ContainElements(originalNames))
+				})
+			})
+		})
+
+		Context("with a version incompatible upgrade", func() {
 			var adminClient *mock.AdminClient
 
 			BeforeEach(func() {
@@ -2656,6 +2810,65 @@ var _ = Describe("cluster_controller", func() {
 				When("using 6.3.24", func() {
 					BeforeEach(func() {
 						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineShardedRocksDB
+						cluster.Spec.Version = "6.3.24"
+						err := k8sClient.Update(context.TODO(), cluster)
+						Expect(err).NotTo(HaveOccurred())
+						shouldCompleteReconciliation = false
+					})
+					It("generations are not matching", func() {
+						generations, err := reloadClusterGenerations(cluster)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(generations.Reconciled).ToNot(Equal(cluster.ObjectMeta.Generation))
+					})
+				})
+			})
+
+		})
+
+		When("creating a cluster with Redwood as storage engine", func() {
+			When("using ssd-redwood-1-experimental", func() {
+				When("using 7.2.0", func() {
+					BeforeEach(func() {
+						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineRedwood1Experimental
+						cluster.Spec.Version = "7.2.0"
+						err := k8sClient.Update(context.TODO(), cluster)
+						Expect(err).NotTo(HaveOccurred())
+					})
+					It("generations are matching", func() {
+						generations, err := reloadClusterGenerations(cluster)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(generations.Reconciled).To(Equal(cluster.ObjectMeta.Generation))
+					})
+				})
+				When("using 7.1.0", func() {
+					BeforeEach(func() {
+						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineRedwood1Experimental
+						cluster.Spec.Version = "7.1.0"
+						err := k8sClient.Update(context.TODO(), cluster)
+						Expect(err).NotTo(HaveOccurred())
+					})
+					It("generations are matching", func() {
+						generations, err := reloadClusterGenerations(cluster)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(generations.Reconciled).To(Equal(cluster.ObjectMeta.Generation))
+					})
+				})
+				When("using 7.0.0", func() {
+					BeforeEach(func() {
+						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineRedwood1Experimental
+						cluster.Spec.Version = "7.0.0"
+						err := k8sClient.Update(context.TODO(), cluster)
+						Expect(err).NotTo(HaveOccurred())
+					})
+					It("generations are matching", func() {
+						generations, err := reloadClusterGenerations(cluster)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(generations.Reconciled).To(Equal(cluster.ObjectMeta.Generation))
+					})
+				})
+				When("using 6.3.24", func() {
+					BeforeEach(func() {
+						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineRedwood1Experimental
 						cluster.Spec.Version = "6.3.24"
 						err := k8sClient.Update(context.TODO(), cluster)
 						Expect(err).NotTo(HaveOccurred())
