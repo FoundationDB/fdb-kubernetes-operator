@@ -71,7 +71,7 @@ jobs:
         # Install Kind and start a local Kubernetes cluster
         chmod +x kind
         sudo mv kind /usr/local/bin/kind
-        ./e2e/setup-local-fdb-cluster.sh
+        ./e2e/setup-local-fdb-cluster.sh yes ${{ matrix.kubever }}
     #  https://github.com/goreleaser/goreleaser/issues/1311
     - name: Get current semver tag
       run: echo "::set-output name=CURRENT_TAG::$(git describe --tags --match "v*" --abbrev=0)"
