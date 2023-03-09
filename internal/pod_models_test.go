@@ -187,7 +187,7 @@ var _ = Describe("pod_models", func() {
 		Context("with a version compatible upgrade in progress", func() {
 			BeforeEach(func() {
 				cluster.Spec.Version = fdbv1beta2.Versions.NextPatchVersion.String()
-				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1, "")
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -205,7 +205,7 @@ var _ = Describe("pod_models", func() {
 		Context("with a version incompatible upgrade in progress", func() {
 			BeforeEach(func() {
 				cluster.Spec.Version = fdbv1beta2.Versions.NextMajorVersion.String()
-				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1, "")
 				Expect(err).NotTo(HaveOccurred())
 			})
 
