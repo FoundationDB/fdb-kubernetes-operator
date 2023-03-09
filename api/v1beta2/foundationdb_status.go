@@ -246,6 +246,9 @@ type FoundationDBStatusSupportedVersion struct {
 	// SourceVersion is the version of the source code that the client library
 	// was built from.
 	SourceVersion string `json:"source_version,omitempty"`
+
+	// Count provides the number of clients connected to the database with this specific version.
+	Count int `json:"count,omitempty"`
 }
 
 // FoundationDBStatusConnectedClient provides information about a client that

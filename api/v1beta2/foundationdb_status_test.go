@@ -289,6 +289,7 @@ var _ = Describe("FoundationDBStatus", func() {
 						SupportedVersions: []FoundationDBStatusSupportedVersion{
 							{
 								ClientVersion: "Unknown",
+								Count:         10,
 								ConnectedClients: []FoundationDBStatusConnectedClient{
 									{
 										Address:  "10.1.38.92:52762",
@@ -337,6 +338,7 @@ var _ = Describe("FoundationDBStatus", func() {
 							},
 							{
 								ClientVersion: "6.1.8",
+								Count:         8,
 								ConnectedClients: []FoundationDBStatusConnectedClient{
 									{
 										Address:  "10.1.38.106:35640",
@@ -377,6 +379,7 @@ var _ = Describe("FoundationDBStatus", func() {
 							},
 							{
 								ClientVersion: "6.2.15",
+								Count:         8,
 								ConnectedClients: []FoundationDBStatusConnectedClient{
 									{
 										Address:  "10.1.38.106:35640",
@@ -671,6 +674,7 @@ var _ = Describe("FoundationDBStatus", func() {
 				SupportedVersions: []FoundationDBStatusSupportedVersion{
 					{
 						ClientVersion: "6.2.30",
+						Count:         3,
 						ConnectedClients: []FoundationDBStatusConnectedClient{
 							{
 								Address:  "10.1.18.249:34874",
@@ -691,6 +695,7 @@ var _ = Describe("FoundationDBStatus", func() {
 					},
 					{
 						ClientVersion: "6.3.10",
+						Count:         3,
 						ConnectedClients: []FoundationDBStatusConnectedClient{
 							{
 								Address:  "10.1.18.249:34874",
@@ -711,6 +716,7 @@ var _ = Describe("FoundationDBStatus", func() {
 					},
 					{
 						ClientVersion: "7.1.0-rc1",
+						Count:         8,
 						ConnectedClients: []FoundationDBStatusConnectedClient{
 							{
 								Address:  "10.1.18.249:34874",

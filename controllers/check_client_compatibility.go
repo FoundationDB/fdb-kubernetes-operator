@@ -79,17 +79,9 @@ func (c checkClientCompatibility) reconcile(_ context.Context, r *FoundationDBCl
 		return &requeue{curError: err}
 	}
 
-	var unsupportedClients []string
-	for _, versionInfo := range status.Cluster.Clients.SupportedVersions {
-		if versionInfo.ProtocolVersion == "Unknown" {
-			continue
-		}
-
-		if versionInfo.ProtocolVersion != protocolVersion {
-			for _, client := range versionInfo.MaxProtocolClients {
-				unsupportedClients = append(unsupportedClients, client.Description())
-			}
-		}
+	unsupportedClients, compatibleClientsCount, err := getUnsupportedClientsAndCheckIfCompatibleClientsAreIncluded(status.Cluster.Clients.SupportedVersions, protocolVersion, version)
+	if err != nil {
+		return &requeue{curError: err}
 	}
 
 	if len(unsupportedClients) > 0 {
@@ -102,5 +94,47 @@ func (c checkClientCompatibility) reconcile(_ context.Context, r *FoundationDBCl
 		return &requeue{message: message, delay: 1 * time.Minute}
 	}
 
+	if compatibleClientsCount != status.Cluster.Clients.Count {
+		message := fmt.Sprintf("expected to find %d compatible clients for version %s, but only got %d",
+			status.Cluster.Clients.Count,
+			cluster.Spec.Version,
+			compatibleClientsCount)
+		r.Recorder.Event(cluster, corev1.EventTypeNormal, "UnsupportedClient", message)
+		logger.Info("Deferring reconciliation due to missing compatible clients", "message", message)
+		return &requeue{message: message, delay: 1 * time.Minute}
+	}
+
 	return nil
+}
+
+// getUnsupportedClients returns the list of unsupported clients for this protocol version and desired version. It also returns the number of clients
+// connected with a protocol compatible version.
+func getUnsupportedClientsAndCheckIfCompatibleClientsAreIncluded(supportedVersions []fdbv1beta2.FoundationDBStatusSupportedVersion, protocolVersion string, desiredVersion fdbv1beta2.Version) ([]string, int, error) {
+	var unsupportedClients []string
+	var compatibleClientsCount int
+
+	for _, versionInfo := range supportedVersions {
+		if versionInfo.ProtocolVersion == "Unknown" {
+			continue
+		}
+
+		parsedVersion, err := fdbv1beta2.ParseFdbVersion(versionInfo.ClientVersion)
+		if err != nil {
+			return nil, -1, err
+		}
+
+		if versionInfo.ProtocolVersion == protocolVersion {
+			compatibleClientsCount += versionInfo.Count
+		}
+
+		// If the clients report an even newer version than the desired version we can skip this check.
+		// The assumption here is that if a client supports a newer version
+		if versionInfo.ProtocolVersion != protocolVersion && !parsedVersion.IsAtLeast(desiredVersion) {
+			for _, client := range versionInfo.MaxProtocolClients {
+				unsupportedClients = append(unsupportedClients, client.Description())
+			}
+		}
+	}
+
+	return unsupportedClients, compatibleClientsCount, nil
 }
