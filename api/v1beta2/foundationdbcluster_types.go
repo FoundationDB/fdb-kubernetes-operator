@@ -2285,10 +2285,15 @@ type Locality struct {
 	//The value of the locality
 	// +kubebuilder:validation:Required
 	Value string `json:"value,omitempty"`
-	//The topology key (ex. topology.kubernetes.io/zone)
+	//The topology key (ex. topology.kubernetes.io/zone).
+	// Before this field can be used it is necessary to update the sidecar to read the topology labels from the pod See https://github.com/apple/foundationdb/pull/8506.
+	// When three data hall is enabled the topology key is used to determine suitable pods for the processes.
 	// +kubebuilder:validation:Required
 	TopologyKey string `json:"topologyKey,omitempty"`
-	//The node selector map
+	//The node selector map.
+	// When three data hall replication is configured the node selector should correspond to a node pool for a given availability zone.
+	// This will ensure that the processes are placed in the desired availability zone.
+	// This strategy requires to have three node pools one for each availability zone.
 	// +kubebuilder:validation:Required
 	NodeSelector [][]string `json:"nodeSelector,omitempty"`
 }
