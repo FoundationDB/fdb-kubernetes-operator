@@ -154,7 +154,12 @@ func ChooseDistributedProcesses(cluster *fdbv1beta2.FoundationDBCluster, process
 
 	fields := constraint.Fields
 	if len(fields) == 0 {
-		fields = []string{fdbv1beta2.FDBLocalityZoneIDKey, fdbv1beta2.FDBLocalityDCIDKey}
+		switch cluster.Spec.DatabaseConfiguration.RedundancyMode {
+		case fdbv1beta2.RedundancyModeThreeDataHall:
+			fields = []string{fdbv1beta2.FDBLocalityZoneIDKey, fdbv1beta2.FDBLocalityDataHallKey}
+		default:
+			fields = []string{fdbv1beta2.FDBLocalityZoneIDKey, fdbv1beta2.FDBLocalityDCIDKey}
+		}
 	}
 
 	chosenCounts := make(map[string]map[string]int, len(fields))

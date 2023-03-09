@@ -432,12 +432,17 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 		processGroup.AddAddresses(podmanager.GetPublicIPs(pod, log), processGroup.IsMarkedForRemoval() || !status.Health.Available)
 		processCount := 1
 
-		processStatus := processMap[processGroup.ProcessGroupID]
-		if len(processStatus) > 0 {
-			dataHall := processStatus[0].Locality[fdbv1beta2.FDBLocalityDataHallKey]
-			//TODO(manuel.fontan): add a unit test for this
-			processGroup.LocalityDataHall = dataHall
+		if cluster.Spec.DatabaseConfiguration.RedundancyMode == fdbv1beta2.RedundancyModeThreeDataHall {
+			fdbProcessStatusInfo := processMap[processGroup.ProcessGroupID]
+			if len(fdbProcessStatusInfo) > 0 {
+				dataHall, ok := fdbProcessStatusInfo[0].Locality[fdbv1beta2.FDBLocalityDataHallKey]
+				//TODO(manuel.fontan): add a unit test for this
+				if ok {
+					processGroup.LocalityDataHall = dataHall
+				}
+			}
 		}
+
 		// In this case the Pod has a DeletionTimestamp and should be deleted.
 		if !pod.ObjectMeta.DeletionTimestamp.IsZero() {
 			// If the ProcessGroup is marked for removal we can put the status into ResourcesTerminating

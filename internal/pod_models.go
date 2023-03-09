@@ -22,6 +22,7 @@ package internal
 
 import (
 	"fmt"
+	"math/rand"
 	"regexp"
 	"strconv"
 	"strings"
@@ -133,8 +134,12 @@ func GetPod(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.Pro
 	}
 
 	if cluster.Spec.DatabaseConfiguration.RedundancyMode == fdbv1beta2.RedundancyModeThreeDataHall {
-		ns := map[string]string{podLocality.NodeSelector[0][0]: podLocality.NodeSelector[0][1]}
-		spec.NodeSelector = ns
+		if len(spec.NodeSelector) == 0 {
+			ns := map[string]string{podLocality.NodeSelector[0][0]: podLocality.NodeSelector[0][1]}
+			spec.NodeSelector = ns
+		} else {
+			spec.NodeSelector[podLocality.NodeSelector[0][0]] = podLocality.NodeSelector[0][1]
+		}
 	}
 
 	specHash, err := GetPodSpecHash(cluster, processClass, idNum, spec, podLocality.Value)
@@ -152,21 +157,29 @@ func GetPod(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.Pro
 	}, nil
 }
 
+// getPodLocalityDataHall returns the locality for a pod in a three data hall cluster.
+// The locality is determined by the number of processes per datahall.
+// The datahall with the least number of processes is selected or a random datahall if there are no processes.
 func getPodLocalityDataHall(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, status *fdbv1beta2.FoundationDBStatus) (fdbv1beta2.Locality, error) {
 	// Set the spec.NodeSelector depending on the process distribution across fault domains.
 	// Convert the process list into a map with the process data hall as key.
 	processInfo := map[string][]fdbv1beta2.FoundationDBStatusProcessInfo{}
 	for _, p := range status.Cluster.Processes {
-		// skip process localities not matching the cluster Localities. For example processes with empty data hall.
+		// skip excluded processess or with localities not listed in the cluster spec.
 		_, err := cluster.GetLocality(p.Locality[fdbv1beta2.FDBLocalityDataHallKey])
-		if err != nil {
+		if err != nil || p.Excluded {
 			continue
 		}
-
 		if p.ProcessClass == processClass {
 			processInfo[p.Locality[fdbv1beta2.FDBLocalityDataHallKey]] = append(processInfo[p.Locality[fdbv1beta2.FDBLocalityDataHallKey]], p)
 		}
 	}
+
+	// If there are no processes with data hall locality info we pick a random data hall locality from the cluster spec.
+	if len(processInfo) == 0 {
+		return cluster.GetLocality(cluster.Spec.Localities[rand.Intn(2)].Value)
+	}
+
 	// To keep the cluster balanced we will pick the locality data hall with less processes.
 	minDataHall := ""
 	for dh := range processInfo {
@@ -738,6 +751,9 @@ func getEnvForMonitorConfigSubstitution(cluster *fdbv1beta2.FoundationDBCluster,
 
 	if cluster.Spec.DatabaseConfiguration.RedundancyMode == fdbv1beta2.RedundancyModeThreeDataHall {
 		env = append(env, corev1.EnvVar{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+		}})
+		env = append(env, corev1.EnvVar{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 		}})
 		env = append(env, corev1.EnvVar{Name: "FDB_DATA_HALL", Value: dataHall})

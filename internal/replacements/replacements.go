@@ -188,24 +188,31 @@ func processGroupNeedsRemoval(cluster *fdbv1beta2.FoundationDBCluster, pod *core
 		}
 	}
 
-	// When three data hall redundancy is enabled. The node selecctor is not provided by the spec.
-	// But configured by the operator. Thus we can skip this step
-	if cluster.Spec.DatabaseConfiguration.RedundancyMode != fdbv1beta2.RedundancyModeThreeDataHall {
-		expectedNodeSelector := cluster.GetProcessSettings(processClass).PodTemplate.Spec.NodeSelector
-		if !equality.Semantic.DeepEqual(pod.Spec.NodeSelector, expectedNodeSelector) {
-			specHash, err := internal.GetPodSpecHash(cluster, processClass, idNum, nil, processGroupStatus.LocalityDataHall)
-			if err != nil {
-				return false, err
-			}
+	expectedNodeSelector := cluster.GetProcessSettings(processClass).PodTemplate.Spec.NodeSelector
 
-			if pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] != specHash {
-				logger.Info("Replace process group",
-					"reason", fmt.Sprintf("nodeSelector has changed from %s to %s", pod.Spec.NodeSelector, expectedNodeSelector))
-				return true, nil
-			}
+	// When Three Data Hall is enabled, we need to add the data hall locality node selector
+	// to the expected node selector. Since it is not part of the spec but dinamically added
+	// by the operator, we need to add it here.
+	if cluster.Spec.DatabaseConfiguration.RedundancyMode != fdbv1beta2.RedundancyModeThreeDataHall {
+		podLocality, err := cluster.GetLocality(processGroupStatus.LocalityDataHall)
+		if err != nil {
+			return false, err
+		}
+		expectedNodeSelector[podLocality.NodeSelector[0][0]] = podLocality.NodeSelector[0][1]
+	}
+
+	if !equality.Semantic.DeepEqual(pod.Spec.NodeSelector, expectedNodeSelector) {
+		specHash, err := internal.GetPodSpecHash(cluster, processClass, idNum, nil, processGroupStatus.LocalityDataHall)
+		if err != nil {
+			return false, err
+		}
+
+		if pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] != specHash {
+			logger.Info("Replace process group",
+				"reason", fmt.Sprintf("nodeSelector has changed from %s to %s", pod.Spec.NodeSelector, expectedNodeSelector))
+			return true, nil
 		}
 	}
-	//TODO(manuel.fontan) for three data hall if Localities Node Selector changes we should replace the affected Pods.
 
 	if cluster.NeedsReplacement(processGroupStatus) {
 		specHash, err := internal.GetPodSpecHash(cluster, processClass, idNum, nil, processGroupStatus.LocalityDataHall)

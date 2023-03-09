@@ -3319,9 +3319,11 @@ var _ = Describe("pod_models", func() {
 	Describe("ContainsPod", func() {
 		var pod1, pod2 *corev1.Pod
 		BeforeEach(func() {
-			pod1, err = GetPod(cluster, fdbv1beta2.ProcessClassStorage, 1)
+			status := &fdbv1beta2.FoundationDBStatus{}
+
+			pod1, err = GetPod(cluster, fdbv1beta2.ProcessClassStorage, 1, status)
 			Expect(err).NotTo(HaveOccurred())
-			pod2, err = GetPod(cluster, fdbv1beta2.ProcessClassStorage, 2)
+			pod2, err = GetPod(cluster, fdbv1beta2.ProcessClassStorage, 2, status)
 			Expect(err).NotTo(HaveOccurred())
 			pod2.Labels[fdbv1beta2.FDBClusterLabel] = "incorrect-cluster-name"
 		})
