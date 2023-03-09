@@ -193,7 +193,7 @@ func processGroupNeedsRemoval(cluster *fdbv1beta2.FoundationDBCluster, pod *core
 	// When Three Data Hall is enabled, we need to add the data hall locality node selector
 	// to the expected node selector. Since it is not part of the spec but dinamically added
 	// by the operator, we need to add it here.
-	if cluster.Spec.DatabaseConfiguration.RedundancyMode != fdbv1beta2.RedundancyModeThreeDataHall {
+	if cluster.Spec.DatabaseConfiguration.RedundancyMode == fdbv1beta2.RedundancyModeThreeDataHall {
 		podLocality, err := cluster.GetLocality(processGroupStatus.LocalityDataHall)
 		if err != nil {
 			return false, err
