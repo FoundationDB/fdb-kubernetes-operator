@@ -50,6 +50,6 @@ echo "===Done==="
 # TODO: Make sure kubectl context is pointing to the kind cluster
 kubectl get fdb
 echo "Waiting for creating FDB Pods..."
-sleep 2;
+sleep 10;
 kubectl wait --for=condition=ready pod -l foundationdb.org/fdb-cluster-name=test-cluster
-
+kubectl get fdb
