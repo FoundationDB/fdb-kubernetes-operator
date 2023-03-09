@@ -2,13 +2,30 @@
 # Set up local FDB non-HA cluster on a 4-node kind k8s cluster
 # This only works on x86 machines as FDB doesn't provide arm64 Linux binaries yet
 # Assumptions: (1) There is at most one kind cluster in the env; (2) kubectl is pointing to the kind cluster
+
+if [ "$#" -le 1 ]; then
 read -p "create kind cluster? (enter yes or no): " createKindCluster
+read -p "enter k8s node version? (e.g., v1.23.0): " version
+else
+    createKindCluster=$1
+    version=${2}
+fi
 
 cluster=${cluster:-"local-cluster"}
 
 if [ "${createKindCluster}" = "yes" ]; then
     echo "===Start creating k8s cluster on kind"
-    kind create cluster --name ${cluster} --config ./local-cluster-config.yaml
+    cat <<EOF | kind create cluster --name ${cluster} --config=-
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+- role: control-plane
+  image: kindest/node:${version}
+- role: worker
+- role: worker
+- role: worker
+EOF
+
 else
     echo "===Skip creating k8s cluster on kind"
     # TODO: make sure kind is using the local-cluster context
@@ -16,8 +33,7 @@ else
 fi
 
 echo "===Start building operator"
-cd ..
-echo "---We should be at reop\'s root directory: "
+echo "---We should be at the repo's root directory: "
 pwd
 
 ./config/test-certs/generate_secrets.bash
