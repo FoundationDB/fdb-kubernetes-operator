@@ -219,7 +219,7 @@ type FoundationDBClusterSpec struct {
 
 	// Localities are used to specify the location of processes which in turn is used to
 	// determine fault and toleration domains.
-	// +kubebuilder:validation:MinItems=3
+	// +kubebuilder:validation:Optional
 	Localities []Locality `json:"localities,omitempty"`
 }
 
@@ -2283,19 +2283,17 @@ type Locality struct {
 	// +kubebuilder:validation:Required
 	Key string `json:"key,omitempty"`
 	//The value of the locality
-	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Optional
 	Value string `json:"value,omitempty"`
 	//The topology key (ex. topology.kubernetes.io/zone).
-	// Before this field can be used it is necessary to update the sidecar to read the topology labels from the pod See https://github.com/apple/foundationdb/pull/8506.
-	// When three data hall is enabled the topology key is used to determine suitable pods for the processes.
-	// +kubebuilder:validation:Required
+	// The topology key is used by the operator to set the podAntiAffinity rules. This field requires the sidecar to read the topology labels
+	// from the pod which is not supported in the current version of the sidecar. See https://github.com/apple/foundationdb/pull/8506
 	TopologyKey string `json:"topologyKey,omitempty"`
-	//The node selector map.
-	// When three data hall replication is configured the node selector should correspond to a node pool for a given availability zone.
-	// This will ensure that the processes are placed in the desired availability zone.
-	// This strategy requires to have three node pools one for each availability zone.
-	// +kubebuilder:validation:Required
-	NodeSelector [][]string `json:"nodeSelector,omitempty"`
+	//The node selectors for the locality
+	// When three data hall replication is enabled the node selectors are used to evenly distribute the processes across the data halls.
+	// Requiring at least thrree node selectors, each mapping to a different data hall.
+	// +kubebuilder:validation:Optional
+	NodeSelectors [][]string `json:"nodeSelector,omitempty"`
 }
 
 // GetLocalities returns the cluster localities
@@ -2303,14 +2301,14 @@ func (cluster *FoundationDBCluster) GetLocalities() []Locality {
 	return cluster.Spec.Localities
 }
 
-// GetLocality returns the locality with the given value or error if missing
-func (cluster *FoundationDBCluster) GetLocality(value string) (Locality, error) {
+// GetLocality returns the locality with the given key or error if missing
+func (cluster *FoundationDBCluster) GetLocality(localityID string) (Locality, error) {
 	for _, l := range cluster.Spec.Localities {
-		if l.Value == value {
+		if l.Key == localityID {
 			return l, nil
 		}
 	}
-	return Locality{}, fmt.Errorf("there are no localities with value {%s} in the cluster spec", value)
+	return Locality{}, fmt.Errorf("there are no localities with value {%s} in the cluster spec", localityID)
 }
 
 // GetCrashLoopContainerProcessGroups returns the process group IDs in containers that are marked for crash looping.
@@ -2353,19 +2351,23 @@ func (cluster *FoundationDBCluster) Validate() error {
 
 	// Check if localities have been defined when three data hall replication is configured.
 	if cluster.Spec.DatabaseConfiguration.RedundancyMode == RedundancyModeThreeDataHall {
-		if len(cluster.Spec.Localities) < 3 {
-			validations = append(validations, fmt.Sprintf("%s replication requires at least three localities", RedundancyModeThreeDataHall))
-		}
+		found := false
 		for _, l := range cluster.Spec.Localities {
-			if l.TopologyKey == "" {
-				validations = append(validations, fmt.Sprintf("%s replication requires a topology key for all localities", RedundancyModeThreeDataHall))
+			if l.Key == FDBLocalityDataHallKey {
+				found = true
+				if l.TopologyKey != "" {
+					validations = append(validations, fmt.Sprintf("topology key is currently not supported by the operator for %s replication", RedundancyModeThreeDataHall))
+				}
+				if len(l.NodeSelectors) != 3 {
+					validations = append(validations, fmt.Sprintf("%s replication requires tree node selectors for datahall locality", RedundancyModeThreeDataHall))
+				}
+				if l.Key == "" {
+					validations = append(validations, fmt.Sprintf("%s replication requires a key and value for all localities", RedundancyModeThreeDataHall))
+				}
 			}
-			if len(l.NodeSelector) == 0 {
-				validations = append(validations, fmt.Sprintf("%s replication requires a node selector for all localities", RedundancyModeThreeDataHall))
-			}
-			if l.Key == "" || l.Value == "" {
-				validations = append(validations, fmt.Sprintf("%s replication requires a key and value for all localities", RedundancyModeThreeDataHall))
-			}
+		}
+		if !found {
+			validations = append(validations, fmt.Sprintf("%s replication requires a datahall locality", RedundancyModeThreeDataHall))
 		}
 	}
 

@@ -190,15 +190,19 @@ func processGroupNeedsRemoval(cluster *fdbv1beta2.FoundationDBCluster, pod *core
 
 	expectedNodeSelector := cluster.GetProcessSettings(processClass).PodTemplate.Spec.NodeSelector
 
-	// When Three Data Hall is enabled, we need to add the data hall locality node selector
-	// to the expected node selector. Since it is not part of the spec but dinamically added
-	// by the operator, we need to add it here.
+	// If we are using three datahall replication, we need to add the datahall node selector dynamically assigned by the operator
+	// to the expected node selector
 	if cluster.Spec.DatabaseConfiguration.RedundancyMode == fdbv1beta2.RedundancyModeThreeDataHall {
-		podLocality, err := cluster.GetLocality(processGroupStatus.LocalityDataHall)
+		datahallLocality, err := cluster.GetLocality(fdbv1beta2.FDBLocalityDataHallKey)
 		if err != nil {
 			return false, err
 		}
-		expectedNodeSelector[podLocality.NodeSelector[0][0]] = podLocality.NodeSelector[0][1]
+		// We need to add the datahall node selector to the expected node selector
+		for _, ns := range datahallLocality.NodeSelectors {
+			if processGroupStatus.LocalityDataHall != "" && ns[1] == processGroupStatus.LocalityDataHall {
+				expectedNodeSelector[ns[0]] = ns[1]
+			}
+		}
 	}
 
 	if !equality.Semantic.DeepEqual(pod.Spec.NodeSelector, expectedNodeSelector) {

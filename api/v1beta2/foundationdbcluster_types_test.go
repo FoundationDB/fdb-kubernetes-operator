@@ -4962,16 +4962,20 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					Version: Versions.Default.String(),
 					Localities: []Locality{
 						{
-							Key:          FDBLocalityDataHallKey,
-							Value:        "1",
-							TopologyKey:  corev1.LabelTopologyZone,
-							NodeSelector: [][]string{{"foundationdb", "1"}},
+							Key:         FDBLocalityDataHallKey,
+							Value:       "",
+							TopologyKey: corev1.LabelTopologyZone,
+							NodeSelectors: [][]string{
+								{"foundationdb", "zone1"},
+								{"foundationdb", "zone2"},
+								{"foundationdb", "zone3"},
+							},
 						},
 						{
-							Key:          "zone",
-							Value:        "1",
-							TopologyKey:  "kubernetes.io/hostname",
-							NodeSelector: [][]string{{"foundationdb", "2"}},
+							Key:           FDBLocalityZoneIDKey,
+							Value:         "",
+							TopologyKey:   "kubernetes.io/hostname",
+							NodeSelectors: [][]string{},
 						},
 					},
 				},
@@ -4979,16 +4983,20 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			Expect(cluster.GetLocalities()).To(Equal([]Locality{
 				{
-					Key:          FDBLocalityDataHallKey,
-					Value:        "1",
-					TopologyKey:  corev1.LabelTopologyZone,
-					NodeSelector: [][]string{{"foundationdb", "1"}},
+					Key:         FDBLocalityDataHallKey,
+					Value:       "",
+					TopologyKey: corev1.LabelTopologyZone,
+					NodeSelectors: [][]string{
+						{"foundationdb", "zone1"},
+						{"foundationdb", "zone2"},
+						{"foundationdb", "zone3"},
+					},
 				},
 				{
-					Key:          "zone",
-					Value:        "1",
-					TopologyKey:  "kubernetes.io/hostname",
-					NodeSelector: [][]string{{"foundationdb", "2"}},
+					Key:           FDBLocalityZoneIDKey,
+					Value:         "",
+					TopologyKey:   "kubernetes.io/hostname",
+					NodeSelectors: [][]string{},
 				},
 			}))
 		})
@@ -5005,26 +5013,33 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					Version: Versions.Default.String(),
 					Localities: []Locality{
 						{
-							Key:          FDBLocalityDataHallKey,
-							Value:        "1",
-							TopologyKey:  corev1.LabelTopologyZone,
-							NodeSelector: [][]string{{"foundationdb", "1"}},
+							Key:         FDBLocalityDataHallKey,
+							Value:       "",
+							TopologyKey: corev1.LabelTopologyZone,
+							NodeSelectors: [][]string{
+								{"foundationdb", "zone1"},
+								{"foundationdb", "zone2"},
+								{"foundationdb", "zone3"},
+							},
 						},
 						{
-							Key:          "zone",
-							Value:        "2",
-							TopologyKey:  "kubernetes.io/hostname",
-							NodeSelector: [][]string{{"foundationdb", "2"}},
-						},
-					},
+							Key:           FDBLocalityZoneIDKey,
+							Value:         "",
+							TopologyKey:   "kubernetes.io/hostname",
+							NodeSelectors: [][]string{},
+						}},
 				},
 			}
 
-			Expect(cluster.GetLocality("1")).To(Equal(Locality{
-				Key:          FDBLocalityDataHallKey,
-				Value:        "1",
-				TopologyKey:  corev1.LabelTopologyZone,
-				NodeSelector: [][]string{{"foundationdb", "1"}},
+			Expect(cluster.GetLocality(FDBLocalityDataHallKey)).To(Equal(Locality{
+				Key:         FDBLocalityDataHallKey,
+				Value:       "",
+				TopologyKey: corev1.LabelTopologyZone,
+				NodeSelectors: [][]string{
+					{"foundationdb", "zone1"},
+					{"foundationdb", "zone2"},
+					{"foundationdb", "zone3"},
+				},
 			},
 			))
 		})

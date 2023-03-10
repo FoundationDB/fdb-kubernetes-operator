@@ -21,6 +21,7 @@
 package internal
 
 import (
+	"errors"
 	"fmt"
 	"math/rand"
 	"regexp"
@@ -117,32 +118,42 @@ func GetService(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 func GetPod(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, idNum int, status *fdbv1beta2.FoundationDBStatus) (*corev1.Pod, error) {
 	name, id := GetProcessGroupID(cluster, processClass, idNum)
 
-	var podLocality fdbv1beta2.Locality
+	var dataHallID string
 
+	// For datahall redundancy mode using node selectors, we need to choose a data-hall locality.
 	if cluster.Spec.DatabaseConfiguration.RedundancyMode == fdbv1beta2.RedundancyModeThreeDataHall {
 		var err error
-		podLocality, err = getPodLocalityDataHall(cluster, processClass, status)
+		dataHallID, err = ChooseDistributedLocalityDataHall(cluster, status)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	owner := BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
-	spec, err := GetPodSpec(cluster, processClass, idNum, podLocality.Value)
+	spec, err := GetPodSpec(cluster, processClass, idNum, dataHallID)
 	if err != nil {
 		return nil, err
 	}
 
+	// For datahall redundancy mode using node selectors, we need to add the data-hall locality to the pod spec.
 	if cluster.Spec.DatabaseConfiguration.RedundancyMode == fdbv1beta2.RedundancyModeThreeDataHall {
-		if len(spec.NodeSelector) == 0 {
-			ns := map[string]string{podLocality.NodeSelector[0][0]: podLocality.NodeSelector[0][1]}
-			spec.NodeSelector = ns
-		} else {
-			spec.NodeSelector[podLocality.NodeSelector[0][0]] = podLocality.NodeSelector[0][1]
+		l, err := cluster.GetLocality(fdbv1beta2.FDBLocalityDataHallKey)
+		if err != nil {
+			return nil, err
+		}
+		for _, ns := range l.NodeSelectors {
+			if ns[1] == dataHallID {
+				if len(spec.NodeSelector) == 0 {
+					ns := map[string]string{ns[0]: ns[1]}
+					spec.NodeSelector = ns
+				} else {
+					spec.NodeSelector[ns[0]] = ns[1]
+				}
+			}
 		}
 	}
 
-	specHash, err := GetPodSpecHash(cluster, processClass, idNum, spec, podLocality.Value)
+	specHash, err := GetPodSpecHash(cluster, processClass, idNum, spec, dataHallID)
 	if err != nil {
 		return nil, err
 	}
@@ -157,37 +168,57 @@ func GetPod(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.Pro
 	}, nil
 }
 
-// getPodLocalityDataHall returns the locality for a pod in a three data hall cluster.
-// The locality is determined by the number of processes per datahall.
-// The datahall with the least number of processes is selected or a random datahall if there are no processes.
-func getPodLocalityDataHall(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, status *fdbv1beta2.FoundationDBStatus) (fdbv1beta2.Locality, error) {
-	// Set the spec.NodeSelector depending on the process distribution across fault domains.
-	// Convert the process list into a map with the process data hall as key.
-	processInfo := map[string][]fdbv1beta2.FoundationDBStatusProcessInfo{}
-	for _, p := range status.Cluster.Processes {
-		// skip excluded processess or with localities not listed in the cluster spec.
-		_, err := cluster.GetLocality(p.Locality[fdbv1beta2.FDBLocalityDataHallKey])
-		if err != nil || p.Excluded {
-			continue
-		}
-		if p.ProcessClass == processClass {
-			processInfo[p.Locality[fdbv1beta2.FDBLocalityDataHallKey]] = append(processInfo[p.Locality[fdbv1beta2.FDBLocalityDataHallKey]], p)
+// ChooseDistributedLocalityDataHall chooses a data hall for a new process based on the number of processes in each data hall.
+// If there is a data hall with the fewest processes, it will return that data hall.
+func ChooseDistributedLocalityDataHall(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) (string, error) {
+	dataHallProcessCount := make(map[string]int)
+
+	localityDataHall, err := cluster.GetLocality(fdbv1beta2.FDBLocalityDataHallKey)
+	if err != nil {
+		return "", err
+	}
+
+	if len(localityDataHall.NodeSelectors) == 0 {
+		return "", nil
+	}
+
+	for _, ns := range localityDataHall.NodeSelectors {
+		dataHallProcessCount[ns[1]] = 0
+	}
+
+	// Count the number of processes in each data hall from FDB status.
+	for _, process := range status.Cluster.Processes {
+		l, ok := process.Locality[fdbv1beta2.FDBLocalityDataHallKey]
+		if ok {
+			dataHallProcessCount[l]++
 		}
 	}
 
-	// If there are no processes with data hall locality info we pick a random data hall locality from the cluster spec.
-	if len(processInfo) == 0 {
-		return cluster.GetLocality(cluster.Spec.Localities[rand.Intn(2)].Value)
+	// If there are no processes with data hall locality info in the cluster, we'll choose a random data hall.
+	if len(dataHallProcessCount) == 0 {
+		l, err := cluster.GetLocality(fdbv1beta2.FDBLocalityDataHallKey)
+		if err != nil {
+			return "", err
+		}
+		return l.NodeSelectors[rand.Intn(2)][1], nil
 	}
 
-	// To keep the cluster balanced we will pick the locality data hall with less processes.
-	minDataHall := ""
-	for dh := range processInfo {
-		if minDataHall == "" || len(processInfo[dh]) < len(processInfo[minDataHall]) {
-			minDataHall = dh
+	minDH := ""
+	minCount := 0
+	// If there are processes with data hall locality info in the cluster, we'll choose the data hall with the fewest processes.
+	for dh, pc := range dataHallProcessCount {
+		if pc >= minCount {
+			minDH = dh
+			minCount = pc
 		}
 	}
-	return cluster.GetLocality(minDataHall)
+
+	if minDH != "" {
+		return minDH, nil
+	}
+
+	// If we didn't find a data hall, we'll return an error.
+	return "", errors.New("could not find a data hall")
 }
 
 // GetImage returns the image for container
