@@ -150,6 +150,14 @@ var supportedVersion = []fdbv1beta2.FoundationDBStatusSupportedVersion{
 				Address:  "10.1.38.108:58734",
 				LogGroup: "sample-cluster-client",
 			},
+			{
+				Address:  "10.1.18.249:34874",
+				LogGroup: "fdb-kubernetes-operator",
+			},
+			{
+				Address:  "10.1.18.249:35022",
+				LogGroup: "fdb-kubernetes-operator",
+			},
 		},
 		MaxProtocolClients: []fdbv1beta2.FoundationDBStatusConnectedClient{
 			{
@@ -184,6 +192,14 @@ var supportedVersion = []fdbv1beta2.FoundationDBStatusSupportedVersion{
 				Address:  "10.1.38.108:58734",
 				LogGroup: "sample-cluster-client",
 			},
+			{
+				Address:  "10.1.18.249:34874",
+				LogGroup: "fdb-kubernetes-operator",
+			},
+			{
+				Address:  "10.1.18.249:35022",
+				LogGroup: "fdb-kubernetes-operator",
+			},
 		},
 		ProtocolVersion: "fdb00b062010002",
 		SourceVersion:   "20566f2ff06a7e822b30e8cfd91090fbd863a393",
@@ -191,7 +207,7 @@ var supportedVersion = []fdbv1beta2.FoundationDBStatusSupportedVersion{
 }
 
 var _ = Describe("check client compatibility", func() {
-	When("validating getUnsupportedClient()", func() {
+	When("getting the list of unsupported clients from the cluster status json", func() {
 		type testCase struct {
 			ignoredLogGroups           map[string]fdbv1beta2.None
 			expectedUnsupportedClients []string
@@ -199,11 +215,10 @@ var _ = Describe("check client compatibility", func() {
 
 		DescribeTable("should return all the unsupported clients",
 			func(tc testCase) {
-				unsupportedClients := getUnsupportedClients(supportedVersion, "fdb00b061060001", tc.ignoredLogGroups)
-				Expect(unsupportedClients).To(ContainElements(tc.expectedUnsupportedClients))
-				Expect(unsupportedClients).To(HaveLen(len(tc.expectedUnsupportedClients)))
+				unsupportedClients := getUnsupportedClients(supportedVersion, "fdb00b063010001", tc.ignoredLogGroups)
+				Expect(unsupportedClients).To(ConsistOf(tc.expectedUnsupportedClients))
 			},
-			Entry("With empty IgnoreProcessGroups list.",
+			Entry("with an empty ignoreProcessGroups map.",
 				testCase{
 					ignoredLogGroups: nil,
 					expectedUnsupportedClients: []string{
@@ -215,12 +230,17 @@ var _ = Describe("check client compatibility", func() {
 						"10.1.38.108:47320 (sample-cluster-client)",
 						"10.1.38.108:47388 (sample-cluster-client)",
 						"10.1.38.108:58734 (sample-cluster-client)",
+						"10.1.18.249:34874 (fdb-kubernetes-operator)",
+						"10.1.18.249:35022 (fdb-kubernetes-operator)",
 					},
 				}),
-			Entry("With non empty IgnoreProcessGroups list.",
+			Entry("with non empty ignoreProcessGroups map.",
 				testCase{
-					ignoredLogGroups:           map[string]fdbv1beta2.None{"sample-cluster-client": {}},
-					expectedUnsupportedClients: []string{},
+					ignoredLogGroups: map[string]fdbv1beta2.None{"sample-cluster-client": {}},
+					expectedUnsupportedClients: []string{
+						"10.1.18.249:34874 (fdb-kubernetes-operator)",
+						"10.1.18.249:35022 (fdb-kubernetes-operator)",
+					},
 				}),
 		)
 	})
