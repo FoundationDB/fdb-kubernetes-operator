@@ -228,7 +228,7 @@ func getProcessesReadyForRestart(logger logr.Logger, cluster *fdbv1beta2.Foundat
 	// If more than one storage server per Pod is running we have to account for this. In this case we have to add the
 	// additional storage processes.
 	if cluster.Spec.StorageServersPerPod > 1 {
-		expectedProcesses = counts.Storage * (cluster.Spec.StorageServersPerPod - 1)
+		expectedProcesses += counts.Storage * (cluster.Spec.StorageServersPerPod - 1)
 	}
 
 	if cluster.IsBeingUpgradedWithVersionIncompatibleVersion() && expectedProcesses != len(addresses) {
