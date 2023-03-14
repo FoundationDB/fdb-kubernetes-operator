@@ -442,13 +442,13 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 			fdbProcessStatusInfo := processMap[processGroup.ProcessGroupID]
 			if len(fdbProcessStatusInfo) > 0 {
 				dataHall, ok := fdbProcessStatusInfo[0].Locality[fdbv1beta2.FDBLocalityDataHallKey]
-				//TODO(manuel.fontan): add a unit test for this
 				if ok {
 					processGroup.LocalityDataHall = dataHall
 				} else {
 					processGroup.LocalityDataHall = ""
 				}
 			}
+			fmt.Printf("fdbProcessStatusInfo[0].Locality[\"data_hall\"] = %+v", fdbProcessStatusInfo[0].Locality["data_hall"])
 		} else {
 			processGroup.LocalityDataHall = ""
 		}

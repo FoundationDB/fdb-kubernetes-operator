@@ -262,7 +262,10 @@ func GetMonitorProcessConfiguration(cluster *fdbv1beta2.FoundationDBCluster, pro
 	}
 
 	if cluster.Spec.DatabaseConfiguration.RedundancyMode == fdbv1beta2.RedundancyModeThreeDataHall {
-		configuration.Arguments = append(configuration.Arguments, monitorapi.Argument{Value: fmt.Sprintf("--locality_data_hall=%s", "FDB_DATA_HALL")})
+		configuration.Arguments = append(configuration.Arguments, monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
+			{Value: "--locality_data_hall="},
+			{ArgumentType: monitorapi.EnvironmentArgumentType, Source: "FDB_DATA_HALL"},
+		}})
 	}
 
 	if cluster.UseDNSInClusterFile() {

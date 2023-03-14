@@ -187,9 +187,9 @@ var _ = Describe("pod_models", func() {
 					{
 						Key: "data_hall",
 						NodeSelectors: [][]string{
-							{"data_hall", "az 1"},
-							{"data_hall", "az 2"},
-							{"data_hall", "az 3"},
+							{"data_hall", "az-1"},
+							{"data_hall", "az-2"},
+							{"data_hall", "az-3"},
 						},
 					},
 				}
@@ -201,11 +201,11 @@ var _ = Describe("pod_models", func() {
 			It("should add the datahall locality node selector to the pod spec", func() {
 				Expect(pod.Spec.NodeSelector).To(BeElementOf(
 					map[string]string{
-						"data_hall": "az 1",
+						"data_hall": "az-1",
 					}, map[string]string{
-						"data_hall": "az 2",
+						"data_hall": "az-2",
 					}, map[string]string{
-						"data_hall": "az 3",
+						"data_hall": "az-3",
 					}))
 			})
 

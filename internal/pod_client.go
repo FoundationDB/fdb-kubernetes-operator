@@ -503,5 +503,9 @@ func GetSubstitutionsFromClusterAndPod(logger logr.Logger, cluster *fdbv1beta2.F
 		}
 	}
 
+	if cluster.Spec.DatabaseConfiguration.RedundancyMode == fdbv1beta2.RedundancyModeThreeDataHall {
+		substitutions["FDB_DATA_HALL"] = "az-1"
+	}
+
 	return substitutions, nil
 }

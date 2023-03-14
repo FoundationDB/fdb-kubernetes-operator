@@ -22,8 +22,9 @@ package controllers
 
 import (
 	"context"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"time"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient/mock"
 
@@ -112,6 +113,53 @@ var _ = Describe("update_status", func() {
 				processGroup := processGroupStatus[len(processGroupStatus)-4]
 				Expect(processGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
 				Expect(len(processGroupStatus[0].ProcessGroupConditions)).To(Equal(0))
+				Expect(processGroup.LocalityDataHall).To(Equal(""))
+			})
+		})
+
+		When("a process group is fine and data hall is replication enabled", func() {
+			BeforeEach(func() {
+				cluster.Spec.DatabaseConfiguration.RedundancyMode = fdbv1beta2.RedundancyModeThreeDataHall
+				cluster.Spec.Localities = []fdbv1beta2.Locality{
+					{
+						Key: "data_hall",
+						NodeSelectors: [][]string{
+							{"data_hall", "az-1"},
+							{"data_hall", "az-2"},
+							{"data_hall", "az-3"},
+						},
+					},
+				}
+
+				mock.ClearMockAdminClients()
+				adminClient, err = mock.NewMockAdminClientUncast(cluster, k8sClient)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			JustBeforeEach(func() {
+				databaseStatus, err := adminClient.GetStatus()
+				Expect(err).NotTo(HaveOccurred())
+				processMap = make(map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo)
+				for _, process := range databaseStatus.Cluster.Processes {
+					processID, ok := process.Locality["process_id"]
+					// if the processID is not set we fall back to the instanceID
+					if !ok {
+						processID = process.Locality["instance_id"]
+					}
+					process.Locality[fdbv1beta2.FDBLocalityDataHallKey] = "az-1"
+					processMap[fdbv1beta2.ProcessGroupID(processID)] = append(processMap[fdbv1beta2.ProcessGroupID(processID)], process)
+				}
+			})
+
+			It("should get locality data hall assigned", func() {
+				processGroupStatus, err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap, allPods, allPvcs)
+				Expect(err).NotTo(HaveOccurred())
+				processGroup := processGroupStatus[len(processGroupStatus)-4]
+				Expect(processGroup.LocalityDataHall).To(BeElementOf(
+					"az-1",
+					"az-2",
+					"az-3",
+				))
 			})
 		})
 

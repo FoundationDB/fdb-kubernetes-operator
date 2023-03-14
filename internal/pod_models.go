@@ -483,9 +483,6 @@ func configureNoSchedule(podSpec *corev1.PodSpec, processGroupID fdbv1beta2.Proc
 
 // GetPodSpec builds a pod spec for a FoundationDB pod
 func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, idNum int, dataHall string) (*corev1.PodSpec, error) {
-	if cluster.Spec.DatabaseConfiguration.RedundancyMode == fdbv1beta2.RedundancyModeThreeDataHall && dataHall == "" {
-		return nil, fmt.Errorf("dataHall is empty")
-	}
 	processSettings := cluster.GetProcessSettings(processClass)
 	podSpec := processSettings.PodTemplate.Spec.DeepCopy()
 	useUnifiedImages := pointer.BoolDeref(cluster.Spec.UseUnifiedImage, false)
