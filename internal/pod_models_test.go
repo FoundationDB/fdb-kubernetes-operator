@@ -182,15 +182,14 @@ var _ = Describe("pod_models", func() {
 
 		Context("with three data hall redundancy enabled", func() {
 			BeforeEach(func() {
-				cluster = CreateDefaultCluster()
 				cluster.Spec.DatabaseConfiguration.RedundancyMode = fdbv1beta2.RedundancyModeThreeDataHall
 				cluster.Spec.Localities = []fdbv1beta2.Locality{
 					{
 						Key: "data_hall",
 						NodeSelectors: [][]string{
-							{"data_hall=1"},
-							{"data_hall=2"},
-							{"data_hall=3"},
+							{"data_hall", "az 1"},
+							{"data_hall", "az 2"},
+							{"data_hall", "az 3"},
 						},
 					},
 				}
@@ -202,13 +201,17 @@ var _ = Describe("pod_models", func() {
 			It("should add the datahall locality node selector to the pod spec", func() {
 				Expect(pod.Spec.NodeSelector).To(BeElementOf(
 					map[string]string{
-						"data_hall": "1",
+						"data_hall": "az 1",
 					}, map[string]string{
-						"data_hall": "2",
+						"data_hall": "az 2",
 					}, map[string]string{
-						"data_hall": "3",
+						"data_hall": "az 3",
 					}))
 			})
+
+			//TODO when Pods have node selectors other than data_hall
+			//TODO when PG with data hall locality are not evenly distributed across data halls
+			//TODO when PG with data hall locality are evenly distributed across data halls
 		})
 	})
 

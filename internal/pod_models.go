@@ -118,7 +118,7 @@ func GetService(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 func GetPod(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, idNum int, status *fdbv1beta2.FoundationDBStatus) (*corev1.Pod, error) {
 	name, id := GetProcessGroupID(cluster, processClass, idNum)
 
-	var dataHallID string
+	dataHallID := ""
 
 	// For datahall redundancy mode using node selectors, we need to choose a data-hall locality.
 	if cluster.Spec.DatabaseConfiguration.RedundancyMode == fdbv1beta2.RedundancyModeThreeDataHall {
@@ -194,18 +194,8 @@ func ChooseDistributedLocalityDataHall(cluster *fdbv1beta2.FoundationDBCluster, 
 		}
 	}
 
-	// If there are no processes with data hall locality info in the cluster, we'll choose a random data hall.
-	if len(dataHallProcessCount) == 0 {
-		l, err := cluster.GetLocality(fdbv1beta2.FDBLocalityDataHallKey)
-		if err != nil {
-			return "", err
-		}
-		return l.NodeSelectors[rand.Intn(2)][1], nil
-	}
-
 	minDH := ""
 	minCount := 0
-	// If there are processes with data hall locality info in the cluster, we'll choose the data hall with the fewest processes.
 	for dh, pc := range dataHallProcessCount {
 		if pc >= minCount {
 			minDH = dh
@@ -214,7 +204,17 @@ func ChooseDistributedLocalityDataHall(cluster *fdbv1beta2.FoundationDBCluster, 
 	}
 
 	if minDH != "" {
-		return minDH, nil
+		// If there are no processes with data hall locality info in the cluster, we'll choose a random data hall.
+		if minCount == 0 {
+			l, err := cluster.GetLocality(fdbv1beta2.FDBLocalityDataHallKey)
+			if err != nil {
+				return "", err
+			}
+			return l.NodeSelectors[rand.Intn(2)][1], nil
+		} else {
+			// If there are processes with data hall locality info in the cluster, we'll choose the data hall with the fewest processes.
+			return minDH, nil
+		}
 	}
 
 	// If we didn't find a data hall, we'll return an error.
@@ -484,6 +484,10 @@ func configureNoSchedule(podSpec *corev1.PodSpec, processGroupID fdbv1beta2.Proc
 
 // GetPodSpec builds a pod spec for a FoundationDB pod
 func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, idNum int, dataHall string) (*corev1.PodSpec, error) {
+
+	if cluster.Spec.DatabaseConfiguration.RedundancyMode == fdbv1beta2.RedundancyModeThreeDataHall && dataHall == "" {
+		return nil, fmt.Errorf("dataHall is empty")
+	}
 	processSettings := cluster.GetProcessSettings(processClass)
 	podSpec := processSettings.PodTemplate.Spec.DeepCopy()
 	useUnifiedImages := pointer.BoolDeref(cluster.Spec.UseUnifiedImage, false)
