@@ -445,8 +445,12 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 				//TODO(manuel.fontan): add a unit test for this
 				if ok {
 					processGroup.LocalityDataHall = dataHall
+				} else {
+					processGroup.LocalityDataHall = ""
 				}
 			}
+		} else {
+			processGroup.LocalityDataHall = ""
 		}
 
 		// In this case the Pod has a DeletionTimestamp and should be deleted.

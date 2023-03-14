@@ -123,7 +123,7 @@ func GetPod(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.Pro
 	// For datahall redundancy mode using node selectors, we need to choose a data-hall locality.
 	if cluster.Spec.DatabaseConfiguration.RedundancyMode == fdbv1beta2.RedundancyModeThreeDataHall {
 		var err error
-		dataHallID, err = ChooseDistributedLocalityDataHall(cluster, status)
+		dataHallID, err = ChooseDistributedLocalityDataHall(cluster, status, processClass)
 		if err != nil {
 			return nil, err
 		}
@@ -170,7 +170,7 @@ func GetPod(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.Pro
 
 // ChooseDistributedLocalityDataHall chooses a data hall for a new process based on the number of processes in each data hall.
 // If there is a data hall with the fewest processes, it will return that data hall.
-func ChooseDistributedLocalityDataHall(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) (string, error) {
+func ChooseDistributedLocalityDataHall(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, processClass fdbv1beta2.ProcessClass) (string, error) {
 	dataHallProcessCount := make(map[string]int)
 
 	localityDataHall, err := cluster.GetLocality(fdbv1beta2.FDBLocalityDataHallKey)
@@ -186,10 +186,10 @@ func ChooseDistributedLocalityDataHall(cluster *fdbv1beta2.FoundationDBCluster, 
 		dataHallProcessCount[ns[1]] = 0
 	}
 
-	// Count the number of processes in each data hall from FDB status.
+	// Count the number of processes for a given process class in each data hall from FDB status.
 	for _, process := range status.Cluster.Processes {
 		l, ok := process.Locality[fdbv1beta2.FDBLocalityDataHallKey]
-		if ok {
+		if ok && process.ProcessClass == processClass {
 			dataHallProcessCount[l]++
 		}
 	}
