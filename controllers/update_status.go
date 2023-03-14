@@ -448,7 +448,6 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 					processGroup.LocalityDataHall = ""
 				}
 			}
-			fmt.Printf("fdbProcessStatusInfo[0].Locality[\"data_hall\"] = %+v", fdbProcessStatusInfo[0].Locality["data_hall"])
 		} else {
 			processGroup.LocalityDataHall = ""
 		}
