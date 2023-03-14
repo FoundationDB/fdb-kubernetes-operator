@@ -211,10 +211,9 @@ func ChooseDistributedLocalityDataHall(cluster *fdbv1beta2.FoundationDBCluster, 
 				return "", err
 			}
 			return l.NodeSelectors[rand.Intn(2)][1], nil
-		} else {
-			// If there are processes with data hall locality info in the cluster, we'll choose the data hall with the fewest processes.
-			return minDH, nil
 		}
+		// If there are processes with data hall locality info in the cluster, we'll choose the data hall with the fewest processes.
+		return minDH, nil
 	}
 
 	// If we didn't find a data hall, we'll return an error.
@@ -484,7 +483,6 @@ func configureNoSchedule(podSpec *corev1.PodSpec, processGroupID fdbv1beta2.Proc
 
 // GetPodSpec builds a pod spec for a FoundationDB pod
 func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, idNum int, dataHall string) (*corev1.PodSpec, error) {
-
 	if cluster.Spec.DatabaseConfiguration.RedundancyMode == fdbv1beta2.RedundancyModeThreeDataHall && dataHall == "" {
 		return nil, fmt.Errorf("dataHall is empty")
 	}

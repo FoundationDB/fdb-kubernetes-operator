@@ -212,6 +212,8 @@ var _ = Describe("pod_models", func() {
 			//TODO when Pods have node selectors other than data_hall
 			//TODO when PG with data hall locality are not evenly distributed across data halls
 			//TODO when PG with data hall locality are evenly distributed across data halls
+			//TODO when PG of multiple classes are evenly distributed across data halls
+			//TODO when PG of multiple classes are not evenly distributed across data halls
 		})
 	})
 
