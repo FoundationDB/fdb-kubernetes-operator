@@ -179,6 +179,37 @@ var _ = Describe("pod_models", func() {
 				}))
 			})
 		})
+
+		Context("with three data hall redundancy enabled", func() {
+			BeforeEach(func() {
+				cluster = CreateDefaultCluster()
+				cluster.Spec.DatabaseConfiguration.RedundancyMode = fdbv1beta2.RedundancyModeThreeDataHall
+				cluster.Spec.Localities = []fdbv1beta2.Locality{
+					{
+						Key: "data_hall",
+						NodeSelectors: [][]string{
+							{"data_hall=1"},
+							{"data_hall=2"},
+							{"data_hall=3"},
+						},
+					},
+				}
+				status := &fdbv1beta2.FoundationDBStatus{}
+				pod, err = GetPod(cluster, fdbv1beta2.ProcessClassStorage, 1, status)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should add the datahall locality node selector to the pod spec", func() {
+				Expect(pod.Spec.NodeSelector).To(BeElementOf(
+					map[string]string{
+						"data_hall": "1",
+					}, map[string]string{
+						"data_hall": "2",
+					}, map[string]string{
+						"data_hall": "3",
+					}))
+			})
+		})
 	})
 
 	Describe("GetPodSpec", func() {
