@@ -10268,6 +10268,7 @@ spec:
                 type: object
               processGroupIDPrefix:
                 maxLength: 43
+                pattern: ^[a-z0-9A-Z]([\-._a-z0-9A-Z])*[a-z0-9A-Z]$
                 type: string
               processGroupsToRemove:
                 items:

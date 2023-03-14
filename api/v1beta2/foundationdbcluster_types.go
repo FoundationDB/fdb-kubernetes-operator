@@ -157,6 +157,7 @@ type FoundationDBClusterSpec struct {
 	// https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#syntax-and-character-set
 	// for more details on that.
 	// +kubebuilder:validation:MaxLength=43
+	// +kubebuilder:validation:Pattern:=^[a-z0-9A-Z]([\-._a-z0-9A-Z])*[a-z0-9A-Z]$
 	ProcessGroupIDPrefix string `json:"processGroupIDPrefix,omitempty"`
 
 	// LockOptions allows customizing how we manage locks for global operations.
