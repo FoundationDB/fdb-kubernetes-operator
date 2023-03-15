@@ -79,6 +79,17 @@ func processIncompatibleProcesses(ctx context.Context, r *FoundationDBClusterRec
 		return nil
 	}
 
+	// TODO
+	minimumUptime, _, err := internal.GetMinimumUptimeAndAddressMap(cluster, status, r.EnableRecoveryState)
+	if err != nil {
+		return err
+	}
+
+	if minimumUptime < float64(cluster.GetMinimumUptimeSecondsForBounce()) {
+		logger.V(1).Info("Skipping reconciler and waiting until cluster is for up minimum uptime")
+		return nil
+	}
+
 	logger.Info("incompatible connections", "incompatibleConnections", status.Cluster.IncompatibleConnections)
 
 	pods, err := r.PodLifecycleManager.GetPods(ctx, r, cluster, internal.GetPodListOptions(cluster, "", "")...)
