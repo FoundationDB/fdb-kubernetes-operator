@@ -1080,7 +1080,10 @@ func (cluster *FoundationDBCluster) calculateProcessCount(addFaultTolerance bool
 }
 
 // GetProcessCountsWithDefaults gets the process counts from the cluster spec
-// and fills in default values for any counts that are 0.
+// and fills in default values for any counts that are 0. The number of storage processes
+// will only reflect the number of Pods that will be created to host storage server processes.
+// If storageServersPerPod is set the total amount of storage server processes will be
+// the storage process count multiplied by storageServersPerPod.
 func (cluster *FoundationDBCluster) GetProcessCountsWithDefaults() (ProcessCounts, error) {
 	roleCounts := cluster.GetRoleCountsWithDefaults()
 	processCounts := cluster.Spec.ProcessCounts.DeepCopy()

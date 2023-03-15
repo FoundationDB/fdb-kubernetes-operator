@@ -132,7 +132,6 @@ var _ = Describe("bounceProcesses", func() {
 				err := adminClient.ExcludeProcesses([]fdbv1beta2.ProcessAddress{{StringAddress: address, Port: 4501}})
 				Expect(err).To(BeNil())
 			}
-
 		})
 
 		It("should not requeue", func() {
@@ -239,6 +238,48 @@ var _ = Describe("bounceProcesses", func() {
 				}
 			}
 			Expect(adminClient.KilledAddresses).To(Equal(addresses))
+		})
+
+		When("doing an upgrade", func() {
+			BeforeEach(func() {
+				cluster.Spec.Version = fdbv1beta2.Versions.NextMajorVersion.String()
+				for _, processGroup := range cluster.Status.ProcessGroups {
+					processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true, nil, "")
+				}
+			})
+
+			It("should requeue", func() {
+				Expect(requeue).NotTo(BeNil())
+			})
+
+			It("should kill all the processes", func() {
+				addresses := make(map[string]fdbv1beta2.None, len(cluster.Status.ProcessGroups))
+				for _, processGroup := range cluster.Status.ProcessGroups {
+					for _, address := range processGroup.Addresses {
+						addresses[fmt.Sprintf("%s:4501", address)] = fdbv1beta2.None{}
+						if processGroup.ProcessClass == fdbv1beta2.ProcessClassStorage {
+							addresses[fmt.Sprintf("%s:4503", address)] = fdbv1beta2.None{}
+						}
+					}
+				}
+				Expect(adminClient.KilledAddresses).To(Equal(addresses))
+			})
+
+			It("should update the running version in the status", func() {
+				_, err = reloadCluster(cluster)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(cluster.Status.RunningVersion).To(Equal(fdbv1beta2.Versions.NextMajorVersion.String()))
+			})
+
+			It("should submit pending upgrade information for all the processes", func() {
+				expectedUpgrades := make(map[fdbv1beta2.ProcessGroupID]bool, len(cluster.Status.ProcessGroups))
+				for _, processGroup := range cluster.Status.ProcessGroups {
+					expectedUpgrades[processGroup.ProcessGroupID] = true
+				}
+				pendingUpgrades, err := lockClient.GetPendingUpgrades(fdbv1beta2.Versions.NextMajorVersion)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(pendingUpgrades).To(Equal(expectedUpgrades))
+			})
 		})
 	})
 
