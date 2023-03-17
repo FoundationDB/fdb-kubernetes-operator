@@ -298,8 +298,10 @@ type MaintenanceModeInfo struct {
 	// StartTimestamp provides the timestamp when this zone is put into maintenance mode
 	StartTimestamp *metav1.Time `json:"startTimestamp,omitempty"`
 	// ZoneID that is placed in maintenance mode
+	// +kubebuilder:validation:MaxLength=512
 	ZoneID string `json:"zoneID,omitempty"`
 	// ProcessGroups that are placed in maintenance mode
+	// +kubebuilder:validation:MaxItems=10000
 	ProcessGroups []string `json:"processGroups,omitempty"`
 }
 
