@@ -13807,11 +13807,13 @@ spec:
                   processGroups:
                     items:
                       type: string
+                    maxItems: 10000
                     type: array
                   startTimestamp:
                     format: date-time
                     type: string
                   zoneID:
+                    maxLength: 512
                     type: string
                 type: object
               needsNewCoordinators:
