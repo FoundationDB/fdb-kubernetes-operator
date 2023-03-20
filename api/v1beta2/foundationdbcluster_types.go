@@ -301,7 +301,7 @@ type MaintenanceModeInfo struct {
 	// +kubebuilder:validation:MaxLength=512
 	ZoneID string `json:"zoneID,omitempty"`
 	// ProcessGroups that are placed in maintenance mode
-	// +kubebuilder:validation:MaxItems=10000
+	// +kubebuilder:validation:MaxItems=200
 	ProcessGroups []string `json:"processGroups,omitempty"`
 }
 
