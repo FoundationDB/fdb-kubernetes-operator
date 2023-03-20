@@ -9875,6 +9875,11 @@ spec:
                     type: string
                   failedPodDurationSeconds:
                     type: integer
+                  ignoreLogGroupsForUpgrade:
+                    items:
+                      type: string
+                    maxItems: 10
+                    type: array
                   ignoreMissingProcessesSeconds:
                     type: integer
                   ignorePendingPodsDuration:

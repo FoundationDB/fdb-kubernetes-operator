@@ -919,6 +919,10 @@ type FoundationDBClusterAutomationOptions struct {
 
 	// MaintenanceModeOptions contains options for maintenance mode related settings.
 	MaintenanceModeOptions MaintenanceModeOptions `json:"maintenanceModeOptions,omitempty"`
+
+	// IgnoreLogGroupsForUpgrade defines the list of LogGroups that should be ignored during fdb version upgrade.
+	// +kubebuilder:validation:MaxItems=10
+	IgnoreLogGroupsForUpgrade []string `json:"ignoreLogGroupsForUpgrade,omitempty"`
 }
 
 // MaintenanceModeOptions controls options for placing zones in maintenance mode.

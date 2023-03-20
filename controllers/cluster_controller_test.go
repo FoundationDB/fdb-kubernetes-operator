@@ -2413,7 +2413,7 @@ var _ = Describe("cluster_controller", func() {
 						Expect(len(matchingEvents)).NotTo(Equal(0))
 
 						Expect(matchingEvents[0].Message).To(Equal(
-							fmt.Sprintf("1 clients do not support version %s: 127.0.0.3:85891", fdbv1beta2.Versions.NextMajorVersion),
+							fmt.Sprintf("1 clients do not support version %s: 127.0.0.3:85891 (%s)", fdbv1beta2.Versions.NextMajorVersion, cluster.Name),
 						))
 					})
 				})
@@ -2662,6 +2662,68 @@ var _ = Describe("cluster_controller", func() {
 
 					Expect(recreatedPod.CreationTimestamp.UnixNano()).To(BeNumerically("<", pod.CreationTimestamp.UnixNano()))
 				}
+			})
+		})
+
+		Context("validating upgrade with ignoreLogGroups", func() {
+			var adminClient *mock.AdminClient
+
+			BeforeEach(func() {
+				adminClient, err = mock.NewMockAdminClientUncast(cluster, k8sClient)
+				Expect(err).NotTo(HaveOccurred())
+				adminClient.MockClientVersion("7.1.0", []string{"127.0.0.2:3687"})
+				cluster.Spec.Version = "7.1.0"
+				Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
+			})
+
+			Context("patch upgrade from 7.1 to 7.2 with non empty ignoreLogGroups", func() {
+				BeforeEach(func() {
+					cluster.Spec.Version = "7.2.0"
+					cluster.Spec.AutomationOptions.IgnoreLogGroupsForUpgrade = []string{cluster.Name}
+					Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
+					generationGap = 2
+				})
+
+				It("should set the image on the pods", func() {
+					pods := &corev1.PodList{}
+					err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+					Expect(err).NotTo(HaveOccurred())
+
+					for _, pod := range pods.Items {
+						Expect(pod.Spec.Containers[0].Image).To(Equal("foundationdb/foundationdb:7.2.0"))
+					}
+				})
+
+				It("should update the running version", func() {
+					Expect(cluster.Status.RunningVersion).To(Equal(cluster.Spec.Version))
+				})
+			})
+
+			Context("patch upgrade from 7.1 to 7.2 with empty ignoreLogGroups", func() {
+				BeforeEach(func() {
+					cluster.Spec.Version = "7.2.0"
+					Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
+					shouldCompleteReconciliation = false
+				})
+
+				It("should set a message about the client upgradability", func() {
+					events := &corev1.EventList{}
+					var matchingEvents []corev1.Event
+
+					err = k8sClient.List(context.TODO(), events)
+					Expect(err).NotTo(HaveOccurred())
+
+					for _, event := range events.Items {
+						if event.InvolvedObject.UID == cluster.ObjectMeta.UID && event.Reason == "UnsupportedClient" {
+							matchingEvents = append(matchingEvents, event)
+						}
+					}
+					Expect(len(matchingEvents)).NotTo(Equal(0))
+
+					Expect(matchingEvents[0].Message).To(Equal(
+						fmt.Sprintf("1 clients do not support version 7.2.0: 127.0.0.2:3687 (%s)", cluster.Name),
+					))
+				})
 			})
 		})
 
