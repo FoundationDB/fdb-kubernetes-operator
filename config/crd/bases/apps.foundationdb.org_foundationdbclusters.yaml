@@ -13807,7 +13807,7 @@ spec:
                   processGroups:
                     items:
                       type: string
-                    maxItems: 10000
+                    maxItems: 200
                     type: array
                   startTimestamp:
                     format: date-time
