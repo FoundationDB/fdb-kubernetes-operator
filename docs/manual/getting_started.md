@@ -65,7 +65,7 @@ spec:
           restartPolicy: OnFailure
           containers:
           - name: fdbcli-status-cronjob
-            image: foundationdb/foundationdb:7.1.27
+            image: foundationdb/foundationdb:7.1.26
             args:
             - /usr/bin/fdbcli
             - --exec
