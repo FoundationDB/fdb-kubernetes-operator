@@ -18,7 +18,7 @@ kind: FoundationDBBackup
 metadata:
   name: sample-cluster
 spec:
-  version: 6.2.30
+  version: 7.1.26
   clusterName: sample-cluster
   blobStoreConfiguration:
     accountName: account@object-store.example:443
@@ -105,7 +105,7 @@ kind: FoundationDBBackup
 metadata:
   name: sample-cluster
 spec:
-  version: 6.2.30
+  version: 7.1.26
   clusterName: sample-cluster
   blobStoreConfiguration:
     accountName: account@object-store.example:443

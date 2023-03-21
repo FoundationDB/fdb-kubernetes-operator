@@ -33,7 +33,7 @@ kind: FoundationDBCluster
 metadata:
   name: sample-cluster
 spec:
-  version: 6.2.30
+  version: 7.1.26
 ```
 
 This will create a cluster with 3 storage processes, 4 log processes, and 7 stateless processes. Each fdbserver process will be in a separate pod, and the pods will have names of the form `sample-cluster-$role-$n`, where `$n` is the process group ID and `$role` is the role for the process.
@@ -65,7 +65,7 @@ spec:
           restartPolicy: OnFailure
           containers:
           - name: fdbcli-status-cronjob
-            image: foundationdb/foundationdb:6.2.30
+            image: foundationdb/foundationdb:7.1.27
             args:
             - /usr/bin/fdbcli
             - --exec

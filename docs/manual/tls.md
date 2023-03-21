@@ -22,7 +22,7 @@ kind: FoundationDBCluster
 metadata:
   name: sample-cluster
 spec:
-  version: 6.2.30
+  version: 7.1.26
   trustedCAs:
     - |
       # Put the root CAs you trust here.

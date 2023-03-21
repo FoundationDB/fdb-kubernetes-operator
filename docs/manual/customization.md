@@ -14,7 +14,7 @@ kind: FoundationDBCluster
 metadata:
   name: sample-cluster
 spec:
-  version: 6.2.30
+  version: 7.1.26
   spec:
     storageServersPerPod: 2
 ```
@@ -31,7 +31,7 @@ kind: FoundationDBCluster
 metadata:
   name: sample-cluster
 spec:
-  version: 6.2.30
+  version: 7.1.26
   processes:
     general:
       volumeClaimTemplate:
@@ -47,7 +47,7 @@ kind: FoundationDBCluster
 metadata:
   name: sample-cluster
 spec:
-  version: 6.2.30
+  version: 7.1.26
   processes:
     general:
       volumeClaimTemplate:
@@ -65,7 +65,7 @@ kind: FoundationDBCluster
 metadata:
   name: sample-cluster
 spec:
-  version: 6.2.30
+  version: 7.1.26
   processes:
     log:
       volumeClaimTemplate:
@@ -87,7 +87,7 @@ kind: FoundationDBCluster
 metadata:
     name: sample-cluster
 spec:
-  version: 6.2.30
+  version: 7.1.26
   processes:
     general:
       podTemplate:
@@ -124,7 +124,7 @@ kind: FoundationDBCluster
 metadata:
     name: sample-cluster
 spec:
-  version: 6.2.30
+  version: 7.1.26
   mainContainer:
     imageConfigs:
       - baseImage: docker.example/foundationdb
@@ -143,7 +143,7 @@ kind: FoundationDBCluster
 metadata:
     name: sample-cluster
 spec:
-  version: 6.2.30
+  version: 7.1.26
   mainContainer:
     imageConfigs:
       - baseImage: docker.example/foundationdb
@@ -160,11 +160,11 @@ kind: FoundationDBCluster
 metadata:
     name: sample-cluster
 spec:
-  version: 6.2.30
+  version: 7.1.26
   mainContainer:
     imageConfigs:
       - baseImage: docker.example/foundationdb
-      - version: 6.2.30
+      - version: 7.1.26
         tag: "build-20210711161700"
       - version: 6.3.0
         tag: "build-20210712161700"
@@ -180,7 +180,7 @@ kind: FoundationDBCluster
 metadata:
     name: sample-cluster
 spec:
-  version: 6.2.30
+  version: 7.1.26
   mainContainer:
     imageConfigs:
       - baseImage: docker.example/foundationdb
@@ -369,7 +369,7 @@ kind: FoundationDBCluster
 metadata:
     name: sample-cluster
 spec:
-  version: 6.2.30
+  version: 7.1.26
   labels:
     # The default match labels are {"fdb-cluster-name": "sample-cluster"}
     matchLabels:
@@ -390,7 +390,7 @@ kind: FoundationDBCluster
 metadata:
   name: sample-cluster
 spec:
-  version: 6.2.30
+  version: 7.1.26
   labels:
     matchLabels:
       my-cluster: sample-cluster
@@ -411,7 +411,7 @@ kind: FoundationDBCluster
 metadata:
   name: sample-cluster
 spec:
-  version: 6.2.30
+  version: 7.1.26
   labels:
     matchLabels:
       this-cluster: sample-cluster
@@ -428,7 +428,7 @@ kind: FoundationDBCluster
 metadata:
   name: sample-cluster
 spec:
-  version: 6.2.30
+  version: 7.1.26
   labels:
     matchLabels:
       this-cluster: sample-cluster
@@ -450,7 +450,7 @@ kind: FoundationDBCluster
 metadata:
   name: sample-cluster
 spec:
-  version: 6.2.30
+  version: 7.1.26
   labels:
     processClassLabels:
       # Default: ["fdb-process-class", "foundationdb.org/fdb-process-class"]
@@ -470,7 +470,7 @@ kind: FoundationDBCluster
 metadata:
     name: sample-cluster
 spec:
-  version: 6.2.30
+  version: 7.1.26
   labels:
     processClassLabels:
       - my-class
@@ -485,7 +485,7 @@ kind: FoundationDBCluster
 metadata:
   name: sample-cluster
 spec:
-  version: 6.2.30
+  version: 7.1.26
   labels:
     processClassLabels:
       - this-class
@@ -511,7 +511,7 @@ kind: FoundationDBCluster
 metadata:
   name: sample-cluster
 spec:
-  version: 6.2.30
+  version: 7.1.26
   useUnifiedImage: true
 ```
 

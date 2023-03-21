@@ -218,9 +218,9 @@ spec:
         - --copy-binary
         - fdbrestore
         - --output-dir
-        - /var/output-files/7.1.15
+        - /var/output-files/7.1.27
         - --init-mode
-        image: foundationdb/foundationdb-kubernetes-sidecar:7.1.15-1
+        image: foundationdb/foundationdb-kubernetes-sidecar:7.1.27-1
         name: foundationdb-kubernetes-init-7-1
         volumeMounts:
         - mountPath: /var/output-files
