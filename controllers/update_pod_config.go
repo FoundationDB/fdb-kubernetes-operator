@@ -97,6 +97,14 @@ func (updatePodConfig) reconcile(ctx context.Context, r *FoundationDBClusterReco
 			continue
 		}
 
+		// If we do a cluster version incompatible upgrade we use the fdbv1beta2.IncorrectConfigMap to signal when the operator
+		// can restart fdbserver processes. Since the ConfigMap itself won't change during the upgrade we have to run the updatePodDynamicConf
+		// to make sure all process groups have the required files ready. In the future we will use a different condition to indicate that a
+		// process group si ready to be restarted.
+		if pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey] == configMapHash && !cluster.IsBeingUpgradedWithVersionIncompatibleVersion() {
+			continue
+		}
+
 		synced, err := r.updatePodDynamicConf(curLogger, cluster, pod)
 		if !synced {
 			allSynced = false
