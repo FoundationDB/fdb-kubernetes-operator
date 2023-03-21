@@ -168,7 +168,7 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 		return &requeue{curError: err}
 	}
 
-	status.ProcessGroups, err = validateProcessGroups(ctx, r, cluster, &status, processMap, configMap, pods, pvcs)
+	status.ProcessGroups, err = validateProcessGroups(ctx, r, cluster, &status, processMap, pods, pvcs)
 	if err != nil {
 		return &requeue{curError: err}
 	}
@@ -401,7 +401,7 @@ func checkAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbv1be
 	return nil
 }
 
-func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBClusterStatus, processMap map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo, configMap *corev1.ConfigMap, pods []*corev1.Pod, pvcs *corev1.PersistentVolumeClaimList) ([]*fdbv1beta2.ProcessGroupStatus, error) {
+func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBClusterStatus, processMap map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo, pods []*corev1.Pod, pvcs *corev1.PersistentVolumeClaimList) ([]*fdbv1beta2.ProcessGroupStatus, error) {
 	var err error
 	processGroups := status.ProcessGroups
 	processGroupsWithoutExclusion := make(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None, len(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion))
@@ -410,8 +410,7 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 		processGroupsWithoutExclusion[processGroupID] = fdbv1beta2.None{}
 	}
 
-	// Clear the IncorrectCommandLine condition to prevent it being held over
-	// when pods get deleted.
+	// Clear the IncorrectCommandLine condition to prevent it being held over when pods get deleted.
 	for _, processGroup := range processGroups {
 		processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, false, nil, "")
 	}
@@ -511,18 +510,13 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 			}
 		}
 
-		configMapHash, err := internal.GetDynamicConfHash(configMap, processGroup.ProcessClass, imageType, processCount)
-		if err != nil {
-			return processGroups, err
-		}
-
 		var pvc *corev1.PersistentVolumeClaim
 
 		pvcValue, pvcExists := pvcMap[processGroup.ProcessGroupID]
 		if pvcExists {
 			pvc = &pvcValue
 		}
-		err = validateProcessGroup(ctx, r, cluster, pod, pvc, configMapHash, processGroup)
+		err = validateProcessGroup(ctx, r, cluster, pod, pvc, processGroup)
 
 		if err != nil {
 			return processGroups, err
@@ -534,7 +528,7 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 
 // validateProcessGroup runs specific checks for the status of an process group.
 // returns failing, incorrect, error
-func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod, currentPVC *corev1.PersistentVolumeClaim, configMapHash string, processGroupStatus *fdbv1beta2.ProcessGroupStatus) error {
+func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod, currentPVC *corev1.PersistentVolumeClaim, processGroupStatus *fdbv1beta2.ProcessGroupStatus) error {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updateStatus")
 	processGroupStatus.UpdateCondition(fdbv1beta2.MissingPod, pod == nil, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
 	if pod == nil {
@@ -562,8 +556,12 @@ func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler,
 
 	processGroupStatus.UpdateCondition(fdbv1beta2.IncorrectPodSpec, incorrectPod, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
 
-	incorrectConfigMap := pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey] != configMapHash
-	processGroupStatus.UpdateCondition(fdbv1beta2.IncorrectConfigMap, incorrectConfigMap, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
+	synced, err := r.updatePodDynamicConf(logger, cluster, pod)
+	if err != nil {
+		logger.Info("error when checking if Pod has the correct ConfigMap files")
+		synced = false
+	}
+	processGroupStatus.UpdateCondition(fdbv1beta2.IncorrectConfigMap, !synced, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
 
 	desiredPvc, err := internal.GetPvc(cluster, processGroupStatus.ProcessClass, idNum)
 	if err != nil {
