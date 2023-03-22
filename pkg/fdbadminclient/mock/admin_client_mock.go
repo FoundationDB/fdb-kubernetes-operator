@@ -65,6 +65,20 @@ type AdminClient struct {
 	uptimeSecondsForMaintenanceZone          float64
 }
 
+/*
+   "c8dd8904031dfff5df292c2f328df269": {
+     "address": "100.80.88.131:4500:tls",
+     "class_type": "log",
+     "roles": [
+       {
+         "role": "coordinator"
+       }
+     ]
+   },
+
+TODO: allow to mock such a bad process in the status output.
+*/
+
 // adminClientCache provides a cache of mock admin clients.
 var adminClientCache = make(map[string]*AdminClient)
 var adminClientMutex sync.Mutex

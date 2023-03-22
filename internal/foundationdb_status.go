@@ -21,6 +21,7 @@
 package internal
 
 import (
+	"github.com/go-logr/logr"
 	"math"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -50,7 +51,7 @@ func GetCoordinatorsFromStatus(status *fdbv1beta2.FoundationDBStatus) map[string
 // GetMinimumUptimeAndAddressMap returns address map of the processes included the the foundationdb status. The minimum
 // uptime will be either secondsSinceLastRecovered if the recovery state is supported and enabled otherwise we will
 // take the minimum uptime of all processes.
-func GetMinimumUptimeAndAddressMap(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, recoveryStateEnabled bool) (float64, map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.ProcessAddress, error) {
+func GetMinimumUptimeAndAddressMap(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, recoveryStateEnabled bool) (float64, map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.ProcessAddress, error) {
 	runningVersion, err := fdbv1beta2.ParseFdbVersion(cluster.GetRunningVersion())
 	if err != nil {
 		return 0, nil, err
@@ -66,9 +67,23 @@ func GetMinimumUptimeAndAddressMap(cluster *fdbv1beta2.FoundationDBCluster, stat
 	}
 
 	for _, process := range status.Cluster.Processes {
-		addressMap[fdbv1beta2.ProcessGroupID(process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey])] = append(addressMap[fdbv1beta2.ProcessGroupID(process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey])], process.Address)
+		// We have seen cases where a process is still reported, only with the role and the class but missing the localities.
+		// in this case we want to ignore this process as it seems like the process is miss behaving.
+		processGroupID, ok := process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]
+		if !ok {
+			logger.Info("Ignoring process with missing localities", "address", process.Address)
+			continue
+		}
+
+		addressMap[fdbv1beta2.ProcessGroupID(processGroupID)] = append(addressMap[fdbv1beta2.ProcessGroupID(process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey])], process.Address)
 
 		if useRecoveryState || process.Excluded {
+			continue
+		}
+
+		// Ignore cases where the uptime seconds is exactly 0.0, this would mean that the process was exactly restarted at the time the FoundationDB cluster status
+		// was queried. In most cases this only reflects an issue with the process or the status.
+		if process.UptimeSeconds == 0.0 {
 			continue
 		}
 

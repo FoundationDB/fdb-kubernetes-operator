@@ -57,7 +57,7 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 		return &requeue{curError: err}
 	}
 
-	minimumUptime, addressMap, err := internal.GetMinimumUptimeAndAddressMap(cluster, status, r.EnableRecoveryState)
+	minimumUptime, addressMap, err := internal.GetMinimumUptimeAndAddressMap(logger, cluster, status, r.EnableRecoveryState)
 	if err != nil {
 		return &requeue{curError: err}
 	}

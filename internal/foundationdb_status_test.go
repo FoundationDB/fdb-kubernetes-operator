@@ -21,6 +21,7 @@
 package internal
 
 import (
+	"github.com/go-logr/logr"
 	"net"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -109,7 +110,7 @@ var _ = Describe("Internal FoundationDBStatus", func() {
 	})
 
 	DescribeTable("when getting the minimum uptime and the address map", func(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, useRecoveryState bool, expectedMinimumUptime float64, expectedAddressMap map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.ProcessAddress) {
-		minimumUptime, addressMap, err := GetMinimumUptimeAndAddressMap(cluster, status, useRecoveryState)
+		minimumUptime, addressMap, err := GetMinimumUptimeAndAddressMap(logr.Discard(), cluster, status, useRecoveryState)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(minimumUptime).To(BeNumerically("==", expectedMinimumUptime))
 		Expect(len(addressMap)).To(BeNumerically("==", len(expectedAddressMap)))
@@ -199,12 +200,47 @@ var _ = Describe("Internal FoundationDBStatus", func() {
 							UptimeSeconds: 30.0,
 						},
 					},
+				},
+			},
+			false,
+			30.0,
+			map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.ProcessAddress{
+				"test": {
+					{
+						IPAddress: net.ParseIP("127.0.0.1"),
+					},
+				},
+			}),
+		Entry("when recovered since is not available and multiple processes are reporting but one is missing localities",
+			&fdbv1beta2.FoundationDBCluster{
+				Spec: fdbv1beta2.FoundationDBClusterSpec{
+					Version: fdbv1beta2.Versions.Default.String(),
+				},
+			}, &fdbv1beta2.FoundationDBStatus{
+				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+					Processes: map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{
+						"test": {
+							Address: fdbv1beta2.ProcessAddress{
+								IPAddress: net.ParseIP("127.0.0.1"),
+							},
+							Locality: map[string]string{
+								fdbv1beta2.FDBLocalityInstanceIDKey: "test",
+							},
+							UptimeSeconds: 30.0,
+						},
+						"bad_processes": {
+							Address: fdbv1beta2.ProcessAddress{
+								IPAddress: net.ParseIP("127.0.0.2"),
+							},
+							UptimeSeconds: 0.0,
+						},
+					},
 					RecoveryState: fdbv1beta2.RecoveryState{
 						SecondsSinceLastRecovered: 90.0,
 					},
 				},
 			},
-			false,
+			true,
 			30.0,
 			map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.ProcessAddress{
 				"test": {
