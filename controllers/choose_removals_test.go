@@ -41,8 +41,7 @@ var _ = Describe("choose_removals", func() {
 
 	BeforeEach(func() {
 		cluster = internal.CreateDefaultCluster()
-		err = k8sClient.Create(context.TODO(), cluster)
-		Expect(err).NotTo(HaveOccurred())
+		Expect(k8sClient.Create(context.TODO(), cluster)).NotTo(HaveOccurred())
 
 		result, err := reconcileCluster(cluster)
 		Expect(err).NotTo(HaveOccurred())

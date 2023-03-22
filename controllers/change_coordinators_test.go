@@ -59,9 +59,9 @@ var _ = Describe("Change coordinators", func() {
 				Priority:     0,
 			},
 		}
-		err := setupClusterForTest(cluster)
-		Expect(err).NotTo(HaveOccurred())
+		Expect(setupClusterForTest(cluster)).NotTo(HaveOccurred())
 
+		var err error
 		adminClient, err = mock.NewMockAdminClientUncast(cluster, k8sClient)
 		Expect(err).NotTo(HaveOccurred())
 	})
@@ -616,7 +616,6 @@ var _ = Describe("Change coordinators", func() {
 
 	Describe("reconcile", func() {
 		var requeue *requeue
-		var err error
 		var originalConnectionString string
 
 		BeforeEach(func() {
@@ -625,7 +624,6 @@ var _ = Describe("Change coordinators", func() {
 
 		JustBeforeEach(func() {
 			requeue = changeCoordinators{}.reconcile(context.TODO(), clusterReconciler, cluster)
-			Expect(err).NotTo(HaveOccurred())
 		})
 
 		When("the cluster is healthy", func() {
@@ -643,7 +641,7 @@ var _ = Describe("Change coordinators", func() {
 				cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(true)
 			})
 
-			Context("when the pods do not have DNS names", func() {
+			When("the Pods do not have DNS names", func() {
 
 				It("should not requeue", func() {
 					Expect(requeue).To(BeNil())
@@ -654,18 +652,16 @@ var _ = Describe("Change coordinators", func() {
 				})
 			})
 
-			Context("when the pods have DNS names", func() {
+			When("the Pods have DNS names", func() {
 				BeforeEach(func() {
 					pods := &corev1.PodList{}
-					err = k8sClient.List(context.TODO(), pods)
-					Expect(err).NotTo(HaveOccurred())
+					Expect(k8sClient.List(context.TODO(), pods)).NotTo(HaveOccurred())
 
 					for _, pod := range pods.Items {
 						container := pod.Spec.Containers[1]
 						container.Env = append(container.Env, corev1.EnvVar{Name: "FDB_DNS_NAME", Value: internal.GetPodDNSName(cluster, pod.Name)})
 						pod.Spec.Containers[1] = container
-						err = k8sClient.Update(context.TODO(), &pod)
-						Expect(err).NotTo(HaveOccurred())
+						Expect(k8sClient.Update(context.TODO(), &pod)).NotTo(HaveOccurred())
 					}
 				})
 
@@ -677,6 +673,35 @@ var _ = Describe("Change coordinators", func() {
 					Expect(cluster.Status.ConnectionString).NotTo(Equal(originalConnectionString))
 					Expect(cluster.Status.ConnectionString).To(ContainSubstring("my-ns.svc.cluster.local"))
 				})
+			})
+		})
+
+		When("one coordinator is missing localities", func() {
+			var badCoordinator fdbv1beta2.FoundationDBStatusProcessInfo
+
+			BeforeEach(func() {
+				adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
+				Expect(err).NotTo(HaveOccurred())
+
+				status, err := adminClient.GetStatus()
+				Expect(err).NotTo(HaveOccurred())
+
+				for _, process := range status.Cluster.Processes {
+					for _, role := range process.Roles {
+						if role.Role != "coordinator" {
+							continue
+						}
+
+						badCoordinator = process
+					}
+				}
+
+				adminClient.MockMissingLocalities(fdbv1beta2.ProcessGroupID(badCoordinator.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]), true)
+			})
+
+			It("should change the coordinators to not include the coordinator with the missing localities", func() {
+				Expect(cluster.Status.ConnectionString).NotTo(Equal(originalConnectionString))
+				Expect(cluster.Status.ConnectionString).NotTo(ContainSubstring(badCoordinator.Address.IPAddress.String()))
 			})
 		})
 	})
