@@ -12,7 +12,7 @@ kind: FoundationDBCluster
 metadata:
   name: sample-cluster
 spec:
-  version: 6.2.30
+  version: 7.1.26
   processCounts:
     storage: 6
     log: 5
@@ -39,7 +39,7 @@ kind: FoundationDBCluster
 metadata:
   name: sample-cluster
 spec:
-  version: 6.2.30
+  version: 7.1.26
   databaseConfiguration:
     storage: 6
     logs: 4 # default is 3
@@ -59,7 +59,7 @@ kind: FoundationDBCluster
 metadata:
   name: sample-cluster
 spec:
-  version: 6.2.30
+  version: 7.1.26
   databaseConfiguration:
     storage: 4
 ```
@@ -82,7 +82,7 @@ kind: FoundationDBCluster
 metadata:
   name: sample-cluster
 spec:
-  version: 6.2.30
+  version: 7.1.26
   databaseConfiguration:
     redundancy_mode: triple
     storage: 5
