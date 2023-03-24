@@ -178,6 +178,7 @@ func GetConfigMapMonitorConfEntry(pClass fdbv1beta2.ProcessClass, imageType FDBI
 
 		return fmt.Sprintf("fdbmonitor-conf-%s-json", pClass)
 	}
+
 	if serversPerPod > 1 && pClass == fdbv1beta2.ProcessClassStorage {
 		return fmt.Sprintf("fdbmonitor-conf-%s-density-%d", pClass, serversPerPod)
 	}

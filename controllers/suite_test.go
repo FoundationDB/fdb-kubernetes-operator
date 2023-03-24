@@ -175,12 +175,7 @@ func setupClusterForTest(cluster *fdbv1beta2.FoundationDBCluster) error {
 		return err
 	}
 
-	err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 }
 
 func createTestClusterReconciler() *FoundationDBClusterReconciler {

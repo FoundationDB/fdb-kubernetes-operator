@@ -410,8 +410,7 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 		processGroupsWithoutExclusion[processGroupID] = fdbv1beta2.None{}
 	}
 
-	// Clear the IncorrectCommandLine condition to prevent it being held over
-	// when pods get deleted.
+	// Clear the IncorrectCommandLine condition to prevent it being held over when pods get deleted.
 	for _, processGroup := range processGroups {
 		processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, false, nil, "")
 	}
@@ -517,13 +516,12 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 		}
 
 		var pvc *corev1.PersistentVolumeClaim
-
 		pvcValue, pvcExists := pvcMap[processGroup.ProcessGroupID]
 		if pvcExists {
 			pvc = &pvcValue
 		}
-		err = validateProcessGroup(ctx, r, cluster, pod, pvc, configMapHash, processGroup)
 
+		err = validateProcessGroup(ctx, r, cluster, pod, pvc, configMapHash, processGroup)
 		if err != nil {
 			return processGroups, err
 		}
@@ -562,8 +560,22 @@ func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler,
 
 	processGroupStatus.UpdateCondition(fdbv1beta2.IncorrectPodSpec, incorrectPod, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
 
-	incorrectConfigMap := pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey] != configMapHash
-	processGroupStatus.UpdateCondition(fdbv1beta2.IncorrectConfigMap, incorrectConfigMap, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
+	// If we do a cluster version incompatible upgrade we use the fdbv1beta2.IncorrectConfigMap to signal when the operator
+	// can restart fdbserver processes. Since the ConfigMap itself won't change during the upgrade we have to run the updatePodDynamicConf
+	// to make sure all process groups have the required files ready. In the future we will use a different condition to indicate that a
+	// process group si ready to be restarted.
+	var synced bool
+	if cluster.IsBeingUpgradedWithVersionIncompatibleVersion() {
+		synced, err = r.updatePodDynamicConf(logger, cluster, pod)
+		if err != nil {
+			logger.Info("error when checking if Pod has the correct files")
+			synced = false
+		}
+	} else {
+		synced = pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey] == configMapHash
+	}
+
+	processGroupStatus.UpdateCondition(fdbv1beta2.IncorrectConfigMap, !synced, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
 
 	desiredPvc, err := internal.GetPvc(cluster, processGroupStatus.ProcessClass, idNum)
 	if err != nil {
