@@ -203,8 +203,9 @@ func (fdbCluster *FdbCluster) WaitUntilAvailable() error {
 	})
 }
 
+// StatusInvariantChecker provides a way to check an invariant for the cluster status.
 // nolint:nilerr
-func (fdbCluster FdbCluster) statusInvariantChecker(
+func (fdbCluster FdbCluster) StatusInvariantChecker(
 	name string,
 	threshold time.Duration,
 	f func(status *fdbv1beta2.FoundationDBStatus) error,
@@ -239,7 +240,7 @@ func (fdbCluster FdbCluster) statusInvariantChecker(
 				30,
 			)
 			if err != nil {
-				log.Println("error in statusInvariantChecker fetching status json:", err.Error())
+				log.Println("error in StatusInvariantChecker fetching status json:", err.Error())
 				return nil
 			}
 
@@ -263,7 +264,7 @@ func (fdbCluster FdbCluster) statusInvariantChecker(
 func (fdbCluster FdbCluster) InvariantClusterStatusAvailableWithThreshold(
 	availabilityThreshold time.Duration,
 ) error {
-	return fdbCluster.statusInvariantChecker(
+	return fdbCluster.StatusInvariantChecker(
 		"InvariantClusterStatusAvailableWithThreshold",
 		availabilityThreshold,
 		func(status *fdbv1beta2.FoundationDBStatus) error {
@@ -278,7 +279,7 @@ func (fdbCluster FdbCluster) InvariantClusterStatusAvailableWithThreshold(
 
 // InvariantClusterStatusAvailable checks if the cluster is available the whole test.
 func (fdbCluster FdbCluster) InvariantClusterStatusAvailable() error {
-	return fdbCluster.statusInvariantChecker(
+	return fdbCluster.StatusInvariantChecker(
 		"InvariantClusterStatusAvailable",
 		0,
 		func(status *fdbv1beta2.FoundationDBStatus) error {

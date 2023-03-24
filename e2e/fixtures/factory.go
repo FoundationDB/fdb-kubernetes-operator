@@ -83,6 +83,7 @@ func (factory *Factory) StopInvariantCheck() {
 	factory.invariantShutdownHooks = ShutdownHooks{}
 }
 
+// AddShutdownHook will add the provided shut down hook.
 func (factory *Factory) AddShutdownHook(f func() error) {
 	factory.shutdownHooks.Defer(f)
 }
