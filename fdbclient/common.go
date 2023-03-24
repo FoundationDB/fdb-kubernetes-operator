@@ -23,25 +23,43 @@ package fdbclient
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
-	"io/fs"
-	"os"
-	"path"
-	"time"
-
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
 	"github.com/go-logr/logr"
+	"io/fs"
+	"os"
+	"path"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"time"
 )
+
+// DefaultCLITimeout is the default timeout for CLI commands.
+var DefaultCLITimeout = 10 * time.Second
 
 const (
 	defaultTransactionTimeout = 5 * time.Second
 )
 
-// DefaultCLITimeout is the default timeout for CLI commands.
-var DefaultCLITimeout = 10 * time.Second
+// getFDBDatabase opens an FDB database.
+func getFDBDatabase(cluster *fdbv1beta2.FoundationDBCluster) (fdb.Database, error) {
+	clusterFile, err := createClusterFile(cluster)
+	if err != nil {
+		return fdb.Database{}, err
+	}
+
+	database, err := fdb.OpenDatabase(clusterFile)
+	if err != nil {
+		return fdb.Database{}, err
+	}
+
+	err = database.Options().SetTransactionTimeout(defaultTransactionTimeout.Milliseconds())
+	if err != nil {
+		return fdb.Database{}, err
+	}
+
+	return database, nil
+}
 
 // createClusterFile will create or update the cluster file for the specified cluster.
 func createClusterFile(cluster *fdbv1beta2.FoundationDBCluster) (string, error) {
@@ -69,82 +87,14 @@ func ensureClusterFileIsPresent(dir string, uid string, connectionString string)
 	return clusterFileName, os.WriteFile(clusterFileName, []byte(connectionString), 0777)
 }
 
-// getFDBDatabase opens an FDB database.
-func getFDBDatabase(cluster *fdbv1beta2.FoundationDBCluster) (fdb.Database, error) {
-	clusterFile, err := createClusterFile(cluster)
-	if err != nil {
-		return fdb.Database{}, err
-	}
-
-	database, err := fdb.OpenDatabase(clusterFile)
-	if err != nil {
-		return fdb.Database{}, err
-	}
-
-	err = database.Options().SetTransactionTimeout(defaultTransactionTimeout.Milliseconds())
-	if err != nil {
-		return fdb.Database{}, err
-	}
-
-	return database, nil
-}
-
-func getValueFromDBUsingKey(cluster *fdbv1beta2.FoundationDBCluster, log logr.Logger, fdbKey string, timeout time.Duration) ([]byte, error) {
-	log.Info("Fetch values from FDB", "key", fdbKey)
-	defer func() {
-		log.Info("Done fetching values from FDB", "key", fdbKey)
-	}()
-	database, err := getFDBDatabase(cluster)
-	if err != nil {
-		return nil, err
-	}
-
-	result, err := database.Transact(func(transaction fdb.Transaction) (interface{}, error) {
-		err := transaction.Options().SetAccessSystemKeys()
-		if err != nil {
-			return nil, err
-		}
-		err = transaction.Options().SetTimeout(timeout.Milliseconds())
-		if err != nil {
-			return nil, err
-		}
-
-		rawResult := transaction.Get(fdb.Key(fdbKey)).MustGet()
-		if len(rawResult) == 0 {
-			return nil, err
-		}
-
-		return rawResult, err
-	})
-
-	if err != nil {
-		var fdbError *fdb.Error
-		if errors.As(err, &fdbError) {
-			// See: https://apple.github.io/foundationdb/api-error-codes.html
-			// 1031: Operation aborted because the transaction timed out
-			if fdbError.Code == 1031 {
-				return nil, fdbv1beta2.TimeoutError{Err: err}
-			}
-		}
-
-		return nil, err
-	}
-
-	byteResult, ok := result.([]byte)
-	if !ok {
-		return nil, fmt.Errorf("could not cast result into byte slice")
-	}
-	return byteResult, nil
-}
-
 // getConnectionStringFromDB gets the database's connection string directly from the system key
-func getConnectionStringFromDB(cluster *fdbv1beta2.FoundationDBCluster, log logr.Logger) ([]byte, error) {
-	return getValueFromDBUsingKey(cluster, log, "\xff/coordinators", DefaultCLITimeout)
+func getConnectionStringFromDB(libClient fdbLibClient) ([]byte, error) {
+	return libClient.getValueFromDBUsingKey("\xff/coordinators", DefaultCLITimeout)
 }
 
 // getStatusFromDB gets the database's status directly from the system key
-func getStatusFromDB(cluster *fdbv1beta2.FoundationDBCluster, log logr.Logger) (*fdbv1beta2.FoundationDBStatus, error) {
-	contents, err := getValueFromDBUsingKey(cluster, log, "\xff\xff/status/json", DefaultCLITimeout)
+func getStatusFromDB(libClient fdbLibClient) (*fdbv1beta2.FoundationDBStatus, error) {
+	contents, err := libClient.getValueFromDBUsingKey("\xff\xff/status/json", DefaultCLITimeout)
 	if err != nil {
 		return nil, err
 	}
