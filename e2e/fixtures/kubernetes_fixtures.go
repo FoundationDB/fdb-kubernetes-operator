@@ -80,7 +80,7 @@ func (factory *Factory) createNamespace(suffix string) string {
 	factory.ensureRBACSetupExists(namespace)
 	gomega.Expect(factory.ensureFDBOperatorExists(namespace)).ToNot(gomega.HaveOccurred())
 	log.Printf("using namespace %s for testing", namespace)
-	factory.addShutdownHook(func() error {
+	factory.AddShutdownHook(func() error {
 		log.Printf("finished all tests, start deleting namespace %s\n", namespace)
 		err := factory.GetControllerRuntimeClient().
 			Delete(ctx.Background(), &corev1.Namespace{

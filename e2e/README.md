@@ -19,6 +19,15 @@ Every test suite will create at least one namespace, HA cluster tests will creat
 ### Running e2e tests in kind
 
 [kind](https://kind.sigs.k8s.io) provides an easy way to run a local Kubernetes cluster.
+
+```bash
+kind create cluster
+# This command assumes to be executed from the project root.
+make container-build
+# Push the image into the kind cluster.
+kind load docker-image "fdb-kubernetes-operator:latest"
+```
+
 Before you run the e2e tests you have to ensure that the latest CRDs for the operator are installed:
 
 ```bash
