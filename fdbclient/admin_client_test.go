@@ -817,15 +817,6 @@ protocol fdb00b071010000`,
 			}
 		})
 
-		/*
-			test the following cases:
-
-			1.) All processes are fully excluded
-			2.) 1 process is not marked as excluded
-			3.) 1 process is marked as excluded but still has roles
-			4.) 1 process is missing from result
-
-		*/
 		When("all provided processes are fully excluded", func() {
 			BeforeEach(func() {
 				addressesToCheck = []fdbv1beta2.ProcessAddress{
@@ -935,10 +926,11 @@ protocol fdb00b071010000`,
 			})
 
 			It("should return the one process that is still serving a role and the one that is not excluded", func() {
-				Expect(result).To(ConsistOf(fdbv1beta2.ProcessAddress{
-					IPAddress: net.ParseIP("192.168.0.3"),
-					Port:      4500,
-				},
+				Expect(result).To(ConsistOf(
+					fdbv1beta2.ProcessAddress{
+						IPAddress: net.ParseIP("192.168.0.3"),
+						Port:      4500,
+					},
 					fdbv1beta2.ProcessAddress{
 						IPAddress: net.ParseIP("192.168.0.4"),
 						Port:      4500,
@@ -990,6 +982,17 @@ protocol fdb00b071010000`,
 				It("should return an error", func() {
 					Expect(result).To(HaveLen(0))
 					Expect(err).To(HaveOccurred())
+				})
+			})
+
+			When("the missing process is fully excluded or doesn't have any data", func() {
+				BeforeEach(func() {
+					mockRunner.mockedError = nil
+				})
+
+				It("should return an empty result", func() {
+					Expect(result).To(HaveLen(0))
+					Expect(err).NotTo(HaveOccurred())
 				})
 			})
 		})
