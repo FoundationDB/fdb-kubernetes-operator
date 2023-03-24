@@ -23,6 +23,8 @@ package fdbclient
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
+	"k8s.io/utils/pointer"
 	"net"
 	"os"
 	"path"
@@ -36,76 +38,6 @@ import (
 )
 
 var _ = Describe("admin_client_test", func() {
-	Describe("helper methods", func() {
-		Describe("parseExclusionOutput", func() {
-			It("should map the output description to exclusion success", func() {
-				output := "  10.1.56.36(Whole machine)  ---- Successfully excluded. It is now safe to remove this process from the cluster.\n" +
-					"  10.1.56.43(Whole machine)  ---- Successfully excluded. It is now safe to remove this process from the cluster.\n" +
-					"  10.1.56.52(Whole machine)  ---- Successfully excluded. It is now safe to remove this process from the cluster.\n" +
-					"  10.1.56.53(Whole machine)  ---- WARNING: Missing from cluster! Be sure that you excluded the correct processes" +
-					" before removing them from the cluster!\n" +
-					"  10.1.56.35(Whole machine)  ---- WARNING: Exclusion in progress! It is not safe to remove this process from the cluster\n" +
-					"  10.1.56.56(Whole machine)  ---- Successfully excluded. It is now safe to remove this process from the cluster.\n" +
-					"WARNING: 10.1.56.56:4500 is a coordinator!\n" +
-					"Type `help coordinators' for information on how to change the\n" +
-					"cluster's coordination servers before removing them."
-				results := parseExclusionOutput(output)
-				Expect(results).To(Equal(map[string]string{
-					"10.1.56.36": "Success",
-					"10.1.56.43": "Success",
-					"10.1.56.52": "Success",
-					"10.1.56.53": "Missing",
-					"10.1.56.35": "In Progress",
-					"10.1.56.56": "Success",
-				}))
-			})
-
-			It("should handle a lack of suffices in the output", func() {
-				output := "  10.1.56.36  ---- Successfully excluded. It is now safe to remove this process from the cluster.\n" +
-					"  10.1.56.43  ---- Successfully excluded. It is now safe to remove this process from the cluster.\n" +
-					"  10.1.56.52  ---- Successfully excluded. It is now safe to remove this process from the cluster.\n" +
-					"  10.1.56.53  ---- WARNING: Missing from cluster! Be sure that you excluded the correct processes" +
-					" before removing them from the cluster!\n" +
-					"  10.1.56.35  ---- WARNING: Exclusion in progress! It is not safe to remove this process from the cluster\n" +
-					"  10.1.56.56  ---- Successfully excluded. It is now safe to remove this process from the cluster.\n" +
-					"WARNING: 10.1.56.56:4500 is a coordinator!\n" +
-					"Type `help coordinators' for information on how to change the\n" +
-					"cluster's coordination servers before removing them."
-				results := parseExclusionOutput(output)
-				Expect(results).To(Equal(map[string]string{
-					"10.1.56.36": "Success",
-					"10.1.56.43": "Success",
-					"10.1.56.52": "Success",
-					"10.1.56.53": "Missing",
-					"10.1.56.35": "In Progress",
-					"10.1.56.56": "Success",
-				}))
-			})
-
-			It("should handle ports in the output", func() {
-				output := "  10.1.56.36:4500  ---- Successfully excluded. It is now safe to remove this process from the cluster.\n" +
-					"  10.1.56.43:4500  ---- Successfully excluded. It is now safe to remove this process from the cluster.\n" +
-					"  10.1.56.52:4500  ---- Successfully excluded. It is now safe to remove this process from the cluster.\n" +
-					"  10.1.56.53:4500  ---- WARNING: Missing from cluster! Be sure that you excluded the correct processes" +
-					" before removing them from the cluster!\n" +
-					"  10.1.56.35:4500  ---- WARNING: Exclusion in progress! It is not safe to remove this process from the cluster\n" +
-					"  10.1.56.56:4500  ---- Successfully excluded. It is now safe to remove this process from the cluster.\n" +
-					"WARNING: 10.1.56.56:4500 is a coordinator!\n" +
-					"Type `help coordinators' for information on how to change the\n" +
-					"cluster's coordination servers before removing them."
-				results := parseExclusionOutput(output)
-				Expect(results).To(Equal(map[string]string{
-					"10.1.56.36:4500": "Success",
-					"10.1.56.43:4500": "Success",
-					"10.1.56.52:4500": "Success",
-					"10.1.56.53:4500": "Missing",
-					"10.1.56.35:4500": "In Progress",
-					"10.1.56.56:4500": "Success",
-				}))
-			})
-		})
-	})
-
 	When("getting the excluded and remaining processes", func() {
 		addr1 := fdbv1beta2.NewProcessAddress(net.ParseIP("127.0.0.1"), "", 0, nil)
 		addr2 := fdbv1beta2.NewProcessAddress(net.ParseIP("127.0.0.2"), "", 0, nil)
@@ -139,18 +71,17 @@ var _ = Describe("admin_client_test", func() {
 		}
 
 		DescribeTable("fetching the excluded and remaining processes from the status",
-			func(status *fdbv1beta2.FoundationDBStatus, addresses []fdbv1beta2.ProcessAddress, expectedExcluded []fdbv1beta2.ProcessAddress, expectedRemaining []fdbv1beta2.ProcessAddress, expectedFullyExcluded []fdbv1beta2.ProcessAddress) {
+			func(status *fdbv1beta2.FoundationDBStatus, addresses []fdbv1beta2.ProcessAddress, expectedExcluded []fdbv1beta2.ProcessAddress, expectedRemaining []fdbv1beta2.ProcessAddress, expectedFullyExcluded []fdbv1beta2.ProcessAddress, expectedMissing []fdbv1beta2.ProcessAddress) {
 				exclusions := getRemainingAndExcludedFromStatus(status, addresses)
-				Expect(expectedExcluded).To(ContainElements(exclusions.inProgress))
-				Expect(len(expectedExcluded)).To(BeNumerically("==", len(exclusions.inProgress)))
-				Expect(expectedRemaining).To(ContainElements(exclusions.notExcluded))
-				Expect(len(expectedRemaining)).To(BeNumerically("==", len(exclusions.notExcluded)))
-				Expect(expectedFullyExcluded).To(ContainElements(exclusions.fullyExcluded))
-				Expect(len(expectedFullyExcluded)).To(BeNumerically("==", len(exclusions.fullyExcluded)))
+				Expect(expectedExcluded).To(ConsistOf(exclusions.inProgress))
+				Expect(expectedRemaining).To(ConsistOf(exclusions.notExcluded))
+				Expect(expectedFullyExcluded).To(ConsistOf(exclusions.fullyExcluded))
+				Expect(expectedMissing).To(ConsistOf(exclusions.missingInStatus))
 			},
 			Entry("with an empty input address slice",
 				status,
 				[]fdbv1beta2.ProcessAddress{},
+				nil,
 				nil,
 				nil,
 				nil,
@@ -161,12 +92,14 @@ var _ = Describe("admin_client_test", func() {
 				[]fdbv1beta2.ProcessAddress{addr4},
 				nil,
 				nil,
+				nil,
 			),
 			Entry("when the process is not excluded",
 				status,
 				[]fdbv1beta2.ProcessAddress{addr3},
 				nil,
 				[]fdbv1beta2.ProcessAddress{addr3},
+				nil,
 				nil,
 			),
 			Entry("when some processes are excluded and some not",
@@ -175,13 +108,15 @@ var _ = Describe("admin_client_test", func() {
 				[]fdbv1beta2.ProcessAddress{addr4},
 				[]fdbv1beta2.ProcessAddress{addr2, addr3},
 				[]fdbv1beta2.ProcessAddress{addr1},
+				nil,
 			),
 			Entry("when a process is missing",
 				status,
 				[]fdbv1beta2.ProcessAddress{addr5},
-				[]fdbv1beta2.ProcessAddress{addr5},
+				nil,
 				[]fdbv1beta2.ProcessAddress{},
 				nil,
+				[]fdbv1beta2.ProcessAddress{addr5},
 			),
 		)
 	})
@@ -727,6 +662,346 @@ protocol fdb00b071010000`,
 				Expect(status).NotTo(BeNil())
 				Expect(status.Cluster.Processes).To(HaveLen(1))
 				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+	})
+
+	When("excluding a set of processes", func() {
+		var mockRunner *mockCommandRunner
+		var useNonBlockingExcludes bool
+
+		JustBeforeEach(func() {
+			cluster := &fdbv1beta2.FoundationDBCluster{
+				Spec: fdbv1beta2.FoundationDBClusterSpec{
+					Version: "6.3.25",
+					AutomationOptions: fdbv1beta2.FoundationDBClusterAutomationOptions{
+						UseNonBlockingExcludes: pointer.Bool(useNonBlockingExcludes),
+					},
+				},
+			}
+
+			cliClient := &cliAdminClient{
+				Cluster:         cluster,
+				clusterFilePath: "test",
+				log:             logr.Discard(),
+				cmdRunner:       mockRunner,
+			}
+
+			Expect(cliClient.ExcludeProcesses([]fdbv1beta2.ProcessAddress{{
+				IPAddress: net.ParseIP("127.0.0.1"),
+				Port:      4500,
+			}})).NotTo(HaveOccurred())
+		})
+
+		BeforeEach(func() {
+			tmpDir := GinkgoT().TempDir()
+			GinkgoT().Setenv("FDB_BINARY_DIR", tmpDir)
+
+			binaryDir := path.Join(tmpDir, "6.3")
+			Expect(os.MkdirAll(binaryDir, 0700)).NotTo(HaveOccurred())
+			_, err := os.Create(path.Join(binaryDir, fdbcliStr))
+			Expect(err).NotTo(HaveOccurred())
+
+			mockRunner = &mockCommandRunner{
+				mockedError:  nil,
+				mockedOutput: "",
+			}
+		})
+
+		When("the cluster specifies that blocking exclusions should be used", func() {
+			It("should return that the exclusion command is called without no_wait", func() {
+				Expect(mockRunner.receivedArgs[1]).To(Equal("exclude 127.0.0.1:4500"))
+			})
+		})
+
+		When("the cluster specifies that non-blocking exclusions should be used", func() {
+			BeforeEach(func() {
+				useNonBlockingExcludes = true
+			})
+
+			It("should return that the exclusion command is called with no_wait", func() {
+				Expect(mockRunner.receivedArgs[1]).To(Equal("exclude no_wait 127.0.0.1:4500"))
+			})
+		})
+	})
+
+	When("checking if processes can safely be removed", func() {
+		var mockRunner *mockCommandRunner
+		var mockFdbClient *mockFdbLibClient
+		var addressesToCheck []fdbv1beta2.ProcessAddress
+		var result []fdbv1beta2.ProcessAddress
+		var err error
+
+		JustBeforeEach(func() {
+			cluster := &fdbv1beta2.FoundationDBCluster{
+				Spec: fdbv1beta2.FoundationDBClusterSpec{
+					Version: fdbv1beta2.Versions.Default.String(),
+				},
+			}
+
+			cliClient := &cliAdminClient{
+				Cluster:         cluster,
+				clusterFilePath: "test",
+				log:             logr.Discard(),
+				cmdRunner:       mockRunner,
+				fdbLibClient:    mockFdbClient,
+			}
+
+			result, err = cliClient.CanSafelyRemove(addressesToCheck)
+			Expect(mockFdbClient.requestedKey).To(Equal("\xff\xff/status/json"))
+		})
+
+		BeforeEach(func() {
+			tmpDir := GinkgoT().TempDir()
+			GinkgoT().Setenv("FDB_BINARY_DIR", tmpDir)
+
+			binaryDir := path.Join(tmpDir, fdbv1beta2.Versions.Default.GetBinaryVersion())
+			Expect(os.MkdirAll(binaryDir, 0700)).NotTo(HaveOccurred())
+			_, err := os.Create(path.Join(binaryDir, fdbcliStr))
+			Expect(err).NotTo(HaveOccurred())
+
+			status := &fdbv1beta2.FoundationDBStatus{
+				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+					Processes: map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{
+						"1": { // This process is fully excluded
+							Address: fdbv1beta2.ProcessAddress{
+								IPAddress: net.ParseIP("192.168.0.1"),
+								Port:      4500,
+							},
+							Excluded: true,
+						},
+						"2": { // This process is fully excluded
+							Address: fdbv1beta2.ProcessAddress{
+								IPAddress: net.ParseIP("192.168.0.2"),
+								Port:      4500,
+							},
+							Excluded: true,
+						},
+						"3": { // This process is not excluded
+							Address: fdbv1beta2.ProcessAddress{
+								IPAddress: net.ParseIP("192.168.0.3"),
+								Port:      4500,
+							},
+							Roles: []fdbv1beta2.FoundationDBStatusProcessRoleInfo{
+								{
+									Role: "test",
+								},
+							},
+						},
+						"4": { // This process is marked as excluded but has a role
+							Address: fdbv1beta2.ProcessAddress{
+								IPAddress: net.ParseIP("192.168.0.4"),
+								Port:      4500,
+							},
+							Excluded: true,
+							Roles: []fdbv1beta2.FoundationDBStatusProcessRoleInfo{
+								{
+									Role: "test",
+								},
+							},
+						},
+					},
+				},
+			}
+
+			statusBytes, err := json.Marshal(status)
+			Expect(err).NotTo(HaveOccurred())
+
+			mockFdbClient = &mockFdbLibClient{
+				mockedOutput: statusBytes,
+			}
+
+			mockRunner = &mockCommandRunner{
+				mockedError:  fdbv1beta2.TimeoutError{Err: fmt.Errorf("timed out")},
+				mockedOutput: "",
+			}
+		})
+
+		/*
+			test the following cases:
+
+			1.) All processes are fully excluded
+			2.) 1 process is not marked as excluded
+			3.) 1 process is marked as excluded but still has roles
+			4.) 1 process is missing from result
+
+		*/
+		When("all provided processes are fully excluded", func() {
+			BeforeEach(func() {
+				addressesToCheck = []fdbv1beta2.ProcessAddress{
+					{
+						IPAddress: net.ParseIP("192.168.0.1"),
+						Port:      4500,
+					},
+					{
+						IPAddress: net.ParseIP("192.168.0.2"),
+						Port:      4500,
+					},
+				}
+			})
+
+			It("should return an empty list and no error", func() {
+				Expect(result).To(HaveLen(0))
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should not issue an exclude command", func() {
+				Expect(mockRunner.receivedBinary).To(BeEmpty())
+			})
+		})
+
+		When("one process is not marked as excluded", func() {
+			BeforeEach(func() {
+				addressesToCheck = []fdbv1beta2.ProcessAddress{
+					{
+						IPAddress: net.ParseIP("192.168.0.1"),
+						Port:      4500,
+					},
+					{
+						IPAddress: net.ParseIP("192.168.0.2"),
+						Port:      4500,
+					},
+					{
+						IPAddress: net.ParseIP("192.168.0.3"),
+						Port:      4500,
+					},
+				}
+			})
+
+			It("should return the one process that is not excluded", func() {
+				Expect(result).To(ConsistOf(fdbv1beta2.ProcessAddress{
+					IPAddress: net.ParseIP("192.168.0.3"),
+					Port:      4500,
+				}))
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should not issue an exclude command", func() {
+				Expect(mockRunner.receivedBinary).To(BeEmpty())
+			})
+		})
+
+		When("one process is marked as excluded but still serves a role", func() {
+			BeforeEach(func() {
+				addressesToCheck = []fdbv1beta2.ProcessAddress{
+					{
+						IPAddress: net.ParseIP("192.168.0.1"),
+						Port:      4500,
+					},
+					{
+						IPAddress: net.ParseIP("192.168.0.2"),
+						Port:      4500,
+					},
+					{
+						IPAddress: net.ParseIP("192.168.0.4"),
+						Port:      4500,
+					},
+				}
+			})
+
+			It("should return the one process that is still serving a role", func() {
+				Expect(result).To(ConsistOf(fdbv1beta2.ProcessAddress{
+					IPAddress: net.ParseIP("192.168.0.4"),
+					Port:      4500,
+				}))
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should not issue an exclude command", func() {
+				Expect(mockRunner.receivedBinary).To(BeEmpty())
+			})
+		})
+
+		When("one process is marked as excluded but still serves a role and one process is not excluded", func() {
+			BeforeEach(func() {
+				addressesToCheck = []fdbv1beta2.ProcessAddress{
+					{
+						IPAddress: net.ParseIP("192.168.0.1"),
+						Port:      4500,
+					},
+					{
+						IPAddress: net.ParseIP("192.168.0.2"),
+						Port:      4500,
+					},
+					{
+						IPAddress: net.ParseIP("192.168.0.3"),
+						Port:      4500,
+					},
+					{
+						IPAddress: net.ParseIP("192.168.0.4"),
+						Port:      4500,
+					},
+				}
+			})
+
+			It("should return the one process that is still serving a role and the one that is not excluded", func() {
+				Expect(result).To(ConsistOf(fdbv1beta2.ProcessAddress{
+					IPAddress: net.ParseIP("192.168.0.3"),
+					Port:      4500,
+				},
+					fdbv1beta2.ProcessAddress{
+						IPAddress: net.ParseIP("192.168.0.4"),
+						Port:      4500,
+					}))
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should not issue an exclude command", func() {
+				Expect(mockRunner.receivedBinary).To(BeEmpty())
+			})
+		})
+
+		When("one process is missing in the cluster status", func() {
+			BeforeEach(func() {
+				addressesToCheck = []fdbv1beta2.ProcessAddress{
+					{
+						IPAddress: net.ParseIP("192.168.0.1"),
+						Port:      4500,
+					},
+					{
+						IPAddress: net.ParseIP("192.168.0.2"),
+						Port:      4500,
+					},
+					{
+						IPAddress: net.ParseIP("192.168.0.5"),
+						Port:      4500,
+					},
+				}
+			})
+
+			It("should return an empty list and no error", func() {
+				Expect(result).To(ConsistOf(fdbv1beta2.ProcessAddress{
+					IPAddress: net.ParseIP("192.168.0.5"),
+					Port:      4500,
+				}))
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should issue an exclude command", func() {
+				Expect(mockRunner.receivedBinary).NotTo(BeEmpty())
+				Expect(mockRunner.receivedArgs).To(ContainElements("exclude 192.168.0.5:4500"))
+			})
+
+			When("the exclude command returns an error different from the timeout error", func() {
+				BeforeEach(func() {
+					mockRunner.mockedError = fmt.Errorf("unit test")
+				})
+
+				It("should return an error", func() {
+					Expect(result).To(HaveLen(0))
+					Expect(err).To(HaveOccurred())
+				})
+			})
+		})
+
+		When("the get cluster status returns an error", func() {
+			BeforeEach(func() {
+				mockFdbClient.mockedError = fmt.Errorf("unit test")
+			})
+
+			It("should return an error", func() {
+				Expect(result).To(HaveLen(0))
+				Expect(err).To(HaveOccurred())
 			})
 		})
 	})
