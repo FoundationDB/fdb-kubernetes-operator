@@ -42,7 +42,6 @@ GO_LINES=$(GOBIN)/golines
 GO_IMPORTS_PKG=golang.org/x/tools/cmd/goimports@v0.7.0
 GO_IMPORTS=$(GOBIN)/goimports
 
-
 BUILD_DEPS?=
 BUILDER?="docker"
 BUILDER_ARGS?=
@@ -103,7 +102,7 @@ cover.out: ${GO_ALL} ${MANIFESTS}
 
 test:
 ifneq "$(SKIP_TEST)" "1"
-	go test ${go_test_flags} ./... -coverprofile cover.out -ginkgo.timeout=2h
+	go test ${go_test_flags} ./... -coverprofile cover.out -ginkgo.timeout=2h -ginkgo.label-filter="!e2e"
 endif
 
 # Build manager binary

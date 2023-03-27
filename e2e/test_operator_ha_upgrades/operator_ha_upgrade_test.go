@@ -124,7 +124,7 @@ func verifyBouncingIsBlocked() {
 	}).WithTimeout(10 * time.Minute).WithPolling(5 * time.Second).MustPassRepeatedly(30).Should(BeTrue())
 }
 
-var _ = Describe("Operator HA Upgrades", func() {
+var _ = Describe("Operator HA Upgrades", Label("e2e"), func() {
 	BeforeEach(func() {
 		factory = fixtures.CreateFactory(testOptions)
 	})

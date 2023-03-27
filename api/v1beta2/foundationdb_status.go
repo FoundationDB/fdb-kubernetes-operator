@@ -81,6 +81,9 @@ type FoundationDBStatusClusterInfo struct {
 	// FullReplication indicates whether the database is fully replicated.
 	FullReplication bool `json:"full_replication,omitempty"`
 
+	// Generation indicates the current generation of this database.
+	Generation int `json:"generation,omitempty"`
+
 	// MaintenanceZone contains current zone under maintenance, if any.
 	MaintenanceZone string `json:"maintenance_zone,omitempty"`
 

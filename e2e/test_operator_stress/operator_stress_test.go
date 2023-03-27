@@ -35,7 +35,7 @@ var _ = AfterSuite(func() {
 	factory.Shutdown()
 })
 
-var _ = Describe("Operator Stress", func() {
+var _ = Describe("Operator Stress", Label("e2e"), func() {
 	When("creating and deleting a cluster multiple times", func() {
 		It("should create a healthy and available cluster", func() {
 			// Since Ginkgo doesn't support what we want, we run this multiple times.

@@ -148,7 +148,7 @@ var _ = AfterSuite(func() {
 	factory.Shutdown()
 })
 
-var _ = Describe("Test Operator Velocity", func() {
+var _ = Describe("Test Operator Velocity", Label("e2e"), func() {
 	BeforeEach(func() {
 		Expect(fdbCluster.WaitForReconciliation()).ToNot(HaveOccurred())
 	})

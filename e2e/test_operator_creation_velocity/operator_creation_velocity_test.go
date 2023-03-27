@@ -41,7 +41,7 @@ var _ = AfterSuite(func() {
 	factory.Shutdown()
 })
 
-var _ = Describe("Test Operator Velocity", func() {
+var _ = Describe("Test Operator Velocity", Label("e2e"), func() {
 	When("creating a single FDB cluster", func() {
 		It("should roll out knob changes within expected time", func() {
 			startTime := time.Now()

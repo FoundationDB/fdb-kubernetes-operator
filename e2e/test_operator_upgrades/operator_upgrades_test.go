@@ -70,7 +70,7 @@ func upgradeAndVerify(cluster *fixtures.FdbCluster, expectedVersion string) {
 	log.Println("Upgrade took:", time.Since(startTime).String())
 }
 
-var _ = Describe("Operator Upgrades", func() {
+var _ = Describe("Operator Upgrades", Label("e2e"), func() {
 	BeforeEach(func() {
 		factory = fixtures.CreateFactory(testOptions)
 	})
