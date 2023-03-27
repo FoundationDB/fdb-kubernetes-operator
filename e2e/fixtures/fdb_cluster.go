@@ -361,10 +361,20 @@ func (fdbCluster *FdbCluster) SetDatabaseConfiguration(
 // UpdateClusterSpec ensures that the FoundationDBCluster will be updated in Kubernetes. This method as a retry mechanism
 // implemented and ensures that the provided (local) Spec matches the Spec in Kubernetes.
 func (fdbCluster *FdbCluster) UpdateClusterSpec() {
-	fetchedCluster := &fdbv1beta2.FoundationDBCluster{}
+	fdbCluster.UpdateClusterSpecWithSpec(fdbCluster.cluster.Spec.DeepCopy())
+}
 
-	// Ensure we make a copy of the desired spec.
-	desiredSpec := fdbCluster.cluster.Spec.DeepCopy()
+// UpdateClusterSpecWithSpec ensures that the FoundationDBCluster will be updated in Kubernetes. This method as a retry mechanism
+// implemented and ensures that the provided (local) Spec matches the Spec in Kubernetes. You must make sure that you call
+// fdbCluster.GetCluster() before updating the spec, to make sure you are not overwriting the current state with an outdated state.
+// An example on how to update a field with this method:
+//
+//	spec := fdbCluster.GetCluster().Spec.DeepCopy() // Fetch the current Spec.
+//	spec.Version = "7.1.27" // Make your changes.
+//
+//	fdbCluster.UpdateClusterSpecWithSpec(spec) // Update the spec.
+func (fdbCluster *FdbCluster) UpdateClusterSpecWithSpec(desiredSpec *fdbv1beta2.FoundationDBClusterSpec) {
+	fetchedCluster := &fdbv1beta2.FoundationDBCluster{}
 
 	// This is flaky. It sometimes responds with an error saying that the object has been updated.
 	// Try a few times before giving up.
