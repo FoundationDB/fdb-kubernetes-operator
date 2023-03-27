@@ -57,6 +57,11 @@ clean:
 	@rm -f TEST-ginkgo*.xml
 	@find . -name '*~' | xargs rm -f
 
+# This target can be used to delete namespaces that were created during testing. If a namespace is provided the user and
+# the namespace (as a prefix) must match.
+destroy-my-namespaces:
+	./remove_namespaces ${TEST_USERNAME} ${NAMESPACE}
+
 # No one in the team can figure out how to get ginkgo's test launcher to properly
 # manage concurrency, or control which tests are run in a predictable manner.
 
