@@ -2212,6 +2212,37 @@ func (cluster *FoundationDBCluster) AddProcessGroupsToCrashLoopList(processGroup
 	}
 }
 
+// AddProcessGroupsToCrashLoopContainerList adds the provided process group IDs to the crash-loop list.
+// If a process group ID is already present on that list it won't be added a second time.
+func (cluster *FoundationDBCluster) AddProcessGroupsToCrashLoopContainerList(processGroupIDs []ProcessGroupID, containerName string) {
+	crashLoopProcessIDs := cluster.GetCrashLoopContainerProcessGroups()[containerName]
+
+	if len(crashLoopProcessIDs) == 0 {
+		containerObj := CrashLoopContainerObject{
+			ContainerName: containerName,
+			Targets:       processGroupIDs,
+		}
+		cluster.Spec.Buggify.CrashLoopContainers = append(cluster.Spec.Buggify.CrashLoopContainers, containerObj)
+		return
+	}
+
+	containerIdx := 0
+	for _, crashLoopContainerObj := range cluster.Spec.Buggify.CrashLoopContainers {
+		if containerName != crashLoopContainerObj.ContainerName {
+			containerIdx++
+			continue
+		}
+		for _, processGroupID := range processGroupIDs {
+			if _, ok := crashLoopProcessIDs[processGroupID]; ok {
+				continue
+			}
+			crashLoopContainerObj.Targets = append(crashLoopContainerObj.Targets, processGroupID)
+		}
+		cluster.Spec.Buggify.CrashLoopContainers[containerIdx] = crashLoopContainerObj
+		return
+	}
+}
+
 // RemoveProcessGroupsFromCrashLoopList removes the provided process group IDs from the crash-loop list.
 func (cluster *FoundationDBCluster) RemoveProcessGroupsFromCrashLoopList(processGroupIDs []ProcessGroupID) {
 	processGroupIDsToRemove := make(map[ProcessGroupID]None)
@@ -2228,6 +2259,32 @@ func (cluster *FoundationDBCluster) RemoveProcessGroupsFromCrashLoopList(process
 		idx++
 	}
 	cluster.Spec.Buggify.CrashLoop = cluster.Spec.Buggify.CrashLoop[:idx]
+}
+
+// RemoveProcessGroupsFromCrashLoopContainerList removes the provided process group IDs from the crash-loop container list.
+func (cluster *FoundationDBCluster) RemoveProcessGroupsFromCrashLoopContainerList(processGroupIDs []ProcessGroupID, containerName string) {
+	processGroupIDsToRemove := make(map[ProcessGroupID]None)
+	for _, processGroupID := range processGroupIDs {
+		processGroupIDsToRemove[processGroupID] = None{}
+	}
+
+	crashLoopIdx := 0
+	for _, crashLoopContainerObj := range cluster.Spec.Buggify.CrashLoopContainers {
+		if containerName != crashLoopContainerObj.ContainerName {
+			crashLoopIdx++
+			continue
+		}
+		newTargets := make([]ProcessGroupID, 0)
+		for _, processGroupID := range crashLoopContainerObj.Targets {
+			if _, ok := processGroupIDsToRemove[processGroupID]; ok {
+				continue
+			}
+			newTargets = append(newTargets, processGroupID)
+		}
+		crashLoopContainerObj.Targets = newTargets
+		cluster.Spec.Buggify.CrashLoopContainers[crashLoopIdx] = crashLoopContainerObj
+		return
+	}
 }
 
 // AddProcessGroupsToRemovalWithoutExclusionList adds the provided process group IDs to the remove without exclusion list.
