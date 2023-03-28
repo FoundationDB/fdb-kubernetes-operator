@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+if [ $# -eq 0 ]
+then
+  echo -e "Usage: ./remove_namespaces username [namespace prefix]"
+  exit
+fi
+
+USERNAME=$1
+NAMESPACE=${2:-""}
+
+for ns in $(kubectl get ns --no-headers -o name -l "foundationdb.org/user=$USERNAME,foundationdb.org/testing=chaos" | awk -F/ '{print $2}');
+do
+  (
+    if [ -n "${NAMESPACE}" ] && [[ "${ns}" != "${NAMESPACE}"* ]]
+    then
+      echo skip deleting namespace "${ns}" owned by "${USERNAME}"
+      continue
+    fi
+
+    echo "start deleting namespace ${ns}"
+
+    kubectl delete ns --ignore-not-found "${ns}"
+  ) &
+done
+wait
+
+echo "remove all chaos experiments for user"
+
+kubectl -n chaos-testing delete schedules -l "foundationdb.org/user=$USERNAME,foundationdb.org/testing=chaos" --wait=false --ignore-not-found
+kubectl -n chaos-testing delete networkchaos -l "foundationdb.org/user=$USERNAME,foundationdb.org/testing=chaos" --wait=false --ignore-not-found
+kubectl -n chaos-testing delete iochaos -l "foundationdb.org/user=$USERNAME,foundationdb.org/testing=chaos" --wait=false --ignore-not-found
+kubectl -n chaos-testing delete podchaos -l "foundationdb.org/user=$USERNAME,foundationdb.org/testing=chaos" --wait=false --ignore-not-found
