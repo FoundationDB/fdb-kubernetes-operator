@@ -22,11 +22,12 @@ package fixtures
 
 import (
 	"fmt"
+	"log"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/utils/pointer"
-	"log"
 )
 
 func (factory *Factory) ensureFdbClusterExists(

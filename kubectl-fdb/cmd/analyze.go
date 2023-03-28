@@ -23,11 +23,12 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"strings"
-	"time"
 
 	"context"
 

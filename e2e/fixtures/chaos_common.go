@@ -23,11 +23,12 @@ package fixtures
 import (
 	ctx "context"
 	"fmt"
-	"github.com/onsi/gomega"
 	"log"
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/onsi/gomega"
 
 	chaosmeshv1alpha1 "github.com/chaos-mesh/chaos-mesh/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"

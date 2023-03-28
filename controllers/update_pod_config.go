@@ -23,8 +23,9 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"k8s.io/apimachinery/pkg/api/equality"
 	"time"
+
+	"k8s.io/apimachinery/pkg/api/equality"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
 

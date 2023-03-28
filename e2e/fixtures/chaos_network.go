@@ -21,11 +21,12 @@
 package fixtures
 
 import (
+	"strconv"
+
 	chaosmesh "github.com/chaos-mesh/chaos-mesh/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
-	"strconv"
 )
 
 // ensurePodPhaseSelectorIsSet this method takes a PodSelectorSpec and add the PodPhaseSelector if missing. If the

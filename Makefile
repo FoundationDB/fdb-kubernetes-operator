@@ -37,8 +37,6 @@ GOLANGCI_LINT_PKG=github.com/golangci/golangci-lint/cmd/golangci-lint@v1.50.1
 GOLANGCI_LINT=$(GOBIN)/golangci-lint
 GORELEASER_PKG=github.com/goreleaser/goreleaser@v1.6.3
 GORELEASER=$(GOBIN)/goreleaser
-GO_LINES_PKG=github.com/segmentio/golines@v0.11.0
-GO_LINES=$(GOBIN)/golines
 GO_IMPORTS_PKG=golang.org/x/tools/cmd/goimports@v0.7.0
 GO_IMPORTS=$(GOBIN)/goimports
 
@@ -62,7 +60,6 @@ $(eval $(call godep,controller-gen,CONTROLLER_GEN))
 $(eval $(call godep,golangci-lint,GOLANGCI_LINT))
 $(eval $(call godep,kustomize,KUSTOMIZE))
 $(eval $(call godep,goreleaser,GORELEASER))
-$(eval $(call godep,golines,GO_LINES))
 $(eval $(call godep,goimports,GO_IMPORTS))
 
 GO_SRC=$(shell find . -name "*.go" -not -name "zz_generated.*.go" -not -name ".\#*.go")
@@ -161,12 +158,10 @@ ${MANIFESTS}: ${CONTROLLER_GEN} ${GO_SRC}
 # Run go fmt against code
 fmt: bin/fmt_check
 
-# TODO johscheuer: enable those new command in a new PR.
 bin/fmt_check: ${GO_ALL}
-	# $(GO_LINES) -w .
 	gofmt -w -s .
-	# $(GO_IMPORTS) -w .
-	#$(GOLANGCI_LINT) run --fix
+	$(GO_IMPORTS) -w .
+	$(GOLANGCI_LINT) run --fix
 	@mkdir -p bin
 	@touch $@
 

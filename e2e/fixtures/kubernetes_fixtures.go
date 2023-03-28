@@ -22,13 +22,14 @@ package fixtures
 
 import (
 	ctx "context"
+	"log"
+	"regexp"
+
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"log"
-	"regexp"
 )
 
 // MultipleNamespaces creates multiple namespaces for HA testing.

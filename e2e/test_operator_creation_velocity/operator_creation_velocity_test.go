@@ -2,10 +2,11 @@ package operatorcreationvelocity
 
 import (
 	"flag"
-	"github.com/onsi/ginkgo/v2/types"
 	"log"
 	"testing"
 	"time"
+
+	"github.com/onsi/ginkgo/v2/types"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/e2e/fixtures"
 	. "github.com/onsi/ginkgo/v2"

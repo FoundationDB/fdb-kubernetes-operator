@@ -2,12 +2,13 @@ package operatorhaupgrades
 
 import (
 	"flag"
-	"github.com/onsi/ginkgo/v2/types"
 	"log"
 	"math/rand"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/onsi/ginkgo/v2/types"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/e2e/fixtures"

@@ -2,12 +2,13 @@ package operatorstress
 
 import (
 	"flag"
+	"log"
+	"testing"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/e2e/fixtures"
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/onsi/ginkgo/v2/types"
 	. "github.com/onsi/gomega"
-	"log"
-	"testing"
 )
 
 var (

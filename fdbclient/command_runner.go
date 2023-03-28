@@ -22,11 +22,12 @@ package fdbclient
 
 import (
 	"context"
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	"github.com/go-logr/logr"
 	"os"
 	"os/exec"
 	"strings"
+
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	"github.com/go-logr/logr"
 )
 
 // commandRunner is an interface to run commands.
