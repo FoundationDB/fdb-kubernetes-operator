@@ -234,6 +234,29 @@ func processGroupNeedsRemoval(cluster *fdbv1beta2.FoundationDBCluster, pod *core
 		}
 	}
 
+	if cluster.UseLogicalFaultDomains() != processGroupStatus.LogicalFaultDomainEnabled {
+		logger.Info("Replace process group",
+			"reason", "logical fault domain setting is different from expected",
+			"expectedLogicalFaultDomainsEnabled", cluster.UseLogicalFaultDomains(),
+			"processGroupLogicalFaultDomainsEnabled", processGroupStatus.LogicalFaultDomainEnabled)
+
+		return true, nil
+	}
+
+	if cluster.UseLogicalFaultDomains() {
+		// TODO (johscheuer) calculate this only once.
+		validLocalities := cluster.GetValidLocalities(processGroupStatus.ProcessClass)
+
+		_, ok := validLocalities[processGroupStatus.FaultDomain]
+		if !ok {
+			logger.Info("Replace process group",
+				"reason", "logical fault domain is not valid",
+				"faultDomain", processGroupStatus.FaultDomain)
+
+			return true, nil
+		}
+	}
+
 	return false, nil
 }
 

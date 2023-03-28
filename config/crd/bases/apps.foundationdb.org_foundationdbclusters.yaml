@@ -9873,6 +9873,16 @@ spec:
                     - ProcessGroup
                     - None
                     type: string
+                  distributionConfig:
+                    properties:
+                      desiredFaultDomains:
+                        minimum: 1
+                        type: integer
+                      enabled:
+                        type: boolean
+                      faultDomainPrefix:
+                        type: string
+                    type: object
                   failedPodDurationSeconds:
                     type: integer
                   ignoreLogGroupsForUpgrade:
@@ -13826,6 +13836,8 @@ spec:
               processGroups:
                 items:
                   properties:
+                    LogicalFaultDomainEnabled:
+                      type: boolean
                     addresses:
                       items:
                         type: string
@@ -13834,6 +13846,8 @@ spec:
                       type: boolean
                     exclusionTimestamp:
                       format: date-time
+                      type: string
+                    faultDomain:
                       type: string
                     processClass:
                       type: string

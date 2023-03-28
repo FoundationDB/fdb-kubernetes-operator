@@ -80,10 +80,10 @@ The following code snippet shows a possible implementation of the required struc
 ```golang
 // DistributionConfig
 type DistributionConfig struct {
-    // Enabled defines if the binpacking is enabled or not.
+    // Enabled defines if the bin packing is enabled or not.
     // Default: false
     Enabled *bool
-    // DesiredFaultDomains desfines the number of desired fault domain.
+    // DesiredFaultDomains defines the number of desired fault domain.
     // Must be greater than 0 if fault domain distribution is enabled.
     // Default: Minimum number of fault domains.
     DesiredFaultDomains *int

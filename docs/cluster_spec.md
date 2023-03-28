@@ -13,6 +13,7 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 * [ContainerOverrides](#containeroverrides)
 * [CoordinatorSelectionSetting](#coordinatorselectionsetting)
 * [CrashLoopContainerObject](#crashloopcontainerobject)
+* [DistributionConfig](#distributionconfig)
 * [FoundationDBCluster](#foundationdbcluster)
 * [FoundationDBClusterAutomationOptions](#foundationdbclusterautomationoptions)
 * [FoundationDBClusterFaultDomain](#foundationdbclusterfaultdomain)
@@ -149,6 +150,18 @@ CrashLoopContainerObject specifies crash-loop target for specific container.
 
 [Back to TOC](#table-of-contents)
 
+## DistributionConfig
+
+DistributionConfig specifies the distribution configuration for this cluster. This configuration can be used to enable logical fault domains and to bin pack Pods into the same fault domains.
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| enabled | Enabled defines if the bin packing is enabled or not. Default: false | *bool | false |
+| desiredFaultDomains | DesiredFaultDomains defines the number of desired fault domain. Must be greater than 0 if fault domain distribution is enabled. Default: Minimum number of fault domains. | *int | false |
+| faultDomainPrefix | FaultDomainPrefix defines the prefix that should be used when generating a logical fault domain name. The logical fault domain will always include the process class and an ID as a suffix. | *string | false |
+
+[Back to TOC](#table-of-contents)
+
 ## FoundationDBCluster
 
 FoundationDBCluster is the Schema for the foundationdbclusters API
@@ -184,6 +197,7 @@ FoundationDBClusterAutomationOptions provides flags for enabling or disabling op
 | useManagementAPI | UseManagementAPI defines if the operator should make use of the management API instead of using fdbcli to interact with the FoundationDB cluster. | *bool | false |
 | maintenanceModeOptions | MaintenanceModeOptions contains options for maintenance mode related settings. | [MaintenanceModeOptions](#maintenancemodeoptions) | false |
 | ignoreLogGroupsForUpgrade | IgnoreLogGroupsForUpgrade defines the list of LogGroups that should be ignored during fdb version upgrade. | []string | false |
+| distributionConfig | DistributionConfig specifies the distribution configuration for this cluster. This configuration can be used to enable logical fault domains and to bin pack Pods into the same fault domains. | [DistributionConfig](#distributionconfig) | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -404,6 +418,8 @@ ProcessGroupStatus represents the status of a ProcessGroup.
 | exclusionTimestamp | ExclusionTimestamp defines when the process group has been fully excluded. This is only used within the reconciliation process, and should not be considered authoritative. | *metav1.Time | false |
 | exclusionSkipped | ExclusionSkipped determines if exclusion has been skipped for a process, which will allow the process group to be removed without exclusion. | bool | false |
 | processGroupConditions | ProcessGroupConditions represents a list of degraded conditions that the process group is in. | []*[ProcessGroupCondition](#processgroupcondition) | false |
+| faultDomain | FaultDomain represents either the logical grouping that is used to bin pack processes together or the last seen fault domain from the cluster status. | string | false |
+| LogicalFaultDomainEnabled | LogicalFaultDomainEnabled if set to true, this means the the Process Group is using logical fault domains instead of the fault domain provided by the infrastructure. | bool | false |
 
 [Back to TOC](#table-of-contents)
 

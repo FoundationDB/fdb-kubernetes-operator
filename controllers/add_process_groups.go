@@ -45,7 +45,10 @@ func (a addProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterR
 	desiredCounts := desiredCountStruct.Map()
 
 	processCounts := make(map[fdbv1beta2.ProcessClass]int)
-	processGroupIDs := make(map[fdbv1beta2.ProcessClass]map[int]bool)
+	processGroupIDs := make(map[fdbv1beta2.ProcessClass]map[int]fdbv1beta2.None)
+	logicalFaultDomains := make(map[fdbv1beta2.ProcessClass]map[string]int)
+	logicalFaultDomainsEnabled := cluster.UseLogicalFaultDomains()
+
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		processGroupID := processGroup.ProcessGroupID
 		_, num, err := podmanager.ParseProcessGroupID(processGroupID)
@@ -55,13 +58,21 @@ func (a addProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterR
 
 		class := processGroup.ProcessClass
 		if processGroupIDs[class] == nil {
-			processGroupIDs[class] = make(map[int]bool)
+			processGroupIDs[class] = make(map[int]fdbv1beta2.None)
 		}
 
-		processGroupIDs[class][num] = true
+		if logicalFaultDomains[processGroup.ProcessClass] == nil {
+			logicalFaultDomains[processGroup.ProcessClass] = make(map[string]int)
+		}
+
+		processGroupIDs[class][num] = fdbv1beta2.None{}
 
 		if !processGroup.IsMarkedForRemoval() {
 			processCounts[class]++
+
+			if logicalFaultDomainsEnabled {
+				logicalFaultDomains[processGroup.ProcessClass][processGroup.FaultDomain]++
+			}
 		}
 	}
 
@@ -79,21 +90,33 @@ func (a addProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterR
 		idNum := 1
 
 		if processGroupIDs[processClass] == nil {
-			processGroupIDs[processClass] = make(map[int]bool)
+			processGroupIDs[processClass] = make(map[int]fdbv1beta2.None)
 		}
 
 		for i := 0; i < newCount; i++ {
 			for idNum > 0 {
 				_, processGroupID := internal.GetProcessGroupID(cluster, processClass, idNum)
+				_, alreadyUsed := processGroupIDs[processClass][idNum]
 
-				if !cluster.ProcessGroupIsBeingRemoved(processGroupID) && !processGroupIDs[processClass][idNum] {
+				if !cluster.ProcessGroupIsBeingRemoved(processGroupID) && !alreadyUsed {
 					break
 				}
 
 				idNum++
 			}
 			_, processGroupID := internal.GetProcessGroupID(cluster, processClass, idNum)
-			cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus(processGroupID, processClass, nil))
+
+			locality := cluster.PickLocality(processClass, logicalFaultDomains[processClass])
+			// Create a process group for this locality and set if the logical fault domains are enabled for this process group.
+			processGroup := fdbv1beta2.NewProcessGroupStatusWithLocality(processGroupID, processClass, nil, locality)
+			processGroup.LogicalFaultDomainEnabled = logicalFaultDomainsEnabled
+			cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, processGroup)
+			// We have to increase the number of processes running in this locality.
+			if logicalFaultDomains[processClass] == nil {
+				logicalFaultDomains[processClass] = make(map[string]int)
+			}
+
+			logicalFaultDomains[processClass][locality]++
 
 			idNum++
 		}

@@ -278,6 +278,7 @@ func setAffinityForFaultDomain(cluster *fdbv1beta2.FoundationDBCluster, podSpec 
 		faultDomainKey = corev1.LabelHostname
 	}
 
+	// TODO (johscheuer): Implement logic fault domains here. Make sure we document the requirements in a doc.
 	if faultDomainKey != fdbv1beta2.NoneFaultDomainKey && faultDomainKey != "foundationdb.org/kubernetes-cluster" {
 		if podSpec.Affinity == nil {
 			podSpec.Affinity = &corev1.Affinity{}

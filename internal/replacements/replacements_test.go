@@ -596,6 +596,60 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					})
 				})
 			})
+
+			When("logical fault domains should be used", func() {
+				BeforeEach(func() {
+					cluster.Spec.AutomationOptions.DistributionConfig.Enabled = pointer.Bool(true)
+				})
+
+				It("should mark the process group for removal", func() {
+					needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
+					Expect(needsRemoval).To(BeTrue())
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				When("the process group already uses a logical fault domain", func() {
+					BeforeEach(func() {
+						status.LogicalFaultDomainEnabled = true
+						localities := cluster.GetValidLocalities(status.ProcessClass)
+						// Set a valid fault domain
+						for locality := range localities {
+							status.FaultDomain = locality
+							break
+						}
+					})
+
+					It("should not mark the process group for removal", func() {
+						needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
+						Expect(needsRemoval).To(BeFalse())
+						Expect(err).NotTo(HaveOccurred())
+					})
+				})
+
+				When("the process group has an invalid fault domain", func() {
+					BeforeEach(func() {
+						status.LogicalFaultDomainEnabled = true
+					})
+
+					It("should mark the process group for removal", func() {
+						needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
+						Expect(needsRemoval).To(BeTrue())
+						Expect(err).NotTo(HaveOccurred())
+					})
+				})
+			})
+
+			When("a process group has the logical fault domain enabled but the cluster has disabled it", func() {
+				BeforeEach(func() {
+					status.LogicalFaultDomainEnabled = true
+				})
+
+				It("should mark the process group for removal", func() {
+					needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
+					Expect(needsRemoval).To(BeTrue())
+					Expect(err).NotTo(HaveOccurred())
+				})
+			})
 		})
 	})
 

@@ -329,6 +329,12 @@ type ProcessGroupStatus struct {
 	ExclusionSkipped bool `json:"exclusionSkipped,omitempty"`
 	// ProcessGroupConditions represents a list of degraded conditions that the process group is in.
 	ProcessGroupConditions []*ProcessGroupCondition `json:"processGroupConditions,omitempty"`
+	// FaultDomain represents either the logical grouping that is used to bin pack processes together or the last seen
+	// fault domain from the cluster status.
+	FaultDomain string `json:"faultDomain,omitempty"`
+	// LogicalFaultDomainEnabled if set to true, this means the the Process Group is using logical fault domains instead
+	// of the fault domain provided by the infrastructure.
+	LogicalFaultDomainEnabled bool `json:"LogicalFaultDomainEnabled,omitempty"`
 }
 
 // ProcessGroupID represents the ID of the process group
@@ -436,6 +442,14 @@ func (processGroupStatus *ProcessGroupStatus) AllAddressesExcluded(remainingMap 
 	}
 
 	return true, nil
+}
+
+// NewProcessGroupStatusWithLocality returns a new GroupStatus for the given processGroupID, processClass, addresses and fault domain.
+func NewProcessGroupStatusWithLocality(processGroupID ProcessGroupID, processClass ProcessClass, addresses []string, LogicalFaultDomain string) *ProcessGroupStatus {
+	processGroup := NewProcessGroupStatus(processGroupID, processClass, addresses)
+	processGroup.FaultDomain = LogicalFaultDomain
+
+	return processGroup
 }
 
 // NewProcessGroupStatus returns a new GroupStatus for the given processGroupID and processClass.
@@ -925,6 +939,26 @@ type FoundationDBClusterAutomationOptions struct {
 	// IgnoreLogGroupsForUpgrade defines the list of LogGroups that should be ignored during fdb version upgrade.
 	// +kubebuilder:validation:MaxItems=10
 	IgnoreLogGroupsForUpgrade []string `json:"ignoreLogGroupsForUpgrade,omitempty"`
+
+	// DistributionConfig specifies the distribution configuration for this cluster. This configuration can be used
+	// to enable logical fault domains and to bin pack Pods into the same fault domains.
+	DistributionConfig DistributionConfig `json:"distributionConfig,omitempty"`
+}
+
+// DistributionConfig specifies the distribution configuration for this cluster. This configuration can be used
+// to enable logical fault domains and to bin pack Pods into the same fault domains.
+type DistributionConfig struct {
+	// Enabled defines if the bin packing is enabled or not.
+	// Default: false
+	Enabled *bool `json:"enabled,omitempty"`
+	// DesiredFaultDomains defines the number of desired fault domain.
+	// Must be greater than 0 if fault domain distribution is enabled.
+	// Default: Minimum number of fault domains.
+	// +kubebuilder:validation:Minimum=1
+	DesiredFaultDomains *int `json:"desiredFaultDomains,omitempty"`
+	// FaultDomainPrefix defines the prefix that should be used when generating a logical fault domain name.
+	// The logical fault domain will always include the process class and an ID as a suffix.
+	FaultDomainPrefix *string `json:"faultDomainPrefix,omitempty"`
 }
 
 // MaintenanceModeOptions controls options for placing zones in maintenance mode.
@@ -2376,4 +2410,103 @@ func (cluster *FoundationDBCluster) Validate() error {
 	}
 
 	return fmt.Errorf(strings.Join(validations, ", "))
+}
+
+// DesiredFaultDomains returns the number of desired fault domains. This is either the value configured in the DistributionConfig
+// or the minimum fault domains that are required for the redundancy mode. This method will be used to determine how many
+// logical fault domains the operator should manage.
+func (cluster *FoundationDBCluster) DesiredFaultDomains() int {
+	desiredFaultDomains := pointer.IntDeref(cluster.Spec.AutomationOptions.DistributionConfig.DesiredFaultDomains, -1)
+	minimumFaultDomains := MinimumFaultDomains(cluster.Spec.DatabaseConfiguration.RedundancyMode)
+
+	if minimumFaultDomains > desiredFaultDomains {
+		return minimumFaultDomains
+	}
+
+	return desiredFaultDomains
+}
+
+// UseLogicalFaultDomains returns true if logical fault domains should be used. This can be enabled or disabled by setting
+// the DistributionConfig.
+func (cluster *FoundationDBCluster) UseLogicalFaultDomains() bool {
+	return pointer.BoolDeref(cluster.Spec.AutomationOptions.DistributionConfig.Enabled, false)
+}
+
+// fillLocalities will add missing localities into the provided map. If the currentLocalities has less localities (keys)
+// than the desiredFaultDomains, this method will add the missing localities.
+func (cluster *FoundationDBCluster) fillLocalities(processClass ProcessClass, currentLocalities map[string]int) map[string]int {
+	if currentLocalities == nil {
+		currentLocalities = make(map[string]int)
+	}
+
+	validLocalities := cluster.GetValidLocalities(processClass)
+	for locality := range validLocalities {
+		if _, ok := currentLocalities[locality]; ok {
+			continue
+		}
+
+		currentLocalities[locality] = 0
+	}
+
+	return currentLocalities
+}
+
+// GetValidLocalities will return a map that contains all valid localities in the keys. This method can be used to check if
+// a currently used locality is still valid. If logical fault domains are disabled this method will return nil.
+func (cluster *FoundationDBCluster) GetValidLocalities(processClass ProcessClass) map[string]None {
+	if !cluster.UseLogicalFaultDomains() {
+		return nil
+	}
+
+	result := make(map[string]None)
+	desiredFaultDomains := cluster.DesiredFaultDomains()
+
+	for i := 0; i < desiredFaultDomains; i++ {
+		if cluster.Spec.AutomationOptions.DistributionConfig.FaultDomainPrefix != nil {
+			prefix := pointer.StringDeref(cluster.Spec.AutomationOptions.DistributionConfig.FaultDomainPrefix, "")
+			result[fmt.Sprintf("%s-%s-%d", prefix, processClass, i)] = None{}
+			continue
+		}
+
+		result[fmt.Sprintf("%s-%d", processClass, i)] = None{}
+	}
+
+	return result
+}
+
+// PickLocality will pick the fault domain for a process with the provided process class. The idea here is to try to evenly spread
+// all processes across the desired number of logical fault domains. This method is called when a new process group is created.
+// The method will pick the locality that has the least processes running in it.
+func (cluster *FoundationDBCluster) PickLocality(processClass ProcessClass, currentLocalities map[string]int) string {
+	if !cluster.UseLogicalFaultDomains() {
+		return ""
+	}
+
+	// We will fill in all missing localities (e.g. if a desired locality doesn't have any process running in it yet).
+	currentLocalities = cluster.fillLocalities(processClass, currentLocalities)
+	validLocalities := cluster.GetValidLocalities(processClass)
+
+	leastFullLocality := ""
+	currentMinimum := math.MaxInt
+
+	for locality, countProcesses := range currentLocalities {
+		if currentMinimum <= countProcesses {
+			continue
+		}
+
+		// Make sure we only pick valid localities. There could be the case that we are in the middle of a shrink for the
+		// desired fault domains, in this case we only want to use the fault domains that have an ID that is smaller or
+		// equal to the number of desiredFaultDomains.
+		_, ok := validLocalities[locality]
+		if !ok {
+			continue
+		}
+
+		currentMinimum = countProcesses
+		leastFullLocality = locality
+	}
+
+	currentLocalities[leastFullLocality]++
+
+	return leastFullLocality
 }

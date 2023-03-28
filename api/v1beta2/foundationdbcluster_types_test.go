@@ -4997,4 +4997,236 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				},
 			}, true, false),
 	)
+
+	DescribeTable("when getting the desired fault domains for the cluster", func(cluster *FoundationDBCluster, expectedFaultDomains int) {
+		Expect(cluster.DesiredFaultDomains()).To(BeNumerically("==", expectedFaultDomains))
+	},
+		Entry("distribution config is not set",
+			&FoundationDBCluster{
+				Spec: FoundationDBClusterSpec{
+					DatabaseConfiguration: DatabaseConfiguration{
+						RedundancyMode: RedundancyModeDouble,
+					},
+				},
+			},
+			2,
+		),
+		Entry("distribution config is set to a smaller value",
+			&FoundationDBCluster{
+				Spec: FoundationDBClusterSpec{
+					DatabaseConfiguration: DatabaseConfiguration{
+						RedundancyMode: RedundancyModeDouble,
+					},
+					AutomationOptions: FoundationDBClusterAutomationOptions{
+						DistributionConfig: DistributionConfig{
+							DesiredFaultDomains: pointer.Int(1),
+						},
+					},
+				},
+			},
+			2,
+		),
+		Entry("distribution config is set to a larger value",
+			&FoundationDBCluster{
+				Spec: FoundationDBClusterSpec{
+					DatabaseConfiguration: DatabaseConfiguration{
+						RedundancyMode: RedundancyModeDouble,
+					},
+					AutomationOptions: FoundationDBClusterAutomationOptions{
+						DistributionConfig: DistributionConfig{
+							DesiredFaultDomains: pointer.Int(10),
+						},
+					},
+				},
+			},
+			10,
+		))
+
+	When("getting all valid localities", func() {
+		var cluster *FoundationDBCluster
+		var localities map[string]None
+
+		BeforeEach(func() {
+			cluster = &FoundationDBCluster{
+				Spec: FoundationDBClusterSpec{
+					AutomationOptions: FoundationDBClusterAutomationOptions{
+						DistributionConfig: DistributionConfig{
+							Enabled: pointer.Bool(true),
+						},
+					},
+				},
+			}
+		})
+
+		JustBeforeEach(func() {
+			localities = cluster.GetValidLocalities(ProcessClassStorage)
+		})
+
+		It("should create all valid fault domains", func() {
+			Expect(localities).To(HaveLen(2))
+			Expect(localities).To(HaveKey("storage-0"))
+			Expect(localities).To(HaveKey("storage-1"))
+		})
+
+		When("a locality prefix is set", func() {
+			BeforeEach(func() {
+				cluster.Spec.AutomationOptions.DistributionConfig.FaultDomainPrefix = pointer.String("test")
+			})
+
+			It("should create all valid fault domains with the prefix", func() {
+				Expect(localities).To(HaveLen(2))
+				Expect(localities).To(HaveKey("test-storage-0"))
+				Expect(localities).To(HaveKey("test-storage-1"))
+			})
+		})
+
+		When("the number of desired fault domains is specified", func() {
+			BeforeEach(func() {
+				cluster.Spec.AutomationOptions.DistributionConfig.DesiredFaultDomains = pointer.Int(10)
+			})
+
+			It("should create all valid fault domains", func() {
+				Expect(localities).To(HaveLen(10))
+				Expect(localities).To(HaveKey("storage-0"))
+				Expect(localities).To(HaveKey("storage-9"))
+			})
+		})
+
+		When("logical fault domains are disabled", func() {
+			BeforeEach(func() {
+				cluster.Spec.AutomationOptions.DistributionConfig.Enabled = pointer.Bool(false)
+			})
+
+			It("should create all valid fault domains", func() {
+				Expect(localities).To(BeNil())
+			})
+		})
+	})
+
+	When("filling the fault domain list", func() {
+		var inputLocalities, currentLocalities map[string]int
+		var cluster *FoundationDBCluster
+
+		BeforeEach(func() {
+			cluster = &FoundationDBCluster{
+				Spec: FoundationDBClusterSpec{
+					AutomationOptions: FoundationDBClusterAutomationOptions{
+						DistributionConfig: DistributionConfig{
+							Enabled: pointer.Bool(true),
+						},
+					},
+				},
+			}
+		})
+
+		JustBeforeEach(func() {
+			currentLocalities = cluster.fillLocalities(ProcessClassStorage, inputLocalities)
+		})
+
+		When("the fault domain list is empty", func() {
+			It("should fill in all fault domains", func() {
+				Expect(currentLocalities).To(HaveLen(2))
+				Expect(currentLocalities).To(HaveKey("storage-0"))
+				Expect(currentLocalities).To(HaveKey("storage-1"))
+			})
+		})
+
+		When("the fault domain list has one entry", func() {
+			BeforeEach(func() {
+				inputLocalities = map[string]int{
+					"storage-0": 0,
+				}
+			})
+
+			It("should fill in all fault domains", func() {
+				Expect(currentLocalities).To(HaveLen(2))
+				Expect(currentLocalities).To(HaveKey("storage-0"))
+				Expect(currentLocalities).To(HaveKey("storage-1"))
+			})
+		})
+
+		When("the fault domain list has two entries", func() {
+			BeforeEach(func() {
+				inputLocalities = map[string]int{
+					"storage-0": 0,
+					"storage-1": 0,
+				}
+			})
+
+			It("should fill in all fault domains", func() {
+				Expect(currentLocalities).To(HaveLen(2))
+				Expect(currentLocalities).To(HaveKey("storage-0"))
+				Expect(currentLocalities).To(HaveKey("storage-1"))
+			})
+		})
+
+		When("the fault domain list has three entries", func() {
+			BeforeEach(func() {
+				inputLocalities = map[string]int{
+					"storage-0": 0,
+					"storage-1": 0,
+					"storage-2": 0,
+				}
+			})
+
+			It("should fill in all fault domains", func() {
+				Expect(currentLocalities).To(HaveLen(3))
+				Expect(currentLocalities).To(HaveKey("storage-0"))
+				Expect(currentLocalities).To(HaveKey("storage-1"))
+				Expect(currentLocalities).To(HaveKey("storage-2"))
+			})
+		})
+	})
+
+	When("picking the locality for a new process", func() {
+		var cluster *FoundationDBCluster
+
+		When("logical fault domains are disabled", func() {
+			BeforeEach(func() {
+				cluster = &FoundationDBCluster{}
+			})
+
+			It("should return an empty fault domain", func() {
+				// We picked the storage class here but it doesn't matter what class we pick.
+				Expect(cluster.PickLocality(ProcessClassStorage, nil)).To(BeEmpty())
+			})
+		})
+
+		When("logical fault domains are enabled", func() {
+			BeforeEach(func() {
+				cluster = &FoundationDBCluster{
+					Spec: FoundationDBClusterSpec{
+						AutomationOptions: FoundationDBClusterAutomationOptions{
+							DistributionConfig: DistributionConfig{
+								Enabled: pointer.Bool(true),
+							},
+						},
+					},
+				}
+			})
+
+			When("no localities are known", func() {
+				It("should return the first fault domain", func() {
+					Expect(cluster.PickLocality(ProcessClassStorage, nil)).To(Or(Equal("storage-0"), Equal("storage-1")))
+				})
+			})
+
+			When("one locality is known", func() {
+				It("should return the first fault domain", func() {
+					Expect(cluster.PickLocality(ProcessClassStorage, map[string]int{"storage-0": 1})).To(Equal("storage-1"))
+				})
+			})
+
+			When("more localities are available", func() {
+				It("should return the first fault domain", func() {
+					Expect(cluster.PickLocality(ProcessClassStorage, map[string]int{
+						"storage-0": 1,
+						"storage-1": 1,
+						"storage-2": 1,
+						"storage-3": 0,
+					})).NotTo(Equal("storage-3"))
+				})
+			})
+		})
+	})
 })
