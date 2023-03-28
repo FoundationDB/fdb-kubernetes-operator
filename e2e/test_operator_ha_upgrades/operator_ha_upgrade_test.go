@@ -1,12 +1,35 @@
+/*
+ * operator_ha_upgrades_test.go
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2023 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package operatorhaupgrades
 
+/*
+This test suite includes tests to validate the behaviour of the operator during upgrades on a HA FoundationDB cluster.
+The executed tests include a base test without any chaos/faults.
+Each test will create a new HA FoundationDB cluster which will be upgraded.
+*/
+
 import (
-	"flag"
-	"github.com/onsi/ginkgo/v2/types"
 	"log"
 	"math/rand"
 	"strings"
-	"testing"
 	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -19,15 +42,7 @@ import (
 )
 
 func init() {
-	// TODO(johscheuer): move this into a common method to make it easier to be consumed
-	testing.Init()
-	_, err := types.NewAttachedGinkgoFlagSet(flag.CommandLine, types.GinkgoFlags{}, nil, types.GinkgoFlagSections{}, types.GinkgoFlagSection{})
-	if err != nil {
-		log.Fatal(err)
-	}
-	testOptions = &fixtures.FactoryOptions{}
-	testOptions.BindFlags(flag.CommandLine)
-	flag.Parse()
+	testOptions = fixtures.InitFlags()
 }
 
 var (
@@ -159,7 +174,7 @@ var _ = Describe("Operator HA Upgrades", Label("e2e"), func() {
 		fixtures.GenerateUpgradeTableEntries(testOptions),
 	)
 
-	DescribeTable(
+	FDescribeTable(
 		"upgrading a cluster and one dc is upgraded before the other dcs started the upgrade",
 		func(beforeVersion string, targetVersion string) {
 			if fixtures.VersionsAreProtocolCompatible(beforeVersion, targetVersion) {
@@ -168,11 +183,11 @@ var _ = Describe("Operator HA Upgrades", Label("e2e"), func() {
 
 			clusterSetup(beforeVersion, true /* = enableOperatorPodChaos */)
 
-			// Upgrade the primary cluster before upgrading the rest
+			// Upgrade the primary cluster before upgrading the rest.
 			primary := fdbCluster.GetPrimary()
 			Expect(primary.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
 
-			// Wait until all sidecar containers are upgraded
+			// Should update all sidecars of the primary cluster.
 			Eventually(func() bool {
 				pods := primary.GetPods()
 				if pods == nil {
@@ -194,29 +209,12 @@ var _ = Describe("Operator HA Upgrades", Label("e2e"), func() {
 				return true
 			}).Should(BeTrue())
 
-			pods := primary.GetPods()
-			// Delete all the Pods in DC1
-			deletionTime := time.Now()
-			for _, pod := range pods.Items {
-				factory.DeletePod(&pod)
-			}
-
+			// It should block the restart of the processes until the rest of the cluster is upgraded.
 			Eventually(func() bool {
-				pods := primary.GetPods()
-				if pods == nil {
-					return false
-				}
+				return primary.AllProcessGroupsHaveCondition(fdbv1beta2.IncorrectCommandLine)
+			}).WithTimeout(10 * time.Minute).WithPolling(5 * time.Second).MustPassRepeatedly(30).Should(BeTrue())
 
-				// Wait until all Pods are recreated
-				for _, pod := range pods.Items {
-					if !pod.CreationTimestamp.After(deletionTime) {
-						return false
-					}
-				}
-
-				return true
-			}).Should(BeTrue())
-
+			// Verify that the upgrade proceeds
 			upgradeAndVerify(fdbCluster, targetVersion)
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s with one DC upgraded before the rest"),
