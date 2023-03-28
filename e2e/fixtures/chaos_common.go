@@ -295,6 +295,10 @@ func isRunning(obj runtime.Object) (bool, error) {
 	if ok {
 		return conditionsAreTrue(podChaos.GetStatus(), podChaos.GetStatus().Conditions), nil
 	}
+	httpChaos, ok := obj.(*chaosmeshv1alpha1.HTTPChaos)
+	if ok {
+		return conditionsAreTrue(httpChaos.GetStatus(), httpChaos.GetStatus().Conditions), nil
+	}
 
 	_, ok = obj.(*chaosmeshv1alpha1.Schedule)
 	if ok {

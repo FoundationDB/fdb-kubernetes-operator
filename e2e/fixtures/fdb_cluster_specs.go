@@ -202,6 +202,13 @@ func (factory *Factory) createPodTemplate(
 				{
 					Name:            fdbv1beta2.SidecarContainerName,
 					ImagePullPolicy: corev1.PullAlways,
+					SecurityContext: &corev1.SecurityContext{
+						//Privileged:               pointer.Bool(true),
+						//AllowPrivilegeEscalation: pointer.Bool(true), // for performance profiling
+						ReadOnlyRootFilesystem: pointer.Bool(
+							false,
+						), // to allow I/O chaos to succeed
+					},
 					Resources: corev1.ResourceRequirements{
 						Requests: sideResources,
 					},

@@ -54,6 +54,12 @@ func (fdbCluster *FdbCluster) GetFDBImage() string {
 		Image()
 }
 
+// GetSidecarImageForVersion return the sidecar image used for the specified version.
+func (fdbCluster *FdbCluster) GetSidecarImageForVersion(version string) string {
+	return fdbv1beta2.SelectImageConfig(fdbCluster.GetClusterSpec().SidecarContainer.ImageConfigs, version).
+		Image()
+}
+
 // ExecuteCmdOnPod will run the provided command in a Shell.
 func (fdbCluster *FdbCluster) ExecuteCmdOnPod(
 	pod corev1.Pod,
@@ -1099,4 +1105,17 @@ func (fdbCluster *FdbCluster) SetIgnoreDuringRestart(processes []fdbv1beta2.Proc
 	fdbCluster.cluster.Spec.Buggify.IgnoreDuringRestart = processes
 	fdbCluster.UpdateClusterSpec()
 	gomega.Expect(fdbCluster.WaitForReconciliation()).NotTo(gomega.HaveOccurred())
+}
+
+// UpdateContainerImage sets the image for the provided Pod for the porvided container.
+func (fdbCluster *FdbCluster) UpdateContainerImage(pod *corev1.Pod, containerName string, image string) {
+	for idx, container := range pod.Spec.Containers {
+		if container.Name != containerName {
+			continue
+		}
+
+		pod.Spec.Containers[idx].Image = image
+	}
+
+	gomega.Expect(fdbCluster.factory.GetControllerRuntimeClient().Update(ctx.Background(), pod)).NotTo(gomega.HaveOccurred())
 }

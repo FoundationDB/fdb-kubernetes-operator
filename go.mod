@@ -5,7 +5,7 @@ go 1.19
 require (
 	github.com/apple/foundationdb/bindings/go v0.0.0-20201222225940-f3aef311ccfb
 	github.com/apple/foundationdb/fdbkubernetesmonitor v0.0.0-20220513200452-e6fa4d7422d2
-	github.com/chaos-mesh/chaos-mesh/api/v1alpha1 v0.0.0-20220226050744-799408773657
+	github.com/chaos-mesh/chaos-mesh/api v0.0.0-20221122113336-10bc9220553c
 	github.com/fatih/color v1.14.1
 	github.com/go-logr/logr v1.2.3
 	github.com/google/go-cmp v0.5.9

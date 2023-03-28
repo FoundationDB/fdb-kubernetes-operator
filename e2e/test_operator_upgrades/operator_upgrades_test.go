@@ -89,6 +89,30 @@ var _ = Describe("Operator Upgrades", Label("e2e"), func() {
 		"upgrading a cluster without chaos",
 		func(beforeVersion string, targetVersion string) {
 			clusterSetup(beforeVersion)
+			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
+
+			if !fixtures.VersionsAreProtocolCompatible(beforeVersion, targetVersion) {
+				// Ensure that the operator is setting the IncorrectConfigMap and IncorrectCommandLine conditions during the upgrade
+				// process.
+				expectedConditions := map[fdbv1beta2.ProcessGroupConditionType]bool{
+					fdbv1beta2.IncorrectConfigMap:   true,
+					fdbv1beta2.IncorrectCommandLine: true,
+				}
+				Eventually(func() bool {
+					cluster := fdbCluster.GetCluster()
+
+					for _, processGroup := range cluster.Status.ProcessGroups {
+						if !processGroup.MatchesConditions(expectedConditions) {
+							return false
+						}
+					}
+
+					return true
+				}).WithTimeout(10 * time.Minute).WithPolling(5 * time.Second).Should(BeTrue())
+			}
+
+			// We can call this method again, this will make sure that the test waits until the cluster is upgraded and
+			// reconciled.
 			upgradeAndVerify(fdbCluster, targetVersion)
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s"),
@@ -605,4 +629,116 @@ var _ = Describe("Operator Upgrades", Label("e2e"), func() {
 		fixtures.GenerateUpgradeTableEntries(testOptions),
 	)
 
+	DescribeTable(
+		"upgrading a cluster and one process has the fdbmonitor.conf file not ready",
+		func(beforeVersion string, targetVersion string) {
+			if fixtures.VersionsAreProtocolCompatible(beforeVersion, targetVersion) {
+				Skip("this test only affects version incompatible upgrades")
+			}
+
+			clusterSetup(beforeVersion)
+
+			// Update the cluster version.
+			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
+			// Skip the reonciliation here to have time to stage everything.
+			Expect(fdbCluster.SetSkipReconciliation(true)).NotTo(HaveOccurred())
+
+			// Select one Pod, this Pod will mount the fdbmonitor config file as read-only.
+			// This should block the upgrade.
+			faultyPod := fixtures.RandomPickOnePod(fdbCluster.GetPods().Items)
+
+			// We have to update the sidecar before the operator is doing it. If we don't do this here the operator
+			// will update the sidecar and then the I/O chaos will be gone. So we prepare the faulty Pod to already
+			// be using the new sidecar image and then we inject IO chaos.
+			sidecarImage := fdbCluster.GetSidecarImageForVersion(targetVersion)
+			fdbCluster.UpdateContainerImage(&faultyPod, fdbv1beta2.SidecarContainerName, sidecarImage)
+
+			Eventually(func() bool {
+				pod := fdbCluster.GetPod(faultyPod.Name)
+				log.Println("status:", pod.Status)
+
+				for _, status := range pod.Status.ContainerStatuses {
+					if status.Name != fdbv1beta2.SidecarContainerName {
+						continue
+					}
+
+					return status.Image == sidecarImage
+				}
+
+				return false
+			}).WithTimeout(10 * time.Minute).WithPolling(5 * time.Second).MustPassRepeatedly(5).Should(BeTrue())
+
+			log.Println("Inject IO chaos to", faultyPod.Name)
+			// Ensure that the fdbmonitor config file is not writeable for the sidecar.
+			exp := factory.InjectDiskFailureWithPath(
+				fixtures.PodSelector(&faultyPod),
+				"/var/output-files",
+				"/var/output-files/fdbmonitor.conf",
+				[]chaosmesh.IoMethod{
+					chaosmesh.Write,
+					chaosmesh.Read,
+					chaosmesh.Open,
+					chaosmesh.Flush,
+					chaosmesh.Fsync,
+				},
+				[]string{
+					fdbv1beta2.SidecarContainerName,
+				})
+
+			// Make sure the sidecar is not able to write the fdbmonitor config.
+			Eventually(func() error {
+				stdout, stderr, err := fdbCluster.ExecuteCmdOnPod(
+					faultyPod,
+					fdbv1beta2.SidecarContainerName,
+					"cat /var/output-files/fdbmonitor.conf && echo '\n' >> /var/output-files/fdbmonitor.conf",
+					false)
+
+				log.Println(stdout, stderr)
+
+				return err
+			}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(HaveOccurred())
+
+			// Now we have the faulty Pod prepared with I/O chaos injected, so we can continue with the upgrade.
+			Expect(fdbCluster.SetSkipReconciliation(false)).NotTo(HaveOccurred())
+
+			// The cluster will be stuck in this state until the I/O chaos is resolved.
+			expectedConditions := map[fdbv1beta2.ProcessGroupConditionType]bool{
+				fdbv1beta2.IncorrectConfigMap:   true,
+				fdbv1beta2.IncorrectCommandLine: true,
+			}
+			faultyProcessGroupID := fixtures.GetProcessGroupID(faultyPod)
+
+			// The upgrade will be stuck until the coordinators are restarted
+			Eventually(func() bool {
+				cluster := fdbCluster.GetCluster()
+				for _, processGroup := range cluster.Status.ProcessGroups {
+					if processGroup.ProcessGroupID != faultyProcessGroupID {
+						continue
+					}
+
+					for _, condition := range processGroup.ProcessGroupConditions {
+						log.Println(processGroup.ProcessGroupID, string(condition.ProcessGroupConditionType))
+					}
+
+					if !processGroup.MatchesConditions(expectedConditions) {
+						return false
+					}
+				}
+
+				return true
+			}).WithTimeout(5 * time.Minute).WithPolling(2 * time.Second).MustPassRepeatedly(30).Should(BeTrue())
+
+			// Make sure the cluster was not upgraded yet.
+			cluster := fdbCluster.GetCluster()
+			Expect(cluster.Spec.Version).NotTo(Equal(cluster.Status.RunningVersion))
+
+			// Remove the IO chaos, the cluster should proceed.
+			factory.DeleteChaosMeshExperimentSafe(exp)
+
+			// Ensure the upgrade proceeds and is able to finish.
+			verifyVersion(fdbCluster, targetVersion)
+		},
+		EntryDescription("Upgrade from %[1]s to %[2]s with one coordinator not being restarted"),
+		fixtures.GenerateUpgradeTableEntries(testOptions),
+	)
 })
