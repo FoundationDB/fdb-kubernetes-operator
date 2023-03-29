@@ -1,13 +1,34 @@
+/*
+ * operator_stress_test.go
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2023 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package operatorstress
 
+/*
+This test suite includes tests that run the same operation multiple times to make sure those operations are robust and reliable.
+Currently this test suite checks the replacement of Pods and the cluster creation.
+*/
+
 import (
-	"flag"
 	"github.com/FoundationDB/fdb-kubernetes-operator/e2e/fixtures"
 	. "github.com/onsi/ginkgo/v2"
-	"github.com/onsi/ginkgo/v2/types"
 	. "github.com/onsi/gomega"
-	"log"
-	"testing"
 )
 
 var (
@@ -16,15 +37,7 @@ var (
 )
 
 func init() {
-	// TODO(johscheuer): move this into a common method to make it easier to be consumed
-	testing.Init()
-	_, err := types.NewAttachedGinkgoFlagSet(flag.CommandLine, types.GinkgoFlags{}, nil, types.GinkgoFlagSections{}, types.GinkgoFlagSection{})
-	if err != nil {
-		log.Fatal(err)
-	}
-	testOptions = &fixtures.FactoryOptions{}
-	testOptions.BindFlags(flag.CommandLine)
-	flag.Parse()
+	testOptions = fixtures.InitFlags()
 }
 
 var _ = BeforeSuite(func() {
@@ -68,10 +81,8 @@ var _ = Describe("Operator Stress", Label("e2e"), func() {
 
 		It("should replace the targeted Pod", func() {
 			// Since Ginkgo doesn't support what we want, we run this multiple times.
-			var err error
 			for i := 0; i < 10; i++ {
-				err = fdbCluster.ClearProcessGroupsToRemove()
-				Expect(err).ShouldNot(HaveOccurred())
+				Expect(fdbCluster.ClearProcessGroupsToRemove()).ShouldNot(HaveOccurred())
 				pod := fixtures.ChooseRandomPod(fdbCluster.GetPods())
 				fdbCluster.ReplacePod(*pod, true)
 			}

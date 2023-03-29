@@ -1,27 +1,6 @@
 #!/usr/bin/make
 
-# This makefile achieves all those goals.
-
-# We want to:
-#  - run in CI including:
-#      - short (a few minutes long) tests in parallel
-#      - long-running tests against existing, large clusters
-#  - run in dev workstations
-#      - "run just this test, or suite of functionally-related tests"
-#      - "run the PR regression suite"
-#      - "reuse my cluster" / "don't cleanup so I can debug the failed cluster"
-#
-#  - check in a list of tests to run (so we can skip slow and/or broken tests)
-#  - return non-zero on failure
-
-# Together, Makefile and Makefile.old achieve all those goals.
-
-# Makefile.old defines suites based on what directory the test implementation lives in.
-#   Parallelism is achieved by running multiple go processes.
-# Makefile defines suites based on regexps against test names.  Parallelism is managed by
-#   ginkgo, not make.
-
-# Default target.  Want this to be first.
+# Default target. Want this to be first.
 compile:
 	go build ./...
 

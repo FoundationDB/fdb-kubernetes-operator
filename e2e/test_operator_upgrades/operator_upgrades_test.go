@@ -1,10 +1,34 @@
+/*
+ * operator_upgrades_test.go
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2023 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package operatorupgrades
 
+/*
+This test suite includes tests to validate the behaviour of the operator during upgrades on a FoundationDB cluster.
+The executed tests include a base test without any chaos/faults.
+Each test will create a new FoundationDB cluster which will be upgraded.
+Since FoundationDB is version incompatible for major and minor versions and the upgrade process for FoundationDB on Kubernetes requires multiple steps (see the documentation in the docs folder) we test different scenarios where only some processes are restarted.
+*/
+
 import (
-	"flag"
-	"github.com/onsi/ginkgo/v2/types"
 	"log"
-	"testing"
 	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -22,15 +46,7 @@ var (
 )
 
 func init() {
-	// TODO(johscheuer): move this into a common method to make it easier to be consumed
-	testing.Init()
-	_, err := types.NewAttachedGinkgoFlagSet(flag.CommandLine, types.GinkgoFlags{}, nil, types.GinkgoFlagSections{}, types.GinkgoFlagSection{})
-	if err != nil {
-		log.Fatal(err)
-	}
-	testOptions = &fixtures.FactoryOptions{}
-	testOptions.BindFlags(flag.CommandLine)
-	flag.Parse()
+	testOptions = fixtures.InitFlags()
 }
 
 var _ = AfterSuite(func() {

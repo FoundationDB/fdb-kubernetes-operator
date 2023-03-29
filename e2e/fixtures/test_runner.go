@@ -21,6 +21,8 @@
 package fixtures
 
 import (
+	"flag"
+	"github.com/onsi/ginkgo/v2/types"
 	"log"
 	"testing"
 
@@ -38,4 +40,19 @@ func RunGinkgoTests(t *testing.T, name string) {
 	// log.SetOutput(GinkgoWriter)
 	gomega.RegisterFailHandler(ginkgo.Fail)
 	ginkgo.RunSpecs(t, name)
+}
+
+// InitFlags sets up the custom flags for this test suite and returns the parsed FactoryOptions struct. This method will
+// take care of including the command line flags from Ginkgo and the testing framework.
+func InitFlags() *FactoryOptions {
+	testing.Init()
+	_, err := types.NewAttachedGinkgoFlagSet(flag.CommandLine, types.GinkgoFlags{}, nil, types.GinkgoFlagSections{}, types.GinkgoFlagSection{})
+	if err != nil {
+		log.Fatal(err)
+	}
+	testOptions := &FactoryOptions{}
+	testOptions.BindFlags(flag.CommandLine)
+	flag.Parse()
+
+	return testOptions
 }
