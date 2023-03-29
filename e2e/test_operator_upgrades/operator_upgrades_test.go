@@ -655,13 +655,13 @@ var _ = Describe("Operator Upgrades", Label("e2e"), func() {
 
 			Eventually(func() bool {
 				pod := fdbCluster.GetPod(faultyPod.Name)
-				log.Println("status:", pod.Status)
 
 				for _, status := range pod.Status.ContainerStatuses {
 					if status.Name != fdbv1beta2.SidecarContainerName {
 						continue
 					}
 
+					log.Println("expected", sidecarImage, "got", status.Image)
 					return status.Image == sidecarImage
 				}
 
@@ -708,7 +708,8 @@ var _ = Describe("Operator Upgrades", Label("e2e"), func() {
 			}
 			faultyProcessGroupID := fixtures.GetProcessGroupID(faultyPod)
 
-			// The upgrade will be stuck until the coordinators are restarted
+			// The upgrade will be stuck until the I/O chaos is removed and the sidecar is able to provide the latest
+			// fdbmonitor conf file.
 			Eventually(func() bool {
 				cluster := fdbCluster.GetCluster()
 				for _, processGroup := range cluster.Status.ProcessGroups {
