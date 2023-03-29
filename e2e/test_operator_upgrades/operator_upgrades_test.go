@@ -56,7 +56,7 @@ var _ = AfterSuite(func() {
 	}
 })
 
-func clusterSetup(beforeVersion string) {
+func clusterSetup(beforeVersion string, availabilityCheck bool) {
 	factory.SetBeforeVersion(beforeVersion)
 	fdbCluster = factory.CreateFdbCluster(
 		&fixtures.ClusterConfig{
@@ -64,6 +64,13 @@ func clusterSetup(beforeVersion string) {
 		},
 		factory.GetClusterOptions(fixtures.UseVersionBeforeUpgrade)...,
 	)
+
+	// We have some tests where we expect some down time e.g. when no coordinator is restarted during an upgrade.
+	// In order to make sure the test is not failing based on the availability check we can disable this test if required.
+	if !availabilityCheck {
+		return
+	}
+
 	Expect(
 		fdbCluster.InvariantClusterStatusAvailableWithThreshold(15 * time.Second),
 	).ShouldNot(HaveOccurred())
@@ -105,7 +112,7 @@ var _ = Describe("Operator Upgrades", Label("e2e"), func() {
 	DescribeTable(
 		"upgrading a cluster without chaos",
 		func(beforeVersion string, targetVersion string) {
-			clusterSetup(beforeVersion)
+			clusterSetup(beforeVersion, true)
 			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
 
 			if !fixtures.VersionsAreProtocolCompatible(beforeVersion, targetVersion) {
@@ -143,7 +150,7 @@ var _ = Describe("Operator Upgrades", Label("e2e"), func() {
 				Skip("chaos mesh is disabled")
 			}
 
-			clusterSetup(beforeVersion)
+			clusterSetup(beforeVersion, true)
 			Expect(fdbCluster.SetAutoReplacements(false, 20*time.Minute)).ToNot(HaveOccurred())
 			// Ensure the operator is not skipping the process because it's missing for to long
 			Expect(
@@ -195,7 +202,7 @@ var _ = Describe("Operator Upgrades", Label("e2e"), func() {
 				Skip("chaos mesh is disabled")
 			}
 
-			clusterSetup(beforeVersion)
+			clusterSetup(beforeVersion, true)
 			Expect(fdbCluster.SetAutoReplacements(false, 5*time.Minute)).ToNot(HaveOccurred())
 			// Ensure the operator is not skipping the process because it's missing for to long
 			Expect(
@@ -253,7 +260,7 @@ var _ = Describe("Operator Upgrades", Label("e2e"), func() {
 	DescribeTable(
 		"upgrading a cluster with a random Pod deleted during rolling bounce phase",
 		func(beforeVersion string, targetVersion string) {
-			clusterSetup(beforeVersion)
+			clusterSetup(beforeVersion, true)
 			prevImage := fdbCluster.GetFDBImage()
 
 			// 1. Start upgrade.
@@ -335,7 +342,8 @@ var _ = Describe("Operator Upgrades", Label("e2e"), func() {
 				Skip("this test case only affects version incompatible upgrades")
 			}
 
-			clusterSetup(beforeVersion)
+			// We ignore the availability check here since this check is sometimes flaky if not all coordinators are running.
+			clusterSetup(beforeVersion, false)
 
 			// Select one coordinator that will be restarted during the staging phase.
 			coordinators := fdbCluster.GetCoordinators()
@@ -382,7 +390,7 @@ var _ = Describe("Operator Upgrades", Label("e2e"), func() {
 	DescribeTable(
 		"upgrading a cluster with a crash looping sidecar process",
 		func(beforeVersion string, targetVersion string) {
-			clusterSetup(beforeVersion)
+			clusterSetup(beforeVersion, true)
 
 			Expect(fdbCluster.SetAutoReplacements(false, 20*time.Minute)).ToNot(HaveOccurred())
 
@@ -454,7 +462,8 @@ var _ = Describe("Operator Upgrades", Label("e2e"), func() {
 				Skip("operator doesn't support feature for test case")
 			}
 
-			clusterSetup(beforeVersion)
+			// We ignore the availability check here since this check is sometimes flaky if not all coordinators are running.
+			clusterSetup(beforeVersion, false)
 
 			// 1. Select one coordinator and use the buggify option to skip it during the restart command.
 			coordinators := fdbCluster.GetCoordinators()
@@ -492,7 +501,8 @@ var _ = Describe("Operator Upgrades", Label("e2e"), func() {
 				Skip("operator doesn't support feature for test case")
 			}
 
-			clusterSetup(beforeVersion)
+			// We ignore the availability check here since this check is sometimes flaky if not all coordinators are running.
+			clusterSetup(beforeVersion, false)
 
 			// 1. Select half of the stateless and half of the log processes and use the buggify option to skip those
 			// processes during the restart command.
@@ -548,7 +558,7 @@ var _ = Describe("Operator Upgrades", Label("e2e"), func() {
 				Skip("chaos mesh is disabled")
 			}
 
-			clusterSetup(beforeVersion)
+			clusterSetup(beforeVersion, true)
 
 			// 1. Introduce packet loss b/w pods.
 			log.Println("Injecting packet loss b/w pod")
@@ -600,7 +610,8 @@ var _ = Describe("Operator Upgrades", Label("e2e"), func() {
 				Skip("operator doesn't support feature for test case")
 			}
 
-			clusterSetup(beforeVersion)
+			// We ignore the availability check here since this check is sometimes flaky if not all coordinators are running.
+			clusterSetup(beforeVersion, false)
 
 			// 1. Select one coordinator and use the buggify option to skip it during the restart command.
 			coordinators := fdbCluster.GetCoordinators()
@@ -653,7 +664,7 @@ var _ = Describe("Operator Upgrades", Label("e2e"), func() {
 				Skip("this test only affects version incompatible upgrades")
 			}
 
-			clusterSetup(beforeVersion)
+			clusterSetup(beforeVersion, true)
 
 			// Update the cluster version.
 			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
