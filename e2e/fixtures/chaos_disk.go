@@ -21,13 +21,26 @@
 package fixtures
 
 import (
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	chaosmesh "github.com/chaos-mesh/chaos-mesh/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 )
 
-// InjectDiskFailure injects a disk failure for all Pods.
+// InjectDiskFailure injects a disk failure for all Pods selected by the selector.
 func (factory *Factory) InjectDiskFailure(selector chaosmesh.PodSelectorSpec) *ChaosMeshExperiment {
+	return factory.InjectDiskFailureWithPath(selector, "/var/fdb/data", "/var/fdb/data/**/*", []chaosmesh.IoMethod{
+		chaosmesh.Write,
+		chaosmesh.Read,
+		chaosmesh.Open,
+		chaosmesh.Flush,
+		chaosmesh.Fsync,
+	}, []string{fdbv1beta2.MainContainerName})
+}
+
+// InjectDiskFailureWithPath injects a disk failure for all Pods selected by the selector. volumePath and path can be used to specify the affected files and methods
+// allow to specify the affected methods.
+func (factory *Factory) InjectDiskFailureWithPath(selector chaosmesh.PodSelectorSpec, volumePath string, path string, methods []chaosmesh.IoMethod, containers []string) *ChaosMeshExperiment {
 	return factory.CreateExperiment(&chaosmesh.IOChaos{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      RandStringRunes(32),
@@ -38,22 +51,17 @@ func (factory *Factory) InjectDiskFailure(selector chaosmesh.PodSelectorSpec) *C
 			Action:   chaosmesh.IoFaults,
 			Duration: pointer.String(ChaosDurationForever),
 			ContainerSelector: chaosmesh.ContainerSelector{
+				ContainerNames: containers,
 				PodSelector: chaosmesh.PodSelector{
 					Selector: selector,
 					Mode:     chaosmesh.AllMode,
 				},
 			},
-			VolumePath: "/var/fdb/data",
-			Path:       "/var/fdb/data/**/*",
+			VolumePath: volumePath,
+			Path:       path,
 			Errno:      5,
 			Percent:    100,
-			Methods: []chaosmesh.IoMethod{
-				chaosmesh.Write,
-				chaosmesh.Read,
-				chaosmesh.Open,
-				chaosmesh.Flush,
-				chaosmesh.Fsync,
-			},
+			Methods:    methods,
 		},
 	})
 }
