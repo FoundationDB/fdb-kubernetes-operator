@@ -66,7 +66,7 @@ func clusterSetup(beforeVersion string, availabilityCheck bool) {
 	)
 
 	// We have some tests where we expect some down time e.g. when no coordinator is restarted during an upgrade.
-	// In order to make sure the test is not failing based on the availability check we can disable this test if required.
+	// In order to make sure the test is not failing based on the availability check we can disable the availability check if required.
 	if !availabilityCheck {
 		return
 	}
