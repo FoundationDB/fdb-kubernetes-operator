@@ -174,7 +174,7 @@ var _ = Describe("Operator HA Upgrades", Label("e2e"), func() {
 		fixtures.GenerateUpgradeTableEntries(testOptions),
 	)
 
-	FDescribeTable(
+	DescribeTable(
 		"upgrading a cluster and one dc is upgraded before the other dcs started the upgrade",
 		func(beforeVersion string, targetVersion string) {
 			if fixtures.VersionsAreProtocolCompatible(beforeVersion, targetVersion) {
