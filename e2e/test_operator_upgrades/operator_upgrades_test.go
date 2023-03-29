@@ -739,7 +739,7 @@ var _ = Describe("Operator Upgrades", Label("e2e"), func() {
 			// Ensure the upgrade proceeds and is able to finish.
 			verifyVersion(fdbCluster, targetVersion)
 		},
-		EntryDescription("Upgrade from %[1]s to %[2]s with one coordinator not being restarted"),
+		EntryDescription("Upgrade from %[1]s to %[2]s and one process has the fdbmonitor.conf file not ready"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
 	)
 })
