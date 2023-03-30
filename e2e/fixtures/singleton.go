@@ -45,9 +45,6 @@ type singleton struct {
 	client                  *kubernetes.Clientset
 	controllerRuntimeClient controllerRuntimeClient.Client
 	fdbVersion              fdbv1beta2.Version
-	fdbImage                string
-	operatorImage           string
-	sidecarImage            string
 	namespaces              []string
 }
 
@@ -87,9 +84,6 @@ func getSingleton(options *FactoryOptions) (*singleton, error) {
 	if err != nil {
 		return nil, err
 	}
-	operatorImage := prependRegistry(options.registry, options.operatorImage)
-	fdbImage := prependRegistry(options.registry, options.fdbImage)
-	sidecarImage := prependRegistry(options.registry, options.sidecarImage)
 
 	// Also add Apps v1 and Core v1 to allow to use the controller runtime client
 	// to modify Pods, Deployments etc.
@@ -128,9 +122,6 @@ func getSingleton(options *FactoryOptions) (*singleton, error) {
 		config:                  kubeConfig,
 		client:                  client,
 		fdbVersion:              fdbVersion,
-		operatorImage:           operatorImage,
-		sidecarImage:            sidecarImage,
-		fdbImage:                fdbImage,
 		certificate:             certificate,
 		controllerRuntimeClient: controllerClient,
 	}, nil

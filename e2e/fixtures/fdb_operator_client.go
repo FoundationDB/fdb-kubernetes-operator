@@ -352,7 +352,7 @@ func getOperatorSidecarConfig(baseImage string, tag string, version string) oper
 //nolint:revive
 func (factory *Factory) getOperatorConfig(namespace string) *operatorConfig {
 	config := &operatorConfig{
-		OperatorImage:    factory.singleton.operatorImage,
+		OperatorImage:    factory.GetOperatorImage(),
 		SecretName:       factory.GetSecretName(),
 		BackupSecretName: factory.GetBackupSecretName(),
 		Namespace:        namespace,
@@ -361,7 +361,7 @@ func (factory *Factory) getOperatorConfig(namespace string) *operatorConfig {
 	config.SidecarVersions = append(
 		config.SidecarVersions,
 		getDefaultOperatorSidecarConfig(
-			factory.options.sidecarImage,
+			factory.GetSidecarImage(),
 			factory.GetFDBVersionAsString(),
 		),
 	)
