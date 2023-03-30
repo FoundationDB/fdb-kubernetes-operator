@@ -98,7 +98,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 					DurationInSeconds: &taintKeyMaintenanceDuration,
 				},
 			}
-			// Update cluster config so that generic reconcilation will work
+			// Update cluster config so that generic reconciliation will work
 			err := k8sClient.Update(context.TODO(), cluster)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -132,7 +132,8 @@ var _ = Describe("replace_failed_process_groups", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(pods)).To(Equal(1))
 
-			pod = pods[0] // TODO: choose a random pod
+			// TODO: move this to test case It() to use different pod type;  Define this as a function
+			pod = pods[0] // Future: choose a random pod to test
 			node = &corev1.Node{
 				ObjectMeta: metav1.ObjectMeta{Name: pod.Spec.NodeName},
 			}
@@ -149,23 +150,19 @@ var _ = Describe("replace_failed_process_groups", func() {
 			Expect(len(processGroupsStatus[0].ProcessGroupConditions)).To(Equal(0))
 		})
 
-		PIt("should not replace a pod that is NodeTaintDetected but not NodeTaintReplacing ", func() {
-			taint = true
-			if taint {
-				node.Spec.Taints = []corev1.Taint{
-					{
-						Key:       taintKeyMaintenance,
-						Value:     "rack maintenance",
-						Effect:    corev1.TaintEffectNoExecute,
-						TimeAdded: &metav1.Time{Time: time.Now()},
-					},
-				}
-				log.Info("Taint node", "Node name", pod.Name, "Node taints", node.Spec.Taints)
-				//fmt.Printf("Create tainted node:%s\n", node.Name)
-				// Make taint in effect
-				err = k8sClient.Update(context.TODO(), node)
-				Expect(err).NotTo(HaveOccurred())
+		PIt("should not replace a pod whose condition is NodeTaintDetected but not NodeTaintReplacing ", func() {
+			node.Spec.Taints = []corev1.Taint{
+				{
+					Key:       taintKeyMaintenance,
+					Value:     "rack maintenance",
+					Effect:    corev1.TaintEffectNoExecute,
+					TimeAdded: &metav1.Time{Time: time.Now()},
+				},
 			}
+			err = k8sClient.Update(context.TODO(), node)
+			Expect(err).NotTo(HaveOccurred())
+			log.Info("Taint node", "Node name", pod.Name, "Node taints", node.Spec.Taints)
+
 			processGroupsStatus, err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap, allPods, allPvcs)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(processGroupsStatus)).To(BeNumerically(">", 4))
