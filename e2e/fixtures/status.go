@@ -290,7 +290,9 @@ func (fdbCluster FdbCluster) InvariantClusterStatusAvailableWithThreshold(
 func (fdbCluster FdbCluster) InvariantClusterStatusAvailable() error {
 	return fdbCluster.StatusInvariantChecker(
 		"InvariantClusterStatusAvailable",
-		0,
+		// Per default we allow 5 seconds unavailability. Otherwise we could get a few test failures when we do operations
+		// like a replacement on a transaction system Pod and the recovery takes longer.
+		5*time.Second,
 		checkAvailability,
 	)
 }
