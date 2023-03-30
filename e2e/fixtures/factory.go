@@ -203,7 +203,7 @@ func (factory *Factory) getContainerOverrides(
 	debugSymbols bool,
 ) (fdbv1beta2.ContainerOverrides, fdbv1beta2.ContainerOverrides) {
 	mainImage, mainTag := GetBaseImageAndTag(
-		GetDebugImage(debugSymbols, factory.singleton.fdbImage),
+		GetDebugImage(debugSymbols, factory.GetSidecarImage()),
 	)
 
 	mainOverrides := fdbv1beta2.ContainerOverrides{
@@ -223,7 +223,7 @@ func (factory *Factory) getContainerOverrides(
 	}
 
 	sidecarImage, sidecarTag := GetBaseImageAndTag(
-		GetDebugImage(debugSymbols, factory.singleton.sidecarImage),
+		GetDebugImage(debugSymbols, factory.GetSidecarImage()),
 	)
 	sidecarOverrides := fdbv1beta2.ContainerOverrides{
 		EnableTLS: false,
@@ -689,7 +689,7 @@ func (factory *Factory) DumpStateHaCluster(fdbCluster *HaFdbCluster) {
 
 // OperatorIsAtLeast is a helper method to check is the running operator is at least in the specified version.
 func (factory *Factory) OperatorIsAtLeast(version string) bool {
-	operatorVersion := strings.Split(factory.singleton.operatorImage, ":")[1]
+	operatorVersion := strings.Split(factory.GetOperatorImage(), ":")[1]
 	parsedOperatorVersion, err := fdbv1beta2.ParseFdbVersion(operatorVersion)
 	if err != nil {
 		// If the version can not be parsed be can assume it's either a self build or the latest version.
@@ -757,4 +757,22 @@ func (factory *Factory) CreateIfAbsent(object client.Object) error {
 	}
 
 	return nil
+}
+
+// GetOperatorImage returns the operator image provided via command line. If a registry was definem the registry will be
+// prepended.
+func (factory *Factory) GetOperatorImage() string {
+	return prependRegistry(factory.options.registry, factory.options.operatorImage)
+}
+
+// GetSidecarImage returns the sidecar image provided via command line. If a registry was definem the registry will be
+// prepended.
+func (factory *Factory) GetSidecarImage() string {
+	return prependRegistry(factory.options.registry, factory.options.sidecarImage)
+}
+
+// GetFoundationDBImage returns the FoundationDB image provided via command line. If a registry was definem the registry will be
+// prepended.
+func (factory *Factory) GetFoundationDBImage() string {
+	return prependRegistry(factory.options.registry, factory.options.fdbImage)
 }
