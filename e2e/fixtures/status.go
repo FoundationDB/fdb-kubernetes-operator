@@ -52,7 +52,6 @@ func (fdbCluster *FdbCluster) getStatusFromOperatorPod() *fdbv1beta2.FoundationD
 		return err
 	}).WithTimeout(2 * time.Minute).WithPolling(1 * time.Second).ShouldNot(gomega.HaveOccurred())
 
-	// TODO remove the gabs dependency in this part and make use of the struct
 	return status
 }
 
