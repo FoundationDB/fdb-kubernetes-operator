@@ -260,14 +260,8 @@ func (fdbCluster FdbCluster) StatusInvariantChecker(
 	)
 }
 
-// checkAvailability returns nil if the cluster is reachable or if not a quorum of the coordinators are reachable. If
-// the cluster is unreachable an error will be returned.
+// checkAvailability returns nil if the cluster is reachable. If the cluster is unreachable an error will be returned.
 func checkAvailability(status *fdbv1beta2.FoundationDBStatus) error {
-	// If we are not able to reach the quorum of coordinators, we cannot make any assumption about the status of the Cluster.
-	if !status.Client.Coordinators.QuorumReachable {
-		return nil
-	}
-
 	if !status.Client.DatabaseStatus.Available {
 		return fmt.Errorf("cluster is not available")
 	}

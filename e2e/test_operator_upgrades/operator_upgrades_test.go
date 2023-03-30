@@ -342,8 +342,7 @@ var _ = Describe("Operator Upgrades", Label("e2e"), func() {
 				Skip("this test case only affects version incompatible upgrades")
 			}
 
-			// We ignore the availability check here since this check is sometimes flaky if not all coordinators are running.
-			clusterSetup(beforeVersion, false)
+			clusterSetup(beforeVersion, true)
 
 			// Select one coordinator that will be restarted during the staging phase.
 			coordinators := fdbCluster.GetCoordinators()
@@ -462,8 +461,7 @@ var _ = Describe("Operator Upgrades", Label("e2e"), func() {
 				Skip("operator doesn't support feature for test case")
 			}
 
-			// We ignore the availability check here since this check is sometimes flaky if not all coordinators are running.
-			clusterSetup(beforeVersion, false)
+			clusterSetup(beforeVersion, true)
 
 			// 1. Select one coordinator and use the buggify option to skip it during the restart command.
 			coordinators := fdbCluster.GetCoordinators()
