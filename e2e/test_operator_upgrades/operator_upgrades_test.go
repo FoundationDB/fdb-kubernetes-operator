@@ -342,7 +342,7 @@ var _ = Describe("Operator Upgrades", Label("e2e"), func() {
 				Skip("this test case only affects version incompatible upgrades")
 			}
 
-			clusterSetup(beforeVersion, true)
+			clusterSetup(beforeVersion, false)
 
 			// Select one coordinator that will be restarted during the staging phase.
 			coordinators := fdbCluster.GetCoordinators()
