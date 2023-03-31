@@ -197,7 +197,7 @@ spec:
           # This is a workaround for a change of the version schema that was never tested/supported
           args:
             - -c
-            - echo "{{ .FDBVersion }}" > /var/fdb/version && runuser -u fdb -g fdb -- /entrypoint.bash --copy-library {{ .CompactVersion }} --copy-binary fdbcli --copy-binary fdbbackup --copy-binary fdbrestore --output-dir /var/output-files/{{ .FDBVersion }} --init-mode
+            - echo "{{ .FDBVersion.String }}" > /var/fdb/version && runuser -u fdb -g fdb -- /entrypoint.bash --copy-library {{ .FDBVersion.Compact }} --copy-binary fdbcli --copy-binary fdbbackup --copy-binary fdbrestore --output-dir /var/output-files/{{ .FDBVersion.String }} --init-mode
           volumeMounts:
             - name: fdb-binaries
               mountPath: /var/output-files
@@ -206,14 +206,14 @@ spec:
             runAsGroup: 0
         # Install this library in a special location to force the operator to
         # use it as the primary library.
-        {{ if eq .CompactVersion "7.1" }}
+        {{ if eq .FDBVersion.Compact "7.1" }}
         - name: foundationdb-kubernetes-init-7-1-primary
           image: {{ .BaseImage }}:{{ .SidecarTag}}
           imagePullPolicy: Always
           args:
             # Note that we are only copying a library, rather than copying any binaries. 
             - "--copy-library"
-            - "{{ .CompactVersion }}"
+            - "{{ .FDBVersion.Compact }}"
             - "--output-dir"
             - "/var/output-files/primary" # Note that we use primary as the subdirectory rather than specifying the FoundationDB version like we did in the other examples.
             - "--init-mode"
@@ -310,20 +310,52 @@ type operatorConfig struct {
 	OperatorImage    string
 	SecretName       string
 	BackupSecretName string
-	SidecarVersions  []operatorSidecarConfig
+	SidecarVersions  []SidecarConfig
 	Namespace        string
 }
 
-type operatorSidecarConfig struct {
-	BaseImage  string
+// SidecarConfig represents the configuration for a sidecar. This can be used for templating.
+type SidecarConfig struct {
+	// BaseImage the image reference without a tag.
+	BaseImage string
+	// SidecarTag represents the image tag for this configuration.
 	SidecarTag string
-
-	// TODO: Use the FdbVersion type from the operator for this field.
-	FDBVersion     string
-	CompactVersion string
+	// FDBVersion represents the FoundationDB version for this config.
+	FDBVersion fdbv1beta2.Version
 }
 
-func getDefaultOperatorSidecarConfig(sidecarImage string, version string) operatorSidecarConfig {
+// GetSidecarConfigs returns the sidecar configs. The sidecar configs can be used to template applications that will use
+// all provided sidecar versions to inject FDB client libraries.
+func (factory *Factory) GetSidecarConfigs() []SidecarConfig {
+	additionalSidecarVersions := factory.GetAdditionalSidecarVersions()
+	sidecarConfigs := make([]SidecarConfig, 0, len(additionalSidecarVersions)+1)
+
+	sidecarConfigs = append(
+		sidecarConfigs,
+		getDefaultSidecarConfig(
+			factory.GetSidecarImage(),
+			factory.GetFDBVersion(),
+		),
+	)
+	baseImage := sidecarConfigs[0].BaseImage
+
+	// Add all other versions that are required e.g. for major or minor upgrades.
+	for _, version := range additionalSidecarVersions {
+		// Don't add the sidecar another time if we already added it
+		if version.Equal(factory.GetFDBVersion()) {
+			continue
+		}
+
+		sidecarConfigs = append(
+			sidecarConfigs,
+			getSidecarConfig(baseImage, "", version),
+		)
+	}
+
+	return sidecarConfigs
+}
+
+func getDefaultSidecarConfig(sidecarImage string, version fdbv1beta2.Version) SidecarConfig {
 	defaultSidecarImage := strings.SplitN(sidecarImage, ":", 2)
 
 	var tag string
@@ -331,56 +363,30 @@ func getDefaultOperatorSidecarConfig(sidecarImage string, version string) operat
 		tag = defaultSidecarImage[1]
 	}
 
-	return getOperatorSidecarConfig(defaultSidecarImage[0], tag, version)
+	return getSidecarConfig(defaultSidecarImage[0], tag, version)
 }
 
-func getOperatorSidecarConfig(baseImage string, tag string, version string) operatorSidecarConfig {
-	parsedVersion, _ := fdbv1beta2.ParseFdbVersion(version)
-
+func getSidecarConfig(baseImage string, tag string, version fdbv1beta2.Version) SidecarConfig {
 	if tag == "" {
 		tag = fmt.Sprintf("%s-1", version)
 	}
 
-	return operatorSidecarConfig{
-		BaseImage:      baseImage,
-		FDBVersion:     version,
-		SidecarTag:     tag,
-		CompactVersion: parsedVersion.Compact(),
+	return SidecarConfig{
+		BaseImage:  baseImage,
+		FDBVersion: version,
+		SidecarTag: tag,
 	}
 }
 
 //nolint:revive
 func (factory *Factory) getOperatorConfig(namespace string) *operatorConfig {
-	config := &operatorConfig{
+	return &operatorConfig{
 		OperatorImage:    factory.GetOperatorImage(),
 		SecretName:       factory.GetSecretName(),
 		BackupSecretName: factory.GetBackupSecretName(),
 		Namespace:        namespace,
+		SidecarVersions:  factory.GetSidecarConfigs(),
 	}
-
-	config.SidecarVersions = append(
-		config.SidecarVersions,
-		getDefaultOperatorSidecarConfig(
-			factory.GetSidecarImage(),
-			factory.GetFDBVersionAsString(),
-		),
-	)
-	baseImage := config.SidecarVersions[0].BaseImage
-
-	// Add all other versions that are required e.g. for major or minor upgrades.
-	for _, version := range factory.GetAdditionalSidecarVersions() {
-		// Don't add the sidecar another time if we already added it
-		if version == factory.GetFDBVersionAsString() {
-			continue
-		}
-
-		config.SidecarVersions = append(
-			config.SidecarVersions,
-			getOperatorSidecarConfig(baseImage, "", version),
-		)
-	}
-
-	return config
 }
 
 func (factory *Factory) ensureFDBOperatorExists(namespace string) error {

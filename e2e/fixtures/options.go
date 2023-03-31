@@ -25,8 +25,6 @@ import (
 	"flag"
 	"fmt"
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	"github.com/onsi/ginkgo/v2"
-	"log"
 	"strings"
 )
 
@@ -230,43 +228,4 @@ func validateVersion(label string, version string) error {
 	}
 
 	return nil
-}
-
-// GenerateUpgradeTableEntries creates the ginkgo.TableEntry slice based of the provided options.
-func GenerateUpgradeTableEntries(options *FactoryOptions) []ginkgo.TableEntry {
-	upgradeString := options.upgradeString
-	if upgradeString == "" {
-		return nil
-	}
-
-	upgradeTests := strings.Split(upgradeString, ",")
-
-	tests := make([]ginkgo.TableEntry, 0, len(upgradeTests))
-	for _, upgradeTest := range upgradeTests {
-		versions := strings.Split(upgradeTest, ":")
-		if len(versions) != 2 {
-			log.Fatalf(
-				"expected to have two versions for upgrade string separated by \":\" got: \"%s\"",
-				upgradeTest,
-			)
-		}
-
-		beforeVersion, err := fdbv1beta2.ParseFdbVersion(versions[0])
-		if err != nil {
-			log.Fatalf("\"%s\" is not a valid FDB version", versions[0])
-		}
-
-		targetVersion, err := fdbv1beta2.ParseFdbVersion(versions[1])
-		if err != nil {
-			log.Fatalf("\"%s\" is not a valid FDB version", versions[1])
-		}
-
-		if beforeVersion.IsAtLeast(targetVersion) {
-			log.Fatalf("downgrade from \"%s\" to \"%s\" is not supported", versions[0], versions[1])
-		}
-
-		tests = append(tests, ginkgo.Entry(nil, versions[0], versions[1]))
-	}
-
-	return tests
 }
