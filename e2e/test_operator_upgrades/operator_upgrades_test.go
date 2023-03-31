@@ -545,7 +545,7 @@ var _ = Describe("Operator Upgrades", Label("e2e"), func() {
 			// The cluster should still be able to upgrade.
 			Expect(fdbCluster.UpgradeCluster(targetVersion, true)).NotTo(HaveOccurred())
 		},
-		EntryDescription("Upgrade from %[1]s to %[2]s with one coordinator not being restarted"),
+		EntryDescription("Upgrade from %[1]s to %[2]s and multiple processes are not restarted"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
 	)
 
@@ -651,7 +651,7 @@ var _ = Describe("Operator Upgrades", Label("e2e"), func() {
 
 			fdbCluster.SetIgnoreDuringRestart(nil)
 		},
-		EntryDescription("Upgrade from %[1]s to %[2]s with one coordinator not being restarted"),
+		EntryDescription("Upgrade from %[1]s to %[2]s and no coordinator is restarted"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
 	)
 
