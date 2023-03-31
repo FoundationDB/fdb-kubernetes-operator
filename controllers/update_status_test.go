@@ -100,9 +100,7 @@ var _ = Describe("update_status", func() {
 			node = &corev1.Node{
 				ObjectMeta: metav1.ObjectMeta{Name: pod.Spec.NodeName},
 			}
-		})
 
-		JustBeforeEach(func() {
 			databaseStatus, err := adminClient.GetStatus()
 			Expect(err).NotTo(HaveOccurred())
 			processMap = make(map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo)
