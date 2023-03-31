@@ -83,9 +83,9 @@ ProcessGroupLoop:
 		}
 
 		needsReplacement, missingTime := processGroupStatus.NeedsReplacement(cluster.GetFailureDetectionTimeSeconds())
-		log.Info("MX Debug INFO: ReplaceFailedProcessGroups", "ProcessGroup", processGroupStatus.ProcessGroupID,
-			"ProcessGroupStatus", processGroupStatus, "needsReplacement", needsReplacement,
-			"missingTime", missingTime, "ClusterFailureDetectionTime", cluster.GetFailureDetectionTimeSeconds())
+		// log.Info("MX Debug INFO: ReplaceFailedProcessGroups", "ProcessGroup", processGroupStatus.ProcessGroupID,
+		// 	"ProcessGroupStatus", processGroupStatus, "needsReplacement", needsReplacement,
+		// 	"missingTime", missingTime, "ClusterFailureDetectionTime", cluster.GetFailureDetectionTimeSeconds())
 		if !needsReplacement {
 			continue
 		}

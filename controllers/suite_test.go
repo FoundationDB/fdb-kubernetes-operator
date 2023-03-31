@@ -129,6 +129,10 @@ func reconcileCluster(cluster *fdbv1beta2.FoundationDBCluster) (reconcile.Result
 	return reconcileObject(clusterReconciler, cluster.ObjectMeta, requeueLimit)
 }
 
+func reconcileClusterWithCustomRequeueLimit(cluster *fdbv1beta2.FoundationDBCluster, customRequeueLimit int) (reconcile.Result, error) {
+	return reconcileObject(clusterReconciler, cluster.ObjectMeta, customRequeueLimit)
+}
+
 func reconcileBackup(backup *fdbv1beta2.FoundationDBBackup) (reconcile.Result, error) {
 	return reconcileObject(backupReconciler, backup.ObjectMeta, requeueLimit)
 }
@@ -142,7 +146,7 @@ func reconcileObject(reconciler reconcile.Reconciler, metadata metav1.ObjectMeta
 	result := reconcile.Result{Requeue: true}
 	var err error
 	for result.Requeue && attempts > 0 {
-		log.Info("Running test reconciliation")
+		log.Info("Running test reconciliation", "Attemps", attempts)
 		attempts--
 
 		result, err = reconciler.Reconcile(context.TODO(), reconcile.Request{NamespacedName: types.NamespacedName{Namespace: metadata.Namespace, Name: metadata.Name}})
