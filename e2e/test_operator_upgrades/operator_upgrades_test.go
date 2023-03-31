@@ -776,7 +776,7 @@ var _ = Describe("Operator Upgrades", Label("e2e"), func() {
 				Skip("this test only affects version incompatible upgrades")
 			}
 
-			clusterSetup(beforeVersion)
+			clusterSetup(beforeVersion, true)
 
 			// Update the cluster version.
 			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
