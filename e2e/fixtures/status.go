@@ -52,7 +52,6 @@ func (fdbCluster *FdbCluster) getStatusFromOperatorPod() *fdbv1beta2.FoundationD
 		return err
 	}).WithTimeout(2 * time.Minute).WithPolling(1 * time.Second).ShouldNot(gomega.HaveOccurred())
 
-	// TODO remove the gabs dependency in this part and make use of the struct
 	return status
 }
 
@@ -260,6 +259,15 @@ func (fdbCluster FdbCluster) StatusInvariantChecker(
 	)
 }
 
+// checkAvailability returns nil if the cluster is reachable. If the cluster is unreachable an error will be returned.
+func checkAvailability(status *fdbv1beta2.FoundationDBStatus) error {
+	if !status.Client.DatabaseStatus.Available {
+		return fmt.Errorf("cluster is not available")
+	}
+
+	return nil
+}
+
 // InvariantClusterStatusAvailableWithThreshold checks if the database is at a maximum unavailable for the provided threshold.
 func (fdbCluster FdbCluster) InvariantClusterStatusAvailableWithThreshold(
 	availabilityThreshold time.Duration,
@@ -267,13 +275,7 @@ func (fdbCluster FdbCluster) InvariantClusterStatusAvailableWithThreshold(
 	return fdbCluster.StatusInvariantChecker(
 		"InvariantClusterStatusAvailableWithThreshold",
 		availabilityThreshold,
-		func(status *fdbv1beta2.FoundationDBStatus) error {
-			if !status.Client.DatabaseStatus.Available {
-				return fmt.Errorf("cluster is not available")
-			}
-
-			return nil
-		},
+		checkAvailability,
 	)
 }
 
@@ -281,14 +283,10 @@ func (fdbCluster FdbCluster) InvariantClusterStatusAvailableWithThreshold(
 func (fdbCluster FdbCluster) InvariantClusterStatusAvailable() error {
 	return fdbCluster.StatusInvariantChecker(
 		"InvariantClusterStatusAvailable",
-		0,
-		func(status *fdbv1beta2.FoundationDBStatus) error {
-			if !status.Client.DatabaseStatus.Available {
-				return fmt.Errorf("cluster.database_available=false")
-			}
-
-			return nil
-		},
+		// Per default we allow 5 seconds unavailability. Otherwise we could get a few test failures when we do operations
+		// like a replacement on a transaction system Pod and the recovery takes longer.
+		5*time.Second,
+		checkAvailability,
 	)
 }
 

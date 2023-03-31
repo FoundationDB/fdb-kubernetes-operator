@@ -203,7 +203,7 @@ func (factory *Factory) getContainerOverrides(
 	debugSymbols bool,
 ) (fdbv1beta2.ContainerOverrides, fdbv1beta2.ContainerOverrides) {
 	mainImage, mainTag := GetBaseImageAndTag(
-		GetDebugImage(debugSymbols, factory.GetSidecarImage()),
+		GetDebugImage(debugSymbols, factory.GetFoundationDBImage()),
 	)
 
 	mainOverrides := fdbv1beta2.ContainerOverrides{
