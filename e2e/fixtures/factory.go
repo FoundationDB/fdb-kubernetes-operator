@@ -503,58 +503,46 @@ func (factory *Factory) GetBeforeVersion() string {
 	return factory.beforeVersion
 }
 
-func getUpgradeVersions(upgradeString string) []string {
-	var upgradeVersions []string
-	if upgradeString == "" {
-		return nil
-	}
-
-	for _, upgradeTest := range strings.Split(upgradeString, ",") {
-		upgradeVersions = append(upgradeVersions, strings.Split(upgradeTest, ":")...)
-	}
-
-	return upgradeVersions
-}
-
 // GetAdditionalSidecarVersions returns all additional FoundationDB versions that should be added to the sidecars. This
 // method make sure that the operator has all required client libraries.
-func (factory *Factory) GetAdditionalSidecarVersions() []string {
+func (factory *Factory) GetAdditionalSidecarVersions() []fdbv1beta2.Version {
 	compactVersionMap := map[string]fdbv1beta2.Version{}
 	baseVersion := factory.GetFDBVersion()
 
-	additionalVersions := make([]string, 0)
+	additionalVersions := make([]fdbv1beta2.Version, 0)
 	for _, version := range getUpgradeVersions(factory.options.upgradeString) {
-		fdbVersion, err := fdbv1beta2.ParseFdbVersion(version)
-		if err != nil {
-			log.Println("invalid FDB version", fdbVersion)
-			continue
-		}
-
-		// Since we already include the base version we can skip all compatible versions
-		if fdbVersion.Compact() == baseVersion.Compact() {
-			continue
-		}
-
-		mapVersion, ok := compactVersionMap[fdbVersion.Compact()]
-		if !ok {
-			// If we don't have a version for this compact version we add it here
-			compactVersionMap[fdbVersion.Compact()] = fdbVersion
-			continue
-		}
-
-		// If the version in our map is newer we skip the current version
-		if mapVersion.IsAtLeast(fdbVersion) {
-			continue
-		}
-
-		compactVersionMap[fdbVersion.Compact()] = fdbVersion
+		updateVersionMapIfVersionIsMissingOrNewer(baseVersion, compactVersionMap, version.InitialVersion)
+		updateVersionMapIfVersionIsMissingOrNewer(baseVersion, compactVersionMap, version.TargetVersion)
 	}
 
 	for _, version := range compactVersionMap {
-		additionalVersions = append(additionalVersions, version.String())
+		additionalVersions = append(additionalVersions, version)
 	}
 
 	return additionalVersions
+}
+
+// This method will update the provided map if the compact version of newVersion is either missing or the provided newVersion
+// is newer than the current version in the map.
+func updateVersionMapIfVersionIsMissingOrNewer(baseVersion fdbv1beta2.Version, versions map[string]fdbv1beta2.Version, newVersion fdbv1beta2.Version) {
+	// Since we already include the base version we can skip all compatible versions
+	if newVersion.Compact() == baseVersion.Compact() {
+		return
+	}
+
+	currentVersion, ok := versions[newVersion.Compact()]
+	if !ok {
+		// If we don't have a version for this compact version we add it here
+		versions[newVersion.Compact()] = newVersion
+		return
+	}
+
+	// If the version in our map is newer we skip the current version
+	if currentVersion.IsAtLeast(newVersion) {
+		return
+	}
+
+	versions[newVersion.Compact()] = newVersion
 }
 
 // DumpState writes the state of the cluster to the log output. Useful for debugging test failures.
