@@ -229,6 +229,10 @@ var _ = Describe("replace_failed_process_groups", func() {
 			Expect(targetProcessGroupStatus.GetCondition(fdbv1beta2.NodeTaintReplacing).ProcessGroupConditionType).To(Equal(fdbv1beta2.NodeTaintReplacing))
 
 			// cluster won't replace a failed process until GetFailureDetectionTimeSeconds() later
+			result = replaceFailedProcessGroups{}.reconcile(ctx.TODO(), clusterReconciler, cluster)
+			Expect(result).To(BeNil())
+			Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]fdbv1beta2.ProcessGroupID{}))
+
 			time.Sleep(time.Second * time.Duration(cluster.GetFailureDetectionTimeSeconds()+1))
 
 			result = replaceFailedProcessGroups{}.reconcile(ctx.TODO(), clusterReconciler, cluster)
@@ -392,7 +396,23 @@ var _ = Describe("replace_failed_process_groups", func() {
 			Expect(targetPodExist).To(Equal(true))
 		})
 
-		It("should not replace a pod that is both NodeTaintDetected and NodeTaintReplacing when cluster disable taint feature", func() {
+		It("should not replace a pod on tainted node when cluster disables taint feature before node is tainted", func() {
+			// Disable taint feature before a node is tainted
+			// TODO: Disable taint feature AFTER a node is tainted
+			negativeTaintKeyStarDuration := -1 * taintKeyStarDuration
+			cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions = []fdbv1beta2.TaintReplacementOption{
+				{
+					Key:               &taintKeyStar,
+					DurationInSeconds: &negativeTaintKeyStarDuration,
+				},
+				{
+					Key:               &taintKeyMaintenance,
+					DurationInSeconds: &taintKeyMaintenanceDuration,
+				},
+			}
+			err = k8sClient.Update(context.TODO(), cluster)
+			Expect(err).NotTo(HaveOccurred())
+
 			node.Spec.Taints = []corev1.Taint{
 				{
 					Key:       taintKeyMaintenance,
@@ -405,7 +425,31 @@ var _ = Describe("replace_failed_process_groups", func() {
 			err = k8sClient.Update(context.TODO(), node)
 			Expect(err).NotTo(HaveOccurred())
 
-			negativeTaintKeyStarDuration := taintKeyStarDuration
+			// Wait long enough to pass FailureDetection time window
+			time.Sleep(time.Second * time.Duration(cluster.GetFailureDetectionTimeSeconds()+1))
+
+			result, err := reconcileCluster(cluster)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.Requeue).To(BeFalse())
+			// target pod should have been removed by reconciliation
+			Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]fdbv1beta2.ProcessGroupID{}))
+			targetProcessGroupStatus := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, podProcessGroupID)
+			Expect(len(targetProcessGroupStatus.ProcessGroupConditions)).To(Equal(0))
+		})
+		It("should not replace a pod on tainted node when cluster disables taint feature immediately after node is tainted", func() {
+			node.Spec.Taints = []corev1.Taint{
+				{
+					Key:       taintKeyMaintenance,
+					Value:     "rack maintenance",
+					Effect:    corev1.TaintEffectNoExecute,
+					TimeAdded: &metav1.Time{Time: time.Now().Add(-time.Second * time.Duration(taintKeyMaintenanceDuration+1))},
+				},
+			}
+			log.Info("Taint node", "Node name", node.Name, "Node taints", node.Spec.Taints, "TaintTime", node.Spec.Taints[0].TimeAdded.Time, "Now", time.Now())
+			err = k8sClient.Update(context.TODO(), node)
+			Expect(err).NotTo(HaveOccurred())
+
+			negativeTaintKeyStarDuration := -1 * taintKeyStarDuration
 			cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions = []fdbv1beta2.TaintReplacementOption{
 				{
 					Key:               &taintKeyStar,
@@ -425,10 +469,89 @@ var _ = Describe("replace_failed_process_groups", func() {
 			result, err := reconcileCluster(cluster)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result.Requeue).To(BeFalse())
+			// target pod should not be removed by reconciliation;
+			// targetProcessGroupStatus may or may not have its TaintDetected condition updated
+			Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]fdbv1beta2.ProcessGroupID{}))
+		})
+		It("should replace a pod on tainted node when cluster disable and reenable taint feature", func() {
+			// Disable taint feature before a node is tainted
+			// TODO: Disable taint feature AFTER a node is tainted
+			negativeTaintKeyStarDuration := -1 * taintKeyStarDuration
+			cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions = []fdbv1beta2.TaintReplacementOption{
+				{
+					Key:               &taintKeyStar,
+					DurationInSeconds: &negativeTaintKeyStarDuration,
+				},
+				{
+					Key:               &taintKeyMaintenance,
+					DurationInSeconds: &taintKeyMaintenanceDuration,
+				},
+			}
+			err = k8sClient.Update(context.TODO(), cluster)
+			Expect(err).NotTo(HaveOccurred())
+
+			node.Spec.Taints = []corev1.Taint{
+				{
+					Key:       taintKeyMaintenance,
+					Value:     "rack maintenance",
+					Effect:    corev1.TaintEffectNoExecute,
+					TimeAdded: &metav1.Time{Time: time.Now().Add(-time.Second * time.Duration(taintKeyMaintenanceDuration+1))},
+				},
+			}
+			log.Info("Taint node", "Node name", node.Name, "Node taints", node.Spec.Taints, "TaintTime", node.Spec.Taints[0].TimeAdded.Time, "Now", time.Now())
+			err = k8sClient.Update(context.TODO(), node)
+			Expect(err).NotTo(HaveOccurred())
+
+			result, err := reconcileCluster(cluster)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.Requeue).To(BeFalse())
 			// target pod should have been removed by reconciliation
 			Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]fdbv1beta2.ProcessGroupID{}))
 			targetProcessGroupStatus := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, podProcessGroupID)
 			Expect(len(targetProcessGroupStatus.ProcessGroupConditions)).To(Equal(0))
+
+			// Enable taint feature
+			// Q: Why we have this Error?: Operation cannot be fulfilled on foundationdbclusters.apps.foundationdb.org "operator-test-1": object was modified
+			retry := 5
+			for err != nil && retry >= 0 {
+				cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions = []fdbv1beta2.TaintReplacementOption{
+					{
+						Key:               &taintKeyStar,
+						DurationInSeconds: &taintKeyStarDuration,
+					},
+					{
+						Key:               &taintKeyMaintenance,
+						DurationInSeconds: &taintKeyMaintenanceDuration,
+					},
+				}
+				err = k8sClient.Update(context.TODO(), cluster)
+				retry--
+			}
+			Expect(err).NotTo(HaveOccurred()) // Q: even no error, it seems cluster's spec is not updated! so cluster still think its taint feature is disabled. Why cluster spec is not updated?
+
+			result, err = reconcileCluster(cluster)
+			// Target process group has status updated but not replaced
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.Requeue).To(BeFalse())
+			Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]fdbv1beta2.ProcessGroupID{}))
+			targetProcessGroupStatus = fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, podProcessGroupID)
+			Expect(len(targetProcessGroupStatus.ProcessGroupConditions)).To(Equal(2))
+			Expect(targetProcessGroupStatus.GetCondition(fdbv1beta2.NodeTaintDetected)).NotTo(BeNil())
+			Expect(targetProcessGroupStatus.GetCondition(fdbv1beta2.NodeTaintReplacing)).NotTo(BeNil())
+
+			// Wait long enough to pass FailureDetection time window
+			time.Sleep(time.Second * time.Duration(cluster.GetFailureDetectionTimeSeconds()+1))
+
+			result, err = reconcileCluster(cluster)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.Requeue).To(BeTrue()) // Requeue to check reconciliation later
+			// target pod should have been removed by reconciliation
+			Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]fdbv1beta2.ProcessGroupID{}))
+			targetPodExist := false
+			if getPodByProcessGroupID(cluster, internal.GetProcessGroupIDFromMeta(cluster, pod.ObjectMeta)) != nil {
+				targetPodExist = true
+			}
+			Expect(targetPodExist).To(Equal(true))
 		})
 	})
 

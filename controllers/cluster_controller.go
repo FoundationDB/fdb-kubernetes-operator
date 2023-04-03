@@ -181,7 +181,9 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 	}
 
 	if cluster.Status.Generations.Reconciled < originalGeneration || delayedRequeue {
-		clusterLog.Info("Cluster was not fully reconciled by reconciliation process", "status", cluster.Status.Generations)
+		clusterLog.Info("Cluster was not fully reconciled by reconciliation process", "status", cluster.Status.Generations,
+			"CurrentGeneration", cluster.Status.Generations.Reconciled,
+			"OriginalGeneration", originalGeneration, "DelayedRequeue", delayedRequeue)
 
 		return ctrl.Result{Requeue: true}, nil
 	}
