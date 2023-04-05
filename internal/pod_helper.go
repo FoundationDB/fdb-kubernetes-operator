@@ -182,7 +182,6 @@ func BuildOwnerReference(ownerType metav1.TypeMeta, ownerMetadata metav1.ObjectM
 
 // GetSinglePodListOptions returns the listOptions to list a single Pod
 func GetSinglePodListOptions(cluster *fdbv1beta2.FoundationDBCluster, processGroupID fdbv1beta2.ProcessGroupID) []client.ListOption {
-	// Q: How is ListOption{} created? which field is assigned for the matchinglabels?
 	return []client.ListOption{client.InNamespace(cluster.ObjectMeta.Namespace), client.MatchingLabels(GetPodMatchLabels(cluster, "", string(processGroupID)))}
 }
 

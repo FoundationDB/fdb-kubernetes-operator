@@ -57,8 +57,9 @@ import (
 var firstLogIndex = 1
 var firstStorageIndex = 13
 
-// TODO: We may need to add taint-related tests here as well
-
+// reloadCluster reloads fdbcluster object info to client.
+// It's necessary in unit test when reconciler changes fdbserver object but client's state is not updated.
+// We reloadCluster to bring client state consistent with the latest fdbcluster object
 func reloadCluster(cluster *fdbv1beta2.FoundationDBCluster) (int64, error) {
 	generations, err := reloadClusterGenerations(cluster)
 	if generations.HasPendingRemoval > 0 {

@@ -662,28 +662,28 @@ func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler,
 			hasValidTaint := false
 			for _, taint := range node.Spec.Taints {
 				for _, taintConfiguredKey := range cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions {
-					logger.Info("MX Debug Taint", "TaintedKey", taintConfiguredKey, "DurationInSeconds",
-						taintConfiguredKey.DurationInSeconds, "Pod", pod.Name, "Node", node.Name)
+					// logger.Info("MX Debug Taint", "TaintedKey", taintConfiguredKey, "DurationInSeconds",
+					// 	taintConfiguredKey.DurationInSeconds, "Pod", pod.Name, "Node", node.Name)
 					if *taintConfiguredKey.DurationInSeconds < 0 {
-						logger.Info("TaintReplacementOption is disabled", "Key",
-							taintConfiguredKey.Key, "DurationInSeconds", taintConfiguredKey.DurationInSeconds)
+						logger.Info("Cluster's TaintReplacementOption is disabled", "Key",
+							taintConfiguredKey.Key, "DurationInSeconds", taintConfiguredKey.DurationInSeconds,
+							"Pod", pod.Name)
 						continue
 					}
 					if taint.Key == *taintConfiguredKey.Key || *taintConfiguredKey.Key == "*" {
 						hasValidTaint = true
-						logger.Info("MX Debug Info UpdateTaint", "Pod", pod.Name, "Add Condition", "NodeTaintDetected")
 						processGroupStatus.UpdateCondition(fdbv1beta2.NodeTaintDetected, true, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
 						// Use node taint's timestamp as NodeTaintDetected condition's starting time
 						if taint.TimeAdded != nil && taint.TimeAdded.Time.Unix() < *processGroupStatus.GetConditionTime(fdbv1beta2.NodeTaintDetected) {
-							logger.Info("MX Debug Info Update NodeTaintDetected Time", "Pod", pod.Name,
-								"OriginalTime", processGroupStatus.GetConditionTime(fdbv1beta2.NodeTaintDetected),
-								"NewTime", taint.TimeAdded.Unix())
+							// logger.Info("MX Debug Info Update NodeTaintDetected Time", "Pod", pod.Name,
+							// 	"OriginalTime", processGroupStatus.GetConditionTime(fdbv1beta2.NodeTaintDetected),
+							// 	"NewTime", taint.TimeAdded.Unix())
 							processGroupStatus.UpdateConditionTime(fdbv1beta2.NodeTaintDetected, taint.TimeAdded.Unix())
 						}
 						for _, processGroupCondition := range processGroupStatus.ProcessGroupConditions {
-							logger.Info("MX Debug Info Check to add NodeTaintReplacing Condition", "Pod", pod.Name,
-								"Now", time.Now().Unix(), "ConditionTimestamp", processGroupCondition.Timestamp,
-								"TaintConfiguredDuration", *taintConfiguredKey.DurationInSeconds)
+							// logger.Info("MX Debug Info Check to add NodeTaintReplacing Condition", "Pod", pod.Name,
+							// 	"Now", time.Now().Unix(), "ConditionTimestamp", processGroupCondition.Timestamp,
+							// 	"TaintConfiguredDuration", *taintConfiguredKey.DurationInSeconds)
 							if processGroupCondition.ProcessGroupConditionType == fdbv1beta2.NodeTaintDetected &&
 								time.Now().Unix()-processGroupCondition.Timestamp > *taintConfiguredKey.DurationInSeconds {
 								processGroupStatus.UpdateCondition(fdbv1beta2.NodeTaintReplacing, true, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
@@ -692,9 +692,7 @@ func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler,
 									"TaintDuration", int64(time.Since(time.Unix(processGroupCondition.Timestamp, 0))),
 									"TaintValue", taint.Value, "TaintEffect", taint.Effect,
 									"NodeTaintDetectedConditionTimestamp", time.Unix(processGroupCondition.Timestamp, 0),
-									"Duration", time.Duration(*taintConfiguredKey.DurationInSeconds),
-									"Now", time.Now(),
-									"NodeTaintReplacingCondition", processGroupStatus.GetCondition(fdbv1beta2.NodeTaintDetected))
+									"ClusterTaintDetectionDuration", time.Duration(*taintConfiguredKey.DurationInSeconds))
 							}
 						}
 					}
