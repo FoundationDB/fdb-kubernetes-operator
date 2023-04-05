@@ -67,6 +67,9 @@ func (factory *Factory) createFDBClusterSpec(
 				},
 				// Allow the operator to remove all Pods that are excluded and marked for deletion to remove at once.
 				RemovalMode: fdbv1beta2.PodUpdateModeAll,
+				IgnoreLogGroupsForUpgrade: []string{
+					"fdb-kubernetes-operator",
+				},
 			},
 			Routing: fdbv1beta2.RoutingConfig{
 				UseDNSInClusterFile: pointer.Bool(false),
