@@ -90,10 +90,6 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			pod.Spec = *spec
-			// Q: why isn't this log info printed out?
-			// go test -v ./internal/replacements/... --args --ginkgo.vv
-			log.Info("Created Pod", "Pod name", pod.Name, "Pods' node name", pod.Spec.NodeName)
-			fmt.Printf("Create Pod name:%s Pod's node name:%s\n", pod.Name, pod.Spec.NodeName)
 
 			//node = &corev1.Node{Name: pod.Spec.NodeName}
 			node = &corev1.Node{}
@@ -654,7 +650,6 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 			When("taint duration is not long enough", func() {
 				It("should not need a replacement", func() {
-					// Q: why processGroupNeedsRemoval() doesn't output any log?
 					needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
 					if len(status.ProcessGroupConditions) == 0 {
 						log.Info("MX Debug Info", "needsRemoval", needsRemoval, "ProcessConditions", len(status.ProcessGroupConditions))

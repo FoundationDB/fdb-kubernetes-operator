@@ -164,7 +164,6 @@ func reconcileObject(reconciler reconcile.Reconciler, metadata metav1.ObjectMeta
 }
 
 func setupClusterForTest(cluster *fdbv1beta2.FoundationDBCluster) error {
-	// Q: Are all fields in cluster saved in k8s' etcd? why?
 	err := k8sClient.Create(context.TODO(), cluster)
 	if err != nil {
 		return err

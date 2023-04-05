@@ -49,10 +49,7 @@ func (c replaceFailedProcessGroups) reconcile(ctx context.Context, r *Foundation
 	defer adminClient.Close()
 
 	if replacements.ReplaceFailedProcessGroups(logger, cluster, adminClient) {
-		// Q: Is fdb.status persistent in etcd in k8s apiserver? why?
-		// Q: why is updateOrApply needed?
 		err := r.updateOrApply(ctx, cluster)
-		logger.Info("MX Dedug replaceFailedProcessGroups.reoncile", "ReplaceFailedProcessGroups", "Has replacement", "Err", err)
 		if err != nil {
 			return &requeue{curError: err}
 		}

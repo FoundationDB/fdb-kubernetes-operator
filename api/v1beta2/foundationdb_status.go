@@ -134,9 +134,6 @@ type FoundationDBStatusProcessInfo struct {
 	// Excluded indicates whether the process has been excluded.
 	Excluded bool `json:"excluded,omitempty"`
 
-	// Tainted indicates whether the process's knode has been tainted for a while.
-	Tainted bool `json:"tainted,omitempty"`
-
 	// The locality information for the process.
 	Locality map[string]string `json:"locality,omitempty"`
 

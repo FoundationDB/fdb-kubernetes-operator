@@ -23,10 +23,10 @@ package controllers
 import (
 	"context"
 	ctx "context"
-	"fmt"
 	"time"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient/mock"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -54,7 +54,6 @@ var _ = Describe("replace_failed_process_groups", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(result.Requeue).To(BeFalse())
 
-		// Q: why do we need to reloadCluster? Check there is only 1 recovery?
 		generation, err := reloadCluster(cluster)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(generation).To(Equal(int64(1)))
@@ -134,7 +133,6 @@ var _ = Describe("replace_failed_process_groups", func() {
 				ObjectMeta: metav1.ObjectMeta{Name: pod.Spec.NodeName},
 			}
 			podProcessGroupID = internal.GetProcessGroupIDFromMeta(cluster, pod.ObjectMeta)
-			fmt.Printf("Testing ProcessGroupID: %+v\n", podProcessGroupID)
 
 			// Call validateProcessGroups to set processGroupStatus to tainted condition
 			processGroupsStatus, err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap, allPods, allPvcs)
@@ -331,11 +329,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 			Expect(result.Requeue).To(BeFalse())
 			// target pod should have been removed by reconciliation
 			Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]fdbv1beta2.ProcessGroupID{}))
-			targetPodExist := false
-			if getPodByProcessGroupID(cluster, internal.GetProcessGroupIDFromMeta(cluster, pod.ObjectMeta)) != nil {
-				targetPodExist = true
-			}
-			Expect(targetPodExist).To(Equal(false))
+			Expect(getPodByProcessGroupID(cluster, internal.GetProcessGroupIDFromMeta(cluster, pod.ObjectMeta))).To(BeNil())
 		})
 
 		It("should not replace a pod that is on a flapping tainted node", func() {
@@ -365,15 +359,13 @@ var _ = Describe("replace_failed_process_groups", func() {
 			Expect(err).NotTo(HaveOccurred())
 			// pod with any condition is considered as unhealthy, but the pod won't be replaced w/o the NodeTaintReplacing condition
 			Expect(result.Requeue).To(BeTrue())
+
+			err = k8sClient.Get(context.TODO(), client.ObjectKey{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
+			Expect(err).NotTo(HaveOccurred())
 			Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]fdbv1beta2.ProcessGroupID{}))
 			targetProcessGroupStatus := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, podProcessGroupID)
-			// Q!: Why checkReconliation() shows targetProcessGroupStatus has  NodeTaintDetected condition, but
-			// targetProcessGroupStatus.ProcessGroupConditions is empty????
-			log.Info("MX TEMPT DEBUG", "podProcessGroupID", podProcessGroupID, "targetProcessGroupStatus groupid",
-				targetProcessGroupStatus.ProcessGroupID, "targetProcessGroupStatus conditions", targetProcessGroupStatus.ProcessGroupConditions)
-			// TODO: Enable the below 2 checks! IT FAILS right now
-			// Expect(len(targetProcessGroupStatus.ProcessGroupConditions)).To(Equal(1))
-			// Expect(targetProcessGroupStatus.GetCondition(fdbv1beta2.NodeTaintDetected).ProcessGroupConditionType).To(Equal(fdbv1beta2.NodeTaintDetected))
+			Expect(len(targetProcessGroupStatus.ProcessGroupConditions)).To(Equal(1))
+			Expect(targetProcessGroupStatus.GetCondition(fdbv1beta2.NodeTaintDetected).ProcessGroupConditionType).To(Equal(fdbv1beta2.NodeTaintDetected))
 
 			// Wait long enough to satisfy cluster-wide threshold to replace failed process
 			time.Sleep(time.Second * time.Duration(cluster.GetFailureDetectionTimeSeconds()+1))
@@ -387,13 +379,9 @@ var _ = Describe("replace_failed_process_groups", func() {
 			result, err = reconcileCluster(cluster)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result.Requeue).To(BeTrue()) // Requeue to check reconciliation later
-			// target pod should have been removed by reconciliation
+			// target pod should not be removed by reconciliation
 			Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]fdbv1beta2.ProcessGroupID{}))
-			targetPodExist := false
-			if getPodByProcessGroupID(cluster, internal.GetProcessGroupIDFromMeta(cluster, pod.ObjectMeta)) != nil {
-				targetPodExist = true
-			}
-			Expect(targetPodExist).To(Equal(true))
+			Expect(getPodByProcessGroupID(cluster, internal.GetProcessGroupIDFromMeta(cluster, pod.ObjectMeta))).NotTo(BeNil())
 		})
 
 		It("should not replace a pod on tainted node when cluster disables taint feature before node is tainted", func() {
@@ -505,34 +493,35 @@ var _ = Describe("replace_failed_process_groups", func() {
 			result, err := reconcileCluster(cluster)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result.Requeue).To(BeFalse())
-			// target pod should have been removed by reconciliation
+			// target pod should not be removed by reconciliation
 			Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]fdbv1beta2.ProcessGroupID{}))
 			targetProcessGroupStatus := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, podProcessGroupID)
 			Expect(len(targetProcessGroupStatus.ProcessGroupConditions)).To(Equal(0))
 
 			// Enable taint feature
-			// Q: Why we have this Error?: Operation cannot be fulfilled on foundationdbclusters.apps.foundationdb.org "operator-test-1": object was modified
-			retry := 5
-			for err != nil && retry >= 0 {
-				cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions = []fdbv1beta2.TaintReplacementOption{
-					{
-						Key:               &taintKeyStar,
-						DurationInSeconds: &taintKeyStarDuration,
-					},
-					{
-						Key:               &taintKeyMaintenance,
-						DurationInSeconds: &taintKeyMaintenanceDuration,
-					},
-				}
-				err = k8sClient.Update(context.TODO(), cluster)
-				retry--
+			// Refresh cluster version before we update the cluster again
+			err = k8sClient.Get(context.TODO(), client.ObjectKey{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
+			Expect(err).NotTo(HaveOccurred())
+			cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions = []fdbv1beta2.TaintReplacementOption{
+				{
+					Key:               &taintKeyStar,
+					DurationInSeconds: &taintKeyStarDuration,
+				},
+				{
+					Key:               &taintKeyMaintenance,
+					DurationInSeconds: &taintKeyMaintenanceDuration,
+				},
 			}
-			Expect(err).NotTo(HaveOccurred()) // Q: even no error, it seems cluster's spec is not updated! so cluster still think its taint feature is disabled. Why cluster spec is not updated?
+			err = k8sClient.Update(context.TODO(), cluster)
+			Expect(err).NotTo(HaveOccurred())
 
 			result, err = reconcileCluster(cluster)
 			// Target process group has status updated but not replaced
 			Expect(err).NotTo(HaveOccurred())
-			Expect(result.Requeue).To(BeFalse())
+			Expect(result.Requeue).To(BeTrue())
+
+			err = k8sClient.Get(context.TODO(), client.ObjectKey{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
+			Expect(err).NotTo(HaveOccurred())
 			Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]fdbv1beta2.ProcessGroupID{}))
 			targetProcessGroupStatus = fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, podProcessGroupID)
 			Expect(len(targetProcessGroupStatus.ProcessGroupConditions)).To(Equal(2))
@@ -544,14 +533,10 @@ var _ = Describe("replace_failed_process_groups", func() {
 
 			result, err = reconcileCluster(cluster)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(result.Requeue).To(BeTrue()) // Requeue to check reconciliation later
+			Expect(result.Requeue).To(BeFalse()) // Requeue to check reconciliation later
 			// target pod should have been removed by reconciliation
 			Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]fdbv1beta2.ProcessGroupID{}))
-			targetPodExist := false
-			if getPodByProcessGroupID(cluster, internal.GetProcessGroupIDFromMeta(cluster, pod.ObjectMeta)) != nil {
-				targetPodExist = true
-			}
-			Expect(targetPodExist).To(Equal(true))
+			Expect(getPodByProcessGroupID(cluster, internal.GetProcessGroupIDFromMeta(cluster, pod.ObjectMeta))).To(BeNil())
 		})
 	})
 

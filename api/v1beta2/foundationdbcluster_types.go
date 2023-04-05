@@ -224,7 +224,8 @@ type FoundationDBClusterSpec struct {
 // +kubebuilder:validation:MaxLength=1024
 type ImageType string
 
-// FoundationDBClusterStatus defines the observed state of FoundationDBCluster
+// FoundationDBClusterStatus defines the observed state of FoundationDBCluster.
+// Its object is persisted in k8s etcd so that operator can recover fdb deployment info after it crashes.
 type FoundationDBClusterStatus struct {
 	// DatabaseConfiguration provides the running configuration of the database.
 	DatabaseConfiguration DatabaseConfiguration `json:"databaseConfiguration,omitempty"`
@@ -669,6 +670,8 @@ func (processGroupStatus *ProcessGroupStatus) GetConditionTime(conditionType Pro
 	return nil
 }
 
+// GetCondition returns the ProcessGroupStatus's ProcessGroupCondition with conditionType condition;
+// It returns nil if the ProcessGroupStatus doesn't have conditionType condition
 func (processGroupStatus *ProcessGroupStatus) GetCondition(conditionType ProcessGroupConditionType) *ProcessGroupCondition {
 	for _, condition := range processGroupStatus.ProcessGroupConditions {
 		if condition.ProcessGroupConditionType == conditionType {
@@ -725,9 +728,9 @@ const (
 	PodPending ProcessGroupConditionType = "PodPending"
 	// ReadyCondition is currently only used in the metrics.
 	ReadyCondition ProcessGroupConditionType = "Ready"
-	// NodeTaintDetected represents a pod's node is tainted but not long enough for operator to replace it
+	// NodeTaintDetected represents a Pod's node is tainted but not long enough for operator to replace it
 	NodeTaintDetected ProcessGroupConditionType = "NodeTaintDetected"
-	// NodeTaintReplacing represents a pod whose node has been tainted for long enough and operator is replacing the pod
+	// NodeTaintReplacing represents a Pod whose node has been tainted for long enough and operator is replacing the Pod
 	NodeTaintReplacing ProcessGroupConditionType = "NodeTaintReplacing"
 )
 
