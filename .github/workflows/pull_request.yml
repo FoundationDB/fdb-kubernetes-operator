@@ -95,6 +95,7 @@ jobs:
         # Ensure we can upgrade the CRD with the current changes
         make install
         kubectl wait --for condition="established" crd --all
+        sleep 60
     - name: Ensure samples are in a valid format
       run: |
         kubectl apply -f ./config/samples --dry-run=server
