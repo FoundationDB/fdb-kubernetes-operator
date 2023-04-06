@@ -48,41 +48,22 @@ If those tests are running on a cluster that has no chaos-mesh installed, you ca
 ### Running e2e tests in kind
 
 [kind](https://kind.sigs.k8s.io) provides an easy way to run a local Kubernetes cluster.
+The following steps assume that `kind` is already installed.
 
 ```bash
-kind create cluster
-# This command assumes to be executed from the project root.
-make container-build
-# Push the image into the kind cluster.
-kind load docker-image "fdb-kubernetes-operator:latest"
+make -C e2e kind-setup
 ```
 
-Before you run the e2e tests you have to ensure that the latest CRDs for the operator are installed:
+This will call the [setup_e2e.sh](./scripts/setup_e2e.sh) script to setup `kind` and install chaos-mesh.
+After testing you can run the following command to remove the kind cluster:
 
 ```bash
-# This command should be executed from the project root
-kubectl apply -f ./config/crd/bases/
+make -C e2e kind-destroy
 ```
 
-If you want to run all tests, including tests that inject chaos you have to install [chaos mesh](https://chaos-mesh.org):
+If you want to iterate over different builds of the operator, you don't have to recreate the kind cluster multiple times.
+You just can rebuild the operator image and push the new image inside the kind cluster:
 
 ```bash
-chaos_mesh_version="2.5.0"
-
-kubectl create ns chaos-testing || true
-helm repo add chaos-mesh https://charts.chaos-mesh.org
-helm repo update
-
-# The configuration below is tested on a local Kind installation and might be different for the target Kubernetes cluster.
-helm upgrade -i chaos-mesh chaos-mesh/chaos-mesh \
-    --namespace chaos-testing \
-    --set dashboard.securityMode=false \
-    --set chaosDaemon.socketPath=/run/containerd/containerd.sock \
-    --set chaosDaemon.runtime=containerd \
-    --version "${chaos_mesh_version}"
-
-# Check if the Pods are running
-kubectl wait --for=condition=ready pods --namespace chaos-testing -l app.kubernetes.io/instance=chaos-mesh
+make -C e2e kind-update-operator
 ```
-
-The actual installation steps might be different based on your Kubernetes cluster.

@@ -39,7 +39,20 @@ clean:
 # This target can be used to delete namespaces that were created during testing. If a namespace is provided the user and
 # the namespace (as a prefix) must match.
 destroy-my-namespaces:
-	./remove_namespaces ${TEST_USERNAME} ${NAMESPACE}
+	./scripts/remove_namespaces ${TEST_USERNAME} ${NAMESPACE}
+
+# This target can be used to create a kind cluster that can be used for e2e testing.
+kind-setup:
+	@CHAOS_NAMESPACE=$(CHAOS_NAMESPACE) FDB_VERSION=$(FDB_VERSION) REGISTRY=$(REGISTRY) $(shell pwd)/scripts/setup_e2e.sh
+
+# This target will remove the kind cluster.
+kind-destroy:
+	@kind delete clusters e2e-tests
+
+# This target will build the operator image and updates the image in the kind clusters.
+kind-update-operator:
+	@BUILD_PLATFORM="linux/amd64" make -C "$(shell pwd)/.." container-build
+	@kind load docker-image "fdb-kubernetes-operator:latest" --name "e2e-tests"
 
 # No one in the team can figure out how to get ginkgo's test launcher to properly
 # manage concurrency, or control which tests are run in a predictable manner.
