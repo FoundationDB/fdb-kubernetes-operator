@@ -22,6 +22,7 @@ package controllers
 
 import (
 	"context"
+	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"time"
 
@@ -527,4 +528,62 @@ var _ = Describe("update_status", func() {
 			"7.1.15": 50,
 		}, "0", "7.1.15"),
 		Entry("when the versionMap is empty", map[string]int{}, "7.1.15", "7.1.15"))
+
+	When("updating the fault domains based on the cluster status", func() {
+		var processes map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo
+		var status fdbv1beta2.FoundationDBClusterStatus
+
+		BeforeEach(func() {
+			processes = map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo{
+				"storage-1": {
+					fdbv1beta2.FoundationDBStatusProcessInfo{
+						Locality: map[string]string{
+							fdbv1beta2.FDBLocalityZoneIDKey: "storage-1-zone",
+						},
+					},
+				},
+				"storage-2": {
+					fdbv1beta2.FoundationDBStatusProcessInfo{
+						Locality: map[string]string{
+							fdbv1beta2.FDBLocalityZoneIDKey: "storage-2-zone",
+						},
+					},
+					fdbv1beta2.FoundationDBStatusProcessInfo{
+						Locality: map[string]string{
+							fdbv1beta2.FDBLocalityZoneIDKey: "second",
+						},
+					},
+				},
+			}
+
+			status = fdbv1beta2.FoundationDBClusterStatus{
+				ProcessGroups: []*fdbv1beta2.ProcessGroupStatus{
+					{
+						ProcessGroupID: "storage-1",
+					},
+					{
+						ProcessGroupID: "storage-2",
+					},
+					{
+						ProcessGroupID: "storage-3",
+					},
+				},
+			}
+
+			updateFaultDomains(logr.Discard(), processes, &status)
+		})
+
+		It("should update the process group status", func() {
+			Expect(status.ProcessGroups).To(HaveLen(3))
+
+			for _, processGroup := range status.ProcessGroups {
+				if processGroup.ProcessGroupID == "storage-3" {
+					Expect(processGroup.FaultDomain).To(BeEmpty())
+					continue
+				}
+
+				Expect(processGroup.FaultDomain).To(And(HavePrefix(string(processGroup.ProcessGroupID)), HaveSuffix("zone")))
+			}
+		})
+	})
 })

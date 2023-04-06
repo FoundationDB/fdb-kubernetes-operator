@@ -100,10 +100,10 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 
 	versionMap := map[string]int{}
 	for _, process := range databaseStatus.Cluster.Processes {
-		processID, ok := process.Locality["process_id"]
+		processID, ok := process.Locality[fdbv1beta2.FDBLocalityProcessIDKey]
 		// if the processID is not set we fall back to the instanceID
 		if !ok {
-			processID = process.Locality["instance_id"]
+			processID = process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]
 		}
 		processMap[fdbv1beta2.ProcessGroupID(processID)] = append(processMap[fdbv1beta2.ProcessGroupID(processID)], process)
 		versionMap[process.Version]++
@@ -173,6 +173,8 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 		return &requeue{curError: err}
 	}
 	removeDuplicateConditions(status)
+
+	updateFaultDomains(logger, processMap, &status)
 
 	existingConfigMap := &corev1.ConfigMap{}
 	err = r.Get(ctx, types.NamespacedName{Namespace: configMap.Namespace, Name: configMap.Name}, existingConfigMap)
@@ -749,4 +751,23 @@ func getRunningVersion(versionMap map[string]int, fallback string) (string, erro
 	}
 
 	return currentCandidate.String(), nil
+}
+
+// updateFaultDomains will update the process groups fault domain, based on the last seen zone id in the cluster status.
+func updateFaultDomains(logger logr.Logger, processes map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo, status *fdbv1beta2.FoundationDBClusterStatus) {
+	for idx, processGroup := range status.ProcessGroups {
+		process, ok := processes[processGroup.ProcessGroupID]
+		if !ok || len(processes) == 0 {
+			logger.Info("skip updating fault domain for process group with missing process in FoundationDB cluster status", "processGroupID", processGroup.ProcessGroupID)
+			continue
+		}
+
+		zone, ok := process[0].Locality[fdbv1beta2.FDBLocalityZoneIDKey]
+		if !ok {
+			logger.Info("skip updating fault domain for process group with missing zoneid", "processGroupID", processGroup.ProcessGroupID)
+			continue
+		}
+
+		status.ProcessGroups[idx].FaultDomain = zone
+	}
 }
