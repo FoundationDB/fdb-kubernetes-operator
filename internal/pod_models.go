@@ -272,30 +272,78 @@ func ensureSecurityContextIsPresent(container *corev1.Container) {
 	}
 }
 
-func setAffinityForFaultDomain(cluster *fdbv1beta2.FoundationDBCluster, podSpec *corev1.PodSpec, processClass fdbv1beta2.ProcessClass) {
+func setAffinityForFaultDomain(cluster *fdbv1beta2.FoundationDBCluster, podSpec *corev1.PodSpec, processClass fdbv1beta2.ProcessClass, processGroupID fdbv1beta2.ProcessGroupID) {
 	faultDomainKey := cluster.Spec.FaultDomain.Key
 	if faultDomainKey == "" {
 		faultDomainKey = corev1.LabelHostname
 	}
 
-	// TODO (johscheuer): Implement logic fault domains here. Make sure we document the requirements in a doc.
-	if faultDomainKey != fdbv1beta2.NoneFaultDomainKey && faultDomainKey != fdbv1beta2.KubernetesClusterFaultDomainKey {
-		if podSpec.Affinity == nil {
-			podSpec.Affinity = &corev1.Affinity{}
+	if faultDomainKey == fdbv1beta2.NoneFaultDomainKey || faultDomainKey == fdbv1beta2.KubernetesClusterFaultDomainKey {
+		return
+	}
+
+	if podSpec.Affinity == nil {
+		podSpec.Affinity = &corev1.Affinity{}
+	}
+
+	if podSpec.Affinity.PodAntiAffinity == nil {
+		podSpec.Affinity.PodAntiAffinity = &corev1.PodAntiAffinity{}
+	}
+
+	labelSelectors := make(map[string]string, len(cluster.GetMatchLabels())+1)
+	for key, value := range cluster.GetMatchLabels() {
+		labelSelectors[key] = value
+	}
+
+	processClassLabel := cluster.GetProcessClassLabel()
+	labelSelectors[processClassLabel] = string(processClass)
+
+	if cluster.UseLogicalFaultDomains() {
+		// Ensure we select the same fault domain for logical fault domains.
+		labelSelectors[fdbv1beta2.FDBFaultDomainLabel] = cluster.GetFaultDomainForProcessGroupID(processGroupID)
+
+		if podSpec.Affinity.PodAffinity == nil {
+			podSpec.Affinity.PodAffinity = &corev1.PodAffinity{}
 		}
 
-		if podSpec.Affinity.PodAntiAffinity == nil {
-			podSpec.Affinity.PodAntiAffinity = &corev1.PodAntiAffinity{}
+		//  Affinity to schedule Pods with the same logical fault domain together into the same fault domain if possible
+		podSpec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(podSpec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution, corev1.WeightedPodAffinityTerm{
+			Weight: 1,
+			PodAffinityTerm: corev1.PodAffinityTerm{
+				TopologyKey:   faultDomainKey,
+				LabelSelector: &metav1.LabelSelector{MatchLabels: labelSelectors},
+			},
+		})
+
+		// Generate a PodAntiAffinity to make sure no Pods from a different fault domain will be scheduled together.
+		matchExpressions := make([]metav1.LabelSelectorRequirement, 0, len(labelSelectors))
+		for key, value := range labelSelectors {
+			if key == fdbv1beta2.FDBFaultDomainLabel {
+				matchExpressions = append(matchExpressions, metav1.LabelSelectorRequirement{
+					Key:      key,
+					Operator: metav1.LabelSelectorOpNotIn,
+					Values: []string{
+						value,
+					},
+				})
+				continue
+			}
+			matchExpressions = append(matchExpressions, metav1.LabelSelectorRequirement{
+				Key:      key,
+				Operator: metav1.LabelSelectorOpIn,
+				Values: []string{
+					value,
+				},
+			})
 		}
 
-		labelSelectors := make(map[string]string, len(cluster.GetMatchLabels())+1)
-		for key, value := range cluster.GetMatchLabels() {
-			labelSelectors[key] = value
-		}
-
-		processClassLabel := cluster.GetProcessClassLabel()
-		labelSelectors[processClassLabel] = string(processClass)
-
+		podSpec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution = append(podSpec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution, corev1.PodAffinityTerm{
+			TopologyKey: faultDomainKey,
+			LabelSelector: &metav1.LabelSelector{
+				MatchExpressions: matchExpressions,
+			},
+		})
+	} else {
 		podSpec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(podSpec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution,
 			corev1.WeightedPodAffinityTerm{
 				Weight: 1,
@@ -484,7 +532,7 @@ func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 
 	ensureSecurityContextIsPresent(mainContainer)
 	ensureSecurityContextIsPresent(sidecarContainer)
-	setAffinityForFaultDomain(cluster, podSpec, processClass)
+	setAffinityForFaultDomain(cluster, podSpec, processClass, processGroupID)
 	configureVolumesForContainers(cluster, podSpec, processSettings.VolumeClaimTemplate, podName, processClass)
 	configureNoSchedule(podSpec, processGroupID, cluster.Spec.Buggify.NoSchedule)
 
@@ -658,7 +706,7 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, proce
 
 // getEnvForMonitorConfigSubstitution provides the environment variables that
 // are used for substituting variables into the monitor config.
-func getEnvForMonitorConfigSubstitution(cluster *fdbv1beta2.FoundationDBCluster, instanceID fdbv1beta2.ProcessGroupID) []corev1.EnvVar {
+func getEnvForMonitorConfigSubstitution(cluster *fdbv1beta2.FoundationDBCluster, processGroupID fdbv1beta2.ProcessGroupID) []corev1.EnvVar {
 	env := make([]corev1.EnvVar, 0)
 
 	publicIPSource := cluster.Spec.Routing.PublicIPSource
@@ -714,6 +762,11 @@ func getEnvForMonitorConfigSubstitution(cluster *fdbv1beta2.FoundationDBCluster,
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
 		}})
 		env = append(env, corev1.EnvVar{Name: "FDB_ZONE_ID", Value: cluster.Spec.FaultDomain.Value})
+	} else if cluster.UseLogicalFaultDomains() {
+		env = append(env, corev1.EnvVar{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
+		}})
+		env = append(env, corev1.EnvVar{Name: "FDB_ZONE_ID", Value: cluster.GetFaultDomainForProcessGroupID(processGroupID)})
 	} else {
 		env = append(env, corev1.EnvVar{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
@@ -724,9 +777,8 @@ func getEnvForMonitorConfigSubstitution(cluster *fdbv1beta2.FoundationDBCluster,
 			}})
 		}
 	}
-	// TODO (johscheuer): implement logical fault domains!
 
-	env = append(env, corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: string(instanceID)})
+	env = append(env, corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: string(processGroupID)})
 
 	return env
 }
@@ -1013,13 +1065,11 @@ func GetPodMetadata(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1b
 	metadata.Annotations[fdbv1beta2.LastSpecKey] = specHash
 	metadata.Annotations[fdbv1beta2.PublicIPSourceAnnotation] = string(cluster.GetPublicIPSource())
 
-	// TODO (johscheuer): implement logical fault domains!
-
 	return metadata
 }
 
 // GetObjectMetadata returns the ObjectMetadata for a process
-func GetObjectMetadata(cluster *fdbv1beta2.FoundationDBCluster, base *metav1.ObjectMeta, processClass fdbv1beta2.ProcessClass, id fdbv1beta2.ProcessGroupID) metav1.ObjectMeta {
+func GetObjectMetadata(cluster *fdbv1beta2.FoundationDBCluster, base *metav1.ObjectMeta, processClass fdbv1beta2.ProcessClass, processGroupID fdbv1beta2.ProcessGroupID) metav1.ObjectMeta {
 	var metadata *metav1.ObjectMeta
 
 	if base != nil {
@@ -1033,7 +1083,7 @@ func GetObjectMetadata(cluster *fdbv1beta2.FoundationDBCluster, base *metav1.Obj
 		metadata.Labels = make(map[string]string)
 	}
 
-	for label, value := range GetPodLabels(cluster, processClass, string(id)) {
+	for label, value := range GetPodLabels(cluster, processClass, processGroupID) {
 		metadata.Labels[label] = value
 	}
 
@@ -1061,5 +1111,6 @@ func ContainsPod(cluster *fdbv1beta2.FoundationDBCluster, pod corev1.Pod) bool {
 			return false
 		}
 	}
+
 	return true
 }

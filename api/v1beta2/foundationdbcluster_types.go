@@ -2510,3 +2510,17 @@ func (cluster *FoundationDBCluster) PickLocality(processClass ProcessClass, curr
 
 	return leastFullLocality
 }
+
+// GetFaultDomainForProcessGroupID returns the fault domain for the provided process group ID. If the process group is not
+// present in the list of process groups it will return an empty string.
+func (cluster *FoundationDBCluster) GetFaultDomainForProcessGroupID(processGroupID ProcessGroupID) string {
+	for _, processGroup := range cluster.Status.ProcessGroups {
+		if processGroup.ProcessGroupID != processGroupID {
+			continue
+		}
+
+		return processGroup.FaultDomain
+	}
+
+	return ""
+}

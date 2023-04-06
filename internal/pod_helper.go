@@ -128,7 +128,7 @@ func GetJSONHash(object interface{}) (string, error) {
 }
 
 // GetPodLabels creates the labels that we will apply to a Pod
-func GetPodLabels(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, id string) map[string]string {
+func GetPodLabels(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, processGroupID fdbv1beta2.ProcessGroupID) map[string]string {
 	labels := map[string]string{}
 
 	for key, value := range cluster.GetMatchLabels() {
@@ -141,10 +141,15 @@ func GetPodLabels(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1bet
 		}
 	}
 
-	if id != "" {
+	if processGroupID != "" {
 		for _, label := range cluster.GetProcessGroupIDLabels() {
-			labels[label] = id
+			labels[label] = string(processGroupID)
 		}
+	}
+
+	faultDomain := cluster.GetFaultDomainForProcessGroupID(processGroupID)
+	if faultDomain != "" {
+		labels[fdbv1beta2.FDBFaultDomainLabel] = faultDomain
 	}
 
 	return labels

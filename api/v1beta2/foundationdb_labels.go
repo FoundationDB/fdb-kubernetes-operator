@@ -76,4 +76,7 @@ const (
 	// FDBLocalityProcessIDKey represents the key in the locality map that
 	// holds the process ID.
 	FDBLocalityProcessIDKey = "process_id"
+
+	// FDBFaultDomainLabel represents the label used for fault domains.
+	FDBFaultDomainLabel = "foundationdb.org/fault-domain"
 )

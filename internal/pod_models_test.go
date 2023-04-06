@@ -2407,6 +2407,72 @@ var _ = Describe("pod_models", func() {
 				Expect(checked).To(BeTrue())
 			})
 		})
+
+		When("using logical fault domains", func() {
+			BeforeEach(func() {
+				cluster.Spec.AutomationOptions.DistributionConfig.Enabled = pointer.Bool(true)
+				cluster.Spec.FaultDomain.Key = corev1.LabelHostname
+				// Ensure the process group is present
+				cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatusWithLocality("storage-1", fdbv1beta2.ProcessClassStorage, nil, "storage-1"))
+
+				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should set the correct affinity for the Pod", func() {
+				Expect(spec.Affinity).NotTo(BeNil())
+				Expect(spec.Affinity.PodAffinity).NotTo(BeNil())
+				Expect(spec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution).To(HaveLen(1))
+				Expect(spec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution[0].PodAffinityTerm.TopologyKey).To(Equal(corev1.LabelHostname))
+				Expect(spec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution[0].PodAffinityTerm.LabelSelector.MatchLabels).To(HaveKey(fdbv1beta2.FDBClusterLabel))
+				Expect(spec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution[0].PodAffinityTerm.LabelSelector.MatchLabels).To(HaveKey(fdbv1beta2.FDBFaultDomainLabel))
+				Expect(spec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution[0].PodAffinityTerm.LabelSelector.MatchLabels).To(HaveKey(fdbv1beta2.FDBProcessClassLabel))
+				Expect(spec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution[0].PodAffinityTerm.LabelSelector.MatchLabels[fdbv1beta2.FDBFaultDomainLabel]).To(Equal("storage-1"))
+				Expect(spec.Affinity.PodAntiAffinity).NotTo(BeNil())
+				Expect(spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution).To(HaveLen(1))
+				Expect(spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution[0].TopologyKey).To(Equal(corev1.LabelHostname))
+				Expect(spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution[0].LabelSelector.MatchExpressions).To(HaveLen(3))
+
+				expectedExpression := []metav1.LabelSelectorRequirement{
+					{
+						Key:      fdbv1beta2.FDBClusterLabel,
+						Operator: metav1.LabelSelectorOpIn,
+						Values: []string{
+							"operator-test-1",
+						},
+					},
+					{
+						Key:      fdbv1beta2.FDBProcessClassLabel,
+						Operator: metav1.LabelSelectorOpIn,
+						Values: []string{
+							string(fdbv1beta2.ProcessClassStorage),
+						},
+					},
+					{
+						Key:      fdbv1beta2.FDBFaultDomainLabel,
+						Operator: metav1.LabelSelectorOpNotIn,
+						Values: []string{
+							"storage-1",
+						},
+					},
+				}
+
+				Expect(spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution[0].LabelSelector.MatchExpressions).To(ConsistOf(expectedExpression))
+			})
+
+			It("should set the FDB_ZONE_ID to the logical fault domain", func() {
+				for _, container := range spec.Containers {
+					if container.Name != fdbv1beta2.SidecarContainerName {
+						continue
+					}
+
+					Expect(container.Env).To(ContainElement(corev1.EnvVar{
+						Name:  "FDB_ZONE_ID",
+						Value: "storage-1",
+					}))
+				}
+			})
+		})
 	})
 
 	Describe("GetService", func() {
