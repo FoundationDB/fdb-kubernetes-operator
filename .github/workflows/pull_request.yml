@@ -65,13 +65,15 @@ jobs:
         curl -L --fail "https://github.com/apple/foundationdb/releases/download/${FDB_VER}/foundationdb-clients_${FDB_VER}-1_amd64.deb" -o fdb.deb
         curl -Lo kind https://kind.sigs.k8s.io/dl/${KIND_VER}/kind-linux-amd64
     - name: Install dependencies
+      env:
+        KUBE_VERSION: ${{ matrix.kubever }}
       run: |
         # Install dependencies either from cache or freshly downloaded
         sudo dpkg -i fdb.deb
         # Install Kind and start a local Kubernetes cluster
         chmod +x kind
         sudo mv kind /usr/local/bin/kind
-        ./e2e/setup-local-fdb-cluster.sh yes ${{ matrix.kubever }}
+        ./e2e/scripts/setup-local-fdb-cluster.sh
     #  https://github.com/goreleaser/goreleaser/issues/1311
     - name: Get current semver tag
       run: echo "::set-output name=CURRENT_TAG::$(git describe --tags --match "v*" --abbrev=0)"
