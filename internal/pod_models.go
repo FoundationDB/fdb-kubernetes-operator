@@ -279,7 +279,7 @@ func setAffinityForFaultDomain(cluster *fdbv1beta2.FoundationDBCluster, podSpec 
 	}
 
 	// TODO (johscheuer): Implement logic fault domains here. Make sure we document the requirements in a doc.
-	if faultDomainKey != fdbv1beta2.NoneFaultDomainKey && faultDomainKey != "foundationdb.org/kubernetes-cluster" {
+	if faultDomainKey != fdbv1beta2.NoneFaultDomainKey && faultDomainKey != fdbv1beta2.KubernetesClusterFaultDomainKey {
 		if podSpec.Affinity == nil {
 			podSpec.Affinity = &corev1.Affinity{}
 		}
@@ -709,7 +709,7 @@ func getEnvForMonitorConfigSubstitution(cluster *fdbv1beta2.FoundationDBCluster,
 		env = append(env, corev1.EnvVar{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 		}})
-	} else if faultDomainKey == "foundationdb.org/kubernetes-cluster" {
+	} else if faultDomainKey == fdbv1beta2.KubernetesClusterFaultDomainKey {
 		env = append(env, corev1.EnvVar{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
 		}})
@@ -724,6 +724,7 @@ func getEnvForMonitorConfigSubstitution(cluster *fdbv1beta2.FoundationDBCluster,
 			}})
 		}
 	}
+	// TODO (johscheuer): implement logical fault domains!
 
 	env = append(env, corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: string(instanceID)})
 
@@ -1011,6 +1012,8 @@ func GetPodMetadata(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1b
 	}
 	metadata.Annotations[fdbv1beta2.LastSpecKey] = specHash
 	metadata.Annotations[fdbv1beta2.PublicIPSourceAnnotation] = string(cluster.GetPublicIPSource())
+
+	// TODO (johscheuer): implement logical fault domains!
 
 	return metadata
 }

@@ -32,4 +32,7 @@ const (
 
 	// NoneFaultDomainKey represents the none fault domain, where every Pod is a fault domain.
 	NoneFaultDomainKey = "foundationdb.org/none"
+
+	// KubernetesClusterFaultDomainKey represents the fault domain key for a kubernetes cluster.
+	KubernetesClusterFaultDomainKey = "foundationdb.org/kubernetes-cluster"
 )
