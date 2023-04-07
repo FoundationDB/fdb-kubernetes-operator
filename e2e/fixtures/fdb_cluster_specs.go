@@ -53,7 +53,7 @@ func (factory *Factory) createFDBClusterSpec(
 			MainContainer:                 mainContainerOverrides,
 			SidecarContainer:              sidecarContainerOverrides,
 			FaultDomain: fdbv1beta2.FoundationDBClusterFaultDomain{
-				Key: "foundationdb.org/none",
+				Key: fdbv1beta2.NoneFaultDomainKey,
 			},
 			AutomationOptions: fdbv1beta2.FoundationDBClusterAutomationOptions{
 				// We have to wait long enough to ensure the operator is not recreating to many Pods at the same time.

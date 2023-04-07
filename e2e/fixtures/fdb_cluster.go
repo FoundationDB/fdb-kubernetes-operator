@@ -1119,3 +1119,13 @@ func (fdbCluster *FdbCluster) UpdateContainerImage(pod *corev1.Pod, containerNam
 
 	gomega.Expect(fdbCluster.factory.GetControllerRuntimeClient().Update(ctx.Background(), pod)).NotTo(gomega.HaveOccurred())
 }
+
+// SetDistributionConfig sets the distribution config for the current FoundationDBCluster.
+func (fdbCluster *FdbCluster) SetDistributionConfig(config fdbv1beta2.DistributionConfig) {
+	fdbCluster.cluster.Spec.AutomationOptions.DistributionConfig = config
+	fdbCluster.UpdateClusterSpec()
+
+	cluster := fdbCluster.GetCluster()
+	gomega.Expect(cluster.Spec.AutomationOptions.DistributionConfig.Enabled).To(gomega.Equal(config.Enabled))
+	gomega.Expect(fdbCluster.WaitForReconciliation()).NotTo(gomega.HaveOccurred())
+}

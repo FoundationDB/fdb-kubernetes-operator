@@ -318,6 +318,110 @@ var _ = Describe("cluster_controller", func() {
 			})
 		})
 
+		When("enabling logical fault domains", func() {
+			BeforeEach(func() {
+				cluster.Spec.AutomationOptions.DistributionConfig = fdbv1beta2.DistributionConfig{
+					Enabled: pointer.Bool(true),
+				}
+				Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
+			})
+
+			It("should update the Pods", func() {
+				pods := &corev1.PodList{}
+				Expect(k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)).NotTo(HaveOccurred())
+				Expect(len(pods.Items)).To(Equal(len(originalPods.Items)))
+
+				// Ensure all Pods are replaced.
+				Expect(pods.Items[0].Name).NotTo(Equal(originalPods.Items[0].Name))
+				Expect(pods.Items[1].Name).NotTo(Equal(originalPods.Items[1].Name))
+				Expect(pods.Items[len(pods.Items)-1].Name).NotTo(Equal(originalPods.Items[len(pods.Items)-1].Name))
+
+				for _, pod := range pods.Items {
+					Expect(pod.Labels).To(HaveKey(fdbv1beta2.FDBFaultDomainLabel))
+				}
+			})
+
+			It("should update the status of the FoundationDBCluster", func() {
+				faultDomains := map[string]int{}
+
+				for _, processGroup := range cluster.Status.ProcessGroups {
+					Expect(processGroup.LogicalFaultDomainEnabled).To(BeTrue())
+					Expect(processGroup.FaultDomain).NotTo(BeEmpty())
+
+					faultDomains[processGroup.FaultDomain]++
+				}
+
+				// We have storage, stateless, log and cluster_controller
+				Expect(faultDomains).To(HaveLen(7))
+				// Check storage fault domains
+				Expect(faultDomains["storage-0"]).To(BeNumerically("==", 2))
+				Expect(faultDomains["storage-1"]).To(BeNumerically("==", 2))
+				// Check log fault domains
+				Expect(faultDomains["log-0"]).To(BeNumerically("==", 2))
+				Expect(faultDomains["log-1"]).To(BeNumerically("==", 2))
+			})
+
+			When("changing the logical fault domain prefix", func() {
+				BeforeEach(func() {
+					generationGap++
+					cluster.Spec.AutomationOptions.DistributionConfig = fdbv1beta2.DistributionConfig{
+						Enabled:           pointer.Bool(true),
+						FaultDomainPrefix: pointer.String("testing"),
+					}
+					Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
+				})
+
+				It("should update the Pods", func() {
+					pods := &corev1.PodList{}
+					Expect(k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)).NotTo(HaveOccurred())
+					Expect(len(pods.Items)).To(Equal(len(originalPods.Items)))
+
+					sortPodsByName(pods)
+					sortPodsByName(originalPods)
+					// Ensure all Pods are replaced.
+					Expect(pods.Items[0].Name).NotTo(Equal(originalPods.Items[0].Name))
+					Expect(pods.Items[1].Name).NotTo(Equal(originalPods.Items[1].Name))
+					Expect(pods.Items[len(pods.Items)-1].Name).NotTo(Equal(originalPods.Items[len(pods.Items)-1].Name))
+
+					for _, pod := range pods.Items {
+						Expect(pod.Labels).To(HaveKey(fdbv1beta2.FDBFaultDomainLabel))
+					}
+				})
+
+				It("should update the status of the FoundationDBCluster", func() {
+					faultDomains := map[string]int{}
+
+					for _, processGroup := range cluster.Status.ProcessGroups {
+						Expect(processGroup.LogicalFaultDomainEnabled).To(BeTrue())
+						Expect(processGroup.FaultDomain).NotTo(BeEmpty())
+
+						faultDomains[processGroup.FaultDomain]++
+					}
+
+					for faultDomainkey := range faultDomains {
+						Expect(faultDomainkey).To(HavePrefix("testing-"))
+					}
+
+					// We have storage, stateless, log and cluster_controller
+					Expect(faultDomains).To(HaveLen(7))
+					// Check storage fault domains
+					Expect(faultDomains["testing-storage-0"]).To(BeNumerically("==", 2))
+					Expect(faultDomains["testing-storage-1"]).To(BeNumerically("==", 2))
+					// Check log fault domains
+					Expect(faultDomains["testing-log-0"]).To(BeNumerically("==", 2))
+					Expect(faultDomains["testing-log-1"]).To(BeNumerically("==", 2))
+				})
+			})
+
+			// Grow case
+			When("changing the default number of fault domains", func() {
+
+			})
+
+			// Shrink case
+			// TODO should have the fault domains in the process
+		})
+
 		When("enabling the DNS names in the cluster file", func() {
 			BeforeEach(func() {
 				cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(true)

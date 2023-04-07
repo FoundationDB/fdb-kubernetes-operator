@@ -756,6 +756,11 @@ func getRunningVersion(versionMap map[string]int, fallback string) (string, erro
 // updateFaultDomains will update the process groups fault domain, based on the last seen zone id in the cluster status.
 func updateFaultDomains(logger logr.Logger, processes map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo, status *fdbv1beta2.FoundationDBClusterStatus) {
 	for idx, processGroup := range status.ProcessGroups {
+		// If we use the logical fault domains we don't have to update this information.
+		if processGroup.LogicalFaultDomainEnabled {
+			continue
+		}
+
 		process, ok := processes[processGroup.ProcessGroupID]
 		if !ok || len(processes) == 0 {
 			logger.Info("skip updating fault domain for process group with missing process in FoundationDB cluster status", "processGroupID", processGroup.ProcessGroupID)

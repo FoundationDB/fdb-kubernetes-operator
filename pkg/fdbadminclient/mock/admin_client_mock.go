@@ -212,6 +212,10 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 					fdbv1beta2.FDBLocalityDCIDKey:       client.Cluster.Spec.DataCenter,
 				}
 
+				if client.Cluster.UseLogicalFaultDomains() {
+					locality[fdbv1beta2.FDBLocalityZoneIDKey] = client.Cluster.GetFaultDomainForProcessGroupID(processGroupID)
+				}
+
 				for key, value := range client.localityInfo[processGroupID] {
 					locality[key] = value
 				}
@@ -482,7 +486,7 @@ func (client *AdminClient) GetExclusions() ([]fdbv1beta2.ProcessAddress, error) 
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
-	pAddrs := make([]fdbv1beta2.ProcessAddress, len(client.ExcludedAddresses))
+	pAddrs := make([]fdbv1beta2.ProcessAddress, 0, len(client.ExcludedAddresses))
 	for addr := range client.ExcludedAddresses {
 		pAddrs = append(pAddrs, fdbv1beta2.ProcessAddress{
 			IPAddress: net.ParseIP(addr),

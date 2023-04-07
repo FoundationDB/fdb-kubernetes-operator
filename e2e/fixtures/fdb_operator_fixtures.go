@@ -23,6 +23,7 @@ package fixtures
 import (
 	"fmt"
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/utils/pointer"
@@ -286,4 +287,9 @@ func WithLocalitiesForExclusion(_ *Factory, cluster *fdbv1beta2.FoundationDBClus
 // WithLUnifiedImage is an option that enables the unified image for a cluster.
 func WithLUnifiedImage(_ *Factory, cluster *fdbv1beta2.FoundationDBCluster) {
 	cluster.Spec.UseUnifiedImage = pointer.Bool(true)
+}
+
+// WithHostsAsFailureDomain is an option to make use of nodes as failure domain instead of using Pods as failure domain.
+func WithHostsAsFailureDomain(_ *Factory, cluster *fdbv1beta2.FoundationDBCluster) {
+	cluster.Spec.FaultDomain.Key = corev1.LabelHostname
 }
