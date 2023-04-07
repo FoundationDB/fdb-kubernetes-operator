@@ -95,6 +95,10 @@ jobs:
         # Ensure we can upgrade the CRD with the current changes
         make install
         kubectl wait --for condition="established" crd --all
+        # Add additional buffer time because we do not have a strong signal on
+        # when the CRD updates are complete.
+        # TODO: Find a way to get a stronger signal on this.
+        sleep 60
     - name: Ensure samples are in a valid format
       run: |
         kubectl apply -f ./config/samples --dry-run=server

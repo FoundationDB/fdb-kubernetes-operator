@@ -4300,9 +4300,15 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				Expect(cluster.NeedsHeadlessService()).To(BeTrue())
 			})
 
-			It("can be overridden by the DNS setting", func() {
+			It("can be overridden by the DNS in cluster file setting", func() {
 				cluster.Spec.Routing.HeadlessService = pointer.Bool(false)
 				cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(true)
+				Expect(cluster.NeedsHeadlessService()).To(BeTrue())
+			})
+
+			It("can be overridden by the DNS in locality setting", func() {
+				cluster.Spec.Routing.HeadlessService = pointer.Bool(false)
+				cluster.Spec.Routing.DefineDNSLocalityFields = pointer.Bool(true)
 				Expect(cluster.NeedsHeadlessService()).To(BeTrue())
 			})
 		})
@@ -4313,6 +4319,21 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 				cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(true)
 				Expect(cluster.UseDNSInClusterFile()).To(BeTrue())
+			})
+		})
+
+		When("checking whether we use DNS in the locality fields", func() {
+			It("respects the value in the flag", func() {
+				Expect(cluster.DefineDNSLocalityFields()).To(BeFalse())
+
+				cluster.Spec.Routing.DefineDNSLocalityFields = pointer.Bool(true)
+				Expect(cluster.DefineDNSLocalityFields()).To(BeTrue())
+			})
+
+			It("can be overridden by the DNS in cluster file setting", func() {
+				cluster.Spec.Routing.DefineDNSLocalityFields = pointer.Bool(false)
+				cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(true)
+				Expect(cluster.DefineDNSLocalityFields()).To(BeTrue())
 			})
 		})
 

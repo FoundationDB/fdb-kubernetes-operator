@@ -1648,6 +1648,11 @@ func (in *RoutingConfig) DeepCopyInto(out *RoutingConfig) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.DefineDNSLocalityFields != nil {
+		in, out := &in.DefineDNSLocalityFields, &out.DefineDNSLocalityFields
+		*out = new(bool)
+		**out = **in
+	}
 	if in.DNSDomain != nil {
 		in, out := &in.DNSDomain, &out.DNSDomain
 		*out = new(string)

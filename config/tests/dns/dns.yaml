@@ -2,4 +2,4 @@
   path: "/spec/routing/useDNSInClusterFile"
   value: true
 - op: remove
-  path: "/spec/routing/headlessService"
+  path: "/spec/routing/defineDNSLocalityFields"

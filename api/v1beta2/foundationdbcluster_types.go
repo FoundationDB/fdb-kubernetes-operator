@@ -1718,6 +1718,12 @@ type RoutingConfig struct {
 	// latest stable version of FoundationDB.
 	UseDNSInClusterFile *bool `json:"useDNSInClusterFile,omitempty"`
 
+	// DefineDNSLocalityFields determines whether to define pod DNS names on pod
+	// specs and provide them in the locality arguments to fdbserver.
+	//
+	// This is ignored if UseDNSInCluster is true.
+	DefineDNSLocalityFields *bool `json:"defineDNSLocalityFields,omitempty"`
+
 	// DNSDomain defines the cluster domain used in a DNS name generated for a
 	// service.
 	// The default is `cluster.local`.
@@ -1988,13 +1994,19 @@ const (
 // NeedsHeadlessService determines whether we need to create a headless service
 // for this cluster.
 func (cluster *FoundationDBCluster) NeedsHeadlessService() bool {
-	return cluster.UseDNSInClusterFile() || pointer.BoolDeref(cluster.Spec.Routing.HeadlessService, false)
+	return cluster.DefineDNSLocalityFields() || pointer.BoolDeref(cluster.Spec.Routing.HeadlessService, false)
 }
 
 // UseDNSInClusterFile determines whether we need to use DNS entries in the
 // cluster file for this cluster.
 func (cluster *FoundationDBCluster) UseDNSInClusterFile() bool {
 	return pointer.BoolDeref(cluster.Spec.Routing.UseDNSInClusterFile, false)
+}
+
+// DefineDNSLocalityFields determines whether we need to put DNS entries in the
+// pod spec and process locality.
+func (cluster *FoundationDBCluster) DefineDNSLocalityFields() bool {
+	return pointer.BoolDeref(cluster.Spec.Routing.DefineDNSLocalityFields, false) || cluster.UseDNSInClusterFile()
 }
 
 // GetDNSDomain gets the domain used when forming DNS names generated for a

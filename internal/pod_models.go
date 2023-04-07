@@ -560,7 +560,7 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, proce
 
 		sidecarEnv = append(sidecarEnv, getEnvForMonitorConfigSubstitution(cluster, processGroupID)...)
 
-		if cluster.UseDNSInClusterFile() {
+		if cluster.DefineDNSLocalityFields() {
 			sidecarArgs = append(sidecarArgs, "--substitute-variable", "FDB_DNS_NAME")
 			sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_DNS_NAME", Value: GetPodDNSName(cluster, podName)})
 		}

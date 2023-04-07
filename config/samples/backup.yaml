@@ -118,7 +118,7 @@ spec:
             requests:
               storage: 16G
   routing:
-    headlessService: true
+    defineDNSLocalityFields: true
   sidecarContainer:
     enableLivenessProbe: true
     enableReadinessProbe: false
