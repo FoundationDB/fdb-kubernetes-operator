@@ -110,6 +110,16 @@ func NewCliAdminClient(cluster *fdbv1beta2.FoundationDBCluster, _ client.Client,
 	}, nil
 }
 
+// getMaxTimeout returns the maximum timeout, this is either the default of 40 seconds or if the provided default timeout
+// is higher it will be the default cli timeout.
+func (client *cliAdminClient) getMaxTimeout() time.Duration {
+	if DefaultCLITimeout > 40*time.Second {
+		return DefaultCLITimeout
+	}
+
+	return 40 * time.Second
+}
+
 // cliCommand describes a command that we are running against FDB.
 type cliCommand struct {
 	// binary is the binary to run.
@@ -268,7 +278,6 @@ func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 
 // runCommandWithBackoff is a wrapper around runCommand which allows retrying commands if they hit a timeout.
 func (client *cliAdminClient) runCommandWithBackoff(command string) (string, error) {
-	maxTimeout := 40 * time.Second
 	currentTimeout := DefaultCLITimeout
 
 	var rawResult string
@@ -278,7 +287,7 @@ func (client *cliAdminClient) runCommandWithBackoff(command string) (string, err
 	// it with the default timeout of 10s we will try it 3 times with the following timeouts: 10s - 20s - 40s. We have
 	// seen that during upgrades of version incompatible version, when not all coordinators are properly restarted that
 	// the response time will be increased.
-	for currentTimeout <= maxTimeout {
+	for currentTimeout <= client.getMaxTimeout() {
 		rawResult, err = client.runCommand(cliCommand{command: command, timeout: currentTimeout})
 		if err == nil {
 			break
@@ -429,7 +438,7 @@ func (client *cliAdminClient) ExcludeProcesses(addresses []fdbv1beta2.ProcessAdd
 
 	excludeCommand.WriteString(fdbv1beta2.ProcessAddressesString(addresses, " "))
 
-	_, err = client.runCommandWithBackoff(excludeCommand.String())
+	_, err = client.runCommand(cliCommand{command: excludeCommand.String(), timeout: client.getMaxTimeout()})
 
 	return err
 }
@@ -511,7 +520,6 @@ func getRemainingAndExcludedFromStatus(status *fdbv1beta2.FoundationDBStatus, ad
 		delete(notExcludedAddresses, process.Address.MachineAddress())
 	}
 
-	// TODO double check the capacity we reserve here.
 	exclusions := exclusionStatus{
 		inProgress:      make([]fdbv1beta2.ProcessAddress, 0, len(addresses)-len(notExcludedAddresses)-len(fullyExcludedAddresses)),
 		fullyExcluded:   make([]fdbv1beta2.ProcessAddress, 0, len(fullyExcludedAddresses)),
