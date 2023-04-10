@@ -56,7 +56,7 @@ func (factory *Factory) createFDBClusterSpec(
 				Key: "foundationdb.org/none",
 			},
 			AutomationOptions: fdbv1beta2.FoundationDBClusterAutomationOptions{
-				// We have to wait long enough to ensure the operator is not recreating to many Pods at the same time.
+				// We have to wait long enough to ensure the operator is not recreating too many Pods at the same time.
 				WaitBetweenRemovalsSeconds: pointer.Int(0),
 				Replacements: fdbv1beta2.AutomaticReplacementOptions{
 					Enabled: pointer.Bool(true),

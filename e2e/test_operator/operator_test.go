@@ -37,11 +37,13 @@ import (
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/e2e/fixtures"
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	chaosmesh "github.com/chaos-mesh/chaos-mesh/api/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 )
 
@@ -138,6 +140,66 @@ var _ = Describe("Operator", Label("e2e"), func() {
 		})
 
 		It("should remove the targeted Pod", func() {
+			fdbCluster.EnsurePodIsDeleted(replacedPod.Name)
+		})
+	})
+
+	When("taint a Pod", func() {
+		var replacedPod corev1.Pod
+		taintKeyMaintenance := "maintenance"
+		taintKeyMaintenanceDuration := int64(2)
+		taintKeyStar := "*"
+		taintKeyStarDuration := int64(5)
+
+		BeforeEach(func() {
+			initialPods := fdbCluster.GetStatelessPods()
+			replacedPod = fixtures.RandomPickOnePod(initialPods.Items)
+			replacedPodProcessGroupID := internal.GetProcessGroupIDFromMeta(fdbCluster.GetCluster(), replacedPod.ObjectMeta)
+			// Taint replacePod's node
+			node := &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{Name: replacedPod.Spec.NodeName},
+			}
+			node.Spec.Taints = []corev1.Taint{
+				{
+					Key:       taintKeyMaintenance,
+					Value:     "rack maintenance",
+					Effect:    corev1.TaintEffectNoExecute,
+					TimeAdded: &metav1.Time{Time: time.Now().Add(-time.Second * time.Duration(taintKeyMaintenanceDuration+1))},
+				},
+			}
+			log.Printf("Taint node: Node name:%s Node taints:%+v TaintTime:%+v Now:%+v\n", replacedPod.Name,
+				node.Spec.Taints, node.Spec.Taints[0].TimeAdded.Time, time.Now())
+			err := fdbCluster.UpdateNode(node)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Setup cluster's taint config and wait for long enough
+			err = fdbCluster.SetClusterTaintConfig([]fdbv1beta2.TaintReplacementOption{
+				{
+					Key:               &taintKeyStar,
+					DurationInSeconds: &taintKeyStarDuration,
+				},
+				{
+					Key:               &taintKeyMaintenance,
+					DurationInSeconds: &taintKeyMaintenanceDuration,
+				},
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(fdbCluster.GetAutomationOptions().Replacements.Enabled).To(BeTrue())
+			processGroupStatus := fdbv1beta2.FindProcessGroupByID(fdbCluster.GetCluster().Status.ProcessGroups, replacedPodProcessGroupID)
+			Expect(processGroupStatus).NotTo(BeNil())
+			Expect(processGroupStatus.GetCondition(fdbv1beta2.NodeTaintDetected)).NotTo(BeNil())
+			Expect(processGroupStatus.GetCondition(fdbv1beta2.NodeTaintReplacing)).NotTo(BeNil())
+
+			// Wait for operator to replace the pod
+			time.Sleep(time.Second * time.Duration(*fdbCluster.GetAutomationOptions().Replacements.FailureDetectionTimeSeconds))
+		})
+
+		AfterEach(func() {
+			Expect(fdbCluster.ClearProcessGroupsToRemove()).NotTo(HaveOccurred())
+		})
+
+		PIt("should taint and remove the targeted Pod", func() {
 			fdbCluster.EnsurePodIsDeleted(replacedPod.Name)
 		})
 	})
