@@ -70,10 +70,10 @@ jobs:
       run: |
         # Install dependencies either from cache or freshly downloaded
         sudo dpkg -i fdb.deb
-        # Install Kind and start a local Kubernetes cluster
+        # Install Kind and start a local Kind cluster.
         chmod +x kind
         sudo mv kind /usr/local/bin/kind
-        ./e2e/scripts/setup-local-fdb-cluster.sh
+        ./e2e/scripts/start_kind_cluster.sh
     #  https://github.com/goreleaser/goreleaser/issues/1311
     - name: Get current semver tag
       run: echo "::set-output name=CURRENT_TAG::$(git describe --tags --match "v*" --abbrev=0)"

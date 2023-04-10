@@ -30,24 +30,8 @@ KUBE_VERSION=${KUBE_VERSION:-"v1.24.7"}
 # Kind cluster name
 CLUSTER=${CLUSTER:-"local-cluster"}
 
-if ! kind get clusters | grep "${CLUSTER}" &> /dev/null; then
-    echo "===Start creating k8s cluster on kind"
-    cat <<EOF | kind create cluster --name "${CLUSTER}" --config=-
-kind: Cluster
-apiVersion: kind.x-k8s.io/v1alpha4
-nodes:
-- role: control-plane
-  image: kindest/node:${KUBE_VERSION}
-- role: worker
-  image: kindest/node:${KUBE_VERSION}
-- role: worker
-  image: kindest/node:${KUBE_VERSION}
-- role: worker
-  image: kindest/node:${KUBE_VERSION}
-EOF
-else
-    echo "===Kind cluster already exists"
-fi
+# Create the Kind cluster with the specified Kubernetes version.
+CLUSTER=${CLUSTER} KUBE_VERSION=${KUBE_VERSION} ${SCRIPT_DIR}/start_kind_cluster.sh
 
 kubectl config use-context "kind-${CLUSTER}"
 

@@ -1,3 +1,4 @@
+
 #!/usr/bin/env bash
 
 # This source file is part of the FoundationDB open source project
@@ -44,29 +45,14 @@ FDB_VERSION=${FDB_VERSION:-"7.1.25"}
 # Defines the registry to pull the images from.
 REGISTRY=${REGISTRY:-""}
 # Name for the new Kind cluster
-CLUSTER=${CLUSTER:-e2e-tests}
+CLUSTER=${CLUSTER:-"e2e-tests"}
 # Chaos Mesh version that should be used to install chaos-mesh
 CHAOS_MESH_VERSION=${CHAOS_MESH_VERSION:-"2.5.0"}
 # Defines the namespace to install Chaos Mesh to.
 CHAOS_NAMESPACE=${CHAOS_NAMESPACE:-"chaos-testing"}
 
 # Create the Kind cluster with the specified Kubernetes version.
-cat <<EOF | kind create cluster --name "${CLUSTER}" --config=-
-kind: Cluster
-apiVersion: kind.x-k8s.io/v1alpha4
-nodes:
-- role: control-plane
-  image: kindest/node:${KUBE_VERSION}
-- role: worker
-  image: kindest/node:${KUBE_VERSION}
-- role: worker
-  image: kindest/node:${KUBE_VERSION}
-- role: worker
-  image: kindest/node:${KUBE_VERSION}
-EOF
-
-kind get kubeconfig --name "${CLUSTER}" > "${SCRIPT_DIR}/e2e_test.kubeconfig"
-export KUBECONFIG="${SCRIPT_DIR}/e2e_test.kubeconfig"
+CLUSTER=${CLUSTER} KUBE_VERSION=${KUBE_VERSION} ${SCRIPT_DIR}/start_kind_cluster.sh
 
 echo "Preload FoundationDB images for version ${FDB_VERSION}"
 fdb_image=$(get_image_name "foundationdb/foundationdb:${FDB_VERSION}")
