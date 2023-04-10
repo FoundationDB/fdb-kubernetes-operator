@@ -119,6 +119,11 @@ func (fdbCluster *FdbCluster) Update() error {
 	return fdbCluster.getClient().Update(ctx.Background(), fdbCluster.cluster)
 }
 
+// Update node
+func (fdbCluster *FdbCluster) UpdateNode(node *corev1.Node) error {
+	return fdbCluster.getClient().Update(ctx.Background(), node)
+}
+
 // ReconciliationOptions defines the different reconciliation options.
 type ReconciliationOptions struct {
 	allowSoftReconciliation bool
@@ -976,6 +981,12 @@ func (fdbCluster *FdbCluster) SetEmptyMonitorConf(enable bool) error {
 	}
 	log.Printf("Enabling empty monitor succeeded in cluster: %s", fdbCluster.Name())
 	return nil
+}
+
+func (fdbCluster *FdbCluster) SetClusterTaintConfig(taintOption []fdbv1beta2.TaintReplacementOption) error {
+	fdbCluster.cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions = taintOption
+	return fdbCluster.getClient().Update(ctx.Background(), fdbCluster.cluster)
+
 }
 
 // GetProcessCounts returns the process counts of the current FoundationDBCluster.

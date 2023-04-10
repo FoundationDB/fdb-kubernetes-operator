@@ -624,7 +624,7 @@ func FilterByConditions(processGroupStatus []*ProcessGroupStatus, conditionRules
 	return result
 }
 
-// MatchesConditions checks if the provided conditionRules exist in the process group's conditions
+// MatchesConditions checks if the provided conditionRules matches in the process group's conditions
 //
 // If a condition is mapped to true in the conditionRules map, this condition must be present in the process group.
 // If a condition is mapped to false in the conditionRules map, the condition must be absent in the process group.
