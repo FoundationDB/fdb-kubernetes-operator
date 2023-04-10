@@ -874,4 +874,52 @@ var _ = Describe("Operator Upgrades", Label("e2e"), func() {
 		EntryDescription("Upgrade from %[1]s to %[2]s and one process is missing the new binary"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
 	)
+
+	DescribeTable(
+		"upgrading a cluster when no storage processes are restarted",
+		func(beforeVersion string, targetVersion string) {
+			// We set the before version here to overwrite the before version from the specific flag
+			// the specific flag will be removed in the future.
+			isAtLeast := factory.OperatorIsAtLeast(
+				"v1.14.0",
+			)
+
+			if !isAtLeast {
+				Skip("operator doesn't support feature for test case")
+			}
+
+			clusterSetup(beforeVersion, true)
+
+			// Select storage processes and use the buggify option to skip those
+			// processes during the restart command.
+			storagePods := fdbCluster.GetStoragePods()
+			Expect(storagePods.Items).NotTo(BeEmpty())
+
+			ignoreDuringRestart := make(
+				[]fdbv1beta2.ProcessGroupID,
+				0,
+				len(storagePods.Items),
+			)
+
+			for _, pod := range storagePods.Items {
+				ignoreDuringRestart = append(
+					ignoreDuringRestart,
+					fdbv1beta2.ProcessGroupID(pod.Labels[fdbCluster.GetCachedCluster().GetProcessGroupIDLabel()]),
+				)
+			}
+
+			log.Println(
+				"Selected Pods:",
+				ignoreDuringRestart,
+				" to be skipped during the restart",
+			)
+			fdbCluster.SetIgnoreDuringRestart(ignoreDuringRestart)
+
+			// The cluster should still be able to upgrade.
+			Expect(fdbCluster.UpgradeCluster(targetVersion, true)).NotTo(HaveOccurred())
+		},
+		EntryDescription("Upgrade from %[1]s to %[2]s when no storage processes are restarted"),
+		fixtures.GenerateUpgradeTableEntries(testOptions),
+	)
+
 })
