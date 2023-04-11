@@ -30,6 +30,7 @@ Since FoundationDB is version incompatible for major and minor versions and the 
 import (
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -352,7 +353,9 @@ var _ = Describe("Operator Upgrades", Label("e2e"), func() {
 			log.Println(
 				"Selected coordinator:",
 				selectedCoordinator.Name,
-				" to be restarted during the staging phase",
+				"(podIP:",
+				selectedCoordinator.Status.PodIP,
+				") to be restarted during the staging phase",
 			)
 
 			// Disable the feature that the operator restarts processes. This allows us to restart the coordinator
@@ -375,6 +378,22 @@ var _ = Describe("Operator Upgrades", Label("e2e"), func() {
 				false,
 			)
 			Expect(err).NotTo(HaveOccurred())
+
+			// Wait for the server process to restart.
+			time.Sleep(40 * time.Second)
+
+			// Check if the restarted process is showing up in IncompatibleConnections list in status output.
+			status := fdbCluster.GetStatus()
+			log.Println("IncompatibleProcesses:", status.Cluster.IncompatibleConnections)
+
+			// NOTE: The restarted process doesn't show up in IncompatibleConnections list consistently, hence
+			// the check below. Not sure what we can do to address this inconsistent behavior.
+			if len(status.Cluster.IncompatibleConnections) != 0 {
+				Expect(len(status.Cluster.IncompatibleConnections)).To(Equal(1))
+				// Extract the IP of the incompatible process.
+				incompatibleProcess := strings.Split(status.Cluster.IncompatibleConnections[0], ":")[0]
+				Expect(incompatibleProcess == selectedCoordinator.Status.PodIP).Should(BeTrue())
+			}
 
 			// Allow the operator to restart processes and the upgrade should continue and finish.
 			fdbCluster.SetKillProcesses(true)
@@ -471,7 +490,9 @@ var _ = Describe("Operator Upgrades", Label("e2e"), func() {
 			log.Println(
 				"Selected coordinator:",
 				selectedCoordinator.Name,
-				" to be skipped during the restart",
+				"(podIP:",
+				selectedCoordinator.Status.PodIP,
+				") to be skipped during the restart",
 			)
 			fdbCluster.SetIgnoreDuringRestart(
 				[]fdbv1beta2.ProcessGroupID{
@@ -481,6 +502,12 @@ var _ = Describe("Operator Upgrades", Label("e2e"), func() {
 
 			// The cluster should still be able to upgrade.
 			Expect(fdbCluster.UpgradeCluster(targetVersion, true)).NotTo(HaveOccurred())
+
+			// NOTE: The coordinator process selected above is getting restarted - why the buggify option
+			// is not preventing the restart? If that's how the buggigy option is supposed to behave, figure
+			// out how to capture the status before that coordinator process gets restarted.
+			status := fdbCluster.GetStatus()
+			Expect(len(status.Cluster.IncompatibleConnections)).To(Equal(0))
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s with one coordinator not being restarted"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
@@ -911,7 +938,7 @@ var _ = Describe("Operator Upgrades", Label("e2e"), func() {
 			log.Println(
 				"Selected Pods:",
 				ignoreDuringRestart,
-				" to be skipped during the restart",
+				"to be skipped during the restart",
 			)
 			fdbCluster.SetIgnoreDuringRestart(ignoreDuringRestart)
 
