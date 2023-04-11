@@ -117,7 +117,7 @@ var _ = Describe("update_status", func() {
 			})
 		})
 
-		When("a process group is fine and data hall is replication enabled", func() {
+		When("a process group is fine and data hall replication is enabled", func() {
 			BeforeEach(func() {
 				cluster.Spec.DatabaseConfiguration.RedundancyMode = fdbv1beta2.RedundancyModeThreeDataHall
 				cluster.Spec.Localities = []fdbv1beta2.Locality{
