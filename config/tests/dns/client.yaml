@@ -17,7 +17,7 @@ spec:
       automountServiceAccountToken: false
       initContainers:
         - name: foundationdb-kubernetes-init-7-1
-          image: foundationdb/foundationdb-kubernetes-sidecar:7.1.25-1
+          image: foundationdb/foundationdb-kubernetes-sidecar:7.1.26-1
           imagePullPolicy: IfNotPresent
           args:
             - "--copy-file"
@@ -40,7 +40,7 @@ spec:
             - name: FDB_CLUSTER_FILE
               value: /var/dynamic-conf/fdb.cluster
             - name: FDB_API_VERSION
-              value: "610"
+              value: "710"
             - name: FDB_NETWORK_OPTION_TRACE_LOG_GROUP
               value: test-cluster-client
             - name: FDB_NETWORK_OPTION_TRACE_ENABLE

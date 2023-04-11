@@ -22,6 +22,7 @@ package controllers
 
 import (
 	"context"
+	"k8s.io/utils/pointer"
 	"sort"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
@@ -44,11 +45,8 @@ var _ = Describe("add_services", func() {
 		cluster = internal.CreateDefaultCluster()
 		source := fdbv1beta2.PublicIPSourceService
 		cluster.Spec.Routing.PublicIPSource = &source
-		enabled := true
-		cluster.Spec.Routing.HeadlessService = &enabled
-
-		err = k8sClient.Create(context.TODO(), cluster)
-		Expect(err).NotTo(HaveOccurred())
+		cluster.Spec.Routing.HeadlessService = pointer.Bool(true)
+		Expect(k8sClient.Create(context.TODO(), cluster)).NotTo(HaveOccurred())
 
 		result, err := reconcileCluster(cluster)
 		Expect(err).NotTo(HaveOccurred())
@@ -59,22 +57,18 @@ var _ = Describe("add_services", func() {
 		Expect(generation).To(Equal(int64(1)))
 
 		initialServices = &corev1.ServiceList{}
-		err = k8sClient.List(context.TODO(), initialServices)
-		Expect(err).NotTo(HaveOccurred())
+		Expect(k8sClient.List(context.TODO(), initialServices)).NotTo(HaveOccurred())
 
-		err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
-		Expect(err).NotTo(HaveOccurred())
+		Expect(internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})).NotTo(HaveOccurred())
 	})
 
 	JustBeforeEach(func() {
 		requeue = addServices{}.reconcile(context.TODO(), clusterReconciler, cluster)
-		Expect(err).NotTo(HaveOccurred())
 		_, err = reloadCluster(cluster)
 		Expect(err).NotTo(HaveOccurred())
 
 		newServices = &corev1.ServiceList{}
-		err = k8sClient.List(context.TODO(), newServices)
-		Expect(err).NotTo(HaveOccurred())
+		Expect(k8sClient.List(context.TODO(), newServices)).NotTo(HaveOccurred())
 		sort.Slice(newServices.Items, func(i1, i2 int) bool {
 			return newServices.Items[i1].Name < newServices.Items[i2].Name
 		})
@@ -173,10 +167,8 @@ var _ = Describe("add_services", func() {
 	Context("with no headless service", func() {
 		BeforeEach(func() {
 			service := &corev1.Service{}
-			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, service)
-			Expect(err).NotTo(HaveOccurred())
-			err = k8sClient.Delete(context.TODO(), service)
-			Expect(err).NotTo(HaveOccurred())
+			Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, service)).NotTo(HaveOccurred())
+			Expect(k8sClient.Delete(context.TODO(), service)).NotTo(HaveOccurred())
 		})
 
 		It("should not requeue", func() {
@@ -195,8 +187,7 @@ var _ = Describe("add_services", func() {
 
 		Context("with the headless service disabled", func() {
 			BeforeEach(func() {
-				enabled := false
-				cluster.Spec.Routing.HeadlessService = &enabled
+				cluster.Spec.Routing.HeadlessService = pointer.Bool(false)
 			})
 
 			It("should not requeue", func() {

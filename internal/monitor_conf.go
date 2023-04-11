@@ -268,7 +268,7 @@ func GetMonitorProcessConfiguration(cluster *fdbv1beta2.FoundationDBCluster, pro
 		}})
 	}
 
-	if cluster.UseDNSInClusterFile() {
+	if cluster.DefineDNSLocalityFields() {
 		configuration.Arguments = append(configuration.Arguments, monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
 			{Value: "--locality_dns_name="},
 			{ArgumentType: monitorapi.EnvironmentArgumentType, Source: "FDB_DNS_NAME"},

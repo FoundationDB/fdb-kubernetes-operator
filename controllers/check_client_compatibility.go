@@ -79,18 +79,11 @@ func (c checkClientCompatibility) reconcile(_ context.Context, r *FoundationDBCl
 		return &requeue{curError: err}
 	}
 
-	var unsupportedClients []string
-	for _, versionInfo := range status.Cluster.Clients.SupportedVersions {
-		if versionInfo.ProtocolVersion == "Unknown" {
-			continue
-		}
-
-		if versionInfo.ProtocolVersion != protocolVersion {
-			for _, client := range versionInfo.MaxProtocolClients {
-				unsupportedClients = append(unsupportedClients, client.Description())
-			}
-		}
+	ignoredLogGroups := make(map[string]fdbv1beta2.None)
+	for _, logGroup := range cluster.Spec.AutomationOptions.IgnoreLogGroupsForUpgrade {
+		ignoredLogGroups[logGroup] = fdbv1beta2.None{}
 	}
+	unsupportedClients := getUnsupportedClients(status.Cluster.Clients.SupportedVersions, protocolVersion, ignoredLogGroups)
 
 	if len(unsupportedClients) > 0 {
 		message := fmt.Sprintf(
@@ -103,4 +96,23 @@ func (c checkClientCompatibility) reconcile(_ context.Context, r *FoundationDBCl
 	}
 
 	return nil
+}
+
+func getUnsupportedClients(supportedVersions []fdbv1beta2.FoundationDBStatusSupportedVersion, protocolVersion string, ignoredLogGroups map[string]fdbv1beta2.None) []string {
+	var unsupportedClients []string
+	for _, versionInfo := range supportedVersions {
+		if versionInfo.ProtocolVersion == "Unknown" {
+			continue
+		}
+
+		if versionInfo.ProtocolVersion != protocolVersion {
+			for _, client := range versionInfo.MaxProtocolClients {
+				if _, ok := ignoredLogGroups[client.LogGroup]; ok {
+					continue
+				}
+				unsupportedClients = append(unsupportedClients, client.Description())
+			}
+		}
+	}
+	return unsupportedClients
 }

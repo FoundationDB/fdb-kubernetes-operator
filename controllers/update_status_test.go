@@ -54,8 +54,7 @@ var _ = Describe("update_status", func() {
 
 		BeforeEach(func() {
 			cluster = internal.CreateDefaultCluster()
-			err = setupClusterForTest(cluster)
-			Expect(err).NotTo(HaveOccurred())
+			Expect(setupClusterForTest(cluster)).NotTo(HaveOccurred())
 
 			pods, err = clusterReconciler.PodLifecycleManager.GetPods(context.TODO(), clusterReconciler, cluster, internal.GetSinglePodListOptions(cluster, "storage-1")...)
 			Expect(err).NotTo(HaveOccurred())
@@ -68,8 +67,7 @@ var _ = Describe("update_status", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			configMap = &corev1.ConfigMap{}
-			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name + "-config"}, configMap)
-			Expect(err).NotTo(HaveOccurred())
+			Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name + "-config"}, configMap)).NotTo(HaveOccurred())
 		})
 
 		JustBeforeEach(func() {
@@ -98,8 +96,7 @@ var _ = Describe("update_status", func() {
 				processGroupStatus := fdbv1beta2.NewProcessGroupStatus("storage-1337", fdbv1beta2.ProcessClassStorage, []string{"1.1.1.1"})
 				// Reset the status to only tests for the missing Pod
 				processGroupStatus.ProcessGroupConditions = []*fdbv1beta2.ProcessGroupCondition{}
-				err := validateProcessGroup(context.TODO(), clusterReconciler, cluster, nil, nil, "", processGroupStatus)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(validateProcessGroup(context.TODO(), clusterReconciler, cluster, nil, nil, "", processGroupStatus)).NotTo(HaveOccurred())
 				Expect(len(processGroupStatus.ProcessGroupConditions)).To(Equal(1))
 				Expect(processGroupStatus.ProcessGroupConditions[0].ProcessGroupConditionType).To(Equal(fdbv1beta2.MissingPod))
 			})

@@ -66,8 +66,7 @@ func parseMaxCommandOutput() int {
 
 var protocolVersionRegex = regexp.MustCompile(`(?m)^protocol (\w+)$`)
 
-// cliAdminClient provides an implementation of the admin interface using the
-// FDB CLI.
+// cliAdminClient provides an implementation of the admin interface using the FDB CLI.
 type cliAdminClient struct {
 	// Cluster is the reference to the cluster model.
 	Cluster *fdbv1beta2.FoundationDBCluster
@@ -85,6 +84,10 @@ type cliAdminClient struct {
 	// cmdRunner is an interface to run commands. In the real runner we use the exec package to execute binaries. In
 	// the mock runner we can define mocked output for better integration tests,.
 	cmdRunner commandRunner
+
+	// fdbLibClient is an interface to interact with a FDB cluster over the FDB client libraries. In the real fdb lib client
+	// we will issue the actual requests against FDB. In the mock runner we will return predefined output.
+	fdbLibClient fdbLibClient
 }
 
 // NewCliAdminClient generates an Admin client for a cluster
@@ -100,6 +103,10 @@ func NewCliAdminClient(cluster *fdbv1beta2.FoundationDBCluster, _ client.Client,
 		clusterFilePath: clusterFile,
 		log:             logger,
 		cmdRunner:       &realCommandRunner{log: logger},
+		fdbLibClient: &realFdbLibClient{
+			cluster: cluster,
+			logger:  logger,
+		},
 	}, nil
 }
 
@@ -340,7 +347,7 @@ func (client *cliAdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error
 	defer adminClientMutex.Unlock()
 
 	// This will call directly the database and fetch the status information from the system key space.
-	status, err := getStatusFromDB(client.Cluster, client.log)
+	status, err := getStatusFromDB(client.fdbLibClient)
 	// There is a limitation in the multi version client if the cluster is only partially upgraded e.g. because not
 	// all fdbserver processes are restarted, then the multi version client sometimes picks the wrong version
 	// to connect to the cluster. This will result in an empty status only reporting the unreachable coordinators.
@@ -414,20 +421,15 @@ func (client *cliAdminClient) ExcludeProcesses(addresses []fdbv1beta2.ProcessAdd
 		return err
 	}
 
-	var excludeCommand string
+	var excludeCommand strings.Builder
+	excludeCommand.WriteString("exclude ")
 	if version.HasNonBlockingExcludes(client.Cluster.GetUseNonBlockingExcludes()) {
-		excludeCommand = fmt.Sprintf(
-			"exclude no_wait %s",
-			fdbv1beta2.ProcessAddressesString(addresses, " "),
-		)
-	} else {
-		excludeCommand = fmt.Sprintf(
-			"exclude %s",
-			fdbv1beta2.ProcessAddressesString(addresses, " "),
-		)
+		excludeCommand.WriteString("no_wait ")
 	}
 
-	_, err = client.runCommandWithBackoff(excludeCommand)
+	excludeCommand.WriteString(fdbv1beta2.ProcessAddressesString(addresses, " "))
+
+	_, err = client.runCommandWithBackoff(excludeCommand.String())
 
 	return err
 }
@@ -478,6 +480,8 @@ type exclusionStatus struct {
 	fullyExcluded []fdbv1beta2.ProcessAddress
 	// notExcluded contains all addresses that are part of the input list and are not marked as excluded in the cluster, those addresses are not safe to remove.
 	notExcluded []fdbv1beta2.ProcessAddress
+	// missingInStatus contains all addresses that are part of the input list but are not appearing in the cluster status json.
+	missingInStatus []fdbv1beta2.ProcessAddress
 }
 
 // getRemainingAndExcludedFromStatus checks which processes of the input address list are excluded in the cluster and which are not.
@@ -507,44 +511,46 @@ func getRemainingAndExcludedFromStatus(status *fdbv1beta2.FoundationDBStatus, ad
 		delete(notExcludedAddresses, process.Address.MachineAddress())
 	}
 
+	// TODO double check the capacity we reserve here.
 	exclusions := exclusionStatus{
-		inProgress:    make([]fdbv1beta2.ProcessAddress, 0, len(addresses)-len(notExcludedAddresses)-len(fullyExcludedAddresses)),
-		fullyExcluded: make([]fdbv1beta2.ProcessAddress, 0, len(fullyExcludedAddresses)),
-		notExcluded:   make([]fdbv1beta2.ProcessAddress, 0, len(notExcludedAddresses)),
+		inProgress:      make([]fdbv1beta2.ProcessAddress, 0, len(addresses)-len(notExcludedAddresses)-len(fullyExcludedAddresses)),
+		fullyExcluded:   make([]fdbv1beta2.ProcessAddress, 0, len(fullyExcludedAddresses)),
+		notExcluded:     make([]fdbv1beta2.ProcessAddress, 0, len(notExcludedAddresses)),
+		missingInStatus: make([]fdbv1beta2.ProcessAddress, 0, len(notExcludedAddresses)),
 	}
 
 	for _, addr := range addresses {
-		// Those addresses are not excluded, so it's not safe to start the exclude command to check
-		// if they are fully excluded. If we didn't visit that address (absent in the cluster status) we assume
-		// it's safe to run the exclude command against it.
-		_, visited := visitedAddresses[addr.MachineAddress()]
-		if _, ok := notExcludedAddresses[addr.MachineAddress()]; ok && visited {
+		// If we didn't visit that address (absent in the cluster status) we assume it's safe to run the exclude command against it.
+		// We have to run the exclude command against those addresses, to make sure they are not serving any roles.
+		if _, ok := visitedAddresses[addr.MachineAddress()]; !ok {
+			exclusions.missingInStatus = append(exclusions.missingInStatus, addr)
+			continue
+		}
+
+		// Those addresses are not excluded, so it's not safe to start the exclude command to check if they are fully excluded.
+		if _, ok := notExcludedAddresses[addr.MachineAddress()]; ok {
 			exclusions.notExcluded = append(exclusions.notExcluded, addr)
 			continue
 		}
 
+		// Those are the processes that are marked as excluded and are not serving any roles. It's safe to delete Pods
+		// that host those processes.
 		if _, ok := fullyExcludedAddresses[addr.MachineAddress()]; ok {
 			exclusions.fullyExcluded = append(exclusions.fullyExcluded, addr)
 			continue
 		}
 
+		// Those are the processes that are marked as excluded but still serve at least one role.
 		exclusions.inProgress = append(exclusions.inProgress, addr)
 	}
 
 	return exclusions
 }
 
-// CanSafelyRemove checks whether it is safe to remove processes from the
-// cluster
+// CanSafelyRemove checks whether it is safe to remove processes from the cluster
 //
-// The list returned by this method will be the addresses that are *not*
-// safe to remove.
+// The list returned by this method will be the addresses that are *not* safe to remove.
 func (client *cliAdminClient) CanSafelyRemove(addresses []fdbv1beta2.ProcessAddress) ([]fdbv1beta2.ProcessAddress, error) {
-	version, err := fdbv1beta2.ParseFdbVersion(client.Cluster.Spec.Version)
-	if err != nil {
-		return nil, err
-	}
-
 	status, err := client.GetStatus()
 	if err != nil {
 		return nil, err
@@ -552,73 +558,31 @@ func (client *cliAdminClient) CanSafelyRemove(addresses []fdbv1beta2.ProcessAddr
 
 	exclusions := getRemainingAndExcludedFromStatus(status, addresses)
 	client.log.Info("Filtering excluded processes",
-		"cluster", client.Cluster.Name,
 		"inProgress", exclusions.inProgress,
 		"fullyExcluded", exclusions.fullyExcluded,
-		"notExcluded", exclusions.notExcluded)
+		"notExcluded", exclusions.notExcluded,
+		"missingInStatus", exclusions.missingInStatus)
 
-	if version.HasNonBlockingExcludes(client.Cluster.GetUseNonBlockingExcludes()) {
-		output, err := client.runCommand(cliCommand{command: fmt.Sprintf(
-			"exclude no_wait %s",
-			fdbv1beta2.ProcessAddressesString(exclusions.inProgress, " "),
-		)})
+	notSafeToDelete := append(exclusions.notExcluded, exclusions.inProgress...)
+	// When we have at least one process that is missing in the status, we have to issue the exclude command to make sure, that those
+	// missing processes can be removed or not.
+	if len(exclusions.missingInStatus) > 0 {
+		err = client.ExcludeProcesses(exclusions.missingInStatus)
+		// When we hit a timeout error here we know that at least one of the missingInStatus is still not fully excluded for safety
+		// we just return the whole slice and don't do any further distinction. We have to return all addresses that are not excluded
+		// and are still in progress, but we don't want to return an error to block further actions on the successfully excluded
+		// addresses.
 		if err != nil {
+			if internal.IsTimeoutError(err) {
+				return append(exclusions.notExcluded, exclusions.missingInStatus...), nil
+			}
+
 			return nil, err
 		}
-		exclusionResults := parseExclusionOutput(output)
-		client.log.Info("Checking exclusion results", "addresses", exclusions.inProgress, "results", exclusionResults)
-		for _, address := range exclusions.inProgress {
-			if exclusionResults[address.String()] != "Success" && exclusionResults[address.String()] != "Missing" {
-				exclusions.notExcluded = append(exclusions.notExcluded, address)
-			}
-		}
-
-		return exclusions.notExcluded, nil
 	}
 
-	// We expect that this command always run without a timeout error since all processes should be fully excluded.
-	// We run this only as an additional safety check.
-	err = client.ExcludeProcesses(exclusions.fullyExcluded)
-	if err != nil {
-		return nil, err
-	}
-
-	err = client.ExcludeProcesses(exclusions.inProgress)
-	// When we hit a timeout error here we know that at least one of the inProgress is still not fully excluded for safety
-	// we just return the whole slice and don't do any further distinction. We have to return all addresses that are not excluded
-	// and are still in progress, but we don't want to return an error to block further actions on the successfully excluded
-	// addresses.
-	if err != nil {
-		if internal.IsTimeoutError(err) {
-			return append(exclusions.notExcluded, exclusions.inProgress...), nil
-		}
-
-		return nil, err
-	}
-
-	return exclusions.notExcluded, nil
-}
-
-// parseExclusionOutput extracts the exclusion status for each address from
-// the output of an exclusion command.
-func parseExclusionOutput(output string) map[string]string {
-	results := make(map[string]string)
-	var regex = regexp.MustCompile(`\s*(\[?[\w.:\]?]+)(\([\w ]*\))?\s*-+(.*)`)
-	matches := regex.FindAllStringSubmatch(output, -1)
-	for _, match := range matches {
-		address := match[1]
-		status := match[len(match)-1]
-		if strings.Contains(status, "Successfully excluded") {
-			results[address] = "Success"
-		} else if strings.Contains(status, "WARNING: Missing from cluster") {
-			results[address] = "Missing"
-		} else if strings.Contains(status, "Exclusion in progress") {
-			results[address] = "In Progress"
-		} else {
-			results[address] = "Unknown"
-		}
-	}
-	return results
+	// All processes that are either not yet marked as excluded or still serving at least one role, cannot be removed safely.
+	return notSafeToDelete, nil
 }
 
 // KillProcesses restarts processes
@@ -674,7 +638,7 @@ func cleanConnectionStringOutput(input string) string {
 func (client *cliAdminClient) GetConnectionString() (string, error) {
 	// This will call directly the database and fetch the connection string
 	// from the system key space.
-	outputBytes, err := getConnectionStringFromDB(client.Cluster, client.log)
+	outputBytes, err := getConnectionStringFromDB(client.fdbLibClient)
 
 	if err != nil {
 		return "", err

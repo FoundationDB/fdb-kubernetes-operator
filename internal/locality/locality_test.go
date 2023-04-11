@@ -675,8 +675,7 @@ var _ = Describe("Change coordinators", func() {
 					})
 			})
 
-			It("should ignore the process"+
-				"", func() {
+			It("should ignore the process", func() {
 				coordinatorsValid, addressesValid, err := CheckCoordinatorValidity(logr.Discard(), cluster, status, coordinatorStatus)
 				Expect(coordinatorsValid).To(BeTrue())
 				Expect(addressesValid).To(BeTrue())
@@ -686,18 +685,35 @@ var _ = Describe("Change coordinators", func() {
 
 		When("a process misses the public-address flag", func() {
 			BeforeEach(func() {
+				process := status.Cluster.Processes["3"]
+				process.CommandLine = ""
+				status.Cluster.Processes["3"] = process
+
+				Expect(status.Cluster.Processes["3"].CommandLine).To(BeEmpty())
+			})
+
+			It("should report that not all addresses and coordinators are valid", func() {
+				coordinatorsValid, addressesValid, err := CheckCoordinatorValidity(logr.Discard(), cluster, status, coordinatorStatus)
+				Expect(coordinatorsValid).To(BeFalse())
+				Expect(addressesValid).To(BeFalse())
+				Expect(err).To(BeNil())
+			})
+		})
+
+		When("a process is missing localities", func() {
+			BeforeEach(func() {
 				status.Cluster.Processes["4"] = fdbv1beta2.FoundationDBStatusProcessInfo{
 					Address: fdbv1beta2.ProcessAddress{
-						IPAddress: net.ParseIP("1.1.1.4"),
-						Port:      4501,
+						IPAddress: net.ParseIP("127.0.0.1"),
 					},
+					ProcessClass: fdbv1beta2.ProcessClassLog,
 				}
 			})
 
-			It("should report that not all addresses are valid", func() {
+			It("should be ignored", func() {
 				coordinatorsValid, addressesValid, err := CheckCoordinatorValidity(logr.Discard(), cluster, status, coordinatorStatus)
 				Expect(coordinatorsValid).To(BeTrue())
-				Expect(addressesValid).To(BeFalse())
+				Expect(addressesValid).To(BeTrue())
 				Expect(err).To(BeNil())
 			})
 		})

@@ -9875,6 +9875,11 @@ spec:
                     type: string
                   failedPodDurationSeconds:
                     type: integer
+                  ignoreLogGroupsForUpgrade:
+                    items:
+                      type: string
+                    maxItems: 10
+                    type: array
                   ignoreMissingProcessesSeconds:
                     type: integer
                   ignorePendingPodsDuration:
@@ -13585,6 +13590,8 @@ spec:
                 type: boolean
               routing:
                 properties:
+                  defineDNSLocalityFields:
+                    type: boolean
                   dnsDomain:
                     maxLength: 253
                     minLength: 1
@@ -13826,11 +13833,13 @@ spec:
                   processGroups:
                     items:
                       type: string
+                    maxItems: 200
                     type: array
                   startTimestamp:
                     format: date-time
                     type: string
                   zoneID:
+                    maxLength: 512
                     type: string
                 type: object
               needsNewCoordinators:

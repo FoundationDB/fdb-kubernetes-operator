@@ -57,7 +57,7 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 		return &requeue{curError: err}
 	}
 
-	minimumUptime, addressMap, err := internal.GetMinimumUptimeAndAddressMap(cluster, status, r.EnableRecoveryState)
+	minimumUptime, addressMap, err := internal.GetMinimumUptimeAndAddressMap(logger, cluster, status, r.EnableRecoveryState)
 	if err != nil {
 		return &requeue{curError: err}
 	}
@@ -70,6 +70,8 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 	if len(addresses) == 0 {
 		return nil
 	}
+
+	logger.V(1).Info("processes that can be restarted", "addresses", addresses)
 
 	if minimumUptime < float64(cluster.GetMinimumUptimeSecondsForBounce()) {
 		r.Recorder.Event(cluster, corev1.EventTypeNormal, "NeedsBounce",
@@ -107,6 +109,8 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 		for _, processGroup := range cluster.Status.ProcessGroups {
 			processGroupIDs = append(processGroupIDs, processGroup.ProcessGroupID)
 		}
+
+		log.V(1).Info("adding processes to the pending upgrades", "processGroupIDs", processGroupIDs)
 		err = lockClient.AddPendingUpgrades(version, processGroupIDs)
 		if err != nil {
 			return &requeue{curError: err}
@@ -182,7 +186,7 @@ func getProcessesReadyForRestart(logger logr.Logger, cluster *fdbv1beta2.Foundat
 		}
 
 		if !processGroup.MatchesConditions(filterConditions) {
-			logger.Info("ignore process group with non matching conditions", "processGroupID", processGroup.ProcessGroupID)
+			logger.V(1).Info("ignore process group with non matching conditions", "processGroupID", processGroup.ProcessGroupID, "expectedConditions", filterConditions, "currentConditions", processGroup.ProcessGroupConditions)
 			continue
 		}
 
@@ -220,7 +224,14 @@ func getProcessesReadyForRestart(logger logr.Logger, cluster *fdbv1beta2.Foundat
 	// block the restart command if a process is missing longer than the specified GetIgnoreMissingProcessesSeconds.
 	// Those checks should ensure we only run the restart command if all processes that have to be restarted and are connected
 	// to cluster are ready to be restarted.
-	if cluster.IsBeingUpgradedWithVersionIncompatibleVersion() && (counts.Total()-missingProcesses) != len(addresses) {
+	expectedProcesses := counts.Total() - missingProcesses
+	// If more than one storage server per Pod is running we have to account for this. In this case we have to add the
+	// additional storage processes.
+	if cluster.Spec.StorageServersPerPod > 1 {
+		expectedProcesses += counts.Storage * (cluster.Spec.StorageServersPerPod - 1)
+	}
+
+	if cluster.IsBeingUpgradedWithVersionIncompatibleVersion() && expectedProcesses != len(addresses) {
 		return nil, &requeue{
 			message:        fmt.Sprintf("expected %d processes, got %d processes ready to restart", counts.Total(), len(addresses)),
 			delayedRequeue: true,

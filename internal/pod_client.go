@@ -385,6 +385,7 @@ func (client *realFdbPodAnnotationClient) UpdateFile(name string, contents strin
 		}
 		return match, nil
 	}
+
 	return false, fmt.Errorf("unknown file %s", name)
 }
 
