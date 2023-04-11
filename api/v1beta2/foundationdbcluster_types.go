@@ -2370,7 +2370,7 @@ type Locality struct {
 	TopologyKey string `json:"topologyKey,omitempty"`
 	//The node selectors for the locality
 	// When three data hall replication is enabled the node selectors are used to evenly distribute the processes across the data halls.
-	// Requiring at least thrree node selectors, each mapping to a different data hall.
+	// Requiring at least three node selectors, each mapping to a different data hall.
 	// +kubebuilder:validation:Optional
 	NodeSelectors [][]string `json:"nodeSelector,omitempty"`
 }
