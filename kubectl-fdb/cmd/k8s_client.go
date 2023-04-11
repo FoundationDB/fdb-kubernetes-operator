@@ -103,7 +103,7 @@ func getNodes(kubeClient client.Client, nodeSelector map[string]string) ([]strin
 		return []string{}, err
 	}
 
-	nodes := make([]string, len(nodesList.Items))
+	nodes := make([]string, 0, len(nodesList.Items))
 
 	for _, node := range nodesList.Items {
 		nodes = append(nodes, node.Name)
