@@ -2368,7 +2368,7 @@ type Locality struct {
 	// The topology key is used by the operator to set the podAntiAffinity rules. This field requires the sidecar to read the topology labels
 	// from the pod which is not supported in the current version of the sidecar. See https://github.com/apple/foundationdb/pull/8506
 	TopologyKey string `json:"topologyKey,omitempty"`
-	//The node selectors for the locality
+	//The node selectors for the locality.
 	// When three data hall replication is enabled the node selectors are used to evenly distribute the processes across the data halls.
 	// Requiring at least three node selectors, each mapping to a different data hall.
 	// +kubebuilder:validation:Optional
@@ -2430,7 +2430,7 @@ func (cluster *FoundationDBCluster) Validate() error {
 
 	// Check if localities have been defined when three data hall replication is configured.
 	if cluster.Spec.DatabaseConfiguration.RedundancyMode == RedundancyModeThreeDataHall {
-		found := false
+		var found bool
 		for _, l := range cluster.Spec.Localities {
 			if l.Key == FDBLocalityDataHallKey {
 				found = true
@@ -2438,7 +2438,7 @@ func (cluster *FoundationDBCluster) Validate() error {
 					validations = append(validations, fmt.Sprintf("topology key is currently not supported by the operator for %s replication", RedundancyModeThreeDataHall))
 				}
 				if len(l.NodeSelectors) != 3 {
-					validations = append(validations, fmt.Sprintf("%s replication requires tree node selectors for datahall locality", RedundancyModeThreeDataHall))
+					validations = append(validations, fmt.Sprintf("%s replication requires three node selectors for datahall locality", RedundancyModeThreeDataHall))
 				}
 				if l.Key == "" {
 					validations = append(validations, fmt.Sprintf("%s replication requires a key and value for all localities", RedundancyModeThreeDataHall))
