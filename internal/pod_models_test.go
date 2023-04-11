@@ -971,7 +971,7 @@ var _ = Describe("pod_models", func() {
 		When("enabling DNS in the locality fields", func() {
 			BeforeEach(func() {
 				cluster.Spec.Routing.DefineDNSLocalityFields = pointer.Bool(true)
-				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1, "")
 			})
 
 			It("should set an additional environment variable on the init container", func() {
