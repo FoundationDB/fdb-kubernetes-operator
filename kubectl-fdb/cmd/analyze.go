@@ -23,11 +23,12 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"strings"
-	"time"
 
 	"context"
 
@@ -295,7 +296,7 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, cluster *fdbv1
 			printStatement(cmd, statement, errorMessage)
 		}
 
-		needsReplacement, _ := processGroup.NeedsReplacement(0)
+		needsReplacement, _ := processGroup.NeedsReplacement(0, 0)
 		if needsReplacement && autoFix {
 			failedProcessGroups = append(failedProcessGroups, string(processGroup.ProcessGroupID))
 		}

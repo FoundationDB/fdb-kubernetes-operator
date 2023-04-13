@@ -363,18 +363,29 @@ func (processGroupStatus *ProcessGroupStatus) MarkForRemoval() {
 }
 
 // NeedsReplacement checks if the ProcessGroupStatus has conditions so that it should be removed
-func (processGroupStatus *ProcessGroupStatus) NeedsReplacement(failureTime int) (bool, int64) {
-	var missingTime *int64
-	for _, condition := range conditionsThatNeedReplacement {
-		conditionTime := processGroupStatus.GetConditionTime(condition)
-		if conditionTime != nil && (missingTime == nil || *missingTime > *conditionTime) {
-			missingTime = conditionTime
+func (processGroupStatus *ProcessGroupStatus) NeedsReplacement(failureTime int, taintReplacementTime int) (bool, int64) {
+	var earliestFailureTime *int64
+	var earliestTaintReplacementTime *int64
+	for _, conditionType := range conditionsThatNeedReplacement {
+		conditionTime := processGroupStatus.GetConditionTime(conditionType)
+		if conditionType != NodeTaintReplacing {
+			if conditionTime != nil && (earliestFailureTime == nil || *earliestFailureTime > *conditionTime) {
+				earliestFailureTime = conditionTime
+			}
+		} else {
+			if conditionTime != nil && (earliestTaintReplacementTime == nil || *earliestTaintReplacementTime > *conditionTime) {
+				earliestTaintReplacementTime = conditionTime
+			}
 		}
 	}
 
 	failureWindowStart := time.Now().Add(-1 * time.Duration(failureTime) * time.Second).Unix()
-	if missingTime != nil && *missingTime < failureWindowStart && !processGroupStatus.IsMarkedForRemoval() {
-		return true, *missingTime
+	if earliestFailureTime != nil && *earliestFailureTime < failureWindowStart && !processGroupStatus.IsMarkedForRemoval() {
+		return true, *earliestFailureTime
+	}
+	taintWindowStart := time.Now().Add(-1 * time.Duration(taintReplacementTime) * time.Second).Unix()
+	if earliestTaintReplacementTime != nil && *earliestTaintReplacementTime < taintWindowStart && !processGroupStatus.IsMarkedForRemoval() {
+		return true, *earliestTaintReplacementTime
 	}
 
 	return false, 0
@@ -1005,6 +1016,11 @@ type AutomaticReplacementOptions struct {
 	// failed or missing before it is automatically replaced.
 	// The default is 7200 seconds, or 2 hours.
 	FailureDetectionTimeSeconds *int `json:"failureDetectionTimeSeconds,omitempty"`
+
+	// TaintReplacementTimeSeconds controls how long a pod stays in NodeTaintReplacing condition
+	// before it is automatically replaced.
+	// The default is 1800 seconds, i.e., 30min
+	TaintReplacementTimeSeconds *int `json:"taintReplacementTimeSeconds,omitempty"`
 
 	// MaxConcurrentReplacements controls how many automatic replacements are allowed to take part.
 	// This will take the list of current replacements and then calculate the difference between
@@ -2198,6 +2214,11 @@ func (cluster *FoundationDBCluster) GetEnableAutomaticReplacements() bool {
 // GetFailureDetectionTimeSeconds returns cluster.Spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds or if unset the default 7200
 func (cluster *FoundationDBCluster) GetFailureDetectionTimeSeconds() int {
 	return pointer.IntDeref(cluster.Spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds, 7200)
+}
+
+// TaintReplacementTimeSeconds returns cluster.Spec.AutomationOptions.Replacements.TaintReplacementTimeSeconds or if unset the default 1800
+func (cluster *FoundationDBCluster) GetTaintReplacementTimeSeconds() int {
+	return pointer.IntDeref(cluster.Spec.AutomationOptions.Replacements.TaintReplacementTimeSeconds, 1800)
 }
 
 // GetSidecarContainerEnableLivenessProbe returns cluster.Spec.SidecarContainer.EnableLivenessProbe or if unset the default true

@@ -47,6 +47,7 @@ func CreateDefaultCluster() *fdbv1beta2.FoundationDBCluster {
 				Replacements: fdbv1beta2.AutomaticReplacementOptions{
 					Enabled:                     pointer.Bool(true),
 					FailureDetectionTimeSeconds: pointer.Int(1),
+					TaintReplacementTimeSeconds: pointer.Int(1),
 				},
 				WaitBetweenRemovalsSeconds: pointer.Int(0),
 			},

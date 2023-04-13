@@ -48,6 +48,7 @@ AutomaticReplacementOptions controls options for automatically replacing failed 
 | ----- | ----------- | ------ | -------- |
 | enabled | Enabled controls whether automatic replacements are enabled. The default is false. | *bool | false |
 | failureDetectionTimeSeconds | FailureDetectionTimeSeconds controls how long a process must be failed or missing before it is automatically replaced. The default is 7200 seconds, or 2 hours. | *int | false |
+| taintReplacementTimeSeconds | TaintReplacementTimeSeconds controls how long a pod stays in NodeTaintReplacing condition before it is automatically replaced. The default is 1800 seconds, i.e., 30min | *int | false |
 | maxConcurrentReplacements | MaxConcurrentReplacements controls how many automatic replacements are allowed to take part. This will take the list of current replacements and then calculate the difference between maxConcurrentReplacements and the size of the list. e.g. if currently 3 replacements are queued (e.g. in the processGroupsToRemove list) and maxConcurrentReplacements is 5 the operator is allowed to replace at most 2 process groups. Setting this to 0 will basically disable the automatic replacements. | *int | false |
 | taintReplacementOptions | TaintReplacementOption controls which taint label the operator will react to. | [][TaintReplacementOption](#taintreplacementoption) | false |
 
