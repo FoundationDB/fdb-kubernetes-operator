@@ -27,13 +27,6 @@ rules:
   - update
   - watch
 - apiGroups:
-  - ""
-  resources:
-  - nodes
-  verbs:
-  - get
-  - list
-- apiGroups:
   - apps
   resources:
   - deployments

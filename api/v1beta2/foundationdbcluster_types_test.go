@@ -4035,7 +4035,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		})
 
 		JustBeforeEach(func() {
-			needsReplacement, timestamp = processGroup.NeedsReplacement(60)
+			needsReplacement, timestamp = processGroup.NeedsReplacement(60, 60)
 		})
 
 		Context("with no conditions", func() {

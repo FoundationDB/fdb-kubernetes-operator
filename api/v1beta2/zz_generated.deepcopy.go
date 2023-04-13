@@ -41,6 +41,11 @@ func (in *AutomaticReplacementOptions) DeepCopyInto(out *AutomaticReplacementOpt
 		*out = new(int)
 		**out = **in
 	}
+	if in.TaintReplacementTimeSeconds != nil {
+		in, out := &in.TaintReplacementTimeSeconds, &out.TaintReplacementTimeSeconds
+		*out = new(int)
+		**out = **in
+	}
 	if in.MaxConcurrentReplacements != nil {
 		in, out := &in.MaxConcurrentReplacements, &out.MaxConcurrentReplacements
 		*out = new(int)
