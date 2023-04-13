@@ -23,6 +23,7 @@ package controllers
 import (
 	"context"
 	ctx "context"
+	"math/rand"
 	"time"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient/mock"
@@ -583,6 +584,46 @@ var _ = Describe("replace_failed_process_groups", func() {
 			Expect(getPodByProcessGroupID(cluster, internal.GetProcessGroupIDFromMeta(cluster, pod.ObjectMeta))).To(BeNil())
 		})
 
+		It("should remove all pods on tainted nodes when many nodes are tainted", func() {
+			Expect(len(allPods)).To(BeNumerically(">", 4))
+			taintedNodesIndex := map[int]struct{}{}
+			taintedNodes := []*corev1.Node{}
+			taintedPods := []*corev1.Pod{}
+			for len(taintedNodesIndex) < 5 { // taint 4 nodes
+				taintedNodesIndex[rand.Intn(len(allPods))] = struct{}{}
+			}
+			for key := range taintedNodesIndex {
+				pod := allPods[key]
+				node := &corev1.Node{
+					ObjectMeta: metav1.ObjectMeta{Name: pod.Spec.NodeName},
+				}
+				taintedPods = append(taintedPods, pod)
+				taintedNodes = append(taintedNodes, node)
+			}
+			for i, taintedNode := range taintedNodes {
+				taintedNode.Spec.Taints = []corev1.Taint{
+					{
+						Key:       taintKeyMaintenance,
+						Value:     "rack_maintenance",
+						Effect:    corev1.TaintEffectNoExecute,
+						TimeAdded: &metav1.Time{Time: time.Now()},
+					},
+				}
+				err = k8sClient.Update(context.TODO(), node)
+				Expect(err).NotTo(HaveOccurred())
+				log.Info("Taint node", "Index", i, "Node name", pod.Name, "Node taints", node.Spec.Taints)
+			}
+
+			time.Sleep(time.Second * time.Duration(*cluster.Spec.AutomationOptions.Replacements.TaintReplacementTimeSeconds+1))
+
+			result, err := reconcileCluster(cluster)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.Requeue).To(BeFalse()) // Requeue to check reconciliation later
+			Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]fdbv1beta2.ProcessGroupID{}))
+			for _, taintedPod := range taintedPods {
+				Expect(getPodByProcessGroupID(cluster, internal.GetProcessGroupIDFromMeta(cluster, taintedPod.ObjectMeta))).NotTo(BeNil())
+			}
+		})
 	})
 
 	Context("with no missing processes", func() {
