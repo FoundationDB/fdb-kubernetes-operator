@@ -147,7 +147,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 			node.Spec.Taints = []corev1.Taint{
 				{
 					Key:       taintKeyMaintenance,
-					Value:     "rack maintenance",
+					Value:     "rack_maintenance",
 					Effect:    corev1.TaintEffectNoExecute,
 					TimeAdded: &metav1.Time{Time: time.Now()},
 				},
@@ -173,7 +173,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 			node.Spec.Taints = []corev1.Taint{
 				{
 					Key:       taintKeyMaintenance,
-					Value:     "rack maintenance",
+					Value:     "rack_maintenance",
 					Effect:    corev1.TaintEffectNoExecute,
 					TimeAdded: &metav1.Time{Time: time.Now().Add(-time.Second * time.Duration(taintKeyMaintenanceDuration+1))},
 				},
@@ -209,7 +209,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 			node.Spec.Taints = []corev1.Taint{
 				{
 					Key:       taintKeyMaintenance,
-					Value:     "rack maintenance",
+					Value:     "rack_maintenance",
 					Effect:    corev1.TaintEffectNoExecute,
 					TimeAdded: &metav1.Time{Time: time.Now().Add(-time.Second * time.Duration(taintKeyMaintenanceDuration+1))},
 				},
@@ -242,7 +242,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 			node.Spec.Taints = []corev1.Taint{
 				{
 					Key:       taintKeyMaintenance,
-					Value:     "rack maintenance",
+					Value:     "rack_maintenance",
 					Effect:    corev1.TaintEffectNoExecute,
 					TimeAdded: &metav1.Time{Time: time.Now().Add(-time.Second * time.Duration(taintKeyMaintenanceDuration+1))},
 				},
@@ -275,7 +275,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 					node.Spec.Taints = []corev1.Taint{
 						{
 							Key:       taintKeyMaintenance,
-							Value:     "rack maintenance",
+							Value:     "rack_maintenance",
 							Effect:    corev1.TaintEffectNoExecute,
 							TimeAdded: &metav1.Time{Time: time.Now().Add(-1 * time.Second * time.Duration(taintTimeOffset))},
 						},
@@ -307,7 +307,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 			node.Spec.Taints = []corev1.Taint{
 				{
 					Key:       taintKeyMaintenance,
-					Value:     "rack maintenance",
+					Value:     "rack_maintenance",
 					Effect:    corev1.TaintEffectNoExecute,
 					TimeAdded: &metav1.Time{Time: time.Now().Add(-time.Second * time.Duration(taintKeyMaintenanceDuration+1))},
 				},
@@ -341,7 +341,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 					node.Spec.Taints = []corev1.Taint{
 						{
 							Key:       taintKeyMaintenance,
-							Value:     "rack maintenance",
+							Value:     "rack_maintenance",
 							Effect:    corev1.TaintEffectNoExecute,
 							TimeAdded: &metav1.Time{Time: time.Now().Add(-1 * time.Second * time.Duration(taintTimeOffset))},
 						},
@@ -404,7 +404,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 			node.Spec.Taints = []corev1.Taint{
 				{
 					Key:       taintKeyMaintenance,
-					Value:     "rack maintenance",
+					Value:     "rack_maintenance",
 					Effect:    corev1.TaintEffectNoExecute,
 					TimeAdded: &metav1.Time{Time: time.Now().Add(-time.Second * time.Duration(taintKeyMaintenanceDuration+1))},
 				},
@@ -428,7 +428,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 			node.Spec.Taints = []corev1.Taint{
 				{
 					Key:       taintKeyMaintenance,
-					Value:     "rack maintenance",
+					Value:     "rack_maintenance",
 					Effect:    corev1.TaintEffectNoExecute,
 					TimeAdded: &metav1.Time{Time: time.Now().Add(-time.Second * time.Duration(taintKeyMaintenanceDuration+1))},
 				},
@@ -481,7 +481,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 			node.Spec.Taints = []corev1.Taint{
 				{
 					Key:       taintKeyMaintenance,
-					Value:     "rack maintenance",
+					Value:     "rack_maintenance",
 					Effect:    corev1.TaintEffectNoExecute,
 					TimeAdded: &metav1.Time{Time: time.Now().Add(-time.Second * time.Duration(taintKeyMaintenanceDuration+1))},
 				},
