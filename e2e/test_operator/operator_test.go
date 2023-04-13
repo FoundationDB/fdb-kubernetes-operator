@@ -162,7 +162,7 @@ var _ = Describe("Operator", Label("e2e"), func() {
 			node.Spec.Taints = []corev1.Taint{
 				{
 					Key:       taintKeyMaintenance,
-					Value:     "rack maintenance",
+					Value:     "rack_maintenance",
 					Effect:    corev1.TaintEffectNoExecute,
 					TimeAdded: &metav1.Time{Time: time.Now().Add(-time.Second * time.Duration(taintKeyMaintenanceDuration+1))},
 				},
@@ -199,7 +199,7 @@ var _ = Describe("Operator", Label("e2e"), func() {
 			Expect(fdbCluster.ClearProcessGroupsToRemove()).NotTo(HaveOccurred())
 		})
 
-		PIt("should taint and remove the targeted Pod", func() {
+		FIt("should taint and remove the targeted Pod", func() {
 			fdbCluster.EnsurePodIsDeleted(replacedPod.Name)
 		})
 	})

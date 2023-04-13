@@ -138,7 +138,7 @@ var _ = Describe("update_status", func() {
 				node.Spec.Taints = []corev1.Taint{
 					{
 						Key:       taintKeyMaintenance,
-						Value:     "rack maintenance",
+						Value:     "rack_maintenance",
 						Effect:    corev1.TaintEffectNoExecute,
 						TimeAdded: &metav1.Time{Time: time.Now()},
 					},
@@ -159,7 +159,7 @@ var _ = Describe("update_status", func() {
 				node.Spec.Taints = []corev1.Taint{
 					{
 						Key:       taintKeyMaintenance,
-						Value:     "rack maintenance",
+						Value:     "rack_maintenance",
 						Effect:    corev1.TaintEffectNoExecute,
 						TimeAdded: &metav1.Time{Time: time.Now().Add(-time.Second * time.Duration(taintKeyMaintenanceDuration+1))},
 					},
@@ -181,7 +181,7 @@ var _ = Describe("update_status", func() {
 				node.Spec.Taints = []corev1.Taint{
 					{
 						Key:       taintKeyMaintenance,
-						Value:     "rack maintenance",
+						Value:     "rack_maintenance",
 						Effect:    corev1.TaintEffectNoExecute,
 						TimeAdded: &metav1.Time{Time: time.Now().Add(-time.Second * time.Duration(taintKeyMaintenanceDuration+1))},
 					},
@@ -213,7 +213,7 @@ var _ = Describe("update_status", func() {
 				node.Spec.Taints = []corev1.Taint{
 					{
 						Key:       taintKeyMaintenance,
-						Value:     "rack maintenance",
+						Value:     "rack_maintenance",
 						Effect:    corev1.TaintEffectNoExecute,
 						TimeAdded: &metav1.Time{Time: time.Now().Add(-time.Second * time.Duration(taintKeyMaintenanceDuration+1))},
 					},
@@ -263,7 +263,7 @@ var _ = Describe("update_status", func() {
 				node.Spec.Taints = []corev1.Taint{
 					{
 						Key:       taintKeyWildcard,
-						Value:     "rack maintenance",
+						Value:     "rack_maintenance",
 						Effect:    corev1.TaintEffectNoExecute,
 						TimeAdded: &metav1.Time{Time: time.Now().Add(-time.Second * time.Duration(taintKeyWildcardDuration+1))},
 					},
@@ -294,7 +294,7 @@ var _ = Describe("update_status", func() {
 				node.Spec.Taints = []corev1.Taint{
 					{
 						Key:       taintKeyUnhealthy,
-						Value:     "rack maintenance",
+						Value:     "rack_maintenance",
 						Effect:    corev1.TaintEffectNoExecute,
 						TimeAdded: &metav1.Time{Time: time.Now().Add(-time.Second * time.Duration(taintKeyUnhealthyDuration+1))},
 					},

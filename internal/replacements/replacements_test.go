@@ -104,7 +104,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					},
 					{
 						Key:       "foundationdb/maintenance",
-						Value:     "rack maintenance",
+						Value:     "rack_maintenance",
 						Effect:    corev1.TaintEffectNoExecute,
 						TimeAdded: &metav1.Time{Time: time.Now()},
 					},
