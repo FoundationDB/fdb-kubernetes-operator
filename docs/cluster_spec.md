@@ -310,7 +310,7 @@ Locality represents a locality for the cluster processes.
 | key | The key identifying the locality | string | false |
 | value | The value of the locality | string | false |
 | topologyKey | The topology key (ex. topology.kubernetes.io/zone). The topology key is used by the operator to set the podAntiAffinity rules. This field requires the sidecar to read the topology labels from the pod which is not supported in the current version of the sidecar. See https://github.com/apple/foundationdb/pull/8506 | string | false |
-| nodeSelector | The node selectors for the locality When three data hall replication is enabled the node selectors are used to evenly distribute the processes across the data halls. Requiring at least thrree node selectors, each mapping to a different data hall. | [][]string | false |
+| nodeSelector | The node selectors for the locality. When three data hall replication is enabled the node selectors are used to evenly distribute the processes across the data halls. Requiring at least three node selectors, each mapping to a different data hall. | [][]string | false |
 
 [Back to TOC](#table-of-contents)
 
