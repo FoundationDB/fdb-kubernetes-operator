@@ -119,9 +119,21 @@ func (fdbCluster *FdbCluster) Update() error {
 	return fdbCluster.getClient().Update(ctx.Background(), fdbCluster.cluster)
 }
 
-// Update node
+// Update Node
 func (fdbCluster *FdbCluster) UpdateNode(node *corev1.Node) error {
 	return fdbCluster.getClient().Update(ctx.Background(), node)
+}
+
+// Get Node
+func (fdbCluster *FdbCluster) GetNode(name string) *corev1.Node {
+	// Retry if for some reasons an error is returned
+	node := &corev1.Node{}
+	gomega.Eventually(func() error {
+		return fdbCluster.getClient().
+			Get(ctx.TODO(), client.ObjectKey{Name: name, Namespace: fdbCluster.Namespace()}, node)
+	}).WithTimeout(2 * time.Minute).WithPolling(1 * time.Second).ShouldNot(gomega.HaveOccurred())
+
+	return node
 }
 
 // ReconciliationOptions defines the different reconciliation options.
@@ -369,7 +381,7 @@ func (fdbCluster *FdbCluster) SetDatabaseConfiguration(
 	return fdbCluster.WaitForReconciliation()
 }
 
-// UpdateClusterSpec ensures that the FoundationDBCluster will be updated in Kubernetes. This method as a retry mechanism
+// UpdateClusterSpec ensures that the FoundationDBCluster will be updated in Kubernetes. This method has a retry mechanism
 // implemented and ensures that the provided (local) Spec matches the Spec in Kubernetes.
 func (fdbCluster *FdbCluster) UpdateClusterSpec() {
 	fdbCluster.UpdateClusterSpecWithSpec(fdbCluster.cluster.Spec.DeepCopy())
