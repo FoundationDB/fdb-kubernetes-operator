@@ -2478,3 +2478,12 @@ func (cluster *FoundationDBCluster) Validate() error {
 
 	return fmt.Errorf(strings.Join(validations, ", "))
 }
+
+func (cluster *FoundationDBCluster) IsTaintFeatureDisabled() bool {
+	for _, taintOption := range cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions {
+		if pointer.StringDeref(taintOption.Key, "") == "*" && pointer.Int64Deref(taintOption.DurationInSeconds, 0) < 0 {
+			return true
+		}
+	}
+	return false
+}

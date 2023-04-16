@@ -68,7 +68,7 @@ var _ = Describe("admin_client_test", func() {
 		})
 
 		Context("with a basic cluster", func() {
-			When("the version supports grv and commit proxies", func() {
+			FWhen("the version supports grv and commit proxies", func() {
 				BeforeEach(func() {
 					cluster.Spec.Version = fdbv1beta2.Versions.NextMajorVersion.String()
 					err = k8sClient.Update(context.TODO(), cluster)

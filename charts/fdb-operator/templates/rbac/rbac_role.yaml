@@ -17,6 +17,7 @@ rules:
   - configmaps
   - persistentvolumeclaims
   - events
+  - nodes
   verbs:
   - get
   - watch

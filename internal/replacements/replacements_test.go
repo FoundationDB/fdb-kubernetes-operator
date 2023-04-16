@@ -429,6 +429,9 @@ var _ = Describe("replace_misconfigured_pods", func() {
 		})
 
 		Context("when the memory resources are changed", func() {
+			var status *fdbv1beta2.ProcessGroupStatus
+			var pod *corev1.Pod
+
 			BeforeEach(func() {
 				err := internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{UseFutureDefaults: true})
 				Expect(err).NotTo(HaveOccurred())

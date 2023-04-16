@@ -28,6 +28,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -75,7 +76,7 @@ func NewMockClientWithHooks(scheme *runtime.Scheme, createHooks []func(ctx conte
 		return nil
 	}
 
-	podCreateHook := func(_ context.Context, client *MockClient, object ctrlClient.Object) error {
+	podCreateHook := func(ctx context.Context, client *MockClient, object ctrlClient.Object) error {
 		pod, isPod := object.(*corev1.Pod)
 		if !isPod {
 			return nil
@@ -92,9 +93,14 @@ func NewMockClientWithHooks(scheme *runtime.Scheme, createHooks []func(ctx conte
 		node := corev1.Node{
 			ObjectMeta: metav1.ObjectMeta{Name: fmt.Sprintf("%s-node", pod.Name)},
 		}
-		pod.Spec.NodeName = node.Name
+		err := client.Get(ctx, ctrlClient.ObjectKey{Namespace: object.GetNamespace(), Name: fmt.Sprintf("%s-node", pod.Name)}, &node)
+		fmt.Printf("Error :%+v\n", err)
+		if errors.IsNotFound(err) {
+			pod.Spec.NodeName = node.Name
+			return client.Create(context.Background(), &node)
+		}
 
-		return client.Create(context.Background(), &node)
+		return err
 	}
 
 	return &MockClient{
