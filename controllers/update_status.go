@@ -428,14 +428,9 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 	podMap := internal.CreatePodMap(cluster, pods)
 	pvcMap := internal.CreatePVCMap(cluster, pvcs)
 
-	disableTaintFeature := false
-	for _, taintConfiguredKey := range cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions {
-		if pointer.StringDeref(taintConfiguredKey.Key, "") == "*" && pointer.Int64Deref(taintConfiguredKey.DurationInSeconds, math.MinInt64) < 0 {
-			// Disable detecting or replacing taint key
-			disableTaintFeature = true
-			logger.Info("Disable taint feature", "Disabled", disableTaintFeature)
-			break
-		}
+	disableTaintFeature := cluster.IsTaintFeatureDisabled()
+	if disableTaintFeature {
+		logger.Info("Disable taint feature", "Disabled", disableTaintFeature)
 	}
 
 	for _, processGroup := range processGroups {
@@ -718,7 +713,9 @@ func updateTaintCondition(ctx context.Context, r *FoundationDBClusterReconciler,
 }
 
 func assert(b bool) {
-	panic("unimplemented")
+	if !b {
+		panic("unimplemented")
+	}
 }
 
 // removeDuplicateConditions will remove all duplicated conditions from the status and if a process group has the ResourcesTerminating
