@@ -156,10 +156,6 @@ var _ = Describe("Operator", Label("e2e"), func() {
 			replacedPod = fixtures.RandomPickOnePod(initialPods.Items)
 			replacedPodProcessGroupID := internal.GetProcessGroupIDFromMeta(fdbCluster.GetCluster(), replacedPod.ObjectMeta)
 			// Taint replacePod's node
-			// Q: Why do I have to GetNode before UpdateNode()? otherwise, I got invalid node.spec.id error
-			// node := &corev1.Node{
-			// 	ObjectMeta: metav1.ObjectMeta{Name: replacedPod.Spec.NodeName},
-			// }
 			node := fdbCluster.GetNode(replacedPod.Spec.NodeName)
 			node.Spec.Taints = []corev1.Taint{
 				{
@@ -190,10 +186,7 @@ var _ = Describe("Operator", Label("e2e"), func() {
 			fdbCluster.UpdateClusterSpecWithSpec(curClusterSpec)
 
 			curClusterSpec = fdbCluster.GetCluster().Spec.DeepCopy()
-			if len(curClusterSpec.AutomationOptions.Replacements.TaintReplacementOptions) < 1 {
-				log.Printf("Update Cluster Taint Option failed %+v\n", curClusterSpec.AutomationOptions.Replacements.TaintReplacementOptions)
-			}
-			//Expect(*curClusterSpec.AutomationOptions.Replacements.TaintReplacementOptions[0]).To(taintKeyStar)
+			Expect(len(curClusterSpec.AutomationOptions.Replacements.TaintReplacementOptions)).To(BeNumerically(">=", 1))
 
 			Expect(*fdbCluster.GetAutomationOptions().Replacements.Enabled).To(BeTrue())
 			processGroupStatus := fdbv1beta2.FindProcessGroupByID(fdbCluster.GetCluster().Status.ProcessGroups, replacedPodProcessGroupID)
@@ -202,6 +195,7 @@ var _ = Describe("Operator", Label("e2e"), func() {
 			// Expect(processGroupStatus.GetCondition(fdbv1beta2.NodeTaintDetected)).NotTo(BeNil())
 			// Expect(processGroupStatus.GetCondition(fdbv1beta2.NodeTaintReplacing)).NotTo(BeNil())
 
+			// TODO: Check operator replaces all pods on the tainted node
 			// Wait for operator to replace the pod
 			time.Sleep(time.Second * time.Duration(*fdbCluster.GetAutomationOptions().Replacements.FailureDetectionTimeSeconds+1))
 			err = fdbCluster.WaitForReconciliation()
@@ -210,6 +204,11 @@ var _ = Describe("Operator", Label("e2e"), func() {
 
 		AfterEach(func() {
 			Expect(fdbCluster.ClearProcessGroupsToRemove()).NotTo(HaveOccurred())
+			// Reset taint related options to default value in e2e test
+			curClusterSpec := fdbCluster.GetCluster().Spec.DeepCopy()
+			curClusterSpec.AutomationOptions.Replacements.TaintReplacementOptions = []fdbv1beta2.TaintReplacementOption{}
+			curClusterSpec.AutomationOptions.Replacements.TaintReplacementTimeSeconds = pointer.Int(150)
+			fdbCluster.UpdateClusterSpecWithSpec(curClusterSpec)
 		})
 
 		FIt("should taint and remove the targeted Pod", func() {

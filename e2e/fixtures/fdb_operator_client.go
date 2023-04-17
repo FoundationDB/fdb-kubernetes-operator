@@ -70,6 +70,7 @@ rules:
   - events
   - secrets
   - services
+  - nodes
   verbs:
   - get
   - watch

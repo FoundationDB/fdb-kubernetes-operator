@@ -31,7 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
-	logr "github.com/go-logr/logr"
+	"github.com/go-logr/logr"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
@@ -115,8 +115,7 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 	// Update the running version based on the reported version of the FDB processes
 	version, err := getRunningVersion(versionMap, cluster.Status.RunningVersion)
 	if err != nil {
-		log.Info("update_status skipped due to error in getRunningVersion", "Error", err)
-		return &requeue{curError: err}
+		return &requeue{curError: fmt.Errorf("update_status skipped due to error in getRunningVersion: %w", err)}
 	}
 	cluster.Status.RunningVersion = version
 
@@ -137,8 +136,7 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 		for _, coordinator := range databaseStatus.Client.Coordinators.Coordinators {
 			address, err := fdbv1beta2.ParseProcessAddress(coordinator.Address.String())
 			if err != nil {
-				log.Info("update_status skipped due to error in ParseProcessAddress", "Error", err)
-				return &requeue{curError: err}
+				return &requeue{curError: fmt.Errorf("update_status skipped due to error in ParseProcessAddress: %w", err)}
 			}
 
 			if address.Flags["tls"] {
@@ -158,8 +156,7 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 
 	configMap, err := internal.GetConfigMap(cluster)
 	if err != nil {
-		log.Info("update_status skipped due to error in GetConfigMap", "Error", err)
-		return &requeue{curError: err}
+		return &requeue{curError: fmt.Errorf("update_status skipped due to error in GetConfigMap: %w", err)}
 	}
 
 	status.ProcessGroups = make([]*fdbv1beta2.ProcessGroupStatus, 0, len(cluster.Status.ProcessGroups))
@@ -171,14 +168,12 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 
 	pods, pvcs, err := refreshProcessGroupStatus(ctx, r, cluster, &status)
 	if err != nil {
-		log.Info("update_status skipped due to error in refreshProcessGroupStatus", "Error", err)
-		return &requeue{curError: err}
+		return &requeue{curError: fmt.Errorf("update_status skipped due to error in refreshProcessGroupStatus: %w", err)}
 	}
 
 	status.ProcessGroups, err = validateProcessGroups(ctx, r, cluster, &status, processMap, configMap, pods, pvcs)
 	if err != nil {
-		log.Info("update_status skipped due to error in validateProcessGroups", "Error", err)
-		return &requeue{curError: err}
+		return &requeue{curError: fmt.Errorf("update_status skipped due to error in validateProcessGroups: %w", err)}
 	}
 	removeDuplicateConditions(status)
 
@@ -401,7 +396,7 @@ func checkAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbv1be
 			log.Info("IncorrectProcess", "expected", commandLine, "got", process.CommandLine,
 				"expectedVersion", cluster.Spec.Version,
 				"version", process.Version, "processGroupID", processGroupStatus.ProcessGroupID,
-				"cluster spec EmptyMonitorConf is ", cluster.Spec.Buggify.EmptyMonitorConf)
+				"emptyMonitorConf is ", cluster.Spec.Buggify.EmptyMonitorConf)
 		}
 	}
 
@@ -413,9 +408,7 @@ func checkAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbv1be
 }
 
 // Validate and set progressGroup's status
-func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster,
-	status *fdbv1beta2.FoundationDBClusterStatus, processMap map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo,
-	configMap *corev1.ConfigMap, pods []*corev1.Pod, pvcs *corev1.PersistentVolumeClaimList) ([]*fdbv1beta2.ProcessGroupStatus, error) {
+func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBClusterStatus, processMap map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo, configMap *corev1.ConfigMap, pods []*corev1.Pod, pvcs *corev1.PersistentVolumeClaimList) ([]*fdbv1beta2.ProcessGroupStatus, error) {
 	var err error
 	processGroups := status.ProcessGroups
 	processGroupsWithoutExclusion := make(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None, len(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion))
@@ -678,7 +671,6 @@ func updateTaintCondition(ctx context.Context, r *FoundationDBClusterReconciler,
 						"Pod", pod.Name)
 					continue
 				}
-				assert(taintConfiguredKey.Key != nil && taintConfiguredKey.DurationInSeconds != nil)
 				if taint.Key == pointer.StringDeref(taintConfiguredKey.Key, "") || pointer.StringDeref(taintConfiguredKey.Key, "") == "*" {
 					hasValidTaint = true
 					processGroupStatus.UpdateCondition(fdbv1beta2.NodeTaintDetected, true, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
@@ -686,17 +678,14 @@ func updateTaintCondition(ctx context.Context, r *FoundationDBClusterReconciler,
 					if taint.TimeAdded != nil && taint.TimeAdded.Time.Unix() < *processGroupStatus.GetConditionTime(fdbv1beta2.NodeTaintDetected) {
 						processGroupStatus.UpdateConditionTime(fdbv1beta2.NodeTaintDetected, taint.TimeAdded.Unix())
 					}
-					for _, processGroupCondition := range processGroupStatus.ProcessGroupConditions {
-						if processGroupCondition.ProcessGroupConditionType == fdbv1beta2.NodeTaintDetected &&
-							time.Now().Unix()-processGroupCondition.Timestamp > pointer.Int64Deref(taintConfiguredKey.DurationInSeconds, math.MaxInt64) {
-							processGroupStatus.UpdateCondition(fdbv1beta2.NodeTaintReplacing, true, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
-							logger.Info("Add NodeTaintReplacing condition", "Pod", pod.Name, "Node", node.Name,
-								"TaintKey", taint.Key, "TaintDetectedTime", processGroupCondition.Timestamp,
-								"TaintDuration", int64(time.Since(time.Unix(processGroupCondition.Timestamp, 0))),
-								"TaintValue", taint.Value, "TaintEffect", taint.Effect,
-								"NodeTaintDetectedConditionTimestamp", time.Unix(processGroupCondition.Timestamp, 0),
-								"ClusterTaintDetectionDuration", time.Duration(pointer.Int64Deref(taintConfiguredKey.DurationInSeconds, math.MaxInt64)))
-						}
+					taintDetectedTime := pointer.Int64Deref(processGroupStatus.GetConditionTime(fdbv1beta2.NodeTaintDetected), math.MaxInt64)
+					if time.Now().Unix()-taintDetectedTime > pointer.Int64Deref(taintConfiguredKey.DurationInSeconds, math.MaxInt64) {
+						processGroupStatus.UpdateCondition(fdbv1beta2.NodeTaintReplacing, true, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
+						logger.Info("Add NodeTaintReplacing condition", "Pod", pod.Name, "Node", node.Name,
+							"TaintKey", taint.Key, "TaintDetectedTime", taintDetectedTime,
+							"TaintDuration", int64(time.Since(time.Unix(taintDetectedTime, 0))),
+							"TaintValue", taint.Value, "TaintEffect", taint.Effect,
+							"ClusterTaintDetectionDuration", time.Duration(pointer.Int64Deref(taintConfiguredKey.DurationInSeconds, math.MaxInt64)))
 					}
 				}
 			}
@@ -710,12 +699,6 @@ func updateTaintCondition(ctx context.Context, r *FoundationDBClusterReconciler,
 	}
 
 	return err
-}
-
-func assert(b bool) {
-	if !b {
-		panic("unimplemented")
-	}
 }
 
 // removeDuplicateConditions will remove all duplicated conditions from the status and if a process group has the ResourcesTerminating

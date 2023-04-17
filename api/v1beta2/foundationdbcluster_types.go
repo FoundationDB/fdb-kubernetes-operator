@@ -363,28 +363,39 @@ func (processGroupStatus *ProcessGroupStatus) MarkForRemoval() {
 
 // NeedsReplacement checks if the ProcessGroupStatus has conditions so that it should be removed
 func (processGroupStatus *ProcessGroupStatus) NeedsReplacement(failureTime int, taintReplacementTime int) (bool, int64) {
-	var earliestFailureTime *int64
-	var earliestTaintReplacementTime *int64
+	var earliestFailureTime int64 = math.MaxInt64
+	var earliestTaintReplacementTime int64 = math.MaxInt64
+
+	if processGroupStatus.IsMarkedForRemoval() {
+		return false, 0
+	}
+
 	for _, conditionType := range conditionsThatNeedReplacement {
-		conditionTime := processGroupStatus.GetConditionTime(conditionType)
-		if conditionType != NodeTaintReplacing {
-			if conditionTime != nil && (earliestFailureTime == nil || *earliestFailureTime > *conditionTime) {
-				earliestFailureTime = conditionTime
-			}
-		} else {
-			if conditionTime != nil && (earliestTaintReplacementTime == nil || *earliestTaintReplacementTime > *conditionTime) {
+		conditionTimePtr := processGroupStatus.GetConditionTime(conditionType)
+		if conditionTimePtr == nil {
+			continue
+		}
+
+		conditionTime := *conditionTimePtr
+		if conditionType == NodeTaintReplacing {
+			if earliestTaintReplacementTime > conditionTime {
 				earliestTaintReplacementTime = conditionTime
+			}
+
+		} else {
+			if earliestFailureTime > conditionTime {
+				earliestFailureTime = conditionTime
 			}
 		}
 	}
 
 	failureWindowStart := time.Now().Add(-1 * time.Duration(failureTime) * time.Second).Unix()
-	if earliestFailureTime != nil && *earliestFailureTime < failureWindowStart && !processGroupStatus.IsMarkedForRemoval() {
-		return true, *earliestFailureTime
+	if earliestFailureTime < failureWindowStart {
+		return true, earliestFailureTime
 	}
 	taintWindowStart := time.Now().Add(-1 * time.Duration(taintReplacementTime) * time.Second).Unix()
-	if earliestTaintReplacementTime != nil && *earliestTaintReplacementTime < taintWindowStart && !processGroupStatus.IsMarkedForRemoval() {
-		return true, *earliestTaintReplacementTime
+	if earliestTaintReplacementTime < taintWindowStart {
+		return true, earliestTaintReplacementTime
 	}
 
 	return false, 0
@@ -738,7 +749,8 @@ const (
 	PodPending ProcessGroupConditionType = "PodPending"
 	// ReadyCondition is currently only used in the metrics.
 	ReadyCondition ProcessGroupConditionType = "Ready"
-	// NodeTaintDetected represents a Pod's node is tainted but not long enough for operator to replace it
+	// NodeTaintDetected represents a Pod's node is tainted but not long enough for operator to replace it.
+	// If a node is tainted with a taint that shouldn't trigger replacements, NodeTaintDetected won't be added to the pod
 	NodeTaintDetected ProcessGroupConditionType = "NodeTaintDetected"
 	// NodeTaintReplacing represents a Pod whose node has been tainted and the operator should replace the Pod
 	NodeTaintReplacing ProcessGroupConditionType = "NodeTaintReplacing"
@@ -1002,7 +1014,8 @@ type TaintReplacementOption struct {
 	// +kubebuilder:validation:Pattern:=^([\-._\/a-z0-9A-Z])*$
 	Key *string `json:"key,omitempty"`
 
-	// The tainted key must be present for DurationInSeconds before operator replaces pods on the node with this taint
+	// The tainted key must be present for DurationInSeconds before operator replaces pods on the node with this taint.
+	// Negative DurationInSeconds disables operator from detecting or replacing the taint Key
 	DurationInSeconds *int64 `json:"durationInSeconds,omitempty"`
 }
 
