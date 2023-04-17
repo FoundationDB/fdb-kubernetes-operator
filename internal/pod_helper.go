@@ -240,6 +240,21 @@ func CreatePodMap(cluster *fdbv1beta2.FoundationDBCluster, pods []*corev1.Pod) m
 	return podProcessGroupMap
 }
 
+// CreatePodNodeMap creates a map with the pod's name as key and the according Node as value
+// TODO: to decide how this should work
+// func CreatePodNodeMap(cluster *fdbv1beta2.FoundationDBCluster, pods []*corev1.Pod) map[string]*corev1.Node {
+// 	podNodeMap := make(map[string]*corev1.Node, len(pods))
+// 	for _, pod := range pods {
+// 		processGroupID := GetProcessGroupIDFromMeta(cluster, pod.ObjectMeta)
+// 		if processGroupID == "" {
+// 			continue
+// 		}
+// 		podProcessGroupMap[processGroupID] = pod
+// 	}
+
+// 	return podProcessGroupMap
+// }
+
 // ParseProcessGroupID extracts the components of an process group ID.
 func ParseProcessGroupID(id fdbv1beta2.ProcessGroupID) (fdbv1beta2.ProcessClass, int, error) {
 	result := processGroupIDRegex.FindStringSubmatch(string(id))

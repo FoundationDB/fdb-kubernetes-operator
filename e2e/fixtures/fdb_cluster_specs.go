@@ -63,6 +63,8 @@ func (factory *Factory) createFDBClusterSpec(
 					// Setting this to 5 minutes is reasonable to prevent the operator recreating Pods when they wait for
 					// new ec2 instances.
 					FailureDetectionTimeSeconds: pointer.Int(300),
+					// Setting TaintReplacementTimeSeconds as half of FailureDetectionTimeSeconds to make taint replacement faster
+					TaintReplacementTimeSeconds: pointer.Int(150),
 					MaxConcurrentReplacements:   pointer.Int(2),
 				},
 				// Allow the operator to remove all Pods that are excluded and marked for deletion to remove at once.

@@ -996,9 +996,9 @@ func (fdbCluster *FdbCluster) SetEmptyMonitorConf(enable bool) error {
 }
 
 // SetClusterTaintConfig set fdbCluster's TaintReplacementOptions
-func (fdbCluster *FdbCluster) SetClusterTaintConfig(taintOption []fdbv1beta2.TaintReplacementOption) error {
+func (fdbCluster *FdbCluster) SetClusterTaintConfig(taintOption []fdbv1beta2.TaintReplacementOption) {
 	fdbCluster.cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions = taintOption
-	return fdbCluster.getClient().Update(ctx.Background(), fdbCluster.cluster)
+	fdbCluster.UpdateClusterSpec()
 }
 
 // GetProcessCounts returns the process counts of the current FoundationDBCluster.
