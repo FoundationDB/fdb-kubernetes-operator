@@ -616,13 +616,59 @@ var _ = Describe("replace_failed_process_groups", func() {
 
 			result, err := reconcileCluster(cluster)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(result.Requeue).To(BeFalse()) // Requeue to check reconciliation later
+			Expect(result.Requeue).To(BeFalse())
+			Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]fdbv1beta2.ProcessGroupID{}))
+			for _, taintedPod := range taintedPods {
+				Expect(getPodByProcessGroupID(cluster, internal.GetProcessGroupIDFromMeta(cluster, taintedPod.ObjectMeta))).To(BeNil())
+			}
+		})
+		It("should not remove pods on tainted nodes whose taint Key or TimeAdded is not set", func() {
+			Expect(len(allPods)).To(BeNumerically(">", 4))
+			taintedNodesIndex := map[int]struct{}{}
+			taintedNodes := []*corev1.Node{}
+			taintedPods := []*corev1.Pod{}
+			var taintKey string
+			var taintTimeAdded *metav1.Time
+			for len(taintedNodesIndex) < 5 { // taint 4 nodes
+				taintedNodesIndex[rand.Intn(len(allPods))] = struct{}{}
+			}
+			for key := range taintedNodesIndex {
+				curPod := allPods[key]
+				curNode := &corev1.Node{
+					ObjectMeta: metav1.ObjectMeta{Name: curPod.Spec.NodeName},
+				}
+				taintedPods = append(taintedPods, curPod)
+				taintedNodes = append(taintedNodes, curNode)
+			}
+			for i, taintedNode := range taintedNodes {
+				if i%2 == 0 {
+					taintKey = taintKeyMaintenance
+					taintTimeAdded = nil
+				} else {
+					taintKey = ""
+					taintTimeAdded = &metav1.Time{Time: time.Now().Add(-1 * time.Duration(*cluster.Spec.AutomationOptions.Replacements.TaintReplacementTimeSeconds+1))}
+				}
+				taintedNode.Spec.Taints = []corev1.Taint{
+					{
+						Key:       taintKey,
+						Value:     "rack_maintenance",
+						Effect:    corev1.TaintEffectNoExecute,
+						TimeAdded: taintTimeAdded,
+					},
+				}
+
+				err = k8sClient.Update(ctx.TODO(), node)
+				Expect(err).NotTo(HaveOccurred())
+				log.Info("Taint node", "Index", i, "Node name", podOnTaintedNode.Name, "Node taints", node.Spec.Taints)
+			}
+
+			_, err := reconcileCluster(cluster)
+			Expect(err).NotTo(HaveOccurred())
 			Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]fdbv1beta2.ProcessGroupID{}))
 			for _, taintedPod := range taintedPods {
 				Expect(getPodByProcessGroupID(cluster, internal.GetProcessGroupIDFromMeta(cluster, taintedPod.ObjectMeta))).NotTo(BeNil())
 			}
 		})
-		// TODO: Check taint struct is partially initialized. Check handling of nil pointer
 	})
 
 	Context("with no missing processes", func() {
