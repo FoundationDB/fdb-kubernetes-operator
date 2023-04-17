@@ -1012,10 +1012,12 @@ type TaintReplacementOption struct {
 	// Tainted key
 	// +kubebuilder:validation:MaxLength=256
 	// +kubebuilder:validation:Pattern:=^([\-._\/a-z0-9A-Z])*$
+	// +kubebuilder:validation:Required
 	Key *string `json:"key,omitempty"`
 
 	// The tainted key must be present for DurationInSeconds before operator replaces pods on the node with this taint.
 	// Negative DurationInSeconds disables operator from detecting or replacing the taint Key
+	// +kubebuilder:validation:Required
 	DurationInSeconds *int64 `json:"durationInSeconds,omitempty"`
 }
 
@@ -2494,7 +2496,8 @@ func (cluster *FoundationDBCluster) Validate() error {
 
 func (cluster *FoundationDBCluster) IsTaintFeatureDisabled() bool {
 	for _, taintOption := range cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions {
-		if pointer.StringDeref(taintOption.Key, "") == "*" && pointer.Int64Deref(taintOption.DurationInSeconds, 0) < 0 {
+		// disable taint feature when * taint key has negative or unset DurationInSeconds
+		if pointer.StringDeref(taintOption.Key, "") == "*" && pointer.Int64Deref(taintOption.DurationInSeconds, -1) < 0 {
 			return true
 		}
 	}
