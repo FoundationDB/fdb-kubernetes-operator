@@ -90,13 +90,13 @@ func NewMockClientWithHooks(scheme *runtime.Scheme, createHooks []func(ctx conte
 			pod.Status.Phase = corev1.PodRunning
 		}
 
+		nodeName := fmt.Sprintf("%s-node", pod.Name)
 		node := corev1.Node{
-			ObjectMeta: metav1.ObjectMeta{Name: fmt.Sprintf("%s-node", pod.Name)},
+			ObjectMeta: metav1.ObjectMeta{Name: nodeName},
 		}
-		err := client.Get(ctx, ctrlClient.ObjectKey{Namespace: object.GetNamespace(), Name: fmt.Sprintf("%s-node", pod.Name)}, &node)
-		fmt.Printf("Error :%+v\n", err)
+		err := client.Get(ctx, ctrlClient.ObjectKey{Name: nodeName}, &node)
+		pod.Spec.NodeName = node.Name
 		if errors.IsNotFound(err) {
-			pod.Spec.NodeName = node.Name
 			return client.Create(context.Background(), &node)
 		}
 
