@@ -390,7 +390,6 @@ var _ = Describe("cluster_controller", func() {
 
 				It("should update the status of the FoundationDBCluster", func() {
 					faultDomains := map[string]int{}
-
 					for _, processGroup := range cluster.Status.ProcessGroups {
 						Expect(processGroup.LogicalFaultDomainEnabled).To(BeTrue())
 						Expect(processGroup.FaultDomain).NotTo(BeEmpty())
@@ -398,8 +397,8 @@ var _ = Describe("cluster_controller", func() {
 						faultDomains[processGroup.FaultDomain]++
 					}
 
-					for faultDomainkey := range faultDomains {
-						Expect(faultDomainkey).To(HavePrefix("testing-"))
+					for faultDomainKey := range faultDomains {
+						Expect(faultDomainKey).To(HavePrefix("testing-"))
 					}
 
 					// We have storage, stateless, log and cluster_controller

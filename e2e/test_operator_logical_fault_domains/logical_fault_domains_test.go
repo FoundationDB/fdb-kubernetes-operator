@@ -22,15 +22,17 @@ package operator
 
 /*
 
-TODO
+This test suite contains test to validate the correct behaviour for the logical fault domain setup. The suite will test
+different cases that could be observed in real FoundationDB clusters, like enabling logical fault domains and changing
+the number of logical fault domains.
 */
 
 import (
-	"fmt"
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/e2e/fixtures"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/pointer"
 	"log"
 )
@@ -72,8 +74,35 @@ var _ = PDescribe("Logical Fault Domains", Label("e2e"), func() {
 		factory.StopInvariantCheck()
 	})
 
+	When("the cluster is not using logical fault domains", func() {
+		It("should add the fault domains to the process group status", func() {
+			pods := fdbCluster.GetPods()
+
+			// Fetch all unique nodes of this cluster.
+			uniqueNodes := make(map[string]fdbv1beta2.None)
+			for _, pod := range pods.Items {
+				uniqueNodes[pod.Spec.NodeName] = fdbv1beta2.None{}
+			}
+
+			cluster := fdbCluster.GetCluster()
+
+			// Fetch all fault domains.
+			faultDomains := make(map[string]int)
+			for _, processGroup := range cluster.Status.ProcessGroups {
+				Expect(processGroup.FaultDomain).NotTo(BeEmpty())
+				faultDomains[processGroup.FaultDomain]++
+			}
+
+			// Fault domains should equal the unique nodes we have.
+			Expect(faultDomains).To(HaveLen(len(uniqueNodes)))
+		})
+	})
+
 	When("enabling logical fault domains", func() {
+		var initialPods *corev1.PodList
+
 		BeforeEach(func() {
+			initialPods = fdbCluster.GetPods()
 			fdbCluster.SetDistributionConfig(fdbv1beta2.DistributionConfig{
 				Enabled: pointer.Bool(true),
 			})
@@ -92,6 +121,7 @@ var _ = PDescribe("Logical Fault Domains", Label("e2e"), func() {
 			cluster := fdbCluster.GetCluster()
 
 			// check processes are replaced
+			_ = initialPods
 
 			faultDomains := make(map[string]int)
 			for _, processGroup := range cluster.Status.ProcessGroups {
@@ -100,9 +130,18 @@ var _ = PDescribe("Logical Fault Domains", Label("e2e"), func() {
 				faultDomains[processGroup.FaultDomain]++
 			}
 
-			fmt.Println(faultDomains)
 			Expect(faultDomains).To(HaveLen(9))
+
 			// TODO check actual content --> Ensure Pods are not running on the same nodes
 		})
 	})
+
+	/*
+		TODO add those test cases:
+
+		 - Shrink number of logical fault domains
+		 - Grow number of logical fault domains
+		 - Change logical fault domain prefix
+		 - Doing a replacement with logical FT enabled.
+	*/
 })

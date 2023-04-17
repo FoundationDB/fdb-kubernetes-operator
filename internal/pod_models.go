@@ -23,6 +23,7 @@ package internal
 import (
 	"fmt"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -306,7 +307,7 @@ func setAffinityForFaultDomain(cluster *fdbv1beta2.FoundationDBCluster, podSpec 
 			podSpec.Affinity.PodAffinity = &corev1.PodAffinity{}
 		}
 
-		//  Affinity to schedule Pods with the same logical fault domain together into the same fault domain if possible
+		// Affinity to schedule Pods with the same logical fault domain together into the same fault domain if possible
 		podSpec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(podSpec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution, corev1.WeightedPodAffinityTerm{
 			Weight: 1,
 			PodAffinityTerm: corev1.PodAffinityTerm{
@@ -317,7 +318,17 @@ func setAffinityForFaultDomain(cluster *fdbv1beta2.FoundationDBCluster, podSpec 
 
 		// Generate a PodAntiAffinity to make sure no Pods from a different fault domain will be scheduled together.
 		matchExpressions := make([]metav1.LabelSelectorRequirement, 0, len(labelSelectors))
-		for key, value := range labelSelectors {
+
+		// Put all label keys into a slice to make sure we have a stable ordering of the match expressions. If we iterate
+		// over the map the ordering would be random and therefore the spec hash would change.
+		labelKeys := make([]string, 0, len(labelSelectors))
+		for key := range labelSelectors {
+			labelKeys = append(labelKeys, key)
+		}
+		sort.Strings(labelKeys)
+		for _, key := range labelKeys {
+			value := labelSelectors[key]
+
 			if key == fdbv1beta2.FDBFaultDomainLabel {
 				matchExpressions = append(matchExpressions, metav1.LabelSelectorRequirement{
 					Key:      key,
