@@ -95,7 +95,9 @@ func NewMockClientWithHooks(scheme *runtime.Scheme, createHooks []func(ctx conte
 			ObjectMeta: metav1.ObjectMeta{Name: nodeName},
 		}
 		err := client.Get(ctx, ctrlClient.ObjectKey{Name: nodeName}, &node)
-		pod.Spec.NodeName = node.Name
+		if len(pod.Spec.NodeName) == 0 { // Do not override user-set NodeName so that we can simulate multiple pods on a single node
+			pod.Spec.NodeName = node.Name
+		}
 		if errors.IsNotFound(err) {
 			return client.Create(context.Background(), &node)
 		}
