@@ -87,23 +87,32 @@ func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconcile
 func getPodsToUpdate(logger logr.Logger, reconciler *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, podMap map[fdbv1beta2.ProcessGroupID]*corev1.Pod) (map[string][]*corev1.Pod, error) {
 	updates := make(map[string][]*corev1.Pod)
 
+	var unavailablePods int
+
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup.IsMarkedForRemoval() {
 			logger.V(1).Info("Ignore removed Pod",
 				"processGroupID", processGroup.ProcessGroupID)
+			unavailablePods++
 			continue
 		}
 
 		if cluster.SkipProcessGroup(processGroup) {
 			logger.V(1).Info("Ignore pending Pod",
 				"processGroupID", processGroup.ProcessGroupID)
+			unavailablePods++
 			continue
 		}
 
 		if cluster.NeedsReplacement(processGroup) {
 			logger.V(1).Info("Skip process group for deletion, requires a replacement",
 				"processGroupID", processGroup.ProcessGroupID)
+			unavailablePods++
 			continue
+		}
+
+		if cluster.Spec.MaxUnavailablePods > 0 && unavailablePods >= cluster.Spec.MaxUnavailablePods {
+			return nil, fmt.Errorf("cluster has %d Pods that are unavailable, which is more than the maximum of %d", unavailablePods, cluster.Spec.MaxUnavailablePods)
 		}
 
 		pod, ok := podMap[processGroup.ProcessGroupID]

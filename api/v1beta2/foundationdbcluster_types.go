@@ -217,6 +217,12 @@ type FoundationDBClusterSpec struct {
 	// UseUnifiedImage determines if we should use the unified image rather than
 	// separate images for the main container and the sidecar container.
 	UseUnifiedImage *bool `json:"useUnifiedImage,omitempty"`
+
+	// MaxUnavailablePods defines the maximum number of pods that can be unavailable during the update process.
+	// When set to 0 there is no limit on the number of pods that can be unavailable.
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:default:=0
+	MaxUnavailablePods int `json:"maxUnavailablePods,omitempty"`
 }
 
 // ImageType defines a single kind of images used in the cluster.
