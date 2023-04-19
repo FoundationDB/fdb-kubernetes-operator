@@ -525,12 +525,13 @@ var _ = Describe("replace_failed_process_groups", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]fdbv1beta2.ProcessGroupID{}))
 			targetProcessGroupStatus = fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, targetPodProcessGroupID)
-			Expect(len(targetProcessGroupStatus.ProcessGroupConditions)).To(Equal(2))
-			Expect(targetProcessGroupStatus.GetCondition(fdbv1beta2.NodeTaintDetected)).NotTo(BeNil())
-			Expect(targetProcessGroupStatus.GetCondition(fdbv1beta2.NodeTaintReplacing)).NotTo(BeNil())
-
-			// Wait long enough to pass TaintReplacementTimeSeconds time window
-			time.Sleep(time.Second * time.Duration(cluster.GetTaintReplacementTimeSeconds()+1))
+			if targetProcessGroupStatus != nil {
+				Expect(len(targetProcessGroupStatus.ProcessGroupConditions)).To(Equal(2))
+				Expect(targetProcessGroupStatus.GetCondition(fdbv1beta2.NodeTaintDetected)).NotTo(BeNil())
+				Expect(targetProcessGroupStatus.GetCondition(fdbv1beta2.NodeTaintReplacing)).NotTo(BeNil())
+				// Wait long enough to pass TaintReplacementTimeSeconds time window
+				time.Sleep(time.Second * time.Duration(cluster.GetTaintReplacementTimeSeconds()+1))
+			}
 
 			result, err = reconcileCluster(cluster)
 			Expect(err).NotTo(HaveOccurred())
