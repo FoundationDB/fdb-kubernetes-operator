@@ -671,6 +671,12 @@ func updateTaintCondition(ctx context.Context, r *FoundationDBClusterReconciler,
 						"Pod", pod.Name)
 					continue
 				}
+				if len(taint.Key) == 0 || taint.TimeAdded == nil {
+					// Node's taint is not properly set, skip the node's taint
+					logger.Info("Taint is not properly set", "Node", node.Name, "Taint", taint)
+					continue
+				}
+
 				if taint.Key == pointer.StringDeref(taintConfiguredKey.Key, "") || pointer.StringDeref(taintConfiguredKey.Key, "") == "*" {
 					hasValidTaint = true
 					processGroupStatus.UpdateCondition(fdbv1beta2.NodeTaintDetected, true, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)

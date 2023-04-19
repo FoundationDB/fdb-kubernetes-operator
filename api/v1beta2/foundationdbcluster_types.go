@@ -381,7 +381,6 @@ func (processGroupStatus *ProcessGroupStatus) NeedsReplacement(failureTime int, 
 			if earliestTaintReplacementTime > conditionTime {
 				earliestTaintReplacementTime = conditionTime
 			}
-
 		} else {
 			if earliestFailureTime > conditionTime {
 				earliestFailureTime = conditionTime
@@ -2494,6 +2493,7 @@ func (cluster *FoundationDBCluster) Validate() error {
 	return fmt.Errorf(strings.Join(validations, ", "))
 }
 
+// IsTaintFeatureDisabled return true if operator is configured to not replace Pods tainted Nodes
 func (cluster *FoundationDBCluster) IsTaintFeatureDisabled() bool {
 	for _, taintOption := range cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions {
 		// disable taint feature when * taint key has negative or unset DurationInSeconds

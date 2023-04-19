@@ -606,7 +606,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 						Key:       taintKeyMaintenance,
 						Value:     "rack_maintenance",
 						Effect:    corev1.TaintEffectNoExecute,
-						TimeAdded: &metav1.Time{Time: time.Now().Add(-1 * time.Duration(time.Second*time.Duration(taintKeyMaintenanceDuration+1)))},
+						TimeAdded: &metav1.Time{Time: time.Now().Add(-1 * time.Second * time.Duration(taintKeyMaintenanceDuration+1))},
 					},
 				}
 				err = k8sClient.Update(ctx.TODO(), taintedNode)
@@ -620,8 +620,8 @@ var _ = Describe("replace_failed_process_groups", func() {
 
 			time.Sleep(time.Second * time.Duration(*cluster.Spec.AutomationOptions.Replacements.TaintReplacementTimeSeconds+1))
 
-			retry := len(taintedNodes) // Hack: Ensure reconciler replaces all tainted nodes
-			for {                      // re-run reconcileCluster up to retry times, assuming each reconciliation replaces at least one pod
+			retry := len(taintedNodes) * 2 // Hack: Ensure reconciler replaces all tainted nodes
+			for {                          // re-run reconcileCluster up to retry times, assuming each reconciliation replaces at least one pod
 				result, err := reconcileCluster(cluster)
 				Expect(err).NotTo(HaveOccurred())
 				if !result.Requeue || retry <= 0 {
@@ -657,11 +657,11 @@ var _ = Describe("replace_failed_process_groups", func() {
 			}
 			for i, taintedNode := range taintedNodes {
 				if i%2 == 0 {
+					taintKey = ""
+					taintTimeAdded = &metav1.Time{Time: time.Now()}
+				} else {
 					taintKey = taintKeyMaintenance
 					taintTimeAdded = nil
-				} else {
-					taintKey = ""
-					taintTimeAdded = &metav1.Time{Time: time.Now().Add(-1 * time.Duration(time.Second*time.Duration(taintKeyMaintenanceDuration+1)))}
 				}
 				taintedNode.Spec.Taints = []corev1.Taint{
 					{
@@ -683,7 +683,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 
 			time.Sleep(time.Second * time.Duration(*cluster.Spec.AutomationOptions.Replacements.TaintReplacementTimeSeconds+1))
 
-			retry := len(taintedNodes) // Hack: Ensure reconciler replaces all tainted nodes
+			retry := len(taintedNodes) * 2 // Hack: Ensure reconciler replaces all tainted nodes
 			for {
 				result, err := reconcileCluster(cluster)
 				Expect(err).NotTo(HaveOccurred())
