@@ -97,9 +97,8 @@ func getPodsToUpdate(logger logr.Logger, reconciler *FoundationDBClusterReconcil
 			continue
 		}
 
-		// When maxUnavailablePods is set to 0 we allow any number of unavailable Pods.
-		// Otherwise depending on the value being a percentage or an integer we
-		// calculate the limit.
+		// When maxUnavailablePods is set to 0 any number of unavailable Pods is allowed.
+		// But "0" or "0%" or non-parsable string are not valid values for maxUnavailablePods so we need to check for that.
 		if cluster.Spec.MaxUnavailablePods.Type == intstr.String && cluster.Spec.MaxUnavailablePods.IntValue() == 0 {
 			return nil, fmt.Errorf("invalid value for cluster.Spec.MaxUnavailablePods: %s", cluster.Spec.MaxUnavailablePods.String())
 		}
