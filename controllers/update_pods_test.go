@@ -30,11 +30,13 @@ import (
 
 	"k8s.io/utils/pointer"
 
+	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 var _ = Describe("update_pods", func() {
@@ -244,6 +246,38 @@ var _ = Describe("update_pods", func() {
 			It("should return no errors and a map with one zone", func() {
 				// We only have one zone in this case, the simulation zone
 				Expect(updates).To(HaveLen(1))
+			})
+		})
+
+		When("max unavailable pods is set and there are process groups with pods in pending status", func() {
+			BeforeEach(func() {
+				cluster.Spec.MaxUnavailablePods = intstr.FromInt(1)
+				Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
+
+				pods, err := clusterReconciler.PodLifecycleManager.GetPods(context.TODO(), k8sClient, cluster, internal.GetPodListOptions(cluster, "", "")...)
+				Expect(err).NotTo(HaveOccurred())
+
+				var numPendingPods int
+				for _, processGroup := range cluster.Status.ProcessGroups {
+					if processGroup.ProcessClass.IsStateful() {
+						processGroup.ProcessGroupConditions = append(processGroup.ProcessGroupConditions, fdbtypes.NewProcessGroupCondition(fdbtypes.PodPending))
+						numPendingPods++
+						if numPendingPods == 2 {
+							break
+						}
+					}
+				}
+
+				updates, err = getPodsToUpdate(log, clusterReconciler, cluster, internal.CreatePodMap(cluster, pods))
+				Expect(err).To(HaveOccurred())
+				if err != nil {
+					expectedError = true
+				}
+			})
+
+			It("should return an error and nil updates", func() {
+				Expect(updates).To(BeNil())
+				Expect(expectedError).To(BeTrue())
 			})
 		})
 	})

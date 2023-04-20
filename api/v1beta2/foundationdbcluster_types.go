@@ -28,6 +28,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/pointer"
 )
 
@@ -222,7 +223,7 @@ type FoundationDBClusterSpec struct {
 	// When set to 0 there is no limit on the number of pods that can be unavailable.
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:default:=0
-	MaxUnavailablePods int `json:"maxUnavailablePods,omitempty"`
+	MaxUnavailablePods intstr.IntOrString `json:"maxUnavailablePods,omitempty"`
 }
 
 // ImageType defines a single kind of images used in the cluster.

@@ -93,26 +93,28 @@ func getPodsToUpdate(logger logr.Logger, reconciler *FoundationDBClusterReconcil
 		if processGroup.IsMarkedForRemoval() {
 			logger.V(1).Info("Ignore removed Pod",
 				"processGroupID", processGroup.ProcessGroupID)
-			unavailablePods++
 			continue
+		}
+
+		if cluster.Spec.MaxUnavailablePods.IntValue() > 0 {
+			if processGroup.GetConditionTime(fdbv1beta2.PodPending) != nil {
+				unavailablePods++
+			}
+			if unavailablePods >= cluster.Spec.MaxUnavailablePods.IntValue() {
+				return nil, fmt.Errorf("cluster has %d Pods that are unavailable, which is more than the maximum of %d", unavailablePods, cluster.Spec.MaxUnavailablePods.IntValue())
+			}
 		}
 
 		if cluster.SkipProcessGroup(processGroup) {
 			logger.V(1).Info("Ignore pending Pod",
 				"processGroupID", processGroup.ProcessGroupID)
-			unavailablePods++
 			continue
 		}
 
 		if cluster.NeedsReplacement(processGroup) {
 			logger.V(1).Info("Skip process group for deletion, requires a replacement",
 				"processGroupID", processGroup.ProcessGroupID)
-			unavailablePods++
 			continue
-		}
-
-		if cluster.Spec.MaxUnavailablePods > 0 && unavailablePods >= cluster.Spec.MaxUnavailablePods {
-			return nil, fmt.Errorf("cluster has %d Pods that are unavailable, which is more than the maximum of %d", unavailablePods, cluster.Spec.MaxUnavailablePods)
 		}
 
 		pod, ok := podMap[processGroup.ProcessGroupID]
