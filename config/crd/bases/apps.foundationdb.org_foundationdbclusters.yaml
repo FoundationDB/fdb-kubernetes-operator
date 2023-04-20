@@ -9936,6 +9936,12 @@ spec:
                 type: object
               buggify:
                 properties:
+                  blockRemoval:
+                    items:
+                      maxLength: 63
+                      type: string
+                    maxItems: 1000
+                    type: array
                   crashLoop:
                     items:
                       maxLength: 63

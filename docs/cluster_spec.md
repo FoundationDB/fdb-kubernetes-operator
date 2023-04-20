@@ -62,6 +62,7 @@ BuggifyConfig provides options for injecting faults into a cluster for testing.
 | crashLoopContainers | CrashLoopContainers defines a list of process group IDs and containers that should be put into a crash looping state. | [][CrashLoopContainerObject](#crashloopcontainerobject) | false |
 | emptyMonitorConf | EmptyMonitorConf instructs the operator to update all of the fdbmonitor.conf files to have zero fdbserver processes configured. | bool | false |
 | ignoreDuringRestart | IgnoreDuringRestart instructs the operator to ignore the provided process groups IDs during the restart command. This can be useful to simulate cases where the kill command is not restarting all processes. IgnoreDuringRestart does not support the wildcard option to ignore all of this specific cluster processes. | [][ProcessGroupID](#processgroupid) | false |
+| blockRemoval | BlockRemoval defines a list of process group IDs that will not be removed, even if they are marked for removal. The operator will trigger the exclusion but the removal of the resources will be blocked until they are removed from this list. This setting can be used to simulate cases where a process group is marked for removal but the resources are not yet removed. | [][ProcessGroupID](#processgroupid) | false |
 
 [Back to TOC](#table-of-contents)
 
