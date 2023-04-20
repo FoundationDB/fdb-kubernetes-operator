@@ -97,7 +97,12 @@ func getPodsToUpdate(logger logr.Logger, reconciler *FoundationDBClusterReconcil
 			continue
 		}
 
-		if cluster.Spec.MaxUnavailablePods.IntValue() > 0 {
+		// When maxUnavailablePods is set to 0 we allow any number of unavailable Pods.
+		// Otherwise depending on the value being a percentage or an integer we
+		// calculate the limit.
+		if cluster.Spec.MaxUnavailablePods.Type == intstr.String && cluster.Spec.MaxUnavailablePods.IntValue() == 0 {
+			return nil, fmt.Errorf("invalid value for cluster.Spec.MaxUnavailablePods: %s", cluster.Spec.MaxUnavailablePods.String())
+		} else if cluster.Spec.MaxUnavailablePods.IntValue() > 0 {
 			if processGroup.GetConditionTime(fdbv1beta2.PodPending) != nil {
 				unavailablePods++
 			}
