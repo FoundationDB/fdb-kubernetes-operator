@@ -221,8 +221,8 @@ type FoundationDBClusterSpec struct {
 
 	// MaxUnavailablePods defines the maximum number of pods that can be unavailable during the update process.
 	// When set to 0 there is no limit on the number of pods that can be unavailable.
-	// +kubebuilder:validation:Minimum=0
-	// +kubebuilder:default:=0
+	// +kubebuilder:validation:Pattern:="[1-9]?[0-9]%?"
+	// +kubebuilder:default:="0"
 	MaxUnavailablePods intstr.IntOrString `json:"maxUnavailablePods,omitempty"`
 }
 

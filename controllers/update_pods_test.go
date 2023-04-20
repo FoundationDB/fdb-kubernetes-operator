@@ -30,7 +30,6 @@ import (
 
 	"k8s.io/utils/pointer"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -260,7 +259,7 @@ var _ = Describe("update_pods", func() {
 				var numPendingPods int
 				for _, processGroup := range cluster.Status.ProcessGroups {
 					if processGroup.ProcessClass.IsStateful() {
-						processGroup.ProcessGroupConditions = append(processGroup.ProcessGroupConditions, fdbtypes.NewProcessGroupCondition(fdbtypes.PodPending))
+						processGroup.ProcessGroupConditions = append(processGroup.ProcessGroupConditions, fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.PodPending))
 						numPendingPods++
 						if numPendingPods == 2 {
 							break
