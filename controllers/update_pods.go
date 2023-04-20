@@ -32,6 +32,7 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 // updatePods provides a reconciliation step for recreating pods with new pod
@@ -100,7 +101,11 @@ func getPodsToUpdate(logger logr.Logger, reconciler *FoundationDBClusterReconcil
 			if processGroup.GetConditionTime(fdbv1beta2.PodPending) != nil {
 				unavailablePods++
 			}
-			if unavailablePods >= cluster.Spec.MaxUnavailablePods.IntValue() {
+			limit, err := intstr.GetScaledValueFromIntOrPercent(&cluster.Spec.MaxUnavailablePods, len(cluster.Status.ProcessGroups), true)
+			if err != nil {
+				return nil, fmt.Errorf("invalid value for cluster.Spec.MaxUnavailablePods: %s", err.Error())
+			}
+			if unavailablePods >= limit {
 				return nil, fmt.Errorf("cluster has %d Pods that are unavailable, which is more than the maximum of %d", unavailablePods, cluster.Spec.MaxUnavailablePods.IntValue())
 			}
 		}

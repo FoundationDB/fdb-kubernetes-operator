@@ -219,8 +219,8 @@ type FoundationDBClusterSpec struct {
 	// separate images for the main container and the sidecar container.
 	UseUnifiedImage *bool `json:"useUnifiedImage,omitempty"`
 
-	// MaxUnavailablePods defines the maximum number of pods that can be unavailable during the update process.
-	// When set to 0 there is no limit on the number of pods that can be unavailable.
+	// MaxUnavailablePods defines the maximum number or percent of pods that can be unavailable during the update process.
+	// When set to 0 there is no limit on the number or percent of pods that can be unavailable.
 	// +kubebuilder:default:=0
 	MaxUnavailablePods intstr.IntOrString `json:"maxUnavailablePods,omitempty"`
 }
