@@ -98,20 +98,16 @@ func getPodsToUpdate(logger logr.Logger, reconciler *FoundationDBClusterReconcil
 		}
 
 		// When maxUnavailablePods is set to 0 any number of unavailable Pods is allowed.
-		// But "0" or "0%" or non-parsable string are not valid values for maxUnavailablePods so we need to check for that.
-		if cluster.Spec.MaxUnavailablePods.Type == intstr.String && cluster.Spec.MaxUnavailablePods.IntValue() == 0 {
-			return nil, fmt.Errorf("invalid value for cluster.Spec.MaxUnavailablePods: %s", cluster.Spec.MaxUnavailablePods.String())
+		maxUnavailablePods, err := intstr.GetScaledValueFromIntOrPercent(&cluster.Spec.MaxUnavailablePods, len(cluster.Status.ProcessGroups), true)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for cluster.Spec.MaxUnavailablePods: %w", err)
 		}
-		if cluster.Spec.MaxUnavailablePods.IntValue() > 0 {
+		if maxUnavailablePods > 0 {
 			if processGroup.GetConditionTime(fdbv1beta2.PodPending) != nil {
 				unavailablePods++
 			}
-			limit, err := intstr.GetScaledValueFromIntOrPercent(&cluster.Spec.MaxUnavailablePods, len(cluster.Status.ProcessGroups), true)
-			if err != nil {
-				return nil, fmt.Errorf("invalid value for cluster.Spec.MaxUnavailablePods: %w", err)
-			}
-			if unavailablePods >= limit {
-				return nil, fmt.Errorf("cluster has %d Pods that are unavailable, which is more than the maximum of %d", unavailablePods, cluster.Spec.MaxUnavailablePods.IntValue())
+			if unavailablePods >= maxUnavailablePods {
+				return nil, fmt.Errorf("unavailable Pods reached cluster.Spec.MaxUnavailablePods limit: %d", maxUnavailablePods)
 			}
 		}
 

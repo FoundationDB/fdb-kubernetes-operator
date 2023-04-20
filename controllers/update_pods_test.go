@@ -250,7 +250,7 @@ var _ = Describe("update_pods", func() {
 
 		When("max unavailable pods is set with a percent value and there are process groups with pods in pending status", func() {
 			BeforeEach(func() {
-				cluster.Spec.MaxUnavailablePods = intstr.FromString("1.1%")
+				cluster.Spec.MaxUnavailablePods = intstr.FromString("1%")
 				Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
 
 				pods, err := clusterReconciler.PodLifecycleManager.GetPods(context.TODO(), k8sClient, cluster, internal.GetPodListOptions(cluster, "", "")...)
@@ -269,6 +269,8 @@ var _ = Describe("update_pods", func() {
 
 				updates, err = getPodsToUpdate(log, clusterReconciler, cluster, internal.CreatePodMap(cluster, pods))
 				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).Should(ContainSubstring("unavailable Pods reached cluster.Spec.MaxUnavailablePods limit: 1"))
+
 				if err != nil {
 					expectedError = true
 				}
@@ -301,6 +303,8 @@ var _ = Describe("update_pods", func() {
 
 				updates, err = getPodsToUpdate(log, clusterReconciler, cluster, internal.CreatePodMap(cluster, pods))
 				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).Should(ContainSubstring("unavailable Pods reached cluster.Spec.MaxUnavailablePods limit: 1"))
+
 				if err != nil {
 					expectedError = true
 				}
@@ -333,6 +337,8 @@ var _ = Describe("update_pods", func() {
 
 				updates, err = getPodsToUpdate(log, clusterReconciler, cluster, internal.CreatePodMap(cluster, pods))
 				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).Should(ContainSubstring("invalid value for cluster.Spec.MaxUnavailablePods: invalid"))
+
 				if err != nil {
 					expectedError = true
 				}
