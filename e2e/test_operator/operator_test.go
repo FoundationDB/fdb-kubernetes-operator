@@ -830,7 +830,7 @@ var _ = Describe("Operator", Label("e2e"), func() {
 	})
 
 	// TODO (johscheuer): enable this test once the CRD is updated in out CI cluster.
-	FWhen("a process group is set to be blocked for removal", func() {
+	PWhen("a process group is set to be blocked for removal", func() {
 		var podMarkedForRemoval corev1.Pod
 		var processGroupID fdbv1beta2.ProcessGroupID
 
