@@ -108,7 +108,7 @@ func getPodsToUpdate(logger logr.Logger, reconciler *FoundationDBClusterReconcil
 			}
 			limit, err := intstr.GetScaledValueFromIntOrPercent(&cluster.Spec.MaxUnavailablePods, len(cluster.Status.ProcessGroups), true)
 			if err != nil {
-				return nil, fmt.Errorf("invalid value for cluster.Spec.MaxUnavailablePods: %s", err.Error())
+				return nil, fmt.Errorf("invalid value for cluster.Spec.MaxUnavailablePods: %w", err)
 			}
 			if unavailablePods >= limit {
 				return nil, fmt.Errorf("cluster has %d Pods that are unavailable, which is more than the maximum of %d", unavailablePods, cluster.Spec.MaxUnavailablePods.IntValue())
