@@ -1119,3 +1119,9 @@ func (fdbCluster *FdbCluster) UpdateContainerImage(pod *corev1.Pod, containerNam
 
 	gomega.Expect(fdbCluster.factory.GetControllerRuntimeClient().Update(ctx.Background(), pod)).NotTo(gomega.HaveOccurred())
 }
+
+// SetBuggifyBlockRemoval will set the provided list of process group IDs to be blocked for removal.
+func (fdbCluster *FdbCluster) SetBuggifyBlockRemoval(blockRemovals []fdbv1beta2.ProcessGroupID) {
+	fdbCluster.cluster.Spec.Buggify.BlockRemoval = blockRemovals
+	fdbCluster.UpdateClusterSpec()
+}

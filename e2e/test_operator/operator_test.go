@@ -788,7 +788,7 @@ var _ = Describe("Operator", Label("e2e"), func() {
 			pickedPod = fixtures.ChooseRandomPod(fdbCluster.GetStatelessPods())
 			log.Println("Selected Pod:", pickedPod.Name, " to be skipped during the restart")
 			fdbCluster.SetIgnoreDuringRestart(
-				[]fdbv1beta2.ProcessGroupID{fdbv1beta2.ProcessGroupID(pickedPod.Labels[fdbCluster.GetCachedCluster().GetProcessGroupIDLabel()])},
+				[]fdbv1beta2.ProcessGroupID{fixtures.GetProcessGroupID(*pickedPod)},
 			)
 
 			Expect(
@@ -810,7 +810,7 @@ var _ = Describe("Operator", Label("e2e"), func() {
 		})
 
 		It("should not restart the process on the ignore list", func() {
-			processGroupID := fdbv1beta2.ProcessGroupID(pickedPod.Labels[fdbCluster.GetCachedCluster().GetProcessGroupIDLabel()])
+			processGroupID := fixtures.GetProcessGroupID(*pickedPod)
 
 			// Ensure that the process group has the condition IncorrectCommandLine and is kept in that state for 1 minute.
 			Eventually(func() bool {
@@ -826,6 +826,45 @@ var _ = Describe("Operator", Label("e2e"), func() {
 
 				return false
 			}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).MustPassRepeatedly(12).Should(BeTrue())
+		})
+	})
+
+	// TODO (johscheuer): enable this test once the CRD is updated in out CI cluster.
+	FWhen("a process group is set to be blocked for removal", func() {
+		var podMarkedForRemoval corev1.Pod
+		var processGroupID fdbv1beta2.ProcessGroupID
+
+		BeforeEach(func() {
+			initialPods := fdbCluster.GetStatelessPods()
+			podMarkedForRemoval = fixtures.RandomPickOnePod(initialPods.Items)
+			log.Println("Setting Pod", podMarkedForRemoval.Name, "to be blocked to be removed and mark it for removal.")
+			processGroupID = fixtures.GetProcessGroupID(podMarkedForRemoval)
+			fdbCluster.SetBuggifyBlockRemoval([]fdbv1beta2.ProcessGroupID{processGroupID})
+			fdbCluster.ReplacePod(podMarkedForRemoval, false)
+		})
+
+		AfterEach(func() {
+			fdbCluster.SetBuggifyBlockRemoval(nil)
+			fdbCluster.EnsurePodIsDeleted(podMarkedForRemoval.Name)
+		})
+
+		It("should exclude the Pod but not remove the resources", func() {
+			Eventually(func() bool {
+				cluster := fdbCluster.GetCluster()
+
+				for _, processGroup := range cluster.Status.ProcessGroups {
+					if processGroup.ProcessGroupID != processGroupID {
+						continue
+					}
+
+					return !processGroup.ExclusionTimestamp.IsZero() && !processGroup.RemovalTimestamp.IsZero()
+				}
+
+				return false
+			}).WithTimeout(5 * time.Minute).WithPolling(15 * time.Second).ShouldNot(BeTrue())
+			Consistently(func() *corev1.Pod {
+				return fdbCluster.GetPod(podMarkedForRemoval.Name)
+			}).WithTimeout(1 * time.Minute).WithPolling(15 * time.Second).ShouldNot(BeNil())
 		})
 	})
 })
