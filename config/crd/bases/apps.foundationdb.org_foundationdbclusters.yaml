@@ -10199,7 +10199,7 @@ spec:
                 anyOf:
                 - type: integer
                 - type: string
-                default: "0"
+                default: 0
                 x-kubernetes-int-or-string: true
               minimumUptimeSecondsForBounce:
                 default: 600
