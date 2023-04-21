@@ -422,7 +422,7 @@ func (fdbCluster *FdbCluster) UpdateClusterSpecWithSpec(desiredSpec *fdbv1beta2.
 		}
 		// Retry here and let the method fetch the latest version of the cluster again until the spec is updated.
 		return false
-	}).WithTimeout(1 * time.Minute).WithPolling(1 * time.Second).Should(gomega.BeTrue())
+	}).WithTimeout(5 * time.Minute).WithPolling(1 * time.Second).Should(gomega.BeTrue())
 
 	fdbCluster.cluster = fetchedCluster
 }

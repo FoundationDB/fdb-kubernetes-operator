@@ -169,7 +169,7 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: fdb-kubernetes-operator-manager-clusterrole
+  name: {{ .Namespace }}-operator-manager-clusterrole
 rules:
 - apiGroups:
   - ""
@@ -186,11 +186,11 @@ rules:
   apiVersion: rbac.authorization.k8s.io/v1
   kind: ClusterRoleBinding
   metadata:
-    name: fdb-kubernetes-operator-manager-clusterrolebinding
+    name: {{ .Namespace }}-operator-manager-clusterrolebinding
   roleRef:
     apiGroup: rbac.authorization.k8s.io
     kind: ClusterRole
-    name: fdb-kubernetes-operator-manager-clusterrole
+    name: {{ .Namespace }}-operator-manager-clusterrole
   subjects:
   - kind: ServiceAccount
     name: fdb-kubernetes-operator-controller-manager
@@ -449,6 +449,7 @@ func (factory *Factory) CreateFDBOperatorIfAbsent(namespace string) error {
 		unstructuredMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		unstructuredObj := &unstructured.Unstructured{Object: unstructuredMap}
+		fmt.Printf("CreateFDBOperatorIfAbsent unstructuredObj%+v\n", unstructuredObj)
 
 		gomega.Expect(
 			factory.CreateIfAbsent(unstructuredObj),
