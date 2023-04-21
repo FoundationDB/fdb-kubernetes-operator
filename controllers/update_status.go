@@ -656,6 +656,7 @@ func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler,
 func updateTaintCondition(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster,
 	pod *corev1.Pod, processGroupStatus *fdbv1beta2.ProcessGroupStatus, logger logr.Logger) error {
 	node := &corev1.Node{}
+	log.Info("Get pod's node Start", "Pod", pod.Name, "Pod's node name", pod.Spec.NodeName)
 	err := r.Get(ctx, client.ObjectKey{Name: pod.Spec.NodeName}, node)
 	if err != nil {
 		log.Info("Get pod's node fails", "Pod", pod.Name, "Pod's node name", pod.Spec.NodeName, "err", err)

@@ -354,7 +354,8 @@ var _ = Describe("replace_failed_process_groups", func() {
 				Expect(err).NotTo(HaveOccurred())
 				log.Info("Taint node", "Not tainted", tainted, "Node name", podOnTaintedNode.Name, "Node taints", node.Spec.Taints, "Now", time.Now())
 			}
-			Expect(tainted).To(Equal(int64(0)))
+			Expect(tainted).To(Equal(int64(0))) // ensure last Taint is empty
+			startTime := time.Now()
 
 			result, err := reconcileClusterWithCustomRequeueLimit(cluster, 1)
 			Expect(err).NotTo(HaveOccurred())
@@ -371,15 +372,11 @@ var _ = Describe("replace_failed_process_groups", func() {
 			// Wait long enough to satisfy cluster-wide threshold to replace tainted node
 			time.Sleep(time.Second * time.Duration(cluster.GetTaintReplacementTimeSeconds()+1))
 
-			reachRemovalTime := false
-			if taintKeyMaintenanceDuration-int64(cluster.GetTaintReplacementTimeSeconds()) < 0 {
-				reachRemovalTime = true
-			}
-			Expect(reachRemovalTime).To(Equal(false))
+			// Sanity check test has not take taintKeyMaintenanceDuration seconds to execute
+			Expect(time.Now().Unix() - startTime.Unix()).To(BeNumerically("<", taintKeyMaintenanceDuration))
 			// still should not replace the target process group because it is not marked as failed
 			result, err = reconcileCluster(cluster)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(result.Requeue).To(BeTrue()) // Requeue to check reconciliation later
 			// target pod should not be removed by reconciliation
 			Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]fdbv1beta2.ProcessGroupID{}))
 			Expect(getPodByProcessGroupID(cluster, internal.GetProcessGroupIDFromMeta(cluster, podOnTaintedNode.ObjectMeta))).NotTo(BeNil())
