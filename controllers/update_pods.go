@@ -89,6 +89,11 @@ func getPodsToUpdate(logger logr.Logger, reconciler *FoundationDBClusterReconcil
 	updates := make(map[string][]*corev1.Pod)
 
 	var unavailablePods int
+	// When maxUnavailablePods is set to 0 any number of unavailable Pods is allowed.
+	maxUnavailablePods, err := intstr.GetScaledValueFromIntOrPercent(&cluster.Spec.MaxUnavailablePods, len(cluster.Status.ProcessGroups), true)
+	if err != nil {
+		return nil, fmt.Errorf("invalid value for cluster.Spec.MaxUnavailablePods: %w", err)
+	}
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup.IsMarkedForRemoval() {
@@ -97,17 +102,9 @@ func getPodsToUpdate(logger logr.Logger, reconciler *FoundationDBClusterReconcil
 			continue
 		}
 
-		// When maxUnavailablePods is set to 0 any number of unavailable Pods is allowed.
-		maxUnavailablePods, err := intstr.GetScaledValueFromIntOrPercent(&cluster.Spec.MaxUnavailablePods, len(cluster.Status.ProcessGroups), true)
-		if err != nil {
-			return nil, fmt.Errorf("invalid value for cluster.Spec.MaxUnavailablePods: %w", err)
-		}
 		if maxUnavailablePods > 0 {
 			if processGroup.GetConditionTime(fdbv1beta2.PodPending) != nil {
 				unavailablePods++
-			}
-			if unavailablePods >= maxUnavailablePods {
-				return nil, fmt.Errorf("unavailable Pods reached cluster.Spec.MaxUnavailablePods limit: %d", maxUnavailablePods)
 			}
 		}
 
@@ -127,6 +124,9 @@ func getPodsToUpdate(logger logr.Logger, reconciler *FoundationDBClusterReconcil
 		if !ok || pod == nil {
 			logger.V(1).Info("Could not find Pod for process group ID",
 				"processGroupID", processGroup.ProcessGroupID)
+			if maxUnavailablePods > 0 {
+				unavailablePods++
+			}
 			continue
 		}
 
@@ -197,6 +197,10 @@ func getPodsToUpdate(logger logr.Logger, reconciler *FoundationDBClusterReconcil
 			updates[zone] = make([]*corev1.Pod, 0)
 		}
 		updates[zone] = append(updates[zone], pod)
+	}
+
+	if maxUnavailablePods > 0 && unavailablePods >= maxUnavailablePods {
+		return nil, fmt.Errorf("unavailable Pods reached cluster.Spec.MaxUnavailablePods limit: %d", maxUnavailablePods)
 	}
 
 	return updates, nil

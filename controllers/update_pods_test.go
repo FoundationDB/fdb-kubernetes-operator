@@ -205,6 +205,8 @@ var _ = Describe("update_pods", func() {
 		var cluster *fdbv1beta2.FoundationDBCluster
 		var updates map[string][]*corev1.Pod
 		var expectedError bool
+		var err error
+		var pods []*corev1.Pod
 
 		BeforeEach(func() {
 			cluster = internal.CreateDefaultCluster()
@@ -216,7 +218,7 @@ var _ = Describe("update_pods", func() {
 		})
 
 		JustBeforeEach(func() {
-			pods, err := clusterReconciler.PodLifecycleManager.GetPods(context.TODO(), k8sClient, cluster, internal.GetPodListOptions(cluster, "", "")...)
+			pods, err = clusterReconciler.PodLifecycleManager.GetPods(context.TODO(), k8sClient, cluster, internal.GetPodListOptions(cluster, "", "")...)
 			Expect(err).NotTo(HaveOccurred())
 
 			updates, err = getPodsToUpdate(log, clusterReconciler, cluster, internal.CreatePodMap(cluster, pods))
@@ -250,11 +252,9 @@ var _ = Describe("update_pods", func() {
 
 		When("max unavailable pods is set with a percent value and there are process groups with pods in pending status", func() {
 			BeforeEach(func() {
+				expectedError = true
 				cluster.Spec.MaxUnavailablePods = intstr.FromString("1%")
 				Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
-
-				pods, err := clusterReconciler.PodLifecycleManager.GetPods(context.TODO(), k8sClient, cluster, internal.GetPodListOptions(cluster, "", "")...)
-				Expect(err).NotTo(HaveOccurred())
 
 				var numPendingPods int
 				for _, processGroup := range cluster.Status.ProcessGroups {
@@ -266,29 +266,20 @@ var _ = Describe("update_pods", func() {
 						}
 					}
 				}
-
-				updates, err = getPodsToUpdate(log, clusterReconciler, cluster, internal.CreatePodMap(cluster, pods))
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).Should(ContainSubstring("unavailable Pods reached cluster.Spec.MaxUnavailablePods limit: 1"))
-
-				if err != nil {
-					expectedError = true
-				}
 			})
 
 			It("should return an error and nil updates", func() {
 				Expect(updates).To(BeNil())
 				Expect(expectedError).To(BeTrue())
+				Expect(err.Error()).Should(ContainSubstring("unavailable Pods reached cluster.Spec.MaxUnavailablePods limit: 1"))
 			})
 		})
 
 		When("max unavailable pods is set with an int value and there are process groups with pods in pending status", func() {
 			BeforeEach(func() {
+				expectedError = true
 				cluster.Spec.MaxUnavailablePods = intstr.FromInt(1)
 				Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
-
-				pods, err := clusterReconciler.PodLifecycleManager.GetPods(context.TODO(), k8sClient, cluster, internal.GetPodListOptions(cluster, "", "")...)
-				Expect(err).NotTo(HaveOccurred())
 
 				var numPendingPods int
 				for _, processGroup := range cluster.Status.ProcessGroups {
@@ -300,53 +291,26 @@ var _ = Describe("update_pods", func() {
 						}
 					}
 				}
-
-				updates, err = getPodsToUpdate(log, clusterReconciler, cluster, internal.CreatePodMap(cluster, pods))
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).Should(ContainSubstring("unavailable Pods reached cluster.Spec.MaxUnavailablePods limit: 1"))
-
-				if err != nil {
-					expectedError = true
-				}
 			})
 
 			It("should return an error and nil updates", func() {
 				Expect(updates).To(BeNil())
 				Expect(expectedError).To(BeTrue())
+				Expect(err.Error()).Should(ContainSubstring("unavailable Pods reached cluster.Spec.MaxUnavailablePods limit: 1"))
 			})
 		})
 
 		When("max unavailable pods has an invalid format", func() {
 			BeforeEach(func() {
+				expectedError = true
 				cluster.Spec.MaxUnavailablePods = intstr.FromString("invalid")
 				Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
-
-				pods, err := clusterReconciler.PodLifecycleManager.GetPods(context.TODO(), k8sClient, cluster, internal.GetPodListOptions(cluster, "", "")...)
-				Expect(err).NotTo(HaveOccurred())
-
-				var numPendingPods int
-				for _, processGroup := range cluster.Status.ProcessGroups {
-					if processGroup.ProcessClass.IsStateful() {
-						processGroup.ProcessGroupConditions = append(processGroup.ProcessGroupConditions, fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.PodPending))
-						numPendingPods++
-						if numPendingPods == 2 {
-							break
-						}
-					}
-				}
-
-				updates, err = getPodsToUpdate(log, clusterReconciler, cluster, internal.CreatePodMap(cluster, pods))
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).Should(ContainSubstring("invalid value for cluster.Spec.MaxUnavailablePods: invalid"))
-
-				if err != nil {
-					expectedError = true
-				}
 			})
 
 			It("should return an error and nil updates", func() {
 				Expect(updates).To(BeNil())
 				Expect(expectedError).To(BeTrue())
+				Expect(err.Error()).Should(ContainSubstring("invalid value for cluster.Spec.MaxUnavailablePods: invalid"))
 			})
 		})
 
