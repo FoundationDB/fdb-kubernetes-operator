@@ -148,6 +148,29 @@ We discussed in [Process restarted during staging Phase](#process-restarted-duri
 For version incompatible upgrades the operator has no way to differentiate between processes not reporting to the cluster and processes running in the incompatible version, both will be missing from the processes list.
 The only difference is that the incompatible processes might be reported in the `incompatible_connections` field.
 
+#### Processes are not able to join the FDB cluster
+
+We've seen cases where a subset of `fdbserver` were not able to join the FDB cluster.
+This can happen due to a race condition where a new set of coordinators is chosen.
+The affected process types are stateless and transaction or log processes.
+The newly created Pods for the transaction system will have the condition `MissingProcesses` and if you exec into one of those Pods you will see the `fdbserver` process running.
+When you check the logs from `fdbmonitor` you will see the following logs:
+
+```bash
+$ cat /var/log/fdb-trace-logs/fdbmonitor-*
+Severity="10" LogGroup="default" Process="fdbmonitor": Updated configuration for fdbserver.1
+Severity="40" LogGroup="default" Process="fdbserver.1": Warning: FDBD has not joined the cluster after 5 seconds.
+Severity="40" LogGroup="default" Process="fdbserver.1":   Check configuration and availability using the 'status' command with the fdbcli
+```
+
+You can resolve this issue by restarting all those processes with the kubectl plugin (or manually):
+
+```bash
+kubectl fdb -n aci-fdb-prod restart -c cluster --process-condition=MissingProcesses
+```
+
+There is a fix on FoundationDB side that should prevent this behaviour in the future: https://github.com/apple/foundationdb/pull/9814.
+
 ### How we test upgrades in the operator
 
 For every PR against the operator repository we run a set of tests in addition to that we are running those tests on a regular basis with different versions to ensure we test major, minor and patch upgrades.
