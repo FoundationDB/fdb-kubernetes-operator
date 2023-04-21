@@ -657,7 +657,7 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, proce
 
 // getEnvForMonitorConfigSubstitution provides the environment variables that
 // are used for substituting variables into the monitor config.
-func getEnvForMonitorConfigSubstitution(cluster *fdbv1beta2.FoundationDBCluster, instanceID fdbv1beta2.ProcessGroupID) []corev1.EnvVar {
+func getEnvForMonitorConfigSubstitution(cluster *fdbv1beta2.FoundationDBCluster, processGroupID fdbv1beta2.ProcessGroupID) []corev1.EnvVar {
 	env := make([]corev1.EnvVar, 0)
 
 	publicIPSource := cluster.Spec.Routing.PublicIPSource
@@ -724,7 +724,7 @@ func getEnvForMonitorConfigSubstitution(cluster *fdbv1beta2.FoundationDBCluster,
 		}
 	}
 
-	env = append(env, corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: string(instanceID)})
+	env = append(env, corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: string(processGroupID)})
 
 	return env
 }
