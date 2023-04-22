@@ -1010,7 +1010,7 @@ type MaintenanceModeOptions struct {
 type TaintReplacementOption struct {
 	// Tainted key
 	// +kubebuilder:validation:MaxLength=256
-	// +kubebuilder:validation:Pattern:=^([\-._\/a-z0-9A-Z])*$
+	// +kubebuilder:validation:Pattern:=^([\-._\/a-z0-9A-Z\*])*$
 	// +kubebuilder:validation:Required
 	Key *string `json:"key,omitempty"`
 
