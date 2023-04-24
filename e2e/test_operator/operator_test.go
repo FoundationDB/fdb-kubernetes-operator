@@ -126,7 +126,7 @@ var _ = Describe("Operator", Label("e2e"), func() {
 		}
 	})
 
-	PContext("testing taint feature", func() {
+	FContext("testing taint feature", func() {
 		taintKeyMaintenance := "maintenance"
 		taintKeyMaintenanceDuration := int64(2)
 		taintKeyStar := "*"
