@@ -165,6 +165,11 @@ var _ = Describe("Operator", Label("e2e"), func() {
 			curClusterSpec.AutomationOptions.Replacements.TaintReplacementTimeSeconds = pointer.Int(150)
 			fdbCluster.UpdateClusterSpecWithSpec(curClusterSpec)
 			// untaint the nodes
+			log.Printf("Cleanup: Untaint the single node:%s\n", taintedNode.Name)
+			taintedNode := fdbCluster.GetNode(taintedNode.Name)
+			taintedNode.Spec.Taints = []corev1.Taint{}
+			err := fdbCluster.UpdateNode(taintedNode)
+			Expect(err).NotTo(HaveOccurred())
 			for i, node := range taintedNodes {
 				log.Printf("Cleanup: Untaint the %dth node:%s\n", i, node.Name)
 				node := fdbCluster.GetNode(node.Name)
