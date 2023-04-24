@@ -381,4 +381,38 @@ var _ = Describe("Operator HA Upgrades", Label("e2e"), func() {
 		EntryDescription("Upgrade from %[1]s to %[2]s with network link that drops some packets"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
 	)
+
+	DescribeTable(
+		"Test ha cluster generation number during upgrade",
+		func(beforeVersion string, targetVersion string) {
+			clusterSetup(beforeVersion, false)
+
+			initialGeneration := 0
+			for _, singleCluster := range fdbCluster.GetAllClusters() {
+				status := singleCluster.GetStatus()
+				if status.Cluster.Generation > initialGeneration {
+					initialGeneration = status.Cluster.Generation
+				}
+			}
+
+			// Start the upgrade, but do not wait for reconciliation to complete.
+			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
+
+			Eventually(func() bool {
+				for _, singleCluster := range fdbCluster.GetAllClusters() {
+					if singleCluster.GetCluster().Status.RunningVersion != targetVersion {
+						return false
+					}
+					// Verify that the cluster generation number doesn't increase by more
+					// than 9 (the number of recoveries we think should happen during an ha
+					// cluster upgrade).
+					status := singleCluster.GetStatus()
+					Expect(status.Cluster.Generation).To(BeNumerically("<=", initialGeneration+9))
+				}
+				return true
+			}).WithTimeout(10 * time.Minute).WithPolling(2 * time.Second).Should(BeTrue())
+		},
+		EntryDescription("Upgrade, with cluster generation test, from %s to %s"),
+		fixtures.GenerateUpgradeTableEntries(testOptions),
+	)
 })
