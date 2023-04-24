@@ -380,20 +380,15 @@ var _ = Describe("Operator Upgrades", Label("e2e"), func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			// Wait for the server process to restart.
-			time.Sleep(40 * time.Second)
+			time.Sleep(140 * time.Second)
 
 			// Check if the restarted process is showing up in IncompatibleConnections list in status output.
 			status := fdbCluster.GetStatus()
 			log.Println("IncompatibleProcesses:", status.Cluster.IncompatibleConnections)
-
-			// NOTE: The restarted process doesn't show up in IncompatibleConnections list consistently, hence
-			// the check below. Not sure what we can do to address this inconsistent behavior.
-			if len(status.Cluster.IncompatibleConnections) != 0 {
-				Expect(len(status.Cluster.IncompatibleConnections)).To(Equal(1))
-				// Extract the IP of the incompatible process.
-				incompatibleProcess := strings.Split(status.Cluster.IncompatibleConnections[0], ":")[0]
-				Expect(incompatibleProcess == selectedCoordinator.Status.PodIP).Should(BeTrue())
-			}
+			Expect(len(status.Cluster.IncompatibleConnections)).To(Equal(1))
+			// Extract the IP of the incompatible process.
+			incompatibleProcess := strings.Split(status.Cluster.IncompatibleConnections[0], ":")[0]
+			Expect(incompatibleProcess == selectedCoordinator.Status.PodIP).Should(BeTrue())
 
 			// Allow the operator to restart processes and the upgrade should continue and finish.
 			fdbCluster.SetKillProcesses(true)
@@ -569,9 +564,6 @@ var _ = Describe("Operator Upgrades", Label("e2e"), func() {
 			// The cluster should still be able to upgrade.
 			Expect(fdbCluster.UpgradeCluster(targetVersion, true)).NotTo(HaveOccurred())
 
-			// NOTE: The coordinator process selected above is getting restarted - why the buggify option
-			// is not preventing the restart? If that's how the buggigy option is supposed to behave, figure
-			// out how to capture the status before that coordinator process gets restarted.
 			status := fdbCluster.GetStatus()
 			Expect(len(status.Cluster.IncompatibleConnections)).To(Equal(0))
 		},
