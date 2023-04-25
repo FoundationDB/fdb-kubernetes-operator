@@ -70,7 +70,6 @@ rules:
   - events
   - secrets
   - services
-  - nodes
   verbs:
   - get
   - watch
@@ -179,9 +178,6 @@ rules:
   - get
   - watch
   - list
-  - create
-  - update
-  - patch
 ---
   apiVersion: rbac.authorization.k8s.io/v1
   kind: ClusterRoleBinding

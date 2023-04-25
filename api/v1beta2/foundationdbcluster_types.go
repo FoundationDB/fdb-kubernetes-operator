@@ -2493,7 +2493,8 @@ func (cluster *FoundationDBCluster) Validate() error {
 	return fmt.Errorf(strings.Join(validations, ", "))
 }
 
-// IsTaintFeatureDisabled return true if operator is configured to not replace Pods tainted Nodes
+// IsTaintFeatureDisabled return true if operator is configured to not replace Pods tainted Nodes OR
+// if operator's TaintReplacementOptions is not set.
 func (cluster *FoundationDBCluster) IsTaintFeatureDisabled() bool {
 	for _, taintOption := range cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions {
 		// disable taint feature when * taint key has negative or unset DurationInSeconds
@@ -2501,5 +2502,5 @@ func (cluster *FoundationDBCluster) IsTaintFeatureDisabled() bool {
 			return true
 		}
 	}
-	return false
+	return len(cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions) == 0
 }
