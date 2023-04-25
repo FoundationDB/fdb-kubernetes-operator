@@ -1040,7 +1040,7 @@ func (fdbCluster *FdbCluster) GetCustomParameters(
 }
 
 // EnsurePodIsDeleted validates that a Pod is either not existing or is marked as deleted with a non-zero deletion timestamp.
-func (fdbCluster *FdbCluster) EnsurePodIsDeleted(podName string) {
+func (fdbCluster *FdbCluster) EnsurePodIsDeletedWithCustomTimeout(podName string, timeoutMinutes int) {
 	gomega.Eventually(func() bool {
 		pod := &corev1.Pod{}
 		err := fdbCluster.getClient().
@@ -1053,7 +1053,11 @@ func (fdbCluster *FdbCluster) EnsurePodIsDeleted(podName string) {
 
 		// For our case it's enough to validate that the Pod is marked for deletion.
 		return !pod.DeletionTimestamp.IsZero()
-	}).WithTimeout(5 * time.Minute).WithPolling(1 * time.Second).Should(gomega.BeTrue())
+	}).WithTimeout(time.Duration(timeoutMinutes) * time.Minute).WithPolling(1 * time.Second).Should(gomega.BeTrue())
+}
+
+func (fdbCluster *FdbCluster) EnsurePodIsDeleted(podName string) {
+	fdbCluster.EnsurePodIsDeletedWithCustomTimeout(podName, 5)
 }
 
 // SetUseDNSInClusterFile enables DNS in the cluster file. Enable this setting to use DNS instead of IP addresses in
