@@ -1039,6 +1039,19 @@ func (fdbCluster *FdbCluster) GetCustomParameters(
 	return fdbCluster.cluster.Spec.Processes[processClass].CustomParameters
 }
 
+func (fdbCluster *FdbCluster) CheckPodIsNotDeletedWithDelay(podName string) (error, bool) {
+	pod := &corev1.Pod{}
+	err := fdbCluster.getClient().
+		Get(ctx.TODO(), client.ObjectKey{Namespace: fdbCluster.Namespace(), Name: podName}, pod)
+
+	log.Println("error: ", err, "pod", pod.ObjectMeta)
+	if err != nil {
+		return err, kubeErrors.IsNotFound(err)
+	}
+
+	return err, pod.DeletionTimestamp.IsZero()
+}
+
 // EnsurePodIsDeleted validates that a Pod is either not existing or is marked as deleted with a non-zero deletion timestamp.
 func (fdbCluster *FdbCluster) EnsurePodIsDeletedWithCustomTimeout(podName string, timeoutMinutes int) {
 	gomega.Eventually(func() bool {
