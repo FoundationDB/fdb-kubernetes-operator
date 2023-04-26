@@ -10,7 +10,7 @@ Install from release:
 ```bash
 pushd $TMPDIR
 OS=$(uname)
-ARCH=$(uname -mu)
+ARCH=$(uname -m)
 VERSION="$(curl -s "https://api.github.com/repos/FoundationDB/fdb-kubernetes-operator/releases/latest" | jq -r '.tag_name')"
 curl -sLO "https://github.com/FoundationDB/fdb-kubernetes-operator/releases/download/${VERSION}/checksums.txt"
 curl -sLO "https://github.com/FoundationDB/fdb-kubernetes-operator/releases/download/${VERSION}/kubectl-fdb_${VERSION}_${OS}_${ARCH}"
