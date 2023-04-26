@@ -31,7 +31,6 @@ import (
 // replaced.
 type replaceFailedProcessGroups struct{}
 
-// reconcile runs the reconciler's work.
 // return non-nil requeue if a process has been replaced
 func (c replaceFailedProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "replaceFailedProcessGroups")

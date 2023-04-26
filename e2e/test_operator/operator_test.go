@@ -126,7 +126,7 @@ var _ = Describe("Operator", Label("e2e"), func() {
 		}
 	})
 
-	PContext("testing taint feature", func() {
+	FContext("testing taint feature", func() {
 		taintKeyMaintenance := "maintenance"
 		taintKeyMaintenanceDuration := int64(2)
 		taintKeyStar := "*"
@@ -167,13 +167,13 @@ var _ = Describe("Operator", Label("e2e"), func() {
 			fdbCluster.UpdateClusterSpecWithSpec(curClusterSpec)
 			// untaint the nodes
 			log.Printf("Cleanup: Untaint the single node:%s\n", taintedNode.Name)
-			taintedNode := fdbCluster.GetNode(taintedNode.Name)
+			taintedNode = fdbCluster.GetNode(taintedNode.Name)
 			taintedNode.Spec.Taints = []corev1.Taint{}
 			err := fdbCluster.UpdateNode(taintedNode)
 			Expect(err).NotTo(HaveOccurred())
 			for i, node := range taintedNodes {
 				log.Printf("Cleanup: Untaint the %dth node:%s\n", i, node.Name)
-				node := fdbCluster.GetNode(node.Name)
+				node = fdbCluster.GetNode(node.Name)
 				node.Spec.Taints = []corev1.Taint{}
 				err := fdbCluster.UpdateNode(node)
 				Expect(err).NotTo(HaveOccurred())
@@ -210,9 +210,7 @@ var _ = Describe("Operator", Label("e2e"), func() {
 			})
 			It("should remove all Pods whose Nodes are tainted", func() {
 				replacedPods := fixtures.RandomPickPod(initialPods.Items, numNodesTainted)
-				var replacedPodProcessGroupIDs []fdbv1beta2.ProcessGroupID
 				for _, pod := range replacedPods {
-					replacedPodProcessGroupIDs = append(replacedPodProcessGroupIDs, internal.GetProcessGroupIDFromMeta(fdbCluster.GetCluster(), pod.ObjectMeta))
 					// Taint replacePod's node
 					node := fdbCluster.GetNode(pod.Spec.NodeName)
 					node.Spec.Taints = []corev1.Taint{
@@ -296,9 +294,7 @@ var _ = Describe("Operator", Label("e2e"), func() {
 			})
 			It("should eventually remove all Pods whose Nodes are tainted", func() {
 				replacedPods := fixtures.RandomPickPod(initialPods.Items, numNodesTainted)
-				var replacedPodProcessGroupIDs []fdbv1beta2.ProcessGroupID
 				for _, pod := range replacedPods {
-					replacedPodProcessGroupIDs = append(replacedPodProcessGroupIDs, internal.GetProcessGroupIDFromMeta(fdbCluster.GetCluster(), pod.ObjectMeta))
 					// Taint replacePod's node
 					node := fdbCluster.GetNode(pod.Spec.NodeName)
 					node.Spec.Taints = []corev1.Taint{
@@ -390,7 +386,9 @@ var _ = Describe("Operator", Label("e2e"), func() {
 				time.Sleep(time.Second * time.Duration(minimumReplacementSeconds*5))
 				for i, pod := range replacedPods {
 					log.Printf("Ensure %dth pod:%s is deleted\n", i, pod.Name)
-					fdbCluster.CheckPodIsNotDeletedWithDelay(pod.Name)
+					deleted, err := fdbCluster.CheckPodIsDeleted(pod.Name)
+					Expect(err).To(HaveOccurred())
+					Expect(deleted).To(BeFalse())
 				}
 			})
 		})
