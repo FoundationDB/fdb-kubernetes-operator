@@ -1039,20 +1039,22 @@ func (fdbCluster *FdbCluster) GetCustomParameters(
 	return fdbCluster.cluster.Spec.Processes[processClass].CustomParameters
 }
 
-func (fdbCluster *FdbCluster) CheckPodIsNotDeletedWithDelay(podName string) (error, bool) {
+// CheckPodIsDeleted return (nil, true) if Pod no longer exists at the executed time point
+func (fdbCluster *FdbCluster) CheckPodIsDeleted(podName string) (bool, error) {
 	pod := &corev1.Pod{}
 	err := fdbCluster.getClient().
 		Get(ctx.TODO(), client.ObjectKey{Namespace: fdbCluster.Namespace(), Name: podName}, pod)
 
 	log.Println("error: ", err, "pod", pod.ObjectMeta)
 	if err != nil {
-		return err, kubeErrors.IsNotFound(err)
+		return kubeErrors.IsNotFound(err), err
 	}
 
-	return err, pod.DeletionTimestamp.IsZero()
+	return !pod.DeletionTimestamp.IsZero(), err
 }
 
-// EnsurePodIsDeleted validates that a Pod is either not existing or is marked as deleted with a non-zero deletion timestamp.
+// EnsurePodIsDeletedWithCustomTimeout validates that a Pod is either not existing or is marked as deleted with a non-zero deletion timestamp.
+// It times out after timeoutMinutes.
 func (fdbCluster *FdbCluster) EnsurePodIsDeletedWithCustomTimeout(podName string, timeoutMinutes int) {
 	gomega.Eventually(func() bool {
 		pod := &corev1.Pod{}
@@ -1069,6 +1071,7 @@ func (fdbCluster *FdbCluster) EnsurePodIsDeletedWithCustomTimeout(podName string
 	}).WithTimeout(time.Duration(timeoutMinutes) * time.Minute).WithPolling(1 * time.Second).Should(gomega.BeTrue())
 }
 
+// EnsurePodIsDeleted validates that a Pod is either not existing or is marked as deleted with a non-zero deletion timestamp.
 func (fdbCluster *FdbCluster) EnsurePodIsDeleted(podName string) {
 	fdbCluster.EnsurePodIsDeletedWithCustomTimeout(podName, 5)
 }
