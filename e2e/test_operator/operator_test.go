@@ -93,7 +93,7 @@ var _ = BeforeSuite(func() {
 	if factory.ChaosTestsEnabled() {
 		factory.ScheduleInjectPodKill(
 			fixtures.GetOperatorSelector(fdbCluster.Namespace()),
-			"*/1 * * * *",
+			"*/2 * * * *",
 			chaosmesh.OneMode,
 		)
 	}
@@ -151,8 +151,7 @@ var _ = Describe("Operator", Label("e2e"), func() {
 			curClusterSpec.AutomationOptions.Replacements.TaintReplacementTimeSeconds = pointer.Int(1)
 			fdbCluster.UpdateClusterSpecWithSpec(curClusterSpec)
 
-			curClusterSpec = fdbCluster.GetCluster().Spec.DeepCopy()
-			Expect(len(curClusterSpec.AutomationOptions.Replacements.TaintReplacementOptions)).To(BeNumerically(">=", 1))
+			Expect(len(fdbCluster.GetCluster().Spec.AutomationOptions.Replacements.TaintReplacementOptions)).To(BeNumerically(">=", 1))
 
 			Expect(*fdbCluster.GetAutomationOptions().Replacements.Enabled).To(BeTrue())
 
@@ -386,8 +385,7 @@ var _ = Describe("Operator", Label("e2e"), func() {
 				time.Sleep(time.Second * time.Duration(minimumReplacementSeconds*5))
 				for i, pod := range replacedPods {
 					log.Printf("Ensure %dth pod:%s is deleted\n", i, pod.Name)
-					deleted, err := fdbCluster.CheckPodIsDeleted(pod.Name)
-					Expect(err).To(HaveOccurred())
+					deleted := fdbCluster.CheckPodIsDeleted(pod.Name)
 					Expect(deleted).To(BeFalse())
 				}
 			})

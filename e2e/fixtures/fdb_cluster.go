@@ -119,23 +119,6 @@ func (fdbCluster *FdbCluster) Update() error {
 	return fdbCluster.getClient().Update(ctx.Background(), fdbCluster.cluster)
 }
 
-// UpdateNode update node definition
-func (fdbCluster *FdbCluster) UpdateNode(node *corev1.Node) error {
-	return fdbCluster.getClient().Update(ctx.Background(), node)
-}
-
-// GetNode return Node with the given name
-func (fdbCluster *FdbCluster) GetNode(name string) *corev1.Node {
-	// Retry if for some reasons an error is returned
-	node := &corev1.Node{}
-	gomega.Eventually(func() error {
-		return fdbCluster.getClient().
-			Get(ctx.TODO(), client.ObjectKey{Name: name, Namespace: fdbCluster.Namespace()}, node)
-	}).WithTimeout(2 * time.Minute).WithPolling(1 * time.Second).ShouldNot(gomega.HaveOccurred())
-
-	return node
-}
-
 // ReconciliationOptions defines the different reconciliation options.
 type ReconciliationOptions struct {
 	allowSoftReconciliation bool
@@ -1039,18 +1022,20 @@ func (fdbCluster *FdbCluster) GetCustomParameters(
 	return fdbCluster.cluster.Spec.Processes[processClass].CustomParameters
 }
 
-// CheckPodIsDeleted return (nil, true) if Pod no longer exists at the executed time point
-func (fdbCluster *FdbCluster) CheckPodIsDeleted(podName string) (bool, error) {
+// CheckPodIsDeleted return true if Pod no longer exists at the executed time point
+func (fdbCluster *FdbCluster) CheckPodIsDeleted(podName string) bool {
 	pod := &corev1.Pod{}
 	err := fdbCluster.getClient().
 		Get(ctx.TODO(), client.ObjectKey{Namespace: fdbCluster.Namespace(), Name: podName}, pod)
 
 	log.Println("error: ", err, "pod", pod.ObjectMeta)
 	if err != nil {
-		return kubeErrors.IsNotFound(err), err
+		if kubeErrors.IsNotFound(err) {
+			return true
+		}
 	}
 
-	return !pod.DeletionTimestamp.IsZero(), err
+	return !pod.DeletionTimestamp.IsZero()
 }
 
 // EnsurePodIsDeletedWithCustomTimeout validates that a Pod is either not existing or is marked as deleted with a non-zero deletion timestamp.

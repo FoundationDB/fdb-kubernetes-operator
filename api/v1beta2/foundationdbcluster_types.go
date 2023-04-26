@@ -1007,6 +1007,10 @@ type MaintenanceModeOptions struct {
 //     durationInSeconds: 7200 # Ensure the taint is present for at least 2 hours before replacing Pods on a node with this taint. -1 disable the handling of this tainted key
 //   - key: "*" # The wildcard would allow to define a catch all configuration
 //     durationInSeconds: 3600 # Ensure the taint is present for at least 1 hour before replacing Pods on a node with this taint
+//
+// Setting key as * and its durationInSeconds as negative integer will disable the entire taint feature and override taint options on other keys
+//   - key: "*"
+//     durationInSeconds: -1
 type TaintReplacementOption struct {
 	// Tainted key
 	// +kubebuilder:validation:MaxLength=256
