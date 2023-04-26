@@ -79,7 +79,7 @@ func (c checkClientCompatibility) reconcile(_ context.Context, r *FoundationDBCl
 		return &requeue{curError: err}
 	}
 
-	ignoredLogGroups := make(map[string]fdbv1beta2.None)
+	ignoredLogGroups := make(map[fdbv1beta2.LogGroup]fdbv1beta2.None)
 	for _, logGroup := range cluster.Spec.AutomationOptions.IgnoreLogGroupsForUpgrade {
 		ignoredLogGroups[logGroup] = fdbv1beta2.None{}
 	}
@@ -98,7 +98,7 @@ func (c checkClientCompatibility) reconcile(_ context.Context, r *FoundationDBCl
 	return nil
 }
 
-func getUnsupportedClients(supportedVersions []fdbv1beta2.FoundationDBStatusSupportedVersion, protocolVersion string, ignoredLogGroups map[string]fdbv1beta2.None) []string {
+func getUnsupportedClients(supportedVersions []fdbv1beta2.FoundationDBStatusSupportedVersion, protocolVersion string, ignoredLogGroups map[fdbv1beta2.LogGroup]fdbv1beta2.None) []string {
 	var unsupportedClients []string
 	for _, versionInfo := range supportedVersions {
 		if versionInfo.ProtocolVersion == "Unknown" {

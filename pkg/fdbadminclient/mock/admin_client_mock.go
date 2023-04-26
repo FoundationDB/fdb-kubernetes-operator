@@ -317,7 +317,7 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 			for _, address := range addresses {
 				protocolClients = append(protocolClients, fdbv1beta2.FoundationDBStatusConnectedClient{
 					Address:  address,
-					LogGroup: client.Cluster.Name,
+					LogGroup: fdbv1beta2.LogGroup(client.Cluster.Name),
 				})
 			}
 

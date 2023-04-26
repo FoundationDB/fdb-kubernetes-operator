@@ -924,8 +924,13 @@ type FoundationDBClusterAutomationOptions struct {
 
 	// IgnoreLogGroupsForUpgrade defines the list of LogGroups that should be ignored during fdb version upgrade.
 	// +kubebuilder:validation:MaxItems=10
-	IgnoreLogGroupsForUpgrade []string `json:"ignoreLogGroupsForUpgrade,omitempty"`
+	IgnoreLogGroupsForUpgrade []LogGroup `json:"ignoreLogGroupsForUpgrade,omitempty"`
 }
+
+// LogGroup represents a LogGroup used by a FoundationDB process to log trace events. The LogGroup can be used to filter
+// clients during an upgrade.
+// +kubebuilder:validation:MaxLength=256
+type LogGroup string
 
 // MaintenanceModeOptions controls options for placing zones in maintenance mode.
 type MaintenanceModeOptions struct {

@@ -209,7 +209,7 @@ var supportedVersion = []fdbv1beta2.FoundationDBStatusSupportedVersion{
 var _ = Describe("check client compatibility", func() {
 	When("getting the list of unsupported clients from the cluster status json", func() {
 		type testCase struct {
-			ignoredLogGroups           map[string]fdbv1beta2.None
+			ignoredLogGroups           map[fdbv1beta2.LogGroup]fdbv1beta2.None
 			expectedUnsupportedClients []string
 		}
 
@@ -236,7 +236,7 @@ var _ = Describe("check client compatibility", func() {
 				}),
 			Entry("with non empty ignoreProcessGroups map.",
 				testCase{
-					ignoredLogGroups: map[string]fdbv1beta2.None{"sample-cluster-client": {}},
+					ignoredLogGroups: map[fdbv1beta2.LogGroup]fdbv1beta2.None{"sample-cluster-client": {}},
 					expectedUnsupportedClients: []string{
 						"10.1.18.249:34874 (fdb-kubernetes-operator)",
 						"10.1.18.249:35022 (fdb-kubernetes-operator)",

@@ -2692,7 +2692,7 @@ var _ = Describe("cluster_controller", func() {
 			Context("patch upgrade from 7.1 to 7.2 with non empty ignoreLogGroups", func() {
 				BeforeEach(func() {
 					cluster.Spec.Version = "7.2.0"
-					cluster.Spec.AutomationOptions.IgnoreLogGroupsForUpgrade = []string{cluster.Name}
+					cluster.Spec.AutomationOptions.IgnoreLogGroupsForUpgrade = []fdbv1beta2.LogGroup{fdbv1beta2.LogGroup(cluster.Name)}
 					Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
 					generationGap = 2
 				})
