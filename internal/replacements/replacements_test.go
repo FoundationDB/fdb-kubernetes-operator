@@ -22,7 +22,6 @@ package replacements
 
 import (
 	"fmt"
-	"time"
 
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -56,11 +55,9 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 	When("checking process groups for replacements", func() {
 		var pod *corev1.Pod
-		var node *corev1.Node
 		var status *fdbv1beta2.ProcessGroupStatus
 		var pClass fdbv1beta2.ProcessClass
 		var remove bool
-		var taint bool
 
 		JustBeforeEach(func() {
 			processGroupName := fmt.Sprintf("%s-%d", pClass, 1337)
@@ -90,29 +87,6 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			pod.Spec = *spec
-
-			//node = &corev1.Node{Name: pod.Spec.NodeName}
-			node = &corev1.Node{}
-			node.Name = pod.Spec.NodeName
-			if taint {
-				node.Spec.Taints = []corev1.Taint{
-					{
-						Key:       "*",
-						Value:     "unreachable",
-						Effect:    corev1.TaintEffectNoExecute,
-						TimeAdded: &metav1.Time{Time: time.Now()},
-					},
-					{
-						Key:       "foundationdb.org/maintenance",
-						Value:     "rack_maintenance",
-						Effect:    corev1.TaintEffectNoExecute,
-						TimeAdded: &metav1.Time{Time: time.Now()},
-					},
-				}
-				log.Info("Created Node", "Node name", node.Name, "Node taints", node.Spec.Taints)
-				fmt.Printf("Create tainted node:%s\n", node.Name)
-			}
-
 			err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 			Expect(err).NotTo(HaveOccurred())
 		})

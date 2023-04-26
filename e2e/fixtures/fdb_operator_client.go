@@ -445,7 +445,6 @@ func (factory *Factory) CreateFDBOperatorIfAbsent(namespace string) error {
 		unstructuredMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		unstructuredObj := &unstructured.Unstructured{Object: unstructuredMap}
-		fmt.Printf("CreateFDBOperatorIfAbsent unstructuredObj%+v\n", unstructuredObj)
 
 		gomega.Expect(
 			factory.CreateIfAbsent(unstructuredObj),

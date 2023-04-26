@@ -769,3 +769,20 @@ func (factory *Factory) GetFoundationDBImage() string {
 func (fdbCluster *FdbCluster) GetAutomationOptions() fdbv1beta2.FoundationDBClusterAutomationOptions {
 	return fdbCluster.cluster.Spec.AutomationOptions
 }
+
+// UpdateNode update node definition
+func (fdbCluster *FdbCluster) UpdateNode(node *corev1.Node) error {
+	return fdbCluster.getClient().Update(ctx.Background(), node)
+}
+
+// GetNode return Node with the given name
+func (fdbCluster *FdbCluster) GetNode(name string) *corev1.Node {
+	// Retry if for some reasons an error is returned
+	node := &corev1.Node{}
+	gomega.Eventually(func() error {
+		return fdbCluster.getClient().
+			Get(ctx.TODO(), client.ObjectKey{Name: name}, node)
+	}).WithTimeout(2 * time.Minute).WithPolling(1 * time.Second).ShouldNot(gomega.HaveOccurred())
+
+	return node
+}

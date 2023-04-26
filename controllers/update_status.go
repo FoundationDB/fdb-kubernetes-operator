@@ -659,52 +659,54 @@ func updateTaintCondition(ctx context.Context, r *FoundationDBClusterReconciler,
 	err := r.Get(ctx, client.ObjectKey{Name: pod.Spec.NodeName}, node)
 	if err != nil {
 		log.Info("Get pod's node fails", "Pod", pod.Name, "Pod's node name", pod.Spec.NodeName, "err", err)
-	} else {
-		// Check the tainted duration and only mark the process group tainted after the configured tainted duration
-		// TODO: https://github.com/FoundationDB/fdb-kubernetes-operator/issues/1583
-		hasValidTaint := false
-		for _, taint := range node.Spec.Taints {
-			for _, taintConfiguredKey := range cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions {
-				if taintConfiguredKey.Key == nil || pointer.Int64Deref(taintConfiguredKey.DurationInSeconds, math.MinInt64) < 0 {
-					logger.Info("Cluster's TaintReplacementOption is disabled", "Key",
-						taintConfiguredKey.Key, "DurationInSeconds", taintConfiguredKey.DurationInSeconds,
-						"Pod", pod.Name)
-					continue
-				}
-				if len(taint.Key) == 0 || taint.TimeAdded == nil {
-					// Node's taint is not properly set, skip the node's taint
-					logger.Info("Taint is not properly set", "Node", node.Name, "Taint", taint)
-					continue
-				}
+		return err
+	}
 
-				if taint.Key == pointer.StringDeref(taintConfiguredKey.Key, "") || pointer.StringDeref(taintConfiguredKey.Key, "") == "*" {
-					hasValidTaint = true
-					processGroupStatus.UpdateCondition(fdbv1beta2.NodeTaintDetected, true, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
-					// Use node taint's timestamp as the NodeTaintDetected condition's starting time
-					if taint.TimeAdded != nil && taint.TimeAdded.Time.Unix() < *processGroupStatus.GetConditionTime(fdbv1beta2.NodeTaintDetected) {
-						processGroupStatus.UpdateConditionTime(fdbv1beta2.NodeTaintDetected, taint.TimeAdded.Unix())
-					}
-					taintDetectedTime := pointer.Int64Deref(processGroupStatus.GetConditionTime(fdbv1beta2.NodeTaintDetected), math.MaxInt64)
-					if time.Now().Unix()-taintDetectedTime > pointer.Int64Deref(taintConfiguredKey.DurationInSeconds, math.MaxInt64) {
-						processGroupStatus.UpdateCondition(fdbv1beta2.NodeTaintReplacing, true, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
-						logger.Info("Add NodeTaintReplacing condition", "Pod", pod.Name, "Node", node.Name,
-							"TaintKey", taint.Key, "TaintDetectedTime", taintDetectedTime,
-							"TaintDuration", int64(time.Since(time.Unix(taintDetectedTime, 0))),
-							"TaintValue", taint.Value, "TaintEffect", taint.Effect,
-							"ClusterTaintDetectionDuration", time.Duration(pointer.Int64Deref(taintConfiguredKey.DurationInSeconds, math.MaxInt64)))
-					}
+	// Check the tainted duration and only mark the process group tainted after the configured tainted duration
+	// TODO: https://github.com/FoundationDB/fdb-kubernetes-operator/issues/1583
+	hasMatchingTaint := false
+	for _, taint := range node.Spec.Taints {
+		for _, taintConfiguredKey := range cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions {
+			taintConfiguredKeyString := pointer.StringDeref(taintConfiguredKey.Key, "")
+			if taintConfiguredKeyString == "" || pointer.Int64Deref(taintConfiguredKey.DurationInSeconds, math.MinInt64) < 0 {
+				logger.Info("Cluster's TaintReplacementOption is disabled", "Key",
+					taintConfiguredKey.Key, "DurationInSeconds", taintConfiguredKey.DurationInSeconds,
+					"Pod", pod.Name)
+				continue
+			}
+			if taint.Key == "" || taint.TimeAdded.IsZero() {
+				// Node's taint is not properly set, skip the node's taint
+				logger.Info("Taint is not properly set", "Node", node.Name, "Taint", taint)
+				continue
+			}
+
+			if taint.Key == taintConfiguredKeyString || taintConfiguredKeyString == "*" {
+				hasMatchingTaint = true
+				processGroupStatus.UpdateCondition(fdbv1beta2.NodeTaintDetected, true, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
+				// Use node taint's timestamp as the NodeTaintDetected condition's starting time
+				if taint.TimeAdded.Time.Unix() < *processGroupStatus.GetConditionTime(fdbv1beta2.NodeTaintDetected) {
+					processGroupStatus.UpdateConditionTime(fdbv1beta2.NodeTaintDetected, taint.TimeAdded.Unix())
+				}
+				taintDetectedTime := pointer.Int64Deref(processGroupStatus.GetConditionTime(fdbv1beta2.NodeTaintDetected), math.MaxInt64)
+				if time.Now().Unix()-taintDetectedTime > pointer.Int64Deref(taintConfiguredKey.DurationInSeconds, math.MaxInt64) {
+					processGroupStatus.UpdateCondition(fdbv1beta2.NodeTaintReplacing, true, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
+					logger.Info("Add NodeTaintReplacing condition", "Pod", pod.Name, "Node", node.Name,
+						"TaintKey", taint.Key, "TaintDetectedTime", taintDetectedTime,
+						"TaintDuration", int64(time.Since(time.Unix(taintDetectedTime, 0))),
+						"TaintValue", taint.Value, "TaintEffect", taint.Effect,
+						"ClusterTaintDetectionDuration", time.Duration(pointer.Int64Deref(taintConfiguredKey.DurationInSeconds, math.MaxInt64)))
 				}
 			}
 		}
-		if !hasValidTaint {
-			// Remove NodeTaintDetected condition if the pod is no longer on a tainted node;
-			// This is needed especially when a node's status is flapping
-			// We do not remove NodeTaintDetected because the NodeTaintDetected condition is only added when taint is there for configured long time
-			processGroupStatus.UpdateCondition(fdbv1beta2.NodeTaintDetected, false, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
-		}
+	}
+	if !hasMatchingTaint {
+		// Remove NodeTaintDetected condition if the pod is no longer on a tainted node;
+		// This is needed especially when a node's status is flapping
+		// We do not remove NodeTaintDetected because the NodeTaintDetected condition is only added when taint is there for configured long time
+		processGroupStatus.UpdateCondition(fdbv1beta2.NodeTaintDetected, false, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
 	}
 
-	return err
+	return nil
 }
 
 // removeDuplicateConditions will remove all duplicated conditions from the status and if a process group has the ResourcesTerminating
