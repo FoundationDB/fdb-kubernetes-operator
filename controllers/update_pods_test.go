@@ -275,7 +275,7 @@ var _ = Describe("update_pods", func() {
 			})
 		})
 
-		When("max unavailable pods is set with an int value and there are process groups with pods in pending status", func() {
+		When("max unavailable pods is set with an int value and there are two process groups with pods in pending status", func() {
 			BeforeEach(func() {
 				expectedError = true
 				cluster.Spec.MaxUnavailablePods = intstr.FromInt(1)
