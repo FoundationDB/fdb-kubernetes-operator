@@ -23,6 +23,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal/buggify"
 	"net"
 	"time"
 
@@ -69,6 +70,13 @@ func (u removeProcessGroups) reconcile(ctx context.Context, r *FoundationDBClust
 		if err != nil {
 			return &requeue{curError: err}
 		}
+	}
+
+	// Ensure we only remove process groups that are not blocked to be removed by the buggify config.
+	processGroupsToRemove = buggify.FilterBlockedRemovals(cluster, processGroupsToRemove)
+	// If all of the process groups are filtered out we can stop doing the next steps.
+	if len(processGroupsToRemove) == 0 {
+		return nil
 	}
 
 	status, err := adminClient.GetStatus()

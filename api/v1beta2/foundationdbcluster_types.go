@@ -1785,6 +1785,13 @@ type BuggifyConfig struct {
 	// processes. IgnoreDuringRestart does not support the wildcard option to ignore all of this specific cluster processes.
 	// +kubebuilder:validation:MaxItems=1000
 	IgnoreDuringRestart []ProcessGroupID `json:"ignoreDuringRestart,omitempty"`
+
+	// BlockRemoval defines a list of process group IDs that will not be removed, even if they are marked for removal.
+	// The operator will trigger the exclusion but the removal of the resources will be blocked until they are removed
+	// from this list. This setting can be used to simulate cases where a process group is marked for removal but the
+	// resources are not yet removed.
+	// +kubebuilder:validation:MaxItems=1000
+	BlockRemoval []ProcessGroupID `json:"blockRemoval,omitempty"`
 }
 
 // LabelConfig allows customizing labels used by the operator.
