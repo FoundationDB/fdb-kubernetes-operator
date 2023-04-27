@@ -59,9 +59,8 @@ func (updatePodConfig) reconcile(ctx context.Context, r *FoundationDBClusterReco
 	// We try to update all process groups and if we observe an error we add it to the error list.
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		curLogger := logger.WithValues("processGroupID", processGroup.ProcessGroupID)
-
-		if processGroup.IsMarkedForRemoval() {
-			curLogger.V(1).Info("Ignore process group marked for removal")
+		if processGroup.GetConditionTime(fdbv1beta2.ResourcesTerminating) != nil {
+			curLogger.V(1).Info("Ignore process group marked that is stuck terminating")
 			continue
 		}
 
