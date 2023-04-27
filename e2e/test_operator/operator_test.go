@@ -134,10 +134,20 @@ var _ = Describe("Operator", Label("e2e"), func() {
 		var initialPods *corev1.PodList
 		var taintedNode *corev1.Node
 		var taintedNodes []*corev1.Node
+		var historyTaintedNodes map[string]bool
 		numNodesTainted := 3 // TODO: Change to higher number 5
 		ensurePodIsDeletedTimeoutMinutes := 20
 
 		BeforeEach(func() {
+			// Cleanup tainted nodes in case previous test fails which will leave tainted nodes behind
+			for nodeName := range historyTaintedNodes {
+				log.Printf("BeforeEach Reset node as untainted:%s\n", nodeName)
+				node := fdbCluster.GetNode(nodeName)
+				node.Spec.Taints = []corev1.Taint{}
+				err := fdbCluster.UpdateNode(node)
+				Expect(err).NotTo(HaveOccurred())
+			}
+
 			initialPods = fdbCluster.GetStatelessPods()
 
 			// Setup cluster's taint config and wait for long enough
@@ -165,12 +175,13 @@ var _ = Describe("Operator", Label("e2e"), func() {
 			curClusterSpec.AutomationOptions.Replacements.TaintReplacementTimeSeconds = pointer.Int(150)
 			fdbCluster.UpdateClusterSpecWithSpec(curClusterSpec)
 			// untaint the nodes
-			log.Printf("Cleanup: Untaint the single node:%s\n", taintedNode.Name)
+			log.Printf("AfterEach Cleanup: Untaint the single node:%s\n", taintedNode.Name)
 			taintedNode = fdbCluster.GetNode(taintedNode.Name)
 			taintedNode.Spec.Taints = []corev1.Taint{}
 			err := fdbCluster.UpdateNode(taintedNode)
 			Expect(err).NotTo(HaveOccurred())
 			for i, node := range taintedNodes {
+				historyTaintedNodes = append(historyTaintedNodes, node)
 				log.Printf("Cleanup: Untaint the %dth node:%s\n", i, node.Name)
 				node = fdbCluster.GetNode(node.Name)
 				node.Spec.Taints = []corev1.Taint{}
