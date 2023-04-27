@@ -550,7 +550,7 @@ func (in *FoundationDBClusterAutomationOptions) DeepCopyInto(out *FoundationDBCl
 	in.MaintenanceModeOptions.DeepCopyInto(&out.MaintenanceModeOptions)
 	if in.IgnoreLogGroupsForUpgrade != nil {
 		in, out := &in.IgnoreLogGroupsForUpgrade, &out.IgnoreLogGroupsForUpgrade
-		*out = make([]string, len(*in))
+		*out = make([]LogGroup, len(*in))
 		copy(*out, *in)
 	}
 }

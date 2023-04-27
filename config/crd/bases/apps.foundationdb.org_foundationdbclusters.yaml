@@ -9877,6 +9877,7 @@ spec:
                     type: integer
                   ignoreLogGroupsForUpgrade:
                     items:
+                      maxLength: 256
                       type: string
                     maxItems: 10
                     type: array
