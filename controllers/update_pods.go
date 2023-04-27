@@ -199,8 +199,13 @@ func getPodsToUpdate(logger logr.Logger, reconciler *FoundationDBClusterReconcil
 		updates[zone] = append(updates[zone], pod)
 	}
 
-	if maxUnavailablePods > 0 && (unavailablePods+len(updates)) >= maxUnavailablePods {
-		return nil, fmt.Errorf("cluster has %d Pods that are pending or missing and %d Pods require to be updated, exceeding the maximum of %d unavailable Pods", unavailablePods, len(updates), maxUnavailablePods)
+	var numPodsToUpdate int
+	for _, zone := range updates {
+		numPodsToUpdate += len(zone)
+	}
+
+	if maxUnavailablePods > 0 && (unavailablePods+numPodsToUpdate) >= maxUnavailablePods {
+		return nil, fmt.Errorf("cluster has %d Pods that are pending or missing and %d Pods will be updated, exceeding cluster.Spec.MaxUnavailablePods: %d", unavailablePods, len(updates), maxUnavailablePods)
 	}
 
 	return updates, nil

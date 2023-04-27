@@ -271,7 +271,7 @@ var _ = Describe("update_pods", func() {
 			It("should return an error and nil updates", func() {
 				Expect(updates).To(BeNil())
 				Expect(expectedError).To(BeTrue())
-				Expect(err.Error()).Should(ContainSubstring("unavailable Pods reached cluster.Spec.MaxUnavailablePods limit: 1"))
+				Expect(err.Error()).Should(ContainSubstring("cluster has 8 Pods that are pending or missing and 0 Pods will be updated, exceeding cluster.Spec.MaxUnavailablePods: 1"))
 			})
 		})
 
@@ -296,7 +296,35 @@ var _ = Describe("update_pods", func() {
 			It("should return an error and nil updates", func() {
 				Expect(updates).To(BeNil())
 				Expect(expectedError).To(BeTrue())
-				Expect(err.Error()).Should(ContainSubstring("unavailable Pods reached cluster.Spec.MaxUnavailablePods limit: 1"))
+				Expect(err.Error()).Should(ContainSubstring("cluster has 2 Pods that are pending or missing and 0 Pods will be updated, exceeding cluster.Spec.MaxUnavailablePods: 1"))
+			})
+		})
+
+		When("max unavailable pods is greater than the number of pods requiring update plus the number of missing or pending pods", func() {
+			BeforeEach(func() {
+				expectedError = false
+				// Set max unavailable pods to 100 (arbitrary large number)
+				cluster.Spec.MaxUnavailablePods = intstr.FromInt(100)
+				// Update all processes
+				storageSettings := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
+				storageSettings.PodTemplate.Spec.NodeSelector = map[string]string{"test": "test"}
+				cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral] = storageSettings
+				Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
+
+				var numPendingPods int
+				for _, processGroup := range cluster.Status.ProcessGroups {
+					if processGroup.ProcessClass.IsStateful() {
+						processGroup.ProcessGroupConditions = append(processGroup.ProcessGroupConditions, fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.PodPending))
+						numPendingPods++
+						if numPendingPods == 2 {
+							break
+						}
+					}
+				}
+			})
+
+			It("should return no errors and a map with the zone", func() {
+				Expect(updates).To(HaveLen(1))
 			})
 		})
 
