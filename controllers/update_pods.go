@@ -350,6 +350,7 @@ func trimUpdatesToMaxPodsToUpdate(updates map[string][]*corev1.Pod, maxPodsToUpd
 				for i := 0; i < maxPodsToUpdate; i++ {
 					trimedUpdates[zone] = append(trimedUpdates[zone], pods[i])
 				}
+				break
 			}
 		}
 	}
