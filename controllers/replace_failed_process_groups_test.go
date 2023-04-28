@@ -69,7 +69,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 		result = replaceFailedProcessGroups{}.reconcile(ctx.Background(), clusterReconciler, cluster)
 	})
 
-	FContext("replace pod on tainted node", func() {
+	Context("replace pod on tainted node", func() {
 		taintKeyStar := "*"
 		taintKeyStarDuration := int64(20)
 		taintKeyMaintenance := "foundationdb.org/maintenance"
