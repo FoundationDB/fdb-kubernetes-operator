@@ -48,9 +48,20 @@ func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconcile
 		return &requeue{curError: err, delayedRequeue: true}
 	}
 
-	updates, err := getPodsToUpdate(logger, r, cluster, internal.CreatePodMap(cluster, pods))
+	updates, maxPodsToUpdate, err := getPodsToUpdate(logger, r, cluster, internal.CreatePodMap(cluster, pods))
 	if err != nil {
 		return &requeue{curError: err, delay: podSchedulingDelayDuration, delayedRequeue: true}
+	}
+
+	if cluster.Spec.MaxUnavailablePods.IntVal > 0 {
+		if maxPodsToUpdate <= 0 {
+			return &requeue{
+				curError: fmt.Errorf("requeing because the number of unavailable pods has reached cluster.Spec.MaxUnavailablePods: %d",
+					cluster.Spec.MaxUnavailablePods.IntVal),
+				delayedRequeue: true,
+			}
+		}
+		updates = trimUpdatesToMaxPodsToUpdate(updates, maxPodsToUpdate)
 	}
 
 	if len(updates) > 0 {
@@ -85,14 +96,14 @@ func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconcile
 }
 
 // getPodsToUpdate returns a map of Zone to Pods mapping. The map has the fault domain as key and all Pods in that fault domain will be present as a slice of *corev1.Pod.
-func getPodsToUpdate(logger logr.Logger, reconciler *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, podMap map[fdbv1beta2.ProcessGroupID]*corev1.Pod) (map[string][]*corev1.Pod, error) {
+func getPodsToUpdate(logger logr.Logger, reconciler *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, podMap map[fdbv1beta2.ProcessGroupID]*corev1.Pod) (map[string][]*corev1.Pod, int, error) {
 	updates := make(map[string][]*corev1.Pod)
 
 	var unavailablePods int
 	// When maxUnavailablePods is set to 0 any number of unavailable Pods is allowed.
 	maxUnavailablePods, err := intstr.GetScaledValueFromIntOrPercent(&cluster.Spec.MaxUnavailablePods, len(cluster.Status.ProcessGroups), true)
 	if err != nil {
-		return nil, fmt.Errorf("invalid value for cluster.Spec.MaxUnavailablePods: %w", err)
+		return nil, 0, fmt.Errorf("invalid value for cluster.Spec.MaxUnavailablePods: %w", err)
 	}
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
@@ -128,8 +139,14 @@ func getPodsToUpdate(logger logr.Logger, reconciler *FoundationDBClusterReconcil
 			continue
 		}
 
+		// If the Pod is marked for deletion, we count it as unavailable.
+		if pod.DeletionTimestamp != nil {
+			unavailablePods++
+		}
+
 		if shouldRequeueDueToTerminatingPod(pod, cluster, processGroup.ProcessGroupID) {
-			return nil, fmt.Errorf("cluster has Pod %s that is pending deletion", pod.Name)
+			unavailablePods++
+			return nil, 0, fmt.Errorf("cluster has Pod %s that is pending deletion", pod.Name)
 		}
 
 		_, idNum, err := podmanager.ParseProcessGroupID(processGroup.ProcessGroupID)
@@ -202,11 +219,11 @@ func getPodsToUpdate(logger logr.Logger, reconciler *FoundationDBClusterReconcil
 		numPodsToUpdate += len(zone)
 	}
 
-	if maxUnavailablePods > 0 && (unavailablePods+numPodsToUpdate) >= maxUnavailablePods {
-		return nil, fmt.Errorf("cluster has %d Pods that are pending or missing and %d Pods will be updated, exceeding cluster.Spec.MaxUnavailablePods: %d", unavailablePods, len(updates), maxUnavailablePods)
+	if maxUnavailablePods > 0 {
+		return updates, maxUnavailablePods - unavailablePods, nil
 	}
 
-	return updates, nil
+	return updates, numPodsToUpdate, nil
 }
 
 func shouldRequeueDueToTerminatingPod(pod *corev1.Pod, cluster *fdbv1beta2.FoundationDBCluster, processGroupID fdbv1beta2.ProcessGroupID) bool {
@@ -308,4 +325,30 @@ func deletePodsForUpdates(ctx context.Context, r *FoundationDBClusterReconciler,
 	}
 
 	return &requeue{message: "Pods need to be recreated", delayedRequeue: true}
+}
+
+// trimUpdatesToMaxUnavailable will trim the updates depending on the number of pods that can be updated.
+// favouring zones with pod counts <= maxPodsToUpdate.
+// making sure the maxPodsToUpdate limit is not exceeded.
+func trimUpdatesToMaxPodsToUpdate(updates map[string][]*corev1.Pod, maxPodsToUpdate int) map[string][]*corev1.Pod {
+	trimedUpdates := make(map[string][]*corev1.Pod)
+	var updatesCount int
+	// Favor zones with less or equal pods than the maxPodsToUpdate limit.
+	for zone, pods := range updates {
+		if len(pods) <= maxPodsToUpdate {
+			trimedUpdates[zone] = append(trimedUpdates[zone], pods...)
+			maxPodsToUpdate = maxPodsToUpdate - len(pods)
+			updatesCount = updatesCount + len(pods)
+		}
+	}
+	// If we still have availability to update pods we will update as much as we can.
+	for zone, pods := range updates {
+		if len(pods) > maxPodsToUpdate && updatesCount < maxPodsToUpdate {
+			for i := 0; i < maxPodsToUpdate-updatesCount; i++ {
+				trimedUpdates[zone] = append(trimedUpdates[zone], pods[i])
+			}
+		}
+	}
+
+	return trimedUpdates
 }
