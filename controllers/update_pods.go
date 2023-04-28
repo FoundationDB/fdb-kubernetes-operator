@@ -124,9 +124,7 @@ func getPodsToUpdate(logger logr.Logger, reconciler *FoundationDBClusterReconcil
 		if !ok || pod == nil {
 			logger.V(1).Info("Could not find Pod for process group ID",
 				"processGroupID", processGroup.ProcessGroupID)
-			if maxUnavailablePods > 0 {
-				unavailablePods++
-			}
+			unavailablePods++
 			continue
 		}
 
