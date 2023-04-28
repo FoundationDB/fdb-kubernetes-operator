@@ -341,7 +341,6 @@ func trimUpdatesToMaxPodsToUpdate(updates map[string][]*corev1.Pod, maxPodsToUpd
 		if len(pods) <= maxPodsToUpdate {
 			trimedUpdates[zone] = append(trimedUpdates[zone], pods...)
 			maxPodsToUpdate = maxPodsToUpdate - len(pods)
-
 		}
 	}
 	// If we still have availability to update pods we will update as much as we can.
