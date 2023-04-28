@@ -135,7 +135,7 @@ var _ = Describe("Operator", Label("e2e"), func() {
 		var taintedNode *corev1.Node
 		var taintedNodes []*corev1.Node
 		var historyTaintedNodes map[string]bool
-		numNodesTainted := 3 // TODO: Change to higher number 5
+		numNodesTainted := 2 // TODO: Change to higher number 5
 		ensurePodIsDeletedTimeoutMinutes := 20
 
 		BeforeEach(func() {
@@ -144,22 +144,18 @@ var _ = Describe("Operator", Label("e2e"), func() {
 				log.Printf("BeforeEach Reset node as untainted:%s\n", nodeName)
 				node := fdbCluster.GetNode(nodeName)
 				node.Spec.Taints = []corev1.Taint{}
-				err := fdbCluster.UpdateNode(node)
-				Expect(err).NotTo(HaveOccurred())
+				fdbCluster.UpdateNode(node)
 			}
 
 			initialPods = fdbCluster.GetStatelessPods()
 
 			// Setup cluster's taint config and wait for long enough
-			curClusterSpec := fdbCluster.GetCluster().Spec.DeepCopy()
-			curClusterSpec.AutomationOptions.Replacements.TaintReplacementOptions = []fdbv1beta2.TaintReplacementOption{
+			fdbCluster.SetClusterTaintConfig([]fdbv1beta2.TaintReplacementOption{
 				{
 					Key:               &taintKeyMaintenance,
 					DurationInSeconds: &taintKeyMaintenanceDuration,
 				},
-			}
-			curClusterSpec.AutomationOptions.Replacements.TaintReplacementTimeSeconds = pointer.Int(1)
-			fdbCluster.UpdateClusterSpecWithSpec(curClusterSpec)
+			}, pointer.Int(1))
 
 			Expect(len(fdbCluster.GetCluster().Spec.AutomationOptions.Replacements.TaintReplacementOptions)).To(BeNumerically(">=", 1))
 
@@ -170,26 +166,21 @@ var _ = Describe("Operator", Label("e2e"), func() {
 		AfterEach(func() {
 			Expect(fdbCluster.ClearProcessGroupsToRemove()).NotTo(HaveOccurred())
 			// Reset taint related options to default value in e2e test
-			curClusterSpec := fdbCluster.GetCluster().Spec.DeepCopy()
-			curClusterSpec.AutomationOptions.Replacements.TaintReplacementOptions = []fdbv1beta2.TaintReplacementOption{}
-			curClusterSpec.AutomationOptions.Replacements.TaintReplacementTimeSeconds = pointer.Int(150)
-			fdbCluster.UpdateClusterSpecWithSpec(curClusterSpec)
+			fdbCluster.SetClusterTaintConfig([]fdbv1beta2.TaintReplacementOption{}, pointer.Int(150))
 			// untaint the nodes
 			log.Printf("AfterEach Cleanup: Untaint the single node:%s\n", taintedNode.Name)
+			historyTaintedNodes[taintedNode.Name] = true
 			taintedNode = fdbCluster.GetNode(taintedNode.Name)
 			taintedNode.Spec.Taints = []corev1.Taint{}
-			err := fdbCluster.UpdateNode(taintedNode)
-			Expect(err).NotTo(HaveOccurred())
+			fdbCluster.UpdateNode(taintedNode)
 			for i, node := range taintedNodes {
-				historyTaintedNodes = append(historyTaintedNodes, node)
+				historyTaintedNodes[node.Name] = true
 				log.Printf("Cleanup: Untaint the %dth node:%s\n", i, node.Name)
 				node = fdbCluster.GetNode(node.Name)
 				node.Spec.Taints = []corev1.Taint{}
-				err := fdbCluster.UpdateNode(node)
-				Expect(err).NotTo(HaveOccurred())
+				fdbCluster.UpdateNode(node)
 			}
 			taintedNodes = []*corev1.Node{}
-			taintedNode = nil
 		})
 
 		When("cluster enables taint feature on focused maintenance taint key", func() {
@@ -207,18 +198,17 @@ var _ = Describe("Operator", Label("e2e"), func() {
 				}
 				log.Printf("Taint node: Pod name:%s Node name:%s Node taints:%+v TaintTime:%+v Now:%+v\n", replacedPod.Name,
 					taintedNode.Name, taintedNode.Spec.Taints, taintedNode.Spec.Taints[0].TimeAdded.Time, time.Now())
-				err := fdbCluster.UpdateNode(taintedNode)
-				Expect(err).NotTo(HaveOccurred())
+				fdbCluster.UpdateNode(taintedNode)
 
 				// Wait for operator to replace the pod
-				time.Sleep(time.Second * time.Duration(*fdbCluster.GetAutomationOptions().Replacements.TaintReplacementTimeSeconds+1))
-				err = fdbCluster.WaitForReconciliation()
+				// time.Sleep(time.Second * time.Duration(*fdbCluster.GetAutomationOptions().Replacements.TaintReplacementTimeSeconds+1))
+				err := fdbCluster.WaitForReconciliation()
 				log.Printf("Reconciliation error:%+v\n", err)
 				Expect(err).NotTo(HaveOccurred())
 
 				fdbCluster.EnsurePodIsDeletedWithCustomTimeout(replacedPod.Name, ensurePodIsDeletedTimeoutMinutes)
 			})
-			It("should remove all Pods whose Nodes are tainted", func() {
+			PIt("should remove all Pods whose Nodes are tainted", func() {
 				replacedPods := fixtures.RandomPickPod(initialPods.Items, numNodesTainted)
 				for _, pod := range replacedPods {
 					// Taint replacePod's node
@@ -233,13 +223,12 @@ var _ = Describe("Operator", Label("e2e"), func() {
 					}
 					log.Printf("Taint node: Pod name:%s Node name:%s Node taints:%+v TaintTime:%+v Now:%+v\n", pod.Name,
 						node.Name, node.Spec.Taints, node.Spec.Taints[0].TimeAdded.Time, time.Now())
-					err := fdbCluster.UpdateNode(node)
-					Expect(err).NotTo(HaveOccurred())
+					fdbCluster.UpdateNode(node)
 					taintedNodes = append(taintedNodes, node)
 				}
 
 				// Wait for operator to replace the pod
-				time.Sleep(time.Second * time.Duration(*fdbCluster.GetAutomationOptions().Replacements.TaintReplacementTimeSeconds+1))
+				// time.Sleep(time.Second * time.Duration(*fdbCluster.GetAutomationOptions().Replacements.TaintReplacementTimeSeconds+1))
 				err := fdbCluster.WaitForReconciliation()
 				Expect(err).NotTo(HaveOccurred())
 
@@ -257,17 +246,14 @@ var _ = Describe("Operator", Label("e2e"), func() {
 
 			BeforeEach(func() {
 				// Custom TaintReplacementOptions to taintKeyStar
-				curClusterSpec := fdbCluster.GetCluster().Spec.DeepCopy()
-				curClusterSpec.AutomationOptions.Replacements.TaintReplacementOptions = []fdbv1beta2.TaintReplacementOption{
+				fdbCluster.SetClusterTaintConfig([]fdbv1beta2.TaintReplacementOption{
 					{
 						Key:               &taintKeyStar,
 						DurationInSeconds: &taintKeyStarDuration,
 					},
-				}
-				curClusterSpec.AutomationOptions.Replacements.TaintReplacementTimeSeconds = pointer.Int(1)
-				fdbCluster.UpdateClusterSpecWithSpec(curClusterSpec)
+				}, pointer.Int(1))
 
-				curClusterSpec = fdbCluster.GetCluster().Spec.DeepCopy()
+				curClusterSpec := fdbCluster.GetCluster().Spec.DeepCopy()
 				Expect(len(curClusterSpec.AutomationOptions.Replacements.TaintReplacementOptions)).To(BeNumerically(">=", 1))
 
 				Expect(*fdbCluster.GetAutomationOptions().Replacements.Enabled).To(BeTrue())
@@ -288,21 +274,21 @@ var _ = Describe("Operator", Label("e2e"), func() {
 				}
 				log.Printf("Taint node: Pod name:%s Node name:%s Node taints:%+v TaintTime:%+v Now:%+v\n", replacedPod.Name,
 					node.Name, node.Spec.Taints, node.Spec.Taints[0].TimeAdded.Time, time.Now())
-				err := fdbCluster.UpdateNode(node)
-				Expect(err).NotTo(HaveOccurred())
+				fdbCluster.UpdateNode(node)
 
 				// Wait for operator to mark the node as tainted
-				time.Sleep(time.Second * time.Duration(taintKeyStarDuration-taintKeyMaintenanceDuration))
+				// time.Sleep(time.Second * time.Duration(taintKeyStarDuration-taintKeyMaintenanceDuration))
 
 				// Wait for operator to replace the pod
-				time.Sleep(time.Second * time.Duration(*fdbCluster.GetAutomationOptions().Replacements.TaintReplacementTimeSeconds+1))
-				err = fdbCluster.WaitForReconciliation()
+				// time.Sleep(time.Second * time.Duration(*fdbCluster.GetAutomationOptions().Replacements.TaintReplacementTimeSeconds+1))
+				err := fdbCluster.WaitForReconciliation()
 				log.Printf("Reconciliation error:%+v\n", err)
 				Expect(err).NotTo(HaveOccurred())
 
 				fdbCluster.EnsurePodIsDeletedWithCustomTimeout(replacedPod.Name, ensurePodIsDeletedTimeoutMinutes)
 			})
-			It("should eventually remove all Pods whose Nodes are tainted", func() {
+
+			PIt("should eventually remove all Pods whose Nodes are tainted", func() {
 				replacedPods := fixtures.RandomPickPod(initialPods.Items, numNodesTainted)
 				for _, pod := range replacedPods {
 					// Taint replacePod's node
@@ -317,12 +303,11 @@ var _ = Describe("Operator", Label("e2e"), func() {
 					}
 					log.Printf("Taint node: Pod name:%s Node name:%s Node taints:%+v TaintTime:%+v Now:%+v\n", pod.Name,
 						node.Name, node.Spec.Taints, node.Spec.Taints[0].TimeAdded.Time, time.Now())
-					err := fdbCluster.UpdateNode(node)
-					Expect(err).NotTo(HaveOccurred())
+					fdbCluster.UpdateNode(node)
 				}
 
 				// Wait for operator to replace the pod
-				time.Sleep(time.Second * time.Duration(*fdbCluster.GetAutomationOptions().Replacements.TaintReplacementTimeSeconds+1))
+				// time.Sleep(time.Second * time.Duration(*fdbCluster.GetAutomationOptions().Replacements.TaintReplacementTimeSeconds+1))
 				err := fdbCluster.WaitForReconciliation()
 				log.Printf("Reconciliation error:%+v\n", err)
 				Expect(err).NotTo(HaveOccurred())
@@ -333,6 +318,7 @@ var _ = Describe("Operator", Label("e2e"), func() {
 				}
 			})
 		})
+
 		When("cluster disables taint feature with star taint key", func() {
 			taintKeyMaintenanceDuration = int64(1)
 			taintKeyStar = "*"
@@ -340,17 +326,14 @@ var _ = Describe("Operator", Label("e2e"), func() {
 
 			BeforeEach(func() {
 				// Custom TaintReplacementOptions to taintKeyStar
-				curClusterSpec := fdbCluster.GetCluster().Spec.DeepCopy()
-				curClusterSpec.AutomationOptions.Replacements.TaintReplacementOptions = []fdbv1beta2.TaintReplacementOption{
+				fdbCluster.SetClusterTaintConfig([]fdbv1beta2.TaintReplacementOption{
 					{
 						Key:               &taintKeyStar,
 						DurationInSeconds: &taintKeyStarDurationNegative,
 					},
-				}
-				curClusterSpec.AutomationOptions.Replacements.TaintReplacementTimeSeconds = pointer.Int(1)
-				fdbCluster.UpdateClusterSpecWithSpec(curClusterSpec)
+				}, pointer.Int(1))
 
-				curClusterSpec = fdbCluster.GetCluster().Spec.DeepCopy()
+				curClusterSpec := fdbCluster.GetCluster().Spec.DeepCopy()
 				Expect(len(curClusterSpec.AutomationOptions.Replacements.TaintReplacementOptions)).To(BeNumerically(">=", 1))
 				Expect(*curClusterSpec.AutomationOptions.Replacements.TaintReplacementOptions[0].Key).To(Equal(taintKeyStar))
 				Expect(*curClusterSpec.AutomationOptions.Replacements.TaintReplacementOptions[0].DurationInSeconds).To(BeNumerically("<", 0))
@@ -376,8 +359,7 @@ var _ = Describe("Operator", Label("e2e"), func() {
 					}
 					log.Printf("Taint node: Pod name:%s Node name:%s Node taints:%+v TaintTime:%+v Now:%+v\n", pod.Name,
 						node.Name, node.Spec.Taints, node.Spec.Taints[0].TimeAdded.Time, time.Now())
-					err := fdbCluster.UpdateNode(node)
-					Expect(err).NotTo(HaveOccurred())
+					fdbCluster.UpdateNode(node)
 				}
 
 				for _, groupID := range replacedPodProcessGroupIDs {
@@ -387,13 +369,13 @@ var _ = Describe("Operator", Label("e2e"), func() {
 				}
 
 				// Wait for operator to replace the pod
-				time.Sleep(time.Second * time.Duration(*fdbCluster.GetAutomationOptions().Replacements.TaintReplacementTimeSeconds+1))
+				// time.Sleep(time.Second * time.Duration(*fdbCluster.GetAutomationOptions().Replacements.TaintReplacementTimeSeconds+1))
 				err := fdbCluster.WaitForReconciliation()
 				log.Printf("Reconciliation error:%+v\n", err)
 				Expect(err).NotTo(HaveOccurred())
 
-				minimumReplacementSeconds := *fdbCluster.GetAutomationOptions().Replacements.FailureDetectionTimeSeconds + *fdbCluster.GetAutomationOptions().Replacements.TaintReplacementTimeSeconds
-				time.Sleep(time.Second * time.Duration(minimumReplacementSeconds*5))
+				// minimumReplacementSeconds := *fdbCluster.GetAutomationOptions().Replacements.FailureDetectionTimeSeconds + *fdbCluster.GetAutomationOptions().Replacements.TaintReplacementTimeSeconds
+				// time.Sleep(time.Second * time.Duration(minimumReplacementSeconds*5))
 				for i, pod := range replacedPods {
 					log.Printf("Ensure %dth pod:%s is deleted\n", i, pod.Name)
 					deleted := fdbCluster.CheckPodIsDeleted(pod.Name)

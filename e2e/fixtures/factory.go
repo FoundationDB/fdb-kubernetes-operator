@@ -771,8 +771,11 @@ func (fdbCluster *FdbCluster) GetAutomationOptions() fdbv1beta2.FoundationDBClus
 }
 
 // UpdateNode update node definition
-func (fdbCluster *FdbCluster) UpdateNode(node *corev1.Node) error {
-	return fdbCluster.getClient().Update(ctx.Background(), node)
+func (fdbCluster *FdbCluster) UpdateNode(node *corev1.Node) {
+	gomega.Eventually(func() bool {
+		err := fdbCluster.getClient().Update(ctx.Background(), node)
+		return err == nil
+	}).WithTimeout(time.Duration(2) * time.Minute).WithPolling(2 * time.Second).Should(gomega.BeTrue())
 }
 
 // GetNode return Node with the given name
