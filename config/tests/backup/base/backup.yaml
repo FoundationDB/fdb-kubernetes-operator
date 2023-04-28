@@ -3,7 +3,7 @@ kind: FoundationDBBackup
 metadata:
   name: test-cluster
 spec:
-  version: 6.3.22
+  version: 7.1.26
   clusterName: test-cluster
   snapshotPeriodSeconds: 3600
   blobStoreConfiguration:

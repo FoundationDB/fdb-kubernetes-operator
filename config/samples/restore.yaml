@@ -54,7 +54,7 @@ spec:
         secret:
           secretName: fdb-kubernetes-operator-secrets
   snapshotPeriodSeconds: 3600
-  version: 6.3.22
+  version: 7.1.26
 ---
 apiVersion: apps.foundationdb.org/v1beta2
 kind: FoundationDBCluster
@@ -119,12 +119,12 @@ spec:
             requests:
               storage: 16G
   routing:
-    headlessService: true
+    defineDNSLocalityFields: true
   sidecarContainer:
     enableLivenessProbe: true
     enableReadinessProbe: false
   useExplicitListenAddress: true
-  version: 6.3.22
+  version: 7.1.26
 ---
 apiVersion: apps.foundationdb.org/v1beta2
 kind: FoundationDBRestore

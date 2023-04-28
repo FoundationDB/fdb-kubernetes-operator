@@ -33,7 +33,7 @@ spec:
         - name: FDB_CLUSTER_FILE
           value: /var/dynamic-conf/fdb.cluster
         - name: FDB_API_VERSION
-          value: "610"
+          value: "630"
         - name: FDB_NETWORK_OPTION_TRACE_LOG_GROUP
           value: test-cluster-client
         - name: FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY
@@ -58,13 +58,13 @@ spec:
         - --copy-file
         - fdb.cluster
         - --copy-library
-        - "6.2"
-        - --copy-library
         - "6.3"
+        - --copy-library
+        - "7.1"
         - --init-mode
         - --require-not-empty
         - fdb.cluster
-        image: foundationdb/foundationdb-kubernetes-sidecar:6.3.24-1
+        image: foundationdb/foundationdb-kubernetes-sidecar:7.1.26-1
         name: foundationdb-kubernetes-init
         volumeMounts:
         - mountPath: /var/input-files
@@ -144,9 +144,9 @@ spec:
             requests:
               storage: 16G
   routing:
-    headlessService: true
+    defineDNSLocalityFields: true
   sidecarContainer:
     enableLivenessProbe: true
     enableReadinessProbe: false
   useExplicitListenAddress: true
-  version: 6.3.22
+  version: 7.1.26

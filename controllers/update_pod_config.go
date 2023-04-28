@@ -23,6 +23,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"time"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
@@ -51,9 +52,9 @@ func (updatePodConfig) reconcile(ctx context.Context, r *FoundationDBClusterReco
 
 	podMap := internal.CreatePodMap(cluster, pods)
 
+	originalStatus := cluster.Status.DeepCopy()
 	allSynced := true
 	delayedRequeue := true
-	hasUpdate := false
 	var errs []error
 	// We try to update all process groups and if we observe an error we add it to the error list.
 	for _, processGroup := range cluster.Status.ProcessGroups {
@@ -96,11 +97,15 @@ func (updatePodConfig) reconcile(ctx context.Context, r *FoundationDBClusterReco
 			continue
 		}
 
-		if pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey] == configMapHash {
+		// If we do a cluster version incompatible upgrade we use the fdbv1beta2.IncorrectConfigMap to signal when the operator
+		// can restart fdbserver processes. Since the ConfigMap itself won't change during the upgrade we have to run the updatePodDynamicConf
+		// to make sure all process groups have the required files ready. In the future we will use a different condition to indicate that a
+		// process group si ready to be restarted.
+		if pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey] == configMapHash && !cluster.IsBeingUpgradedWithVersionIncompatibleVersion() {
 			continue
 		}
 
-		synced, err := r.updatePodDynamicConf(cluster, pod)
+		synced, err := r.updatePodDynamicConf(curLogger, cluster, pod)
 		if !synced {
 			allSynced = false
 			if err != nil {
@@ -110,10 +115,8 @@ func (updatePodConfig) reconcile(ctx context.Context, r *FoundationDBClusterReco
 			if internal.IsNetworkError(err) && processGroup.GetConditionTime(fdbv1beta2.SidecarUnreachable) == nil {
 				curLogger.Info("process group sidecar is not reachable")
 				processGroup.UpdateCondition(fdbv1beta2.SidecarUnreachable, true, cluster.Status.ProcessGroups, processGroup.ProcessGroupID)
-				hasUpdate = true
 			} else if processGroup.GetConditionTime(fdbv1beta2.IncorrectConfigMap) == nil {
 				processGroup.UpdateCondition(fdbv1beta2.IncorrectConfigMap, true, cluster.Status.ProcessGroups, processGroup.ProcessGroupID)
-				hasUpdate = true
 				// If we are still waiting for a ConfigMap update we should not delay the requeue to ensure all processes are bounced
 				// at the same time. If the process is unreachable e.g. has the SidecarUnreachable status we can delay the requeue.
 				delayedRequeue = false
@@ -129,20 +132,22 @@ func (updatePodConfig) reconcile(ctx context.Context, r *FoundationDBClusterReco
 			continue
 		}
 
-		pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey] = configMapHash
-		delete(pod.ObjectMeta.Annotations, fdbv1beta2.OutdatedConfigMapKey)
-		err = r.PodLifecycleManager.UpdateMetadata(ctx, r, cluster, pod)
-		if err != nil {
-			allSynced = false
-			curLogger.Error(err, "Update Pod metadata")
-			errs = append(errs, err)
+		// Update the LastConfigMapKey annotation once the Pod was updated.
+		if pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey] != configMapHash {
+			pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey] = configMapHash
+			delete(pod.ObjectMeta.Annotations, fdbv1beta2.OutdatedConfigMapKey)
+			err = r.PodLifecycleManager.UpdateMetadata(ctx, r, cluster, pod)
+			if err != nil {
+				allSynced = false
+				curLogger.Error(err, "Update Pod metadata")
+				errs = append(errs, err)
+			}
 		}
 
-		hasUpdate = true
 		processGroup.UpdateCondition(fdbv1beta2.SidecarUnreachable, false, cluster.Status.ProcessGroups, processGroup.ProcessGroupID)
 	}
 
-	if hasUpdate {
+	if !equality.Semantic.DeepEqual(cluster.Status, *originalStatus) {
 		err = r.updateOrApply(ctx, cluster)
 		if err != nil {
 			return &requeue{curError: err}

@@ -40,12 +40,12 @@ var _ = Describe("pod_models", func() {
 
 	BeforeEach(func() {
 		cluster = CreateDefaultCluster()
-		err := NormalizeClusterSpec(cluster, DeprecationOptions{})
-		Expect(err).NotTo(HaveOccurred())
+		Expect(NormalizeClusterSpec(cluster, DeprecationOptions{})).NotTo(HaveOccurred())
 	})
 
 	Describe("GetPod", func() {
 		var pod *corev1.Pod
+
 		Context("with a basic storage process group", func() {
 			BeforeEach(func() {
 				pod, err = GetPod(cluster, fdbv1beta2.ProcessClassStorage, 1)
@@ -175,6 +175,42 @@ var _ = Describe("pod_models", func() {
 
 	Describe("GetPodSpec", func() {
 		var spec *corev1.PodSpec
+
+		Context("with a version compatible upgrade in progress", func() {
+			BeforeEach(func() {
+				cluster.Spec.Version = fdbv1beta2.Versions.NextPatchVersion.String()
+				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should use the image tag defined in the desired version", func() {
+				for _, container := range spec.Containers {
+					if container.Name != fdbv1beta2.MainContainerName {
+						continue
+					}
+
+					Expect(container.Image).To(HaveSuffix(fdbv1beta2.Versions.NextPatchVersion.String()))
+				}
+			})
+		})
+
+		Context("with a version incompatible upgrade in progress", func() {
+			BeforeEach(func() {
+				cluster.Spec.Version = fdbv1beta2.Versions.NextMajorVersion.String()
+				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should use the image tag defined in the running version", func() {
+				for _, container := range spec.Containers {
+					if container.Name != fdbv1beta2.MainContainerName {
+						continue
+					}
+
+					Expect(container.Image).To(HaveSuffix(cluster.Status.RunningVersion))
+				}
+			})
+		})
 
 		Context("with a basic storage process group", func() {
 			BeforeEach(func() {
@@ -863,6 +899,90 @@ var _ = Describe("pod_models", func() {
 					"fdbcli",
 					"--main-container-version",
 					cluster.Spec.Version,
+					"--substitute-variable",
+					"FDB_POD_IP",
+					"--substitute-variable",
+					"FDB_DNS_NAME",
+				}))
+				Expect(sidecarContainer.Env).To(Equal([]corev1.EnvVar{
+					{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
+						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
+					}},
+					{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
+						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
+					}},
+					{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+					}},
+					{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
+						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+					}},
+					{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
+					{Name: "FDB_DNS_NAME", Value: "operator-test-1-storage-1.operator-test-1.my-ns.svc.cluster.local"},
+					{Name: "FDB_TLS_VERIFY_PEERS", Value: ""},
+				}))
+			})
+		})
+
+		When("enabling DNS in the locality fields", func() {
+			BeforeEach(func() {
+				cluster.Spec.Routing.DefineDNSLocalityFields = pointer.Bool(true)
+				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+			})
+
+			It("should set an additional environment variable on the init container", func() {
+				Expect(len(spec.InitContainers)).To(Equal(1))
+				initContainer := spec.InitContainers[0]
+				Expect(initContainer.Name).To(Equal("foundationdb-kubernetes-init"))
+				Expect(initContainer.Args).To(Equal([]string{
+					"--copy-file",
+					"fdb.cluster",
+					"--input-monitor-conf",
+					"fdbmonitor.conf",
+					"--copy-binary",
+					"fdbserver",
+					"--copy-binary",
+					"fdbcli",
+					"--main-container-version",
+					"6.2.21",
+					"--substitute-variable",
+					"FDB_POD_IP",
+					"--substitute-variable",
+					"FDB_DNS_NAME",
+					"--init-mode",
+				}))
+				Expect(initContainer.Env).To(Equal([]corev1.EnvVar{
+					{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
+						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
+					}},
+					{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
+						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
+					}},
+					{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+					}},
+					{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
+						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+					}},
+					{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
+					{Name: "FDB_DNS_NAME", Value: "operator-test-1-storage-1.operator-test-1.my-ns.svc.cluster.local"},
+				}))
+			})
+
+			It("should set an additional environment variable on the sidecar container", func() {
+				sidecarContainer := spec.Containers[1]
+				Expect(sidecarContainer.Name).To(Equal("foundationdb-kubernetes-sidecar"))
+				Expect(sidecarContainer.Args).To(Equal([]string{
+					"--copy-file",
+					"fdb.cluster",
+					"--input-monitor-conf",
+					"fdbmonitor.conf",
+					"--copy-binary",
+					"fdbserver",
+					"--copy-binary",
+					"fdbcli",
+					"--main-container-version",
+					"6.2.21",
 					"--substitute-variable",
 					"FDB_POD_IP",
 					"--substitute-variable",

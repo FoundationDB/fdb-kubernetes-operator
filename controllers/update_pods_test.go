@@ -21,8 +21,12 @@
 package controllers
 
 import (
+	"context"
 	"fmt"
 	"time"
+
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+	ctrlClient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"k8s.io/utils/pointer"
 
@@ -112,9 +116,10 @@ var _ = Describe("update_pods", func() {
 	Context("Validating shouldRequeueDueToTerminatingPod", func() {
 		var processGroup = fdbv1beta2.ProcessGroupID("")
 
-		When("pod is without deletionTimestamp", func() {
+		When("Pod is without deletionTimestamp", func() {
 			var cluster *fdbv1beta2.FoundationDBCluster
 			var pod *corev1.Pod
+
 			BeforeEach(func() {
 				cluster = &fdbv1beta2.FoundationDBCluster{}
 				pod = &corev1.Pod{
@@ -129,9 +134,10 @@ var _ = Describe("update_pods", func() {
 			})
 		})
 
-		When("pod with deletionTimestamp less than ignore limit", func() {
+		When("Pod with deletionTimestamp less than ignore limit", func() {
 			var cluster *fdbv1beta2.FoundationDBCluster
 			var pod *corev1.Pod
+
 			BeforeEach(func() {
 				cluster = &fdbv1beta2.FoundationDBCluster{}
 				pod = &corev1.Pod{
@@ -147,9 +153,10 @@ var _ = Describe("update_pods", func() {
 			})
 		})
 
-		When("pod with deletionTimestamp more than ignore limit", func() {
+		When("Pod with deletionTimestamp more than ignore limit", func() {
 			var cluster *fdbv1beta2.FoundationDBCluster
 			var pod *corev1.Pod
+
 			BeforeEach(func() {
 				cluster = &fdbv1beta2.FoundationDBCluster{}
 				pod = &corev1.Pod{
@@ -169,6 +176,7 @@ var _ = Describe("update_pods", func() {
 		When("with configured IgnoreTerminatingPodsSeconds", func() {
 			var cluster *fdbv1beta2.FoundationDBCluster
 			var pod *corev1.Pod
+
 			BeforeEach(func() {
 				cluster = &fdbv1beta2.FoundationDBCluster{
 					Spec: fdbv1beta2.FoundationDBClusterSpec{
@@ -188,6 +196,54 @@ var _ = Describe("update_pods", func() {
 
 			It("should not requeue", func() {
 				Expect(shouldRequeueDueToTerminatingPod(pod, cluster, processGroup)).To(BeFalse())
+			})
+		})
+	})
+
+	When("fetching all Pods that needs an update", func() {
+		var cluster *fdbv1beta2.FoundationDBCluster
+		var updates map[string][]*corev1.Pod
+		var expectedError bool
+
+		BeforeEach(func() {
+			cluster = internal.CreateDefaultCluster()
+			Expect(k8sClient.Create(context.TODO(), cluster)).NotTo(HaveOccurred())
+			result, err := reconcileCluster(cluster)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.Requeue).To(BeFalse())
+			Expect(k8sClient.Get(context.TODO(), ctrlClient.ObjectKeyFromObject(cluster), cluster)).NotTo(HaveOccurred())
+		})
+
+		JustBeforeEach(func() {
+			pods, err := clusterReconciler.PodLifecycleManager.GetPods(context.TODO(), k8sClient, cluster, internal.GetPodListOptions(cluster, "", "")...)
+			Expect(err).NotTo(HaveOccurred())
+
+			updates, err = getPodsToUpdate(log, clusterReconciler, cluster, internal.CreatePodMap(cluster, pods))
+			if !expectedError {
+				Expect(err).NotTo(HaveOccurred())
+			} else {
+				Expect(err).To(HaveOccurred())
+			}
+		})
+
+		When("the cluster has no changes", func() {
+			It("should return no errors and an empty map", func() {
+				Expect(updates).To(HaveLen(0))
+			})
+		})
+
+		When("there is a spec change for all processes", func() {
+			BeforeEach(func() {
+				storageSettings := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
+				storageSettings.PodTemplate.Spec.NodeSelector = map[string]string{"test": "test"}
+				cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral] = storageSettings
+
+				Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
+			})
+
+			It("should return no errors and a map with one zone", func() {
+				// We only have one zone in this case, the simulation zone
+				Expect(updates).To(HaveLen(1))
 			})
 		})
 	})

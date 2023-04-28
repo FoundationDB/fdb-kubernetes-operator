@@ -25,7 +25,7 @@ The `podTemplate` field allows you to customize nearly every part of the pods th
 * The pod will always have a container called `foundationdb`, a container called `foundationdb-kubernetes-sidecar`, and an init container called `foundationdb-kubernetes-init`. If you do not define containers with these names, the operator will add them. If you define containers with these names, the operator will modify them to add the necessary fields and default values.
 * You cannot define a command or arguments for the `foundationdb` container.
 * The image version for the built-in containers will be set by the operator. If you define a custom image, the operator will add a tag to the end with the image version the operator needs.
-* You cannot directly set the affinity for the pod.
+* You can set affinities on the Pod level, but depending on the `fault domain key` the operator will add at least one `PodAntiAffinity` to try to spread the Pods across multiple failure domains.
 * The pod will always have volumes named `data`, `dynamic-conf`, `config-map`, and `fdb-trace-logs`, which will be defined by the operator. You cannot define custom volumes with these names.
 * The `foundationdb` container will always have volume mounts with the names `data`, `dynamic-conf`, and `fdb-trace-logs`, which will be defined by the operator. You cannot define volume mounts with these names.
 * The `foundationdb-kubernetes-sidecar` and `foundationdb-kubernetes-init` containers will always have volume mounts with the names `config-map` and `dynamic-conf`, which will be defined by the operator. You cannot define volume mounts with these names.

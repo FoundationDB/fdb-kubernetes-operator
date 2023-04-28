@@ -385,6 +385,7 @@ func (client *realFdbPodAnnotationClient) UpdateFile(name string, contents strin
 		}
 		return match, nil
 	}
+
 	return false, fmt.Errorf("unknown file %s", name)
 }
 
@@ -496,7 +497,7 @@ func GetSubstitutionsFromClusterAndPod(logger logr.Logger, cluster *fdbv1beta2.F
 
 	substitutions["FDB_INSTANCE_ID"] = string(GetProcessGroupIDFromMeta(cluster, pod.ObjectMeta))
 
-	if cluster.IsBeingUpgraded() {
+	if cluster.IsBeingUpgradedWithVersionIncompatibleVersion() {
 		substitutions["BINARY_DIR"] = fmt.Sprintf("/var/dynamic-conf/bin/%s", cluster.Spec.Version)
 	} else {
 		substitutions["BINARY_DIR"] = "/usr/bin"

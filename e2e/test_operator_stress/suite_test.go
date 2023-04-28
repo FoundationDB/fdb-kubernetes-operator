@@ -1,11 +1,9 @@
-//go:build e2e_test
-
 /*
- * create_single_fdb_cluster_test.go
+ * suite_test.go
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2022 Apple Inc. and the FoundationDB project authors
+ * Copyright 2023 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,22 +18,17 @@
  * limitations under the License.
  */
 
-package e2e
+package operatorstress
 
 import (
 	"testing"
+	"time"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/e2e/helper"
-	"sigs.k8s.io/e2e-framework/pkg/features"
+	"github.com/FoundationDB/fdb-kubernetes-operator/e2e/fixtures"
+	. "github.com/onsi/gomega"
 )
 
-func TestCreateSingleFDBCluster(t *testing.T) {
-	testVersions := helper.GetTestFDBVersions()
-	createSingleClusterFeatures := make([]features.Feature, 0, len(testVersions))
-
-	for _, version := range testVersions {
-		createSingleClusterFeatures = append(createSingleClusterFeatures, helper.CreateSingleClusterTest(version, t))
-	}
-
-	testenv.Test(t, createSingleClusterFeatures...)
+func TestOperatorStress(t *testing.T) {
+	SetDefaultEventuallyTimeout(180 * time.Second)
+	fixtures.RunGinkgoTests(t, "FDB Operator stress test suite")
 }

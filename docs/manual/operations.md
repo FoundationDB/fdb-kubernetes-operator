@@ -1,5 +1,20 @@
 # Common Operations
 
+## Common localities
+
+The operator sets per default a predefined set of [localities](https://apple.github.io/foundationdb/configuration.html#fdbserver-section) based on the FoundationDBCluster configuration.
+The following localities will be set by the operator:
+
+- `--locality_instance_id`: This will get the value from `FDB_INSTANCE_ID` and will represent the process group ID, e.g. `storage-1`.
+- `--locality_process_id`: This will only be set if `storageServersPerPod` is set to a value larger than `1`. The format will be `$FDB_INSTANCE_ID` with the process counter as suffix and a `-` as a separator, e.g. `storage-1-1`.
+- `--locality_machineid`: The value will be set depending on the fault domain key. For `foundationdb.org/none`, this will be the Pod's name, for all other cases this will be the node name on which the pod is running.
+- `--locality_zoneid`: The value will be set depending on the fault domain key. For `foundationdb.org/none`, this will be the Pod's name, otherwise this will be the node name per default where the Pod is running. If `ValueFrom` is defined in the fault domain this value will be used. If `foundationdb.org/kubernetes-cluster` is specified as fault domain key the predefined `value` will be used.
+- `--locality_dcid`: This value will be set to the value defined in `cluster.Spec.DataCenter`, if this value is not set the locality will not be set. This locality is used for FoundationDB deployments in multiple datacenters/Kubernetes clusters.
+- `--locality_data_hall`: This value will be set to the value defined in `cluster.Spec.DataHall`, if this value is not set the locality will not be set. Currently this locality doesn't have any affect, but will be used in the future for `three_data_hall` replication.
+- `--locality_dns_name`: This value will only be set if `cluster.Spec.Routing.DefineDNSLocalityFields` is set to true. The value will be set to the `FDB_DNS_NAME` environment variable, which is set by the operator.
+
+The operator uses the `locality_instance_id` to identify the process from the [machine-readable status](https://apple.github.io/foundationdb/mr-status.html) and match it to the according process group managed by the operator.
+
 ## Replacing a Process
 
 If you delete a pod, the operator will automatically create a new pod to replace it. If there is a volume available for re-use, we will create a new pod to match that volume. This means that in general you can replace a bad process just by deleting the pod. This may not be desirable in all situations, as it creates a loss of fault tolerance until the replacement pod is created. This also requires that the original volume be available, which may not be possible in some failure scenarios.
@@ -12,12 +27,16 @@ kind: FoundationDBCluster
 metadata:
   name: sample-cluster
 spec:
-  version: 6.2.30
+  version: 7.1.26
   processGroupsToRemove:
     - storage-1
 ```
 
-When comparing the desired process count with the current pod count, any pods that are in the pending removal list are not counted. This means that the operator will only consider there to be 2 running storage pods, rather than 3, and will create a new one to fill the gap. Once this is done, it will go through the same removal process described under [Shrinking a Cluster](scaling.md#shrinking-a-cluster). The cluster will remain at full fault tolerance throughout the reconciliation. This allows you to replace an arbitrarily large number of processes in a cluster without any risk of availability loss.
+When comparing the desired process count with the current pod count, any pods that are in the pending removal list are not counted.
+This means that the operator will only consider there to be 2 running storage pods, rather than 3, and will create a new one to fill the gap.
+Once this is done, it will go through the same removal process described under [Shrinking a Cluster](scaling.md#shrinking-a-cluster).
+The cluster will remain at full fault tolerance throughout the reconciliation.
+This allows you to replace an arbitrarily large number of processes in a cluster without any risk of availability loss.
 
 ## Adding a Knob
 
@@ -29,14 +48,16 @@ kind: FoundationDBCluster
 metadata:
   name: sample-cluster
 spec:
-  version: 6.2.30
+  version: 7.1.26
   processes:
     general:
       customParameters:
       - "knob_always_causal_read_risky=1"
 ```
 
-The operator will update the monitor conf to contain the new knob, and will then bounce all of the fdbserver processes. As soon as fdbmonitor detects that the fdbserver process has died, it will create a new fdbserver process with the latest config. The cluster should be fully available within 10 seconds of executing the bounce, though this can vary based on cluster size.
+The operator will update the monitor conf to contain the new knob, and will then bounce all of the fdbserver processes.
+As soon as fdbmonitor detects that the fdbserver process has died, it will create a new fdbserver process with the latest config.
+The cluster should be fully available within 10 seconds of executing the bounce, though this can vary based on cluster size and the resources provided to the fdbserver processes.
 
 The process for updating the monitor conf can take several minutes, based on the time it takes Kubernetes to update the config map in the pods.
 
@@ -50,12 +71,10 @@ kind: FoundationDBCluster
 metadata:
   name: sample-cluster
 spec:
-  version: 6.3.12
+  version: 7.2.4
 ```
 
-This will first update the sidecar image in the pod to match the new version, which will restart that container. On restart, it will copy the new FDB binaries into the config volume for the foundationdb container, which will make it available to run. We will then update the fdbmonitor conf to point to the new binaries and bounce all of the fdbserver processes.
-
-Once all of the processes are running at the new version, we will recreate all of the pods so that the `foundationdb` container uses the new version for its own image. This will use the strategies described in [Pod Update Strategy](customization.md#pod-update-strategy).
+The upgrade process is described in more detail in [upgrades](./upgrades.md).
 
 ## Renaming a Cluster
 

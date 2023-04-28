@@ -164,11 +164,7 @@ var _ = Describe("admin_client_test", func() {
 						},
 						Version:       cluster.Spec.Version,
 						UptimeSeconds: 60000,
-						Roles: []fdbv1beta2.FoundationDBStatusProcessRoleInfo{
-							{
-								Role: string(fdbv1beta2.ProcessRoleCoordinator),
-							},
-						},
+						Roles:         nil,
 					}))
 				})
 			})
@@ -176,7 +172,7 @@ var _ = Describe("admin_client_test", func() {
 
 		Context("with the DNS names enabled", func() {
 			BeforeEach(func() {
-				cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(true)
+				cluster.Spec.Routing.DefineDNSLocalityFields = pointer.Bool(true)
 				err = k8sClient.Update(context.TODO(), cluster)
 				Expect(err).NotTo(HaveOccurred())
 			})

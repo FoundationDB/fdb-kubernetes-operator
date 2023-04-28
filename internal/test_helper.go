@@ -56,7 +56,8 @@ func CreateDefaultCluster() *fdbv1beta2.FoundationDBCluster {
 			RequiredAddresses: fdbv1beta2.RequiredAddressSet{
 				NonTLS: true,
 			},
-			ProcessGroups: make([]*fdbv1beta2.ProcessGroupStatus, 0),
+			ProcessGroups:  make([]*fdbv1beta2.ProcessGroupStatus, 0),
+			RunningVersion: fdbv1beta2.Versions.Default.String(),
 		},
 	}
 }

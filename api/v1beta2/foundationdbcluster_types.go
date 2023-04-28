@@ -157,6 +157,7 @@ type FoundationDBClusterSpec struct {
 	// https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#syntax-and-character-set
 	// for more details on that.
 	// +kubebuilder:validation:MaxLength=43
+	// +kubebuilder:validation:Pattern:=^[a-z0-9A-Z]([\-._a-z0-9A-Z])*[a-z0-9A-Z]$
 	ProcessGroupIDPrefix string `json:"processGroupIDPrefix,omitempty"`
 
 	// LockOptions allows customizing how we manage locks for global operations.
@@ -297,8 +298,10 @@ type MaintenanceModeInfo struct {
 	// StartTimestamp provides the timestamp when this zone is put into maintenance mode
 	StartTimestamp *metav1.Time `json:"startTimestamp,omitempty"`
 	// ZoneID that is placed in maintenance mode
+	// +kubebuilder:validation:MaxLength=512
 	ZoneID string `json:"zoneID,omitempty"`
 	// ProcessGroups that are placed in maintenance mode
+	// +kubebuilder:validation:MaxItems=200
 	ProcessGroups []string `json:"processGroups,omitempty"`
 }
 
@@ -918,7 +921,16 @@ type FoundationDBClusterAutomationOptions struct {
 
 	// MaintenanceModeOptions contains options for maintenance mode related settings.
 	MaintenanceModeOptions MaintenanceModeOptions `json:"maintenanceModeOptions,omitempty"`
+
+	// IgnoreLogGroupsForUpgrade defines the list of LogGroups that should be ignored during fdb version upgrade.
+	// +kubebuilder:validation:MaxItems=10
+	IgnoreLogGroupsForUpgrade []LogGroup `json:"ignoreLogGroupsForUpgrade,omitempty"`
 }
+
+// LogGroup represents a LogGroup used by a FoundationDB process to log trace events. The LogGroup can be used to filter
+// clients during an upgrade.
+// +kubebuilder:validation:MaxLength=256
+type LogGroup string
 
 // MaintenanceModeOptions controls options for placing zones in maintenance mode.
 type MaintenanceModeOptions struct {
@@ -1079,7 +1091,10 @@ func (cluster *FoundationDBCluster) calculateProcessCount(addFaultTolerance bool
 }
 
 // GetProcessCountsWithDefaults gets the process counts from the cluster spec
-// and fills in default values for any counts that are 0.
+// and fills in default values for any counts that are 0. The number of storage processes
+// will only reflect the number of Pods that will be created to host storage server processes.
+// If storageServersPerPod is set the total amount of storage server processes will be
+// the storage process count multiplied by storageServersPerPod.
 func (cluster *FoundationDBCluster) GetProcessCountsWithDefaults() (ProcessCounts, error) {
 	roleCounts := cluster.GetRoleCountsWithDefaults()
 	processCounts := cluster.Spec.ProcessCounts.DeepCopy()
@@ -1552,6 +1567,18 @@ func (cluster *FoundationDBCluster) IsBeingUpgraded() bool {
 	return cluster.Status.RunningVersion != "" && cluster.Status.RunningVersion != cluster.Spec.Version
 }
 
+// IsBeingUpgradedWithVersionIncompatibleVersion determines whether the cluster has a pending upgrade to a version incompatible version.
+func (cluster *FoundationDBCluster) IsBeingUpgradedWithVersionIncompatibleVersion() bool {
+	if !cluster.IsBeingUpgraded() {
+		return false
+	}
+
+	runningVersion, _ := ParseFdbVersion(cluster.Status.RunningVersion)
+	desiredVersion, _ := ParseFdbVersion(cluster.Spec.Version)
+
+	return !runningVersion.IsProtocolCompatible(desiredVersion)
+}
+
 // VersionCompatibleUpgradeInProgress returns true if the cluster is currently being upgraded and the upgrade is to
 // a version compatible version.
 func (cluster *FoundationDBCluster) VersionCompatibleUpgradeInProgress() bool {
@@ -1696,6 +1723,12 @@ type RoutingConfig struct {
 	// latest stable version of FoundationDB.
 	UseDNSInClusterFile *bool `json:"useDNSInClusterFile,omitempty"`
 
+	// DefineDNSLocalityFields determines whether to define pod DNS names on pod
+	// specs and provide them in the locality arguments to fdbserver.
+	//
+	// This is ignored if UseDNSInCluster is true.
+	DefineDNSLocalityFields *bool `json:"defineDNSLocalityFields,omitempty"`
+
 	// DNSDomain defines the cluster domain used in a DNS name generated for a
 	// service.
 	// The default is `cluster.local`.
@@ -1752,6 +1785,13 @@ type BuggifyConfig struct {
 	// processes. IgnoreDuringRestart does not support the wildcard option to ignore all of this specific cluster processes.
 	// +kubebuilder:validation:MaxItems=1000
 	IgnoreDuringRestart []ProcessGroupID `json:"ignoreDuringRestart,omitempty"`
+
+	// BlockRemoval defines a list of process group IDs that will not be removed, even if they are marked for removal.
+	// The operator will trigger the exclusion but the removal of the resources will be blocked until they are removed
+	// from this list. This setting can be used to simulate cases where a process group is marked for removal but the
+	// resources are not yet removed.
+	// +kubebuilder:validation:MaxItems=1000
+	BlockRemoval []ProcessGroupID `json:"blockRemoval,omitempty"`
 }
 
 // LabelConfig allows customizing labels used by the operator.
@@ -1838,6 +1878,19 @@ func (cluster *FoundationDBCluster) IsEligibleAsCandidate(pClass ProcessClass) b
 	}
 
 	return false
+}
+
+// GetEligibleCandidateClasses returns process classes that are eligible to become coordinators.
+func (cluster *FoundationDBCluster) GetEligibleCandidateClasses() []ProcessClass {
+	candidateClasses := []ProcessClass{}
+
+	for _, processGroup := range cluster.Status.ProcessGroups {
+		if cluster.IsEligibleAsCandidate(processGroup.ProcessClass) {
+			candidateClasses = append(candidateClasses, processGroup.ProcessClass)
+		}
+	}
+
+	return candidateClasses
 }
 
 // GetClassCandidatePriority returns the priority for a class. This will be used to sort the processes for coordinator selection
@@ -1953,13 +2006,19 @@ const (
 // NeedsHeadlessService determines whether we need to create a headless service
 // for this cluster.
 func (cluster *FoundationDBCluster) NeedsHeadlessService() bool {
-	return cluster.UseDNSInClusterFile() || pointer.BoolDeref(cluster.Spec.Routing.HeadlessService, false)
+	return cluster.DefineDNSLocalityFields() || pointer.BoolDeref(cluster.Spec.Routing.HeadlessService, false)
 }
 
 // UseDNSInClusterFile determines whether we need to use DNS entries in the
 // cluster file for this cluster.
 func (cluster *FoundationDBCluster) UseDNSInClusterFile() bool {
 	return pointer.BoolDeref(cluster.Spec.Routing.UseDNSInClusterFile, false)
+}
+
+// DefineDNSLocalityFields determines whether we need to put DNS entries in the
+// pod spec and process locality.
+func (cluster *FoundationDBCluster) DefineDNSLocalityFields() bool {
+	return pointer.BoolDeref(cluster.Spec.Routing.DefineDNSLocalityFields, false) || cluster.UseDNSInClusterFile()
 }
 
 // GetDNSDomain gets the domain used when forming DNS names generated for a
@@ -2177,6 +2236,37 @@ func (cluster *FoundationDBCluster) AddProcessGroupsToCrashLoopList(processGroup
 	}
 }
 
+// AddProcessGroupsToCrashLoopContainerList adds the provided process group IDs to the crash-loop list.
+// If a process group ID is already present on that list it won't be added a second time.
+func (cluster *FoundationDBCluster) AddProcessGroupsToCrashLoopContainerList(processGroupIDs []ProcessGroupID, containerName string) {
+	crashLoopProcessIDs := cluster.GetCrashLoopContainerProcessGroups()[containerName]
+
+	if len(crashLoopProcessIDs) == 0 {
+		containerObj := CrashLoopContainerObject{
+			ContainerName: containerName,
+			Targets:       processGroupIDs,
+		}
+		cluster.Spec.Buggify.CrashLoopContainers = append(cluster.Spec.Buggify.CrashLoopContainers, containerObj)
+		return
+	}
+
+	containerIdx := 0
+	for _, crashLoopContainerObj := range cluster.Spec.Buggify.CrashLoopContainers {
+		if containerName != crashLoopContainerObj.ContainerName {
+			containerIdx++
+			continue
+		}
+		for _, processGroupID := range processGroupIDs {
+			if _, ok := crashLoopProcessIDs[processGroupID]; ok {
+				continue
+			}
+			crashLoopContainerObj.Targets = append(crashLoopContainerObj.Targets, processGroupID)
+		}
+		cluster.Spec.Buggify.CrashLoopContainers[containerIdx] = crashLoopContainerObj
+		return
+	}
+}
+
 // RemoveProcessGroupsFromCrashLoopList removes the provided process group IDs from the crash-loop list.
 func (cluster *FoundationDBCluster) RemoveProcessGroupsFromCrashLoopList(processGroupIDs []ProcessGroupID) {
 	processGroupIDsToRemove := make(map[ProcessGroupID]None)
@@ -2193,6 +2283,32 @@ func (cluster *FoundationDBCluster) RemoveProcessGroupsFromCrashLoopList(process
 		idx++
 	}
 	cluster.Spec.Buggify.CrashLoop = cluster.Spec.Buggify.CrashLoop[:idx]
+}
+
+// RemoveProcessGroupsFromCrashLoopContainerList removes the provided process group IDs from the crash-loop container list.
+func (cluster *FoundationDBCluster) RemoveProcessGroupsFromCrashLoopContainerList(processGroupIDs []ProcessGroupID, containerName string) {
+	processGroupIDsToRemove := make(map[ProcessGroupID]None)
+	for _, processGroupID := range processGroupIDs {
+		processGroupIDsToRemove[processGroupID] = None{}
+	}
+
+	crashLoopIdx := 0
+	for _, crashLoopContainerObj := range cluster.Spec.Buggify.CrashLoopContainers {
+		if containerName != crashLoopContainerObj.ContainerName {
+			crashLoopIdx++
+			continue
+		}
+		newTargets := make([]ProcessGroupID, 0)
+		for _, processGroupID := range crashLoopContainerObj.Targets {
+			if _, ok := processGroupIDsToRemove[processGroupID]; ok {
+				continue
+			}
+			newTargets = append(newTargets, processGroupID)
+		}
+		crashLoopContainerObj.Targets = newTargets
+		cluster.Spec.Buggify.CrashLoopContainers[crashLoopIdx] = crashLoopContainerObj
+		return
+	}
 }
 
 // AddProcessGroupsToRemovalWithoutExclusionList adds the provided process group IDs to the remove without exclusion list.

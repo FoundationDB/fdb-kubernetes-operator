@@ -4300,9 +4300,15 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				Expect(cluster.NeedsHeadlessService()).To(BeTrue())
 			})
 
-			It("can be overridden by the DNS setting", func() {
+			It("can be overridden by the DNS in cluster file setting", func() {
 				cluster.Spec.Routing.HeadlessService = pointer.Bool(false)
 				cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(true)
+				Expect(cluster.NeedsHeadlessService()).To(BeTrue())
+			})
+
+			It("can be overridden by the DNS in locality setting", func() {
+				cluster.Spec.Routing.HeadlessService = pointer.Bool(false)
+				cluster.Spec.Routing.DefineDNSLocalityFields = pointer.Bool(true)
 				Expect(cluster.NeedsHeadlessService()).To(BeTrue())
 			})
 		})
@@ -4313,6 +4319,21 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 				cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(true)
 				Expect(cluster.UseDNSInClusterFile()).To(BeTrue())
+			})
+		})
+
+		When("checking whether we use DNS in the locality fields", func() {
+			It("respects the value in the flag", func() {
+				Expect(cluster.DefineDNSLocalityFields()).To(BeFalse())
+
+				cluster.Spec.Routing.DefineDNSLocalityFields = pointer.Bool(true)
+				Expect(cluster.DefineDNSLocalityFields()).To(BeTrue())
+			})
+
+			It("can be overridden by the DNS in cluster file setting", func() {
+				cluster.Spec.Routing.DefineDNSLocalityFields = pointer.Bool(false)
+				cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(true)
+				Expect(cluster.DefineDNSLocalityFields()).To(BeTrue())
 			})
 		})
 
@@ -4950,4 +4971,51 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			)
 		})
 	})
+
+	DescribeTable("when checking if the cluster is being upgraded", func(cluster *FoundationDBCluster, isUpgraded bool, isCompatibleUpgrade bool) {
+		Expect(cluster.IsBeingUpgraded()).To(Equal(isUpgraded))
+
+		if !isUpgraded {
+			return
+		}
+
+		Expect(cluster.VersionCompatibleUpgradeInProgress()).To(Equal(isCompatibleUpgrade))
+		Expect(cluster.IsBeingUpgradedWithVersionIncompatibleVersion()).To(Equal(!isCompatibleUpgrade))
+	}, Entry("no upgrade in progress",
+		&FoundationDBCluster{
+			Spec: FoundationDBClusterSpec{
+				Version: "7.1.27",
+			},
+			Status: FoundationDBClusterStatus{
+				RunningVersion: "7.1.27",
+			},
+		}, false, false),
+		Entry("patch upgrade",
+			&FoundationDBCluster{
+				Spec: FoundationDBClusterSpec{
+					Version: "7.1.29",
+				},
+				Status: FoundationDBClusterStatus{
+					RunningVersion: "7.1.27",
+				},
+			}, true, true),
+		Entry("minor upgrade",
+			&FoundationDBCluster{
+				Spec: FoundationDBClusterSpec{
+					Version: "7.2.3",
+				},
+				Status: FoundationDBClusterStatus{
+					RunningVersion: "7.1.27",
+				},
+			}, true, false),
+		Entry("major upgrade",
+			&FoundationDBCluster{
+				Spec: FoundationDBClusterSpec{
+					Version: "8.0.0",
+				},
+				Status: FoundationDBClusterStatus{
+					RunningVersion: "7.1.27",
+				},
+			}, true, false),
+	)
 })

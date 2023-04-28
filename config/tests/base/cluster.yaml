@@ -3,13 +3,13 @@ kind: FoundationDBCluster
 metadata:
   name: test-cluster
 spec:
-  version: 6.3.22
+  version: 7.1.26
   faultDomain:
     # Use fake fault domains to support running in a single-node Kubernetes
     # cluster.
     key: foundationdb.org/none
   routing:
-    headlessService: true
+    defineDNSLocalityFields: true
   processCounts:
     # Disable stateless processes to save resources.
     stateless: -1

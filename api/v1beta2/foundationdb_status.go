@@ -49,6 +49,9 @@ type FoundationDBStatusLocalClientInfo struct {
 type FoundationDBStatusCoordinatorInfo struct {
 	// Coordinators provides a list with coordinator details.
 	Coordinators []FoundationDBStatusCoordinator `json:"coordinators,omitempty"`
+
+	// QuorumReachable provides a summary if a quorum of the coordinators are reachable
+	QuorumReachable bool `json:"quorum_reachable,omitempty"`
 }
 
 // FoundationDBStatusCoordinator contains information about one of the
@@ -77,6 +80,9 @@ type FoundationDBStatusClusterInfo struct {
 
 	// FullReplication indicates whether the database is fully replicated.
 	FullReplication bool `json:"full_replication,omitempty"`
+
+	// Generation indicates the current generation of this database.
+	Generation int `json:"generation,omitempty"`
 
 	// MaintenanceZone contains current zone under maintenance, if any.
 	MaintenanceZone string `json:"maintenance_zone,omitempty"`
@@ -161,6 +167,8 @@ type FoundationDBStatusProcessRoleInfo struct {
 	Role string `json:"role,omitempty"`
 	// StoredBytes defines the number of bytes that are currently stored for this process.
 	StoredBytes int `json:"stored_bytes,omitempty"`
+	// ID represent the role ID.
+	ID string `json:"id,omitempty"`
 }
 
 // FoundationDBStatusDataStatistics provides information about the data in
@@ -255,7 +263,7 @@ type FoundationDBStatusConnectedClient struct {
 	Address string `json:"address,omitempty"`
 
 	// LogGroup provides the trace log group the client has set.
-	LogGroup string `json:"log_group,omitempty"`
+	LogGroup LogGroup `json:"log_group,omitempty"`
 }
 
 // Description returns a string description of the a connected client.

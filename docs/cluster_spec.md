@@ -62,6 +62,7 @@ BuggifyConfig provides options for injecting faults into a cluster for testing.
 | crashLoopContainers | CrashLoopContainers defines a list of process group IDs and containers that should be put into a crash looping state. | [][CrashLoopContainerObject](#crashloopcontainerobject) | false |
 | emptyMonitorConf | EmptyMonitorConf instructs the operator to update all of the fdbmonitor.conf files to have zero fdbserver processes configured. | bool | false |
 | ignoreDuringRestart | IgnoreDuringRestart instructs the operator to ignore the provided process groups IDs during the restart command. This can be useful to simulate cases where the kill command is not restarting all processes. IgnoreDuringRestart does not support the wildcard option to ignore all of this specific cluster processes. | [][ProcessGroupID](#processgroupid) | false |
+| blockRemoval | BlockRemoval defines a list of process group IDs that will not be removed, even if they are marked for removal. The operator will trigger the exclusion but the removal of the resources will be blocked until they are removed from this list. This setting can be used to simulate cases where a process group is marked for removal but the resources are not yet removed. | [][ProcessGroupID](#processgroupid) | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -183,6 +184,7 @@ FoundationDBClusterAutomationOptions provides flags for enabling or disabling op
 | podUpdateStrategy | PodUpdateStrategy defines how Pod spec changes are rolled out either by replacing Pods or by deleting Pods. The default for this is ReplaceTransactionSystem. | [PodUpdateStrategy](#podupdatestrategy) | false |
 | useManagementAPI | UseManagementAPI defines if the operator should make use of the management API instead of using fdbcli to interact with the FoundationDB cluster. | *bool | false |
 | maintenanceModeOptions | MaintenanceModeOptions contains options for maintenance mode related settings. | [MaintenanceModeOptions](#maintenancemodeoptions) | false |
+| ignoreLogGroupsForUpgrade | IgnoreLogGroupsForUpgrade defines the list of LogGroups that should be ignored during fdb version upgrade. | [][LogGroup](#loggroup) | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -332,6 +334,12 @@ LockSystemStatus provides a summary of the status of the locking system.
 
 [Back to TOC](#table-of-contents)
 
+## LogGroup
+
+LogGroup represents a LogGroup used by a FoundationDB process to log trace events. The LogGroup can be used to filter clients during an upgrade.
+
+[Back to TOC](#table-of-contents)
+
 ## MaintenanceModeInfo
 
 MaintenanceModeInfo contains information regarding the zone and process groups that are put into maintenance mode by the operator
@@ -445,6 +453,7 @@ RoutingConfig allows configuring routing to our pods, and services that sit in f
 | publicIPSource | PublicIPSource specifies what source a process should use to get its public IPs.  This supports the values `pod` and `service`. | *[PublicIPSource](#publicipsource) | false |
 | podIPFamily | PodIPFamily tells the pod which family of IP addresses to use. You can use 4 to represent IPv4, and 6 to represent IPv6. This feature is only supported in FDB 7.0 or later, and requires dual-stack support in your Kubernetes environment. | *int | false |
 | useDNSInClusterFile | UseDNSInClusterFile determines whether to use DNS names rather than IP addresses to identify coordinators in the cluster file. NOTE: This is an experimental feature, and is not supported in the latest stable version of FoundationDB. | *bool | false |
+| defineDNSLocalityFields | DefineDNSLocalityFields determines whether to define pod DNS names on pod specs and provide them in the locality arguments to fdbserver.  This is ignored if UseDNSInCluster is true. | *bool | false |
 | dnsDomain | DNSDomain defines the cluster domain used in a DNS name generated for a service. The default is `cluster.local`. | *string | false |
 
 [Back to TOC](#table-of-contents)

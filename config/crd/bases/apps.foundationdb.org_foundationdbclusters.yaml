@@ -9875,6 +9875,12 @@ spec:
                     type: string
                   failedPodDurationSeconds:
                     type: integer
+                  ignoreLogGroupsForUpgrade:
+                    items:
+                      maxLength: 256
+                      type: string
+                    maxItems: 10
+                    type: array
                   ignoreMissingProcessesSeconds:
                     type: integer
                   ignorePendingPodsDuration:
@@ -9931,6 +9937,12 @@ spec:
                 type: object
               buggify:
                 properties:
+                  blockRemoval:
+                    items:
+                      maxLength: 63
+                      type: string
+                    maxItems: 1000
+                    type: array
                   crashLoop:
                     items:
                       maxLength: 63
@@ -10250,6 +10262,7 @@ spec:
                 type: object
               processGroupIDPrefix:
                 maxLength: 43
+                pattern: ^[a-z0-9A-Z]([\-._a-z0-9A-Z])*[a-z0-9A-Z]$
                 type: string
               processGroupsToRemove:
                 items:
@@ -13566,6 +13579,8 @@ spec:
                 type: boolean
               routing:
                 properties:
+                  defineDNSLocalityFields:
+                    type: boolean
                   dnsDomain:
                     maxLength: 253
                     minLength: 1
@@ -13806,11 +13821,13 @@ spec:
                   processGroups:
                     items:
                       type: string
+                    maxItems: 200
                     type: array
                   startTimestamp:
                     format: date-time
                     type: string
                   zoneID:
+                    maxLength: 512
                     type: string
                 type: object
               needsNewCoordinators:

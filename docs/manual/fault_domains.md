@@ -14,7 +14,7 @@ kind: FoundationDBCluster
 metadata:
   name: sample-cluster
 spec:
-  version: 6.2.30
+  version: 7.1.26
   faultDomain:
     key: kubernetes.io/hostname
     valueFrom: spec.nodeName
@@ -30,7 +30,7 @@ kind: FoundationDBCluster
 metadata:
   name: sample-cluster
 spec:
-  version: 6.2.30
+  version: 7.1.26
   faultDomain:
     key: topology.kubernetes.io/zone
     valueFrom: spec.zoneName
@@ -46,7 +46,7 @@ kind: FoundationDBCluster
 metadata:
   name: sample-cluster
 spec:
-  version: 6.2.30
+  version: 7.1.26
   faultDomain:
     key: topology.kubernetes.io/zone
     valueFrom: $RACK
@@ -64,7 +64,7 @@ kind: FoundationDBCluster
 metadata:
   name: sample-cluster
 spec:
-  version: 6.2.30
+  version: 7.1.26
   processGroupIDPrefix: zone2
   faultDomain:
     key: foundationdb.org/kubernetes-cluster
@@ -91,7 +91,7 @@ kind: FoundationDBCluster
 metadata:
   name: sample-cluster
 spec:
-  version: 6.2.30
+  version: 7.1.26
   faultDomain:
     key: foundationdb.org/none
 ```
@@ -100,7 +100,11 @@ This strategy uses the pod name as the fault domain, which allows each process t
 
 ## Multi-Region Replication
 
-The replication strategies above all describe how data is replicated within a data center. They control the `zoneid` field in the cluster's locality. If you want to run a cluster across multiple data centers, you can use FoundationDB's multi-region replication. This can work with any of the replication stragies above. The data center will be a separate fault domain from whatever you provide for the zone.
+The replication strategies above all describe how data is replicated within a data center.
+They control the `zoneid` field in the cluster's locality.
+If you want to run a cluster across multiple data centers, you can use FoundationDB's multi-region replication.
+This can work with any of the replication strategies above.
+The data center will be a separate fault domain from whatever you provide for the zone.
 
 ```yaml
 apiVersion: apps.foundationdb.org/v1beta2
@@ -108,7 +112,7 @@ kind: FoundationDBCluster
 metadata:
   name: sample-cluster
 spec:
-  version: 6.2.30
+  version: 7.1.26
   dataCenter: dc1
   databaseConfiguration:
     regions:
@@ -131,7 +135,59 @@ This will be used to set the `dcid` locality field.
 The `regions` section of the database describes all of the available regions.
 See the [FoundationDB documentation](https://apple.github.io/foundationdb/configuration.html#configuring-regions) for more information on how to configure regions.
 
-Replicating across data centers will likely mean running your cluster across multiple Kubernetes clusters, even if you are using a single-Kubernetes replication strategy within each DC. This will mean taking on the operational challenges described in the "Multi-Kubernetes Replication" section above.
+Replicating across data centers will likely mean running your cluster across multiple Kubernetes clusters, even if you are using a single-Kubernetes replication strategy within each DC.
+This will mean taking on the operational challenges described in the "Multi-Kubernetes Replication" section above.
+
+An example on how to setup a multi-region FDB cluster with the operator can be found in [multi-dc](../../config/tests/multi_dc).
+If you want to do an experiment locally with Kind you can use the [setup_e2e.sh](../../scripts/setup_e2e.sh) script.
+Basically the example is performing the following steps:
+
+Create a single DC FDB cluster:
+
+```yaml
+apiVersion: apps.foundationdb.org/v1beta2
+kind: FoundationDBCluster
+metadata:
+  name: sample-cluster
+spec:
+  version: 7.1.26
+  dataCenter: dc1
+  # Using the processGroupIDPrefix will prevent name conflicts.
+  processGroupIDPrefix: dc1
+  databaseConfiguration:
+    regions:
+      - datacenters:
+          - id: dc1
+            priority: 1
+```
+
+Once the cluster is fully reconciled you can create the FDB clusters in the other DCs, now with the full configuration and a `seedConnectionString`:
+
+```yaml
+apiVersion: apps.foundationdb.org/v1beta2
+kind: FoundationDBCluster
+metadata:
+  name: sample-cluster
+spec:
+  version: 7.1.26
+  dataCenter: dc1
+  processGroupIDPrefix: dc1
+  seedConnectionString: # Replace with the value from the initial single DC cluster
+  databaseConfiguration:
+    regions:
+      - datacenters:
+          - id: dc1
+            priority: 1
+          - id: dc2
+            priority: 1
+            satellite: 1
+      - datacenters:
+          - id: dc3
+            priority: 0
+          - id: dc4
+            priority: 1
+            satellite: 1
+```
 
 ## Coordinating Global Operations
 
@@ -258,7 +314,6 @@ The operator supports the following classes as coordinators:
 FoundationDB clusters that are spread across different DC's or Kubernetes clusters only support the same `coordinatorSelection`.
 The reason behind this is that the coordinator selection is a global process and different `coordinatorSelection` of the `FoundationDBCluster` resources can lead to an undefined behaviour or in the worst case flapping coordinators.
 There are plans to support this feature in the future.
-
 
 ## Next
 

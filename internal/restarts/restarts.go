@@ -24,7 +24,7 @@ import fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 
 // GetFilterConditions returns the filter conditions to get the processes that should be restarted.
 func GetFilterConditions(cluster *fdbv1beta2.FoundationDBCluster) map[fdbv1beta2.ProcessGroupConditionType]bool {
-	if !cluster.IsBeingUpgraded() {
+	if !cluster.IsBeingUpgradedWithVersionIncompatibleVersion() {
 		// If we don't upgrade our cluster we can ignore all process groups that are not reachable and therefore will
 		// not get any ConfigMap updates.
 		return map[fdbv1beta2.ProcessGroupConditionType]bool{

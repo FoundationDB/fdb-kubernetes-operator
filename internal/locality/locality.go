@@ -270,9 +270,16 @@ func CheckCoordinatorValidity(logger logr.Logger, cluster *fdbv1beta2.Foundation
 	}
 
 	for _, process := range status.Cluster.Processes {
-		pLogger := logger.WithValues("process", process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey])
+		processGroupID, ok := process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]
+
+		pLogger := logger.WithValues("process", processGroupID)
 		if process.Address.IsEmpty() {
 			pLogger.Info("Skip process with empty address")
+			continue
+		}
+
+		if !ok {
+			pLogger.Info("Skip process with empty localities")
 			continue
 		}
 
@@ -281,13 +288,13 @@ func CheckCoordinatorValidity(logger logr.Logger, cluster *fdbv1beta2.Foundation
 			continue
 		}
 
-		processGroupStatus := processGroups[fdbv1beta2.ProcessGroupID(process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey])]
+		processGroupStatus := processGroups[fdbv1beta2.ProcessGroupID(processGroupID)]
 		pendingRemoval := processGroupStatus != nil && processGroupStatus.IsMarkedForRemoval()
 		if processGroupStatus != nil && cluster.SkipProcessGroup(processGroupStatus) {
 			pLogger.Info("Skipping process group with pending Pod",
 				"namespace", cluster.Namespace,
 				"cluster", cluster.Name,
-				"processGroupID", process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey],
+				"processGroupID", processGroupID,
 				"class", process.ProcessClass)
 			continue
 		}
