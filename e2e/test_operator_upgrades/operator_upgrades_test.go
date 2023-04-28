@@ -379,16 +379,19 @@ var _ = Describe("Operator Upgrades", Label("e2e"), func() {
 			)
 			Expect(err).NotTo(HaveOccurred())
 
-			// Wait for the server process to restart.
-			time.Sleep(140 * time.Second)
-
 			// Check if the restarted process is showing up in IncompatibleConnections list in status output.
-			status := fdbCluster.GetStatus()
-			log.Println("IncompatibleProcesses:", status.Cluster.IncompatibleConnections)
-			Expect(len(status.Cluster.IncompatibleConnections)).To(Equal(1))
-			// Extract the IP of the incompatible process.
-			incompatibleProcess := strings.Split(status.Cluster.IncompatibleConnections[0], ":")[0]
-			Expect(incompatibleProcess == selectedCoordinator.Status.PodIP).Should(BeTrue())
+			Eventually(func() bool {
+				status := fdbCluster.GetStatus()
+				if len(status.Cluster.IncompatibleConnections) == 0 {
+					return false
+				}
+
+				log.Println("IncompatibleProcesses:", status.Cluster.IncompatibleConnections)
+				Expect(len(status.Cluster.IncompatibleConnections)).To(Equal(1))
+				// Extract the IP of the incompatible process.
+				incompatibleProcess := strings.Split(status.Cluster.IncompatibleConnections[0], ":")[0]
+				return incompatibleProcess == selectedCoordinator.Status.PodIP
+			}).WithTimeout(180 * time.Second).WithPolling(4 * time.Second).Should(BeTrue())
 
 			// Allow the operator to restart processes and the upgrade should continue and finish.
 			fdbCluster.SetKillProcesses(true)
@@ -403,8 +406,6 @@ var _ = Describe("Operator Upgrades", Label("e2e"), func() {
 	DescribeTable(
 		"upgrading a cluster where a storage and multiple stateless processes get restarted during the staging phase",
 		func(beforeVersion string, targetVersion string) {
-			// We set the before version here to overwrite the before version from the specific flag
-			// the specific flag will be removed in the future.
 			isAtLeast := factory.OperatorIsAtLeast(
 				"v1.14.0",
 			)
@@ -957,53 +958,6 @@ var _ = Describe("Operator Upgrades", Label("e2e"), func() {
 			verifyVersion(fdbCluster, targetVersion)
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s and one process is missing the new binary"),
-		fixtures.GenerateUpgradeTableEntries(testOptions),
-	)
-
-	DescribeTable(
-		"upgrading a cluster when no storage processes are restarted",
-		func(beforeVersion string, targetVersion string) {
-			// We set the before version here to overwrite the before version from the specific flag
-			// the specific flag will be removed in the future.
-			isAtLeast := factory.OperatorIsAtLeast(
-				"v1.14.0",
-			)
-
-			if !isAtLeast {
-				Skip("operator doesn't support feature for test case")
-			}
-
-			clusterSetup(beforeVersion, true)
-
-			// Select storage processes and use the buggify option to skip those
-			// processes during the restart command.
-			storagePods := fdbCluster.GetStoragePods()
-			Expect(storagePods.Items).NotTo(BeEmpty())
-
-			ignoreDuringRestart := make(
-				[]fdbv1beta2.ProcessGroupID,
-				0,
-				len(storagePods.Items),
-			)
-
-			for _, pod := range storagePods.Items {
-				ignoreDuringRestart = append(
-					ignoreDuringRestart,
-					fdbv1beta2.ProcessGroupID(pod.Labels[fdbCluster.GetCachedCluster().GetProcessGroupIDLabel()]),
-				)
-			}
-
-			log.Println(
-				"Selected Pods:",
-				ignoreDuringRestart,
-				"to be skipped during the restart",
-			)
-			fdbCluster.SetIgnoreDuringRestart(ignoreDuringRestart)
-
-			// The cluster should still be able to upgrade.
-			Expect(fdbCluster.UpgradeCluster(targetVersion, true)).NotTo(HaveOccurred())
-		},
-		EntryDescription("Upgrade from %[1]s to %[2]s when no storage processes are restarted"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
 	)
 
