@@ -145,7 +145,6 @@ func getPodsToUpdate(logger logr.Logger, reconciler *FoundationDBClusterReconcil
 		}
 
 		if shouldRequeueDueToTerminatingPod(pod, cluster, processGroup.ProcessGroupID) {
-			unavailablePods++
 			return nil, 0, fmt.Errorf("cluster has Pod %s that is pending deletion", pod.Name)
 		}
 
@@ -332,20 +331,26 @@ func deletePodsForUpdates(ctx context.Context, r *FoundationDBClusterReconciler,
 // making sure the maxPodsToUpdate limit is not exceeded.
 func trimUpdatesToMaxPodsToUpdate(updates map[string][]*corev1.Pod, maxPodsToUpdate int) map[string][]*corev1.Pod {
 	trimedUpdates := make(map[string][]*corev1.Pod)
-	var updatesCount int
-	// Favor zones with less or equal pods than the maxPodsToUpdate limit.
+
+	if maxPodsToUpdate <= 0 {
+		return trimedUpdates
+	}
+
+	//Favor zones with less or equal pods than the maxPodsToUpdate limit.
 	for zone, pods := range updates {
 		if len(pods) <= maxPodsToUpdate {
 			trimedUpdates[zone] = append(trimedUpdates[zone], pods...)
 			maxPodsToUpdate = maxPodsToUpdate - len(pods)
-			updatesCount = updatesCount + len(pods)
+
 		}
 	}
 	// If we still have availability to update pods we will update as much as we can.
-	for zone, pods := range updates {
-		if len(pods) > maxPodsToUpdate && updatesCount < maxPodsToUpdate {
-			for i := 0; i < maxPodsToUpdate-updatesCount; i++ {
-				trimedUpdates[zone] = append(trimedUpdates[zone], pods[i])
+	if maxPodsToUpdate > 0 {
+		for zone, pods := range updates {
+			if len(pods) > maxPodsToUpdate {
+				for i := 0; i < maxPodsToUpdate; i++ {
+					trimedUpdates[zone] = append(trimedUpdates[zone], pods[i])
+				}
 			}
 		}
 	}

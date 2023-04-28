@@ -204,6 +204,7 @@ var _ = Describe("update_pods", func() {
 	When("fetching all Pods that needs an update", func() {
 		var cluster *fdbv1beta2.FoundationDBCluster
 		var updates map[string][]*corev1.Pod
+		var trimUpdates map[string][]*corev1.Pod
 		var expectedError bool
 		var err error
 		var pods []*corev1.Pod
@@ -242,7 +243,6 @@ var _ = Describe("update_pods", func() {
 				storageSettings := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
 				storageSettings.PodTemplate.Spec.NodeSelector = map[string]string{"test": "test"}
 				cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral] = storageSettings
-
 				Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
 			})
 
@@ -273,11 +273,15 @@ var _ = Describe("update_pods", func() {
 						}
 					}
 				}
+				trimUpdates = trimUpdatesToMaxPodsToUpdate(updates, maxPodsToUpdate)
 			})
 
 			It("should return no errors a map with the zone and the max pods to update limit", func() {
 				Expect(updates).To(HaveLen(1))
 				Expect(maxPodsToUpdate).To(Equal(-6))
+			})
+			It("should trim the updates map to zero elements", func() {
+				Expect(trimUpdates).To(HaveLen(0))
 			})
 		})
 
@@ -301,15 +305,53 @@ var _ = Describe("update_pods", func() {
 						}
 					}
 				}
+				trimUpdates = trimUpdatesToMaxPodsToUpdate(updates, maxPodsToUpdate)
 			})
 
 			It("should return no errors a map with the zone and the max pods to update limit", func() {
 				Expect(updates).To(HaveLen(1))
 				Expect(maxPodsToUpdate).To(Equal(-1))
 			})
+			It("should trim the updates map to zero elements", func() {
+				Expect(trimUpdates).To(HaveLen(0))
+			})
 		})
 
-		When("max unavailable pods is greater than the number of pods requiring update plus the number of missing or pending pods", func() {
+		When("max unavailable pods is greater than the number of pods requiring update and the number of pods for the zone is bigger than the max pods to update limit", func() {
+			BeforeEach(func() {
+				expectedError = false
+				cluster.Spec.MaxUnavailablePods = intstr.FromInt(4)
+				// Update all processes
+				storageSettings := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
+				storageSettings.PodTemplate.Spec.NodeSelector = map[string]string{"test": "test"}
+				cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral] = storageSettings
+				Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
+
+				var numPendingPods int
+				for _, processGroup := range cluster.Status.ProcessGroups {
+					if processGroup.ProcessClass.IsStateful() {
+						processGroup.ProcessGroupConditions = append(processGroup.ProcessGroupConditions, fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.PodPending))
+						numPendingPods++
+						if numPendingPods == 2 {
+							break
+						}
+					}
+				}
+				trimUpdates = trimUpdatesToMaxPodsToUpdate(updates, maxPodsToUpdate)
+			})
+
+			It("should return no errors a map with the zone and the max pods to update limit", func() {
+				Expect(updates).To(HaveLen(1))
+				Expect(maxPodsToUpdate).To(Equal(2))
+			})
+			It("should trim the updates map to 2 pods", func() {
+				Expect(trimUpdates).To(HaveLen(1))
+				Expect(len(trimUpdates["simulation"])).To(Equal(2))
+			})
+
+		})
+
+		When("max unavailable pods is greater than the number of pods requiring update and the number of pods for the zone is smaller than the max pods to update limit", func() {
 			BeforeEach(func() {
 				expectedError = false
 				cluster.Spec.MaxUnavailablePods = intstr.FromInt(10)
@@ -329,12 +371,18 @@ var _ = Describe("update_pods", func() {
 						}
 					}
 				}
+				trimUpdates = trimUpdatesToMaxPodsToUpdate(updates, maxPodsToUpdate)
 			})
 
 			It("should return no errors a map with the zone and the max pods to update limit", func() {
 				Expect(updates).To(HaveLen(1))
 				Expect(maxPodsToUpdate).To(Equal(8))
 			})
+			It("should trim the updates map to 4 pods", func() {
+				Expect(trimUpdates).To(HaveLen(1))
+				Expect(len(trimUpdates["simulation"])).To(Equal(4))
+			})
+
 		})
 
 		When("max unavailable pods has an invalid format", func() {
