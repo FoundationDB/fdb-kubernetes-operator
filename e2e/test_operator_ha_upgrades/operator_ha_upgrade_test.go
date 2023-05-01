@@ -171,9 +171,10 @@ var _ = Describe("Operator HA Upgrades", Label("e2e"), func() {
 			initialGeneration := fdbCluster.GetPrimary().GetStatus().Cluster.Generation
 			upgradeAndVerify(fdbCluster, targetVersion)
 			// Verify that the cluster generation number didn't increase by more
-			// than 9 (the number of recoveries we think should happen during an ha
-			// cluster upgrade).
-			Expect(fdbCluster.GetPrimary().GetStatus().Cluster.Generation).To(BeNumerically("<=", initialGeneration+9))
+			// than 40 (in an ideal case the number of recoveries that should happen
+			// during an upgrade is 9, but in reality that number could be higher
+			// because different server processes may get bounced at different times).
+			Expect(fdbCluster.GetPrimary().GetStatus().Cluster.Generation).To(BeNumerically("<=", initialGeneration+40))
 
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s"),
