@@ -765,6 +765,7 @@ func (factory *Factory) GetFoundationDBImage() string {
 	return prependRegistry(factory.options.registry, factory.options.fdbImage)
 }
 
+// GetAutomationOptions return the fdbCluster's AutomationOptions
 func (fdbCluster *FdbCluster) GetAutomationOptions() fdbv1beta2.FoundationDBClusterAutomationOptions {
 	return fdbCluster.cluster.Spec.AutomationOptions
 }

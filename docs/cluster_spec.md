@@ -258,7 +258,7 @@ FoundationDBClusterSpec defines the desired state of a cluster.
 
 ## FoundationDBClusterStatus
 
-FoundationDBClusterStatus defines the observed state of FoundationDBCluster. Its object is persisted in k8s etcd so that operator can recover fdb deployment info after it crashes.
+FoundationDBClusterStatus defines the observed state of FoundationDBCluster.
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |

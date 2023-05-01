@@ -144,7 +144,7 @@ var _ = Describe("Operator", Label("e2e"), func() {
 		})
 	})
 
-	When("taint a Pod", func() {
+	When("taint a Node that hosts a Pod", func() {
 		var replacedPod corev1.Pod
 		taintKeyMaintenance := "maintenance"
 		taintKeyMaintenanceDuration := int64(2)
@@ -204,7 +204,8 @@ var _ = Describe("Operator", Label("e2e"), func() {
 
 			// Wait for operator to replace the pod
 			time.Sleep(time.Second * time.Duration(*fdbCluster.GetAutomationOptions().Replacements.FailureDetectionTimeSeconds+1))
-			fdbCluster.WaitForReconciliation()
+			err = fdbCluster.WaitForReconciliation()
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		AfterEach(func() {
