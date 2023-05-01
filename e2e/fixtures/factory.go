@@ -765,11 +765,6 @@ func (factory *Factory) GetFoundationDBImage() string {
 	return prependRegistry(factory.options.registry, factory.options.fdbImage)
 }
 
-// GetAutomationOptions return the fdbCluster's AutomationOptions
-func (fdbCluster *FdbCluster) GetAutomationOptions() fdbv1beta2.FoundationDBClusterAutomationOptions {
-	return fdbCluster.cluster.Spec.AutomationOptions
-}
-
 // UpdateNode update node definition
 func (fdbCluster *FdbCluster) UpdateNode(node *corev1.Node) {
 	gomega.Eventually(func() bool {

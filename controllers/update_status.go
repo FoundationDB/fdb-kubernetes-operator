@@ -695,7 +695,6 @@ func updateTaintCondition(ctx context.Context, r *FoundationDBClusterReconciler,
 					processGroupStatus.UpdateConditionTime(fdbv1beta2.NodeTaintDetected, taint.TimeAdded.Unix())
 				}
 				taintDetectedTime := pointer.Int64Deref(processGroupStatus.GetConditionTime(fdbv1beta2.NodeTaintDetected), math.MaxInt64)
-				// TODO: recheck the duration time
 				if time.Now().Unix()-taintDetectedTime > pointer.Int64Deref(taintConfiguredKey.DurationInSeconds, math.MaxInt64) {
 					processGroupStatus.UpdateCondition(fdbv1beta2.NodeTaintReplacing, true, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
 					logger.Info("Add NodeTaintReplacing condition", "Pod", pod.Name, "Node", node.Name,
