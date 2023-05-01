@@ -119,12 +119,12 @@ func (fdbCluster *FdbCluster) Update() error {
 	return fdbCluster.getClient().Update(ctx.Background(), fdbCluster.cluster)
 }
 
-// Update Node
+// UpdateNode update node definition
 func (fdbCluster *FdbCluster) UpdateNode(node *corev1.Node) error {
 	return fdbCluster.getClient().Update(ctx.Background(), node)
 }
 
-// Get Node
+// GetNode return Node with the given name
 func (fdbCluster *FdbCluster) GetNode(name string) *corev1.Node {
 	// Retry if for some reasons an error is returned
 	node := &corev1.Node{}
@@ -995,10 +995,10 @@ func (fdbCluster *FdbCluster) SetEmptyMonitorConf(enable bool) error {
 	return nil
 }
 
+// SetClusterTaintConfig set fdbCluster's TaintReplacementOptions
 func (fdbCluster *FdbCluster) SetClusterTaintConfig(taintOption []fdbv1beta2.TaintReplacementOption) error {
 	fdbCluster.cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions = taintOption
 	return fdbCluster.getClient().Update(ctx.Background(), fdbCluster.cluster)
-
 }
 
 // GetProcessCounts returns the process counts of the current FoundationDBCluster.

@@ -103,7 +103,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 						TimeAdded: &metav1.Time{Time: time.Now()},
 					},
 					{
-						Key:       "foundationdb/maintenance",
+						Key:       "foundationdb.org/maintenance",
 						Value:     "rack_maintenance",
 						Effect:    corev1.TaintEffectNoExecute,
 						TimeAdded: &metav1.Time{Time: time.Now()},
@@ -429,9 +429,6 @@ var _ = Describe("replace_misconfigured_pods", func() {
 		})
 
 		Context("when the memory resources are changed", func() {
-			var status *fdbv1beta2.ProcessGroupStatus
-			var pod *corev1.Pod
-
 			BeforeEach(func() {
 				err := internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{UseFutureDefaults: true})
 				Expect(err).NotTo(HaveOccurred())
@@ -621,63 +618,6 @@ var _ = Describe("replace_misconfigured_pods", func() {
 						Expect(needsRemoval).To(BeFalse())
 						Expect(err).NotTo(HaveOccurred())
 					})
-				})
-			})
-		})
-
-		// TODO: May not need this test any more? Review it later
-		Context("when Node is tainted", func() {
-			BeforeEach(func() {
-				pClass = fdbv1beta2.ProcessClassLog
-				remove = false
-				// Define cluster's taint policy
-				taintKey1 := "*"
-				taintKey1Duration := int64(5)
-				taintKey2 := "example/maintenance"
-				taintKey2Duration := int64(10)
-				cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions = []fdbv1beta2.TaintReplacementOption{
-					{
-						Key:               &taintKey1,
-						DurationInSeconds: &taintKey1Duration,
-					},
-					{
-						Key:               &taintKey2,
-						DurationInSeconds: &taintKey2Duration,
-					},
-				}
-				taint = true
-			})
-
-			When("taint duration is not long enough", func() {
-				It("should not need a replacement", func() {
-					needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
-					if len(status.ProcessGroupConditions) == 0 {
-						log.Info("MX Debug Info", "needsRemoval", needsRemoval, "ProcessConditions", len(status.ProcessGroupConditions))
-					} else {
-						log.Info("MX Debug Info", "needsRemoval", needsRemoval, "ProcessConditions", len(status.ProcessGroupConditions),
-							"ProcessGroupConditions[0]", status.ProcessGroupConditions[0].ProcessGroupConditionType)
-					}
-					Expect(len(status.ProcessGroupConditions)).To(Equal(1))
-					Expect(status.ProcessGroupConditions[0].ProcessGroupConditionType).To(Equal(fdbv1beta2.NodeTaintDetected))
-					Expect(needsRemoval).To(BeFalse())
-					Expect(err).NotTo(HaveOccurred())
-				})
-			})
-		})
-		Context("when Node is not tainted", func() {
-			BeforeEach(func() {
-				pClass = fdbv1beta2.ProcessClassLog
-				remove = false
-				// TODO: taint the node
-			})
-
-			When("should not mark any pod tainted", func() {
-				It("should not need a replacement", func() {
-					// pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] = "-1"
-					// cluster.Spec.AutomationOptions.PodUpdateStrategy = fdbv1beta2.PodUpdateStrategyTransactionReplacement
-					// needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
-					// Expect(needsRemoval).To(BeTrue())
-					// Expect(err).NotTo(HaveOccurred())
 				})
 			})
 		})

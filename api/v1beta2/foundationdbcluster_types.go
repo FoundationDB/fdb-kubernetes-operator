@@ -225,7 +225,6 @@ type FoundationDBClusterSpec struct {
 type ImageType string
 
 // FoundationDBClusterStatus defines the observed state of FoundationDBCluster.
-// Its object is persisted in k8s etcd so that operator can recover fdb deployment info after it crashes.
 type FoundationDBClusterStatus struct {
 	// DatabaseConfiguration provides the running configuration of the database.
 	DatabaseConfiguration DatabaseConfiguration `json:"databaseConfiguration,omitempty"`
@@ -681,8 +680,8 @@ func (processGroupStatus *ProcessGroupStatus) GetConditionTime(conditionType Pro
 	return nil
 }
 
-// GetCondition returns the ProcessGroupStatus's ProcessGroupCondition with conditionType condition;
-// It returns nil if the ProcessGroupStatus doesn't have conditionType condition
+// GetCondition returns the ProcessGroupStatus's ProcessGroupCondition that matches the conditionType;
+// It returns nil if the ProcessGroupStatus doesn't have a matching condition
 func (processGroupStatus *ProcessGroupStatus) GetCondition(conditionType ProcessGroupConditionType) *ProcessGroupCondition {
 	for _, condition := range processGroupStatus.ProcessGroupConditions {
 		if condition.ProcessGroupConditionType == conditionType {
@@ -741,7 +740,7 @@ const (
 	ReadyCondition ProcessGroupConditionType = "Ready"
 	// NodeTaintDetected represents a Pod's node is tainted but not long enough for operator to replace it
 	NodeTaintDetected ProcessGroupConditionType = "NodeTaintDetected"
-	// NodeTaintReplacing represents a Pod whose node has been tainted for long enough and operator is replacing the Pod
+	// NodeTaintReplacing represents a Pod whose node has been tainted and the operator should replace the Pod
 	NodeTaintReplacing ProcessGroupConditionType = "NodeTaintReplacing"
 )
 
@@ -999,6 +998,8 @@ type MaintenanceModeOptions struct {
 //     durationInSeconds: 3600 # Ensure the taint is present for at least 1 hour before replacing Pods on a node with this taint
 type TaintReplacementOption struct {
 	// Tainted key
+	// +kubebuilder:validation:MaxLength=256
+	// +kubebuilder:validation:Pattern:=^([\-._\/a-z0-9A-Z])*$
 	Key *string `json:"key,omitempty"`
 
 	// The tainted key must be present for DurationInSeconds before operator replaces pods on the node with this taint
@@ -1033,6 +1034,7 @@ type AutomaticReplacementOptions struct {
 	MaxConcurrentReplacements *int `json:"maxConcurrentReplacements,omitempty"`
 
 	// TaintReplacementOption controls which taint label the operator will react to.
+	// +kubebuilder:validation:MaxItems=32
 	TaintReplacementOptions []TaintReplacementOption `json:"taintReplacementOptions,omitempty"`
 }
 
@@ -2216,7 +2218,7 @@ func (cluster *FoundationDBCluster) GetFailureDetectionTimeSeconds() int {
 	return pointer.IntDeref(cluster.Spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds, 7200)
 }
 
-// TaintReplacementTimeSeconds returns cluster.Spec.AutomationOptions.Replacements.TaintReplacementTimeSeconds or if unset the default 1800
+// GetTaintReplacementTimeSeconds returns cluster.Spec.AutomationOptions.Replacements.TaintReplacementTimeSeconds or if unset the default 1800
 func (cluster *FoundationDBCluster) GetTaintReplacementTimeSeconds() int {
 	return pointer.IntDeref(cluster.Spec.AutomationOptions.Replacements.TaintReplacementTimeSeconds, 1800)
 }

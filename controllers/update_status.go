@@ -23,6 +23,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"math"
 	"sort"
 	"time"
 
@@ -30,7 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
-	"github.com/go-logr/logr"
+	logr "github.com/go-logr/logr"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
@@ -40,6 +41,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/pointer"
 )
 
 // updateStatus provides a reconciliation step for updating the status in the
@@ -417,6 +419,7 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 	var err error
 	processGroups := status.ProcessGroups
 	processGroupsWithoutExclusion := make(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None, len(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion))
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updateStatus")
 
 	for _, processGroupID := range cluster.Spec.ProcessGroupsToRemoveWithoutExclusion {
 		processGroupsWithoutExclusion[processGroupID] = fdbv1beta2.None{}
@@ -424,6 +427,16 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 
 	podMap := internal.CreatePodMap(cluster, pods)
 	pvcMap := internal.CreatePVCMap(cluster, pvcs)
+
+	disableTaintFeature := false
+	for _, taintConfiguredKey := range cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions {
+		if pointer.StringDeref(taintConfiguredKey.Key, "") == "*" && pointer.Int64Deref(taintConfiguredKey.DurationInSeconds, math.MinInt64) < 0 {
+			// Disable detecting or replacing taint key
+			disableTaintFeature = true
+			logger.Info("Disable taint feature", "Disabled", disableTaintFeature)
+			break
+		}
+	}
 
 	for _, processGroup := range processGroups {
 		pod, podExists := podMap[processGroup.ProcessGroupID]
@@ -533,7 +546,7 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 			pvc = &pvcValue
 		}
 
-		err = validateProcessGroup(ctx, r, cluster, pod, pvc, configMapHash, processGroup)
+		err = validateProcessGroup(ctx, r, cluster, pod, pvc, configMapHash, processGroup, disableTaintFeature, logger)
 		if err != nil {
 			return processGroups, err
 		}
@@ -545,8 +558,8 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 // validateProcessGroup runs specific checks for the status of an process group.
 // returns failing, incorrect, error
 func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster,
-	pod *corev1.Pod, currentPVC *corev1.PersistentVolumeClaim, configMapHash string, processGroupStatus *fdbv1beta2.ProcessGroupStatus) error {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updateStatus")
+	pod *corev1.Pod, currentPVC *corev1.PersistentVolumeClaim, configMapHash string, processGroupStatus *fdbv1beta2.ProcessGroupStatus,
+	disableTaintFeature bool, logger logr.Logger) error {
 	processGroupStatus.UpdateCondition(fdbv1beta2.MissingPod, pod == nil, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
 	if pod == nil {
 		return nil
@@ -640,19 +653,12 @@ func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler,
 	processGroupStatus.UpdateCondition(fdbv1beta2.PodFailing, failing, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
 	processGroupStatus.UpdateCondition(fdbv1beta2.PodPending, false, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
 
-	disableTaintFeature := false
-	for _, taintConfiguredKey := range cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions {
-		if *taintConfiguredKey.Key == "*" && *taintConfiguredKey.DurationInSeconds < 0 {
-			// Disable detecting or replacing taint key
-			disableTaintFeature = true
-			logger.Info("Disable taint feature", "Disabled", disableTaintFeature)
-			break
-		}
-	}
-
 	if !disableTaintFeature {
 		// Update taint status
-		updateTaintCondition(ctx, r, cluster, pod, processGroupStatus)
+		err = updateTaintCondition(ctx, r, cluster, pod, processGroupStatus, logger)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -660,25 +666,25 @@ func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler,
 
 // updateTaintCondition checks pod's node taint label and update pod's taint-related condition accordingly
 func updateTaintCondition(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster,
-	pod *corev1.Pod, processGroupStatus *fdbv1beta2.ProcessGroupStatus) error {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updateStatus", "step", "updateTaintCondition")
+	pod *corev1.Pod, processGroupStatus *fdbv1beta2.ProcessGroupStatus, logger logr.Logger) error {
 	node := &corev1.Node{}
 	err := r.Get(ctx, client.ObjectKey{Name: pod.Spec.NodeName}, node)
 	if err != nil {
 		log.Info("Get pod's node fails", "Pod", pod.Name, "Pod's node name", pod.Spec.NodeName, "err", err)
 	} else {
 		// Check the tainted duration and only mark the process group tainted after the configured tainted duration
-		// Future: Do not replace Pod that tolerates a taint
+		// TODO: https://github.com/FoundationDB/fdb-kubernetes-operator/issues/1583
 		hasValidTaint := false
 		for _, taint := range node.Spec.Taints {
 			for _, taintConfiguredKey := range cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions {
-				if *taintConfiguredKey.DurationInSeconds < 0 {
+				if taintConfiguredKey.Key == nil || pointer.Int64Deref(taintConfiguredKey.DurationInSeconds, math.MinInt64) < 0 {
 					logger.Info("Cluster's TaintReplacementOption is disabled", "Key",
 						taintConfiguredKey.Key, "DurationInSeconds", taintConfiguredKey.DurationInSeconds,
 						"Pod", pod.Name)
 					continue
 				}
-				if taint.Key == *taintConfiguredKey.Key || *taintConfiguredKey.Key == "*" {
+				assert(taintConfiguredKey.Key != nil && taintConfiguredKey.DurationInSeconds != nil)
+				if taint.Key == pointer.StringDeref(taintConfiguredKey.Key, "") || pointer.StringDeref(taintConfiguredKey.Key, "") == "*" {
 					hasValidTaint = true
 					processGroupStatus.UpdateCondition(fdbv1beta2.NodeTaintDetected, true, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
 					// Use node taint's timestamp as the NodeTaintDetected condition's starting time
@@ -687,14 +693,14 @@ func updateTaintCondition(ctx context.Context, r *FoundationDBClusterReconciler,
 					}
 					for _, processGroupCondition := range processGroupStatus.ProcessGroupConditions {
 						if processGroupCondition.ProcessGroupConditionType == fdbv1beta2.NodeTaintDetected &&
-							time.Now().Unix()-processGroupCondition.Timestamp > *taintConfiguredKey.DurationInSeconds {
+							time.Now().Unix()-processGroupCondition.Timestamp > pointer.Int64Deref(taintConfiguredKey.DurationInSeconds, math.MaxInt64) {
 							processGroupStatus.UpdateCondition(fdbv1beta2.NodeTaintReplacing, true, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
 							logger.Info("Add NodeTaintReplacing condition", "Pod", pod.Name, "Node", node.Name,
 								"TaintKey", taint.Key, "TaintDetectedTime", processGroupCondition.Timestamp,
 								"TaintDuration", int64(time.Since(time.Unix(processGroupCondition.Timestamp, 0))),
 								"TaintValue", taint.Value, "TaintEffect", taint.Effect,
 								"NodeTaintDetectedConditionTimestamp", time.Unix(processGroupCondition.Timestamp, 0),
-								"ClusterTaintDetectionDuration", time.Duration(*taintConfiguredKey.DurationInSeconds))
+								"ClusterTaintDetectionDuration", time.Duration(pointer.Int64Deref(taintConfiguredKey.DurationInSeconds, math.MaxInt64)))
 						}
 					}
 				}
@@ -709,6 +715,10 @@ func updateTaintCondition(ctx context.Context, r *FoundationDBClusterReconciler,
 	}
 
 	return err
+}
+
+func assert(b bool) {
+	panic("unimplemented")
 }
 
 // removeDuplicateConditions will remove all duplicated conditions from the status and if a process group has the ResourcesTerminating

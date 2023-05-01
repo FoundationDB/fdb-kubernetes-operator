@@ -146,7 +146,7 @@ func reconcileObject(reconciler reconcile.Reconciler, metadata metav1.ObjectMeta
 	result := reconcile.Result{Requeue: true}
 	var err error
 	for result.Requeue && attempts > 0 {
-		log.Info("Running test reconciliation", "Attemps", attempts)
+		log.Info("Running test reconciliation", "Attempts", attempts)
 		attempts--
 
 		result, err = reconciler.Reconcile(context.TODO(), reconcile.Request{NamespacedName: types.NamespacedName{Namespace: metadata.Namespace, Name: metadata.Name}})
