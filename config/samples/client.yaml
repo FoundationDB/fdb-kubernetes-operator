@@ -1,0 +1,152 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: test-cluster-client
+  name: test-cluster-client
+spec:
+  ports:
+  - port: 9562
+    targetPort: 5000
+  selector:
+    app: test-cluster-client
+  type: LoadBalancer
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-cluster-client
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: test-cluster-client
+  template:
+    metadata:
+      labels:
+        app: test-cluster-client
+      name: test-cluster-client
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - env:
+        - name: FDB_CLUSTER_FILE
+          value: /var/dynamic-conf/fdb.cluster
+        - name: FDB_API_VERSION
+          value: "630"
+        - name: FDB_NETWORK_OPTION_TRACE_LOG_GROUP
+          value: test-cluster-client
+        - name: FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY
+          value: /var/dynamic-conf/lib/multiversion
+        - name: LD_LIBRARY_PATH
+          value: /var/dynamic-conf/lib
+        image: foundationdb/foundationdb-sample-python-app:latest
+        imagePullPolicy: Always
+        name: client
+        resources:
+          limits:
+            cpu: 250m
+            memory: 128Mi
+          requests:
+            cpu: 250m
+            memory: 128Mi
+        volumeMounts:
+        - mountPath: /var/dynamic-conf
+          name: dynamic-conf
+      initContainers:
+      - args:
+        - --copy-file
+        - fdb.cluster
+        - --copy-library
+        - "6.3"
+        - --copy-library
+        - "7.1"
+        - --init-mode
+        - --require-not-empty
+        - fdb.cluster
+        image: foundationdb/foundationdb-kubernetes-sidecar:7.1.26-1
+        name: foundationdb-kubernetes-init
+        volumeMounts:
+        - mountPath: /var/input-files
+          name: config-map
+        - mountPath: /var/output-files
+          name: dynamic-conf
+      volumes:
+      - configMap:
+          items:
+          - key: cluster-file
+            path: fdb.cluster
+          name: test-cluster-config
+        name: config-map
+      - emptyDir: {}
+        name: dynamic-conf
+---
+apiVersion: apps.foundationdb.org/v1beta2
+kind: FoundationDBCluster
+metadata:
+  name: test-cluster
+spec:
+  automationOptions:
+    replacements:
+      enabled: true
+  faultDomain:
+    key: foundationdb.org/none
+  labels:
+    filterOnOwnerReference: false
+    matchLabels:
+      foundationdb.org/fdb-cluster-name: test-cluster
+    processClassLabels:
+    - foundationdb.org/fdb-process-class
+    processGroupIDLabels:
+    - foundationdb.org/fdb-process-group-id
+  minimumUptimeSecondsForBounce: 60
+  processCounts:
+    cluster_controller: 1
+    stateless: -1
+  processes:
+    general:
+      customParameters:
+      - knob_disable_posix_kernel_aio=1
+      podTemplate:
+        spec:
+          containers:
+          - name: foundationdb
+            resources:
+              requests:
+                cpu: 100m
+                memory: 128Mi
+            securityContext:
+              runAsUser: 0
+          - name: foundationdb-kubernetes-sidecar
+            resources:
+              limits:
+                cpu: 100m
+                memory: 128Mi
+              requests:
+                cpu: 100m
+                memory: 128Mi
+            securityContext:
+              runAsUser: 0
+          initContainers:
+          - name: foundationdb-kubernetes-init
+            resources:
+              limits:
+                cpu: 100m
+                memory: 128Mi
+              requests:
+                cpu: 100m
+                memory: 128Mi
+            securityContext:
+              runAsUser: 0
+      volumeClaimTemplate:
+        spec:
+          resources:
+            requests:
+              storage: 16G
+  routing:
+    defineDNSLocalityFields: true
+  sidecarContainer:
+    enableLivenessProbe: true
+    enableReadinessProbe: false
+  useExplicitListenAddress: true
+  version: 7.1.26
