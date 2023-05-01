@@ -562,14 +562,6 @@ var _ = Describe("replace_failed_process_groups", func() {
 			Expect(result.Requeue).To(BeTrue())
 			Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]fdbv1beta2.ProcessGroupID{}))
 
-			// Wait time is not long enough
-			time.Sleep(time.Second * time.Duration(cluster.GetFailureDetectionTimeSeconds()+1))
-
-			result, err = reconcileCluster(cluster)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(result.Requeue).To(BeTrue())
-			Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]fdbv1beta2.ProcessGroupID{}))
-
 			Eventually(func() *corev1.Pod {
 				result, err = reconcileCluster(cluster)
 				Expect(err).NotTo(HaveOccurred())

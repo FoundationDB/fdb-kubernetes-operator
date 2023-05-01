@@ -1155,3 +1155,8 @@ func (fdbCluster *FdbCluster) SetBuggifyBlockRemoval(blockRemovals []fdbv1beta2.
 	fdbCluster.cluster.Spec.Buggify.BlockRemoval = blockRemovals
 	fdbCluster.UpdateClusterSpec()
 }
+
+// GetAutomationOptions return the fdbCluster's AutomationOptions
+func (fdbCluster *FdbCluster) GetAutomationOptions() fdbv1beta2.FoundationDBClusterAutomationOptions {
+	return fdbCluster.cluster.Spec.AutomationOptions
+}
