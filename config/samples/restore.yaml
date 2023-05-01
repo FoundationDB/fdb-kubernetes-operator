@@ -1,0 +1,136 @@
+apiVersion: apps.foundationdb.org/v1beta2
+kind: FoundationDBBackup
+metadata:
+  name: test-cluster
+spec:
+  backupState: Stopped
+  blobStoreConfiguration:
+    accountName: minio@minio-service:9000
+  clusterName: test-cluster
+  podTemplateSpec:
+    spec:
+      containers:
+      - env:
+        - name: FDB_BLOB_CREDENTIALS
+          value: /var/backup-credentials/credentials
+        - name: FDB_TLS_CERTIFICATE_FILE
+          value: /tmp/fdb-certs/tls.crt
+        - name: FDB_TLS_CA_FILE
+          value: /tmp/fdb-certs/tls.crt
+        - name: FDB_TLS_KEY_FILE
+          value: /tmp/fdb-certs/tls.key
+        name: foundationdb
+        resources:
+          limits:
+            cpu: 250m
+            memory: 128Mi
+          requests:
+            cpu: 250m
+            memory: 128Mi
+        securityContext:
+          runAsGroup: 0
+          runAsUser: 0
+        volumeMounts:
+        - mountPath: /tmp/fdb-certs
+          name: fdb-certs
+        - mountPath: /var/backup-credentials
+          name: backup-credentials
+      initContainers:
+      - name: foundationdb-kubernetes-init
+        resources:
+          limits:
+            cpu: 100m
+            memory: 128Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        securityContext:
+          runAsUser: 0
+      volumes:
+      - name: backup-credentials
+        secret:
+          secretName: minio-credentials
+      - name: fdb-certs
+        secret:
+          secretName: fdb-kubernetes-operator-secrets
+  snapshotPeriodSeconds: 3600
+  version: 7.1.26
+---
+apiVersion: apps.foundationdb.org/v1beta2
+kind: FoundationDBCluster
+metadata:
+  name: test-cluster
+spec:
+  automationOptions:
+    replacements:
+      enabled: true
+  faultDomain:
+    key: foundationdb.org/none
+  labels:
+    filterOnOwnerReference: false
+    matchLabels:
+      foundationdb.org/fdb-cluster-name: test-cluster
+    processClassLabels:
+    - foundationdb.org/fdb-process-class
+    processGroupIDLabels:
+    - foundationdb.org/fdb-process-group-id
+  minimumUptimeSecondsForBounce: 60
+  processCounts:
+    cluster_controller: 1
+    stateless: -1
+  processes:
+    general:
+      customParameters:
+      - knob_disable_posix_kernel_aio=1
+      podTemplate:
+        spec:
+          containers:
+          - name: foundationdb
+            resources:
+              requests:
+                cpu: 100m
+                memory: 128Mi
+            securityContext:
+              runAsUser: 0
+          - name: foundationdb-kubernetes-sidecar
+            resources:
+              limits:
+                cpu: 100m
+                memory: 128Mi
+              requests:
+                cpu: 100m
+                memory: 128Mi
+            securityContext:
+              runAsUser: 0
+          initContainers:
+          - name: foundationdb-kubernetes-init
+            resources:
+              limits:
+                cpu: 100m
+                memory: 128Mi
+              requests:
+                cpu: 100m
+                memory: 128Mi
+            securityContext:
+              runAsUser: 0
+      volumeClaimTemplate:
+        spec:
+          resources:
+            requests:
+              storage: 16G
+  routing:
+    defineDNSLocalityFields: true
+  sidecarContainer:
+    enableLivenessProbe: true
+    enableReadinessProbe: false
+  useExplicitListenAddress: true
+  version: 7.1.26
+---
+apiVersion: apps.foundationdb.org/v1beta2
+kind: FoundationDBRestore
+metadata:
+  name: test-cluster
+spec:
+  blobStoreConfiguration:
+    accountName: minio@minio-service:9000
+  destinationClusterName: test-cluster
