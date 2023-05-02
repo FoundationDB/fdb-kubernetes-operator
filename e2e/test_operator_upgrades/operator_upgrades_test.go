@@ -977,4 +977,54 @@ var _ = Describe("Operator Upgrades", Label("e2e"), func() {
 		EntryDescription("Upgrade from %[1]s to %[2]s"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
 	)
+
+	DescribeTable(
+		"one process is marked for removal and is stuck in terminating state",
+		func(beforeVersion string, targetVersion string) {
+			if fixtures.VersionsAreProtocolCompatible(beforeVersion, targetVersion) {
+				Skip("this test only affects version incompatible upgrades")
+			}
+
+			clusterSetup(beforeVersion, true)
+
+			// Select one Pod, this Pod will be marked to be removed but the actual removal will be blocked. The intention
+			// is to simulate a Pods that should be removed but the removal is not completed yet and an upgrade will be started.
+			podMarkedForRemoval := fixtures.RandomPickOnePod(fdbCluster.GetPods().Items)
+			processGroupMarkedForRemoval := fixtures.GetProcessGroupID(podMarkedForRemoval)
+			log.Println("picked Pod", podMarkedForRemoval.Name, "to be marked for removal")
+			// Set a finalizer for this Pod to make sure the Pod object cannot be garbage collected
+			Expect(factory.SetFinalizerForPod(&podMarkedForRemoval, []string{"foundationdb.org/test"})).ShouldNot(HaveOccurred())
+			// Don't wait for reconciliation as the cluster will never reconcile.
+			fdbCluster.ReplacePod(podMarkedForRemoval, false)
+			// Make sure the process group is marked for removal
+			Eventually(func() *int64 {
+				cluster := fdbCluster.GetCluster()
+
+				for _, processGroup := range cluster.Status.ProcessGroups {
+					if processGroup.ProcessGroupID != processGroupMarkedForRemoval {
+						continue
+					}
+
+					return processGroup.GetConditionTime(fdbv1beta2.ResourcesTerminating)
+				}
+
+				return nil
+			}).WithTimeout(5 * time.Minute).WithPolling(2 * time.Second).MustPassRepeatedly(5).ShouldNot(BeNil())
+
+			// Update the cluster version.
+			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
+
+			// Make sure the cluster is upgraded
+			verifyVersion(fdbCluster, targetVersion)
+
+			// Make sure the other processes are updated to the new image and the operator is able to proceed with the upgrade.
+			// We allow soft reconciliation here since the terminating Pod will block the "full" reconciliation
+			Expect(fdbCluster.WaitForReconciliation(fixtures.SoftReconcileOption(true))).NotTo(HaveOccurred())
+
+			// Make sure we remove the finalizer to not block the clean up.
+			Expect(factory.SetFinalizerForPod(&podMarkedForRemoval, []string{})).ShouldNot(HaveOccurred())
+		},
+		EntryDescription("Upgrade from %[1]s to %[2]s"),
+		fixtures.GenerateUpgradeTableEntries(testOptions),
+	)
 })
