@@ -22,7 +22,12 @@ package controllers
 
 import (
 	"context"
+<<<<<<< HEAD
 	ctrlClient "sigs.k8s.io/controller-runtime/pkg/client"
+=======
+	"github.com/go-logr/logr"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+>>>>>>> e1bcbc65 (Initial support for fault domains in CRD)
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -731,4 +736,108 @@ var _ = Describe("update_status", func() {
 			"7.1.15": 50,
 		}, "0", "7.1.15"),
 		Entry("when the versionMap is empty", map[string]int{}, "7.1.15", "7.1.15"))
+
+	When("updating the fault domains based on the cluster status", func() {
+		var processes map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo
+		var status fdbv1beta2.FoundationDBClusterStatus
+
+		JustBeforeEach(func() {
+			status = fdbv1beta2.FoundationDBClusterStatus{
+				ProcessGroups: []*fdbv1beta2.ProcessGroupStatus{
+					{
+						ProcessGroupID: "storage-1",
+					},
+					{
+						ProcessGroupID: "storage-2",
+					},
+					{
+						ProcessGroupID: "storage-3",
+					},
+				},
+			}
+
+			updateFaultDomains(logr.Discard(), processes, &status)
+		})
+
+		When("storage-2 has two process information", func() {
+			BeforeEach(func() {
+				processes = map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo{
+					"storage-1": {
+						fdbv1beta2.FoundationDBStatusProcessInfo{
+							Locality: map[string]string{
+								fdbv1beta2.FDBLocalityZoneIDKey: "storage-1-zone",
+							},
+						},
+					},
+					"storage-2": {
+						fdbv1beta2.FoundationDBStatusProcessInfo{
+							Locality: map[string]string{
+								fdbv1beta2.FDBLocalityZoneIDKey: "second",
+							},
+							UptimeSeconds: 1000,
+						},
+						fdbv1beta2.FoundationDBStatusProcessInfo{
+							Locality: map[string]string{
+								fdbv1beta2.FDBLocalityZoneIDKey: "storage-2-zone",
+							},
+							UptimeSeconds: 1,
+						},
+					},
+				}
+
+			})
+
+			It("should update the process group status", func() {
+				Expect(status.ProcessGroups).To(HaveLen(3))
+
+				for _, processGroup := range status.ProcessGroups {
+					if processGroup.ProcessGroupID == "storage-3" {
+						Expect(processGroup.FaultDomain).To(BeEmpty())
+						continue
+					}
+
+					Expect(processGroup.FaultDomain).To(And(HavePrefix(string(processGroup.ProcessGroupID)), HaveSuffix("zone")))
+				}
+			})
+		})
+
+		When("storage-2 has two process information and one has no localities", func() {
+			BeforeEach(func() {
+				processes = map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo{
+					"storage-1": {
+						fdbv1beta2.FoundationDBStatusProcessInfo{
+							Locality: map[string]string{
+								fdbv1beta2.FDBLocalityZoneIDKey: "storage-1-zone",
+							},
+						},
+					},
+					"storage-2": {
+						fdbv1beta2.FoundationDBStatusProcessInfo{
+							UptimeSeconds: 1,
+						},
+						fdbv1beta2.FoundationDBStatusProcessInfo{
+							Locality: map[string]string{
+								fdbv1beta2.FDBLocalityZoneIDKey: "storage-2-zone",
+							},
+							UptimeSeconds: 1000,
+						},
+					},
+				}
+
+			})
+
+			It("should update the process group status", func() {
+				Expect(status.ProcessGroups).To(HaveLen(3))
+
+				for _, processGroup := range status.ProcessGroups {
+					if processGroup.ProcessGroupID == "storage-3" {
+						Expect(processGroup.FaultDomain).To(BeEmpty())
+						continue
+					}
+
+					Expect(processGroup.FaultDomain).To(And(HavePrefix(string(processGroup.ProcessGroupID)), HaveSuffix("zone")))
+				}
+			})
+		})
+	})
 })
