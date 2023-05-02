@@ -354,7 +354,7 @@ var _ = Describe("update_status", func() {
 				unreachablePod.Annotations[internal.MockUnreachableAnnotation] = "banana"
 				Expect(k8sClient.Update(context.TODO(), unreachablePod)).NotTo(HaveOccurred())
 
-				// Update the Pod in out list, since we fetch the list before we set the annotation
+				// Update the Pod in our list, since we fetch the list before we set the annotation
 				for idx, pod := range allPods {
 					if pod.Name != unreachablePod.Name {
 						continue
