@@ -253,7 +253,7 @@ func getProcessesReadyForRestart(logger logr.Logger, cluster *fdbv1beta2.Foundat
 
 	if cluster.IsBeingUpgradedWithVersionIncompatibleVersion() && expectedProcesses != len(addresses) {
 		return nil, &requeue{
-			message:        fmt.Sprintf("expected %d processes, got %d processes ready to restart", counts.Total(), len(addresses)),
+			message:        fmt.Sprintf("expected %d processes, got %d processes ready to restart", expectedProcesses, len(addresses)),
 			delayedRequeue: true,
 		}
 	}

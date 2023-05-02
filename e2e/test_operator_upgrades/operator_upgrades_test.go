@@ -29,6 +29,7 @@ Since FoundationDB is version incompatible for major and minor versions and the 
 
 import (
 	"fmt"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"log"
 	"strings"
 	"time"
@@ -897,4 +898,83 @@ var _ = Describe("Operator Upgrades", Label("e2e"), func() {
 		fixtures.GenerateUpgradeTableEntries(testOptions),
 	)
 
+	DescribeTable(
+		"one process is marked for removal",
+		func(beforeVersion string, targetVersion string) {
+			if fixtures.VersionsAreProtocolCompatible(beforeVersion, targetVersion) {
+				Skip("this test only affects version incompatible upgrades")
+			}
+
+			clusterSetup(beforeVersion, true)
+
+			// Select one Pod, this Pod will be marked to be removed but the actual removal will be blocked. The intention
+			// is to simulate a Pods that should be removed but the removal is not completed yet and an upgrade will be started.
+			podMarkedForRemoval := fixtures.RandomPickOnePod(fdbCluster.GetPods().Items)
+			processGroupMarkedForRemoval := fixtures.GetProcessGroupID(podMarkedForRemoval)
+			log.Println("picked Pod", podMarkedForRemoval.Name, "to be marked for removal")
+			// Use the buggify option to block the actual removal.
+			fdbCluster.SetBuggifyBlockRemoval([]fdbv1beta2.ProcessGroupID{processGroupMarkedForRemoval})
+			// Don't wait for reconciliation as the cluster will never reconcile.
+			fdbCluster.ReplacePod(podMarkedForRemoval, false)
+			// Make sure the process group is marked for removal
+			Eventually(func() *metav1.Time {
+				cluster := fdbCluster.GetCluster()
+
+				for _, processGroup := range cluster.Status.ProcessGroups {
+					if processGroup.ProcessGroupID != processGroupMarkedForRemoval {
+						continue
+					}
+
+					return processGroup.RemovalTimestamp
+				}
+
+				return nil
+			}).WithTimeout(2 * time.Minute).WithPolling(2 * time.Second).MustPassRepeatedly(5).ShouldNot(BeNil())
+
+			// Update the cluster version.
+			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
+
+			// Make sure the cluster is upgraded
+			verifyVersion(fdbCluster, targetVersion)
+
+			// Make sure the process running inside the Pod that is marked for removal is running on the new version.
+			Eventually(func() string {
+				status := fdbCluster.GetStatus()
+
+				for _, process := range status.Cluster.Processes {
+					processGroupID, ok := process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]
+					if !ok || fdbv1beta2.ProcessGroupID(processGroupID) != processGroupMarkedForRemoval {
+						continue
+					}
+
+					return process.Version
+				}
+
+				return ""
+			}).WithTimeout(10 * time.Minute).WithPolling(5 * time.Second).MustPassRepeatedly(5).Should(Equal(targetVersion))
+
+			// Make sure the other processes are updated to the new image and the operator is able to proceed with the upgrade.
+			Eventually(func() int {
+				var processesToUpdate int
+
+				cluster := fdbCluster.GetCluster()
+
+				for _, processGroup := range cluster.Status.ProcessGroups {
+					if processGroup.ProcessGroupID == processGroupMarkedForRemoval {
+						continue
+					}
+
+					if len(processGroup.ProcessGroupConditions) > 0 {
+						processesToUpdate++
+					}
+				}
+
+				log.Println("processes that needs to be updated", processesToUpdate)
+
+				return processesToUpdate
+			}).WithTimeout(30 * time.Minute).WithPolling(5 * time.Second).MustPassRepeatedly(5).Should(BeNumerically("==", 0))
+		},
+		EntryDescription("Upgrade from %[1]s to %[2]s"),
+		fixtures.GenerateUpgradeTableEntries(testOptions),
+	)
 })
