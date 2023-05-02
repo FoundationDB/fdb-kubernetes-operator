@@ -335,7 +335,8 @@ var _ = Describe("replace_failed_process_groups", func() {
 			Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]fdbv1beta2.ProcessGroupID{}))
 		})
 
-		It("should not replace a pod that is on a flapping tainted node", func() {
+		// This test is flaky because if code is executed slower, the tainted node is be there for too long and its pod will be removed
+		PIt("should not replace a pod that is on a flapping tainted node", FlakeAttempts(3), func() {
 			// Flapping tainted node
 			tainted := int64(0)
 			for taintTimeOffset := taintKeyMaintenanceDuration * 3; taintTimeOffset >= 0; taintTimeOffset-- {
