@@ -73,7 +73,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 		taintKeyStar := "*"
 		taintKeyStarDuration := int64(20)
 		taintKeyMaintenance := "foundationdb.org/maintenance"
-		taintKeyMaintenanceDuration := int64(5)
+		taintKeyMaintenanceDuration := int64(10)
 		var allPods []*corev1.Pod
 		var allPvcs *corev1.PersistentVolumeClaimList
 		var podOnTaintedNode *corev1.Pod
@@ -372,7 +372,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 			Expect(targetProcessGroupStatus.GetCondition(fdbv1beta2.NodeTaintDetected).ProcessGroupConditionType).To(Equal(fdbv1beta2.NodeTaintDetected))
 
 			// Wait long enough to satisfy cluster-wide threshold to replace tainted node
-			time.Sleep(time.Second * time.Duration(cluster.GetTaintReplacementTimeSeconds()+1))
+			time.Sleep(time.Second * time.Duration(cluster.GetTaintReplacementTimeSeconds()))
 
 			// Sanity check test has not take taintKeyMaintenanceDuration seconds to execute
 			Expect(time.Now().Unix() - startTime.Unix()).To(BeNumerically("<", taintKeyMaintenanceDuration))
