@@ -30,6 +30,7 @@ Since FoundationDB is version incompatible for major and minor versions and the 
 import (
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -352,7 +353,9 @@ var _ = Describe("Operator Upgrades", Label("e2e"), func() {
 			log.Println(
 				"Selected coordinator:",
 				selectedCoordinator.Name,
-				" to be restarted during the staging phase",
+				"(podIP:",
+				selectedCoordinator.Status.PodIP,
+				") to be restarted during the staging phase",
 			)
 
 			// Disable the feature that the operator restarts processes. This allows us to restart the coordinator
@@ -375,6 +378,20 @@ var _ = Describe("Operator Upgrades", Label("e2e"), func() {
 				false,
 			)
 			Expect(err).NotTo(HaveOccurred())
+
+			// Check if the restarted process is showing up in IncompatibleConnections list in status output.
+			Eventually(func() bool {
+				status := fdbCluster.GetStatus()
+				if len(status.Cluster.IncompatibleConnections) == 0 {
+					return false
+				}
+
+				log.Println("IncompatibleProcesses:", status.Cluster.IncompatibleConnections)
+				Expect(len(status.Cluster.IncompatibleConnections)).To(Equal(1))
+				// Extract the IP of the incompatible process.
+				incompatibleProcess := strings.Split(status.Cluster.IncompatibleConnections[0], ":")[0]
+				return incompatibleProcess == selectedCoordinator.Status.PodIP
+			}).WithTimeout(180 * time.Second).WithPolling(4 * time.Second).Should(BeTrue())
 
 			// Allow the operator to restart processes and the upgrade should continue and finish.
 			fdbCluster.SetKillProcesses(true)
@@ -471,7 +488,9 @@ var _ = Describe("Operator Upgrades", Label("e2e"), func() {
 			log.Println(
 				"Selected coordinator:",
 				selectedCoordinator.Name,
-				" to be skipped during the restart",
+				"(podIP:",
+				selectedCoordinator.Status.PodIP,
+				") to be skipped during the restart",
 			)
 			fdbCluster.SetIgnoreDuringRestart(
 				[]fdbv1beta2.ProcessGroupID{
@@ -481,6 +500,9 @@ var _ = Describe("Operator Upgrades", Label("e2e"), func() {
 
 			// The cluster should still be able to upgrade.
 			Expect(fdbCluster.UpgradeCluster(targetVersion, true)).NotTo(HaveOccurred())
+
+			status := fdbCluster.GetStatus()
+			Expect(len(status.Cluster.IncompatibleConnections)).To(Equal(0))
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s with one coordinator not being restarted"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
@@ -874,4 +896,5 @@ var _ = Describe("Operator Upgrades", Label("e2e"), func() {
 		EntryDescription("Upgrade from %[1]s to %[2]s and one process is missing the new binary"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
 	)
+
 })

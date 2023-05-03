@@ -168,7 +168,14 @@ var _ = Describe("Operator HA Upgrades", Label("e2e"), func() {
 		"upgrading a cluster with operator pod chaos and without foundationdb pod chaos",
 		func(beforeVersion string, targetVersion string) {
 			clusterSetup(beforeVersion, true /* = enableOperatorPodChaos */)
+			initialGeneration := fdbCluster.GetPrimary().GetStatus().Cluster.Generation
 			upgradeAndVerify(fdbCluster, targetVersion)
+			// Verify that the cluster generation number didn't increase by more
+			// than 40 (in an ideal case the number of recoveries that should happen
+			// during an upgrade is 9, but in reality that number could be higher
+			// because different server processes may get bounced at different times).
+			Expect(fdbCluster.GetPrimary().GetStatus().Cluster.Generation).To(BeNumerically("<=", initialGeneration+40))
+
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
@@ -381,4 +388,5 @@ var _ = Describe("Operator HA Upgrades", Label("e2e"), func() {
 		EntryDescription("Upgrade from %[1]s to %[2]s with network link that drops some packets"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
 	)
+
 })
