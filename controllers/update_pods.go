@@ -253,15 +253,14 @@ func getPodsToDelete(deletionMode fdbv1beta2.PodUpdateMode, updates map[string][
 	if deletionMode == fdbv1beta2.PodUpdateModeProcessGroup {
 		if maxUnavailablePods > 0 && maxPodsToDelete < 1 {
 			return "", nil, fmt.Errorf("with cluster.Spec.MaxUnavailablePods set to %d, the current max number of pods to delete is %d", maxUnavailablePods, maxPodsToDelete)
-		} else {
-			for _, zoneProcesses := range updates {
-				if len(zoneProcesses) < 1 {
-					continue
-				}
-				pod := zoneProcesses[0]
-				// Fetch the first pod and delete it
-				return pod.Name, []*corev1.Pod{pod}, nil
+		}
+		for _, zoneProcesses := range updates {
+			if len(zoneProcesses) < 1 {
+				continue
 			}
+			pod := zoneProcesses[0]
+			// Fetch the first pod and delete it
+			return pod.Name, []*corev1.Pod{pod}, nil
 		}
 	}
 
@@ -272,10 +271,9 @@ func getPodsToDelete(deletionMode fdbv1beta2.PodUpdateMode, updates map[string][
 				if len(zoneProcesses) <= maxPodsToDelete {
 					// Fetch the first zone and stop
 					return zoneName, zoneProcesses, nil
-				} else {
-					// Fetch the first maxPodsToDelete pods and delete them
-					return zoneName, zoneProcesses[:maxPodsToDelete], nil
 				}
+				// Fetch the first maxPodsToDelete pods and delete them
+				return zoneName, zoneProcesses[:maxPodsToDelete], nil
 			} else {
 				// Fetch the first zone and stop
 				return zoneName, zoneProcesses, nil
