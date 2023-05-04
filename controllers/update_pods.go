@@ -274,10 +274,9 @@ func getPodsToDelete(deletionMode fdbv1beta2.PodUpdateMode, updates map[string][
 				}
 				// Fetch the first maxPodsToDelete pods and delete them
 				return zoneName, zoneProcesses[:maxPodsToDelete], nil
-			} else {
-				// Fetch the first zone and stop
-				return zoneName, zoneProcesses, nil
 			}
+			// Fetch the first zone and stop
+			return zoneName, zoneProcesses, nil
 		}
 	}
 
