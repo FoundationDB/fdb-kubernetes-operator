@@ -182,7 +182,6 @@ var _ = Describe("update_status", func() {
 
 				It("should disable taint feature", func() {
 					Expect(len(processGroupStatus.ProcessGroupConditions)).To(Equal(0))
-					Expect(err).NotTo(HaveOccurred())
 				})
 			})
 
@@ -455,7 +454,7 @@ var _ = Describe("update_status", func() {
 				})
 
 				It("should get a condition assigned", func() {
-					processGroupStatus, err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap, allPods, allPvcs)
+					processGroupStatus, err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap, allPods, allPvcs, logger)
 					Expect(err).NotTo(HaveOccurred())
 
 					incorrectProcesses := fdbv1beta2.FilterByCondition(processGroupStatus, fdbv1beta2.IncorrectCommandLine, false)

@@ -655,24 +655,23 @@ func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler,
 // updateTaintCondition checks pod's node taint label and update pod's taint-related condition accordingly
 func updateTaintCondition(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster,
 	pod *corev1.Pod, processGroupStatus *fdbv1beta2.ProcessGroupStatus, nodeMap map[string]*corev1.Node, logger logr.Logger) error {
-	//node := corev1.Node{}
 	node, ok := nodeMap[pod.Spec.NodeName]
-	log.Info("Get pod's node Start", "Pod", pod.Name, "Pod's node name", pod.Spec.NodeName, "node map size", len(nodeMap))
+	log.V(4).Info("Get pod's node", "Pod", pod.Name, "Pod's node name", pod.Spec.NodeName, "node map size", len(nodeMap))
 	if !ok {
 		node = &corev1.Node{}
 		err := r.Get(ctx, client.ObjectKey{Name: pod.Spec.NodeName}, node)
 		if err != nil {
-			log.Info("Get pod's node fails", "Pod", pod.Name, "Pod's node name", pod.Spec.NodeName, "err", err)
-			return err
+			return fmt.Errorf("get pod %s node %s fails with error :%w", pod.Name, pod.Spec.NodeName, err)
 		}
 		nodeMap[pod.Spec.NodeName] = node
-		log.Info("Set nodeMap cache", "Pod", pod.Name, "Pod's node name", pod.Spec.NodeName, "Node", node)
+		log.V(4).Info("Set nodeMap cache", "Pod", pod.Name, "Pod's node name", pod.Spec.NodeName, "Node", node)
 	}
 
 	// Check the tainted duration and only mark the process group tainted after the configured tainted duration
 	// TODO: https://github.com/FoundationDB/fdb-kubernetes-operator/issues/1583
 	hasMatchingTaint := false
 	for _, taint := range node.Spec.Taints {
+		hasExactMatch := hasExactMatchedTaintKey(cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions, taint.Key)
 		for _, taintConfiguredKey := range cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions {
 			taintConfiguredKeyString := pointer.StringDeref(taintConfiguredKey.Key, "")
 			if taintConfiguredKeyString == "" || pointer.Int64Deref(taintConfiguredKey.DurationInSeconds, math.MinInt64) < 0 {
@@ -681,28 +680,31 @@ func updateTaintCondition(ctx context.Context, r *FoundationDBClusterReconciler,
 					"Pod", pod.Name)
 				continue
 			}
-			if taint.Key == "" || taint.TimeAdded.IsZero() {
+			if taint.Key == "" {
 				// Node's taint is not properly set, skip the node's taint
 				logger.Info("Taint is not properly set", "Node", node.Name, "Taint", taint)
 				continue
 			}
+			if (hasExactMatch && taint.Key != taintConfiguredKeyString) ||
+				(!hasExactMatch && taintConfiguredKeyString != "*") {
+				continue
+			}
 
-			if taint.Key == taintConfiguredKeyString || taintConfiguredKeyString == "*" {
-				hasMatchingTaint = true
-				processGroupStatus.UpdateCondition(fdbv1beta2.NodeTaintDetected, true, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
-				// Use node taint's timestamp as the NodeTaintDetected condition's starting time
-				if taint.TimeAdded.Time.Unix() < *processGroupStatus.GetConditionTime(fdbv1beta2.NodeTaintDetected) {
-					processGroupStatus.UpdateConditionTime(fdbv1beta2.NodeTaintDetected, taint.TimeAdded.Unix())
-				}
-				taintDetectedTime := pointer.Int64Deref(processGroupStatus.GetConditionTime(fdbv1beta2.NodeTaintDetected), math.MaxInt64)
-				if time.Now().Unix()-taintDetectedTime > pointer.Int64Deref(taintConfiguredKey.DurationInSeconds, math.MaxInt64) {
-					processGroupStatus.UpdateCondition(fdbv1beta2.NodeTaintReplacing, true, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
-					logger.Info("Add NodeTaintReplacing condition", "Pod", pod.Name, "Node", node.Name,
-						"TaintKey", taint.Key, "TaintDetectedTime", taintDetectedTime,
-						"TaintDuration", int64(time.Since(time.Unix(taintDetectedTime, 0))),
-						"TaintValue", taint.Value, "TaintEffect", taint.Effect,
-						"ClusterTaintDetectionDuration", time.Duration(pointer.Int64Deref(taintConfiguredKey.DurationInSeconds, math.MaxInt64)))
-				}
+			hasMatchingTaint = true
+			processGroupStatus.UpdateCondition(fdbv1beta2.NodeTaintDetected, true, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
+			// Use node taint's timestamp as the NodeTaintDetected condition's starting time
+			if !taint.TimeAdded.IsZero() && taint.TimeAdded.Time.Unix() < *processGroupStatus.GetConditionTime(fdbv1beta2.NodeTaintDetected) {
+				processGroupStatus.UpdateConditionTime(fdbv1beta2.NodeTaintDetected, taint.TimeAdded.Unix())
+			}
+			taintDetectedTime := pointer.Int64Deref(processGroupStatus.GetConditionTime(fdbv1beta2.NodeTaintDetected), math.MaxInt64)
+			// If a wildcard is specified as key, it will be used as default value, except there is an exact match defined for the taint key.
+			if time.Now().Unix()-taintDetectedTime > pointer.Int64Deref(taintConfiguredKey.DurationInSeconds, math.MaxInt64) {
+				processGroupStatus.UpdateCondition(fdbv1beta2.NodeTaintReplacing, true, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
+				logger.Info("Add NodeTaintReplacing condition", "Pod", pod.Name, "Node", node.Name,
+					"TaintKey", taint.Key, "TaintDetectedTime", taintDetectedTime,
+					"TaintDuration", int64(time.Since(time.Unix(taintDetectedTime, 0))),
+					"TaintValue", taint.Value, "TaintEffect", taint.Effect,
+					"ClusterTaintDetectionDuration", time.Duration(pointer.Int64Deref(taintConfiguredKey.DurationInSeconds, math.MaxInt64)))
 			}
 		}
 	}
@@ -838,4 +840,13 @@ func getRunningVersion(versionMap map[string]int, fallback string) (string, erro
 	}
 
 	return currentCandidate.String(), nil
+}
+
+func hasExactMatchedTaintKey(taintReplacementOptions []fdbv1beta2.TaintReplacementOption, nodeTaintKey string) bool {
+	for _, configuredTaintKey := range taintReplacementOptions {
+		if *configuredTaintKey.Key == nodeTaintKey {
+			return true
+		}
+	}
+	return false
 }

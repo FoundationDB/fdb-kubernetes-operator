@@ -1019,8 +1019,8 @@ type TaintReplacementOption struct {
 	Key *string `json:"key,omitempty"`
 
 	// The tainted key must be present for DurationInSeconds before operator replaces pods on the node with this taint.
-	// Negative DurationInSeconds disables operator from detecting or replacing the taint Key
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Minimum=0
 	DurationInSeconds *int64 `json:"durationInSeconds,omitempty"`
 }
 

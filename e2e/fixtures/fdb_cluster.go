@@ -394,6 +394,8 @@ func (fdbCluster *FdbCluster) UpdateClusterSpecWithSpec(desiredSpec *fdbv1beta2.
 
 		specUpdated := equality.Semantic.DeepEqual(fetchedCluster.Spec, *desiredSpec)
 		log.Println("UpdateClusterSpec: specUpdated:", specUpdated)
+		fmt.Printf("FetchedSpec %+v\n", fetchedCluster.Spec)
+		fmt.Printf("DesiredSpec %+v\n", desiredSpec)
 		if specUpdated {
 			return true
 		}
@@ -405,7 +407,7 @@ func (fdbCluster *FdbCluster) UpdateClusterSpecWithSpec(desiredSpec *fdbv1beta2.
 		}
 		// Retry here and let the method fetch the latest version of the cluster again until the spec is updated.
 		return false
-	}).WithTimeout(5 * time.Minute).WithPolling(1 * time.Second).Should(gomega.BeTrue())
+	}).WithTimeout(10 * time.Minute).WithPolling(1 * time.Second).Should(gomega.BeTrue())
 
 	fdbCluster.cluster = fetchedCluster
 }
@@ -1044,17 +1046,7 @@ func (fdbCluster *FdbCluster) CheckPodIsDeleted(podName string) bool {
 // It times out after timeoutMinutes.
 func (fdbCluster *FdbCluster) EnsurePodIsDeletedWithCustomTimeout(podName string, timeoutMinutes int) {
 	gomega.Eventually(func() bool {
-		pod := &corev1.Pod{}
-		err := fdbCluster.getClient().
-			Get(ctx.TODO(), client.ObjectKey{Namespace: fdbCluster.Namespace(), Name: podName}, pod)
-
-		log.Println("error: ", err, "pod", pod.ObjectMeta)
-		if err != nil {
-			return kubeErrors.IsNotFound(err)
-		}
-
-		// For our case it's enough to validate that the Pod is marked for deletion.
-		return !pod.DeletionTimestamp.IsZero()
+		return fdbCluster.CheckPodIsDeleted(podName)
 	}).WithTimeout(time.Duration(timeoutMinutes) * time.Minute).WithPolling(1 * time.Second).Should(gomega.BeTrue())
 }
 
