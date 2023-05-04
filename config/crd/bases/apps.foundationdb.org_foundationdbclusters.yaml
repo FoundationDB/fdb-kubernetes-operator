@@ -9930,6 +9930,7 @@ spec:
                           properties:
                             durationInSeconds:
                               format: int64
+                              minimum: 0
                               type: integer
                             key:
                               maxLength: 256
