@@ -41,6 +41,7 @@ import (
 var _ = Describe("update_pods", func() {
 	Context("When deleting Pods for an update", func() {
 		var updates map[string][]*corev1.Pod
+		var cluster *fdbv1beta2.FoundationDBCluster
 
 		type testCase struct {
 			deletionMode         fdbv1beta2.PodUpdateMode
@@ -49,6 +50,13 @@ var _ = Describe("update_pods", func() {
 		}
 
 		BeforeEach(func() {
+			cluster = internal.CreateDefaultCluster()
+			Expect(k8sClient.Create(context.TODO(), cluster)).NotTo(HaveOccurred())
+			result, err := reconcileCluster(cluster)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.Requeue).To(BeFalse())
+			Expect(k8sClient.Get(context.TODO(), ctrlClient.ObjectKeyFromObject(cluster), cluster)).NotTo(HaveOccurred())
+
 			updates = map[string][]*corev1.Pod{
 				"zone1": {
 					{
@@ -79,7 +87,7 @@ var _ = Describe("update_pods", func() {
 
 		DescribeTable("should delete the Pods based on the deletion mode",
 			func(input testCase) {
-				_, deletion, err := getPodsToDelete(input.deletionMode, updates)
+				_, deletion, err := getPodsToDelete(input.deletionMode, updates, 0, cluster)
 				if input.expectedErr != nil {
 					Expect(err).To(Equal(input.expectedErr))
 				}
@@ -112,6 +120,84 @@ var _ = Describe("update_pods", func() {
 					expectedErr:          fmt.Errorf("unknown deletion mode: \"banana\""),
 				}),
 		)
+
+		When("MaxUnavailablePods is greater than zero and max pods to delete is one", func() {
+			BeforeEach(func() {
+				cluster.Spec.MaxUnavailablePods = intstr.FromInt(1)
+				Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
+			})
+
+			DescribeTable("should delete the Pods based on the deletion mode and max pods to delete is one",
+				func(input testCase) {
+					_, deletion, err := getPodsToDelete(input.deletionMode, updates, 1, cluster)
+					if input.expectedErr != nil {
+						Expect(err).To(Equal(input.expectedErr))
+					}
+					Expect(len(deletion)).To(Equal(input.expectedDeletionsCnt))
+				},
+				Entry("With the deletion mode Zone",
+					testCase{
+						deletionMode:         fdbv1beta2.PodUpdateModeZone,
+						expectedDeletionsCnt: 1,
+					}),
+				Entry("With the deletion mode Process Group",
+					testCase{
+						deletionMode:         fdbv1beta2.PodUpdateModeProcessGroup,
+						expectedDeletionsCnt: 1,
+					}),
+				Entry("With the deletion mode All",
+					testCase{
+						deletionMode:         fdbv1beta2.PodUpdateModeAll,
+						expectedDeletionsCnt: 4,
+					}),
+				Entry("With the deletion mode None",
+					testCase{
+						deletionMode:         fdbv1beta2.PodUpdateModeNone,
+						expectedDeletionsCnt: 0,
+					}),
+				Entry("With the deletion mode All",
+					testCase{
+						deletionMode:         "banana",
+						expectedDeletionsCnt: 0,
+						expectedErr:          fmt.Errorf("unknown deletion mode: \"banana\""),
+					}),
+			)
+			DescribeTable("should delete the Pods based on the deletion mode and maxPods to delete is zero",
+				func(input testCase) {
+					_, deletion, err := getPodsToDelete(input.deletionMode, updates, 0, cluster)
+					if input.expectedErr != nil {
+						Expect(err).To(Equal(input.expectedErr))
+					}
+					Expect(len(deletion)).To(Equal(input.expectedDeletionsCnt))
+				},
+				Entry("With the deletion mode Zone",
+					testCase{
+						deletionMode:         fdbv1beta2.PodUpdateModeZone,
+						expectedDeletionsCnt: 0,
+					}),
+				Entry("With the deletion mode Process Group",
+					testCase{
+						deletionMode:         fdbv1beta2.PodUpdateModeProcessGroup,
+						expectedDeletionsCnt: 0,
+					}),
+				Entry("With the deletion mode All",
+					testCase{
+						deletionMode:         fdbv1beta2.PodUpdateModeAll,
+						expectedDeletionsCnt: 4,
+					}),
+				Entry("With the deletion mode None",
+					testCase{
+						deletionMode:         fdbv1beta2.PodUpdateModeNone,
+						expectedDeletionsCnt: 0,
+					}),
+				Entry("With the deletion mode All",
+					testCase{
+						deletionMode:         "banana",
+						expectedDeletionsCnt: 0,
+						expectedErr:          fmt.Errorf("unknown deletion mode: \"banana\""),
+					}),
+			)
+		})
 	})
 
 	Context("Validating shouldRequeueDueToTerminatingPod", func() {
@@ -204,7 +290,6 @@ var _ = Describe("update_pods", func() {
 	When("fetching all Pods that needs an update", func() {
 		var cluster *fdbv1beta2.FoundationDBCluster
 		var updates map[string][]*corev1.Pod
-		var trimUpdates map[string][]*corev1.Pod
 		var expectedError bool
 		var err error
 		var pods []*corev1.Pod
@@ -273,15 +358,11 @@ var _ = Describe("update_pods", func() {
 						}
 					}
 				}
-				trimUpdates = trimUpdatesToMaxPodsToUpdate(updates, maxPodsToUpdate)
 			})
 
 			It("should return no errors a map with the zone and the max pods to update limit", func() {
 				Expect(updates).To(HaveLen(1))
 				Expect(maxPodsToUpdate).To(Equal(-6))
-			})
-			It("should trim the updates map to zero elements", func() {
-				Expect(trimUpdates).To(HaveLen(0))
 			})
 		})
 
@@ -305,15 +386,11 @@ var _ = Describe("update_pods", func() {
 						}
 					}
 				}
-				trimUpdates = trimUpdatesToMaxPodsToUpdate(updates, maxPodsToUpdate)
 			})
 
 			It("should return no errors a map with the zone and the max pods to update limit", func() {
 				Expect(updates).To(HaveLen(1))
 				Expect(maxPodsToUpdate).To(Equal(-1))
-			})
-			It("should trim the updates map to zero elements", func() {
-				Expect(trimUpdates).To(HaveLen(0))
 			})
 		})
 
@@ -337,18 +414,12 @@ var _ = Describe("update_pods", func() {
 						}
 					}
 				}
-				trimUpdates = trimUpdatesToMaxPodsToUpdate(updates, maxPodsToUpdate)
 			})
 
 			It("should return no errors a map with the zone and the max pods to update limit", func() {
 				Expect(updates).To(HaveLen(1))
 				Expect(maxPodsToUpdate).To(Equal(2))
 			})
-			It("should trim the updates map to 2 pods", func() {
-				Expect(trimUpdates).To(HaveLen(1))
-				Expect(len(trimUpdates["simulation"])).To(Equal(2))
-			})
-
 		})
 
 		When("max unavailable pods is greater than the number of pods requiring update and the number of pods for the zone is smaller than the max pods to update limit", func() {
@@ -371,18 +442,12 @@ var _ = Describe("update_pods", func() {
 						}
 					}
 				}
-				trimUpdates = trimUpdatesToMaxPodsToUpdate(updates, maxPodsToUpdate)
 			})
 
 			It("should return no errors a map with the zone and the max pods to update limit", func() {
 				Expect(updates).To(HaveLen(1))
 				Expect(maxPodsToUpdate).To(Equal(8))
 			})
-			It("should trim the updates map to 4 pods", func() {
-				Expect(trimUpdates).To(HaveLen(1))
-				Expect(len(trimUpdates["simulation"])).To(Equal(4))
-			})
-
 		})
 
 		When("max unavailable pods has an invalid format", func() {
