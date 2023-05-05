@@ -330,8 +330,8 @@ type ProcessGroupStatus struct {
 	ExclusionSkipped bool `json:"exclusionSkipped,omitempty"`
 	// ProcessGroupConditions represents a list of degraded conditions that the process group is in.
 	ProcessGroupConditions []*ProcessGroupCondition `json:"processGroupConditions,omitempty"`
-	// FaultDomain represents either the logical grouping that is used to bin pack processes together or the last seen
-	// fault domain from the cluster status.
+	// FaultDomain represents the last seen fault domain from the cluster status. This can be used if a Pod or process
+	// is not running and would be missing in the cluster status.
 	FaultDomain string `json:"faultDomain,omitempty"`
 }
 
