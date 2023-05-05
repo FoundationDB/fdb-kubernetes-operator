@@ -170,9 +170,21 @@ func getProcessesReadyForRestart(logger logr.Logger, cluster *fdbv1beta2.Foundat
 
 	filterConditions := restarts.GetFilterConditions(cluster)
 	var missingProcesses int
+	var markedForRemoval int
 	for _, processGroup := range cluster.Status.ProcessGroups {
-		if cluster.SkipProcessGroup(processGroup) || processGroup.IsMarkedForRemoval() {
+		// Skip process groups that are stuck in terminating. Such a case could represent a kubelet in an unavailable/stuck
+		// state.
+		if processGroup.GetConditionTime(fdbv1beta2.ResourcesTerminating) != nil {
 			continue
+		}
+
+		// We have to count the marked for removal processes in addition to the other process groups. The reason for this
+		// is that a process groups that is marked for removal will require the operator to spin up an additional process group.
+		// This means as long as we have at least one process group that is marked for removal we have more process groups
+		// than the cluster.GetProcessCountsWithDefaults() will return. The total number of process groups will be the result
+		// of cluster.GetProcessCountsWithDefaults() + the number of process groups marked for removal.
+		if processGroup.IsMarkedForRemoval() {
+			markedForRemoval++
 		}
 
 		// Ignore processes that are missing for more than 30 seconds e.mg. if the process is network partitioned.
@@ -184,6 +196,13 @@ func getProcessesReadyForRestart(logger logr.Logger, cluster *fdbv1beta2.Foundat
 				missingProcesses++
 				continue
 			}
+		}
+
+		// If a Pod is stuck in pending we have to ignore it, as the processes hosted by this Pod will not be running.
+		if cluster.SkipProcessGroup(processGroup) {
+			logger.Info("ignore process group with Pod stuck in pending", "processGroupID", processGroup.ProcessGroupID)
+			missingProcesses++
+			continue
 		}
 
 		if !processGroup.MatchesConditions(filterConditions) {
@@ -225,7 +244,7 @@ func getProcessesReadyForRestart(logger logr.Logger, cluster *fdbv1beta2.Foundat
 	// block the restart command if a process is missing longer than the specified GetIgnoreMissingProcessesSeconds.
 	// Those checks should ensure we only run the restart command if all processes that have to be restarted and are connected
 	// to cluster are ready to be restarted.
-	expectedProcesses := counts.Total() - missingProcesses
+	expectedProcesses := counts.Total() - missingProcesses + markedForRemoval
 	// If more than one storage server per Pod is running we have to account for this. In this case we have to add the
 	// additional storage processes.
 	if cluster.Spec.StorageServersPerPod > 1 {
@@ -234,7 +253,7 @@ func getProcessesReadyForRestart(logger logr.Logger, cluster *fdbv1beta2.Foundat
 
 	if cluster.IsBeingUpgradedWithVersionIncompatibleVersion() && expectedProcesses != len(addresses) {
 		return nil, &requeue{
-			message:        fmt.Sprintf("expected %d processes, got %d processes ready to restart", counts.Total(), len(addresses)),
+			message:        fmt.Sprintf("expected %d processes, got %d processes ready to restart", expectedProcesses, len(addresses)),
 			delayedRequeue: true,
 		}
 	}

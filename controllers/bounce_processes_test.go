@@ -96,7 +96,7 @@ var _ = Describe("bounceProcesses", func() {
 		})
 	})
 
-	Context("with excluded and incorrect processes", func() {
+	Context("with incorrect processes and process marked for removal", func() {
 		BeforeEach(func() {
 			processGroup := cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-4]
 			Expect(processGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
@@ -114,7 +114,7 @@ var _ = Describe("bounceProcesses", func() {
 
 		It("should kill the targeted processes", func() {
 			addresses := make(map[string]fdbv1beta2.None, 1)
-			for _, processGroupID := range []fdbv1beta2.ProcessGroupID{"storage-1"} {
+			for _, processGroupID := range []fdbv1beta2.ProcessGroupID{"storage-1", "storage-2"} {
 				processGroupAddresses := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, processGroupID).Addresses
 				for _, address := range processGroupAddresses {
 					addresses[fmt.Sprintf("%s:4501", address)] = fdbv1beta2.None{}

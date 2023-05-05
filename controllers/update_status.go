@@ -410,11 +410,6 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 		processGroupsWithoutExclusion[processGroupID] = fdbv1beta2.None{}
 	}
 
-	// Clear the IncorrectCommandLine condition to prevent it being held over when pods get deleted.
-	for _, processGroup := range processGroups {
-		processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, false, nil, "")
-	}
-
 	podMap := internal.CreatePodMap(cluster, pods)
 	pvcMap := internal.CreatePVCMap(cluster, pvcs)
 
@@ -431,6 +426,8 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 			} else {
 				processGroup.UpdateCondition(fdbv1beta2.MissingPod, true, processGroups, processGroup.ProcessGroupID)
 			}
+
+			processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, false, nil, "")
 			continue
 		}
 
@@ -452,6 +449,8 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 				processGroup.UpdateCondition(fdbv1beta2.PodFailing, true, processGroups, processGroup.ProcessGroupID)
 				continue
 			}
+
+			processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, false, nil, "")
 		}
 
 		// Even the process group will be removed we need to keep the config around.
@@ -479,14 +478,15 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 		}
 
 		if isBeingRemoved {
-			processGroup.MarkForRemoval()
+			if processGroup.RemovalTimestamp.IsZero() {
+				processGroup.MarkForRemoval()
+			}
 			// Check if we should skip exclusion for the process group
 			_, ok := processGroupsWithoutExclusion[processGroup.ProcessGroupID]
 			processGroup.ExclusionSkipped = ok
-			continue
 		}
 
-		if pod.ObjectMeta.DeletionTimestamp == nil && status.HasListenIPsForAllPods {
+		if pod.ObjectMeta.DeletionTimestamp.IsZero() && status.HasListenIPsForAllPods {
 			hasPodIP := false
 			for _, container := range pod.Spec.Containers {
 				if container.Name == fdbv1beta2.SidecarContainerName || container.Name == fdbv1beta2.MainContainerName {
@@ -504,7 +504,7 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 
 		// In theory we could also support multiple processes per pod for different classes
 		for i := 1; i <= processCount; i++ {
-			err := checkAndSetProcessStatus(r, cluster, pod, processMap, i, processCount, processGroup)
+			err = checkAndSetProcessStatus(r, cluster, pod, processMap, i, processCount, processGroup)
 			if err != nil {
 				return processGroups, err
 			}
