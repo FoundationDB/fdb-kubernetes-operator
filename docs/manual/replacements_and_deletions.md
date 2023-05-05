@@ -62,6 +62,11 @@ The default deletion mode is `Zone`.
 
 Depending on your requirements and the underlying Kubernetes cluster you might choose a different deletion mode than the default.
 
+## Limit Unavailable Pods
+
+The operator allows to limit the number of unavailable pods during deletions. This is configurable through `maxUnavailablePods` in the cluster spec. Which is disabled by default. When enabled the operator wait to delete pods if the number of unavailable pods is higher than the configured value. This is useful to avoid deleting too many pods at once when recreating pods is not fast enough.
+If deletion mode is set to `All` the operator may delete more pods than the maximum number of unavailable pods.
+
 ## Next
 
 You can continue on to the [next section](fault_domains.md) or go back to the [table of contents](index.md).
