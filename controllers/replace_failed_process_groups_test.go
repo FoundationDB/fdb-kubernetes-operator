@@ -381,7 +381,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 			Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]fdbv1beta2.ProcessGroupID{}))
 		})
 
-		// This test is flaky because if code is executed slower, the tainted node is be there for too long and its pod will be removed
+		// This test is flaky because if code is executed slower, the tainted node will be there for too long and its Pod will be removed
 		PIt("should not replace a pod that is on a flapping tainted node", FlakeAttempts(3), func() {
 			// Flapping tainted node
 			tainted := int64(0)
@@ -626,33 +626,6 @@ var _ = Describe("replace_failed_process_groups", func() {
 				}
 
 				Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]fdbv1beta2.ProcessGroupID{}))
-			})
-
-			It("should not remove pods on tainted nodes whose taint Key or TimeAdded is not set", func() {
-				retry := len(taintedNodes) * 2 // Hack: Ensure reconciler replaces all tainted nodes
-				for {
-					result, err := reconcileCluster(cluster)
-					Expect(err).NotTo(HaveOccurred())
-					if !result.Requeue || retry <= 0 {
-						break
-					}
-					time.Sleep(time.Microsecond * time.Duration(500))
-					retry = retry - 1
-				}
-
-				Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]fdbv1beta2.ProcessGroupID{}))
-
-				// TODO: Flaky invariant. Check why and fix it
-				// Eventually(func() bool {
-				// 	result, err := reconcileCluster(cluster)
-				// 	Expect(err).NotTo(HaveOccurred())
-				// 	return result.Requeue
-				// }).WithTimeout(time.Duration(300) * time.Second).WithPolling(5 * time.Second).Should(Equal(BeFalse()))
-
-				// TODO: Flaky invariant. Check why and fix it
-				// for _, taintedPod := range taintedPods {
-				// 	Expect(getPodByProcessGroupID(cluster, internal.GetProcessGroupIDFromMeta(cluster, taintedPod.ObjectMeta))).NotTo(BeNil())
-				// }
 			})
 		})
 

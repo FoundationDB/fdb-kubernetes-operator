@@ -48,9 +48,7 @@ var _ = Describe("update_status", func() {
 
 	Context("validate process group on taint node", func() {
 		var cluster *fdbv1beta2.FoundationDBCluster
-		var pods []*corev1.Pod
 		var err error
-		var allPods []*corev1.Pod
 		var pod *corev1.Pod                                   // Pod to be tainted
 		var processGroupStatus *fdbv1beta2.ProcessGroupStatus // Target pod's processGroup
 		var node *corev1.Node                                 // Target pod's node
@@ -58,7 +56,6 @@ var _ = Describe("update_status", func() {
 		var nodeMap map[string]*corev1.Node
 		taintKeyWildcard := "*"
 		taintKeyWildcardDuration := int64(20)
-		taintKeyWildcardNegativeDuration := int64(-1)
 		taintKeyMaintenance := "foundationdb/maintenance"
 		taintKeyMaintenanceDuration := int64(5)
 		taintKeyUnhealthy := "foundationdb/unhealthy"
@@ -66,6 +63,8 @@ var _ = Describe("update_status", func() {
 		taintValue := "unhealthy"
 
 		BeforeEach(func() {
+			var pods []*corev1.Pod
+			var allPods []*corev1.Pod
 			nodeMap = make(map[string]*corev1.Node)
 			cluster = internal.CreateDefaultCluster()
 			err = setupClusterForTest(cluster)
@@ -156,7 +155,7 @@ var _ = Describe("update_status", func() {
 				})
 			})
 
-			When("cluster wildcard taint key has negative duration", func() {
+			When("disable and enable taint feature", func() {
 				BeforeEach(func() {
 					node.Spec.Taints = []corev1.Taint{
 						{
@@ -167,45 +166,7 @@ var _ = Describe("update_status", func() {
 						},
 					}
 					// Disable cluster's taint mechanism
-					cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions = []fdbv1beta2.TaintReplacementOption{
-						{
-							Key:               &taintKeyWildcard,
-							DurationInSeconds: &taintKeyWildcardNegativeDuration,
-						},
-						{
-							Key:               &taintKeyMaintenance,
-							DurationInSeconds: &taintKeyMaintenanceDuration,
-						},
-					}
-
-				})
-
-				It("should disable taint feature", func() {
-					Expect(len(processGroupStatus.ProcessGroupConditions)).To(Equal(0))
-				})
-			})
-
-			When("change wildcard taint key duration from negative value to positive value", func() {
-				BeforeEach(func() {
-					node.Spec.Taints = []corev1.Taint{
-						{
-							Key:       taintKeyMaintenance,
-							Value:     "rack_maintenance",
-							Effect:    corev1.TaintEffectNoExecute,
-							TimeAdded: &metav1.Time{Time: time.Now().Add(-time.Second * time.Duration(taintKeyMaintenanceDuration+1))},
-						},
-					}
-					// Disable cluster's taint mechanism
-					cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions = []fdbv1beta2.TaintReplacementOption{
-						{
-							Key:               &taintKeyWildcard,
-							DurationInSeconds: &taintKeyWildcardNegativeDuration,
-						},
-						{
-							Key:               &taintKeyMaintenance,
-							DurationInSeconds: &taintKeyMaintenanceDuration,
-						},
-					}
+					cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions = []fdbv1beta2.TaintReplacementOption{}
 				})
 
 				It("should enable cluster taint feature", func() {
@@ -243,16 +204,7 @@ var _ = Describe("update_status", func() {
 						},
 					}
 					// Disable cluster's taint mechanism
-					cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions = []fdbv1beta2.TaintReplacementOption{
-						{
-							Key:               &taintKeyWildcard,
-							DurationInSeconds: &taintKeyWildcardNegativeDuration,
-						},
-						{
-							Key:               &taintKeyMaintenance,
-							DurationInSeconds: &taintKeyMaintenanceDuration,
-						},
-					}
+					cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions = []fdbv1beta2.TaintReplacementOption{}
 				})
 
 				It("should disable taint feature", func() {

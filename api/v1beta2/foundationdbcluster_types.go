@@ -224,7 +224,7 @@ type FoundationDBClusterSpec struct {
 // +kubebuilder:validation:MaxLength=1024
 type ImageType string
 
-// FoundationDBClusterStatus defines the observed state of FoundationDBCluster.
+// FoundationDBClusterStatus defines the observed state of FoundationDBCluster
 type FoundationDBClusterStatus struct {
 	// DatabaseConfiguration provides the running configuration of the database.
 	DatabaseConfiguration DatabaseConfiguration `json:"databaseConfiguration,omitempty"`
@@ -1004,13 +1004,12 @@ type MaintenanceModeOptions struct {
 // TaintReplacementOption defines the taint key and taint duration the operator will react to a tainted node
 // Example of TaintReplacementOption
 //   - key: "example.org/maintenance"
-//     durationInSeconds: 7200 # Ensure the taint is present for at least 2 hours before replacing Pods on a node with this taint. -1 disable the handling of this tainted key
+//     durationInSeconds: 7200 # Ensure the taint is present for at least 2 hours before replacing Pods on a node with this taint.
 //   - key: "*" # The wildcard would allow to define a catch all configuration
 //     durationInSeconds: 3600 # Ensure the taint is present for at least 1 hour before replacing Pods on a node with this taint
 //
-// Setting key as * and its durationInSeconds as negative integer will disable the entire taint feature and override taint options on other keys
-//   - key: "*"
-//     durationInSeconds: -1
+// Setting durationInSeconds to the maximum of int64 will practically disable the taint key.
+// When a Node taint key matches both an exact TaintReplacementOption key and a wildcard key, the exact matched key will be used.
 type TaintReplacementOption struct {
 	// Tainted key
 	// +kubebuilder:validation:MaxLength=256
@@ -1018,7 +1017,8 @@ type TaintReplacementOption struct {
 	// +kubebuilder:validation:Required
 	Key *string `json:"key,omitempty"`
 
-	// The tainted key must be present for DurationInSeconds before operator replaces pods on the node with this taint.
+	// The tainted key must be present for DurationInSeconds before operator replaces pods on the node with this taint;
+	// DurationInSeconds cannot be a negative number.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Minimum=0
 	DurationInSeconds *int64 `json:"durationInSeconds,omitempty"`
@@ -2500,11 +2500,5 @@ func (cluster *FoundationDBCluster) Validate() error {
 // IsTaintFeatureDisabled return true if operator is configured to not replace Pods tainted Nodes OR
 // if operator's TaintReplacementOptions is not set.
 func (cluster *FoundationDBCluster) IsTaintFeatureDisabled() bool {
-	for _, taintOption := range cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions {
-		// disable taint feature when * taint key has negative or unset DurationInSeconds
-		if pointer.StringDeref(taintOption.Key, "") == "*" && pointer.Int64Deref(taintOption.DurationInSeconds, -1) < 0 {
-			return true
-		}
-	}
 	return len(cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions) == 0
 }
