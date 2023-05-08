@@ -122,6 +122,10 @@ func (config *ClusterConfig) SetDefaults(factory *Factory) {
 		config.VolumeSize = "16Gi"
 	}
 
+	if config.StorageServerPerPod == 0 {
+		config.StorageServerPerPod = 1
+	}
+
 	if config.CreationCallback == nil {
 		config.CreationCallback = func(fdbCluster *FdbCluster) {
 			if fdbCluster == nil {
@@ -165,7 +169,7 @@ func (config *ClusterConfig) generatePodResources(
 	// for an fdbserver process.
 	cpu := 1
 	memory := 8
-	if processClass == fdbv1beta2.ProcessClassStorage {
+	if processClass == fdbv1beta2.ProcessClassStorage && config.StorageServerPerPod > 1 {
 		cpu *= config.StorageServerPerPod
 		memory *= config.StorageServerPerPod
 	}

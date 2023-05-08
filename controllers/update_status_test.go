@@ -41,11 +41,13 @@ import (
 )
 
 var _ = Describe("update_status", func() {
+	var storageOneProcessGroupID fdbv1beta2.ProcessGroupID = "storage-1"
+
 	Context("validate process group", func() {
 		var cluster *fdbv1beta2.FoundationDBCluster
 		var configMap *corev1.ConfigMap
 		var adminClient *mock.AdminClient
-		var pods []*corev1.Pod
+		var storagePod *corev1.Pod
 		var processMap map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo
 		var err error
 		var allPods []*corev1.Pod
@@ -55,11 +57,13 @@ var _ = Describe("update_status", func() {
 			cluster = internal.CreateDefaultCluster()
 			Expect(setupClusterForTest(cluster)).NotTo(HaveOccurred())
 
-			pods, err = clusterReconciler.PodLifecycleManager.GetPods(context.TODO(), clusterReconciler, cluster, internal.GetSinglePodListOptions(cluster, "storage-1")...)
+			pods, err := clusterReconciler.PodLifecycleManager.GetPods(context.TODO(), clusterReconciler, cluster, internal.GetSinglePodListOptions(cluster, storageOneProcessGroupID)...)
 			Expect(err).NotTo(HaveOccurred())
+			Expect(pods).To(HaveLen(1))
 
-			for _, container := range pods[0].Spec.Containers {
-				pods[0].Status.ContainerStatuses = append(pods[0].Status.ContainerStatuses, corev1.ContainerStatus{Ready: true, Name: container.Name})
+			storagePod = pods[0]
+			for _, container := range storagePod.Spec.Containers {
+				storagePod.Status.ContainerStatuses = append(storagePod.Status.ContainerStatuses, corev1.ContainerStatus{Ready: true, Name: container.Name})
 			}
 
 			adminClient, err = mock.NewMockAdminClientUncast(cluster, k8sClient)
@@ -74,10 +78,10 @@ var _ = Describe("update_status", func() {
 			Expect(err).NotTo(HaveOccurred())
 			processMap = make(map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo)
 			for _, process := range databaseStatus.Cluster.Processes {
-				processID, ok := process.Locality["process_id"]
+				processID, ok := process.Locality[fdbv1beta2.FDBLocalityProcessIDKey]
 				// if the processID is not set we fall back to the instanceID
 				if !ok {
-					processID = process.Locality["instance_id"]
+					processID = process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]
 				}
 				processMap[fdbv1beta2.ProcessGroupID(processID)] = append(processMap[fdbv1beta2.ProcessGroupID(processID)], process)
 			}
@@ -107,14 +111,14 @@ var _ = Describe("update_status", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(len(processGroupStatus)).To(BeNumerically(">", 4))
 				processGroup := processGroupStatus[len(processGroupStatus)-4]
-				Expect(processGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
+				Expect(processGroup.ProcessGroupID).To(Equal(storageOneProcessGroupID))
 				Expect(len(processGroupStatus[0].ProcessGroupConditions)).To(Equal(0))
 			})
 		})
 
 		When("the pod for the process group is missing", func() {
 			BeforeEach(func() {
-				Expect(k8sClient.Delete(context.TODO(), pods[0])).NotTo(HaveOccurred())
+				Expect(k8sClient.Delete(context.TODO(), storagePod)).NotTo(HaveOccurred())
 			})
 
 			It("should get a condition assigned", func() {
@@ -122,18 +126,18 @@ var _ = Describe("update_status", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				missingProcesses := fdbv1beta2.FilterByCondition(processGroupStatus, fdbv1beta2.MissingPod, false)
-				Expect(missingProcesses).To(Equal([]fdbv1beta2.ProcessGroupID{"storage-1"}))
+				Expect(missingProcesses).To(Equal([]fdbv1beta2.ProcessGroupID{storageOneProcessGroupID}))
 
 				Expect(len(processGroupStatus)).To(BeNumerically(">", 4))
 				processGroup := processGroupStatus[len(processGroupStatus)-4]
-				Expect(processGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
+				Expect(processGroup.ProcessGroupID).To(Equal(storageOneProcessGroupID))
 				Expect(len(processGroup.ProcessGroupConditions)).To(Equal(1))
 			})
 		})
 
 		When("a process group has the wrong command line", func() {
 			BeforeEach(func() {
-				adminClient.MockIncorrectCommandLine("storage-1", true)
+				adminClient.MockIncorrectCommandLine(storageOneProcessGroupID, true)
 			})
 
 			It("should get a condition assigned", func() {
@@ -141,18 +145,38 @@ var _ = Describe("update_status", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				incorrectProcesses := fdbv1beta2.FilterByCondition(processGroupStatus, fdbv1beta2.IncorrectCommandLine, false)
-				Expect(incorrectProcesses).To(Equal([]fdbv1beta2.ProcessGroupID{"storage-1"}))
+				Expect(incorrectProcesses).To(Equal([]fdbv1beta2.ProcessGroupID{storageOneProcessGroupID}))
 
 				Expect(len(processGroupStatus)).To(BeNumerically(">", 4))
 				processGroup := processGroupStatus[len(processGroupStatus)-4]
-				Expect(processGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
+				Expect(processGroup.ProcessGroupID).To(Equal(storageOneProcessGroupID))
 				Expect(len(processGroup.ProcessGroupConditions)).To(Equal(1))
+			})
+
+			When("the process group is marked for removal", func() {
+				BeforeEach(func() {
+					cluster.Spec.ProcessGroupsToRemove = []fdbv1beta2.ProcessGroupID{storageOneProcessGroupID}
+				})
+
+				It("should get a condition assigned", func() {
+					processGroupStatus, err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap, allPods, allPvcs)
+					Expect(err).NotTo(HaveOccurred())
+
+					incorrectProcesses := fdbv1beta2.FilterByCondition(processGroupStatus, fdbv1beta2.IncorrectCommandLine, false)
+					Expect(incorrectProcesses).To(Equal([]fdbv1beta2.ProcessGroupID{storageOneProcessGroupID}))
+
+					Expect(len(processGroupStatus)).To(BeNumerically(">", 4))
+					processGroup := processGroupStatus[len(processGroupStatus)-4]
+					Expect(processGroup.ProcessGroupID).To(Equal(storageOneProcessGroupID))
+					Expect(len(processGroup.ProcessGroupConditions)).To(Equal(1))
+					Expect(processGroup.IsMarkedForRemoval()).To(BeTrue())
+				})
 			})
 		})
 
 		When("a process group is not reporting to the cluster", func() {
 			BeforeEach(func() {
-				adminClient.MockMissingProcessGroup("storage-1", true)
+				adminClient.MockMissingProcessGroup(storageOneProcessGroupID, true)
 			})
 
 			It("should get a condition assigned", func() {
@@ -160,19 +184,19 @@ var _ = Describe("update_status", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				missingProcesses := fdbv1beta2.FilterByCondition(processGroupStatus, fdbv1beta2.MissingProcesses, false)
-				Expect(missingProcesses).To(Equal([]fdbv1beta2.ProcessGroupID{"storage-1"}))
+				Expect(missingProcesses).To(Equal([]fdbv1beta2.ProcessGroupID{storageOneProcessGroupID}))
 
 				Expect(len(processGroupStatus)).To(BeNumerically(">", 4))
 				processGroup := processGroupStatus[len(processGroupStatus)-4]
-				Expect(processGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
+				Expect(processGroup.ProcessGroupID).To(Equal(storageOneProcessGroupID))
 				Expect(len(processGroup.ProcessGroupConditions)).To(Equal(1))
 			})
 		})
 
 		When("the pod has the wrong spec", func() {
 			BeforeEach(func() {
-				pods[0].ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] = "bad"
-				err = k8sClient.Update(context.TODO(), pods[0])
+				storagePod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] = "bad"
+				err = k8sClient.Update(context.TODO(), storagePod)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -181,11 +205,11 @@ var _ = Describe("update_status", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				incorrectPods := fdbv1beta2.FilterByCondition(processGroupStatus, fdbv1beta2.IncorrectPodSpec, false)
-				Expect(incorrectPods).To(Equal([]fdbv1beta2.ProcessGroupID{"storage-1"}))
+				Expect(incorrectPods).To(Equal([]fdbv1beta2.ProcessGroupID{storageOneProcessGroupID}))
 
 				Expect(len(processGroupStatus)).To(BeNumerically(">", 4))
 				processGroup := processGroupStatus[len(processGroupStatus)-4]
-				Expect(processGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
+				Expect(processGroup.ProcessGroupID).To(Equal(storageOneProcessGroupID))
 				Expect(len(processGroup.ProcessGroupConditions)).To(Equal(1))
 			})
 		})
@@ -194,7 +218,7 @@ var _ = Describe("update_status", func() {
 			BeforeEach(func() {
 				// We cannot use the k8sClient.MockStuckTermination() method because the deletionTimestamp must be
 				// older than 5 minutes to detect the Pod as PodFailed.
-				stuckPod := pods[0]
+				stuckPod := storagePod
 				stuckPod.SetDeletionTimestamp(&metav1.Time{Time: time.Now().Add(-10 * time.Minute)})
 				stuckPod.SetFinalizers(append(stuckPod.GetFinalizers(), "foundationdb.org/testing"))
 				Expect(k8sClient.Update(context.Background(), stuckPod)).NotTo(HaveOccurred())
@@ -207,19 +231,19 @@ var _ = Describe("update_status", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				missingProcesses := fdbv1beta2.FilterByCondition(processGroupStatus, fdbv1beta2.PodFailing, false)
-				Expect(missingProcesses).To(Equal([]fdbv1beta2.ProcessGroupID{"storage-1"}))
+				Expect(missingProcesses).To(Equal([]fdbv1beta2.ProcessGroupID{storageOneProcessGroupID}))
 
 				Expect(len(processGroupStatus)).To(BeNumerically(">", 4))
 				processGroup := processGroupStatus[len(processGroupStatus)-4]
-				Expect(processGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
+				Expect(processGroup.ProcessGroupID).To(Equal(storageOneProcessGroupID))
 				Expect(len(processGroup.ProcessGroupConditions)).To(Equal(1))
 			})
 		})
 
 		When("the pod is failing to launch", func() {
 			BeforeEach(func() {
-				pods[0].Status.ContainerStatuses[0].Ready = false
-				err = k8sClient.Update(context.TODO(), pods[0])
+				storagePod.Status.ContainerStatuses[0].Ready = false
+				err = k8sClient.Update(context.TODO(), storagePod)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -228,19 +252,19 @@ var _ = Describe("update_status", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				failingPods := fdbv1beta2.FilterByCondition(processGroupStatus, fdbv1beta2.PodFailing, false)
-				Expect(failingPods).To(Equal([]fdbv1beta2.ProcessGroupID{"storage-1"}))
+				Expect(failingPods).To(Equal([]fdbv1beta2.ProcessGroupID{storageOneProcessGroupID}))
 
 				Expect(len(processGroupStatus)).To(BeNumerically(">", 4))
 				processGroup := processGroupStatus[len(processGroupStatus)-4]
-				Expect(processGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
+				Expect(processGroup.ProcessGroupID).To(Equal(storageOneProcessGroupID))
 				Expect(len(processGroup.ProcessGroupConditions)).To(Equal(1))
 			})
 		})
 
 		When("the pod is failed", func() {
 			BeforeEach(func() {
-				pods[0].Status.Phase = corev1.PodFailed
-				err = k8sClient.Update(context.TODO(), pods[0])
+				storagePod.Status.Phase = corev1.PodFailed
+				err = k8sClient.Update(context.TODO(), storagePod)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -249,11 +273,11 @@ var _ = Describe("update_status", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				failingPods := fdbv1beta2.FilterByCondition(processGroupStatus, fdbv1beta2.PodFailing, false)
-				Expect(failingPods).To(Equal([]fdbv1beta2.ProcessGroupID{"storage-1"}))
+				Expect(failingPods).To(Equal([]fdbv1beta2.ProcessGroupID{storageOneProcessGroupID}))
 
 				Expect(len(processGroupStatus)).To(BeNumerically(">", 4))
 				processGroup := processGroupStatus[len(processGroupStatus)-4]
-				Expect(processGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
+				Expect(processGroup.ProcessGroupID).To(Equal(storageOneProcessGroupID))
 				Expect(len(processGroup.ProcessGroupConditions)).To(Equal(1))
 			})
 		})
@@ -262,9 +286,9 @@ var _ = Describe("update_status", func() {
 			var removedProcessGroup fdbv1beta2.ProcessGroupID
 
 			BeforeEach(func() {
-				removedProcessGroup = "storage-1"
-				pods[0].Status.Phase = corev1.PodFailed
-				err = k8sClient.Update(context.TODO(), pods[0])
+				removedProcessGroup = storageOneProcessGroupID
+				storagePod.Status.Phase = corev1.PodFailed
+				err = k8sClient.Update(context.TODO(), storagePod)
 				Expect(err).NotTo(HaveOccurred())
 				cluster.Spec.ProcessGroupsToRemove = []fdbv1beta2.ProcessGroupID{removedProcessGroup}
 			})
@@ -293,9 +317,9 @@ var _ = Describe("update_status", func() {
 			var removedProcessGroup fdbv1beta2.ProcessGroupID
 
 			BeforeEach(func() {
-				removedProcessGroup = "storage-1"
-				pods[0].Status.Phase = corev1.PodFailed
-				err = k8sClient.Update(context.TODO(), pods[0])
+				removedProcessGroup = storageOneProcessGroupID
+				storagePod.Status.Phase = corev1.PodFailed
+				err = k8sClient.Update(context.TODO(), storagePod)
 				Expect(err).NotTo(HaveOccurred())
 				cluster.Spec.ProcessGroupsToRemoveWithoutExclusion = []fdbv1beta2.ProcessGroupID{removedProcessGroup}
 			})
@@ -325,12 +349,12 @@ var _ = Describe("update_status", func() {
 
 			// Must be a JustBeforeEach otherwise the cluster status will result in an error
 			JustBeforeEach(func() {
-				unreachablePod := pods[0]
-				unreachableProcessGroup = podmanager.GetProcessGroupID(cluster, pods[0])
+				unreachablePod := storagePod
+				unreachableProcessGroup = podmanager.GetProcessGroupID(cluster, storagePod)
 				unreachablePod.Annotations[internal.MockUnreachableAnnotation] = "banana"
 				Expect(k8sClient.Update(context.TODO(), unreachablePod)).NotTo(HaveOccurred())
 
-				// Update the Pod in out list, since we fetch the list before we set the annotation
+				// Update the Pod in our list, since we fetch the list before we set the annotation
 				for idx, pod := range allPods {
 					if pod.Name != unreachablePod.Name {
 						continue
@@ -359,8 +383,8 @@ var _ = Describe("update_status", func() {
 
 			When("the process group is reachable again", func() {
 				JustBeforeEach(func() {
-					delete(pods[0].Annotations, internal.MockUnreachableAnnotation)
-					err = k8sClient.Update(context.TODO(), pods[0])
+					delete(storagePod.Annotations, internal.MockUnreachableAnnotation)
+					err = k8sClient.Update(context.TODO(), storagePod)
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -386,9 +410,9 @@ var _ = Describe("update_status", func() {
 			var pendingProcessGroup fdbv1beta2.ProcessGroupID
 
 			BeforeEach(func() {
-				pendingProcessGroup = podmanager.GetProcessGroupID(cluster, pods[0])
-				pods[0].Status.Phase = corev1.PodPending
-				err = k8sClient.Update(context.TODO(), pods[0])
+				pendingProcessGroup = podmanager.GetProcessGroupID(cluster, storagePod)
+				storagePod.Status.Phase = corev1.PodPending
+				err = k8sClient.Update(context.TODO(), storagePod)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -419,7 +443,7 @@ var _ = Describe("update_status", func() {
 			status = fdbv1beta2.FoundationDBClusterStatus{
 				ProcessGroups: []*fdbv1beta2.ProcessGroupStatus{
 					{
-						ProcessGroupID: "storage-1",
+						ProcessGroupID: storageOneProcessGroupID,
 						ProcessGroupConditions: []*fdbv1beta2.ProcessGroupCondition{
 							fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.PodPending),
 							fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.ResourcesTerminating),
@@ -446,7 +470,7 @@ var _ = Describe("update_status", func() {
 				Expect(len(status.ProcessGroups)).To(BeNumerically("==", 2))
 
 				for _, pg := range status.ProcessGroups {
-					if pg.ProcessGroupID == "storage-1" {
+					if pg.ProcessGroupID == storageOneProcessGroupID {
 						Expect(len(pg.ProcessGroupConditions)).To(BeNumerically("==", 1))
 						continue
 					}
