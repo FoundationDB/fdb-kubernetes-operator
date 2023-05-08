@@ -897,7 +897,7 @@ var _ = Describe("Operator Upgrades", Label("e2e"), func() {
 		fixtures.GenerateUpgradeTableEntries(testOptions),
 	)
 
-	FDescribeTable(
+	DescribeTable(
 		"upgrading a cluster with a pending pod",
 		func(beforeVersion string, targetVersion string) {
 			clusterSetup(beforeVersion, true)
