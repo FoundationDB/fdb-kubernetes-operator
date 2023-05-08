@@ -656,7 +656,7 @@ func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler,
 func updateTaintCondition(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster,
 	pod *corev1.Pod, processGroupStatus *fdbv1beta2.ProcessGroupStatus, nodeMap map[string]*corev1.Node, logger logr.Logger) error {
 	node, ok := nodeMap[pod.Spec.NodeName]
-	log.V(4).Info("Get pod's node", "Pod", pod.Name, "Pod's node name", pod.Spec.NodeName, "node map size", len(nodeMap))
+	log.V(1).Info("Get pod's node", "Pod", pod.Name, "Pod's node name", pod.Spec.NodeName, "node map size", len(nodeMap))
 	if !ok {
 		node = &corev1.Node{}
 		err := r.Get(ctx, client.ObjectKey{Name: pod.Spec.NodeName}, node)
@@ -664,7 +664,7 @@ func updateTaintCondition(ctx context.Context, r *FoundationDBClusterReconciler,
 			return fmt.Errorf("get pod %s node %s fails with error :%w", pod.Name, pod.Spec.NodeName, err)
 		}
 		nodeMap[pod.Spec.NodeName] = node
-		log.V(4).Info("Set nodeMap cache", "Pod", pod.Name, "Pod's node name", pod.Spec.NodeName, "Node", node)
+		log.V(1).Info("Set nodeMap cache", "Pod", pod.Name, "Pod's node name", pod.Spec.NodeName, "Node", node)
 	}
 
 	// Check the tainted duration and only mark the process group tainted after the configured tainted duration
@@ -685,6 +685,7 @@ func updateTaintCondition(ctx context.Context, r *FoundationDBClusterReconciler,
 				logger.Info("Taint is not properly set", "Node", node.Name, "Taint", taint)
 				continue
 			}
+			// If a wildcard is specified as key, it will be used as default value, except there is an exact match defined for the taint key.
 			if (hasExactMatch && taint.Key != taintConfiguredKeyString) ||
 				(!hasExactMatch && taintConfiguredKeyString != "*") {
 				continue
@@ -697,7 +698,6 @@ func updateTaintCondition(ctx context.Context, r *FoundationDBClusterReconciler,
 				processGroupStatus.UpdateConditionTime(fdbv1beta2.NodeTaintDetected, taint.TimeAdded.Unix())
 			}
 			taintDetectedTime := pointer.Int64Deref(processGroupStatus.GetConditionTime(fdbv1beta2.NodeTaintDetected), math.MaxInt64)
-			// If a wildcard is specified as key, it will be used as default value, except there is an exact match defined for the taint key.
 			if time.Now().Unix()-taintDetectedTime > pointer.Int64Deref(taintConfiguredKey.DurationInSeconds, math.MaxInt64) {
 				processGroupStatus.UpdateCondition(fdbv1beta2.NodeTaintReplacing, true, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
 				logger.Info("Add NodeTaintReplacing condition", "Pod", pod.Name, "Node", node.Name,
