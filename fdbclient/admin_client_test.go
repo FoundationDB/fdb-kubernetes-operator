@@ -118,6 +118,41 @@ var _ = Describe("admin_client_test", func() {
 				nil,
 				[]fdbv1beta2.ProcessAddress{addr5},
 			),
+			Entry("when the process is excluded but the cluster status has multiple generations",
+				&fdbv1beta2.FoundationDBStatus{
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						RecoveryState: fdbv1beta2.RecoveryState{
+							ActiveGenerations: 2,
+						},
+						Processes: map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{
+							"1": {
+								Address:  addr1,
+								Excluded: true,
+							},
+							"2": {
+								Address: addr2,
+							},
+							"3": {
+								Address: addr3,
+							},
+							"4": {
+								Address:  addr4,
+								Excluded: true,
+								Roles: []fdbv1beta2.FoundationDBStatusProcessRoleInfo{
+									{
+										Role: "tester",
+									},
+								},
+							},
+						},
+					},
+				},
+				[]fdbv1beta2.ProcessAddress{addr4},
+				nil,
+				[]fdbv1beta2.ProcessAddress{addr4},
+				nil,
+				nil,
+			),
 		)
 	})
 
