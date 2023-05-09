@@ -504,16 +504,10 @@ func getRemainingAndExcludedFromStatus(status *fdbv1beta2.FoundationDBStatus, ad
 	// for the active generations we have the risk to remove a log process that still has mutations on it that must be
 	// popped.
 	if status.Cluster.RecoveryState.ActiveGenerations > 1 {
-		notExcluded := make([]fdbv1beta2.ProcessAddress, 0, len(addresses))
-
-		for _, addr := range addresses {
-			notExcluded = append(notExcluded, addr)
-		}
-
 		return exclusionStatus{
 			inProgress:      nil,
 			fullyExcluded:   nil,
-			notExcluded:     notExcluded,
+			notExcluded:     addresses,
 			missingInStatus: nil,
 		}
 	}
