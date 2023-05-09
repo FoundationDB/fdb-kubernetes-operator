@@ -434,4 +434,49 @@ var _ = Describe("Operator HA Upgrades", Label("e2e"), func() {
 		fixtures.GenerateUpgradeTableEntries(testOptions),
 	)
 
+	DescribeTable(
+		"upgrading a cluster when no remote processes are restarted",
+		func(beforeVersion string, targetVersion string) {
+			isAtLeast := factory.OperatorIsAtLeast(
+				"v1.14.0",
+			)
+
+			if !isAtLeast {
+				Skip("operator doesn't support feature for test case")
+			}
+
+			clusterSetup(beforeVersion, false)
+
+			// Select remote processes and use the buggify option to skip those
+			// processes during the restart command.
+			pods := fdbCluster.GetRemote().GetPods()
+			Expect(pods.Items).NotTo(BeEmpty())
+
+			ignoreDuringRestart := make(
+				[]fdbv1beta2.ProcessGroupID,
+				0,
+				len(pods.Items),
+			)
+
+			for _, pod := range pods.Items {
+				ignoreDuringRestart = append(
+					ignoreDuringRestart,
+					fdbv1beta2.ProcessGroupID(pod.Labels[fdbCluster.GetRemote().GetCachedCluster().GetProcessGroupIDLabel()]),
+				)
+			}
+
+			log.Println(
+				"Selected Pods:",
+				ignoreDuringRestart,
+				"to be skipped during the restart",
+			)
+			fdbCluster.GetRemote().SetIgnoreDuringRestart(ignoreDuringRestart)
+
+			// The cluster should still be able to upgrade.
+			Expect(fdbCluster.UpgradeCluster(targetVersion, true)).NotTo(HaveOccurred())
+		},
+		EntryDescription("Upgrade from %[1]s to %[2]s when no remote processes are restarted"),
+		fixtures.GenerateUpgradeTableEntries(testOptions),
+	)
+
 })
