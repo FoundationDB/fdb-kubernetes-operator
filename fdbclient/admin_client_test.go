@@ -72,7 +72,8 @@ var _ = Describe("admin_client_test", func() {
 
 		DescribeTable("fetching the excluded and remaining processes from the status",
 			func(status *fdbv1beta2.FoundationDBStatus, addresses []fdbv1beta2.ProcessAddress, expectedExcluded []fdbv1beta2.ProcessAddress, expectedRemaining []fdbv1beta2.ProcessAddress, expectedFullyExcluded []fdbv1beta2.ProcessAddress, expectedMissing []fdbv1beta2.ProcessAddress) {
-				exclusions := getRemainingAndExcludedFromStatus(status, addresses)
+				// TODO (johscheuer): Update the tests to match in progress exclusion.
+				exclusions := getRemainingAndExcludedFromStatus(status, addresses, nil, false)
 				Expect(expectedExcluded).To(ConsistOf(exclusions.inProgress))
 				Expect(expectedRemaining).To(ConsistOf(exclusions.notExcluded))
 				Expect(expectedFullyExcluded).To(ConsistOf(exclusions.fullyExcluded))
@@ -731,6 +732,8 @@ protocol fdb00b071010000`,
 		var addressesToCheck []fdbv1beta2.ProcessAddress
 		var result []fdbv1beta2.ProcessAddress
 		var err error
+
+		// TODO (johscheuer): Add tests for in progress exclusion.
 
 		JustBeforeEach(func() {
 			cluster := &fdbv1beta2.FoundationDBCluster{

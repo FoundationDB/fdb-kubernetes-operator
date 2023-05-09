@@ -209,6 +209,11 @@ func (version Version) SupportsRecoveryState() bool {
 	return version.IsAtLeast(Versions.SupportsRecoveryState)
 }
 
+// SupportsManagementAPI  returns true if the version of FDB supports the management API.
+func (version Version) SupportsManagementAPI() bool {
+	return version.IsAtLeast(Versions.SupportsManagementAPI)
+}
+
 // Versions provides a shorthand for known versions.
 // This is only to be used in testing.
 var Versions = struct {
@@ -222,6 +227,7 @@ var Versions = struct {
 	IncompatibleVersion,
 	PreviousPatchVersion,
 	SupportsRecoveryState,
+	SupportsManagementAPI,
 	Default Version
 }{
 	Default:                      Version{Major: 6, Minor: 2, Patch: 21},
@@ -235,4 +241,5 @@ var Versions = struct {
 	SupportsShardedRocksDB:       Version{Major: 7, Minor: 2, Patch: 0},
 	SupportsRedwood1Experimental: Version{Major: 7, Minor: 0, Patch: 0},
 	SupportsRecoveryState:        Version{Major: 7, Minor: 1, Patch: 22},
+	SupportsManagementAPI:        Version{Major: 7, Minor: 0, Patch: 0},
 }

@@ -494,7 +494,7 @@ type exclusionStatus struct {
 }
 
 // getRemainingAndExcludedFromStatus checks which processes of the input address list are excluded in the cluster and which are not.
-func getRemainingAndExcludedFromStatus(status *fdbv1beta2.FoundationDBStatus, addresses []fdbv1beta2.ProcessAddress) exclusionStatus {
+func getRemainingAndExcludedFromStatus(status *fdbv1beta2.FoundationDBStatus, addresses []fdbv1beta2.ProcessAddress, exclusionsInProgress map[string]fdbv1beta2.None, useExclusionsInProgress bool) exclusionStatus {
 	notExcludedAddresses := map[string]fdbv1beta2.None{}
 	fullyExcludedAddresses := map[string]fdbv1beta2.None{}
 	visitedAddresses := map[string]fdbv1beta2.None{}
@@ -513,11 +513,24 @@ func getRemainingAndExcludedFromStatus(status *fdbv1beta2.FoundationDBStatus, ad
 			continue
 		}
 
+		delete(notExcludedAddresses, process.Address.MachineAddress())
+
+		// In this case we will use the information from the management API.
+		if useExclusionsInProgress {
+			// If a process is marked for exclusions and it is part of this list, this means it's not safe to remove
+			// this process as the exclusion is still going on.
+			_, inProgress := exclusionsInProgress[process.Address.MachineAddress()]
+			if !inProgress {
+				fullyExcludedAddresses[process.Address.MachineAddress()] = fdbv1beta2.None{}
+			}
+
+			continue
+		}
+
+		// If we don't use the information from the management API we fallback to check if the process is serving any roles.
 		if len(process.Roles) == 0 {
 			fullyExcludedAddresses[process.Address.MachineAddress()] = fdbv1beta2.None{}
 		}
-
-		delete(notExcludedAddresses, process.Address.MachineAddress())
 	}
 
 	exclusions := exclusionStatus{
@@ -564,7 +577,22 @@ func (client *cliAdminClient) CanSafelyRemove(addresses []fdbv1beta2.ProcessAddr
 		return nil, err
 	}
 
-	exclusions := getRemainingAndExcludedFromStatus(status, addresses)
+	version, err := fdbv1beta2.ParseFdbVersion(client.Cluster.GetRunningVersion())
+	if err != nil {
+		return addresses, err
+	}
+
+	var exclusionsInProgress map[string]fdbv1beta2.None
+	var useExclusionsInProgress bool
+	if version.SupportsManagementAPI() { // TODO: Feature flag this in the FoundationDBCluster CRD.
+		exclusionsInProgress, err = getInProgressExclusions(client.fdbLibClient)
+		if err != nil {
+			return addresses, err
+		}
+		useExclusionsInProgress = true
+	}
+
+	exclusions := getRemainingAndExcludedFromStatus(status, addresses, exclusionsInProgress, useExclusionsInProgress)
 	client.log.Info("Filtering excluded processes",
 		"inProgress", exclusions.inProgress,
 		"fullyExcluded", exclusions.fullyExcluded,

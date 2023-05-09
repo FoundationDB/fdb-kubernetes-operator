@@ -108,6 +108,11 @@ func getStatusFromDB(libClient fdbLibClient) (*fdbv1beta2.FoundationDBStatus, er
 	return status, nil
 }
 
+// getInProgressExclusions returns a map that represents all addresses that are present in the \xff\xff/management/in_progress_exclusion key range.
+func getInProgressExclusions(libClient fdbLibClient) (map[string]fdbv1beta2.None, error) {
+	return libClient.getInProgressExclusions(DefaultCLITimeout)
+}
+
 type realDatabaseClientProvider struct {
 	// log implementation for logging output
 	log logr.Logger
