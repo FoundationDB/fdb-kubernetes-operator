@@ -1027,4 +1027,18 @@ var _ = Describe("Operator Upgrades", Label("e2e"), func() {
 		EntryDescription("Upgrade from %[1]s to %[2]s"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
 	)
+
+	DescribeTable(
+		"upgrading a cluster with a pending pod",
+		func(beforeVersion string, targetVersion string) {
+			clusterSetup(beforeVersion, true)
+			pendingPod := fixtures.RandomPickOnePod(fdbCluster.GetPods().Items)
+			// Set the pod in pending state.
+			Expect(fdbCluster.SetPodAsUnschedulable(pendingPod)).NotTo(HaveOccurred())
+			upgradeAndVerify(fdbCluster, targetVersion)
+		},
+		EntryDescription("Upgrade from %[1]s to %[2]s with a pending pod"),
+		fixtures.GenerateUpgradeTableEntries(testOptions),
+	)
+
 })
