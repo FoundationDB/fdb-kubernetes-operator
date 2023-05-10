@@ -10,7 +10,7 @@ TIMEOUT?=168h
 NAMESPACE?=
 CONTEXT?=
 FDB_VERSION?=7.1.31
-PREVIOUS_FDB_VERSION?=6.3.24
+PREVIOUS_FDB_VERSION?=6.3.25
 ## Expectation is that you are running standard build image which generates both regular and debug (Symbols) images.
 FDB_IMAGE?=foundationdb/foundationdb:$(FDB_VERSION)
 SIDECAR_IMAGE?=foundationdb/foundationdb-kubernetes-sidecar:$(FDB_VERSION)-1
