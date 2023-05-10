@@ -498,6 +498,20 @@ func getRemainingAndExcludedFromStatus(status *fdbv1beta2.FoundationDBStatus, ad
 	notExcludedAddresses := map[string]fdbv1beta2.None{}
 	fullyExcludedAddresses := map[string]fdbv1beta2.None{}
 	visitedAddresses := map[string]fdbv1beta2.None{}
+
+	// If there are more than 1 active generations we can not handout any information about excluded processes based on
+	// the cluster status information as only the latest log processes will have the log process role. If we don't check
+	// for the active generations we have the risk to remove a log process that still has mutations on it that must be
+	// popped.
+	if status.Cluster.RecoveryState.ActiveGenerations > 1 {
+		return exclusionStatus{
+			inProgress:      nil,
+			fullyExcluded:   nil,
+			notExcluded:     addresses,
+			missingInStatus: nil,
+		}
+	}
+
 	for _, addr := range addresses {
 		notExcludedAddresses[addr.MachineAddress()] = fdbv1beta2.None{}
 	}
