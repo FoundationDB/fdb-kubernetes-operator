@@ -27,7 +27,7 @@ The following changes can only be rolled out through replacement:
 The number of inflight replacements can be configured by setting `maxConcurrentReplacements`, per default the operator will replace all misconfigured process groups.
 Depending on the cluster size this can require a quota that is has double the capacity of the actual required resources.
 
-## Automatic Replacements
+## Automatic Replacements for ProcessGroups in Bad State
 
 The operator has an option to automatically replace pods that are in a bad state. This behavior is disabled by default, but you can enable it by setting the field `automationOptions.replacements.enabled` in the cluster spec.
 This will replace any pods that meet the following criteria:
@@ -42,10 +42,61 @@ The following conditions are currently eligible for replacement:
 * `MissingPod`: This indicates a process group that doesn't have a Pod assigned.
 * `MissingPVC`: This indicates that a process group that doesn't have a PVC assigned.
 * `MissingService`: This indicates that a process group that doesn't have a Service assigned.
-* `PodPending`: This indicates that a process group where the pod is in a pending state.
+* `PodPending`: This indicates that a process group where the Pod is in a pending state.
+* `NodeTaintReplacing`: This indicates a process group where the Pod has been running on a tainted Node for longer-than configured duration. If a ProcessGroup has the `NodeTaintReplacing` condition, the replacement cannot be stopped, even after the Node taint was removed.
 
 Process groups that are set into the crash loop state with the `Buggify` setting won't be replaced by the operator.
 If the `cluster.Spec.Buggify.EmptyMonitorConf` setting is active the operator won't replace any process groups.
+
+## Automatic Replacements for ProcessGroups on Tainted Nodes
+The operator has an option to automatically replace ProcessGroups where the associated Pod is running on a tainted Node. This feature is disabled by default, but can be enabled by setting `automationOptions.replacements.taintReplacementOptions`.
+
+We use three examples below to illustrate how to set up the feature.
+
+### Example Setup 1
+
+The following YAML setup lets the operator detect Pods running on Nodes with taint key `example.com/maintenance`, set the ProcessGroup' condition to `NodeTaintReplacing`, if their Nodes have been tainted for 3600 seconds, and replace the Pods after 1800 seconds.
+
+```
+spec:
+    automationOptions:
+      replacements:
+        taintReplacementOptions:
+        - Key: example.com/maintenance
+          DurationInSeconds: 3600
+        taintReplacementTimeSeconds: 1800
+        enabled: true
+```
+
+If there are multiple Pods on tainted Nodes, the operator will simultaneously replace at most `automationOptions.replacements.maxConcurrentReplacements` Pods.
+
+### Example Setup 2
+
+We can enable taint feature on all taint keys except one taint key with the following YAML configuration:
+```
+spec:
+    automationOptions:
+      replacements:
+        taintReplacementOptions:
+        - Key: "*"
+          DurationInSeconds: 3600
+        - Key: example.com/taint-key-to-ignore
+          DurationInSeconds: 9223372036854775807
+        enabled: true
+```
+
+The operator will detect and mark all Pods on tainted Nodes with `NodeTaintDetected` condition. But the operator will ignore the taint key `example.com/taint-key-to-ignore` when it adds `NodeTaintReplacing` condition to Pods, because the key's `DurationInSeconds` is set to max of int64. For example, if a Node has only the taint key `example.com/taint-key-to-ignore`, its Pods will only be marked with  `NodeTaintDetected` condition. When the Node has another taint key, say `example.com/any-other-key`, its Pods will be added `NodeTaintReplacing` condition when the other taint key has been on the Node for 3600 seconds.
+
+### Example Setup 3
+
+We can disable the taint feature by resetting `automationOptions.replacements.taintReplacementOptions = {}`. The following example YAML config deletes the `taintReplacementOptions` section.
+
+```
+spec:
+    automationOptions:
+      replacements:
+        enabled: true
+```
 
 ## Enforce Full Replication
 
