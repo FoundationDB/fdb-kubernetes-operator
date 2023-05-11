@@ -23,6 +23,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal/buggify"
 	"time"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal/restarts"
@@ -133,7 +134,7 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 		}
 	}
 
-	filteredAddresses, removedAddresses := filterIgnoredProcessGroups(cluster, addresses)
+	filteredAddresses, removedAddresses := buggify.FilterIgnoredProcessGroups(cluster, addresses)
 	if removedAddresses {
 		addresses = filteredAddresses
 	}
@@ -169,9 +170,21 @@ func getProcessesReadyForRestart(logger logr.Logger, cluster *fdbv1beta2.Foundat
 
 	filterConditions := restarts.GetFilterConditions(cluster)
 	var missingProcesses int
+	var markedForRemoval int
 	for _, processGroup := range cluster.Status.ProcessGroups {
-		if cluster.SkipProcessGroup(processGroup) || processGroup.IsMarkedForRemoval() {
+		// Skip process groups that are stuck in terminating. Such a case could represent a kubelet in an unavailable/stuck
+		// state.
+		if processGroup.GetConditionTime(fdbv1beta2.ResourcesTerminating) != nil {
 			continue
+		}
+
+		// We have to count the marked for removal processes in addition to the other process groups. The reason for this
+		// is that a process groups that is marked for removal will require the operator to spin up an additional process group.
+		// This means as long as we have at least one process group that is marked for removal we have more process groups
+		// than the cluster.GetProcessCountsWithDefaults() will return. The total number of process groups will be the result
+		// of cluster.GetProcessCountsWithDefaults() + the number of process groups marked for removal.
+		if processGroup.IsMarkedForRemoval() {
+			markedForRemoval++
 		}
 
 		// Ignore processes that are missing for more than 30 seconds e.mg. if the process is network partitioned.
@@ -183,6 +196,13 @@ func getProcessesReadyForRestart(logger logr.Logger, cluster *fdbv1beta2.Foundat
 				missingProcesses++
 				continue
 			}
+		}
+
+		// If a Pod is stuck in pending we have to ignore it, as the processes hosted by this Pod will not be running.
+		if cluster.SkipProcessGroup(processGroup) {
+			logger.Info("ignore process group with Pod stuck in pending", "processGroupID", processGroup.ProcessGroupID)
+			missingProcesses++
+			continue
 		}
 
 		if !processGroup.MatchesConditions(filterConditions) {
@@ -224,7 +244,7 @@ func getProcessesReadyForRestart(logger logr.Logger, cluster *fdbv1beta2.Foundat
 	// block the restart command if a process is missing longer than the specified GetIgnoreMissingProcessesSeconds.
 	// Those checks should ensure we only run the restart command if all processes that have to be restarted and are connected
 	// to cluster are ready to be restarted.
-	expectedProcesses := counts.Total() - missingProcesses
+	expectedProcesses := counts.Total() - missingProcesses + markedForRemoval
 	// If more than one storage server per Pod is running we have to account for this. In this case we have to add the
 	// additional storage processes.
 	if cluster.Spec.StorageServersPerPod > 1 {
@@ -233,7 +253,7 @@ func getProcessesReadyForRestart(logger logr.Logger, cluster *fdbv1beta2.Foundat
 
 	if cluster.IsBeingUpgradedWithVersionIncompatibleVersion() && expectedProcesses != len(addresses) {
 		return nil, &requeue{
-			message:        fmt.Sprintf("expected %d processes, got %d processes ready to restart", counts.Total(), len(addresses)),
+			message:        fmt.Sprintf("expected %d processes, got %d processes ready to restart", expectedProcesses, len(addresses)),
 			delayedRequeue: true,
 		}
 	}
@@ -284,42 +304,4 @@ func getAddressesForUpgrade(logger logr.Logger, r *FoundationDBClusterReconciler
 	}
 
 	return addresses, nil
-}
-
-// filterIgnoredProcessGroups removes all addresses from the addresses slice that are associated with a process group that should be ignored
-// during a restart.
-func filterIgnoredProcessGroups(cluster *fdbv1beta2.FoundationDBCluster, addresses []fdbv1beta2.ProcessAddress) ([]fdbv1beta2.ProcessAddress, bool) {
-	if len(cluster.Spec.Buggify.IgnoreDuringRestart) == 0 {
-		return addresses, false
-	}
-
-	ignoredIDs := make(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None, len(cluster.Spec.Buggify.IgnoreDuringRestart))
-	ignoredAddresses := make(map[string]fdbv1beta2.None, len(cluster.Spec.Buggify.IgnoreDuringRestart))
-
-	for _, id := range cluster.Spec.Buggify.IgnoreDuringRestart {
-		ignoredIDs[id] = fdbv1beta2.None{}
-	}
-
-	for _, processGroup := range cluster.Status.ProcessGroups {
-		if _, ok := ignoredIDs[processGroup.ProcessGroupID]; !ok {
-			continue
-		}
-
-		for _, address := range processGroup.Addresses {
-			ignoredAddresses[address] = fdbv1beta2.None{}
-		}
-	}
-
-	filteredAddresses := make([]fdbv1beta2.ProcessAddress, 0, len(addresses)-len(ignoredAddresses))
-	removedAddresses := false
-	for _, address := range addresses {
-		if _, ok := ignoredAddresses[address.MachineAddress()]; ok {
-			removedAddresses = true
-			continue
-		}
-
-		filteredAddresses = append(filteredAddresses, address)
-	}
-
-	return filteredAddresses, removedAddresses
 }

@@ -263,7 +263,7 @@ type FoundationDBStatusConnectedClient struct {
 	Address string `json:"address,omitempty"`
 
 	// LogGroup provides the trace log group the client has set.
-	LogGroup string `json:"log_group,omitempty"`
+	LogGroup LogGroup `json:"log_group,omitempty"`
 }
 
 // Description returns a string description of the a connected client.

@@ -223,9 +223,14 @@ The `ChooseRemovals` subreconciler flags processes for removal when the current 
 
 ### ExcludeProcesses
 
-The `ExcludeProcesses` subreconciler runs an `exclude` command in `fdbcli` for any process group that is marked for removal and is not already being excluded. The `exclude` command tells FoundationDB that a process should not serve any roles, and that any data on that process should be moved to other processes. This exclusion can take a long time, but this subreconciler does not wait for exclusion to complete.
+The `ExcludeProcesses` subreconciler runs an `exclude` command in `fdbcli` for any process group that is marked for removal and is not already being excluded.
+The `exclude` command tells FoundationDB that a process should not serve any roles, and that any data on that process should be moved to other processes.
+This exclusion can take a long time, but this subreconciler does not wait for exclusion to complete.
 
-If there are processes that are not reporting to the cluster and are not marked for removal, this subreconciler will not run any exclusion commands. This is designed to prevent the operator from triggering exclusions before the replacement processes are available. In the case where there are multiple processes that are failing, this can cause reconciliation to get stuck. You can work around this by telling the operator to replace all of the failing processes.
+If there are processes that are not reporting to the cluster and are not marked for removal, this subreconciler will not run any exclusion commands.
+This is designed to prevent the operator from triggering exclusions before the replacement processes are available.
+In the case where there are multiple processes that are failing, this can cause reconciliation to get stuck.
+You can work around this by telling the operator to replace all of the failing processes.
 
 This action requires a lock.
 
@@ -394,6 +399,32 @@ fdb-kubernetes-monitor does not watch the `fdb.cluster` for updates. Changes to 
 When the operator checks the status of the cluster, it needs to check if the process start commands are an exact match for the expected values based on the cluster spec. In order to make this comparison, it needs to fill in pod-specific information like the address and node name. fdb-kubernetes-monitor provides this information through the `foundationdb.org/launcher-environment` annotation on the pod, which contains a map of environment variables to their values. The operator uses this annotation when performing this check on the start command.
 
 All of the flows above go through the `foundationdb` container. The `foundationdb-kubernetes-sidecar` container is only used in the upgrade flow. The sidecar container runs the same image as the main container, but with a different set of arguments to tell it to run in sidecar mode. During the upgrade, the operator upgrades the sidecar to the new version of FDB while leaving the main container at the old version. The sidecar compares the version of FoundationDB that it is running against the main container version, which is provided in its start command. If these versions are the same, the sidecar will do nothing. If they are different, it will copy the FDB binaries from its own image into a volume that it shares with the main container. The main container will receive the desired version of FDB as part of its configuration file. When the main container sees a version of FDB that is different from the one it is running, it will look for the FDB binaries in the directory it shares with the sidecar. If it finds those new binaries, it will load the new configuration and run the binaries from that directory. If these binaries are missing, fdb-kubernetes-monitor will reject the new configuration. Once the new configuration is accepted by all of the pods, the operator will restart the processes so they start running with the new binaries. Once the new version is running, the operator will perform a rolling bounce to update the main container to the new FDB version.
+
+## Interaction Between the Operator and the FoundationDB cluster
+
+The operator will use the [machine-readable status](https://apple.github.io/foundationdb/mr-status.html) of FoundationDB to observe the current state of the FoundationDB cluster.
+Based on the machine-readable status the operator can issue commands to reconcile to the desired state.
+
+### Exclusions in the operator
+
+The operator uses the [exclude](https://apple.github.io/foundationdb/command-line-interface.html#exclude) command to make sure it's safe [to remove a Pod from the cluster](https://apple.github.io/foundationdb/administration.html#removing-machines-from-a-cluster).
+The exclusion is handled in the [exclusion subreconciler](#excludeprocesses) and will make sure that at least a minimum number of processes are up and running before issuing the `exclude` command.
+When the operator observes that some processes must be excluded it tries to exclude them all at once as the exclusion command can trigger a recovery in the FoundationDB cluster.
+A process marked as `excluded` in the machine-readable status means that the FoundationDB cluster will not consider this specific process as an eligible process for the transaction system and all data will be moved away from this process.
+The operator will also make sure to select new coordinators if at least one coordinator is marked as excluded, this is handled in the [change coordinators subreconciler](#changecoordinators).
+
+In order to be able to verify if it's safe to remove the resources of a process the operator will check the roles of the excluded processes.
+If a process is serving no roles and is marked as excluded, it's safe to remove the resources of this process.
+If a process has at least one role, it's not safe to remove this process.
+If a process is missing in the machine-readable status the operator will issue an additional `exclude` command for those missing processes to ensure they are not serving any log or storage roles.
+
+The current default for the operator is to use the Pod IP for the exclusion command, if a Pod get's deleted and recreated it could get a new IP address and the operator has to issue a new exclude command for the new IP address.
+To workaround this FoundationDB added support for locality based exclusions in 7.0 and the operator supports this by setting [useLocalitiesForExclusion](https://github.com/FoundationDB/fdb-kubernetes-operator/blob/main/docs/cluster_spec.md#foundationdbclusterautomationoptions) in the FoundationDBCluster spec.
+
+**Warning** the locality-based exclusions are not well tested in our e2e test setup ye.
+locality based exclusion
+
+The operator is not able to use the `failed` option for exclusions.
 
 ## Next
 

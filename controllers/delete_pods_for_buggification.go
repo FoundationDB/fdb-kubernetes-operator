@@ -53,8 +53,8 @@ func (d deletePodsForBuggification) reconcile(ctx context.Context, r *Foundation
 
 	var updates []*corev1.Pod
 	for _, processGroup := range cluster.Status.ProcessGroups {
-		if processGroup.IsMarkedForRemoval() {
-			logger.V(1).Info("Ignore process group marked for removal",
+		if processGroup.GetConditionTime(fdbv1beta2.ResourcesTerminating) != nil {
+			logger.V(1).Info("Ignore process group stuck in terminating",
 				"processGroupID", processGroup.ProcessGroupID)
 			continue
 		}

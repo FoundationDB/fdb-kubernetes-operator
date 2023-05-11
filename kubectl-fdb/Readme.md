@@ -2,6 +2,13 @@
 
 ## Installation
 
+Make sure you have `sha256sum` and `jq` installed otherwise run the following `brew` commands:
+
+```bash
+brew install coreutils # required for sha256sum
+brew install jq # required for jq
+```
+
 The `kubectl fdb plugin` is released as a binary as part of our release process.
 For the latest version take a look at the [release page](https://github.com/FoundationDB/fdb-kubernetes-operator/releases).
 
@@ -10,7 +17,7 @@ Install from release:
 ```bash
 pushd $TMPDIR
 OS=$(uname)
-ARCH=$(uname -mu)
+ARCH=$(uname -m)
 VERSION="$(curl -s "https://api.github.com/repos/FoundationDB/fdb-kubernetes-operator/releases/latest" | jq -r '.tag_name')"
 curl -sLO "https://github.com/FoundationDB/fdb-kubernetes-operator/releases/download/${VERSION}/checksums.txt"
 curl -sLO "https://github.com/FoundationDB/fdb-kubernetes-operator/releases/download/${VERSION}/kubectl-fdb_${VERSION}_${OS}_${ARCH}"

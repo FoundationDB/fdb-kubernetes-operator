@@ -62,6 +62,7 @@ BuggifyConfig provides options for injecting faults into a cluster for testing.
 | crashLoopContainers | CrashLoopContainers defines a list of process group IDs and containers that should be put into a crash looping state. | [][CrashLoopContainerObject](#crashloopcontainerobject) | false |
 | emptyMonitorConf | EmptyMonitorConf instructs the operator to update all of the fdbmonitor.conf files to have zero fdbserver processes configured. | bool | false |
 | ignoreDuringRestart | IgnoreDuringRestart instructs the operator to ignore the provided process groups IDs during the restart command. This can be useful to simulate cases where the kill command is not restarting all processes. IgnoreDuringRestart does not support the wildcard option to ignore all of this specific cluster processes. | [][ProcessGroupID](#processgroupid) | false |
+| blockRemoval | BlockRemoval defines a list of process group IDs that will not be removed, even if they are marked for removal. The operator will trigger the exclusion but the removal of the resources will be blocked until they are removed from this list. This setting can be used to simulate cases where a process group is marked for removal but the resources are not yet removed. | [][ProcessGroupID](#processgroupid) | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -183,7 +184,7 @@ FoundationDBClusterAutomationOptions provides flags for enabling or disabling op
 | podUpdateStrategy | PodUpdateStrategy defines how Pod spec changes are rolled out either by replacing Pods or by deleting Pods. The default for this is ReplaceTransactionSystem. | [PodUpdateStrategy](#podupdatestrategy) | false |
 | useManagementAPI | UseManagementAPI defines if the operator should make use of the management API instead of using fdbcli to interact with the FoundationDB cluster. | *bool | false |
 | maintenanceModeOptions | MaintenanceModeOptions contains options for maintenance mode related settings. | [MaintenanceModeOptions](#maintenancemodeoptions) | false |
-| ignoreLogGroupsForUpgrade | IgnoreLogGroupsForUpgrade defines the list of LogGroups that should be ignored during fdb version upgrade. | []string | false |
+| ignoreLogGroupsForUpgrade | IgnoreLogGroupsForUpgrade defines the list of LogGroups that should be ignored during fdb version upgrade. | [][LogGroup](#loggroup) | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -331,6 +332,12 @@ LockSystemStatus provides a summary of the status of the locking system.
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
 | lockDenyList | DenyList contains a list of operator instances that are prevented from taking locks. | []string | false |
+
+[Back to TOC](#table-of-contents)
+
+## LogGroup
+
+LogGroup represents a LogGroup used by a FoundationDB process to log trace events. The LogGroup can be used to filter clients during an upgrade.
 
 [Back to TOC](#table-of-contents)
 

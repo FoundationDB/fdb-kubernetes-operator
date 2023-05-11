@@ -9877,6 +9877,7 @@ spec:
                     type: integer
                   ignoreLogGroupsForUpgrade:
                     items:
+                      maxLength: 256
                       type: string
                     maxItems: 10
                     type: array
@@ -9936,6 +9937,12 @@ spec:
                 type: object
               buggify:
                 properties:
+                  blockRemoval:
+                    items:
+                      maxLength: 63
+                      type: string
+                    maxItems: 1000
+                    type: array
                   crashLoop:
                     items:
                       maxLength: 63

@@ -53,8 +53,8 @@ func (updateSidecarVersions) reconcile(ctx context.Context, r *FoundationDBClust
 
 	podMap := internal.CreatePodMap(cluster, pods)
 	for _, processGroup := range cluster.Status.ProcessGroups {
-		if processGroup.IsMarkedForRemoval() {
-			logger.V(1).Info("Ignore process group marked for removal",
+		if processGroup.GetConditionTime(fdbv1beta2.ResourcesTerminating) != nil {
+			logger.V(1).Info("Ignore process group that is stuck terminating",
 				"processGroupID", processGroup.ProcessGroupID)
 			continue
 		}

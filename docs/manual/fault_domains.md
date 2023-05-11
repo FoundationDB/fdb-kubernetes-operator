@@ -315,7 +315,6 @@ FoundationDB clusters that are spread across different DC's or Kubernetes cluste
 The reason behind this is that the coordinator selection is a global process and different `coordinatorSelection` of the `FoundationDBCluster` resources can lead to an undefined behaviour or in the worst case flapping coordinators.
 There are plans to support this feature in the future.
 
-
 ## Next
 
 You can continue on to the [next section](tls.md) or go back to the [table of contents](index.md).
