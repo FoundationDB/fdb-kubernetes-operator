@@ -46,7 +46,7 @@ destroy-my-namespaces:
 
 # This target can be used to create a kind cluster that can be used for e2e testing.
 kind-setup:
-	@CHAOS_NAMESPACE=$(CHAOS_NAMESPACE) FDB_VERSION=$(FDB_VERSION) REGISTRY=$(REGISTRY) $(shell pwd)/scripts/setup_e2e.sh
+	@CHAOS_NAMESPACE=$(CHAOS_NAMESPACE) FDB_VERSION=$(FDB_VERSION) UPGRADE_VERSIONS=$(UPGRADE_VERSIONS) PREVIOUS_FDB_VERSION=$(PREVIOUS_FDB_VERSION) REGISTRY=$(REGISTRY) $(shell pwd)/scripts/setup_e2e.sh
 
 # This target will remove the kind cluster.
 kind-destroy:
