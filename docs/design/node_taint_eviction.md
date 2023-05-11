@@ -2,36 +2,41 @@
 
 ## Metadata
 
-* Authors: @johscheuer
+* Authors: @johscheuer, @xumengpanda
 * Created: 2023-02-14
-* Updated: 2023-03-08
+* Updated: 2023-05-11
 
 ## Background
 
 The operator is currently able to detect failures of Pods and replace them if required, the replacement is happening based on the [conditions that need replacement](https://github.com/FoundationDB/fdb-kubernetes-operator/blob/v1.14.0/api/v1beta2/foundationdbcluster_types.go#L65).
-One of the missing pieces in failure mitigation is to evict Pods from tainted nodes.
+One of the missing pieces in failure mitigation is to evict Pods from tainted Nodes.
 In Kubernetes it's common to use [taints](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration) to indicate potential problems with a node or planned maintenance.
-This information could be consumed by the operator to proactively replace Pods that are running on nodes with a given set of taints.
+This information could be consumed by the operator to proactively replace Pods that are running on Nodes with a given set of taints.
 
 ## General Design Goals
 
-The goal of this design is to implement a mechanism that allows the operator to replace Pods that are running on nodes with a given set of taints.
-It's expected that the operator will detect the Pods running on tainted nodes in a timely manner, either by receiving an event triggering the reconciliation loop or when running the periodic reconciliation, which will happen every 10h per default.
-The actual replacement of all Pods running on tainted nodes, depends on the data that must be replicated and the number of affected Pods.
+The goal of this design is to implement a mechanism that allows the operator to replace Pods that are running on Nodes with a given set of taints.
+It's expected that the operator will detect the Pods running on tainted Nodes in a timely manner, either by receiving an event triggering the reconciliation loop or by periodic reconciliation events that happen every 10h by default. Once the operator marks Pods on tainted Nodes as `NodeTaintReplacing`, the operator will re-use the replacement logic to replace those Pods. The actual replacement speed depends on the speed of excluding processes, the number of Pods to replace, and the allowed maximum number of inflight replacements (defined by `automationOptions.replacements.maxConcurrentReplacements`).
 
 ## Current Implementation
+The operator does not have this feature. It does not have access to list Node information. It does not consider taint-related events in Pod's condition.
 
-We don't have a current implementation of this and the operator is currently not able to access any node information.
-The closest implementation to this is the [Replace Failed ProcessGroups reconciler](https://github.com/FoundationDB/fdb-kubernetes-operator/blob/main/controllers/replace_failed_process_groups.go), which could be extended for this.
+The operator does replace failed ProcessGroups in the [Replace Failed ProcessGroups reconciler](https://github.com/FoundationDB/fdb-kubernetes-operator/blob/main/controllers/replace_failed_process_groups.go). It can extend it to support this feature.
 
 ## Proposed Design
 
-We have to make sure that this feature can be enabled and disabled, e.g. if someone wants to run the operator inside a cluster without node access.
-The `AutomaticReplacementOptions` will be extended to support the configuration of replacements for Pods that run on tainted nodes.
-The new field will be called `taints` and will contain a list, the default would be an empty list, of taint configurations.
-That configuration will include the taint key, this has to be an exact match or a wildcard `*`, and the duration this taint must be present on the node.
-The `durationInSeconds` allow to specify how sensitive the operator should be to taints.
-If a wildcard is specified as key this will be used as default value, except there is an exact match defined for a taint key.
+### Design Requirements
+**Requirement 1.** The feature can be enabled and disabled by users, because (1) when someone wants to run the operator inside a k8s cluster without Node access, they should be able to bypass this feature; (2) when we notice problems during roll-out of this feature, we need to disable it online.
+
+The feature can be disabled by option `automationOptions.replacements.taintReplacementOptions = {}`.
+
+**Requirement 2.** The feature allows users to configure a set of specific taint keys to detect and replace.
+
+Users can configure the taint feature in the new field `taints` inside `automaticReplacementOptions`. The `taints` field is a list of `(key, durationInSeconds)` pairs, which defines operator's behavior on the taint key.
+
+Users can use `automaticReplacementOptions.taintReplacementTimeSeconds` to control how fast operator should replace Pods on tainted Nodes. Users can configure operator to replace Pods on tainted Nodes much faster than the normal replacement by setting a smaller value of `taintReplacementTimeSeconds`.
+
+Example configuration:
 
 ```yaml
 ...
@@ -42,51 +47,37 @@ automaticReplacementOptions:
   enableNodeFailureDetection: true
   taints:
   - key: "example.org/maintenance"
-    durationInSeconds: 7200 # Ensure the taint is present for at least 2 hours before replacing Pods on a node with this taint
-  - key: "*" # The wildcard would allow to define a catch all configuration
-    durationInSeconds: 3600 # Ensure the taint is present for at least 1 hour before replacing Pods on a node with this taint
+    durationInSeconds: 7200 # Mark Pods to be replaced after this taint key has been on the Node for at least 7200 seconds (i.e., 2 hours).
+  - key: "example.org/disconnected"
+    durationInSeconds: 1200 # Mark Pods to be replaced after this taint key has been on the Node for at least 1200 seconds (i.e., 20 mins).
+  - key: "*" # The wildcard will match all taint keys
+    durationInSeconds: 3600 # Mark Pods to be replaced after a taint key, which does not have exact match in the taints list, has been on the Node for at least 3600 seconds.
+  taintReplacementTimeSeconds: 1800 # A Pod marked to be replaced due to taints must stay in the to-be-replaced state for 1800 seconds before it is automatically replaced.
 ```
 
-We will add a new [ProcessGroupConditionType](https://github.com/FoundationDB/fdb-kubernetes-operator/blob/main/api/v1beta2/foundationdbcluster_types.go#L673), called `RunningOnTaintedNode` to mark process groups that are running on a tainted node.
-In addition we will extend the  [conditions that need replacement](https://github.com/FoundationDB/fdb-kubernetes-operator/blob/v1.14.0/api/v1beta2/foundationdbcluster_types.go#L65) by the newly created `RunningOnTaintedNode` condition.
-Those two steps will make sure that the marked process groups will be eventually replaced by the operator.
-The minimum time until a process group that is running on a newly tainted node will be replaced is `failureDetectionTimeSeconds` (default 2h) + `durationInSeconds` from the taint configuration.
-In the example above this will be 4 hours for a node that gets tainted with `example.org/maintenance`.
+In the above configuration, it takes at least 3000 seconds (1200 + 1800) for the operator to replace a Pod on a Node with taint key `example.com/disconnected`, because it takes `durationInSeconds`, i.e., 1200 seconds, to mark the Pod to be replaced and it takes another `taintReplacementTimeSeconds`, i.e., 1800 seconds, to start replacing the Pod.
 
-The [update_status](https://github.com/FoundationDB/fdb-kubernetes-operator/blob/main/controllers/update_status.go) subreconciler will be extended to mark process groups running on a tainted node with the new condition.
-This can be achieved by iterating over all Pods and make requests to the node object, one example implementation could look like this:
+**Requirement 3.** The feature lists the taint status for process groups. This allows users to have a holistic view of which Pods in a FDB cluster are running on tainted Nodes and being replaced.
 
-```go
-func checkProcessGroupsRunningOnTaintedNodes(pods []*corev1.Pod, status *fdbv1beta2.FoundationDBClusterStatus) {
-    if !cluster.NodeFailureDetectionEnabled() {
-        return
-    }
+### Implementation
 
-    nodeTaintedMap := internal.GetNodes(pods) // This will generate a map containing the node name as key and a boolean value indicating if the node is "tainted"
-    for node, _ := range nodeMap {
-        // Check if node has a taint for the minimum duration in that case we will set the value to true.
-    }
+We need to make the following four types of changes:
 
-    podMap := internal.CreatePodMap(cluster, pods)
-    for _, processGroup := range status.ProcessGroups {
-        pod, podExists := podMap[processGroup.ProcessGroupID]
-        if !podExists {
-            continue
-        }
+**CRD change.** We need to extend the `automaticReplacementOptions` with the new fields `taints` and `taintReplacementTimeSeconds`
 
-        tainted, nodeFound := nodeTaintedMap[pod.Spec.NodeName]
-        if !nodeFound {
-            continue
-        }
+**Detect Node taint and change ProcessGroup condition.**  We can extend the existing `validateProcessGroup()` function in `update_status` reconciler to detect if a Pod is running on a tainted Node and mark the ProcessGroup's taint-related condition accordingly.
 
-        processGroup.UpdateCondition(fdbv1beta2.RunningOnTaintedNode, tainted, status.ProcessGroups, processGroup.ProcessGroupID)
-    }
-}
-```
+**Status of ProcessGroup taint-related condition.** We will add two [ProcessGroupConditionType](https://github.com/FoundationDB/fdb-kubernetes-operator/blob/main/api/v1beta2/foundationdbcluster_types.go#L673):
+- `NodeTaintDetected` represents a ProcessGroup Node is tainted, but not long enough to replace it.
+- `NodeTaintReplacing` represents a ProcessGroup whose Node has been tainted for longer-than-configured time and the ProcessGroup should be replaced.
 
-The limitation of this approach would be that we only detect Pods running on tainted nodes when a reconciliation is happening (those are not coupled to node events).
-To work around this we could extend the operator and let the operator watch node events, that could be potentially a high volume of events, so we have to make sure we get the right signals.
-The controller-runtime already supports to let the operator watch resources that are not managed by itself, see [Watching Externally Managed Resources](https://book.kubebuilder.io/reference/watching-resources/externally-managed.html).
+**Replace ProcessGroups with `NodeTaintReplacing` conditioin.** We can extend the existing replacement logic to replace ProcessGroups with `NodeTaintReplacing` condition. We can do this by adding the `NodeTaintReplacing` condition to [`conditionsThatNeedReplacement` list](https://github.com/FoundationDB/fdb-kubernetes-operator/blob/d38d6bc7abf7764215976b75d581c933280389f8/api/v1beta2/foundationdbcluster_types.go#L65-L67)
+
+
+## Limitations
+The operator will only detect tainted Nodes when its reconciliation is triggered. This may increase the delay of detecting and replacing Pods on tainted Nodes.
+
+The limitation can be resolved by letting the operator watch node events. The controller-runtime already supports to let the operator watch resources that are not managed by itself, see [Watching Externally Managed Resources](https://book.kubebuilder.io/reference/watching-resources/externally-managed.html). [Tracked issue#1629](https://github.com/FoundationDB/fdb-kubernetes-operator/issues/1629)
 
 ## Related Links
 
