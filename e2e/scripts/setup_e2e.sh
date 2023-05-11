@@ -71,6 +71,17 @@ kubectl apply -f "${SCRIPT_DIR}/../../config/crd/bases/"
 
 echo "Install the chaos-mesh in the Kind cluster"
 kubectl create ns "${CHAOS_NAMESPACE}" || true
+
+# If helm is not installed install it.
+if ! which helm &> /dev/null;
+then
+  pushd tmp
+  curl -sLo ./helm.tar.gz https://get.helm.sh/helm-v3.12.0-linux-amd64.tar.gz
+  tar -zxvf ./helm.tar.gz
+  mv linux-amd64/helm /usr/local/bin/helm
+  popd
+fi
+
 helm repo add chaos-mesh https://charts.chaos-mesh.org
 helm repo update
 
