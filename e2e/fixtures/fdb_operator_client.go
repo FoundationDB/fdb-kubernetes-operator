@@ -333,13 +333,21 @@ spec:
         emptyDir: {}`
 )
 
+// operatorConfig represents the configuration of the operator Deployment.
 type operatorConfig struct {
-	OperatorImage    string
-	SecretName       string
+	// OperatorImage represents the operator image that should be used in the Deployment.
+	OperatorImage string
+	// SecretName represents the Kubernetes secret that contains the certificates for communicating with the FoundationDB
+	// cluster.
+	SecretName string
+	// BackupSecretName represents the secret that should be used to communicate with the backup blobstore.
 	BackupSecretName string
-	SidecarVersions  []SidecarConfig
-	Namespace        string
-	ImagePullPolicy  string
+	// SidecarVersions represents the sidecar configurations for different FoundationDB versions.
+	SidecarVersions []SidecarConfig
+	// Namespace represents the namespace for the Deployment and all associated resources
+	Namespace string
+	// ImagePullPolicy represents the pull policy for the operator container.
+	ImagePullPolicy corev1.PullPolicy
 }
 
 // SidecarConfig represents the configuration for a sidecar. This can be used for templating.
@@ -350,6 +358,8 @@ type SidecarConfig struct {
 	SidecarTag string
 	// FDBVersion represents the FoundationDB version for this config.
 	FDBVersion fdbv1beta2.Version
+	// ImagePullPolicy represents the pull policy for the sidecar.
+	ImagePullPolicy corev1.PullPolicy
 }
 
 // GetSidecarConfigs returns the sidecar configs. The sidecar configs can be used to template applications that will use
@@ -403,6 +413,8 @@ func getSidecarConfig(baseImage string, tag string, version fdbv1beta2.Version) 
 		BaseImage:  baseImage,
 		FDBVersion: version,
 		SidecarTag: tag,
+		// TODO(johscheuer): Make this configurable as CLI flag.
+		ImagePullPolicy: corev1.PullIfNotPresent,
 	}
 }
 
@@ -415,7 +427,7 @@ func (factory *Factory) getOperatorConfig(namespace string) *operatorConfig {
 		Namespace:        namespace,
 		SidecarVersions:  factory.GetSidecarConfigs(),
 		// TODO(johscheuer): Make this configurable as CLI flag.
-		ImagePullPolicy: string(corev1.PullIfNotPresent),
+		ImagePullPolicy: corev1.PullIfNotPresent,
 	}
 }
 
