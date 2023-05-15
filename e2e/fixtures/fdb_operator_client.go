@@ -218,7 +218,7 @@ spec:
         {{ range $index, $version := .SidecarVersions }}
         - name: foundationdb-kubernetes-init-{{ $index }}
           image: {{ .BaseImage }}:{{ .SidecarTag}}
-          imagePullPolicy: Always
+          imagePullPolicy: {{ .ImagePullPolicy }}
           command:
             - /bin/bash
           # This is a workaround for a change of the version schema that was never tested/supported
@@ -236,7 +236,7 @@ spec:
         {{ if eq .FDBVersion.Compact "7.1" }}
         - name: foundationdb-kubernetes-init-7-1-primary
           image: {{ .BaseImage }}:{{ .SidecarTag}}
-          imagePullPolicy: Always
+          imagePullPolicy: {{ .ImagePullPolicy }}
           args:
             # Note that we are only copying a library, rather than copying any binaries. 
             - "--copy-library"
@@ -339,6 +339,7 @@ type operatorConfig struct {
 	BackupSecretName string
 	SidecarVersions  []SidecarConfig
 	Namespace        string
+	ImagePullPolicy  string
 }
 
 // SidecarConfig represents the configuration for a sidecar. This can be used for templating.
@@ -413,6 +414,8 @@ func (factory *Factory) getOperatorConfig(namespace string) *operatorConfig {
 		BackupSecretName: factory.GetBackupSecretName(),
 		Namespace:        namespace,
 		SidecarVersions:  factory.GetSidecarConfigs(),
+		// TODO(johscheuer): Make this configurable as CLI flag.
+		ImagePullPolicy: string(corev1.PullIfNotPresent),
 	}
 }
 

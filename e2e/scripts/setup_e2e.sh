@@ -1,4 +1,3 @@
-
 #!/usr/bin/env bash
 
 # This source file is part of the FoundationDB open source project
@@ -31,6 +30,7 @@ function get_image_name() {
 }
 
 function preload_foundationdb_images() {
+  echo "loading images: ${2} and ${3}"
   kind load docker-image "${2}" --name "${1}"
   kind load docker-image "${3}" --name "${1}"
 }

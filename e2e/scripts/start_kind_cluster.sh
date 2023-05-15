@@ -26,16 +26,30 @@ KUBE_VERSION=${KUBE_VERSION:-"v1.24.7"}
 CLUSTER=${CLUSTER:-"ci-test"}
 
 # Create the Kind cluster with the specified Kubernetes version.
+# The extra mount makes sure that the Kind cluster is able to pull images from
+# a private registry, see: https://kind.sigs.k8s.io/docs/user/private-registries/#mount-a-config-file-to-each-node
 cat <<EOF | kind create cluster --name "${CLUSTER}" --config=-
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 nodes:
 - role: control-plane
   image: kindest/node:${KUBE_VERSION}
+  extraMounts:
+  - containerPath: /var/lib/kubelet/config.json
+    hostPath: $HOME/.docker/config.json
 - role: worker
   image: kindest/node:${KUBE_VERSION}
+  extraMounts:
+  - containerPath: /var/lib/kubelet/config.json
+    hostPath: $HOME/.docker/config.json
 - role: worker
   image: kindest/node:${KUBE_VERSION}
+  extraMounts:
+  - containerPath: /var/lib/kubelet/config.json
+    hostPath: $HOME/.docker/config.json
 - role: worker
   image: kindest/node:${KUBE_VERSION}
+  extraMounts:
+  - containerPath: /var/lib/kubelet/config.json
+    hostPath: $HOME/.docker/config.json
 EOF
