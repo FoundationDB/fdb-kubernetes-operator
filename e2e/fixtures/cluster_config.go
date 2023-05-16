@@ -119,7 +119,8 @@ func (config *ClusterConfig) SetDefaults(factory *Factory) {
 	}
 
 	if config.VolumeSize == "" {
-		config.VolumeSize = "16Gi"
+		// config.VolumeSize = "16Gi"
+		config.VolumeSize = "4Gi"
 	}
 
 	if config.StorageServerPerPod == 0 {
