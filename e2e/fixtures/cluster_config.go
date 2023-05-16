@@ -159,11 +159,13 @@ func (config *ClusterConfig) generatePodResources(
 	processClass fdbv1beta2.ProcessClass,
 ) corev1.ResourceList {
 	if !config.Performance {
+		return corev1.ResourceList{}
 		// Minimal resource requests for this cluster to be functional
-		return corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("0.2"),
-			corev1.ResourceMemory: resource.MustParse("2Gi"),
-		}
+		// TODO
+		//return corev1.ResourceList{
+		//	corev1.ResourceCPU:    resource.MustParse("0.2"),
+		//	corev1.ResourceMemory: resource.MustParse("2Gi"),
+		//}
 	}
 
 	// FDB is single threaded so we can assign 1 CPU per process in this Pod and 8 Gi is the default memory footprint
