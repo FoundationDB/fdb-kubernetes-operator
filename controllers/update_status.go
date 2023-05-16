@@ -175,7 +175,6 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 	if err != nil {
 		return &requeue{curError: fmt.Errorf("update_status skipped due to error in validateProcessGroups: %w", err)}
 	}
-	removeDuplicateConditions(status)
 
 	existingConfigMap := &corev1.ConfigMap{}
 	err = r.Get(ctx, types.NamespacedName{Namespace: configMap.Namespace, Name: configMap.Name}, existingConfigMap)
@@ -358,7 +357,7 @@ func checkAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbv1be
 
 	processStatus := processMap[processID]
 
-	processGroupStatus.UpdateCondition(fdbv1beta2.MissingProcesses, len(processStatus) == 0, cluster.Status.ProcessGroups, processID)
+	processGroupStatus.UpdateCondition(fdbv1beta2.MissingProcesses, len(processStatus) == 0)
 	if len(processStatus) == 0 {
 		return nil
 	}
@@ -375,7 +374,7 @@ func checkAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbv1be
 		commandLine, err := internal.GetStartCommand(cluster, processGroupStatus.ProcessClass, podClient, processNumber, processCount)
 		if err != nil {
 			if internal.IsNetworkError(err) {
-				processGroupStatus.UpdateCondition(fdbv1beta2.SidecarUnreachable, true, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
+				processGroupStatus.UpdateCondition(fdbv1beta2.SidecarUnreachable, true)
 				return nil
 			}
 
@@ -400,9 +399,9 @@ func checkAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbv1be
 		}
 	}
 
-	processGroupStatus.UpdateCondition(fdbv1beta2.IncorrectCommandLine, !correct, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
+	processGroupStatus.UpdateCondition(fdbv1beta2.IncorrectCommandLine, !correct)
 	// Reset status for sidecar unreachable, since we are here at this point we were able to reach the sidecar for the substitute variables.
-	processGroupStatus.UpdateCondition(fdbv1beta2.SidecarUnreachable, false, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
+	processGroupStatus.UpdateCondition(fdbv1beta2.SidecarUnreachable, false)
 
 	return nil
 }
@@ -426,21 +425,31 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 	}
 
 	for _, processGroup := range processGroups {
+		// If the process group should be removed mark it for removal.
+		if cluster.ProcessGroupIsBeingRemoved(processGroup.ProcessGroupID) {
+			processGroup.MarkForRemoval()
+			// Check if we should skip exclusion for the process group
+			_, ok := processGroupsWithoutExclusion[processGroup.ProcessGroupID]
+			if ok {
+				processGroup.ExclusionSkipped = ok
+				processGroup.SetExclude()
+			}
+		}
+
 		pod, podError := r.PodLifecycleManager.GetPod(ctx, r, cluster, processGroup.GetPodName(cluster))
 
 		// If the process group is not being removed and the Pod is not set we need to put it into
 		// the failing list.
-		isBeingRemoved := cluster.ProcessGroupIsBeingRemoved(processGroup.ProcessGroupID)
 		if k8serrors.IsNotFound(podError) {
 			// Mark process groups as terminating if the pod has been deleted but other
 			// resources are stuck in terminating.
-			if isBeingRemoved {
-				processGroup.UpdateCondition(fdbv1beta2.ResourcesTerminating, true, processGroups, processGroup.ProcessGroupID)
+			if processGroup.IsMarkedForRemoval() && processGroup.IsExcluded() {
+				processGroup.UpdateCondition(fdbv1beta2.ResourcesTerminating, true)
 			} else {
-				processGroup.UpdateCondition(fdbv1beta2.MissingPod, true, processGroups, processGroup.ProcessGroupID)
+				processGroup.UpdateCondition(fdbv1beta2.MissingPod, true)
 			}
 
-			processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, false, nil, "")
+			processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, false)
 			continue
 		}
 
@@ -449,9 +458,9 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 
 		// In this case the Pod has a DeletionTimestamp and should be deleted.
 		if !pod.ObjectMeta.DeletionTimestamp.IsZero() {
-			// If the ProcessGroup is marked for removal we can put the status into ResourcesTerminating
-			if processGroup.IsMarkedForRemoval() {
-				processGroup.UpdateCondition(fdbv1beta2.ResourcesTerminating, true, processGroups, processGroup.ProcessGroupID)
+			// If the ProcessGroup is marked for removal and is excluded, we can put the status into ResourcesTerminating.
+			if processGroup.IsMarkedForRemoval() && processGroup.IsExcluded() {
+				processGroup.UpdateCondition(fdbv1beta2.ResourcesTerminating, true)
 				continue
 			}
 			// Otherwise we set PodFailing to ensure that the operator will trigger a replacement. This case can happen
@@ -459,11 +468,11 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 			// cluster. We only set this condition if the Pod is in this state for GetFailedPodDuration(), the default
 			// here is 5 minutes.
 			if pod.ObjectMeta.DeletionTimestamp.Add(cluster.GetFailedPodDuration()).Before(time.Now()) {
-				processGroup.UpdateCondition(fdbv1beta2.PodFailing, true, processGroups, processGroup.ProcessGroupID)
+				processGroup.UpdateCondition(fdbv1beta2.PodFailing, true)
 				continue
 			}
 
-			processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, false, nil, "")
+			processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, false)
 		}
 
 		// Even the process group will be removed we need to keep the config around.
@@ -488,15 +497,6 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 		}
 		if !imageTypeFound {
 			status.ImageTypes = append(status.ImageTypes, imageTypeString)
-		}
-
-		if isBeingRemoved {
-			if processGroup.RemovalTimestamp.IsZero() {
-				processGroup.MarkForRemoval()
-			}
-			// Check if we should skip exclusion for the process group
-			_, ok := processGroupsWithoutExclusion[processGroup.ProcessGroupID]
-			processGroup.ExclusionSkipped = ok
 		}
 
 		if pod.ObjectMeta.DeletionTimestamp.IsZero() && status.HasListenIPsForAllPods {
@@ -548,7 +548,7 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster,
 	pod *corev1.Pod, currentPVC *corev1.PersistentVolumeClaim, configMapHash string, processGroupStatus *fdbv1beta2.ProcessGroupStatus,
 	disableTaintFeature bool, nodeMap map[string]*corev1.Node, logger logr.Logger) error {
-	processGroupStatus.UpdateCondition(fdbv1beta2.MissingPod, pod == nil, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
+	processGroupStatus.UpdateCondition(fdbv1beta2.MissingPod, pod == nil)
 	if pod == nil {
 		return nil
 	}
@@ -572,7 +572,7 @@ func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler,
 		incorrectPod = !updated
 	}
 
-	processGroupStatus.UpdateCondition(fdbv1beta2.IncorrectPodSpec, incorrectPod, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
+	processGroupStatus.UpdateCondition(fdbv1beta2.IncorrectPodSpec, incorrectPod)
 
 	// If we do a cluster version incompatible upgrade we use the fdbv1beta2.IncorrectConfigMap to signal when the operator
 	// can restart fdbserver processes. Since the ConfigMap itself won't change during the upgrade we have to run the updatePodDynamicConf
@@ -589,7 +589,7 @@ func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler,
 		synced = pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey] == configMapHash
 	}
 
-	processGroupStatus.UpdateCondition(fdbv1beta2.IncorrectConfigMap, !synced, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
+	processGroupStatus.UpdateCondition(fdbv1beta2.IncorrectConfigMap, !synced)
 
 	desiredPvc, err := internal.GetPvc(cluster, processGroupStatus.ProcessClass, idNum)
 	if err != nil {
@@ -604,10 +604,10 @@ func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler,
 		log.Info("ValidateProcessGroup found incorrectPVC", "CurrentPVC", currentPVC, "DesiredPVC", desiredPvc)
 	}
 
-	processGroupStatus.UpdateCondition(fdbv1beta2.MissingPVC, incorrectPVC, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
+	processGroupStatus.UpdateCondition(fdbv1beta2.MissingPVC, incorrectPVC)
 
 	if pod.Status.Phase == corev1.PodPending {
-		processGroupStatus.UpdateCondition(fdbv1beta2.PodPending, true, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
+		processGroupStatus.UpdateCondition(fdbv1beta2.PodPending, true)
 		return nil
 	}
 
@@ -638,8 +638,8 @@ func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler,
 		}
 	}
 
-	processGroupStatus.UpdateCondition(fdbv1beta2.PodFailing, failing, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
-	processGroupStatus.UpdateCondition(fdbv1beta2.PodPending, false, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
+	processGroupStatus.UpdateCondition(fdbv1beta2.PodFailing, failing)
+	processGroupStatus.UpdateCondition(fdbv1beta2.PodPending, false)
 
 	if !disableTaintFeature {
 		// Update taint status
@@ -692,14 +692,14 @@ func updateTaintCondition(ctx context.Context, r *FoundationDBClusterReconciler,
 			}
 
 			hasMatchingTaint = true
-			processGroupStatus.UpdateCondition(fdbv1beta2.NodeTaintDetected, true, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
+			processGroupStatus.UpdateCondition(fdbv1beta2.NodeTaintDetected, true)
 			// Use node taint's timestamp as the NodeTaintDetected condition's starting time
 			if !taint.TimeAdded.IsZero() && taint.TimeAdded.Time.Unix() < *processGroupStatus.GetConditionTime(fdbv1beta2.NodeTaintDetected) {
 				processGroupStatus.UpdateConditionTime(fdbv1beta2.NodeTaintDetected, taint.TimeAdded.Unix())
 			}
 			taintDetectedTime := pointer.Int64Deref(processGroupStatus.GetConditionTime(fdbv1beta2.NodeTaintDetected), math.MaxInt64)
 			if time.Now().Unix()-taintDetectedTime > pointer.Int64Deref(taintConfiguredKey.DurationInSeconds, math.MaxInt64) {
-				processGroupStatus.UpdateCondition(fdbv1beta2.NodeTaintReplacing, true, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
+				processGroupStatus.UpdateCondition(fdbv1beta2.NodeTaintReplacing, true)
 				logger.Info("Add NodeTaintReplacing condition", "Pod", pod.Name, "Node", node.Name,
 					"TaintKey", taint.Key, "TaintDetectedTime", taintDetectedTime,
 					"TaintDuration", int64(time.Since(time.Unix(taintDetectedTime, 0))),
@@ -712,45 +712,10 @@ func updateTaintCondition(ctx context.Context, r *FoundationDBClusterReconciler,
 		// Remove NodeTaintDetected condition if the pod is no longer on a tainted node;
 		// This is needed especially when a node's status is flapping
 		// We do not remove NodeTaintDetected because the NodeTaintDetected condition is only added when taint is there for configured long time
-		processGroupStatus.UpdateCondition(fdbv1beta2.NodeTaintDetected, false, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
+		processGroupStatus.UpdateCondition(fdbv1beta2.NodeTaintDetected, false)
 	}
 
 	return nil
-}
-
-// removeDuplicateConditions will remove all duplicated conditions from the status and if a process group has the ResourcesTerminating
-// condition it will remove all other conditions on that process group.
-func removeDuplicateConditions(status fdbv1beta2.FoundationDBClusterStatus) {
-	for _, processGroupStatus := range status.ProcessGroups {
-		conditionTimes := make(map[fdbv1beta2.ProcessGroupConditionType]int64, len(processGroupStatus.ProcessGroupConditions))
-		copiedConditions := make(map[fdbv1beta2.ProcessGroupConditionType]bool, len(processGroupStatus.ProcessGroupConditions))
-		conditions := make([]*fdbv1beta2.ProcessGroupCondition, 0, len(processGroupStatus.ProcessGroupConditions))
-		isTerminating := false
-
-		for _, condition := range processGroupStatus.ProcessGroupConditions {
-			existingTime, present := conditionTimes[condition.ProcessGroupConditionType]
-			if !present || existingTime > condition.Timestamp {
-				conditionTimes[condition.ProcessGroupConditionType] = condition.Timestamp
-			}
-
-			if condition.ProcessGroupConditionType == fdbv1beta2.ResourcesTerminating {
-				isTerminating = true
-			}
-		}
-
-		for _, condition := range processGroupStatus.ProcessGroupConditions {
-			if condition.Timestamp == conditionTimes[condition.ProcessGroupConditionType] && !copiedConditions[condition.ProcessGroupConditionType] {
-				if isTerminating && condition.ProcessGroupConditionType != fdbv1beta2.ResourcesTerminating {
-					continue
-				}
-
-				conditions = append(conditions, condition)
-				copiedConditions[condition.ProcessGroupConditionType] = true
-			}
-		}
-
-		processGroupStatus.ProcessGroupConditions = conditions
-	}
 }
 
 func refreshProcessGroupStatus(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBClusterStatus) (*corev1.PersistentVolumeClaimList, error) {

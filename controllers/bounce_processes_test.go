@@ -74,11 +74,11 @@ var _ = Describe("bounceProcesses", func() {
 		BeforeEach(func() {
 			processGroup := cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-4]
 			Expect(processGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
-			processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true, nil, "")
+			processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true)
 
 			processGroup = cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-3]
 			Expect(processGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-2")))
-			processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true, nil, "")
+			processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true)
 		})
 
 		It("should not requeue", func() {
@@ -101,11 +101,11 @@ var _ = Describe("bounceProcesses", func() {
 		BeforeEach(func() {
 			processGroup := cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-4]
 			Expect(processGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
-			processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true, nil, "")
+			processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true)
 
 			processGroup = cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-3]
 			Expect(processGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-2")))
-			processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true, nil, "")
+			processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true)
 			processGroup.MarkForRemoval()
 		})
 
@@ -129,7 +129,7 @@ var _ = Describe("bounceProcesses", func() {
 		BeforeEach(func() {
 			processGroup := cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-4]
 			Expect(processGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
-			processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true, nil, "")
+			processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true)
 			for _, address := range processGroup.Addresses {
 				err := adminClient.ExcludeProcesses([]fdbv1beta2.ProcessAddress{{StringAddress: address, Port: 4501}})
 				Expect(err).To(BeNil())
@@ -160,8 +160,8 @@ var _ = Describe("bounceProcesses", func() {
 		BeforeEach(func() {
 			processGroup := cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-4]
 			Expect(processGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
-			processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true, nil, "")
-			processGroup.UpdateCondition(fdbv1beta2.PodPending, true, nil, "")
+			processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true)
+			processGroup.UpdateCondition(fdbv1beta2.PodPending, true)
 			cluster.Spec.AutomationOptions.IgnorePendingPodsDuration = 1 * time.Nanosecond
 		})
 
@@ -182,7 +182,7 @@ var _ = Describe("bounceProcesses", func() {
 		BeforeEach(func() {
 			processGroup := cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-4]
 			Expect(processGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
-			processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true, nil, "")
+			processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true)
 			processGroup.ProcessGroupConditions = append(processGroup.ProcessGroupConditions, &fdbv1beta2.ProcessGroupCondition{
 				ProcessGroupConditionType: fdbv1beta2.MissingProcesses,
 				Timestamp:                 time.Now().Add(-2 * time.Minute).Unix(),
@@ -190,7 +190,7 @@ var _ = Describe("bounceProcesses", func() {
 
 			processGroup = cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-3]
 			Expect(processGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-2")))
-			processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true, nil, "")
+			processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true)
 		})
 
 		It("should not requeue", func() {
@@ -219,11 +219,11 @@ var _ = Describe("bounceProcesses", func() {
 
 			processGroup := cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-4]
 			Expect(processGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-5")))
-			processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true, nil, "")
+			processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true)
 
 			processGroup = cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-3]
 			Expect(processGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-6")))
-			processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true, nil, "")
+			processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true)
 		})
 
 		It("should not requeue", func() {
@@ -246,7 +246,7 @@ var _ = Describe("bounceProcesses", func() {
 			BeforeEach(func() {
 				cluster.Spec.Version = fdbv1beta2.Versions.NextMajorVersion.String()
 				for _, processGroup := range cluster.Status.ProcessGroups {
-					processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true, nil, "")
+					processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true)
 				}
 			})
 
@@ -289,7 +289,7 @@ var _ = Describe("bounceProcesses", func() {
 		BeforeEach(func() {
 			cluster.Spec.Version = fdbv1beta2.Versions.NextMajorVersion.String()
 			for _, processGroup := range cluster.Status.ProcessGroups {
-				processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true, nil, "")
+				processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true)
 			}
 		})
 
@@ -428,7 +428,7 @@ var _ = Describe("bounceProcesses", func() {
 			BeforeEach(func() {
 				missingProcessGroup = cluster.Status.ProcessGroups[0]
 				adminClient.MockMissingProcessGroup(missingProcessGroup.ProcessGroupID, true)
-				missingProcessGroup.UpdateCondition(fdbv1beta2.MissingProcesses, true, cluster.Status.ProcessGroups, missingProcessGroup.ProcessGroupID)
+				missingProcessGroup.UpdateCondition(fdbv1beta2.MissingProcesses, true)
 			})
 
 			It("should requeue", func() {
@@ -486,7 +486,7 @@ var _ = Describe("bounceProcesses", func() {
 			ignoredProcessGroup = cluster.Status.ProcessGroups[0]
 			cluster.Spec.Buggify.IgnoreDuringRestart = []fdbv1beta2.ProcessGroupID{ignoredProcessGroup.ProcessGroupID}
 			for _, processGroup := range cluster.Status.ProcessGroups {
-				processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true, nil, "")
+				processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true)
 			}
 		})
 
@@ -532,7 +532,7 @@ var _ = Describe("bounceProcesses", func() {
 
 			BeforeEach(func() {
 				for _, processGroup := range cluster.Status.ProcessGroups {
-					processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, processGroup.ProcessGroupID == ignoredProcessGroup.ProcessGroupID, nil, "")
+					processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, processGroup.ProcessGroupID == ignoredProcessGroup.ProcessGroupID)
 				}
 
 				status, err := adminClient.GetStatus()

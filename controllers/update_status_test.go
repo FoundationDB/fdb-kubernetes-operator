@@ -666,56 +666,6 @@ var _ = Describe("update_status", func() {
 		})
 	})
 
-	When("removing duplicated entries in process group status", func() {
-		var status fdbv1beta2.FoundationDBClusterStatus
-
-		BeforeEach(func() {
-			status = fdbv1beta2.FoundationDBClusterStatus{
-				ProcessGroups: []*fdbv1beta2.ProcessGroupStatus{
-					{
-						ProcessGroupID: storageOneProcessGroupID,
-						ProcessGroupConditions: []*fdbv1beta2.ProcessGroupCondition{
-							fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.PodPending),
-							fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.ResourcesTerminating),
-						},
-					},
-					{
-						ProcessGroupID: "storage-2",
-						ProcessGroupConditions: []*fdbv1beta2.ProcessGroupCondition{
-							fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.PodPending),
-							fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.PodPending),
-							fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.SidecarUnreachable),
-						},
-					},
-				},
-			}
-		})
-
-		When("running the remove duplicate method", func() {
-			BeforeEach(func() {
-				removeDuplicateConditions(status)
-			})
-
-			It("should remove duplicated entries", func() {
-				Expect(len(status.ProcessGroups)).To(BeNumerically("==", 2))
-
-				for _, pg := range status.ProcessGroups {
-					if pg.ProcessGroupID == storageOneProcessGroupID {
-						Expect(len(pg.ProcessGroupConditions)).To(BeNumerically("==", 1))
-						continue
-					}
-
-					if pg.ProcessGroupID == "storage-2" {
-						Expect(len(pg.ProcessGroupConditions)).To(BeNumerically("==", 2))
-						continue
-					}
-
-					Fail("unchecked process group")
-				}
-			})
-		})
-	})
-
 	Describe("Reconcile", func() {
 		var cluster *fdbv1beta2.FoundationDBCluster
 		var err error

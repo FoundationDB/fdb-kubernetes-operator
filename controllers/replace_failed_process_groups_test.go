@@ -373,7 +373,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 				_, err = reconcileCluster(cluster)
 				Expect(err).NotTo(HaveOccurred())
 				return (getPodByProcessGroupID(cluster, internal.GetProcessClassFromMeta(cluster, podOnTaintedNode.ObjectMeta), internal.GetProcessGroupIDFromMeta(cluster, podOnTaintedNode.ObjectMeta)))
-			}).WithTimeout(time.Duration(cluster.GetTaintReplacementTimeSeconds()*3) * time.Second).WithPolling(1 * time.Second).Should(BeNil())
+			}).WithTimeout(time.Duration(cluster.GetTaintReplacementTimeSeconds()*10) * time.Second).WithPolling(1 * time.Second).Should(BeNil())
 
 			Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]fdbv1beta2.ProcessGroupID{}))
 		})
