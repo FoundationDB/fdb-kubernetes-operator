@@ -23,8 +23,9 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal/buggify"
 	"time"
+
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal/buggify"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient/mock"
 	"k8s.io/utils/pointer"
@@ -516,7 +517,7 @@ var _ = Describe("bounceProcesses", func() {
 					processAddresses = append(processAddresses, process.Address)
 				}
 
-				filteredAddresses, removed = buggify.FilterIgnoredProcessGroups(cluster, processAddresses)
+				filteredAddresses, removed = buggify.FilterIgnoredProcessGroups(cluster, processAddresses, status)
 			})
 
 			It("should filter the ignored address", func() {
@@ -545,7 +546,7 @@ var _ = Describe("bounceProcesses", func() {
 					processAddresses = append(processAddresses, process.Address)
 				}
 
-				filteredAddresses, removed = buggify.FilterIgnoredProcessGroups(cluster, processAddresses)
+				filteredAddresses, removed = buggify.FilterIgnoredProcessGroups(cluster, processAddresses, status)
 			})
 
 			It("should filter the ignored address", func() {

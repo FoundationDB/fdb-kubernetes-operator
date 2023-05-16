@@ -49,7 +49,7 @@ func FilterBlockedRemovals(cluster *fdbv1beta2.FoundationDBCluster, processGroup
 
 // FilterIgnoredProcessGroups removes all addresses from the addresses slice that are associated with a process group that should be ignored
 // during a restart.
-func FilterIgnoredProcessGroups(cluster *fdbv1beta2.FoundationDBCluster, addresses []fdbv1beta2.ProcessAddress) ([]fdbv1beta2.ProcessAddress, bool) {
+func FilterIgnoredProcessGroups(cluster *fdbv1beta2.FoundationDBCluster, addresses []fdbv1beta2.ProcessAddress, status *fdbv1beta2.FoundationDBStatus) ([]fdbv1beta2.ProcessAddress, bool) {
 	if len(cluster.Spec.Buggify.IgnoreDuringRestart) == 0 {
 		return addresses, false
 	}
@@ -61,14 +61,17 @@ func FilterIgnoredProcessGroups(cluster *fdbv1beta2.FoundationDBCluster, address
 		ignoredIDs[id] = fdbv1beta2.None{}
 	}
 
-	for _, processGroup := range cluster.Status.ProcessGroups {
-		if _, ok := ignoredIDs[processGroup.ProcessGroupID]; !ok {
+	for _, process := range status.Cluster.Processes {
+		processGroupId, ok := process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]
+		if !ok {
 			continue
 		}
 
-		for _, address := range processGroup.Addresses {
-			ignoredAddresses[address] = fdbv1beta2.None{}
+		if _, ok := ignoredIDs[fdbv1beta2.ProcessGroupID(processGroupId)]; !ok {
+			continue
 		}
+
+		ignoredAddresses[process.Address.MachineAddress()] = fdbv1beta2.None{}
 	}
 
 	filteredAddresses := make([]fdbv1beta2.ProcessAddress, 0, len(addresses)-len(ignoredAddresses))

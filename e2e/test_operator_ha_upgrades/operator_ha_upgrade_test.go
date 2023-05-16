@@ -470,7 +470,9 @@ var _ = Describe("Operator HA Upgrades", Label("e2e"), func() {
 				ignoreDuringRestart,
 				"to be skipped during the restart",
 			)
-			fdbCluster.GetRemote().SetIgnoreDuringRestart(ignoreDuringRestart)
+			for _, cluster := range fdbCluster.GetAllClusters() {
+				cluster.SetIgnoreDuringRestart(ignoreDuringRestart)
+			}
 
 			// The cluster should still be able to upgrade.
 			Expect(fdbCluster.UpgradeCluster(targetVersion, true)).NotTo(HaveOccurred())
