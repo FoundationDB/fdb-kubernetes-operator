@@ -62,12 +62,12 @@ func FilterIgnoredProcessGroups(cluster *fdbv1beta2.FoundationDBCluster, address
 	}
 
 	for _, process := range status.Cluster.Processes {
-		processGroupId, ok := process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]
+		processGroupID, ok := process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]
 		if !ok {
 			continue
 		}
 
-		if _, ok := ignoredIDs[fdbv1beta2.ProcessGroupID(processGroupId)]; !ok {
+		if _, ok := ignoredIDs[fdbv1beta2.ProcessGroupID(processGroupID)]; !ok {
 			continue
 		}
 
