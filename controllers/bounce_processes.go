@@ -23,8 +23,9 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal/buggify"
 	"time"
+
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal/buggify"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal/restarts"
 
@@ -134,7 +135,7 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 		}
 	}
 
-	filteredAddresses, removedAddresses := buggify.FilterIgnoredProcessGroups(cluster, addresses)
+	filteredAddresses, removedAddresses := buggify.FilterIgnoredProcessGroups(cluster, addresses, status)
 	if removedAddresses {
 		addresses = filteredAddresses
 	}
