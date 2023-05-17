@@ -418,8 +418,6 @@ func (fdbCluster *FdbCluster) UpdateClusterSpecWithSpec(desiredSpec *fdbv1beta2.
 
 		specUpdated := equality.Semantic.DeepEqual(fetchedCluster.Spec, *desiredSpec)
 		log.Println("UpdateClusterSpec: specUpdated:", specUpdated)
-		log.Printf("FetchedSpec %+v\n", fetchedCluster.Spec)
-		log.Printf("DesiredSpec %+v\n", desiredSpec)
 		if specUpdated {
 			return true
 		}
