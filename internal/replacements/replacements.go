@@ -21,7 +21,10 @@
 package replacements
 
 import (
+	"context"
 	"fmt"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
@@ -33,7 +36,7 @@ import (
 )
 
 // ReplaceMisconfiguredProcessGroups checks if the cluster has any misconfigured process groups that must be replaced.
-func ReplaceMisconfiguredProcessGroups(log logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, pvcMap map[fdbv1beta2.ProcessGroupID]corev1.PersistentVolumeClaim, podMap map[fdbv1beta2.ProcessGroupID]*corev1.Pod) (bool, error) {
+func ReplaceMisconfiguredProcessGroups(ctx context.Context, podManager podmanager.PodLifecycleManager, client client.Client, log logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, pvcMap map[fdbv1beta2.ProcessGroupID]corev1.PersistentVolumeClaim) (bool, error) {
 	hasReplacements := false
 
 	maxReplacements := getMaxReplacements(cluster, cluster.GetMaxConcurrentReplacements())
@@ -47,16 +50,16 @@ func ReplaceMisconfiguredProcessGroups(log logr.Logger, cluster *fdbv1beta2.Foun
 			continue
 		}
 
+		// TODO(johscheuer): Fix how we fetch the pvc to make better use of the controller runtime cache.
 		pvc, hasPVC := pvcMap[processGroup.ProcessGroupID]
-		pod, hasPod := podMap[processGroup.ProcessGroupID]
-
+		pod, podErr := podManager.GetPod(ctx, client, cluster, processGroup.GetPodName(cluster))
 		if hasPVC {
 			needsPVCRemoval, err := processGroupNeedsRemovalForPVC(cluster, pvc, log)
 			if err != nil {
 				return hasReplacements, err
 			}
 
-			if needsPVCRemoval && hasPod {
+			if needsPVCRemoval && podErr == nil {
 				processGroup.MarkForRemoval()
 				hasReplacements = true
 				maxReplacements--
@@ -67,7 +70,7 @@ func ReplaceMisconfiguredProcessGroups(log logr.Logger, cluster *fdbv1beta2.Foun
 				"processGroupID", processGroup.ProcessGroupID)
 		}
 
-		if !hasPod || pod == nil {
+		if podErr != nil {
 			log.V(1).Info("Could not find Pod for process group ID",
 				"processGroupID", processGroup.ProcessGroupID)
 			continue

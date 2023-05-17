@@ -45,13 +45,6 @@ func (updatePodConfig) reconcile(ctx context.Context, r *FoundationDBClusterReco
 		return &requeue{curError: err}
 	}
 
-	pods, err := r.PodLifecycleManager.GetPods(ctx, r, cluster, internal.GetPodListOptions(cluster, "", "")...)
-	if err != nil {
-		return &requeue{curError: err}
-	}
-
-	podMap := internal.CreatePodMap(cluster, pods)
-
 	originalStatus := cluster.Status.DeepCopy()
 	allSynced := true
 	delayedRequeue := true
@@ -69,9 +62,10 @@ func (updatePodConfig) reconcile(ctx context.Context, r *FoundationDBClusterReco
 			continue
 		}
 
-		pod, ok := podMap[processGroup.ProcessGroupID]
-		if !ok || pod == nil {
-			curLogger.Info("Could not find Pod for process group")
+		pod, err := r.PodLifecycleManager.GetPod(ctx, r, cluster, processGroup.GetPodName(cluster))
+		// If a Pod is not found ignore it for now.
+		if err != nil {
+			logger.V(1).Info("Could not find Pod for process group ID")
 			continue
 		}
 

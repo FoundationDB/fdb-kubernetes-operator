@@ -42,12 +42,7 @@ type updatePods struct{}
 func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updatePods")
 
-	pods, err := r.PodLifecycleManager.GetPods(ctx, r, cluster, internal.GetPodListOptions(cluster, "", "")...)
-	if err != nil {
-		return &requeue{curError: err, delayedRequeue: true}
-	}
-
-	updates, err := getPodsToUpdate(logger, r, cluster, internal.CreatePodMap(cluster, pods))
+	updates, err := getPodsToUpdate(ctx, logger, r, cluster)
 	if err != nil {
 		return &requeue{curError: err, delay: podSchedulingDelayDuration, delayedRequeue: true}
 	}
@@ -84,7 +79,7 @@ func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconcile
 }
 
 // getPodsToUpdate returns a map of Zone to Pods mapping. The map has the fault domain as key and all Pods in that fault domain will be present as a slice of *corev1.Pod.
-func getPodsToUpdate(logger logr.Logger, reconciler *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, podMap map[fdbv1beta2.ProcessGroupID]*corev1.Pod) (map[string][]*corev1.Pod, error) {
+func getPodsToUpdate(ctx context.Context, logger logr.Logger, reconciler *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) (map[string][]*corev1.Pod, error) {
 	updates := make(map[string][]*corev1.Pod)
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
@@ -106,8 +101,9 @@ func getPodsToUpdate(logger logr.Logger, reconciler *FoundationDBClusterReconcil
 			continue
 		}
 
-		pod, ok := podMap[processGroup.ProcessGroupID]
-		if !ok || pod == nil {
+		pod, err := reconciler.PodLifecycleManager.GetPod(ctx, reconciler, cluster, processGroup.GetPodName(cluster))
+		// If a Pod is not found ignore it for now.
+		if err != nil {
 			logger.V(1).Info("Could not find Pod for process group ID",
 				"processGroupID", processGroup.ProcessGroupID)
 			continue

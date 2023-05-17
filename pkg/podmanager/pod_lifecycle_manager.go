@@ -34,13 +34,16 @@ import (
 // PodLifecycleManager provides an abstraction around Pod management to allow
 // using intermediary controllers that will manage the Pod lifecycle.
 type PodLifecycleManager interface {
-	// GetPods lists the Pods in the cluster
+	// GetPods lists the Pods in the cluster.
 	GetPods(context.Context, client.Client, *fdbv1beta2.FoundationDBCluster, ...client.ListOption) ([]*corev1.Pod, error)
 
-	// CreatePod creates a new Pod based on a pod definition
+	// GetPod returns the Pod for this cluster with the specified name.
+	GetPod(context.Context, client.Client, *fdbv1beta2.FoundationDBCluster, string) (*corev1.Pod, error)
+
+	// CreatePod creates a new Pod based on a pod definition.
 	CreatePod(context.Context, client.Client, *corev1.Pod) error
 
-	// DeletePod deletes a Pod
+	// DeletePod deletes a Pod.
 	DeletePod(context.Context, client.Client, *corev1.Pod) error
 
 	// CanDeletePods checks whether it is safe to delete pods.
@@ -70,8 +73,7 @@ type PodLifecycleManager interface {
 // that directly creates pods.
 type StandardPodLifecycleManager struct{}
 
-// GetPods returns a list of Pods for FDB pods that have been
-// created.
+// GetPods returns a list of Pods for FDB Pods that have been created.
 func (manager StandardPodLifecycleManager) GetPods(ctx context.Context, r client.Client, cluster *fdbv1beta2.FoundationDBCluster, options ...client.ListOption) ([]*corev1.Pod, error) {
 	pods := &corev1.PodList{}
 	err := r.List(ctx, pods, options...)
@@ -97,6 +99,14 @@ func (manager StandardPodLifecycleManager) GetPods(ctx context.Context, r client
 	}
 
 	return resPods, nil
+}
+
+// GetPod returns the Pod for this cluster with the specified name.
+func (manager StandardPodLifecycleManager) GetPod(ctx context.Context, r client.Client, cluster *fdbv1beta2.FoundationDBCluster, name string) (*corev1.Pod, error) {
+	pod := &corev1.Pod{}
+	err := r.Get(ctx, client.ObjectKey{Name: name, Namespace: cluster.Namespace}, pod)
+
+	return pod, err
 }
 
 // CreatePod creates a new Pod based on a Pod definition

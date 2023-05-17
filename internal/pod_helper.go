@@ -226,20 +226,6 @@ func GetSidecarImage(cluster *fdbv1beta2.FoundationDBCluster, pClass fdbv1beta2.
 	return GetImage(image, imageConfigs, cluster.Spec.Version, false)
 }
 
-// CreatePodMap creates a map with the process group ID as a key and the according Pod as a value
-func CreatePodMap(cluster *fdbv1beta2.FoundationDBCluster, pods []*corev1.Pod) map[fdbv1beta2.ProcessGroupID]*corev1.Pod {
-	podProcessGroupMap := make(map[fdbv1beta2.ProcessGroupID]*corev1.Pod, len(pods))
-	for _, pod := range pods {
-		processGroupID := GetProcessGroupIDFromMeta(cluster, pod.ObjectMeta)
-		if processGroupID == "" {
-			continue
-		}
-		podProcessGroupMap[processGroupID] = pod
-	}
-
-	return podProcessGroupMap
-}
-
 // ParseProcessGroupID extracts the components of an process group ID.
 func ParseProcessGroupID(id fdbv1beta2.ProcessGroupID) (fdbv1beta2.ProcessClass, int, error) {
 	result := processGroupIDRegex.FindStringSubmatch(string(id))

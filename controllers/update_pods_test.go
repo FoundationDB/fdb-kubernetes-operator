@@ -215,10 +215,8 @@ var _ = Describe("update_pods", func() {
 		})
 
 		JustBeforeEach(func() {
-			pods, err := clusterReconciler.PodLifecycleManager.GetPods(context.TODO(), k8sClient, cluster, internal.GetPodListOptions(cluster, "", "")...)
-			Expect(err).NotTo(HaveOccurred())
-
-			updates, err = getPodsToUpdate(log, clusterReconciler, cluster, internal.CreatePodMap(cluster, pods))
+			var err error
+			updates, err = getPodsToUpdate(context.Background(), log, clusterReconciler, cluster)
 			if !expectedError {
 				Expect(err).NotTo(HaveOccurred())
 			} else {
