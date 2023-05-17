@@ -32,6 +32,9 @@ FEATURE_LOCALITIES?=false
 # Make bash pickier about errors.
 SHELL=/bin/bash -euo pipefail
 
+# Defines a variable that has the directory of this Makefile as value.
+BASE_DIR:=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
+
 clean:
 	@rm -f TEST-ginkgo*.xml
 	@find . -name '*~' | xargs rm -f
@@ -60,7 +63,7 @@ kind-update-operator:
 # This makefile reimplements that, and works around a few bugs in ginkgo itself.
 ifndef QUIET
   VERBOSE=-v
-  GINKGO_VERBOSE=-ginkgo.v
+  GINKGO_VERBOSE=--ginkgo.v
 else
   VERBOSE=
   GINKGO_VERBOSE=
@@ -78,9 +81,26 @@ TARGETS=$(patsubst test_%,test_%.run,${SUITES})
 
 run: ${TARGETS}
 
+# This variable can be used to define any label-filter for ginkgo to run a subset of tests.
+# For more information see the Ginkgo Spec labels documentation: https://onsi.github.io/ginkgo/#spec-labels.
+GINKGO_LABEL_FILTER?=
+
+# Only run tests that are labeled with the "pr" label.
+pr-tests: GINKGO_LABEL_FILTER=--ginkgo.label-filter="pr"
+
+# Run the actual pr tests.
+pr-tests: run
+
+# Only run tests that are labeled with the "pr" or the "nightly" label.
+nightly-tests: GINKGO_LABEL_FILTER=--ginkgo.label-filter="pr || nightly"
+
+# Run the actual nightly tests
+nightly-tests: run
+
 %.run: %
 	go test -timeout=$(TIMEOUT) $(VERBOSE) ./$< \
 	${NO_COLOR} ${GINKGO_VERBOSE} \
+	  $(GINKGO_LABEL_FILTER) \
 	  --ginkgo.junit-report=$@.xml \
 	  --ginkgo.timeout=$(TIMEOUT) \
 	  --timeout=$(TIMEOUT) \
@@ -100,4 +120,4 @@ run: ${TARGETS}
 	  --feature-unified-image=$(FEATURE_UNIFIED_IMAGE) \
 	  --feature-localities=$(FEATURE_LOCALITIES) \
 	  --feature-dns=$(FEATURE_DNS) \
-	  | grep -v 'constructing many client instances from the same exec auth config can cause performance problems during cert rotation'
+	  | grep -v 'constructing many client instances from the same exec auth config can cause performance problems during cert rotation' &> $(BASE_DIR)/../logs/$<.log

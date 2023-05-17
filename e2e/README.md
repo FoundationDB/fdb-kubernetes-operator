@@ -67,3 +67,42 @@ You just can rebuild the operator image and push the new image inside the kind c
 ```bash
 make -C e2e kind-update-operator
 ```
+
+## What is tested
+
+The following section will cover which test suites are run when.
+
+### Test running for PRs
+
+The following tests will be running for each PR:
+
+- [test_operator](./test_operator)
+- [test_operator_upgrades](./test_operator_upgrades)
+
+Those are all test suites labeled with the `pr` label.
+
+### Tests running regularly
+
+The following tests will be running on a nightly base:
+
+- [test_operator](./test_operator)
+- [test_operator_upgrades](./test_operator_upgrades)
+- [test_operator_ha_upgrades](./test_operator_ha_upgrades)
+- [test_operator_velocity](./test_operator_velocity)
+
+Those are all test suites labeled with the `pr` or the `nightly` label.
+
+### Tests that are not run regularly
+
+Those tests are only run manually:
+
+- [test_operator_creation_velocity](./test_operator_creation_velocity)
+- [test_operator_stress](./test_operator_stress)
+
+e.g. these tests will be used to qualify a new release.
+
+## How to debug failed PR tests
+
+All test suited will be logging to the `logs` folder in the root of this repository.
+If you want to see the current state of a running test you can use `tail`, e.g. `tail -f ./logs/test_operator.log`, to see the progress of the operator tests, the command assumes you are running it from the project directory.
+All tests that are started by our CI pipelines will report in the PR with the test status.
