@@ -8,13 +8,13 @@ Every test suite has a head in the `*_test.go` file that describes the test case
 The following command will run all the operator related tests with the default values:
 
 ```bash
-make -C e2e -kj run
+make -kj -C e2e run
 ```
 
 You can also run a specific test suite by providing the name of the test suite:
 
 ```bash
-make -C e2e -kj test_operator.run
+make -C e2e test_operator.run
 ```
 
 Every test suite will create at least one namespace, HA cluster tests will create all the required namespaces.
@@ -25,7 +25,7 @@ The e2e tests assume that at least one `StorageClass` is present in the target K
 You can provide the targeted `StorageClass` as an environment variable:
 
 ```bash
-STORAGE_CLASS='my-fancy-storage' make -C e2e -kj test_operator.run
+STORAGE_CLASS='my-fancy-storage' make -kj -C e2e test_operator.run
 ```
 
 If the `STORAGE_CLASS` is not set, the operator will take the default `StorageClass` in this cluster.
@@ -80,6 +80,7 @@ The following tests will be running for each PR:
 - [test_operator_upgrades](./test_operator_upgrades)
 
 Those are all test suites labeled with the `pr` label.
+You can run those test suites with: `make -kj -C e2e pr-tests`
 
 ### Tests running regularly
 
@@ -91,6 +92,7 @@ The following tests will be running on a nightly base:
 - [test_operator_velocity](./test_operator_velocity)
 
 Those are all test suites labeled with the `pr` or the `nightly` label.
+You can run those test suites with: `make -kj -C e2e nightly-tests`
 
 ### Tests that are not run regularly
 
@@ -100,6 +102,7 @@ Those tests are only run manually:
 - [test_operator_stress](./test_operator_stress)
 
 e.g. these tests will be used to qualify a new release.
+You can run all tests with `make -kj -C e2e run`
 
 ## How to debug failed PR tests
 
