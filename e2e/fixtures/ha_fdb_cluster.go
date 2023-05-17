@@ -247,7 +247,7 @@ func (haFDBCluster *HaFdbCluster) UpgradeCluster(version string, waitForReconcil
 func (haFDBCluster *HaFdbCluster) UpgradeClusterWithTimeout(
 	version string,
 	waitForReconciliation bool,
-	timeout int64,
+	timeout int,
 ) error {
 	expectedGenerations := map[string]int64{}
 	for _, cluster := range haFDBCluster.GetAllClusters() {

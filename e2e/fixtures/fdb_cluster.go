@@ -124,8 +124,8 @@ type ReconciliationOptions struct {
 	allowSoftReconciliation bool
 	creationTrackerLogger   CreationTrackerLogger
 	minimumGeneration       int64
-	timeOutInSeconds        int64
-	pollTimeInSeconds       int64
+	timeOutInSeconds        int
+	pollTimeInSeconds       int
 }
 
 // ReconciliationOption defines the reconciliation option.
@@ -155,14 +155,14 @@ func MinimumGenerationOption(minimumGeneration int64) ReconciliationOption {
 }
 
 // TimeOutInSecondsOption defines the timeout for the reconciliation. If not set the default is 4800 seconds
-func TimeOutInSecondsOption(timeOutInSeconds int64) ReconciliationOption {
+func TimeOutInSecondsOption(timeOutInSeconds int) ReconciliationOption {
 	return func(options *ReconciliationOptions) {
 		options.timeOutInSeconds = timeOutInSeconds
 	}
 }
 
 // PollTimeInSecondsOption defines the polling time for the reconciliation. If not set the default is 10 seconds
-func PollTimeInSecondsOption(pollTimeInSeconds int64) ReconciliationOption {
+func PollTimeInSecondsOption(pollTimeInSeconds int) ReconciliationOption {
 	return func(options *ReconciliationOptions) {
 		options.pollTimeInSeconds = pollTimeInSeconds
 	}
@@ -207,8 +207,8 @@ func (fdbCluster *FdbCluster) waitForReconciliationToGeneration(
 	minimumGeneration int64,
 	softReconciliationAllowed bool,
 	creationTrackerLogger CreationTrackerLogger,
-	timeOutInSeconds int64, // 4800
-	pollTimeInSeconds int64, // 4
+	timeOutInSeconds int, // 4800
+	pollTimeInSeconds int, // 4
 ) error {
 	if timeOutInSeconds < pollTimeInSeconds {
 		return fmt.Errorf(
@@ -223,14 +223,6 @@ func (fdbCluster *FdbCluster) waitForReconciliationToGeneration(
 		fdbCluster.cluster.Namespace,
 		fdbCluster.cluster.Name,
 	)
-	counter := 0
-	// We want to force reconcile every 5 minutes, otherwise we update the cluster spec to often and we
-	// introduce to many conflicts. This will be resolved once we move to server side apply see:
-	// https://github.com/FoundationDB/fdb-kubernetes-operator/issues/1278
-	forceReconcile := int(300 / pollTimeInSeconds)
-
-	// Printout the initial state of the cluster before we moving forward waiting for the reconciliation.
-	fdbCluster.factory.DumpState(fdbCluster)
 
 	var creationTracker *fdbClusterCreationTracker
 	if creationTrackerLogger != nil {
@@ -240,76 +232,108 @@ func (fdbCluster *FdbCluster) waitForReconciliationToGeneration(
 		)
 	}
 
-	err := wait.PollImmediate(
-		time.Duration(pollTimeInSeconds)*time.Second,
-		time.Duration(timeOutInSeconds)*time.Second,
-		func() (bool, error) {
-			resCluster := fdbCluster.GetCluster()
-			if creationTracker != nil {
-				creationTracker.trackProgress(resCluster)
-			}
+	checkIfReconciliationIsDone := func(cluster *fdbv1beta2.FoundationDBCluster) bool {
+		if creationTracker != nil {
+			creationTracker.trackProgress(cluster)
+		}
 
-			var reconciled bool
-			if softReconciliationAllowed {
-				reconciled = resCluster.Status.Generations.Reconciled == resCluster.ObjectMeta.Generation
-			} else {
-				reconciled = resCluster.Status.Generations == fdbv1beta2.ClusterGenerationStatus{Reconciled: resCluster.ObjectMeta.Generation}
-			}
-			if minimumGeneration > 0 {
-				reconciled = reconciled &&
-					resCluster.Status.Generations.Reconciled >= minimumGeneration
-			}
-			// Healthy is a bad indicator, since the tester pods will leave old processes behind and the cluster thinks it's not healthy...
-			if reconciled && resCluster.Status.Health.Available {
-				log.Printf(
-					"reconciled name=%s, namespace=%s",
-					fdbCluster.cluster.Name,
-					fdbCluster.cluster.Namespace,
-				)
-				return true, nil
-			}
-			// force a reconcile
-			if counter >= forceReconcile {
-				log.Printf("Status Generations=%s",
-					ToJSON(resCluster.Status.Generations))
-				log.Printf(
-					"MedataData Generations=%s",
-					ToJSON(
-						fdbv1beta2.ClusterGenerationStatus{
-							Reconciled: resCluster.ObjectMeta.Generation,
-						},
-					),
-				)
-				fdbCluster.factory.DumpState(fdbCluster)
-				patch := client.MergeFrom(resCluster.DeepCopy())
-				if resCluster.Annotations == nil {
-					resCluster.Annotations = make(map[string]string)
-				}
-				resCluster.Annotations["foundationdb.org/reconcile"] = strconv.FormatInt(
-					time.Now().UnixNano(),
-					10,
-				)
-				// This will apply an Annotation to the object which will trigger the reconcile loop.
-				// This should speed up the reconcile phase.
-				err := fdbCluster.getClient().Patch(
-					ctx.Background(),
-					resCluster,
-					patch)
-				if err != nil {
-					log.Println("error patching annotation to force reconcile, error:", err.Error())
-				}
-				counter = -1
-			}
-			counter++
-			return false, nil
-		},
-	)
+		var reconciled bool
+		if softReconciliationAllowed {
+			reconciled = cluster.Status.Generations.Reconciled == cluster.ObjectMeta.Generation
+		} else {
+			reconciled = cluster.Status.Generations == fdbv1beta2.ClusterGenerationStatus{Reconciled: cluster.ObjectMeta.Generation}
+		}
+
+		if minimumGeneration > 0 {
+			reconciled = reconciled &&
+				cluster.Status.Generations.Reconciled >= minimumGeneration
+		}
+
+		if reconciled {
+			log.Printf(
+				"reconciled name=%s, namespace=%s",
+				fdbCluster.cluster.Name,
+				fdbCluster.cluster.Namespace,
+			)
+			return true
+		}
+
+		return false
+	}
+
+	err := fdbCluster.WaitUntilWithForceReconcile(pollTimeInSeconds, timeOutInSeconds, checkIfReconciliationIsDone)
 
 	if creationTracker != nil {
 		creationTracker.report()
 	}
 
 	return err
+}
+
+// WaitUntilWithForceReconcile will wait either until the checkMethod returns true or until the timeout is hit.
+func (fdbCluster *FdbCluster) WaitUntilWithForceReconcile(pollTimeInSeconds int, timeOutInSeconds int, checkMethod func(cluster *fdbv1beta2.FoundationDBCluster) bool) error {
+	// Printout the initial state of the cluster before we moving forward waiting for the checkMethod to return true.
+	fdbCluster.factory.DumpState(fdbCluster)
+
+	counter := 0
+	// We want to force reconcile every 5 minutes, otherwise we update the cluster spec to often and we
+	// introduce to many conflicts. This will be resolved once we move to server side apply see:
+	// https://github.com/FoundationDB/fdb-kubernetes-operator/issues/1278
+	forceReconcile := 300 / pollTimeInSeconds
+
+	return wait.PollImmediate(
+		time.Duration(pollTimeInSeconds)*time.Second,
+		time.Duration(timeOutInSeconds)*time.Second,
+		func() (bool, error) {
+			resCluster := fdbCluster.GetCluster()
+
+			if checkMethod(resCluster) {
+				return true, nil
+			}
+
+			// Force a reconcile if needed.
+			if counter >= forceReconcile {
+				fdbCluster.ForceReconcile()
+				counter = -1
+			}
+			counter++
+			return false, nil
+		},
+	)
+}
+
+// ForceReconcile will add an annotation with the current timestamp on the FoundationDBCluster resource to make sure
+// the operator reconciliation loop is triggered. This is used to speed up some test cases.
+func (fdbCluster *FdbCluster) ForceReconcile() {
+	log.Printf("Status Generations=%s",
+		ToJSON(fdbCluster.cluster.Status.Generations))
+	log.Printf(
+		"MedataData Generations=%s",
+		ToJSON(
+			fdbv1beta2.ClusterGenerationStatus{
+				Reconciled: fdbCluster.cluster.ObjectMeta.Generation,
+			},
+		),
+	)
+	fdbCluster.factory.DumpState(fdbCluster)
+	patch := client.MergeFrom(fdbCluster.cluster.DeepCopy())
+	if fdbCluster.cluster.Annotations == nil {
+		fdbCluster.cluster.Annotations = make(map[string]string)
+	}
+	fdbCluster.cluster.Annotations["foundationdb.org/reconcile"] = strconv.FormatInt(
+		time.Now().UnixNano(),
+		10,
+	)
+
+	// This will apply an Annotation to the object which will trigger the reconcile loop.
+	// This should speed up the reconcile phase.
+	err := fdbCluster.getClient().Patch(
+		ctx.Background(),
+		fdbCluster.cluster,
+		patch)
+	if err != nil {
+		log.Println("error patching annotation to force reconcile, error:", err.Error())
+	}
 }
 
 // GetCluster returns the FoundationDBCluster of the cluster. This will fetch the latest value from  the Kubernetes API.
