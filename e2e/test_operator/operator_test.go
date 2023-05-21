@@ -106,7 +106,7 @@ var _ = AfterSuite(func() {
 	factory.Shutdown()
 })
 
-var _ = Describe("Operator", Label("e2e"), func() {
+var _ = Describe("Operator", Label("e2e", "pr"), func() {
 	var availabilityCheck bool
 
 	AfterEach(func() {
