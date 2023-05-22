@@ -5018,4 +5018,52 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				},
 			}, true, false),
 	)
+
+	DescribeTable("when getting the Pod name for a Process group", func(cluster *FoundationDBCluster, processGroup *ProcessGroupStatus, expected string) {
+		Expect(processGroup.GetPodName(cluster)).To(Equal(expected))
+	}, Entry("when the process group has no prefix",
+		&FoundationDBCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "testing-cluster",
+			},
+		},
+		&ProcessGroupStatus{
+			ProcessGroupID: "storage-1",
+			ProcessClass:   ProcessClassStorage,
+		},
+		"testing-cluster-storage-1"),
+		Entry("when the process group has a prefix",
+			&FoundationDBCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "testing-cluster",
+				},
+			},
+			&ProcessGroupStatus{
+				ProcessGroupID: "this-is-my-fancy-prefix-storage-1",
+				ProcessClass:   ProcessClassStorage,
+			},
+			"testing-cluster-storage-1"),
+		Entry("when the process group has no prefix and the process class has an underscore",
+			&FoundationDBCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "testing-cluster",
+				},
+			},
+			&ProcessGroupStatus{
+				ProcessGroupID: "cluster-controller-1",
+				ProcessClass:   ProcessClassClusterController,
+			},
+			"testing-cluster-cluster-controller-1"),
+		Entry("when the process group has a prefix and the process class has an underscore",
+			&FoundationDBCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "testing-cluster",
+				},
+			},
+			&ProcessGroupStatus{
+				ProcessGroupID: "this-is-my-fancy-prefix-cluster-controller-1",
+				ProcessClass:   ProcessClassClusterController,
+			},
+			"testing-cluster-cluster-controller-1"),
+	)
 })

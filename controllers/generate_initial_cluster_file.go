@@ -47,18 +47,12 @@ func (g generateInitialClusterFile) reconcile(ctx context.Context, r *Foundation
 	logger.Info("Generating initial cluster file")
 	r.Recorder.Event(cluster, corev1.EventTypeNormal, "ChangingCoordinators", "Choosing initial coordinators")
 
-	initialPods := []*corev1.Pod{}
-	candidateClasses := cluster.GetEligibleCandidateClasses()
-	for _, candidateClass := range candidateClasses {
-		pods, err := r.PodLifecycleManager.GetPods(ctx, r, cluster, internal.GetPodListOptions(cluster, candidateClass, "")...)
-		if err != nil {
-			return &requeue{curError: err}
-		}
-		initialPods = append(initialPods, pods...)
+	processCounts, err := cluster.GetProcessCountsWithDefaults()
+	if err != nil {
+		return &requeue{curError: err}
 	}
 
-	podMap := internal.CreatePodMap(cluster, initialPods)
-	var pods = make([]*corev1.Pod, 0, len(initialPods))
+	var pods = make([]*corev1.Pod, 0, processCounts.Total())
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup.IsMarkedForRemoval() {
 			logger.V(1).Info("Ignore process group marked for removal",
@@ -66,9 +60,15 @@ func (g generateInitialClusterFile) reconcile(ctx context.Context, r *Foundation
 			continue
 		}
 
-		pod, ok := podMap[processGroup.ProcessGroupID]
-		if !ok {
-			logger.V(1).Info("Ignore process group with missing Pod",
+		// Ignore all process groups that are not eligible as a coordinator.
+		if !cluster.IsEligibleAsCandidate(processGroup.ProcessClass) {
+			continue
+		}
+
+		pod, err := r.PodLifecycleManager.GetPod(ctx, r, cluster, processGroup.GetPodName(cluster))
+		// If a Pod is not found ignore it for now.
+		if err != nil {
+			logger.V(1).Info("Could not find Pod for process group ID",
 				"processGroupID", processGroup.ProcessGroupID)
 			continue
 		}

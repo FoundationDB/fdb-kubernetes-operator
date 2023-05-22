@@ -361,6 +361,23 @@ func (processGroupStatus *ProcessGroupStatus) MarkForRemoval() {
 	processGroupStatus.RemovalTimestamp = &metav1.Time{Time: time.Now()}
 }
 
+// GetPodName returns the Pod name for the associated Process Group.
+func (processGroupStatus *ProcessGroupStatus) GetPodName(cluster *FoundationDBCluster) string {
+	var sb strings.Builder
+	sb.WriteString(cluster.Name)
+	sb.WriteString("-")
+	// The Pod name will always be in the format ${cluster}-${process-class}-${id}. The ID is currently not available
+	// in the processGroupStatus without doing any parsing, so we have to use the Process Group ID, which might contain
+	// a prefix, so we take the part after the prefix, which will be ${process-class}-${id}.
+	sanitizedProcessGroup := strings.ReplaceAll(string(processGroupStatus.ProcessGroupID), "_", "-")
+	sanitizedProcessClass := strings.ReplaceAll(string(processGroupStatus.ProcessClass), "_", "-")
+
+	idx := strings.Index(sanitizedProcessGroup, sanitizedProcessClass)
+	sb.WriteString(sanitizedProcessGroup[idx:])
+
+	return sb.String()
+}
+
 // NeedsReplacement checks if the ProcessGroupStatus has conditions so that it should be removed
 func (processGroupStatus *ProcessGroupStatus) NeedsReplacement(failureTime int, taintReplacementTime int) (bool, int64) {
 	var earliestFailureTime int64 = math.MaxInt64

@@ -39,18 +39,14 @@ type replaceMisconfiguredProcessGroups struct{}
 func (c replaceMisconfiguredProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "replaceMisconfiguredProcessGroups")
 
+	// TODO(johscheuer): Remove the pvc map an make direct calls.
 	pvcs := &corev1.PersistentVolumeClaimList{}
 	err := r.List(ctx, pvcs, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
 		return &requeue{curError: err}
 	}
 
-	pods, err := r.PodLifecycleManager.GetPods(ctx, r, cluster, internal.GetPodListOptions(cluster, "", "")...)
-	if err != nil {
-		return &requeue{curError: err}
-	}
-
-	hasReplacements, err := replacements.ReplaceMisconfiguredProcessGroups(logger, cluster, internal.CreatePVCMap(cluster, pvcs), internal.CreatePodMap(cluster, pods))
+	hasReplacements, err := replacements.ReplaceMisconfiguredProcessGroups(ctx, r.PodLifecycleManager, r, logger, cluster, internal.CreatePVCMap(cluster, pvcs))
 	if err != nil {
 		return &requeue{curError: err}
 	}

@@ -45,13 +45,7 @@ func (updateSidecarVersions) reconcile(ctx context.Context, r *FoundationDBClust
 		return nil
 	}
 
-	pods, err := r.PodLifecycleManager.GetPods(ctx, r, cluster, internal.GetPodListOptions(cluster, "", "")...)
-	if err != nil {
-		return &requeue{curError: err}
-	}
 	var upgraded int
-
-	podMap := internal.CreatePodMap(cluster, pods)
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup.GetConditionTime(fdbv1beta2.ResourcesTerminating) != nil {
 			logger.V(1).Info("Ignore process group that is stuck terminating",
@@ -59,8 +53,9 @@ func (updateSidecarVersions) reconcile(ctx context.Context, r *FoundationDBClust
 			continue
 		}
 
-		pod, ok := podMap[processGroup.ProcessGroupID]
-		if !ok || pod == nil {
+		pod, err := r.PodLifecycleManager.GetPod(ctx, r, cluster, processGroup.GetPodName(cluster))
+		// If a Pod is not found ignore it for now.
+		if err != nil {
 			logger.V(1).Info("Could not find Pod for process group ID",
 				"processGroupID", processGroup.ProcessGroupID)
 			continue

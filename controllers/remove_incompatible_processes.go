@@ -29,7 +29,6 @@ import (
 	"github.com/go-logr/logr"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 )
 
 // removeIncompatibleProcesses is a reconciler that will restart incompatible fdbserver processes, this can happen
@@ -81,18 +80,12 @@ func processIncompatibleProcesses(ctx context.Context, r *FoundationDBClusterRec
 
 	logger.Info("incompatible connections", "incompatibleConnections", status.Cluster.IncompatibleConnections)
 
-	pods, err := r.PodLifecycleManager.GetPods(ctx, r, cluster, internal.GetPodListOptions(cluster, "", "")...)
-	if err != nil {
-		return err
-	}
-
-	podMap := internal.CreatePodMap(cluster, pods)
-
 	incompatibleConnections := parseIncompatibleConnections(logger, status)
 	incompatiblePods := make([]*corev1.Pod, 0, len(incompatibleConnections))
 	for _, processGroup := range cluster.Status.ProcessGroups {
-		pod, ok := podMap[processGroup.ProcessGroupID]
-		if !ok || pod == nil {
+		pod, err := r.PodLifecycleManager.GetPod(ctx, r, cluster, processGroup.GetPodName(cluster))
+		// If a Pod is not found ignore it for now.
+		if err != nil {
 			logger.V(1).Info("Could not find Pod for process group ID",
 				"processGroupID", processGroup.ProcessGroupID)
 			continue
