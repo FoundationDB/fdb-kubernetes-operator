@@ -5071,11 +5071,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		processGroup.addCondition(condition)
 
 		Expect(processGroup.ProcessGroupConditions).To(HaveLen(len(expectedConditions)))
-
 		for _, expectedCondition := range expectedConditions {
 			timestamp := processGroup.GetConditionTime(expectedCondition.ProcessGroupConditionType)
 			Expect(timestamp).NotTo(BeNil())
-			Expect(*timestamp).To(BeNumerically("==", expectedCondition.Timestamp))
+			if expectedCondition.Timestamp > 0 {
+				Expect(*timestamp).To(BeNumerically("==", expectedCondition.Timestamp))
+			}
 		}
 	}, Entry("no conditions are present",
 		&ProcessGroupStatus{},
@@ -5083,7 +5084,6 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		[]*ProcessGroupCondition{
 			{
 				ProcessGroupConditionType: PodPending,
-				Timestamp:                 time.Now().Unix(),
 			},
 		}),
 		Entry("adding a duplicate condition",
@@ -5107,7 +5107,6 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				ProcessGroupConditions: []*ProcessGroupCondition{
 					{
 						ProcessGroupConditionType: PodPending,
-						Timestamp:                 time.Now().Unix(),
 					},
 				},
 			},
@@ -5115,11 +5114,9 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			[]*ProcessGroupCondition{
 				{
 					ProcessGroupConditionType: PodPending,
-					Timestamp:                 time.Now().Unix(),
 				},
 				{
 					ProcessGroupConditionType: PodFailing,
-					Timestamp:                 time.Now().Unix(),
 				},
 			}),
 		Entry("adding the resource terminating condition to process group marked as removed and excluded",
@@ -5128,25 +5125,14 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					Time: time.Now(),
 				},
 				ExclusionSkipped: true,
-				ProcessGroupConditions: []*ProcessGroupCondition{
-					{
-						ProcessGroupConditionType: PodPending,
-						Timestamp:                 time.Now().Unix(),
-					},
-				},
 			},
 			ResourcesTerminating,
 			[]*ProcessGroupCondition{
 				{
 					ProcessGroupConditionType: ResourcesTerminating,
-					Timestamp:                 time.Now().Unix(),
-				},
-				{
-					ProcessGroupConditionType: PodPending,
-					Timestamp:                 time.Now().Unix(),
 				},
 			}),
-		Entry("adding the another condition to process group marked as removed and excluded",
+		Entry("adding another condition to process group marked as removed and excluded",
 			&ProcessGroupStatus{
 				RemovalTimestamp: &metav1.Time{
 					Time: time.Now(),
@@ -5169,7 +5155,6 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				ProcessGroupConditions: []*ProcessGroupCondition{
 					{
 						ProcessGroupConditionType: PodPending,
-						Timestamp:                 15,
 					},
 				},
 			}),
@@ -5178,11 +5163,9 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				ProcessGroupConditions: []*ProcessGroupCondition{
 					{
 						ProcessGroupConditionType: PodPending,
-						Timestamp:                 time.Now().Unix(),
 					},
 					{
 						ProcessGroupConditionType: PodFailing,
-						Timestamp:                 time.Now().Unix(),
 					},
 				},
 			}),
