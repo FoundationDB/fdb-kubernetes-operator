@@ -5141,6 +5141,10 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					ProcessGroupConditionType: ResourcesTerminating,
 					Timestamp:                 time.Now().Unix(),
 				},
+				{
+					ProcessGroupConditionType: PodPending,
+					Timestamp:                 time.Now().Unix(),
+				},
 			}),
 		Entry("adding the another condition to process group marked as removed and excluded",
 			&ProcessGroupStatus{
@@ -5151,5 +5155,36 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			},
 			PodPending,
 			[]*ProcessGroupCondition{}),
+	)
+
+	DescribeTable("when marking a process group as excluded", func(processGroup *ProcessGroupStatus) {
+		processGroup.SetExclude()
+
+		Expect(processGroup.ProcessGroupConditions).To(HaveLen(0))
+		Expect(processGroup.ExclusionTimestamp.IsZero()).To(BeFalse())
+	}, Entry("no conditions are present",
+		&ProcessGroupStatus{}),
+		Entry("one condition is present",
+			&ProcessGroupStatus{
+				ProcessGroupConditions: []*ProcessGroupCondition{
+					{
+						ProcessGroupConditionType: PodPending,
+						Timestamp:                 15,
+					},
+				},
+			}),
+		Entry("multiple conditions are present",
+			&ProcessGroupStatus{
+				ProcessGroupConditions: []*ProcessGroupCondition{
+					{
+						ProcessGroupConditionType: PodPending,
+						Timestamp:                 time.Now().Unix(),
+					},
+					{
+						ProcessGroupConditionType: PodFailing,
+						Timestamp:                 time.Now().Unix(),
+					},
+				},
+			}),
 	)
 })

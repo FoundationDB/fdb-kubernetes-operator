@@ -348,7 +348,23 @@ func (processGroupStatus *ProcessGroupStatus) IsExcluded() bool {
 
 // SetExclude marks a process group as excluded
 func (processGroupStatus *ProcessGroupStatus) SetExclude() {
+	if !processGroupStatus.ExclusionTimestamp.IsZero() {
+		return
+	}
+
 	processGroupStatus.ExclusionTimestamp = &metav1.Time{Time: time.Now()}
+	// Reset all previous conditions as the operator will only track the ResourcesTerminating condition for process
+	// groups marked as removal. If the ResourcesTerminating condition is already set we are not removing it.
+	newConditions := make([]*ProcessGroupCondition, 0, 1)
+	for _, condition := range processGroupStatus.ProcessGroupConditions {
+		if condition.ProcessGroupConditionType != ResourcesTerminating {
+			continue
+		}
+
+		newConditions = append(newConditions, condition)
+	}
+
+	processGroupStatus.ProcessGroupConditions = newConditions
 }
 
 // IsMarkedForRemoval returns if a process group is marked for removal
@@ -576,9 +592,7 @@ func (processGroupStatus *ProcessGroupStatus) UpdateConditionTime(conditionType 
 // change the timestamp. If a process group is marked for removal and exclusion only the ResourcesTerminating can be added
 // and all other conditions will be reset.
 func (processGroupStatus *ProcessGroupStatus) addCondition(conditionType ProcessGroupConditionType) {
-	// Check if we already got this condition in the current ProcessGroupStatus
-	// This check must execute before checking oldProcessGroupStatus; otherwise, we will add duplicate condition
-	// when both processGroupStatus and oldProcessGroupStatus have the conditionType
+	// Check if we already got this condition in the current ProcessGroupStatus.
 	for _, condition := range processGroupStatus.ProcessGroupConditions {
 		if condition.ProcessGroupConditionType == conditionType {
 			return
@@ -590,9 +604,6 @@ func (processGroupStatus *ProcessGroupStatus) addCondition(conditionType Process
 		if conditionType != ResourcesTerminating {
 			return
 		}
-
-		// Reset all previous conditions
-		processGroupStatus.ProcessGroupConditions = []*ProcessGroupCondition{}
 	}
 
 	// We didn't find any condition so we create a new one
