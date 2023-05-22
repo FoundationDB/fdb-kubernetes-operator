@@ -348,7 +348,7 @@ func (processGroupStatus *ProcessGroupStatus) IsExcluded() bool {
 
 // SetExclude marks a process group as excluded and will reset the process group conditions to only include the ResourcesTerminating
 // if already set, otherwise the conditions will be an empty slice. This reflects the operator behaviour that process
-// groups that are marked for removal and are fully excluded will only have the ResourcesTerminating condition.g
+// groups that are marked for removal and are fully excluded will only have the ResourcesTerminating condition.
 func (processGroupStatus *ProcessGroupStatus) SetExclude() {
 	if !processGroupStatus.ExclusionTimestamp.IsZero() {
 		return
