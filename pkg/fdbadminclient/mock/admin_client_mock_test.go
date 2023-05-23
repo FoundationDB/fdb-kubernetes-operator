@@ -260,6 +260,33 @@ var _ = Describe("mock_client", func() {
 			})
 		})
 	})
+
+	When("adding additional processes", func() {
+		var adminClient *AdminClient
+		var status *fdbv1beta2.FoundationDBStatus
+
+		BeforeEach(func() {
+			cluster := internal.CreateDefaultCluster()
+			Expect(k8sClient.Create(context.TODO(), cluster)).NotTo(HaveOccurred())
+
+			var err error
+			adminClient, err = NewMockAdminClientUncast(cluster, k8sClient)
+			Expect(err).NotTo(HaveOccurred())
+
+			adminClient.MockAdditionalProcesses([]fdbv1beta2.ProcessGroupStatus{{
+				ProcessGroupID: "dc2-storage-1",
+				ProcessClass:   "storage",
+				Addresses:      []string{"1.2.3.4"},
+			}})
+
+			status, err = adminClient.GetStatus()
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should add the additional process once", func() {
+			Expect(status.Cluster.Processes).To(HaveKey(fdbv1beta2.ProcessGroupID("dc2-storage-1")))
+		})
+	})
 })
 
 func getCommandlineForProcessFromStatus(status *fdbv1beta2.FoundationDBStatus, targetProcess string) string {
