@@ -48,7 +48,7 @@ If those tests are running on a cluster that has no chaos-mesh installed, you ca
 ### Running e2e tests in kind
 
 [kind](https://kind.sigs.k8s.io) provides an easy way to run a local Kubernetes cluster.
-The following steps assume that `kind` is already installed.
+The following steps assume that `kind` and `helm` are already installed.
 
 ```bash
 make -C e2e kind-setup
