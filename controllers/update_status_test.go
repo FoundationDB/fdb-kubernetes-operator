@@ -22,15 +22,11 @@ package controllers
 
 import (
 	"context"
-<<<<<<< HEAD
-	ctrlClient "sigs.k8s.io/controller-runtime/pkg/client"
-=======
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
->>>>>>> e1bcbc65 (Initial support for fault domains in CRD)
+	ctrlClient "sigs.k8s.io/controller-runtime/pkg/client"
 	"time"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient/mock"
