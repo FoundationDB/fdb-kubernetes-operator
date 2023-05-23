@@ -20,6 +20,17 @@
 # Running in other environments may involve non-trivial debugging effort.
 set -eo errexit
 
+function check_required_binaries() {
+  for binary in "helm" "kubectl" "kind";
+  do
+    if ! command -v $binary >/dev/null 2>&1
+    then
+      echo "could not find helm in $binary"
+      exit 1
+    fi
+  done
+}
+
 function get_image_name() {
   if [[ -z ${REGISTRY} ]]
   then
@@ -43,6 +54,8 @@ function preload_foundationdb_images_for_version() {
   docker pull "${fdb_sidecar_image}"
   preload_foundationdb_images "${CLUSTER}" "${fdb_image}" "${fdb_sidecar_image}"
 }
+
+check_required_binaries
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
 cd "${SCRIPT_DIR}"
@@ -86,16 +99,6 @@ kubectl apply -f "${SCRIPT_DIR}/../../config/crd/bases/"
 
 echo "Install the chaos-mesh in the Kind cluster"
 kubectl create ns "${CHAOS_NAMESPACE}" || true
-
-# If helm is not installed install it.
-if ! which helm &> /dev/null;
-then
-  pushd /tmp
-  curl -sLo ./helm.tar.gz https://get.helm.sh/helm-v3.12.0-linux-amd64.tar.gz
-  tar -zxvf ./helm.tar.gz
-  mv linux-amd64/helm /usr/local/bin/helm
-  popd
-fi
 
 helm repo add chaos-mesh https://charts.chaos-mesh.org
 helm repo update

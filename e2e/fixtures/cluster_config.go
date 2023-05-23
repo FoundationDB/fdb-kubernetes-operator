@@ -70,17 +70,20 @@ type ClusterConfig struct {
 	MachineCount int
 	// This is also used for calculating the number of Pods.
 	DisksPerMachine int
-	// VolumeSize the size of the volumes that should be created for stateful Pods.
-	VolumeSize string
 	// StorageServerPerPod defines the value that is set in the FoundationDBClusterSpec for this setting.
 	StorageServerPerPod int
-	// The storage engine that should be used to create the cluster
-	StorageEngine fdbv1beta2.StorageEngine
+	// VolumeSize the size of the volumes that should be created for stateful Pods.
+	VolumeSize string
 	// Namespace to create the cluster in, if empty will use a randomly generated namespace. The setup won't create the
 	// namespace if it's not created.
 	Namespace string
 	// Name of the cluster to be created, if empty a random name will be used.
 	Name string
+	// cloudProvider defines the cloud provider used to create the Kubernetes cluster. This value is set in the SetDefaults
+	// method.
+	cloudProvider string
+	// The storage engine that should be used to create the cluster
+	StorageEngine fdbv1beta2.StorageEngine
 	// NodeSelector of the cluster to be created.
 	NodeSelector map[string]string
 	// Defines the HA mode that will be used, per default this will point to HaModeNone.
@@ -119,8 +122,11 @@ func (config *ClusterConfig) SetDefaults(factory *Factory) {
 	}
 
 	if config.VolumeSize == "" {
-		// config.VolumeSize = "16Gi"
-		config.VolumeSize = "4Gi"
+		if config.cloudProvider == "kind" {
+			config.VolumeSize = "4Gi"
+		} else {
+			config.VolumeSize = "16Gi"
+		}
 	}
 
 	if config.StorageServerPerPod == 0 {
@@ -135,6 +141,10 @@ func (config *ClusterConfig) SetDefaults(factory *Factory) {
 
 			log.Println("FoundationDBCluster", fdbCluster.Name(), "successfully created in", fdbCluster.Namespace())
 		}
+	}
+
+	if config.cloudProvider == "" {
+		config.cloudProvider = strings.ToLower(factory.options.cloudProvider)
 	}
 }
 
@@ -159,13 +169,16 @@ func (config *ClusterConfig) generatePodResources(
 	processClass fdbv1beta2.ProcessClass,
 ) corev1.ResourceList {
 	if !config.Performance {
-		return corev1.ResourceList{}
+		// For Kind we are not defining nay requests to allow more Pods to be running inside the cluster.
+		if config.cloudProvider == "kind" {
+			return corev1.ResourceList{}
+		}
+
 		// Minimal resource requests for this cluster to be functional
-		// TODO
-		//return corev1.ResourceList{
-		//	corev1.ResourceCPU:    resource.MustParse("0.2"),
-		//	corev1.ResourceMemory: resource.MustParse("2Gi"),
-		//}
+		return corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("0.2"),
+			corev1.ResourceMemory: resource.MustParse("2Gi"),
+		}
 	}
 
 	// FDB is single threaded so we can assign 1 CPU per process in this Pod and 8 Gi is the default memory footprint

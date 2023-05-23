@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"strconv"
 	"strings"
 	"time"
 
@@ -545,14 +546,81 @@ func updateVersionMapIfVersionIsMissingOrNewer(baseVersion fdbv1beta2.Version, v
 	versions[newVersion.Compact()] = newVersion
 }
 
+// writePodInformation will write the Pod information from the provided Pod into a string.
+func writePodInformation(pod corev1.Pod) string {
+	var buffer strings.Builder
+	var containers, readyContainers, restarts int
+	for _, conStatus := range pod.Status.ContainerStatuses {
+		containers++
+		if conStatus.Ready {
+			readyContainers++
+		}
+
+		restarts += int(conStatus.RestartCount)
+	}
+
+	buffer.WriteString(pod.GetName())
+	buffer.WriteString("\tReady: ")
+	buffer.WriteString(strconv.Itoa(readyContainers))
+	buffer.WriteString("/")
+	buffer.WriteString(strconv.Itoa(containers))
+	buffer.WriteString("\tSTATUS: ")
+	buffer.WriteString(string(pod.Status.Phase))
+
+	if pod.Status.Phase == corev1.PodPending {
+		buffer.WriteString("\tReason: ")
+		buffer.WriteString(pod.Status.Reason)
+		buffer.WriteString("\tMessage: ")
+		buffer.WriteString(pod.Status.Message)
+	}
+
+	buffer.WriteString("\tRESTARTS: ")
+	buffer.WriteString(strconv.Itoa(restarts))
+
+	if _, ok := pod.Labels[fdbv1beta2.FDBProcessGroupIDLabel]; ok {
+		var mainTag, sidecarTag string
+		for _, container := range pod.Spec.Containers {
+			if container.Name == fdbv1beta2.MainContainerName {
+				mainTag = strings.Split(container.Image, ":")[1]
+				continue
+			}
+
+			if container.Name == fdbv1beta2.SidecarContainerName {
+				sidecarTag = strings.Split(container.Image, ":")[1]
+				continue
+			}
+		}
+
+		buffer.WriteString("\tmain: ")
+		buffer.WriteString(mainTag)
+		buffer.WriteString("\tsidecar: ")
+		buffer.WriteString(sidecarTag)
+	}
+
+	buffer.WriteString("\tIPs: ")
+	endIdx := len(pod.Status.PodIPs) - 1
+	for idx, ip := range pod.Status.PodIPs {
+		buffer.WriteString(ip.IP)
+		if endIdx > idx {
+			buffer.WriteString(",")
+		}
+	}
+
+	buffer.WriteString("\tNode: ")
+	buffer.WriteString(pod.Spec.NodeName)
+	buffer.WriteString("\tAge: ")
+	buffer.WriteString(duration.HumanDuration(time.Since(pod.CreationTimestamp.Time)))
+	buffer.WriteString("\n")
+
+	return buffer.String()
+}
+
 // DumpState writes the state of the cluster to the log output. Useful for debugging test failures.
 func (factory *Factory) DumpState(fdbCluster *FdbCluster) {
 	if fdbCluster == nil {
 		return
 	}
-	// (johscheuer): I tried to use the cli-runtime printer package but that was missing some information. Printing out
-	// the required information like this has the benefit, that we can customize the fields that are printed.
-	// Printout the cluster object
+
 	cluster := fdbCluster.GetCluster()
 
 	// We write the whole information into a buffer to prevent having multiple log line prefixes.
@@ -591,48 +659,7 @@ func (factory *Factory) DumpState(fdbCluster *FdbCluster) {
 			operatorPods = append(operatorPods, pod)
 		}
 
-		var containers, readyContainers, restarts int
-		for _, conStatus := range pod.Status.ContainerStatuses {
-			containers++
-			if conStatus.Ready {
-				readyContainers++
-			}
-
-			restarts += int(conStatus.RestartCount)
-		}
-
-		var mainTag, sidecarTag string
-		for _, container := range pod.Spec.Containers {
-			if container.Name == fdbv1beta2.MainContainerName {
-				mainTag = strings.Split(container.Image, ":")[1]
-				continue
-			}
-
-			if container.Name == fdbv1beta2.SidecarContainerName {
-				sidecarTag = strings.Split(container.Image, ":")[1]
-				continue
-			}
-		}
-
-		if _, ok := pod.Labels[fdbv1beta2.FDBProcessGroupIDLabel]; ok {
-			buffer.WriteString(
-				fmt.Sprintf(
-					"%s\tReady: %d/%d\tSTATUS: %s\tRESTARTS: %d\tmain: %s\tsidecar: %s\tIPs: %s\tNode: %s\tAge: %s\n",
-					pod.GetName(),
-					readyContainers,
-					containers,
-					pod.Status.Phase,
-					restarts,
-					mainTag,
-					sidecarTag,
-					pod.Status.PodIPs,
-					pod.Spec.NodeName,
-					duration.HumanDuration(time.Since(pod.CreationTimestamp.Time)),
-				),
-			)
-		} else { // All non FDB containers
-			buffer.WriteString(fmt.Sprintf("%s\tReady: %d/%d\tSTATUS: %s\tRESTARTS: %d\tNode: %s\tAge: %s\n", pod.GetName(), readyContainers, containers, pod.Status.Phase, restarts, pod.Spec.NodeName, duration.HumanDuration(time.Since(pod.CreationTimestamp.Time))))
-		}
+		buffer.WriteString(writePodInformation(pod))
 	}
 
 	log.Println(buffer.String())
@@ -763,6 +790,16 @@ func (factory *Factory) GetSidecarImage() string {
 // prepended.
 func (factory *Factory) GetFoundationDBImage() string {
 	return prependRegistry(factory.options.registry, factory.options.fdbImage)
+}
+
+// getImagePullPolicy returns the image pull policy based on the provided cloud provider. For Kind this will be Never, otherwise
+// this will Always.
+func (factory *Factory) getImagePullPolicy() corev1.PullPolicy {
+	if strings.ToLower(factory.options.cloudProvider) == "kind" {
+		return corev1.PullNever
+	}
+
+	return corev1.PullAlways
 }
 
 // UpdateNode update node definition

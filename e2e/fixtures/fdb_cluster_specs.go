@@ -165,7 +165,7 @@ func (factory *Factory) createPodTemplate(
 			Containers: []corev1.Container{
 				{
 					Name:            fdbv1beta2.MainContainerName,
-					ImagePullPolicy: corev1.PullAlways,
+					ImagePullPolicy: factory.getImagePullPolicy(),
 					Resources:       fdbPodResources,
 					SecurityContext: &corev1.SecurityContext{
 						Privileged:               pointer.Bool(true),
@@ -206,7 +206,7 @@ func (factory *Factory) createPodTemplate(
 				},
 				{
 					Name:            fdbv1beta2.SidecarContainerName,
-					ImagePullPolicy: corev1.PullAlways,
+					ImagePullPolicy: factory.getImagePullPolicy(),
 					SecurityContext: &corev1.SecurityContext{
 						//Privileged:               pointer.Bool(true),
 						//AllowPrivilegeEscalation: pointer.Bool(true), // for performance profiling

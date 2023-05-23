@@ -373,6 +373,7 @@ func (factory *Factory) GetSidecarConfigs() []SidecarConfig {
 		getDefaultSidecarConfig(
 			factory.GetSidecarImage(),
 			factory.GetFDBVersion(),
+			factory.getImagePullPolicy(),
 		),
 	)
 	baseImage := sidecarConfigs[0].BaseImage
@@ -386,14 +387,14 @@ func (factory *Factory) GetSidecarConfigs() []SidecarConfig {
 
 		sidecarConfigs = append(
 			sidecarConfigs,
-			getSidecarConfig(baseImage, "", version),
+			getSidecarConfig(baseImage, "", version, factory.getImagePullPolicy()),
 		)
 	}
 
 	return sidecarConfigs
 }
 
-func getDefaultSidecarConfig(sidecarImage string, version fdbv1beta2.Version) SidecarConfig {
+func getDefaultSidecarConfig(sidecarImage string, version fdbv1beta2.Version, imagePullPolicy corev1.PullPolicy) SidecarConfig {
 	defaultSidecarImage := strings.SplitN(sidecarImage, ":", 2)
 
 	var tag string
@@ -401,20 +402,19 @@ func getDefaultSidecarConfig(sidecarImage string, version fdbv1beta2.Version) Si
 		tag = defaultSidecarImage[1]
 	}
 
-	return getSidecarConfig(defaultSidecarImage[0], tag, version)
+	return getSidecarConfig(defaultSidecarImage[0], tag, version, imagePullPolicy)
 }
 
-func getSidecarConfig(baseImage string, tag string, version fdbv1beta2.Version) SidecarConfig {
+func getSidecarConfig(baseImage string, tag string, version fdbv1beta2.Version, imagePullPolicy corev1.PullPolicy) SidecarConfig {
 	if tag == "" {
 		tag = fmt.Sprintf("%s-1", version)
 	}
 
 	return SidecarConfig{
-		BaseImage:  baseImage,
-		FDBVersion: version,
-		SidecarTag: tag,
-		// TODO(johscheuer): Make this configurable as CLI flag.
-		ImagePullPolicy: corev1.PullIfNotPresent,
+		BaseImage:       baseImage,
+		FDBVersion:      version,
+		SidecarTag:      tag,
+		ImagePullPolicy: imagePullPolicy,
 	}
 }
 
@@ -426,8 +426,7 @@ func (factory *Factory) getOperatorConfig(namespace string) *operatorConfig {
 		BackupSecretName: factory.GetBackupSecretName(),
 		Namespace:        namespace,
 		SidecarVersions:  factory.GetSidecarConfigs(),
-		// TODO(johscheuer): Make this configurable as CLI flag.
-		ImagePullPolicy: corev1.PullIfNotPresent,
+		ImagePullPolicy:  factory.getImagePullPolicy(),
 	}
 }
 
