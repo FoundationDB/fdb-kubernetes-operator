@@ -346,9 +346,27 @@ func (processGroupStatus *ProcessGroupStatus) IsExcluded() bool {
 	return (processGroupStatus.ExclusionTimestamp != nil && !processGroupStatus.ExclusionTimestamp.IsZero()) || processGroupStatus.ExclusionSkipped
 }
 
-// SetExclude marks a process group as excluded
+// SetExclude marks a process group as excluded and will reset the process group conditions to only include the ResourcesTerminating
+// if already set, otherwise the conditions will be an empty slice. This reflects the operator behaviour that process
+// groups that are marked for removal and are fully excluded will only have the ResourcesTerminating condition.
 func (processGroupStatus *ProcessGroupStatus) SetExclude() {
+	if !processGroupStatus.ExclusionTimestamp.IsZero() {
+		return
+	}
+
 	processGroupStatus.ExclusionTimestamp = &metav1.Time{Time: time.Now()}
+	// Reset all previous conditions as the operator will only track the ResourcesTerminating condition for process
+	// groups marked as removal. If the ResourcesTerminating condition is already set we are not removing it.
+	newConditions := make([]*ProcessGroupCondition, 0, 1)
+	for _, condition := range processGroupStatus.ProcessGroupConditions {
+		if condition.ProcessGroupConditionType != ResourcesTerminating {
+			continue
+		}
+
+		newConditions = append(newConditions, condition)
+	}
+
+	processGroupStatus.ProcessGroupConditions = newConditions
 }
 
 // IsMarkedForRemoval returns if a process group is marked for removal
@@ -356,8 +374,12 @@ func (processGroupStatus *ProcessGroupStatus) IsMarkedForRemoval() bool {
 	return processGroupStatus.RemovalTimestamp != nil && !processGroupStatus.RemovalTimestamp.IsZero()
 }
 
-// MarkForRemoval marks a process group for removal
+// MarkForRemoval marks a process group for removal. If the RemovalTimestamp is already set it won't be changed.
 func (processGroupStatus *ProcessGroupStatus) MarkForRemoval() {
+	if !processGroupStatus.RemovalTimestamp.IsZero() {
+		return
+	}
+
 	processGroupStatus.RemovalTimestamp = &metav1.Time{Time: time.Now()}
 }
 
@@ -548,14 +570,13 @@ func MarkProcessGroupForRemoval(processGroups []*ProcessGroupStatus, processGrou
 }
 
 // UpdateCondition will add or remove a condition in the ProcessGroupStatus.
-// If the old ProcessGroupStatus already contains the condition, and the condition is being set,
-// the condition is reused to contain the same timestamp.
-func (processGroupStatus *ProcessGroupStatus) UpdateCondition(conditionType ProcessGroupConditionType, set bool, oldProcessGroups []*ProcessGroupStatus, processGroupID ProcessGroupID) {
+func (processGroupStatus *ProcessGroupStatus) UpdateCondition(conditionType ProcessGroupConditionType, set bool) {
 	if set {
-		processGroupStatus.addCondition(oldProcessGroups, processGroupID, conditionType)
-	} else {
-		processGroupStatus.removeCondition(conditionType)
+		processGroupStatus.addCondition(conditionType)
+		return
 	}
+
+	processGroupStatus.removeCondition(conditionType)
 }
 
 // UpdateConditionTime will update the conditionType's condition time to newTime
@@ -569,38 +590,21 @@ func (processGroupStatus *ProcessGroupStatus) UpdateConditionTime(conditionType 
 	}
 }
 
-// addCondition will add the condition to the ProcessGroupStatus.
-// If the old ProcessGroupStatus already contains the condition the condition is reused to contain the same timestamp.
-func (processGroupStatus *ProcessGroupStatus) addCondition(oldProcessGroups []*ProcessGroupStatus, processGroupID ProcessGroupID, conditionType ProcessGroupConditionType) {
-	var oldProcessGroupStatus *ProcessGroupStatus
-
-	// Check if we got a ProcessGroupStatus for the processGroupID
-	for _, oldGroupStatus := range oldProcessGroups {
-		if oldGroupStatus.ProcessGroupID != processGroupID {
-			continue
-		}
-
-		oldProcessGroupStatus = oldGroupStatus
-		break
-	}
-
-	// Check if we already got this condition in the current ProcessGroupStatus
-	// This check must execute before checking oldProcessGroupStatus; otherwise, we will add duplicate condition
-	// when both processGroupStatus and oldProcessGroupStatus have the conditionType
+// addCondition will add the condition to the ProcessGroupStatus. If the condition is already present this method will not
+// change the timestamp. If a process group is marked for removal and exclusion only the ResourcesTerminating can be added
+// and all other conditions will be reset.
+func (processGroupStatus *ProcessGroupStatus) addCondition(conditionType ProcessGroupConditionType) {
+	// Check if we already got this condition in the current ProcessGroupStatus.
 	for _, condition := range processGroupStatus.ProcessGroupConditions {
 		if condition.ProcessGroupConditionType == conditionType {
 			return
 		}
 	}
 
-	// Check if we got a condition for the condition type for the ProcessGroupStatus
-	if oldProcessGroupStatus != nil {
-		for _, condition := range oldProcessGroupStatus.ProcessGroupConditions {
-			if condition.ProcessGroupConditionType == conditionType {
-				// Assumption: processGroupStatus doesn't have the conditionType
-				processGroupStatus.ProcessGroupConditions = append(processGroupStatus.ProcessGroupConditions, condition)
-				return
-			}
+	// If a process group is marked for removal and is fully excluded we only keep the ResourcesTerminating condition.
+	if processGroupStatus.IsMarkedForRemoval() && processGroupStatus.IsExcluded() {
+		if conditionType != ResourcesTerminating {
+			return
 		}
 	}
 

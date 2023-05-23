@@ -23,8 +23,6 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"time"
-
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient/mock"
 
 	"k8s.io/utils/pointer"
@@ -220,8 +218,6 @@ var _ = Describe("remove_process_groups", func() {
 						secondRemovedProcessGroup.ProcessGroupConditions = append(secondRemovedProcessGroup.ProcessGroupConditions, fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.ResourcesTerminating))
 						err := removeProcessGroup(context.Background(), clusterReconciler, cluster, secondRemovedProcessGroup.ProcessGroupID)
 						Expect(err).NotTo(HaveOccurred())
-						// Sleep here to prevent some timeing issues.
-						time.Sleep(10 * time.Microsecond)
 					})
 
 					It("should remove the process group and the terminated process group", func() {
@@ -243,8 +239,6 @@ var _ = Describe("remove_process_groups", func() {
 				When("a process group is marked as terminating and the resources are not removed", func() {
 					BeforeEach(func() {
 						secondRemovedProcessGroup.ProcessGroupConditions = append(secondRemovedProcessGroup.ProcessGroupConditions, fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.ResourcesTerminating))
-						// Sleep here to prevent some timeing issues.
-						time.Sleep(10 * time.Microsecond)
 					})
 
 					It("should remove the process group and the terminated process group", func() {

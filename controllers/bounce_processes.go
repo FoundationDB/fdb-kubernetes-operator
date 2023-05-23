@@ -167,6 +167,7 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 func getProcessesReadyForRestart(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, addressMap map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.ProcessAddress) ([]fdbv1beta2.ProcessAddress, *requeue) {
 	addresses := make([]fdbv1beta2.ProcessAddress, 0, len(cluster.Status.ProcessGroups))
 	allSynced := true
+	versionIncompatibleUpgrade := cluster.IsBeingUpgradedWithVersionIncompatibleVersion()
 	var missingAddress []fdbv1beta2.ProcessGroupID
 
 	filterConditions := restarts.GetFilterConditions(cluster)
@@ -186,6 +187,13 @@ func getProcessesReadyForRestart(logger logr.Logger, cluster *fdbv1beta2.Foundat
 		// of cluster.GetProcessCountsWithDefaults() + the number of process groups marked for removal.
 		if processGroup.IsMarkedForRemoval() {
 			markedForRemoval++
+			// If we do a version incompatible upgrade we want to add the excluded processes to the list of processes
+			// that should be restarted, to make sure we restart all processes in the cluster.
+			if versionIncompatibleUpgrade && processGroup.IsExcluded() {
+				logger.Info("adding process group that is marked for exclusion to list of restarted processes", "processGroupID", processGroup.ProcessGroupID)
+				addresses = append(addresses, addressMap[processGroup.ProcessGroupID]...)
+				continue
+			}
 		}
 
 		// Ignore processes that are missing for more than 30 seconds e.mg. if the process is network partitioned.
