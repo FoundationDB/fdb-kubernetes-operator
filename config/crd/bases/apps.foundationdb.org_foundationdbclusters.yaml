@@ -13860,6 +13860,8 @@ spec:
                     exclusionTimestamp:
                       format: date-time
                       type: string
+                    faultDomain:
+                      type: string
                     processClass:
                       type: string
                     processGroupConditions:

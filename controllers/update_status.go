@@ -103,10 +103,10 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 
 	versionMap := map[string]int{}
 	for _, process := range databaseStatus.Cluster.Processes {
-		processID, ok := process.Locality["process_id"]
+		processID, ok := process.Locality[fdbv1beta2.FDBLocalityProcessIDKey]
 		// if the processID is not set we fall back to the instanceID
 		if !ok {
-			processID = process.Locality["instance_id"]
+			processID = process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]
 		}
 		processMap[fdbv1beta2.ProcessGroupID(processID)] = append(processMap[fdbv1beta2.ProcessGroupID(processID)], process)
 		versionMap[process.Version]++
@@ -165,6 +165,8 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 			status.ProcessGroups = append(status.ProcessGroups, processGroup)
 		}
 	}
+
+	updateFaultDomains(logger, processMap, &status)
 
 	pvcs, err := refreshProcessGroupStatus(ctx, r, cluster, &status)
 	if err != nil {
@@ -814,4 +816,56 @@ func hasExactMatchedTaintKey(taintReplacementOptions []fdbv1beta2.TaintReplaceme
 		}
 	}
 	return false
+}
+
+// getFaultDomainFromProcesses returns the fault domain from the process information slice.
+func getFaultDomainFromProcesses(processes []fdbv1beta2.FoundationDBStatusProcessInfo) string {
+	if len(processes) == 1 {
+		return processes[0].Locality[fdbv1beta2.FDBLocalityZoneIDKey]
+	}
+
+	// If we find more than one process with the same process group ID, we might have a case were one process was restarted
+	if len(processes) > 1 {
+		// If we have more than one process we will take the information from the process that was most recently started and
+		// has the locality information present.
+		latestProcess := fdbv1beta2.FoundationDBStatusProcessInfo{
+			UptimeSeconds: math.MaxFloat64,
+		}
+
+		for _, process := range processes {
+			_, hasZone := process.Locality[fdbv1beta2.FDBLocalityZoneIDKey]
+			if !hasZone {
+				continue
+			}
+
+			if latestProcess.UptimeSeconds < process.UptimeSeconds {
+				continue
+			}
+
+			latestProcess = process
+		}
+
+		return latestProcess.Locality[fdbv1beta2.FDBLocalityZoneIDKey]
+	}
+
+	return ""
+}
+
+// updateFaultDomains will update the process groups fault domain, based on the last seen zone id in the cluster status.
+func updateFaultDomains(logger logr.Logger, processes map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo, status *fdbv1beta2.FoundationDBClusterStatus) {
+	for idx, processGroup := range status.ProcessGroups {
+		process, ok := processes[processGroup.ProcessGroupID]
+		if !ok || len(processes) == 0 {
+			logger.Info("skip updating fault domain for process group with missing process in FoundationDB cluster status", "processGroupID", processGroup.ProcessGroupID)
+			continue
+		}
+
+		faultDomain := getFaultDomainFromProcesses(process)
+		if faultDomain == "" {
+			logger.Info("skip updating fault domain for process group with missing zoneid", "processGroupID", processGroup.ProcessGroupID)
+			continue
+		}
+
+		status.ProcessGroups[idx].FaultDomain = faultDomain
+	}
 }

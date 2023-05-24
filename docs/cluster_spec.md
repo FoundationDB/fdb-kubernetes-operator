@@ -414,6 +414,7 @@ ProcessGroupStatus represents the status of a ProcessGroup.
 | exclusionTimestamp | ExclusionTimestamp defines when the process group has been fully excluded. This is only used within the reconciliation process, and should not be considered authoritative. | *metav1.Time | false |
 | exclusionSkipped | ExclusionSkipped determines if exclusion has been skipped for a process, which will allow the process group to be removed without exclusion. | bool | false |
 | processGroupConditions | ProcessGroupConditions represents a list of degraded conditions that the process group is in. | []*[ProcessGroupCondition](#processgroupcondition) | false |
+| faultDomain | FaultDomain represents the last seen fault domain from the cluster status. This can be used if a Pod or process is not running and would be missing in the cluster status. | string | false |
 
 [Back to TOC](#table-of-contents)
 
