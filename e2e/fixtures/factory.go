@@ -28,6 +28,7 @@ import (
 	"log"
 	"strconv"
 	"strings"
+	"text/tabwriter"
 	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -560,11 +561,11 @@ func writePodInformation(pod corev1.Pod) string {
 	}
 
 	buffer.WriteString(pod.GetName())
-	buffer.WriteString("\tReady: ")
+	buffer.WriteString("\t")
 	buffer.WriteString(strconv.Itoa(readyContainers))
 	buffer.WriteString("/")
 	buffer.WriteString(strconv.Itoa(containers))
-	buffer.WriteString("\tSTATUS: ")
+	buffer.WriteString("\t")
 	buffer.WriteString(string(pod.Status.Phase))
 
 	if pod.Status.Phase == corev1.PodPending {
@@ -580,12 +581,14 @@ func writePodInformation(pod corev1.Pod) string {
 			}
 
 			// Printout the message, why the Pod is not scheduling.
-			buffer.WriteString("\tUnschedulable: ")
+			buffer.WriteString("\t")
 			buffer.WriteString(condition.Message)
 		}
+	} else {
+		buffer.WriteString("\t-")
 	}
 
-	buffer.WriteString("\tRESTARTS: ")
+	buffer.WriteString("\t")
 	buffer.WriteString(strconv.Itoa(restarts))
 
 	if _, ok := pod.Labels[fdbv1beta2.FDBProcessGroupIDLabel]; ok {
@@ -602,13 +605,15 @@ func writePodInformation(pod corev1.Pod) string {
 			}
 		}
 
-		buffer.WriteString("\tmain: ")
+		buffer.WriteString("\t")
 		buffer.WriteString(mainTag)
-		buffer.WriteString("\tsidecar: ")
+		buffer.WriteString("\t")
 		buffer.WriteString(sidecarTag)
+	} else {
+		buffer.WriteString("\t-\t-")
 	}
 
-	buffer.WriteString("\tIPs: ")
+	buffer.WriteString("\t")
 	endIdx := len(pod.Status.PodIPs) - 1
 	for idx, ip := range pod.Status.PodIPs {
 		buffer.WriteString(ip.IP)
@@ -617,11 +622,10 @@ func writePodInformation(pod corev1.Pod) string {
 		}
 	}
 
-	buffer.WriteString("\tNode: ")
+	buffer.WriteString("\t")
 	buffer.WriteString(pod.Spec.NodeName)
-	buffer.WriteString("\tAge: ")
+	buffer.WriteString("\t")
 	buffer.WriteString(duration.HumanDuration(time.Since(pod.CreationTimestamp.Time)))
-	buffer.WriteString("\n")
 
 	return buffer.String()
 }
@@ -663,15 +667,22 @@ func (factory *Factory) DumpState(fdbCluster *FdbCluster) {
 		log.Println(err)
 	}
 
-	buffer.WriteString("---------- Pods ----------\n")
+	buffer.WriteString("---------- Pods ----------")
+	log.Println(buffer.String())
+	buffer.Reset()
+
+	// Make use of a tabwriter for better output.
+	w := tabwriter.NewWriter(log.Writer(), 0, 0, 1, ' ', tabwriter.Debug)
+	_, _ = fmt.Fprintln(w, "Name\tReady\tSTATUS\tUnschedulable\tRestarts\tMain Image\tSidecar Image\tIPs\tNode\tAge")
 	var operatorPods []corev1.Pod
 	for _, pod := range pods.Items {
 		if pod.Labels["app"] == "fdb-kubernetes-operator-controller-manager" {
 			operatorPods = append(operatorPods, pod)
 		}
 
-		buffer.WriteString(writePodInformation(pod))
+		_, _ = fmt.Fprintln(w, writePodInformation(pod))
 	}
+	_ = w.Flush()
 
 	log.Println(buffer.String())
 
