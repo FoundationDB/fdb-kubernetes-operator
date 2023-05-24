@@ -230,7 +230,7 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 			}
 
 			var uptimeSeconds float64 = 60000
-			if client.MaintenanceZone == pod.Name || client.MaintenanceZone == "simulation" {
+			if client.MaintenanceZone == locality[fdbv1beta2.FDBLocalityZoneIDKey] || client.MaintenanceZone == "simulation" {
 				if client.uptimeSecondsForMaintenanceZone != 0.0 {
 					uptimeSeconds = client.uptimeSecondsForMaintenanceZone
 				} else {
@@ -274,34 +274,34 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 				Roles:         fdbRoles,
 			}
 		}
+	}
 
-		for _, processGroup := range client.additionalProcesses {
-			locality := map[string]string{
-				fdbv1beta2.FDBLocalityInstanceIDKey: string(processGroup.ProcessGroupID),
-				fdbv1beta2.FDBLocalityZoneIDKey:     string(processGroup.ProcessGroupID),
-			}
+	for _, processGroup := range client.additionalProcesses {
+		locality := map[string]string{
+			fdbv1beta2.FDBLocalityInstanceIDKey: string(processGroup.ProcessGroupID),
+			fdbv1beta2.FDBLocalityZoneIDKey:     string(processGroup.ProcessGroupID),
+		}
 
-			for key, value := range client.localityInfo[processGroupID] {
-				locality[key] = value
-			}
+		for key, value := range client.localityInfo[processGroup.ProcessGroupID] {
+			locality[key] = value
+		}
 
-			var uptimeSeconds float64 = 60000
-			if client.MaintenanceZone == string(processGroup.ProcessGroupID) || client.MaintenanceZone == "simulation" {
-				if client.uptimeSecondsForMaintenanceZone != 0.0 {
-					uptimeSeconds = client.uptimeSecondsForMaintenanceZone
-				} else {
-					uptimeSeconds = time.Since(client.maintenanceZoneStartTimestamp).Seconds()
-				}
+		var uptimeSeconds float64 = 60000
+		if client.MaintenanceZone == locality[fdbv1beta2.FDBLocalityZoneIDKey] || client.MaintenanceZone == "simulation" {
+			if client.uptimeSecondsForMaintenanceZone != 0.0 {
+				uptimeSeconds = client.uptimeSecondsForMaintenanceZone
+			} else {
+				uptimeSeconds = time.Since(client.maintenanceZoneStartTimestamp).Seconds()
 			}
+		}
 
-			fullAddress := client.Cluster.GetFullAddress(processGroup.Addresses[0], 1)
-			status.Cluster.Processes[processGroup.ProcessGroupID] = fdbv1beta2.FoundationDBStatusProcessInfo{
-				Address:       fullAddress,
-				ProcessClass:  processGroup.ProcessClass,
-				Locality:      locality,
-				Version:       client.Cluster.Status.RunningVersion,
-				UptimeSeconds: uptimeSeconds,
-			}
+		fullAddress := client.Cluster.GetFullAddress(processGroup.Addresses[0], 1)
+		status.Cluster.Processes[processGroup.ProcessGroupID] = fdbv1beta2.FoundationDBStatusProcessInfo{
+			Address:       fullAddress,
+			ProcessClass:  processGroup.ProcessClass,
+			Locality:      locality,
+			Version:       client.Cluster.Status.RunningVersion,
+			UptimeSeconds: uptimeSeconds,
 		}
 	}
 
