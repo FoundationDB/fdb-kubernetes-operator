@@ -568,10 +568,21 @@ func writePodInformation(pod corev1.Pod) string {
 	buffer.WriteString(string(pod.Status.Phase))
 
 	if pod.Status.Phase == corev1.PodPending {
-		buffer.WriteString("\tReason: ")
-		buffer.WriteString(pod.Status.Reason)
-		buffer.WriteString("\tMessage: ")
-		buffer.WriteString(pod.Status.Message)
+		for _, condition := range pod.Status.Conditions {
+			// Only check the PodScheduled condition.
+			if condition.Type != corev1.PodScheduled {
+				continue
+			}
+
+			// If the Pod is scheduled we can ignore this condition.
+			if condition.Status == corev1.ConditionTrue {
+				continue
+			}
+
+			// Printout the message, why the Pod is not scheduling.
+			buffer.WriteString("\tUnschedulable: ")
+			buffer.WriteString(condition.Message)
+		}
 	}
 
 	buffer.WriteString("\tRESTARTS: ")
