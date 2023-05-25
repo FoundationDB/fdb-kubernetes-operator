@@ -22,10 +22,11 @@ package controllers
 
 import (
 	"context"
+	"time"
+
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrlClient "sigs.k8s.io/controller-runtime/pkg/client"
-	"time"
 
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -671,6 +672,7 @@ var _ = Describe("update_status", func() {
 		var cluster *fdbv1beta2.FoundationDBCluster
 		var err error
 		var requeue *requeue
+		var adminClient *mock.AdminClient
 
 		BeforeEach(func() {
 			cluster = internal.CreateDefaultCluster()
@@ -684,6 +686,9 @@ var _ = Describe("update_status", func() {
 			generation, err := reloadCluster(cluster)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(generation).To(Equal(int64(1)))
+
+			adminClient, err = mock.NewMockAdminClientUncast(cluster, k8sClient)
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		JustBeforeEach(func() {
@@ -725,6 +730,7 @@ var _ = Describe("update_status", func() {
 					Expect(cluster.Status.MaintenanceModeInfo).To(Equal(fdbv1beta2.MaintenanceModeInfo{ZoneID: "operator-test-1-storage-4"}))
 				})
 			})
+		})
 	})
 
 	DescribeTable("when getting the running version from the running processes", func(versionMap map[string]int, fallback string, expected string) {
