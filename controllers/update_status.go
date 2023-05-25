@@ -264,12 +264,6 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 		return status.ProcessGroups[i].ProcessGroupID < status.ProcessGroups[j].ProcessGroupID
 	})
 
-	// Update maintenance mode information in "status".
-	err = updateMaintenanceModeInfo(r, cluster, &status)
-	if err != nil {
-		return &requeue{curError: err}
-	}
-
 	cluster.Status = status
 
 	_, err = cluster.CheckReconciliation(log)
@@ -875,35 +869,4 @@ func updateFaultDomains(logger logr.Logger, processes map[fdbv1beta2.ProcessGrou
 
 		status.ProcessGroups[idx].FaultDomain = faultDomain
 	}
-}
-
-func updateMaintenanceModeInfo(r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBClusterStatus) error {
-	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r.Client)
-	if err != nil {
-		return err
-	}
-	defer adminClient.Close()
-
-	maintenanceZone, err := adminClient.GetMaintenanceZone()
-	if err != nil {
-		return err
-	}
-
-	// Cluster is not in maintenance mode.
-	if maintenanceZone == "" {
-		if cluster.Status.MaintenanceModeInfo.ZoneID != "" {
-			status.MaintenanceModeInfo = fdbv1beta2.MaintenanceModeInfo{}
-		}
-		return nil
-	}
-
-	// FDB Cluster is in maintenance mode but not due to this operator actions.
-	if maintenanceZone != cluster.Status.MaintenanceModeInfo.ZoneID {
-		if cluster.Status.MaintenanceModeInfo.ZoneID != "" {
-			status.MaintenanceModeInfo = fdbv1beta2.MaintenanceModeInfo{}
-		}
-		return nil
-	}
-
-	return nil
 }
