@@ -715,6 +715,16 @@ var _ = Describe("update_status", func() {
 				})
 			})
 		})
+
+		Context("testing maintenance mode functionality", func() {
+			When("maintenance mode is on", func() {
+				BeforeEach(func() {
+					Expect(adminClient.SetMaintenanceZone("operator-test-1-storage-4", 0)).NotTo(HaveOccurred())
+				})
+				It("status maintenance zone should match", func() {
+					Expect(cluster.Status.MaintenanceModeInfo).To(Equal(fdbv1beta2.MaintenanceModeInfo{ZoneID: "operator-test-1-storage-4"}))
+				})
+			})
 	})
 
 	DescribeTable("when getting the running version from the running processes", func(versionMap map[string]int, fallback string, expected string) {
