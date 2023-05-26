@@ -150,6 +150,7 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 		status.Health.Healthy = databaseStatus.Client.DatabaseStatus.Healthy
 		status.Health.FullReplication = databaseStatus.Cluster.FullReplication
 		status.Health.DataMovementPriority = databaseStatus.Cluster.Data.MovingData.HighestPriority
+		status.MaintenanceModeInfo.ZoneID = databaseStatus.Cluster.MaintenanceZone
 	}
 
 	cluster.Status.RequiredAddresses = status.RequiredAddresses
