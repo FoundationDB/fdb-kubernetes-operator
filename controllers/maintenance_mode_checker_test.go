@@ -33,7 +33,7 @@ import (
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 )
 
-var _ = FDescribe("maintenance_mode_checker", func() {
+var _ = Describe("maintenance_mode_checker", func() {
 	var cluster *fdbv1beta2.FoundationDBCluster
 	var err error
 	var requeue *requeue
