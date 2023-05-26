@@ -291,9 +291,9 @@ spec:
           - name: metrics
             containerPort: 8080
         resources:
-          requests:
-            cpu: 500m
-            memory: 1024Mi
+         requests:
+           cpu: {{ .CpuRequests }}
+           memory: {{ .MemoryRequests }}
         securityContext:
           allowPrivilegeEscalation: false
           privileged: false
@@ -348,6 +348,10 @@ type operatorConfig struct {
 	Namespace string
 	// ImagePullPolicy represents the pull policy for the operator container.
 	ImagePullPolicy corev1.PullPolicy
+	// CpuRequests defined the CPU that should be requested.
+	CpuRequests string
+	// MemoryRequests defined the Memory that should be requested.
+	MemoryRequests string
 }
 
 // SidecarConfig represents the configuration for a sidecar. This can be used for templating.
@@ -420,6 +424,14 @@ func getSidecarConfig(baseImage string, tag string, version fdbv1beta2.Version, 
 
 //nolint:revive
 func (factory *Factory) getOperatorConfig(namespace string) *operatorConfig {
+	cpuRequests := "500m"
+	MemoryRequests := "1024Mi"
+
+	if factory.options.cloudProvider == cloudProviderKind {
+		cpuRequests = "0"
+		MemoryRequests = "0"
+	}
+
 	return &operatorConfig{
 		OperatorImage:    factory.GetOperatorImage(),
 		SecretName:       factory.GetSecretName(),
@@ -427,6 +439,8 @@ func (factory *Factory) getOperatorConfig(namespace string) *operatorConfig {
 		Namespace:        namespace,
 		SidecarVersions:  factory.GetSidecarConfigs(),
 		ImagePullPolicy:  factory.getImagePullPolicy(),
+		CpuRequests:      cpuRequests,
+		MemoryRequests:   MemoryRequests,
 	}
 }
 

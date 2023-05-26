@@ -796,19 +796,19 @@ func (factory *Factory) CreateIfAbsent(object client.Object) error {
 	return nil
 }
 
-// GetOperatorImage returns the operator image provided via command line. If a registry was definem the registry will be
+// GetOperatorImage returns the operator image provided via command line. If a registry was defined the registry will be
 // prepended.
 func (factory *Factory) GetOperatorImage() string {
 	return prependRegistry(factory.options.registry, factory.options.operatorImage)
 }
 
-// GetSidecarImage returns the sidecar image provided via command line. If a registry was definem the registry will be
+// GetSidecarImage returns the sidecar image provided via command line. If a registry was defined the registry will be
 // prepended.
 func (factory *Factory) GetSidecarImage() string {
 	return prependRegistry(factory.options.registry, factory.options.sidecarImage)
 }
 
-// GetFoundationDBImage returns the FoundationDB image provided via command line. If a registry was definem the registry will be
+// GetFoundationDBImage returns the FoundationDB image provided via command line. If a registry was defined the registry will be
 // prepended.
 func (factory *Factory) GetFoundationDBImage() string {
 	return prependRegistry(factory.options.registry, factory.options.fdbImage)
@@ -817,7 +817,7 @@ func (factory *Factory) GetFoundationDBImage() string {
 // getImagePullPolicy returns the image pull policy based on the provided cloud provider. For Kind this will be Never, otherwise
 // this will Always.
 func (factory *Factory) getImagePullPolicy() corev1.PullPolicy {
-	if strings.ToLower(factory.options.cloudProvider) == "kind" {
+	if strings.ToLower(factory.options.cloudProvider) == cloudProviderKind {
 		return corev1.PullNever
 	}
 

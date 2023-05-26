@@ -213,6 +213,11 @@ func (options *FactoryOptions) validateFlags() error {
 		}
 	}
 
+	// Make sure we handle the cloud provider string internally as lower cases.
+	if options.cloudProvider != "" {
+		options.cloudProvider = strings.ToLower(options.cloudProvider)
+	}
+
 	return nil
 }
 

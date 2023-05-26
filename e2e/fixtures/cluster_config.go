@@ -32,6 +32,12 @@ import (
 	"strings"
 )
 
+type cloudProvider string
+
+const (
+	cloudProviderKind = "kind"
+)
+
 // HaMode represents the targeted HA mode for the created cluster.
 type HaMode int
 
@@ -121,14 +127,6 @@ func (config *ClusterConfig) SetDefaults(factory *Factory) {
 		config.StorageEngine = fdbv1beta2.StorageEngineSSD
 	}
 
-	if config.VolumeSize == "" {
-		if config.cloudProvider == "kind" {
-			config.VolumeSize = "4Gi"
-		} else {
-			config.VolumeSize = "16Gi"
-		}
-	}
-
 	if config.StorageServerPerPod == 0 {
 		config.StorageServerPerPod = 1
 	}
@@ -144,8 +142,23 @@ func (config *ClusterConfig) SetDefaults(factory *Factory) {
 	}
 
 	if config.cloudProvider == "" {
-		config.cloudProvider = strings.ToLower(factory.options.cloudProvider)
+		config.cloudProvider = factory.options.cloudProvider
 	}
+
+}
+
+// getVolumeSize returns the volume size in as a string. If no volume size is defined a default will be set based on
+// the provided cloud provider.
+func (config *ClusterConfig) getVolumeSize() string {
+	if config.VolumeSize != "" {
+		return config.VolumeSize
+	}
+
+	if config.cloudProvider == cloudProviderKind {
+		return "2Gi"
+	}
+
+	return "16Gi"
 }
 
 // generateVolumeClaimTemplate generates a PersistentVolumeClaim for the specified configuration
@@ -157,10 +170,25 @@ func (config *ClusterConfig) generateVolumeClaimTemplate(
 			StorageClassName: &storageClass,
 			Resources: corev1.ResourceRequirements{
 				Requests: corev1.ResourceList{
-					corev1.ResourceStorage: resource.MustParse(config.VolumeSize),
+					corev1.ResourceStorage: resource.MustParse(config.getVolumeSize()),
 				},
 			},
 		},
+	}
+}
+
+// generateSidecarResources generates a ResourceList for the sidecar container
+func (config *ClusterConfig) generateSidecarResources() corev1.ResourceList {
+	if config.cloudProvider == cloudProviderKind {
+		return corev1.ResourceList{
+			"foundationdb.org/empty": resource.MustParse("0"),
+		}
+	}
+
+	// minimal resources for the sidecar containers
+	return corev1.ResourceList{
+		corev1.ResourceCPU:    resource.MustParse("0.1"),
+		corev1.ResourceMemory: resource.MustParse("256Mi"),
 	}
 }
 
@@ -170,8 +198,10 @@ func (config *ClusterConfig) generatePodResources(
 ) corev1.ResourceList {
 	if !config.Performance {
 		// For Kind we are not defining nay requests to allow more Pods to be running inside the cluster.
-		if config.cloudProvider == "kind" {
-			return corev1.ResourceList{}
+		if config.cloudProvider == cloudProviderKind {
+			return corev1.ResourceList{
+				"foundationdb.org/empty": resource.MustParse("0"),
+			}
 		}
 
 		// Minimal resource requests for this cluster to be functional
