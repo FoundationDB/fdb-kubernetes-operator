@@ -87,7 +87,7 @@ var _ = Describe("update_pods", func() {
 
 		DescribeTable("should delete the Pods based on the deletion mode",
 			func(input testCase) {
-				_, deletion, err := getPodsToDelete(input.deletionMode, updates, cluster)
+				_, deletion, err := getPodsToDelete(input.deletionMode, updates)
 				if input.expectedErr != nil {
 					Expect(err).To(Equal(input.expectedErr))
 				}
@@ -270,7 +270,7 @@ var _ = Describe("update_pods", func() {
 				}
 			})
 
-			It("should return no errors and a map with the zone and one pod to update", func() {
+			It("should return no errors and a map with the zone and one podgit to update", func() {
 				Expect(updates).To(HaveLen(1))
 				Expect(updates["simulation"]).To(HaveLen(1))
 			})
