@@ -175,6 +175,27 @@ func getPodsToUpdate(ctx context.Context, logger logr.Logger, reconciler *Founda
 			continue
 		}
 
+		if maxZonesWithUnavailablePods > 0 {
+			// When number of zones with unavailable Pods exceeds the maxZonesWithUnavailablePods skip the process group.
+			if len(zoneToUnavailablePods) > maxZonesWithUnavailablePods {
+				logger.V(1).Info("Skip process group for update, the number of zones with unavailable Pods exceeds the limit",
+					"processGroupID", processGroup.ProcessGroupID,
+					"maxZonesWithUnavailablePods", maxZonesWithUnavailablePods,
+					"faultDomain", processGroup.FaultDomain,
+					"zonesWithUnavailablePods", zoneToUnavailablePods)
+				continue
+			}
+			// When the number of zones equals maxZonesWithUnavailablePods and the process group does not belong to a zone with unavailable Pods skip the process group.
+			if len(zoneToUnavailablePods) == maxZonesWithUnavailablePods && zoneToUnavailablePods[processGroup.FaultDomain] == 0 {
+				logger.V(1).Info("Skip process group for update, the number zones with unavailable Pods equals the limit but the process group does not belong to a zone with unavailable Pods",
+					"processGroupID", processGroup.ProcessGroupID,
+					"maxZonesWithUnavailablePods", maxZonesWithUnavailablePods,
+					"faultDomain", processGroup.FaultDomain,
+					"zonesWithUnavailablePods", zoneToUnavailablePods)
+				continue
+			}
+		}
+
 		logger.Info("Update Pod",
 			"processGroupID", processGroup.ProcessGroupID,
 			"reason", fmt.Sprintf("specHash has changed from %s to %s", specHash, pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey]))
@@ -198,27 +219,6 @@ func getPodsToUpdate(ctx context.Context, logger logr.Logger, reconciler *Founda
 			logger.Info("Skipping Pod due to missing locality information",
 				"processGroupID", processGroup.ProcessGroupID)
 			continue
-		}
-
-		if maxZonesWithUnavailablePods > 0 {
-			// When number of zones with unavailable Pods exceeds the maxZonesWithUnavailablePods limit skip the process group and log the limit.
-			if len(zoneToUnavailablePods) > maxZonesWithUnavailablePods {
-				logger.V(1).Info("Skip process group for update, the number of zones with unavailable Pods exceeds the limit",
-					"processGroupID", processGroup.ProcessGroupID,
-					"maxZonesWithUnavailablePods", maxZonesWithUnavailablePods,
-					"faultDomain", processGroup.FaultDomain,
-					"zonesWithUnavailablePods", zoneToUnavailablePods)
-				continue
-			}
-			// When the number of zones equals maxZonesWithUnavailablePods and the process group does not belong to a zone with unavailable Pods skip the process group.
-			if len(zoneToUnavailablePods) == maxZonesWithUnavailablePods && zoneToUnavailablePods[processGroup.FaultDomain] == 0 {
-				logger.V(1).Info("Skip process group for update, the number zones with unavailable Pods equals the limit but the process group does not belong to a zone with unavailable Pods",
-					"processGroupID", processGroup.ProcessGroupID,
-					"maxZonesWithUnavailablePods", maxZonesWithUnavailablePods,
-					"faultDomain", processGroup.FaultDomain,
-					"zonesWithUnavailablePods", zoneToUnavailablePods)
-				continue
-			}
 		}
 
 		zone := substitutions["FDB_ZONE_ID"]
