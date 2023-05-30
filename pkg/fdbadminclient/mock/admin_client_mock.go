@@ -176,11 +176,6 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 			_, ipExcluded := client.ExcludedAddresses[processIP]
 			_, addressExcluded := client.ExcludedAddresses[fullAddress.String()]
 			excluded := ipExcluded || addressExcluded
-			_, isCoordinator := coordinators[fullAddress.String()]
-			if isCoordinator && !excluded {
-				coordinators[fullAddress.String()] = true
-				fdbRoles = append(fdbRoles, fdbv1beta2.FoundationDBStatusProcessRoleInfo{Role: string(fdbv1beta2.ProcessRoleCoordinator)})
-			}
 
 			pClass, err := podmanager.GetProcessClass(client.Cluster, &pod)
 			if err != nil {
@@ -230,12 +225,20 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 			}
 
 			var uptimeSeconds float64 = 60000
+			underMaintenance := false
 			if client.MaintenanceZone == locality[fdbv1beta2.FDBLocalityZoneIDKey] || client.MaintenanceZone == "simulation" {
 				if client.uptimeSecondsForMaintenanceZone != 0.0 {
 					uptimeSeconds = client.uptimeSecondsForMaintenanceZone
 				} else {
 					uptimeSeconds = time.Since(client.maintenanceZoneStartTimestamp).Seconds()
 				}
+				underMaintenance = true
+			}
+
+			_, isCoordinator := coordinators[fullAddress.String()]
+			if isCoordinator && !excluded && !underMaintenance {
+				coordinators[fullAddress.String()] = true
+				fdbRoles = append(fdbRoles, fdbv1beta2.FoundationDBStatusProcessRoleInfo{Role: string(fdbv1beta2.ProcessRoleCoordinator)})
 			}
 
 			version, ok := client.VersionProcessGroups[processGroupID]
@@ -264,14 +267,15 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 			}
 
 			status.Cluster.Processes[fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%d", pod.Name, processIndex))] = fdbv1beta2.FoundationDBStatusProcessInfo{
-				Address:       fullAddress,
-				ProcessClass:  internal.GetProcessClassFromMeta(client.Cluster, pod.ObjectMeta),
-				CommandLine:   command,
-				Excluded:      excluded,
-				Locality:      locality,
-				Version:       version,
-				UptimeSeconds: uptimeSeconds,
-				Roles:         fdbRoles,
+				Address:          fullAddress,
+				ProcessClass:     internal.GetProcessClassFromMeta(client.Cluster, pod.ObjectMeta),
+				CommandLine:      command,
+				Excluded:         excluded,
+				UnderMaintenance: underMaintenance,
+				Locality:         locality,
+				Version:          version,
+				UptimeSeconds:    uptimeSeconds,
+				Roles:            fdbRoles,
 			}
 		}
 	}
@@ -287,21 +291,24 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 		}
 
 		var uptimeSeconds float64 = 60000
+		underMaintenance := false
 		if client.MaintenanceZone == locality[fdbv1beta2.FDBLocalityZoneIDKey] || client.MaintenanceZone == "simulation" {
 			if client.uptimeSecondsForMaintenanceZone != 0.0 {
 				uptimeSeconds = client.uptimeSecondsForMaintenanceZone
 			} else {
 				uptimeSeconds = time.Since(client.maintenanceZoneStartTimestamp).Seconds()
 			}
+			underMaintenance = true
 		}
 
 		fullAddress := client.Cluster.GetFullAddress(processGroup.Addresses[0], 1)
 		status.Cluster.Processes[processGroup.ProcessGroupID] = fdbv1beta2.FoundationDBStatusProcessInfo{
-			Address:       fullAddress,
-			ProcessClass:  processGroup.ProcessClass,
-			Locality:      locality,
-			Version:       client.Cluster.Status.RunningVersion,
-			UptimeSeconds: uptimeSeconds,
+			Address:          fullAddress,
+			ProcessClass:     processGroup.ProcessClass,
+			Locality:         locality,
+			UnderMaintenance: underMaintenance,
+			Version:          client.Cluster.Status.RunningVersion,
+			UptimeSeconds:    uptimeSeconds,
 		}
 	}
 

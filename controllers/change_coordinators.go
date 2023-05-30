@@ -123,7 +123,7 @@ func (c changeCoordinators) reconcile(ctx context.Context, r *FoundationDBCluste
 func selectCandidates(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) ([]locality.Info, error) {
 	candidates := make([]locality.Info, 0, len(status.Cluster.Processes))
 	for _, process := range status.Cluster.Processes {
-		if process.Excluded {
+		if process.Excluded || process.UnderMaintenance {
 			continue
 		}
 
