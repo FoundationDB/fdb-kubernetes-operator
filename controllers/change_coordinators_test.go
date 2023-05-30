@@ -204,7 +204,7 @@ var _ = Describe("Change coordinators", func() {
 				})
 			})
 
-			FWhen("maintenance mode is on", func() {
+			When("maintenance mode is on", func() {
 				BeforeEach(func() {
 					Expect(adminClient.SetMaintenanceZone("operator-test-1-storage-1", 0)).NotTo(HaveOccurred())
 				})
