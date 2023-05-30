@@ -205,7 +205,7 @@ func GetMonitorProcessConfiguration(cluster *fdbv1beta2.FoundationDBCluster, pro
 			},
 		})
 		configuration.Arguments = append(configuration.Arguments, monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
-			{Value: "--locality_process_id="},
+			{Value: getKnobParameter(fdbv1beta2.FDBLocalityProcessIDKey, true)},
 			{ArgumentType: monitorapi.EnvironmentArgumentType, Source: "FDB_INSTANCE_ID"},
 			{Value: "-"},
 			{ArgumentType: monitorapi.ProcessNumberArgumentType},
@@ -216,15 +216,15 @@ func GetMonitorProcessConfiguration(cluster *fdbv1beta2.FoundationDBCluster, pro
 
 	configuration.Arguments = append(configuration.Arguments,
 		monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
-			{Value: "--locality_instance_id="},
+			{Value: getKnobParameter(fdbv1beta2.FDBLocalityInstanceIDKey, true)},
 			{ArgumentType: monitorapi.EnvironmentArgumentType, Source: "FDB_INSTANCE_ID"},
 		}},
 		monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
-			{Value: "--locality_machineid="},
+			{Value: getKnobParameter(fdbv1beta2.FDBLocalityMachineIDKey, true)},
 			{ArgumentType: monitorapi.EnvironmentArgumentType, Source: "FDB_MACHINE_ID"},
 		}},
 		monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
-			{Value: "--locality_zoneid="},
+			{Value: getKnobParameter(fdbv1beta2.FDBLocalityZoneIDKey, true)},
 			{ArgumentType: monitorapi.EnvironmentArgumentType, Source: zoneVariable},
 		}},
 	)
@@ -234,7 +234,7 @@ func GetMonitorProcessConfiguration(cluster *fdbv1beta2.FoundationDBCluster, pro
 	}
 
 	if cluster.Spec.MainContainer.PeerVerificationRules != "" {
-		configuration.Arguments = append(configuration.Arguments, monitorapi.Argument{Value: fmt.Sprintf("--tls_verify_peers=%s", cluster.Spec.MainContainer.PeerVerificationRules)})
+		configuration.Arguments = append(configuration.Arguments, monitorapi.Argument{Value: getKnobParameterWithValue("tls_verify_peers", cluster.Spec.MainContainer.PeerVerificationRules, false)})
 	}
 
 	podSettings := cluster.GetProcessSettings(processClass)
@@ -254,11 +254,11 @@ func GetMonitorProcessConfiguration(cluster *fdbv1beta2.FoundationDBCluster, pro
 	}
 
 	if cluster.Spec.DataCenter != "" {
-		configuration.Arguments = append(configuration.Arguments, monitorapi.Argument{Value: fmt.Sprintf("--locality_dcid=%s", cluster.Spec.DataCenter)})
+		configuration.Arguments = append(configuration.Arguments, monitorapi.Argument{Value: getKnobParameterWithValue(fdbv1beta2.FDBLocalityDCIDlKey, cluster.Spec.DataCenter, true)})
 	}
 
 	if cluster.Spec.DataHall != "" {
-		configuration.Arguments = append(configuration.Arguments, monitorapi.Argument{Value: fmt.Sprintf("--locality_data_hall=%s", cluster.Spec.DataHall)})
+		configuration.Arguments = append(configuration.Arguments, monitorapi.Argument{Value: getKnobParameterWithValue(fdbv1beta2.FDBLocalityDataHallKey, cluster.Spec.DataHall, true)})
 	}
 
 	if cluster.DefineDNSLocalityFields() {
@@ -269,6 +269,25 @@ func GetMonitorProcessConfiguration(cluster *fdbv1beta2.FoundationDBCluster, pro
 	}
 
 	return configuration, nil
+}
+
+// getKnobParameter will return the knob parameter with a trailing =. If the provided knob is a locality the key will be
+// prefixed with "locality_".
+func getKnobParameter(key string, isLocality bool) string {
+	var sb strings.Builder
+	sb.WriteString("--")
+	if isLocality {
+		sb.WriteString("locality_")
+	}
+	sb.WriteString(key)
+	sb.WriteString("=")
+
+	return sb.String()
+}
+
+// getKnobParameterWithValue is the same as getKnobParameter but will append the value at the end.
+func getKnobParameterWithValue(key string, value string, isLocality bool) string {
+	return getKnobParameter(key, isLocality) + value
 }
 
 // buildIPArgument builds an argument that takes an IP address from an environment variable

@@ -33,7 +33,7 @@ import (
 type DatabaseConfiguration struct {
 	// RedundancyMode defines the core replication factor for the database.
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:validation:Enum=single;double;triple
+	// +kubebuilder:validation:Enum=single;double;triple;three_data_hall
 	// +kubebuilder:default:double
 	RedundancyMode RedundancyMode `json:"redundancy_mode,omitempty"`
 
@@ -211,6 +211,19 @@ func (configuration DatabaseConfiguration) NormalizeConfiguration() DatabaseConf
 	return *result
 }
 
+// CountUniqueDataCenters returns the number of unique data centers based on the desired DatabaseConfiguration.
+func (configuration *DatabaseConfiguration) CountUniqueDataCenters() int {
+	uniqueDataCenters := map[string]None{}
+
+	for _, region := range configuration.Regions {
+		for _, dc := range region.DataCenters {
+			uniqueDataCenters[dc.ID] = None{}
+		}
+	}
+
+	return len(uniqueDataCenters)
+}
+
 // NormalizeConfigurationWithSeparatedProxies ensures a standardized
 // format and defaults when comparing database configuration in the
 // cluster spec with database configuration in the cluster status,
@@ -284,7 +297,7 @@ func (configuration *DatabaseConfiguration) GetRoleCountsWithDefaults(version Ve
 		counts.Storage = 2*faultTolerance + 1
 	}
 	if counts.Logs == 0 {
-		counts.Logs = 3
+		counts.Logs = configuration.RedundancyMode.getDefaultLogCount()
 	}
 
 	if version.HasSeparatedProxies() {
@@ -597,9 +610,11 @@ func (configuration DatabaseConfiguration) FillInDefaultsFromStatus() DatabaseCo
 	if result.RemoteLogs == 0 {
 		result.RemoteLogs = -1
 	}
+
 	if result.LogRouters == 0 {
 		result.LogRouters = -1
 	}
+
 	return *result
 }
 
@@ -678,7 +693,7 @@ func DesiredFaultTolerance(redundancyMode RedundancyMode) int {
 		return 0
 	case RedundancyModeDouble, RedundancyModeUnset:
 		return 1
-	case RedundancyModeTriple:
+	case RedundancyModeTriple, RedundancyModeThreeDataHall:
 		return 2
 	default:
 		return 0
@@ -694,6 +709,8 @@ func MinimumFaultDomains(redundancyMode RedundancyMode) int {
 		return 2
 	case RedundancyModeTriple:
 		return 3
+	case RedundancyModeThreeDataHall:
+		return 4
 	default:
 		return 1
 	}
@@ -710,6 +727,8 @@ const (
 	RedundancyModeDouble RedundancyMode = "double"
 	// RedundancyModeTriple defines the replication factor 3.
 	RedundancyModeTriple RedundancyMode = "triple"
+	// RedundancyModeThreeDataHall defines the replication factor three_data_hall.
+	RedundancyModeThreeDataHall RedundancyMode = "three_data_hall"
 	// RedundancyModeOneSatelliteSingle defines the replication factor one_satellite_single.
 	RedundancyModeOneSatelliteSingle RedundancyMode = "one_satellite_single"
 	// RedundancyModeOneSatelliteDouble  defines the replication factor one_satellite_double.
@@ -717,6 +736,15 @@ const (
 	// RedundancyModeUnset defines the replication factor unset.
 	RedundancyModeUnset RedundancyMode = ""
 )
+
+// getDefaultLogCount returns the default log count for the provided redundancy mode
+func (redundancyMode RedundancyMode) getDefaultLogCount() int {
+	if redundancyMode == RedundancyModeThreeDataHall {
+		return 4
+	}
+
+	return 3
+}
 
 // StorageEngine defines the storage engine for the database
 // +kubebuilder:validation:MaxLength=100

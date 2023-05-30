@@ -116,7 +116,7 @@ func generateDefaultStatus(tls bool) *fdbv1beta2.FoundationDBStatus {
 	}
 }
 
-var _ = Describe("Change coordinators", func() {
+var _ = Describe("Localities", func() {
 	var cluster *fdbv1beta2.FoundationDBCluster
 
 	BeforeEach(func() {
@@ -359,17 +359,87 @@ var _ = Describe("Change coordinators", func() {
 				fdbv1beta2.FDBLocalityZoneIDKey: 1,
 			},
 		),
-		Entry("default cluster with two usable regiosn",
+		Entry("default cluster with two usable regions and 4 DCs",
 			&fdbv1beta2.FoundationDBCluster{
 				Spec: fdbv1beta2.FoundationDBClusterSpec{
 					DatabaseConfiguration: fdbv1beta2.DatabaseConfiguration{
 						UsableRegions: 2,
+						Regions: []fdbv1beta2.Region{
+							{
+								DataCenters: []fdbv1beta2.DataCenter{
+									{
+										ID: "dc1",
+									},
+									{
+										ID: "dc2",
+									},
+								},
+							},
+							{
+								DataCenters: []fdbv1beta2.DataCenter{
+									{
+										ID: "dc3",
+									},
+									{
+										ID: "dc4",
+									},
+								},
+							},
+						},
 					},
 				},
 			},
 			map[string]int{
 				fdbv1beta2.FDBLocalityZoneIDKey: 1,
-				fdbv1beta2.FDBLocalityDCIDKey:   4,
+				fdbv1beta2.FDBLocalityDCIDKey:   3,
+			},
+		),
+		Entry("default cluster with two usable regions and 3 DCs",
+			&fdbv1beta2.FoundationDBCluster{
+				Spec: fdbv1beta2.FoundationDBClusterSpec{
+					DatabaseConfiguration: fdbv1beta2.DatabaseConfiguration{
+						UsableRegions: 2,
+						Regions: []fdbv1beta2.Region{
+							{
+								DataCenters: []fdbv1beta2.DataCenter{
+									{
+										ID: "dc1",
+									},
+									{
+										ID: "dc2",
+									},
+								},
+							},
+							{
+								DataCenters: []fdbv1beta2.DataCenter{
+									{
+										ID: "dc3",
+									},
+									{
+										ID: "dc2",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			map[string]int{
+				fdbv1beta2.FDBLocalityZoneIDKey: 1,
+				fdbv1beta2.FDBLocalityDCIDKey:   3,
+			},
+		),
+		Entry("default cluster with one usable region and three data hall",
+			&fdbv1beta2.FoundationDBCluster{
+				Spec: fdbv1beta2.FoundationDBClusterSpec{
+					DatabaseConfiguration: fdbv1beta2.DatabaseConfiguration{
+						RedundancyMode: fdbv1beta2.RedundancyModeThreeDataHall,
+					},
+				},
+			},
+			map[string]int{
+				fdbv1beta2.FDBLocalityDataHallKey: 3,
+				fdbv1beta2.FDBLocalityZoneIDKey:   1,
 			},
 		),
 	)

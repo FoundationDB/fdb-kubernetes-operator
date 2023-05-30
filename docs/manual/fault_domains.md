@@ -98,6 +98,65 @@ spec:
 
 This strategy uses the pod name as the fault domain, which allows each process to act as a separate failure domain. Any hardware failure could lead to a complete loss of the cluster. This configuration should not be used in any production environment.
 
+## Three-Data-Hall Replication
+
+The [three-data-hall](https://apple.github.io/foundationdb/configuration.html#single-datacenter-modes) replication can be use to replicate data across three data halls, or availability zones.
+This requires that your fault domains are properly labeled on the Kubernetes nodes.
+Most cloud-providers will use the well-known label [topology.kubernetes.io/zone](https://kubernetes.io/docs/reference/labels-annotations-taints/#topologykubernetesiozone) for this.
+When creating a three-data-hall replicated FoundationDBCluster on Kubernetes we have to create 3 `FoundationDBCluster` resources.
+**NOTE**: This is a limitation of the current approach not to read any information from the Kubernetes nodes and simplify the scheduling logic of the operator.
+In the future, this might change and the deployment model for a three-data-hall FoundationDB cluster will be simplified.
+
+We have to start with a simple `FoundationDBCluster` that is running in one single availability zone, e.g. `az1`:
+
+```yaml
+apiVersion: apps.foundationdb.org/v1beta2
+kind: FoundationDBCluster
+metadata:
+  name: sample-cluster-az1
+spec:
+  version: 7.1.26
+  spec:
+    processGroupIDPrefix: az1
+    dataHall: az1
+    databaseConfiguration:
+      redundancyMode: triple
+    processes:
+      general:
+        podTemplate:
+          spec:
+            nodeSelector:
+              "topology.kubernetes.io/zone": "az1"
+```
+
+Once the cluster is reconciled and running we can change the `redundancyMode` to `three_data_hall`.
+For the other two created `FoundationDBCluster` resources you have to set the `seedConnectionString` to the current connection string of the `FoundationDBCluster` resource in az1.
+The cluster will be stuck in a reconciling state until we add the other two configurations (each one for `az1`, `az2` and `az3`:
+
+```yaml
+apiVersion: apps.foundationdb.org/v1beta2
+kind: FoundationDBCluster
+metadata:
+  name: sample-cluster-az1
+spec:
+  version: 7.1.26
+  spec:
+    dataHall: az1
+    processGroupIDPrefix: az1
+    databaseConfiguration:
+      redundancyMode: three_data_hall
+    seedConnectionString: ""
+    processes:
+      general:
+        podTemplate:
+          spec:
+            nodeSelector:
+              "topology.kubernetes.io/zone": "az1"
+```
+
+Once all three `FoundationDBCluster` resources are marked for reconciliation the FoundationDB cluster is up and running.
+You can run this configuration in the same namespace, different namespaces of even across multiple different Kubernetes clusters.
+
 ## Multi-Region Replication
 
 The replication strategies above all describe how data is replicated within a data center.
