@@ -77,6 +77,7 @@ func NewFoundationDBClusterReconciler(podLifecycleManager podmanager.PodLifecycl
 // +kubebuilder:rbac:groups=apps.foundationdb.org,resources=foundationdbclusters/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups="",resources=pods;configmaps;persistentvolumeclaims;events;secrets;services,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="coordination.k8s.io",resources=leases,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=nodes,verbs=get;list;watch
 
 // Reconcile runs the reconciliation logic.
 func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
@@ -181,7 +182,9 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 	}
 
 	if cluster.Status.Generations.Reconciled < originalGeneration || delayedRequeue {
-		clusterLog.Info("Cluster was not fully reconciled by reconciliation process", "status", cluster.Status.Generations)
+		clusterLog.Info("Cluster was not fully reconciled by reconciliation process", "status", cluster.Status.Generations,
+			"CurrentGeneration", cluster.Status.Generations.Reconciled,
+			"OriginalGeneration", originalGeneration, "DelayedRequeue", delayedRequeue)
 
 		return ctrl.Result{Requeue: true}, nil
 	}

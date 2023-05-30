@@ -356,7 +356,7 @@ func createMissingProcesses(cluster *fdbv1beta2.FoundationDBCluster, count int, 
 	missing := 0
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup.ProcessClass == processClass {
-			processGroup.UpdateCondition(fdbv1beta2.MissingProcesses, true, nil, "")
+			processGroup.UpdateCondition(fdbv1beta2.MissingProcesses, true)
 			missing++
 			if missing == count {
 				break

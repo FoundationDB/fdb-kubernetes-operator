@@ -139,7 +139,7 @@ func verifyBouncingIsBlocked() {
 	}).WithTimeout(10 * time.Minute).WithPolling(5 * time.Second).MustPassRepeatedly(30).Should(BeTrue())
 }
 
-var _ = Describe("Operator HA Upgrades", Label("e2e"), func() {
+var _ = Describe("Operator HA Upgrades", Label("e2e", "nightly"), func() {
 	BeforeEach(func() {
 		factory = fixtures.CreateFactory(testOptions)
 	})
@@ -171,10 +171,11 @@ var _ = Describe("Operator HA Upgrades", Label("e2e"), func() {
 			initialGeneration := fdbCluster.GetPrimary().GetStatus().Cluster.Generation
 			upgradeAndVerify(fdbCluster, targetVersion)
 			// Verify that the cluster generation number didn't increase by more
-			// than 40 (in an ideal case the number of recoveries that should happen
+			// than 80 (in an ideal case the number of recoveries that should happen
 			// during an upgrade is 9, but in reality that number could be higher
 			// because different server processes may get bounced at different times).
-			Expect(fdbCluster.GetPrimary().GetStatus().Cluster.Generation).To(BeNumerically("<=", initialGeneration+40))
+			// See: https://github.com/FoundationDB/fdb-kubernetes-operator/issues/1607
+			Expect(fdbCluster.GetPrimary().GetStatus().Cluster.Generation).To(BeNumerically("<=", initialGeneration+80))
 
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s"),
@@ -431,6 +432,53 @@ var _ = Describe("Operator HA Upgrades", Label("e2e"), func() {
 			Expect(fdbCluster.UpgradeCluster(targetVersion, true)).NotTo(HaveOccurred())
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s when no remote storage processes are restarted"),
+		fixtures.GenerateUpgradeTableEntries(testOptions),
+	)
+
+	DescribeTable(
+		"upgrading a cluster when no remote processes are restarted",
+		func(beforeVersion string, targetVersion string) {
+			isAtLeast := factory.OperatorIsAtLeast(
+				"v1.14.0",
+			)
+
+			if !isAtLeast {
+				Skip("operator doesn't support feature for test case")
+			}
+
+			clusterSetup(beforeVersion, false)
+
+			// Select remote processes and use the buggify option to skip those
+			// processes during the restart command.
+			pods := fdbCluster.GetRemote().GetPods()
+			Expect(pods.Items).NotTo(BeEmpty())
+
+			ignoreDuringRestart := make(
+				[]fdbv1beta2.ProcessGroupID,
+				0,
+				len(pods.Items),
+			)
+
+			for _, pod := range pods.Items {
+				ignoreDuringRestart = append(
+					ignoreDuringRestart,
+					fdbv1beta2.ProcessGroupID(pod.Labels[fdbCluster.GetRemote().GetCachedCluster().GetProcessGroupIDLabel()]),
+				)
+			}
+
+			log.Println(
+				"Selected Pods:",
+				ignoreDuringRestart,
+				"to be skipped during the restart",
+			)
+			for _, cluster := range fdbCluster.GetAllClusters() {
+				cluster.SetIgnoreDuringRestart(ignoreDuringRestart)
+			}
+
+			// The cluster should still be able to upgrade.
+			Expect(fdbCluster.UpgradeCluster(targetVersion, true)).NotTo(HaveOccurred())
+		},
+		EntryDescription("Upgrade from %[1]s to %[2]s when no remote processes are restarted"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
 	)
 

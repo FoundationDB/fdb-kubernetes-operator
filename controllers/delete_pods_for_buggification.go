@@ -25,7 +25,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	"github.com/go-logr/logr"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -38,12 +37,6 @@ type deletePodsForBuggification struct{}
 // reconcile runs the reconciler's work.
 func (d deletePodsForBuggification) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "deletePodsForBuggification")
-	pods, err := r.PodLifecycleManager.GetPods(ctx, r, cluster, internal.GetPodListOptions(cluster, "", "")...)
-	if err != nil {
-		return &requeue{curError: err}
-	}
-
-	podMap := internal.CreatePodMap(cluster, pods)
 	crashLoopContainerProcessGroups := cluster.GetCrashLoopContainerProcessGroups()
 
 	noSchedulePods := make(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None, len(cluster.Spec.Buggify.NoSchedule))
@@ -59,8 +52,9 @@ func (d deletePodsForBuggification) reconcile(ctx context.Context, r *Foundation
 			continue
 		}
 
-		pod, ok := podMap[processGroup.ProcessGroupID]
-		if !ok || pod == nil {
+		pod, err := r.PodLifecycleManager.GetPod(ctx, r, cluster, processGroup.GetPodName(cluster))
+		// If a Pod is not found ignore it for now.
+		if err != nil {
 			logger.V(1).Info("Could not find Pod for process group ID",
 				"processGroupID", processGroup.ProcessGroupID)
 			continue
@@ -135,7 +129,7 @@ func (d deletePodsForBuggification) reconcile(ctx context.Context, r *Foundation
 	if len(updates) > 0 {
 		logger.Info("Deleting pods", "count", len(updates))
 		r.Recorder.Event(cluster, "Normal", "UpdatingPods", "Recreating pods for buggification")
-		err = r.PodLifecycleManager.UpdatePods(logr.NewContext(ctx, logger), r, cluster, updates, true)
+		err := r.PodLifecycleManager.UpdatePods(logr.NewContext(ctx, logger), r, cluster, updates, true)
 		if err != nil {
 			return &requeue{curError: err}
 		}

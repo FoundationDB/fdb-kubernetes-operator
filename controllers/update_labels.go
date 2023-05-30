@@ -36,14 +36,9 @@ type updateLabels struct{}
 // reconcile runs the reconciler's work.
 func (updateLabels) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updateLabels")
-	pods, err := r.PodLifecycleManager.GetPods(ctx, r, cluster, internal.GetPodListOptions(cluster, "", "")...)
-	if err != nil {
-		return &requeue{curError: err}
-	}
-	podMap := internal.CreatePodMap(cluster, pods)
-
+	// TODO(johscheuer): Remove the use of the pvc map and directly make a get request.
 	pvcs := &corev1.PersistentVolumeClaimList{}
-	err = r.List(ctx, pvcs, internal.GetPodListOptions(cluster, "", "")...)
+	err := r.List(ctx, pvcs, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
 		return &requeue{curError: err}
 	}
@@ -56,15 +51,15 @@ func (updateLabels) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 			continue
 		}
 
-		pod, ok := podMap[processGroup.ProcessGroupID]
-		if ok {
+		pod, err := r.PodLifecycleManager.GetPod(ctx, r, cluster, processGroup.GetPodName(cluster))
+		if err == nil {
 			metadata := internal.GetPodMetadata(cluster, processGroup.ProcessClass, processGroup.ProcessGroupID, "")
 			if metadata.Annotations == nil {
 				metadata.Annotations = make(map[string]string, 1)
 			}
 
 			if !metadataCorrect(metadata, &pod.ObjectMeta) {
-				err = r.PodLifecycleManager.UpdateMetadata(ctx, r, cluster, pod)
+				err := r.PodLifecycleManager.UpdateMetadata(ctx, r, cluster, pod)
 				if err != nil {
 					return &requeue{curError: err}
 				}

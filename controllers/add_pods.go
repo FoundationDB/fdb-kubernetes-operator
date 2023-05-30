@@ -56,16 +56,18 @@ func (a addPods) reconcile(ctx context.Context, r *FoundationDBClusterReconciler
 		return &requeue{curError: err}
 	}
 
-	pods, err := r.PodLifecycleManager.GetPods(ctx, r, cluster, internal.GetPodListOptions(cluster, "", "")...)
-	if err != nil {
-		return &requeue{curError: err}
-	}
-
-	podMap := internal.CreatePodMap(cluster, pods)
-
 	for _, processGroup := range cluster.Status.ProcessGroups {
-		if _, podExists := podMap[processGroup.ProcessGroupID]; podExists {
+		_, err := r.PodLifecycleManager.GetPod(ctx, r, cluster, processGroup.GetPodName(cluster))
+		// If no error is returned the Pod exists
+		if err == nil {
 			continue
+		}
+
+		// Ignore the is not found error, as we are checking here if we should create Pods.
+		if err != nil {
+			if !k8serrors.IsNotFound(err) {
+				return &requeue{curError: err}
+			}
 		}
 
 		// If this process group is marked for removal, we normally don't want to spin it back up

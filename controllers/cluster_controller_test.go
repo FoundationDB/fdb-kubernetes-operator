@@ -57,6 +57,9 @@ import (
 var firstLogIndex = 1
 var firstStorageIndex = 13
 
+// reloadCluster reloads FoundationDBCluster object info to its local copy.
+// It's necessary in unit test when reconciler changes FoundationDBCluster object but the local's state is not updated.
+// We reloadCluster to bring client state consistent with the latest FoundationDBCluster object
 func reloadCluster(cluster *fdbv1beta2.FoundationDBCluster) (int64, error) {
 	generations, err := reloadClusterGenerations(cluster)
 	if generations.HasPendingRemoval > 0 {
@@ -635,7 +638,7 @@ var _ = Describe("cluster_controller", func() {
 						pod := originalPods.Items[firstStorageIndex]
 						for _, processGroup := range cluster.Status.ProcessGroups {
 							if processGroup.ProcessGroupID == fdbv1beta2.ProcessGroupID(pod.ObjectMeta.Labels[fdbv1beta2.FDBProcessGroupIDLabel]) {
-								processGroup.UpdateCondition(fdbv1beta2.MissingProcesses, true, nil, "")
+								processGroup.UpdateCondition(fdbv1beta2.MissingProcesses, true)
 							}
 						}
 
@@ -675,7 +678,7 @@ var _ = Describe("cluster_controller", func() {
 						originalPod := &originalPods.Items[firstStorageIndex]
 						for _, processGroup := range cluster.Status.ProcessGroups {
 							if processGroup.ProcessGroupID == fdbv1beta2.ProcessGroupID(originalPod.ObjectMeta.Labels[fdbv1beta2.FDBProcessGroupIDLabel]) {
-								processGroup.UpdateCondition(fdbv1beta2.MissingProcesses, true, nil, "")
+								processGroup.UpdateCondition(fdbv1beta2.MissingProcesses, true)
 							}
 						}
 

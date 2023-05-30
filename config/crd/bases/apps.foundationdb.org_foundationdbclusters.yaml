@@ -9925,6 +9925,22 @@ spec:
                         default: 1
                         minimum: 0
                         type: integer
+                      taintReplacementOptions:
+                        items:
+                          properties:
+                            durationInSeconds:
+                              format: int64
+                              minimum: 0
+                              type: integer
+                            key:
+                              maxLength: 256
+                              pattern: ^([\-._\/a-z0-9A-Z\*])*$
+                              type: string
+                          type: object
+                        maxItems: 32
+                        type: array
+                      taintReplacementTimeSeconds:
+                        type: integer
                     type: object
                   useLocalitiesForExclusion:
                     type: boolean
@@ -10202,7 +10218,7 @@ spec:
                     maxLength: 10000
                     type: string
                 type: object
-              maxUnavailablePods:
+              maxZonesWithUnavailablePods:
                 anyOf:
                 - type: integer
                 - type: string
@@ -13849,6 +13865,8 @@ spec:
                       type: boolean
                     exclusionTimestamp:
                       format: date-time
+                      type: string
+                    faultDomain:
                       type: string
                     processClass:
                       type: string

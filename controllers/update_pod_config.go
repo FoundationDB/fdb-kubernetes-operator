@@ -45,13 +45,6 @@ func (updatePodConfig) reconcile(ctx context.Context, r *FoundationDBClusterReco
 		return &requeue{curError: err}
 	}
 
-	pods, err := r.PodLifecycleManager.GetPods(ctx, r, cluster, internal.GetPodListOptions(cluster, "", "")...)
-	if err != nil {
-		return &requeue{curError: err}
-	}
-
-	podMap := internal.CreatePodMap(cluster, pods)
-
 	originalStatus := cluster.Status.DeepCopy()
 	allSynced := true
 	delayedRequeue := true
@@ -69,9 +62,10 @@ func (updatePodConfig) reconcile(ctx context.Context, r *FoundationDBClusterReco
 			continue
 		}
 
-		pod, ok := podMap[processGroup.ProcessGroupID]
-		if !ok || pod == nil {
-			curLogger.Info("Could not find Pod for process group")
+		pod, err := r.PodLifecycleManager.GetPod(ctx, r, cluster, processGroup.GetPodName(cluster))
+		// If a Pod is not found ignore it for now.
+		if err != nil {
+			logger.V(1).Info("Could not find Pod for process group ID")
 			continue
 		}
 
@@ -113,9 +107,9 @@ func (updatePodConfig) reconcile(ctx context.Context, r *FoundationDBClusterReco
 
 			if internal.IsNetworkError(err) && processGroup.GetConditionTime(fdbv1beta2.SidecarUnreachable) == nil {
 				curLogger.Info("process group sidecar is not reachable")
-				processGroup.UpdateCondition(fdbv1beta2.SidecarUnreachable, true, cluster.Status.ProcessGroups, processGroup.ProcessGroupID)
+				processGroup.UpdateCondition(fdbv1beta2.SidecarUnreachable, true)
 			} else if processGroup.GetConditionTime(fdbv1beta2.IncorrectConfigMap) == nil {
-				processGroup.UpdateCondition(fdbv1beta2.IncorrectConfigMap, true, cluster.Status.ProcessGroups, processGroup.ProcessGroupID)
+				processGroup.UpdateCondition(fdbv1beta2.IncorrectConfigMap, true)
 				// If we are still waiting for a ConfigMap update we should not delay the requeue to ensure all processes are bounced
 				// at the same time. If the process is unreachable e.g. has the SidecarUnreachable status we can delay the requeue.
 				delayedRequeue = false
@@ -143,7 +137,7 @@ func (updatePodConfig) reconcile(ctx context.Context, r *FoundationDBClusterReco
 			}
 		}
 
-		processGroup.UpdateCondition(fdbv1beta2.SidecarUnreachable, false, cluster.Status.ProcessGroups, processGroup.ProcessGroupID)
+		processGroup.UpdateCondition(fdbv1beta2.SidecarUnreachable, false)
 	}
 
 	if !equality.Semantic.DeepEqual(cluster.Status, *originalStatus) {

@@ -43,28 +43,13 @@ type updatePods struct{}
 func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updatePods")
 
-	pods, err := r.PodLifecycleManager.GetPods(ctx, r, cluster, internal.GetPodListOptions(cluster, "", "")...)
-	if err != nil {
-		return &requeue{curError: err, delayedRequeue: true}
-	}
-
-	updates, maxPodsToUpdate, err := getPodsToUpdate(logger, r, cluster, internal.CreatePodMap(cluster, pods))
+	updates, err := getPodsToUpdate(ctx, logger, r, cluster)
 	if err != nil {
 		return &requeue{curError: err, delay: podSchedulingDelayDuration, delayedRequeue: true}
 	}
 
-	maxUnavailablePods, err := intstr.GetScaledValueFromIntOrPercent(&cluster.Spec.MaxUnavailablePods, len(cluster.Status.ProcessGroups), true)
 	if err != nil {
 		return &requeue{curError: err, delayedRequeue: true}
-	}
-	if maxUnavailablePods > 0 {
-		if maxPodsToUpdate <= 0 {
-			return &requeue{
-				curError: fmt.Errorf("requeing because the number of unavailable pods has reached cluster.Spec.MaxUnavailablePods: %d",
-					cluster.Spec.MaxUnavailablePods.IntVal),
-				delayedRequeue: true,
-			}
-		}
 	}
 
 	if len(updates) > 0 {
@@ -95,18 +80,27 @@ func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconcile
 	}
 	defer adminClient.Close()
 
-	return deletePodsForUpdates(ctx, r, cluster, adminClient, updates, maxPodsToUpdate, logger)
+	return deletePodsForUpdates(ctx, r, cluster, adminClient, updates, logger)
 }
 
 // getPodsToUpdate returns a map of Zone to Pods mapping. The map has the fault domain as key and all Pods in that fault domain will be present as a slice of *corev1.Pod.
-func getPodsToUpdate(logger logr.Logger, reconciler *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, podMap map[fdbv1beta2.ProcessGroupID]*corev1.Pod) (map[string][]*corev1.Pod, int, error) {
+func getPodsToUpdate(ctx context.Context, logger logr.Logger, reconciler *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) (map[string][]*corev1.Pod, error) {
 	updates := make(map[string][]*corev1.Pod)
 
-	var unavailablePods int
-	// When maxUnavailablePods is set to 0 any number of unavailable Pods is allowed.
-	maxUnavailablePods, err := intstr.GetScaledValueFromIntOrPercent(&cluster.Spec.MaxUnavailablePods, len(cluster.Status.ProcessGroups), true)
+	// Map of zones to the number of pods that are unavailable in that zone.
+	zoneToUnavailablePods := make(map[string]int)
+
+	// In order to the maxZonesWithUnavailablePods we need to know the number of zones.
+	// if the fault domain zone count is not set. The number of process groups is used as the zone count.
+	zoneCount := cluster.Spec.FaultDomain.ZoneCount
+	if zoneCount == 0 {
+		zoneCount = len(cluster.Status.ProcessGroups)
+	}
+
+	// When maxZonesUnavailablePods is set to 0 any number of Zones with unavailable pods is allowed.
+	maxZonesWithUnavailablePods, err := intstr.GetScaledValueFromIntOrPercent(&cluster.Spec.MaxZonesWithUnavailablePods, zoneCount, true)
 	if err != nil {
-		return nil, 0, fmt.Errorf("invalid value for cluster.Spec.MaxUnavailablePods: %w", err)
+		return nil, fmt.Errorf("invalid value for cluster.Spec.MaxZonesWithUnavailablePods: %w", err)
 	}
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
@@ -116,9 +110,9 @@ func getPodsToUpdate(logger logr.Logger, reconciler *FoundationDBClusterReconcil
 			continue
 		}
 
-		if maxUnavailablePods > 0 {
+		if maxZonesWithUnavailablePods > 0 {
 			if processGroup.GetConditionTime(fdbv1beta2.PodPending) != nil {
-				unavailablePods++
+				zoneToUnavailablePods[processGroup.FaultDomain]++
 			}
 		}
 
@@ -134,21 +128,22 @@ func getPodsToUpdate(logger logr.Logger, reconciler *FoundationDBClusterReconcil
 			continue
 		}
 
-		pod, ok := podMap[processGroup.ProcessGroupID]
-		if !ok || pod == nil {
+		pod, err := reconciler.PodLifecycleManager.GetPod(ctx, reconciler, cluster, processGroup.GetPodName(cluster))
+		// If a Pod is not found ignore it for now.
+		if err != nil {
 			logger.V(1).Info("Could not find Pod for process group ID",
 				"processGroupID", processGroup.ProcessGroupID)
-			unavailablePods++
+			zoneToUnavailablePods[processGroup.FaultDomain]++
 			continue
 		}
 
 		// If the Pod is marked for deletion, we count it as unavailable.
 		if pod.DeletionTimestamp != nil {
-			unavailablePods++
+			zoneToUnavailablePods[processGroup.FaultDomain]++
 		}
 
 		if shouldRequeueDueToTerminatingPod(pod, cluster, processGroup.ProcessGroupID) {
-			return nil, 0, fmt.Errorf("cluster has Pod %s that is pending deletion", pod.Name)
+			return nil, fmt.Errorf("cluster has Pod %s that is pending deletion", pod.Name)
 		}
 
 		_, idNum, err := podmanager.ParseProcessGroupID(processGroup.ProcessGroupID)
@@ -205,6 +200,27 @@ func getPodsToUpdate(logger logr.Logger, reconciler *FoundationDBClusterReconcil
 			continue
 		}
 
+		if maxZonesWithUnavailablePods > 0 {
+			// When number of zones with unavailable Pods exceeds the maxZonesWithUnavailablePods limit skip the process group and log the limit.
+			if len(zoneToUnavailablePods) > maxZonesWithUnavailablePods {
+				logger.V(1).Info("Skip process group for update, the number of zones with unavailable Pods exceeds the limit",
+					"processGroupID", processGroup.ProcessGroupID,
+					"maxZonesWithUnavailablePods", maxZonesWithUnavailablePods,
+					"faultDomain", processGroup.FaultDomain,
+					"zonesWithUnavailablePods", zoneToUnavailablePods)
+				continue
+			}
+			// When the number of zones equals maxZonesWithUnavailablePods and the process group does not belong to a zone with unavailable Pods skip the process group.
+			if len(zoneToUnavailablePods) == maxZonesWithUnavailablePods && zoneToUnavailablePods[processGroup.FaultDomain] == 0 {
+				logger.V(1).Info("Skip process group for update, the number zones with unavailable Pods equals the limit but the process group does not belong to a zone with unavailable Pods",
+					"processGroupID", processGroup.ProcessGroupID,
+					"maxZonesWithUnavailablePods", maxZonesWithUnavailablePods,
+					"faultDomain", processGroup.FaultDomain,
+					"zonesWithUnavailablePods", zoneToUnavailablePods)
+				continue
+			}
+		}
+
 		zone := substitutions["FDB_ZONE_ID"]
 		if reconciler.InSimulation {
 			zone = "simulation"
@@ -216,16 +232,7 @@ func getPodsToUpdate(logger logr.Logger, reconciler *FoundationDBClusterReconcil
 		updates[zone] = append(updates[zone], pod)
 	}
 
-	var numPodsToUpdate int
-	for _, zone := range updates {
-		numPodsToUpdate += len(zone)
-	}
-
-	if maxUnavailablePods > 0 {
-		return updates, maxUnavailablePods - unavailablePods, nil
-	}
-
-	return updates, numPodsToUpdate, nil
+	return updates, nil
 }
 
 func shouldRequeueDueToTerminatingPod(pod *corev1.Pod, cluster *fdbv1beta2.FoundationDBCluster, processGroupID fdbv1beta2.ProcessGroupID) bool {
@@ -234,12 +241,7 @@ func shouldRequeueDueToTerminatingPod(pod *corev1.Pod, cluster *fdbv1beta2.Found
 		!cluster.ProcessGroupIsBeingRemoved(processGroupID)
 }
 
-func getPodsToDelete(deletionMode fdbv1beta2.PodUpdateMode, updates map[string][]*corev1.Pod, maxPodsToDelete int, cluster *fdbv1beta2.FoundationDBCluster) (string, []*corev1.Pod, error) {
-	maxUnavailablePods, err := intstr.GetScaledValueFromIntOrPercent(&cluster.Spec.MaxUnavailablePods, len(cluster.Status.ProcessGroups), true)
-	if err != nil {
-		return "", nil, err
-	}
-
+func getPodsToDelete(deletionMode fdbv1beta2.PodUpdateMode, updates map[string][]*corev1.Pod, cluster *fdbv1beta2.FoundationDBCluster) (string, []*corev1.Pod, error) {
 	if deletionMode == fdbv1beta2.PodUpdateModeAll {
 		var deletions []*corev1.Pod
 
@@ -251,9 +253,6 @@ func getPodsToDelete(deletionMode fdbv1beta2.PodUpdateMode, updates map[string][
 	}
 
 	if deletionMode == fdbv1beta2.PodUpdateModeProcessGroup {
-		if maxUnavailablePods > 0 && maxPodsToDelete < 1 {
-			return "", nil, fmt.Errorf("with cluster.Spec.MaxUnavailablePods set to %d, the current max number of pods to delete is %d", maxUnavailablePods, maxPodsToDelete)
-		}
 		for _, zoneProcesses := range updates {
 			if len(zoneProcesses) < 1 {
 				continue
@@ -267,14 +266,6 @@ func getPodsToDelete(deletionMode fdbv1beta2.PodUpdateMode, updates map[string][
 	if deletionMode == fdbv1beta2.PodUpdateModeZone {
 		// Default case is zone
 		for zoneName, zoneProcesses := range updates {
-			if maxUnavailablePods > 0 {
-				if len(zoneProcesses) <= maxPodsToDelete {
-					// Fetch the first zone and stop
-					return zoneName, zoneProcesses, nil
-				}
-				// Fetch the first maxPodsToDelete pods and delete them
-				return zoneName, zoneProcesses[:maxPodsToDelete], nil
-			}
 			// Fetch the first zone and stop
 			return zoneName, zoneProcesses, nil
 		}
@@ -288,9 +279,9 @@ func getPodsToDelete(deletionMode fdbv1beta2.PodUpdateMode, updates map[string][
 }
 
 // deletePodsForUpdates will delete Pods with the specified deletion mode
-func deletePodsForUpdates(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, adminClient fdbadminclient.AdminClient, updates map[string][]*corev1.Pod, maxPodsToDelete int, logger logr.Logger) *requeue {
+func deletePodsForUpdates(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, adminClient fdbadminclient.AdminClient, updates map[string][]*corev1.Pod, logger logr.Logger) *requeue {
 	deletionMode := r.PodLifecycleManager.GetDeletionMode(cluster)
-	zone, deletions, err := getPodsToDelete(deletionMode, updates, maxPodsToDelete, cluster)
+	zone, deletions, err := getPodsToDelete(deletionMode, updates, cluster)
 	if err != nil {
 		return &requeue{curError: err}
 	}

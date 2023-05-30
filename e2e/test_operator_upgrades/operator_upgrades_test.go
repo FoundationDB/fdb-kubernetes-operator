@@ -83,9 +83,9 @@ func clusterSetup(beforeVersion string, availabilityCheck bool) {
 // version compatible upgrades, since incompatible processes won't be part of the cluster anyway. To simplify the check
 // we verify the reported running version from the operator.
 func verifyVersion(cluster *fixtures.FdbCluster, expectedVersion string) {
-	Eventually(func() string {
-		return cluster.GetCluster().Status.RunningVersion
-	}).WithTimeout(10 * time.Minute).WithPolling(2 * time.Second).Should(Equal(expectedVersion))
+	Expect(cluster.WaitUntilWithForceReconcile(2, 600, func(cluster *fdbv1beta2.FoundationDBCluster) bool {
+		return cluster.Status.RunningVersion == expectedVersion
+	})).NotTo(HaveOccurred())
 }
 
 func upgradeAndVerify(cluster *fixtures.FdbCluster, expectedVersion string) {
@@ -96,7 +96,7 @@ func upgradeAndVerify(cluster *fixtures.FdbCluster, expectedVersion string) {
 	log.Println("Upgrade took:", time.Since(startTime).String())
 }
 
-var _ = Describe("Operator Upgrades", Label("e2e"), func() {
+var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 	BeforeEach(func() {
 		factory = fixtures.CreateFactory(testOptions)
 	})
@@ -441,25 +441,25 @@ var _ = Describe("Operator Upgrades", Label("e2e"), func() {
 			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
 
 			if !fixtures.VersionsAreProtocolCompatible(beforeVersion, targetVersion) {
-				// 3. Until we remove the partition, cluster should not have
-				//   upgraded. Keep checking for 4m. The desired behavior is that binaries
-				//   are staged but cluster is not bounced to new version.
+				// 3. Until we remove the crash loop setup, cluster should not be upgraded.
+				//    Keep checking for 4m. The desired behavior is that binaries are staged
+				//    but cluster is not restarted to new version.
 				log.Println("upgrade should not finish while sidecar process is unavailable")
 				Consistently(func() bool {
 					return fdbCluster.GetCluster().Status.RunningVersion == beforeVersion
 				}).WithTimeout(4 * time.Minute).WithPolling(2 * time.Second).Should(BeTrue())
 			} else {
-				// It should upgrade the cluster if the version is protocol compatible
+				// It should upgrade the cluster if the version is protocol compatible.
 				Eventually(func() bool {
 					return fdbCluster.GetCluster().Status.RunningVersion == targetVersion
 				}).WithTimeout(15 * time.Minute).WithPolling(10 * time.Second).Should(BeTrue())
 			}
 
 			// 4. Remove the crash-loop.
-			log.Println("Removing crash-loop from ", pickedPod.Name)
+			log.Println("Removing crash-loop from", pickedPod.Name)
 			fdbCluster.SetCrashLoopContainers(nil, false)
 
-			// 5. upgrade should proceed after we stop killing sidecar.
+			// 5. Upgrade should proceed after we stop killing the sidecar.
 			verifyVersion(fdbCluster, targetVersion)
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s with crash-looping sidecar"),

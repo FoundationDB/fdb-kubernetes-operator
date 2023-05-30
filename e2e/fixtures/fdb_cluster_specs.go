@@ -56,13 +56,15 @@ func (factory *Factory) createFDBClusterSpec(
 				Key: "foundationdb.org/none",
 			},
 			AutomationOptions: fdbv1beta2.FoundationDBClusterAutomationOptions{
-				// We have to wait long enough to ensure the operator is not recreating to many Pods at the same time.
+				// We have to wait long enough to ensure the operator is not recreating too many Pods at the same time.
 				WaitBetweenRemovalsSeconds: pointer.Int(0),
 				Replacements: fdbv1beta2.AutomaticReplacementOptions{
 					Enabled: pointer.Bool(true),
 					// Setting this to 5 minutes is reasonable to prevent the operator recreating Pods when they wait for
 					// new ec2 instances.
 					FailureDetectionTimeSeconds: pointer.Int(300),
+					// Setting TaintReplacementTimeSeconds as half of FailureDetectionTimeSeconds to make taint replacement faster
+					TaintReplacementTimeSeconds: pointer.Int(150),
 					MaxConcurrentReplacements:   pointer.Int(2),
 				},
 				// Allow the operator to remove all Pods that are excluded and marked for deletion to remove at once.

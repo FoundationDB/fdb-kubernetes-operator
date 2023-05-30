@@ -3090,7 +3090,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				cluster = createCluster()
 				cluster.Spec.ProcessCounts.Storage = 2
 				cluster.Status.ProcessGroups[0].MarkForRemoval()
-				cluster.Status.ProcessGroups[0].UpdateCondition(ResourcesTerminating, true, nil, "")
+				cluster.Status.ProcessGroups[0].UpdateCondition(ResourcesTerminating, true)
 				result, err = cluster.CheckReconciliation(log)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(result).To(BeTrue())
@@ -3103,8 +3103,8 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				cluster.Spec.ProcessCounts.Storage = 2
 				cluster.Status.ProcessGroups[0].MarkForRemoval()
 				cluster.Status.ProcessGroups[0].SetExclude()
-				cluster.Status.ProcessGroups[0].UpdateCondition(IncorrectCommandLine, true, nil, "")
-				cluster.Status.ProcessGroups[0].UpdateCondition(ResourcesTerminating, true, nil, "")
+				cluster.Status.ProcessGroups[0].UpdateCondition(IncorrectCommandLine, true)
+				cluster.Status.ProcessGroups[0].UpdateCondition(ResourcesTerminating, true)
 				result, err = cluster.CheckReconciliation(log)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(result).To(BeTrue())
@@ -3134,7 +3134,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				}))
 
 				cluster = createCluster()
-				cluster.Status.ProcessGroups[0].UpdateCondition(IncorrectCommandLine, true, nil, "")
+				cluster.Status.ProcessGroups[0].UpdateCondition(IncorrectCommandLine, true)
 				result, err = cluster.CheckReconciliation(log)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(result).To(BeFalse())
@@ -3342,7 +3342,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				cluster = createCluster()
 				cluster.Spec.ProcessCounts.Storage = 2
 				cluster.Status.ProcessGroups[0].MarkForRemoval()
-				cluster.Status.ProcessGroups[0].UpdateCondition(ResourcesTerminating, true, nil, "")
+				cluster.Status.ProcessGroups[0].UpdateCondition(ResourcesTerminating, true)
 				result, err = cluster.CheckReconciliation(log)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(result).To(BeTrue())
@@ -3355,8 +3355,8 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				cluster.Spec.ProcessCounts.Storage = 2
 				cluster.Status.ProcessGroups[0].MarkForRemoval()
 				cluster.Status.ProcessGroups[0].SetExclude()
-				cluster.Status.ProcessGroups[0].UpdateCondition(IncorrectCommandLine, true, nil, "")
-				cluster.Status.ProcessGroups[0].UpdateCondition(ResourcesTerminating, true, nil, "")
+				cluster.Status.ProcessGroups[0].UpdateCondition(IncorrectCommandLine, true)
+				cluster.Status.ProcessGroups[0].UpdateCondition(ResourcesTerminating, true)
 				result, err = cluster.CheckReconciliation(log)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(result).To(BeTrue())
@@ -3386,7 +3386,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				}))
 
 				cluster = createCluster()
-				cluster.Status.ProcessGroups[0].UpdateCondition(IncorrectCommandLine, true, nil, "")
+				cluster.Status.ProcessGroups[0].UpdateCondition(IncorrectCommandLine, true)
 				result, err = cluster.CheckReconciliation(log)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(result).To(BeFalse())
@@ -4035,7 +4035,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		})
 
 		JustBeforeEach(func() {
-			needsReplacement, timestamp = processGroup.NeedsReplacement(60)
+			needsReplacement, timestamp = processGroup.NeedsReplacement(60, 60)
 		})
 
 		Context("with no conditions", func() {
@@ -4046,7 +4046,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 		Context("with a process group that went missing after the window", func() {
 			BeforeEach(func() {
-				processGroup.UpdateCondition(MissingProcesses, true, nil, "")
+				processGroup.UpdateCondition(MissingProcesses, true)
 			})
 
 			It("should not need replacement", func() {
@@ -4057,7 +4057,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		Context("with a process group that went missing before the window", func() {
 			var targetTimestamp int64
 			BeforeEach(func() {
-				processGroup.UpdateCondition(MissingProcesses, true, nil, "")
+				processGroup.UpdateCondition(MissingProcesses, true)
 				targetTimestamp = time.Now().Add(-1 * time.Hour).Unix()
 				processGroup.ProcessGroupConditions[0].Timestamp = targetTimestamp
 			})
@@ -4071,8 +4071,8 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		Context("with multiple conditions that could trigger a replacement", func() {
 			var targetTimestamp int64
 			BeforeEach(func() {
-				processGroup.UpdateCondition(MissingProcesses, true, nil, "")
-				processGroup.UpdateCondition(PodFailing, true, nil, "")
+				processGroup.UpdateCondition(MissingProcesses, true)
+				processGroup.UpdateCondition(PodFailing, true)
 				targetTimestamp = time.Now().Add(-1 * time.Hour).Unix()
 				processGroup.ProcessGroupConditions[0].Timestamp = targetTimestamp
 				processGroup.ProcessGroupConditions[1].Timestamp = targetTimestamp - 60
@@ -4086,7 +4086,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 		Context("with a process group that failed", func() {
 			BeforeEach(func() {
-				processGroup.UpdateCondition(PodFailing, true, nil, "")
+				processGroup.UpdateCondition(PodFailing, true)
 				processGroup.ProcessGroupConditions[0].Timestamp = oldTimestamp
 			})
 
@@ -4098,7 +4098,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 		When("process group is in the missing Pod state", func() {
 			BeforeEach(func() {
-				processGroup.UpdateCondition(MissingPod, true, nil, "")
+				processGroup.UpdateCondition(MissingPod, true)
 				processGroup.ProcessGroupConditions[0].Timestamp = oldTimestamp
 			})
 
@@ -4110,7 +4110,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 		When("process group is in the missing PVC state", func() {
 			BeforeEach(func() {
-				processGroup.UpdateCondition(MissingPVC, true, nil, "")
+				processGroup.UpdateCondition(MissingPVC, true)
 				processGroup.ProcessGroupConditions[0].Timestamp = oldTimestamp
 			})
 
@@ -4122,7 +4122,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 		When("process group is in the missing Service state", func() {
 			BeforeEach(func() {
-				processGroup.UpdateCondition(MissingService, true, nil, "")
+				processGroup.UpdateCondition(MissingService, true)
 				processGroup.ProcessGroupConditions[0].Timestamp = oldTimestamp
 			})
 
@@ -4134,7 +4134,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 		When("process group is in the Pod pending state", func() {
 			BeforeEach(func() {
-				processGroup.UpdateCondition(PodPending, true, nil, "")
+				processGroup.UpdateCondition(PodPending, true)
 				processGroup.ProcessGroupConditions[0].Timestamp = oldTimestamp
 			})
 
@@ -4146,7 +4146,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 		Context("with a process group that had the wrong command line", func() {
 			BeforeEach(func() {
-				processGroup.UpdateCondition(IncorrectCommandLine, true, nil, "")
+				processGroup.UpdateCondition(IncorrectCommandLine, true)
 				processGroup.ProcessGroupConditions[0].Timestamp = oldTimestamp
 			})
 
@@ -5017,5 +5017,157 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					RunningVersion: "7.1.27",
 				},
 			}, true, false),
+	)
+
+	DescribeTable("when getting the Pod name for a Process group", func(cluster *FoundationDBCluster, processGroup *ProcessGroupStatus, expected string) {
+		Expect(processGroup.GetPodName(cluster)).To(Equal(expected))
+	}, Entry("when the process group has no prefix",
+		&FoundationDBCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "testing-cluster",
+			},
+		},
+		&ProcessGroupStatus{
+			ProcessGroupID: "storage-1",
+			ProcessClass:   ProcessClassStorage,
+		},
+		"testing-cluster-storage-1"),
+		Entry("when the process group has a prefix",
+			&FoundationDBCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "testing-cluster",
+				},
+			},
+			&ProcessGroupStatus{
+				ProcessGroupID: "this-is-my-fancy-prefix-storage-1",
+				ProcessClass:   ProcessClassStorage,
+			},
+			"testing-cluster-storage-1"),
+		Entry("when the process group has no prefix and the process class has an underscore",
+			&FoundationDBCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "testing-cluster",
+				},
+			},
+			&ProcessGroupStatus{
+				ProcessGroupID: "cluster-controller-1",
+				ProcessClass:   ProcessClassClusterController,
+			},
+			"testing-cluster-cluster-controller-1"),
+		Entry("when the process group has a prefix and the process class has an underscore",
+			&FoundationDBCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "testing-cluster",
+				},
+			},
+			&ProcessGroupStatus{
+				ProcessGroupID: "this-is-my-fancy-prefix-cluster-controller-1",
+				ProcessClass:   ProcessClassClusterController,
+			},
+			"testing-cluster-cluster-controller-1"),
+	)
+
+	DescribeTable("when adding a condition to a process group", func(processGroup *ProcessGroupStatus, condition ProcessGroupConditionType, expectedConditions []*ProcessGroupCondition) {
+		processGroup.addCondition(condition)
+
+		Expect(processGroup.ProcessGroupConditions).To(HaveLen(len(expectedConditions)))
+		for _, expectedCondition := range expectedConditions {
+			timestamp := processGroup.GetConditionTime(expectedCondition.ProcessGroupConditionType)
+			Expect(timestamp).NotTo(BeNil())
+			if expectedCondition.Timestamp > 0 {
+				Expect(*timestamp).To(BeNumerically("==", expectedCondition.Timestamp))
+			}
+		}
+	}, Entry("no conditions are present",
+		&ProcessGroupStatus{},
+		PodPending,
+		[]*ProcessGroupCondition{
+			{
+				ProcessGroupConditionType: PodPending,
+			},
+		}),
+		Entry("adding a duplicate condition",
+			&ProcessGroupStatus{
+				ProcessGroupConditions: []*ProcessGroupCondition{
+					{
+						ProcessGroupConditionType: PodPending,
+						Timestamp:                 15,
+					},
+				},
+			},
+			PodPending,
+			[]*ProcessGroupCondition{
+				{
+					ProcessGroupConditionType: PodPending,
+					Timestamp:                 15,
+				},
+			}),
+		Entry("adding a new condition",
+			&ProcessGroupStatus{
+				ProcessGroupConditions: []*ProcessGroupCondition{
+					{
+						ProcessGroupConditionType: PodPending,
+					},
+				},
+			},
+			PodFailing,
+			[]*ProcessGroupCondition{
+				{
+					ProcessGroupConditionType: PodPending,
+				},
+				{
+					ProcessGroupConditionType: PodFailing,
+				},
+			}),
+		Entry("adding the resource terminating condition to process group marked as removed and excluded",
+			&ProcessGroupStatus{
+				RemovalTimestamp: &metav1.Time{
+					Time: time.Now(),
+				},
+				ExclusionSkipped: true,
+			},
+			ResourcesTerminating,
+			[]*ProcessGroupCondition{
+				{
+					ProcessGroupConditionType: ResourcesTerminating,
+				},
+			}),
+		Entry("adding another condition to process group marked as removed and excluded",
+			&ProcessGroupStatus{
+				RemovalTimestamp: &metav1.Time{
+					Time: time.Now(),
+				},
+				ExclusionSkipped: true,
+			},
+			PodPending,
+			[]*ProcessGroupCondition{}),
+	)
+
+	DescribeTable("when marking a process group as excluded", func(processGroup *ProcessGroupStatus) {
+		processGroup.SetExclude()
+
+		Expect(processGroup.ProcessGroupConditions).To(HaveLen(0))
+		Expect(processGroup.ExclusionTimestamp.IsZero()).To(BeFalse())
+	}, Entry("no conditions are present",
+		&ProcessGroupStatus{}),
+		Entry("one condition is present",
+			&ProcessGroupStatus{
+				ProcessGroupConditions: []*ProcessGroupCondition{
+					{
+						ProcessGroupConditionType: PodPending,
+					},
+				},
+			}),
+		Entry("multiple conditions are present",
+			&ProcessGroupStatus{
+				ProcessGroupConditions: []*ProcessGroupCondition{
+					{
+						ProcessGroupConditionType: PodPending,
+					},
+					{
+						ProcessGroupConditionType: PodFailing,
+					},
+				},
+			}),
 	)
 })

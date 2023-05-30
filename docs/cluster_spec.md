@@ -30,6 +30,7 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 * [ProcessSettings](#processsettings)
 * [RequiredAddressSet](#requiredaddressset)
 * [RoutingConfig](#routingconfig)
+* [TaintReplacementOption](#taintreplacementoption)
 * [DataCenter](#datacenter)
 * [DatabaseConfiguration](#databaseconfiguration)
 * [ExcludedServers](#excludedservers)
@@ -47,7 +48,9 @@ AutomaticReplacementOptions controls options for automatically replacing failed 
 | ----- | ----------- | ------ | -------- |
 | enabled | Enabled controls whether automatic replacements are enabled. The default is false. | *bool | false |
 | failureDetectionTimeSeconds | FailureDetectionTimeSeconds controls how long a process must be failed or missing before it is automatically replaced. The default is 7200 seconds, or 2 hours. | *int | false |
+| taintReplacementTimeSeconds | TaintReplacementTimeSeconds controls how long a pod stays in NodeTaintReplacing condition before it is automatically replaced. The default is 1800 seconds, i.e., 30min | *int | false |
 | maxConcurrentReplacements | MaxConcurrentReplacements controls how many automatic replacements are allowed to take part. This will take the list of current replacements and then calculate the difference between maxConcurrentReplacements and the size of the list. e.g. if currently 3 replacements are queued (e.g. in the processGroupsToRemove list) and maxConcurrentReplacements is 5 the operator is allowed to replace at most 2 process groups. Setting this to 0 will basically disable the automatic replacements. | *int | false |
+| taintReplacementOptions | TaintReplacementOption controls which taint label the operator will react to. | [][TaintReplacementOption](#taintreplacementoption) | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -250,7 +253,7 @@ FoundationDBClusterSpec defines the desired state of a cluster.
 | labels | LabelConfig allows customizing labels used by the operator. | [LabelConfig](#labelconfig) | false |
 | useExplicitListenAddress | UseExplicitListenAddress determines if we should add a listen address that is separate from the public address. **Deprecated: This setting will be removed in the next major release.** | *bool | false |
 | useUnifiedImage | UseUnifiedImage determines if we should use the unified image rather than separate images for the main container and the sidecar container. | *bool | false |
-| maxUnavailablePods | MaxUnavailablePods defines the maximum number or percent of pods that can be unavailable during the update process. When set to 0 there is no limit on the number or percent of pods that can be unavailable. | intstr.IntOrString | false |
+| maxZonesWithUnavailablePods | MaxZonesWithUnavailablePods defines the maximum number or percent of zones that can be unavailable during the update process. When set to 0 there is no limit on the number or percent of pods that can be unavailable. | intstr.IntOrString | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -412,6 +415,7 @@ ProcessGroupStatus represents the status of a ProcessGroup.
 | exclusionTimestamp | ExclusionTimestamp defines when the process group has been fully excluded. This is only used within the reconciliation process, and should not be considered authoritative. | *metav1.Time | false |
 | exclusionSkipped | ExclusionSkipped determines if exclusion has been skipped for a process, which will allow the process group to be removed without exclusion. | bool | false |
 | processGroupConditions | ProcessGroupConditions represents a list of degraded conditions that the process group is in. | []*[ProcessGroupCondition](#processgroupcondition) | false |
+| faultDomain | FaultDomain represents the last seen fault domain from the cluster status. This can be used if a Pod or process is not running and would be missing in the cluster status. | string | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -456,6 +460,17 @@ RoutingConfig allows configuring routing to our pods, and services that sit in f
 | useDNSInClusterFile | UseDNSInClusterFile determines whether to use DNS names rather than IP addresses to identify coordinators in the cluster file. NOTE: This is an experimental feature, and is not supported in the latest stable version of FoundationDB. | *bool | false |
 | defineDNSLocalityFields | DefineDNSLocalityFields determines whether to define pod DNS names on pod specs and provide them in the locality arguments to fdbserver.  This is ignored if UseDNSInCluster is true. | *bool | false |
 | dnsDomain | DNSDomain defines the cluster domain used in a DNS name generated for a service. The default is `cluster.local`. | *string | false |
+
+[Back to TOC](#table-of-contents)
+
+## TaintReplacementOption
+
+TaintReplacementOption defines the taint key and taint duration the operator will react to a tainted node Example of TaintReplacementOption   - key: \"example.org/maintenance\"     durationInSeconds: 7200 # Ensure the taint is present for at least 2 hours before replacing Pods on a node with this taint.   - key: \"*\" # The wildcard would allow to define a catch all configuration     durationInSeconds: 3600 # Ensure the taint is present for at least 1 hour before replacing Pods on a node with this taint  Setting durationInSeconds to the maximum of int64 will practically disable the taint key. When a Node taint key matches both an exact TaintReplacementOption key and a wildcard key, the exact matched key will be used.
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| key | Tainted key | *string | false |
+| durationInSeconds | The tainted key must be present for DurationInSeconds before operator replaces pods on the node with this taint; DurationInSeconds cannot be a negative number. | *int64 | false |
 
 [Back to TOC](#table-of-contents)
 

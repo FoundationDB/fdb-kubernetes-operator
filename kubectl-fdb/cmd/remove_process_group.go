@@ -153,7 +153,7 @@ func replaceProcessGroups(kubeClient client.Client, clusterName string, ids []st
 				continue
 			}
 
-			needsReplacement, _ := processGroupStatus.NeedsReplacement(0)
+			needsReplacement, _ := processGroupStatus.NeedsReplacement(0, 0)
 			if needsReplacement {
 				processGroupIDs = append(processGroupIDs, processGroupStatus.ProcessGroupID)
 			}

@@ -63,7 +63,8 @@ type FoundationDBClusterList struct {
 	Items           []FoundationDBCluster `json:"items"`
 }
 
-var conditionsThatNeedReplacement = []ProcessGroupConditionType{MissingProcesses, PodFailing, MissingPod, MissingPVC, MissingService, PodPending}
+var conditionsThatNeedReplacement = []ProcessGroupConditionType{MissingProcesses, PodFailing, MissingPod, MissingPVC,
+	MissingService, PodPending, NodeTaintReplacing}
 
 func init() {
 	SchemeBuilder.Register(&FoundationDBCluster{}, &FoundationDBClusterList{})
@@ -219,10 +220,10 @@ type FoundationDBClusterSpec struct {
 	// separate images for the main container and the sidecar container.
 	UseUnifiedImage *bool `json:"useUnifiedImage,omitempty"`
 
-	// MaxUnavailablePods defines the maximum number or percent of pods that can be unavailable during the update process.
+	// MaxZonesWithUnavailablePods defines the maximum number or percent of zones that can be unavailable during the update process.
 	// When set to 0 there is no limit on the number or percent of pods that can be unavailable.
 	// +kubebuilder:default:=0
-	MaxUnavailablePods intstr.IntOrString `json:"maxUnavailablePods,omitempty"`
+	MaxZonesWithUnavailablePods intstr.IntOrString `json:"maxZonesWithUnavailablePods,omitempty"`
 }
 
 // ImageType defines a single kind of images used in the cluster.
@@ -335,6 +336,9 @@ type ProcessGroupStatus struct {
 	ExclusionSkipped bool `json:"exclusionSkipped,omitempty"`
 	// ProcessGroupConditions represents a list of degraded conditions that the process group is in.
 	ProcessGroupConditions []*ProcessGroupCondition `json:"processGroupConditions,omitempty"`
+	// FaultDomain represents the last seen fault domain from the cluster status. This can be used if a Pod or process
+	// is not running and would be missing in the cluster status.
+	FaultDomain string `json:"faultDomain,omitempty"`
 }
 
 // ProcessGroupID represents the ID of the process group
@@ -351,9 +355,27 @@ func (processGroupStatus *ProcessGroupStatus) IsExcluded() bool {
 	return (processGroupStatus.ExclusionTimestamp != nil && !processGroupStatus.ExclusionTimestamp.IsZero()) || processGroupStatus.ExclusionSkipped
 }
 
-// SetExclude marks a process group as excluded
+// SetExclude marks a process group as excluded and will reset the process group conditions to only include the ResourcesTerminating
+// if already set, otherwise the conditions will be an empty slice. This reflects the operator behaviour that process
+// groups that are marked for removal and are fully excluded will only have the ResourcesTerminating condition.
 func (processGroupStatus *ProcessGroupStatus) SetExclude() {
+	if !processGroupStatus.ExclusionTimestamp.IsZero() {
+		return
+	}
+
 	processGroupStatus.ExclusionTimestamp = &metav1.Time{Time: time.Now()}
+	// Reset all previous conditions as the operator will only track the ResourcesTerminating condition for process
+	// groups marked as removal. If the ResourcesTerminating condition is already set we are not removing it.
+	newConditions := make([]*ProcessGroupCondition, 0, 1)
+	for _, condition := range processGroupStatus.ProcessGroupConditions {
+		if condition.ProcessGroupConditionType != ResourcesTerminating {
+			continue
+		}
+
+		newConditions = append(newConditions, condition)
+	}
+
+	processGroupStatus.ProcessGroupConditions = newConditions
 }
 
 // IsMarkedForRemoval returns if a process group is marked for removal
@@ -361,24 +383,66 @@ func (processGroupStatus *ProcessGroupStatus) IsMarkedForRemoval() bool {
 	return processGroupStatus.RemovalTimestamp != nil && !processGroupStatus.RemovalTimestamp.IsZero()
 }
 
-// MarkForRemoval marks a process group for removal
+// MarkForRemoval marks a process group for removal. If the RemovalTimestamp is already set it won't be changed.
 func (processGroupStatus *ProcessGroupStatus) MarkForRemoval() {
+	if !processGroupStatus.RemovalTimestamp.IsZero() {
+		return
+	}
+
 	processGroupStatus.RemovalTimestamp = &metav1.Time{Time: time.Now()}
 }
 
+// GetPodName returns the Pod name for the associated Process Group.
+func (processGroupStatus *ProcessGroupStatus) GetPodName(cluster *FoundationDBCluster) string {
+	var sb strings.Builder
+	sb.WriteString(cluster.Name)
+	sb.WriteString("-")
+	// The Pod name will always be in the format ${cluster}-${process-class}-${id}. The ID is currently not available
+	// in the processGroupStatus without doing any parsing, so we have to use the Process Group ID, which might contain
+	// a prefix, so we take the part after the prefix, which will be ${process-class}-${id}.
+	sanitizedProcessGroup := strings.ReplaceAll(string(processGroupStatus.ProcessGroupID), "_", "-")
+	sanitizedProcessClass := strings.ReplaceAll(string(processGroupStatus.ProcessClass), "_", "-")
+
+	idx := strings.Index(sanitizedProcessGroup, sanitizedProcessClass)
+	sb.WriteString(sanitizedProcessGroup[idx:])
+
+	return sb.String()
+}
+
 // NeedsReplacement checks if the ProcessGroupStatus has conditions so that it should be removed
-func (processGroupStatus *ProcessGroupStatus) NeedsReplacement(failureTime int) (bool, int64) {
-	var missingTime *int64
-	for _, condition := range conditionsThatNeedReplacement {
-		conditionTime := processGroupStatus.GetConditionTime(condition)
-		if conditionTime != nil && (missingTime == nil || *missingTime > *conditionTime) {
-			missingTime = conditionTime
+func (processGroupStatus *ProcessGroupStatus) NeedsReplacement(failureTime int, taintReplacementTime int) (bool, int64) {
+	var earliestFailureTime int64 = math.MaxInt64
+	var earliestTaintReplacementTime int64 = math.MaxInt64
+
+	if processGroupStatus.IsMarkedForRemoval() {
+		return false, 0
+	}
+
+	for _, conditionType := range conditionsThatNeedReplacement {
+		conditionTimePtr := processGroupStatus.GetConditionTime(conditionType)
+		if conditionTimePtr == nil {
+			continue
+		}
+
+		conditionTime := *conditionTimePtr
+		if conditionType == NodeTaintReplacing {
+			if earliestTaintReplacementTime > conditionTime {
+				earliestTaintReplacementTime = conditionTime
+			}
+		} else {
+			if earliestFailureTime > conditionTime {
+				earliestFailureTime = conditionTime
+			}
 		}
 	}
 
 	failureWindowStart := time.Now().Add(-1 * time.Duration(failureTime) * time.Second).Unix()
-	if missingTime != nil && *missingTime < failureWindowStart && !processGroupStatus.IsMarkedForRemoval() {
-		return true, *missingTime
+	if earliestFailureTime < failureWindowStart {
+		return true, earliestFailureTime
+	}
+	taintWindowStart := time.Now().Add(-1 * time.Duration(taintReplacementTime) * time.Second).Unix()
+	if earliestTaintReplacementTime < taintWindowStart {
+		return true, earliestTaintReplacementTime
 	}
 
 	return false, 0
@@ -515,45 +579,40 @@ func MarkProcessGroupForRemoval(processGroups []*ProcessGroupStatus, processGrou
 }
 
 // UpdateCondition will add or remove a condition in the ProcessGroupStatus.
-// If the old ProcessGroupStatus already contains the condition, and the condition is being set,
-// the condition is reused to contain the same timestamp.
-func (processGroupStatus *ProcessGroupStatus) UpdateCondition(conditionType ProcessGroupConditionType, set bool, oldProcessGroups []*ProcessGroupStatus, processGroupID ProcessGroupID) {
+func (processGroupStatus *ProcessGroupStatus) UpdateCondition(conditionType ProcessGroupConditionType, set bool) {
 	if set {
-		processGroupStatus.addCondition(oldProcessGroups, processGroupID, conditionType)
-	} else {
-		processGroupStatus.removeCondition(conditionType)
+		processGroupStatus.addCondition(conditionType)
+		return
+	}
+
+	processGroupStatus.removeCondition(conditionType)
+}
+
+// UpdateConditionTime will update the conditionType's condition time to newTime
+// If the conditionType does not exist, the function is no-op
+func (processGroupStatus *ProcessGroupStatus) UpdateConditionTime(conditionType ProcessGroupConditionType, newTime int64) {
+	for i, condition := range processGroupStatus.ProcessGroupConditions {
+		if condition.ProcessGroupConditionType == conditionType {
+			processGroupStatus.ProcessGroupConditions[i].Timestamp = newTime
+			break
+		}
 	}
 }
 
-// addCondition will add the condition to the ProcessGroupStatus.
-// If the old ProcessGroupStatus already contains the condition the condition is reused to contain the same timestamp.
-func (processGroupStatus *ProcessGroupStatus) addCondition(oldProcessGroups []*ProcessGroupStatus, processGroupID ProcessGroupID, conditionType ProcessGroupConditionType) {
-	var oldProcessGroupStatus *ProcessGroupStatus
-
-	// Check if we got a ProcessGroupStatus for the processGroupID
-	for _, oldGroupStatus := range oldProcessGroups {
-		if oldGroupStatus.ProcessGroupID != processGroupID {
-			continue
-		}
-
-		oldProcessGroupStatus = oldGroupStatus
-		break
-	}
-
-	// Check if we got a condition for the condition type for the ProcessGroupStatus
-	if oldProcessGroupStatus != nil {
-		for _, condition := range oldProcessGroupStatus.ProcessGroupConditions {
-			if condition.ProcessGroupConditionType == conditionType {
-				// We found a condition with the above condition type
-				processGroupStatus.ProcessGroupConditions = append(processGroupStatus.ProcessGroupConditions, condition)
-				return
-			}
-		}
-	}
-
-	// Check if we already got this condition in the current ProcessGroupStatus
+// addCondition will add the condition to the ProcessGroupStatus. If the condition is already present this method will not
+// change the timestamp. If a process group is marked for removal and exclusion only the ResourcesTerminating can be added
+// and all other conditions will be reset.
+func (processGroupStatus *ProcessGroupStatus) addCondition(conditionType ProcessGroupConditionType) {
+	// Check if we already got this condition in the current ProcessGroupStatus.
 	for _, condition := range processGroupStatus.ProcessGroupConditions {
 		if condition.ProcessGroupConditionType == conditionType {
+			return
+		}
+	}
+
+	// If a process group is marked for removal and is fully excluded we only keep the ResourcesTerminating condition.
+	if processGroupStatus.IsMarkedForRemoval() && processGroupStatus.IsExcluded() {
+		if conditionType != ResourcesTerminating {
 			return
 		}
 	}
@@ -615,7 +674,7 @@ func FilterByConditions(processGroupStatus []*ProcessGroupStatus, conditionRules
 	return result
 }
 
-// MatchesConditions checks if the provided conditions are matching the current conditions of the process group.
+// MatchesConditions checks if the provided conditionRules matches in the process group's conditions
 //
 // If a condition is mapped to true in the conditionRules map, this condition must be present in the process group.
 // If a condition is mapped to false in the conditionRules map, the condition must be absent in the process group.
@@ -655,6 +714,18 @@ func (processGroupStatus *ProcessGroupStatus) GetConditionTime(conditionType Pro
 	for _, condition := range processGroupStatus.ProcessGroupConditions {
 		if condition.ProcessGroupConditionType == conditionType {
 			return &condition.Timestamp
+		}
+	}
+
+	return nil
+}
+
+// GetCondition returns the ProcessGroupStatus's ProcessGroupCondition that matches the conditionType;
+// It returns nil if the ProcessGroupStatus doesn't have a matching condition
+func (processGroupStatus *ProcessGroupStatus) GetCondition(conditionType ProcessGroupConditionType) *ProcessGroupCondition {
+	for _, condition := range processGroupStatus.ProcessGroupConditions {
+		if condition.ProcessGroupConditionType == conditionType {
+			return condition
 		}
 	}
 
@@ -707,6 +778,11 @@ const (
 	PodPending ProcessGroupConditionType = "PodPending"
 	// ReadyCondition is currently only used in the metrics.
 	ReadyCondition ProcessGroupConditionType = "Ready"
+	// NodeTaintDetected represents a Pod's node is tainted but not long enough for operator to replace it.
+	// If a node is tainted with a taint that shouldn't trigger replacements, NodeTaintDetected won't be added to the pod
+	NodeTaintDetected ProcessGroupConditionType = "NodeTaintDetected"
+	// NodeTaintReplacing represents a Pod whose node has been tainted and the operator should replace the Pod
+	NodeTaintReplacing ProcessGroupConditionType = "NodeTaintReplacing"
 )
 
 // AllProcessGroupConditionTypes returns all ProcessGroupConditionType
@@ -723,6 +799,8 @@ func AllProcessGroupConditionTypes() []ProcessGroupConditionType {
 		SidecarUnreachable,
 		PodPending,
 		ReadyCondition,
+		NodeTaintDetected,
+		NodeTaintReplacing,
 	}
 }
 
@@ -749,6 +827,10 @@ func GetProcessGroupConditionType(processGroupConditionType string) (ProcessGrou
 		return SidecarUnreachable, nil
 	case "PodPending":
 		return PodPending, nil
+	case "NodeTaintDetected":
+		return NodeTaintDetected, nil
+	case "NodeTaintReplacing":
+		return NodeTaintReplacing, nil
 	}
 
 	return "", fmt.Errorf("unknown process group condition type: %s", processGroupConditionType)
@@ -949,6 +1031,29 @@ type MaintenanceModeOptions struct {
 	MaintenanceModeTimeSeconds *int `json:"maintenanceModeTimeSeconds,omitempty"`
 }
 
+// TaintReplacementOption defines the taint key and taint duration the operator will react to a tainted node
+// Example of TaintReplacementOption
+//   - key: "example.org/maintenance"
+//     durationInSeconds: 7200 # Ensure the taint is present for at least 2 hours before replacing Pods on a node with this taint.
+//   - key: "*" # The wildcard would allow to define a catch all configuration
+//     durationInSeconds: 3600 # Ensure the taint is present for at least 1 hour before replacing Pods on a node with this taint
+//
+// Setting durationInSeconds to the maximum of int64 will practically disable the taint key.
+// When a Node taint key matches both an exact TaintReplacementOption key and a wildcard key, the exact matched key will be used.
+type TaintReplacementOption struct {
+	// Tainted key
+	// +kubebuilder:validation:MaxLength=256
+	// +kubebuilder:validation:Pattern:=^([\-._\/a-z0-9A-Z\*])*$
+	// +kubebuilder:validation:Required
+	Key *string `json:"key,omitempty"`
+
+	// The tainted key must be present for DurationInSeconds before operator replaces pods on the node with this taint;
+	// DurationInSeconds cannot be a negative number.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Minimum=0
+	DurationInSeconds *int64 `json:"durationInSeconds,omitempty"`
+}
+
 // AutomaticReplacementOptions controls options for automatically replacing
 // failed processes.
 type AutomaticReplacementOptions struct {
@@ -961,6 +1066,11 @@ type AutomaticReplacementOptions struct {
 	// The default is 7200 seconds, or 2 hours.
 	FailureDetectionTimeSeconds *int `json:"failureDetectionTimeSeconds,omitempty"`
 
+	// TaintReplacementTimeSeconds controls how long a pod stays in NodeTaintReplacing condition
+	// before it is automatically replaced.
+	// The default is 1800 seconds, i.e., 30min
+	TaintReplacementTimeSeconds *int `json:"taintReplacementTimeSeconds,omitempty"`
+
 	// MaxConcurrentReplacements controls how many automatic replacements are allowed to take part.
 	// This will take the list of current replacements and then calculate the difference between
 	// maxConcurrentReplacements and the size of the list. e.g. if currently 3 replacements are
@@ -970,6 +1080,10 @@ type AutomaticReplacementOptions struct {
 	// +kubebuilder:default:=1
 	// +kubebuilder:validation:Minimum=0
 	MaxConcurrentReplacements *int `json:"maxConcurrentReplacements,omitempty"`
+
+	// TaintReplacementOption controls which taint label the operator will react to.
+	// +kubebuilder:validation:MaxItems=32
+	TaintReplacementOptions []TaintReplacementOption `json:"taintReplacementOptions,omitempty"`
 }
 
 // ProcessSettings defines process-level settings.
@@ -2152,6 +2266,11 @@ func (cluster *FoundationDBCluster) GetFailureDetectionTimeSeconds() int {
 	return pointer.IntDeref(cluster.Spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds, 7200)
 }
 
+// GetTaintReplacementTimeSeconds returns cluster.Spec.AutomationOptions.Replacements.TaintReplacementTimeSeconds or if unset the default 1800
+func (cluster *FoundationDBCluster) GetTaintReplacementTimeSeconds() int {
+	return pointer.IntDeref(cluster.Spec.AutomationOptions.Replacements.TaintReplacementTimeSeconds, 1800)
+}
+
 // GetSidecarContainerEnableLivenessProbe returns cluster.Spec.SidecarContainer.EnableLivenessProbe or if unset the default true
 func (cluster *FoundationDBCluster) GetSidecarContainerEnableLivenessProbe() bool {
 	return pointer.BoolDeref(cluster.Spec.SidecarContainer.EnableLivenessProbe, true)
@@ -2406,4 +2525,10 @@ func (cluster *FoundationDBCluster) Validate() error {
 	}
 
 	return fmt.Errorf(strings.Join(validations, ", "))
+}
+
+// IsTaintFeatureDisabled return true if operator is configured to not replace Pods tainted Nodes OR
+// if operator's TaintReplacementOptions is not set.
+func (cluster *FoundationDBCluster) IsTaintFeatureDisabled() bool {
+	return len(cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions) == 0
 }

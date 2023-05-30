@@ -28,6 +28,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -75,7 +76,7 @@ func NewMockClientWithHooks(scheme *runtime.Scheme, createHooks []func(ctx conte
 		return nil
 	}
 
-	podCreateHook := func(_ context.Context, client *MockClient, object ctrlClient.Object) error {
+	podCreateHook := func(ctx context.Context, client *MockClient, object ctrlClient.Object) error {
 		pod, isPod := object.(*corev1.Pod)
 		if !isPod {
 			return nil
@@ -89,7 +90,19 @@ func NewMockClientWithHooks(scheme *runtime.Scheme, createHooks []func(ctx conte
 			pod.Status.Phase = corev1.PodRunning
 		}
 
-		return nil
+		nodeName := fmt.Sprintf("%s-node", pod.Name)
+		node := corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{Name: nodeName},
+		}
+		err := client.Get(ctx, ctrlClient.ObjectKey{Name: nodeName}, &node)
+		if pod.Spec.NodeName == "" { // Do not override user-set NodeName so that we can simulate multiple pods on a single node
+			pod.Spec.NodeName = node.Name
+		}
+		if errors.IsNotFound(err) {
+			return client.Create(context.Background(), &node)
+		}
+
+		return err
 	}
 
 	return &MockClient{

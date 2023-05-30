@@ -165,6 +165,33 @@ subjects:
 - kind: ServiceAccount
   name: fdb-kubernetes-operator-controller-manager
 ---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Namespace }}-operator-manager-clusterrole
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  verbs:
+  - get
+  - watch
+  - list
+---
+  apiVersion: rbac.authorization.k8s.io/v1
+  kind: ClusterRoleBinding
+  metadata:
+    name: {{ .Namespace }}-operator-manager-clusterrolebinding
+  roleRef:
+    apiGroup: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: {{ .Namespace }}-operator-manager-clusterrole
+  subjects:
+  - kind: ServiceAccount
+    name: fdb-kubernetes-operator-controller-manager
+    namespace: {{ .Namespace }}
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
