@@ -4602,10 +4602,6 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				})
 			})
 		})
-
-		// GetProcessGroupsToRemove
-
-		// GetProcessGroupsToRemoveWithoutExclusion
 	})
 
 	When("adding a process to the removal list", func() {
