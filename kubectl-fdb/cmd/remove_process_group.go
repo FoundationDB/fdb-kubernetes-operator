@@ -23,13 +23,11 @@ package cmd
 import (
 	ctx "context"
 	"fmt"
-	"log"
-	"time"
-
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/spf13/cobra"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"log"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -42,10 +40,6 @@ func newRemoveProcessGroupCmd(streams genericclioptions.IOStreams) *cobra.Comman
 		Long:  "Adds a process group (or multiple) to the remove list field of the given cluster",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			wait, err := cmd.Root().Flags().GetBool("wait")
-			if err != nil {
-				return err
-			}
-			sleep, err := cmd.Root().Flags().GetUint16("sleep")
 			if err != nil {
 				return err
 			}
@@ -76,7 +70,7 @@ func newRemoveProcessGroupCmd(streams genericclioptions.IOStreams) *cobra.Comman
 				return err
 			}
 
-			return replaceProcessGroups(kubeClient, cluster, args, namespace, withExclusion, wait, removeAllFailed, useProcessGroupID, sleep)
+			return replaceProcessGroups(kubeClient, cluster, args, namespace, withExclusion, wait, removeAllFailed, useProcessGroupID)
 		},
 		Example: `
 # Remove process groups for a cluster in the current namespace
@@ -112,7 +106,7 @@ kubectl fdb -n default remove process-group -c cluster --remove-all-failed
 }
 
 // replaceProcessGroups adds process groups to the removal list of the cluster
-func replaceProcessGroups(kubeClient client.Client, clusterName string, ids []string, namespace string, withExclusion bool, wait bool, removeAllFailed bool, useProcessGroupID bool, sleep uint16) error {
+func replaceProcessGroups(kubeClient client.Client, clusterName string, ids []string, namespace string, withExclusion bool, wait bool, removeAllFailed bool, useProcessGroupID bool) error {
 	if len(ids) == 0 && !removeAllFailed {
 		return nil
 	}
@@ -166,22 +160,11 @@ func replaceProcessGroups(kubeClient client.Client, clusterName string, ids []st
 		}
 	}
 
-	if sleep > 0 {
-		for _, processGroupID := range processGroupIDs {
-			addProcessGroups([]fdbv1beta2.ProcessGroupID{processGroupID}, withExclusion, cluster)
-			time.Sleep(time.Duration(sleep) * time.Second)
-		}
+	if withExclusion {
+		cluster.Spec.ProcessGroupsToRemove = cluster.GetProcessGroupsToRemove(processGroupIDs)
 	} else {
-		addProcessGroups(processGroupIDs, withExclusion, cluster)
+		cluster.Spec.ProcessGroupsToRemoveWithoutExclusion = cluster.GetProcessGroupsToRemoveWithoutExclusion(processGroupIDs)
 	}
 
 	return kubeClient.Patch(ctx.TODO(), cluster, patch)
-}
-
-func addProcessGroups(processGroupIDs []fdbv1beta2.ProcessGroupID, withExclusion bool, cluster *fdbv1beta2.FoundationDBCluster) {
-	if withExclusion {
-		cluster.AddProcessGroupsToRemovalList(processGroupIDs)
-	} else {
-		cluster.AddProcessGroupsToRemovalWithoutExclusionList(processGroupIDs)
-	}
 }

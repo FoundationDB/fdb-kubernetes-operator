@@ -4459,6 +4459,155 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		)
 	})
 
+	When("getting the removal list", func() {
+		var cluster *FoundationDBCluster
+		var processGroupsToRemove, result []ProcessGroupID
+
+		BeforeEach(func() {
+			cluster = &FoundationDBCluster{
+				Status: FoundationDBClusterStatus{
+					ProcessGroups: []*ProcessGroupStatus{
+						{
+							ProcessGroupID: "test-1",
+						},
+						{
+							ProcessGroupID: "test-2",
+						},
+						{
+							ProcessGroupID: "test-3",
+						},
+					},
+				},
+			}
+		})
+
+		JustBeforeEach(func() {
+			result = cluster.GetProcessGroupsToRemove(processGroupsToRemove)
+		})
+
+		When("removing a non existing process group ID", func() {
+			BeforeEach(func() {
+				processGroupsToRemove = []ProcessGroupID{"test-4"}
+			})
+
+			It("should return an empty list", func() {
+				Expect(result).To(HaveLen(0))
+			})
+		})
+
+		When("removing an existing process group ID", func() {
+			BeforeEach(func() {
+				processGroupsToRemove = []ProcessGroupID{"test-1"}
+			})
+
+			It("should contain the provided process group", func() {
+				Expect(result).To(ConsistOf(ProcessGroupID("test-1")))
+			})
+
+			When("the process group is already marked for removal", func() {
+				BeforeEach(func() {
+					cluster.Status.ProcessGroups[0].MarkForRemoval()
+				})
+
+				It("should return an empty list", func() {
+					Expect(result).To(HaveLen(0))
+				})
+			})
+
+			When("another process group is already marked for removal", func() {
+				BeforeEach(func() {
+					cluster.Status.ProcessGroups[1].MarkForRemoval()
+				})
+
+				It("should return an empty list", func() {
+					Expect(result).To(ConsistOf(ProcessGroupID("test-1")))
+				})
+			})
+		})
+	})
+
+	When("getting the removal list without exclusion", func() {
+		var cluster *FoundationDBCluster
+		var processGroupsToRemove, result []ProcessGroupID
+
+		BeforeEach(func() {
+			cluster = &FoundationDBCluster{
+				Status: FoundationDBClusterStatus{
+					ProcessGroups: []*ProcessGroupStatus{
+						{
+							ProcessGroupID: "test-1",
+						},
+						{
+							ProcessGroupID: "test-2",
+						},
+						{
+							ProcessGroupID: "test-3",
+						},
+					},
+				},
+			}
+		})
+
+		JustBeforeEach(func() {
+			result = cluster.GetProcessGroupsToRemoveWithoutExclusion(processGroupsToRemove)
+		})
+
+		When("removing a non existing process group ID", func() {
+			BeforeEach(func() {
+				processGroupsToRemove = []ProcessGroupID{"test-4"}
+			})
+
+			It("should return an empty list", func() {
+				Expect(result).To(HaveLen(0))
+			})
+		})
+
+		When("removing an existing process group ID", func() {
+			BeforeEach(func() {
+				processGroupsToRemove = []ProcessGroupID{"test-1"}
+			})
+
+			It("should contain the provided process group", func() {
+				Expect(result).To(ConsistOf(ProcessGroupID("test-1")))
+			})
+
+			When("the process group is already marked for removal", func() {
+				BeforeEach(func() {
+					cluster.Status.ProcessGroups[0].MarkForRemoval()
+				})
+
+				It("should contain the provided process group", func() {
+					Expect(result).To(ConsistOf(ProcessGroupID("test-1")))
+				})
+
+				When("the process group is also excluded", func() {
+					BeforeEach(func() {
+						cluster.Status.ProcessGroups[0].SetExclude()
+					})
+
+					It("should return an empty list", func() {
+						Expect(result).To(HaveLen(0))
+					})
+				})
+			})
+
+			When("another process group is already marked for removal and excluded", func() {
+				BeforeEach(func() {
+					cluster.Status.ProcessGroups[1].MarkForRemoval()
+					cluster.Status.ProcessGroups[1].SetExclude()
+				})
+
+				It("should return an empty list", func() {
+					Expect(result).To(ConsistOf(ProcessGroupID("test-1")))
+				})
+			})
+		})
+
+		// GetProcessGroupsToRemove
+
+		// GetProcessGroupsToRemoveWithoutExclusion
+	})
+
 	When("adding a process to the removal list", func() {
 		var cluster *FoundationDBCluster
 

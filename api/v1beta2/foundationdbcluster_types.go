@@ -348,7 +348,7 @@ func (processGroupStatus *ProcessGroupStatus) GetExclusionString() string {
 
 // IsExcluded returns if a process group is excluded
 func (processGroupStatus *ProcessGroupStatus) IsExcluded() bool {
-	return (processGroupStatus.ExclusionTimestamp != nil && !processGroupStatus.ExclusionTimestamp.IsZero()) || processGroupStatus.ExclusionSkipped
+	return !processGroupStatus.ExclusionTimestamp.IsZero() || processGroupStatus.ExclusionSkipped
 }
 
 // SetExclude marks a process group as excluded and will reset the process group conditions to only include the ResourcesTerminating
@@ -376,7 +376,7 @@ func (processGroupStatus *ProcessGroupStatus) SetExclude() {
 
 // IsMarkedForRemoval returns if a process group is marked for removal
 func (processGroupStatus *ProcessGroupStatus) IsMarkedForRemoval() bool {
-	return processGroupStatus.RemovalTimestamp != nil && !processGroupStatus.RemovalTimestamp.IsZero()
+	return !processGroupStatus.RemovalTimestamp.IsZero()
 }
 
 // MarkForRemoval marks a process group for removal. If the RemovalTimestamp is already set it won't be changed.
@@ -2287,8 +2287,69 @@ func (cluster *FoundationDBCluster) GetIgnoreTerminatingPodsSeconds() int {
 	return pointer.IntDeref(cluster.Spec.AutomationOptions.IgnoreTerminatingPodsSeconds, int((10 * time.Minute).Seconds()))
 }
 
+// GetProcessGroupsToRemove will returns the list of Process Group IDs that must be added to the ProcessGroupsToRemove
+// it will filter out all Process Group IDs that are already marked for removal to make sure those are clean up. If a
+// provided process group ID doesn't exit it will be ignored.
+func (cluster *FoundationDBCluster) GetProcessGroupsToRemove(processGroupIDs []ProcessGroupID) []ProcessGroupID {
+	currentProcessGroupsToRemove := map[ProcessGroupID]None{}
+
+	for _, id := range cluster.Spec.ProcessGroupsToRemove {
+		currentProcessGroupsToRemove[id] = None{}
+	}
+
+	for _, id := range processGroupIDs {
+		currentProcessGroupsToRemove[id] = None{}
+	}
+
+	filteredProcessGroupsToRemove := make([]ProcessGroupID, 0, len(currentProcessGroupsToRemove))
+	for _, processGroup := range cluster.Status.ProcessGroups {
+		if _, ok := currentProcessGroupsToRemove[processGroup.ProcessGroupID]; !ok {
+			continue
+		}
+
+		if processGroup.IsMarkedForRemoval() {
+			continue
+		}
+
+		filteredProcessGroupsToRemove = append(filteredProcessGroupsToRemove, processGroup.ProcessGroupID)
+	}
+
+	return filteredProcessGroupsToRemove
+}
+
+// GetProcessGroupsToRemoveWithoutExclusion will returns the list of Process Group IDs that must be added to the ProcessGroupsToRemove
+// it will filter out all Process Group IDs that are already marked for removal and are marked as excluded to make sure those are clean up.
+// If a provided process group ID doesn't exit it will be ignored.
+func (cluster *FoundationDBCluster) GetProcessGroupsToRemoveWithoutExclusion(processGroupIDs []ProcessGroupID) []ProcessGroupID {
+	currentProcessGroupsToRemove := map[ProcessGroupID]None{}
+
+	for _, id := range cluster.Spec.ProcessGroupsToRemoveWithoutExclusion {
+		currentProcessGroupsToRemove[id] = None{}
+	}
+
+	for _, id := range processGroupIDs {
+		currentProcessGroupsToRemove[id] = None{}
+	}
+
+	filteredProcessGroupsToRemove := make([]ProcessGroupID, 0, len(currentProcessGroupsToRemove))
+	for _, processGroup := range cluster.Status.ProcessGroups {
+		if _, ok := currentProcessGroupsToRemove[processGroup.ProcessGroupID]; !ok {
+			continue
+		}
+
+		if processGroup.IsMarkedForRemoval() && !processGroup.ExclusionTimestamp.IsZero() {
+			continue
+		}
+
+		filteredProcessGroupsToRemove = append(filteredProcessGroupsToRemove, processGroup.ProcessGroupID)
+	}
+
+	return filteredProcessGroupsToRemove
+}
+
 // AddProcessGroupsToRemovalList adds the provided process group IDs to the remove list.
 // If a process group ID is already present on that list it won't be added a second time.
+// Deprecated: Use GetProcessGroupsToRemove instead and set the cluster.Spec.ProcessGroupsToRemove value to the return value.
 func (cluster *FoundationDBCluster) AddProcessGroupsToRemovalList(processGroupIDs []ProcessGroupID) {
 	removals := map[ProcessGroupID]None{}
 
@@ -2434,6 +2495,7 @@ func (cluster *FoundationDBCluster) RemoveProcessGroupsFromCrashLoopContainerLis
 
 // AddProcessGroupsToRemovalWithoutExclusionList adds the provided process group IDs to the remove without exclusion list.
 // If a process group ID is already present on that list it won't be added a second time.
+// Deprecated: Use GetProcessGroupsToRemoveWithoutExclusion instead and set the cluster.Spec.ProcessGroupsToRemoveWithoutExclusion value to the return value.
 func (cluster *FoundationDBCluster) AddProcessGroupsToRemovalWithoutExclusionList(processGroupIDs []ProcessGroupID) {
 	removals := map[ProcessGroupID]None{}
 
