@@ -349,9 +349,9 @@ MaintenanceModeInfo contains information regarding the zone and process groups t
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
-| startTimestamp | StartTimestamp provides the timestamp when this zone is put into maintenance mode | *metav1.Time | false |
+| startTimestamp | StartTimestamp provides the timestamp when this zone is put into maintenance mode **Deprecated: This setting it not used anymore.** | *metav1.Time | false |
 | zoneID | ZoneID that is placed in maintenance mode | string | false |
-| processGroups | ProcessGroups that are placed in maintenance mode | []string | false |
+| processGroups | ProcessGroups that are placed in maintenance mode **Deprecated: This setting it not used anymore.** | []string | false |
 
 [Back to TOC](#table-of-contents)
 
