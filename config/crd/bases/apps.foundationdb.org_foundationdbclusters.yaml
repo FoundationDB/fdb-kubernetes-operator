@@ -10219,11 +10219,8 @@ spec:
                     type: string
                 type: object
               maxZonesWithUnavailablePods:
-                anyOf:
-                - type: integer
-                - type: string
                 default: 0
-                x-kubernetes-int-or-string: true
+                type: integer
               minimumUptimeSecondsForBounce:
                 default: 600
                 minimum: 1

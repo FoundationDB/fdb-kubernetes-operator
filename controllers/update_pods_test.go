@@ -35,7 +35,6 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 var _ = Describe("update_pods", func() {
@@ -253,56 +252,10 @@ var _ = Describe("update_pods", func() {
 			})
 		})
 
-		When("max zones with unavailable pods is set to 1% value and there are 3 process groups with pods in pending status", func() {
-			BeforeEach(func() {
-				expectedError = false
-				cluster.Spec.MaxZonesWithUnavailablePods = intstr.FromString("1%")
-				// Update all processes
-				storageSettings := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
-				storageSettings.PodTemplate.Spec.NodeSelector = map[string]string{"test": "test"}
-				cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral] = storageSettings
-				Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
-
-				for _, processGroup := range cluster.Status.ProcessGroups {
-					if processGroup.ProcessGroupID == "storage-1" || processGroup.ProcessGroupID == "storage-2" || processGroup.ProcessGroupID == "storage-3" {
-						processGroup.ProcessGroupConditions = append(processGroup.ProcessGroupConditions, fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.PodPending))
-					}
-				}
-			})
-
-			It("should return no errors and a map with the zone and one podgit to update", func() {
-				Expect(updates).To(HaveLen(1))
-				Expect(updates["simulation"]).To(HaveLen(1))
-			})
-		})
-
-		When("max zones with unavailable pods is set to 99% value and there are three process groups with pods in pending status", func() {
-			BeforeEach(func() {
-				expectedError = false
-				cluster.Spec.MaxZonesWithUnavailablePods = intstr.FromString("99%")
-				// Update all processes
-				storageSettings := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
-				storageSettings.PodTemplate.Spec.NodeSelector = map[string]string{"test": "test"}
-				cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral] = storageSettings
-				Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
-
-				for _, processGroup := range cluster.Status.ProcessGroups {
-					if processGroup.ProcessGroupID == "storage-1" || processGroup.ProcessGroupID == "storage-2" || processGroup.ProcessGroupID == "storage-3" {
-						processGroup.ProcessGroupConditions = append(processGroup.ProcessGroupConditions, fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.PodPending))
-					}
-				}
-			})
-
-			It("should return no errors and a map with the zone and all pods to update", func() {
-				Expect(updates).To(HaveLen(1))
-				Expect(updates["simulation"]).To(HaveLen(4))
-			})
-		})
-
 		When("max zones with unavailable pods is set to 3 and there are two process groups with pods in pending status", func() {
 			BeforeEach(func() {
 				expectedError = false
-				cluster.Spec.MaxZonesWithUnavailablePods = intstr.FromInt(3)
+				cluster.Spec.MaxZonesWithUnavailablePods = pointer.Int(3)
 				// Update all processes
 				storageSettings := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
 				storageSettings.PodTemplate.Spec.NodeSelector = map[string]string{"test": "test"}
@@ -325,7 +278,7 @@ var _ = Describe("update_pods", func() {
 		When("max zones with unavailable pods is set to 2 and there are two process groups with pods in pending status", func() {
 			BeforeEach(func() {
 				expectedError = false
-				cluster.Spec.MaxZonesWithUnavailablePods = intstr.FromInt(2)
+				cluster.Spec.MaxZonesWithUnavailablePods = pointer.Int(2)
 				// Update all processes
 				storageSettings := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
 				storageSettings.PodTemplate.Spec.NodeSelector = map[string]string{"test": "test"}
@@ -348,7 +301,7 @@ var _ = Describe("update_pods", func() {
 		When("max zones with unavailable pods is set to 1 and there are two process groups with pods in pending status", func() {
 			BeforeEach(func() {
 				expectedError = false
-				cluster.Spec.MaxZonesWithUnavailablePods = intstr.FromInt(1)
+				cluster.Spec.MaxZonesWithUnavailablePods = pointer.Int(1)
 				// Update all processes
 				storageSettings := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
 				storageSettings.PodTemplate.Spec.NodeSelector = map[string]string{"test": "test"}
@@ -365,20 +318,6 @@ var _ = Describe("update_pods", func() {
 			It("should return no errors and a map with the zone and one pod to update", func() {
 				Expect(updates).To(HaveLen(1))
 				Expect(updates["simulation"]).To(HaveLen(1))
-			})
-		})
-
-		When("max zones with unavailable pods has an invalid format", func() {
-			BeforeEach(func() {
-				expectedError = true
-				cluster.Spec.MaxZonesWithUnavailablePods = intstr.FromString("invalid")
-				Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
-			})
-
-			It("should return an error and nil updates", func() {
-				Expect(updates).To(BeNil())
-				Expect(expectedError).To(BeTrue())
-				Expect(err.Error()).Should(ContainSubstring("invalid value for cluster.Spec.MaxZonesWithUnavailablePods: invalid"))
 			})
 		})
 
