@@ -31,7 +31,6 @@ import (
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
@@ -46,10 +45,6 @@ func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconcile
 	updates, err := getPodsToUpdate(ctx, logger, r, cluster)
 	if err != nil {
 		return &requeue{curError: err, delay: podSchedulingDelayDuration, delayedRequeue: true}
-	}
-
-	if err != nil {
-		return &requeue{curError: err, delayedRequeue: true}
 	}
 
 	if len(updates) > 0 {
@@ -263,6 +258,7 @@ func getPodsToDelete(deletionMode fdbv1beta2.PodUpdateMode, updates map[string][
 		}
 	}
 
+	// TODO(jscheuermann): If a maintenance zone is already set, we should favour Pods in this zone to be updated.
 	if deletionMode == fdbv1beta2.PodUpdateModeZone {
 		// Default case is zone
 		for zoneName, zoneProcesses := range updates {
@@ -303,22 +299,10 @@ func deletePodsForUpdates(ctx context.Context, r *FoundationDBClusterReconciler,
 		}
 	}
 
+	// TODO(jscheuermann): If a maintenance zone is already set, we should allow to delete Pods in this zone.
 	if deletionMode == fdbv1beta2.PodUpdateModeZone && cluster.UseMaintenaceMode() {
-		var processGroups []string
-		for _, pod := range deletions {
-			processGroups = append(processGroups, pod.Labels[cluster.GetProcessGroupIDLabel()])
-		}
-
 		logger.Info("Setting maintenance mode", "zone", zone)
-		cluster.Status.MaintenanceModeInfo = fdbv1beta2.MaintenanceModeInfo{
-			StartTimestamp: &metav1.Time{Time: time.Now()},
-			ZoneID:         zone,
-			ProcessGroups:  processGroups,
-		}
-		err = r.updateOrApply(ctx, cluster)
-		if err != nil {
-			return &requeue{curError: err}
-		}
+
 		err = adminClient.SetMaintenanceZone(zone, cluster.GetMaintenaceModeTimeoutSeconds())
 		if err != nil {
 			return &requeue{curError: err}
