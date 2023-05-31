@@ -1302,16 +1302,18 @@ var _ = Describe("cluster_controller", func() {
 						Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
 							fdbv1beta2.LastConfigMapKey:            configMapHash,
 							fdbv1beta2.LastSpecKey:                 hash,
-							"foundationdb.org/public-ip-source":    "pod",
+							fdbv1beta2.PublicIPSourceAnnotation:    "pod",
 							"foundationdb.org/existing-annotation": "test-value",
 							"fdb-annotation":                       "value1",
+							fdbv1beta2.NodeAnnotation:              item.Spec.NodeName,
 						}))
 					} else {
 						Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
 							fdbv1beta2.LastConfigMapKey:         configMapHash,
 							fdbv1beta2.LastSpecKey:              hash,
-							"foundationdb.org/public-ip-source": "pod",
+							fdbv1beta2.PublicIPSourceAnnotation: "pod",
 							"fdb-annotation":                    "value1",
+							fdbv1beta2.NodeAnnotation:           item.Spec.NodeName,
 						}))
 					}
 				}
@@ -1440,7 +1442,8 @@ var _ = Describe("cluster_controller", func() {
 						Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
 							fdbv1beta2.LastConfigMapKey:         configMapHash,
 							fdbv1beta2.LastSpecKey:              hash,
-							"foundationdb.org/public-ip-source": "pod",
+							fdbv1beta2.PublicIPSourceAnnotation: "pod",
+							fdbv1beta2.NodeAnnotation:           item.Spec.NodeName,
 						}))
 					}
 
