@@ -1,6 +1,6 @@
 # Kubernetes won't deliberately cause an interruption to a ready storage pod if
 # that would drop the ready count below 5.
-apiVersion: policy/v1beta1
+apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: sample-cluster-storage
@@ -12,7 +12,7 @@ spec:
       fdb-cluster-name: sample-cluster
       fdb-process-class: storage
 ---
-apiVersion: policy/v1beta1
+apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: sample-cluster-log
@@ -24,7 +24,7 @@ spec:
       fdb-cluster-name: sample-cluster
       fdb-process-class: log
 ---
-apiVersion: policy/v1beta1
+apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: sample-cluster-transaction
