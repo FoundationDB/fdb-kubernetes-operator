@@ -45,6 +45,10 @@ const (
 	// IP for a pod.
 	PublicIPAnnotation = "foundationdb.org/public-ip"
 
+	// NodeAnnotation is an annotation key that specifies where a Pod is currently running on.
+	// The information is fetched from Pod.Spec.NodeName of the Pod resource.
+	NodeAnnotation = "foundationdb.org/current-node"
+
 	// FDBProcessGroupIDLabel represents the label that is used to represent a instance ID
 	FDBProcessGroupIDLabel = "foundationdb.org/fdb-process-group-id"
 
