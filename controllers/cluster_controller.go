@@ -141,7 +141,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 		removeIncompatibleProcesses{},
 		updateSidecarVersions{},
 		updatePodConfig{},
-		updateLabels{},
+		updateMetadata{},
 		updateDatabaseConfiguration{},
 		chooseRemovals{},
 		excludeProcesses{},
