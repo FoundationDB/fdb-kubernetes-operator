@@ -13861,6 +13861,7 @@ spec:
                       format: date-time
                       type: string
                     faultDomain:
+                      maxLength: 512
                       type: string
                     processClass:
                       type: string

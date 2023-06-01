@@ -60,7 +60,7 @@ type AdminClient struct {
 	localityInfo                             map[fdbv1beta2.ProcessGroupID]map[string]string
 	MaxZoneFailuresWithoutLosingData         *int
 	MaxZoneFailuresWithoutLosingAvailability *int
-	MaintenanceZone                          string
+	MaintenanceZone                          fdbv1beta2.FaultDomain
 	restoreURL                               string
 	maintenanceZoneStartTimestamp            time.Time
 	uptimeSecondsForMaintenanceZone          float64
@@ -230,7 +230,7 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 			}
 
 			var uptimeSeconds float64 = 60000
-			if client.MaintenanceZone == locality[fdbv1beta2.FDBLocalityZoneIDKey] || client.MaintenanceZone == "simulation" {
+			if string(client.MaintenanceZone) == locality[fdbv1beta2.FDBLocalityZoneIDKey] || client.MaintenanceZone == "simulation" {
 				if client.uptimeSecondsForMaintenanceZone != 0.0 {
 					uptimeSeconds = client.uptimeSecondsForMaintenanceZone
 				} else {
@@ -287,7 +287,7 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 		}
 
 		var uptimeSeconds float64 = 60000
-		if client.MaintenanceZone == locality[fdbv1beta2.FDBLocalityZoneIDKey] || client.MaintenanceZone == "simulation" {
+		if string(client.MaintenanceZone) == locality[fdbv1beta2.FDBLocalityZoneIDKey] || client.MaintenanceZone == "simulation" {
 			if client.uptimeSecondsForMaintenanceZone != 0.0 {
 				uptimeSeconds = client.uptimeSecondsForMaintenanceZone
 			} else {
@@ -776,12 +776,12 @@ func (client *AdminClient) SetKnobs(knobs []string) {
 
 // GetMaintenanceZone gets current maintenance zone, if any
 func (client *AdminClient) GetMaintenanceZone() (string, error) {
-	return client.MaintenanceZone, nil
+	return string(client.MaintenanceZone), nil
 }
 
 // SetMaintenanceZone places zone into maintenance mode
 func (client *AdminClient) SetMaintenanceZone(zone string, _ int) error {
-	client.MaintenanceZone = zone
+	client.MaintenanceZone = fdbv1beta2.FaultDomain(zone)
 	client.maintenanceZoneStartTimestamp = time.Now()
 	return nil
 }

@@ -867,6 +867,6 @@ func updateFaultDomains(logger logr.Logger, processes map[fdbv1beta2.ProcessGrou
 			continue
 		}
 
-		status.ProcessGroups[idx].FaultDomain = faultDomain
+		status.ProcessGroups[idx].FaultDomain = fdbv1beta2.FaultDomain(faultDomain)
 	}
 }

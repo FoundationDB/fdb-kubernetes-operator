@@ -85,7 +85,7 @@ type FoundationDBStatusClusterInfo struct {
 	Generation int `json:"generation,omitempty"`
 
 	// MaintenanceZone contains current zone under maintenance, if any.
-	MaintenanceZone string `json:"maintenance_zone,omitempty"`
+	MaintenanceZone FaultDomain `json:"maintenance_zone,omitempty"`
 
 	// Clients provides information about clients that are connected to the
 	// database.

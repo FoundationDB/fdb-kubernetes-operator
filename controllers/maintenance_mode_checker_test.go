@@ -84,7 +84,7 @@ var _ = Describe("maintenance_mode_checker", func() {
 	Context("maintenance mode is on", func() {
 		BeforeEach(func() {
 			cluster.Status.MaintenanceModeInfo = fdbv1beta2.MaintenanceModeInfo{
-				ZoneID: targetProcessGroup,
+				ZoneID: fdbv1beta2.FaultDomain(targetProcessGroup),
 			}
 			Expect(k8sClient.Status().Update(context.TODO(), cluster)).NotTo(HaveOccurred())
 		})
