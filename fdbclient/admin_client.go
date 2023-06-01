@@ -397,7 +397,6 @@ func (client *cliAdminClient) GetMaintenanceZone() (string, error) {
 		return "", err
 	}
 	return string(mode), nil
-	//return string(status.Cluster.MaintenanceZone), nil
 }
 
 // SetMaintenanceZone places zone into maintenance mode

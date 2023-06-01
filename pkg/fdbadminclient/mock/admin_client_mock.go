@@ -226,8 +226,7 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 
 			var uptimeSeconds float64 = 60000
 			underMaintenance := false
-      if string(client.MaintenanceZone) == locality[fdbv1beta2.FDBLocalityZoneIDKey] || client.MaintenanceZone == "simulation" {
-			//if string(client.MaintenanceZone) == locality[fdbv1beta2.FDBLocalityZoneIDKey] || client.MaintenanceZone == "simulation" {
+			if string(client.MaintenanceZone) == locality[fdbv1beta2.FDBLocalityZoneIDKey] || client.MaintenanceZone == "simulation" {
 				if client.uptimeSecondsForMaintenanceZone != 0.0 {
 					uptimeSeconds = client.uptimeSecondsForMaintenanceZone
 				} else {
@@ -293,8 +292,7 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 
 		var uptimeSeconds float64 = 60000
 		underMaintenance := false
-    if string(client.MaintenanceZone) == locality[fdbv1beta2.FDBLocalityZoneIDKey] || client.MaintenanceZone == "simulation" {
-		//if string(client.MaintenanceZone) == locality[fdbv1beta2.FDBLocalityZoneIDKey] || client.MaintenanceZone == "simulation" {
+		if string(client.MaintenanceZone) == locality[fdbv1beta2.FDBLocalityZoneIDKey] || client.MaintenanceZone == "simulation" {
 			if client.uptimeSecondsForMaintenanceZone != 0.0 {
 				uptimeSeconds = client.uptimeSecondsForMaintenanceZone
 			} else {
