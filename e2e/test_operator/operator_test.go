@@ -30,6 +30,7 @@ This cluster will be used for all tests.
 */
 
 import (
+	"fmt"
 	"log"
 	"math"
 	"math/rand"
@@ -1103,6 +1104,26 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			Consistently(func() *corev1.Pod {
 				return fdbCluster.GetPod(podMarkedForRemoval.Name)
 			}).WithTimeout(1 * time.Minute).WithPolling(15 * time.Second).ShouldNot(BeNil())
+		})
+	})
+
+	Context("testing maintenance mode functionality", func() {
+		When("maintenance mode is on", func() {
+			BeforeEach(func() {
+				command := fmt.Sprintf("maintenance on %s %s", "operator-test-1-storage-4", "0")
+				_, _, err := fdbCluster.RunFdbCliCommandInOperatorWithoutRetry(command, false, 40)
+				Expect(err).ShouldNot(HaveOccurred())
+			})
+
+			AfterEach(func() {
+				_, _, err := fdbCluster.RunFdbCliCommandInOperatorWithoutRetry("maintenance off", false, 40)
+				Expect(err).ShouldNot(HaveOccurred())
+			})
+
+			It("status maintenance zone should match", func() {
+				status := fdbCluster.GetStatus()
+				Expect(status.Cluster.MaintenanceZone).To(Equal(fdbv1beta2.MaintenanceModeInfo{ZoneID: "operator-test-1-storage-4"}))
+			})
 		})
 	})
 })
