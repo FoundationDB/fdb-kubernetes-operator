@@ -1108,7 +1108,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 	})
 
 	Context("testing maintenance mode functionality", func() {
-		When("maintenance mode is on", func() {
+		PWhen("maintenance mode is on", func() {
 			BeforeEach(func() {
 				command := fmt.Sprintf("maintenance on %s %s", "operator-test-1-storage-4", "0")
 				_, _, err := fdbCluster.RunFdbCliCommandInOperatorWithoutRetry(command, false, 40)
