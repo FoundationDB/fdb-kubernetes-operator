@@ -300,8 +300,7 @@ type MaintenanceModeInfo struct {
 	// Deprecated: This setting it not used anymore.
 	StartTimestamp *metav1.Time `json:"startTimestamp,omitempty"`
 	// ZoneID that is placed in maintenance mode
-	// +kubebuilder:validation:MaxLength=512
-	ZoneID string `json:"zoneID,omitempty"`
+	ZoneID FaultDomain `json:"zoneID,omitempty"`
 	// ProcessGroups that are placed in maintenance mode
 	// +kubebuilder:validation:MaxItems=200
 	// Deprecated: This setting it not used anymore.
@@ -334,8 +333,12 @@ type ProcessGroupStatus struct {
 	ProcessGroupConditions []*ProcessGroupCondition `json:"processGroupConditions,omitempty"`
 	// FaultDomain represents the last seen fault domain from the cluster status. This can be used if a Pod or process
 	// is not running and would be missing in the cluster status.
-	FaultDomain string `json:"faultDomain,omitempty"`
+	FaultDomain FaultDomain `json:"faultDomain,omitempty"`
 }
+
+// FaultDomain represents the FaultDomain of a process group
+// +kubebuilder:validation:MaxLength=512
+type FaultDomain string
 
 // ProcessGroupID represents the ID of the process group
 // +kubebuilder:validation:MaxLength=63
