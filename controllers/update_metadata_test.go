@@ -21,15 +21,14 @@
 package controllers
 
 import (
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var _ = Describe("Update labels", func() {
+var _ = FDescribe("Update metadata", func() {
 	type testCase struct {
 		pod          *corev1.Pod
 		metadata     metav1.ObjectMeta
@@ -41,27 +40,27 @@ var _ = Describe("Update labels", func() {
 		func(tc testCase) {
 			result := metadataCorrect(tc.metadata, &tc.pod.ObjectMeta)
 			Expect(result).To(Equal(tc.expected))
-			Expect(equality.Semantic.DeepEqual(tc.pod.ObjectMeta.Labels, tc.expectedMeta.Labels)).To(BeTrue())
-			Expect(equality.Semantic.DeepEqual(tc.pod.ObjectMeta.Annotations, tc.expectedMeta.Annotations)).To(BeTrue())
+			Expect(tc.pod.ObjectMeta.Labels).To(Equal(tc.expectedMeta.Labels))
+			Expect(tc.pod.ObjectMeta.Annotations).To(Equal(tc.expectedMeta.Annotations))
 		},
 		Entry("Metadata matches with Pod metadata",
 			testCase{
 				pod: &corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
-							fdbtypes.LastSpecKey: "1",
+							fdbv1beta2.LastSpecKey: "1",
 						},
 					},
 				},
 				metadata: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						fdbtypes.LastSpecKey: "1",
+						fdbv1beta2.LastSpecKey: "1",
 					},
 				},
 				expected: true,
 				expectedMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						fdbtypes.LastSpecKey: "1",
+						fdbv1beta2.LastSpecKey: "1",
 					},
 				},
 			},
@@ -71,19 +70,19 @@ var _ = Describe("Update labels", func() {
 				pod: &corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
-							fdbtypes.LastSpecKey: "1",
+							fdbv1beta2.LastSpecKey: "1",
 						},
 					},
 				},
 				metadata: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						fdbtypes.LastSpecKey: "2",
+						fdbv1beta2.LastSpecKey: "2",
 					},
 				},
 				expected: true,
 				expectedMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						fdbtypes.LastSpecKey: "1",
+						fdbv1beta2.LastSpecKey: "1",
 					},
 				},
 			},
@@ -93,22 +92,22 @@ var _ = Describe("Update labels", func() {
 				pod: &corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
-							fdbtypes.LastSpecKey: "1",
-							"special":            "43",
+							fdbv1beta2.LastSpecKey: "1",
+							"special":              "43",
 						},
 					},
 				},
 				metadata: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						fdbtypes.LastSpecKey: "1",
-						"special":            "42",
+						fdbv1beta2.LastSpecKey: "1",
+						"special":              "42",
 					},
 				},
 				expected: false,
 				expectedMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						fdbtypes.LastSpecKey: "1",
-						"special":            "42",
+						fdbv1beta2.LastSpecKey: "1",
+						"special":              "42",
 					},
 				},
 			},
@@ -118,21 +117,21 @@ var _ = Describe("Update labels", func() {
 				pod: &corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
-							fdbtypes.LastSpecKey: "1",
+							fdbv1beta2.LastSpecKey: "1",
 						},
 					},
 				},
 				metadata: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						fdbtypes.LastSpecKey: "1",
-						"controller/X":       "wrong",
+						fdbv1beta2.LastSpecKey: "1",
+						"controller/X":         "wrong",
 					},
 				},
 				expected: false,
 				expectedMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						fdbtypes.LastSpecKey: "1",
-						"controller/X":       "wrong",
+						fdbv1beta2.LastSpecKey: "1",
+						"controller/X":         "wrong",
 					},
 				},
 			},
@@ -142,21 +141,21 @@ var _ = Describe("Update labels", func() {
 				pod: &corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
-							fdbtypes.LastSpecKey: "1",
-							"controller/X":       "wrong",
+							fdbv1beta2.LastSpecKey: "1",
+							"controller/X":         "wrong",
 						},
 					},
 				},
 				metadata: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						fdbtypes.LastSpecKey: "1",
+						fdbv1beta2.LastSpecKey: "1",
 					},
 				},
 				expected: true,
 				expectedMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						fdbtypes.LastSpecKey: "1",
-						"controller/X":       "wrong",
+						fdbv1beta2.LastSpecKey: "1",
+						"controller/X":         "wrong",
 					},
 				},
 			},
@@ -166,22 +165,22 @@ var _ = Describe("Update labels", func() {
 				pod: &corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
-							fdbtypes.LastSpecKey: "1",
-							"controller/X":       "true",
+							fdbv1beta2.LastSpecKey: "1",
+							"controller/X":         "true",
 						},
 					},
 				},
 				metadata: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						fdbtypes.LastSpecKey: "1",
-						"controller/X":       "wrong",
+						fdbv1beta2.LastSpecKey: "1",
+						"controller/X":         "wrong",
 					},
 				},
 				expected: false,
 				expectedMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						fdbtypes.LastSpecKey: "1",
-						"controller/X":       "wrong",
+						fdbv1beta2.LastSpecKey: "1",
+						"controller/X":         "wrong",
 					},
 				},
 			},
@@ -191,7 +190,7 @@ var _ = Describe("Update labels", func() {
 				pod: &corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
-							fdbtypes.LastSpecKey: "1",
+							fdbv1beta2.LastSpecKey: "1",
 						},
 						Labels: map[string]string{
 							"test": "test",
@@ -200,13 +199,13 @@ var _ = Describe("Update labels", func() {
 				},
 				metadata: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						fdbtypes.LastSpecKey: "1",
+						fdbv1beta2.LastSpecKey: "1",
 					},
 				},
 				expected: true,
 				expectedMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						fdbtypes.LastSpecKey: "1",
+						fdbv1beta2.LastSpecKey: "1",
 					},
 					Labels: map[string]string{
 						"test": "test",
@@ -219,29 +218,56 @@ var _ = Describe("Update labels", func() {
 				pod: &corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
-							fdbtypes.LastSpecKey: "1",
+							fdbv1beta2.LastSpecKey: "1",
 						},
 						Labels: map[string]string{
-							fdbtypes.FDBProcessClassLabel: "storage",
+							fdbv1beta2.FDBProcessClassLabel: "storage",
 						},
 					},
 				},
 				metadata: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						fdbtypes.LastSpecKey: "1",
+						fdbv1beta2.LastSpecKey: "1",
 					},
 					Labels: map[string]string{
-						fdbtypes.FDBProcessClassLabel: "log",
+						fdbv1beta2.FDBProcessClassLabel: "log",
 					},
 				},
 				expected: false,
 				expectedMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						fdbtypes.LastSpecKey: "1",
+						fdbv1beta2.LastSpecKey: "1",
 					},
 
 					Labels: map[string]string{
-						fdbtypes.FDBProcessClassLabel: "log",
+						fdbv1beta2.FDBProcessClassLabel: "log",
+					},
+				},
+			},
+		),
+		Entry("Metadata for a Pod running on a node",
+			testCase{
+				pod: &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							fdbv1beta2.LastSpecKey: "1",
+						},
+					},
+					Spec: corev1.PodSpec{
+						NodeName: "testing-node",
+					},
+				},
+				metadata: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						fdbv1beta2.LastSpecKey:    "1",
+						fdbv1beta2.NodeAnnotation: "testing-node",
+					},
+				},
+				expected: false,
+				expectedMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						fdbv1beta2.LastSpecKey:    "1",
+						fdbv1beta2.NodeAnnotation: "testing-node",
 					},
 				},
 			},

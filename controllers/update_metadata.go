@@ -26,16 +26,16 @@ import (
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	corev1 "k8s.io/api/core/v1"
 )
 
-// updateLabels provides a reconciliation step for updating the labels on pods.
-type updateLabels struct{}
+// updateMetadata provides a reconciliation step for updating the metadata on Pods.
+type updateMetadata struct{}
 
 // reconcile runs the reconciler's work.
-func (updateLabels) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updateLabels")
+func (updateMetadata) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) *requeue {
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updateMetadata")
 	// TODO(johscheuer): Remove the use of the pvc map and directly make a get request.
 	pvcs := &corev1.PersistentVolumeClaimList{}
 	err := r.List(ctx, pvcs, internal.GetPodListOptions(cluster, "", "")...)
@@ -56,6 +56,10 @@ func (updateLabels) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 			metadata := internal.GetPodMetadata(cluster, processGroup.ProcessClass, processGroup.ProcessGroupID, "")
 			if metadata.Annotations == nil {
 				metadata.Annotations = make(map[string]string, 1)
+			}
+
+			if pod.Spec.NodeName != "" {
+				metadata.Annotations[fdbv1beta2.NodeAnnotation] = pod.Spec.NodeName
 			}
 
 			if !metadataCorrect(metadata, &pod.ObjectMeta) {
@@ -98,7 +102,7 @@ func (updateLabels) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 }
 
 func metadataCorrect(desiredMetadata metav1.ObjectMeta, currentMetadata *metav1.ObjectMeta) bool {
-	desiredMetadata.Annotations[fdbtypes.LastSpecKey] = currentMetadata.Annotations[fdbtypes.LastSpecKey]
+	desiredMetadata.Annotations[fdbv1beta2.LastSpecKey] = currentMetadata.Annotations[fdbv1beta2.LastSpecKey]
 	// If the annotations or labels have changed the metadata has to be updated.
 	return !mergeLabelsInMetadata(currentMetadata, desiredMetadata) && !mergeAnnotations(currentMetadata, desiredMetadata)
 }

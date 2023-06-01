@@ -1300,18 +1300,20 @@ var _ = Describe("cluster_controller", func() {
 					Expect(err).NotTo(HaveOccurred())
 					if item.Labels[fdbv1beta2.FDBProcessGroupIDLabel] == "storage-1" {
 						Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
-							"foundationdb.org/last-applied-config-map": configMapHash,
-							"foundationdb.org/last-applied-spec":       hash,
-							"foundationdb.org/public-ip-source":        "pod",
-							"foundationdb.org/existing-annotation":     "test-value",
-							"fdb-annotation":                           "value1",
+							fdbv1beta2.LastConfigMapKey:            configMapHash,
+							fdbv1beta2.LastSpecKey:                 hash,
+							fdbv1beta2.PublicIPSourceAnnotation:    "pod",
+							"foundationdb.org/existing-annotation": "test-value",
+							"fdb-annotation":                       "value1",
+							fdbv1beta2.NodeAnnotation:              item.Spec.NodeName,
 						}))
 					} else {
 						Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
-							"foundationdb.org/last-applied-config-map": configMapHash,
-							"foundationdb.org/last-applied-spec":       hash,
-							"foundationdb.org/public-ip-source":        "pod",
-							"fdb-annotation":                           "value1",
+							fdbv1beta2.LastConfigMapKey:         configMapHash,
+							fdbv1beta2.LastSpecKey:              hash,
+							fdbv1beta2.PublicIPSourceAnnotation: "pod",
+							"fdb-annotation":                    "value1",
+							fdbv1beta2.NodeAnnotation:           item.Spec.NodeName,
 						}))
 					}
 				}
@@ -1323,7 +1325,7 @@ var _ = Describe("cluster_controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 				for _, item := range pvcs.Items {
 					Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
-						"foundationdb.org/last-applied-spec": "f0c8a45ea6c3dd26c2dc2b5f3c699f38d613dab273d0f8a6eae6abd9a9569063",
+						fdbv1beta2.LastSpecKey: "f0c8a45ea6c3dd26c2dc2b5f3c699f38d613dab273d0f8a6eae6abd9a9569063",
 					}))
 				}
 
@@ -1408,12 +1410,12 @@ var _ = Describe("cluster_controller", func() {
 							Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
 								"fdb-annotation":                       "value1",
 								"foundationdb.org/existing-annotation": "test-value",
-								"foundationdb.org/last-applied-spec":   "f0c8a45ea6c3dd26c2dc2b5f3c699f38d613dab273d0f8a6eae6abd9a9569063",
+								fdbv1beta2.LastSpecKey:                 "f0c8a45ea6c3dd26c2dc2b5f3c699f38d613dab273d0f8a6eae6abd9a9569063",
 							}))
 						} else {
 							Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
-								"fdb-annotation":                     "value1",
-								"foundationdb.org/last-applied-spec": "f0c8a45ea6c3dd26c2dc2b5f3c699f38d613dab273d0f8a6eae6abd9a9569063",
+								"fdb-annotation":       "value1",
+								fdbv1beta2.LastSpecKey: "f0c8a45ea6c3dd26c2dc2b5f3c699f38d613dab273d0f8a6eae6abd9a9569063",
 							}))
 
 						}
@@ -1438,9 +1440,10 @@ var _ = Describe("cluster_controller", func() {
 						configMapHash, err := getConfigMapHash(cluster, internal.GetProcessClassFromMeta(cluster, item.ObjectMeta), &item)
 						Expect(err).NotTo(HaveOccurred())
 						Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
-							"foundationdb.org/last-applied-config-map": configMapHash,
-							"foundationdb.org/last-applied-spec":       hash,
-							"foundationdb.org/public-ip-source":        "pod",
+							fdbv1beta2.LastConfigMapKey:         configMapHash,
+							fdbv1beta2.LastSpecKey:              hash,
+							fdbv1beta2.PublicIPSourceAnnotation: "pod",
+							fdbv1beta2.NodeAnnotation:           item.Spec.NodeName,
 						}))
 					}
 
@@ -1546,9 +1549,10 @@ var _ = Describe("cluster_controller", func() {
 					configMapHash, err := getConfigMapHash(cluster, internal.GetProcessClassFromMeta(cluster, item.ObjectMeta), &item)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
-						"foundationdb.org/last-applied-config-map": configMapHash,
-						"foundationdb.org/last-applied-spec":       hash,
-						"foundationdb.org/public-ip-source":        "pod",
+						fdbv1beta2.LastConfigMapKey:         configMapHash,
+						fdbv1beta2.LastSpecKey:              hash,
+						fdbv1beta2.PublicIPSourceAnnotation: "pod",
+						fdbv1beta2.NodeAnnotation:           item.Spec.NodeName,
 					}))
 				}
 
@@ -1557,7 +1561,7 @@ var _ = Describe("cluster_controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 				for _, item := range pvcs.Items {
 					Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
-						"foundationdb.org/last-applied-spec": "f0c8a45ea6c3dd26c2dc2b5f3c699f38d613dab273d0f8a6eae6abd9a9569063",
+						fdbv1beta2.LastSpecKey: "f0c8a45ea6c3dd26c2dc2b5f3c699f38d613dab273d0f8a6eae6abd9a9569063",
 					}))
 				}
 			})

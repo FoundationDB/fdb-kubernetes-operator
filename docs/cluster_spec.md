@@ -153,6 +153,12 @@ CrashLoopContainerObject specifies crash-loop target for specific container.
 
 [Back to TOC](#table-of-contents)
 
+## FaultDomain
+
+FaultDomain represents the FaultDomain of a process group
+
+[Back to TOC](#table-of-contents)
+
 ## FoundationDBCluster
 
 FoundationDBCluster is the Schema for the foundationdbclusters API
@@ -349,9 +355,9 @@ MaintenanceModeInfo contains information regarding the zone and process groups t
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
-| startTimestamp | StartTimestamp provides the timestamp when this zone is put into maintenance mode | *metav1.Time | false |
-| zoneID | ZoneID that is placed in maintenance mode | string | false |
-| processGroups | ProcessGroups that are placed in maintenance mode | []string | false |
+| startTimestamp | StartTimestamp provides the timestamp when this zone is put into maintenance mode **Deprecated: This setting it not used anymore.** | *metav1.Time | false |
+| zoneID | ZoneID that is placed in maintenance mode | [FaultDomain](#faultdomain) | false |
+| processGroups | ProcessGroups that are placed in maintenance mode **Deprecated: This setting it not used anymore.** | []string | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -414,7 +420,7 @@ ProcessGroupStatus represents the status of a ProcessGroup.
 | exclusionTimestamp | ExclusionTimestamp defines when the process group has been fully excluded. This is only used within the reconciliation process, and should not be considered authoritative. | *metav1.Time | false |
 | exclusionSkipped | ExclusionSkipped determines if exclusion has been skipped for a process, which will allow the process group to be removed without exclusion. | bool | false |
 | processGroupConditions | ProcessGroupConditions represents a list of degraded conditions that the process group is in. | []*[ProcessGroupCondition](#processgroupcondition) | false |
-| faultDomain | FaultDomain represents the last seen fault domain from the cluster status. This can be used if a Pod or process is not running and would be missing in the cluster status. | string | false |
+| faultDomain | FaultDomain represents the last seen fault domain from the cluster status. This can be used if a Pod or process is not running and would be missing in the cluster status. | [FaultDomain](#faultdomain) | false |
 
 [Back to TOC](#table-of-contents)
 
