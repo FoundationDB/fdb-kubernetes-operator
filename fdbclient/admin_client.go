@@ -392,12 +392,11 @@ func (client *cliAdminClient) ConfigureDatabase(configuration fdbv1beta2.Databas
 
 // GetMaintenanceZone gets current maintenance zone, if any. Returns empty string if maintenance mode is off
 func (client *cliAdminClient) GetMaintenanceZone() (string, error) {
-	// TODO: Use special keyspace to just read the maintenance zone info instead of reading the whole status
-	status, err := client.GetStatus()
+	maint, err := client.fdbLibClient.getValueFromDBUsingKey("\xff/maintenance", DefaultCLITimeout)
 	if err != nil {
 		return "", err
 	}
-	return status.Cluster.MaintenanceZone, nil
+	return string(maint), nil
 }
 
 // SetMaintenanceZone places zone into maintenance mode
