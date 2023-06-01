@@ -38,7 +38,7 @@ import (
 type updatePodConfig struct{}
 
 // reconcile runs the reconciler's work.
-func (updatePodConfig) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) *requeue {
+func (updatePodConfig) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, _ *fdbv1beta2.FoundationDBStatus) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updatePodConfig")
 	configMap, err := internal.GetConfigMap(cluster)
 	if err != nil {

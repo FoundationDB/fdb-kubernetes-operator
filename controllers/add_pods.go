@@ -38,7 +38,7 @@ import (
 type addPods struct{}
 
 // reconcile runs the reconciler's work.
-func (a addPods) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) *requeue {
+func (a addPods) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, _ *fdbv1beta2.FoundationDBStatus) *requeue {
 	configMap, err := internal.GetConfigMap(cluster)
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "addPods")
 	if err != nil {

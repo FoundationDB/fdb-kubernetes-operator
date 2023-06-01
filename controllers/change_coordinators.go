@@ -37,7 +37,7 @@ import (
 type changeCoordinators struct{}
 
 // reconcile runs the reconciler's work.
-func (c changeCoordinators) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) *requeue {
+func (c changeCoordinators) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "changeCoordinators")
 
 	if !cluster.Status.Configured {
@@ -50,9 +50,12 @@ func (c changeCoordinators) reconcile(ctx context.Context, r *FoundationDBCluste
 	}
 	defer adminClient.Close()
 
-	status, err := adminClient.GetStatus()
-	if err != nil {
-		return &requeue{curError: err, delayedRequeue: true}
+	// If the status is not cached, we have to fetch it.
+	if status == nil {
+		status, err = adminClient.GetStatus()
+		if err != nil {
+			return &requeue{curError: err}
+		}
 	}
 
 	if status.Cluster.ConnectionString != cluster.Status.ConnectionString {

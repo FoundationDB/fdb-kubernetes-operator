@@ -924,6 +924,11 @@ type FoundationDBClusterAutomationOptions struct {
 	// processes.
 	KillProcesses *bool `json:"killProcesses,omitempty"`
 
+	// CacheDatabaseStatusForReconciliation defines whether the operator is using the same FoundationDB machine-readable
+	// status for all sub-reconcilers or if the machine-readable status should be fetched by ever sub-reconciler if
+	// required. Enabling this setting might improve the operator reconciliation speed for large clusters.
+	CacheDatabaseStatusForReconciliation *bool `json:"cacheDatabaseStatusForReconciliation,omitempty"`
+
 	// Replacements contains options for automatically replacing failed
 	// processes.
 	Replacements AutomaticReplacementOptions `json:"replacements,omitempty"`
@@ -2527,4 +2532,11 @@ func (cluster *FoundationDBCluster) Validate() error {
 // if operator's TaintReplacementOptions is not set.
 func (cluster *FoundationDBCluster) IsTaintFeatureDisabled() bool {
 	return len(cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions) == 0
+}
+
+// CacheDatabaseStatusForReconciliation returns if the sub-reconcilers should use a cached machine-readable status. If
+// enabled the machine-readable status will be fetched only once per reconciliation loop and not multiple times. If the
+// value is unset the provided default value will be returned.
+func (cluster *FoundationDBCluster) CacheDatabaseStatusForReconciliation(defaultValue bool) bool {
+	return pointer.BoolDeref(cluster.Spec.AutomationOptions.CacheDatabaseStatusForReconciliation, defaultValue)
 }

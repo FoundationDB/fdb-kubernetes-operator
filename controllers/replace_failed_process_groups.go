@@ -22,8 +22,8 @@ package controllers
 
 import (
 	"context"
-
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal/replacements"
 )
 
@@ -32,7 +32,7 @@ import (
 type replaceFailedProcessGroups struct{}
 
 // return non-nil requeue if a process has been replaced
-func (c replaceFailedProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) *requeue {
+func (c replaceFailedProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "replaceFailedProcessGroups")
 	// If the EmptyMonitorConf setting is set we expect that all fdb processes in this part of the cluster are missing. In order
 	// to prevent the operator from replacing any process groups we skip this reconciliation here.
@@ -41,13 +41,23 @@ func (c replaceFailedProcessGroups) reconcile(ctx context.Context, r *Foundation
 		return nil
 	}
 
-	adminClient, err := r.DatabaseClientProvider.GetAdminClient(cluster, r)
-	if err != nil {
-		return &requeue{curError: err}
-	}
-	defer adminClient.Close()
+	// If the status is not cached, we have to fetch it.
+	if status == nil {
+		adminClient, err := r.DatabaseClientProvider.GetAdminClient(cluster, r)
+		if err != nil {
+			return &requeue{curError: err}
+		}
+		defer adminClient.Close()
 
-	if replacements.ReplaceFailedProcessGroups(logger, cluster, adminClient) {
+		status, err = adminClient.GetStatus()
+		if err != nil {
+			return &requeue{curError: err}
+		}
+	}
+
+	// Only replace process groups without an address, if the cluster has the desired fault tolerance and is available.
+	hasDesiredFaultTolerance := internal.HasDesiredFaultToleranceFromStatus(log, status, cluster)
+	if replacements.ReplaceFailedProcessGroups(logger, cluster, hasDesiredFaultTolerance) {
 		err := r.updateOrApply(ctx, cluster)
 		if err != nil {
 			return &requeue{curError: err}

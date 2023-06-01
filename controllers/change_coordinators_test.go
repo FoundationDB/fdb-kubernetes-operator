@@ -623,7 +623,7 @@ var _ = Describe("Change coordinators", func() {
 		})
 
 		JustBeforeEach(func() {
-			requeue = changeCoordinators{}.reconcile(context.TODO(), clusterReconciler, cluster)
+			requeue = changeCoordinators{}.reconcile(context.TODO(), clusterReconciler, cluster, nil)
 		})
 
 		When("the cluster is healthy", func() {

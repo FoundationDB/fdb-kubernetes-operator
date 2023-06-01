@@ -123,6 +123,7 @@ func (manager StandardPodLifecycleManager) DeletePod(ctx context.Context, r clie
 
 // CanDeletePods checks whether it is safe to delete Pods.
 func (manager StandardPodLifecycleManager) CanDeletePods(ctx context.Context, adminClient fdbadminclient.AdminClient, cluster *fdbv1beta2.FoundationDBCluster) (bool, error) {
+	// TODO(j-scheuermann): Can we pass down a cached status here?
 	return internal.HasDesiredFaultTolerance(logr.FromContextOrDiscard(ctx), adminClient, cluster)
 }
 

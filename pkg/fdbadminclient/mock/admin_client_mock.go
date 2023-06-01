@@ -476,6 +476,13 @@ func (client *AdminClient) CanSafelyRemove(addresses []fdbv1beta2.ProcessAddress
 	return remaining, nil
 }
 
+// CanSafelyRemoveFromStatus checks whether it is safe to remove processes from the cluster, based on the provided status.
+//
+// The list returned by this method will be the addresses that are *not* safe to remove.
+func (client *AdminClient) CanSafelyRemoveFromStatus(addresses []fdbv1beta2.ProcessAddress, _ *fdbv1beta2.FoundationDBStatus) ([]fdbv1beta2.ProcessAddress, error) {
+	return client.CanSafelyRemove(addresses)
+}
+
 // GetExclusions gets a list of the addresses currently excluded from the
 // database.
 func (client *AdminClient) GetExclusions() ([]fdbv1beta2.ProcessAddress, error) {
@@ -492,6 +499,12 @@ func (client *AdminClient) GetExclusions() ([]fdbv1beta2.ProcessAddress, error) 
 	}
 
 	return pAddrs, nil
+}
+
+// GetExclusionsFromStatus gets a list of the addresses currently excluded from the
+// database, based on the provided status.
+func (client *AdminClient) GetExclusionsFromStatus(_ *fdbv1beta2.FoundationDBStatus) ([]fdbv1beta2.ProcessAddress, error) {
+	return client.GetExclusions()
 }
 
 // KillProcesses restarts processes

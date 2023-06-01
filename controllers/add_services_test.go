@@ -63,7 +63,7 @@ var _ = Describe("add_services", func() {
 	})
 
 	JustBeforeEach(func() {
-		requeue = addServices{}.reconcile(context.TODO(), clusterReconciler, cluster)
+		requeue = addServices{}.reconcile(context.TODO(), clusterReconciler, cluster, nil)
 		_, err = reloadCluster(cluster)
 		Expect(err).NotTo(HaveOccurred())
 

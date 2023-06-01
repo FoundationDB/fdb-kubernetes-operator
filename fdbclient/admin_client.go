@@ -462,6 +462,13 @@ func (client *cliAdminClient) GetExclusions() ([]fdbv1beta2.ProcessAddress, erro
 	if err != nil {
 		return nil, err
 	}
+
+	return client.GetExclusionsFromStatus(status)
+}
+
+// GetExclusionsFromStatus gets a list of the addresses currently excluded from the
+// database, based on the provided status.
+func (client *cliAdminClient) GetExclusionsFromStatus(status *fdbv1beta2.FoundationDBStatus) ([]fdbv1beta2.ProcessAddress, error) {
 	excludedServers := status.Cluster.DatabaseConfiguration.ExcludedServers
 	exclusions := make([]fdbv1beta2.ProcessAddress, 0, len(excludedServers))
 	for _, excludedServer := range excludedServers {
@@ -475,6 +482,7 @@ func (client *cliAdminClient) GetExclusions() ([]fdbv1beta2.ProcessAddress, erro
 			exclusions = append(exclusions, fdbv1beta2.ProcessAddress{StringAddress: excludedServer.Locality})
 		}
 	}
+
 	return exclusions, nil
 }
 
@@ -578,6 +586,13 @@ func (client *cliAdminClient) CanSafelyRemove(addresses []fdbv1beta2.ProcessAddr
 		return nil, err
 	}
 
+	return client.CanSafelyRemoveFromStatus(addresses, status)
+}
+
+// CanSafelyRemoveFromStatus checks whether it is safe to remove processes from the cluster, based on the provided status.
+//
+// The list returned by this method will be the addresses that are *not* safe to remove.
+func (client *cliAdminClient) CanSafelyRemoveFromStatus(addresses []fdbv1beta2.ProcessAddress, status *fdbv1beta2.FoundationDBStatus) ([]fdbv1beta2.ProcessAddress, error) {
 	exclusions := getRemainingAndExcludedFromStatus(status, addresses)
 	client.log.Info("Filtering excluded processes",
 		"inProgress", exclusions.inProgress,
@@ -589,7 +604,7 @@ func (client *cliAdminClient) CanSafelyRemove(addresses []fdbv1beta2.ProcessAddr
 	// When we have at least one process that is missing in the status, we have to issue the exclude command to make sure, that those
 	// missing processes can be removed or not.
 	if len(exclusions.missingInStatus) > 0 {
-		err = client.ExcludeProcesses(exclusions.missingInStatus)
+		err := client.ExcludeProcesses(exclusions.missingInStatus)
 		// When we hit a timeout error here we know that at least one of the missingInStatus is still not fully excluded for safety
 		// we just return the whole slice and don't do any further distinction. We have to return all addresses that are not excluded
 		// and are still in progress, but we don't want to return an error to block further actions on the successfully excluded

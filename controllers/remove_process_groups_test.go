@@ -55,7 +55,7 @@ var _ = Describe("remove_process_groups", func() {
 		})
 
 		JustBeforeEach(func() {
-			result = removeProcessGroups{}.reconcile(context.TODO(), clusterReconciler, cluster)
+			result = removeProcessGroups{}.reconcile(context.TODO(), clusterReconciler, cluster, nil)
 		})
 
 		When("trying to remove a coordinator", func() {

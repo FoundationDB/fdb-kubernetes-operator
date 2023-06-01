@@ -118,7 +118,7 @@ func GetZonedRemovals(status *fdbv1beta2.FoundationDBStatus, processGroupsToRemo
 }
 
 // GetRemainingMap returns a map that indicates if a process group is fully excluded in the cluster.
-func GetRemainingMap(logger logr.Logger, adminClient fdbadminclient.AdminClient, cluster *fdbv1beta2.FoundationDBCluster) (map[string]bool, error) {
+func GetRemainingMap(logger logr.Logger, adminClient fdbadminclient.AdminClient, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) (map[string]bool, error) {
 	var err error
 	addresses := make([]fdbv1beta2.ProcessAddress, 0, len(cluster.Status.ProcessGroups))
 	for _, processGroup := range cluster.Status.ProcessGroups {
@@ -141,7 +141,7 @@ func GetRemainingMap(logger logr.Logger, adminClient fdbadminclient.AdminClient,
 
 	var remaining []fdbv1beta2.ProcessAddress
 	if len(addresses) > 0 {
-		remaining, err = adminClient.CanSafelyRemove(addresses)
+		remaining, err = adminClient.CanSafelyRemoveFromStatus(addresses, status)
 		if err != nil {
 			return map[string]bool{}, err
 		}

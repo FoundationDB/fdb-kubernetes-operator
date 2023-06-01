@@ -39,7 +39,7 @@ import (
 type updateConfigMap struct{}
 
 // reconcile runs the reconciler's work.
-func (u updateConfigMap) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
+func (u updateConfigMap) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster, _ *fdbtypes.FoundationDBStatus) *requeue {
 	configMap, err := internal.GetConfigMap(cluster)
 	if err != nil {
 		return &requeue{curError: err}

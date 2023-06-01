@@ -35,7 +35,7 @@ import (
 type chooseRemovals struct{}
 
 // reconcile runs the reconciler's work.
-func (c chooseRemovals) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) *requeue {
+func (c chooseRemovals) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "chooseRemovals")
 	hasNewRemovals := false
 
@@ -53,15 +53,20 @@ func (c chooseRemovals) reconcile(ctx context.Context, r *FoundationDBClusterRec
 	}
 	desiredCounts := desiredCountStruct.Map()
 
-	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
-	if err != nil {
-		return &requeue{curError: err}
+	// If the status is not cached, we have to fetch it.
+	if status == nil {
+		adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
+		if err != nil {
+			return &requeue{curError: err}
+		}
+		defer adminClient.Close()
+
+		status, err = adminClient.GetStatus()
+		if err != nil {
+			return &requeue{curError: err}
+		}
 	}
-	defer adminClient.Close()
-	status, err := adminClient.GetStatus()
-	if err != nil {
-		return &requeue{curError: err}
-	}
+
 	localityMap := make(map[string]locality.Info)
 	for _, process := range status.Cluster.Processes {
 		id := process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]

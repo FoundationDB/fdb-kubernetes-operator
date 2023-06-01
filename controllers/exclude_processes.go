@@ -40,7 +40,7 @@ var missingProcessThreshold = 0.8
 type excludeProcesses struct{}
 
 // reconcile runs the reconciler's work.
-func (e excludeProcesses) reconcile(_ context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) *requeue {
+func (e excludeProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "excludeProcesses")
 	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
 	if err != nil {
@@ -55,10 +55,18 @@ func (e excludeProcesses) reconcile(_ context.Context, r *FoundationDBClusterRec
 		}
 	}
 
+	// If the status is not cached, we have to fetch it.
+	if status == nil {
+		status, err = adminClient.GetStatus()
+		if err != nil {
+			return &requeue{curError: err}
+		}
+	}
+
 	var fdbProcessesToExclude []fdbv1beta2.ProcessAddress
 	var processClassesToExclude map[fdbv1beta2.ProcessClass]fdbv1beta2.None
 	if removalCount > 0 {
-		exclusions, err := adminClient.GetExclusions()
+		exclusions, err := adminClient.GetExclusionsFromStatus(status)
 		if err != nil {
 			return &requeue{curError: err, delayedRequeue: true}
 		}

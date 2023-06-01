@@ -35,7 +35,7 @@ import (
 type updateDatabaseConfiguration struct{}
 
 // reconcile runs the reconciler's work.
-func (u updateDatabaseConfiguration) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
+func (u updateDatabaseConfiguration) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.FoundationDBStatus) *requeue {
 	if !pointer.BoolDeref(cluster.Spec.AutomationOptions.ConfigureDatabase, true) {
 		return nil
 	}
@@ -47,9 +47,12 @@ func (u updateDatabaseConfiguration) reconcile(ctx context.Context, r *Foundatio
 	}
 	defer adminClient.Close()
 
-	status, err := adminClient.GetStatus()
-	if err != nil {
-		return &requeue{curError: err, delayedRequeue: true}
+	// If the status is not cached, we have to fetch it.
+	if status == nil {
+		status, err = adminClient.GetStatus()
+		if err != nil {
+			return &requeue{curError: err}
+		}
 	}
 
 	initialConfig := !cluster.Status.Configured
