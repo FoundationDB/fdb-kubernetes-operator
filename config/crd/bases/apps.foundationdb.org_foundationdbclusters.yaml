@@ -10219,7 +10219,6 @@ spec:
                     type: string
                 type: object
               maxZonesWithUnavailablePods:
-                default: 0
                 type: integer
               minimumUptimeSecondsForBounce:
                 default: 600

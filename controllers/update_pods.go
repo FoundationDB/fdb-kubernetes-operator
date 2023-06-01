@@ -82,8 +82,6 @@ func getPodsToUpdate(ctx context.Context, logger logr.Logger, reconciler *Founda
 	updates := make(map[string][]*corev1.Pod)
 
 	faultDomainsWithUnavailablePods := make(map[string]fdbv1beta2.None)
-
-	// When maxZonesUnavailablePods is set to 0 any number of Zones with unavailable pods is allowed.
 	maxZonesWithUnavailablePods := cluster.GetMaxZonesWithUnavailablePods()
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
@@ -156,27 +154,25 @@ func getPodsToUpdate(ctx context.Context, logger logr.Logger, reconciler *Founda
 			continue
 		}
 
-		if maxZonesWithUnavailablePods > 0 {
-			// When number of zones with unavailable Pods exceeds the maxZonesWithUnavailablePods skip the process group.
-			if len(faultDomainsWithUnavailablePods) > maxZonesWithUnavailablePods {
-				logger.V(1).Info("Skip process group for update, the number of zones with unavailable Pods exceeds the limit",
+		// When number of zones with unavailable Pods exceeds the maxZonesWithUnavailablePods skip the process group.
+		if len(faultDomainsWithUnavailablePods) > maxZonesWithUnavailablePods {
+			logger.V(1).Info("Skip process group for update, the number of zones with unavailable Pods exceeds the limit",
+				"processGroupID", processGroup.ProcessGroupID,
+				"maxZonesWithUnavailablePods", maxZonesWithUnavailablePods,
+				"faultDomain", processGroup.FaultDomain,
+				"faultDomainsWithUnavailablePods", faultDomainsWithUnavailablePods)
+			continue
+		}
+		// When the number of zones with unavailable Pods equals the maxZonesWithUnavailablePods
+		// skip the process group if it does not belong to a zone with unavailable Pods.
+		if len(faultDomainsWithUnavailablePods) == maxZonesWithUnavailablePods {
+			if _, ok := faultDomainsWithUnavailablePods[processGroup.FaultDomain]; !ok {
+				logger.V(1).Info("Skip process group for update, the number zones with unavailable Pods equals the limit but the process group does not belong to a zone with unavailable Pods",
 					"processGroupID", processGroup.ProcessGroupID,
 					"maxZonesWithUnavailablePods", maxZonesWithUnavailablePods,
 					"faultDomain", processGroup.FaultDomain,
 					"faultDomainsWithUnavailablePods", faultDomainsWithUnavailablePods)
 				continue
-			}
-			// When the number of zones with unavailable Pods equals the maxZonesWithUnavailablePods
-			// skip the process group if it does not belong to a zone with unavailable Pods.
-			if len(faultDomainsWithUnavailablePods) == maxZonesWithUnavailablePods {
-				if _, ok := faultDomainsWithUnavailablePods[processGroup.FaultDomain]; !ok {
-					logger.V(1).Info("Skip process group for update, the number zones with unavailable Pods equals the limit but the process group does not belong to a zone with unavailable Pods",
-						"processGroupID", processGroup.ProcessGroupID,
-						"maxZonesWithUnavailablePods", maxZonesWithUnavailablePods,
-						"faultDomain", processGroup.FaultDomain,
-						"faultDomainsWithUnavailablePods", faultDomainsWithUnavailablePods)
-					continue
-				}
 			}
 		}
 

@@ -220,8 +220,7 @@ type FoundationDBClusterSpec struct {
 	UseUnifiedImage *bool `json:"useUnifiedImage,omitempty"`
 
 	// MaxZonesWithUnavailablePods defines the maximum number of zones that can have unavailable pods during the update process.
-	// When set to 0 there is no limit on the number of zones with unavailable pods.
-	// +kubebuilder:default:=0
+	// When unset, there is no limit to the  number of zones with unavailable pods.
 	MaxZonesWithUnavailablePods *int `json:"maxZonesWithUnavailablePods,omitempty"`
 }
 
@@ -2534,7 +2533,7 @@ func (cluster *FoundationDBCluster) IsTaintFeatureDisabled() bool {
 	return len(cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions) == 0
 }
 
-// Get MaxZonesWithUnavailablePods returns the maximum number of zones that can have unavailable pods.
+// GetMaxZonesWithUnavailablePods returns the maximum number of zones that can have unavailable pods.
 func (cluster *FoundationDBCluster) GetMaxZonesWithUnavailablePods() int {
-	return pointer.IntDeref(cluster.Spec.MaxZonesWithUnavailablePods, 0)
+	return pointer.IntDeref(cluster.Spec.MaxZonesWithUnavailablePods, math.MaxInt)
 }
