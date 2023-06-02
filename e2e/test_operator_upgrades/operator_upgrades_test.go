@@ -96,7 +96,7 @@ func upgradeAndVerify(cluster *fixtures.FdbCluster, expectedVersion string) {
 	log.Println("Upgrade took:", time.Since(startTime).String())
 }
 
-var _ = Describe("Operator Upgrades", Label("e2e", "nightly"), func() {
+var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 	BeforeEach(func() {
 		factory = fixtures.CreateFactory(testOptions)
 	})
