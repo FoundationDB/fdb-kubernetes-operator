@@ -153,6 +153,12 @@ CrashLoopContainerObject specifies crash-loop target for specific container.
 
 [Back to TOC](#table-of-contents)
 
+## FaultDomain
+
+FaultDomain represents the FaultDomain of a process group
+
+[Back to TOC](#table-of-contents)
+
 ## FoundationDBCluster
 
 FoundationDBCluster is the Schema for the foundationdbclusters API
@@ -173,6 +179,7 @@ FoundationDBClusterAutomationOptions provides flags for enabling or disabling op
 | ----- | ----------- | ------ | -------- |
 | configureDatabase | ConfigureDatabase defines whether the operator is allowed to reconfigure the database. | *bool | false |
 | killProcesses | KillProcesses defines whether the operator is allowed to bounce fdbserver processes. | *bool | false |
+| cacheDatabaseStatusForReconciliation | CacheDatabaseStatusForReconciliation defines whether the operator is using the same FoundationDB machine-readable status for all sub-reconcilers or if the machine-readable status should be fetched by ever sub-reconciler if required. Enabling this setting might improve the operator reconciliation speed for large clusters. | *bool | false |
 | replacements | Replacements contains options for automatically replacing failed processes. | [AutomaticReplacementOptions](#automaticreplacementoptions) | false |
 | ignorePendingPodsDuration | IgnorePendingPodsDuration defines how long a Pod has to be in the Pending Phase before ignore it during reconciliation. This prevents Pod that are stuck in Pending to block further reconciliation. | time.Duration | false |
 | useNonBlockingExcludes | UseNonBlockingExcludes defines whether the operator is allowed to use non blocking exclude commands. The default is false. | *bool | false |
@@ -351,7 +358,7 @@ MaintenanceModeInfo contains information regarding the zone and process groups t
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
 | startTimestamp | StartTimestamp provides the timestamp when this zone is put into maintenance mode **Deprecated: This setting it not used anymore.** | *metav1.Time | false |
-| zoneID | ZoneID that is placed in maintenance mode | string | false |
+| zoneID | ZoneID that is placed in maintenance mode | [FaultDomain](#faultdomain) | false |
 | processGroups | ProcessGroups that are placed in maintenance mode **Deprecated: This setting it not used anymore.** | []string | false |
 
 [Back to TOC](#table-of-contents)
@@ -415,7 +422,7 @@ ProcessGroupStatus represents the status of a ProcessGroup.
 | exclusionTimestamp | ExclusionTimestamp defines when the process group has been fully excluded. This is only used within the reconciliation process, and should not be considered authoritative. | *metav1.Time | false |
 | exclusionSkipped | ExclusionSkipped determines if exclusion has been skipped for a process, which will allow the process group to be removed without exclusion. | bool | false |
 | processGroupConditions | ProcessGroupConditions represents a list of degraded conditions that the process group is in. | []*[ProcessGroupCondition](#processgroupcondition) | false |
-| faultDomain | FaultDomain represents the last seen fault domain from the cluster status. This can be used if a Pod or process is not running and would be missing in the cluster status. | string | false |
+| faultDomain | FaultDomain represents the last seen fault domain from the cluster status. This can be used if a Pod or process is not running and would be missing in the cluster status. | [FaultDomain](#faultdomain) | false |
 
 [Back to TOC](#table-of-contents)
 

@@ -23,15 +23,16 @@ package fdbclient
 import (
 	"encoding/json"
 	"errors"
+	"io/fs"
+	"os"
+	"path"
+	"time"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
 	"github.com/go-logr/logr"
-	"io/fs"
-	"os"
-	"path"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"time"
 )
 
 // DefaultCLITimeout is the default timeout for CLI commands.

@@ -59,6 +59,7 @@ type Options struct {
 	EnableRestartIncompatibleProcesses bool
 	ServerSideApply                    bool
 	EnableRecoveryState                bool
+	CacheDatabaseStatus                bool
 	MetricsAddr                        string
 	LeaderElectionID                   string
 	LogFile                            string
@@ -105,6 +106,7 @@ func (o *Options) BindFlags(fs *flag.FlagSet) {
 	fs.BoolVar(&o.EnableRestartIncompatibleProcesses, "enable-restart-incompatible-processes", true, "This flag enables/disables in the operator to restart incompatible fdbserver processes.")
 	fs.BoolVar(&o.ServerSideApply, "server-side-apply", false, "This flag enables server side apply.")
 	fs.BoolVar(&o.EnableRecoveryState, "enable-recovery-state", true, "This flag enables the use of the recovery state for the minimum uptime between bounced if the FDB version supports it.")
+	fs.BoolVar(&o.CacheDatabaseStatus, "cache-database-status", true, "Defines the default value for caching the database status.")
 }
 
 // StartManager will start the FoundationDB operator manager.
@@ -183,6 +185,7 @@ func StartManager(
 		clusterReconciler.EnableRestartIncompatibleProcesses = operatorOpts.EnableRestartIncompatibleProcesses
 		clusterReconciler.ServerSideApply = operatorOpts.ServerSideApply
 		clusterReconciler.EnableRecoveryState = operatorOpts.EnableRecoveryState
+		clusterReconciler.CacheDatabaseStatusForReconciliationDefault = operatorOpts.CacheDatabaseStatus
 
 		if err := clusterReconciler.SetupWithManager(mgr, operatorOpts.MaxConcurrentReconciles, *labelSelector, watchedObjects...); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "FoundationDBCluster")

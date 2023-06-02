@@ -52,7 +52,7 @@ var _ = Describe("updatePodConfig", func() {
 	})
 
 	JustBeforeEach(func() {
-		requeue = updatePodConfig{}.reconcile(context.TODO(), clusterReconciler, cluster)
+		requeue = updatePodConfig{}.reconcile(context.TODO(), clusterReconciler, cluster, nil)
 		Expect(err).NotTo(HaveOccurred())
 	})
 

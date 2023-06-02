@@ -49,55 +49,25 @@ import (
 type updateStatus struct{}
 
 // reconcile runs the reconciler's work.
-func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) *requeue {
+func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, databaseStatus *fdbv1beta2.FoundationDBStatus) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updateStatus")
 	originalStatus := cluster.Status.DeepCopy()
-	status := fdbv1beta2.FoundationDBClusterStatus{}
+	clusterStatus := fdbv1beta2.FoundationDBClusterStatus{}
 	// Pass through Maintenance Mode Info as the maintenance_mode_checker reconciler takes care of updating it
-	originalStatus.MaintenanceModeInfo.DeepCopyInto(&status.MaintenanceModeInfo)
-	status.Generations.Reconciled = cluster.Status.Generations.Reconciled
+	originalStatus.MaintenanceModeInfo.DeepCopyInto(&clusterStatus.MaintenanceModeInfo)
+	clusterStatus.Generations.Reconciled = cluster.Status.Generations.Reconciled
 
 	// Initialize with the current desired storage servers per Pod
-	status.StorageServersPerDisk = []int{cluster.GetStorageServersPerPod()}
-	status.ImageTypes = []fdbv1beta2.ImageType{fdbv1beta2.ImageType(internal.GetDesiredImageType(cluster))}
+	clusterStatus.StorageServersPerDisk = []int{cluster.GetStorageServersPerPod()}
+	clusterStatus.ImageTypes = []fdbv1beta2.ImageType{fdbv1beta2.ImageType(internal.GetDesiredImageType(cluster))}
 
-	var databaseStatus *fdbv1beta2.FoundationDBStatus
 	processMap := make(map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo)
 
-	if cluster.Status.ConnectionString == "" {
-		databaseStatus = &fdbv1beta2.FoundationDBStatus{
-			Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
-				Layers: fdbv1beta2.FoundationDBStatusLayerInfo{
-					Error: "configurationMissing",
-				},
-			},
-		}
-	} else {
-		connectionString, err := tryConnectionOptions(logger, cluster, r)
+	if databaseStatus == nil {
+		var err error
+		databaseStatus, err = r.getStatusFromClusterOrDummyStatus(logger, cluster)
 		if err != nil {
-			return &requeue{curError: err}
-		}
-		cluster.Status.ConnectionString = connectionString
-
-		adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
-		if err != nil {
-			return &requeue{curError: err}
-		}
-
-		databaseStatus, err = adminClient.GetStatus()
-		_ = adminClient.Close()
-
-		if err != nil {
-			if cluster.Status.Configured {
-				return &requeue{curError: err, delayedRequeue: true}
-			}
-			databaseStatus = &fdbv1beta2.FoundationDBStatus{
-				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
-					Layers: fdbv1beta2.FoundationDBStatusLayerInfo{
-						Error: "configurationMissing",
-					},
-				},
-			}
+			return &requeue{curError: fmt.Errorf("update_status error fetching status: %w", err)}
 		}
 	}
 
@@ -119,17 +89,17 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 	}
 	cluster.Status.RunningVersion = version
 
-	status.HasListenIPsForAllPods = cluster.NeedsExplicitListenAddress()
-	status.DatabaseConfiguration = databaseStatus.Cluster.DatabaseConfiguration.NormalizeConfigurationWithSeparatedProxies(cluster.Spec.Version, cluster.Spec.DatabaseConfiguration.AreSeparatedProxiesConfigured())
+	clusterStatus.HasListenIPsForAllPods = cluster.NeedsExplicitListenAddress()
+	clusterStatus.DatabaseConfiguration = databaseStatus.Cluster.DatabaseConfiguration.NormalizeConfigurationWithSeparatedProxies(cluster.Spec.Version, cluster.Spec.DatabaseConfiguration.AreSeparatedProxiesConfigured())
 	// Removing excluded servers as we don't want them during comparison.
-	status.DatabaseConfiguration.ExcludedServers = nil
-	cluster.ClearMissingVersionFlags(&status.DatabaseConfiguration)
-	status.Configured = cluster.Status.Configured || (databaseStatus.Client.DatabaseStatus.Available && databaseStatus.Cluster.Layers.Error != "configurationMissing")
+	clusterStatus.DatabaseConfiguration.ExcludedServers = nil
+	cluster.ClearMissingVersionFlags(&clusterStatus.DatabaseConfiguration)
+	clusterStatus.Configured = cluster.Status.Configured || (databaseStatus.Client.DatabaseStatus.Available && databaseStatus.Cluster.Layers.Error != "configurationMissing")
 
 	if cluster.Spec.MainContainer.EnableTLS {
-		status.RequiredAddresses.TLS = true
+		clusterStatus.RequiredAddresses.TLS = true
 	} else {
-		status.RequiredAddresses.NonTLS = true
+		clusterStatus.RequiredAddresses.NonTLS = true
 	}
 
 	if databaseStatus != nil {
@@ -140,41 +110,41 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 			}
 
 			if address.Flags["tls"] {
-				status.RequiredAddresses.TLS = true
+				clusterStatus.RequiredAddresses.TLS = true
 			} else {
-				status.RequiredAddresses.NonTLS = true
+				clusterStatus.RequiredAddresses.NonTLS = true
 			}
 		}
 
-		status.Health.Available = databaseStatus.Client.DatabaseStatus.Available
-		status.Health.Healthy = databaseStatus.Client.DatabaseStatus.Healthy
-		status.Health.FullReplication = databaseStatus.Cluster.FullReplication
-		status.Health.DataMovementPriority = databaseStatus.Cluster.Data.MovingData.HighestPriority
-		status.MaintenanceModeInfo.ZoneID = databaseStatus.Cluster.MaintenanceZone
+		clusterStatus.Health.Available = databaseStatus.Client.DatabaseStatus.Available
+		clusterStatus.Health.Healthy = databaseStatus.Client.DatabaseStatus.Healthy
+		clusterStatus.Health.FullReplication = databaseStatus.Cluster.FullReplication
+		clusterStatus.Health.DataMovementPriority = databaseStatus.Cluster.Data.MovingData.HighestPriority
+		clusterStatus.MaintenanceModeInfo.ZoneID = databaseStatus.Cluster.MaintenanceZone
 	}
 
-	cluster.Status.RequiredAddresses = status.RequiredAddresses
+	cluster.Status.RequiredAddresses = clusterStatus.RequiredAddresses
 
 	configMap, err := internal.GetConfigMap(cluster)
 	if err != nil {
 		return &requeue{curError: fmt.Errorf("update_status skipped due to error in GetConfigMap: %w", err)}
 	}
 
-	status.ProcessGroups = make([]*fdbv1beta2.ProcessGroupStatus, 0, len(cluster.Status.ProcessGroups))
+	clusterStatus.ProcessGroups = make([]*fdbv1beta2.ProcessGroupStatus, 0, len(cluster.Status.ProcessGroups))
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup != nil && processGroup.ProcessGroupID != "" {
-			status.ProcessGroups = append(status.ProcessGroups, processGroup)
+			clusterStatus.ProcessGroups = append(clusterStatus.ProcessGroups, processGroup)
 		}
 	}
 
-	updateFaultDomains(logger, processMap, &status)
+	updateFaultDomains(logger, processMap, &clusterStatus)
 
-	pvcs, err := refreshProcessGroupStatus(ctx, r, cluster, &status)
+	pvcs, err := refreshProcessGroupStatus(ctx, r, cluster, &clusterStatus)
 	if err != nil {
 		return &requeue{curError: fmt.Errorf("update_status skipped due to error in refreshProcessGroupStatus: %w", err)}
 	}
 
-	status.ProcessGroups, err = validateProcessGroups(ctx, r, cluster, &status, processMap, configMap, pvcs, logger)
+	clusterStatus.ProcessGroups, err = validateProcessGroups(ctx, r, cluster, &clusterStatus, processMap, configMap, pvcs, logger)
 	if err != nil {
 		return &requeue{curError: fmt.Errorf("update_status skipped due to error in validateProcessGroups: %w", err)}
 	}
@@ -182,34 +152,34 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 	existingConfigMap := &corev1.ConfigMap{}
 	err = r.Get(ctx, types.NamespacedName{Namespace: configMap.Namespace, Name: configMap.Name}, existingConfigMap)
 	if err != nil && k8serrors.IsNotFound(err) {
-		status.HasIncorrectConfigMap = true
+		clusterStatus.HasIncorrectConfigMap = true
 	} else if err != nil {
 		return &requeue{curError: err}
 	}
 
-	status.RunningVersion = cluster.Status.RunningVersion
+	clusterStatus.RunningVersion = cluster.Status.RunningVersion
 
-	if status.RunningVersion == "" {
+	if clusterStatus.RunningVersion == "" {
 		version, present := existingConfigMap.Data["running-version"]
 		if present {
-			status.RunningVersion = version
+			clusterStatus.RunningVersion = version
 		}
 	}
 
-	if status.RunningVersion == "" {
-		status.RunningVersion = cluster.Spec.Version
+	if clusterStatus.RunningVersion == "" {
+		clusterStatus.RunningVersion = cluster.Spec.Version
 	}
 
-	status.ConnectionString = cluster.Status.ConnectionString
-	if status.ConnectionString == "" {
-		status.ConnectionString = existingConfigMap.Data[internal.ClusterFileKey]
+	clusterStatus.ConnectionString = cluster.Status.ConnectionString
+	if clusterStatus.ConnectionString == "" {
+		clusterStatus.ConnectionString = existingConfigMap.Data[internal.ClusterFileKey]
 	}
 
-	if status.ConnectionString == "" {
-		status.ConnectionString = cluster.Spec.SeedConnectionString
+	if clusterStatus.ConnectionString == "" {
+		clusterStatus.ConnectionString = cluster.Spec.SeedConnectionString
 	}
 
-	status.HasIncorrectConfigMap = status.HasIncorrectConfigMap || !equality.Semantic.DeepEqual(existingConfigMap.Data, configMap.Data) || !metadataMatches(existingConfigMap.ObjectMeta, configMap.ObjectMeta)
+	clusterStatus.HasIncorrectConfigMap = clusterStatus.HasIncorrectConfigMap || !equality.Semantic.DeepEqual(existingConfigMap.Data, configMap.Data) || !metadataMatches(existingConfigMap.ObjectMeta, configMap.ObjectMeta)
 
 	service := internal.GetHeadlessService(cluster)
 	existingService := &corev1.Service{}
@@ -220,9 +190,9 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 		return &requeue{curError: err}
 	}
 
-	status.HasIncorrectServiceConfig = (service == nil) != (existingService == nil)
+	clusterStatus.HasIncorrectServiceConfig = (service == nil) != (existingService == nil)
 
-	if status.Configured && cluster.Status.ConnectionString != "" {
+	if clusterStatus.Configured && cluster.Status.ConnectionString != "" {
 		coordinatorStatus := make(map[string]bool, len(databaseStatus.Client.Coordinators.Coordinators))
 		for _, coordinator := range databaseStatus.Client.Coordinators.Coordinators {
 			coordinatorStatus[coordinator.Address.String()] = false
@@ -233,10 +203,10 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 			return &requeue{curError: err, delayedRequeue: true}
 		}
 
-		status.NeedsNewCoordinators = !coordinatorsValid
+		clusterStatus.NeedsNewCoordinators = !coordinatorsValid
 	}
 
-	if len(cluster.Spec.LockOptions.DenyList) > 0 && cluster.ShouldUseLocks() && status.Configured {
+	if len(cluster.Spec.LockOptions.DenyList) > 0 && cluster.ShouldUseLocks() && clusterStatus.Configured {
 		lockClient, err := r.getLockClient(cluster)
 		if err != nil {
 			return &requeue{curError: err}
@@ -248,23 +218,23 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 		if len(denyList) == 0 {
 			denyList = nil
 		}
-		status.Locks.DenyList = denyList
+		clusterStatus.Locks.DenyList = denyList
 	}
 
 	// Sort slices that are assembled based on pods to prevent a reordering from
 	// issuing a new reconcile loop.
-	sort.Ints(status.StorageServersPerDisk)
-	sort.Slice(status.ImageTypes, func(i int, j int) bool {
-		return string(status.ImageTypes[i]) < string(status.ImageTypes[j])
+	sort.Ints(clusterStatus.StorageServersPerDisk)
+	sort.Slice(clusterStatus.ImageTypes, func(i int, j int) bool {
+		return string(clusterStatus.ImageTypes[i]) < string(clusterStatus.ImageTypes[j])
 	})
 
 	// Sort ProcessGroups by ProcessGroupID otherwise this can result in an endless loop when the
 	// order changes.
-	sort.SliceStable(status.ProcessGroups, func(i, j int) bool {
-		return status.ProcessGroups[i].ProcessGroupID < status.ProcessGroups[j].ProcessGroupID
+	sort.SliceStable(clusterStatus.ProcessGroups, func(i, j int) bool {
+		return clusterStatus.ProcessGroups[i].ProcessGroupID < clusterStatus.ProcessGroups[j].ProcessGroupID
 	})
 
-	cluster.Status = status
+	cluster.Status = clusterStatus
 
 	_, err = cluster.CheckReconciliation(log)
 	if err != nil {
@@ -273,11 +243,11 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 
 	// See: https://github.com/kubernetes-sigs/kubebuilder/issues/592
 	// If we use the default reflect.DeepEqual method it will be recreating the
-	// status multiple times because the pointers are different.
+	// clusterStatus multiple times because the pointers are different.
 	if !equality.Semantic.DeepEqual(cluster.Status, *originalStatus) {
 		err = r.updateOrApply(ctx, cluster)
 		if err != nil {
-			logger.Error(err, "Error updating cluster status")
+			logger.Error(err, "Error updating cluster clusterStatus")
 			return &requeue{curError: err}
 		}
 	}
@@ -867,6 +837,6 @@ func updateFaultDomains(logger logr.Logger, processes map[fdbv1beta2.ProcessGrou
 			continue
 		}
 
-		status.ProcessGroups[idx].FaultDomain = faultDomain
+		status.ProcessGroups[idx].FaultDomain = fdbv1beta2.FaultDomain(faultDomain)
 	}
 }

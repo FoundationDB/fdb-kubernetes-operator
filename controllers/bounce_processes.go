@@ -42,7 +42,7 @@ import (
 type bounceProcesses struct{}
 
 // reconcile runs the reconciler's work.
-func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) *requeue {
+func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) *requeue {
 	if !pointer.BoolDeref(cluster.Spec.AutomationOptions.KillProcesses, true) {
 		return nil
 	}
@@ -54,9 +54,12 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 	}
 	defer adminClient.Close()
 
-	status, err := adminClient.GetStatus()
-	if err != nil {
-		return &requeue{curError: err}
+	// If the status is not cached, we have to fetch it.
+	if status == nil {
+		status, err = adminClient.GetStatus()
+		if err != nil {
+			return &requeue{curError: err}
+		}
 	}
 
 	minimumUptime, addressMap, err := internal.GetMinimumUptimeAndAddressMap(logger, cluster, status, r.EnableRecoveryState)

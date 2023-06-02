@@ -35,7 +35,7 @@ import (
 type deletePodsForBuggification struct{}
 
 // reconcile runs the reconciler's work.
-func (d deletePodsForBuggification) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) *requeue {
+func (d deletePodsForBuggification) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, _ *fdbv1beta2.FoundationDBStatus) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "deletePodsForBuggification")
 	crashLoopContainerProcessGroups := cluster.GetCrashLoopContainerProcessGroups()
 

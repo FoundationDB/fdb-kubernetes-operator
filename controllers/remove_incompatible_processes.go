@@ -36,9 +36,9 @@ import (
 type removeIncompatibleProcesses struct{}
 
 // reconcile runs the reconciler's work.
-func (removeIncompatibleProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) *requeue {
+func (removeIncompatibleProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "removeIncompatibleProcesses")
-	err := processIncompatibleProcesses(ctx, r, logger, cluster)
+	err := processIncompatibleProcesses(ctx, r, logger, cluster, status)
 
 	if err != nil {
 		return &requeue{curError: err, delay: 15 * time.Second, delayedRequeue: true}
@@ -47,7 +47,7 @@ func (removeIncompatibleProcesses) reconcile(ctx context.Context, r *FoundationD
 	return nil
 }
 
-func processIncompatibleProcesses(ctx context.Context, r *FoundationDBClusterReconciler, logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster) error {
+func processIncompatibleProcesses(ctx context.Context, r *FoundationDBClusterReconciler, logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) error {
 	if !r.EnableRestartIncompatibleProcesses {
 		logger.Info("skipping disabled subreconciler")
 		return nil
@@ -63,15 +63,18 @@ func processIncompatibleProcesses(ctx context.Context, r *FoundationDBClusterRec
 		return nil
 	}
 
-	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r.Client)
-	if err != nil {
-		return err
-	}
-	defer adminClient.Close()
+	// If the status is not cached, we have to fetch it.
+	if status == nil {
+		adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r.Client)
+		if err != nil {
+			return err
+		}
+		defer adminClient.Close()
 
-	status, err := adminClient.GetStatus()
-	if err != nil {
-		return err
+		status, err = adminClient.GetStatus()
+		if err != nil {
+			return err
+		}
 	}
 
 	if len(status.Cluster.IncompatibleConnections) == 0 {

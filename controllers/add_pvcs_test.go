@@ -61,7 +61,7 @@ var _ = Describe("add_pvcs", func() {
 	})
 
 	JustBeforeEach(func() {
-		requeue = addPVCs{}.reconcile(context.TODO(), clusterReconciler, cluster)
+		requeue = addPVCs{}.reconcile(context.TODO(), clusterReconciler, cluster, nil)
 		Expect(err).NotTo(HaveOccurred())
 		_, err = reloadCluster(cluster)
 		Expect(err).NotTo(HaveOccurred())

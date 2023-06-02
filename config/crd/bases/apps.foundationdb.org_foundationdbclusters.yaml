@@ -9863,6 +9863,8 @@ spec:
             properties:
               automationOptions:
                 properties:
+                  cacheDatabaseStatusForReconciliation:
+                    type: boolean
                   configureDatabase:
                     type: boolean
                   deletionMode:
@@ -13863,6 +13865,7 @@ spec:
                       format: date-time
                       type: string
                     faultDomain:
+                      maxLength: 512
                       type: string
                     processClass:
                       type: string

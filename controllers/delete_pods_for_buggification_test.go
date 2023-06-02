@@ -64,7 +64,7 @@ var _ = Describe("delete_pods_for_buggification", func() {
 		err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 		Expect(err).NotTo(HaveOccurred())
 
-		requeue = deletePodsForBuggification{}.reconcile(context.TODO(), clusterReconciler, cluster)
+		requeue = deletePodsForBuggification{}.reconcile(context.TODO(), clusterReconciler, cluster, nil)
 		if requeue != nil {
 			Expect(requeue.curError).NotTo(HaveOccurred())
 		}

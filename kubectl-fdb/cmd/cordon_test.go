@@ -65,8 +65,8 @@ var _ = Describe("[plugin] cordon command", func() {
 				errBuffer := bytes.Buffer{}
 				inBuffer := bytes.Buffer{}
 
-				cmd := newAnalyzeCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer})
-				err := cordonNode(cmd, k8sClient, input.clusterName, input.nodes, namespace, input.WithExclusion, false, 0, input.clusterLabel)
+				cmd := newCordonCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer})
+				err := cordonNode(cmd, k8sClient, input.clusterName, input.nodes, namespace, input.WithExclusion, false, input.clusterLabel)
 				Expect(err).NotTo(HaveOccurred())
 
 				clusterNames := []string{clusterName, secondClusterName}

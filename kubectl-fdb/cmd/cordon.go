@@ -47,10 +47,6 @@ func newCordonCmd(streams genericclioptions.IOStreams) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			sleep, err := cmd.Root().Flags().GetUint16("sleep")
-			if err != nil {
-				return err
-			}
 			clusterName, err := cmd.Flags().GetString("fdb-cluster")
 			if err != nil {
 				return err
@@ -88,10 +84,10 @@ func newCordonCmd(streams genericclioptions.IOStreams) *cobra.Command {
 					return err
 				}
 
-				return cordonNode(cmd, kubeClient, clusterName, nodes, namespace, withExclusion, wait, sleep, clusterLabel)
+				return cordonNode(cmd, kubeClient, clusterName, nodes, namespace, withExclusion, wait, clusterLabel)
 			}
 
-			return cordonNode(cmd, kubeClient, clusterName, args, namespace, withExclusion, wait, sleep, clusterLabel)
+			return cordonNode(cmd, kubeClient, clusterName, args, namespace, withExclusion, wait, clusterLabel)
 		},
 		Example: `
 # Evacuate all process groups for a cluster in the current namespace that are hosted on node-1
@@ -130,7 +126,7 @@ kubectl fdb cordon --node-selector machine=a,disk=fast -l fdb-cluster-label
 }
 
 // cordonNode gets all process groups of this cluster that run on the given nodes and add them to the remove list
-func cordonNode(cmd *cobra.Command, kubeClient client.Client, inputClusterName string, nodes []string, namespace string, withExclusion bool, wait bool, sleep uint16, clusterLabel string) error {
+func cordonNode(cmd *cobra.Command, kubeClient client.Client, inputClusterName string, nodes []string, namespace string, withExclusion bool, wait bool, clusterLabel string) error {
 	cmd.Printf("Start to cordon %d nodes\n", len(nodes))
 	if len(nodes) == 0 {
 		return nil
@@ -140,9 +136,9 @@ func cordonNode(cmd *cobra.Command, kubeClient client.Client, inputClusterName s
 	for _, node := range nodes {
 		pods, err := fetchPods(kubeClient, inputClusterName, namespace, node, clusterLabel)
 		if err != nil {
-			error := fmt.Sprintf("Issue fetching Pods running on node: %s. Error: %s\n", node, err)
-			cmd.PrintErr(error)
-			errors = append(errors, error)
+			internalErr := fmt.Sprintf("Issue fetching Pods running on node: %s. Error: %s\n", node, err)
+			cmd.PrintErr(internalErr)
+			errors = append(errors, internalErr)
 			continue
 		}
 
@@ -151,9 +147,9 @@ func cordonNode(cmd *cobra.Command, kubeClient client.Client, inputClusterName s
 			cmd.Printf("Starting operation on %s, node: %s\n", clusterName, node)
 			cluster, err := loadCluster(kubeClient, namespace, clusterName)
 			if err != nil {
-				error := fmt.Sprintf("unable to load cluster: %s, skipping\n", clusterName)
-				errors = append(errors, error)
-				cmd.PrintErr(error)
+				internalErr := fmt.Sprintf("unable to load cluster: %s, skipping\n", clusterName)
+				errors = append(errors, internalErr)
+				cmd.PrintErr(internalErr)
 				continue
 			}
 
@@ -175,11 +171,11 @@ func cordonNode(cmd *cobra.Command, kubeClient client.Client, inputClusterName s
 					processGroups = append(processGroups, processGroup)
 				}
 			}
-			err = replaceProcessGroups(kubeClient, cluster.Name, processGroups, namespace, withExclusion, wait, false, true, sleep)
+			err = replaceProcessGroups(kubeClient, cluster.Name, processGroups, namespace, withExclusion, wait, false, true)
 			if err != nil {
-				error := fmt.Sprintf("unable to cordon all Pods for cluster %s\n", cluster.Name)
-				errors = append(errors, error)
-				cmd.PrintErr(error)
+				internalErr := fmt.Sprintf("unable to cordon all Pods for cluster %s\n", cluster.Name)
+				errors = append(errors, internalErr)
+				cmd.PrintErr(internalErr)
 			}
 		}
 	}
@@ -192,25 +188,26 @@ func cordonNode(cmd *cobra.Command, kubeClient client.Client, inputClusterName s
 func fetchPods(kubeClient client.Client, clusterName string, namespace string, node string, clusterLabel string) (corev1.PodList, error) {
 	var pods corev1.PodList
 	var err error
+
+	var podLabelSelector client.ListOption
+
 	if clusterName == "" {
-		err = kubeClient.List(ctx.Background(), &pods,
-			client.InNamespace(namespace),
-			client.HasLabels([]string{clusterLabel}),
-			client.MatchingFieldsSelector{
-				Selector: fields.OneTermEqualSelector("spec.nodeName", node),
-			})
+		podLabelSelector = client.HasLabels([]string{clusterLabel})
 	} else {
-		cluster, error := loadCluster(kubeClient, namespace, clusterName)
-		if error != nil {
+		cluster, err := loadCluster(kubeClient, namespace, clusterName)
+		if err != nil {
 			return pods, fmt.Errorf("unable to load cluster: %s. Error: %w", clusterName, err)
 		}
-		err = kubeClient.List(ctx.Background(), &pods,
-			client.InNamespace(namespace),
-			client.MatchingLabels(cluster.GetMatchLabels()),
-			client.MatchingFieldsSelector{
-				Selector: fields.OneTermEqualSelector("spec.nodeName", node),
-			})
+
+		podLabelSelector = client.MatchingLabels(cluster.GetMatchLabels())
 	}
+
+	err = kubeClient.List(ctx.Background(), &pods,
+		client.InNamespace(namespace),
+		podLabelSelector,
+		client.MatchingFieldsSelector{
+			Selector: fields.OneTermEqualSelector("spec.nodeName", node),
+		})
 	if err != nil {
 		return pods, fmt.Errorf("unable to fetch pods. Error: %w", err)
 	}
@@ -231,5 +228,6 @@ func getClusterNames(cmd *cobra.Command, clusterName string, pods corev1.PodList
 		}
 		clusterNames[clusterName] = fdbv1beta2.None{}
 	}
+
 	return clusterNames
 }

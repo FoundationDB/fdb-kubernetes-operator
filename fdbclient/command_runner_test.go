@@ -22,10 +22,11 @@ package fdbclient
 
 import (
 	"context"
+	"strings"
+
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"strings"
 )
 
 var _ = Describe("command_runner", func() {

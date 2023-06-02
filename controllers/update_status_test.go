@@ -694,7 +694,7 @@ var _ = Describe("update_status", func() {
 		JustBeforeEach(func() {
 			err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			requeue = updateStatus{}.reconcile(context.TODO(), clusterReconciler, cluster)
+			requeue = updateStatus{}.reconcile(context.TODO(), clusterReconciler, cluster, nil)
 			if requeue != nil {
 				Expect(requeue.curError).NotTo(HaveOccurred())
 			}
@@ -808,7 +808,7 @@ var _ = Describe("update_status", func() {
 						continue
 					}
 
-					Expect(processGroup.FaultDomain).To(And(HavePrefix(string(processGroup.ProcessGroupID)), HaveSuffix("zone")))
+					Expect(string(processGroup.FaultDomain)).To(And(HavePrefix(string(processGroup.ProcessGroupID)), HaveSuffix("zone")))
 				}
 			})
 		})
@@ -847,7 +847,7 @@ var _ = Describe("update_status", func() {
 						continue
 					}
 
-					Expect(processGroup.FaultDomain).To(And(HavePrefix(string(processGroup.ProcessGroupID)), HaveSuffix("zone")))
+					Expect(string(processGroup.FaultDomain)).To(And(HavePrefix(string(processGroup.ProcessGroupID)), HaveSuffix("zone")))
 				}
 			})
 		})

@@ -146,7 +146,7 @@ var _ = Describe("restart_incompatible_pods", func() {
 		})
 
 		JustBeforeEach(func() {
-			err := processIncompatibleProcesses(context.TODO(), clusterReconciler, logr.Discard(), cluster)
+			err := processIncompatibleProcesses(context.TODO(), clusterReconciler, logr.Discard(), cluster, nil)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
