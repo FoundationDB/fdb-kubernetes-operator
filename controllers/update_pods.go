@@ -25,9 +25,10 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal/statuschecks"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -38,7 +39,7 @@ import (
 type updatePods struct{}
 
 // reconcile runs the reconciler's work.
-func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) *requeue {
+func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updatePods")
 
 	updates, err := getPodsToUpdate(ctx, logger, r, cluster)
@@ -68,13 +69,7 @@ func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconcile
 		return nil
 	}
 
-	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r.Client)
-	if err != nil {
-		return &requeue{curError: err, delayedRequeue: true}
-	}
-	defer adminClient.Close()
-
-	return deletePodsForUpdates(ctx, r, cluster, adminClient, updates, logger)
+	return deletePodsForUpdates(ctx, r, cluster, updates, logger, status)
 }
 
 // getPodsToUpdate returns a map of Zone to Pods mapping. The map has the fault domain as key and all Pods in that fault domain will be present as a slice of *corev1.Pod.
@@ -225,14 +220,25 @@ func getPodsToDelete(deletionMode fdbv1beta2.PodUpdateMode, updates map[string][
 }
 
 // deletePodsForUpdates will delete Pods with the specified deletion mode
-func deletePodsForUpdates(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, adminClient fdbadminclient.AdminClient, updates map[string][]*corev1.Pod, logger logr.Logger) *requeue {
+func deletePodsForUpdates(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, updates map[string][]*corev1.Pod, logger logr.Logger, status *fdbv1beta2.FoundationDBStatus) *requeue {
 	deletionMode := r.PodLifecycleManager.GetDeletionMode(cluster)
 	zone, deletions, err := getPodsToDelete(deletionMode, updates)
 	if err != nil {
 		return &requeue{curError: err}
 	}
 
-	ready, err := r.PodLifecycleManager.CanDeletePods(logr.NewContext(ctx, logger), adminClient, cluster)
+	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r.Client)
+	if err != nil {
+		return &requeue{curError: err, delayedRequeue: true}
+	}
+	defer adminClient.Close()
+
+	newContext := logr.NewContext(ctx, logger)
+	if status != nil {
+		newContext = context.WithValue(ctx, statuschecks.StatusContextKey{}, status)
+	}
+
+	ready, err := r.PodLifecycleManager.CanDeletePods(newContext, adminClient, cluster)
 	if err != nil {
 		return &requeue{curError: err}
 	}

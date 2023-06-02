@@ -43,7 +43,15 @@ There are important constraints on how reconciliation has to work within this mo
 * Any local state that is not saved in a Kubernetes resource or the database may be lost at any time.
 * We cannot compare the new spec to the previous spec to know what has changed. We can only compare the new spec to the live state, or to the information we store in the resource status or in other resources that we create.
 
-In our operator, we add an additional abstraction to help structure the reconciliation loop, which we call a **Subreconciler**. A subreconciler represents a self-contained chunk of work that brings the running state closer to the spec. Each subreconciler receives the latest custom resource, and is responsible for determining what actions if any need to be run for the activity in its scope. We run every subreconciler for every reconciliation, with the subreconcilers taking care of logic to exit early if they do not have any work to do.
+In our operator, we add an additional abstraction to help structure the reconciliation loop, which we call a **Subreconciler**.
+A subreconciler represents a self-contained chunk of work that brings the running state closer to the spec.
+Each subreconciler receives the latest custom resource, and is responsible for determining what actions if any need to be run for the activity in its scope.
+We run every subreconciler for every reconciliation, with the subreconcilers taking care of logic to exit early if they do not have any work to do.
+
+Per default, since `v1.19.0`, the operator will fetch the [machine-readable status](https://apple.github.io/foundationdb/mr-status.html) at the start of a reconciliation loop and pass down the parsed status to all subreconcilers.
+This reduces the need for fetching the `machine-readable status` multiple times in a single reconcile loop, for large clusters this has a significant performance improvement.
+The risk for using the same `machine-readable status` for a single reconciliation loop is minimal, as a reconciliation loop normal takes only a few milliseconds to seconds.
+Users can deactivate the caching per reconciliation loop by passing `--cache-database-status=false` as an argument to the operator.
 
 ## Locking Operations
 

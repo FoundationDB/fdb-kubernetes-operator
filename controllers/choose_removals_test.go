@@ -56,7 +56,7 @@ var _ = Describe("choose_removals", func() {
 	})
 
 	JustBeforeEach(func() {
-		requeue = chooseRemovals{}.reconcile(context.TODO(), clusterReconciler, cluster)
+		requeue = chooseRemovals{}.reconcile(context.TODO(), clusterReconciler, cluster, nil)
 		Expect(err).NotTo(HaveOccurred())
 		_, err = reloadCluster(cluster)
 		Expect(err).NotTo(HaveOccurred())

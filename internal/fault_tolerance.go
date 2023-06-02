@@ -22,7 +22,6 @@ package internal
 
 import (
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
 	"github.com/go-logr/logr"
 )
 
@@ -30,16 +29,6 @@ func hasDesiredFaultTolerance(expectedFaultTolerance int, maxZoneFailuresWithout
 	// Only if both max zone failures for availability and data loss are greater or equal to the expected fault tolerance we know that we meet
 	// our fault tolerance requirements.
 	return maxZoneFailuresWithoutLosingData >= expectedFaultTolerance && maxZoneFailuresWithoutLosingAvailability >= expectedFaultTolerance
-}
-
-// HasDesiredFaultTolerance checks if the cluster has the desired fault tolerance.
-func HasDesiredFaultTolerance(log logr.Logger, adminClient fdbadminclient.AdminClient, cluster *fdbv1beta2.FoundationDBCluster) (bool, error) {
-	status, err := adminClient.GetStatus()
-	if err != nil {
-		return false, err
-	}
-
-	return HasDesiredFaultToleranceFromStatus(log, status, cluster), nil
 }
 
 // HasDesiredFaultToleranceFromStatus checks if the cluster has the desired fault tolerance based on the provided status.

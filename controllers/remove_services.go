@@ -34,7 +34,7 @@ import (
 type removeServices struct{}
 
 // reconcile runs the reconciler's work.
-func (u removeServices) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) *requeue {
+func (u removeServices) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, _ *fdbv1beta2.FoundationDBStatus) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "removeServices")
 	if cluster.NeedsHeadlessService() {
 		return nil

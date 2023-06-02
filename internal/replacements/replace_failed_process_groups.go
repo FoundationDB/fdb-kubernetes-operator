@@ -25,8 +25,6 @@ import (
 	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
 	"github.com/go-logr/logr"
 )
 
@@ -47,7 +45,7 @@ func getMaxReplacements(cluster *fdbv1beta2.FoundationDBCluster, maxReplacements
 
 // ReplaceFailedProcessGroups flags failed processes groups for removal and returns an indicator
 // of whether any processes were thus flagged.
-func ReplaceFailedProcessGroups(log logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, adminClient fdbadminclient.AdminClient) bool {
+func ReplaceFailedProcessGroups(log logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, hasDesiredFaultTolerance bool) bool {
 	// Automatic replacements are disabled, so we don't have to check anything further
 	if !cluster.GetEnableAutomaticReplacements() {
 		return false
@@ -56,14 +54,6 @@ func ReplaceFailedProcessGroups(log logr.Logger, cluster *fdbv1beta2.FoundationD
 	maxReplacements := getMaxReplacements(cluster, cluster.GetMaxConcurrentAutomaticReplacements())
 	hasReplacement := false
 	crashLoopContainerProcessGroups := cluster.GetCrashLoopContainerProcessGroups()
-
-	// Only replace process groups without an address if the cluster has the desired fault tolerance
-	// and is available.
-	hasDesiredFaultTolerance, err := internal.HasDesiredFaultTolerance(log, adminClient, cluster)
-	if err != nil {
-		log.Error(err, "Could not fetch if cluster has desired fault tolerance")
-		return false
-	}
 
 ProcessGroupLoop:
 	for _, processGroupStatus := range cluster.Status.ProcessGroups {

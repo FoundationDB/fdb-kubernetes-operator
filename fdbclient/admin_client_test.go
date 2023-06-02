@@ -24,11 +24,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"k8s.io/utils/pointer"
 	"net"
 	"os"
 	"path"
 	"time"
+
+	"k8s.io/utils/pointer"
 
 	"github.com/go-logr/logr"
 
@@ -38,124 +39,6 @@ import (
 )
 
 var _ = Describe("admin_client_test", func() {
-	When("getting the excluded and remaining processes", func() {
-		addr1 := fdbv1beta2.NewProcessAddress(net.ParseIP("127.0.0.1"), "", 0, nil)
-		addr2 := fdbv1beta2.NewProcessAddress(net.ParseIP("127.0.0.2"), "", 0, nil)
-		addr3 := fdbv1beta2.NewProcessAddress(net.ParseIP("127.0.0.3"), "", 0, nil)
-		addr4 := fdbv1beta2.NewProcessAddress(net.ParseIP("127.0.0.4"), "", 0, nil)
-		addr5 := fdbv1beta2.NewProcessAddress(net.ParseIP("127.0.0.5"), "", 0, nil)
-		status := &fdbv1beta2.FoundationDBStatus{
-			Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
-				Processes: map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{
-					"1": {
-						Address:  addr1,
-						Excluded: true,
-					},
-					"2": {
-						Address: addr2,
-					},
-					"3": {
-						Address: addr3,
-					},
-					"4": {
-						Address:  addr4,
-						Excluded: true,
-						Roles: []fdbv1beta2.FoundationDBStatusProcessRoleInfo{
-							{
-								Role: "tester",
-							},
-						},
-					},
-				},
-			},
-		}
-
-		DescribeTable("fetching the excluded and remaining processes from the status",
-			func(status *fdbv1beta2.FoundationDBStatus, addresses []fdbv1beta2.ProcessAddress, expectedExcluded []fdbv1beta2.ProcessAddress, expectedRemaining []fdbv1beta2.ProcessAddress, expectedFullyExcluded []fdbv1beta2.ProcessAddress, expectedMissing []fdbv1beta2.ProcessAddress) {
-				exclusions := getRemainingAndExcludedFromStatus(status, addresses)
-				Expect(expectedExcluded).To(ConsistOf(exclusions.inProgress))
-				Expect(expectedRemaining).To(ConsistOf(exclusions.notExcluded))
-				Expect(expectedFullyExcluded).To(ConsistOf(exclusions.fullyExcluded))
-				Expect(expectedMissing).To(ConsistOf(exclusions.missingInStatus))
-			},
-			Entry("with an empty input address slice",
-				status,
-				[]fdbv1beta2.ProcessAddress{},
-				nil,
-				nil,
-				nil,
-				nil,
-			),
-			Entry("when the process is excluded",
-				status,
-				[]fdbv1beta2.ProcessAddress{addr4},
-				[]fdbv1beta2.ProcessAddress{addr4},
-				nil,
-				nil,
-				nil,
-			),
-			Entry("when the process is not excluded",
-				status,
-				[]fdbv1beta2.ProcessAddress{addr3},
-				nil,
-				[]fdbv1beta2.ProcessAddress{addr3},
-				nil,
-				nil,
-			),
-			Entry("when some processes are excluded and some not",
-				status,
-				[]fdbv1beta2.ProcessAddress{addr1, addr2, addr3, addr4},
-				[]fdbv1beta2.ProcessAddress{addr4},
-				[]fdbv1beta2.ProcessAddress{addr2, addr3},
-				[]fdbv1beta2.ProcessAddress{addr1},
-				nil,
-			),
-			Entry("when a process is missing",
-				status,
-				[]fdbv1beta2.ProcessAddress{addr5},
-				nil,
-				[]fdbv1beta2.ProcessAddress{},
-				nil,
-				[]fdbv1beta2.ProcessAddress{addr5},
-			),
-			Entry("when the process is excluded but the cluster status has multiple generations",
-				&fdbv1beta2.FoundationDBStatus{
-					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
-						RecoveryState: fdbv1beta2.RecoveryState{
-							ActiveGenerations: 2,
-						},
-						Processes: map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{
-							"1": {
-								Address:  addr1,
-								Excluded: true,
-							},
-							"2": {
-								Address: addr2,
-							},
-							"3": {
-								Address: addr3,
-							},
-							"4": {
-								Address:  addr4,
-								Excluded: true,
-								Roles: []fdbv1beta2.FoundationDBStatusProcessRoleInfo{
-									{
-										Role: "tester",
-									},
-								},
-							},
-						},
-					},
-				},
-				[]fdbv1beta2.ProcessAddress{addr4},
-				nil,
-				[]fdbv1beta2.ProcessAddress{addr4},
-				nil,
-				nil,
-			),
-		)
-	})
-
 	When("parsing the connection string", func() {
 		DescribeTable("it should return the correct connection string",
 			func(input string, expected string) {

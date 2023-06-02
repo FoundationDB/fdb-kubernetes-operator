@@ -49,18 +49,19 @@ import (
 // FoundationDBClusterReconciler reconciles a FoundationDBCluster object
 type FoundationDBClusterReconciler struct {
 	client.Client
-	Recorder                           record.EventRecorder
-	Log                                logr.Logger
-	InSimulation                       bool
-	EnableRestartIncompatibleProcesses bool
-	ServerSideApply                    bool
-	EnableRecoveryState                bool
-	PodLifecycleManager                podmanager.PodLifecycleManager
-	PodClientProvider                  func(*fdbv1beta2.FoundationDBCluster, *corev1.Pod) (podclient.FdbPodClient, error)
-	DatabaseClientProvider             fdbadminclient.DatabaseClientProvider
-	DeprecationOptions                 internal.DeprecationOptions
-	GetTimeout                         time.Duration
-	PostTimeout                        time.Duration
+	Recorder                                    record.EventRecorder
+	Log                                         logr.Logger
+	InSimulation                                bool
+	EnableRestartIncompatibleProcesses          bool
+	ServerSideApply                             bool
+	EnableRecoveryState                         bool
+	CacheDatabaseStatusForReconciliationDefault bool
+	PodLifecycleManager                         podmanager.PodLifecycleManager
+	PodClientProvider                           func(*fdbv1beta2.FoundationDBCluster, *corev1.Pod) (podclient.FdbPodClient, error)
+	DatabaseClientProvider                      fdbadminclient.DatabaseClientProvider
+	DeprecationOptions                          internal.DeprecationOptions
+	GetTimeout                                  time.Duration
+	PostTimeout                                 time.Duration
 }
 
 // NewFoundationDBClusterReconciler creates a new FoundationDBClusterReconciler with defaults.
@@ -93,6 +94,11 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 	}
 
 	clusterLog := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name)
+	// Printout the duration of the reconciliation, independent if the reconciliation was successful or had an error.
+	startTime := time.Now()
+	defer func() {
+		clusterLog.Info("Reconciliation run finished", "duration", time.Since(startTime).String())
+	}()
 
 	if cluster.Spec.Skip {
 		clusterLog.Info("Skipping cluster with skip value true", "skip", cluster.Spec.Skip)
@@ -123,6 +129,16 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 	if err != nil {
 		r.Recorder.Event(cluster, corev1.EventTypeWarning, "ClusterSpec not valid", err.Error())
 		return ctrl.Result{}, fmt.Errorf("ClusterSpec is not valid: %w", err)
+	}
+
+	var status *fdbv1beta2.FoundationDBStatus
+	cacheStatus := cluster.CacheDatabaseStatusForReconciliation(r.CacheDatabaseStatusForReconciliationDefault)
+	if cacheStatus {
+		clusterLog.Info("Fetch machine-readable status for reconcilitation loop", "cacheStatus", cacheStatus)
+		status, err = r.getStatusFromClusterOrDummyStatus(clusterLog, cluster)
+		if err != nil {
+			return ctrl.Result{Requeue: true}, err
+		}
 	}
 
 	subReconcilers := []clusterSubReconciler{
@@ -164,7 +180,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 		cluster.Spec = *(normalizedSpec.DeepCopy())
 		clusterLog.Info("Attempting to run sub-reconciler", "subReconciler", fmt.Sprintf("%T", subReconciler))
 
-		requeue := subReconciler.reconcile(ctx, r, cluster)
+		requeue := subReconciler.reconcile(ctx, r, cluster, status)
 		if requeue == nil {
 			continue
 		}
@@ -371,7 +387,7 @@ type clusterSubReconciler interface {
 	If reconciliation cannot proceed, this should return a requeue object with
 	a `Message` field.
 	*/
-	reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) *requeue
+	reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) *requeue
 }
 
 // newFdbPodClient builds a client for working with an FDB Pod
@@ -411,4 +427,48 @@ func (r *FoundationDBClusterReconciler) updateOrApply(ctx context.Context, clust
 	}
 
 	return r.Status().Update(ctx, cluster)
+}
+
+// getStatusFromClusterOrDummyStatus will fetch the machine-readable status from the FoundationDBCluster if the cluster is configured. If not a default status is returned indicating, that
+// some configuration is missing.
+func (r *FoundationDBClusterReconciler) getStatusFromClusterOrDummyStatus(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster) (*fdbv1beta2.FoundationDBStatus, error) {
+	if cluster.Status.ConnectionString == "" {
+		return &fdbv1beta2.FoundationDBStatus{
+			Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+				Layers: fdbv1beta2.FoundationDBStatusLayerInfo{
+					Error: "configurationMissing",
+				},
+			},
+		}, nil
+	}
+
+	connectionString, err := tryConnectionOptions(logger, cluster, r)
+	if err != nil {
+		return nil, err
+	}
+	cluster.Status.ConnectionString = connectionString
+
+	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
+	if err != nil {
+		return nil, err
+	}
+
+	defer adminClient.Close()
+
+	status, err := adminClient.GetStatus()
+	if err == nil {
+		return status, nil
+	}
+
+	if cluster.Status.Configured {
+		return nil, err
+	}
+
+	return &fdbv1beta2.FoundationDBStatus{
+		Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+			Layers: fdbv1beta2.FoundationDBStatusLayerInfo{
+				Error: "configurationMissing",
+			},
+		},
+	}, nil
 }

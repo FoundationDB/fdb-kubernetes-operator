@@ -523,6 +523,11 @@ func (in *FoundationDBClusterAutomationOptions) DeepCopyInto(out *FoundationDBCl
 		*out = new(bool)
 		**out = **in
 	}
+	if in.CacheDatabaseStatusForReconciliation != nil {
+		in, out := &in.CacheDatabaseStatusForReconciliation, &out.CacheDatabaseStatusForReconciliation
+		*out = new(bool)
+		**out = **in
+	}
 	in.Replacements.DeepCopyInto(&out.Replacements)
 	if in.UseNonBlockingExcludes != nil {
 		in, out := &in.UseNonBlockingExcludes, &out.UseNonBlockingExcludes
