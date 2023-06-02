@@ -2606,7 +2606,8 @@ func (cluster *FoundationDBCluster) IsTaintFeatureDisabled() bool {
 // GetMaxZonesWithUnavailablePods returns the maximum number of zones that can have unavailable pods.
 func (cluster *FoundationDBCluster) GetMaxZonesWithUnavailablePods() int {
 	return pointer.IntDeref(cluster.Spec.MaxZonesWithUnavailablePods, math.MaxInt)
-	
+}
+
 // CacheDatabaseStatusForReconciliation returns if the sub-reconcilers should use a cached machine-readable status. If
 // enabled the machine-readable status will be fetched only once per reconciliation loop and not multiple times. If the
 // value is unset the provided default value will be returned.
