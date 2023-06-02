@@ -134,6 +134,9 @@ type FoundationDBStatusProcessInfo struct {
 	// Excluded indicates whether the process has been excluded.
 	Excluded bool `json:"excluded,omitempty"`
 
+	// Indicates that the process is in maintenance zone.
+	UnderMaintenance bool `json:"under_maintenance,omitempty"`
+
 	// The locality information for the process.
 	Locality map[string]string `json:"locality,omitempty"`
 

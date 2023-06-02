@@ -341,7 +341,7 @@ func CheckCoordinatorValidity(logger logr.Logger, cluster *fdbv1beta2.Foundation
 			coordinatorAddress = dnsAddress.String()
 		}
 
-		if coordinatorAddress != "" && !process.Excluded && !pendingRemoval {
+		if coordinatorAddress != "" && !process.Excluded && !pendingRemoval && !process.UnderMaintenance {
 			coordinatorStatus[coordinatorAddress] = true
 		}
 
