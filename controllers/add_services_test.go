@@ -22,8 +22,9 @@ package controllers
 
 import (
 	"context"
-	"k8s.io/utils/pointer"
 	"sort"
+
+	"k8s.io/utils/pointer"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 

@@ -45,21 +45,12 @@ type AdminClient interface {
 	// database.
 	GetExclusions() ([]fdbv1beta2.ProcessAddress, error)
 
-	// GetExclusionsFromStatus gets a list of the addresses currently excluded from the
-	// database, based on the provided status.
-	GetExclusionsFromStatus(status *fdbv1beta2.FoundationDBStatus) ([]fdbv1beta2.ProcessAddress, error)
-
 	// CanSafelyRemove checks whether it is safe to remove processes from the
 	// cluster.
 	//
 	// The list returned by this method will be the addresses that are *not*
 	// safe to remove.
 	CanSafelyRemove(addresses []fdbv1beta2.ProcessAddress) ([]fdbv1beta2.ProcessAddress, error)
-
-	// CanSafelyRemoveFromStatus checks whether it is safe to remove processes from the cluster, based on the provided status.
-	//
-	// The list returned by this method will be the addresses that are *not* safe to remove.
-	CanSafelyRemoveFromStatus(addresses []fdbv1beta2.ProcessAddress, status *fdbv1beta2.FoundationDBStatus) ([]fdbv1beta2.ProcessAddress, error)
 
 	// KillProcesses restarts processes
 	KillProcesses(addresses []fdbv1beta2.ProcessAddress) error

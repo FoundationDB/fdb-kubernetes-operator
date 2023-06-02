@@ -23,6 +23,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 )
 

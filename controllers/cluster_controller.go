@@ -94,6 +94,11 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 	}
 
 	clusterLog := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name)
+	// Printout the duration of the reconciliation, independent if the reconciliation was successful or had an error.
+	startTime := time.Now()
+	defer func() {
+		clusterLog.Info("Reconciliation run finished", "duration", time.Since(startTime).String())
+	}()
 
 	if cluster.Spec.Skip {
 		clusterLog.Info("Skipping cluster with skip value true", "skip", cluster.Spec.Skip)
@@ -168,12 +173,6 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 	originalGeneration := cluster.ObjectMeta.Generation
 	normalizedSpec := cluster.Spec.DeepCopy()
 	delayedRequeue := false
-
-	// Printout the duration of the reconciliation, independent if the reconciliation was successful or had an error.
-	startTime := time.Now()
-	defer func() {
-		clusterLog.Info("Reconciliation run finished", "duration", time.Since(startTime).String())
-	}()
 
 	for _, subReconciler := range subReconcilers {
 		// We have to set the normalized spec here again otherwise any call to Update() for the status of the cluster

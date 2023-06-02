@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal/statuschecks"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
 	"github.com/go-logr/logr"
 	"k8s.io/utils/pointer"
@@ -141,7 +143,7 @@ func GetRemainingMap(logger logr.Logger, adminClient fdbadminclient.AdminClient,
 
 	var remaining []fdbv1beta2.ProcessAddress
 	if len(addresses) > 0 {
-		remaining, err = adminClient.CanSafelyRemoveFromStatus(addresses, status)
+		remaining, err = statuschecks.CanSafelyRemoveFromStatus(logger, adminClient, addresses, status)
 		if err != nil {
 			return map[string]bool{}, err
 		}

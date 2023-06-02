@@ -26,6 +26,8 @@ import (
 	"math"
 	"net"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal/statuschecks"
+
 	corev1 "k8s.io/api/core/v1"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -66,7 +68,7 @@ func (e excludeProcesses) reconcile(ctx context.Context, r *FoundationDBClusterR
 	var fdbProcessesToExclude []fdbv1beta2.ProcessAddress
 	var processClassesToExclude map[fdbv1beta2.ProcessClass]fdbv1beta2.None
 	if removalCount > 0 {
-		exclusions, err := adminClient.GetExclusionsFromStatus(status)
+		exclusions, err := statuschecks.GetExclusions(status)
 		if err != nil {
 			return &requeue{curError: err, delayedRequeue: true}
 		}

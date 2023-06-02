@@ -22,6 +22,8 @@ package podmanager
 
 import (
 	"context"
+	"fmt"
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal/statuschecks"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
@@ -123,8 +125,26 @@ func (manager StandardPodLifecycleManager) DeletePod(ctx context.Context, r clie
 
 // CanDeletePods checks whether it is safe to delete Pods.
 func (manager StandardPodLifecycleManager) CanDeletePods(ctx context.Context, adminClient fdbadminclient.AdminClient, cluster *fdbv1beta2.FoundationDBCluster) (bool, error) {
-	// TODO(j-scheuermann): Can we pass down a cached status here?
-	return internal.HasDesiredFaultTolerance(logr.FromContextOrDiscard(ctx), adminClient, cluster)
+	var status *fdbv1beta2.FoundationDBStatus
+	logger := logr.FromContextOrDiscard(ctx)
+
+	statusFromContext := ctx.Value(statuschecks.StatusContextKey{})
+	if statusFromContext == nil {
+		var err error
+		status, err = adminClient.GetStatus()
+		if err != nil {
+			return false, err
+		}
+	} else {
+		logger.V(1).Info("found cached status in context")
+		var ok bool
+		status, ok = statusFromContext.(*fdbv1beta2.FoundationDBStatus)
+		if !ok {
+			return false, fmt.Errorf("could not parse status from context")
+		}
+	}
+
+	return internal.HasDesiredFaultToleranceFromStatus(logger, status, cluster), nil
 }
 
 // UpdatePods updates a list of Pods to match the latest specs.

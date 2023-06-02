@@ -23,9 +23,10 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal/buggify"
 	"net"
 	"time"
+
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal/buggify"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal/removals"
 	"github.com/go-logr/logr"
