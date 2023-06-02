@@ -54,7 +54,7 @@ var _ = Describe("add_process_groups", func() {
 	})
 
 	JustBeforeEach(func() {
-		requeue = addProcessGroups{}.reconcile(context.TODO(), clusterReconciler, cluster)
+		requeue = addProcessGroups{}.reconcile(context.TODO(), clusterReconciler, cluster, nil)
 		if requeue != nil {
 			Expect(requeue.curError).NotTo(HaveOccurred())
 		}

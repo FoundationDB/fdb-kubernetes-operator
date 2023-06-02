@@ -179,6 +179,7 @@ FoundationDBClusterAutomationOptions provides flags for enabling or disabling op
 | ----- | ----------- | ------ | -------- |
 | configureDatabase | ConfigureDatabase defines whether the operator is allowed to reconfigure the database. | *bool | false |
 | killProcesses | KillProcesses defines whether the operator is allowed to bounce fdbserver processes. | *bool | false |
+| cacheDatabaseStatusForReconciliation | CacheDatabaseStatusForReconciliation defines whether the operator is using the same FoundationDB machine-readable status for all sub-reconcilers or if the machine-readable status should be fetched by ever sub-reconciler if required. Enabling this setting might improve the operator reconciliation speed for large clusters. | *bool | false |
 | replacements | Replacements contains options for automatically replacing failed processes. | [AutomaticReplacementOptions](#automaticreplacementoptions) | false |
 | ignorePendingPodsDuration | IgnorePendingPodsDuration defines how long a Pod has to be in the Pending Phase before ignore it during reconciliation. This prevents Pod that are stuck in Pending to block further reconciliation. | time.Duration | false |
 | useNonBlockingExcludes | UseNonBlockingExcludes defines whether the operator is allowed to use non blocking exclude commands. The default is false. | *bool | false |

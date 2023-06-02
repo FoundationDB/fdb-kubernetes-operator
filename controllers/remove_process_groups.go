@@ -23,9 +23,10 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal/buggify"
 	"net"
 	"time"
+
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal/buggify"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal/removals"
 	"github.com/go-logr/logr"
@@ -41,7 +42,7 @@ import (
 type removeProcessGroups struct{}
 
 // reconcile runs the reconciler's work.
-func (u removeProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) *requeue {
+func (u removeProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "removeProcessGroups")
 	adminClient, err := r.DatabaseClientProvider.GetAdminClient(cluster, r)
 	if err != nil {
@@ -49,7 +50,15 @@ func (u removeProcessGroups) reconcile(ctx context.Context, r *FoundationDBClust
 	}
 	defer adminClient.Close()
 
-	remainingMap, err := removals.GetRemainingMap(logger, adminClient, cluster)
+	// If the status is not cached, we have to fetch it.
+	if status == nil {
+		status, err = adminClient.GetStatus()
+		if err != nil {
+			return &requeue{curError: err}
+		}
+	}
+
+	remainingMap, err := removals.GetRemainingMap(logger, adminClient, cluster, status)
 
 	if err != nil {
 		return &requeue{curError: err}
@@ -77,11 +86,6 @@ func (u removeProcessGroups) reconcile(ctx context.Context, r *FoundationDBClust
 	// If all of the process groups are filtered out we can stop doing the next steps.
 	if len(processGroupsToRemove) == 0 {
 		return nil
-	}
-
-	status, err := adminClient.GetStatus()
-	if err != nil {
-		return &requeue{curError: err}
 	}
 
 	// We don't use the "cached" of the cluster status from the CRD to minimize the window between data loss (e.g. a node

@@ -21,8 +21,9 @@
 package internal
 
 import (
-	"github.com/go-logr/logr"
 	"net"
+
+	"github.com/go-logr/logr"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	. "github.com/onsi/ginkgo/v2"

@@ -36,7 +36,7 @@ import (
 type replaceMisconfiguredProcessGroups struct{}
 
 // reconcile runs the reconciler's work.
-func (c replaceMisconfiguredProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) *requeue {
+func (c replaceMisconfiguredProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, _ *fdbv1beta2.FoundationDBStatus) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "replaceMisconfiguredProcessGroups")
 
 	// TODO(johscheuer): Remove the pvc map an make direct calls.

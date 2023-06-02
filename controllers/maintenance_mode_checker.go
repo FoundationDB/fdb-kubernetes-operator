@@ -23,6 +23,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 )
 
@@ -30,7 +31,7 @@ import (
 type maintenanceModeChecker struct{}
 
 // reconcile runs the reconciler's work.
-func (maintenanceModeChecker) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) *requeue {
+func (maintenanceModeChecker) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, _ *fdbv1beta2.FoundationDBStatus) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "maintenanceModeChecker")
 
 	if !cluster.UseMaintenaceMode() {

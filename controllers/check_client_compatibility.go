@@ -36,7 +36,7 @@ import (
 type checkClientCompatibility struct{}
 
 // reconcile runs the reconciler's work.
-func (c checkClientCompatibility) reconcile(_ context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) *requeue {
+func (c checkClientCompatibility) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "checkClientCompatibility")
 	if !cluster.Status.Configured && !cluster.IsBeingUpgraded() {
 		return nil
@@ -69,9 +69,13 @@ func (c checkClientCompatibility) reconcile(_ context.Context, r *FoundationDBCl
 		return &requeue{curError: err}
 	}
 	defer adminClient.Close()
-	status, err := adminClient.GetStatus()
-	if err != nil {
-		return &requeue{curError: err}
+
+	// If the status is not cached, we have to fetch it.
+	if status == nil {
+		status, err = adminClient.GetStatus()
+		if err != nil {
+			return &requeue{curError: err}
+		}
 	}
 
 	protocolVersion, err := adminClient.GetProtocolVersion(cluster.Spec.Version)

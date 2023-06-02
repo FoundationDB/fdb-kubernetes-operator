@@ -23,10 +23,11 @@ package fdbclient
 import (
 	"errors"
 	"fmt"
+	"time"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
 	"github.com/go-logr/logr"
-	"time"
 )
 
 // fdbLibClient is an interface to interact with FDB over the client libraries

@@ -22,8 +22,9 @@ package controllers
 
 import (
 	"context"
-	"k8s.io/utils/pointer"
 	"strings"
+
+	"k8s.io/utils/pointer"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
@@ -55,7 +56,7 @@ var _ = Describe("maintenance_mode_checker", func() {
 	})
 
 	JustBeforeEach(func() {
-		requeue = maintenanceModeChecker{}.reconcile(context.TODO(), clusterReconciler, cluster)
+		requeue = maintenanceModeChecker{}.reconcile(context.TODO(), clusterReconciler, cluster, nil)
 		Expect(err).NotTo(HaveOccurred())
 		_, err = reloadCluster(cluster)
 		Expect(err).NotTo(HaveOccurred())
