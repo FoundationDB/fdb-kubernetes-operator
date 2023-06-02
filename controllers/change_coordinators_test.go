@@ -203,6 +203,23 @@ var _ = Describe("Change coordinators", func() {
 					}
 				})
 			})
+
+			When("maintenance mode is on", func() {
+				BeforeEach(func() {
+					Expect(adminClient.SetMaintenanceZone("operator-test-1-storage-1", 0)).NotTo(HaveOccurred())
+				})
+
+				It("should not select processes from the maintenance zone", func() {
+					Expect(cluster.DesiredCoordinatorCount()).To(BeNumerically("==", 3))
+					Expect(len(candidates)).To(BeNumerically("==", cluster.DesiredCoordinatorCount()))
+
+					// Should select storage processes only.
+					for _, candidate := range candidates {
+						Expect(candidate.ID).NotTo(Equal("storage-1"))
+						Expect(strings.HasPrefix(candidate.ID, "storage")).To(BeTrue())
+					}
+				})
+			})
 		})
 
 		When("Using a HA clusters", func() {
