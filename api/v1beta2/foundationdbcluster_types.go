@@ -218,6 +218,10 @@ type FoundationDBClusterSpec struct {
 	// UseUnifiedImage determines if we should use the unified image rather than
 	// separate images for the main container and the sidecar container.
 	UseUnifiedImage *bool `json:"useUnifiedImage,omitempty"`
+
+	// MaxZonesWithUnavailablePods defines the maximum number of zones that can have unavailable pods during the update process.
+	// When unset, there is no limit to the  number of zones with unavailable pods.
+	MaxZonesWithUnavailablePods *int `json:"maxZonesWithUnavailablePods,omitempty"`
 }
 
 // ImageType defines a single kind of images used in the cluster.
@@ -2597,6 +2601,11 @@ func (cluster *FoundationDBCluster) Validate() error {
 // if operator's TaintReplacementOptions is not set.
 func (cluster *FoundationDBCluster) IsTaintFeatureDisabled() bool {
 	return len(cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions) == 0
+}
+
+// GetMaxZonesWithUnavailablePods returns the maximum number of zones that can have unavailable pods.
+func (cluster *FoundationDBCluster) GetMaxZonesWithUnavailablePods() int {
+	return pointer.IntDeref(cluster.Spec.MaxZonesWithUnavailablePods, math.MaxInt)
 }
 
 // CacheDatabaseStatusForReconciliation returns if the sub-reconcilers should use a cached machine-readable status. If

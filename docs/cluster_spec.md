@@ -260,6 +260,7 @@ FoundationDBClusterSpec defines the desired state of a cluster.
 | labels | LabelConfig allows customizing labels used by the operator. | [LabelConfig](#labelconfig) | false |
 | useExplicitListenAddress | UseExplicitListenAddress determines if we should add a listen address that is separate from the public address. **Deprecated: This setting will be removed in the next major release.** | *bool | false |
 | useUnifiedImage | UseUnifiedImage determines if we should use the unified image rather than separate images for the main container and the sidecar container. | *bool | false |
+| maxZonesWithUnavailablePods | MaxZonesWithUnavailablePods defines the maximum number of zones that can have unavailable pods during the update process. When unset, there is no limit to the  number of zones with unavailable pods. | *int | false |
 
 [Back to TOC](#table-of-contents)
 

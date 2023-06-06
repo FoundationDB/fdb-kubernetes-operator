@@ -10220,6 +10220,8 @@ spec:
                     maxLength: 10000
                     type: string
                 type: object
+              maxZonesWithUnavailablePods:
+                type: integer
               minimumUptimeSecondsForBounce:
                 default: 600
                 minimum: 1
