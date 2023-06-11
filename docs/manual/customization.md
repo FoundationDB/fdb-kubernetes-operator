@@ -133,7 +133,7 @@ spec:
       - baseImage: docker.example/foundationdb-kubernetes-sidecar
 ```
 
-This will produce pods where the `foundationdb` container runs the image `docker.example/foundationdb:6.2.30`, and the `foundationdb-kubernetes-sidecar` container runs the image `docker.example/foundationdb-kubernetes-sidecar:6.2.30-1`.
+This will produce pods where the `foundationdb` container runs the image `docker.example/foundationdb:7.1.26`, and the `foundationdb-kubernetes-sidecar` container runs the image `docker.example/foundationdb-kubernetes-sidecar:7.1.26-1`.
 
 The image configs also allow specifying a specific tag for the images.
 
@@ -166,11 +166,11 @@ spec:
       - baseImage: docker.example/foundationdb
       - version: 7.1.26
         tag: "build-20210711161700"
-      - version: 6.3.0
+      - version: 7.1.33
         tag: "build-20210712161700"
 ```
 
-This tells the operator to use the base image `docker.example/foundationdb` for all versions, and to use different tags for versions 6.2.30 and versions 6.3.0. Applying this config will produce pods where the `foundationdb` container runs the image `docker.example/foundationdb:build-20210711161700`. If you upgrade the cluster to version 6.3.0, it will run the image `docker.example.com/build-20210712161700`.
+This tells the operator to use the base image `docker.example/foundationdb` for all versions, and to use different tags for versions 7.1.26 and versions 7.1.33. Applying this config will produce pods where the `foundationdb` container runs the image `docker.example/foundationdb:build-20210711161700`. If you upgrade the cluster to version 7.1.33, it will run the image `docker.example.com/build-20210712161700`.
 
 You can also specify a suffix for the tag, which tells the operator to append that suffix to the version the cluster is running.
 
@@ -187,7 +187,7 @@ spec:
         tagSuffix: slim
 ```
 
-This will produce pods where the `foundationdb` container runs the image `docker.example/foundationdb:6.2.30-slim`. If you upgrade the cluster to version 6.3.0, it will run the image `docker.example/foundationdb:6.3.0-slim`.
+This will produce pods where the `foundationdb` container runs the image `docker.example/foundationdb:7.1.26-slim`. If you upgrade the cluster to version 7.1.33, it will run the image `docker.example/foundationdb:7.1.33-slim`.
 
 The operator uses a default tag suffix of `-1` for the sidecar container. If you provide a custom tag suffix for the sidecar container, your custom suffix will take precedence.
 
