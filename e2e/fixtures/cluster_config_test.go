@@ -79,12 +79,16 @@ var _ = FDescribe("Cluster configuration", func() {
 				cloudProvider: "kind",
 			},
 			fdbv1beta2.ProcessClassGeneral,
-			corev1.ResourceList{}),
+			corev1.ResourceList{
+				"foundationdb.org/empty": resource.MustParse("0"),
+			}),
 		Entry("empty config for storage process class",
 			&ClusterConfig{
 				cloudProvider: "kind",
 			},
 			fdbv1beta2.ProcessClassStorage,
-			corev1.ResourceList{}),
+			corev1.ResourceList{
+				"foundationdb.org/empty": resource.MustParse("0"),
+			}),
 	)
 })

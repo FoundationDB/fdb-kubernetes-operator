@@ -87,7 +87,7 @@ type ClusterConfig struct {
 	Name string
 	// cloudProvider defines the cloud provider used to create the Kubernetes cluster. This value is set in the SetDefaults
 	// method.
-	cloudProvider string
+	cloudProvider cloudProvider
 	// The storage engine that should be used to create the cluster
 	StorageEngine fdbv1beta2.StorageEngine
 	// NodeSelector of the cluster to be created.
@@ -142,9 +142,8 @@ func (config *ClusterConfig) SetDefaults(factory *Factory) {
 	}
 
 	if config.cloudProvider == "" {
-		config.cloudProvider = factory.options.cloudProvider
+		config.cloudProvider = cloudProvider(factory.options.cloudProvider)
 	}
-
 }
 
 // getVolumeSize returns the volume size in as a string. If no volume size is defined a default will be set based on

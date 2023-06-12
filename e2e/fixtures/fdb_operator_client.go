@@ -292,7 +292,7 @@ spec:
             containerPort: 8080
         resources:
          requests:
-           cpu: {{ .CpuRequests }}
+           cpu: {{ .CPURequests }}
            memory: {{ .MemoryRequests }}
         securityContext:
           allowPrivilegeEscalation: false
@@ -348,8 +348,8 @@ type operatorConfig struct {
 	Namespace string
 	// ImagePullPolicy represents the pull policy for the operator container.
 	ImagePullPolicy corev1.PullPolicy
-	// CpuRequests defined the CPU that should be requested.
-	CpuRequests string
+	// CPURequests defined the CPU that should be requested.
+	CPURequests string
 	// MemoryRequests defined the Memory that should be requested.
 	MemoryRequests string
 }
@@ -439,7 +439,7 @@ func (factory *Factory) getOperatorConfig(namespace string) *operatorConfig {
 		Namespace:        namespace,
 		SidecarVersions:  factory.GetSidecarConfigs(),
 		ImagePullPolicy:  factory.getImagePullPolicy(),
-		CpuRequests:      cpuRequests,
+		CPURequests:      cpuRequests,
 		MemoryRequests:   MemoryRequests,
 	}
 }
