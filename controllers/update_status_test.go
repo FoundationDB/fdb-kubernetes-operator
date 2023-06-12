@@ -502,6 +502,31 @@ var _ = Describe("update_status", func() {
 			})
 		})
 
+		When("the pod is initializing", func() {
+			BeforeEach(func() {
+				condition := corev1.PodCondition{
+					Type:   corev1.PodInitialized,
+					Status: corev1.ConditionFalse,
+				}
+				storagePod.Status.Conditions = append(storagePod.Status.Conditions, condition)
+				err = k8sClient.Update(context.TODO(), storagePod)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should get a condition assigned", func() {
+				processGroupStatus, err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap, allPvcs, logger)
+				Expect(err).NotTo(HaveOccurred())
+
+				initializingPods := fdbv1beta2.FilterByCondition(processGroupStatus, fdbv1beta2.PodInitializing, false)
+				Expect(initializingPods).To(Equal([]fdbv1beta2.ProcessGroupID{storageOneProcessGroupID}))
+
+				Expect(len(processGroupStatus)).To(BeNumerically(">", 4))
+				processGroup := processGroupStatus[len(processGroupStatus)-4]
+				Expect(processGroup.ProcessGroupID).To(Equal(storageOneProcessGroupID))
+				Expect(len(processGroup.ProcessGroupConditions)).To(Equal(1))
+			})
+		})
+
 		When("the pod is failed", func() {
 			BeforeEach(func() {
 				storagePod.Status.Phase = corev1.PodFailed

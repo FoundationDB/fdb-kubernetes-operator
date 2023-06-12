@@ -779,6 +779,8 @@ const (
 	SidecarUnreachable ProcessGroupConditionType = "SidecarUnreachable"
 	// PodPending represents a process group where the pod is in a pending state.
 	PodPending ProcessGroupConditionType = "PodPending"
+	// PodInitializing represents a process group where the pod is in an initializing state.
+	PodInitializing ProcessGroupConditionType = "PodInitializing"
 	// ReadyCondition is currently only used in the metrics.
 	ReadyCondition ProcessGroupConditionType = "Ready"
 	// NodeTaintDetected represents a Pod's node is tainted but not long enough for operator to replace it.
@@ -801,6 +803,7 @@ func AllProcessGroupConditionTypes() []ProcessGroupConditionType {
 		MissingProcesses,
 		SidecarUnreachable,
 		PodPending,
+		PodInitializing,
 		ReadyCondition,
 		NodeTaintDetected,
 		NodeTaintReplacing,
@@ -830,6 +833,8 @@ func GetProcessGroupConditionType(processGroupConditionType string) (ProcessGrou
 		return SidecarUnreachable, nil
 	case "PodPending":
 		return PodPending, nil
+	case "PodInitializing":
+		return PodInitializing, nil
 	case "NodeTaintDetected":
 		return NodeTaintDetected, nil
 	case "NodeTaintReplacing":

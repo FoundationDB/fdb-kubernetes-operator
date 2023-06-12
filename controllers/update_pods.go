@@ -72,22 +72,35 @@ func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconcile
 	return deletePodsForUpdates(ctx, r, cluster, updates, logger, status)
 }
 
-// GetFaultDomainsWithUnavailablePods returns a map of fault domains with unavailable Pods. The map has the fault domain as key and the value is not used.
-func GetFaultDomainsWithUnavailablePods(ctx context.Context, logger logr.Logger, reconciler *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) map[fdbv1beta2.FaultDomain]fdbv1beta2.None {
+// getFaultDomainsWithUnavailablePods returns a map of fault domains with unavailable Pods. The map has the fault domain as key and the value is not used.
+func getFaultDomainsWithUnavailablePods(ctx context.Context, logger logr.Logger, reconciler *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) map[fdbv1beta2.FaultDomain]fdbv1beta2.None {
 	faultDomainsWithUnavailablePods := make(map[fdbv1beta2.FaultDomain]fdbv1beta2.None)
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
+		unavailable := false
 		// If the Pod is pending, we count it as unavailable.
 		if processGroup.GetConditionTime(fdbv1beta2.PodPending) != nil {
-			faultDomainsWithUnavailablePods[processGroup.FaultDomain] = fdbv1beta2.None{}
+			unavailable = true
+		}
+		// If the Pods is initializing, we count it as unavailable.
+		if processGroup.GetConditionTime(fdbv1beta2.PodInitializing) != nil {
+			unavailable = true
+		}
+		// If the Pod is running with failed containers, we count it as unavailable.
+		if processGroup.GetConditionTime(fdbv1beta2.PodFailing) != nil {
+			unavailable = true
 		}
 		pod, err := reconciler.PodLifecycleManager.GetPod(ctx, reconciler, cluster, processGroup.GetPodName(cluster))
 		// If a Pod is not found consider it as unavailable.
 		if err != nil {
-			faultDomainsWithUnavailablePods[processGroup.FaultDomain] = fdbv1beta2.None{}
+			unavailable = true
 		}
 		// If the Pod is marked for deletion, we count it as unavailable.
 		if pod.DeletionTimestamp != nil {
+			unavailable = true
+		}
+		// Only consider stateful processes for fault domain awareness.
+		if unavailable && processGroup.ProcessClass.IsStateful() {
 			faultDomainsWithUnavailablePods[processGroup.FaultDomain] = fdbv1beta2.None{}
 		}
 	}
@@ -99,7 +112,7 @@ func GetFaultDomainsWithUnavailablePods(ctx context.Context, logger logr.Logger,
 func getPodsToUpdate(ctx context.Context, logger logr.Logger, reconciler *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) (map[string][]*corev1.Pod, error) {
 	updates := make(map[string][]*corev1.Pod)
 
-	faultDomainsWithUnavailablePods := GetFaultDomainsWithUnavailablePods(ctx, logger, reconciler, cluster)
+	faultDomainsWithUnavailablePods := getFaultDomainsWithUnavailablePods(ctx, logger, reconciler, cluster)
 	maxZonesWithUnavailablePods := cluster.GetMaxZonesWithUnavailablePods()
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
