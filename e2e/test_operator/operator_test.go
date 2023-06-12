@@ -98,7 +98,6 @@ var _ = BeforeSuite(func() {
 			chaosmesh.OneMode,
 		)
 	}
-
 })
 
 var _ = AfterSuite(func() {
