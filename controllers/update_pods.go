@@ -103,7 +103,6 @@ func getPodsToUpdate(ctx context.Context, logger logr.Logger, reconciler *Founda
 	maxZonesWithUnavailablePods := cluster.GetMaxZonesWithUnavailablePods()
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
-
 		if processGroup.IsMarkedForRemoval() {
 			logger.V(1).Info("Ignore removed Pod",
 				"processGroupID", processGroup.ProcessGroupID)
