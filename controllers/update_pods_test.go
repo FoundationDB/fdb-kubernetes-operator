@@ -222,7 +222,7 @@ var _ = Describe("update_pods", func() {
 		})
 
 		JustBeforeEach(func() {
-			processGroupsWithFaultDomains = getFaultDomainsWithUnavailablePods(context.Background(), log, clusterReconciler, cluster)
+			processGroupsWithFaultDomains = getFaultDomainsWithUnavailablePods(context.Background(), clusterReconciler, cluster)
 		})
 
 		When("A Process Group has a Pod with pending condition", func() {

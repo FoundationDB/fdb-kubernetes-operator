@@ -73,7 +73,7 @@ func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconcile
 }
 
 // getFaultDomainsWithUnavailablePods returns a map of fault domains with unavailable Pods. The map has the fault domain as key and the value is not used.
-func getFaultDomainsWithUnavailablePods(ctx context.Context, logger logr.Logger, reconciler *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) map[fdbv1beta2.FaultDomain]fdbv1beta2.None {
+func getFaultDomainsWithUnavailablePods(ctx context.Context, reconciler *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) map[fdbv1beta2.FaultDomain]fdbv1beta2.None {
 	faultDomainsWithUnavailablePods := make(map[fdbv1beta2.FaultDomain]fdbv1beta2.None)
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
@@ -112,7 +112,7 @@ func getFaultDomainsWithUnavailablePods(ctx context.Context, logger logr.Logger,
 func getPodsToUpdate(ctx context.Context, logger logr.Logger, reconciler *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) (map[string][]*corev1.Pod, error) {
 	updates := make(map[string][]*corev1.Pod)
 
-	faultDomainsWithUnavailablePods := getFaultDomainsWithUnavailablePods(ctx, logger, reconciler, cluster)
+	faultDomainsWithUnavailablePods := getFaultDomainsWithUnavailablePods(ctx, reconciler, cluster)
 	maxZonesWithUnavailablePods := cluster.GetMaxZonesWithUnavailablePods()
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
