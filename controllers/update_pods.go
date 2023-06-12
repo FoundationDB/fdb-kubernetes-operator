@@ -72,14 +72,38 @@ func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconcile
 	return deletePodsForUpdates(ctx, r, cluster, updates, logger, status)
 }
 
+// GetFaultDomainsWithUnavailablePods returns a map of fault domains with unavailable Pods. The map has the fault domain as key and the value is not used.
+func GetFaultDomainsWithUnavailablePods(ctx context.Context, logger logr.Logger, reconciler *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) map[fdbv1beta2.FaultDomain]fdbv1beta2.None {
+	faultDomainsWithUnavailablePods := make(map[fdbv1beta2.FaultDomain]fdbv1beta2.None)
+
+	for _, processGroup := range cluster.Status.ProcessGroups {
+		// If the Pod is pending, we count it as unavailable.
+		if processGroup.GetConditionTime(fdbv1beta2.PodPending) != nil {
+			faultDomainsWithUnavailablePods[processGroup.FaultDomain] = fdbv1beta2.None{}
+		}
+		pod, err := reconciler.PodLifecycleManager.GetPod(ctx, reconciler, cluster, processGroup.GetPodName(cluster))
+		// If a Pod is not found consider it as unavailable.
+		if err != nil {
+			faultDomainsWithUnavailablePods[processGroup.FaultDomain] = fdbv1beta2.None{}
+		}
+		// If the Pod is marked for deletion, we count it as unavailable.
+		if pod.DeletionTimestamp != nil {
+			faultDomainsWithUnavailablePods[processGroup.FaultDomain] = fdbv1beta2.None{}
+		}
+	}
+
+	return faultDomainsWithUnavailablePods
+}
+
 // getPodsToUpdate returns a map of Zone to Pods mapping. The map has the fault domain as key and all Pods in that fault domain will be present as a slice of *corev1.Pod.
 func getPodsToUpdate(ctx context.Context, logger logr.Logger, reconciler *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) (map[string][]*corev1.Pod, error) {
 	updates := make(map[string][]*corev1.Pod)
 
-	faultDomainsWithUnavailablePods := make(map[fdbv1beta2.FaultDomain]fdbv1beta2.None)
+	faultDomainsWithUnavailablePods := GetFaultDomainsWithUnavailablePods(ctx, logger, reconciler, cluster)
 	maxZonesWithUnavailablePods := cluster.GetMaxZonesWithUnavailablePods()
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
+
 		if processGroup.IsMarkedForRemoval() {
 			logger.V(1).Info("Ignore removed Pod",
 				"processGroupID", processGroup.ProcessGroupID)
@@ -103,17 +127,7 @@ func getPodsToUpdate(ctx context.Context, logger logr.Logger, reconciler *Founda
 		if err != nil {
 			logger.V(1).Info("Could not find Pod for process group ID",
 				"processGroupID", processGroup.ProcessGroupID)
-			faultDomainsWithUnavailablePods[processGroup.FaultDomain] = fdbv1beta2.None{}
 			continue
-		}
-
-		// If the Pod is marked for deletion, we count it as unavailable.
-		if pod.DeletionTimestamp != nil {
-			faultDomainsWithUnavailablePods[processGroup.FaultDomain] = fdbv1beta2.None{}
-		}
-
-		if processGroup.GetConditionTime(fdbv1beta2.PodPending) != nil {
-			faultDomainsWithUnavailablePods[processGroup.FaultDomain] = fdbv1beta2.None{}
 		}
 
 		if shouldRequeueDueToTerminatingPod(pod, cluster, processGroup.ProcessGroupID) {

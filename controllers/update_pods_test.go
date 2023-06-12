@@ -315,9 +315,8 @@ var _ = Describe("update_pods", func() {
 				}
 			})
 
-			It("should return no errors and a map with the zone and one pod to update", func() {
-				Expect(updates).To(HaveLen(1))
-				Expect(updates["simulation"]).To(HaveLen(1))
+			It("should return no errors and a an empty update map", func() {
+				Expect(updates).To(HaveLen(0))
 			})
 		})
 
