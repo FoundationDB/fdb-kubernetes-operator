@@ -314,6 +314,10 @@ func deletePodsForUpdates(ctx context.Context, r *FoundationDBClusterReconciler,
 		}
 	}
 
+	// TODO(manfontan): if deletions size is larger than the fault tolerance of the cluster. The number of zones from
+	// which we are deleting pods should not break the fault tolerance of the cluster.
+	// At this point we have checked the cluster is fault tolerant. But we may delete pods from several zones
+	// breaking the fault tolerance.
 	logger.Info("Deleting pods", "zone", zone, "count", len(deletions), "deletionMode", string(cluster.Spec.AutomationOptions.DeletionMode))
 	r.Recorder.Event(cluster, corev1.EventTypeNormal, "UpdatingPods", fmt.Sprintf("Recreating pods in zone %s", zone))
 
