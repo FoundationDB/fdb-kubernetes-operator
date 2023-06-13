@@ -24,6 +24,7 @@ import (
 	"bytes"
 	ctx "context"
 	"fmt"
+	"log"
 	"math/rand"
 	"strings"
 
@@ -184,18 +185,24 @@ func getAllPodsFromClusterWithCondition(kubeClient client.Client, clusterName st
 		return podNames, err
 	}
 
+	podMap := make(map[string]corev1.Pod)
 	for _, pod := range pods.Items {
-		for process := range processesSet {
-			if pod.Status.Phase != corev1.PodRunning {
-				continue
-			}
+		podMap[pod.Labels[cluster.GetProcessGroupIDLabel()]] = pod
+	}
 
-			if pod.Labels[cluster.GetProcessGroupIDLabel()] != string(process) {
-				continue
-			}
-
-			podNames = append(podNames, pod.Name)
+	for process := range processesSet {
+		if _, ok := podMap[string(process)]; !ok {
+			log.Printf("Pod for process group %s not found", process)
+			continue
 		}
+		if podMap[string(process)].Labels[cluster.GetProcessGroupIDLabel()] != string(process) {
+			continue
+		}
+		if podMap[string(process)].Status.Phase != corev1.PodRunning {
+			continue
+		}
+
+		podNames = append(podNames, podMap[string(process)].Name)
 	}
 
 	return podNames, nil
