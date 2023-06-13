@@ -107,7 +107,7 @@ func getFaultDomainsWithUnavailablePods(ctx context.Context, logger logr.Logger,
 		pod, err := reconciler.PodLifecycleManager.GetPod(ctx, reconciler, cluster, processGroup.GetPodName(cluster))
 		if err != nil {
 			logger.V(1).Info("Could not find Pod for process group ID",
-				"processGroupID", processGroup.ProcessGroupID)
+				"processGroupID", processGroup.ProcessGroupID, "error", err)
 			faultDomainsWithUnavailablePods[processGroup.FaultDomain] = fdbv1beta2.None{}
 			continue
 		}
