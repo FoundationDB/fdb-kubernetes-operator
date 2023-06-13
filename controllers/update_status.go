@@ -584,14 +584,6 @@ func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler,
 		return nil
 	}
 
-	initilizing := false
-	for _, condition := range pod.Status.Conditions {
-		if condition.Type == corev1.PodInitialized && condition.Status == corev1.ConditionFalse {
-			processGroupStatus.UpdateCondition(fdbv1beta2.PodInitializing, true)
-			initilizing = true
-		}
-	}
-
 	failing := false
 	for _, container := range pod.Status.ContainerStatuses {
 		if !container.Ready {
@@ -620,7 +612,6 @@ func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler,
 	}
 
 	processGroupStatus.UpdateCondition(fdbv1beta2.PodFailing, failing)
-	processGroupStatus.UpdateCondition(fdbv1beta2.PodInitializing, initilizing)
 	processGroupStatus.UpdateCondition(fdbv1beta2.PodPending, false)
 
 	if !disableTaintFeature {

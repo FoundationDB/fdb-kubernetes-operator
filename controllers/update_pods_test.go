@@ -222,7 +222,7 @@ var _ = Describe("update_pods", func() {
 		})
 
 		JustBeforeEach(func() {
-			processGroupsWithFaultDomains = getFaultDomainsWithUnavailablePods(context.Background(), clusterReconciler, cluster)
+			processGroupsWithFaultDomains = getFaultDomainsWithUnavailablePods(context.Background(), log, clusterReconciler, cluster)
 		})
 
 		When("a Process Group has a Pod with pending condition", func() {
@@ -239,11 +239,11 @@ var _ = Describe("update_pods", func() {
 			})
 		})
 
-		When("a Process Group has a Pod with initializing condition", func() {
+		When("a Process Group has missing processes", func() {
 			BeforeEach(func() {
 				for _, processGroup := range cluster.Status.ProcessGroups {
 					if processGroup.ProcessGroupID == "storage-1" {
-						processGroup.UpdateCondition(fdbv1beta2.PodInitializing, true)
+						processGroup.UpdateCondition(fdbv1beta2.MissingProcesses, true)
 					}
 				}
 			})
