@@ -26,7 +26,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"regexp"
 	"strconv"
 
 	"github.com/go-logr/logr"
@@ -38,8 +37,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
-
-var processGroupIDRegex = regexp.MustCompile(`^([\w-]+)-(\d+)`)
 
 // GetPublicIPsForPod returns the public IPs for a Pod
 func GetPublicIPsForPod(pod *corev1.Pod, log logr.Logger) []string {
@@ -224,20 +221,6 @@ func GetSidecarImage(cluster *fdbv1beta2.FoundationDBCluster, pClass fdbv1beta2.
 	}
 
 	return GetImage(image, imageConfigs, cluster.Spec.Version, false)
-}
-
-// ParseProcessGroupID extracts the components of an process group ID.
-func ParseProcessGroupID(id fdbv1beta2.ProcessGroupID) (fdbv1beta2.ProcessClass, int, error) {
-	result := processGroupIDRegex.FindStringSubmatch(string(id))
-	if result == nil {
-		return "", 0, fmt.Errorf("could not parse process group ID %s", id)
-	}
-	prefix := result[1]
-	number, err := strconv.Atoi(result[2])
-	if err != nil {
-		return "", 0, err
-	}
-	return fdbv1beta2.ProcessClass(prefix), number, nil
 }
 
 // GetPublicIPSource determines how a Pod has gotten its public IP.

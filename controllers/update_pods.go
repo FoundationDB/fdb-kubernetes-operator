@@ -29,7 +29,6 @@ import (
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -120,7 +119,7 @@ func getPodsToUpdate(ctx context.Context, logger logr.Logger, reconciler *Founda
 			return nil, fmt.Errorf("cluster has Pod %s that is pending deletion", pod.Name)
 		}
 
-		_, idNum, err := podmanager.ParseProcessGroupID(processGroup.ProcessGroupID)
+		idNum, err := processGroup.ProcessGroupID.GetIDNumber()
 		if err != nil {
 			logger.Info("Skipping Pod due to error parsing Process Group ID",
 				"processGroupID", processGroup.ProcessGroupID,
@@ -128,15 +127,7 @@ func getPodsToUpdate(ctx context.Context, logger logr.Logger, reconciler *Founda
 			continue
 		}
 
-		processClass, err := podmanager.GetProcessClass(cluster, pod)
-		if err != nil {
-			logger.Info("Skipping Pod due to error fetching process class",
-				"processGroupID", processGroup.ProcessGroupID,
-				"error", err.Error())
-			continue
-		}
-
-		specHash, err := internal.GetPodSpecHash(cluster, processClass, idNum, nil)
+		specHash, err := internal.GetPodSpecHash(cluster, processGroup.ProcessClass, idNum, nil)
 		if err != nil {
 			logger.Info("Skipping Pod due to error generating spec hash",
 				"processGroupID", processGroup.ProcessGroupID,

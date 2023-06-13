@@ -21,6 +21,7 @@ import (
 	"math"
 	"math/rand"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -346,7 +347,22 @@ type FaultDomain string
 
 // ProcessGroupID represents the ID of the process group
 // +kubebuilder:validation:MaxLength=63
+// +kubebuilder:validation:Pattern:=^([\w-]+)-(\d+)$
 type ProcessGroupID string
+
+// GetIDNumber returns the ID number of the provided process group ID. This will be the suffix number, e.g. for the
+// process group ID "testing-storage-12" this will return 12.
+func (processGroupID ProcessGroupID) GetIDNumber() (int, error) {
+	tmp := string(processGroupID)
+	idx := strings.LastIndex(tmp, "-")
+	// The ID number will always be the suffix after the last '-'.
+	idNum, err := strconv.Atoi(tmp[idx+1:])
+	if err != nil || idx <= 0 {
+		return -1, fmt.Errorf("could not parse process group ID %s", tmp)
+	}
+
+	return idNum, nil
+}
 
 // GetExclusionString returns the exclusion string
 func (processGroupStatus *ProcessGroupStatus) GetExclusionString() string {

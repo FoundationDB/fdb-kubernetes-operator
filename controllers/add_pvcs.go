@@ -23,8 +23,6 @@ package controllers
 import (
 	"context"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
-
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -44,7 +42,7 @@ func (a addPVCs) reconcile(ctx context.Context, r *FoundationDBClusterReconciler
 			continue
 		}
 
-		_, idNum, err := podmanager.ParseProcessGroupID(processGroup.ProcessGroupID)
+		idNum, err := processGroup.ProcessGroupID.GetIDNumber()
 		if err != nil {
 			return &requeue{curError: err}
 		}

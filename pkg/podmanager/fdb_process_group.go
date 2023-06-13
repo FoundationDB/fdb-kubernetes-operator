@@ -33,11 +33,6 @@ import (
 
 var processIDRegex = regexp.MustCompile(`^([\w-]+-\d)-\d$`)
 
-// ParseProcessGroupID extracts the components of a process group ID.
-func ParseProcessGroupID(id fdbv1beta2.ProcessGroupID) (fdbv1beta2.ProcessClass, int, error) {
-	return internal.ParseProcessGroupID(id)
-}
-
 // GetProcessGroupIDFromProcessID returns the process group ID for the process ID
 func GetProcessGroupIDFromProcessID(id string) string {
 	result := processIDRegex.FindStringSubmatch(id)
