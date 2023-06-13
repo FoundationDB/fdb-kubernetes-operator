@@ -99,7 +99,6 @@ func getFaultDomainsWithUnavailablePods(ctx context.Context, logger logr.Logger,
 			faultDomainsWithUnavailablePods[processGroup.FaultDomain] = fdbv1beta2.None{}
 			continue
 		}
-
 		pod, err := reconciler.PodLifecycleManager.GetPod(ctx, reconciler, cluster, processGroup.GetPodName(cluster))
 		if err != nil {
 			logger.V(1).Info("Could not find Pod for process group ID",
@@ -108,11 +107,10 @@ func getFaultDomainsWithUnavailablePods(ctx context.Context, logger logr.Logger,
 			continue
 		}
 		// If the Pod is marked for deletion, we count it as unavailable.
-		if pod != nil && pod.DeletionTimestamp != nil {
+		if pod.DeletionTimestamp != nil {
 			faultDomainsWithUnavailablePods[processGroup.FaultDomain] = fdbv1beta2.None{}
 			continue
 		}
-
 		// If the Pod is pending, we count it as unavailable.
 		if pod.Status.Phase == corev1.PodPending {
 			faultDomainsWithUnavailablePods[processGroup.FaultDomain] = fdbv1beta2.None{}
@@ -141,7 +139,6 @@ func getPodsToUpdate(ctx context.Context, logger logr.Logger, reconciler *Founda
 	}
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
-
 		// When the number of zones with unavailable Pods equals the maxZonesWithUnavailablePods
 		// skip the process group if it does not belong to a zone with unavailable Pods.
 		if len(faultDomainsWithUnavailablePods) == maxZonesWithUnavailablePods {
