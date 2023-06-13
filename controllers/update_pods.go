@@ -74,16 +74,20 @@ func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconcile
 
 // processGroupIsUnavailable returns true if the process group is unavailable.
 func processGroupIsUnavailable(processGroupStatus *fdbv1beta2.ProcessGroupStatus) bool {
-	// If the Pod is pending, we count it as unavailable.
+	// If the Process Group has Pods is pending state, we count it as unavailable.
 	if processGroupStatus.GetConditionTime(fdbv1beta2.PodPending) != nil {
 		return true
 	}
-	// If the Pods is missing processes, we count it as unavailable.
+	// If the Process Group is missing processes, we count it as unavailable.
 	if processGroupStatus.GetConditionTime(fdbv1beta2.MissingProcesses) != nil {
 		return true
 	}
 	// If the Pod is running with failed containers, we count it as unavailable.
 	if processGroupStatus.GetConditionTime(fdbv1beta2.PodFailing) != nil {
+		return true
+	}
+	// If the Process Group is marked for removal, we count it as unavailable.
+	if processGroupStatus.RemovalTimestamp != nil {
 		return true
 	}
 	return false
@@ -94,10 +98,7 @@ func getFaultDomainsWithUnavailablePods(ctx context.Context, logger logr.Logger,
 	faultDomainsWithUnavailablePods := make(map[fdbv1beta2.FaultDomain]fdbv1beta2.None)
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
-		// Only consider stateful processes.
-		if !processGroup.ProcessClass.IsStateful() {
-			continue
-		}
+		// TODO(manfontan) only consider stateful processes. Because stateless processes do not change the fault tolerance of the cluster.
 		if processGroupIsUnavailable(processGroup) {
 			faultDomainsWithUnavailablePods[processGroup.FaultDomain] = fdbv1beta2.None{}
 			continue
@@ -107,14 +108,17 @@ func getFaultDomainsWithUnavailablePods(ctx context.Context, logger logr.Logger,
 		if err != nil {
 			logger.V(1).Info("Could not find Pod for process group ID",
 				"processGroupID", processGroup.ProcessGroupID)
-		}
-		// If a Pod is not found consider it as unavailable.
-		if pod == nil {
 			faultDomainsWithUnavailablePods[processGroup.FaultDomain] = fdbv1beta2.None{}
 			continue
 		}
 		// If the Pod is marked for deletion, we count it as unavailable.
 		if pod != nil && pod.DeletionTimestamp != nil {
+			faultDomainsWithUnavailablePods[processGroup.FaultDomain] = fdbv1beta2.None{}
+			continue
+		}
+
+		// If the Pod is pending, we count it as unavailable.
+		if pod.Status.Phase == corev1.PodPending {
 			faultDomainsWithUnavailablePods[processGroup.FaultDomain] = fdbv1beta2.None{}
 			continue
 		}
@@ -132,16 +136,16 @@ func getPodsToUpdate(ctx context.Context, logger logr.Logger, reconciler *Founda
 	faultDomainsWithUnavailablePods := getFaultDomainsWithUnavailablePods(ctx, logger, reconciler, cluster)
 	maxZonesWithUnavailablePods := cluster.GetMaxZonesWithUnavailablePods()
 
+	// When number of zones with unavailable Pods exceeds the maxZonesWithUnavailablePods skip updates.
+	if len(faultDomainsWithUnavailablePods) > maxZonesWithUnavailablePods {
+		logger.V(1).Info("Skip process groups for update, the number of zones with unavailable Pods exceeds the limit",
+			"maxZonesWithUnavailablePods", maxZonesWithUnavailablePods,
+			"faultDomainsWithUnavailablePods", faultDomainsWithUnavailablePods)
+		return updates, nil
+	}
+
 	for _, processGroup := range cluster.Status.ProcessGroups {
-		// When number of zones with unavailable Pods exceeds the maxZonesWithUnavailablePods skip the process group.
-		if len(faultDomainsWithUnavailablePods) > maxZonesWithUnavailablePods {
-			logger.V(1).Info("Skip process group for update, the number of zones with unavailable Pods exceeds the limit",
-				"processGroupID", processGroup.ProcessGroupID,
-				"maxZonesWithUnavailablePods", maxZonesWithUnavailablePods,
-				"faultDomain", processGroup.FaultDomain,
-				"faultDomainsWithUnavailablePods", faultDomainsWithUnavailablePods)
-			continue
-		}
+
 		// When the number of zones with unavailable Pods equals the maxZonesWithUnavailablePods
 		// skip the process group if it does not belong to a zone with unavailable Pods.
 		if len(faultDomainsWithUnavailablePods) == maxZonesWithUnavailablePods {
