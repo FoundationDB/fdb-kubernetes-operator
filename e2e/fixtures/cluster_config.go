@@ -153,10 +153,6 @@ func (config *ClusterConfig) getVolumeSize() string {
 		return config.VolumeSize
 	}
 
-	if config.cloudProvider == cloudProviderKind {
-		return "2Gi"
-	}
-
 	return "16Gi"
 }
 
@@ -196,13 +192,6 @@ func (config *ClusterConfig) generatePodResources(
 	processClass fdbv1beta2.ProcessClass,
 ) corev1.ResourceList {
 	if !config.Performance {
-		// For Kind we are not defining nay requests to allow more Pods to be running inside the cluster.
-		if config.cloudProvider == cloudProviderKind {
-			return corev1.ResourceList{
-				"foundationdb.org/empty": resource.MustParse("0"),
-			}
-		}
-
 		// Minimal resource requests for this cluster to be functional
 		return corev1.ResourceList{
 			corev1.ResourceCPU:    resource.MustParse("0.2"),
