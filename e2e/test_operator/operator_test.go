@@ -1108,9 +1108,9 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 	})
 
 	Context("testing maintenance mode functionality", func() {
-		PWhen("maintenance mode is on", func() {
+		When("maintenance mode is on", func() {
 			BeforeEach(func() {
-				command := fmt.Sprintf("maintenance on %s %s", "operator-test-1-storage-4", "0")
+				command := fmt.Sprintf("maintenance on %s %s", "operator-test-1-storage-4", "40000")
 				_, _, err := fdbCluster.RunFdbCliCommandInOperatorWithoutRetry(command, false, 40)
 				Expect(err).ShouldNot(HaveOccurred())
 			})
@@ -1122,7 +1122,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 			It("status maintenance zone should match", func() {
 				status := fdbCluster.GetStatus()
-				Expect(status.Cluster.MaintenanceZone).To(Equal(fdbv1beta2.MaintenanceModeInfo{ZoneID: "operator-test-1-storage-4"}))
+				Expect(status.Cluster.MaintenanceZone).To(Equal(fdbv1beta2.FaultDomain("operator-test-1-storage-4")))
 			})
 		})
 	})
