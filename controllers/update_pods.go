@@ -121,8 +121,6 @@ func getFaultDomainsWithUnavailablePods(ctx context.Context, logger logr.Logger,
 	return faultDomainsWithUnavailablePods
 }
 
-// processGroupIsUnavailable
-
 // getPodsToUpdate returns a map of Zone to Pods mapping. The map has the fault domain as key and all Pods in that fault domain will be present as a slice of *corev1.Pod.
 func getPodsToUpdate(ctx context.Context, logger logr.Logger, reconciler *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) (map[string][]*corev1.Pod, error) {
 	updates := make(map[string][]*corev1.Pod)
