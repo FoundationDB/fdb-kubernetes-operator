@@ -582,7 +582,11 @@ func writePodInformation(pod corev1.Pod) string {
 
 			// Printout the message, why the Pod is not scheduling.
 			buffer.WriteString("\t")
-			buffer.WriteString(condition.Message)
+			if condition.Message != "" {
+				buffer.WriteString(condition.Message)
+			} else {
+				buffer.WriteString("-")
+			}
 		}
 	} else {
 		buffer.WriteString("\t-")
