@@ -174,13 +174,7 @@ func (config *ClusterConfig) generateVolumeClaimTemplate(
 
 // generateSidecarResources generates a ResourceList for the sidecar container
 func (config *ClusterConfig) generateSidecarResources() corev1.ResourceList {
-	if config.cloudProvider == cloudProviderKind {
-		return corev1.ResourceList{
-			"foundationdb.org/empty": resource.MustParse("0"),
-		}
-	}
-
-	// minimal resources for the sidecar containers
+	// Minimal resources for the sidecar containers
 	return corev1.ResourceList{
 		corev1.ResourceCPU:    resource.MustParse("0.1"),
 		corev1.ResourceMemory: resource.MustParse("256Mi"),
