@@ -86,10 +86,6 @@ func processGroupIsUnavailable(processGroupStatus *fdbv1beta2.ProcessGroupStatus
 	if processGroupStatus.GetConditionTime(fdbv1beta2.PodFailing) != nil {
 		return true
 	}
-	// If the Process Group is marked for removal, we count it as unavailable.
-	if processGroupStatus.RemovalTimestamp != nil {
-		return true
-	}
 	return false
 }
 
