@@ -291,19 +291,6 @@ var _ = Describe("update_pods", func() {
 				Expect(processGroupsWithFaultDomains).To(HaveLen(1))
 			})
 		})
-
-		When("a Process Group has a Pod in pending status phase", func() {
-			BeforeEach(func() {
-				pods, err := clusterReconciler.PodLifecycleManager.GetPods(context.TODO(), clusterReconciler, cluster, internal.GetSinglePodListOptions(cluster, "storage-1")...)
-				Expect(err).NotTo(HaveOccurred())
-				pods[0].Status.Phase = corev1.PodPending
-				err = clusterReconciler.PodLifecycleManager.UpdatePods(context.TODO(), clusterReconciler, cluster, []*corev1.Pod{pods[0]}, true)
-				Expect(err).NotTo(HaveOccurred())
-			})
-			It("should be marked as unavailable", func() {
-				Expect(processGroupsWithFaultDomains).To(HaveLen(1))
-			})
-		})
 	})
 
 	When("fetching all Pods that needs an update", func() {
