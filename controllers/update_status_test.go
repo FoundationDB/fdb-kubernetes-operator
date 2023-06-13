@@ -502,7 +502,7 @@ var _ = Describe("update_status", func() {
 			})
 		})
 
-		When("the pod is initializing", func() {
+		When("the Pod is initializing", func() {
 			BeforeEach(func() {
 				condition := corev1.PodCondition{
 					Type:   corev1.PodInitialized,

@@ -208,7 +208,7 @@ var _ = Describe("update_pods", func() {
 		})
 	})
 
-	Context("Validating getFaultDomainsWithUnavailablePods", func() {
+	When("getting the fault domains with unavailable Pods", func() {
 		var cluster *fdbv1beta2.FoundationDBCluster
 		var processGroupsWithFaultDomains map[fdbv1beta2.FaultDomain]fdbv1beta2.None
 
@@ -225,7 +225,7 @@ var _ = Describe("update_pods", func() {
 			processGroupsWithFaultDomains = getFaultDomainsWithUnavailablePods(context.Background(), clusterReconciler, cluster)
 		})
 
-		When("A Process Group has a Pod with pending condition", func() {
+		When("a Process Group has a Pod with pending condition", func() {
 			BeforeEach(func() {
 				for _, processGroup := range cluster.Status.ProcessGroups {
 					if processGroup.ProcessGroupID == "storage-1" {
@@ -239,7 +239,7 @@ var _ = Describe("update_pods", func() {
 			})
 		})
 
-		When("A Process Group has a Pod with initializing condition", func() {
+		When("a Process Group has a Pod with initializing condition", func() {
 			BeforeEach(func() {
 				for _, processGroup := range cluster.Status.ProcessGroups {
 					if processGroup.ProcessGroupID == "storage-1" {
@@ -253,7 +253,7 @@ var _ = Describe("update_pods", func() {
 			})
 		})
 
-		When("A Process Group has a Pod running with failed containers", func() {
+		When("a Process Group has a Pod running with failed containers", func() {
 			BeforeEach(func() {
 				for _, processGroup := range cluster.Status.ProcessGroups {
 					if processGroup.ProcessGroupID == "storage-1" {
@@ -267,7 +267,7 @@ var _ = Describe("update_pods", func() {
 			})
 		})
 
-		When("A Process Group has a pod marked for deletion", func() {
+		When("a Process Group has a Pod marked for deletion", func() {
 			BeforeEach(func() {
 				pods, err := clusterReconciler.PodLifecycleManager.GetPods(context.TODO(), clusterReconciler, cluster, internal.GetSinglePodListOptions(cluster, "storage-1")...)
 				Expect(err).NotTo(HaveOccurred())
@@ -280,7 +280,7 @@ var _ = Describe("update_pods", func() {
 			})
 		})
 
-		When("A Process Group has no matching pod", func() {
+		When("a Process Group has no matching Pod", func() {
 			BeforeEach(func() {
 				pods, err := clusterReconciler.PodLifecycleManager.GetPods(context.TODO(), clusterReconciler, cluster, internal.GetSinglePodListOptions(cluster, "storage-1")...)
 				Expect(err).NotTo(HaveOccurred())
