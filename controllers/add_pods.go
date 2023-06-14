@@ -25,7 +25,6 @@ import (
 	"fmt"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
 	"github.com/go-logr/logr"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -81,7 +80,7 @@ func (a addPods) reconcile(ctx context.Context, r *FoundationDBClusterReconciler
 			continue
 		}
 
-		_, idNum, err := podmanager.ParseProcessGroupID(processGroup.ProcessGroupID)
+		idNum, err := processGroup.ProcessGroupID.GetIDNumber()
 		if err != nil {
 			return &requeue{curError: err}
 		}

@@ -5315,4 +5315,54 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				},
 			}),
 	)
+
+	When("getting the ID number from the process group ID", func() {
+		Context("with a storage ID", func() {
+			It("can parse the ID", func() {
+				id, err := ProcessGroupID("storage-12").GetIDNumber()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(id).To(Equal(12))
+			})
+		})
+
+		Context("with a cluster controller ID", func() {
+			It("can parse the ID", func() {
+				id, err := ProcessGroupID("cluster_controller-3").GetIDNumber()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(id).To(Equal(3))
+			})
+		})
+
+		Context("with a custom prefix", func() {
+			It("parses the prefix", func() {
+				id, err := ProcessGroupID("dc-1storage-12").GetIDNumber()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(id).To(Equal(12))
+			})
+		})
+
+		Context("with no prefix", func() {
+			It("gives a parsing error", func() {
+				_, err := ProcessGroupID("6").GetIDNumber()
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(Equal("could not parse process group ID 6"))
+			})
+		})
+
+		Context("with no numbers", func() {
+			It("gives a parsing error", func() {
+				_, err := ProcessGroupID("storage").GetIDNumber()
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(Equal("could not parse process group ID storage"))
+			})
+		})
+
+		Context("with a text suffix", func() {
+			It("gives a parsing error", func() {
+				_, err := ProcessGroupID("storage-bad").GetIDNumber()
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(Equal("could not parse process group ID storage-bad"))
+			})
+		})
+	})
 })

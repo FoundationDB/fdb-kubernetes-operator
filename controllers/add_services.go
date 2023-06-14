@@ -23,8 +23,6 @@ package controllers
 import (
 	"context"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
-
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -71,7 +69,7 @@ func (a addServices) reconcile(ctx context.Context, r *FoundationDBClusterReconc
 				continue
 			}
 
-			_, idNum, err := podmanager.ParseProcessGroupID(processGroup.ProcessGroupID)
+			idNum, err := processGroup.ProcessGroupID.GetIDNumber()
 			if err != nil {
 				return &requeue{curError: err}
 			}
