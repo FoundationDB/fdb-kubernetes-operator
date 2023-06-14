@@ -208,6 +208,91 @@ var _ = Describe("update_pods", func() {
 		})
 	})
 
+	When("getting the fault domains with unavailable Pods", func() {
+		var cluster *fdbv1beta2.FoundationDBCluster
+		var processGroupsWithFaultDomains map[fdbv1beta2.FaultDomain]fdbv1beta2.None
+
+		BeforeEach(func() {
+			cluster = internal.CreateDefaultCluster()
+			Expect(k8sClient.Create(context.TODO(), cluster)).NotTo(HaveOccurred())
+			result, err := reconcileCluster(cluster)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.Requeue).To(BeFalse())
+			Expect(k8sClient.Get(context.TODO(), ctrlClient.ObjectKeyFromObject(cluster), cluster)).NotTo(HaveOccurred())
+		})
+
+		JustBeforeEach(func() {
+			processGroupsWithFaultDomains = getFaultDomainsWithUnavailablePods(context.Background(), log, clusterReconciler, cluster)
+		})
+
+		When("a Process Group has a Pod with pending condition", func() {
+			BeforeEach(func() {
+				for _, processGroup := range cluster.Status.ProcessGroups {
+					if processGroup.ProcessGroupID == "storage-1" {
+						processGroup.UpdateCondition(fdbv1beta2.PodPending, true)
+					}
+				}
+			})
+
+			It("should be marked as unavailable", func() {
+				Expect(processGroupsWithFaultDomains).To(HaveLen(1))
+			})
+		})
+
+		When("a Process Group has missing processes", func() {
+			BeforeEach(func() {
+				for _, processGroup := range cluster.Status.ProcessGroups {
+					if processGroup.ProcessGroupID == "storage-1" {
+						processGroup.UpdateCondition(fdbv1beta2.MissingProcesses, true)
+					}
+				}
+			})
+
+			It("should be marked as unavailable", func() {
+				Expect(processGroupsWithFaultDomains).To(HaveLen(1))
+			})
+		})
+
+		When("a Process Group has a Pod running with failed containers", func() {
+			BeforeEach(func() {
+				for _, processGroup := range cluster.Status.ProcessGroups {
+					if processGroup.ProcessGroupID == "storage-1" {
+						processGroup.UpdateCondition(fdbv1beta2.PodFailing, true)
+					}
+				}
+			})
+
+			It("should be marked as unavailable", func() {
+				Expect(processGroupsWithFaultDomains).To(HaveLen(1))
+			})
+		})
+
+		When("a Process Group has a Pod marked for deletion", func() {
+			BeforeEach(func() {
+				pods, err := clusterReconciler.PodLifecycleManager.GetPods(context.TODO(), clusterReconciler, cluster, internal.GetSinglePodListOptions(cluster, "storage-1")...)
+				Expect(err).NotTo(HaveOccurred())
+				pods[0].DeletionTimestamp = &metav1.Time{Time: time.Now()}
+				err = clusterReconciler.PodLifecycleManager.UpdatePods(context.TODO(), clusterReconciler, cluster, []*corev1.Pod{pods[0]}, true)
+				Expect(err).NotTo(HaveOccurred())
+			})
+			It("should be marked as unavailable", func() {
+				Expect(processGroupsWithFaultDomains).To(HaveLen(1))
+			})
+		})
+
+		When("a Process Group has no matching Pod", func() {
+			BeforeEach(func() {
+				pods, err := clusterReconciler.PodLifecycleManager.GetPods(context.TODO(), clusterReconciler, cluster, internal.GetSinglePodListOptions(cluster, "storage-1")...)
+				Expect(err).NotTo(HaveOccurred())
+				err = clusterReconciler.PodLifecycleManager.DeletePod(context.TODO(), clusterReconciler, pods[0])
+				Expect(err).NotTo(HaveOccurred())
+			})
+			It("should be marked as unavailable", func() {
+				Expect(processGroupsWithFaultDomains).To(HaveLen(1))
+			})
+		})
+	})
+
 	When("fetching all Pods that needs an update", func() {
 		var cluster *fdbv1beta2.FoundationDBCluster
 		var updates map[string][]*corev1.Pod
@@ -315,11 +400,9 @@ var _ = Describe("update_pods", func() {
 				}
 			})
 
-			It("should return no errors and a map with the zone and one pod to update", func() {
-				Expect(updates).To(HaveLen(1))
-				Expect(updates["simulation"]).To(HaveLen(1))
+			It("should return no errors and a an empty update map", func() {
+				Expect(updates).To(HaveLen(0))
 			})
 		})
-
 	})
 })
