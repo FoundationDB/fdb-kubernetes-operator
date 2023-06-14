@@ -218,7 +218,7 @@ spec:
         {{ range $index, $version := .SidecarVersions }}
         - name: foundationdb-kubernetes-init-{{ $index }}
           image: {{ .BaseImage }}:{{ .SidecarTag}}
-          imagePullPolicy: Always
+          imagePullPolicy: {{ .ImagePullPolicy }}
           command:
             - /bin/bash
           # This is a workaround for a change of the version schema that was never tested/supported
@@ -236,7 +236,7 @@ spec:
         {{ if eq .FDBVersion.Compact "7.1" }}
         - name: foundationdb-kubernetes-init-7-1-primary
           image: {{ .BaseImage }}:{{ .SidecarTag}}
-          imagePullPolicy: Always
+          imagePullPolicy: {{ .ImagePullPolicy }}
           args:
             # Note that we are only copying a library, rather than copying any binaries. 
             - "--copy-library"
@@ -291,9 +291,9 @@ spec:
           - name: metrics
             containerPort: 8080
         resources:
-          requests:
-            cpu: 500m
-            memory: 1024Mi
+         requests:
+           cpu: {{ .CPURequests }}
+           memory: {{ .MemoryRequests }}
         securityContext:
           allowPrivilegeEscalation: false
           privileged: false
@@ -333,12 +333,25 @@ spec:
         emptyDir: {}`
 )
 
+// operatorConfig represents the configuration of the operator Deployment.
 type operatorConfig struct {
-	OperatorImage    string
-	SecretName       string
+	// OperatorImage represents the operator image that should be used in the Deployment.
+	OperatorImage string
+	// SecretName represents the Kubernetes secret that contains the certificates for communicating with the FoundationDB
+	// cluster.
+	SecretName string
+	// BackupSecretName represents the secret that should be used to communicate with the backup blobstore.
 	BackupSecretName string
-	SidecarVersions  []SidecarConfig
-	Namespace        string
+	// SidecarVersions represents the sidecar configurations for different FoundationDB versions.
+	SidecarVersions []SidecarConfig
+	// Namespace represents the namespace for the Deployment and all associated resources
+	Namespace string
+	// ImagePullPolicy represents the pull policy for the operator container.
+	ImagePullPolicy corev1.PullPolicy
+	// CPURequests defined the CPU that should be requested.
+	CPURequests string
+	// MemoryRequests defined the Memory that should be requested.
+	MemoryRequests string
 }
 
 // SidecarConfig represents the configuration for a sidecar. This can be used for templating.
@@ -349,6 +362,8 @@ type SidecarConfig struct {
 	SidecarTag string
 	// FDBVersion represents the FoundationDB version for this config.
 	FDBVersion fdbv1beta2.Version
+	// ImagePullPolicy represents the pull policy for the sidecar.
+	ImagePullPolicy corev1.PullPolicy
 }
 
 // GetSidecarConfigs returns the sidecar configs. The sidecar configs can be used to template applications that will use
@@ -362,6 +377,7 @@ func (factory *Factory) GetSidecarConfigs() []SidecarConfig {
 		getDefaultSidecarConfig(
 			factory.GetSidecarImage(),
 			factory.GetFDBVersion(),
+			factory.getImagePullPolicy(),
 		),
 	)
 	baseImage := sidecarConfigs[0].BaseImage
@@ -375,14 +391,14 @@ func (factory *Factory) GetSidecarConfigs() []SidecarConfig {
 
 		sidecarConfigs = append(
 			sidecarConfigs,
-			getSidecarConfig(baseImage, "", version),
+			getSidecarConfig(baseImage, "", version, factory.getImagePullPolicy()),
 		)
 	}
 
 	return sidecarConfigs
 }
 
-func getDefaultSidecarConfig(sidecarImage string, version fdbv1beta2.Version) SidecarConfig {
+func getDefaultSidecarConfig(sidecarImage string, version fdbv1beta2.Version, imagePullPolicy corev1.PullPolicy) SidecarConfig {
 	defaultSidecarImage := strings.SplitN(sidecarImage, ":", 2)
 
 	var tag string
@@ -390,29 +406,41 @@ func getDefaultSidecarConfig(sidecarImage string, version fdbv1beta2.Version) Si
 		tag = defaultSidecarImage[1]
 	}
 
-	return getSidecarConfig(defaultSidecarImage[0], tag, version)
+	return getSidecarConfig(defaultSidecarImage[0], tag, version, imagePullPolicy)
 }
 
-func getSidecarConfig(baseImage string, tag string, version fdbv1beta2.Version) SidecarConfig {
+func getSidecarConfig(baseImage string, tag string, version fdbv1beta2.Version, imagePullPolicy corev1.PullPolicy) SidecarConfig {
 	if tag == "" {
 		tag = fmt.Sprintf("%s-1", version)
 	}
 
 	return SidecarConfig{
-		BaseImage:  baseImage,
-		FDBVersion: version,
-		SidecarTag: tag,
+		BaseImage:       baseImage,
+		FDBVersion:      version,
+		SidecarTag:      tag,
+		ImagePullPolicy: imagePullPolicy,
 	}
 }
 
 //nolint:revive
 func (factory *Factory) getOperatorConfig(namespace string) *operatorConfig {
+	cpuRequests := "500m"
+	MemoryRequests := "1024Mi"
+
+	if factory.options.cloudProvider == cloudProviderKind {
+		cpuRequests = "0"
+		MemoryRequests = "0"
+	}
+
 	return &operatorConfig{
 		OperatorImage:    factory.GetOperatorImage(),
 		SecretName:       factory.GetSecretName(),
 		BackupSecretName: factory.GetBackupSecretName(),
 		Namespace:        namespace,
 		SidecarVersions:  factory.GetSidecarConfigs(),
+		ImagePullPolicy:  factory.getImagePullPolicy(),
+		CPURequests:      cpuRequests,
+		MemoryRequests:   MemoryRequests,
 	}
 }
 

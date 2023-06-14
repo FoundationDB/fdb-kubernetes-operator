@@ -32,6 +32,12 @@ import (
 	"strings"
 )
 
+type cloudProvider string
+
+const (
+	cloudProviderKind = "kind"
+)
+
 // HaMode represents the targeted HA mode for the created cluster.
 type HaMode int
 
@@ -70,17 +76,20 @@ type ClusterConfig struct {
 	MachineCount int
 	// This is also used for calculating the number of Pods.
 	DisksPerMachine int
-	// VolumeSize the size of the volumes that should be created for stateful Pods.
-	VolumeSize string
 	// StorageServerPerPod defines the value that is set in the FoundationDBClusterSpec for this setting.
 	StorageServerPerPod int
-	// The storage engine that should be used to create the cluster
-	StorageEngine fdbv1beta2.StorageEngine
+	// VolumeSize the size of the volumes that should be created for stateful Pods.
+	VolumeSize string
 	// Namespace to create the cluster in, if empty will use a randomly generated namespace. The setup won't create the
 	// namespace if it's not created.
 	Namespace string
 	// Name of the cluster to be created, if empty a random name will be used.
 	Name string
+	// cloudProvider defines the cloud provider used to create the Kubernetes cluster. This value is set in the SetDefaults
+	// method.
+	cloudProvider cloudProvider
+	// The storage engine that should be used to create the cluster
+	StorageEngine fdbv1beta2.StorageEngine
 	// NodeSelector of the cluster to be created.
 	NodeSelector map[string]string
 	// Defines the HA mode that will be used, per default this will point to HaModeNone.
@@ -118,10 +127,6 @@ func (config *ClusterConfig) SetDefaults(factory *Factory) {
 		config.StorageEngine = fdbv1beta2.StorageEngineSSD
 	}
 
-	if config.VolumeSize == "" {
-		config.VolumeSize = "16Gi"
-	}
-
 	if config.StorageServerPerPod == 0 {
 		config.StorageServerPerPod = 1
 	}
@@ -135,6 +140,20 @@ func (config *ClusterConfig) SetDefaults(factory *Factory) {
 			log.Println("FoundationDBCluster", fdbCluster.Name(), "successfully created in", fdbCluster.Namespace())
 		}
 	}
+
+	if config.cloudProvider == "" {
+		config.cloudProvider = cloudProvider(factory.options.cloudProvider)
+	}
+}
+
+// getVolumeSize returns the volume size in as a string. If no volume size is defined a default will be set based on
+// the provided cloud provider.
+func (config *ClusterConfig) getVolumeSize() string {
+	if config.VolumeSize != "" {
+		return config.VolumeSize
+	}
+
+	return "16Gi"
 }
 
 // generateVolumeClaimTemplate generates a PersistentVolumeClaim for the specified configuration
@@ -146,10 +165,19 @@ func (config *ClusterConfig) generateVolumeClaimTemplate(
 			StorageClassName: &storageClass,
 			Resources: corev1.ResourceRequirements{
 				Requests: corev1.ResourceList{
-					corev1.ResourceStorage: resource.MustParse(config.VolumeSize),
+					corev1.ResourceStorage: resource.MustParse(config.getVolumeSize()),
 				},
 			},
 		},
+	}
+}
+
+// generateSidecarResources generates a ResourceList for the sidecar container
+func (config *ClusterConfig) generateSidecarResources() corev1.ResourceList {
+	// Minimal resources for the sidecar containers
+	return corev1.ResourceList{
+		corev1.ResourceCPU:    resource.MustParse("0.1"),
+		corev1.ResourceMemory: resource.MustParse("256Mi"),
 	}
 }
 

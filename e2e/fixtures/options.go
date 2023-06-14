@@ -41,6 +41,7 @@ type FactoryOptions struct {
 	username                    string
 	storageClass                string
 	upgradeString               string
+	cloudProvider               string
 	enableChaosTests            bool
 	cleanup                     bool
 	featureOperatorDNS          bool
@@ -97,7 +98,7 @@ func (options *FactoryOptions) BindFlags(fs *flag.FlagSet) {
 		&options.fdbVersion,
 		"fdb-version",
 		"",
-		"overrides the version number of the FoundationDB image that is used for testing.  Mandatory unless the FoundationDB image tag is of the form 'x.y.z'",
+		"overrides the version number of the FoundationDB image that is used for testing. Mandatory unless the FoundationDB image tag is of the form 'x.y.z'",
 	)
 	fs.StringVar(
 		&options.username,
@@ -116,6 +117,12 @@ func (options *FactoryOptions) BindFlags(fs *flag.FlagSet) {
 		"upgrade-versions",
 		"",
 		"defines the upgrade version pairs for upgrade tests.",
+	)
+	fs.StringVar(
+		&options.cloudProvider,
+		"cloud-provider",
+		"",
+		"defines the cloud provider used for the Kubernetes cluster, for defining cloud provider specific behaviour. Currently only Kind is support.",
 	)
 	fs.BoolVar(
 		&options.enableChaosTests,
@@ -204,6 +211,11 @@ func (options *FactoryOptions) validateFlags() error {
 		if err != nil {
 			return err
 		}
+	}
+
+	// Make sure we handle the cloud provider string internally as lower cases.
+	if options.cloudProvider != "" {
+		options.cloudProvider = strings.ToLower(options.cloudProvider)
 	}
 
 	return nil

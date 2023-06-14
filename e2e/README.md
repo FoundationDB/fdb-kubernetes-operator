@@ -48,6 +48,7 @@ If those tests are running on a cluster that has no chaos-mesh installed, you ca
 ### Running e2e tests in kind
 
 [kind](https://kind.sigs.k8s.io) provides an easy way to run a local Kubernetes cluster.
+For running tests on a `kind` cluster you should set the `CLOUD_PROVIDER=kind` environment variable to make sure the test framework is creating clusters with smaller resource requirements.
 The following steps assume that `kind` and `helm` are already installed.
 
 ```bash
@@ -65,7 +66,7 @@ If you want to iterate over different builds of the operator, you don't have to 
 You just can rebuild the operator image and push the new image inside the kind cluster:
 
 ```bash
-make -C e2e kind-update-operator
+CLOUD_PROVIDER=kind make -C e2e kind-update-operator
 ```
 
 ## What is tested

@@ -26,7 +26,9 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"strconv"
 	"strings"
+	"text/tabwriter"
 	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -545,14 +547,99 @@ func updateVersionMapIfVersionIsMissingOrNewer(baseVersion fdbv1beta2.Version, v
 	versions[newVersion.Compact()] = newVersion
 }
 
+// writePodInformation will write the Pod information from the provided Pod into a string.
+func writePodInformation(pod corev1.Pod) string {
+	var buffer strings.Builder
+	var containers, readyContainers, restarts int
+	for _, conStatus := range pod.Status.ContainerStatuses {
+		containers++
+		if conStatus.Ready {
+			readyContainers++
+		}
+
+		restarts += int(conStatus.RestartCount)
+	}
+
+	buffer.WriteString(pod.GetName())
+	buffer.WriteString("\t")
+	buffer.WriteString(strconv.Itoa(readyContainers))
+	buffer.WriteString("/")
+	buffer.WriteString(strconv.Itoa(containers))
+	buffer.WriteString("\t")
+	buffer.WriteString(string(pod.Status.Phase))
+
+	if pod.Status.Phase == corev1.PodPending {
+		for _, condition := range pod.Status.Conditions {
+			// Only check the PodScheduled condition.
+			if condition.Type != corev1.PodScheduled {
+				continue
+			}
+
+			// If the Pod is scheduled we can ignore this condition.
+			if condition.Status == corev1.ConditionTrue {
+				continue
+			}
+
+			// Printout the message, why the Pod is not scheduling.
+			buffer.WriteString("\t")
+			if condition.Message != "" {
+				buffer.WriteString(condition.Message)
+			} else {
+				buffer.WriteString("-")
+			}
+		}
+	} else {
+		buffer.WriteString("\t-")
+	}
+
+	buffer.WriteString("\t")
+	buffer.WriteString(strconv.Itoa(restarts))
+
+	if _, ok := pod.Labels[fdbv1beta2.FDBProcessGroupIDLabel]; ok {
+		var mainTag, sidecarTag string
+		for _, container := range pod.Spec.Containers {
+			if container.Name == fdbv1beta2.MainContainerName {
+				mainTag = strings.Split(container.Image, ":")[1]
+				continue
+			}
+
+			if container.Name == fdbv1beta2.SidecarContainerName {
+				sidecarTag = strings.Split(container.Image, ":")[1]
+				continue
+			}
+		}
+
+		buffer.WriteString("\t")
+		buffer.WriteString(mainTag)
+		buffer.WriteString("\t")
+		buffer.WriteString(sidecarTag)
+	} else {
+		buffer.WriteString("\t-\t-")
+	}
+
+	buffer.WriteString("\t")
+	endIdx := len(pod.Status.PodIPs) - 1
+	for idx, ip := range pod.Status.PodIPs {
+		buffer.WriteString(ip.IP)
+		if endIdx > idx {
+			buffer.WriteString(",")
+		}
+	}
+
+	buffer.WriteString("\t")
+	buffer.WriteString(pod.Spec.NodeName)
+	buffer.WriteString("\t")
+	buffer.WriteString(duration.HumanDuration(time.Since(pod.CreationTimestamp.Time)))
+
+	return buffer.String()
+}
+
 // DumpState writes the state of the cluster to the log output. Useful for debugging test failures.
 func (factory *Factory) DumpState(fdbCluster *FdbCluster) {
 	if fdbCluster == nil {
 		return
 	}
-	// (johscheuer): I tried to use the cli-runtime printer package but that was missing some information. Printing out
-	// the required information like this has the benefit, that we can customize the fields that are printed.
-	// Printout the cluster object
+
 	cluster := fdbCluster.GetCluster()
 
 	// We write the whole information into a buffer to prevent having multiple log line prefixes.
@@ -584,56 +671,22 @@ func (factory *Factory) DumpState(fdbCluster *FdbCluster) {
 		log.Println(err)
 	}
 
-	buffer.WriteString("---------- Pods ----------\n")
+	buffer.WriteString("---------- Pods ----------")
+	log.Println(buffer.String())
+	buffer.Reset()
+
+	// Make use of a tabwriter for better output.
+	w := tabwriter.NewWriter(log.Writer(), 0, 0, 1, ' ', tabwriter.Debug)
+	_, _ = fmt.Fprintln(w, "Name\tReady\tSTATUS\tUnschedulable\tRestarts\tMain Image\tSidecar Image\tIPs\tNode\tAge")
 	var operatorPods []corev1.Pod
 	for _, pod := range pods.Items {
 		if pod.Labels["app"] == "fdb-kubernetes-operator-controller-manager" {
 			operatorPods = append(operatorPods, pod)
 		}
 
-		var containers, readyContainers, restarts int
-		for _, conStatus := range pod.Status.ContainerStatuses {
-			containers++
-			if conStatus.Ready {
-				readyContainers++
-			}
-
-			restarts += int(conStatus.RestartCount)
-		}
-
-		var mainTag, sidecarTag string
-		for _, container := range pod.Spec.Containers {
-			if container.Name == fdbv1beta2.MainContainerName {
-				mainTag = strings.Split(container.Image, ":")[1]
-				continue
-			}
-
-			if container.Name == fdbv1beta2.SidecarContainerName {
-				sidecarTag = strings.Split(container.Image, ":")[1]
-				continue
-			}
-		}
-
-		if _, ok := pod.Labels[fdbv1beta2.FDBProcessGroupIDLabel]; ok {
-			buffer.WriteString(
-				fmt.Sprintf(
-					"%s\tReady: %d/%d\tSTATUS: %s\tRESTARTS: %d\tmain: %s\tsidecar: %s\tIPs: %s\tNode: %s\tAge: %s\n",
-					pod.GetName(),
-					readyContainers,
-					containers,
-					pod.Status.Phase,
-					restarts,
-					mainTag,
-					sidecarTag,
-					pod.Status.PodIPs,
-					pod.Spec.NodeName,
-					duration.HumanDuration(time.Since(pod.CreationTimestamp.Time)),
-				),
-			)
-		} else { // All non FDB containers
-			buffer.WriteString(fmt.Sprintf("%s\tReady: %d/%d\tSTATUS: %s\tRESTARTS: %d\tNode: %s\tAge: %s\n", pod.GetName(), readyContainers, containers, pod.Status.Phase, restarts, pod.Spec.NodeName, duration.HumanDuration(time.Since(pod.CreationTimestamp.Time))))
-		}
+		_, _ = fmt.Fprintln(w, writePodInformation(pod))
 	}
+	_ = w.Flush()
 
 	log.Println(buffer.String())
 
@@ -747,22 +800,32 @@ func (factory *Factory) CreateIfAbsent(object client.Object) error {
 	return nil
 }
 
-// GetOperatorImage returns the operator image provided via command line. If a registry was definem the registry will be
+// GetOperatorImage returns the operator image provided via command line. If a registry was defined the registry will be
 // prepended.
 func (factory *Factory) GetOperatorImage() string {
 	return prependRegistry(factory.options.registry, factory.options.operatorImage)
 }
 
-// GetSidecarImage returns the sidecar image provided via command line. If a registry was definem the registry will be
+// GetSidecarImage returns the sidecar image provided via command line. If a registry was defined the registry will be
 // prepended.
 func (factory *Factory) GetSidecarImage() string {
 	return prependRegistry(factory.options.registry, factory.options.sidecarImage)
 }
 
-// GetFoundationDBImage returns the FoundationDB image provided via command line. If a registry was definem the registry will be
+// GetFoundationDBImage returns the FoundationDB image provided via command line. If a registry was defined the registry will be
 // prepended.
 func (factory *Factory) GetFoundationDBImage() string {
 	return prependRegistry(factory.options.registry, factory.options.fdbImage)
+}
+
+// getImagePullPolicy returns the image pull policy based on the provided cloud provider. For Kind this will be Never, otherwise
+// this will Always.
+func (factory *Factory) getImagePullPolicy() corev1.PullPolicy {
+	if strings.ToLower(factory.options.cloudProvider) == cloudProviderKind {
+		return corev1.PullNever
+	}
+
+	return corev1.PullAlways
 }
 
 // UpdateNode update node definition
