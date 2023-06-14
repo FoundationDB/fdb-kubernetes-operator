@@ -23,6 +23,7 @@ package replacements
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
@@ -212,11 +213,16 @@ func processGroupNeedsRemoval(cluster *fdbv1beta2.FoundationDBCluster, pod *core
 		}
 
 		if pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] != specHash {
+			jsonSpec, err := json.Marshal(spec)
+			if err != nil {
+				return false, err
+			}
+
 			logger.Info("Replace process group",
 				"reason", "specHash has changed",
 				"desiredSpecHash", specHash,
 				"currentSpecHash", pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey],
-				"desiredSpec", base64.StdEncoding.EncodeToString([]byte(spec.String())),
+				"desiredSpec", base64.StdEncoding.EncodeToString(jsonSpec),
 			)
 			return true, nil
 		}
