@@ -59,7 +59,6 @@ func (u removeProcessGroups) reconcile(ctx context.Context, r *FoundationDBClust
 	}
 
 	remainingMap, err := removals.GetRemainingMap(logger, adminClient, cluster, status)
-
 	if err != nil {
 		return &requeue{curError: err}
 	}
