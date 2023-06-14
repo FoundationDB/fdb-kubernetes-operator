@@ -9958,12 +9958,14 @@ spec:
                   blockRemoval:
                     items:
                       maxLength: 63
+                      pattern: ^([\w-]+)-(\d+)$
                       type: string
                     maxItems: 1000
                     type: array
                   crashLoop:
                     items:
                       maxLength: 63
+                      pattern: ^([\w-]+)-(\d+)$
                       type: string
                     type: array
                   crashLoopContainers:
@@ -9976,6 +9978,7 @@ spec:
                         targets:
                           items:
                             maxLength: 63
+                            pattern: ^([\w-]+)-(\d+)$
                             type: string
                           maxItems: 10000
                           minItems: 0
@@ -9989,12 +9992,14 @@ spec:
                   ignoreDuringRestart:
                     items:
                       maxLength: 63
+                      pattern: ^([\w-]+)-(\d+)$
                       type: string
                     maxItems: 1000
                     type: array
                   noSchedule:
                     items:
                       maxLength: 63
+                      pattern: ^([\w-]+)-(\d+)$
                       type: string
                     type: array
                 type: object
@@ -10287,6 +10292,7 @@ spec:
               processGroupsToRemove:
                 items:
                   maxLength: 63
+                  pattern: ^([\w-]+)-(\d+)$
                   type: string
                 maxItems: 500
                 minItems: 0
@@ -10294,6 +10300,7 @@ spec:
               processGroupsToRemoveWithoutExclusion:
                 items:
                   maxLength: 63
+                  pattern: ^([\w-]+)-(\d+)$
                   type: string
                 maxItems: 500
                 minItems: 0
@@ -13881,6 +13888,7 @@ spec:
                       type: array
                     processGroupID:
                       maxLength: 63
+                      pattern: ^([\w-]+)-(\d+)$
                       type: string
                     removalTimestamp:
                       format: date-time

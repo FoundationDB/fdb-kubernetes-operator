@@ -96,7 +96,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 		})
 
 		Describe("Check process group", func() {
-			Context("when process group has no Pod", func() {
+			When("process group has no Pod", func() {
 				It("should not need removal", func() {
 					needsRemoval, err := processGroupNeedsRemoval(cluster, nil, nil, log)
 					Expect(needsRemoval).To(BeFalse())
@@ -104,21 +104,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				})
 			})
 
-			Context("when processGroupStatus is missing", func() {
-				BeforeEach(func() {
-					pClass = fdbv1beta2.ProcessClassStorage
-					remove = false
-				})
-
-				It("should return an error", func() {
-					needsRemoval, err := processGroupNeedsRemoval(cluster, pod, nil, log)
-					Expect(needsRemoval).To(BeFalse())
-					Expect(err).To(HaveOccurred())
-					Expect(err.Error()).To(Equal(fmt.Sprintf("unknown process group %s in replace_misconfigured_pods", status.ProcessGroupID)))
-				})
-			})
-
-			Context("when processGroupStatus has remove flag", func() {
+			When("process group has remove flag", func() {
 				BeforeEach(func() {
 					pClass = fdbv1beta2.ProcessClassStorage
 					remove = true
@@ -300,7 +286,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			It("should not need a removal", func() {
 				processClass := internal.GetProcessClassFromMeta(cluster, pod.ObjectMeta)
 				processGroupID := internal.GetProcessGroupIDFromMeta(cluster, pod.ObjectMeta)
-				_, idNum, err := internal.ParseProcessGroupID(processGroupID)
+				idNum, err := processGroupID.GetIDNumber()
 				Expect(err).NotTo(HaveOccurred())
 				pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey], err = internal.GetPodSpecHash(cluster, processClass, idNum, nil)
 				Expect(err).NotTo(HaveOccurred())

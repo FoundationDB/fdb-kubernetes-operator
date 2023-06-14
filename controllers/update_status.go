@@ -526,7 +526,7 @@ func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler,
 		return nil
 	}
 
-	_, idNum, err := podmanager.ParseProcessGroupID(processGroupStatus.ProcessGroupID)
+	idNum, err := processGroupStatus.ProcessGroupID.GetIDNumber()
 	if err != nil {
 		return err
 	}
