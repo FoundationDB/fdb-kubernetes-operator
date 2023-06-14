@@ -185,11 +185,12 @@ var _ = Describe("pod_models", func() {
 
 			It("should use the image tag defined in the desired version", func() {
 				for _, container := range spec.Containers {
-					if container.Name != fdbv1beta2.MainContainerName {
+					if container.Name == fdbv1beta2.MainContainerName {
+						Expect(container.Image).To(HaveSuffix(fdbv1beta2.Versions.NextPatchVersion.String()))
 						continue
 					}
 
-					Expect(container.Image).To(HaveSuffix(fdbv1beta2.Versions.NextPatchVersion.String()))
+					Expect(container.Image).To(HaveSuffix(fdbv1beta2.Versions.NextPatchVersion.String() + "-1"))
 				}
 			})
 		})
@@ -203,11 +204,12 @@ var _ = Describe("pod_models", func() {
 
 			It("should use the image tag defined in the running version", func() {
 				for _, container := range spec.Containers {
-					if container.Name != fdbv1beta2.MainContainerName {
+					if container.Name == fdbv1beta2.MainContainerName {
+						Expect(container.Image).To(HaveSuffix(cluster.Status.RunningVersion))
 						continue
 					}
 
-					Expect(container.Image).To(HaveSuffix(cluster.Status.RunningVersion))
+					Expect(container.Image).To(HaveSuffix(cluster.Status.RunningVersion + "-1"))
 				}
 			})
 		})
@@ -3285,7 +3287,7 @@ var _ = Describe("pod_models", func() {
 
 			DescribeTable("should return the correct image",
 				func(input testCase, expected string) {
-					err = configureSidecarContainerForCluster(cluster, "operator-test-storage-1", input.container, input.initMode, input.processGroupID)
+					err = configureSidecarContainerForCluster(cluster, "operator-test-storage-1", input.container, input.initMode, input.processGroupID, "6.2.21")
 					if input.hasError {
 						Expect(err).To(HaveOccurred())
 					} else {
