@@ -90,10 +90,12 @@ func verifyVersion(cluster *fixtures.FdbCluster, expectedVersion string) {
 
 func upgradeAndVerify(cluster *fixtures.FdbCluster, expectedVersion string) {
 	startTime := time.Now()
+	defer func() {
+		log.Println("Upgrade took:", time.Since(startTime).String())
+	}()
+
 	Expect(cluster.UpgradeCluster(expectedVersion, true)).NotTo(HaveOccurred())
 	verifyVersion(cluster, expectedVersion)
-
-	log.Println("Upgrade took:", time.Since(startTime).String())
 }
 
 var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
@@ -137,9 +139,29 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 				}).WithTimeout(10 * time.Minute).WithPolling(5 * time.Second).Should(BeTrue())
 			}
 
-			// We can call this method again, this will make sure that the test waits until the cluster is upgraded and
-			// reconciled.
-			upgradeAndVerify(fdbCluster, targetVersion)
+			transactionSystemProcessGroups := make(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None)
+			// Wait until the cluster is upgraded and fully reconciled.
+			Expect(fdbCluster.WaitUntilWithForceReconcile(2, 600, func(cluster *fdbv1beta2.FoundationDBCluster) bool {
+				for _, processGroup := range cluster.Status.ProcessGroups {
+					if processGroup.ProcessClass == fdbv1beta2.ProcessClassStorage {
+						continue
+					}
+
+					transactionSystemProcessGroups[processGroup.ProcessGroupID] = fdbv1beta2.None{}
+				}
+
+				// Allow soft reconciliation and make sure the running version was updated
+				return cluster.Status.Generations.Reconciled == cluster.Generation && cluster.Status.RunningVersion == targetVersion
+			})).NotTo(HaveOccurred())
+
+			// Get the desired process counts based on the current cluster configuration
+			processCounts, err := fdbCluster.GetProcessCounts()
+			Expect(err).NotTo(HaveOccurred())
+
+			// During an upgrade we expect that the transaction system processes are replaced, so we expect to have seen
+			// 2 times the process counts for transaction system processes.
+			expectedProcessCounts := (processCounts.Total() - processCounts.Storage) * 2
+			Expect(transactionSystemProcessGroups).To(HaveLen(expectedProcessCounts))
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
