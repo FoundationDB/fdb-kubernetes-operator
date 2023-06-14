@@ -22,6 +22,7 @@ package replacements
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
@@ -200,14 +201,23 @@ func processGroupNeedsRemoval(cluster *fdbv1beta2.FoundationDBCluster, pod *core
 	}
 
 	if cluster.NeedsReplacement(processGroupStatus) {
-		specHash, err := internal.GetPodSpecHash(cluster, processGroupStatus.ProcessClass, idNum, nil)
+		spec, err := internal.GetPodSpec(cluster, processGroupStatus.ProcessClass, idNum)
+		if err != nil {
+			return false, err
+		}
+
+		specHash, err := internal.GetPodSpecHash(cluster, processGroupStatus.ProcessClass, idNum, spec)
 		if err != nil {
 			return false, err
 		}
 
 		if pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] != specHash {
 			logger.Info("Replace process group",
-				"reason", fmt.Sprintf("specHash has changed from %s to %s", specHash, pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey]))
+				"reason", "specHash has changed",
+				"desiredSpecHash", specHash,
+				"currentSpecHash", pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey],
+				"desiredSpec", base64.StdEncoding.EncodeToString([]byte(spec.String())),
+			)
 			return true, nil
 		}
 	}
