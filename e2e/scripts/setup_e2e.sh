@@ -1,4 +1,3 @@
-
 #!/usr/bin/env bash
 
 # This source file is part of the FoundationDB open source project
@@ -21,6 +20,17 @@
 # Running in other environments may involve non-trivial debugging effort.
 set -eo errexit
 
+function check_required_binaries() {
+  for binary in "helm" "kubectl" "kind";
+  do
+    if ! command -v $binary >/dev/null 2>&1
+    then
+      echo "could not find helm in $binary"
+      exit 1
+    fi
+  done
+}
+
 function get_image_name() {
   if [[ -z ${REGISTRY} ]]
   then
@@ -31,9 +41,21 @@ function get_image_name() {
 }
 
 function preload_foundationdb_images() {
+  echo "loading images: ${2} and ${3}"
   kind load docker-image "${2}" --name "${1}"
   kind load docker-image "${3}" --name "${1}"
 }
+
+function preload_foundationdb_images_for_version() {
+  echo "Preload FoundationDB images for version ${1}"
+  fdb_image=$(get_image_name "foundationdb/foundationdb:${1}")
+  fdb_sidecar_image=$(get_image_name "foundationdb/foundationdb-kubernetes-sidecar:${1}-1")
+  docker pull "${fdb_image}"
+  docker pull "${fdb_sidecar_image}"
+  preload_foundationdb_images "${CLUSTER}" "${fdb_image}" "${fdb_sidecar_image}"
+}
+
+check_required_binaries
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
 cd "${SCRIPT_DIR}"
@@ -42,6 +64,10 @@ cd "${SCRIPT_DIR}"
 KUBE_VERSION=${KUBE_VERSION:-"v1.24.7"}
 # Defines the FDB version that should be preloaded into the Kind cluster
 FDB_VERSION=${FDB_VERSION:-"7.1.25"}
+# Defines the previous FDB version that should be preloaded into the Kind cluster
+UPGRADE_VERSIONS=${UPGRADE_VERSIONS:-""}
+# Defines the FDB version that are used for upgreade tests and that should be preloaded into the Kind cluster
+PREVIOUS_FDB_VERSION=${PREVIOUS_FDB_VERSION:-"6.3.25"}
 # Defines the registry to pull the images from.
 REGISTRY=${REGISTRY:-""}
 # Name for the new Kind cluster
@@ -54,23 +80,26 @@ CHAOS_NAMESPACE=${CHAOS_NAMESPACE:-"chaos-testing"}
 # Create the Kind cluster with the specified Kubernetes version.
 CLUSTER=${CLUSTER} KUBE_VERSION=${KUBE_VERSION} ${SCRIPT_DIR}/start_kind_cluster.sh
 
-echo "Preload FoundationDB images for version ${FDB_VERSION}"
-fdb_image=$(get_image_name "foundationdb/foundationdb:${FDB_VERSION}")
-fdb_sidecar_image=$(get_image_name "foundationdb/foundationdb-kubernetes-sidecar:${FDB_VERSION}-1")
-docker pull "${fdb_image}"
-docker pull "${fdb_sidecar_image}"
+# Make sure all required versions for the tests are available in the kind cluster.
+preload_foundationdb_images_for_version "${FDB_VERSION}"
+preload_foundationdb_images_for_version "${PREVIOUS_FDB_VERSION}"
 
-preload_foundationdb_images "${CLUSTER}" "${fdb_image}" "${fdb_sidecar_image}"
+for version in $(echo ${UPGRADE_VERSIONS} | tr ':,' ' ');
+do
+  preload_foundationdb_images_for_version "${version}"
+done
 
 echo "Build the operator image from the current revision"
-BUILD_PLATFORM="linux/amd64" make -C "${SCRIPT_DIR}/../.." container-build
-kind load docker-image "fdb-kubernetes-operator:latest" --name "${CLUSTER}"
+operator_image=$(get_image_name "fdb-kubernetes-operator:latest")
+IMG="${operator_image}" BUILD_PLATFORM="linux/amd64" make -C "${SCRIPT_DIR}/../.." container-build
+kind load docker-image "${operator_image}" --name "${CLUSTER}"
 
 echo "Install the CRDs in the Kind cluster"
 kubectl apply -f "${SCRIPT_DIR}/../../config/crd/bases/"
 
 echo "Install the chaos-mesh in the Kind cluster"
 kubectl create ns "${CHAOS_NAMESPACE}" || true
+
 helm repo add chaos-mesh https://charts.chaos-mesh.org
 helm repo update
 

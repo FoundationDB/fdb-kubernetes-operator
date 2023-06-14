@@ -21,6 +21,9 @@ TEST_USERNAME?=$(USER)
 ENABLE_CHAOS_TESTS?=true
 CHAOS_NAMESPACE?=chaos-testing
 STORAGE_CLASS?=
+# Defines the cloud provider used for the underlying Kubernetes cluster. Currently only kind is support, other cloud providers
+# should still work but this test framework has no special cases for those.
+CLOUD_PROVIDER?=
 # Multiple versions can be specified for these upgrades by separating them with a, e.g. 6.2.25:7.1.25,7.1.23:7.1.25
 UPGRADE_VERSIONS?="$(PREVIOUS_FDB_VERSION):$(FDB_VERSION)"
 # Those are feature flags for the operator tests. Enable a feature if you want to run the operator tests with a specific
@@ -46,7 +49,7 @@ destroy-my-namespaces:
 
 # This target can be used to create a kind cluster that can be used for e2e testing.
 kind-setup:
-	@CHAOS_NAMESPACE=$(CHAOS_NAMESPACE) FDB_VERSION=$(FDB_VERSION) REGISTRY=$(REGISTRY) $(shell pwd)/scripts/setup_e2e.sh
+	@CHAOS_NAMESPACE=$(CHAOS_NAMESPACE) FDB_VERSION=$(FDB_VERSION) UPGRADE_VERSIONS=$(UPGRADE_VERSIONS) PREVIOUS_FDB_VERSION=$(PREVIOUS_FDB_VERSION) REGISTRY=$(REGISTRY) $(shell pwd)/scripts/setup_e2e.sh
 
 # This target will remove the kind cluster.
 kind-destroy:
@@ -120,4 +123,5 @@ nightly-tests: run
 	  --feature-unified-image=$(FEATURE_UNIFIED_IMAGE) \
 	  --feature-localities=$(FEATURE_LOCALITIES) \
 	  --feature-dns=$(FEATURE_DNS) \
+	  --cloud-provider=$(CLOUD_PROVIDER) \
 	  | grep -v 'constructing many client instances from the same exec auth config can cause performance problems during cert rotation' &> $(BASE_DIR)/../logs/$<.log

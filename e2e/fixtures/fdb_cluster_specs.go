@@ -23,7 +23,6 @@ package fixtures
 import (
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 )
@@ -87,12 +86,8 @@ func (factory *Factory) createPodTemplate(
 	nodeSelector map[string]string,
 	resources corev1.ResourceList,
 	setLimits bool,
+	sidecarResources corev1.ResourceList,
 ) *corev1.PodTemplateSpec {
-	// minimal resources for our sidecar
-	sideResources := corev1.ResourceList{
-		corev1.ResourceCPU:    resource.MustParse("0.1"),
-		corev1.ResourceMemory: resource.MustParse("256Mi"),
-	}
 	// the operator is causing this to not work as desired reference:
 	// https://github.com/FoundationDB/fdb-kubernetes-operator/blob/main/internal/deprecations.go#L75-L77
 	fdbPodResources := corev1.ResourceRequirements{
@@ -165,7 +160,7 @@ func (factory *Factory) createPodTemplate(
 			Containers: []corev1.Container{
 				{
 					Name:            fdbv1beta2.MainContainerName,
-					ImagePullPolicy: corev1.PullAlways,
+					ImagePullPolicy: factory.getImagePullPolicy(),
 					Resources:       fdbPodResources,
 					SecurityContext: &corev1.SecurityContext{
 						Privileged:               pointer.Bool(true),
@@ -206,7 +201,7 @@ func (factory *Factory) createPodTemplate(
 				},
 				{
 					Name:            fdbv1beta2.SidecarContainerName,
-					ImagePullPolicy: corev1.PullAlways,
+					ImagePullPolicy: factory.getImagePullPolicy(),
 					SecurityContext: &corev1.SecurityContext{
 						//Privileged:               pointer.Bool(true),
 						//AllowPrivilegeEscalation: pointer.Bool(true), // for performance profiling
@@ -215,7 +210,7 @@ func (factory *Factory) createPodTemplate(
 						), // to allow I/O chaos to succeed
 					},
 					Resources: corev1.ResourceRequirements{
-						Requests: sideResources,
+						Requests: sidecarResources,
 					},
 					Env: []corev1.EnvVar{
 						{
@@ -263,6 +258,7 @@ func (factory *Factory) createProcesses(
 	config *ClusterConfig,
 ) map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings {
 	claimTemplate := config.generateVolumeClaimTemplate(factory.GetDefaultStorageClass())
+	sidecarResources := config.generateSidecarResources()
 
 	return map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{
 		fdbv1beta2.ProcessClassGeneral: {
@@ -270,6 +266,7 @@ func (factory *Factory) createProcesses(
 				config.NodeSelector,
 				config.generatePodResources(fdbv1beta2.ProcessClassGeneral),
 				config.Performance,
+				sidecarResources,
 			),
 			VolumeClaimTemplate: claimTemplate,
 			CustomParameters:    config.getCustomParametersForProcessClass(fdbv1beta2.ProcessClassGeneral),
@@ -279,6 +276,7 @@ func (factory *Factory) createProcesses(
 				config.NodeSelector,
 				config.generatePodResources(fdbv1beta2.ProcessClassStorage),
 				config.Performance,
+				sidecarResources,
 			),
 			VolumeClaimTemplate: claimTemplate,
 			CustomParameters:    config.getCustomParametersForProcessClass(fdbv1beta2.ProcessClassStorage),

@@ -46,7 +46,6 @@ var _ = FDescribe("Cluster configuration", func() {
 				corev1.ResourceCPU:    resource.MustParse("0.2"),
 				corev1.ResourceMemory: resource.MustParse("2Gi"),
 			}),
-
 		Entry("performance config for general process class",
 			&ClusterConfig{
 				Performance: true,
@@ -74,6 +73,24 @@ var _ = FDescribe("Cluster configuration", func() {
 			corev1.ResourceList{
 				corev1.ResourceCPU:    resource.MustParse("2"),
 				corev1.ResourceMemory: resource.MustParse("16Gi"),
+			}),
+		Entry("empty config for general process class for Kind",
+			&ClusterConfig{
+				cloudProvider: "kind",
+			},
+			fdbv1beta2.ProcessClassGeneral,
+			corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("0.2"),
+				corev1.ResourceMemory: resource.MustParse("2Gi"),
+			}),
+		Entry("empty config for storage process class",
+			&ClusterConfig{
+				cloudProvider: "kind",
+			},
+			fdbv1beta2.ProcessClassStorage,
+			corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("0.2"),
+				corev1.ResourceMemory: resource.MustParse("2Gi"),
 			}),
 	)
 })
