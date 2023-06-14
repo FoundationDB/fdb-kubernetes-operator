@@ -23,6 +23,7 @@ package cmd
 import (
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -105,9 +106,13 @@ func newRestartCmd(streams genericclioptions.IOStreams) *cobra.Command {
 					processes = append(processes, pod.Name)
 				}
 			} else if len(conditions) > 0 {
-				processes, err = getAllPodsFromClusterWithCondition(kubeClient, clusterName, namespace, conditions)
+				var warn []string
+				processes, warn, err = getAllPodsFromClusterWithCondition(kubeClient, clusterName, namespace, conditions)
 				if err != nil {
 					return err
+				}
+				if warn != nil {
+					cmd.PrintErrln("< Warning: The following Process Groups cannot be restarted \n" + strings.Join(warn, "\n") + " />\n")
 				}
 			} else {
 				processes = args

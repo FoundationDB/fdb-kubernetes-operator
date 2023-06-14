@@ -151,7 +151,7 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 
 		DescribeTable("should show all deprecations",
 			func(tc testCase) {
-				pods, err := getAllPodsFromClusterWithCondition(k8sClient, clusterName, namespace, tc.conditions)
+				pods, _, err := getAllPodsFromClusterWithCondition(k8sClient, clusterName, namespace, tc.conditions)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(pods).To(Equal(tc.expected))
 			},

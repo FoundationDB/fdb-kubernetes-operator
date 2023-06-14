@@ -24,7 +24,6 @@ import (
 	"bytes"
 	ctx "context"
 	"fmt"
-	"log"
 	"math/rand"
 	"strings"
 
@@ -161,10 +160,10 @@ func executeCmd(restConfig *rest.Config, kubeClient *kubernetes.Clientset, podNa
 	return &stdout, &stderr, err
 }
 
-func getAllPodsFromClusterWithCondition(kubeClient client.Client, clusterName string, namespace string, conditions []fdbv1beta2.ProcessGroupConditionType) ([]string, error) {
+func getAllPodsFromClusterWithCondition(kubeClient client.Client, clusterName string, namespace string, conditions []fdbv1beta2.ProcessGroupConditionType) ([]string, []string, error) {
 	cluster, err := loadCluster(kubeClient, namespace, clusterName)
 	if err != nil {
-		return []string{}, err
+		return []string{}, nil, err
 	}
 
 	processesSet := make(map[fdbv1beta2.ProcessGroupID]bool)
@@ -182,7 +181,7 @@ func getAllPodsFromClusterWithCondition(kubeClient client.Client, clusterName st
 	podNames := make([]string, 0, len(processesSet))
 	pods, err := getPodsForCluster(kubeClient, cluster)
 	if err != nil {
-		return podNames, err
+		return podNames, nil, err
 	}
 
 	podMap := make(map[string]corev1.Pod)
@@ -190,9 +189,10 @@ func getAllPodsFromClusterWithCondition(kubeClient client.Client, clusterName st
 		podMap[pod.Labels[cluster.GetProcessGroupIDLabel()]] = pod
 	}
 
+	var warnings []string
 	for process := range processesSet {
 		if _, ok := podMap[string(process)]; !ok {
-			log.Printf("Pod for process group %s not found", process)
+			warnings = append(warnings, fmt.Sprintf("Process Group: %s, is missing pods.", process))
 			continue
 		}
 		if podMap[string(process)].Labels[cluster.GetProcessGroupIDLabel()] != string(process) {
@@ -205,7 +205,10 @@ func getAllPodsFromClusterWithCondition(kubeClient client.Client, clusterName st
 		podNames = append(podNames, podMap[string(process)].Name)
 	}
 
-	return podNames, nil
+	if len(warnings) > 0 {
+		return podNames, warnings, nil
+	}
+	return podNames, nil, nil
 }
 
 // getProcessGroupIDsFromPodName returns the process group IDs based on the cluster configuration.
