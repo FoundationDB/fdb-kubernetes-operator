@@ -5365,4 +5365,100 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			})
 		})
 	})
+
+	DescribeTable("when checking if all addresses are excluded for a process group", func(processGroupStatus *ProcessGroupStatus, remainingMap map[string]bool, expected bool, expectedErr error) {
+		excluded, err := processGroupStatus.AllAddressesExcluded(remainingMap)
+		Expect(excluded).To(Equal(expected))
+
+		if expectedErr != nil {
+			Expect(err).To(HaveOccurred())
+			Expect(err).To(Equal(expectedErr))
+		} else {
+			Expect(err).NotTo(HaveOccurred())
+		}
+	},
+		Entry("process group has no addresses",
+			&ProcessGroupStatus{},
+			nil,
+			false,
+			fmt.Errorf("process has no addresses, cannot safely determine if process can be removed"),
+		),
+		Entry("process group is excluded",
+			&ProcessGroupStatus{
+				ExclusionSkipped: true,
+			},
+			nil,
+			true,
+			nil,
+		),
+		Entry("process group is excluded",
+			&ProcessGroupStatus{
+				ExclusionTimestamp: &metav1.Time{Time: time.Now()},
+			},
+			nil,
+			true,
+			nil,
+		),
+		Entry("process group has single addresses missing in remaining",
+			&ProcessGroupStatus{
+				Addresses: []string{
+					"192.168.0.1",
+				},
+			},
+			nil,
+			false,
+			fmt.Errorf("process has missing address in exclusion results: 192.168.0.1"),
+		),
+		Entry("process group has single addresses present in remaining as not excluded",
+			&ProcessGroupStatus{
+				Addresses: []string{
+					"192.168.0.1",
+				},
+			},
+			map[string]bool{
+				"192.168.0.1": true,
+			},
+			false,
+			fmt.Errorf("process has missing address in exclusion results: 192.168.0.1"),
+		),
+		Entry("process group has single addresses present in remaining as excluded",
+			&ProcessGroupStatus{
+				Addresses: []string{
+					"192.168.0.1",
+				},
+			},
+			map[string]bool{
+				"192.168.0.1": false,
+			},
+			true,
+			nil,
+		),
+		Entry("process group has two addresses and only one is present in remaining as excluded",
+			&ProcessGroupStatus{
+				Addresses: []string{
+					"192.168.0.1",
+					"192.168.0.2",
+				},
+			},
+			map[string]bool{
+				"192.168.0.1": false,
+			},
+			false,
+			fmt.Errorf("process has missing address in exclusion results: 192.168.0.2"),
+		),
+		Entry("process group has two addresses and both are present in remaining as excluded",
+			&ProcessGroupStatus{
+				Addresses: []string{
+					"192.168.0.1",
+					"192.168.0.2",
+				},
+			},
+			map[string]bool{
+				"192.168.0.1": false,
+				"192.168.0.2": true,
+			},
+			false,
+			fmt.Errorf("process has missing address in exclusion results: 192.168.0.2"),
+		),
+	)
 })

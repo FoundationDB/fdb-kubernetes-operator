@@ -673,8 +673,7 @@ func (fdbCluster *FdbCluster) UpdateLogProcessCount(newLogProcessCount int) erro
 // SetPodAsUnschedulable sets the provided Pod on the NoSchedule list of the current FoundationDBCluster. This will make
 // sure that the Pod is stuck in Pending.
 func (fdbCluster *FdbCluster) SetPodAsUnschedulable(pod corev1.Pod) error {
-	fdbCluster.cluster.Spec.Buggify.NoSchedule = []fdbv1beta2.ProcessGroupID{GetProcessGroupID(pod)}
-	fdbCluster.UpdateClusterSpec()
+	fdbCluster.SetProcessGroupsAsUnschedulable([]fdbv1beta2.ProcessGroupID{GetProcessGroupID(pod)})
 
 	fetchedPod := &corev1.Pod{}
 	return wait.PollImmediate(2*time.Second, 5*time.Minute, func() (bool, error) {
@@ -694,6 +693,13 @@ func (fdbCluster *FdbCluster) SetPodAsUnschedulable(pod corev1.Pod) error {
 
 		return fetchedPod.Spec.NodeName == "", nil
 	})
+}
+
+// SetProcessGroupsAsUnschedulable sets the provided process groups on the NoSchedule list of the current FoundationDBCluster. This will make
+// sure that the Pod is stuck in Pending.
+func (fdbCluster *FdbCluster) SetProcessGroupsAsUnschedulable(procesGroups []fdbv1beta2.ProcessGroupID) {
+	fdbCluster.cluster.Spec.Buggify.NoSchedule = procesGroups
+	fdbCluster.UpdateClusterSpec()
 }
 
 // ClearBuggifyNoSchedule this will reset the NoSchedule setting for the current FoundationDBCluster.

@@ -449,14 +449,14 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 			Eventually(func() bool {
 				pod := fdbCluster.GetPod(pickedPod.Name)
 				for _, container := range pod.Spec.Containers {
-					log.Printf("Container: %s, Args: %s", container.Name, container.Args)
 					if container.Name == fdbv1beta2.SidecarContainerName {
+						log.Printf("Container: %s, Args: %s", container.Name, container.Args)
 						return container.Args[0] == "crash-loop"
 					}
 				}
 
 				return false
-			}).WithPolling(2 * time.Second).WithTimeout(2 * time.Minute).Should(BeTrue())
+			}).WithPolling(2 * time.Second).WithTimeout(2 * time.Minute).MustPassRepeatedly(10).Should(BeTrue())
 
 			// 2. Start cluster upgrade.
 			log.Printf("Crash injected in sidecar container %s. Starting upgrade.", pickedPod.Name)
@@ -469,12 +469,10 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 				log.Println("upgrade should not finish while sidecar process is unavailable")
 				Consistently(func() bool {
 					return fdbCluster.GetCluster().Status.RunningVersion == beforeVersion
-				}).WithTimeout(4 * time.Minute).WithPolling(2 * time.Second).Should(BeTrue())
+				}).WithTimeout(2 * time.Minute).WithPolling(2 * time.Second).Should(BeTrue())
 			} else {
 				// It should upgrade the cluster if the version is protocol compatible.
-				Eventually(func() bool {
-					return fdbCluster.GetCluster().Status.RunningVersion == targetVersion
-				}).WithTimeout(15 * time.Minute).WithPolling(10 * time.Second).Should(BeTrue())
+				verifyVersion(fdbCluster, targetVersion)
 			}
 
 			// 4. Remove the crash-loop.

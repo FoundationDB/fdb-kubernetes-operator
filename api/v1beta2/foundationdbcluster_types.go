@@ -517,6 +517,13 @@ func (processGroupStatus *ProcessGroupStatus) AllAddressesExcluded(remainingMap 
 		return true, nil
 	}
 
+	// If the process group has no addresses assigned we cannot remove it safely and we have to set the skip exclusion.
+	if len(processGroupStatus.Addresses) == 0 {
+		return false, fmt.Errorf("process has no addresses, cannot safely determine if process can be removed")
+	}
+
+	// If a process group has more than one address we have to make sure that all the provided addresses are part
+	// of the remainingMap as excluded.
 	for _, address := range processGroupStatus.Addresses {
 		isRemaining, isPresent := remainingMap[address]
 		if !isPresent || isRemaining {
