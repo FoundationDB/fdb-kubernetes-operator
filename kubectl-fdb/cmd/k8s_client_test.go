@@ -21,6 +21,7 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"time"
 
@@ -74,6 +75,13 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 							RemovalTimestamp: &metav1.Time{Time: time.Now()},
 							ProcessGroupConditions: []*fdbv1beta2.ProcessGroupCondition{
 								fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.IncorrectCommandLine),
+							},
+						},
+						{
+							ProcessGroupID: "instance-5",
+							Addresses:      []string{"1.2.3.7"},
+							ProcessGroupConditions: []*fdbv1beta2.ProcessGroupCondition{
+								fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.SidecarUnreachable),
 							},
 						},
 					},
@@ -145,30 +153,42 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 		})
 
 		type testCase struct {
-			conditions []fdbv1beta2.ProcessGroupConditionType
-			expected   []string
+			conditions           []fdbv1beta2.ProcessGroupConditionType
+			expected             []string
+			expectedOutputBuffer string
 		}
 
 		DescribeTable("should show all deprecations",
 			func(tc testCase) {
-				pods, _, err := getAllPodsFromClusterWithCondition(k8sClient, clusterName, namespace, tc.conditions)
+				outBuffer := bytes.Buffer{}
+				pods, err := getAllPodsFromClusterWithCondition(&outBuffer, k8sClient, clusterName, namespace, tc.conditions)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(pods).To(Equal(tc.expected))
+				Expect(outBuffer.String()).To(Equal(tc.expectedOutputBuffer))
 			},
 			Entry("No conditions",
 				testCase{
-					conditions: []fdbv1beta2.ProcessGroupConditionType{},
-					expected:   []string{},
+					conditions:           []fdbv1beta2.ProcessGroupConditionType{},
+					expected:             []string{},
+					expectedOutputBuffer: "",
 				}),
 			Entry("Single condition",
 				testCase{
-					conditions: []fdbv1beta2.ProcessGroupConditionType{fdbv1beta2.MissingProcesses},
-					expected:   []string{"instance-1"},
+					conditions:           []fdbv1beta2.ProcessGroupConditionType{fdbv1beta2.MissingProcesses},
+					expected:             []string{"instance-1"},
+					expectedOutputBuffer: "Skipping Process Group: instance-3, Pod is not running, current phase: Failed",
 				}),
 			Entry("Multiple conditions",
 				testCase{
-					conditions: []fdbv1beta2.ProcessGroupConditionType{fdbv1beta2.MissingProcesses, fdbv1beta2.IncorrectCommandLine},
-					expected:   []string{"instance-1", "instance-2"},
+					conditions:           []fdbv1beta2.ProcessGroupConditionType{fdbv1beta2.MissingProcesses, fdbv1beta2.IncorrectCommandLine},
+					expected:             []string{"instance-1", "instance-2"},
+					expectedOutputBuffer: "",
+				}),
+			Entry("Single condition and missing pod",
+				testCase{
+					conditions:           []fdbv1beta2.ProcessGroupConditionType{fdbv1beta2.SidecarUnreachable},
+					expected:             []string{},
+					expectedOutputBuffer: "Process Group: instance-5, is missing pods.",
 				}),
 		)
 	})

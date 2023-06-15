@@ -24,6 +24,7 @@ import (
 	"bytes"
 	ctx "context"
 	"fmt"
+	"io"
 	"math/rand"
 	"strings"
 
@@ -163,7 +164,7 @@ func executeCmd(restConfig *rest.Config, kubeClient *kubernetes.Clientset, podNa
 func getAllPodsFromClusterWithCondition(stdErr io.Writer, kubeClient client.Client, clusterName string, namespace string, conditions []fdbv1beta2.ProcessGroupConditionType) ([]string, error) {
 	cluster, err := loadCluster(kubeClient, namespace, clusterName)
 	if err != nil {
-		return []string{}, nil, err
+		return []string{}, err
 	}
 
 	processesSet := make(map[fdbv1beta2.ProcessGroupID]bool)
@@ -181,7 +182,7 @@ func getAllPodsFromClusterWithCondition(stdErr io.Writer, kubeClient client.Clie
 	podNames := make([]string, 0, len(processesSet))
 	pods, err := getPodsForCluster(kubeClient, cluster)
 	if err != nil {
-		return podNames, nil, err
+		return podNames, err
 	}
 
 	podMap := make(map[string]corev1.Pod)
@@ -189,26 +190,26 @@ func getAllPodsFromClusterWithCondition(stdErr io.Writer, kubeClient client.Clie
 		podMap[pod.Labels[cluster.GetProcessGroupIDLabel()]] = pod
 	}
 
-	var warnings []string
 	for process := range processesSet {
+
 		if _, ok := podMap[string(process)]; !ok {
-			fmt.Fprintln(stdErr, ("Process Group: %s, is missing pods.", process)
+			fmt.Fprintln(stdErr, "Process Group: %s, is missing pods.", process)
 			continue
 		}
-		if podMap[string(process)].Labels[cluster.GetProcessGroupIDLabel()] != string(process) {
+		pod := podMap[string(process)]
+
+		if pod.Labels[cluster.GetProcessGroupIDLabel()] != string(process) {
 			continue
 		}
-		if podMap[string(process)].Status.Phase != corev1.PodRunning {
+		if pod.Status.Phase != corev1.PodRunning {
+			fmt.Fprintln(stdErr, "Skipping Process Group: %s, Pod is not running, current phase: %s", process, pod.Status.Phase)
 			continue
 		}
 
-		podNames = append(podNames, podMap[string(process)].Name)
+		podNames = append(podNames, pod.Name)
 	}
 
-	if len(warnings) > 0 {
-		return podNames, warnings, nil
-	}
-	return podNames, nil, nil
+	return podNames, nil
 }
 
 // getProcessGroupIDsFromPodName returns the process group IDs based on the cluster configuration.
