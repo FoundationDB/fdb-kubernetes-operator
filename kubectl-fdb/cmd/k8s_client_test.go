@@ -23,6 +23,7 @@ package cmd
 import (
 	"bytes"
 	"context"
+	"strings"
 	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -158,17 +159,18 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 			expectedOutputBuffer string
 		}
 
-		// The length of the expectedPodNamesMultipleConditions should be equal to the number of processes with the given conditions
+		// The length of the expected slices should be equal to the number of processes with the given conditions
 		// and not marked for removal
 		expectedPodNamesMultipleConditions := make([]string, 0, 3)
+		expectedPodNamesMultipleConditionsMissingPods := make([]string, 0, 3)
 
 		DescribeTable("should show all deprecations",
 			func(tc testCase) {
 				outBuffer := bytes.Buffer{}
 				pods, err := getAllPodsFromClusterWithCondition(&outBuffer, k8sClient, clusterName, namespace, tc.conditions)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(pods).To(Equal(tc.expected))
-				Expect(outBuffer.String()).To(Equal(tc.expectedOutputBuffer))
+				Expect(pods).Should(ConsistOf(tc.expected))
+				Expect(strings.Split(outBuffer.String(), "\n")).Should(ConsistOf(strings.Split(tc.expectedOutputBuffer, "\n")))
 			},
 			Entry("No conditions",
 				testCase{
@@ -180,19 +182,25 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 				testCase{
 					conditions:           []fdbv1beta2.ProcessGroupConditionType{fdbv1beta2.MissingProcesses},
 					expected:             []string{"instance-1"},
-					expectedOutputBuffer: "Skipping Process Group: instance-3, Pod is not running, current phase: Failed",
+					expectedOutputBuffer: "Skipping Process Group: instance-3, Pod is not running, current phase: Failed\n",
 				}),
 			Entry("Multiple conditions",
 				testCase{
 					conditions:           []fdbv1beta2.ProcessGroupConditionType{fdbv1beta2.MissingProcesses, fdbv1beta2.IncorrectCommandLine},
-					expected:             append(expectedPodNamesMultipleConditions, "instance-2", "instance-1"),
-					expectedOutputBuffer: "Skipping Process Group: instance-3, Pod is not running, current phase: Failed",
+					expected:             append(expectedPodNamesMultipleConditions, "instance-1", "instance-2"),
+					expectedOutputBuffer: "Skipping Process Group: instance-3, Pod is not running, current phase: Failed\n",
 				}),
 			Entry("Single condition and missing pod",
 				testCase{
 					conditions:           []fdbv1beta2.ProcessGroupConditionType{fdbv1beta2.SidecarUnreachable},
 					expected:             []string{},
-					expectedOutputBuffer: "Process Group: instance-5, is missing pods.",
+					expectedOutputBuffer: "Process Group: instance-5, is missing pods.\n",
+				}),
+			Entry("Multiple conditions and missing pod",
+				testCase{
+					conditions:           []fdbv1beta2.ProcessGroupConditionType{fdbv1beta2.MissingProcesses, fdbv1beta2.SidecarUnreachable},
+					expected:             append(expectedPodNamesMultipleConditionsMissingPods, "instance-1"),
+					expectedOutputBuffer: "Process Group: instance-5, is missing pods.\nSkipping Process Group: instance-3, Pod is not running, current phase: Failed\n",
 				}),
 		)
 	})
