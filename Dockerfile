@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=docker.io/debian:bullseye
+ARG BASE_IMAGE=docker.io/debian:bookworm
 
 # Build the manager binary
 FROM docker.io/library/golang:1.19.10 as builder

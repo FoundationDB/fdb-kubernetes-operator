@@ -69,7 +69,7 @@ jobs:
             name: foundationdb/fdb-kubernetes-operator
             tagSuffix: ""
             file: ./Dockerfile
-            baseImage: "docker.io/debian:bullseye"
+            baseImage: "docker.io/debian:bookworm"
           - image: fdb-kubernetes-operator-distroless
             context: ./
             name: foundationdb/fdb-kubernetes-operator
