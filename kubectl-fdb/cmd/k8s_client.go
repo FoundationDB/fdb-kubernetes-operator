@@ -193,7 +193,7 @@ func getAllPodsFromClusterWithCondition(stdErr io.Writer, kubeClient client.Clie
 	for process := range processesSet {
 
 		if _, ok := podMap[string(process)]; !ok {
-			fmt.Fprintln(stdErr, "Process Group: %s, is missing pods.", process)
+			fmt.Fprintf(stdErr, "Process Group: %s, is missing pods.", process)
 			continue
 		}
 		pod := podMap[string(process)]
@@ -202,7 +202,7 @@ func getAllPodsFromClusterWithCondition(stdErr io.Writer, kubeClient client.Clie
 			continue
 		}
 		if pod.Status.Phase != corev1.PodRunning {
-			fmt.Fprintln(stdErr, "Skipping Process Group: %s, Pod is not running, current phase: %s", process, pod.Status.Phase)
+			fmt.Fprintf(stdErr, "Skipping Process Group: %s, Pod is not running, current phase: %s", process, pod.Status.Phase)
 			continue
 		}
 
