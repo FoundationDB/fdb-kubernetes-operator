@@ -194,13 +194,13 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 				testCase{
 					conditions:           []fdbv1beta2.ProcessGroupConditionType{fdbv1beta2.SidecarUnreachable},
 					expected:             []string{},
-					expectedOutputBuffer: "Process Group: instance-5, is missing pods.\n",
+					expectedOutputBuffer: "Skipping Process Group: instance-5, because it does not have a corresponding Pod.\n",
 				}),
 			Entry("Multiple conditions and missing pod",
 				testCase{
 					conditions:           []fdbv1beta2.ProcessGroupConditionType{fdbv1beta2.MissingProcesses, fdbv1beta2.SidecarUnreachable},
 					expected:             append(expectedPodNamesMultipleConditionsMissingPods, "instance-1"),
-					expectedOutputBuffer: "Process Group: instance-5, is missing pods.\nSkipping Process Group: instance-3, Pod is not running, current phase: Failed\n",
+					expectedOutputBuffer: "Skipping Process Group: instance-5, because it does not have a corresponding Pod.\nSkipping Process Group: instance-3, Pod is not running, current phase: Failed\n",
 				}),
 		)
 	})
