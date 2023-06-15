@@ -1126,4 +1126,69 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			})
 		})
 	})
+
+	When("a process group has no address assigned and should be removed", func() {
+		var processGroupID fdbv1beta2.ProcessGroupID
+		var podName string
+
+		BeforeEach(func() {
+			initialPods := fdbCluster.GetStatelessPods()
+			processGroupIDs := map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None{}
+
+			for _, pod := range initialPods.Items {
+				processGroupIDs[fixtures.GetProcessGroupID(pod)] = fdbv1beta2.None{}
+			}
+
+			idNum := 1
+			for {
+				_, processGroupID = internal.GetProcessGroupID(fdbCluster.GetCachedCluster(), fdbv1beta2.ProcessClassStateless, idNum)
+				if fdbCluster.GetCachedCluster().ProcessGroupIsBeingRemoved(processGroupID) {
+					idNum++
+					continue
+				}
+
+				// If the process group is not present use this one.
+				if _, ok := processGroupIDs[processGroupID]; !ok {
+					break
+				}
+
+				idNum++
+			}
+
+			// Make sure the new Pod will be stuck in unschedulable.
+			fdbCluster.SetProcessGroupsAsUnschedulable([]fdbv1beta2.ProcessGroupID{processGroupID})
+			// Now replace a random Pod for replacement to force the cluster to create a new Pod.
+			fdbCluster.ReplacePod(fixtures.RandomPickOnePod(initialPods.Items), false)
+
+			// Wait until the new Pod is actually created.
+			Eventually(func() bool {
+				for _, pod := range fdbCluster.GetStatelessPods().Items {
+					if fixtures.GetProcessGroupID(pod) == processGroupID {
+						podName = pod.Name
+						return true
+					}
+				}
+
+				return false
+			}).WithPolling(2 * time.Second).WithTimeout(5 * time.Minute).Should(BeTrue())
+
+			fdbCluster.ReplacePod(fixtures.RandomPickOnePod(initialPods.Items), false)
+
+			spec := fdbCluster.GetCluster().Spec.DeepCopy()
+			spec.ProcessGroupsToRemove = append(spec.ProcessGroupsToRemove, processGroupID)
+			// Add the new pending Pod to the removal list.
+			fdbCluster.UpdateClusterSpecWithSpec(spec)
+		})
+
+		It("should not remove the Pod as long as it is unschedulable", func() {
+			// Make sure the Pod is stuck in pending for 2 minutes
+			Consistently(func() corev1.PodPhase {
+				return fdbCluster.GetPod(podName).Status.Phase
+			}).WithTimeout(2 * time.Minute).WithPolling(15 * time.Second).Should(Equal(corev1.PodPending))
+			// Clear the buggify list, this should allow the operator to move forawrd
+			Expect(fdbCluster.ClearBuggifyNoSchedule(false)).NotTo(HaveOccurred())
+			// Make sure the Pod is deleted.
+			fdbCluster.EnsurePodIsDeleted(podName)
+		})
+	})
 })
