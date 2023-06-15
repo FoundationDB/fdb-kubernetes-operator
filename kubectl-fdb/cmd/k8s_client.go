@@ -160,7 +160,7 @@ func executeCmd(restConfig *rest.Config, kubeClient *kubernetes.Clientset, podNa
 	return &stdout, &stderr, err
 }
 
-func getAllPodsFromClusterWithCondition(kubeClient client.Client, clusterName string, namespace string, conditions []fdbv1beta2.ProcessGroupConditionType) ([]string, []string, error) {
+func getAllPodsFromClusterWithCondition(stdErr io.Writer, kubeClient client.Client, clusterName string, namespace string, conditions []fdbv1beta2.ProcessGroupConditionType) ([]string, error) {
 	cluster, err := loadCluster(kubeClient, namespace, clusterName)
 	if err != nil {
 		return []string{}, nil, err
