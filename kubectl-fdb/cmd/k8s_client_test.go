@@ -158,8 +158,9 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 			expectedOutputBuffer string
 		}
 
+		// The length of the expectedPodNamesMultipleConditions should be equal to the number of processes with the given conditions
+		// and not marked for removal
 		expectedPodNamesMultipleConditions := make([]string, 0, 3)
-		expectedPodNamesMultipleConditions = append(expectedPodNamesMultipleConditions, "instance-1", "instance-2")
 
 		DescribeTable("should show all deprecations",
 			func(tc testCase) {
@@ -184,8 +185,8 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 			Entry("Multiple conditions",
 				testCase{
 					conditions:           []fdbv1beta2.ProcessGroupConditionType{fdbv1beta2.MissingProcesses, fdbv1beta2.IncorrectCommandLine},
-					expected:             expectedPodNamesMultipleConditions,
-					expectedOutputBuffer: "",
+					expected:             append(expectedPodNamesMultipleConditions, "instance-2", "instance-1"),
+					expectedOutputBuffer: "Skipping Process Group: instance-3, Pod is not running, current phase: Failed",
 				}),
 			Entry("Single condition and missing pod",
 				testCase{
