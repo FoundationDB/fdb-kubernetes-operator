@@ -107,7 +107,7 @@ func newRestartCmd(streams genericclioptions.IOStreams) *cobra.Command {
 				}
 			} else if len(conditions) > 0 {
 				var warn []string
-				processes, warn, err = getAllPodsFromClusterWithCondition(kubeClient, clusterName, namespace, conditions)
+				processes, warn, err = getAllPodsFromClusterWithCondition(cmd.ErrOrStderr(), kubeClient, clusterName, namespace, conditions)
 				if err != nil {
 					return err
 				}
