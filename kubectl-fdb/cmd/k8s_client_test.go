@@ -158,6 +158,9 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 			expectedOutputBuffer string
 		}
 
+		expectedPodNamesMultipleConditions := make([]string, 0, 3)
+		expectedPodNamesMultipleConditions = append(expectedPodNamesMultipleConditions, "instance-1", "instance-2")
+
 		DescribeTable("should show all deprecations",
 			func(tc testCase) {
 				outBuffer := bytes.Buffer{}
@@ -181,7 +184,7 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 			Entry("Multiple conditions",
 				testCase{
 					conditions:           []fdbv1beta2.ProcessGroupConditionType{fdbv1beta2.MissingProcesses, fdbv1beta2.IncorrectCommandLine},
-					expected:             []string{"instance-1", "instance-2"},
+					expected:             expectedPodNamesMultipleConditions,
 					expectedOutputBuffer: "",
 				}),
 			Entry("Single condition and missing pod",
