@@ -192,7 +192,7 @@ func getAllPodsFromClusterWithCondition(stdErr io.Writer, kubeClient client.Clie
 	var warnings []string
 	for process := range processesSet {
 		if _, ok := podMap[string(process)]; !ok {
-			warnings = append(warnings, fmt.Sprintf("Process Group: %s, is missing pods.", process))
+			fmt.Fprintln(stdErr, ("Process Group: %s, is missing pods.", process)
 			continue
 		}
 		if podMap[string(process)].Labels[cluster.GetProcessGroupIDLabel()] != string(process) {
