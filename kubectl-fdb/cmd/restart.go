@@ -105,7 +105,7 @@ func newRestartCmd(streams genericclioptions.IOStreams) *cobra.Command {
 					processes = append(processes, pod.Name)
 				}
 			} else if len(conditions) > 0 {
-				processes, err = getAllPodsFromClusterWithCondition(kubeClient, clusterName, namespace, conditions)
+				processes, err = getAllPodsFromClusterWithCondition(cmd.ErrOrStderr(), kubeClient, clusterName, namespace, conditions)
 				if err != nil {
 					return err
 				}
