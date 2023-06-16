@@ -734,7 +734,7 @@ var _ = Describe("update_status", func() {
 	})
 
 	DescribeTable("when getting the running version from the running processes", func(versionMap map[string]int, fallback string, expected string) {
-		Expect(getRunningVersion(versionMap, fallback)).To(Equal(expected))
+		Expect(getRunningVersion(log, versionMap, fallback)).To(Equal(expected))
 	},
 		Entry("when nearly all processes running on the new version", map[string]int{
 			"7.1.11": 1,

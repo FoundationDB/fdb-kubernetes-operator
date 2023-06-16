@@ -1185,10 +1185,10 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			Consistently(func() corev1.PodPhase {
 				return fdbCluster.GetPod(podName).Status.Phase
 			}).WithTimeout(2 * time.Minute).WithPolling(15 * time.Second).Should(Equal(corev1.PodPending))
-			// Clear the buggify list, this should allow the operator to move forawrd
-			Expect(fdbCluster.ClearBuggifyNoSchedule(false)).NotTo(HaveOccurred())
+			// Clear the buggify list, this should allow the operator to move forward and delete the Pod
+			Expect(fdbCluster.ClearBuggifyNoSchedule(true)).NotTo(HaveOccurred())
 			// Make sure the Pod is deleted.
-			fdbCluster.EnsurePodIsDeleted(podName)
+			Expect(fdbCluster.CheckPodIsDeleted(podName)).To(BeTrue())
 		})
 	})
 })
