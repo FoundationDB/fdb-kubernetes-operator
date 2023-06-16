@@ -30,6 +30,7 @@ import (
 	"log"
 	"math/rand"
 	"strings"
+	"sync"
 	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -169,13 +170,93 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 		func(beforeVersion string, targetVersion string) {
 			clusterSetup(beforeVersion, true /* = enableOperatorPodChaos */)
 			initialGeneration := fdbCluster.GetPrimary().GetStatus().Cluster.Generation
-			upgradeAndVerify(fdbCluster, targetVersion)
+			// Make use of a sync.Map here as we have to modify it concurrently.
+			var transactionSystemProcessGroups sync.Map
+			// Fetch all initial process groups before starting the upgrade.
+			for _, cluster := range fdbCluster.GetAllClusters() {
+				processGroups := cluster.GetCluster().Status.ProcessGroups
+				for _, processGroup := range processGroups {
+					if processGroup.ProcessClass == fdbv1beta2.ProcessClassStorage {
+						continue
+					}
+
+					transactionSystemProcessGroups.Store(processGroup.ProcessGroupID, fdbv1beta2.None{})
+				}
+			}
+
+			// Start the upgrade for the whole cluster
+			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
+
+			// Wait until all clusters are reconciled and collect the process groups during that time.
+			clusters := fdbCluster.GetAllClusters()
+			wg := sync.WaitGroup{}
+			wg.Add(len(clusters))
+			mut := sync.Mutex{}
+
+			var err error
+			for _, fdbCluster := range clusters {
+				go func(fdbCluster *fixtures.FdbCluster) {
+					reconcileErr := fdbCluster.WaitUntilWithForceReconcile(2, 600, func(cluster *fdbv1beta2.FoundationDBCluster) bool {
+						for _, processGroup := range cluster.Status.ProcessGroups {
+							if processGroup.ProcessClass == fdbv1beta2.ProcessClassStorage {
+								continue
+							}
+
+							transactionSystemProcessGroups.Store(processGroup.ProcessGroupID, fdbv1beta2.None{})
+						}
+
+						// Allow soft reconciliation and make sure the running version was updated
+						return cluster.Status.Generations.Reconciled == cluster.Generation && cluster.Status.RunningVersion == targetVersion
+					})
+
+					if reconcileErr != nil {
+						log.Println("error during WaitForReconciliation for", fdbCluster.Name(), "error:", reconcileErr.Error())
+						if err != nil {
+							mut.Lock()
+							err = reconcileErr
+							mut.Unlock()
+						}
+					}
+					wg.Done()
+				}(fdbCluster)
+			}
+
+			wg.Wait()
+			Expect(err).NotTo(HaveOccurred())
+
+			// Check how many transaction process groups we have seen.
+			var expectedProcessCounts int
+			for _, cluster := range fdbCluster.GetAllClusters() {
+				// Get the desired process counts based on the current cluster configuration.
+				processCounts, err := cluster.GetProcessCounts()
+				Expect(err).NotTo(HaveOccurred())
+
+				// During an upgrade we expect that the transaction system processes are replaced, so we expect to have seen
+				// 2 times the process counts for transaction system processes.
+				expectedProcessCounts += (processCounts.Total() - processCounts.Storage) * 2
+			}
+
+			// The sync.Map has not length method, so we have to calculate it.
+			var processCounts int
+			transactionSystemProcessGroups.Range(func(_, _ interface{}) bool {
+				processCounts++
+				return true
+			})
+
+			log.Println("expectedProcessCounts", expectedProcessCounts, "processCounts", processCounts)
+
+			// Make sure we haven't replaced to many transaction processes.
+			Expect(processCounts).To(Equal(expectedProcessCounts))
+
+			finalGeneration := fdbCluster.GetPrimary().GetStatus().Cluster.Generation
+			log.Println("initialGeneration:", initialGeneration, "finalGeneration", finalGeneration, "gap", finalGeneration-initialGeneration)
+
 			// Verify that the cluster generation number didn't increase by more
 			// than 80 (in an ideal case the number of recoveries that should happen
 			// during an upgrade is 9, but in reality that number could be higher
 			// because different server processes may get bounced at different times).
 			// See: https://github.com/FoundationDB/fdb-kubernetes-operator/issues/1607
-			Expect(fdbCluster.GetPrimary().GetStatus().Cluster.Generation).To(BeNumerically("<=", initialGeneration+80))
+			Expect(finalGeneration).To(BeNumerically("<=", initialGeneration+80))
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),

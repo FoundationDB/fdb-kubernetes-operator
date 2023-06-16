@@ -22,13 +22,13 @@ package fixtures
 
 import (
 	"fmt"
-	"strings"
-	"sync"
-
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/chaos-mesh/chaos-mesh/api/v1alpha1"
 	"github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"log"
+	"strings"
+	"sync"
 )
 
 // This file contains fixtures to set up HA configurations.
@@ -182,22 +182,25 @@ func (haFDBCluster *HaFdbCluster) WaitForReconciliation(
 	wg.Add(len(haFDBCluster.clusters))
 	mut := sync.Mutex{}
 
-	var errs []error
+	var err error
 	for _, fdbCluster := range haFDBCluster.clusters {
 		go func(fdbCluster *FdbCluster) {
-			err := fdbCluster.WaitForReconciliation(options...)
-			if err != nil {
-				mut.Lock()
-				errs = append(errs, err)
-				mut.Unlock()
+			reconcileErr := fdbCluster.WaitForReconciliation(options...)
+			if reconcileErr != nil {
+				log.Println("error during WaitForReconciliation for", fdbCluster.Name(), "error:", reconcileErr.Error())
+				if err != nil {
+					mut.Lock()
+					err = reconcileErr
+					mut.Unlock()
+				}
 			}
 			wg.Done()
 		}(fdbCluster)
 	}
 
 	wg.Wait()
-	if len(errs) > 0 {
-		return errs[0]
+	if err != nil {
+		return err
 	}
 
 	return nil
