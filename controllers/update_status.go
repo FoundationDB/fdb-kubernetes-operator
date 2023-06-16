@@ -785,7 +785,6 @@ func getRunningVersion(logger logr.Logger, versionMap map[string]int, currentRun
 			"detectedCandidate", candidateString,
 			"previousVersion", currentCandidate,
 			"versionMap", versionMap)
-
 	}
 
 	return candidateString, nil
