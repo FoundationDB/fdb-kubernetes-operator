@@ -24,6 +24,7 @@ import (
 	"bytes"
 	ctx "context"
 	"fmt"
+	"io"
 	"math/rand"
 	"strings"
 
@@ -160,7 +161,7 @@ func executeCmd(restConfig *rest.Config, kubeClient *kubernetes.Clientset, podNa
 	return &stdout, &stderr, err
 }
 
-func getAllPodsFromClusterWithCondition(kubeClient client.Client, clusterName string, namespace string, conditions []fdbv1beta2.ProcessGroupConditionType) ([]string, error) {
+func getAllPodsFromClusterWithCondition(stdErr io.Writer, kubeClient client.Client, clusterName string, namespace string, conditions []fdbv1beta2.ProcessGroupConditionType) ([]string, error) {
 	cluster, err := loadCluster(kubeClient, namespace, clusterName)
 	if err != nil {
 		return []string{}, err
@@ -184,18 +185,27 @@ func getAllPodsFromClusterWithCondition(kubeClient client.Client, clusterName st
 		return podNames, err
 	}
 
+	podMap := make(map[string]corev1.Pod)
 	for _, pod := range pods.Items {
-		for process := range processesSet {
-			if pod.Status.Phase != corev1.PodRunning {
-				continue
-			}
+		podMap[pod.Labels[cluster.GetProcessGroupIDLabel()]] = pod
+	}
 
-			if pod.Labels[cluster.GetProcessGroupIDLabel()] != string(process) {
-				continue
-			}
-
-			podNames = append(podNames, pod.Name)
+	for process := range processesSet {
+		if _, ok := podMap[string(process)]; !ok {
+			fmt.Fprintf(stdErr, "Skipping Process Group: %s, because it does not have a corresponding Pod.\n", process)
+			continue
 		}
+		pod := podMap[string(process)]
+
+		if pod.Labels[cluster.GetProcessGroupIDLabel()] != string(process) {
+			continue
+		}
+		if pod.Status.Phase != corev1.PodRunning {
+			fmt.Fprintf(stdErr, "Skipping Process Group: %s, Pod is not running, current phase: %s\n", process, pod.Status.Phase)
+			continue
+		}
+
+		podNames = append(podNames, pod.Name)
 	}
 
 	return podNames, nil
