@@ -83,7 +83,7 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 	}
 
 	// Update the running version based on the reported version of the FDB processes
-	version, err := getRunningVersion(versionMap, cluster.Status.RunningVersion)
+	version, err := getRunningVersion(logger, versionMap, cluster.Status.RunningVersion)
 	if err != nil {
 		return &requeue{curError: fmt.Errorf("update_status skipped due to error in getRunningVersion: %w", err)}
 	}
@@ -748,9 +748,9 @@ func refreshProcessGroupStatus(ctx context.Context, r *FoundationDBClusterReconc
 	return pvcs, nil
 }
 
-func getRunningVersion(versionMap map[string]int, fallback string) (string, error) {
+func getRunningVersion(logger logr.Logger, versionMap map[string]int, currentRunningVersion string) (string, error) {
 	if len(versionMap) == 0 {
-		return fallback, nil
+		return currentRunningVersion, nil
 	}
 
 	var currentCandidate fdbv1beta2.Version
@@ -763,7 +763,7 @@ func getRunningVersion(versionMap map[string]int, fallback string) (string, erro
 
 		parsedVersion, err := fdbv1beta2.ParseFdbVersion(version)
 		if err != nil {
-			return fallback, err
+			return currentRunningVersion, err
 		}
 		// In this case we want to ensure we always pick the newer version to have a stable return value. Otherwise,
 		// it could happen that the version will be flapping between two versions.
@@ -777,7 +777,17 @@ func getRunningVersion(versionMap map[string]int, fallback string) (string, erro
 		currentMaxCount = count
 	}
 
-	return currentCandidate.String(), nil
+	candidateString := currentCandidate.String()
+	// Only in the case of a new version detected we should log the new version and more information why the operator
+	// made this decision.
+	if candidateString != currentRunningVersion {
+		logger.Info("getting the running version from status",
+			"detectedCandidate", candidateString,
+			"previousVersion", currentCandidate,
+			"versionMap", versionMap)
+	}
+
+	return candidateString, nil
 }
 
 func hasExactMatchedTaintKey(taintReplacementOptions []fdbv1beta2.TaintReplacementOption, nodeTaintKey string) bool {
