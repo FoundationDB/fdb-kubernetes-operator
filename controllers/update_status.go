@@ -73,13 +73,18 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 
 	versionMap := map[string]int{}
 	for _, process := range databaseStatus.Cluster.Processes {
+		versionMap[process.Version]++
+		// Ignore all processes for the process map that are for a different data center
+		if cluster.Spec.DataCenter != "" && cluster.Spec.DataCenter != process.Locality[fdbv1beta2.FDBLocalityDCIDKey] {
+			continue
+		}
+
 		processID, ok := process.Locality[fdbv1beta2.FDBLocalityProcessIDKey]
 		// if the processID is not set we fall back to the instanceID
 		if !ok {
 			processID = process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]
 		}
 		processMap[fdbv1beta2.ProcessGroupID(processID)] = append(processMap[fdbv1beta2.ProcessGroupID(processID)], process)
-		versionMap[process.Version]++
 	}
 
 	// Update the running version based on the reported version of the FDB processes
