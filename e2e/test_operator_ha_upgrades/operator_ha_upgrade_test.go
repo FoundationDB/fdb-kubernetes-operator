@@ -139,7 +139,7 @@ func verifyBouncingIsBlocked() {
 	}).WithTimeout(10 * time.Minute).WithPolling(5 * time.Second).MustPassRepeatedly(30).Should(BeTrue())
 }
 
-var _ = Describe("Operator HA Upgrades", Label("e2e", "nightly"), func() {
+var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 	BeforeEach(func() {
 		factory = fixtures.CreateFactory(testOptions)
 	})
@@ -176,7 +176,6 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "nightly"), func() {
 			// because different server processes may get bounced at different times).
 			// See: https://github.com/FoundationDB/fdb-kubernetes-operator/issues/1607
 			Expect(fdbCluster.GetPrimary().GetStatus().Cluster.Generation).To(BeNumerically("<=", initialGeneration+80))
-
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
