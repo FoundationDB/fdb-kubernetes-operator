@@ -126,6 +126,8 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 		clusterStatus.Health.FullReplication = databaseStatus.Cluster.FullReplication
 		clusterStatus.Health.DataMovementPriority = databaseStatus.Cluster.Data.MovingData.HighestPriority
 		clusterStatus.MaintenanceModeInfo.ZoneID = databaseStatus.Cluster.MaintenanceZone
+		logger.V(1).Info("taking connection string from machine-readble status", "candidate", databaseStatus.Cluster.ConnectionString)
+		clusterStatus.ConnectionString = databaseStatus.Cluster.ConnectionString
 	}
 
 	cluster.Status.RequiredAddresses = clusterStatus.RequiredAddresses
@@ -175,12 +177,17 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 		clusterStatus.RunningVersion = cluster.Spec.Version
 	}
 
-	clusterStatus.ConnectionString = cluster.Status.ConnectionString
 	if clusterStatus.ConnectionString == "" {
+		logger.V(1).Info("connection string unset taking connection string from previous status", "candidate", cluster.Status.ConnectionString)
+		clusterStatus.ConnectionString = cluster.Status.ConnectionString
+	}
+	if clusterStatus.ConnectionString == "" {
+		logger.V(1).Info("connection string unset taking connection from existing ConfigMap", "candidate", existingConfigMap.Data[internal.ClusterFileKey])
 		clusterStatus.ConnectionString = existingConfigMap.Data[internal.ClusterFileKey]
 	}
 
 	if clusterStatus.ConnectionString == "" {
+		logger.V(1).Info("connection string unset taking seed connection from cluster Spec", "candidate", cluster.Spec.SeedConnectionString)
 		clusterStatus.ConnectionString = cluster.Spec.SeedConnectionString
 	}
 
