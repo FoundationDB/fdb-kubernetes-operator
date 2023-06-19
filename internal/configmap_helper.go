@@ -73,6 +73,11 @@ func GetConfigMap(cluster *fdbv1beta2.FoundationDBCluster) (*corev1.ConfigMap, e
 		storageServersPerDisk = []int{cluster.GetStorageServersPerPod()}
 	}
 
+	logServersPerDisk := cluster.Status.TLogServersPerDisk
+	if len(cluster.Status.TLogServersPerDisk) == 0 {
+		logServersPerDisk = []int{cluster.GetTLogServersPerPod()}
+	}
+
 	for processClass, count := range desiredCounts {
 		if count == 0 {
 			continue
@@ -92,7 +97,21 @@ func GetConfigMap(cluster *fdbv1beta2.FoundationDBCluster) (*corev1.ConfigMap, e
 					filename := GetConfigMapMonitorConfEntry(processClass, FDBImageTypeUnified, serversPerPod)
 					data[filename] = string(jsonData)
 				}
-			} else {
+			} else if processClass == fdbv1beta2.ProcessClassLog {
+				for _, serversPerPod := range logServersPerDisk {
+					config, err := GetMonitorProcessConfiguration(cluster, processClass, serversPerPod, FDBImageTypeUnified, nil)
+					if err != nil {
+						return nil, err
+					}
+					jsonData, err := json.Marshal(config)
+					if err != nil {
+						return nil, err
+					}
+					filename := GetConfigMapMonitorConfEntry(processClass, FDBImageTypeUnified, serversPerPod)
+					data[filename] = string(jsonData)
+				}
+			}
+			else {
 				config, err := GetMonitorProcessConfiguration(cluster, processClass, 1, FDBImageTypeUnified, nil)
 				if err != nil {
 					return nil, err
@@ -108,6 +127,15 @@ func GetConfigMap(cluster *fdbv1beta2.FoundationDBCluster) (*corev1.ConfigMap, e
 		if _, useSplitImage := imageTypes[FDBImageTypeSplit]; useSplitImage {
 			if processClass == fdbv1beta2.ProcessClassStorage {
 				for _, serversPerPod := range storageServersPerDisk {
+					err := setMonitorConfForFilename(cluster, data, GetConfigMapMonitorConfEntry(processClass, FDBImageTypeSplit, serversPerPod), connectionString, processClass, serversPerPod)
+					if err != nil {
+						return nil, err
+					}
+				}
+				continue
+			}
+			if processClass == fdbv1beta2.ProcessClassLog {
+				for _, serversPerPod := range logServersPerDisk {
 					err := setMonitorConfForFilename(cluster, data, GetConfigMapMonitorConfEntry(processClass, FDBImageTypeSplit, serversPerPod), connectionString, processClass, serversPerPod)
 					if err != nil {
 						return nil, err

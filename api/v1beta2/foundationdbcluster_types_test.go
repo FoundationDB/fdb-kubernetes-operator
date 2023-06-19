@@ -31,9 +31,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
-
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("[api] FoundationDBCluster", func() {
@@ -3649,6 +3646,47 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					ValuesToAdd:                   []int{1, 2},
 					ExpectedLen:                   2,
 					ExpectedStorageServersPerDisk: []int{1, 2},
+				}),
+		)
+	})
+
+	FWhen("adding TLogServersPerDisk", func() {
+		type testCase struct {
+			ValuesToAdd                []int
+			ExpectedLen                int
+			ExpectedTLogServersPerDisk []int
+		}
+
+		DescribeTable("should generate the status correctly",
+			func(tc testCase) {
+				status := FoundationDBClusterStatus{
+					TLogServersPerDisk: []int{},
+				}
+
+				for _, val := range tc.ValuesToAdd {
+					status.AddTLogsPerDisk(val)
+				}
+
+				Expect(len(status.TLogServersPerDisk)).To(BeNumerically("==", tc.ExpectedLen))
+				Expect(status.TLogServersPerDisk).To(Equal(tc.ExpectedTLogServersPerDisk))
+			},
+			Entry("Add missing element",
+				testCase{
+					ValuesToAdd:                []int{1},
+					ExpectedLen:                1,
+					ExpectedTLogServersPerDisk: []int{1},
+				}),
+			Entry("Duplicates should only inserted once",
+				testCase{
+					ValuesToAdd:                []int{1, 1},
+					ExpectedLen:                1,
+					ExpectedTLogServersPerDisk: []int{1},
+				}),
+			Entry("Multiple elements should be added",
+				testCase{
+					ValuesToAdd:                []int{1, 2},
+					ExpectedLen:                2,
+					ExpectedTLogServersPerDisk: []int{1, 2},
 				}),
 		)
 	})

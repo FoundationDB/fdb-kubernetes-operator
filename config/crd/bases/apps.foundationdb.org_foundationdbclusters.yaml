@@ -10075,6 +10075,10 @@ spec:
                 type: object
               runningVersion:
                 type: string
+              tLogServersPerDisk:
+                items:
+                  type: integer
+                type: array
               storageServersPerDisk:
                 items:
                   type: integer
@@ -14280,6 +14284,10 @@ spec:
                 type: object
               runningVersion:
                 type: string
+              tLogServersPerDisk:
+                items:
+                  type: integer
+                type: array
               storageServersPerDisk:
                 items:
                   type: integer
