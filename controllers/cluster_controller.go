@@ -446,7 +446,11 @@ func (r *FoundationDBClusterReconciler) getStatusFromClusterOrDummyStatus(logger
 	if err != nil {
 		return nil, err
 	}
-	cluster.Status.ConnectionString = connectionString
+
+	if cluster.Status.ConnectionString != connectionString {
+		logger.Info("Detected new connection string", "previousConnectionString", cluster.Status.ConnectionString, "newConnectionString", connectionString)
+		cluster.Status.ConnectionString = connectionString
+	}
 
 	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
 	if err != nil {
@@ -456,9 +460,6 @@ func (r *FoundationDBClusterReconciler) getStatusFromClusterOrDummyStatus(logger
 	defer adminClient.Close()
 
 	status, err := adminClient.GetStatus()
-
-	logger.V(1).Info("connection string from getStatusFromClusterOrDummyStatus", "tryConnectionOptions", connectionString, "status", status.Cluster.ConnectionString)
-
 	if err == nil {
 		return status, nil
 	}
