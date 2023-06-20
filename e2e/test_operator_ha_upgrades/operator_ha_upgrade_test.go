@@ -561,5 +561,4 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 		EntryDescription("Upgrade from %[1]s to %[2]s when no remote processes are restarted"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
 	)
-
 })

@@ -446,7 +446,14 @@ func (r *FoundationDBClusterReconciler) getStatusFromClusterOrDummyStatus(logger
 	if err != nil {
 		return nil, err
 	}
-	cluster.Status.ConnectionString = connectionString
+
+	// Update the connection string if the newly fetched connection string is different from the current one and if the
+	// newly fetched connection string is not empty.
+	if cluster.Status.ConnectionString != connectionString && connectionString != "" {
+		logger.Info("Updating out-of-date connection string", "previousConnectionString", cluster.Status.ConnectionString, "newConnectionString", connectionString)
+		r.Recorder.Event(cluster, corev1.EventTypeNormal, "UpdatingConnectionString", fmt.Sprintf("Setting connection string to %s", connectionString))
+		cluster.Status.ConnectionString = connectionString
+	}
 
 	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
 	if err != nil {

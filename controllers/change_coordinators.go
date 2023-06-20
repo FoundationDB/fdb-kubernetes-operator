@@ -58,17 +58,6 @@ func (c changeCoordinators) reconcile(ctx context.Context, r *FoundationDBCluste
 		}
 	}
 
-	if status.Cluster.ConnectionString != cluster.Status.ConnectionString {
-		logger.Info("Updating out-of-date connection string")
-		r.Recorder.Event(cluster, corev1.EventTypeNormal, "UpdatingConnectionString", fmt.Sprintf("Setting connection string to %s", status.Cluster.ConnectionString))
-		cluster.Status.ConnectionString = status.Cluster.ConnectionString
-		err = r.updateOrApply(ctx, cluster)
-
-		if err != nil {
-			return &requeue{curError: err, delayedRequeue: true}
-		}
-	}
-
 	coordinatorStatus := make(map[string]bool, len(status.Client.Coordinators.Coordinators))
 	for _, coordinator := range status.Client.Coordinators.Coordinators {
 		coordinatorStatus[coordinator.Address.String()] = false
