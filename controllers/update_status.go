@@ -56,6 +56,7 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 	// Pass through Maintenance Mode Info as the maintenance_mode_checker reconciler takes care of updating it
 	originalStatus.MaintenanceModeInfo.DeepCopyInto(&clusterStatus.MaintenanceModeInfo)
 	clusterStatus.Generations.Reconciled = cluster.Status.Generations.Reconciled
+	clusterStatus.ConnectionString = originalStatus.ConnectionString
 
 	// Initialize with the current desired storage servers per Pod
 	clusterStatus.StorageServersPerDisk = []int{cluster.GetStorageServersPerPod()}
