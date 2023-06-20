@@ -21,10 +21,11 @@
 package fixtures
 
 import (
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	"github.com/onsi/ginkgo/v2"
 	"log"
 	"strings"
+
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	"github.com/onsi/ginkgo/v2"
 )
 
 // UpgradeTestConfiguration represents the configuration for an upgrade test. This includes the initial FoundationDB version

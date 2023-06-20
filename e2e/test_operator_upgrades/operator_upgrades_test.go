@@ -29,10 +29,11 @@ Since FoundationDB is version incompatible for major and minor versions and the 
 
 import (
 	"fmt"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"log"
 	"strings"
 	"time"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/e2e/fixtures"
@@ -159,8 +160,9 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			// During an upgrade we expect that the transaction system processes are replaced, so we expect to have seen
-			// 2 times the process counts for transaction system processes.
-			expectedProcessCounts := (processCounts.Total() - processCounts.Storage) * 2
+			// 2 times the process counts for transaction system processes. Add a small buffer of 5 to allow automatic
+			// replacements during an upgrade.
+			expectedProcessCounts := (processCounts.Total()-processCounts.Storage)*2 + 5
 			Expect(transactionSystemProcessGroups).To(HaveLen(expectedProcessCounts))
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s"),

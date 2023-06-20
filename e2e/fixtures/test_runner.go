@@ -22,9 +22,10 @@ package fixtures
 
 import (
 	"flag"
-	"github.com/onsi/ginkgo/v2/types"
 	"log"
 	"testing"
+
+	"github.com/onsi/ginkgo/v2/types"
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"

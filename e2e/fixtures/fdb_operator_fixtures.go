@@ -22,11 +22,12 @@ package fixtures
 
 import (
 	"fmt"
+	"log"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/utils/pointer"
-	"log"
 )
 
 func (factory *Factory) ensureFdbClusterExists(
@@ -283,7 +284,7 @@ func WithLocalitiesForExclusion(_ *Factory, cluster *fdbv1beta2.FoundationDBClus
 	cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(true)
 }
 
-// WithLUnifiedImage is an option that enables the unified image for a cluster.
-func WithLUnifiedImage(_ *Factory, cluster *fdbv1beta2.FoundationDBCluster) {
+// WithUnifiedImage is an option that enables the unified image for a cluster.
+func WithUnifiedImage(_ *Factory, cluster *fdbv1beta2.FoundationDBCluster) {
 	cluster.Spec.UseUnifiedImage = pointer.Bool(true)
 }
