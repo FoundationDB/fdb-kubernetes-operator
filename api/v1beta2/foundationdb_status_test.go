@@ -296,7 +296,13 @@ var _ = Describe("FoundationDBStatus", func() {
 					Data: FoundationDBStatusDataStatistics{
 						KVBytes:    0,
 						MovingData: FoundationDBStatusMovingData{HighestPriority: 0, InFlightBytes: 0, InQueueBytes: 0},
-						State:      FoundationDBStatusDataState{Description: "", Healthy: true, Name: "healthy"},
+						State:      FoundationDBStatusDataState{Description: "", Healthy: true, Name: "healthy", MinReplicasRemaining: 0},
+						TeamTrackers: []FoundationDBStatusTeamTracker{
+							{
+								Primary: true,
+								State:   FoundationDBStatusDataState{Description: "", Healthy: true, Name: "healthy", MinReplicasRemaining: 0},
+							},
+						},
 					},
 					FullReplication: true,
 					Clients: FoundationDBStatusClusterClientInfo{
@@ -717,7 +723,13 @@ var _ = Describe("FoundationDBStatus", func() {
 			Data: FoundationDBStatusDataStatistics{
 				KVBytes:    0,
 				MovingData: FoundationDBStatusMovingData{HighestPriority: 0, InFlightBytes: 0, InQueueBytes: 0},
-				State:      FoundationDBStatusDataState{Description: "", Healthy: true, Name: "healthy"},
+				State:      FoundationDBStatusDataState{Description: "", Healthy: true, Name: "healthy", MinReplicasRemaining: 2},
+				TeamTrackers: []FoundationDBStatusTeamTracker{
+					{
+						Primary: true,
+						State:   FoundationDBStatusDataState{Description: "", Healthy: true, Name: "healthy", MinReplicasRemaining: 2},
+					},
+				},
 			},
 			FullReplication: true,
 			Clients: FoundationDBStatusClusterClientInfo{
@@ -841,6 +853,16 @@ var _ = Describe("FoundationDBStatus", func() {
 			Layers: FoundationDBStatusLayerInfo{
 				Backup: FoundationDBStatusBackupInfo{Paused: false, Tags: nil},
 				Error:  "",
+			},
+			Logs: []FoundationDBStatusLogInfo{
+				{
+					LogFaultTolerance:             1,
+					LogReplicationFactor:          2,
+					RemoteLogFaultTolerance:       0,
+					RemoteLogReplicationFactor:    0,
+					SatelliteLogFaultTolerance:    0,
+					SatelliteLogReplicationFactor: 0,
+				},
 			},
 			FaultTolerance: FaultTolerance{
 				MaxZoneFailuresWithoutLosingData:         1,

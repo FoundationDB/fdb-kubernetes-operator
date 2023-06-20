@@ -95,3 +95,25 @@ func GetMinimumUptimeAndAddressMap(logger logr.Logger, cluster *fdbv1beta2.Found
 
 	return minimumUptime, addressMap, nil
 }
+
+// DoFaultDomainChecksOnStatusOutput does fault domain checks over the given status object.
+func DoFaultDomainChecksOnStatusOutput(status *fdbv1beta2.FoundationDBStatus) bool {
+	// Storage server related check.
+	for _, tracker := range status.Cluster.Data.TeamTrackers {
+		if !tracker.State.Healthy {
+			return false
+		}
+	}
+
+	// Log server related check.
+	for _, log := range status.Cluster.Logs {
+		if (log.LogReplicationFactor != 0 && log.LogFaultTolerance+1 != log.LogReplicationFactor) ||
+			(log.RemoteLogReplicationFactor != 0 && log.RemoteLogFaultTolerance+1 != log.RemoteLogReplicationFactor) ||
+			(log.SatelliteLogReplicationFactor != 0 && log.SatelliteLogFaultTolerance+1 != log.SatelliteLogReplicationFactor) {
+			return false
+		}
+	}
+
+	// @todo decide if we need to do coordinator related checks.
+	return true
+}
