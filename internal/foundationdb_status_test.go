@@ -389,5 +389,75 @@ var _ = Describe("Internal FoundationDBStatus", func() {
 				Expect(DoLogServerFaultDomainCheckOnStatus(status)).To(BeTrue())
 			})
 		})
+
+		Context("coordinator fault domain checks", func() {
+			It("no coordinator related information in status", func() {
+				status = &fdbv1beta2.FoundationDBStatus{
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{},
+				}
+				Expect(DoCoordinatorFaultDomainCheckOnStatus(status)).To(BeTrue())
+			})
+		})
+
+		Context("multiple fault domain checks", func() {
+			BeforeEach(func() {
+				status = &fdbv1beta2.FoundationDBStatus{
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						Data: fdbv1beta2.FoundationDBStatusDataStatistics{
+							TeamTrackers: []fdbv1beta2.FoundationDBStatusTeamTracker{
+								{
+									Primary: true,
+									State:   fdbv1beta2.FoundationDBStatusDataState{Description: "", Healthy: true, Name: "healthy", MinReplicasRemaining: 4},
+								},
+								{
+									Primary: false,
+									State:   fdbv1beta2.FoundationDBStatusDataState{Description: "", Healthy: false, Name: "healthy", MinReplicasRemaining: 0},
+								},
+							},
+						},
+						Logs: []fdbv1beta2.FoundationDBStatusLogInfo{
+							{
+								Current:                       true,
+								LogFaultTolerance:             1,
+								LogReplicationFactor:          2,
+								RemoteLogFaultTolerance:       0,
+								RemoteLogReplicationFactor:    0,
+								SatelliteLogFaultTolerance:    0,
+								SatelliteLogReplicationFactor: 0,
+							},
+							{
+								Current:                       false,
+								LogFaultTolerance:             1,
+								LogReplicationFactor:          2,
+								RemoteLogFaultTolerance:       0,
+								RemoteLogReplicationFactor:    0,
+								SatelliteLogFaultTolerance:    0,
+								SatelliteLogReplicationFactor: 0,
+							},
+						},
+					},
+				}
+			})
+
+			It("do storage server fault domain check", func() {
+				Expect(DoFaultDomainChecksOnStatus(status, true, false, false)).To(BeFalse())
+			})
+
+			It("do log server fault domain check", func() {
+				Expect(DoFaultDomainChecksOnStatus(status, false, true, false)).To(BeTrue())
+			})
+
+			It("do coordinator fault domain check", func() {
+				Expect(DoFaultDomainChecksOnStatus(status, false, false, true)).To(BeTrue())
+			})
+
+			It("do storage server and log server fault domain checks", func() {
+				Expect(DoFaultDomainChecksOnStatus(status, true, true, false)).To(BeFalse())
+			})
+
+			It("do all fault domain checks", func() {
+				Expect(DoFaultDomainChecksOnStatus(status, true, true, true)).To(BeFalse())
+			})
+		})
 	})
 })

@@ -129,3 +129,15 @@ func DoCoordinatorFaultDomainCheckOnStatus(status *fdbv1beta2.FoundationDBStatus
 	// @todo decide if we need to do coordinator related check.
 	return true
 }
+
+// DoFaultDomainChecksOnStatus does the specified fault domain check(s) over the given status object.
+// @note this is a wrapper over the above fault domain related functions.
+func DoFaultDomainChecksOnStatus(status *fdbv1beta2.FoundationDBStatus, storageServerCheck bool, logServerCheck bool, coordinatorCheck bool) bool {
+	if (storageServerCheck && !DoStorageServerFaultDomainCheckOnStatus(status)) ||
+		(logServerCheck && !DoLogServerFaultDomainCheckOnStatus(status)) ||
+		(coordinatorCheck && !DoCoordinatorFaultDomainCheckOnStatus(status)) {
+		return false
+	}
+
+	return true
+}
