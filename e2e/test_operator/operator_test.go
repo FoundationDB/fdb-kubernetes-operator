@@ -1111,13 +1111,11 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		When("maintenance mode is on", func() {
 			BeforeEach(func() {
 				command := fmt.Sprintf("maintenance on %s %s", "operator-test-1-storage-4", "40000")
-				_, _, err := fdbCluster.RunFdbCliCommandInOperatorWithoutRetry(command, false, 40)
-				Expect(err).ShouldNot(HaveOccurred())
+				_, _ = fdbCluster.RunFdbCliCommandInOperator(command, false, 40)
 			})
 
 			AfterEach(func() {
-				_, _, err := fdbCluster.RunFdbCliCommandInOperatorWithoutRetry("maintenance off", false, 40)
-				Expect(err).ShouldNot(HaveOccurred())
+				_, _ = fdbCluster.RunFdbCliCommandInOperator("maintenance off", false, 40)
 			})
 
 			It("status maintenance zone should match", func() {
