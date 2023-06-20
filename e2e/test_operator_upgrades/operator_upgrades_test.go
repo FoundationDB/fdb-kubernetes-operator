@@ -163,7 +163,7 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 			// 2 times the process counts for transaction system processes. Add a small buffer of 5 to allow automatic
 			// replacements during an upgrade.
 			expectedProcessCounts := (processCounts.Total()-processCounts.Storage)*2 + 5
-			Expect(transactionSystemProcessGroups).To(HaveLen(expectedProcessCounts))
+			Expect(len(transactionSystemProcessGroups)).To(BeNumerically("<=", expectedProcessCounts))
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
