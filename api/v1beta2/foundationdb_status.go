@@ -327,12 +327,13 @@ type FoundationDBStatusBackupTag struct {
 // FoundationDBStatusLogInfo provides information about the fault tolerance metrics
 // of log processes in the cluster.
 type FoundationDBStatusLogInfo struct {
-	LogFaultTolerance             int `json:"log_fault_tolerance,omitempty"`
-	LogReplicationFactor          int `json:"log_replication_factor,omitempty"`
-	RemoteLogFaultTolerance       int `json:"remote_log_fault_tolerance,omitempty"`
-	RemoteLogReplicationFactor    int `json:"remote_log_replication_factor,omitempty"`
-	SatelliteLogFaultTolerance    int `json:"satellite_log_fault_tolerance,omitempty"`
-	SatelliteLogReplicationFactor int `json:"satellite_log_replication_factor,omitempty"`
+	Current                       bool `json:"current,omitempty"`
+	LogFaultTolerance             int  `json:"log_fault_tolerance,omitempty"`
+	LogReplicationFactor          int  `json:"log_replication_factor,omitempty"`
+	RemoteLogFaultTolerance       int  `json:"remote_log_fault_tolerance,omitempty"`
+	RemoteLogReplicationFactor    int  `json:"remote_log_replication_factor,omitempty"`
+	SatelliteLogFaultTolerance    int  `json:"satellite_log_fault_tolerance,omitempty"`
+	SatelliteLogReplicationFactor int  `json:"satellite_log_replication_factor,omitempty"`
 }
 
 // ProcessRole models the role of a pod.

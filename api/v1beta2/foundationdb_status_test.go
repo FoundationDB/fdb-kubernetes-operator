@@ -856,6 +856,7 @@ var _ = Describe("FoundationDBStatus", func() {
 			},
 			Logs: []FoundationDBStatusLogInfo{
 				{
+					Current:                       true,
 					LogFaultTolerance:             1,
 					LogReplicationFactor:          2,
 					RemoteLogFaultTolerance:       0,

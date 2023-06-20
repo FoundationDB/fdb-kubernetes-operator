@@ -251,4 +251,143 @@ var _ = Describe("Internal FoundationDBStatus", func() {
 				},
 			}),
 	)
+
+	Context("fault domain checks on status object", func() {
+		var status *fdbv1beta2.FoundationDBStatus
+
+		Context("storage server fault domain checks", func() {
+			It("storage server team healthy", func() {
+				status = &fdbv1beta2.FoundationDBStatus{
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						Data: fdbv1beta2.FoundationDBStatusDataStatistics{
+							TeamTrackers: []fdbv1beta2.FoundationDBStatusTeamTracker{
+								{
+									Primary: true,
+									State:   fdbv1beta2.FoundationDBStatusDataState{Description: "", Healthy: true, Name: "healthy", MinReplicasRemaining: 4},
+								},
+							},
+						},
+					},
+				}
+				Expect(DoStorageServerFaultDomainCheckOnStatus(status)).To(BeTrue())
+			})
+
+			It("remote storage server team unhealthy", func() {
+				status = &fdbv1beta2.FoundationDBStatus{
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						Data: fdbv1beta2.FoundationDBStatusDataStatistics{
+							TeamTrackers: []fdbv1beta2.FoundationDBStatusTeamTracker{
+								{
+									Primary: true,
+									State:   fdbv1beta2.FoundationDBStatusDataState{Description: "", Healthy: true, Name: "healthy", MinReplicasRemaining: 4},
+								},
+								{
+									Primary: false,
+									State:   fdbv1beta2.FoundationDBStatusDataState{Description: "", Healthy: false, Name: "healthy", MinReplicasRemaining: 0},
+								},
+							},
+						},
+					},
+				}
+				Expect(DoStorageServerFaultDomainCheckOnStatus(status)).To(BeFalse())
+			})
+		})
+
+		Context("log server fault domain checks", func() {
+			It("no log server fault tolerance information in status", func() {
+				status = &fdbv1beta2.FoundationDBStatus{
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						Logs: []fdbv1beta2.FoundationDBStatusLogInfo{},
+					},
+				}
+
+				Expect(DoLogServerFaultDomainCheckOnStatus(status)).To(BeTrue())
+			})
+
+			It("all primary log servers available", func() {
+				status = &fdbv1beta2.FoundationDBStatus{
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						Logs: []fdbv1beta2.FoundationDBStatusLogInfo{
+							{
+								Current:                       true,
+								LogFaultTolerance:             1,
+								LogReplicationFactor:          2,
+								RemoteLogFaultTolerance:       0,
+								RemoteLogReplicationFactor:    0,
+								SatelliteLogFaultTolerance:    0,
+								SatelliteLogReplicationFactor: 0,
+							},
+						},
+					},
+				}
+				Expect(DoLogServerFaultDomainCheckOnStatus(status)).To(BeTrue())
+			})
+
+			It("not enough replicas in remote", func() {
+				status = &fdbv1beta2.FoundationDBStatus{
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						Logs: []fdbv1beta2.FoundationDBStatusLogInfo{
+							{
+								Current:                       true,
+								LogFaultTolerance:             1,
+								LogReplicationFactor:          2,
+								RemoteLogFaultTolerance:       1,
+								RemoteLogReplicationFactor:    4,
+								SatelliteLogFaultTolerance:    0,
+								SatelliteLogReplicationFactor: 0,
+							},
+						},
+					},
+				}
+				Expect(DoLogServerFaultDomainCheckOnStatus(status)).To(BeFalse())
+			})
+
+			It("not enough replicas in the satellite", func() {
+				status = &fdbv1beta2.FoundationDBStatus{
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						Logs: []fdbv1beta2.FoundationDBStatusLogInfo{
+							{
+								Current:                       true,
+								LogFaultTolerance:             1,
+								LogReplicationFactor:          2,
+								RemoteLogFaultTolerance:       0,
+								RemoteLogReplicationFactor:    0,
+								SatelliteLogFaultTolerance:    1,
+								SatelliteLogReplicationFactor: 4,
+							},
+						},
+					},
+				}
+				Expect(DoLogServerFaultDomainCheckOnStatus(status)).To(BeFalse())
+			})
+
+			It("multiple log server sets", func() {
+				status = &fdbv1beta2.FoundationDBStatus{
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						Logs: []fdbv1beta2.FoundationDBStatusLogInfo{
+							{
+								Current:                       true,
+								LogFaultTolerance:             1,
+								LogReplicationFactor:          2,
+								RemoteLogFaultTolerance:       0,
+								RemoteLogReplicationFactor:    0,
+								SatelliteLogFaultTolerance:    0,
+								SatelliteLogReplicationFactor: 0,
+							},
+							{
+								Current:                       false,
+								LogFaultTolerance:             1,
+								LogReplicationFactor:          2,
+								RemoteLogFaultTolerance:       0,
+								RemoteLogReplicationFactor:    0,
+								SatelliteLogFaultTolerance:    0,
+								SatelliteLogReplicationFactor: 0,
+							},
+						},
+					},
+				}
+				Expect(DoLogServerFaultDomainCheckOnStatus(status)).To(BeTrue())
+			})
+		})
+	})
 })

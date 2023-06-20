@@ -96,8 +96,8 @@ func GetMinimumUptimeAndAddressMap(logger logr.Logger, cluster *fdbv1beta2.Found
 	return minimumUptime, addressMap, nil
 }
 
-// DoFaultDomainChecksOnStatusOutput does fault domain checks over the given status object.
-func DoFaultDomainChecksOnStatusOutput(status *fdbv1beta2.FoundationDBStatus) bool {
+// DoStorageServerFaultDomainCheckOnStatus does a storage server related fault domain check over the given status object.
+func DoStorageServerFaultDomainCheckOnStatus(status *fdbv1beta2.FoundationDBStatus) bool {
 	// Storage server related check.
 	for _, tracker := range status.Cluster.Data.TeamTrackers {
 		if !tracker.State.Healthy {
@@ -105,8 +105,14 @@ func DoFaultDomainChecksOnStatusOutput(status *fdbv1beta2.FoundationDBStatus) bo
 		}
 	}
 
+	return true
+}
+
+// DoLogServerFaultDomainCheckOnStatus does a log server related fault domain check over the given status object.
+func DoLogServerFaultDomainCheckOnStatus(status *fdbv1beta2.FoundationDBStatus) bool {
 	// Log server related check.
 	for _, log := range status.Cluster.Logs {
+		// @todo do we need to do this check only for the current log server set? Revisit this issue later.
 		if (log.LogReplicationFactor != 0 && log.LogFaultTolerance+1 != log.LogReplicationFactor) ||
 			(log.RemoteLogReplicationFactor != 0 && log.RemoteLogFaultTolerance+1 != log.RemoteLogReplicationFactor) ||
 			(log.SatelliteLogReplicationFactor != 0 && log.SatelliteLogFaultTolerance+1 != log.SatelliteLogReplicationFactor) {
@@ -114,6 +120,12 @@ func DoFaultDomainChecksOnStatusOutput(status *fdbv1beta2.FoundationDBStatus) bo
 		}
 	}
 
-	// @todo decide if we need to do coordinator related checks.
+	return true
+}
+
+// DoCoordinatorFaultDomainCheckOnStatus does a coordinator related fault domain check over the given status object.
+// @note an empty function for now. We will revisit this later.
+func DoCoordinatorFaultDomainCheckOnStatus(status *fdbv1beta2.FoundationDBStatus) bool {
+	// @todo decide if we need to do coordinator related check.
 	return true
 }
