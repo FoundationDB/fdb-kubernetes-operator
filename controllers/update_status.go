@@ -56,7 +56,6 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 	// Pass through Maintenance Mode Info as the maintenance_mode_checker reconciler takes care of updating it
 	originalStatus.MaintenanceModeInfo.DeepCopyInto(&clusterStatus.MaintenanceModeInfo)
 	clusterStatus.Generations.Reconciled = cluster.Status.Generations.Reconciled
-	clusterStatus.ConnectionString = originalStatus.ConnectionString
 
 	// Initialize with the current desired storage servers per Pod
 	clusterStatus.StorageServersPerDisk = []int{cluster.GetStorageServersPerPod()}
@@ -290,11 +289,6 @@ func optionList(options ...string) []string {
 // returns the connection string that allows connecting to the cluster.
 func tryConnectionOptions(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, r *FoundationDBClusterReconciler) (string, error) {
 	connectionStrings := optionList(cluster.Status.ConnectionString, cluster.Spec.SeedConnectionString)
-
-	if len(connectionStrings) == 1 {
-		return cluster.Status.ConnectionString, nil
-	}
-
 	logger.Info("Trying connection options", "connectionString", connectionStrings)
 
 	originalConnectionString := cluster.Status.ConnectionString
