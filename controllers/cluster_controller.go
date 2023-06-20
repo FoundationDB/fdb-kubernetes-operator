@@ -463,6 +463,9 @@ func (r *FoundationDBClusterReconciler) getStatusFromClusterOrDummyStatus(logger
 	defer adminClient.Close()
 
 	status, err := adminClient.GetStatus()
+
+	logger.V(1).Info("connection string from getStatusFromClusterOrDummyStatus", "tryConnectionOptions", connectionString, "status", status.Cluster.ConnectionString)
+
 	if err == nil {
 		return status, nil
 	}
