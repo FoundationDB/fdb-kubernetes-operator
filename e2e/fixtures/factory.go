@@ -755,7 +755,7 @@ func (factory *Factory) GetClusterOptions(options ...ClusterOption) []ClusterOpt
 	options = append(options, WithTLSEnabled)
 
 	if factory.options.featureOperatorUnifiedImage {
-		options = append(options, WithLUnifiedImage)
+		options = append(options, WithUnifiedImage)
 	}
 
 	if factory.options.featureOperatorLocalities {

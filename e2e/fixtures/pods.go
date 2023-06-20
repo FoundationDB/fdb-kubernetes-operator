@@ -23,10 +23,11 @@ package fixtures
 import (
 	ctx "context"
 	"fmt"
-	"github.com/onsi/ginkgo/v2"
 	"log"
 	"math/rand"
 	"time"
+
+	"github.com/onsi/ginkgo/v2"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	corev1 "k8s.io/api/core/v1"

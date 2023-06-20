@@ -243,10 +243,12 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 				return true
 			})
 
+			// Add a small buffer of 5 to allow automatic replacements during an upgrade.
+			expectedProcessCounts += 5
 			log.Println("expectedProcessCounts", expectedProcessCounts, "processCounts", processCounts)
 
 			// Make sure we haven't replaced to many transaction processes.
-			Expect(processCounts).To(Equal(expectedProcessCounts))
+			Expect(processCounts).To(BeNumerically("<=", expectedProcessCounts))
 
 			finalGeneration := fdbCluster.GetPrimary().GetStatus().Cluster.Generation
 			log.Println("initialGeneration:", initialGeneration, "finalGeneration", finalGeneration, "gap", finalGeneration-initialGeneration)
