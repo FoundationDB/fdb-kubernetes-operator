@@ -287,6 +287,31 @@ var _ = Describe("mock_client", func() {
 			Expect(status.Cluster.Processes).To(HaveKey(fdbv1beta2.ProcessGroupID("dc2-storage-1")))
 		})
 	})
+
+	When("getting the status", func() {
+		var adminClient *AdminClient
+		var status *fdbv1beta2.FoundationDBStatus
+
+		BeforeEach(func() {
+			cluster := internal.CreateDefaultCluster()
+			Expect(k8sClient.Create(context.TODO(), cluster)).NotTo(HaveOccurred())
+
+			var err error
+			adminClient, err = NewMockAdminClientUncast(cluster, k8sClient)
+			Expect(err).NotTo(HaveOccurred())
+
+			status, err = adminClient.GetStatus()
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should add team tracker information", func() {
+			Expect(status.Cluster.Data.TeamTrackers).To(HaveLen(1))
+		})
+
+		It("should add logs information", func() {
+			Expect(status.Cluster.Logs).To(HaveLen(1))
+		})
+	})
 })
 
 func getCommandlineForProcessFromStatus(status *fdbv1beta2.FoundationDBStatus, targetProcess string) string {
