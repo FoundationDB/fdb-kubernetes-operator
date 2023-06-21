@@ -23,10 +23,9 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbstatus"
 	"math"
 	"net"
-
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal/statuschecks"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -68,7 +67,7 @@ func (e excludeProcesses) reconcile(ctx context.Context, r *FoundationDBClusterR
 	var fdbProcessesToExclude []fdbv1beta2.ProcessAddress
 	var processClassesToExclude map[fdbv1beta2.ProcessClass]fdbv1beta2.None
 	if removalCount > 0 {
-		exclusions, err := statuschecks.GetExclusions(status)
+		exclusions, err := fdbstatus.GetExclusions(status)
 		if err != nil {
 			return &requeue{curError: err, delayedRequeue: true}
 		}

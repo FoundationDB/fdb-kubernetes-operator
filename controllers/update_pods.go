@@ -23,9 +23,8 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbstatus"
 	"time"
-
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal/statuschecks"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
@@ -297,7 +296,7 @@ func deletePodsForUpdates(ctx context.Context, r *FoundationDBClusterReconciler,
 
 	newContext := logr.NewContext(ctx, logger)
 	if status != nil {
-		newContext = context.WithValue(ctx, statuschecks.StatusContextKey{}, status)
+		newContext = context.WithValue(ctx, fdbstatus.StatusContextKey{}, status)
 	}
 
 	ready, err := r.PodLifecycleManager.CanDeletePods(newContext, adminClient, cluster)

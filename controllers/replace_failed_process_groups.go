@@ -22,9 +22,9 @@ package controllers
 
 import (
 	"context"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbstatus"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal/replacements"
 )
 
@@ -57,7 +57,7 @@ func (c replaceFailedProcessGroups) reconcile(ctx context.Context, r *Foundation
 	}
 
 	// Only replace process groups without an address, if the cluster has the desired fault tolerance and is available.
-	hasDesiredFaultTolerance := internal.HasDesiredFaultToleranceFromStatus(log, status, cluster)
+	hasDesiredFaultTolerance := fdbstatus.HasDesiredFaultToleranceFromStatus(log, status, cluster)
 	if replacements.ReplaceFailedProcessGroups(logger, cluster, hasDesiredFaultTolerance) {
 		err := r.updateOrApply(ctx, cluster)
 		if err != nil {
