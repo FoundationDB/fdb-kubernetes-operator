@@ -21,6 +21,7 @@
 package fdbstatus
 
 import (
+	"fmt"
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
@@ -244,49 +245,84 @@ func GetMinimumUptimeAndAddressMap(logger logr.Logger, cluster *fdbv1beta2.Found
 }
 
 // DoStorageServerFaultDomainCheckOnStatus does a storage server related fault domain check over the given status object.
-func DoStorageServerFaultDomainCheckOnStatus(status *fdbv1beta2.FoundationDBStatus) bool {
-	// Storage server related check.
+func DoStorageServerFaultDomainCheckOnStatus(status *fdbv1beta2.FoundationDBStatus) error {
+	if len(status.Cluster.Data.TeamTrackers) == 0 {
+		return fmt.Errorf("no team trackers specified in status")
+	}
+
 	for _, tracker := range status.Cluster.Data.TeamTrackers {
 		if !tracker.State.Healthy {
-			return false
+			region := "primary"
+			if !tracker.Primary {
+				region = "remote"
+			}
+
+			return fmt.Errorf("team tracker in %s is in unhealthy state", region)
 		}
 	}
 
-	return true
+	return nil
 }
 
 // DoLogServerFaultDomainCheckOnStatus does a log server related fault domain check over the given status object.
-func DoLogServerFaultDomainCheckOnStatus(status *fdbv1beta2.FoundationDBStatus) bool {
-	// Log server related check.
+func DoLogServerFaultDomainCheckOnStatus(status *fdbv1beta2.FoundationDBStatus) error {
+	if len(status.Cluster.Logs) == 0 {
+		return fmt.Errorf("no log information specified in status")
+	}
+
 	for _, log := range status.Cluster.Logs {
 		// @todo do we need to do this check only for the current log server set? Revisit this issue later.
-		if (log.LogReplicationFactor != 0 && log.LogFaultTolerance+1 != log.LogReplicationFactor) ||
-			(log.RemoteLogReplicationFactor != 0 && log.RemoteLogFaultTolerance+1 != log.RemoteLogReplicationFactor) ||
-			(log.SatelliteLogReplicationFactor != 0 && log.SatelliteLogFaultTolerance+1 != log.SatelliteLogReplicationFactor) {
-			return false
+		if log.LogReplicationFactor != 0 {
+			if log.LogFaultTolerance+1 != log.LogReplicationFactor {
+				return fmt.Errorf("primary log fault tolerance is not satisfied, replication factor: %d, current fault tolerance: %d", log.LogReplicationFactor, log.LogFaultTolerance)
+			}
+		}
+
+		if log.RemoteLogReplicationFactor != 0 {
+			if log.RemoteLogFaultTolerance+1 != log.RemoteLogReplicationFactor {
+				return fmt.Errorf("remote log fault tolerance is not satisfied, replication factor: %d, current fault tolerance: %d", log.RemoteLogReplicationFactor, log.RemoteLogFaultTolerance)
+			}
+		}
+
+		if log.SatelliteLogReplicationFactor != 0 {
+			if log.SatelliteLogFaultTolerance+1 != log.SatelliteLogReplicationFactor {
+				return fmt.Errorf("satellite log fault tolerance is not satisfied, replication factor: %d, current fault tolerance: %d", log.SatelliteLogReplicationFactor, log.SatelliteLogFaultTolerance)
+			}
 		}
 	}
 
-	return true
+	return nil
 }
 
 // DoCoordinatorFaultDomainCheckOnStatus does a coordinator related fault domain check over the given status object.
 // @note an empty function for now. We will revisit this later.
-func DoCoordinatorFaultDomainCheckOnStatus(status *fdbv1beta2.FoundationDBStatus) bool {
+func DoCoordinatorFaultDomainCheckOnStatus(status *fdbv1beta2.FoundationDBStatus) error {
 	// TODO: decide if we need to do coordinator related check.
-	return true
+	return nil
 }
 
 // DoFaultDomainChecksOnStatus does the specified fault domain check(s) over the given status object.
 // @note this is a wrapper over the above fault domain related functions.
-func DoFaultDomainChecksOnStatus(status *fdbv1beta2.FoundationDBStatus, storageServerCheck bool, logServerCheck bool, coordinatorCheck bool) bool {
-	if (storageServerCheck && !DoStorageServerFaultDomainCheckOnStatus(status)) ||
-		(logServerCheck && !DoLogServerFaultDomainCheckOnStatus(status)) ||
-		(coordinatorCheck && !DoCoordinatorFaultDomainCheckOnStatus(status)) {
-		return false
+func DoFaultDomainChecksOnStatus(status *fdbv1beta2.FoundationDBStatus, storageServerCheck bool, logServerCheck bool, coordinatorCheck bool) error {
+	if storageServerCheck {
+		err := DoStorageServerFaultDomainCheckOnStatus(status)
+		if err != nil {
+			return err
+		}
 	}
 
-	return true
+	if logServerCheck {
+		err := DoLogServerFaultDomainCheckOnStatus(status)
+		if err != nil {
+			return err
+		}
+	}
+
+	if coordinatorCheck {
+		return DoCoordinatorFaultDomainCheckOnStatus(status)
+	}
+
+	return nil
 }
 
 func hasDesiredFaultTolerance(expectedFaultTolerance int, maxZoneFailuresWithoutLosingData int, maxZoneFailuresWithoutLosingAvailability int) bool {
