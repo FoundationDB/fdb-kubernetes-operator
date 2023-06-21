@@ -95,6 +95,9 @@ type FoundationDBStatusClusterInfo struct {
 	// cluster.
 	Layers FoundationDBStatusLayerInfo `json:"layers,omitempty"`
 
+	// Logs provides information about log processes running in the cluster.
+	Logs []FoundationDBStatusLogInfo `json:"logs,omitempty"`
+
 	// FaultTolerance provides information about the fault tolerance status
 	// of the cluster.
 	FaultTolerance FaultTolerance `json:"fault_tolerance,omitempty"`
@@ -185,6 +188,9 @@ type FoundationDBStatusDataStatistics struct {
 
 	// State provides a summary of the state of data distribution.
 	State FoundationDBStatusDataState `json:"state,omitempty"`
+
+	// TeamTrackers provides information about (highest priority) teams.
+	TeamTrackers []FoundationDBStatusTeamTracker `json:"team_trackers,omitempty"`
 }
 
 // FoundationDBStatusDataState provides information about the state of data
@@ -200,6 +206,10 @@ type FoundationDBStatusDataState struct {
 	// Name provides a machine-readable identifier for the data distribution
 	// state.
 	Name string `json:"name,omitempty"`
+
+	// MinReplicasRemaining provides the number of replicas remaining in the
+	// highest priority team.
+	MinReplicasRemaining int `json:"min_replicas_remaining,omitempty"`
 }
 
 // FoundationDBStatusMovingData provides information about the current data
@@ -214,6 +224,16 @@ type FoundationDBStatusMovingData struct {
 
 	// InQueueBytes provides how many bytes are pending data movement.
 	InQueueBytes int `json:"in_queue_bytes,omitempty"`
+}
+
+// FoundationDBStatusTeamTracker provides information about the highest priority team.
+type FoundationDBStatusTeamTracker struct {
+	// Primary indicates whether the team is in the primary region or not.
+	Primary bool `json:"primary,omitempty"`
+
+	// FoundationDBStatusDataState provides information about the state of the
+	// highest priority team.
+	State FoundationDBStatusDataState `json:"state,omitempty"`
 }
 
 // FoundationDBStatusClientDBStatus represents the databaseStatus field in the
@@ -302,6 +322,18 @@ type FoundationDBStatusBackupTag struct {
 	CurrentContainer string `json:"current_container,omitempty"`
 	RunningBackup    bool   `json:"running_backup,omitempty"`
 	Restorable       bool   `json:"running_backup_is_restorable,omitempty"`
+}
+
+// FoundationDBStatusLogInfo provides information about the fault tolerance metrics
+// of log processes in the cluster.
+type FoundationDBStatusLogInfo struct {
+	Current                       bool `json:"current,omitempty"`
+	LogFaultTolerance             int  `json:"log_fault_tolerance,omitempty"`
+	LogReplicationFactor          int  `json:"log_replication_factor,omitempty"`
+	RemoteLogFaultTolerance       int  `json:"remote_log_fault_tolerance,omitempty"`
+	RemoteLogReplicationFactor    int  `json:"remote_log_replication_factor,omitempty"`
+	SatelliteLogFaultTolerance    int  `json:"satellite_log_fault_tolerance,omitempty"`
+	SatelliteLogReplicationFactor int  `json:"satellite_log_replication_factor,omitempty"`
 }
 
 // ProcessRole models the role of a pod.

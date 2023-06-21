@@ -95,3 +95,49 @@ func GetMinimumUptimeAndAddressMap(logger logr.Logger, cluster *fdbv1beta2.Found
 
 	return minimumUptime, addressMap, nil
 }
+
+// DoStorageServerFaultDomainCheckOnStatus does a storage server related fault domain check over the given status object.
+func DoStorageServerFaultDomainCheckOnStatus(status *fdbv1beta2.FoundationDBStatus) bool {
+	// Storage server related check.
+	for _, tracker := range status.Cluster.Data.TeamTrackers {
+		if !tracker.State.Healthy {
+			return false
+		}
+	}
+
+	return true
+}
+
+// DoLogServerFaultDomainCheckOnStatus does a log server related fault domain check over the given status object.
+func DoLogServerFaultDomainCheckOnStatus(status *fdbv1beta2.FoundationDBStatus) bool {
+	// Log server related check.
+	for _, log := range status.Cluster.Logs {
+		// @todo do we need to do this check only for the current log server set? Revisit this issue later.
+		if (log.LogReplicationFactor != 0 && log.LogFaultTolerance+1 != log.LogReplicationFactor) ||
+			(log.RemoteLogReplicationFactor != 0 && log.RemoteLogFaultTolerance+1 != log.RemoteLogReplicationFactor) ||
+			(log.SatelliteLogReplicationFactor != 0 && log.SatelliteLogFaultTolerance+1 != log.SatelliteLogReplicationFactor) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// DoCoordinatorFaultDomainCheckOnStatus does a coordinator related fault domain check over the given status object.
+// @note an empty function for now. We will revisit this later.
+func DoCoordinatorFaultDomainCheckOnStatus(status *fdbv1beta2.FoundationDBStatus) bool {
+	// @todo decide if we need to do coordinator related check.
+	return true
+}
+
+// DoFaultDomainChecksOnStatus does the specified fault domain check(s) over the given status object.
+// @note this is a wrapper over the above fault domain related functions.
+func DoFaultDomainChecksOnStatus(status *fdbv1beta2.FoundationDBStatus, storageServerCheck bool, logServerCheck bool, coordinatorCheck bool) bool {
+	if (storageServerCheck && !DoStorageServerFaultDomainCheckOnStatus(status)) ||
+		(logServerCheck && !DoLogServerFaultDomainCheckOnStatus(status)) ||
+		(coordinatorCheck && !DoCoordinatorFaultDomainCheckOnStatus(status)) {
+		return false
+	}
+
+	return true
+}
