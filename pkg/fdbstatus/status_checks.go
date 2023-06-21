@@ -18,13 +18,14 @@
  * limitations under the License.
  */
 
-package statuschecks
+package fdbstatus
 
 import (
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
 	"github.com/go-logr/logr"
+	"math"
 )
 
 // StatusContextKey will be used as a key in a context to pass down the cached status.
@@ -35,7 +36,7 @@ type StatusContextKey struct{}
 // processes that are fully excluded and don't serve any roles and processes that are not marked for
 // exclusion.
 type exclusionStatus struct {
-	// inProgress contains all addresses that are excluded in the cluster and the exclude command can be used to verify if it's safe to remove this address.
+	// inProgress containms all addresses that are excluded in the cluster and the exclude command can be used to verify if it's safe to remove this address.
 	inProgress []fdbv1beta2.ProcessAddress
 	// fullyExcluded contains all addresses that are excluded and don't have any roles assigned, this is a sign that the process is "fully" excluded and safe to remove.
 	fullyExcluded []fdbv1beta2.ProcessAddress
@@ -172,4 +173,146 @@ func GetExclusions(status *fdbv1beta2.FoundationDBStatus) ([]fdbv1beta2.ProcessA
 	}
 
 	return exclusions, nil
+}
+
+// GetCoordinatorsFromStatus gets the current coordinators from the status.
+// The returning set will contain all processes by their process group ID.
+func GetCoordinatorsFromStatus(status *fdbv1beta2.FoundationDBStatus) map[string]fdbv1beta2.None {
+	coordinators := make(map[string]fdbv1beta2.None)
+
+	for _, pInfo := range status.Cluster.Processes {
+		for _, roleInfo := range pInfo.Roles {
+			if roleInfo.Role != string(fdbv1beta2.ProcessRoleCoordinator) {
+				continue
+			}
+
+			// We don't have to check for duplicates here, if the process group ID is already
+			// set we just overwrite it.
+			coordinators[pInfo.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]] = fdbv1beta2.None{}
+			break
+		}
+	}
+
+	return coordinators
+}
+
+// GetMinimumUptimeAndAddressMap returns address map of the processes included the the foundationdb status. The minimum
+// uptime will be either secondsSinceLastRecovered if the recovery state is supported and enabled otherwise we will
+// take the minimum uptime of all processes.
+func GetMinimumUptimeAndAddressMap(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, recoveryStateEnabled bool) (float64, map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.ProcessAddress, error) {
+	runningVersion, err := fdbv1beta2.ParseFdbVersion(cluster.GetRunningVersion())
+	if err != nil {
+		return 0, nil, err
+	}
+
+	useRecoveryState := runningVersion.SupportsRecoveryState() && recoveryStateEnabled
+
+	addressMap := make(map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.ProcessAddress, len(status.Cluster.Processes))
+
+	minimumUptime := math.Inf(1)
+	if useRecoveryState {
+		minimumUptime = status.Cluster.RecoveryState.SecondsSinceLastRecovered
+	}
+
+	for _, process := range status.Cluster.Processes {
+		// We have seen cases where a process is still reported, only with the role and the class but missing the localities.
+		// in this case we want to ignore this process as it seems like the process is miss behaving.
+		processGroupID, ok := process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]
+		if !ok {
+			logger.Info("Ignoring process with missing localities", "address", process.Address)
+			continue
+		}
+
+		addressMap[fdbv1beta2.ProcessGroupID(processGroupID)] = append(addressMap[fdbv1beta2.ProcessGroupID(process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey])], process.Address)
+
+		if useRecoveryState || process.Excluded {
+			continue
+		}
+
+		// Ignore cases where the uptime seconds is exactly 0.0, this would mean that the process was exactly restarted at the time the FoundationDB cluster status
+		// was queried. In most cases this only reflects an issue with the process or the status.
+		if process.UptimeSeconds == 0.0 {
+			continue
+		}
+
+		if process.UptimeSeconds < minimumUptime {
+			minimumUptime = process.UptimeSeconds
+		}
+	}
+
+	return minimumUptime, addressMap, nil
+}
+
+// DoStorageServerFaultDomainCheckOnStatus does a storage server related fault domain check over the given status object.
+func DoStorageServerFaultDomainCheckOnStatus(status *fdbv1beta2.FoundationDBStatus) bool {
+	// Storage server related check.
+	for _, tracker := range status.Cluster.Data.TeamTrackers {
+		if !tracker.State.Healthy {
+			return false
+		}
+	}
+
+	return true
+}
+
+// DoLogServerFaultDomainCheckOnStatus does a log server related fault domain check over the given status object.
+func DoLogServerFaultDomainCheckOnStatus(status *fdbv1beta2.FoundationDBStatus) bool {
+	// Log server related check.
+	for _, log := range status.Cluster.Logs {
+		// @todo do we need to do this check only for the current log server set? Revisit this issue later.
+		if (log.LogReplicationFactor != 0 && log.LogFaultTolerance+1 != log.LogReplicationFactor) ||
+			(log.RemoteLogReplicationFactor != 0 && log.RemoteLogFaultTolerance+1 != log.RemoteLogReplicationFactor) ||
+			(log.SatelliteLogReplicationFactor != 0 && log.SatelliteLogFaultTolerance+1 != log.SatelliteLogReplicationFactor) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// DoCoordinatorFaultDomainCheckOnStatus does a coordinator related fault domain check over the given status object.
+// @note an empty function for now. We will revisit this later.
+func DoCoordinatorFaultDomainCheckOnStatus(status *fdbv1beta2.FoundationDBStatus) bool {
+	// TODO: decide if we need to do coordinator related check.
+	return true
+}
+
+// DoFaultDomainChecksOnStatus does the specified fault domain check(s) over the given status object.
+// @note this is a wrapper over the above fault domain related functions.
+func DoFaultDomainChecksOnStatus(status *fdbv1beta2.FoundationDBStatus, storageServerCheck bool, logServerCheck bool, coordinatorCheck bool) bool {
+	if (storageServerCheck && !DoStorageServerFaultDomainCheckOnStatus(status)) ||
+		(logServerCheck && !DoLogServerFaultDomainCheckOnStatus(status)) ||
+		(coordinatorCheck && !DoCoordinatorFaultDomainCheckOnStatus(status)) {
+		return false
+	}
+
+	return true
+}
+
+func hasDesiredFaultTolerance(expectedFaultTolerance int, maxZoneFailuresWithoutLosingData int, maxZoneFailuresWithoutLosingAvailability int) bool {
+	// Only if both max zone failures for availability and data loss are greater or equal to the expected fault tolerance we know that we meet
+	// our fault tolerance requirements.
+	return maxZoneFailuresWithoutLosingData >= expectedFaultTolerance && maxZoneFailuresWithoutLosingAvailability >= expectedFaultTolerance
+}
+
+// HasDesiredFaultToleranceFromStatus checks if the cluster has the desired fault tolerance based on the provided status.
+func HasDesiredFaultToleranceFromStatus(log logr.Logger, status *fdbv1beta2.FoundationDBStatus, cluster *fdbv1beta2.FoundationDBCluster) bool {
+	if !status.Client.DatabaseStatus.Available {
+		log.Info("Cluster is not available",
+			"namespace", cluster.Namespace,
+			"cluster", cluster.Name)
+
+		return false
+	}
+
+	expectedFaultTolerance := cluster.DesiredFaultTolerance()
+	log.Info("Check desired fault tolerance",
+		"expectedFaultTolerance", expectedFaultTolerance,
+		"maxZoneFailuresWithoutLosingData", status.Cluster.FaultTolerance.MaxZoneFailuresWithoutLosingData,
+		"maxZoneFailuresWithoutLosingAvailability", status.Cluster.FaultTolerance.MaxZoneFailuresWithoutLosingAvailability)
+
+	return hasDesiredFaultTolerance(
+		expectedFaultTolerance,
+		status.Cluster.FaultTolerance.MaxZoneFailuresWithoutLosingData,
+		status.Cluster.FaultTolerance.MaxZoneFailuresWithoutLosingAvailability)
 }

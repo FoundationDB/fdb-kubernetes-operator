@@ -23,6 +23,7 @@ package mock
 import (
 	"context"
 	"fmt"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbstatus"
 	"net"
 	"strings"
 	"sync"
@@ -770,7 +771,7 @@ func (client *AdminClient) GetCoordinatorSet() (map[string]fdbv1beta2.None, erro
 		return nil, err
 	}
 
-	return internal.GetCoordinatorsFromStatus(status), nil
+	return fdbstatus.GetCoordinatorsFromStatus(status), nil
 }
 
 // SetKnobs sets the knobs that should be used for the commandline call.

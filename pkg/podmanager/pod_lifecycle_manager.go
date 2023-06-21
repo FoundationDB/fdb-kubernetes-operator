@@ -23,7 +23,7 @@ package podmanager
 import (
 	"context"
 	"fmt"
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal/statuschecks"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbstatus"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
@@ -128,7 +128,7 @@ func (manager StandardPodLifecycleManager) CanDeletePods(ctx context.Context, ad
 	var status *fdbv1beta2.FoundationDBStatus
 	logger := logr.FromContextOrDiscard(ctx)
 
-	statusFromContext := ctx.Value(statuschecks.StatusContextKey{})
+	statusFromContext := ctx.Value(fdbstatus.StatusContextKey{})
 	if statusFromContext == nil {
 		var err error
 		status, err = adminClient.GetStatus()
@@ -144,7 +144,7 @@ func (manager StandardPodLifecycleManager) CanDeletePods(ctx context.Context, ad
 		}
 	}
 
-	return internal.HasDesiredFaultToleranceFromStatus(logger, status, cluster), nil
+	return fdbstatus.HasDesiredFaultToleranceFromStatus(logger, status, cluster), nil
 }
 
 // UpdatePods updates a list of Pods to match the latest specs.
