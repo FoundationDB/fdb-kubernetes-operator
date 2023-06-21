@@ -33,6 +33,7 @@ import (
 type FactoryOptions struct {
 	namespace                   string
 	chaosNamespace              string
+	prefix                      string
 	context                     string
 	fdbImage                    string // TODO (johscheuer): Make this optional if we use the default
 	sidecarImage                string // TODO (johscheuer): Make this optional if we use the default
@@ -64,6 +65,12 @@ func (options *FactoryOptions) BindFlags(fs *flag.FlagSet) {
 		"chaos-namespace",
 		"",
 		"defines the chaos namespace to run experiments (will be created if missing)",
+	)
+	fs.StringVar(
+		&options.prefix,
+		"prefix",
+		"",
+		"defines the prefix of fdb cluster to run the test (will be created if missing)",
 	)
 	fs.StringVar(
 		&options.context,
