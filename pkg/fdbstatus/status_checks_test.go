@@ -482,6 +482,19 @@ var _ = Describe("status_checks", func() {
 		var status *fdbv1beta2.FoundationDBStatus
 
 		Context("storage server fault domain checks", func() {
+			It("storage server team is missing", func() {
+				status = &fdbv1beta2.FoundationDBStatus{
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						Data: fdbv1beta2.FoundationDBStatusDataStatistics{
+							TeamTrackers: []fdbv1beta2.FoundationDBStatusTeamTracker{},
+						},
+					},
+				}
+				err := DoStorageServerFaultDomainCheckOnStatus(status)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(Equal("no team trackers specified in status"))
+			})
+
 			It("storage server team healthy", func() {
 				status = &fdbv1beta2.FoundationDBStatus{
 					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
@@ -495,7 +508,29 @@ var _ = Describe("status_checks", func() {
 						},
 					},
 				}
-				Expect(DoStorageServerFaultDomainCheckOnStatus(status)).To(BeTrue())
+				Expect(DoStorageServerFaultDomainCheckOnStatus(status)).NotTo(HaveOccurred())
+			})
+
+			It("primary storage server team unhealthy", func() {
+				status = &fdbv1beta2.FoundationDBStatus{
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						Data: fdbv1beta2.FoundationDBStatusDataStatistics{
+							TeamTrackers: []fdbv1beta2.FoundationDBStatusTeamTracker{
+								{
+									Primary: true,
+									State:   fdbv1beta2.FoundationDBStatusDataState{Description: "", Healthy: false, Name: "healthy", MinReplicasRemaining: 4},
+								},
+								{
+									Primary: false,
+									State:   fdbv1beta2.FoundationDBStatusDataState{Description: "", Healthy: true, Name: "healthy", MinReplicasRemaining: 0},
+								},
+							},
+						},
+					},
+				}
+				err := DoStorageServerFaultDomainCheckOnStatus(status)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(Equal("team tracker in primary is in unhealthy state"))
 			})
 
 			It("remote storage server team unhealthy", func() {
@@ -515,7 +550,9 @@ var _ = Describe("status_checks", func() {
 						},
 					},
 				}
-				Expect(DoStorageServerFaultDomainCheckOnStatus(status)).To(BeFalse())
+				err := DoStorageServerFaultDomainCheckOnStatus(status)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(Equal("team tracker in remote is in unhealthy state"))
 			})
 		})
 
@@ -527,7 +564,9 @@ var _ = Describe("status_checks", func() {
 					},
 				}
 
-				Expect(DoLogServerFaultDomainCheckOnStatus(status)).To(BeTrue())
+				err := DoLogServerFaultDomainCheckOnStatus(status)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(Equal("no log information specified in status"))
 			})
 
 			It("all primary log servers available", func() {
@@ -546,7 +585,30 @@ var _ = Describe("status_checks", func() {
 						},
 					},
 				}
-				Expect(DoLogServerFaultDomainCheckOnStatus(status)).To(BeTrue())
+
+				Expect(DoLogServerFaultDomainCheckOnStatus(status)).NotTo(HaveOccurred())
+			})
+
+			It("not enough replicas in the primary", func() {
+				status = &fdbv1beta2.FoundationDBStatus{
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						Logs: []fdbv1beta2.FoundationDBStatusLogInfo{
+							{
+								Current:                       true,
+								LogFaultTolerance:             0,
+								LogReplicationFactor:          2,
+								RemoteLogFaultTolerance:       0,
+								RemoteLogReplicationFactor:    0,
+								SatelliteLogFaultTolerance:    0,
+								SatelliteLogReplicationFactor: 0,
+							},
+						},
+					},
+				}
+
+				err := DoLogServerFaultDomainCheckOnStatus(status)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(Equal("primary log fault tolerance is not satisfied, replication factor: 2, current fault tolerance: 0"))
 			})
 
 			It("not enough replicas in remote", func() {
@@ -565,7 +627,10 @@ var _ = Describe("status_checks", func() {
 						},
 					},
 				}
-				Expect(DoLogServerFaultDomainCheckOnStatus(status)).To(BeFalse())
+
+				err := DoLogServerFaultDomainCheckOnStatus(status)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(Equal("remote log fault tolerance is not satisfied, replication factor: 4, current fault tolerance: 1"))
 			})
 
 			It("not enough replicas in the satellite", func() {
@@ -584,7 +649,10 @@ var _ = Describe("status_checks", func() {
 						},
 					},
 				}
-				Expect(DoLogServerFaultDomainCheckOnStatus(status)).To(BeFalse())
+
+				err := DoLogServerFaultDomainCheckOnStatus(status)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(Equal("satellite log fault tolerance is not satisfied, replication factor: 4, current fault tolerance: 1"))
 			})
 
 			It("multiple log server sets", func() {
@@ -612,7 +680,7 @@ var _ = Describe("status_checks", func() {
 						},
 					},
 				}
-				Expect(DoLogServerFaultDomainCheckOnStatus(status)).To(BeTrue())
+				Expect(DoLogServerFaultDomainCheckOnStatus(status)).NotTo(HaveOccurred())
 			})
 		})
 
@@ -621,7 +689,7 @@ var _ = Describe("status_checks", func() {
 				status = &fdbv1beta2.FoundationDBStatus{
 					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{},
 				}
-				Expect(DoCoordinatorFaultDomainCheckOnStatus(status)).To(BeTrue())
+				Expect(DoCoordinatorFaultDomainCheckOnStatus(status)).NotTo(HaveOccurred())
 			})
 		})
 
@@ -666,23 +734,29 @@ var _ = Describe("status_checks", func() {
 			})
 
 			It("do storage server fault domain check", func() {
-				Expect(DoFaultDomainChecksOnStatus(status, true, false, false)).To(BeFalse())
+				err := DoFaultDomainChecksOnStatus(status, true, false, false)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(Equal("team tracker in remote is in unhealthy state"))
 			})
 
 			It("do log server fault domain check", func() {
-				Expect(DoFaultDomainChecksOnStatus(status, false, true, false)).To(BeTrue())
+				Expect(DoFaultDomainChecksOnStatus(status, false, true, false)).NotTo(HaveOccurred())
 			})
 
 			It("do coordinator fault domain check", func() {
-				Expect(DoFaultDomainChecksOnStatus(status, false, false, true)).To(BeTrue())
+				Expect(DoFaultDomainChecksOnStatus(status, false, false, true)).NotTo(HaveOccurred())
 			})
 
 			It("do storage server and log server fault domain checks", func() {
-				Expect(DoFaultDomainChecksOnStatus(status, true, true, false)).To(BeFalse())
+				err := DoFaultDomainChecksOnStatus(status, true, true, false)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(Equal("team tracker in remote is in unhealthy state"))
 			})
 
 			It("do all fault domain checks", func() {
-				Expect(DoFaultDomainChecksOnStatus(status, true, true, true)).To(BeFalse())
+				err := DoFaultDomainChecksOnStatus(status, true, true, true)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(Equal("team tracker in remote is in unhealthy state"))
 			})
 		})
 	})
