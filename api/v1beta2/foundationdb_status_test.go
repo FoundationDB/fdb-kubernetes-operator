@@ -482,6 +482,20 @@ var _ = Describe("FoundationDBStatus", func() {
 							},
 						},
 					},
+					Qos: FoundationDBStatusQosInfo{
+						LimitingDurabilityLagStorageServer: FoundationDBStatusLagInfo{
+							Seconds:  14.1153,
+							Versions: 14115335,
+						},
+						WorstDataLagStorageServer: FoundationDBStatusLagInfo{
+							Seconds:  0,
+							Versions: 0,
+						},
+						WorstDurabilityLagStorageServer: FoundationDBStatusLagInfo{
+							Seconds:  14.115600000000001,
+							Versions: 14115618,
+						},
+					},
 					RecoveryState: RecoveryState{
 						Name: "fully_recovered",
 					},
@@ -863,6 +877,20 @@ var _ = Describe("FoundationDBStatus", func() {
 					RemoteLogReplicationFactor:    0,
 					SatelliteLogFaultTolerance:    0,
 					SatelliteLogReplicationFactor: 0,
+				},
+			},
+			Qos: FoundationDBStatusQosInfo{
+				LimitingDurabilityLagStorageServer: FoundationDBStatusLagInfo{
+					Seconds:  5.0145299999999997,
+					Versions: 5014530,
+				},
+				WorstDataLagStorageServer: FoundationDBStatusLagInfo{
+					Seconds:  0,
+					Versions: 0,
+				},
+				WorstDurabilityLagStorageServer: FoundationDBStatusLagInfo{
+					Seconds:  5.0150199999999998,
+					Versions: 5015017,
 				},
 			},
 			FaultTolerance: FaultTolerance{
