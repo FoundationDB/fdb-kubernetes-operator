@@ -36,7 +36,6 @@ import (
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -131,10 +130,8 @@ func newAnalyzeCmd(streams genericclioptions.IOStreams) *cobra.Command {
 			for _, clusterName := range clusters {
 				cluster, err := loadCluster(kubeClient, namespace, clusterName)
 				if err != nil {
-					if k8serrors.IsNotFound(err) {
-						errs = append(errs, fmt.Errorf("could not get cluster: %s/%s", namespace, clusterName))
-					}
-					errs = append(errs, err)
+					errs = append(errs, fmt.Errorf("could not fetch cluster information for: %s/%s, error: %w", namespace, clusterName, err))
+					continue
 				}
 
 				err = analyzeCluster(cmd, kubeClient, cluster, autoFix, wait, ignoreConditions, ignoreRemovals)
@@ -221,6 +218,10 @@ func allConditionsValid(conditions []string) error {
 
 func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluster, autoFix bool, wait bool, ignoreConditions []string, ignoreRemovals bool) error {
 	var foundIssues bool
+	if cluster == nil {
+		return fmt.Errorf("error provided cluster is nil")
+	}
+
 	cmd.Printf("Checking cluster: %s/%s\n", cluster.Namespace, cluster.Name)
 
 	// 1. Check if the cluster is available
@@ -465,6 +466,10 @@ func getStatus(restConfig *rest.Config, clientSet *kubernetes.Clientset, pod *co
 }
 
 func analyzeStatus(cmd *cobra.Command, restConfig *rest.Config, clientSet *kubernetes.Clientset, kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluster, autoFix bool) error {
+	if cluster == nil {
+		return fmt.Errorf("error provided cluster is nil")
+	}
+
 	cmd.Printf("Checking cluster: %s/%s with auto-fix: %t\n", cluster.Namespace, cluster.Name, autoFix)
 
 	pods, err := getPodsForCluster(kubeClient, cluster)
