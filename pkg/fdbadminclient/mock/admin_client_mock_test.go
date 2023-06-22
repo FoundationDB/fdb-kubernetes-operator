@@ -22,6 +22,7 @@ package mock
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"time"
 
@@ -258,6 +259,28 @@ var _ = Describe("mock_client", func() {
 				Expect(newCommandline).NotTo(Equal(initialCommandline))
 				Expect(newCommandline).To(ContainSubstring(newKnob))
 			})
+		})
+	})
+
+	When("an error is mocked", func() {
+		var adminClient *AdminClient
+		var status *fdbv1beta2.FoundationDBStatus
+		var err error
+
+		BeforeEach(func() {
+			cluster := internal.CreateDefaultCluster()
+			Expect(k8sClient.Create(context.TODO(), cluster)).NotTo(HaveOccurred())
+
+			adminClient, err = NewMockAdminClientUncast(cluster, k8sClient)
+			Expect(err).NotTo(HaveOccurred())
+
+			adminClient.MockError(fmt.Errorf("mocked"))
+			status, err = adminClient.GetStatus()
+		})
+
+		It("should return an error", func() {
+			Expect(err).To(HaveOccurred())
+			Expect(status).To(BeNil())
 		})
 	})
 
