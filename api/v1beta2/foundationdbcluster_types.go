@@ -1342,6 +1342,7 @@ func (cluster *FoundationDBCluster) CheckReconciliation(log logr.Logger) (bool, 
 	logger := log.WithValues("method", "CheckReconciliation", "namespace", cluster.Namespace, "cluster", cluster.Name)
 	var reconciled = true
 	if !cluster.Status.Configured {
+		logger.Info("Pending initial database configuration", "state", "NeedsConfigurationChange")
 		cluster.Status.Generations.NeedsConfigurationChange = cluster.ObjectMeta.Generation
 		return false, nil
 	}

@@ -222,7 +222,7 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 	)
 
 	DescribeTable(
-		"upgrading a cluster with a partitioned pod which eventually gets replaced",
+		"with a partitioned pod which eventually gets replaced",
 		func(beforeVersion string, targetVersion string) {
 			if !factory.ChaosTestsEnabled() {
 				Skip("chaos mesh is disabled")
@@ -268,17 +268,23 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 				fdbCluster.SetAutoReplacementsWithWait(true, 3*time.Minute, false),
 			).ToNot(HaveOccurred())
 
-			log.Println("waiting for pod removal:", partitionedPod.Name)
-			Expect(fdbCluster.WaitForPodRemoval(partitionedPod)).ShouldNot(HaveOccurred())
-			log.Println("pod removed:", partitionedPod.Name)
+			// In the case of a version compatible upgrade the operator will proceed with recreating the storage Pods
+			// to make sure they use the new version. At the same time all transaction processes are marked for removal
+			// in order to bring up a new set of transaction processes with the new version, this prevents the operator
+			// from doing the actual replacement of the partitioned Pod. If th partitioned Pod gets recreated by the operator
+			// the injected partition from chaos-mesh is lost and therefore the process is reporting to the cluster again.
+			if !fixtures.VersionsAreProtocolCompatible(beforeVersion, targetVersion) {
+				log.Println("waiting for pod removal:", partitionedPod.Name)
+				Expect(fdbCluster.WaitForPodRemoval(partitionedPod)).ShouldNot(HaveOccurred())
+				log.Println("pod removed:", partitionedPod.Name)
+			}
 
-			// 3. Upgrade should proceed without removing the partition, as
-			//  Pod will be replaced.
+			// 3. Upgrade should proceed without removing the partition, as Pod will be replaced.
 			verifyVersion(fdbCluster, targetVersion)
 		},
 
 		EntryDescription(
-			"Upgrade from %[1]s to %[2]s with partitioned Pod which eventually gets replaced",
+			"Upgrade from %[1]s to %[2]s",
 		),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
 	)
