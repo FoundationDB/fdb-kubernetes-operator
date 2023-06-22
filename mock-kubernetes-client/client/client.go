@@ -24,6 +24,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"k8s.io/apimachinery/pkg/watch"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -36,6 +37,9 @@ import (
 	ctrlClient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
+
+// Make sure our MockClient implements all methods for the WithWatch interface.
+var _ ctrlClient.WithWatch = (*MockClient)(nil)
 
 // MockClient provides a mock Kubernetes client.
 type MockClient struct {
@@ -365,4 +369,9 @@ func (client *MockClient) generatePodIPv6() string {
 		return fmt.Sprintf("::%d", client.ipCounter)
 	}
 	return fmt.Sprintf("::%d:%d", client.ipCounter/256, client.ipCounter%256)
+}
+
+// Watch implements the watch methods of the controller runtime client.
+func (client *MockClient) Watch(ctx context.Context, obj ctrlClient.ObjectList, opts ...ctrlClient.ListOption) (watch.Interface, error) {
+	return client.fakeClient.Watch(ctx, obj, opts...)
 }
