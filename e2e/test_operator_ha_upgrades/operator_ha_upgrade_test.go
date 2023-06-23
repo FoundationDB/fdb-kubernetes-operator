@@ -58,7 +58,7 @@ var _ = AfterSuite(func() {
 	}
 })
 
-func clusterSetup(beforeVersion string, enableOperatorPodChaos bool) {
+func clusterSetupWithHealthCheckOption(beforeVersion string, enableOperatorPodChaos bool, enableHealthCheck bool) {
 	// We set the before version here to overwrite the before version from the specific flag
 	// the specific flag will be removed in the future.
 	factory.SetBeforeVersion(beforeVersion)
@@ -67,9 +67,12 @@ func clusterSetup(beforeVersion string, enableOperatorPodChaos bool) {
 		fixtures.DefaultClusterConfigWithHaMode(fixtures.HaFourZoneSingleSat, false),
 		factory.GetClusterOptions(fixtures.UseVersionBeforeUpgrade)...,
 	)
-	Expect(
-		fdbCluster.GetPrimary().InvariantClusterStatusAvailableWithThreshold(15 * time.Second),
-	).ShouldNot(HaveOccurred())
+	if enableHealthCheck {
+		Expect(
+			fdbCluster.GetPrimary().InvariantClusterStatusAvailableWithThreshold(15 * time.Second),
+		).ShouldNot(HaveOccurred())
+	}
+
 	log.Println(
 		"FoundationDB HA cluster created (at version",
 		beforeVersion,
@@ -86,6 +89,10 @@ func clusterSetup(beforeVersion string, enableOperatorPodChaos bool) {
 			)
 		}
 	}
+}
+
+func clusterSetup(beforeVersion string, enableOperatorPodChaos bool) {
+	clusterSetupWithHealthCheckOption(beforeVersion, enableOperatorPodChaos, true)
 }
 
 // Checks if cluster is running at the expectedVersion. This is done by checking the status of the FoundationDBCluster status.
@@ -442,7 +449,7 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 				Skip("chaos mesh is disabled")
 			}
 
-			clusterSetup(beforeVersion, false)
+			clusterSetupWithHealthCheckOption(beforeVersion, false, false)
 
 			// 1. Introduce packet loss b/w pods.
 			log.Println("Injecting packet loss b/w pod")
