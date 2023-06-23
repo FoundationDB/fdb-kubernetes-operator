@@ -110,8 +110,7 @@ func GetConfigMap(cluster *fdbv1beta2.FoundationDBCluster) (*corev1.ConfigMap, e
 					filename := GetConfigMapMonitorConfEntry(processClass, FDBImageTypeUnified, serversPerPod)
 					data[filename] = string(jsonData)
 				}
-			}
-			else {
+			} else {
 				config, err := GetMonitorProcessConfiguration(cluster, processClass, 1, FDBImageTypeUnified, nil)
 				if err != nil {
 					return nil, err
