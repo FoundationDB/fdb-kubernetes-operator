@@ -27,7 +27,8 @@ func TestCmd(t *testing.T) {
 var _ = BeforeSuite(func() {
 	Expect(scheme.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
 	Expect(fdbv1beta2.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
-	k8sClient = mockclient.NewMockClient(scheme.Scheme)
+	// We have to create those indexes, otherwise the fake client is complaining.
+	k8sClient = mockclient.NewMockClientWithHooksAndIndexes(scheme.Scheme, nil, nil, true)
 })
 
 var _ = BeforeEach(func() {

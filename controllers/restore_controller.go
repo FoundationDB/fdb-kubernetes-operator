@@ -173,7 +173,7 @@ func (r *FoundationDBRestoreReconciler) updateOrApply(ctx context.Context, resto
 			Status: restore.Status,
 		}
 
-		return r.Status().Patch(ctx, patch, client.Apply, client.FieldOwner("fdb-operator"), client.ForceOwnership)
+		return r.Status().Patch(ctx, patch, client.Apply, client.FieldOwner("fdb-operator")) //, client.ForceOwnership)
 	}
 
 	return r.Status().Update(ctx, restore)
