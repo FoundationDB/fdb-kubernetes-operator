@@ -109,7 +109,7 @@ nightly-tests: run
 	  --ginkgo.timeout=$(TIMEOUT) \
 	  --timeout=$(TIMEOUT) \
 	  --namespace="$(NAMESPACE)" \
-	  --prefix="$(PREFIX)"
+	  --prefix="$(PREFIX)" \
 	  --context="$(CONTEXT)" \
 	  --fdb-image="$(FDB_IMAGE)" \
 	  --sidecar-image="$(SIDECAR_IMAGE)" \
