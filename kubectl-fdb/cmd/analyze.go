@@ -23,10 +23,10 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbstatus"
 	"strings"
 	"time"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
@@ -450,7 +450,7 @@ func getStatus(restConfig *rest.Config, clientSet *kubernetes.Clientset, pod *co
 		return nil, fmt.Errorf("error getting status: %s, %w", stderr, err)
 	}
 
-	content, err := internal.RemoveWarningsInJSON(stdout.String())
+	content, err := fdbstatus.RemoveWarningsInJSON(stdout.String())
 	if err != nil {
 		fmt.Println(stdout.String())
 		return nil, err

@@ -23,6 +23,7 @@ package mock
 import (
 	"context"
 	"fmt"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbstatus"
 	"net"
 	"strings"
 	"sync"
@@ -64,6 +65,8 @@ type AdminClient struct {
 	restoreURL                               string
 	maintenanceZoneStartTimestamp            time.Time
 	uptimeSecondsForMaintenanceZone          float64
+	TeamTracker                              []fdbv1beta2.FoundationDBStatusTeamTracker
+	Logs                                     []fdbv1beta2.FoundationDBStatusLogInfo
 }
 
 // adminClientCache provides a cache of mock admin clients.
@@ -365,6 +368,51 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 	status.Cluster.FullReplication = true
 	status.Cluster.Data.State.Healthy = true
 	status.Cluster.Data.State.Name = "healthy"
+	if len(client.TeamTracker) == 0 {
+		status.Cluster.Data.TeamTrackers = []fdbv1beta2.FoundationDBStatusTeamTracker{
+			{
+				Primary: true,
+				State: fdbv1beta2.FoundationDBStatusDataState{
+					Description:          "primary",
+					Healthy:              true,
+					MinReplicasRemaining: fdbv1beta2.MinimumFaultDomains(client.Cluster.Spec.DatabaseConfiguration.RedundancyMode),
+				},
+			},
+		}
+
+		if len(client.Cluster.Spec.DatabaseConfiguration.Regions) > 1 {
+			status.Cluster.Data.TeamTrackers = append(status.Cluster.Data.TeamTrackers, fdbv1beta2.FoundationDBStatusTeamTracker{
+				Primary: false,
+				State: fdbv1beta2.FoundationDBStatusDataState{
+					Description:          "remote",
+					Healthy:              true,
+					MinReplicasRemaining: fdbv1beta2.MinimumFaultDomains(client.Cluster.Spec.DatabaseConfiguration.RedundancyMode),
+				},
+			})
+		}
+	} else {
+		status.Cluster.Data.TeamTrackers = client.TeamTracker
+	}
+
+	if len(client.Logs) == 0 {
+		logInformation := fdbv1beta2.FoundationDBStatusLogInfo{
+			Current:              true,
+			LogFaultTolerance:    2,
+			LogReplicationFactor: 3,
+		}
+
+		if len(client.Cluster.Spec.DatabaseConfiguration.Regions) > 1 {
+			logInformation.RemoteLogFaultTolerance = 2
+			logInformation.RemoteLogReplicationFactor = 3
+			logInformation.SatelliteLogFaultTolerance = 1
+			logInformation.SatelliteLogReplicationFactor = 2
+		}
+		status.Cluster.Logs = []fdbv1beta2.FoundationDBStatusLogInfo{
+			logInformation,
+		}
+	} else {
+		status.Cluster.Logs = client.Logs
+	}
 
 	if len(client.Backups) > 0 {
 		status.Cluster.Layers.Backup.Tags = make(map[string]fdbv1beta2.FoundationDBStatusBackupTag, len(client.Backups))
@@ -389,6 +437,7 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 		status.Cluster.FaultTolerance.MaxZoneFailuresWithoutLosingAvailability = client.Cluster.DesiredFaultTolerance() - faultToleranceSubtractor
 	}
 	status.Cluster.MaintenanceZone = client.MaintenanceZone
+
 	return status, nil
 }
 
@@ -770,7 +819,7 @@ func (client *AdminClient) GetCoordinatorSet() (map[string]fdbv1beta2.None, erro
 		return nil, err
 	}
 
-	return internal.GetCoordinatorsFromStatus(status), nil
+	return fdbstatus.GetCoordinatorsFromStatus(status), nil
 }
 
 // SetKnobs sets the knobs that should be used for the commandline call.

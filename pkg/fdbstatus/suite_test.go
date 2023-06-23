@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package statuschecks
+package fdbstatus
 
 import (
 	"testing"
@@ -29,5 +29,5 @@ import (
 
 func TestCmd(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "FDB status checks")
+	RunSpecs(t, "FDB status")
 }

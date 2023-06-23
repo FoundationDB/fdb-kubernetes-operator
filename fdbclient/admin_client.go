@@ -25,6 +25,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbstatus"
 	"os"
 	"os/exec"
 	"path"
@@ -33,8 +34,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal/statuschecks"
 
 	"github.com/go-logr/logr"
 
@@ -316,7 +315,7 @@ func (client *cliAdminClient) getStatusFromCli() (*fdbv1beta2.FoundationDBStatus
 		return nil, err
 	}
 
-	contents, err := internal.RemoveWarningsInJSON(output)
+	contents, err := fdbstatus.RemoveWarningsInJSON(output)
 	if err != nil {
 		return nil, err
 	}
@@ -464,7 +463,7 @@ func (client *cliAdminClient) GetExclusions() ([]fdbv1beta2.ProcessAddress, erro
 		return nil, err
 	}
 
-	return statuschecks.GetExclusions(status)
+	return fdbstatus.GetExclusions(status)
 }
 
 // CanSafelyRemove checks whether it is safe to remove processes from the cluster
@@ -476,7 +475,7 @@ func (client *cliAdminClient) CanSafelyRemove(addresses []fdbv1beta2.ProcessAddr
 		return nil, err
 	}
 
-	return statuschecks.CanSafelyRemoveFromStatus(client.log, client, addresses, status)
+	return fdbstatus.CanSafelyRemoveFromStatus(client.log, client, addresses, status)
 }
 
 // KillProcesses restarts processes
@@ -659,7 +658,7 @@ func (client *cliAdminClient) GetBackupStatus() (*fdbv1beta2.FoundationDBLiveBac
 	}
 
 	status := &fdbv1beta2.FoundationDBLiveBackupStatus{}
-	statusBytes, err := internal.RemoveWarningsInJSON(statusString)
+	statusBytes, err := fdbstatus.RemoveWarningsInJSON(statusString)
 	if err != nil {
 		return nil, err
 	}
@@ -720,7 +719,7 @@ func (client *cliAdminClient) GetCoordinatorSet() (map[string]fdbv1beta2.None, e
 		return nil, err
 	}
 
-	return internal.GetCoordinatorsFromStatus(status), nil
+	return fdbstatus.GetCoordinatorsFromStatus(status), nil
 }
 
 // SetKnobs sets the knobs that should be used for the commandline call.
