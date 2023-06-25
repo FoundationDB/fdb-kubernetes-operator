@@ -530,8 +530,10 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 			// The cluster should still be able to upgrade.
 			Expect(fdbCluster.UpgradeCluster(targetVersion, true)).NotTo(HaveOccurred())
 
-			status := fdbCluster.GetStatus()
-			Expect(len(status.Cluster.IncompatibleConnections)).To(Equal(0))
+			// Make sure that the incompatible connections are cleaned up after some time.
+			Eventually(func() []string {
+				return fdbCluster.GetStatus().Cluster.IncompatibleConnections
+			}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).MustPassRepeatedly(5).Should(HaveLen(0))
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s with one coordinator not being restarted"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
