@@ -250,9 +250,12 @@ func (factory *Factory) getContainerOverrides(
 	return mainOverrides, sidecarOverrides
 }
 
-// getClusterPrefix returns the cluster name prefix.
 func (factory *Factory) getClusterPrefix() string {
-	return fmt.Sprintf("fdb-cluster-%s", RandStringRunes(8))
+	prefix := factory.options.prefix
+	if prefix == "" {
+		return fmt.Sprintf("fdb-cluster-%s", RandStringRunes(8))
+	}
+	return prefix
 }
 
 // GetDefaultStorageClass returns either the StorageClass provided by the command line or fetches the StorageClass passed on

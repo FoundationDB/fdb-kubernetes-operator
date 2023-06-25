@@ -8,6 +8,7 @@ compile:
 TIMEOUT?=168h
 
 NAMESPACE?=
+PREFIX?=
 CONTEXT?=
 FDB_VERSION?=7.1.31
 PREVIOUS_FDB_VERSION?=6.3.25
@@ -108,6 +109,7 @@ nightly-tests: run
 	  --ginkgo.timeout=$(TIMEOUT) \
 	  --timeout=$(TIMEOUT) \
 	  --namespace="$(NAMESPACE)" \
+	  --prefix="$(PREFIX)" \
 	  --context="$(CONTEXT)" \
 	  --fdb-image="$(FDB_IMAGE)" \
 	  --sidecar-image="$(SIDECAR_IMAGE)" \
