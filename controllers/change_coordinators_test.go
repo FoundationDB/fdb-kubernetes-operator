@@ -87,7 +87,7 @@ var _ = Describe("Change coordinators", func() {
 
 					// Only select Storage processes since we select 3 processes and we have 4 storage processes
 					for _, candidate := range candidates {
-						Expect(strings.HasPrefix(candidate.ID, "storage")).To(BeTrue())
+						Expect(candidate.Class).To(Equal(fdbv1beta2.ProcessClassStorage))
 					}
 				})
 			})
@@ -109,7 +109,7 @@ var _ = Describe("Change coordinators", func() {
 					// Only select Storage processes since we select 3 processes and we have 4 storage processes
 					for _, candidate := range candidates {
 						Expect(candidate.ID).NotTo(Equal(removedProcess))
-						Expect(strings.HasPrefix(candidate.ID, "storage")).To(BeTrue())
+						Expect(candidate.Class).To(Equal(fdbv1beta2.ProcessClassStorage))
 					}
 				})
 			})
@@ -127,7 +127,7 @@ var _ = Describe("Change coordinators", func() {
 					// Only select Storage processes since we select 3 processes and we have 4 storage processes
 					for _, candidate := range candidates {
 						Expect(candidate.ID).NotTo(Equal("storage-2"))
-						Expect(strings.HasPrefix(candidate.ID, "storage")).To(BeTrue())
+						Expect(candidate.Class).To(Equal(fdbv1beta2.ProcessClassStorage))
 					}
 				})
 			})
@@ -157,11 +157,11 @@ var _ = Describe("Change coordinators", func() {
 							Expect(candidate.ID).NotTo(Equal(removal))
 						}
 
-						if strings.HasPrefix(candidate.ID, "storage") {
+						if candidate.Class == fdbv1beta2.ProcessClassStorage {
 							storageCnt++
 						}
 
-						if strings.HasPrefix(candidate.ID, "globalControllerLogger") {
+						if candidate.Class == fdbv1beta2.ProcessClassLog {
 							logCnt++
 						}
 					}
@@ -193,7 +193,7 @@ var _ = Describe("Change coordinators", func() {
 					}
 				})
 
-				It("should only select globalControllerLogger processes", func() {
+				It("should only select log processes", func() {
 					Expect(cluster.DesiredCoordinatorCount()).To(BeNumerically("==", 3))
 					Expect(len(candidates)).To(BeNumerically("==", cluster.DesiredCoordinatorCount()))
 
@@ -216,7 +216,7 @@ var _ = Describe("Change coordinators", func() {
 					// Should select storage processes only.
 					for _, candidate := range candidates {
 						Expect(candidate.ID).NotTo(Equal("storage-1"))
-						Expect(strings.HasPrefix(candidate.ID, "storage")).To(BeTrue())
+						Expect(candidate.Class).To(Equal(fdbv1beta2.ProcessClassStorage))
 					}
 				})
 			})
@@ -278,11 +278,11 @@ var _ = Describe("Change coordinators", func() {
 							zone := strings.Split(candidate.ID, "-")[0]
 							zoneCnt[zone]++
 
-							if strings.Contains(candidate.ID, "storage") {
+							if candidate.Class == fdbv1beta2.ProcessClassStorage {
 								storageCnt++
 							}
 
-							if strings.Contains(candidate.ID, "globalControllerLogger") {
+							if candidate.Class == fdbv1beta2.ProcessClassLog {
 								logCnt++
 							}
 						}
@@ -325,11 +325,11 @@ var _ = Describe("Change coordinators", func() {
 							zone := strings.Split(candidate.ID, "-")[0]
 							zoneCnt[zone]++
 
-							if strings.Contains(candidate.ID, "storage") {
+							if candidate.Class == fdbv1beta2.ProcessClassStorage {
 								storageCnt++
 							}
 
-							if strings.Contains(candidate.ID, "globalControllerLogger") {
+							if candidate.Class == fdbv1beta2.ProcessClassLog {
 								logCnt++
 							}
 						}
@@ -372,11 +372,11 @@ var _ = Describe("Change coordinators", func() {
 							zone := strings.Split(candidate.ID, "-")[0]
 							zoneCnt[zone]++
 
-							if strings.Contains(candidate.ID, "storage") {
+							if candidate.Class == fdbv1beta2.ProcessClassStorage {
 								storageCnt++
 							}
 
-							if strings.Contains(candidate.ID, "globalControllerLogger") {
+							if candidate.Class == fdbv1beta2.ProcessClassLog {
 								logCnt++
 							}
 						}
@@ -404,10 +404,10 @@ var _ = Describe("Change coordinators", func() {
 							"dc0-storage-5",
 							"dc0-storage-6",
 							"dc0-storage-7",
-							"dc0-globalControllerLogger-0",
-							"dc0-globalControllerLogger-1",
-							"dc0-globalControllerLogger-2",
-							"dc0-globalControllerLogger-3",
+							"dc0-log-0",
+							"dc0-log-1",
+							"dc0-log-2",
+							"dc0-log-3",
 						}
 
 						shouldFail = true
@@ -450,11 +450,11 @@ var _ = Describe("Change coordinators", func() {
 							zone := strings.Split(candidate.ID, "-")[0]
 							zoneCnt[zone]++
 
-							if strings.Contains(candidate.ID, "storage") {
+							if candidate.Class == fdbv1beta2.ProcessClassStorage {
 								storageCnt++
 							}
 
-							if strings.Contains(candidate.ID, "globalControllerLogger") {
+							if candidate.Class == fdbv1beta2.ProcessClassLog {
 								logCnt++
 							}
 						}
@@ -496,11 +496,11 @@ var _ = Describe("Change coordinators", func() {
 							zone := strings.Split(candidate.ID, "-")[0]
 							zoneCnt[zone]++
 
-							if strings.Contains(candidate.ID, "storage") {
+							if candidate.Class == fdbv1beta2.ProcessClassStorage {
 								storageCnt++
 							}
 
-							if strings.Contains(candidate.ID, "globalControllerLogger") {
+							if candidate.Class == fdbv1beta2.ProcessClassLog {
 								logCnt++
 							}
 						}
@@ -542,11 +542,11 @@ var _ = Describe("Change coordinators", func() {
 							zone := strings.Split(candidate.ID, "-")[0]
 							zoneCnt[zone]++
 
-							if strings.Contains(candidate.ID, "storage") {
+							if candidate.Class == fdbv1beta2.ProcessClassStorage {
 								storageCnt++
 							}
 
-							if strings.Contains(candidate.ID, "globalControllerLogger") {
+							if candidate.Class == fdbv1beta2.ProcessClassLog {
 								logCnt++
 							}
 						}
@@ -573,10 +573,10 @@ var _ = Describe("Change coordinators", func() {
 							"dc0-storage-5",
 							"dc0-storage-6",
 							"dc0-storage-7",
-							"dc0-globalControllerLogger-0",
-							"dc0-globalControllerLogger-1",
-							"dc0-globalControllerLogger-2",
-							"dc0-globalControllerLogger-3",
+							"dc0-log-0",
+							"dc0-log-1",
+							"dc0-log-2",
+							"dc0-log-3",
 						}
 					})
 
