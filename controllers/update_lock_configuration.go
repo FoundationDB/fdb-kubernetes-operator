@@ -23,6 +23,8 @@ package controllers
 import (
 	"context"
 
+	"github.com/go-logr/logr"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 )
 
@@ -31,7 +33,7 @@ import (
 type updateLockConfiguration struct{}
 
 // reconcile runs the reconciler's work.
-func (updateLockConfiguration) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, _ *fdbv1beta2.FoundationDBStatus) *requeue {
+func (updateLockConfiguration) reconcile(_ context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, _ *fdbv1beta2.FoundationDBStatus, _ logr.Logger) *requeue {
 	if len(cluster.Spec.LockOptions.DenyList) == 0 || !cluster.ShouldUseLocks() || !cluster.Status.Configured {
 		return nil
 	}

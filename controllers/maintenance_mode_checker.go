@@ -24,6 +24,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/go-logr/logr"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 )
 
@@ -31,9 +33,7 @@ import (
 type maintenanceModeChecker struct{}
 
 // reconcile runs the reconciler's work.
-func (maintenanceModeChecker) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, _ *fdbv1beta2.FoundationDBStatus) *requeue {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "maintenanceModeChecker")
-
+func (maintenanceModeChecker) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, _ *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
 	if !cluster.UseMaintenaceMode() {
 		return nil
 	}
@@ -71,7 +71,7 @@ func (maintenanceModeChecker) reconcile(ctx context.Context, r *FoundationDBClus
 	}
 
 	// All the Pods for this zone under maintenance are up
-	hasLock, err := r.takeLock(cluster, "maintenance mode check")
+	hasLock, err := r.takeLock(logger, cluster, "maintenance mode check")
 	if !hasLock {
 		return &requeue{curError: err}
 	}

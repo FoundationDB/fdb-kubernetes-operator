@@ -37,9 +37,7 @@ import (
 type changeCoordinators struct{}
 
 // reconcile runs the reconciler's work.
-func (c changeCoordinators) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) *requeue {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "changeCoordinators")
-
+func (c changeCoordinators) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
 	if !cluster.Status.Configured {
 		return nil
 	}
@@ -78,7 +76,7 @@ func (c changeCoordinators) reconcile(ctx context.Context, r *FoundationDBCluste
 		return nil
 	}
 
-	hasLock, err := r.takeLock(cluster, "changing coordinators")
+	hasLock, err := r.takeLock(logger, cluster, "changing coordinators")
 	if !hasLock {
 		return &requeue{curError: err, delayedRequeue: true}
 	}

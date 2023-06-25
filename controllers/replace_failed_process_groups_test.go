@@ -66,7 +66,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 		Expect(adminClient).NotTo(BeNil())
 		err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 		Expect(err).NotTo(HaveOccurred())
-		result = replaceFailedProcessGroups{}.reconcile(ctx.Background(), clusterReconciler, cluster, nil)
+		result = replaceFailedProcessGroups{}.reconcile(ctx.Background(), clusterReconciler, cluster, nil, globalControllerLogger)
 	})
 
 	Context("replace pod on tainted node", func() {
@@ -85,7 +85,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 		var logger logr.Logger
 
 		BeforeEach(func() {
-			logger = log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "test", "replace pod on tainted node")
+			logger = globalControllerLogger.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "test", "replace pod on tainted node")
 			cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions = []fdbv1beta2.TaintReplacementOption{
 				{
 					Key:               &taintKeyStar,
@@ -154,7 +154,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 				},
 			}
 			Expect(k8sClient.Update(ctx.TODO(), node)).NotTo(HaveOccurred())
-			log.Info("Taint node", "Node name", podOnTaintedNode.Name, "Node taints", node.Spec.Taints)
+			globalControllerLogger.Info("Taint node", "Node name", podOnTaintedNode.Name, "Node taints", node.Spec.Taints)
 
 			processGroupsStatus, err := validateProcessGroups(ctx.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap, allPvcs, logger)
 			Expect(err).NotTo(HaveOccurred())
@@ -163,7 +163,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 			Expect(len(targetProcessGroupStatus.ProcessGroupConditions)).To(Equal(1))
 			Expect(targetProcessGroupStatus.ProcessGroupConditions[0].ProcessGroupConditionType).To(Equal(fdbv1beta2.NodeTaintDetected))
 
-			Expect(replaceFailedProcessGroups{}.reconcile(ctx.TODO(), clusterReconciler, cluster, nil)).To(BeNil())
+			Expect(replaceFailedProcessGroups{}.reconcile(ctx.TODO(), clusterReconciler, cluster, nil, globalControllerLogger)).To(BeNil())
 			Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]fdbv1beta2.ProcessGroupID{}))
 		})
 
@@ -178,7 +178,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 				},
 			}
 			Expect(k8sClient.Update(ctx.TODO(), node)).NotTo(HaveOccurred())
-			log.Info("Taint node", "Node name", podOnTaintedNode.Name, "Node taints", node.Spec.Taints)
+			globalControllerLogger.Info("Taint node", "Node name", podOnTaintedNode.Name, "Node taints", node.Spec.Taints)
 
 			processGroupsStatus, err := validateProcessGroups(ctx.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap, allPvcs, logger)
 			Expect(err).NotTo(HaveOccurred())
@@ -198,7 +198,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 			Expect(len(targetProcessGroupStatus.ProcessGroupConditions)).To(Equal(1))
 			Expect(targetProcessGroupStatus.GetCondition(fdbv1beta2.NodeTaintReplacing)).NotTo(BeNil())
 
-			Expect(replaceFailedProcessGroups{}.reconcile(ctx.TODO(), clusterReconciler, cluster, nil)).To(BeNil())
+			Expect(replaceFailedProcessGroups{}.reconcile(ctx.TODO(), clusterReconciler, cluster, nil, globalControllerLogger)).To(BeNil())
 			Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]fdbv1beta2.ProcessGroupID{}))
 		})
 
@@ -211,7 +211,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 					TimeAdded: &metav1.Time{Time: time.Now().Add(-time.Second * time.Duration(taintKeyMaintenanceDuration+1))},
 				},
 			}
-			log.Info("Taint node", "Node name", podOnTaintedNode.Name, "Node taints", node.Spec.Taints, "TaintTime", node.Spec.Taints[0].TimeAdded.Time, "Now", time.Now())
+			globalControllerLogger.Info("Taint node", "Node name", podOnTaintedNode.Name, "Node taints", node.Spec.Taints, "TaintTime", node.Spec.Taints[0].TimeAdded.Time, "Now", time.Now())
 			Expect(k8sClient.Update(ctx.TODO(), node)).NotTo(HaveOccurred())
 
 			processGroupsStatus, err := validateProcessGroups(ctx.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap, allPvcs, logger)
@@ -223,11 +223,11 @@ var _ = Describe("replace_failed_process_groups", func() {
 			Expect(targetProcessGroupStatus.GetCondition(fdbv1beta2.NodeTaintReplacing).ProcessGroupConditionType).To(Equal(fdbv1beta2.NodeTaintReplacing))
 
 			// cluster won't replace a failed process until GetTaintReplacementTimeSeconds() later
-			Expect(replaceFailedProcessGroups{}.reconcile(ctx.TODO(), clusterReconciler, cluster, nil)).To(BeNil())
+			Expect(replaceFailedProcessGroups{}.reconcile(ctx.TODO(), clusterReconciler, cluster, nil, globalControllerLogger)).To(BeNil())
 			Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]fdbv1beta2.ProcessGroupID{}))
 
 			Eventually(func() *requeue {
-				result = replaceFailedProcessGroups{}.reconcile(ctx.TODO(), clusterReconciler, cluster, nil)
+				result = replaceFailedProcessGroups{}.reconcile(ctx.TODO(), clusterReconciler, cluster, nil, globalControllerLogger)
 				return result
 			}).WithTimeout(time.Duration(cluster.GetTaintReplacementTimeSeconds()*3) * time.Second).WithPolling(1 * time.Second).ShouldNot(BeNil())
 
@@ -243,7 +243,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 					TimeAdded: &metav1.Time{Time: time.Now().Add(-time.Second * time.Duration(taintKeyMaintenanceDuration+1))},
 				},
 			}
-			log.Info("Taint node", "Node name", podOnTaintedNode.Name, "Node taints", node.Spec.Taints, "TaintTime", node.Spec.Taints[0].TimeAdded.Time, "Now", time.Now())
+			globalControllerLogger.Info("Taint node", "Node name", podOnTaintedNode.Name, "Node taints", node.Spec.Taints, "TaintTime", node.Spec.Taints[0].TimeAdded.Time, "Now", time.Now())
 			Expect(k8sClient.Update(ctx.TODO(), node)).NotTo(HaveOccurred())
 
 			processGroupsStatus, err := validateProcessGroups(ctx.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap, allPvcs, logger)
@@ -255,7 +255,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 			Expect(targetProcessGroupStatus.GetCondition(fdbv1beta2.NodeTaintReplacing).ProcessGroupConditionType).To(Equal(fdbv1beta2.NodeTaintReplacing))
 
 			Eventually(func() *requeue {
-				return replaceFailedProcessGroups{}.reconcile(ctx.TODO(), clusterReconciler, cluster, nil)
+				return replaceFailedProcessGroups{}.reconcile(ctx.TODO(), clusterReconciler, cluster, nil, globalControllerLogger)
 			}).WithTimeout(time.Duration(cluster.GetTaintReplacementTimeSeconds()*3) * time.Second).WithPolling(1 * time.Second).ShouldNot(BeNil())
 
 			Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]fdbv1beta2.ProcessGroupID{targetPodProcessGroupID}))
@@ -280,7 +280,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 				}
 				err = k8sClient.Update(ctx.TODO(), node)
 				Expect(err).NotTo(HaveOccurred())
-				log.Info("Taint node", "Tainted", tainted, "Node name", podOnTaintedNode.Name, "Node taints", node.Spec.Taints, "Now", time.Now())
+				globalControllerLogger.Info("Taint node", "Tainted", tainted, "Node name", podOnTaintedNode.Name, "Node taints", node.Spec.Taints, "Now", time.Now())
 			}
 			Expect(tainted).To(Equal(int64(0)))
 
@@ -293,7 +293,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 
 			// cluster won't replace the process
 			time.Sleep(time.Second * time.Duration(cluster.GetTaintReplacementTimeSeconds()+1))
-			Expect(replaceFailedProcessGroups{}.reconcile(ctx.TODO(), clusterReconciler, cluster, nil)).To(BeNil())
+			Expect(replaceFailedProcessGroups{}.reconcile(ctx.TODO(), clusterReconciler, cluster, nil, globalControllerLogger)).To(BeNil())
 			Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]fdbv1beta2.ProcessGroupID{}))
 		})
 
@@ -306,7 +306,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 					TimeAdded: &metav1.Time{Time: time.Now().Add(-time.Second * time.Duration(taintKeyMaintenanceDuration+1))},
 				},
 			}
-			log.Info("Taint node", "Node name", node.Name, "Node taints", node.Spec.Taints, "TaintTime", node.Spec.Taints[0].TimeAdded.Time, "Now", time.Now())
+			globalControllerLogger.Info("Taint node", "Node name", node.Name, "Node taints", node.Spec.Taints, "TaintTime", node.Spec.Taints[0].TimeAdded.Time, "Now", time.Now())
 			Expect(k8sClient.Update(ctx.TODO(), node)).NotTo(HaveOccurred())
 
 			result, err := reconcileClusterWithCustomRequeueLimit(cluster, 1)
@@ -348,7 +348,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 					TimeAdded: &metav1.Time{Time: time.Now().Add(-time.Second * time.Duration(taintKeyStarDurationShort))},
 				},
 			}
-			log.Info("Taint node", "Node name", node.Name, "Node taints", node.Spec.Taints, "TaintTime", node.Spec.Taints[0].TimeAdded.Time, "Now", time.Now())
+			globalControllerLogger.Info("Taint node", "Node name", node.Name, "Node taints", node.Spec.Taints, "TaintTime", node.Spec.Taints[0].TimeAdded.Time, "Now", time.Now())
 			Expect(k8sClient.Update(ctx.TODO(), node)).NotTo(HaveOccurred())
 
 			_, err = reconcileCluster(cluster)
@@ -366,7 +366,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 					TimeAdded: &metav1.Time{Time: time.Now().Add(-time.Second * time.Duration(taintKeyMaintenanceDurationLong))},
 				},
 			}
-			log.Info("Taint node", "Node name", node.Name, "Node taints", node.Spec.Taints, "TaintTime", node.Spec.Taints[0].TimeAdded.Time, "Now", time.Now())
+			globalControllerLogger.Info("Taint node", "Node name", node.Name, "Node taints", node.Spec.Taints, "TaintTime", node.Spec.Taints[0].TimeAdded.Time, "Now", time.Now())
 			Expect(k8sClient.Update(ctx.TODO(), node)).NotTo(HaveOccurred())
 
 			Eventually(func() *corev1.Pod {
@@ -398,7 +398,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 				}
 				err = k8sClient.Update(ctx.TODO(), node)
 				Expect(err).NotTo(HaveOccurred())
-				log.Info("Taint node", "Not tainted", tainted, "Node name", podOnTaintedNode.Name, "Node taints", node.Spec.Taints, "Now", time.Now())
+				globalControllerLogger.Info("Taint node", "Not tainted", tainted, "Node name", podOnTaintedNode.Name, "Node taints", node.Spec.Taints, "Now", time.Now())
 			}
 			Expect(tainted).To(Equal(int64(0))) // ensure last Taint is empty
 			startTime := time.Now()
@@ -441,7 +441,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 					TimeAdded: &metav1.Time{Time: time.Now().Add(-time.Second * time.Duration(taintKeyMaintenanceDuration+1))},
 				},
 			}
-			log.Info("Taint node", "Node name", node.Name, "Node taints", node.Spec.Taints, "TaintTime", node.Spec.Taints[0].TimeAdded.Time, "Now", time.Now())
+			globalControllerLogger.Info("Taint node", "Node name", node.Name, "Node taints", node.Spec.Taints, "TaintTime", node.Spec.Taints[0].TimeAdded.Time, "Now", time.Now())
 			Expect(k8sClient.Update(ctx.TODO(), node)).NotTo(HaveOccurred())
 
 			Eventually(func() int {
@@ -463,7 +463,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 					TimeAdded: &metav1.Time{Time: time.Now().Add(-time.Second * time.Duration(taintKeyMaintenanceDuration+1))},
 				},
 			}
-			log.Info("Taint node", "Node name", node.Name, "Node taints", node.Spec.Taints, "TaintTime", node.Spec.Taints[0].TimeAdded.Time, "Now", time.Now())
+			globalControllerLogger.Info("Taint node", "Node name", node.Name, "Node taints", node.Spec.Taints, "TaintTime", node.Spec.Taints[0].TimeAdded.Time, "Now", time.Now())
 			Expect(k8sClient.Update(ctx.TODO(), node)).NotTo(HaveOccurred())
 
 			cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions = []fdbv1beta2.TaintReplacementOption{}
@@ -493,7 +493,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 					TimeAdded: &metav1.Time{Time: time.Now().Add(-time.Second * time.Duration(taintKeyMaintenanceDuration+1))},
 				},
 			}
-			log.Info("Taint node", "Node name", node.Name, "Node taints", node.Spec.Taints, "TaintTime", node.Spec.Taints[0].TimeAdded.Time, "Now", time.Now())
+			globalControllerLogger.Info("Taint node", "Node name", node.Name, "Node taints", node.Spec.Taints, "TaintTime", node.Spec.Taints[0].TimeAdded.Time, "Now", time.Now())
 			Expect(k8sClient.Update(ctx.TODO(), node)).NotTo(HaveOccurred())
 
 			result, err := reconcileCluster(cluster)
@@ -541,7 +541,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 					TimeAdded: &metav1.Time{Time: time.Now().Add(-time.Second * time.Duration(taintKeyMaintenanceDuration+1))},
 				},
 			}
-			log.Info("Taint node", "Node name", node.Name, "Node taints", node.Spec.Taints, "TaintTime", node.Spec.Taints[0].TimeAdded.Time, "Now", time.Now())
+			globalControllerLogger.Info("Taint node", "Node name", node.Name, "Node taints", node.Spec.Taints, "TaintTime", node.Spec.Taints[0].TimeAdded.Time, "Now", time.Now())
 			Expect(k8sClient.Update(ctx.TODO(), node)).NotTo(HaveOccurred())
 
 			result, err := reconcileClusterWithCustomRequeueLimit(cluster, 1)
@@ -605,7 +605,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 					}
 
 					Expect(k8sClient.Update(ctx.TODO(), taintedNode)).NotTo(HaveOccurred())
-					log.Info("Taint node", "Index", i, "Node name", taintedNode.Name, "Node taints", taintedNode.Spec.Taints)
+					globalControllerLogger.Info("Taint node", "Index", i, "Node name", taintedNode.Name, "Node taints", taintedNode.Spec.Taints)
 				}
 				// Replace all tainted nodes in one reconciliation loop
 				cluster.Spec.AutomationOptions.MaxConcurrentReplacements = &concurrentTaints

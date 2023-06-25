@@ -93,11 +93,12 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 		return ctrl.Result{}, err
 	}
 
-	clusterLog := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name)
+	clusterLog := globalControllerLogger.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name)
+	cacheStatus := cluster.CacheDatabaseStatusForReconciliation(r.CacheDatabaseStatusForReconciliationDefault)
 	// Printout the duration of the reconciliation, independent if the reconciliation was successful or had an error.
 	startTime := time.Now()
 	defer func() {
-		clusterLog.Info("Reconciliation run finished", "duration", time.Since(startTime).String())
+		clusterLog.Info("Reconciliation run finished", "duration_seconds", time.Since(startTime).Seconds(), "cacheStatus", cacheStatus)
 	}()
 
 	if cluster.Spec.Skip {
@@ -132,7 +133,6 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 	}
 
 	var status *fdbv1beta2.FoundationDBStatus
-	cacheStatus := cluster.CacheDatabaseStatusForReconciliation(r.CacheDatabaseStatusForReconciliationDefault)
 	if cacheStatus {
 		clusterLog.Info("Fetch machine-readable status for reconcilitation loop", "cacheStatus", cacheStatus)
 		status, err = r.getStatusFromClusterOrDummyStatus(clusterLog, cluster)
@@ -178,9 +178,8 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 		// We have to set the normalized spec here again otherwise any call to Update() for the status of the cluster
 		// will reset all normalized fields...
 		cluster.Spec = *(normalizedSpec.DeepCopy())
-		clusterLog.Info("Attempting to run sub-reconciler", "subReconciler", fmt.Sprintf("%T", subReconciler))
 
-		requeue := subReconciler.reconcile(ctx, r, cluster, status)
+		requeue := runClusterSubReconciler(ctx, clusterLog, subReconciler, r, cluster, status)
 		if requeue == nil {
 			continue
 		}
@@ -209,6 +208,18 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 	r.Recorder.Event(cluster, corev1.EventTypeNormal, "ReconciliationComplete", fmt.Sprintf("Reconciled generation %d", cluster.Status.Generations.Reconciled))
 
 	return ctrl.Result{}, nil
+}
+
+// runClusterSubReconciler will start the subReconciler and will log the duration of the subReconciler.
+func runClusterSubReconciler(ctx context.Context, logger logr.Logger, subReconciler clusterSubReconciler, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) *requeue {
+	subReconcileLogger := logger.WithValues("reconciler", fmt.Sprintf("%T", subReconciler))
+	startTime := time.Now()
+	subReconcileLogger.Info("Attempting to run sub-reconciler")
+	defer func() {
+		subReconcileLogger.Info("Subreconciler finished run", "duration_seconds", time.Since(startTime).Seconds())
+	}()
+
+	return subReconciler.reconcile(ctx, r, cluster, status, subReconcileLogger)
 }
 
 // SetupWithManager prepares a reconciler for use.
@@ -360,8 +371,8 @@ func (r *FoundationDBClusterReconciler) getLockClient(cluster *fdbv1beta2.Founda
 }
 
 // takeLock attempts to acquire a lock.
-func (r *FoundationDBClusterReconciler) takeLock(cluster *fdbv1beta2.FoundationDBCluster, action string) (bool, error) {
-	log.Info("Taking lock on cluster", "namespace", cluster.Namespace, "cluster", cluster.Name, "action", action)
+func (r *FoundationDBClusterReconciler) takeLock(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, action string) (bool, error) {
+	logger.Info("Taking lock on cluster", "namespace", cluster.Namespace, "cluster", cluster.Name, "action", action)
 	lockClient, err := r.getLockClient(cluster)
 	if err != nil {
 		return false, err
@@ -394,12 +405,12 @@ type clusterSubReconciler interface {
 	If reconciliation cannot proceed, this should return a requeue object with
 	a `Message` field.
 	*/
-	reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) *requeue
+	reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue
 }
 
 // newFdbPodClient builds a client for working with an FDB Pod
 func (r *FoundationDBClusterReconciler) newFdbPodClient(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod) (podclient.FdbPodClient, error) {
-	return internal.NewFdbPodClient(cluster, pod, log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "pod", pod.Name), r.GetTimeout, r.PostTimeout)
+	return internal.NewFdbPodClient(cluster, pod, globalControllerLogger.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "pod", pod.Name), r.GetTimeout, r.PostTimeout)
 }
 
 func (r *FoundationDBClusterReconciler) getCoordinatorSet(cluster *fdbv1beta2.FoundationDBCluster) (map[string]fdbv1beta2.None, error) {

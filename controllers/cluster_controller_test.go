@@ -174,10 +174,10 @@ var _ = Describe("cluster_controller", func() {
 				Expect(pods.Items[0].Annotations[fdbv1beta2.PublicIPSourceAnnotation]).To(Equal("pod"))
 				Expect(pods.Items[0].Annotations[fdbv1beta2.PublicIPAnnotation]).To(Equal(""))
 
-				Expect(pods.Items[1].Name).To(Equal("operator-test-1-log-1"))
-				Expect(pods.Items[1].Labels[fdbv1beta2.FDBProcessGroupIDLabel]).To(Equal("log-1"))
-				Expect(pods.Items[4].Name).To(Equal("operator-test-1-log-4"))
-				Expect(pods.Items[4].Labels[fdbv1beta2.FDBProcessGroupIDLabel]).To(Equal("log-4"))
+				Expect(pods.Items[1].Name).To(Equal("operator-test-1-globalControllerLogger-1"))
+				Expect(pods.Items[1].Labels[fdbv1beta2.FDBProcessGroupIDLabel]).To(Equal("globalControllerLogger-1"))
+				Expect(pods.Items[4].Name).To(Equal("operator-test-1-globalControllerLogger-4"))
+				Expect(pods.Items[4].Labels[fdbv1beta2.FDBProcessGroupIDLabel]).To(Equal("globalControllerLogger-4"))
 				Expect(pods.Items[5].Name).To(Equal("operator-test-1-stateless-1"))
 				Expect(pods.Items[5].Labels[fdbv1beta2.FDBProcessGroupIDLabel]).To(Equal("stateless-1"))
 				Expect(pods.Items[12].Name).To(Equal("operator-test-1-stateless-8"))
@@ -1154,7 +1154,7 @@ var _ = Describe("cluster_controller", func() {
 				})
 			})
 
-			Context("with a change to the log version", func() {
+			Context("with a change to the globalControllerLogger version", func() {
 				BeforeEach(func() {
 					cluster.Spec.DatabaseConfiguration.LogVersion = 3
 					cluster.Spec.DatabaseConfiguration.RedundancyMode = fdbv1beta2.RedundancyModeDouble
@@ -1169,7 +1169,7 @@ var _ = Describe("cluster_controller", func() {
 				})
 			})
 
-			Context("with a change to the log version that is not set in the spec", func() {
+			Context("with a change to the globalControllerLogger version that is not set in the spec", func() {
 				BeforeEach(func() {
 					cluster.Spec.DatabaseConfiguration.RedundancyMode = fdbv1beta2.RedundancyModeDouble
 					cluster.Spec.SeedConnectionString = "touch"
@@ -1987,7 +1987,7 @@ var _ = Describe("cluster_controller", func() {
 				}
 			})
 
-			When("changing the coordinator selection to only select log processes", func() {
+			When("changing the coordinator selection to only select globalControllerLogger processes", func() {
 				BeforeEach(func() {
 					cluster.Spec.CoordinatorSelection = []fdbv1beta2.CoordinatorSelectionSetting{
 						{
@@ -2000,7 +2000,7 @@ var _ = Describe("cluster_controller", func() {
 					generationGap++
 				})
 
-				It("should only have log processes as coordinator", func() {
+				It("should only have globalControllerLogger processes as coordinator", func() {
 					connectionString, err := fdbv1beta2.ParseConnectionString(cluster.Status.ConnectionString)
 					Expect(err).NotTo(HaveOccurred())
 
@@ -2552,7 +2552,7 @@ var _ = Describe("cluster_controller", func() {
 
 				sortPodsByName(pods)
 				Expect(pods.Items[0].Labels[fdbv1beta2.FDBProcessGroupIDLabel]).To(Equal("dev-cluster_controller-2"))
-				Expect(pods.Items[1].Labels[fdbv1beta2.FDBProcessGroupIDLabel]).To(Equal("dev-log-5"))
+				Expect(pods.Items[1].Labels[fdbv1beta2.FDBProcessGroupIDLabel]).To(Equal("dev-globalControllerLogger-5"))
 			})
 		})
 
@@ -3028,7 +3028,7 @@ var _ = Describe("cluster_controller", func() {
 					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
 					"public_address = $FDB_PUBLIC_IP:4501",
 					"class = test",
-					"logdir = /var/log/fdb-trace-logs",
+					"logdir = /var/globalControllerLogger/fdb-trace-logs",
 					"loggroup = " + cluster.Name,
 					"datadir = /var/fdb/data",
 					"locality_instance_id = $FDB_INSTANCE_ID",
@@ -3055,7 +3055,7 @@ var _ = Describe("cluster_controller", func() {
 					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
 					"public_address = $FDB_PUBLIC_IP:4501",
 					"class = storage",
-					"logdir = /var/log/fdb-trace-logs",
+					"logdir = /var/globalControllerLogger/fdb-trace-logs",
 					"loggroup = " + cluster.Name,
 					"datadir = /var/fdb/data",
 					"locality_instance_id = $FDB_INSTANCE_ID",
@@ -3083,7 +3083,7 @@ var _ = Describe("cluster_controller", func() {
 					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
 					"public_address = $FDB_PUBLIC_IP:4501",
 					"class = storage",
-					"logdir = /var/log/fdb-trace-logs",
+					"logdir = /var/globalControllerLogger/fdb-trace-logs",
 					"loggroup = " + cluster.Name,
 					"datadir = /var/fdb/data/1",
 					"locality_process_id = $FDB_INSTANCE_ID-1",
@@ -3096,7 +3096,7 @@ var _ = Describe("cluster_controller", func() {
 					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
 					"public_address = $FDB_PUBLIC_IP:4503",
 					"class = storage",
-					"logdir = /var/log/fdb-trace-logs",
+					"logdir = /var/globalControllerLogger/fdb-trace-logs",
 					"loggroup = " + cluster.Name,
 					"datadir = /var/fdb/data/2",
 					"locality_process_id = $FDB_INSTANCE_ID-2",
@@ -3126,7 +3126,7 @@ var _ = Describe("cluster_controller", func() {
 					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
 					"public_address = $FDB_PUBLIC_IP:4501",
 					"class = storage",
-					"logdir = /var/log/fdb-trace-logs",
+					"logdir = /var/globalControllerLogger/fdb-trace-logs",
 					"loggroup = " + cluster.Name,
 					"datadir = /var/fdb/data",
 					"locality_instance_id = $FDB_INSTANCE_ID",
@@ -3156,7 +3156,7 @@ var _ = Describe("cluster_controller", func() {
 					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
 					"public_address = $FDB_PUBLIC_IP:4501",
 					"class = storage",
-					"logdir = /var/log/fdb-trace-logs",
+					"logdir = /var/globalControllerLogger/fdb-trace-logs",
 					"loggroup = " + cluster.Name,
 					"datadir = /var/fdb/data",
 					"locality_instance_id = $FDB_INSTANCE_ID",
@@ -3184,7 +3184,7 @@ var _ = Describe("cluster_controller", func() {
 						"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
 						"public_address = $FDB_PUBLIC_IP:4501",
 						"class = storage",
-						"logdir = /var/log/fdb-trace-logs",
+						"logdir = /var/globalControllerLogger/fdb-trace-logs",
 						"loggroup = " + cluster.Name,
 						"datadir = /var/fdb/data",
 						"locality_instance_id = $FDB_INSTANCE_ID",
@@ -3215,7 +3215,7 @@ var _ = Describe("cluster_controller", func() {
 					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
 					"public_address = $FDB_PUBLIC_IP:4500:tls",
 					"class = storage",
-					"logdir = /var/log/fdb-trace-logs",
+					"logdir = /var/globalControllerLogger/fdb-trace-logs",
 					"loggroup = " + cluster.Name,
 					"datadir = /var/fdb/data",
 					"locality_instance_id = $FDB_INSTANCE_ID",
@@ -3246,7 +3246,7 @@ var _ = Describe("cluster_controller", func() {
 					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
 					"public_address = $FDB_PUBLIC_IP:4500:tls,$FDB_PUBLIC_IP:4501",
 					"class = storage",
-					"logdir = /var/log/fdb-trace-logs",
+					"logdir = /var/globalControllerLogger/fdb-trace-logs",
 					"loggroup = " + cluster.Name,
 					"datadir = /var/fdb/data",
 					"locality_instance_id = $FDB_INSTANCE_ID",
@@ -3277,7 +3277,7 @@ var _ = Describe("cluster_controller", func() {
 					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
 					"public_address = $FDB_PUBLIC_IP:4500:tls,$FDB_PUBLIC_IP:4501",
 					"class = storage",
-					"logdir = /var/log/fdb-trace-logs",
+					"logdir = /var/globalControllerLogger/fdb-trace-logs",
 					"loggroup = " + cluster.Name,
 					"datadir = /var/fdb/data",
 					"locality_instance_id = $FDB_INSTANCE_ID",
@@ -3308,7 +3308,7 @@ var _ = Describe("cluster_controller", func() {
 						"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
 						"public_address = $FDB_PUBLIC_IP:4501",
 						"class = storage",
-						"logdir = /var/log/fdb-trace-logs",
+						"logdir = /var/globalControllerLogger/fdb-trace-logs",
 						"loggroup = " + cluster.Name,
 						"datadir = /var/fdb/data",
 						"locality_instance_id = $FDB_INSTANCE_ID",
@@ -3347,7 +3347,7 @@ var _ = Describe("cluster_controller", func() {
 						"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
 						"public_address = $FDB_PUBLIC_IP:4501",
 						"class = storage",
-						"logdir = /var/log/fdb-trace-logs",
+						"logdir = /var/globalControllerLogger/fdb-trace-logs",
 						"loggroup = " + cluster.Name,
 						"datadir = /var/fdb/data",
 						"locality_instance_id = $FDB_INSTANCE_ID",
@@ -3380,7 +3380,7 @@ var _ = Describe("cluster_controller", func() {
 					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
 					"public_address = $FDB_PUBLIC_IP:4501",
 					"class = storage",
-					"logdir = /var/log/fdb-trace-logs",
+					"logdir = /var/globalControllerLogger/fdb-trace-logs",
 					"loggroup = " + cluster.Name,
 					"datadir = /var/fdb/data",
 					"locality_instance_id = $FDB_INSTANCE_ID",
@@ -3410,7 +3410,7 @@ var _ = Describe("cluster_controller", func() {
 					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
 					"public_address = $FDB_PUBLIC_IP:4501",
 					"class = storage",
-					"logdir = /var/log/fdb-trace-logs",
+					"logdir = /var/globalControllerLogger/fdb-trace-logs",
 					"loggroup = " + cluster.Name,
 					"datadir = /var/fdb/data",
 					"locality_instance_id = $FDB_INSTANCE_ID",
@@ -3438,7 +3438,7 @@ var _ = Describe("cluster_controller", func() {
 					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
 					"public_address = $FDB_PUBLIC_IP:4501",
 					"class = storage",
-					"logdir = /var/log/fdb-trace-logs",
+					"logdir = /var/globalControllerLogger/fdb-trace-logs",
 					"loggroup = " + cluster.Name,
 					"datadir = /var/fdb/data",
 					"locality_instance_id = $FDB_INSTANCE_ID",
@@ -3449,14 +3449,14 @@ var _ = Describe("cluster_controller", func() {
 			})
 		})
 
-		Context("with a custom log group", func() {
+		Context("with a custom globalControllerLogger group", func() {
 			BeforeEach(func() {
 				cluster.Spec.LogGroup = "test-fdb-cluster"
 				conf, err = internal.GetMonitorConf(cluster, fdbv1beta2.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			It("should include the log group", func() {
+			It("should include the globalControllerLogger group", func() {
 				Expect(conf).To(Equal(strings.Join([]string{
 					"[general]",
 					"kill_on_configuration_change = false",
@@ -3467,7 +3467,7 @@ var _ = Describe("cluster_controller", func() {
 					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
 					"public_address = $FDB_PUBLIC_IP:4501",
 					"class = storage",
-					"logdir = /var/log/fdb-trace-logs",
+					"logdir = /var/globalControllerLogger/fdb-trace-logs",
 					"loggroup = test-fdb-cluster",
 					"datadir = /var/fdb/data",
 					"locality_instance_id = $FDB_INSTANCE_ID",
@@ -3484,7 +3484,7 @@ var _ = Describe("cluster_controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			It("should include the log group", func() {
+			It("should include the globalControllerLogger group", func() {
 				Expect(conf).To(Equal(strings.Join([]string{
 					"[general]",
 					"kill_on_configuration_change = false",
@@ -3495,7 +3495,7 @@ var _ = Describe("cluster_controller", func() {
 					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
 					"public_address = $FDB_PUBLIC_IP:4501",
 					"class = storage",
-					"logdir = /var/log/fdb-trace-logs",
+					"logdir = /var/globalControllerLogger/fdb-trace-logs",
 					"loggroup = " + cluster.Name,
 					"datadir = /var/fdb/data",
 					"locality_instance_id = $FDB_INSTANCE_ID",
@@ -3593,7 +3593,7 @@ var _ = Describe("cluster_controller", func() {
 			})
 
 			It("should be the public IP from the pod", func() {
-				result := podmanager.GetPublicIPs(pod, log)
+				result := podmanager.GetPublicIPs(pod, globalControllerLogger)
 				Expect(result).To(Equal([]string{"1.1.1.1"}))
 			})
 		})
@@ -3612,7 +3612,7 @@ var _ = Describe("cluster_controller", func() {
 			})
 
 			It("should select the address based on the spec", func() {
-				result := podmanager.GetPublicIPs(pod, log)
+				result := podmanager.GetPublicIPs(pod, globalControllerLogger)
 				Expect(result).To(Equal([]string{"2001:db8::ff00:42:8329"}))
 			})
 
@@ -3627,7 +3627,7 @@ var _ = Describe("cluster_controller", func() {
 				})
 
 				It("should be empty", func() {
-					result := podmanager.GetPublicIPs(pod, log)
+					result := podmanager.GetPublicIPs(pod, globalControllerLogger)
 					Expect(result).To(BeEmpty())
 				})
 			})
@@ -3647,14 +3647,14 @@ var _ = Describe("cluster_controller", func() {
 			})
 
 			It("should select the address based on the spec", func() {
-				result := podmanager.GetPublicIPs(pod, log)
+				result := podmanager.GetPublicIPs(pod, globalControllerLogger)
 				Expect(result).To(Equal([]string{"1.1.1.2"}))
 			})
 		})
 
 		Context("with no pod", func() {
 			It("should be empty", func() {
-				result := podmanager.GetPublicIPs(nil, log)
+				result := podmanager.GetPublicIPs(nil, globalControllerLogger)
 				Expect(result).To(BeEmpty())
 			})
 		})

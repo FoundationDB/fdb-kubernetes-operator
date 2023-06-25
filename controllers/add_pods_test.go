@@ -62,7 +62,7 @@ var _ = Describe("add_pods", func() {
 	})
 
 	JustBeforeEach(func() {
-		requeue = addPods{}.reconcile(context.TODO(), clusterReconciler, cluster, nil)
+		requeue = addPods{}.reconcile(context.TODO(), clusterReconciler, cluster, nil, globalControllerLogger)
 		Expect(err).NotTo(HaveOccurred())
 		_, err = reloadCluster(cluster)
 		Expect(err).NotTo(HaveOccurred())

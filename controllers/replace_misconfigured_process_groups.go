@@ -23,6 +23,8 @@ package controllers
 import (
 	"context"
 
+	"github.com/go-logr/logr"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal/replacements"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
@@ -36,9 +38,7 @@ import (
 type replaceMisconfiguredProcessGroups struct{}
 
 // reconcile runs the reconciler's work.
-func (c replaceMisconfiguredProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, _ *fdbv1beta2.FoundationDBStatus) *requeue {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "replaceMisconfiguredProcessGroups")
-
+func (c replaceMisconfiguredProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, _ *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
 	// TODO(johscheuer): Remove the pvc map an make direct calls.
 	pvcs := &corev1.PersistentVolumeClaimList{}
 	err := r.List(ctx, pvcs, internal.GetPodListOptions(cluster, "", "")...)
@@ -57,7 +57,7 @@ func (c replaceMisconfiguredProcessGroups) reconcile(ctx context.Context, r *Fou
 			return &requeue{curError: err}
 		}
 
-		log.Info("Removals have been updated in the cluster status")
+		logger.Info("Removals have been updated in the cluster status")
 	}
 
 	return nil

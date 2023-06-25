@@ -67,7 +67,7 @@ func (r *FoundationDBRestoreReconciler) Reconcile(ctx context.Context, request c
 		return ctrl.Result{}, err
 	}
 
-	restoreLog := log.WithValues("namespace", restore.Namespace, "restore", restore.Name)
+	restoreLog := globalControllerLogger.WithValues("namespace", restore.Namespace, "restore", restore.Name)
 
 	subReconcilers := []restoreSubReconciler{
 		startRestore{},

@@ -24,6 +24,8 @@ import (
 	"context"
 	"reflect"
 
+	"github.com/go-logr/logr"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -39,12 +41,11 @@ import (
 type updateConfigMap struct{}
 
 // reconcile runs the reconciler's work.
-func (u updateConfigMap) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster, _ *fdbtypes.FoundationDBStatus) *requeue {
+func (u updateConfigMap) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster, _ *fdbtypes.FoundationDBStatus, logger logr.Logger) *requeue {
 	configMap, err := internal.GetConfigMap(cluster)
 	if err != nil {
 		return &requeue{curError: err}
 	}
-	logger := log.WithValues("namespace", configMap.Namespace, "cluster", cluster.Name, "name", configMap.Name, "reconciler", "UpdateConfigMap")
 	existing := &corev1.ConfigMap{}
 	err = r.Get(ctx, types.NamespacedName{Namespace: configMap.Namespace, Name: configMap.Name}, existing)
 	if err != nil && k8serrors.IsNotFound(err) {

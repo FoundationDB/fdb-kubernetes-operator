@@ -56,7 +56,7 @@ var _ = Describe("exclude_processes", func() {
 		Context("with a small cluster", func() {
 			When("all processes are healthy", func() {
 				It("should allow the exclusion", func() {
-					canExclude, missing := canExcludeNewProcesses(cluster, fdbv1beta2.ProcessClassStorage)
+					canExclude, missing := canExcludeNewProcesses(globalControllerLogger, cluster, fdbv1beta2.ProcessClassStorage)
 					Expect(canExclude).To(BeTrue())
 					Expect(missing).To(BeNil())
 				})
@@ -68,7 +68,7 @@ var _ = Describe("exclude_processes", func() {
 				})
 
 				It("should allow the exclusion", func() {
-					canExclude, missing := canExcludeNewProcesses(cluster, fdbv1beta2.ProcessClassStorage)
+					canExclude, missing := canExcludeNewProcesses(globalControllerLogger, cluster, fdbv1beta2.ProcessClassStorage)
 					Expect(canExclude).To(BeTrue())
 					Expect(missing).To(BeNil())
 				})
@@ -80,7 +80,7 @@ var _ = Describe("exclude_processes", func() {
 				})
 
 				It("should not allow the exclusion", func() {
-					canExclude, missing := canExcludeNewProcesses(cluster, fdbv1beta2.ProcessClassStorage)
+					canExclude, missing := canExcludeNewProcesses(globalControllerLogger, cluster, fdbv1beta2.ProcessClassStorage)
 					Expect(canExclude).To(BeFalse())
 					Expect(missing).To(Equal([]fdbv1beta2.ProcessGroupID{"storage-1", "storage-2"}))
 				})
@@ -92,7 +92,7 @@ var _ = Describe("exclude_processes", func() {
 				})
 
 				It("should allow the exclusion", func() {
-					canExclude, missing := canExcludeNewProcesses(cluster, fdbv1beta2.ProcessClassStorage)
+					canExclude, missing := canExcludeNewProcesses(globalControllerLogger, cluster, fdbv1beta2.ProcessClassStorage)
 					Expect(canExclude).To(BeTrue())
 					Expect(missing).To(BeNil())
 				})
@@ -119,7 +119,7 @@ var _ = Describe("exclude_processes", func() {
 				})
 
 				It("should allow the exclusion", func() {
-					canExclude, missing := canExcludeNewProcesses(cluster, fdbv1beta2.ProcessClassStorage)
+					canExclude, missing := canExcludeNewProcesses(globalControllerLogger, cluster, fdbv1beta2.ProcessClassStorage)
 					Expect(canExclude).To(BeTrue())
 					Expect(missing).To(BeNil())
 				})
@@ -131,7 +131,7 @@ var _ = Describe("exclude_processes", func() {
 				})
 
 				It("should not allow the exclusion", func() {
-					canExclude, missing := canExcludeNewProcesses(cluster, fdbv1beta2.ProcessClassStorage)
+					canExclude, missing := canExcludeNewProcesses(globalControllerLogger, cluster, fdbv1beta2.ProcessClassStorage)
 					Expect(canExclude).To(BeFalse())
 					Expect(missing).To(Equal([]fdbv1beta2.ProcessGroupID{"storage-1", "storage-10", "storage-11", "storage-12", "storage-13"}))
 				})
@@ -158,10 +158,10 @@ var _ = Describe("exclude_processes", func() {
 						{ProcessGroupID: "stateless-7", ProcessClass: "stateless", Addresses: []string{"1.1.2.1"}},
 						{ProcessGroupID: "stateless-8", ProcessClass: "stateless", Addresses: []string{"1.1.2.2"}},
 						{ProcessGroupID: "stateless-9", ProcessClass: "stateless", Addresses: []string{"1.1.2.3"}},
-						{ProcessGroupID: "log-1", ProcessClass: "log", Addresses: []string{"1.1.2.4"}},
-						{ProcessGroupID: "log-2", ProcessClass: "log", Addresses: []string{"1.1.2.5"}},
-						{ProcessGroupID: "log-3", ProcessClass: "log", Addresses: []string{"1.1.2.6"}},
-						{ProcessGroupID: "log-4", ProcessClass: "log", Addresses: []string{"1.1.2.7"}},
+						{ProcessGroupID: "globalControllerLogger-1", ProcessClass: "globalControllerLogger", Addresses: []string{"1.1.2.4"}},
+						{ProcessGroupID: "globalControllerLogger-2", ProcessClass: "globalControllerLogger", Addresses: []string{"1.1.2.5"}},
+						{ProcessGroupID: "globalControllerLogger-3", ProcessClass: "globalControllerLogger", Addresses: []string{"1.1.2.6"}},
+						{ProcessGroupID: "globalControllerLogger-4", ProcessClass: "globalControllerLogger", Addresses: []string{"1.1.2.7"}},
 					},
 				},
 				Spec: fdbv1beta2.FoundationDBClusterSpec{

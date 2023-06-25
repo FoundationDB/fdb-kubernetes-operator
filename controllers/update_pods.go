@@ -23,8 +23,9 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbstatus"
 	"time"
+
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbstatus"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
@@ -37,9 +38,7 @@ import (
 type updatePods struct{}
 
 // reconcile runs the reconciler's work.
-func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) *requeue {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updatePods")
-
+func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
 	updates, err := getPodsToUpdate(ctx, logger, r, cluster)
 	if err != nil {
 		return &requeue{curError: err, delay: podSchedulingDelayDuration, delayedRequeue: true}
@@ -310,7 +309,7 @@ func deletePodsForUpdates(ctx context.Context, r *FoundationDBClusterReconciler,
 	// Only lock the cluster if we are not running in the delete "All" mode.
 	// Otherwise, we want to delete all Pods and don't require a lock to sync with other clusters.
 	if deletionMode != fdbv1beta2.PodUpdateModeAll {
-		hasLock, err := r.takeLock(cluster, "updating pods")
+		hasLock, err := r.takeLock(logger, cluster, "updating pods")
 		if !hasLock {
 			return &requeue{curError: err}
 		}

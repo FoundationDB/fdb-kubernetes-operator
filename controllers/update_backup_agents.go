@@ -42,7 +42,7 @@ type updateBackupAgents struct{}
 
 // reconcile runs the reconciler's work.
 func (u updateBackupAgents) reconcile(ctx context.Context, r *FoundationDBBackupReconciler, backup *fdbv1beta2.FoundationDBBackup) *requeue {
-	logger := log.WithValues("namespace", backup.Namespace, "cluster", backup.Name, "reconciler", "updateBackupAgents")
+	logger := globalControllerLogger.WithValues("namespace", backup.Namespace, "cluster", backup.Name, "reconciler", "updateBackupAgents")
 	deploymentName := fmt.Sprintf("%s-backup-agents", backup.ObjectMeta.Name)
 	existingDeployment := &appsv1.Deployment{}
 	needCreation := false

@@ -22,7 +22,9 @@ package controllers
 
 import (
 	"context"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbstatus"
+	"github.com/go-logr/logr"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal/replacements"
@@ -33,8 +35,7 @@ import (
 type replaceFailedProcessGroups struct{}
 
 // return non-nil requeue if a process has been replaced
-func (c replaceFailedProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) *requeue {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "replaceFailedProcessGroups")
+func (c replaceFailedProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
 	// If the EmptyMonitorConf setting is set we expect that all fdb processes in this part of the cluster are missing. In order
 	// to prevent the operator from replacing any process groups we skip this reconciliation here.
 	if cluster.Spec.Buggify.EmptyMonitorConf {
@@ -57,7 +58,7 @@ func (c replaceFailedProcessGroups) reconcile(ctx context.Context, r *Foundation
 	}
 
 	// Only replace process groups without an address, if the cluster has the desired fault tolerance and is available.
-	hasDesiredFaultTolerance := fdbstatus.HasDesiredFaultToleranceFromStatus(log, status, cluster)
+	hasDesiredFaultTolerance := fdbstatus.HasDesiredFaultToleranceFromStatus(logger, status, cluster)
 	if replacements.ReplaceFailedProcessGroups(logger, cluster, hasDesiredFaultTolerance) {
 		err := r.updateOrApply(ctx, cluster)
 		if err != nil {

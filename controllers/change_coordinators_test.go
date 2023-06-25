@@ -161,7 +161,7 @@ var _ = Describe("Change coordinators", func() {
 							storageCnt++
 						}
 
-						if strings.HasPrefix(candidate.ID, "log") {
+						if strings.HasPrefix(candidate.ID, "globalControllerLogger") {
 							logCnt++
 						}
 					}
@@ -193,7 +193,7 @@ var _ = Describe("Change coordinators", func() {
 					}
 				})
 
-				It("should only select log processes", func() {
+				It("should only select globalControllerLogger processes", func() {
 					Expect(cluster.DesiredCoordinatorCount()).To(BeNumerically("==", 3))
 					Expect(len(candidates)).To(BeNumerically("==", cluster.DesiredCoordinatorCount()))
 
@@ -282,7 +282,7 @@ var _ = Describe("Change coordinators", func() {
 								storageCnt++
 							}
 
-							if strings.Contains(candidate.ID, "log") {
+							if strings.Contains(candidate.ID, "globalControllerLogger") {
 								logCnt++
 							}
 						}
@@ -329,7 +329,7 @@ var _ = Describe("Change coordinators", func() {
 								storageCnt++
 							}
 
-							if strings.Contains(candidate.ID, "log") {
+							if strings.Contains(candidate.ID, "globalControllerLogger") {
 								logCnt++
 							}
 						}
@@ -376,7 +376,7 @@ var _ = Describe("Change coordinators", func() {
 								storageCnt++
 							}
 
-							if strings.Contains(candidate.ID, "log") {
+							if strings.Contains(candidate.ID, "globalControllerLogger") {
 								logCnt++
 							}
 						}
@@ -404,10 +404,10 @@ var _ = Describe("Change coordinators", func() {
 							"dc0-storage-5",
 							"dc0-storage-6",
 							"dc0-storage-7",
-							"dc0-log-0",
-							"dc0-log-1",
-							"dc0-log-2",
-							"dc0-log-3",
+							"dc0-globalControllerLogger-0",
+							"dc0-globalControllerLogger-1",
+							"dc0-globalControllerLogger-2",
+							"dc0-globalControllerLogger-3",
 						}
 
 						shouldFail = true
@@ -454,7 +454,7 @@ var _ = Describe("Change coordinators", func() {
 								storageCnt++
 							}
 
-							if strings.Contains(candidate.ID, "log") {
+							if strings.Contains(candidate.ID, "globalControllerLogger") {
 								logCnt++
 							}
 						}
@@ -500,7 +500,7 @@ var _ = Describe("Change coordinators", func() {
 								storageCnt++
 							}
 
-							if strings.Contains(candidate.ID, "log") {
+							if strings.Contains(candidate.ID, "globalControllerLogger") {
 								logCnt++
 							}
 						}
@@ -546,7 +546,7 @@ var _ = Describe("Change coordinators", func() {
 								storageCnt++
 							}
 
-							if strings.Contains(candidate.ID, "log") {
+							if strings.Contains(candidate.ID, "globalControllerLogger") {
 								logCnt++
 							}
 						}
@@ -573,10 +573,10 @@ var _ = Describe("Change coordinators", func() {
 							"dc0-storage-5",
 							"dc0-storage-6",
 							"dc0-storage-7",
-							"dc0-log-0",
-							"dc0-log-1",
-							"dc0-log-2",
-							"dc0-log-3",
+							"dc0-globalControllerLogger-0",
+							"dc0-globalControllerLogger-1",
+							"dc0-globalControllerLogger-2",
+							"dc0-globalControllerLogger-3",
 						}
 					})
 
@@ -600,7 +600,7 @@ var _ = Describe("Change coordinators", func() {
 								storageCnt++
 							}
 
-							if strings.Contains(candidate.ID, "log") {
+							if strings.Contains(candidate.ID, "globalControllerLogger") {
 								logCnt++
 							}
 						}
@@ -640,7 +640,7 @@ var _ = Describe("Change coordinators", func() {
 		})
 
 		JustBeforeEach(func() {
-			requeue = changeCoordinators{}.reconcile(context.TODO(), clusterReconciler, cluster, nil)
+			requeue = changeCoordinators{}.reconcile(context.TODO(), clusterReconciler, cluster, nil, globalControllerLogger)
 		})
 
 		When("the cluster is healthy", func() {

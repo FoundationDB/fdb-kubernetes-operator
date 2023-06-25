@@ -54,7 +54,7 @@ var _ = Describe("add_process_groups", func() {
 	})
 
 	JustBeforeEach(func() {
-		requeue = addProcessGroups{}.reconcile(context.TODO(), clusterReconciler, cluster, nil)
+		requeue = addProcessGroups{}.reconcile(context.TODO(), clusterReconciler, cluster, nil, globalControllerLogger)
 		if requeue != nil {
 			Expect(requeue.curError).NotTo(HaveOccurred())
 		}
@@ -102,7 +102,7 @@ var _ = Describe("add_process_groups", func() {
 			Expect(storageProcesses).To(ContainElements(expectedStorageProcesses))
 		})
 
-		It("should not change the log or stateless processes", func() {
+		It("should not change the globalControllerLogger or stateless processes", func() {
 			Expect(newProcessCounts.Log).To(Equal(initialProcessCounts.Log))
 			Expect(newProcessCounts.Stateless).To(Equal(initialProcessCounts.Stateless))
 		})
@@ -136,7 +136,7 @@ var _ = Describe("add_process_groups", func() {
 			Expect(storageProcesses).To(ContainElements(expectedStorageProcesses))
 		})
 
-		It("should not change the log or stateless processes", func() {
+		It("should not change the globalControllerLogger or stateless processes", func() {
 			Expect(newProcessCounts.Log).To(Equal(initialProcessCounts.Log))
 			Expect(newProcessCounts.Stateless).To(Equal(initialProcessCounts.Stateless))
 		})
@@ -170,7 +170,7 @@ var _ = Describe("add_process_groups", func() {
 			Expect(storageProcesses).To(ContainElements(expectedStorageProcesses))
 		})
 
-		It("should not change the log or stateless processes", func() {
+		It("should not change the globalControllerLogger or stateless processes", func() {
 			Expect(newProcessCounts.Log).To(Equal(initialProcessCounts.Log))
 			Expect(newProcessCounts.Stateless).To(Equal(initialProcessCounts.Stateless))
 		})
