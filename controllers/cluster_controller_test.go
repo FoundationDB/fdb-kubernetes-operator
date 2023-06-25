@@ -174,10 +174,10 @@ var _ = Describe("cluster_controller", func() {
 				Expect(pods.Items[0].Annotations[fdbv1beta2.PublicIPSourceAnnotation]).To(Equal("pod"))
 				Expect(pods.Items[0].Annotations[fdbv1beta2.PublicIPAnnotation]).To(Equal(""))
 
-				Expect(pods.Items[1].Name).To(Equal("operator-test-1-globalControllerLogger-1"))
-				Expect(pods.Items[1].Labels[fdbv1beta2.FDBProcessGroupIDLabel]).To(Equal("globalControllerLogger-1"))
-				Expect(pods.Items[4].Name).To(Equal("operator-test-1-globalControllerLogger-4"))
-				Expect(pods.Items[4].Labels[fdbv1beta2.FDBProcessGroupIDLabel]).To(Equal("globalControllerLogger-4"))
+				Expect(pods.Items[1].Name).To(Equal("operator-test-1-log-1"))
+				Expect(pods.Items[1].Labels[fdbv1beta2.FDBProcessGroupIDLabel]).To(Equal("log-1"))
+				Expect(pods.Items[4].Name).To(Equal("operator-test-1-log-4"))
+				Expect(pods.Items[4].Labels[fdbv1beta2.FDBProcessGroupIDLabel]).To(Equal("log-4"))
 				Expect(pods.Items[5].Name).To(Equal("operator-test-1-stateless-1"))
 				Expect(pods.Items[5].Labels[fdbv1beta2.FDBProcessGroupIDLabel]).To(Equal("stateless-1"))
 				Expect(pods.Items[12].Name).To(Equal("operator-test-1-stateless-8"))
@@ -2552,7 +2552,7 @@ var _ = Describe("cluster_controller", func() {
 
 				sortPodsByName(pods)
 				Expect(pods.Items[0].Labels[fdbv1beta2.FDBProcessGroupIDLabel]).To(Equal("dev-cluster_controller-2"))
-				Expect(pods.Items[1].Labels[fdbv1beta2.FDBProcessGroupIDLabel]).To(Equal("dev-globalControllerLogger-5"))
+				Expect(pods.Items[1].Labels[fdbv1beta2.FDBProcessGroupIDLabel]).To(Equal("dev-log-5"))
 			})
 		})
 

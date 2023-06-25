@@ -596,11 +596,11 @@ var _ = Describe("Change coordinators", func() {
 							zone := strings.Split(candidate.ID, "-")[0]
 							zoneCnt[zone]++
 
-							if strings.Contains(candidate.ID, "storage") {
+							if candidate.Class == fdbv1beta2.ProcessClassStorage {
 								storageCnt++
 							}
 
-							if strings.Contains(candidate.ID, "globalControllerLogger") {
+							if candidate.Class == fdbv1beta2.ProcessClassLog {
 								logCnt++
 							}
 						}
