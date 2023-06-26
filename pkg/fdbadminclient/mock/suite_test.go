@@ -47,5 +47,6 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterEach(func() {
+	ClearMockAdminClients()
 	k8sClient.Clear()
 })
