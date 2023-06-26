@@ -220,6 +220,13 @@ func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager, maxCo
 		return err
 	}
 
+	err = mgr.GetFieldIndexer().IndexField(context.Background(), &corev1.Node{}, "metadata.name", func(o client.Object) []string {
+		return []string{o.(*corev1.Node).Name}
+	})
+	if err != nil {
+		return err
+	}
+
 	err = mgr.GetFieldIndexer().IndexField(context.Background(), &corev1.Service{}, "metadata.name", func(o client.Object) []string {
 		return []string{o.(*corev1.Service).Name}
 	})
@@ -423,7 +430,7 @@ func (r *FoundationDBClusterReconciler) updateOrApply(ctx context.Context, clust
 			Status: cluster.Status,
 		}
 
-		return r.Status().Patch(ctx, patch, client.Apply, client.FieldOwner("fdb-operator"), client.ForceOwnership)
+		return r.Status().Patch(ctx, patch, client.Apply, client.FieldOwner("fdb-operator")) //, client.ForceOwnership)
 	}
 
 	return r.Status().Update(ctx, cluster)

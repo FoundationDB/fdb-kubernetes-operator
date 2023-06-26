@@ -197,7 +197,7 @@ func (r *FoundationDBBackupReconciler) updateOrApply(ctx context.Context, backup
 			Status: backup.Status,
 		}
 
-		return r.Status().Patch(ctx, patch, client.Apply, client.FieldOwner("fdb-operator"), client.ForceOwnership)
+		return r.Status().Patch(ctx, patch, client.Apply, client.FieldOwner("fdb-operator")) //, client.ForceOwnership)
 	}
 
 	return r.Status().Update(ctx, backup)

@@ -388,7 +388,6 @@ func checkAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbv1be
 // Validate and set progressGroup's status
 func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBClusterStatus, processMap map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo, configMap *corev1.ConfigMap, pvcs *corev1.PersistentVolumeClaimList, logger logr.Logger) ([]*fdbv1beta2.ProcessGroupStatus, error) {
 	var err error
-	nodeMap := make(map[string]*corev1.Node)
 	processGroups := status.ProcessGroups
 	processGroupsWithoutExclusion := make(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None, len(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion))
 
@@ -513,7 +512,7 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 			pvc = &pvcValue
 		}
 
-		err = validateProcessGroup(ctx, r, cluster, pod, pvc, configMapHash, processGroup, disableTaintFeature, nodeMap, logger)
+		err = validateProcessGroup(ctx, r, cluster, pod, pvc, configMapHash, processGroup, disableTaintFeature, logger)
 		if err != nil {
 			return processGroups, err
 		}
@@ -526,7 +525,7 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 // returns failing, incorrect, error
 func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster,
 	pod *corev1.Pod, currentPVC *corev1.PersistentVolumeClaim, configMapHash string, processGroupStatus *fdbv1beta2.ProcessGroupStatus,
-	disableTaintFeature bool, nodeMap map[string]*corev1.Node, logger logr.Logger) error {
+	disableTaintFeature bool, logger logr.Logger) error {
 	processGroupStatus.UpdateCondition(fdbv1beta2.MissingPod, pod == nil)
 	if pod == nil {
 		return nil
@@ -622,7 +621,7 @@ func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler,
 
 	if !disableTaintFeature {
 		// Update taint status
-		err = updateTaintCondition(ctx, r, cluster, pod, processGroupStatus, nodeMap, logger)
+		err = updateTaintCondition(ctx, r, cluster, pod, processGroupStatus, logger)
 		if err != nil {
 			return err
 		}
@@ -633,17 +632,13 @@ func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler,
 
 // updateTaintCondition checks pod's node taint label and update pod's taint-related condition accordingly
 func updateTaintCondition(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster,
-	pod *corev1.Pod, processGroupStatus *fdbv1beta2.ProcessGroupStatus, nodeMap map[string]*corev1.Node, logger logr.Logger) error {
-	node, ok := nodeMap[pod.Spec.NodeName]
-	log.V(1).Info("Get pod's node", "Pod", pod.Name, "Pod's node name", pod.Spec.NodeName, "node map size", len(nodeMap))
-	if !ok {
-		node = &corev1.Node{}
-		err := r.Get(ctx, client.ObjectKey{Name: pod.Spec.NodeName}, node)
-		if err != nil {
-			return fmt.Errorf("get pod %s node %s fails with error :%w", pod.Name, pod.Spec.NodeName, err)
-		}
-		nodeMap[pod.Spec.NodeName] = node
-		log.V(1).Info("Set nodeMap cache", "Pod", pod.Name, "Pod's node name", pod.Spec.NodeName, "Node", node)
+	pod *corev1.Pod, processGroupStatus *fdbv1beta2.ProcessGroupStatus, logger logr.Logger) error {
+	log.V(1).Info("Get pod's node", "Pod", pod.Name, "Pod's node name", pod.Spec.NodeName)
+
+	node := &corev1.Node{}
+	err := r.Get(ctx, client.ObjectKey{Name: pod.Spec.NodeName}, node)
+	if err != nil {
+		return fmt.Errorf("get pod %s node %s fails with error :%w", pod.Name, pod.Spec.NodeName, err)
 	}
 
 	// Check the tainted duration and only mark the process group tainted after the configured tainted duration

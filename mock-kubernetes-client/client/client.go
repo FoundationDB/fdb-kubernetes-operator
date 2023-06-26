@@ -58,6 +58,9 @@ type MockClient struct {
 
 	// updateHooks allow to inject custom logic to the update of objects.
 	updateHooks []func(ctx context.Context, client *MockClient, object ctrlClient.Object) error
+
+	// createIndexes defines if the MockClient should create a predefined set of Indexer.
+	createIndexes bool
 }
 
 // NewMockClient creates a new MockClient.
@@ -67,6 +70,12 @@ func NewMockClient(scheme *runtime.Scheme, hooks ...func(_ context.Context, clie
 
 // NewMockClientWithHooks creates a new MockClient with hooks.
 func NewMockClientWithHooks(scheme *runtime.Scheme, createHooks []func(ctx context.Context, client *MockClient, object ctrlClient.Object) error, updateHooks []func(ctx context.Context, client *MockClient, object ctrlClient.Object) error) *MockClient {
+	return NewMockClientWithHooksAndIndexes(scheme, createHooks, updateHooks, false)
+}
+
+// NewMockClientWithHooksAndIndexes creates a new MockClient with hooks and indexes.
+func NewMockClientWithHooksAndIndexes(scheme *runtime.Scheme, createHooks []func(ctx context.Context, client *MockClient, object ctrlClient.Object) error,
+	updateHooks []func(ctx context.Context, client *MockClient, object ctrlClient.Object) error, createIndexes bool) *MockClient {
 	serviceCreateHook := func(_ context.Context, client *MockClient, object ctrlClient.Object) error {
 		svc, isSvc := object.(*corev1.Service)
 		if !isSvc {
@@ -109,17 +118,37 @@ func NewMockClientWithHooks(scheme *runtime.Scheme, createHooks []func(ctx conte
 		return err
 	}
 
-	return &MockClient{
-		fakeClient:  fake.NewClientBuilder().WithScheme(scheme).Build(),
-		scheme:      scheme,
-		createHooks: append(createHooks, serviceCreateHook, podCreateHook),
-		updateHooks: updateHooks,
+	mockClient := &MockClient{
+		scheme:        scheme,
+		createHooks:   append(createHooks, serviceCreateHook, podCreateHook),
+		updateHooks:   updateHooks,
+		createIndexes: createIndexes,
 	}
+
+	mockClient.setNewFakeClient()
+	return mockClient
+}
+
+// Clear erases any mock data.
+func (client *MockClient) setNewFakeClient() {
+	builder := fake.NewClientBuilder()
+
+	// We have to create those indexes, otherwise the fake client is complaining. This is only the case for the
+	// kubectl-fdb plugin tests.
+	if client.createIndexes {
+		builder = builder.WithIndex(&corev1.Pod{}, "spec.nodeName", func(o ctrlClient.Object) []string {
+			return []string{o.(*corev1.Pod).Spec.NodeName}
+		}).WithIndex(&corev1.Pod{}, "status.phase", func(o ctrlClient.Object) []string {
+			return []string{string(o.(*corev1.Pod).Status.Phase)}
+		})
+	}
+
+	client.fakeClient = builder.Build()
 }
 
 // Clear erases any mock data.
 func (client *MockClient) Clear() {
-	client.fakeClient = fake.NewClientBuilder().WithScheme(client.scheme).Build()
+	client.setNewFakeClient()
 }
 
 // Scheme returns the runtime Scheme
@@ -156,8 +185,8 @@ func (client *MockClient) Create(ctx context.Context, object ctrlClient.Object, 
 }
 
 // Get retrieves an object.
-func (client *MockClient) Get(ctx context.Context, key ctrlClient.ObjectKey, object ctrlClient.Object) error {
-	return client.fakeClient.Get(ctx, key, object)
+func (client *MockClient) Get(ctx context.Context, key ctrlClient.ObjectKey, object ctrlClient.Object, options ...ctrlClient.GetOption) error {
+	return client.fakeClient.Get(ctx, key, object, options...)
 }
 
 // List lists objects.
@@ -253,28 +282,38 @@ func (client *MockClient) MockStuckTermination(object ctrlClient.Object, termina
 	return client.Update(context.Background(), object)
 }
 
+// SubResource returns a client for the specified SubResource.
+func (client *MockClient) SubResource(subResource string) ctrlClient.SubResourceClient {
+	return client.fakeClient.SubResource(subResource)
+}
+
 // MockStatusClient wraps a client to provide specialized operations for
 // updating status.
 type MockStatusClient struct {
-	rawClient *MockClient
+	*MockClient
+}
+
+// Create will create the specified SubResource
+func (client MockStatusClient) Create(ctx context.Context, obj ctrlClient.Object, subResource ctrlClient.Object, opts ...ctrlClient.SubResourceCreateOption) error {
+	return client.fakeClient.Status().Create(ctx, obj, subResource, opts...)
 }
 
 // Update updates an object.
 // This does not support the options argument yet.
-func (client MockStatusClient) Update(ctx context.Context, object ctrlClient.Object, options ...ctrlClient.UpdateOption) error {
-	return client.rawClient.fakeClient.Status().Update(ctx, object, options...)
+func (client MockStatusClient) Update(ctx context.Context, object ctrlClient.Object, options ...ctrlClient.SubResourceUpdateOption) error {
+	return client.fakeClient.Status().Update(ctx, object, options...)
 }
 
 // Patch patches an object's status.
 // This is not yet implemented.
-func (client MockStatusClient) Patch(ctx context.Context, object ctrlClient.Object, patch ctrlClient.Patch, options ...ctrlClient.PatchOption) error {
+func (client MockStatusClient) Patch(ctx context.Context, object ctrlClient.Object, patch ctrlClient.Patch, options ...ctrlClient.SubResourcePatchOption) error {
 	// Currently the SSA patch type is not supported in the fake client: https://github.com/kubernetes/client-go/issues/992
-	return client.rawClient.fakeClient.Status().Patch(ctx, object, patch, options...)
+	return client.fakeClient.Status().Patch(ctx, object, patch, options...)
 }
 
 // Status returns a writer for updating status.
 func (client *MockClient) Status() ctrlClient.StatusWriter {
-	return MockStatusClient{rawClient: client}
+	return MockStatusClient{client}
 }
 
 func (client *MockClient) createEvent(event *corev1.Event) {
