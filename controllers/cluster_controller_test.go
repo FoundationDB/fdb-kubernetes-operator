@@ -1154,7 +1154,7 @@ var _ = Describe("cluster_controller", func() {
 				})
 			})
 
-			Context("with a change to the globalControllerLogger version", func() {
+			Context("with a change to the log version", func() {
 				BeforeEach(func() {
 					cluster.Spec.DatabaseConfiguration.LogVersion = 3
 					cluster.Spec.DatabaseConfiguration.RedundancyMode = fdbv1beta2.RedundancyModeDouble
@@ -1169,7 +1169,7 @@ var _ = Describe("cluster_controller", func() {
 				})
 			})
 
-			Context("with a change to the globalControllerLogger version that is not set in the spec", func() {
+			Context("with a change to the log version that is not set in the spec", func() {
 				BeforeEach(func() {
 					cluster.Spec.DatabaseConfiguration.RedundancyMode = fdbv1beta2.RedundancyModeDouble
 					cluster.Spec.SeedConnectionString = "touch"
@@ -1987,7 +1987,7 @@ var _ = Describe("cluster_controller", func() {
 				}
 			})
 
-			When("changing the coordinator selection to only select globalControllerLogger processes", func() {
+			When("changing the coordinator selection to only select log processes", func() {
 				BeforeEach(func() {
 					cluster.Spec.CoordinatorSelection = []fdbv1beta2.CoordinatorSelectionSetting{
 						{
@@ -2000,7 +2000,7 @@ var _ = Describe("cluster_controller", func() {
 					generationGap++
 				})
 
-				It("should only have globalControllerLogger processes as coordinator", func() {
+				It("should only have log processes as coordinator", func() {
 					connectionString, err := fdbv1beta2.ParseConnectionString(cluster.Status.ConnectionString)
 					Expect(err).NotTo(HaveOccurred())
 
@@ -3449,14 +3449,14 @@ var _ = Describe("cluster_controller", func() {
 			})
 		})
 
-		Context("with a custom globalControllerLogger group", func() {
+		Context("with a custom log group", func() {
 			BeforeEach(func() {
 				cluster.Spec.LogGroup = "test-fdb-cluster"
 				conf, err = internal.GetMonitorConf(cluster, fdbv1beta2.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			It("should include the globalControllerLogger group", func() {
+			It("should include the log group", func() {
 				Expect(conf).To(Equal(strings.Join([]string{
 					"[general]",
 					"kill_on_configuration_change = false",
@@ -3484,7 +3484,7 @@ var _ = Describe("cluster_controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			It("should include the globalControllerLogger group", func() {
+			It("should include the log group", func() {
 				Expect(conf).To(Equal(strings.Join([]string{
 					"[general]",
 					"kill_on_configuration_change = false",
