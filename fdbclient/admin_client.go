@@ -114,6 +114,7 @@ func NewCliAdminClient(cluster *fdbv1beta2.FoundationDBCluster, _ client.Client,
 // getMaxTimeout returns the maximum timeout, this is either the default of 40 seconds or if the provided default timeout
 // is higher it will be the default cli timeout.
 func (client *cliAdminClient) getMaxTimeout() time.Duration {
+	// TODO (johscheuer): ALlow to specify the max timeout.
 	if DefaultCLITimeout > 40*time.Second {
 		return DefaultCLITimeout
 	}
@@ -488,7 +489,8 @@ func (client *cliAdminClient) KillProcesses(addresses []fdbv1beta2.ProcessAddres
 		"kill; kill %[1]s; sleep 1; kill %[1]s; sleep 5",
 		fdbv1beta2.ProcessAddressesStringWithoutFlags(addresses, " "),
 	)
-	_, err := client.runCommandWithBackoff(killCommand)
+	// Run the kill command once with the max timeout to reduce the risk of multiple recoveries happening.
+	_, err := client.runCommand(cliCommand{command: killCommand, timeout: client.getMaxTimeout()})
 
 	return err
 }
