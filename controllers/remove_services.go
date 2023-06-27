@@ -23,6 +23,8 @@ package controllers
 import (
 	"context"
 
+	"github.com/go-logr/logr"
+
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -34,8 +36,7 @@ import (
 type removeServices struct{}
 
 // reconcile runs the reconciler's work.
-func (u removeServices) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, _ *fdbv1beta2.FoundationDBStatus) *requeue {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "removeServices")
+func (u removeServices) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
 	if cluster.NeedsHeadlessService() {
 		return nil
 	}

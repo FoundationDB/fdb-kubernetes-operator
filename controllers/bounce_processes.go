@@ -23,8 +23,9 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbstatus"
 	"time"
+
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbstatus"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal/buggify"
 
@@ -42,12 +43,11 @@ import (
 type bounceProcesses struct{}
 
 // reconcile runs the reconciler's work.
-func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) *requeue {
+func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
 	if !pointer.BoolDeref(cluster.Spec.AutomationOptions.KillProcesses, true) {
 		return nil
 	}
 
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "bounceProcesses")
 	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
 	if err != nil {
 		return &requeue{curError: err}
@@ -115,14 +115,14 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 			processGroupIDs = append(processGroupIDs, processGroup.ProcessGroupID)
 		}
 
-		log.V(1).Info("adding processes to the pending upgrades", "processGroupIDs", processGroupIDs)
+		logger.V(1).Info("adding processes to the pending upgrades", "processGroupIDs", processGroupIDs)
 		err = lockClient.AddPendingUpgrades(version, processGroupIDs)
 		if err != nil {
 			return &requeue{curError: err}
 		}
 	}
 
-	hasLock, err := r.takeLock(cluster, fmt.Sprintf("bouncing processes: %v", addresses))
+	hasLock, err := r.takeLock(logger, cluster, fmt.Sprintf("bouncing processes: %v", addresses))
 	if !hasLock {
 		return &requeue{curError: err}
 	}

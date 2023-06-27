@@ -24,6 +24,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/go-logr/logr"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal/locality"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
@@ -38,8 +40,7 @@ import (
 type generateInitialClusterFile struct{}
 
 // reconcile runs the reconciler's work.
-func (g generateInitialClusterFile) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, _ *fdbv1beta2.FoundationDBStatus) *requeue {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "generateInitialClusterFile")
+func (g generateInitialClusterFile) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, _ *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
 	if cluster.Status.ConnectionString != "" {
 		return nil
 	}

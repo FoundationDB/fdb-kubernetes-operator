@@ -24,6 +24,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/go-logr/logr"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal/locality"
 
 	corev1 "k8s.io/api/core/v1"
@@ -35,8 +37,7 @@ import (
 type chooseRemovals struct{}
 
 // reconcile runs the reconciler's work.
-func (c chooseRemovals) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) *requeue {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "chooseRemovals")
+func (c chooseRemovals) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
 	hasNewRemovals := false
 
 	var removals = make(map[fdbv1beta2.ProcessGroupID]bool)

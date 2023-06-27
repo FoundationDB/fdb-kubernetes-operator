@@ -56,7 +56,7 @@ var _ = Describe("exclude_processes", func() {
 		Context("with a small cluster", func() {
 			When("all processes are healthy", func() {
 				It("should allow the exclusion", func() {
-					canExclude, missing := canExcludeNewProcesses(cluster, fdbv1beta2.ProcessClassStorage)
+					canExclude, missing := canExcludeNewProcesses(globalControllerLogger, cluster, fdbv1beta2.ProcessClassStorage)
 					Expect(canExclude).To(BeTrue())
 					Expect(missing).To(BeNil())
 				})
@@ -68,7 +68,7 @@ var _ = Describe("exclude_processes", func() {
 				})
 
 				It("should allow the exclusion", func() {
-					canExclude, missing := canExcludeNewProcesses(cluster, fdbv1beta2.ProcessClassStorage)
+					canExclude, missing := canExcludeNewProcesses(globalControllerLogger, cluster, fdbv1beta2.ProcessClassStorage)
 					Expect(canExclude).To(BeTrue())
 					Expect(missing).To(BeNil())
 				})
@@ -80,7 +80,7 @@ var _ = Describe("exclude_processes", func() {
 				})
 
 				It("should not allow the exclusion", func() {
-					canExclude, missing := canExcludeNewProcesses(cluster, fdbv1beta2.ProcessClassStorage)
+					canExclude, missing := canExcludeNewProcesses(globalControllerLogger, cluster, fdbv1beta2.ProcessClassStorage)
 					Expect(canExclude).To(BeFalse())
 					Expect(missing).To(Equal([]fdbv1beta2.ProcessGroupID{"storage-1", "storage-2"}))
 				})
@@ -92,7 +92,7 @@ var _ = Describe("exclude_processes", func() {
 				})
 
 				It("should allow the exclusion", func() {
-					canExclude, missing := canExcludeNewProcesses(cluster, fdbv1beta2.ProcessClassStorage)
+					canExclude, missing := canExcludeNewProcesses(globalControllerLogger, cluster, fdbv1beta2.ProcessClassStorage)
 					Expect(canExclude).To(BeTrue())
 					Expect(missing).To(BeNil())
 				})
@@ -119,7 +119,7 @@ var _ = Describe("exclude_processes", func() {
 				})
 
 				It("should allow the exclusion", func() {
-					canExclude, missing := canExcludeNewProcesses(cluster, fdbv1beta2.ProcessClassStorage)
+					canExclude, missing := canExcludeNewProcesses(globalControllerLogger, cluster, fdbv1beta2.ProcessClassStorage)
 					Expect(canExclude).To(BeTrue())
 					Expect(missing).To(BeNil())
 				})
@@ -131,7 +131,7 @@ var _ = Describe("exclude_processes", func() {
 				})
 
 				It("should not allow the exclusion", func() {
-					canExclude, missing := canExcludeNewProcesses(cluster, fdbv1beta2.ProcessClassStorage)
+					canExclude, missing := canExcludeNewProcesses(globalControllerLogger, cluster, fdbv1beta2.ProcessClassStorage)
 					Expect(canExclude).To(BeFalse())
 					Expect(missing).To(Equal([]fdbv1beta2.ProcessGroupID{"storage-1", "storage-10", "storage-11", "storage-12", "storage-13"}))
 				})
@@ -146,22 +146,22 @@ var _ = Describe("exclude_processes", func() {
 			cluster = &fdbv1beta2.FoundationDBCluster{
 				Status: fdbv1beta2.FoundationDBClusterStatus{
 					ProcessGroups: []*fdbv1beta2.ProcessGroupStatus{
-						{ProcessGroupID: "storage-1", ProcessClass: "storage", Addresses: []string{"1.1.1.1"}},
-						{ProcessGroupID: "storage-2", ProcessClass: "storage", Addresses: []string{"1.1.1.2"}},
-						{ProcessGroupID: "storage-3", ProcessClass: "storage", Addresses: []string{"1.1.1.3"}},
-						{ProcessGroupID: "stateless-1", ProcessClass: "stateless", Addresses: []string{"1.1.1.4"}},
-						{ProcessGroupID: "stateless-2", ProcessClass: "stateless", Addresses: []string{"1.1.1.5"}},
-						{ProcessGroupID: "stateless-3", ProcessClass: "stateless", Addresses: []string{"1.1.1.6"}},
-						{ProcessGroupID: "stateless-4", ProcessClass: "stateless", Addresses: []string{"1.1.1.7"}},
-						{ProcessGroupID: "stateless-5", ProcessClass: "stateless", Addresses: []string{"1.1.1.8"}},
-						{ProcessGroupID: "stateless-6", ProcessClass: "stateless", Addresses: []string{"1.1.1.9"}},
-						{ProcessGroupID: "stateless-7", ProcessClass: "stateless", Addresses: []string{"1.1.2.1"}},
-						{ProcessGroupID: "stateless-8", ProcessClass: "stateless", Addresses: []string{"1.1.2.2"}},
-						{ProcessGroupID: "stateless-9", ProcessClass: "stateless", Addresses: []string{"1.1.2.3"}},
-						{ProcessGroupID: "log-1", ProcessClass: "log", Addresses: []string{"1.1.2.4"}},
-						{ProcessGroupID: "log-2", ProcessClass: "log", Addresses: []string{"1.1.2.5"}},
-						{ProcessGroupID: "log-3", ProcessClass: "log", Addresses: []string{"1.1.2.6"}},
-						{ProcessGroupID: "log-4", ProcessClass: "log", Addresses: []string{"1.1.2.7"}},
+						{ProcessGroupID: "storage-1", ProcessClass: fdbv1beta2.ProcessClassStorage, Addresses: []string{"1.1.1.1"}},
+						{ProcessGroupID: "storage-2", ProcessClass: fdbv1beta2.ProcessClassStorage, Addresses: []string{"1.1.1.2"}},
+						{ProcessGroupID: "storage-3", ProcessClass: fdbv1beta2.ProcessClassStorage, Addresses: []string{"1.1.1.3"}},
+						{ProcessGroupID: "stateless-1", ProcessClass: fdbv1beta2.ProcessClassStateless, Addresses: []string{"1.1.1.4"}},
+						{ProcessGroupID: "stateless-2", ProcessClass: fdbv1beta2.ProcessClassStateless, Addresses: []string{"1.1.1.5"}},
+						{ProcessGroupID: "stateless-3", ProcessClass: fdbv1beta2.ProcessClassStateless, Addresses: []string{"1.1.1.6"}},
+						{ProcessGroupID: "stateless-4", ProcessClass: fdbv1beta2.ProcessClassStateless, Addresses: []string{"1.1.1.7"}},
+						{ProcessGroupID: "stateless-5", ProcessClass: fdbv1beta2.ProcessClassStateless, Addresses: []string{"1.1.1.8"}},
+						{ProcessGroupID: "stateless-6", ProcessClass: fdbv1beta2.ProcessClassStateless, Addresses: []string{"1.1.1.9"}},
+						{ProcessGroupID: "stateless-7", ProcessClass: fdbv1beta2.ProcessClassStateless, Addresses: []string{"1.1.2.1"}},
+						{ProcessGroupID: "stateless-8", ProcessClass: fdbv1beta2.ProcessClassStateless, Addresses: []string{"1.1.2.2"}},
+						{ProcessGroupID: "stateless-9", ProcessClass: fdbv1beta2.ProcessClassStateless, Addresses: []string{"1.1.2.3"}},
+						{ProcessGroupID: "log-1", ProcessClass: fdbv1beta2.ProcessClassLog, Addresses: []string{"1.1.2.4"}},
+						{ProcessGroupID: "log-2", ProcessClass: fdbv1beta2.ProcessClassLog, Addresses: []string{"1.1.2.5"}},
+						{ProcessGroupID: "log-3", ProcessClass: fdbv1beta2.ProcessClassLog, Addresses: []string{"1.1.2.6"}},
+						{ProcessGroupID: "log-4", ProcessClass: fdbv1beta2.ProcessClassLog, Addresses: []string{"1.1.2.7"}},
 					},
 				},
 				Spec: fdbv1beta2.FoundationDBClusterSpec{

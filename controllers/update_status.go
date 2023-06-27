@@ -49,8 +49,7 @@ import (
 type updateStatus struct{}
 
 // reconcile runs the reconciler's work.
-func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, databaseStatus *fdbv1beta2.FoundationDBStatus) *requeue {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updateStatus")
+func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, databaseStatus *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
 	originalStatus := cluster.Status.DeepCopy()
 	clusterStatus := fdbv1beta2.FoundationDBClusterStatus{}
 	// Pass through Maintenance Mode Info as the maintenance_mode_checker reconciler takes care of updating it
@@ -247,7 +246,7 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 
 	cluster.Status = clusterStatus
 
-	_, err = cluster.CheckReconciliation(log)
+	_, err = cluster.CheckReconciliation(logger)
 	if err != nil {
 		return &requeue{curError: err}
 	}
@@ -326,8 +325,7 @@ func tryConnectionOptions(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCl
 }
 
 // checkAndSetProcessStatus checks the status of the Process and if missing or incorrect add it to the related status field
-func checkAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod, processMap map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo, processNumber int, processCount int, processGroupStatus *fdbv1beta2.ProcessGroupStatus) error {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updateStatus")
+func checkAndSetProcessStatus(logger logr.Logger, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod, processMap map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo, processNumber int, processCount int, processGroupStatus *fdbv1beta2.ProcessGroupStatus) error {
 	processID := processGroupStatus.ProcessGroupID
 
 	if processCount > 1 {
@@ -371,7 +369,7 @@ func checkAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbv1be
 		correct = commandLine == process.CommandLine && versionMatch && !cluster.Spec.Buggify.EmptyMonitorConf
 
 		if !correct {
-			log.Info("IncorrectProcess", "expected", commandLine, "got", process.CommandLine,
+			logger.Info("IncorrectProcess", "expected", commandLine, "got", process.CommandLine,
 				"expectedVersion", cluster.Spec.Version,
 				"version", process.Version, "processGroupID", processGroupStatus.ProcessGroupID,
 				"emptyMonitorConf is ", cluster.Spec.Buggify.EmptyMonitorConf)
@@ -431,7 +429,7 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 			continue
 		}
 
-		processGroup.AddAddresses(podmanager.GetPublicIPs(pod, log), processGroup.IsMarkedForRemoval() || !status.Health.Available)
+		processGroup.AddAddresses(podmanager.GetPublicIPs(pod, logger), processGroup.IsMarkedForRemoval() || !status.Health.Available)
 		processCount := 1
 
 		// In this case the Pod has a DeletionTimestamp and should be deleted.
@@ -495,7 +493,7 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 
 		// In theory we could also support multiple processes per pod for different classes
 		for i := 1; i <= processCount; i++ {
-			err = checkAndSetProcessStatus(r, cluster, pod, processMap, i, processCount, processGroup)
+			err = checkAndSetProcessStatus(logger, r, cluster, pod, processMap, i, processCount, processGroup)
 			if err != nil {
 				return processGroups, err
 			}
@@ -579,7 +577,7 @@ func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler,
 		incorrectPVC = !metadataMatches(currentPVC.ObjectMeta, desiredPvc.ObjectMeta)
 	}
 	if incorrectPVC {
-		log.Info("ValidateProcessGroup found incorrectPVC", "CurrentPVC", currentPVC, "DesiredPVC", desiredPvc)
+		logger.Info("ValidateProcessGroup found incorrectPVC", "CurrentPVC", currentPVC, "DesiredPVC", desiredPvc)
 	}
 
 	processGroupStatus.UpdateCondition(fdbv1beta2.MissingPVC, incorrectPVC)
@@ -633,7 +631,7 @@ func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler,
 // updateTaintCondition checks pod's node taint label and update pod's taint-related condition accordingly
 func updateTaintCondition(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster,
 	pod *corev1.Pod, processGroupStatus *fdbv1beta2.ProcessGroupStatus, logger logr.Logger) error {
-	log.V(1).Info("Get pod's node", "Pod", pod.Name, "Pod's node name", pod.Spec.NodeName)
+	logger.V(1).Info("Get pod's node", "Pod", pod.Name, "Pod's node name", pod.Spec.NodeName)
 
 	node := &corev1.Node{}
 	err := r.Get(ctx, client.ObjectKey{Name: pod.Spec.NodeName}, node)

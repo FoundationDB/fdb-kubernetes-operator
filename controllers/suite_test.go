@@ -144,17 +144,17 @@ func reconcileObject(reconciler reconcile.Reconciler, metadata metav1.ObjectMeta
 	result := reconcile.Result{Requeue: true}
 	var err error
 	for result.Requeue && attempts > 0 {
-		log.Info("Running test reconciliation", "Attempts", attempts)
+		globalControllerLogger.Info("Running test reconciliation", "Attempts", attempts)
 		attempts--
 
 		result, err = reconciler.Reconcile(context.TODO(), reconcile.Request{NamespacedName: types.NamespacedName{Namespace: metadata.Namespace, Name: metadata.Name}})
 		if err != nil {
-			log.Error(err, "Error in reconciliation")
+			globalControllerLogger.Error(err, "Error in reconciliation")
 			break
 		}
 
 		if !result.Requeue {
-			log.Info("Reconciliation successful")
+			globalControllerLogger.Info("Reconciliation successful")
 		}
 	}
 

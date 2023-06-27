@@ -230,7 +230,7 @@ var _ = FDescribe("Update metadata", func() {
 						fdbv1beta2.LastSpecKey: "1",
 					},
 					Labels: map[string]string{
-						fdbv1beta2.FDBProcessClassLabel: "log",
+						fdbv1beta2.FDBProcessClassLabel: "globalControllerLogger",
 					},
 				},
 				expected: false,
@@ -240,7 +240,7 @@ var _ = FDescribe("Update metadata", func() {
 					},
 
 					Labels: map[string]string{
-						fdbv1beta2.FDBProcessClassLabel: "log",
+						fdbv1beta2.FDBProcessClassLabel: "globalControllerLogger",
 					},
 				},
 			},

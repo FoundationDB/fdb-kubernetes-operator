@@ -3593,7 +3593,7 @@ var _ = Describe("cluster_controller", func() {
 			})
 
 			It("should be the public IP from the pod", func() {
-				result := podmanager.GetPublicIPs(pod, log)
+				result := podmanager.GetPublicIPs(pod, globalControllerLogger)
 				Expect(result).To(Equal([]string{"1.1.1.1"}))
 			})
 		})
@@ -3612,7 +3612,7 @@ var _ = Describe("cluster_controller", func() {
 			})
 
 			It("should select the address based on the spec", func() {
-				result := podmanager.GetPublicIPs(pod, log)
+				result := podmanager.GetPublicIPs(pod, globalControllerLogger)
 				Expect(result).To(Equal([]string{"2001:db8::ff00:42:8329"}))
 			})
 
@@ -3627,7 +3627,7 @@ var _ = Describe("cluster_controller", func() {
 				})
 
 				It("should be empty", func() {
-					result := podmanager.GetPublicIPs(pod, log)
+					result := podmanager.GetPublicIPs(pod, globalControllerLogger)
 					Expect(result).To(BeEmpty())
 				})
 			})
@@ -3647,14 +3647,14 @@ var _ = Describe("cluster_controller", func() {
 			})
 
 			It("should select the address based on the spec", func() {
-				result := podmanager.GetPublicIPs(pod, log)
+				result := podmanager.GetPublicIPs(pod, globalControllerLogger)
 				Expect(result).To(Equal([]string{"1.1.1.2"}))
 			})
 		})
 
 		Context("with no pod", func() {
 			It("should be empty", func() {
-				result := podmanager.GetPublicIPs(nil, log)
+				result := podmanager.GetPublicIPs(nil, globalControllerLogger)
 				Expect(result).To(BeEmpty())
 			})
 		})

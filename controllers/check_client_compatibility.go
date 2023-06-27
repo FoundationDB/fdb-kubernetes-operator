@@ -26,6 +26,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-logr/logr"
+
 	corev1 "k8s.io/api/core/v1"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -36,8 +38,7 @@ import (
 type checkClientCompatibility struct{}
 
 // reconcile runs the reconciler's work.
-func (c checkClientCompatibility) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) *requeue {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "checkClientCompatibility")
+func (c checkClientCompatibility) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
 	if !cluster.Status.Configured && !cluster.IsBeingUpgraded() {
 		return nil
 	}

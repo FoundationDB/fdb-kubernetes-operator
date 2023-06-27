@@ -100,14 +100,14 @@ var _ = Describe("update_status", func() {
 			if pvcExists {
 				pvc = &pvcValue
 			}
-			log.Info("Target processGroupStatus Info", "ProcessGroupID", processGroupStatus.ProcessGroupID,
+			globalControllerLogger.Info("Target processGroupStatus Info", "ProcessGroupID", processGroupStatus.ProcessGroupID,
 				"Conditions size", len(processGroupStatus.ProcessGroupConditions),
 				"Conditions", processGroupStatus.ProcessGroupConditions)
 		})
 
 		When("process group's node is tainted", func() {
 			JustBeforeEach(func() {
-				log.Info("Taint node", "Node name", pod.Name, "Node taints", node.Spec.Taints)
+				globalControllerLogger.Info("Taint node", "Node name", pod.Name, "Node taints", node.Spec.Taints)
 				Expect(k8sClient.Update(context.TODO(), node)).NotTo(HaveOccurred())
 
 				err = validateProcessGroup(context.TODO(), clusterReconciler, cluster, pod, pvc, pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey], processGroupStatus, cluster.IsTaintFeatureDisabled(), logger)
@@ -272,7 +272,7 @@ var _ = Describe("update_status", func() {
 					node.Spec.Taints = []corev1.Taint{}
 					err = k8sClient.Update(context.TODO(), node)
 					Expect(err).NotTo(HaveOccurred())
-					log.Info("Remove node taint", "Node name", pod.Name, "Node taints", node.Spec.Taints, "Now", time.Now())
+					globalControllerLogger.Info("Remove node taint", "Node name", pod.Name, "Node taints", node.Spec.Taints, "Now", time.Now())
 
 					err = validateProcessGroup(context.TODO(), clusterReconciler, cluster, pod, pvc, pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey], processGroupStatus, cluster.IsTaintFeatureDisabled(), logger)
 					Expect(err).NotTo(HaveOccurred())
@@ -689,7 +689,7 @@ var _ = Describe("update_status", func() {
 		JustBeforeEach(func() {
 			err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			requeue = updateStatus{}.reconcile(context.TODO(), clusterReconciler, cluster, nil)
+			requeue = updateStatus{}.reconcile(context.TODO(), clusterReconciler, cluster, nil, globalControllerLogger)
 			if requeue != nil {
 				Expect(requeue.curError).NotTo(HaveOccurred())
 			}
@@ -729,7 +729,7 @@ var _ = Describe("update_status", func() {
 	})
 
 	DescribeTable("when getting the running version from the running processes", func(versionMap map[string]int, fallback string, expected string) {
-		Expect(getRunningVersion(log, versionMap, fallback)).To(Equal(expected))
+		Expect(getRunningVersion(globalControllerLogger, versionMap, fallback)).To(Equal(expected))
 	},
 		Entry("when nearly all processes running on the new version", map[string]int{
 			"7.1.11": 1,

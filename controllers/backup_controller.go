@@ -73,7 +73,7 @@ func (r *FoundationDBBackupReconciler) Reconcile(ctx context.Context, request ct
 		return ctrl.Result{}, err
 	}
 
-	backupLog := log.WithValues("namespace", backup.Namespace, "backup", backup.Name)
+	backupLog := globalControllerLogger.WithValues("namespace", backup.Namespace, "backup", backup.Name)
 
 	subReconcilers := []backupSubReconciler{
 		updateBackupStatus{},

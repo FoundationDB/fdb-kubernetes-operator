@@ -23,9 +23,11 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbstatus"
 	"math"
 	"net"
+
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbstatus"
+	"github.com/go-logr/logr"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -41,8 +43,7 @@ var missingProcessThreshold = 0.8
 type excludeProcesses struct{}
 
 // reconcile runs the reconciler's work.
-func (e excludeProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) *requeue {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "excludeProcesses")
+func (e excludeProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
 	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
 	if err != nil {
 		return &requeue{curError: err}
@@ -77,7 +78,7 @@ func (e excludeProcesses) reconcile(ctx context.Context, r *FoundationDBClusterR
 
 	if len(fdbProcessesToExclude) > 0 {
 		for processClass := range processClassesToExclude {
-			canExclude, missingProcesses := canExcludeNewProcesses(cluster, processClass)
+			canExclude, missingProcesses := canExcludeNewProcesses(logger, cluster, processClass)
 			if !canExclude {
 				// We want to delay the requeue so that the operator can do some other tasks
 				// before retrying.
@@ -137,9 +138,7 @@ func getProcessesToExclude(exclusions []fdbv1beta2.ProcessAddress, cluster *fdbv
 	return fdbProcessesToExclude, processClassesToExclude
 }
 
-func canExcludeNewProcesses(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass) (bool, []fdbv1beta2.ProcessGroupID) {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "excludeProcesses")
-
+func canExcludeNewProcesses(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass) (bool, []fdbv1beta2.ProcessGroupID) {
 	// Block excludes on missing processes not marked for removal
 	missingProcesses := make([]fdbv1beta2.ProcessGroupID, 0)
 	validProcesses := make([]fdbv1beta2.ProcessGroupID, 0)

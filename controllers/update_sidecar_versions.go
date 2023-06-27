@@ -24,6 +24,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/go-logr/logr"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
@@ -38,8 +40,7 @@ import (
 type updateSidecarVersions struct{}
 
 // reconcile runs the reconciler's work.
-func (updateSidecarVersions) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, _ *fdbv1beta2.FoundationDBStatus) *requeue {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updateSidecarVersions")
+func (updateSidecarVersions) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, _ *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
 	// We don't need to upgrade the sidecar if no upgrade is in progress, we can skip any further work here.
 	if !cluster.IsBeingUpgradedWithVersionIncompatibleVersion() {
 		return nil

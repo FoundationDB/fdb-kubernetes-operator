@@ -23,9 +23,10 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbstatus"
 	"net"
 	"time"
+
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbstatus"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal/buggify"
 
@@ -43,8 +44,7 @@ import (
 type removeProcessGroups struct{}
 
 // reconcile runs the reconciler's work.
-func (u removeProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) *requeue {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "removeProcessGroups")
+func (u removeProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
 	adminClient, err := r.DatabaseClientProvider.GetAdminClient(cluster, r)
 	if err != nil {
 		return &requeue{curError: err}
@@ -64,7 +64,7 @@ func (u removeProcessGroups) reconcile(ctx context.Context, r *FoundationDBClust
 		return &requeue{curError: err}
 	}
 
-	allExcluded, newExclusions, processGroupsToRemove := r.getProcessGroupsToRemove(cluster, remainingMap)
+	allExcluded, newExclusions, processGroupsToRemove := r.getProcessGroupsToRemove(logger, cluster, remainingMap)
 	// If no process groups are marked to remove we have to check if all process groups are excluded.
 	if len(processGroupsToRemove) == 0 {
 		if !allExcluded {
@@ -127,7 +127,7 @@ func (u removeProcessGroups) reconcile(ctx context.Context, r *FoundationDBClust
 	logger.Info("Removing process groups", "zone", zone, "count", len(zoneRemovals), "deletionMode", cluster.GetRemovalMode())
 
 	// This will return a map of the newly removed ProcessGroups and the ProcessGroups with the ResourcesTerminating condition
-	removedProcessGroups := r.removeProcessGroups(ctx, cluster, zoneRemovals, zonedRemovals[removals.TerminatingZone])
+	removedProcessGroups := r.removeProcessGroups(ctx, logger, cluster, zoneRemovals, zonedRemovals[removals.TerminatingZone])
 
 	err = includeProcessGroup(ctx, r, cluster, removedProcessGroups)
 	if err != nil {
@@ -186,8 +186,7 @@ func removeProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, c
 	return nil
 }
 
-func confirmRemoval(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, processGroupID fdbv1beta2.ProcessGroupID) (bool, bool, error) {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "removeProcessGroups")
+func confirmRemoval(ctx context.Context, logger logr.Logger, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, processGroupID fdbv1beta2.ProcessGroupID) (bool, bool, error) {
 	canBeIncluded := true
 	listOptions := internal.GetSinglePodListOptions(cluster, processGroupID)
 
@@ -298,8 +297,7 @@ func getProcessesToInclude(cluster *fdbv1beta2.FoundationDBCluster, removedProce
 	return fdbProcessesToInclude
 }
 
-func (r *FoundationDBClusterReconciler) getProcessGroupsToRemove(cluster *fdbv1beta2.FoundationDBCluster, remainingMap map[string]bool) (bool, bool, []*fdbv1beta2.ProcessGroupStatus) {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "removeProcessGroups")
+func (r *FoundationDBClusterReconciler) getProcessGroupsToRemove(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, remainingMap map[string]bool) (bool, bool, []*fdbv1beta2.ProcessGroupStatus) {
 	var cordSet map[string]fdbv1beta2.None
 	allExcluded := true
 	newExclusions := false
@@ -350,8 +348,7 @@ func (r *FoundationDBClusterReconciler) getProcessGroupsToRemove(cluster *fdbv1b
 	return allExcluded, newExclusions, processGroupsToRemove
 }
 
-func (r *FoundationDBClusterReconciler) removeProcessGroups(ctx context.Context, cluster *fdbv1beta2.FoundationDBCluster, processGroupsToRemove []fdbv1beta2.ProcessGroupID, terminatingProcessGroups []fdbv1beta2.ProcessGroupID) map[fdbv1beta2.ProcessGroupID]bool {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "removeProcessGroups")
+func (r *FoundationDBClusterReconciler) removeProcessGroups(ctx context.Context, logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, processGroupsToRemove []fdbv1beta2.ProcessGroupID, terminatingProcessGroups []fdbv1beta2.ProcessGroupID) map[fdbv1beta2.ProcessGroupID]bool {
 	r.Recorder.Event(cluster, corev1.EventTypeNormal, "RemovingProcesses", fmt.Sprintf("Removing pods: %v", processGroupsToRemove))
 
 	processGroups := append(processGroupsToRemove, terminatingProcessGroups...)
@@ -368,7 +365,7 @@ func (r *FoundationDBClusterReconciler) removeProcessGroups(ctx context.Context,
 	// We have to check if the currently removed process groups are completely removed.
 	// In addition, we have to check if one of the terminating process groups has been cleaned up.
 	for _, id := range processGroups {
-		removed, include, err := confirmRemoval(ctx, r, cluster, id)
+		removed, include, err := confirmRemoval(ctx, logger, r, cluster, id)
 		if err != nil {
 			logger.Error(err, "Error during confirm process group removal", "processGroupID", id)
 			continue

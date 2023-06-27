@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"time"
 
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -31,10 +33,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-var log = logf.Log.WithName("controller")
+var globalControllerLogger = logf.Log.WithName("controller")
 
 const (
 	// podSchedulingDelayDuration determines how long we should delay a requeue
@@ -86,7 +87,7 @@ type requeue struct {
 	// curError provides an error that we encountered that forced a requeue.
 	curError error
 
-	// message provides a log message that explains the reason for the requeue.
+	// message provides a message that explains the reason for the requeue.
 	message string
 
 	// delayedRequeue defines that the reconciliation was not completed but the requeue should be delayed to the end.

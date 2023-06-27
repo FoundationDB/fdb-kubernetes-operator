@@ -25,6 +25,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/go-logr/logr"
+
 	"k8s.io/apimachinery/pkg/api/equality"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
@@ -39,8 +41,7 @@ import (
 type updatePodConfig struct{}
 
 // reconcile runs the reconciler's work.
-func (updatePodConfig) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, _ *fdbv1beta2.FoundationDBStatus) *requeue {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updatePodConfig")
+func (updatePodConfig) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
 	configMap, err := internal.GetConfigMap(cluster)
 	if err != nil {
 		return &requeue{curError: err}

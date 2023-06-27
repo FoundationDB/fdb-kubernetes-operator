@@ -23,6 +23,8 @@ package controllers
 import (
 	"context"
 
+	"github.com/go-logr/logr"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -37,15 +39,14 @@ import (
 type addServices struct{}
 
 // reconcile runs the reconciler's work.
-func (a addServices) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, _ *fdbv1beta2.FoundationDBStatus) *requeue {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "addServices")
+func (a addServices) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, _ *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
 	service := internal.GetHeadlessService(cluster)
 	if service != nil {
 		existingService := &corev1.Service{}
 		err := r.Get(ctx, client.ObjectKey{Namespace: cluster.Namespace, Name: cluster.Name}, existingService)
 		if err == nil {
 			// Update the existing service
-			err = updateService(ctx, r, cluster, existingService, service)
+			err = updateService(ctx, logger, r, existingService, service)
 			if err != nil {
 				return &requeue{curError: err}
 			}
@@ -84,7 +85,7 @@ func (a addServices) reconcile(ctx context.Context, r *FoundationDBClusterReconc
 			err = r.Get(ctx, client.ObjectKey{Namespace: cluster.Namespace, Name: serviceName}, existingService)
 			if err == nil {
 				// Update the existing service
-				err = updateService(ctx, r, cluster, existingService, service)
+				err = updateService(ctx, logger, r, existingService, service)
 				if err != nil {
 					return &requeue{curError: err}
 				}
@@ -109,8 +110,7 @@ func (a addServices) reconcile(ctx context.Context, r *FoundationDBClusterReconc
 
 // updateServices updates selected safe fields on a service based on a new
 // service definition.
-func updateService(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, currentService *corev1.Service, newService *corev1.Service) error {
-	serviceLog := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "service", currentService.Name)
+func updateService(ctx context.Context, logger logr.Logger, r *FoundationDBClusterReconciler, currentService *corev1.Service, newService *corev1.Service) error {
 	originalSpec := currentService.Spec.DeepCopy()
 
 	currentService.Spec.Selector = newService.Spec.Selector
@@ -125,7 +125,7 @@ func updateService(ctx context.Context, r *FoundationDBClusterReconciler, cluste
 	}
 	if needsUpdate {
 		currentService.ObjectMeta = metadata
-		serviceLog.Info("Updating service")
+		logger.Info("Updating service")
 		return r.Update(ctx, currentService)
 	}
 	return nil
