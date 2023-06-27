@@ -272,7 +272,6 @@ var _ = Describe("update_status", func() {
 					node.Spec.Taints = []corev1.Taint{}
 					err = k8sClient.Update(context.TODO(), node)
 					Expect(err).NotTo(HaveOccurred())
-					nodeMap = make(map[string]*corev1.Node)
 					globalControllerLogger.Info("Remove node taint", "Node name", pod.Name, "Node taints", node.Spec.Taints, "Now", time.Now())
 
 					err = validateProcessGroup(context.TODO(), clusterReconciler, cluster, pod, pvc, pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey], processGroupStatus, cluster.IsTaintFeatureDisabled(), logger)
