@@ -48,7 +48,7 @@ type exclusionStatus struct {
 }
 
 // getRemainingAndExcludedFromStatus checks which processes of the input address list are excluded in the cluster and which are not.
-func getRemainingAndExcludedFromStatus(status *fdbv1beta2.FoundationDBStatus, addresses []fdbv1beta2.ProcessAddress) exclusionStatus {
+func getRemainingAndExcludedFromStatus(logger logr.Logger, status *fdbv1beta2.FoundationDBStatus, addresses []fdbv1beta2.ProcessAddress) exclusionStatus {
 	notExcludedAddresses := map[string]fdbv1beta2.None{}
 	fullyExcludedAddresses := map[string]fdbv1beta2.None{}
 	visitedAddresses := map[string]fdbv1beta2.None{}
@@ -58,6 +58,7 @@ func getRemainingAndExcludedFromStatus(status *fdbv1beta2.FoundationDBStatus, ad
 	// for the active generations we have the risk to remove a log process that still has mutations on it that must be
 	// popped.
 	if status.Cluster.RecoveryState.ActiveGenerations > 1 {
+		logger.Info("Skipping exclusion check as there are multiple active generations", "activeGenerations", status.Cluster.RecoveryState.ActiveGenerations)
 		return exclusionStatus{
 			inProgress:      nil,
 			fullyExcluded:   nil,
@@ -127,7 +128,7 @@ func getRemainingAndExcludedFromStatus(status *fdbv1beta2.FoundationDBStatus, ad
 //
 // The list returned by this method will be the addresses that are *not* safe to remove.
 func CanSafelyRemoveFromStatus(logger logr.Logger, client fdbadminclient.AdminClient, addresses []fdbv1beta2.ProcessAddress, status *fdbv1beta2.FoundationDBStatus) ([]fdbv1beta2.ProcessAddress, error) {
-	exclusions := getRemainingAndExcludedFromStatus(status, addresses)
+	exclusions := getRemainingAndExcludedFromStatus(logger, status, addresses)
 	logger.Info("Filtering excluded processes",
 		"inProgress", exclusions.inProgress,
 		"fullyExcluded", exclusions.fullyExcluded,

@@ -135,6 +135,7 @@ func GetRemainingMap(logger logr.Logger, adminClient fdbadminclient.AdminClient,
 		if cluster.UseLocalitiesForExclusion() {
 			addresses = append(addresses, fdbv1beta2.ProcessAddress{StringAddress: processGroup.GetExclusionString()})
 		}
+
 		for _, pAddr := range processGroup.Addresses {
 			addresses = append(addresses, fdbv1beta2.ProcessAddress{IPAddress: net.ParseIP(pAddr)})
 		}
