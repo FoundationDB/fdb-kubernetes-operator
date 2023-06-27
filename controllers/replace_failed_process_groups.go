@@ -59,7 +59,7 @@ func (c replaceFailedProcessGroups) reconcile(ctx context.Context, r *Foundation
 
 	// Only replace process groups without an address, if the cluster has the desired fault tolerance and is available.
 	hasDesiredFaultTolerance := fdbstatus.HasDesiredFaultToleranceFromStatus(logger, status, cluster)
-	if replacements.ReplaceFailedProcessGroups(logger, cluster, hasDesiredFaultTolerance) {
+	if replacements.ReplaceFailedProcessGroups(logger, cluster, status, hasDesiredFaultTolerance) {
 		err := r.updateOrApply(ctx, cluster)
 		if err != nil {
 			return &requeue{curError: err}

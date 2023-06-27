@@ -911,6 +911,18 @@ var _ = Describe("replace_failed_process_groups", func() {
 				})
 			})
 		})
+
+		Context("with maintenance mode enabled", func() {
+			BeforeEach(func() {
+				adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(adminClient.SetMaintenanceZone("operator-test-1-storage-2", 0)).NotTo(HaveOccurred())
+			})
+
+			It("should not mark the process group for removal", func() {
+				Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]fdbv1beta2.ProcessGroupID{}))
+			})
+		})
 	})
 
 	Context("with a process that has been missing for a brief time", func() {
