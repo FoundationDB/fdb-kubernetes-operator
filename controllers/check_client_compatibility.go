@@ -85,7 +85,7 @@ func (c checkClientCompatibility) reconcile(ctx context.Context, r *FoundationDB
 	}
 
 	ignoredLogGroups := make(map[fdbv1beta2.LogGroup]fdbv1beta2.None)
-	for _, logGroup := range cluster.Spec.AutomationOptions.IgnoreLogGroupsForUpgrade {
+	for _, logGroup := range cluster.GetIgnoreLogGroupsForUpgrade() {
 		ignoredLogGroups[logGroup] = fdbv1beta2.None{}
 	}
 	unsupportedClients := getUnsupportedClients(status.Cluster.Clients.SupportedVersions, protocolVersion, ignoredLogGroups)

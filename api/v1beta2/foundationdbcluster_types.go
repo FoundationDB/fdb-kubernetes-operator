@@ -1042,6 +1042,7 @@ type FoundationDBClusterAutomationOptions struct {
 	MaintenanceModeOptions MaintenanceModeOptions `json:"maintenanceModeOptions,omitempty"`
 
 	// IgnoreLogGroupsForUpgrade defines the list of LogGroups that should be ignored during fdb version upgrade.
+	// The default is a list that includes "fdb-kubernetes-operator".
 	// +kubebuilder:validation:MaxItems=10
 	IgnoreLogGroupsForUpgrade []LogGroup `json:"ignoreLogGroupsForUpgrade,omitempty"`
 }
@@ -2637,4 +2638,15 @@ func (cluster *FoundationDBCluster) GetMaxZonesWithUnavailablePods() int {
 // value is unset the provided default value will be returned.
 func (cluster *FoundationDBCluster) CacheDatabaseStatusForReconciliation(defaultValue bool) bool {
 	return pointer.BoolDeref(cluster.Spec.AutomationOptions.CacheDatabaseStatusForReconciliation, defaultValue)
+}
+
+// GetIgnoreLogGroupsForUpgrade will return the IgnoreLogGroupsForUpgrade, if the value is not set it will include the default `fdb-kubernetes-operator`
+// LogGroup.
+func (cluster *FoundationDBCluster) GetIgnoreLogGroupsForUpgrade() []LogGroup {
+	if len(cluster.Spec.AutomationOptions.IgnoreLogGroupsForUpgrade) > 0 {
+		return cluster.Spec.AutomationOptions.IgnoreLogGroupsForUpgrade
+	}
+
+	// Should we better read the FDB_NETWORK_OPTION_TRACE_LOG_GROUP env variable?
+	return []LogGroup{"fdb-kubernetes-operator"}
 }
