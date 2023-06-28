@@ -1018,3 +1018,7 @@ func (client *AdminClient) GetWorstDurabilityLag() (fdbv1beta2.FoundationDBStatu
 	lagInfo, ok := client.LagInfo["worstDurabilityLag"]
 	return lagInfo, ok
 }
+
+// WithValues will update the logger used by the current AdminClient to contain the provided key value pairs. The provided
+// arguments must be even.
+func (client *AdminClient) WithValues(_ ...interface{}) {}

@@ -728,3 +728,23 @@ func (client *cliAdminClient) GetCoordinatorSet() (map[string]fdbv1beta2.None, e
 func (client *cliAdminClient) SetKnobs(knobs []string) {
 	client.knobs = knobs
 }
+
+// WithValues will update the logger used by the current AdminClient to contain the provided key value pairs. The provided
+// arguments must be even.
+func (client *cliAdminClient) WithValues(keysAndValues ...interface{}) {
+	newLogger := client.log.WithValues(keysAndValues...)
+	client.log = newLogger
+
+	// Update the FDB library client logger
+	realFdbClient, ok := client.fdbLibClient.(*realFdbLibClient)
+	if ok {
+		realFdbClient.logger = newLogger
+	}
+
+	// Update the command runner logger
+	cmdRunner, ok := client.cmdRunner.(*realCommandRunner)
+	if !ok {
+		return
+	}
+	cmdRunner.log = newLogger
+}

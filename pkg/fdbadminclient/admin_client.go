@@ -27,10 +27,10 @@ import (
 // AdminClient describes an interface for running administrative commands on a
 // cluster
 type AdminClient interface {
-	// GetStatus gets the database's status
+	// GetStatus gets the database's status.
 	GetStatus() (*fdbv1beta2.FoundationDBStatus, error)
 
-	// ConfigureDatabase sets the database configuration
+	// ConfigureDatabase sets the database configuration.
 	ConfigureDatabase(configuration fdbv1beta2.DatabaseConfiguration, newDatabase bool, version string) error
 
 	// ExcludeProcesses starts evacuating processes so that they can be removed
@@ -103,12 +103,16 @@ type AdminClient interface {
 	// SetKnobs sets the Knobs that should be used for the commandline call.
 	SetKnobs([]string)
 
-	// GetMaintenanceZone gets current maintenance zone, if any
+	// GetMaintenanceZone gets current maintenance zone, if any.
 	GetMaintenanceZone() (string, error)
 
-	// SetMaintenanceZone places zone into maintenance mode
+	// SetMaintenanceZone places zone into maintenance mode.
 	SetMaintenanceZone(zone string, timeoutSeconds int) error
 
-	// Reset maintenance mode
+	// ResetMaintenanceMode resets the maintenance mode.
 	ResetMaintenanceMode() error
+
+	// WithValues will update the logger used by the current AdminClient to contain the provided key value pairs. The provided
+	// arguments must be even.
+	WithValues(keysAndValues ...interface{})
 }
