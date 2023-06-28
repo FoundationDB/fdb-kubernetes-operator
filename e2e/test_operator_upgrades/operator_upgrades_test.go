@@ -533,7 +533,7 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 			// Make sure that the incompatible connections are cleaned up after some time.
 			Eventually(func() []string {
 				return fdbCluster.GetStatus().Cluster.IncompatibleConnections
-			}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).MustPassRepeatedly(5).Should(HaveLen(0))
+			}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).MustPassRepeatedly(5).Should(BeEmpty())
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s with one coordinator not being restarted"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
