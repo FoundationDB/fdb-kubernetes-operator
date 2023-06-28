@@ -27,6 +27,21 @@ import (
 	"k8s.io/utils/pointer"
 )
 
+// GenerateFDBClusterSpec will generate a *fdbv1beta2.FoundationDBCluster based on the input ClusterConfig.
+func (factory *Factory) GenerateFDBClusterSpec(config *ClusterConfig) *fdbv1beta2.FoundationDBCluster {
+	config.SetDefaults(factory)
+
+	mainOverrides, sidecarOverrides := factory.getContainerOverrides(config.DebugSymbols)
+	return factory.createFDBClusterSpec(
+		config.Name,
+		config.Namespace,
+		factory.createProcesses(config),
+		config.CreateDatabaseConfiguration(),
+		config.StorageServerPerPod,
+		mainOverrides,
+		sidecarOverrides)
+}
+
 // High Level Cluster Spec Supplied by Operator.
 func (factory *Factory) createFDBClusterSpec(
 	clusterName string,
