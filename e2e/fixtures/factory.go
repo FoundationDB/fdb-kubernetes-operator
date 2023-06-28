@@ -36,7 +36,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/duration"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -666,12 +665,11 @@ func (factory *Factory) DumpState(fdbCluster *FdbCluster) {
 		),
 	)
 	// Printout all Pods for this namespace
-	kubeClient := factory.getClient()
-	pods, err := kubeClient.CoreV1().
-		Pods(cluster.Namespace).
-		List(ctx.Background(), metav1.ListOptions{})
+	pods := &corev1.PodList{}
+	err := factory.controllerRuntimeClient.List(ctx.Background(), pods, client.InNamespace(cluster.Namespace))
 	if err != nil {
 		log.Println(err)
+		return
 	}
 
 	buffer.WriteString("---------- Pods ----------")
@@ -695,32 +693,37 @@ func (factory *Factory) DumpState(fdbCluster *FdbCluster) {
 
 	// Printout the logs of the operator Pods for the last 90 seconds.
 	for _, pod := range operatorPods {
-		req := kubeClient.CoreV1().
-			Pods(pod.Namespace).
-			GetLogs(pod.Name, &corev1.PodLogOptions{
-				Container:    "manager",
-				Follow:       false,
-				SinceSeconds: pointer.Int64(300),
-			})
-
-		readCloser, err := req.Stream(ctx.Background())
-		if err != nil {
-			log.Println(err)
-			continue
-		}
-
-		logs, err := io.ReadAll(readCloser)
-		if err != nil {
-			log.Println(err)
-			_ = readCloser.Close()
-			continue
-		}
-		if len(logs) == 0 {
-			continue
-		}
-
-		log.Println(string(logs))
+		log.Println(factory.GetLogsForPod(pod, "manager", pointer.Int64(300)))
 	}
+}
+
+// GetLogsForPod will fetch the logs for the specified Pod and container since the provided seconds.
+func (factory *Factory) GetLogsForPod(pod corev1.Pod, container string, since *int64) string {
+	req := factory.getClient().CoreV1().
+		Pods(pod.Namespace).
+		GetLogs(pod.Name, &corev1.PodLogOptions{
+			Container:    container,
+			Follow:       false,
+			SinceSeconds: since,
+		})
+
+	readCloser, err := req.Stream(ctx.Background())
+	if err != nil {
+		log.Println(err)
+		return ""
+	}
+
+	logs, err := io.ReadAll(readCloser)
+	if err != nil {
+		log.Println(err)
+		_ = readCloser.Close()
+		return ""
+	}
+	if len(logs) == 0 {
+		return ""
+	}
+
+	return string(logs)
 }
 
 // DumpStateHaCluster can be used to dump the state of the HA cluster. This includes the Kubernetes custom resource
