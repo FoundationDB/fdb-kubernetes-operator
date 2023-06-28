@@ -65,7 +65,7 @@ var _ = Describe("status_checks", func() {
 
 		DescribeTable("fetching the excluded and remaining processes from the status",
 			func(status *fdbv1beta2.FoundationDBStatus, addresses []fdbv1beta2.ProcessAddress, expectedExcluded []fdbv1beta2.ProcessAddress, expectedRemaining []fdbv1beta2.ProcessAddress, expectedFullyExcluded []fdbv1beta2.ProcessAddress, expectedMissing []fdbv1beta2.ProcessAddress) {
-				exclusions := getRemainingAndExcludedFromStatus(status, addresses)
+				exclusions := getRemainingAndExcludedFromStatus(logr.Discard(), status, addresses)
 				Expect(expectedExcluded).To(ConsistOf(exclusions.inProgress))
 				Expect(expectedRemaining).To(ConsistOf(exclusions.notExcluded))
 				Expect(expectedFullyExcluded).To(ConsistOf(exclusions.fullyExcluded))
