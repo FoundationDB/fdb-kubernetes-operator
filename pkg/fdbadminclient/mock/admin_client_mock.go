@@ -68,6 +68,7 @@ type AdminClient struct {
 	TeamTracker                              []fdbv1beta2.FoundationDBStatusTeamTracker
 	Logs                                     []fdbv1beta2.FoundationDBStatusLogInfo
 	mockError                                error
+	LagInfo                                  map[string]fdbv1beta2.FoundationDBStatusLagInfo
 }
 
 // adminClientCache provides a cache of mock admin clients.
@@ -102,6 +103,7 @@ func NewMockAdminClientUncast(cluster *fdbv1beta2.FoundationDBCluster, kubeClien
 			currentCommandLines:   make(map[string]string),
 			Knobs:                 make(map[string]fdbv1beta2.None),
 			VersionProcessGroups:  make(map[fdbv1beta2.ProcessGroupID]string),
+			LagInfo:               make(map[string]fdbv1beta2.FoundationDBStatusLagInfo),
 		}
 		adminClientCache[cluster.Name] = cachedClient
 		cachedClient.Backups = make(map[string]fdbv1beta2.FoundationDBBackupStatusBackupDetails)
@@ -442,6 +444,23 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 		status.Cluster.FaultTolerance.MaxZoneFailuresWithoutLosingAvailability = client.Cluster.DesiredFaultTolerance() - faultToleranceSubtractor
 	}
 	status.Cluster.MaintenanceZone = client.MaintenanceZone
+
+	if len(client.LagInfo) > 0 {
+		limitingDurabilityLag, ok := client.GetLimitingDurabilityLag()
+		if ok {
+			status.Cluster.Qos.LimitingDurabilityLagStorageServer = limitingDurabilityLag
+		}
+
+		worstDataLag, ok := client.GetWorstDataLag()
+		if ok {
+			status.Cluster.Qos.WorstDataLagStorageServer = worstDataLag
+		}
+
+		worstDurabilityLag, ok := client.GetWorstDurabilityLag()
+		if ok {
+			status.Cluster.Qos.WorstDurabilityLagStorageServer = worstDurabilityLag
+		}
+	}
 
 	return status, nil
 }
@@ -947,4 +966,55 @@ func (client *AdminClient) MockUptimeSecondsForMaintenanceZone(seconds float64) 
 // a nil value to this method.
 func (client *AdminClient) MockError(err error) {
 	client.mockError = err
+}
+
+// SetLimitingDurabilityLag sets/mocks the limiting durability lag of any storage server in the cluster.
+func (client *AdminClient) SetLimitingDurabilityLag(lagInfo *fdbv1beta2.FoundationDBStatusLagInfo) {
+	adminClientMutex.Lock()
+	defer adminClientMutex.Unlock()
+
+	client.LagInfo["limitingDurabilityLag"] = *lagInfo
+}
+
+// GetLimitingDurabilityLag returns the limiting durability lag of any storage server in the cluster.
+func (client *AdminClient) GetLimitingDurabilityLag() (fdbv1beta2.FoundationDBStatusLagInfo, bool) {
+	adminClientMutex.Lock()
+	defer adminClientMutex.Unlock()
+
+	lagInfo, ok := client.LagInfo["limitingDurabilityLag"]
+	return lagInfo, ok
+}
+
+// SetWorstDataLag sets/mocks the worst data lag of any storage server in the cluster.
+func (client *AdminClient) SetWorstDataLag(lagInfo *fdbv1beta2.FoundationDBStatusLagInfo) {
+	adminClientMutex.Lock()
+	defer adminClientMutex.Unlock()
+
+	client.LagInfo["worstDataLag"] = *lagInfo
+}
+
+// GetWorstDataLag returns the (mocked) worst data lag of any storage server in the cluster.
+func (client *AdminClient) GetWorstDataLag() (fdbv1beta2.FoundationDBStatusLagInfo, bool) {
+	adminClientMutex.Lock()
+	defer adminClientMutex.Unlock()
+
+	lagInfo, ok := client.LagInfo["worstDataLag"]
+	return lagInfo, ok
+}
+
+// SetWorstDurabilityLag sets/mocks the worst durability lag of any storage server in the cluster.
+func (client *AdminClient) SetWorstDurabilityLag(lagInfo *fdbv1beta2.FoundationDBStatusLagInfo) {
+	adminClientMutex.Lock()
+	defer adminClientMutex.Unlock()
+
+	client.LagInfo["worstDurabilityLag"] = *lagInfo
+}
+
+// GetWorstDurabilityLag returns the (mocked) worst durability lag of any storage server in the cluster.
+func (client *AdminClient) GetWorstDurabilityLag() (fdbv1beta2.FoundationDBStatusLagInfo, bool) {
+	adminClientMutex.Lock()
+	defer adminClientMutex.Unlock()
+
+	lagInfo, ok := client.LagInfo["worstDurabilityLag"]
+	return lagInfo, ok
 }

@@ -98,6 +98,9 @@ type FoundationDBStatusClusterInfo struct {
 	// Logs provides information about log processes running in the cluster.
 	Logs []FoundationDBStatusLogInfo `json:"logs,omitempty"`
 
+	// Qos provides information about various qos metrics of the cluster.
+	Qos FoundationDBStatusQosInfo `json:"qos,omitempty"`
+
 	// FaultTolerance provides information about the fault tolerance status
 	// of the cluster.
 	FaultTolerance FaultTolerance `json:"fault_tolerance,omitempty"`
@@ -334,6 +337,20 @@ type FoundationDBStatusLogInfo struct {
 	RemoteLogReplicationFactor    int  `json:"remote_log_replication_factor,omitempty"`
 	SatelliteLogFaultTolerance    int  `json:"satellite_log_fault_tolerance,omitempty"`
 	SatelliteLogReplicationFactor int  `json:"satellite_log_replication_factor,omitempty"`
+}
+
+// FoundationDBStatusLagInfo provides information about the lag being experienced by a storage
+// server in the cluster.
+type FoundationDBStatusLagInfo struct {
+	Seconds  float64 `json:"seconds,omitempty"`
+	Versions int64   `json:"versions,omitempty"`
+}
+
+// FoundationDBStatusQosInfo provides information about various qos metrics of the cluster.
+type FoundationDBStatusQosInfo struct {
+	LimitingDurabilityLagStorageServer FoundationDBStatusLagInfo `json:"limiting_durability_lag_storage_server,omitempty"`
+	WorstDataLagStorageServer          FoundationDBStatusLagInfo `json:"worst_data_lag_storage_server,omitempty"`
+	WorstDurabilityLagStorageServer    FoundationDBStatusLagInfo `json:"worst_durability_lag_storage_server,omitempty"`
 }
 
 // ProcessRole models the role of a pod.
