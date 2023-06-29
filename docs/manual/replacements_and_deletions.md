@@ -27,7 +27,7 @@ The following changes can only be rolled out through replacement:
 The number of inflight replacements can be configured by setting `maxConcurrentReplacements`, per default the operator will replace all misconfigured process groups.
 Depending on the cluster size this can require a quota that is has double the capacity of the actual required resources.
 
-## Automatic Replacements for ProcessGroups in Bad State
+## Automatic Replacements for ProcessGroups in Undesired State
 
 The operator has an option to automatically replace pods that are in a bad state. This behavior is disabled by default, but you can enable it by setting the field `automationOptions.replacements.enabled` in the cluster spec.
 This will replace any pods that meet the following criteria:
@@ -43,7 +43,7 @@ The following conditions are currently eligible for replacement:
 * `MissingPVC`: This indicates that a process group that doesn't have a PVC assigned.
 * `MissingService`: This indicates that a process group that doesn't have a Service assigned.
 * `PodPending`: This indicates that a process group where the Pod is in a pending state.
-* `NodeTaintReplacing`: This indicates a process group where the Pod has been running on a tainted Node for longer-than configured duration. If a ProcessGroup has the `NodeTaintReplacing` condition, the replacement cannot be stopped, even after the Node taint was removed.
+* `NodeTaintReplacing`: This indicates a process group where the Pod has been running on a tainted Node for at least the configured duration. If a ProcessGroup has the `NodeTaintReplacing` condition, the replacement cannot be stopped, even after the Node taint was removed.
 
 Process groups that are set into the crash loop state with the `Buggify` setting won't be replaced by the operator.
 If the `cluster.Spec.Buggify.EmptyMonitorConf` setting is active the operator won't replace any process groups.
@@ -57,7 +57,7 @@ We use three examples below to illustrate how to set up the feature.
 
 The following YAML setup lets the operator detect Pods running on Nodes with taint key `example.com/maintenance`, set the ProcessGroup' condition to `NodeTaintReplacing`, if their Nodes have been tainted for 3600 seconds, and replace the Pods after 1800 seconds.
 
-```
+```yaml
 spec:
     automationOptions:
       replacements:
@@ -72,8 +72,8 @@ If there are multiple Pods on tainted Nodes, the operator will simultaneously re
 
 ### Example Setup 2
 
-We can enable taint feature on all taint keys except one taint key with the following YAML configuration:
-```
+We can enable the taint feature on all taint keys except one taint key with the following  configuration:
+```yaml
 spec:
     automationOptions:
       replacements:
@@ -91,7 +91,7 @@ The operator will detect and mark all Pods on tainted Nodes with `NodeTaintDetec
 
 We can disable the taint feature by resetting `automationOptions.replacements.taintReplacementOptions = {}`. The following example YAML config deletes the `taintReplacementOptions` section.
 
-```
+```yaml
 spec:
     automationOptions:
       replacements:

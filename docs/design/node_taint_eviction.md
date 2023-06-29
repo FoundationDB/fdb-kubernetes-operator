@@ -26,9 +26,18 @@ The operator does replace failed ProcessGroups in the [Replace Failed ProcessGro
 ## Proposed Design
 
 ### Design Requirements
-**Requirement 1.** The feature can be enabled and disabled by users, because (1) when someone wants to run the operator inside a k8s cluster without Node access, they should be able to bypass this feature; (2) when we notice problems during roll-out of this feature, we need to disable it online.
+**Requirement 1.** The feature can be enabled and disabled by users, because (1) when someone wants to run the operator inside a k8s cluster without Node access, they should be able to bypass this feature; (2) when we notice problems during roll-out of this feature, we need to disable it.
 
-The feature can be disabled by option `automationOptions.replacements.taintReplacementOptions = {}`.
+The feature can be disabled by option `automationOptions.replacements.taintReplacementOptions = {}`. YAML example is as follows. Please note that `taintReplacementOptions` section is deleted.
+
+```yaml
+...
+automaticReplacementOptions:
+  enabled: true
+  failureDetectionTimeSeconds: 7200
+  maxConcurrentReplacements: 1
+  enableNodeFailureDetection: true
+```
 
 **Requirement 2.** The feature allows users to configure a set of specific taint keys to detect and replace.
 
@@ -45,7 +54,7 @@ automaticReplacementOptions:
   failureDetectionTimeSeconds: 7200
   maxConcurrentReplacements: 1
   enableNodeFailureDetection: true
-  taints:
+  taintReplacementOptions:
   - key: "example.org/maintenance"
     durationInSeconds: 7200 # Mark Pods to be replaced after this taint key has been on the Node for at least 7200 seconds (i.e., 2 hours).
   - key: "example.org/disconnected"
@@ -71,7 +80,7 @@ We need to make the following four types of changes:
 - `NodeTaintDetected` represents a ProcessGroup Node is tainted, but not long enough to replace it.
 - `NodeTaintReplacing` represents a ProcessGroup whose Node has been tainted for longer-than-configured time and the ProcessGroup should be replaced.
 
-**Replace ProcessGroups with `NodeTaintReplacing` conditioin.** We can extend the existing replacement logic to replace ProcessGroups with `NodeTaintReplacing` condition. We can do this by adding the `NodeTaintReplacing` condition to [`conditionsThatNeedReplacement` list](https://github.com/FoundationDB/fdb-kubernetes-operator/blob/d38d6bc7abf7764215976b75d581c933280389f8/api/v1beta2/foundationdbcluster_types.go#L65-L67)
+**Replace ProcessGroups with `NodeTaintReplacing` condition.** We can extend the existing replacement logic to replace ProcessGroups with `NodeTaintReplacing` condition. We can do this by adding the `NodeTaintReplacing` condition to [`conditionsThatNeedReplacement` list](https://github.com/FoundationDB/fdb-kubernetes-operator/blob/d38d6bc7abf7764215976b75d581c933280389f8/api/v1beta2/foundationdbcluster_types.go#L65-L67)
 
 
 ## Limitations
