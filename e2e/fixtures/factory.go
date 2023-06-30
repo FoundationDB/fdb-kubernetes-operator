@@ -155,18 +155,18 @@ func (factory *Factory) CreateFdbCluster(
 	config *ClusterConfig,
 	options ...ClusterOption,
 ) *FdbCluster {
+	spec := factory.GenerateFDBClusterSpec(config)
+	return factory.CreateFdbClusterFromSpec(spec, config, options...)
+}
+
+// CreateFdbClusterFromSpec creates a FDB cluster. This method can be used in combination with the GenerateFDBClusterSpec method.
+// In general this should only be used for special cases that are not covered by changing the ClusterOptions or the ClusterConfig.
+func (factory *Factory) CreateFdbClusterFromSpec(
+	spec *fdbv1beta2.FoundationDBCluster,
+	config *ClusterConfig,
+	options ...ClusterOption,
+) *FdbCluster {
 	config.SetDefaults(factory)
-
-	mainOverrides, sidecarOverrides := factory.getContainerOverrides(config.DebugSymbols)
-	spec := factory.createFDBClusterSpec(
-		config.Name,
-		config.Namespace,
-		factory.createProcesses(config),
-		config.CreateDatabaseConfiguration(),
-		config.StorageServerPerPod,
-		mainOverrides,
-		sidecarOverrides)
-
 	log.Printf("create cluster: %s", ToJSON(spec))
 
 	return factory.startFDBFromClusterSpec(spec, config, options...)
