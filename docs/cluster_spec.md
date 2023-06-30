@@ -194,7 +194,7 @@ FoundationDBClusterAutomationOptions provides flags for enabling or disabling op
 | podUpdateStrategy | PodUpdateStrategy defines how Pod spec changes are rolled out either by replacing Pods or by deleting Pods. The default for this is ReplaceTransactionSystem. | [PodUpdateStrategy](#podupdatestrategy) | false |
 | useManagementAPI | UseManagementAPI defines if the operator should make use of the management API instead of using fdbcli to interact with the FoundationDB cluster. | *bool | false |
 | maintenanceModeOptions | MaintenanceModeOptions contains options for maintenance mode related settings. | [MaintenanceModeOptions](#maintenancemodeoptions) | false |
-| ignoreLogGroupsForUpgrade | IgnoreLogGroupsForUpgrade defines the list of LogGroups that should be ignored during fdb version upgrade. | [][LogGroup](#loggroup) | false |
+| ignoreLogGroupsForUpgrade | IgnoreLogGroupsForUpgrade defines the list of LogGroups that should be ignored during fdb version upgrade. The default is a list that includes \"fdb-kubernetes-operator\". | [][LogGroup](#loggroup) | false |
 
 [Back to TOC](#table-of-contents)
 

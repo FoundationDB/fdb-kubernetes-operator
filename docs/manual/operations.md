@@ -74,6 +74,27 @@ spec:
   version: 7.2.4
 ```
 
+The supported versions of the operator are documented in the [compatibility](../compatibility.md) guide.
+Downgrades of patch versions are supported, but not for major or minor versions.
+
+For version upgrades from 7.1+ to another major or minor versions the client compatibility check might requires some additional configuration:
+
+```yaml
+apiVersion: apps.foundationdb.org/v1beta2
+kind: FoundationDBCluster
+metadata:
+  name: sample-cluster
+spec:
+  version: 7.2.4
+  automationOptions:
+    ignoreLogGroupsForUpgrade:
+      - fdb-kubernetes-operator
+```
+
+The default value for the log group of the operator is `fdb-kubernetes-operator` but can be changed by setting the environment variable `FDB_NETWORK_OPTION_TRACE_LOG_GROUP`.
+The operator version `v1.19.0` and never sets this value as a default and those changes are not required.
+
+
 The upgrade process is described in more detail in [upgrades](./upgrades.md).
 
 ## Renaming a Cluster
