@@ -23,13 +23,16 @@ package fixtures
 import (
 	ctx "context"
 	"log"
-	"regexp"
 
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+const (
+	namespaceRegEx = `^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
 )
 
 // MultipleNamespaces creates multiple namespaces for HA testing.
@@ -64,13 +67,8 @@ func (factory *Factory) createNamespace(suffix string) string {
 	namespace := factory.options.namespace
 
 	if namespace == "" {
+		gomega.Expect(factory.singleton.userName).To(gomega.MatchRegexp(namespaceRegEx), "user name contains invalid characters")
 		namespace = factory.singleton.userName + "-" + RandStringRunes(8)
-		matched, err := regexp.Match(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`, []byte(namespace))
-		if !matched {
-			return ""
-		}
-
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	}
 
 	if suffix != "" {
