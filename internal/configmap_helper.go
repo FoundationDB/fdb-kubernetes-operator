@@ -177,7 +177,7 @@ func getDataForMonitorConf(cluster *fdbv1beta2.FoundationDBCluster, imageType FD
 	if err != nil {
 		return "", nil, err
 	}
-	filename := GetConfigMapMonitorConfEntry(pClass, FDBImageTypeUnified, serversPerPod)
+	filename := GetConfigMapMonitorConfEntry(pClass, imageType, serversPerPod)
 	return filename, jsonData, nil
 }
 

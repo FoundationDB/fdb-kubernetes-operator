@@ -495,8 +495,8 @@ func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 			sidecarContainer.Env = append(sidecarContainer.Env, corev1.EnvVar{Name: "STORAGE_SERVERS_PER_POD", Value: fmt.Sprintf("%d", cluster.GetStorageServersPerPod())})
 		}
 
-		if processClass == fdbv1beta2.ProcessClassLog && cluster.GetStorageServersPerPod() > 1 {
-			sidecarContainer.Env = append(sidecarContainer.Env, corev1.EnvVar{Name: "LOG_SERVERS_PER_POD", Value: fmt.Sprintf("%d", cluster.GetStorageServersPerPod())})
+		if processClass == fdbv1beta2.ProcessClassLog && cluster.GetLogServersPerPod() > 1 {
+			sidecarContainer.Env = append(sidecarContainer.Env, corev1.EnvVar{Name: "LOG_SERVERS_PER_POD", Value: fmt.Sprintf("%d", cluster.GetLogServersPerPod())})
 		}
 	}
 
