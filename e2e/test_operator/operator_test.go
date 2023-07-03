@@ -892,6 +892,23 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		})
 	})
 
+	When("Adding 2 logs per disk", func() {
+		var initialLogCount int
+
+		BeforeEach(func() {
+			initialLogCount = fdbCluster.GetLogServersPerPod()
+		})
+
+		AfterEach(func() {
+			Expect(fdbCluster.SetLogServersPerPod(initialLogCount)).ShouldNot(HaveOccurred())
+		})
+
+		It("should change the log servers per pod", func() {
+			err := fdbCluster.SetLogServersPerPod(2)
+			Expect(err).ShouldNot(HaveOccurred())
+		})
+	})
+
 	When("Migrating a cluster to a different storage class", func() {
 		var defaultStorageClass, targetStorageClass string
 
