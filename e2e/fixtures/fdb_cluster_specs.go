@@ -38,6 +38,7 @@ func (factory *Factory) GenerateFDBClusterSpec(config *ClusterConfig) *fdbv1beta
 		factory.createProcesses(config),
 		config.CreateDatabaseConfiguration(),
 		config.StorageServerPerPod,
+		config.LogServersPerPod,
 		mainOverrides,
 		sidecarOverrides)
 }

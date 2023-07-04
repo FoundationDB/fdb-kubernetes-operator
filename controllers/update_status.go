@@ -387,11 +387,6 @@ func checkAndSetProcessStatus(logger logr.Logger, r *FoundationDBClusterReconcil
 
 // Validate and set progressGroup's status
 func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBClusterStatus, processMap map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo, configMap *corev1.ConfigMap, pvcs *corev1.PersistentVolumeClaimList, logger logr.Logger) ([]*fdbv1beta2.ProcessGroupStatus, error) {
-<<<<<<< HEAD
-	var err error
-=======
-	nodeMap := make(map[string]*corev1.Node)
->>>>>>> 51dc84b6 (Refactor code to support multiple tLogs)
 	processGroups := status.ProcessGroups
 	processGroupsWithoutExclusion := make(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None, len(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion))
 
@@ -435,7 +430,7 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 			continue
 		}
 
-		processGroup.AddAddresses(podmanager.GetPublicIPs(pod, log), processGroup.IsMarkedForRemoval() || !status.Health.Available)
+		processGroup.AddAddresses(podmanager.GetPublicIPs(pod, logger), processGroup.IsMarkedForRemoval() || !status.Health.Available)
 
 		// In this case the Pod has a DeletionTimestamp and should be deleted.
 		if !pod.ObjectMeta.DeletionTimestamp.IsZero() {
