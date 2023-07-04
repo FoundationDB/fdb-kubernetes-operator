@@ -2174,6 +2174,11 @@ func (cluster *FoundationDBCluster) DefineDNSLocalityFields() bool {
 	return pointer.BoolDeref(cluster.Spec.Routing.DefineDNSLocalityFields, false) || cluster.UseDNSInClusterFile()
 }
 
+// GetPodIPFamily return the podIpFamily of the cluster
+func (cluster *FoundationDBCluster) GetPodIPFamily() *int {
+	return cluster.Spec.Routing.PodIPFamily
+}
+
 // GetDNSDomain gets the domain used when forming DNS names generated for a
 // service.
 func (cluster *FoundationDBCluster) GetDNSDomain() string {
