@@ -178,7 +178,7 @@ func (factory *Factory) createPodTemplate(
 					ImagePullPolicy: factory.getImagePullPolicy(),
 					Resources:       fdbPodResources,
 					SecurityContext: &corev1.SecurityContext{
-						Privileged:               pointer.Bool(true),
+						//Privileged:               pointer.Bool(true),
 						AllowPrivilegeEscalation: pointer.Bool(true), // for performance profiling
 						ReadOnlyRootFilesystem: pointer.Bool(
 							false,

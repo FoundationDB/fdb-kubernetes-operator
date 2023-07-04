@@ -288,3 +288,8 @@ func WithLocalitiesForExclusion(_ *Factory, cluster *fdbv1beta2.FoundationDBClus
 func WithUnifiedImage(_ *Factory, cluster *fdbv1beta2.FoundationDBCluster) {
 	cluster.Spec.UseUnifiedImage = pointer.Bool(true)
 }
+
+// WithPodIPFamily is an option that sets the Pod IP Family for a cluster.
+func WithPodIPFamily(_ *Factory, cluster *fdbv1beta2.FoundationDBCluster) {
+	cluster.Spec.Routing.PodIPFamily = pointer.Int(6)
+}
