@@ -90,7 +90,6 @@ func GetConfigMap(cluster *fdbv1beta2.FoundationDBCluster) (*corev1.ConfigMap, e
 			} else {
 				serversPerPodSlice = cluster.Status.LogServersPerDisk
 			}
-
 		}
 
 		if _, useUnifiedImage := imageTypes[FDBImageTypeUnified]; useUnifiedImage {
