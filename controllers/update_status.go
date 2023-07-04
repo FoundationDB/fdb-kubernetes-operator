@@ -387,7 +387,11 @@ func checkAndSetProcessStatus(logger logr.Logger, r *FoundationDBClusterReconcil
 
 // Validate and set progressGroup's status
 func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBClusterStatus, processMap map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo, configMap *corev1.ConfigMap, pvcs *corev1.PersistentVolumeClaimList, logger logr.Logger) ([]*fdbv1beta2.ProcessGroupStatus, error) {
+<<<<<<< HEAD
 	var err error
+=======
+	nodeMap := make(map[string]*corev1.Node)
+>>>>>>> 51dc84b6 (Refactor code to support multiple tLogs)
 	processGroups := status.ProcessGroups
 	processGroupsWithoutExclusion := make(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None, len(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion))
 
@@ -431,8 +435,7 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 			continue
 		}
 
-		processGroup.AddAddresses(podmanager.GetPublicIPs(pod, logger), processGroup.IsMarkedForRemoval() || !status.Health.Available)
-		processCount := 1
+		processGroup.AddAddresses(podmanager.GetPublicIPs(pod, log), processGroup.IsMarkedForRemoval() || !status.Health.Available)
 
 		// In this case the Pod has a DeletionTimestamp and should be deleted.
 		if !pod.ObjectMeta.DeletionTimestamp.IsZero() {
@@ -455,14 +458,11 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 
 		// Even the process group will be removed we need to keep the config around.
 		// Set the processCount for the process group specific storage servers per pod
-		if processGroup.ProcessClass == fdbv1beta2.ProcessClassStorage {
-			processCount, err = internal.GetStorageServersPerPodForPod(pod)
-			if err != nil {
-				return processGroups, err
-			}
-
-			status.AddStorageServerPerDisk(processCount)
+		processCount, err := internal.GetServersPerPodForPod(pod, processGroup.ProcessClass)
+		if err != nil {
+			return processGroups, err
 		}
+		status.AddServersPerDisk(processCount, processGroup.ProcessClass)
 
 		imageType := internal.GetImageType(pod)
 		imageTypeString := fdbv1beta2.ImageType(imageType)

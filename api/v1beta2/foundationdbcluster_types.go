@@ -2008,15 +2008,25 @@ const (
 	PublicIPSourceService PublicIPSource = "service"
 )
 
-// AddStorageServerPerDisk adds serverPerDisk to the status field to keep track which ConfigMaps should be kept
-func (clusterStatus *FoundationDBClusterStatus) AddStorageServerPerDisk(serversPerDisk int) {
-	for _, curServersPerDisk := range clusterStatus.StorageServersPerDisk {
-		if curServersPerDisk == serversPerDisk {
-			return
+// AddServersPerDisk adds serverPerDisk to the status field to keep track which ConfigMaps should be kept
+func (clusterStatus *FoundationDBClusterStatus) AddServersPerDisk(serversPerDisk int, pClass ProcessClass) {
+	if pClass == ProcessClassStorage {
+		for _, curServersPerDisk := range clusterStatus.StorageServersPerDisk {
+			if curServersPerDisk == serversPerDisk {
+				return
+			}
 		}
+		clusterStatus.StorageServersPerDisk = append(clusterStatus.StorageServersPerDisk, serversPerDisk)
 	}
 
-	clusterStatus.StorageServersPerDisk = append(clusterStatus.StorageServersPerDisk, serversPerDisk)
+	if pClass == ProcessClassLog {
+		for _, curServersPerDisk := range clusterStatus.TLogServersPerDisk {
+			if curServersPerDisk == serversPerDisk {
+				return
+			}
+		}
+		clusterStatus.TLogServersPerDisk = append(clusterStatus.TLogServersPerDisk, serversPerDisk)
+	}
 }
 
 // AddTLogsPerDisk adds serverPerDisk to the status field to keep track which ConfigMaps should be kept

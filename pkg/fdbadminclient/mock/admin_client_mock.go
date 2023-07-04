@@ -158,7 +158,7 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 	for _, pod := range pods.Items {
 		podClient, _ := mock.NewMockFdbPodClient(client.Cluster, &pod)
 
-		processCount, err := internal.GetStorageServersPerPodForPod(&pod)
+		processCount, err := internal.GetServersPerPodForPod(&pod, fdbv1beta2.ProcessClassStorage)
 		if err != nil {
 			return nil, err
 		}

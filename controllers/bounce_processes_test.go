@@ -285,7 +285,7 @@ var _ = Describe("bounceProcesses", func() {
 		})
 	})
 
-	FContext("with multiple log servers per pod", func() {
+	Context("with multiple log servers per pod", func() {
 		BeforeEach(func() {
 			cluster.Spec.TLogProcessesPerPod = 2
 			Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
@@ -320,7 +320,7 @@ var _ = Describe("bounceProcesses", func() {
 			Expect(adminClient.KilledAddresses).To(Equal(addresses))
 		})
 
-		FWhen("doing an upgrade", func() {
+		When("doing an upgrade", func() {
 			BeforeEach(func() {
 				cluster.Spec.Version = fdbv1beta2.Versions.NextMajorVersion.String()
 				for _, processGroup := range cluster.Status.ProcessGroups {

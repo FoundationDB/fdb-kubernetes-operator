@@ -3677,7 +3677,7 @@ func getConfigMapHash(cluster *fdbv1beta2.FoundationDBCluster, pClass fdbv1beta2
 		return "", err
 	}
 
-	serversPerPod, err := internal.GetStorageServersPerPodForPod(pod)
+	serversPerPod, err := internal.GetServersPerPodForPod(pod, pClass)
 	if err != nil {
 		return "", err
 	}

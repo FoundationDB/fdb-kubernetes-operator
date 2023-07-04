@@ -312,16 +312,18 @@ func setAffinityForFaultDomain(cluster *fdbv1beta2.FoundationDBCluster, podSpec 
 	}
 }
 
+func getServersPerPod(cluster *fdbv1beta2.FoundationDBCluster, pClass fdbv1beta2.ProcessClass) int {
+	if pClass == fdbv1beta2.ProcessClassStorage {
+		return cluster.GetStorageServersPerPod()
+	} else if pClass == fdbv1beta2.ProcessClassLog {
+		return cluster.GetTLogServersPerPod()
+	}
+	return 1
+}
+
 func configureVolumesForContainers(cluster *fdbv1beta2.FoundationDBCluster, podSpec *corev1.PodSpec, volumeClaimTemplate *corev1.PersistentVolumeClaim, podName string, processClass fdbv1beta2.ProcessClass) {
 	useUnifiedImages := pointer.BoolDeref(cluster.Spec.UseUnifiedImage, false)
-	var monitorConfKey string
-	if processClass == fdbv1beta2.ProcessClassStorage {
-		monitorConfKey = GetConfigMapMonitorConfEntry(processClass, GetDesiredImageType(cluster), cluster.GetStorageServersPerPod())
-	}
-
-	if processClass == fdbv1beta2.ProcessClassLog {
-		monitorConfKey = GetConfigMapMonitorConfEntry(processClass, GetDesiredImageType(cluster), cluster.GetTLogServersPerPod())
-	}
+	monitorConfKey := GetConfigMapMonitorConfEntry(processClass, GetDesiredImageType(cluster), getServersPerPod(cluster, processClass))
 
 	var monitorConfFile string
 	if useUnifiedImages {
@@ -990,42 +992,23 @@ func GetBackupDeployment(backup *fdbv1beta2.FoundationDBBackup) (*appsv1.Deploym
 	return deployment, nil
 }
 
-// GetStorageServersPerPodForPod returns the value of STORAGE_SERVERS_PER_POD from the sidecar or 1
-func GetStorageServersPerPodForPod(pod *corev1.Pod) (int, error) {
+// GetServersPerPodForPod returns the count of servers per Pod based on the processClass from the sidecar or 1
+func GetServersPerPodForPod(pod *corev1.Pod, pClass fdbv1beta2.ProcessClass) (int, error) {
 	// If not specified we will default to 1
-	storageServersPerPod := 1
+	serversPerPod := 1
 	if pod == nil {
-		return storageServersPerPod, nil
+		return serversPerPod, nil
 	}
 
 	for _, container := range pod.Spec.Containers {
 		for _, env := range container.Env {
-			if env.Name == "STORAGE_SERVERS_PER_POD" {
+			if env.Name == fmt.Sprintf("%s_SERVERS_PER_POD", strings.ToUpper(string(pClass))) {
 				return strconv.Atoi(env.Value)
 			}
 		}
 	}
 
-	return storageServersPerPod, nil
-}
-
-// GetLogServersPerPodForPod returns the value of LOG_SERVERS_PER_POD from the sidecar or 1
-func GetLogServersPerPodForPod(pod *corev1.Pod) (int, error) {
-	// If not specified we will default to 1
-	logServersPerPod := 1
-	if pod == nil {
-		return logServersPerPod, nil
-	}
-
-	for _, container := range pod.Spec.Containers {
-		for _, env := range container.Env {
-			if env.Name == "LOG_SERVERS_PER_POD" {
-				return strconv.Atoi(env.Value)
-			}
-		}
-	}
-
-	return logServersPerPod, nil
+	return serversPerPod, nil
 }
 
 // GetPodMetadata returns the metadata for a specific Pod

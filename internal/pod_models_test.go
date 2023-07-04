@@ -3388,7 +3388,7 @@ var _ = Describe("pod_models", func() {
 					},
 				}
 
-				storageServersPerPod, err := GetStorageServersPerPodForPod(pod)
+				storageServersPerPod, err := GetServersPerPodForPod(pod, fdbv1beta2.ProcessClassStorage)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(storageServersPerPod).To(Equal(1))
 			})
@@ -3409,7 +3409,7 @@ var _ = Describe("pod_models", func() {
 					},
 				}
 
-				storageServersPerPod, err := GetStorageServersPerPodForPod(pod)
+				storageServersPerPod, err := GetServersPerPodForPod(pod, fdbv1beta2.ProcessClassStorage)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(storageServersPerPod).To(Equal(2))
 			})
@@ -3425,7 +3425,7 @@ var _ = Describe("pod_models", func() {
 					},
 				}
 
-				storageServersPerPod, err := GetStorageServersPerPodForPod(pod)
+				storageServersPerPod, err := GetServersPerPodForPod(pod, fdbv1beta2.ProcessClassStorage)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(storageServersPerPod).To(Equal(1))
 			})
@@ -3433,7 +3433,7 @@ var _ = Describe("pod_models", func() {
 
 		Context("when pod is nil", func() {
 			It("should return 1", func() {
-				storageServersPerPod, err := GetStorageServersPerPodForPod(nil)
+				storageServersPerPod, err := GetServersPerPodForPod(nil, fdbv1beta2.ProcessClassStorage)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(storageServersPerPod).To(Equal(1))
 			})
@@ -3443,7 +3443,7 @@ var _ = Describe("pod_models", func() {
 			It("should return 1", func() {
 				pod := &corev1.Pod{}
 
-				storageServersPerPod, err := GetStorageServersPerPodForPod(pod)
+				storageServersPerPod, err := GetServersPerPodForPod(pod, fdbv1beta2.ProcessClassStorage)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(storageServersPerPod).To(Equal(1))
 			})
@@ -3455,7 +3455,7 @@ var _ = Describe("pod_models", func() {
 					Spec: corev1.PodSpec{},
 				}
 
-				storageServersPerPod, err := GetStorageServersPerPodForPod(pod)
+				storageServersPerPod, err := GetServersPerPodForPod(pod, fdbv1beta2.ProcessClassStorage)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(storageServersPerPod).To(Equal(1))
 			})

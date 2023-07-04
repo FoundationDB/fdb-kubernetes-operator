@@ -3625,7 +3625,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				}
 
 				for _, val := range tc.ValuesToAdd {
-					status.AddStorageServerPerDisk(val)
+					status.AddServersPerDisk(val, ProcessClassStorage)
 				}
 
 				Expect(len(status.StorageServersPerDisk)).To(BeNumerically("==", tc.ExpectedLen))
@@ -3652,7 +3652,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		)
 	})
 
-	FWhen("adding TLogServersPerDisk", func() {
+	When("adding TLogServersPerDisk", func() {
 		type testCase struct {
 			ValuesToAdd                []int
 			ExpectedLen                int

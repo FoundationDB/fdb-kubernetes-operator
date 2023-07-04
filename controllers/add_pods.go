@@ -90,7 +90,7 @@ func (a addPods) reconcile(ctx context.Context, r *FoundationDBClusterReconciler
 			return &requeue{curError: err}
 		}
 
-		serverPerPod, err := internal.GetStorageServersPerPodForPod(pod)
+		serverPerPod, err := internal.GetServersPerPodForPod(pod, processGroup.ProcessClass)
 		if err != nil {
 			return &requeue{curError: err}
 		}

@@ -550,7 +550,7 @@ func (fdbCluster *FdbCluster) GetVolumeClaimsForProcesses(
 	return volumeClaimList
 }
 
-// GetStorageServerPerPod returns the current expected storage server per pod.
+// GetTLogServersPerPod returns the current expected storage server per pod.
 func (fdbCluster *FdbCluster) GetTLogServersPerPod() int {
 	return fdbCluster.cluster.GetTLogServersPerPod()
 }
