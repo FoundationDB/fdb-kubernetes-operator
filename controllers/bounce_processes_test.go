@@ -295,13 +295,13 @@ var _ = Describe("bounceProcesses", func() {
 			_, err = reloadCluster(cluster)
 			Expect(err).NotTo(HaveOccurred())
 
-			processGroup := cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-4]
-			Expect(processGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("log-5")))
-			processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true)
+			for idx, processGroup := range cluster.Status.ProcessGroups {
+				if processGroup.ProcessGroupID != "log-5" && processGroup.ProcessGroupID != "log-6" {
+					continue
+				}
 
-			processGroup = cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-3]
-			Expect(processGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("log-6")))
-			processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true)
+				cluster.Status.ProcessGroups[idx].UpdateCondition(fdbv1beta2.IncorrectCommandLine, true)
+			}
 		})
 
 		It("should not requeue", func() {
@@ -337,7 +337,9 @@ var _ = Describe("bounceProcesses", func() {
 				for _, processGroup := range cluster.Status.ProcessGroups {
 					for _, address := range processGroup.Addresses {
 						addresses[fmt.Sprintf("%s:4501", address)] = fdbv1beta2.None{}
-						addresses[fmt.Sprintf("%s:4503", address)] = fdbv1beta2.None{}
+						if processGroup.ProcessClass == fdbv1beta2.ProcessClassLog {
+							addresses[fmt.Sprintf("%s:4503", address)] = fdbv1beta2.None{}
+						}
 					}
 				}
 				Expect(adminClient.KilledAddresses).To(Equal(addresses))
