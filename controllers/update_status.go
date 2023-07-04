@@ -58,7 +58,7 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 
 	// Initialize with the current desired storage servers per Pod
 	clusterStatus.StorageServersPerDisk = []int{cluster.GetStorageServersPerPod()}
-	clusterStatus.TLogServersPerDisk = []int{cluster.GetTLogServersPerPod()}
+	clusterStatus.LogServersPerDisk = []int{cluster.GetLogServersPerPod()}
 	clusterStatus.ImageTypes = []fdbv1beta2.ImageType{fdbv1beta2.ImageType(internal.GetDesiredImageType(cluster))}
 
 	processMap := make(map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo)
@@ -235,7 +235,7 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 	// Sort slices that are assembled based on pods to prevent a reordering from
 	// issuing a new reconcile loop.
 	sort.Ints(clusterStatus.StorageServersPerDisk)
-	sort.Ints(clusterStatus.TLogServersPerDisk)
+	sort.Ints(clusterStatus.LogServersPerDisk)
 	sort.Slice(clusterStatus.ImageTypes, func(i int, j int) bool {
 		return string(clusterStatus.ImageTypes[i]) < string(clusterStatus.ImageTypes[j])
 	})

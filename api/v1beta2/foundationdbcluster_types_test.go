@@ -3652,43 +3652,43 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		)
 	})
 
-	When("adding TLogServersPerDisk", func() {
+	When("adding LogServersPerDisk", func() {
 		type testCase struct {
-			ValuesToAdd                []int
-			ExpectedLen                int
-			ExpectedTLogServersPerDisk []int
+			ValuesToAdd               []int
+			ExpectedLen               int
+			ExpectedLogServersPerDisk []int
 		}
 
 		DescribeTable("should generate the status correctly",
 			func(tc testCase) {
 				status := FoundationDBClusterStatus{
-					TLogServersPerDisk: []int{},
+					LogServersPerDisk: []int{},
 				}
 
 				for _, val := range tc.ValuesToAdd {
-					status.AddTLogsPerDisk(val)
+					status.AddServersPerDisk(val, ProcessClassLog)
 				}
 
-				Expect(len(status.TLogServersPerDisk)).To(BeNumerically("==", tc.ExpectedLen))
-				Expect(status.TLogServersPerDisk).To(Equal(tc.ExpectedTLogServersPerDisk))
+				Expect(len(status.LogServersPerDisk)).To(BeNumerically("==", tc.ExpectedLen))
+				Expect(status.LogServersPerDisk).To(Equal(tc.ExpectedLogServersPerDisk))
 			},
 			Entry("Add missing element",
 				testCase{
-					ValuesToAdd:                []int{1},
-					ExpectedLen:                1,
-					ExpectedTLogServersPerDisk: []int{1},
+					ValuesToAdd:               []int{1},
+					ExpectedLen:               1,
+					ExpectedLogServersPerDisk: []int{1},
 				}),
 			Entry("Duplicates should only inserted once",
 				testCase{
-					ValuesToAdd:                []int{1, 1},
-					ExpectedLen:                1,
-					ExpectedTLogServersPerDisk: []int{1},
+					ValuesToAdd:               []int{1, 1},
+					ExpectedLen:               1,
+					ExpectedLogServersPerDisk: []int{1},
 				}),
 			Entry("Multiple elements should be added",
 				testCase{
-					ValuesToAdd:                []int{1, 2},
-					ExpectedLen:                2,
-					ExpectedTLogServersPerDisk: []int{1, 2},
+					ValuesToAdd:               []int{1, 2},
+					ExpectedLen:               2,
+					ExpectedLogServersPerDisk: []int{1, 2},
 				}),
 		)
 	})

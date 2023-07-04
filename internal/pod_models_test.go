@@ -660,7 +660,7 @@ var _ = Describe("pod_models", func() {
 				})
 			})
 
-			When("running a log with multiple storage servers per disk", func() {
+			When("creating a log with multiple storage servers per disk", func() {
 				BeforeEach(func() {
 					cluster.Spec.StorageServersPerPod = 2
 					spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassLog, 1)
@@ -716,7 +716,7 @@ var _ = Describe("pod_models", func() {
 
 			When("running multiple log servers per disk", func() {
 				BeforeEach(func() {
-					cluster.Spec.TLogProcessesPerPod = 2
+					cluster.Spec.LogProcessesPerPod = 2
 					spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassLog, 1)
 					Expect(err).NotTo(HaveOccurred())
 				})

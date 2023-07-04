@@ -184,7 +184,7 @@ var _ = Describe("configmap_helper", func() {
 
 		Context("with multiple log servers per disk", func() {
 			BeforeEach(func() {
-				cluster.Status.TLogServersPerDisk = []int{1, 2}
+				cluster.Status.LogServersPerDisk = []int{1, 2}
 			})
 
 			When("using the split image", func() {

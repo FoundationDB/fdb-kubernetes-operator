@@ -186,9 +186,9 @@ func processGroupNeedsRemoval(cluster *fdbv1beta2.FoundationDBCluster, pod *core
 	}
 	if processGroupStatus.ProcessClass == fdbv1beta2.ProcessClassLog {
 		// Replace the process group if the storage servers differ
-		if serversPerPod != cluster.GetTLogServersPerPod() {
+		if serversPerPod != cluster.GetLogServersPerPod() {
 			logger.Info("Replace process group",
-				"reason", fmt.Sprintf("LogServersPerPod has changed from %d to %d", serversPerPod, cluster.GetTLogServersPerPod()))
+				"reason", fmt.Sprintf("LogServersPerPod has changed from %d to %d", serversPerPod, cluster.GetLogServersPerPod()))
 			return true, nil
 		}
 	}

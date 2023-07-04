@@ -206,8 +206,8 @@ func configureContainersForUnifiedImages(cluster *fdbv1beta2.FoundationDBCluster
 		mainContainer.Env = append(mainContainer.Env, corev1.EnvVar{Name: "STORAGE_SERVERS_PER_POD", Value: storageServers})
 	}
 
-	if cluster.Spec.TLogProcessesPerPod > 1 && processClass == fdbv1beta2.ProcessClassLog {
-		logServers := strconv.Itoa(cluster.Spec.TLogProcessesPerPod)
+	if cluster.Spec.LogProcessesPerPod > 1 && processClass == fdbv1beta2.ProcessClassLog {
+		logServers := strconv.Itoa(cluster.Spec.LogProcessesPerPod)
 		mainContainer.Args = append(mainContainer.Args, "--process-count", logServers)
 		mainContainer.Env = append(mainContainer.Env, corev1.EnvVar{Name: "LOG_SERVERS_PER_POD", Value: logServers})
 	}
@@ -316,7 +316,7 @@ func getServersPerPod(cluster *fdbv1beta2.FoundationDBCluster, pClass fdbv1beta2
 	if pClass == fdbv1beta2.ProcessClassStorage {
 		return cluster.GetStorageServersPerPod()
 	} else if pClass == fdbv1beta2.ProcessClassLog {
-		return cluster.GetTLogServersPerPod()
+		return cluster.GetLogServersPerPod()
 	}
 	return 1
 }

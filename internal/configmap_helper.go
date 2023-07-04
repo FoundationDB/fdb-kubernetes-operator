@@ -73,9 +73,9 @@ func GetConfigMap(cluster *fdbv1beta2.FoundationDBCluster) (*corev1.ConfigMap, e
 		storageServersPerDisk = []int{cluster.GetStorageServersPerPod()}
 	}
 
-	logServersPerDisk := cluster.Status.TLogServersPerDisk
-	if len(cluster.Status.TLogServersPerDisk) == 0 {
-		logServersPerDisk = []int{cluster.GetTLogServersPerPod()}
+	logServersPerDisk := cluster.Status.LogServersPerDisk
+	if len(cluster.Status.LogServersPerDisk) == 0 {
+		logServersPerDisk = []int{cluster.GetLogServersPerPod()}
 	}
 
 	for processClass, count := range desiredCounts {

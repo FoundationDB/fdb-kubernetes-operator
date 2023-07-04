@@ -182,12 +182,12 @@ type FoundationDBClusterSpec struct {
 	// storage processes
 	StorageServersPerPod int `json:"storageServersPerPod,omitempty"`
 
-	// TLogServersPerPod defines how many TLog Servers should run in
+	// LogServersPerPod defines how many Log Servers should run in
 	// a single process group (Pod). This number defines the number of processes running
 	// in one Pod whereas the ProcessCounts defines the number of Pods created.
-	// This means that you end up with ProcessCounts["Log"] * TLogProcessesPerPod
+	// This means that you end up with ProcessCounts["Log"] * LogProcessesPerPod
 	// log processes
-	TLogProcessesPerPod int `json:"tLogProcessesPerPod,omitempty"`
+	LogProcessesPerPod int `json:"logProcessesPerPod,omitempty"`
 
 	// MinimumUptimeSecondsForBounce defines the minimum time, in seconds, that the
 	// processes in the cluster must have been up for before the operator can
@@ -282,9 +282,9 @@ type FoundationDBClusterStatus struct {
 	// If there are more than one value in the slice the reconcile phase is not finished.
 	StorageServersPerDisk []int `json:"storageServersPerDisk,omitempty"`
 
-	// TLogServersPerDisk defines the tLogServersPerDisk observed in the cluster.
+	// LogServersPerDisk defines the LogServersPerDisk observed in the cluster.
 	// If there are more than one value in the slice the reconcile phase is not finished.
-	TLogServersPerDisk []int `json:"tLogServersPerDisk,omitempty"`
+	LogServersPerDisk []int `json:"logServersPerDisk,omitempty"`
 
 	// ImageTypes defines the kinds of images that are in use in the cluster.
 	// If there is more than one value in the slice the reconcile phase is not
@@ -1515,13 +1515,13 @@ func (cluster *FoundationDBCluster) GetStorageServersPerPod() int {
 	return cluster.Spec.StorageServersPerPod
 }
 
-// GetTLogServersPerPod returns the TLog processes per Pod.
-func (cluster *FoundationDBCluster) GetTLogServersPerPod() int {
-	if cluster.Spec.TLogProcessesPerPod <= 1 {
+// GetLogServersPerPod returns the TLog processes per Pod.
+func (cluster *FoundationDBCluster) GetLogServersPerPod() int {
+	if cluster.Spec.LogProcessesPerPod <= 1 {
 		return 1
 	}
 
-	return cluster.Spec.TLogProcessesPerPod
+	return cluster.Spec.LogProcessesPerPod
 }
 
 // alphanum provides the characters that are used for the generation ID in the
@@ -2020,24 +2020,13 @@ func (clusterStatus *FoundationDBClusterStatus) AddServersPerDisk(serversPerDisk
 	}
 
 	if pClass == ProcessClassLog {
-		for _, curServersPerDisk := range clusterStatus.TLogServersPerDisk {
+		for _, curServersPerDisk := range clusterStatus.LogServersPerDisk {
 			if curServersPerDisk == serversPerDisk {
 				return
 			}
 		}
-		clusterStatus.TLogServersPerDisk = append(clusterStatus.TLogServersPerDisk, serversPerDisk)
+		clusterStatus.LogServersPerDisk = append(clusterStatus.LogServersPerDisk, serversPerDisk)
 	}
-}
-
-// AddTLogsPerDisk adds serverPerDisk to the status field to keep track which ConfigMaps should be kept
-func (clusterStatus *FoundationDBClusterStatus) AddTLogsPerDisk(serversPerDisk int) {
-	for _, curServersPerDisk := range clusterStatus.TLogServersPerDisk {
-		if curServersPerDisk == serversPerDisk {
-			return
-		}
-	}
-
-	clusterStatus.TLogServersPerDisk = append(clusterStatus.TLogServersPerDisk, serversPerDisk)
 }
 
 // GetMaxConcurrentAutomaticReplacements returns the cluster setting for MaxConcurrentReplacements, defaults to 1 if unset.
