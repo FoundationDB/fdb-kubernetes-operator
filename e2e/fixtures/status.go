@@ -307,6 +307,20 @@ func (fdbCluster *FdbCluster) GetProcessCount(targetRole fdbv1beta2.ProcessRole)
 	return pCounter
 }
 
+// GetProcessCountByProcessClass returns the number of processes based on process class
+func (fdbCluster *FdbCluster) GetProcessCountByProcessClass(pCloass fdbv1beta2.ProcessClass) int {
+	pCounter := 0
+	status := fdbCluster.GetStatus()
+
+	for _, process := range status.Cluster.Processes {
+		if process.ProcessClass == pCloass {
+			pCounter++
+		}
+	}
+
+	return pCounter
+}
+
 // HasTLSEnabled returns true if the cluster is running with TLS enabled.
 func (fdbCluster *FdbCluster) HasTLSEnabled() bool {
 	status := fdbCluster.GetStatus()

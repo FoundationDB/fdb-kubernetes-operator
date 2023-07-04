@@ -265,6 +265,7 @@ func getProcessesReadyForRestart(logger logr.Logger, cluster *fdbv1beta2.Foundat
 
 	if cluster.Spec.LogServersPerPod > 1 {
 		expectedProcesses += counts.Log * (cluster.Spec.LogServersPerPod - 1)
+		expectedProcesses += counts.Transaction * (cluster.Spec.LogServersPerPod - 1)
 	}
 
 	if cluster.IsBeingUpgradedWithVersionIncompatibleVersion() && expectedProcesses != len(addresses) {

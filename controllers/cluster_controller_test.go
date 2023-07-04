@@ -3160,7 +3160,7 @@ var _ = Describe("cluster_controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			It("should generate the storage conf with two processes", func() {
+			It("should generate the log conf with two processes", func() {
 				Expect(conf).To(Equal(strings.Join([]string{
 					"[general]",
 					"kill_on_configuration_change = false",
