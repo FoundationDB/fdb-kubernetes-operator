@@ -50,8 +50,8 @@ type exclusionStatus struct {
 // getRemainingAndExcludedFromStatus checks which processes of the input address list are excluded in the cluster and which are not.
 func getRemainingAndExcludedFromStatus(logger logr.Logger, status *fdbv1beta2.FoundationDBStatus, addresses []fdbv1beta2.ProcessAddress) exclusionStatus {
 	notExcludedAddresses := map[string]fdbv1beta2.None{}
-	fullyExcludedAddresses := map[string]fdbv1beta2.None{}
-	visitedAddresses := map[string]fdbv1beta2.None{}
+	fullyExcludedAddresses := map[string]int{}
+	visitedAddresses := map[string]int{}
 
 	// If there are more than 1 active generations we can not handout any information about excluded processes based on
 	// the cluster status information as only the latest log processes will have the log process role. If we don't check
@@ -67,39 +67,40 @@ func getRemainingAndExcludedFromStatus(logger logr.Logger, status *fdbv1beta2.Fo
 		}
 	}
 
+	addressesToVerify := map[string]fdbv1beta2.None{}
 	for _, addr := range addresses {
-		notExcludedAddresses[addr.MachineAddress()] = fdbv1beta2.None{}
+		addressesToVerify[addr.MachineAddress()] = fdbv1beta2.None{}
 	}
 
 	// Check in the status output which processes are already marked for exclusion in the cluster
 	for _, process := range status.Cluster.Processes {
-		if _, ok := notExcludedAddresses[process.Address.MachineAddress()]; !ok {
+		if _, ok := addressesToVerify[process.Address.MachineAddress()]; !ok {
 			continue
 		}
 
-		visitedAddresses[process.Address.MachineAddress()] = fdbv1beta2.None{}
+		visitedAddresses[process.Address.MachineAddress()]++
 		if !process.Excluded {
+			notExcludedAddresses[process.Address.MachineAddress()] = fdbv1beta2.None{}
 			continue
 		}
 
 		if len(process.Roles) == 0 {
-			fullyExcludedAddresses[process.Address.MachineAddress()] = fdbv1beta2.None{}
+			fullyExcludedAddresses[process.Address.MachineAddress()]++
 		}
-
-		delete(notExcludedAddresses, process.Address.MachineAddress())
 	}
 
 	exclusions := exclusionStatus{
-		inProgress:      make([]fdbv1beta2.ProcessAddress, 0, len(addresses)-len(notExcludedAddresses)-len(fullyExcludedAddresses)),
+		inProgress:      make([]fdbv1beta2.ProcessAddress, 0, len(addresses)),
 		fullyExcluded:   make([]fdbv1beta2.ProcessAddress, 0, len(fullyExcludedAddresses)),
 		notExcluded:     make([]fdbv1beta2.ProcessAddress, 0, len(notExcludedAddresses)),
-		missingInStatus: make([]fdbv1beta2.ProcessAddress, 0, len(notExcludedAddresses)),
+		missingInStatus: make([]fdbv1beta2.ProcessAddress, 0, len(addresses)-len(visitedAddresses)),
 	}
 
 	for _, addr := range addresses {
 		// If we didn't visit that address (absent in the cluster status) we assume it's safe to run the exclude command against it.
 		// We have to run the exclude command against those addresses, to make sure they are not serving any roles.
-		if _, ok := visitedAddresses[addr.MachineAddress()]; !ok {
+		visitedCount, visited := visitedAddresses[addr.MachineAddress()]
+		if !visited {
 			exclusions.missingInStatus = append(exclusions.missingInStatus, addr)
 			continue
 		}
@@ -112,11 +113,16 @@ func getRemainingAndExcludedFromStatus(logger logr.Logger, status *fdbv1beta2.Fo
 
 		// Those are the processes that are marked as excluded and are not serving any roles. It's safe to delete Pods
 		// that host those processes.
-		if _, ok := fullyExcludedAddresses[addr.MachineAddress()]; ok {
-			exclusions.fullyExcluded = append(exclusions.fullyExcluded, addr)
-			continue
+		excludedCount, ok := fullyExcludedAddresses[addr.MachineAddress()]
+		if ok {
+			logger.V(1).Info("found excluded addresses", "visitedCount", visitedCount, "excludedCount", excludedCount)
+			if visitedCount == excludedCount {
+				exclusions.fullyExcluded = append(exclusions.fullyExcluded, addr)
+				continue
+			}
 		}
 
+		// visitedCount
 		// Those are the processes that are marked as excluded but still serve at least one role.
 		exclusions.inProgress = append(exclusions.inProgress, addr)
 	}
