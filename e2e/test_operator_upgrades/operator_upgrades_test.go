@@ -59,12 +59,10 @@ var _ = AfterSuite(func() {
 	}
 })
 
-func clusterSetup(beforeVersion string, availabilityCheck bool) {
+func clusterSetupWithConfig(beforeVersion string, availabilityCheck bool, config *fixtures.ClusterConfig) {
 	factory.SetBeforeVersion(beforeVersion)
 	fdbCluster = factory.CreateFdbCluster(
-		&fixtures.ClusterConfig{
-			DebugSymbols: false,
-		},
+		config,
 		factory.GetClusterOptions(fixtures.UseVersionBeforeUpgrade)...,
 	)
 
@@ -77,6 +75,12 @@ func clusterSetup(beforeVersion string, availabilityCheck bool) {
 	Expect(
 		fdbCluster.InvariantClusterStatusAvailableWithThreshold(15 * time.Second),
 	).ShouldNot(HaveOccurred())
+}
+
+func clusterSetup(beforeVersion string, availabilityCheck bool) {
+	clusterSetupWithConfig(beforeVersion, availabilityCheck, &fixtures.ClusterConfig{
+		DebugSymbols: false,
+	})
 }
 
 // Checks if cluster is running at the expectedVersion. This is done by checking the status of the FoundationDBCluster status.
@@ -1071,4 +1075,64 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 		fixtures.GenerateUpgradeTableEntries(testOptions),
 	)
 
+	DescribeTable(
+		"with 2 storage servers per Pod",
+		func(beforeVersion string, targetVersion string) {
+			clusterSetupWithConfig(beforeVersion, true, &fixtures.ClusterConfig{
+				DebugSymbols:        false,
+				StorageServerPerPod: 2,
+			})
+
+			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
+			// Make sure the cluster is still running with 2 storage server per Pod.
+			Expect(fdbCluster.GetCluster().Spec.StorageServersPerPod).To(Equal(2))
+
+			if !fixtures.VersionsAreProtocolCompatible(beforeVersion, targetVersion) {
+				// Ensure that the operator is setting the IncorrectConfigMap and IncorrectCommandLine conditions during the upgrade
+				// process.
+				expectedConditions := map[fdbv1beta2.ProcessGroupConditionType]bool{
+					fdbv1beta2.IncorrectConfigMap:   true,
+					fdbv1beta2.IncorrectCommandLine: true,
+				}
+				Eventually(func() bool {
+					cluster := fdbCluster.GetCluster()
+
+					for _, processGroup := range cluster.Status.ProcessGroups {
+						if !processGroup.MatchesConditions(expectedConditions) {
+							return false
+						}
+					}
+
+					return true
+				}).WithTimeout(10 * time.Minute).WithPolling(5 * time.Second).Should(BeTrue())
+			}
+
+			transactionSystemProcessGroups := make(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None)
+			// Wait until the cluster is upgraded and fully reconciled.
+			Expect(fdbCluster.WaitUntilWithForceReconcile(2, 600, func(cluster *fdbv1beta2.FoundationDBCluster) bool {
+				for _, processGroup := range cluster.Status.ProcessGroups {
+					if processGroup.ProcessClass == fdbv1beta2.ProcessClassStorage {
+						continue
+					}
+
+					transactionSystemProcessGroups[processGroup.ProcessGroupID] = fdbv1beta2.None{}
+				}
+
+				// Allow soft reconciliation and make sure the running version was updated
+				return cluster.Status.Generations.Reconciled == cluster.Generation && cluster.Status.RunningVersion == targetVersion
+			})).NotTo(HaveOccurred())
+
+			// Get the desired process counts based on the current cluster configuration
+			processCounts, err := fdbCluster.GetProcessCounts()
+			Expect(err).NotTo(HaveOccurred())
+
+			// During an upgrade we expect that the transaction system processes are replaced, so we expect to have seen
+			// 2 times the process counts for transaction system processes. Add a small buffer of 5 to allow automatic
+			// replacements during an upgrade.
+			expectedProcessCounts := (processCounts.Total()-processCounts.Storage)*2 + 5
+			Expect(len(transactionSystemProcessGroups)).To(BeNumerically("<=", expectedProcessCounts))
+		},
+		EntryDescription("Upgrade from %[1]s to %[2]s"),
+		fixtures.GenerateUpgradeTableEntries(testOptions),
+	)
 })

@@ -64,10 +64,16 @@ var _ = Describe("status_checks", func() {
 		}
 
 		DescribeTable("fetching the excluded and remaining processes from the status",
-			func(status *fdbv1beta2.FoundationDBStatus, addresses []fdbv1beta2.ProcessAddress, expectedExcluded []fdbv1beta2.ProcessAddress, expectedRemaining []fdbv1beta2.ProcessAddress, expectedFullyExcluded []fdbv1beta2.ProcessAddress, expectedMissing []fdbv1beta2.ProcessAddress) {
+			func(status *fdbv1beta2.FoundationDBStatus,
+				addresses []fdbv1beta2.ProcessAddress,
+				expectedInProgress []fdbv1beta2.ProcessAddress,
+				expectedNotExcluded []fdbv1beta2.ProcessAddress,
+				expectedFullyExcluded []fdbv1beta2.ProcessAddress,
+				expectedMissing []fdbv1beta2.ProcessAddress) {
+
 				exclusions := getRemainingAndExcludedFromStatus(logr.Discard(), status, addresses)
-				Expect(expectedExcluded).To(ConsistOf(exclusions.inProgress))
-				Expect(expectedRemaining).To(ConsistOf(exclusions.notExcluded))
+				Expect(expectedInProgress).To(ConsistOf(exclusions.inProgress))
+				Expect(expectedNotExcluded).To(ConsistOf(exclusions.notExcluded))
 				Expect(expectedFullyExcluded).To(ConsistOf(exclusions.fullyExcluded))
 				Expect(expectedMissing).To(ConsistOf(exclusions.missingInStatus))
 			},
@@ -134,6 +140,115 @@ var _ = Describe("status_checks", func() {
 								Roles: []fdbv1beta2.FoundationDBStatusProcessRoleInfo{
 									{
 										Role: "tester",
+									},
+								},
+							},
+						},
+					},
+				},
+				[]fdbv1beta2.ProcessAddress{addr4},
+				nil,
+				[]fdbv1beta2.ProcessAddress{addr4},
+				nil,
+				nil,
+			),
+			Entry("when the process group has multiple processes and only one is fully excluded",
+				&fdbv1beta2.FoundationDBStatus{
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						Processes: map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{
+							"1": {
+								Address:  addr1,
+								Excluded: true,
+							},
+							"2": {
+								Address: addr2,
+							},
+							"3": {
+								Address: addr3,
+							},
+							"4-1": {
+								Address:  addr4,
+								Excluded: true,
+								Locality: map[string]string{
+									fdbv1beta2.FDBLocalityProcessIDKey: "4-1",
+								},
+							},
+							"4-2": {
+								Address:  addr4,
+								Excluded: true,
+								Roles: []fdbv1beta2.FoundationDBStatusProcessRoleInfo{
+									{
+										Role: string(fdbv1beta2.ProcessRoleStorage),
+									},
+								},
+								Locality: map[string]string{
+									fdbv1beta2.FDBLocalityProcessIDKey: "4-2",
+								},
+							},
+						},
+					},
+				},
+				[]fdbv1beta2.ProcessAddress{addr4},
+				[]fdbv1beta2.ProcessAddress{addr4},
+				nil,
+				nil,
+				nil,
+			),
+			Entry("when the process group has multiple processes and both are fully excluded",
+				&fdbv1beta2.FoundationDBStatus{
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						Processes: map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{
+							"1": {
+								Address:  addr1,
+								Excluded: true,
+							},
+							"2": {
+								Address: addr2,
+							},
+							"3": {
+								Address: addr3,
+							},
+							"4-1": {
+								Address:  addr4,
+								Excluded: true,
+							},
+							"4-2": {
+								Address:  addr4,
+								Excluded: true,
+							},
+						},
+					},
+				},
+				[]fdbv1beta2.ProcessAddress{addr4},
+				nil,
+				nil,
+				[]fdbv1beta2.ProcessAddress{addr4},
+				nil,
+			),
+			Entry("when the process group has multiple processes and only one is excluded",
+				&fdbv1beta2.FoundationDBStatus{
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						Processes: map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{
+							"1": {
+								Address:  addr1,
+								Excluded: true,
+							},
+							"2": {
+								Address: addr2,
+							},
+							"3": {
+								Address: addr3,
+							},
+							"4-1": {
+								Address:  addr4,
+								Excluded: true,
+							},
+							"4-2": {
+								Address:  addr4,
+								Excluded: false,
+								Roles: []fdbv1beta2.FoundationDBStatusProcessRoleInfo{
+									{
+										Role: string(fdbv1beta2.ProcessRoleStorage),
 									},
 								},
 							},
