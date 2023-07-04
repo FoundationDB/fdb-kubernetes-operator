@@ -550,11 +550,6 @@ func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler,
 		incorrectPod = !updated
 	}
 
-	current := pod.ObjectMeta
-	des := internal.GetPodMetadata(cluster, processGroupStatus.ProcessClass, processGroupStatus.ProcessGroupID, specHash)
-	fmt.Printf("\n\nDEBUG_STATEMENT currentMetadata.Labels %v desiredMetadata.Labels %v currentMetadata.Annotations %v desiredMetadata.Annotations %v  incorrectPod %v ID %v", current.Labels, des.Labels, current.Annotations, des.Annotations, incorrectPod, processGroupStatus.ProcessGroupID)
-
-	//log.Info("DEBUG_TEST updating incorrectPodSpec", "addresses", processGroupStatus.Addresses)
 	processGroupStatus.UpdateCondition(fdbv1beta2.IncorrectPodSpec, incorrectPod)
 
 	// If we do a cluster version incompatible upgrade we use the fdbv1beta2.IncorrectConfigMap to signal when the operator

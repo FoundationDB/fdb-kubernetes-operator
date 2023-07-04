@@ -64,7 +64,7 @@ func (factory *Factory) createFDBClusterSpec(
 			Processes:                     processes,
 			DatabaseConfiguration:         databaseConfiguration,
 			StorageServersPerPod:          storageServersPerPod,
-			LogProcessesPerPod:            logServersPerPod,
+			LogServersPerPod:              logServersPerPod,
 			LogGroup:                      namespace + "-" + clusterName,
 			MainContainer:                 mainContainerOverrides,
 			SidecarContainer:              sidecarContainerOverrides,

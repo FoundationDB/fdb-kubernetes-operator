@@ -287,7 +287,7 @@ var _ = Describe("bounceProcesses", func() {
 
 	Context("with multiple log servers per pod", func() {
 		BeforeEach(func() {
-			cluster.Spec.LogProcessesPerPod = 2
+			cluster.Spec.LogServersPerPod = 2
 			Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
 			result, err := reconcileCluster(cluster)
 			Expect(err).NotTo(HaveOccurred())

@@ -10469,7 +10469,7 @@ spec:
                 type: object
               logGroup:
                 type: string
-              logProcessesPerPod:
+              logServersPerPod:
                 type: integer
               mainContainer:
                 properties:

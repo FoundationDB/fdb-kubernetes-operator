@@ -179,15 +179,15 @@ type FoundationDBClusterSpec struct {
 	// a single process group (Pod). This number defines the number of processes running
 	// in one Pod whereas the ProcessCounts defines the number of Pods created.
 	// This means that you end up with ProcessCounts["storage"] * StorageServersPerPod
-	// storage processes
+	// storage processes.
 	StorageServersPerPod int `json:"storageServersPerPod,omitempty"`
 
 	// LogServersPerPod defines how many Log Servers should run in
 	// a single process group (Pod). This number defines the number of processes running
 	// in one Pod whereas the ProcessCounts defines the number of Pods created.
-	// This means that you end up with ProcessCounts["Log"] * LogProcessesPerPod
-	// log processes
-	LogProcessesPerPod int `json:"logProcessesPerPod,omitempty"`
+	// This means that you end up with ProcessCounts["Log"] * LogServersPerPod
+	// log processes. This also affects processes with the transaction class.
+	LogServersPerPod int `json:"logServersPerPod,omitempty"`
 
 	// MinimumUptimeSecondsForBounce defines the minimum time, in seconds, that the
 	// processes in the cluster must have been up for before the operator can
@@ -1506,6 +1506,19 @@ func (cluster *FoundationDBCluster) CheckReconciliation(log logr.Logger) (bool, 
 	return reconciled, nil
 }
 
+// GetDesiredServersPerPod will return the expected server per Pod for the provided process class.
+func (cluster *FoundationDBCluster) GetDesiredServersPerPod(pClass ProcessClass) int {
+	if pClass == ProcessClassStorage {
+		return cluster.GetStorageServersPerPod()
+	}
+
+	if pClass.SupportsMultipleLogServers() {
+		return cluster.GetLogServersPerPod()
+	}
+
+	return 1
+}
+
 // GetStorageServersPerPod returns the StorageServer per Pod.
 func (cluster *FoundationDBCluster) GetStorageServersPerPod() int {
 	if cluster.Spec.StorageServersPerPod <= 1 {
@@ -1517,11 +1530,11 @@ func (cluster *FoundationDBCluster) GetStorageServersPerPod() int {
 
 // GetLogServersPerPod returns the TLog processes per Pod.
 func (cluster *FoundationDBCluster) GetLogServersPerPod() int {
-	if cluster.Spec.LogProcessesPerPod <= 1 {
+	if cluster.Spec.LogServersPerPod <= 1 {
 		return 1
 	}
 
-	return cluster.Spec.LogProcessesPerPod
+	return cluster.Spec.LogServersPerPod
 }
 
 // alphanum provides the characters that are used for the generation ID in the
@@ -2017,9 +2030,10 @@ func (clusterStatus *FoundationDBClusterStatus) AddServersPerDisk(serversPerDisk
 			}
 		}
 		clusterStatus.StorageServersPerDisk = append(clusterStatus.StorageServersPerDisk, serversPerDisk)
+		return
 	}
 
-	if pClass == ProcessClassLog {
+	if pClass.SupportsMultipleLogServers() {
 		for _, curServersPerDisk := range clusterStatus.LogServersPerDisk {
 			if curServersPerDisk == serversPerDisk {
 				return

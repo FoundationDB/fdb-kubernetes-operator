@@ -716,7 +716,7 @@ var _ = Describe("pod_models", func() {
 
 			When("running multiple log servers per disk", func() {
 				BeforeEach(func() {
-					cluster.Spec.LogProcessesPerPod = 2
+					cluster.Spec.LogServersPerPod = 2
 					spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassLog, 1)
 					Expect(err).NotTo(HaveOccurred())
 				})

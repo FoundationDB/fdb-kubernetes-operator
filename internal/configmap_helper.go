@@ -66,42 +66,36 @@ func GetConfigMap(cluster *fdbv1beta2.FoundationDBCluster) (*corev1.ConfigMap, e
 		imageTypes[FDBImageType(imageType)] = fdbv1beta2.None{}
 	}
 
-	storageServersPerDisk := cluster.Status.StorageServersPerDisk
-	// If the status field is not initialized we fallback to only the specified count
-	// in the cluster spec. This should only happen in the initial phase of a new cluster.
-	if len(cluster.Status.StorageServersPerDisk) == 0 {
-		storageServersPerDisk = []int{cluster.GetStorageServersPerPod()}
-	}
-
-	logServersPerDisk := cluster.Status.LogServersPerDisk
-	if len(cluster.Status.LogServersPerDisk) == 0 {
-		logServersPerDisk = []int{cluster.GetLogServersPerPod()}
-	}
-
 	for processClass, count := range desiredCounts {
 		if count == 0 {
 			continue
 		}
 
-		if _, useUnifiedImage := imageTypes[FDBImageTypeUnified]; useUnifiedImage {
-			if processClass == fdbv1beta2.ProcessClassStorage {
-				for _, serversPerPod := range storageServersPerDisk {
-					filename, jsonData, err := getDataForMonitorConf(cluster, FDBImageTypeUnified, processClass, serversPerPod)
-					if err != nil {
-						return nil, err
-					}
-					data[filename] = string(jsonData)
-				}
-			} else if processClass == fdbv1beta2.ProcessClassLog {
-				for _, serversPerPod := range logServersPerDisk {
-					filename, jsonData, err := getDataForMonitorConf(cluster, FDBImageTypeUnified, processClass, serversPerPod)
-					if err != nil {
-						return nil, err
-					}
-					data[filename] = string(jsonData)
-				}
+		serversPerPodSlice := []int{1}
+		if processClass == fdbv1beta2.ProcessClassStorage {
+			// If the status field is not initialized we fallback to only the specified count
+			// in the cluster spec. This should only happen in the initial phase of a new cluster.
+			if len(cluster.Status.StorageServersPerDisk) == 0 {
+				serversPerPodSlice = []int{cluster.GetDesiredServersPerPod(processClass)}
 			} else {
-				filename, jsonData, err := getDataForMonitorConf(cluster, FDBImageTypeUnified, processClass, 1)
+				serversPerPodSlice = cluster.Status.StorageServersPerDisk
+			}
+		}
+
+		if processClass.SupportsMultipleLogServers() {
+			// If the status field is not initialized we fallback to only the specified count
+			// in the cluster spec. This should only happen in the initial phase of a new cluster.
+			if len(cluster.Status.LogServersPerDisk) == 0 {
+				serversPerPodSlice = []int{cluster.GetDesiredServersPerPod(processClass)}
+			} else {
+				serversPerPodSlice = cluster.Status.LogServersPerDisk
+			}
+
+		}
+
+		if _, useUnifiedImage := imageTypes[FDBImageTypeUnified]; useUnifiedImage {
+			for _, serversPerPod := range serversPerPodSlice {
+				filename, jsonData, err := getDataForMonitorConf(cluster, FDBImageTypeUnified, processClass, serversPerPod)
 				if err != nil {
 					return nil, err
 				}
@@ -110,25 +104,8 @@ func GetConfigMap(cluster *fdbv1beta2.FoundationDBCluster) (*corev1.ConfigMap, e
 		}
 
 		if _, useSplitImage := imageTypes[FDBImageTypeSplit]; useSplitImage {
-			if processClass == fdbv1beta2.ProcessClassStorage {
-				for _, serversPerPod := range storageServersPerDisk {
-					err := setMonitorConfForFilename(cluster, data, GetConfigMapMonitorConfEntry(processClass, FDBImageTypeSplit, serversPerPod), connectionString, processClass, serversPerPod)
-					if err != nil {
-						return nil, err
-					}
-				}
-				continue
-			}
-			if processClass == fdbv1beta2.ProcessClassLog {
-				for _, serversPerPod := range logServersPerDisk {
-					err := setMonitorConfForFilename(cluster, data, GetConfigMapMonitorConfEntry(processClass, FDBImageTypeSplit, serversPerPod), connectionString, processClass, serversPerPod)
-					if err != nil {
-						return nil, err
-					}
-				}
-				continue
-			} else {
-				err := setMonitorConfForFilename(cluster, data, GetConfigMapMonitorConfEntry(processClass, FDBImageTypeSplit, 1), connectionString, processClass, 1)
+			for _, serversPerPod := range serversPerPodSlice {
+				err := setMonitorConfForFilename(cluster, data, GetConfigMapMonitorConfEntry(processClass, FDBImageTypeSplit, serversPerPod), connectionString, processClass, serversPerPod)
 				if err != nil {
 					return nil, err
 				}

@@ -20,6 +20,10 @@
 
 package v1beta2
 
+import (
+	"strings"
+)
+
 // ProcessClass models the class of a pod
 type ProcessClass string
 
@@ -56,4 +60,16 @@ func (pClass ProcessClass) IsStateful() bool {
 // IsTransaction determines whether a process class is part of the transaction system.
 func (pClass ProcessClass) IsTransaction() bool {
 	return pClass != ProcessClassStorage && pClass != ProcessClassGeneral
+}
+
+// SupportsMultipleLogServers determines whether a process class supports multiple log servers. This includes the log
+// class and the transaction class.
+func (pClass ProcessClass) SupportsMultipleLogServers() bool {
+	return pClass == ProcessClassLog || pClass == ProcessClassTransaction
+}
+
+// GetServersPerPodEnvName returns the environment variable name for the servers per Pod.
+// TODO (johscheuer): Revisit this decision: Shouldn't this be an annotation?
+func (pClass ProcessClass) GetServersPerPodEnvName() string {
+	return strings.ToUpper(string(pClass)) + "_SERVERS_PER_POD"
 }

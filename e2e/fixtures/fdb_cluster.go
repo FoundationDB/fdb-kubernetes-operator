@@ -559,7 +559,7 @@ func (fdbCluster *FdbCluster) setLogServersPerPod(
 	serverPerPod int,
 	waitForReconcile bool,
 ) error {
-	fdbCluster.cluster.Spec.LogProcessesPerPod = serverPerPod
+	fdbCluster.cluster.Spec.LogServersPerPod = serverPerPod
 	fdbCluster.UpdateClusterSpec()
 
 	if !waitForReconcile {
@@ -568,7 +568,7 @@ func (fdbCluster *FdbCluster) setLogServersPerPod(
 	return fdbCluster.WaitForReconciliation()
 }
 
-// SetLogServersPerPod set the LogProcessesPerPod field in the cluster spec.
+// SetLogServersPerPod set the LogServersPerPod field in the cluster spec.
 func (fdbCluster *FdbCluster) SetLogServersPerPod(serverPerPod int) error {
 	return fdbCluster.setLogServersPerPod(serverPerPod, true)
 }
