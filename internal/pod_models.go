@@ -415,12 +415,12 @@ func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 	}
 
 	podName, processGroupID := GetProcessGroupID(cluster, processClass, idNum)
-	desiredVersion := cluster.GetRunningVersion()
+	mainVersion := cluster.GetRunningVersion()
 	if cluster.VersionCompatibleUpgradeInProgress() {
-		desiredVersion = cluster.Spec.Version
+		mainVersion = cluster.Spec.Version
 	}
 
-	image, err := GetImage(mainContainer.Image, cluster.Spec.MainContainer.ImageConfigs, desiredVersion, false)
+	image, err := GetImage(mainContainer.Image, cluster.Spec.MainContainer.ImageConfigs, mainVersion, false)
 	if err != nil {
 		return nil, err
 	}
@@ -466,12 +466,12 @@ func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 			corev1.VolumeMount{Name: "fdb-trace-logs", MountPath: "/var/log/fdb-trace-logs"},
 		)
 
-		err = configureSidecarContainerForCluster(cluster, podName, initContainer, true, processGroupID, desiredVersion)
+		err = configureSidecarContainerForCluster(cluster, podName, initContainer, true, processGroupID)
 		if err != nil {
 			return nil, err
 		}
 
-		err = configureSidecarContainerForCluster(cluster, podName, sidecarContainer, false, processGroupID, desiredVersion)
+		err = configureSidecarContainerForCluster(cluster, podName, sidecarContainer, false, processGroupID)
 		if err != nil {
 			return nil, err
 		}
@@ -504,8 +504,8 @@ func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 
 // configureSidecarContainerForCluster sets up a sidecar container for a sidecar
 // in the FDB cluster.
-func configureSidecarContainerForCluster(cluster *fdbv1beta2.FoundationDBCluster, podName string, container *corev1.Container, initMode bool, processGroupID fdbv1beta2.ProcessGroupID, fdbVersion string) error {
-	return configureSidecarContainer(container, initMode, processGroupID, podName, fdbVersion, cluster, cluster.Spec.SidecarContainer.ImageConfigs, false)
+func configureSidecarContainerForCluster(cluster *fdbv1beta2.FoundationDBCluster, podName string, container *corev1.Container, initMode bool, processGroupID fdbv1beta2.ProcessGroupID) error {
+	return configureSidecarContainer(container, initMode, processGroupID, podName, cluster.GetRunningVersion(), cluster, cluster.Spec.SidecarContainer.ImageConfigs, false)
 }
 
 // configureSidecarContainerForBackup sets up a sidecar container for the init
@@ -571,8 +571,9 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, proce
 				// requires a client certificate
 				container.LivenessProbe = &corev1.Probe{
 					ProbeHandler: corev1.ProbeHandler{
-						TCPSocket: &corev1.TCPSocketAction{
-							Port: intstr.IntOrString{IntVal: 8080},
+
+						Exec: &corev1.ExecAction{
+							Command: []string{"/bin/bash", "-c", "nc -zv  -6 $(ifconfig eth0 | grep inet6 | grep global | awk '{print$2}') 8080"},
 						},
 					},
 					TimeoutSeconds:   1,

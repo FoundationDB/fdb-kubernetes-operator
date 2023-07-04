@@ -772,6 +772,10 @@ func (factory *Factory) GetClusterOptions(options ...ClusterOption) []ClusterOpt
 		options = append(options, WithDNSEnabled)
 	}
 
+	if factory.options.featureOperatorPodIPFamilyV6 {
+		options = append(options, WithPodIPFamily)
+	}
+
 	return options
 }
 

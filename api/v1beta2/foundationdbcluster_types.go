@@ -2168,6 +2168,11 @@ func (cluster *FoundationDBCluster) UseDNSInClusterFile() bool {
 	return pointer.BoolDeref(cluster.Spec.Routing.UseDNSInClusterFile, false)
 }
 
+// GetPodIpFamily return the podIpFamily of the cluster
+func (cluster *FoundationDBCluster) GetPodIpFamily() *int {
+	return cluster.Spec.Routing.PodIPFamily
+}
+
 // DefineDNSLocalityFields determines whether we need to put DNS entries in the
 // pod spec and process locality.
 func (cluster *FoundationDBCluster) DefineDNSLocalityFields() bool {

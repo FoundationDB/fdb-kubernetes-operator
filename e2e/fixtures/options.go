@@ -31,24 +31,25 @@ import (
 
 // FactoryOptions defines the (command line) options that are support for the e2e test cases.
 type FactoryOptions struct {
-	namespace                   string
-	chaosNamespace              string
-	prefix                      string
-	context                     string
-	fdbImage                    string // TODO (johscheuer): Make this optional if we use the default
-	sidecarImage                string // TODO (johscheuer): Make this optional if we use the default
-	operatorImage               string
-	registry                    string
-	fdbVersion                  string
-	username                    string
-	storageClass                string
-	upgradeString               string
-	cloudProvider               string
-	enableChaosTests            bool
-	cleanup                     bool
-	featureOperatorDNS          bool
-	featureOperatorLocalities   bool
-	featureOperatorUnifiedImage bool
+	namespace                    string
+	chaosNamespace               string
+	prefix                       string
+	context                      string
+	fdbImage                     string // TODO (johscheuer): Make this optional if we use the default
+	sidecarImage                 string // TODO (johscheuer): Make this optional if we use the default
+	operatorImage                string
+	registry                     string
+	fdbVersion                   string
+	username                     string
+	storageClass                 string
+	upgradeString                string
+	cloudProvider                string
+	enableChaosTests             bool
+	cleanup                      bool
+	featureOperatorDNS           bool
+	featureOperatorLocalities    bool
+	featureOperatorUnifiedImage  bool
+	featureOperatorPodIPFamilyV6 bool
 }
 
 // BindFlags binds the FactoryOptions flags to the provided FlagSet. This can be used to extend the current test setup
@@ -162,6 +163,12 @@ func (options *FactoryOptions) BindFlags(fs *flag.FlagSet) {
 		false,
 		"defines if the operator tests should make use of DNS in cluster files.",
 	)
+	fs.BoolVar(
+		&options.featureOperatorPodIPFamilyV6,
+		"feature-pod-ip-family-v6",
+		false,
+		"defines if operator tests should set the Pod IP Family feature to 6 (skipped if fdb version is below 7.0.0)",
+	)
 }
 
 func (options *FactoryOptions) validateFlags() error {
@@ -219,6 +226,9 @@ func (options *FactoryOptions) validateFlags() error {
 		if err != nil {
 			return err
 		}
+
+		fdbVersion, _ := fdbv1beta2.ParseFdbVersion(options.fdbVersion)
+		options.featureOperatorPodIPFamilyV6 = options.featureOperatorPodIPFamilyV6 && fdbVersion.IsAtLeast(fdbv1beta2.Version{Major: 7, Minor: 0, Patch: 0})
 	}
 
 	// Make sure we handle the cloud provider string internally as lower cases.

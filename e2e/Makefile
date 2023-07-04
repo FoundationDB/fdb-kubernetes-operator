@@ -32,6 +32,7 @@ UPGRADE_VERSIONS?="$(PREVIOUS_FDB_VERSION):$(FDB_VERSION)"
 FEATURE_UNIFIED_IMAGE?=false
 FEATURE_DNS?=false
 FEATURE_LOCALITIES?=false
+FEATURE_POD_IP_FAMILY_V6?=false
 
 # Make bash pickier about errors.
 SHELL=/bin/bash -euo pipefail
@@ -126,4 +127,5 @@ nightly-tests: run
 	  --feature-localities=$(FEATURE_LOCALITIES) \
 	  --feature-dns=$(FEATURE_DNS) \
 	  --cloud-provider=$(CLOUD_PROVIDER) \
+	  --feature-pod-ip-family-v6=$(FEATURE_POD_IP_FAMILY_V6) \
 	  | grep -v 'constructing many client instances from the same exec auth config can cause performance problems during cert rotation' &> $(BASE_DIR)/../logs/$<.log
