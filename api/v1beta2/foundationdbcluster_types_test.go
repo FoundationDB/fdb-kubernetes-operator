@@ -4345,6 +4345,15 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				Expect(cluster.GetDNSDomain()).To(Equal(suffix))
 			})
 		})
+
+		When("checking whether we use Pod IP Family", func() {
+			It("respects the value in the flag", func() {
+				Expect(cluster.GetPodIpFamily()).To(BeNil())
+
+				cluster.Spec.Routing.PodIPFamily = pointer.Int(6)
+				Expect(cluster.GetPodIpFamily()).To(Equal(pointer.Int(6)))
+			})
+		})
 	})
 
 	When("checking if the process group must be replaced", func() {

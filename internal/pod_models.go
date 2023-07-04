@@ -571,8 +571,8 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, proce
 				// requires a client certificate
 				container.LivenessProbe = &corev1.Probe{
 					ProbeHandler: corev1.ProbeHandler{
-						TCPSocket: &corev1.TCPSocketAction{
-							Port: intstr.IntOrString{IntVal: 8080},
+						Exec: &corev1.ExecAction{
+							Command: []string{"/bin/bash", "-c", "nc -zv  -6 $(ifconfig eth0 | grep inet6 | grep global | awk '{print$2}') 8080"},
 						},
 					},
 					TimeoutSeconds:   1,
