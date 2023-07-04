@@ -97,16 +97,17 @@ func getRemainingAndExcludedFromStatus(logger logr.Logger, status *fdbv1beta2.Fo
 	}
 
 	for _, addr := range addresses {
+		machine := addr.MachineAddress()
 		// If we didn't visit that address (absent in the cluster status) we assume it's safe to run the exclude command against it.
 		// We have to run the exclude command against those addresses, to make sure they are not serving any roles.
-		visitedCount, visited := visitedAddresses[addr.MachineAddress()]
+		visitedCount, visited := visitedAddresses[machine]
 		if !visited {
 			exclusions.missingInStatus = append(exclusions.missingInStatus, addr)
 			continue
 		}
 
 		// Those addresses are not excluded, so it's not safe to start the exclude command to check if they are fully excluded.
-		if _, ok := notExcludedAddresses[addr.MachineAddress()]; ok {
+		if _, ok := notExcludedAddresses[machine]; ok {
 			exclusions.notExcluded = append(exclusions.notExcluded, addr)
 			continue
 		}
@@ -115,14 +116,16 @@ func getRemainingAndExcludedFromStatus(logger logr.Logger, status *fdbv1beta2.Fo
 		// that host those processes.
 		excludedCount, ok := fullyExcludedAddresses[addr.MachineAddress()]
 		if ok {
-			logger.V(1).Info("found excluded addresses", "visitedCount", visitedCount, "excludedCount", excludedCount)
+			// We have to make sure that we have visited as many processes as we have seen fully excluded. Otherwise we might
+			// return a wrong signal if more than one process is used per Pod. In this case we have to wait for all processes
+			// to be fully excluded.
 			if visitedCount == excludedCount {
 				exclusions.fullyExcluded = append(exclusions.fullyExcluded, addr)
 				continue
 			}
+			logger.Info("found excluded addresses for machine, but not all processes are fully excluded", "visitedCount", visitedCount, "excludedCount", excludedCount, "machine", machine)
 		}
 
-		// visitedCount
 		// Those are the processes that are marked as excluded but still serve at least one role.
 		exclusions.inProgress = append(exclusions.inProgress, addr)
 	}
