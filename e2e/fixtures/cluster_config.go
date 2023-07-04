@@ -434,19 +434,18 @@ func (config *ClusterConfig) CalculateRoleCounts() fdbv1beta2.RoleCounts {
 	machineCount := config.MachineCount
 	disksPerMachine := config.DisksPerMachine
 
-	grv := 1
-	commit := 3
+	grv, commit := calculateProxies(machineCount - desiredFaultTolerance)
 
 	roleCounts := fdbv1beta2.RoleCounts{
 		// One disk is used by the log process the rest of those is used by storage processes.
-		Storage: min(machineCount*(disksPerMachine-1), 3),
+		Storage: max(machineCount*(disksPerMachine-1), 3),
 		// We run one log process per disk
-		Logs:          min(machineCount-desiredFaultTolerance, 3),
+		Logs:          max(machineCount-desiredFaultTolerance, 3),
 		Proxies:       grv + commit,
 		GrvProxies:    grv,
 		CommitProxies: commit,
 		// This is a simple heuristic that might be true or not for the current workload.
-		Resolvers: min(int(math.Floor(float64(machineCount)/7)), 1),
+		Resolvers: max(int(math.Floor(float64(machineCount)/7)), 1),
 	}
 
 	if config.HaMode > 0 {
