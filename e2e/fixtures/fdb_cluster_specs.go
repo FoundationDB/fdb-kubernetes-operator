@@ -49,6 +49,7 @@ func (factory *Factory) createFDBClusterSpec(
 	processes map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings,
 	databaseConfiguration fdbv1beta2.DatabaseConfiguration,
 	storageServersPerPod int,
+	tLogServersPerPod int,
 	mainContainerOverrides fdbv1beta2.ContainerOverrides,
 	sidecarContainerOverrides fdbv1beta2.ContainerOverrides,
 ) *fdbv1beta2.FoundationDBCluster {
@@ -63,6 +64,7 @@ func (factory *Factory) createFDBClusterSpec(
 			Processes:                     processes,
 			DatabaseConfiguration:         databaseConfiguration,
 			StorageServersPerPod:          storageServersPerPod,
+			TLogProcessesPerPod:           tLogServersPerPod,
 			LogGroup:                      namespace + "-" + clusterName,
 			MainContainer:                 mainContainerOverrides,
 			SidecarContainer:              sidecarContainerOverrides,

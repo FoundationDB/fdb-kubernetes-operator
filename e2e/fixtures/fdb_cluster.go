@@ -551,6 +551,29 @@ func (fdbCluster *FdbCluster) GetVolumeClaimsForProcesses(
 }
 
 // GetStorageServerPerPod returns the current expected storage server per pod.
+func (fdbCluster *FdbCluster) GetTLogServersPerPod() int {
+	return fdbCluster.cluster.GetTLogServersPerPod()
+}
+
+func (fdbCluster *FdbCluster) setTLogServersPerPod(
+	serverPerPod int,
+	waitForReconcile bool,
+) error {
+	fdbCluster.cluster.Spec.TLogProcessesPerPod = serverPerPod
+	fdbCluster.UpdateClusterSpec()
+
+	if !waitForReconcile {
+		return nil
+	}
+	return fdbCluster.WaitForReconciliation()
+}
+
+// SetTLogServersPerPod set the TLogProcessesPerPod field in the cluster spec.
+func (fdbCluster *FdbCluster) SetTLogServersPerPod(serverPerPod int) error {
+	return fdbCluster.setTLogServersPerPod(serverPerPod, true)
+}
+
+// GetStorageServerPerPod returns the current expected storage server per pod.
 func (fdbCluster *FdbCluster) GetStorageServerPerPod() int {
 	return fdbCluster.cluster.GetStorageServersPerPod()
 }

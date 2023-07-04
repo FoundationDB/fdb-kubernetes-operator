@@ -94,7 +94,7 @@ func GetConfigMap(cluster *fdbv1beta2.FoundationDBCluster) (*corev1.ConfigMap, e
 					if err != nil {
 						return nil, err
 					}
-					filename := GetConfigMapMonitorConfEntry(processClass, FDBImageTypeUnified, serversPerPod)
+					filename := GetConfigMapMonitorConfEntryForStorageProcess(FDBImageTypeUnified, serversPerPod)
 					data[filename] = string(jsonData)
 				}
 			} else if processClass == fdbv1beta2.ProcessClassLog {
@@ -107,7 +107,7 @@ func GetConfigMap(cluster *fdbv1beta2.FoundationDBCluster) (*corev1.ConfigMap, e
 					if err != nil {
 						return nil, err
 					}
-					filename := GetConfigMapMonitorConfEntry(processClass, FDBImageTypeUnified, serversPerPod)
+					filename := GetConfigMapMonitorConfEntryForLogProcess(FDBImageTypeUnified, serversPerPod)
 					data[filename] = string(jsonData)
 				}
 			} else {
@@ -126,7 +126,7 @@ func GetConfigMap(cluster *fdbv1beta2.FoundationDBCluster) (*corev1.ConfigMap, e
 		if _, useSplitImage := imageTypes[FDBImageTypeSplit]; useSplitImage {
 			if processClass == fdbv1beta2.ProcessClassStorage {
 				for _, serversPerPod := range storageServersPerDisk {
-					err := setMonitorConfForFilename(cluster, data, GetConfigMapMonitorConfEntry(processClass, FDBImageTypeSplit, serversPerPod), connectionString, processClass, serversPerPod)
+					err := setMonitorConfForFilename(cluster, data, GetConfigMapMonitorConfEntryForStorageProcess(FDBImageTypeSplit, serversPerPod), connectionString, processClass, serversPerPod)
 					if err != nil {
 						return nil, err
 					}
@@ -135,17 +135,17 @@ func GetConfigMap(cluster *fdbv1beta2.FoundationDBCluster) (*corev1.ConfigMap, e
 			}
 			if processClass == fdbv1beta2.ProcessClassLog {
 				for _, serversPerPod := range logServersPerDisk {
-					err := setMonitorConfForFilename(cluster, data, GetConfigMapMonitorConfEntry(processClass, FDBImageTypeSplit, serversPerPod), connectionString, processClass, serversPerPod)
+					err := setMonitorConfForFilename(cluster, data, GetConfigMapMonitorConfEntryForLogProcess(FDBImageTypeSplit, serversPerPod), connectionString, processClass, serversPerPod)
 					if err != nil {
 						return nil, err
 					}
 				}
 				continue
-			}
-
-			err := setMonitorConfForFilename(cluster, data, GetConfigMapMonitorConfEntry(processClass, FDBImageTypeSplit, 1), connectionString, processClass, 1)
-			if err != nil {
-				return nil, err
+			} else {
+				err := setMonitorConfForFilename(cluster, data, GetConfigMapMonitorConfEntry(processClass, FDBImageTypeSplit, 1), connectionString, processClass, 1)
+				if err != nil {
+					return nil, err
+				}
 			}
 		}
 	}
@@ -199,18 +199,43 @@ func setMonitorConfForFilename(cluster *fdbv1beta2.FoundationDBCluster, data map
 // GetConfigMapMonitorConfEntry returns the specific key for the monitor conf in the ConfigMap
 func GetConfigMapMonitorConfEntry(pClass fdbv1beta2.ProcessClass, imageType FDBImageType, serversPerPod int) string {
 	if imageType == FDBImageTypeUnified {
-		if serversPerPod > 1 && pClass == fdbv1beta2.ProcessClassStorage {
-			return fmt.Sprintf("fdbmonitor-conf-%s-json-multiple", pClass)
-		}
-
 		return fmt.Sprintf("fdbmonitor-conf-%s-json", pClass)
 	}
+	return fmt.Sprintf("fdbmonitor-conf-%s", pClass)
+}
 
-	if serversPerPod > 1 && pClass == fdbv1beta2.ProcessClassStorage {
-		return fmt.Sprintf("fdbmonitor-conf-%s-density-%d", pClass, serversPerPod)
+// GetConfigMapMonitorConfEntryForStorageProcess returns the specific key for the monitor conf in the ConfigMap
+func GetConfigMapMonitorConfEntryForStorageProcess(imageType FDBImageType, storageServersPerPod int) string {
+	if imageType == FDBImageTypeUnified {
+		if storageServersPerPod > 1 {
+			return fmt.Sprintf("fdbmonitor-conf-%s-json-multiple", fdbv1beta2.ProcessClassStorage)
+		}
+
+		return fmt.Sprintf("fdbmonitor-conf-%s-json", fdbv1beta2.ProcessClassStorage)
 	}
 
-	return fmt.Sprintf("fdbmonitor-conf-%s", pClass)
+	if storageServersPerPod > 1 {
+		return fmt.Sprintf("fdbmonitor-conf-%s-density-%d", fdbv1beta2.ProcessClassStorage, storageServersPerPod)
+	}
+
+	return fmt.Sprintf("fdbmonitor-conf-%s", fdbv1beta2.ProcessClassStorage)
+}
+
+// GetConfigMapMonitorConfEntryForLogProcess returns the specific key for the monitor conf in the ConfigMap
+func GetConfigMapMonitorConfEntryForLogProcess(imageType FDBImageType, serversPerPod int) string {
+	if imageType == FDBImageTypeUnified {
+		if serversPerPod > 1 {
+			return fmt.Sprintf("fdbmonitor-conf-%s-json-multiple", fdbv1beta2.ProcessClassLog)
+		}
+
+		return fmt.Sprintf("fdbmonitor-conf-%s-json", fdbv1beta2.ProcessClassLog)
+	}
+
+	if serversPerPod > 1 {
+		return fmt.Sprintf("fdbmonitor-conf-%s-density-%d", fdbv1beta2.ProcessClassLog, serversPerPod)
+	}
+
+	return fmt.Sprintf("fdbmonitor-conf-%s", fdbv1beta2.ProcessClassLog)
 }
 
 // GetDynamicConfHash gets a hash of the data from the config map holding the

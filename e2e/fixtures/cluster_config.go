@@ -79,6 +79,8 @@ type ClusterConfig struct {
 	DisksPerMachine int
 	// StorageServerPerPod defines the value that is set in the FoundationDBClusterSpec for this setting.
 	StorageServerPerPod int
+	// TLogServersPerPod defines the value that is set in the FoundationDBClusterSpec for this setting.
+	LogServersPerPod int
 	// VolumeSize the size of the volumes that should be created for stateful Pods.
 	VolumeSize string
 	// Namespace to create the cluster in, if empty will use a randomly generated namespace. The setup won't create the

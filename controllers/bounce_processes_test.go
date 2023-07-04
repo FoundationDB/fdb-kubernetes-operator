@@ -285,6 +285,81 @@ var _ = Describe("bounceProcesses", func() {
 		})
 	})
 
+	FContext("with multiple log servers per pod", func() {
+		BeforeEach(func() {
+			cluster.Spec.TLogProcessesPerPod = 2
+			Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
+			result, err := reconcileCluster(cluster)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.Requeue).To(BeFalse())
+			_, err = reloadCluster(cluster)
+			Expect(err).NotTo(HaveOccurred())
+
+			processGroup := cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-4]
+			Expect(processGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("log-5")))
+			processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true)
+
+			processGroup = cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-3]
+			Expect(processGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("log-6")))
+			processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true)
+		})
+
+		It("should not requeue", func() {
+			Expect(requeue).To(BeNil())
+		})
+
+		It("should kill the targeted processes", func() {
+			addresses := make(map[string]fdbv1beta2.None, 2)
+			for _, processGroupID := range []fdbv1beta2.ProcessGroupID{"log-5", "log-6"} {
+				processGroupAddresses := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, processGroupID).Addresses
+				for _, address := range processGroupAddresses {
+					addresses[fmt.Sprintf("%s:4501", address)] = fdbv1beta2.None{}
+					addresses[fmt.Sprintf("%s:4503", address)] = fdbv1beta2.None{}
+				}
+			}
+			Expect(adminClient.KilledAddresses).To(Equal(addresses))
+		})
+
+		FWhen("doing an upgrade", func() {
+			BeforeEach(func() {
+				cluster.Spec.Version = fdbv1beta2.Versions.NextMajorVersion.String()
+				for _, processGroup := range cluster.Status.ProcessGroups {
+					processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true)
+				}
+			})
+
+			It("should requeue", func() {
+				Expect(requeue).NotTo(BeNil())
+			})
+
+			It("should kill all the processes", func() {
+				addresses := make(map[string]fdbv1beta2.None, len(cluster.Status.ProcessGroups))
+				for _, processGroup := range cluster.Status.ProcessGroups {
+					for _, address := range processGroup.Addresses {
+						addresses[fmt.Sprintf("%s:4501", address)] = fdbv1beta2.None{}
+					}
+				}
+				Expect(adminClient.KilledAddresses).To(Equal(addresses))
+			})
+
+			It("should update the running version in the status", func() {
+				_, err = reloadCluster(cluster)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(cluster.Status.RunningVersion).To(Equal(fdbv1beta2.Versions.NextMajorVersion.String()))
+			})
+
+			It("should submit pending upgrade information for all the processes", func() {
+				expectedUpgrades := make(map[fdbv1beta2.ProcessGroupID]bool, len(cluster.Status.ProcessGroups))
+				for _, processGroup := range cluster.Status.ProcessGroups {
+					expectedUpgrades[processGroup.ProcessGroupID] = true
+				}
+				pendingUpgrades, err := lockClient.GetPendingUpgrades(fdbv1beta2.Versions.NextMajorVersion)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(pendingUpgrades).To(Equal(expectedUpgrades))
+			})
+		})
+	})
+
 	Context("with a pending upgrade", func() {
 		BeforeEach(func() {
 			cluster.Spec.Version = fdbv1beta2.Versions.NextMajorVersion.String()
