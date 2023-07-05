@@ -548,7 +548,7 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, proce
 		if cluster.Spec.Routing.PodIPFamily != nil {
 			sidecarArgs = append(sidecarArgs, "--public-ip-family")
 			sidecarArgs = append(sidecarArgs, fmt.Sprint(*cluster.Spec.Routing.PodIPFamily))
-			sidecarArgs = append(sidecarArgs, "--bind-address", "'[::]:8080'")
+			sidecarArgs = append(sidecarArgs, "--bind-address", "[::]:8080")
 		}
 
 		if cluster.NeedsExplicitListenAddress() {
