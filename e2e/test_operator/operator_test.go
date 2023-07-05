@@ -424,7 +424,12 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				expectedPodCnt,
 				expectedPodCnt*serverPerPod,
 			)
-			validateProcessesCount(fdbCluster, fdbv1beta2.ProcessRoleStorage, expectedPodCnt, expectedPodCnt*serverPerPod)
+			Eventually(func() int {
+				return len(fdbCluster.GetStoragePods().Items)
+			}).Should(BeNumerically("==", expectedPodCnt))
+			Eventually(func() int {
+				return fdbCluster.GetProcessCountByProcessClass(fdbv1beta2.ProcessClassStorage)
+			}).Should(BeNumerically("==", 10))
 		})
 	})
 
@@ -943,7 +948,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		})
 	})
 
-	FWhen("setting 2 logs per disk to use Transaction process", func() {
+	When("setting 2 logs per disk to use Transaction process", func() {
 		var initialLogServerPerPod, expectedPodCnt, expectedLogProcessesCnt int
 
 		BeforeEach(func() {

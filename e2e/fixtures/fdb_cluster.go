@@ -955,9 +955,11 @@ func (fdbCluster *FdbCluster) UpgradeCluster(version string, waitForReconciliati
 	_ = fdbCluster.GetCluster()
 
 	log.Printf(
-		"Upgrading cluster from version %s to version %s",
+		"Upgrading cluster from version %s to version %s and logServerPerPod %d clusterSpec %d",
 		fdbCluster.cluster.Spec.Version,
 		version,
+		fdbCluster.GetCluster().Spec.LogServersPerPod,
+		fdbCluster.cluster.Spec.LogServersPerPod,
 	)
 
 	fdbCluster.cluster.Spec.Version = version

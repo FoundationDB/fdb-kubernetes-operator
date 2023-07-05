@@ -205,6 +205,11 @@ func (config *ClusterConfig) generatePodResources(
 		memory *= config.StorageServerPerPod
 	}
 
+	if processClass == fdbv1beta2.ProcessClassLog && config.LogServersPerPod > 1 {
+		cpu *= config.LogServersPerPod
+		memory *= config.LogServersPerPod
+	}
+
 	return corev1.ResourceList{
 		corev1.ResourceCPU:    resource.MustParse(strconv.Itoa(cpu)),
 		corev1.ResourceMemory: resource.MustParse(fmt.Sprintf("%dGi", memory)),
