@@ -920,7 +920,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 			})
 
 			It("should not mark the process group for removal", func() {
-				Expect(getRemovedProcessGroupIDs(cluster)).To(Equal(BeEmpty()))
+				Expect(getRemovedProcessGroupIDs(cluster)).To(BeEmpty())
 			})
 		})
 	})
