@@ -143,6 +143,7 @@ func (client *MockClient) setNewFakeClient() {
 		})
 	}
 
+	builder.WithScheme(client.scheme)
 	client.fakeClient = builder.Build()
 }
 
