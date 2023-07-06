@@ -308,12 +308,12 @@ func (fdbCluster *FdbCluster) GetProcessCount(targetRole fdbv1beta2.ProcessRole)
 }
 
 // GetProcessCountByProcessClass returns the number of processes based on process class
-func (fdbCluster *FdbCluster) GetProcessCountByProcessClass(pCloass fdbv1beta2.ProcessClass) int {
+func (fdbCluster *FdbCluster) GetProcessCountByProcessClass(pClass fdbv1beta2.ProcessClass) int {
 	pCounter := 0
 	status := fdbCluster.GetStatus()
 
 	for _, process := range status.Cluster.Processes {
-		if process.ProcessClass == pCloass {
+		if process.ProcessClass == pClass {
 			pCounter++
 		}
 	}

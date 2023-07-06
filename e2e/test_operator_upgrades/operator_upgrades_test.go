@@ -1172,10 +1172,6 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 			// Wait until the cluster is upgraded and fully reconciled.
 			Expect(fdbCluster.WaitUntilWithForceReconcile(2, 600, func(cluster *fdbv1beta2.FoundationDBCluster) bool {
 				for _, processGroup := range cluster.Status.ProcessGroups {
-					if processGroup.ProcessClass == fdbv1beta2.ProcessClassLog {
-						continue
-					}
-
 					transactionSystemProcessGroups[processGroup.ProcessGroupID] = fdbv1beta2.None{}
 				}
 
@@ -1186,12 +1182,7 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 			// Get the desired process counts based on the current cluster configuration
 			processCounts, err := fdbCluster.GetProcessCounts()
 			Expect(err).NotTo(HaveOccurred())
-
-			// During an upgrade we expect that the transaction system processes are replaced, so we expect to have seen
-			// 2 times the process counts for transaction system processes. Add a small buffer of 5 to allow automatic
-			// replacements during an upgrade.
-			expectedProcessCounts := (processCounts.Total()-processCounts.Log)*2 + 5
-			Expect(len(transactionSystemProcessGroups)).To(BeNumerically("<=", expectedProcessCounts))
+			Expect(len(transactionSystemProcessGroups)).To(BeNumerically("<=", processCounts.Transaction))
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),

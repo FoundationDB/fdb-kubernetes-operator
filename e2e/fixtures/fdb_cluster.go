@@ -560,7 +560,8 @@ func (fdbCluster *FdbCluster) GetLogServersPerPod() int {
 	return fdbCluster.cluster.GetLogServersPerPod()
 }
 
-func (fdbCluster *FdbCluster) setLogServersPerPod(
+// SetLogServersPerPod set the LogServersPerPod field in the cluster spec.
+func (fdbCluster *FdbCluster) SetLogServersPerPod(
 	serverPerPod int,
 	waitForReconcile bool,
 ) error {
@@ -571,11 +572,6 @@ func (fdbCluster *FdbCluster) setLogServersPerPod(
 		return nil
 	}
 	return fdbCluster.WaitForReconciliation()
-}
-
-// SetLogServersPerPod set the LogServersPerPod field in the cluster spec.
-func (fdbCluster *FdbCluster) SetLogServersPerPod(serverPerPod int) error {
-	return fdbCluster.setLogServersPerPod(serverPerPod, true)
 }
 
 // GetStorageServerPerPod returns the current expected storage server per pod.
@@ -601,7 +597,8 @@ func (fdbCluster *FdbCluster) SetStorageServerPerPod(serverPerPod int) error {
 	return fdbCluster.setStorageServerPerPod(serverPerPod, true)
 }
 
-func (fdbCluster *FdbCluster) setTransactionServerPerPod(
+// SetTransactionServerPerPod set the SetTransactionServerPerPod field in the cluster spec.
+func (fdbCluster *FdbCluster) SetTransactionServerPerPod(
 	serverPerPod int,
 	processCount int,
 	waitForReconcile bool,
@@ -615,11 +612,6 @@ func (fdbCluster *FdbCluster) setTransactionServerPerPod(
 		return nil
 	}
 	return fdbCluster.WaitForReconciliation()
-}
-
-// SetTransactionServerPerPod set the SetTransactionServerPerPod field in the cluster spec.
-func (fdbCluster *FdbCluster) SetTransactionServerPerPod(serverPerPod int, processCount int) error {
-	return fdbCluster.setTransactionServerPerPod(serverPerPod, processCount, true)
 }
 
 // ReplacePod replaces the provided Pod if it's part of the FoundationDBCluster.
@@ -955,11 +947,9 @@ func (fdbCluster *FdbCluster) UpgradeCluster(version string, waitForReconciliati
 	_ = fdbCluster.GetCluster()
 
 	log.Printf(
-		"Upgrading cluster from version %s to version %s and logServerPerPod %d clusterSpec %d",
+		"Upgrading cluster from version %s to version %s",
 		fdbCluster.cluster.Spec.Version,
 		version,
-		fdbCluster.GetCluster().Spec.LogServersPerPod,
-		fdbCluster.cluster.Spec.LogServersPerPod,
 	)
 
 	fdbCluster.cluster.Spec.Version = version

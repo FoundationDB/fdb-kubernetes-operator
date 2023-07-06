@@ -68,9 +68,15 @@ func validateProcessesCount(
 	Eventually(func() int {
 		return len(fdbCluster.GetPodsWithRole(processRole))
 	}).Should(BeNumerically("==", countPods))
-	Eventually(func() int {
-		return fdbCluster.GetProcessCount(processRole)
-	}).Should(BeNumerically("==", countServer))
+	if processRole == fdbv1beta2.ProcessRoleStorage {
+		Eventually(func() int {
+			return fdbCluster.GetProcessCount(processRole)
+		}).Should(BeNumerically("==", countServer))
+	} else {
+		Eventually(func() int {
+			return fdbCluster.GetProcessCountByProcessClass(fdbv1beta2.ProcessClass(processRole))
+		}).Should(BeNumerically("==", countServer))
+	}
 }
 
 func validateStorageClass(processClass fdbv1beta2.ProcessClass, targetStorageClass string) {
@@ -424,12 +430,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				expectedPodCnt,
 				expectedPodCnt*serverPerPod,
 			)
-			Eventually(func() int {
-				return len(fdbCluster.GetStoragePods().Items)
-			}).Should(BeNumerically("==", expectedPodCnt))
-			Eventually(func() int {
-				return fdbCluster.GetProcessCountByProcessClass(fdbv1beta2.ProcessClassStorage)
-			}).Should(BeNumerically("==", 10))
+			validateProcessesCount(fdbCluster, fdbv1beta2.ProcessRoleStorage, expectedPodCnt, 10)
 		})
 	})
 
@@ -919,7 +920,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 		AfterEach(func() {
 			log.Printf("set log servers per Pod to %d", initialLogServerPerPod)
-			Expect(fdbCluster.SetLogServersPerPod(initialLogServerPerPod)).ShouldNot(HaveOccurred())
+			Expect(fdbCluster.SetLogServersPerPod(initialLogServerPerPod, true)).ShouldNot(HaveOccurred())
 			log.Printf(
 				"expectedPodCnt: %d, expectedProcessesCnt: %d",
 				expectedPodCnt,
@@ -932,19 +933,13 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 		It("should update the log servers to the expected amount", func() {
 			serverPerPod := initialLogServerPerPod * 2
-			Expect(fdbCluster.SetLogServersPerPod(serverPerPod)).ShouldNot(HaveOccurred())
+			Expect(fdbCluster.SetLogServersPerPod(serverPerPod, true)).ShouldNot(HaveOccurred())
 			log.Printf(
 				"expectedPodCnt: %d, expectedStorageProcessesCnt: %d",
 				expectedPodCnt,
 				expectedPodCnt*serverPerPod,
 			)
-
-			Eventually(func() int {
-				return len(fdbCluster.GetLogPods().Items)
-			}).Should(BeNumerically("==", expectedPodCnt))
-			Eventually(func() int {
-				return fdbCluster.GetProcessCountByProcessClass(fdbv1beta2.ProcessClassLog)
-			}).Should(BeNumerically("==", 10))
+			validateProcessesCount(fdbCluster, fdbv1beta2.ProcessRoleLog, expectedPodCnt, 10)
 		})
 	})
 
@@ -968,7 +963,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 		AfterEach(func() {
 			log.Printf("set log servers per Pod to %d", initialLogServerPerPod)
-			Expect(fdbCluster.SetLogServersPerPod(initialLogServerPerPod)).ShouldNot(HaveOccurred())
+			Expect(fdbCluster.SetLogServersPerPod(initialLogServerPerPod, true)).ShouldNot(HaveOccurred())
 			log.Printf(
 				"expectedPodCnt: %d, expectedProcessesCnt: %d",
 				expectedPodCnt,
@@ -981,20 +976,14 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 		It("should update the log servers to the expected amount", func() {
 			serverPerPod := initialLogServerPerPod * 2
-			Expect(fdbCluster.SetTransactionServerPerPod(serverPerPod, 5)).ShouldNot(HaveOccurred())
-			Expect(fdbCluster.SetLogServersPerPod(serverPerPod)).ShouldNot(HaveOccurred())
+			Expect(fdbCluster.SetTransactionServerPerPod(serverPerPod, 5, true)).ShouldNot(HaveOccurred())
+			Expect(fdbCluster.SetLogServersPerPod(serverPerPod, true)).ShouldNot(HaveOccurred())
 			log.Printf(
 				"expectedPodCnt: %d, expectedStorageProcessesCnt: %d",
 				expectedPodCnt,
 				expectedPodCnt*serverPerPod,
 			)
-
-			Eventually(func() int {
-				return len(fdbCluster.GetTransactionPods().Items)
-			}).Should(BeNumerically("==", expectedPodCnt))
-			Eventually(func() int {
-				return fdbCluster.GetProcessCountByProcessClass(fdbv1beta2.ProcessClassTransaction)
-			}).Should(BeNumerically("==", 10))
+			validateProcessesCount(fdbCluster, fdbv1beta2.ProcessRole(fdbv1beta2.ProcessClassTransaction), expectedPodCnt, 10)
 		})
 	})
 
