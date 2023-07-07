@@ -398,9 +398,14 @@ func (fdbCluster *FdbCluster) GetPodsWithRole(role fdbv1beta2.ProcessRole) []cor
 	var matches []corev1.Pod
 	for _, p := range pods.Items {
 		roles := roleMap[GetProcessGroupID(p)]
+		rolesAdded := map[string]fdbv1beta2.None{}
 		for _, r := range roles {
 			if r.Role == string(role) {
-				matches = append(matches, p)
+				_, ok := rolesAdded[r.Role]
+				if !ok {
+					rolesAdded[r.Role] = fdbv1beta2.None{}
+					matches = append(matches, p)
+				}
 			}
 		}
 	}
