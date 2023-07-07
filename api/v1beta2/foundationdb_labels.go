@@ -37,6 +37,9 @@ const (
 	// deployments to a cluster.
 	BackupDeploymentLabel = "foundationdb.org/backup-for"
 
+	// BackupDeploymentPodLabel provides the label to select Pods for a specific Backup deployment.
+	BackupDeploymentPodLabel = "foundationdb.org/deployment-name"
+
 	// PublicIPSourceAnnotation is an annotation key that specifies where a pod
 	// gets its public IP from.
 	PublicIPSourceAnnotation = "foundationdb.org/public-ip-source"
