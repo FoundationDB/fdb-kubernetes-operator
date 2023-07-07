@@ -193,170 +193,337 @@ var _ = Describe("admin_client_test", func() {
 		)
 	})
 
-	When("getting the args for the command", func() {
-		var command cliCommand
-		var client *cliAdminClient
-		var args, expectedArgs []string
-		var timeout, expectedTimeout time.Duration
+	DescribeTable("getting the args for the command", func(command cliCommand, client *cliAdminClient, traceOption string, traceFormat string, expectedArgs []string, expectedTimeout time.Duration) {
+		Expect(client).NotTo(BeNil())
+		if traceOption != "" {
+			GinkgoT().Setenv("FDB_NETWORK_OPTION_TRACE_ENABLE", traceOption)
+		}
+		if traceFormat != "" {
+			GinkgoT().Setenv("FDB_NETWORK_OPTION_TRACE_FORMAT", traceFormat)
+		}
 
-		JustBeforeEach(func() {
-			Expect(client).NotTo(BeNil())
-			args, timeout = client.getArgsAndTimeout(command)
-			Expect(timeout).To(Equal(expectedTimeout))
-			Expect(args).To(ContainElements(expectedArgs))
-			Expect(len(args)).To(BeNumerically("==", len(expectedArgs)))
-		})
-
-		When("the used command defines args", func() {
-			BeforeEach(func() {
-				command = cliCommand{
-					args:    []string{"--version"},
-					version: "7.1.25",
-					timeout: 1 * time.Second,
-				}
-
-				client = &cliAdminClient{
-					Cluster:         nil,
-					clusterFilePath: "test",
-					log:             logr.Discard(),
-				}
-			})
-
-			When("trace options are disabled", func() {
-				BeforeEach(func() {
-					expectedTimeout = 2 * time.Second
-					expectedArgs = []string{
-						"--version",
-						"--timeout",
-						"1",
-					}
-				})
-			})
-		})
-
-		When("the used command is a fdbcli command", func() {
-			BeforeEach(func() {
-				command = cliCommand{
-					command: "maintenance off",
-					timeout: 1 * time.Second,
-				}
-
-				client = &cliAdminClient{
-					Cluster:         nil,
-					clusterFilePath: "test",
-					log:             logr.Discard(),
-				}
-			})
-
-			When("trace options are disabled", func() {
-				BeforeEach(func() {
-					expectedTimeout = 2 * time.Second
-					expectedArgs = []string{
-						"--exec",
-						"maintenance off",
-						"test",
-						"--timeout",
-						"1",
-					}
-				})
-			})
-
-			When("trace options are enabled", func() {
-				BeforeEach(func() {
-					GinkgoT().Setenv("FDB_NETWORK_OPTION_TRACE_ENABLE", "/tmp")
-					expectedTimeout = 2 * time.Second
-					expectedArgs = []string{
-						"--exec",
-						"maintenance off",
-						"test",
-						"--log",
-						"--trace_format",
-						"xml",
-						"--log-dir",
-						"/tmp",
-						"--timeout",
-						"1",
-					}
-				})
-
-				When("a different trace format is defined", func() {
-					BeforeEach(func() {
-						GinkgoT().Setenv("FDB_NETWORK_OPTION_TRACE_FORMAT", "json")
-						expectedTimeout = 2 * time.Second
-						expectedArgs = []string{
-							"--exec",
-							"maintenance off",
-							"test",
-							"--log",
-							"--trace_format",
-							"json",
-							"--log-dir",
-							"/tmp",
-							"--timeout",
-							"1",
-						}
-					})
-				})
-			})
-		})
-
-		When("the used command is a fdbrestore command", func() {
-			BeforeEach(func() {
-				command = cliCommand{
-					binary: fdbrestoreStr,
-					args: []string{
-						"status",
-					},
-					timeout: 1 * time.Second,
-				}
-
-				client = &cliAdminClient{
-					Cluster:         nil,
-					clusterFilePath: "test",
-					log:             logr.Discard(),
-				}
-			})
-
-			When("trace options are disabled", func() {
-				BeforeEach(func() {
-					expectedTimeout = 2 * time.Second
-					expectedArgs = []string{
-						"status",
-					}
-				})
-			})
-
-			When("trace options are enabled", func() {
-				BeforeEach(func() {
-					GinkgoT().Setenv("FDB_NETWORK_OPTION_TRACE_ENABLE", "/tmp")
-					expectedTimeout = 2 * time.Second
-					expectedArgs = []string{
-						"status",
-						"--log",
-						"--trace_format",
-						"xml",
-						"--logdir",
-						"/tmp",
-					}
-				})
-
-				When("a different trace format is defined", func() {
-					BeforeEach(func() {
-						GinkgoT().Setenv("FDB_NETWORK_OPTION_TRACE_FORMAT", "json")
-						expectedTimeout = 2 * time.Second
-						expectedArgs = []string{
-							"status",
-							"--log",
-							"--trace_format",
-							"json",
-							"--logdir",
-							"/tmp",
-						}
-					})
-				})
-			})
-		})
-	})
+		args, timeout := client.getArgsAndTimeout(command)
+		Expect(timeout).To(Equal(expectedTimeout))
+		Expect(args).To(HaveExactElements(expectedArgs))
+	},
+		Entry("using fdbcli and trace options are disabled",
+			cliCommand{
+				args:    []string{"--version"},
+				version: "7.1.25",
+				timeout: 1 * time.Second,
+			},
+			&cliAdminClient{
+				Cluster:         nil,
+				clusterFilePath: "test",
+				log:             logr.Discard(),
+			},
+			"",
+			"",
+			[]string{
+				"--version",
+				"--timeout",
+				"1",
+			},
+			2*time.Second,
+		),
+		Entry("using fdbcli and trace options are disabled",
+			cliCommand{
+				command: "maintenance off",
+				version: "7.1.25",
+				timeout: 1 * time.Second,
+			},
+			&cliAdminClient{
+				Cluster:         nil,
+				clusterFilePath: "test",
+				log:             logr.Discard(),
+			},
+			"",
+			"",
+			[]string{
+				"--exec",
+				"maintenance off",
+				"-C",
+				"test",
+				"--timeout",
+				"1",
+			},
+			2*time.Second,
+		),
+		Entry("using fdbcli and trace options are enabled",
+			cliCommand{
+				command: "maintenance off",
+				version: "7.1.25",
+				timeout: 1 * time.Second,
+			},
+			&cliAdminClient{
+				Cluster:         nil,
+				clusterFilePath: "test",
+				log:             logr.Discard(),
+			},
+			"/tmp",
+			"",
+			[]string{
+				"--exec",
+				"maintenance off",
+				"-C",
+				"test",
+				"--log",
+				"--trace_format",
+				"xml",
+				"--log-dir",
+				"/tmp",
+				"--timeout",
+				"1",
+			},
+			2*time.Second,
+		),
+		Entry("using fdbcli and trace options are enabled with a different format",
+			cliCommand{
+				command: "maintenance off",
+				version: "7.1.25",
+				timeout: 1 * time.Second,
+			},
+			&cliAdminClient{
+				Cluster:         nil,
+				clusterFilePath: "test",
+				log:             logr.Discard(),
+			},
+			"/tmp",
+			"json",
+			[]string{
+				"--exec",
+				"maintenance off",
+				"-C",
+				"test",
+				"--log",
+				"--trace_format",
+				"json",
+				"--log-dir",
+				"/tmp",
+				"--timeout",
+				"1",
+			},
+			2*time.Second,
+		),
+		Entry("using fdbcli and trace options are disabled and client knobs are passed",
+			cliCommand{
+				command: "maintenance off",
+				version: "7.1.25",
+				timeout: 1 * time.Second,
+			},
+			&cliAdminClient{
+				Cluster:         nil,
+				clusterFilePath: "test",
+				log:             logr.Discard(),
+				knobs:           []string{"--knob-testing=1"},
+			},
+			"",
+			"",
+			[]string{
+				"--exec",
+				"maintenance off",
+				"-C",
+				"test",
+				"--timeout",
+				"1",
+			},
+			2*time.Second,
+		),
+		// Tests for fdbrestore
+		Entry("using fdbrestore and trace options are disabled",
+			cliCommand{
+				binary:  fdbrestoreStr,
+				command: "status",
+				version: "7.1.25",
+				timeout: 1 * time.Second,
+			},
+			&cliAdminClient{
+				Cluster:         nil,
+				clusterFilePath: "test",
+				log:             logr.Discard(),
+			},
+			"",
+			"",
+			[]string{
+				"--exec",
+				"status",
+				"--dest_cluster_file",
+				"test",
+			},
+			1*time.Second,
+		),
+		Entry("using fdbrestore and trace options are enabled",
+			cliCommand{
+				binary:  fdbrestoreStr,
+				command: "status",
+				version: "7.1.25",
+				timeout: 1 * time.Second,
+			},
+			&cliAdminClient{
+				Cluster:         nil,
+				clusterFilePath: "test",
+				log:             logr.Discard(),
+			},
+			"/tmp",
+			"",
+			[]string{
+				"--exec",
+				"status",
+				"--dest_cluster_file",
+				"test",
+				"--log",
+				"--logdir",
+				"/tmp",
+			},
+			1*time.Second,
+		),
+		Entry("using fdbrestore and trace options are enabled and a different format is set",
+			cliCommand{
+				binary:  fdbrestoreStr,
+				command: "status",
+				version: "7.1.25",
+				timeout: 1 * time.Second,
+			},
+			&cliAdminClient{
+				Cluster:         nil,
+				clusterFilePath: "test",
+				log:             logr.Discard(),
+			},
+			"/tmp",
+			"json",
+			[]string{
+				"--exec",
+				"status",
+				"--dest_cluster_file",
+				"test",
+				"--log",
+				"--logdir",
+				"/tmp",
+			},
+			1*time.Second,
+		),
+		Entry("using fdbrestore and trace options are disabled and client knobs are set",
+			cliCommand{
+				binary:  fdbrestoreStr,
+				command: "status",
+				version: "7.1.25",
+				timeout: 1 * time.Second,
+			},
+			&cliAdminClient{
+				Cluster:         nil,
+				clusterFilePath: "test",
+				log:             logr.Discard(),
+				knobs:           []string{"--knob-testing=1"},
+			},
+			"",
+			"",
+			[]string{
+				"--exec",
+				"status",
+				"--dest_cluster_file",
+				"test",
+				"--knob-testing=1",
+			},
+			1*time.Second,
+		),
+		// Tests for fdbbackup
+		Entry("using fdbbackup and trace options are disabled",
+			cliCommand{
+				binary:  fdbbackupStr,
+				command: "status",
+				version: "7.1.25",
+				timeout: 1 * time.Second,
+			},
+			&cliAdminClient{
+				Cluster:         nil,
+				clusterFilePath: "test",
+				log:             logr.Discard(),
+			},
+			"",
+			"",
+			[]string{
+				"--exec",
+				"status",
+				"-C",
+				"test",
+			},
+			1*time.Second,
+		),
+		Entry("using fdbbackup and trace options are enabled",
+			cliCommand{
+				binary:  fdbbackupStr,
+				command: "status",
+				version: "7.1.25",
+				timeout: 1 * time.Second,
+			},
+			&cliAdminClient{
+				Cluster:         nil,
+				clusterFilePath: "test",
+				log:             logr.Discard(),
+			},
+			"/tmp",
+			"",
+			[]string{
+				"--exec",
+				"status",
+				"-C",
+				"test",
+				"--log",
+				"--logdir",
+				"/tmp",
+			},
+			1*time.Second,
+		),
+		Entry("using fdbbackup and trace options are enabled and a different format is set",
+			cliCommand{
+				binary:  fdbbackupStr,
+				command: "status",
+				version: "7.1.25",
+				timeout: 1 * time.Second,
+			},
+			&cliAdminClient{
+				Cluster:         nil,
+				clusterFilePath: "test",
+				log:             logr.Discard(),
+			},
+			"/tmp",
+			"json",
+			[]string{
+				"--exec",
+				"status",
+				"-C",
+				"test",
+				"--log",
+				"--logdir",
+				"/tmp",
+			},
+			1*time.Second,
+		),
+		Entry("using fdbbackup and trace options are disabled and client knobs are set",
+			cliCommand{
+				binary:  fdbbackupStr,
+				command: "status",
+				version: "7.1.25",
+				timeout: 1 * time.Second,
+			},
+			&cliAdminClient{
+				Cluster:         nil,
+				clusterFilePath: "test",
+				log:             logr.Discard(),
+				knobs:           []string{"--knob-testing=1"},
+			},
+			"",
+			"",
+			[]string{
+				"--exec",
+				"status",
+				"-C",
+				"test",
+				"--knob-testing=1",
+			},
+			1*time.Second,
+		),
+	)
 
 	When("getting the protocol version from fdbcli", func() {
 		var mockRunner *mockCommandRunner
