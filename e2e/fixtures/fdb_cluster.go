@@ -597,7 +597,7 @@ func (fdbCluster *FdbCluster) SetStorageServerPerPod(serverPerPod int) error {
 	return fdbCluster.setStorageServerPerPod(serverPerPod, true)
 }
 
-// SetTransactionServerPerPod set the SetTransactionServerPerPod field in the cluster spec.
+// SetTransactionServerPerPod set the LogServersPerPod field in the cluster spec and changes log Pods to transaction Pods.
 func (fdbCluster *FdbCluster) SetTransactionServerPerPod(
 	serverPerPod int,
 	processCount int,
