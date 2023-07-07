@@ -746,6 +746,11 @@ func (processGroupStatus *ProcessGroupStatus) GetConditionTime(conditionType Pro
 	return nil
 }
 
+// IsUnderMaintenance checks if the process is in maintenance zone.
+func (processGroupStatus *ProcessGroupStatus) IsUnderMaintenance(maintenanceZone FaultDomain) bool {
+	return processGroupStatus.FaultDomain == maintenanceZone
+}
+
 // GetCondition returns the ProcessGroupStatus's ProcessGroupCondition that matches the conditionType;
 // It returns nil if the ProcessGroupStatus doesn't have a matching condition
 func (processGroupStatus *ProcessGroupStatus) GetCondition(conditionType ProcessGroupConditionType) *ProcessGroupCondition {

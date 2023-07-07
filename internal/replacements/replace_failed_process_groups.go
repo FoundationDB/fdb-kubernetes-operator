@@ -45,7 +45,7 @@ func getMaxReplacements(cluster *fdbv1beta2.FoundationDBCluster, maxReplacements
 
 // ReplaceFailedProcessGroups flags failed processes groups for removal and returns an indicator
 // of whether any processes were thus flagged.
-func ReplaceFailedProcessGroups(log logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, hasDesiredFaultTolerance bool) bool {
+func ReplaceFailedProcessGroups(log logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, hasDesiredFaultTolerance bool) bool {
 	// Automatic replacements are disabled, so we don't have to check anything further
 	if !cluster.GetEnableAutomaticReplacements() {
 		return false
@@ -59,6 +59,14 @@ ProcessGroupLoop:
 	for _, processGroupStatus := range cluster.Status.ProcessGroups {
 		// If a process group is already marked for removal we can skip it here.
 		if processGroupStatus.IsMarkedForRemoval() {
+			continue
+		}
+
+		if processGroupStatus.IsUnderMaintenance(status.Cluster.MaintenanceZone) {
+			log.Info(
+				"Skip process group that is in maintenance zone",
+				"processGroupID", processGroupStatus.ProcessGroupID,
+				"maintenance zone", processGroupStatus.FaultDomain)
 			continue
 		}
 
