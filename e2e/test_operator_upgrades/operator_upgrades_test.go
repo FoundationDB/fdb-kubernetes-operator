@@ -1172,6 +1172,9 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 			// Wait until the cluster is upgraded and fully reconciled.
 			Expect(fdbCluster.WaitUntilWithForceReconcile(2, 600, func(cluster *fdbv1beta2.FoundationDBCluster) bool {
 				for _, processGroup := range cluster.Status.ProcessGroups {
+					if processGroup.ProcessClass == fdbv1beta2.ProcessClassStorage {
+						continue
+					}
 					transactionSystemProcessGroups[processGroup.ProcessGroupID] = fdbv1beta2.None{}
 				}
 

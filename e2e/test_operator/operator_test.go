@@ -65,18 +65,29 @@ func validateProcessesCount(
 	countServer int,
 ) {
 	// Using Eventually here to prevent some weird timing from the test runner
-	Eventually(func() int {
-		return len(fdbCluster.GetPodsWithRole(processRole))
-	}).Should(BeNumerically("==", countPods))
 	if processRole == fdbv1beta2.ProcessRoleStorage {
+		Eventually(func() int {
+			return len(fdbCluster.GetStoragePods().Items)
+		}).Should(BeNumerically("==", countPods))
 		Eventually(func() int {
 			return fdbCluster.GetProcessCount(processRole)
 		}).Should(BeNumerically("==", countServer))
+	} else if processRole == fdbv1beta2.ProcessRoleLog {
+		Eventually(func() int {
+			return len(fdbCluster.GetLogPods().Items)
+		}).Should(BeNumerically("==", countPods))
+	} else if processRole == fdbv1beta2.ProcessRole(fdbv1beta2.ProcessClassTransaction) {
+		Eventually(func() int {
+			return len(fdbCluster.GetTransactionPods().Items)
+		}).Should(BeNumerically("==", countPods))
 	} else {
 		Eventually(func() int {
-			return fdbCluster.GetProcessCountByProcessClass(fdbv1beta2.ProcessClass(processRole))
-		}).Should(BeNumerically("==", countServer))
+			return len(fdbCluster.GetPodsWithRole(processRole))
+		}).Should(BeNumerically("==", countPods))
 	}
+	Eventually(func() int {
+		return fdbCluster.GetProcessCountByProcessClass(fdbv1beta2.ProcessClass(processRole))
+	}).Should(BeNumerically("==", countServer))
 }
 
 func validateStorageClass(processClass fdbv1beta2.ProcessClass, targetStorageClass string) {
@@ -933,6 +944,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 		It("should update the log servers to the expected amount", func() {
 			serverPerPod := initialLogServerPerPod * 2
+			log.Printf("set log servers per Pod to %d", initialLogServerPerPod)
 			Expect(fdbCluster.SetLogServersPerPod(serverPerPod, true)).ShouldNot(HaveOccurred())
 			log.Printf(
 				"expectedPodCnt: %d, expectedStorageProcessesCnt: %d",
@@ -976,7 +988,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 		It("should update the log servers to the expected amount and should create transaction Pods", func() {
 			serverPerPod := initialLogServerPerPod * 2
-			Expect(fdbCluster.SetTransactionServerPerPod(serverPerPod, expectedPodCnt*serverPerPod, true)).ShouldNot(HaveOccurred())
+			Expect(fdbCluster.SetTransactionServerPerPod(serverPerPod, expectedLogProcessesCnt, true)).ShouldNot(HaveOccurred())
 			log.Printf(
 				"expectedPodCnt: %d, expectedProcessesCnt: %d",
 				expectedPodCnt,

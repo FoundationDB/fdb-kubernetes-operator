@@ -409,7 +409,6 @@ func (fdbCluster *FdbCluster) GetPodsWithRole(role fdbv1beta2.ProcessRole) []cor
 			}
 		}
 	}
-
 	return matches
 }
 
