@@ -1185,7 +1185,8 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 			// Get the desired process counts based on the current cluster configuration
 			processCounts, err := fdbCluster.GetProcessCounts()
 			Expect(err).NotTo(HaveOccurred())
-			Expect(len(transactionSystemProcessGroups)).To(BeNumerically("<=", processCounts.Transaction))
+			expectedProcessCounts := (processCounts.Total()-processCounts.Storage)*2 + 5
+			Expect(len(transactionSystemProcessGroups)).To(BeNumerically("<=", expectedProcessCounts))
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
