@@ -262,9 +262,10 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 
 			// Verify that the cluster generation number didn't increase by more
 			// than 80 (in an ideal case the number of recoveries that should happen
-			// during an upgrade is 9, but in reality that number could be higher
-			// because different server processes may get bounced at different times).
-			// See: https://github.com/FoundationDB/fdb-kubernetes-operator/issues/1607
+			// during an upgrade, because of bouncing of server processes, is 9, but
+			// in reality that number could be higher because different server processes
+			// may get bounced at different times and also because of cluster controller
+			// change, which happens a number of times, during an upgrade).
 			Expect(finalGeneration).To(BeNumerically("<=", initialGeneration+80))
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s"),
