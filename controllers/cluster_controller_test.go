@@ -1088,6 +1088,7 @@ var _ = Describe("cluster_controller", func() {
 					adminClient.UnfreezeStatus()
 					Expect(err).NotTo(HaveOccurred())
 					err = k8sClient.Update(context.TODO(), cluster)
+					Expect(err).NotTo(HaveOccurred())
 
 					result, err := reconcileCluster(cluster)
 					Expect(err).NotTo(HaveOccurred())
@@ -1117,6 +1118,51 @@ var _ = Describe("cluster_controller", func() {
 					for _, pod := range originalPods.Items {
 						addresses[cluster.GetFullAddress(pod.Status.PodIP, 1).String()] = fdbv1beta2.None{}
 						if internal.ProcessClassFromLabels(cluster, pod.ObjectMeta.Labels) == fdbv1beta2.ProcessClassStorage {
+							addresses[cluster.GetFullAddress(pod.Status.PodIP, 2).String()] = fdbv1beta2.None{}
+						}
+					}
+
+					Expect(adminClient.KilledAddresses).To(Equal(addresses))
+				})
+			})
+
+			Context("with multiple log servers per pod", func() {
+				BeforeEach(func() {
+					cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{fdbv1beta2.ProcessClassGeneral: {CustomParameters: fdbv1beta2.FoundationDBCustomParameters{}}}
+					cluster.Spec.LogServersPerPod = 2
+					adminClient.UnfreezeStatus()
+					Expect(err).NotTo(HaveOccurred())
+					err = k8sClient.Update(context.TODO(), cluster)
+					Expect(err).NotTo(HaveOccurred())
+
+					result, err := reconcileCluster(cluster)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(result.Requeue).To(BeFalse())
+
+					generation, err := reloadCluster(cluster)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(generation).To(Equal(originalVersion + generationGap))
+					originalVersion = cluster.ObjectMeta.Generation
+
+					err = k8sClient.List(context.TODO(), originalPods, getListOptions(cluster)...)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(len(originalPods.Items)).To(Equal(17))
+
+					sortPodsByName(originalPods)
+
+					err = adminClient.FreezeStatus()
+					Expect(err).NotTo(HaveOccurred())
+
+					cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{fdbv1beta2.ProcessClassGeneral: {CustomParameters: fdbv1beta2.FoundationDBCustomParameters{"knob_disable_posix_kernel_aio=1"}}}
+					err = k8sClient.Update(context.TODO(), cluster)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("should bounce the processes", func() {
+					addresses := make(map[string]fdbv1beta2.None, len(originalPods.Items))
+					for _, pod := range originalPods.Items {
+						addresses[cluster.GetFullAddress(pod.Status.PodIP, 1).String()] = fdbv1beta2.None{}
+						if internal.ProcessClassFromLabels(cluster, pod.ObjectMeta.Labels) == fdbv1beta2.ProcessClassLog {
 							addresses[cluster.GetFullAddress(pod.Status.PodIP, 2).String()] = fdbv1beta2.None{}
 						}
 					}
@@ -3107,6 +3153,48 @@ var _ = Describe("cluster_controller", func() {
 			})
 		})
 
+		Context("with a basic log process group with multiple log servers per Pod", func() {
+			BeforeEach(func() {
+				cluster.Spec.LogServersPerPod = 2
+				conf, err = internal.GetMonitorConf(cluster, fdbv1beta2.ProcessClassLog, nil, cluster.GetLogServersPerPod())
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should generate the log conf with two processes", func() {
+				Expect(conf).To(Equal(strings.Join([]string{
+					"[general]",
+					"kill_on_configuration_change = false",
+					"restart_delay = 60",
+					"[fdbserver.1]",
+					"command = $BINARY_DIR/fdbserver",
+					"cluster_file = /var/fdb/data/fdb.cluster",
+					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
+					"public_address = $FDB_PUBLIC_IP:4501",
+					"class = log",
+					"logdir = /var/log/fdb-trace-logs",
+					"loggroup = " + cluster.Name,
+					"datadir = /var/fdb/data/1",
+					"locality_process_id = $FDB_INSTANCE_ID-1",
+					"locality_instance_id = $FDB_INSTANCE_ID",
+					"locality_machineid = $FDB_MACHINE_ID",
+					"locality_zoneid = $FDB_ZONE_ID",
+					"[fdbserver.2]",
+					"command = $BINARY_DIR/fdbserver",
+					"cluster_file = /var/fdb/data/fdb.cluster",
+					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
+					"public_address = $FDB_PUBLIC_IP:4503",
+					"class = log",
+					"logdir = /var/log/fdb-trace-logs",
+					"loggroup = " + cluster.Name,
+					"datadir = /var/fdb/data/2",
+					"locality_process_id = $FDB_INSTANCE_ID-2",
+					"locality_instance_id = $FDB_INSTANCE_ID",
+					"locality_machineid = $FDB_MACHINE_ID",
+					"locality_zoneid = $FDB_ZONE_ID",
+				}, "\n")))
+			})
+		})
+
 		Context("with the public IP from the pod", func() {
 			BeforeEach(func() {
 				source := fdbv1beta2.PublicIPSourcePod
@@ -3677,7 +3765,7 @@ func getConfigMapHash(cluster *fdbv1beta2.FoundationDBCluster, pClass fdbv1beta2
 		return "", err
 	}
 
-	serversPerPod, err := internal.GetStorageServersPerPodForPod(pod)
+	serversPerPod, err := internal.GetServersPerPodForPod(pod, pClass)
 	if err != nil {
 		return "", err
 	}

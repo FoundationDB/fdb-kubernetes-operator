@@ -307,6 +307,20 @@ func (fdbCluster *FdbCluster) GetProcessCount(targetRole fdbv1beta2.ProcessRole)
 	return pCounter
 }
 
+// GetProcessCountByProcessClass returns the number of processes based on process class
+func (fdbCluster *FdbCluster) GetProcessCountByProcessClass(pClass fdbv1beta2.ProcessClass) int {
+	pCounter := 0
+	status := fdbCluster.GetStatus()
+
+	for _, process := range status.Cluster.Processes {
+		if process.ProcessClass == pClass {
+			pCounter++
+		}
+	}
+
+	return pCounter
+}
+
 // HasTLSEnabled returns true if the cluster is running with TLS enabled.
 func (fdbCluster *FdbCluster) HasTLSEnabled() bool {
 	status := fdbCluster.GetStatus()
@@ -384,13 +398,17 @@ func (fdbCluster *FdbCluster) GetPodsWithRole(role fdbv1beta2.ProcessRole) []cor
 	var matches []corev1.Pod
 	for _, p := range pods.Items {
 		roles := roleMap[GetProcessGroupID(p)]
+		rolesAdded := map[string]fdbv1beta2.None{}
 		for _, r := range roles {
 			if r.Role == string(role) {
-				matches = append(matches, p)
+				_, ok := rolesAdded[r.Role]
+				if !ok {
+					rolesAdded[r.Role] = fdbv1beta2.None{}
+					matches = append(matches, p)
+				}
 			}
 		}
 	}
-
 	return matches
 }
 

@@ -263,6 +263,11 @@ func getProcessesReadyForRestart(logger logr.Logger, cluster *fdbv1beta2.Foundat
 		expectedProcesses += counts.Storage * (cluster.Spec.StorageServersPerPod - 1)
 	}
 
+	if cluster.Spec.LogServersPerPod > 1 {
+		expectedProcesses += counts.Log * (cluster.Spec.LogServersPerPod - 1)
+		expectedProcesses += counts.Transaction * (cluster.Spec.LogServersPerPod - 1)
+	}
+
 	if cluster.IsBeingUpgradedWithVersionIncompatibleVersion() && expectedProcesses != len(addresses) {
 		return nil, &requeue{
 			message:        fmt.Sprintf("expected %d processes, got %d processes ready to restart", expectedProcesses, len(addresses)),

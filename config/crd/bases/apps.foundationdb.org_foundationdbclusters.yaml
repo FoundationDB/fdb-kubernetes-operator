@@ -9966,6 +9966,10 @@ spec:
                       type: string
                     type: array
                 type: object
+              logServersPerDisk:
+                items:
+                  type: integer
+                type: array
               missingProcesses:
                 additionalProperties:
                   format: int64
@@ -10465,6 +10469,8 @@ spec:
                 type: object
               logGroup:
                 type: string
+              logServersPerPod:
+                type: integer
               mainContainer:
                 properties:
                   enableLivenessProbe:
@@ -14217,6 +14223,10 @@ spec:
                       type: string
                     type: array
                 type: object
+              logServersPerDisk:
+                items:
+                  type: integer
+                type: array
               maintenanceModeInfo:
                 properties:
                   processGroups:

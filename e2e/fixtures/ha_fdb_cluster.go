@@ -224,6 +224,7 @@ func (factory Factory) createHaFdbClusterSpec(
 		*databaseConfiguration,
 		// TODO(johscheuer): make this configurable.
 		1,
+		1,
 		mainContainerOverrides,
 		sidecarContainerOverrides,
 	)

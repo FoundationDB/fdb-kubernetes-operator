@@ -660,7 +660,7 @@ var _ = Describe("pod_models", func() {
 				})
 			})
 
-			When("running running a log with multiple storage servers per disk", func() {
+			When("creating a log with multiple storage servers per disk", func() {
 				BeforeEach(func() {
 					cluster.Spec.StorageServersPerPod = 2
 					spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassLog, 1)
@@ -707,6 +707,62 @@ var _ = Describe("pod_models", func() {
 							LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", cluster.Name)},
 							Items: []corev1.KeyToPath{
 								{Key: "fdbmonitor-conf-log-json", Path: "config.json"},
+								{Key: ClusterFileKey, Path: "fdb.cluster"},
+							},
+						}},
+					}))
+				})
+			})
+
+			When("running multiple log servers per disk", func() {
+				BeforeEach(func() {
+					cluster.Spec.LogServersPerPod = 2
+					spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassLog, 1)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("should pass the process count to the main container", func() {
+					mainContainer := spec.Containers[0]
+					Expect(mainContainer.Name).To(Equal(fdbv1beta2.MainContainerName))
+					Expect(mainContainer.Args).To(Equal([]string{
+						"--input-dir", "/var/dynamic-conf",
+						"--log-path", "/var/log/fdb-trace-logs/monitor.log",
+						"--process-count", "2",
+					}))
+
+					Expect(mainContainer.Env).To(Equal([]corev1.EnvVar{
+						{Name: "FDB_CLUSTER_FILE", Value: "/var/dynamic-conf/fdb.cluster"},
+						{Name: "LOG_SERVERS_PER_POD", Value: "2"},
+						{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
+							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
+						}},
+						{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
+							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
+						}},
+						{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+						}},
+						{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
+							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+						}},
+						{Name: "FDB_INSTANCE_ID", Value: "log-1"},
+						{Name: "FDB_IMAGE_TYPE", Value: "unified"},
+						{Name: "FDB_POD_NAME", ValueFrom: &corev1.EnvVarSource{
+							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+						}},
+						{Name: "FDB_POD_NAMESPACE", ValueFrom: &corev1.EnvVarSource{
+							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"},
+						}},
+					}))
+				})
+
+				It("mounts the multiple-storage config map", func() {
+					Expect(spec.Volumes[2]).To(Equal(corev1.Volume{
+						Name: "config-map",
+						VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
+							LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", cluster.Name)},
+							Items: []corev1.KeyToPath{
+								{Key: "fdbmonitor-conf-log-json-multiple", Path: "config.json"},
 								{Key: ClusterFileKey, Path: "fdb.cluster"},
 							},
 						}},
@@ -3332,7 +3388,7 @@ var _ = Describe("pod_models", func() {
 					},
 				}
 
-				storageServersPerPod, err := GetStorageServersPerPodForPod(pod)
+				storageServersPerPod, err := GetServersPerPodForPod(pod, fdbv1beta2.ProcessClassStorage)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(storageServersPerPod).To(Equal(1))
 			})
@@ -3353,7 +3409,7 @@ var _ = Describe("pod_models", func() {
 					},
 				}
 
-				storageServersPerPod, err := GetStorageServersPerPodForPod(pod)
+				storageServersPerPod, err := GetServersPerPodForPod(pod, fdbv1beta2.ProcessClassStorage)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(storageServersPerPod).To(Equal(2))
 			})
@@ -3369,7 +3425,7 @@ var _ = Describe("pod_models", func() {
 					},
 				}
 
-				storageServersPerPod, err := GetStorageServersPerPodForPod(pod)
+				storageServersPerPod, err := GetServersPerPodForPod(pod, fdbv1beta2.ProcessClassStorage)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(storageServersPerPod).To(Equal(1))
 			})
@@ -3377,7 +3433,7 @@ var _ = Describe("pod_models", func() {
 
 		Context("when pod is nil", func() {
 			It("should return 1", func() {
-				storageServersPerPod, err := GetStorageServersPerPodForPod(nil)
+				storageServersPerPod, err := GetServersPerPodForPod(nil, fdbv1beta2.ProcessClassStorage)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(storageServersPerPod).To(Equal(1))
 			})
@@ -3387,7 +3443,7 @@ var _ = Describe("pod_models", func() {
 			It("should return 1", func() {
 				pod := &corev1.Pod{}
 
-				storageServersPerPod, err := GetStorageServersPerPodForPod(pod)
+				storageServersPerPod, err := GetServersPerPodForPod(pod, fdbv1beta2.ProcessClassStorage)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(storageServersPerPod).To(Equal(1))
 			})
@@ -3399,7 +3455,7 @@ var _ = Describe("pod_models", func() {
 					Spec: corev1.PodSpec{},
 				}
 
-				storageServersPerPod, err := GetStorageServersPerPodForPod(pod)
+				storageServersPerPod, err := GetServersPerPodForPod(pod, fdbv1beta2.ProcessClassStorage)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(storageServersPerPod).To(Equal(1))
 			})

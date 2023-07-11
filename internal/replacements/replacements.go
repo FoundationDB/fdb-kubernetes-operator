@@ -172,19 +172,19 @@ func processGroupNeedsRemoval(cluster *fdbv1beta2.FoundationDBCluster, pod *core
 			"reason", fmt.Sprintf("publicIP source has changed from %s to %s", ipSource, cluster.GetPublicIPSource()))
 		return true, nil
 	}
+	serversPerPod, err := internal.GetServersPerPodForPod(pod, processGroupStatus.ProcessClass)
+	if err != nil {
+		return false, err
+	}
 
-	if processGroupStatus.ProcessClass == fdbv1beta2.ProcessClassStorage {
-		// Replace the process group if the storage servers differ
-		storageServersPerPod, err := internal.GetStorageServersPerPodForPod(pod)
-		if err != nil {
-			return false, err
-		}
-
-		if storageServersPerPod != cluster.GetStorageServersPerPod() {
-			logger.Info("Replace process group",
-				"reason", fmt.Sprintf("storageServersPerPod has changed from %d to %d", storageServersPerPod, cluster.GetStorageServersPerPod()))
-			return true, nil
-		}
+	desiredServersPerPod := cluster.GetDesiredServersPerPod(processGroupStatus.ProcessClass)
+	// Replace the process group if the expected servers differ from the desired servers
+	if serversPerPod != desiredServersPerPod {
+		logger.Info("Replace process group",
+			"serversPerPod", serversPerPod,
+			"desiredServersPerPod", desiredServersPerPod,
+			"reason", fmt.Sprintf("serversPerPod have changes from current: %d to desired: %d", serversPerPod, desiredServersPerPod))
+		return true, nil
 	}
 
 	expectedNodeSelector := cluster.GetProcessSettings(processGroupStatus.ProcessClass).PodTemplate.Spec.NodeSelector

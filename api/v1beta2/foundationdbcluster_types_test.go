@@ -28,12 +28,11 @@ import (
 
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
-
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("[api] FoundationDBCluster", func() {
@@ -3626,7 +3625,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				}
 
 				for _, val := range tc.ValuesToAdd {
-					status.AddStorageServerPerDisk(val)
+					status.AddServersPerDisk(val, ProcessClassStorage)
 				}
 
 				Expect(len(status.StorageServersPerDisk)).To(BeNumerically("==", tc.ExpectedLen))
@@ -3649,6 +3648,47 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					ValuesToAdd:                   []int{1, 2},
 					ExpectedLen:                   2,
 					ExpectedStorageServersPerDisk: []int{1, 2},
+				}),
+		)
+	})
+
+	When("adding LogServersPerDisk", func() {
+		type testCase struct {
+			ValuesToAdd               []int
+			ExpectedLen               int
+			ExpectedLogServersPerDisk []int
+		}
+
+		DescribeTable("should generate the status correctly",
+			func(tc testCase) {
+				status := FoundationDBClusterStatus{
+					LogServersPerDisk: []int{},
+				}
+
+				for _, val := range tc.ValuesToAdd {
+					status.AddServersPerDisk(val, ProcessClassLog)
+				}
+
+				Expect(len(status.LogServersPerDisk)).To(BeNumerically("==", tc.ExpectedLen))
+				Expect(status.LogServersPerDisk).To(Equal(tc.ExpectedLogServersPerDisk))
+			},
+			Entry("Add missing element",
+				testCase{
+					ValuesToAdd:               []int{1},
+					ExpectedLen:               1,
+					ExpectedLogServersPerDisk: []int{1},
+				}),
+			Entry("Duplicates should only inserted once",
+				testCase{
+					ValuesToAdd:               []int{1, 1},
+					ExpectedLen:               1,
+					ExpectedLogServersPerDisk: []int{1},
+				}),
+			Entry("Multiple elements should be added",
+				testCase{
+					ValuesToAdd:               []int{1, 2},
+					ExpectedLen:               2,
+					ExpectedLogServersPerDisk: []int{1, 2},
 				}),
 		)
 	})

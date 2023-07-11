@@ -38,6 +38,7 @@ func (factory *Factory) GenerateFDBClusterSpec(config *ClusterConfig) *fdbv1beta
 		factory.createProcesses(config),
 		config.CreateDatabaseConfiguration(),
 		config.StorageServerPerPod,
+		config.LogServersPerPod,
 		mainOverrides,
 		sidecarOverrides)
 }
@@ -49,6 +50,7 @@ func (factory *Factory) createFDBClusterSpec(
 	processes map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings,
 	databaseConfiguration fdbv1beta2.DatabaseConfiguration,
 	storageServersPerPod int,
+	logServersPerPod int,
 	mainContainerOverrides fdbv1beta2.ContainerOverrides,
 	sidecarContainerOverrides fdbv1beta2.ContainerOverrides,
 ) *fdbv1beta2.FoundationDBCluster {
@@ -63,6 +65,7 @@ func (factory *Factory) createFDBClusterSpec(
 			Processes:                     processes,
 			DatabaseConfiguration:         databaseConfiguration,
 			StorageServersPerPod:          storageServersPerPod,
+			LogServersPerPod:              logServersPerPod,
 			LogGroup:                      namespace + "-" + clusterName,
 			MainContainer:                 mainContainerOverrides,
 			SidecarContainer:              sidecarContainerOverrides,
