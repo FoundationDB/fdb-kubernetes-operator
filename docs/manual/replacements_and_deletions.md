@@ -49,7 +49,10 @@ Process groups that are set into the crash loop state with the `Buggify` setting
 If the `cluster.Spec.Buggify.EmptyMonitorConf` setting is active the operator won't replace any process groups.
 
 ## Automatic Replacements for ProcessGroups on Tainted Nodes
-The operator has an option to automatically replace ProcessGroups where the associated Pod is running on a tainted Node. This feature is disabled by default, but can be enabled by setting `automationOptions.replacements.taintReplacementOptions`.
+
+The operator has an option to automatically replace ProcessGroups where the associated Pod is running on a tainted Node.
+This feature is disabled by default, but can be enabled by setting `automationOptions.replacements.taintReplacementOptions`.
+If you want to enable this feature you should set the `--enable-node-index` command line flag to allow the operator to access the nodes with an index.
 
 We use three examples below to illustrate how to set up the feature.
 
@@ -73,6 +76,7 @@ If there are multiple Pods on tainted Nodes, the operator will simultaneously re
 ### Example Setup 2
 
 We can enable the taint feature on all taint keys except one taint key with the following  configuration:
+
 ```yaml
 spec:
     automationOptions:

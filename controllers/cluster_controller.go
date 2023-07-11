@@ -223,7 +223,7 @@ func runClusterSubReconciler(ctx context.Context, logger logr.Logger, subReconci
 }
 
 // SetupWithManager prepares a reconciler for use.
-func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager, maxConcurrentReconciles int, selector metav1.LabelSelector, watchedObjects ...client.Object) error {
+func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager, maxConcurrentReconciles int, enableNodeIndex bool, selector metav1.LabelSelector, watchedObjects ...client.Object) error {
 	err := mgr.GetFieldIndexer().IndexField(context.Background(), &corev1.Pod{}, "metadata.name", func(o client.Object) []string {
 		return []string{o.(*corev1.Pod).Name}
 	})
@@ -231,11 +231,13 @@ func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager, maxCo
 		return err
 	}
 
-	err = mgr.GetFieldIndexer().IndexField(context.Background(), &corev1.Node{}, "metadata.name", func(o client.Object) []string {
-		return []string{o.(*corev1.Node).Name}
-	})
-	if err != nil {
-		return err
+	if enableNodeIndex {
+		err = mgr.GetFieldIndexer().IndexField(context.Background(), &corev1.Node{}, "metadata.name", func(o client.Object) []string {
+			return []string{o.(*corev1.Node).Name}
+		})
+		if err != nil {
+			return err
+		}
 	}
 
 	err = mgr.GetFieldIndexer().IndexField(context.Background(), &corev1.Service{}, "metadata.name", func(o client.Object) []string {
