@@ -58,6 +58,8 @@ var _ = Describe("replace_failed_process_groups", func() {
 		generation, err := reloadCluster(cluster)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(generation).To(Equal(int64(1)))
+
+		Expect(internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})).NotTo(HaveOccurred())
 	})
 
 	JustBeforeEach(func() {

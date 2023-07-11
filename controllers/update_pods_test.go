@@ -306,6 +306,7 @@ var _ = Describe("update_pods", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result.Requeue).To(BeFalse())
 			Expect(k8sClient.Get(context.TODO(), ctrlClient.ObjectKeyFromObject(cluster), cluster)).NotTo(HaveOccurred())
+			Expect(internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})).NotTo(HaveOccurred())
 		})
 
 		JustBeforeEach(func() {

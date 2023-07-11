@@ -59,10 +59,7 @@ var _ = Describe("add_process_groups", func() {
 			Expect(requeue.curError).NotTo(HaveOccurred())
 		}
 
-		_, err = reloadCluster(cluster)
-		Expect(err).NotTo(HaveOccurred())
 		newProcessCounts = fdbv1beta2.CreateProcessCountsFromProcessGroupStatus(cluster.Status.ProcessGroups, true)
-
 	})
 
 	Context("with a reconciled cluster", func() {

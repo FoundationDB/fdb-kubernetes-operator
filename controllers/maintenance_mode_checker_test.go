@@ -53,16 +53,21 @@ var _ = Describe("maintenance_mode_checker", func() {
 		generation, err := reloadCluster(cluster)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(generation).To(Equal(int64(1)))
+
+		Expect(internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})).NotTo(HaveOccurred())
 	})
 
 	JustBeforeEach(func() {
 		requeue = maintenanceModeChecker{}.reconcile(context.TODO(), clusterReconciler, cluster, nil, globalControllerLogger)
 		Expect(err).NotTo(HaveOccurred())
-		_, err = reloadCluster(cluster)
-		Expect(err).NotTo(HaveOccurred())
 	})
 
 	Context("maintenance mode is off", func() {
+		BeforeEach(func() {
+			cluster.Spec.AutomationOptions.MaintenanceModeOptions.UseMaintenanceModeChecker = pointer.Bool(false)
+			Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
+		})
+
 		When("status maintenance is empty", func() {
 			It("should not be requeued", func() {
 				Expect(requeue).To(BeNil())
@@ -77,7 +82,7 @@ var _ = Describe("maintenance_mode_checker", func() {
 
 			It("should not be requeued", func() {
 				Expect(requeue).To(BeNil())
-				Expect(cluster.Status.MaintenanceModeInfo).To(Equal(fdbv1beta2.MaintenanceModeInfo{}))
+				Expect(cluster.Status.MaintenanceModeInfo).To(Equal(fdbv1beta2.MaintenanceModeInfo{ZoneID: "storage-4"}))
 			})
 		})
 	})
