@@ -156,19 +156,22 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 	}
 
 	for _, pod := range pods.Items {
-		podClient, _ := mock.NewMockFdbPodClient(client.Cluster, &pod)
+		processClass, err := podmanager.GetProcessClass(client.Cluster, &pod)
+		if err != nil {
+			return nil, err
+		}
 
-		processCount, err := internal.GetStorageServersPerPodForPod(&pod)
+		processCount, err := internal.GetServersPerPodForPod(&pod, processClass)
 		if err != nil {
 			return nil, err
 		}
 
 		processGroupID := podmanager.GetProcessGroupID(client.Cluster, &pod)
-
 		if _, ok := client.missingProcessGroups[processGroupID]; ok {
 			continue
 		}
 
+		podClient, _ := mock.NewMockFdbPodClient(client.Cluster, &pod)
 		subs, err := podClient.GetVariableSubstitutions()
 		if err != nil {
 			return nil, err

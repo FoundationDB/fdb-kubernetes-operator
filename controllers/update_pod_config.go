@@ -71,7 +71,7 @@ func (updatePodConfig) reconcile(ctx context.Context, r *FoundationDBClusterReco
 			continue
 		}
 
-		serverPerPod, err := internal.GetStorageServersPerPodForPod(pod)
+		serverPerPod, err := internal.GetServersPerPodForPod(pod, processGroup.ProcessClass)
 		if err != nil {
 			curLogger.Error(err, "Error when receiving storage server per Pod")
 			errs = append(errs, err)

@@ -504,6 +504,11 @@ func (fdbCluster *FdbCluster) GetStoragePods() *corev1.PodList {
 	return fdbCluster.getPodsByProcessClass(fdbv1beta2.ProcessClassStorage)
 }
 
+// GetTransactionPods returns all Pods of this cluster that have the process class transaction.
+func (fdbCluster *FdbCluster) GetTransactionPods() *corev1.PodList {
+	return fdbCluster.getPodsByProcessClass(fdbv1beta2.ProcessClassTransaction)
+}
+
 // GetPod returns the Pod with the given name that runs in the same namespace as the FoundationDBCluster.
 func (fdbCluster *FdbCluster) GetPod(name string) *corev1.Pod {
 	pod := &corev1.Pod{}
@@ -550,6 +555,25 @@ func (fdbCluster *FdbCluster) GetVolumeClaimsForProcesses(
 	return volumeClaimList
 }
 
+// GetLogServersPerPod returns the current expected Log server per pod.
+func (fdbCluster *FdbCluster) GetLogServersPerPod() int {
+	return fdbCluster.cluster.GetLogServersPerPod()
+}
+
+// SetLogServersPerPod set the LogServersPerPod field in the cluster spec.
+func (fdbCluster *FdbCluster) SetLogServersPerPod(
+	serverPerPod int,
+	waitForReconcile bool,
+) error {
+	fdbCluster.cluster.Spec.LogServersPerPod = serverPerPod
+	fdbCluster.UpdateClusterSpec()
+
+	if !waitForReconcile {
+		return nil
+	}
+	return fdbCluster.WaitForReconciliation()
+}
+
 // GetStorageServerPerPod returns the current expected storage server per pod.
 func (fdbCluster *FdbCluster) GetStorageServerPerPod() int {
 	return fdbCluster.cluster.GetStorageServersPerPod()
@@ -571,6 +595,23 @@ func (fdbCluster *FdbCluster) setStorageServerPerPod(
 // SetStorageServerPerPod set the SetStorageServerPerPod field in the cluster spec.
 func (fdbCluster *FdbCluster) SetStorageServerPerPod(serverPerPod int) error {
 	return fdbCluster.setStorageServerPerPod(serverPerPod, true)
+}
+
+// SetTransactionServerPerPod set the LogServersPerPod field in the cluster spec and changes log Pods to transaction Pods.
+func (fdbCluster *FdbCluster) SetTransactionServerPerPod(
+	serverPerPod int,
+	processCount int,
+	waitForReconcile bool,
+) error {
+	fdbCluster.cluster.Spec.LogServersPerPod = serverPerPod
+	fdbCluster.cluster.Spec.ProcessCounts.Transaction = processCount
+	fdbCluster.cluster.Spec.ProcessCounts.Log = 0
+	fdbCluster.UpdateClusterSpec()
+
+	if !waitForReconcile {
+		return nil
+	}
+	return fdbCluster.WaitForReconciliation()
 }
 
 // ReplacePod replaces the provided Pod if it's part of the FoundationDBCluster.

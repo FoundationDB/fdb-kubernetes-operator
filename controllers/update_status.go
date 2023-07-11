@@ -58,6 +58,7 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 
 	// Initialize with the current desired storage servers per Pod
 	clusterStatus.StorageServersPerDisk = []int{cluster.GetStorageServersPerPod()}
+	clusterStatus.LogServersPerDisk = []int{cluster.GetLogServersPerPod()}
 	clusterStatus.ImageTypes = []fdbv1beta2.ImageType{fdbv1beta2.ImageType(internal.GetDesiredImageType(cluster))}
 
 	processMap := make(map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo)
@@ -234,6 +235,7 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 	// Sort slices that are assembled based on pods to prevent a reordering from
 	// issuing a new reconcile loop.
 	sort.Ints(clusterStatus.StorageServersPerDisk)
+	sort.Ints(clusterStatus.LogServersPerDisk)
 	sort.Slice(clusterStatus.ImageTypes, func(i int, j int) bool {
 		return string(clusterStatus.ImageTypes[i]) < string(clusterStatus.ImageTypes[j])
 	})
@@ -385,7 +387,6 @@ func checkAndSetProcessStatus(logger logr.Logger, r *FoundationDBClusterReconcil
 
 // Validate and set progressGroup's status
 func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBClusterStatus, processMap map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo, configMap *corev1.ConfigMap, pvcs *corev1.PersistentVolumeClaimList, logger logr.Logger) ([]*fdbv1beta2.ProcessGroupStatus, error) {
-	var err error
 	processGroups := status.ProcessGroups
 	processGroupsWithoutExclusion := make(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None, len(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion))
 
@@ -430,7 +431,6 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 		}
 
 		processGroup.AddAddresses(podmanager.GetPublicIPs(pod, logger), processGroup.IsMarkedForRemoval() || !status.Health.Available)
-		processCount := 1
 
 		// In this case the Pod has a DeletionTimestamp and should be deleted.
 		if !pod.ObjectMeta.DeletionTimestamp.IsZero() {
@@ -453,14 +453,11 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 
 		// Even the process group will be removed we need to keep the config around.
 		// Set the processCount for the process group specific storage servers per pod
-		if processGroup.ProcessClass == fdbv1beta2.ProcessClassStorage {
-			processCount, err = internal.GetStorageServersPerPodForPod(pod)
-			if err != nil {
-				return processGroups, err
-			}
-
-			status.AddStorageServerPerDisk(processCount)
+		processCount, err := internal.GetServersPerPodForPod(pod, processGroup.ProcessClass)
+		if err != nil {
+			return processGroups, err
 		}
+		status.AddServersPerDisk(processCount, processGroup.ProcessClass)
 
 		imageType := internal.GetImageType(pod)
 		imageTypeString := fdbv1beta2.ImageType(imageType)

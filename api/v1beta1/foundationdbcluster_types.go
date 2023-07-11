@@ -452,6 +452,10 @@ type FoundationDBClusterStatus struct {
 	// If there are more than one value in the slice the reconcile phase is not finished.
 	StorageServersPerDisk []int `json:"storageServersPerDisk,omitempty"`
 
+	// LogServersPerDisk defines the LogServersPerDisk observed in the cluster.
+	// If there are more than one value in the slice the reconcile phase is not finished.
+	LogServersPerDisk []int `json:"logServersPerDisk,omitempty"`
+
 	// ImageTypes defines the kinds of images that are in use in the cluster.
 	// If there is more than one value in the slice the reconcile phase is not
 	// finished.

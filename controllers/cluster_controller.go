@@ -293,18 +293,14 @@ func (r *FoundationDBClusterReconciler) updatePodDynamicConf(logger logr.Logger,
 		return false, nil
 	}
 
-	serversPerPod := 1
-
 	processClass, err := podmanager.GetProcessClass(cluster, pod)
 	if err != nil {
 		return false, err
 	}
 
-	if processClass == fdbv1beta2.ProcessClassStorage {
-		serversPerPod, err = internal.GetStorageServersPerPodForPod(pod)
-		if err != nil {
-			return false, err
-		}
+	serversPerPod, err := internal.GetServersPerPodForPod(pod, processClass)
+	if err != nil {
+		return false, err
 	}
 
 	var expectedConf string

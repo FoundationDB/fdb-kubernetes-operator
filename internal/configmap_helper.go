@@ -66,59 +66,48 @@ func GetConfigMap(cluster *fdbv1beta2.FoundationDBCluster) (*corev1.ConfigMap, e
 		imageTypes[FDBImageType(imageType)] = fdbv1beta2.None{}
 	}
 
-	storageServersPerDisk := cluster.Status.StorageServersPerDisk
-	// If the status field is not initialized we fallback to only the specified count
-	// in the cluster spec. This should only happen in the initial phase of a new cluster.
-	if len(cluster.Status.StorageServersPerDisk) == 0 {
-		storageServersPerDisk = []int{cluster.GetStorageServersPerPod()}
-	}
-
 	for processClass, count := range desiredCounts {
 		if count == 0 {
 			continue
 		}
 
-		if _, useUnifiedImage := imageTypes[FDBImageTypeUnified]; useUnifiedImage {
-			if processClass == fdbv1beta2.ProcessClassStorage {
-				for _, serversPerPod := range storageServersPerDisk {
-					config, err := GetMonitorProcessConfiguration(cluster, processClass, serversPerPod, FDBImageTypeUnified, nil)
-					if err != nil {
-						return nil, err
-					}
-					jsonData, err := json.Marshal(config)
-					if err != nil {
-						return nil, err
-					}
-					filename := GetConfigMapMonitorConfEntry(processClass, FDBImageTypeUnified, serversPerPod)
-					data[filename] = string(jsonData)
-				}
+		serversPerPodSlice := []int{1}
+		if processClass == fdbv1beta2.ProcessClassStorage {
+			// If the status field is not initialized we fallback to only the specified count
+			// in the cluster spec. This should only happen in the initial phase of a new cluster.
+			if len(cluster.Status.StorageServersPerDisk) == 0 {
+				serversPerPodSlice = []int{cluster.GetDesiredServersPerPod(processClass)}
 			} else {
-				config, err := GetMonitorProcessConfiguration(cluster, processClass, 1, FDBImageTypeUnified, nil)
+				serversPerPodSlice = cluster.Status.StorageServersPerDisk
+			}
+		}
+
+		if processClass.SupportsMultipleLogServers() {
+			// If the status field is not initialized we fallback to only the specified count
+			// in the cluster spec. This should only happen in the initial phase of a new cluster.
+			if len(cluster.Status.LogServersPerDisk) == 0 {
+				serversPerPodSlice = []int{cluster.GetDesiredServersPerPod(processClass)}
+			} else {
+				serversPerPodSlice = cluster.Status.LogServersPerDisk
+			}
+		}
+
+		if _, useUnifiedImage := imageTypes[FDBImageTypeUnified]; useUnifiedImage {
+			for _, serversPerPod := range serversPerPodSlice {
+				filename, jsonData, err := getDataForMonitorConf(cluster, FDBImageTypeUnified, processClass, serversPerPod)
 				if err != nil {
 					return nil, err
 				}
-				jsonData, err := json.Marshal(config)
-				if err != nil {
-					return nil, err
-				}
-				data[fmt.Sprintf("fdbmonitor-conf-%s-json", processClass)] = string(jsonData)
+				data[filename] = string(jsonData)
 			}
 		}
 
 		if _, useSplitImage := imageTypes[FDBImageTypeSplit]; useSplitImage {
-			if processClass == fdbv1beta2.ProcessClassStorage {
-				for _, serversPerPod := range storageServersPerDisk {
-					err := setMonitorConfForFilename(cluster, data, GetConfigMapMonitorConfEntry(processClass, FDBImageTypeSplit, serversPerPod), connectionString, processClass, serversPerPod)
-					if err != nil {
-						return nil, err
-					}
+			for _, serversPerPod := range serversPerPodSlice {
+				err := setMonitorConfForFilename(cluster, data, GetConfigMapMonitorConfEntry(processClass, FDBImageTypeSplit, serversPerPod), connectionString, processClass, serversPerPod)
+				if err != nil {
+					return nil, err
 				}
-				continue
-			}
-
-			err := setMonitorConfForFilename(cluster, data, GetConfigMapMonitorConfEntry(processClass, FDBImageTypeSplit, 1), connectionString, processClass, 1)
-			if err != nil {
-				return nil, err
 			}
 		}
 	}
@@ -155,6 +144,19 @@ func getConfigMapMetadata(cluster *fdbv1beta2.FoundationDBCluster) metav1.Object
 	return metadata
 }
 
+func getDataForMonitorConf(cluster *fdbv1beta2.FoundationDBCluster, imageType FDBImageType, pClass fdbv1beta2.ProcessClass, serversPerPod int) (string, []byte, error) {
+	config, err := GetMonitorProcessConfiguration(cluster, pClass, serversPerPod, imageType, nil)
+	if err != nil {
+		return "", nil, err
+	}
+	jsonData, err := json.Marshal(config)
+	if err != nil {
+		return "", nil, err
+	}
+	filename := GetConfigMapMonitorConfEntry(pClass, imageType, serversPerPod)
+	return filename, jsonData, nil
+}
+
 func setMonitorConfForFilename(cluster *fdbv1beta2.FoundationDBCluster, data map[string]string, filename string, connectionString string, processClass fdbv1beta2.ProcessClass, serversPerPod int) error {
 	if connectionString == "" {
 		data[filename] = ""
@@ -172,17 +174,14 @@ func setMonitorConfForFilename(cluster *fdbv1beta2.FoundationDBCluster, data map
 // GetConfigMapMonitorConfEntry returns the specific key for the monitor conf in the ConfigMap
 func GetConfigMapMonitorConfEntry(pClass fdbv1beta2.ProcessClass, imageType FDBImageType, serversPerPod int) string {
 	if imageType == FDBImageTypeUnified {
-		if serversPerPod > 1 && pClass == fdbv1beta2.ProcessClassStorage {
+		if serversPerPod > 1 {
 			return fmt.Sprintf("fdbmonitor-conf-%s-json-multiple", pClass)
 		}
-
 		return fmt.Sprintf("fdbmonitor-conf-%s-json", pClass)
 	}
-
-	if serversPerPod > 1 && pClass == fdbv1beta2.ProcessClassStorage {
+	if serversPerPod > 1 {
 		return fmt.Sprintf("fdbmonitor-conf-%s-density-%d", pClass, serversPerPod)
 	}
-
 	return fmt.Sprintf("fdbmonitor-conf-%s", pClass)
 }
 

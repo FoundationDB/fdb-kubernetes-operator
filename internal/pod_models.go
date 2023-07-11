@@ -200,10 +200,11 @@ func configureContainersForUnifiedImages(cluster *fdbv1beta2.FoundationDBCluster
 		"--log-path", "/var/log/fdb-trace-logs/monitor.log",
 	}
 
-	if cluster.Spec.StorageServersPerPod > 1 && processClass == fdbv1beta2.ProcessClassStorage {
-		storageServers := strconv.Itoa(cluster.Spec.StorageServersPerPod)
-		mainContainer.Args = append(mainContainer.Args, "--process-count", storageServers)
-		mainContainer.Env = append(mainContainer.Env, corev1.EnvVar{Name: "STORAGE_SERVERS_PER_POD", Value: storageServers})
+	serversPerPod := cluster.GetDesiredServersPerPod(processClass)
+	if serversPerPod > 1 {
+		desiredServersPerPod := strconv.Itoa(serversPerPod)
+		mainContainer.Args = append(mainContainer.Args, "--process-count", desiredServersPerPod)
+		mainContainer.Env = append(mainContainer.Env, corev1.EnvVar{Name: processClass.GetServersPerPodEnvName(), Value: desiredServersPerPod})
 	}
 
 	mainContainer.VolumeMounts = append(mainContainer.VolumeMounts,
@@ -308,7 +309,7 @@ func setAffinityForFaultDomain(cluster *fdbv1beta2.FoundationDBCluster, podSpec 
 
 func configureVolumesForContainers(cluster *fdbv1beta2.FoundationDBCluster, podSpec *corev1.PodSpec, volumeClaimTemplate *corev1.PersistentVolumeClaim, podName string, processClass fdbv1beta2.ProcessClass) {
 	useUnifiedImages := pointer.BoolDeref(cluster.Spec.UseUnifiedImage, false)
-	monitorConfKey := GetConfigMapMonitorConfEntry(processClass, GetDesiredImageType(cluster), cluster.GetStorageServersPerPod())
+	monitorConfKey := GetConfigMapMonitorConfEntry(processClass, GetDesiredImageType(cluster), cluster.GetDesiredServersPerPod(processClass))
 
 	var monitorConfFile string
 	if useUnifiedImages {
@@ -476,8 +477,9 @@ func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 			return nil, err
 		}
 
-		if processClass == fdbv1beta2.ProcessClassStorage && cluster.GetStorageServersPerPod() > 1 {
-			sidecarContainer.Env = append(sidecarContainer.Env, corev1.EnvVar{Name: "STORAGE_SERVERS_PER_POD", Value: fmt.Sprintf("%d", cluster.GetStorageServersPerPod())})
+		serversPerPod := cluster.GetDesiredServersPerPod(processClass)
+		if serversPerPod > 1 {
+			sidecarContainer.Env = append(sidecarContainer.Env, corev1.EnvVar{Name: processClass.GetServersPerPodEnvName(), Value: strconv.Itoa(serversPerPod)})
 		}
 	}
 
@@ -973,23 +975,23 @@ func GetBackupDeployment(backup *fdbv1beta2.FoundationDBBackup) (*appsv1.Deploym
 	return deployment, nil
 }
 
-// GetStorageServersPerPodForPod returns the value of STORAGE_SERVERS_PER_POD from the sidecar or 1
-func GetStorageServersPerPodForPod(pod *corev1.Pod) (int, error) {
+// GetServersPerPodForPod returns the count of servers per Pod based on the processClass from the sidecar or 1
+func GetServersPerPodForPod(pod *corev1.Pod, pClass fdbv1beta2.ProcessClass) (int, error) {
 	// If not specified we will default to 1
-	storageServersPerPod := 1
+	serversPerPod := 1
 	if pod == nil {
-		return storageServersPerPod, nil
+		return serversPerPod, nil
 	}
 
 	for _, container := range pod.Spec.Containers {
 		for _, env := range container.Env {
-			if env.Name == "STORAGE_SERVERS_PER_POD" {
+			if env.Name == pClass.GetServersPerPodEnvName() {
 				return strconv.Atoi(env.Value)
 			}
 		}
 	}
 
-	return storageServersPerPod, nil
+	return serversPerPod, nil
 }
 
 // GetPodMetadata returns the metadata for a specific Pod

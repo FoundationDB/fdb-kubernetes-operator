@@ -79,6 +79,8 @@ type ClusterConfig struct {
 	DisksPerMachine int
 	// StorageServerPerPod defines the value that is set in the FoundationDBClusterSpec for this setting.
 	StorageServerPerPod int
+	// LogServersPerPod defines the value that is set in the FoundationDBClusterSpec for this setting.
+	LogServersPerPod int
 	// VolumeSize the size of the volumes that should be created for stateful Pods.
 	VolumeSize string
 	// Namespace to create the cluster in, if empty will use a randomly generated namespace. The setup won't create the
@@ -201,6 +203,11 @@ func (config *ClusterConfig) generatePodResources(
 	if processClass == fdbv1beta2.ProcessClassStorage && config.StorageServerPerPod > 1 {
 		cpu *= config.StorageServerPerPod
 		memory *= config.StorageServerPerPod
+	}
+
+	if processClass == fdbv1beta2.ProcessClassLog && config.LogServersPerPod > 1 {
+		cpu *= config.LogServersPerPod
+		memory *= config.LogServersPerPod
 	}
 
 	return corev1.ResourceList{

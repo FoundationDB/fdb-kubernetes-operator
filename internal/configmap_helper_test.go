@@ -182,6 +182,54 @@ var _ = Describe("configmap_helper", func() {
 			})
 		})
 
+		Context("with multiple log servers per disk", func() {
+			BeforeEach(func() {
+				cluster.Status.LogServersPerDisk = []int{1, 2}
+			})
+
+			When("using the split image", func() {
+				BeforeEach(func() {
+					cluster.Status.ImageTypes = []fdbv1beta2.ImageType{"split"}
+				})
+				It("includes the data for both configurations", func() {
+					expectedConf, err := GetMonitorConf(cluster, fdbv1beta2.ProcessClassLog, nil, 1)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(configMap.Data["fdbmonitor-conf-log"]).To(Equal(expectedConf))
+
+					expectedConf, err = GetMonitorConf(cluster, fdbv1beta2.ProcessClassLog, nil, 2)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(configMap.Data["fdbmonitor-conf-log-density-2"]).To(Equal(expectedConf))
+				})
+			})
+
+			When("using the unified image", func() {
+				BeforeEach(func() {
+					cluster.Status.ImageTypes = []fdbv1beta2.ImageType{"unified"}
+				})
+
+				It("includes the data for both configurations", func() {
+					jsonData, present := configMap.Data["fdbmonitor-conf-log-json"]
+					Expect(present).To(BeTrue())
+					config := monitorapi.ProcessConfiguration{}
+					err = json.Unmarshal([]byte(jsonData), &config)
+					Expect(err).NotTo(HaveOccurred())
+					expectedConfig, err := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassLog, 1, FDBImageTypeUnified, nil)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(config).To(Equal(expectedConfig))
+
+					jsonData, present = configMap.Data["fdbmonitor-conf-log-json-multiple"]
+					Expect(present).To(BeTrue())
+					config = monitorapi.ProcessConfiguration{}
+					err = json.Unmarshal([]byte(jsonData), &config)
+					Expect(err).NotTo(HaveOccurred())
+					expectedConfig, err = GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassLog, 2, FDBImageTypeUnified, nil)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(config).To(Equal(expectedConfig))
+				})
+
+			})
+		})
+
 		Context("with custom resource labels", func() {
 			BeforeEach(func() {
 				cluster.Spec.LabelConfig = fdbv1beta2.LabelConfig{
