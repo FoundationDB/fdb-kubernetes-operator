@@ -24,6 +24,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/client-go/util/retry"
 	"regexp"
 	"time"
 
@@ -171,6 +173,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 	}
 
 	originalGeneration := cluster.ObjectMeta.Generation
+	originalStatus := cluster.Status.DeepCopy()
 	normalizedSpec := cluster.Spec.DeepCopy()
 	delayedRequeue := false
 
@@ -193,7 +196,19 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 			continue
 		}
 
+		err = r.updateClusterStatusIfNeeded(ctx, cluster, originalStatus)
+		if err != nil {
+			clusterLog.Error(err, "could not update cluster status")
+			return ctrl.Result{Requeue: true}, err
+		}
+
 		return processRequeue(requeue, subReconciler, cluster, r.Recorder, clusterLog)
+	}
+
+	err = r.updateClusterStatusIfNeeded(ctx, cluster, originalStatus)
+	if err != nil {
+		clusterLog.Error(err, "could not update cluster status")
+		return ctrl.Result{Requeue: true}, err
 	}
 
 	if cluster.Status.Generations.Reconciled < originalGeneration || delayedRequeue {
@@ -208,6 +223,18 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 	r.Recorder.Event(cluster, corev1.EventTypeNormal, "ReconciliationComplete", fmt.Sprintf("Reconciled generation %d", cluster.Status.Generations.Reconciled))
 
 	return ctrl.Result{}, nil
+}
+
+// updateClusterStatusIfNeeded will update the cluster status if any changes are detected, otherwise this method will be a no-op.
+func (r *FoundationDBClusterReconciler) updateClusterStatusIfNeeded(ctx context.Context, cluster *fdbv1beta2.FoundationDBCluster, originalStatus *fdbv1beta2.FoundationDBClusterStatus) error {
+	// See: https://github.com/kubernetes-sigs/kubebuilder/issues/592
+	// If we use the default reflect.DeepEqual method it will be recreating the
+	// clusterStatus multiple times because the pointers are different.
+	if !equality.Semantic.DeepEqual(cluster.Status, *originalStatus) {
+		return r.updateOrApply(ctx, cluster)
+	}
+
+	return nil
 }
 
 // runClusterSubReconciler will start the subReconciler and will log the duration of the subReconciler.
@@ -440,7 +467,29 @@ func (r *FoundationDBClusterReconciler) updateOrApply(ctx context.Context, clust
 		return r.Status().Patch(ctx, patch, client.Apply, client.FieldOwner("fdb-operator")) //, client.ForceOwnership)
 	}
 
-	return r.Status().Update(ctx, cluster)
+	// There could be a case where someone/something updates the cluster spec, which results in a new resource version.
+	// In this case we have to fetch the current cluster spec again and update the status with the current computed status.
+	// Since the operator is the only application that should be updating the status of the resource it should be safe to
+	// just overwrite the fetched status.
+	status := cluster.Status.DeepCopy()
+	currentCluster := &fdbv1beta2.FoundationDBCluster{}
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		err := r.Get(ctx, client.ObjectKeyFromObject(cluster), currentCluster)
+		if err != nil {
+			return err
+		}
+
+		// Update the status here.
+		currentCluster.Status = *status
+		return r.Status().Update(ctx, currentCluster)
+	})
+
+	if err != nil {
+		return err
+	}
+	cluster = currentCluster
+
+	return nil
 }
 
 // getStatusFromClusterOrDummyStatus will fetch the machine-readable status from the FoundationDBCluster if the cluster is configured. If not a default status is returned indicating, that

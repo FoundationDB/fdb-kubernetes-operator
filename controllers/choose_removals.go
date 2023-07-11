@@ -123,10 +123,6 @@ func (c chooseRemovals) reconcile(ctx context.Context, r *FoundationDBClusterRec
 				processGroup.MarkForRemoval()
 			}
 		}
-		err := r.updateOrApply(ctx, cluster)
-		if err != nil {
-			return &requeue{curError: err}
-		}
 	}
 
 	return nil

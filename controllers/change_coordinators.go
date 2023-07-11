@@ -100,10 +100,6 @@ func (c changeCoordinators) reconcile(ctx context.Context, r *FoundationDBCluste
 		return &requeue{curError: err, delayedRequeue: true}
 	}
 	cluster.Status.ConnectionString = connectionString
-	err = r.updateOrApply(ctx, cluster)
-	if err != nil {
-		return &requeue{curError: err, delayedRequeue: true}
-	}
 
 	return nil
 }

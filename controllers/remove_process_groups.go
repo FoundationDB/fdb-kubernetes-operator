@@ -64,21 +64,13 @@ func (u removeProcessGroups) reconcile(ctx context.Context, r *FoundationDBClust
 		return &requeue{curError: err}
 	}
 
-	allExcluded, newExclusions, processGroupsToRemove := r.getProcessGroupsToRemove(logger, cluster, remainingMap)
+	allExcluded, _, processGroupsToRemove := r.getProcessGroupsToRemove(logger, cluster, remainingMap)
 	// If no process groups are marked to remove we have to check if all process groups are excluded.
 	if len(processGroupsToRemove) == 0 {
 		if !allExcluded {
 			return &requeue{message: "Reconciliation needs to exclude more processes"}
 		}
 		return nil
-	}
-
-	// Update the cluster to reflect the new exclusions in our status
-	if newExclusions {
-		err = r.updateOrApply(ctx, cluster)
-		if err != nil {
-			return &requeue{curError: err}
-		}
 	}
 
 	// Ensure we only remove process groups that are not blocked to be removed by the buggify config.
@@ -244,7 +236,7 @@ func confirmRemoval(ctx context.Context, logger logr.Logger, r *FoundationDBClus
 	return true, canBeIncluded, nil
 }
 
-func includeProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, removedProcessGroups map[fdbv1beta2.ProcessGroupID]bool) error {
+func includeProcessGroup(_ context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, removedProcessGroups map[fdbv1beta2.ProcessGroupID]bool) error {
 	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
 	if err != nil {
 		return err
@@ -256,11 +248,6 @@ func includeProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, 
 		r.Recorder.Event(cluster, corev1.EventTypeNormal, "IncludingProcesses", fmt.Sprintf("Including removed processes: %v", fdbProcessesToInclude))
 
 		err = adminClient.IncludeProcesses(fdbProcessesToInclude)
-		if err != nil {
-			return err
-		}
-
-		err := r.updateOrApply(ctx, cluster)
 		if err != nil {
 			return err
 		}

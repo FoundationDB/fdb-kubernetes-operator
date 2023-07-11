@@ -2962,6 +2962,7 @@ var _ = Describe("cluster_controller", func() {
 						err := k8sClient.Update(context.TODO(), cluster)
 						Expect(err).NotTo(HaveOccurred())
 					})
+
 					It("generations are matching", func() {
 						generations, err := reloadClusterGenerations(cluster)
 						Expect(err).NotTo(HaveOccurred())
@@ -2975,12 +2976,14 @@ var _ = Describe("cluster_controller", func() {
 						err := k8sClient.Update(context.TODO(), cluster)
 						Expect(err).NotTo(HaveOccurred())
 					})
+
 					It("generations are matching", func() {
 						generations, err := reloadClusterGenerations(cluster)
 						Expect(err).NotTo(HaveOccurred())
 						Expect(generations.Reconciled).To(Equal(cluster.ObjectMeta.Generation))
 					})
 				})
+
 				When("using 7.0.0", func() {
 					BeforeEach(func() {
 						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineRedwood1Experimental
@@ -2994,6 +2997,7 @@ var _ = Describe("cluster_controller", func() {
 						Expect(generations.Reconciled).To(Equal(cluster.ObjectMeta.Generation))
 					})
 				})
+
 				When("using 6.3.24", func() {
 					BeforeEach(func() {
 						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineRedwood1Experimental
@@ -3009,7 +3013,6 @@ var _ = Describe("cluster_controller", func() {
 					})
 				})
 			})
-
 		})
 
 		When("When a process have an incorrect commandline", func() {

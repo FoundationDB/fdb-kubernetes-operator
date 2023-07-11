@@ -64,7 +64,6 @@ func (a addProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterR
 		}
 	}
 
-	hasNewProcessGroups := false
 	for _, processClass := range fdbv1beta2.ProcessClasses {
 		desiredCount := desiredCounts[processClass]
 		if desiredCount < 0 {
@@ -95,14 +94,6 @@ func (a addProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterR
 			cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus(processGroupID, processClass, nil))
 
 			idNum++
-		}
-		hasNewProcessGroups = true
-	}
-
-	if hasNewProcessGroups {
-		err = r.updateOrApply(ctx, cluster)
-		if err != nil {
-			return &requeue{curError: err}
 		}
 	}
 

@@ -87,10 +87,6 @@ func (maintenanceModeChecker) reconcile(ctx context.Context, r *FoundationDBClus
 		return &requeue{curError: err, delayedRequeue: true}
 	}
 	cluster.Status.MaintenanceModeInfo = fdbv1beta2.MaintenanceModeInfo{}
-	err = r.updateOrApply(ctx, cluster)
-	if err != nil {
-		return &requeue{curError: err, delayedRequeue: true}
-	}
 
 	return nil
 }

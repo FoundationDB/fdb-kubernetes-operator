@@ -106,10 +106,6 @@ func (u updateDatabaseConfiguration) reconcile(ctx context.Context, r *Foundatio
 		}
 		if initialConfig {
 			cluster.Status.Configured = true
-			err = r.updateOrApply(ctx, cluster)
-			if err != nil {
-				return &requeue{curError: err, delayedRequeue: true}
-			}
 			return nil
 		}
 		logger.Info("Configured database")
