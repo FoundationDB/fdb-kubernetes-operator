@@ -60,6 +60,7 @@ type Options struct {
 	ServerSideApply                    bool
 	EnableRecoveryState                bool
 	CacheDatabaseStatus                bool
+	EnableNodeIndex                    bool
 	MetricsAddr                        string
 	LeaderElectionID                   string
 	LogFile                            string
@@ -107,6 +108,7 @@ func (o *Options) BindFlags(fs *flag.FlagSet) {
 	fs.BoolVar(&o.ServerSideApply, "server-side-apply", false, "This flag enables server side apply.")
 	fs.BoolVar(&o.EnableRecoveryState, "enable-recovery-state", true, "This flag enables the use of the recovery state for the minimum uptime between bounced if the FDB version supports it.")
 	fs.BoolVar(&o.CacheDatabaseStatus, "cache-database-status", true, "Defines the default value for caching the database status.")
+	fs.BoolVar(&o.EnableNodeIndex, "enable-node-index", false, "Defines if the operator should add an index for accessing node objects. This requires a ClusterRoleBinding with node access. If the taint feature should be used, this setting should be set to true.")
 }
 
 // StartManager will start the FoundationDB operator manager.
@@ -187,7 +189,7 @@ func StartManager(
 		clusterReconciler.EnableRecoveryState = operatorOpts.EnableRecoveryState
 		clusterReconciler.CacheDatabaseStatusForReconciliationDefault = operatorOpts.CacheDatabaseStatus
 
-		if err := clusterReconciler.SetupWithManager(mgr, operatorOpts.MaxConcurrentReconciles, *labelSelector, watchedObjects...); err != nil {
+		if err := clusterReconciler.SetupWithManager(mgr, operatorOpts.MaxConcurrentReconciles, operatorOpts.EnableNodeIndex, *labelSelector, watchedObjects...); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "FoundationDBCluster")
 			os.Exit(1)
 		}
