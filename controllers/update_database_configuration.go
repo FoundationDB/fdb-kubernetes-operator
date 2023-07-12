@@ -38,7 +38,7 @@ import (
 type updateDatabaseConfiguration struct{}
 
 // reconcile runs the reconciler's work.
-func (u updateDatabaseConfiguration) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.FoundationDBStatus, logger logr.Logger) *requeue {
+func (u updateDatabaseConfiguration) reconcile(_ context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.FoundationDBStatus, logger logr.Logger) *requeue {
 	if !pointer.BoolDeref(cluster.Spec.AutomationOptions.ConfigureDatabase, true) {
 		return nil
 	}
@@ -62,6 +62,15 @@ func (u updateDatabaseConfiguration) reconcile(ctx context.Context, r *Foundatio
 		logger.Info("Skipping database configuration change because database is unavailable")
 		return nil
 	}
+
+	// Make sure we reset the status here if the configuration changes where not successful.
+	originalStatus := cluster.Status.DeepCopy()
+	defer func() {
+		if err != nil {
+			logger.V(1).Info("Resetting status to previous changes because an error occurred", "current", cluster.Status, "originalStatus", originalStatus)
+			cluster.Status = *originalStatus
+		}
+	}()
 
 	desiredConfiguration := cluster.DesiredDatabaseConfiguration()
 	desiredConfiguration.RoleCounts.Storage = 0
@@ -89,14 +98,15 @@ func (u updateDatabaseConfiguration) reconcile(ctx context.Context, r *Foundatio
 		}
 
 		if !initialConfig {
-			hasLock, err := r.takeLock(logger, cluster,
+			var hasLock bool
+			hasLock, err = r.takeLock(logger, cluster,
 				fmt.Sprintf("reconfiguring the database to `%s`", configurationString))
 			if !hasLock {
 				return &requeue{curError: err, delayedRequeue: true}
 			}
 		}
 
-		logger.Info("Configuring database", "current configuration", currentConfiguration, "desired configuration", desiredConfiguration)
+		logger.Info("Configuring database", "current configuration", currentConfiguration, "desired configuration", desiredConfiguration, "initialConfig", initialConfig)
 		r.Recorder.Event(cluster, corev1.EventTypeNormal, "ConfiguringDatabase",
 			fmt.Sprintf("Setting database configuration to `%s`", configurationString),
 		)

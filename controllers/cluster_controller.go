@@ -196,7 +196,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 			continue
 		}
 
-		err = r.updateClusterStatusIfNeeded(ctx, cluster, originalStatus)
+		err = r.updateClusterStatusIfNeeded(ctx, clusterLog, cluster, originalStatus)
 		if err != nil {
 			clusterLog.Error(err, "could not update cluster status")
 			return ctrl.Result{Requeue: true}, err
@@ -205,7 +205,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 		return processRequeue(requeue, subReconciler, cluster, r.Recorder, clusterLog)
 	}
 
-	err = r.updateClusterStatusIfNeeded(ctx, cluster, originalStatus)
+	err = r.updateClusterStatusIfNeeded(ctx, clusterLog, cluster, originalStatus)
 	if err != nil {
 		clusterLog.Error(err, "could not update cluster status")
 		return ctrl.Result{Requeue: true}, err
@@ -226,11 +226,12 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 }
 
 // updateClusterStatusIfNeeded will update the cluster status if any changes are detected, otherwise this method will be a no-op.
-func (r *FoundationDBClusterReconciler) updateClusterStatusIfNeeded(ctx context.Context, cluster *fdbv1beta2.FoundationDBCluster, originalStatus *fdbv1beta2.FoundationDBClusterStatus) error {
+func (r *FoundationDBClusterReconciler) updateClusterStatusIfNeeded(ctx context.Context, logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, originalStatus *fdbv1beta2.FoundationDBClusterStatus) error {
 	// See: https://github.com/kubernetes-sigs/kubebuilder/issues/592
 	// If we use the default reflect.DeepEqual method it will be recreating the
 	// clusterStatus multiple times because the pointers are different.
 	if !equality.Semantic.DeepEqual(cluster.Status, *originalStatus) {
+		logger.V(1).Info("Updating FoundationDBClusterStatus", "newStatus", cluster.Status, "originalStatus", *originalStatus)
 		return r.updateOrApply(ctx, cluster)
 	}
 
