@@ -211,9 +211,13 @@ func (client *cliAdminClient) getArgsAndTimeout(command cliCommand) ([]string, t
 		args = append(args, "--exec", command.command)
 	}
 
-	args = append(args, command.getClusterFileFlag(), client.clusterFilePath, "--log")
+	// If we want to print out the version we don't have to pass the cluster file path
+	if len(args) == 0 || args[0] != "--version" {
+		args = append(args, command.getClusterFileFlag(), client.clusterFilePath)
+	}
+
 	// We only want to pass the knobs to fdbbackup and fdbrestore
-	if command.isFdbCli() {
+	if !command.isFdbCli() {
 		args = append(args, client.knobs...)
 	}
 

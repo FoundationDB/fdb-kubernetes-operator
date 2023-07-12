@@ -2955,7 +2955,7 @@ var _ = Describe("pod_models", func() {
 				Expect(len(deployment.ObjectMeta.OwnerReferences)).To(Equal(1))
 				Expect(deployment.ObjectMeta.OwnerReferences[0].UID).To(Equal(cluster.ObjectMeta.UID))
 				Expect(deployment.ObjectMeta.Labels).To(Equal(map[string]string{
-					"foundationdb.org/backup-for": string(cluster.ObjectMeta.UID),
+					fdbv1beta2.BackupDeploymentLabel: string(cluster.ObjectMeta.UID),
 				}))
 				Expect(deployment.ObjectMeta.Annotations).To(Equal(map[string]string{
 					"foundationdb.org/last-applied-spec": "a1d6ee086624f097243eb14aefbedf84a9016ba0f85640f11020bf50ec9e6d9b",
@@ -2969,10 +2969,10 @@ var _ = Describe("pod_models", func() {
 
 			It("should set the labels for the pod selector", func() {
 				Expect(*deployment.Spec.Selector).To(Equal(metav1.LabelSelector{MatchLabels: map[string]string{
-					"foundationdb.org/deployment-name": "operator-test-1-backup-agents",
+					fdbv1beta2.BackupDeploymentPodLabel: "operator-test-1-backup-agents",
 				}}))
 				Expect(deployment.Spec.Template.ObjectMeta.Labels).To(Equal(map[string]string{
-					"foundationdb.org/deployment-name": "operator-test-1-backup-agents",
+					fdbv1beta2.BackupDeploymentPodLabel: "operator-test-1-backup-agents",
 				}))
 			})
 

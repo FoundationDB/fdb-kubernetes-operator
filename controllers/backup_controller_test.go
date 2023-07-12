@@ -22,7 +22,6 @@ package controllers
 
 import (
 	"fmt"
-
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient/mock"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"

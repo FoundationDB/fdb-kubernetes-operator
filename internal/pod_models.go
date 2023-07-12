@@ -944,9 +944,9 @@ func GetBackupDeployment(backup *fdbv1beta2.FoundationDBBackup) (*appsv1.Deploym
 	if podTemplate.ObjectMeta.Labels == nil {
 		podTemplate.ObjectMeta.Labels = make(map[string]string, 1)
 	}
-	podTemplate.ObjectMeta.Labels["foundationdb.org/deployment-name"] = deployment.ObjectMeta.Name
+	podTemplate.ObjectMeta.Labels[fdbv1beta2.BackupDeploymentPodLabel] = deployment.ObjectMeta.Name
 	deployment.Spec.Selector = &metav1.LabelSelector{MatchLabels: map[string]string{
-		"foundationdb.org/deployment-name": deployment.ObjectMeta.Name,
+		fdbv1beta2.BackupDeploymentPodLabel: deployment.ObjectMeta.Name,
 	}}
 
 	podTemplate.Spec.Volumes = append(podTemplate.Spec.Volumes,
