@@ -14226,6 +14226,7 @@ spec:
               logServersPerDisk:
                 items:
                   type: integer
+                maxItems: 5
                 type: array
               maintenanceModeInfo:
                 properties:
@@ -14293,6 +14294,7 @@ spec:
               storageServersPerDisk:
                 items:
                   type: integer
+                maxItems: 5
                 type: array
             type: object
         type: object
