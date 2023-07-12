@@ -243,11 +243,20 @@ func runClusterSubReconciler(ctx context.Context, logger logr.Logger, subReconci
 	subReconcileLogger := logger.WithValues("reconciler", fmt.Sprintf("%T", subReconciler))
 	startTime := time.Now()
 	subReconcileLogger.Info("Attempting to run sub-reconciler")
+	statusBeforeReconcile := *(cluster.Status.DeepCopy())
+	var resultRequeue *requeue
 	defer func() {
 		subReconcileLogger.Info("Subreconciler finished run", "duration_seconds", time.Since(startTime).Seconds())
+		// If the reconciler failed for any reason we have to make sure we revert all potential changes to the status
+		// done by this reconciler.
+		if resultRequeue != nil && resultRequeue.curError != nil {
+			subReconcileLogger.V(1).Info("Error occurred during reconciler run, will reset status to previous status", "statusBeforeReconcile", statusBeforeReconcile, "currentStatus", cluster.Status)
+			cluster.Status = statusBeforeReconcile
+		}
 	}()
 
-	return subReconciler.reconcile(ctx, r, cluster, status, subReconcileLogger)
+	resultRequeue = subReconciler.reconcile(ctx, r, cluster, status, subReconcileLogger)
+	return resultRequeue
 }
 
 // SetupWithManager prepares a reconciler for use.

@@ -63,15 +63,6 @@ func (u updateDatabaseConfiguration) reconcile(_ context.Context, r *FoundationD
 		return nil
 	}
 
-	// Make sure we reset the status here if the configuration changes where not successful.
-	originalStatus := cluster.Status.DeepCopy()
-	defer func() {
-		if err != nil {
-			logger.V(1).Info("Resetting status to previous changes because an error occurred", "current", cluster.Status, "originalStatus", originalStatus)
-			cluster.Status = *originalStatus
-		}
-	}()
-
 	desiredConfiguration := cluster.DesiredDatabaseConfiguration()
 	desiredConfiguration.RoleCounts.Storage = 0
 	currentConfiguration := status.Cluster.DatabaseConfiguration.NormalizeConfigurationWithSeparatedProxies(cluster.Spec.Version, cluster.Spec.DatabaseConfiguration.AreSeparatedProxiesConfigured())
