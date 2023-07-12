@@ -306,7 +306,7 @@ func DoLogServerFaultDomainCheckOnStatus(status *fdbv1beta2.FoundationDBStatus) 
 
 // DoCoordinatorFaultDomainCheckOnStatus does a coordinator related fault domain check over the given status object.
 // @note an empty function for now. We will revisit this later.
-func DoCoordinatorFaultDomainCheckOnStatus(status *fdbv1beta2.FoundationDBStatus) error {
+func DoCoordinatorFaultDomainCheckOnStatus(_ *fdbv1beta2.FoundationDBStatus) error {
 	// TODO: decide if we need to do coordinator related check.
 	return nil
 }

@@ -38,7 +38,7 @@ import (
 type checkClientCompatibility struct{}
 
 // reconcile runs the reconciler's work.
-func (c checkClientCompatibility) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
+func (c checkClientCompatibility) reconcile(_ context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
 	if !cluster.Status.Configured && !cluster.IsBeingUpgraded() {
 		return nil
 	}

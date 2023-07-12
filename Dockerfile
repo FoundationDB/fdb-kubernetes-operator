@@ -1,7 +1,7 @@
 ARG BASE_IMAGE=docker.io/debian:bookworm
 
 # Build the manager binary
-FROM docker.io/library/golang:1.19.10 as builder
+FROM docker.io/library/golang:1.20.6 as builder
 
 # Install FDB this version is only required to compile the fdb operator
 ARG FDB_VERSION=6.2.29
