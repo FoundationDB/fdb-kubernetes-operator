@@ -9966,10 +9966,6 @@ spec:
                       type: string
                     type: array
                 type: object
-              logServersPerDisk:
-                items:
-                  type: integer
-                type: array
               missingProcesses:
                 additionalProperties:
                   format: int64
