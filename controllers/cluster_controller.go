@@ -273,6 +273,7 @@ func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager, maxCo
 			predicate.And(
 				labelSelectorPredicate,
 				predicate.Or(
+					predicate.LabelChangedPredicate{},
 					predicate.GenerationChangedPredicate{},
 					predicate.AnnotationChangedPredicate{},
 				),
