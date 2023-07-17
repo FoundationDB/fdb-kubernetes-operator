@@ -36,7 +36,7 @@ import (
 type updateMetadata struct{}
 
 // reconcile runs the reconciler's work.
-func (updateMetadata) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
+func (updateMetadata) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, _ *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
 	// TODO(johscheuer): Remove the use of the pvc map and directly make a get request.
 	pvcs := &corev1.PersistentVolumeClaimList{}
 	err := r.List(ctx, pvcs, internal.GetPodListOptions(cluster, "", "")...)

@@ -1,6 +1,6 @@
 module github.com/FoundationDB/fdb-kubernetes-operator
 
-go 1.19
+go 1.20
 
 require (
 	github.com/apple/foundationdb/bindings/go v0.0.0-20201222225940-f3aef311ccfb
