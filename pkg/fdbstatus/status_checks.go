@@ -85,6 +85,7 @@ func getRemainingAndExcludedFromStatus(logger logr.Logger, status *fdbv1beta2.Fo
 		}
 
 		if len(process.Roles) == 0 {
+			logger.Info("found fully excluded process without any roles", "process", process)
 			fullyExcludedAddresses[process.Address.MachineAddress()]++
 		}
 	}

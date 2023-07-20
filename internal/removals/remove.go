@@ -153,6 +153,16 @@ func GetRemainingMap(logger logr.Logger, adminClient fdbadminclient.AdminClient,
 		logger.Info("Exclusions to complete", "remainingServers", remaining)
 	}
 
+	if status.Cluster.RecoveryState.ActiveGenerations > 1 {
+		return nil, fmt.Errorf("too many active generations to run the exclude command to verify a process is fully excluded, current active generations: %d", status.Cluster.RecoveryState.ActiveGenerations)
+	}
+
+	// Make sure we use the exclude command again to verify that the processes are excluded based on the command.
+	err = verifyExcludedProcesses(adminClient, remaining, addresses)
+	if err != nil {
+		return nil, err
+	}
+
 	remainingMap := make(map[string]bool, len(remaining))
 	for _, address := range addresses {
 		remainingMap[address.String()] = false
@@ -162,6 +172,28 @@ func GetRemainingMap(logger logr.Logger, adminClient fdbadminclient.AdminClient,
 	}
 
 	return remainingMap, nil
+}
+
+// verifyExcludedProcesses will verify that the processes that should be excluded based on the FoundationDB machine-readble status are also excluded when issuing
+// the exclude command.
+func verifyExcludedProcesses(adminClient fdbadminclient.AdminClient, remaining []fdbv1beta2.ProcessAddress, addresses []fdbv1beta2.ProcessAddress) error {
+	remainingMap := map[string]fdbv1beta2.None{}
+
+	for _, remainingAddress := range remaining {
+		remainingMap[remainingAddress.MachineAddress()] = fdbv1beta2.None{}
+	}
+
+	checkExclusions := make([]fdbv1beta2.ProcessAddress, 0, len(addresses))
+	for _, addr := range addresses {
+		_, ok := remainingMap[addr.MachineAddress()]
+		if ok {
+			continue
+		}
+
+		checkExclusions = append(checkExclusions, addr)
+	}
+
+	return adminClient.ExcludeProcesses(checkExclusions)
 }
 
 // RemovalAllowed returns if we are allowed to remove the process group or if we have to wait to ensure a safe deletion.
