@@ -277,6 +277,28 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			})
 		})
 
+		// Context("when nodeSelector changes and DeletePodsWhenNodeSelectorChanges is true", func() {
+		// 	BeforeEach(func() {
+		// 		pClass = fdbv1beta2.ProcessClassStorage
+		// 		remove = false
+		// 	})
+
+		// 	It("should not need a removal", func() {
+		// 		deletePodsWhenNoseSelectorChanges := true
+		// 		cluster.Spec.DeletePodsWhenNodeSelectorChanges = &deletePodsWhenNoseSelectorChanges
+		// 		needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
+		// 		Expect(needsRemoval).To(BeFalse())
+		// 		Expect(err).NotTo(HaveOccurred())
+
+		// 		cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral].PodTemplate.Spec.NodeSelector = map[string]string{
+		// 			"dummy": "test",
+		// 		}
+		// 		needsRemoval, err = processGroupNeedsRemoval(cluster, pod, status, log)
+		// 		Expect(needsRemoval).To(BeFalse())
+		// 		Expect(err).NotTo(HaveOccurred())
+		// 	})
+		// })
+
 		Context("when the nodeSelector doesn't match but the PodSpecHash matches", func() {
 			BeforeEach(func() {
 				pClass = fdbv1beta2.ProcessClassStorage

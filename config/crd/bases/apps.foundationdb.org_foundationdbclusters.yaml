@@ -10407,6 +10407,9 @@ spec:
                   usable_regions:
                     type: integer
                 type: object
+              deletePodsWhenNodeSelectorChanges:
+                default: false
+                type: boolean
               faultDomain:
                 properties:
                   key:

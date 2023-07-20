@@ -202,6 +202,12 @@ type FoundationDBClusterSpec struct {
 	// +kubebuilder:default:=false
 	ReplaceInstancesWhenResourcesChange *bool `json:"replaceInstancesWhenResourcesChange,omitempty"`
 
+	// DeletePodsWhenNodeSelectorChanges defines if a pod should be deleted when the node selector
+	// changes. This could be usedfull in combination with managed storage with retain policy to achieve
+	// light weight node replacements.
+	// +kubebuilder:default:=false
+	DeletePodsWhenNodeSelectorChanges *bool `json:"deletePodsWhenNodeSelectorChanges,omitempty"`
+
 	// Skip defines if the cluster should be skipped for reconciliation. This can be useful for
 	// investigating in issues or if the environment is unstable.
 	// +kubebuilder:default:=false

@@ -684,6 +684,11 @@ func (in *FoundationDBClusterSpec) DeepCopyInto(out *FoundationDBClusterSpec) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.DeletePodsWhenNodeSelectorChanges != nil {
+		in, out := &in.DeletePodsWhenNodeSelectorChanges, &out.DeletePodsWhenNodeSelectorChanges
+		*out = new(bool)
+		**out = **in
+	}
 	if in.CoordinatorSelection != nil {
 		in, out := &in.CoordinatorSelection, &out.CoordinatorSelection
 		*out = make([]CoordinatorSelectionSetting, len(*in))
