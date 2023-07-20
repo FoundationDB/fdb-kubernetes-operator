@@ -2233,11 +2233,11 @@ func (cluster *FoundationDBCluster) GetDNSDomain() string {
 
 // GetRemovalMode returns the removal mode of the cluster or default to PodUpdateModeZone if unset.
 func (cluster *FoundationDBCluster) GetRemovalMode() PodUpdateMode {
-	if cluster.Spec.AutomationOptions.DeletionMode == "" {
+	if cluster.Spec.AutomationOptions.RemovalMode == "" {
 		return PodUpdateModeZone
 	}
 
-	return cluster.Spec.AutomationOptions.DeletionMode
+	return cluster.Spec.AutomationOptions.RemovalMode
 }
 
 // GetWaitBetweenRemovalsSeconds returns the WaitDurationBetweenRemovals if set or defaults to 60s.
