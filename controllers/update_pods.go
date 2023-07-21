@@ -157,16 +157,16 @@ func getPodsToUpdate(ctx context.Context, logger logr.Logger, reconciler *Founda
 			continue
 		}
 
-		if cluster.NeedsReplacement(processGroup) {
-			logger.V(1).Info("Skip process group for deletion, requires a replacement",
-				"processGroupID", processGroup.ProcessGroupID)
-			continue
-		}
-
 		pod, err := reconciler.PodLifecycleManager.GetPod(ctx, reconciler, cluster, processGroup.GetPodName(cluster))
 		// If a Pod is not found ignore it for now.
 		if err != nil {
 			logger.V(1).Info("Could not find Pod for process group ID",
+				"processGroupID", processGroup.ProcessGroupID)
+			continue
+		}
+
+		if cluster.NeedsReplacement(processGroup, pod) {
+			logger.V(1).Info("Skip process group for deletion, requires a replacement",
 				"processGroupID", processGroup.ProcessGroupID)
 			continue
 		}

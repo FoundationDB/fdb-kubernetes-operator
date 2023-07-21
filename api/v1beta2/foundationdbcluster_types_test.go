@@ -4389,8 +4389,8 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 	When("checking if the process group must be replaced", func() {
 		DescribeTable("it should return to correct update strategy",
-			func(cluster *FoundationDBCluster, processGroup *ProcessGroupStatus, expected bool) {
-				Expect(cluster.NeedsReplacement(processGroup)).To(Equal(expected))
+			func(cluster *FoundationDBCluster, processGroup *ProcessGroupStatus, pod *corev1.Pod, expected bool) {
+				Expect(cluster.NeedsReplacement(processGroup, pod)).To(Equal(expected))
 			},
 			Entry("Default update strategy storage process",
 				&FoundationDBCluster{
@@ -4398,10 +4398,24 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						AutomationOptions: FoundationDBClusterAutomationOptions{
 							PodUpdateStrategy: "",
 						},
+						Processes: map[ProcessClass]ProcessSettings{
+							ProcessClassGeneral: {
+								PodTemplate: &corev1.PodTemplateSpec{
+									Spec: corev1.PodSpec{
+										NodeSelector: map[string]string{"test": "test"},
+									},
+								},
+							},
+						},
 					},
 				},
 				&ProcessGroupStatus{
 					ProcessClass: ProcessClassStorage,
+				},
+				&corev1.Pod{
+					Spec: corev1.PodSpec{
+						NodeSelector: map[string]string{"test": "test"},
+					},
 				},
 				false,
 			),
@@ -4411,10 +4425,24 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						AutomationOptions: FoundationDBClusterAutomationOptions{
 							PodUpdateStrategy: "",
 						},
+						Processes: map[ProcessClass]ProcessSettings{
+							ProcessClassGeneral: {
+								PodTemplate: &corev1.PodTemplateSpec{
+									Spec: corev1.PodSpec{
+										NodeSelector: map[string]string{"test": "test"},
+									},
+								},
+							},
+						},
 					},
 				},
 				&ProcessGroupStatus{
 					ProcessClass: ProcessClassTransaction,
+				},
+				&corev1.Pod{
+					Spec: corev1.PodSpec{
+						NodeSelector: map[string]string{"test": "test"},
+					},
 				},
 				true,
 			),
@@ -4424,10 +4452,24 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						AutomationOptions: FoundationDBClusterAutomationOptions{
 							PodUpdateStrategy: PodUpdateStrategyReplacement,
 						},
+						Processes: map[ProcessClass]ProcessSettings{
+							ProcessClassGeneral: {
+								PodTemplate: &corev1.PodTemplateSpec{
+									Spec: corev1.PodSpec{
+										NodeSelector: map[string]string{"test": "test"},
+									},
+								},
+							},
+						},
 					},
 				},
 				&ProcessGroupStatus{
 					ProcessClass: ProcessClassStorage,
+				},
+				&corev1.Pod{
+					Spec: corev1.PodSpec{
+						NodeSelector: map[string]string{"test": "test"},
+					},
 				},
 				true,
 			),
@@ -4437,10 +4479,24 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						AutomationOptions: FoundationDBClusterAutomationOptions{
 							PodUpdateStrategy: PodUpdateStrategyReplacement,
 						},
+						Processes: map[ProcessClass]ProcessSettings{
+							ProcessClassGeneral: {
+								PodTemplate: &corev1.PodTemplateSpec{
+									Spec: corev1.PodSpec{
+										NodeSelector: map[string]string{"test": "test"},
+									},
+								},
+							},
+						},
 					},
 				},
 				&ProcessGroupStatus{
 					ProcessClass: ProcessClassTransaction,
+				},
+				&corev1.Pod{
+					Spec: corev1.PodSpec{
+						NodeSelector: map[string]string{"test": "test"},
+					},
 				},
 				true,
 			),
@@ -4450,10 +4506,24 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						AutomationOptions: FoundationDBClusterAutomationOptions{
 							PodUpdateStrategy: PodUpdateStrategyTransactionReplacement,
 						},
+						Processes: map[ProcessClass]ProcessSettings{
+							ProcessClassGeneral: {
+								PodTemplate: &corev1.PodTemplateSpec{
+									Spec: corev1.PodSpec{
+										NodeSelector: map[string]string{"test": "test"},
+									},
+								},
+							},
+						},
 					},
 				},
 				&ProcessGroupStatus{
 					ProcessClass: ProcessClassStorage,
+				},
+				&corev1.Pod{
+					Spec: corev1.PodSpec{
+						NodeSelector: map[string]string{"test": "test"},
+					},
 				},
 				false,
 			),
@@ -4463,10 +4533,24 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						AutomationOptions: FoundationDBClusterAutomationOptions{
 							PodUpdateStrategy: PodUpdateStrategyTransactionReplacement,
 						},
+						Processes: map[ProcessClass]ProcessSettings{
+							ProcessClassGeneral: {
+								PodTemplate: &corev1.PodTemplateSpec{
+									Spec: corev1.PodSpec{
+										NodeSelector: map[string]string{"test": "test"},
+									},
+								},
+							},
+						},
 					},
 				},
 				&ProcessGroupStatus{
 					ProcessClass: ProcessClassTransaction,
+				},
+				&corev1.Pod{
+					Spec: corev1.PodSpec{
+						NodeSelector: map[string]string{"test": "test"},
+					},
 				},
 				true,
 			),
@@ -4476,10 +4560,24 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						AutomationOptions: FoundationDBClusterAutomationOptions{
 							PodUpdateStrategy: PodUpdateStrategyDelete,
 						},
+						Processes: map[ProcessClass]ProcessSettings{
+							ProcessClassGeneral: {
+								PodTemplate: &corev1.PodTemplateSpec{
+									Spec: corev1.PodSpec{
+										NodeSelector: map[string]string{"test": "test"},
+									},
+								},
+							},
+						},
 					},
 				},
 				&ProcessGroupStatus{
 					ProcessClass: ProcessClassStorage,
+				},
+				&corev1.Pod{
+					Spec: corev1.PodSpec{
+						NodeSelector: map[string]string{"test": "test"},
+					},
 				},
 				false,
 			),
@@ -4489,10 +4587,52 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						AutomationOptions: FoundationDBClusterAutomationOptions{
 							PodUpdateStrategy: PodUpdateStrategyDelete,
 						},
+						Processes: map[ProcessClass]ProcessSettings{
+							ProcessClassGeneral: {
+								PodTemplate: &corev1.PodTemplateSpec{
+									Spec: corev1.PodSpec{
+										NodeSelector: map[string]string{"test": "test"},
+									},
+								},
+							},
+						},
 					},
 				},
 				&ProcessGroupStatus{
 					ProcessClass: ProcessClassTransaction,
+				},
+				&corev1.Pod{
+					Spec: corev1.PodSpec{
+						NodeSelector: map[string]string{"test": "test"},
+					},
+				},
+				false,
+			),
+			Entry("Default update strategy on NodeSelector change and DeletePodsWhenNodeSelectorChanges enabled",
+				&FoundationDBCluster{
+					Spec: FoundationDBClusterSpec{
+						AutomationOptions: FoundationDBClusterAutomationOptions{
+							PodUpdateStrategy: "",
+						},
+						DeletePodsWhenNodeSelectorChanges: pointer.Bool(true),
+						Processes: map[ProcessClass]ProcessSettings{
+							ProcessClassGeneral: {
+								PodTemplate: &corev1.PodTemplateSpec{
+									Spec: corev1.PodSpec{
+										NodeSelector: map[string]string{"test": "test"},
+									},
+								},
+							},
+						},
+					},
+				},
+				&ProcessGroupStatus{
+					ProcessClass: ProcessClassStorage,
+				},
+				&corev1.Pod{
+					Spec: corev1.PodSpec{
+						NodeSelector: map[string]string{"test": "dummy"},
+					},
 				},
 				false,
 			),

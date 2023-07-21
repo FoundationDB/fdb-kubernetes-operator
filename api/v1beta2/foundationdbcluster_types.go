@@ -2279,13 +2279,20 @@ const (
 )
 
 // NeedsReplacement returns true if the Pod should be replaced if the Pod spec has changed
-func (cluster *FoundationDBCluster) NeedsReplacement(processGroup *ProcessGroupStatus) bool {
+func (cluster *FoundationDBCluster) NeedsReplacement(processGroup *ProcessGroupStatus, pod *corev1.Pod) bool {
 	if cluster.Spec.AutomationOptions.PodUpdateStrategy == PodUpdateStrategyDelete {
 		return false
 	}
 
 	if cluster.Spec.AutomationOptions.PodUpdateStrategy == PodUpdateStrategyReplacement {
 		return true
+	}
+
+	// Do not replace Pods if the NodeSelector has changed and DeletePodsWhenNodeSelectorChanges is set to true
+	expectedNodeSelector := cluster.GetProcessSettings(processGroup.ProcessClass).PodTemplate.Spec.NodeSelector
+	if pointer.BoolDeref(cluster.Spec.DeletePodsWhenNodeSelectorChanges, false) &&
+		!equality.Semantic.DeepEqual(pod.Spec.NodeSelector, expectedNodeSelector) {
+		return false
 	}
 
 	// Default is ReplaceTransactionSystem.

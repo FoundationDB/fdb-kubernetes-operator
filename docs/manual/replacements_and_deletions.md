@@ -20,7 +20,7 @@ The following changes can only be rolled out through replacement:
 * Changing the process group ID prefix
 * Changing the public IP source
 * Changing the number of storage servers per pod
-* Changing the node selector
+* Changing the node selector, when the `deletePodsWhenNodeSelectorChanges` flag is not set.
 * Changing any part of the PVC spec
 * Increasing the resource requirements, when the `replaceInstancesWhenResourcesChange` flag is set.
 
