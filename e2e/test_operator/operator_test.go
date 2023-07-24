@@ -88,6 +88,11 @@ func validateProcessesCount(
 	Eventually(func() int {
 		return fdbCluster.GetProcessCountByProcessClass(fdbv1beta2.ProcessClass(processRole))
 	}).Should(BeNumerically("==", countServer))
+
+	// Make sure that all process group have the fault domain set.
+	for _, processGroup := range fdbCluster.GetCluster().Status.ProcessGroups {
+		Expect(processGroup.FaultDomain).NotTo(BeEmpty())
+	}
 }
 
 func validateStorageClass(processClass fdbv1beta2.ProcessClass, targetStorageClass string) {
@@ -379,6 +384,15 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				}
 			})
 		})
+	})
+
+	It("should set the fault domain for all process groups", func() {
+		for _, processGroup := range fdbCluster.GetCluster().Status.ProcessGroups {
+			Expect(processGroup.FaultDomain).NotTo(BeEmpty())
+		}
+
+		// TODO (johscheuer): We should check here further fields in the FoundationDBCluter resource to make sure the
+		// fields that we expect are actually set.
 	})
 
 	When("replacing a Pod", func() {
