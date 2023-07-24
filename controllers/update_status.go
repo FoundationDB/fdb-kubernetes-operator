@@ -833,8 +833,12 @@ func updateFaultDomains(logger logr.Logger, processes map[fdbv1beta2.ProcessGrou
 	for idx, processGroup := range status.ProcessGroups {
 		process, ok := processes[processGroup.ProcessGroupID]
 		if !ok || len(processes) == 0 {
-			logger.Info("skip updating fault domain for process group with missing process in FoundationDB cluster status", "processGroupID", processGroup.ProcessGroupID)
-			continue
+			// Fallback for multiple storage or log servers, those will contain the process information with the process number as a suffix.
+			process, ok = processes[processGroup.ProcessGroupID+"-1"]
+			if !ok || len(processes) == 0 {
+				logger.Info("skip updating fault domain for process group with missing process in FoundationDB cluster status", "processGroupID", processGroup.ProcessGroupID)
+				continue
+			}
 		}
 
 		faultDomain := getFaultDomainFromProcesses(process)

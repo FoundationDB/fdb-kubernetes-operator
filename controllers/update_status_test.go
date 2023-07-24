@@ -701,6 +701,12 @@ var _ = Describe("update_status", func() {
 			Expect(cluster.Status.Generations.Reconciled).To(Equal(cluster.ObjectMeta.Generation))
 		})
 
+		It("should set the fault domain for all process groups", func() {
+			for _, processGroup := range cluster.Status.ProcessGroups {
+				Expect(processGroup.FaultDomain).NotTo(BeEmpty())
+			}
+		})
+
 		When("disabling an explicit listen address", func() {
 			BeforeEach(func() {
 				result, err := reconcileCluster(cluster)
@@ -716,14 +722,39 @@ var _ = Describe("update_status", func() {
 			})
 		})
 
-		Context("testing maintenance mode functionality", func() {
+		When("testing maintenance mode functionality", func() {
 			When("maintenance mode is on", func() {
 				BeforeEach(func() {
 					Expect(adminClient.SetMaintenanceZone("operator-test-1-storage-4", 0)).NotTo(HaveOccurred())
 				})
+
 				It("status maintenance zone should match", func() {
 					Expect(cluster.Status.MaintenanceModeInfo).To(Equal(fdbv1beta2.MaintenanceModeInfo{ZoneID: "operator-test-1-storage-4"}))
 				})
+			})
+		})
+
+		When("multiple storage server per Pod are used", func() {
+			BeforeEach(func() {
+				cluster.Spec.StorageServersPerPod = 2
+				Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
+
+				result, err := reconcileCluster(cluster)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result.Requeue).To(BeFalse())
+
+				generation, err := reloadCluster(cluster)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(generation).To(Equal(int64(2)))
+
+				adminClient, err = mock.NewMockAdminClientUncast(cluster, k8sClient)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should set the fault domain for all process groups", func() {
+				for _, processGroup := range cluster.Status.ProcessGroups {
+					Expect(processGroup.FaultDomain).NotTo(BeEmpty())
+				}
 			})
 		})
 	})
@@ -846,5 +877,54 @@ var _ = Describe("update_status", func() {
 				}
 			})
 		})
+
+		When("multiple storage servers per Pod are used", func() {
+			BeforeEach(func() {
+				processes = map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo{
+					"storage-1-1": {
+						fdbv1beta2.FoundationDBStatusProcessInfo{
+							Locality: map[string]string{
+								fdbv1beta2.FDBLocalityZoneIDKey: "storage-1-zone",
+							},
+						},
+					},
+					"storage-1-2": {
+						fdbv1beta2.FoundationDBStatusProcessInfo{
+							Locality: map[string]string{
+								fdbv1beta2.FDBLocalityZoneIDKey: "storage-1-zone",
+							},
+						},
+					},
+					"storage-2-1": {
+						fdbv1beta2.FoundationDBStatusProcessInfo{
+							Locality: map[string]string{
+								fdbv1beta2.FDBLocalityZoneIDKey: "storage-2-zone",
+							},
+						},
+					},
+					"storage-2-2": {
+						fdbv1beta2.FoundationDBStatusProcessInfo{
+							Locality: map[string]string{
+								fdbv1beta2.FDBLocalityZoneIDKey: "storage-2-zone",
+							},
+						},
+					},
+				}
+			})
+
+			It("should update the process group status", func() {
+				Expect(status.ProcessGroups).To(HaveLen(3))
+
+				for _, processGroup := range status.ProcessGroups {
+					if processGroup.ProcessGroupID == "storage-3" {
+						Expect(processGroup.FaultDomain).To(BeEmpty())
+						continue
+					}
+
+					Expect(string(processGroup.FaultDomain)).To(And(HavePrefix(string(processGroup.ProcessGroupID)), HaveSuffix("zone")))
+				}
+			})
+		})
+
 	})
 })
