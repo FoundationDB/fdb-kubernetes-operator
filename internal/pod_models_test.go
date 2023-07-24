@@ -22,6 +22,7 @@ package internal
 
 import (
 	"fmt"
+	"k8s.io/utils/net"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	. "github.com/onsi/ginkgo/v2"
@@ -839,6 +840,8 @@ var _ = Describe("pod_models", func() {
 					cluster.Spec.Version,
 					"--public-ip-family",
 					"6",
+					"--bind-address",
+					"[::]:8080",
 					"--substitute-variable",
 					"FDB_POD_IP",
 					"--init-mode",
@@ -876,6 +879,8 @@ var _ = Describe("pod_models", func() {
 					cluster.Spec.Version,
 					"--public-ip-family",
 					"6",
+					"--bind-address",
+					"[::]:8080",
 					"--substitute-variable",
 					"FDB_POD_IP",
 				}))
@@ -2879,6 +2884,22 @@ var _ = Describe("pod_models", func() {
 						fdbv1beta2.FDBClusterLabel: "operator-test-1",
 					},
 				}))
+			})
+		})
+
+		Context("with IPFamily", func() {
+			BeforeEach(func() {
+				cluster.Spec.Routing.PodIPFamily = pointer.Int(6)
+				cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(true)
+				err = NormalizeClusterSpec(cluster, DeprecationOptions{})
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should update the IPFamilies in the service spec", func() {
+				Expect(service.ObjectMeta.Namespace).To(Equal("my-ns"))
+				Expect(service.ObjectMeta.Name).To(Equal("operator-test-1"))
+				Expect(len(service.Spec.IPFamilies)).To(Equal(1))
+				Expect(service.Spec.IPFamilies).To(Equal([]corev1.IPFamily{corev1.IPFamily(net.IPv6)}))
 			})
 		})
 
