@@ -39,33 +39,29 @@ import (
 
 func validateProcessesCount(
 	fdbCluster *FdbCluster,
-	processRole fdbv1beta2.ProcessRole,
-	countPods int,
+	processClass fdbv1beta2.ProcessClass,
+	countProcessGroups int,
 	countServer int,
 ) {
-	// Using Eventually here to prevent some weird timing from the test runner
-	if processRole == fdbv1beta2.ProcessRoleStorage {
-		gomega.Eventually(func() int {
-			return len(fdbCluster.GetStoragePods().Items)
-		}).Should(gomega.BeNumerically("==", countPods))
-		gomega.Eventually(func() int {
-			return fdbCluster.GetProcessCount(processRole)
-		}).Should(gomega.BeNumerically("==", countServer))
-	} else if processRole == fdbv1beta2.ProcessRoleLog {
-		gomega.Eventually(func() int {
-			return len(fdbCluster.GetLogPods().Items)
-		}).Should(gomega.BeNumerically("==", countPods))
-	} else if processRole == fdbv1beta2.ProcessRole(fdbv1beta2.ProcessClassTransaction) {
-		gomega.Eventually(func() int {
-			return len(fdbCluster.GetTransactionPods().Items)
-		}).Should(gomega.BeNumerically("==", countPods))
-	} else {
-		gomega.Eventually(func() int {
-			return len(fdbCluster.GetPodsWithRole(processRole))
-		}).Should(gomega.BeNumerically("==", countPods))
-	}
 	gomega.Eventually(func() int {
-		return fdbCluster.GetProcessCountByProcessClass(fdbv1beta2.ProcessClass(processRole))
+		var cnt int
+		for _, processGroup := range fdbCluster.GetCluster().Status.ProcessGroups {
+			if processGroup.ProcessClass != processClass {
+				continue
+			}
+
+			if processGroup.IsMarkedForRemoval() {
+				continue
+			}
+
+			cnt++
+		}
+
+		return cnt
+	}).Should(gomega.BeNumerically("==", countProcessGroups))
+
+	gomega.Eventually(func() int {
+		return fdbCluster.GetProcessCountByProcessClass(processClass)
 	}).Should(gomega.BeNumerically("==", countServer))
 
 	// Make sure that all process group have the fault domain set.
@@ -123,7 +119,6 @@ func OperatorTestSuite(factory *Factory, config *ClusterConfig, clusterSpec *fdb
 		})
 
 		ginkgo.It("should set the fault domain for all process groups", func() {
-			log.Println("fdbCluster", fdbCluster, "factory", factory)
 			for _, processGroup := range fdbCluster.cluster.Status.ProcessGroups {
 				gomega.Expect(processGroup.FaultDomain).NotTo(gomega.BeEmpty())
 			}
@@ -199,7 +194,7 @@ func OperatorTestSuite(factory *Factory, config *ClusterConfig, clusterSpec *fdb
 					expectedPodCnt,
 					expectedStorageProcessesCnt,
 				)
-				validateProcessesCount(fdbCluster, fdbv1beta2.ProcessRoleStorage, expectedPodCnt, expectedStorageProcessesCnt)
+				validateProcessesCount(fdbCluster, fdbv1beta2.ProcessClassStorage, expectedPodCnt, expectedStorageProcessesCnt)
 			})
 
 			ginkgo.AfterEach(func() {
@@ -212,7 +207,7 @@ func OperatorTestSuite(factory *Factory, config *ClusterConfig, clusterSpec *fdb
 				)
 				validateProcessesCount(
 					fdbCluster,
-					fdbv1beta2.ProcessRoleStorage,
+					fdbv1beta2.ProcessClassStorage,
 					expectedPodCnt,
 					expectedPodCnt*initialStorageServerPerPod,
 				)
@@ -228,7 +223,7 @@ func OperatorTestSuite(factory *Factory, config *ClusterConfig, clusterSpec *fdb
 					expectedPodCnt,
 					expectedPodCnt*serverPerPod,
 				)
-				validateProcessesCount(fdbCluster, fdbv1beta2.ProcessRoleStorage, expectedPodCnt, expectedPodCnt*serverPerPod)
+				validateProcessesCount(fdbCluster, fdbv1beta2.ProcessClassStorage, expectedPodCnt, expectedPodCnt*serverPerPod)
 			})
 		})
 
@@ -699,7 +694,7 @@ func OperatorTestSuite(factory *Factory, config *ClusterConfig, clusterSpec *fdb
 					expectedPodCnt,
 					expectedPodCnt*serverPerPod,
 				)
-				validateProcessesCount(fdbCluster, fdbv1beta2.ProcessRoleLog, expectedPodCnt, expectedPodCnt*serverPerPod)
+				validateProcessesCount(fdbCluster, fdbv1beta2.ProcessClassLog, expectedPodCnt, expectedPodCnt*serverPerPod)
 			})
 		})
 
@@ -742,7 +737,7 @@ func OperatorTestSuite(factory *Factory, config *ClusterConfig, clusterSpec *fdb
 					expectedPodCnt,
 					expectedPodCnt*serverPerPod,
 				)
-				validateProcessesCount(fdbCluster, fdbv1beta2.ProcessRole(fdbv1beta2.ProcessClassTransaction), expectedPodCnt, expectedPodCnt*serverPerPod)
+				validateProcessesCount(fdbCluster, fdbv1beta2.ProcessClassTransaction, expectedPodCnt, expectedPodCnt*serverPerPod)
 			})
 		})
 
