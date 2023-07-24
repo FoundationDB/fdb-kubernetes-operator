@@ -25,7 +25,9 @@ import (
 	ctx "context"
 	"fmt"
 	"io"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"log"
+	"os"
 	"strconv"
 	"strings"
 	"text/tabwriter"
@@ -62,6 +64,23 @@ type Factory struct {
 
 // CreateFactory will create a factory based on the provided options.
 func CreateFactory(options *FactoryOptions) *Factory {
+	if _, ok := os.LookupEnv("UNIT_TEST_ONLY"); ok {
+		return &Factory{
+			singleton: &singleton{
+				certificate: &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "unit-test",
+					},
+				},
+			},
+			options: &FactoryOptions{
+				storageClass: "unit-test",
+			},
+			shutdownHooks:          ShutdownHooks{},
+			invariantShutdownHooks: ShutdownHooks{},
+		}
+	}
+
 	singleton, err := getSingleton(options)
 	if err != nil {
 		log.Fatal(err)

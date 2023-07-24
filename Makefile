@@ -102,7 +102,7 @@ cover.out: ${GO_ALL} ${MANIFESTS}
 
 test:
 ifneq "$(SKIP_TEST)" "1"
-	go test ${go_test_flags} ./... -coverprofile cover.out -ginkgo.timeout=2h -ginkgo.label-filter="!e2e"
+	UNIT_TEST_ONLY="true" go test ${go_test_flags} ./... -coverprofile cover.out -ginkgo.timeout=2h -ginkgo.label-filter="!e2e"
 endif
 
 # Build manager binary
