@@ -1221,3 +1221,15 @@ func (fdbCluster *FdbCluster) SetBuggifyBlockRemoval(blockRemovals []fdbv1beta2.
 func (fdbCluster *FdbCluster) GetAutomationOptions() fdbv1beta2.FoundationDBClusterAutomationOptions {
 	return fdbCluster.cluster.Spec.AutomationOptions
 }
+
+// ValidateStorageClass will validate the PersistentVolumeClaims for the provided process class have the desired storage class.
+func (fdbCluster *FdbCluster) ValidateStorageClass(processClass fdbv1beta2.ProcessClass, desiredStorageClass string) {
+	gomega.Eventually(func() map[string]fdbv1beta2.None {
+		storageClassNames := make(map[string]fdbv1beta2.None)
+		volumeClaims := fdbCluster.GetVolumeClaimsForProcesses(processClass)
+		for _, volumeClaim := range volumeClaims.Items {
+			storageClassNames[*volumeClaim.Spec.StorageClassName] = fdbv1beta2.None{}
+		}
+		return storageClassNames
+	}, 5*time.Minute).Should(gomega.Equal(map[string]fdbv1beta2.None{desiredStorageClass: {}}))
+}

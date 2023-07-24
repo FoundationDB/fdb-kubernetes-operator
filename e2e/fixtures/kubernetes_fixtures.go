@@ -37,16 +37,12 @@ const (
 
 // MultipleNamespaces creates multiple namespaces for HA testing.
 func (factory *Factory) MultipleNamespaces(dcIDs []string) []string {
-	res := make([]string, len(dcIDs))
-	for idx, dcID := range dcIDs {
-		namespace := factory.createNamespace(dcID)
-		log.Println("Create namespace" + namespace)
-		res[idx] = namespace
+	for _, dcID := range dcIDs {
+		namespace := factory.GenerateNamespaceName(dcID)
+		factory.createNamespace(namespace)
 	}
 
-	factory.singleton.namespaces = res
-
-	return res
+	return factory.namespaces
 }
 
 // SingleNamespace returns a single namespace.
@@ -55,25 +51,35 @@ func (factory *Factory) SingleNamespace() string {
 		return factory.singleton.namespaces[0]
 	}
 
-	namespace := factory.createNamespace("")
-	if len(factory.singleton.namespaces) == 0 {
-		factory.singleton.namespaces = append(factory.singleton.namespaces, namespace)
-	}
+	namespace := factory.GenerateNamespaceName("")
+	factory.createNamespace(namespace)
 
 	return namespace
 }
 
-func (factory *Factory) createNamespace(suffix string) string {
+// GenerateNamespaceName will generate a namespace name if no name is provided via command line. If a suffix is specified,
+// the suffix will be appended.
+func (factory *Factory) GenerateNamespaceName(suffix string) string {
 	namespace := factory.options.namespace
 
 	if namespace == "" {
-		gomega.Expect(factory.singleton.userName).To(gomega.MatchRegexp(namespaceRegEx), "user name contains invalid characters")
 		namespace = factory.singleton.userName + "-" + RandStringRunes(8)
 	}
 
 	if suffix != "" {
 		namespace = namespace + "-" + suffix
 	}
+
+	return namespace
+}
+
+// TODO! --> Can we double check this?!
+func (factory *Factory) createNamespace(namespace string) {
+	log.Println("Create namespace", namespace)
+	gomega.Expect(namespace).To(gomega.MatchRegexp(namespaceRegEx), "namespace contains invalid characters")
+
+	// TODO: check if already present
+	factory.singleton.namespaces = append(factory.singleton.namespaces, namespace)
 
 	factory.ensureNamespaceExists(namespace)
 	factory.ensureRBACSetupExists(namespace)
@@ -93,8 +99,6 @@ func (factory *Factory) createNamespace(suffix string) string {
 
 		return err
 	})
-
-	return namespace
 }
 
 func (factory *Factory) ensureNamespaceExists(namespace string) {

@@ -62,7 +62,8 @@ ProcessGroupLoop:
 			continue
 		}
 
-		if processGroupStatus.IsUnderMaintenance(status.Cluster.MaintenanceZone) {
+		// Skip process groups that are in the maintenance zone and have a fault domain specified.
+		if processGroupStatus.FaultDomain != "" && processGroupStatus.IsUnderMaintenance(status.Cluster.MaintenanceZone) {
 			log.Info(
 				"Skip process group that is in maintenance zone",
 				"processGroupID", processGroupStatus.ProcessGroupID,

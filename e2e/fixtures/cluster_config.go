@@ -123,7 +123,7 @@ func (config *ClusterConfig) SetDefaults(factory *Factory) {
 	}
 
 	if config.Namespace == "" {
-		config.Namespace = factory.SingleNamespace()
+		config.Namespace = factory.GenerateNamespaceName("")
 	}
 
 	if config.StorageEngine == "" {

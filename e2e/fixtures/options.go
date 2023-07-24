@@ -63,7 +63,7 @@ func (options *FactoryOptions) BindFlags(fs *flag.FlagSet) {
 	fs.StringVar(
 		&options.chaosNamespace,
 		"chaos-namespace",
-		"",
+		"chaos-testing",
 		"defines the chaos namespace to run experiments (will be created if missing)",
 	)
 	fs.StringVar(
@@ -81,19 +81,19 @@ func (options *FactoryOptions) BindFlags(fs *flag.FlagSet) {
 	fs.StringVar(
 		&options.fdbImage,
 		"fdb-image",
-		"",
+		"foundationdb/foundationdb",
 		"defines the FoundationDB image that should be used for testing",
 	)
 	fs.StringVar(
 		&options.sidecarImage,
 		"sidecar-image",
-		"",
+		"foundationdb/foundationdb-kubernetes-sidecar",
 		"defines the FoundationDB sidecar image that should be used for testing",
 	)
 	fs.StringVar(
 		&options.operatorImage,
 		"operator-image",
-		"",
+		"foundationdb/fdb-kubernetes-operator:latest",
 		"defines the Kubernetes Operator image that should be used for testing",
 	)
 	fs.StringVar(
@@ -105,7 +105,7 @@ func (options *FactoryOptions) BindFlags(fs *flag.FlagSet) {
 	fs.StringVar(
 		&options.fdbVersion,
 		"fdb-version",
-		"",
+		"7.1.33",
 		"overrides the version number of the FoundationDB image that is used for testing. Mandatory unless the FoundationDB image tag is of the form 'x.y.z'",
 	)
 	fs.StringVar(

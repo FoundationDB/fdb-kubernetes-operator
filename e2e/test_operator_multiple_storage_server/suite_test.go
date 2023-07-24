@@ -1,5 +1,5 @@
 /*
- * operator_test.go
+ * suite_test.go
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -20,24 +20,15 @@
 
 package operator
 
-/*
-This test suite includes functional tests to ensure normal operational tasks are working fine.
-Those tests include replacements of healthy or fault Pods and setting different configurations.
-
-The assumption is that every test case reverts the changes that were done on the cluster.
-In order to improve the test speed we only create one FoundationDB cluster initially.
-This cluster will be used for all tests.
-*/
-
 import (
+	"testing"
+	"time"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/e2e/fixtures"
+	"github.com/onsi/gomega"
 )
 
-func init() {
-	// Create the factory in the init method and create the cluster spec
-	factory := fixtures.CreateFactory(fixtures.InitFlags())
-	config := fixtures.DefaultClusterConfig(false)
-	spec := factory.GenerateFDBClusterSpec(config)
-
-	fixtures.OperatorTestSuite(factory, config, spec)
+func TestOperatorCreationVelocity(t *testing.T) {
+	gomega.SetDefaultEventuallyTimeout(10 * time.Second)
+	fixtures.RunGinkgoTests(t, "Operator test suite for multiple storage servers")
 }

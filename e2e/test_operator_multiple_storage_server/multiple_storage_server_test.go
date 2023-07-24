@@ -21,8 +21,8 @@
 package operator
 
 /*
-This test suite includes functional tests to ensure normal operational tasks are working fine.
-Those tests include replacements of healthy or fault Pods and setting different configurations.
+This test suite includes functional tests to ensure normal operational tasks are working fine with multple storage server
+per Pod. Those tests include replacements of healthy or fault Pods and setting different configurations.
 
 The assumption is that every test case reverts the changes that were done on the cluster.
 In order to improve the test speed we only create one FoundationDB cluster initially.
@@ -37,6 +37,7 @@ func init() {
 	// Create the factory in the init method and create the cluster spec
 	factory := fixtures.CreateFactory(fixtures.InitFlags())
 	config := fixtures.DefaultClusterConfig(false)
+	config.StorageServerPerPod = 2
 	spec := factory.GenerateFDBClusterSpec(config)
 
 	fixtures.OperatorTestSuite(factory, config, spec)

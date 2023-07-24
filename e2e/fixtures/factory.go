@@ -63,7 +63,9 @@ type Factory struct {
 // CreateFactory will create a factory based on the provided options.
 func CreateFactory(options *FactoryOptions) *Factory {
 	singleton, err := getSingleton(options)
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	return &Factory{
 		singleton:              singleton,
@@ -267,7 +269,10 @@ func (factory *Factory) GetDefaultStorageClass() string {
 	}
 
 	// If no storage class is provided use the default one in the cluster
-	storageClasses := factory.GetStorageClasses(nil)
+	storageClasses, err := factory.GetStorageClasses(nil)
+	if err != nil {
+		log.Fatal("could not get StorageClasses", err)
+	}
 
 	for _, storageClass := range storageClasses.Items {
 		if _, ok := storageClass.Annotations["storageclass.kubernetes.io/is-default-class"]; ok {
@@ -276,21 +281,18 @@ func (factory *Factory) GetDefaultStorageClass() string {
 	}
 
 	// If we are here we don't have a StorageClass provided as flag or found the default storage class
-	gomega.Expect(
-		fmt.Errorf(
-			"no default storage class provided and not default storage class found in Kubernetes cluster",
-		),
-	).ToNot(gomega.HaveOccurred())
+	log.Fatal("no default storage class provided and not default storage class found in Kubernetes cluster")
+
 	return ""
 }
 
 // GetStorageClasses returns all StorageClasses present in this Kubernetes cluster that have the label foundationdb.org/operator-testing=true.
-func (factory *Factory) GetStorageClasses(labels map[string]string) *storagev1.StorageClassList {
+func (factory *Factory) GetStorageClasses(labels map[string]string) (*storagev1.StorageClassList, error) {
 	storageClasses := &storagev1.StorageClassList{}
-	gomega.Expect(
-		factory.GetControllerRuntimeClient().List(ctx.TODO(), storageClasses, client.MatchingLabels(labels))).NotTo(gomega.HaveOccurred())
 
-	return storageClasses
+	err := factory.GetControllerRuntimeClient().List(ctx.TODO(), storageClasses, client.MatchingLabels(labels))
+
+	return storageClasses, err
 }
 
 // Shutdown executes all the shutdown handlers, usually called in afterSuite or afterTest depending on your scoping of the factory.
@@ -373,6 +375,9 @@ func (factory *Factory) startFDBFromClusterSpec(
 	}
 
 	factory.logClusterInfo(spec)
+
+	// Make sure the namespace exists.
+	factory.createNamespace(spec.Namespace)
 
 	fdbCluster, err := factory.ensureFdbClusterExists(spec, config)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
