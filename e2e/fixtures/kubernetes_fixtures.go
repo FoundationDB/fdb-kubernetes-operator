@@ -22,6 +22,7 @@ package fixtures
 
 import (
 	ctx "context"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"log"
 
 	"github.com/onsi/gomega"
@@ -73,14 +74,26 @@ func (factory *Factory) GenerateNamespaceName(suffix string) string {
 	return namespace
 }
 
-// TODO! --> Can we double check this?!
+// addNamespace will add the provided namespace to the slice of namespaces if not already present.
+func (factory *Factory) addNamespace(namespace string) {
+	knownNamespaces := map[string]fdbv1beta2.None{}
+	for _, knownNamespace := range factory.singleton.namespaces {
+		knownNamespaces[knownNamespace] = fdbv1beta2.None{}
+	}
+
+	if _, ok := knownNamespaces[namespace]; ok {
+		return
+	}
+
+	factory.singleton.namespaces = append(factory.singleton.namespaces, namespace)
+}
+
+// createNamespace will create a namespace and all required resources in it.
 func (factory *Factory) createNamespace(namespace string) {
 	log.Println("Create namespace", namespace)
 	gomega.Expect(namespace).To(gomega.MatchRegexp(namespaceRegEx), "namespace contains invalid characters")
 
-	// TODO: check if already present
-	factory.singleton.namespaces = append(factory.singleton.namespaces, namespace)
-
+	factory.addNamespace(namespace)
 	factory.ensureNamespaceExists(namespace)
 	factory.ensureRBACSetupExists(namespace)
 	gomega.Expect(factory.ensureFDBOperatorExists(namespace)).ToNot(gomega.HaveOccurred())
