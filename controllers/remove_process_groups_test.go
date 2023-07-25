@@ -167,9 +167,9 @@ var _ = Describe("remove_process_groups", func() {
 						}
 					})
 
-					It("should not remove that process group", func() {
+					It("should not remove the process group and should not exclude processes", func() {
 						Expect(result).NotTo(BeNil())
-						Expect(result.message).To(Equal("Removals cannot proceed because cluster has degraded fault tolerance"))
+						Expect(result.message).To(Equal("Reconciliation needs to exclude more processes"))
 						// Ensure resources are not deleted
 						removed, include, err := confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, removedProcessGroup.ProcessGroupID)
 						Expect(err).To(BeNil())

@@ -67,6 +67,20 @@ func getRemainingAndExcludedFromStatus(logger logr.Logger, status *fdbv1beta2.Fo
 		}
 	}
 
+	// If the database is unavailable the status might contain the processes but with missing role information. In this
+	// case we should not perform any validation on the machine-readable status as this information might not be correct.
+	// We don't want to run the exclude command to check for the status of the exclusions as this might result in a recovery
+	// of the cluster or brings the cluster into a worse state.
+	if !status.Client.DatabaseStatus.Available {
+		logger.Info("Skipping exclusion check as the database is unavailable")
+		return exclusionStatus{
+			inProgress:      nil,
+			fullyExcluded:   nil,
+			notExcluded:     addresses,
+			missingInStatus: nil,
+		}
+	}
+
 	addressesToVerify := map[string]fdbv1beta2.None{}
 	for _, addr := range addresses {
 		addressesToVerify[addr.MachineAddress()] = fdbv1beta2.None{}

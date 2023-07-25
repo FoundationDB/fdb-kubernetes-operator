@@ -301,6 +301,7 @@ func tryConnectionOptions(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCl
 	originalConnectionString := cluster.Status.ConnectionString
 	defer func() { cluster.Status.ConnectionString = originalConnectionString }()
 
+	var err error
 	for _, connectionString := range connectionStrings {
 		logger.Info("Attempting to get connection string from cluster", "connectionString", connectionString)
 		cluster.Status.ConnectionString = connectionString
@@ -309,7 +310,8 @@ func tryConnectionOptions(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCl
 			return originalConnectionString, clientErr
 		}
 
-		activeConnectionString, err := adminClient.GetConnectionString()
+		var activeConnectionString string
+		activeConnectionString, err = adminClient.GetConnectionString()
 
 		closeErr := adminClient.Close()
 		if closeErr != nil {
@@ -323,7 +325,7 @@ func tryConnectionOptions(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCl
 		logger.Error(err, "Error getting connection string from cluster", "connectionString", connectionString)
 	}
 
-	return originalConnectionString, nil
+	return originalConnectionString, err
 }
 
 // checkAndSetProcessStatus checks the status of the Process and if missing or incorrect add it to the related status field

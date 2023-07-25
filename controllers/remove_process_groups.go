@@ -314,8 +314,7 @@ func (r *FoundationDBClusterReconciler) getProcessGroupsToRemove(logger logr.Log
 			continue
 		}
 
-		// ProcessGroup is already marked as excluded we can add it to the processGroupsToRemove and skip further
-		// checks.
+		// ProcessGroup is already marked as excluded we can add it to the processGroupsToRemove and skip further checks.
 		if processGroup.IsExcluded() {
 			processGroupsToRemove = append(processGroupsToRemove, processGroup)
 			continue

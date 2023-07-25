@@ -846,6 +846,11 @@ protocol fdb00b071010000`,
 			Expect(err).NotTo(HaveOccurred())
 
 			status := &fdbv1beta2.FoundationDBStatus{
+				Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+					DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+						Available: true,
+					},
+				},
 				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
 					Processes: map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{
 						"1": { // This process is fully excluded
