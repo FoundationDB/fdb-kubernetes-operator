@@ -79,11 +79,7 @@ var _ = Describe("remove_process_groups", func() {
 					coordinatorIP: false,
 				}
 
-				coordSet := map[string]fdbv1beta2.None{
-					coordinatorIP: {},
-				}
-
-				allExcluded, newExclusions, processes := clusterReconciler.getProcessGroupsToRemove(globalControllerLogger, cluster, remaining, coordSet)
+				allExcluded, newExclusions, processes := clusterReconciler.getProcessGroupsToRemove(globalControllerLogger, cluster, remaining)
 				Expect(allExcluded).To(BeFalse())
 				Expect(processes).To(BeEmpty())
 				Expect(newExclusions).To(BeFalse())
