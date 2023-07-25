@@ -22,9 +22,8 @@ package controllers
 
 import (
 	"context"
-	"github.com/go-logr/logr"
-
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+	"github.com/go-logr/logr"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"

@@ -22,8 +22,6 @@ package internal
 
 import (
 	"fmt"
-	"k8s.io/utils/net"
-
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -2899,7 +2897,7 @@ var _ = Describe("pod_models", func() {
 				Expect(service.ObjectMeta.Namespace).To(Equal("my-ns"))
 				Expect(service.ObjectMeta.Name).To(Equal("operator-test-1"))
 				Expect(len(service.Spec.IPFamilies)).To(Equal(1))
-				Expect(service.Spec.IPFamilies).To(Equal([]corev1.IPFamily{corev1.IPFamily(net.IPv6)}))
+				Expect(service.Spec.IPFamilies).To(Equal([]corev1.IPFamily{corev1.IPv6Protocol}))
 			})
 		})
 
