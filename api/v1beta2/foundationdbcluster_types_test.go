@@ -5501,4 +5501,35 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			fmt.Errorf("process has missing address in exclusion results: 192.168.0.2"),
 		),
 	)
+
+	DescribeTable("when getting the removal mode", func(cluster *FoundationDBCluster, expected PodUpdateMode) {
+		Expect(cluster.GetRemovalMode()).To(Equal(expected))
+	},
+		Entry("no removal mode defined",
+			&FoundationDBCluster{
+				Spec: FoundationDBClusterSpec{
+					AutomationOptions: FoundationDBClusterAutomationOptions{
+						DeletionMode: PodUpdateModeAll,
+					},
+				},
+			}, PodUpdateModeZone),
+		Entry("removal mode zone defined",
+			&FoundationDBCluster{
+				Spec: FoundationDBClusterSpec{
+					AutomationOptions: FoundationDBClusterAutomationOptions{
+						DeletionMode: PodUpdateModeAll,
+						RemovalMode:  PodUpdateModeZone,
+					},
+				},
+			}, PodUpdateModeZone),
+		Entry("removal mode none defined",
+			&FoundationDBCluster{
+				Spec: FoundationDBClusterSpec{
+					AutomationOptions: FoundationDBClusterAutomationOptions{
+						DeletionMode: PodUpdateModeAll,
+						RemovalMode:  PodUpdateModeNone,
+					},
+				},
+			}, PodUpdateModeNone),
+	)
 })
