@@ -163,12 +163,21 @@ func CanSafelyRemoveFromStatus(logger logr.Logger, client fdbadminclient.AdminCl
 		}
 	}
 
+	// Verify that all processes that are assumed to be fully excluded based on the machine-readable status are actually
+	// not serving any roles by running the exclude command again. If those processes are actually fully excluded and are not
+	// serving any roles, the exclude command should terminate quickly, otherwise we will hit a timeout, and we know that
+	// not all processes are fully excluded. This is meant to be an additional safeguard if the machine-readable status
+	// returns the wrong signals.
+	if len(exclusions.fullyExcluded) > 0 {
+		// When we hit a timeout error here we know that at least one of the fullyExcluded is still not fully excluded.
+		return notSafeToDelete, client.ExcludeProcesses(exclusions.fullyExcluded)
+	}
+
 	// All processes that are either not yet marked as excluded or still serving at least one role, cannot be removed safely.
 	return notSafeToDelete, nil
 }
 
-// GetExclusions gets a list of the addresses currently excluded from the
-// database, based on the provided status.
+// GetExclusions gets a list of the addresses currently excluded from the database, based on the provided status.
 func GetExclusions(status *fdbv1beta2.FoundationDBStatus) ([]fdbv1beta2.ProcessAddress, error) {
 	excludedServers := status.Cluster.DatabaseConfiguration.ExcludedServers
 	exclusions := make([]fdbv1beta2.ProcessAddress, 0, len(excludedServers))

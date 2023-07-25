@@ -120,7 +120,6 @@ func GetZonedRemovals(status *fdbv1beta2.FoundationDBStatus, processGroupsToRemo
 
 // GetRemainingMap returns a map that indicates if a process group is fully excluded in the cluster.
 func GetRemainingMap(logger logr.Logger, adminClient fdbadminclient.AdminClient, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) (map[string]bool, error) {
-	var err error
 	addresses := make([]fdbv1beta2.ProcessAddress, 0, len(cluster.Status.ProcessGroups))
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if !processGroup.IsMarkedForRemoval() || processGroup.IsExcluded() {
@@ -141,29 +140,20 @@ func GetRemainingMap(logger logr.Logger, adminClient fdbadminclient.AdminClient,
 		}
 	}
 
-	var remaining []fdbv1beta2.ProcessAddress
-	if len(addresses) > 0 {
-		remaining, err = fdbstatus.CanSafelyRemoveFromStatus(logger, adminClient, addresses, status)
-		if err != nil {
-			return map[string]bool{}, err
-		}
+	remainingMap := map[string]bool{}
+	if len(addresses) == 0 {
+		return remainingMap, nil
+	}
+
+	remaining, err := fdbstatus.CanSafelyRemoveFromStatus(logger, adminClient, addresses, status)
+	if err != nil {
+		return nil, err
 	}
 
 	if len(remaining) > 0 {
 		logger.Info("Exclusions to complete", "remainingServers", remaining)
 	}
 
-	if status.Cluster.RecoveryState.ActiveGenerations > 1 {
-		return nil, fmt.Errorf("too many active generations to run the exclude command to verify a process is fully excluded, current active generations: %d", status.Cluster.RecoveryState.ActiveGenerations)
-	}
-
-	// Make sure we use the exclude command again to verify that the processes are excluded based on the command.
-	err = verifyExcludedProcesses(adminClient, remaining, addresses)
-	if err != nil {
-		return nil, err
-	}
-
-	remainingMap := make(map[string]bool, len(remaining))
 	for _, address := range addresses {
 		remainingMap[address.String()] = false
 	}
@@ -172,32 +162,6 @@ func GetRemainingMap(logger logr.Logger, adminClient fdbadminclient.AdminClient,
 	}
 
 	return remainingMap, nil
-}
-
-// verifyExcludedProcesses will verify that the processes that should be excluded based on the FoundationDB machine-readable status are also excluded when issuing
-// the exclude command.
-func verifyExcludedProcesses(adminClient fdbadminclient.AdminClient, remaining []fdbv1beta2.ProcessAddress, addresses []fdbv1beta2.ProcessAddress) error {
-	remainingMap := map[string]fdbv1beta2.None{}
-
-	for _, remainingAddress := range remaining {
-		remainingMap[remainingAddress.MachineAddress()] = fdbv1beta2.None{}
-	}
-
-	checkExclusions := make([]fdbv1beta2.ProcessAddress, 0, len(addresses))
-	for _, addr := range addresses {
-		_, ok := remainingMap[addr.MachineAddress()]
-		if ok {
-			continue
-		}
-
-		checkExclusions = append(checkExclusions, addr)
-	}
-
-	if len(checkExclusions) == 0 {
-		return nil
-	}
-
-	return adminClient.ExcludeProcesses(checkExclusions)
 }
 
 // RemovalAllowed returns if we are allowed to remove the process group or if we have to wait to ensure a safe deletion.
