@@ -84,7 +84,7 @@ func GetProcessGroupsToRemove(removalMode fdbv1beta2.PodUpdateMode, removals map
 // If the process group has not an associated process in the cluster status the zone will be UnknownZone.
 // if the process group has the ResourcesTerminating condition the zone will be TerminatingZone.
 func GetZonedRemovals(status *fdbv1beta2.FoundationDBStatus, processGroupsToRemove []*fdbv1beta2.ProcessGroupStatus) (map[string][]fdbv1beta2.ProcessGroupID, int64, error) {
-	var lastestRemovalTimestamp int64
+	var latestRemovalTimestamp int64
 	// Convert the process list into a map with the process group ID as key.
 	processInfo := map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{}
 	for _, p := range status.Cluster.Processes {
@@ -98,8 +98,8 @@ func GetZonedRemovals(status *fdbv1beta2.FoundationDBStatus, processGroupsToRemo
 		// that state.
 		removalTimestamp := pointer.Int64Deref(pg.GetConditionTime(fdbv1beta2.ResourcesTerminating), 0)
 		if removalTimestamp > 0 {
-			if removalTimestamp > lastestRemovalTimestamp {
-				lastestRemovalTimestamp = removalTimestamp
+			if removalTimestamp > latestRemovalTimestamp {
+				latestRemovalTimestamp = removalTimestamp
 			}
 			zoneMap[TerminatingZone] = append(zoneMap[TerminatingZone], pg.ProcessGroupID)
 			continue
@@ -115,7 +115,7 @@ func GetZonedRemovals(status *fdbv1beta2.FoundationDBStatus, processGroupsToRemo
 		zoneMap[zone] = append(zoneMap[zone], pg.ProcessGroupID)
 	}
 
-	return zoneMap, lastestRemovalTimestamp, nil
+	return zoneMap, latestRemovalTimestamp, nil
 }
 
 // GetRemainingMap returns a map that indicates if a process group is fully excluded in the cluster.
@@ -174,7 +174,7 @@ func GetRemainingMap(logger logr.Logger, adminClient fdbadminclient.AdminClient,
 	return remainingMap, nil
 }
 
-// verifyExcludedProcesses will verify that the processes that should be excluded based on the FoundationDB machine-readble status are also excluded when issuing
+// verifyExcludedProcesses will verify that the processes that should be excluded based on the FoundationDB machine-readable status are also excluded when issuing
 // the exclude command.
 func verifyExcludedProcesses(adminClient fdbadminclient.AdminClient, remaining []fdbv1beta2.ProcessAddress, addresses []fdbv1beta2.ProcessAddress) error {
 	remainingMap := map[string]fdbv1beta2.None{}
@@ -191,6 +191,10 @@ func verifyExcludedProcesses(adminClient fdbadminclient.AdminClient, remaining [
 		}
 
 		checkExclusions = append(checkExclusions, addr)
+	}
+
+	if len(checkExclusions) == 0 {
+		return nil
 	}
 
 	return adminClient.ExcludeProcesses(checkExclusions)
