@@ -23,7 +23,6 @@ package internal
 import (
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/utils/net"
 )
 
 // GetHeadlessService builds a headless service for a FoundationDB cluster.
@@ -40,7 +39,7 @@ func GetHeadlessService(cluster *fdbv1beta2.FoundationDBCluster) *corev1.Service
 	service.Spec.Selector = cluster.GetMatchLabels()
 
 	if cluster.Spec.Routing.PodIPFamily != nil && *cluster.Spec.Routing.PodIPFamily == 6 {
-		service.Spec.IPFamilies = []corev1.IPFamily{corev1.IPFamily(net.IPv6)}
+		service.Spec.IPFamilies = []corev1.IPFamily{corev1.IPv6Protocol}
 	}
 
 	return service
