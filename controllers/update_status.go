@@ -325,7 +325,7 @@ func tryConnectionOptions(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCl
 		logger.Error(err, "Error getting connection string from cluster", "connectionString", connectionString)
 	}
 
-	return originalConnectionString, err
+	return originalConnectionString, nil
 }
 
 // checkAndSetProcessStatus checks the status of the Process and if missing or incorrect add it to the related status field
