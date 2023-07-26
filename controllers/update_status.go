@@ -350,6 +350,11 @@ func checkAndSetProcessStatus(logger logr.Logger, r *FoundationDBClusterReconcil
 	correct := false
 	versionCompatibleUpgrade := cluster.VersionCompatibleUpgradeInProgress()
 	for _, process := range processStatus {
+		// Check if the process is reporting any messages, those will normally include error messages
+		if len(process.Messages) > 0 {
+			logger.Info("found error message(s) for the process", "processGroupID", processGroupStatus.ProcessGroupID, "messages", process.Messages)
+		}
+
 		commandLine, err := internal.GetStartCommand(cluster, processGroupStatus.ProcessClass, podClient, processNumber, processCount)
 		if err != nil {
 			if internal.IsNetworkError(err) {
@@ -371,10 +376,12 @@ func checkAndSetProcessStatus(logger logr.Logger, r *FoundationDBClusterReconcil
 		correct = commandLine == process.CommandLine && versionMatch && !cluster.Spec.Buggify.EmptyMonitorConf
 
 		if !correct {
-			logger.Info("IncorrectProcess", "expected", commandLine, "got", process.CommandLine,
+			logger.Info("IncorrectProcess",
+				"expected", commandLine, "got", process.CommandLine,
 				"expectedVersion", cluster.Spec.Version,
-				"version", process.Version, "processGroupID", processGroupStatus.ProcessGroupID,
-				"emptyMonitorConf is ", cluster.Spec.Buggify.EmptyMonitorConf)
+				"version", process.Version,
+				"processGroupID", processGroupStatus.ProcessGroupID,
+				"emptyMonitorConf", cluster.Spec.Buggify.EmptyMonitorConf)
 		}
 	}
 

@@ -42,6 +42,18 @@ type FoundationDBStatusLocalClientInfo struct {
 
 	// DatabaseStatus provides a summary of the database's health.
 	DatabaseStatus FoundationDBStatusClientDBStatus `json:"database_status,omitempty"`
+
+	// Messages represents the possible messages that are part of the client information.
+	Messages []FoundationDBStatusMessage `json:"messages,omitempty"`
+}
+
+// FoundationDBStatusMessage represents a message in the machine-readable status.
+// See: https://apple.github.io/foundationdb/mr-status.html#message-components
+type FoundationDBStatusMessage struct {
+	// Name represents the name of the message, e.g. "inconsistent_cluster_file"
+	Name string `json:"name,omitempty"`
+	// Description contains a human friendly description of the message.
+	Description string `json:"description,omitempty"`
 }
 
 // FoundationDBStatusCoordinatorInfo contains information about the client's
@@ -114,6 +126,9 @@ type FoundationDBStatusClusterInfo struct {
 
 	// ConnectionString represents the connection string in the cluster status json output.
 	ConnectionString string `json:"connection_string,omitempty"`
+
+	// Messages represents the possible messages that are part of the cluster information.
+	Messages []FoundationDBStatusMessage `json:"messages,omitempty"`
 }
 
 // FaultTolerance provides information about the fault tolerance status
