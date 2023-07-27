@@ -41,6 +41,7 @@ var _ = Describe("FoundationDBStatus", func() {
 			Expect(statusDecoder.Decode(&status)).NotTo(HaveOccurred())
 			Expect(status).To(Equal(FoundationDBStatus{
 				Client: FoundationDBStatusLocalClientInfo{
+					Messages: []FoundationDBStatusMessage{},
 					Coordinators: FoundationDBStatusCoordinatorInfo{
 						QuorumReachable: true,
 						Coordinators: []FoundationDBStatusCoordinator{
@@ -70,6 +71,7 @@ var _ = Describe("FoundationDBStatus", func() {
 					DatabaseStatus: FoundationDBStatusClientDBStatus{Available: true, Healthy: true},
 				},
 				Cluster: FoundationDBStatusClusterInfo{
+					Messages:                []FoundationDBStatusMessage{},
 					Generation:              62,
 					IncompatibleConnections: []string{},
 					ConnectionString:        "sample_cluster:JLjCjL6Vp3kWoIfHJeDZMhYqPBb1bIZr@10.1.38.94:4501,10.1.38.102:4501,10.1.38.104:4501",
@@ -506,6 +508,7 @@ var _ = Describe("FoundationDBStatus", func() {
 
 	When("parsing the status json with a 7.1.0-rc1 cluster", func() {
 		status := FoundationDBStatusClusterInfo{
+			Messages:                []FoundationDBStatusMessage{},
 			IncompatibleConnections: []string{},
 			ConnectionString:        "test_cluster:aHeD9ocNXOUxi0dyzU3k7Bhg53SpyrBV@10.1.18.253:4501,10.1.18.254:4501,10.1.19.0:4501",
 			DatabaseConfiguration: DatabaseConfiguration{

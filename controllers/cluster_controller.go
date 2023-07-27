@@ -470,6 +470,14 @@ func (r *FoundationDBClusterReconciler) getStatusFromClusterOrDummyStatus(logger
 
 	status, err := adminClient.GetStatus()
 	if err == nil {
+		if len(status.Client.Messages) > 0 {
+			logger.Info("found client message(s) in the machine-readable status", "messages", status.Client.Messages)
+		}
+
+		if len(status.Cluster.Messages) > 0 {
+			logger.Info("found cluster message(s) in the machine-readable status", "messages", status.Cluster.Messages)
+		}
+
 		return status, nil
 	}
 
