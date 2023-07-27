@@ -286,7 +286,7 @@ var _ = Describe("status_checks", func() {
 				nil,
 				nil,
 			),
-			Entry("when the process is excluded but the cluster is unavilable",
+			Entry("when the process is excluded but the cluster is unavailable",
 				&fdbv1beta2.FoundationDBStatus{
 					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
 						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
@@ -323,6 +323,144 @@ var _ = Describe("status_checks", func() {
 				[]fdbv1beta2.ProcessAddress{addr4},
 				nil,
 				[]fdbv1beta2.ProcessAddress{addr4},
+				nil,
+				nil,
+			),
+			Entry("when the machine-readable status contains the \"storage_servers_error\" message",
+				&fdbv1beta2.FoundationDBStatus{
+					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+							Available: true,
+						},
+					},
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						Messages: []fdbv1beta2.FoundationDBStatusMessage{
+							{
+								Name:        "storage_servers_error",
+								Description: "...",
+							},
+						},
+						RecoveryState: fdbv1beta2.RecoveryState{
+							ActiveGenerations: 1,
+						},
+						Processes: map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{
+							"1": {
+								Address:  addr1,
+								Excluded: true,
+							},
+							"2": {
+								Address: addr2,
+							},
+							"3": {
+								Address: addr3,
+							},
+							"4": {
+								Address:  addr4,
+								Excluded: true,
+								Roles: []fdbv1beta2.FoundationDBStatusProcessRoleInfo{
+									{
+										Role: "tester",
+									},
+								},
+							},
+						},
+					},
+				},
+				[]fdbv1beta2.ProcessAddress{addr4},
+				nil,
+				[]fdbv1beta2.ProcessAddress{addr4},
+				nil,
+				nil,
+			),
+			Entry("when the machine-readable status contains the \"log_servers_error\" message",
+				&fdbv1beta2.FoundationDBStatus{
+					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+							Available: true,
+						},
+					},
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						Messages: []fdbv1beta2.FoundationDBStatusMessage{
+							{
+								Name:        "log_servers_error",
+								Description: "...",
+							},
+						},
+						RecoveryState: fdbv1beta2.RecoveryState{
+							ActiveGenerations: 1,
+						},
+						Processes: map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{
+							"1": {
+								Address:  addr1,
+								Excluded: true,
+							},
+							"2": {
+								Address: addr2,
+							},
+							"3": {
+								Address: addr3,
+							},
+							"4": {
+								Address:  addr4,
+								Excluded: true,
+								Roles: []fdbv1beta2.FoundationDBStatusProcessRoleInfo{
+									{
+										Role: "tester",
+									},
+								},
+							},
+						},
+					},
+				},
+				[]fdbv1beta2.ProcessAddress{addr4},
+				nil,
+				[]fdbv1beta2.ProcessAddress{addr4},
+				nil,
+				nil,
+			),
+			Entry("when the machine-readable status contains the \"client_issues\" message",
+				&fdbv1beta2.FoundationDBStatus{
+					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+							Available: true,
+						},
+					},
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						Messages: []fdbv1beta2.FoundationDBStatusMessage{
+							{
+								Name:        "client_issues",
+								Description: "...",
+							},
+						},
+						RecoveryState: fdbv1beta2.RecoveryState{
+							ActiveGenerations: 1,
+						},
+						Processes: map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{
+							"1": {
+								Address:  addr1,
+								Excluded: true,
+							},
+							"2": {
+								Address: addr2,
+							},
+							"3": {
+								Address: addr3,
+							},
+							"4": {
+								Address:  addr4,
+								Excluded: true,
+								Roles: []fdbv1beta2.FoundationDBStatusProcessRoleInfo{
+									{
+										Role: "tester",
+									},
+								},
+							},
+						},
+					},
+				},
+				[]fdbv1beta2.ProcessAddress{addr4},
+				[]fdbv1beta2.ProcessAddress{addr4},
+				nil,
 				nil,
 				nil,
 			),
