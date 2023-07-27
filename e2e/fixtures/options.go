@@ -38,6 +38,7 @@ type FactoryOptions struct {
 	fdbImage                    string // TODO (johscheuer): Make this optional if we use the default
 	sidecarImage                string // TODO (johscheuer): Make this optional if we use the default
 	operatorImage               string
+	dataLoaderImage             string
 	registry                    string
 	fdbVersion                  string
 	username                    string
@@ -45,6 +46,7 @@ type FactoryOptions struct {
 	upgradeString               string
 	cloudProvider               string
 	enableChaosTests            bool
+	enableDataLoading           bool
 	cleanup                     bool
 	featureOperatorDNS          bool
 	featureOperatorLocalities   bool
@@ -133,17 +135,29 @@ func (options *FactoryOptions) BindFlags(fs *flag.FlagSet) {
 		"",
 		"defines the cloud provider used for the Kubernetes cluster, for defining cloud provider specific behaviour. Currently only Kind is support.",
 	)
+	fs.StringVar(
+		&options.dataLoaderImage,
+		"data-loader-image",
+		"foundationdb/fdb-data-loader:latest",
+		"defines the data loader image that should be used for testing",
+	)
 	fs.BoolVar(
 		&options.enableChaosTests,
 		"enable-chaos-tests",
 		true,
-		"defines if the chaos tests should be enabled in operator related tests cases",
+		"defines if the chaos tests should be enabled in operator related tests cases.",
+	)
+	fs.BoolVar(
+		&options.enableDataLoading,
+		"enable-data-load",
+		true,
+		"defines if the created FDB cluster should be loaded with some random data.",
 	)
 	fs.BoolVar(
 		&options.cleanup,
 		"cleanup",
 		true,
-		"defines if the test namespace should be removed after the test run",
+		"defines if the test namespace should be removed after the test run.",
 	)
 	fs.BoolVar(
 		&options.featureOperatorUnifiedImage,

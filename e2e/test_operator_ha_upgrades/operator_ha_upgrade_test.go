@@ -164,6 +164,9 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 				}
 			}
 
+			// Load some data async into the cluster. We will only block as long as the Job is created.
+			factory.CreateDataLoaderIfAbsent(fdbCluster.GetPrimary())
+
 			// Start the upgrade for the whole cluster
 			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
 
