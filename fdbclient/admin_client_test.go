@@ -902,7 +902,7 @@ protocol fdb00b071010000`,
 			}
 
 			mockRunner = &mockCommandRunner{
-				mockedError:  fdbv1beta2.TimeoutError{Err: fmt.Errorf("timed out")},
+				mockedError:  nil,
 				mockedOutput: "",
 			}
 		})
@@ -926,8 +926,39 @@ protocol fdb00b071010000`,
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			It("should not issue an exclude command", func() {
-				Expect(mockRunner.receivedBinary).To(BeEmpty())
+			It("should issue an exclude command to verify the exclusion", func() {
+				Expect(mockRunner.receivedBinary).To(HaveSuffix(fdbcliStr))
+				Expect(mockRunner.receivedArgs).To(ContainElements("exclude 192.168.0.1:4500 192.168.0.2:4500"))
+			})
+		})
+
+		When("all provided processes are fully excluded in the status but the exclude command returns an error", func() {
+			BeforeEach(func() {
+				addressesToCheck = []fdbv1beta2.ProcessAddress{
+					{
+						IPAddress: net.ParseIP("192.168.0.1"),
+						Port:      4500,
+					},
+					{
+						IPAddress: net.ParseIP("192.168.0.2"),
+						Port:      4500,
+					},
+				}
+
+				mockRunner = &mockCommandRunner{
+					mockedError:  fdbv1beta2.TimeoutError{Err: fmt.Errorf("timed out")},
+					mockedOutput: "",
+				}
+			})
+
+			It("should return an empty list and an error", func() {
+				Expect(result).To(HaveLen(0))
+				Expect(err).To(HaveOccurred())
+			})
+
+			It("should issue an exclude command to verify the exclusion", func() {
+				Expect(mockRunner.receivedBinary).To(HaveSuffix(fdbcliStr))
+				Expect(mockRunner.receivedArgs).To(ContainElements("exclude 192.168.0.1:4500 192.168.0.2:4500"))
 			})
 		})
 
@@ -947,6 +978,11 @@ protocol fdb00b071010000`,
 						Port:      4500,
 					},
 				}
+
+				mockRunner = &mockCommandRunner{
+					mockedError:  nil,
+					mockedOutput: "",
+				}
 			})
 
 			It("should return the one process that is not excluded", func() {
@@ -957,8 +993,8 @@ protocol fdb00b071010000`,
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			It("should not issue an exclude command", func() {
-				Expect(mockRunner.receivedBinary).To(BeEmpty())
+			It("should issue an exclude command to verify the exclusion", func() {
+				Expect(mockRunner.receivedBinary).To(HaveSuffix(fdbcliStr))
 			})
 		})
 
@@ -988,8 +1024,8 @@ protocol fdb00b071010000`,
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			It("should not issue an exclude command", func() {
-				Expect(mockRunner.receivedBinary).To(BeEmpty())
+			It("should issue an exclude command to verify the exclusion", func() {
+				Expect(mockRunner.receivedBinary).To(HaveSuffix(fdbcliStr))
 			})
 		})
 
@@ -1028,12 +1064,12 @@ protocol fdb00b071010000`,
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			It("should not issue an exclude command", func() {
-				Expect(mockRunner.receivedBinary).To(BeEmpty())
+			It("should issue an exclude command to verify the exclusion", func() {
+				Expect(mockRunner.receivedBinary).To(HaveSuffix(fdbcliStr))
 			})
 		})
 
-		When("one process is missing in the cluster status", func() {
+		When("one process is missing in the cluster status and the exclude command times out", func() {
 			BeforeEach(func() {
 				addressesToCheck = []fdbv1beta2.ProcessAddress{
 					{
@@ -1048,6 +1084,11 @@ protocol fdb00b071010000`,
 						IPAddress: net.ParseIP("192.168.0.5"),
 						Port:      4500,
 					},
+				}
+
+				mockRunner = &mockCommandRunner{
+					mockedError:  fdbv1beta2.TimeoutError{Err: fmt.Errorf("timed out")},
+					mockedOutput: "",
 				}
 			})
 
