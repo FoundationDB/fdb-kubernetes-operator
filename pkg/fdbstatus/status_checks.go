@@ -94,7 +94,9 @@ func getRemainingAndExcludedFromStatus(logger logr.Logger, status *fdbv1beta2.Fo
 		}
 	}
 
-	// ...
+	// We have to make sure that the provided machine-readable status contains the required information, if any of the
+	// forbiddenStatusMessages is present, the operator is not able to make a decision if a set of processes is fully excluded
+	// or not.
 	if !clusterStatusHasValidRoleInformation(logger, status) {
 		return exclusionStatus{
 			inProgress:      nil,
