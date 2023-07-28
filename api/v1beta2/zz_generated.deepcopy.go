@@ -684,8 +684,8 @@ func (in *FoundationDBClusterSpec) DeepCopyInto(out *FoundationDBClusterSpec) {
 		*out = new(bool)
 		**out = **in
 	}
-	if in.DeletePodsWhenNodeSelectorChanges != nil {
-		in, out := &in.DeletePodsWhenNodeSelectorChanges, &out.DeletePodsWhenNodeSelectorChanges
+	if in.RemoteStorage != nil {
+		in, out := &in.RemoteStorage, &out.RemoteStorage
 		*out = new(bool)
 		**out = **in
 	}

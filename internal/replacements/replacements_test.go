@@ -277,15 +277,15 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			})
 		})
 
-		Context("when nodeSelector changes and DeletePodsWhenNodeSelectorChanges is true", func() {
+		Context("when nodeSelector changes and RemoteStorage is true", func() {
 			BeforeEach(func() {
 				pClass = fdbv1beta2.ProcessClassStorage
 				remove = false
 			})
 
 			It("should not need a removal", func() {
-				deletePodsWhenNoseSelectorChanges := true
-				cluster.Spec.DeletePodsWhenNodeSelectorChanges = &deletePodsWhenNoseSelectorChanges
+				remoteStorage := true
+				cluster.Spec.RemoteStorage = &remoteStorage
 				needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
 				Expect(needsRemoval).To(BeFalse())
 				Expect(err).NotTo(HaveOccurred())

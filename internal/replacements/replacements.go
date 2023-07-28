@@ -188,7 +188,7 @@ func processGroupNeedsRemoval(cluster *fdbv1beta2.FoundationDBCluster, pod *core
 	}
 
 	expectedNodeSelector := cluster.GetProcessSettings(processGroupStatus.ProcessClass).PodTemplate.Spec.NodeSelector
-	if !pointer.BoolDeref(cluster.Spec.DeletePodsWhenNodeSelectorChanges, false) &&
+	if !pointer.BoolDeref(cluster.Spec.RemoteStorage, false) &&
 		!equality.Semantic.DeepEqual(pod.Spec.NodeSelector, expectedNodeSelector) {
 		specHash, err := internal.GetPodSpecHash(cluster, processGroupStatus.ProcessClass, idNum, nil)
 		if err != nil {
@@ -200,11 +200,6 @@ func processGroupNeedsRemoval(cluster *fdbv1beta2.FoundationDBCluster, pod *core
 				"reason", fmt.Sprintf("nodeSelector has changed from %s to %s", pod.Spec.NodeSelector, expectedNodeSelector))
 			return true, nil
 		}
-	}
-
-	if pointer.BoolDeref(cluster.Spec.DeletePodsWhenNodeSelectorChanges, false) &&
-		!equality.Semantic.DeepEqual(pod.Spec.NodeSelector, expectedNodeSelector) {
-		return false, nil
 	}
 
 	if cluster.NeedsReplacement(processGroupStatus, pod) {

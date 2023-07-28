@@ -4608,13 +4608,13 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				},
 				false,
 			),
-			Entry("Default update strategy on NodeSelector change and DeletePodsWhenNodeSelectorChanges enabled",
+			Entry("Default update strategy on NodeSelector change and RemoteStorage enabled",
 				&FoundationDBCluster{
 					Spec: FoundationDBClusterSpec{
 						AutomationOptions: FoundationDBClusterAutomationOptions{
 							PodUpdateStrategy: "",
 						},
-						DeletePodsWhenNodeSelectorChanges: pointer.Bool(true),
+						RemoteStorage: pointer.Bool(true),
 						Processes: map[ProcessClass]ProcessSettings{
 							ProcessClassGeneral: {
 								PodTemplate: &corev1.PodTemplateSpec{

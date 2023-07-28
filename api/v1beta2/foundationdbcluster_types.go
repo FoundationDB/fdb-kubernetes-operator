@@ -202,11 +202,10 @@ type FoundationDBClusterSpec struct {
 	// +kubebuilder:default:=false
 	ReplaceInstancesWhenResourcesChange *bool `json:"replaceInstancesWhenResourcesChange,omitempty"`
 
-	// DeletePodsWhenNodeSelectorChanges defines if a pod should be deleted when the node selector
-	// changes. This could be usedfull in combination with managed storage with retain policy to achieve
-	// light weight node replacements.
+	// RemoteStorage defines if the cluster is using remote storage. This is used to determine
+	// how the operator should handle pod replacements.
 	// +kubebuilder:default:=false
-	DeletePodsWhenNodeSelectorChanges *bool `json:"deletePodsWhenNodeSelectorChanges,omitempty"`
+	RemoteStorage *bool `json:"remoteStorage,omitempty"`
 
 	// Skip defines if the cluster should be skipped for reconciliation. This can be useful for
 	// investigating in issues or if the environment is unstable.
@@ -2288,11 +2287,15 @@ func (cluster *FoundationDBCluster) NeedsReplacement(processGroup *ProcessGroupS
 		return true
 	}
 
-	// Do not replace Pods if the NodeSelector has changed and DeletePodsWhenNodeSelectorChanges is set to true
-	expectedNodeSelector := cluster.GetProcessSettings(processGroup.ProcessClass).PodTemplate.Spec.NodeSelector
-	if pointer.BoolDeref(cluster.Spec.DeletePodsWhenNodeSelectorChanges, false) &&
-		!equality.Semantic.DeepEqual(pod.Spec.NodeSelector, expectedNodeSelector) {
-		return false
+	// When RemoteStorage is enabled the operator can use pod deletion instead of pod replacement.
+	// This will reduce the fault tolerance of the cluster until the pod is reattached to the PV but will allow lightweight updates.
+	if pointer.BoolDeref(cluster.Spec.RemoteStorage, false) {
+		// Skip replacement if the node selector has changed
+		expectedNodeSelector := cluster.GetProcessSettings(processGroup.ProcessClass).PodTemplate.Spec.NodeSelector
+		if !equality.Semantic.DeepEqual(pod.Spec.NodeSelector, expectedNodeSelector) {
+			return false
+		}
+		// TODO: Add more conditions under which pods should not be replaced
 	}
 
 	// Default is ReplaceTransactionSystem.

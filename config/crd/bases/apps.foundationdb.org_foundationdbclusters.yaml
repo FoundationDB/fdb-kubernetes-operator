@@ -10407,9 +10407,6 @@ spec:
                   usable_regions:
                     type: integer
                 type: object
-              deletePodsWhenNodeSelectorChanges:
-                default: false
-                type: boolean
               faultDomain:
                 properties:
                   key:
@@ -13980,6 +13977,9 @@ spec:
                       type: object
                   type: object
                 type: object
+              remoteStorage:
+                default: false
+                type: boolean
               replaceInstancesWhenResourcesChange:
                 default: false
                 type: boolean
