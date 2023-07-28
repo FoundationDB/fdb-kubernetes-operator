@@ -29,6 +29,19 @@ import (
 	"math"
 )
 
+// forbiddenStatusMessages represents messages that could be part of the machine-readable status. Those messages can represent
+// different error cases that have occurred when fetching the machine-readable status. A list of possible messages can be
+// found here: https://github.com/apple/foundationdb/blob/main/documentation/sphinx/source/mr-status.rst?plain=1#L68-L97
+// and here: https://apple.github.io/foundationdb/mr-status.html#message-components.
+// We don't want to block the exclusion check for all messages, as some messages also indicate client issues or issues
+// with a specific transaction priority.
+var forbiddenStatusMessages = map[string]fdbv1beta2.None{
+	"unreadable_configuration": {},
+	"full_replication_timeout": {},
+	"storage_servers_error":    {},
+	"log_servers_error":        {},
+}
+
 // StatusContextKey will be used as a key in a context to pass down the cached status.
 type StatusContextKey struct{}
 
@@ -59,6 +72,32 @@ func getRemainingAndExcludedFromStatus(logger logr.Logger, status *fdbv1beta2.Fo
 	// popped.
 	if status.Cluster.RecoveryState.ActiveGenerations > 1 {
 		logger.Info("Skipping exclusion check as there are multiple active generations", "activeGenerations", status.Cluster.RecoveryState.ActiveGenerations)
+		return exclusionStatus{
+			inProgress:      nil,
+			fullyExcluded:   nil,
+			notExcluded:     addresses,
+			missingInStatus: nil,
+		}
+	}
+
+	// If the database is unavailable the status might contain the processes but with missing role information. In this
+	// case we should not perform any validation on the machine-readable status as this information might not be correct.
+	// We don't want to run the exclude command to check for the status of the exclusions as this might result in a recovery
+	// of the cluster or brings the cluster into a worse state.
+	if !status.Client.DatabaseStatus.Available {
+		logger.Info("Skipping exclusion check as the database is unavailable")
+		return exclusionStatus{
+			inProgress:      nil,
+			fullyExcluded:   nil,
+			notExcluded:     addresses,
+			missingInStatus: nil,
+		}
+	}
+
+	// We have to make sure that the provided machine-readable status contains the required information, if any of the
+	// forbiddenStatusMessages is present, the operator is not able to make a decision if a set of processes is fully excluded
+	// or not.
+	if !clusterStatusHasValidRoleInformation(logger, status) {
 		return exclusionStatus{
 			inProgress:      nil,
 			fullyExcluded:   nil,
@@ -131,6 +170,21 @@ func getRemainingAndExcludedFromStatus(logger logr.Logger, status *fdbv1beta2.Fo
 	}
 
 	return exclusions
+}
+
+// clusterStatusHasValidRoleInformation will check if the cluster part of the machine-readable status contains messages
+// that indicate that not all role information could be fetched.
+func clusterStatusHasValidRoleInformation(logger logr.Logger, status *fdbv1beta2.FoundationDBStatus) bool {
+	for _, message := range status.Cluster.Messages {
+		if _, ok := forbiddenStatusMessages[message.Name]; ok {
+			logger.Info("Skipping exclusion check as the machine-readable status includes a message that indicates an potential incomplete status",
+				"messages", status.Cluster.Messages,
+				"forbiddenStatusMessages", forbiddenStatusMessages)
+			return false
+		}
+	}
+
+	return true
 }
 
 // CanSafelyRemoveFromStatus checks whether it is safe to remove processes from the cluster, based on the provided status.
