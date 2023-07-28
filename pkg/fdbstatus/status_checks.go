@@ -36,14 +36,10 @@ import (
 // We don't want to block the exclusion check for all messages, as some messages also indicate client issues or issues
 // with a specific transaction priority.
 var forbiddenStatusMessages = map[string]fdbv1beta2.None{
-	"storage_servers_error":              {},
-	"status_incomplete":                  {},
-	"unreachable_master_worker":          {},
-	"unreachable_dataDistributor_worker": {},
-	"unreachable_ratekeeper_worker":      {},
-	"unreadable_configuration":           {},
-	"unreachable_processes":              {},
-	"log_servers_error":                  {},
+	"unreadable_configuration": {},
+	"full_replication_timeout": {},
+	"storage_servers_error":    {},
+	"log_servers_error":        {},
 }
 
 // StatusContextKey will be used as a key in a context to pass down the cached status.

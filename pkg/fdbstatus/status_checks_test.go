@@ -418,6 +418,98 @@ var _ = Describe("status_checks", func() {
 				nil,
 				nil,
 			),
+			Entry("when the machine-readable status contains the \"unreadable_configuration\" message",
+				&fdbv1beta2.FoundationDBStatus{
+					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+							Available: true,
+						},
+					},
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						Messages: []fdbv1beta2.FoundationDBStatusMessage{
+							{
+								Name:        "unreadable_configuration",
+								Description: "...",
+							},
+						},
+						RecoveryState: fdbv1beta2.RecoveryState{
+							ActiveGenerations: 1,
+						},
+						Processes: map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{
+							"1": {
+								Address:  addr1,
+								Excluded: true,
+							},
+							"2": {
+								Address: addr2,
+							},
+							"3": {
+								Address: addr3,
+							},
+							"4": {
+								Address:  addr4,
+								Excluded: true,
+								Roles: []fdbv1beta2.FoundationDBStatusProcessRoleInfo{
+									{
+										Role: "tester",
+									},
+								},
+							},
+						},
+					},
+				},
+				[]fdbv1beta2.ProcessAddress{addr4},
+				nil,
+				[]fdbv1beta2.ProcessAddress{addr4},
+				nil,
+				nil,
+			),
+			Entry("when the machine-readable status contains the \"full_replication_timeout\" message",
+				&fdbv1beta2.FoundationDBStatus{
+					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+							Available: true,
+						},
+					},
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						Messages: []fdbv1beta2.FoundationDBStatusMessage{
+							{
+								Name:        "full_replication_timeout",
+								Description: "...",
+							},
+						},
+						RecoveryState: fdbv1beta2.RecoveryState{
+							ActiveGenerations: 1,
+						},
+						Processes: map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{
+							"1": {
+								Address:  addr1,
+								Excluded: true,
+							},
+							"2": {
+								Address: addr2,
+							},
+							"3": {
+								Address: addr3,
+							},
+							"4": {
+								Address:  addr4,
+								Excluded: true,
+								Roles: []fdbv1beta2.FoundationDBStatusProcessRoleInfo{
+									{
+										Role: "tester",
+									},
+								},
+							},
+						},
+					},
+				},
+				[]fdbv1beta2.ProcessAddress{addr4},
+				nil,
+				[]fdbv1beta2.ProcessAddress{addr4},
+				nil,
+				nil,
+			),
 			Entry("when the machine-readable status contains the \"client_issues\" message",
 				&fdbv1beta2.FoundationDBStatus{
 					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
