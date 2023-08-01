@@ -178,19 +178,7 @@ func (factory *Factory) CreateFdbHaCluster(
 ) *HaFdbCluster {
 	config.SetDefaults(factory)
 
-	mainOverrides, sidecarOverrides := factory.getContainerOverrides(
-		config.DebugSymbols,
-	)
-
-	dbConfig := config.CreateDatabaseConfiguration()
-	dcIDs := GetDcIDsFromConfig(dbConfig)
 	cluster, err := factory.ensureHAFdbClusterExists(
-		dcIDs,
-		factory.MultipleNamespaces(dcIDs),
-		factory.createProcesses(config),
-		dbConfig,
-		mainOverrides,
-		sidecarOverrides,
 		config,
 		options,
 	)
