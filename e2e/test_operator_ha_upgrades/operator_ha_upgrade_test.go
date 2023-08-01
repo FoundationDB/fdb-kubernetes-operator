@@ -536,7 +536,11 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 				Skip("operator doesn't support feature for test case")
 			}
 
-			clusterSetup(beforeVersion, false)
+			versionsCompatible := fixtures.VersionsAreProtocolCompatible(beforeVersion, targetVersion)
+			// If the versions are not protocol compatible, ignore availability issues, as the incompatible processes,
+			// can cause the database to be unavailable for a longer time period. If the versions are compatible we expect
+			// no issues.
+			clusterSetupWithHealthCheckOption(beforeVersion, false, !versionsCompatible)
 
 			// Select remote processes and use the buggify option to skip those
 			// processes during the restart command.
