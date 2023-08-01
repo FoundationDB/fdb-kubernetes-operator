@@ -29,6 +29,9 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/net/context"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -289,6 +292,34 @@ func (fdbCluster *FdbCluster) WaitUntilWithForceReconcile(pollTimeInSeconds int,
 
 			if checkMethod(resCluster) {
 				return true, nil
+			}
+
+			// Check here is a process group is stuck in PodPending for a long time and if so delete the Pod, so it
+			// gets rescheduled. Sometimes there are race conditions for the scheduling, where a Pod is not able to be
+			// scheduled on the initial node.
+			for _, processGroup := range resCluster.Status.ProcessGroups {
+				pendingTime := processGroup.GetConditionTime(fdbv1beta2.PodPending)
+				if pendingTime == nil {
+					continue
+				}
+
+				durationOfPendingState := time.Since(time.Unix(pointer.Int64Deref(pendingTime, 0), 0))
+				log.Println("durationOfPendingState", durationOfPendingState.String())
+				// If the Process Group is in the pending state for more than 5 minutes, delete the Pod. An alternative
+				// would be to let the operator replace the Process group.
+				if durationOfPendingState.Seconds() > 300 {
+					podName := processGroup.GetPodName(resCluster)
+					log.Println("Pod should be replaced", processGroup.ProcessGroupID, "Pod name", podName)
+
+					err := fdbCluster.factory.GetControllerRuntimeClient().Delete(context.TODO(), &corev1.Pod{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      podName,
+							Namespace: resCluster.Namespace,
+						},
+					})
+
+					log.Println("error when deleting Pod", err)
+				}
 			}
 
 			// Force a reconcile if needed.
