@@ -30,6 +30,8 @@ require (
 	sigs.k8s.io/yaml v1.3.0
 )
 
+require golang.org/x/net v0.10.0
+
 require (
 	github.com/alecthomas/units v0.0.0-20210927113745-59d0afb8317a // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
@@ -89,7 +91,6 @@ require (
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
 	go.uber.org/zap v1.24.0 // indirect
-	golang.org/x/net v0.10.0 // indirect
 	golang.org/x/oauth2 v0.4.0 // indirect
 	golang.org/x/sys v0.8.0 // indirect
 	golang.org/x/term v0.8.0 // indirect
