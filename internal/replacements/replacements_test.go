@@ -597,7 +597,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			pvcMap = map[fdbv1beta2.ProcessGroupID]corev1.PersistentVolumeClaim{}
 
 			for i := 0; i < 10; i++ {
-				_, id := internal.GetProcessGroupID(cluster, fdbv1beta2.ProcessClassStorage, i)
+				_, id := cluster.GetProcessGroupID(fdbv1beta2.ProcessClassStorage, i)
 				newPVC, err := internal.GetPvc(cluster, fdbv1beta2.ProcessClassStorage, i)
 				Expect(err).NotTo(HaveOccurred())
 				pvcMap[id] = *newPVC
@@ -609,7 +609,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			}
 
 			for i := 0; i < 1; i++ {
-				_, id := internal.GetProcessGroupID(cluster, fdbv1beta2.ProcessClassTransaction, i)
+				_, id := cluster.GetProcessGroupID(fdbv1beta2.ProcessClassTransaction, i)
 				newPVC, err := internal.GetPvc(cluster, fdbv1beta2.ProcessClassTransaction, i)
 				Expect(err).NotTo(HaveOccurred())
 				pvcMap[id] = *newPVC
@@ -698,7 +698,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 			When("the process is a storage process", func() {
 				BeforeEach(func() {
-					podName, _ := internal.GetProcessGroupID(cluster, fdbv1beta2.ProcessClassStorage, 0)
+					podName, _ := cluster.GetProcessGroupID(fdbv1beta2.ProcessClassStorage, 0)
 					currentPod := &corev1.Pod{}
 					Expect(k8sClient.Get(context.Background(), ctrlClient.ObjectKey{Name: podName, Namespace: cluster.Namespace}, currentPod)).NotTo(HaveOccurred())
 

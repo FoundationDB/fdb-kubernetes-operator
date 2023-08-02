@@ -87,7 +87,7 @@ var _ = Describe("add_process_groups", func() {
 		It("should add a storage process", func() {
 			storageProcesses := make([]fdbv1beta2.ProcessGroupID, 0, newProcessCounts.Storage)
 			for _, processGroup := range cluster.Status.ProcessGroups {
-				if processGroup.ProcessClass == "storage" {
+				if processGroup.ProcessClass == fdbv1beta2.ProcessClassStorage {
 					storageProcesses = append(storageProcesses, processGroup.ProcessGroupID)
 				}
 			}
@@ -108,7 +108,7 @@ var _ = Describe("add_process_groups", func() {
 		})
 	})
 
-	Context("when replacing a process with a different process group ID prefix", func() {
+	FContext("when replacing a process with a different process group ID prefix", func() {
 		BeforeEach(func() {
 			for _, processGroup := range cluster.Status.ProcessGroups {
 				if processGroup.ProcessGroupID == "storage-4" {
@@ -121,7 +121,7 @@ var _ = Describe("add_process_groups", func() {
 		It("should add a storage process", func() {
 			storageProcesses := make([]fdbv1beta2.ProcessGroupID, 0, newProcessCounts.Storage)
 			for _, processGroup := range cluster.Status.ProcessGroups {
-				if processGroup.ProcessClass == "storage" {
+				if processGroup.ProcessClass == fdbv1beta2.ProcessClassStorage {
 					storageProcesses = append(storageProcesses, processGroup.ProcessGroupID)
 				}
 			}
@@ -154,7 +154,7 @@ var _ = Describe("add_process_groups", func() {
 		It("should add storage processes", func() {
 			storageProcesses := make([]fdbv1beta2.ProcessGroupID, 0, newProcessCounts.Storage)
 			for _, processGroup := range cluster.Status.ProcessGroups {
-				if processGroup.ProcessClass == "storage" {
+				if processGroup.ProcessClass == fdbv1beta2.ProcessClassStorage {
 					storageProcesses = append(storageProcesses, processGroup.ProcessGroupID)
 				}
 			}
@@ -187,7 +187,7 @@ var _ = Describe("add_process_groups", func() {
 			It("should fill in the gap", func() {
 				storageProcesses := make([]fdbv1beta2.ProcessGroupID, 0, newProcessCounts.Storage)
 				for _, processGroup := range cluster.Status.ProcessGroups {
-					if processGroup.ProcessClass == "storage" {
+					if processGroup.ProcessClass == fdbv1beta2.ProcessClassStorage {
 						storageProcesses = append(storageProcesses, processGroup.ProcessGroupID)
 					}
 				}

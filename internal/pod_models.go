@@ -22,7 +22,6 @@ package internal
 
 import (
 	"fmt"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -35,8 +34,6 @@ import (
 	"k8s.io/utils/pointer"
 )
 
-var processClassSanitizationPattern = regexp.MustCompile("[^a-z0-9-]")
-
 // GetProcessGroupIDFromPodName returns the process group ID for a given Pod name.
 func GetProcessGroupIDFromPodName(cluster *fdbv1beta2.FoundationDBCluster, podName string) fdbv1beta2.ProcessGroupID {
 	tmpName := strings.ReplaceAll(podName, cluster.Name, "")[1:]
@@ -46,19 +43,6 @@ func GetProcessGroupIDFromPodName(cluster *fdbv1beta2.FoundationDBCluster, podNa
 	}
 
 	return fdbv1beta2.ProcessGroupID(tmpName)
-}
-
-// GetProcessGroupID generates an ID for a process group.
-//
-// This will return the pod name and the processGroupID.
-func GetProcessGroupID(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, idNum int) (string, fdbv1beta2.ProcessGroupID) {
-	var processGroupID fdbv1beta2.ProcessGroupID
-	if cluster.Spec.ProcessGroupIDPrefix != "" {
-		processGroupID = fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-%d", cluster.Spec.ProcessGroupIDPrefix, processClass, idNum))
-	} else {
-		processGroupID = fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%d", processClass, idNum))
-	}
-	return fmt.Sprintf("%s-%s-%d", cluster.Name, processClassSanitizationPattern.ReplaceAllString(string(processClass), "-"), idNum), processGroupID
 }
 
 func generateServicePorts(processesPerPod int) []corev1.ServicePort {
@@ -89,7 +73,7 @@ func generateServicePorts(processesPerPod int) []corev1.ServicePort {
 
 // GetService builds a service for a new process group
 func GetService(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, idNum int) (*corev1.Service, error) {
-	name, id := GetProcessGroupID(cluster, processClass, idNum)
+	name, id := cluster.GetProcessGroupID(processClass, idNum)
 
 	owner := BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
 	metadata := GetObjectMetadata(cluster, nil, processClass, id)
@@ -114,7 +98,7 @@ func GetService(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 
 // GetPod builds a pod for a new process group
 func GetPod(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, idNum int) (*corev1.Pod, error) {
-	name, id := GetProcessGroupID(cluster, processClass, idNum)
+	name, id := cluster.GetProcessGroupID(processClass, idNum)
 
 	owner := BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
 	spec, err := GetPodSpec(cluster, processClass, idNum)
@@ -415,7 +399,7 @@ func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 		return nil, err
 	}
 
-	podName, processGroupID := GetProcessGroupID(cluster, processClass, idNum)
+	podName, processGroupID := cluster.GetProcessGroupID(processClass, idNum)
 	desiredVersion := cluster.GetRunningVersion()
 	if cluster.VersionCompatibleUpgradeInProgress() {
 		desiredVersion = cluster.Spec.Version
@@ -751,7 +735,7 @@ func GetPvc(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.Pro
 	if !usePvc(cluster, processClass) {
 		return nil, nil
 	}
-	name, id := GetProcessGroupID(cluster, processClass, idNum)
+	name, id := cluster.GetProcessGroupID(processClass, idNum)
 
 	processSettings := cluster.GetProcessSettings(processClass)
 	var pvc *corev1.PersistentVolumeClaim

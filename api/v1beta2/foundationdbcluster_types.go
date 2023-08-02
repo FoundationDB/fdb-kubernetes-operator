@@ -2701,3 +2701,59 @@ func (cluster *FoundationDBCluster) GetIgnoreLogGroupsForUpgrade() []LogGroup {
 	// Should we better read the FDB_NETWORK_OPTION_TRACE_LOG_GROUP env variable?
 	return []LogGroup{"fdb-kubernetes-operator"}
 }
+
+// GetCurrentProcessGroupsAndProcessCounts will return the process counts of Process Groups, that are not marked for removal based on the
+// FoundationDBClusterStatus and will return all used ProcessGroupIDs
+func (cluster *FoundationDBCluster) GetCurrentProcessGroupsAndProcessCounts() (map[ProcessClass]int, map[ProcessClass]map[int]bool, error) {
+	processCounts := make(map[ProcessClass]int)
+	processGroupIDs := make(map[ProcessClass]map[int]bool)
+
+	for _, processGroup := range cluster.Status.ProcessGroups {
+		idNum, err := processGroup.ProcessGroupID.GetIDNumber()
+		if err != nil {
+			return nil, nil, err
+		}
+
+		if len(processGroupIDs[processGroup.ProcessClass]) == 0 {
+			processGroupIDs[processGroup.ProcessClass] = map[int]bool{}
+		}
+		processGroupIDs[processGroup.ProcessClass][idNum] = true
+
+		if !processGroup.IsMarkedForRemoval() {
+			processCounts[processGroup.ProcessClass]++
+		}
+	}
+
+	return processCounts, processGroupIDs, nil
+}
+
+// GetNextProcessGroupID will return the next unused ProcessGroupID and the ID number based on the provided ProcessClass
+// and the mapping of used ProcessGroupID.
+func (cluster *FoundationDBCluster) GetNextProcessGroupID(processClass ProcessClass, processGroupIDs map[int]bool, idNum int) (ProcessGroupID, int) {
+	var processGroupID ProcessGroupID
+
+	for idNum > 0 {
+		_, processGroupID = cluster.GetProcessGroupID(processClass, idNum)
+		if !cluster.ProcessGroupIsBeingRemoved(processGroupID) && !processGroupIDs[idNum] {
+			break
+		}
+
+		idNum++
+	}
+
+	return processGroupID, idNum
+}
+
+// GetProcessGroupID generates a ProcessGroupID for a process group.
+//
+// This will return the Pod name and the ProcessGroupID.
+func (cluster *FoundationDBCluster) GetProcessGroupID(processClass ProcessClass, idNum int) (string, ProcessGroupID) {
+	var processGroupID ProcessGroupID
+	if cluster.Spec.ProcessGroupIDPrefix != "" {
+		processGroupID = ProcessGroupID(fmt.Sprintf("%s-%s-%d", cluster.Spec.ProcessGroupIDPrefix, processClass, idNum))
+	} else {
+		processGroupID = ProcessGroupID(fmt.Sprintf("%s-%d", processClass, idNum))
+	}
+
+	return fmt.Sprintf("%s-%s-%d", cluster.Name, processClass.GetProcessClassForPodName(), idNum), processGroupID
+}
