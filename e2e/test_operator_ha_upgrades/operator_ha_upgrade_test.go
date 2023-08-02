@@ -235,6 +235,9 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 			// may get bounced at different times and also because of cluster controller
 			// change, which happens a number of times, during an upgrade).
 			Expect(finalGeneration).To(BeNumerically("<=", initialGeneration+80))
+			// Make sure the cluster has no data loss
+			fdbCluster.GetPrimary().EnsureTeamTrackersAreHealthy()
+			fdbCluster.GetPrimary().EnsureTeamTrackersHaveMinReplicas()
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
@@ -341,6 +344,7 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 			// Upgrade should make progress now - wait until all processes have upgraded
 			// to "targetVersion".
 			fdbCluster.VerifyVersion(targetVersion)
+			fdbCluster.GetPrimary().EnsureTeamTrackersHaveMinReplicas()
 		},
 		EntryDescription("Upgrade from %s to %s"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
@@ -403,6 +407,9 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 				factory.DeletePod(randomPod)
 				return false
 			}).WithTimeout(30 * time.Minute).WithPolling(2 * time.Minute).Should(BeTrue())
+
+			// Make sure the cluster has no data loss
+			fdbCluster.GetPrimary().EnsureTeamTrackersHaveMinReplicas()
 		},
 		EntryDescription(
 			"Upgrade from %s to %s",
@@ -445,6 +452,7 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
 			// Verify that the upgrade proceeds
 			fdbCluster.VerifyVersion(targetVersion)
+			fdbCluster.GetPrimary().EnsureTeamTrackersHaveMinReplicas()
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
@@ -488,6 +496,8 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 			// Verify that the upgrade proceeds
 			fdbCluster.VerifyVersion(targetVersion)
 
+			// Make sure the cluster has no data loss
+			fdbCluster.GetPrimary().EnsureTeamTrackersHaveMinReplicas()
 			// TODO add validation here processes are updated new version
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s"),

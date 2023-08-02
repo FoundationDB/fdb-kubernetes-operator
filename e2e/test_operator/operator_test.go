@@ -107,6 +107,9 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		}
 		Expect(fdbCluster.WaitForReconciliation()).ToNot(HaveOccurred())
 		factory.StopInvariantCheck()
+		// Make sure all data is present in the cluster
+		fdbCluster.EnsureTeamTrackersAreHealthy()
+		fdbCluster.EnsureTeamTrackersHaveMinReplicas()
 	})
 
 	JustBeforeEach(func() {

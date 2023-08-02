@@ -22,17 +22,22 @@ package fixtures
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"github.com/onsi/gomega"
 	"io"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"text/template"
+	"time"
 )
 
 const (
+	// For now we only load 2GB into the cluster, we can increase this later if we want.
 	dataLoaderJob = `apiVersion: batch/v1
 kind: Job
 metadata:
@@ -194,4 +199,30 @@ func (factory *Factory) CreateDataLoaderIfAbsent(cluster *FdbCluster) {
 			factory.CreateIfAbsent(unstructuredObj),
 		).NotTo(gomega.HaveOccurred())
 	}
+
+	factory.WaitUntilDataLoaderIsRunning(cluster)
+}
+
+// WaitUntilDataLoaderIsRunning will wait until at least one data loader Pod is running.
+func (factory *Factory) WaitUntilDataLoaderIsRunning(cluster *FdbCluster) {
+	gomega.Eventually(func() int {
+		pods := &corev1.PodList{}
+		gomega.Expect(
+			factory.controllerRuntimeClient.List(
+				context.Background(),
+				pods,
+				client.InNamespace(cluster.Namespace()),
+				client.MatchingLabels(map[string]string{"job-name": "fdb-data-loader"}),
+			),
+		).NotTo(gomega.HaveOccurred())
+
+		var runningPods int
+		for _, pod := range pods.Items {
+			if pod.Status.Phase == corev1.PodRunning {
+				runningPods++
+			}
+		}
+
+		return runningPods
+	}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(gomega.BeNumerically(">", 0))
 }

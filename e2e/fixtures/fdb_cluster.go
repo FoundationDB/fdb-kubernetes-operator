@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"golang.org/x/sync/errgroup"
 	"log"
+	"math"
 	"strconv"
 	"strings"
 	"sync"
@@ -1319,4 +1320,34 @@ func (fdbCluster *FdbCluster) UpgradeAndVerify(version string) {
 
 	gomega.Expect(fdbCluster.UpgradeCluster(version, true)).NotTo(gomega.HaveOccurred())
 	fdbCluster.VerifyVersion(version)
+}
+
+// EnsureTeamTrackersAreHealthy will check if the machine-readable status suggest that the team trackers are healthy
+// and all data is present.
+func (fdbCluster *FdbCluster) EnsureTeamTrackersAreHealthy() {
+	gomega.Eventually(func() bool {
+		for _, tracker := range fdbCluster.GetStatus().Cluster.Data.TeamTrackers {
+			if !tracker.State.Healthy {
+				return false
+			}
+		}
+
+		return true
+	}).WithTimeout(1 * time.Minute).WithPolling(1 * time.Second).MustPassRepeatedly(5).Should(gomega.BeTrue())
+}
+
+// EnsureTeamTrackersHaveMinReplicas will check if the machine-readable status suggest that the team trackers min_replicas
+// match the expected replicas.
+func (fdbCluster *FdbCluster) EnsureTeamTrackersHaveMinReplicas() {
+	desiredFaultTolerance := fdbCluster.GetCachedCluster().DesiredFaultTolerance()
+	gomega.Eventually(func() int {
+		minReplicas := math.MaxInt
+		for _, tracker := range fdbCluster.GetStatus().Cluster.Data.TeamTrackers {
+			if minReplicas > tracker.State.MinReplicasRemaining {
+				minReplicas = tracker.State.MinReplicasRemaining
+			}
+		}
+
+		return minReplicas
+	}).WithTimeout(1 * time.Minute).WithPolling(1 * time.Second).MustPassRepeatedly(5).Should(gomega.BeNumerically(">=", desiredFaultTolerance))
 }
