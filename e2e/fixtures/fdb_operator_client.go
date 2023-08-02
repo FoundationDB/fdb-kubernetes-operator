@@ -487,7 +487,7 @@ func (factory *Factory) CreateFDBOperatorIfAbsent(namespace string) error {
 	return nil
 }
 
-// GetOperatorPods returs the operator Pods in the provided namespace.
+// GetOperatorPods returns the operator Pods in the provided namespace.
 func (factory *Factory) GetOperatorPods(namespace string) *corev1.PodList {
 	pods := &corev1.PodList{}
 	gomega.Eventually(func() error {
