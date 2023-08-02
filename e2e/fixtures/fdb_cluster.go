@@ -1101,7 +1101,6 @@ func (fdbCluster *FdbCluster) CheckPodIsDeleted(podName string) bool {
 	err := fdbCluster.getClient().
 		Get(ctx.TODO(), client.ObjectKey{Namespace: fdbCluster.Namespace(), Name: podName}, pod)
 
-	log.Println("error: ", err, "pod", pod.ObjectMeta)
 	if err != nil {
 		if kubeErrors.IsNotFound(err) {
 			return true
