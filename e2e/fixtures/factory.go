@@ -638,7 +638,7 @@ func writePodInformation(pod corev1.Pod) string {
 
 // DumpState writes the state of the cluster to the log output. Useful for debugging test failures.
 func (factory *Factory) DumpState(fdbCluster *FdbCluster) {
-	if fdbCluster == nil {
+	if fdbCluster == nil || !factory.options.dumpOperatorState {
 		return
 	}
 
