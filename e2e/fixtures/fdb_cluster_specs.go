@@ -31,42 +31,33 @@ import (
 func (factory *Factory) GenerateFDBClusterSpec(config *ClusterConfig) *fdbv1beta2.FoundationDBCluster {
 	config.SetDefaults(factory)
 
-	mainOverrides, sidecarOverrides := factory.getContainerOverrides(config.DebugSymbols)
 	return factory.createFDBClusterSpec(
-		config.Name,
-		config.Namespace,
-		factory.createProcesses(config),
-		config.CreateDatabaseConfiguration(),
-		config.StorageServerPerPod,
-		config.LogServersPerPod,
-		mainOverrides,
-		sidecarOverrides)
+		config,
+		config.CreateDatabaseConfiguration())
 }
 
 // High Level Cluster Spec Supplied by Operator.
 func (factory *Factory) createFDBClusterSpec(
-	clusterName string,
-	namespace string,
-	processes map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings,
+	config *ClusterConfig,
 	databaseConfiguration fdbv1beta2.DatabaseConfiguration,
-	storageServersPerPod int,
-	logServersPerPod int,
-	mainContainerOverrides fdbv1beta2.ContainerOverrides,
-	sidecarContainerOverrides fdbv1beta2.ContainerOverrides,
 ) *fdbv1beta2.FoundationDBCluster {
+	mainContainerOverrides, sidecarContainerOverrides := factory.getContainerOverrides(
+		config.DebugSymbols,
+	)
+
 	return &fdbv1beta2.FoundationDBCluster{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      clusterName,
-			Namespace: namespace,
+			Name:      config.Name,
+			Namespace: config.Namespace,
 		},
 		Spec: fdbv1beta2.FoundationDBClusterSpec{
 			MinimumUptimeSecondsForBounce: 30,
 			Version:                       factory.GetFDBVersionAsString(),
-			Processes:                     processes,
+			Processes:                     factory.createProcesses(config),
 			DatabaseConfiguration:         databaseConfiguration,
-			StorageServersPerPod:          storageServersPerPod,
-			LogServersPerPod:              logServersPerPod,
-			LogGroup:                      namespace + "-" + clusterName,
+			StorageServersPerPod:          config.StorageServerPerPod,
+			LogServersPerPod:              config.LogServersPerPod,
+			LogGroup:                      config.Namespace + "-" + config.Name,
 			MainContainer:                 mainContainerOverrides,
 			SidecarContainer:              sidecarContainerOverrides,
 			FaultDomain: fdbv1beta2.FoundationDBClusterFaultDomain{
@@ -83,6 +74,9 @@ func (factory *Factory) createFDBClusterSpec(
 					// Setting TaintReplacementTimeSeconds as half of FailureDetectionTimeSeconds to make taint replacement faster
 					TaintReplacementTimeSeconds: pointer.Int(150),
 					MaxConcurrentReplacements:   pointer.Int(2),
+				},
+				MaintenanceModeOptions: fdbv1beta2.MaintenanceModeOptions{
+					UseMaintenanceModeChecker: pointer.Bool(config.UseMaintenanceMode),
 				},
 				// Allow the operator to remove all Pods that are excluded and marked for deletion to remove at once.
 				RemovalMode: fdbv1beta2.PodUpdateModeAll,
