@@ -24,6 +24,10 @@ import (
 	ctx "context"
 	"log"
 
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
+
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -163,4 +167,18 @@ func (factory *Factory) ensureRBACSetupExists(namespace string) {
 			},
 		},
 	})).ToNot(gomega.HaveOccurred())
+}
+
+// LoadControllerRuntimeFromContext will load a client.Client from the provided context. The context must be existing in the
+// kube config.
+func LoadControllerRuntimeFromContext(context string, configScheme *runtime.Scheme) (client.Client, error) {
+	kubeConfig, err := config.GetConfigWithContext(context)
+	if err != nil {
+		return nil, err
+	}
+
+	return client.New(
+		kubeConfig,
+		client.Options{Scheme: configScheme},
+	)
 }
