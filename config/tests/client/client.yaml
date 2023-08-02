@@ -1,4 +1,17 @@
 ---
+# To access the test application use port-forwarding: https://kubernetes.io/docs/tasks/access-application-cluster/port-forward-access-application-cluster/#forward-a-local-port-to-a-port-on-the-pod
+# e.g. kubectl port-forward deploy/test-cluster-client 5000:5000
+#
+# Now you can follow the curl steps from the example: https://github.com/apple/foundationdb/tree/main/packaging/docker/samples/python#python-sample-using-docker-compose
+# retrieve counter:
+# curl http://localhost:5000/counter # 0
+#
+# increment counter:
+# curl -X POST http://localhost:5000/counter/increment # 1
+# curl -X POST http://localhost:5000/counter/increment # 2
+#
+# retrieve counter:
+# curl http://localhost:5000/counter # 2
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -67,17 +80,3 @@ spec:
                 path: fdb.cluster
         - name: dynamic-conf
           emptyDir: {}
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: test-cluster-client
-  labels:
-    app: test-cluster-client
-spec:
-  selector:
-    app: test-cluster-client
-  type: LoadBalancer
-  ports:
-    - port: 9562
-      targetPort: 5000
