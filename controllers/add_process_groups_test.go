@@ -108,7 +108,7 @@ var _ = Describe("add_process_groups", func() {
 		})
 	})
 
-	FContext("when replacing a process with a different process group ID prefix", func() {
+	Context("when replacing a process with a different process group ID prefix", func() {
 		BeforeEach(func() {
 			for _, processGroup := range cluster.Status.ProcessGroups {
 				if processGroup.ProcessGroupID == "storage-4" {
