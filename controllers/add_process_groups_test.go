@@ -98,8 +98,7 @@ var _ = Describe("add_process_groups", func() {
 				"storage-4",
 				"storage-5",
 			}
-			Expect(len(storageProcesses)).To(BeNumerically("==", len(expectedStorageProcesses)))
-			Expect(storageProcesses).To(ContainElements(expectedStorageProcesses))
+			Expect(storageProcesses).To(ConsistOf(expectedStorageProcesses))
 		})
 
 		It("should not change the log or stateless processes", func() {
@@ -132,8 +131,7 @@ var _ = Describe("add_process_groups", func() {
 				"storage-3",
 				"storage-5",
 			}
-			Expect(len(storageProcesses)).To(BeNumerically("==", len(expectedStorageProcesses)))
-			Expect(storageProcesses).To(ContainElements(expectedStorageProcesses))
+			Expect(storageProcesses).To(ConsistOf(expectedStorageProcesses))
 		})
 
 		It("should not change the log or stateless processes", func() {
@@ -166,8 +164,7 @@ var _ = Describe("add_process_groups", func() {
 				"storage-5",
 				"storage-6",
 			}
-			Expect(len(storageProcesses)).To(BeNumerically("==", len(expectedStorageProcesses)))
-			Expect(storageProcesses).To(ContainElements(expectedStorageProcesses))
+			Expect(storageProcesses).To(ConsistOf(expectedStorageProcesses))
 		})
 
 		It("should not change the log or stateless processes", func() {
@@ -199,8 +196,7 @@ var _ = Describe("add_process_groups", func() {
 					"storage-5",
 					"storage-7",
 				}
-				Expect(len(storageProcesses)).To(BeNumerically("==", len(expectedStorageProcesses)))
-				Expect(storageProcesses).To(ContainElements(expectedStorageProcesses))
+				Expect(storageProcesses).To(ConsistOf(expectedStorageProcesses))
 			})
 		})
 	})
