@@ -579,6 +579,7 @@ func writePodInformation(pod corev1.Pod) string {
 
 			// If the Pod is scheduled we can ignore this condition.
 			if condition.Status == corev1.ConditionTrue {
+				buffer.WriteString("\t-")
 				continue
 			}
 
