@@ -1193,6 +1193,10 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			BeforeEach(func() {
 				command := fmt.Sprintf("maintenance on %s %s", "operator-test-1-storage-4", "40000")
 				_, _ = fdbCluster.RunFdbCliCommandInOperator(command, false, 40)
+				// Update the annotation of the FoundationDBCluster resource to make sure the operator starts a new
+				// reconciliation loop. Since the maintenance mode is set outside of Kubernetes the operator will
+				// not automatically be triggered to start a reconciliation loop.
+				fdbCluster.ForceReconcile()
 			})
 
 			AfterEach(func() {
@@ -1210,6 +1214,8 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				}).WithPolling(1 * time.Second).WithTimeout(1 * time.Minute).Should(Equal(fdbv1beta2.FaultDomain("operator-test-1-storage-4")))
 			})
 		})
+
+		// TODO (johscheuer): https://github.com/FoundationDB/fdb-kubernetes-operator/issues/1775
 	})
 
 	When("a process group has no address assigned and should be removed", func() {
