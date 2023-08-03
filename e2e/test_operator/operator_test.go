@@ -1316,7 +1316,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 			It("should remove the Pod", func() {
 				log.Println("Make sure process group", processGroupID, "gets replaced with Pod", podName)
-				// Make sure the process group is marked fore removal after some time.
+				// Make sure the process group is marked for removal after some time.
 				Eventually(func() bool {
 					for _, processGroup := range fdbCluster.GetCluster().Status.ProcessGroups {
 						if processGroup.ProcessGroupID != processGroupID {
@@ -1325,6 +1325,10 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 						return processGroup.IsMarkedForRemoval()
 					}
+
+					// Make sure the operator is reconciling again and detecting, that this process group is in a bad
+					// state.
+					fdbCluster.ForceReconcile()
 
 					return false
 				}).WithTimeout(2 * time.Minute).WithPolling(15 * time.Second).Should(BeTrue())
