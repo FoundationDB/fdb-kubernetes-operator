@@ -225,4 +225,7 @@ func (factory *Factory) WaitUntilDataLoaderIsRunning(cluster *FdbCluster) {
 
 		return runningPods
 	}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(gomega.BeNumerically(">", 0))
+
+	// Wait 1 minute to load data.
+	time.Sleep(1 * time.Minute)
 }
