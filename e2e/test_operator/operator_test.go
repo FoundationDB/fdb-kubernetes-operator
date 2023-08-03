@@ -58,43 +58,6 @@ func init() {
 	testOptions = fixtures.InitFlags()
 }
 
-func validateProcessesCount(
-	fdbCluster *fixtures.FdbCluster,
-	processRole fdbv1beta2.ProcessRole,
-	countPods int,
-	countServer int,
-) {
-	// Using Eventually here to prevent some weird timing from the test runner
-	if processRole == fdbv1beta2.ProcessRoleStorage {
-		Eventually(func() int {
-			return len(fdbCluster.GetStoragePods().Items)
-		}).Should(BeNumerically("==", countPods))
-		Eventually(func() int {
-			return fdbCluster.GetProcessCount(processRole)
-		}).Should(BeNumerically("==", countServer))
-	} else if processRole == fdbv1beta2.ProcessRoleLog {
-		Eventually(func() int {
-			return len(fdbCluster.GetLogPods().Items)
-		}).Should(BeNumerically("==", countPods))
-	} else if processRole == fdbv1beta2.ProcessRole(fdbv1beta2.ProcessClassTransaction) {
-		Eventually(func() int {
-			return len(fdbCluster.GetTransactionPods().Items)
-		}).Should(BeNumerically("==", countPods))
-	} else {
-		Eventually(func() int {
-			return len(fdbCluster.GetPodsWithRole(processRole))
-		}).Should(BeNumerically("==", countPods))
-	}
-	Eventually(func() int {
-		return fdbCluster.GetProcessCountByProcessClass(fdbv1beta2.ProcessClass(processRole))
-	}).Should(BeNumerically("==", countServer))
-
-	// Make sure that all process group have the fault domain set.
-	for _, processGroup := range fdbCluster.GetCluster().Status.ProcessGroups {
-		Expect(processGroup.FaultDomain).NotTo(BeEmpty())
-	}
-}
-
 func validateStorageClass(processClass fdbv1beta2.ProcessClass, targetStorageClass string) {
 	Eventually(func() map[string]fdbv1beta2.None {
 		storageClassNames := make(map[string]fdbv1beta2.None)
@@ -426,7 +389,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				expectedPodCnt,
 				expectedStorageProcessesCnt,
 			)
-			validateProcessesCount(fdbCluster, fdbv1beta2.ProcessRoleStorage, expectedPodCnt, expectedStorageProcessesCnt)
+			fdbCluster.ValidateProcessesCount(fdbv1beta2.ProcessClassStorage, expectedPodCnt, expectedStorageProcessesCnt)
 		})
 
 		AfterEach(func() {
@@ -437,9 +400,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				expectedPodCnt,
 				expectedPodCnt*initialStorageServerPerPod,
 			)
-			validateProcessesCount(
-				fdbCluster,
-				fdbv1beta2.ProcessRoleStorage,
+			fdbCluster.ValidateProcessesCount(fdbv1beta2.ProcessClassStorage,
 				expectedPodCnt,
 				expectedPodCnt*initialStorageServerPerPod,
 			)
@@ -455,7 +416,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				expectedPodCnt,
 				expectedPodCnt*serverPerPod,
 			)
-			validateProcessesCount(fdbCluster, fdbv1beta2.ProcessRoleStorage, expectedPodCnt, expectedPodCnt*serverPerPod)
+			fdbCluster.ValidateProcessesCount(fdbv1beta2.ProcessClassStorage, expectedPodCnt, expectedPodCnt*serverPerPod)
 		})
 	})
 
@@ -965,7 +926,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				expectedPodCnt,
 				expectedPodCnt*serverPerPod,
 			)
-			validateProcessesCount(fdbCluster, fdbv1beta2.ProcessRoleLog, expectedPodCnt, expectedPodCnt*serverPerPod)
+			fdbCluster.ValidateProcessesCount(fdbv1beta2.ProcessClassLog, expectedPodCnt, expectedPodCnt*serverPerPod)
 		})
 	})
 
@@ -1008,7 +969,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				expectedPodCnt,
 				expectedPodCnt*serverPerPod,
 			)
-			validateProcessesCount(fdbCluster, fdbv1beta2.ProcessRole(fdbv1beta2.ProcessClassTransaction), expectedPodCnt, expectedPodCnt*serverPerPod)
+			fdbCluster.ValidateProcessesCount(fdbv1beta2.ProcessClassTransaction, expectedPodCnt, expectedPodCnt*serverPerPod)
 		})
 	})
 
@@ -1227,7 +1188,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		})
 	})
 
-	Context("testing maintenance mode functionality", func() {
+	When("setting the maintenance mode", func() {
 		When("maintenance mode is on", func() {
 			BeforeEach(func() {
 				command := fmt.Sprintf("maintenance on %s %s", "operator-test-1-storage-4", "40000")
@@ -1238,9 +1199,15 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				_, _ = fdbCluster.RunFdbCliCommandInOperator("maintenance off", false, 40)
 			})
 
-			It("status maintenance zone should match", func() {
-				status := fdbCluster.GetStatus()
-				Expect(status.Cluster.MaintenanceZone).To(Equal(fdbv1beta2.FaultDomain("operator-test-1-storage-4")))
+			It("should update the machine-readable status and thr FoundationDBCluster Status to contain the maintenance zone", func() {
+				// Make sure the machine-readable status reflects the maintenance mode.
+				Eventually(func() fdbv1beta2.FaultDomain {
+					return fdbCluster.GetStatus().Cluster.MaintenanceZone
+				}).WithPolling(1 * time.Second).WithTimeout(1 * time.Minute).Should(Equal(fdbv1beta2.FaultDomain("operator-test-1-storage-4")))
+				// Make sure the FoundationDBClusterStatus contains the ZoneID.
+				Eventually(func() fdbv1beta2.FaultDomain {
+					return fdbCluster.GetCluster().Status.MaintenanceModeInfo.ZoneID
+				}).WithPolling(1 * time.Second).WithTimeout(1 * time.Minute).Should(Equal(fdbv1beta2.FaultDomain("operator-test-1-storage-4")))
 			})
 		})
 	})
