@@ -1270,12 +1270,12 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				for _, pod := range fdbCluster.GetStatelessPods().Items {
 					if fixtures.GetProcessGroupID(pod) == processGroupID {
 						podName = pod.Name
-						return true
+						return pod.DeletionTimestamp.IsZero()
 					}
 				}
 
 				return false
-			}).WithPolling(2 * time.Second).WithTimeout(5 * time.Minute).Should(BeTrue())
+			}).WithPolling(2 * time.Second).WithTimeout(5 * time.Minute).MustPassRepeatedly(2).Should(BeTrue())
 		})
 
 		AfterEach(func() {
@@ -1316,34 +1316,18 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 			It("should remove the Pod", func() {
 				log.Println("Make sure process group", processGroupID, "gets replaced with Pod", podName)
-				// Make sure the process group is marked for removal after some time.
-				Eventually(func() bool {
-					for _, processGroup := range fdbCluster.GetCluster().Status.ProcessGroups {
-						if processGroup.ProcessGroupID != processGroupID {
-							continue
-						}
+				stuckPodID, err := processGroupID.GetIDNumber()
+				Expect(err).NotTo(HaveOccurred())
 
-						return processGroup.IsMarkedForRemoval()
+				// Make sure the process group is removed after some time.
+				Eventually(func() map[int]bool {
+					_, currentProcessGroups, err := fdbCluster.GetCluster().GetCurrentProcessGroupsAndProcessCounts()
+					if err != nil {
+						return map[int]bool{stuckPodID: true}
 					}
 
-					// Make sure the operator is reconciling again and detecting, that this process group is in a bad
-					// state.
-					fdbCluster.ForceReconcile()
-
-					return false
-				}).WithTimeout(2 * time.Minute).WithPolling(15 * time.Second).Should(BeTrue())
-
-				// Make sure the exclusion step is skipped, as the Process Group is missing addresses
-				var exclusionSkipped bool
-				for _, processGroup := range fdbCluster.GetCluster().Status.ProcessGroups {
-					if processGroup.ProcessGroupID != processGroupID {
-						continue
-					}
-
-					exclusionSkipped = processGroup.ExclusionSkipped
-				}
-
-				Expect(exclusionSkipped).To(BeTrue())
+					return currentProcessGroups[fdbv1beta2.ProcessClassStateless]
+				}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).ShouldNot(HaveKey(stuckPodID))
 
 				// Make sure the Pod is actually deleted after some time.
 				Eventually(func() bool {
