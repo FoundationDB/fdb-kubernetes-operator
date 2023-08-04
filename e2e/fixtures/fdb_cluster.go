@@ -546,10 +546,12 @@ func (fdbCluster *FdbCluster) GetVolumeClaimsForProcesses(
 	volumeClaimList := &corev1.PersistentVolumeClaimList{}
 	gomega.Expect(
 		fdbCluster.getClient().
-			List(ctx.TODO(), volumeClaimList, client.MatchingLabels(map[string]string{
-				fdbv1beta2.FDBClusterLabel:      fdbCluster.cluster.Name,
-				fdbv1beta2.FDBProcessClassLabel: string(processClass),
-			})),
+			List(ctx.TODO(), volumeClaimList,
+				client.InNamespace(fdbCluster.Namespace()),
+				client.MatchingLabels(map[string]string{
+					fdbv1beta2.FDBClusterLabel:      fdbCluster.cluster.Name,
+					fdbv1beta2.FDBProcessClassLabel: string(processClass),
+				})),
 	).NotTo(gomega.HaveOccurred())
 
 	return volumeClaimList
@@ -1220,4 +1222,38 @@ func (fdbCluster *FdbCluster) SetBuggifyBlockRemoval(blockRemovals []fdbv1beta2.
 // GetAutomationOptions return the fdbCluster's AutomationOptions
 func (fdbCluster *FdbCluster) GetAutomationOptions() fdbv1beta2.FoundationDBClusterAutomationOptions {
 	return fdbCluster.cluster.Spec.AutomationOptions
+}
+
+// ValidateProcessesCount will make sure that the cluster has the expected count of ProcessGroups and processes running
+// with the provided ProcessClass.
+func (fdbCluster *FdbCluster) ValidateProcessesCount(
+	processClass fdbv1beta2.ProcessClass,
+	countProcessGroups int,
+	countServer int,
+) {
+	gomega.Eventually(func() int {
+		var cnt int
+		for _, processGroup := range fdbCluster.GetCluster().Status.ProcessGroups {
+			if processGroup.ProcessClass != processClass {
+				continue
+			}
+
+			if processGroup.IsMarkedForRemoval() {
+				continue
+			}
+
+			cnt++
+		}
+
+		return cnt
+	}).Should(gomega.BeNumerically("==", countProcessGroups))
+
+	gomega.Eventually(func() int {
+		return fdbCluster.GetProcessCountByProcessClass(processClass)
+	}).Should(gomega.BeNumerically("==", countServer))
+
+	// Make sure that all process group have a fault domain set.
+	for _, processGroup := range fdbCluster.GetCluster().Status.ProcessGroups {
+		gomega.Expect(processGroup.FaultDomain).NotTo(gomega.BeEmpty())
+	}
 }
