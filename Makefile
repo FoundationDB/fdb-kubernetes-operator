@@ -29,7 +29,7 @@ GOBIN=$(shell go env GOBIN)
 endif
 
 # Dependencies to fetch through `go`
-CONTROLLER_GEN_PKG?=sigs.k8s.io/controller-tools/cmd/controller-gen@v0.9.2
+CONTROLLER_GEN_PKG?=sigs.k8s.io/controller-tools/cmd/controller-gen@v0.12.0
 CONTROLLER_GEN=$(GOBIN)/controller-gen
 KUSTOMIZE_PKG?=sigs.k8s.io/kustomize/kustomize/v4@v4.5.2
 KUSTOMIZE=$(GOBIN)/kustomize
