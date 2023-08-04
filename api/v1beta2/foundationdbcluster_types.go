@@ -2762,3 +2762,7 @@ func (cluster *FoundationDBCluster) GetProcessGroupID(processClass ProcessClass,
 
 	return fmt.Sprintf("%s-%s-%d", cluster.Name, processClass.GetProcessClassForPodName(), idNum), processGroupID
 }
+
+func (cluster *FoundationDBCluster) IsPodIPFamily6() bool {
+	return cluster.Spec.Routing.PodIPFamily != nil && *cluster.Spec.Routing.PodIPFamily == 6
+}

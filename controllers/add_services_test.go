@@ -200,4 +200,22 @@ var _ = Describe("add_services", func() {
 			})
 		})
 	})
+
+	Context("with the podIPFamily 6", func() {
+		BeforeEach(func() {
+			cluster.Spec.Routing.PodIPFamily = pointer.Int(6)
+		})
+
+		It("should not requeue", func() {
+			Expect(requeue).To(BeNil())
+		})
+
+		It("should recreate the same services", func() {
+			Expect(newServices.Items).To(HaveLen(len(initialServices.Items)))
+			for _, newService := range newServices.Items {
+				Expect(newService.Spec.IPFamilies).To(HaveLen(1))
+				Expect(newService.Spec.IPFamilies[0]).To(Equal(corev1.IPv6Protocol))
+			}
+		})
+	})
 })
