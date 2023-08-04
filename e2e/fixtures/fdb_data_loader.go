@@ -26,6 +26,7 @@ import (
 	"errors"
 	"github.com/onsi/gomega"
 	"io"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -37,14 +38,17 @@ import (
 )
 
 const (
+	// The name of the data loader Job.
+	dataLoaderName = "fdb-data-loader"
+
 	// For now we only load 2GB into the cluster, we can increase this later if we want.
 	dataLoaderJob = `apiVersion: batch/v1
 kind: Job
 metadata:
-  name: fdb-data-loader
+  name: {{ .Name }}
   namespace: {{ .Namespace }}
   labels:
-    app: fdb-data-loader
+    app: {{ .Name }}
 spec:
   backoffLimit: 2
   completions: 2
@@ -54,7 +58,7 @@ spec:
       containers:
       - image: {{ .Image }}
         imagePullPolicy: Always
-        name: fdb-data-loader
+        name: {{ .Name }}
         # This configuration will load ~1GB per data loader.
         args:
         - --keys=1000000
@@ -62,7 +66,7 @@ spec:
         - --value-size=1000
         env:
           - name: FDB_CLUSTER_FILE
-            value: /var/dynamic-conf/fdb.cluster
+            value: /var/dynamic/fdb/fdb.cluster
           - name: FDB_TLS_CERTIFICATE_FILE
             value: /tmp/fdb-certs/tls.crt
           - name: FDB_TLS_CA_FILE
@@ -76,9 +80,9 @@ spec:
           - name: LD_LIBRARY_PATH
             value: /var/dynamic/fdb/primary/lib
           - name: FDB_NETWORK_OPTION_TRACE_LOG_GROUP
-            value: fdb-data-loader
+            value: {{ .Name }}
           - name: FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY
-            value: /var/dynamic/fdb
+            value: /var/dynamic/fdb/libs
           - name: PYTHONUNBUFFERED
             value: "on"
         volumeMounts:
@@ -127,6 +131,22 @@ spec:
               mountPath: /var/output-files
         {{ end }}
         {{ end }}
+        - image: {{ .Image }}
+          imagePullPolicy: Always
+          name: fdb-lib-copy
+          command:
+            - /bin/bash
+          args:
+            - -c
+            - mkdir -p /var/dynamic/fdb/libs && {{ range $index, $version := .SidecarVersions -}} cp /var/dynamic/fdb/{{ .FDBVersion.Compact }}/lib/libfdb_c.so /var/dynamic/fdb/libs/libfdb_{{ .FDBVersion.Compact }}_c.so && {{ end }} cp /var/dynamic-conf/fdb.cluster /var/dynamic/fdb/fdb.cluster
+          volumeMounts:
+          - name: config-map
+            mountPath: /var/dynamic-conf
+          - name: fdb-libs
+            mountPath: /var/dynamic/fdb
+          - name: fdb-certs
+            mountPath: /tmp/fdb-certs
+            readOnly: true
       restartPolicy: Never
       volumes:
         - name: config-map
@@ -144,6 +164,8 @@ spec:
 
 // dataLoaderConfig represents the configuration of the Dataloader Job.
 type dataLoaderConfig struct {
+	// Name of the data loader Job.
+	Name string
 	// Image represents the data loader image that should be used in the Job.
 	Image string
 	// SidecarVersions represents the sidecar configurations for different FoundationDB versions.
@@ -159,6 +181,7 @@ type dataLoaderConfig struct {
 
 func (factory *Factory) getDataLoaderConfig(cluster *FdbCluster) *dataLoaderConfig {
 	return &dataLoaderConfig{
+		Name:            dataLoaderName,
 		Image:           factory.GetDataLoaderImage(),
 		Namespace:       cluster.Namespace(),
 		SidecarVersions: factory.GetSidecarConfigs(),
@@ -200,11 +223,11 @@ func (factory *Factory) CreateDataLoaderIfAbsent(cluster *FdbCluster) {
 		).NotTo(gomega.HaveOccurred())
 	}
 
-	factory.WaitUntilDataLoaderIsRunning(cluster)
+	factory.WaitUntilDataLoaderIsDone(cluster)
 }
 
-// WaitUntilDataLoaderIsRunning will wait until at least one data loader Pod is running.
-func (factory *Factory) WaitUntilDataLoaderIsRunning(cluster *FdbCluster) {
+// WaitUntilDataLoaderIsDone will wait until the data loader Job has finished.
+func (factory *Factory) WaitUntilDataLoaderIsDone(cluster *FdbCluster) {
 	gomega.Eventually(func() int {
 		pods := &corev1.PodList{}
 		gomega.Expect(
@@ -212,7 +235,7 @@ func (factory *Factory) WaitUntilDataLoaderIsRunning(cluster *FdbCluster) {
 				context.Background(),
 				pods,
 				client.InNamespace(cluster.Namespace()),
-				client.MatchingLabels(map[string]string{"job-name": "fdb-data-loader"}),
+				client.MatchingLabels(map[string]string{"job-name": dataLoaderName}),
 			),
 		).NotTo(gomega.HaveOccurred())
 
@@ -226,6 +249,25 @@ func (factory *Factory) WaitUntilDataLoaderIsRunning(cluster *FdbCluster) {
 		return runningPods
 	}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(gomega.BeNumerically(">", 0))
 
-	// Wait 1 minute to load data.
-	time.Sleep(1 * time.Minute)
+	// Wait for at most 15 minutes to let the data load complete.
+	gomega.Eventually(func() corev1.ConditionStatus {
+		job := &batchv1.Job{}
+		gomega.Expect(
+			factory.controllerRuntimeClient.Get(
+				context.Background(),
+				client.ObjectKey{
+					Namespace: cluster.Namespace(),
+					Name:      dataLoaderName,
+				},
+				job),
+		).NotTo(gomega.HaveOccurred())
+
+		for _, condition := range job.Status.Conditions {
+			if condition.Type == batchv1.JobComplete {
+				return condition.Status
+			}
+		}
+
+		return corev1.ConditionUnknown
+	}).WithTimeout(15 * time.Minute).WithPolling(5 * time.Second).Should(gomega.Equal(corev1.ConditionTrue))
 }
