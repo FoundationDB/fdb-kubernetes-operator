@@ -1221,65 +1221,92 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 	When("a process group has no address assigned and should be removed", func() {
 		var processGroupID fdbv1beta2.ProcessGroupID
 		var podName string
+		var initialReplacementDuration time.Duration
 
 		BeforeEach(func() {
-			initialPods := fdbCluster.GetStatelessPods()
-			processGroupIDs := map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None{}
+			initialReplacementDuration = time.Duration(pointer.IntDeref(fdbCluster.GetCachedCluster().Spec.AutomationOptions.Replacements.TaintReplacementTimeSeconds, 600)) * time.Second
+			// Get the current Process Group ID numbers that are in use.
+			_, processGroupIDs, err := fdbCluster.GetCluster().GetCurrentProcessGroupsAndProcessCounts()
+			Expect(err).NotTo(HaveOccurred())
 
-			for _, pod := range initialPods.Items {
-				processGroupIDs[fixtures.GetProcessGroupID(pod)] = fdbv1beta2.None{}
-			}
-
-			idNum := 1
-			for {
-				_, processGroupID = internal.GetProcessGroupID(fdbCluster.GetCachedCluster(), fdbv1beta2.ProcessClassStateless, idNum)
-				if fdbCluster.GetCachedCluster().ProcessGroupIsBeingRemoved(processGroupID) {
-					idNum++
-					continue
-				}
-
-				// If the process group is not present use this one.
-				if _, ok := processGroupIDs[processGroupID]; !ok {
-					break
-				}
-
-				idNum++
-			}
+			// The the next free ProcessGroupID and mark this one as unschedulable.
+			processGroupID, _ = fdbCluster.GetCluster().GetNextProcessGroupID(fdbv1beta2.ProcessClassStateless, processGroupIDs[fdbv1beta2.ProcessClassStateless], 1)
+			log.Println("Next process group ID", processGroupID, "current processGroupIDs for stateless processes", processGroupIDs[fdbv1beta2.ProcessClassStateless])
 
 			// Make sure the new Pod will be stuck in unschedulable.
 			fdbCluster.SetProcessGroupsAsUnschedulable([]fdbv1beta2.ProcessGroupID{processGroupID})
 			// Now replace a random Pod for replacement to force the cluster to create a new Pod.
-			fdbCluster.ReplacePod(fixtures.RandomPickOnePod(initialPods.Items), false)
+			fdbCluster.ReplacePod(fixtures.RandomPickOnePod(fdbCluster.GetStatelessPods().Items), false)
 
 			// Wait until the new Pod is actually created.
 			Eventually(func() bool {
 				for _, pod := range fdbCluster.GetStatelessPods().Items {
 					if fixtures.GetProcessGroupID(pod) == processGroupID {
 						podName = pod.Name
-						return true
+						return pod.DeletionTimestamp.IsZero()
 					}
 				}
 
 				return false
-			}).WithPolling(2 * time.Second).WithTimeout(5 * time.Minute).Should(BeTrue())
-
-			fdbCluster.ReplacePod(fixtures.RandomPickOnePod(initialPods.Items), false)
-
-			spec := fdbCluster.GetCluster().Spec.DeepCopy()
-			spec.ProcessGroupsToRemove = append(spec.ProcessGroupsToRemove, processGroupID)
-			// Add the new pending Pod to the removal list.
-			fdbCluster.UpdateClusterSpecWithSpec(spec)
+			}).WithPolling(2 * time.Second).WithTimeout(5 * time.Minute).MustPassRepeatedly(2).Should(BeTrue())
 		})
 
-		It("should not remove the Pod as long as it is unschedulable", func() {
-			// Make sure the Pod is stuck in pending for 2 minutes
-			Consistently(func() corev1.PodPhase {
-				return fdbCluster.GetPod(podName).Status.Phase
-			}).WithTimeout(2 * time.Minute).WithPolling(15 * time.Second).Should(Equal(corev1.PodPending))
+		AfterEach(func() {
 			// Clear the buggify list, this should allow the operator to move forward and delete the Pod
 			Expect(fdbCluster.ClearBuggifyNoSchedule(true)).NotTo(HaveOccurred())
 			// Make sure the Pod is deleted.
 			Expect(fdbCluster.CheckPodIsDeleted(podName)).To(BeTrue())
+			// Make sure we cleaned up the process groups to remove.
+			Expect(fdbCluster.ClearProcessGroupsToRemove())
+			Expect(fdbCluster.SetAutoReplacements(true, initialReplacementDuration)).NotTo(HaveOccurred())
+		})
+
+		When("automatic replacements are disabled", func() {
+			BeforeEach(func() {
+				// Disable automatic replacements
+				Expect(fdbCluster.SetAutoReplacementsWithWait(false, 10*time.Hour, false)).NotTo(HaveOccurred())
+				// Add the pending Process group to the removal list.
+				spec := fdbCluster.GetCluster().Spec.DeepCopy()
+				spec.ProcessGroupsToRemove = append(spec.ProcessGroupsToRemove, processGroupID)
+				// Add the new pending Pod to the removal list.
+				fdbCluster.UpdateClusterSpecWithSpec(spec)
+			})
+
+			It("should not remove the Pod as long as it is unschedulable", func() {
+				log.Println("Make sure process group", processGroupID, "is stuck in Pending state with Pod", podName)
+				// Make sure the Pod is stuck in pending for 2 minutes
+				Consistently(func() corev1.PodPhase {
+					return fdbCluster.GetPod(podName).Status.Phase
+				}).WithTimeout(2 * time.Minute).WithPolling(15 * time.Second).Should(Equal(corev1.PodPending))
+			})
+		})
+
+		When("automatic replacements are enabled", func() {
+			BeforeEach(func() {
+				// Enable automatic replacements
+				Expect(fdbCluster.SetAutoReplacementsWithWait(true, 1*time.Minute, false)).NotTo(HaveOccurred())
+			})
+
+			It("should remove the Pod", func() {
+				log.Println("Make sure process group", processGroupID, "gets replaced with Pod", podName)
+				stuckPodID, err := processGroupID.GetIDNumber()
+				Expect(err).NotTo(HaveOccurred())
+
+				// Make sure the process group is removed after some time.
+				Eventually(func() map[int]bool {
+					_, currentProcessGroups, err := fdbCluster.GetCluster().GetCurrentProcessGroupsAndProcessCounts()
+					if err != nil {
+						return map[int]bool{stuckPodID: true}
+					}
+
+					return currentProcessGroups[fdbv1beta2.ProcessClassStateless]
+				}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).ShouldNot(HaveKey(stuckPodID))
+
+				// Make sure the Pod is actually deleted after some time.
+				Eventually(func() bool {
+					return fdbCluster.CheckPodIsDeleted(podName)
+				}).WithTimeout(2 * time.Minute).WithPolling(15 * time.Second).Should(BeTrue())
+			})
 		})
 	})
 })

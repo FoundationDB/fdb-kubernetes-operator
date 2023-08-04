@@ -37,8 +37,7 @@ import (
 func RunGinkgoTests(t *testing.T, name string) {
 	// Setup logging
 	log.SetFlags(log.LstdFlags)
-	// Below line makes log cached in GinkgoWriter even with --vv option enabled.
-	// log.SetOutput(GinkgoWriter)
+	log.SetOutput(ginkgo.GinkgoWriter)
 	gomega.RegisterFailHandler(ginkgo.Fail)
 	ginkgo.RunSpecs(t, name)
 }

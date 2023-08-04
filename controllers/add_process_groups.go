@@ -23,10 +23,7 @@ package controllers
 import (
 	"context"
 	"fmt"
-
 	"github.com/go-logr/logr"
-
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -37,31 +34,15 @@ import (
 type addProcessGroups struct{}
 
 // reconcile runs the reconciler's work.
-func (a addProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, _ *fdbv1beta2.FoundationDBStatus, _ logr.Logger) *requeue {
+func (a addProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, _ *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
 	desiredCountStruct, err := cluster.GetProcessCountsWithDefaults()
 	if err != nil {
 		return &requeue{curError: err}
 	}
 	desiredCounts := desiredCountStruct.Map()
-
-	processCounts := make(map[fdbv1beta2.ProcessClass]int)
-	processGroupIDs := make(map[fdbv1beta2.ProcessClass]map[int]bool)
-	for _, processGroup := range cluster.Status.ProcessGroups {
-		num, err := processGroup.ProcessGroupID.GetIDNumber()
-		if err != nil {
-			return &requeue{curError: err}
-		}
-
-		class := processGroup.ProcessClass
-		if processGroupIDs[class] == nil {
-			processGroupIDs[class] = make(map[int]bool)
-		}
-
-		processGroupIDs[class][num] = true
-
-		if !processGroup.IsMarkedForRemoval() {
-			processCounts[class]++
-		}
+	processCounts, processGroupIDs, err := cluster.GetCurrentProcessGroupsAndProcessCounts()
+	if err != nil {
+		return &requeue{curError: err}
 	}
 
 	hasNewProcessGroups := false
@@ -74,26 +55,16 @@ func (a addProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterR
 		if newCount <= 0 {
 			continue
 		}
+
+		logger.Info("Adding new Process Groups", "processClass", processClass, "newCount", newCount)
 		r.Recorder.Event(cluster, corev1.EventTypeNormal, "AddingProcesses", fmt.Sprintf("Adding %d %s processes", newCount, processClass))
 		idNum := 1
 
-		if processGroupIDs[processClass] == nil {
-			processGroupIDs[processClass] = make(map[int]bool)
-		}
-
 		for i := 0; i < newCount; i++ {
-			for idNum > 0 {
-				_, processGroupID := internal.GetProcessGroupID(cluster, processClass, idNum)
-
-				if !cluster.ProcessGroupIsBeingRemoved(processGroupID) && !processGroupIDs[processClass][idNum] {
-					break
-				}
-
-				idNum++
-			}
-			_, processGroupID := internal.GetProcessGroupID(cluster, processClass, idNum)
+			var processGroupID fdbv1beta2.ProcessGroupID
+			processGroupID, idNum = cluster.GetNextProcessGroupID(processClass, processGroupIDs[processClass], idNum)
 			cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus(processGroupID, processClass, nil))
-
+			// Increase the idNum here, since we just added a Process Group with this ID number.
 			idNum++
 		}
 		hasNewProcessGroups = true
