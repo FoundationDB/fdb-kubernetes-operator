@@ -540,6 +540,8 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, proce
 			sidecarArgs = append(sidecarArgs, "--public-ip-family")
 			sidecarArgs = append(sidecarArgs, fmt.Sprint(*cluster.Spec.Routing.PodIPFamily))
 			if *cluster.Spec.Routing.PodIPFamily == 6 {
+				// this is required to configure the Pods to listen for any incoming connection
+				// from any available IPv6 address on port 8080
 				sidecarArgs = append(sidecarArgs, "--bind-address", "[::]:8080")
 			}
 		}
