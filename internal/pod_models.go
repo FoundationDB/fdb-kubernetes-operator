@@ -85,6 +85,10 @@ func GetService(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 		processesPerPod = cluster.GetStorageServersPerPod()
 	}
 
+	var ipFamilies []corev1.IPFamily = nil
+	if cluster.IsPodIPFamily6() {
+		ipFamilies = []corev1.IPFamily{corev1.IPv6Protocol}
+	}
 	return &corev1.Service{
 		ObjectMeta: metadata,
 		Spec: corev1.ServiceSpec{
@@ -92,6 +96,7 @@ func GetService(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 			Ports:                    generateServicePorts(processesPerPod),
 			PublishNotReadyAddresses: true,
 			Selector:                 GetPodMatchLabels(cluster, "", string(id)),
+			IPFamilies:               ipFamilies,
 		},
 	}, nil
 }

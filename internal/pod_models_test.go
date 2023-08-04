@@ -2586,6 +2586,38 @@ var _ = Describe("pod_models", func() {
 					fdbv1beta2.FDBClusterLabel:        cluster.Name,
 					fdbv1beta2.FDBProcessGroupIDLabel: "storage-1",
 				}))
+
+				Expect(service.Spec.IPFamilies).To(BeNil())
+			})
+		})
+
+		Context("with podIPFamily 6", func() {
+			BeforeEach(func() {
+				cluster.Spec.Routing.PodIPFamily = pointer.Int(6)
+				service, err = GetService(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should set the spec on the service", func() {
+				Expect(service.Spec.Type).To(Equal(corev1.ServiceTypeClusterIP))
+
+				Expect(len(service.Spec.Ports)).To(Equal(2))
+				Expect(service.Spec.Ports[0].Name).To(Equal("tls"))
+				Expect(service.Spec.Ports[0].Port).To(Equal(int32(4500)))
+				Expect(service.Spec.Ports[1].Name).To(Equal("non-tls"))
+				Expect(service.Spec.Ports[1].Port).To(Equal(int32(4501)))
+
+				Expect(service.Spec.Selector).To(Equal(map[string]string{
+					fdbv1beta2.FDBClusterLabel:        cluster.Name,
+					fdbv1beta2.FDBProcessGroupIDLabel: "storage-1",
+				}))
+
+				Expect(service.Spec.IPFamilies).To(HaveLen(1))
+				Expect(service.Spec.IPFamilies[0]).To(Equal(corev1.IPv6Protocol))
+			})
+
+			AfterEach(func() {
+				cluster.Spec.Routing.PodIPFamily = nil
 			})
 		})
 

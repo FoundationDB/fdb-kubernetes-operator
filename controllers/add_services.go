@@ -43,8 +43,16 @@ func (a addServices) reconcile(ctx context.Context, r *FoundationDBClusterReconc
 		existingService := &corev1.Service{}
 		err := r.Get(ctx, client.ObjectKey{Namespace: cluster.Namespace, Name: cluster.Name}, existingService)
 		if err == nil {
-			// Update the existing service
-			err = updateService(ctx, logger, r, existingService, service)
+			if cluster.IsPodIPFamily6() && (existingService.Spec.IPFamilies == nil || existingService.Spec.IPFamilies[0] != corev1.IPv6Protocol) {
+				logger.V(1).Info("Recreating service", "name", service.Name)
+				err = r.Delete(ctx, existingService)
+				if err != nil {
+					return &requeue{curError: err}
+				}
+				err = r.Create(ctx, service)
+			} else {
+				err = updateService(ctx, logger, r, existingService, service)
+			}
 			if err != nil {
 				return &requeue{curError: err}
 			}
@@ -82,8 +90,16 @@ func (a addServices) reconcile(ctx context.Context, r *FoundationDBClusterReconc
 			existingService := &corev1.Service{}
 			err = r.Get(ctx, client.ObjectKey{Namespace: cluster.Namespace, Name: serviceName}, existingService)
 			if err == nil {
-				// Update the existing service
-				err = updateService(ctx, logger, r, existingService, service)
+				if cluster.IsPodIPFamily6() && (existingService.Spec.IPFamilies == nil || existingService.Spec.IPFamilies[0] != corev1.IPv6Protocol) {
+					logger.V(1).Info("Recreating service", "name", service.Name)
+					err = r.Delete(ctx, existingService)
+					if err != nil {
+						return &requeue{curError: err}
+					}
+					err = r.Create(ctx, service)
+				} else {
+					err = updateService(ctx, logger, r, existingService, service)
+				}
 				if err != nil {
 					return &requeue{curError: err}
 				}
