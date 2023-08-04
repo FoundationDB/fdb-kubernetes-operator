@@ -2763,6 +2763,7 @@ func (cluster *FoundationDBCluster) GetProcessGroupID(processClass ProcessClass,
 	return fmt.Sprintf("%s-%s-%d", cluster.Name, processClass.GetProcessClassForPodName(), idNum), processGroupID
 }
 
+// IsPodIPFamily6 determines whether the podIPFamily setting in cluster is set to use the IPv6 family.
 func (cluster *FoundationDBCluster) IsPodIPFamily6() bool {
 	return cluster.Spec.Routing.PodIPFamily != nil && *cluster.Spec.Routing.PodIPFamily == 6
 }
