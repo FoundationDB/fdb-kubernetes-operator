@@ -360,7 +360,7 @@ type FaultDomain string
 
 // ProcessGroupID represents the ID of the process group
 // +kubebuilder:validation:MaxLength=63
-// +kubebuilder:validation:Pattern:=^([\w-]+)-(\d+)$
+// +kubebuilder:validation:Pattern:=^(([\w-]+)-(\d+)|\*)$
 type ProcessGroupID string
 
 // GetIDNumber returns the ID number of the provided process group ID. This will be the suffix number, e.g. for the
