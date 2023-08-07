@@ -29,6 +29,8 @@ import (
 	"sync"
 	"time"
 
+	"k8s.io/client-go/util/retry"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -1255,4 +1257,41 @@ func (fdbCluster *FdbCluster) ValidateProcessesCount(
 	for _, processGroup := range fdbCluster.GetCluster().Status.ProcessGroups {
 		gomega.Expect(processGroup.FaultDomain).NotTo(gomega.BeEmpty())
 	}
+}
+
+// UpdateAnnotationsAndLabels will update the annotations and labels to the provided values.
+// Example usage:
+/*
+	annotations := fdbCluster.GetCachedCluster().GetAnnotations()
+	if annotations == nil {
+	   annotations = map[string]string{}
+	}
+
+	annotations["foundationdb.org/testing"] = "awesome"
+	labels := fdbCluster.GetCachedCluster().GetLabels()
+	fdbCluster.UpdateAnnotationsAndLabels(annotations, labels)
+
+*/
+func (fdbCluster *FdbCluster) UpdateAnnotationsAndLabels(annotations map[string]string, labels map[string]string) {
+	// Update the annotations and labels.
+	gomega.Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		fetchedCluster := &fdbv1beta2.FoundationDBCluster{}
+		err := fdbCluster.getClient().
+			Get(ctx.Background(), client.ObjectKeyFromObject(fdbCluster.cluster), fetchedCluster)
+		if err != nil {
+			return err
+		}
+
+		patch := client.MergeFrom(fetchedCluster.DeepCopy())
+		fetchedCluster.Annotations = annotations
+		fetchedCluster.Labels = labels
+
+		return fdbCluster.getClient().Patch(
+			ctx.Background(),
+			fetchedCluster,
+			patch)
+	})).NotTo(gomega.HaveOccurred())
+
+	// Make sure the current reference is updated.
+	fdbCluster.GetCluster()
 }
