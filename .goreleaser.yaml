@@ -17,14 +17,9 @@ builds:
 archives:
   - id: kubectl-fdb
     builds:
-    - kubectl-fdb
+      - kubectl-fdb
     format: binary
     name_template: "{{ .Binary }}_v{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}{{ if .Mips }}_{{ .Mips }}{{ end }}"
-    replacements:
-      darwin: Darwin
-      linux: Linux
-      windows: Windows
-      amd64: x86_64
 checksum:
   name_template: 'checksums.txt'
 snapshot:
