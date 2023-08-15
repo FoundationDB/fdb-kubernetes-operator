@@ -63,7 +63,7 @@ cd "${SCRIPT_DIR}"
 # Kubernetes version for the Kind clusters
 KUBE_VERSION=${KUBE_VERSION:-"v1.24.7"}
 # Defines the FDB version that should be preloaded into the Kind cluster
-FDB_VERSION=${FDB_VERSION:-"7.1.25"}
+FDB_VERSION=${FDB_VERSION:-"7.1.33"}
 # Defines the previous FDB version that should be preloaded into the Kind cluster
 UPGRADE_VERSIONS=${UPGRADE_VERSIONS:-""}
 # Defines the FDB version that are used for upgreade tests and that should be preloaded into the Kind cluster

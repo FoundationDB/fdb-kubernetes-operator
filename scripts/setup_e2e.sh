@@ -57,7 +57,7 @@ cd "${SCRIPT_DIR}"
 
 # Kubernetes version for the Kind clusters
 KUBE_VERSION=${KUBE_VERSION:-"v1.24.7"}
-FDB_VERSION=${FDB_VERSION:-"7.1.25"}
+FDB_VERSION=${FDB_VERSION:-"7.1.33"}
 
 # To test a multi-region FDB cluster setup we need to have 4 Kubernetes clusters
 cluster1=${CLUSTER1:-cluster1}
