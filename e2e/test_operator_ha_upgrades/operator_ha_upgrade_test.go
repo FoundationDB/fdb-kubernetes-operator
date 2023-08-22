@@ -60,7 +60,14 @@ var _ = AfterSuite(func() {
 	}
 })
 
-func clusterSetupWithHealthCheckOption(beforeVersion string, enableOperatorPodChaos bool, enableHealthCheck bool) {
+type testConfig struct {
+	beforeVersion          string
+	enableOperatorPodChaos bool
+	enableHealthCheck      bool
+	loadData               bool
+}
+
+func clusterSetupWithHealthCheckOption(config testConfig) {
 	// We set the before version here to overwrite the before version from the specific flag
 	// the specific flag will be removed in the future.
 	factory.SetBeforeVersion(beforeVersion)
@@ -68,7 +75,8 @@ func clusterSetupWithHealthCheckOption(beforeVersion string, enableOperatorPodCh
 		fixtures.DefaultClusterConfigWithHaMode(fixtures.HaFourZoneSingleSat, false),
 		factory.GetClusterOptions(fixtures.UseVersionBeforeUpgrade)...,
 	)
-	if enableHealthCheck {
+
+	if config.enableHealthCheck {
 		Expect(
 			fdbCluster.GetPrimary().InvariantClusterStatusAvailableWithThreshold(15 * time.Second),
 		).ShouldNot(HaveOccurred())
@@ -86,7 +94,14 @@ func clusterSetupWithHealthCheckOption(beforeVersion string, enableOperatorPodCh
 }
 
 func clusterSetup(beforeVersion string, enableOperatorPodChaos bool) {
-	clusterSetupWithHealthCheckOption(beforeVersion, enableOperatorPodChaos, true)
+	clusterSetupWithHealthCheckOption(
+		testConfig{
+			beforeVersion:          beforeVersion,
+			enableOperatorPodChaos: enableOperatorPodChaos,
+			enableHealthCheck:      true,
+			loadData:               false,
+		},
+	)
 }
 
 // Verify that bouncing is blocked in primary/remote/primary-satellite clusters.
@@ -148,7 +163,12 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 	DescribeTable(
 		"with operator pod chaos and without foundationdb pod chaos",
 		func(beforeVersion string, targetVersion string) {
-			clusterSetup(beforeVersion, true /* = enableOperatorPodChaos */)
+			clusterSetupWithHealthCheckOption(testConfig{
+				beforeVersion:          beforeVersion,
+				enableOperatorPodChaos: true,
+				enableHealthCheck:      true,
+				loadData:               true,
+			})
 			initialGeneration := fdbCluster.GetPrimary().GetStatus().Cluster.Generation
 			// Make use of a sync.Map here as we have to modify it concurrently.
 			var transactionSystemProcessGroups sync.Map
@@ -425,7 +445,12 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 				Skip("chaos mesh is disabled")
 			}
 
-			clusterSetupWithHealthCheckOption(beforeVersion, false, false)
+			clusterSetupWithHealthCheckOption(testConfig{
+				beforeVersion:          beforeVersion,
+				enableOperatorPodChaos: false,
+				enableHealthCheck:      false,
+				loadData:               false,
+			})
 
 			// 1. Introduce packet loss b/w pods.
 			log.Println("Injecting packet loss b/w pod")

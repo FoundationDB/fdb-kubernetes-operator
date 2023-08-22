@@ -57,15 +57,17 @@ var _ = AfterSuite(func() {
 	}
 })
 
-func clusterSetupWithConfig(beforeVersion string, availabilityCheck bool, config *fixtures.ClusterConfig) {
+func clusterSetupWithConfigWithDataLoading(beforeVersion string, availabilityCheck bool, config *fixtures.ClusterConfig, loadData bool) {
 	factory.SetBeforeVersion(beforeVersion)
 	fdbCluster = factory.CreateFdbCluster(
 		config,
 		factory.GetClusterOptions(fixtures.UseVersionBeforeUpgrade)...,
 	)
 
-	// Load some data async into the cluster. We will only block as long as the Job is created.
-	factory.CreateDataLoaderIfAbsent(fdbCluster)
+	if loadData {
+		// Load some data async into the cluster. We will only block as long as the Job is created.
+		factory.CreateDataLoaderIfAbsent(fdbCluster)
+	}
 
 	// We have some tests where we expect some down time e.g. when no coordinator is restarted during an upgrade.
 	// In order to make sure the test is not failing based on the availability check we can disable the availability check if required.
@@ -76,6 +78,10 @@ func clusterSetupWithConfig(beforeVersion string, availabilityCheck bool, config
 	Expect(
 		fdbCluster.InvariantClusterStatusAvailableWithThreshold(15 * time.Second),
 	).ShouldNot(HaveOccurred())
+}
+
+func clusterSetupWithConfig(beforeVersion string, availabilityCheck bool, config *fixtures.ClusterConfig) {
+	clusterSetupWithConfigWithDataLoading(beforeVersion, availabilityCheck, config, false)
 }
 
 func clusterSetup(beforeVersion string, availabilityCheck bool) {
