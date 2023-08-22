@@ -1309,4 +1309,54 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			})
 		})
 	})
+
+	// This test is pending, as all Pods will be restarted at the same time, which will lead to unavailability without
+	// using DNS.
+	PWhen("crash looping the sidecar for all Pods", func() {
+		BeforeEach(func() {
+			availabilityCheck = false
+			fdbCluster.SetCrashLoopContainers([]fdbv1beta2.CrashLoopContainerObject{
+				{
+					ContainerName: fdbv1beta2.SidecarContainerName,
+					Targets:       []fdbv1beta2.ProcessGroupID{"*"},
+				},
+			}, false)
+		})
+
+		AfterEach(func() {
+			fdbCluster.SetCrashLoopContainers(nil, true)
+
+			Eventually(func() bool {
+				allCrashLooping := true
+				for _, pod := range fdbCluster.GetPods().Items {
+					for _, container := range pod.Spec.Containers {
+						if container.Name == fdbv1beta2.SidecarContainerName {
+							if allCrashLooping {
+								allCrashLooping = container.Args[0] != "crash-loop"
+							}
+						}
+					}
+				}
+
+				return allCrashLooping
+			}).WithPolling(4 * time.Second).WithTimeout(2 * time.Minute).MustPassRepeatedly(10).Should(BeTrue())
+		})
+
+		It("should set all sidecar containers into crash looping state", func() {
+			Eventually(func() bool {
+				allCrashLooping := true
+				for _, pod := range fdbCluster.GetPods().Items {
+					for _, container := range pod.Spec.Containers {
+						if container.Name == fdbv1beta2.SidecarContainerName {
+							if allCrashLooping {
+								allCrashLooping = container.Args[0] == "crash-loop"
+							}
+						}
+					}
+				}
+
+				return allCrashLooping
+			}).WithPolling(4 * time.Second).WithTimeout(2 * time.Minute).MustPassRepeatedly(10).Should(BeTrue())
+		})
+	})
 })
