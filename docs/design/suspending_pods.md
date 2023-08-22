@@ -115,6 +115,13 @@ func (u suspendProcessGroup) reconcile(ctx context.Context, r *FoundationDBClust
 }
 ```
 
+To make the recovery of a suspended Process Group easy, the `kubectl-fdb` plugin will be extended with a new subcommand called `recover process-groups`.
+The subcommand will take a cluster and a list of Process Group IDs.
+The implementation of this subcommand will reset the `RemovalTimestamp`, `ExclusionTimestamp` and the `SuspensionTimestamp` for the provided Process Groups and make sure they are removed from the `ProcessGroupsToRemove` list.
+Once those timestamps are removed and the Process Group is not present in the `ProcessGroupsToRemove` the operator will recreate the Pod, which will bring back the data.
+Depending on the exclusion mechanism used the new process might still be excluded, e.g. if locality-based exclusions are used.
+If the newly created Pod gets a new IP address and the operator is using IP based exclusions, the new process will not be excluded and must be excluded again if desired.
+
 ## Related Links
 
 -
