@@ -58,6 +58,10 @@ COPY --chown=fdb:fdb --from=builder /var/log/fdb/.keep /var/log/fdb/.keep
 # some additional libraries that are not present in the default bookwork image. We copy those
 # libraries to make the distroless version of the operator work too, otherwise we could just install
 # the required packages.
+
+# This won't work with the current distroless image, as the image depends on debian11, but bookworm is debian12
+# see: https://github.com/GoogleContainerTools/distroless/issues/1342
+# For now we ignore this and once a debian12 based distroless image is available we can make use of that.
 COPY --from=builder /usr/lib/x86_64-linux-gnu/lib* /usr/lib/x86_64-linux-gnu/
 
 # Set to the numeric UID of fdb user to satisfy PodSecurityPolices which enforce runAsNonRoot
