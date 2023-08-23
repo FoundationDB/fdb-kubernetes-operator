@@ -20,12 +20,14 @@ The following changes can only be rolled out through replacement:
 * Changing the process group ID prefix
 * Changing the public IP source
 * Changing the number of storage servers per pod
-* Changing the node selector, when the `deletePodsWhenNodeSelectorChanges` flag is not set.
+* Changing the node selector, when the `remoteStorage` flag is not set.
 * Changing any part of the PVC spec
 * Increasing the resource requirements, when the `replaceInstancesWhenResourcesChange` flag is set.
 
 The number of inflight replacements can be configured by setting `maxConcurrentReplacements`, per default the operator will replace all misconfigured process groups.
 Depending on the cluster size this can require a quota that is has double the capacity of the actual required resources.
+
+When `remoteStorage` flag is enabled the operator will replace pods when the node selector is changed. This is beneficial to prevent costly pod migrations when it is possible to simply delete the pod and let the new pod reattach to the PV. In some cases this feature may need to be disabled, for example if pods need to be migrated across AZs in cloud providers where remote storage is limited to a single AZ.
 
 ## Automatic Replacements for ProcessGroups in Undesired State
 
