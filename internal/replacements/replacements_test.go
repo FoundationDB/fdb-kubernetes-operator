@@ -284,8 +284,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			})
 
 			It("should not need a removal", func() {
-				remoteStorage := true
-				cluster.Spec.RemoteStorage = &remoteStorage
+				cluster.Spec.RemoteStorage = pointer.Bool(true)
 				needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
 				Expect(needsRemoval).To(BeFalse())
 				Expect(err).NotTo(HaveOccurred())
