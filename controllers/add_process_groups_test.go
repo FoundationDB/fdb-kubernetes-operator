@@ -87,7 +87,7 @@ var _ = Describe("add_process_groups", func() {
 		It("should add a storage process", func() {
 			storageProcesses := make([]fdbv1beta2.ProcessGroupID, 0, newProcessCounts.Storage)
 			for _, processGroup := range cluster.Status.ProcessGroups {
-				if processGroup.ProcessClass == "storage" {
+				if processGroup.ProcessClass == fdbv1beta2.ProcessClassStorage {
 					storageProcesses = append(storageProcesses, processGroup.ProcessGroupID)
 				}
 			}
@@ -98,8 +98,7 @@ var _ = Describe("add_process_groups", func() {
 				"storage-4",
 				"storage-5",
 			}
-			Expect(len(storageProcesses)).To(BeNumerically("==", len(expectedStorageProcesses)))
-			Expect(storageProcesses).To(ContainElements(expectedStorageProcesses))
+			Expect(storageProcesses).To(ConsistOf(expectedStorageProcesses))
 		})
 
 		It("should not change the log or stateless processes", func() {
@@ -121,7 +120,7 @@ var _ = Describe("add_process_groups", func() {
 		It("should add a storage process", func() {
 			storageProcesses := make([]fdbv1beta2.ProcessGroupID, 0, newProcessCounts.Storage)
 			for _, processGroup := range cluster.Status.ProcessGroups {
-				if processGroup.ProcessClass == "storage" {
+				if processGroup.ProcessClass == fdbv1beta2.ProcessClassStorage {
 					storageProcesses = append(storageProcesses, processGroup.ProcessGroupID)
 				}
 			}
@@ -132,8 +131,7 @@ var _ = Describe("add_process_groups", func() {
 				"storage-3",
 				"storage-5",
 			}
-			Expect(len(storageProcesses)).To(BeNumerically("==", len(expectedStorageProcesses)))
-			Expect(storageProcesses).To(ContainElements(expectedStorageProcesses))
+			Expect(storageProcesses).To(ConsistOf(expectedStorageProcesses))
 		})
 
 		It("should not change the log or stateless processes", func() {
@@ -154,7 +152,7 @@ var _ = Describe("add_process_groups", func() {
 		It("should add storage processes", func() {
 			storageProcesses := make([]fdbv1beta2.ProcessGroupID, 0, newProcessCounts.Storage)
 			for _, processGroup := range cluster.Status.ProcessGroups {
-				if processGroup.ProcessClass == "storage" {
+				if processGroup.ProcessClass == fdbv1beta2.ProcessClassStorage {
 					storageProcesses = append(storageProcesses, processGroup.ProcessGroupID)
 				}
 			}
@@ -166,8 +164,7 @@ var _ = Describe("add_process_groups", func() {
 				"storage-5",
 				"storage-6",
 			}
-			Expect(len(storageProcesses)).To(BeNumerically("==", len(expectedStorageProcesses)))
-			Expect(storageProcesses).To(ContainElements(expectedStorageProcesses))
+			Expect(storageProcesses).To(ConsistOf(expectedStorageProcesses))
 		})
 
 		It("should not change the log or stateless processes", func() {
@@ -187,7 +184,7 @@ var _ = Describe("add_process_groups", func() {
 			It("should fill in the gap", func() {
 				storageProcesses := make([]fdbv1beta2.ProcessGroupID, 0, newProcessCounts.Storage)
 				for _, processGroup := range cluster.Status.ProcessGroups {
-					if processGroup.ProcessClass == "storage" {
+					if processGroup.ProcessClass == fdbv1beta2.ProcessClassStorage {
 						storageProcesses = append(storageProcesses, processGroup.ProcessGroupID)
 					}
 				}
@@ -199,8 +196,7 @@ var _ = Describe("add_process_groups", func() {
 					"storage-5",
 					"storage-7",
 				}
-				Expect(len(storageProcesses)).To(BeNumerically("==", len(expectedStorageProcesses)))
-				Expect(storageProcesses).To(ContainElements(expectedStorageProcesses))
+				Expect(storageProcesses).To(ConsistOf(expectedStorageProcesses))
 			})
 		})
 	})

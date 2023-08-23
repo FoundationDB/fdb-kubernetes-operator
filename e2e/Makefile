@@ -10,8 +10,9 @@ TIMEOUT?=168h
 NAMESPACE?=
 PREFIX?=
 CONTEXT?=
-FDB_VERSION?=7.1.31
-PREVIOUS_FDB_VERSION?=6.3.25
+FDB_VERSION?=7.1.37
+# This will be the version used for upgrade tests.
+NEXT_FDB_VERSION?=7.3.15
 ## Expectation is that you are running standard build image which generates both regular and debug (Symbols) images.
 FDB_IMAGE?=foundationdb/foundationdb:$(FDB_VERSION)
 SIDECAR_IMAGE?=foundationdb/foundationdb-kubernetes-sidecar:$(FDB_VERSION)-1
@@ -22,11 +23,12 @@ TEST_USERNAME?=$(USER)
 ENABLE_CHAOS_TESTS?=true
 CHAOS_NAMESPACE?=chaos-testing
 STORAGE_CLASS?=
+DUMP_OPERATOR_STATE?=true
 # Defines the cloud provider used for the underlying Kubernetes cluster. Currently only kind is support, other cloud providers
 # should still work but this test framework has no special cases for those.
 CLOUD_PROVIDER?=
 # Multiple versions can be specified for these upgrades by separating them with a, e.g. 6.2.25:7.1.25,7.1.23:7.1.25
-UPGRADE_VERSIONS?="$(PREVIOUS_FDB_VERSION):$(FDB_VERSION)"
+UPGRADE_VERSIONS?="$(FDB_VERSION):$(NEXT_FDB_VERSION)"
 # Those are feature flags for the operator tests. Enable a feature if you want to run the operator tests with a specific
 # feature enabled e.g. like DNS.
 FEATURE_UNIFIED_IMAGE?=false
@@ -50,7 +52,7 @@ destroy-my-namespaces:
 
 # This target can be used to create a kind cluster that can be used for e2e testing.
 kind-setup:
-	@CHAOS_NAMESPACE=$(CHAOS_NAMESPACE) FDB_VERSION=$(FDB_VERSION) UPGRADE_VERSIONS=$(UPGRADE_VERSIONS) PREVIOUS_FDB_VERSION=$(PREVIOUS_FDB_VERSION) REGISTRY=$(REGISTRY) $(shell pwd)/scripts/setup_e2e.sh
+	@CHAOS_NAMESPACE=$(CHAOS_NAMESPACE) FDB_VERSION=$(FDB_VERSION) UPGRADE_VERSIONS=$(UPGRADE_VERSIONS) REGISTRY=$(REGISTRY) $(shell pwd)/scripts/setup_e2e.sh
 
 # This target will remove the kind cluster.
 kind-destroy:
@@ -126,4 +128,5 @@ nightly-tests: run
 	  --feature-localities=$(FEATURE_LOCALITIES) \
 	  --feature-dns=$(FEATURE_DNS) \
 	  --cloud-provider=$(CLOUD_PROVIDER) \
+	  --dump-operator-state=$(DUMP_OPERATOR_STATE) \
 	  | grep -v 'constructing many client instances from the same exec auth config can cause performance problems during cert rotation' &> $(BASE_DIR)/../logs/$<.log

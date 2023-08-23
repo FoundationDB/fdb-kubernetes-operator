@@ -73,3 +73,9 @@ func (pClass ProcessClass) SupportsMultipleLogServers() bool {
 func (pClass ProcessClass) GetServersPerPodEnvName() string {
 	return strings.ToUpper(string(pClass)) + "_SERVERS_PER_POD"
 }
+
+// GetProcessClassForPodName will return the process class name where the underscore is replaced with a hyphen, as
+// underscores are not allowed in Kubernetes resources names.
+func (pClass ProcessClass) GetProcessClassForPodName() string {
+	return strings.ReplaceAll(string(pClass), "_", "-")
+}

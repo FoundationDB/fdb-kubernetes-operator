@@ -1,7 +1,7 @@
 FROM python:3.9-slim
 USER root
 
-ARG FDB_VERSION=7.1.21
+ARG FDB_VERSION=7.1.33
 RUN apt-get update \
     && apt-get  install -y wget \
                          bind9-utils \

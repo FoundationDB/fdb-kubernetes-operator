@@ -365,7 +365,7 @@ type FaultDomain string
 
 // ProcessGroupID represents the ID of the process group
 // +kubebuilder:validation:MaxLength=63
-// +kubebuilder:validation:Pattern:=^([\w-]+)-(\d+)$
+// +kubebuilder:validation:Pattern:=^(([\w-]+)-(\d+)|\*)$
 type ProcessGroupID string
 
 // GetIDNumber returns the ID number of the provided process group ID. This will be the suffix number, e.g. for the
@@ -766,6 +766,11 @@ func (processGroupStatus *ProcessGroupStatus) GetConditionTime(conditionType Pro
 
 // IsUnderMaintenance checks if the process is in maintenance zone.
 func (processGroupStatus *ProcessGroupStatus) IsUnderMaintenance(maintenanceZone FaultDomain) bool {
+	// If the maintenanceZone is not set or the Process Group has not fault domain set, return false.
+	if maintenanceZone == "" || processGroupStatus.FaultDomain == "" {
+		return false
+	}
+
 	return processGroupStatus.FaultDomain == maintenanceZone
 }
 
@@ -2238,11 +2243,11 @@ func (cluster *FoundationDBCluster) GetDNSDomain() string {
 
 // GetRemovalMode returns the removal mode of the cluster or default to PodUpdateModeZone if unset.
 func (cluster *FoundationDBCluster) GetRemovalMode() PodUpdateMode {
-	if cluster.Spec.AutomationOptions.DeletionMode == "" {
+	if cluster.Spec.AutomationOptions.RemovalMode == "" {
 		return PodUpdateModeZone
 	}
 
-	return cluster.Spec.AutomationOptions.DeletionMode
+	return cluster.Spec.AutomationOptions.RemovalMode
 }
 
 // GetWaitBetweenRemovalsSeconds returns the WaitDurationBetweenRemovals if set or defaults to 60s.
@@ -2716,4 +2721,65 @@ func (cluster *FoundationDBCluster) GetIgnoreLogGroupsForUpgrade() []LogGroup {
 
 	// Should we better read the FDB_NETWORK_OPTION_TRACE_LOG_GROUP env variable?
 	return []LogGroup{"fdb-kubernetes-operator"}
+}
+
+// GetCurrentProcessGroupsAndProcessCounts will return the process counts of Process Groups, that are not marked for removal based on the
+// FoundationDBClusterStatus and will return all used ProcessGroupIDs
+func (cluster *FoundationDBCluster) GetCurrentProcessGroupsAndProcessCounts() (map[ProcessClass]int, map[ProcessClass]map[int]bool, error) {
+	processCounts := make(map[ProcessClass]int)
+	processGroupIDs := make(map[ProcessClass]map[int]bool)
+
+	for _, processGroup := range cluster.Status.ProcessGroups {
+		idNum, err := processGroup.ProcessGroupID.GetIDNumber()
+		if err != nil {
+			return nil, nil, err
+		}
+
+		if len(processGroupIDs[processGroup.ProcessClass]) == 0 {
+			processGroupIDs[processGroup.ProcessClass] = map[int]bool{}
+		}
+		processGroupIDs[processGroup.ProcessClass][idNum] = true
+
+		if !processGroup.IsMarkedForRemoval() {
+			processCounts[processGroup.ProcessClass]++
+		}
+	}
+
+	return processCounts, processGroupIDs, nil
+}
+
+// GetNextProcessGroupID will return the next unused ProcessGroupID and the ID number based on the provided ProcessClass
+// and the mapping of used ProcessGroupID.
+func (cluster *FoundationDBCluster) GetNextProcessGroupID(processClass ProcessClass, processGroupIDs map[int]bool, idNum int) (ProcessGroupID, int) {
+	var processGroupID ProcessGroupID
+
+	for idNum > 0 {
+		_, processGroupID = cluster.GetProcessGroupID(processClass, idNum)
+		if !cluster.ProcessGroupIsBeingRemoved(processGroupID) && !processGroupIDs[idNum] {
+			break
+		}
+
+		idNum++
+	}
+
+	return processGroupID, idNum
+}
+
+// GetProcessGroupID generates a ProcessGroupID for a process group.
+//
+// This will return the Pod name and the ProcessGroupID.
+func (cluster *FoundationDBCluster) GetProcessGroupID(processClass ProcessClass, idNum int) (string, ProcessGroupID) {
+	var processGroupID ProcessGroupID
+	if cluster.Spec.ProcessGroupIDPrefix != "" {
+		processGroupID = ProcessGroupID(fmt.Sprintf("%s-%s-%d", cluster.Spec.ProcessGroupIDPrefix, processClass, idNum))
+	} else {
+		processGroupID = ProcessGroupID(fmt.Sprintf("%s-%d", processClass, idNum))
+	}
+
+	return fmt.Sprintf("%s-%s-%d", cluster.Name, processClass.GetProcessClassForPodName(), idNum), processGroupID
+}
+
+// IsPodIPFamily6 determines whether the podIPFamily setting in cluster is set to use the IPv6 family.
+func (cluster *FoundationDBCluster) IsPodIPFamily6() bool {
+	return cluster.Spec.Routing.PodIPFamily != nil && *cluster.Spec.Routing.PodIPFamily == 6
 }

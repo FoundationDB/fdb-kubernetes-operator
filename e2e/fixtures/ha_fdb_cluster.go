@@ -208,25 +208,14 @@ func (haFDBCluster *HaFdbCluster) WaitForReconciliation(
 }
 
 func (factory Factory) createHaFdbClusterSpec(
-	clusterName string,
-	namespace string,
+	config *ClusterConfig,
 	dcID string,
 	seedConnection string,
 	databaseConfiguration *fdbv1beta2.DatabaseConfiguration,
-	processes map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings,
-	mainContainerOverrides fdbv1beta2.ContainerOverrides,
-	sidecarContainerOverrides fdbv1beta2.ContainerOverrides,
 ) *fdbv1beta2.FoundationDBCluster {
 	cluster := factory.createFDBClusterSpec(
-		clusterName,
-		namespace,
-		processes,
+		config,
 		*databaseConfiguration,
-		// TODO(johscheuer): make this configurable.
-		1,
-		1,
-		mainContainerOverrides,
-		sidecarContainerOverrides,
 	)
 
 	cluster.Spec.ProcessGroupIDPrefix = dcID

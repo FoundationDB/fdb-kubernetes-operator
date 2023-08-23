@@ -1191,4 +1191,55 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 		EntryDescription("Upgrade from %[1]s to %[2]s"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
 	)
+
+	DescribeTable(
+		"with maintenance mode enabled",
+		func(beforeVersion string, targetVersion string) {
+			clusterSetupWithConfig(beforeVersion, true, &fixtures.ClusterConfig{
+				DebugSymbols:       false,
+				UseMaintenanceMode: true,
+			})
+
+			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
+
+			if !fixtures.VersionsAreProtocolCompatible(beforeVersion, targetVersion) {
+				// Ensure that the operator is setting the IncorrectConfigMap and IncorrectCommandLine conditions during the upgrade
+				// process.
+				expectedConditions := map[fdbv1beta2.ProcessGroupConditionType]bool{
+					fdbv1beta2.IncorrectConfigMap:   true,
+					fdbv1beta2.IncorrectCommandLine: true,
+				}
+				Eventually(func() bool {
+					cluster := fdbCluster.GetCluster()
+
+					for _, processGroup := range cluster.Status.ProcessGroups {
+						if !processGroup.MatchesConditions(expectedConditions) {
+							return false
+						}
+					}
+
+					return true
+				}).WithTimeout(10 * time.Minute).WithPolling(5 * time.Second).Should(BeTrue())
+			}
+
+			// Make sure the maintenance zone is set at least once.
+			Eventually(func() fdbv1beta2.FaultDomain {
+				status := fdbCluster.GetStatus()
+				if status == nil {
+					return ""
+				}
+
+				return status.Cluster.MaintenanceZone
+			}).WithTimeout(5 * time.Minute).WithPolling(1 * time.Second).MustPassRepeatedly(5).Should(Not(BeEmpty()))
+
+			// Make sure the FoundationDBCluster resource is updated.
+			Eventually(func() fdbv1beta2.FaultDomain {
+				return fdbCluster.GetCluster().Status.MaintenanceModeInfo.ZoneID
+			}).WithTimeout(5 * time.Minute).WithPolling(1 * time.Second).MustPassRepeatedly(5).Should(Not(BeEmpty()))
+
+			verifyVersion(fdbCluster, targetVersion)
+		},
+		EntryDescription("Upgrade from %[1]s to %[2]s"),
+		fixtures.GenerateUpgradeTableEntries(testOptions),
+	)
 })

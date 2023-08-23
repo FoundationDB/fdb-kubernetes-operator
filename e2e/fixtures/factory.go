@@ -178,19 +178,7 @@ func (factory *Factory) CreateFdbHaCluster(
 ) *HaFdbCluster {
 	config.SetDefaults(factory)
 
-	mainOverrides, sidecarOverrides := factory.getContainerOverrides(
-		config.DebugSymbols,
-	)
-
-	dbConfig := config.CreateDatabaseConfiguration()
-	dcIDs := GetDcIDsFromConfig(dbConfig)
 	cluster, err := factory.ensureHAFdbClusterExists(
-		dcIDs,
-		factory.MultipleNamespaces(dcIDs),
-		factory.createProcesses(config),
-		dbConfig,
-		mainOverrides,
-		sidecarOverrides,
 		config,
 		options,
 	)
@@ -579,6 +567,7 @@ func writePodInformation(pod corev1.Pod) string {
 
 			// If the Pod is scheduled we can ignore this condition.
 			if condition.Status == corev1.ConditionTrue {
+				buffer.WriteString("\t-")
 				continue
 			}
 
@@ -638,7 +627,7 @@ func writePodInformation(pod corev1.Pod) string {
 
 // DumpState writes the state of the cluster to the log output. Useful for debugging test failures.
 func (factory *Factory) DumpState(fdbCluster *FdbCluster) {
-	if fdbCluster == nil {
+	if fdbCluster == nil || !factory.options.dumpOperatorState {
 		return
 	}
 

@@ -21,17 +21,17 @@
 package fixtures
 
 import (
+	chaosmesh "github.com/chaos-mesh/chaos-mesh/api/v1alpha1"
+	appsv1 "k8s.io/api/apps/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/scheme"
 	"math/rand"
 	"os/user"
 	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	chaosmesh "github.com/chaos-mesh/chaos-mesh/api/v1alpha1"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	controllerRuntimeClient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -108,10 +108,8 @@ func getSingleton(options *FactoryOptions) (*singleton, error) {
 	if err != nil {
 		return nil, err
 	}
-	controllerClient, err := controllerRuntimeClient.New(
-		kubeConfig,
-		controllerRuntimeClient.Options{Scheme: curScheme},
-	)
+
+	controllerClient, err := LoadControllerRuntimeFromContext(options.context, curScheme)
 	if err != nil {
 		return nil, err
 	}

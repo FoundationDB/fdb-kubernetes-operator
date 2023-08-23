@@ -38,5 +38,9 @@ func GetHeadlessService(cluster *fdbv1beta2.FoundationDBCluster) *corev1.Service
 	service.Spec.ClusterIP = "None"
 	service.Spec.Selector = cluster.GetMatchLabels()
 
+	if cluster.Spec.Routing.PodIPFamily != nil && *cluster.Spec.Routing.PodIPFamily == 6 {
+		service.Spec.IPFamilies = []corev1.IPFamily{corev1.IPv6Protocol}
+	}
+
 	return service
 }

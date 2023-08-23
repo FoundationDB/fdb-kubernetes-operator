@@ -66,19 +66,15 @@ func (factory *Factory) ensureFdbClusterExists(
 
 	return fdbCluster, nil
 }
+
 func (factory *Factory) ensureHaMemberClusterExists(
 	haFdbCluster *HaFdbCluster,
+	config *ClusterConfig,
 	dcID string,
-	namespace string,
-	clusterPrefix string,
 	seedConnection string,
-	processes map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings,
 	databaseConfiguration *fdbv1beta2.DatabaseConfiguration,
-	mainContainerOverrides fdbv1beta2.ContainerOverrides,
-	sidecarContainerOverrides fdbv1beta2.ContainerOverrides,
 	options []ClusterOption,
 ) error {
-	clusterName := fmt.Sprintf("%s-%s", clusterPrefix, dcID)
 	var initMode bool
 	if len(databaseConfiguration.Regions) == 1 {
 		initMode = true
@@ -92,14 +88,10 @@ func (factory *Factory) ensureHaMemberClusterExists(
 	)
 
 	spec := factory.createHaFdbClusterSpec(
-		clusterName,
-		namespace,
+		config,
 		dcID,
 		seedConnection,
 		databaseConfiguration,
-		processes,
-		mainContainerOverrides,
-		sidecarContainerOverrides,
 	)
 
 	for _, option := range options {
@@ -109,7 +101,7 @@ func (factory *Factory) ensureHaMemberClusterExists(
 	curCluster := factory.createFdbClusterObject(spec)
 	factory.logClusterInfo(spec)
 	// We have to trigger here an update since the cluster already exists!
-	fetchedClusterStatus, err := factory.getClusterStatus(clusterName, namespace)
+	fetchedClusterStatus, err := factory.getClusterStatus(config.Name, config.Namespace)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			log.Printf(
@@ -156,17 +148,14 @@ func (factory *Factory) ensureHaMemberClusterExists(
 }
 
 func (factory *Factory) ensureHAFdbClusterExists(
-	dcIDs []string,
-	namespaces []string,
-	processes map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings,
-	databaseConfiguration fdbv1beta2.DatabaseConfiguration,
-	mainContainerOverrides fdbv1beta2.ContainerOverrides,
-	sidecarContainerOverrides fdbv1beta2.ContainerOverrides,
 	config *ClusterConfig,
 	options []ClusterOption,
 ) (*HaFdbCluster, error) {
 	fdb := &HaFdbCluster{}
 	clusterPrefix := factory.getClusterPrefix()
+
+	databaseConfiguration := config.CreateDatabaseConfiguration()
+	dcIDs := GetDcIDsFromConfig(databaseConfiguration)
 
 	initialDatabaseConfiguration := databaseConfiguration.DeepCopy()
 	initialDatabaseConfiguration.Regions = []fdbv1beta2.Region{
@@ -179,17 +168,19 @@ func (factory *Factory) ensureHAFdbClusterExists(
 		},
 	}
 
+	namespaces := factory.MultipleNamespaces(dcIDs)
 	log.Printf("ensureHAFDBClusterExists namespaces=%s", namespaces)
+
+	newConfig := config.Copy()
+	newConfig.Name = fmt.Sprintf("%s-%s", clusterPrefix, dcIDs[0])
+	newConfig.Namespace = namespaces[0]
+
 	err := factory.ensureHaMemberClusterExists(
 		fdb,
+		newConfig,
 		dcIDs[0],
-		namespaces[0],
-		clusterPrefix,
 		"",
-		processes,
 		initialDatabaseConfiguration,
-		mainContainerOverrides,
-		sidecarContainerOverrides,
 		options,
 	)
 	if err != nil {
@@ -206,16 +197,16 @@ func (factory *Factory) ensureHAFdbClusterExists(
 	}
 
 	for idx := range dcIDs {
+		currentConfig := config.Copy()
+		currentConfig.Name = fmt.Sprintf("%s-%s", clusterPrefix, dcIDs[idx])
+		currentConfig.Namespace = namespaces[idx]
+
 		err = factory.ensureHaMemberClusterExists(
 			fdb,
+			currentConfig,
 			dcIDs[idx],
-			namespaces[idx],
-			clusterPrefix,
 			cluster.Status.ConnectionString,
-			processes,
 			&databaseConfiguration,
-			mainContainerOverrides,
-			sidecarContainerOverrides,
 			options,
 		)
 		if err != nil {

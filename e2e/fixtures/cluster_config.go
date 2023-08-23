@@ -70,6 +70,8 @@ type ClusterConfig struct {
 	Performance bool
 	// If enabled the debug images will be used for this test case.
 	DebugSymbols bool
+	// UseMaintenanceMode if enabled the FoundationDBCluster resource will enable the maintenance mode.
+	UseMaintenanceMode bool
 	// CreationTracker if specified will be used to log the time between the creations steps.
 	CreationTracker CreationTrackerLogger
 	// Number of machines, this is used for calculating the number of Pods and is not correlated to the actual number
@@ -488,4 +490,27 @@ func calculateProxies(proxies int) (int, int) {
 
 	// Ensure we create at least 1 process of each proxy type
 	return max(grv, 1), max(commit, 1)
+}
+
+// Copy will return a new struct of the ClusterConfig.
+func (config *ClusterConfig) Copy() *ClusterConfig {
+	return &ClusterConfig{
+		Performance:         config.Performance,
+		DebugSymbols:        config.DebugSymbols,
+		UseMaintenanceMode:  config.UseMaintenanceMode,
+		CreationTracker:     config.CreationTracker,
+		MachineCount:        config.MachineCount,
+		DisksPerMachine:     config.DisksPerMachine,
+		StorageServerPerPod: config.StorageServerPerPod,
+		LogServersPerPod:    config.LogServersPerPod,
+		VolumeSize:          config.VolumeSize,
+		Namespace:           config.Namespace,
+		Name:                config.Name,
+		cloudProvider:       config.cloudProvider,
+		StorageEngine:       config.StorageEngine,
+		NodeSelector:        config.NodeSelector,
+		HaMode:              config.HaMode,
+		CustomParameters:    config.CustomParameters,
+		CreationCallback:    config.CreationCallback,
+	}
 }

@@ -78,7 +78,6 @@ func NewFoundationDBClusterReconciler(podLifecycleManager podmanager.PodLifecycl
 // +kubebuilder:rbac:groups=apps.foundationdb.org,resources=foundationdbclusters/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups="",resources=pods;configmaps;persistentvolumeclaims;events;secrets;services,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="coordination.k8s.io",resources=leases,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups="",resources=nodes,verbs=get;list;watch
 
 // Reconcile runs the reconciliation logic.
 func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
@@ -412,16 +411,6 @@ func (r *FoundationDBClusterReconciler) newFdbPodClient(cluster *fdbv1beta2.Foun
 	return internal.NewFdbPodClient(cluster, pod, globalControllerLogger.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "pod", pod.Name), r.GetTimeout, r.PostTimeout)
 }
 
-func (r *FoundationDBClusterReconciler) getCoordinatorSet(cluster *fdbv1beta2.FoundationDBCluster) (map[string]fdbv1beta2.None, error) {
-	adminClient, err := r.DatabaseClientProvider.GetAdminClient(cluster, r)
-	if err != nil {
-		return map[string]fdbv1beta2.None{}, err
-	}
-	defer adminClient.Close()
-
-	return adminClient.GetCoordinatorSet()
-}
-
 // updateOrApply updates the status either with server-side apply or if disabled with the normal update call.
 func (r *FoundationDBClusterReconciler) updateOrApply(ctx context.Context, cluster *fdbv1beta2.FoundationDBCluster) error {
 	if r.ServerSideApply {
@@ -481,6 +470,14 @@ func (r *FoundationDBClusterReconciler) getStatusFromClusterOrDummyStatus(logger
 
 	status, err := adminClient.GetStatus()
 	if err == nil {
+		if len(status.Client.Messages) > 0 {
+			logger.Info("found client message(s) in the machine-readable status", "messages", status.Client.Messages)
+		}
+
+		if len(status.Cluster.Messages) > 0 {
+			logger.Info("found cluster message(s) in the machine-readable status", "messages", status.Cluster.Messages)
+		}
+
 		return status, nil
 	}
 

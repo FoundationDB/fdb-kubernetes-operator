@@ -40,7 +40,7 @@ If the test suite is not able to get at least 2 different `StorageClasses` the m
 The `Makefile` provides different options to customize a test run, e.g. with `FDB_VERSION` a user can specify the used FDB version for a test run:
 
 ```bash
-FDB_VERSION=7.1.29 make -C e2e -kj test_operator.run
+FDB_VERSION=7.1.33 make -C e2e -kj test_operator.run
 ```
 
 If those tests are running on a cluster that has no chaos-mesh installed, you can set `ENABLE_CHAOS_TESTS=false` to disable all test that uses chaos-mesh.

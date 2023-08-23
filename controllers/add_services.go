@@ -22,10 +22,8 @@ package controllers
 
 import (
 	"context"
-
-	"github.com/go-logr/logr"
-
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+	"github.com/go-logr/logr"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -45,8 +43,7 @@ func (a addServices) reconcile(ctx context.Context, r *FoundationDBClusterReconc
 		existingService := &corev1.Service{}
 		err := r.Get(ctx, client.ObjectKey{Namespace: cluster.Namespace, Name: cluster.Name}, existingService)
 		if err == nil {
-			// Update the existing service
-			err = updateService(ctx, logger, r, existingService, service)
+			err = updateService(ctx, logger, cluster, r, existingService, service)
 			if err != nil {
 				return &requeue{curError: err}
 			}
@@ -75,7 +72,7 @@ func (a addServices) reconcile(ctx context.Context, r *FoundationDBClusterReconc
 				return &requeue{curError: err}
 			}
 
-			serviceName, _ := internal.GetProcessGroupID(cluster, processGroup.ProcessClass, idNum)
+			serviceName, _ := cluster.GetProcessGroupID(processGroup.ProcessClass, idNum)
 			service, err := internal.GetService(cluster, processGroup.ProcessClass, idNum)
 			if err != nil {
 				return &requeue{curError: err}
@@ -84,8 +81,7 @@ func (a addServices) reconcile(ctx context.Context, r *FoundationDBClusterReconc
 			existingService := &corev1.Service{}
 			err = r.Get(ctx, client.ObjectKey{Namespace: cluster.Namespace, Name: serviceName}, existingService)
 			if err == nil {
-				// Update the existing service
-				err = updateService(ctx, logger, r, existingService, service)
+				err = updateService(ctx, logger, cluster, r, existingService, service)
 				if err != nil {
 					return &requeue{curError: err}
 				}
@@ -108,9 +104,29 @@ func (a addServices) reconcile(ctx context.Context, r *FoundationDBClusterReconc
 	return nil
 }
 
+// requiresRecreation returns true if the cluster supports podIPFamily as IPv6 and the existing service does not have
+// IPv6 in the IPFamilies.
+func requiresRecreation(cluster *fdbv1beta2.FoundationDBCluster, existingService *corev1.Service) bool {
+	return cluster.IsPodIPFamily6() && (existingService.Spec.IPFamilies == nil || existingService.Spec.IPFamilies[0] != corev1.IPv6Protocol)
+}
+
+// recreateService removes the existing service and create a new service.
+func recreateService(ctx context.Context, r *FoundationDBClusterReconciler, currentService *corev1.Service, newService *corev1.Service, logger logr.Logger) error {
+	logger.V(1).Info("Recreating service", "name", newService.Name)
+	err := r.Delete(ctx, currentService)
+	if err != nil {
+		return err
+	}
+	err = r.Create(ctx, newService)
+	return err
+}
+
 // updateServices updates selected safe fields on a service based on a new
 // service definition.
-func updateService(ctx context.Context, logger logr.Logger, r *FoundationDBClusterReconciler, currentService *corev1.Service, newService *corev1.Service) error {
+func updateService(ctx context.Context, logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, r *FoundationDBClusterReconciler, currentService *corev1.Service, newService *corev1.Service) error {
+	if requiresRecreation(cluster, currentService) {
+		return recreateService(ctx, r, currentService, newService, logger)
+	}
 	originalSpec := currentService.Spec.DeepCopy()
 
 	currentService.Spec.Selector = newService.Spec.Selector

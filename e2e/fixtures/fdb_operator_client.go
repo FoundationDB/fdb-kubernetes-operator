@@ -27,8 +27,11 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"log"
 	"strings"
 	"time"
+
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/onsi/gomega"
@@ -479,10 +482,12 @@ func (factory *Factory) CreateFDBOperatorIfAbsent(namespace string) error {
 		).NotTo(gomega.HaveOccurred())
 	}
 
+	// Make sure the Operator Pods are running before moving forward.
+	factory.WaitUntilOperatorPodsRunning(namespace)
 	return nil
 }
 
-// GetOperatorPods returs the operator Pods in the provided namespace.
+// GetOperatorPods returns the operator Pods in the provided namespace.
 func (factory *Factory) GetOperatorPods(namespace string) *corev1.PodList {
 	pods := &corev1.PodList{}
 	gomega.Eventually(func() error {
@@ -509,13 +514,26 @@ func (factory *Factory) WaitUntilOperatorPodsRunning(namespace string) {
 			return false
 		}
 
+		allRunning := true
 		for _, pod := range pods.Items {
-			if pod.Status.Phase != corev1.PodRunning {
-				return false
+			if pod.Status.Phase == corev1.PodRunning {
+				continue
+			}
+
+			allRunning = false
+			// If the Pod is not running after 60 seconds we delete it and let the Deployment controller create a new Pod.
+			if time.Since(pod.CreationTimestamp.Time).Seconds() > 60.0 {
+				log.Println("operator Pod", pod.Name, "not running after 60 seconds, going to delete this Pod, status:", pod.Status)
+				err := factory.GetControllerRuntimeClient().Delete(ctx.TODO(), &pod)
+				if k8serrors.IsNotFound(err) {
+					continue
+				}
+
+				gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			}
 		}
 
-		return true
+		return allRunning
 	}).WithTimeout(5 * time.Minute).WithPolling(2 * time.Second).Should(gomega.BeTrue())
 }
 

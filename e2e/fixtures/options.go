@@ -49,6 +49,7 @@ type FactoryOptions struct {
 	featureOperatorDNS          bool
 	featureOperatorLocalities   bool
 	featureOperatorUnifiedImage bool
+	dumpOperatorState           bool
 }
 
 // BindFlags binds the FactoryOptions flags to the provided FlagSet. This can be used to extend the current test setup
@@ -161,6 +162,12 @@ func (options *FactoryOptions) BindFlags(fs *flag.FlagSet) {
 		"feature-dns",
 		false,
 		"defines if the operator tests should make use of DNS in cluster files.",
+	)
+	fs.BoolVar(
+		&options.dumpOperatorState,
+		"dump-operator-state",
+		true,
+		"defines if the operator tests should print the state of the cluster and the according Pods for better debugging.",
 	)
 }
 

@@ -29,6 +29,23 @@ Depending on the cluster size this can require a quota that is has double the ca
 
 When `remoteStorage` flag is enabled the operator will replace pods when the node selector is changed. This is beneficial to prevent costly pod migrations when it is possible to simply delete the pod and let the new pod reattach to the PV. In some cases this feature may need to be disabled, for example if pods need to be migrated across AZs in cloud providers where remote storage is limited to a single AZ.
 
+## Using The Maintenance Mode
+
+The FoundationDB Kubernetes operator supports to make use of the [maintenance mode](https://github.com/apple/foundationdb/wiki/Maintenance-mode) in FoundationDB.
+Using the maintenance mode in FoundationDB will reduce the data distribution and disruption when Storage Pods must be updated.
+The following addition to the `FoundationDBCluster` resource will enable the maintenance mode for this cluster:
+
+```yaml
+spec:
+    automationOptions:
+      maintenanceModeOptions:
+        UseMaintenanceModeChecker: true
+```
+
+Only Pods that are updated (deleted and recreated) will be considered during the maintenance mode.
+
+**NOTE** The maintenance mode feature is relatively new and has limited e2e test coverage and should therefore used with care.
+
 ## Automatic Replacements for ProcessGroups in Undesired State
 
 The operator has an option to automatically replace pods that are in a bad state. This behavior is disabled by default, but you can enable it by setting the field `automationOptions.replacements.enabled` in the cluster spec.

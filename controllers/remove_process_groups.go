@@ -64,7 +64,8 @@ func (u removeProcessGroups) reconcile(ctx context.Context, r *FoundationDBClust
 		return &requeue{curError: err}
 	}
 
-	allExcluded, newExclusions, processGroupsToRemove := r.getProcessGroupsToRemove(logger, cluster, remainingMap)
+	coordinators := fdbstatus.GetCoordinatorsFromStatus(status)
+	allExcluded, newExclusions, processGroupsToRemove := r.getProcessGroupsToRemove(logger, cluster, remainingMap, coordinators)
 	// If no process groups are marked to remove we have to check if all process groups are excluded.
 	if len(processGroupsToRemove) == 0 {
 		if !allExcluded {
@@ -297,8 +298,7 @@ func getProcessesToInclude(cluster *fdbv1beta2.FoundationDBCluster, removedProce
 	return fdbProcessesToInclude
 }
 
-func (r *FoundationDBClusterReconciler) getProcessGroupsToRemove(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, remainingMap map[string]bool) (bool, bool, []*fdbv1beta2.ProcessGroupStatus) {
-	var cordSet map[string]fdbv1beta2.None
+func (r *FoundationDBClusterReconciler) getProcessGroupsToRemove(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, remainingMap map[string]bool, cordSet map[string]fdbv1beta2.None) (bool, bool, []*fdbv1beta2.ProcessGroupStatus) {
 	allExcluded := true
 	newExclusions := false
 	processGroupsToRemove := make([]*fdbv1beta2.ProcessGroupStatus, 0, len(cluster.Status.ProcessGroups))
@@ -308,25 +308,13 @@ func (r *FoundationDBClusterReconciler) getProcessGroupsToRemove(logger logr.Log
 			continue
 		}
 
-		// Only query FDB if we have a pending removal otherwise don't query FDB
-		if len(cordSet) == 0 {
-			var err error
-			cordSet, err = r.getCoordinatorSet(cluster)
-
-			if err != nil {
-				logger.Error(err, "Fetching coordinator set for removal")
-				return false, false, nil
-			}
-		}
-
 		if _, ok := cordSet[string(processGroup.ProcessGroupID)]; ok {
 			logger.Info("Block removal of Coordinator", "processGroupID", processGroup.ProcessGroupID)
 			allExcluded = false
 			continue
 		}
 
-		// ProcessGroup is already marked as excluded we can add it to the processGroupsToRemove and skip further
-		// checks.
+		// ProcessGroup is already marked as excluded we can add it to the processGroupsToRemove and skip further checks.
 		if processGroup.IsExcluded() {
 			processGroupsToRemove = append(processGroupsToRemove, processGroup)
 			continue

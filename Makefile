@@ -29,13 +29,13 @@ GOBIN=$(shell go env GOBIN)
 endif
 
 # Dependencies to fetch through `go`
-CONTROLLER_GEN_PKG?=sigs.k8s.io/controller-tools/cmd/controller-gen@v0.9.2
+CONTROLLER_GEN_PKG?=sigs.k8s.io/controller-tools/cmd/controller-gen@v0.12.0
 CONTROLLER_GEN=$(GOBIN)/controller-gen
 KUSTOMIZE_PKG?=sigs.k8s.io/kustomize/kustomize/v4@v4.5.2
 KUSTOMIZE=$(GOBIN)/kustomize
 GOLANGCI_LINT_PKG=github.com/golangci/golangci-lint/cmd/golangci-lint@v1.53.3
 GOLANGCI_LINT=$(GOBIN)/golangci-lint
-GORELEASER_PKG=github.com/goreleaser/goreleaser@v1.6.3
+GORELEASER_PKG=github.com/goreleaser/goreleaser@v1.20.0
 GORELEASER=$(GOBIN)/goreleaser
 GO_LINES_PKG=github.com/segmentio/golines@v0.11.0
 GO_LINES=$(GOBIN)/golines
@@ -251,7 +251,7 @@ release: bin/release
 
 bin/release: ${GO_SRC} $(GORELEASER)
 	$(GORELEASER) check
-	$(GORELEASER) release --rm-dist
+	$(GORELEASER) release --clean
 	@mkdir -p bin
 	@touch $@
 

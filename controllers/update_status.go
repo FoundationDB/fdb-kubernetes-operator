@@ -301,6 +301,7 @@ func tryConnectionOptions(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCl
 	originalConnectionString := cluster.Status.ConnectionString
 	defer func() { cluster.Status.ConnectionString = originalConnectionString }()
 
+	var err error
 	for _, connectionString := range connectionStrings {
 		logger.Info("Attempting to get connection string from cluster", "connectionString", connectionString)
 		cluster.Status.ConnectionString = connectionString
@@ -309,7 +310,8 @@ func tryConnectionOptions(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCl
 			return originalConnectionString, clientErr
 		}
 
-		activeConnectionString, err := adminClient.GetConnectionString()
+		var activeConnectionString string
+		activeConnectionString, err = adminClient.GetConnectionString()
 
 		closeErr := adminClient.Close()
 		if closeErr != nil {
@@ -350,6 +352,11 @@ func checkAndSetProcessStatus(logger logr.Logger, r *FoundationDBClusterReconcil
 	correct := false
 	versionCompatibleUpgrade := cluster.VersionCompatibleUpgradeInProgress()
 	for _, process := range processStatus {
+		// Check if the process is reporting any messages, those will normally include error messages
+		if len(process.Messages) > 0 {
+			logger.Info("found error message(s) for the process", "processGroupID", processGroupStatus.ProcessGroupID, "messages", process.Messages)
+		}
+
 		commandLine, err := internal.GetStartCommand(cluster, processGroupStatus.ProcessClass, podClient, processNumber, processCount)
 		if err != nil {
 			if internal.IsNetworkError(err) {
@@ -371,10 +378,12 @@ func checkAndSetProcessStatus(logger logr.Logger, r *FoundationDBClusterReconcil
 		correct = commandLine == process.CommandLine && versionMatch && !cluster.Spec.Buggify.EmptyMonitorConf
 
 		if !correct {
-			logger.Info("IncorrectProcess", "expected", commandLine, "got", process.CommandLine,
+			logger.Info("IncorrectProcess",
+				"expected", commandLine, "got", process.CommandLine,
 				"expectedVersion", cluster.Spec.Version,
-				"version", process.Version, "processGroupID", processGroupStatus.ProcessGroupID,
-				"emptyMonitorConf is ", cluster.Spec.Buggify.EmptyMonitorConf)
+				"version", process.Version,
+				"processGroupID", processGroupStatus.ProcessGroupID,
+				"emptyMonitorConf", cluster.Spec.Buggify.EmptyMonitorConf)
 		}
 	}
 
@@ -833,8 +842,12 @@ func updateFaultDomains(logger logr.Logger, processes map[fdbv1beta2.ProcessGrou
 	for idx, processGroup := range status.ProcessGroups {
 		process, ok := processes[processGroup.ProcessGroupID]
 		if !ok || len(processes) == 0 {
-			logger.Info("skip updating fault domain for process group with missing process in FoundationDB cluster status", "processGroupID", processGroup.ProcessGroupID)
-			continue
+			// Fallback for multiple storage or log servers, those will contain the process information with the process number as a suffix.
+			process, ok = processes[processGroup.ProcessGroupID+"-1"]
+			if !ok || len(processes) == 0 {
+				logger.Info("skip updating fault domain for process group with missing process in FoundationDB cluster status", "processGroupID", processGroup.ProcessGroupID)
+				continue
+			}
 		}
 
 		faultDomain := getFaultDomainFromProcesses(process)
