@@ -147,7 +147,6 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			Expect(len(fdbCluster.GetCluster().Spec.AutomationOptions.Replacements.TaintReplacementOptions)).To(BeNumerically(">=", 1))
 
 			Expect(*fdbCluster.GetAutomationOptions().Replacements.Enabled).To(BeTrue())
-
 		})
 
 		AfterEach(func() {
