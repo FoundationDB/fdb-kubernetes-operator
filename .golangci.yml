@@ -22,10 +22,6 @@ issues:
   - linters:
       - stylecheck
     text: "ST1003: const StorageEngineRocksDbV1"
-  # TODO (johscheuer): Fix all go imports to make this check happy, https://github.com/FoundationDB/fdb-kubernetes-operator/issues/1739.
-  # - linters:
-  #     - depguard
-  #   text: "is not allowed from list 'Main'"
 
 linters:
   disable-all: true
