@@ -272,6 +272,11 @@ func (factory *Factory) GetDefaultStorageClass() string {
 	return ""
 }
 
+// GetContext returns the Kubernetes context provided via command line.
+func (factory *Factory) GetContext() string {
+	return factory.options.context
+}
+
 // GetStorageClasses returns all StorageClasses present in this Kubernetes cluster that have the label foundationdb.org/operator-testing=true.
 func (factory *Factory) GetStorageClasses(labels map[string]string) *storagev1.StorageClassList {
 	storageClasses := &storagev1.StorageClassList{}
