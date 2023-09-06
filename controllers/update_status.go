@@ -337,8 +337,9 @@ func checkAndSetProcessStatus(logger logr.Logger, r *FoundationDBClusterReconcil
 	}
 
 	processStatus := processMap[processID]
-
-	processGroupStatus.UpdateCondition(fdbv1beta2.MissingProcesses, len(processStatus) == 0)
+	// Only set the MissingProcesses condition if the machine-readable status has at least one process. We can improve this check
+	// later by validating additional messages in the machine-readable status.
+	processGroupStatus.UpdateCondition(fdbv1beta2.MissingProcesses, len(processStatus) == 0 && len(processMap) > 0)
 	if len(processStatus) == 0 {
 		return nil
 	}
@@ -441,7 +442,7 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 
 		processGroup.AddAddresses(podmanager.GetPublicIPs(pod, logger), processGroup.IsMarkedForRemoval() || !status.Health.Available)
 
-		// In this case the Pod has a DeletionTimestamp and should be deleted.
+		// This handles the case where the Pod has a DeletionTimestamp and should be deleted.
 		if !pod.ObjectMeta.DeletionTimestamp.IsZero() {
 			// If the ProcessGroup is marked for removal and is excluded, we can put the status into ResourcesTerminating.
 			if processGroup.IsMarkedForRemoval() && processGroup.IsExcluded() {
@@ -839,6 +840,11 @@ func getFaultDomainFromProcesses(processes []fdbv1beta2.FoundationDBStatusProces
 
 // updateFaultDomains will update the process groups fault domain, based on the last seen zone id in the cluster status.
 func updateFaultDomains(logger logr.Logger, processes map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo, status *fdbv1beta2.FoundationDBClusterStatus) {
+	// If the process map is empty we can skip any further steps.
+	if len(processes) == 0 {
+		return
+	}
+
 	for idx, processGroup := range status.ProcessGroups {
 		process, ok := processes[processGroup.ProcessGroupID]
 		if !ok || len(processes) == 0 {
