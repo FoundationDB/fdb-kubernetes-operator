@@ -21,21 +21,16 @@
 package main
 
 import (
-	"math/rand"
-	"os"
-	"time"
-
 	"github.com/FoundationDB/fdb-kubernetes-operator/kubectl-fdb/cmd"
 	"github.com/spf13/pflag"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	"os"
 )
 
 func main() {
 	flags := pflag.NewFlagSet("kubectl-fdb", pflag.ExitOnError)
 	pflag.CommandLine = flags
-
-	rand.Seed(time.Now().UnixNano())
 
 	root := cmd.NewRootCmd(genericclioptions.IOStreams{In: os.Stdin, Out: os.Stdout, ErrOut: os.Stderr})
 	if err := root.Execute(); err != nil {
