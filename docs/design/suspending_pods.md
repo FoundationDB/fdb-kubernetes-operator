@@ -29,7 +29,7 @@ The operator does not support suspending Pods.
 ## Proposed Design
 
 We will add a new subreconciler that will perform the same exclusion checks as the `removeProcessGroups` reconciler.
-If the suspension logic is disable the operator will skip all for in the new `suspendProcessGroups` subreconciler.
+If the suspension logic is disabled the operator will skip all for in the new `suspendProcessGroups` subreconciler.
 When all processes of a Process Group that should be removed are identified to be fully excluded, the operator will add a new timestamp in the Process Group Status, called `SuspensionTimestamp`, and will remove the Pod without removing any other resources of this Process Group.
 The suspension logic will follow the same mechanism as the `removeProcessGroups` reconciler and only suspend the Process Groups based on the `RemovalMode` of the FoundationDBCluster.
 In order to suspend a Pod the operator will make use of `PodLifecycleManager.DeletePod`.
