@@ -5532,4 +5532,19 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				},
 			}, PodUpdateModeNone),
 	)
+
+	DescribeTable("when getting the lock ID", func(cluster *FoundationDBCluster, expected string) {
+		Expect(cluster.GetLockID()).To(Equal(expected))
+	},
+		Entry("no ProcessGroupIDPrefix is defined",
+			&FoundationDBCluster{
+				Spec: FoundationDBClusterSpec{},
+			}, ""),
+		Entry("ProcessGroupIDPrefix is defined",
+			&FoundationDBCluster{
+				Spec: FoundationDBClusterSpec{
+					ProcessGroupIDPrefix: "testing",
+				},
+			}, "testing"),
+	)
 })
