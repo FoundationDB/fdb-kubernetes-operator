@@ -111,19 +111,6 @@ func checkVersion(cluster *fixtures.HaFdbCluster, expectedVersion string) {
 	}).WithTimeout(10 * time.Minute).WithPolling(2 * time.Second).Should(BeTrue())
 }
 
-func upgradeAndVerify(cluster *fixtures.HaFdbCluster, expectedVersion string) {
-	// Upgrade the cluster and then verify that the processes have upgraded to "targetVersion".
-	startTime := time.Now()
-	Expect(cluster.UpgradeCluster(expectedVersion, true)).NotTo(HaveOccurred())
-	checkVersion(cluster, expectedVersion)
-	log.Println(
-		"Multi-DC cluster upgraded to version",
-		expectedVersion,
-		"in minutes",
-		time.Since(startTime).Minutes(),
-	)
-}
-
 // Verify that bouncing is blocked in primary/remote/primary-satellite clusters.
 // We do this by verifying that the processes in primary/remote/primary-satellite clusters
 // are at "IncorrectCommandLine" state (which means that they have the new binaries and have
@@ -166,7 +153,17 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 		"Upgrading a multi-DC cluster without chaos",
 		func(beforeVersion string, targetVersion string) {
 			clusterSetup(beforeVersion, false)
-			upgradeAndVerify(fdbCluster, targetVersion)
+
+			// Upgrade the cluster and then verify that the processes have upgraded to "targetVersion".
+			startTime := time.Now()
+			Expect(fdbCluster.UpgradeCluster(targetVersion, true)).NotTo(HaveOccurred())
+			checkVersion(fdbCluster, targetVersion)
+			log.Println(
+				"Multi-DC cluster upgraded to version",
+				targetVersion,
+				"in minutes",
+				time.Since(startTime).Minutes(),
+			)
 		},
 		EntryDescription("Upgrade, without chaos, from %s to %s"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
@@ -312,8 +309,9 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 				return primary.AllProcessGroupsHaveCondition(fdbv1beta2.IncorrectCommandLine)
 			}).WithTimeout(10 * time.Minute).WithPolling(5 * time.Second).MustPassRepeatedly(30).Should(BeTrue())
 
+			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
 			// Verify that the upgrade proceeds
-			upgradeAndVerify(fdbCluster, targetVersion)
+			checkVersion(fdbCluster, targetVersion)
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s with one DC upgraded before the rest"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
@@ -474,7 +472,9 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 				fixtures.PodsSelector(operatorPrimarySatellitePods.Items),
 			}, "20")
 
-			upgradeAndVerify(fdbCluster, targetVersion)
+			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
+			// Verify that the upgrade proceeds
+			checkVersion(fdbCluster, targetVersion)
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s with network link that drops some packets"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
@@ -514,7 +514,11 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 			fdbCluster.GetRemote().SetIgnoreDuringRestart(ignoreDuringRestart)
 
 			// The cluster should still be able to upgrade.
-			Expect(fdbCluster.UpgradeCluster(targetVersion, true)).NotTo(HaveOccurred())
+			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
+			// Verify that the upgrade proceeds
+			checkVersion(fdbCluster, targetVersion)
+
+			// TODO add validation here processes are updated new version
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
@@ -553,7 +557,11 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 			}
 
 			// The cluster should still be able to upgrade.
-			Expect(fdbCluster.UpgradeCluster(targetVersion, true)).NotTo(HaveOccurred())
+			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
+			// Verify that the upgrade proceeds
+			checkVersion(fdbCluster, targetVersion)
+
+			// TODO add validation here processes are updated new version
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
