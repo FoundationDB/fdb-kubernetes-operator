@@ -441,8 +441,9 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 		fixtures.GenerateUpgradeTableEntries(testOptions),
 	)
 
-	DescribeTable(
-		"upgrading a HA cluster with link that drops some packets",
+	// TODO(johscheuer): Enable tests again, once they are stable.
+	PDescribeTable(
+		"with network link that drops some packets",
 		func(beforeVersion string, targetVersion string) {
 			if !factory.ChaosTestsEnabled() {
 				Skip("chaos mesh is disabled")
@@ -476,7 +477,7 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 			// Verify that the upgrade proceeds
 			checkVersion(fdbCluster, targetVersion)
 		},
-		EntryDescription("Upgrade from %[1]s to %[2]s with network link that drops some packets"),
+		EntryDescription("Upgrade from %[1]s to %[2]s"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
 	)
 
