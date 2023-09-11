@@ -1848,9 +1848,9 @@ func (cluster *FoundationDBCluster) GetLockDuration() time.Duration {
 }
 
 // GetLockID gets the identifier for this instance of the operator when taking
-// locks.
+// locks. This is the `ProcessGroupIDPrefix` defined for this cluster.
 func (cluster *FoundationDBCluster) GetLockID() string {
-	return cluster.Spec.LockOptions.LockKeyPrefix
+	return cluster.Spec.ProcessGroupIDPrefix
 }
 
 // NeedsExplicitListenAddress determines whether we pass a listen address
