@@ -324,14 +324,19 @@ func DoStorageServerFaultDomainCheckOnStatus(status *fdbv1beta2.FoundationDBStat
 		return fmt.Errorf("no team trackers specified in status")
 	}
 
+	minimumRequiredReplicas := fdbv1beta2.MinimumFaultDomains(status.Cluster.DatabaseConfiguration.RedundancyMode)
 	for _, tracker := range status.Cluster.Data.TeamTrackers {
-		if !tracker.State.Healthy {
-			region := "primary"
-			if !tracker.Primary {
-				region = "remote"
-			}
+		region := "primary"
+		if !tracker.Primary {
+			region = "remote"
+		}
 
+		if !tracker.State.Healthy {
 			return fmt.Errorf("team tracker in %s is in unhealthy state", region)
+		}
+
+		if tracker.State.MinReplicasRemaining < minimumRequiredReplicas {
+			return fmt.Errorf("team tracker in %s has %d replicas left but we require more than %d", region, tracker.State.MinReplicasRemaining, minimumRequiredReplicas)
 		}
 	}
 
@@ -399,12 +404,6 @@ func DoFaultDomainChecksOnStatus(status *fdbv1beta2.FoundationDBStatus, storageS
 	return nil
 }
 
-func hasDesiredFaultTolerance(expectedFaultTolerance int, maxZoneFailuresWithoutLosingData int, maxZoneFailuresWithoutLosingAvailability int) bool {
-	// Only if both max zone failures for availability and data loss are greater or equal to the expected fault tolerance we know that we meet
-	// our fault tolerance requirements.
-	return maxZoneFailuresWithoutLosingData >= expectedFaultTolerance && maxZoneFailuresWithoutLosingAvailability >= expectedFaultTolerance
-}
-
 // HasDesiredFaultToleranceFromStatus checks if the cluster has the desired fault tolerance based on the provided status.
 func HasDesiredFaultToleranceFromStatus(log logr.Logger, status *fdbv1beta2.FoundationDBStatus, cluster *fdbv1beta2.FoundationDBCluster) bool {
 	if !status.Client.DatabaseStatus.Available {
@@ -415,14 +414,20 @@ func HasDesiredFaultToleranceFromStatus(log logr.Logger, status *fdbv1beta2.Foun
 		return false
 	}
 
-	expectedFaultTolerance := cluster.DesiredFaultTolerance()
-	log.Info("Check desired fault tolerance",
-		"expectedFaultTolerance", expectedFaultTolerance,
-		"maxZoneFailuresWithoutLosingData", status.Cluster.FaultTolerance.MaxZoneFailuresWithoutLosingData,
-		"maxZoneFailuresWithoutLosingAvailability", status.Cluster.FaultTolerance.MaxZoneFailuresWithoutLosingAvailability)
+	// TODO (johscheuer): Should those checks be specific to the Kubernetes cluster (DC) we are requesting?
+	// Should we also add a method to check the different process classes? Currently the degraded log fault tolerance
+	// will block the removal of a storage process.
+	err := DoStorageServerFaultDomainCheckOnStatus(status)
+	if err != nil {
+		log.Info("Fault domain check for storage subsystem failed", "error", err)
+		return false
+	}
 
-	return hasDesiredFaultTolerance(
-		expectedFaultTolerance,
-		status.Cluster.FaultTolerance.MaxZoneFailuresWithoutLosingData,
-		status.Cluster.FaultTolerance.MaxZoneFailuresWithoutLosingAvailability)
+	err = DoLogServerFaultDomainCheckOnStatus(status)
+	if err != nil {
+		log.Info("Fault domain check for log servers failed", "error", err)
+		return false
+	}
+
+	return true
 }
