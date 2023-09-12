@@ -65,7 +65,7 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 
 	if databaseStatus == nil {
 		var err error
-		databaseStatus, err = r.getStatusFromClusterOrDummyStatus(logger, cluster)
+		databaseStatus, err = r.getStatusFromClusterOrDummyStatus(ctx, logger, cluster)
 		if err != nil {
 			return &requeue{curError: fmt.Errorf("update_status error fetching status: %w", err)}
 		}

@@ -24,6 +24,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal/locality"
 	"regexp"
 	"time"
 
@@ -134,7 +135,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 	var status *fdbv1beta2.FoundationDBStatus
 	if cacheStatus {
 		clusterLog.Info("Fetch machine-readable status for reconcilitation loop", "cacheStatus", cacheStatus)
-		status, err = r.getStatusFromClusterOrDummyStatus(clusterLog, cluster)
+		status, err = r.getStatusFromClusterOrDummyStatus(ctx, clusterLog, cluster)
 		if err != nil {
 			return ctrl.Result{Requeue: true}, err
 		}
@@ -435,10 +436,77 @@ func (r *FoundationDBClusterReconciler) updateOrApply(ctx context.Context, clust
 	return r.Status().Update(ctx, cluster)
 }
 
+// getAllPodStatus will get the current status and phase of all the pods in the fdb cluster and check if all of them are up before proceeding with
+// connecting to fdb cluster and get information on coordinator servers, etc. Once all pods are up and running it will return true else false.
+func (r *FoundationDBClusterReconciler) getAllPodStatus(ctx context.Context, logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster) bool {
+	processCounts, err := cluster.GetProcessCountsWithDefaults()
+	logger.Info("Cluster Info", cluster, "Process Counts", processCounts)
+	if err != nil {
+		return false
+	}
+
+	var pods = make([]*corev1.Pod, 0, processCounts.Total())
+	for _, processGroup := range cluster.Status.ProcessGroups {
+		if processGroup.IsMarkedForRemoval() {
+			logger.V(1).Info("Ignore process group marked for removal",
+				"processGroupID", processGroup.ProcessGroupID)
+			continue
+		}
+
+		pod, err := r.PodLifecycleManager.GetPod(ctx, r, cluster, processGroup.GetPodName(cluster))
+		// If a Pod is not found ignore it for now.
+		if err != nil {
+			logger.Info("Could not find Pod for process group ID",
+				"processGroupID", processGroup.ProcessGroupID, "error", err)
+			return false
+		}
+
+		if pod.Status.Phase != corev1.PodRunning {
+			logger.Info("Ignore process group with Pod not in running state",
+				"processGroupID", processGroup.ProcessGroupID,
+				"phase", pod.Status.Phase)
+			return false
+		}
+
+		pods = append(pods, pod)
+	}
+
+	for _, pod := range pods {
+		podClient, _ := r.getPodClient(cluster, pod)
+		if podClient == nil {
+			return false
+		}
+		currentLocality, err := locality.InfoFromSidecar(cluster, podClient)
+		if err != nil || currentLocality.ID == "" || len(currentLocality.LocalityData) == 0 || currentLocality.Address.String() == "" {
+			return false
+		}
+	}
+
+	return true
+}
+
 // getStatusFromClusterOrDummyStatus will fetch the machine-readable status from the FoundationDBCluster if the cluster is configured. If not a default status is returned indicating, that
 // some configuration is missing.
-func (r *FoundationDBClusterReconciler) getStatusFromClusterOrDummyStatus(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster) (*fdbv1beta2.FoundationDBStatus, error) {
+func (r *FoundationDBClusterReconciler) getStatusFromClusterOrDummyStatus(ctx context.Context, logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster) (*fdbv1beta2.FoundationDBStatus, error) {
 	if cluster.Status.ConnectionString == "" {
+		return &fdbv1beta2.FoundationDBStatus{
+			Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+				Layers: fdbv1beta2.FoundationDBStatusLayerInfo{
+					Error: "configurationMissing",
+				},
+			},
+		}, nil
+	}
+
+	/*Get the status of all the pods in the cluster.
+	 *Until all the pods are up it will keep cluster in config missing state and ask reconciler to spawn required pods/pvc, etc.
+	 *Once all the pods are up and running it will force the cluster to reconcile
+	 */
+	podsStatus := r.getAllPodStatus(ctx, logger, cluster)
+	if !podsStatus &&
+		(cluster.Status.Generations.NeedsConfigurationChange == 1 ||
+			cluster.Status.Generations.DatabaseUnavailable == 1 ||
+			cluster.Status.Generations.HasUnhealthyProcess == 1) {
 		return &fdbv1beta2.FoundationDBStatus{
 			Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
 				Layers: fdbv1beta2.FoundationDBStatusLayerInfo{
