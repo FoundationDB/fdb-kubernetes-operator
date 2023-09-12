@@ -93,6 +93,31 @@ func GetPublicIPsForPod(pod *corev1.Pod, log logr.Logger) []string {
 	return []string{pod.Status.PodIP}
 }
 
+// GetDnsForPod returns the Dns Address for a Pod
+func GetDnsForPod(pod *corev1.Pod, log logr.Logger) string {
+	if pod == nil {
+		return ""
+	}
+
+	podDnsName := ""
+	for _, container := range pod.Spec.Containers {
+		if container.Name != fdbv1beta2.SidecarContainerName {
+			continue
+		}
+		for _, env := range container.Env {
+			if env.Name == "FDB_DNS_NAME" {
+				podDnsName = env.Value
+			}
+		}
+	}
+
+	if podDnsName != "" {
+		return podDnsName
+	} else {
+		return ""
+	}
+}
+
 // GetProcessGroupIDFromMeta fetches the process group ID from an object's metadata.
 func GetProcessGroupIDFromMeta(cluster *fdbv1beta2.FoundationDBCluster, metadata metav1.ObjectMeta) fdbv1beta2.ProcessGroupID {
 	return fdbv1beta2.ProcessGroupID(metadata.Labels[cluster.GetProcessGroupIDLabel()])
