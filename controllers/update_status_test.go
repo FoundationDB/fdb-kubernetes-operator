@@ -422,12 +422,27 @@ var _ = Describe("update_status", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				missingProcesses := fdbv1beta2.FilterByCondition(processGroupStatus, fdbv1beta2.MissingProcesses, false)
-				Expect(missingProcesses).To(Equal([]fdbv1beta2.ProcessGroupID{storageOneProcessGroupID}))
+				Expect(missingProcesses).To(ConsistOf(storageOneProcessGroupID))
 
 				Expect(len(processGroupStatus)).To(BeNumerically(">", 4))
 				processGroup := processGroupStatus[len(processGroupStatus)-4]
 				Expect(processGroup.ProcessGroupID).To(Equal(storageOneProcessGroupID))
-				Expect(len(processGroup.ProcessGroupConditions)).To(Equal(1))
+				Expect(processGroup.ProcessGroupConditions).To(HaveLen(1))
+			})
+
+			When("no processes are provided in the process map", func() {
+				It("should not get a condition assigned", func() {
+					processGroupStatus, err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo{}, configMap, allPvcs, logger)
+					Expect(err).NotTo(HaveOccurred())
+
+					missingProcesses := fdbv1beta2.FilterByCondition(processGroupStatus, fdbv1beta2.MissingProcesses, false)
+					Expect(missingProcesses).To(BeEmpty())
+
+					Expect(len(processGroupStatus)).To(BeNumerically(">", 4))
+					processGroup := processGroupStatus[len(processGroupStatus)-4]
+					Expect(processGroup.ProcessGroupID).To(Equal(storageOneProcessGroupID))
+					Expect(processGroup.ProcessGroupConditions).To(BeEmpty())
+				})
 			})
 		})
 
@@ -926,5 +941,18 @@ var _ = Describe("update_status", func() {
 			})
 		})
 
+		When("the process map is empty", func() {
+			BeforeEach(func() {
+				processes = map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo{}
+			})
+
+			It("should skip the process group fault domains", func() {
+				Expect(status.ProcessGroups).To(HaveLen(3))
+
+				for _, processGroup := range status.ProcessGroups {
+					Expect(processGroup.FaultDomain).To(BeEmpty())
+				}
+			})
+		})
 	})
 })
