@@ -444,7 +444,6 @@ func (r *FoundationDBClusterReconciler) getAllPodStatus(ctx context.Context, log
 		return false
 	}
 
-	var pods = make([]*corev1.Pod, 0, processCounts.Total())
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup.IsMarkedForRemoval() {
 			logger.V(1).Info("Ignore process group marked for removal",
@@ -466,8 +465,6 @@ func (r *FoundationDBClusterReconciler) getAllPodStatus(ctx context.Context, log
 				"phase", pod.Status.Phase)
 			return false
 		}
-
-		pods = append(pods, pod)
 	}
 
 	return true
