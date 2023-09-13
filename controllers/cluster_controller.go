@@ -440,7 +440,7 @@ func (r *FoundationDBClusterReconciler) updateOrApply(ctx context.Context, clust
 // connecting to fdb cluster and get information on coordinator servers, etc. Once all pods are up and running it will return true else false.
 func (r *FoundationDBClusterReconciler) getAllPodStatus(ctx context.Context, logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster) bool {
 	processCounts, err := cluster.GetProcessCountsWithDefaults()
-	logger.Info("Cluster Info", cluster, "Process Counts", processCounts)
+	logger.Info("Cluster Info", "Cluster", cluster, "Process Counts", processCounts)
 	if err != nil {
 		return false
 	}
