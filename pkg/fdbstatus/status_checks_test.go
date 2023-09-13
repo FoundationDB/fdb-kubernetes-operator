@@ -1171,45 +1171,6 @@ var _ = Describe("status_checks", func() {
 		})
 	})
 
-	Context("check if the cluster has the desired fault tolerance", func() {
-		type testCase struct {
-			expectedFaultTolerance                   int
-			maxZoneFailuresWithoutLosingData         int
-			maxZoneFailuresWithoutLosingAvailability int
-			expected                                 bool
-		}
-
-		DescribeTable("should return if the cluster has the desired fault tolerance",
-			func(input testCase) {
-				Expect(hasDesiredFaultTolerance(
-					input.expectedFaultTolerance,
-					input.maxZoneFailuresWithoutLosingData,
-					input.maxZoneFailuresWithoutLosingAvailability)).To(Equal(input.expected))
-			},
-			Entry("cluster is fully replicated",
-				testCase{
-					expectedFaultTolerance:                   1,
-					maxZoneFailuresWithoutLosingData:         1,
-					maxZoneFailuresWithoutLosingAvailability: 1,
-					expected:                                 true,
-				}),
-			Entry("data is degraded",
-				testCase{
-					expectedFaultTolerance:                   1,
-					maxZoneFailuresWithoutLosingData:         0,
-					maxZoneFailuresWithoutLosingAvailability: 1,
-					expected:                                 false,
-				}),
-			Entry("availability is degraded",
-				testCase{
-					expectedFaultTolerance:                   1,
-					maxZoneFailuresWithoutLosingData:         1,
-					maxZoneFailuresWithoutLosingAvailability: 0,
-					expected:                                 false,
-				}),
-		)
-	})
-
 	When("checking if the cluster has the desired fault tolerance from the status", func() {
 		log := logr.New(logf.NewDelegatingLogSink(logf.NullLogSink{}))
 
@@ -1225,9 +1186,25 @@ var _ = Describe("status_checks", func() {
 						},
 					},
 					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
-						FaultTolerance: fdbv1beta2.FaultTolerance{
-							MaxZoneFailuresWithoutLosingData:         2,
-							MaxZoneFailuresWithoutLosingAvailability: 2,
+						DatabaseConfiguration: fdbv1beta2.DatabaseConfiguration{
+							RedundancyMode: fdbv1beta2.RedundancyModeTriple,
+						},
+						Data: fdbv1beta2.FoundationDBStatusDataStatistics{
+							TeamTrackers: []fdbv1beta2.FoundationDBStatusTeamTracker{
+								{
+									Primary: true,
+									State: fdbv1beta2.FoundationDBStatusDataState{
+										Healthy:              true,
+										MinReplicasRemaining: 3,
+									},
+								},
+							},
+						},
+						Logs: []fdbv1beta2.FoundationDBStatusLogInfo{
+							{
+								LogFaultTolerance:    2,
+								LogReplicationFactor: 3,
+							},
 						},
 					},
 				},
@@ -1246,12 +1223,7 @@ var _ = Describe("status_checks", func() {
 							Available: false,
 						},
 					},
-					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
-						FaultTolerance: fdbv1beta2.FaultTolerance{
-							MaxZoneFailuresWithoutLosingData:         2,
-							MaxZoneFailuresWithoutLosingAvailability: 2,
-						},
-					},
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{},
 				},
 				&fdbv1beta2.FoundationDBCluster{
 					Spec: fdbv1beta2.FoundationDBClusterSpec{
@@ -1269,9 +1241,25 @@ var _ = Describe("status_checks", func() {
 						},
 					},
 					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
-						FaultTolerance: fdbv1beta2.FaultTolerance{
-							MaxZoneFailuresWithoutLosingData:         1,
-							MaxZoneFailuresWithoutLosingAvailability: 2,
+						DatabaseConfiguration: fdbv1beta2.DatabaseConfiguration{
+							RedundancyMode: fdbv1beta2.RedundancyModeTriple,
+						},
+						Data: fdbv1beta2.FoundationDBStatusDataStatistics{
+							TeamTrackers: []fdbv1beta2.FoundationDBStatusTeamTracker{
+								{
+									Primary: true,
+									State: fdbv1beta2.FoundationDBStatusDataState{
+										Healthy:              false,
+										MinReplicasRemaining: 2,
+									},
+								},
+							},
+						},
+						Logs: []fdbv1beta2.FoundationDBStatusLogInfo{
+							{
+								LogFaultTolerance:    2,
+								LogReplicationFactor: 3,
+							},
 						},
 					},
 				},
@@ -1283,7 +1271,7 @@ var _ = Describe("status_checks", func() {
 					},
 				},
 				false),
-			Entry("availability is degraded",
+			Entry("logs are degraded",
 				&fdbv1beta2.FoundationDBStatus{
 					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
 						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
@@ -1291,9 +1279,25 @@ var _ = Describe("status_checks", func() {
 						},
 					},
 					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
-						FaultTolerance: fdbv1beta2.FaultTolerance{
-							MaxZoneFailuresWithoutLosingData:         2,
-							MaxZoneFailuresWithoutLosingAvailability: 1,
+						DatabaseConfiguration: fdbv1beta2.DatabaseConfiguration{
+							RedundancyMode: fdbv1beta2.RedundancyModeTriple,
+						},
+						Data: fdbv1beta2.FoundationDBStatusDataStatistics{
+							TeamTrackers: []fdbv1beta2.FoundationDBStatusTeamTracker{
+								{
+									Primary: true,
+									State: fdbv1beta2.FoundationDBStatusDataState{
+										Healthy:              true,
+										MinReplicasRemaining: 3,
+									},
+								},
+							},
+						},
+						Logs: []fdbv1beta2.FoundationDBStatusLogInfo{
+							{
+								LogFaultTolerance:    1,
+								LogReplicationFactor: 3,
+							},
 						},
 					},
 				},

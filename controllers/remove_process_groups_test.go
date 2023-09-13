@@ -118,11 +118,19 @@ var _ = Describe("remove_process_groups", func() {
 					})
 				})
 
-				When("the cluster has degraded availability fault tolerance", func() {
+				When("the cluster has degraded stroage fault tolerance", func() {
 					BeforeEach(func() {
 						adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 						Expect(err).NotTo(HaveOccurred())
-						adminClient.MaxZoneFailuresWithoutLosingAvailability = pointer.Int(0)
+						adminClient.TeamTracker = []fdbv1beta2.FoundationDBStatusTeamTracker{
+							{
+								Primary: true,
+								State: fdbv1beta2.FoundationDBStatusDataState{
+									Healthy:              false,
+									MinReplicasRemaining: 2,
+								},
+							},
+						}
 					})
 
 					It("should not remove that process group", func() {
@@ -136,11 +144,17 @@ var _ = Describe("remove_process_groups", func() {
 					})
 				})
 
-				When("the cluster has degraded data fault tolerance", func() {
+				When("the cluster has degraded log fault tolerance", func() {
 					BeforeEach(func() {
 						adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 						Expect(err).NotTo(HaveOccurred())
-						adminClient.MaxZoneFailuresWithoutLosingData = pointer.Int(0)
+						adminClient.Logs = []fdbv1beta2.FoundationDBStatusLogInfo{
+							{
+								Current:              true,
+								LogReplicationFactor: 3,
+								LogFaultTolerance:    1,
+							},
+						}
 					})
 
 					It("should not remove that process group", func() {
