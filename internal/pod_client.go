@@ -163,10 +163,6 @@ func NewFdbPodClient(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod, l
 
 // getListenIP gets the IP address that a pod listens on.
 func (client *realFdbPodSidecarClient) getListenIP() string {
-	dnsAddress := GetDnsForPod(client.Pod, client.logger)
-	if dnsAddress != "" {
-		return dnsAddress
-	}
 	ips := GetPublicIPsForPod(client.Pod, client.logger)
 	if len(ips) > 0 {
 		return ips[0]
