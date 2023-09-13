@@ -24,7 +24,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal/locality"
 	"regexp"
 	"time"
 
@@ -469,17 +468,6 @@ func (r *FoundationDBClusterReconciler) getAllPodStatus(ctx context.Context, log
 		}
 
 		pods = append(pods, pod)
-	}
-
-	for _, pod := range pods {
-		podClient, _ := r.getPodClient(cluster, pod)
-		if podClient == nil {
-			return false
-		}
-		currentLocality, err := locality.InfoFromSidecar(cluster, podClient)
-		if err != nil || currentLocality.ID == "" || len(currentLocality.LocalityData) == 0 || currentLocality.Address.String() == "" {
-			return false
-		}
 	}
 
 	return true
