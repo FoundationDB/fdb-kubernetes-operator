@@ -254,7 +254,7 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 	}
 
 	if reconciled {
-		// Once the cluster is reconciled the operator will release any pending locks.
+		// Once the cluster is reconciled the operator will release any pending locks for this cluster.
 		lockErr := r.releaseLock(logger, cluster)
 		if lockErr != nil {
 			return &requeue{curError: lockErr}

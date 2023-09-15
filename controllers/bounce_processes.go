@@ -217,7 +217,7 @@ func getProcessesReadyForRestart(logger logr.Logger, cluster *fdbv1beta2.Foundat
 			continue
 		}
 
-		// If any of the processes that should not be skipped are not having an updated ConfigMap, we should we waiting
+		// If any of the processes that should not be skipped are not having an updated ConfigMap, we should be waiting
 		// for the config to be propagated.
 		if processGroup.GetConditionTime(fdbv1beta2.IncorrectConfigMap) != nil {
 			allSynced = false

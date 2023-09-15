@@ -32,8 +32,8 @@ type LockClient interface {
 	// TakeLock attempts to acquire a lock.
 	TakeLock() (bool, error)
 
-	// ReleaseLock will release the current lock. The method will only succeed if the current operator
-	// is the lock holder.
+	// ReleaseLock will release the current lock. The method will only release the lock if the current
+	// operator is the lock holder.
 	ReleaseLock() error
 
 	// AddPendingUpgrades registers information about which process groups are

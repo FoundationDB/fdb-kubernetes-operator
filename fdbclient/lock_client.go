@@ -313,8 +313,8 @@ func (client *realLockClient) getDenyListKey(id string) fdb.Key {
 	return fdb.Key(fmt.Sprintf("%s/denyList/%s", client.cluster.GetLockPrefix(), id))
 }
 
-// ReleaseLock will release the current lock. The method will only succeed if the current operator
-// is the lock holder.
+// ReleaseLock will release the current lock. The method will only release the lock if the current
+// operator is the lock holder.
 func (client *realLockClient) ReleaseLock() error {
 	if client.disableLocks {
 		return nil
@@ -330,7 +330,7 @@ func (client *realLockClient) ReleaseLock() error {
 		lockValue := transaction.Get(lockKey).MustGet()
 		// The lock value is not set, so no action is required.
 		if len(lockValue) == 0 {
-			return true, nil
+			return false, nil
 		}
 
 		lockTuple, err := tuple.Unpack(lockValue)
