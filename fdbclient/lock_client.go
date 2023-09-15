@@ -313,6 +313,62 @@ func (client *realLockClient) getDenyListKey(id string) fdb.Key {
 	return fdb.Key(fmt.Sprintf("%s/denyList/%s", client.cluster.GetLockPrefix(), id))
 }
 
+// ReleaseLock will release the current lock. The method will only succeed if the current operator
+// is the lock holder.
+func (client *realLockClient) ReleaseLock() error {
+	if client.disableLocks {
+		return nil
+	}
+
+	lockKey := fdb.Key(fmt.Sprintf("%s/global", client.cluster.GetLockPrefix()))
+	_, err := client.database.Transact(func(transaction fdb.Transaction) (interface{}, error) {
+		err := transaction.Options().SetAccessSystemKeys()
+		if err != nil {
+			return false, err
+		}
+
+		lockValue := transaction.Get(lockKey).MustGet()
+		// The lock value is not set, so no action is required.
+		if len(lockValue) == 0 {
+			return true, nil
+		}
+
+		lockTuple, err := tuple.Unpack(lockValue)
+		if err != nil {
+			return false, err
+		}
+
+		currentLockOwnerID, valid := lockTuple[0].(string)
+		if !valid {
+			return false, invalidLockValue{key: lockKey, value: lockValue}
+		}
+
+		currentLockStartTime, valid := lockTuple[1].(int64)
+		if !valid {
+			return false, invalidLockValue{key: lockKey, value: lockValue}
+		}
+
+		currentLockEndTime, valid := lockTuple[2].(int64)
+		if !valid {
+			return false, invalidLockValue{key: lockKey, value: lockValue}
+		}
+
+		ownerID := client.cluster.GetLockID()
+		if currentLockOwnerID != ownerID {
+			client.log.Info("cannot release lock from other owner", "currentLockOwnerID", currentLockOwnerID, "ownerID", ownerID)
+			return false, nil
+		}
+
+		client.log.Info("releasing lock", "ownerID", ownerID, "lockStartTime", currentLockStartTime, "lockEndTime", currentLockEndTime)
+
+		transaction.Clear(lockKey)
+
+		return nil, nil
+	})
+
+	return err
+}
+
 // invalidLockValue is an error we can return when we cannot parse the existing
 // values in the locking system.
 type invalidLockValue struct {

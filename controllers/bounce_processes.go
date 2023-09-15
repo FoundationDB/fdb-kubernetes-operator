@@ -123,7 +123,7 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 	}
 
 	hasLock, err := r.takeLock(logger, cluster, fmt.Sprintf("bouncing processes: %v", addresses))
-	if !hasLock {
+	if !hasLock || err != nil {
 		return &requeue{curError: err}
 	}
 
@@ -217,6 +217,13 @@ func getProcessesReadyForRestart(logger logr.Logger, cluster *fdbv1beta2.Foundat
 			continue
 		}
 
+		// If any of the processes that should not be skipped are not having an updated ConfigMap, we should we waiting
+		// for the config to be propagated.
+		if processGroup.GetConditionTime(fdbv1beta2.IncorrectConfigMap) != nil {
+			allSynced = false
+			logger.Info("Waiting for dynamic Pod config update", "processGroupID", processGroup.ProcessGroupID)
+		}
+
 		if !processGroup.MatchesConditions(filterConditions) {
 			logger.V(1).Info("ignore process group with non matching conditions", "processGroupID", processGroup.ProcessGroupID, "expectedConditions", filterConditions, "currentConditions", processGroup.ProcessGroupConditions)
 			continue
@@ -228,11 +235,6 @@ func getProcessesReadyForRestart(logger logr.Logger, cluster *fdbv1beta2.Foundat
 		}
 
 		addresses = append(addresses, addressMap[processGroup.ProcessGroupID]...)
-
-		if processGroup.GetConditionTime(fdbv1beta2.IncorrectConfigMap) != nil {
-			allSynced = false
-			logger.Info("Waiting for dynamic Pod config update", "processGroupID", processGroup.ProcessGroupID)
-		}
 	}
 
 	if len(missingAddress) > 0 {
@@ -251,27 +253,29 @@ func getProcessesReadyForRestart(logger logr.Logger, cluster *fdbv1beta2.Foundat
 		}
 	}
 
-	// If we upgrade the cluster wait until all processes are ready for the restart. We don't want to block the restart
-	// if some processes are already upgraded e.g. in the case of version compatible upgrades and we also don't want to
-	// block the restart command if a process is missing longer than the specified GetIgnoreMissingProcessesSeconds.
-	// Those checks should ensure we only run the restart command if all processes that have to be restarted and are connected
-	// to cluster are ready to be restarted.
-	expectedProcesses := counts.Total() - missingProcesses + markedForRemoval
-	// If more than one storage server per Pod is running we have to account for this. In this case we have to add the
-	// additional storage processes.
-	if cluster.Spec.StorageServersPerPod > 1 {
-		expectedProcesses += counts.Storage * (cluster.Spec.StorageServersPerPod - 1)
-	}
+	if cluster.IsBeingUpgradedWithVersionIncompatibleVersion() {
+		// If we upgrade the cluster wait until all processes are ready for the restart. We don't want to block the restart
+		// if some processes are already upgraded e.g. in the case of version compatible upgrades and we also don't want to
+		// block the restart command if a process is missing longer than the specified GetIgnoreMissingProcessesSeconds.
+		// Those checks should ensure we only run the restart command if all processes that have to be restarted and are connected
+		// to cluster are ready to be restarted.
+		expectedProcesses := counts.Total() - missingProcesses + markedForRemoval
+		// If more than one storage server per Pod is running we have to account for this. In this case we have to add the
+		// additional storage processes.
+		if cluster.Spec.StorageServersPerPod > 1 {
+			expectedProcesses += counts.Storage * (cluster.Spec.StorageServersPerPod - 1)
+		}
 
-	if cluster.Spec.LogServersPerPod > 1 {
-		expectedProcesses += counts.Log * (cluster.Spec.LogServersPerPod - 1)
-		expectedProcesses += counts.Transaction * (cluster.Spec.LogServersPerPod - 1)
-	}
+		if cluster.Spec.LogServersPerPod > 1 {
+			expectedProcesses += counts.Log * (cluster.Spec.LogServersPerPod - 1)
+			expectedProcesses += counts.Transaction * (cluster.Spec.LogServersPerPod - 1)
+		}
 
-	if cluster.IsBeingUpgradedWithVersionIncompatibleVersion() && expectedProcesses != len(addresses) {
-		return nil, &requeue{
-			message:        fmt.Sprintf("expected %d processes, got %d processes ready to restart", expectedProcesses, len(addresses)),
-			delayedRequeue: true,
+		if expectedProcesses != len(addresses) {
+			return nil, &requeue{
+				message:        fmt.Sprintf("expected %d processes, got %d processes ready to restart", expectedProcesses, len(addresses)),
+				delayedRequeue: true,
+			}
 		}
 	}
 

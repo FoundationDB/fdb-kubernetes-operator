@@ -248,9 +248,17 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 
 	cluster.Status = clusterStatus
 
-	_, err = cluster.CheckReconciliation(logger)
+	reconciled, err := cluster.CheckReconciliation(logger)
 	if err != nil {
 		return &requeue{curError: err}
+	}
+
+	if reconciled {
+		// Once the cluster is reconciled the operator will release any pending locks.
+		lockErr := r.releaseLock(logger, cluster)
+		if lockErr != nil {
+			return &requeue{curError: lockErr}
+		}
 	}
 
 	// See: https://github.com/kubernetes-sigs/kubebuilder/issues/592

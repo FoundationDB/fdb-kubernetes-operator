@@ -387,6 +387,17 @@ func (r *FoundationDBClusterReconciler) takeLock(logger logr.Logger, cluster *fd
 	return hasLock, nil
 }
 
+// releaseLock attempts to release a lock.
+func (r *FoundationDBClusterReconciler) releaseLock(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster) error {
+	logger.Info("Release lock on cluster", "namespace", cluster.Namespace, "cluster", cluster.Name)
+	lockClient, err := r.getLockClient(cluster)
+	if err != nil {
+		return err
+	}
+
+	return lockClient.ReleaseLock()
+}
+
 var connectionStringNameRegex, _ = regexp.Compile("[^A-Za-z0-9_]")
 
 // clusterSubReconciler describes a class that does part of the work of
