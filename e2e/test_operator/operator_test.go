@@ -1223,7 +1223,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		var initialReplacementDuration time.Duration
 
 		BeforeEach(func() {
-			initialReplacementDuration = time.Duration(pointer.IntDeref(fdbCluster.GetCachedCluster().Spec.AutomationOptions.Replacements.TaintReplacementTimeSeconds, 600)) * time.Second
+			initialReplacementDuration = time.Duration(fdbCluster.GetCachedCluster().GetFailureDetectionTimeSeconds()) * time.Second
 			// Get the current Process Group ID numbers that are in use.
 			_, processGroupIDs, err := fdbCluster.GetCluster().GetCurrentProcessGroupsAndProcessCounts()
 			Expect(err).NotTo(HaveOccurred())
