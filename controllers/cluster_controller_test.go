@@ -1336,10 +1336,10 @@ var _ = Describe("cluster_controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				for _, item := range pods.Items {
-					id, err := fdbv1beta2.ProcessGroupID(item.Labels[fdbv1beta2.FDBProcessGroupIDLabel]).GetIDNumber()
-					Expect(err).NotTo(HaveOccurred())
-
-					hash, err := internal.GetPodSpecHash(cluster, internal.ProcessClassFromLabels(cluster, item.Labels), id, nil)
+					hash, err := internal.GetPodSpecHash(cluster, &fdbv1beta2.ProcessGroupStatus{
+						ProcessGroupID: fdbv1beta2.ProcessGroupID(item.Labels[fdbv1beta2.FDBProcessGroupIDLabel]),
+						ProcessClass:   internal.ProcessClassFromLabels(cluster, item.Labels),
+					}, nil)
 					Expect(err).NotTo(HaveOccurred())
 
 					configMapHash, err := getConfigMapHash(cluster, internal.GetProcessClassFromMeta(cluster, item.ObjectMeta), &item)
@@ -1477,10 +1477,10 @@ var _ = Describe("cluster_controller", func() {
 					err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 					Expect(err).NotTo(HaveOccurred())
 					for _, item := range pods.Items {
-						id, err := fdbv1beta2.ProcessGroupID(item.Labels[fdbv1beta2.FDBProcessGroupIDLabel]).GetIDNumber()
-						Expect(err).NotTo(HaveOccurred())
-
-						hash, err := internal.GetPodSpecHash(cluster, internal.ProcessClassFromLabels(cluster, item.Labels), id, nil)
+						hash, err := internal.GetPodSpecHash(cluster, &fdbv1beta2.ProcessGroupStatus{
+							ProcessGroupID: fdbv1beta2.ProcessGroupID(item.Labels[fdbv1beta2.FDBProcessGroupIDLabel]),
+							ProcessClass:   internal.ProcessClassFromLabels(cluster, item.Labels),
+						}, nil)
 						Expect(err).NotTo(HaveOccurred())
 
 						configMapHash, err := getConfigMapHash(cluster, internal.GetProcessClassFromMeta(cluster, item.ObjectMeta), &item)
@@ -1586,10 +1586,10 @@ var _ = Describe("cluster_controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				for _, item := range pods.Items {
-					id, err := fdbv1beta2.ProcessGroupID(item.Labels[fdbv1beta2.FDBProcessGroupIDLabel]).GetIDNumber()
-					Expect(err).NotTo(HaveOccurred())
-
-					hash, err := internal.GetPodSpecHash(cluster, internal.ProcessClassFromLabels(cluster, item.Labels), id, nil)
+					hash, err := internal.GetPodSpecHash(cluster, &fdbv1beta2.ProcessGroupStatus{
+						ProcessGroupID: fdbv1beta2.ProcessGroupID(item.Labels[fdbv1beta2.FDBProcessGroupIDLabel]),
+						ProcessClass:   internal.ProcessClassFromLabels(cluster, item.Labels),
+					}, nil)
 					Expect(err).NotTo(HaveOccurred())
 
 					configMapHash, err := getConfigMapHash(cluster, internal.GetProcessClassFromMeta(cluster, item.ObjectMeta), &item)
@@ -3671,7 +3671,10 @@ var _ = Describe("cluster_controller", func() {
 		Context("with a default pod", func() {
 			BeforeEach(func() {
 				var err error
-				pod, err = internal.GetPod(cluster, "storage", 1)
+				pod, err = internal.GetPod(cluster, &fdbv1beta2.ProcessGroupStatus{
+					ProcessClass:   fdbv1beta2.ProcessClassStorage,
+					ProcessGroupID: "storage-1",
+				})
 				Expect(err).NotTo(HaveOccurred())
 				pod.Status.PodIP = "1.1.1.1"
 				pod.Status.PodIPs = []corev1.PodIP{
@@ -3690,7 +3693,10 @@ var _ = Describe("cluster_controller", func() {
 			BeforeEach(func() {
 				var err error
 				cluster.Spec.Routing.PodIPFamily = pointer.Int(6)
-				pod, err = internal.GetPod(cluster, "storage", 1)
+				pod, err = internal.GetPod(cluster, &fdbv1beta2.ProcessGroupStatus{
+					ProcessClass:   fdbv1beta2.ProcessClassStorage,
+					ProcessGroupID: "storage-1",
+				})
 				Expect(err).NotTo(HaveOccurred())
 				pod.Status.PodIP = "1.1.1.1"
 				pod.Status.PodIPs = []corev1.PodIP{
@@ -3707,7 +3713,10 @@ var _ = Describe("cluster_controller", func() {
 			Context("with no matching IPs in the Pod IP list", func() {
 				BeforeEach(func() {
 					var err error
-					pod, err = internal.GetPod(cluster, "storage", 1)
+					pod, err = internal.GetPod(cluster, &fdbv1beta2.ProcessGroupStatus{
+						ProcessClass:   fdbv1beta2.ProcessClassStorage,
+						ProcessGroupID: "storage-1",
+					})
 					Expect(err).NotTo(HaveOccurred())
 					pod.Status.PodIPs = []corev1.PodIP{
 						{IP: "1.1.1.2"},
@@ -3725,7 +3734,10 @@ var _ = Describe("cluster_controller", func() {
 			BeforeEach(func() {
 				var err error
 				cluster.Spec.Routing.PodIPFamily = pointer.Int(4)
-				pod, err = internal.GetPod(cluster, "storage", 1)
+				pod, err = internal.GetPod(cluster, &fdbv1beta2.ProcessGroupStatus{
+					ProcessClass:   fdbv1beta2.ProcessClassStorage,
+					ProcessGroupID: "storage-1",
+				})
 				Expect(err).NotTo(HaveOccurred())
 				pod.Status.PodIP = "1.1.1.2"
 				pod.Status.PodIPs = []corev1.PodIP{

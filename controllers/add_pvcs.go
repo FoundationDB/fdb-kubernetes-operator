@@ -43,12 +43,7 @@ func (a addPVCs) reconcile(ctx context.Context, r *FoundationDBClusterReconciler
 			continue
 		}
 
-		idNum, err := processGroup.ProcessGroupID.GetIDNumber()
-		if err != nil {
-			return &requeue{curError: err}
-		}
-
-		pvc, err := internal.GetPvc(cluster, processGroup.ProcessClass, idNum)
+		pvc, err := internal.GetPvc(cluster, processGroup)
 		if err != nil {
 			return &requeue{curError: err}
 		}
@@ -61,7 +56,7 @@ func (a addPVCs) reconcile(ctx context.Context, r *FoundationDBClusterReconciler
 		err = r.Get(ctx, client.ObjectKey{Namespace: pvc.Namespace, Name: pvc.Name}, existingPVC)
 		if err != nil {
 			if !k8serrors.IsNotFound(err) {
-				return &requeue{curError: err}
+				return &requeue{curError: err, delayedRequeue: true}
 			}
 
 			owner := internal.BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
@@ -69,11 +64,7 @@ func (a addPVCs) reconcile(ctx context.Context, r *FoundationDBClusterReconciler
 			logger.V(1).Info("Creating PVC", "name", pvc.Name)
 			err = r.Create(ctx, pvc)
 			if err != nil {
-				if internal.IsQuotaExceeded(err) {
-					return &requeue{curError: err, delayedRequeue: true}
-				}
-
-				return &requeue{curError: err}
+				return &requeue{curError: err, delayedRequeue: true}
 			}
 		}
 	}

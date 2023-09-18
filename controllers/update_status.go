@@ -544,12 +544,7 @@ func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler,
 		return nil
 	}
 
-	idNum, err := processGroupStatus.ProcessGroupID.GetIDNumber()
-	if err != nil {
-		return err
-	}
-
-	specHash, err := internal.GetPodSpecHash(cluster, processGroupStatus.ProcessClass, idNum, nil)
+	specHash, err := internal.GetPodSpecHash(cluster, processGroupStatus, nil)
 	if err != nil {
 		return err
 	}
@@ -582,7 +577,7 @@ func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler,
 
 	processGroupStatus.UpdateCondition(fdbv1beta2.IncorrectConfigMap, !synced)
 
-	desiredPvc, err := internal.GetPvc(cluster, processGroupStatus.ProcessClass, idNum)
+	desiredPvc, err := internal.GetPvc(cluster, processGroupStatus)
 	if err != nil {
 		return err
 	}
