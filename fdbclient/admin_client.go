@@ -111,17 +111,6 @@ func NewCliAdminClient(cluster *fdbv1beta2.FoundationDBCluster, _ client.Client,
 	}, nil
 }
 
-// getMaxTimeout returns the maximum timeout, this is either the default of 40 seconds or if the provided default timeout
-// is higher it will be the default cli timeout.
-func (client *cliAdminClient) getMaxTimeout() time.Duration {
-	// TODO (johscheuer): ALlow to specify the max timeout.
-	if DefaultCLITimeout > 40*time.Second {
-		return DefaultCLITimeout
-	}
-
-	return 40 * time.Second
-}
-
 // cliCommand describes a command that we are running against FDB.
 type cliCommand struct {
 	// binary is the binary to run.
@@ -282,40 +271,11 @@ func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 	return outputString, nil
 }
 
-// runCommandWithBackoff is a wrapper around runCommand which allows retrying commands if they hit a timeout.
-func (client *cliAdminClient) runCommandWithBackoff(command string) (string, error) {
-	currentTimeout := DefaultCLITimeout
-
-	var rawResult string
-	var err error
-
-	// This method will be retrying to get the status if a timeout is seen. The timeout will be doubled everytime we try
-	// it with the default timeout of 10s we will try it 3 times with the following timeouts: 10s - 20s - 40s. We have
-	// seen that during upgrades of version incompatible version, when not all coordinators are properly restarted that
-	// the response time will be increased.
-	for currentTimeout <= client.getMaxTimeout() {
-		rawResult, err = client.runCommand(cliCommand{command: command, timeout: currentTimeout})
-		if err == nil {
-			break
-		}
-
-		var timoutError *fdbv1beta2.TimeoutError
-		if errors.As(err, &timoutError) {
-			client.log.Info("timeout issue will retry with higher timeout")
-			currentTimeout *= 2
-			continue
-		}
-
-		// If any error other than a timeout happens return this error and don't retry.
-		return "", err
-	}
-
-	return rawResult, err
-}
-
 // getStatusFromCli uses the fdbcli to connect to the FDB cluster
 func (client *cliAdminClient) getStatusFromCli() (*fdbv1beta2.FoundationDBStatus, error) {
-	output, err := client.runCommandWithBackoff("status json")
+	// Always use the max timeout here. Otherwise we will retry multiple times with an increasing timeout. As the
+	// timeout is only the upper bound using directly the max timeout reduces the calls to a single call.
+	output, err := client.runCommand(cliCommand{command: "status json", timeout: MaxCliTimeout})
 	if err != nil {
 		return nil, err
 	}
@@ -331,6 +291,10 @@ func (client *cliAdminClient) getStatusFromCli() (*fdbv1beta2.FoundationDBStatus
 		return nil, err
 	}
 
+	// TODO (johscheuer): Build a smarter retry mechanism here for timeouts that are not timeouts on the transaction
+	// level but rather on the get status itself, e.g. we should be checking for `status_incomplete_timeout`. We could specify
+	// a retry of X or we just force the operator to reconcile again.
+
 	return status, nil
 }
 
@@ -343,8 +307,9 @@ func (client *cliAdminClient) getStatus() (*fdbv1beta2.FoundationDBStatus, error
 	}
 
 	// If the status doesn't contain any processes and we are doing an upgrade, we probably use the wrong fdbcli version
-	// and we have to fallback to the on specified in out spec.version.
+	// and we have to fallback to the one specified in our spec.version.
 	if (status == nil || len(status.Cluster.Processes) == 0) && client.Cluster.IsBeingUpgradedWithVersionIncompatibleVersion() {
+		client.log.V(1).Info("retry fetching status with version specified in spec.Version", "error", err, "status", status)
 		// Create a copy of the cluster and make use of the desired version instead of the last observed running version.
 		clusterCopy := client.Cluster.DeepCopy()
 		clusterCopy.Status.RunningVersion = clusterCopy.Spec.Version
@@ -362,7 +327,7 @@ func (client *cliAdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error
 	defer adminClientMutex.Unlock()
 
 	// This will call directly the database and fetch the status information from the system key space.
-	status, err := getStatusFromDB(client.fdbLibClient)
+	status, err := getStatusFromDB(client.fdbLibClient, MaxCliTimeout)
 	// There is a limitation in the multi version client if the cluster is only partially upgraded e.g. because not
 	// all fdbserver processes are restarted, then the multi version client sometimes picks the wrong version
 	// to connect to the cluster. This will result in an empty status only reporting the unreachable coordinators.
@@ -443,7 +408,7 @@ func (client *cliAdminClient) ExcludeProcesses(addresses []fdbv1beta2.ProcessAdd
 
 	excludeCommand.WriteString(fdbv1beta2.ProcessAddressesString(addresses, " "))
 
-	_, err = client.runCommand(cliCommand{command: excludeCommand.String(), timeout: client.getMaxTimeout()})
+	_, err = client.runCommand(cliCommand{command: excludeCommand.String(), timeout: MaxCliTimeout})
 
 	return err
 }
@@ -494,7 +459,7 @@ func (client *cliAdminClient) KillProcesses(addresses []fdbv1beta2.ProcessAddres
 		fdbv1beta2.ProcessAddressesStringWithoutFlags(addresses, " "),
 	)
 	// Run the kill command once with the max timeout to reduce the risk of multiple recoveries happening.
-	_, err := client.runCommand(cliCommand{command: killCommand, timeout: client.getMaxTimeout()})
+	_, err := client.runCommand(cliCommand{command: killCommand, timeout: MaxCliTimeout})
 
 	return err
 }
@@ -537,7 +502,7 @@ func cleanConnectionStringOutput(input string) string {
 func (client *cliAdminClient) GetConnectionString() (string, error) {
 	// This will call directly the database and fetch the connection string
 	// from the system key space.
-	outputBytes, err := getConnectionStringFromDB(client.fdbLibClient)
+	outputBytes, err := getConnectionStringFromDB(client.fdbLibClient, DefaultCLITimeout)
 
 	if err != nil {
 		return "", err

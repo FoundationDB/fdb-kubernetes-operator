@@ -38,6 +38,9 @@ import (
 // DefaultCLITimeout is the default timeout for CLI commands.
 var DefaultCLITimeout = 10 * time.Second
 
+// MaxCliTimeout is the maximum CLI timeout that will be used for requests that might be slower to respond.
+var MaxCliTimeout = 60 * time.Second
+
 const (
 	defaultTransactionTimeout = 5 * time.Second
 )
@@ -89,13 +92,13 @@ func ensureClusterFileIsPresent(dir string, uid string, connectionString string)
 }
 
 // getConnectionStringFromDB gets the database's connection string directly from the system key
-func getConnectionStringFromDB(libClient fdbLibClient) ([]byte, error) {
-	return libClient.getValueFromDBUsingKey("\xff/coordinators", DefaultCLITimeout)
+func getConnectionStringFromDB(libClient fdbLibClient, timeout time.Duration) ([]byte, error) {
+	return libClient.getValueFromDBUsingKey("\xff/coordinators", timeout)
 }
 
 // getStatusFromDB gets the database's status directly from the system key
-func getStatusFromDB(libClient fdbLibClient) (*fdbv1beta2.FoundationDBStatus, error) {
-	contents, err := libClient.getValueFromDBUsingKey("\xff\xff/status/json", DefaultCLITimeout)
+func getStatusFromDB(libClient fdbLibClient, timeout time.Duration) (*fdbv1beta2.FoundationDBStatus, error) {
+	contents, err := libClient.getValueFromDBUsingKey("\xff\xff/status/json", timeout)
 	if err != nil {
 		return nil, err
 	}
