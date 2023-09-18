@@ -23,6 +23,7 @@ package fdbclient
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path"
@@ -44,6 +45,31 @@ var MaxCliTimeout = 60 * time.Second
 const (
 	defaultTransactionTimeout = 5 * time.Second
 )
+
+func parseMachineReadableStatus(logger logr.Logger, contents []byte) (*fdbv1beta2.FoundationDBStatus, error) {
+	status := &fdbv1beta2.FoundationDBStatus{}
+	err := json.Unmarshal(contents, status)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(status.Client.Messages) > 0 {
+		logger.Info("found client message(s) in the machine-readable status", "messages", status.Client.Messages)
+	}
+
+	if len(status.Cluster.Messages) > 0 {
+		logger.Info("found cluster message(s) in the machine-readable status", "messages", status.Cluster.Messages)
+
+		// If the status is incomplete because of a timeout, return an error. This will force a new reconciliation.
+		for _, message := range status.Cluster.Messages {
+			if message.Name == "status_incomplete_timeout" {
+				return nil, fdbv1beta2.TimeoutError{Err: fmt.Errorf("found \"status_incomplete_timeout\" in cluster messages")}
+			}
+		}
+	}
+
+	return status, nil
+}
 
 // getFDBDatabase opens an FDB database.
 func getFDBDatabase(cluster *fdbv1beta2.FoundationDBCluster) (fdb.Database, error) {
@@ -97,19 +123,13 @@ func getConnectionStringFromDB(libClient fdbLibClient, timeout time.Duration) ([
 }
 
 // getStatusFromDB gets the database's status directly from the system key
-func getStatusFromDB(libClient fdbLibClient, timeout time.Duration) (*fdbv1beta2.FoundationDBStatus, error) {
+func getStatusFromDB(libClient fdbLibClient, logger logr.Logger, timeout time.Duration) (*fdbv1beta2.FoundationDBStatus, error) {
 	contents, err := libClient.getValueFromDBUsingKey("\xff\xff/status/json", timeout)
 	if err != nil {
 		return nil, err
 	}
 
-	status := &fdbv1beta2.FoundationDBStatus{}
-	err = json.Unmarshal(contents, status)
-	if err != nil {
-		return nil, err
-	}
-
-	return status, nil
+	return parseMachineReadableStatus(logger, contents)
 }
 
 type realDatabaseClientProvider struct {

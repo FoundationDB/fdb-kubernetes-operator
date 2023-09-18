@@ -285,17 +285,7 @@ func (client *cliAdminClient) getStatusFromCli() (*fdbv1beta2.FoundationDBStatus
 		return nil, err
 	}
 
-	status := &fdbv1beta2.FoundationDBStatus{}
-	err = json.Unmarshal(contents, status)
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO (johscheuer): Build a smarter retry mechanism here for timeouts that are not timeouts on the transaction
-	// level but rather on the get status itself, e.g. we should be checking for `status_incomplete_timeout`. We could specify
-	// a retry of X or we just force the operator to reconcile again.
-
-	return status, nil
+	return parseMachineReadableStatus(client.log, contents)
 }
 
 // getStatus uses fdbcli to connect to the FDB cluster, if the cluster is upgraded and the initial version returns no processes
@@ -327,7 +317,7 @@ func (client *cliAdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error
 	defer adminClientMutex.Unlock()
 
 	// This will call directly the database and fetch the status information from the system key space.
-	status, err := getStatusFromDB(client.fdbLibClient, MaxCliTimeout)
+	status, err := getStatusFromDB(client.fdbLibClient, client.log, MaxCliTimeout)
 	// There is a limitation in the multi version client if the cluster is only partially upgraded e.g. because not
 	// all fdbserver processes are restarted, then the multi version client sometimes picks the wrong version
 	// to connect to the cluster. This will result in an empty status only reporting the unreachable coordinators.
