@@ -452,7 +452,6 @@ func (r *FoundationDBClusterReconciler) getAllPodStatus(ctx context.Context, log
 		}
 
 		pod, err := r.PodLifecycleManager.GetPod(ctx, r, cluster, processGroup.GetPodName(cluster))
-		// If a Pod is not found ignore it for now.
 		if err != nil {
 			logger.Info("Could not find Pod for process group ID",
 				"processGroupID", processGroup.ProcessGroupID, "error", err)
