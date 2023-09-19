@@ -136,7 +136,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 		clusterLog.Info("Fetch machine-readable status for reconcilitation loop", "cacheStatus", cacheStatus)
 		status, err = r.getStatusFromClusterOrDummyStatus(clusterLog, cluster)
 		if err != nil {
-			return ctrl.Result{Requeue: true}, err
+			return ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
 		}
 	}
 
@@ -481,14 +481,6 @@ func (r *FoundationDBClusterReconciler) getStatusFromClusterOrDummyStatus(logger
 
 	status, err := adminClient.GetStatus()
 	if err == nil {
-		if len(status.Client.Messages) > 0 {
-			logger.Info("found client message(s) in the machine-readable status", "messages", status.Client.Messages)
-		}
-
-		if len(status.Cluster.Messages) > 0 {
-			logger.Info("found cluster message(s) in the machine-readable status", "messages", status.Cluster.Messages)
-		}
-
 		return status, nil
 	}
 
