@@ -124,7 +124,8 @@ func (config *ClusterConfig) SetDefaults(factory *Factory) {
 		config.Name = factory.getClusterPrefix()
 	}
 
-	if config.Namespace == "" {
+	// Only create the namespace for non HA clusters, otherwise the namespaces will be created in a different way.
+	if config.Namespace == "" && config.HaMode == HaModeNone {
 		config.Namespace = factory.SingleNamespace()
 	}
 

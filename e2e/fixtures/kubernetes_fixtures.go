@@ -39,8 +39,17 @@ const (
 	namespaceRegEx = `^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
 )
 
+// factory.getRandomizedNamespaceName() checks if the username is valid to be used in the namespace name. If so this
+// method will return the namespace name as the username a hyphen and 8 random chars.
+func (factory *Factory) getRandomizedNamespaceName() string {
+	gomega.Expect(factory.singleton.userName).To(gomega.MatchRegexp(namespaceRegEx), "user name contains invalid characters")
+	return factory.singleton.userName + "-" + RandStringRunes(8)
+}
+
 // MultipleNamespaces creates multiple namespaces for HA testing.
 func (factory *Factory) MultipleNamespaces(dcIDs []string) []string {
+	factory.options.namespace = factory.getRandomizedNamespaceName()
+
 	res := make([]string, len(dcIDs))
 	for idx, dcID := range dcIDs {
 		namespace := factory.createNamespace(dcID)
@@ -71,8 +80,7 @@ func (factory *Factory) createNamespace(suffix string) string {
 	namespace := factory.options.namespace
 
 	if namespace == "" {
-		gomega.Expect(factory.singleton.userName).To(gomega.MatchRegexp(namespaceRegEx), "user name contains invalid characters")
-		namespace = factory.singleton.userName + "-" + RandStringRunes(8)
+		namespace = factory.getRandomizedNamespaceName()
 	}
 
 	if suffix != "" {
