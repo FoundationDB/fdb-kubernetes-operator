@@ -55,6 +55,12 @@ func parseMachineReadableStatus(logger logr.Logger, contents []byte) (*fdbv1beta
 
 	if len(status.Client.Messages) > 0 {
 		logger.Info("found client message(s) in the machine-readable status", "messages", status.Client.Messages)
+		// TODO: Check for client messages that should be validated here.
+	}
+
+	if !status.Client.DatabaseStatus.Available {
+		logger.Info("database is unavailable")
+		return nil, fdbv1beta2.TimeoutError{Err: fmt.Errorf("database is unavailable")}
 	}
 
 	if len(status.Cluster.Messages) > 0 {
@@ -66,6 +72,11 @@ func parseMachineReadableStatus(logger logr.Logger, contents []byte) (*fdbv1beta
 				return nil, fdbv1beta2.TimeoutError{Err: fmt.Errorf("found \"status_incomplete_timeout\" in cluster messages")}
 			}
 		}
+	}
+
+	if len(status.Cluster.Processes) == 0 {
+		logger.Info("machine-readable status is missing process information")
+		return nil, fdbv1beta2.TimeoutError{Err: fmt.Errorf("machine-readable status is missing process information")}
 	}
 
 	return status, nil

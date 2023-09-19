@@ -292,13 +292,10 @@ func (client *cliAdminClient) getStatusFromCli() (*fdbv1beta2.FoundationDBStatus
 // the new version for fdbcli will be tried.
 func (client *cliAdminClient) getStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 	status, err := client.getStatusFromCli()
-	if err != nil {
-		return nil, err
-	}
 
-	// If the status doesn't contain any processes and we are doing an upgrade, we probably use the wrong fdbcli version
-	// and we have to fallback to the one specified in our spec.version.
-	if (status == nil || len(status.Cluster.Processes) == 0) && client.Cluster.IsBeingUpgradedWithVersionIncompatibleVersion() {
+	// If the cluster is under an upgrade and the getStatus call returns an error, we have to retry it with the new version,
+	// as it could be that the wrong version was selected.
+	if client.Cluster.IsBeingUpgradedWithVersionIncompatibleVersion() && internal.IsTimeoutError(err) {
 		client.log.V(1).Info("retry fetching status with version specified in spec.Version", "error", err, "status", status)
 		// Create a copy of the cluster and make use of the desired version instead of the last observed running version.
 		clusterCopy := client.Cluster.DeepCopy()
@@ -308,7 +305,7 @@ func (client *cliAdminClient) getStatus() (*fdbv1beta2.FoundationDBStatus, error
 		return client.getStatusFromCli()
 	}
 
-	return status, nil
+	return status, err
 }
 
 // GetStatus gets the database's status
@@ -324,11 +321,9 @@ func (client *cliAdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error
 	// In this case we want to fall back to use fdbcli which is version specific and will (hopefully) work.
 	// If we hit a timeout we will also use fdbcli to retry the get status command.
 	client.log.V(1).Info("Result from multi version client (bindings)", "error", err, "status", status)
-	if client.Cluster.Status.Configured {
-		if (err != nil && internal.IsTimeoutError(err)) || (status == nil || len(status.Cluster.Processes) == 0) {
-			client.log.Info("retry fetching status with fdbcli instead of using the client library")
-			status, err = client.getStatus()
-		}
+	if client.Cluster.Status.Configured && internal.IsTimeoutError(err) {
+		client.log.Info("retry fetching status with fdbcli instead of using the client library")
+		status, err = client.getStatus()
 	}
 
 	client.log.V(1).Info("Completed GetStatus() call", "error", err, "status", status)
@@ -492,7 +487,7 @@ func cleanConnectionStringOutput(input string) string {
 func (client *cliAdminClient) GetConnectionString() (string, error) {
 	// This will call directly the database and fetch the connection string
 	// from the system key space.
-	outputBytes, err := getConnectionStringFromDB(client.fdbLibClient, DefaultCLITimeout)
+	outputBytes, err := getConnectionStringFromDB(client.fdbLibClient, MaxCliTimeout)
 
 	if err != nil {
 		return "", err
