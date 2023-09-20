@@ -181,7 +181,8 @@ func MakeReconciliationOptionsStruct(
 	}
 
 	if reconciliationOptions.timeOutInSeconds == 0 {
-		reconciliationOptions.timeOutInSeconds = 4800
+		// Wait for 30 minutes as timeout.
+		reconciliationOptions.timeOutInSeconds = 1800
 	}
 
 	if reconciliationOptions.pollTimeInSeconds == 0 {
@@ -209,8 +210,8 @@ func (fdbCluster *FdbCluster) waitForReconciliationToGeneration(
 	minimumGeneration int64,
 	softReconciliationAllowed bool,
 	creationTrackerLogger CreationTrackerLogger,
-	timeOutInSeconds int, // 4800
-	pollTimeInSeconds int, // 4
+	timeOutInSeconds int,
+	pollTimeInSeconds int,
 ) error {
 	if timeOutInSeconds < pollTimeInSeconds {
 		return fmt.Errorf(
