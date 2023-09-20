@@ -416,16 +416,6 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 	DescribeTable(
 		"upgrading a cluster and one coordinator is not restarted",
 		func(beforeVersion string, targetVersion string) {
-			// We set the before version here to overwrite the before version from the specific flag
-			// the specific flag will be removed in the future.
-			isAtLeast := factory.OperatorIsAtLeast(
-				"v1.14.0",
-			)
-
-			if !isAtLeast {
-				Skip("operator doesn't support feature for test case")
-			}
-
 			clusterSetup(beforeVersion, true)
 
 			// 1. Select one coordinator and use the buggify option to skip it during the restart command.
@@ -461,16 +451,6 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 	DescribeTable(
 		"upgrading a cluster and multiple processes are not restarted",
 		func(beforeVersion string, targetVersion string) {
-			// We set the before version here to overwrite the before version from the specific flag
-			// the specific flag will be removed in the future.
-			isAtLeast := factory.OperatorIsAtLeast(
-				"v1.14.0",
-			)
-
-			if !isAtLeast {
-				Skip("operator doesn't support feature for test case")
-			}
-
 			// We ignore the availability check here since this check is sometimes flaky if not all coordinators are running.
 			clusterSetup(beforeVersion, false)
 
@@ -570,16 +550,6 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 	DescribeTable(
 		"upgrading a cluster and no coordinator is restarted",
 		func(beforeVersion string, targetVersion string) {
-			// We set the before version here to overwrite the before version from the specific flag
-			// the specific flag will be removed in the future.
-			isAtLeast := factory.OperatorIsAtLeast(
-				"v1.14.0",
-			)
-
-			if !isAtLeast {
-				Skip("operator doesn't support feature for test case")
-			}
-
 			// We ignore the availability check here since this check is sometimes flaky if not all coordinators are running.
 			clusterSetup(beforeVersion, false)
 
