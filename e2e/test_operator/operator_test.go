@@ -752,6 +752,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 		BeforeEach(func() {
 			Expect(fdbCluster.SetProcessGroupPrefix(prefix)).NotTo(HaveOccurred())
+			Expect(fdbCluster.WaitForReconciliation())
 		})
 
 		It("should add the prefix to all instances", func() {

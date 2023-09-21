@@ -354,6 +354,45 @@ type ProcessGroupStatus struct {
 	FaultDomain FaultDomain `json:"faultDomain,omitempty"`
 }
 
+// String returns string representation.
+func (processGroupStatus *ProcessGroupStatus) String() string {
+	var sb strings.Builder
+
+	sb.WriteString("ID: ")
+	sb.WriteString(string(processGroupStatus.ProcessGroupID))
+	sb.WriteString(", Class: ")
+	sb.WriteString(string(processGroupStatus.ProcessClass))
+	sb.WriteString(", Addresses: ")
+	sb.WriteString(strings.Join(processGroupStatus.Addresses, ","))
+
+	sb.WriteString(", RemovalTimestamp: ")
+	if processGroupStatus.RemovalTimestamp.IsZero() {
+		sb.WriteString("-")
+	} else {
+		sb.WriteString(processGroupStatus.RemovalTimestamp.String())
+	}
+
+	sb.WriteString(", ExclusionTimestamp: ")
+	if processGroupStatus.ExclusionTimestamp.IsZero() {
+		sb.WriteString("-")
+	} else {
+		sb.WriteString(processGroupStatus.ExclusionTimestamp.String())
+	}
+
+	sb.WriteString(", ExclusionSkipped: ")
+	sb.WriteString(strconv.FormatBool(processGroupStatus.ExclusionSkipped))
+
+	sb.WriteString(", ProcessGroupConditions: ")
+	for _, condition := range processGroupStatus.ProcessGroupConditions {
+		sb.WriteString(condition.String())
+	}
+
+	sb.WriteString(", FaultDomain: ")
+	sb.WriteString(string(processGroupStatus.FaultDomain))
+
+	return sb.String()
+}
+
 // FaultDomain represents the FaultDomain of a process group
 // +kubebuilder:validation:MaxLength=512
 type FaultDomain string
@@ -795,6 +834,18 @@ type ProcessGroupCondition struct {
 	ProcessGroupConditionType ProcessGroupConditionType `json:"type,omitempty"`
 	// Timestamp when the Condition was observed
 	Timestamp int64 `json:"timestamp,omitempty"`
+}
+
+// String returns the string representation for the condition.
+func (condition *ProcessGroupCondition) String() string {
+	var sb strings.Builder
+
+	sb.WriteString("Condition: ")
+	sb.WriteString(string(condition.ProcessGroupConditionType))
+	sb.WriteString(" Timestamp: ")
+	sb.WriteString(time.Unix(condition.Timestamp, 0).String())
+
+	return sb.String()
 }
 
 // ProcessGroupConditionType represents a concrete ProcessGroupCondition.

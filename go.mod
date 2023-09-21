@@ -30,6 +30,8 @@ require (
 	sigs.k8s.io/yaml v1.3.0
 )
 
+require golang.org/x/sync v0.3.0
+
 require (
 	github.com/alecthomas/units v0.0.0-20210927113745-59d0afb8317a // indirect
 	github.com/beorn7/perks v1.0.1 // indirect

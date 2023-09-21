@@ -27,6 +27,7 @@ Each test will create a new HA FoundationDB cluster which will be upgraded.
 */
 
 import (
+	"golang.org/x/sync/errgroup"
 	"log"
 	"math/rand"
 	"strings"
@@ -92,11 +93,9 @@ func clusterSetup(beforeVersion string, enableOperatorPodChaos bool) {
 // version compatible upgrades, since incompatible processes won't be part of the cluster anyway. To simplify the check
 // we verify the reported running version from the operator.
 func checkVersion(cluster *fixtures.HaFdbCluster, expectedVersion string) {
-	Eventually(func() bool {
+	Eventually(func(g Gomega) bool {
 		for _, singleCluster := range cluster.GetAllClusters() {
-			if singleCluster.GetCluster().Status.RunningVersion != expectedVersion {
-				return false
-			}
+			g.Expect(singleCluster.GetCluster().Status.RunningVersion).To(Equal(expectedVersion))
 		}
 
 		return true
@@ -184,15 +183,12 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
 
 			// Wait until all clusters are reconciled and collect the process groups during that time.
-			clusters := fdbCluster.GetAllClusters()
-			wg := sync.WaitGroup{}
-			wg.Add(len(clusters))
-			mut := sync.Mutex{}
+			g := new(errgroup.Group)
+			for _, fdbCluster := range fdbCluster.GetAllClusters() {
+				targetCluster := fdbCluster // https://golang.org/doc/faq#closures_and_goroutines
 
-			var err error
-			for _, fdbCluster := range clusters {
-				go func(fdbCluster *fixtures.FdbCluster) {
-					reconcileErr := fdbCluster.WaitUntilWithForceReconcile(2, 600, func(cluster *fdbv1beta2.FoundationDBCluster) bool {
+				g.Go(func() error {
+					err := targetCluster.WaitUntilWithForceReconcile(2, 600, func(cluster *fdbv1beta2.FoundationDBCluster) bool {
 						for _, processGroup := range cluster.Status.ProcessGroups {
 							if processGroup.ProcessClass == fdbv1beta2.ProcessClassStorage {
 								continue
@@ -205,20 +201,14 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 						return cluster.Status.Generations.Reconciled == cluster.Generation && cluster.Status.RunningVersion == targetVersion
 					})
 
-					if reconcileErr != nil {
-						log.Println("error during WaitForReconciliation for", fdbCluster.Name(), "error:", reconcileErr.Error())
-						if err != nil {
-							mut.Lock()
-							err = reconcileErr
-							mut.Unlock()
-						}
+					if err != nil {
+						log.Println("error during WaitForReconciliation for", targetCluster.Name(), "error:", err.Error())
 					}
-					wg.Done()
-				}(fdbCluster)
+					return err
+				})
 			}
 
-			wg.Wait()
-			Expect(err).NotTo(HaveOccurred())
+			Expect(g.Wait()).NotTo(HaveOccurred())
 
 			// Check how many transaction process groups we have seen.
 			var expectedProcessCounts int

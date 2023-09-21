@@ -22,14 +22,12 @@ package fixtures
 
 import (
 	"fmt"
-	"log"
-	"strings"
-	"sync"
-
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/chaos-mesh/chaos-mesh/api/v1alpha1"
 	"github.com/onsi/gomega"
+	"golang.org/x/sync/errgroup"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"strings"
 )
 
 // This file contains fixtures to set up HA configurations.
@@ -46,7 +44,7 @@ const (
 	SatelliteID = "satellite"
 )
 
-// HaFdbCluster is a struct around handling HA FounationDBClusters.
+// HaFdbCluster is a struct around handling HA FoundationDBClusters.
 type HaFdbCluster struct {
 	clusters []*FdbCluster
 }
@@ -179,32 +177,15 @@ func (haFDBCluster *HaFdbCluster) SetDatabaseConfiguration(
 func (haFDBCluster *HaFdbCluster) WaitForReconciliation(
 	options ...func(*ReconciliationOptions),
 ) error {
-	wg := sync.WaitGroup{}
-	wg.Add(len(haFDBCluster.clusters))
-	mut := sync.Mutex{}
-
-	var err error
-	for _, fdbCluster := range haFDBCluster.clusters {
-		go func(fdbCluster *FdbCluster) {
-			reconcileErr := fdbCluster.WaitForReconciliation(options...)
-			if reconcileErr != nil {
-				log.Println("error during WaitForReconciliation for", fdbCluster.Name(), "error:", reconcileErr.Error())
-				if err != nil {
-					mut.Lock()
-					err = reconcileErr
-					mut.Unlock()
-				}
-			}
-			wg.Done()
-		}(fdbCluster)
+	g := new(errgroup.Group)
+	for _, cluster := range haFDBCluster.GetAllClusters() {
+		singleCluster := cluster // https://golang.org/doc/faq#closures_and_goroutines
+		g.Go(func() error {
+			return singleCluster.WaitForReconciliation(options...)
+		})
 	}
 
-	wg.Wait()
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return g.Wait()
 }
 
 func (factory Factory) createHaFdbClusterSpec(
@@ -266,14 +247,15 @@ func (haFDBCluster *HaFdbCluster) UpgradeClusterWithTimeout(
 		return nil
 	}
 
+	g := new(errgroup.Group)
 	for _, cluster := range haFDBCluster.GetAllClusters() {
-		err := cluster.WaitForReconciliation(MinimumGenerationOption(expectedGenerations[cluster.Name()]), TimeOutInSecondsOption(timeout), PollTimeInSecondsOption(60))
-		if err != nil {
-			return err
-		}
+		singleCluster := cluster // https://golang.org/doc/faq#closures_and_goroutines
+		g.Go(func() error {
+			return singleCluster.WaitForReconciliation(MinimumGenerationOption(expectedGenerations[singleCluster.Name()]), TimeOutInSecondsOption(timeout), PollTimeInSecondsOption(30))
+		})
 	}
 
-	return nil
+	return g.Wait()
 }
 
 // DumpState logs the current state of all FoundationDBClusters.
