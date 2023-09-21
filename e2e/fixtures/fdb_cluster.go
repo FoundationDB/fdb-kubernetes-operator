@@ -181,7 +181,8 @@ func MakeReconciliationOptionsStruct(
 	}
 
 	if reconciliationOptions.timeOutInSeconds == 0 {
-		reconciliationOptions.timeOutInSeconds = 4800
+		// Wait for 30 minutes as timeout.
+		reconciliationOptions.timeOutInSeconds = 1800
 	}
 
 	if reconciliationOptions.pollTimeInSeconds == 0 {
@@ -209,8 +210,8 @@ func (fdbCluster *FdbCluster) waitForReconciliationToGeneration(
 	minimumGeneration int64,
 	softReconciliationAllowed bool,
 	creationTrackerLogger CreationTrackerLogger,
-	timeOutInSeconds int, // 4800
-	pollTimeInSeconds int, // 4
+	timeOutInSeconds int,
+	pollTimeInSeconds int,
 ) error {
 	if timeOutInSeconds < pollTimeInSeconds {
 		return fmt.Errorf(
@@ -1294,4 +1295,26 @@ func (fdbCluster *FdbCluster) UpdateAnnotationsAndLabels(annotations map[string]
 
 	// Make sure the current reference is updated.
 	fdbCluster.GetCluster()
+}
+
+// VerifyVersion Checks if cluster is running at the expectedVersion. This is done by checking the status of the FoundationDBCluster status.
+// Before that we checked the cluster status json by checking the reported version of all processes. This approach only worked for
+// version compatible upgrades, since incompatible processes won't be part of the cluster anyway. To simplify the check
+// we verify the reported running version from the operator.
+func (fdbCluster *FdbCluster) VerifyVersion(version string) {
+	gomega.Expect(fdbCluster.WaitUntilWithForceReconcile(2, 600, func(cluster *fdbv1beta2.FoundationDBCluster) bool {
+		return cluster.Status.RunningVersion == version
+	})).NotTo(gomega.HaveOccurred())
+}
+
+// UpgradeAndVerify will upgrade the cluster to the new version and perform a check at the end that the running version
+// matched the new version.
+func (fdbCluster *FdbCluster) UpgradeAndVerify(version string) {
+	startTime := time.Now()
+	defer func() {
+		log.Println("Upgrade took:", time.Since(startTime).String())
+	}()
+
+	gomega.Expect(fdbCluster.UpgradeCluster(version, true)).NotTo(gomega.HaveOccurred())
+	fdbCluster.VerifyVersion(version)
 }
