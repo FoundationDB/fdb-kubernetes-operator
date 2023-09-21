@@ -353,25 +353,54 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			Expect(processGroup.FaultDomain).NotTo(BeEmpty())
 		}
 
-		// TODO (johscheuer): We should check here further fields in the FoundationDBCluter resource to make sure the
+		// TODO (johscheuer): We should check here further fields in the FoundationDBCluster resource to make sure the
 		// fields that we expect are actually set.
 	})
 
 	When("replacing a Pod", func() {
 		var replacedPod corev1.Pod
+		var useLocalitiesForExclusion bool
 
-		BeforeEach(func() {
+		JustBeforeEach(func() {
 			initialPods := fdbCluster.GetStatelessPods()
 			replacedPod = fixtures.RandomPickOnePod(initialPods.Items)
 			fdbCluster.ReplacePod(replacedPod, true)
 		})
 
-		AfterEach(func() {
-			Expect(fdbCluster.ClearProcessGroupsToRemove()).NotTo(HaveOccurred())
+		BeforeEach(func() {
+			useLocalitiesForExclusion = pointer.BoolDeref(fdbCluster.GetCluster().Spec.AutomationOptions.UseLocalitiesForExclusion, false)
 		})
 
-		It("should remove the targeted Pod", func() {
-			fdbCluster.EnsurePodIsDeleted(replacedPod.Name)
+		AfterEach(func() {
+			Expect(fdbCluster.ClearProcessGroupsToRemove()).NotTo(HaveOccurred())
+			// Make sure we reset the previous behaviour.
+			spec := fdbCluster.GetCluster().Spec.DeepCopy()
+			spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(useLocalitiesForExclusion)
+			fdbCluster.UpdateClusterSpecWithSpec(spec)
+		})
+
+		When("IP addresses are used for exclusion", func() {
+			BeforeEach(func() {
+				spec := fdbCluster.GetCluster().Spec.DeepCopy()
+				spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(false)
+				fdbCluster.UpdateClusterSpecWithSpec(spec)
+			})
+
+			It("should remove the targeted Pod", func() {
+				fdbCluster.EnsurePodIsDeleted(replacedPod.Name)
+			})
+		})
+
+		When("localities are used for exclusion", func() {
+			BeforeEach(func() {
+				spec := fdbCluster.GetCluster().Spec.DeepCopy()
+				spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(false)
+				fdbCluster.UpdateClusterSpecWithSpec(spec)
+			})
+
+			It("should remove the targeted Pod", func() {
+				fdbCluster.EnsurePodIsDeleted(replacedPod.Name)
+			})
 		})
 	})
 
