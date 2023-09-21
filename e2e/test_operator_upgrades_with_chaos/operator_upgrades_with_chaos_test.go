@@ -71,10 +71,10 @@ func clusterSetup(beforeVersion string) {
 
 var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func() {
 	BeforeEach(func() {
+		factory = fixtures.CreateFactory(testOptions)
 		if !factory.ChaosTestsEnabled() {
 			Skip("chaos mesh is disabled")
 		}
-		factory = fixtures.CreateFactory(testOptions)
 	})
 
 	AfterEach(func() {
