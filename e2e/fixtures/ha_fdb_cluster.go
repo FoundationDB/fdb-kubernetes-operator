@@ -289,3 +289,26 @@ func (haFDBCluster *HaFdbCluster) SetCustomParameters(processClass fdbv1beta2.Pr
 
 	return nil
 }
+
+// VerifyVersion Checks if cluster is running at the expectedVersion. This is done by checking the status of the FoundationDBCluster status.
+// Before that we checked the cluster status json by checking the reported version of all processes. This approach only worked for
+// version compatible upgrades, since incompatible processes won't be part of the cluster anyway. To simplify the check
+// we verify the reported running version from the operator.
+func (haFDBCluster *HaFdbCluster) VerifyVersion(version string) {
+	g := new(errgroup.Group)
+	for _, cluster := range haFDBCluster.GetAllClusters() {
+		singleCluster := cluster // https://golang.org/doc/faq#closures_and_goroutines
+		g.Go(func() error {
+			return singleCluster.WaitUntilWithForceReconcile(2, 600, func(cluster *fdbv1beta2.FoundationDBCluster) bool {
+				return cluster.Status.RunningVersion == version
+			})
+		})
+	}
+
+	// Add more context to the error.
+	err := g.Wait()
+	if err != nil {
+		err = fmt.Errorf("timeout waiting for all clusters to be upgraded to %s, original error: %w", version, err)
+	}
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+}
