@@ -279,11 +279,8 @@ func (fdbCluster *FdbCluster) WaitUntilWithForceReconcile(pollTimeInSeconds int,
 	// Printout the initial state of the cluster before we moving forward waiting for the checkMethod to return true.
 	fdbCluster.factory.DumpState(fdbCluster)
 
-	counter := 0
-	// We want to force reconcile every 2:30 minutes, otherwise we update the cluster spec to often and we
-	// introduce to many conflicts. This will be resolved once we move to server side apply see:
-	// https://github.com/FoundationDB/fdb-kubernetes-operator/issues/1278
-	forceReconcile := 150 / pollTimeInSeconds
+	lastForcedReconciliationTime := time.Now()
+	forceReconcileDuration := 5 * time.Minute
 
 	return wait.PollImmediate(
 		time.Duration(pollTimeInSeconds)*time.Second,
@@ -296,11 +293,10 @@ func (fdbCluster *FdbCluster) WaitUntilWithForceReconcile(pollTimeInSeconds int,
 			}
 
 			// Force a reconcile if needed.
-			if counter >= forceReconcile {
+			if time.Since(lastForcedReconciliationTime) >= forceReconcileDuration {
 				fdbCluster.ForceReconcile()
-				counter = -1
+				lastForcedReconciliationTime = time.Now()
 			}
-			counter++
 			return false, nil
 		},
 	)
