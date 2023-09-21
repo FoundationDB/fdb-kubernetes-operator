@@ -55,28 +55,18 @@ var _ = AfterSuite(func() {
 	}
 })
 
-func clusterSetupWithConfig(beforeVersion string, availabilityCheck bool, config *fixtures.ClusterConfig) {
+func clusterSetup(beforeVersion string) {
 	factory.SetBeforeVersion(beforeVersion)
 	fdbCluster = factory.CreateFdbCluster(
-		config,
+		&fixtures.ClusterConfig{
+			DebugSymbols: false,
+		},
 		factory.GetClusterOptions(fixtures.UseVersionBeforeUpgrade)...,
 	)
-
-	// We have some tests where we expect some down time e.g. when no coordinator is restarted during an upgrade.
-	// In order to make sure the test is not failing based on the availability check we can disable the availability check if required.
-	if !availabilityCheck {
-		return
-	}
 
 	Expect(
 		fdbCluster.InvariantClusterStatusAvailableWithThreshold(15 * time.Second),
 	).ShouldNot(HaveOccurred())
-}
-
-func clusterSetup(beforeVersion string, availabilityCheck bool) {
-	clusterSetupWithConfig(beforeVersion, availabilityCheck, &fixtures.ClusterConfig{
-		DebugSymbols: false,
-	})
 }
 
 var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func() {
@@ -100,7 +90,7 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 	DescribeTable(
 		"upgrading a cluster with a partitioned pod",
 		func(beforeVersion string, targetVersion string) {
-			clusterSetup(beforeVersion, true)
+			clusterSetup(beforeVersion)
 			Expect(fdbCluster.SetAutoReplacements(false, 20*time.Minute)).ToNot(HaveOccurred())
 			// Ensure the operator is not skipping the process because it's missing for to long
 			Expect(
@@ -148,7 +138,7 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 	DescribeTable(
 		"with a partitioned pod which eventually gets replaced",
 		func(beforeVersion string, targetVersion string) {
-			clusterSetup(beforeVersion, true)
+			clusterSetup(beforeVersion)
 			Expect(fdbCluster.SetAutoReplacements(false, 5*time.Minute)).ToNot(HaveOccurred())
 			// Ensure the operator is not skipping the process because it's missing for to long
 			Expect(
@@ -212,7 +202,7 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 	DescribeTable(
 		"upgrading a cluster with link that drops some packets",
 		func(beforeVersion string, targetVersion string) {
-			clusterSetup(beforeVersion, true)
+			clusterSetup(beforeVersion)
 
 			// 1. Introduce packet loss b/w pods.
 			log.Println("Injecting packet loss b/w pod")
@@ -258,7 +248,7 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 				Skip("this test only affects version incompatible upgrades")
 			}
 
-			clusterSetup(beforeVersion, true)
+			clusterSetup(beforeVersion)
 
 			// Update the cluster version.
 			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
@@ -372,7 +362,7 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 				Skip("this test only affects version incompatible upgrades")
 			}
 
-			clusterSetup(beforeVersion, true)
+			clusterSetup(beforeVersion)
 
 			// Update the cluster version.
 			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
