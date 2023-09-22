@@ -165,10 +165,19 @@ func (factory *Factory) CreateFdbClusterFromSpec(
 	config *ClusterConfig,
 	options ...ClusterOption,
 ) *FdbCluster {
+	startTime := time.Now()
 	config.SetDefaults(factory)
 	log.Printf("create cluster: %s", ToJSON(spec))
 
-	return factory.startFDBFromClusterSpec(spec, config, options...)
+	cluster := factory.startFDBFromClusterSpec(spec, config, options...)
+	log.Println(
+		"FoundationDB cluster created (at version",
+		cluster.cluster.Spec.Version,
+		") in minutes",
+		time.Since(startTime).Minutes(),
+	)
+
+	return cluster
 }
 
 // CreateFdbHaCluster creates a HA FDB Cluster based on the cluster config and cluster options
@@ -176,11 +185,19 @@ func (factory *Factory) CreateFdbHaCluster(
 	config *ClusterConfig,
 	options ...ClusterOption,
 ) *HaFdbCluster {
+	startTime := time.Now()
 	config.SetDefaults(factory)
 
 	cluster, err := factory.ensureHAFdbClusterExists(
 		config,
 		options,
+	)
+
+	log.Println(
+		"FoundationDB HA cluster created (at version",
+		cluster.GetPrimary().cluster.Spec.Version,
+		") in minutes",
+		time.Since(startTime).Minutes(),
 	)
 
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
