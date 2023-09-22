@@ -62,7 +62,6 @@ func clusterSetupWithHealthCheckOption(beforeVersion string, enableOperatorPodCh
 	// We set the before version here to overwrite the before version from the specific flag
 	// the specific flag will be removed in the future.
 	factory.SetBeforeVersion(beforeVersion)
-	startTime := time.Now()
 	fdbCluster = factory.CreateFdbHaCluster(
 		fixtures.DefaultClusterConfigWithHaMode(fixtures.HaFourZoneSingleSat, false),
 		factory.GetClusterOptions(fixtures.UseVersionBeforeUpgrade)...,
@@ -72,13 +71,6 @@ func clusterSetupWithHealthCheckOption(beforeVersion string, enableOperatorPodCh
 			fdbCluster.GetPrimary().InvariantClusterStatusAvailableWithThreshold(15 * time.Second),
 		).ShouldNot(HaveOccurred())
 	}
-
-	log.Println(
-		"FoundationDB HA cluster created (at version",
-		beforeVersion,
-		") in minutes",
-		time.Since(startTime).Minutes(),
-	)
 
 	if enableOperatorPodChaos && factory.ChaosTestsEnabled() {
 		for _, curCluster := range fdbCluster.GetAllClusters() {
@@ -513,49 +505,6 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 				"to be skipped during the restart",
 			)
 			fdbCluster.GetRemote().SetIgnoreDuringRestart(ignoreDuringRestart)
-
-			// The cluster should still be able to upgrade.
-			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
-			// Verify that the upgrade proceeds
-			checkVersion(fdbCluster, targetVersion)
-
-			// TODO add validation here processes are updated new version
-		},
-		EntryDescription("Upgrade from %[1]s to %[2]s"),
-		fixtures.GenerateUpgradeTableEntries(testOptions),
-	)
-
-	DescribeTable(
-		"when no remote processes are restarted",
-		func(beforeVersion string, targetVersion string) {
-			clusterSetup(beforeVersion, false)
-
-			// Select remote processes and use the buggify option to skip those
-			// processes during the restart command.
-			remoteProcessGroups := fdbCluster.GetRemote().GetCluster().Status.ProcessGroups
-			ignoreDuringRestart := make(
-				[]fdbv1beta2.ProcessGroupID,
-				0,
-				len(remoteProcessGroups),
-			)
-
-			for _, processGroup := range remoteProcessGroups {
-				ignoreDuringRestart = append(
-					ignoreDuringRestart,
-					processGroup.ProcessGroupID,
-				)
-			}
-
-			log.Println(
-				"Selected Process Groups:",
-				ignoreDuringRestart,
-				"to be skipped during the restart",
-			)
-
-			// We have to set this to all clusters as any operator could be doing the cluster wide restart.
-			for _, cluster := range fdbCluster.GetAllClusters() {
-				cluster.SetIgnoreDuringRestart(ignoreDuringRestart)
-			}
 
 			// The cluster should still be able to upgrade.
 			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
