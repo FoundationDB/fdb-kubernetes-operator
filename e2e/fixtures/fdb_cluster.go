@@ -280,7 +280,7 @@ func (fdbCluster *FdbCluster) WaitUntilWithForceReconcile(pollTimeInSeconds int,
 	fdbCluster.factory.DumpState(fdbCluster)
 
 	lastForcedReconciliationTime := time.Now()
-	forceReconcileDuration := 5 * time.Minute
+	forceReconcileDuration := 4 * time.Minute
 
 	return wait.PollImmediate(
 		time.Duration(pollTimeInSeconds)*time.Second,
@@ -297,6 +297,7 @@ func (fdbCluster *FdbCluster) WaitUntilWithForceReconcile(pollTimeInSeconds int,
 				fdbCluster.ForceReconcile()
 				lastForcedReconciliationTime = time.Now()
 			}
+
 			return false, nil
 		},
 	)
@@ -305,6 +306,7 @@ func (fdbCluster *FdbCluster) WaitUntilWithForceReconcile(pollTimeInSeconds int,
 // ForceReconcile will add an annotation with the current timestamp on the FoundationDBCluster resource to make sure
 // the operator reconciliation loop is triggered. This is used to speed up some test cases.
 func (fdbCluster *FdbCluster) ForceReconcile() {
+	log.Println("ForceReconcile")
 	log.Printf("Status Generations=%s",
 		ToJSON(fdbCluster.cluster.Status.Generations))
 	log.Printf(
