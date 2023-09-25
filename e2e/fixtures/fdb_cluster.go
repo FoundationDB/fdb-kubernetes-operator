@@ -23,6 +23,7 @@ package fixtures
 import (
 	ctx "context"
 	"fmt"
+	"golang.org/x/sync/errgroup"
 	"log"
 	"strconv"
 	"strings"
@@ -278,11 +279,8 @@ func (fdbCluster *FdbCluster) WaitUntilWithForceReconcile(pollTimeInSeconds int,
 	// Printout the initial state of the cluster before we moving forward waiting for the checkMethod to return true.
 	fdbCluster.factory.DumpState(fdbCluster)
 
-	counter := 0
-	// We want to force reconcile every 5 minutes, otherwise we update the cluster spec to often and we
-	// introduce to many conflicts. This will be resolved once we move to server side apply see:
-	// https://github.com/FoundationDB/fdb-kubernetes-operator/issues/1278
-	forceReconcile := 300 / pollTimeInSeconds
+	lastForcedReconciliationTime := time.Now()
+	forceReconcileDuration := 4 * time.Minute
 
 	return wait.PollImmediate(
 		time.Duration(pollTimeInSeconds)*time.Second,
@@ -295,11 +293,11 @@ func (fdbCluster *FdbCluster) WaitUntilWithForceReconcile(pollTimeInSeconds int,
 			}
 
 			// Force a reconcile if needed.
-			if counter >= forceReconcile {
+			if time.Since(lastForcedReconciliationTime) >= forceReconcileDuration {
 				fdbCluster.ForceReconcile()
-				counter = -1
+				lastForcedReconciliationTime = time.Now()
 			}
-			counter++
+
 			return false, nil
 		},
 	)
@@ -308,6 +306,7 @@ func (fdbCluster *FdbCluster) WaitUntilWithForceReconcile(pollTimeInSeconds int,
 // ForceReconcile will add an annotation with the current timestamp on the FoundationDBCluster resource to make sure
 // the operator reconciliation loop is triggered. This is used to speed up some test cases.
 func (fdbCluster *FdbCluster) ForceReconcile() {
+	log.Println("ForceReconcile")
 	log.Printf("Status Generations=%s",
 		ToJSON(fdbCluster.cluster.Status.Generations))
 	log.Printf(
@@ -989,22 +988,18 @@ func (fdbCluster *FdbCluster) SetEmptyMonitorConf(enable bool) error {
 		return nil
 	}
 	// Don't wait for reconciliation when we set empty monitor config to true since the cluster won't reconcile
-
-	waitGroup := sync.WaitGroup{}
 	pods := fdbCluster.GetPods().Items
-	waitGroup.Add(len(pods))
-	podMap := make(map[string]struct{})
-	var mu sync.Mutex
-	var errorList []string
-	for i := range pods {
-		go func(i int) {
-			defer waitGroup.Done()
-			mu.Lock()
-			podMap[pods[i].Name] = struct{}{}
-			mu.Unlock()
+	podMap := sync.Map{}
+
+	g := new(errgroup.Group)
+	for _, pod := range pods {
+		targetPod := pod // https://golang.org/doc/faq#closures_and_goroutines
+		podMap.Store(targetPod.Name, struct{}{})
+
+		g.Go(func() error {
 			err := wait.PollImmediate(2*time.Second, 5*time.Minute, func() (bool, error) {
 				output, _, err := fdbCluster.ExecuteCmdOnPod(
-					pods[i],
+					targetPod,
 					fdbv1beta2.MainContainerName,
 					"ps -e | grep fdbserver | wc -l",
 					false,
@@ -1012,45 +1007,47 @@ func (fdbCluster *FdbCluster) SetEmptyMonitorConf(enable bool) error {
 				if err != nil {
 					log.Printf(
 						"error executing command on %s, error: %s\n",
-						pods[i].Name,
+						targetPod.Name,
 						err.Error(),
 					)
 					return false, nil
 				}
-				fdbserver := strings.TrimSpace(output)
+
 				// If EmptyMonitor is enabled, each pod should has no fdbserver running
-				if fdbserver == "0" {
-					mu.Lock()
-					delete(podMap, pods[i].Name)
-					mu.Unlock()
+				if strings.TrimSpace(output) == "0" {
+					podMap.Delete(targetPod.Name)
 					return true, nil
 				}
+
 				return false, nil
 			})
-			if err != nil {
-				mu.Lock()
-				errorList = append(
-					errorList,
-					fmt.Sprintf("pod: %s, error: %s\n", pods[i].Name, err.Error()),
-				)
-				mu.Unlock()
-			}
-		}(i)
+
+			return err
+		})
 	}
-	waitGroup.Wait()
-	if len(errorList) > 0 {
-		log.Printf("Issue running command on the pods: %v", errorList)
+
+	err := g.Wait()
+	if err != nil {
+		return err
 	}
 
 	var failedPods strings.Builder
-	if len(podMap) != 0 {
-		for pod := range podMap {
-			failedPods.WriteString(pod)
-			failedPods.WriteString(" ")
+	podMap.Range(func(key any, value any) bool {
+		podName, ok := key.(string)
+		if !ok {
+			return false
 		}
+		failedPods.WriteString(podName)
+		failedPods.WriteString(" ")
+
+		return true
+	})
+	if failedPods.Len() > 0 {
 		return fmt.Errorf("enabling empty monitor failed on pods: %s", failedPods.String())
 	}
+
 	log.Printf("Enabling empty monitor succeeded in cluster: %s", fdbCluster.Name())
+
 	return nil
 }
 

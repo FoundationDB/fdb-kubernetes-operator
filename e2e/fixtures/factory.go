@@ -664,13 +664,14 @@ func (factory *Factory) DumpState(fdbCluster *FdbCluster) {
 
 	buffer.WriteString(
 		fmt.Sprintf(
-			"%s\tGENERATION: %d\tRECONCILED: %d\tAVAILABLE: %t\tFULLREPLICATION: %t\tVERSION: %s\t Age: %s\nConnection String: %s\n",
+			"%s\tGENERATION: %d\tRECONCILED: %d\tAVAILABLE: %t\tFULLREPLICATION: %t\tRUNNING_VERSION: %s\tDESIRED_VERSION: %s\t Age: %s\nConnection String: %s\n",
 			cluster.GetName(),
 			cluster.Generation,
 			cluster.Status.Generations.Reconciled,
 			cluster.Status.Health.Available,
 			cluster.Status.Health.FullReplication,
 			cluster.Status.RunningVersion,
+			cluster.Spec.Version,
 			duration.HumanDuration(time.Since(cluster.CreationTimestamp.Time)),
 			cluster.Status.ConnectionString,
 		),

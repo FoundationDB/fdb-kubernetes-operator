@@ -23,9 +23,9 @@ package fixtures
 import (
 	ctx "context"
 	"fmt"
+	"golang.org/x/sync/errgroup"
 	"log"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/onsi/gomega"
@@ -60,34 +60,30 @@ func (factory *Factory) CleanupChaosMeshExperiments() error {
 		len(factory.chaosExperiments),
 		"experiment(s)",
 	)
-	wg := sync.WaitGroup{}
-	wg.Add(len(factory.chaosExperiments))
-	errors := make([]error, 0)
-	mu := sync.Mutex{}
+
+	g := new(errgroup.Group)
+
 	for _, resource := range factory.chaosExperiments {
-		go func(resource ChaosMeshExperiment) {
-			err := factory.deleteChaosMeshExperiment(&resource)
+		targetResource := resource // https://golang.org/doc/faq#closures_and_goroutines
+		g.Go(func() error {
+			err := factory.deleteChaosMeshExperiment(&targetResource)
 			if err != nil {
 				log.Printf(
 					"error in cleaning up chaos experiement %s/%s: %s",
-					resource.namespace,
-					resource.name,
+					targetResource.namespace,
+					targetResource.name,
 					err.Error(),
 				)
-				mu.Lock()
-				errors = append(errors, err)
-				mu.Unlock()
 			}
-			wg.Done()
-		}(resource)
+			return err
+		})
 	}
-	wg.Wait()
+
+	err := g.Wait()
 	// Reset the slice
 	factory.chaosExperiments = []ChaosMeshExperiment{}
-	if len(errors) > 0 {
-		return errors[0]
-	}
-	return nil
+
+	return err
 }
 
 // DeleteChaosMeshExperimentSafe will delete a running Chaos Mesh experiment.

@@ -27,6 +27,7 @@ Each test will create a new HA FoundationDB cluster which will be upgraded.
 */
 
 import (
+	"golang.org/x/sync/errgroup"
 	"log"
 	"math/rand"
 	"strings"
@@ -87,22 +88,6 @@ func clusterSetup(beforeVersion string, enableOperatorPodChaos bool) {
 	clusterSetupWithHealthCheckOption(beforeVersion, enableOperatorPodChaos, true)
 }
 
-// Checks if cluster is running at the expectedVersion. This is done by checking the status of the FoundationDBCluster status.
-// Before that we checked the cluster status json by checking the reported version of all processes. This approach only worked for
-// version compatible upgrades, since incompatible processes won't be part of the cluster anyway. To simplify the check
-// we verify the reported running version from the operator.
-func checkVersion(cluster *fixtures.HaFdbCluster, expectedVersion string) {
-	Eventually(func() bool {
-		for _, singleCluster := range cluster.GetAllClusters() {
-			if singleCluster.GetCluster().Status.RunningVersion != expectedVersion {
-				return false
-			}
-		}
-
-		return true
-	}).WithTimeout(10 * time.Minute).WithPolling(2 * time.Second).Should(BeTrue())
-}
-
 // Verify that bouncing is blocked in primary/remote/primary-satellite clusters.
 // We do this by verifying that the processes in primary/remote/primary-satellite clusters
 // are at "IncorrectCommandLine" state (which means that they have the new binaries and have
@@ -149,7 +134,7 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 			// Upgrade the cluster and then verify that the processes have upgraded to "targetVersion".
 			startTime := time.Now()
 			Expect(fdbCluster.UpgradeCluster(targetVersion, true)).NotTo(HaveOccurred())
-			checkVersion(fdbCluster, targetVersion)
+			fdbCluster.VerifyVersion(targetVersion)
 			log.Println(
 				"Multi-DC cluster upgraded to version",
 				targetVersion,
@@ -184,15 +169,12 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
 
 			// Wait until all clusters are reconciled and collect the process groups during that time.
-			clusters := fdbCluster.GetAllClusters()
-			wg := sync.WaitGroup{}
-			wg.Add(len(clusters))
-			mut := sync.Mutex{}
+			g := new(errgroup.Group)
+			for _, fdbCluster := range fdbCluster.GetAllClusters() {
+				targetCluster := fdbCluster // https://golang.org/doc/faq#closures_and_goroutines
 
-			var err error
-			for _, fdbCluster := range clusters {
-				go func(fdbCluster *fixtures.FdbCluster) {
-					reconcileErr := fdbCluster.WaitUntilWithForceReconcile(2, 600, func(cluster *fdbv1beta2.FoundationDBCluster) bool {
+				g.Go(func() error {
+					err := targetCluster.WaitUntilWithForceReconcile(2, 600, func(cluster *fdbv1beta2.FoundationDBCluster) bool {
 						for _, processGroup := range cluster.Status.ProcessGroups {
 							if processGroup.ProcessClass == fdbv1beta2.ProcessClassStorage {
 								continue
@@ -205,20 +187,14 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 						return cluster.Status.Generations.Reconciled == cluster.Generation && cluster.Status.RunningVersion == targetVersion
 					})
 
-					if reconcileErr != nil {
-						log.Println("error during WaitForReconciliation for", fdbCluster.Name(), "error:", reconcileErr.Error())
-						if err != nil {
-							mut.Lock()
-							err = reconcileErr
-							mut.Unlock()
-						}
+					if err != nil {
+						log.Println("error during WaitForReconciliation for", targetCluster.Name(), "error:", err.Error())
 					}
-					wg.Done()
-				}(fdbCluster)
+					return err
+				})
 			}
 
-			wg.Wait()
-			Expect(err).NotTo(HaveOccurred())
+			Expect(g.Wait()).NotTo(HaveOccurred())
 
 			// Check how many transaction process groups we have seen.
 			var expectedProcessCounts int
@@ -303,7 +279,7 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 
 			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
 			// Verify that the upgrade proceeds
-			checkVersion(fdbCluster, targetVersion)
+			fdbCluster.VerifyVersion(targetVersion)
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s with one DC upgraded before the rest"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
@@ -344,7 +320,7 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 				verifyBouncingIsBlocked()
 
 				// Verify that the processes have not upgraded to "targetVersion".
-				checkVersion(fdbCluster, beforeVersion)
+				fdbCluster.VerifyVersion(targetVersion)
 			} else {
 				// If we do a version compatible upgrade, ensure the partition is present for 2 minutes.
 				time.Sleep(2 * time.Minute)
@@ -363,7 +339,7 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 
 			// Upgrade should make progress now - wait until all processes have upgraded
 			// to "targetVersion".
-			checkVersion(fdbCluster, targetVersion)
+			fdbCluster.VerifyVersion(targetVersion)
 		},
 		EntryDescription("Upgrade, with a temporary partition, from %s to %s"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
@@ -467,7 +443,7 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 
 			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
 			// Verify that the upgrade proceeds
-			checkVersion(fdbCluster, targetVersion)
+			fdbCluster.VerifyVersion(targetVersion)
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
@@ -509,7 +485,50 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 			// The cluster should still be able to upgrade.
 			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
 			// Verify that the upgrade proceeds
-			checkVersion(fdbCluster, targetVersion)
+			fdbCluster.VerifyVersion(targetVersion)
+
+			// TODO add validation here processes are updated new version
+		},
+		EntryDescription("Upgrade from %[1]s to %[2]s"),
+		fixtures.GenerateUpgradeTableEntries(testOptions),
+	)
+
+	DescribeTable(
+		"when no remote processes are restarted",
+		func(beforeVersion string, targetVersion string) {
+			clusterSetup(beforeVersion, false)
+
+			// Select remote processes and use the buggify option to skip those
+			// processes during the restart command.
+			remoteProcessGroups := fdbCluster.GetRemote().GetCluster().Status.ProcessGroups
+			ignoreDuringRestart := make(
+				[]fdbv1beta2.ProcessGroupID,
+				0,
+				len(remoteProcessGroups),
+			)
+
+			for _, processGroup := range remoteProcessGroups {
+				ignoreDuringRestart = append(
+					ignoreDuringRestart,
+					processGroup.ProcessGroupID,
+				)
+			}
+
+			log.Println(
+				"Selected Process Groups:",
+				ignoreDuringRestart,
+				"to be skipped during the restart",
+			)
+
+			// We have to set this to all clusters as any operator could be doing the cluster wide restart.
+			for _, cluster := range fdbCluster.GetAllClusters() {
+				cluster.SetIgnoreDuringRestart(ignoreDuringRestart)
+			}
+
+			// The cluster should still be able to upgrade.
+			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
+			// Verify that the upgrade proceeds
+			fdbCluster.VerifyVersion(targetVersion)
 
 			// TODO add validation here processes are updated new version
 		},

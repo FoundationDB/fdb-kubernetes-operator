@@ -83,22 +83,6 @@ func clusterSetup(beforeVersion string, enableOperatorPodChaos bool) {
 	clusterSetupWithHealthCheckOption(beforeVersion, enableOperatorPodChaos, true)
 }
 
-// Checks if cluster is running at the expectedVersion. This is done by checking the status of the FoundationDBCluster status.
-// Before that we checked the cluster status json by checking the reported version of all processes. This approach only worked for
-// version compatible upgrades, since incompatible processes won't be part of the cluster anyway. To simplify the check
-// we verify the reported running version from the operator.
-func checkVersion(cluster *fixtures.HaFdbCluster, expectedVersion string) {
-	Eventually(func() bool {
-		for _, singleCluster := range cluster.GetAllClusters() {
-			if singleCluster.GetCluster().Status.RunningVersion != expectedVersion {
-				return false
-			}
-		}
-
-		return true
-	}).WithTimeout(10 * time.Minute).WithPolling(2 * time.Second).Should(BeTrue())
-}
-
 var _ = Describe("Operator HA Upgrades", Label("e2e", "nightly"), func() {
 	BeforeEach(func() {
 		factory = fixtures.CreateFactory(testOptions)
@@ -148,7 +132,7 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "nightly"), func() {
 			// The cluster should still be able to upgrade.
 			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
 			// Verify that the upgrade proceeds
-			checkVersion(fdbCluster, targetVersion)
+			fdbCluster.VerifyVersion(targetVersion)
 
 			// TODO add validation here processes are updated new version
 		},
