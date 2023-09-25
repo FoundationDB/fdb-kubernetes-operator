@@ -788,7 +788,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 		It("should add the prefix to all instances", func() {
 			for _, processGroup := range fdbCluster.GetCluster().Status.ProcessGroups {
-				log.Println(processGroup.String())
+				log.Println("DEBUG", processGroup.String())
 				Expect(string(processGroup.ProcessGroupID)).To(HavePrefix(prefix))
 			}
 
@@ -798,6 +798,8 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				if !pod.DeletionTimestamp.IsZero() {
 					continue
 				}
+
+				log.Println("DEBUG", pod.GetLabels())
 				Expect(string(fixtures.GetProcessGroupID(pod))).To(HavePrefix(prefix))
 			}
 		})
