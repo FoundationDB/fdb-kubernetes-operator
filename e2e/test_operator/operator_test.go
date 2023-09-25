@@ -781,12 +781,14 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		prefix := "banana"
 
 		BeforeEach(func() {
+			currentGeneration := fdbCluster.GetCluster().Generation
 			Expect(fdbCluster.SetProcessGroupPrefix(prefix)).NotTo(HaveOccurred())
-			Expect(fdbCluster.WaitForReconciliation())
+			Expect(fdbCluster.WaitForReconciliation(fixtures.MinimumGenerationOption(currentGeneration), fixtures.SoftReconcileOption(false)))
 		})
 
 		It("should add the prefix to all instances", func() {
 			for _, processGroup := range fdbCluster.GetCluster().Status.ProcessGroups {
+				log.Println(processGroup.String())
 				Expect(string(processGroup.ProcessGroupID)).To(HavePrefix(prefix))
 			}
 
