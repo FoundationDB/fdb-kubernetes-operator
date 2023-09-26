@@ -228,6 +228,14 @@ func (fdbCluster *FdbCluster) waitForReconciliationToGeneration(
 		fdbCluster.cluster.Name,
 	)
 
+	if minimumGeneration > 0 {
+		log.Printf(
+			"waiting for generation %d, current generation: %d",
+			minimumGeneration,
+			fdbCluster.cluster.Generation,
+		)
+	}
+
 	var creationTracker *fdbClusterCreationTracker
 	if creationTrackerLogger != nil {
 		creationTracker = newFdbClusterCreationTracker(
