@@ -27,6 +27,7 @@ import (
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
 	"github.com/go-logr/logr"
 	"math"
+	"strings"
 )
 
 // forbiddenStatusMessages represents messages that could be part of the machine-readable status. Those messages can represent
@@ -62,6 +63,7 @@ type exclusionStatus struct {
 
 // getRemainingAndExcludedFromStatus checks which processes of the input address list are excluded in the cluster and which are not.
 func getRemainingAndExcludedFromStatus(logger logr.Logger, status *fdbv1beta2.FoundationDBStatus, addresses []fdbv1beta2.ProcessAddress) exclusionStatus {
+	logger.V(1).Info("Verify if exclusions are done", "addresses", addresses)
 	notExcludedAddresses := map[string]fdbv1beta2.None{}
 	fullyExcludedAddresses := map[string]int{}
 	visitedAddresses := map[string]int{}
@@ -107,25 +109,39 @@ func getRemainingAndExcludedFromStatus(logger logr.Logger, status *fdbv1beta2.Fo
 	}
 
 	addressesToVerify := map[string]fdbv1beta2.None{}
+	useLocalities := false
 	for _, addr := range addresses {
-		addressesToVerify[addr.MachineAddress()] = fdbv1beta2.None{}
+		address := addr.MachineAddress()
+		addressesToVerify[address] = fdbv1beta2.None{}
+
+		if !useLocalities {
+			useLocalities = strings.HasPrefix(address, fdbv1beta2.FDBLocalityExclusionPrefix)
+		}
 	}
 
 	// Check in the status output which processes are already marked for exclusion in the cluster
 	for _, process := range status.Cluster.Processes {
-		if _, ok := addressesToVerify[process.Address.MachineAddress()]; !ok {
+		var address string
+
+		if useLocalities {
+			address = fmt.Sprintf("%s:%s", fdbv1beta2.FDBLocalityExclusionPrefix, process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey])
+		} else {
+			address = process.Address.MachineAddress()
+		}
+
+		if _, ok := addressesToVerify[address]; !ok {
 			continue
 		}
 
-		visitedAddresses[process.Address.MachineAddress()]++
+		visitedAddresses[address]++
 		if !process.Excluded {
-			notExcludedAddresses[process.Address.MachineAddress()] = fdbv1beta2.None{}
+			notExcludedAddresses[address] = fdbv1beta2.None{}
 			continue
 		}
 
 		if len(process.Roles) == 0 {
 			logger.Info("found fully excluded process without any roles", "process", process)
-			fullyExcludedAddresses[process.Address.MachineAddress()]++
+			fullyExcludedAddresses[address]++
 		}
 	}
 
@@ -137,17 +153,17 @@ func getRemainingAndExcludedFromStatus(logger logr.Logger, status *fdbv1beta2.Fo
 	}
 
 	for _, addr := range addresses {
-		machine := addr.MachineAddress()
+		address := addr.MachineAddress()
 		// If we didn't visit that address (absent in the cluster status) we assume it's safe to run the exclude command against it.
 		// We have to run the exclude command against those addresses, to make sure they are not serving any roles.
-		visitedCount, visited := visitedAddresses[machine]
+		visitedCount, visited := visitedAddresses[address]
 		if !visited {
 			exclusions.missingInStatus = append(exclusions.missingInStatus, addr)
 			continue
 		}
 
 		// Those addresses are not excluded, so it's not safe to start the exclude command to check if they are fully excluded.
-		if _, ok := notExcludedAddresses[machine]; ok {
+		if _, ok := notExcludedAddresses[address]; ok {
 			exclusions.notExcluded = append(exclusions.notExcluded, addr)
 			continue
 		}
@@ -163,7 +179,7 @@ func getRemainingAndExcludedFromStatus(logger logr.Logger, status *fdbv1beta2.Fo
 				exclusions.fullyExcluded = append(exclusions.fullyExcluded, addr)
 				continue
 			}
-			logger.Info("found excluded addresses for machine, but not all processes are fully excluded", "visitedCount", visitedCount, "excludedCount", excludedCount, "machine", machine)
+			logger.Info("found excluded addresses for machine, but not all processes are fully excluded", "visitedCount", visitedCount, "excludedCount", excludedCount, "address", address)
 		}
 
 		// Those are the processes that are marked as excluded but still serve at least one role.

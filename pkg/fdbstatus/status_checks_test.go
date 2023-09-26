@@ -48,12 +48,21 @@ var _ = Describe("status_checks", func() {
 					"1": {
 						Address:  addr1,
 						Excluded: true,
+						Locality: map[string]string{
+							fdbv1beta2.FDBLocalityInstanceIDKey: "1",
+						},
 					},
 					"2": {
 						Address: addr2,
+						Locality: map[string]string{
+							fdbv1beta2.FDBLocalityInstanceIDKey: "2",
+						},
 					},
 					"3": {
 						Address: addr3,
+						Locality: map[string]string{
+							fdbv1beta2.FDBLocalityInstanceIDKey: "3",
+						},
 					},
 					"4": {
 						Address:  addr4,
@@ -63,11 +72,13 @@ var _ = Describe("status_checks", func() {
 								Role: "tester",
 							},
 						},
+						Locality: map[string]string{
+							fdbv1beta2.FDBLocalityInstanceIDKey: "4",
+						},
 					},
 				},
 			},
 		}
-
 		DescribeTable("fetching the excluded and remaining processes from the status",
 			func(status *fdbv1beta2.FoundationDBStatus,
 				addresses []fdbv1beta2.ProcessAddress,
@@ -553,6 +564,22 @@ var _ = Describe("status_checks", func() {
 				[]fdbv1beta2.ProcessAddress{addr4},
 				[]fdbv1beta2.ProcessAddress{addr4},
 				nil,
+				nil,
+				nil,
+			),
+			Entry("when the process is excluded and locality based exclusions are used",
+				status,
+				[]fdbv1beta2.ProcessAddress{fdbv1beta2.NewProcessAddress(net.IP{}, "locality_instance_id:4", 0, nil)},
+				[]fdbv1beta2.ProcessAddress{fdbv1beta2.NewProcessAddress(net.IP{}, "locality_instance_id:4", 0, nil)},
+				nil,
+				nil,
+				nil,
+			),
+			Entry("when the process is not excluded and locality based exclusions are used",
+				status,
+				[]fdbv1beta2.ProcessAddress{fdbv1beta2.NewProcessAddress(net.IP{}, "locality_instance_id:3", 0, nil)},
+				nil,
+				[]fdbv1beta2.ProcessAddress{fdbv1beta2.NewProcessAddress(net.IP{}, "locality_instance_id:3", 0, nil)},
 				nil,
 				nil,
 			),

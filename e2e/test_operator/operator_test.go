@@ -399,6 +399,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			})
 
 			It("should remove the targeted Pod", func() {
+				Expect(pointer.BoolDeref(fdbCluster.GetCluster().Spec.AutomationOptions.UseLocalitiesForExclusion, false)).To(BeTrue())
 				fdbCluster.EnsurePodIsDeleted(replacedPod.Name)
 			})
 		})
