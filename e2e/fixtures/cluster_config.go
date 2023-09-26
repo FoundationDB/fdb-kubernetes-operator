@@ -72,6 +72,8 @@ type ClusterConfig struct {
 	DebugSymbols bool
 	// UseMaintenanceMode if enabled the FoundationDBCluster resource will enable the maintenance mode.
 	UseMaintenanceMode bool
+	// UseLocalityBasedExclusions if enabled the FoundationDBCluster resource will enable the locality based exclusions.
+	UseLocalityBasedExclusions bool
 	// CreationTracker if specified will be used to log the time between the creations steps.
 	CreationTracker CreationTrackerLogger
 	// Number of machines, this is used for calculating the number of Pods and is not correlated to the actual number

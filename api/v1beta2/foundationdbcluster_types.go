@@ -418,7 +418,7 @@ func (processGroupID ProcessGroupID) GetIDNumber() (int, error) {
 
 // GetExclusionString returns the exclusion string
 func (processGroupStatus *ProcessGroupStatus) GetExclusionString() string {
-	return fmt.Sprintf("locality_instance_id:%s", processGroupStatus.ProcessGroupID)
+	return fmt.Sprintf("%s:%s", FDBLocalityExclusionPrefix, processGroupStatus.ProcessGroupID)
 }
 
 // IsExcluded returns if a process group is excluded
@@ -564,8 +564,14 @@ func cleanAddressList(addresses []string) []string {
 
 // AllAddressesExcluded checks if the process group is excluded or if there are still addresses included in the remainingMap.
 // This will return true if the process group skips exclusion or has no remaining addresses.
-func (processGroupStatus *ProcessGroupStatus) AllAddressesExcluded(remainingMap map[string]bool) (bool, error) {
+func (processGroupStatus *ProcessGroupStatus) AllAddressesExcluded(logger logr.Logger, remainingMap map[string]bool) (bool, error) {
 	if processGroupStatus.IsExcluded() {
+		return true, nil
+	}
+
+	localityExclusionString := processGroupStatus.GetExclusionString()
+	if isRemaining, isPresent := remainingMap[localityExclusionString]; isPresent && !isRemaining {
+		logger.V(1).Info("process group is fully excluded based on locality based exclusions", "processGroupID", processGroupStatus.ProcessGroupID, "exclusionString", localityExclusionString)
 		return true, nil
 	}
 

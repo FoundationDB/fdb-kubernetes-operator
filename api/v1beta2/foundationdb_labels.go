@@ -83,4 +83,7 @@ const (
 	// FDBLocalityProcessIDKey represents the key in the locality map that
 	// holds the process ID.
 	FDBLocalityProcessIDKey = "process_id"
+
+	// FDBLocalityExclusionPrefix represents the exclusion prefix for locality based exclusions.
+	FDBLocalityExclusionPrefix = "locality_instance_id"
 )

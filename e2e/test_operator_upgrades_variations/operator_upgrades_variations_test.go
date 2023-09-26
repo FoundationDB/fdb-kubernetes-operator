@@ -27,6 +27,7 @@ Each test will create a new FoundationDB cluster which will be upgraded.
 */
 
 import (
+	"k8s.io/utils/pointer"
 	"log"
 	"time"
 
@@ -309,6 +310,61 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 			}).WithTimeout(5 * time.Minute).WithPolling(1 * time.Second).MustPassRepeatedly(5).Should(Not(BeEmpty()))
 
 			fdbCluster.VerifyVersion(targetVersion)
+		},
+		EntryDescription("Upgrade from %[1]s to %[2]s"),
+		fixtures.GenerateUpgradeTableEntries(testOptions),
+	)
+
+	DescribeTable(
+		"with locality based exclusions",
+		func(beforeVersion string, targetVersion string) {
+			clusterSetupWithConfig(beforeVersion, true, &fixtures.ClusterConfig{
+				DebugSymbols:               false,
+				UseLocalityBasedExclusions: true,
+			})
+
+			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
+			Expect(pointer.BoolDeref(fdbCluster.GetCluster().Spec.AutomationOptions.UseLocalitiesForExclusion, false)).To(BeTrue())
+
+			if !fixtures.VersionsAreProtocolCompatible(beforeVersion, targetVersion) {
+				// Ensure that the operator is setting the IncorrectConfigMap and IncorrectCommandLine conditions during the upgrade
+				// process.
+				expectedConditions := map[fdbv1beta2.ProcessGroupConditionType]bool{
+					fdbv1beta2.IncorrectConfigMap:   true,
+					fdbv1beta2.IncorrectCommandLine: true,
+				}
+				Eventually(func() bool {
+					cluster := fdbCluster.GetCluster()
+
+					for _, processGroup := range cluster.Status.ProcessGroups {
+						if !processGroup.MatchesConditions(expectedConditions) {
+							return false
+						}
+					}
+
+					return true
+				}).WithTimeout(10 * time.Minute).WithPolling(5 * time.Second).Should(BeTrue())
+			}
+
+			transactionSystemProcessGroups := make(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None)
+			// Wait until the cluster is upgraded and fully reconciled.
+			Expect(fdbCluster.WaitUntilWithForceReconcile(2, 600, func(cluster *fdbv1beta2.FoundationDBCluster) bool {
+				for _, processGroup := range cluster.Status.ProcessGroups {
+					if processGroup.ProcessClass == fdbv1beta2.ProcessClassStorage {
+						continue
+					}
+					transactionSystemProcessGroups[processGroup.ProcessGroupID] = fdbv1beta2.None{}
+				}
+
+				// Allow soft reconciliation and make sure the running version was updated
+				return cluster.Status.Generations.Reconciled == cluster.Generation && cluster.Status.RunningVersion == targetVersion
+			})).NotTo(HaveOccurred())
+
+			// Get the desired process counts based on the current cluster configuration
+			processCounts, err := fdbCluster.GetProcessCounts()
+			Expect(err).NotTo(HaveOccurred())
+			expectedProcessCounts := (processCounts.Total()-processCounts.Storage)*2 + 5
+			Expect(len(transactionSystemProcessGroups)).To(BeNumerically("<=", expectedProcessCounts))
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),

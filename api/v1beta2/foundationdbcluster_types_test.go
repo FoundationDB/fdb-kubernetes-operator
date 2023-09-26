@@ -5407,7 +5407,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 	})
 
 	DescribeTable("when checking if all addresses are excluded for a process group", func(processGroupStatus *ProcessGroupStatus, remainingMap map[string]bool, expected bool, expectedErr error) {
-		excluded, err := processGroupStatus.AllAddressesExcluded(remainingMap)
+		excluded, err := processGroupStatus.AllAddressesExcluded(log, remainingMap)
 		Expect(excluded).To(Equal(expected))
 
 		if expectedErr != nil {
