@@ -783,12 +783,17 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		BeforeEach(func() {
 			currentGeneration := fdbCluster.GetCluster().Generation
 			Expect(fdbCluster.SetProcessGroupPrefix(prefix)).NotTo(HaveOccurred())
+
+			log.Println("DEBUGGING: Wait for cluster to be reconciled, current generation:", currentGeneration)
 			Expect(fdbCluster.WaitForReconciliation(fixtures.MinimumGenerationOption(currentGeneration+1), fixtures.SoftReconcileOption(false)))
 		})
 
 		It("should add the prefix to all instances", func() {
+			log.Println("DEBUGGING: Cluster is reconciled, current generation:", fdbCluster.GetCluster().Generation)
 			Eventually(func(g Gomega) bool {
 				for _, processGroup := range fdbCluster.GetCluster().Status.ProcessGroups {
+					log.Println("DEBUGGING: ProcessGroup:", processGroup.String())
+
 					g.Expect(string(processGroup.ProcessGroupID)).To(HavePrefix(prefix))
 				}
 
@@ -798,6 +803,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			Eventually(func(g Gomega) bool {
 				pods := fdbCluster.GetPods()
 				for _, pod := range pods.Items {
+					log.Println("DEBUGGING: Pod:", pod.ObjectMeta.String())
 					g.Expect(string(fixtures.GetProcessGroupID(pod))).To(HavePrefix(prefix))
 				}
 
