@@ -594,17 +594,20 @@ func (processGroupStatus *ProcessGroupStatus) AllAddressesExcluded(logger logr.L
 
 // NewProcessGroupStatus returns a new GroupStatus for the given processGroupID and processClass.
 func NewProcessGroupStatus(processGroupID ProcessGroupID, processClass ProcessClass, addresses []string) *ProcessGroupStatus {
+	initialConditions := []*ProcessGroupCondition{
+		NewProcessGroupCondition(MissingProcesses),
+		NewProcessGroupCondition(MissingPod),
+	}
+
+	if processClass.IsStateful() {
+		initialConditions = append(initialConditions, NewProcessGroupCondition(MissingPVC))
+	}
+
 	return &ProcessGroupStatus{
-		ProcessGroupID: processGroupID,
-		ProcessClass:   processClass,
-		Addresses:      addresses,
-		ProcessGroupConditions: []*ProcessGroupCondition{
-			NewProcessGroupCondition(MissingProcesses),
-			NewProcessGroupCondition(MissingPod),
-			NewProcessGroupCondition(MissingPVC),
-			// TODO(johscheuer): currently we never set this condition
-			// NewProcessGroupCondition(MissingService),
-		},
+		ProcessGroupID:         processGroupID,
+		ProcessClass:           processClass,
+		Addresses:              addresses,
+		ProcessGroupConditions: initialConditions,
 	}
 }
 

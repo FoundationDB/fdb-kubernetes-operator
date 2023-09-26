@@ -5547,4 +5547,42 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				},
 			}, "testing"),
 	)
+
+	When("creating a new ProcessGroup", func() {
+		var processGroupID ProcessGroupID
+		var processClass ProcessClass
+		var processGroup *ProcessGroupStatus
+
+		JustBeforeEach(func() {
+			processGroup = NewProcessGroupStatus(processGroupID, processClass, nil)
+		})
+
+		When("the ProcessGroup is stateful", func() {
+			BeforeEach(func() {
+				processGroupID = "storage-1"
+				processClass = ProcessClassStorage
+			})
+
+			It("should create the new ProcessGroup with the initial conditions", func() {
+				Expect(processGroup).NotTo(BeNil())
+				Expect(processGroup.ProcessGroupConditions).To(HaveLen(3))
+				Expect(processGroup.ProcessClass).To(Equal(processClass))
+				Expect(processGroup.ProcessGroupID).To(Equal(processGroupID))
+			})
+		})
+
+		When("the ProcessGroup is stateless", func() {
+			BeforeEach(func() {
+				processGroupID = "stateless-1"
+				processClass = ProcessClassStateless
+			})
+
+			It("should create the new ProcessGroup with the initial conditions", func() {
+				Expect(processGroup).NotTo(BeNil())
+				Expect(processGroup.ProcessGroupConditions).To(HaveLen(2))
+				Expect(processGroup.ProcessClass).To(Equal(processClass))
+				Expect(processGroup.ProcessGroupID).To(Equal(processGroupID))
+			})
+		})
+	})
 })
