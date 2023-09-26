@@ -394,7 +394,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		When("localities are used for exclusion", func() {
 			BeforeEach(func() {
 				spec := fdbCluster.GetCluster().Spec.DeepCopy()
-				spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(false)
+				spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(true)
 				fdbCluster.UpdateClusterSpecWithSpec(spec)
 			})
 

@@ -324,7 +324,6 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 			})
 
 			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
-			// Make sure the cluster is still running with 2 log server per Pod.
 			Expect(pointer.BoolDeref(fdbCluster.GetCluster().Spec.AutomationOptions.UseLocalitiesForExclusion, false)).To(BeTrue())
 
 			if !fixtures.VersionsAreProtocolCompatible(beforeVersion, targetVersion) {
