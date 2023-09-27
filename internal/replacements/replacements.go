@@ -57,7 +57,7 @@ func ReplaceMisconfiguredProcessGroups(ctx context.Context, podManager podmanage
 		pvc, hasPVC := pvcMap[processGroup.ProcessGroupID]
 		pod, podErr := podManager.GetPod(ctx, client, cluster, processGroup.GetPodName(cluster))
 		if hasPVC {
-			needsPVCRemoval, err := processGroupNeedsRemovalForPVC(cluster, pvc, log)
+			needsPVCRemoval, err := processGroupNeedsRemovalForPVC(cluster, pvc, log, processGroup)
 			if err != nil {
 				return hasReplacements, err
 			}
@@ -94,7 +94,7 @@ func ReplaceMisconfiguredProcessGroups(ctx context.Context, podManager podmanage
 	return hasReplacements, nil
 }
 
-func processGroupNeedsRemovalForPVC(cluster *fdbv1beta2.FoundationDBCluster, pvc corev1.PersistentVolumeClaim, log logr.Logger) (bool, error) {
+func processGroupNeedsRemovalForPVC(cluster *fdbv1beta2.FoundationDBCluster, pvc corev1.PersistentVolumeClaim, log logr.Logger, processGroup *fdbv1beta2.ProcessGroupStatus) (bool, error) {
 	processGroupID := internal.GetProcessGroupIDFromMeta(cluster, pvc.ObjectMeta)
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "pvc", pvc.Name, "processGroupID", processGroupID, "reconciler", "replaceMisconfiguredProcessGroups")
 
@@ -112,12 +112,7 @@ func processGroupNeedsRemovalForPVC(cluster *fdbv1beta2.FoundationDBCluster, pvc
 		return false, nil
 	}
 
-	idNum, err := processGroupID.GetIDNumber()
-	if err != nil {
-		return false, err
-	}
-	processClass := internal.GetProcessClassFromMeta(cluster, pvc.ObjectMeta)
-	desiredPVC, err := internal.GetPvc(cluster, processClass, idNum)
+	desiredPVC, err := internal.GetPvc(cluster, processGroup)
 	if err != nil {
 		return false, err
 	}
@@ -189,7 +184,7 @@ func processGroupNeedsRemoval(cluster *fdbv1beta2.FoundationDBCluster, pod *core
 
 	expectedNodeSelector := cluster.GetProcessSettings(processGroupStatus.ProcessClass).PodTemplate.Spec.NodeSelector
 	if !equality.Semantic.DeepEqual(pod.Spec.NodeSelector, expectedNodeSelector) {
-		specHash, err := internal.GetPodSpecHash(cluster, processGroupStatus.ProcessClass, idNum, nil)
+		specHash, err := internal.GetPodSpecHash(cluster, processGroupStatus, nil)
 		if err != nil {
 			return false, err
 		}
@@ -202,12 +197,12 @@ func processGroupNeedsRemoval(cluster *fdbv1beta2.FoundationDBCluster, pod *core
 	}
 
 	if cluster.NeedsReplacement(processGroupStatus) {
-		spec, err := internal.GetPodSpec(cluster, processGroupStatus.ProcessClass, idNum)
+		spec, err := internal.GetPodSpec(cluster, processGroupStatus)
 		if err != nil {
 			return false, err
 		}
 
-		specHash, err := internal.GetPodSpecHash(cluster, processGroupStatus.ProcessClass, idNum, spec)
+		specHash, err := internal.GetPodSpecHash(cluster, processGroupStatus, spec)
 		if err != nil {
 			return false, err
 		}
@@ -229,7 +224,7 @@ func processGroupNeedsRemoval(cluster *fdbv1beta2.FoundationDBCluster, pod *core
 	}
 
 	if pointer.BoolDeref(cluster.Spec.ReplaceInstancesWhenResourcesChange, false) {
-		desiredSpec, err := internal.GetPodSpec(cluster, processGroupStatus.ProcessClass, idNum)
+		desiredSpec, err := internal.GetPodSpec(cluster, processGroupStatus)
 		if err != nil {
 			return false, err
 		}

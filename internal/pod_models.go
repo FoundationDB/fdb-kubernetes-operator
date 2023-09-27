@@ -72,16 +72,14 @@ func generateServicePorts(processesPerPod int) []corev1.ServicePort {
 }
 
 // GetService builds a service for a new process group
-func GetService(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, idNum int) (*corev1.Service, error) {
-	name, id := cluster.GetProcessGroupID(processClass, idNum)
-
+func GetService(cluster *fdbv1beta2.FoundationDBCluster, processGroup *fdbv1beta2.ProcessGroupStatus) (*corev1.Service, error) {
 	owner := BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
-	metadata := GetObjectMetadata(cluster, nil, processClass, id)
-	metadata.Name = name
+	metadata := GetObjectMetadata(cluster, nil, processGroup.ProcessClass, processGroup.ProcessGroupID)
+	metadata.Name = processGroup.GetPodName(cluster)
 	metadata.OwnerReferences = owner
 
 	processesPerPod := 1
-	if processClass == fdbv1beta2.ProcessClassStorage {
+	if processGroup.ProcessClass == fdbv1beta2.ProcessClassStorage {
 		processesPerPod = cluster.GetStorageServersPerPod()
 	}
 
@@ -95,29 +93,27 @@ func GetService(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 			Type:                     corev1.ServiceTypeClusterIP,
 			Ports:                    generateServicePorts(processesPerPod),
 			PublishNotReadyAddresses: true,
-			Selector:                 GetPodMatchLabels(cluster, "", string(id)),
+			Selector:                 GetPodMatchLabels(cluster, "", string(processGroup.ProcessGroupID)),
 			IPFamilies:               ipFamilies,
 		},
 	}, nil
 }
 
 // GetPod builds a pod for a new process group
-func GetPod(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, idNum int) (*corev1.Pod, error) {
-	name, id := cluster.GetProcessGroupID(processClass, idNum)
-
+func GetPod(cluster *fdbv1beta2.FoundationDBCluster, processGroup *fdbv1beta2.ProcessGroupStatus) (*corev1.Pod, error) {
 	owner := BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
-	spec, err := GetPodSpec(cluster, processClass, idNum)
+	spec, err := GetPodSpec(cluster, processGroup)
 	if err != nil {
 		return nil, err
 	}
 
-	specHash, err := GetPodSpecHash(cluster, processClass, idNum, spec)
+	specHash, err := GetPodSpecHash(cluster, processGroup, spec)
 	if err != nil {
 		return nil, err
 	}
 
-	metadata := GetPodMetadata(cluster, processClass, id, specHash)
-	metadata.Name = name
+	metadata := GetPodMetadata(cluster, processGroup.ProcessClass, processGroup.ProcessGroupID, specHash)
+	metadata.Name = processGroup.GetPodName(cluster)
 	metadata.OwnerReferences = owner
 
 	return &corev1.Pod{
@@ -389,8 +385,8 @@ func configureNoSchedule(podSpec *corev1.PodSpec, processGroupID fdbv1beta2.Proc
 }
 
 // GetPodSpec builds a pod spec for a FoundationDB pod
-func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, idNum int) (*corev1.PodSpec, error) {
-	processSettings := cluster.GetProcessSettings(processClass)
+func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processGroup *fdbv1beta2.ProcessGroupStatus) (*corev1.PodSpec, error) {
+	processSettings := cluster.GetProcessSettings(processGroup.ProcessClass)
 	podSpec := processSettings.PodTemplate.Spec.DeepCopy()
 	useUnifiedImages := pointer.BoolDeref(cluster.Spec.UseUnifiedImage, false)
 
@@ -404,7 +400,6 @@ func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 		return nil, err
 	}
 
-	podName, processGroupID := cluster.GetProcessGroupID(processClass, idNum)
 	desiredVersion := cluster.GetRunningVersion()
 	if cluster.VersionCompatibleUpgradeInProgress() {
 		desiredVersion = cluster.Spec.Version
@@ -427,8 +422,9 @@ func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 		logGroup = cluster.Name
 	}
 
+	podName := processGroup.GetPodName(cluster)
 	if useUnifiedImages {
-		err = configureContainersForUnifiedImages(cluster, mainContainer, sidecarContainer, processGroupID, processClass)
+		err = configureContainersForUnifiedImages(cluster, mainContainer, sidecarContainer, processGroup.ProcessGroupID, processGroup.ProcessClass)
 		if err != nil {
 			return nil, err
 		}
@@ -442,7 +438,7 @@ func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 
 		for _, crashObjs := range cluster.Spec.Buggify.CrashLoopContainers {
 			for _, pid := range crashObjs.Targets {
-				if (pid == processGroupID || pid == "*") && crashObjs.ContainerName == mainContainer.Name {
+				if (pid == processGroup.ProcessGroupID || pid == "*") && crashObjs.ContainerName == mainContainer.Name {
 					args = "crash-loop"
 					break
 				}
@@ -456,27 +452,27 @@ func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 			corev1.VolumeMount{Name: "fdb-trace-logs", MountPath: "/var/log/fdb-trace-logs"},
 		)
 
-		err = configureSidecarContainerForCluster(cluster, podName, initContainer, true, processGroupID, desiredVersion)
+		err = configureSidecarContainerForCluster(cluster, podName, initContainer, true, processGroup.ProcessGroupID, desiredVersion)
 		if err != nil {
 			return nil, err
 		}
 
-		err = configureSidecarContainerForCluster(cluster, podName, sidecarContainer, false, processGroupID, desiredVersion)
+		err = configureSidecarContainerForCluster(cluster, podName, sidecarContainer, false, processGroup.ProcessGroupID, desiredVersion)
 		if err != nil {
 			return nil, err
 		}
 
-		serversPerPod := cluster.GetDesiredServersPerPod(processClass)
+		serversPerPod := cluster.GetDesiredServersPerPod(processGroup.ProcessClass)
 		if serversPerPod > 1 {
-			sidecarContainer.Env = append(sidecarContainer.Env, corev1.EnvVar{Name: processClass.GetServersPerPodEnvName(), Value: strconv.Itoa(serversPerPod)})
+			sidecarContainer.Env = append(sidecarContainer.Env, corev1.EnvVar{Name: processGroup.ProcessClass.GetServersPerPodEnvName(), Value: strconv.Itoa(serversPerPod)})
 		}
 	}
 
 	ensureSecurityContextIsPresent(mainContainer)
 	ensureSecurityContextIsPresent(sidecarContainer)
-	setAffinityForFaultDomain(cluster, podSpec, processClass)
-	configureVolumesForContainers(cluster, podSpec, processSettings.VolumeClaimTemplate, podName, processClass)
-	configureNoSchedule(podSpec, processGroupID, cluster.Spec.Buggify.NoSchedule)
+	setAffinityForFaultDomain(cluster, podSpec, processGroup.ProcessClass)
+	configureVolumesForContainers(cluster, podSpec, processSettings.VolumeClaimTemplate, podName, processGroup.ProcessClass)
+	configureNoSchedule(podSpec, processGroup.ProcessGroupID, cluster.Spec.Buggify.NoSchedule)
 
 	if !useUnifiedImages {
 		replaceContainers(podSpec.InitContainers, initContainer)
@@ -741,13 +737,12 @@ func usePvc(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.Pro
 }
 
 // GetPvc builds a persistent volume claim for a FoundationDB process group.
-func GetPvc(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, idNum int) (*corev1.PersistentVolumeClaim, error) {
-	if !usePvc(cluster, processClass) {
+func GetPvc(cluster *fdbv1beta2.FoundationDBCluster, processGroup *fdbv1beta2.ProcessGroupStatus) (*corev1.PersistentVolumeClaim, error) {
+	if !usePvc(cluster, processGroup.ProcessClass) {
 		return nil, nil
 	}
-	name, id := cluster.GetProcessGroupID(processClass, idNum)
 
-	processSettings := cluster.GetProcessSettings(processClass)
+	processSettings := cluster.GetProcessSettings(processGroup.ProcessClass)
 	var pvc *corev1.PersistentVolumeClaim
 	if processSettings.VolumeClaimTemplate != nil {
 		pvc = processSettings.VolumeClaimTemplate.DeepCopy()
@@ -755,7 +750,8 @@ func GetPvc(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.Pro
 		pvc = &corev1.PersistentVolumeClaim{}
 	}
 
-	pvc.ObjectMeta = GetPvcMetadata(cluster, processClass, id)
+	pvc.ObjectMeta = GetPvcMetadata(cluster, processGroup.ProcessClass, processGroup.ProcessGroupID)
+	name := processGroup.GetPodName(cluster)
 	if pvc.ObjectMeta.Name == "" {
 		pvc.ObjectMeta.Name = fmt.Sprintf("%s-data", name)
 	} else {

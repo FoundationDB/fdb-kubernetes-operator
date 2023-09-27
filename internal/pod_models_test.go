@@ -47,7 +47,7 @@ var _ = Describe("pod_models", func() {
 
 		Context("with a basic storage process group", func() {
 			BeforeEach(func() {
-				pod, err = GetPod(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				pod, err = GetPod(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -62,7 +62,7 @@ var _ = Describe("pod_models", func() {
 			})
 
 			It("should contain the process group's pod spec", func() {
-				spec, err := GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				spec, err := GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).NotTo(HaveOccurred())
 				Expect(pod.Spec).To(Equal(*spec))
 			})
@@ -82,7 +82,7 @@ var _ = Describe("pod_models", func() {
 				err = NormalizeClusterSpec(cluster, DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
-				pod, err = GetPod(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				pod, err = GetPod(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -101,7 +101,7 @@ var _ = Describe("pod_models", func() {
 
 		Context("with a cluster controller process group", func() {
 			BeforeEach(func() {
-				pod, err = GetPod(cluster, fdbv1beta2.ProcessClassClusterController, 1)
+				pod, err = GetPod(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassClusterController, 1))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -115,7 +115,7 @@ var _ = Describe("pod_models", func() {
 			})
 
 			It("should contain the process group's pod spec", func() {
-				spec, err := GetPodSpec(cluster, fdbv1beta2.ProcessClassClusterController, 1)
+				spec, err := GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassClusterController, 1))
 				Expect(err).NotTo(HaveOccurred())
 				Expect(pod.Spec).To(Equal(*spec))
 			})
@@ -129,17 +129,17 @@ var _ = Describe("pod_models", func() {
 					},
 				}
 
-				pod, err = GetPod(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				pod, err = GetPod(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			It("should add the annotations to the metadata", func() {
-				hash, err := GetPodSpecHash(cluster, ProcessClassFromLabels(cluster, pod.Labels), 1, &pod.Spec)
+				hash, err := GetPodSpecHash(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1), &pod.Spec)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(pod.ObjectMeta.Annotations).To(Equal(map[string]string{
-					"fdb-annotation":                     "value1",
-					"foundationdb.org/last-applied-spec": hash,
-					"foundationdb.org/public-ip-source":  "pod",
+					"fdb-annotation":                    "value1",
+					fdbv1beta2.LastSpecKey:              hash,
+					fdbv1beta2.PublicIPSourceAnnotation: "pod",
 				}))
 			})
 		})
@@ -157,7 +157,7 @@ var _ = Describe("pod_models", func() {
 				err := NormalizeClusterSpec(cluster, DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
-				pod, err = GetPod(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				pod, err = GetPod(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -178,7 +178,7 @@ var _ = Describe("pod_models", func() {
 		Context("with a version compatible upgrade in progress", func() {
 			BeforeEach(func() {
 				cluster.Spec.Version = fdbv1beta2.Versions.NextPatchVersion.String()
-				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -197,7 +197,7 @@ var _ = Describe("pod_models", func() {
 		Context("with a version incompatible upgrade in progress", func() {
 			BeforeEach(func() {
 				cluster.Spec.Version = fdbv1beta2.Versions.NextMajorVersion.String()
-				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -215,7 +215,7 @@ var _ = Describe("pod_models", func() {
 
 		Context("with a basic storage process group", func() {
 			BeforeEach(func() {
-				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -405,7 +405,7 @@ var _ = Describe("pod_models", func() {
 						Value: "",
 						Key:   "kubernetes.io/hostname",
 					}
-					spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+					spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -418,7 +418,7 @@ var _ = Describe("pod_models", func() {
 				BeforeEach(func() {
 					enabled := true
 					cluster.Spec.SidecarContainer.EnableLivenessProbe = &enabled
-					spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+					spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -439,7 +439,7 @@ var _ = Describe("pod_models", func() {
 				BeforeEach(func() {
 					enabled := false
 					cluster.Spec.SidecarContainer.EnableReadinessProbe = &enabled
-					spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+					spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -460,7 +460,7 @@ var _ = Describe("pod_models", func() {
 				BeforeEach(func() {
 					enabled := true
 					cluster.Spec.SidecarContainer.EnableReadinessProbe = &enabled
-					spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+					spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -488,7 +488,7 @@ var _ = Describe("pod_models", func() {
 			})
 			When("running one storage server per disk", func() {
 				BeforeEach(func() {
-					spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+					spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -606,7 +606,7 @@ var _ = Describe("pod_models", func() {
 			When("running multiple storage servers per disk", func() {
 				BeforeEach(func() {
 					cluster.Spec.StorageServersPerPod = 2
-					spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+					spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -662,7 +662,7 @@ var _ = Describe("pod_models", func() {
 			When("creating a log with multiple storage servers per disk", func() {
 				BeforeEach(func() {
 					cluster.Spec.StorageServersPerPod = 2
-					spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassLog, 1)
+					spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassLog, 1))
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -716,7 +716,7 @@ var _ = Describe("pod_models", func() {
 			When("running multiple log servers per disk", func() {
 				BeforeEach(func() {
 					cluster.Spec.LogServersPerPod = 2
-					spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassLog, 1)
+					spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassLog, 1))
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -774,7 +774,7 @@ var _ = Describe("pod_models", func() {
 					cluster.Spec.Buggify.CrashLoop = []fdbv1beta2.ProcessGroupID{"storage-1"}
 					err := NormalizeClusterSpec(cluster, DeprecationOptions{})
 					Expect(err).NotTo(HaveOccurred())
-					spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+					spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -795,7 +795,7 @@ var _ = Describe("pod_models", func() {
 					}
 					err := NormalizeClusterSpec(cluster, DeprecationOptions{})
 					Expect(err).NotTo(HaveOccurred())
-					spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+					spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -817,7 +817,7 @@ var _ = Describe("pod_models", func() {
 			BeforeEach(func() {
 				family := 6
 				cluster.Spec.Routing.PodIPFamily = &family
-				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -904,7 +904,7 @@ var _ = Describe("pod_models", func() {
 		When("enabling DNS in the cluster file", func() {
 			BeforeEach(func() {
 				cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(true)
-				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 			})
 
 			It("should set an additional environment variable on the init container", func() {
@@ -988,7 +988,7 @@ var _ = Describe("pod_models", func() {
 		When("enabling DNS in the locality fields", func() {
 			BeforeEach(func() {
 				cluster.Spec.Routing.DefineDNSLocalityFields = pointer.Bool(true)
-				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 			})
 
 			It("should set an additional environment variable on the init container", func() {
@@ -1093,7 +1093,7 @@ var _ = Describe("pod_models", func() {
 					Value: "",
 					Key:   "kubernetes.io/hostname",
 				}
-				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -1108,7 +1108,7 @@ var _ = Describe("pod_models", func() {
 				cluster.Spec.Buggify.CrashLoop = []fdbv1beta2.ProcessGroupID{"storage-1"}
 				err := NormalizeClusterSpec(cluster, DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
-				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -1124,7 +1124,7 @@ var _ = Describe("pod_models", func() {
 				cluster.Spec.Buggify.CrashLoop = []fdbv1beta2.ProcessGroupID{"*"}
 				err := NormalizeClusterSpec(cluster, DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
-				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -1140,7 +1140,7 @@ var _ = Describe("pod_models", func() {
 				cluster.Spec.Buggify.CrashLoop = []fdbv1beta2.ProcessGroupID{"storage-2"}
 				err := NormalizeClusterSpec(cluster, DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
-				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -1164,7 +1164,7 @@ var _ = Describe("pod_models", func() {
 						Targets:       []fdbv1beta2.ProcessGroupID{"storage-2"},
 					},
 				}
-				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -1188,7 +1188,7 @@ var _ = Describe("pod_models", func() {
 						Targets:       []fdbv1beta2.ProcessGroupID{"storage-1"},
 					},
 				}
-				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -1213,7 +1213,7 @@ var _ = Describe("pod_models", func() {
 						Targets:       []fdbv1beta2.ProcessGroupID{"storage-1"},
 					},
 				}
-				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -1233,7 +1233,7 @@ var _ = Describe("pod_models", func() {
 		Context("with an process group with scheduling broken", func() {
 			BeforeEach(func() {
 				cluster.Spec.Buggify.NoSchedule = []fdbv1beta2.ProcessGroupID{"storage-1"}
-				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -1252,7 +1252,7 @@ var _ = Describe("pod_models", func() {
 		Context("with a basic storage process group with multiple storage servers per disk", func() {
 			BeforeEach(func() {
 				cluster.Spec.StorageServersPerPod = 2
-				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -1425,7 +1425,7 @@ var _ = Describe("pod_models", func() {
 			BeforeEach(func() {
 				var source = fdbv1beta2.PublicIPSourcePod
 				cluster.Spec.Routing.PublicIPSource = &source
-				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -1493,7 +1493,7 @@ var _ = Describe("pod_models", func() {
 				cluster.Spec.Routing.PublicIPSource = &source
 				enabled := true
 				cluster.Spec.UseExplicitListenAddress = &enabled
-				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -1563,7 +1563,7 @@ var _ = Describe("pod_models", func() {
 			BeforeEach(func() {
 				var source = fdbv1beta2.PublicIPSourceService
 				cluster.Spec.Routing.PublicIPSource = &source
-				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -1633,7 +1633,7 @@ var _ = Describe("pod_models", func() {
 			BeforeEach(func() {
 				var enabled = true
 				cluster.Spec.Routing.HeadlessService = &enabled
-				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -1647,7 +1647,7 @@ var _ = Describe("pod_models", func() {
 			BeforeEach(func() {
 				var enabled = false
 				cluster.Spec.Routing.HeadlessService = &enabled
-				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -1682,7 +1682,7 @@ var _ = Describe("pod_models", func() {
 				err := NormalizeClusterSpec(cluster, DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
-				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -1710,7 +1710,7 @@ var _ = Describe("pod_models", func() {
 				err := NormalizeClusterSpec(cluster, DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
-				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -1725,7 +1725,7 @@ var _ = Describe("pod_models", func() {
 		Context("with a host-based fault domain", func() {
 			BeforeEach(func() {
 				cluster.Spec.FaultDomain = fdbv1beta2.FoundationDBClusterFaultDomain{}
-				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 			})
 
 			It("should set the fault domain information in the sidecar environment", func() {
@@ -1781,7 +1781,7 @@ var _ = Describe("pod_models", func() {
 				err = NormalizeClusterSpec(cluster, DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
-				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -1815,7 +1815,7 @@ var _ = Describe("pod_models", func() {
 					Key:       "rack",
 					ValueFrom: "$RACK",
 				}
-				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -1865,7 +1865,7 @@ var _ = Describe("pod_models", func() {
 					Key:   "foundationdb.org/kubernetes-cluster",
 					Value: "kc2",
 				}
-				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -1912,7 +1912,7 @@ var _ = Describe("pod_models", func() {
 				err = NormalizeClusterSpec(cluster, DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
-				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -1970,7 +1970,7 @@ var _ = Describe("pod_models", func() {
 			})
 
 			It("should return an error since a tag is specified", func() {
-				_, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				_, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).To(HaveOccurred())
 			})
 		})
@@ -2006,7 +2006,7 @@ var _ = Describe("pod_models", func() {
 					},
 				}}}
 
-				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2066,7 +2066,7 @@ var _ = Describe("pod_models", func() {
 				cluster.Spec.SidecarContainer.EnableTLS = true
 				cluster.Spec.SidecarContainer.PeerVerificationRules = "S.CN=foundationdb.org"
 
-				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2169,7 +2169,7 @@ var _ = Describe("pod_models", func() {
 				err = NormalizeClusterSpec(cluster, DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
-				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2238,7 +2238,7 @@ var _ = Describe("pod_models", func() {
 				}
 				err = NormalizeClusterSpec(cluster, DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
-				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2291,7 +2291,7 @@ var _ = Describe("pod_models", func() {
 					},
 				}}}
 
-				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2318,7 +2318,7 @@ var _ = Describe("pod_models", func() {
 		Context("with an process group ID prefix", func() {
 			BeforeEach(func() {
 				cluster.Spec.ProcessGroupIDPrefix = "dc1"
-				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2345,7 +2345,7 @@ var _ = Describe("pod_models", func() {
 		Context("with custom map", func() {
 			BeforeEach(func() {
 				cluster.Spec.ConfigMap = &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "config1"}}
-				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2356,7 +2356,7 @@ var _ = Describe("pod_models", func() {
 
 		Context("with no custom map", func() {
 			BeforeEach(func() {
-				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).NotTo(HaveOccurred())
 			})
 			It("adds config-map volume that refers to custom map", func() {
@@ -2370,7 +2370,7 @@ var _ = Describe("pod_models", func() {
 				err = NormalizeClusterSpec(cluster, DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
-				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2381,7 +2381,7 @@ var _ = Describe("pod_models", func() {
 
 		Context("with no custom pvc", func() {
 			BeforeEach(func() {
-				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).NotTo(HaveOccurred())
 			})
 			It("adds data volume that refers to default pvc", func() {
@@ -2392,7 +2392,7 @@ var _ = Describe("pod_models", func() {
 		Context("with a custom CA", func() {
 			BeforeEach(func() {
 				cluster.Spec.TrustedCAs = []string{"Test"}
-				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 			})
 
 			It("should pass the CA file to the main container", func() {
@@ -2498,7 +2498,7 @@ var _ = Describe("pod_models", func() {
 				}
 				err = NormalizeClusterSpec(cluster, DeprecationOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -2533,7 +2533,7 @@ var _ = Describe("pod_models", func() {
 				}
 				err = NormalizeClusterSpec(cluster, DeprecationOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -2559,7 +2559,7 @@ var _ = Describe("pod_models", func() {
 
 		Context("with a basic storage process group", func() {
 			BeforeEach(func() {
-				service, err = GetService(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				service, err = GetService(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2594,7 +2594,7 @@ var _ = Describe("pod_models", func() {
 		Context("with podIPFamily 6", func() {
 			BeforeEach(func() {
 				cluster.Spec.Routing.PodIPFamily = pointer.Int(6)
-				service, err = GetService(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				service, err = GetService(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2630,7 +2630,7 @@ var _ = Describe("pod_models", func() {
 				err = NormalizeClusterSpec(cluster, DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
-				service, err = GetService(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				service, err = GetService(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2669,7 +2669,7 @@ var _ = Describe("pod_models", func() {
 
 		Context("with a basic storage process group", func() {
 			BeforeEach(func() {
-				pvc, err = GetPvc(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				pvc, err = GetPvc(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2704,7 +2704,7 @@ var _ = Describe("pod_models", func() {
 				err = NormalizeClusterSpec(cluster, DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
-				pvc, err = GetPvc(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				pvc, err = GetPvc(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2732,7 +2732,7 @@ var _ = Describe("pod_models", func() {
 						},
 					},
 				}}}
-				pvc, err = GetPvc(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				pvc, err = GetPvc(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2757,7 +2757,7 @@ var _ = Describe("pod_models", func() {
 						},
 					},
 				}}}
-				pvc, err = GetPvc(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				pvc, err = GetPvc(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2788,7 +2788,7 @@ var _ = Describe("pod_models", func() {
 						},
 					},
 				}}}
-				pvc, err = GetPvc(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				pvc, err = GetPvc(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2806,7 +2806,7 @@ var _ = Describe("pod_models", func() {
 						StorageClassName: &class,
 					},
 				}}}
-				pvc, err = GetPvc(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				pvc, err = GetPvc(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2817,7 +2817,7 @@ var _ = Describe("pod_models", func() {
 
 		Context("for a stateless process group", func() {
 			BeforeEach(func() {
-				pvc, err = GetPvc(cluster, fdbv1beta2.ProcessClassStateless, 1)
+				pvc, err = GetPvc(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStateless, 1))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2829,7 +2829,7 @@ var _ = Describe("pod_models", func() {
 		Context("with an process group ID prefix", func() {
 			BeforeEach(func() {
 				cluster.Spec.ProcessGroupIDPrefix = "dc1"
-				pvc, err = GetPvc(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				pvc, err = GetPvc(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2846,7 +2846,7 @@ var _ = Describe("pod_models", func() {
 		Context("with an process group ID prefix", func() {
 			BeforeEach(func() {
 				cluster.Spec.ProcessGroupIDPrefix = "dc1"
-				pvc, err = GetPvc(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				pvc, err = GetPvc(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2865,7 +2865,7 @@ var _ = Describe("pod_models", func() {
 				cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{fdbv1beta2.ProcessClassGeneral: {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
 					ObjectMeta: metav1.ObjectMeta{Name: "pvc1"},
 				}}}
-				pvc, err = GetPvc(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				pvc, err = GetPvc(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2876,7 +2876,7 @@ var _ = Describe("pod_models", func() {
 
 		Context("with default name in the suffix", func() {
 			BeforeEach(func() {
-				pvc, err = GetPvc(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				pvc, err = GetPvc(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -3539,10 +3539,11 @@ var _ = Describe("pod_models", func() {
 
 	Describe("ContainsPod", func() {
 		var pod1, pod2 *corev1.Pod
+
 		BeforeEach(func() {
-			pod1, err = GetPod(cluster, fdbv1beta2.ProcessClassStorage, 1)
+			pod1, err = GetPod(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 			Expect(err).NotTo(HaveOccurred())
-			pod2, err = GetPod(cluster, fdbv1beta2.ProcessClassStorage, 2)
+			pod2, err = GetPod(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 2))
 			Expect(err).NotTo(HaveOccurred())
 			pod2.Labels[fdbv1beta2.FDBClusterLabel] = "incorrect-cluster-name"
 		})

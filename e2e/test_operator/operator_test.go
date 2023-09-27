@@ -781,15 +781,29 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		prefix := "banana"
 
 		BeforeEach(func() {
+			currentGeneration := fdbCluster.GetCluster().Generation
 			Expect(fdbCluster.SetProcessGroupPrefix(prefix)).NotTo(HaveOccurred())
-			Expect(fdbCluster.WaitForReconciliation())
+			Expect(fdbCluster.WaitForReconciliation(fixtures.MinimumGenerationOption(currentGeneration+1), fixtures.SoftReconcileOption(false)))
 		})
 
 		It("should add the prefix to all instances", func() {
-			pods := fdbCluster.GetPods()
-			for _, pod := range pods.Items {
-				Expect(string(fixtures.GetProcessGroupID(pod))).To(HavePrefix(prefix))
-			}
+			log.Println("DEBUGGING: Cluster is reconciled, current generation:", fdbCluster.GetCluster().Generation)
+			Eventually(func(g Gomega) bool {
+				for _, processGroup := range fdbCluster.GetCluster().Status.ProcessGroups {
+					g.Expect(string(processGroup.ProcessGroupID)).To(HavePrefix(prefix))
+				}
+
+				return true
+			}).WithTimeout(10 * time.Minute).WithPolling(5 * time.Second).Should(BeTrue())
+
+			Eventually(func(g Gomega) bool {
+				pods := fdbCluster.GetPods()
+				for _, pod := range pods.Items {
+					g.Expect(string(fixtures.GetProcessGroupID(pod))).To(HavePrefix(prefix))
+				}
+
+				return true
+			}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(BeTrue())
 		})
 	})
 

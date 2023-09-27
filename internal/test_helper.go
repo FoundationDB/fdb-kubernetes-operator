@@ -94,3 +94,13 @@ func CreateDefaultBackup(cluster *fdbv1beta2.FoundationDBCluster) *fdbv1beta2.Fo
 		Status: fdbv1beta2.FoundationDBBackupStatus{},
 	}
 }
+
+// GetProcessGroup is a helper method that creates a ProcessGroup based on the provided process class and id number.
+func GetProcessGroup(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, idNum int) *fdbv1beta2.ProcessGroupStatus {
+	_, processGroupID := cluster.GetProcessGroupID(processClass, idNum)
+
+	return &fdbv1beta2.ProcessGroupStatus{
+		ProcessClass:   processClass,
+		ProcessGroupID: processGroupID,
+	}
+}

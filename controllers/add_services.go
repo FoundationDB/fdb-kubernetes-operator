@@ -38,23 +38,23 @@ type addServices struct{}
 
 // reconcile runs the reconciler's work.
 func (a addServices) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, _ *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
-	service := internal.GetHeadlessService(cluster)
-	if service != nil {
+	headlessService := internal.GetHeadlessService(cluster)
+	if headlessService != nil {
 		existingService := &corev1.Service{}
 		err := r.Get(ctx, client.ObjectKey{Namespace: cluster.Namespace, Name: cluster.Name}, existingService)
 		if err == nil {
-			err = updateService(ctx, logger, cluster, r, existingService, service)
+			err = updateService(ctx, logger, cluster, r, existingService, headlessService)
 			if err != nil {
-				return &requeue{curError: err}
+				return &requeue{curError: err, delayedRequeue: true}
 			}
 		} else {
 			if !k8serrors.IsNotFound(err) {
 				return &requeue{curError: err}
 			}
 			owner := internal.BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
-			service.ObjectMeta.OwnerReferences = owner
-			logger.V(1).Info("Creating service", "name", service.Name)
-			err = r.Create(ctx, service)
+			headlessService.ObjectMeta.OwnerReferences = owner
+			logger.V(1).Info("Creating service", "name", headlessService.Name)
+			err = r.Create(ctx, headlessService)
 			if err != nil {
 				return &requeue{curError: err, delayedRequeue: true}
 			}
@@ -67,36 +67,26 @@ func (a addServices) reconcile(ctx context.Context, r *FoundationDBClusterReconc
 				continue
 			}
 
-			idNum, err := processGroup.ProcessGroupID.GetIDNumber()
+			service, err := internal.GetService(cluster, processGroup)
 			if err != nil {
-				return &requeue{curError: err}
-			}
-
-			serviceName, _ := cluster.GetProcessGroupID(processGroup.ProcessClass, idNum)
-			service, err := internal.GetService(cluster, processGroup.ProcessClass, idNum)
-			if err != nil {
-				return &requeue{curError: err}
+				return &requeue{curError: err, delayedRequeue: true}
 			}
 
 			existingService := &corev1.Service{}
-			err = r.Get(ctx, client.ObjectKey{Namespace: cluster.Namespace, Name: serviceName}, existingService)
+			err = r.Get(ctx, client.ObjectKey{Namespace: cluster.Namespace, Name: service.Name}, existingService)
 			if err == nil {
 				err = updateService(ctx, logger, cluster, r, existingService, service)
 				if err != nil {
-					return &requeue{curError: err}
+					return &requeue{curError: err, delayedRequeue: true}
 				}
 			} else if k8serrors.IsNotFound(err) {
 				logger.V(1).Info("Creating service", "name", service.Name)
 				err = r.Create(ctx, service)
 				if err != nil {
-					if internal.IsQuotaExceeded(err) {
-						return &requeue{curError: err, delayedRequeue: true}
-					}
-
-					return &requeue{curError: err}
+					return &requeue{curError: err, delayedRequeue: true}
 				}
 			} else {
-				return &requeue{curError: err}
+				return &requeue{curError: err, delayedRequeue: true}
 			}
 		}
 	}

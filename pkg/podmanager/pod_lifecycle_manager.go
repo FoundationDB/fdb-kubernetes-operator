@@ -183,7 +183,11 @@ func (manager StandardPodLifecycleManager) PodIsUpdated(context.Context, client.
 // GetPodSpec provides an external interface for the internal GetPodSpec method
 // This is necessary for compatibility reasons.
 func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, idNum int) (*corev1.PodSpec, error) {
-	return internal.GetPodSpec(cluster, processClass, idNum)
+	_, processGroupID := cluster.GetProcessGroupID(processClass, idNum)
+	return internal.GetPodSpec(cluster, &fdbv1beta2.ProcessGroupStatus{
+		ProcessClass:   processClass,
+		ProcessGroupID: processGroupID,
+	})
 }
 
 // GetDeletionMode returns the PodUpdateMode of the cluster if set or the default value Zone.
