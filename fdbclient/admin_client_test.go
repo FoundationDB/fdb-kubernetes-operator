@@ -693,6 +693,11 @@ protocol fdb00b071010000`,
 		When("the old version returns the correct result", func() {
 			BeforeEach(func() {
 				inputStatus := &fdbv1beta2.FoundationDBStatus{
+					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+							Available: true,
+						},
+					},
 					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
 						Processes: map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{
 							"1": {},
@@ -709,7 +714,7 @@ protocol fdb00b071010000`,
 				}
 			})
 
-			It("should the correct status", func() {
+			It("should return the correct status", func() {
 				Expect(status).NotTo(BeNil())
 				Expect(status.Cluster.Processes).To(HaveLen(1))
 				Expect(err).NotTo(HaveOccurred())
@@ -723,6 +728,11 @@ protocol fdb00b071010000`,
 			Expect(err).NotTo(HaveOccurred())
 
 			inputStatus := &fdbv1beta2.FoundationDBStatus{
+				Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+					DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+						Available: true,
+					},
+				},
 				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
 					Processes: map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{
 						"1": {},
@@ -743,7 +753,7 @@ protocol fdb00b071010000`,
 				}
 			})
 
-			It("should the correct status", func() {
+			It("should return the correct status", func() {
 				Expect(status).NotTo(BeNil())
 				Expect(status.Cluster.Processes).To(HaveLen(1))
 				Expect(err).NotTo(HaveOccurred())

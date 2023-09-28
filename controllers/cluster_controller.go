@@ -136,7 +136,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 		clusterLog.Info("Fetch machine-readable status for reconcilitation loop", "cacheStatus", cacheStatus)
 		status, err = r.getStatusFromClusterOrDummyStatus(clusterLog, cluster)
 		if err != nil {
-			return ctrl.Result{Requeue: true}, err
+			return ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
 		}
 	}
 
@@ -387,6 +387,17 @@ func (r *FoundationDBClusterReconciler) takeLock(logger logr.Logger, cluster *fd
 	return hasLock, nil
 }
 
+// releaseLock attempts to release a lock.
+func (r *FoundationDBClusterReconciler) releaseLock(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster) error {
+	logger.Info("Release lock on cluster", "namespace", cluster.Namespace, "cluster", cluster.Name)
+	lockClient, err := r.getLockClient(cluster)
+	if err != nil {
+		return err
+	}
+
+	return lockClient.ReleaseLock()
+}
+
 var connectionStringNameRegex, _ = regexp.Compile("[^A-Za-z0-9_]")
 
 // clusterSubReconciler describes a class that does part of the work of
@@ -470,14 +481,6 @@ func (r *FoundationDBClusterReconciler) getStatusFromClusterOrDummyStatus(logger
 
 	status, err := adminClient.GetStatus()
 	if err == nil {
-		if len(status.Client.Messages) > 0 {
-			logger.Info("found client message(s) in the machine-readable status", "messages", status.Client.Messages)
-		}
-
-		if len(status.Cluster.Messages) > 0 {
-			logger.Info("found cluster message(s) in the machine-readable status", "messages", status.Cluster.Messages)
-		}
-
 		return status, nil
 	}
 

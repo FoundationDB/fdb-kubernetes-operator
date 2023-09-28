@@ -5407,7 +5407,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 	})
 
 	DescribeTable("when checking if all addresses are excluded for a process group", func(processGroupStatus *ProcessGroupStatus, remainingMap map[string]bool, expected bool, expectedErr error) {
-		excluded, err := processGroupStatus.AllAddressesExcluded(remainingMap)
+		excluded, err := processGroupStatus.AllAddressesExcluded(log, remainingMap)
 		Expect(excluded).To(Equal(expected))
 
 		if expectedErr != nil {
@@ -5532,4 +5532,57 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				},
 			}, PodUpdateModeNone),
 	)
+
+	DescribeTable("when getting the lock ID", func(cluster *FoundationDBCluster, expected string) {
+		Expect(cluster.GetLockID()).To(Equal(expected))
+	},
+		Entry("no ProcessGroupIDPrefix is defined",
+			&FoundationDBCluster{
+				Spec: FoundationDBClusterSpec{},
+			}, ""),
+		Entry("ProcessGroupIDPrefix is defined",
+			&FoundationDBCluster{
+				Spec: FoundationDBClusterSpec{
+					ProcessGroupIDPrefix: "testing",
+				},
+			}, "testing"),
+	)
+
+	When("creating a new ProcessGroup", func() {
+		var processGroupID ProcessGroupID
+		var processClass ProcessClass
+		var processGroup *ProcessGroupStatus
+
+		JustBeforeEach(func() {
+			processGroup = NewProcessGroupStatus(processGroupID, processClass, nil)
+		})
+
+		When("the ProcessGroup is stateful", func() {
+			BeforeEach(func() {
+				processGroupID = "storage-1"
+				processClass = ProcessClassStorage
+			})
+
+			It("should create the new ProcessGroup with the initial conditions", func() {
+				Expect(processGroup).NotTo(BeNil())
+				Expect(processGroup.ProcessGroupConditions).To(HaveLen(3))
+				Expect(processGroup.ProcessClass).To(Equal(processClass))
+				Expect(processGroup.ProcessGroupID).To(Equal(processGroupID))
+			})
+		})
+
+		When("the ProcessGroup is stateless", func() {
+			BeforeEach(func() {
+				processGroupID = "stateless-1"
+				processClass = ProcessClassStateless
+			})
+
+			It("should create the new ProcessGroup with the initial conditions", func() {
+				Expect(processGroup).NotTo(BeNil())
+				Expect(processGroup.ProcessGroupConditions).To(HaveLen(2))
+				Expect(processGroup.ProcessClass).To(Equal(processClass))
+				Expect(processGroup.ProcessGroupID).To(Equal(processGroupID))
+			})
+		})
+	})
 })

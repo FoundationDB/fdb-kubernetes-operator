@@ -899,7 +899,15 @@ var _ = Describe("replace_failed_process_groups", func() {
 
 					adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
-					adminClient.MaxZoneFailuresWithoutLosingData = pointer.Int(0)
+					adminClient.TeamTracker = []fdbv1beta2.FoundationDBStatusTeamTracker{
+						{
+							Primary: true,
+							State: fdbv1beta2.FoundationDBStatusDataState{
+								Healthy:              false,
+								MinReplicasRemaining: 2,
+							},
+						},
+					}
 				})
 
 				It("should return nil", func() {

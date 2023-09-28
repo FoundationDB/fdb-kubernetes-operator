@@ -175,15 +175,7 @@ func getPodsToUpdate(ctx context.Context, logger logr.Logger, reconciler *Founda
 			return nil, fmt.Errorf("cluster has Pod %s that is pending deletion", pod.Name)
 		}
 
-		idNum, err := processGroup.ProcessGroupID.GetIDNumber()
-		if err != nil {
-			logger.Info("Skipping Pod due to error parsing Process Group ID",
-				"processGroupID", processGroup.ProcessGroupID,
-				"error", err.Error())
-			continue
-		}
-
-		specHash, err := internal.GetPodSpecHash(cluster, processGroup.ProcessClass, idNum, nil)
+		specHash, err := internal.GetPodSpecHash(cluster, processGroup, nil)
 		if err != nil {
 			logger.Info("Skipping Pod due to error generating spec hash",
 				"processGroupID", processGroup.ProcessGroupID,

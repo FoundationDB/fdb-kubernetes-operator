@@ -353,25 +353,55 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			Expect(processGroup.FaultDomain).NotTo(BeEmpty())
 		}
 
-		// TODO (johscheuer): We should check here further fields in the FoundationDBCluter resource to make sure the
+		// TODO (johscheuer): We should check here further fields in the FoundationDBCluster resource to make sure the
 		// fields that we expect are actually set.
 	})
 
 	When("replacing a Pod", func() {
 		var replacedPod corev1.Pod
+		var useLocalitiesForExclusion bool
 
-		BeforeEach(func() {
+		JustBeforeEach(func() {
 			initialPods := fdbCluster.GetStatelessPods()
 			replacedPod = fixtures.RandomPickOnePod(initialPods.Items)
 			fdbCluster.ReplacePod(replacedPod, true)
 		})
 
-		AfterEach(func() {
-			Expect(fdbCluster.ClearProcessGroupsToRemove()).NotTo(HaveOccurred())
+		BeforeEach(func() {
+			useLocalitiesForExclusion = pointer.BoolDeref(fdbCluster.GetCluster().Spec.AutomationOptions.UseLocalitiesForExclusion, false)
 		})
 
-		It("should remove the targeted Pod", func() {
-			fdbCluster.EnsurePodIsDeleted(replacedPod.Name)
+		AfterEach(func() {
+			Expect(fdbCluster.ClearProcessGroupsToRemove()).NotTo(HaveOccurred())
+			// Make sure we reset the previous behaviour.
+			spec := fdbCluster.GetCluster().Spec.DeepCopy()
+			spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(useLocalitiesForExclusion)
+			fdbCluster.UpdateClusterSpecWithSpec(spec)
+		})
+
+		When("IP addresses are used for exclusion", func() {
+			BeforeEach(func() {
+				spec := fdbCluster.GetCluster().Spec.DeepCopy()
+				spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(false)
+				fdbCluster.UpdateClusterSpecWithSpec(spec)
+			})
+
+			It("should remove the targeted Pod", func() {
+				fdbCluster.EnsurePodIsDeleted(replacedPod.Name)
+			})
+		})
+
+		When("localities are used for exclusion", func() {
+			BeforeEach(func() {
+				spec := fdbCluster.GetCluster().Spec.DeepCopy()
+				spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(true)
+				fdbCluster.UpdateClusterSpecWithSpec(spec)
+			})
+
+			It("should remove the targeted Pod", func() {
+				Expect(pointer.BoolDeref(fdbCluster.GetCluster().Spec.AutomationOptions.UseLocalitiesForExclusion, false)).To(BeTrue())
+				fdbCluster.EnsurePodIsDeleted(replacedPod.Name)
+			})
 		})
 	})
 
@@ -751,14 +781,29 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		prefix := "banana"
 
 		BeforeEach(func() {
+			currentGeneration := fdbCluster.GetCluster().Generation
 			Expect(fdbCluster.SetProcessGroupPrefix(prefix)).NotTo(HaveOccurred())
+			Expect(fdbCluster.WaitForReconciliation(fixtures.MinimumGenerationOption(currentGeneration+1), fixtures.SoftReconcileOption(false)))
 		})
 
 		It("should add the prefix to all instances", func() {
-			pods := fdbCluster.GetPods()
-			for _, pod := range pods.Items {
-				Expect(string(fixtures.GetProcessGroupID(pod))).To(HavePrefix(prefix))
-			}
+			log.Println("DEBUGGING: Cluster is reconciled, current generation:", fdbCluster.GetCluster().Generation)
+			Eventually(func(g Gomega) bool {
+				for _, processGroup := range fdbCluster.GetCluster().Status.ProcessGroups {
+					g.Expect(string(processGroup.ProcessGroupID)).To(HavePrefix(prefix))
+				}
+
+				return true
+			}).WithTimeout(10 * time.Minute).WithPolling(5 * time.Second).Should(BeTrue())
+
+			Eventually(func(g Gomega) bool {
+				pods := fdbCluster.GetPods()
+				for _, pod := range pods.Items {
+					g.Expect(string(fixtures.GetProcessGroupID(pod))).To(HavePrefix(prefix))
+				}
+
+				return true
+			}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(BeTrue())
 		})
 	})
 
@@ -1223,7 +1268,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		var initialReplacementDuration time.Duration
 
 		BeforeEach(func() {
-			initialReplacementDuration = time.Duration(pointer.IntDeref(fdbCluster.GetCachedCluster().Spec.AutomationOptions.Replacements.TaintReplacementTimeSeconds, 600)) * time.Second
+			initialReplacementDuration = time.Duration(fdbCluster.GetCachedCluster().GetFailureDetectionTimeSeconds()) * time.Second
 			// Get the current Process Group ID numbers that are in use.
 			_, processGroupIDs, err := fdbCluster.GetCluster().GetCurrentProcessGroupsAndProcessCounts()
 			Expect(err).NotTo(HaveOccurred())

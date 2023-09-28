@@ -99,10 +99,10 @@ func GetProcessGroupIDFromMeta(cluster *fdbv1beta2.FoundationDBCluster, metadata
 }
 
 // GetPodSpecHash builds the hash of the expected spec for a pod.
-func GetPodSpecHash(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, id int, spec *corev1.PodSpec) (string, error) {
+func GetPodSpecHash(cluster *fdbv1beta2.FoundationDBCluster, processGroup *fdbv1beta2.ProcessGroupStatus, spec *corev1.PodSpec) (string, error) {
 	var err error
 	if spec == nil {
-		spec, err = GetPodSpec(cluster, processClass, id)
+		spec, err = GetPodSpec(cluster, processGroup)
 		if err != nil {
 			return "", err
 		}
@@ -197,6 +197,7 @@ func GetPvcMetadata(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1b
 	} else {
 		customMetadata = nil
 	}
+
 	return GetObjectMetadata(cluster, customMetadata, processClass, id)
 }
 

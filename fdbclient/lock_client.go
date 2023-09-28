@@ -96,44 +96,55 @@ func (client *realLockClient) takeLockInTransaction(transaction fdb.Transaction)
 		return false, invalidLockValue{key: lockKey, value: lockValue}
 	}
 
-	ownerID, valid := lockTuple[0].(string)
+	currentLockOwnerID, valid := lockTuple[0].(string)
 	if !valid {
 		return false, invalidLockValue{key: lockKey, value: lockValue}
 	}
 
-	startTime, valid := lockTuple[1].(int64)
+	currentLockStartTime, valid := lockTuple[1].(int64)
 	if !valid {
 		return false, invalidLockValue{key: lockKey, value: lockValue}
 	}
 
-	endTime, valid := lockTuple[2].(int64)
+	currentLockEndTime, valid := lockTuple[2].(int64)
 	if !valid {
 		return false, invalidLockValue{key: lockKey, value: lockValue}
 	}
 
-	cluster := client.cluster
-	newOwnerDenied := transaction.Get(client.getDenyListKey(cluster.GetLockID())).MustGet() != nil
+	// ownerID represents the current cluster ID. If a lock is present the currentLockOwnerID represents the operator
+	// instance holding the lock.
+	ownerID := client.cluster.GetLockID()
+
+	logger := client.log.WithValues(
+		"namespace", client.cluster.Namespace,
+		"cluster", client.cluster.Name,
+		"ownerID", ownerID,
+		"currentLockOwnerID", currentLockOwnerID,
+		"startTime", time.Unix(currentLockStartTime, 0),
+		"endTime", time.Unix(currentLockEndTime, 0))
+
+	newOwnerDenied := transaction.Get(client.getDenyListKey(ownerID)).MustGet() != nil
 	if newOwnerDenied {
-		client.log.Info("Failed to get lock due to deny list", "namespace", cluster.Namespace, "cluster", cluster.Name)
+		logger.Info("Failed to get lock due to deny list")
 		return false, nil
 	}
 
-	oldOwnerDenied := transaction.Get(client.getDenyListKey(ownerID)).MustGet() != nil
-	shouldClear := endTime < time.Now().Unix() || oldOwnerDenied
+	oldOwnerDenied := transaction.Get(client.getDenyListKey(currentLockOwnerID)).MustGet() != nil
+	shouldClear := currentLockEndTime < time.Now().Unix() || oldOwnerDenied
 
 	if shouldClear {
-		client.log.Info("Clearing expired lock", "namespace", cluster.Namespace, "cluster", cluster.Name, "owner", ownerID, "startTime", time.Unix(startTime, 0), "endTime", time.Unix(endTime, 0))
-		client.updateLock(transaction, startTime)
+		logger.Info("Clearing expired lock")
+		client.updateLock(transaction, currentLockStartTime)
 		return true, nil
 	}
 
-	if ownerID == cluster.GetLockID() {
-		client.log.Info("Extending previous lock", "namespace", cluster.Namespace, "cluster", cluster.Name, "owner", ownerID, "startTime", time.Unix(startTime, 0), "endTime", time.Unix(endTime, 0))
-		client.updateLock(transaction, startTime)
+	if currentLockOwnerID == ownerID {
+		logger.Info("Extending previous lock")
+		client.updateLock(transaction, currentLockStartTime)
 		return true, nil
 	}
 
-	client.log.Info("Failed to get lock", "namespace", cluster.Namespace, "cluster", cluster.Name, "owner", ownerID, "startTime", time.Unix(startTime, 0), "endTime", time.Unix(endTime, 0))
+	logger.Info("Failed to get lock")
 
 	return false, nil
 }
@@ -146,12 +157,13 @@ func (client *realLockClient) updateLock(transaction fdb.Transaction, start int6
 		start = time.Now().Unix()
 	}
 	end := time.Now().Add(client.cluster.GetLockDuration()).Unix()
+	ownerID := client.cluster.GetLockID()
 	lockValue := tuple.Tuple{
-		client.cluster.GetLockID(),
+		ownerID,
 		start,
 		end,
 	}
-	client.log.Info("Setting new lock", "namespace", client.cluster.Namespace, "cluster", client.cluster.Name, "lockValue", lockValue)
+	client.log.Info("Setting new lock", "namespace", client.cluster.Namespace, "cluster", client.cluster.Name, "owner", ownerID, "lockValue", lockValue)
 	transaction.Set(lockKey, lockValue.Pack())
 }
 
@@ -299,6 +311,62 @@ func (client *realLockClient) getDenyListKeyRange() (fdb.KeyRange, error) {
 // entry for an owner ID.
 func (client *realLockClient) getDenyListKey(id string) fdb.Key {
 	return fdb.Key(fmt.Sprintf("%s/denyList/%s", client.cluster.GetLockPrefix(), id))
+}
+
+// ReleaseLock will release the current lock. The method will only release the lock if the current
+// operator is the lock holder.
+func (client *realLockClient) ReleaseLock() error {
+	if client.disableLocks {
+		return nil
+	}
+
+	lockKey := fdb.Key(fmt.Sprintf("%s/global", client.cluster.GetLockPrefix()))
+	_, err := client.database.Transact(func(transaction fdb.Transaction) (interface{}, error) {
+		err := transaction.Options().SetAccessSystemKeys()
+		if err != nil {
+			return false, err
+		}
+
+		lockValue := transaction.Get(lockKey).MustGet()
+		// The lock value is not set, so no action is required.
+		if len(lockValue) == 0 {
+			return false, nil
+		}
+
+		lockTuple, err := tuple.Unpack(lockValue)
+		if err != nil {
+			return false, err
+		}
+
+		currentLockOwnerID, valid := lockTuple[0].(string)
+		if !valid {
+			return false, invalidLockValue{key: lockKey, value: lockValue}
+		}
+
+		currentLockStartTime, valid := lockTuple[1].(int64)
+		if !valid {
+			return false, invalidLockValue{key: lockKey, value: lockValue}
+		}
+
+		currentLockEndTime, valid := lockTuple[2].(int64)
+		if !valid {
+			return false, invalidLockValue{key: lockKey, value: lockValue}
+		}
+
+		ownerID := client.cluster.GetLockID()
+		if currentLockOwnerID != ownerID {
+			client.log.Info("cannot release lock from other owner", "currentLockOwnerID", currentLockOwnerID, "ownerID", ownerID)
+			return false, nil
+		}
+
+		client.log.Info("releasing lock", "ownerID", ownerID, "lockStartTime", currentLockStartTime, "lockEndTime", currentLockEndTime)
+
+		transaction.Clear(lockKey)
+
+		return nil, nil
+	})
+
+	return err
 }
 
 // invalidLockValue is an error we can return when we cannot parse the existing

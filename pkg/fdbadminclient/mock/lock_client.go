@@ -107,6 +107,12 @@ func (client *LockClient) UpdateDenyList(locks []fdbv1beta2.LockDenyListEntry) e
 	return nil
 }
 
+// ReleaseLock will release the current lock. The method will only release the lock if the current
+// operator is the lock holder.
+func (client *LockClient) ReleaseLock() error {
+	return nil
+}
+
 // lockClientCache provides a cache of mock lock clients.
 var lockClientCache = make(map[string]*LockClient)
 var lockClientMutex sync.Mutex

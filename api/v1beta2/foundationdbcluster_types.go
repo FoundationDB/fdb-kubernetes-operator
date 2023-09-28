@@ -354,6 +354,45 @@ type ProcessGroupStatus struct {
 	FaultDomain FaultDomain `json:"faultDomain,omitempty"`
 }
 
+// String returns string representation.
+func (processGroupStatus *ProcessGroupStatus) String() string {
+	var sb strings.Builder
+
+	sb.WriteString("ID: ")
+	sb.WriteString(string(processGroupStatus.ProcessGroupID))
+	sb.WriteString(", Class: ")
+	sb.WriteString(string(processGroupStatus.ProcessClass))
+	sb.WriteString(", Addresses: ")
+	sb.WriteString(strings.Join(processGroupStatus.Addresses, ","))
+
+	sb.WriteString(", RemovalTimestamp: ")
+	if processGroupStatus.RemovalTimestamp.IsZero() {
+		sb.WriteString("-")
+	} else {
+		sb.WriteString(processGroupStatus.RemovalTimestamp.String())
+	}
+
+	sb.WriteString(", ExclusionTimestamp: ")
+	if processGroupStatus.ExclusionTimestamp.IsZero() {
+		sb.WriteString("-")
+	} else {
+		sb.WriteString(processGroupStatus.ExclusionTimestamp.String())
+	}
+
+	sb.WriteString(", ExclusionSkipped: ")
+	sb.WriteString(strconv.FormatBool(processGroupStatus.ExclusionSkipped))
+
+	sb.WriteString(", ProcessGroupConditions: ")
+	for _, condition := range processGroupStatus.ProcessGroupConditions {
+		sb.WriteString(condition.String())
+	}
+
+	sb.WriteString(", FaultDomain: ")
+	sb.WriteString(string(processGroupStatus.FaultDomain))
+
+	return sb.String()
+}
+
 // FaultDomain represents the FaultDomain of a process group
 // +kubebuilder:validation:MaxLength=512
 type FaultDomain string
@@ -379,7 +418,7 @@ func (processGroupID ProcessGroupID) GetIDNumber() (int, error) {
 
 // GetExclusionString returns the exclusion string
 func (processGroupStatus *ProcessGroupStatus) GetExclusionString() string {
-	return fmt.Sprintf("locality_instance_id:%s", processGroupStatus.ProcessGroupID)
+	return fmt.Sprintf("%s:%s", FDBLocalityExclusionPrefix, processGroupStatus.ProcessGroupID)
 }
 
 // IsExcluded returns if a process group is excluded
@@ -525,8 +564,14 @@ func cleanAddressList(addresses []string) []string {
 
 // AllAddressesExcluded checks if the process group is excluded or if there are still addresses included in the remainingMap.
 // This will return true if the process group skips exclusion or has no remaining addresses.
-func (processGroupStatus *ProcessGroupStatus) AllAddressesExcluded(remainingMap map[string]bool) (bool, error) {
+func (processGroupStatus *ProcessGroupStatus) AllAddressesExcluded(logger logr.Logger, remainingMap map[string]bool) (bool, error) {
 	if processGroupStatus.IsExcluded() {
+		return true, nil
+	}
+
+	localityExclusionString := processGroupStatus.GetExclusionString()
+	if isRemaining, isPresent := remainingMap[localityExclusionString]; isPresent && !isRemaining {
+		logger.V(1).Info("process group is fully excluded based on locality based exclusions", "processGroupID", processGroupStatus.ProcessGroupID, "exclusionString", localityExclusionString)
 		return true, nil
 	}
 
@@ -549,17 +594,20 @@ func (processGroupStatus *ProcessGroupStatus) AllAddressesExcluded(remainingMap 
 
 // NewProcessGroupStatus returns a new GroupStatus for the given processGroupID and processClass.
 func NewProcessGroupStatus(processGroupID ProcessGroupID, processClass ProcessClass, addresses []string) *ProcessGroupStatus {
+	initialConditions := []*ProcessGroupCondition{
+		NewProcessGroupCondition(MissingProcesses),
+		NewProcessGroupCondition(MissingPod),
+	}
+
+	if processClass.IsStateful() {
+		initialConditions = append(initialConditions, NewProcessGroupCondition(MissingPVC))
+	}
+
 	return &ProcessGroupStatus{
-		ProcessGroupID: processGroupID,
-		ProcessClass:   processClass,
-		Addresses:      addresses,
-		ProcessGroupConditions: []*ProcessGroupCondition{
-			NewProcessGroupCondition(MissingProcesses),
-			NewProcessGroupCondition(MissingPod),
-			NewProcessGroupCondition(MissingPVC),
-			// TODO(johscheuer): currently we never set this condition
-			// NewProcessGroupCondition(MissingService),
-		},
+		ProcessGroupID:         processGroupID,
+		ProcessClass:           processClass,
+		Addresses:              addresses,
+		ProcessGroupConditions: initialConditions,
 	}
 }
 
@@ -795,6 +843,18 @@ type ProcessGroupCondition struct {
 	ProcessGroupConditionType ProcessGroupConditionType `json:"type,omitempty"`
 	// Timestamp when the Condition was observed
 	Timestamp int64 `json:"timestamp,omitempty"`
+}
+
+// String returns the string representation for the condition.
+func (condition *ProcessGroupCondition) String() string {
+	var sb strings.Builder
+
+	sb.WriteString("Condition: ")
+	sb.WriteString(string(condition.ProcessGroupConditionType))
+	sb.WriteString(" Timestamp: ")
+	sb.WriteString(time.Unix(condition.Timestamp, 0).String())
+
+	return sb.String()
 }
 
 // ProcessGroupConditionType represents a concrete ProcessGroupCondition.
@@ -1848,9 +1908,9 @@ func (cluster *FoundationDBCluster) GetLockDuration() time.Duration {
 }
 
 // GetLockID gets the identifier for this instance of the operator when taking
-// locks.
+// locks. This is the `ProcessGroupIDPrefix` defined for this cluster.
 func (cluster *FoundationDBCluster) GetLockID() string {
-	return cluster.Spec.LockOptions.LockKeyPrefix
+	return cluster.Spec.ProcessGroupIDPrefix
 }
 
 // NeedsExplicitListenAddress determines whether we pass a listen address

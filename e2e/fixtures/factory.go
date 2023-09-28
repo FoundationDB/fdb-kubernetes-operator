@@ -165,10 +165,19 @@ func (factory *Factory) CreateFdbClusterFromSpec(
 	config *ClusterConfig,
 	options ...ClusterOption,
 ) *FdbCluster {
+	startTime := time.Now()
 	config.SetDefaults(factory)
 	log.Printf("create cluster: %s", ToJSON(spec))
 
-	return factory.startFDBFromClusterSpec(spec, config, options...)
+	cluster := factory.startFDBFromClusterSpec(spec, config, options...)
+	log.Println(
+		"FoundationDB cluster created (at version",
+		cluster.cluster.Spec.Version,
+		") in minutes",
+		time.Since(startTime).Minutes(),
+	)
+
+	return cluster
 }
 
 // CreateFdbHaCluster creates a HA FDB Cluster based on the cluster config and cluster options
@@ -176,11 +185,19 @@ func (factory *Factory) CreateFdbHaCluster(
 	config *ClusterConfig,
 	options ...ClusterOption,
 ) *HaFdbCluster {
+	startTime := time.Now()
 	config.SetDefaults(factory)
 
 	cluster, err := factory.ensureHAFdbClusterExists(
 		config,
 		options,
+	)
+
+	log.Println(
+		"FoundationDB HA cluster created (at version",
+		cluster.GetPrimary().cluster.Spec.Version,
+		") in minutes",
+		time.Since(startTime).Minutes(),
 	)
 
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
@@ -647,13 +664,14 @@ func (factory *Factory) DumpState(fdbCluster *FdbCluster) {
 
 	buffer.WriteString(
 		fmt.Sprintf(
-			"%s\tGENERATION: %d\tRECONCILED: %d\tAVAILABLE: %t\tFULLREPLICATION: %t\tVERSION: %s\t Age: %s\nConnection String: %s\n",
+			"%s\tGENERATION: %d\tRECONCILED: %d\tAVAILABLE: %t\tFULLREPLICATION: %t\tRUNNING_VERSION: %s\tDESIRED_VERSION: %s\t Age: %s\nConnection String: %s\n",
 			cluster.GetName(),
 			cluster.Generation,
 			cluster.Status.Generations.Reconciled,
 			cluster.Status.Health.Available,
 			cluster.Status.Health.FullReplication,
 			cluster.Status.RunningVersion,
+			cluster.Spec.Version,
 			duration.HumanDuration(time.Since(cluster.CreationTimestamp.Time)),
 			cluster.Status.ConnectionString,
 		),

@@ -434,7 +434,10 @@ var _ = Describe("monitor_conf", func() {
 		var processGroupID = "storage-1"
 
 		BeforeEach(func() {
-			pod, err = GetPod(cluster, fdbv1beta2.ProcessClassStorage, 1)
+			pod, err = GetPod(cluster, &fdbv1beta2.ProcessGroupStatus{
+				ProcessClass:   processClass,
+				ProcessGroupID: fdbv1beta2.ProcessGroupID(processGroupID),
+			})
 			Expect(err).NotTo(HaveOccurred())
 			address = pod.Status.PodIP
 		})
