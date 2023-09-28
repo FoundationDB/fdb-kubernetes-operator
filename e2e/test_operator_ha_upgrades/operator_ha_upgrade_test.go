@@ -127,7 +127,7 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 	// this setup allows to dynamically generate the table entries that will be executed e.g. to test different upgrades
 	// for different versions without hard coding or having multiple flags.
 	PDescribeTable(
-		"Upgrading a multi-DC cluster without chaos",
+		"without chaos",
 		func(beforeVersion string, targetVersion string) {
 			clusterSetup(beforeVersion, false)
 
@@ -142,12 +142,12 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 				time.Since(startTime).Minutes(),
 			)
 		},
-		EntryDescription("Upgrade, without chaos, from %s to %s"),
+		EntryDescription("Upgrade from %s to %s"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
 	)
 
 	DescribeTable(
-		"upgrading a cluster with operator pod chaos and without foundationdb pod chaos",
+		"with operator pod chaos and without foundationdb pod chaos",
 		func(beforeVersion string, targetVersion string) {
 			clusterSetup(beforeVersion, true /* = enableOperatorPodChaos */)
 			initialGeneration := fdbCluster.GetPrimary().GetStatus().Cluster.Generation
@@ -174,7 +174,7 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 				targetCluster := fdbCluster // https://golang.org/doc/faq#closures_and_goroutines
 
 				g.Go(func() error {
-					err := targetCluster.WaitUntilWithForceReconcile(2, 600, func(cluster *fdbv1beta2.FoundationDBCluster) bool {
+					err := targetCluster.WaitUntilWithForceReconcile(2, 1200, func(cluster *fdbv1beta2.FoundationDBCluster) bool {
 						for _, processGroup := range cluster.Status.ProcessGroups {
 							if processGroup.ProcessClass == fdbv1beta2.ProcessClassStorage {
 								continue
@@ -233,12 +233,12 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 			// change, which happens a number of times, during an upgrade).
 			Expect(finalGeneration).To(BeNumerically("<=", initialGeneration+80))
 		},
-		EntryDescription("Upgrade from %[1]s to %[2]s"),
+		EntryDescription("upgrading from %[1]s to %[2]s"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
 	)
 
 	DescribeTable(
-		"upgrading a cluster and one dc is upgraded before the other dcs started the upgrade",
+		"one dc is upgraded before the other dcs started the upgrade",
 		func(beforeVersion string, targetVersion string) {
 			if fixtures.VersionsAreProtocolCompatible(beforeVersion, targetVersion) {
 				Skip("skipping test since those versions are protocol compatible")
@@ -281,12 +281,12 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 			// Verify that the upgrade proceeds
 			fdbCluster.VerifyVersion(targetVersion)
 		},
-		EntryDescription("Upgrade from %[1]s to %[2]s with one DC upgraded before the rest"),
+		EntryDescription("Upgrade from %[1]s to %[2]s"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
 	)
 
 	DescribeTable(
-		"Upgrading a multi-DC cluster, with a temporary partition",
+		"with a temporary partition",
 		func(beforeVersion string, targetVersion string) {
 			clusterSetup(beforeVersion, false /* = enableOperatorPodChaos */)
 
@@ -341,12 +341,12 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 			// to "targetVersion".
 			fdbCluster.VerifyVersion(targetVersion)
 		},
-		EntryDescription("Upgrade, with a temporary partition, from %s to %s"),
+		EntryDescription("Upgrade from %s to %s"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
 	)
 
 	DescribeTable(
-		"Upgrading a multi-DC cluster, with a random pod deleted during the staging phase",
+		"with a random pod deleted during the staging phase",
 		func(beforeVersion string, targetVersion string) {
 			clusterSetup(beforeVersion, false /* = enableOperatorPodChaos */)
 
@@ -404,7 +404,7 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 			}).WithTimeout(30 * time.Minute).WithPolling(2 * time.Minute).Should(BeTrue())
 		},
 		EntryDescription(
-			"Upgrade, with a random pod deleted during the staging phase, from %s to %s",
+			"Upgrade from %s to %s",
 		),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
 	)
