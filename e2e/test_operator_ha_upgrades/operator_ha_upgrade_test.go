@@ -27,6 +27,7 @@ Each test will create a new HA FoundationDB cluster which will be upgraded.
 */
 
 import (
+	"fmt"
 	"golang.org/x/sync/errgroup"
 	"log"
 	"math/rand"
@@ -188,8 +189,9 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 					})
 
 					if err != nil {
-						log.Println("error during WaitForReconciliation for", targetCluster.Name(), "error:", err.Error())
+						return fmt.Errorf("error during WaitForReconciliation for %s, original error: %w", targetCluster.Name(), err)
 					}
+
 					return err
 				})
 			}
@@ -210,7 +212,7 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 
 			// The sync.Map has not length method, so we have to calculate it.
 			var processCounts int
-			transactionSystemProcessGroups.Range(func(_, _ interface{}) bool {
+			transactionSystemProcessGroups.Range(func(_, _ any) bool {
 				processCounts++
 				return true
 			})
