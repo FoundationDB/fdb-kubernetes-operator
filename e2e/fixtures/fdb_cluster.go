@@ -799,8 +799,11 @@ func (fdbCluster *FdbCluster) SetPublicIPSource(publicIPSource fdbv1beta2.Public
 func (fdbCluster *FdbCluster) GetServices() *corev1.ServiceList {
 	serviceList := &corev1.ServiceList{}
 	gomega.Expect(
-		fdbCluster.getClient().
-			List(ctx.TODO(), serviceList, client.MatchingLabels(fdbCluster.GetResourceLabels())),
+		fdbCluster.getClient().List(
+			ctx.TODO(),
+			serviceList,
+			client.InNamespace(fdbCluster.Namespace()),
+			client.MatchingLabels(fdbCluster.GetResourceLabels())),
 	).NotTo(gomega.HaveOccurred())
 
 	return serviceList
