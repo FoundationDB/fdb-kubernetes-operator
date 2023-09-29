@@ -97,15 +97,13 @@ func clusterSetup(beforeVersion string, enableOperatorPodChaos bool) {
 // Note: we tried doing this by polling for  "UpgradeRequeued" event on primary/remote/primary-satellite data centers,
 // but we found that that approach is not very reliable.
 func verifyBouncingIsBlocked() {
-	Eventually(func() bool {
+	Eventually(func(g Gomega) bool {
 		for _, cluster := range fdbCluster.GetAllClusters() {
 			if strings.HasSuffix(cluster.Name(), fixtures.RemoteSatelliteID) {
 				continue
 			}
 
-			if !cluster.AllProcessGroupsHaveCondition(fdbv1beta2.IncorrectCommandLine) {
-				return false
-			}
+			g.Expect(cluster.AllProcessGroupsHaveCondition(fdbv1beta2.IncorrectCommandLine)).To(BeTrue())
 		}
 
 		return true
@@ -320,15 +318,13 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 				// state.
 				log.Println("Ensure bouncing is blocked")
 				verifyBouncingIsBlocked()
-
-				// Verify that the processes have not upgraded to "targetVersion".
-				fdbCluster.VerifyVersion(targetVersion)
+				log.Println("Ensure cluster(s) are not upgraded")
+				fdbCluster.VerifyVersion(beforeVersion)
 			} else {
 				// If we do a version compatible upgrade, ensure the partition is present for 2 minutes.
 				time.Sleep(2 * time.Minute)
 			}
 
-			// Restore connectivity.
 			log.Println("Restoring connectivity")
 			factory.DeleteChaosMeshExperimentSafe(partitionExperiment)
 
