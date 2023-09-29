@@ -787,7 +787,6 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		})
 
 		It("should add the prefix to all instances", func() {
-			log.Println("DEBUGGING: Cluster is reconciled, current generation:", fdbCluster.GetCluster().Generation)
 			Eventually(func(g Gomega) bool {
 				for _, processGroup := range fdbCluster.GetCluster().Status.ProcessGroups {
 					g.Expect(string(processGroup.ProcessGroupID)).To(HavePrefix(prefix))

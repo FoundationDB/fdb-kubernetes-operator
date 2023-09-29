@@ -50,7 +50,7 @@ func (c chooseRemovals) reconcile(ctx context.Context, r *FoundationDBClusterRec
 	currentCounts := fdbv1beta2.CreateProcessCountsFromProcessGroupStatus(cluster.Status.ProcessGroups, true).Map()
 	desiredCountStruct, err := cluster.GetProcessCountsWithDefaults()
 	if err != nil {
-		return &requeue{curError: err}
+		return &requeue{curError: err, delayedRequeue: true}
 	}
 	desiredCounts := desiredCountStruct.Map()
 
@@ -58,13 +58,13 @@ func (c chooseRemovals) reconcile(ctx context.Context, r *FoundationDBClusterRec
 	if status == nil {
 		adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
 		if err != nil {
-			return &requeue{curError: err}
+			return &requeue{curError: err, delayedRequeue: true}
 		}
 		defer adminClient.Close()
 
 		status, err = adminClient.GetStatus()
 		if err != nil {
-			return &requeue{curError: err}
+			return &requeue{curError: err, delayedRequeue: true}
 		}
 	}
 
@@ -84,11 +84,11 @@ func (c chooseRemovals) reconcile(ctx context.Context, r *FoundationDBClusterRec
 		for _, processGroup := range cluster.Status.ProcessGroupsByProcessClass(processClass) {
 			if processGroup.IsMarkedForRemoval() {
 				removedCount--
-			} else {
-				locality, present := localityMap[string(processGroup.ProcessGroupID)]
-				if present {
-					processClassLocality = append(processClassLocality, locality)
-				}
+				continue
+			}
+			localityInfo, present := localityMap[string(processGroup.ProcessGroupID)]
+			if present {
+				processClassLocality = append(processClassLocality, localityInfo)
 			}
 		}
 
@@ -97,7 +97,7 @@ func (c chooseRemovals) reconcile(ctx context.Context, r *FoundationDBClusterRec
 
 			remainingProcesses, err := locality.ChooseDistributedProcesses(cluster, processClassLocality, desiredCount, locality.ProcessSelectionConstraint{})
 			if err != nil {
-				return &requeue{curError: err}
+				return &requeue{curError: err, delayedRequeue: true}
 			}
 
 			logger.Info("Chose remaining processes after shrink",
@@ -125,7 +125,7 @@ func (c chooseRemovals) reconcile(ctx context.Context, r *FoundationDBClusterRec
 		}
 		err := r.updateOrApply(ctx, cluster)
 		if err != nil {
-			return &requeue{curError: err}
+			return &requeue{curError: err, delayedRequeue: true}
 		}
 	}
 

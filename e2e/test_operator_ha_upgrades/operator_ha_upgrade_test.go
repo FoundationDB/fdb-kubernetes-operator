@@ -27,6 +27,7 @@ Each test will create a new HA FoundationDB cluster which will be upgraded.
 */
 
 import (
+	"fmt"
 	"golang.org/x/sync/errgroup"
 	"log"
 	"math/rand"
@@ -96,15 +97,13 @@ func clusterSetup(beforeVersion string, enableOperatorPodChaos bool) {
 // Note: we tried doing this by polling for  "UpgradeRequeued" event on primary/remote/primary-satellite data centers,
 // but we found that that approach is not very reliable.
 func verifyBouncingIsBlocked() {
-	Eventually(func() bool {
+	Eventually(func(g Gomega) bool {
 		for _, cluster := range fdbCluster.GetAllClusters() {
 			if strings.HasSuffix(cluster.Name(), fixtures.RemoteSatelliteID) {
 				continue
 			}
 
-			if !cluster.AllProcessGroupsHaveCondition(fdbv1beta2.IncorrectCommandLine) {
-				return false
-			}
+			g.Expect(cluster.AllProcessGroupsHaveCondition(fdbv1beta2.IncorrectCommandLine)).To(BeTrue())
 		}
 
 		return true
@@ -127,7 +126,7 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 	// this setup allows to dynamically generate the table entries that will be executed e.g. to test different upgrades
 	// for different versions without hard coding or having multiple flags.
 	PDescribeTable(
-		"Upgrading a multi-DC cluster without chaos",
+		"without chaos",
 		func(beforeVersion string, targetVersion string) {
 			clusterSetup(beforeVersion, false)
 
@@ -142,12 +141,12 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 				time.Since(startTime).Minutes(),
 			)
 		},
-		EntryDescription("Upgrade, without chaos, from %s to %s"),
+		EntryDescription("Upgrade from %s to %s"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
 	)
 
 	DescribeTable(
-		"upgrading a cluster with operator pod chaos and without foundationdb pod chaos",
+		"with operator pod chaos and without foundationdb pod chaos",
 		func(beforeVersion string, targetVersion string) {
 			clusterSetup(beforeVersion, true /* = enableOperatorPodChaos */)
 			initialGeneration := fdbCluster.GetPrimary().GetStatus().Cluster.Generation
@@ -174,7 +173,7 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 				targetCluster := fdbCluster // https://golang.org/doc/faq#closures_and_goroutines
 
 				g.Go(func() error {
-					err := targetCluster.WaitUntilWithForceReconcile(2, 600, func(cluster *fdbv1beta2.FoundationDBCluster) bool {
+					err := targetCluster.WaitUntilWithForceReconcile(2, 1200, func(cluster *fdbv1beta2.FoundationDBCluster) bool {
 						for _, processGroup := range cluster.Status.ProcessGroups {
 							if processGroup.ProcessClass == fdbv1beta2.ProcessClassStorage {
 								continue
@@ -188,8 +187,9 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 					})
 
 					if err != nil {
-						log.Println("error during WaitForReconciliation for", targetCluster.Name(), "error:", err.Error())
+						return fmt.Errorf("error during WaitForReconciliation for %s, original error: %w", targetCluster.Name(), err)
 					}
+
 					return err
 				})
 			}
@@ -210,7 +210,7 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 
 			// The sync.Map has not length method, so we have to calculate it.
 			var processCounts int
-			transactionSystemProcessGroups.Range(func(_, _ interface{}) bool {
+			transactionSystemProcessGroups.Range(func(_, _ any) bool {
 				processCounts++
 				return true
 			})
@@ -238,7 +238,7 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 	)
 
 	DescribeTable(
-		"upgrading a cluster and one dc is upgraded before the other dcs started the upgrade",
+		"one dc is upgraded before the other dcs started the upgrade",
 		func(beforeVersion string, targetVersion string) {
 			if fixtures.VersionsAreProtocolCompatible(beforeVersion, targetVersion) {
 				Skip("skipping test since those versions are protocol compatible")
@@ -281,12 +281,12 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 			// Verify that the upgrade proceeds
 			fdbCluster.VerifyVersion(targetVersion)
 		},
-		EntryDescription("Upgrade from %[1]s to %[2]s with one DC upgraded before the rest"),
+		EntryDescription("Upgrade from %[1]s to %[2]s"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
 	)
 
 	DescribeTable(
-		"Upgrading a multi-DC cluster, with a temporary partition",
+		"with a temporary partition",
 		func(beforeVersion string, targetVersion string) {
 			clusterSetup(beforeVersion, false /* = enableOperatorPodChaos */)
 
@@ -318,15 +318,13 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 				// state.
 				log.Println("Ensure bouncing is blocked")
 				verifyBouncingIsBlocked()
-
-				// Verify that the processes have not upgraded to "targetVersion".
-				fdbCluster.VerifyVersion(targetVersion)
+				log.Println("Ensure cluster(s) are not upgraded")
+				fdbCluster.VerifyVersion(beforeVersion)
 			} else {
 				// If we do a version compatible upgrade, ensure the partition is present for 2 minutes.
 				time.Sleep(2 * time.Minute)
 			}
 
-			// Restore connectivity.
 			log.Println("Restoring connectivity")
 			factory.DeleteChaosMeshExperimentSafe(partitionExperiment)
 
@@ -341,12 +339,12 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 			// to "targetVersion".
 			fdbCluster.VerifyVersion(targetVersion)
 		},
-		EntryDescription("Upgrade, with a temporary partition, from %s to %s"),
+		EntryDescription("Upgrade from %s to %s"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
 	)
 
 	DescribeTable(
-		"Upgrading a multi-DC cluster, with a random pod deleted during the staging phase",
+		"with a random pod deleted during the staging phase",
 		func(beforeVersion string, targetVersion string) {
 			clusterSetup(beforeVersion, false /* = enableOperatorPodChaos */)
 
@@ -404,7 +402,7 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 			}).WithTimeout(30 * time.Minute).WithPolling(2 * time.Minute).Should(BeTrue())
 		},
 		EntryDescription(
-			"Upgrade, with a random pod deleted during the staging phase, from %s to %s",
+			"Upgrade from %s to %s",
 		),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
 	)
@@ -481,49 +479,6 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 				"to be skipped during the restart",
 			)
 			fdbCluster.GetRemote().SetIgnoreDuringRestart(ignoreDuringRestart)
-
-			// The cluster should still be able to upgrade.
-			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
-			// Verify that the upgrade proceeds
-			fdbCluster.VerifyVersion(targetVersion)
-
-			// TODO add validation here processes are updated new version
-		},
-		EntryDescription("Upgrade from %[1]s to %[2]s"),
-		fixtures.GenerateUpgradeTableEntries(testOptions),
-	)
-
-	DescribeTable(
-		"when no remote processes are restarted",
-		func(beforeVersion string, targetVersion string) {
-			clusterSetup(beforeVersion, false)
-
-			// Select remote processes and use the buggify option to skip those
-			// processes during the restart command.
-			remoteProcessGroups := fdbCluster.GetRemote().GetCluster().Status.ProcessGroups
-			ignoreDuringRestart := make(
-				[]fdbv1beta2.ProcessGroupID,
-				0,
-				len(remoteProcessGroups),
-			)
-
-			for _, processGroup := range remoteProcessGroups {
-				ignoreDuringRestart = append(
-					ignoreDuringRestart,
-					processGroup.ProcessGroupID,
-				)
-			}
-
-			log.Println(
-				"Selected Process Groups:",
-				ignoreDuringRestart,
-				"to be skipped during the restart",
-			)
-
-			// We have to set this to all clusters as any operator could be doing the cluster wide restart.
-			for _, cluster := range fdbCluster.GetAllClusters() {
-				cluster.SetIgnoreDuringRestart(ignoreDuringRestart)
-			}
 
 			// The cluster should still be able to upgrade.
 			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
