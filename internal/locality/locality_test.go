@@ -944,6 +944,7 @@ var _ = Describe("Change coordinators", func() {
 		When("enabling DNS names in the cluster file", func() {
 			BeforeEach(func() {
 				cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(true)
+				cluster.Status.RunningVersion = fdbv1beta2.Versions.SupportsDNSInClusterFile.String()
 			})
 
 			When("the pods do not have DNS names assigned", func() {
