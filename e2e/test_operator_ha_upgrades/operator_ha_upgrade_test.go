@@ -233,7 +233,7 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 			// change, which happens a number of times, during an upgrade).
 			Expect(finalGeneration).To(BeNumerically("<=", initialGeneration+80))
 		},
-		EntryDescription("upgrading from %[1]s to %[2]s"),
+		EntryDescription("Upgrade from %[1]s to %[2]s"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
 	)
 
