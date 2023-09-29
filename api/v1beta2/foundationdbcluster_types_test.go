@@ -4332,57 +4332,76 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			cluster = &FoundationDBCluster{}
 		})
 
-		When("checking whether we need a headless service", func() {
-			It("respects the headless service setting", func() {
-				Expect(cluster.NeedsHeadlessService()).To(BeFalse())
-
-				cluster.Spec.Routing.HeadlessService = pointer.Bool(true)
-				Expect(cluster.NeedsHeadlessService()).To(BeTrue())
+		When("FoundationDB supports DNS in the cluster file", func() {
+			BeforeEach(func() {
+				cluster.Status.RunningVersion = Versions.SupportsDNSInClusterFile.String()
 			})
 
-			It("can be overridden by the DNS in cluster file setting", func() {
-				cluster.Spec.Routing.HeadlessService = pointer.Bool(false)
-				cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(true)
-				Expect(cluster.NeedsHeadlessService()).To(BeTrue())
+			When("checking whether we need a headless service", func() {
+				It("respects the headless service setting", func() {
+					Expect(cluster.NeedsHeadlessService()).To(BeFalse())
+
+					cluster.Spec.Routing.HeadlessService = pointer.Bool(true)
+					Expect(cluster.NeedsHeadlessService()).To(BeTrue())
+				})
+
+				It("can be overridden by the DNS in cluster file setting", func() {
+					cluster.Spec.Routing.HeadlessService = pointer.Bool(false)
+					cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(true)
+					Expect(cluster.NeedsHeadlessService()).To(BeTrue())
+				})
+
+				It("can be overridden by the DNS in locality setting", func() {
+					cluster.Spec.Routing.HeadlessService = pointer.Bool(false)
+					cluster.Spec.Routing.DefineDNSLocalityFields = pointer.Bool(true)
+					Expect(cluster.NeedsHeadlessService()).To(BeTrue())
+				})
 			})
 
-			It("can be overridden by the DNS in locality setting", func() {
-				cluster.Spec.Routing.HeadlessService = pointer.Bool(false)
-				cluster.Spec.Routing.DefineDNSLocalityFields = pointer.Bool(true)
-				Expect(cluster.NeedsHeadlessService()).To(BeTrue())
+			When("checking whether we use DNS in the cluster file", func() {
+				It("respects the value in the flag", func() {
+					Expect(cluster.UseDNSInClusterFile()).To(BeFalse())
+
+					cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(true)
+					Expect(cluster.UseDNSInClusterFile()).To(BeTrue())
+				})
+			})
+
+			When("checking whether we use DNS in the locality fields", func() {
+				It("respects the value in the flag", func() {
+					Expect(cluster.DefineDNSLocalityFields()).To(BeFalse())
+
+					cluster.Spec.Routing.DefineDNSLocalityFields = pointer.Bool(true)
+					Expect(cluster.DefineDNSLocalityFields()).To(BeTrue())
+				})
+
+				It("can be overridden by the DNS in cluster file setting", func() {
+					cluster.Spec.Routing.DefineDNSLocalityFields = pointer.Bool(false)
+					cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(true)
+					Expect(cluster.DefineDNSLocalityFields()).To(BeTrue())
+				})
+			})
+
+			When("getting the DNS domain", func() {
+				It("allows overrides in the spec", func() {
+					Expect(cluster.GetDNSDomain()).To(Equal("cluster.local"))
+					suffix := "cluster.example"
+					cluster.Spec.Routing.DNSDomain = &suffix
+					Expect(cluster.GetDNSDomain()).To(Equal(suffix))
+				})
 			})
 		})
 
-		When("checking whether we use DNS in the cluster file", func() {
-			It("respects the value in the flag", func() {
-				Expect(cluster.UseDNSInClusterFile()).To(BeFalse())
-
-				cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(true)
-				Expect(cluster.UseDNSInClusterFile()).To(BeTrue())
-			})
-		})
-
-		When("checking whether we use DNS in the locality fields", func() {
-			It("respects the value in the flag", func() {
-				Expect(cluster.DefineDNSLocalityFields()).To(BeFalse())
-
-				cluster.Spec.Routing.DefineDNSLocalityFields = pointer.Bool(true)
-				Expect(cluster.DefineDNSLocalityFields()).To(BeTrue())
+		When("FoundationDB does not support DNS in the cluster file", func() {
+			BeforeEach(func() {
+				cluster.Status.RunningVersion = Versions.MinimumVersion.String()
 			})
 
-			It("can be overridden by the DNS in cluster file setting", func() {
-				cluster.Spec.Routing.DefineDNSLocalityFields = pointer.Bool(false)
-				cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(true)
-				Expect(cluster.DefineDNSLocalityFields()).To(BeTrue())
-			})
-		})
-
-		When("getting the DNS domain", func() {
-			It("allows overrides in the spec", func() {
-				Expect(cluster.GetDNSDomain()).To(Equal("cluster.local"))
-				suffix := "cluster.example"
-				cluster.Spec.Routing.DNSDomain = &suffix
-				Expect(cluster.GetDNSDomain()).To(Equal(suffix))
+			When("checking if DNS should be used", func() {
+				It("should return false", func() {
+					cluster.Spec.Routing.HeadlessService = pointer.Bool(true)
+					Expect(cluster.UseDNSInClusterFile()).To(BeFalse())
+				})
 			})
 		})
 	})

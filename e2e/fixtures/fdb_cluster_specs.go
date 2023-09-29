@@ -86,7 +86,7 @@ func (factory *Factory) createFDBClusterSpec(
 				UseLocalitiesForExclusion: pointer.Bool(config.UseLocalityBasedExclusions),
 			},
 			Routing: fdbv1beta2.RoutingConfig{
-				UseDNSInClusterFile: pointer.Bool(false),
+				UseDNSInClusterFile: pointer.Bool(config.UseDNS),
 				HeadlessService: pointer.Bool(
 					true,
 				), // to make switching between hostname <-> IP smooth
