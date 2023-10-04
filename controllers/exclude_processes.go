@@ -50,13 +50,6 @@ func (e excludeProcesses) reconcile(_ context.Context, r *FoundationDBClusterRec
 	}
 	defer adminClient.Close()
 
-	removalCount := 0
-	for _, processGroup := range cluster.Status.ProcessGroups {
-		if processGroup.IsMarkedForRemoval() {
-			removalCount++
-		}
-	}
-
 	// If the status is not cached, we have to fetch it.
 	if status == nil {
 		status, err = adminClient.GetStatus()
@@ -65,28 +58,29 @@ func (e excludeProcesses) reconcile(_ context.Context, r *FoundationDBClusterRec
 		}
 	}
 
-	var fdbProcessesToExclude []fdbv1beta2.ProcessAddress
-	var processClassesToExclude map[fdbv1beta2.ProcessClass]fdbv1beta2.None
-	if removalCount > 0 {
-		exclusions, err := fdbstatus.GetExclusions(status)
-		if err != nil {
-			return &requeue{curError: err, delayedRequeue: true}
-		}
-		logger.Info("current exclusions", "ex", exclusions)
-		fdbProcessesToExclude, processClassesToExclude = getProcessesToExclude(exclusions, cluster, removalCount)
+	exclusions, err := fdbstatus.GetExclusions(status)
+	if err != nil {
+		return &requeue{curError: err, delayedRequeue: true}
 	}
+	logger.Info("current exclusions", "exclusions", exclusions)
+	fdbProcessesToExcludeByClass := getProcessesToExclude(exclusions, cluster)
 
-	if len(fdbProcessesToExclude) > 0 {
-		for processClass := range processClassesToExclude {
+	// TODO: Add e2e test case with Quota for this change
+	if len(fdbProcessesToExcludeByClass) > 0 {
+		var fdbProcessesToExclude []fdbv1beta2.ProcessAddress
+
+		for processClass := range fdbProcessesToExcludeByClass {
 			canExclude, missingProcesses := canExcludeNewProcesses(logger, cluster, processClass)
 			if !canExclude {
 				// We want to delay the requeue so that the operator can do some other tasks
 				// before retrying.
 				return &requeue{
-					message:        fmt.Sprintf("Waiting for missing processes: %v. Addresses to exclude: %v", missingProcesses, fdbProcessesToExclude),
+					message:        fmt.Sprintf("Waiting for missing processes: %v. Addresses to exclude: %v", missingProcesses, fdbProcessesToExcludeByClass[processClass]),
 					delayedRequeue: true,
 				}
 			}
+
+			fdbProcessesToExclude = append(fdbProcessesToExclude, fdbProcessesToExcludeByClass[processClass]...)
 		}
 
 		r.Recorder.Event(cluster, corev1.EventTypeNormal, "ExcludingProcesses", fmt.Sprintf("Excluding %v", fdbProcessesToExclude))
@@ -100,9 +94,8 @@ func (e excludeProcesses) reconcile(_ context.Context, r *FoundationDBClusterRec
 	return nil
 }
 
-func getProcessesToExclude(exclusions []fdbv1beta2.ProcessAddress, cluster *fdbv1beta2.FoundationDBCluster, removalCount int) ([]fdbv1beta2.ProcessAddress, map[fdbv1beta2.ProcessClass]fdbv1beta2.None) {
-	processClassesToExclude := make(map[fdbv1beta2.ProcessClass]fdbv1beta2.None)
-	fdbProcessesToExclude := make([]fdbv1beta2.ProcessAddress, 0, removalCount)
+func getProcessesToExclude(exclusions []fdbv1beta2.ProcessAddress, cluster *fdbv1beta2.FoundationDBCluster) map[fdbv1beta2.ProcessClass][]fdbv1beta2.ProcessAddress {
+	fdbProcessesToExcludeByClass := make(map[fdbv1beta2.ProcessClass][]fdbv1beta2.ProcessAddress)
 
 	currentExclusionMap := make(map[string]fdbv1beta2.None, len(exclusions))
 	for _, exclusion := range exclusions {
@@ -110,7 +103,7 @@ func getProcessesToExclude(exclusions []fdbv1beta2.ProcessAddress, cluster *fdbv
 	}
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
-		// Process already excluded using locality, so we don't have to exclude it again
+		// Process already excluded using locality, so we don't have to exclude it again.
 		if _, ok := currentExclusionMap[processGroup.GetExclusionString()]; ok {
 			continue
 		}
@@ -118,24 +111,33 @@ func getProcessesToExclude(exclusions []fdbv1beta2.ProcessAddress, cluster *fdbv
 		// We are excluding process here using the locality field. It might be possible that the process was already excluded using IP before
 		// but for the sake of consistency it is better to exclude process using locality as well.
 		if cluster.UseLocalitiesForExclusion() && processGroup.IsMarkedForRemoval() && !processGroup.IsExcluded() {
-			fdbProcessesToExclude = append(fdbProcessesToExclude, fdbv1beta2.ProcessAddress{StringAddress: processGroup.GetExclusionString()})
-			processClassesToExclude[processGroup.ProcessClass] = fdbv1beta2.None{}
+			if len(fdbProcessesToExcludeByClass[processGroup.ProcessClass]) == 0 {
+				fdbProcessesToExcludeByClass[processGroup.ProcessClass] = []fdbv1beta2.ProcessAddress{{StringAddress: processGroup.GetExclusionString()}}
+				continue
+			}
+
+			fdbProcessesToExcludeByClass[processGroup.ProcessClass] = append(fdbProcessesToExcludeByClass[processGroup.ProcessClass], fdbv1beta2.ProcessAddress{StringAddress: processGroup.GetExclusionString()})
 			continue
 		}
 
 		for _, address := range processGroup.Addresses {
-			// Already excluded, so we don't have to exclude it again
+			// Already excluded, so we don't have to exclude it again.
 			if _, ok := currentExclusionMap[address]; ok {
 				continue
 			}
 
 			if processGroup.IsMarkedForRemoval() && !processGroup.IsExcluded() {
-				fdbProcessesToExclude = append(fdbProcessesToExclude, fdbv1beta2.ProcessAddress{IPAddress: net.ParseIP(address)})
-				processClassesToExclude[processGroup.ProcessClass] = fdbv1beta2.None{}
+				if len(fdbProcessesToExcludeByClass[processGroup.ProcessClass]) == 0 {
+					fdbProcessesToExcludeByClass[processGroup.ProcessClass] = []fdbv1beta2.ProcessAddress{{IPAddress: net.ParseIP(address)}}
+					continue
+				}
+
+				fdbProcessesToExcludeByClass[processGroup.ProcessClass] = append(fdbProcessesToExcludeByClass[processGroup.ProcessClass], fdbv1beta2.ProcessAddress{IPAddress: net.ParseIP(address)})
 			}
 		}
 	}
-	return fdbProcessesToExclude, processClassesToExclude
+
+	return fdbProcessesToExcludeByClass
 }
 
 func canExcludeNewProcesses(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass) (bool, []fdbv1beta2.ProcessGroupID) {
