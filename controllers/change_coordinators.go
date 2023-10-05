@@ -108,7 +108,6 @@ func (c changeCoordinators) reconcile(ctx context.Context, r *FoundationDBCluste
 	return nil
 }
 
-// TODO move them into separate package?
 // selectCandidates is a helper for Reconcile that picks non-excluded, not-being-removed class-matching process groups.
 func selectCandidates(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) ([]locality.Info, error) {
 	candidates := make([]locality.Info, 0, len(status.Cluster.Processes))
@@ -119,6 +118,19 @@ func selectCandidates(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta
 
 		if !cluster.IsEligibleAsCandidate(process.ProcessClass) {
 			continue
+		}
+
+		// Ignore processes with missing locality, see: https://github.com/FoundationDB/fdb-kubernetes-operator/issues/1254
+		if len(process.Locality) == 0 {
+			continue
+		}
+
+		// If the cluster should be using DNS in the cluster file we should make sure the locality is set.
+		if cluster.UseDNSInClusterFile() {
+			_, ok := process.Locality[fdbv1beta2.FDBLocalityDNSNameKey]
+			if !ok {
+				continue
+			}
 		}
 
 		if cluster.ProcessGroupIsBeingRemoved(fdbv1beta2.ProcessGroupID(process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey])) {
@@ -187,5 +199,6 @@ func getCoordinatorAddress(cluster *fdbv1beta2.FoundationDBCluster, locality loc
 			Flags:         address.Flags,
 		}
 	}
+
 	return address
 }

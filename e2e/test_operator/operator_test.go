@@ -1353,6 +1353,35 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		})
 	})
 
+	When("migrating a cluster to make use of DNS in the cluster file", func() {
+		BeforeEach(func() {
+			cluster := fdbCluster.GetCluster()
+			parsedVersion, err := fdbv1beta2.ParseFdbVersion(cluster.Status.RunningVersion)
+			Expect(err).NotTo(HaveOccurred())
+
+			if !parsedVersion.SupportsDNSInClusterFile() {
+				Skip(fmt.Sprintf("current FoundationDB version %s doesn't support DNS", parsedVersion.String()))
+			}
+
+			if cluster.UseDNSInClusterFile() {
+				Skip("cluster already uses DNS")
+			}
+
+			Expect(fdbCluster.SetUseDNSInClusterFile(true)).ToNot(HaveOccurred())
+		})
+
+		It("should migrate the cluster", func() {
+			cluster := fdbCluster.GetCluster()
+			Eventually(func() string {
+				return fdbCluster.GetStatus().Cluster.ConnectionString
+			}).Should(ContainSubstring(cluster.GetDNSDomain()))
+		})
+
+		AfterEach(func() {
+			Expect(fdbCluster.SetUseDNSInClusterFile(false)).ToNot(HaveOccurred())
+		})
+	})
+
 	// This test is pending, as all Pods will be restarted at the same time, which will lead to unavailability without
 	// using DNS.
 	PWhen("crash looping the sidecar for all Pods", func() {
