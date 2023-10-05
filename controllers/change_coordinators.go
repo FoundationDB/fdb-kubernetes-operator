@@ -125,7 +125,7 @@ func selectCandidates(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta
 			continue
 		}
 
-		// If the cluster should be using DNS in the cluster file we should make use the locality is set.
+		// If the cluster should be using DNS in the cluster file we should make sure the locality is set.
 		if cluster.UseDNSInClusterFile() {
 			_, ok := process.Locality[fdbv1beta2.FDBLocalityDNSNameKey]
 			if !ok {
