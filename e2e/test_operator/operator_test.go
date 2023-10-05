@@ -1359,9 +1359,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			parsedVersion, err := fdbv1beta2.ParseFdbVersion(cluster.Status.RunningVersion)
 			Expect(err).NotTo(HaveOccurred())
 
-			// TODO (johscheuer): Change this once https://github.com/FoundationDB/fdb-kubernetes-operator/pull/1820 is merged.
-			// if parsedVersion.SupportsDNSInClusterFile() {
-			if !parsedVersion.IsAtLeast(fdbv1beta2.Version{Major: 7, Minor: 0, Patch: 0}) {
+			if !parsedVersion.SupportsDNSInClusterFile() {
 				Skip(fmt.Sprintf("current FoundationDB version %s doesn't support DNS", parsedVersion.String()))
 			}
 
