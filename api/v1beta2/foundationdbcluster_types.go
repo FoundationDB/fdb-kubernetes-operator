@@ -1976,9 +1976,8 @@ type RoutingConfig struct {
 	PodIPFamily *int `json:"podIPFamily,omitempty"`
 
 	// UseDNSInClusterFile determines whether to use DNS names rather than IP
-	// addresses to identify coordinators in the cluster file.
-	// NOTE: This is an experimental feature, and is not supported in the
-	// latest stable version of FoundationDB.
+	// addresses to identify coordinators in the cluster file. This requires
+	// FoundationDB 7.0+.
 	UseDNSInClusterFile *bool `json:"useDNSInClusterFile,omitempty"`
 
 	// DefineDNSLocalityFields determines whether to define pod DNS names on pod
@@ -2281,7 +2280,13 @@ func (cluster *FoundationDBCluster) NeedsHeadlessService() bool {
 // UseDNSInClusterFile determines whether we need to use DNS entries in the
 // cluster file for this cluster.
 func (cluster *FoundationDBCluster) UseDNSInClusterFile() bool {
-	return pointer.BoolDeref(cluster.Spec.Routing.UseDNSInClusterFile, false)
+	runningVersion, err := ParseFdbVersion(cluster.Status.RunningVersion)
+	// If the version cannot be parsed fall back to false.
+	if err != nil {
+		return false
+	}
+
+	return runningVersion.SupportsDNSInClusterFile() && pointer.BoolDeref(cluster.Spec.Routing.UseDNSInClusterFile, false)
 }
 
 // DefineDNSLocalityFields determines whether we need to put DNS entries in the

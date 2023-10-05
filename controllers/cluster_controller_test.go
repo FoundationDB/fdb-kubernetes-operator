@@ -324,8 +324,9 @@ var _ = Describe("cluster_controller", func() {
 		When("enabling the DNS names in the cluster file", func() {
 			BeforeEach(func() {
 				cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(true)
-				err = k8sClient.Update(context.TODO(), cluster)
-				Expect(err).NotTo(HaveOccurred())
+				cluster.Spec.Version = fdbv1beta2.Versions.SupportsDNSInClusterFile.String()
+				cluster.Status.RunningVersion = fdbv1beta2.Versions.SupportsDNSInClusterFile.String()
+				Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
 			})
 
 			It("should update the pods", func() {

@@ -904,6 +904,8 @@ var _ = Describe("pod_models", func() {
 		When("enabling DNS in the cluster file", func() {
 			BeforeEach(func() {
 				cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(true)
+				cluster.Status.RunningVersion = fdbv1beta2.Versions.SupportsDNSInClusterFile.String()
+				cluster.Spec.Version = fdbv1beta2.Versions.SupportsDNSInClusterFile.String()
 				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 			})
 

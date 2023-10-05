@@ -74,6 +74,8 @@ type ClusterConfig struct {
 	UseMaintenanceMode bool
 	// UseLocalityBasedExclusions if enabled the FoundationDBCluster resource will enable the locality based exclusions.
 	UseLocalityBasedExclusions bool
+	// UseDNS if enabled the FoundationDBCluster resource will enable the DNS feature.
+	UseDNS bool
 	// CreationTracker if specified will be used to log the time between the creations steps.
 	CreationTracker CreationTrackerLogger
 	// Number of machines, this is used for calculating the number of Pods and is not correlated to the actual number
@@ -498,22 +500,24 @@ func calculateProxies(proxies int) (int, int) {
 // Copy will return a new struct of the ClusterConfig.
 func (config *ClusterConfig) Copy() *ClusterConfig {
 	return &ClusterConfig{
-		Performance:         config.Performance,
-		DebugSymbols:        config.DebugSymbols,
-		UseMaintenanceMode:  config.UseMaintenanceMode,
-		CreationTracker:     config.CreationTracker,
-		MachineCount:        config.MachineCount,
-		DisksPerMachine:     config.DisksPerMachine,
-		StorageServerPerPod: config.StorageServerPerPod,
-		LogServersPerPod:    config.LogServersPerPod,
-		VolumeSize:          config.VolumeSize,
-		Namespace:           config.Namespace,
-		Name:                config.Name,
-		cloudProvider:       config.cloudProvider,
-		StorageEngine:       config.StorageEngine,
-		NodeSelector:        config.NodeSelector,
-		HaMode:              config.HaMode,
-		CustomParameters:    config.CustomParameters,
-		CreationCallback:    config.CreationCallback,
+		Performance:                config.Performance,
+		DebugSymbols:               config.DebugSymbols,
+		UseMaintenanceMode:         config.UseMaintenanceMode,
+		CreationTracker:            config.CreationTracker,
+		MachineCount:               config.MachineCount,
+		DisksPerMachine:            config.DisksPerMachine,
+		StorageServerPerPod:        config.StorageServerPerPod,
+		LogServersPerPod:           config.LogServersPerPod,
+		VolumeSize:                 config.VolumeSize,
+		Namespace:                  config.Namespace,
+		Name:                       config.Name,
+		cloudProvider:              config.cloudProvider,
+		StorageEngine:              config.StorageEngine,
+		NodeSelector:               config.NodeSelector,
+		HaMode:                     config.HaMode,
+		CustomParameters:           config.CustomParameters,
+		CreationCallback:           config.CreationCallback,
+		UseDNS:                     config.UseDNS,
+		UseLocalityBasedExclusions: config.UseLocalityBasedExclusions,
 	}
 }
