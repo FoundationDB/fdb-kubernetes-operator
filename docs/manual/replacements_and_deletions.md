@@ -121,7 +121,11 @@ spec:
 
 ## Enforce Full Replication
 
-The operator only removes ProcessGroups when the cluster has the desired fault tolerance and is available. This is enforced by default in 1.0.0 without disabling.
+The operator only removes ProcessGroups when the cluster has the desired fault tolerance and is available. This is enforced by default in 1.0.0.
+
+## Exclusion strategy of the Operator
+
+See: [Technical Design: Exclude Processes](technical_design.md#excludeprocesses)
 
 ## Deletion mode
 

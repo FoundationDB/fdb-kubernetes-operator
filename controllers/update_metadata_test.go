@@ -28,7 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var _ = FDescribe("Update metadata", func() {
+var _ = Describe("Update metadata", func() {
 	type testCase struct {
 		pod          *corev1.Pod
 		metadata     metav1.ObjectMeta
