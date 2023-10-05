@@ -890,55 +890,6 @@ var _ = Describe("cluster_controller", func() {
 			})
 		})
 
-		Context("with missing processes and pending exclusion", func() {
-			var adminClient *mock.AdminClient
-
-			BeforeEach(func() {
-				adminClient, err = mock.NewMockAdminClientUncast(cluster, k8sClient)
-				Expect(err).NotTo(HaveOccurred())
-
-				cluster.Spec.ProcessGroupsToRemove = []fdbv1beta2.ProcessGroupID{
-					fdbv1beta2.ProcessGroupID(originalPods.Items[firstStorageIndex].ObjectMeta.Labels[fdbv1beta2.FDBProcessGroupIDLabel]),
-				}
-				err := k8sClient.Update(context.TODO(), cluster)
-				Expect(err).NotTo(HaveOccurred())
-
-				adminClient.MockMissingProcessGroup("storage-2", true)
-				adminClient.MockMissingProcessGroup("storage-3", true)
-				shouldCompleteReconciliation = false
-				generationGap = 0
-			})
-
-			JustBeforeEach(func() {
-				generations, err := reloadClusterGenerations(cluster)
-				Expect(err).NotTo(HaveOccurred())
-				// Since we delay the requeue we are able to choose new
-				// coordinators.
-				Expect(generations).To(Equal(fdbv1beta2.ClusterGenerationStatus{
-					Reconciled:          originalVersion,
-					NeedsShrink:         originalVersion + 1,
-					HasUnhealthyProcess: originalVersion + 1,
-				}))
-			})
-
-			It("should not exclude or remove the process", func() {
-				err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
-				Expect(err).NotTo(HaveOccurred())
-
-				Expect(adminClient.ExcludedAddresses).To(BeEmpty())
-				Expect(adminClient.ReincludedAddresses).To(BeEmpty())
-
-				pods := &corev1.PodList{}
-				err = k8sClient.List(context.TODO(), pods, internal.GetSinglePodListOptions(cluster, "storage-2")...)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(len(pods.Items)).To(Equal(1))
-
-				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(len(pods.Items)).To(Equal(18))
-			})
-		})
-
 		Context("with multiple replacements", func() {
 			BeforeEach(func() {
 				cluster.Spec.ProcessGroupsToRemove = []fdbv1beta2.ProcessGroupID{

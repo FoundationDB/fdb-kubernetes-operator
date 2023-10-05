@@ -231,16 +231,32 @@ The `ChooseRemovals` subreconciler flags processes for removal when the current 
 
 ### ExcludeProcesses
 
-The `ExcludeProcesses` subreconciler runs an `exclude` command in `fdbcli` for any process group that is marked for removal and is not already being excluded.
+The `ExcludeProcesses` subreconciler runs an [exclude command](https://apple.github.io/foundationdb/administration.html#removing-machines-from-a-cluster) in `fdbcli` for any process group that is marked for removal and is not already being excluded.
 The `exclude` command tells FoundationDB that a process should not serve any roles, and that any data on that process should be moved to other processes.
 This exclusion can take a long time, but this subreconciler does not wait for exclusion to complete.
 
-If there are processes that are not reporting to the cluster and are not marked for removal, this subreconciler will not run any exclusion commands.
-This is designed to prevent the operator from triggering exclusions before the replacement processes are available.
-In the case where there are multiple processes that are failing, this can cause reconciliation to get stuck.
-You can work around this by telling the operator to replace all of the failing processes.
+The operator will only trigger a replacement if the new processes are available.
+In addition the operator will not trigger any exclusion if any of the process groups with the same process clas has the `MissingProcess` condition for less than 5 minutes.
+This reduces the risk of multiple exclusions, and recoveries, during a migration.
+If a process group has the `MissingProcess` condition for more than 5 minutes it will be ignored and the exclusions might proceed.
+This mechanism reduces the risk that a migration gets stuck because of resource quota limitations.
 
-This action requires a lock.
+The operator will calculate the "budget" of processes that can be excluded on a process class basis.
+The calculation takes the desired process count, ongoing exclusions and missing processes into account:
+
+```go
+// All processes without the MissingProcess condition are considered valid in this case.
+len(validProcesses) - desiredProcessCount - ongoingExclusions
+```
+
+If the budget is greater than 0 the operator will exclude as many processes as the budget allows.
+If the budget is 0 or less, the operator will wait for new processes to come up.
+
+In most cases this will allow the operator to move forward with the exclusions and the migration, even if the resources are limited.
+There are some cases that could get the operator still stuck, e.g. if not enough new Pods can be created to allow the operator to choose new coordinators.
+
+In this case you can unblock the operator by either increasing the quota of the namespace during the migration or you could manually exclude some processes with `fdbcli`.
+If you decide to manually exclude processes, you should make sure that the replication factor can still be satisfied.
 
 ### ChangeCoordinators
 

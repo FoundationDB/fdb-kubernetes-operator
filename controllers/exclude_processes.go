@@ -23,8 +23,8 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"math"
 	"net"
+	"time"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbstatus"
 	"github.com/go-logr/logr"
@@ -34,9 +34,10 @@ import (
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 )
 
-// The fraction of processes that must be present in order to start a new
-// exclusion.
-var missingProcessThreshold = 0.8
+// ignoreMissingProcessDuration defines the duration a Process Group must have the MissingProcess condition to be
+// ignored in the exclusion check and let the exclusions potentially move forward.
+// We should consider to make this configurable in the long term.
+const ignoreMissingProcessDuration = 5 * time.Minute
 
 // excludeProcesses provides a reconciliation step for excluding processes from
 // the database.
@@ -63,24 +64,49 @@ func (e excludeProcesses) reconcile(_ context.Context, r *FoundationDBClusterRec
 		return &requeue{curError: err, delayedRequeue: true}
 	}
 	logger.Info("current exclusions", "exclusions", exclusions)
-	fdbProcessesToExcludeByClass := getProcessesToExclude(exclusions, cluster)
+	fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(exclusions, cluster)
 
-	// TODO: Add e2e test case with Quota for this change
 	if len(fdbProcessesToExcludeByClass) > 0 {
 		var fdbProcessesToExclude []fdbv1beta2.ProcessAddress
+		desiredProcesses, err := cluster.GetProcessCountsWithDefaults()
+		if err != nil {
+			return &requeue{curError: err, delayedRequeue: true}
+		}
+
+		desiredProcessesMap := desiredProcesses.Map()
 
 		for processClass := range fdbProcessesToExcludeByClass {
-			canExclude, missingProcesses := canExcludeNewProcesses(logger, cluster, processClass)
-			if !canExclude {
-				// We want to delay the requeue so that the operator can do some other tasks
-				// before retrying.
-				return &requeue{
-					message:        fmt.Sprintf("Waiting for missing processes: %v. Addresses to exclude: %v", missingProcesses, fdbProcessesToExcludeByClass[processClass]),
-					delayedRequeue: true,
-				}
+			ongoingExclusions := ongoingExclusionsByClass[processClass]
+			processesToExclude := fdbProcessesToExcludeByClass[processClass]
+
+			allowedExclusions, missingProcesses := canExcludeNewProcesses(logger, cluster, processClass, desiredProcessesMap[processClass], ongoingExclusions, r.InSimulation)
+			if allowedExclusions <= 0 {
+				logger.Info("Waiting for missing processes before continuing with the exclusion", "processClass", processClass, "missingProcesses", missingProcesses, "addressesToExclude", processesToExclude, "allowedExclusions", allowedExclusions, "ongoingExclusions", ongoingExclusions)
+				continue
 			}
 
-			fdbProcessesToExclude = append(fdbProcessesToExclude, fdbProcessesToExcludeByClass[processClass]...)
+			// If we are not able to exclude all processes at once print a log message.
+			if len(processesToExclude) > allowedExclusions {
+				logger.Info("Some processes are still missing but continuing with the exclusion", "processClass", processClass, "missingProcesses", missingProcesses, "addressesToExclude", processesToExclude, "allowedExclusions", allowedExclusions, "ongoingExclusions", ongoingExclusions)
+			}
+
+			if len(processesToExclude) < allowedExclusions {
+				allowedExclusions = len(processesToExclude) - 1
+			}
+
+			// TODO: As a next step we could exclude transaction (log + stateless) processes together and exclude
+			// storage processes with a separate call. This would make sure that no storage checks will block
+			// the exclusion of transaction processes.
+
+			// Add as many processes as allowed to the exclusion list.
+			fdbProcessesToExclude = append(fdbProcessesToExclude, processesToExclude[:allowedExclusions]...)
+		}
+
+		if len(fdbProcessesToExclude) == 0 {
+			return &requeue{
+				message:        "more exclusions needed but not allowed have to wait for new processes to come up",
+				delayedRequeue: true,
+			}
 		}
 
 		r.Recorder.Event(cluster, corev1.EventTypeNormal, "ExcludingProcesses", fmt.Sprintf("Excluding %v", fdbProcessesToExclude))
@@ -94,8 +120,10 @@ func (e excludeProcesses) reconcile(_ context.Context, r *FoundationDBClusterRec
 	return nil
 }
 
-func getProcessesToExclude(exclusions []fdbv1beta2.ProcessAddress, cluster *fdbv1beta2.FoundationDBCluster) map[fdbv1beta2.ProcessClass][]fdbv1beta2.ProcessAddress {
+func getProcessesToExclude(exclusions []fdbv1beta2.ProcessAddress, cluster *fdbv1beta2.FoundationDBCluster) (map[fdbv1beta2.ProcessClass][]fdbv1beta2.ProcessAddress, map[fdbv1beta2.ProcessClass]int) {
 	fdbProcessesToExcludeByClass := make(map[fdbv1beta2.ProcessClass][]fdbv1beta2.ProcessAddress)
+	// This map keeps track on how many processes are currently excluded but haven't finished the exclusion yet.
+	ongoingExclusionsByClass := make(map[fdbv1beta2.ProcessClass]int)
 
 	currentExclusionMap := make(map[string]fdbv1beta2.None, len(exclusions))
 	for _, exclusion := range exclusions {
@@ -105,6 +133,9 @@ func getProcessesToExclude(exclusions []fdbv1beta2.ProcessAddress, cluster *fdbv
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		// Process already excluded using locality, so we don't have to exclude it again.
 		if _, ok := currentExclusionMap[processGroup.GetExclusionString()]; ok {
+			if !processGroup.IsExcluded() {
+				ongoingExclusionsByClass[processGroup.ProcessClass]++
+			}
 			continue
 		}
 
@@ -123,6 +154,9 @@ func getProcessesToExclude(exclusions []fdbv1beta2.ProcessAddress, cluster *fdbv
 		for _, address := range processGroup.Addresses {
 			// Already excluded, so we don't have to exclude it again.
 			if _, ok := currentExclusionMap[address]; ok {
+				if !processGroup.IsExcluded() {
+					ongoingExclusionsByClass[processGroup.ProcessClass]++
+				}
 				continue
 			}
 
@@ -137,39 +171,52 @@ func getProcessesToExclude(exclusions []fdbv1beta2.ProcessAddress, cluster *fdbv
 		}
 	}
 
-	return fdbProcessesToExcludeByClass
+	return fdbProcessesToExcludeByClass, ongoingExclusionsByClass
 }
 
-func canExcludeNewProcesses(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass) (bool, []fdbv1beta2.ProcessGroupID) {
-	// Block excludes on missing processes not marked for removal
+// canExcludeNewProcesses will check if new processes for the specified process class can be excluded. The calculation takes
+// the current ongoing exclusions into account and the desired process count. If there are process groups that have
+// the MissingProcesses condition this method will forbid exclusions until all process groups with this condition have
+// this condition for longer than ignoreMissingProcessDuration. The idea behind this is to try to exclude as many processes
+// at once e.g. to reduce the number of recoveries and data movement.
+func canExcludeNewProcesses(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, desiredProcessCount int, ongoingExclusions int, inSimulation bool) (int, []fdbv1beta2.ProcessGroupID) {
+	// Block excludes on missing processes not marked for removal unless they are missing for a long time and the process might be broken
+	// or the namespace quota was hit.
 	missingProcesses := make([]fdbv1beta2.ProcessGroupID, 0)
 	validProcesses := make([]fdbv1beta2.ProcessGroupID, 0)
 
-	for _, processGroupStatus := range cluster.Status.ProcessGroups {
-		if processGroupStatus.IsMarkedForRemoval() || processGroupStatus.ProcessClass != processClass {
+	exclusionsAllowed := true
+	for _, processGroup := range cluster.Status.ProcessGroups {
+		if processGroup.ProcessClass != processClass {
+			continue
+		}
+		// Those should already be filtered out by the previous method.
+		if processGroup.IsMarkedForRemoval() && processGroup.IsExcluded() {
 			continue
 		}
 
-		if processGroupStatus.GetConditionTime(fdbv1beta2.MissingProcesses) != nil ||
-			processGroupStatus.GetConditionTime(fdbv1beta2.MissingPod) != nil {
-			missingProcesses = append(missingProcesses, processGroupStatus.ProcessGroupID)
-			logger.Info("Missing processes", "processGroupID", processGroupStatus.ProcessGroupID)
+		missingTimestamp := processGroup.GetConditionTime(fdbv1beta2.MissingProcesses)
+		if missingTimestamp != nil && !inSimulation {
+			missingTime := time.Unix(*missingTimestamp, 0)
+			missingProcesses = append(missingProcesses, processGroup.ProcessGroupID)
+			logger.V(1).Info("Missing processes", "processGroupID", processGroup.ProcessGroupID, "missingTime", missingTime.String())
+
+			if time.Since(missingTime) < ignoreMissingProcessDuration {
+				exclusionsAllowed = false
+			}
 			continue
 		}
 
-		validProcesses = append(validProcesses, processGroupStatus.ProcessGroupID)
+		validProcesses = append(validProcesses, processGroup.ProcessGroupID)
 	}
 
-	desiredProcesses, err := cluster.GetProcessCountsWithDefaults()
-	if err != nil {
-		logger.Error(err, "Error calculating process counts")
-		return false, missingProcesses
-	}
-	desiredCount := desiredProcesses.Map()[processClass]
-
-	if len(validProcesses) < desiredCount-1 && len(validProcesses) < int(math.Ceil(float64(desiredCount)*missingProcessThreshold)) {
-		return false, missingProcesses
+	if !exclusionsAllowed {
+		return 0, missingProcesses
 	}
 
-	return true, nil
+	logger.V(1).Info("canExcludeNewProcesses", "validProcesses", len(validProcesses), "desiredProcessCount", desiredProcessCount, "ongoingExclusions", ongoingExclusions)
+
+	// The assumption here is that we will only exclude a process if there is a replacement ready for it. We could relax
+	// this requirement in the future and take the fault tolerance into account.
+	return len(validProcesses) - desiredProcessCount - ongoingExclusions, missingProcesses
 }

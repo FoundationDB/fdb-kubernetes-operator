@@ -44,8 +44,7 @@ var _ = Describe("admin_client_test", func() {
 
 	BeforeEach(func() {
 		cluster = internal.CreateDefaultCluster()
-		err = k8sClient.Create(context.TODO(), cluster)
-		Expect(err).NotTo(HaveOccurred())
+		Expect(k8sClient.Create(context.TODO(), cluster)).NotTo(HaveOccurred())
 
 		result, err := reconcileCluster(cluster)
 		Expect(err).NotTo(HaveOccurred())
@@ -71,8 +70,7 @@ var _ = Describe("admin_client_test", func() {
 			When("the version supports grv and commit proxies", func() {
 				BeforeEach(func() {
 					cluster.Spec.Version = fdbv1beta2.Versions.NextMajorVersion.String()
-					err = k8sClient.Update(context.TODO(), cluster)
-					Expect(err).NotTo(HaveOccurred())
+					Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
 
 					result, err := reconcileCluster(cluster)
 					Expect(err).NotTo(HaveOccurred())
@@ -173,8 +171,7 @@ var _ = Describe("admin_client_test", func() {
 		Context("with the DNS names enabled", func() {
 			BeforeEach(func() {
 				cluster.Spec.Routing.DefineDNSLocalityFields = pointer.Bool(true)
-				err = k8sClient.Update(context.TODO(), cluster)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
 			})
 
 			When("the cluster has not been reconciled", func() {
