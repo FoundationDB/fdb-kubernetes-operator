@@ -341,6 +341,24 @@ var _ = Describe("exclude_processes", func() {
 					Expect(fdbv1beta2.ProcessAddressesString(fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage], " ")).To(Equal("1.1.1.1"))
 					Expect(ongoingExclusionsByClass).To(HaveLen(0))
 				})
+
+				When("the old IP address of this process group is already excluded", func() {
+					BeforeEach(func() {
+						processGroup := cluster.Status.ProcessGroups[0]
+						exclusions = append(exclusions, fdbv1beta2.ProcessAddress{IPAddress: net.ParseIP(processGroup.Addresses[0])})
+
+						processGroup.Addresses = append(processGroup.Addresses, "100.1.100.2")
+					})
+
+					It("should report the not yet excluded address of this process", func() {
+						fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(exclusions, cluster)
+						Expect(fdbProcessesToExcludeByClass).To(HaveLen(1))
+						Expect(fdbProcessesToExcludeByClass).To(HaveKey(fdbv1beta2.ProcessClassStorage))
+						Expect(fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage]).To(HaveLen(1))
+						Expect(fdbv1beta2.ProcessAddressesString(fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage], " ")).To(Equal("100.1.100.2"))
+						Expect(ongoingExclusionsByClass).To(HaveLen(0))
+					})
+				})
 			})
 
 			When("excluding two process", func() {
