@@ -64,7 +64,7 @@ type FoundationDBClusterList struct {
 }
 
 var conditionsThatNeedReplacement = []ProcessGroupConditionType{MissingProcesses, PodFailing, MissingPod, MissingPVC,
-	MissingService, PodPending, NodeTaintReplacing}
+	MissingService, PodPending, NodeTaintReplacing, ProcessIsMarkedAsExcluded}
 
 func init() {
 	SchemeBuilder.Register(&FoundationDBCluster{}, &FoundationDBClusterList{})
@@ -892,6 +892,8 @@ const (
 	NodeTaintDetected ProcessGroupConditionType = "NodeTaintDetected"
 	// NodeTaintReplacing represents a Pod whose node has been tainted and the operator should replace the Pod
 	NodeTaintReplacing ProcessGroupConditionType = "NodeTaintReplacing"
+	// ProcessIsMarkedAsExcluded represents a process group where at least one process is excluded.
+	ProcessIsMarkedAsExcluded ProcessGroupConditionType = "ProcessIsMarkedAsExcluded"
 )
 
 // AllProcessGroupConditionTypes returns all ProcessGroupConditionType
@@ -910,6 +912,7 @@ func AllProcessGroupConditionTypes() []ProcessGroupConditionType {
 		ReadyCondition,
 		NodeTaintDetected,
 		NodeTaintReplacing,
+		ProcessIsMarkedAsExcluded,
 	}
 }
 
@@ -940,6 +943,8 @@ func GetProcessGroupConditionType(processGroupConditionType string) (ProcessGrou
 		return NodeTaintDetected, nil
 	case "NodeTaintReplacing":
 		return NodeTaintReplacing, nil
+	case "ProcessIsMarkedAsExcluded":
+		return ProcessIsMarkedAsExcluded, nil
 	}
 
 	return "", fmt.Errorf("unknown process group condition type: %s", processGroupConditionType)

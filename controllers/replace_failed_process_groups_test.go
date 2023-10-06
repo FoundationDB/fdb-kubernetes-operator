@@ -968,6 +968,49 @@ var _ = Describe("replace_failed_process_groups", func() {
 			Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]fdbv1beta2.ProcessGroupID{}))
 		})
 	})
+
+	When("a process is not marked for removal but is excluded", func() {
+		BeforeEach(func() {
+			processGroup := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-2")
+			processGroup.ProcessGroupConditions = append(processGroup.ProcessGroupConditions, &fdbv1beta2.ProcessGroupCondition{
+				ProcessGroupConditionType: fdbv1beta2.ProcessIsMarkedAsExcluded,
+				Timestamp:                 time.Now().Add(-1 * time.Hour).Unix(),
+			})
+		})
+
+		It("should return not nil",
+			func() {
+				Expect(result).NotTo(BeNil())
+			})
+
+		It("should mark the process group to be removed", func() {
+			removedIDs := getRemovedProcessGroupIDs(cluster)
+			Expect(removedIDs).To(HaveLen(1))
+			Expect(removedIDs).To(Equal([]fdbv1beta2.ProcessGroupID{"storage-2"}))
+		})
+	})
+
+	When("a process is marked for removal and has the ProcessIsMarkedAsExcluded condition", func() {
+		BeforeEach(func() {
+			processGroup := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-2")
+			processGroup.ProcessGroupConditions = append(processGroup.ProcessGroupConditions, &fdbv1beta2.ProcessGroupCondition{
+				ProcessGroupConditionType: fdbv1beta2.ProcessIsMarkedAsExcluded,
+				Timestamp:                 time.Now().Add(-1 * time.Hour).Unix(),
+			})
+			processGroup.MarkForRemoval()
+		})
+
+		It("should return nil", func() {
+			Expect(result).To(BeNil())
+		})
+
+		It("should mark the process group to be removed", func() {
+			// The process group is marked as removal in the BeforeEach step.
+			removedIDs := getRemovedProcessGroupIDs(cluster)
+			Expect(removedIDs).To(HaveLen(1))
+			Expect(removedIDs).To(Equal([]fdbv1beta2.ProcessGroupID{"storage-2"}))
+		})
+	})
 })
 
 // getRemovedProcessGroupIDs returns a list of ids for the process groups that are marked for removal.

@@ -1435,4 +1435,39 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			}).WithPolling(4 * time.Second).WithTimeout(2 * time.Minute).MustPassRepeatedly(10).Should(BeTrue())
 		})
 	})
+
+	When("a process is excluded without being marked for removal", func() {
+		var initialReplaceTime time.Duration
+		var pod *corev1.Pod
+
+		BeforeEach(func() {
+			availabilityCheck = false
+			initialReplaceTime = time.Duration(pointer.IntDeref(
+				fdbCluster.GetClusterSpec().AutomationOptions.Replacements.FailureDetectionTimeSeconds,
+				90,
+			)) * time.Second
+			Expect(fdbCluster.SetAutoReplacements(true, 30*time.Second)).ShouldNot(HaveOccurred())
+
+			pod = fixtures.ChooseRandomPod(fdbCluster.GetStatelessPods())
+			log.Printf("exclude Pod: %s", pod.Name)
+			Expect(pod.Status.PodIP).NotTo(BeEmpty())
+			_, _, err := fdbCluster.RunFdbCliCommandInOperatorWithoutRetry(fmt.Sprintf("exclude %s", pod.Status.PodIP), false, 30)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Make sure we trigger a reconciliation to speed up the exclusion detection.
+			fdbCluster.ForceReconcile()
+		})
+
+		It("should replace the excluded Pod", func() {
+			log.Printf("waiting for pod removal: %s", pod.Name)
+			Expect(fdbCluster.WaitForPodRemoval(pod)).ShouldNot(HaveOccurred())
+			exists, err := factory.DoesPodExist(*pod)
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(exists).To(BeFalse())
+		})
+
+		AfterEach(func() {
+			Expect(fdbCluster.SetAutoReplacements(true, initialReplaceTime)).ShouldNot(HaveOccurred())
+		})
+	})
 })

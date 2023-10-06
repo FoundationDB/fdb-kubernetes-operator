@@ -61,6 +61,7 @@ The following conditions are currently eligible for replacement:
 * `MissingService`: This indicates that a process group that doesn't have a Service assigned.
 * `PodPending`: This indicates that a process group where the Pod is in a pending state.
 * `NodeTaintReplacing`: This indicates a process group where the Pod has been running on a tainted Node for at least the configured duration. If a ProcessGroup has the `NodeTaintReplacing` condition, the replacement cannot be stopped, even after the Node taint was removed.
+* `ProcessIsMarkedAsExcluded`: This indicates a process group where at least on process is excluded. If the process group is not marked as removal, the operator will replace this process group to make sure the cluster runs at the right capacity.
 
 Process groups that are set into the crash loop state with the `Buggify` setting won't be replaced by the operator.
 If the `cluster.Spec.Buggify.EmptyMonitorConf` setting is active the operator won't replace any process groups.

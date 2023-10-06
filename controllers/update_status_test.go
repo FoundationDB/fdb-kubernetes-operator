@@ -373,6 +373,22 @@ var _ = Describe("update_status", func() {
 			})
 		})
 
+		When("a process group has a process that is excluded", func() {
+			BeforeEach(func() {
+				adminClient.ExcludedAddresses[storagePod.Status.PodIP] = fdbv1beta2.None{}
+			})
+
+			It("should get the ProcessIsMarkedAsExcluded condition", func() {
+				processGroupStatus, err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap, allPvcs, logger)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(len(processGroupStatus)).To(BeNumerically(">", 4))
+				processGroup := processGroupStatus[len(processGroupStatus)-4]
+				Expect(processGroup.ProcessGroupID).To(Equal(storageOneProcessGroupID))
+				Expect(processGroup.ProcessGroupConditions).To(HaveLen(1))
+				Expect(processGroup.ProcessGroupConditions[0].ProcessGroupConditionType).To(Equal(fdbv1beta2.ProcessIsMarkedAsExcluded))
+			})
+		})
+
 		When("a process group has the wrong command line", func() {
 			BeforeEach(func() {
 				adminClient.MockIncorrectCommandLine(storageOneProcessGroupID, true)
