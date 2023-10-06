@@ -131,17 +131,25 @@ func getProcessesToExclude(exclusions []fdbv1beta2.ProcessAddress, cluster *fdbv
 	}
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
+		// Ignore process groups that are not marked for removal.
+		if !processGroup.IsMarkedForRemoval() {
+			continue
+		}
+
+		// Ignore all process groups that are already marked as fully excluded.
+		if processGroup.IsExcluded() {
+			continue
+		}
+
 		// Process already excluded using locality, so we don't have to exclude it again.
 		if _, ok := currentExclusionMap[processGroup.GetExclusionString()]; ok {
-			if !processGroup.IsExcluded() {
-				ongoingExclusionsByClass[processGroup.ProcessClass]++
-			}
+			ongoingExclusionsByClass[processGroup.ProcessClass]++
 			continue
 		}
 
 		// We are excluding process here using the locality field. It might be possible that the process was already excluded using IP before
 		// but for the sake of consistency it is better to exclude process using locality as well.
-		if cluster.UseLocalitiesForExclusion() && processGroup.IsMarkedForRemoval() && !processGroup.IsExcluded() {
+		if cluster.UseLocalitiesForExclusion() && !processGroup.IsExcluded() {
 			if len(fdbProcessesToExcludeByClass[processGroup.ProcessClass]) == 0 {
 				fdbProcessesToExcludeByClass[processGroup.ProcessClass] = []fdbv1beta2.ProcessAddress{{StringAddress: processGroup.GetExclusionString()}}
 				continue
@@ -151,23 +159,26 @@ func getProcessesToExclude(exclusions []fdbv1beta2.ProcessAddress, cluster *fdbv
 			continue
 		}
 
+		allAddressesExcluded := true
 		for _, address := range processGroup.Addresses {
 			// Already excluded, so we don't have to exclude it again.
 			if _, ok := currentExclusionMap[address]; ok {
-				if !processGroup.IsExcluded() {
-					ongoingExclusionsByClass[processGroup.ProcessClass]++
-				}
 				continue
 			}
 
-			if processGroup.IsMarkedForRemoval() && !processGroup.IsExcluded() {
-				if len(fdbProcessesToExcludeByClass[processGroup.ProcessClass]) == 0 {
-					fdbProcessesToExcludeByClass[processGroup.ProcessClass] = []fdbv1beta2.ProcessAddress{{IPAddress: net.ParseIP(address)}}
-					continue
-				}
-
-				fdbProcessesToExcludeByClass[processGroup.ProcessClass] = append(fdbProcessesToExcludeByClass[processGroup.ProcessClass], fdbv1beta2.ProcessAddress{IPAddress: net.ParseIP(address)})
+			allAddressesExcluded = false
+			if len(fdbProcessesToExcludeByClass[processGroup.ProcessClass]) == 0 {
+				fdbProcessesToExcludeByClass[processGroup.ProcessClass] = []fdbv1beta2.ProcessAddress{{IPAddress: net.ParseIP(address)}}
+				continue
 			}
+
+			fdbProcessesToExcludeByClass[processGroup.ProcessClass] = append(fdbProcessesToExcludeByClass[processGroup.ProcessClass], fdbv1beta2.ProcessAddress{IPAddress: net.ParseIP(address)})
+		}
+
+		// Only if all known addresses are excluded we assume this is an ongoing exclusion. Otherwise it might be that
+		// the Pod was recreated and got a new IP address assigned.
+		if allAddressesExcluded {
+			ongoingExclusionsByClass[processGroup.ProcessClass]++
 		}
 	}
 
