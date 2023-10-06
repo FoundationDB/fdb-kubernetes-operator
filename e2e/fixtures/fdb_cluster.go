@@ -263,7 +263,7 @@ func (fdbCluster *FdbCluster) waitForReconciliationToGeneration(
 
 		if reconciled {
 			log.Printf(
-				"reconciled name=%s, namespace=%s, generation:%s",
+				"reconciled name=%s, namespace=%s, generation:%d",
 				fdbCluster.cluster.Name,
 				fdbCluster.cluster.Namespace,
 				fdbCluster.cluster.Generation,

@@ -187,8 +187,8 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 		"with locality based exclusions",
 		func(beforeVersion string, targetVersion string) {
 			performUpgrade(beforeVersion, targetVersion, &fixtures.ClusterConfig{
-				DebugSymbols:       false,
-				UseMaintenanceMode: true,
+				DebugSymbols:               false,
+				UseLocalityBasedExclusions: true,
 			}, func(cluster *fixtures.FdbCluster) {
 				Expect(cluster.GetCluster().UseLocalitiesForExclusion()).To(BeTrue())
 			})
