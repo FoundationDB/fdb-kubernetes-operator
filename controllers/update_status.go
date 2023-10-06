@@ -358,12 +358,16 @@ func checkAndSetProcessStatus(logger logr.Logger, r *FoundationDBClusterReconcil
 		return nil
 	}
 
-	correct := false
+	var excluded, correct bool
 	versionCompatibleUpgrade := cluster.VersionCompatibleUpgradeInProgress()
 	for _, process := range processStatus {
 		// Check if the process is reporting any messages, those will normally include error messages
 		if len(process.Messages) > 0 {
 			logger.Info("found error message(s) for the process", "processGroupID", processGroupStatus.ProcessGroupID, "messages", process.Messages)
+		}
+
+		if !excluded {
+			excluded = process.Excluded
 		}
 
 		commandLine, err := internal.GetStartCommand(cluster, processGroupStatus.ProcessClass, podClient, processNumber, processCount)
@@ -396,6 +400,8 @@ func checkAndSetProcessStatus(logger logr.Logger, r *FoundationDBClusterReconcil
 		}
 	}
 
+	// If the process is excluded, update the exclude condition.
+	processGroupStatus.UpdateCondition(fdbv1beta2.ProcessIsMarkedAsExcluded, excluded)
 	processGroupStatus.UpdateCondition(fdbv1beta2.IncorrectCommandLine, !correct)
 	// Reset status for sidecar unreachable, since we are here at this point we were able to reach the sidecar for the substitute variables.
 	processGroupStatus.UpdateCondition(fdbv1beta2.SidecarUnreachable, false)
