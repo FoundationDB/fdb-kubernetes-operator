@@ -93,6 +93,10 @@ var _ = Describe("Operator Migrations", Label("e2e", "pr"), func() {
 
 			currentGeneration := fdbCluster.GetCluster().Generation
 			Expect(fdbCluster.SetProcessGroupPrefix(prefix)).NotTo(HaveOccurred())
+			// Make sure that the operator started the migration.
+			Eventually(func() int64 {
+				return fdbCluster.GetCluster().Status.Generations.Reconciled
+			}).Should(BeZero())
 			Expect(fdbCluster.WaitForReconciliation(fixtures.MinimumGenerationOption(currentGeneration+1), fixtures.SoftReconcileOption(false)))
 		})
 

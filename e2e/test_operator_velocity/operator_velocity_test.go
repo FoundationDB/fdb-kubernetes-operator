@@ -45,7 +45,7 @@ const (
 	// If we have a minimum uptime of 60 seconds we should target 240 seconds as the worst case.
 	// In most cases the initial/first restart will be faster.
 	// TODO (johscheuer): Change this back once https://github.com/FoundationDB/fdb-kubernetes-operator/issues/1361 is fixed.
-	normalKnobRolloutTimeoutSeconds = 420 // 240
+	normalKnobRolloutTimeoutSeconds = 600 // 240
 )
 
 var (
@@ -67,7 +67,7 @@ func CheckKnobRollout(
 	startTime := time.Now()
 	timeoutTime := startTime.Add(time.Duration(knobRolloutTimeoutSeconds) * time.Second)
 
-	Eventually(func() bool {
+	Eventually(func(g Gomega) bool {
 		commandLines := fdbCluster.GetPrimary().GetCommandlineForProcessesPerClass()
 		var generalProcessCounts, storageProcessCounts, totalGeneralProcessCount, totalStorageProcessCount int
 
@@ -101,11 +101,13 @@ func CheckKnobRollout(
 			time.Since(startTime).Seconds(),
 		)
 
-		return generalProcessCounts == totalGeneralProcessCount &&
-			storageProcessCounts == totalStorageProcessCount
+		g.Expect(generalProcessCounts).To(BeNumerically("==", totalGeneralProcessCount))
+		g.Expect(storageProcessCounts).To(BeNumerically("==", totalStorageProcessCount))
+
+		return true
 	}).WithTimeout(time.Until(timeoutTime)).WithPolling(15 * time.Second).Should(BeTrue())
 
-	log.Println("Knob rollout took", time.Since(startTime).Seconds(), "seconds")
+	log.Println("Knob rollout took", time.Since(startTime).String())
 }
 
 func countMatchingCommandLines(

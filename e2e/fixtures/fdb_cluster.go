@@ -263,9 +263,10 @@ func (fdbCluster *FdbCluster) waitForReconciliationToGeneration(
 
 		if reconciled {
 			log.Printf(
-				"reconciled name=%s, namespace=%s",
+				"reconciled name=%s, namespace=%s, generation:%d",
 				fdbCluster.cluster.Name,
 				fdbCluster.cluster.Namespace,
+				fdbCluster.cluster.Generation,
 			)
 			return true
 		}
@@ -314,17 +315,10 @@ func (fdbCluster *FdbCluster) WaitUntilWithForceReconcile(pollTimeInSeconds int,
 // ForceReconcile will add an annotation with the current timestamp on the FoundationDBCluster resource to make sure
 // the operator reconciliation loop is triggered. This is used to speed up some test cases.
 func (fdbCluster *FdbCluster) ForceReconcile() {
-	log.Println("ForceReconcile")
-	log.Printf("Status Generations=%s",
-		ToJSON(fdbCluster.cluster.Status.Generations))
-	log.Printf(
-		"MedataData Generations=%s",
-		ToJSON(
-			fdbv1beta2.ClusterGenerationStatus{
-				Reconciled: fdbCluster.cluster.ObjectMeta.Generation,
-			},
-		),
-	)
+	log.Printf("ForceReconcile: Status Generations=%s, Metadata Generation=%d",
+		ToJSON(fdbCluster.cluster.Status.Generations),
+		fdbCluster.cluster.ObjectMeta.Generation)
+
 	fdbCluster.factory.DumpState(fdbCluster)
 	patch := client.MergeFrom(fdbCluster.cluster.DeepCopy())
 	if fdbCluster.cluster.Annotations == nil {
