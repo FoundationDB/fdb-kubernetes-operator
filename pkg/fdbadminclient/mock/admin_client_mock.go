@@ -228,6 +228,13 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 					for _, envVar := range container.Env {
 						if envVar.Name == "FDB_DNS_NAME" {
 							locality[fdbv1beta2.FDBLocalityDNSNameKey] = envVar.Value
+
+							if client.Cluster.UseDNSInClusterFile() {
+								fullAddress.StringAddress = envVar.Value
+							}
+							// TODO (johscheuer): This should be set to true. This will add additional information to the
+							// return address and needs some additional refactoring in the mock code.
+							// fullAddress.FromHostname = true
 						}
 					}
 				}
