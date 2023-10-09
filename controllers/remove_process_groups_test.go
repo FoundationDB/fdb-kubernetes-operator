@@ -43,8 +43,7 @@ var _ = Describe("remove_process_groups", func() {
 	Context("validating process removal", func() {
 		BeforeEach(func() {
 			cluster = internal.CreateDefaultCluster()
-			err := k8sClient.Create(context.TODO(), cluster)
-			Expect(err).NotTo(HaveOccurred())
+			Expect(k8sClient.Create(context.TODO(), cluster)).NotTo(HaveOccurred())
 
 			result, err := reconcileCluster(cluster)
 			Expect(err).NotTo(HaveOccurred())
@@ -193,7 +192,7 @@ var _ = Describe("remove_process_groups", func() {
 				})
 			})
 
-			When("Removing multiple process groups", func() {
+			When("removing multiple process groups", func() {
 				var initialCnt int
 				var secondRemovedProcessGroup *fdbv1beta2.ProcessGroupStatus
 
@@ -201,7 +200,7 @@ var _ = Describe("remove_process_groups", func() {
 					BeforeEach(func() {
 						Expect(cluster.Spec.AutomationOptions.RemovalMode).To(BeEmpty())
 						initialCnt = len(cluster.Status.ProcessGroups)
-						secondRemovedProcessGroup = cluster.Status.ProcessGroups[1]
+						secondRemovedProcessGroup = cluster.Status.ProcessGroups[6]
 						marked, processGroup := fdbv1beta2.MarkProcessGroupForRemoval(cluster.Status.ProcessGroups, secondRemovedProcessGroup.ProcessGroupID, secondRemovedProcessGroup.ProcessClass, removedProcessGroup.Addresses[0])
 						Expect(marked).To(BeTrue())
 						Expect(processGroup).To(BeNil())
@@ -303,7 +302,7 @@ var _ = Describe("remove_process_groups", func() {
 						Expect(err).NotTo(HaveOccurred())
 
 						initialCnt = len(cluster.Status.ProcessGroups)
-						secondRemovedProcessGroup = cluster.Status.ProcessGroups[1]
+						secondRemovedProcessGroup = cluster.Status.ProcessGroups[6]
 						marked, processGroup := fdbv1beta2.MarkProcessGroupForRemoval(cluster.Status.ProcessGroups, secondRemovedProcessGroup.ProcessGroupID, secondRemovedProcessGroup.ProcessClass, removedProcessGroup.Addresses[0])
 						Expect(marked).To(BeTrue())
 						Expect(processGroup).To(BeNil())

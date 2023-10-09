@@ -228,6 +228,13 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 					for _, envVar := range container.Env {
 						if envVar.Name == "FDB_DNS_NAME" {
 							locality[fdbv1beta2.FDBLocalityDNSNameKey] = envVar.Value
+
+							if client.Cluster.UseDNSInClusterFile() {
+								fullAddress.StringAddress = envVar.Value
+							}
+							// TODO (johscheuer): This should be set to true. This will add additional information to the
+							// return address and needs some additional refactoring in the mock code.
+							// fullAddress.FromHostname = true
 						}
 					}
 				}
@@ -350,6 +357,7 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 		status.Cluster.Clients.SupportedVersions = supportedVersions
 	}
 
+	var countReachableCoordinators int
 	for address, reachable := range coordinators {
 		pAddr, err := fdbv1beta2.ParseProcessAddress(address)
 		if err != nil {
@@ -360,8 +368,14 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 			Address:   pAddr,
 			Reachable: reachable,
 		})
+
+		if reachable {
+			countReachableCoordinators++
+		}
 	}
 
+	minReachableCoordinators := (client.Cluster.DesiredCoordinatorCount() + 1) / 2
+	status.Client.Coordinators.QuorumReachable = countReachableCoordinators >= minReachableCoordinators
 	status.Client.DatabaseStatus.Available = true
 	status.Client.DatabaseStatus.Healthy = true
 

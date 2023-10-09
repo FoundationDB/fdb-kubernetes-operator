@@ -256,7 +256,6 @@ func (address ProcessAddress) String() string {
 	sb.WriteString(net.JoinHostPort(address.MachineAddress(), strconv.Itoa(address.Port)))
 
 	flags := address.SortedFlags()
-
 	if len(flags) > 0 {
 		sb.WriteString(":" + strings.Join(flags, ":"))
 	}

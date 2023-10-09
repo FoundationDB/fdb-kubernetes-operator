@@ -331,8 +331,7 @@ var _ = Describe("cluster_controller", func() {
 
 			It("should update the pods", func() {
 				pods := &corev1.PodList{}
-				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)).NotTo(HaveOccurred())
 				for _, pod := range pods.Items {
 					env := make(map[string]string)
 					for _, envVar := range pod.Spec.InitContainers[0].Env {
@@ -342,6 +341,7 @@ var _ = Describe("cluster_controller", func() {
 				}
 			})
 		})
+
 		Context("when buggifying a pod to make it crash loop", func() {
 			BeforeEach(func() {
 				cluster.Spec.Buggify.CrashLoop = []fdbv1beta2.ProcessGroupID{"storage-1"}
