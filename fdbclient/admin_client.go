@@ -352,6 +352,7 @@ func (client *cliAdminClient) GetMaintenanceZone() (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	return string(mode), nil
 }
 

@@ -63,8 +63,9 @@ func (fdbClient *realFdbLibClient) getValueFromDBUsingKey(fdbKey string, timeout
 		}
 
 		rawResult := transaction.Get(fdb.Key(fdbKey)).MustGet()
+		// If the value is empty return an empty byte slice. Otherwise, an error will be thrown.
 		if len(rawResult) == 0 {
-			return nil, err
+			return []byte{}, err
 		}
 
 		return rawResult, err
