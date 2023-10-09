@@ -350,6 +350,7 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 		status.Cluster.Clients.SupportedVersions = supportedVersions
 	}
 
+	var countReachableCoordinators int
 	for address, reachable := range coordinators {
 		pAddr, err := fdbv1beta2.ParseProcessAddress(address)
 		if err != nil {
@@ -360,8 +361,14 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 			Address:   pAddr,
 			Reachable: reachable,
 		})
+
+		if reachable {
+			countReachableCoordinators++
+		}
 	}
 
+	minReachableCoordinators := (client.Cluster.DesiredCoordinatorCount() + 1) / 2
+	status.Client.Coordinators.QuorumReachable = countReachableCoordinators >= minReachableCoordinators
 	status.Client.DatabaseStatus.Available = true
 	status.Client.DatabaseStatus.Healthy = true
 

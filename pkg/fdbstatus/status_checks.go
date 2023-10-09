@@ -390,9 +390,26 @@ func DoLogServerFaultDomainCheckOnStatus(status *fdbv1beta2.FoundationDBStatus) 
 }
 
 // DoCoordinatorFaultDomainCheckOnStatus does a coordinator related fault domain check over the given status object.
-// @note an empty function for now. We will revisit this later.
-func DoCoordinatorFaultDomainCheckOnStatus(_ *fdbv1beta2.FoundationDBStatus) error {
-	// TODO: decide if we need to do coordinator related check.
+func DoCoordinatorFaultDomainCheckOnStatus(status *fdbv1beta2.FoundationDBStatus) error {
+	notReachable := make([]string, 0, len(status.Client.Coordinators.Coordinators))
+	for _, coordinator := range status.Client.Coordinators.Coordinators {
+		if coordinator.Reachable {
+			continue
+		}
+
+		notReachable = append(notReachable, coordinator.Address.String())
+	}
+
+	if len(notReachable) > 0 {
+		return fmt.Errorf("not all coordinators are reachable, unreachable coordinators: %s", strings.Join(notReachable, ","))
+	}
+
+	// If this is the case the statements above should already catch the unreachable coordinators and printout a more
+	// detailed message.
+	if !status.Client.Coordinators.QuorumReachable {
+		return fmt.Errorf("quorum of coordinators is not reachable")
+	}
+
 	return nil
 }
 
@@ -430,7 +447,6 @@ func HasDesiredFaultToleranceFromStatus(log logr.Logger, status *fdbv1beta2.Foun
 		return false
 	}
 
-	// TODO (johscheuer): Should those checks be specific to the Kubernetes cluster (DC) we are requesting?
 	// Should we also add a method to check the different process classes? Currently the degraded log fault tolerance
 	// will block the removal of a storage process.
 	err := DoStorageServerFaultDomainCheckOnStatus(status)
@@ -442,6 +458,12 @@ func HasDesiredFaultToleranceFromStatus(log logr.Logger, status *fdbv1beta2.Foun
 	err = DoLogServerFaultDomainCheckOnStatus(status)
 	if err != nil {
 		log.Info("Fault domain check for log servers failed", "error", err)
+		return false
+	}
+
+	err = DoCoordinatorFaultDomainCheckOnStatus(status)
+	if err != nil {
+		log.Info("Fault domain check for coordinator servers failed", "error", err)
 		return false
 	}
 

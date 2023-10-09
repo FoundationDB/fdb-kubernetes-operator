@@ -1121,18 +1121,147 @@ var _ = Describe("status_checks", func() {
 			})
 		})
 
-		Context("coordinator fault domain checks", func() {
-			It("no coordinator related information in status", func() {
+		When("doing the coordinator fault domain checks", func() {
+			BeforeEach(func() {
 				status = &fdbv1beta2.FoundationDBStatus{
+					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+						Coordinators: fdbv1beta2.FoundationDBStatusCoordinatorInfo{
+							QuorumReachable: true,
+							Coordinators: []fdbv1beta2.FoundationDBStatusCoordinator{
+								{
+									Reachable: true,
+									Address: fdbv1beta2.ProcessAddress{
+										IPAddress: net.ParseIP("192.168.0.1"),
+										Port:      4500,
+									},
+								},
+								{
+									Reachable: true,
+									Address: fdbv1beta2.ProcessAddress{
+										IPAddress: net.ParseIP("192.168.0.2"),
+										Port:      4500,
+									},
+								},
+								{
+									Reachable: true,
+									Address: fdbv1beta2.ProcessAddress{
+										IPAddress: net.ParseIP("192.168.0.3"),
+										Port:      4500,
+									},
+								},
+								{
+									Reachable: true,
+									Address: fdbv1beta2.ProcessAddress{
+										IPAddress: net.ParseIP("192.168.0.4"),
+										Port:      4500,
+									},
+								},
+								{
+									Reachable: true,
+									Address: fdbv1beta2.ProcessAddress{
+										IPAddress: net.ParseIP("192.168.0.5"),
+										Port:      4500,
+									},
+								},
+							},
+						},
+					},
 					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{},
 				}
-				Expect(DoCoordinatorFaultDomainCheckOnStatus(status)).NotTo(HaveOccurred())
+			})
+
+			When("all coordinators are reachable", func() {
+				It("should report no error", func() {
+					Expect(DoCoordinatorFaultDomainCheckOnStatus(status)).NotTo(HaveOccurred())
+				})
+			})
+
+			When("one coordinator is unreachable", func() {
+				BeforeEach(func() {
+					status.Client.Coordinators.Coordinators[0].Reachable = false
+				})
+
+				It("should report an error", func() {
+					err := DoCoordinatorFaultDomainCheckOnStatus(status)
+					Expect(err).To(HaveOccurred())
+					Expect(err.Error()).To(ContainSubstring(status.Client.Coordinators.Coordinators[0].Address.String()))
+				})
+			})
+
+			When("two coordinators are unreachable", func() {
+				BeforeEach(func() {
+					status.Client.Coordinators.Coordinators[0].Reachable = false
+					status.Client.Coordinators.Coordinators[1].Reachable = false
+				})
+
+				It("should report an error", func() {
+					err := DoCoordinatorFaultDomainCheckOnStatus(status)
+					Expect(err).To(HaveOccurred())
+					Expect(err.Error()).To(And(ContainSubstring(status.Client.Coordinators.Coordinators[0].Address.String()), ContainSubstring(status.Client.Coordinators.Coordinators[1].Address.String())))
+				})
+			})
+
+			When("the quorum of coordinators are unreachable", func() {
+				BeforeEach(func() {
+					status.Client.Coordinators.QuorumReachable = false
+				})
+
+				It("should report an error", func() {
+					err := DoCoordinatorFaultDomainCheckOnStatus(status)
+					Expect(err).To(HaveOccurred())
+					Expect(err.Error()).To(Equal("quorum of coordinators is not reachable"))
+				})
 			})
 		})
 
 		Context("multiple fault domain checks", func() {
 			BeforeEach(func() {
 				status = &fdbv1beta2.FoundationDBStatus{
+					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+						Coordinators: fdbv1beta2.FoundationDBStatusCoordinatorInfo{
+							QuorumReachable: true,
+							Coordinators: []fdbv1beta2.FoundationDBStatusCoordinator{
+								{
+									Reachable: true,
+									Address: fdbv1beta2.ProcessAddress{
+										IPAddress: net.ParseIP("192.168.0.1"),
+										Port:      4500,
+									},
+								},
+								{
+									Reachable: true,
+									Address: fdbv1beta2.ProcessAddress{
+										IPAddress: net.ParseIP("192.168.0.2"),
+										Port:      4500,
+									},
+								},
+								{
+									Reachable: true,
+									Address: fdbv1beta2.ProcessAddress{
+										IPAddress: net.ParseIP("192.168.0.3"),
+										Port:      4500,
+									},
+								},
+								{
+									Reachable: true,
+									Address: fdbv1beta2.ProcessAddress{
+										IPAddress: net.ParseIP("192.168.0.4"),
+										Port:      4500,
+									},
+								},
+								{
+									Reachable: true,
+									Address: fdbv1beta2.ProcessAddress{
+										IPAddress: net.ParseIP("192.168.0.5"),
+										Port:      4500,
+									},
+								},
+							},
+						},
+						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+							Available: true,
+						},
+					},
 					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
 						Data: fdbv1beta2.FoundationDBStatusDataStatistics{
 							TeamTrackers: []fdbv1beta2.FoundationDBStatusTeamTracker{
@@ -1208,6 +1337,46 @@ var _ = Describe("status_checks", func() {
 			Entry("cluster is fully replicated",
 				&fdbv1beta2.FoundationDBStatus{
 					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+						Coordinators: fdbv1beta2.FoundationDBStatusCoordinatorInfo{
+							QuorumReachable: true,
+							Coordinators: []fdbv1beta2.FoundationDBStatusCoordinator{
+								{
+									Reachable: true,
+									Address: fdbv1beta2.ProcessAddress{
+										IPAddress: net.ParseIP("192.168.0.1"),
+										Port:      4500,
+									},
+								},
+								{
+									Reachable: true,
+									Address: fdbv1beta2.ProcessAddress{
+										IPAddress: net.ParseIP("192.168.0.2"),
+										Port:      4500,
+									},
+								},
+								{
+									Reachable: true,
+									Address: fdbv1beta2.ProcessAddress{
+										IPAddress: net.ParseIP("192.168.0.3"),
+										Port:      4500,
+									},
+								},
+								{
+									Reachable: true,
+									Address: fdbv1beta2.ProcessAddress{
+										IPAddress: net.ParseIP("192.168.0.4"),
+										Port:      4500,
+									},
+								},
+								{
+									Reachable: true,
+									Address: fdbv1beta2.ProcessAddress{
+										IPAddress: net.ParseIP("192.168.0.5"),
+										Port:      4500,
+									},
+								},
+							},
+						},
 						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
 							Available: true,
 						},
@@ -1246,6 +1415,46 @@ var _ = Describe("status_checks", func() {
 			Entry("database is unavailable",
 				&fdbv1beta2.FoundationDBStatus{
 					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+						Coordinators: fdbv1beta2.FoundationDBStatusCoordinatorInfo{
+							QuorumReachable: true,
+							Coordinators: []fdbv1beta2.FoundationDBStatusCoordinator{
+								{
+									Reachable: true,
+									Address: fdbv1beta2.ProcessAddress{
+										IPAddress: net.ParseIP("192.168.0.1"),
+										Port:      4500,
+									},
+								},
+								{
+									Reachable: true,
+									Address: fdbv1beta2.ProcessAddress{
+										IPAddress: net.ParseIP("192.168.0.2"),
+										Port:      4500,
+									},
+								},
+								{
+									Reachable: true,
+									Address: fdbv1beta2.ProcessAddress{
+										IPAddress: net.ParseIP("192.168.0.3"),
+										Port:      4500,
+									},
+								},
+								{
+									Reachable: true,
+									Address: fdbv1beta2.ProcessAddress{
+										IPAddress: net.ParseIP("192.168.0.4"),
+										Port:      4500,
+									},
+								},
+								{
+									Reachable: true,
+									Address: fdbv1beta2.ProcessAddress{
+										IPAddress: net.ParseIP("192.168.0.5"),
+										Port:      4500,
+									},
+								},
+							},
+						},
 						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
 							Available: false,
 						},
@@ -1263,6 +1472,46 @@ var _ = Describe("status_checks", func() {
 			Entry("data is degraded",
 				&fdbv1beta2.FoundationDBStatus{
 					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+						Coordinators: fdbv1beta2.FoundationDBStatusCoordinatorInfo{
+							QuorumReachable: true,
+							Coordinators: []fdbv1beta2.FoundationDBStatusCoordinator{
+								{
+									Reachable: true,
+									Address: fdbv1beta2.ProcessAddress{
+										IPAddress: net.ParseIP("192.168.0.1"),
+										Port:      4500,
+									},
+								},
+								{
+									Reachable: true,
+									Address: fdbv1beta2.ProcessAddress{
+										IPAddress: net.ParseIP("192.168.0.2"),
+										Port:      4500,
+									},
+								},
+								{
+									Reachable: true,
+									Address: fdbv1beta2.ProcessAddress{
+										IPAddress: net.ParseIP("192.168.0.3"),
+										Port:      4500,
+									},
+								},
+								{
+									Reachable: true,
+									Address: fdbv1beta2.ProcessAddress{
+										IPAddress: net.ParseIP("192.168.0.4"),
+										Port:      4500,
+									},
+								},
+								{
+									Reachable: true,
+									Address: fdbv1beta2.ProcessAddress{
+										IPAddress: net.ParseIP("192.168.0.5"),
+										Port:      4500,
+									},
+								},
+							},
+						},
 						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
 							Available: true,
 						},
@@ -1301,6 +1550,46 @@ var _ = Describe("status_checks", func() {
 			Entry("logs are degraded",
 				&fdbv1beta2.FoundationDBStatus{
 					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+						Coordinators: fdbv1beta2.FoundationDBStatusCoordinatorInfo{
+							QuorumReachable: true,
+							Coordinators: []fdbv1beta2.FoundationDBStatusCoordinator{
+								{
+									Reachable: true,
+									Address: fdbv1beta2.ProcessAddress{
+										IPAddress: net.ParseIP("192.168.0.1"),
+										Port:      4500,
+									},
+								},
+								{
+									Reachable: true,
+									Address: fdbv1beta2.ProcessAddress{
+										IPAddress: net.ParseIP("192.168.0.2"),
+										Port:      4500,
+									},
+								},
+								{
+									Reachable: true,
+									Address: fdbv1beta2.ProcessAddress{
+										IPAddress: net.ParseIP("192.168.0.3"),
+										Port:      4500,
+									},
+								},
+								{
+									Reachable: true,
+									Address: fdbv1beta2.ProcessAddress{
+										IPAddress: net.ParseIP("192.168.0.4"),
+										Port:      4500,
+									},
+								},
+								{
+									Reachable: true,
+									Address: fdbv1beta2.ProcessAddress{
+										IPAddress: net.ParseIP("192.168.0.5"),
+										Port:      4500,
+									},
+								},
+							},
+						},
 						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
 							Available: true,
 						},
@@ -1337,5 +1626,83 @@ var _ = Describe("status_checks", func() {
 				},
 				false),
 		)
+		Entry("one coordinator is not reachable",
+			&fdbv1beta2.FoundationDBStatus{
+				Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+					Coordinators: fdbv1beta2.FoundationDBStatusCoordinatorInfo{
+						QuorumReachable: true,
+						Coordinators: []fdbv1beta2.FoundationDBStatusCoordinator{
+							{
+								Reachable: false,
+								Address: fdbv1beta2.ProcessAddress{
+									IPAddress: net.ParseIP("192.168.0.1"),
+									Port:      4500,
+								},
+							},
+							{
+								Reachable: true,
+								Address: fdbv1beta2.ProcessAddress{
+									IPAddress: net.ParseIP("192.168.0.2"),
+									Port:      4500,
+								},
+							},
+							{
+								Reachable: true,
+								Address: fdbv1beta2.ProcessAddress{
+									IPAddress: net.ParseIP("192.168.0.3"),
+									Port:      4500,
+								},
+							},
+							{
+								Reachable: true,
+								Address: fdbv1beta2.ProcessAddress{
+									IPAddress: net.ParseIP("192.168.0.4"),
+									Port:      4500,
+								},
+							},
+							{
+								Reachable: true,
+								Address: fdbv1beta2.ProcessAddress{
+									IPAddress: net.ParseIP("192.168.0.5"),
+									Port:      4500,
+								},
+							},
+						},
+					},
+					DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+						Available: true,
+					},
+				},
+				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+					DatabaseConfiguration: fdbv1beta2.DatabaseConfiguration{
+						RedundancyMode: fdbv1beta2.RedundancyModeTriple,
+					},
+					Data: fdbv1beta2.FoundationDBStatusDataStatistics{
+						TeamTrackers: []fdbv1beta2.FoundationDBStatusTeamTracker{
+							{
+								Primary: true,
+								State: fdbv1beta2.FoundationDBStatusDataState{
+									Healthy:              true,
+									MinReplicasRemaining: 3,
+								},
+							},
+						},
+					},
+					Logs: []fdbv1beta2.FoundationDBStatusLogInfo{
+						{
+							LogFaultTolerance:    2,
+							LogReplicationFactor: 3,
+						},
+					},
+				},
+			},
+			&fdbv1beta2.FoundationDBCluster{
+				Spec: fdbv1beta2.FoundationDBClusterSpec{
+					DatabaseConfiguration: fdbv1beta2.DatabaseConfiguration{
+						RedundancyMode: fdbv1beta2.RedundancyModeTriple,
+					},
+				},
+			},
+			false)
 	})
 })
