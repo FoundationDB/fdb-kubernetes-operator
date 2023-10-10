@@ -243,6 +243,8 @@ func ChooseDistributedProcesses(cluster *fdbv1beta2.FoundationDBCluster, process
 // GetHardLimits returns the distribution of localities.
 func GetHardLimits(cluster *fdbv1beta2.FoundationDBCluster) map[string]int {
 	if cluster.Spec.DatabaseConfiguration.UsableRegions <= 1 {
+		// For the three_data_hall redundancy mode we will recruit 9 coordinators and those hard limits are only used
+		// for selecting coordinators. We want to make sure we select coordinators across as many fault domains as possible.
 		if cluster.Spec.DatabaseConfiguration.RedundancyMode == fdbv1beta2.RedundancyModeThreeDataHall {
 			return map[string]int{
 				// Assumption here is that we have 3 data halls and we want to spread the coordinators
@@ -258,8 +260,8 @@ func GetHardLimits(cluster *fdbv1beta2.FoundationDBCluster) map[string]int {
 	maxCoordinatorsPerDC := int(math.Ceil(float64(cluster.DesiredCoordinatorCount()) / float64(cluster.Spec.DatabaseConfiguration.CountUniqueDataCenters())))
 
 	return map[string]int{
-		fdbv1beta2.FDBLocalityZoneIDKey: 1,
 		fdbv1beta2.FDBLocalityDCIDKey:   maxCoordinatorsPerDC,
+		fdbv1beta2.FDBLocalityZoneIDKey: 1,
 	}
 }
 
