@@ -100,6 +100,7 @@ This strategy uses the pod name as the fault domain, which allows each process t
 
 ## Three-Data-Hall Replication
 
+**NOTE**: The support for this redundancy mode is new and might have issues. Please make sure you test this configuration in our test/QA environment.
 The [three-data-hall](https://apple.github.io/foundationdb/configuration.html#single-datacenter-modes) replication can be use to replicate data across three data halls, or availability zones.
 This requires that your fault domains are properly labeled on the Kubernetes nodes.
 Most cloud-providers will use the well-known label [topology.kubernetes.io/zone](https://kubernetes.io/docs/reference/labels-annotations-taints/#topologykubernetesiozone) for this.
@@ -129,9 +130,9 @@ spec:
               "topology.kubernetes.io/zone": "az1"
 ```
 
-Once the cluster is reconciled and running we can change the `redundancyMode` to `three_data_hall`.
+Once the cluster in `az1` is reconciled and running we can change the `redundancyMode` to `three_data_hall`.
 For the other two created `FoundationDBCluster` resources you have to set the `seedConnectionString` to the current connection string of the `FoundationDBCluster` resource in az1.
-The cluster will be stuck in a reconciling state until we add the other two configurations (each one for `az1`, `az2` and `az3`:
+The cluster will be stuck in a reconciling state until the other two `FoundationDBClusters`'s in `az2` and `az3` are created:
 
 ```yaml
 apiVersion: apps.foundationdb.org/v1beta2
@@ -154,8 +155,9 @@ spec:
               "topology.kubernetes.io/zone": "az1"
 ```
 
-Once all three `FoundationDBCluster` resources are marked for reconciliation the FoundationDB cluster is up and running.
-You can run this configuration in the same namespace, different namespaces of even across multiple different Kubernetes clusters.
+Once all three `FoundationDBCluster` resources are marked as reconciled the FoundationDB cluster is up and running.
+You can run this configuration in the same namespace, different namespaces or even across multiple different Kubernetes clusters.
+Operations across the different `FoundationDBCluster` resources are [coordinated](#coordinating-global-operations). 
 
 ## Multi-Region Replication
 
@@ -250,7 +252,8 @@ spec:
 
 ## Coordinating Global Operations
 
-When running a FoundationDB cluster that is deployed across multiple Kubernetes clusters, each Kubernetes cluster will have its own instance of the operator working on the processes in its cluster. There will be some operations that cannot be scoped to a single Kubernetes cluster, such as changing the database configuration. The operator provides a locking system to ensure that only one instance of the operator can perform these operations at a time. You can enable this locking system by setting `lockOptions.disableLocks = false` in the cluster spec. The locking system is automatically enabled by default for any cluster that has multiple regions in its database configuration, or a `zoneCount` greater than 1 in its fault domain configuration.
+When running a FoundationDB cluster that is deployed across multiple Kubernetes clusters, each Kubernetes cluster will have its own instance of the operator working on the processes in its cluster. There will be some operations that cannot be scoped to a single Kubernetes cluster, such as changing the database configuration.
+The operator provides a locking system to ensure that only one instance of the operator can perform these operations at a time. You can enable this locking system by setting `lockOptions.disableLocks = false` in the cluster spec. The locking system is automatically enabled by default for any cluster that has multiple regions in its database configuration, or a `zoneCount` greater than 1 in its fault domain configuration.
 
 The locking system uses the `processGroupIDPrefix` from the cluster spec to identify an process group of the operator.
 Make sure to set this to a unique value for each Kubernetes cluster, both to support the locking system and to prevent duplicate process group IDs.
