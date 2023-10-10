@@ -67,10 +67,10 @@ type testConfig struct {
 	loadData               bool
 }
 
-func clusterSetupWithHealthCheckOption(config testConfig) {
+func clusterSetupWithTestConfig(config testConfig) {
 	// We set the before version here to overwrite the before version from the specific flag
 	// the specific flag will be removed in the future.
-	factory.SetBeforeVersion(beforeVersion)
+	factory.SetBeforeVersion(config.beforeVersion)
 	fdbCluster = factory.CreateFdbHaCluster(
 		fixtures.DefaultClusterConfigWithHaMode(fixtures.HaFourZoneSingleSat, false),
 		factory.GetClusterOptions(fixtures.UseVersionBeforeUpgrade)...,
@@ -82,7 +82,12 @@ func clusterSetupWithHealthCheckOption(config testConfig) {
 		).ShouldNot(HaveOccurred())
 	}
 
-	if enableOperatorPodChaos && factory.ChaosTestsEnabled() {
+	if config.loadData {
+		// Load some data async into the cluster. We will only block as long as the Job is created.
+		factory.CreateDataLoaderIfAbsent(fdbCluster.GetPrimary())
+	}
+
+	if config.enableOperatorPodChaos && factory.ChaosTestsEnabled() {
 		for _, curCluster := range fdbCluster.GetAllClusters() {
 			factory.ScheduleInjectPodKill(
 				fixtures.GetOperatorSelector(curCluster.Namespace()),
@@ -94,7 +99,7 @@ func clusterSetupWithHealthCheckOption(config testConfig) {
 }
 
 func clusterSetup(beforeVersion string, enableOperatorPodChaos bool) {
-	clusterSetupWithHealthCheckOption(
+	clusterSetupWithTestConfig(
 		testConfig{
 			beforeVersion:          beforeVersion,
 			enableOperatorPodChaos: enableOperatorPodChaos,
@@ -163,7 +168,7 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 	DescribeTable(
 		"with operator pod chaos and without foundationdb pod chaos",
 		func(beforeVersion string, targetVersion string) {
-			clusterSetupWithHealthCheckOption(testConfig{
+			clusterSetupWithTestConfig(testConfig{
 				beforeVersion:          beforeVersion,
 				enableOperatorPodChaos: true,
 				enableHealthCheck:      true,
@@ -183,9 +188,6 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 					transactionSystemProcessGroups.Store(processGroup.ProcessGroupID, fdbv1beta2.None{})
 				}
 			}
-
-			// Load some data async into the cluster. We will only block as long as the Job is created.
-			factory.CreateDataLoaderIfAbsent(fdbCluster.GetPrimary())
 
 			// Start the upgrade for the whole cluster
 			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
@@ -445,7 +447,7 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 				Skip("chaos mesh is disabled")
 			}
 
-			clusterSetupWithHealthCheckOption(testConfig{
+			clusterSetupWithTestConfig(testConfig{
 				beforeVersion:          beforeVersion,
 				enableOperatorPodChaos: false,
 				enableHealthCheck:      false,
@@ -520,7 +522,6 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
 			// Verify that the upgrade proceeds
 			fdbCluster.VerifyVersion(targetVersion)
-
 			// Make sure the cluster has no data loss
 			fdbCluster.GetPrimary().EnsureTeamTrackersHaveMinReplicas()
 			// TODO add validation here processes are updated new version
