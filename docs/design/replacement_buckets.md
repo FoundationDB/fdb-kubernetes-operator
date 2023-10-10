@@ -4,7 +4,7 @@
 
 * Authors: @johscheuer
 * Created: 2022-10-03
-* Updated: 2022-10-03
+* Updated: 2023-10-10
 
 ## Background
 
@@ -31,26 +31,32 @@ The `AutomaticReplacementOptions` struct can be extended to contain a replacemen
 
 
 ```go
-type ReplacementBucket struct {
-	// If set the ReplacementBucket will be used. Defaults to false.
+// ReplacementBucketConfiguration contains the configuration for the ReplacementBuckets if enabled.
+type ReplacementBucketConfiguration struct {
+	// Enabled, if set the ReplacementBucketConfiguration will be used. If the ReplacementBucketConfiguration is disabled all replacements are counted into the same bucket,
+	// this basically is the same behaviour with the current maxConcurrentReplacements value. Defaults to false.
 	Enabled bool
-	// The number of concurrent replacements for storage process groups. Defaults to 1.
-	Storage int
-	// The number of concurrent replacements for log or transaction process groups. Defaults to 1.
-	Log int
-	// The number of concurrent replacements for all stateless process groups. Defaults to 1.
-	Stateless int
+	// ReplacementBuckets defines the configuration for each bucket. A bucket can be configured per process class.
+	// If no specific bucket for a process class is configured the bucket for the general process class will be used.
+	// If no general process class bucket is defined the value from cluster.spec.automationOptions.replacements.maxConcurrentReplacements will be used.
+	ReplacementBuckets []ReplacementBucket
+}
+
+// ReplacementBucket defines the configuration for a specific Replacement bucket.
+type ReplacementBucket struct {
+	// ProcessClass the process class this bucket applies too.
+	ProcessClass ProcessClass
+	// MaxConcurrentReplacements the number of concurrent replacements that are allowed by the operator.
+	MaxConcurrentReplacements *int
 }
 ```
 
-In order to keep the configuration simple but still flexible we will focus on storage, log and stateless replacements without any further differentiation between specific classes.
-The `getMaxReplacements(cluster *fdbv1beta2.FoundationDBCluster, maxReplacements int) int` method would be adjust to return a `map[fdbv1beta2.ProcessClass]int`:
+The `getMaxReplacements(cluster *fdbv1beta2.FoundationDBCluster, maxReplacements int) int` method would be adjusted to return a `map[fdbv1beta2.ProcessClass]int`:
 
 ```go
 func getMaxReplacements(cluster *fdbv1beta2.FoundationDBCluster, maxReplacements int) map[fdbv1beta2.ProcessClass]int {
-	replacementBucketEnabled := cluster.GetReplacementBucketEnabled()
-	if replacementBucketEnabled {
-		return cluster.getReplacementBucket()
+	if cluster.ReplacementBucketIsEnabled() {
+		return cluster.getReplacementBuckets()
     }
 	
 	// The maximum number of replacements will be the defined number in the cluster spec
@@ -72,53 +78,59 @@ func getMaxReplacements(cluster *fdbv1beta2.FoundationDBCluster, maxReplacements
 The `getReplacementBucket()` could be implemented like this:
 
 ```go
-func (cluster *FoundationDBCluster) getReplacementBucket() map[fdbv1beta2.ProcessClass]int {
+func (cluster *FoundationDBCluster) getReplacementBuckets() map[fdbv1beta2.ProcessClass]int {
 	// The maximum number of replacements will be the defined number in the cluster spec
 	// minus all currently ongoing replacements e.g. process groups marked for removal but
 	// not fully excluded.
-	replacementBucket := cluster.getReplacementBucketWithDefaults()
+	replacementBuckets := cluster.getReplacementBucketWithDefaults()
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup.IsMarkedForRemoval() && !processGroup.IsExcluded() {
 			// If we already have a removal in-flight, we should not try
 			// replacing more failed process groups.
-			replacementBucket[processGroup.ProcessClass.ReplacementBucket()]--
+			_, ok := replacementBuckets[processGroup.ProcessClass.ReplacementBucket()]
+			!ok {
+				replacementBuckets[processGroup.ProcessClass.ReplacementBucket()]--
+				continue
+			}
+
+			replacementBuckets[fdbv1beta2.ProcessClassGeneral]--
 		}
 	}
 
-	return replacementBucket
+	return replacementBuckets
 }
 ```
 
-The method `getReplacementBucketWithDefaults()` would return the `ReplacementBucket` struct with the user defined values or defaults.
-`ReplacementBucket()` will return the process class that should be used for replacements e.g. for `transaction` it would return `log` and for all processes that are not `IsStateful()` we would return `stateless`.
+The method `getReplacementBucketWithDefaults()` will return a map of the type `map[fdbv1beta2.ProcessClass]int` with the defaults configured in `ReplacementBucketConfiguration`.
 To allow the correct selection of the replacement bucket we need to adjust the `ReplaceFailedProcessGroups` method:
 
 ```go
 func ReplaceFailedProcessGroups(log logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, adminClient fdbadminclient.AdminClient) bool {
     ...
 	replacementBucket := getMaxReplacements(cluster, cluster.GetMaxConcurrentAutomaticReplacements())
-	replacementBucketEnabled := cluster.GetReplacementBucketEnabled()
+	replacementBucketIsEnabled := cluster.GetReplacementBucketEnabled()
 
 	hasReplacement := false
 	for _, processGroupStatus := range cluster.Status.ProcessGroups {
-		var replacementClass fdbv1beta2.ProcessClass
-		if replacementBucketEnabled {
-			replacementClass = processGroupStatus.ProcessClass.ReplacementBucket()
-		} else {
-			replacementClass = fdbv1beta2.ProcessClassGeneral
-		}
-
-		...
+		// ...
         if !needsReplacement {
 			continue
         }
 
-		if replacementBucket[replacementClass] <= 0 {
-			// Add log statement
-			continue
+        var replacementClass fdbv1beta2.ProcessClass
+        _, ok := replacementBucket[processGroupStatus.ProcessClass]
+        if ok {
+            replacementClass = processGroupStatus.ProcessClas
+        } else {
+			// If there is no specific bucket, make use of the general bucket.
+            replacementClass = fdbv1beta2.ProcessClassGeneral
         }
 
-		...
+        if replacementBucket[replacementClass] <= 0 {
+            // Add log statement
+            continue
+        }
+        // ...
         hasReplacement = true
         replacementBucket[replacementClass]--
 	}
