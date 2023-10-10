@@ -267,6 +267,7 @@ func (cluster *FoundationDBCluster) DesiredCoordinatorCount() int {
 For all clusters that use more than one region the operator will recruit 9 coordinators.
 If the number of regions is `1` the number of recruited coordinators depends on the redundancy mode.
 The number of coordinators is chosen based on the fact that the coordinators use a consensus protocol (Paxos) that needs a majority of processes to be up.
+A common pattern in majority based system is to run `n * 2 + 1` processes, where `n` defines the failures that should be tolerated.
 The FoundationDB document has more information about [choosing coordination servers](https://apple.github.io/foundationdb/configuration.html#choosing-coordination-servers).
 
 |  Redundancy mode  | # Coordinators |
