@@ -128,6 +128,9 @@ func performUpgrade(config testConfig, validateFunc func(cluster *fixtures.FdbCl
 	// replacements during an upgrade.
 	expectedProcessCounts := (processCounts.Total()-processCounts.Storage)*2 + 5
 	Expect(len(transactionSystemProcessGroups)).To(BeNumerically("<=", expectedProcessCounts))
+	// Ensure we have not data loss.
+	cluster.EnsureTeamTrackersAreHealthy()
+	cluster.EnsureTeamTrackersHaveMinReplicas()
 }
 
 var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
