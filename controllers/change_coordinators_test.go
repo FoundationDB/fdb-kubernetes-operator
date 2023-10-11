@@ -241,8 +241,9 @@ var _ = Describe("Change coordinators", func() {
 
 			JustBeforeEach(func() {
 				cluster.Spec.DatabaseConfiguration.UsableRegions = 2
-				cluster.Spec.DataCenter = "primary"
+				cluster.Spec.DataCenter = "dc0"
 				cluster.Spec.ProcessGroupsToRemove = removals
+				setDatabaseConfiguration(cluster, satCnt)
 
 				var err error
 				status, err = adminClient.GetStatus()
@@ -868,5 +869,73 @@ func generateProcessInfoDetails(res map[fdbv1beta2.ProcessGroupID]fdbv1beta2.Fou
 		}
 
 		res[fdbv1beta2.ProcessGroupID(zoneID)] = processInfo
+	}
+}
+
+func setDatabaseConfiguration(cluster *fdbv1beta2.FoundationDBCluster, satCnt int) {
+	if satCnt == 1 {
+		cluster.Spec.DatabaseConfiguration.Regions = []fdbv1beta2.Region{
+			{
+				DataCenters: []fdbv1beta2.DataCenter{
+					{
+						ID: "dc0",
+					},
+					{
+						ID:        "sat0",
+						Satellite: 1,
+					},
+					{
+						ID:        "dc1",
+						Satellite: 1,
+						Priority:  1,
+					},
+				},
+			},
+			{
+				DataCenters: []fdbv1beta2.DataCenter{
+					{
+						ID: "dc1",
+					},
+					{
+						ID:        "sat0",
+						Satellite: 1,
+					},
+					{
+						ID:        "dc0",
+						Satellite: 1,
+						Priority:  1,
+					},
+				},
+			},
+		}
+		return
+	}
+
+	if satCnt == 2 {
+		cluster.Spec.DatabaseConfiguration.Regions = []fdbv1beta2.Region{
+			{
+				DataCenters: []fdbv1beta2.DataCenter{
+					{
+						ID: "dc0",
+					},
+					{
+						ID:        "sat0",
+						Satellite: 1,
+					},
+				},
+			},
+			{
+				DataCenters: []fdbv1beta2.DataCenter{
+					{
+						ID:       "dc1",
+						Priority: 1,
+					},
+					{
+						ID:        "sat1",
+						Satellite: 1,
+					},
+				},
+			},
+		}
 	}
 }
