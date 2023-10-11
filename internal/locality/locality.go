@@ -148,7 +148,7 @@ type ProcessSelectionConstraint struct {
 
 // ChooseDistributedProcesses recruits a maximally well-distributed set
 // of processes from a set of potential candidates.
-func gChooseDistributedProcesses(cluster *fdbv1beta2.FoundationDBCluster, processes []Info, count int, constraint ProcessSelectionConstraint) ([]Info, error) {
+func ChooseDistributedProcesses(cluster *fdbv1beta2.FoundationDBCluster, processes []Info, count int, constraint ProcessSelectionConstraint) ([]Info, error) {
 	chosen := make([]Info, 0, count)
 	chosenIDs := make(map[string]bool, count)
 
