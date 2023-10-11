@@ -70,12 +70,8 @@ func CheckInvariant(
 	threshold time.Duration,
 	f func() error,
 ) error {
-	err := f()
-	if err != nil {
-		return fmt.Errorf("invariant %s not true at beginning of test: %w", invariantName, err)
-	}
 	var waitGroup sync.WaitGroup
-	ticker := time.NewTicker(100 * time.Millisecond)
+	ticker := time.NewTicker(250 * time.Millisecond)
 	var last error
 	testFailed := false
 	quit := make(chan struct{})

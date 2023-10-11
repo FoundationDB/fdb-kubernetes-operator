@@ -158,6 +158,9 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 
 			// 5. Verify a final time that the cluster is reconciled, this should be quick.
 			Expect(fdbCluster.WaitForReconciliation()).NotTo(HaveOccurred())
+
+			// Make sure the cluster has no data loss.
+			fdbCluster.EnsureTeamTrackersHaveMinReplicas()
 		},
 
 		EntryDescription("Upgrade from %[1]s to %[2]s with pods deleted during rolling bounce"),
@@ -223,6 +226,9 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 
 			// Allow the operator to restart processes and the upgrade should continue and finish.
 			fdbCluster.SetKillProcesses(true)
+
+			// Make sure the cluster has no data loss.
+			fdbCluster.EnsureTeamTrackersHaveMinReplicas()
 		},
 
 		EntryDescription(
@@ -286,6 +292,8 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 
 			// 5. Upgrade should proceed after we stop killing the sidecar.
 			fdbCluster.VerifyVersion(targetVersion)
+			// Make sure the cluster has no data loss.
+			fdbCluster.EnsureTeamTrackersHaveMinReplicas()
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s with crash-looping sidecar"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
@@ -321,6 +329,9 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 			Eventually(func() []string {
 				return fdbCluster.GetStatus().Cluster.IncompatibleConnections
 			}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).MustPassRepeatedly(5).Should(BeEmpty())
+
+			// Make sure the cluster has no data loss.
+			fdbCluster.EnsureTeamTrackersHaveMinReplicas()
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s with one coordinator not being restarted"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
@@ -374,6 +385,9 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 
 			// The cluster should still be able to upgrade.
 			Expect(fdbCluster.UpgradeCluster(targetVersion, true)).NotTo(HaveOccurred())
+
+			// Make sure the cluster has no data loss.
+			fdbCluster.EnsureTeamTrackersHaveMinReplicas()
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s and multiple processes are not restarted"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
@@ -504,6 +518,9 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 
 				return processesToUpdate
 			}).WithTimeout(30 * time.Minute).WithPolling(5 * time.Second).MustPassRepeatedly(5).Should(BeNumerically("==", 0))
+
+			// Make sure the cluster has no data loss.
+			fdbCluster.EnsureTeamTrackersHaveMinReplicas()
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
@@ -554,6 +571,9 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 
 			// Make sure we remove the finalizer to not block the clean up.
 			Expect(factory.SetFinalizerForPod(&podMarkedForRemoval, []string{})).ShouldNot(HaveOccurred())
+
+			// Make sure the cluster has no data loss.
+			fdbCluster.EnsureTeamTrackersHaveMinReplicas()
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),

@@ -53,12 +53,24 @@ var _ = AfterSuite(func() {
 	}
 })
 
-func clusterSetupWithConfig(beforeVersion string, config *fixtures.ClusterConfig) *fixtures.FdbCluster {
-	factory.SetBeforeVersion(beforeVersion)
+type testConfig struct {
+	beforeVersion string
+	targetVersion string
+	clusterConfig *fixtures.ClusterConfig
+	loadData      bool
+}
+
+func clusterSetupWithConfig(config testConfig) *fixtures.FdbCluster {
+	factory.SetBeforeVersion(config.beforeVersion)
 	fdbCluster := factory.CreateFdbCluster(
-		config,
+		config.clusterConfig,
 		factory.GetClusterOptions(fixtures.UseVersionBeforeUpgrade)...,
 	)
+
+	if config.loadData {
+		// Load some data async into the cluster. We will only block as long as the Job is created.
+		factory.CreateDataLoaderIfAbsent(fdbCluster)
+	}
 
 	Expect(
 		fdbCluster.InvariantClusterStatusAvailableWithThreshold(15 * time.Second),
@@ -67,13 +79,13 @@ func clusterSetupWithConfig(beforeVersion string, config *fixtures.ClusterConfig
 	return fdbCluster
 }
 
-func performUpgrade(beforeVersion string, targetVersion string, config *fixtures.ClusterConfig, validateFunc func(cluster *fixtures.FdbCluster)) {
-	cluster := clusterSetupWithConfig(beforeVersion, config)
+func performUpgrade(config testConfig, validateFunc func(cluster *fixtures.FdbCluster)) {
+	cluster := clusterSetupWithConfig(config)
 	startTime := time.Now()
-	Expect(cluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
+	Expect(cluster.UpgradeCluster(config.targetVersion, false)).NotTo(HaveOccurred())
 	validateFunc(cluster)
 
-	if !fixtures.VersionsAreProtocolCompatible(beforeVersion, targetVersion) {
+	if !fixtures.VersionsAreProtocolCompatible(config.beforeVersion, config.targetVersion) {
 		// Ensure that the operator is setting the IncorrectConfigMap and IncorrectCommandLine conditions during the upgrade
 		// process.
 		expectedConditions := map[fdbv1beta2.ProcessGroupConditionType]bool{
@@ -103,7 +115,7 @@ func performUpgrade(beforeVersion string, targetVersion string, config *fixtures
 		}
 
 		// Allow soft reconciliation and make sure the running version was updated
-		return cluster.Status.Generations.Reconciled == cluster.Generation && cluster.Status.RunningVersion == targetVersion
+		return cluster.Status.Generations.Reconciled == cluster.Generation && cluster.Status.RunningVersion == config.targetVersion
 	})).NotTo(HaveOccurred())
 
 	log.Println("Upgrade took:", time.Since(startTime).String())
@@ -116,6 +128,9 @@ func performUpgrade(beforeVersion string, targetVersion string, config *fixtures
 	// replacements during an upgrade.
 	expectedProcessCounts := (processCounts.Total()-processCounts.Storage)*2 + 5
 	Expect(len(transactionSystemProcessGroups)).To(BeNumerically("<=", expectedProcessCounts))
+	// Ensure we have not data loss.
+	cluster.EnsureTeamTrackersAreHealthy()
+	cluster.EnsureTeamTrackersHaveMinReplicas()
 }
 
 var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
@@ -133,8 +148,13 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 	DescribeTable(
 		"upgrading a cluster without chaos",
 		func(beforeVersion string, targetVersion string) {
-			performUpgrade(beforeVersion, targetVersion, &fixtures.ClusterConfig{
-				DebugSymbols: false,
+			performUpgrade(testConfig{
+				beforeVersion: beforeVersion,
+				targetVersion: targetVersion,
+				clusterConfig: &fixtures.ClusterConfig{
+					DebugSymbols: false,
+				},
+				loadData: true,
 			}, func(cluster *fixtures.FdbCluster) {})
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s"),
@@ -144,9 +164,14 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 	DescribeTable(
 		"with 2 storage servers per Pod",
 		func(beforeVersion string, targetVersion string) {
-			performUpgrade(beforeVersion, targetVersion, &fixtures.ClusterConfig{
-				DebugSymbols:        false,
-				StorageServerPerPod: 2,
+			performUpgrade(testConfig{
+				beforeVersion: beforeVersion,
+				targetVersion: targetVersion,
+				clusterConfig: &fixtures.ClusterConfig{
+					DebugSymbols:        false,
+					StorageServerPerPod: 2,
+				},
+				loadData: false,
 			}, func(cluster *fixtures.FdbCluster) {
 				Expect(cluster.GetCluster().Spec.StorageServersPerPod).To(Equal(2))
 			})
@@ -158,9 +183,14 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 	DescribeTable(
 		"with 2 log servers per Pod",
 		func(beforeVersion string, targetVersion string) {
-			performUpgrade(beforeVersion, targetVersion, &fixtures.ClusterConfig{
-				DebugSymbols:     false,
-				LogServersPerPod: 2,
+			performUpgrade(testConfig{
+				beforeVersion: beforeVersion,
+				targetVersion: targetVersion,
+				clusterConfig: &fixtures.ClusterConfig{
+					DebugSymbols:     false,
+					LogServersPerPod: 2,
+				},
+				loadData: false,
 			}, func(cluster *fixtures.FdbCluster) {
 				Expect(cluster.GetCluster().Spec.LogServersPerPod).To(Equal(2))
 			})
@@ -172,9 +202,14 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 	DescribeTable(
 		"with maintenance mode enabled",
 		func(beforeVersion string, targetVersion string) {
-			performUpgrade(beforeVersion, targetVersion, &fixtures.ClusterConfig{
-				DebugSymbols:       false,
-				UseMaintenanceMode: true,
+			performUpgrade(testConfig{
+				beforeVersion: beforeVersion,
+				targetVersion: targetVersion,
+				clusterConfig: &fixtures.ClusterConfig{
+					DebugSymbols:       false,
+					UseMaintenanceMode: true,
+				},
+				loadData: false,
 			}, func(cluster *fixtures.FdbCluster) {
 				Expect(cluster.GetCluster().UseMaintenaceMode()).To(BeTrue())
 			})
@@ -186,9 +221,14 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 	DescribeTable(
 		"with locality based exclusions",
 		func(beforeVersion string, targetVersion string) {
-			performUpgrade(beforeVersion, targetVersion, &fixtures.ClusterConfig{
-				DebugSymbols:               false,
-				UseLocalityBasedExclusions: true,
+			performUpgrade(testConfig{
+				beforeVersion: beforeVersion,
+				targetVersion: targetVersion,
+				clusterConfig: &fixtures.ClusterConfig{
+					DebugSymbols:               false,
+					UseLocalityBasedExclusions: true,
+				},
+				loadData: false,
 			}, func(cluster *fixtures.FdbCluster) {
 				Expect(cluster.GetCluster().UseLocalitiesForExclusion()).To(BeTrue())
 			})
@@ -206,9 +246,14 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 				Skip(fmt.Sprintf("FoundationDB version: %s, does not support the usage of DNS", beforeVersion))
 			}
 
-			performUpgrade(beforeVersion, targetVersion, &fixtures.ClusterConfig{
-				DebugSymbols: false,
-				UseDNS:       true,
+			performUpgrade(testConfig{
+				beforeVersion: beforeVersion,
+				targetVersion: targetVersion,
+				clusterConfig: &fixtures.ClusterConfig{
+					DebugSymbols: false,
+					UseDNS:       true,
+				},
+				loadData: false,
 			}, func(cluster *fixtures.FdbCluster) {
 				Expect(cluster.GetCluster().UseDNSInClusterFile()).To(BeTrue())
 			})

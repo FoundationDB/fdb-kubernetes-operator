@@ -76,6 +76,9 @@ var _ = BeforeSuite(func() {
 		factory.GetClusterOptions()...,
 	)
 
+	// Load some data async into the cluster. We will only block as long as the Job is created.
+	factory.CreateDataLoaderIfAbsent(fdbCluster)
+
 	// In order to test the robustness of the operator we try to kill the operator Pods every minute.
 	if factory.ChaosTestsEnabled() {
 		factory.ScheduleInjectPodKill(
@@ -104,6 +107,9 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		}
 		Expect(fdbCluster.WaitForReconciliation()).ToNot(HaveOccurred())
 		factory.StopInvariantCheck()
+		// Make sure all data is present in the cluster
+		fdbCluster.EnsureTeamTrackersAreHealthy()
+		fdbCluster.EnsureTeamTrackersHaveMinReplicas()
 	})
 
 	JustBeforeEach(func() {

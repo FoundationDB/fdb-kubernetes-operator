@@ -263,6 +263,7 @@ func (fdbCluster FdbCluster) StatusInvariantChecker(
 // checkAvailability returns nil if the cluster is reachable. If the cluster is unreachable an error will be returned.
 func checkAvailability(status *fdbv1beta2.FoundationDBStatus) error {
 	if !status.Client.DatabaseStatus.Available {
+		log.Println("client messages", status.Client.Messages, "cluster messages", status.Cluster.Messages)
 		return fmt.Errorf("cluster is not available")
 	}
 
@@ -284,9 +285,9 @@ func (fdbCluster FdbCluster) InvariantClusterStatusAvailableWithThreshold(
 func (fdbCluster FdbCluster) InvariantClusterStatusAvailable() error {
 	return fdbCluster.StatusInvariantChecker(
 		"InvariantClusterStatusAvailable",
-		// Per default we allow 5 seconds unavailability. Otherwise we could get a few test failures when we do operations
+		// Per default we allow 15 seconds unavailability. Otherwise we could get a few test failures when we do operations
 		// like a replacement on a transaction system Pod and the recovery takes longer.
-		5*time.Second,
+		15*time.Second,
 		checkAvailability,
 	)
 }

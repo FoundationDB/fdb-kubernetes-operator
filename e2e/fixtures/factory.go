@@ -824,6 +824,12 @@ func (factory *Factory) GetOperatorImage() string {
 	return prependRegistry(factory.options.registry, factory.options.operatorImage)
 }
 
+// GetDataLoaderImage returns the dataloader image provided via command line. If a registry was defined the registry will be
+// prepended.
+func (factory *Factory) GetDataLoaderImage() string {
+	return prependRegistry(factory.options.registry, factory.options.dataLoaderImage)
+}
+
 // GetSidecarImage returns the sidecar image provided via command line. If a registry was defined the registry will be
 // prepended.
 func (factory *Factory) GetSidecarImage() string {
