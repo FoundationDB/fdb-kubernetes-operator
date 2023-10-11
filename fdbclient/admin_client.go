@@ -505,16 +505,7 @@ func (client *cliAdminClient) GetConnectionString() (string, error) {
 // VersionSupported reports whether we can support a cluster with a given
 // version.
 func (client *cliAdminClient) VersionSupported(versionString string) (bool, error) {
-	version, err := fdbv1beta2.ParseFdbVersion(versionString)
-	if err != nil {
-		return false, err
-	}
-
-	if !version.IsSupported() {
-		return false, nil
-	}
-
-	_, err = os.Stat(getBinaryPath(fdbcliStr, versionString))
+	_, err := os.Stat(getBinaryPath(fdbcliStr, versionString))
 	if err != nil {
 		return false, err
 	}

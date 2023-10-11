@@ -117,18 +117,18 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 	}
 	defer adminClient.Close()
 
+	err = cluster.Validate()
+	if err != nil {
+		r.Recorder.Event(cluster, corev1.EventTypeWarning, "ClusterSpec not valid", err.Error())
+		return ctrl.Result{}, fmt.Errorf("ClusterSpec is not valid: %w", err)
+	}
+
 	supportedVersion, err := adminClient.VersionSupported(cluster.Spec.Version)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 	if !supportedVersion {
 		return ctrl.Result{}, fmt.Errorf("version %s is not supported", cluster.Spec.Version)
-	}
-
-	err = cluster.Validate()
-	if err != nil {
-		r.Recorder.Event(cluster, corev1.EventTypeWarning, "ClusterSpec not valid", err.Error())
-		return ctrl.Result{}, fmt.Errorf("ClusterSpec is not valid: %w", err)
 	}
 
 	var status *fdbv1beta2.FoundationDBStatus

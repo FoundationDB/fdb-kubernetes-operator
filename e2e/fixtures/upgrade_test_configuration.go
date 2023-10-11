@@ -61,8 +61,8 @@ func parseUpgradeVersionPair(upgradeConfig string) *UpgradeTestConfiguration {
 		log.Fatalf("\"%s\" is not a valid FDB version", versions[1])
 	}
 
-	if !initialVersion.IsAtLeast(targetVersion) && !initialVersion.SupportsDowngrade(targetVersion) {
-		log.Fatalf("downgrade from \"%s\" to \"%s\" is not supported", versions[0], versions[1])
+	if !initialVersion.SupportsVersionChange(targetVersion) {
+		log.Fatalf("version change from \"%s\" to \"%s\" is not supported", versions[0], versions[1])
 	}
 
 	return &UpgradeTestConfiguration{
