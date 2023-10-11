@@ -148,7 +148,7 @@ type ProcessSelectionConstraint struct {
 
 // ChooseDistributedProcesses recruits a maximally well-distributed set
 // of processes from a set of potential candidates.
-func ChooseDistributedProcesses(cluster *fdbv1beta2.FoundationDBCluster, processes []Info, count int, constraint ProcessSelectionConstraint) ([]Info, error) {
+func gChooseDistributedProcesses(cluster *fdbv1beta2.FoundationDBCluster, processes []Info, count int, constraint ProcessSelectionConstraint) ([]Info, error) {
 	chosen := make([]Info, 0, count)
 	chosenIDs := make(map[string]bool, count)
 
@@ -258,7 +258,6 @@ func GetHardLimits(cluster *fdbv1beta2.FoundationDBCluster) map[string]int {
 	}
 
 	maxCoordinatorsPerDC := int(math.Ceil(float64(cluster.DesiredCoordinatorCount()) / float64(cluster.Spec.DatabaseConfiguration.CountUniqueDataCenters())))
-
 	return map[string]int{
 		fdbv1beta2.FDBLocalityDCIDKey:   maxCoordinatorsPerDC,
 		fdbv1beta2.FDBLocalityZoneIDKey: 1,

@@ -222,7 +222,7 @@ var _ = Describe("Change coordinators", func() {
 			})
 		})
 
-		When("Using a HA clusters", func() {
+		FWhen("Using a HA clusters", func() {
 			var status *fdbv1beta2.FoundationDBStatus
 			var candidates []locality.Info
 			var excludes []string
