@@ -53,7 +53,7 @@ func (c checkClientCompatibility) reconcile(_ context.Context, r *FoundationDBCl
 		return &requeue{curError: err}
 	}
 
-	if !version.SupportsVersionChange(runningVersion) {
+	if !runningVersion.SupportsVersionChange(version) {
 		return &requeue{message: fmt.Sprintf("cluster version change from version %s to version %s is not supported", runningVersion, version)}
 	}
 
