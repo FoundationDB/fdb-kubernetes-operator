@@ -247,11 +247,9 @@ var _ = Describe("Change coordinators", func() {
 				var err error
 				status, err = adminClient.GetStatus()
 				Expect(err).NotTo(HaveOccurred())
-
-				// generate status for 2 dcs and 1 sate
 				status.Cluster.Processes = generateProcessInfoForMultiRegion(dcCnt, satCnt, excludes)
 
-				candidates, err = selectCoordinators(logr.Discard(), cluster, status)
+				candidates, err = selectCoordinators(testLogger, cluster, status)
 				if shouldFail {
 					Expect(err).To(HaveOccurred())
 				} else {
@@ -805,9 +803,7 @@ func generateProcessInfoForMultiRegion(dcCount int, satCount int, excludes []str
 	}
 
 	for i := 0; i < satCount; i++ {
-		dcid := fmt.Sprintf("sat%d", i)
-
-		generateProcessInfoDetails(res, dcid, "", logCnt, excludes, fdbv1beta2.ProcessClassLog)
+		generateProcessInfoDetails(res, fmt.Sprintf("sat%d", i), "", logCnt, excludes, fdbv1beta2.ProcessClassLog)
 	}
 
 	return res
