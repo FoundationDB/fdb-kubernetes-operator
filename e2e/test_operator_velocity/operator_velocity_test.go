@@ -233,7 +233,6 @@ var _ = Describe("Test Operator Velocity", Label("e2e", "nightly"), func() {
 			).NotTo(HaveOccurred())
 
 			cluster := fdbCluster.GetPrimary().GetCluster()
-
 			CheckKnobRollout(
 				fdbCluster,
 				newGeneralCustomParameters,
@@ -259,9 +258,7 @@ var _ = Describe("Test Operator Velocity", Label("e2e", "nightly"), func() {
 			// Partition a storage Pod from the rest of the cluster
 			pod := fixtures.ChooseRandomPod(fdbCluster.GetPrimary().GetStoragePods())
 			log.Printf("partition Pod: %s", pod.Name)
-			var err error
 			exp = factory.InjectPartition(fixtures.PodSelector(pod))
-			Expect(err).ShouldNot(HaveOccurred())
 		})
 
 		AfterEach(func() {
@@ -287,11 +284,16 @@ var _ = Describe("Test Operator Velocity", Label("e2e", "nightly"), func() {
 				),
 			).NotTo(HaveOccurred())
 
+			// We have to increase the timeout for this test as the maximum time this test might take, depends on the
+			// ordering of the operators taking the kill action. If the operator in the primary cluster is the last one
+			// the test will pass fairly fast. If the primary operator is not the last operator, this test take longer
+			// as the partitioned Pod will block the release of the lock and the next operator has to wait until the
+			// lock is expired.
 			CheckKnobRollout(
 				fdbCluster,
 				newGeneralCustomParameters,
 				newStorageCustomParameters,
-				normalKnobRolloutTimeoutSeconds)
+				normalKnobRolloutTimeoutSeconds+int(fdbCluster.GetPrimary().GetCluster().GetLockDuration().Seconds()))
 		})
 	})
 })
