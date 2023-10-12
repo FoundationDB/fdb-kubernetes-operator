@@ -2730,6 +2730,10 @@ func (cluster *FoundationDBCluster) Validate() error {
 		return err
 	}
 
+	if !version.IsSupported() {
+		return fmt.Errorf("version: %s is not supported, minimum supported version is: %s", version.String(), Versions.MinimumVersion.String())
+	}
+
 	if !version.IsStorageEngineSupported(cluster.Spec.DatabaseConfiguration.StorageEngine) {
 		validations = append(validations, fmt.Sprintf("storage engine %s is not supported on version %s", cluster.Spec.DatabaseConfiguration.StorageEngine, cluster.Spec.Version))
 	}

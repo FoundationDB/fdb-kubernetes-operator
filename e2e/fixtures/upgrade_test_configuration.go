@@ -29,7 +29,7 @@ import (
 )
 
 // UpgradeTestConfiguration represents the configuration for an upgrade test. This includes the initial FoundationDB version
-// and the target FoundationDB version to upgrade the cluster to.
+// and the target FoundationDB version to upgrade or downgrade the cluster to.
 type UpgradeTestConfiguration struct {
 	// InitialVersion represents the version before the upgrade.
 	InitialVersion fdbv1beta2.Version
@@ -37,13 +37,18 @@ type UpgradeTestConfiguration struct {
 	TargetVersion fdbv1beta2.Version
 }
 
-func parseUpgradeVersionPair(upgradeConfig string) UpgradeTestConfiguration {
+func parseUpgradeVersionPair(upgradeConfig string) *UpgradeTestConfiguration {
 	versions := strings.Split(upgradeConfig, ":")
 	if len(versions) != 2 {
 		log.Fatalf(
 			"expected to have two versions for upgrade string separated by \":\" got: \"%s\"",
 			upgradeConfig,
 		)
+	}
+
+	// If both versions are the same ignore it.
+	if versions[0] == versions[1] {
+		return nil
 	}
 
 	initialVersion, err := fdbv1beta2.ParseFdbVersion(versions[0])
@@ -56,11 +61,11 @@ func parseUpgradeVersionPair(upgradeConfig string) UpgradeTestConfiguration {
 		log.Fatalf("\"%s\" is not a valid FDB version", versions[1])
 	}
 
-	if initialVersion.IsAtLeast(targetVersion) {
-		log.Fatalf("downgrade from \"%s\" to \"%s\" is not supported", versions[0], versions[1])
+	if !initialVersion.SupportsVersionChange(targetVersion) {
+		log.Fatalf("version change from \"%s\" to \"%s\" is not supported", versions[0], versions[1])
 	}
 
-	return UpgradeTestConfiguration{
+	return &UpgradeTestConfiguration{
 		InitialVersion: initialVersion,
 		TargetVersion:  targetVersion,
 	}
@@ -69,7 +74,7 @@ func parseUpgradeVersionPair(upgradeConfig string) UpgradeTestConfiguration {
 // GetUpgradeVersions returns the upgrade versions as a string slice based on the command line flag. Each entry will be
 // a FoundationDB version. This slice can contain duplicate entries. For upgrade tests it's expected that two versions
 // form one test, e.g. where the odd number is the initial version and the even number is the
-func (factory *Factory) GetUpgradeVersions() []UpgradeTestConfiguration {
+func (factory *Factory) GetUpgradeVersions() []*UpgradeTestConfiguration {
 	return getUpgradeVersions(factory.options.upgradeString)
 }
 
@@ -77,15 +82,20 @@ func (factory *Factory) GetUpgradeVersions() []UpgradeTestConfiguration {
 // a FoundationDB version. This slice can contain duplicate entries. For upgrade tests it's expected that two versions
 // form one test, e.g. where the odd number is the initial version and the even number is the
 // This method is only internally used. Users that import this test suite should use the factory method.
-func getUpgradeVersions(upgradeString string) []UpgradeTestConfiguration {
+func getUpgradeVersions(upgradeString string) []*UpgradeTestConfiguration {
 	if upgradeString == "" {
 		return nil
 	}
 
 	upgradeVersionStrings := strings.Split(upgradeString, ",")
-	upgradeVersions := make([]UpgradeTestConfiguration, 0, len(upgradeVersionStrings))
+	upgradeVersions := make([]*UpgradeTestConfiguration, 0, len(upgradeVersionStrings))
 	for _, upgradeTest := range upgradeVersionStrings {
-		upgradeVersions = append(upgradeVersions, parseUpgradeVersionPair(upgradeTest))
+		upgradeTestConfig := parseUpgradeVersionPair(upgradeTest)
+		if upgradeTestConfig == nil {
+			continue
+		}
+
+		upgradeVersions = append(upgradeVersions, upgradeTestConfig)
 	}
 
 	return upgradeVersions

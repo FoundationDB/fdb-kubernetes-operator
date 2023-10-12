@@ -63,7 +63,7 @@ var _ = Describe("exclude_processes", func() {
 			allowedExclusions, missingProcesses = canExcludeNewProcesses(globalControllerLogger, cluster, fdbv1beta2.ProcessClassStorage, processCounts.Storage, ongoingExclusions, false)
 		})
 
-		FWhen("using a small cluster", func() {
+		When("using a small cluster", func() {
 			When("all processes are healthy", func() {
 				When("no additional processes are running", func() {
 					It("should not allow the exclusion", func() {

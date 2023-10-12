@@ -154,6 +154,101 @@ var _ = Describe("[api] FDBVersion", func() {
 					expectedResult:         true,
 				}),
 		)
-
 	})
+
+	DescribeTable("validating in a version check is allowed", func(version Version, targetVersion Version, expected bool) {
+		Expect(version.SupportsVersionChange(targetVersion)).To(Equal(expected))
+	},
+		Entry("Same version",
+			Version{
+				Major: 7,
+				Minor: 1,
+				Patch: 0,
+			},
+			Version{
+				Major: 7,
+				Minor: 1,
+				Patch: 0,
+			},
+			true,
+		),
+		Entry("Patch upgrade",
+			Version{
+				Major: 7,
+				Minor: 1,
+				Patch: 0,
+			},
+			Version{
+				Major: 7,
+				Minor: 1,
+				Patch: 1,
+			},
+			true,
+		),
+		Entry("Minor upgrade",
+			Version{
+				Major: 7,
+				Minor: 1,
+				Patch: 0,
+			},
+			Version{
+				Major: 7,
+				Minor: 2,
+				Patch: 0,
+			},
+			true,
+		),
+		Entry("Major upgrade",
+			Version{
+				Major: 7,
+				Minor: 1,
+				Patch: 0,
+			},
+			Version{
+				Major: 8,
+				Minor: 1,
+				Patch: 0,
+			},
+			true,
+		),
+		Entry("Patch downgrade",
+			Version{
+				Major: 7,
+				Minor: 1,
+				Patch: 1,
+			},
+			Version{
+				Major: 7,
+				Minor: 1,
+				Patch: 0,
+			},
+			true,
+		),
+		Entry("Minor downgrade",
+			Version{
+				Major: 7,
+				Minor: 1,
+				Patch: 1,
+			},
+			Version{
+				Major: 7,
+				Minor: 0,
+				Patch: 0,
+			},
+			false,
+		),
+		Entry("Major downgrade",
+			Version{
+				Major: 7,
+				Minor: 1,
+				Patch: 1,
+			},
+			Version{
+				Major: 6,
+				Minor: 1,
+				Patch: 0,
+			},
+			false,
+		),
+	)
 })

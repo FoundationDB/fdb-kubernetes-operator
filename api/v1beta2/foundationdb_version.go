@@ -214,6 +214,11 @@ func (version Version) SupportsDNSInClusterFile() bool {
 	return version.IsAtLeast(Versions.SupportsDNSInClusterFile)
 }
 
+// SupportsVersionChange returns true if the current version can be downgraded or upgraded to provided other version.
+func (version Version) SupportsVersionChange(other Version) bool {
+	return version.IsProtocolCompatible(other) || other.IsAtLeast(version)
+}
+
 // Versions provides a shorthand for known versions.
 // This is only to be used in testing.
 var Versions = struct {

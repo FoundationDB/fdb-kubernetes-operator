@@ -4746,10 +4746,9 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			func(cluster *FoundationDBCluster, expected error) {
 				if expected == nil {
 					Expect(cluster.Validate()).NotTo(HaveOccurred())
-				} else {
-					Expect(cluster.Validate()).To(Equal(expected))
+					return
 				}
-
+				Expect(cluster.Validate()).To(Equal(expected))
 			},
 			Entry("valid cluster spec",
 				&FoundationDBCluster{
@@ -4851,7 +4850,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Entry("multiple validations",
 				&FoundationDBCluster{
 					Spec: FoundationDBClusterSpec{
-						Version: "6.1.3",
+						Version: "6.2.20",
 						DatabaseConfiguration: DatabaseConfiguration{
 							StorageEngine: StorageEngineRocksDbV1,
 						},
@@ -4862,7 +4861,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						},
 					},
 				},
-				fmt.Errorf("storage engine ssd-rocksdb-v1 is not supported on version 6.1.3, stateless is not a valid process class for coordinators"),
+				fmt.Errorf("storage engine ssd-rocksdb-v1 is not supported on version 6.2.20, stateless is not a valid process class for coordinators"),
 			),
 			Entry("using invalid version for sharded rocksdb",
 				&FoundationDBCluster{
@@ -4885,6 +4884,17 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					},
 				},
 				nil,
+			),
+			Entry("using an unsupported FDB version",
+				&FoundationDBCluster{
+					Spec: FoundationDBClusterSpec{
+						Version: Versions.IncompatibleVersion.String(),
+						DatabaseConfiguration: DatabaseConfiguration{
+							StorageEngine: StorageEngineSSD2,
+						},
+					},
+				},
+				fmt.Errorf("version: 6.1.0 is not supported, minimum supported version is: 6.2.20"),
 			),
 		)
 	})
