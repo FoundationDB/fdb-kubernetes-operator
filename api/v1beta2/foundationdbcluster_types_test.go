@@ -4065,8 +4065,8 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 	When("checking if the process group needs a replacement", func() {
 		var processGroup *ProcessGroupStatus
-		var needsReplacement bool
-		var timestamp int64
+		var failureCondition ProcessGroupConditionType
+		var failureTime int64
 		var oldTimestamp int64
 
 		BeforeEach(func() {
@@ -4075,12 +4075,13 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		})
 
 		JustBeforeEach(func() {
-			needsReplacement, timestamp = processGroup.NeedsReplacement(60, 60)
+			failureCondition, failureTime = processGroup.NeedsReplacement(60, 60)
 		})
 
 		Context("with no conditions", func() {
 			It("should not need replacement", func() {
-				Expect(needsReplacement).To(BeFalse())
+				Expect(failureTime).To(BeZero())
+				Expect(failureCondition).To(Equal(ProcessGroupConditionType("")))
 			})
 		})
 
@@ -4090,7 +4091,8 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			})
 
 			It("should not need replacement", func() {
-				Expect(needsReplacement).To(BeFalse())
+				Expect(failureTime).To(BeZero())
+				Expect(failureCondition).To(Equal(ProcessGroupConditionType("")))
 			})
 		})
 
@@ -4103,8 +4105,8 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			})
 
 			It("should need replacement", func() {
-				Expect(needsReplacement).To(BeTrue())
-				Expect(timestamp).To(Equal(targetTimestamp))
+				Expect(failureTime).To(BeNumerically("==", targetTimestamp))
+				Expect(failureCondition).To(Equal(MissingProcesses))
 			})
 		})
 
@@ -4119,8 +4121,8 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			})
 
 			It("should use the older timestamp", func() {
-				Expect(needsReplacement).To(BeTrue())
-				Expect(timestamp).To(Equal(targetTimestamp - 60))
+				Expect(failureTime).To(BeNumerically("==", targetTimestamp-60))
+				Expect(failureCondition).To(Equal(PodFailing))
 			})
 		})
 
@@ -4131,8 +4133,8 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			})
 
 			It("should need replacement", func() {
-				Expect(needsReplacement).To(BeTrue())
-				Expect(timestamp).To(Equal(oldTimestamp))
+				Expect(failureTime).To(BeNumerically("==", oldTimestamp))
+				Expect(failureCondition).To(Equal(PodFailing))
 			})
 		})
 
@@ -4143,8 +4145,8 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			})
 
 			It("should need replacement", func() {
-				Expect(needsReplacement).To(BeTrue())
-				Expect(timestamp).To(Equal(oldTimestamp))
+				Expect(failureTime).To(BeNumerically("==", oldTimestamp))
+				Expect(failureCondition).To(Equal(MissingPod))
 			})
 		})
 
@@ -4155,8 +4157,8 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			})
 
 			It("should need replacement", func() {
-				Expect(needsReplacement).To(BeTrue())
-				Expect(timestamp).To(Equal(oldTimestamp))
+				Expect(failureTime).To(BeNumerically("==", oldTimestamp))
+				Expect(failureCondition).To(Equal(MissingPVC))
 			})
 		})
 
@@ -4167,8 +4169,8 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			})
 
 			It("should need replacement", func() {
-				Expect(needsReplacement).To(BeTrue())
-				Expect(timestamp).To(Equal(oldTimestamp))
+				Expect(failureTime).To(BeNumerically("==", oldTimestamp))
+				Expect(failureCondition).To(Equal(MissingService))
 			})
 		})
 
@@ -4179,8 +4181,20 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			})
 
 			It("should need replacement", func() {
-				Expect(needsReplacement).To(BeTrue())
-				Expect(timestamp).To(Equal(oldTimestamp))
+				Expect(failureTime).To(BeNumerically("==", oldTimestamp))
+				Expect(failureCondition).To(Equal(PodPending))
+			})
+		})
+
+		When("process group is excluded without being marked for removal", func() {
+			BeforeEach(func() {
+				processGroup.UpdateCondition(ProcessIsMarkedAsExcluded, true)
+				processGroup.ProcessGroupConditions[0].Timestamp = oldTimestamp
+			})
+
+			It("should need replacement", func() {
+				Expect(failureTime).To(BeNumerically("==", oldTimestamp))
+				Expect(failureCondition).To(Equal(ProcessIsMarkedAsExcluded))
 			})
 		})
 
@@ -4191,7 +4205,8 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			})
 
 			It("should not need replacement", func() {
-				Expect(needsReplacement).To(BeFalse())
+				Expect(failureTime).To(BeZero())
+				Expect(failureCondition).To(Equal(ProcessGroupConditionType("")))
 			})
 		})
 	})

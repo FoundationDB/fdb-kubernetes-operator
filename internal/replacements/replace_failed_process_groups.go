@@ -55,7 +55,6 @@ func ReplaceFailedProcessGroups(log logr.Logger, cluster *fdbv1beta2.FoundationD
 	hasReplacement := false
 	crashLoopContainerProcessGroups := cluster.GetCrashLoopContainerProcessGroups()
 
-ProcessGroupLoop:
 	for _, processGroupStatus := range cluster.Status.ProcessGroups {
 		// If a process group is already marked for removal we can skip it here.
 		if processGroupStatus.IsMarkedForRemoval() {
@@ -70,18 +69,25 @@ ProcessGroupLoop:
 			continue
 		}
 
-		canReplace := maxReplacements > 0
-
+		var shouldBeIgnored bool
 		for _, targets := range crashLoopContainerProcessGroups {
 			if _, ok := targets[processGroupStatus.ProcessGroupID]; ok {
-				continue ProcessGroupLoop
-			} else if _, ok := targets["*"]; ok {
-				continue ProcessGroupLoop
+				shouldBeIgnored = true
+				break
+			}
+
+			if _, ok := targets["*"]; ok {
+				shouldBeIgnored = true
+				break
 			}
 		}
 
-		needsReplacement, missingTime := processGroupStatus.NeedsReplacement(cluster.GetFailureDetectionTimeSeconds(), cluster.GetTaintReplacementTimeSeconds())
-		if !needsReplacement {
+		if shouldBeIgnored {
+			continue
+		}
+
+		failureCondition, failureTime := processGroupStatus.NeedsReplacement(cluster.GetFailureDetectionTimeSeconds(), cluster.GetTaintReplacementTimeSeconds())
+		if failureTime == 0 {
 			continue
 		}
 
@@ -91,7 +97,7 @@ ProcessGroupLoop:
 				log.Info(
 					"Skip process group with missing address",
 					"processGroupID", processGroupStatus.ProcessGroupID,
-					"failureTime", time.Unix(missingTime, 0).UTC().String())
+					"failureTime", time.Unix(failureTime, 0).UTC().String())
 				continue
 			}
 
@@ -102,20 +108,24 @@ ProcessGroupLoop:
 			log.Info(
 				"Replace process group with missing address",
 				"processGroupID", processGroupStatus.ProcessGroupID,
-				"failureTime", time.Unix(missingTime, 0).UTC().String())
+				"failureTime", time.Unix(failureTime, 0).UTC().String())
 		}
 
-		// We are not allowed to replace additional process groups
-		if !canReplace {
+		// We are not allowed to replace additional process groups.
+		if maxReplacements <= 0 {
 			log.Info("Detected replace process group but cannot replace it because we hit the replacement limit",
 				"processGroupID", processGroupStatus.ProcessGroupID,
-				"reason", fmt.Sprintf("automatic replacement detected failure time: %s", time.Unix(missingTime, 0).UTC().String()))
+				"failureCondition", failureCondition,
+				"faultDomain", processGroupStatus.FaultDomain,
+				"reason", fmt.Sprintf("automatic replacement detected failure time: %s", time.Unix(failureTime, 0).UTC().String()))
 			continue
 		}
 
 		log.Info("Replace process group",
 			"processGroupID", processGroupStatus.ProcessGroupID,
-			"reason", fmt.Sprintf("automatic replacement detected failure time: %s", time.Unix(missingTime, 0).UTC().String()))
+			"failureCondition", failureCondition,
+			"faultDomain", processGroupStatus.FaultDomain,
+			"reason", fmt.Sprintf("automatic replacement detected failure time: %s", time.Unix(failureTime, 0).UTC().String()))
 
 		processGroupStatus.MarkForRemoval()
 		hasReplacement = true
