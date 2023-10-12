@@ -813,6 +813,40 @@ var _ = Describe("Localities", func() {
 		Context("with multiple regions", func() {
 			BeforeEach(func() {
 				cluster.Spec.DatabaseConfiguration.UsableRegions = 2
+				cluster.Spec.DatabaseConfiguration.Regions = []fdbv1beta2.Region{
+					{
+						DataCenters: []fdbv1beta2.DataCenter{
+							{
+								ID: "dc1",
+							},
+							{
+								ID:        "dc2",
+								Satellite: 1,
+							},
+							{
+								ID:        "dc3",
+								Satellite: 1,
+								Priority:  1,
+							},
+						},
+					},
+					{
+						DataCenters: []fdbv1beta2.DataCenter{
+							{
+								ID: "dc3",
+							},
+							{
+								ID:        "dc2",
+								Satellite: 1,
+							},
+							{
+								ID:        "dc1",
+								Satellite: 1,
+								Priority:  1,
+							},
+						},
+					},
+				}
 
 				status.Cluster.Processes["4"] = generateDummyProcessInfo("test-4", "dc2", 4501, false)
 				status.Cluster.Processes["5"] = generateDummyProcessInfo("test-5", "dc2", 4501, false)
@@ -884,6 +918,7 @@ var _ = Describe("Localities", func() {
 						}
 					}
 				})
+
 				It("should report the coordinators as not valid", func() {
 					coordinatorsValid, addressesValid, err := CheckCoordinatorValidity(logr.Discard(), cluster, status, coordinatorStatus)
 					Expect(coordinatorsValid).To(BeFalse())
