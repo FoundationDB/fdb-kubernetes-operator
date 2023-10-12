@@ -293,9 +293,11 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, cluster *fdbv1
 			printStatement(cmd, statement, errorMessage)
 		}
 
-		needsReplacement, _ := processGroup.NeedsReplacement(0, 0)
-		if needsReplacement && autoFix {
-			failedProcessGroups = append(failedProcessGroups, string(processGroup.ProcessGroupID))
+		if autoFix {
+			_, failureTime := processGroup.NeedsReplacement(0, 0)
+			if failureTime > 0 {
+				failedProcessGroups = append(failedProcessGroups, string(processGroup.ProcessGroupID))
+			}
 		}
 	}
 

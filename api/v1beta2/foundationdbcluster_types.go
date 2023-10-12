@@ -480,15 +480,19 @@ func (processGroupStatus *ProcessGroupStatus) GetPodName(cluster *FoundationDBCl
 	return sb.String()
 }
 
-// NeedsReplacement checks if the ProcessGroupStatus has conditions so that it should be removed
-func (processGroupStatus *ProcessGroupStatus) NeedsReplacement(failureTime int, taintReplacementTime int) (bool, int64) {
+// NeedsReplacement checks if the ProcessGroupStatus has conditions that require a replacement of the failed Process Group.
+// The method will return the failure condition and the timestamp. If no failure is detected an empty condition and a 0
+// will be returned.
+func (processGroupStatus *ProcessGroupStatus) NeedsReplacement(failureTime int, taintReplacementTime int) (ProcessGroupConditionType, int64) {
 	var earliestFailureTime int64 = math.MaxInt64
 	var earliestTaintReplacementTime int64 = math.MaxInt64
 
+	// If the process group is already marked for removal we can ignore it.
 	if processGroupStatus.IsMarkedForRemoval() {
-		return false, 0
+		return "", 0
 	}
 
+	var failureCondition ProcessGroupConditionType
 	for _, conditionType := range conditionsThatNeedReplacement {
 		conditionTimePtr := processGroupStatus.GetConditionTime(conditionType)
 		if conditionTimePtr == nil {
@@ -500,23 +504,29 @@ func (processGroupStatus *ProcessGroupStatus) NeedsReplacement(failureTime int, 
 			if earliestTaintReplacementTime > conditionTime {
 				earliestTaintReplacementTime = conditionTime
 			}
-		} else {
-			if earliestFailureTime > conditionTime {
-				earliestFailureTime = conditionTime
-			}
+
+			failureCondition = conditionType
+			continue
+		}
+
+		if earliestFailureTime > conditionTime {
+			earliestFailureTime = conditionTime
+			failureCondition = conditionType
 		}
 	}
 
 	failureWindowStart := time.Now().Add(-1 * time.Duration(failureTime) * time.Second).Unix()
 	if earliestFailureTime < failureWindowStart {
-		return true, earliestFailureTime
-	}
-	taintWindowStart := time.Now().Add(-1 * time.Duration(taintReplacementTime) * time.Second).Unix()
-	if earliestTaintReplacementTime < taintWindowStart {
-		return true, earliestTaintReplacementTime
+		return failureCondition, earliestFailureTime
 	}
 
-	return false, 0
+	taintWindowStart := time.Now().Add(-1 * time.Duration(taintReplacementTime) * time.Second).Unix()
+	if earliestTaintReplacementTime < taintWindowStart {
+		return failureCondition, earliestTaintReplacementTime
+	}
+
+	// No failure detected.
+	return "", 0
 }
 
 // AddAddresses adds the new address to the ProcessGroupStatus and removes duplicates and old addresses
@@ -809,6 +819,11 @@ func (processGroupStatus *ProcessGroupStatus) GetConditionTime(conditionType Pro
 
 // IsUnderMaintenance checks if the process is in maintenance zone.
 func (processGroupStatus *ProcessGroupStatus) IsUnderMaintenance(maintenanceZone FaultDomain) bool {
+	// Only storage processes are affected by the maintenance zone.
+	if processGroupStatus.ProcessClass != ProcessClassStorage {
+		return false
+	}
+
 	// If the maintenanceZone is not set or the Process Group has not fault domain set, return false.
 	if maintenanceZone == "" || processGroupStatus.FaultDomain == "" {
 		return false

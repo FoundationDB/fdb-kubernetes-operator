@@ -88,7 +88,7 @@ kubectl fdb -n default remove process-group -c cluster --remove-all-failed
 `,
 	}
 
-	cmd.Flags().StringP("fdb-cluster", "c", "", "remove process groupss from the provided cluster.")
+	cmd.Flags().StringP("fdb-cluster", "c", "", "remove process groups from the provided cluster.")
 	cmd.Flags().BoolP("exclusion", "e", true, "define if the process groups should be removed with exclusion.")
 	cmd.Flags().Bool("remove-all-failed", false, "define if all failed processes should be replaced.")
 	cmd.Flags().Bool("use-process-group-id", false, "define if the process-group should be used instead of the Pod name.")
@@ -147,8 +147,8 @@ func replaceProcessGroups(kubeClient client.Client, clusterName string, ids []st
 				continue
 			}
 
-			needsReplacement, _ := processGroupStatus.NeedsReplacement(0, 0)
-			if needsReplacement {
+			_, failureTime := processGroupStatus.NeedsReplacement(0, 0)
+			if failureTime > 0 {
 				processGroupIDs = append(processGroupIDs, processGroupStatus.ProcessGroupID)
 			}
 		}
