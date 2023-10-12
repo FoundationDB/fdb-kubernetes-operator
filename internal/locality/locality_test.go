@@ -22,12 +22,10 @@ package locality
 
 import (
 	"fmt"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podclient/mock"
 	"math"
 	"net"
 	"strings"
-	"time"
-
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podclient/mock"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -648,38 +646,6 @@ var _ = Describe("Change coordinators", func() {
 				Expect(coordinatorsValid).To(BeFalse())
 				Expect(addressesValid).To(BeFalse())
 				Expect(err).NotTo(HaveOccurred())
-			})
-		})
-
-		When("a process has a process group status with a pending Pod", func() {
-			BeforeEach(func() {
-				status.Cluster.Processes["4"] = fdbv1beta2.FoundationDBStatusProcessInfo{
-					Address: fdbv1beta2.ProcessAddress{
-						IPAddress: net.ParseIP("1.1.1.4"),
-						Port:      4501,
-					},
-					Locality: map[string]string{
-						fdbv1beta2.FDBLocalityInstanceIDKey: "test-4",
-					},
-				}
-
-				cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups,
-					&fdbv1beta2.ProcessGroupStatus{
-						ProcessGroupID: "test-4",
-						ProcessGroupConditions: []*fdbv1beta2.ProcessGroupCondition{
-							{
-								ProcessGroupConditionType: fdbv1beta2.PodPending,
-								Timestamp:                 time.Now().Add(-45 * time.Minute).Unix(),
-							},
-						},
-					})
-			})
-
-			It("should ignore the process", func() {
-				coordinatorsValid, addressesValid, err := CheckCoordinatorValidity(logr.Discard(), cluster, status, coordinatorStatus)
-				Expect(coordinatorsValid).To(BeTrue())
-				Expect(addressesValid).To(BeTrue())
-				Expect(err).To(BeNil())
 			})
 		})
 

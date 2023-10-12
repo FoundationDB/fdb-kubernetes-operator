@@ -261,16 +261,21 @@ func CheckCoordinatorValidity(logger logr.Logger, cluster *fdbv1beta2.Foundation
 	allAddressesValid := true
 	allEligible := true
 	allUsingCorrectAddress := true
+	hardLimits := GetHardLimits(cluster)
+	coordinatorLocalities := make(map[string]map[string]int)
+	// Track what fields should be validated.
+	fieldsToValidate := make([]string, 0, len(hardLimits))
+	for field := range hardLimits {
+		fieldsToValidate = append(fieldsToValidate, field)
+	}
 
-	coordinatorZones := make(map[string]int, len(coordinatorStatus))
-	coordinatorDCs := make(map[string]int, len(coordinatorStatus))
-	processGroups := make(map[fdbv1beta2.ProcessGroupID]*fdbv1beta2.ProcessGroupStatus)
-	for _, processGroup := range cluster.Status.ProcessGroups {
-		processGroups[processGroup.ProcessGroupID] = processGroup
+	// Track the coordinator localities to verify if hard limits satisfy the fault tolerance requirements.
+	for _, field := range fieldsToValidate {
+		coordinatorLocalities[field] = make(map[string]int)
 	}
 
 	for _, process := range status.Cluster.Processes {
-		processGroupID, ok := process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]
+		processGroupID := process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]
 
 		pLogger := logger.WithValues("process", processGroupID)
 		if process.Address.IsEmpty() {
@@ -278,7 +283,7 @@ func CheckCoordinatorValidity(logger logr.Logger, cluster *fdbv1beta2.Foundation
 			continue
 		}
 
-		if !ok {
+		if len(process.Locality) == 0 {
 			pLogger.Info("Skip process with empty localities")
 			continue
 		}
@@ -288,23 +293,11 @@ func CheckCoordinatorValidity(logger logr.Logger, cluster *fdbv1beta2.Foundation
 			continue
 		}
 
-		processGroupStatus := processGroups[fdbv1beta2.ProcessGroupID(processGroupID)]
-		pendingRemoval := processGroupStatus != nil && processGroupStatus.IsMarkedForRemoval()
-		if processGroupStatus != nil && cluster.SkipProcessGroup(processGroupStatus) {
-			pLogger.Info("Skipping process group with pending Pod",
-				"namespace", cluster.Namespace,
-				"cluster", cluster.Name,
-				"processGroupID", processGroupID,
-				"class", process.ProcessClass)
-			continue
-		}
-
 		addresses, err := fdbv1beta2.ParseProcessAddressesFromCmdline(process.CommandLine)
 		if err != nil {
 			// We will end here in the error case when the address
 			// is not parsable e.g. no IP address is assigned.
 			allAddressesValid = false
-			// add: command_line
 			pLogger.Info("Could not parse address from command_line", "command_line", process.CommandLine)
 			continue
 		}
@@ -341,13 +334,19 @@ func CheckCoordinatorValidity(logger logr.Logger, cluster *fdbv1beta2.Foundation
 			coordinatorAddress = dnsAddress.String()
 		}
 
-		if coordinatorAddress != "" && !process.Excluded && !pendingRemoval && !process.UnderMaintenance {
+		if coordinatorAddress != "" && !process.Excluded && !process.UnderMaintenance {
 			coordinatorStatus[coordinatorAddress] = true
 		}
 
 		if coordinatorAddress != "" {
-			coordinatorZones[process.Locality[fdbv1beta2.FDBLocalityZoneIDKey]]++
-			coordinatorDCs[process.Locality[fdbv1beta2.FDBLocalityDCIDKey]]++
+			for _, field := range fieldsToValidate {
+				locality, ok := process.Locality[field]
+				// If the field is not set ignore it.
+				if !ok {
+					continue
+				}
+				coordinatorLocalities[field][locality]++
+			}
 
 			if !cluster.IsEligibleAsCandidate(process.ProcessClass) {
 				pLogger.Info("Process class of process is not eligible as coordinator", "class", process.ProcessClass, "address", coordinatorAddress)
@@ -367,21 +366,13 @@ func CheckCoordinatorValidity(logger logr.Logger, cluster *fdbv1beta2.Foundation
 		}
 	}
 
-	desiredCount := cluster.DesiredCoordinatorCount()
-	hasEnoughZones := len(coordinatorZones) == desiredCount
-	if !hasEnoughZones {
-		logger.Info("Cluster does not have coordinators in the correct number of zones", "desiredCount", desiredCount, "coordinatorZones", coordinatorZones)
-	}
-
-	var maxCoordinatorsPerDC int
-	hasEnoughDCs := true
-	if cluster.Spec.DatabaseConfiguration.UsableRegions > 1 {
-		maxCoordinatorsPerDC = int(math.Floor(float64(desiredCount) / 2.0))
-
-		for dc, count := range coordinatorDCs {
-			if count > maxCoordinatorsPerDC {
-				logger.Info("Cluster has too many coordinators in a single DC", "DC", dc, "count", count, "max", maxCoordinatorsPerDC)
-				hasEnoughDCs = false
+	// Check if the coordinators are distributed across the localities based on the hard limit requirements.
+	hasCorrectLocalityDistribution := true
+	for field, maxValue := range hardLimits {
+		for locality, currentValue := range coordinatorLocalities[field] {
+			if currentValue > maxValue {
+				logger.Info("Cluster does not have coordinators in the correct number of localities", "desiredCount", maxValue, "currentCount", currentValue, "locality", locality)
+				hasCorrectLocalityDistribution = false
 			}
 		}
 	}
@@ -394,5 +385,13 @@ func CheckCoordinatorValidity(logger logr.Logger, cluster *fdbv1beta2.Foundation
 		}
 	}
 
-	return hasEnoughDCs && hasEnoughZones && allHealthy && allUsingCorrectAddress && allEligible, allAddressesValid, nil
+	// Verify that enough coordinators are running.
+	desiredCoordinatorCount := cluster.DesiredCoordinatorCount()
+	runningCoordinators := len(coordinatorLocalities[fdbv1beta2.FDBLocalityZoneIDKey])
+	hasEnoughCoordinators := runningCoordinators == desiredCoordinatorCount
+	if !hasEnoughCoordinators {
+		logger.Info("Cluster has not enough running coordinators", "runningCoordinators", runningCoordinators, "desiredCount", desiredCoordinatorCount)
+	}
+
+	return hasEnoughCoordinators && hasCorrectLocalityDistribution && allHealthy && allUsingCorrectAddress && allEligible, allAddressesValid, nil
 }
