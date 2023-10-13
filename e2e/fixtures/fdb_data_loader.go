@@ -233,6 +233,11 @@ func (factory *Factory) CreateDataLoaderIfAbsent(cluster *FdbCluster) {
 			Namespace: cluster.Namespace(),
 		},
 	})).NotTo(gomega.HaveOccurred())
+
+	gomega.Expect(factory.controllerRuntimeClient.DeleteAllOf(context.Background(), &corev1.Pod{},
+		client.InNamespace(cluster.Namespace()),
+		client.MatchingLabels(map[string]string{"job-name": dataLoaderName}),
+	)).NotTo(gomega.HaveOccurred())
 }
 
 // WaitUntilDataLoaderIsDone will wait until the data loader Job has finished.
