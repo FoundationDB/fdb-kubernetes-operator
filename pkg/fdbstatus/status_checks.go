@@ -23,7 +23,6 @@ package fdbstatus
 import (
 	"fmt"
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
 	"github.com/go-logr/logr"
 	"math"
@@ -225,11 +224,7 @@ func CanSafelyRemoveFromStatus(logger logr.Logger, client fdbadminclient.AdminCl
 		// and are still in progress, but we don't want to return an error to block further actions on the successfully excluded
 		// addresses.
 		if err != nil {
-			if internal.IsTimeoutError(err) {
-				return append(exclusions.notExcluded, exclusions.missingInStatus...), nil
-			}
-
-			return nil, err
+			notSafeToDelete = append(notSafeToDelete, exclusions.missingInStatus...)
 		}
 	}
 
