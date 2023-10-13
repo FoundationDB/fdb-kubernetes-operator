@@ -30,51 +30,26 @@ import (
 
 var _ = Describe("remove", func() {
 	When("getting the zoned removals", func() {
-		var status *fdbv1beta2.FoundationDBStatus
-
-		BeforeEach(func() {
-			status = &fdbv1beta2.FoundationDBStatus{
-				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
-					Processes: map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{
-						"1": {
-							Locality: map[string]string{
-								fdbv1beta2.FDBLocalityInstanceIDKey: "1",
-								fdbv1beta2.FDBLocalityZoneIDKey:     "zone1",
-							},
-						},
-						"2": {
-							Locality: map[string]string{
-								fdbv1beta2.FDBLocalityInstanceIDKey: "2",
-								fdbv1beta2.FDBLocalityZoneIDKey:     "zone1",
-							},
-						},
-						"3": {
-							Locality: map[string]string{
-								fdbv1beta2.FDBLocalityInstanceIDKey: "3",
-								fdbv1beta2.FDBLocalityZoneIDKey:     "zone3",
-							},
-						},
-					},
-				},
-			}
-		})
-
 		It("should return the correct mapping", func() {
-			zones, timestamp, err := GetZonedRemovals(status, []*fdbv1beta2.ProcessGroupStatus{
+			zones, timestamp, err := GetZonedRemovals([]*fdbv1beta2.ProcessGroupStatus{
 				{
 					ProcessGroupID: "1",
+					FaultDomain:    "zone1",
 				},
 				{
 					ProcessGroupID: "2",
+					FaultDomain:    "zone1",
 				},
 				{
 					ProcessGroupID: "3",
+					FaultDomain:    "zone3",
 				},
 				{
 					ProcessGroupID: "4",
 				},
 				{
 					ProcessGroupID: "5",
+					FaultDomain:    "zone5",
 					ProcessGroupConditions: []*fdbv1beta2.ProcessGroupCondition{
 						{
 							ProcessGroupConditionType: fdbv1beta2.ResourcesTerminating,
@@ -84,6 +59,7 @@ var _ = Describe("remove", func() {
 				},
 				{
 					ProcessGroupID: "6",
+					FaultDomain:    "zone6",
 					ProcessGroupConditions: []*fdbv1beta2.ProcessGroupCondition{
 						{
 							ProcessGroupConditionType: fdbv1beta2.ResourcesTerminating,
@@ -97,31 +73,92 @@ var _ = Describe("remove", func() {
 			Expect(len(zones)).To(BeNumerically("==", 4))
 
 			Expect(len(zones["zone1"])).To(BeNumerically("==", 2))
-			Expect(zones["zone1"]).To(ConsistOf(fdbv1beta2.ProcessGroupID("1"), fdbv1beta2.ProcessGroupID("2")))
+			Expect(zones["zone1"]).To(ConsistOf(
+				&fdbv1beta2.ProcessGroupStatus{
+					ProcessGroupID: "1",
+					FaultDomain:    "zone1",
+				},
+				&fdbv1beta2.ProcessGroupStatus{
+					ProcessGroupID: "2",
+					FaultDomain:    "zone1",
+				}))
 
 			Expect(len(zones["zone3"])).To(BeNumerically("==", 1))
-			Expect(zones["zone3"]).To(ConsistOf(fdbv1beta2.ProcessGroupID("3")))
+			Expect(zones["zone3"]).To(ConsistOf(
+				&fdbv1beta2.ProcessGroupStatus{
+					ProcessGroupID: "3",
+					FaultDomain:    "zone3",
+				},
+			))
 
 			Expect(len(zones[UnknownZone])).To(BeNumerically("==", 1))
-			Expect(zones[UnknownZone]).To(ConsistOf(fdbv1beta2.ProcessGroupID("4")))
+			Expect(zones[UnknownZone]).To(ConsistOf(
+				&fdbv1beta2.ProcessGroupStatus{
+					ProcessGroupID: "4",
+					FaultDomain:    "",
+				},
+			))
 
 			Expect(len(zones[TerminatingZone])).To(BeNumerically("==", 2))
-			Expect(zones[TerminatingZone]).To(ConsistOf(fdbv1beta2.ProcessGroupID("5"), fdbv1beta2.ProcessGroupID("6")))
+			Expect(zones[TerminatingZone]).To(ConsistOf(
+				&fdbv1beta2.ProcessGroupStatus{
+					ProcessGroupID: "5",
+					FaultDomain:    "zone5",
+					ProcessGroupConditions: []*fdbv1beta2.ProcessGroupCondition{
+						{
+							ProcessGroupConditionType: fdbv1beta2.ResourcesTerminating,
+							Timestamp:                 1,
+						},
+					},
+				},
+				&fdbv1beta2.ProcessGroupStatus{
+					ProcessGroupID: "6",
+					FaultDomain:    "zone6",
+					ProcessGroupConditions: []*fdbv1beta2.ProcessGroupCondition{
+						{
+							ProcessGroupConditionType: fdbv1beta2.ResourcesTerminating,
+							Timestamp:                 42,
+						},
+					},
+				},
+			))
 
 			Expect(timestamp).To(BeNumerically("==", 42))
 		})
-
 	})
 
 	When("getting the process groups to remove", func() {
-		zones := map[string][]fdbv1beta2.ProcessGroupID{
-			"zone1":     {"1", "2"},
-			"zone3":     {"3", "4"},
-			UnknownZone: {"4", "5"},
+		zones := map[fdbv1beta2.FaultDomain][]*fdbv1beta2.ProcessGroupStatus{
+			"zone1": {
+				{
+					ProcessGroupID: "1",
+					FaultDomain:    "zone1",
+				},
+				{
+					ProcessGroupID: "2",
+					FaultDomain:    "zone1",
+				},
+			},
+			"zone3": {
+				{
+					ProcessGroupID: "3",
+					FaultDomain:    "zone1",
+				},
+				{
+					ProcessGroupID: "4",
+					FaultDomain:    "zone1",
+				},
+			},
+			UnknownZone: {
+				{
+					ProcessGroupID: "5",
+					FaultDomain:    "zone1",
+				},
+			},
 		}
 
 		DescribeTable("should delete the Pods based on the deletion mode",
-			func(removalMode fdbv1beta2.PodUpdateMode, zones map[string][]fdbv1beta2.ProcessGroupID, expected int, expectedErr error) {
+			func(removalMode fdbv1beta2.PodUpdateMode, zones map[fdbv1beta2.FaultDomain][]*fdbv1beta2.ProcessGroupStatus, expected int, expectedErr error) {
 				_, removals, err := GetProcessGroupsToRemove(removalMode, zones)
 				if expectedErr != nil {
 					Expect(err).To(Equal(expectedErr))
@@ -134,10 +171,19 @@ var _ = Describe("remove", func() {
 				zones,
 				2,
 				nil),
-			Entry("With the deletion mode Zone and only terminating process groupse",
+			Entry("With the deletion mode Zone and only terminating process groups",
 				fdbv1beta2.PodUpdateModeZone,
-				map[string][]fdbv1beta2.ProcessGroupID{
-					TerminatingZone: {"1", "2"},
+				map[fdbv1beta2.FaultDomain][]*fdbv1beta2.ProcessGroupStatus{
+					TerminatingZone: {
+						{
+							ProcessGroupID: "1",
+							FaultDomain:    "zone1",
+						},
+						{
+							ProcessGroupID: "2",
+							FaultDomain:    "zone1",
+						},
+					},
 				},
 				0,
 				nil),
@@ -149,7 +195,7 @@ var _ = Describe("remove", func() {
 			Entry("With the deletion mode All",
 				fdbv1beta2.PodUpdateModeAll,
 				zones,
-				6,
+				5,
 				nil),
 			Entry("With the deletion mode None",
 				fdbv1beta2.PodUpdateModeNone,

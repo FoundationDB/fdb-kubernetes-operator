@@ -110,7 +110,7 @@ var _ = Describe("remove_process_groups", func() {
 					It("should successfully remove that process group", func() {
 						Expect(result).To(BeNil())
 						// Ensure resources are deleted
-						removed, include, err := confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, removedProcessGroup.ProcessGroupID)
+						removed, include, err := confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, removedProcessGroup)
 						Expect(err).To(BeNil())
 						Expect(removed).To(BeTrue())
 						Expect(include).To(BeTrue())
@@ -136,7 +136,7 @@ var _ = Describe("remove_process_groups", func() {
 						Expect(result).NotTo(BeNil())
 						Expect(result.message).To(Equal("Removals cannot proceed because cluster has degraded fault tolerance"))
 						// Ensure resources are not deleted
-						removed, include, err := confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, removedProcessGroup.ProcessGroupID)
+						removed, include, err := confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, removedProcessGroup)
 						Expect(err).To(BeNil())
 						Expect(removed).To(BeFalse())
 						Expect(include).To(BeFalse())
@@ -160,7 +160,7 @@ var _ = Describe("remove_process_groups", func() {
 						Expect(result).NotTo(BeNil())
 						Expect(result.message).To(Equal("Removals cannot proceed because cluster has degraded fault tolerance"))
 						// Ensure resources are not deleted
-						removed, include, err := confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, removedProcessGroup.ProcessGroupID)
+						removed, include, err := confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, removedProcessGroup)
 						Expect(err).To(BeNil())
 						Expect(removed).To(BeFalse())
 						Expect(include).To(BeFalse())
@@ -184,7 +184,7 @@ var _ = Describe("remove_process_groups", func() {
 						Expect(result).NotTo(BeNil())
 						Expect(result.message).To(Equal("Reconciliation needs to exclude more processes"))
 						// Ensure resources are not deleted
-						removed, include, err := confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, removedProcessGroup.ProcessGroupID)
+						removed, include, err := confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, removedProcessGroup)
 						Expect(err).To(BeNil())
 						Expect(removed).To(BeFalse())
 						Expect(include).To(BeFalse())
@@ -216,10 +216,10 @@ var _ = Describe("remove_process_groups", func() {
 						Expect(result).To(BeNil())
 						Expect(initialCnt - len(cluster.Status.ProcessGroups)).To(BeNumerically("==", 1))
 						// Check if resources are deleted
-						removed, include, err := confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, removedProcessGroup.ProcessGroupID)
+						removed, include, err := confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, removedProcessGroup)
 						Expect(err).To(BeNil())
 						// Check if resources are deleted
-						removedSecondary, includeSecondary, err := confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, secondRemovedProcessGroup.ProcessGroupID)
+						removedSecondary, includeSecondary, err := confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, secondRemovedProcessGroup)
 						Expect(err).To(BeNil())
 						// Make sure only one of the process groups was deleted.
 						Expect(removed).NotTo(Equal(removedSecondary))
@@ -229,19 +229,19 @@ var _ = Describe("remove_process_groups", func() {
 					When("a process group is marked as terminating and all resources are removed it should be removed", func() {
 						BeforeEach(func() {
 							secondRemovedProcessGroup.ProcessGroupConditions = append(secondRemovedProcessGroup.ProcessGroupConditions, fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.ResourcesTerminating))
-							Expect(removeProcessGroup(context.Background(), clusterReconciler, cluster, secondRemovedProcessGroup.ProcessGroupID)).NotTo(HaveOccurred())
+							Expect(removeProcessGroup(context.Background(), clusterReconciler, cluster, secondRemovedProcessGroup)).NotTo(HaveOccurred())
 						})
 
 						It("should remove the process group and the terminated process group", func() {
 							Expect(result).To(BeNil())
 							Expect(initialCnt - len(cluster.Status.ProcessGroups)).To(BeNumerically("==", 2))
 							// Ensure resources are deleted
-							removed, include, err := confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, secondRemovedProcessGroup.ProcessGroupID)
+							removed, include, err := confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, secondRemovedProcessGroup)
 							Expect(err).To(BeNil())
 							Expect(removed).To(BeTrue())
 							Expect(include).To(BeTrue())
 							// Ensure resources are deleted
-							removed, include, err = confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, removedProcessGroup.ProcessGroupID)
+							removed, include, err = confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, removedProcessGroup)
 							Expect(err).To(BeNil())
 							Expect(removed).To(BeTrue())
 							Expect(include).To(BeTrue())
@@ -257,12 +257,12 @@ var _ = Describe("remove_process_groups", func() {
 							Expect(result).To(BeNil())
 							Expect(initialCnt - len(cluster.Status.ProcessGroups)).To(BeNumerically("==", 2))
 							// Ensure resources are deleted
-							removed, include, err := confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, secondRemovedProcessGroup.ProcessGroupID)
+							removed, include, err := confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, secondRemovedProcessGroup)
 							Expect(err).To(BeNil())
 							Expect(removed).To(BeTrue())
 							Expect(include).To(BeTrue())
 							// Ensure resources are deleted
-							removed, include, err = confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, removedProcessGroup.ProcessGroupID)
+							removed, include, err = confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, removedProcessGroup)
 							Expect(err).To(BeNil())
 							Expect(removed).To(BeTrue())
 							Expect(include).To(BeTrue())
@@ -281,12 +281,12 @@ var _ = Describe("remove_process_groups", func() {
 							Expect(result.message).To(HavePrefix("not allowed to remove process groups, waiting:"))
 							Expect(initialCnt - len(cluster.Status.ProcessGroups)).To(BeNumerically("==", 0))
 							// Ensure resources are not deleted
-							removed, include, err := confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, removedProcessGroup.ProcessGroupID)
+							removed, include, err := confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, removedProcessGroup)
 							Expect(err).To(BeNil())
 							Expect(removed).To(BeFalse())
 							Expect(include).To(BeFalse())
 							// Ensure resources are deleted
-							removed, include, err = confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, secondRemovedProcessGroup.ProcessGroupID)
+							removed, include, err = confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, secondRemovedProcessGroup)
 							Expect(err).To(BeNil())
 							Expect(removed).To(BeFalse())
 							Expect(include).To(BeFalse())
@@ -318,12 +318,12 @@ var _ = Describe("remove_process_groups", func() {
 						Expect(result).To(BeNil())
 						Expect(initialCnt - len(cluster.Status.ProcessGroups)).To(BeNumerically("==", 2))
 						// Ensure resources are deleted
-						removed, include, err := confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, removedProcessGroup.ProcessGroupID)
+						removed, include, err := confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, removedProcessGroup)
 						Expect(err).To(BeNil())
 						Expect(removed).To(BeTrue())
 						Expect(include).To(BeTrue())
 						// Ensure resources are deleted as the RemovalMode is PodUpdateModeAll
-						removed, include, err = confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, secondRemovedProcessGroup.ProcessGroupID)
+						removed, include, err = confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, secondRemovedProcessGroup)
 						Expect(err).To(BeNil())
 						Expect(removed).To(BeTrue())
 						Expect(include).To(BeTrue())
@@ -332,7 +332,7 @@ var _ = Describe("remove_process_groups", func() {
 					When("a process group is marked as terminating and all resources are removed it should be removed", func() {
 						BeforeEach(func() {
 							secondRemovedProcessGroup.ProcessGroupConditions = append(secondRemovedProcessGroup.ProcessGroupConditions, fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.ResourcesTerminating))
-							err := removeProcessGroup(context.Background(), clusterReconciler, cluster, secondRemovedProcessGroup.ProcessGroupID)
+							err := removeProcessGroup(context.Background(), clusterReconciler, cluster, secondRemovedProcessGroup)
 							Expect(err).NotTo(HaveOccurred())
 						})
 
@@ -340,12 +340,12 @@ var _ = Describe("remove_process_groups", func() {
 							Expect(result).To(BeNil())
 							Expect(initialCnt - len(cluster.Status.ProcessGroups)).To(BeNumerically("==", 2))
 							// Ensure resources are deleted
-							removed, include, err := confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, secondRemovedProcessGroup.ProcessGroupID)
+							removed, include, err := confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, secondRemovedProcessGroup)
 							Expect(err).To(BeNil())
 							Expect(removed).To(BeTrue())
 							Expect(include).To(BeTrue())
 							// Ensure resources are deleted
-							removed, include, err = confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, removedProcessGroup.ProcessGroupID)
+							removed, include, err = confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, removedProcessGroup)
 							Expect(err).To(BeNil())
 							Expect(removed).To(BeTrue())
 							Expect(include).To(BeTrue())
@@ -361,12 +361,12 @@ var _ = Describe("remove_process_groups", func() {
 							Expect(result).To(BeNil())
 							Expect(initialCnt - len(cluster.Status.ProcessGroups)).To(BeNumerically("==", 2))
 							// Ensure resources are deleted
-							removed, include, err := confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, secondRemovedProcessGroup.ProcessGroupID)
+							removed, include, err := confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, secondRemovedProcessGroup)
 							Expect(err).To(BeNil())
 							Expect(removed).To(BeTrue())
 							Expect(include).To(BeTrue())
 							// Ensure resources are deleted
-							removed, include, err = confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, removedProcessGroup.ProcessGroupID)
+							removed, include, err = confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, removedProcessGroup)
 							Expect(err).To(BeNil())
 							Expect(removed).To(BeTrue())
 							Expect(include).To(BeTrue())
@@ -384,12 +384,12 @@ var _ = Describe("remove_process_groups", func() {
 							Expect(result).To(BeNil())
 							Expect(initialCnt - len(cluster.Status.ProcessGroups)).To(BeNumerically("==", 2))
 							// Ensure resources are not deleted
-							removed, include, err := confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, removedProcessGroup.ProcessGroupID)
+							removed, include, err := confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, removedProcessGroup)
 							Expect(err).To(BeNil())
 							Expect(removed).To(BeTrue())
 							Expect(include).To(BeTrue())
 							// Ensure resources are deleted
-							removed, include, err = confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, secondRemovedProcessGroup.ProcessGroupID)
+							removed, include, err = confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, secondRemovedProcessGroup)
 							Expect(err).To(BeNil())
 							Expect(removed).To(BeTrue())
 							Expect(include).To(BeTrue())
