@@ -131,15 +131,18 @@ func GetRemainingMap(logger logr.Logger, adminClient fdbadminclient.AdminClient,
 			continue
 		}
 
+		// If we use localities for exclusions we don't have to care about the addresses.
+		if cluster.UseLocalitiesForExclusion() {
+			addresses = append(addresses, fdbv1beta2.ProcessAddress{StringAddress: processGroup.GetExclusionString()})
+			continue
+		}
+
 		if len(processGroup.Addresses) == 0 {
 			logger.Info("Getting remaining removals to check for exclusion", "processGroupID", processGroup.ProcessGroupID, "reason", "missing address")
 			continue
 		}
 
-		if cluster.UseLocalitiesForExclusion() {
-			addresses = append(addresses, fdbv1beta2.ProcessAddress{StringAddress: processGroup.GetExclusionString()})
-		}
-
+		// Add all addresses to make sure all seen addresses of a process are excluded.
 		for _, pAddr := range processGroup.Addresses {
 			addresses = append(addresses, fdbv1beta2.ProcessAddress{IPAddress: net.ParseIP(pAddr)})
 		}
