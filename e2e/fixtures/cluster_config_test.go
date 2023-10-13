@@ -28,7 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
-var _ = FDescribe("Cluster configuration", func() {
+var _ = Describe("Cluster configuration", func() {
 	DescribeTable("when generating the Pod resources", func(config *ClusterConfig, processClass fdbv1beta2.ProcessClass, expected corev1.ResourceList) {
 		Expect(config.generatePodResources(processClass)).To(Equal(expected))
 	},

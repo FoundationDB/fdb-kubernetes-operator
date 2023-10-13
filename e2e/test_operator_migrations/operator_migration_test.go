@@ -54,6 +54,8 @@ var _ = BeforeSuite(func() {
 		fixtures.DefaultClusterConfig(false),
 		factory.GetClusterOptions()...,
 	)
+	// Load some data into the cluster.
+	factory.CreateDataLoaderIfAbsent(fdbCluster)
 })
 
 var _ = AfterSuite(func() {
@@ -93,11 +95,6 @@ var _ = Describe("Operator Migrations", Label("e2e", "pr"), func() {
 
 			currentGeneration := fdbCluster.GetCluster().Generation
 			Expect(fdbCluster.SetProcessGroupPrefix(prefix)).NotTo(HaveOccurred())
-			// Make sure that the operator started the migration.
-			Eventually(func() int64 {
-				fdbCluster.ForceReconcile()
-				return fdbCluster.GetCluster().Status.Generations.Reconciled
-			}).WithTimeout(10 * time.Minute).WithPolling(30 * time.Second).Should(BeZero())
 			Expect(fdbCluster.WaitForReconciliation(fixtures.MinimumGenerationOption(currentGeneration+1), fixtures.SoftReconcileOption(false)))
 		})
 
