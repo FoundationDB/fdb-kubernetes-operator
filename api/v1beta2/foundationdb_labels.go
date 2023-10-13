@@ -72,6 +72,10 @@ const (
 	// the zone ID.
 	FDBLocalityZoneIDKey = "zoneid"
 
+	// FDBLocalityMachineIDKey represents the key in the locality map that holds
+	// the machine ID.
+	FDBLocalityMachineIDKey = "machineid"
+
 	// FDBLocalityDCIDKey represents the key in the locality map that holds
 	// the DC ID.
 	FDBLocalityDCIDKey = "dcid"
@@ -86,4 +90,12 @@ const (
 
 	// FDBLocalityExclusionPrefix represents the exclusion prefix for locality based exclusions.
 	FDBLocalityExclusionPrefix = "locality_instance_id"
+
+	// FDBLocalityDataHallKey represents the key in the locality map that holds
+	// the data hall.
+	FDBLocalityDataHallKey = "data_hall"
+
+	// FDBLocalityDCIDlKey represents the key in the locality map that holds
+	// the data center ID.
+	FDBLocalityDCIDlKey = "dcid"
 )

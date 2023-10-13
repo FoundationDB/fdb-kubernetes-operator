@@ -22,6 +22,7 @@ package controllers
 
 import (
 	"context"
+	"github.com/go-logr/logr"
 	"testing"
 	"time"
 
@@ -67,9 +68,11 @@ func TestAPIs(t *testing.T) {
 	RunSpecs(t, "FDB Controllers")
 }
 
+var testLogger logr.Logger
+
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.UseDevMode(true), zap.WriteTo(GinkgoWriter)))
-
+	testLogger = logf.Log
 	Expect(scheme.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
 	Expect(fdbv1beta2.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
 

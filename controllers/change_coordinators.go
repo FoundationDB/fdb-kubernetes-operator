@@ -161,7 +161,7 @@ func selectCoordinators(logger logr.Logger, cluster *fdbv1beta2.FoundationDBClus
 		HardLimits: locality.GetHardLimits(cluster),
 	})
 
-	logger.Info("Current coordinators", "coordinators", coordinators)
+	logger.Info("Current coordinators", "coordinators", coordinators, "error", err)
 	if err != nil {
 		return candidates, err
 	}

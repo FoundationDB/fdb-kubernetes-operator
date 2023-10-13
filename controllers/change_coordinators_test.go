@@ -241,17 +241,16 @@ var _ = Describe("Change coordinators", func() {
 
 			JustBeforeEach(func() {
 				cluster.Spec.DatabaseConfiguration.UsableRegions = 2
-				cluster.Spec.DataCenter = "primary"
+				cluster.Spec.DataCenter = "dc0"
 				cluster.Spec.ProcessGroupsToRemove = removals
+				setDatabaseConfiguration(cluster, satCnt)
 
 				var err error
 				status, err = adminClient.GetStatus()
 				Expect(err).NotTo(HaveOccurred())
+				status.Cluster.Processes = generateProcessInfoForMultiRegion(dcCnt, satCnt, excludes)
 
-				// generate status for 2 dcs and 1 sate
-				status.Cluster.Processes = generateProcessInfo(dcCnt, satCnt, excludes)
-
-				candidates, err = selectCoordinators(logr.Discard(), cluster, status)
+				candidates, err = selectCoordinators(testLogger, cluster, status)
 				if shouldFail {
 					Expect(err).To(HaveOccurred())
 				} else {
@@ -629,6 +628,74 @@ var _ = Describe("Change coordinators", func() {
 				})
 			})
 		})
+
+		When("using a FDB cluster with three_data_hall", func() {
+			var status *fdbv1beta2.FoundationDBStatus
+			var candidates []locality.Info
+
+			JustBeforeEach(func() {
+				cluster.Spec.DataHall = "az1"
+				cluster.Spec.DatabaseConfiguration.RedundancyMode = fdbv1beta2.RedundancyModeThreeDataHall
+
+				var err error
+				status, err = adminClient.GetStatus()
+				Expect(err).NotTo(HaveOccurred())
+
+				status.Cluster.Processes = generateProcessInfoForThreeDataHall(3, nil)
+
+				candidates, err = selectCoordinators(logr.Discard(), cluster, status)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			When("all processes are healthy", func() {
+				It("should only select storage processes", func() {
+					Expect(cluster.DesiredCoordinatorCount()).To(BeNumerically("==", 9))
+					Expect(len(candidates)).To(BeNumerically("==", cluster.DesiredCoordinatorCount()))
+
+					dataHallCount := map[string]int{}
+					for _, candidate := range candidates {
+						Expect(candidate.ID).To(ContainSubstring("storage"))
+						dataHallCount[strings.Split(candidate.ID, "-")[0]]++
+					}
+
+					Expect(dataHallCount).To(Equal(map[string]int{
+						"datahall0": 3,
+						"datahall1": 3,
+						"datahall2": 3,
+					}))
+				})
+			})
+
+			When("when one storage process is marked for removal", func() {
+				removedProcess := fdbv1beta2.ProcessGroupID("storage-2")
+
+				BeforeEach(func() {
+					cluster.Spec.ProcessGroupsToRemove = []fdbv1beta2.ProcessGroupID{
+						removedProcess,
+					}
+					Expect(cluster.ProcessGroupIsBeingRemoved(removedProcess)).To(BeTrue())
+				})
+
+				It("should only select storage processes and exclude the removed process", func() {
+					Expect(cluster.DesiredCoordinatorCount()).To(BeNumerically("==", 9))
+					Expect(len(candidates)).To(BeNumerically("==", cluster.DesiredCoordinatorCount()))
+
+					// Only select Storage processes since we select 3 processes and we have 4 storage processes
+					dataHallCount := map[string]int{}
+					for _, candidate := range candidates {
+						Expect(candidate.ID).NotTo(Equal(removedProcess))
+						Expect(candidate.ID).To(ContainSubstring("storage"))
+						dataHallCount[strings.Split(candidate.ID, "-")[0]]++
+					}
+
+					Expect(dataHallCount).To(Equal(map[string]int{
+						"datahall0": 3,
+						"datahall1": 3,
+						"datahall2": 3,
+					}))
+				})
+			})
+		})
 	})
 
 	Describe("reconcile", func() {
@@ -725,30 +792,49 @@ var _ = Describe("Change coordinators", func() {
 	})
 })
 
-func generateProcessInfo(dcCount int, satCount int, excludes []string) map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo {
+func generateProcessInfoForMultiRegion(dcCount int, satCount int, excludes []string) map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo {
 	res := map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{}
 	logCnt := 4
 
 	for i := 0; i < dcCount; i++ {
 		dcid := fmt.Sprintf("dc%d", i)
 
-		generateProcessInfoDetails(res, dcid, 8, excludes, fdbv1beta2.ProcessClassStorage)
-		generateProcessInfoDetails(res, dcid, logCnt, excludes, fdbv1beta2.ProcessClassLog)
+		generateProcessInfoDetails(res, dcid, "", 8, excludes, fdbv1beta2.ProcessClassStorage)
+		generateProcessInfoDetails(res, dcid, "", logCnt, excludes, fdbv1beta2.ProcessClassLog)
 	}
 
 	for i := 0; i < satCount; i++ {
-		dcid := fmt.Sprintf("sat%d", i)
-
-		generateProcessInfoDetails(res, dcid, logCnt, excludes, fdbv1beta2.ProcessClassLog)
+		generateProcessInfoDetails(res, fmt.Sprintf("sat%d", i), "", logCnt, excludes, fdbv1beta2.ProcessClassLog)
 	}
 
 	return res
 }
 
-func generateProcessInfoDetails(res map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo, dcID string, cnt int, excludes []string, pClass fdbv1beta2.ProcessClass) {
+func generateProcessInfoForThreeDataHall(dataHallCount int, excludes []string) map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo {
+	res := map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{}
+	logCnt := 4
+
+	for i := 0; i < dataHallCount; i++ {
+		dataHallID := fmt.Sprintf("datahall%d", i)
+		generateProcessInfoDetails(res, "", dataHallID, 8, excludes, fdbv1beta2.ProcessClassStorage)
+		generateProcessInfoDetails(res, "", dataHallID, logCnt, excludes, fdbv1beta2.ProcessClassLog)
+	}
+
+	return res
+}
+
+func generateProcessInfoDetails(res map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo, dcID string, dataHall string, cnt int, excludes []string, pClass fdbv1beta2.ProcessClass) {
 	for idx := 0; idx < cnt; idx++ {
 		excluded := false
-		zoneID := fmt.Sprintf("%s-%s-%d", dcID, pClass, idx)
+		var zoneID string
+
+		if dcID != "" {
+			zoneID = fmt.Sprintf("%s-%s-%d", dcID, pClass, idx)
+		}
+
+		if dataHall != "" {
+			zoneID = fmt.Sprintf("%s-%s-%d", dataHall, pClass, idx)
+		}
 
 		for _, exclude := range excludes {
 			if exclude != zoneID {
@@ -760,12 +846,11 @@ func generateProcessInfoDetails(res map[fdbv1beta2.ProcessGroupID]fdbv1beta2.Fou
 		}
 
 		addr := fmt.Sprintf("1.1.1.%d:4501", len(res))
-		res[fdbv1beta2.ProcessGroupID(zoneID)] = fdbv1beta2.FoundationDBStatusProcessInfo{
+		processInfo := fdbv1beta2.FoundationDBStatusProcessInfo{
 			ProcessClass: pClass,
 			Locality: map[string]string{
 				fdbv1beta2.FDBLocalityInstanceIDKey: zoneID,
 				fdbv1beta2.FDBLocalityZoneIDKey:     zoneID,
-				fdbv1beta2.FDBLocalityDCIDKey:       dcID,
 			},
 			Excluded: excluded,
 			Address: fdbv1beta2.ProcessAddress{
@@ -773,6 +858,84 @@ func generateProcessInfoDetails(res map[fdbv1beta2.ProcessGroupID]fdbv1beta2.Fou
 				Port:      4501,
 			},
 			CommandLine: fmt.Sprintf("/fdbserver --public_address=%s", addr),
+		}
+
+		if dcID != "" {
+			processInfo.Locality[fdbv1beta2.FDBLocalityDCIDKey] = dcID
+		}
+
+		if dataHall != "" {
+			processInfo.Locality[fdbv1beta2.FDBLocalityDataHallKey] = dataHall
+		}
+
+		res[fdbv1beta2.ProcessGroupID(zoneID)] = processInfo
+	}
+}
+
+func setDatabaseConfiguration(cluster *fdbv1beta2.FoundationDBCluster, satCnt int) {
+	if satCnt == 1 {
+		cluster.Spec.DatabaseConfiguration.Regions = []fdbv1beta2.Region{
+			{
+				DataCenters: []fdbv1beta2.DataCenter{
+					{
+						ID: "dc0",
+					},
+					{
+						ID:        "sat0",
+						Satellite: 1,
+					},
+					{
+						ID:        "dc1",
+						Satellite: 1,
+						Priority:  1,
+					},
+				},
+			},
+			{
+				DataCenters: []fdbv1beta2.DataCenter{
+					{
+						ID: "dc1",
+					},
+					{
+						ID:        "sat0",
+						Satellite: 1,
+					},
+					{
+						ID:        "dc0",
+						Satellite: 1,
+						Priority:  1,
+					},
+				},
+			},
+		}
+		return
+	}
+
+	if satCnt == 2 {
+		cluster.Spec.DatabaseConfiguration.Regions = []fdbv1beta2.Region{
+			{
+				DataCenters: []fdbv1beta2.DataCenter{
+					{
+						ID: "dc0",
+					},
+					{
+						ID:        "sat0",
+						Satellite: 1,
+					},
+				},
+			},
+			{
+				DataCenters: []fdbv1beta2.DataCenter{
+					{
+						ID:       "dc1",
+						Priority: 1,
+					},
+					{
+						ID:        "sat1",
+						Satellite: 1,
+					},
+				},
+			},
 		}
 	}
 }

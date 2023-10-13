@@ -155,6 +155,9 @@ func ChooseDistributedProcesses(cluster *fdbv1beta2.FoundationDBCluster, process
 	fields := constraint.Fields
 	if len(fields) == 0 {
 		fields = []string{fdbv1beta2.FDBLocalityZoneIDKey, fdbv1beta2.FDBLocalityDCIDKey}
+		if cluster.Spec.DatabaseConfiguration.RedundancyMode == fdbv1beta2.RedundancyModeThreeDataHall {
+			fields = append(fields, fdbv1beta2.FDBLocalityDataHallKey)
+		}
 	}
 
 	chosenCounts := make(map[string]map[string]int, len(fields))
@@ -230,19 +233,35 @@ func ChooseDistributedProcesses(cluster *fdbv1beta2.FoundationDBCluster, process
 		}
 	}
 
+	if len(chosen) != count {
+		return chosen, notEnoughProcessesError{Desired: count, Chosen: len(chosen), Options: processes}
+	}
+
 	return chosen, nil
 }
 
 // GetHardLimits returns the distribution of localities.
 func GetHardLimits(cluster *fdbv1beta2.FoundationDBCluster) map[string]int {
 	if cluster.Spec.DatabaseConfiguration.UsableRegions <= 1 {
+		// For the three_data_hall redundancy mode we will recruit 9 coordinators and those hard limits are only used
+		// for selecting coordinators. We want to make sure we select coordinators across as many fault domains as possible.
+		if cluster.Spec.DatabaseConfiguration.RedundancyMode == fdbv1beta2.RedundancyModeThreeDataHall {
+			return map[string]int{
+				// Assumption here is that we have 3 data halls and we want to spread the coordinators
+				// equally across those 3 data halls.
+				fdbv1beta2.FDBLocalityDataHallKey: 3,
+				fdbv1beta2.FDBLocalityZoneIDKey:   1,
+			}
+		}
+
 		return map[string]int{fdbv1beta2.FDBLocalityZoneIDKey: 1}
 	}
 
-	// TODO (johscheuer): should we calculate that based on the number of DCs?
-	maxCoordinatorsPerDC := int(math.Floor(float64(cluster.DesiredCoordinatorCount()) / 2.0))
-
-	return map[string]int{fdbv1beta2.FDBLocalityZoneIDKey: 1, fdbv1beta2.FDBLocalityDCIDKey: maxCoordinatorsPerDC}
+	maxCoordinatorsPerDC := int(math.Ceil(float64(cluster.DesiredCoordinatorCount()) / float64(cluster.Spec.DatabaseConfiguration.CountUniqueDataCenters())))
+	return map[string]int{
+		fdbv1beta2.FDBLocalityDCIDKey:   maxCoordinatorsPerDC,
+		fdbv1beta2.FDBLocalityZoneIDKey: 1,
+	}
 }
 
 // CheckCoordinatorValidity determines if the cluster's current coordinators

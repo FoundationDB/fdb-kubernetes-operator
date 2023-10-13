@@ -1268,7 +1268,7 @@ func (cluster *FoundationDBCluster) GetProcessSettings(processClass ProcessClass
 // The default Storage value will be 2F + 1, where F is the cluster's fault
 // tolerance.
 //
-// The default Logs value will be 3.
+// The default Logs value will be 3 or 4 for three_data_hall.
 //
 // The default Proxies value will be 3.
 //
@@ -1430,10 +1430,9 @@ func (cluster *FoundationDBCluster) MinimumFaultDomains() int {
 	return MinimumFaultDomains(cluster.Spec.DatabaseConfiguration.RedundancyMode)
 }
 
-// DesiredCoordinatorCount returns the number of coordinators to recruit for
-// a cluster.
+// DesiredCoordinatorCount returns the number of coordinators to recruit for a cluster.
 func (cluster *FoundationDBCluster) DesiredCoordinatorCount() int {
-	if cluster.Spec.DatabaseConfiguration.UsableRegions > 1 {
+	if cluster.Spec.DatabaseConfiguration.UsableRegions > 1 || cluster.Spec.DatabaseConfiguration.RedundancyMode == RedundancyModeThreeDataHall {
 		return 9
 	}
 
