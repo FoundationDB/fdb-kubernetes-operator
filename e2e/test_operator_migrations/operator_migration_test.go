@@ -101,6 +101,9 @@ var _ = Describe("Operator Migrations", Label("e2e", "pr"), func() {
 		It("should add the prefix to all instances", func() {
 			Eventually(func(g Gomega) bool {
 				for _, processGroup := range fdbCluster.GetCluster().Status.ProcessGroups {
+					if processGroup.IsMarkedForRemoval() && processGroup.IsExcluded() {
+						continue
+					}
 					g.Expect(string(processGroup.ProcessGroupID)).To(HavePrefix(prefix))
 				}
 
@@ -110,6 +113,9 @@ var _ = Describe("Operator Migrations", Label("e2e", "pr"), func() {
 			Eventually(func(g Gomega) bool {
 				pods := fdbCluster.GetPods()
 				for _, pod := range pods.Items {
+					if !pod.DeletionTimestamp.IsZero() {
+						continue
+					}
 					g.Expect(string(fixtures.GetProcessGroupID(pod))).To(HavePrefix(prefix))
 				}
 
