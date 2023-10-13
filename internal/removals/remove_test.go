@@ -142,17 +142,17 @@ var _ = Describe("remove", func() {
 			"zone3": {
 				{
 					ProcessGroupID: "3",
-					FaultDomain:    "zone1",
+					FaultDomain:    "zone3",
 				},
 				{
 					ProcessGroupID: "4",
-					FaultDomain:    "zone1",
+					FaultDomain:    "zone3",
 				},
 			},
 			UnknownZone: {
 				{
 					ProcessGroupID: "5",
-					FaultDomain:    "zone1",
+					FaultDomain:    UnknownZone,
 				},
 			},
 		}
