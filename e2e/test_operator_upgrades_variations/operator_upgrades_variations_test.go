@@ -93,31 +93,19 @@ func performUpgrade(config testConfig, validateFunc func(cluster *fixtures.FdbCl
 			fdbv1beta2.IncorrectCommandLine: true,
 		}
 
-		Eventually(func(g Gomega) bool {
+		Eventually(func() bool {
 			// If the status is not updated after 5 minutes try a force reconciliation.
 			if time.Since(startTime) > 5*time.Minute {
 				fdbCluster.ForceReconcile()
 			}
 
-			// This logic is copied from the MatchesConditions method in FoundationDBCluster to get better
-			// insights into why this check failed.
 			for _, processGroup := range fdbCluster.GetCluster().Status.ProcessGroups {
-				matchingConditions := make(map[fdbv1beta2.ProcessGroupConditionType]bool, len(expectedConditions))
-
-				for conditionRule := range expectedConditions {
-					matchingConditions[conditionRule] = false
+				if processGroup.MatchesConditions(expectedConditions) {
+					return true
 				}
-
-				for _, condition := range processGroup.ProcessGroupConditions {
-					if _, hasRule := expectedConditions[condition.ProcessGroupConditionType]; hasRule {
-						matchingConditions[condition.ProcessGroupConditionType] = true
-					}
-				}
-
-				g.Expect(matchingConditions).To(Equal(expectedConditions))
 			}
 
-			return true
+			return false
 		}).WithTimeout(10 * time.Minute).WithPolling(5 * time.Second).Should(BeTrue())
 	}
 
