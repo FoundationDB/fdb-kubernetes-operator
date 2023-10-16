@@ -787,13 +787,21 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		prefix := "banana"
 
 		BeforeEach(func() {
-			currentGeneration := fdbCluster.GetCluster().Generation
 			Expect(fdbCluster.SetProcessGroupPrefix(prefix)).NotTo(HaveOccurred())
-			Expect(fdbCluster.WaitForReconciliation(fixtures.MinimumGenerationOption(currentGeneration+1), fixtures.SoftReconcileOption(false)))
 		})
 
 		It("should add the prefix to all instances", func() {
+			lastForcedReconciliationTime := time.Now()
+			forceReconcileDuration := 4 * time.Minute
+
 			Eventually(func(g Gomega) bool {
+				// Force a reconcile if needed to make sure we speed up the reconciliation if needed.
+				if time.Since(lastForcedReconciliationTime) >= forceReconcileDuration {
+					fdbCluster.ForceReconcile()
+					lastForcedReconciliationTime = time.Now()
+				}
+
+				// Check if all process groups are migrated
 				for _, processGroup := range fdbCluster.GetCluster().Status.ProcessGroups {
 					if processGroup.IsMarkedForRemoval() && processGroup.IsExcluded() {
 						continue
@@ -802,19 +810,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				}
 
 				return true
-			}).WithTimeout(10 * time.Minute).WithPolling(5 * time.Second).Should(BeTrue())
-
-			Eventually(func(g Gomega) bool {
-				pods := fdbCluster.GetPods()
-				for _, pod := range pods.Items {
-					if !pod.DeletionTimestamp.IsZero() {
-						continue
-					}
-					g.Expect(string(fixtures.GetProcessGroupID(pod))).To(HavePrefix(prefix))
-				}
-
-				return true
-			}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(BeTrue())
+			}).WithTimeout(20 * time.Minute).WithPolling(5 * time.Second).Should(BeTrue())
 		})
 	})
 

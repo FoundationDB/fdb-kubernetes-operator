@@ -276,7 +276,6 @@ func (fdbCluster *FdbCluster) waitForReconciliationToGeneration(
 	}
 
 	err := fdbCluster.WaitUntilWithForceReconcile(pollTimeInSeconds, timeOutInSeconds, checkIfReconciliationIsDone)
-
 	if creationTracker != nil {
 		creationTracker.report()
 	}
