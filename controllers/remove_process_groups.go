@@ -22,6 +22,7 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"time"
@@ -146,6 +147,10 @@ func removeProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, c
 	var deletionError error
 
 	pod, err := r.PodLifecycleManager.GetPod(ctx, r, cluster, podName)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return err
+	}
+
 	if err == nil && pod.DeletionTimestamp.IsZero() {
 		deletionError = r.PodLifecycleManager.DeletePod(ctx, r, pod)
 		if err != nil {
@@ -163,12 +168,7 @@ func removeProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, c
 		logr.FromContextOrDiscard(ctx).V(1).Info("Deleting pvc", "name", pvcs.Items[0].Name)
 		err = r.Delete(ctx, &pvcs.Items[0])
 		if err != nil {
-			pvcError := fmt.Errorf("could not delete PVC: %w", err)
-			if deletionError == nil {
-				deletionError = pvcError
-			} else {
-				deletionError = fmt.Errorf("previous error: %w, %w", deletionError, pvcError)
-			}
+			deletionError = errors.Join(deletionError, fmt.Errorf("could not delete PVC: %w", err))
 		}
 	} else if len(pvcs.Items) > 1 {
 		return fmt.Errorf("multiple PVCs found for cluster %s, processGroupID %s", cluster.Name, processGroup.ProcessGroupID)
@@ -176,15 +176,14 @@ func removeProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, c
 
 	service := &corev1.Service{}
 	err = r.Get(ctx, client.ObjectKey{Name: podName, Namespace: cluster.Namespace}, service)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return err
+	}
+
 	if err == nil && service.DeletionTimestamp.IsZero() {
 		err = r.Delete(ctx, service)
 		if err != nil {
-			serviceError := fmt.Errorf("could not delete Service: %w", err)
-			if deletionError == nil {
-				deletionError = serviceError
-			} else {
-				deletionError = fmt.Errorf("previous error: %w, %w", deletionError, serviceError)
-			}
+			deletionError = errors.Join(deletionError, fmt.Errorf("could not delete Service: %w", err))
 		}
 	}
 
