@@ -108,6 +108,7 @@ var _ = Describe("add_services", func() {
 					Expect(service.Spec.Selector).To(Equal(labels))
 				}
 			})
+
 			It("should set the metadata on the services", func() {
 				for _, service := range newServices.Items {
 					Expect(service.Labels["fdb-test-label"]).To(Equal("true"))
@@ -150,7 +151,7 @@ var _ = Describe("add_services", func() {
 			})
 		})
 
-		Context("when the process group is being removed", func() {
+		When("the process group is being removed", func() {
 			BeforeEach(func() {
 				cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].MarkForRemoval()
 			})
@@ -159,8 +160,22 @@ var _ = Describe("add_services", func() {
 				Expect(requeue).To(BeNil())
 			})
 
-			It("should not create any services", func() {
-				Expect(newServices.Items).To(HaveLen(len(initialServices.Items)))
+			It("should create the services", func() {
+				Expect(newServices.Items).To(HaveLen(len(initialServices.Items) + 1))
+			})
+
+			When("the process group is fully excluded", func() {
+				BeforeEach(func() {
+					cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].SetExclude()
+				})
+
+				It("should not requeue", func() {
+					Expect(requeue).To(BeNil())
+				})
+
+				It("should not create any services", func() {
+					Expect(newServices.Items).To(HaveLen(len(initialServices.Items)))
+				})
 			})
 		})
 	})

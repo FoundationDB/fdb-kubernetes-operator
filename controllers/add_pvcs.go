@@ -39,7 +39,7 @@ type addPVCs struct{}
 // reconcile runs the reconciler's work.
 func (a addPVCs) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, _ *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
 	for _, processGroup := range cluster.Status.ProcessGroups {
-		if processGroup.IsMarkedForRemoval() {
+		if processGroup.IsMarkedForRemoval() && processGroup.IsExcluded() {
 			continue
 		}
 

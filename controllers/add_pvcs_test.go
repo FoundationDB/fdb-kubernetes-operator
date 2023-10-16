@@ -41,11 +41,8 @@ var _ = Describe("add_pvcs", func() {
 
 	BeforeEach(func() {
 		cluster = internal.CreateDefaultCluster()
-		err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
-		Expect(err).NotTo(HaveOccurred())
-
-		err = k8sClient.Create(context.TODO(), cluster)
-		Expect(err).NotTo(HaveOccurred())
+		Expect(internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})).NotTo(HaveOccurred())
+		Expect(k8sClient.Create(context.TODO(), cluster)).NotTo(HaveOccurred())
 
 		result, err := reconcileCluster(cluster)
 		Expect(err).NotTo(HaveOccurred())
@@ -56,8 +53,7 @@ var _ = Describe("add_pvcs", func() {
 		Expect(generation).To(Equal(int64(1)))
 
 		initialPVCs = &corev1.PersistentVolumeClaimList{}
-		err = k8sClient.List(context.TODO(), initialPVCs)
-		Expect(err).NotTo(HaveOccurred())
+		Expect(k8sClient.List(context.TODO(), initialPVCs)).NotTo(HaveOccurred())
 	})
 
 	JustBeforeEach(func() {
@@ -67,8 +63,7 @@ var _ = Describe("add_pvcs", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		newPVCs = &corev1.PersistentVolumeClaimList{}
-		err = k8sClient.List(context.TODO(), newPVCs)
-		Expect(err).NotTo(HaveOccurred())
+		Expect(k8sClient.List(context.TODO(), newPVCs)).NotTo(HaveOccurred())
 		sort.Slice(newPVCs.Items, func(i1, i2 int) bool {
 			return newPVCs.Items[i1].Name < newPVCs.Items[i2].Name
 		})
@@ -102,7 +97,7 @@ var _ = Describe("add_pvcs", func() {
 			Expect(lastPVC.OwnerReferences).To(Equal(internal.BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)))
 		})
 
-		Context("when the process group is being removed", func() {
+		When("the process group is being removed", func() {
 			BeforeEach(func() {
 				cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].MarkForRemoval()
 			})
@@ -111,8 +106,22 @@ var _ = Describe("add_pvcs", func() {
 				Expect(requeue).To(BeNil())
 			})
 
-			It("should not create any PVCs", func() {
-				Expect(newPVCs.Items).To(HaveLen(len(initialPVCs.Items)))
+			It("should create the PVCs", func() {
+				Expect(newPVCs.Items).To(HaveLen(len(initialPVCs.Items) + 1))
+			})
+
+			When("the process is fully excluded", func() {
+				BeforeEach(func() {
+					cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].SetExclude()
+				})
+
+				It("should not requeue", func() {
+					Expect(requeue).To(BeNil())
+				})
+
+				It("should not create any PVCs", func() {
+					Expect(newPVCs.Items).To(HaveLen(len(initialPVCs.Items)))
+				})
 			})
 		})
 	})
