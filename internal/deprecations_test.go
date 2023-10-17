@@ -104,12 +104,12 @@ var _ = Describe("[internal] deprecations", func() {
 					Expect(len(containers)).To(Equal(2))
 					Expect(containers[0].Name).To(Equal(fdbv1beta2.MainContainerName))
 					Expect(containers[0].Resources.Requests).To(Equal(corev1.ResourceList{
-						"cpu":    resource.MustParse("1"),
-						"memory": resource.MustParse("1Gi"),
+						corev1.ResourceCPU:    resource.MustParse("1"),
+						corev1.ResourceMemory: resource.MustParse("4Gi"),
 					}))
 					Expect(containers[0].Resources.Limits).To(Equal(corev1.ResourceList{
-						"cpu":    resource.MustParse("1"),
-						"memory": resource.MustParse("1Gi"),
+						corev1.ResourceCPU:    resource.MustParse("1"),
+						corev1.ResourceMemory: resource.MustParse("4Gi"),
 					}))
 				})
 
@@ -143,10 +143,10 @@ var _ = Describe("[internal] deprecations", func() {
 											Name: fdbv1beta2.MainContainerName,
 											Resources: corev1.ResourceRequirements{
 												Requests: corev1.ResourceList{
-													"cpu": resource.MustParse("1"),
+													corev1.ResourceCPU: resource.MustParse("1"),
 												},
 												Limits: corev1.ResourceList{
-													"cpu": resource.MustParse("2"),
+													corev1.ResourceCPU: resource.MustParse("1"),
 												},
 											},
 										}},
@@ -163,10 +163,10 @@ var _ = Describe("[internal] deprecations", func() {
 						Expect(len(containers)).To(Equal(2))
 						Expect(containers[0].Name).To(Equal(fdbv1beta2.MainContainerName))
 						Expect(containers[0].Resources.Requests).To(Equal(corev1.ResourceList{
-							"cpu": resource.MustParse("1"),
+							corev1.ResourceCPU: resource.MustParse("1"),
 						}))
 						Expect(containers[0].Resources.Limits).To(Equal(corev1.ResourceList{
-							"cpu": resource.MustParse("2"),
+							corev1.ResourceCPU: resource.MustParse("1"),
 						}))
 					})
 				})
@@ -181,10 +181,10 @@ var _ = Describe("[internal] deprecations", func() {
 											Name: fdbv1beta2.SidecarContainerName,
 											Resources: corev1.ResourceRequirements{
 												Requests: corev1.ResourceList{
-													"cpu": resource.MustParse("1"),
+													corev1.ResourceCPU: resource.MustParse("1"),
 												},
 												Limits: corev1.ResourceList{
-													"cpu": resource.MustParse("2"),
+													corev1.ResourceCPU: resource.MustParse("2"),
 												},
 											},
 										}},
@@ -201,10 +201,10 @@ var _ = Describe("[internal] deprecations", func() {
 						Expect(len(containers)).To(Equal(2))
 						Expect(containers[1].Name).To(Equal(fdbv1beta2.SidecarContainerName))
 						Expect(containers[1].Resources.Requests).To(Equal(corev1.ResourceList{
-							"cpu": resource.MustParse("1"),
+							corev1.ResourceCPU: resource.MustParse("1"),
 						}))
 						Expect(containers[1].Resources.Limits).To(Equal(corev1.ResourceList{
-							"cpu": resource.MustParse("2"),
+							corev1.ResourceCPU: resource.MustParse("2"),
 						}))
 					})
 				})

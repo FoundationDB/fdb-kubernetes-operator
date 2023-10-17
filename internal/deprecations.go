@@ -64,9 +64,10 @@ func NormalizeClusterSpec(cluster *fdbv1beta2.FoundationDBCluster, options Depre
 
 			template.Spec.Containers = customizeContainerFromList(template.Spec.Containers, fdbv1beta2.MainContainerName, func(container *corev1.Container) {
 				if container.Resources.Requests == nil {
+					// See: https://apple.github.io/foundationdb/configuration.html#system-requirements
 					container.Resources.Requests = corev1.ResourceList{
-						"cpu":    resource.MustParse("1"),
-						"memory": resource.MustParse("1Gi"),
+						corev1.ResourceCPU:    resource.MustParse("1"),
+						corev1.ResourceMemory: resource.MustParse("4Gi"),
 					}
 				}
 
@@ -78,8 +79,8 @@ func NormalizeClusterSpec(cluster *fdbv1beta2.FoundationDBCluster, options Depre
 			sidecarUpdater := func(container *corev1.Container) {
 				if container.Resources.Requests == nil {
 					container.Resources.Requests = corev1.ResourceList{
-						"cpu":    resource.MustParse("100m"),
-						"memory": resource.MustParse("256Mi"),
+						corev1.ResourceCPU:    resource.MustParse("100m"),
+						corev1.ResourceMemory: resource.MustParse("256Mi"),
 					}
 				}
 

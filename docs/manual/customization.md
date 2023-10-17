@@ -79,7 +79,11 @@ spec:
 
 ## Customizing Your Pods
 
-The process settings in the cluster spec also allow specifying a pod template, which allows customizing almost everything about your pods. You can define custom environment variables, add your own containers, add additional volumes, and more. You may want to use these fields to handle things that are specific to your environment, like forwarding logs to a central system. In the example below, we add custom resource requirements and a custom container for logging. This new container is making use of the `fdb-trace-logs` volume, which is defined by the operator automatically.
+The process settings in the cluster spec also allow specifying a pod template, which allows customizing almost everything about your pods.
+You can define custom environment variables, add your own containers, add additional volumes, and more.
+You may want to use these fields to handle things that are specific to your environment, like forwarding logs to a central system.
+In the example below, we add custom resource requirements and a custom container for logging. This new container is making use of the `fdb-trace-logs` volume, which is defined by the operator automatically.
+The [warnings](warnings.md#resource-requirements) of this documentation contains some additional information on which fields can be customized.
 
 ```yaml
 apiVersion: apps.foundationdb.org/v1beta2
