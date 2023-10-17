@@ -38,8 +38,8 @@ import (
 )
 
 var (
-	factory *fixtures.Factory
-	//fdbCluster  *fixtures.FdbCluster
+	factory     *fixtures.Factory
+	fdbCluster  *fixtures.FdbCluster
 	testOptions *fixtures.FactoryOptions
 )
 
@@ -62,28 +62,28 @@ type testConfig struct {
 
 func clusterSetupWithConfig(config testConfig) *fixtures.FdbCluster {
 	factory.SetBeforeVersion(config.beforeVersion)
-	fdbCluster := factory.CreateFdbCluster(
+	cluster := factory.CreateFdbCluster(
 		config.clusterConfig,
 		factory.GetClusterOptions(fixtures.UseVersionBeforeUpgrade)...,
 	)
 
 	if config.loadData {
-		// Load some data async into the cluster. We will only block as long as the Job is created.
-		factory.CreateDataLoaderIfAbsent(fdbCluster)
+		// Load some data into the cluster.
+		factory.CreateDataLoaderIfAbsent(cluster)
 	}
 
 	Expect(
-		fdbCluster.InvariantClusterStatusAvailableWithThreshold(15 * time.Second),
+		cluster.InvariantClusterStatusAvailableWithThreshold(15 * time.Second),
 	).ShouldNot(HaveOccurred())
 
-	return fdbCluster
+	return cluster
 }
 
 func performUpgrade(config testConfig, validateFunc func(cluster *fixtures.FdbCluster)) {
-	cluster := clusterSetupWithConfig(config)
+	fdbCluster = clusterSetupWithConfig(config)
 	startTime := time.Now()
-	Expect(cluster.UpgradeCluster(config.targetVersion, false)).NotTo(HaveOccurred())
-	validateFunc(cluster)
+	Expect(fdbCluster.UpgradeCluster(config.targetVersion, false)).NotTo(HaveOccurred())
+	validateFunc(fdbCluster)
 
 	if !fixtures.VersionsAreProtocolCompatible(config.beforeVersion, config.targetVersion) {
 		// Ensure that the operator is setting the IncorrectConfigMap and IncorrectCommandLine conditions during the upgrade
@@ -92,20 +92,26 @@ func performUpgrade(config testConfig, validateFunc func(cluster *fixtures.FdbCl
 			fdbv1beta2.IncorrectConfigMap:   true,
 			fdbv1beta2.IncorrectCommandLine: true,
 		}
+
 		Eventually(func() bool {
-			for _, processGroup := range cluster.GetCluster().Status.ProcessGroups {
-				if !processGroup.MatchesConditions(expectedConditions) {
-					return false
+			// If the status is not updated after 5 minutes try a force reconciliation.
+			if time.Since(startTime) > 5*time.Minute {
+				fdbCluster.ForceReconcile()
+			}
+
+			for _, processGroup := range fdbCluster.GetCluster().Status.ProcessGroups {
+				if processGroup.MatchesConditions(expectedConditions) {
+					return true
 				}
 			}
 
-			return true
+			return false
 		}).WithTimeout(10 * time.Minute).WithPolling(5 * time.Second).Should(BeTrue())
 	}
 
 	transactionSystemProcessGroups := make(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None)
 	// Wait until the cluster is upgraded and fully reconciled.
-	Expect(cluster.WaitUntilWithForceReconcile(2, 1200, func(cluster *fdbv1beta2.FoundationDBCluster) bool {
+	Expect(fdbCluster.WaitUntilWithForceReconcile(2, 1200, func(cluster *fdbv1beta2.FoundationDBCluster) bool {
 		for _, processGroup := range cluster.Status.ProcessGroups {
 			if processGroup.ProcessClass == fdbv1beta2.ProcessClassStorage {
 				continue
@@ -120,7 +126,7 @@ func performUpgrade(config testConfig, validateFunc func(cluster *fixtures.FdbCl
 
 	log.Println("Upgrade took:", time.Since(startTime).String())
 	// Get the desired process counts based on the current cluster configuration
-	processCounts, err := cluster.GetProcessCounts()
+	processCounts, err := fdbCluster.GetProcessCounts()
 	Expect(err).NotTo(HaveOccurred())
 
 	// During an upgrade we expect that the transaction system processes are replaced, so we expect to have seen
@@ -129,8 +135,8 @@ func performUpgrade(config testConfig, validateFunc func(cluster *fixtures.FdbCl
 	expectedProcessCounts := (processCounts.Total()-processCounts.Storage)*2 + 5
 	Expect(len(transactionSystemProcessGroups)).To(BeNumerically("<=", expectedProcessCounts))
 	// Ensure we have not data loss.
-	cluster.EnsureTeamTrackersAreHealthy()
-	cluster.EnsureTeamTrackersHaveMinReplicas()
+	fdbCluster.EnsureTeamTrackersAreHealthy()
+	fdbCluster.EnsureTeamTrackersHaveMinReplicas()
 }
 
 var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
@@ -139,7 +145,13 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 	})
 
 	AfterEach(func() {
+		if CurrentSpecReport().Failed() {
+			if fdbCluster != nil {
+				factory.DumpState(fdbCluster)
+			}
+		}
 		factory.Shutdown()
+		fdbCluster = nil
 	})
 
 	// Ginkgo lacks the support for AfterEach and BeforeEach in tables, so we have to put everything inside the testing function
