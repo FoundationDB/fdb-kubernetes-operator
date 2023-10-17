@@ -89,9 +89,7 @@ func (a addPods) reconcile(ctx context.Context, r *FoundationDBClusterReconciler
 			return &requeue{curError: err}
 		}
 
-		imageType := internal.GetImageType(pod)
-
-		configMapHash, err := internal.GetDynamicConfHash(configMap, processGroup.ProcessClass, imageType, serverPerPod)
+		configMapHash, err := internal.GetDynamicConfHash(configMap, processGroup.ProcessClass, internal.GetImageType(pod), serverPerPod)
 		if err != nil {
 			return &requeue{curError: err}
 		}

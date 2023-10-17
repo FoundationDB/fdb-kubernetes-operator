@@ -66,6 +66,10 @@ type FoundationDBClusterList struct {
 var conditionsThatNeedReplacement = []ProcessGroupConditionType{MissingProcesses, PodFailing, MissingPod, MissingPVC,
 	MissingService, PodPending, NodeTaintReplacing, ProcessIsMarkedAsExcluded}
 
+const (
+	oneHourDuration = 1 * time.Hour
+)
+
 func init() {
 	SchemeBuilder.Register(&FoundationDBCluster{}, &FoundationDBClusterList{})
 }
@@ -587,6 +591,13 @@ func (processGroupStatus *ProcessGroupStatus) AllAddressesExcluded(logger logr.L
 
 	// If the process group has no addresses assigned we cannot remove it safely and we have to set the skip exclusion.
 	if len(processGroupStatus.Addresses) == 0 {
+		pendingTime := processGroupStatus.GetConditionTime(PodPending)
+		// If the process group has the PodPending condition for more than 1 hour we allow to remove this process group.
+		if pendingTime != nil && time.Since(time.Unix(*pendingTime, 0)) > oneHourDuration {
+			logger.Info("allow removal of process group without address that is stuck in pending over 1 hour", "processGroupID", processGroupStatus.ProcessGroupID)
+			return true, nil
+		}
+
 		return false, fmt.Errorf("process has no addresses, cannot safely determine if process can be removed")
 	}
 
