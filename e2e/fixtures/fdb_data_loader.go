@@ -28,6 +28,7 @@ import (
 	"io"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
@@ -224,6 +225,19 @@ func (factory *Factory) CreateDataLoaderIfAbsent(cluster *FdbCluster) {
 	}
 
 	factory.WaitUntilDataLoaderIsDone(cluster)
+
+	// Remove data loader Pods again, as the loading was done.
+	gomega.Expect(factory.controllerRuntimeClient.Delete(context.Background(), &batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      dataLoaderName,
+			Namespace: cluster.Namespace(),
+		},
+	})).NotTo(gomega.HaveOccurred())
+
+	gomega.Expect(factory.controllerRuntimeClient.DeleteAllOf(context.Background(), &corev1.Pod{},
+		client.InNamespace(cluster.Namespace()),
+		client.MatchingLabels(map[string]string{"job-name": dataLoaderName}),
+	)).NotTo(gomega.HaveOccurred())
 }
 
 // WaitUntilDataLoaderIsDone will wait until the data loader Job has finished.
