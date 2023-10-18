@@ -2007,4 +2007,113 @@ var _ = Describe("status_checks", func() {
 			),
 		)
 	})
+
+	DescribeTable("when testing if a configuration change is allowed", func(status *fdbv1beta2.FoundationDBStatus, useRecoveryState bool, expected error) {
+		err := ConfigurationChangeAllowed(status, useRecoveryState)
+		if expected == nil {
+			Expect(err).NotTo(HaveOccurred())
+			return
+		}
+
+		Expect(err).To(HaveOccurred())
+		Expect(err).To(Equal(expected))
+	},
+		Entry(
+			"status is healthy",
+			&fdbv1beta2.FoundationDBStatus{
+				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+					Data: fdbv1beta2.FoundationDBStatusDataStatistics{
+						State: fdbv1beta2.FoundationDBStatusDataState{
+							Healthy: true,
+						},
+					},
+					RecoveryState: fdbv1beta2.RecoveryState{
+						SecondsSinceLastRecovered: 120.0,
+					},
+				},
+			},
+			true,
+			nil,
+		),
+		Entry(
+			"data status is unhealthy",
+			&fdbv1beta2.FoundationDBStatus{
+				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+					Data: fdbv1beta2.FoundationDBStatusDataStatistics{
+						State: fdbv1beta2.FoundationDBStatusDataState{
+							Healthy: false,
+							Name:    "primary",
+						},
+					},
+					RecoveryState: fdbv1beta2.RecoveryState{
+						SecondsSinceLastRecovered: 120.0,
+					},
+				},
+			},
+			true,
+			fmt.Errorf("data distribution is not healhty: primary"),
+		),
+
+		Entry(
+			"last recovery is only 5 seconds ago",
+			&fdbv1beta2.FoundationDBStatus{
+				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+					Data: fdbv1beta2.FoundationDBStatusDataStatistics{
+						State: fdbv1beta2.FoundationDBStatusDataState{
+							Healthy: true,
+						},
+					},
+					RecoveryState: fdbv1beta2.RecoveryState{
+						SecondsSinceLastRecovered: 5.0,
+					},
+				},
+			},
+			true,
+			fmt.Errorf("clusters last recovery was 5.00 seconds ago, wait until the last recovery was 60 seconds ago"),
+		),
+		Entry(
+			"status contains error message",
+			&fdbv1beta2.FoundationDBStatus{
+				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+					Messages: []fdbv1beta2.FoundationDBStatusMessage{
+						{
+							Name: "unreadable_configuration",
+						},
+					},
+					Data: fdbv1beta2.FoundationDBStatusDataStatistics{
+						State: fdbv1beta2.FoundationDBStatusDataState{
+							Healthy: true,
+						},
+					},
+					RecoveryState: fdbv1beta2.RecoveryState{
+						SecondsSinceLastRecovered: 120.0,
+					},
+				},
+			},
+			true,
+			fmt.Errorf("status contains error message: unreadable_configuration"),
+		),
+		Entry(
+			"worst storage lag is increased",
+			&fdbv1beta2.FoundationDBStatus{
+				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+					Data: fdbv1beta2.FoundationDBStatusDataStatistics{
+						State: fdbv1beta2.FoundationDBStatusDataState{
+							Healthy: true,
+						},
+					},
+					RecoveryState: fdbv1beta2.RecoveryState{
+						SecondsSinceLastRecovered: 120.0,
+					},
+					Qos: fdbv1beta2.FoundationDBStatusQosInfo{
+						WorstDataLagStorageServer: fdbv1beta2.FoundationDBStatusLagInfo{
+							Seconds: 61.0,
+						},
+					},
+				},
+			},
+			true,
+			fmt.Errorf("data lag is to high to issue configuration change, current data lag in seconds: 61.00"),
+		),
+	)
 })
