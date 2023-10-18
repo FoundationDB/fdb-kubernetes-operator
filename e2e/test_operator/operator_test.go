@@ -1554,4 +1554,63 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			fdbCluster.RunFdbCliCommandInOperator("maintenance off", false, 30)
 		})
 	})
+
+	When("adding and removing a test process", func() {
+		BeforeEach(func() {
+			spec := fdbCluster.GetCluster().Spec.DeepCopy()
+			spec.ProcessCounts.Test = 1
+			fdbCluster.UpdateClusterSpecWithSpec(spec)
+			Expect(fdbCluster.WaitForReconciliation()).NotTo(HaveOccurred())
+		})
+
+		AfterEach(func() {
+			spec := fdbCluster.GetCluster().Spec.DeepCopy()
+			spec.ProcessCounts.Test = 1
+			fdbCluster.UpdateClusterSpecWithSpec(spec)
+			Expect(fdbCluster.WaitForReconciliation()).NotTo(HaveOccurred())
+		})
+
+		It("should create the test Pod", func() {
+			Eventually(func(g Gomega) bool {
+				for _, processGroup := range fdbCluster.GetCluster().Status.ProcessGroups {
+					if processGroup.ProcessClass != fdbv1beta2.ProcessClassTest {
+						continue
+					}
+
+					g.Expect(processGroup.ProcessGroupConditions).To(BeZero())
+				}
+
+				return true
+			}).WithTimeout(10 * time.Minute).WithPolling(5 * time.Second).Should(BeTrue())
+
+			// Make sure the Pod is running
+			var podName string
+			for _, processGroup := range fdbCluster.GetCachedCluster().Status.ProcessGroups {
+				if processGroup.ProcessClass != fdbv1beta2.ProcessClassTest {
+					continue
+				}
+
+				podName = processGroup.GetPodName(fdbCluster.GetCachedCluster())
+			}
+
+			Expect(podName).NotTo(BeEmpty())
+			Eventually(func() corev1.PodPhase {
+				return fdbCluster.GetPod(podName).Status.Phase
+			}).WithTimeout(10 * time.Minute).WithPolling(5 * time.Second).Should(Equal(corev1.PodRunning))
+
+			Eventually(func(g Gomega) int {
+				var count int
+				processes := fdbCluster.GetStatus().Cluster.Processes
+				for _, process := range processes {
+					if process.ProcessClass != fdbv1beta2.ProcessClassTest {
+						continue
+					}
+
+					count++
+				}
+
+				return count
+			}).WithTimeout(10 * time.Minute).WithPolling(5 * time.Second).Should(BeNumerically("==", 1))
+		})
+	})
 })

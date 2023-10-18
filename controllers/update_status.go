@@ -431,7 +431,10 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 			processGroup.MarkForRemoval()
 			// Check if we should skip exclusion for the process group
 			_, ok := processGroupsWithoutExclusion[processGroup.ProcessGroupID]
-			if ok {
+			// If the process group should be removed without exclusion or the process class is test, remove it without
+			// further checks. For the test processes there is no reason to try to exclude them as they are not maintaining
+			// any data.
+			if ok || processGroup.ProcessClass == fdbv1beta2.ProcessClassTest {
 				processGroup.ExclusionSkipped = ok
 				processGroup.SetExclude()
 			}
