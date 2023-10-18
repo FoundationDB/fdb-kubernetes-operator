@@ -152,7 +152,7 @@ func removeProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, c
 	}
 
 	if err == nil && pod.DeletionTimestamp.IsZero() {
-		deletionError = r.PodLifecycleManager.DeletePod(ctx, r, pod)
+		err = r.PodLifecycleManager.DeletePod(ctx, r, pod)
 		if err != nil {
 			deletionError = fmt.Errorf("could not delete Pod: %w", err)
 		}
