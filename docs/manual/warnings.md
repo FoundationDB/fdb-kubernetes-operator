@@ -14,7 +14,12 @@ The operator runs clusters with insecure connections by default, so the clusters
 
 ## Resource Requirements
 
-In the interest of giving everyone a good configuration out of the box, the operator applies resource requirements to the built-in containers. The main foundationdb container is configured with 1 CPU and 1 Gi of memory as its requests. It is also configured to use the same values for limits and requests. You can change this behavior by specifying your own resource values in the pod template. If you want your container to have no values set for the CPU or memory, and use whatever values are set by default in your Kubernetes environments, you can accomplish this by specifying a resource request for `org.foundationdb/empty: 0`. This resource constraint will have no direct effect, but it will ensure that the resource object has a non-empty value, and the operator will then pass that on to the container spec.
+In the interest of giving everyone a good configuration out of the box, the operator applies resource requirements to the built-in containers.
+The main foundationdb container is configured with 1 CPU and 4 Gi of memory as its requests, based on the [official docs](https://apple.github.io/foundationdb/configuration.html#system-requirements).
+It is also configured to use the same values for limits and requests.
+You can change this behavior by specifying your own resource values in the pod template.
+If you want your container to have no values set for the CPU or memory, and use whatever values are set by default in your Kubernetes environments, you can accomplish this by specifying a resource request for `org.foundationdb/empty: 0`.
+This resource constraint will have no direct effect, but it will ensure that the resource object has a non-empty value, and the operator will then pass that on to the container spec.
 
 The operator also provides a default size of 128 Gi for the volumes your cluster will use. You can customize this in the volume claim template.
 
