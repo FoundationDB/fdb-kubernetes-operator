@@ -1474,4 +1474,84 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			Expect(fdbCluster.SetAutoReplacements(true, initialReplaceTime)).ShouldNot(HaveOccurred())
 		})
 	})
+
+	When("a process is in the maintenance zone", func() {
+		var initialReplaceTime time.Duration
+
+		var exp *fixtures.ChaosMeshExperiment
+		var targetProcessGroup *fdbv1beta2.ProcessGroupStatus
+
+		BeforeEach(func() {
+			availabilityCheck = false
+			initialReplaceTime = time.Duration(pointer.IntDeref(
+				fdbCluster.GetClusterSpec().AutomationOptions.Replacements.FailureDetectionTimeSeconds,
+				90,
+			)) * time.Second
+			Expect(fdbCluster.SetAutoReplacements(true, 30*time.Second)).ShouldNot(HaveOccurred())
+			for _, processGroup := range fdbCluster.GetCachedCluster().Status.ProcessGroups {
+				if processGroup.ProcessClass != fdbv1beta2.ProcessClassStorage {
+					continue
+				}
+
+				targetProcessGroup = processGroup
+				break
+			}
+
+			_, _ = fdbCluster.RunFdbCliCommandInOperator(fmt.Sprintf("maintenance on %s 3600", targetProcessGroup.FaultDomain), false, 30)
+
+			// Make sure we trigger a reconciliation to speed up the test case and allow the operator to detect the maintenance mode is set.
+			fdbCluster.ForceReconcile()
+
+			Eventually(func() fdbv1beta2.FaultDomain {
+				return fdbCluster.GetCluster().Status.MaintenanceModeInfo.ZoneID
+			}).WithTimeout(5 * time.Minute).WithPolling(1 * time.Second).Should(Equal(targetProcessGroup.FaultDomain))
+
+			// Partition the Pod
+			pod := fdbCluster.GetPod(targetProcessGroup.GetPodName(fdbCluster.GetCachedCluster()))
+			exp = factory.InjectPartitionBetween(
+				fixtures.PodSelector(pod),
+				chaosmesh.PodSelectorSpec{
+					GenericSelectorSpec: chaosmesh.GenericSelectorSpec{
+						Namespaces:     []string{pod.Namespace},
+						LabelSelectors: fdbCluster.GetCachedCluster().GetMatchLabels(),
+					},
+				},
+			)
+
+			// Make sure the operator notices that the process is not reporting
+			fdbCluster.ForceReconcile()
+
+			Eventually(func() *int64 {
+				for _, processGroup := range fdbCluster.GetCluster().Status.ProcessGroups {
+					if processGroup.ProcessGroupID != targetProcessGroup.ProcessGroupID {
+						continue
+					}
+
+					return processGroup.GetConditionTime(fdbv1beta2.MissingProcesses)
+				}
+
+				return nil
+			}).WithTimeout(5 * time.Minute).WithPolling(1 * time.Second).ShouldNot(BeNil())
+		})
+
+		It("should not replace the process group", func() {
+			Consistently(func() bool {
+				for _, processGroup := range fdbCluster.GetCluster().Status.ProcessGroups {
+					if processGroup.ProcessGroupID != targetProcessGroup.ProcessGroupID {
+						continue
+					}
+
+					return processGroup.IsMarkedForRemoval()
+				}
+
+				return true
+			}).WithTimeout(2 * time.Minute).WithPolling(1 * time.Second).Should(BeFalse())
+		})
+
+		AfterEach(func() {
+			factory.DeleteChaosMeshExperimentSafe(exp)
+			Expect(fdbCluster.SetAutoReplacements(true, initialReplaceTime)).ShouldNot(HaveOccurred())
+			fdbCluster.RunFdbCliCommandInOperator("maintenance off", false, 30)
+		})
+	})
 })
