@@ -711,9 +711,12 @@ func updateTaintCondition(ctx context.Context, r *FoundationDBClusterReconciler,
 
 func refreshProcessGroupStatus(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBClusterStatus) (*corev1.PersistentVolumeClaimList, error) {
 	status.ProcessGroups = make([]*fdbv1beta2.ProcessGroupStatus, 0, len(cluster.Status.ProcessGroups))
+	knownProcessGroups := map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None{}
+
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup != nil && processGroup.ProcessGroupID != "" {
 			status.ProcessGroups = append(status.ProcessGroups, processGroup)
+			knownProcessGroups[processGroup.ProcessGroupID] = fdbv1beta2.None{}
 		}
 	}
 
@@ -726,10 +729,12 @@ func refreshProcessGroupStatus(ctx context.Context, r *FoundationDBClusterReconc
 
 	for _, pod := range pods {
 		processGroupID := fdbv1beta2.ProcessGroupID(pod.Labels[cluster.GetProcessGroupIDLabel()])
-		if fdbv1beta2.ContainsProcessGroupID(status.ProcessGroups, processGroupID) {
+		if _, ok := knownProcessGroups[processGroupID]; ok {
 			continue
 		}
 
+		// Since we found a new process group we have to add it to our map.
+		knownProcessGroups[processGroupID] = fdbv1beta2.None{}
 		status.ProcessGroups = append(status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus(processGroupID, internal.ProcessClassFromLabels(cluster, pod.Labels), nil))
 	}
 
@@ -741,10 +746,12 @@ func refreshProcessGroupStatus(ctx context.Context, r *FoundationDBClusterReconc
 
 	for _, pvc := range pvcs.Items {
 		processGroupID := fdbv1beta2.ProcessGroupID(pvc.Labels[cluster.GetProcessGroupIDLabel()])
-		if fdbv1beta2.ContainsProcessGroupID(status.ProcessGroups, processGroupID) {
+		if _, ok := knownProcessGroups[processGroupID]; ok {
 			continue
 		}
 
+		// Since we found a new process group we have to add it to our map.
+		knownProcessGroups[processGroupID] = fdbv1beta2.None{}
 		status.ProcessGroups = append(status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus(processGroupID, internal.ProcessClassFromLabels(cluster, pvc.Labels), nil))
 	}
 
@@ -756,10 +763,16 @@ func refreshProcessGroupStatus(ctx context.Context, r *FoundationDBClusterReconc
 
 	for _, service := range services.Items {
 		processGroupID := fdbv1beta2.ProcessGroupID(service.Labels[cluster.GetProcessGroupIDLabel()])
-		if processGroupID == "" || fdbv1beta2.ContainsProcessGroupID(status.ProcessGroups, processGroupID) {
+		if processGroupID == "" {
 			continue
 		}
 
+		if _, ok := knownProcessGroups[processGroupID]; ok {
+			continue
+		}
+
+		// Since we found a new process group we have to add it to our map.
+		knownProcessGroups[processGroupID] = fdbv1beta2.None{}
 		status.ProcessGroups = append(status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus(processGroupID, internal.ProcessClassFromLabels(cluster, service.Labels), nil))
 	}
 

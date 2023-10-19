@@ -40,9 +40,9 @@ const (
 )
 
 // GetProcessGroupsToRemove returns a list of process groups to be removed based on the removal mode.
-func GetProcessGroupsToRemove(removalMode fdbv1beta2.PodUpdateMode, removals map[string][]fdbv1beta2.ProcessGroupID) (string, []fdbv1beta2.ProcessGroupID, error) {
+func GetProcessGroupsToRemove(removalMode fdbv1beta2.PodUpdateMode, removals map[fdbv1beta2.FaultDomain][]*fdbv1beta2.ProcessGroupStatus) (fdbv1beta2.FaultDomain, []*fdbv1beta2.ProcessGroupStatus, error) {
 	if removalMode == fdbv1beta2.PodUpdateModeAll {
-		var deletions []fdbv1beta2.ProcessGroupID
+		var deletions []*fdbv1beta2.ProcessGroupStatus
 
 		for _, zoneProcesses := range removals {
 			deletions = append(deletions, zoneProcesses...)
@@ -58,7 +58,7 @@ func GetProcessGroupsToRemove(removalMode fdbv1beta2.PodUpdateMode, removals map
 			}
 
 			// Fetch the first process group and delete it
-			return string(zoneProcesses[0]), []fdbv1beta2.ProcessGroupID{zoneProcesses[0]}, nil
+			return zoneProcesses[0].FaultDomain, []*fdbv1beta2.ProcessGroupStatus{zoneProcesses[0]}, nil
 		}
 	}
 
@@ -67,6 +67,7 @@ func GetProcessGroupsToRemove(removalMode fdbv1beta2.PodUpdateMode, removals map
 			if zoneName == TerminatingZone {
 				continue
 			}
+
 			// Fetch the first zone and stop
 			return zoneName, zoneProcesses, nil
 		}
@@ -83,36 +84,28 @@ func GetProcessGroupsToRemove(removalMode fdbv1beta2.PodUpdateMode, removals map
 // GetZonedRemovals returns a map with the zone as key and a list of process groups IDs to be removed.
 // If the process group has not an associated process in the cluster status the zone will be UnknownZone.
 // if the process group has the ResourcesTerminating condition the zone will be TerminatingZone.
-func GetZonedRemovals(status *fdbv1beta2.FoundationDBStatus, processGroupsToRemove []*fdbv1beta2.ProcessGroupStatus) (map[string][]fdbv1beta2.ProcessGroupID, int64, error) {
+func GetZonedRemovals(processGroupsToRemove []*fdbv1beta2.ProcessGroupStatus) (map[fdbv1beta2.FaultDomain][]*fdbv1beta2.ProcessGroupStatus, int64, error) {
 	var latestRemovalTimestamp int64
-	// Convert the process list into a map with the process group ID as key.
-	processInfo := map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{}
-	for _, p := range status.Cluster.Processes {
-		processInfo[fdbv1beta2.ProcessGroupID(p.Locality[fdbv1beta2.FDBLocalityInstanceIDKey])] = p
-	}
 
-	zoneMap := map[string][]fdbv1beta2.ProcessGroupID{}
-	for _, pg := range processGroupsToRemove {
+	zoneMap := map[fdbv1beta2.FaultDomain][]*fdbv1beta2.ProcessGroupStatus{}
+	for _, processGroup := range processGroupsToRemove {
 		// Using the ResourcesTerminating is not a complete precise measurement of the time when we
 		// actually removed the process group, but it should be a good indicator to how long the process group is in
 		// that state.
-		removalTimestamp := pointer.Int64Deref(pg.GetConditionTime(fdbv1beta2.ResourcesTerminating), 0)
+		removalTimestamp := pointer.Int64Deref(processGroup.GetConditionTime(fdbv1beta2.ResourcesTerminating), 0)
 		if removalTimestamp > 0 {
 			if removalTimestamp > latestRemovalTimestamp {
 				latestRemovalTimestamp = removalTimestamp
 			}
-			zoneMap[TerminatingZone] = append(zoneMap[TerminatingZone], pg.ProcessGroupID)
+			zoneMap[TerminatingZone] = append(zoneMap[TerminatingZone], processGroup)
 			continue
 		}
 
-		p, ok := processInfo[pg.ProcessGroupID]
-		if !ok {
-			zoneMap[UnknownZone] = append(zoneMap[UnknownZone], pg.ProcessGroupID)
-			continue
+		zone := processGroup.FaultDomain
+		if zone == "" {
+			zone = UnknownZone
 		}
-
-		zone := p.Locality[fdbv1beta2.FDBLocalityZoneIDKey]
-		zoneMap[zone] = append(zoneMap[zone], pg.ProcessGroupID)
+		zoneMap[zone] = append(zoneMap[zone], processGroup)
 	}
 
 	return zoneMap, latestRemovalTimestamp, nil
