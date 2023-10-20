@@ -290,7 +290,7 @@ func getProcessesToInclude(cluster *fdbv1beta2.FoundationDBCluster, removedProce
 
 	excludedServers, err := adminClient.GetExclusions()
 	if err != nil {
-		return fdbProcessesToInclude, fmt.Errorf("unable to get excluded servers from status, %s", err)
+		return fdbProcessesToInclude, fmt.Errorf("unable to get excluded servers from status, %w", err)
 	}
 	excludedServersMap := make(map[string]fdbv1beta2.None, len(excludedServers))
 	for _, excludedServer := range excludedServers {
@@ -315,7 +315,7 @@ func getProcessesToInclude(cluster *fdbv1beta2.FoundationDBCluster, removedProce
 				// This means that the process is marked for exclusion and is also removed in the previous step but is missing
 				// its entry in the excluded servers in the status. This should not throw an error as this will block the
 				// inclusion for other processes, but we should have a record of this event happening in the logs.
-				logger.Info("processGroup ", processGroup, "is not included back as this is missing from excluded server list.")
+				logger.V(1).Info("processGroup is not included back as this is missing from excluded server list", "processGroup", processGroup)
 			} else {
 				continue
 			}
