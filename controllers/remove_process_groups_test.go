@@ -608,7 +608,7 @@ var _ = Describe("remove_process_groups", func() {
 					removedProcessGroup2 = cluster.Status.ProcessGroups[1]
 					Expect(removedProcessGroup2.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-2")))
 					removedProcessGroup2.MarkForRemoval()
-					cluster.Status.ProcessGroups[2] = removedProcessGroup
+					cluster.Status.ProcessGroups[1] = removedProcessGroup2
 					adminClient.ExcludedAddresses[removedProcessGroup2.GetExclusionString()] = fdbv1beta2.None{}
 					removedProcessGroups[removedProcessGroup2.ProcessGroupID] = true
 				})
@@ -616,9 +616,9 @@ var _ = Describe("remove_process_groups", func() {
 				It("should include one process", func() {
 					fdbProcessesToInclude, err := getProcessesToInclude(cluster, removedProcessGroups, adminClient, logr.Logger{})
 					Expect(err).NotTo(HaveOccurred())
-					Expect(len(fdbProcessesToInclude)).To(Equal(1))
-					Expect(fdbv1beta2.ProcessAddressesString(fdbProcessesToInclude, " ")).To(Equal(removedProcessGroup2.GetExclusionString()))
-					Expect(len(cluster.Status.ProcessGroups)).To(Equal(15))
+					Expect(len(fdbProcessesToInclude)).To(Equal(2))
+					Expect(fdbv1beta2.ProcessAddressesString(fdbProcessesToInclude, " ")).To(Equal(fmt.Sprintf("%s %s", removedProcessGroup.GetExclusionString(), removedProcessGroup2.GetExclusionString())))
+					Expect(len(cluster.Status.ProcessGroups)).To(Equal(14))
 				})
 			})
 		})

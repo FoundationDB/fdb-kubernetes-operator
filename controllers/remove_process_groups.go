@@ -300,25 +300,32 @@ func getProcessesToInclude(cluster *fdbv1beta2.FoundationDBCluster, removedProce
 	idx := 0
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup.IsMarkedForRemoval() && removedProcessGroups[processGroup.ProcessGroupID] {
-			isIncluded := false
+			notInExcludedServers := true
 			if _, ok := excludedServersMap[processGroup.GetExclusionString()]; ok {
 				fdbProcessesToInclude = append(fdbProcessesToInclude, fdbv1beta2.ProcessAddress{StringAddress: processGroup.GetExclusionString()})
-				isIncluded = true
+				notInExcludedServers = false
 			}
 			for _, pAddr := range processGroup.Addresses {
 				if _, ok := excludedServersMap[pAddr]; ok {
 					fdbProcessesToInclude = append(fdbProcessesToInclude, fdbv1beta2.ProcessAddress{IPAddress: net.ParseIP(pAddr)})
-					isIncluded = true
+					notInExcludedServers = false
 				}
 			}
-			if !isIncluded {
+			if notInExcludedServers {
 				// This means that the process is marked for exclusion and is also removed in the previous step but is missing
 				// its entry in the excluded servers in the status. This should not throw an error as this will block the
 				// inclusion for other processes, but we should have a record of this event happening in the logs.
-				logger.V(1).Info("processGroup is not included back as this is missing from excluded server list", "processGroup", processGroup)
-			} else {
-				continue
+				logger.V(1).Info("processGroup is included but is missing from excluded server list", "processGroup", processGroup)
+				if cluster.UseLocalitiesForExclusion() {
+					fdbProcessesToInclude = append(fdbProcessesToInclude, fdbv1beta2.ProcessAddress{StringAddress: processGroup.GetExclusionString()})
+				} else {
+					for _, pAddr := range processGroup.Addresses {
+						fdbProcessesToInclude = append(fdbProcessesToInclude, fdbv1beta2.ProcessAddress{IPAddress: net.ParseIP(pAddr)})
+						notInExcludedServers = false
+					}
+				}
 			}
+			continue
 		}
 		cluster.Status.ProcessGroups[idx] = processGroup
 		idx++
