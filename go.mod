@@ -3,7 +3,7 @@ module github.com/FoundationDB/fdb-kubernetes-operator
 go 1.20
 
 require (
-	github.com/apple/foundationdb/bindings/go v0.0.0-20201222225940-f3aef311ccfb
+	github.com/apple/foundationdb/bindings/go v0.0.0-20231020161252-ed27c828ca16
 	// Corresponds to chaos-mesh API v2.6.0
 	github.com/apple/foundationdb/fdbkubernetesmonitor v0.0.0-20220513200452-e6fa4d7422d2
 	github.com/chaos-mesh/chaos-mesh/api v0.0.0-20230613082117-03097981f627
