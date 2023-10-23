@@ -23,6 +23,7 @@ package fixtures
 import (
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 )
@@ -103,11 +104,16 @@ func (factory *Factory) createPodTemplate(
 ) *corev1.PodTemplateSpec {
 	// the operator is causing this to not work as desired reference:
 	// https://github.com/FoundationDB/fdb-kubernetes-operator/blob/main/internal/deprecations.go#L75-L77
-	fdbPodResources := corev1.ResourceRequirements{
+	mainContainerResources := corev1.ResourceRequirements{
 		Requests: resources,
 	}
-	if setLimits {
-		fdbPodResources.Limits = resources
+
+	// See: https://github.com/FoundationDB/fdb-kubernetes-operator/blob/main/docs/manual/warnings.md#resource-requirements otherwise
+	// the operator will set the default limits.
+	if !setLimits {
+		mainContainerResources.Limits = corev1.ResourceList{
+			"org.foundationdb/empty": resource.MustParse("0"),
+		}
 	}
 	var initContainers []corev1.Container
 	var annotations map[string]string
@@ -120,7 +126,7 @@ func (factory *Factory) createPodTemplate(
 				// We use fdbResources here to speed up the cluster creation and prevent some OOM kills when the sidecar
 				// copies the binaries. In addition to that the init container won't count to the required resources
 				// since the init container requires less than the running containers later (fdbResources + sideResources)
-				Resources: fdbPodResources,
+				Resources: mainContainerResources,
 			},
 		}
 		annotations = map[string]string{
@@ -174,7 +180,7 @@ func (factory *Factory) createPodTemplate(
 				{
 					Name:            fdbv1beta2.MainContainerName,
 					ImagePullPolicy: factory.getImagePullPolicy(),
-					Resources:       fdbPodResources,
+					Resources:       mainContainerResources,
 					SecurityContext: &corev1.SecurityContext{
 						Privileged:               pointer.Bool(true),
 						AllowPrivilegeEscalation: pointer.Bool(true), // for performance profiling
