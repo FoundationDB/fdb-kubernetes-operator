@@ -26,6 +26,7 @@ import (
 	"html/template"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -233,12 +234,12 @@ func (configuration *DatabaseConfiguration) CountUniqueDataCenters() int {
 // This will fill in defaults of -1 for some fields that have a default
 // of 0, and will ensure that the region configuration is ordered
 // consistently.
-func (configuration DatabaseConfiguration) NormalizeConfigurationWithSeparatedProxies(version string, areSeparatedProxiesConfigured bool) DatabaseConfiguration {
+func (configuration DatabaseConfiguration) NormalizeConfigurationWithSeparatedProxies(version string) DatabaseConfiguration {
 	result := configuration.NormalizeConfiguration()
 
 	parsedVersion, _ := ParseFdbVersion(version)
 	if parsedVersion.HasSeparatedProxies() {
-		if !areSeparatedProxiesConfigured {
+		if !configuration.AreSeparatedProxiesConfigured() {
 			result.GrvProxies = 0
 			result.CommitProxies = 0
 		} else {
@@ -579,8 +580,7 @@ func (configuration DatabaseConfiguration) getRegionPriorities() map[string]int 
 // commit_proxies are greater than 0 (explicitly set) and Proxies is set
 // to 0
 func (configuration DatabaseConfiguration) AreSeparatedProxiesConfigured() bool {
-	counts := configuration.RoleCounts
-	return counts.GrvProxies > 0 || counts.CommitProxies > 0
+	return configuration.RoleCounts.GrvProxies > 0 || configuration.RoleCounts.CommitProxies > 0
 }
 
 // GetProxiesString returns a string that contains the correct fdbcli
@@ -620,32 +620,42 @@ func (configuration DatabaseConfiguration) FillInDefaultsFromStatus() DatabaseCo
 
 // GetConfigurationString gets the CLI command for configuring a database.
 func (configuration DatabaseConfiguration) GetConfigurationString(version string) (string, error) {
-	configurationString := fmt.Sprintf("%s %s", configuration.RedundancyMode, configuration.StorageEngine)
+	var configurationString strings.Builder
+	configurationString.WriteString(string(configuration.RedundancyMode))
+	configurationString.WriteString(" ")
+	configurationString.WriteString(string(configuration.StorageEngine))
 
 	fdbVersion, err := ParseFdbVersion(version)
 	if err != nil {
-		return configurationString, err
+		return "", err
 	}
 
-	counts := configuration.RoleCounts.Map()
-	configurationString += fmt.Sprintf(" usable_regions=%d", configuration.UsableRegions)
-	// TODO: roleNames !
+	configurationString.WriteString(" usable_regions=")
+	configurationString.WriteString(strconv.Itoa(configuration.UsableRegions))
+
+	roleCounts := configuration.RoleCounts.Map()
 	for _, role := range roleNames {
 		if role == "proxies" || role == "commit_proxies" || role == "grv_proxies" {
 			continue
 		}
 
 		if role != ProcessClassStorage {
-			configurationString += fmt.Sprintf(" %s=%d", role, counts[role])
+			configurationString.WriteString(" ")
+			configurationString.WriteString(string(role))
+			configurationString.WriteString("=")
+			configurationString.WriteString(strconv.Itoa(roleCounts[role]))
 		}
 	}
 
-	configurationString += configuration.GetProxiesString(fdbVersion)
+	configurationString.WriteString(configuration.GetProxiesString(fdbVersion))
 
 	flags := configuration.VersionFlags.Map()
 	for flag, value := range flags {
 		if value != 0 {
-			configurationString += fmt.Sprintf(" %s:=%d", flag, value)
+			configurationString.WriteString(" ")
+			configurationString.WriteString(flag)
+			configurationString.WriteString(":=")
+			configurationString.WriteString(strconv.Itoa(value))
 		}
 	}
 
@@ -660,9 +670,10 @@ func (configuration DatabaseConfiguration) GetConfigurationString(version string
 		regionString = template.JSEscapeString(string(regionBytes))
 	}
 
-	configurationString += " regions=" + regionString
+	configurationString.WriteString(" regions=")
+	configurationString.WriteString(regionString)
 
-	return configurationString, nil
+	return configurationString.String(), nil
 }
 
 // FillInDefaultVersionFlags adds in missing version flags so they match the
@@ -791,6 +802,7 @@ func (counts RoleCounts) Map() map[ProcessClass]int {
 			countMap[role] = value
 		}
 	}
+
 	return countMap
 }
 

@@ -99,7 +99,7 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 	// about the current database configuration, leading to a wrong signal that the database configuration must be changed as
 	// the configuration will be overwritten with the default values.
 	if databaseStatus.Client.DatabaseStatus.Available {
-		clusterStatus.DatabaseConfiguration = databaseStatus.Cluster.DatabaseConfiguration.NormalizeConfigurationWithSeparatedProxies(cluster.Spec.Version, cluster.Spec.DatabaseConfiguration.AreSeparatedProxiesConfigured())
+		clusterStatus.DatabaseConfiguration = databaseStatus.Cluster.DatabaseConfiguration.NormalizeConfigurationWithSeparatedProxies(cluster.Spec.Version)
 		// Removing excluded servers as we don't want them during comparison.
 		clusterStatus.DatabaseConfiguration.ExcludedServers = nil
 		cluster.ClearMissingVersionFlags(&clusterStatus.DatabaseConfiguration)
