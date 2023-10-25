@@ -23,6 +23,7 @@ package removals
 import (
 	"fmt"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbstatus"
+	"math"
 	"net"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
@@ -63,15 +64,26 @@ func GetProcessGroupsToRemove(removalMode fdbv1beta2.PodUpdateMode, removals map
 	}
 
 	if removalMode == fdbv1beta2.PodUpdateModeZone {
+		var pickedZone fdbv1beta2.FaultDomain
+		currentMaxZone := math.MinInt
+
+		// Pick the zone with the most processes in.
 		for zoneName, zoneProcesses := range removals {
 			if zoneName == TerminatingZone {
 				continue
 			}
 
-			// Fetch the first zone and stop
-			return zoneName, zoneProcesses, nil
+			if len(zoneProcesses) > currentMaxZone {
+				currentMaxZone = len(zoneProcesses)
+				pickedZone = zoneName
+			}
 		}
-		return "", nil, nil
+
+		if pickedZone == "" {
+			return "", nil, nil
+		}
+
+		return pickedZone, removals[pickedZone], nil
 	}
 
 	if removalMode == fdbv1beta2.PodUpdateModeNone {
