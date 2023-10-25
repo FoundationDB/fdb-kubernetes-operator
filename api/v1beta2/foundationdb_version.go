@@ -190,7 +190,9 @@ func (version Version) IsStorageEngineSupported(storageEngine StorageEngine) boo
 		return version.IsAtLeast(Versions.SupportsShardedRocksDB)
 	} else if storageEngine == StorageEngineRedwood1Experimental {
 		return version.IsAtLeast(Versions.SupportsRedwood1Experimental)
-	}
+	} else if storageEngine == StorageEngineRedwood1 {
+                return version.IsAtLeast(Versions.SupportsRedwood1)
+        }
 	return true
 }
 
@@ -229,6 +231,7 @@ var Versions = struct {
 	SupportsIsPresent,
 	SupportsShardedRocksDB,
 	SupportsRedwood1Experimental,
+        SupportsRedwood1,
 	IncompatibleVersion,
 	PreviousPatchVersion,
 	SupportsRecoveryState,
@@ -245,6 +248,7 @@ var Versions = struct {
 	SupportsIsPresent:            Version{Major: 7, Minor: 1, Patch: 4},
 	SupportsShardedRocksDB:       Version{Major: 7, Minor: 2, Patch: 0},
 	SupportsRedwood1Experimental: Version{Major: 7, Minor: 0, Patch: 0},
+        SupportsRedwood1:             Version{Major: 7, Minor: 3, Patch: 0},
 	SupportsRecoveryState:        Version{Major: 7, Minor: 1, Patch: 22},
 	SupportsDNSInClusterFile:     Version{Major: 7, Minor: 0, Patch: 0},
 }
