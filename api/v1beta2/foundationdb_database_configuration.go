@@ -26,6 +26,7 @@ import (
 	"html/template"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -620,32 +621,42 @@ func (configuration DatabaseConfiguration) FillInDefaultsFromStatus() DatabaseCo
 
 // GetConfigurationString gets the CLI command for configuring a database.
 func (configuration DatabaseConfiguration) GetConfigurationString(version string) (string, error) {
-	configurationString := fmt.Sprintf("%s %s", configuration.RedundancyMode, configuration.StorageEngine)
+	var configurationString strings.Builder
+	configurationString.WriteString(string(configuration.RedundancyMode))
+	configurationString.WriteString(" ")
+	configurationString.WriteString(string(configuration.StorageEngine))
 
 	fdbVersion, err := ParseFdbVersion(version)
 	if err != nil {
-		return configurationString, err
+		return "", err
 	}
 
-	counts := configuration.RoleCounts.Map()
-	configurationString += fmt.Sprintf(" usable_regions=%d", configuration.UsableRegions)
-	// TODO: roleNames !
-	for _, role := range roleNames {
+	configurationString.WriteString(" usable_regions=")
+	configurationString.WriteString(strconv.Itoa(configuration.UsableRegions))
+
+	roleCounts := configuration.RoleCounts.Map()
+	for role, count := range roleCounts {
 		if role == "proxies" || role == "commit_proxies" || role == "grv_proxies" {
 			continue
 		}
 
 		if role != ProcessClassStorage {
-			configurationString += fmt.Sprintf(" %s=%d", role, counts[role])
+			configurationString.WriteString(" ")
+			configurationString.WriteString(string(role))
+			configurationString.WriteString("=")
+			configurationString.WriteString(strconv.Itoa(count))
 		}
 	}
 
-	configurationString += configuration.GetProxiesString(fdbVersion)
+	configurationString.WriteString(configuration.GetProxiesString(fdbVersion))
 
 	flags := configuration.VersionFlags.Map()
 	for flag, value := range flags {
 		if value != 0 {
-			configurationString += fmt.Sprintf(" %s:=%d", flag, value)
+			configurationString.WriteString(" ")
+			configurationString.WriteString(flag)
+			configurationString.WriteString(":=")
+			configurationString.WriteString(strconv.Itoa(value))
 		}
 	}
 
@@ -660,9 +671,10 @@ func (configuration DatabaseConfiguration) GetConfigurationString(version string
 		regionString = template.JSEscapeString(string(regionBytes))
 	}
 
-	configurationString += " regions=" + regionString
+	configurationString.WriteString(" regions=")
+	configurationString.WriteString(regionString)
 
-	return configurationString, nil
+	return configurationString.String(), nil
 }
 
 // FillInDefaultVersionFlags adds in missing version flags so they match the
@@ -791,6 +803,7 @@ func (counts RoleCounts) Map() map[ProcessClass]int {
 			countMap[role] = value
 		}
 	}
+
 	return countMap
 }
 
@@ -817,9 +830,6 @@ var roleIndices = make(map[ProcessClass]int)
 // versionFlagIndices provides the indices of each flag in the list of supported
 // version flags..
 var versionFlagIndices = make(map[string]int)
-
-// roleNames provides a consistent ordered list of the supported roles.
-var roleNames = fieldNames(RoleCounts{})
 
 // fieldNames provides the names of fields on a structure.
 func fieldNames(value interface{}) []ProcessClass {
