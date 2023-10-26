@@ -51,6 +51,8 @@ var _ = Describe("exclude_processes", func() {
 			generation, err := reloadCluster(cluster)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(generation).To(Equal(int64(1)))
+
+			cluster.Spec.DatabaseConfiguration.RedundancyMode = fdbv1beta2.RedundancyModeSingle
 		})
 
 		AfterEach(func() {
@@ -69,6 +71,37 @@ var _ = Describe("exclude_processes", func() {
 					It("should not allow the exclusion", func() {
 						Expect(allowedExclusions).To(BeNumerically("==", 0))
 						Expect(missingProcesses).To(BeEmpty())
+					})
+				})
+
+				When("no additional processes are running", func() {
+					When("the redundancy mode is single", func() {
+						It("should not allow the exclusion", func() {
+							Expect(allowedExclusions).To(BeNumerically("==", 0))
+							Expect(missingProcesses).To(BeEmpty())
+						})
+					})
+
+					When("the redundancy mode is double", func() {
+						BeforeEach(func() {
+							cluster.Spec.DatabaseConfiguration.RedundancyMode = fdbv1beta2.RedundancyModeDouble
+						})
+
+						It("should not allow the exclusion", func() {
+							Expect(allowedExclusions).To(BeNumerically("==", cluster.DesiredFaultTolerance()))
+							Expect(missingProcesses).To(BeEmpty())
+						})
+					})
+
+					When("the redundancy mode is triple", func() {
+						BeforeEach(func() {
+							cluster.Spec.DatabaseConfiguration.RedundancyMode = fdbv1beta2.RedundancyModeTriple
+						})
+
+						It("should not allow the exclusion", func() {
+							Expect(allowedExclusions).To(BeNumerically("==", cluster.DesiredFaultTolerance()))
+							Expect(missingProcesses).To(BeEmpty())
+						})
 					})
 				})
 
