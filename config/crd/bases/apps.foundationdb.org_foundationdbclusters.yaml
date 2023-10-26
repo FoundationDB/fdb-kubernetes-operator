@@ -847,6 +847,7 @@ spec:
                     - memory-1
                     - memory-2
                     - ssd-redwood-1-experimental
+                    - ssd-redwood-1
                     - ssd-rocksdb-experimental
                     - memory-radixtree-beta
                     - custom
@@ -9863,6 +9864,7 @@ spec:
                     - memory-1
                     - memory-2
                     - ssd-redwood-1-experimental
+                    - ssd-redwood-1
                     - ssd-rocksdb-experimental
                     - memory-radixtree-beta
                     - custom
@@ -10397,6 +10399,7 @@ spec:
                     - memory-1
                     - memory-2
                     - ssd-redwood-1-experimental
+                    - ssd-redwood-1
                     - ssd-rocksdb-experimental
                     - ssd-rocksdb-v1
                     - ssd-sharded-rocksdb
@@ -14133,6 +14136,7 @@ spec:
                     - memory-1
                     - memory-2
                     - ssd-redwood-1-experimental
+                    - ssd-redwood-1
                     - ssd-rocksdb-experimental
                     - ssd-rocksdb-v1
                     - ssd-sharded-rocksdb
