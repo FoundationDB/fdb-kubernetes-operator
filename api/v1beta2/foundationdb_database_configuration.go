@@ -767,8 +767,8 @@ const (
 	StorageEngineShardedRocksDB StorageEngine = "ssd-sharded-rocksdb"
 	// StorageEngineRedwood1Experimental defines the storage engine ssd-redwood-1-experimental.
 	StorageEngineRedwood1Experimental StorageEngine = "ssd-redwood-1-experimental"
-        // StorageEngineRedwood1 defines the storage engine ssd-redwood-1.
-        StorageEngineRedwood1 StorageEngine = "ssd-redwood-1"
+	// StorageEngineRedwood1 defines the storage engine ssd-redwood-1.
+	StorageEngineRedwood1 StorageEngine = "ssd-redwood-1"
 )
 
 // RoleCounts represents the roles whose counts can be customized.
