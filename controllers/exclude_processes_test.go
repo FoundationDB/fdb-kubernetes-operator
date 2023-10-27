@@ -213,14 +213,58 @@ var _ = Describe("exclude_processes", func() {
 				})
 			})
 
-			When("two process groups are missing", func() {
+			When("more process groups are missing than the operator is allowed to automatically replace", func() {
 				BeforeEach(func() {
-					createMissingProcesses(cluster, 2, fdbv1beta2.ProcessClassStorage)
+					createMissingProcesses(cluster, cluster.GetMaxConcurrentAutomaticReplacements()+1, fdbv1beta2.ProcessClassStorage)
 				})
 
 				It("should not allow the exclusion", func() {
 					Expect(allowedExclusions).To(BeNumerically("==", 0))
 					Expect(missingProcesses).To(Equal([]fdbv1beta2.ProcessGroupID{"storage-1", "storage-2"}))
+				})
+
+				FWhen("the missing timestamp is older than 5 minutes", func() {
+					BeforeEach(func() {
+						for idx, processGroup := range cluster.Status.ProcessGroups {
+							timestamp := processGroup.GetConditionTime(fdbv1beta2.MissingProcesses)
+							if timestamp == nil {
+								continue
+							}
+
+							cluster.Status.ProcessGroups[idx].ProcessGroupConditions[0].Timestamp = time.Now().Add(-10 * time.Minute).Unix()
+						}
+					})
+
+					When("automatic replacements enabled", func() {
+						When("no exclusions are ongoing", func() {
+							It("should allow the exclusion to replace as many processes as automatic replacements are allowed", func() {
+								Expect(allowedExclusions).To(BeNumerically("==", cluster.GetMaxConcurrentAutomaticReplacements()))
+								Expect(missingProcesses).To(HaveLen(cluster.GetMaxConcurrentAutomaticReplacements() + 1))
+							})
+						})
+
+						When("one exclusion is ongoing", func() {
+							BeforeEach(func() {
+								ongoingExclusions = 1
+							})
+
+							It("should allow the exclusion to replace as many processes as automatic replacements are allowed", func() {
+								Expect(allowedExclusions).To(BeNumerically("==", cluster.GetMaxConcurrentAutomaticReplacements()-ongoingExclusions))
+								Expect(missingProcesses).To(HaveLen(cluster.GetMaxConcurrentAutomaticReplacements() + 1))
+							})
+						})
+					})
+
+					When("automatic replacements disabled", func() {
+						BeforeEach(func() {
+							cluster.Spec.AutomationOptions.Replacements.Enabled = pointer.Bool(false)
+						})
+
+						It("should not allow the exclusions", func() {
+							Expect(allowedExclusions).To(BeNumerically("==", -1*len(missingProcesses)))
+							Expect(missingProcesses).To(HaveLen(cluster.GetMaxConcurrentAutomaticReplacements() + 1))
+						})
+					})
 				})
 			})
 

@@ -855,13 +855,17 @@ func (fdbCluster *FdbCluster) SetSkipReconciliation(skip bool) error {
 
 // WaitForPodRemoval will wait until the specified Pod is deleted.
 func (fdbCluster *FdbCluster) WaitForPodRemoval(pod *corev1.Pod) error {
+	if pod == nil {
+		return nil
+	}
+
 	log.Printf("waiting until the pod %s/%s is deleted", pod.Namespace, pod.Name)
 	counter := 0
 	forceReconcile := 10
 
 	// Poll every 2 seconds for a maximum of 40 minutes.
 	fetchedPod := &corev1.Pod{}
-	return wait.PollImmediate(2*time.Second, 40*time.Minute, func() (bool, error) {
+	err := wait.PollImmediate(2*time.Second, 40*time.Minute, func() (bool, error) {
 		err := fdbCluster.getClient().
 			Get(ctx.Background(), client.ObjectKeyFromObject(pod), fetchedPod)
 		if err != nil {
@@ -892,6 +896,12 @@ func (fdbCluster *FdbCluster) WaitForPodRemoval(pod *corev1.Pod) error {
 		counter++
 		return false, nil
 	})
+
+	if err == nil {
+		return nil
+	}
+
+	return fmt.Errorf("pod %s/%s was not removed in the expected time", pod.Namespace, pod.Name)
 }
 
 // GetClusterSpec returns the current cluster spec.

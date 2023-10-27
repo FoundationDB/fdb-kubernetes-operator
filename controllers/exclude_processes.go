@@ -231,5 +231,19 @@ func canExcludeNewProcesses(logger logr.Logger, cluster *fdbv1beta2.FoundationDB
 	// this requirement in the future and take the fault tolerance into account. We add the desired fault tolerance to
 	// have some buffer to prevent cases where the operator might need to exclude more processes but there are more missing
 	// processes.
-	return cluster.DesiredFaultTolerance() + len(validProcesses) - desiredProcessCount - ongoingExclusions, missingProcesses
+	allowedExclusions := cluster.DesiredFaultTolerance() + len(validProcesses) - desiredProcessCount - ongoingExclusions
+
+	// If automatic replacements are enabled and the allowed exclusions is less than or equal to 0, we have to check
+	// how many processes are missing and if more processes are missing than the automatic replacements is allowed to
+	// replace, we will allow exclusions for the count of automatic replacements removing the already ongoing exclusions.
+	// This code should make sure that the operator can automatically replace processes, even in the case where multiple
+	// processes are failing.
+	if cluster.GetEnableAutomaticReplacements() && allowedExclusions <= 0 {
+		automaticReplacements := cluster.GetMaxConcurrentAutomaticReplacements()
+		if len(missingProcesses) > automaticReplacements {
+			return automaticReplacements - ongoingExclusions, missingProcesses
+		}
+	}
+
+	return allowedExclusions, missingProcesses
 }
