@@ -692,24 +692,108 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			Expect(fdbCluster.SetAutoReplacements(true, 30*time.Second)).ShouldNot(HaveOccurred())
 		})
 
-		It("should replace the partitioned Pod", func() {
-			pod := fixtures.ChooseRandomPod(fdbCluster.GetStatelessPods())
-			log.Printf("partition Pod: %s", pod.Name)
-			exp = factory.InjectPartitionBetween(
-				fixtures.PodSelector(pod),
-				chaosmesh.PodSelectorSpec{
-					GenericSelectorSpec: chaosmesh.GenericSelectorSpec{
-						Namespaces:     []string{pod.Namespace},
-						LabelSelectors: fdbCluster.GetCachedCluster().GetMatchLabels(),
-					},
-				},
-			)
+		When("a Pod gets partitioned", func() {
+			var partitionedPod *corev1.Pod
 
-			log.Printf("waiting for pod removal: %s", pod.Name)
-			Expect(fdbCluster.WaitForPodRemoval(pod)).ShouldNot(HaveOccurred())
-			exists, err := factory.DoesPodExist(*pod)
-			Expect(err).ShouldNot(HaveOccurred())
-			Expect(exists).To(BeFalse())
+			BeforeEach(func() {
+				partitionedPod = fixtures.ChooseRandomPod(fdbCluster.GetStatelessPods())
+				log.Printf("partition Pod: %s", partitionedPod.Name)
+				exp = factory.InjectPartitionBetween(
+					fixtures.PodSelector(partitionedPod),
+					chaosmesh.PodSelectorSpec{
+						GenericSelectorSpec: chaosmesh.GenericSelectorSpec{
+							Namespaces:     []string{partitionedPod.Namespace},
+							LabelSelectors: fdbCluster.GetCachedCluster().GetMatchLabels(),
+						},
+					},
+				)
+
+				// Make sure the operator picks up the changes to the environment. This is not really needed but will
+				// speed up the tests.
+				fdbCluster.ForceReconcile()
+			})
+
+			It("should replace the partitioned Pod", func() {
+				log.Printf("waiting for pod removal: %s", partitionedPod.Name)
+				Expect(fdbCluster.WaitForPodRemoval(partitionedPod)).ShouldNot(HaveOccurred())
+				exists, err := factory.DoesPodExist(*partitionedPod)
+				Expect(err).ShouldNot(HaveOccurred())
+				Expect(exists).To(BeFalse())
+			})
+		})
+
+		When("more Pods are partitioned than the automatic replacement can replace concurrently", func() {
+			var partitionedPods []corev1.Pod
+			var concurrentReplacements int
+			var experiments []*fixtures.ChaosMeshExperiment
+			creationTimestamps := map[string]metav1.Time{}
+
+			BeforeEach(func() {
+				concurrentReplacements = fdbCluster.GetCluster().GetMaxConcurrentAutomaticReplacements()
+				// Allow to replace 1 Pod concurrently
+				spec := fdbCluster.GetCluster().Spec.DeepCopy()
+				spec.AutomationOptions.Replacements.MaxConcurrentReplacements = pointer.Int(1)
+				fdbCluster.UpdateClusterSpecWithSpec(spec)
+
+				// Make sure we disable automatic replacements to prevent the case that the operator replaces one Pod
+				// before the partitioned is injected.
+				Expect(fdbCluster.SetAutoReplacements(false, 30*time.Second)).ShouldNot(HaveOccurred())
+
+				// Pick 2 Pods, so the operator has to replace them one after another
+				partitionedPods = fixtures.RandomPickPod(fdbCluster.GetStatelessPods().Items, 3)
+				for _, partitionedPod := range partitionedPods {
+					pod := partitionedPod
+					log.Printf("partition Pod: %s", pod.Name)
+					experiments = append(experiments, factory.InjectPartitionBetween(
+						fixtures.PodSelector(&pod),
+						chaosmesh.PodSelectorSpec{
+							GenericSelectorSpec: chaosmesh.GenericSelectorSpec{
+								Namespaces:     []string{pod.Namespace},
+								LabelSelectors: fdbCluster.GetCachedCluster().GetMatchLabels(),
+							},
+						},
+					))
+
+					creationTimestamps[pod.Name] = pod.CreationTimestamp
+				}
+
+				// Make sure the status can settle
+				time.Sleep(1 * time.Minute)
+
+				// Now we can enable the replacements.
+				Expect(fdbCluster.SetAutoReplacements(true, 30*time.Second)).ShouldNot(HaveOccurred())
+			})
+
+			AfterEach(func() {
+				spec := fdbCluster.GetCluster().Spec.DeepCopy()
+				spec.AutomationOptions.Replacements.MaxConcurrentReplacements = pointer.Int(concurrentReplacements)
+				fdbCluster.UpdateClusterSpecWithSpec(spec)
+				for _, experiment := range experiments {
+					factory.DeleteChaosMeshExperimentSafe(experiment)
+				}
+			})
+
+			It("should replace the all partitioned Pod", func() {
+				Eventually(func(g Gomega) bool {
+					allUpdatedOrRemoved := true
+					for _, pod := range fdbCluster.GetStatelessPods().Items {
+						creationTime, exists := creationTimestamps[pod.Name]
+						// If the Pod doesn't exist we can assume it was updated.
+						if !exists {
+							continue
+						}
+
+						log.Println(pod.Name, "creation time map:", creationTime.String(), "creation time metadata:", pod.CreationTimestamp.String())
+						// The current creation timestamp of the Pod is after the initial creation
+						// timestamp, so the Pod was replaced.
+						if pod.CreationTimestamp.Compare(creationTime.Time) < 1 {
+							allUpdatedOrRemoved = false
+						}
+					}
+
+					return allUpdatedOrRemoved
+				})
+			})
 		})
 
 		AfterEach(func() {

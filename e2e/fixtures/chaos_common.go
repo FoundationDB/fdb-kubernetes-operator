@@ -92,6 +92,10 @@ func (factory *Factory) DeleteChaosMeshExperimentSafe(experiment *ChaosMeshExper
 }
 
 func (factory *Factory) deleteChaosMeshExperiment(experiment *ChaosMeshExperiment) error {
+	if experiment == nil {
+		return nil
+	}
+
 	log.Println("Start deleting", experiment.name)
 	err := factory.getChaosExperiment(experiment.name, experiment.namespace, experiment.chaosObject)
 	if err != nil {
