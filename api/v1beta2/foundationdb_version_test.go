@@ -251,4 +251,54 @@ var _ = Describe("[api] FDBVersion", func() {
 			false,
 		),
 	)
+
+	DescribeTable("validating if the provided version supports locality based exclusions", func(version Version, expected bool) {
+		Expect(version.SupportsLocalityBasedExclusions()).To(Equal(expected))
+	},
+		Entry(
+			"Version is 6.3",
+			Version{
+				Major: 6,
+				Minor: 3,
+				Patch: 0,
+			},
+			false,
+		),
+		Entry(
+			"Version is 7.1.41",
+			Version{
+				Major: 7,
+				Minor: 1,
+				Patch: 41,
+			},
+			false,
+		),
+		Entry(
+			"Version is 7.1.42",
+			Version{
+				Major: 7,
+				Minor: 1,
+				Patch: 42,
+			},
+			true,
+		),
+		Entry(
+			"Version is 7.3.25",
+			Version{
+				Major: 7,
+				Minor: 3,
+				Patch: 25,
+			},
+			false,
+		),
+		Entry(
+			"Version is 7.3.36",
+			Version{
+				Major: 7,
+				Minor: 3,
+				Patch: 26,
+			},
+			true,
+		),
+	)
 })

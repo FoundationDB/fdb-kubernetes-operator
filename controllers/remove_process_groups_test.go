@@ -470,7 +470,7 @@ var _ = Describe("remove_process_groups", func() {
 
 		Context("cluster support inclusions using locality", func() {
 			BeforeEach(func() {
-				cluster.Spec.Version = fdbv1beta2.Versions.NextMajorVersion.String()
+				cluster.Spec.Version = fdbv1beta2.Versions.SupportsLocalityBasedExclusions.String()
 			})
 
 			When("including no process", func() {

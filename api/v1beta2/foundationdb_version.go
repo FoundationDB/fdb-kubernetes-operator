@@ -221,6 +221,17 @@ func (version Version) SupportsVersionChange(other Version) bool {
 	return version.IsProtocolCompatible(other) || other.IsAtLeast(version)
 }
 
+// SupportsLocalityBasedExclusions returns true if the current version supports locality based exclusions.
+func (version Version) SupportsLocalityBasedExclusions() bool {
+	// If the version is 7.1.* we have to check if it supports locality based exclusions. For all newer versions
+	// we will check against the 7.3 version.
+	if version.IsProtocolCompatible(Version{Major: 7, Minor: 1, Patch: 0}) {
+		return version.IsAtLeast(Versions.SupportsLocalityBasedExclusions71)
+	}
+
+	return version.IsAtLeast(Versions.SupportsLocalityBasedExclusions)
+}
+
 // Versions provides a shorthand for known versions.
 // This is only to be used in testing.
 var Versions = struct {
@@ -236,19 +247,23 @@ var Versions = struct {
 	PreviousPatchVersion,
 	SupportsRecoveryState,
 	SupportsDNSInClusterFile,
+	SupportsLocalityBasedExclusions71,
+	SupportsLocalityBasedExclusions,
 	Default Version
 }{
-	Default:                      Version{Major: 6, Minor: 2, Patch: 21},
-	IncompatibleVersion:          Version{Major: 6, Minor: 1, Patch: 0},
-	PreviousPatchVersion:         Version{Major: 6, Minor: 2, Patch: 20},
-	NextPatchVersion:             Version{Major: 6, Minor: 2, Patch: 22},
-	NextMajorVersion:             Version{Major: 7, Minor: 0, Patch: 0},
-	MinimumVersion:               Version{Major: 6, Minor: 2, Patch: 20},
-	SupportsRocksDBV1:            Version{Major: 7, Minor: 1, Patch: 0, ReleaseCandidate: 4},
-	SupportsIsPresent:            Version{Major: 7, Minor: 1, Patch: 4},
-	SupportsShardedRocksDB:       Version{Major: 7, Minor: 2, Patch: 0},
-	SupportsRedwood1Experimental: Version{Major: 7, Minor: 0, Patch: 0},
-	SupportsRedwood1:             Version{Major: 7, Minor: 3, Patch: 0},
-	SupportsRecoveryState:        Version{Major: 7, Minor: 1, Patch: 22},
-	SupportsDNSInClusterFile:     Version{Major: 7, Minor: 0, Patch: 0},
+	Default:                           Version{Major: 6, Minor: 2, Patch: 21},
+	IncompatibleVersion:               Version{Major: 6, Minor: 1, Patch: 0},
+	PreviousPatchVersion:              Version{Major: 6, Minor: 2, Patch: 20},
+	NextPatchVersion:                  Version{Major: 6, Minor: 2, Patch: 22},
+	NextMajorVersion:                  Version{Major: 7, Minor: 0, Patch: 0},
+	MinimumVersion:                    Version{Major: 6, Minor: 2, Patch: 20},
+	SupportsRocksDBV1:                 Version{Major: 7, Minor: 1, Patch: 0, ReleaseCandidate: 4},
+	SupportsIsPresent:                 Version{Major: 7, Minor: 1, Patch: 4},
+	SupportsShardedRocksDB:            Version{Major: 7, Minor: 2, Patch: 0},
+	SupportsRedwood1Experimental:      Version{Major: 7, Minor: 0, Patch: 0},
+	SupportsRedwood1:                  Version{Major: 7, Minor: 3, Patch: 0},
+	SupportsRecoveryState:             Version{Major: 7, Minor: 1, Patch: 22},
+	SupportsDNSInClusterFile:          Version{Major: 7, Minor: 0, Patch: 0},
+	SupportsLocalityBasedExclusions71: Version{Major: 7, Minor: 1, Patch: 42},
+	SupportsLocalityBasedExclusions:   Version{Major: 7, Minor: 3, Patch: 26},
 }
