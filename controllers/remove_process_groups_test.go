@@ -117,7 +117,7 @@ var _ = Describe("remove_process_groups", func() {
 					})
 				})
 
-				When("the cluster has degraded stroage fault tolerance", func() {
+				When("the cluster has degraded storage fault tolerance", func() {
 					BeforeEach(func() {
 						adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 						Expect(err).NotTo(HaveOccurred())
@@ -183,6 +183,62 @@ var _ = Describe("remove_process_groups", func() {
 					It("should not remove the process group and should not exclude processes", func() {
 						Expect(result).NotTo(BeNil())
 						Expect(result.message).To(Equal("Reconciliation needs to exclude more processes"))
+						// Ensure resources are not deleted
+						removed, include, err := confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, removedProcessGroup.ProcessGroupID)
+						Expect(err).To(BeNil())
+						Expect(removed).To(BeFalse())
+						Expect(include).To(BeFalse())
+					})
+				})
+			})
+
+			When("the cluster has three_data_hall redundancy", func() {
+				BeforeEach(func() {
+					adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
+					Expect(err).NotTo(HaveOccurred())
+					adminClient.DatabaseConfiguration.RedundancyMode = fdbv1beta2.RedundancyModeThreeDataHall
+
+				})
+				When("storage have 3 replicas", func() {
+					BeforeEach(func() {
+						adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
+						Expect(err).NotTo(HaveOccurred())
+						adminClient.TeamTracker = []fdbv1beta2.FoundationDBStatusTeamTracker{
+							{
+								Primary: true,
+								State: fdbv1beta2.FoundationDBStatusDataState{
+									Healthy:              true,
+									MinReplicasRemaining: 3,
+								},
+							},
+						}
+					})
+					It("should successfully remove that process group", func() {
+						Expect(result).To(BeNil())
+						// Ensure resources are deleted
+						removed, include, err := confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, removedProcessGroup.ProcessGroupID)
+						Expect(err).To(BeNil())
+						Expect(removed).To(BeTrue())
+						Expect(include).To(BeTrue())
+					})
+				})
+				When("storage have 2 replicas", func() {
+					BeforeEach(func() {
+						adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
+						Expect(err).NotTo(HaveOccurred())
+						adminClient.TeamTracker = []fdbv1beta2.FoundationDBStatusTeamTracker{
+							{
+								Primary: true,
+								State: fdbv1beta2.FoundationDBStatusDataState{
+									Healthy:              true,
+									MinReplicasRemaining: 2,
+								},
+							},
+						}
+					})
+					It("should not remove the process group and should not exclude processes", func() {
+						Expect(result).NotTo(BeNil())
+						Expect(result.message).To(Equal("Removals cannot proceed because cluster has degraded fault tolerance"))
 						// Ensure resources are not deleted
 						removed, include, err := confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, removedProcessGroup.ProcessGroupID)
 						Expect(err).To(BeNil())

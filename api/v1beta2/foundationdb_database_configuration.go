@@ -707,10 +707,8 @@ func MinimumFaultDomains(redundancyMode RedundancyMode) int {
 		return 1
 	case RedundancyModeDouble, RedundancyModeUnset:
 		return 2
-	case RedundancyModeTriple:
+	case RedundancyModeTriple, RedundancyModeThreeDataHall:
 		return 3
-	case RedundancyModeThreeDataHall:
-		return 4
 	default:
 		return 1
 	}
