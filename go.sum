@@ -52,8 +52,8 @@ github.com/PuerkitoBio/purell v1.1.1/go.mod h1:c11w/QuzBsJSee3cPx9rAFu61PvFxuPbt
 github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578/go.mod h1:uGdkoq3SwY9Y+13GIhn11/XLaGBb4BfwItxLd5jeuXE=
 github.com/alecthomas/units v0.0.0-20210927113745-59d0afb8317a h1:E/8AP5dFtMhl5KPJz66Kt9G0n+7Sn41Fy1wv9/jHOrc=
 github.com/alecthomas/units v0.0.0-20210927113745-59d0afb8317a/go.mod h1:OMCwj8VM1Kc9e19TLln2VL61YJF0x1XFtfdL4JdbSyE=
-github.com/apple/foundationdb/bindings/go v0.0.0-20201222225940-f3aef311ccfb h1:Hgm6BKE5OE/coggPjBSZNQFk+9ku+J+XV/LQ7Mh2Utw=
-github.com/apple/foundationdb/bindings/go v0.0.0-20201222225940-f3aef311ccfb/go.mod h1:OMVSB21p9+xQUIqlGizHPZfjK+SHws1ht+ZytVDoz9U=
+github.com/apple/foundationdb/bindings/go v0.0.0-20231020161252-ed27c828ca16 h1:+FSWyyQT1jj2LHHRsIWtTqWcJRmKSJP3IYjOb0NMutU=
+github.com/apple/foundationdb/bindings/go v0.0.0-20231020161252-ed27c828ca16/go.mod h1:OMVSB21p9+xQUIqlGizHPZfjK+SHws1ht+ZytVDoz9U=
 github.com/apple/foundationdb/fdbkubernetesmonitor v0.0.0-20220513200452-e6fa4d7422d2 h1:qQW+EDheBFF09sjMwEJu7cc6LBQKnsbIVTgj9i12lws=
 github.com/apple/foundationdb/fdbkubernetesmonitor v0.0.0-20220513200452-e6fa4d7422d2/go.mod h1:LgBm9afX7nbQnDQa6bOXluKRnXypEDni36EJExtih80=
 github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5 h1:0CwZNZbxp69SHPdPJAN/hZIm0C4OItdklCFmMRWYpio=

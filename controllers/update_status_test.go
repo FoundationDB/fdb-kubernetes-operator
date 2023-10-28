@@ -555,8 +555,7 @@ var _ = Describe("update_status", func() {
 			BeforeEach(func() {
 				removedProcessGroup = storageOneProcessGroupID
 				storagePod.Status.Phase = corev1.PodFailed
-				err = k8sClient.Update(context.TODO(), storagePod)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(k8sClient.Update(context.TODO(), storagePod)).NotTo(HaveOccurred())
 				cluster.Spec.ProcessGroupsToRemove = []fdbv1beta2.ProcessGroupID{removedProcessGroup}
 			})
 

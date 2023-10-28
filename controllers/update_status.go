@@ -99,7 +99,7 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 	// about the current database configuration, leading to a wrong signal that the database configuration must be changed as
 	// the configuration will be overwritten with the default values.
 	if databaseStatus.Client.DatabaseStatus.Available {
-		clusterStatus.DatabaseConfiguration = databaseStatus.Cluster.DatabaseConfiguration.NormalizeConfigurationWithSeparatedProxies(cluster.Spec.Version, cluster.Spec.DatabaseConfiguration.AreSeparatedProxiesConfigured())
+		clusterStatus.DatabaseConfiguration = databaseStatus.Cluster.DatabaseConfiguration.NormalizeConfigurationWithSeparatedProxies(cluster.Spec.Version)
 		// Removing excluded servers as we don't want them during comparison.
 		clusterStatus.DatabaseConfiguration.ExcludedServers = nil
 		cluster.ClearMissingVersionFlags(&clusterStatus.DatabaseConfiguration)
@@ -431,7 +431,10 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 			processGroup.MarkForRemoval()
 			// Check if we should skip exclusion for the process group
 			_, ok := processGroupsWithoutExclusion[processGroup.ProcessGroupID]
-			if ok {
+			// If the process group should be removed without exclusion or the process class is test, remove it without
+			// further checks. For the test processes there is no reason to try to exclude them as they are not maintaining
+			// any data.
+			if ok || processGroup.ProcessClass == fdbv1beta2.ProcessClassTest {
 				processGroup.ExclusionSkipped = ok
 				processGroup.SetExclude()
 			}
@@ -708,9 +711,12 @@ func updateTaintCondition(ctx context.Context, r *FoundationDBClusterReconciler,
 
 func refreshProcessGroupStatus(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBClusterStatus) (*corev1.PersistentVolumeClaimList, error) {
 	status.ProcessGroups = make([]*fdbv1beta2.ProcessGroupStatus, 0, len(cluster.Status.ProcessGroups))
+	knownProcessGroups := map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None{}
+
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup != nil && processGroup.ProcessGroupID != "" {
 			status.ProcessGroups = append(status.ProcessGroups, processGroup)
+			knownProcessGroups[processGroup.ProcessGroupID] = fdbv1beta2.None{}
 		}
 	}
 
@@ -723,10 +729,12 @@ func refreshProcessGroupStatus(ctx context.Context, r *FoundationDBClusterReconc
 
 	for _, pod := range pods {
 		processGroupID := fdbv1beta2.ProcessGroupID(pod.Labels[cluster.GetProcessGroupIDLabel()])
-		if fdbv1beta2.ContainsProcessGroupID(status.ProcessGroups, processGroupID) {
+		if _, ok := knownProcessGroups[processGroupID]; ok {
 			continue
 		}
 
+		// Since we found a new process group we have to add it to our map.
+		knownProcessGroups[processGroupID] = fdbv1beta2.None{}
 		status.ProcessGroups = append(status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus(processGroupID, internal.ProcessClassFromLabels(cluster, pod.Labels), nil))
 	}
 
@@ -738,10 +746,12 @@ func refreshProcessGroupStatus(ctx context.Context, r *FoundationDBClusterReconc
 
 	for _, pvc := range pvcs.Items {
 		processGroupID := fdbv1beta2.ProcessGroupID(pvc.Labels[cluster.GetProcessGroupIDLabel()])
-		if fdbv1beta2.ContainsProcessGroupID(status.ProcessGroups, processGroupID) {
+		if _, ok := knownProcessGroups[processGroupID]; ok {
 			continue
 		}
 
+		// Since we found a new process group we have to add it to our map.
+		knownProcessGroups[processGroupID] = fdbv1beta2.None{}
 		status.ProcessGroups = append(status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus(processGroupID, internal.ProcessClassFromLabels(cluster, pvc.Labels), nil))
 	}
 
@@ -753,10 +763,16 @@ func refreshProcessGroupStatus(ctx context.Context, r *FoundationDBClusterReconc
 
 	for _, service := range services.Items {
 		processGroupID := fdbv1beta2.ProcessGroupID(service.Labels[cluster.GetProcessGroupIDLabel()])
-		if processGroupID == "" || fdbv1beta2.ContainsProcessGroupID(status.ProcessGroups, processGroupID) {
+		if processGroupID == "" {
 			continue
 		}
 
+		if _, ok := knownProcessGroups[processGroupID]; ok {
+			continue
+		}
+
+		// Since we found a new process group we have to add it to our map.
+		knownProcessGroups[processGroupID] = fdbv1beta2.None{}
 		status.ProcessGroups = append(status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus(processGroupID, internal.ProcessClassFromLabels(cluster, service.Labels), nil))
 	}
 

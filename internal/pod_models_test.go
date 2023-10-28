@@ -282,9 +282,9 @@ var _ = Describe("pod_models", func() {
 				}))
 
 				Expect(*mainContainer.Resources.Limits.Cpu()).To(Equal(resource.MustParse("1")))
-				Expect(*mainContainer.Resources.Limits.Memory()).To(Equal(resource.MustParse("1Gi")))
+				Expect(*mainContainer.Resources.Limits.Memory()).To(Equal(resource.MustParse("4Gi")))
 				Expect(*mainContainer.Resources.Requests.Cpu()).To(Equal(resource.MustParse("1")))
-				Expect(*mainContainer.Resources.Requests.Memory()).To(Equal(resource.MustParse("1Gi")))
+				Expect(*mainContainer.Resources.Requests.Memory()).To(Equal(resource.MustParse("4Gi")))
 
 				Expect(len(mainContainer.VolumeMounts)).To(Equal(3))
 
@@ -535,9 +535,9 @@ var _ = Describe("pod_models", func() {
 					}))
 
 					Expect(*mainContainer.Resources.Limits.Cpu()).To(Equal(resource.MustParse("1")))
-					Expect(*mainContainer.Resources.Limits.Memory()).To(Equal(resource.MustParse("1Gi")))
+					Expect(*mainContainer.Resources.Limits.Memory()).To(Equal(resource.MustParse("4Gi")))
 					Expect(*mainContainer.Resources.Requests.Cpu()).To(Equal(resource.MustParse("1")))
-					Expect(*mainContainer.Resources.Requests.Memory()).To(Equal(resource.MustParse("1Gi")))
+					Expect(*mainContainer.Resources.Requests.Memory()).To(Equal(resource.MustParse("4Gi")))
 
 					Expect(mainContainer.VolumeMounts).To(Equal([]corev1.VolumeMount{
 						{Name: "data", MountPath: "/var/fdb/data"},
@@ -1321,9 +1321,9 @@ var _ = Describe("pod_models", func() {
 				}))
 
 				Expect(*mainContainer.Resources.Limits.Cpu()).To(Equal(resource.MustParse("1")))
-				Expect(*mainContainer.Resources.Limits.Memory()).To(Equal(resource.MustParse("1Gi")))
+				Expect(*mainContainer.Resources.Limits.Memory()).To(Equal(resource.MustParse("4Gi")))
 				Expect(*mainContainer.Resources.Requests.Cpu()).To(Equal(resource.MustParse("1")))
-				Expect(*mainContainer.Resources.Requests.Memory()).To(Equal(resource.MustParse("1Gi")))
+				Expect(*mainContainer.Resources.Requests.Memory()).To(Equal(resource.MustParse("4Gi")))
 
 				Expect(len(mainContainer.VolumeMounts)).To(Equal(3))
 

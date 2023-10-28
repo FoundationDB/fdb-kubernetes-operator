@@ -56,7 +56,7 @@ func (a addProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterR
 			continue
 		}
 
-		logger.Info("Adding new Process Groups", "processClass", processClass, "newCount", newCount)
+		logger.Info("Adding new Process Groups", "processClass", processClass, "newCount", newCount, "desiredCount", desiredCount, "currentCount", processCounts[processClass])
 		r.Recorder.Event(cluster, corev1.EventTypeNormal, "AddingProcesses", fmt.Sprintf("Adding %d %s processes", newCount, processClass))
 		idNum := 1
 

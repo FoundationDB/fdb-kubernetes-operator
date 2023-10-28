@@ -74,7 +74,6 @@ func (e excludeProcesses) reconcile(_ context.Context, r *FoundationDBClusterRec
 		}
 
 		desiredProcessesMap := desiredProcesses.Map()
-
 		for processClass := range fdbProcessesToExcludeByClass {
 			ongoingExclusions := ongoingExclusionsByClass[processClass]
 			processesToExclude := fdbProcessesToExcludeByClass[processClass]
@@ -91,7 +90,7 @@ func (e excludeProcesses) reconcile(_ context.Context, r *FoundationDBClusterRec
 			}
 
 			if len(processesToExclude) < allowedExclusions {
-				allowedExclusions = len(processesToExclude) - 1
+				allowedExclusions = len(processesToExclude)
 			}
 
 			// TODO: As a next step we could exclude transaction (log + stateless) processes together and exclude
@@ -104,7 +103,7 @@ func (e excludeProcesses) reconcile(_ context.Context, r *FoundationDBClusterRec
 
 		if len(fdbProcessesToExclude) == 0 {
 			return &requeue{
-				message:        "more exclusions needed but not allowed have to wait for new processes to come up",
+				message:        "more exclusions needed but not allowed, have to wait for new processes to come up",
 				delayedRequeue: true,
 			}
 		}
@@ -222,12 +221,29 @@ func canExcludeNewProcesses(logger logr.Logger, cluster *fdbv1beta2.FoundationDB
 	}
 
 	if !exclusionsAllowed {
+		logger.Info("Found at least one missing process, that was not missing for a long time", "missingProcesses", missingProcesses)
 		return 0, missingProcesses
 	}
 
 	logger.V(1).Info("canExcludeNewProcesses", "validProcesses", len(validProcesses), "desiredProcessCount", desiredProcessCount, "ongoingExclusions", ongoingExclusions)
 
 	// The assumption here is that we will only exclude a process if there is a replacement ready for it. We could relax
-	// this requirement in the future and take the fault tolerance into account.
-	return len(validProcesses) - desiredProcessCount - ongoingExclusions, missingProcesses
+	// this requirement in the future and take the fault tolerance into account. We add the desired fault tolerance to
+	// have some buffer to prevent cases where the operator might need to exclude more processes but there are more missing
+	// processes.
+	allowedExclusions := cluster.DesiredFaultTolerance() + len(validProcesses) - desiredProcessCount - ongoingExclusions
+
+	// If automatic replacements are enabled and the allowed exclusions is less than or equal to 0, we have to check
+	// how many processes are missing and if more processes are missing than the automatic replacements is allowed to
+	// replace, we will allow exclusions for the count of automatic replacements removing the already ongoing exclusions.
+	// This code should make sure that the operator can automatically replace processes, even in the case where multiple
+	// processes are failing.
+	if cluster.GetEnableAutomaticReplacements() && allowedExclusions <= 0 {
+		automaticReplacements := cluster.GetMaxConcurrentAutomaticReplacements()
+		if len(missingProcesses) > automaticReplacements {
+			return automaticReplacements - ongoingExclusions, missingProcesses
+		}
+	}
+
+	return allowedExclusions, missingProcesses
 }
