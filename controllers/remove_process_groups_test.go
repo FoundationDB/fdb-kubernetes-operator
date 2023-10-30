@@ -465,6 +465,7 @@ var _ = Describe("remove_process_groups", func() {
 		var removedProcessGroups map[fdbv1beta2.ProcessGroupID]bool
 		var status *fdbv1beta2.FoundationDBStatus
 		var err error
+		var adminClient *mock.AdminClient
 
 		BeforeEach(func() {
 			cluster = &fdbv1beta2.FoundationDBCluster{
@@ -497,6 +498,8 @@ var _ = Describe("remove_process_groups", func() {
 			removedProcessGroups = make(map[fdbv1beta2.ProcessGroupID]bool)
 			Expect(err).NotTo(HaveOccurred())
 			status = &fdbv1beta2.FoundationDBStatus{}
+			adminClient, err = mock.NewMockAdminClientUncast(cluster, k8sClient)
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		Context("cluster doesn't support inclusions using locality", func() {
@@ -506,7 +509,7 @@ var _ = Describe("remove_process_groups", func() {
 
 			When("including no process", func() {
 				It("should not include any process", func() {
-					processesToInclude, err := getProcessesToInclude(logr.Logger{}, cluster, removedProcessGroups, status)
+					processesToInclude, err := getProcessesToInclude(logr.Logger{}, cluster, removedProcessGroups, adminClient, status)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(len(processesToInclude)).To(Equal(0))
 					Expect(len(cluster.Status.ProcessGroups)).To(Equal(16))
@@ -520,13 +523,13 @@ var _ = Describe("remove_process_groups", func() {
 					processGroup.MarkForRemoval()
 					cluster.Status.ProcessGroups[0] = processGroup
 					for _, address := range processGroup.Addresses {
-						status.Cluster.DatabaseConfiguration.ExcludedServers = append(status.Cluster.DatabaseConfiguration.ExcludedServers, fdbv1beta2.ExcludedServers{Address: address})
+						adminClient.ExcludedAddresses[address] = fdbv1beta2.None{}
 					}
 					removedProcessGroups[processGroup.ProcessGroupID] = true
 				})
 
 				It("should include one process", func() {
-					fdbProcessesToInclude, err := getProcessesToInclude(logr.Logger{}, cluster, removedProcessGroups, status)
+					fdbProcessesToInclude, err := getProcessesToInclude(logr.Logger{}, cluster, removedProcessGroups, adminClient, status)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(len(fdbProcessesToInclude)).To(Equal(1))
 					Expect(fdbv1beta2.ProcessAddressesString(fdbProcessesToInclude, " ")).To(Equal("1.1.1.1"))
@@ -542,7 +545,7 @@ var _ = Describe("remove_process_groups", func() {
 
 			When("including no process", func() {
 				It("should not include any process", func() {
-					fdbProcessesToInclude, err := getProcessesToInclude(logr.Logger{}, cluster, removedProcessGroups, status)
+					fdbProcessesToInclude, err := getProcessesToInclude(logr.Logger{}, cluster, removedProcessGroups, adminClient, status)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(len(fdbProcessesToInclude)).To(Equal(0))
 					Expect(len(cluster.Status.ProcessGroups)).To(Equal(16))
@@ -557,12 +560,12 @@ var _ = Describe("remove_process_groups", func() {
 					Expect(removedProcessGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
 					removedProcessGroup.MarkForRemoval()
 					cluster.Status.ProcessGroups[0] = removedProcessGroup
-					status.Cluster.DatabaseConfiguration.ExcludedServers = append(status.Cluster.DatabaseConfiguration.ExcludedServers, fdbv1beta2.ExcludedServers{Locality: removedProcessGroup.GetExclusionString()})
+					adminClient.ExcludedAddresses[removedProcessGroup.GetExclusionString()] = fdbv1beta2.None{}
 					removedProcessGroups[removedProcessGroup.ProcessGroupID] = true
 				})
 
 				It("should include one process", func() {
-					fdbProcessesToInclude, err := getProcessesToInclude(logr.Logger{}, cluster, removedProcessGroups, status)
+					fdbProcessesToInclude, err := getProcessesToInclude(logr.Logger{}, cluster, removedProcessGroups, adminClient, status)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(len(fdbProcessesToInclude)).To(Equal(1))
 					Expect(fdbv1beta2.ProcessAddressesString(fdbProcessesToInclude, " ")).To(Equal(removedProcessGroup.GetExclusionString()))
@@ -579,14 +582,13 @@ var _ = Describe("remove_process_groups", func() {
 					removedProcessGroup.MarkForRemoval()
 					cluster.Status.ProcessGroups[0] = removedProcessGroup
 
-					status.Cluster.DatabaseConfiguration.ExcludedServers = append(status.Cluster.DatabaseConfiguration.ExcludedServers, fdbv1beta2.ExcludedServers{Locality: removedProcessGroup.GetExclusionString()})
-					status.Cluster.DatabaseConfiguration.ExcludedServers = append(status.Cluster.DatabaseConfiguration.ExcludedServers, fdbv1beta2.ExcludedServers{Locality: removedProcessGroup.Addresses[0]})
-
+					adminClient.ExcludedAddresses[removedProcessGroup.GetExclusionString()] = fdbv1beta2.None{}
+					adminClient.ExcludedAddresses[removedProcessGroup.Addresses[0]] = fdbv1beta2.None{}
 					removedProcessGroups[removedProcessGroup.ProcessGroupID] = true
 				})
 
 				It("should include one process", func() {
-					fdbProcessesToInclude, err := getProcessesToInclude(logr.Logger{}, cluster, removedProcessGroups, status)
+					fdbProcessesToInclude, err := getProcessesToInclude(logr.Logger{}, cluster, removedProcessGroups, adminClient, status)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(len(fdbProcessesToInclude)).To(Equal(2))
 					Expect(fdbv1beta2.ProcessAddressesString(fdbProcessesToInclude, " ")).To(Equal(fmt.Sprintf("%s %s", removedProcessGroup.GetExclusionString(), removedProcessGroup.Addresses[0])))
@@ -609,15 +611,15 @@ var _ = Describe("remove_process_groups", func() {
 					Expect(removedProcessGroup2.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-2")))
 					removedProcessGroup2.MarkForRemoval()
 					cluster.Status.ProcessGroups[1] = removedProcessGroup2
-					status.Cluster.DatabaseConfiguration.ExcludedServers = append(status.Cluster.DatabaseConfiguration.ExcludedServers, fdbv1beta2.ExcludedServers{Locality: removedProcessGroup2.GetExclusionString()})
+					adminClient.ExcludedAddresses[removedProcessGroup2.GetExclusionString()] = fdbv1beta2.None{}
 					removedProcessGroups[removedProcessGroup2.ProcessGroupID] = true
 				})
 
-				It("should include two process", func() {
-					fdbProcessesToInclude, err := getProcessesToInclude(logr.Logger{}, cluster, removedProcessGroups, status)
+				It("should include one process", func() {
+					fdbProcessesToInclude, err := getProcessesToInclude(logr.Logger{}, cluster, removedProcessGroups, adminClient, status)
 					Expect(err).NotTo(HaveOccurred())
-					Expect(len(fdbProcessesToInclude)).To(Equal(2))
-					Expect(fdbv1beta2.ProcessAddressesString(fdbProcessesToInclude, " ")).To(Equal(fmt.Sprintf("%s %s", removedProcessGroup.GetExclusionString(), removedProcessGroup2.GetExclusionString())))
+					Expect(len(fdbProcessesToInclude)).To(Equal(1))
+					Expect(fdbv1beta2.ProcessAddressesString(fdbProcessesToInclude, " ")).To(Equal(removedProcessGroup2.GetExclusionString()))
 					Expect(len(cluster.Status.ProcessGroups)).To(Equal(14))
 				})
 			})

@@ -426,6 +426,12 @@ func (client *cliAdminClient) GetExclusions() ([]fdbv1beta2.ProcessAddress, erro
 	return fdbstatus.GetExclusions(status)
 }
 
+// GetExclusionsFromStatus gets a list of the addresses currently excluded from the
+// database using status.
+func (client *cliAdminClient) GetExclusionsFromStatus(status *fdbv1beta2.FoundationDBStatus) ([]fdbv1beta2.ProcessAddress, error) {
+	return fdbstatus.GetExclusions(status)
+}
+
 // CanSafelyRemove checks whether it is safe to remove processes from the cluster
 //
 // The list returned by this method will be the addresses that are *not* safe to remove.

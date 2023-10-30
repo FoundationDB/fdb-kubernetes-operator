@@ -46,6 +46,10 @@ type AdminClient interface {
 	// database.
 	GetExclusions() ([]fdbv1beta2.ProcessAddress, error)
 
+	// GetExclusionsFromStatus gets a list of the addresses currently excluded from the
+	// database using status.
+	GetExclusionsFromStatus(status *fdbv1beta2.FoundationDBStatus) ([]fdbv1beta2.ProcessAddress, error)
+
 	// CanSafelyRemove checks whether it is safe to remove processes from the
 	// cluster.
 	//
