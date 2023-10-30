@@ -611,7 +611,9 @@ func (client *AdminClient) GetExclusions() ([]fdbv1beta2.ProcessAddress, error) 
 	return pAddrs, nil
 }
 
-func (client *AdminClient) GetExclusionsFromStatus(status *fdbv1beta2.FoundationDBStatus) ([]fdbv1beta2.ProcessAddress, error) {
+// GetExclusionsFromStatus gets a list of the addresses currently excluded from the
+// database using status.
+func (client *AdminClient) GetExclusionsFromStatus(_ *fdbv1beta2.FoundationDBStatus) ([]fdbv1beta2.ProcessAddress, error) {
 	return client.GetExclusions()
 }
 
