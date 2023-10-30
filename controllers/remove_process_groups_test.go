@@ -496,7 +496,6 @@ var _ = Describe("remove_process_groups", func() {
 				},
 			}
 			removedProcessGroups = make(map[fdbv1beta2.ProcessGroupID]bool)
-			Expect(err).NotTo(HaveOccurred())
 			status = &fdbv1beta2.FoundationDBStatus{}
 			adminClient, err = mock.NewMockAdminClientUncast(cluster, k8sClient)
 			Expect(err).NotTo(HaveOccurred())
@@ -521,7 +520,6 @@ var _ = Describe("remove_process_groups", func() {
 					processGroup := cluster.Status.ProcessGroups[0]
 					Expect(processGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
 					processGroup.MarkForRemoval()
-					cluster.Status.ProcessGroups[0] = processGroup
 					for _, address := range processGroup.Addresses {
 						adminClient.ExcludedAddresses[address] = fdbv1beta2.None{}
 					}
@@ -559,7 +557,6 @@ var _ = Describe("remove_process_groups", func() {
 					removedProcessGroup = cluster.Status.ProcessGroups[0]
 					Expect(removedProcessGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
 					removedProcessGroup.MarkForRemoval()
-					cluster.Status.ProcessGroups[0] = removedProcessGroup
 					adminClient.ExcludedAddresses[removedProcessGroup.GetExclusionString()] = fdbv1beta2.None{}
 					removedProcessGroups[removedProcessGroup.ProcessGroupID] = true
 				})
@@ -580,7 +577,6 @@ var _ = Describe("remove_process_groups", func() {
 					removedProcessGroup = cluster.Status.ProcessGroups[0]
 					Expect(removedProcessGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
 					removedProcessGroup.MarkForRemoval()
-					cluster.Status.ProcessGroups[0] = removedProcessGroup
 
 					adminClient.ExcludedAddresses[removedProcessGroup.GetExclusionString()] = fdbv1beta2.None{}
 					adminClient.ExcludedAddresses[removedProcessGroup.Addresses[0]] = fdbv1beta2.None{}
@@ -604,13 +600,11 @@ var _ = Describe("remove_process_groups", func() {
 					removedProcessGroup = cluster.Status.ProcessGroups[0]
 					Expect(removedProcessGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
 					removedProcessGroup.MarkForRemoval()
-					cluster.Status.ProcessGroups[0] = removedProcessGroup
 					removedProcessGroups[removedProcessGroup.ProcessGroupID] = true
 
 					removedProcessGroup2 = cluster.Status.ProcessGroups[1]
 					Expect(removedProcessGroup2.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-2")))
 					removedProcessGroup2.MarkForRemoval()
-					cluster.Status.ProcessGroups[1] = removedProcessGroup2
 					adminClient.ExcludedAddresses[removedProcessGroup2.GetExclusionString()] = fdbv1beta2.None{}
 					removedProcessGroups[removedProcessGroup2.ProcessGroupID] = true
 				})

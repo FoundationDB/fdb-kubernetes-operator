@@ -595,7 +595,7 @@ func (client *AdminClient) GetExclusions() ([]fdbv1beta2.ProcessAddress, error) 
 		return nil, client.mockError
 	}
 
-	pAddrs := make([]fdbv1beta2.ProcessAddress, 0)
+	pAddrs := make([]fdbv1beta2.ProcessAddress, 0, len(client.ExcludedAddresses))
 	for addr := range client.ExcludedAddresses {
 		ip := net.ParseIP(addr)
 		if ip == nil {

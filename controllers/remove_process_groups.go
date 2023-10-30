@@ -301,8 +301,9 @@ func getProcessesToInclude(logger logr.Logger, cluster *fdbv1beta2.FoundationDBC
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup.IsMarkedForRemoval() && removedProcessGroups[processGroup.ProcessGroupID] {
 			foundInExcludedServerList := false
-			if _, ok := excludedServersMap[processGroup.GetExclusionString()]; ok {
-				fdbProcessesToInclude = append(fdbProcessesToInclude, fdbv1beta2.ProcessAddress{StringAddress: processGroup.GetExclusionString()})
+			exclusionString := processGroup.GetExclusionString()
+			if _, ok := excludedServersMap[exclusionString]; ok {
+				fdbProcessesToInclude = append(fdbProcessesToInclude, fdbv1beta2.ProcessAddress{StringAddress: exclusionString})
 				foundInExcludedServerList = true
 			}
 			for _, pAddr := range processGroup.Addresses {
