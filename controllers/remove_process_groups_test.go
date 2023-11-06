@@ -216,7 +216,7 @@ var _ = Describe("remove_process_groups", func() {
 					It("should successfully remove that process group", func() {
 						Expect(result).To(BeNil())
 						// Ensure resources are deleted
-						removed, include, err := confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, removedProcessGroup.ProcessGroupID)
+						removed, include, err := confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, removedProcessGroup)
 						Expect(err).To(BeNil())
 						Expect(removed).To(BeTrue())
 						Expect(include).To(BeTrue())
@@ -240,7 +240,7 @@ var _ = Describe("remove_process_groups", func() {
 						Expect(result).NotTo(BeNil())
 						Expect(result.message).To(Equal("Removals cannot proceed because cluster has degraded fault tolerance"))
 						// Ensure resources are not deleted
-						removed, include, err := confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, removedProcessGroup.ProcessGroupID)
+						removed, include, err := confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, removedProcessGroup)
 						Expect(err).To(BeNil())
 						Expect(removed).To(BeFalse())
 						Expect(include).To(BeFalse())
