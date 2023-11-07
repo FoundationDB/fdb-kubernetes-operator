@@ -65,10 +65,8 @@ var _ = Describe("update_status", func() {
 		taintValue := "unhealthy"
 
 		BeforeEach(func() {
-			var pods []*corev1.Pod
 			cluster = internal.CreateDefaultCluster()
-			err = setupClusterForTest(cluster)
-			Expect(err).NotTo(HaveOccurred())
+			Expect(setupClusterForTest(cluster)).NotTo(HaveOccurred())
 			// Define cluster's taint policy
 			cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions = []fdbv1beta2.TaintReplacementOption{
 				{
@@ -81,11 +79,9 @@ var _ = Describe("update_status", func() {
 				},
 			}
 
-			pods, err = clusterReconciler.PodLifecycleManager.GetPods(context.TODO(), clusterReconciler, cluster, internal.GetSinglePodListOptions(cluster, storageOneProcessGroupID)...)
+			processGroupStatus = fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, storageOneProcessGroupID)
+			pod, err = clusterReconciler.PodLifecycleManager.GetPod(context.TODO(), clusterReconciler, cluster, processGroupStatus.GetPodName(cluster))
 			Expect(err).NotTo(HaveOccurred())
-			Expect(len(pods)).To(Equal(1))
-
-			pod = pods[0]
 			node = &corev1.Node{
 				ObjectMeta: metav1.ObjectMeta{Name: pod.Spec.NodeName},
 			}
@@ -94,7 +90,6 @@ var _ = Describe("update_status", func() {
 			err = clusterReconciler.List(context.TODO(), allPvcs, internal.GetPodListOptions(cluster, "", "")...)
 			Expect(err).NotTo(HaveOccurred())
 
-			processGroupStatus = fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, internal.GetProcessGroupIDFromMeta(cluster, pod.ObjectMeta))
 			pvcMap := internal.CreatePVCMap(cluster, allPvcs)
 			pvcValue, pvcExists := pvcMap[processGroupStatus.ProcessGroupID]
 			if pvcExists {
@@ -296,11 +291,10 @@ var _ = Describe("update_status", func() {
 			cluster = internal.CreateDefaultCluster()
 			Expect(setupClusterForTest(cluster)).NotTo(HaveOccurred())
 
-			pods, err := clusterReconciler.PodLifecycleManager.GetPods(context.TODO(), clusterReconciler, cluster, internal.GetSinglePodListOptions(cluster, storageOneProcessGroupID)...)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(pods).To(HaveLen(1))
+			processGroup := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, storageOneProcessGroupID)
 
-			storagePod = pods[0]
+			storagePod, err = clusterReconciler.PodLifecycleManager.GetPod(context.TODO(), clusterReconciler, cluster, processGroup.GetPodName(cluster))
+			Expect(err).NotTo(HaveOccurred())
 			for _, container := range storagePod.Spec.Containers {
 				storagePod.Status.ContainerStatuses = append(storagePod.Status.ContainerStatuses, corev1.ContainerStatus{Ready: true, Name: container.Name})
 			}
