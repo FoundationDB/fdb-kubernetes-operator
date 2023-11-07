@@ -165,6 +165,7 @@ func GetRemainingMap(logger logr.Logger, adminClient fdbadminclient.AdminClient,
 	for _, address := range addresses {
 		remainingMap[address.String()] = false
 	}
+
 	for _, address := range remaining {
 		remainingMap[address.String()] = true
 	}
