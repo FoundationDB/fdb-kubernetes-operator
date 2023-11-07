@@ -34,43 +34,63 @@ import (
 
 var _ = Describe("updatePodConfig", func() {
 	var cluster *fdbv1beta2.FoundationDBCluster
-	var requeue *requeue
+	var req *requeue
 	var err error
-	var pods []*corev1.Pod
+	var pod *corev1.Pod
 
 	BeforeEach(func() {
 		cluster = internal.CreateDefaultCluster()
-		err = setupClusterForTest(cluster)
+		Expect(setupClusterForTest(cluster)).NotTo(HaveOccurred())
+
+		processGroup := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-1")
+		Expect(processGroup).NotTo(BeNil())
+		pod, err = clusterReconciler.PodLifecycleManager.GetPod(context.TODO(), clusterReconciler, cluster, processGroup.GetPodName(cluster))
 		Expect(err).NotTo(HaveOccurred())
 
-		pods, err = clusterReconciler.PodLifecycleManager.GetPods(context.TODO(), clusterReconciler, cluster, internal.GetSinglePodListOptions(cluster, "storage-1")...)
-		Expect(err).NotTo(HaveOccurred())
-
-		for _, container := range pods[0].Spec.Containers {
-			pods[0].Status.ContainerStatuses = append(pods[0].Status.ContainerStatuses, corev1.ContainerStatus{Ready: true, Name: container.Name})
+		for _, container := range pod.Spec.Containers {
+			pod.Status.ContainerStatuses = append(pod.Status.ContainerStatuses, corev1.ContainerStatus{Ready: true, Name: container.Name})
 		}
 	})
 
 	JustBeforeEach(func() {
-		requeue = updatePodConfig{}.reconcile(context.TODO(), clusterReconciler, cluster, nil, globalControllerLogger)
+		req = updatePodConfig{}.reconcile(context.TODO(), clusterReconciler, cluster, nil, globalControllerLogger)
 		Expect(err).NotTo(HaveOccurred())
 	})
 
 	Context("with a reconciled cluster", func() {
 		It("should not requeue", func() {
 			Expect(err).NotTo(HaveOccurred())
-			Expect(requeue).To(BeNil())
+			Expect(req).To(BeNil())
 		})
 	})
 
 	When("a Pod is stuck in Pending", func() {
 		BeforeEach(func() {
-			pods[0].Status.Phase = corev1.PodPending
+			pod.Status.Phase = corev1.PodPending
+		})
+
+		AfterEach(func() {
+			pod.Status.Phase = corev1.PodRunning
 		})
 
 		It("should not requeue", func() {
 			Expect(err).NotTo(HaveOccurred())
-			Expect(requeue).To(BeNil())
+			Expect(req).To(BeNil())
+		})
+	})
+
+	When("a Pod is stuck in terminating", func() {
+		BeforeEach(func() {
+			Expect(k8sClient.MockStuckTermination(pod, true)).NotTo(HaveOccurred())
+		})
+
+		AfterEach(func() {
+			Expect(k8sClient.MockStuckTermination(pod, false)).NotTo(HaveOccurred())
+		})
+
+		It("should not requeue", func() {
+			Expect(err).NotTo(HaveOccurred())
+			Expect(req).To(BeNil())
 		})
 	})
 })
