@@ -316,7 +316,7 @@ func getProcessesToInclude(logger logr.Logger, cluster *fdbv1beta2.FoundationDBC
 				// This means that the process is marked for exclusion and is also removed in the previous step but is missing
 				// its entry in the excluded servers in the status. This should not throw an error as this will block the
 				// inclusion for other processes, but we should have a record of this event happening in the logs.
-				logger.Error(fmt.Errorf(""), "processGroup is included but is missing from excluded server list", "processGroup", processGroup)
+				logger.V(1).Info("processGroup is included but is missing from excluded server list", "processGroup", processGroup)
 			}
 			continue
 		}
