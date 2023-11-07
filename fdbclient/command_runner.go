@@ -74,28 +74,39 @@ func (runner *realCommandRunner) runCommand(ctx context.Context, name string, ar
 // mockCommandRunner is a mock implementation of commandRunner and can be used for unit testing.
 type mockCommandRunner struct {
 	// mockedOutput is the output returned by runCommand.
-	mockedOutput string
+	mockedOutput []string
 	// mockedError is the error returned by runCommand.
-	mockedError error
+	mockedError []error
 	// receivedBinary will be the binary that was used to call runCommand.
-	receivedBinary string
+	receivedBinary []string
 	// receivedArgs will be the args that were used to call runCommand.
-	receivedArgs []string
+	receivedArgs [][]string
 	// mockedOutputPerBinary is the output returned if the binary is matching. This can be helpful to test the behaviour for
 	// different versions.
 	mockedOutputPerBinary map[string]string
+	// Internal tracker how often the runner was called. Will increment for every runCommand call.
+	callIdx int
 }
 
 func (runner *mockCommandRunner) runCommand(_ context.Context, name string, arg ...string) ([]byte, error) {
-	runner.receivedBinary = name
-	runner.receivedArgs = arg
+	defer func() {
+		runner.callIdx++
+	}()
+
+	runner.receivedBinary = append(runner.receivedBinary, name)
+	runner.receivedArgs = append(runner.receivedArgs, arg)
 
 	var mockedOutput string
 	if output, ok := runner.mockedOutputPerBinary[name]; ok {
 		mockedOutput = output
 	} else {
-		mockedOutput = runner.mockedOutput
+		mockedOutput = runner.mockedOutput[runner.callIdx]
 	}
 
-	return []byte(mockedOutput), runner.mockedError
+	var err error
+	if runner.mockedError != nil {
+		err = runner.mockedError[runner.callIdx]
+	}
+
+	return []byte(mockedOutput), err
 }

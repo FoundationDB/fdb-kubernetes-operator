@@ -545,53 +545,59 @@ var _ = Describe("admin_client_test", func() {
 			BeforeEach(func() {
 				mockRunner = &mockCommandRunner{
 					mockedError: nil,
-					mockedOutput: `fdbcli --version
+					mockedOutput: []string{`fdbcli --version
 FoundationDB CLI 7.1 (v7.1.21)
 source version e9f38c7169d21dde901b7b9408e1c5a8df182d64
 protocol fdb00b071010000`,
+					},
 				}
 			})
 
 			It("should report the protocol version", func() {
 				Expect(protocolVersion).To(Equal("fdb00b071010000"))
 				Expect(err).NotTo(HaveOccurred())
-				Expect(mockRunner.receivedBinary).To(Equal("7.1/" + fdbcliStr))
-				Expect(mockRunner.receivedArgs).To(ContainElements("--version"))
+				Expect(mockRunner.receivedBinary[0]).To(Equal("7.1/" + fdbcliStr))
+				Expect(mockRunner.receivedArgs[0]).To(ContainElements("--version"))
 			})
 		})
 
 		When("an error is returned", func() {
 			BeforeEach(func() {
 				mockRunner = &mockCommandRunner{
-					mockedError: errors.New("boom"),
-					mockedOutput: `fdbcli --version
+					mockedError: []error{
+						errors.New("boom"),
+					},
+					mockedOutput: []string{`fdbcli --version
 FoundationDB CLI 7.1 (v7.1.21)
 source version e9f38c7169d21dde901b7b9408e1c5a8df182d64
 protocol fdb00b071010000`,
+					},
 				}
 			})
 
 			It("should report the error", func() {
 				Expect(protocolVersion).To(Equal(""))
 				Expect(err).To(HaveOccurred())
-				Expect(mockRunner.receivedBinary).To(Equal("7.1/" + fdbcliStr))
-				Expect(mockRunner.receivedArgs).To(ContainElements("--version"))
+				Expect(mockRunner.receivedBinary[0]).To(Equal("7.1/" + fdbcliStr))
+				Expect(mockRunner.receivedArgs[0]).To(ContainElements("--version"))
 			})
 		})
 
 		When("the protocol version is missing", func() {
 			BeforeEach(func() {
 				mockRunner = &mockCommandRunner{
-					mockedError:  errors.New("boom"),
-					mockedOutput: "",
+					mockedError: []error{
+						errors.New("boom"),
+					},
+					mockedOutput: []string{""},
 				}
 			})
 
 			It("should report the error", func() {
 				Expect(protocolVersion).To(Equal(""))
 				Expect(err).To(HaveOccurred())
-				Expect(mockRunner.receivedBinary).To(Equal("7.1/" + fdbcliStr))
-				Expect(mockRunner.receivedArgs).To(ContainElements("--version"))
+				Expect(mockRunner.receivedBinary[0]).To(Equal("7.1/" + fdbcliStr))
+				Expect(mockRunner.receivedArgs[0]).To(ContainElements("--version"))
 			})
 		})
 	})
@@ -616,7 +622,7 @@ protocol fdb00b071010000`,
 			BeforeEach(func() {
 				mockRunner = &mockCommandRunner{
 					mockedError:  nil,
-					mockedOutput: ``,
+					mockedOutput: []string{""},
 				}
 			})
 
@@ -638,7 +644,7 @@ protocol fdb00b071010000`,
 
 				mockRunner = &mockCommandRunner{
 					mockedError:  nil,
-					mockedOutput: ``,
+					mockedOutput: []string{""},
 				}
 			})
 
@@ -710,7 +716,7 @@ protocol fdb00b071010000`,
 
 				mockRunner = &mockCommandRunner{
 					mockedError:  nil,
-					mockedOutput: string(out),
+					mockedOutput: []string{string(out)},
 				}
 			})
 
@@ -799,13 +805,13 @@ protocol fdb00b071010000`,
 
 			mockRunner = &mockCommandRunner{
 				mockedError:  nil,
-				mockedOutput: "",
+				mockedOutput: []string{""},
 			}
 		})
 
 		When("the cluster specifies that blocking exclusions should be used", func() {
 			It("should return that the exclusion command is called without no_wait", func() {
-				Expect(mockRunner.receivedArgs[1]).To(Equal("exclude 127.0.0.1:4500"))
+				Expect(mockRunner.receivedArgs[0]).To(ContainElement("exclude 127.0.0.1:4500"))
 			})
 		})
 
@@ -815,7 +821,7 @@ protocol fdb00b071010000`,
 			})
 
 			It("should return that the exclusion command is called with no_wait", func() {
-				Expect(mockRunner.receivedArgs[1]).To(Equal("exclude no_wait 127.0.0.1:4500"))
+				Expect(mockRunner.receivedArgs[0]).To(ContainElement("exclude no_wait 127.0.0.1:4500"))
 			})
 		})
 	})
@@ -913,7 +919,7 @@ protocol fdb00b071010000`,
 
 			mockRunner = &mockCommandRunner{
 				mockedError:  nil,
-				mockedOutput: "",
+				mockedOutput: []string{""},
 			}
 		})
 
@@ -937,8 +943,8 @@ protocol fdb00b071010000`,
 			})
 
 			It("should issue an exclude command to verify the exclusion", func() {
-				Expect(mockRunner.receivedBinary).To(HaveSuffix(fdbcliStr))
-				Expect(mockRunner.receivedArgs).To(ContainElements("exclude 192.168.0.1:4500 192.168.0.2:4500"))
+				Expect(mockRunner.receivedBinary[0]).To(HaveSuffix(fdbcliStr))
+				Expect(mockRunner.receivedArgs[0]).To(ContainElements("exclude 192.168.0.1:4500 192.168.0.2:4500"))
 			})
 		})
 
@@ -956,8 +962,10 @@ protocol fdb00b071010000`,
 				}
 
 				mockRunner = &mockCommandRunner{
-					mockedError:  fdbv1beta2.TimeoutError{Err: fmt.Errorf("timed out")},
-					mockedOutput: "",
+					mockedError: []error{
+						fdbv1beta2.TimeoutError{Err: fmt.Errorf("timed out")},
+					},
+					mockedOutput: []string{""},
 				}
 			})
 
@@ -967,8 +975,8 @@ protocol fdb00b071010000`,
 			})
 
 			It("should issue an exclude command to verify the exclusion", func() {
-				Expect(mockRunner.receivedBinary).To(HaveSuffix(fdbcliStr))
-				Expect(mockRunner.receivedArgs).To(ContainElements("exclude 192.168.0.1:4500 192.168.0.2:4500"))
+				Expect(mockRunner.receivedBinary[0]).To(HaveSuffix(fdbcliStr))
+				Expect(mockRunner.receivedArgs[0]).To(ContainElements("exclude 192.168.0.1:4500 192.168.0.2:4500"))
 			})
 		})
 
@@ -990,8 +998,10 @@ protocol fdb00b071010000`,
 				}
 
 				mockRunner = &mockCommandRunner{
-					mockedError:  nil,
-					mockedOutput: "",
+					mockedError: []error{
+						fdbv1beta2.TimeoutError{Err: fmt.Errorf("timed out")},
+					},
+					mockedOutput: []string{""},
 				}
 			})
 
@@ -1000,11 +1010,11 @@ protocol fdb00b071010000`,
 					IPAddress: net.ParseIP("192.168.0.3"),
 					Port:      4500,
 				}))
-				Expect(err).NotTo(HaveOccurred())
+				Expect(err).To(HaveOccurred())
 			})
 
 			It("should issue an exclude command to verify the exclusion", func() {
-				Expect(mockRunner.receivedBinary).To(HaveSuffix(fdbcliStr))
+				Expect(mockRunner.receivedBinary[0]).To(HaveSuffix(fdbcliStr))
 			})
 		})
 
@@ -1035,7 +1045,7 @@ protocol fdb00b071010000`,
 			})
 
 			It("should issue an exclude command to verify the exclusion", func() {
-				Expect(mockRunner.receivedBinary).To(HaveSuffix(fdbcliStr))
+				Expect(mockRunner.receivedBinary[0]).To(HaveSuffix(fdbcliStr))
 			})
 		})
 
@@ -1075,7 +1085,7 @@ protocol fdb00b071010000`,
 			})
 
 			It("should issue an exclude command to verify the exclusion", func() {
-				Expect(mockRunner.receivedBinary).To(HaveSuffix(fdbcliStr))
+				Expect(mockRunner.receivedBinary[0]).To(HaveSuffix(fdbcliStr))
 			})
 		})
 
@@ -1097,12 +1107,15 @@ protocol fdb00b071010000`,
 				}
 
 				mockRunner = &mockCommandRunner{
-					mockedError:  fdbv1beta2.TimeoutError{Err: fmt.Errorf("timed out")},
-					mockedOutput: "",
+					mockedError: []error{
+						fdbv1beta2.TimeoutError{Err: fmt.Errorf("timed out")},
+						nil,
+					},
+					mockedOutput: []string{"", ""},
 				}
 			})
 
-			It("should return an empty list and no error", func() {
+			It("should return the missing address list and no error", func() {
 				Expect(result).To(ConsistOf(fdbv1beta2.ProcessAddress{
 					IPAddress: net.ParseIP("192.168.0.5"),
 					Port:      4500,
@@ -1111,18 +1124,22 @@ protocol fdb00b071010000`,
 			})
 
 			It("should issue an exclude command", func() {
-				Expect(mockRunner.receivedBinary).NotTo(BeEmpty())
-				Expect(mockRunner.receivedArgs).To(ContainElements("exclude 192.168.0.5:4500"))
+				Expect(mockRunner.receivedBinary[0]).NotTo(BeEmpty())
+				Expect(mockRunner.receivedArgs[0]).To(ContainElements("exclude 192.168.0.5:4500"))
+				Expect(mockRunner.receivedArgs[1]).To(ContainElements("exclude 192.168.0.1:4500 192.168.0.2:4500"))
 			})
 
 			When("the exclude command returns an error different from the timeout error", func() {
 				BeforeEach(func() {
-					mockRunner.mockedError = fmt.Errorf("unit test")
+					mockRunner.mockedError[0] = fmt.Errorf("unit test")
 				})
 
-				It("should return an error", func() {
-					Expect(result).To(HaveLen(0))
-					Expect(err).To(HaveOccurred())
+				It("should return the missing address and no error", func() {
+					Expect(result).To(ConsistOf(fdbv1beta2.ProcessAddress{
+						IPAddress: net.ParseIP("192.168.0.5"),
+						Port:      4500,
+					}))
+					Expect(err).NotTo(HaveOccurred())
 				})
 			})
 
