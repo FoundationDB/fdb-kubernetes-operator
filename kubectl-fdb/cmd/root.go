@@ -71,7 +71,7 @@ func NewRootCmd(streams genericclioptions.IOStreams) *cobra.Command {
 		Long:         `kubectl fdb plugin for the interaction with the FoundationDB operator.`,
 		SilenceUsage: true,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
-			checkKubectlFdbVersion()
+			checkPluginVersion()
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cmd.Help()
@@ -155,7 +155,7 @@ func printStatement(cmd *cobra.Command, line string, mesType messageType) {
 	color.Unset()
 }
 
-func checkKubectlFdbVersion() {
+func checkPluginVersion() {
 	retryClient := retryablehttp.NewClient()
 	retryClient.RetryMax = 2
 	retryClient.RetryWaitMax = 1 * time.Second
