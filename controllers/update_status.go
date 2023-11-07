@@ -376,9 +376,8 @@ func checkAndSetProcessStatus(logger logr.Logger, r *FoundationDBClusterReconcil
 		}
 
 		processStatus := processMap[processID]
-		// If a Pod has a deletion timestamp, we assume the process is missing, as the Pod with the process(es) will be removed soon.
 		if !hasMissingProcesses {
-			hasMissingProcesses = len(processStatus) == 0 || !pod.ObjectMeta.DeletionTimestamp.IsZero()
+			hasMissingProcesses = len(processStatus) == 0
 		}
 
 		if len(processStatus) == 0 {
