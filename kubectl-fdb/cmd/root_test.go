@@ -47,4 +47,26 @@ var _ = Describe("[plugin] root command", func() {
 			Expect(cmd.Execute()).NotTo(HaveOccurred())
 		})
 	})
+	When("running the root command without args", func() {
+		var outBuffer bytes.Buffer
+		var errBuffer bytes.Buffer
+		var inBuffer bytes.Buffer
+		pluginVersion = "1.15.0"
+
+		BeforeEach(func() {
+			// We use these buffers to check the input/output
+			outBuffer = bytes.Buffer{}
+			errBuffer = bytes.Buffer{}
+			inBuffer = bytes.Buffer{}
+		})
+		It("should print outdated plugin version message", func() {
+			cmd := NewRootCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer})
+			cmd.SetArgs([]string{})
+			err := cmd.Execute()
+			Expect(err).To(HaveOccurred())
+
+			Expect(outBuffer.String()).To(ContainElements(
+				"Your kubectl-fdb plugin is not up-to-date, please download latest version and try again!"))
+		})
+	})
 })

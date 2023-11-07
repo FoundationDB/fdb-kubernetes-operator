@@ -22,9 +22,13 @@ package cmd
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
+	"github.com/hashicorp/go-retryablehttp"
+	"io"
 	"log"
 	"math/rand"
+	"net/http"
 	"os"
 	"time"
 
@@ -37,6 +41,8 @@ import (
 
 	"github.com/spf13/cobra"
 )
+
+const kubectl_fb_release_url = "https://api.github.com/repos/FoundationDB/fdb-kubernetes-operator/releases/latest"
 
 // fdbBOptions provides information required to run different
 // actions on FDB
@@ -64,6 +70,9 @@ func NewRootCmd(streams genericclioptions.IOStreams) *cobra.Command {
 		Short:        "kubectl plugin for the FoundationDB operator.",
 		Long:         `kubectl fdb plugin for the interaction with the FoundationDB operator.`,
 		SilenceUsage: true,
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			checkKubectlFdbVersion()
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cmd.Help()
 		},
@@ -144,4 +153,48 @@ func printStatement(cmd *cobra.Command, line string, mesType messageType) {
 	color.Set(color.FgGreen)
 	cmd.Printf("✔ %s\n", line)
 	color.Unset()
+}
+
+func checkKubectlFdbVersion() {
+	retryClient := retryablehttp.NewClient()
+	retryClient.RetryMax = 2
+	retryClient.RetryWaitMax = 1 * time.Second
+	retryClient.Logger = nil
+	retryClient.CheckRetry = retryablehttp.ErrorPropagatedRetryPolicy
+
+	retryClient.HTTPClient.Timeout = 1 * time.Second
+	req, _ := retryablehttp.NewRequest(http.MethodGet, kubectl_fb_release_url, nil)
+	resp, err := retryClient.Do(req)
+	if err != nil {
+		fmt.Println("Failed to fetch kubectl-fdb version from github")
+		os.Exit(0)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if resp != nil {
+		defer resp.Body.Close()
+	}
+	if err != nil {
+		fmt.Println("Error in version")
+		os.Exit(0)
+	}
+	var result = GitHubResult{}
+	err = json.Unmarshal(body, &result)
+	if err != nil {
+		fmt.Println("Failed to read version from github response\n", err)
+		os.Exit(0)
+	}
+	ver := result.Version[1:] //removing v from beginning of release version
+	if strings.Compare(pluginVersion, "latest") != 0 && strings.Compare(pluginVersion, ver) < 0 {
+		pretty, _ := json.MarshalIndent(result, "", " ")
+		fmt.Println("Your kubectl-fdb plugin is not up-to-date, please download latest version and try again!")
+		fmt.Println("Response from github:", string(pretty))
+		os.Exit(0)
+	}
+}
+
+type GitHubResult struct {
+	ID          int64  `json:"id"`
+	Version     string `json:"tag_name"`
+	Name        string `json:"name"`
+	PublishDate string `json:"published_at"`
 }

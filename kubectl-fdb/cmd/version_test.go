@@ -23,7 +23,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 
 	corev1 "k8s.io/api/core/v1"
@@ -161,5 +160,32 @@ var _ = Describe("[plugin] version command", func() {
 					hasError:      true,
 				}),
 		)
+	})
+
+	When("running the version command from a client with older version", func() {
+		var outBuffer bytes.Buffer
+		var errBuffer bytes.Buffer
+		var inBuffer bytes.Buffer
+
+		BeforeEach(func() {
+			// We use these buffers to check the input/output
+			outBuffer = bytes.Buffer{}
+			errBuffer = bytes.Buffer{}
+			inBuffer = bytes.Buffer{}
+
+			pluginVersion = "1.15.0"
+			rootCmd := NewRootCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer})
+
+			args := []string{"version", "--client-only"}
+			rootCmd.SetArgs(args)
+
+			err := rootCmd.Execute()
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("should print outdated plugin version message", func() {
+			Expect(outBuffer.String()).To(ContainElements(
+				"Your kubectl-fdb plugin is not up-to-date, please download latest version and try again!"))
+		})
 	})
 })
