@@ -223,7 +223,7 @@ var _ = Describe("exclude_processes", func() {
 					Expect(missingProcesses).To(Equal([]fdbv1beta2.ProcessGroupID{"storage-1", "storage-2"}))
 				})
 
-				FWhen("the missing timestamp is older than 5 minutes", func() {
+				When("the missing timestamp is older than 5 minutes", func() {
 					BeforeEach(func() {
 						for idx, processGroup := range cluster.Status.ProcessGroups {
 							timestamp := processGroup.GetConditionTime(fdbv1beta2.MissingProcesses)
@@ -509,7 +509,7 @@ var _ = Describe("exclude_processes", func() {
 
 		Context("cluster supports locality based exclusions", func() {
 			BeforeEach(func() {
-				cluster.Spec.Version = fdbv1beta2.Versions.NextMajorVersion.String()
+				cluster.Spec.Version = fdbv1beta2.Versions.SupportsLocalityBasedExclusions.String()
 			})
 
 			When("there are no exclusions", func() {

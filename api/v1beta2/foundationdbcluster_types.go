@@ -1086,7 +1086,8 @@ type FoundationDBClusterAutomationOptions struct {
 	// The default is false.
 	UseNonBlockingExcludes *bool `json:"useNonBlockingExcludes,omitempty"`
 
-	// UseLocalitiesForExclusion defines whether the exclusions are done using localities instead of IP addresses.
+	// UseLocalitiesForExclusion defines whether the exclusions are done using localities instead of IP addresses. This
+	// feature requires at least FDB 7.1.42 or 7.3.26.
 	// The default is false.
 	UseLocalitiesForExclusion *bool `json:"useLocalitiesForExclusion,omitempty"`
 
@@ -2248,13 +2249,14 @@ func (cluster *FoundationDBCluster) GetUseNonBlockingExcludes() bool {
 
 // UseLocalitiesForExclusion returns the value of UseLocalitiesForExclusion or false if unset.
 func (cluster *FoundationDBCluster) UseLocalitiesForExclusion() bool {
-	fdbVersion, err := ParseFdbVersion(cluster.Spec.Version)
+	fdbVersion, err := ParseFdbVersion(cluster.GetRunningVersion())
 	if err != nil {
 		// Fall back to use exclusions with IP if we can't parse the version.
 		// This should never happen since the version is validated in earlier steps.
 		return false
 	}
-	return fdbVersion.IsAtLeast(Versions.NextMajorVersion) && pointer.BoolDeref(cluster.Spec.AutomationOptions.UseLocalitiesForExclusion, false)
+
+	return fdbVersion.SupportsLocalityBasedExclusions() && pointer.BoolDeref(cluster.Spec.AutomationOptions.UseLocalitiesForExclusion, false)
 }
 
 // GetProcessClassLabel provides the label that this cluster is using for the
