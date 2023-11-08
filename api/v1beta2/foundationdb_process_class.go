@@ -54,10 +54,10 @@ const (
 
 // IsStateful determines whether a process class should store data.
 func (pClass ProcessClass) IsStateful() bool {
-	return pClass == ProcessClassStorage || pClass == ProcessClassLog || pClass == ProcessClassTransaction || pClass == ProcessClassCoordinator
+	return pClass == ProcessClassStorage || pClass.IsLogProcess() || pClass == ProcessClassCoordinator
 }
 
-// IsTransaction determines whether a process class is part of the transaction system.
+// IsTransaction determines whether a process class could be part of the transaction system.
 func (pClass ProcessClass) IsTransaction() bool {
 	return pClass != ProcessClassStorage && pClass != ProcessClassGeneral
 }
@@ -65,6 +65,11 @@ func (pClass ProcessClass) IsTransaction() bool {
 // SupportsMultipleLogServers determines whether a process class supports multiple log servers. This includes the log
 // class and the transaction class.
 func (pClass ProcessClass) SupportsMultipleLogServers() bool {
+	return pClass.IsLogProcess()
+}
+
+// IsLogProcess returns true if the process class is either log or transaction.
+func (pClass ProcessClass) IsLogProcess() bool {
 	return pClass == ProcessClassLog || pClass == ProcessClassTransaction
 }
 

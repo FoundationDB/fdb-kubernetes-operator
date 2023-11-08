@@ -1705,6 +1705,4 @@ var _ = Describe("status_checks", func() {
 			},
 			false)
 	})
-
-	// TODO (johscheuer): Add tests for CanSafelyRemoveFromStatus with mock.
 })
