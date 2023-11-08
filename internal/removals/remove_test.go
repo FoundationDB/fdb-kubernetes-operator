@@ -22,10 +22,14 @@ package removals
 
 import (
 	"fmt"
-
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
+	"net"
+	"time"
 )
 
 var _ = Describe("remove", func() {
@@ -255,4 +259,381 @@ var _ = Describe("remove", func() {
 				int64(59)),
 		)
 	})
+
+	DescribeTable("when getting the addresses to validate before removal", func(cluster *fdbv1beta2.FoundationDBCluster, expected []fdbv1beta2.ProcessAddress) {
+		remainingMap, addresses := getAddressesToValidateBeforeRemoval(logr.Discard(), cluster)
+		Expect(addresses).To(ConsistOf(expected))
+		for _, address := range addresses {
+			Expect(remainingMap).To(HaveKeyWithValue(address.String(), false))
+		}
+		Expect(remainingMap).To(HaveLen(len(expected)))
+	},
+		Entry("when no process groups must be removed",
+			&fdbv1beta2.FoundationDBCluster{},
+			nil,
+		),
+		Entry("when one storage process group must be removed",
+			&fdbv1beta2.FoundationDBCluster{
+				Status: fdbv1beta2.FoundationDBClusterStatus{
+					ProcessGroups: []*fdbv1beta2.ProcessGroupStatus{
+						{
+							ProcessGroupID: "storage-1",
+							ProcessClass:   fdbv1beta2.ProcessClassStorage,
+							Addresses: []string{
+								"192.0.0.1",
+							},
+							RemovalTimestamp: &metav1.Time{Time: time.Now()},
+						},
+						{
+							ProcessGroupID: "storage-2",
+							ProcessClass:   fdbv1beta2.ProcessClassStorage,
+							Addresses: []string{
+								"192.0.0.2",
+							},
+						},
+						{
+							ProcessGroupID: "storage-3",
+							ProcessClass:   fdbv1beta2.ProcessClassStorage,
+							Addresses: []string{
+								"192.0.0.3",
+							},
+						},
+						{
+							ProcessGroupID: "log-1",
+							ProcessClass:   fdbv1beta2.ProcessClassLog,
+							Addresses: []string{
+								"192.0.0.4",
+							},
+						},
+						{
+							ProcessGroupID: "log-2",
+							ProcessClass:   fdbv1beta2.ProcessClassLog,
+							Addresses: []string{
+								"192.0.0.5",
+								"192.0.0.6",
+							},
+						},
+					},
+				},
+			},
+			[]fdbv1beta2.ProcessAddress{
+				{
+					IPAddress: net.ParseIP("192.0.0.1"),
+				},
+			},
+		),
+		Entry("when one storage process group must be removed but is already excluded",
+			&fdbv1beta2.FoundationDBCluster{
+				Status: fdbv1beta2.FoundationDBClusterStatus{
+					ProcessGroups: []*fdbv1beta2.ProcessGroupStatus{
+						{
+							ProcessGroupID: "storage-1",
+							ProcessClass:   fdbv1beta2.ProcessClassStorage,
+							Addresses: []string{
+								"192.0.0.1",
+							},
+							RemovalTimestamp:   &metav1.Time{Time: time.Now()},
+							ExclusionTimestamp: &metav1.Time{Time: time.Now()},
+						},
+						{
+							ProcessGroupID: "storage-2",
+							ProcessClass:   fdbv1beta2.ProcessClassStorage,
+							Addresses: []string{
+								"192.0.0.2",
+							},
+						},
+						{
+							ProcessGroupID: "storage-3",
+							ProcessClass:   fdbv1beta2.ProcessClassStorage,
+							Addresses: []string{
+								"192.0.0.3",
+							},
+						},
+						{
+							ProcessGroupID: "log-1",
+							ProcessClass:   fdbv1beta2.ProcessClassLog,
+							Addresses: []string{
+								"192.0.0.4",
+							},
+						},
+						{
+							ProcessGroupID: "log-2",
+							ProcessClass:   fdbv1beta2.ProcessClassLog,
+							Addresses: []string{
+								"192.0.0.5",
+								"192.0.0.6",
+							},
+						},
+					},
+				},
+			},
+			nil,
+		),
+		Entry("when one storage process group must be removed with locality based exclusions",
+			&fdbv1beta2.FoundationDBCluster{
+				Spec: fdbv1beta2.FoundationDBClusterSpec{
+					AutomationOptions: fdbv1beta2.FoundationDBClusterAutomationOptions{
+						UseLocalitiesForExclusion: pointer.Bool(true),
+					},
+				},
+				Status: fdbv1beta2.FoundationDBClusterStatus{
+					RunningVersion: fdbv1beta2.Versions.SupportsLocalityBasedExclusions.String(),
+					ProcessGroups: []*fdbv1beta2.ProcessGroupStatus{
+						{
+							ProcessGroupID: "storage-1",
+							ProcessClass:   fdbv1beta2.ProcessClassStorage,
+							Addresses: []string{
+								"192.0.0.1",
+							},
+							RemovalTimestamp: &metav1.Time{Time: time.Now()},
+						},
+						{
+							ProcessGroupID: "storage-2",
+							ProcessClass:   fdbv1beta2.ProcessClassStorage,
+							Addresses: []string{
+								"192.0.0.2",
+							},
+						},
+						{
+							ProcessGroupID: "storage-3",
+							ProcessClass:   fdbv1beta2.ProcessClassStorage,
+							Addresses: []string{
+								"192.0.0.3",
+							},
+						},
+						{
+							ProcessGroupID: "log-1",
+							ProcessClass:   fdbv1beta2.ProcessClassLog,
+							Addresses: []string{
+								"192.0.0.4",
+							},
+						},
+						{
+							ProcessGroupID: "log-2",
+							ProcessClass:   fdbv1beta2.ProcessClassLog,
+							Addresses: []string{
+								"192.0.0.5",
+								"192.0.0.6",
+							},
+						},
+					},
+				},
+			},
+			[]fdbv1beta2.ProcessAddress{
+				{
+					StringAddress: fdbv1beta2.FDBLocalityExclusionPrefix + ":" + "storage-1",
+				},
+			},
+		),
+		Entry("when one log process group must be removed",
+			&fdbv1beta2.FoundationDBCluster{
+				Status: fdbv1beta2.FoundationDBClusterStatus{
+					ProcessGroups: []*fdbv1beta2.ProcessGroupStatus{
+						{
+							ProcessGroupID: "storage-1",
+							ProcessClass:   fdbv1beta2.ProcessClassStorage,
+							Addresses: []string{
+								"192.0.0.1",
+							},
+						},
+						{
+							ProcessGroupID: "storage-2",
+							ProcessClass:   fdbv1beta2.ProcessClassStorage,
+							Addresses: []string{
+								"192.0.0.2",
+							},
+						},
+						{
+							ProcessGroupID: "storage-3",
+							ProcessClass:   fdbv1beta2.ProcessClassStorage,
+							Addresses: []string{
+								"192.0.0.3",
+							},
+						},
+						{
+							ProcessGroupID: "log-1",
+							ProcessClass:   fdbv1beta2.ProcessClassLog,
+							Addresses: []string{
+								"192.0.0.4",
+							},
+							RemovalTimestamp: &metav1.Time{Time: time.Now()},
+						},
+						{
+							ProcessGroupID: "log-2",
+							ProcessClass:   fdbv1beta2.ProcessClassLog,
+							Addresses: []string{
+								"192.0.0.5",
+								"192.0.0.6",
+							},
+						},
+					},
+				},
+			},
+			[]fdbv1beta2.ProcessAddress{
+				{
+					IPAddress: net.ParseIP("192.0.0.4"),
+				},
+			},
+		),
+		Entry("when one log process group must be removed but is already excluded",
+			&fdbv1beta2.FoundationDBCluster{
+				Status: fdbv1beta2.FoundationDBClusterStatus{
+					ProcessGroups: []*fdbv1beta2.ProcessGroupStatus{
+						{
+							ProcessGroupID: "storage-1",
+							ProcessClass:   fdbv1beta2.ProcessClassStorage,
+							Addresses: []string{
+								"192.0.0.1",
+							},
+						},
+						{
+							ProcessGroupID: "storage-2",
+							ProcessClass:   fdbv1beta2.ProcessClassStorage,
+							Addresses: []string{
+								"192.0.0.2",
+							},
+						},
+						{
+							ProcessGroupID: "storage-3",
+							ProcessClass:   fdbv1beta2.ProcessClassStorage,
+							Addresses: []string{
+								"192.0.0.3",
+							},
+						},
+						{
+							ProcessGroupID: "log-1",
+							ProcessClass:   fdbv1beta2.ProcessClassLog,
+							Addresses: []string{
+								"192.0.0.4",
+							},
+
+							RemovalTimestamp:   &metav1.Time{Time: time.Now()},
+							ExclusionTimestamp: &metav1.Time{Time: time.Now()},
+						},
+						{
+							ProcessGroupID: "log-2",
+							ProcessClass:   fdbv1beta2.ProcessClassLog,
+							Addresses: []string{
+								"192.0.0.5",
+								"192.0.0.6",
+							},
+						},
+					},
+				},
+			},
+			nil,
+		),
+		Entry("when one log process group must be removed with locality based exclusions",
+			&fdbv1beta2.FoundationDBCluster{
+				Spec: fdbv1beta2.FoundationDBClusterSpec{
+					AutomationOptions: fdbv1beta2.FoundationDBClusterAutomationOptions{
+						UseLocalitiesForExclusion: pointer.Bool(true),
+					},
+				},
+				Status: fdbv1beta2.FoundationDBClusterStatus{
+					RunningVersion: fdbv1beta2.Versions.SupportsLocalityBasedExclusions.String(),
+					ProcessGroups: []*fdbv1beta2.ProcessGroupStatus{
+						{
+							ProcessGroupID: "storage-1",
+							ProcessClass:   fdbv1beta2.ProcessClassStorage,
+							Addresses: []string{
+								"192.0.0.1",
+							},
+						},
+						{
+							ProcessGroupID: "storage-2",
+							ProcessClass:   fdbv1beta2.ProcessClassStorage,
+							Addresses: []string{
+								"192.0.0.2",
+							},
+						},
+						{
+							ProcessGroupID: "storage-3",
+							ProcessClass:   fdbv1beta2.ProcessClassStorage,
+							Addresses: []string{
+								"192.0.0.3",
+							},
+						},
+						{
+							ProcessGroupID: "log-1",
+							ProcessClass:   fdbv1beta2.ProcessClassLog,
+							Addresses: []string{
+								"192.0.0.4",
+							},
+							RemovalTimestamp: &metav1.Time{Time: time.Now()},
+						},
+						{
+							ProcessGroupID: "log-2",
+							ProcessClass:   fdbv1beta2.ProcessClassLog,
+							Addresses: []string{
+								"192.0.0.5",
+								"192.0.0.6",
+							},
+						},
+					},
+				},
+			},
+			[]fdbv1beta2.ProcessAddress{
+				{
+					StringAddress: fdbv1beta2.FDBLocalityExclusionPrefix + ":" + "log-1",
+				},
+				{
+					IPAddress: net.ParseIP("192.0.0.4"),
+				},
+			},
+		),
+		Entry("when one process group with multiple addresses must be removed",
+			&fdbv1beta2.FoundationDBCluster{
+				Status: fdbv1beta2.FoundationDBClusterStatus{
+					ProcessGroups: []*fdbv1beta2.ProcessGroupStatus{
+						{
+							ProcessGroupID: "storage-1",
+							ProcessClass:   fdbv1beta2.ProcessClassStorage,
+							Addresses: []string{
+								"192.0.0.1",
+							},
+						},
+						{
+							ProcessGroupID: "storage-2",
+							ProcessClass:   fdbv1beta2.ProcessClassStorage,
+							Addresses: []string{
+								"192.0.0.2",
+							},
+						},
+						{
+							ProcessGroupID: "storage-3",
+							ProcessClass:   fdbv1beta2.ProcessClassStorage,
+							Addresses: []string{
+								"192.0.0.3",
+							},
+						},
+						{
+							ProcessGroupID: "log-1",
+							ProcessClass:   fdbv1beta2.ProcessClassLog,
+							Addresses: []string{
+								"192.0.0.4",
+							},
+						},
+						{
+							ProcessGroupID: "log-2",
+							ProcessClass:   fdbv1beta2.ProcessClassLog,
+							Addresses: []string{
+								"192.0.0.5",
+								"192.0.0.6",
+							},
+							RemovalTimestamp: &metav1.Time{Time: time.Now()},
+						},
+					},
+				},
+			},
+			[]fdbv1beta2.ProcessAddress{
+				{
+					IPAddress: net.ParseIP("192.0.0.5"),
+				},
+				{
+					IPAddress: net.ParseIP("192.0.0.6"),
+				},
+			},
+		),
+	)
 })

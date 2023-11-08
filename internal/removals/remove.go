@@ -125,29 +125,9 @@ func GetZonedRemovals(processGroupsToRemove []*fdbv1beta2.ProcessGroupStatus) (m
 
 // GetRemainingMap returns a map that indicates if a process group is fully excluded in the cluster.
 func GetRemainingMap(logger logr.Logger, adminClient fdbadminclient.AdminClient, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) (map[string]bool, error) {
-	addresses := make([]fdbv1beta2.ProcessAddress, 0, len(cluster.Status.ProcessGroups))
-	for _, processGroup := range cluster.Status.ProcessGroups {
-		if !processGroup.IsMarkedForRemoval() || processGroup.IsExcluded() {
-			continue
-		}
-
-		if len(processGroup.Addresses) == 0 {
-			logger.Info("Getting remaining removals to check for exclusion", "processGroupID", processGroup.ProcessGroupID, "reason", "missing address")
-			continue
-		}
-
-		if cluster.UseLocalitiesForExclusion() {
-			addresses = append(addresses, fdbv1beta2.ProcessAddress{StringAddress: processGroup.GetExclusionString()})
-		}
-
-		for _, pAddr := range processGroup.Addresses {
-			addresses = append(addresses, fdbv1beta2.ProcessAddress{IPAddress: net.ParseIP(pAddr)})
-		}
-	}
-
-	remainingMap := map[string]bool{}
+	remainingMap, addresses := getAddressesToValidateBeforeRemoval(logger, cluster)
 	if len(addresses) == 0 {
-		return remainingMap, nil
+		return nil, nil
 	}
 
 	remaining, err := fdbstatus.CanSafelyRemoveFromStatus(logger, adminClient, addresses, status)
@@ -159,14 +139,55 @@ func GetRemainingMap(logger logr.Logger, adminClient fdbadminclient.AdminClient,
 		logger.Info("Exclusions to complete", "remainingServers", remaining)
 	}
 
-	for _, address := range addresses {
-		remainingMap[address.String()] = false
-	}
 	for _, address := range remaining {
 		remainingMap[address.String()] = true
 	}
 
 	return remainingMap, nil
+}
+
+// getAddressesToValidateBeforeRemoval returns the addresses that must be checked before removal. The first return value is
+// a map with the addresses and localities to be checked, the value will always be false. The second return value is a
+// slice containing all addresses and localities that must be checked.
+func getAddressesToValidateBeforeRemoval(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster) (map[string]bool, []fdbv1beta2.ProcessAddress) {
+	addresses := make([]fdbv1beta2.ProcessAddress, 0, len(cluster.Status.ProcessGroups))
+	for _, processGroup := range cluster.Status.ProcessGroups {
+		if !processGroup.IsMarkedForRemoval() || processGroup.IsExcluded() {
+			continue
+		}
+
+		// If we use localities for exclusions we don't have to care about the addresses.
+		if cluster.UseLocalitiesForExclusion() {
+			addresses = append(addresses, fdbv1beta2.ProcessAddress{StringAddress: processGroup.GetExclusionString()})
+			// If the process is not a potential log server it is enough to make use of the locality based exclusions.
+			// Otherwise, we have to include the IP address to make sure we detect log servers that are currently not
+			// part of the worker list, e.g. because they are partitioned.
+			if !processGroup.ProcessClass.IsLogProcess() {
+				continue
+			}
+		}
+
+		if len(processGroup.Addresses) == 0 {
+			logger.Info("Getting remaining removals to check for exclusion", "processGroupID", processGroup.ProcessGroupID, "reason", "missing address")
+			continue
+		}
+
+		// Add all addresses to make sure all seen addresses of a process are excluded.
+		for _, pAddr := range processGroup.Addresses {
+			addresses = append(addresses, fdbv1beta2.ProcessAddress{IPAddress: net.ParseIP(pAddr)})
+		}
+	}
+
+	if len(addresses) == 0 {
+		return nil, nil
+	}
+
+	remainingMap := make(map[string]bool, len(addresses))
+	for _, address := range addresses {
+		remainingMap[address.String()] = false
+	}
+
+	return remainingMap, addresses
 }
 
 // RemovalAllowed returns if we are allowed to remove the process group or if we have to wait to ensure a safe deletion.
