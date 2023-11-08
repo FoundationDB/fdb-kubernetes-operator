@@ -29,8 +29,11 @@ Each test will create a new HA FoundationDB cluster which will be upgraded.
 import (
 	"fmt"
 	"golang.org/x/sync/errgroup"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"log"
 	"math/rand"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -65,14 +68,20 @@ type testConfig struct {
 	enableOperatorPodChaos bool
 	enableHealthCheck      bool
 	loadData               bool
+	clusterConfig          *fixtures.ClusterConfig
 }
 
 func clusterSetupWithTestConfig(config testConfig) {
 	// We set the before version here to overwrite the before version from the specific flag
 	// the specific flag will be removed in the future.
 	factory.SetBeforeVersion(config.beforeVersion)
+
+	if config.clusterConfig == nil {
+		config.clusterConfig = fixtures.DefaultClusterConfigWithHaMode(fixtures.HaFourZoneSingleSat, false)
+	}
+
 	fdbCluster = factory.CreateFdbHaCluster(
-		fixtures.DefaultClusterConfigWithHaMode(fixtures.HaFourZoneSingleSat, false),
+		config.clusterConfig,
 		factory.GetClusterOptions(fixtures.UseVersionBeforeUpgrade)...,
 	)
 
@@ -525,6 +534,54 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 			// Make sure the cluster has no data loss
 			fdbCluster.GetPrimary().EnsureTeamTrackersHaveMinReplicas()
 			// TODO add validation here processes are updated new version
+		},
+		EntryDescription("Upgrade from %[1]s to %[2]s"),
+		fixtures.GenerateUpgradeTableEntries(testOptions),
+	)
+
+	DescribeTable(
+		"when locality based exclusions are used and the resources are limited in a satellite namespace",
+		func(beforeVersion string, targetVersion string) {
+			clusterConfig := fixtures.DefaultClusterConfigWithHaMode(fixtures.HaFourZoneSingleSat, false)
+			clusterConfig.UseLocalityBasedExclusions = true
+
+			clusterSetupWithTestConfig(
+				testConfig{
+					beforeVersion:          beforeVersion,
+					enableOperatorPodChaos: false,
+					enableHealthCheck:      true,
+					loadData:               false,
+					clusterConfig:          clusterConfig,
+				},
+			)
+
+			Expect(fdbCluster.GetPrimary().GetCluster().UseLocalitiesForExclusion()).To(BeTrue())
+
+			processCounts, err := fdbCluster.GetPrimary().GetCluster().GetProcessCountsWithDefaults()
+			Expect(err).NotTo(HaveOccurred())
+
+			// Create Quota to limit the additional Pods that can be created to 1, the actual value here is 3 ,because we run
+			// 2 Operator Pods.
+			Expect(factory.CreateIfAbsent(&corev1.ResourceQuota{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "testing-quota",
+					Namespace: fdbCluster.GetPrimarySatellite().Namespace(),
+				},
+				Spec: corev1.ResourceQuotaSpec{
+					Hard: corev1.ResourceList{
+						"count/pods": resource.MustParse(strconv.Itoa(processCounts.Total() + 3)),
+					},
+				},
+			})).NotTo(HaveOccurred())
+
+			// The cluster should still be able to upgrade.
+			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
+			// Verify that the upgrade proceeds
+			fdbCluster.VerifyVersion(targetVersion)
+			// Wait here for the primary satellite to reconcile, this means all Pods have been replaced
+			Expect(fdbCluster.GetPrimarySatellite().WaitForReconciliation()).NotTo(HaveOccurred())
+			// Make sure the cluster has no data loss
+			fdbCluster.GetPrimary().EnsureTeamTrackersHaveMinReplicas()
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
