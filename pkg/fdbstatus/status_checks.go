@@ -109,39 +109,34 @@ func getRemainingAndExcludedFromStatus(logger logr.Logger, status *fdbv1beta2.Fo
 	}
 
 	addressesToVerify := map[string]fdbv1beta2.None{}
-	useLocalities := false
 	for _, addr := range addresses {
-		address := addr.MachineAddress()
-		addressesToVerify[address] = fdbv1beta2.None{}
-
-		if !useLocalities {
-			useLocalities = strings.HasPrefix(address, fdbv1beta2.FDBLocalityExclusionPrefix)
-		}
+		addressesToVerify[addr.MachineAddress()] = fdbv1beta2.None{}
 	}
 
 	// Check in the status output which processes are already marked for exclusion in the cluster
 	for _, process := range status.Cluster.Processes {
-		var address string
-
-		if useLocalities {
-			address = fmt.Sprintf("%s:%s", fdbv1beta2.FDBLocalityExclusionPrefix, process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey])
-		} else {
-			address = process.Address.MachineAddress()
+		processAddresses := []string{
+			fmt.Sprintf("%s:%s", fdbv1beta2.FDBLocalityExclusionPrefix, process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]),
+			process.Address.MachineAddress(),
 		}
 
-		if _, ok := addressesToVerify[address]; !ok {
-			continue
-		}
+		// We have to verify the IP address and the locality of this process, if neither should be verified we skip any
+		// further checks.
+		for _, address := range processAddresses {
+			if _, ok := addressesToVerify[address]; !ok {
+				continue
+			}
 
-		visitedAddresses[address]++
-		if !process.Excluded {
-			notExcludedAddresses[address] = fdbv1beta2.None{}
-			continue
-		}
+			visitedAddresses[address]++
+			if !process.Excluded {
+				notExcludedAddresses[address] = fdbv1beta2.None{}
+				continue
+			}
 
-		if len(process.Roles) == 0 {
-			logger.Info("found fully excluded process without any roles", "process", process)
-			fullyExcludedAddresses[address]++
+			if len(process.Roles) == 0 {
+				logger.Info("found fully excluded process without any roles", "process", process)
+				fullyExcludedAddresses[address]++
+			}
 		}
 	}
 
