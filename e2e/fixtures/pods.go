@@ -75,9 +75,13 @@ func RandomPickOnePod(input []corev1.Pod) corev1.Pod {
 
 // SetFinalizerForPod will set the provided finalizer slice for the Pods
 func (factory *Factory) SetFinalizerForPod(pod *corev1.Pod, finalizers []string) {
+	if pod == nil {
+		return
+	}
+
 	controllerClient := factory.GetControllerRuntimeClient()
 	gomega.Eventually(func(g gomega.Gomega) bool {
-		var fetchedPod *corev1.Pod
+		fetchedPod := &corev1.Pod{}
 		g.Expect(controllerClient.Get(context.Background(), client.ObjectKeyFromObject(pod), fetchedPod)).NotTo(gomega.HaveOccurred())
 
 		if !equality.Semantic.DeepEqual(finalizers, fetchedPod.Finalizers) {
