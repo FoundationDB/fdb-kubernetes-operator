@@ -233,6 +233,13 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 	DescribeTable(
 		"with locality based exclusions",
 		func(beforeVersion string, targetVersion string) {
+			fdbVersion, err := fdbv1beta2.ParseFdbVersion(beforeVersion)
+			Expect(err).NotTo(HaveOccurred())
+
+			if !fdbVersion.SupportsLocalityBasedExclusions() {
+				Skip("provided FDB version: " + beforeVersion + " doesn't support locality based exclusions")
+			}
+
 			performUpgrade(testConfig{
 				beforeVersion: beforeVersion,
 				targetVersion: targetVersion,
