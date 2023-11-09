@@ -21,8 +21,10 @@
 package fixtures
 
 import (
-	ctx "context"
+	"context"
 	"fmt"
+	"github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"log"
 	"math/rand"
 	"time"
@@ -72,10 +74,25 @@ func RandomPickOnePod(input []corev1.Pod) corev1.Pod {
 }
 
 // SetFinalizerForPod will set the provided finalizer slice for the Pods
-func (factory *Factory) SetFinalizerForPod(pod *corev1.Pod, finalizers []string) error {
-	patch := client.MergeFrom(pod.DeepCopy())
-	pod.SetFinalizers(finalizers)
-	return factory.GetControllerRuntimeClient().Patch(ctx.Background(), pod, patch)
+func (factory *Factory) SetFinalizerForPod(pod *corev1.Pod, finalizers []string) {
+	if pod == nil {
+		return
+	}
+
+	controllerClient := factory.GetControllerRuntimeClient()
+	gomega.Eventually(func(g gomega.Gomega) bool {
+		fetchedPod := &corev1.Pod{}
+		g.Expect(controllerClient.Get(context.Background(), client.ObjectKeyFromObject(pod), fetchedPod)).NotTo(gomega.HaveOccurred())
+
+		if !equality.Semantic.DeepEqual(finalizers, fetchedPod.Finalizers) {
+			fetchedPod.SetFinalizers(finalizers)
+			g.Expect(controllerClient.Update(context.Background(), fetchedPod)).NotTo(gomega.HaveOccurred())
+		}
+
+		g.Expect(fetchedPod.Finalizers).To(gomega.ConsistOf(finalizers))
+
+		return true
+	}).WithTimeout(1 * time.Minute).WithPolling(1 * time.Second).Should(gomega.BeTrue())
 }
 
 // GetProcessClass returns the Process class of this Pod.

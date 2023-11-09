@@ -541,7 +541,7 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 			processGroupMarkedForRemoval := fixtures.GetProcessGroupID(podMarkedForRemoval)
 			log.Println("picked Pod", podMarkedForRemoval.Name, "to be marked for removal")
 			// Set a finalizer for this Pod to make sure the Pod object cannot be garbage collected
-			Expect(factory.SetFinalizerForPod(&podMarkedForRemoval, []string{"foundationdb.org/test"})).ShouldNot(HaveOccurred())
+			factory.SetFinalizerForPod(&podMarkedForRemoval, []string{"foundationdb.org/test"})
 			// Don't wait for reconciliation as the cluster will never reconcile.
 			fdbCluster.ReplacePod(podMarkedForRemoval, false)
 			// Make sure the process group is marked for removal
@@ -570,7 +570,7 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 			Expect(fdbCluster.WaitForReconciliation(fixtures.SoftReconcileOption(true))).NotTo(HaveOccurred())
 
 			// Make sure we remove the finalizer to not block the clean up.
-			Expect(factory.SetFinalizerForPod(&podMarkedForRemoval, []string{})).ShouldNot(HaveOccurred())
+			factory.SetFinalizerForPod(&podMarkedForRemoval, []string{})
 
 			// Make sure the cluster has no data loss.
 			fdbCluster.EnsureTeamTrackersHaveMinReplicas()
