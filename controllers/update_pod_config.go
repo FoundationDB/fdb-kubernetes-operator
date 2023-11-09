@@ -71,6 +71,11 @@ func (updatePodConfig) reconcile(ctx context.Context, r *FoundationDBClusterReco
 			continue
 		}
 
+		if !pod.DeletionTimestamp.IsZero() {
+			logger.V(1).Info("ignore Pod that has a deletion timestamp for config updates")
+			continue
+		}
+
 		serverPerPod, err := internal.GetServersPerPodForPod(pod, processGroup.ProcessClass)
 		if err != nil {
 			curLogger.Error(err, "Error when receiving storage server per Pod")
