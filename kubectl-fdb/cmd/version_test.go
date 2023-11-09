@@ -162,4 +162,34 @@ var _ = Describe("[plugin] version command", func() {
 				}),
 		)
 	})
+	When("running the version command with old version", func() {
+		var outBuffer bytes.Buffer
+		var errBuffer bytes.Buffer
+		var inBuffer bytes.Buffer
+
+		BeforeEach(func() {
+			pluginVersion = "1.0.0"
+			latestPluginVersion = "1.28.0"
+			// We use these buffers to check the input/output
+			outBuffer = bytes.Buffer{}
+			errBuffer = bytes.Buffer{}
+			inBuffer = bytes.Buffer{}
+
+			rootCmd := NewRootCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer})
+
+			args := []string{"version", "--client-only"}
+			rootCmd.SetArgs(args)
+
+			err := rootCmd.Execute()
+			Expect(err).NotTo(HaveOccurred())
+		})
+		AfterEach(func() {
+			versionMessage = ""
+		})
+
+		It("should print out the client version", func() {
+			Expect(versionMessage).To(ContainSubstring(
+				"Your kubectl-fdb plugin is not up-to-date, please install latest version and try again!"))
+		})
+	})
 })

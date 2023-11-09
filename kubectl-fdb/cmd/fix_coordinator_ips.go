@@ -49,6 +49,9 @@ func newFixCoordinatorIPsCmd(streams genericclioptions.IOStreams) *cobra.Command
 		Short: "Update the coordinator IPs in the cluster file",
 		Long:  "Update the coordinator IPs in the cluster file",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if skipCommand {
+				return nil
+			}
 			clusterName, err := cmd.Flags().GetString("fdb-cluster")
 			if err != nil {
 				return err

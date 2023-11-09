@@ -44,6 +44,9 @@ func newExclusionStatusCmd(streams genericclioptions.IOStreams) *cobra.Command {
 		Args:  cobra.ExactValidArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ignoreFullyExcluded, err := cmd.Flags().GetBool("ignore-fully-excluded")
+			if skipCommand {
+				return nil
+			}
 			if err != nil {
 				return err
 			}

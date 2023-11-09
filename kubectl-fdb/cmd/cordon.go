@@ -43,6 +43,9 @@ func newCordonCmd(streams genericclioptions.IOStreams) *cobra.Command {
 		Short: "Adds all process groups (or multiple) that run on a node to the remove list of the given cluster",
 		Long:  "Adds all process groups (or multiple) that run on a node to the remove list of the given cluster",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if skipCommand {
+				return nil
+			}
 			wait, err := cmd.Root().Flags().GetBool("wait")
 			if err != nil {
 				return err

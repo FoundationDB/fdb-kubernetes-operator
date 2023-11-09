@@ -37,6 +37,9 @@ func newConfigurationCmd(streams genericclioptions.IOStreams) *cobra.Command {
 		Short: "Get the configuration string based on the database configuration of the cluster spec.",
 		Long:  "Get the configuration string based on the database configuration of the cluster spec.",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if skipCommand {
+				return nil
+			}
 			wait, err := cmd.Root().Flags().GetBool("wait")
 			if err != nil {
 				return err

@@ -39,6 +39,9 @@ func newRemoveProcessGroupCmd(streams genericclioptions.IOStreams) *cobra.Comman
 		Short: "Adds a process group (or multiple) to the remove list of the given cluster",
 		Long:  "Adds a process group (or multiple) to the remove list field of the given cluster",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if skipCommand {
+				return nil
+			}
 			wait, err := cmd.Root().Flags().GetBool("wait")
 			if err != nil {
 				return err

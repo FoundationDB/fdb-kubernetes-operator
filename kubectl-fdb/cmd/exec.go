@@ -48,6 +48,9 @@ func newExecCmd(streams genericclioptions.IOStreams) *cobra.Command {
 		Short: "Runs a command on a container in an FDB cluster",
 		Long:  "Runs a command on a container in an FDB cluster",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if skipCommand {
+				return nil
+			}
 			clusterName, err := cmd.Flags().GetString("fdb-cluster")
 			if err != nil {
 				return err

@@ -38,6 +38,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var skipCommand = false
+var latestPluginVersion = getLatestPluginVersion()
+
 // fdbBOptions provides information required to run different
 // actions on FDB
 type fdbBOptions struct {
@@ -68,6 +71,7 @@ func NewRootCmd(streams genericclioptions.IOStreams) *cobra.Command {
 			return cmd.Help()
 		},
 	}
+	skipCommand = !usingLatestPluginVersion()
 	cmd.SetOut(o.Out)
 	cmd.SetErr(o.ErrOut)
 	cmd.SetIn(o.In)
@@ -144,4 +148,20 @@ func printStatement(cmd *cobra.Command, line string, mesType messageType) {
 	color.Set(color.FgGreen)
 	cmd.Printf("✔ %s\n", line)
 	color.Unset()
+}
+
+// will check plugin version and won't let any interaction happen with cluster, if it's not latest release version
+func usingLatestPluginVersion() bool {
+	if latestPluginVersion == "" {
+		return false
+	}
+	isLatest := strings.Compare(strings.ToLower(pluginVersion), "latest") == 0 || strings.Compare(pluginVersion, latestPluginVersion) >= 0
+	if !isLatest {
+		versionMessage = "Your kubectl-fdb plugin is not up-to-date, please install latest version and try again!\n" +
+			"Your version:[" + pluginVersion + "] vs. latest release version:[" + latestPluginVersion + "]\n" +
+			"Installation instructions can be found here: https://github.com/bktsh/fdb-kubernetes-operator/blob/main/kubectl-fdb/Readme.md"
+		fmt.Println(versionMessage)
+		return false
+	}
+	return true
 }

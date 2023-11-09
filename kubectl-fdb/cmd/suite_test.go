@@ -32,6 +32,7 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = BeforeEach(func() {
+	latestPluginVersion = pluginVersion
 	cluster = generateClusterStruct(clusterName, namespace)
 })
 

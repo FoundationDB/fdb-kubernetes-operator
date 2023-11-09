@@ -40,6 +40,9 @@ func newBuggifyCrashLoop(streams genericclioptions.IOStreams) *cobra.Command {
 		Short: "Updates the crash-loop list of the given cluster",
 		Long:  "Updates the crash-loop list of the given cluster",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if skipCommand {
+				return nil
+			}
 			wait, err := cmd.Root().Flags().GetBool("wait")
 			if err != nil {
 				return err

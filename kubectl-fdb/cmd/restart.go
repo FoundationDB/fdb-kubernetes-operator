@@ -40,6 +40,9 @@ func newRestartCmd(streams genericclioptions.IOStreams) *cobra.Command {
 		Short: "Restarts process(es) in a given FDB cluster.",
 		Long:  "Restarts process(es) in a given FDB cluster.",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if skipCommand {
+				return nil
+			}
 			wait, err := cmd.Root().Flags().GetBool("wait")
 			if err != nil {
 				return err
