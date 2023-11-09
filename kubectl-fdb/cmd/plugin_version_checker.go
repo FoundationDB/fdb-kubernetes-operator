@@ -15,7 +15,7 @@ import (
 const KubectlFbReleaseURL = "https://api.github.com/repos/FoundationDB/fdb-kubernetes-operator/releases/latest"
 const localTempVersionFileName = "latest"
 
-// PluginVersionDetails Contains [partial] plugin version details from github
+// PluginVersionDetails Contains [partial] plugin version details from GitHub
 type PluginVersionDetails struct {
 	ID      int64  `json:"id"`
 	Version string `json:"tag_name"`
@@ -99,7 +99,7 @@ func readVersionFromGitHub() (string, error) {
 	req, _ := retryablehttp.NewRequest(http.MethodGet, KubectlFbReleaseURL, nil)
 	resp, err := retryClient.Do(req)
 	if err != nil || resp == nil {
-		fmt.Println("Failed to fetch kubectl-fdb version from github")
+		fmt.Println("Failed to fetch kubectl-fdb version from GitHub")
 		return "", err
 	}
 	body, err := io.ReadAll(resp.Body)
@@ -108,17 +108,17 @@ func readVersionFromGitHub() (string, error) {
 	}
 
 	if err != nil {
-		fmt.Println("Error in version")
+		fmt.Println("Error in reading version from GitHub")
 		return "", err
 	}
 	var result = PluginVersionDetails{}
 	if !strings.Contains(strings.ToUpper(resp.Status), "OK") {
-		fmt.Println("Failed to get latest version info from github")
+		fmt.Println("Failed to get parse version info from GitHub response")
 		return "", err
 	}
 	err = json.Unmarshal(body, &result)
 	if err != nil {
-		fmt.Println("Failed to read version from github response\n", err)
+		fmt.Println("Failed to read version from GitHub response\n", err)
 		return "", err
 	}
 	//removing 'v' from beginning of release version
