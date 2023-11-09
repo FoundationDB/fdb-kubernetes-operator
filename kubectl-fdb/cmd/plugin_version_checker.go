@@ -12,8 +12,11 @@ import (
 	"time"
 )
 
+// KubectlFbReleaseURL is the public GirHub url we read the latest version
 const KubectlFbReleaseURL = "https://api.github.com/repos/FoundationDB/fdb-kubernetes-operator/releases/latest"
-const localTempVersionFileName = "latest"
+
+// LocalTempVersionFileName is where we cache plugin version for 24 hours, so we don't call GitHub for every single command(also rate-limit issue on GitHub api calls)
+const LocalTempVersionFileName = "latest"
 
 // PluginVersionDetails Contains [partial] plugin version details from GitHub
 type PluginVersionDetails struct {
@@ -25,7 +28,7 @@ type PluginVersionDetails struct {
 // It reads the latest fdb plugin version from local temp file,
 // if not exists, gets it from GitHub and store it locally and then returns it
 func getLatestPluginVersion() string {
-	fileName := filepath.Join(os.TempDir(), localTempVersionFileName)
+	fileName := filepath.Join(os.TempDir(), LocalTempVersionFileName)
 	_, err := os.Stat(fileName)
 	if os.IsNotExist(err) {
 		return updateLocalVersion(fileName)
@@ -33,10 +36,9 @@ func getLatestPluginVersion() string {
 	versionFileIsRecent := isVersionFileCreatedToday(fileName)
 	if versionFileIsRecent {
 		return readVersionFromLocalFile(fileName)
-	} else {
-		os.Remove(fileName)
-		return updateLocalVersion(fileName)
 	}
+	_ = os.Remove(fileName)
+	return updateLocalVersion(fileName)
 }
 
 // read version value from local temp file
@@ -71,10 +73,7 @@ func writeVersionToLocalTempFile(fileName string, version string) bool {
 	}
 	defer file.Close()
 	_, err = file.WriteString(version)
-	if err != nil {
-		return false
-	}
-	return true
+	return err == nil
 }
 
 // read version from HitHub and update local version file
@@ -102,10 +101,11 @@ func readVersionFromGitHub() (string, error) {
 		fmt.Println("Failed to fetch kubectl-fdb version from GitHub")
 		return "", err
 	}
-	body, err := io.ReadAll(resp.Body)
-	if resp != nil {
-		defer resp.Body.Close()
+	if resp == nil {
+		return "", nil
 	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
 
 	if err != nil {
 		fmt.Println("Error in reading version from GitHub")
