@@ -63,11 +63,8 @@ var _ = Describe("[mock client]", func() {
 	var mockClient *MockClient
 
 	BeforeEach(func() {
-		err := scheme.AddToScheme(scheme.Scheme)
-		Expect(err).NotTo(HaveOccurred())
-		err = fdbv1beta2.AddToScheme(scheme.Scheme)
-		Expect(err).NotTo(HaveOccurred())
-
+		Expect(scheme.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
+		Expect(fdbv1beta2.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
 		mockClient = NewMockClient(scheme.Scheme)
 	})
 
@@ -85,6 +82,24 @@ var _ = Describe("[mock client]", func() {
 			Expect(len(podCopy.Spec.Containers)).To(Equal(1))
 			Expect(podCopy.Spec.Containers[0].Name).To(Equal("test-container"))
 			Expect(podCopy.ObjectMeta.Generation).To(Equal(int64(1)))
+		})
+	})
+
+	When("creating and getting an object with a custom creationTimestamp", func() {
+		It("should create and get the object", func() {
+			pod := createDummyPod()
+			expectedCreationTime := time.Now().Add(-15 * time.Minute)
+			pod.CreationTimestamp.Time = expectedCreationTime
+			Expect(mockClient.Create(context.TODO(), pod)).NotTo(HaveOccurred())
+			Expect(pod.ObjectMeta.Generation).To(Equal(int64(1)))
+
+			podCopy := &corev1.Pod{}
+			Expect(mockClient.Get(context.TODO(), types.NamespacedName{Namespace: "default", Name: "pod1"}, podCopy)).NotTo(HaveOccurred())
+			Expect(podCopy.Name).To(Equal("pod1"))
+			Expect(len(podCopy.Spec.Containers)).To(Equal(1))
+			Expect(podCopy.Spec.Containers[0].Name).To(Equal("test-container"))
+			Expect(podCopy.ObjectMeta.Generation).To(Equal(int64(1)))
+			Expect(podCopy.ObjectMeta.CreationTimestamp.Time.Minute()).To(Equal(expectedCreationTime.Minute()))
 		})
 	})
 
