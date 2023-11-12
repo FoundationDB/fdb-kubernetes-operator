@@ -1039,3 +1039,6 @@ func (client *AdminClient) GetWorstDurabilityLag() (fdbv1beta2.FoundationDBStatu
 // WithValues will update the logger used by the current AdminClient to contain the provided key value pairs. The provided
 // arguments must be even.
 func (client *AdminClient) WithValues(_ ...interface{}) {}
+
+// SetTimeout will overwrite the default timeout for interacting the FDB cluster.
+func (client *AdminClient) SetTimeout(_ time.Duration) {}

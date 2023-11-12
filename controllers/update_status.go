@@ -99,7 +99,7 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 	// about the current database configuration, leading to a wrong signal that the database configuration must be changed as
 	// the configuration will be overwritten with the default values.
 	if databaseStatus.Client.DatabaseStatus.Available {
-		clusterStatus.DatabaseConfiguration = databaseStatus.Cluster.DatabaseConfiguration.NormalizeConfigurationWithSeparatedProxies(cluster.Spec.Version)
+		clusterStatus.DatabaseConfiguration = databaseStatus.Cluster.DatabaseConfiguration.NormalizeConfigurationWithSeparatedProxies(cluster.Spec.Version, cluster.Spec.DatabaseConfiguration.AreSeparatedProxiesConfigured())
 		// Removing excluded servers as we don't want them during comparison.
 		clusterStatus.DatabaseConfiguration.ExcludedServers = nil
 		cluster.ClearMissingVersionFlags(&clusterStatus.DatabaseConfiguration)
@@ -316,6 +316,12 @@ func tryConnectionOptions(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCl
 		adminClient, clientErr := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
 		if clientErr != nil {
 			return originalConnectionString, clientErr
+		}
+
+		// If the cluster is not yet configured, we can reduce the timeout to make sure the initial reconcile steps
+		// are faster.
+		if !cluster.Status.Configured {
+			adminClient.SetTimeout(10 * time.Second)
 		}
 
 		var activeConnectionString string
