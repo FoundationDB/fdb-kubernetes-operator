@@ -234,12 +234,12 @@ func (configuration *DatabaseConfiguration) CountUniqueDataCenters() int {
 // This will fill in defaults of -1 for some fields that have a default
 // of 0, and will ensure that the region configuration is ordered
 // consistently.
-func (configuration DatabaseConfiguration) NormalizeConfigurationWithSeparatedProxies(version string) DatabaseConfiguration {
+func (configuration DatabaseConfiguration) NormalizeConfigurationWithSeparatedProxies(version string, areSeparatedProxiesConfigured bool) DatabaseConfiguration {
 	result := configuration.NormalizeConfiguration()
 
 	parsedVersion, _ := ParseFdbVersion(version)
 	if parsedVersion.HasSeparatedProxies() {
-		if !configuration.AreSeparatedProxiesConfigured() {
+		if !areSeparatedProxiesConfigured {
 			result.GrvProxies = 0
 			result.CommitProxies = 0
 		} else {

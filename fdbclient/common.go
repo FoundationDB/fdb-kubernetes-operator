@@ -40,7 +40,7 @@ import (
 var DefaultCLITimeout = 10 * time.Second
 
 // MaxCliTimeout is the maximum CLI timeout that will be used for requests that might be slower to respond.
-var MaxCliTimeout = 60 * time.Second
+var MaxCliTimeout = 40 * time.Second
 
 const (
 	defaultTransactionTimeout = 5 * time.Second

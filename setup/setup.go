@@ -91,7 +91,7 @@ func (o *Options) BindFlags(fs *flag.FlagSet) {
 	)
 	fs.StringVar(&o.LogFile, "log-file", "", "The path to a file to write logs to.")
 	fs.IntVar(&o.CliTimeout, "cli-timeout", 10, "The timeout to use for CLI commands in seconds.")
-	fs.IntVar(&o.MaxCliTimeout, "max-cli-timeout", 60, "The maximum timeout to use for CLI commands in seconds. This timeout is used for CLI requests that are known to be potentially slow like get status or exclude.")
+	fs.IntVar(&o.MaxCliTimeout, "max-cli-timeout", 40, "The maximum timeout to use for CLI commands in seconds. This timeout is used for CLI requests that are known to be potentially slow like get status or exclude.")
 	fs.IntVar(&o.MaxConcurrentReconciles, "max-concurrent-reconciles", 1, "Defines the maximum number of concurrent reconciles for all controllers.")
 	fs.BoolVar(&o.CleanUpOldLogFile, "cleanup-old-cli-logs", true, "Defines if the operator should delete old fdbcli log files.")
 	fs.DurationVar(&o.LogFileMinAge, "log-file-min-age", 5*time.Minute, "Defines the minimum age of fdbcli log files before removing when \"--cleanup-old-cli-logs\" is set.")

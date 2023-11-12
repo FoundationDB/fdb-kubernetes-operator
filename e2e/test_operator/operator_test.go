@@ -1697,4 +1697,48 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			}).WithTimeout(10 * time.Minute).WithPolling(5 * time.Second).Should(BeNumerically("==", 1))
 		})
 	})
+
+	When("using proxies instead of grv and commit proxies", func() {
+		var originalRoleCounts fdbv1beta2.RoleCounts
+
+		BeforeEach(func() {
+			spec := fdbCluster.GetCluster().Spec.DeepCopy()
+			originalRoleCounts = spec.DatabaseConfiguration.RoleCounts
+			spec.DatabaseConfiguration.RoleCounts.Proxies = spec.DatabaseConfiguration.RoleCounts.GrvProxies + spec.DatabaseConfiguration.RoleCounts.CommitProxies
+			// Reset the more specific GRV and Commit proxy count.
+			spec.DatabaseConfiguration.RoleCounts.GrvProxies = 0
+			spec.DatabaseConfiguration.RoleCounts.CommitProxies = 0
+
+			fmt.Println("Original:", fixtures.ToJSON(originalRoleCounts), "new roleCounts:", fixtures.ToJSON(spec.DatabaseConfiguration.RoleCounts))
+			fdbCluster.UpdateClusterSpecWithSpec(spec)
+			Expect(fdbCluster.WaitForReconciliation()).NotTo(HaveOccurred())
+		})
+
+		AfterEach(func() {
+			spec := fdbCluster.GetCluster().Spec.DeepCopy()
+			spec.DatabaseConfiguration.RoleCounts = originalRoleCounts
+			fdbCluster.UpdateClusterSpecWithSpec(spec)
+			Expect(fdbCluster.WaitForReconciliation()).NotTo(HaveOccurred())
+		})
+
+		It("should configure the database to run with GRV and commit proxies but keep the proxies in the status field of the FoundationDB resource", func() {
+			// Make sure the FoundationDB configured GRV and commit proxies.
+			status := fdbCluster.GetStatus()
+			Expect(status.Cluster.DatabaseConfiguration.RoleCounts.CommitProxies).To(BeNumerically(">", 0))
+			Expect(status.Cluster.DatabaseConfiguration.RoleCounts.GrvProxies).To(BeNumerically(">", 0))
+			Expect(status.Cluster.DatabaseConfiguration.RoleCounts.Proxies).NotTo(BeZero())
+
+			fmt.Println("Status configuration:", fixtures.ToJSON(status.Cluster.DatabaseConfiguration))
+			// Verify the FoundationDB Cluster resource
+			cluster := fdbCluster.GetCluster()
+			// Make sure that the spec of the FoundationDB resource only has proxies defined.
+			Expect(cluster.Spec.DatabaseConfiguration.RoleCounts.GrvProxies).To(BeZero())
+			Expect(cluster.Spec.DatabaseConfiguration.RoleCounts.CommitProxies).To(BeZero())
+			Expect(cluster.Spec.DatabaseConfiguration.RoleCounts.Proxies).NotTo(BeZero())
+			// Make sure that the status of the FoundationDB resource only has proxies defined.
+			Expect(cluster.Status.DatabaseConfiguration.RoleCounts.GrvProxies).To(BeZero())
+			Expect(cluster.Status.DatabaseConfiguration.RoleCounts.CommitProxies).To(BeZero())
+			Expect(cluster.Spec.DatabaseConfiguration.RoleCounts.Proxies).NotTo(BeZero())
+		})
+	})
 })

@@ -22,6 +22,7 @@ package fdbadminclient
 
 import (
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	"time"
 )
 
 // AdminClient describes an interface for running administrative commands on a
@@ -115,4 +116,7 @@ type AdminClient interface {
 	// WithValues will update the logger used by the current AdminClient to contain the provided key value pairs. The provided
 	// arguments must be even.
 	WithValues(keysAndValues ...interface{})
+
+	// SetTimeout will overwrite the default timeout for interacting the FDB cluster.
+	SetTimeout(timeout time.Duration)
 }
