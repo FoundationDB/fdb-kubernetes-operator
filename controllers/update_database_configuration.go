@@ -65,7 +65,7 @@ func (u updateDatabaseConfiguration) reconcile(ctx context.Context, r *Foundatio
 
 	desiredConfiguration := cluster.DesiredDatabaseConfiguration()
 	desiredConfiguration.RoleCounts.Storage = 0
-	currentConfiguration := status.Cluster.DatabaseConfiguration.NormalizeConfigurationWithSeparatedProxies(cluster.Spec.Version)
+	currentConfiguration := status.Cluster.DatabaseConfiguration.NormalizeConfigurationWithSeparatedProxies(cluster.Spec.Version, cluster.Spec.DatabaseConfiguration.AreSeparatedProxiesConfigured())
 	// We have to reset the excluded servers here otherwise we will trigger a reconfiguration if one or more servers
 	// are excluded.
 	currentConfiguration.ExcludedServers = nil

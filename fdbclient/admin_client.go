@@ -89,6 +89,9 @@ type cliAdminClient struct {
 	// fdbLibClient is an interface to interact with a FDB cluster over the FDB client libraries. In the real fdb lib client
 	// we will issue the actual requests against FDB. In the mock runner we will return predefined output.
 	fdbLibClient fdbLibClient
+
+	// timeout defines the timeout that should be used for interacting with FDB.
+	timeout time.Duration
 }
 
 // NewCliAdminClient generates an Admin client for a cluster
@@ -275,7 +278,7 @@ func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 func (client *cliAdminClient) getStatusFromCli() (*fdbv1beta2.FoundationDBStatus, error) {
 	// Always use the max timeout here. Otherwise we will retry multiple times with an increasing timeout. As the
 	// timeout is only the upper bound using directly the max timeout reduces the calls to a single call.
-	output, err := client.runCommand(cliCommand{command: "status json", timeout: MaxCliTimeout})
+	output, err := client.runCommand(cliCommand{command: "status json", timeout: client.getTimeout()})
 	if err != nil {
 		return nil, err
 	}
@@ -313,8 +316,9 @@ func (client *cliAdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
+	startTime := time.Now()
 	// This will call directly the database and fetch the status information from the system key space.
-	status, err := getStatusFromDB(client.fdbLibClient, client.log, MaxCliTimeout)
+	status, err := getStatusFromDB(client.fdbLibClient, client.log, client.getTimeout())
 	// There is a limitation in the multi version client if the cluster is only partially upgraded e.g. because not
 	// all fdbserver processes are restarted, then the multi version client sometimes picks the wrong version
 	// to connect to the cluster. This will result in an empty status only reporting the unreachable coordinators.
@@ -326,7 +330,7 @@ func (client *cliAdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error
 		status, err = client.getStatus()
 	}
 
-	client.log.V(1).Info("Completed GetStatus() call", "error", err, "status", status)
+	client.log.V(1).Info("Completed GetStatus() call", "error", err, "status", status, "duration", time.Since(startTime).String())
 
 	return status, err
 }
@@ -348,7 +352,7 @@ func (client *cliAdminClient) ConfigureDatabase(configuration fdbv1beta2.Databas
 
 // GetMaintenanceZone gets current maintenance zone, if any. Returns empty string if maintenance mode is off
 func (client *cliAdminClient) GetMaintenanceZone() (string, error) {
-	mode, err := client.fdbLibClient.getValueFromDBUsingKey("\xff/maintenance", DefaultCLITimeout)
+	mode, err := client.fdbLibClient.getValueFromDBUsingKey("\xff/maintenance", client.getTimeout())
 	if err != nil {
 		return "", err
 	}
@@ -394,7 +398,7 @@ func (client *cliAdminClient) ExcludeProcesses(addresses []fdbv1beta2.ProcessAdd
 
 	excludeCommand.WriteString(fdbv1beta2.ProcessAddressesString(addresses, " "))
 
-	_, err = client.runCommand(cliCommand{command: excludeCommand.String(), timeout: MaxCliTimeout})
+	_, err = client.runCommand(cliCommand{command: excludeCommand.String(), timeout: client.getTimeout()})
 
 	return err
 }
@@ -445,7 +449,7 @@ func (client *cliAdminClient) KillProcesses(addresses []fdbv1beta2.ProcessAddres
 		fdbv1beta2.ProcessAddressesStringWithoutFlags(addresses, " "),
 	)
 	// Run the kill command once with the max timeout to reduce the risk of multiple recoveries happening.
-	_, err := client.runCommand(cliCommand{command: killCommand, timeout: MaxCliTimeout})
+	_, err := client.runCommand(cliCommand{command: killCommand, timeout: client.getTimeout()})
 
 	return err
 }
@@ -488,7 +492,7 @@ func cleanConnectionStringOutput(input string) string {
 func (client *cliAdminClient) GetConnectionString() (string, error) {
 	// This will call directly the database and fetch the connection string
 	// from the system key space.
-	outputBytes, err := getConnectionStringFromDB(client.fdbLibClient, MaxCliTimeout)
+	outputBytes, err := getConnectionStringFromDB(client.fdbLibClient, client.getTimeout())
 
 	if err != nil {
 		return "", err
@@ -693,4 +697,18 @@ func (client *cliAdminClient) WithValues(keysAndValues ...interface{}) {
 		return
 	}
 	cmdRunner.log = newLogger
+}
+
+// SetTimeout will overwrite the default timeout for interacting the FDB cluster.
+func (client *cliAdminClient) SetTimeout(timeout time.Duration) {
+	client.timeout = timeout
+}
+
+// getTimeout will return the timeout that is specified for the admin client or otherwise the MaxCliTimeout.
+func (client *cliAdminClient) getTimeout() time.Duration {
+	if client.timeout == 0 {
+		return MaxCliTimeout
+	}
+
+	return client.timeout
 }
