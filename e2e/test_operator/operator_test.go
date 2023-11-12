@@ -1732,7 +1732,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			// Make sure that the status of the FoundationDB resource only has proxies defined.
 			Expect(cluster.Status.DatabaseConfiguration.RoleCounts.GrvProxies).To(BeZero())
 			Expect(cluster.Status.DatabaseConfiguration.RoleCounts.CommitProxies).To(BeZero())
-			Expect(cluster.Spec.DatabaseConfiguration.RoleCounts.Proxies).NotTo(BeZero())
+			Expect(cluster.Status.DatabaseConfiguration.RoleCounts.Proxies).NotTo(BeZero())
 		})
 	})
 })
