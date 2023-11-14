@@ -41,7 +41,7 @@ func getLatestPluginVersion() string {
 	return updateLocalVersion(fileName)
 }
 
-// read version value from local temp file
+// readVersionFromLocalFile reads the version value from the local temp file
 func readVersionFromLocalFile(fileName string) string {
 	file, _ := os.OpenFile(fileName, os.O_RDONLY, 0644)
 	defer file.Close()
