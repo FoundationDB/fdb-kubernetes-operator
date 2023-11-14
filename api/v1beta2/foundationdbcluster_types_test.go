@@ -3499,6 +3499,14 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Expect(cluster.ShouldUseLocks()).To(BeTrue())
 
 			cluster.Spec.FaultDomain.ZoneCount = 0
+			Expect(cluster.ShouldUseLocks()).To(BeFalse())
+
+			cluster.Spec.DatabaseConfiguration.RedundancyMode = RedundancyModeThreeDataHall
+			Expect(cluster.ShouldUseLocks()).To(BeTrue())
+
+			cluster.Spec.DatabaseConfiguration.RedundancyMode = RedundancyModeDouble
+			Expect(cluster.ShouldUseLocks()).To(BeFalse())
+
 			cluster.Spec.DatabaseConfiguration.Regions = []Region{
 				{},
 				{},

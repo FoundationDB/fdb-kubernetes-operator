@@ -1916,7 +1916,8 @@ func (cluster *FoundationDBCluster) ShouldUseLocks() bool {
 		return !*disabled
 	}
 
-	return cluster.Spec.FaultDomain.ZoneCount > 1 || len(cluster.Spec.DatabaseConfiguration.Regions) > 1
+	return cluster.Spec.FaultDomain.ZoneCount > 1 || len(cluster.Spec.DatabaseConfiguration.Regions) > 1 ||
+		cluster.Spec.DatabaseConfiguration.RedundancyMode == RedundancyModeThreeDataHall
 }
 
 // GetLockPrefix gets the prefix for the keys where we store locking
