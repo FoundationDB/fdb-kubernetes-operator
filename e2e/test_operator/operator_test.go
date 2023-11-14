@@ -374,7 +374,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		})
 
 		BeforeEach(func() {
-			useLocalitiesForExclusion = pointer.BoolDeref(fdbCluster.GetCluster().Spec.AutomationOptions.UseLocalitiesForExclusion, false)
+			useLocalitiesForExclusion = fdbCluster.GetCluster().UseLocalitiesForExclusion()
 		})
 
 		AfterEach(func() {
@@ -383,6 +383,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			spec := fdbCluster.GetCluster().Spec.DeepCopy()
 			spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(useLocalitiesForExclusion)
 			fdbCluster.UpdateClusterSpecWithSpec(spec)
+			Expect(fdbCluster.GetCluster().UseLocalitiesForExclusion()).To(Equal(useLocalitiesForExclusion))
 		})
 
 		When("IP addresses are used for exclusion", func() {
@@ -399,9 +400,19 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 		When("localities are used for exclusion", func() {
 			BeforeEach(func() {
-				spec := fdbCluster.GetCluster().Spec.DeepCopy()
+				cluster := fdbCluster.GetCluster()
+
+				fdbVersion, err := fdbv1beta2.ParseFdbVersion(cluster.GetRunningVersion())
+				Expect(err).NotTo(HaveOccurred())
+
+				if !fdbVersion.SupportsLocalityBasedExclusions() {
+					Skip("provided FDB version: " + cluster.GetRunningVersion() + " doesn't support locality based exclusions")
+				}
+
+				spec := cluster.Spec.DeepCopy()
 				spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(true)
 				fdbCluster.UpdateClusterSpecWithSpec(spec)
+				Expect(fdbCluster.GetCluster().UseLocalitiesForExclusion()).To(BeTrue())
 			})
 
 			It("should remove the targeted Pod", func() {
