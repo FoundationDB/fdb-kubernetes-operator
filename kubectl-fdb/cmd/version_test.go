@@ -169,7 +169,6 @@ var _ = Describe("[plugin] version command", func() {
 
 		BeforeEach(func() {
 			pluginVersion = "1.0.0"
-			latestPluginVersion = "1.28.0"
 			// We use these buffers to check the input/output
 			outBuffer = bytes.Buffer{}
 			errBuffer = bytes.Buffer{}
@@ -184,11 +183,11 @@ var _ = Describe("[plugin] version command", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 		AfterEach(func() {
-			versionMessage = ""
+			PluginVersionChecker = &MockVersionChecker{}
 		})
 
 		It("should print out the client version", func() {
-			Expect(versionMessage).To(ContainSubstring(
+			Expect(outBuffer.String()).To(ContainSubstring(
 				"Your kubectl-fdb plugin is not up-to-date, please install latest version and try again!"))
 		})
 	})

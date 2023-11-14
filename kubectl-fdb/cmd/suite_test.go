@@ -19,6 +19,15 @@ var cluster *fdbv1beta2.FoundationDBCluster
 var clusterName = "test"
 var namespace = "test"
 
+// MockVersionChecker will help to mock the calls to GitHub API to get 'latest' version in tests
+type MockVersionChecker struct {
+	VersionChecker
+}
+
+func (p *MockVersionChecker) getLatestPluginVersion() (string, error) {
+	return "latest", nil
+}
+
 func TestCmd(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "FDB plugin")
@@ -32,7 +41,7 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = BeforeEach(func() {
-	latestPluginVersion = pluginVersion
+	PluginVersionChecker = &MockVersionChecker{}
 	cluster = generateClusterStruct(clusterName, namespace)
 })
 

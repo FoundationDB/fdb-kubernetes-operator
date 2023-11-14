@@ -51,3 +51,6 @@ Run `kubectl fdb help` to get the latest help.
 We have a list of [planned operations](https://github.com/FoundationDB/fdb-kubernetes-operator/issues?q=is%3Aissue+is%3Aopen+label%3Aplugin)
 that we want to implement.
 Raise an issue if you miss a specific command to operate FDB on Kubernetes.
+
+## Plugin Expiration
+We have added a commandline flag to the plugin that by default makes plugin to check its version against latest release(using GitHub API). If plugin is not using latest release version, it will print a warning message and skip the command. You may skip this version check by overriding default value of the flag to be false `--version-check=false`. The plugin will read the version info from GitHub API and store in a file in temp directory(`$TMPDIR/latest.plugin`), it'll use this temporary file to check version as long as the file is not older than 24 hours otherwise it'll repeat this process. If you get the warning message and want to update to the latest version, please remove `$TMPDIR/latest.plugin` file first.    

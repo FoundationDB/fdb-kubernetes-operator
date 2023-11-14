@@ -32,7 +32,6 @@ import (
 )
 
 var pluginVersion = "latest"
-var versionMessage = ""
 
 func newVersionCmd(streams genericclioptions.IOStreams) *cobra.Command {
 	o := newFDBOptions(streams)

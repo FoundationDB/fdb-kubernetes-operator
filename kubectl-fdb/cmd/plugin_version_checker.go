@@ -12,11 +12,21 @@ import (
 	"time"
 )
 
+// VersionChecker interface to help us mock test the version checker
+type VersionChecker interface {
+	getLatestPluginVersion() (string, error)
+}
+
+// RealVersionChecker will do actual call to GitHub API to get version
+type RealVersionChecker struct {
+	VersionChecker
+}
+
 // KubectlFbReleaseURL is the public GitHub URL we read the latest version from
 const KubectlFbReleaseURL = "https://api.github.com/repos/FoundationDB/fdb-kubernetes-operator/releases/latest"
 
 // LocalTempVersionFileName is where we cache plugin version for 24 hours, so we don't call GitHub for every single command(also rate-limit issue on GitHub api calls)
-const LocalTempVersionFileName = "latest"
+const LocalTempVersionFileName = "latest.plugin"
 
 // PluginVersionDetails Contains [partial] plugin version details from GitHub
 type PluginVersionDetails struct {
@@ -27,7 +37,9 @@ type PluginVersionDetails struct {
 
 // It reads the latest fdb plugin version from local temp file,
 // if not exists, gets it from GitHub and store it locally and then returns it
-func getLatestPluginVersion() string {
+func (p *RealVersionChecker) getLatestPluginVersion() (string, error) {
+	fmt.Println("IN REAL")
+	fmt.Println("$$$$$					BBBBBBBBBBBBBBBBBBBBBBBBB					$$$$$$")
 	fileName := filepath.Join(os.TempDir(), LocalTempVersionFileName)
 	_, err := os.Stat(fileName)
 	if os.IsNotExist(err) {
@@ -37,17 +49,18 @@ func getLatestPluginVersion() string {
 	if versionFileIsRecent {
 		return readVersionFromLocalFile(fileName)
 	}
-	_ = os.Remove(fileName)
 	return updateLocalVersion(fileName)
 }
 
 // readVersionFromLocalFile reads the version value from the local temp file
-func readVersionFromLocalFile(fileName string) string {
+func readVersionFromLocalFile(fileName string) (string, error) {
 	file, _ := os.OpenFile(fileName, os.O_RDONLY, 0644)
 	defer file.Close()
-	content, _ := os.ReadFile(fileName)
-	version := string(content)
-	return version
+	content, err := os.ReadFile(fileName)
+	if err != nil {
+		return "", err
+	}
+	return string(content), err
 }
 
 // Check if the local temp version file is created within the last 24 hours
@@ -56,28 +69,28 @@ func isVersionFileCreatedToday(filename string) bool {
 	if err != nil {
 		return false
 	}
-	return time.Since(fileInfo.ModTime()) <= 24 * time.hour
+	return time.Since(fileInfo.ModTime()) <= 24*time.Hour
 }
 
 // write version value in local temp file
-func writeVersionToLocalTempFile(fileName string, version string) error {
-	file, err := os.OpenFile(fileName, os.O_WRONLY|os.O_CREATE, 0644)
+func writeVersionToLocalTempFile(fileName string, version string) (int, error) {
+	file, err := os.OpenFile(fileName, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
 	if err != nil {
-		return false
+		// Handle the error if the file cannot be opened.
+		panic(err)
 	}
 	defer file.Close()
-	_, err = file.WriteString(version)
-	return err == nil
+	return file.WriteString(version)
 }
 
 // read version from HitHub and update local version file
-func updateLocalVersion(fileName string) string {
+func updateLocalVersion(fileName string) (string, error) {
 	latestVersion, err := readVersionFromGitHub()
 	if err != nil {
-		return ""
+		return "", err
 	}
-	writeVersionToLocalTempFile(fileName, latestVersion)
-	return latestVersion
+	_, err = writeVersionToLocalTempFile(fileName, latestVersion)
+	return latestVersion, err
 }
 
 // read the latest release version number from GitHub, due to GitHub api rate limit we don't do it for every command
