@@ -60,7 +60,7 @@ func isVersionFileCreatedToday(filename string) bool {
 }
 
 // write version value in local temp file
-func writeVersionToLocalTempFile(fileName string, version string) bool {
+func writeVersionToLocalTempFile(fileName string, version string) error {
 	file, err := os.OpenFile(fileName, os.O_WRONLY|os.O_CREATE, 0644)
 	if err != nil {
 		return false
