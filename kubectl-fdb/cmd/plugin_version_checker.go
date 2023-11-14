@@ -53,9 +53,7 @@ func readVersionFromLocalFile(fileName string) string {
 // Check if the local temp version file is created within the last 24 hours
 func isVersionFileCreatedToday(filename string) bool {
 	fileInfo, err := os.Stat(filename)
-	if os.IsNotExist(err) {
-		return false
-	} else if err != nil {
+	if err != nil {
 		return false
 	}
 	now := time.Now().UnixNano()
