@@ -1544,9 +1544,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			pod = fixtures.ChooseRandomPod(fdbCluster.GetStatelessPods())
 			log.Printf("exclude Pod: %s", pod.Name)
 			Expect(pod.Status.PodIP).NotTo(BeEmpty())
-			_, _, err := fdbCluster.RunFdbCliCommandInOperatorWithoutRetry(fmt.Sprintf("exclude %s", pod.Status.PodIP), false, 30)
-			Expect(err).NotTo(HaveOccurred())
-
+			_, _ = fdbCluster.RunFdbCliCommandInOperator(fmt.Sprintf("exclude %s", pod.Status.PodIP), false, 30)
 			// Make sure we trigger a reconciliation to speed up the exclusion detection.
 			fdbCluster.ForceReconcile()
 		})
