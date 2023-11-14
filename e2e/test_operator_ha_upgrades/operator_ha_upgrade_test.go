@@ -542,6 +542,13 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 	DescribeTable(
 		"when locality based exclusions are used and the resources are limited in a satellite namespace",
 		func(beforeVersion string, targetVersion string) {
+			fdbVersion, err := fdbv1beta2.ParseFdbVersion(beforeVersion)
+			Expect(err).NotTo(HaveOccurred())
+
+			if !fdbVersion.SupportsLocalityBasedExclusions() {
+				Skip("provided FDB version: " + beforeVersion + " doesn't support locality based exclusions")
+			}
+
 			clusterConfig := fixtures.DefaultClusterConfigWithHaMode(fixtures.HaFourZoneSingleSat, false)
 			clusterConfig.UseLocalityBasedExclusions = true
 
