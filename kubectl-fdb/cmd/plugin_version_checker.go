@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-// KubectlFbReleaseURL is the public GirHub url we read the latest version
+// KubectlFbReleaseURL is the public GitHub URL we read the latest version from
 const KubectlFbReleaseURL = "https://api.github.com/repos/FoundationDB/fdb-kubernetes-operator/releases/latest"
 
 // LocalTempVersionFileName is where we cache plugin version for 24 hours, so we don't call GitHub for every single command(also rate-limit issue on GitHub api calls)
