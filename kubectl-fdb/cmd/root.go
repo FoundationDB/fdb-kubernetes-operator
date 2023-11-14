@@ -160,7 +160,7 @@ func usingLatestPluginVersion() bool {
 		versionMessage = "Your kubectl-fdb plugin is not up-to-date, please install latest version and try again!\n" +
 			"Your version:[" + pluginVersion + "] vs. latest release version:[" + latestPluginVersion + "]\n" +
 			"Installation instructions can be found here: https://github.com/bktsh/fdb-kubernetes-operator/blob/main/kubectl-fdb/Readme.md"
-		fmt.Println(versionMessage)
+		cmd.Println(versionMessage)
 		return false
 	}
 	return true
