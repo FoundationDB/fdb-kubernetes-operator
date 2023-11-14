@@ -170,8 +170,11 @@ func (client *MockClient) generateIP() string {
 
 // Create creates a new object
 func (client *MockClient) Create(ctx context.Context, object ctrlClient.Object, options ...ctrlClient.CreateOption) error {
-	// Ensure the default values are set.
-	object.SetCreationTimestamp(metav1.Time{Time: time.Now()})
+	// Ensure the default values are set if not present.
+	if object.GetCreationTimestamp().Time.IsZero() {
+		object.SetCreationTimestamp(metav1.Time{Time: time.Now()})
+	}
+
 	object.SetGeneration(object.GetGeneration() + 1)
 	object.SetUID(uuid.NewUUID())
 
