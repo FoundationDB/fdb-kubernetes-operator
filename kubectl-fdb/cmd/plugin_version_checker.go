@@ -56,11 +56,7 @@ func isVersionFileCreatedToday(filename string) bool {
 	if err != nil {
 		return false
 	}
-	now := time.Now().UnixNano()
-	creationTime := fileInfo.ModTime().UnixNano()
-	diff := now - creationTime
-	hours := diff / int64(time.Hour)
-	return hours <= 24
+	return time.Since(fileInfo.ModTime()) <= 24 * time.hour
 }
 
 // write version value in local temp file
