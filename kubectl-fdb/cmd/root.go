@@ -71,7 +71,7 @@ func NewRootCmd(streams genericclioptions.IOStreams, pluginVersionChecker Versio
 			versionCheck, _ := cmd.Flags().GetBool("version-check")
 			if versionCheck {
 				usingLatest, err := usingLatestPluginVersion(cmd, pluginVersionChecker)
-				if err == nil || !usingLatest {
+				if err != nil || !usingLatest {
 					return err
 				}
 			}
