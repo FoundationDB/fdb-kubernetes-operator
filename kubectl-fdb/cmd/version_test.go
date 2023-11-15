@@ -167,6 +167,9 @@ var _ = Describe("[plugin] version command", func() {
 		var errBuffer bytes.Buffer
 		var inBuffer bytes.Buffer
 
+		AfterEach(func() {
+			pluginVersion = "latest"
+		})
 		BeforeEach(func() {
 			pluginVersion = "1.0.0"
 			// We use these buffers to check the input/output
@@ -180,7 +183,7 @@ var _ = Describe("[plugin] version command", func() {
 			rootCmd.SetArgs(args)
 
 			err := rootCmd.Execute()
-			Expect(err).NotTo(HaveOccurred())
+			Expect(err).To(HaveOccurred())
 		})
 
 		It("should print out the client version", func() {

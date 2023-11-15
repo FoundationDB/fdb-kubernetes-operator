@@ -70,8 +70,8 @@ func NewRootCmd(streams genericclioptions.IOStreams, pluginVersionChecker Versio
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			versionCheck, _ := cmd.Flags().GetBool("version-check")
 			if versionCheck {
-				usingLatest, err := usingLatestPluginVersion(cmd, pluginVersionChecker)
-				if err != nil || !usingLatest {
+				err := usingLatestPluginVersion(cmd, pluginVersionChecker)
+				if err != nil {
 					return err
 				}
 			}
@@ -158,14 +158,14 @@ func printStatement(cmd *cobra.Command, line string, mesType messageType) {
 }
 
 // will check plugin version and won't let any interaction happen with cluster, if it's not latest release version
-func usingLatestPluginVersion(cmd *cobra.Command, pluginVersionChecker VersionChecker) (bool, error) {
+func usingLatestPluginVersion(cmd *cobra.Command, pluginVersionChecker VersionChecker) error {
 	// If the user has a self build plugin we are not performing any checks.
 	if strings.ToLower(pluginVersion) == "latest" {
-		return true, nil
+		return nil
 	}
 	latestPluginVersion, err := pluginVersionChecker.getLatestPluginVersion()
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	if pluginVersion != latestPluginVersion {
@@ -173,8 +173,8 @@ func usingLatestPluginVersion(cmd *cobra.Command, pluginVersionChecker VersionCh
 			"Your version:[" + pluginVersion + "], latest release version:[" + latestPluginVersion + "].\n" +
 			"Installation instructions can be found here: https://github.com/FoundationDB/fdb-kubernetes-operator/blob/main/kubectl-fdb/Readme.md"
 		cmd.Println(versionMessage)
-		return false, nil
+		return fmt.Errorf("outdated plugin version")
 	}
 
-	return true, nil
+	return nil
 }
