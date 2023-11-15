@@ -343,74 +343,98 @@ func tryConnectionOptions(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCl
 }
 
 // checkAndSetProcessStatus checks the status of the Process and if missing or incorrect add it to the related status field
-func checkAndSetProcessStatus(logger logr.Logger, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod, processMap map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo, processNumber int, processCount int, processGroupStatus *fdbv1beta2.ProcessGroupStatus) error {
-	processID := processGroupStatus.ProcessGroupID
-
-	if processCount > 1 {
-		processID = fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%d", processID, processNumber))
-	}
-
-	processStatus := processMap[processID]
-	// Only set the MissingProcesses condition if the machine-readable status has at least one process. We can improve this check
+func checkAndSetProcessStatus(logger logr.Logger, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod, processMap map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo, processCount int, processGroupStatus *fdbv1beta2.ProcessGroupStatus) error {
+	// Only perform any process specific validation if the machine-readable status has at least one process. We can improve this check
 	// later by validating additional messages in the machine-readable status.
-	processGroupStatus.UpdateCondition(fdbv1beta2.MissingProcesses, len(processStatus) == 0 && len(processMap) > 0)
-	if len(processStatus) == 0 {
+	if len(processMap) == 0 {
 		return nil
 	}
 
+	var excluded, hasIncorrectCommandLine, hasMissingProcesses, sidecarUnreachable bool
+
+	// Fetch the pod client and variables once per Pod.
 	podClient, message := r.getPodClient(cluster, pod)
 	if podClient == nil {
 		logger.Info("Unable to build pod client", "processGroupID", processGroupStatus.ProcessGroupID, "message", message)
 		return nil
 	}
 
-	var excluded, correct bool
-	versionCompatibleUpgrade := cluster.VersionCompatibleUpgradeInProgress()
-	for _, process := range processStatus {
-		// Check if the process is reporting any messages, those will normally include error messages
-		if len(process.Messages) > 0 {
-			logger.Info("found error message(s) for the process", "processGroupID", processGroupStatus.ProcessGroupID, "messages", process.Messages)
-		}
-
-		if !excluded {
-			excluded = process.Excluded
-		}
-
-		commandLine, err := internal.GetStartCommand(cluster, processGroupStatus.ProcessClass, podClient, processNumber, processCount)
-		if err != nil {
-			if internal.IsNetworkError(err) {
-				processGroupStatus.UpdateCondition(fdbv1beta2.SidecarUnreachable, true)
-				return nil
-			}
-
-			return err
-		}
-
-		// If a version compatible upgrade is in progress, skip the version check since we will run a mixed set of versions
-		// until the cluster is fully reconciled.
-		versionMatch := true
-		if !versionCompatibleUpgrade {
-			versionMatch = process.Version == cluster.Spec.Version || process.Version == fmt.Sprintf("%s-PRERELEASE", cluster.Spec.Version)
-		}
-
-		// If the `EmptyMonitorConf` is set, the commandline is by definition wrong since there should be no running processes.
-		correct = commandLine == process.CommandLine && versionMatch && !cluster.Spec.Buggify.EmptyMonitorConf
-
-		if !correct {
-			logger.Info("IncorrectProcess",
-				"expected", commandLine, "got", process.CommandLine,
-				"expectedVersion", cluster.Spec.Version,
-				"version", process.Version,
-				"processGroupID", processGroupStatus.ProcessGroupID,
-				"emptyMonitorConf", cluster.Spec.Buggify.EmptyMonitorConf)
+	substitutions, err := podClient.GetVariableSubstitutions()
+	if err != nil {
+		if internal.IsNetworkError(err) {
+			sidecarUnreachable = true
 		}
 	}
 
-	// If the process is excluded, update the exclude condition.
+	versionCompatibleUpgrade := cluster.VersionCompatibleUpgradeInProgress()
+	for processNumber := 1; processNumber <= processCount; processNumber++ {
+		var processID fdbv1beta2.ProcessGroupID
+		if processCount > 1 {
+			processID = fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%d", processGroupStatus.ProcessGroupID, processNumber))
+		} else {
+			processID = processGroupStatus.ProcessGroupID
+		}
+
+		processStatus := processMap[processID]
+		if !hasMissingProcesses {
+			hasMissingProcesses = len(processStatus) == 0
+		}
+
+		if len(processStatus) == 0 {
+			continue
+		}
+
+		for _, process := range processStatus {
+			// Check if the process is reporting any messages, those will normally include error messages.
+			if len(process.Messages) > 0 {
+				logger.Info("found error message(s) for the process", "processGroupID", processGroupStatus.ProcessGroupID, "messages", process.Messages)
+			}
+
+			if !excluded {
+				excluded = process.Excluded
+			}
+
+			if len(substitutions) == 0 {
+				continue
+			}
+
+			commandLine, err := internal.GetStartCommandWithSubstitutions(cluster, processGroupStatus.ProcessClass, substitutions, processNumber, processCount)
+			if err != nil {
+				return err
+			}
+
+			// If a version compatible upgrade is in progress, skip the version check since we will run a mixed set of versions
+			// until the cluster is fully reconciled.
+			versionMatch := true
+			if !versionCompatibleUpgrade {
+				versionMatch = process.Version == cluster.Spec.Version || process.Version == fmt.Sprintf("%s-PRERELEASE", cluster.Spec.Version)
+			}
+
+			// If the `EmptyMonitorConf` is set, the commandline is by definition wrong since there should be no running processes.
+			if !(commandLine == process.CommandLine && versionMatch && !cluster.Spec.Buggify.EmptyMonitorConf) {
+				logger.Info("IncorrectProcess",
+					"expected", commandLine, "got", process.CommandLine,
+					"expectedVersion", cluster.Spec.Version,
+					"version", process.Version,
+					"processGroupID", processGroupStatus.ProcessGroupID,
+					"emptyMonitorConf", cluster.Spec.Buggify.EmptyMonitorConf)
+				hasIncorrectCommandLine = true
+			}
+		}
+	}
+
+	processGroupStatus.UpdateCondition(fdbv1beta2.MissingProcesses, hasMissingProcesses)
+	processGroupStatus.UpdateCondition(fdbv1beta2.SidecarUnreachable, sidecarUnreachable)
+	// If the processes are absent, we are not able to determine the state of the processes and therefore we won't change it.
+	if hasMissingProcesses {
+		return nil
+	}
+
 	processGroupStatus.UpdateCondition(fdbv1beta2.ProcessIsMarkedAsExcluded, excluded)
-	processGroupStatus.UpdateCondition(fdbv1beta2.IncorrectCommandLine, !correct)
-	// Reset status for sidecar unreachable, since we are here at this point we were able to reach the sidecar for the substitute variables.
-	processGroupStatus.UpdateCondition(fdbv1beta2.SidecarUnreachable, false)
+	if sidecarUnreachable {
+		return nil
+	}
+	processGroupStatus.UpdateCondition(fdbv1beta2.IncorrectCommandLine, hasIncorrectCommandLine)
 
 	return nil
 }
@@ -521,12 +545,9 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 			}
 		}
 
-		// In theory we could also support multiple processes per pod for different classes
-		for i := 1; i <= processCount; i++ {
-			err = checkAndSetProcessStatus(logger, r, cluster, pod, processMap, i, processCount, processGroup)
-			if err != nil {
-				return processGroups, err
-			}
+		err = checkAndSetProcessStatus(logger, r, cluster, pod, processMap, processCount, processGroup)
+		if err != nil {
+			return processGroups, err
 		}
 
 		configMapHash, err := internal.GetDynamicConfHash(configMap, processGroup.ProcessClass, imageType, processCount)

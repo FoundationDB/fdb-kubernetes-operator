@@ -446,7 +446,7 @@ var _ = Describe("monitor_conf", func() {
 			It("should substitute the variables in the start command", func() {
 				substitutions, err := GetSubstitutionsFromClusterAndPod(logr.Discard(), cluster, pod)
 				Expect(err).NotTo(HaveOccurred())
-				command, err = getStartCommandWithSubstitutions(cluster, processClass, substitutions, 1, 1)
+				command, err = GetStartCommandWithSubstitutions(cluster, processClass, substitutions, 1, 1)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(command).To(Equal(strings.Join([]string{
@@ -472,7 +472,7 @@ var _ = Describe("monitor_conf", func() {
 
 					substitutions, err := GetSubstitutionsFromClusterAndPod(logr.Discard(), cluster, pod)
 					Expect(err).NotTo(HaveOccurred())
-					command, err = getStartCommandWithSubstitutions(cluster, processClass, substitutions, 1, 1)
+					command, err = GetStartCommandWithSubstitutions(cluster, processClass, substitutions, 1, 1)
 					Expect(err).NotTo(HaveOccurred())
 
 					Expect(command).To(Equal(strings.Join([]string{
@@ -501,7 +501,7 @@ var _ = Describe("monitor_conf", func() {
 			It("should generate the unsorted command-line", func() {
 				substitutions, err := GetSubstitutionsFromClusterAndPod(logr.Discard(), cluster, pod)
 				Expect(err).NotTo(HaveOccurred())
-				command, err = getStartCommandWithSubstitutions(cluster, processClass, substitutions, 1, 1)
+				command, err = GetStartCommandWithSubstitutions(cluster, processClass, substitutions, 1, 1)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(command).To(Equal(strings.Join([]string{
@@ -523,7 +523,7 @@ var _ = Describe("monitor_conf", func() {
 				It("should fill in the process number", func() {
 					substitutions, err := GetSubstitutionsFromClusterAndPod(logr.Discard(), cluster, pod)
 					Expect(err).NotTo(HaveOccurred())
-					command, err = getStartCommandWithSubstitutions(cluster, processClass, substitutions, 2, 3)
+					command, err = GetStartCommandWithSubstitutions(cluster, processClass, substitutions, 2, 3)
 					Expect(err).NotTo(HaveOccurred())
 
 					Expect(command).To(Equal(strings.Join([]string{
@@ -552,7 +552,7 @@ var _ = Describe("monitor_conf", func() {
 			It("should generate the sorted command-line", func() {
 				substitutions, err := GetSubstitutionsFromClusterAndPod(logr.Discard(), cluster, pod)
 				Expect(err).NotTo(HaveOccurred())
-				command, err = getStartCommandWithSubstitutions(cluster, processClass, substitutions, 1, 1)
+				command, err = GetStartCommandWithSubstitutions(cluster, processClass, substitutions, 1, 1)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(command).To(Equal(strings.Join([]string{
@@ -575,7 +575,7 @@ var _ = Describe("monitor_conf", func() {
 			It("should substitute the variables in the start command", func() {
 				substitutions, err := GetSubstitutionsFromClusterAndPod(logr.Discard(), cluster, pod)
 				Expect(err).NotTo(HaveOccurred())
-				command, err = getStartCommandWithSubstitutions(cluster, processClass, substitutions, 1, 2)
+				command, err = GetStartCommandWithSubstitutions(cluster, processClass, substitutions, 1, 2)
 				Expect(err).NotTo(HaveOccurred())
 
 				id := "storage-1"
@@ -594,7 +594,7 @@ var _ = Describe("monitor_conf", func() {
 					"--seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 				}, " ")))
 
-				command, err = getStartCommandWithSubstitutions(cluster, processClass, substitutions, 2, 2)
+				command, err = GetStartCommandWithSubstitutions(cluster, processClass, substitutions, 2, 2)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(command).To(Equal(strings.Join([]string{
 					"/usr/bin/fdbserver",
@@ -620,7 +620,7 @@ var _ = Describe("monitor_conf", func() {
 
 				substitutions, err := GetSubstitutionsFromClusterAndPod(logr.Discard(), cluster, pod)
 				Expect(err).NotTo(HaveOccurred())
-				command, err = getStartCommandWithSubstitutions(cluster, fdbv1beta2.ProcessClassStorage, substitutions, 1, 1)
+				command, err = GetStartCommandWithSubstitutions(cluster, fdbv1beta2.ProcessClassStorage, substitutions, 1, 1)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -652,7 +652,7 @@ var _ = Describe("monitor_conf", func() {
 
 				substitutions, err := GetSubstitutionsFromClusterAndPod(logr.Discard(), cluster, pod)
 				Expect(err).NotTo(HaveOccurred())
-				command, err = getStartCommandWithSubstitutions(cluster, fdbv1beta2.ProcessClassStorage, substitutions, 1, 1)
+				command, err = GetStartCommandWithSubstitutions(cluster, fdbv1beta2.ProcessClassStorage, substitutions, 1, 1)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -679,7 +679,7 @@ var _ = Describe("monitor_conf", func() {
 				cluster.Status.RunningVersion = fdbv1beta2.Versions.Default.String()
 				substitutions, err := GetSubstitutionsFromClusterAndPod(logr.Discard(), cluster, pod)
 				Expect(err).NotTo(HaveOccurred())
-				command, err = getStartCommandWithSubstitutions(cluster, fdbv1beta2.ProcessClassStorage, substitutions, 1, 1)
+				command, err = GetStartCommandWithSubstitutions(cluster, fdbv1beta2.ProcessClassStorage, substitutions, 1, 1)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
