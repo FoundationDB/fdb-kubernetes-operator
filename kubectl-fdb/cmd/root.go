@@ -70,10 +70,7 @@ func NewRootCmd(streams genericclioptions.IOStreams, pluginVersionChecker Versio
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			versionCheck, _ := cmd.Flags().GetBool("version-check")
 			if versionCheck {
-				err := usingLatestPluginVersion(cmd, pluginVersionChecker)
-				if err != nil {
-					return err
-				}
+				return usingLatestPluginVersion(cmd, pluginVersionChecker)
 			}
 			return nil
 		},
