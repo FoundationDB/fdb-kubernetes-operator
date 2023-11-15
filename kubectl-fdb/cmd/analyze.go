@@ -48,9 +48,6 @@ func newAnalyzeCmd(streams genericclioptions.IOStreams) *cobra.Command {
 		Short: "Analyze if the given clusters have any issues",
 		Long:  "Analyze if the given clusters have any issues",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if skipCommand {
-				return nil
-			}
 			wait, err := cmd.Root().Flags().GetBool("wait")
 			if err != nil {
 				return err

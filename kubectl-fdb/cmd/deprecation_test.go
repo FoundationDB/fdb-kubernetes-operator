@@ -209,7 +209,7 @@ var _ = Describe("[plugin] deprecation command", func() {
 			errBuffer := bytes.Buffer{}
 			inBuffer := bytes.Buffer{}
 
-			cmd = NewRootCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer})
+			cmd = NewRootCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer}, &MockVersionChecker{})
 		})
 
 		It("should print out the help information", func() {

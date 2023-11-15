@@ -486,7 +486,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 			errBuffer := bytes.Buffer{}
 			inBuffer := bytes.Buffer{}
 
-			rootCmd := NewRootCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer})
+			rootCmd := NewRootCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer}, &MockVersionChecker{})
 			rootCmd.SetArgs([]string{"analyze"})
 
 			err := rootCmd.Execute()

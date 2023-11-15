@@ -42,7 +42,7 @@ var _ = Describe("[plugin] root command", func() {
 		})
 
 		It("should not throw an error", func() {
-			cmd := NewRootCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer})
+			cmd := NewRootCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer}, &MockVersionChecker{})
 
 			args := []string{"restart", "-c", "sample"}
 			cmd.SetArgs(args)

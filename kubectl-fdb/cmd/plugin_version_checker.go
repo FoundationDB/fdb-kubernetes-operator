@@ -18,7 +18,7 @@ type VersionChecker interface {
 }
 
 // RealVersionChecker will do actual call to GitHub API to get version
-type RealVersionChecker struct {}
+type RealVersionChecker struct{}
 
 // KubectlFbReleaseURL is the public GitHub URL we read the latest version from
 const KubectlFbReleaseURL = "https://api.github.com/repos/FoundationDB/fdb-kubernetes-operator/releases/latest"
@@ -36,8 +36,6 @@ type PluginVersionDetails struct {
 // It reads the latest fdb plugin version from local temp file,
 // if not exists, gets it from GitHub and store it locally and then returns it
 func (versionChecker *RealVersionChecker) getLatestPluginVersion() (string, error) {
-	fmt.Println("IN REAL")
-	fmt.Println("$$$$$					BBBBBBBBBBBBBBBBBBBBBBBBB					$$$$$$")
 	fileName := filepath.Join(os.TempDir(), LocalTempVersionFileName)
 	_, err := os.Stat(fileName)
 	if os.IsNotExist(err) {

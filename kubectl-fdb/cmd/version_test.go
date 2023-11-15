@@ -46,7 +46,7 @@ var _ = Describe("[plugin] version command", func() {
 			errBuffer = bytes.Buffer{}
 			inBuffer = bytes.Buffer{}
 
-			rootCmd := NewRootCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer})
+			rootCmd := NewRootCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer}, &MockVersionChecker{})
 
 			args := []string{"version", "--client-only"}
 			rootCmd.SetArgs(args)
@@ -174,7 +174,7 @@ var _ = Describe("[plugin] version command", func() {
 			errBuffer = bytes.Buffer{}
 			inBuffer = bytes.Buffer{}
 
-			rootCmd := NewRootCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer})
+			rootCmd := NewRootCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer}, &MockVersionChecker{MockedVersion: "2.0.0"})
 
 			args := []string{"version", "--client-only"}
 			rootCmd.SetArgs(args)
@@ -182,13 +182,10 @@ var _ = Describe("[plugin] version command", func() {
 			err := rootCmd.Execute()
 			Expect(err).NotTo(HaveOccurred())
 		})
-		AfterEach(func() {
-			PluginVersionChecker = &MockVersionChecker{}
-		})
 
 		It("should print out the client version", func() {
 			Expect(outBuffer.String()).To(ContainSubstring(
-				"Your kubectl-fdb plugin is not up-to-date, please install latest version and try again!"))
+				"kubectl-fdb plugin is not up-to-date, please install the latest version and try again!"))
 		})
 	})
 })

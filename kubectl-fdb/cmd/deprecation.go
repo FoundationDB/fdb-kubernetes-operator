@@ -44,9 +44,6 @@ func newDeprecationCmd(streams genericclioptions.IOStreams) *cobra.Command {
 The result will be presented as a diff.
 Deprecated settings that should be replace by a newer setting (or removed) are prefixed with a -`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if skipCommand {
-				return nil
-			}
 			useFutureDefaults, err := cmd.Flags().GetBool("use-future-defaults")
 			if err != nil {
 				return err

@@ -25,11 +25,11 @@ type MockVersionChecker struct {
 }
 
 func (versionChecker *MockVersionChecker) getLatestPluginVersion() (string, error) {
-	if versionChecker. MockedVersion == "" {
+	if versionChecker.MockedVersion == "" {
 		return "latest", nil
 	}
 
-	return versionChecker. MockedVersion, nil
+	return versionChecker.MockedVersion, nil
 }
 
 func TestCmd(t *testing.T) {
@@ -45,7 +45,6 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = BeforeEach(func() {
-	PluginVersionChecker = &MockVersionChecker{}
 	cluster = generateClusterStruct(clusterName, namespace)
 })
 
