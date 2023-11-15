@@ -350,7 +350,7 @@ func checkAndSetProcessStatus(logger logr.Logger, r *FoundationDBClusterReconcil
 		return nil
 	}
 
-	var excluded, correct, hasMissingProcesses, sidecarUnreachable bool
+	var excluded, hasIncorrectCommandLine, hasMissingProcesses, sidecarUnreachable bool
 
 	// Fetch the pod client and variables once per Pod.
 	podClient, message := r.getPodClient(cluster, pod)
@@ -411,14 +411,14 @@ func checkAndSetProcessStatus(logger logr.Logger, r *FoundationDBClusterReconcil
 			}
 
 			// If the `EmptyMonitorConf` is set, the commandline is by definition wrong since there should be no running processes.
-			correct = commandLine == process.CommandLine && versionMatch && !cluster.Spec.Buggify.EmptyMonitorConf
-			if !correct {
+			if !(commandLine == process.CommandLine && versionMatch && !cluster.Spec.Buggify.EmptyMonitorConf) {
 				logger.Info("IncorrectProcess",
 					"expected", commandLine, "got", process.CommandLine,
 					"expectedVersion", cluster.Spec.Version,
 					"version", process.Version,
 					"processGroupID", processGroupStatus.ProcessGroupID,
 					"emptyMonitorConf", cluster.Spec.Buggify.EmptyMonitorConf)
+				hasIncorrectCommandLine = true
 			}
 		}
 	}
@@ -434,7 +434,7 @@ func checkAndSetProcessStatus(logger logr.Logger, r *FoundationDBClusterReconcil
 	if sidecarUnreachable {
 		return nil
 	}
-	processGroupStatus.UpdateCondition(fdbv1beta2.IncorrectCommandLine, !correct)
+	processGroupStatus.UpdateCondition(fdbv1beta2.IncorrectCommandLine, hasIncorrectCommandLine)
 
 	return nil
 }
