@@ -350,7 +350,6 @@ func checkAndSetProcessStatus(logger logr.Logger, r *FoundationDBClusterReconcil
 		return nil
 	}
 
-	versionCompatibleUpgrade := cluster.VersionCompatibleUpgradeInProgress()
 	var excluded, correct, hasMissingProcesses, sidecarUnreachable bool
 
 	// Fetch the pod client and variables once per Pod.
@@ -367,6 +366,7 @@ func checkAndSetProcessStatus(logger logr.Logger, r *FoundationDBClusterReconcil
 		}
 	}
 
+	versionCompatibleUpgrade := cluster.VersionCompatibleUpgradeInProgress()
 	for processNumber := 1; processNumber <= processCount; processNumber++ {
 		var processID fdbv1beta2.ProcessGroupID
 		if processCount > 1 {
@@ -426,13 +426,11 @@ func checkAndSetProcessStatus(logger logr.Logger, r *FoundationDBClusterReconcil
 	processGroupStatus.UpdateCondition(fdbv1beta2.MissingProcesses, hasMissingProcesses)
 	processGroupStatus.UpdateCondition(fdbv1beta2.SidecarUnreachable, sidecarUnreachable)
 	// If the processes are absent, we are not able to determine the state of the processes and therefore we won't change it.
-	// The same applies if the sidecar is unreachable.
 	if hasMissingProcesses {
 		return nil
 	}
 
 	processGroupStatus.UpdateCondition(fdbv1beta2.ProcessIsMarkedAsExcluded, excluded)
-
 	if sidecarUnreachable {
 		return nil
 	}
