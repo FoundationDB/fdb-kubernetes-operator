@@ -385,7 +385,7 @@ func (factory *Factory) startFDBFromClusterSpec(
 	factory.logClusterInfo(spec)
 
 	fdbCluster, err := factory.ensureFdbClusterExists(spec, config)
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	gomega.Expect(err).ToNot(gomega.HaveOccurred(), "cluster was not created in the expected time")
 	factory.singleton.namespaces = append(
 		factory.singleton.namespaces,
 		fdbCluster.cluster.Namespace,

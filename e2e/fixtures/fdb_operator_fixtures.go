@@ -56,7 +56,6 @@ func (factory *Factory) ensureFdbClusterExists(
 	fdbCluster.WaitUntilExists()
 	// Wait until cluster is reconciled -- otherwise, the operator may not have
 	// assigned pods, etc.
-
 	err = fdbCluster.WaitForReconciliation(CreationTrackerLoggerOption(config.CreationTracker))
 	if err != nil {
 		return nil, err
