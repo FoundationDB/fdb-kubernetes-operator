@@ -21,11 +21,15 @@ var namespace = "test"
 
 // MockVersionChecker will help to mock the calls to GitHub API to get 'latest' version in tests
 type MockVersionChecker struct {
-	VersionChecker
+	MockedVersion string
 }
 
-func (p *MockVersionChecker) getLatestPluginVersion() (string, error) {
-	return "latest", nil
+func (versionChecker *MockVersionChecker) getLatestPluginVersion() (string, error) {
+	if versionChecker. MockedVersion == "" {
+		return "latest", nil
+	}
+
+	return versionChecker. MockedVersion, nil
 }
 
 func TestCmd(t *testing.T) {
