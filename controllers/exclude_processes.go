@@ -23,6 +23,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"math"
 	"net"
 	"time"
 
@@ -193,7 +194,7 @@ func canExcludeNewProcesses(logger logr.Logger, cluster *fdbv1beta2.FoundationDB
 	// Block excludes on missing processes not marked for removal unless they are missing for a long time and the process might be broken
 	// or the namespace quota was hit.
 	missingProcesses := make([]fdbv1beta2.ProcessGroupID, 0)
-	validProcesses := make([]fdbv1beta2.ProcessGroupID, 0)
+	var validProcesses int
 
 	exclusionsAllowed := true
 	for _, processGroup := range cluster.Status.ProcessGroups {
@@ -217,7 +218,7 @@ func canExcludeNewProcesses(logger logr.Logger, cluster *fdbv1beta2.FoundationDB
 			continue
 		}
 
-		validProcesses = append(validProcesses, processGroup.ProcessGroupID)
+		validProcesses++
 	}
 
 	if !exclusionsAllowed {
@@ -225,13 +226,30 @@ func canExcludeNewProcesses(logger logr.Logger, cluster *fdbv1beta2.FoundationDB
 		return 0, missingProcesses
 	}
 
-	logger.V(1).Info("canExcludeNewProcesses", "validProcesses", len(validProcesses), "desiredProcessCount", desiredProcessCount, "ongoingExclusions", ongoingExclusions)
+	// Make sure that the required number of processes are running. Otherwise we could bring down the cluster is not
+	// enough processes can be recruited. For storage processes we require that at least 80% of the processes are up and
+	// running. For stateless and log processes we require that the desired process count without the fault tolerance is
+	// running, that way we ensure that the cluster controller can still recruit enough processes.
+	var requiredProcessCount int
+	if processClass == fdbv1beta2.ProcessClassStorage {
+		requiredProcessCount = int(math.Floor(float64(desiredProcessCount) * 0.8))
+	} else {
+		// We can be smarter in a next step and calculate the actual difference of the role count and the process count.
+		requiredProcessCount = desiredProcessCount - cluster.DesiredFaultTolerance()
+	}
+
+	if validProcesses < requiredProcessCount {
+		logger.Info("Cannot exclude further processes, too many processes are missing", "missingProcesses", missingProcesses, "requiredProcessCount", requiredProcessCount, "validProcesses", validProcesses)
+		return 0, missingProcesses
+	}
+
+	logger.V(1).Info("canExcludeNewProcesses", "validProcesses", validProcesses, "desiredProcessCount", desiredProcessCount, "ongoingExclusions", ongoingExclusions)
 
 	// The assumption here is that we will only exclude a process if there is a replacement ready for it. We could relax
 	// this requirement in the future and take the fault tolerance into account. We add the desired fault tolerance to
 	// have some buffer to prevent cases where the operator might need to exclude more processes but there are more missing
 	// processes.
-	allowedExclusions := cluster.DesiredFaultTolerance() + len(validProcesses) - desiredProcessCount - ongoingExclusions
+	allowedExclusions := cluster.DesiredFaultTolerance() + validProcesses - desiredProcessCount - ongoingExclusions
 
 	// If automatic replacements are enabled and the allowed exclusions is less than or equal to 0, we have to check
 	// how many processes are missing and if more processes are missing than the automatic replacements is allowed to

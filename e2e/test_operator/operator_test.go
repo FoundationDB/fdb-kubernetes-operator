@@ -913,7 +913,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		var replacedPods []corev1.Pod
 
 		BeforeEach(func() {
-			fdbCluster.ReplacePods(fixtures.RandomPickPod(fdbCluster.GetStatelessPods().Items, 4))
+			fdbCluster.ReplacePods(fixtures.RandomPickPod(fdbCluster.GetStatelessPods().Items, 4), true)
 		})
 
 		AfterEach(func() {

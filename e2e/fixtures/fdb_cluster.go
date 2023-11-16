@@ -633,7 +633,7 @@ func (fdbCluster *FdbCluster) ReplacePod(pod corev1.Pod, waitForReconcile bool) 
 }
 
 // ReplacePods replaces the provided Pods in the current FoundationDBCluster.
-func (fdbCluster *FdbCluster) ReplacePods(pods []corev1.Pod) {
+func (fdbCluster *FdbCluster) ReplacePods(pods []corev1.Pod, waitForReconcile bool) {
 	for _, pod := range pods {
 		fdbCluster.cluster.Spec.ProcessGroupsToRemove = append(
 			fdbCluster.cluster.Spec.ProcessGroupsToRemove,
@@ -641,6 +641,10 @@ func (fdbCluster *FdbCluster) ReplacePods(pods []corev1.Pod) {
 		)
 	}
 	fdbCluster.UpdateClusterSpec()
+
+	if !waitForReconcile {
+		return
+	}
 
 	gomega.Expect(fdbCluster.WaitForReconciliation()).NotTo(gomega.HaveOccurred())
 }

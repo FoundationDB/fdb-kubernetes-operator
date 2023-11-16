@@ -1313,6 +1313,7 @@ func (cluster *FoundationDBCluster) calculateProcessCountFromRole(count int, alt
 	if count < 0 {
 		return 0
 	}
+
 	return count
 }
 
@@ -1366,9 +1367,7 @@ func (cluster *FoundationDBCluster) GetProcessCountsWithDefaults() (ProcessCount
 	roleCounts := cluster.GetRoleCountsWithDefaults()
 	processCounts := cluster.Spec.ProcessCounts.DeepCopy()
 
-	isSatellite := false
-	isMain := false
-
+	var isSatellite, isMain bool
 	satelliteLogs := 0
 	for _, region := range cluster.Spec.DatabaseConfiguration.Regions {
 		for _, dataCenter := range region.DataCenters {
@@ -1396,12 +1395,14 @@ func (cluster *FoundationDBCluster) GetProcessCountsWithDefaults() (ProcessCount
 		processCounts.Storage = cluster.calculateProcessCount(false,
 			roleCounts.Storage)
 	}
+
 	if processCounts.Log == 0 {
 		processCounts.Log = cluster.calculateProcessCount(true,
 			cluster.calculateProcessCountFromRole(roleCounts.Logs+satelliteLogs, processCounts.Log),
 			cluster.calculateProcessCountFromRole(roleCounts.RemoteLogs, processCounts.Log),
 		)
 	}
+
 	if processCounts.Stateless == 0 {
 		primaryStatelessCount := cluster.calculateProcessCountFromRole(1, processCounts.Master) +
 			cluster.calculateProcessCountFromRole(1, processCounts.ClusterController) +
