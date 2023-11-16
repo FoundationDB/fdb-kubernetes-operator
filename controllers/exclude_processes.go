@@ -226,12 +226,13 @@ func canExcludeNewProcesses(logger logr.Logger, cluster *fdbv1beta2.FoundationDB
 		return 0, missingProcesses
 	}
 
-	// Make sure that the required number of processes are running. Otherwise we could bring down the cluster is not
+	// Make sure that the required number of processes are running. Otherwise we could bring down the cluster if not
 	// enough processes can be recruited. For storage processes we require that at least 80% of the processes are up and
 	// running. For stateless and log processes we require that the desired process count without the fault tolerance is
 	// running, that way we ensure that the cluster controller can still recruit enough processes.
 	var requiredProcessCount int
 	if processClass == fdbv1beta2.ProcessClassStorage {
+		// A more complicated way would be to check the storage capacity and write rate.
 		requiredProcessCount = int(math.Floor(float64(desiredProcessCount) * 0.8))
 	} else {
 		// We can be smarter in a next step and calculate the actual difference of the role count and the process count.
