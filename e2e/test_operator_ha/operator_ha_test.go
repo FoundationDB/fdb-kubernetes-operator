@@ -1,5 +1,5 @@
 /*
- * operator_test.go
+ * operator_ha_test.go
  *
  * This source file is part of the FoundationDB open source project
  *
