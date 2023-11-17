@@ -55,5 +55,10 @@ We have a list of [planned operations](https://github.com/FoundationDB/fdb-kuber
 that we want to implement.
 Raise an issue if you miss a specific command to operate FDB on Kubernetes.
 
-## Plugin Expiration
-We have added a commandline flag to the plugin that by default makes plugin to check its version against latest release(using GitHub API). If plugin is not using latest release version, it will print a warning message and skip the command. You may skip this version check by setting default value of the flag when issuing a command: `--version-check=false`. The plugin will read the version info from GitHub API and store in a file in temp directory(`$TMPDIR/latest.plugin`), it'll use this file to check the version and will refresh it daily. If you still get the warning message right after upgrading, please remove `$TMPDIR/latest.plugin` file and retry.    
+## Plugin Version Check
+
+Per default the plugin will check if there is a newer version present.
+For this the plugin will contact the GitHub API and check for the latest release.
+If a newer version was found the command will exit with the request to update the plugin.
+The version check can be disabled by setting `--version-check=false` when issuing a command.
+The plugin will create a local cache in the temp directory to reduce the calls to the GitHub API, the file is located under `$TMPDIR/kubectl-fdb-version.txt`.
