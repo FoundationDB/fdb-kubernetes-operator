@@ -16,8 +16,8 @@ Install from release:
 
 ```bash
 pushd $TMPDIR
-if [ -f "$TMPDIR/latest.plugin" ]; then
-   rm "$TMPDIR/latest.plugin"
+if [ -f "$TMPDIR/kubectl-fdb-version.txt" ]; then
+   rm "$TMPDIR/kubectl-fdb-version.txt"
 fi
 OS=$(uname)
 ARCH=$(uname -m)
