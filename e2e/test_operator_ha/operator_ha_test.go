@@ -25,17 +25,18 @@ This test suite includes functional tests to ensure normal operational tasks are
 Those tests include replacements of healthy or fault Pods and setting different configurations.
 
 The assumption is that every test case reverts the changes that were done on the cluster.
-In order to improve the test speed we only create one FoundationDB cluster initially.
+In order to improve the test speed we only create one FoundationDB HA cluster initially.
 This cluster will be used for all tests.
 */
 
 import (
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"log"
 	"strconv"
 	"time"
 
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/e2e/fixtures"
 	chaosmesh "github.com/chaos-mesh/chaos-mesh/api/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
@@ -104,50 +105,45 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 	})
 
 	When("replacing satellite Pods and the new Pods are stuck in pending", func() {
+		var desiredRunningPods int
+		var quota *corev1.ResourceQuota
+
 		BeforeEach(func() {
 			satellite := fdbCluster.GetPrimarySatellite()
 			satelliteCluster := satellite.GetCluster()
 
-			// We don't want to move our running Process Groups into the no schedule state, only new Process Groups
-			processGroupMap := map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None{}
-			for _, processGroup := range satelliteCluster.Status.ProcessGroups {
-				processGroupMap[processGroup.ProcessGroupID] = fdbv1beta2.None{}
+			processCounts, err := satelliteCluster.GetProcessCountsWithDefaults()
+			Expect(err).NotTo(HaveOccurred())
+
+			// Create Quota to limit the PVCs that can be created to 0. This will mean no new PVCs can be created.
+			quota = &corev1.ResourceQuota{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "testing-quota",
+					Namespace: satellite.Namespace(),
+				},
+				Spec: corev1.ResourceQuotaSpec{
+					Hard: corev1.ResourceList{
+						"persistentvolumeclaims": resource.MustParse(strconv.Itoa(0)),
+					},
+				},
 			}
+			Expect(factory.CreateIfAbsent(quota)).NotTo(HaveOccurred())
 
-			// Generate a list of potential ProcessGroupIDs
-			noScheduleList := make([]fdbv1beta2.ProcessGroupID, 0, 100)
-			for i := 0; i < 100; i++ {
-				processGroupID := fdbv1beta2.ProcessGroupID(satelliteCluster.Spec.ProcessGroupIDPrefix + "-log-" + strconv.Itoa(i))
+			desiredRunningPods = processCounts.Log - satelliteCluster.DesiredFaultTolerance()
 
-				// Ignore running Process Groups
-				if _, ok := processGroupMap[processGroupID]; ok {
-					continue
-				}
-
-				noScheduleList = append(noScheduleList, processGroupID)
-			}
-
-			// Update the satellite, this update should be fast as no running Process Groups should be affected
-			satellite.SetProcessGroupsAsUnschedulable(noScheduleList)
 			// Replace all Pods for this cluster.
 			satellite.ReplacePods(satellite.GetAllPods().Items, false)
 		})
 
 		AfterEach(func() {
-			// Once the Pods can schedule the cluster should be able to reconcile.
-			fdbCluster.GetPrimarySatellite().SetProcessGroupsAsUnschedulable(nil)
-			Expect(fdbCluster.GetPrimarySatellite().GetCluster().Spec.Buggify.NoSchedule).To(BeEmpty())
+			// Make sure that the quota is deleted and new PVCs can be created.
+			factory.Delete(quota)
 			Expect(fdbCluster.GetPrimarySatellite().WaitForReconciliation()).NotTo(HaveOccurred())
 		})
 
 		It("should not replace too many Pods and bring down the satellite", func() {
 			satellite := fdbCluster.GetPrimarySatellite()
-			satelliteCluster := satellite.GetCluster()
-			// Verify that the operator keeps the ProcessGroups up and running.
-			processCounts, err := satelliteCluster.GetProcessCountsWithDefaults()
-			Expect(err).NotTo(HaveOccurred())
 
-			desiredRunningPods := processCounts.Log - satelliteCluster.DesiredFaultTolerance()
 			Consistently(func() int {
 				var runningPods int
 				for _, pod := range satellite.GetAllPods().Items {

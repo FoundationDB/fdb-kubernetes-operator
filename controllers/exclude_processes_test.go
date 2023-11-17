@@ -63,7 +63,7 @@ var _ = Describe("exclude_processes", func() {
 		JustBeforeEach(func() {
 			processCounts, err := cluster.GetProcessCountsWithDefaults()
 			Expect(err).NotTo(HaveOccurred())
-			allowedExclusions, missingProcesses = canExcludeNewProcesses(globalControllerLogger, cluster, processClass, processCounts.Map()[processClass], ongoingExclusions, false)
+			allowedExclusions, missingProcesses = getAllowedExclusionsAndMissingProcesses(globalControllerLogger, cluster, processClass, processCounts.Map()[processClass], ongoingExclusions, false)
 		})
 
 		When("using a small cluster", func() {
@@ -259,61 +259,6 @@ var _ = Describe("exclude_processes", func() {
 					})
 				})
 
-				When("more process groups are missing than the operator is allowed to automatically replace", func() {
-					BeforeEach(func() {
-						createMissingProcesses(cluster, cluster.GetMaxConcurrentAutomaticReplacements()+1, processClass)
-					})
-
-					It("should not allow the exclusion", func() {
-						Expect(allowedExclusions).To(BeNumerically("==", 0))
-						Expect(missingProcesses).To(Equal([]fdbv1beta2.ProcessGroupID{"storage-1", "storage-2"}))
-					})
-
-					When("the missing timestamp is older than 5 minutes", func() {
-						BeforeEach(func() {
-							for idx, processGroup := range cluster.Status.ProcessGroups {
-								timestamp := processGroup.GetConditionTime(fdbv1beta2.MissingProcesses)
-								if timestamp == nil {
-									continue
-								}
-
-								cluster.Status.ProcessGroups[idx].ProcessGroupConditions[0].Timestamp = time.Now().Add(-10 * time.Minute).Unix()
-							}
-						})
-
-						When("automatic replacements enabled", func() {
-							When("no exclusions are ongoing", func() {
-								It("should not allow the exclusions as too few processes are running", func() {
-									Expect(allowedExclusions).To(BeNumerically("==", 0))
-									Expect(missingProcesses).To(HaveLen(cluster.GetMaxConcurrentAutomaticReplacements() + 1))
-								})
-							})
-
-							When("one exclusion is ongoing", func() {
-								BeforeEach(func() {
-									ongoingExclusions = 1
-								})
-
-								It("should allow the exclusion to replace as many processes as automatic replacements are allowed", func() {
-									Expect(allowedExclusions).To(BeNumerically("==", cluster.GetMaxConcurrentAutomaticReplacements()-ongoingExclusions))
-									Expect(missingProcesses).To(HaveLen(cluster.GetMaxConcurrentAutomaticReplacements() + 1))
-								})
-							})
-						})
-
-						When("automatic replacements disabled", func() {
-							BeforeEach(func() {
-								cluster.Spec.AutomationOptions.Replacements.Enabled = pointer.Bool(false)
-							})
-
-							It("should not allow the exclusions", func() {
-								Expect(allowedExclusions).To(BeNumerically("==", 0))
-								Expect(missingProcesses).To(HaveLen(cluster.GetMaxConcurrentAutomaticReplacements() + 1))
-							})
-						})
-					})
-				})
-
 				When("two process groups of a different type are missing", func() {
 					BeforeEach(func() {
 						createMissingProcesses(cluster, 2, fdbv1beta2.ProcessClassLog)
@@ -404,93 +349,9 @@ var _ = Describe("exclude_processes", func() {
 						Expect(missingProcesses).To(Equal([]fdbv1beta2.ProcessGroupID{"storage-1", "storage-10", "storage-11", "storage-12", "storage-13"}))
 					})
 				})
-
-				When("more process groups are missing than the operator is allowed to automatically replace", func() {
-					BeforeEach(func() {
-						createMissingProcesses(cluster, cluster.GetMaxConcurrentAutomaticReplacements()+1, processClass)
-					})
-
-					It("should not allow the exclusion", func() {
-						Expect(allowedExclusions).To(BeNumerically("==", 0))
-						Expect(missingProcesses).To(HaveLen(2))
-					})
-
-					When("the missing timestamp is older than 5 minutes", func() {
-						BeforeEach(func() {
-							for idx, processGroup := range cluster.Status.ProcessGroups {
-								timestamp := processGroup.GetConditionTime(fdbv1beta2.MissingProcesses)
-								if timestamp == nil {
-									continue
-								}
-
-								cluster.Status.ProcessGroups[idx].ProcessGroupConditions[0].Timestamp = time.Now().Add(-10 * time.Minute).Unix()
-							}
-						})
-
-						When("automatic replacements enabled", func() {
-							When("no exclusions are ongoing", func() {
-								It("should allow the exclusion to replace as many processes as automatic replacements are allowed", func() {
-									Expect(allowedExclusions).To(BeNumerically("==", cluster.GetMaxConcurrentAutomaticReplacements()))
-									Expect(missingProcesses).To(HaveLen(cluster.GetMaxConcurrentAutomaticReplacements() + 1))
-								})
-							})
-
-							When("one exclusion is ongoing", func() {
-								BeforeEach(func() {
-									ongoingExclusions = 1
-								})
-
-								It("should allow the exclusion to replace as many processes as automatic replacements are allowed", func() {
-									Expect(allowedExclusions).To(BeNumerically("==", cluster.GetMaxConcurrentAutomaticReplacements()-ongoingExclusions))
-									Expect(missingProcesses).To(HaveLen(cluster.GetMaxConcurrentAutomaticReplacements() + 1))
-								})
-							})
-
-							When("no exclusions are ongoing but multiple processes are missing", func() {
-								BeforeEach(func() {
-									missingProcessesCnt := 5
-
-									for idx, processGroup := range cluster.Status.ProcessGroups {
-										if processGroup.ProcessClass != processClass {
-											continue
-										}
-
-										if missingProcessesCnt <= 0 {
-											break
-										}
-
-										missingTime := processGroup.GetConditionTime(fdbv1beta2.MissingProcesses)
-										if missingTime == nil {
-											cluster.Status.ProcessGroups[idx].UpdateCondition(fdbv1beta2.MissingProcesses, true)
-										}
-
-										cluster.Status.ProcessGroups[idx].ProcessGroupConditions[0].Timestamp = time.Now().Add(-10 * time.Minute).Unix()
-										missingProcessesCnt--
-									}
-								})
-
-								It("should not allow further exclusions as too many processes are missing", func() {
-									Expect(allowedExclusions).To(BeNumerically("==", 0))
-									Expect(missingProcesses).To(HaveLen(5))
-								})
-							})
-						})
-
-						When("automatic replacements disabled", func() {
-							BeforeEach(func() {
-								cluster.Spec.AutomationOptions.Replacements.Enabled = pointer.Bool(false)
-							})
-
-							It("should not allow the exclusions", func() {
-								Expect(allowedExclusions).To(BeNumerically("==", -2))
-								Expect(missingProcesses).To(HaveLen(cluster.GetMaxConcurrentAutomaticReplacements() + 1))
-							})
-						})
-					})
-				})
 			})
 
-			FWhen("the log class is used", func() {
+			When("the log class is used", func() {
 				BeforeEach(func() {
 					processClass = fdbv1beta2.ProcessClassLog
 				})
@@ -539,90 +400,6 @@ var _ = Describe("exclude_processes", func() {
 							It("should allow the exclusion", func() {
 								Expect(allowedExclusions).To(BeNumerically("==", 2))
 								Expect(missingProcesses).To(HaveLen(2))
-							})
-						})
-					})
-				})
-
-				When("more process groups are missing than the operator is allowed to automatically replace", func() {
-					BeforeEach(func() {
-						createMissingProcesses(cluster, cluster.GetMaxConcurrentAutomaticReplacements()+1, processClass)
-					})
-
-					It("should not allow the exclusion", func() {
-						Expect(allowedExclusions).To(BeNumerically("==", 0))
-						Expect(missingProcesses).To(HaveLen(2))
-					})
-
-					When("the missing timestamp is older than 5 minutes", func() {
-						BeforeEach(func() {
-							for idx, processGroup := range cluster.Status.ProcessGroups {
-								timestamp := processGroup.GetConditionTime(fdbv1beta2.MissingProcesses)
-								if timestamp == nil {
-									continue
-								}
-
-								cluster.Status.ProcessGroups[idx].ProcessGroupConditions[0].Timestamp = time.Now().Add(-10 * time.Minute).Unix()
-							}
-						})
-
-						When("automatic replacements enabled", func() {
-							When("no exclusions are ongoing", func() {
-								It("should allow the exclusion to replace as many processes as automatic replacements are allowed", func() {
-									Expect(allowedExclusions).To(BeNumerically("==", 0))
-									Expect(missingProcesses).To(HaveLen(cluster.GetMaxConcurrentAutomaticReplacements() + 1))
-								})
-							})
-
-							When("one exclusion is ongoing", func() {
-								BeforeEach(func() {
-									ongoingExclusions = 1
-								})
-
-								It("should allow the exclusion to replace as many processes as automatic replacements are allowed", func() {
-									Expect(allowedExclusions).To(BeNumerically("==", cluster.GetMaxConcurrentAutomaticReplacements()-ongoingExclusions))
-									Expect(missingProcesses).To(HaveLen(cluster.GetMaxConcurrentAutomaticReplacements() + 1))
-								})
-							})
-
-							When("no exclusions are ongoing but multiple processes are missing", func() {
-								BeforeEach(func() {
-									missingProcessesCnt := 5
-
-									for idx, processGroup := range cluster.Status.ProcessGroups {
-										if processGroup.ProcessClass != processClass {
-											continue
-										}
-
-										if missingProcessesCnt <= 0 {
-											break
-										}
-
-										missingTime := processGroup.GetConditionTime(fdbv1beta2.MissingProcesses)
-										if missingTime == nil {
-											cluster.Status.ProcessGroups[idx].UpdateCondition(fdbv1beta2.MissingProcesses, true)
-										}
-
-										cluster.Status.ProcessGroups[idx].ProcessGroupConditions[0].Timestamp = time.Now().Add(-10 * time.Minute).Unix()
-										missingProcessesCnt--
-									}
-								})
-
-								It("should not allow further exclusions as too many processes are missing", func() {
-									Expect(allowedExclusions).To(BeNumerically("==", 0))
-									Expect(missingProcesses).To(HaveLen(3))
-								})
-							})
-						})
-
-						When("automatic replacements disabled", func() {
-							BeforeEach(func() {
-								cluster.Spec.AutomationOptions.Replacements.Enabled = pointer.Bool(false)
-							})
-
-							It("should not allow the exclusions", func() {
-								Expect(allowedExclusions).To(BeNumerically("==", 0))
-								Expect(missingProcesses).To(HaveLen(cluster.GetMaxConcurrentAutomaticReplacements() + 1))
 							})
 						})
 					})
@@ -928,6 +705,53 @@ var _ = Describe("exclude_processes", func() {
 			})
 		})
 	})
+
+	DescribeTable("when getting the allowed exclusions", func(validProcesses int, desiredProcessCount int, ongoingExclusions int, faultTolerance int, expected int) {
+		Expect(getAllowedExclusions(GinkgoLogr, validProcesses, desiredProcessCount, ongoingExclusions, faultTolerance)).To(BeNumerically("==", expected))
+	},
+		Entry("when as many valid processes are running as desired",
+			10,
+			10,
+			0,
+			2,
+			2),
+		Entry("when as many valid processes are running as desired but one exclusion is ongoing",
+			10,
+			10,
+			1,
+			2,
+			1),
+		Entry("when as many valid processes are running as desired but two exclusions are ongoing",
+			10,
+			10,
+			2,
+			2,
+			0),
+		Entry("when more valid processes are running than desired",
+			20,
+			10,
+			0,
+			2,
+			12),
+		Entry("when more valid processes are running than desired but there are 10 exclusions ongoing",
+			20,
+			10,
+			10,
+			2,
+			2),
+		Entry("when only 8 valid processes are running",
+			8,
+			10,
+			0,
+			2,
+			0),
+		Entry("when no valid processes are running",
+			0,
+			10,
+			0,
+			2,
+			0),
+	)
 })
 
 func createMissingProcesses(cluster *fdbv1beta2.FoundationDBCluster, count int, processClass fdbv1beta2.ProcessClass) {
