@@ -46,7 +46,7 @@ var _ = Describe("[plugin] version command", func() {
 			errBuffer = bytes.Buffer{}
 			inBuffer = bytes.Buffer{}
 
-			rootCmd := NewRootCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer})
+			rootCmd := NewRootCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer}, &MockVersionChecker{})
 
 			args := []string{"version", "--client-only"}
 			rootCmd.SetArgs(args)
@@ -161,5 +161,34 @@ var _ = Describe("[plugin] version command", func() {
 					hasError:      true,
 				}),
 		)
+	})
+	When("running the version command with old version", func() {
+		var outBuffer bytes.Buffer
+		var errBuffer bytes.Buffer
+		var inBuffer bytes.Buffer
+
+		AfterEach(func() {
+			pluginVersion = "latest"
+		})
+		BeforeEach(func() {
+			pluginVersion = "1.0.0"
+			// We use these buffers to check the input/output
+			outBuffer = bytes.Buffer{}
+			errBuffer = bytes.Buffer{}
+			inBuffer = bytes.Buffer{}
+
+			rootCmd := NewRootCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer}, &MockVersionChecker{MockedVersion: "2.0.0"})
+
+			args := []string{"version", "--client-only"}
+			rootCmd.SetArgs(args)
+
+			err := rootCmd.Execute()
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("should print out the client version", func() {
+			Expect(outBuffer.String()).To(ContainSubstring(
+				"kubectl-fdb plugin is not up-to-date, please install the latest version and try again!"))
+		})
 	})
 })

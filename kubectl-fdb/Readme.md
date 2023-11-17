@@ -16,6 +16,9 @@ Install from release:
 
 ```bash
 pushd $TMPDIR
+if [ -f "$TMPDIR/kubectl-fdb-version.txt" ]; then
+   rm "$TMPDIR/kubectl-fdb-version.txt"
+fi
 OS=$(uname)
 ARCH=$(uname -m)
 VERSION="$(curl -s "https://api.github.com/repos/FoundationDB/fdb-kubernetes-operator/releases/latest" | jq -r '.tag_name')"
@@ -51,3 +54,11 @@ Run `kubectl fdb help` to get the latest help.
 We have a list of [planned operations](https://github.com/FoundationDB/fdb-kubernetes-operator/issues?q=is%3Aissue+is%3Aopen+label%3Aplugin)
 that we want to implement.
 Raise an issue if you miss a specific command to operate FDB on Kubernetes.
+
+## Plugin Version Check
+
+Per default the plugin will check if there is a newer version present.
+For this the plugin will contact the GitHub API and check for the latest release.
+If a newer version was found the command will exit with the request to update the plugin.
+The version check can be disabled by setting `--version-check=false` when issuing a command.
+The plugin will create a local cache in the temp directory to reduce the calls to the GitHub API, the file is located under `$TMPDIR/kubectl-fdb-version.txt`.

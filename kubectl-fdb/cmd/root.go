@@ -54,7 +54,7 @@ func newFDBOptions(streams genericclioptions.IOStreams) *fdbBOptions {
 }
 
 // NewRootCmd provides a cobra command wrapping FDB actions
-func NewRootCmd(streams genericclioptions.IOStreams) *cobra.Command {
+func NewRootCmd(streams genericclioptions.IOStreams, pluginVersionChecker VersionChecker) *cobra.Command {
 	rand.Seed(time.Now().Unix())
 
 	o := newFDBOptions(streams)
@@ -67,6 +67,13 @@ func NewRootCmd(streams genericclioptions.IOStreams) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cmd.Help()
 		},
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			versionCheck, _ := cmd.Flags().GetBool("version-check")
+			if versionCheck {
+				return usingLatestPluginVersion(cmd, pluginVersionChecker)
+			}
+			return nil
+		},
 	}
 	cmd.SetOut(o.Out)
 	cmd.SetErr(o.ErrOut)
@@ -74,6 +81,7 @@ func NewRootCmd(streams genericclioptions.IOStreams) *cobra.Command {
 
 	viper.SetDefault("license", "apache 2")
 	cmd.PersistentFlags().StringP("operator-name", "o", "fdb-kubernetes-operator-controller-manager", "Name of the Deployment for the operator.")
+	cmd.PersistentFlags().Bool("version-check", true, "If the plugin should check if a newer release of the plugin exists. If so the command will not be executed.")
 	cmd.PersistentFlags().BoolP("wait", "w", true, "If the plugin should wait for confirmation before executing any action")
 	cmd.PersistentFlags().Uint16P("sleep", "z", 0, "The plugin should sleep between sequential operations for the defined time in seconds (default 0)")
 	o.configFlags.AddFlags(cmd.Flags())
@@ -144,4 +152,26 @@ func printStatement(cmd *cobra.Command, line string, mesType messageType) {
 	color.Set(color.FgGreen)
 	cmd.Printf("✔ %s\n", line)
 	color.Unset()
+}
+
+// will check plugin version and won't let any interaction happen with cluster, if it's not latest release version
+func usingLatestPluginVersion(cmd *cobra.Command, pluginVersionChecker VersionChecker) error {
+	// If the user has a self build plugin we are not performing any checks.
+	if strings.ToLower(pluginVersion) == "latest" {
+		return nil
+	}
+	latestPluginVersion, err := pluginVersionChecker.getLatestPluginVersion()
+	if err != nil {
+		return err
+	}
+
+	if pluginVersion != latestPluginVersion {
+		versionMessage := "kubectl-fdb plugin is not up-to-date, please install the latest version and try again!\n" +
+			"Your version:[" + pluginVersion + "], latest release version:[" + latestPluginVersion + "].\n" +
+			"Installation instructions can be found here: https://github.com/FoundationDB/fdb-kubernetes-operator/blob/main/kubectl-fdb/Readme.md"
+		cmd.Println(versionMessage)
+		return fmt.Errorf("outdated plugin version")
+	}
+
+	return nil
 }
