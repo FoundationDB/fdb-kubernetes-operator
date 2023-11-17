@@ -24,7 +24,7 @@ type RealVersionChecker struct{}
 const KubectlFbReleaseURL = "https://api.github.com/repos/FoundationDB/fdb-kubernetes-operator/releases/latest"
 
 // LocalTempVersionFileName is where we cache plugin version for 24 hours, so we don't call GitHub for every single command(also rate-limit issue on GitHub api calls)
-const LocalTempVersionFileName = "latest.plugin"
+const LocalTempVersionFileName = "kubectl-fdb-version.txt"
 
 // PluginVersionDetails Contains [partial] plugin version details from GitHub
 type PluginVersionDetails struct {
