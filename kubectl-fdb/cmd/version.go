@@ -55,7 +55,7 @@ func newVersionCmd(streams genericclioptions.IOStreams) *cobra.Command {
 			}
 
 			if !clientOnly {
-				kubeClient, err := getKubeClient(o)
+				kubeClient, err := getKubeClient(cmd.Context(), o)
 				if err != nil {
 					return err
 				}

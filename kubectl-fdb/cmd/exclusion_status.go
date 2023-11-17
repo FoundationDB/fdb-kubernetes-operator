@@ -41,7 +41,7 @@ func newExclusionStatusCmd(streams genericclioptions.IOStreams) *cobra.Command {
 		Use:   "exclusion-status",
 		Short: "Get the exclusion status for all excluded processes.",
 		Long:  "Get the exclusion status for all excluded processes.",
-		Args:  cobra.ExactValidArgs(1),
+		Args:  cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ignoreFullyExcluded, err := cmd.Flags().GetBool("ignore-fully-excluded")
 			if err != nil {
@@ -63,7 +63,7 @@ func newExclusionStatusCmd(streams genericclioptions.IOStreams) *cobra.Command {
 				return err
 			}
 
-			kubeClient, err := getKubeClient(o)
+			kubeClient, err := getKubeClient(cmd.Context(), o)
 			if err != nil {
 				return err
 			}

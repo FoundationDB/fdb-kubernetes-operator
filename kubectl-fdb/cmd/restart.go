@@ -74,7 +74,7 @@ func newRestartCmd(streams genericclioptions.IOStreams) *cobra.Command {
 				return err
 			}
 
-			kubeClient, err := getKubeClient(o)
+			kubeClient, err := getKubeClient(cmd.Context(), o)
 			if err != nil {
 				return err
 			}
