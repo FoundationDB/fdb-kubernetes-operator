@@ -38,6 +38,7 @@ var _ = Describe("exclude_processes", func() {
 	var allowedExclusions int
 	var ongoingExclusions int
 	var missingProcesses []fdbv1beta2.ProcessGroupID
+	var processClass fdbv1beta2.ProcessClass
 
 	When("validating if processes can be excluded", func() {
 		BeforeEach(func() {
@@ -62,220 +63,211 @@ var _ = Describe("exclude_processes", func() {
 		JustBeforeEach(func() {
 			processCounts, err := cluster.GetProcessCountsWithDefaults()
 			Expect(err).NotTo(HaveOccurred())
-			allowedExclusions, missingProcesses = canExcludeNewProcesses(globalControllerLogger, cluster, fdbv1beta2.ProcessClassStorage, processCounts.Storage, ongoingExclusions, false)
+			allowedExclusions, missingProcesses = getAllowedExclusionsAndMissingProcesses(globalControllerLogger, cluster, processClass, processCounts.Map()[processClass], ongoingExclusions, false)
 		})
 
 		When("using a small cluster", func() {
-			When("all processes are healthy", func() {
-				When("no additional processes are running", func() {
-					It("should not allow the exclusion", func() {
-						Expect(allowedExclusions).To(BeNumerically("==", 0))
-						Expect(missingProcesses).To(BeEmpty())
-					})
-				})
-
-				When("no additional processes are running", func() {
-					When("the redundancy mode is single", func() {
-						It("should not allow the exclusion", func() {
-							Expect(allowedExclusions).To(BeNumerically("==", 0))
-							Expect(missingProcesses).To(BeEmpty())
-						})
-					})
-
-					When("the redundancy mode is double", func() {
-						BeforeEach(func() {
-							cluster.Spec.DatabaseConfiguration.RedundancyMode = fdbv1beta2.RedundancyModeDouble
-						})
-
-						It("should not allow the exclusion", func() {
-							Expect(allowedExclusions).To(BeNumerically("==", cluster.DesiredFaultTolerance()))
-							Expect(missingProcesses).To(BeEmpty())
-						})
-					})
-
-					When("the redundancy mode is triple", func() {
-						BeforeEach(func() {
-							cluster.Spec.DatabaseConfiguration.RedundancyMode = fdbv1beta2.RedundancyModeTriple
-						})
-
-						It("should not allow the exclusion", func() {
-							Expect(allowedExclusions).To(BeNumerically("==", cluster.DesiredFaultTolerance()))
-							Expect(missingProcesses).To(BeEmpty())
-						})
-					})
-				})
-
-				When("one additional process is running", func() {
-					BeforeEach(func() {
-						cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1337", fdbv1beta2.ProcessClassStorage, nil))
-						cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].ProcessGroupConditions = nil
-					})
-
-					It("should allow the exclusion", func() {
-						Expect(allowedExclusions).To(BeNumerically("==", 1))
-						Expect(missingProcesses).To(BeEmpty())
-					})
-
-					When("there is one ongoing exclusion", func() {
-						BeforeEach(func() {
-							ongoingExclusions = 1
-						})
-
-						It("should not allow the exclusion", func() {
-							Expect(allowedExclusions).To(BeNumerically("==", 0))
-							Expect(missingProcesses).To(BeEmpty())
-						})
-					})
-
-					When("the additional process is marked for removal", func() {
-						BeforeEach(func() {
-							// In this case the process group is marked for removal but is counted against the valid
-							// processes as the process is not yet excluded.
-							cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].MarkForRemoval()
-						})
-
-						It("should allow the exclusion", func() {
-							Expect(allowedExclusions).To(BeNumerically("==", 1))
-							Expect(missingProcesses).To(BeEmpty())
-						})
-					})
-
-					When("the additional process is marked for removal and is excluded", func() {
-						BeforeEach(func() {
-							// In this case we have no additional processes running, as the valid processes is the
-							// same as the desired count of processes.
-							cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].MarkForRemoval()
-							cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].SetExclude()
-						})
-
-						It("should not allow the exclusion", func() {
-							Expect(allowedExclusions).To(BeNumerically("==", 0))
-							Expect(missingProcesses).To(BeEmpty())
-						})
-					})
-				})
-			})
-
-			When("one process group is missing", func() {
+			When("using the storage process class", func() {
 				BeforeEach(func() {
-					createMissingProcesses(cluster, 1, fdbv1beta2.ProcessClassStorage)
+					processClass = fdbv1beta2.ProcessClassStorage
 				})
 
-				When("no additional processes are running", func() {
-					It("should not allow the exclusion", func() {
-						Expect(allowedExclusions).To(BeNumerically("==", 0))
-						Expect(missingProcesses).To(HaveLen(1))
-					})
-				})
-
-				When("additional processes are running", func() {
-					BeforeEach(func() {
-						cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1337", fdbv1beta2.ProcessClassStorage, nil))
-						cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].ProcessGroupConditions = nil
-						// Add two process groups
-						cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1338", fdbv1beta2.ProcessClassStorage, nil))
-						cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].ProcessGroupConditions = nil
-					})
-
-					It("should not allow the exclusion", func() {
-						Expect(allowedExclusions).To(BeNumerically("==", 0))
-						Expect(missingProcesses).To(HaveLen(1))
-					})
-
-					When("there is one ongoing exclusion", func() {
-						BeforeEach(func() {
-							ongoingExclusions = 1
-						})
-
+				When("all processes are healthy", func() {
+					When("no additional processes are running", func() {
 						It("should not allow the exclusion", func() {
 							Expect(allowedExclusions).To(BeNumerically("==", 0))
-							Expect(missingProcesses).To(HaveLen(1))
+							Expect(missingProcesses).To(BeEmpty())
 						})
 					})
 
-					When("the missing timestamp is older than 5 minutes", func() {
-						BeforeEach(func() {
-							for idx, processGroup := range cluster.Status.ProcessGroups {
-								timestamp := processGroup.GetConditionTime(fdbv1beta2.MissingProcesses)
-								if timestamp == nil {
-									continue
-								}
-
-								cluster.Status.ProcessGroups[idx].ProcessGroupConditions[0].Timestamp = time.Now().Add(-10 * time.Minute).Unix()
-							}
-						})
-
-						It("should allow the exclusion", func() {
-							Expect(allowedExclusions).To(BeNumerically("==", 1))
-							Expect(missingProcesses).To(HaveLen(1))
-						})
-					})
-				})
-			})
-
-			When("more process groups are missing than the operator is allowed to automatically replace", func() {
-				BeforeEach(func() {
-					createMissingProcesses(cluster, cluster.GetMaxConcurrentAutomaticReplacements()+1, fdbv1beta2.ProcessClassStorage)
-				})
-
-				It("should not allow the exclusion", func() {
-					Expect(allowedExclusions).To(BeNumerically("==", 0))
-					Expect(missingProcesses).To(Equal([]fdbv1beta2.ProcessGroupID{"storage-1", "storage-2"}))
-				})
-
-				When("the missing timestamp is older than 5 minutes", func() {
-					BeforeEach(func() {
-						for idx, processGroup := range cluster.Status.ProcessGroups {
-							timestamp := processGroup.GetConditionTime(fdbv1beta2.MissingProcesses)
-							if timestamp == nil {
-								continue
-							}
-
-							cluster.Status.ProcessGroups[idx].ProcessGroupConditions[0].Timestamp = time.Now().Add(-10 * time.Minute).Unix()
-						}
-					})
-
-					When("automatic replacements enabled", func() {
-						When("no exclusions are ongoing", func() {
-							It("should allow the exclusion to replace as many processes as automatic replacements are allowed", func() {
-								Expect(allowedExclusions).To(BeNumerically("==", cluster.GetMaxConcurrentAutomaticReplacements()))
-								Expect(missingProcesses).To(HaveLen(cluster.GetMaxConcurrentAutomaticReplacements() + 1))
+					When("no additional processes are running", func() {
+						When("the redundancy mode is single", func() {
+							It("should not allow the exclusion", func() {
+								Expect(allowedExclusions).To(BeNumerically("==", 0))
+								Expect(missingProcesses).To(BeEmpty())
 							})
 						})
 
-						When("one exclusion is ongoing", func() {
+						When("the redundancy mode is double", func() {
+							BeforeEach(func() {
+								cluster.Spec.DatabaseConfiguration.RedundancyMode = fdbv1beta2.RedundancyModeDouble
+							})
+
+							It("should not allow the exclusion", func() {
+								Expect(allowedExclusions).To(BeNumerically("==", cluster.DesiredFaultTolerance()))
+								Expect(missingProcesses).To(BeEmpty())
+							})
+
+							When("there are failed processes", func() {
+								BeforeEach(func() {
+
+									for idx, processGroup := range cluster.Status.ProcessGroups {
+										if processGroup.ProcessClass != processClass {
+											continue
+										}
+
+										cluster.Status.ProcessGroups[idx].UpdateCondition(fdbv1beta2.MissingProcesses, true)
+										cluster.Status.ProcessGroups[idx].ProcessGroupConditions[0].Timestamp = time.Now().Add(-10 * time.Minute).Unix()
+										break
+									}
+								})
+
+								It("should not allow the exclusion", func() {
+									Expect(allowedExclusions).To(BeZero())
+									Expect(missingProcesses).To(ConsistOf(fdbv1beta2.ProcessGroupID("storage-1")))
+								})
+							})
+						})
+
+						When("the redundancy mode is triple", func() {
+							BeforeEach(func() {
+								cluster.Spec.DatabaseConfiguration.RedundancyMode = fdbv1beta2.RedundancyModeTriple
+							})
+
+							It("should allow the exclusion", func() {
+								Expect(allowedExclusions).To(BeNumerically("==", cluster.DesiredFaultTolerance()))
+								Expect(missingProcesses).To(BeEmpty())
+							})
+
+							When("there are failed processes", func() {
+								BeforeEach(func() {
+
+									for idx, processGroup := range cluster.Status.ProcessGroups {
+										if processGroup.ProcessClass != processClass {
+											continue
+										}
+
+										cluster.Status.ProcessGroups[idx].UpdateCondition(fdbv1beta2.MissingProcesses, true)
+										cluster.Status.ProcessGroups[idx].ProcessGroupConditions[0].Timestamp = time.Now().Add(-10 * time.Minute).Unix()
+										break
+									}
+								})
+
+								It("should allow the exclusion", func() {
+									Expect(allowedExclusions).To(BeNumerically("==", cluster.DesiredFaultTolerance()-1))
+									Expect(missingProcesses).To(ConsistOf(fdbv1beta2.ProcessGroupID("storage-1")))
+								})
+							})
+						})
+					})
+
+					When("one additional process is running", func() {
+						BeforeEach(func() {
+							cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1337", processClass, nil))
+							cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].ProcessGroupConditions = nil
+						})
+
+						It("should allow the exclusion", func() {
+							Expect(allowedExclusions).To(BeNumerically("==", 1))
+							Expect(missingProcesses).To(BeEmpty())
+						})
+
+						When("there is one ongoing exclusion", func() {
 							BeforeEach(func() {
 								ongoingExclusions = 1
 							})
 
-							It("should allow the exclusion to replace as many processes as automatic replacements are allowed", func() {
-								Expect(allowedExclusions).To(BeNumerically("==", cluster.GetMaxConcurrentAutomaticReplacements()-ongoingExclusions))
-								Expect(missingProcesses).To(HaveLen(cluster.GetMaxConcurrentAutomaticReplacements() + 1))
+							It("should not allow the exclusion", func() {
+								Expect(allowedExclusions).To(BeNumerically("==", 0))
+								Expect(missingProcesses).To(BeEmpty())
+							})
+						})
+
+						When("the additional process is marked for removal", func() {
+							BeforeEach(func() {
+								// In this case the process group is marked for removal but is counted against the valid
+								// processes as the process is not yet excluded.
+								cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].MarkForRemoval()
+							})
+
+							It("should allow the exclusion", func() {
+								Expect(allowedExclusions).To(BeNumerically("==", 1))
+								Expect(missingProcesses).To(BeEmpty())
+							})
+						})
+
+						When("the additional process is marked for removal and is excluded", func() {
+							BeforeEach(func() {
+								// In this case we have no additional processes running, as the valid processes is the
+								// same as the desired count of processes.
+								cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].MarkForRemoval()
+								cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].SetExclude()
+							})
+
+							It("should not allow the exclusion", func() {
+								Expect(allowedExclusions).To(BeNumerically("==", 0))
+								Expect(missingProcesses).To(BeEmpty())
 							})
 						})
 					})
+				})
 
-					When("automatic replacements disabled", func() {
+				When("one process group is missing", func() {
+					BeforeEach(func() {
+						createMissingProcesses(cluster, 1, processClass)
+					})
+
+					When("no additional processes are running", func() {
+						It("should not allow the exclusion", func() {
+							Expect(allowedExclusions).To(BeNumerically("==", 0))
+							Expect(missingProcesses).To(HaveLen(1))
+						})
+					})
+
+					When("additional processes are running", func() {
 						BeforeEach(func() {
-							cluster.Spec.AutomationOptions.Replacements.Enabled = pointer.Bool(false)
+							cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1337", processClass, nil))
+							cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].ProcessGroupConditions = nil
+							// Add two process groups
+							cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1338", processClass, nil))
+							cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].ProcessGroupConditions = nil
 						})
 
-						It("should not allow the exclusions", func() {
-							Expect(allowedExclusions).To(BeNumerically("==", -1*len(missingProcesses)))
-							Expect(missingProcesses).To(HaveLen(cluster.GetMaxConcurrentAutomaticReplacements() + 1))
+						It("should not allow the exclusion", func() {
+							Expect(allowedExclusions).To(BeNumerically("==", 0))
+							Expect(missingProcesses).To(HaveLen(1))
+						})
+
+						When("there is one ongoing exclusion", func() {
+							BeforeEach(func() {
+								ongoingExclusions = 1
+							})
+
+							It("should not allow the exclusion", func() {
+								Expect(allowedExclusions).To(BeNumerically("==", 0))
+								Expect(missingProcesses).To(HaveLen(1))
+							})
+						})
+
+						When("the missing timestamp is older than 5 minutes", func() {
+							BeforeEach(func() {
+								for idx, processGroup := range cluster.Status.ProcessGroups {
+									timestamp := processGroup.GetConditionTime(fdbv1beta2.MissingProcesses)
+									if timestamp == nil {
+										continue
+									}
+
+									cluster.Status.ProcessGroups[idx].ProcessGroupConditions[0].Timestamp = time.Now().Add(-10 * time.Minute).Unix()
+								}
+							})
+
+							It("should allow the exclusion", func() {
+								Expect(allowedExclusions).To(BeNumerically("==", 1))
+								Expect(missingProcesses).To(HaveLen(1))
+							})
 						})
 					})
 				})
-			})
 
-			When("two process groups of a different type are missing", func() {
-				BeforeEach(func() {
-					createMissingProcesses(cluster, 2, fdbv1beta2.ProcessClassLog)
-				})
+				When("two process groups of a different type are missing", func() {
+					BeforeEach(func() {
+						createMissingProcesses(cluster, 2, fdbv1beta2.ProcessClassLog)
+					})
 
-				It("should allow the exclusion", func() {
-					Expect(allowedExclusions).To(BeNumerically("==", 0))
-					Expect(missingProcesses).To(BeEmpty())
+					It("should allow the exclusion", func() {
+						Expect(allowedExclusions).To(BeNumerically("==", 0))
+						Expect(missingProcesses).To(BeEmpty())
+					})
 				})
 			})
 		})
@@ -293,63 +285,124 @@ var _ = Describe("exclude_processes", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			When("two process groups are missing", func() {
+			When("the storage class is used", func() {
 				BeforeEach(func() {
-					createMissingProcesses(cluster, 2, fdbv1beta2.ProcessClassStorage)
+					processClass = fdbv1beta2.ProcessClassStorage
 				})
 
-				When("no additional processes are running", func() {
-					It("should not allow the exclusion", func() {
-						Expect(allowedExclusions).To(BeNumerically("==", 0))
-						Expect(missingProcesses).To(HaveLen(2))
-					})
-				})
-
-				When("additional processes are running", func() {
+				When("two process groups are missing", func() {
 					BeforeEach(func() {
-						cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1337", fdbv1beta2.ProcessClassStorage, nil))
-						cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].ProcessGroupConditions = nil
-						cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1338", fdbv1beta2.ProcessClassStorage, nil))
-						cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].ProcessGroupConditions = nil
-						cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1339", fdbv1beta2.ProcessClassStorage, nil))
-						cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].ProcessGroupConditions = nil
-						cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1340", fdbv1beta2.ProcessClassStorage, nil))
-						cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].ProcessGroupConditions = nil
+						createMissingProcesses(cluster, 2, processClass)
 					})
 
-					It("should not allow the exclusion", func() {
-						Expect(allowedExclusions).To(BeNumerically("==", 0))
-						Expect(missingProcesses).To(HaveLen(2))
-					})
-
-					When("the missing timestamps are older than 5 minutes", func() {
-						BeforeEach(func() {
-							for idx, processGroup := range cluster.Status.ProcessGroups {
-								timestamp := processGroup.GetConditionTime(fdbv1beta2.MissingProcesses)
-								if timestamp == nil {
-									continue
-								}
-
-								cluster.Status.ProcessGroups[idx].ProcessGroupConditions[0].Timestamp = time.Now().Add(-10 * time.Minute).Unix()
-							}
-						})
-
-						It("should allow the exclusion", func() {
-							Expect(allowedExclusions).To(BeNumerically("==", 2))
+					When("no additional processes are running", func() {
+						It("should not allow the exclusion", func() {
+							Expect(allowedExclusions).To(BeNumerically("==", 0))
 							Expect(missingProcesses).To(HaveLen(2))
 						})
+					})
+
+					When("additional processes are running", func() {
+						BeforeEach(func() {
+							cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1337", processClass, nil))
+							cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].ProcessGroupConditions = nil
+							cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1338", processClass, nil))
+							cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].ProcessGroupConditions = nil
+							cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1339", processClass, nil))
+							cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].ProcessGroupConditions = nil
+							cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1340", processClass, nil))
+							cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].ProcessGroupConditions = nil
+						})
+
+						It("should not allow the exclusion", func() {
+							Expect(allowedExclusions).To(BeNumerically("==", 0))
+							Expect(missingProcesses).To(HaveLen(2))
+						})
+
+						When("the missing timestamps are older than 5 minutes", func() {
+							BeforeEach(func() {
+								for idx, processGroup := range cluster.Status.ProcessGroups {
+									timestamp := processGroup.GetConditionTime(fdbv1beta2.MissingProcesses)
+									if timestamp == nil {
+										continue
+									}
+
+									cluster.Status.ProcessGroups[idx].ProcessGroupConditions[0].Timestamp = time.Now().Add(-10 * time.Minute).Unix()
+								}
+							})
+
+							It("should allow the exclusion", func() {
+								Expect(allowedExclusions).To(BeNumerically("==", 2))
+								Expect(missingProcesses).To(HaveLen(2))
+							})
+						})
+					})
+				})
+
+				When("five process groups are missing", func() {
+					BeforeEach(func() {
+						createMissingProcesses(cluster, 5, processClass)
+					})
+
+					It("should not allow the exclusion", func() {
+						Expect(allowedExclusions).To(BeNumerically("==", 0))
+						Expect(missingProcesses).To(Equal([]fdbv1beta2.ProcessGroupID{"storage-1", "storage-10", "storage-11", "storage-12", "storage-13"}))
 					})
 				})
 			})
 
-			When("five process groups are missing", func() {
+			When("the log class is used", func() {
 				BeforeEach(func() {
-					createMissingProcesses(cluster, 5, fdbv1beta2.ProcessClassStorage)
+					processClass = fdbv1beta2.ProcessClassLog
 				})
 
-				It("should not allow the exclusion", func() {
-					Expect(allowedExclusions).To(BeNumerically("==", 0))
-					Expect(missingProcesses).To(Equal([]fdbv1beta2.ProcessGroupID{"storage-1", "storage-10", "storage-11", "storage-12", "storage-13"}))
+				When("two process groups are missing", func() {
+					BeforeEach(func() {
+						createMissingProcesses(cluster, 2, processClass)
+					})
+
+					When("no additional processes are running", func() {
+						It("should not allow the exclusion", func() {
+							Expect(allowedExclusions).To(BeNumerically("==", 0))
+							Expect(missingProcesses).To(HaveLen(2))
+						})
+					})
+
+					When("additional processes are running", func() {
+						BeforeEach(func() {
+							cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1337", processClass, nil))
+							cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].ProcessGroupConditions = nil
+							cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1338", processClass, nil))
+							cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].ProcessGroupConditions = nil
+							cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1339", processClass, nil))
+							cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].ProcessGroupConditions = nil
+							cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1340", processClass, nil))
+							cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].ProcessGroupConditions = nil
+						})
+
+						It("should not allow the exclusion", func() {
+							Expect(allowedExclusions).To(BeNumerically("==", 0))
+							Expect(missingProcesses).To(HaveLen(2))
+						})
+
+						When("the missing timestamps are older than 5 minutes", func() {
+							BeforeEach(func() {
+								for idx, processGroup := range cluster.Status.ProcessGroups {
+									timestamp := processGroup.GetConditionTime(fdbv1beta2.MissingProcesses)
+									if timestamp == nil {
+										continue
+									}
+
+									cluster.Status.ProcessGroups[idx].ProcessGroupConditions[0].Timestamp = time.Now().Add(-10 * time.Minute).Unix()
+								}
+							})
+
+							It("should allow the exclusion", func() {
+								Expect(allowedExclusions).To(BeNumerically("==", 2))
+								Expect(missingProcesses).To(HaveLen(2))
+							})
+						})
+					})
 				})
 			})
 		})
@@ -652,6 +705,53 @@ var _ = Describe("exclude_processes", func() {
 			})
 		})
 	})
+
+	DescribeTable("when getting the allowed exclusions", func(validProcesses int, desiredProcessCount int, ongoingExclusions int, faultTolerance int, expected int) {
+		Expect(getAllowedExclusions(GinkgoLogr, validProcesses, desiredProcessCount, ongoingExclusions, faultTolerance)).To(BeNumerically("==", expected))
+	},
+		Entry("when as many valid processes are running as desired",
+			10,
+			10,
+			0,
+			2,
+			2),
+		Entry("when as many valid processes are running as desired but one exclusion is ongoing",
+			10,
+			10,
+			1,
+			2,
+			1),
+		Entry("when as many valid processes are running as desired but two exclusions are ongoing",
+			10,
+			10,
+			2,
+			2,
+			0),
+		Entry("when more valid processes are running than desired",
+			20,
+			10,
+			0,
+			2,
+			12),
+		Entry("when more valid processes are running than desired but there are 10 exclusions ongoing",
+			20,
+			10,
+			10,
+			2,
+			2),
+		Entry("when only 8 valid processes are running",
+			8,
+			10,
+			0,
+			2,
+			0),
+		Entry("when no valid processes are running",
+			0,
+			10,
+			0,
+			2,
+			0),
+	)
 })
 
 func createMissingProcesses(cluster *fdbv1beta2.FoundationDBCluster, count int, processClass fdbv1beta2.ProcessClass) {

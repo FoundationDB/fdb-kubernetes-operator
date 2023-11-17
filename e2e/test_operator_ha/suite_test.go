@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package operator
+package operatorha
 
 import (
 	"testing"
@@ -28,7 +28,7 @@ import (
 	"github.com/onsi/gomega"
 )
 
-func TestOperator(t *testing.T) {
+func TestOperatorHA(t *testing.T) {
 	gomega.SetDefaultEventuallyTimeout(10 * time.Second)
-	fixtures.RunGinkgoTests(t, "Operator test suite")
+	fixtures.RunGinkgoTests(t, "Operator HA test suite")
 }

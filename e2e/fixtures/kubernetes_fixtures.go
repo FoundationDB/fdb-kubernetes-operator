@@ -53,7 +53,7 @@ func (factory *Factory) MultipleNamespaces(dcIDs []string) []string {
 	res := make([]string, len(dcIDs))
 	for idx, dcID := range dcIDs {
 		namespace := factory.createNamespace(dcID)
-		log.Println("Create namespace" + namespace)
+		log.Println("Create namespace", namespace)
 		res[idx] = namespace
 	}
 

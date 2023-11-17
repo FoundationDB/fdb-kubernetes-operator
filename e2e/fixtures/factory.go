@@ -123,7 +123,7 @@ func (factory *Factory) getClient() *kubernetes.Clientset {
 
 // DeletePod deletes the provided Pod
 func (factory *Factory) DeletePod(pod *corev1.Pod) {
-	gomega.Expect(factory.GetControllerRuntimeClient().Delete(ctx.TODO(), pod)).NotTo(gomega.HaveOccurred())
+	factory.Delete(pod)
 }
 
 // GetPod returns the Pod matching the namespace and name
@@ -816,6 +816,16 @@ func (factory *Factory) CreateIfAbsent(object client.Object) error {
 	}
 
 	return nil
+}
+
+// Delete will delete the provided resource if it exists.
+func (factory *Factory) Delete(object client.Object) {
+	err := factory.GetControllerRuntimeClient().Delete(ctx.TODO(), object)
+	if err == nil || k8serrors.IsNotFound(err) {
+		return
+	}
+
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 }
 
 // GetOperatorImage returns the operator image provided via command line. If a registry was defined the registry will be

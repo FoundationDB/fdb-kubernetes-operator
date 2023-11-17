@@ -75,18 +75,19 @@ func (e excludeProcesses) reconcile(_ context.Context, r *FoundationDBClusterRec
 
 		desiredProcessesMap := desiredProcesses.Map()
 		for processClass := range fdbProcessesToExcludeByClass {
+			contextLogger := logger.WithValues("processClass", processClass)
 			ongoingExclusions := ongoingExclusionsByClass[processClass]
 			processesToExclude := fdbProcessesToExcludeByClass[processClass]
 
-			allowedExclusions, missingProcesses := canExcludeNewProcesses(logger, cluster, processClass, desiredProcessesMap[processClass], ongoingExclusions, r.InSimulation)
+			allowedExclusions, missingProcesses := getAllowedExclusionsAndMissingProcesses(contextLogger, cluster, processClass, desiredProcessesMap[processClass], ongoingExclusions, r.InSimulation)
 			if allowedExclusions <= 0 {
-				logger.Info("Waiting for missing processes before continuing with the exclusion", "processClass", processClass, "missingProcesses", missingProcesses, "addressesToExclude", processesToExclude, "allowedExclusions", allowedExclusions, "ongoingExclusions", ongoingExclusions)
+				contextLogger.Info("Waiting for missing processes before continuing with the exclusion", "missingProcesses", missingProcesses, "addressesToExclude", processesToExclude, "allowedExclusions", allowedExclusions, "ongoingExclusions", ongoingExclusions)
 				continue
 			}
 
 			// If we are not able to exclude all processes at once print a log message.
 			if len(processesToExclude) > allowedExclusions {
-				logger.Info("Some processes are still missing but continuing with the exclusion", "processClass", processClass, "missingProcesses", missingProcesses, "addressesToExclude", processesToExclude, "allowedExclusions", allowedExclusions, "ongoingExclusions", ongoingExclusions)
+				contextLogger.Info("Some processes are still missing but continuing with the exclusion", "missingProcesses", missingProcesses, "addressesToExclude", processesToExclude, "allowedExclusions", allowedExclusions, "ongoingExclusions", ongoingExclusions)
 			}
 
 			if len(processesToExclude) < allowedExclusions {
@@ -184,22 +185,23 @@ func getProcessesToExclude(exclusions []fdbv1beta2.ProcessAddress, cluster *fdbv
 	return fdbProcessesToExcludeByClass, ongoingExclusionsByClass
 }
 
-// canExcludeNewProcesses will check if new processes for the specified process class can be excluded. The calculation takes
+// getAllowedExclusionsAndMissingProcesses will check if new processes for the specified process class can be excluded. The calculation takes
 // the current ongoing exclusions into account and the desired process count. If there are process groups that have
 // the MissingProcesses condition this method will forbid exclusions until all process groups with this condition have
 // this condition for longer than ignoreMissingProcessDuration. The idea behind this is to try to exclude as many processes
 // at once e.g. to reduce the number of recoveries and data movement.
-func canExcludeNewProcesses(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, desiredProcessCount int, ongoingExclusions int, inSimulation bool) (int, []fdbv1beta2.ProcessGroupID) {
+func getAllowedExclusionsAndMissingProcesses(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, desiredProcessCount int, ongoingExclusions int, inSimulation bool) (int, []fdbv1beta2.ProcessGroupID) {
 	// Block excludes on missing processes not marked for removal unless they are missing for a long time and the process might be broken
 	// or the namespace quota was hit.
 	missingProcesses := make([]fdbv1beta2.ProcessGroupID, 0)
-	validProcesses := make([]fdbv1beta2.ProcessGroupID, 0)
+	var validProcesses int
 
 	exclusionsAllowed := true
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup.ProcessClass != processClass {
 			continue
 		}
+
 		// Those should already be filtered out by the previous method.
 		if processGroup.IsMarkedForRemoval() && processGroup.IsExcluded() {
 			continue
@@ -217,33 +219,27 @@ func canExcludeNewProcesses(logger logr.Logger, cluster *fdbv1beta2.FoundationDB
 			continue
 		}
 
-		validProcesses = append(validProcesses, processGroup.ProcessGroupID)
+		validProcesses++
 	}
 
 	if !exclusionsAllowed {
-		logger.Info("Found at least one missing process, that was not missing for a long time", "missingProcesses", missingProcesses)
+		logger.Info("Found at least one missing process, that was not missing for more than 5 minutes", "missingProcesses", missingProcesses)
 		return 0, missingProcesses
 	}
 
-	logger.V(1).Info("canExcludeNewProcesses", "validProcesses", len(validProcesses), "desiredProcessCount", desiredProcessCount, "ongoingExclusions", ongoingExclusions)
+	return getAllowedExclusions(logger, validProcesses, desiredProcessCount, ongoingExclusions, cluster.DesiredFaultTolerance()), missingProcesses
+}
 
-	// The assumption here is that we will only exclude a process if there is a replacement ready for it. We could relax
-	// this requirement in the future and take the fault tolerance into account. We add the desired fault tolerance to
-	// have some buffer to prevent cases where the operator might need to exclude more processes but there are more missing
-	// processes.
-	allowedExclusions := cluster.DesiredFaultTolerance() + len(validProcesses) - desiredProcessCount - ongoingExclusions
-
-	// If automatic replacements are enabled and the allowed exclusions is less than or equal to 0, we have to check
-	// how many processes are missing and if more processes are missing than the automatic replacements is allowed to
-	// replace, we will allow exclusions for the count of automatic replacements removing the already ongoing exclusions.
-	// This code should make sure that the operator can automatically replace processes, even in the case where multiple
-	// processes are failing.
-	if cluster.GetEnableAutomaticReplacements() && allowedExclusions <= 0 {
-		automaticReplacements := cluster.GetMaxConcurrentAutomaticReplacements()
-		if len(missingProcesses) > automaticReplacements {
-			return automaticReplacements - ongoingExclusions, missingProcesses
-		}
+// getAllowedExclusions will return the number of allowed exclusions. If no exclusions are allowed this method will return a 0.
+// The assumption here is that we will only exclude a process if there is a replacement ready for it. We add the desired fault
+// tolerance to have some buffer to prevent cases where the operator might need to exclude more processes but there are more
+// missing processes.
+func getAllowedExclusions(logger logr.Logger, validProcesses int, desiredProcessCount int, ongoingExclusions int, faultTolerance int) int {
+	logger.V(1).Info("getAllowedExclusions", "validProcesses", validProcesses, "desiredProcessCount", desiredProcessCount, "ongoingExclusions", ongoingExclusions, "faultTolerance", faultTolerance)
+	allowedExclusions := validProcesses + faultTolerance - desiredProcessCount - ongoingExclusions
+	if allowedExclusions < 0 {
+		return 0
 	}
 
-	return allowedExclusions, missingProcesses
+	return allowedExclusions
 }
