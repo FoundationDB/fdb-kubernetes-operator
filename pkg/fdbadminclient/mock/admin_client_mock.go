@@ -389,6 +389,17 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 		status.Cluster.DatabaseConfiguration.VersionFlags.LogSpill = 2
 	}
 
+	if len(client.ExcludedAddresses) > 0 {
+		status.Cluster.DatabaseConfiguration.ExcludedServers = make([]fdbv1beta2.ExcludedServers, 0)
+	}
+	for excludedAddresses := range client.ExcludedAddresses {
+		if net.ParseIP(excludedAddresses) != nil {
+			status.Cluster.DatabaseConfiguration.ExcludedServers = append(status.Cluster.DatabaseConfiguration.ExcludedServers, fdbv1beta2.ExcludedServers{Address: excludedAddresses})
+		} else {
+			status.Cluster.DatabaseConfiguration.ExcludedServers = append(status.Cluster.DatabaseConfiguration.ExcludedServers, fdbv1beta2.ExcludedServers{Locality: excludedAddresses})
+		}
+	}
+
 	status.Cluster.FullReplication = true
 	status.Cluster.Data.State.Healthy = true
 	status.Cluster.Data.State.Name = "healthy"
@@ -609,12 +620,6 @@ func (client *AdminClient) GetExclusions() ([]fdbv1beta2.ProcessAddress, error) 
 		}
 	}
 	return pAddrs, nil
-}
-
-// GetExclusionsFromStatus gets a list of the addresses currently excluded from the
-// database using status.
-func (client *AdminClient) GetExclusionsFromStatus(_ *fdbv1beta2.FoundationDBStatus) ([]fdbv1beta2.ProcessAddress, error) {
-	return client.GetExclusions()
 }
 
 // KillProcesses restarts processes

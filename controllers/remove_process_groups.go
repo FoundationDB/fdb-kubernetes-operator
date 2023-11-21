@@ -24,7 +24,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
 	"net"
 	"time"
 
@@ -259,7 +258,7 @@ func includeProcessGroup(ctx context.Context, logger logr.Logger, r *FoundationD
 	}
 	defer adminClient.Close()
 
-	fdbProcessesToInclude, err := getProcessesToInclude(logger, cluster, removedProcessGroups, adminClient, status)
+	fdbProcessesToInclude, err := getProcessesToInclude(logger, cluster, removedProcessGroups, status)
 	if err != nil {
 		return err
 	}
@@ -281,14 +280,14 @@ func includeProcessGroup(ctx context.Context, logger logr.Logger, r *FoundationD
 	return nil
 }
 
-func getProcessesToInclude(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, removedProcessGroups map[fdbv1beta2.ProcessGroupID]bool, adminClient fdbadminclient.AdminClient, status *fdbv1beta2.FoundationDBStatus) ([]fdbv1beta2.ProcessAddress, error) {
+func getProcessesToInclude(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, removedProcessGroups map[fdbv1beta2.ProcessGroupID]bool, status *fdbv1beta2.FoundationDBStatus) ([]fdbv1beta2.ProcessAddress, error) {
 	fdbProcessesToInclude := make([]fdbv1beta2.ProcessAddress, 0)
 
 	if len(removedProcessGroups) == 0 {
 		return fdbProcessesToInclude, nil
 	}
 
-	excludedServers, err := adminClient.GetExclusionsFromStatus(status)
+	excludedServers, err := fdbstatus.GetExclusions(status)
 	if err != nil {
 		return fdbProcessesToInclude, fmt.Errorf("unable to get excluded servers from status, %w", err)
 	}
@@ -316,7 +315,7 @@ func getProcessesToInclude(logger logr.Logger, cluster *fdbv1beta2.FoundationDBC
 				// This means that the process is marked for exclusion and is also removed in the previous step but is missing
 				// its entry in the excluded servers in the status. This should not throw an error as this will block the
 				// inclusion for other processes, but we should have a record of this event happening in the logs.
-				logger.V(1).Info("processGroup is included but is missing from excluded server list", "processGroup", processGroup)
+				logger.Info("processGroup is included but is missing from excluded server list", "processGroup", processGroup)
 			}
 			continue
 		}
