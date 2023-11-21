@@ -390,7 +390,7 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 	}
 
 	if len(client.ExcludedAddresses) > 0 {
-		status.Cluster.DatabaseConfiguration.ExcludedServers = make([]fdbv1beta2.ExcludedServers, 0)
+		status.Cluster.DatabaseConfiguration.ExcludedServers = make([]fdbv1beta2.ExcludedServers, 0, len(client.ExcludedAddresses))
 	}
 	for excludedAddresses := range client.ExcludedAddresses {
 		if net.ParseIP(excludedAddresses) != nil {
