@@ -5552,6 +5552,26 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			false,
 			fmt.Errorf("process has missing address in exclusion results: 192.168.0.2"),
 		),
+		Entry("process group is excluded using locality and it is present in the remaining map as excluded",
+			&ProcessGroupStatus{
+				ProcessGroupID: "storage-1",
+			},
+			map[string]bool{
+				fmt.Sprintf("%s:storage-1", FDBLocalityExclusionPrefix): false,
+			},
+			true,
+			nil,
+		),
+		Entry("process group is excluded using locality and it is present in the remaining map as not excluded",
+			&ProcessGroupStatus{
+				ProcessGroupID: "storage-1",
+			},
+			map[string]bool{
+				fmt.Sprintf("%s:storage-1", FDBLocalityExclusionPrefix): true,
+			},
+			false,
+			fmt.Errorf("process has missing exclusion string in exclusion results: %s", fmt.Sprintf("%s:storage-1", FDBLocalityExclusionPrefix)),
+		),
 	)
 
 	DescribeTable("when getting the removal mode", func(cluster *FoundationDBCluster, expected PodUpdateMode) {
