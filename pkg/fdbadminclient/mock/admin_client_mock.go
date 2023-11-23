@@ -389,6 +389,17 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 		status.Cluster.DatabaseConfiguration.VersionFlags.LogSpill = 2
 	}
 
+	if len(client.ExcludedAddresses) > 0 {
+		status.Cluster.DatabaseConfiguration.ExcludedServers = make([]fdbv1beta2.ExcludedServers, 0, len(client.ExcludedAddresses))
+	}
+	for excludedAddresses := range client.ExcludedAddresses {
+		if net.ParseIP(excludedAddresses) != nil {
+			status.Cluster.DatabaseConfiguration.ExcludedServers = append(status.Cluster.DatabaseConfiguration.ExcludedServers, fdbv1beta2.ExcludedServers{Address: excludedAddresses})
+		} else {
+			status.Cluster.DatabaseConfiguration.ExcludedServers = append(status.Cluster.DatabaseConfiguration.ExcludedServers, fdbv1beta2.ExcludedServers{Locality: excludedAddresses})
+		}
+	}
+
 	status.Cluster.FullReplication = true
 	status.Cluster.Data.State.Healthy = true
 	status.Cluster.Data.State.Name = "healthy"
@@ -595,15 +606,19 @@ func (client *AdminClient) GetExclusions() ([]fdbv1beta2.ProcessAddress, error) 
 		return nil, client.mockError
 	}
 
-	pAddrs := make([]fdbv1beta2.ProcessAddress, len(client.ExcludedAddresses))
+	pAddrs := make([]fdbv1beta2.ProcessAddress, 0, len(client.ExcludedAddresses))
 	for addr := range client.ExcludedAddresses {
-		pAddrs = append(pAddrs, fdbv1beta2.ProcessAddress{
-			IPAddress: net.ParseIP(addr),
-			Port:      0,
-			Flags:     nil,
-		})
+		ip := net.ParseIP(addr)
+		if ip == nil {
+			pAddrs = append(pAddrs, fdbv1beta2.ProcessAddress{StringAddress: addr})
+		} else {
+			pAddrs = append(pAddrs, fdbv1beta2.ProcessAddress{
+				IPAddress: net.ParseIP(addr),
+				Port:      0,
+				Flags:     nil,
+			})
+		}
 	}
-
 	return pAddrs, nil
 }
 

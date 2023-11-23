@@ -384,6 +384,9 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(useLocalitiesForExclusion)
 			fdbCluster.UpdateClusterSpecWithSpec(spec)
 			Expect(fdbCluster.GetCluster().UseLocalitiesForExclusion()).To(Equal(useLocalitiesForExclusion))
+
+			// Making sure we included back all the process groups after exclusion is complete.
+			Expect(fdbCluster.GetStatus().Cluster.DatabaseConfiguration.ExcludedServers).To(BeEmpty())
 		})
 
 		When("IP addresses are used for exclusion", func() {
