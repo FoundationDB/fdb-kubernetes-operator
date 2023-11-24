@@ -43,7 +43,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v1
         with:
-          go-version: 1.20.6
+          go-version: 1.20.11
       #  https://github.com/goreleaser/goreleaser/issues/1311
       - name: Get current semver tag
         run: echo "::set-output name=CURRENT_TAG::$(git describe --tags --match "v*" --abbrev=0)"
@@ -62,20 +62,13 @@ jobs:
         image:
           - fdb-kubernetes-operator
           - fdb-data-loader
-          - fdb-kubernetes-operator-distroless
         include:
           - image: fdb-kubernetes-operator
             context: ./
             name: foundationdb/fdb-kubernetes-operator
             tagSuffix: ""
             file: ./Dockerfile
-            baseImage: "docker.io/debian:bookworm"
-          - image: fdb-kubernetes-operator-distroless
-            context: ./
-            name: foundationdb/fdb-kubernetes-operator
-            tagSuffix: -distrolesss
-            file: ./Dockerfile
-            baseImage: "gcr.io/distroless/base"
+            baseImage: ""
           - image: fdb-data-loader
             context: ./sample-apps/data-loader
             name: foundationdb/fdb-data-loader
