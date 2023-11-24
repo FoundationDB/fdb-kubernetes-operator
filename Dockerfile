@@ -69,12 +69,6 @@ COPY --from=builder /etc/group /etc/group
 COPY --chown=fdb:fdb --from=builder /workspace/bin/manager .
 COPY --chown=fdb:fdb --from=builder /var/log/fdb/.keep /var/log/fdb/.keep
 
-# FoundationDB versions newer than 7.1.33 are complied with the AWS SDK per default and therefore require
-# some additional libraries that are not present in the default bookwork image. We copy those
-# libraries to make the distroless version of the operator work too, otherwise we could just install
-# the required packages.
-COPY --from=builder /usr/lib/x86_64-linux-gnu/lib* /usr/lib/x86_64-linux-gnu/
-
 # Set to the numeric UID of fdb user to satisfy PodSecurityPolices which enforce runAsNonRoot
 USER 4059
 
