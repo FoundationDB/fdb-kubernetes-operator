@@ -151,13 +151,11 @@ jobs:
             name: foundationdb/fdb-kubernetes-operator
             tagSuffix: ""
             file: ./Dockerfile
-            baseImage: ""
           - image: fdb-data-loader
             context: ./sample-apps/data-loader
             name: foundationdb/fdb-data-loader
             tagSuffix: ""
             file: ./sample-apps/data-loader/Dockerfile
-            baseImage: ""
     steps:
       - name: Check out the repo
         uses: actions/checkout@v2
@@ -177,13 +175,12 @@ jobs:
         with:
           build-args: |
             TAG=${{ steps.get_sha.outputs.TAG }}
-            BASE_IMAGE=${{ matrix.baseImage }}
           push: ${{ github.ref == 'refs/heads/main' }}
           context: ${{ matrix.context }}
           tags: ${{ matrix.name }}:latest${{ matrix.tagSuffix }}
           file: ${{ matrix.file }}
       - name: Run Trivy vulnerability scanner
-        if: ${{ matrix.baseImage }} == 'fdb-kubernetes-operator'
+        if: ${{ matrix.image }} == 'fdb-kubernetes-operator'
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: 'docker.io/foundationdb/fdb-kubernetes-operator:latest'

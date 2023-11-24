@@ -1,4 +1,3 @@
-ARG BASE_IMAGE=docker.io/rockylinux:9.2-minimal
 ARG FDB_VERSION=6.2.29
 ARG FDB_WEBSITE=https://github.com/apple/foundationdb/releases/download
 
@@ -46,7 +45,7 @@ RUN groupadd --gid 4059 fdb && \
 	mkdir -p /var/log/fdb && \
 	touch /var/log/fdb/.keep
 
-FROM $BASE_IMAGE
+FROM docker.io/rockylinux:9.2-minimal
 
 ARG FDB_VERSION
 ARG FDB_WEBSITE
