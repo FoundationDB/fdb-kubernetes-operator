@@ -1,13 +1,13 @@
 function applyFile() {
 	az=${2}
 
-	az="${az}" connectionString="${3}" envsubst < "${1}"| kubectl apply -f -
+	az="${az}" connectionString="${3}" envsubst < "${1}"| kubectl -n "${NAMESPACE}" apply -f -
 }
 
 function checkReconciliation() {
 	clusterName=$1
 
-	generationsOutput=$(kubectl get fdb "${clusterName}" -o jsonpath='{.metadata.generation} {.status.generations.reconciled}')
+	generationsOutput=$(kubectl -n "${NAMESPACE}" get fdb "${clusterName}" -o jsonpath='{.metadata.generation} {.status.generations.reconciled}')
 	read -ra generations <<< "${generationsOutput}"
 	if [[ ("${#generations[@]}" -ge 2) && ("${generations[0]}" == "${generations[1]}") ]]; then
 		return 1
@@ -18,7 +18,7 @@ function checkReconciliation() {
 }
 
 function getConnectionString() {
-	kubectl get fdb "${1}" -o jsonpath='{.status.connectionString}'
+	kubectl -n "${NAMESPACE}" get fdb "${1}" -o jsonpath='{.status.connectionString}'
 }
 
 function checkReconciliationLoop() {
