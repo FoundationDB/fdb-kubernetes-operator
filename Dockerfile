@@ -62,7 +62,7 @@ RUN set -eux && \
     microdnf clean all && \
     # TODO(johscheuer): The 6.2.29 sha256 file is not well formatted, enable this check again once 7.1 is used as base. \
     # sha256sum -c foundationdb-clients-${FDB_VERSION}-1.el7.x86_64.rpm.sha256 && \
-	rpm -i foundationdb-clients-${FDB_VERSION}-1.el7.x86_64.rpm && \
+	rpm -i foundationdb-clients-${FDB_VERSION}-1.el7.x86_64.rpm --excludepath=/usr/bin --excludepath=/usr/lib/foundationdb/backup_agent && \
     rm foundationdb-clients-${FDB_VERSION}-1.el7.x86_64.rpm foundationdb-clients-${FDB_VERSION}-1.el7.x86_64.rpm.sha256
 
 COPY --from=builder /etc/passwd /etc/passwd
