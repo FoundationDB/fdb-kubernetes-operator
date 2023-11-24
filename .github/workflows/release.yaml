@@ -66,12 +66,10 @@ jobs:
           - image: fdb-kubernetes-operator
             context: ./
             name: foundationdb/fdb-kubernetes-operator
-            tagSuffix: ""
             file: ./Dockerfile
           - image: fdb-data-loader
             context: ./sample-apps/data-loader
             name: foundationdb/fdb-data-loader
-            tagSuffix: ""
             file: ./sample-apps/data-loader/Dockerfile
     steps:
       - name: Check out the repo
@@ -93,5 +91,5 @@ jobs:
             TAG=${{ steps.get_sha.outputs.TAG }}
           push: true
           context: ${{ matrix.context }}
-          tags: ${{ matrix.name }}:${{ steps.get_tag.outputs.TAG }}${{ matrix.tagSuffix }}
+          tags: ${{ matrix.name }}:${{ steps.get_tag.outputs.TAG }}
           file: ${{ matrix.file }}
