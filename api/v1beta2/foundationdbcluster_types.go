@@ -584,7 +584,10 @@ func (processGroupStatus *ProcessGroupStatus) AllAddressesExcluded(logger logr.L
 	}
 
 	localityExclusionString := processGroupStatus.GetExclusionString()
-	if isRemaining, isPresent := remainingMap[localityExclusionString]; isPresent && !isRemaining {
+	if isRemaining, isPresent := remainingMap[localityExclusionString]; isPresent {
+		if isRemaining {
+			return false, fmt.Errorf("process has missing exclusion string in exclusion results: %s", localityExclusionString)
+		}
 		logger.V(1).Info("process group is fully excluded based on locality based exclusions", "processGroupID", processGroupStatus.ProcessGroupID, "exclusionString", localityExclusionString)
 		return true, nil
 	}
