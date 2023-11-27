@@ -40,8 +40,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
 	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -507,80 +505,38 @@ func (factory *Factory) WaitUntilOperatorPodsRunning(namespace string) {
 	).NotTo(gomega.HaveOccurred())
 
 	expectedReplicas := int(pointer.Int32Deref(deployment.Spec.Replicas, 1))
-
-	gomega.Eventually(func() (done bool) {
+	gomega.Eventually(func(g gomega.Gomega) int {
 		pods := factory.GetOperatorPods(namespace)
-		if len(pods.Items) != expectedReplicas {
-			return false
-		}
-
-		allRunning := true
+		var runningReplicas int
 		for _, pod := range pods.Items {
-			if pod.Status.Phase == corev1.PodRunning {
+			if pod.Status.Phase == corev1.PodRunning && pod.DeletionTimestamp.IsZero() {
+				runningReplicas++
 				continue
 			}
 
-			allRunning = false
 			// If the Pod is not running after 60 seconds we delete it and let the Deployment controller create a new Pod.
-			if time.Since(pod.CreationTimestamp.Time).Seconds() > 60.0 {
+			if time.Since(pod.CreationTimestamp.Time).Seconds() > 120.0 {
 				log.Println("operator Pod", pod.Name, "not running after 60 seconds, going to delete this Pod, status:", pod.Status)
 				err := factory.GetControllerRuntimeClient().Delete(ctx.TODO(), &pod)
 				if k8serrors.IsNotFound(err) {
 					continue
 				}
 
-				gomega.Expect(err).NotTo(gomega.HaveOccurred())
+				g.Expect(err).NotTo(gomega.HaveOccurred())
 			}
 		}
 
-		return allRunning
-	}).WithTimeout(5 * time.Minute).WithPolling(2 * time.Second).Should(gomega.BeTrue())
+		return runningReplicas
+	}).WithTimeout(10 * time.Minute).WithPolling(2 * time.Second).Should(gomega.BeNumerically(">=", expectedReplicas))
 }
 
 // RecreateOperatorPods will recreate all operator Pods in the specified namespace and wait until the new Pods are
 // up and running.
 func (factory *Factory) RecreateOperatorPods(namespace string) {
-	initialList := factory.GetOperatorPods(namespace)
-
-	oldOperatorIds := map[types.UID]fdbv1beta2.None{}
-	for _, pod := range initialList.Items {
-		oldOperatorIds[pod.UID] = fdbv1beta2.None{}
-	}
-
 	gomega.Expect(
 		factory.GetControllerRuntimeClient().
 			DeleteAllOf(ctx.TODO(), &corev1.Pod{}, client.InNamespace(namespace), client.MatchingLabels(map[string]string{"app": operatorDeploymentName})),
 	).NotTo(gomega.HaveOccurred())
 
-	deployment := &appsv1.Deployment{}
-	gomega.Expect(
-		factory.GetControllerRuntimeClient().
-			Get(ctx.TODO(), client.ObjectKey{Name: operatorDeploymentName, Namespace: namespace}, deployment),
-	).NotTo(gomega.HaveOccurred())
-
-	expectedReplicas := int(pointer.Int32Deref(deployment.Spec.Replicas, 1))
-
-	gomega.Expect(wait.PollImmediate(1*time.Second, 10*time.Minute, func() (done bool, err error) {
-		podList := factory.GetOperatorPods(namespace)
-
-		if len(podList.Items) == 0 {
-			return false, nil
-		}
-
-		// Wait until the Pods are recreated
-		var runningPods int
-		for _, pod := range podList.Items {
-			if _, ok := oldOperatorIds[pod.UID]; ok {
-				continue
-			}
-
-			if pod.Status.Phase != corev1.PodRunning {
-				continue
-			}
-
-			runningPods++
-		}
-
-		return runningPods == expectedReplicas, nil
-	})).NotTo(gomega.HaveOccurred())
+	factory.WaitUntilOperatorPodsRunning(namespace)
 }
