@@ -72,6 +72,11 @@ func newAnalyzeCmd(streams genericclioptions.IOStreams) *cobra.Command {
 				return err
 			}
 
+			shouldAnalyzeStatus, err := cmd.Flags().GetBool("analyze-status")
+			if err != nil {
+				return err
+			}
+
 			ignoreConditions, err := cmd.Flags().GetStringArray("ignore-condition")
 			if err != nil {
 				return err
@@ -90,7 +95,7 @@ func newAnalyzeCmd(streams genericclioptions.IOStreams) *cobra.Command {
 				return cmd.Help()
 			}
 
-			kubeClient, err := getKubeClient(o)
+			kubeClient, err := getKubeClient(cmd.Context(), o)
 			if err != nil {
 				return err
 			}
@@ -139,6 +144,10 @@ func newAnalyzeCmd(streams genericclioptions.IOStreams) *cobra.Command {
 					errs = append(errs, err)
 				}
 
+				if !shouldAnalyzeStatus {
+					continue
+				}
+
 				err = analyzeStatus(cmd, config, clientSet, kubeClient, cluster, autoFix)
 				if err != nil {
 					errs = append(errs, err)
@@ -182,6 +191,7 @@ kubectl fdb analyze --ignore-removals=false sample-cluster-1
 
 	cmd.Flags().Bool("auto-fix", false, "defines if the analyze tasks should try to fix the found issues (e.g. replace Pods).")
 	cmd.Flags().Bool("all-clusters", false, "defines all clusters in the given namespace should be analyzed.")
+	cmd.Flags().Bool("analyze-status", false, "defines if the command should also analyze the machine-readable status of the provided cluster(s).")
 	// We might want to move this into the root cmd if we need this in multiple places
 	cmd.Flags().Bool("no-color", false, "Disable color output.")
 	cmd.Flags().StringArray("ignore-condition", nil, "specify which process group conditions should be ignored and not be printed to stdout.")

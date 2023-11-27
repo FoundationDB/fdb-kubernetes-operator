@@ -22,10 +22,13 @@ package cmd
 
 import (
 	"bytes"
-	ctx "context"
+	"context"
 	"fmt"
+	"github.com/go-logr/logr"
 	"io"
+	"k8s.io/klog/v2"
 	"math/rand"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"strings"
 
 	fdbv1beta1 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
@@ -45,7 +48,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func getKubeClient(o *fdbBOptions) (client.Client, error) {
+func getKubeClient(ctx context.Context, o *fdbBOptions) (client.Client, error) {
 	config, err := o.configFlags.ToRESTConfig()
 	if err != nil {
 		return nil, err
@@ -56,7 +59,46 @@ func getKubeClient(o *fdbBOptions) (client.Client, error) {
 	utilruntime.Must(fdbv1beta1.AddToScheme(scheme))
 	utilruntime.Must(fdbv1beta2.AddToScheme(scheme))
 
-	return client.New(config, client.Options{Scheme: scheme})
+	// Don't printout any log messages from client-go.
+	klog.SetLogger(logr.Discard())
+
+	internalClient, err := client.NewWithWatch(config, client.Options{
+		Scheme: scheme,
+		Opts: client.WarningHandlerOptions{
+			SuppressWarnings: true,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	namespace, err := getNamespace(*o.configFlags.Namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	cacheBuilder := cache.MultiNamespacedCacheBuilder([]string{namespace})
+	internalCache, err := cacheBuilder(config, cache.Options{
+		Scheme: scheme,
+		Mapper: internalClient.RESTMapper(),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// Make sure the internal cache is started.
+	go func() {
+		_ = internalCache.Start(ctx)
+	}()
+
+	internalCache.WaitForCacheSync(ctx)
+
+	return client.NewDelegatingClient(client.NewDelegatingClientInput{
+		CacheReader:       internalCache,
+		Client:            internalClient,
+		UncachedObjects:   nil,
+		CacheUnstructured: false,
+	})
 }
 
 func getNamespace(namespace string) (string, error) {
@@ -69,9 +111,9 @@ func getNamespace(namespace string) (string, error) {
 		return "", err
 	}
 
-	if context, ok := clientCfg.Contexts[clientCfg.CurrentContext]; ok {
-		if context.Namespace != "" {
-			return context.Namespace, nil
+	if ctx, ok := clientCfg.Contexts[clientCfg.CurrentContext]; ok {
+		if ctx.Namespace != "" {
+			return ctx.Namespace, nil
 		}
 	}
 
@@ -80,13 +122,13 @@ func getNamespace(namespace string) (string, error) {
 
 func getOperator(kubeClient client.Client, operatorName string, namespace string) (*appsv1.Deployment, error) {
 	operator := &appsv1.Deployment{}
-	err := kubeClient.Get(ctx.Background(), client.ObjectKey{Namespace: namespace, Name: operatorName}, operator)
+	err := kubeClient.Get(context.Background(), client.ObjectKey{Namespace: namespace, Name: operatorName}, operator)
 	return operator, err
 }
 
 func loadCluster(kubeClient client.Client, namespace string, clusterName string) (*fdbv1beta2.FoundationDBCluster, error) {
 	cluster := &fdbv1beta2.FoundationDBCluster{}
-	err := kubeClient.Get(ctx.Background(), types.NamespacedName{Namespace: namespace, Name: clusterName}, cluster)
+	err := kubeClient.Get(context.Background(), types.NamespacedName{Namespace: namespace, Name: clusterName}, cluster)
 	if err != nil {
 		return nil, err
 	}
@@ -94,12 +136,13 @@ func loadCluster(kubeClient client.Client, namespace string, clusterName string)
 	if err != nil {
 		return nil, err
 	}
+
 	return cluster, err
 }
 
 func getNodes(kubeClient client.Client, nodeSelector map[string]string) ([]string, error) {
 	var nodesList corev1.NodeList
-	err := kubeClient.List(ctx.Background(), &nodesList, client.MatchingLabels(nodeSelector))
+	err := kubeClient.List(context.Background(), &nodesList, client.MatchingLabels(nodeSelector))
 	if err != nil {
 		return []string{}, err
 	}
@@ -116,7 +159,7 @@ func getNodes(kubeClient client.Client, nodeSelector map[string]string) ([]strin
 func getPodsForCluster(kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluster) (*corev1.PodList, error) {
 	var podList corev1.PodList
 	err := kubeClient.List(
-		ctx.Background(),
+		context.Background(),
 		&podList,
 		client.MatchingLabels(cluster.GetMatchLabels()),
 		client.InNamespace(cluster.GetNamespace()))

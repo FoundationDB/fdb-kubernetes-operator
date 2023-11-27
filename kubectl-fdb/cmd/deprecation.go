@@ -57,7 +57,7 @@ Deprecated settings that should be replace by a newer setting (or removed) are p
 				return err
 			}
 
-			kubeClient, err := getKubeClient(o)
+			kubeClient, err := getKubeClient(cmd.Context(), o)
 			if err != nil {
 				return err
 			}

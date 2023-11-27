@@ -60,7 +60,7 @@ func newRemoveProcessGroupCmd(streams genericclioptions.IOStreams) *cobra.Comman
 				return err
 			}
 
-			kubeClient, err := getKubeClient(o)
+			kubeClient, err := getKubeClient(cmd.Context(), o)
 			if err != nil {
 				return err
 			}
