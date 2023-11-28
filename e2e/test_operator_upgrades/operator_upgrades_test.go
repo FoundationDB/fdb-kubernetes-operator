@@ -244,9 +244,9 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 
 			Expect(fdbCluster.SetAutoReplacements(false, 20*time.Minute)).ToNot(HaveOccurred())
 
-			// 1. Introduce crashloop into sidecar container to artificially create a partition.
+			// 1. Introduce crash-loop into sidecar container to artificially create a partition.
 			pickedPod := fixtures.ChooseRandomPod(fdbCluster.GetStoragePods())
-			log.Println("Injecting container fault to crash-loop sidecar process: ", pickedPod.Name)
+			log.Println("Injecting container fault to crash-loop sidecar process:", pickedPod.Name)
 
 			fdbCluster.SetCrashLoopContainers([]fdbv1beta2.CrashLoopContainerObject{
 				{
@@ -254,20 +254,32 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 					Targets:       []fdbv1beta2.ProcessGroupID{fdbv1beta2.ProcessGroupID(pickedPod.Labels[fdbv1beta2.FDBProcessGroupIDLabel])},
 				},
 			}, false)
-			log.Println("Crash injected in pod: ", pickedPod.Name)
+			log.Println("Crash injected in pod:", pickedPod.Name)
 
-			// Wait until sidecar is crash-looping.
-			Eventually(func() bool {
+			// Wait until the Pod is running again and the sidecar is crash-looping.
+			Eventually(func(g Gomega) corev1.PodPhase {
 				pod := fdbCluster.GetPod(pickedPod.Name)
 				for _, container := range pod.Spec.Containers {
 					if container.Name == fdbv1beta2.SidecarContainerName {
-						log.Printf("Container: %s, Args: %s", container.Name, container.Args)
-						return container.Args[0] == "crash-loop"
+						log.Println("Container:", container.Name, "Args:", container.Args, "Phase:", pod.Status.Phase)
+						g.Expect(container.Args[0]).To(Equal("crash-loop"))
 					}
 				}
 
-				return false
-			}).WithPolling(2 * time.Second).WithTimeout(2 * time.Minute).MustPassRepeatedly(10).Should(BeTrue())
+				return pod.Status.Phase
+			}).WithPolling(2 * time.Second).WithTimeout(2 * time.Minute).MustPassRepeatedly(10).Should(Equal(corev1.PodRunning))
+
+			// Make sure we trigger a new reconciliation to make sure the process is up and running and only the sidecar
+			// is crash looping.
+			fdbCluster.ForceReconcile()
+
+			Eventually(func(g Gomega) bool {
+				for _, processGroup := range fdbCluster.GetCluster().Status.ProcessGroups {
+					g.Expect(processGroup.GetConditionTime(fdbv1beta2.MissingProcesses)).To(BeNil())
+				}
+
+				return true
+			}).WithPolling(2 * time.Second).WithTimeout(4 * time.Minute).MustPassRepeatedly(10).Should(BeTrue())
 
 			// 2. Start cluster upgrade.
 			log.Printf("Crash injected in sidecar container %s. Starting upgrade.", pickedPod.Name)
