@@ -514,9 +514,9 @@ func (factory *Factory) WaitUntilOperatorPodsRunning(namespace string) {
 				continue
 			}
 
-			// If the Pod is not running after 60 seconds we delete it and let the Deployment controller create a new Pod.
+			// If the Pod is not running after 120 seconds we delete it and let the Deployment controller create a new Pod.
 			if time.Since(pod.CreationTimestamp.Time).Seconds() > 120.0 {
-				log.Println("operator Pod", pod.Name, "not running after 60 seconds, going to delete this Pod, status:", pod.Status)
+				log.Println("operator Pod", pod.Name, "not running after 120 seconds, going to delete this Pod, status:", pod.Status)
 				err := factory.GetControllerRuntimeClient().Delete(ctx.TODO(), &pod)
 				if k8serrors.IsNotFound(err) {
 					continue
