@@ -59,12 +59,13 @@ func parseMachineReadableStatus(logger logr.Logger, contents []byte) (*fdbv1beta
 	}
 
 	if !status.Client.DatabaseStatus.Available {
-		logger.Info("database is unavailable")
+		logger.Info("database is unavailable", "status", status)
 		return nil, fdbv1beta2.TimeoutError{Err: fmt.Errorf("database is unavailable")}
 	}
 
 	if len(status.Cluster.Messages) > 0 {
 		logger.Info("found cluster message(s) in the machine-readable status", "messages", status.Cluster.Messages)
+		logger.V(1).Info("current status with cluster messages", "status", status)
 
 		// If the status is incomplete because of a timeout, return an error. This will force a new reconciliation.
 		for _, message := range status.Cluster.Messages {
