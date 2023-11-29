@@ -32,7 +32,6 @@ import (
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 // getStatusFromOperatorPod returns fdb status queried through the operator Pod.
@@ -198,9 +197,11 @@ func (fdbCluster *FdbCluster) IsAvailable() bool {
 
 // WaitUntilAvailable waits until the cluster is available.
 func (fdbCluster *FdbCluster) WaitUntilAvailable() error {
-	return wait.PollImmediate(100*time.Millisecond, 60*time.Second, func() (bool, error) {
-		return fdbCluster.IsAvailable(), nil
-	})
+	gomega.Eventually(func() bool {
+		return fdbCluster.IsAvailable()
+	}).WithTimeout(60 * time.Second).WithPolling(1 * time.Second).Should(gomega.BeTrue())
+
+	return nil
 }
 
 // StatusInvariantChecker provides a way to check an invariant for the cluster status.

@@ -22,7 +22,7 @@ do
 
     echo "start deleting namespace ${ns}"
 
-    kubectl delete ns --ignore-not-found "${ns}"
+    kubectl delete ns --ignore-not-found "${ns}" --wait=false
   ) &
 done
 wait

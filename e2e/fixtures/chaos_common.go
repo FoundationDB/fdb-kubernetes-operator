@@ -23,7 +23,6 @@ package fixtures
 import (
 	ctx "context"
 	"fmt"
-	"golang.org/x/sync/errgroup"
 	"log"
 	"strconv"
 	"time"
@@ -34,7 +33,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -61,34 +59,36 @@ func (factory *Factory) CleanupChaosMeshExperiments() error {
 		"experiment(s)",
 	)
 
-	g := new(errgroup.Group)
-
+	// Start deleting all experiments
 	for _, resource := range factory.chaosExperiments {
-		targetResource := resource // https://golang.org/doc/faq#closures_and_goroutines
-		g.Go(func() error {
-			err := factory.deleteChaosMeshExperiment(&targetResource)
-			if err != nil {
-				log.Printf(
-					"error in cleaning up chaos experiement %s/%s: %s",
-					targetResource.namespace,
-					targetResource.name,
-					err.Error(),
-				)
-			}
+		err := factory.deleteChaosMeshExperiment(&resource)
+		if err != nil {
+			log.Printf(
+				"error in cleaning up chaos experiement %s/%s: %s",
+				resource.namespace,
+				resource.name,
+				err.Error(),
+			)
+
 			return err
-		})
+		}
 	}
 
-	err := g.Wait()
+	// Make sure all experiments are absent.
+	for _, resource := range factory.chaosExperiments {
+		factory.ensureChaosMeshExperimentDoesNotExist(&resource)
+	}
+
 	// Reset the slice
 	factory.chaosExperiments = []ChaosMeshExperiment{}
 
-	return err
+	return nil
 }
 
 // DeleteChaosMeshExperimentSafe will delete a running Chaos Mesh experiment.
 func (factory *Factory) DeleteChaosMeshExperimentSafe(experiment *ChaosMeshExperiment) {
 	gomega.Expect(factory.deleteChaosMeshExperiment(experiment)).ToNot(gomega.HaveOccurred())
+	factory.ensureChaosMeshExperimentDoesNotExist(experiment)
 }
 
 func (factory *Factory) deleteChaosMeshExperiment(experiment *ChaosMeshExperiment) error {
@@ -104,6 +104,11 @@ func (factory *Factory) deleteChaosMeshExperiment(experiment *ChaosMeshExperimen
 			return nil
 		}
 		return err
+	}
+
+	// Resource is already marked for deletion.
+	if !experiment.chaosObject.GetDeletionTimestamp().IsZero() {
+		return nil
 	}
 
 	// Pause the experiment before deleting it: https://chaos-mesh.org/docs/run-a-chaos-experiment/#pause-or-resume-chaos-experiments-using-commands
@@ -127,25 +132,31 @@ func (factory *Factory) deleteChaosMeshExperiment(experiment *ChaosMeshExperimen
 		return err
 	}
 
-	log.Println("Chaos", experiment.name, "is deleted.")
-	err = wait.PollImmediate(1*time.Second, 5*time.Minute, func() (done bool, err error) {
-		err = factory.getChaosExperiment(
+	return nil
+}
+
+func (factory *Factory) ensureChaosMeshExperimentDoesNotExist(experiment *ChaosMeshExperiment) {
+	if experiment == nil {
+		return
+	}
+
+	gomega.Eventually(func() error {
+		err := factory.getChaosExperiment(
 			experiment.name,
 			experiment.namespace,
 			experiment.chaosObject,
 		)
-		if err != nil && k8serrors.IsNotFound(err) {
-			return true, nil
+
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				return nil
+			}
+
+			return err
 		}
 
-		return false, nil
-	})
-
-	if err != nil {
-		log.Println("error occurred during experiment deletion", experiment.name)
-	}
-
-	return err
+		return fmt.Errorf("resource still exists")
+	}).WithTimeout(5*time.Minute).WithPolling(1*time.Second).ShouldNot(gomega.HaveOccurred(), "could not delete experiment")
 }
 
 // getChaosExperiment gets the chaos experiments in the cluster with specified name.
@@ -171,8 +182,7 @@ func (factory *Factory) CreateExperiment(chaos client.Object) *ChaosMeshExperime
 		namespace:   chaos.GetNamespace(),
 	}
 	factory.addChaosExperiment(experiment)
-
-	gomega.Expect(factory.waitUntilExperimentRunning(experiment, chaos)).NotTo(gomega.HaveOccurred())
+	factory.waitUntilExperimentRunning(experiment, chaos)
 
 	return &experiment
 }
@@ -180,22 +190,15 @@ func (factory *Factory) CreateExperiment(chaos client.Object) *ChaosMeshExperime
 func (factory *Factory) waitUntilExperimentRunning(
 	experiment ChaosMeshExperiment,
 	out client.Object,
-) error {
-	err := wait.PollImmediate(1*time.Second, 20*time.Minute, func() (bool, error) {
+) {
+	gomega.Eventually(func(g gomega.Gomega) bool {
 		err := factory.getChaosExperiment(experiment.name, experiment.namespace, out)
-		if err != nil {
-			log.Println("error fetching chaos experiment", err)
-			return false, nil
-		}
+		g.Expect(err).NotTo(gomega.HaveOccurred(), "error fetching chaos experiment")
 
-		return isRunning(out)
-	})
-	if err != nil {
-		experiment.chaosObject = out
-		return fmt.Errorf("timeout waiting for experiment to be running: %w", err)
-	}
+		isRunning(g, out)
 
-	return nil
+		return true
+	}).WithTimeout(20*time.Minute).WithPolling(1*time.Second).Should(gomega.BeTrue(), "timeout waiting for experiment to be running")
 }
 
 // PodSelector returns the PodSelectorSpec for the provided Pod.
@@ -243,75 +246,46 @@ func chaosNamespaceLabelRequirement(
 	}
 }
 
-func conditionsAreTrue(status *chaosmeshv1alpha1.ChaosStatus, conditions []chaosmeshv1alpha1.ChaosCondition) bool {
-	var allInjected, allSelected bool
-
-	if status == nil {
-		log.Println("experiment is missing status information")
-		return false
-	}
-
-	for _, condition := range conditions {
-		if condition.Type == chaosmeshv1alpha1.ConditionAllInjected {
-			allInjected = condition.Status == corev1.ConditionTrue
-		}
-
-		if condition.Type == chaosmeshv1alpha1.ConditionSelected {
-			allSelected = condition.Status == corev1.ConditionTrue
-		}
-	}
+func conditionsAreTrue(g gomega.Gomega, status *chaosmeshv1alpha1.ChaosStatus, conditions []chaosmeshv1alpha1.ChaosCondition) {
+	g.Expect(status).NotTo(gomega.BeNil(), "experiment is missing status information")
 
 	log.Println(
-		"experiment conditions - allInjected:",
-		allInjected,
-		"allSelected:",
-		allSelected,
+		"experiment conditions:",
 		"status",
 		status,
 		"count records",
 		len(status.Experiment.Records),
 	)
 
-	for _, stat := range status.Experiment.Records {
-		log.Println("Records stat ID", stat.Id, "phase:", stat.Phase, "selector", stat.SelectorKey)
-	}
+	for _, condition := range conditions {
+		if condition.Type == chaosmeshv1alpha1.ConditionAllInjected {
+			g.Expect(condition.Status).To(gomega.Equal(corev1.ConditionTrue), chaosmeshv1alpha1.ConditionAllInjected)
+		}
 
-	return allInjected && allSelected
+		if condition.Type == chaosmeshv1alpha1.ConditionSelected {
+			g.Expect(condition.Status).To(gomega.Equal(corev1.ConditionTrue), chaosmeshv1alpha1.ConditionSelected)
+		}
+	}
 }
 
-func isRunning(obj runtime.Object) (bool, error) {
-	net, ok := obj.(*chaosmeshv1alpha1.NetworkChaos)
-	if ok {
-		return conditionsAreTrue(net.GetStatus(), net.GetStatus().Conditions), nil
-	}
-	io, ok := obj.(*chaosmeshv1alpha1.IOChaos)
-	if ok {
-		return conditionsAreTrue(io.GetStatus(), io.GetStatus().Conditions), nil
-	}
-	stress, ok := obj.(*chaosmeshv1alpha1.StressChaos)
-	if ok {
-		return conditionsAreTrue(stress.GetStatus(), stress.GetStatus().Conditions), nil
-	}
-	podChaos, ok := obj.(*chaosmeshv1alpha1.PodChaos)
-	if ok {
-		return conditionsAreTrue(podChaos.GetStatus(), podChaos.GetStatus().Conditions), nil
-	}
-	httpChaos, ok := obj.(*chaosmeshv1alpha1.HTTPChaos)
-	if ok {
-		return conditionsAreTrue(httpChaos.GetStatus(), httpChaos.GetStatus().Conditions), nil
-	}
-
-	_, ok = obj.(*chaosmeshv1alpha1.Schedule)
-	if ok {
+func isRunning(g gomega.Gomega, obj runtime.Object) {
+	switch exp := obj.(type) {
+	case *chaosmeshv1alpha1.NetworkChaos:
+	case *chaosmeshv1alpha1.IOChaos:
+	case *chaosmeshv1alpha1.StressChaos:
+	case *chaosmeshv1alpha1.PodChaos:
+	case *chaosmeshv1alpha1.HTTPChaos:
+		conditionsAreTrue(g, exp.GetStatus(), exp.GetStatus().Conditions)
+	case *chaosmeshv1alpha1.Schedule:
 		// We could also wait for the first schedule but depending on the provided cron we might wait a long time
 		// return !schedule.Status.LastScheduleTime.IsZero(), nil
-		return true, nil
+		return
+	default:
+		g.Expect(fmt.Errorf(
+			"unknown experiment type: %#v",
+			obj.GetObjectKind().GroupVersionKind().Kind,
+		)).NotTo(gomega.HaveOccurred())
 	}
-
-	return false, fmt.Errorf(
-		"unknown experiment type: %#v",
-		obj.GetObjectKind().GroupVersionKind().Kind,
-	)
 }
 
 // GetOperatorSelector returns the operator Pod selector for chaos mesh.

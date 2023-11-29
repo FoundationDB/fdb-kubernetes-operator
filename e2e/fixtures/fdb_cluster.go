@@ -726,24 +726,22 @@ func (fdbCluster *FdbCluster) UpdateLogProcessCount(newLogProcessCount int) erro
 func (fdbCluster *FdbCluster) SetPodAsUnschedulable(pod corev1.Pod) error {
 	fdbCluster.SetProcessGroupsAsUnschedulable([]fdbv1beta2.ProcessGroupID{GetProcessGroupID(pod)})
 
-	fetchedPod := &corev1.Pod{}
-	return wait.PollImmediate(2*time.Second, 5*time.Minute, func() (bool, error) {
+	gomega.Eventually(func(g gomega.Gomega) string {
+		fetchedPod := &corev1.Pod{}
 		err := fdbCluster.getClient().
 			Get(ctx.Background(), client.ObjectKeyFromObject(&pod), fetchedPod)
-		if err != nil {
-			if kubeErrors.IsNotFound(err) {
-				return false, nil
-			}
-			return false, err
-		}
+		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		// Try deleting the Pod as a workaround until the operator handle all cases.
 		if fetchedPod.Spec.NodeName != "" && fetchedPod.DeletionTimestamp.IsZero() {
-			_ = fdbCluster.getClient().Delete(ctx.Background(), &pod)
+			err = fdbCluster.getClient().Delete(ctx.Background(), &pod)
+			g.Expect(err).NotTo(gomega.HaveOccurred())
 		}
 
-		return fetchedPod.Spec.NodeName == "", nil
-	})
+		return fetchedPod.Spec.NodeName
+	}).WithTimeout(5 * time.Minute).WithPolling(2 * time.Second).Should(gomega.BeEmpty())
+
+	return nil
 }
 
 // SetProcessGroupsAsUnschedulable sets the provided process groups on the NoSchedule list of the current FoundationDBCluster. This will make
@@ -864,48 +862,29 @@ func (fdbCluster *FdbCluster) WaitForPodRemoval(pod *corev1.Pod) error {
 	}
 
 	log.Printf("waiting until the pod %s/%s is deleted", pod.Namespace, pod.Name)
-	counter := 0
-	forceReconcile := 10
+	lastForcedReconciliationTime := time.Now()
+	forceReconcileDuration := 4 * time.Minute
 
-	// Poll every 2 seconds for a maximum of 40 minutes.
-	fetchedPod := &corev1.Pod{}
-	err := wait.PollImmediate(2*time.Second, 40*time.Minute, func() (bool, error) {
+	gomega.Eventually(func(g gomega.Gomega) bool {
+		fetchedPod := &corev1.Pod{}
 		err := fdbCluster.getClient().
 			Get(ctx.Background(), client.ObjectKeyFromObject(pod), fetchedPod)
-		if err != nil {
-			if kubeErrors.IsNotFound(err) {
-				return true, nil
-			}
+		if err != nil && kubeErrors.IsNotFound(err) {
+			return true
 		}
-		resCluster := fdbCluster.GetCluster()
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+
 		// We have to force a reconcile because the operator only reacts to events.
 		// The network partition of the Pod won't trigger any reconcile and we would have to wait for 10h.
-		if counter >= forceReconcile {
-			patch := client.MergeFrom(resCluster.DeepCopy())
-			if resCluster.Annotations == nil {
-				resCluster.Annotations = make(map[string]string)
-			}
-			resCluster.Annotations["foundationdb.org/reconcile"] = strconv.FormatInt(
-				time.Now().UnixNano(),
-				10,
-			)
-			// This will apply an Annotation to the object which will trigger the reconcile loop.
-			// This should speed up the reconcile phase.
-			_ = fdbCluster.getClient().Patch(
-				ctx.Background(),
-				resCluster,
-				patch)
-			counter = -1
+		if time.Since(lastForcedReconciliationTime) >= forceReconcileDuration {
+			fdbCluster.ForceReconcile()
+			lastForcedReconciliationTime = time.Now()
 		}
-		counter++
-		return false, nil
-	})
 
-	if err == nil {
-		return nil
-	}
+		return false
+	}).WithTimeout(10*time.Minute).WithPolling(2*time.Second).Should(gomega.BeTrue(), "pod was not removed in the expected time")
 
-	return fmt.Errorf("pod %s/%s was not removed in the expected time", pod.Namespace, pod.Name)
+	return nil
 }
 
 // GetClusterSpec returns the current cluster spec.
