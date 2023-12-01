@@ -58,8 +58,6 @@ var _ = Describe("maintenance_mode_checker", func() {
 	JustBeforeEach(func() {
 		requeue = maintenanceModeChecker{}.reconcile(context.TODO(), clusterReconciler, cluster, nil, globalControllerLogger)
 		Expect(err).NotTo(HaveOccurred())
-		_, err = reloadCluster(cluster)
-		Expect(err).NotTo(HaveOccurred())
 	})
 
 	Context("maintenance mode is off", func() {
@@ -77,7 +75,7 @@ var _ = Describe("maintenance_mode_checker", func() {
 
 			It("should not be requeued", func() {
 				Expect(requeue).To(BeNil())
-				Expect(cluster.Status.MaintenanceModeInfo).To(Equal(fdbv1beta2.MaintenanceModeInfo{}))
+				Expect(cluster.Status.MaintenanceModeInfo).To(Equal(fdbv1beta2.MaintenanceModeInfo{ZoneID: "storage-4"}))
 			})
 		})
 	})

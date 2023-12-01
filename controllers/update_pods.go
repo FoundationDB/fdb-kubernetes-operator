@@ -54,7 +54,7 @@ func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconcile
 			r.Recorder.Event(cluster, corev1.EventTypeNormal,
 				"NeedsPodsDeletion", "Spec require deleting some pods, but deleting pods is disabled")
 			cluster.Status.Generations.NeedsPodDeletion = cluster.ObjectMeta.Generation
-			return &requeue{message: "Pod deletion is disabled", delayedRequeue: true}
+			return &requeue{message: "Pod deletion is disabled"}
 		}
 	}
 

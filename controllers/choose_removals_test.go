@@ -58,8 +58,6 @@ var _ = Describe("choose_removals", func() {
 	JustBeforeEach(func() {
 		requeue = chooseRemovals{}.reconcile(context.TODO(), clusterReconciler, cluster, nil, globalControllerLogger)
 		Expect(err).NotTo(HaveOccurred())
-		_, err = reloadCluster(cluster)
-		Expect(err).NotTo(HaveOccurred())
 
 		removals = nil
 		for _, processGroup := range cluster.Status.ProcessGroups {

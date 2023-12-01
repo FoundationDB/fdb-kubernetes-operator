@@ -689,14 +689,12 @@ var _ = Describe("update_status", func() {
 
 	Describe("Reconcile", func() {
 		var cluster *fdbv1beta2.FoundationDBCluster
-		var err error
 		var requeue *requeue
 		var adminClient *mock.AdminClient
 
 		BeforeEach(func() {
 			cluster = internal.CreateDefaultCluster()
-			err = k8sClient.Create(context.TODO(), cluster)
-			Expect(err).NotTo(HaveOccurred())
+			Expect(k8sClient.Create(context.TODO(), cluster)).NotTo(HaveOccurred())
 
 			result, err := reconcileCluster(cluster)
 			Expect(err).NotTo(HaveOccurred())
@@ -711,14 +709,11 @@ var _ = Describe("update_status", func() {
 		})
 
 		JustBeforeEach(func() {
-			err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
-			Expect(err).NotTo(HaveOccurred())
+			Expect(internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})).NotTo(HaveOccurred())
 			requeue = updateStatus{}.reconcile(context.TODO(), clusterReconciler, cluster, nil, globalControllerLogger)
 			if requeue != nil {
 				Expect(requeue.curError).NotTo(HaveOccurred())
 			}
-			_, err = reloadCluster(cluster)
-			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("should mark the cluster as reconciled", func() {

@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2018-2019 Apple Inc. and the FoundationDB project authors
+ * Copyright 2018-2023 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -136,13 +136,11 @@ var _ = Describe("cluster_controller", func() {
 
 		JustBeforeEach(func() {
 			result, err := reconcileCluster(cluster)
-
 			if err != nil && !shouldCompleteReconciliation {
 				return
 			}
 
 			Expect(err).NotTo(HaveOccurred())
-
 			Expect(result.Requeue).To(Equal(!shouldCompleteReconciliation))
 
 			if shouldCompleteReconciliation {
@@ -1603,14 +1601,12 @@ var _ = Describe("cluster_controller", func() {
 				})
 			})
 
-			Context("with deletion disabled", func() {
+			When("Pod deletions are disabled", func() {
 				BeforeEach(func() {
 					cluster.Spec.AutomationOptions.DeletionMode = fdbv1beta2.PodUpdateModeNone
 					cluster.Spec.AutomationOptions.PodUpdateStrategy = fdbv1beta2.PodUpdateStrategyDelete
 					shouldCompleteReconciliation = false
-
-					err = k8sClient.Update(context.TODO(), cluster)
-					Expect(err).NotTo(HaveOccurred())
+					Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
 				})
 
 				JustBeforeEach(func() {
