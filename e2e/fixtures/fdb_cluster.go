@@ -23,12 +23,10 @@ package fixtures
 import (
 	ctx "context"
 	"fmt"
-	"golang.org/x/sync/errgroup"
 	"log"
 	"math"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"k8s.io/client-go/util/retry"
@@ -290,6 +288,8 @@ func (fdbCluster *FdbCluster) WaitUntilWithForceReconcile(pollTimeInSeconds int,
 
 	lastForcedReconciliationTime := time.Now()
 	forceReconcileDuration := 4 * time.Minute
+
+	// TODO (johscheuer): Change this method for HA an instead iterate over all clusters at once.
 
 	return wait.PollImmediate(
 		time.Duration(pollTimeInSeconds)*time.Second,
@@ -987,62 +987,41 @@ func (fdbCluster *FdbCluster) SetEmptyMonitorConf(enable bool) error {
 	}
 	// Don't wait for reconciliation when we set empty monitor config to true since the cluster won't reconcile
 	pods := fdbCluster.GetPods().Items
-	podMap := sync.Map{}
+	failedPods := make(map[string]fdbv1beta2.None, len(pods))
 
-	g := new(errgroup.Group)
 	for _, pod := range pods {
-		targetPod := pod // https://golang.org/doc/faq#closures_and_goroutines
-		podMap.Store(targetPod.Name, struct{}{})
+		failedPods[pod.Name] = fdbv1beta2.None{}
+	}
 
-		g.Go(func() error {
-			err := wait.PollImmediate(2*time.Second, 5*time.Minute, func() (bool, error) {
-				output, _, err := fdbCluster.ExecuteCmdOnPod(
-					targetPod,
-					fdbv1beta2.MainContainerName,
-					"ps -e | grep fdbserver | wc -l",
-					false,
+	gomega.Eventually(func() map[string]fdbv1beta2.None {
+		for _, pod := range pods {
+			if _, ok := failedPods[pod.Name]; !ok {
+				continue
+			}
+
+			output, _, err := fdbCluster.ExecuteCmdOnPod(
+				pod,
+				fdbv1beta2.MainContainerName,
+				"ps -e | grep fdbserver | wc -l",
+				false,
+			)
+			if err != nil {
+				log.Printf(
+					"error executing command on %s, error: %s\n",
+					pod.Name,
+					err.Error(),
 				)
-				if err != nil {
-					log.Printf(
-						"error executing command on %s, error: %s\n",
-						targetPod.Name,
-						err.Error(),
-					)
-					return false, nil
-				}
+				continue
+			}
 
-				// If EmptyMonitor is enabled, each pod should has no fdbserver running
-				if strings.TrimSpace(output) == "0" {
-					podMap.Delete(targetPod.Name)
-					return true, nil
-				}
-
-				return false, nil
-			})
-
-			return err
-		})
-	}
-
-	err := g.Wait()
-	if err != nil {
-		return err
-	}
-
-	var failedPods strings.Builder
-	podMap.Range(func(key any, value any) bool {
-		podName, ok := key.(string)
-		if !ok {
-			return false
+			// If EmptyMonitor is enabled, each pod should has no fdbserver running
+			if strings.TrimSpace(output) == "0" {
+				delete(failedPods, pod.Name)
+			}
 		}
-		failedPods.WriteString(podName)
-		failedPods.WriteString(" ")
 
-		return true
-	})
-	if failedPods.Len() > 0 {
-		return fmt.Errorf("enabling empty monitor failed on pods: %s", failedPods.String())
-	}
+		return failedPods
+	}).WithPolling(1 * time.Second).WithTimeout(5 * time.Minute).Should(gomega.BeEmpty())
 
 	log.Printf("Enabling empty monitor succeeded in cluster: %s", fdbCluster.Name())
 
