@@ -351,18 +351,21 @@ func checkAndSetProcessStatus(logger logr.Logger, r *FoundationDBClusterReconcil
 	}
 
 	var excluded, hasIncorrectCommandLine, hasMissingProcesses, sidecarUnreachable bool
+	var substitutions map[string]string
+	var err error
 
 	// Fetch the pod client and variables once per Pod.
 	podClient, message := r.getPodClient(cluster, pod)
 	if podClient == nil {
 		logger.Info("Unable to build pod client", "processGroupID", processGroupStatus.ProcessGroupID, "message", message)
-		return nil
-	}
-
-	substitutions, err := podClient.GetVariableSubstitutions()
-	if err != nil {
-		if internal.IsNetworkError(err) {
-			sidecarUnreachable = true
+		// As the Pod is not ready we can assume that the sidecar is not reachable.
+		sidecarUnreachable = true
+	} else {
+		substitutions, err = podClient.GetVariableSubstitutions()
+		if err != nil {
+			if internal.IsNetworkError(err) {
+				sidecarUnreachable = true
+			}
 		}
 	}
 
@@ -429,8 +432,8 @@ func checkAndSetProcessStatus(logger logr.Logger, r *FoundationDBClusterReconcil
 	if hasMissingProcesses {
 		return nil
 	}
-
 	processGroupStatus.UpdateCondition(fdbv1beta2.ProcessIsMarkedAsExcluded, excluded)
+	// If the sidecar is unreachable we are not able to compute the desired commandline.
 	if sidecarUnreachable {
 		return nil
 	}
