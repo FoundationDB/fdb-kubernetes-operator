@@ -24,6 +24,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/client-go/util/retry"
 	"regexp"
 	"time"
 
@@ -172,6 +174,32 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 	originalGeneration := cluster.ObjectMeta.Generation
 	normalizedSpec := cluster.Spec.DeepCopy()
 	delayedRequeue := false
+
+	// Store the initial original status here to compare it after the reconciliation steps.
+	originalStatus := cluster.Status.DeepCopy()
+	defer func() {
+		// We try to update the status a few times if we get a conflict error, e.g. because something has updated the
+		// FoundationDBCluster resource. As only the operator is updating the status and only the status will be updated
+		// this operation should be safe and could reduce the required re-computations.
+		if !equality.Semantic.DeepEqual(cluster.Status, *originalStatus) {
+			err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				clusterLog.Info("detected change in status", "originalStatus", *originalStatus, "currenStatus", cluster.Status)
+				fetchedCluster := &fdbv1beta2.FoundationDBCluster{}
+				err := r.Get(ctx, client.ObjectKeyFromObject(cluster), fetchedCluster)
+				if err != nil {
+					return err
+				}
+
+				fetchedCluster.Status = cluster.Status
+
+				return r.updateOrApply(ctx, fetchedCluster)
+			})
+
+			if err != nil {
+				clusterLog.Error(err, "could not update status")
+			}
+		}
+	}()
 
 	for _, subReconciler := range subReconcilers {
 		// We have to set the normalized spec here again otherwise any call to Update() for the status of the cluster

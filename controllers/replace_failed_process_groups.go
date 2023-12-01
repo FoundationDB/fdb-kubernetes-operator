@@ -35,7 +35,7 @@ import (
 type replaceFailedProcessGroups struct{}
 
 // return non-nil requeue if a process has been replaced
-func (c replaceFailedProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
+func (c replaceFailedProcessGroups) reconcile(_ context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
 	// If the EmptyMonitorConf setting is set we expect that all fdb processes in this part of the cluster are missing. In order
 	// to prevent the operator from replacing any process groups we skip this reconciliation here.
 	if cluster.Spec.Buggify.EmptyMonitorConf {
@@ -60,11 +60,6 @@ func (c replaceFailedProcessGroups) reconcile(ctx context.Context, r *Foundation
 	// Only replace process groups without an address, if the cluster has the desired fault tolerance and is available.
 	hasDesiredFaultTolerance := fdbstatus.HasDesiredFaultToleranceFromStatus(logger, status, cluster)
 	if replacements.ReplaceFailedProcessGroups(logger, cluster, status, hasDesiredFaultTolerance) {
-		err := r.updateOrApply(ctx, cluster)
-		if err != nil {
-			return &requeue{curError: err}
-		}
-
 		return &requeue{message: "Removals have been updated in the cluster status"}
 	}
 

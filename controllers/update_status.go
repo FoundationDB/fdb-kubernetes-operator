@@ -261,17 +261,6 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 		}
 	}
 
-	// See: https://github.com/kubernetes-sigs/kubebuilder/issues/592
-	// If we use the default reflect.DeepEqual method it will be recreating the
-	// clusterStatus multiple times because the pointers are different.
-	if !equality.Semantic.DeepEqual(cluster.Status, *originalStatus) {
-		err = r.updateOrApply(ctx, cluster)
-		if err != nil {
-			logger.Error(err, "Error updating cluster clusterStatus")
-			return &requeue{curError: err}
-		}
-	}
-
 	return nil
 }
 

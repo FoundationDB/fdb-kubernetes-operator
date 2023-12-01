@@ -43,7 +43,7 @@ import (
 type bounceProcesses struct{}
 
 // reconcile runs the reconciler's work.
-func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
+func (bounceProcesses) reconcile(_ context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
 	if !pointer.BoolDeref(cluster.Spec.AutomationOptions.KillProcesses, true) {
 		return nil
 	}
@@ -82,10 +82,6 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 		r.Recorder.Event(cluster, corev1.EventTypeNormal, "NeedsBounce",
 			fmt.Sprintf("Spec require a bounce of some processes, but the cluster has only been up for %f seconds", minimumUptime))
 		cluster.Status.Generations.NeedsBounce = cluster.ObjectMeta.Generation
-		err = r.updateOrApply(ctx, cluster)
-		if err != nil {
-			logger.Error(err, "Error updating cluster status")
-		}
 
 		// Retry after we waited the minimum uptime
 		return &requeue{

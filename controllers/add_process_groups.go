@@ -34,7 +34,7 @@ import (
 type addProcessGroups struct{}
 
 // reconcile runs the reconciler's work.
-func (a addProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, _ *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
+func (a addProcessGroups) reconcile(_ context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, _ *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
 	desiredCountStruct, err := cluster.GetProcessCountsWithDefaults()
 	if err != nil {
 		return &requeue{curError: err}
@@ -45,7 +45,6 @@ func (a addProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterR
 		return &requeue{curError: err}
 	}
 
-	hasNewProcessGroups := false
 	for _, processClass := range fdbv1beta2.ProcessClasses {
 		desiredCount := desiredCounts[processClass]
 		if desiredCount < 0 {
@@ -66,14 +65,6 @@ func (a addProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterR
 			cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus(processGroupID, processClass, nil))
 			// Increase the idNum here, since we just added a Process Group with this ID number.
 			idNum++
-		}
-		hasNewProcessGroups = true
-	}
-
-	if hasNewProcessGroups {
-		err = r.updateOrApply(ctx, cluster)
-		if err != nil {
-			return &requeue{curError: err}
 		}
 	}
 

@@ -33,7 +33,7 @@ import (
 type maintenanceModeChecker struct{}
 
 // reconcile runs the reconciler's work.
-func (maintenanceModeChecker) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, _ *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
+func (maintenanceModeChecker) reconcile(_ context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, _ *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
 	if !cluster.UseMaintenaceMode() {
 		return nil
 	}
@@ -87,10 +87,6 @@ func (maintenanceModeChecker) reconcile(ctx context.Context, r *FoundationDBClus
 		return &requeue{curError: err, delayedRequeue: true}
 	}
 	cluster.Status.MaintenanceModeInfo = fdbv1beta2.MaintenanceModeInfo{}
-	err = r.updateOrApply(ctx, cluster)
-	if err != nil {
-		return &requeue{curError: err, delayedRequeue: true}
-	}
 
 	return nil
 }

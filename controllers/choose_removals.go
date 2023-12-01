@@ -37,7 +37,7 @@ import (
 type chooseRemovals struct{}
 
 // reconcile runs the reconciler's work.
-func (c chooseRemovals) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
+func (c chooseRemovals) reconcile(_ context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
 	hasNewRemovals := false
 
 	var removals = make(map[fdbv1beta2.ProcessGroupID]bool)
@@ -122,10 +122,6 @@ func (c chooseRemovals) reconcile(ctx context.Context, r *FoundationDBClusterRec
 			if !remainingProcessMap[string(processGroup.ProcessGroupID)] {
 				processGroup.MarkForRemoval()
 			}
-		}
-		err := r.updateOrApply(ctx, cluster)
-		if err != nil {
-			return &requeue{curError: err, delayedRequeue: true}
 		}
 	}
 
