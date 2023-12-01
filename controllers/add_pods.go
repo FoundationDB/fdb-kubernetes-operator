@@ -61,10 +61,8 @@ func (a addPods) reconcile(ctx context.Context, r *FoundationDBClusterReconciler
 		}
 
 		// Ignore the is not found error, as we are checking here if we should create Pods.
-		if err != nil {
-			if !k8serrors.IsNotFound(err) {
-				return &requeue{curError: err}
-			}
+		if err != nil && !k8serrors.IsNotFound(err) {
+			return &requeue{curError: err}
 		}
 
 		// If this process group is marked for removal, we normally don't want to spin it back up
