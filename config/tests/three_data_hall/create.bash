@@ -20,6 +20,7 @@ DIR="${BASH_SOURCE%/*}"
 AZ1=${AZ1:-"az1"}
 AZ2=${AZ2:-"az2"}
 AZ3=${AZ3:-"az3"}
+NAMESPACE=${NAMESPACE=-"default"}
 
 applyFile "${DIR}/stage_1.yaml" "${AZ1}" '""'
 checkReconciliationLoop test-cluster-${AZ1}

@@ -2,4 +2,4 @@
 
 set -eu
 
-kubectl delete fdb -l cluster-group=test-cluster
+kubectl -n "${NAMESPACE}" delete fdb -l cluster-group=test-cluster
