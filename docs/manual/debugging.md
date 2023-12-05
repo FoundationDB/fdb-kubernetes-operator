@@ -1,5 +1,17 @@
 # Debugging
 
+## Logging
+
+The operator supports json-structured logging and will emit those logs to stdout and if configured to a file.
+The operator sets different log keys for easier log filtering in different contexts.
+All cluster related logs will contain the following fields:
+
+- `namespace`: Namespace of the `FoundationDBCluster` resource that is currently processed.
+- `cluster`: The name of the `FoundationDBCluster` resource that is currently processed.
+
+In addition the operator will set the `reconciler` field to the current sub-reconciler.
+If the operator iterates over all or a subset of `ProcessGroups`, the operator will set `processGroupID` to the current process group ID.
+
 ## Kubectl FDB Plugin
 
 You can use the [kubectl-fdb](/kubectl-fdb) plugin when investigating issues and running imperative commands.
