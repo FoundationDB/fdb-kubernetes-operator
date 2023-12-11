@@ -86,6 +86,16 @@ func getKubeClient(ctx context.Context, o *fdbBOptions) (client.Client, error) {
 		return nil, err
 	}
 
+	// Setup index field to allow access to the node name more efficiently. The indexer must be created before the
+	// informer is started.
+	err = internalCache.IndexField(ctx, &corev1.Pod{}, "spec.nodeName", func(object client.Object) []string {
+		return []string{object.(*corev1.Pod).Spec.NodeName}
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
 	// Make sure the internal cache is started.
 	go func() {
 		_ = internalCache.Start(ctx)
