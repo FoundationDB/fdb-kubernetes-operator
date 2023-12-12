@@ -252,6 +252,7 @@ func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager, maxCo
 	if err != nil {
 		return err
 	}
+
 	labelSelectorPredicate, err := predicate.LabelSelectorPredicate(selector)
 	if err != nil {
 		return err

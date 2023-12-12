@@ -182,6 +182,7 @@ func cordonNode(cmd *cobra.Command, kubeClient client.Client, inputClusterName s
 	if len(errors) > 0 {
 		return fmt.Errorf("following operation failed, please check and retry: \n, %s", errors)
 	}
+
 	return nil
 }
 
@@ -211,6 +212,7 @@ func fetchPods(kubeClient client.Client, clusterName string, namespace string, n
 	if err != nil {
 		return pods, fmt.Errorf("unable to fetch pods. Error: %w", err)
 	}
+
 	return pods, nil
 }
 
