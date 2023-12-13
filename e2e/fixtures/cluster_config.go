@@ -138,7 +138,7 @@ func (config *ClusterConfig) SetDefaults(factory *Factory) {
 	}
 
 	if config.StorageServerPerPod == 0 {
-		config.StorageServerPerPod = 1
+		config.StorageServerPerPod = 2
 	}
 
 	if config.CreationCallback == nil {
