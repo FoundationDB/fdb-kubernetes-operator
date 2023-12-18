@@ -21,12 +21,12 @@ spec:
         runAsGroup: 4059
         fsGroup: 4059
       volumes:
-      - name: tmp
-        emptyDir: {}
-      - name: logs
-        emptyDir: {}
-      - name: fdb-binaries
-        emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+        - name: logs
+          emptyDir: {}
+        - name: fdb-binaries
+          emptyDir: {}
       serviceAccountName: fdb-kubernetes-operator-controller-manager
       initContainers:
         - name: foundationdb-kubernetes-init-6-2
@@ -81,36 +81,36 @@ spec:
             - name: fdb-binaries
               mountPath: /var/output-files
       containers:
-      - command:
-        - /manager
-        image: foundationdb/fdb-kubernetes-operator:v1.30.0
-        name: manager
-        env:
-          - name: WATCH_NAMESPACE
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.namespace
-        ports:
-          - name: metrics
-            containerPort: 8080
-        resources:
-          limits:
-            cpu: 500m
-            memory: 256Mi
-          requests:
-            cpu: 500m
-            memory: 256Mi
-        securityContext:
-          readOnlyRootFilesystem: true
-          allowPrivilegeEscalation: false
-          privileged: false
-        volumeMounts:
-        - name: tmp
-          mountPath: /tmp
-        - name: logs
-          mountPath: /var/log/fdb
-        - name: fdb-binaries
-          mountPath: /usr/bin/fdb
+        - command:
+            - /manager
+          image: foundationdb/fdb-kubernetes-operator:v1.30.0
+          name: manager
+          env:
+            - name: WATCH_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          ports:
+            - name: metrics
+              containerPort: 8080
+          resources:
+            limits:
+              cpu: 500m
+              memory: 256Mi
+            requests:
+              cpu: 500m
+              memory: 256Mi
+          securityContext:
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            privileged: false
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: logs
+              mountPath: /var/log/fdb
+            - name: fdb-binaries
+              mountPath: /usr/bin/fdb
       terminationGracePeriodSeconds: 10
 ---
 apiVersion: v1

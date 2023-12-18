@@ -3,7 +3,6 @@ image:
   repository: foundationdb/fdb-kubernetes-operator
   tag: v1.30.0
   pullPolicy: IfNotPresent
-
 initContainers:
   6.2:
     image:
@@ -20,45 +19,33 @@ initContainers:
       repository: foundationdb/foundationdb-kubernetes-sidecar
       tag: 7.1.15-1
       pullPolicy: IfNotPresent
-
 globalMode:
   enabled: false
-
 replicas: null
-
 imagePullSecrets: []
-
 annotations: {}
 podAnnotations: {}
 podLabels: {}
-
 serviceAccount:
   create: true
   name: null
   imagePullSecrets: []
   annotations: {}
-
 priorityClassName: null
-
 securityContext:
   runAsUser: 4059
   runAsGroup: 4059
   fsGroup: 4059
-
 containerSecurityContext:
   allowPrivilegeEscalation: false
   privileged: false
   capabilities:
     drop:
-    - all
+      - all
   readOnlyRootFilesystem: true
-
 nodeSelector: {}
-
 affinity: {}
-
 tolerations: {}
-
 resources:
   limits:
     cpu: 500m
@@ -66,7 +53,6 @@ resources:
   requests:
     cpu: 500m
     memory: 256Mi
-
 initContainersResources:
   limits:
     cpu: 10m
@@ -74,11 +60,10 @@ initContainersResources:
   requests:
     cpu: 10m
     memory: 50Mi
-
 initContainerSecurityContext:
   allowPrivilegeEscalation: false
   privileged: false
   capabilities:
     drop:
-    - all
+      - all
   readOnlyRootFilesystem: true
