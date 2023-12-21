@@ -152,6 +152,7 @@ func (factory *Factory) ensureRBACSetupExists(namespace string) {
 					"watch",
 					"update",
 					"patch",
+					"list",
 				},
 			},
 		},
