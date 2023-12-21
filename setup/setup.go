@@ -76,7 +76,17 @@ type Options struct {
 	LogFileMinAge                      time.Duration
 	GetTimeout                         time.Duration
 	PostTimeout                        time.Duration
-	DeprecationOptions                 internal.DeprecationOptions
+	// LeaseDuration is the duration that non-leader candidates will
+	// wait to force acquire leadership. This is measured against time of
+	// last observed ack. Default is 15 seconds.
+	LeaseDuration *time.Duration
+	// RenewDeadline is the duration that the acting controlplane will retry
+	// refreshing leadership before giving up. Default is 10 seconds.
+	RenewDeadline *time.Duration
+	// RetryPeriod is the duration the LeaderElector clients should wait
+	// between tries of actions. Default is 2 seconds.
+	RetryPeriod        *time.Duration
+	DeprecationOptions internal.DeprecationOptions
 }
 
 // BindFlags will parse the given flagset for the operator option flags
@@ -106,6 +116,9 @@ func (o *Options) BindFlags(fs *flag.FlagSet) {
 	fs.StringVar(&o.WatchNamespace, "watch-namespace", os.Getenv("WATCH_NAMESPACE"), "Defines which namespace the operator should watch.")
 	fs.DurationVar(&o.GetTimeout, "get-timeout", 5*time.Second, "http timeout for get requests to the FDB sidecar.")
 	fs.DurationVar(&o.PostTimeout, "post-timeout", 10*time.Second, "http timeout for post requests to the FDB sidecar.")
+	fs.DurationVar(o.LeaseDuration, "leader-election-lease-duration", 15*time.Second, "the duration that non-leader candidates will wait to force acquire leadership.")
+	fs.DurationVar(o.RenewDeadline, "leader-election-renew-deadline", 10*time.Second, "the duration that the acting controlplane will retry refreshing leadership before giving up.")
+	fs.DurationVar(o.RetryPeriod, "leader-election-retry-period", 2*time.Second, "the duration the LeaderElector clients should wait between tries of action.")
 	fs.BoolVar(&o.EnableRestartIncompatibleProcesses, "enable-restart-incompatible-processes", true, "This flag enables/disables in the operator to restart incompatible fdbserver processes.")
 	fs.BoolVar(&o.ServerSideApply, "server-side-apply", false, "This flag enables server side apply.")
 	fs.BoolVar(&o.EnableRecoveryState, "enable-recovery-state", true, "This flag enables the use of the recovery state for the minimum uptime between bounced if the FDB version supports it.")
@@ -152,6 +165,9 @@ func StartManager(
 		MetricsBindAddress: operatorOpts.MetricsAddr,
 		LeaderElection:     operatorOpts.EnableLeaderElection,
 		LeaderElectionID:   operatorOpts.LeaderElectionID,
+		LeaseDuration:      operatorOpts.LeaseDuration,
+		RenewDeadline:      operatorOpts.RenewDeadline,
+		RetryPeriod:        operatorOpts.RetryPeriod,
 		Port:               9443,
 	}
 
