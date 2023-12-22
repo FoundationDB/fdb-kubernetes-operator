@@ -48,9 +48,8 @@ import (
 const (
 	operatorDeploymentName     = "fdb-kubernetes-operator-controller-manager"
 	foundationdbServiceAccount = "fdb-kubernetes"
-	// operatorDeployment is a string that contains all the deployment settings used to deploy the operator.
-	// Embedding it as a string make the test suite portable.
-	operatorDeployment = `apiVersion: v1
+	// The configuration for the RBAC setup for the operator deployment
+	operatorRBAC = `apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: fdb-kubernetes-operator-controller-manager
@@ -191,8 +190,10 @@ rules:
   subjects:
   - kind: ServiceAccount
     name: fdb-kubernetes-operator-controller-manager
-    namespace: {{ .Namespace }}
----
+    namespace: {{ .Namespace }}`
+	// operatorDeployment is a string that contains all the deployment settings used to deploy the operator.
+	// Embedding it as a string make the test suite portable.
+	operatorDeployment = `
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -332,6 +333,141 @@ spec:
           secretName: {{ .SecretName }}
       - name: fdb-binaries
         emptyDir: {}`
+	// operatorDeploymentUnifiedImage ...
+	operatorDeploymentUnifiedImage = `
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: fdb-kubernetes-operator-controller-manager
+    control-plane: controller-manager
+  name: fdb-kubernetes-operator-controller-manager
+  namespace: {{ .Namespace }}
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: fdb-kubernetes-operator-controller-manager
+  template:
+    metadata:
+      labels:
+        app: fdb-kubernetes-operator-controller-manager
+        control-plane: controller-manager
+      annotations:
+        prometheus.io/scrape: 'true'
+        prometheus.io/port: '8080'
+    spec:
+      initContainers:
+        {{ range $index, $version := .SidecarVersions }}
+        - name: foundationdb-kubernetes-init-{{ $index }}
+          image: {{ .BaseImage }}:{{ .SidecarTag}}
+          imagePullPolicy: {{ .ImagePullPolicy }}
+          args:
+            - --mode
+            - init
+            - --output-dir
+            - /var/output-files
+            - --copy-binary
+            - fdbcli
+            - --copy-binary
+            - fdbbackup
+            - --copy-binary
+            - fdbrestore
+            - --copy-library
+            - "{{ .FDBVersion.Compact }}"
+{{ if eq .FDBVersion.Compact "7.1" }}
+            - --copy-primary-library
+            - "{{ .FDBVersion.Compact }}"
+{{ end }}
+          volumeMounts:
+            - name: fdb-binaries
+              mountPath: /var/output-files
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+        {{ end }}
+      containers:
+      - command:
+        - /manager
+        args:
+        - --max-concurrent-reconciles=5
+        - --zap-log-level=debug
+        #- --server-side-apply
+        image: {{ .OperatorImage }}
+        name: manager
+        imagePullPolicy: Always
+        env:
+          - name: LD_LIBRARY_PATH
+            value: /usr/bin/fdb
+          - name: WATCH_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: FDB_TLS_CERTIFICATE_FILE
+            value: /tmp/fdb-certs/tls.crt
+          - name: FDB_TLS_CA_FILE
+            value: /tmp/fdb-certs/ca.pem
+          - name: FDB_TLS_KEY_FILE
+            value: /tmp/fdb-certs/tls.key
+          - name: FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY
+            value: /usr/bin/fdb
+          # FDB 7.3 adds a check for loading external client library, which doesn't work with 6.3.
+          # Consider remove this option once 6.3 is no longer being used.
+          - name: FDB_NETWORK_OPTION_IGNORE_EXTERNAL_CLIENT_FAILURES
+            value: ""
+          - name: FDB_BLOB_CREDENTIALS
+            value: /tmp/backup-credentials/credentials
+          # TODO (johscheuer): once we can generate certificates per Pod remove this!
+          - name: DISABLE_SIDECAR_TLS_CHECK
+            value: "1"
+          - name: FDB_NETWORK_OPTION_TRACE_ENABLE
+            value: "/var/log/fdb"
+          - name: FDB_NETWORK_OPTION_TRACE_FORMAT
+            value: json
+        ports:
+          - name: metrics
+            containerPort: 8080
+        resources:
+         requests:
+           cpu: {{ .CPURequests }}
+           memory: {{ .MemoryRequests }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          privileged: false
+          readOnlyRootFilesystem: false
+        volumeMounts:
+        - mountPath: /tmp
+          name: tmp
+        - mountPath: /var/log/fdb
+          name: fdb-trace-logs
+        - name: fdb-certs
+          mountPath: /tmp/fdb-certs
+          readOnly: true
+        - name: fdb-binaries
+          mountPath: /usr/bin/fdb
+        - name: backup-credentials
+          mountPath: /tmp/backup-credentials
+          readOnly: true
+      securityContext:
+        fsGroup: 4059
+        runAsGroup: 4059
+        runAsUser: 4059
+      serviceAccountName: fdb-kubernetes-operator-controller-manager
+      terminationGracePeriodSeconds: 10
+      volumes:
+      - emptyDir: {}
+        name: tmp
+      - emptyDir: {}
+        name: fdb-trace-logs
+      - name: backup-credentials
+        secret:
+          secretName: {{ .BackupSecretName }}
+          optional: true
+      - name: fdb-certs
+        secret:
+          secretName: {{ .SecretName }}
+      - name: fdb-binaries
+        emptyDir: {}`
 )
 
 // operatorConfig represents the configuration of the operator Deployment.
@@ -373,12 +509,18 @@ func (factory *Factory) GetSidecarConfigs() []SidecarConfig {
 	additionalSidecarVersions := factory.GetAdditionalSidecarVersions()
 	sidecarConfigs := make([]SidecarConfig, 0, len(additionalSidecarVersions)+1)
 
+	image := factory.GetSidecarImage()
+	if factory.options.featureOperatorUnifiedImage {
+		image = factory.GetFoundationDBImage()
+	}
+
 	sidecarConfigs = append(
 		sidecarConfigs,
 		getDefaultSidecarConfig(
-			factory.GetSidecarImage(),
+			image,
 			factory.GetFDBVersion(),
 			factory.getImagePullPolicy(),
+			factory.options.featureOperatorUnifiedImage,
 		),
 	)
 	baseImage := sidecarConfigs[0].BaseImage
@@ -392,14 +534,14 @@ func (factory *Factory) GetSidecarConfigs() []SidecarConfig {
 
 		sidecarConfigs = append(
 			sidecarConfigs,
-			getSidecarConfig(baseImage, "", version, factory.getImagePullPolicy()),
+			getSidecarConfig(baseImage, "", version, factory.getImagePullPolicy(), factory.options.featureOperatorUnifiedImage),
 		)
 	}
 
 	return sidecarConfigs
 }
 
-func getDefaultSidecarConfig(sidecarImage string, version fdbv1beta2.Version, imagePullPolicy corev1.PullPolicy) SidecarConfig {
+func getDefaultSidecarConfig(sidecarImage string, version fdbv1beta2.Version, imagePullPolicy corev1.PullPolicy, useUnifiedImage bool) SidecarConfig {
 	defaultSidecarImage := strings.SplitN(sidecarImage, ":", 2)
 
 	var tag string
@@ -407,11 +549,11 @@ func getDefaultSidecarConfig(sidecarImage string, version fdbv1beta2.Version, im
 		tag = defaultSidecarImage[1]
 	}
 
-	return getSidecarConfig(defaultSidecarImage[0], tag, version, imagePullPolicy)
+	return getSidecarConfig(defaultSidecarImage[0], tag, version, imagePullPolicy, useUnifiedImage)
 }
 
-func getSidecarConfig(baseImage string, tag string, version fdbv1beta2.Version, imagePullPolicy corev1.PullPolicy) SidecarConfig {
-	if tag == "" {
+func getSidecarConfig(baseImage string, tag string, version fdbv1beta2.Version, imagePullPolicy corev1.PullPolicy, useUnifiedImage bool) SidecarConfig {
+	if tag == "" && !useUnifiedImage {
 		tag = fmt.Sprintf("%s-1", version)
 	}
 
@@ -452,11 +594,44 @@ func (factory *Factory) ensureFDBOperatorExists(namespace string) error {
 
 // CreateFDBOperatorIfAbsent creates the operator Deployment based on the template.
 func (factory *Factory) CreateFDBOperatorIfAbsent(namespace string) error {
-	t, err := template.New("operatorDeployment").Parse(operatorDeployment)
+	operatorRBACTemplate, err := template.New("operatorRBAC").Parse(operatorRBAC)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	buf := bytes.Buffer{}
-	gomega.Expect(t.Execute(&buf, factory.getOperatorConfig(namespace))).NotTo(gomega.HaveOccurred())
+	gomega.Expect(operatorRBACTemplate.Execute(&buf, factory.getOperatorConfig(namespace))).NotTo(gomega.HaveOccurred())
 	decoder := yamlutil.NewYAMLOrJSONDecoder(&buf, 100000)
+
+	for {
+		var rawObj runtime.RawExtension
+		err := decoder.Decode(&rawObj)
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			return err
+		}
+
+		obj, _, err := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme).
+			Decode(rawObj.Raw, nil, nil)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		unstructuredMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		unstructuredObj := &unstructured.Unstructured{Object: unstructuredMap}
+
+		gomega.Expect(
+			factory.CreateIfAbsent(unstructuredObj),
+		).NotTo(gomega.HaveOccurred())
+	}
+
+	deploymentTemplate := operatorDeployment
+	if factory.options.featureOperatorUnifiedImage {
+		deploymentTemplate = operatorDeploymentUnifiedImage
+	}
+
+	operatorDeploymentTemplate, err := template.New("operatorDeployment").Parse(deploymentTemplate)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	buf = bytes.Buffer{}
+	gomega.Expect(operatorDeploymentTemplate.Execute(&buf, factory.getOperatorConfig(namespace))).NotTo(gomega.HaveOccurred())
+	decoder = yamlutil.NewYAMLOrJSONDecoder(&buf, 100000)
 
 	for {
 		var rawObj runtime.RawExtension
