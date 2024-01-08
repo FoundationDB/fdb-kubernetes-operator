@@ -63,7 +63,7 @@
         <rect x="385.75" y="96" width="204.5" height="77.5" stroke="black" stroke-linecap="round" stroke-linejoin="round" stroke-width="1"/>
         <text transform="translate(390.75 116.302)" fill="black">
           <tspan font-family="Helvetica Neue" font-size="16" font-weight="400" fill="black" x="76.058" y="15">Pod 2</tspan>
-          <tspan font-family="Helvetica Neue" font-size="16" font-weight="400" fill="black" x="72.354" y="33.448">Zone 3</tspan>
+          <tspan font-family="Helvetica Neue" font-size="16" font-weight="400" fill="black" x="72.354" y="33.448">Zone 2</tspan>
         </text>
       </g>
       <g id="Graphic_8">

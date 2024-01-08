@@ -20,7 +20,7 @@ The graphic below represents the different stages in a Pod during the upgrade:
 
 The first state on the left is the initial state before the operator is doing any work.
 The second state in the middle is the state of the Pod during the [Staging Phase](#staging-phase) and the [Restart Phase](#restart-phase).
-The third and last state is the sta te after the [Recreation of Pods Phase](#recreation-of-pods-phase) where the according Pod was recreated with the new desired image version.
+The third and last state is the state after the [Recreation of Pods Phase](#recreation-of-pods-phase) where the according Pod was recreated with the new desired image version.
 
 
 #### Pre Upgrade Check Phase
@@ -57,20 +57,21 @@ In order to replace the Pod the operator will wait for the Process Group to have
 #### Restart Phase
 
 The `BounceProcesses` subreconciler will handle the restart of all `fdbserver` processes.
-For FoundationDB clusters that are spanned across multiple Kubernetes clusters the operator will follow a special process which is document in the [technical design](technical_design.md#bounceprocesses).
+For FoundationDB clusters that are spanned across multiple Kubernetes clusters the operator will follow a special process which is documented in the [technical design](technical_design.md#bounceprocesses).
 The subreconciler will also ensure to wait until all `fdbserver` processes are ready to be restarted to prevent cases where only a subset of processes are restarted.
 In this case ready means that all Pods have the new `fdbmonitor` configuration present and that the new binary is present in the shared volume at `/var/dynamic-conf/bin/$fdb_version`.
-After the `kill` command the operator will initiate a new reconciliation loop to detect the new running version, this is handled in the `UpdateState` subreconciler and the version is detected based on the output of the [cluster status json](https://apple.github.io/foundationdb/mr-status.html).
+After the `kill` command the operator will initiate a new reconciliation loop to detect the new, upgraded running version, this is handled in the `UpdateState` subreconciler and the version is detected based on the output of the [cluster status json](https://apple.github.io/foundationdb/mr-status.html).
 
 #### Recreation of Pods Phase
 
-Technically the upgrade is now done and the cluster is running on the new version but the operator has to do some cleanup.
-The cleanup includes the recreation of all Pods to ensure they use the new FoundationDB image for the desired version and the configuration will be updated to point again to the binary present in the container.
+Technically the upgrade is now done and all the pods in the cluster are running on the new version but the operator has to do some cleanup.
+The cleanup includes the recreation of all Pods to ensure they use the new FoundationDB image for the desired version and the `fdbmonitor` configuration will be updated to point again to 
+the binary included in the image at `/bin/$fdb_version/fdb-server`, instead of the one at `/var/dynamic-conf/bin/$fdb_version` in the original, technically-upgraded pod.
 Depending on the defined [Pod update strategy](../cluster_spec.md#podupdatestrategy) the operator will handle the recreation of the Pods differently.
 In the default setting `ReplaceTransactionSystem` the operator will recreate the storage Pods zone by zone and replaces Pods of the transaction system (log and stateless processes).
 The replacement of the transaction system has the benefit that the recoveries of the transaction system is reduced to potentially one recovery.
 During this phase the operator will also run the `RemoveIncompatibleProcesses` subreconciler, this reconciler will recreate all Pods that host a `fdbserver` process that is in the list of the `incompatible_connections` and is missing the the process list of the [cluster status json](https://apple.github.io/foundationdb/mr-status.html).
-This reconciler should ensure that the cluster is moving faster towards the desired configuration if some processes where not restarted properly.
+This reconciler should ensure that the cluster is moving faster towards the desired configuration if some processes were not restarted properly.
 
 Once all Pods are updated to the new image the upgrade is done and the cluster status of the FoundationDB cluster resource in Kubernetes should show that the reconciliation is done.
 
@@ -89,7 +90,7 @@ If the process has this condition longer than the [IgnoreMissingProcessesSeconds
 This also means that for a short time the cluster might be running with less resources.
 
 Processes that are restarted too early can be identified with the `MissingProcesses` condition.
-Using `kubectl` to fetch the cluster status and searching for all Process Groups with this condition gives an overview of those processes restarted to early.
+Using `kubectl` to fetch the cluster status and searching for all Process Groups with this condition gives an overview of those processes restarted too early.
 
 The operator will handle those cases automatically and there is no need for manual intervention as long as not too many processes are restarted from the outside.
 In that case the best way forward is to restart all processes still running on the old version, this can either be done manually or by using the [kubectl fdb plugin](../../kubectl-fdb/Readme.md) with the following command:
