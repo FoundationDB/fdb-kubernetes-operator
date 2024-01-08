@@ -1,9 +1,9 @@
 # Replacements and Deletions
 
-The operator has two different strategies it can take on process groups that are in an undesired state: replacement and deletion.
-In the case of replacement, we will create a brand new process group, move data off the old process group, and delete the resources for the old process group as well as the records of the process group itself.
+The operator has two different strategies it can use on process groups that are in an undesired state: replacement and deletion.
+In the case of replacement, we will create a brand new process group, move data off of the old process group, and delete the resources for the old process group as well as the records of the process group itself.
 In the case of deletion, we will delete some or all of the resources for the process group and then create new objects with the same names.
-We will cover details of when these different strategies are used in later sections.
+We will cover their details when these different strategies are used in later sections.
 
 A process group is marked for replacement by setting the `remove` flag on the process group.
 This flag is used during both replacements and shrinks, and a replacement is modeled as a grow followed by a shrink.
@@ -61,7 +61,7 @@ The following conditions are currently eligible for replacement:
 * `MissingService`: This indicates that a process group that doesn't have a Service assigned.
 * `PodPending`: This indicates that a process group where the Pod is in a pending state.
 * `NodeTaintReplacing`: This indicates a process group where the Pod has been running on a tainted Node for at least the configured duration. If a ProcessGroup has the `NodeTaintReplacing` condition, the replacement cannot be stopped, even after the Node taint was removed.
-* `ProcessIsMarkedAsExcluded`: This indicates a process group where at least on process is excluded. If the process group is not marked as removal, the operator will replace this process group to make sure the cluster runs at the right capacity.
+* `ProcessIsMarkedAsExcluded`: This indicates a process group where at least one process is excluded. If the process group is not marked for removal, the operator will replace this process group to make sure the cluster runs at the right capacity.
 
 Process groups that are set into the crash loop state with the `Buggify` setting won't be replaced by the operator.
 If the `cluster.Spec.Buggify.EmptyMonitorConf` setting is active the operator won't replace any process groups.
