@@ -748,8 +748,8 @@ func (fdbCluster *FdbCluster) SetPodAsUnschedulable(pod corev1.Pod) error {
 
 // SetProcessGroupsAsUnschedulable sets the provided process groups on the NoSchedule list of the current FoundationDBCluster. This will make
 // sure that the Pod is stuck in Pending.
-func (fdbCluster *FdbCluster) SetProcessGroupsAsUnschedulable(procesGroups []fdbv1beta2.ProcessGroupID) {
-	fdbCluster.cluster.Spec.Buggify.NoSchedule = procesGroups
+func (fdbCluster *FdbCluster) SetProcessGroupsAsUnschedulable(processGroups []fdbv1beta2.ProcessGroupID) {
+	fdbCluster.cluster.Spec.Buggify.NoSchedule = processGroups
 	fdbCluster.UpdateClusterSpec()
 }
 
