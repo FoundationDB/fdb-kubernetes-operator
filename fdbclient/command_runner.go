@@ -48,6 +48,7 @@ func getEnvironmentVariablesWithoutExcludedFdbEnv() []string {
 	excludedEnvironmentVariables := map[string]fdbv1beta2.None{
 		"FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY":       {},
 		"FDB_NETWORK_OPTION_IGNORE_EXTERNAL_CLIENT_FAILURES": {},
+		"FDB_NETWORK_OPTION_CLIENT_THREADS_PER_VERSION":      {},
 	}
 
 	osVariables := os.Environ()

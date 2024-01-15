@@ -54,6 +54,8 @@ var _ = Describe("command_runner", func() {
 		BeforeEach(func() {
 			GinkgoT().Setenv("FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY", "")
 			GinkgoT().Setenv("FDB_NETWORK_OPTION_IGNORE_EXTERNAL_CLIENT_FAILURES", "")
+			GinkgoT().Setenv("FDB_NETWORK_OPTION_CLIENT_THREADS_PER_VERSION", "")
+
 			GinkgoT().Setenv("FDB_TLS_CERTIFICATE_FILE", "")
 
 			for _, env := range getEnvironmentVariablesWithoutExcludedFdbEnv() {
@@ -64,6 +66,7 @@ var _ = Describe("command_runner", func() {
 		It("should exclude the listed FDB variables but include all others", func() {
 			Expect(envVariablesKeys).NotTo(ContainElement("FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY"))
 			Expect(envVariablesKeys).NotTo(ContainElement("FDB_NETWORK_OPTION_IGNORE_EXTERNAL_CLIENT_FAILURES"))
+			Expect(envVariablesKeys).NotTo(ContainElement("FDB_NETWORK_OPTION_CLIENT_THREADS_PER_VERSION"))
 			Expect(envVariablesKeys).To(ContainElement("FDB_TLS_CERTIFICATE_FILE"))
 		})
 	})
