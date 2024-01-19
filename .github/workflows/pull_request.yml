@@ -14,17 +14,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       - name: Set up Go
-        uses: actions/setup-go@v1
+        uses: actions/setup-go@v4
         with:
-          go-version: 1.20.6
-      - uses: actions/cache@v2
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go
+          go-version: 1.20.11
       - name: Get dependencies
         run: curl -L --fail "https://github.com/apple/foundationdb/releases/download/${FDB_VER}/foundationdb-clients_${FDB_VER}-1_amd64.deb" -o fdb.deb
       - name: Install dependencies
@@ -41,22 +35,16 @@ jobs:
         # See https://kubernetes.io/releases for the current releases
         kubever: [ "v1.21.1", "v1.22.0", "v1.23.0" ]
     steps:
-    - name: Set up Go
-      uses: actions/setup-go@v1
-      with:
-        go-version: 1.20.6
     - name: Check out code into the Go module directory
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
       with:
         fetch-depth: 0
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: 1.20.11
     - name: Fetch all tags
       run: git fetch --force --tags
-    - uses: actions/cache@v2
-      with:
-        path: ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-        restore-keys: |
-          ${{ runner.os }}-go
     - name: Get dependencies
       env:
         KIND_VER: "v0.11.1"
@@ -108,22 +96,16 @@ jobs:
     name: Testing
     runs-on: ubuntu-latest
     steps:
-    - name: Set up Go
-      uses: actions/setup-go@v1
-      with:
-        go-version: 1.20.6
     - name: Check out code into the Go module directory
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
       with:
         fetch-depth: 0
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: 1.20.11
     - name: Fetch all tags
       run: git fetch --force --tags
-    - uses: actions/cache@v2
-      with:
-        path: ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-        restore-keys: |
-          ${{ runner.os }}-go
     - name: Get dependencies
       run: |
         # Only download all dependencies
@@ -145,47 +127,43 @@ jobs:
         image:
           - fdb-kubernetes-operator
           - fdb-data-loader
-          - fdb-kubernetes-operator-distroless
         include:
           - image: fdb-kubernetes-operator
             context: ./
             name: foundationdb/fdb-kubernetes-operator
-            tagSuffix: ""
             file: ./Dockerfile
-            baseImage: "docker.io/debian:bullseye"
-          - image: fdb-kubernetes-operator-distroless
-            context: ./
-            name: foundationdb/fdb-kubernetes-operator
-            tagSuffix: -distrolesss
-            file: ./Dockerfile
-            baseImage: "gcr.io/distroless/base"
           - image: fdb-data-loader
             context: ./sample-apps/data-loader
             name: foundationdb/fdb-data-loader
-            tagSuffix: ""
             file: ./sample-apps/data-loader/Dockerfile
-            baseImage: ""
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
+        uses: docker/setup-buildx-action@v3
       - name: Login to DockerHub
         if: github.ref == 'refs/heads/main'
-        uses: docker/login-action@v1
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: Get the sha
-        id: get_sha
-        run: echo ::set-output name=TAG::${GITHUB_SHA}
       - name: Build image
-        uses: docker/build-push-action@v2
+        uses: docker/build-push-action@v5
         with:
           build-args: |
-            TAG=${{ steps.get_sha.outputs.TAG }}
-            BASE_IMAGE=${{ matrix.baseImage }}
+            TAG=${{ github.sha }}
           push: ${{ github.ref == 'refs/heads/main' }}
           context: ${{ matrix.context }}
-          tags: ${{ matrix.name }}:latest${{ matrix.tagSuffix }}
+          tags: ${{ matrix.name }}:latest
           file: ${{ matrix.file }}
+      - name: Run Trivy vulnerability scanner
+        if: ${{ matrix.image }} == 'fdb-kubernetes-operator'
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'docker.io/foundationdb/fdb-kubernetes-operator:latest'
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+

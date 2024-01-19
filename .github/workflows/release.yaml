@@ -11,7 +11,7 @@ jobs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
       tag: ${{ steps.get_tag.outputs.TAG  }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Get the tag without ref
         id: get_tag
         run: echo ::set-output name=TAG::${GITHUB_REF/refs\/tags\//}
@@ -35,15 +35,15 @@ jobs:
     needs: create-release
     steps:
       - name: Check out code into the Go module directory
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - name: Fetch all tags
         run: git fetch --force --tags
       - name: Set up Go
-        uses: actions/setup-go@v1
+        uses: actions/setup-go@v4
         with:
-          go-version: 1.20.6
+          go-version: 1.20.11
       #  https://github.com/goreleaser/goreleaser/issues/1311
       - name: Get current semver tag
         run: echo "::set-output name=CURRENT_TAG::$(git describe --tags --match "v*" --abbrev=0)"
@@ -62,46 +62,34 @@ jobs:
         image:
           - fdb-kubernetes-operator
           - fdb-data-loader
-          - fdb-kubernetes-operator-distroless
         include:
           - image: fdb-kubernetes-operator
             context: ./
             name: foundationdb/fdb-kubernetes-operator
-            tagSuffix: ""
             file: ./Dockerfile
-            baseImage: "docker.io/debian:bookworm"
-          - image: fdb-kubernetes-operator-distroless
-            context: ./
-            name: foundationdb/fdb-kubernetes-operator
-            tagSuffix: -distrolesss
-            file: ./Dockerfile
-            baseImage: "gcr.io/distroless/base"
           - image: fdb-data-loader
             context: ./sample-apps/data-loader
             name: foundationdb/fdb-data-loader
-            tagSuffix: ""
             file: ./sample-apps/data-loader/Dockerfile
-            baseImage: ""
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       - name: Get the version
         id: get_tag
         run: echo ::set-output name=TAG::${GITHUB_REF/refs\/tags\//}
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
+        uses: docker/setup-buildx-action@v3
       - name: Login to DockerHub
-        uses: docker/login-action@v1
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       - name: Build and push to registry
-        uses: docker/build-push-action@v2
+        uses: docker/build-push-action@v5
         with:
           build-args: |
             TAG=${{ steps.get_sha.outputs.TAG }}
-            BASE_IMAGE=${{ matrix.baseImage }}
           push: true
           context: ${{ matrix.context }}
-          tags: ${{ matrix.name }}:${{ steps.get_tag.outputs.TAG }}${{ matrix.tagSuffix }}
+          tags: ${{ matrix.name }}:${{ steps.get_tag.outputs.TAG }}
           file: ${{ matrix.file }}
