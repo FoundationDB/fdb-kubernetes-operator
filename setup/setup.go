@@ -25,16 +25,20 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"log"
 	"os"
 	"path"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
 	"github.com/FoundationDB/fdb-kubernetes-operator/fdbclient"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
@@ -160,6 +164,38 @@ func StartManager(
 	fdbclient.DefaultCLITimeout = time.Duration(operatorOpts.CliTimeout) * time.Second
 	fdbclient.MaxCliTimeout = time.Duration(operatorOpts.MaxCliTimeout) * time.Second
 
+	// Define the cache options for the client cache used by the operator. If no label selector is defined, the
+	// default cache configuration will be used.
+	cacheOptions := cache.Options{}
+	// Only if a label selector is defined we have to update the cache options.
+	if operatorOpts.LabelSelector != "" {
+		// Parse the label selector, if the label selector is not parsable panic.
+		labelSelector, parseErr := labels.Parse(operatorOpts.LabelSelector)
+		if parseErr != nil {
+			log.Fatalf("could not parse label selector: %s, got error: %s", operatorOpts.LabelSelector, parseErr)
+		}
+
+		selector := cache.ObjectSelector{
+			Label: labelSelector,
+		}
+
+		// Set the label selector for all resources that the operator manages, this should reduce the resources that
+		// are cached by the operator if a label selector is provided.s
+		cacheOptions.SelectorsByObject = map[client.Object]cache.ObjectSelector{
+			&fdbv1beta2.FoundationDBCluster{}: selector,
+			&corev1.Pod{}:                     selector,
+			&corev1.PersistentVolumeClaim{}:   selector,
+			&corev1.ConfigMap{}:               selector,
+			&corev1.Service{}:                 selector,
+			&appsv1.Deployment{}:              selector,
+		}
+
+		// Make sure we set the label selector for any additional watched objects.
+		for _, object := range watchedObjects {
+			cacheOptions.SelectorsByObject[object] = selector
+		}
+	}
+
 	options := ctrl.Options{
 		Scheme:             scheme,
 		MetricsBindAddress: operatorOpts.MetricsAddr,
@@ -169,11 +205,13 @@ func StartManager(
 		RenewDeadline:      &operatorOpts.RenewDeadline,
 		RetryPeriod:        &operatorOpts.RetryPeriod,
 		Port:               9443,
+		NewCache:           cache.BuilderWithOptions(cacheOptions),
 	}
 
 	if operatorOpts.WatchNamespace != "" {
 		options.Namespace = operatorOpts.WatchNamespace
 		setupLog.Info("Operator starting in single namespace mode", "namespace", options.Namespace)
+		cacheOptions.Namespace = operatorOpts.WatchNamespace
 	} else {
 		setupLog.Info("Operator starting in Global mode")
 	}
@@ -288,8 +326,8 @@ func moveFDBBinaries(log logr.Logger) error {
 	}
 
 	for _, binEntry := range binDir {
-		if binEntry.IsDir() && v1beta2.VersionRegex.Match([]byte(binEntry.Name())) {
-			version, err := v1beta2.ParseFdbVersion(binEntry.Name())
+		if binEntry.IsDir() && fdbv1beta2.VersionRegex.Match([]byte(binEntry.Name())) {
+			version, err := fdbv1beta2.ParseFdbVersion(binEntry.Name())
 			if err != nil {
 				return err
 			}
