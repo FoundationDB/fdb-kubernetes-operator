@@ -78,19 +78,25 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 
 	logger.V(1).Info("processes that can be restarted", "addresses", addresses)
 
-	if minimumUptime < float64(cluster.GetMinimumUptimeSecondsForBounce()) {
-		r.Recorder.Event(cluster, corev1.EventTypeNormal, "NeedsBounce",
-			fmt.Sprintf("Spec require a bounce of some processes, but the cluster has only been up for %f seconds", minimumUptime))
+	// Check if the cluster can safely bounce processes.
+	err = fdbstatus.CanSafelyBounceProcesses(minimumUptime, float64(cluster.GetMinimumUptimeSecondsForBounce()), status)
+	if err != nil {
+		r.Recorder.Event(cluster, corev1.EventTypeNormal, "NeedsBounce", err.Error())
 		cluster.Status.Generations.NeedsBounce = cluster.ObjectMeta.Generation
 		err = r.updateOrApply(ctx, cluster)
 		if err != nil {
 			logger.Error(err, "Error updating cluster status")
 		}
 
-		// Retry after we waited the minimum uptime
+		// Retry after we waited the minimum uptime or at least 15 seconds.
+		delayTime := cluster.GetMinimumUptimeSecondsForBounce() - int(minimumUptime)
+		if delayTime < 15 {
+			delayTime = 15
+		}
+
 		return &requeue{
-			message: "Cluster needs to stabilize before bouncing",
-			delay:   time.Second * time.Duration(cluster.GetMinimumUptimeSecondsForBounce()-int(minimumUptime)),
+			message: err.Error(),
+			delay:   time.Second * time.Duration(delayTime),
 		}
 	}
 

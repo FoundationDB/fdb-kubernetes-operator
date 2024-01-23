@@ -21,7 +21,9 @@
 package fdbstatus
 
 import (
+	"fmt"
 	"github.com/go-logr/logr"
+	"k8s.io/utils/pointer"
 	"net"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -1729,5 +1731,280 @@ var _ = Describe("status_checks", func() {
 				},
 			},
 			false)
+	})
+
+	When("performing the default safety check.", func() {
+		DescribeTable("should return if the safety check is satisfied or not",
+			func(status *fdbv1beta2.FoundationDBStatus, maximumActiveGeneration int, expected error) {
+				err := DefaultSafetyChecks(status, maximumActiveGeneration, "test")
+				if expected == nil {
+					Expect(err).To(BeNil())
+				} else {
+					Expect(err).To(HaveOccurred())
+					Expect(err).To(Equal(expected))
+				}
+			},
+			Entry("cluster is fully reconciled",
+				&fdbv1beta2.FoundationDBStatus{
+					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+							Available: true,
+						},
+					},
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						RecoveryState: fdbv1beta2.RecoveryState{
+							ActiveGenerations: 1,
+						},
+					},
+				},
+				1,
+				nil,
+			),
+			Entry("cluster is unavailable",
+				&fdbv1beta2.FoundationDBStatus{
+					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+							Available: false,
+						},
+					},
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						RecoveryState: fdbv1beta2.RecoveryState{
+							ActiveGenerations: 1,
+						},
+					},
+				},
+				1,
+				fmt.Errorf("cluster is unavailable, cannot test"),
+			),
+			Entry("cluster has too many active generations",
+				&fdbv1beta2.FoundationDBStatus{
+					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+							Available: true,
+						},
+					},
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						RecoveryState: fdbv1beta2.RecoveryState{
+							ActiveGenerations: 10,
+						},
+					},
+				},
+				1,
+				fmt.Errorf("cluster has 10 active generations, but only 1 active generations are allowed to safely test"),
+			),
+			Entry("cluster has more than one active generations",
+				&fdbv1beta2.FoundationDBStatus{
+					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+							Available: true,
+						},
+					},
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						RecoveryState: fdbv1beta2.RecoveryState{
+							ActiveGenerations: 10,
+						},
+					},
+				},
+				10,
+				nil,
+			),
+		)
+	})
+
+	When("performing the exclude safety check.", func() {
+		DescribeTable("should return if the safety check is satisfied or not",
+			func(status *fdbv1beta2.FoundationDBStatus, expected error) {
+				err := CanSafelyExcludeProcesses(status)
+				if expected == nil {
+					Expect(err).To(BeNil())
+				} else {
+					Expect(err).To(HaveOccurred())
+					Expect(err).To(Equal(expected))
+				}
+			},
+			Entry("cluster is fully reconciled",
+				&fdbv1beta2.FoundationDBStatus{
+					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+							Available: true,
+						},
+					},
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						RecoveryState: fdbv1beta2.RecoveryState{
+							ActiveGenerations: 1,
+						},
+					},
+				},
+				nil,
+			),
+			Entry("cluster is unavailable",
+				&fdbv1beta2.FoundationDBStatus{
+					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+							Available: false,
+						},
+					},
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						RecoveryState: fdbv1beta2.RecoveryState{
+							ActiveGenerations: 1,
+						},
+					},
+				},
+				fmt.Errorf("cluster is unavailable, cannot exclude processes"),
+			),
+			Entry("cluster has more than one active generations",
+				&fdbv1beta2.FoundationDBStatus{
+					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+							Available: true,
+						},
+					},
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						RecoveryState: fdbv1beta2.RecoveryState{
+							ActiveGenerations: 10,
+						},
+					},
+				},
+				nil,
+			),
+			Entry("cluster has more than one active generations",
+				&fdbv1beta2.FoundationDBStatus{
+					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+							Available: true,
+						},
+					},
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						RecoveryState: fdbv1beta2.RecoveryState{
+							ActiveGenerations: 11,
+						},
+					},
+				},
+				fmt.Errorf("cluster has 11 active generations, but only 10 active generations are allowed to safely exclude processes"),
+			),
+		)
+	})
+
+	When("performing the bounce safety check.", func() {
+		DescribeTable("should return if the safety check is satisfied or not",
+			func(status *fdbv1beta2.FoundationDBStatus, currentUptime float64, minimumUptime float64, expected error) {
+				err := CanSafelyBounceProcesses(currentUptime, minimumUptime, status)
+				if expected == nil {
+					Expect(err).NotTo(HaveOccurred())
+				} else {
+					Expect(err).To(HaveOccurred())
+					Expect(err).To(Equal(expected))
+				}
+			},
+			Entry("cluster is fully reconciled",
+				&fdbv1beta2.FoundationDBStatus{
+					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+							Available: true,
+						},
+					},
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						BounceImpact: fdbv1beta2.FoundationDBBounceImpact{
+							CanCleanBounce: pointer.Bool(true),
+						},
+						RecoveryState: fdbv1beta2.RecoveryState{
+							ActiveGenerations: 1,
+						},
+					},
+				},
+				42.0,
+				10.0,
+				nil,
+			),
+			Entry("cluster is unavailable",
+				&fdbv1beta2.FoundationDBStatus{
+					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+							Available: false,
+						},
+					},
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						RecoveryState: fdbv1beta2.RecoveryState{
+							ActiveGenerations: 1,
+						},
+					},
+				},
+				42.0,
+				10.0,
+				fmt.Errorf("cluster is unavailable, cannot bounce processes"),
+			),
+			Entry("cluster has more than one active generations",
+				&fdbv1beta2.FoundationDBStatus{
+					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+							Available: true,
+						},
+					},
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						RecoveryState: fdbv1beta2.RecoveryState{
+							ActiveGenerations: 10,
+						},
+					},
+				},
+				42.0,
+				10.0,
+				nil,
+			),
+			Entry("cluster has more than one active generations",
+				&fdbv1beta2.FoundationDBStatus{
+					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+							Available: true,
+						},
+					},
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						RecoveryState: fdbv1beta2.RecoveryState{
+							ActiveGenerations: 11,
+						},
+					},
+				},
+				42.0,
+				10.0,
+				fmt.Errorf("cluster has 11 active generations, but only 10 active generations are allowed to safely bounce processes"),
+			),
+			Entry("cluster is not up for long enough",
+				&fdbv1beta2.FoundationDBStatus{
+					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+							Available: true,
+						},
+					},
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						RecoveryState: fdbv1beta2.RecoveryState{
+							ActiveGenerations: 1,
+						},
+					},
+				},
+				42.0,
+				60.0,
+				fmt.Errorf("cluster has only been up for 60.00 seconds, but must be up for 60.00 seconds to safely bounce"),
+			),
+			Entry("cluster cannot clean bounce",
+				&fdbv1beta2.FoundationDBStatus{
+					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+							Available: true,
+						},
+					},
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						BounceImpact: fdbv1beta2.FoundationDBBounceImpact{
+							CanCleanBounce: pointer.Bool(false),
+						},
+						RecoveryState: fdbv1beta2.RecoveryState{
+							ActiveGenerations: 1,
+							Name:              "exploding",
+						},
+					},
+				},
+				42.0,
+				10.0,
+				fmt.Errorf("cannot perform a clean bounce based on cluster status, current recovery state: exploding"),
+			),
+		)
 	})
 })

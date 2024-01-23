@@ -129,6 +129,14 @@ type FoundationDBStatusClusterInfo struct {
 
 	// Messages represents the possible messages that are part of the cluster information.
 	Messages []FoundationDBStatusMessage `json:"messages,omitempty"`
+
+	// BounceImpact represents the bounce_impact part of the machine-readable status.
+	BounceImpact FoundationDBBounceImpact `json:"bounce_impact,omitempty"`
+}
+
+// FoundationDBBounceImpact represents the bounce_impact part of the machine-readable status.
+type FoundationDBBounceImpact struct {
+	CanCleanBounce *bool `json:"can_clean_bounce,omitempty"`
 }
 
 // FaultTolerance provides information about the fault tolerance status

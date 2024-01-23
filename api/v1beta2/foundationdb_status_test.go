@@ -22,6 +22,7 @@ package v1beta2
 
 import (
 	"encoding/json"
+	"k8s.io/utils/pointer"
 	"net"
 	"os"
 	"path/filepath"
@@ -906,6 +907,9 @@ var _ = Describe("FoundationDBStatus", func() {
 				SecondsSinceLastRecovered: 76.8155,
 			},
 			Generation: 2,
+			BounceImpact: FoundationDBBounceImpact{
+				CanCleanBounce: pointer.Bool(true),
+			},
 		}
 
 		It("should parse all values correctly", func() {
