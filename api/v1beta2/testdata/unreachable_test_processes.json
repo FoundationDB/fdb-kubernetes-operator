@@ -1,0 +1,4558 @@
+{
+  "client" : {
+    "cluster_file" : {
+      "path" : "/var/dynamic-conf/fdb.cluster",
+      "up_to_date" : true
+    },
+    "coordinators" : {
+      "coordinators" : [
+        {
+          "address" : "100.82.36.166:4500:tls",
+          "protocol" : "0fdb00b071010000",
+          "reachable" : true
+        },
+        {
+          "address" : "100.82.42.233:4500:tls",
+          "protocol" : "0fdb00b071010000",
+          "reachable" : true
+        },
+        {
+          "address" : "100.82.84.110:4500:tls",
+          "protocol" : "0fdb00b071010000",
+          "reachable" : true
+        },
+        {
+          "address" : "100.82.118.240:4500:tls",
+          "protocol" : "0fdb00b071010000",
+          "reachable" : true
+        },
+        {
+          "address" : "100.82.170.99:4500:tls",
+          "protocol" : "0fdb00b071010000",
+          "reachable" : true
+        }
+      ],
+      "quorum_reachable" : true
+    },
+    "database_status" : {
+      "available" : true,
+      "healthy" : false
+    },
+    "messages" : [
+    ],
+    "timestamp" : 1706089710
+  },
+  "cluster" : {
+    "active_primary_dc" : "",
+    "active_tss_count" : 0,
+    "bounce_impact" : {
+      "can_clean_bounce" : true
+    },
+    "clients" : {
+      "count" : 70,
+      "supported_versions" : [
+        {
+          "client_version" : "7.1.43",
+          "connected_clients" : [
+            {
+              "address" : "100.82.89.186:38346:tls",
+              "log_group" : "default"
+            },
+            {
+              "address" : "100.82.89.186:55612:tls",
+              "log_group" : "default"
+            },
+            {
+              "address" : "100.82.89.186:58132:tls",
+              "log_group" : "default"
+            }
+          ],
+          "count" : 3,
+          "max_protocol_clients" : [
+            {
+              "address" : "100.82.89.186:38346:tls",
+              "log_group" : "default"
+            },
+            {
+              "address" : "100.82.89.186:55612:tls",
+              "log_group" : "default"
+            },
+            {
+              "address" : "100.82.89.186:58132:tls",
+              "log_group" : "default"
+            }
+          ],
+          "max_protocol_count" : 3,
+          "protocol_version" : "fdb00b071010000",
+          "source_version" : "0301045e333ac12c4d1184a4621ce6809d8211d4"
+        },
+        {
+          "client_version" : "7.1.53",
+          "connected_clients" : [
+            {
+              "address" : "100.82.5.228:33474:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:34806:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:41350:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:41832:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:42368:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:42784:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:44868:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:46704:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:46996:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:47568:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:47770:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:48780:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:51140:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:51174:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:51190:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:51518:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:52936:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:53916:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:55882:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:56930:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:57988:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:58622:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:58884:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:58988:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:60058:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.6.35:41556:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.6.35:52024:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.6.35:52914:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:32916:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:37250:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:40080:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:40096:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:41768:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:42066:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:42740:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:43588:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:43970:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:43978:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:46056:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:46176:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:48160:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:48628:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:48636:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:49116:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:49360:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:49692:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:49698:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:50226:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:50602:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:50916:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:51236:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:51252:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:51442:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:52052:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:53294:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:53326:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:53416:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:53422:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:54186:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:54194:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:54684:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:54686:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:55390:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:55724:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:56794:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:59630:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:60010:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            }
+          ],
+          "count" : 67,
+          "protocol_version" : "fdb00b071010000",
+          "source_version" : "d69857d5bd033fd4262608db4b3f0d5f9d88dd5f"
+        },
+        {
+          "client_version" : "7.3.29",
+          "connected_clients" : [
+            {
+              "address" : "100.82.5.228:33474:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:34806:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:41350:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:41832:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:42368:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:42784:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:44868:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:46704:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:46996:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:47568:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:47770:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:48780:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:51140:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:51174:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:51190:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:51518:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:52936:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:53916:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:55882:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:56930:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:57988:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:58622:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:58884:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:58988:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:60058:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.6.35:41556:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.6.35:52024:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.6.35:52914:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:32916:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:37250:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:40080:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:40096:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:41768:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:42066:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:42740:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:43588:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:43970:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:43978:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:46056:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:46176:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:48160:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:48628:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:48636:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:49116:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:49360:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:49692:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:49698:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:50226:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:50602:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:50916:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:51236:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:51252:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:51442:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:52052:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:53294:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:53326:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:53416:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:53422:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:54186:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:54194:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:54684:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:54686:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:55390:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:55724:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:56794:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:59630:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:60010:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            }
+          ],
+          "count" : 67,
+          "max_protocol_clients" : [
+            {
+              "address" : "100.82.5.228:33474:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:34806:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:41350:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:41832:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:42368:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:42784:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:44868:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:46704:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:46996:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:47568:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:47770:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:48780:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:51140:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:51174:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:51190:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:51518:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:52936:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:53916:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:55882:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:56930:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:57988:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:58622:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:58884:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:58988:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.5.228:60058:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.6.35:41556:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.6.35:52024:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.6.35:52914:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:32916:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:37250:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:40080:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:40096:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:41768:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:42066:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:42740:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:43588:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:43970:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:43978:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:46056:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:46176:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:48160:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:48628:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:48636:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:49116:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:49360:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:49692:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:49698:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:50226:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:50602:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:50916:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:51236:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:51252:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:51442:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:52052:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:53294:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:53326:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:53416:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:53422:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:54186:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:54194:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:54684:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:54686:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:55390:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:55724:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:56794:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:59630:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            },
+            {
+              "address" : "100.82.142.120:60010:tls",
+              "log_group" : "fdb-kubernetes-operator"
+            }
+          ],
+          "max_protocol_count" : 67,
+          "protocol_version" : "fdb00b073000000",
+          "source_version" : "4c59976e293549f68f4995784b70f84f6066a379"
+        }
+      ]
+    },
+    "cluster_controller_timestamp" : 1706089712,
+    "configuration" : {
+      "backup_worker_enabled" : 0,
+      "blob_granules_enabled" : 0,
+      "commit_proxies" : 1,
+      "coordinators_count" : 5,
+      "excluded_servers" : [
+      ],
+      "grv_proxies" : 1,
+      "log_routers" : -1,
+      "log_spill" : 2,
+      "logs" : 3,
+      "perpetual_storage_wiggle" : 0,
+      "perpetual_storage_wiggle_engine" : "none",
+      "perpetual_storage_wiggle_locality" : "0",
+      "proxies" : 2,
+      "redundancy_mode" : "triple",
+      "remote_logs" : -1,
+      "resolvers" : 1,
+      "storage_engine" : "ssd-2",
+      "storage_migration_type" : "disabled",
+      "tenant_mode" : "disabled",
+      "usable_regions" : 1
+    },
+    "connection_string" : "fdb_cluster_dfbv55sk:YaasLrKFh0HtqsrlsgoeoX8BImKeuqoX@100.82.36.166:4500:tls,100.82.42.233:4500:tls,100.82.84.110:4500:tls,100.82.118.240:4500:tls,100.82.170.99:4500:tls",
+    "data" : {
+      "average_partition_size_bytes" : 24056570,
+      "least_operating_space_bytes_log_server" : 15559010919,
+      "least_operating_space_bytes_storage_server" : 14149778023,
+      "moving_data" : {
+        "highest_priority" : 0,
+        "in_flight_bytes" : 0,
+        "in_queue_bytes" : 0,
+        "total_written_bytes" : 1355439750
+      },
+      "partitions_count" : 69,
+      "state" : {
+        "healthy" : true,
+        "min_replicas_remaining" : 3,
+        "name" : "healthy"
+      },
+      "system_kv_size_bytes" : 0,
+      "team_trackers" : [
+        {
+          "in_flight_bytes" : 0,
+          "primary" : true,
+          "state" : {
+            "healthy" : true,
+            "min_replicas_remaining" : 3,
+            "name" : "healthy"
+          },
+          "unhealthy_servers" : 0
+        }
+      ],
+      "total_disk_used_bytes" : 8834482016,
+      "total_kv_size_bytes" : 2031659999
+    },
+    "database_available" : true,
+    "database_lock_state" : {
+      "locked" : false
+    },
+    "datacenter_lag" : {
+      "seconds" : 0,
+      "versions" : 0
+    },
+    "degraded_processes" : 0,
+    "fault_tolerance" : {
+      "max_zone_failures_without_losing_availability" : 2,
+      "max_zone_failures_without_losing_data" : 2
+    },
+    "full_replication" : true,
+    "generation" : 4,
+    "incompatible_connections" : [
+    ],
+    "latency_probe" : {
+      "batch_priority_transaction_start_seconds" : 0.0023326900000000001,
+      "commit_seconds" : 0.0049433699999999999,
+      "immediate_priority_transaction_start_seconds" : 0.0027763799999999997,
+      "read_seconds" : 0.00099801999999999985,
+      "transaction_start_seconds" : 0.00281906
+    },
+    "layers" : {
+      "_valid" : true
+    },
+    "logs" : [
+      {
+        "begin_version" : 2194710,
+        "current" : true,
+        "epoch" : 4,
+        "log_fault_tolerance" : 2,
+        "log_interfaces" : [
+          {
+            "address" : "100.82.42.233:4500:tls",
+            "healthy" : true,
+            "id" : "a99bc5f623305b4f"
+          },
+          {
+            "address" : "100.82.170.99:4500:tls",
+            "healthy" : true,
+            "id" : "075abd86afbaed59"
+          },
+          {
+            "address" : "100.82.36.166:4500:tls",
+            "healthy" : true,
+            "id" : "ed07538e404be3a7"
+          }
+        ],
+        "log_replication_factor" : 3,
+        "log_write_anti_quorum" : 0,
+        "possibly_losing_data" : false
+      }
+    ],
+    "machines" : {
+      "fdb-cluster-dfbv55sk-log-1" : {
+        "address" : "100.82.84.110",
+        "contributing_workers" : 1,
+        "cpu" : {
+          "logical_core_utilization" : 0.0043832100000000002
+        },
+        "excluded" : false,
+        "locality" : {
+          "instance_id" : "log-1",
+          "machineid" : "fdb-cluster-dfbv55sk-log-1",
+          "processid" : "b5d9a975b06c9ae6699a5cbe294a6a45",
+          "zoneid" : "fdb-cluster-dfbv55sk-log-1"
+        },
+        "machine_id" : "fdb-cluster-dfbv55sk-log-1",
+        "memory" : {
+          "committed_bytes" : 2167705600,
+          "free_bytes" : 63709638656,
+          "total_bytes" : 65877344256
+        },
+        "network" : {
+          "megabits_received" : {
+            "hz" : 0.12206700000000001
+          },
+          "megabits_sent" : {
+            "hz" : 0.091663800000000004
+          },
+          "tcp_segments_retransmitted" : {
+            "hz" : 0
+          }
+        }
+      },
+      "fdb-cluster-dfbv55sk-log-2" : {
+        "address" : "100.82.170.99",
+        "contributing_workers" : 1,
+        "cpu" : {
+          "logical_core_utilization" : 0.0051301300000000001
+        },
+        "excluded" : false,
+        "locality" : {
+          "instance_id" : "log-2",
+          "machineid" : "fdb-cluster-dfbv55sk-log-2",
+          "processid" : "642155b397b4e9ae6ff7553375eb7374",
+          "zoneid" : "fdb-cluster-dfbv55sk-log-2"
+        },
+        "machine_id" : "fdb-cluster-dfbv55sk-log-2",
+        "memory" : {
+          "committed_bytes" : 2150907904,
+          "free_bytes" : 63726436352,
+          "total_bytes" : 65877344256
+        },
+        "network" : {
+          "megabits_received" : {
+            "hz" : 0.20918300000000001
+          },
+          "megabits_sent" : {
+            "hz" : 0.15753599999999998
+          },
+          "tcp_segments_retransmitted" : {
+            "hz" : 0
+          }
+        }
+      },
+      "fdb-cluster-dfbv55sk-log-3" : {
+        "address" : "100.82.42.233",
+        "contributing_workers" : 1,
+        "cpu" : {
+          "logical_core_utilization" : 0.0082592999999999989
+        },
+        "excluded" : false,
+        "locality" : {
+          "instance_id" : "log-3",
+          "machineid" : "fdb-cluster-dfbv55sk-log-3",
+          "processid" : "084c357e6f66d4134edd9215a0b2ce3a",
+          "zoneid" : "fdb-cluster-dfbv55sk-log-3"
+        },
+        "machine_id" : "fdb-cluster-dfbv55sk-log-3",
+        "memory" : {
+          "committed_bytes" : 2088689664,
+          "free_bytes" : 63788654592,
+          "total_bytes" : 65877344256
+        },
+        "network" : {
+          "megabits_received" : {
+            "hz" : 0.203043
+          },
+          "megabits_sent" : {
+            "hz" : 0.15165399999999998
+          },
+          "tcp_segments_retransmitted" : {
+            "hz" : 0
+          }
+        }
+      },
+      "fdb-cluster-dfbv55sk-log-4" : {
+        "address" : "100.82.118.240",
+        "contributing_workers" : 1,
+        "cpu" : {
+          "logical_core_utilization" : 0.00362999
+        },
+        "excluded" : false,
+        "locality" : {
+          "instance_id" : "log-4",
+          "machineid" : "fdb-cluster-dfbv55sk-log-4",
+          "processid" : "eee0a09b8b267fba88be8b17ce48cc3c",
+          "zoneid" : "fdb-cluster-dfbv55sk-log-4"
+        },
+        "machine_id" : "fdb-cluster-dfbv55sk-log-4",
+        "memory" : {
+          "committed_bytes" : 2008580096,
+          "free_bytes" : 63868764160,
+          "total_bytes" : 65877344256
+        },
+        "network" : {
+          "megabits_received" : {
+            "hz" : 0.122739
+          },
+          "megabits_sent" : {
+            "hz" : 0.092559700000000009
+          },
+          "tcp_segments_retransmitted" : {
+            "hz" : 0
+          }
+        }
+      },
+      "fdb-cluster-dfbv55sk-log-5" : {
+        "address" : "100.82.36.166",
+        "contributing_workers" : 1,
+        "cpu" : {
+          "logical_core_utilization" : 0.0062546699999999995
+        },
+        "excluded" : false,
+        "locality" : {
+          "instance_id" : "log-5",
+          "machineid" : "fdb-cluster-dfbv55sk-log-5",
+          "processid" : "12de1dcc10fc202cdeea1fdf99046ad8",
+          "zoneid" : "fdb-cluster-dfbv55sk-log-5"
+        },
+        "machine_id" : "fdb-cluster-dfbv55sk-log-5",
+        "memory" : {
+          "committed_bytes" : 4221362176,
+          "free_bytes" : 61655982080,
+          "total_bytes" : 65877344256
+        },
+        "network" : {
+          "megabits_received" : {
+            "hz" : 0.21047300000000002
+          },
+          "megabits_sent" : {
+            "hz" : 0.15995199999999998
+          },
+          "tcp_segments_retransmitted" : {
+            "hz" : 0
+          }
+        }
+      },
+      "fdb-cluster-dfbv55sk-stateless-1" : {
+        "address" : "100.82.89.186",
+        "contributing_workers" : 1,
+        "cpu" : {
+          "logical_core_utilization" : 0.0040080100000000002
+        },
+        "excluded" : false,
+        "locality" : {
+          "instance_id" : "stateless-1",
+          "machineid" : "fdb-cluster-dfbv55sk-stateless-1",
+          "processid" : "5f26f0955e03aac15e99a614b1dfc17c",
+          "zoneid" : "fdb-cluster-dfbv55sk-stateless-1"
+        },
+        "machine_id" : "fdb-cluster-dfbv55sk-stateless-1",
+        "memory" : {
+          "committed_bytes" : 2167500800,
+          "free_bytes" : 63709843456,
+          "total_bytes" : 65877344256
+        },
+        "network" : {
+          "megabits_received" : {
+            "hz" : 0.09070700000000001
+          },
+          "megabits_sent" : {
+            "hz" : 0.094457300000000008
+          },
+          "tcp_segments_retransmitted" : {
+            "hz" : 0
+          }
+        }
+      },
+      "fdb-cluster-dfbv55sk-stateless-2" : {
+        "address" : "100.82.149.78",
+        "contributing_workers" : 1,
+        "cpu" : {
+          "logical_core_utilization" : 0.0041311899999999999
+        },
+        "excluded" : false,
+        "locality" : {
+          "instance_id" : "stateless-2",
+          "machineid" : "fdb-cluster-dfbv55sk-stateless-2",
+          "processid" : "e4298a2ec824db71a548abfd10bcc87e",
+          "zoneid" : "fdb-cluster-dfbv55sk-stateless-2"
+        },
+        "machine_id" : "fdb-cluster-dfbv55sk-stateless-2",
+        "memory" : {
+          "committed_bytes" : 2150141952,
+          "free_bytes" : 63727202304,
+          "total_bytes" : 65877344256
+        },
+        "network" : {
+          "megabits_received" : {
+            "hz" : 0.57517299999999993
+          },
+          "megabits_sent" : {
+            "hz" : 0.39951900000000001
+          },
+          "tcp_segments_retransmitted" : {
+            "hz" : 0
+          }
+        }
+      },
+      "fdb-cluster-dfbv55sk-stateless-3" : {
+        "address" : "100.82.16.245",
+        "contributing_workers" : 1,
+        "cpu" : {
+          "logical_core_utilization" : 0.0081229800000000001
+        },
+        "excluded" : false,
+        "locality" : {
+          "instance_id" : "stateless-3",
+          "machineid" : "fdb-cluster-dfbv55sk-stateless-3",
+          "processid" : "54acb70b0c4df5c36f7dd31840da7161",
+          "zoneid" : "fdb-cluster-dfbv55sk-stateless-3"
+        },
+        "machine_id" : "fdb-cluster-dfbv55sk-stateless-3",
+        "memory" : {
+          "committed_bytes" : 2088865792,
+          "free_bytes" : 63788478464,
+          "total_bytes" : 65877344256
+        },
+        "network" : {
+          "megabits_received" : {
+            "hz" : 0.052463900000000001
+          },
+          "megabits_sent" : {
+            "hz" : 0.0522783
+          },
+          "tcp_segments_retransmitted" : {
+            "hz" : 0
+          }
+        }
+      },
+      "fdb-cluster-dfbv55sk-stateless-4" : {
+        "address" : "100.82.97.56",
+        "contributing_workers" : 1,
+        "cpu" : {
+          "logical_core_utilization" : 0.0035030700000000001
+        },
+        "excluded" : false,
+        "locality" : {
+          "instance_id" : "stateless-4",
+          "machineid" : "fdb-cluster-dfbv55sk-stateless-4",
+          "processid" : "646b5d23c9fd2d19abcba6e95a6f1ec0",
+          "zoneid" : "fdb-cluster-dfbv55sk-stateless-4"
+        },
+        "machine_id" : "fdb-cluster-dfbv55sk-stateless-4",
+        "memory" : {
+          "committed_bytes" : 2007638016,
+          "free_bytes" : 63869706240,
+          "total_bytes" : 65877344256
+        },
+        "network" : {
+          "megabits_received" : {
+            "hz" : 0.060537500000000001
+          },
+          "megabits_sent" : {
+            "hz" : 0.059443100000000006
+          },
+          "tcp_segments_retransmitted" : {
+            "hz" : 0
+          }
+        }
+      },
+      "fdb-cluster-dfbv55sk-stateless-5" : {
+        "address" : "100.82.50.180",
+        "contributing_workers" : 1,
+        "cpu" : {
+          "logical_core_utilization" : 0.0072527099999999999
+        },
+        "excluded" : false,
+        "locality" : {
+          "instance_id" : "stateless-5",
+          "machineid" : "fdb-cluster-dfbv55sk-stateless-5",
+          "processid" : "f6230ec851e04c537cf12173901383ee",
+          "zoneid" : "fdb-cluster-dfbv55sk-stateless-5"
+        },
+        "machine_id" : "fdb-cluster-dfbv55sk-stateless-5",
+        "memory" : {
+          "committed_bytes" : 4222398464,
+          "free_bytes" : 61654945792,
+          "total_bytes" : 65877344256
+        },
+        "network" : {
+          "megabits_received" : {
+            "hz" : 0.128224
+          },
+          "megabits_sent" : {
+            "hz" : 0.274364
+          },
+          "tcp_segments_retransmitted" : {
+            "hz" : 0.39999800000000002
+          }
+        }
+      },
+      "fdb-cluster-dfbv55sk-stateless-6" : {
+        "address" : "100.82.170.47",
+        "contributing_workers" : 1,
+        "cpu" : {
+          "logical_core_utilization" : 0.0065073299999999995
+        },
+        "excluded" : false,
+        "locality" : {
+          "instance_id" : "stateless-6",
+          "machineid" : "fdb-cluster-dfbv55sk-stateless-6",
+          "processid" : "da1b429d7d0856f0ca99c20e60753347",
+          "zoneid" : "fdb-cluster-dfbv55sk-stateless-6"
+        },
+        "machine_id" : "fdb-cluster-dfbv55sk-stateless-6",
+        "memory" : {
+          "committed_bytes" : 5659557888,
+          "free_bytes" : 60217786368,
+          "total_bytes" : 65877344256
+        },
+        "network" : {
+          "megabits_received" : {
+            "hz" : 0.27111000000000002
+          },
+          "megabits_sent" : {
+            "hz" : 0.36227700000000002
+          },
+          "tcp_segments_retransmitted" : {
+            "hz" : 0
+          }
+        }
+      },
+      "fdb-cluster-dfbv55sk-stateless-7" : {
+        "address" : "100.82.112.35",
+        "contributing_workers" : 1,
+        "cpu" : {
+          "logical_core_utilization" : 0.0047613099999999995
+        },
+        "excluded" : false,
+        "locality" : {
+          "instance_id" : "stateless-7",
+          "machineid" : "fdb-cluster-dfbv55sk-stateless-7",
+          "processid" : "56264e4140059496b5434cd58c20ca8d",
+          "zoneid" : "fdb-cluster-dfbv55sk-stateless-7"
+        },
+        "machine_id" : "fdb-cluster-dfbv55sk-stateless-7",
+        "memory" : {
+          "committed_bytes" : 4417986560,
+          "free_bytes" : 61459357696,
+          "total_bytes" : 65877344256
+        },
+        "network" : {
+          "megabits_received" : {
+            "hz" : 0.27486000000000005
+          },
+          "megabits_sent" : {
+            "hz" : 0.13037700000000002
+          },
+          "tcp_segments_retransmitted" : {
+            "hz" : 0
+          }
+        }
+      },
+      "fdb-cluster-dfbv55sk-stateless-8" : {
+        "address" : "100.82.133.85",
+        "contributing_workers" : 1,
+        "cpu" : {
+          "logical_core_utilization" : 0.0067567700000000005
+        },
+        "excluded" : false,
+        "locality" : {
+          "instance_id" : "stateless-8",
+          "machineid" : "fdb-cluster-dfbv55sk-stateless-8",
+          "processid" : "c1bbdd0ccc3bb30b8158057348566c1b",
+          "zoneid" : "fdb-cluster-dfbv55sk-stateless-8"
+        },
+        "machine_id" : "fdb-cluster-dfbv55sk-stateless-8",
+        "memory" : {
+          "committed_bytes" : 4363591680,
+          "free_bytes" : 61513752576,
+          "total_bytes" : 65877344256
+        },
+        "network" : {
+          "megabits_received" : {
+            "hz" : 0.103577
+          },
+          "megabits_sent" : {
+            "hz" : 0.101414
+          },
+          "tcp_segments_retransmitted" : {
+            "hz" : 0
+          }
+        }
+      },
+      "fdb-cluster-dfbv55sk-stateless-9" : {
+        "address" : "100.82.39.2",
+        "contributing_workers" : 1,
+        "cpu" : {
+          "logical_core_utilization" : 0.0070149100000000001
+        },
+        "excluded" : false,
+        "locality" : {
+          "instance_id" : "stateless-9",
+          "machineid" : "fdb-cluster-dfbv55sk-stateless-9",
+          "processid" : "11811ecd87a1e20b2a3747fd07188326",
+          "zoneid" : "fdb-cluster-dfbv55sk-stateless-9"
+        },
+        "machine_id" : "fdb-cluster-dfbv55sk-stateless-9",
+        "memory" : {
+          "committed_bytes" : 4687949824,
+          "free_bytes" : 61189394432,
+          "total_bytes" : 65877344256
+        },
+        "network" : {
+          "megabits_received" : {
+            "hz" : 0.097615800000000003
+          },
+          "megabits_sent" : {
+            "hz" : 0.111849
+          },
+          "tcp_segments_retransmitted" : {
+            "hz" : 0
+          }
+        }
+      },
+      "fdb-cluster-dfbv55sk-storage-1" : {
+        "address" : "100.82.33.131",
+        "contributing_workers" : 2,
+        "cpu" : {
+          "logical_core_utilization" : 0.0070061300000000002
+        },
+        "excluded" : false,
+        "locality" : {
+          "instance_id" : "storage-1",
+          "machineid" : "fdb-cluster-dfbv55sk-storage-1",
+          "process_id" : "storage-1-1",
+          "processid" : "0fdfa5038e8b2a6da7c355895407ca2f",
+          "zoneid" : "fdb-cluster-dfbv55sk-storage-1"
+        },
+        "machine_id" : "fdb-cluster-dfbv55sk-storage-1",
+        "memory" : {
+          "committed_bytes" : 4223143936,
+          "free_bytes" : 61654200320,
+          "total_bytes" : 65877344256
+        },
+        "network" : {
+          "megabits_received" : {
+            "hz" : 0.19095300000000001
+          },
+          "megabits_sent" : {
+            "hz" : 0.208537
+          },
+          "tcp_segments_retransmitted" : {
+            "hz" : 0
+          }
+        }
+      },
+      "fdb-cluster-dfbv55sk-storage-2" : {
+        "address" : "100.82.75.115",
+        "contributing_workers" : 2,
+        "cpu" : {
+          "logical_core_utilization" : 0.0043854100000000002
+        },
+        "excluded" : false,
+        "locality" : {
+          "instance_id" : "storage-2",
+          "machineid" : "fdb-cluster-dfbv55sk-storage-2",
+          "process_id" : "storage-2-1",
+          "processid" : "e64ca2397496d1239f247ac57cd1dd88",
+          "zoneid" : "fdb-cluster-dfbv55sk-storage-2"
+        },
+        "machine_id" : "fdb-cluster-dfbv55sk-storage-2",
+        "memory" : {
+          "committed_bytes" : 4418019328,
+          "free_bytes" : 61459324928,
+          "total_bytes" : 65877344256
+        },
+        "network" : {
+          "megabits_received" : {
+            "hz" : 0.210841
+          },
+          "megabits_sent" : {
+            "hz" : 0.30295900000000003
+          },
+          "tcp_segments_retransmitted" : {
+            "hz" : 0
+          }
+        }
+      },
+      "fdb-cluster-dfbv55sk-storage-3" : {
+        "address" : "100.82.185.36",
+        "contributing_workers" : 2,
+        "cpu" : {
+          "logical_core_utilization" : 0.0060052600000000001
+        },
+        "excluded" : false,
+        "locality" : {
+          "instance_id" : "storage-3",
+          "machineid" : "fdb-cluster-dfbv55sk-storage-3",
+          "process_id" : "storage-3-1",
+          "processid" : "4f2bf57e994a73ea35bd3180b576fa90",
+          "zoneid" : "fdb-cluster-dfbv55sk-storage-3"
+        },
+        "machine_id" : "fdb-cluster-dfbv55sk-storage-3",
+        "memory" : {
+          "committed_bytes" : 5663084544,
+          "free_bytes" : 60214259712,
+          "total_bytes" : 65877344256
+        },
+        "network" : {
+          "megabits_received" : {
+            "hz" : 0.20033200000000001
+          },
+          "megabits_sent" : {
+            "hz" : 0.21788100000000002
+          },
+          "tcp_segments_retransmitted" : {
+            "hz" : 0
+          }
+        }
+      },
+      "fdb-cluster-dfbv55sk-storage-4" : {
+        "address" : "100.82.161.229",
+        "contributing_workers" : 2,
+        "cpu" : {
+          "logical_core_utilization" : 0.0062515499999999998
+        },
+        "excluded" : false,
+        "locality" : {
+          "instance_id" : "storage-4",
+          "machineid" : "fdb-cluster-dfbv55sk-storage-4",
+          "process_id" : "storage-4-1",
+          "processid" : "0abbe75dc25d886c2db49d8e74c3e8ce",
+          "zoneid" : "fdb-cluster-dfbv55sk-storage-4"
+        },
+        "machine_id" : "fdb-cluster-dfbv55sk-storage-4",
+        "memory" : {
+          "committed_bytes" : 4365049856,
+          "free_bytes" : 61512294400,
+          "total_bytes" : 65877344256
+        },
+        "network" : {
+          "megabits_received" : {
+            "hz" : 0.20872600000000002
+          },
+          "megabits_sent" : {
+            "hz" : 0.284412
+          },
+          "tcp_segments_retransmitted" : {
+            "hz" : 0
+          }
+        }
+      },
+      "fdb-cluster-dfbv55sk-storage-5" : {
+        "address" : "100.82.34.119",
+        "contributing_workers" : 2,
+        "cpu" : {
+          "logical_core_utilization" : 0.0076335800000000001
+        },
+        "excluded" : false,
+        "locality" : {
+          "instance_id" : "storage-5",
+          "machineid" : "fdb-cluster-dfbv55sk-storage-5",
+          "process_id" : "storage-5-1",
+          "processid" : "1fa65da97603ef2928e348cbd291173f",
+          "zoneid" : "fdb-cluster-dfbv55sk-storage-5"
+        },
+        "machine_id" : "fdb-cluster-dfbv55sk-storage-5",
+        "memory" : {
+          "committed_bytes" : 4688449536,
+          "free_bytes" : 61188894720,
+          "total_bytes" : 65877344256
+        },
+        "network" : {
+          "megabits_received" : {
+            "hz" : 0.19692100000000001
+          },
+          "megabits_sent" : {
+            "hz" : 0.27088600000000002
+          },
+          "tcp_segments_retransmitted" : {
+            "hz" : 0
+          }
+        }
+      }
+    },
+    "messages" : [
+      {
+        "description" : "The cluster has some unreachable processes.",
+        "name" : "unreachable_processes",
+        "unreachable_processes" : [
+          {
+            "address" : "100.82.115.41:4500:tls"
+          }
+        ]
+      },
+      {
+        "description" : "Unable to retrieve all status information.",
+        "name" : "status_incomplete",
+        "reasons" : [
+          {
+            "description" : "Cannot retrieve all process status information."
+          }
+        ]
+      }
+    ],
+    "page_cache" : {
+      "log_hit_rate" : 1,
+      "storage_hit_rate" : 1
+    },
+    "processes" : {
+      "084c357e6f66d4134edd9215a0b2ce3a" : {
+        "address" : "100.82.42.233:4500:tls",
+        "class_source" : "command_line",
+        "class_type" : "log",
+        "command_line" : "/usr/bin/fdbserver --class=log --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --listen_address=100.82.42.233:4500:tls --locality_instance_id=log-3 --locality_machineid=fdb-cluster-dfbv55sk-log-3 --locality_zoneid=fdb-cluster-dfbv55sk-log-3 --logdir=/var/log/fdb-trace-logs --loggroup=jscheuermann-n5qldq2s-fdb-cluster-dfbv55sk --public_address=100.82.42.233:4500:tls --seed_cluster_file=/var/dynamic-conf/fdb.cluster --trace_format=json",
+        "cpu" : {
+          "usage_cores" : 0.0081691799999999998
+        },
+        "disk" : {
+          "busy" : 0.0031999899999999998,
+          "free_bytes" : 16396091392,
+          "reads" : {
+            "counter" : 166,
+            "hz" : 0,
+            "sectors" : 0
+          },
+          "total_bytes" : 16729894912,
+          "writes" : {
+            "counter" : 49734,
+            "hz" : 0.7999980000000001,
+            "sectors" : 48
+          }
+        },
+        "excluded" : false,
+        "fault_domain" : "fdb-cluster-dfbv55sk-log-3",
+        "locality" : {
+          "instance_id" : "log-3",
+          "machineid" : "fdb-cluster-dfbv55sk-log-3",
+          "processid" : "084c357e6f66d4134edd9215a0b2ce3a",
+          "zoneid" : "fdb-cluster-dfbv55sk-log-3"
+        },
+        "machine_id" : "fdb-cluster-dfbv55sk-log-3",
+        "memory" : {
+          "available_bytes" : 8589934592,
+          "limit_bytes" : 8589934592,
+          "rss_bytes" : 81608704,
+          "unused_allocated_memory" : 393184,
+          "used_bytes" : 704372736
+        },
+        "messages" : [
+        ],
+        "network" : {
+          "connection_errors" : {
+            "hz" : 0
+          },
+          "connections_closed" : {
+            "hz" : 0
+          },
+          "connections_established" : {
+            "hz" : 0
+          },
+          "current_connections" : 24,
+          "megabits_received" : {
+            "hz" : 0.095071700000000009
+          },
+          "megabits_sent" : {
+            "hz" : 0.065119799999999992
+          },
+          "tls_policy_failures" : {
+            "hz" : 0
+          }
+        },
+        "roles" : [
+          {
+            "role" : "coordinator"
+          },
+          {
+            "data_version" : 987117237,
+            "durable_bytes" : {
+              "counter" : 2240216240,
+              "hz" : 63.199800000000003,
+              "roughness" : 298.25700000000001
+            },
+            "id" : "a99bc5f623305b4f",
+            "input_bytes" : {
+              "counter" : 2240216556,
+              "hz" : 63.199800000000003,
+              "roughness" : 315
+            },
+            "kvstore_available_bytes" : 16396091392,
+            "kvstore_free_bytes" : 16396091392,
+            "kvstore_total_bytes" : 16729894912,
+            "kvstore_used_bytes" : 104911192,
+            "queue_disk_available_bytes" : 16396091392,
+            "queue_disk_free_bytes" : 16396091392,
+            "queue_disk_total_bytes" : 16729894912,
+            "queue_disk_used_bytes" : 211972096,
+            "role" : "log"
+          }
+        ],
+        "run_loop_busy" : 0.0054434699999999997,
+        "uptime_seconds" : 900.00300000000004,
+        "version" : "7.1.43"
+      },
+      "0abbe75dc25d886c2db49d8e74c3e8ce" : {
+        "address" : "100.82.161.229:4500:tls",
+        "class_source" : "command_line",
+        "class_type" : "storage",
+        "command_line" : "/usr/bin/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data/1 --listen_address=100.82.161.229:4500:tls --locality_instance_id=storage-4 --locality_machineid=fdb-cluster-dfbv55sk-storage-4 --locality_process_id=storage-4-1 --locality_zoneid=fdb-cluster-dfbv55sk-storage-4 --logdir=/var/log/fdb-trace-logs --loggroup=jscheuermann-n5qldq2s-fdb-cluster-dfbv55sk --public_address=100.82.161.229:4500:tls --seed_cluster_file=/var/dynamic-conf/fdb.cluster --trace_format=json",
+        "cpu" : {
+          "usage_cores" : 0.0057107799999999995
+        },
+        "disk" : {
+          "busy" : 0.0039999800000000002,
+          "free_bytes" : 14987005952,
+          "reads" : {
+            "counter" : 171,
+            "hz" : 0,
+            "sectors" : 0
+          },
+          "total_bytes" : 16729894912,
+          "writes" : {
+            "counter" : 491425,
+            "hz" : 3.9999799999999999,
+            "sectors" : 176
+          }
+        },
+        "excluded" : false,
+        "fault_domain" : "fdb-cluster-dfbv55sk-storage-4",
+        "locality" : {
+          "instance_id" : "storage-4",
+          "machineid" : "fdb-cluster-dfbv55sk-storage-4",
+          "process_id" : "storage-4-1",
+          "processid" : "0abbe75dc25d886c2db49d8e74c3e8ce",
+          "zoneid" : "fdb-cluster-dfbv55sk-storage-4"
+        },
+        "machine_id" : "fdb-cluster-dfbv55sk-storage-4",
+        "memory" : {
+          "available_bytes" : 8589934592,
+          "limit_bytes" : 8589934592,
+          "rss_bytes" : 987377664,
+          "unused_allocated_memory" : 6683200,
+          "used_bytes" : 1572200448
+        },
+        "messages" : [
+        ],
+        "network" : {
+          "connection_errors" : {
+            "hz" : 0
+          },
+          "connections_closed" : {
+            "hz" : 0
+          },
+          "connections_established" : {
+            "hz" : 0
+          },
+          "current_connections" : 23,
+          "megabits_received" : {
+            "hz" : 0.041676700000000004
+          },
+          "megabits_sent" : {
+            "hz" : 0.111827
+          },
+          "tls_policy_failures" : {
+            "hz" : 0
+          }
+        },
+        "roles" : [
+          {
+            "bytes_queried" : {
+              "counter" : 390394716,
+              "hz" : 10343.200000000001,
+              "roughness" : 13855
+            },
+            "data_lag" : {
+              "seconds" : 2.0171399999999999,
+              "versions" : 2017136
+            },
+            "data_version" : 987117237,
+            "durability_lag" : {
+              "seconds" : 5,
+              "versions" : 5000000
+            },
+            "durable_bytes" : {
+              "counter" : 1970130014,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "durable_version" : 982117237,
+            "fetched_versions" : {
+              "counter" : 987001210,
+              "hz" : 799386,
+              "roughness" : 1998650
+            },
+            "fetches_from_logs" : {
+              "counter" : 38055,
+              "hz" : 0.39999800000000002,
+              "roughness" : 8.7478499999999999e-05
+            },
+            "finished_queries" : {
+              "counter" : 8267,
+              "hz" : 2.7999900000000002,
+              "roughness" : 2.3683999999999998
+            },
+            "id" : "61a8080068898ef3",
+            "input_bytes" : {
+              "counter" : 1970132010,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "keys_queried" : {
+              "counter" : 389921,
+              "hz" : 28.1999,
+              "roughness" : 36.7774
+            },
+            "kvstore_available_bytes" : 14987005952,
+            "kvstore_free_bytes" : 14987005952,
+            "kvstore_inline_keys" : 0,
+            "kvstore_total_bytes" : 16729894912,
+            "kvstore_total_nodes" : 0,
+            "kvstore_total_size" : 0,
+            "kvstore_used_bytes" : 863527272,
+            "local_rate" : 100,
+            "low_priority_queries" : {
+              "counter" : 0,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "mutation_bytes" : {
+              "counter" : 711194776,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "mutations" : {
+              "counter" : 692162,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "query_queue_max" : 3,
+            "read_latency_statistics" : {
+              "count" : 148,
+              "max" : 0.00013589899999999998,
+              "mean" : 9.2767400000000029e-05,
+              "median" : 9.7751600000000021e-05,
+              "min" : 1.0967300000000001e-05,
+              "p25" : 8.4400200000000006e-05,
+              "p90" : 0.00011348699999999999,
+              "p95" : 0.00011754,
+              "p99" : 0.00013565999999999999,
+              "p99.9" : 0.00013589899999999998
+            },
+            "role" : "storage",
+            "storage_metadata" : {
+              "created_time_datetime" : "2024-01-24 09:33:40.000 +0000",
+              "created_time_timestamp" : 1706090000
+            },
+            "stored_bytes" : 590688999,
+            "total_queries" : {
+              "counter" : 8267,
+              "hz" : 2.7999900000000002,
+              "roughness" : 2.3683999999999998
+            }
+          }
+        ],
+        "run_loop_busy" : 0.0037109299999999999,
+        "uptime_seconds" : 890.00300000000004,
+        "version" : "7.1.43"
+      },
+      "0fdfa5038e8b2a6da7c355895407ca2f" : {
+        "address" : "100.82.33.131:4500:tls",
+        "class_source" : "command_line",
+        "class_type" : "storage",
+        "command_line" : "/usr/bin/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data/1 --listen_address=100.82.33.131:4500:tls --locality_instance_id=storage-1 --locality_machineid=fdb-cluster-dfbv55sk-storage-1 --locality_process_id=storage-1-1 --locality_zoneid=fdb-cluster-dfbv55sk-storage-1 --logdir=/var/log/fdb-trace-logs --loggroup=jscheuermann-n5qldq2s-fdb-cluster-dfbv55sk --public_address=100.82.33.131:4500:tls --seed_cluster_file=/var/dynamic-conf/fdb.cluster --trace_format=json",
+        "cpu" : {
+          "usage_cores" : 0.00606399
+        },
+        "disk" : {
+          "busy" : 0.0047999900000000005,
+          "free_bytes" : 14989590528,
+          "reads" : {
+            "counter" : 167,
+            "hz" : 0,
+            "sectors" : 0
+          },
+          "total_bytes" : 16729894912,
+          "writes" : {
+            "counter" : 458116,
+            "hz" : 3.9999899999999999,
+            "sectors" : 176
+          }
+        },
+        "excluded" : false,
+        "fault_domain" : "fdb-cluster-dfbv55sk-storage-1",
+        "locality" : {
+          "instance_id" : "storage-1",
+          "machineid" : "fdb-cluster-dfbv55sk-storage-1",
+          "process_id" : "storage-1-1",
+          "processid" : "0fdfa5038e8b2a6da7c355895407ca2f",
+          "zoneid" : "fdb-cluster-dfbv55sk-storage-1"
+        },
+        "machine_id" : "fdb-cluster-dfbv55sk-storage-1",
+        "memory" : {
+          "available_bytes" : 8589934592,
+          "limit_bytes" : 8589934592,
+          "rss_bytes" : 983285760,
+          "unused_allocated_memory" : 14809248,
+          "used_bytes" : 1441652736
+        },
+        "messages" : [
+        ],
+        "network" : {
+          "connection_errors" : {
+            "hz" : 0
+          },
+          "connections_closed" : {
+            "hz" : 0
+          },
+          "connections_established" : {
+            "hz" : 0
+          },
+          "current_connections" : 21,
+          "megabits_received" : {
+            "hz" : 0.032287900000000001
+          },
+          "megabits_sent" : {
+            "hz" : 0.046047900000000003
+          },
+          "tls_policy_failures" : {
+            "hz" : 0
+          }
+        },
+        "roles" : [
+          {
+            "bytes_queried" : {
+              "counter" : 381226930,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "data_lag" : {
+              "seconds" : 2.0171399999999999,
+              "versions" : 2017136
+            },
+            "data_version" : 987117237,
+            "durability_lag" : {
+              "seconds" : 5,
+              "versions" : 5000000
+            },
+            "durable_bytes" : {
+              "counter" : 1892467132,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "durable_version" : 982117237,
+            "fetched_versions" : {
+              "counter" : 986966553,
+              "hz" : 799387,
+              "roughness" : 1998650
+            },
+            "fetches_from_logs" : {
+              "counter" : 38065,
+              "hz" : 0.39999900000000005,
+              "roughness" : 8.7791099999999994e-05
+            },
+            "finished_queries" : {
+              "counter" : 4754,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "id" : "f4ac62ec5782372b",
+            "input_bytes" : {
+              "counter" : 1892467132,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "keys_queried" : {
+              "counter" : 365510,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "kvstore_available_bytes" : 14989590528,
+            "kvstore_free_bytes" : 14989590528,
+            "kvstore_inline_keys" : 0,
+            "kvstore_total_bytes" : 16729894912,
+            "kvstore_total_nodes" : 0,
+            "kvstore_total_size" : 0,
+            "kvstore_used_bytes" : 862942232,
+            "local_rate" : 100,
+            "low_priority_queries" : {
+              "counter" : 0,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "mutation_bytes" : {
+              "counter" : 685002729,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "mutations" : {
+              "counter" : 664519,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "query_queue_max" : 0,
+            "read_latency_statistics" : {
+              "count" : 0,
+              "max" : 0,
+              "mean" : 0,
+              "median" : 0,
+              "min" : 0,
+              "p25" : 0,
+              "p90" : 0,
+              "p95" : 0,
+              "p99" : 0,
+              "p99.9" : 0
+            },
+            "role" : "storage",
+            "storage_metadata" : {
+              "created_time_datetime" : "2024-01-24 09:33:40.000 +0000",
+              "created_time_timestamp" : 1706090000
+            },
+            "stored_bytes" : 600831000,
+            "total_queries" : {
+              "counter" : 4754,
+              "hz" : 0,
+              "roughness" : -1
+            }
+          }
+        ],
+        "run_loop_busy" : 0.0039566499999999999,
+        "uptime_seconds" : 895.00199999999995,
+        "version" : "7.1.43"
+      },
+      "11811ecd87a1e20b2a3747fd07188326" : {
+        "address" : "100.82.39.2:4500:tls",
+        "class_source" : "command_line",
+        "class_type" : "stateless",
+        "command_line" : "/usr/bin/fdbserver --class=stateless --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --listen_address=100.82.39.2:4500:tls --locality_instance_id=stateless-9 --locality_machineid=fdb-cluster-dfbv55sk-stateless-9 --locality_zoneid=fdb-cluster-dfbv55sk-stateless-9 --logdir=/var/log/fdb-trace-logs --loggroup=jscheuermann-n5qldq2s-fdb-cluster-dfbv55sk --public_address=100.82.39.2:4500:tls --seed_cluster_file=/var/dynamic-conf/fdb.cluster --trace_format=json",
+        "cpu" : {
+          "usage_cores" : 0.0048903900000000005
+        },
+        "disk" : {
+          "busy" : 0.0079999800000000003,
+          "free_bytes" : 1082375122944,
+          "reads" : {
+            "counter" : 86777,
+            "hz" : 0,
+            "sectors" : 0
+          },
+          "total_bytes" : 1099499024384,
+          "writes" : {
+            "counter" : 63300991,
+            "hz" : 6.3999899999999998,
+            "sectors" : 450
+          }
+        },
+        "excluded" : false,
+        "fault_domain" : "fdb-cluster-dfbv55sk-stateless-9",
+        "locality" : {
+          "instance_id" : "stateless-9",
+          "machineid" : "fdb-cluster-dfbv55sk-stateless-9",
+          "processid" : "11811ecd87a1e20b2a3747fd07188326",
+          "zoneid" : "fdb-cluster-dfbv55sk-stateless-9"
+        },
+        "machine_id" : "fdb-cluster-dfbv55sk-stateless-9",
+        "memory" : {
+          "available_bytes" : 8589934592,
+          "limit_bytes" : 8589934592,
+          "rss_bytes" : 72429568,
+          "unused_allocated_memory" : 0,
+          "used_bytes" : 468701184
+        },
+        "messages" : [
+        ],
+        "network" : {
+          "connection_errors" : {
+            "hz" : 0
+          },
+          "connections_closed" : {
+            "hz" : 0
+          },
+          "connections_established" : {
+            "hz" : 0
+          },
+          "current_connections" : 22,
+          "megabits_received" : {
+            "hz" : 0.034572700000000005
+          },
+          "megabits_sent" : {
+            "hz" : 0.041203100000000006
+          },
+          "tls_policy_failures" : {
+            "hz" : 0
+          }
+        },
+        "roles" : [
+          {
+            "commit_batching_window_size" : {
+              "count" : 31,
+              "max" : 0.00106011,
+              "mean" : 0.00100194,
+              "median" : 0.001,
+              "min" : 0.001,
+              "p25" : 0.001,
+              "p90" : 0.001,
+              "p95" : 0.001,
+              "p99" : 0.00106011,
+              "p99.9" : 0.00106011
+            },
+            "commit_latency_statistics" : {
+              "count" : 6,
+              "max" : 0.0050802199999999999,
+              "mean" : 0.0049442100000000001,
+              "median" : 0.0048472899999999998,
+              "min" : 0.0048363199999999999,
+              "p25" : 0.0048394200000000005,
+              "p90" : 0.0050802199999999999,
+              "p95" : 0.0050802199999999999,
+              "p99" : 0.0050802199999999999,
+              "p99.9" : 0.0050802199999999999
+            },
+            "id" : "c2f5ad633ace9ed9",
+            "role" : "commit_proxy"
+          }
+        ],
+        "run_loop_busy" : 0.0029436900000000001,
+        "uptime_seconds" : 895.00300000000004,
+        "version" : "7.1.43"
+      },
+      "12de1dcc10fc202cdeea1fdf99046ad8" : {
+        "address" : "100.82.36.166:4500:tls",
+        "class_source" : "command_line",
+        "class_type" : "log",
+        "command_line" : "/usr/bin/fdbserver --class=log --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --listen_address=100.82.36.166:4500:tls --locality_instance_id=log-5 --locality_machineid=fdb-cluster-dfbv55sk-log-5 --locality_zoneid=fdb-cluster-dfbv55sk-log-5 --logdir=/var/log/fdb-trace-logs --loggroup=jscheuermann-n5qldq2s-fdb-cluster-dfbv55sk --public_address=100.82.36.166:4500:tls --seed_cluster_file=/var/dynamic-conf/fdb.cluster --trace_format=json",
+        "cpu" : {
+          "usage_cores" : 0.008415569999999999
+        },
+        "disk" : {
+          "busy" : 0.0039999800000000002,
+          "free_bytes" : 16395505664,
+          "reads" : {
+            "counter" : 166,
+            "hz" : 0,
+            "sectors" : 0
+          },
+          "total_bytes" : 16729894912,
+          "writes" : {
+            "counter" : 50238,
+            "hz" : 1.59999,
+            "sectors" : 72
+          }
+        },
+        "excluded" : false,
+        "fault_domain" : "fdb-cluster-dfbv55sk-log-5",
+        "locality" : {
+          "instance_id" : "log-5",
+          "machineid" : "fdb-cluster-dfbv55sk-log-5",
+          "processid" : "12de1dcc10fc202cdeea1fdf99046ad8",
+          "zoneid" : "fdb-cluster-dfbv55sk-log-5"
+        },
+        "machine_id" : "fdb-cluster-dfbv55sk-log-5",
+        "memory" : {
+          "available_bytes" : 8589934592,
+          "limit_bytes" : 8589934592,
+          "rss_bytes" : 82567168,
+          "unused_allocated_memory" : 262112,
+          "used_bytes" : 662429696
+        },
+        "messages" : [
+        ],
+        "network" : {
+          "connection_errors" : {
+            "hz" : 0
+          },
+          "connections_closed" : {
+            "hz" : 0
+          },
+          "connections_established" : {
+            "hz" : 0
+          },
+          "current_connections" : 24,
+          "megabits_received" : {
+            "hz" : 0.098502100000000009
+          },
+          "megabits_sent" : {
+            "hz" : 0.069523000000000001
+          },
+          "tls_policy_failures" : {
+            "hz" : 0
+          }
+        },
+        "roles" : [
+          {
+            "role" : "coordinator"
+          },
+          {
+            "data_version" : 987117237,
+            "durable_bytes" : {
+              "counter" : 2240216240,
+              "hz" : 63.199800000000003,
+              "roughness" : 310.71600000000001
+            },
+            "id" : "ed07538e404be3a7",
+            "input_bytes" : {
+              "counter" : 2240216556,
+              "hz" : 63.199800000000003,
+              "roughness" : 315
+            },
+            "kvstore_available_bytes" : 16395505664,
+            "kvstore_free_bytes" : 16395505664,
+            "kvstore_total_bytes" : 16729894912,
+            "kvstore_used_bytes" : 104911192,
+            "queue_disk_available_bytes" : 16395505664,
+            "queue_disk_free_bytes" : 16395505664,
+            "queue_disk_total_bytes" : 16729894912,
+            "queue_disk_used_bytes" : 212606976,
+            "role" : "log"
+          }
+        ],
+        "run_loop_busy" : 0.0056469800000000002,
+        "uptime_seconds" : 895.00199999999995,
+        "version" : "7.1.43"
+      },
+      "1fa65da97603ef2928e348cbd291173f" : {
+        "address" : "100.82.34.119:4500:tls",
+        "class_source" : "command_line",
+        "class_type" : "storage",
+        "command_line" : "/usr/bin/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data/1 --listen_address=100.82.34.119:4500:tls --locality_instance_id=storage-5 --locality_machineid=fdb-cluster-dfbv55sk-storage-5 --locality_process_id=storage-5-1 --locality_zoneid=fdb-cluster-dfbv55sk-storage-5 --logdir=/var/log/fdb-trace-logs --loggroup=jscheuermann-n5qldq2s-fdb-cluster-dfbv55sk --public_address=100.82.34.119:4500:tls --seed_cluster_file=/var/dynamic-conf/fdb.cluster --trace_format=json",
+        "cpu" : {
+          "usage_cores" : 0.0052325900000000005
+        },
+        "disk" : {
+          "busy" : 0.0063999899999999995,
+          "free_bytes" : 14986272768,
+          "reads" : {
+            "counter" : 167,
+            "hz" : 0,
+            "sectors" : 0
+          },
+          "total_bytes" : 16729894912,
+          "writes" : {
+            "counter" : 479438,
+            "hz" : 5.1999899999999997,
+            "sectors" : 224
+          }
+        },
+        "excluded" : false,
+        "fault_domain" : "fdb-cluster-dfbv55sk-storage-5",
+        "locality" : {
+          "instance_id" : "storage-5",
+          "machineid" : "fdb-cluster-dfbv55sk-storage-5",
+          "process_id" : "storage-5-1",
+          "processid" : "1fa65da97603ef2928e348cbd291173f",
+          "zoneid" : "fdb-cluster-dfbv55sk-storage-5"
+        },
+        "machine_id" : "fdb-cluster-dfbv55sk-storage-5",
+        "memory" : {
+          "available_bytes" : 8589934592,
+          "limit_bytes" : 8589934592,
+          "rss_bytes" : 1014321152,
+          "unused_allocated_memory" : 6159104,
+          "used_bytes" : 1437327360
+        },
+        "messages" : [
+        ],
+        "network" : {
+          "connection_errors" : {
+            "hz" : 0
+          },
+          "connections_closed" : {
+            "hz" : 0
+          },
+          "connections_established" : {
+            "hz" : 0
+          },
+          "current_connections" : 21,
+          "megabits_received" : {
+            "hz" : 0.0325055
+          },
+          "megabits_sent" : {
+            "hz" : 0.0466559
+          },
+          "tls_policy_failures" : {
+            "hz" : 0
+          }
+        },
+        "roles" : [
+          {
+            "bytes_queried" : {
+              "counter" : 301834875,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "data_lag" : {
+              "seconds" : 2.0171399999999999,
+              "versions" : 2017136
+            },
+            "data_version" : 987117237,
+            "durability_lag" : {
+              "seconds" : 5,
+              "versions" : 5000000
+            },
+            "durable_bytes" : {
+              "counter" : 1888254626,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "durable_version" : 982117237,
+            "fetched_versions" : {
+              "counter" : 986865768,
+              "hz" : 799387,
+              "roughness" : 1998650
+            },
+            "fetches_from_logs" : {
+              "counter" : 38054,
+              "hz" : 0.39999900000000005,
+              "roughness" : 8.7447900000000027e-05
+            },
+            "finished_queries" : {
+              "counter" : 4108,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "id" : "4ef87fe04db185a8",
+            "input_bytes" : {
+              "counter" : 1888254626,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "keys_queried" : {
+              "counter" : 290459,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "kvstore_available_bytes" : 14986272768,
+            "kvstore_free_bytes" : 14986272768,
+            "kvstore_inline_keys" : 0,
+            "kvstore_total_bytes" : 16729894912,
+            "kvstore_total_nodes" : 0,
+            "kvstore_total_size" : 0,
+            "kvstore_used_bytes" : 863910432,
+            "local_rate" : 100,
+            "low_priority_queries" : {
+              "counter" : 0,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "mutation_bytes" : {
+              "counter" : 679371309,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "mutations" : {
+              "counter" : 659601,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "query_queue_max" : 0,
+            "read_latency_statistics" : {
+              "count" : 0,
+              "max" : 0,
+              "mean" : 0,
+              "median" : 0,
+              "min" : 0,
+              "p25" : 0,
+              "p90" : 0,
+              "p95" : 0,
+              "p99" : 0,
+              "p99.9" : 0
+            },
+            "role" : "storage",
+            "storage_metadata" : {
+              "created_time_datetime" : "2024-01-24 09:33:40.000 +0000",
+              "created_time_timestamp" : 1706090000
+            },
+            "stored_bytes" : 591638250,
+            "total_queries" : {
+              "counter" : 4108,
+              "hz" : 0,
+              "roughness" : -1
+            }
+          }
+        ],
+        "run_loop_busy" : 0.0033824300000000001,
+        "uptime_seconds" : 890.00300000000004,
+        "version" : "7.1.43"
+      },
+      "2c210a4b1ec988e9b2526bae00396a27" : {
+        "address" : "100.82.185.36:4502:tls",
+        "class_source" : "command_line",
+        "class_type" : "storage",
+        "command_line" : "/usr/bin/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data/2 --listen_address=100.82.185.36:4502:tls --locality_instance_id=storage-3 --locality_machineid=fdb-cluster-dfbv55sk-storage-3 --locality_process_id=storage-3-2 --locality_zoneid=fdb-cluster-dfbv55sk-storage-3 --logdir=/var/log/fdb-trace-logs --loggroup=jscheuermann-n5qldq2s-fdb-cluster-dfbv55sk --public_address=100.82.185.36:4502:tls --seed_cluster_file=/var/dynamic-conf/fdb.cluster --trace_format=json",
+        "cpu" : {
+          "usage_cores" : 0.0051005799999999995
+        },
+        "disk" : {
+          "busy" : 0.0031999899999999998,
+          "free_bytes" : 15092273152,
+          "reads" : {
+            "counter" : 169,
+            "hz" : 0,
+            "sectors" : 0
+          },
+          "total_bytes" : 16729894912,
+          "writes" : {
+            "counter" : 433908,
+            "hz" : 3.59999,
+            "sectors" : 144
+          }
+        },
+        "excluded" : false,
+        "fault_domain" : "fdb-cluster-dfbv55sk-storage-3",
+        "locality" : {
+          "instance_id" : "storage-3",
+          "machineid" : "fdb-cluster-dfbv55sk-storage-3",
+          "process_id" : "storage-3-2",
+          "processid" : "2c210a4b1ec988e9b2526bae00396a27",
+          "zoneid" : "fdb-cluster-dfbv55sk-storage-3"
+        },
+        "machine_id" : "fdb-cluster-dfbv55sk-storage-3",
+        "memory" : {
+          "available_bytes" : 8589934592,
+          "limit_bytes" : 8589934592,
+          "rss_bytes" : 977117184,
+          "unused_allocated_memory" : 11008224,
+          "used_bytes" : 1437720576
+        },
+        "messages" : [
+        ],
+        "network" : {
+          "connection_errors" : {
+            "hz" : 0
+          },
+          "connections_closed" : {
+            "hz" : 0
+          },
+          "connections_established" : {
+            "hz" : 0
+          },
+          "current_connections" : 21,
+          "megabits_received" : {
+            "hz" : 0.0332415
+          },
+          "megabits_sent" : {
+            "hz" : 0.047193500000000006
+          },
+          "tls_policy_failures" : {
+            "hz" : 0
+          }
+        },
+        "roles" : [
+          {
+            "bytes_queried" : {
+              "counter" : 354544904,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "data_lag" : {
+              "seconds" : 2.0171399999999999,
+              "versions" : 2017136
+            },
+            "data_version" : 987117237,
+            "durability_lag" : {
+              "seconds" : 5,
+              "versions" : 5000000
+            },
+            "durable_bytes" : {
+              "counter" : 1703058362,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "durable_version" : 982117237,
+            "fetched_versions" : {
+              "counter" : 986927502,
+              "hz" : 799388,
+              "roughness" : 1998650
+            },
+            "fetches_from_logs" : {
+              "counter" : 38055,
+              "hz" : 0.39999900000000005,
+              "roughness" : 8.7448300000000028e-05
+            },
+            "finished_queries" : {
+              "counter" : 4422,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "id" : "bf99323df6206d2d",
+            "input_bytes" : {
+              "counter" : 1703058362,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "keys_queried" : {
+              "counter" : 339928,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "kvstore_available_bytes" : 15092273152,
+            "kvstore_free_bytes" : 15092273152,
+            "kvstore_inline_keys" : 0,
+            "kvstore_total_bytes" : 16729894912,
+            "kvstore_total_nodes" : 0,
+            "kvstore_total_size" : 0,
+            "kvstore_used_bytes" : 757750912,
+            "local_rate" : 100,
+            "low_priority_queries" : {
+              "counter" : 0,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "mutation_bytes" : {
+              "counter" : 615924833,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "mutations" : {
+              "counter" : 597505,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "query_queue_max" : 0,
+            "read_latency_statistics" : {
+              "count" : 0,
+              "max" : 0,
+              "mean" : 0,
+              "median" : 0,
+              "min" : 0,
+              "p25" : 0,
+              "p90" : 0,
+              "p95" : 0,
+              "p99" : 0,
+              "p99.9" : 0
+            },
+            "role" : "storage",
+            "storage_metadata" : {
+              "created_time_datetime" : "2024-01-24 09:33:40.000 +0000",
+              "created_time_timestamp" : 1706090000
+            },
+            "stored_bytes" : 574918750,
+            "total_queries" : {
+              "counter" : 4422,
+              "hz" : 0,
+              "roughness" : -1
+            }
+          }
+        ],
+        "run_loop_busy" : 0.0031911299999999999,
+        "uptime_seconds" : 890.00300000000004,
+        "version" : "7.1.43"
+      },
+      "475778c2f25abb510a8f862156a12c0a" : {
+        "address" : "100.82.34.119:4502:tls",
+        "class_source" : "command_line",
+        "class_type" : "storage",
+        "command_line" : "/usr/bin/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data/2 --listen_address=100.82.34.119:4502:tls --locality_instance_id=storage-5 --locality_machineid=fdb-cluster-dfbv55sk-storage-5 --locality_process_id=storage-5-2 --locality_zoneid=fdb-cluster-dfbv55sk-storage-5 --logdir=/var/log/fdb-trace-logs --loggroup=jscheuermann-n5qldq2s-fdb-cluster-dfbv55sk --public_address=100.82.34.119:4502:tls --seed_cluster_file=/var/dynamic-conf/fdb.cluster --trace_format=json",
+        "cpu" : {
+          "usage_cores" : 0.0053721899999999998
+        },
+        "disk" : {
+          "busy" : 0.0063999899999999995,
+          "free_bytes" : 14986272768,
+          "reads" : {
+            "counter" : 167,
+            "hz" : 0,
+            "sectors" : 0
+          },
+          "total_bytes" : 16729894912,
+          "writes" : {
+            "counter" : 479438,
+            "hz" : 5.1999899999999997,
+            "sectors" : 224
+          }
+        },
+        "excluded" : false,
+        "fault_domain" : "fdb-cluster-dfbv55sk-storage-5",
+        "locality" : {
+          "instance_id" : "storage-5",
+          "machineid" : "fdb-cluster-dfbv55sk-storage-5",
+          "process_id" : "storage-5-2",
+          "processid" : "475778c2f25abb510a8f862156a12c0a",
+          "zoneid" : "fdb-cluster-dfbv55sk-storage-5"
+        },
+        "machine_id" : "fdb-cluster-dfbv55sk-storage-5",
+        "memory" : {
+          "available_bytes" : 8589934592,
+          "limit_bytes" : 8589934592,
+          "rss_bytes" : 1043308544,
+          "unused_allocated_memory" : 6159040,
+          "used_bytes" : 1606934528
+        },
+        "messages" : [
+        ],
+        "network" : {
+          "connection_errors" : {
+            "hz" : 0
+          },
+          "connections_closed" : {
+            "hz" : 0
+          },
+          "connections_established" : {
+            "hz" : 0
+          },
+          "current_connections" : 21,
+          "megabits_received" : {
+            "hz" : 0.038380700000000004
+          },
+          "megabits_sent" : {
+            "hz" : 0.108333
+          },
+          "tls_policy_failures" : {
+            "hz" : 0
+          }
+        },
+        "roles" : [
+          {
+            "bytes_queried" : {
+              "counter" : 376260296,
+              "hz" : 5169.9899999999998,
+              "roughness" : 13146.4
+            },
+            "data_lag" : {
+              "seconds" : 2.0171399999999999,
+              "versions" : 2017136
+            },
+            "data_version" : 987117237,
+            "durability_lag" : {
+              "seconds" : 5,
+              "versions" : 5000000
+            },
+            "durable_bytes" : {
+              "counter" : 2112890022,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "durable_version" : 982117237,
+            "fetched_versions" : {
+              "counter" : 987117237,
+              "hz" : 799387,
+              "roughness" : 1998650
+            },
+            "fetches_from_logs" : {
+              "counter" : 38085,
+              "hz" : 0.39999900000000005,
+              "roughness" : 8.7386600000000022e-05
+            },
+            "finished_queries" : {
+              "counter" : 7778,
+              "hz" : 1.2,
+              "roughness" : 2.0516200000000002
+            },
+            "id" : "3fbaf0889942202a",
+            "input_bytes" : {
+              "counter" : 2112892018,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "keys_queried" : {
+              "counter" : 373675,
+              "hz" : 14,
+              "roughness" : 34.602200000000003
+            },
+            "kvstore_available_bytes" : 14986272768,
+            "kvstore_free_bytes" : 14986272768,
+            "kvstore_inline_keys" : 0,
+            "kvstore_total_bytes" : 16729894912,
+            "kvstore_total_nodes" : 0,
+            "kvstore_total_size" : 0,
+            "kvstore_used_bytes" : 862868072,
+            "local_rate" : 100,
+            "low_priority_queries" : {
+              "counter" : 0,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "mutation_bytes" : {
+              "counter" : 760064183,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "mutations" : {
+              "counter" : 739275,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "query_queue_max" : 3,
+            "read_latency_statistics" : {
+              "count" : 126,
+              "max" : 0.00014019,
+              "mean" : 9.4432700000000028e-05,
+              "median" : 9.8705300000000032e-05,
+              "min" : 1.0251999999999999e-05,
+              "p25" : 8.4400200000000006e-05,
+              "p90" : 0.00012183199999999999,
+              "p95" : 0.00012517,
+              "p99" : 0.000132084,
+              "p99.9" : 0.00014019
+            },
+            "role" : "storage",
+            "storage_metadata" : {
+              "created_time_datetime" : "2024-01-24 09:33:39.000 +0000",
+              "created_time_timestamp" : 1706090000
+            },
+            "stored_bytes" : 630613499,
+            "total_queries" : {
+              "counter" : 7778,
+              "hz" : 1.2,
+              "roughness" : 2.0516200000000002
+            }
+          }
+        ],
+        "run_loop_busy" : 0.0034891900000000001,
+        "uptime_seconds" : 890.00300000000004,
+        "version" : "7.1.43"
+      },
+      "4f2bf57e994a73ea35bd3180b576fa90" : {
+        "address" : "100.82.185.36:4500:tls",
+        "class_source" : "command_line",
+        "class_type" : "storage",
+        "command_line" : "/usr/bin/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data/1 --listen_address=100.82.185.36:4500:tls --locality_instance_id=storage-3 --locality_machineid=fdb-cluster-dfbv55sk-storage-3 --locality_process_id=storage-3-1 --locality_zoneid=fdb-cluster-dfbv55sk-storage-3 --logdir=/var/log/fdb-trace-logs --loggroup=jscheuermann-n5qldq2s-fdb-cluster-dfbv55sk --public_address=100.82.185.36:4500:tls --seed_cluster_file=/var/dynamic-conf/fdb.cluster --trace_format=json",
+        "cpu" : {
+          "usage_cores" : 0.0052335799999999998
+        },
+        "disk" : {
+          "busy" : 0.0031999899999999998,
+          "free_bytes" : 15092273152,
+          "reads" : {
+            "counter" : 169,
+            "hz" : 0,
+            "sectors" : 0
+          },
+          "total_bytes" : 16729894912,
+          "writes" : {
+            "counter" : 433908,
+            "hz" : 3.59999,
+            "sectors" : 144
+          }
+        },
+        "excluded" : false,
+        "fault_domain" : "fdb-cluster-dfbv55sk-storage-3",
+        "locality" : {
+          "instance_id" : "storage-3",
+          "machineid" : "fdb-cluster-dfbv55sk-storage-3",
+          "process_id" : "storage-3-1",
+          "processid" : "4f2bf57e994a73ea35bd3180b576fa90",
+          "zoneid" : "fdb-cluster-dfbv55sk-storage-3"
+        },
+        "machine_id" : "fdb-cluster-dfbv55sk-storage-3",
+        "memory" : {
+          "available_bytes" : 8589934592,
+          "limit_bytes" : 8589934592,
+          "rss_bytes" : 1022492672,
+          "unused_allocated_memory" : 4717600,
+          "used_bytes" : 1466163200
+        },
+        "messages" : [
+        ],
+        "network" : {
+          "connection_errors" : {
+            "hz" : 0
+          },
+          "connections_closed" : {
+            "hz" : 0
+          },
+          "connections_established" : {
+            "hz" : 0
+          },
+          "current_connections" : 23,
+          "megabits_received" : {
+            "hz" : 0.035180599999999999
+          },
+          "megabits_sent" : {
+            "hz" : 0.049337400000000003
+          },
+          "tls_policy_failures" : {
+            "hz" : 0
+          }
+        },
+        "roles" : [
+          {
+            "bytes_queried" : {
+              "counter" : 357298242,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "data_lag" : {
+              "seconds" : 2.0171399999999999,
+              "versions" : 2017136
+            },
+            "data_version" : 987117237,
+            "durability_lag" : {
+              "seconds" : 5,
+              "versions" : 5000000
+            },
+            "durable_bytes" : {
+              "counter" : 1865235218,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "durable_version" : 982117237,
+            "fetched_versions" : {
+              "counter" : 986916522,
+              "hz" : 799387,
+              "roughness" : 1998650
+            },
+            "fetches_from_logs" : {
+              "counter" : 38059,
+              "hz" : 0.39999900000000005,
+              "roughness" : 8.74603e-05
+            },
+            "finished_queries" : {
+              "counter" : 4946,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "id" : "8a315ad91580fef5",
+            "input_bytes" : {
+              "counter" : 1865235218,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "keys_queried" : {
+              "counter" : 343920,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "kvstore_available_bytes" : 15092273152,
+            "kvstore_free_bytes" : 15092273152,
+            "kvstore_inline_keys" : 0,
+            "kvstore_total_bytes" : 16729894912,
+            "kvstore_total_nodes" : 0,
+            "kvstore_total_size" : 0,
+            "kvstore_used_bytes" : 862983432,
+            "local_rate" : 100,
+            "low_priority_queries" : {
+              "counter" : 0,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "mutation_bytes" : {
+              "counter" : 682928312,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "mutations" : {
+              "counter" : 663053,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "query_queue_max" : 0,
+            "read_latency_statistics" : {
+              "count" : 0,
+              "max" : 0,
+              "mean" : 0,
+              "median" : 0,
+              "min" : 0,
+              "p25" : 0,
+              "p90" : 0,
+              "p95" : 0,
+              "p99" : 0,
+              "p99.9" : 0
+            },
+            "role" : "storage",
+            "storage_metadata" : {
+              "created_time_datetime" : "2024-01-24 09:33:40.000 +0000",
+              "created_time_timestamp" : 1706090000
+            },
+            "stored_bytes" : 619960250,
+            "total_queries" : {
+              "counter" : 4946,
+              "hz" : 0,
+              "roughness" : -1
+            }
+          }
+        ],
+        "run_loop_busy" : 0.0032930299999999997,
+        "uptime_seconds" : 890.005,
+        "version" : "7.1.43"
+      },
+      "54acb70b0c4df5c36f7dd31840da7161" : {
+        "address" : "100.82.16.245:4500:tls",
+        "class_source" : "command_line",
+        "class_type" : "stateless",
+        "command_line" : "/usr/bin/fdbserver --class=stateless --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --listen_address=100.82.16.245:4500:tls --locality_instance_id=stateless-3 --locality_machineid=fdb-cluster-dfbv55sk-stateless-3 --locality_zoneid=fdb-cluster-dfbv55sk-stateless-3 --logdir=/var/log/fdb-trace-logs --loggroup=jscheuermann-n5qldq2s-fdb-cluster-dfbv55sk --public_address=100.82.16.245:4500:tls --seed_cluster_file=/var/dynamic-conf/fdb.cluster --trace_format=json",
+        "cpu" : {
+          "usage_cores" : 0.00354339
+        },
+        "disk" : {
+          "busy" : 0.009599980000000001,
+          "free_bytes" : 1087685283840,
+          "reads" : {
+            "counter" : 86984,
+            "hz" : 0,
+            "sectors" : 0
+          },
+          "total_bytes" : 1099499024384,
+          "writes" : {
+            "counter" : 26303778,
+            "hz" : 6.3999899999999998,
+            "sectors" : 388
+          }
+        },
+        "excluded" : false,
+        "fault_domain" : "fdb-cluster-dfbv55sk-stateless-3",
+        "locality" : {
+          "instance_id" : "stateless-3",
+          "machineid" : "fdb-cluster-dfbv55sk-stateless-3",
+          "processid" : "54acb70b0c4df5c36f7dd31840da7161",
+          "zoneid" : "fdb-cluster-dfbv55sk-stateless-3"
+        },
+        "machine_id" : "fdb-cluster-dfbv55sk-stateless-3",
+        "memory" : {
+          "available_bytes" : 8589934592,
+          "limit_bytes" : 8589934592,
+          "rss_bytes" : 49152000,
+          "unused_allocated_memory" : 0,
+          "used_bytes" : 269606912
+        },
+        "messages" : [
+        ],
+        "network" : {
+          "connection_errors" : {
+            "hz" : 0
+          },
+          "connections_closed" : {
+            "hz" : 0
+          },
+          "connections_established" : {
+            "hz" : 0
+          },
+          "current_connections" : 14,
+          "megabits_received" : {
+            "hz" : 0.016806400000000003
+          },
+          "megabits_sent" : {
+            "hz" : 0.016832
+          },
+          "tls_policy_failures" : {
+            "hz" : 0
+          }
+        },
+        "roles" : [
+        ],
+        "run_loop_busy" : 0.0022889999999999998,
+        "uptime_seconds" : 895.00300000000004,
+        "version" : "7.1.43"
+      },
+      "56264e4140059496b5434cd58c20ca8d" : {
+        "address" : "100.82.112.35:4500:tls",
+        "class_source" : "command_line",
+        "class_type" : "stateless",
+        "command_line" : "/usr/bin/fdbserver --class=stateless --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --listen_address=100.82.112.35:4500:tls --locality_instance_id=stateless-7 --locality_machineid=fdb-cluster-dfbv55sk-stateless-7 --locality_zoneid=fdb-cluster-dfbv55sk-stateless-7 --logdir=/var/log/fdb-trace-logs --loggroup=jscheuermann-n5qldq2s-fdb-cluster-dfbv55sk --public_address=100.82.112.35:4500:tls --seed_cluster_file=/var/dynamic-conf/fdb.cluster --trace_format=json",
+        "cpu" : {
+          "usage_cores" : 0.0064603899999999999
+        },
+        "disk" : {
+          "busy" : 0.0079999800000000003,
+          "free_bytes" : 1069956702208,
+          "reads" : {
+            "counter" : 87081,
+            "hz" : 0,
+            "sectors" : 0
+          },
+          "total_bytes" : 1099499024384,
+          "writes" : {
+            "counter" : 31714898,
+            "hz" : 6.7999900000000002,
+            "sectors" : 1221
+          }
+        },
+        "excluded" : false,
+        "fault_domain" : "fdb-cluster-dfbv55sk-stateless-7",
+        "locality" : {
+          "instance_id" : "stateless-7",
+          "machineid" : "fdb-cluster-dfbv55sk-stateless-7",
+          "processid" : "56264e4140059496b5434cd58c20ca8d",
+          "zoneid" : "fdb-cluster-dfbv55sk-stateless-7"
+        },
+        "machine_id" : "fdb-cluster-dfbv55sk-stateless-7",
+        "memory" : {
+          "available_bytes" : 8589934592,
+          "limit_bytes" : 8589934592,
+          "rss_bytes" : 65486848,
+          "unused_allocated_memory" : 131072,
+          "used_bytes" : 323608576
+        },
+        "messages" : [
+        ],
+        "network" : {
+          "connection_errors" : {
+            "hz" : 0
+          },
+          "connections_closed" : {
+            "hz" : 0
+          },
+          "connections_established" : {
+            "hz" : 0
+          },
+          "current_connections" : 23,
+          "megabits_received" : {
+            "hz" : 0.20410800000000001
+          },
+          "megabits_sent" : {
+            "hz" : 0.0509311
+          },
+          "tls_policy_failures" : {
+            "hz" : 0
+          }
+        },
+        "roles" : [
+          {
+            "id" : "aa97f27490ba26e2",
+            "role" : "data_distributor"
+          }
+        ],
+        "run_loop_busy" : 0.0040888299999999999,
+        "uptime_seconds" : 895.00199999999995,
+        "version" : "7.1.43"
+      },
+      "5f26f0955e03aac15e99a614b1dfc17c" : {
+        "address" : "100.82.89.186:4500:tls",
+        "class_source" : "command_line",
+        "class_type" : "stateless",
+        "command_line" : "/usr/bin/fdbserver --class=stateless --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --listen_address=100.82.89.186:4500:tls --locality_instance_id=stateless-1 --locality_machineid=fdb-cluster-dfbv55sk-stateless-1 --locality_zoneid=fdb-cluster-dfbv55sk-stateless-1 --logdir=/var/log/fdb-trace-logs --loggroup=jscheuermann-n5qldq2s-fdb-cluster-dfbv55sk --public_address=100.82.89.186:4500:tls --seed_cluster_file=/var/dynamic-conf/fdb.cluster --trace_format=json",
+        "cpu" : {
+          "usage_cores" : 0.0039169899999999995
+        },
+        "disk" : {
+          "busy" : 0.012,
+          "free_bytes" : 1087568756736,
+          "reads" : {
+            "counter" : 87163,
+            "hz" : 0,
+            "sectors" : 0
+          },
+          "total_bytes" : 1099499024384,
+          "writes" : {
+            "counter" : 28065370,
+            "hz" : 57.599899999999998,
+            "sectors" : 4104
+          }
+        },
+        "excluded" : false,
+        "fault_domain" : "fdb-cluster-dfbv55sk-stateless-1",
+        "locality" : {
+          "instance_id" : "stateless-1",
+          "machineid" : "fdb-cluster-dfbv55sk-stateless-1",
+          "processid" : "5f26f0955e03aac15e99a614b1dfc17c",
+          "zoneid" : "fdb-cluster-dfbv55sk-stateless-1"
+        },
+        "machine_id" : "fdb-cluster-dfbv55sk-stateless-1",
+        "memory" : {
+          "available_bytes" : 8589934592,
+          "limit_bytes" : 8589934592,
+          "rss_bytes" : 62107648,
+          "unused_allocated_memory" : 0,
+          "used_bytes" : 325967872
+        },
+        "messages" : [
+        ],
+        "network" : {
+          "connection_errors" : {
+            "hz" : 0
+          },
+          "connections_closed" : {
+            "hz" : 0
+          },
+          "connections_established" : {
+            "hz" : 0
+          },
+          "current_connections" : 23,
+          "megabits_received" : {
+            "hz" : 0.026617500000000002
+          },
+          "megabits_sent" : {
+            "hz" : 0.026604700000000002
+          },
+          "tls_policy_failures" : {
+            "hz" : 0
+          }
+        },
+        "roles" : [
+        ],
+        "run_loop_busy" : 0.0022705999999999998,
+        "uptime_seconds" : 895.00199999999995,
+        "version" : "7.1.43"
+      },
+      "642155b397b4e9ae6ff7553375eb7374" : {
+        "address" : "100.82.170.99:4500:tls",
+        "class_source" : "command_line",
+        "class_type" : "log",
+        "command_line" : "/usr/bin/fdbserver --class=log --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --listen_address=100.82.170.99:4500:tls --locality_instance_id=log-2 --locality_machineid=fdb-cluster-dfbv55sk-log-2 --locality_zoneid=fdb-cluster-dfbv55sk-log-2 --logdir=/var/log/fdb-trace-logs --loggroup=jscheuermann-n5qldq2s-fdb-cluster-dfbv55sk --public_address=100.82.170.99:4500:tls --seed_cluster_file=/var/dynamic-conf/fdb.cluster --trace_format=json",
+        "cpu" : {
+          "usage_cores" : 0.0071773900000000005
+        },
+        "disk" : {
+          "busy" : 0.0015999999999999999,
+          "free_bytes" : 16396144640,
+          "reads" : {
+            "counter" : 164,
+            "hz" : 0,
+            "sectors" : 0
+          },
+          "total_bytes" : 16729894912,
+          "writes" : {
+            "counter" : 49730,
+            "hz" : 0.39999900000000005,
+            "sectors" : 16
+          }
+        },
+        "excluded" : false,
+        "fault_domain" : "fdb-cluster-dfbv55sk-log-2",
+        "locality" : {
+          "instance_id" : "log-2",
+          "machineid" : "fdb-cluster-dfbv55sk-log-2",
+          "processid" : "642155b397b4e9ae6ff7553375eb7374",
+          "zoneid" : "fdb-cluster-dfbv55sk-log-2"
+        },
+        "machine_id" : "fdb-cluster-dfbv55sk-log-2",
+        "memory" : {
+          "available_bytes" : 8589934592,
+          "limit_bytes" : 8589934592,
+          "rss_bytes" : 81608704,
+          "unused_allocated_memory" : 393184,
+          "used_bytes" : 647749632
+        },
+        "messages" : [
+        ],
+        "network" : {
+          "connection_errors" : {
+            "hz" : 0
+          },
+          "connections_closed" : {
+            "hz" : 0
+          },
+          "connections_established" : {
+            "hz" : 0
+          },
+          "current_connections" : 24,
+          "megabits_received" : {
+            "hz" : 0.097247800000000009
+          },
+          "megabits_sent" : {
+            "hz" : 0.067564600000000002
+          },
+          "tls_policy_failures" : {
+            "hz" : 0
+          }
+        },
+        "roles" : [
+          {
+            "role" : "coordinator"
+          },
+          {
+            "data_version" : 987117237,
+            "durable_bytes" : {
+              "counter" : 2240216240,
+              "hz" : 63.199800000000003,
+              "roughness" : 300.10199999999998
+            },
+            "id" : "075abd86afbaed59",
+            "input_bytes" : {
+              "counter" : 2240216556,
+              "hz" : 63.199800000000003,
+              "roughness" : 315
+            },
+            "kvstore_available_bytes" : 16396144640,
+            "kvstore_free_bytes" : 16396144640,
+            "kvstore_total_bytes" : 16729894912,
+            "kvstore_used_bytes" : 104907072,
+            "queue_disk_available_bytes" : 16396144640,
+            "queue_disk_free_bytes" : 16396144640,
+            "queue_disk_total_bytes" : 16729894912,
+            "queue_disk_used_bytes" : 211972096,
+            "role" : "log"
+          }
+        ],
+        "run_loop_busy" : 0.0046968899999999996,
+        "uptime_seconds" : 900.00300000000004,
+        "version" : "7.1.43"
+      },
+      "646b5d23c9fd2d19abcba6e95a6f1ec0" : {
+        "address" : "100.82.97.56:4500:tls",
+        "class_source" : "command_line",
+        "class_type" : "stateless",
+        "command_line" : "/usr/bin/fdbserver --class=stateless --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --listen_address=100.82.97.56:4500:tls --locality_instance_id=stateless-4 --locality_machineid=fdb-cluster-dfbv55sk-stateless-4 --locality_zoneid=fdb-cluster-dfbv55sk-stateless-4 --logdir=/var/log/fdb-trace-logs --loggroup=jscheuermann-n5qldq2s-fdb-cluster-dfbv55sk --public_address=100.82.97.56:4500:tls --seed_cluster_file=/var/dynamic-conf/fdb.cluster --trace_format=json",
+        "cpu" : {
+          "usage_cores" : 0.0028775899999999997
+        },
+        "disk" : {
+          "busy" : 0.0063999899999999995,
+          "free_bytes" : 1087154814976,
+          "reads" : {
+            "counter" : 39259,
+            "hz" : 0,
+            "sectors" : 0
+          },
+          "total_bytes" : 1099499024384,
+          "writes" : {
+            "counter" : 794252,
+            "hz" : 6.3999899999999998,
+            "sectors" : 1305
+          }
+        },
+        "excluded" : false,
+        "fault_domain" : "fdb-cluster-dfbv55sk-stateless-4",
+        "locality" : {
+          "instance_id" : "stateless-4",
+          "machineid" : "fdb-cluster-dfbv55sk-stateless-4",
+          "processid" : "646b5d23c9fd2d19abcba6e95a6f1ec0",
+          "zoneid" : "fdb-cluster-dfbv55sk-stateless-4"
+        },
+        "machine_id" : "fdb-cluster-dfbv55sk-stateless-4",
+        "memory" : {
+          "available_bytes" : 8589934592,
+          "limit_bytes" : 8589934592,
+          "rss_bytes" : 72417280,
+          "unused_allocated_memory" : 1048576,
+          "used_bytes" : 298049536
+        },
+        "messages" : [
+        ],
+        "network" : {
+          "connection_errors" : {
+            "hz" : 0
+          },
+          "connections_closed" : {
+            "hz" : 0
+          },
+          "connections_established" : {
+            "hz" : 0
+          },
+          "current_connections" : 16,
+          "megabits_received" : {
+            "hz" : 0.0204096
+          },
+          "megabits_sent" : {
+            "hz" : 0.019526400000000003
+          },
+          "tls_policy_failures" : {
+            "hz" : 0
+          }
+        },
+        "roles" : [
+          {
+            "id" : "e093fcfc6bd40fcf",
+            "role" : "resolver"
+          }
+        ],
+        "run_loop_busy" : 0.00166826,
+        "uptime_seconds" : 895.00199999999995,
+        "version" : "7.1.43"
+      },
+      "841c1ffbd45073b9d1adcf1c75c36562" : {
+        "address" : "100.82.75.115:4502:tls",
+        "class_source" : "command_line",
+        "class_type" : "storage",
+        "command_line" : "/usr/bin/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data/2 --listen_address=100.82.75.115:4502:tls --locality_instance_id=storage-2 --locality_machineid=fdb-cluster-dfbv55sk-storage-2 --locality_process_id=storage-2-2 --locality_zoneid=fdb-cluster-dfbv55sk-storage-2 --logdir=/var/log/fdb-trace-logs --loggroup=jscheuermann-n5qldq2s-fdb-cluster-dfbv55sk --public_address=100.82.75.115:4502:tls --seed_cluster_file=/var/dynamic-conf/fdb.cluster --trace_format=json",
+        "cpu" : {
+          "usage_cores" : 0.0051087900000000002
+        },
+        "disk" : {
+          "busy" : 0.0047999900000000005,
+          "free_bytes" : 14990229504,
+          "reads" : {
+            "counter" : 165,
+            "hz" : 0,
+            "sectors" : 0
+          },
+          "total_bytes" : 16729894912,
+          "writes" : {
+            "counter" : 462300,
+            "hz" : 5.3999899999999998,
+            "sectors" : 240
+          }
+        },
+        "excluded" : false,
+        "fault_domain" : "fdb-cluster-dfbv55sk-storage-2",
+        "locality" : {
+          "instance_id" : "storage-2",
+          "machineid" : "fdb-cluster-dfbv55sk-storage-2",
+          "process_id" : "storage-2-2",
+          "processid" : "841c1ffbd45073b9d1adcf1c75c36562",
+          "zoneid" : "fdb-cluster-dfbv55sk-storage-2"
+        },
+        "machine_id" : "fdb-cluster-dfbv55sk-storage-2",
+        "memory" : {
+          "available_bytes" : 8589934592,
+          "limit_bytes" : 8589934592,
+          "rss_bytes" : 1076842496,
+          "unused_allocated_memory" : 6552224,
+          "used_bytes" : 1485561856
+        },
+        "messages" : [
+        ],
+        "network" : {
+          "connection_errors" : {
+            "hz" : 0
+          },
+          "connections_closed" : {
+            "hz" : 0
+          },
+          "connections_established" : {
+            "hz" : 0
+          },
+          "current_connections" : 21,
+          "megabits_received" : {
+            "hz" : 0.033875100000000005
+          },
+          "megabits_sent" : {
+            "hz" : 0.047718300000000005
+          },
+          "tls_policy_failures" : {
+            "hz" : 0
+          }
+        },
+        "roles" : [
+          {
+            "bytes_queried" : {
+              "counter" : 390158560,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "data_lag" : {
+              "seconds" : 2.0171399999999999,
+              "versions" : 2017136
+            },
+            "data_version" : 987117237,
+            "durability_lag" : {
+              "seconds" : 5,
+              "versions" : 5000000
+            },
+            "durable_bytes" : {
+              "counter" : 2132843704,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "durable_version" : 982117237,
+            "fetched_versions" : {
+              "counter" : 987117237,
+              "hz" : 799387,
+              "roughness" : 1998650
+            },
+            "fetches_from_logs" : {
+              "counter" : 38088,
+              "hz" : 0.39999900000000005,
+              "roughness" : 8.7457400000000001e-05
+            },
+            "finished_queries" : {
+              "counter" : 5331,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "id" : "d5b27d595c7cdcd5",
+            "input_bytes" : {
+              "counter" : 2132843704,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "keys_queried" : {
+              "counter" : 375391,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "kvstore_available_bytes" : 14990229504,
+            "kvstore_free_bytes" : 14990229504,
+            "kvstore_inline_keys" : 0,
+            "kvstore_total_bytes" : 16729894912,
+            "kvstore_total_nodes" : 0,
+            "kvstore_total_size" : 0,
+            "kvstore_used_bytes" : 860746272,
+            "local_rate" : 100,
+            "low_priority_queries" : {
+              "counter" : 0,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "mutation_bytes" : {
+              "counter" : 782979950,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "mutations" : {
+              "counter" : 759714,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "query_queue_max" : 0,
+            "read_latency_statistics" : {
+              "count" : 0,
+              "max" : 0,
+              "mean" : 0,
+              "median" : 0,
+              "min" : 0,
+              "p25" : 0,
+              "p90" : 0,
+              "p95" : 0,
+              "p99" : 0,
+              "p99.9" : 0
+            },
+            "role" : "storage",
+            "storage_metadata" : {
+              "created_time_datetime" : "2024-01-24 09:33:39.000 +0000",
+              "created_time_timestamp" : 1706090000
+            },
+            "stored_bytes" : 608328000,
+            "total_queries" : {
+              "counter" : 5331,
+              "hz" : 0,
+              "roughness" : -1
+            }
+          }
+        ],
+        "run_loop_busy" : 0.00322369,
+        "uptime_seconds" : 890.005,
+        "version" : "7.1.43"
+      },
+      "b5d9a975b06c9ae6699a5cbe294a6a45" : {
+        "address" : "100.82.84.110:4500:tls",
+        "class_source" : "command_line",
+        "class_type" : "log",
+        "command_line" : "/usr/bin/fdbserver --class=log --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --listen_address=100.82.84.110:4500:tls --locality_instance_id=log-1 --locality_machineid=fdb-cluster-dfbv55sk-log-1 --locality_zoneid=fdb-cluster-dfbv55sk-log-1 --logdir=/var/log/fdb-trace-logs --loggroup=jscheuermann-n5qldq2s-fdb-cluster-dfbv55sk --public_address=100.82.84.110:4500:tls --seed_cluster_file=/var/dynamic-conf/fdb.cluster --trace_format=json",
+        "cpu" : {
+          "usage_cores" : 0.0042885900000000001
+        },
+        "disk" : {
+          "busy" : 0,
+          "free_bytes" : 16712990720,
+          "reads" : {
+            "counter" : 164,
+            "hz" : 0,
+            "sectors" : 0
+          },
+          "total_bytes" : 16729894912,
+          "writes" : {
+            "counter" : 1804,
+            "hz" : 0,
+            "sectors" : 0
+          }
+        },
+        "excluded" : false,
+        "fault_domain" : "fdb-cluster-dfbv55sk-log-1",
+        "locality" : {
+          "instance_id" : "log-1",
+          "machineid" : "fdb-cluster-dfbv55sk-log-1",
+          "processid" : "b5d9a975b06c9ae6699a5cbe294a6a45",
+          "zoneid" : "fdb-cluster-dfbv55sk-log-1"
+        },
+        "machine_id" : "fdb-cluster-dfbv55sk-log-1",
+        "memory" : {
+          "available_bytes" : 8589934592,
+          "limit_bytes" : 8589934592,
+          "rss_bytes" : 75829248,
+          "unused_allocated_memory" : 0,
+          "used_bytes" : 482467840
+        },
+        "messages" : [
+        ],
+        "network" : {
+          "connection_errors" : {
+            "hz" : 0
+          },
+          "connections_closed" : {
+            "hz" : 0
+          },
+          "connections_established" : {
+            "hz" : 0
+          },
+          "current_connections" : 24,
+          "megabits_received" : {
+            "hz" : 0.061862300000000002
+          },
+          "megabits_sent" : {
+            "hz" : 0.033676700000000004
+          },
+          "tls_policy_failures" : {
+            "hz" : 0
+          }
+        },
+        "roles" : [
+          {
+            "role" : "coordinator"
+          }
+        ],
+        "run_loop_busy" : 0.00255799,
+        "uptime_seconds" : 900.00199999999995,
+        "version" : "7.1.43"
+      },
+      "c1bbdd0ccc3bb30b8158057348566c1b" : {
+        "address" : "100.82.133.85:4500:tls",
+        "class_source" : "command_line",
+        "class_type" : "stateless",
+        "command_line" : "/usr/bin/fdbserver --class=stateless --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --listen_address=100.82.133.85:4500:tls --locality_instance_id=stateless-8 --locality_machineid=fdb-cluster-dfbv55sk-stateless-8 --locality_zoneid=fdb-cluster-dfbv55sk-stateless-8 --logdir=/var/log/fdb-trace-logs --loggroup=jscheuermann-n5qldq2s-fdb-cluster-dfbv55sk --public_address=100.82.133.85:4500:tls --seed_cluster_file=/var/dynamic-conf/fdb.cluster --trace_format=json",
+        "cpu" : {
+          "usage_cores" : 0.0047307899999999995
+        },
+        "disk" : {
+          "busy" : 0.0152,
+          "free_bytes" : 1069205327872,
+          "reads" : {
+            "counter" : 114456,
+            "hz" : 0,
+            "sectors" : 0
+          },
+          "total_bytes" : 1099499024384,
+          "writes" : {
+            "counter" : 31012140,
+            "hz" : 25.9999,
+            "sectors" : 2596
+          }
+        },
+        "excluded" : false,
+        "fault_domain" : "fdb-cluster-dfbv55sk-stateless-8",
+        "locality" : {
+          "instance_id" : "stateless-8",
+          "machineid" : "fdb-cluster-dfbv55sk-stateless-8",
+          "processid" : "c1bbdd0ccc3bb30b8158057348566c1b",
+          "zoneid" : "fdb-cluster-dfbv55sk-stateless-8"
+        },
+        "machine_id" : "fdb-cluster-dfbv55sk-stateless-8",
+        "memory" : {
+          "available_bytes" : 8589934592,
+          "limit_bytes" : 8589934592,
+          "rss_bytes" : 68685824,
+          "unused_allocated_memory" : 393216,
+          "used_bytes" : 326098944
+        },
+        "messages" : [
+        ],
+        "network" : {
+          "connection_errors" : {
+            "hz" : 0
+          },
+          "connections_closed" : {
+            "hz" : 0
+          },
+          "connections_established" : {
+            "hz" : 0
+          },
+          "current_connections" : 23,
+          "megabits_received" : {
+            "hz" : 0.036627100000000003
+          },
+          "megabits_sent" : {
+            "hz" : 0.038265500000000001
+          },
+          "tls_policy_failures" : {
+            "hz" : 0
+          }
+        },
+        "roles" : [
+          {
+            "id" : "c1c666f92afb8215",
+            "role" : "master"
+          }
+        ],
+        "run_loop_busy" : 0.0028444099999999999,
+        "uptime_seconds" : 895.00199999999995,
+        "version" : "7.1.43"
+      },
+      "cab524af333b068af5d3caaeb867b5aa" : {
+        "address" : "100.82.115.41:4500:tls",
+        "class_source" : "command_line",
+        "class_type" : "test",
+        "excluded" : false,
+        "memory" : {
+        },
+        "messages" : [
+        ],
+        "roles" : [
+        ]
+      },
+      "da1b429d7d0856f0ca99c20e60753347" : {
+        "address" : "100.82.170.47:4500:tls",
+        "class_source" : "command_line",
+        "class_type" : "stateless",
+        "command_line" : "/usr/bin/fdbserver --class=stateless --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --listen_address=100.82.170.47:4500:tls --locality_instance_id=stateless-6 --locality_machineid=fdb-cluster-dfbv55sk-stateless-6 --locality_zoneid=fdb-cluster-dfbv55sk-stateless-6 --logdir=/var/log/fdb-trace-logs --loggroup=jscheuermann-n5qldq2s-fdb-cluster-dfbv55sk --public_address=100.82.170.47:4500:tls --seed_cluster_file=/var/dynamic-conf/fdb.cluster --trace_format=json",
+        "cpu" : {
+          "usage_cores" : 0.0099925800000000009
+        },
+        "disk" : {
+          "busy" : 0.012,
+          "free_bytes" : 1085809397760,
+          "reads" : {
+            "counter" : 87016,
+            "hz" : 0,
+            "sectors" : 0
+          },
+          "total_bytes" : 1099499024384,
+          "writes" : {
+            "counter" : 62368927,
+            "hz" : 8.19998,
+            "sectors" : 1482
+          }
+        },
+        "excluded" : false,
+        "fault_domain" : "fdb-cluster-dfbv55sk-stateless-6",
+        "locality" : {
+          "instance_id" : "stateless-6",
+          "machineid" : "fdb-cluster-dfbv55sk-stateless-6",
+          "processid" : "da1b429d7d0856f0ca99c20e60753347",
+          "zoneid" : "fdb-cluster-dfbv55sk-stateless-6"
+        },
+        "machine_id" : "fdb-cluster-dfbv55sk-stateless-6",
+        "memory" : {
+          "available_bytes" : 8589934592,
+          "limit_bytes" : 8589934592,
+          "rss_bytes" : 71413760,
+          "unused_allocated_memory" : 0,
+          "used_bytes" : 468574208
+        },
+        "messages" : [
+        ],
+        "network" : {
+          "connection_errors" : {
+            "hz" : 0
+          },
+          "connections_closed" : {
+            "hz" : 0
+          },
+          "connections_established" : {
+            "hz" : 0
+          },
+          "current_connections" : 22,
+          "megabits_received" : {
+            "hz" : 0.130521
+          },
+          "megabits_sent" : {
+            "hz" : 0.18304000000000001
+          },
+          "tls_policy_failures" : {
+            "hz" : 0
+          }
+        },
+        "roles" : [
+          {
+            "grv_latency_statistics" : {
+              "batch" : {
+                "count" : 0,
+                "max" : 0,
+                "mean" : 0,
+                "median" : 0,
+                "min" : 0,
+                "p25" : 0,
+                "p90" : 0,
+                "p95" : 0,
+                "p99" : 0,
+                "p99.9" : 0
+              },
+              "default" : {
+                "count" : 398,
+                "max" : 0.0012390599999999999,
+                "mean" : 0.0009256659999999999,
+                "median" : 0.00092267999999999994,
+                "min" : 0.00086164499999999997,
+                "p25" : 0.00090503699999999992,
+                "p90" : 0.00095963499999999992,
+                "p95" : 0.00097560899999999989,
+                "p99" : 0.00103188,
+                "p99.9" : 0.0012390599999999999
+              }
+            },
+            "id" : "5458561703ac6e35",
+            "role" : "grv_proxy"
+          }
+        ],
+        "run_loop_busy" : 0.0062257099999999998,
+        "uptime_seconds" : 895.00199999999995,
+        "version" : "7.1.43"
+      },
+      "de7223e882449edd8f2a91b87bb329b6" : {
+        "address" : "100.82.161.229:4502:tls",
+        "class_source" : "command_line",
+        "class_type" : "storage",
+        "command_line" : "/usr/bin/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data/2 --listen_address=100.82.161.229:4502:tls --locality_instance_id=storage-4 --locality_machineid=fdb-cluster-dfbv55sk-storage-4 --locality_process_id=storage-4-2 --locality_zoneid=fdb-cluster-dfbv55sk-storage-4 --logdir=/var/log/fdb-trace-logs --loggroup=jscheuermann-n5qldq2s-fdb-cluster-dfbv55sk --public_address=100.82.161.229:4502:tls --seed_cluster_file=/var/dynamic-conf/fdb.cluster --trace_format=json",
+        "cpu" : {
+          "usage_cores" : 0.0054165899999999998
+        },
+        "disk" : {
+          "busy" : 0.0039999900000000001,
+          "free_bytes" : 14987005952,
+          "reads" : {
+            "counter" : 171,
+            "hz" : 0,
+            "sectors" : 0
+          },
+          "total_bytes" : 16729894912,
+          "writes" : {
+            "counter" : 491425,
+            "hz" : 3.9999899999999999,
+            "sectors" : 176
+          }
+        },
+        "excluded" : false,
+        "fault_domain" : "fdb-cluster-dfbv55sk-storage-4",
+        "locality" : {
+          "instance_id" : "storage-4",
+          "machineid" : "fdb-cluster-dfbv55sk-storage-4",
+          "process_id" : "storage-4-2",
+          "processid" : "de7223e882449edd8f2a91b87bb329b6",
+          "zoneid" : "fdb-cluster-dfbv55sk-storage-4"
+        },
+        "machine_id" : "fdb-cluster-dfbv55sk-storage-4",
+        "memory" : {
+          "available_bytes" : 8589934592,
+          "limit_bytes" : 8589934592,
+          "rss_bytes" : 1083609088,
+          "unused_allocated_memory" : 7600576,
+          "used_bytes" : 1491460096
+        },
+        "messages" : [
+        ],
+        "network" : {
+          "connection_errors" : {
+            "hz" : 0
+          },
+          "connections_closed" : {
+            "hz" : 0
+          },
+          "connections_established" : {
+            "hz" : 0
+          },
+          "current_connections" : 21,
+          "megabits_received" : {
+            "hz" : 0.033446300000000005
+          },
+          "megabits_sent" : {
+            "hz" : 0.047923100000000003
+          },
+          "tls_policy_failures" : {
+            "hz" : 0
+          }
+        },
+        "roles" : [
+          {
+            "bytes_queried" : {
+              "counter" : 400272968,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "data_lag" : {
+              "seconds" : 2.0171399999999999,
+              "versions" : 2017136
+            },
+            "data_version" : 987117237,
+            "durability_lag" : {
+              "seconds" : 5,
+              "versions" : 5000000
+            },
+            "durable_bytes" : {
+              "counter" : 2139192600,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "durable_version" : 982117237,
+            "fetched_versions" : {
+              "counter" : 987117237,
+              "hz" : 799387,
+              "roughness" : 1998650
+            },
+            "fetches_from_logs" : {
+              "counter" : 38074,
+              "hz" : 0.39999900000000005,
+              "roughness" : 8.7343200000000008e-05
+            },
+            "finished_queries" : {
+              "counter" : 5310,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "id" : "99880c7fbd12623d",
+            "input_bytes" : {
+              "counter" : 2139192600,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "keys_queried" : {
+              "counter" : 384800,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "kvstore_available_bytes" : 14987005952,
+            "kvstore_free_bytes" : 14987005952,
+            "kvstore_inline_keys" : 0,
+            "kvstore_total_bytes" : 16729894912,
+            "kvstore_total_nodes" : 0,
+            "kvstore_total_size" : 0,
+            "kvstore_used_bytes" : 862472552,
+            "local_rate" : 100,
+            "low_priority_queries" : {
+              "counter" : 0,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "mutation_bytes" : {
+              "counter" : 769783324,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "mutations" : {
+              "counter" : 746916,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "query_queue_max" : 0,
+            "read_latency_statistics" : {
+              "count" : 0,
+              "max" : 0,
+              "mean" : 0,
+              "median" : 0,
+              "min" : 0,
+              "p25" : 0,
+              "p90" : 0,
+              "p95" : 0,
+              "p99" : 0,
+              "p99.9" : 0
+            },
+            "role" : "storage",
+            "storage_metadata" : {
+              "created_time_datetime" : "2024-01-24 09:33:39.000 +0000",
+              "created_time_timestamp" : 1706090000
+            },
+            "stored_bytes" : 637393750,
+            "total_queries" : {
+              "counter" : 5310,
+              "hz" : 0,
+              "roughness" : -1
+            }
+          }
+        ],
+        "run_loop_busy" : 0.0034705499999999998,
+        "uptime_seconds" : 890.00400000000002,
+        "version" : "7.1.43"
+      },
+      "e4298a2ec824db71a548abfd10bcc87e" : {
+        "address" : "100.82.149.78:4500:tls",
+        "class_source" : "command_line",
+        "class_type" : "stateless",
+        "command_line" : "/usr/bin/fdbserver --class=stateless --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --listen_address=100.82.149.78:4500:tls --locality_instance_id=stateless-2 --locality_machineid=fdb-cluster-dfbv55sk-stateless-2 --locality_zoneid=fdb-cluster-dfbv55sk-stateless-2 --logdir=/var/log/fdb-trace-logs --loggroup=jscheuermann-n5qldq2s-fdb-cluster-dfbv55sk --public_address=100.82.149.78:4500:tls --seed_cluster_file=/var/dynamic-conf/fdb.cluster --trace_format=json",
+        "cpu" : {
+          "usage_cores" : 0.017765600000000003
+        },
+        "disk" : {
+          "busy" : 0.010400000000000001,
+          "free_bytes" : 1082918670336,
+          "reads" : {
+            "counter" : 86641,
+            "hz" : 0,
+            "sectors" : 0
+          },
+          "total_bytes" : 1099499024384,
+          "writes" : {
+            "counter" : 28640477,
+            "hz" : 24.399999999999999,
+            "sectors" : 2194
+          }
+        },
+        "excluded" : false,
+        "fault_domain" : "fdb-cluster-dfbv55sk-stateless-2",
+        "locality" : {
+          "instance_id" : "stateless-2",
+          "machineid" : "fdb-cluster-dfbv55sk-stateless-2",
+          "processid" : "e4298a2ec824db71a548abfd10bcc87e",
+          "zoneid" : "fdb-cluster-dfbv55sk-stateless-2"
+        },
+        "machine_id" : "fdb-cluster-dfbv55sk-stateless-2",
+        "memory" : {
+          "available_bytes" : 8589934592,
+          "limit_bytes" : 8589934592,
+          "rss_bytes" : 61882368,
+          "unused_allocated_memory" : 131072,
+          "used_bytes" : 315219968
+        },
+        "messages" : [
+        ],
+        "network" : {
+          "connection_errors" : {
+            "hz" : 0
+          },
+          "connections_closed" : {
+            "hz" : 0
+          },
+          "connections_established" : {
+            "hz" : 0
+          },
+          "current_connections" : 23,
+          "megabits_received" : {
+            "hz" : 0.39178100000000005
+          },
+          "megabits_sent" : {
+            "hz" : 0.161216
+          },
+          "tls_policy_failures" : {
+            "hz" : 0
+          }
+        },
+        "roles" : [
+          {
+            "id" : "23e4e3af78a28fb5",
+            "role" : "ratekeeper"
+          }
+        ],
+        "run_loop_busy" : 0.011177400000000001,
+        "uptime_seconds" : 895.00199999999995,
+        "version" : "7.1.43"
+      },
+      "e64ca2397496d1239f247ac57cd1dd88" : {
+        "address" : "100.82.75.115:4500:tls",
+        "class_source" : "command_line",
+        "class_type" : "storage",
+        "command_line" : "/usr/bin/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data/1 --listen_address=100.82.75.115:4500:tls --locality_instance_id=storage-2 --locality_machineid=fdb-cluster-dfbv55sk-storage-2 --locality_process_id=storage-2-1 --locality_zoneid=fdb-cluster-dfbv55sk-storage-2 --logdir=/var/log/fdb-trace-logs --loggroup=jscheuermann-n5qldq2s-fdb-cluster-dfbv55sk --public_address=100.82.75.115:4500:tls --seed_cluster_file=/var/dynamic-conf/fdb.cluster --trace_format=json",
+        "cpu" : {
+          "usage_cores" : 0.0056809899999999995
+        },
+        "disk" : {
+          "busy" : 0.0047999900000000005,
+          "free_bytes" : 14990229504,
+          "reads" : {
+            "counter" : 165,
+            "hz" : 0,
+            "sectors" : 0
+          },
+          "total_bytes" : 16729894912,
+          "writes" : {
+            "counter" : 462300,
+            "hz" : 5.3999899999999998,
+            "sectors" : 240
+          }
+        },
+        "excluded" : false,
+        "fault_domain" : "fdb-cluster-dfbv55sk-storage-2",
+        "locality" : {
+          "instance_id" : "storage-2",
+          "machineid" : "fdb-cluster-dfbv55sk-storage-2",
+          "process_id" : "storage-2-1",
+          "processid" : "e64ca2397496d1239f247ac57cd1dd88",
+          "zoneid" : "fdb-cluster-dfbv55sk-storage-2"
+        },
+        "machine_id" : "fdb-cluster-dfbv55sk-storage-2",
+        "memory" : {
+          "available_bytes" : 8589934592,
+          "limit_bytes" : 8589934592,
+          "rss_bytes" : 1036914688,
+          "unused_allocated_memory" : 6159008,
+          "used_bytes" : 1602609152
+        },
+        "messages" : [
+        ],
+        "network" : {
+          "connection_errors" : {
+            "hz" : 0
+          },
+          "connections_closed" : {
+            "hz" : 0
+          },
+          "connections_established" : {
+            "hz" : 0
+          },
+          "current_connections" : 23,
+          "megabits_received" : {
+            "hz" : 0.043327900000000003
+          },
+          "megabits_sent" : {
+            "hz" : 0.131776
+          },
+          "tls_policy_failures" : {
+            "hz" : 0
+          }
+        },
+        "roles" : [
+          {
+            "bytes_queried" : {
+              "counter" : 337334386,
+              "hz" : 10340,
+              "roughness" : 15925.299999999999
+            },
+            "data_lag" : {
+              "seconds" : 2.0171399999999999,
+              "versions" : 2017136
+            },
+            "data_version" : 987117237,
+            "durability_lag" : {
+              "seconds" : 5,
+              "versions" : 5000000
+            },
+            "durable_bytes" : {
+              "counter" : 1658031118,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "durable_version" : 982117237,
+            "fetched_versions" : {
+              "counter" : 986943879,
+              "hz" : 799387,
+              "roughness" : 1998650
+            },
+            "fetches_from_logs" : {
+              "counter" : 38069,
+              "hz" : 0.39999900000000005,
+              "roughness" : 8.7477600000000004e-05
+            },
+            "finished_queries" : {
+              "counter" : 8234,
+              "hz" : 3.3999899999999998,
+              "roughness" : 2.9630100000000001
+            },
+            "id" : "753e9c04e49a59ac",
+            "input_bytes" : {
+              "counter" : 1658033114,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "keys_queried" : {
+              "counter" : 340564,
+              "hz" : 27.9999,
+              "roughness" : 42.127200000000002
+            },
+            "kvstore_available_bytes" : 14990229504,
+            "kvstore_free_bytes" : 14990229504,
+            "kvstore_inline_keys" : 0,
+            "kvstore_total_bytes" : 16729894912,
+            "kvstore_total_nodes" : 0,
+            "kvstore_total_size" : 0,
+            "kvstore_used_bytes" : 862031712,
+            "local_rate" : 100,
+            "low_priority_queries" : {
+              "counter" : 0,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "mutation_bytes" : {
+              "counter" : 596515104,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "mutations" : {
+              "counter" : 580476,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "query_queue_max" : 3,
+            "read_latency_statistics" : {
+              "count" : 178,
+              "max" : 0.000146866,
+              "mean" : 9.2257300000000029e-05,
+              "median" : 9.6321100000000036e-05,
+              "min" : 1.1205700000000004e-05,
+              "p25" : 7.987020000000002e-05,
+              "p90" : 0.00012183199999999999,
+              "p95" : 0.000125408,
+              "p99" : 0.00013518299999999998,
+              "p99.9" : 0.000146866
+            },
+            "role" : "storage",
+            "storage_metadata" : {
+              "created_time_datetime" : "2024-01-24 09:33:40.000 +0000",
+              "created_time_timestamp" : 1706090000
+            },
+            "stored_bytes" : 606902749,
+            "total_queries" : {
+              "counter" : 8234,
+              "hz" : 3.3999899999999998,
+              "roughness" : 2.9630100000000001
+            }
+          }
+        ],
+        "run_loop_busy" : 0.00365533,
+        "uptime_seconds" : 890.00300000000004,
+        "version" : "7.1.43"
+      },
+      "eb9f10e32e39e290d6e6e606336a0078" : {
+        "address" : "100.82.33.131:4502:tls",
+        "class_source" : "command_line",
+        "class_type" : "storage",
+        "command_line" : "/usr/bin/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data/2 --listen_address=100.82.33.131:4502:tls --locality_instance_id=storage-1 --locality_machineid=fdb-cluster-dfbv55sk-storage-1 --locality_process_id=storage-1-2 --locality_zoneid=fdb-cluster-dfbv55sk-storage-1 --logdir=/var/log/fdb-trace-logs --loggroup=jscheuermann-n5qldq2s-fdb-cluster-dfbv55sk --public_address=100.82.33.131:4502:tls --seed_cluster_file=/var/dynamic-conf/fdb.cluster --trace_format=json",
+        "cpu" : {
+          "usage_cores" : 0.0063643900000000002
+        },
+        "disk" : {
+          "busy" : 0.0047999900000000005,
+          "free_bytes" : 14989590528,
+          "reads" : {
+            "counter" : 167,
+            "hz" : 0,
+            "sectors" : 0
+          },
+          "total_bytes" : 16729894912,
+          "writes" : {
+            "counter" : 458116,
+            "hz" : 3.9999899999999999,
+            "sectors" : 176
+          }
+        },
+        "excluded" : false,
+        "fault_domain" : "fdb-cluster-dfbv55sk-storage-1",
+        "locality" : {
+          "instance_id" : "storage-1",
+          "machineid" : "fdb-cluster-dfbv55sk-storage-1",
+          "process_id" : "storage-1-2",
+          "processid" : "eb9f10e32e39e290d6e6e606336a0078",
+          "zoneid" : "fdb-cluster-dfbv55sk-storage-1"
+        },
+        "machine_id" : "fdb-cluster-dfbv55sk-storage-1",
+        "memory" : {
+          "available_bytes" : 8589934592,
+          "limit_bytes" : 8589934592,
+          "rss_bytes" : 1086988288,
+          "unused_allocated_memory" : 4717696,
+          "used_bytes" : 1454235648
+        },
+        "messages" : [
+        ],
+        "network" : {
+          "connection_errors" : {
+            "hz" : 0
+          },
+          "connections_closed" : {
+            "hz" : 0
+          },
+          "connections_established" : {
+            "hz" : 0
+          },
+          "current_connections" : 21,
+          "megabits_received" : {
+            "hz" : 0.033318299999999995
+          },
+          "megabits_sent" : {
+            "hz" : 0.047455900000000002
+          },
+          "tls_policy_failures" : {
+            "hz" : 0
+          }
+        },
+        "roles" : [
+          {
+            "bytes_queried" : {
+              "counter" : 345828553,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "data_lag" : {
+              "seconds" : 2.0171399999999999,
+              "versions" : 2017136
+            },
+            "data_version" : 987117237,
+            "durability_lag" : {
+              "seconds" : 5,
+              "versions" : 5000000
+            },
+            "durable_bytes" : {
+              "counter" : 1790887786,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "durable_version" : 982117237,
+            "fetched_versions" : {
+              "counter" : 986899723,
+              "hz" : 799386,
+              "roughness" : 1998650
+            },
+            "fetches_from_logs" : {
+              "counter" : 38055,
+              "hz" : 0.39999900000000005,
+              "roughness" : 8.7368200000000022e-05
+            },
+            "finished_queries" : {
+              "counter" : 4317,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "id" : "0a023c91d55d9154",
+            "input_bytes" : {
+              "counter" : 1790887786,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "keys_queried" : {
+              "counter" : 331571,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "kvstore_available_bytes" : 14989590528,
+            "kvstore_free_bytes" : 14989590528,
+            "kvstore_inline_keys" : 0,
+            "kvstore_total_bytes" : 16729894912,
+            "kvstore_total_nodes" : 0,
+            "kvstore_total_size" : 0,
+            "kvstore_used_bytes" : 860519672,
+            "local_rate" : 100,
+            "low_priority_queries" : {
+              "counter" : 0,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "mutation_bytes" : {
+              "counter" : 644587619,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "mutations" : {
+              "counter" : 625325,
+              "hz" : 0,
+              "roughness" : -1
+            },
+            "query_queue_max" : 0,
+            "read_latency_statistics" : {
+              "count" : 0,
+              "max" : 0,
+              "mean" : 0,
+              "median" : 0,
+              "min" : 0,
+              "p25" : 0,
+              "p90" : 0,
+              "p95" : 0,
+              "p99" : 0,
+              "p99.9" : 0
+            },
+            "role" : "storage",
+            "storage_metadata" : {
+              "created_time_datetime" : "2024-01-24 09:33:40.000 +0000",
+              "created_time_timestamp" : 1706090000
+            },
+            "stored_bytes" : 646913750,
+            "total_queries" : {
+              "counter" : 4317,
+              "hz" : 0,
+              "roughness" : -1
+            }
+          }
+        ],
+        "run_loop_busy" : 0.0042376899999999997,
+        "uptime_seconds" : 895.00300000000004,
+        "version" : "7.1.43"
+      },
+      "eee0a09b8b267fba88be8b17ce48cc3c" : {
+        "address" : "100.82.118.240:4500:tls",
+        "class_source" : "command_line",
+        "class_type" : "log",
+        "command_line" : "/usr/bin/fdbserver --class=log --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --listen_address=100.82.118.240:4500:tls --locality_instance_id=log-4 --locality_machineid=fdb-cluster-dfbv55sk-log-4 --locality_zoneid=fdb-cluster-dfbv55sk-log-4 --logdir=/var/log/fdb-trace-logs --loggroup=jscheuermann-n5qldq2s-fdb-cluster-dfbv55sk --public_address=100.82.118.240:4500:tls --seed_cluster_file=/var/dynamic-conf/fdb.cluster --trace_format=json",
+        "cpu" : {
+          "usage_cores" : 0.0041125900000000002
+        },
+        "disk" : {
+          "busy" : 0,
+          "free_bytes" : 16713039872,
+          "reads" : {
+            "counter" : 166,
+            "hz" : 0,
+            "sectors" : 0
+          },
+          "total_bytes" : 16729894912,
+          "writes" : {
+            "counter" : 1785,
+            "hz" : 0,
+            "sectors" : 0
+          }
+        },
+        "excluded" : false,
+        "fault_domain" : "fdb-cluster-dfbv55sk-log-4",
+        "locality" : {
+          "instance_id" : "log-4",
+          "machineid" : "fdb-cluster-dfbv55sk-log-4",
+          "processid" : "eee0a09b8b267fba88be8b17ce48cc3c",
+          "zoneid" : "fdb-cluster-dfbv55sk-log-4"
+        },
+        "machine_id" : "fdb-cluster-dfbv55sk-log-4",
+        "memory" : {
+          "available_bytes" : 8589934592,
+          "limit_bytes" : 8589934592,
+          "rss_bytes" : 75587584,
+          "unused_allocated_memory" : 0,
+          "used_bytes" : 505798656
+        },
+        "messages" : [
+        ],
+        "network" : {
+          "connection_errors" : {
+            "hz" : 0
+          },
+          "connections_closed" : {
+            "hz" : 0
+          },
+          "connections_established" : {
+            "hz" : 0
+          },
+          "current_connections" : 24,
+          "megabits_received" : {
+            "hz" : 0.061971000000000005
+          },
+          "megabits_sent" : {
+            "hz" : 0.033798300000000003
+          },
+          "tls_policy_failures" : {
+            "hz" : 0
+          }
+        },
+        "roles" : [
+          {
+            "role" : "coordinator"
+          }
+        ],
+        "run_loop_busy" : 0.00242428,
+        "uptime_seconds" : 895.00199999999995,
+        "version" : "7.1.43"
+      },
+      "f6230ec851e04c537cf12173901383ee" : {
+        "address" : "100.82.50.180:4500:tls",
+        "class_source" : "command_line",
+        "class_type" : "stateless",
+        "command_line" : "/usr/bin/fdbserver --class=stateless --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --listen_address=100.82.50.180:4500:tls --locality_instance_id=stateless-5 --locality_machineid=fdb-cluster-dfbv55sk-stateless-5 --locality_zoneid=fdb-cluster-dfbv55sk-stateless-5 --logdir=/var/log/fdb-trace-logs --loggroup=jscheuermann-n5qldq2s-fdb-cluster-dfbv55sk --public_address=100.82.50.180:4500:tls --seed_cluster_file=/var/dynamic-conf/fdb.cluster --trace_format=json",
+        "cpu" : {
+          "usage_cores" : 0.0062099799999999995
+        },
+        "disk" : {
+          "busy" : 0.012,
+          "free_bytes" : 1069072568320,
+          "reads" : {
+            "counter" : 87544,
+            "hz" : 0,
+            "sectors" : 0
+          },
+          "total_bytes" : 1099499024384,
+          "writes" : {
+            "counter" : 29210445,
+            "hz" : 24.599900000000002,
+            "sectors" : 2321
+          }
+        },
+        "excluded" : false,
+        "fault_domain" : "fdb-cluster-dfbv55sk-stateless-5",
+        "locality" : {
+          "instance_id" : "stateless-5",
+          "machineid" : "fdb-cluster-dfbv55sk-stateless-5",
+          "processid" : "f6230ec851e04c537cf12173901383ee",
+          "zoneid" : "fdb-cluster-dfbv55sk-stateless-5"
+        },
+        "machine_id" : "fdb-cluster-dfbv55sk-stateless-5",
+        "memory" : {
+          "available_bytes" : 8589934592,
+          "limit_bytes" : 8589934592,
+          "rss_bytes" : 79089664,
+          "unused_allocated_memory" : 393216,
+          "used_bytes" : 473554944
+        },
+        "messages" : [
+        ],
+        "network" : {
+          "connection_errors" : {
+            "hz" : 0
+          },
+          "connections_closed" : {
+            "hz" : 0
+          },
+          "connections_established" : {
+            "hz" : 0
+          },
+          "current_connections" : 24,
+          "megabits_received" : {
+            "hz" : 0.063001399999999999
+          },
+          "megabits_sent" : {
+            "hz" : 0.20303300000000002
+          },
+          "tls_policy_failures" : {
+            "hz" : 0
+          }
+        },
+        "roles" : [
+          {
+            "id" : "4c0a815188708fcf",
+            "role" : "cluster_controller"
+          }
+        ],
+        "run_loop_busy" : 0.0038145799999999997,
+        "uptime_seconds" : 895.00300000000004,
+        "version" : "7.1.43"
+      }
+    },
+    "protocol_version" : "fdb00b071010000",
+    "qos" : {
+      "batch_performance_limited_by" : {
+        "description" : "The database is not being saturated by the workload.",
+        "name" : "workload",
+        "reason_id" : 2
+      },
+      "batch_released_transactions_per_second" : 8.5265099999999998e-14,
+      "batch_transactions_per_second_limit" : 300730000,
+      "limiting_data_lag_storage_server" : {
+        "seconds" : 0,
+        "versions" : 0
+      },
+      "limiting_durability_lag_storage_server" : {
+        "seconds" : 5.0000299999999998,
+        "versions" : 5000030
+      },
+      "limiting_queue_bytes_storage_server" : 555,
+      "performance_limited_by" : {
+        "description" : "The database is not being saturated by the workload.",
+        "name" : "workload",
+        "reason_id" : 2
+      },
+      "released_transactions_per_second" : 3.6248100000000001,
+      "throttled_tags" : {
+        "auto" : {
+          "busy_read" : 0,
+          "busy_write" : 0,
+          "count" : 0,
+          "recommended_only" : 0
+        },
+        "manual" : {
+          "count" : 0
+        }
+      },
+      "transactions_per_second_limit" : 302227000,
+      "worst_data_lag_storage_server" : {
+        "seconds" : 0,
+        "versions" : 0
+      },
+      "worst_durability_lag_storage_server" : {
+        "seconds" : 5.00014,
+        "versions" : 5000145
+      },
+      "worst_queue_bytes_log_server" : 316,
+      "worst_queue_bytes_storage_server" : 570
+    },
+    "recovery_state" : {
+      "active_generations" : 1,
+      "description" : "Recovery complete.",
+      "name" : "fully_recovered",
+      "seconds_since_last_recovered" : 886.86800000000005
+    },
+    "workload" : {
+      "bytes" : {
+        "read" : {
+          "counter" : 3635154430,
+          "hz" : 25853.200000000001,
+          "roughness" : 14541.299999999999
+        },
+        "written" : {
+          "counter" : 2038138356,
+          "hz" : 14,
+          "roughness" : 69
+        }
+      },
+      "keys" : {
+        "read" : {
+          "counter" : 3535739,
+          "hz" : 70.199799999999996,
+          "roughness" : 38.477400000000003
+        }
+      },
+      "operations" : {
+        "location_requests" : {
+          "counter" : 710,
+          "hz" : 0,
+          "roughness" : 0
+        },
+        "low_priority_reads" : {
+          "counter" : 0,
+          "hz" : 0,
+          "roughness" : 0
+        },
+        "memory_errors" : {
+          "counter" : 0,
+          "hz" : 0,
+          "roughness" : 0
+        },
+        "read_requests" : {
+          "counter" : 57467,
+          "hz" : 7.3999800000000002,
+          "roughness" : 2.59023
+        },
+        "reads" : {
+          "counter" : 57467,
+          "hz" : 7.3999800000000002,
+          "roughness" : 2.59023
+        },
+        "writes" : {
+          "counter" : 2002440,
+          "hz" : 0.39999900000000005,
+          "roughness" : 1
+        }
+      },
+      "transactions" : {
+        "committed" : {
+          "counter" : 40282,
+          "hz" : 0.20000000000000001,
+          "roughness" : 0
+        },
+        "conflicted" : {
+          "counter" : 24,
+          "hz" : 0,
+          "roughness" : 0
+        },
+        "rejected_for_queued_too_long" : {
+          "counter" : 0,
+          "hz" : 0,
+          "roughness" : 0
+        },
+        "started" : {
+          "counter" : 43754,
+          "hz" : 2.7999900000000002,
+          "roughness" : 0.457708
+        },
+        "started_batch_priority" : {
+          "counter" : 47,
+          "hz" : 0,
+          "roughness" : 0
+        },
+        "started_default_priority" : {
+          "counter" : 41928,
+          "hz" : 1.59999,
+          "roughness" : 0.41695100000000002
+        },
+        "started_immediate_priority" : {
+          "counter" : 1779,
+          "hz" : 1.2,
+          "roughness" : 0.080196599999999993
+        }
+      }
+    }
+  }
+}

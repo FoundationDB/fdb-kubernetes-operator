@@ -1747,4 +1747,67 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			Expect(cluster.Status.DatabaseConfiguration.RoleCounts.Proxies).NotTo(BeZero())
 		})
 	})
+
+	When("running with tester processes", func() {
+		BeforeEach(func() {
+			// We will be restarting the CC, so we can ignore this check.
+			availabilityCheck = false
+			spec := fdbCluster.GetCluster().Spec.DeepCopy()
+			spec.ProcessCounts.Test = 1
+			fmt.Println("Adding 1 tester process to the cluster")
+			fdbCluster.UpdateClusterSpecWithSpec(spec)
+			Expect(fdbCluster.WaitForReconciliation()).NotTo(HaveOccurred())
+		})
+
+		It("when the tester process fails", func() {
+			// Make sure the operator is not taking any action as long as we are preparing the setup
+			Expect(fdbCluster.SetSkipReconciliation(true)).NotTo(HaveOccurred())
+			// We don't need the tester process anymore
+			spec := fdbCluster.GetCluster().Spec.DeepCopy()
+			spec.ProcessCounts.Test = 0
+			fdbCluster.UpdateClusterSpecWithSpec(spec)
+
+			// Make sure we delete the tester process
+			pods := fdbCluster.GetPods()
+
+			for _, pod := range pods.Items {
+				if fixtures.GetProcessClass(pod) != fdbv1beta2.ProcessClassTest {
+					continue
+				}
+
+				factory.Delete(&pod)
+			}
+
+			// Wait until the cluster shows the unreachable process.
+			Eventually(func() []string {
+				status := fdbCluster.GetStatus()
+
+				messages := make([]string, 0, len(status.Cluster.Messages))
+				for _, message := range status.Cluster.Messages {
+					messages = append(messages, message.Name)
+				}
+
+				log.Println("current messages:", messages)
+
+				return messages
+			}).WithPolling(1 * time.Second).WithTimeout(2 * time.Minute).MustPassRepeatedly(5).Should(ContainElements("status_incomplete", "unreachable_processes"))
+
+			// Let the operator fix the issue.
+			Expect(fdbCluster.SetSkipReconciliation(false)).NotTo(HaveOccurred())
+
+			// The operator should be restarting the cluster controller and this should clean the unreachable_processes
+			Eventually(func() []string {
+				status := fdbCluster.GetStatus()
+
+				messages := make([]string, 0, len(status.Cluster.Messages))
+				for _, message := range status.Cluster.Messages {
+					messages = append(messages, message.Name)
+				}
+
+				log.Println("current messages:", messages)
+
+				return messages
+			}).WithPolling(1 * time.Second).WithTimeout(5 * time.Minute).MustPassRepeatedly(5).Should(BeEmpty())
+		})
+	})
 })
