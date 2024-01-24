@@ -63,9 +63,6 @@ type FoundationDBUnreachableProcess struct {
 	// Address provides the address of the unreachable process
 	Address string `json:"address,omitempty"`
 }
-
-//  "address" : "100.82.115.41:4500:tls"
-
 // FoundationDBStatusCoordinatorInfo contains information about the client's
 // connection to the coordinators.
 type FoundationDBStatusCoordinatorInfo struct {
