@@ -97,9 +97,9 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 	if err != nil {
 		r.Recorder.Event(cluster, corev1.EventTypeNormal, "NeedsBounce", err.Error())
 		cluster.Status.Generations.NeedsBounce = cluster.ObjectMeta.Generation
-		err = r.updateOrApply(ctx, cluster)
-		if err != nil {
-			logger.Error(err, "Error updating cluster status")
+		applyError := r.updateOrApply(ctx, cluster)
+		if applyError != nil {
+			logger.Error(applyError, "Error updating cluster status")
 		}
 
 		// Retry after we waited the minimum uptime or at least 15 seconds.

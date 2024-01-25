@@ -650,6 +650,11 @@ var _ = Describe("bounceProcesses", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				adminClient.FrozenStatus = &fdbv1beta2.FoundationDBStatus{
+					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+							Available: true,
+						},
+					},
 					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
 						Messages: []fdbv1beta2.FoundationDBStatusMessage{
 							{
@@ -775,6 +780,11 @@ var _ = Describe("bounceProcesses", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				adminClient.FrozenStatus = &fdbv1beta2.FoundationDBStatus{
+					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+							Available: true,
+						},
+					},
 					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
 						Messages: []fdbv1beta2.FoundationDBStatusMessage{
 							{
