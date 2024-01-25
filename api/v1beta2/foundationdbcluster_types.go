@@ -1466,22 +1466,9 @@ func (cluster *FoundationDBCluster) CheckReconciliation(log logr.Logger) (bool, 
 		return false, nil
 	}
 
-	cluster.Status.Generations = ClusterGenerationStatus{Reconciled: cluster.Status.Generations.Reconciled}
-	for _, processGroup := range cluster.Status.ProcessGroups {
-		if !processGroup.IsMarkedForRemoval() {
-			continue
-		}
-
-		if processGroup.GetConditionTime(ResourcesTerminating) != nil {
-			logger.Info("Has process group pending to remove", "processGroupID", processGroup.ProcessGroupID, "state", "HasPendingRemoval")
-			cluster.Status.Generations.HasPendingRemoval = cluster.ObjectMeta.Generation
-		} else {
-			logger.Info("Has process group with pending shrink", "processGroupID", processGroup.ProcessGroupID, "state", "NeedsShrink")
-			cluster.Status.Generations.NeedsShrink = cluster.ObjectMeta.Generation
-			reconciled = false
-		}
+	cluster.Status.Generations = ClusterGenerationStatus{
+		Reconciled: cluster.Status.Generations.Reconciled,
 	}
-
 	desiredCounts, err := cluster.GetProcessCountsWithDefaults()
 	if err != nil {
 		return false, err
@@ -1490,7 +1477,6 @@ func (cluster *FoundationDBCluster) CheckReconciliation(log logr.Logger) (bool, 
 	currentCounts := CreateProcessCountsFromProcessGroupStatus(cluster.Status.ProcessGroups, false)
 
 	diff := desiredCounts.Diff(currentCounts)
-
 	for _, delta := range diff {
 		if delta > 0 {
 			cluster.Status.Generations.NeedsGrow = cluster.ObjectMeta.Generation
@@ -1502,18 +1488,28 @@ func (cluster *FoundationDBCluster) CheckReconciliation(log logr.Logger) (bool, 
 	}
 
 	cluster.Status.DesiredProcessGroups = desiredCounts.Total()
-	cluster.Status.ReconciledProcessGroups = 0
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup.IsMarkedForRemoval() {
+			if processGroup.GetConditionTime(ResourcesTerminating) != nil {
+				logger.Info("Has process group pending to remove", "processGroupID", processGroup.ProcessGroupID, "state", "HasPendingRemoval")
+				cluster.Status.Generations.HasPendingRemoval = cluster.ObjectMeta.Generation
+			} else {
+				logger.Info("Has process group with pending shrink", "processGroupID", processGroup.ProcessGroupID, "state", "NeedsShrink")
+				cluster.Status.Generations.NeedsShrink = cluster.ObjectMeta.Generation
+				reconciled = false
+			}
+
 			continue
 		}
 
 		if len(processGroup.ProcessGroupConditions) > 0 {
 			conditions := make([]ProcessGroupConditionType, 0, len(processGroup.ProcessGroupConditions))
 			for _, condition := range processGroup.ProcessGroupConditions {
-				if condition.ProcessGroupConditionType == IncorrectCommandLine && cluster.Status.Generations.NeedsBounce == 0 {
-					logger.Info("Pending restart of fdbserver processes", "state", "NeedsBounce")
+				// If there is at least one process with an incorrect command line, that means the operator has to restart
+				// processes.
+				if condition.ProcessGroupConditionType == IncorrectCommandLine {
+					logger.V(1).Info("Pending restart of fdbserver processes", "state", "NeedsBounce")
 					cluster.Status.Generations.NeedsBounce = cluster.ObjectMeta.Generation
 				}
 				conditions = append(conditions, condition.ProcessGroupConditionType)

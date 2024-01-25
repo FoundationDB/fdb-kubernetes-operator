@@ -105,7 +105,7 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 		cluster.ClearMissingVersionFlags(&clusterStatus.DatabaseConfiguration)
 	}
 
-	clusterStatus.Configured = cluster.Status.Configured || (databaseStatus.Client.DatabaseStatus.Available && databaseStatus.Cluster.Layers.Error != "configurationMissing")
+	clusterStatus.Configured = databaseStatus.Client.DatabaseStatus.Available && databaseStatus.Cluster.Layers.Error != "configurationMissing"
 
 	if cluster.Spec.MainContainer.EnableTLS {
 		clusterStatus.RequiredAddresses.TLS = true
