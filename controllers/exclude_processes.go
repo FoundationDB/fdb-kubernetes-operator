@@ -66,55 +66,63 @@ func (e excludeProcesses) reconcile(_ context.Context, r *FoundationDBClusterRec
 	logger.Info("current exclusions", "exclusions", exclusions)
 	fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(exclusions, cluster)
 
-	if len(fdbProcessesToExcludeByClass) > 0 {
-		var fdbProcessesToExclude []fdbv1beta2.ProcessAddress
-		desiredProcesses, err := cluster.GetProcessCountsWithDefaults()
-		if err != nil {
-			return &requeue{curError: err, delayedRequeue: true}
+	// No processes have to be excluded we can directly return.
+	if len(fdbProcessesToExcludeByClass) == 0 {
+		return nil
+	}
+
+	// Make sure it's safe to exclude processes.
+	err = fdbstatus.CanSafelyExcludeProcesses(status)
+	if err != nil {
+		return &requeue{curError: err, delayedRequeue: true}
+	}
+
+	var fdbProcessesToExclude []fdbv1beta2.ProcessAddress
+	desiredProcesses, err := cluster.GetProcessCountsWithDefaults()
+	if err != nil {
+		return &requeue{curError: err, delayedRequeue: true}
+	}
+
+	desiredProcessesMap := desiredProcesses.Map()
+	for processClass := range fdbProcessesToExcludeByClass {
+		contextLogger := logger.WithValues("processClass", processClass)
+		ongoingExclusions := ongoingExclusionsByClass[processClass]
+		processesToExclude := fdbProcessesToExcludeByClass[processClass]
+
+		allowedExclusions, missingProcesses := getAllowedExclusionsAndMissingProcesses(contextLogger, cluster, processClass, desiredProcessesMap[processClass], ongoingExclusions, r.InSimulation)
+		if allowedExclusions <= 0 {
+			contextLogger.Info("Waiting for missing processes before continuing with the exclusion", "missingProcesses", missingProcesses, "addressesToExclude", processesToExclude, "allowedExclusions", allowedExclusions, "ongoingExclusions", ongoingExclusions)
+			continue
 		}
 
-		desiredProcessesMap := desiredProcesses.Map()
-		for processClass := range fdbProcessesToExcludeByClass {
-			contextLogger := logger.WithValues("processClass", processClass)
-			ongoingExclusions := ongoingExclusionsByClass[processClass]
-			processesToExclude := fdbProcessesToExcludeByClass[processClass]
-
-			allowedExclusions, missingProcesses := getAllowedExclusionsAndMissingProcesses(contextLogger, cluster, processClass, desiredProcessesMap[processClass], ongoingExclusions, r.InSimulation)
-			if allowedExclusions <= 0 {
-				contextLogger.Info("Waiting for missing processes before continuing with the exclusion", "missingProcesses", missingProcesses, "addressesToExclude", processesToExclude, "allowedExclusions", allowedExclusions, "ongoingExclusions", ongoingExclusions)
-				continue
-			}
-
-			// If we are not able to exclude all processes at once print a log message.
-			if len(processesToExclude) > allowedExclusions {
-				contextLogger.Info("Some processes are still missing but continuing with the exclusion", "missingProcesses", missingProcesses, "addressesToExclude", processesToExclude, "allowedExclusions", allowedExclusions, "ongoingExclusions", ongoingExclusions)
-			}
-
-			if len(processesToExclude) < allowedExclusions {
-				allowedExclusions = len(processesToExclude)
-			}
-
-			// TODO: As a next step we could exclude transaction (log + stateless) processes together and exclude
-			// storage processes with a separate call. This would make sure that no storage checks will block
-			// the exclusion of transaction processes.
-
-			// Add as many processes as allowed to the exclusion list.
-			fdbProcessesToExclude = append(fdbProcessesToExclude, processesToExclude[:allowedExclusions]...)
+		// If we are not able to exclude all processes at once print a log message.
+		if len(processesToExclude) > allowedExclusions {
+			contextLogger.Info("Some processes are still missing but continuing with the exclusion", "missingProcesses", missingProcesses, "addressesToExclude", processesToExclude, "allowedExclusions", allowedExclusions, "ongoingExclusions", ongoingExclusions)
 		}
 
-		if len(fdbProcessesToExclude) == 0 {
-			return &requeue{
-				message:        "more exclusions needed but not allowed, have to wait for new processes to come up",
-				delayedRequeue: true,
-			}
+		if len(processesToExclude) < allowedExclusions {
+			allowedExclusions = len(processesToExclude)
 		}
 
-		r.Recorder.Event(cluster, corev1.EventTypeNormal, "ExcludingProcesses", fmt.Sprintf("Excluding %v", fdbProcessesToExclude))
+		// TODO: As a next step we could exclude transaction (log + stateless) processes together and exclude
+		// storage processes with a separate call. This would make sure that no storage checks will block
+		// the exclusion of transaction processes.
 
-		err = adminClient.ExcludeProcesses(fdbProcessesToExclude)
-		if err != nil {
-			return &requeue{curError: err, delayedRequeue: true}
+		// Add as many processes as allowed to the exclusion list.
+		fdbProcessesToExclude = append(fdbProcessesToExclude, processesToExclude[:allowedExclusions]...)
+	}
+
+	if len(fdbProcessesToExclude) == 0 {
+		return &requeue{
+			message:        "more exclusions needed but not allowed, have to wait for new processes to come up",
+			delayedRequeue: true,
 		}
+	}
+
+	r.Recorder.Event(cluster, corev1.EventTypeNormal, "ExcludingProcesses", fmt.Sprintf("Excluding %v", fdbProcessesToExclude))
+	err = adminClient.ExcludeProcesses(fdbProcessesToExclude)
+	if err != nil {
+		return &requeue{curError: err, delayedRequeue: true}
 	}
 
 	return nil

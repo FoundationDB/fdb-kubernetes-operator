@@ -71,22 +71,9 @@ func getRemainingAndExcludedFromStatus(logger logr.Logger, status *fdbv1beta2.Fo
 	// the cluster status information as only the latest log processes will have the log process role. If we don't check
 	// for the active generations we have the risk to remove a log process that still has mutations on it that must be
 	// popped.
-	if status.Cluster.RecoveryState.ActiveGenerations > 1 {
-		logger.Info("Skipping exclusion check as there are multiple active generations", "activeGenerations", status.Cluster.RecoveryState.ActiveGenerations)
-		return exclusionStatus{
-			inProgress:      nil,
-			fullyExcluded:   nil,
-			notExcluded:     addresses,
-			missingInStatus: nil,
-		}
-	}
-
-	// If the database is unavailable the status might contain the processes but with missing role information. In this
-	// case we should not perform any validation on the machine-readable status as this information might not be correct.
-	// We don't want to run the exclude command to check for the status of the exclusions as this might result in a recovery
-	// of the cluster or brings the cluster into a worse state.
-	if !status.Client.DatabaseStatus.Available {
-		logger.Info("Skipping exclusion check as the database is unavailable")
+	err := DefaultSafetyChecks(status, 1, "check exclusion status")
+	if err != nil {
+		logger.Info("Skipping exclusion check as there are issues with the machine-readable status", "error", err.Error())
 		return exclusionStatus{
 			inProgress:      nil,
 			fullyExcluded:   nil,
@@ -458,4 +445,52 @@ func HasDesiredFaultToleranceFromStatus(log logr.Logger, status *fdbv1beta2.Foun
 	}
 
 	return true
+}
+
+// DefaultSafetyChecks performs a set of default safety checks, e.g. it checks if the cluster is available from the
+// client perspective and it checks that there are not too many active generations.
+func DefaultSafetyChecks(status *fdbv1beta2.FoundationDBStatus, maximumActiveGenerations int, action string) error {
+	// If there are more than 10 active generations we should not allow the cluster to bounce processes as this could
+	// cause another recovery increasing the active generations. In general the active generations should be at 1 during
+	// normal operations.
+	if status.Cluster.RecoveryState.ActiveGenerations > maximumActiveGenerations {
+		return fmt.Errorf("cluster has %d active generations, but only %d active generations are allowed to safely %s", status.Cluster.RecoveryState.ActiveGenerations, maximumActiveGenerations, action)
+	}
+
+	// If the database is unavailable we shouldn't perform any action on the cluster.
+	if !status.Client.DatabaseStatus.Available {
+		return fmt.Errorf("cluster is unavailable, cannot %s", action)
+	}
+
+	return nil
+}
+
+// CanSafelyBounceProcesses returns nil when it is safe to do a bounce on the cluster or returns an error with more information
+// why it's not safe to bounce processes in the cluster.
+func CanSafelyBounceProcesses(currentUptime float64, minimumUptime float64, status *fdbv1beta2.FoundationDBStatus) error {
+	err := DefaultSafetyChecks(status, 10, "bounce processes")
+	if err != nil {
+		return err
+	}
+
+	// If the current uptime of the cluster is below the minimum uptime we should not allow to bounce processes. This is
+	// a safeguard to reduce the risk of repeated bounces in a short timeframe.
+	if currentUptime < minimumUptime {
+		return fmt.Errorf("cluster has only been up for %.2f seconds, but must be up for %.2f seconds to safely bounce", minimumUptime, minimumUptime)
+	}
+
+	// If the machine-readable status reports that a clean bounce is not possible, we shouldn't perform a bounce. This
+	// value will be false if the cluster is not fully recovered:
+	// https://github.com/apple/foundationdb/blob/7.3.29/fdbserver/Status.actor.cpp#L437-L448
+	if status.Cluster.BounceImpact.CanCleanBounce != nil && !*status.Cluster.BounceImpact.CanCleanBounce {
+		return fmt.Errorf("cannot perform a clean bounce based on cluster status, current recovery state: %s", status.Cluster.RecoveryState.Name)
+	}
+
+	return nil
+}
+
+// CanSafelyExcludeProcesses currently performs the DefaultSafetyChecks. In the future this check might be extended to
+// perform more specific checks.
+func CanSafelyExcludeProcesses(status *fdbv1beta2.FoundationDBStatus) error {
+	return DefaultSafetyChecks(status, 10, "exclude processes")
 }
