@@ -62,6 +62,7 @@ type FoundationDBClusterReconciler struct {
 	DeprecationOptions                          internal.DeprecationOptions
 	GetTimeout                                  time.Duration
 	PostTimeout                                 time.Duration
+	MinimumRequiredUptimeCCBounce               time.Duration
 }
 
 // NewFoundationDBClusterReconciler creates a new FoundationDBClusterReconciler with defaults.

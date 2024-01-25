@@ -62,7 +62,7 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 		}
 	}
 
-	minimumUptime, addressMap, err := fdbstatus.GetMinimumUptimeAndAddressMap(logger, cluster, status, r.EnableRecoveryState)
+	currentMinimumUptime, addressMap, err := fdbstatus.GetMinimumUptimeAndAddressMap(logger, cluster, status, r.EnableRecoveryState)
 	if err != nil {
 		return &requeue{curError: err}
 	}
@@ -72,14 +72,18 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 		return req
 	}
 
-	// Check if the status contains unreachable tester processes. In this case the cluster controller must be restarted.
-	// Otherwise the status will contain a message with "status_incomplete" and "unreachable_processes". Those messages
-	// could block further actions like the check if a process is exclude and doesn't serve any roles.
-	clusterControllerAddress := checkIfClusterControllerNeedsRestart(status)
-	if clusterControllerAddress != nil {
-		logger.Info("found unreachable tester processes in status which requires a cluster controller restart")
-		// Adding the same address twice is not a problem for the kill command, so we can just append the returned address.
-		addresses = append(addresses, *clusterControllerAddress)
+	// Only perform the check if the cluster controller must be restarted if the cluster was up long enough. This is an
+	// additional safety guard to reduce the risk of successive restarts in cases where unidirectional partitions occur.
+	if currentMinimumUptime > r.MinimumRequiredUptimeCCBounce.Seconds() {
+		// Check if the status contains unreachable tester processes. In this case the cluster controller must be restarted.
+		// Otherwise the status will contain a message with "status_incomplete" and "unreachable_processes". Those messages
+		// could block further actions like the check if a process is exclude and doesn't serve any roles.
+		clusterControllerAddress := checkIfClusterControllerNeedsRestart(status)
+		if clusterControllerAddress != nil {
+			logger.Info("found unreachable tester processes in status which requires a cluster controller restart")
+			// Adding the same address twice is not a problem for the kill command, so we can just append the returned address.
+			addresses = append(addresses, *clusterControllerAddress)
+		}
 	}
 
 	if len(addresses) == 0 {
@@ -89,7 +93,7 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 	logger.V(1).Info("processes that can be restarted", "addresses", addresses)
 
 	// Check if the cluster can safely bounce processes.
-	err = fdbstatus.CanSafelyBounceProcesses(minimumUptime, float64(cluster.GetMinimumUptimeSecondsForBounce()), status)
+	err = fdbstatus.CanSafelyBounceProcesses(currentMinimumUptime, float64(cluster.GetMinimumUptimeSecondsForBounce()), status)
 	if err != nil {
 		r.Recorder.Event(cluster, corev1.EventTypeNormal, "NeedsBounce", err.Error())
 		cluster.Status.Generations.NeedsBounce = cluster.ObjectMeta.Generation
@@ -99,7 +103,7 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 		}
 
 		// Retry after we waited the minimum uptime or at least 15 seconds.
-		delayTime := cluster.GetMinimumUptimeSecondsForBounce() - int(minimumUptime)
+		delayTime := cluster.GetMinimumUptimeSecondsForBounce() - int(currentMinimumUptime)
 		if delayTime < 15 {
 			delayTime = 15
 		}
@@ -124,7 +128,6 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 	}
 
 	upgrading := cluster.IsBeingUpgradedWithVersionIncompatibleVersion()
-
 	if useLocks && upgrading {
 		processGroupIDs := make([]fdbv1beta2.ProcessGroupID, 0, len(cluster.Status.ProcessGroups))
 		for _, processGroup := range cluster.Status.ProcessGroups {
@@ -193,6 +196,11 @@ func getProcessesReadyForRestart(logger logr.Logger, cluster *fdbv1beta2.Foundat
 	var missingProcesses int
 	var markedForRemoval int
 	for _, processGroup := range cluster.Status.ProcessGroups {
+		// Ignore tester processes in this reconciler as tester processes cannot be restarted with the kill command.
+		if processGroup.ProcessClass == fdbv1beta2.ProcessClassTest {
+			continue
+		}
+
 		// Skip process groups that are stuck in terminating. Such a case could represent a kubelet in an unavailable/stuck
 		// state.
 		if processGroup.GetConditionTime(fdbv1beta2.ResourcesTerminating) != nil {
@@ -288,8 +296,10 @@ func getProcessesReadyForRestart(logger logr.Logger, cluster *fdbv1beta2.Foundat
 		}
 
 		if expectedProcesses != len(addresses) {
+			logger.Info("delay bounce as not all processes are ready to be bounced for upgrade", "expectedProcesses", expectedProcesses, "addresses", len(addresses))
 			return nil, &requeue{
 				message:        fmt.Sprintf("expected %d processes, got %d processes ready to restart", expectedProcesses, len(addresses)),
+				delay:          5 * time.Second,
 				delayedRequeue: true,
 			}
 		}

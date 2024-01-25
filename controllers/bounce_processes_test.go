@@ -673,10 +673,18 @@ var _ = Describe("bounceProcesses", func() {
 										Role: string(fdbv1beta2.ProcessRoleClusterController),
 									},
 								},
+								UptimeSeconds: 61.0,
+								Locality: map[string]string{
+									fdbv1beta2.FDBLocalityInstanceIDKey: "1",
+								},
 							},
 							"2": {
-								ProcessClass: fdbv1beta2.ProcessClassTest,
-								Address:      fdbv1beta2.ProcessAddress{StringAddress: "192.168.0.1:4500:tls"},
+								ProcessClass:  fdbv1beta2.ProcessClassTest,
+								Address:       fdbv1beta2.ProcessAddress{StringAddress: "192.168.0.1:4500:tls"},
+								UptimeSeconds: 61.0,
+								Locality: map[string]string{
+									fdbv1beta2.FDBLocalityInstanceIDKey: "2",
+								},
 							},
 						},
 					},
@@ -690,6 +698,25 @@ var _ = Describe("bounceProcesses", func() {
 
 			It("should kill the cluster controller", func() {
 				Expect(adminClient.KilledAddresses).To(HaveKey("192.168.0.2:4500:tls"))
+			})
+
+			When("the minimum required uptime is bigger than the current uptime", func() {
+				BeforeEach(func() {
+					clusterReconciler.MinimumRequiredUptimeCCBounce = 2 * time.Minute
+				})
+
+				AfterEach(func() {
+					clusterReconciler.MinimumRequiredUptimeCCBounce = 0
+				})
+
+				It("should not requeue", func() {
+					Expect(err).NotTo(HaveOccurred())
+					Expect(requeue).To(BeNil())
+				})
+
+				It("should not kill the cluster controller", func() {
+					Expect(adminClient.KilledAddresses).To(BeEmpty())
+				})
 			})
 		})
 

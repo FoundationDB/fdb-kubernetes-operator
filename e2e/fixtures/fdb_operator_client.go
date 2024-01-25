@@ -257,6 +257,7 @@ spec:
         args:
         - --max-concurrent-reconciles=5
         - --zap-log-level=debug
+        - --minimum-required-uptime-for-cc-bounce=60s
         #- --server-side-apply
         image: {{ .OperatorImage }}
         name: manager

@@ -89,8 +89,9 @@ type Options struct {
 	RenewDeadline time.Duration
 	// RetryPeriod is the duration the LeaderElector clients should wait
 	// between tries of actions. Default is 2 seconds.
-	RetryPeriod        time.Duration
-	DeprecationOptions internal.DeprecationOptions
+	RetryPeriod                   time.Duration
+	DeprecationOptions            internal.DeprecationOptions
+	MinimumRequiredUptimeCCBounce time.Duration
 }
 
 // BindFlags will parse the given flagset for the operator option flags
@@ -123,6 +124,7 @@ func (o *Options) BindFlags(fs *flag.FlagSet) {
 	fs.DurationVar(&o.LeaseDuration, "leader-election-lease-duration", 15*time.Second, "the duration that non-leader candidates will wait to force acquire leadership.")
 	fs.DurationVar(&o.RenewDeadline, "leader-election-renew-deadline", 10*time.Second, "the duration that the acting controlplane will retry refreshing leadership before giving up.")
 	fs.DurationVar(&o.RetryPeriod, "leader-election-retry-period", 2*time.Second, "the duration the LeaderElector clients should wait between tries of action.")
+	fs.DurationVar(&o.MinimumRequiredUptimeCCBounce, "minimum-required-uptime-for-cc-bounce", 1*time.Hour, "the minimum required uptime of the cluster before allowing the operator to restart the CC if there is a failed tester process.")
 	fs.BoolVar(&o.EnableRestartIncompatibleProcesses, "enable-restart-incompatible-processes", true, "This flag enables/disables in the operator to restart incompatible fdbserver processes.")
 	fs.BoolVar(&o.ServerSideApply, "server-side-apply", false, "This flag enables server side apply.")
 	fs.BoolVar(&o.EnableRecoveryState, "enable-recovery-state", true, "This flag enables the use of the recovery state for the minimum uptime between bounced if the FDB version supports it.")
@@ -245,6 +247,7 @@ func StartManager(
 		clusterReconciler.ServerSideApply = operatorOpts.ServerSideApply
 		clusterReconciler.EnableRecoveryState = operatorOpts.EnableRecoveryState
 		clusterReconciler.CacheDatabaseStatusForReconciliationDefault = operatorOpts.CacheDatabaseStatus
+		clusterReconciler.MinimumRequiredUptimeCCBounce = operatorOpts.MinimumRequiredUptimeCCBounce
 
 		if err := clusterReconciler.SetupWithManager(mgr, operatorOpts.MaxConcurrentReconciles, operatorOpts.EnableNodeIndex, *labelSelector, watchedObjects...); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "FoundationDBCluster")
