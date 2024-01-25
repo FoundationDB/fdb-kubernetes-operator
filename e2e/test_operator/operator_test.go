@@ -1748,7 +1748,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		})
 	})
 
-	When("running with tester processes", func() {
+	FWhen("running with tester processes", func() {
 		BeforeEach(func() {
 			// We will be restarting the CC, so we can ignore this check.
 			availabilityCheck = false
@@ -1759,55 +1759,138 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			Expect(fdbCluster.WaitForReconciliation()).NotTo(HaveOccurred())
 		})
 
-		It("when the tester process fails", func() {
-			// Make sure the operator is not taking any action as long as we are preparing the setup
-			Expect(fdbCluster.SetSkipReconciliation(true)).NotTo(HaveOccurred())
+		AfterEach(func() {
 			// We don't need the tester process anymore
 			spec := fdbCluster.GetCluster().Spec.DeepCopy()
 			spec.ProcessCounts.Test = 0
 			fdbCluster.UpdateClusterSpecWithSpec(spec)
-
-			// Make sure we delete the tester process
-			pods := fdbCluster.GetPods()
-
-			for _, pod := range pods.Items {
-				if fixtures.GetProcessClass(pod) != fdbv1beta2.ProcessClassTest {
-					continue
-				}
-
-				factory.Delete(&pod)
-			}
-
-			// Wait until the cluster shows the unreachable process.
-			Eventually(func() []string {
-				status := fdbCluster.GetStatus()
-
-				messages := make([]string, 0, len(status.Cluster.Messages))
-				for _, message := range status.Cluster.Messages {
-					messages = append(messages, message.Name)
-				}
-
-				log.Println("current messages:", messages)
-
-				return messages
-			}).WithPolling(1 * time.Second).WithTimeout(2 * time.Minute).MustPassRepeatedly(5).Should(ContainElements("status_incomplete", "unreachable_processes"))
-
 			// Let the operator fix the issue.
 			Expect(fdbCluster.SetSkipReconciliation(false)).NotTo(HaveOccurred())
+		})
 
-			// The operator should be restarting the cluster controller and this should clean the unreachable_processes
-			Eventually(func() []string {
-				status := fdbCluster.GetStatus()
+		When("the tester process fails", func() {
+			BeforeEach(func() {
+				// Make sure the operator is not taking any action as long as we are preparing the setup
+				Expect(fdbCluster.SetSkipReconciliation(true)).NotTo(HaveOccurred())
+				// We don't need the tester process anymore
+				spec := fdbCluster.GetCluster().Spec.DeepCopy()
+				spec.ProcessCounts.Test = 0
+				fdbCluster.UpdateClusterSpecWithSpec(spec)
 
-				messages := make([]string, 0, len(status.Cluster.Messages))
-				for _, message := range status.Cluster.Messages {
-					messages = append(messages, message.Name)
+				// Make sure we delete the tester process
+				pods := fdbCluster.GetPods()
+
+				for _, pod := range pods.Items {
+					if fixtures.GetProcessClass(pod) != fdbv1beta2.ProcessClassTest {
+						continue
+					}
+
+					factory.Delete(&pod)
 				}
 
-				log.Println("current messages:", messages)
+				// Wait until the cluster shows the unreachable process.
+				Eventually(func() []string {
+					status := fdbCluster.GetStatus()
 
-				return messages
-			}).WithPolling(1 * time.Second).WithTimeout(5 * time.Minute).MustPassRepeatedly(5).Should(BeEmpty())
+					messages := make([]string, 0, len(status.Cluster.Messages))
+					for _, message := range status.Cluster.Messages {
+						messages = append(messages, message.Name)
+					}
+
+					log.Println("current messages:", messages)
+
+					return messages
+				}).WithPolling(1 * time.Second).WithTimeout(2 * time.Minute).MustPassRepeatedly(5).Should(ContainElements("status_incomplete", "unreachable_processes"))
+
+				// Let the operator fix the issue.
+				Expect(fdbCluster.SetSkipReconciliation(false)).NotTo(HaveOccurred())
+			})
+
+			It("should restart the cluster controller", func() {
+				// The operator should be restarting the cluster controller and this should clean the unreachable_processes
+				Eventually(func() []string {
+					status := fdbCluster.GetStatus()
+
+					messages := make([]string, 0, len(status.Cluster.Messages))
+					for _, message := range status.Cluster.Messages {
+						messages = append(messages, message.Name)
+					}
+
+					log.Println("current messages:", messages)
+
+					return messages
+				}).WithPolling(1 * time.Second).WithTimeout(5 * time.Minute).MustPassRepeatedly(5).Should(BeEmpty())
+			})
+		})
+
+		When("there is a unidirectional partition between the tester and the rest of the cluster", func() {
+			var exp *fixtures.ChaosMeshExperiment
+
+			BeforeEach(func() {
+				// Make sure the operator is not taking any action as long as we are preparing the setup
+				Expect(fdbCluster.SetSkipReconciliation(true)).NotTo(HaveOccurred())
+
+				var partitionedPod corev1.Pod
+
+				pods := fdbCluster.GetPods()
+				for _, pod := range pods.Items {
+					if fixtures.GetProcessClass(pod) != fdbv1beta2.ProcessClassTest {
+						continue
+					}
+
+					partitionedPod = pod
+				}
+
+				log.Printf("partition Pod: %s", partitionedPod.Name)
+				exp = factory.InjectPartitionBetweenWithDirection(
+					fixtures.PodSelector(&partitionedPod),
+					chaosmesh.PodSelectorSpec{
+						GenericSelectorSpec: chaosmesh.GenericSelectorSpec{
+							Namespaces:     []string{partitionedPod.Namespace},
+							LabelSelectors: fdbCluster.GetCachedCluster().GetMatchLabels(),
+						},
+					},
+					chaosmesh.From,
+				)
+
+				// Wait until the cluster shows the unreachable process.
+				Eventually(func() []string {
+					status := fdbCluster.GetStatus()
+
+					messages := make([]string, 0, len(status.Cluster.Messages))
+					for _, message := range status.Cluster.Messages {
+						messages = append(messages, message.Name)
+					}
+
+					log.Println("current messages:", messages)
+
+					return messages
+				}).WithPolling(1 * time.Second).WithTimeout(2 * time.Minute).MustPassRepeatedly(5).Should(ContainElements("status_incomplete", "unreachable_processes"))
+
+				// Let the operator fix the issue.
+				Expect(fdbCluster.SetSkipReconciliation(false)).NotTo(HaveOccurred())
+			})
+
+			AfterEach(func() {
+				factory.DeleteChaosMeshExperimentSafe(exp)
+			})
+
+			// TODO what will be the status here?
+			It("should restart the cluster controller", func() {
+				// The operator should be restarting the cluster controller and this should clean the unreachable_processes
+				Eventually(func() []string {
+					status := fdbCluster.GetStatus()
+
+					messages := make([]string, 0, len(status.Cluster.Messages))
+					for _, message := range status.Cluster.Messages {
+						messages = append(messages, message.Name)
+					}
+
+					log.Println("current messages:", messages)
+
+					return messages
+				}).WithPolling(1 * time.Second).WithTimeout(5 * time.Minute).MustPassRepeatedly(5).Should(BeEmpty())
+			})
 		})
 	})
 })

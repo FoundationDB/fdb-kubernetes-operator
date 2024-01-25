@@ -139,6 +139,10 @@ func getProcessesToExclude(exclusions []fdbv1beta2.ProcessAddress, cluster *fdbv
 	}
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
+		// Tester processes must not be excluded as they are a special role.
+		if processGroup.ProcessClass == fdbv1beta2.ProcessClassTest {
+			continue
+		}
 		// Ignore process groups that are not marked for removal.
 		if !processGroup.IsMarkedForRemoval() {
 			continue
