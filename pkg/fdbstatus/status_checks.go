@@ -283,6 +283,10 @@ func GetMinimumUptimeAndAddressMap(logger logr.Logger, cluster *fdbv1beta2.Found
 	}
 
 	for _, process := range status.Cluster.Processes {
+		// Ignore tester processes for this check
+		if process.ProcessClass == fdbv1beta2.ProcessClassTest {
+			continue
+		}
 		// We have seen cases where a process is still reported, only with the role and the class but missing the localities.
 		// in this case we want to ignore this process as it seems like the process is miss behaving.
 		processGroupID, ok := process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]
