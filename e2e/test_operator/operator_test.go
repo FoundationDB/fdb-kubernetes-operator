@@ -1748,7 +1748,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		})
 	})
 
-	FWhen("running with tester processes", func() {
+	When("running with tester processes", func() {
 		BeforeEach(func() {
 			// We will be restarting the CC, so we can ignore this check.
 			availabilityCheck = false
