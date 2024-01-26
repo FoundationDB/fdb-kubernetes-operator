@@ -642,4 +642,182 @@ var _ = Describe("bounceProcesses", func() {
 			})
 		})
 	})
+
+	When("when there are unreachable processes", func() {
+		When("the unreachable processes include at least one tester process", func() {
+			BeforeEach(func() {
+				adminClient, err = mock.NewMockAdminClientUncast(cluster, k8sClient)
+				Expect(err).NotTo(HaveOccurred())
+
+				adminClient.FrozenStatus = &fdbv1beta2.FoundationDBStatus{
+					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+							Available: true,
+						},
+					},
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						Messages: []fdbv1beta2.FoundationDBStatusMessage{
+							{
+								Name: "status_incomplete",
+							},
+							{
+								Name: "unreachable_processes",
+								UnreachableProcesses: []fdbv1beta2.FoundationDBUnreachableProcess{
+									{
+										Address: "192.168.0.1:4500:tls",
+									},
+								},
+							},
+						},
+						Processes: map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{
+							"1": {
+								ProcessClass: fdbv1beta2.ProcessClassStateless,
+								Address:      fdbv1beta2.ProcessAddress{StringAddress: "192.168.0.2:4500:tls"},
+								Roles: []fdbv1beta2.FoundationDBStatusProcessRoleInfo{
+									{
+										Role: string(fdbv1beta2.ProcessRoleClusterController),
+									},
+								},
+								UptimeSeconds: 61.0,
+								Locality: map[string]string{
+									fdbv1beta2.FDBLocalityInstanceIDKey: "1",
+								},
+							},
+							"2": {
+								ProcessClass:  fdbv1beta2.ProcessClassTest,
+								Address:       fdbv1beta2.ProcessAddress{StringAddress: "192.168.0.1:4500:tls"},
+								UptimeSeconds: 61.0,
+								Locality: map[string]string{
+									fdbv1beta2.FDBLocalityInstanceIDKey: "2",
+								},
+							},
+						},
+					},
+				}
+			})
+
+			It("should not requeue", func() {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(requeue).To(BeNil())
+			})
+
+			It("should kill the cluster controller", func() {
+				Expect(adminClient.KilledAddresses).To(HaveKey("192.168.0.2:4500:tls"))
+			})
+
+			When("the minimum required uptime is bigger than the current uptime", func() {
+				BeforeEach(func() {
+					clusterReconciler.MinimumRequiredUptimeCCBounce = 2 * time.Minute
+				})
+
+				AfterEach(func() {
+					clusterReconciler.MinimumRequiredUptimeCCBounce = 0
+				})
+
+				It("should not requeue", func() {
+					Expect(err).NotTo(HaveOccurred())
+					Expect(requeue).To(BeNil())
+				})
+
+				It("should not kill the cluster controller", func() {
+					Expect(adminClient.KilledAddresses).To(BeEmpty())
+				})
+			})
+		})
+
+		When("the unreachable processes include no tester processes", func() {
+			BeforeEach(func() {
+				adminClient, err = mock.NewMockAdminClientUncast(cluster, k8sClient)
+				Expect(err).NotTo(HaveOccurred())
+
+				adminClient.FrozenStatus = &fdbv1beta2.FoundationDBStatus{
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						Messages: []fdbv1beta2.FoundationDBStatusMessage{
+							{
+								Name: "status_incomplete",
+							},
+							{
+								Name: "unreachable_processes",
+								UnreachableProcesses: []fdbv1beta2.FoundationDBUnreachableProcess{
+									{
+										Address: "192.168.0.1:4500:tls",
+									},
+								},
+							},
+						},
+						Processes: map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{
+							"1": {
+								ProcessClass: fdbv1beta2.ProcessClassStateless,
+								Address:      fdbv1beta2.ProcessAddress{StringAddress: "192.168.0.2:4500:tls"},
+								Roles: []fdbv1beta2.FoundationDBStatusProcessRoleInfo{
+									{
+										Role: string(fdbv1beta2.ProcessRoleClusterController),
+									},
+								},
+							},
+							"2": {
+								ProcessClass: fdbv1beta2.ProcessClassStorage,
+								Address:      fdbv1beta2.ProcessAddress{StringAddress: "192.168.0.1:4500:tls"},
+							},
+						},
+					},
+				}
+			})
+
+			It("should not requeue", func() {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(requeue).To(BeNil())
+			})
+
+			It("should not kill the cluster controller", func() {
+				Expect(adminClient.KilledAddresses).To(BeEmpty())
+			})
+		})
+
+		When("the cluster message doesn not contain unreachable processes", func() {
+			BeforeEach(func() {
+				adminClient, err = mock.NewMockAdminClientUncast(cluster, k8sClient)
+				Expect(err).NotTo(HaveOccurred())
+
+				adminClient.FrozenStatus = &fdbv1beta2.FoundationDBStatus{
+					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+							Available: true,
+						},
+					},
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						Messages: []fdbv1beta2.FoundationDBStatusMessage{
+							{
+								Name: "status_incomplete",
+							},
+						},
+						Processes: map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{
+							"1": {
+								ProcessClass: fdbv1beta2.ProcessClassStateless,
+								Address:      fdbv1beta2.ProcessAddress{StringAddress: "192.168.0.2:4500:tls"},
+								Roles: []fdbv1beta2.FoundationDBStatusProcessRoleInfo{
+									{
+										Role: string(fdbv1beta2.ProcessRoleClusterController),
+									},
+								},
+							},
+							"2": {
+								ProcessClass: fdbv1beta2.ProcessClassTest,
+								Address:      fdbv1beta2.ProcessAddress{StringAddress: "192.168.0.1:4500:tls"},
+							},
+						},
+					},
+				}
+			})
+
+			It("should not requeue", func() {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(requeue).To(BeNil())
+			})
+
+			It("should not kill the cluster controller", func() {
+				Expect(adminClient.KilledAddresses).To(BeEmpty())
+			})
+		})
+	})
 })

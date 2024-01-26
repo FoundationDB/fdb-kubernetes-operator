@@ -308,7 +308,7 @@ func CheckCoordinatorValidity(logger logr.Logger, cluster *fdbv1beta2.Foundation
 		}
 
 		if process.ProcessClass == fdbv1beta2.ProcessClassTest {
-			pLogger.Info("Ignoring tester process")
+			pLogger.V(1).Info("Ignoring tester process")
 			continue
 		}
 

@@ -54,6 +54,14 @@ type FoundationDBStatusMessage struct {
 	Name string `json:"name,omitempty"`
 	// Description contains a human friendly description of the message.
 	Description string `json:"description,omitempty"`
+	// UnreachableProcesses contains the unreachable processes. This value is only set for unreachable_processes messages.
+	UnreachableProcesses []FoundationDBUnreachableProcess `json:"unreachable_processes,omitempty"`
+}
+
+// FoundationDBUnreachableProcess provides information about an unreachable process
+type FoundationDBUnreachableProcess struct {
+	// Address provides the address of the unreachable process
+	Address string `json:"address,omitempty"`
 }
 
 // FoundationDBStatusCoordinatorInfo contains information about the client's

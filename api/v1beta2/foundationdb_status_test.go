@@ -923,4 +923,21 @@ var _ = Describe("FoundationDBStatus", func() {
 			Expect(statusParsed.Cluster).To(Equal(status))
 		})
 	})
+
+	When("parsing a machine-readable status that contains the unreachable processes message", func() {
+		It("should parse the cluster messages correct", func() {
+			statusFile, err := os.OpenFile(filepath.Join("testdata", "unreachable_test_processes.json"), os.O_RDONLY, os.ModePerm)
+			Expect(err).NotTo(HaveOccurred())
+			defer statusFile.Close()
+			statusDecoder := json.NewDecoder(statusFile)
+			statusParsed := FoundationDBStatus{}
+			Expect(statusDecoder.Decode(&statusParsed)).NotTo(HaveOccurred())
+			Expect(statusParsed.Cluster.Messages).To(HaveLen(2))
+			Expect(statusParsed.Cluster.Messages[0].UnreachableProcesses).To(HaveLen(1))
+			Expect(statusParsed.Cluster.Messages[0].Name).To(Equal("unreachable_processes"))
+			Expect(statusParsed.Cluster.Messages[0].UnreachableProcesses[0].Address).To(Equal("100.82.115.41:4500:tls"))
+			Expect(statusParsed.Cluster.Messages[1].UnreachableProcesses).To(HaveLen(0))
+			Expect(statusParsed.Cluster.Messages[1].Name).To(Equal("status_incomplete"))
+		})
+	})
 })
