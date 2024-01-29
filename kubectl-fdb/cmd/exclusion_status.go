@@ -171,12 +171,18 @@ func getExclusionStatus(cmd *cobra.Command, restConfig *rest.Config, kubeClient 
 				continue
 			}
 
+			// If more than one storage server per Pod is running we have to differentiate those processes. If the
+			// process ID is not set, fall back to the instance ID.
+			instance, ok := process.Locality[fdbv1beta2.FDBLocalityProcessIDKey]
+			if !ok {
+				instance = process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]
+			}
+
 			if !ignoreFullyExcluded && len(process.Roles) == 0 {
-				cmd.Println(process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey], "is fully excluded")
+				cmd.Println(instance, "is fully excluded")
 				continue
 			}
 
-			instance := process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]
 			// TODO: Add progress bars
 			for _, role := range process.Roles {
 				roleClass := fdbv1beta2.ProcessClass(role.Role)
