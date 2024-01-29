@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbstatus"
 	"sort"
+	"strconv"
 	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -126,15 +127,17 @@ kubectl fdb get exclusion-status c1 --interval=5m
 
 type exclusionResult struct {
 	id          string
-	storedBytes int
 	estimate    string
+	storedBytes int
+	timestamp   time.Time
 }
 
 func getExclusionStatus(cmd *cobra.Command, restConfig *rest.Config, kubeClient *kubernetes.Clientset, clientPod string, namespace string, ignoreFullyExcluded bool, interval time.Duration) error {
 	timer := time.NewTicker(interval)
-	previousRun := map[string]int{}
+	previousRun := map[string]exclusionResult{}
 
 	for {
+		// TODO: Keeping a stream open is probably more efficient.
 		out, serr, err := executeCmd(restConfig, kubeClient, clientPod, namespace, "fdbcli --exec 'status json'")
 		if err != nil {
 			// If an error occurs retry
@@ -162,38 +165,42 @@ func getExclusionStatus(cmd *cobra.Command, restConfig *rest.Config, kubeClient 
 		}
 
 		var ongoingExclusions []exclusionResult
+		timestamp := time.Now()
 		for _, process := range status.Cluster.Processes {
 			if !process.Excluded {
 				continue
 			}
 
 			if !ignoreFullyExcluded && len(process.Roles) == 0 {
-				cmd.Println(process.Locality["instance_id"], "is fully excluded")
+				cmd.Println(process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey], "is fully excluded")
+				continue
 			}
 
-			instance := process.Locality["instance_id"]
-			// TODO: Add estimate when an exclusion is done
+			instance := process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]
 			// TODO: Add progress bars
 			for _, role := range process.Roles {
 				roleClass := fdbv1beta2.ProcessClass(role.Role)
 				if roleClass.IsStateful() {
 					var estimate string
 
-					previousBytes, ok := previousRun[instance]
+					previousResult, ok := previousRun[instance]
 					if ok {
-						// TODO calculate estimates for duration
-						_ = previousBytes
+						estimateDuration := time.Duration(role.StoredBytes/(previousResult.storedBytes-role.StoredBytes)) * timestamp.Sub(previousResult.timestamp)
+						estimate = estimateDuration.String()
+					} else {
 						estimate = "N/A"
 					}
 
-					// TODO: Check if StoredBytes is the correct value
-					ongoingExclusions = append(ongoingExclusions, exclusionResult{
+					result := exclusionResult{
 						id:          instance,
 						storedBytes: role.StoredBytes,
 						estimate:    estimate,
-					})
+						timestamp:   timestamp,
+					}
+					// TODO: Check if StoredBytes is the correct value
+					ongoingExclusions = append(ongoingExclusions, result)
 
-					previousRun[instance] = role.StoredBytes
+					previousRun[instance] = result
 				}
 			}
 		}
@@ -208,7 +215,7 @@ func getExclusionStatus(cmd *cobra.Command, restConfig *rest.Config, kubeClient 
 		})
 
 		for _, exclusion := range ongoingExclusions {
-			cmd.Printf("%s:\t %d bytes are left - estimate: %s\n", exclusion.id, exclusion.storedBytes, exclusion.estimate)
+			cmd.Printf("%s:\t %s are left - estimate: %s\n", exclusion.id, prettyPrintStoredBytes(exclusion.storedBytes), exclusion.estimate)
 		}
 
 		cmd.Println("There are", len(ongoingExclusions), "processes that are not fully excluded.")
@@ -217,4 +224,21 @@ func getExclusionStatus(cmd *cobra.Command, restConfig *rest.Config, kubeClient 
 	}
 
 	return nil
+}
+
+// prettyPrintStoredBytes will return a string that represents the storedBytes in a human-readable format.
+func prettyPrintStoredBytes(storedBytes int) string {
+	units := []string{"", "Ki", "Mi", "Gi", "Ti", "Pi"}
+
+	currentBytes := float64(storedBytes)
+	for _, unit := range units {
+		if currentBytes < 1024 {
+			return fmt.Sprintf("%3.2f%s", currentBytes, unit)
+		}
+
+		currentBytes /= 1024
+	}
+
+	// Fallback will be to printout the bytes.
+	return strconv.Itoa(storedBytes)
 }
