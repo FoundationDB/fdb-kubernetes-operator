@@ -2021,6 +2021,11 @@ var _ = Describe("status_checks", func() {
 		Entry(
 			"status is healthy",
 			&fdbv1beta2.FoundationDBStatus{
+				Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+					DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+						Available: true,
+					},
+				},
 				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
 					Data: fdbv1beta2.FoundationDBStatusDataStatistics{
 						State: fdbv1beta2.FoundationDBStatusDataState{
@@ -2038,6 +2043,11 @@ var _ = Describe("status_checks", func() {
 		Entry(
 			"data status is unhealthy",
 			&fdbv1beta2.FoundationDBStatus{
+				Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+					DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+						Available: true,
+					},
+				},
 				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
 					Data: fdbv1beta2.FoundationDBStatusDataStatistics{
 						State: fdbv1beta2.FoundationDBStatusDataState{
@@ -2057,6 +2067,11 @@ var _ = Describe("status_checks", func() {
 		Entry(
 			"last recovery is only 5 seconds ago",
 			&fdbv1beta2.FoundationDBStatus{
+				Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+					DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+						Available: true,
+					},
+				},
 				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
 					Data: fdbv1beta2.FoundationDBStatusDataStatistics{
 						State: fdbv1beta2.FoundationDBStatusDataState{
@@ -2074,6 +2089,11 @@ var _ = Describe("status_checks", func() {
 		Entry(
 			"status contains error message",
 			&fdbv1beta2.FoundationDBStatus{
+				Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+					DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+						Available: true,
+					},
+				},
 				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
 					Messages: []fdbv1beta2.FoundationDBStatusMessage{
 						{
@@ -2096,6 +2116,11 @@ var _ = Describe("status_checks", func() {
 		Entry(
 			"worst storage lag is increased",
 			&fdbv1beta2.FoundationDBStatus{
+				Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+					DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+						Available: true,
+					},
+				},
 				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
 					Data: fdbv1beta2.FoundationDBStatusDataStatistics{
 						State: fdbv1beta2.FoundationDBStatusDataState{

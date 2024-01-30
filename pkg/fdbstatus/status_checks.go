@@ -511,12 +511,18 @@ func CanSafelyExcludeProcesses(status *fdbv1beta2.FoundationDBStatus) error {
 // ConfigurationChangeAllowed will return an error if the configuration change is assumed to be unsafe. If no error
 // is returned the configuration change can be applied.
 func ConfigurationChangeAllowed(status *fdbv1beta2.FoundationDBStatus, useRecoveryState bool) error {
+	err := DefaultSafetyChecks(status, 10, "change configuration")
+	if err != nil {
+		return err
+	}
+
 	// Check the health of the data distribution before allowing configuration changes.
 	if !status.Cluster.Data.State.Healthy {
 		return fmt.Errorf("data distribution is not healhty: %s", status.Cluster.Data.State.Name)
 	}
 
-	//
+	// Check if the cluster status messages contain any messages that provide a signal to assume it's not safe
+	// to change the configuration.
 	for _, message := range status.Cluster.Messages {
 		if _, ok := forbiddenConfigurationChangeStatusMessages[message.Name]; ok {
 			return fmt.Errorf("status contains error message: %s", message.Name)
