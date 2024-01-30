@@ -23,12 +23,15 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"time"
+
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbstatus"
 
 	"github.com/go-logr/logr"
 
 	"k8s.io/utils/pointer"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 )
@@ -38,7 +41,7 @@ import (
 type updateDatabaseConfiguration struct{}
 
 // reconcile runs the reconciler's work.
-func (u updateDatabaseConfiguration) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.FoundationDBStatus, logger logr.Logger) *requeue {
+func (u updateDatabaseConfiguration) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
 	if !pointer.BoolDeref(cluster.Spec.AutomationOptions.ConfigureDatabase, true) {
 		return nil
 	}
@@ -71,8 +74,13 @@ func (u updateDatabaseConfiguration) reconcile(ctx context.Context, r *Foundatio
 	currentConfiguration.ExcludedServers = nil
 	cluster.ClearMissingVersionFlags(&currentConfiguration)
 
+	runningVersion, err := fdbv1beta2.ParseFdbVersion(cluster.GetRunningVersion())
+	if err != nil {
+		return &requeue{curError: err, delayedRequeue: true}
+	}
+
 	if initialConfig || !equality.Semantic.DeepEqual(desiredConfiguration, currentConfiguration) {
-		var nextConfiguration fdbtypes.DatabaseConfiguration
+		var nextConfiguration fdbv1beta2.DatabaseConfiguration
 		if initialConfig {
 			nextConfiguration = desiredConfiguration
 		} else {
@@ -80,12 +88,14 @@ func (u updateDatabaseConfiguration) reconcile(ctx context.Context, r *Foundatio
 		}
 		configurationString, _ := nextConfiguration.GetConfigurationString(cluster.Spec.Version)
 
-		dataState := status.Cluster.Data.State
-		if !(initialConfig || dataState.Healthy) {
-			logger.Info("Waiting for data distribution to be healthy", "stateName", dataState.Name, "stateDescription", dataState.Description)
-			r.Recorder.Event(cluster, corev1.EventTypeNormal, "NeedsConfigurationChange",
-				fmt.Sprintf("Spec require configuration change to `%s`, but data distribution is not fully healthy: %s (%s)", configurationString, dataState.Name, dataState.Description))
-			return nil
+		if !initialConfig {
+			err = fdbstatus.ConfigurationChangeAllowed(status, runningVersion.SupportsRecoveryState() && r.EnableRecoveryState)
+			if err != nil {
+				logger.Info("Changing current configuration is not safe", "error", err, "current configuration", currentConfiguration, "desired configuration", desiredConfiguration)
+				r.Recorder.Event(cluster, corev1.EventTypeNormal, "NeedsConfigurationChange",
+					fmt.Sprintf("Spec require configuration change to `%s`, but configuration change is not safe: %s", configurationString, err.Error()))
+				return &requeue{message: "Configuration change is not safe, retry later", delayedRequeue: true, delay: 10 * time.Second}
+			}
 		}
 
 		if !initialConfig {
@@ -102,7 +112,7 @@ func (u updateDatabaseConfiguration) reconcile(ctx context.Context, r *Foundatio
 		)
 		err = adminClient.ConfigureDatabase(nextConfiguration, initialConfig, cluster.Spec.Version)
 		if err != nil {
-			return &requeue{curError: err}
+			return &requeue{curError: err, delayedRequeue: true}
 		}
 		if initialConfig {
 			cluster.Status.Configured = true

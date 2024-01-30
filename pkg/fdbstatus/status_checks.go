@@ -42,6 +42,15 @@ var forbiddenStatusMessages = map[string]fdbv1beta2.None{
 	"log_servers_error":        {},
 }
 
+// forbiddenConfigurationChangeStatusMessages represents messages that could be part of the machine-readable status. Those messages can represent
+// different error cases that have occurred when fetching the machine-readable status. A list of possible messages can be
+// found here: https://github.com/apple/foundationdb/blob/main/documentation/sphinx/source/mr-status.rst?plain=1#L68-L97
+// and here: https://apple.github.io/foundationdb/mr-status.html#message-components.
+// If any of those messages are present in the status, the operator will not allow configuration changes.
+var forbiddenConfigurationChangeStatusMessages = map[string]fdbv1beta2.None{
+	"unreadable_configuration": {},
+}
+
 // StatusContextKey will be used as a key in a context to pass down the cached status.
 type StatusContextKey struct{}
 
@@ -497,4 +506,39 @@ func CanSafelyBounceProcesses(currentUptime float64, minimumUptime float64, stat
 // perform more specific checks.
 func CanSafelyExcludeProcesses(status *fdbv1beta2.FoundationDBStatus) error {
 	return DefaultSafetyChecks(status, 10, "exclude processes")
+}
+
+// ConfigurationChangeAllowed will return an error if the configuration change is assumed to be unsafe. If no error
+// is returned the configuration change can be applied.
+func ConfigurationChangeAllowed(status *fdbv1beta2.FoundationDBStatus, useRecoveryState bool) error {
+	err := DefaultSafetyChecks(status, 10, "change configuration")
+	if err != nil {
+		return err
+	}
+
+	// Check the health of the data distribution before allowing configuration changes.
+	if !status.Cluster.Data.State.Healthy {
+		return fmt.Errorf("data distribution is not healhty: %s", status.Cluster.Data.State.Name)
+	}
+
+	// Check if the cluster status messages contain any messages that provide a signal to assume it's not safe
+	// to change the configuration.
+	for _, message := range status.Cluster.Messages {
+		if _, ok := forbiddenConfigurationChangeStatusMessages[message.Name]; ok {
+			return fmt.Errorf("status contains error message: %s", message.Name)
+		}
+	}
+
+	// We want to wait at least 60 seconds between configuration changes that trigger a recovery, otherwise we might
+	// issue too frequent configuration changes.
+	if useRecoveryState && status.Cluster.RecoveryState.SecondsSinceLastRecovered < 60.0 {
+		return fmt.Errorf("clusters last recovery was %0.2f seconds ago, wait until the last recovery was 60 seconds ago", status.Cluster.RecoveryState.SecondsSinceLastRecovered)
+	}
+
+	// We picked this value from the FoundationDB implementation, this is the default threshold to report a process as lagging.
+	if status.Cluster.Qos.WorstDataLagStorageServer.Seconds > 60.0 {
+		return fmt.Errorf("data lag is to high to issue configuration change, current data lag in seconds: %0.2f", status.Cluster.Qos.WorstDataLagStorageServer.Seconds)
+	}
+
+	return nil
 }
