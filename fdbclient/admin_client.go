@@ -32,7 +32,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -48,8 +47,6 @@ const (
 	fdbbackupStr  = "fdbbackup"
 	fdbrestoreStr = "fdbrestore"
 )
-
-var adminClientMutex sync.Mutex
 
 var maxCommandOutput = parseMaxCommandOutput()
 
@@ -313,9 +310,6 @@ func (client *cliAdminClient) getStatus() (*fdbv1beta2.FoundationDBStatus, error
 
 // GetStatus gets the database's status
 func (client *cliAdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
-	adminClientMutex.Lock()
-	defer adminClientMutex.Unlock()
-
 	startTime := time.Now()
 	// This will call directly the database and fetch the status information from the system key space.
 	status, err := getStatusFromDB(client.fdbLibClient, client.log, client.getTimeout())
