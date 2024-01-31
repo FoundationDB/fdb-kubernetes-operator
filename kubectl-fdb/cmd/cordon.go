@@ -134,7 +134,7 @@ func cordonNode(cmd *cobra.Command, kubeClient client.Client, inputClusterName s
 
 	var errors []string
 	for _, node := range nodes {
-		pods, err := fetchPods(kubeClient, inputClusterName, namespace, node, clusterLabel)
+		pods, err := fetchPodsOnNode(kubeClient, inputClusterName, namespace, node, clusterLabel)
 		if err != nil {
 			internalErr := fmt.Sprintf("Issue fetching Pods running on node: %s. Error: %s\n", node, err)
 			cmd.PrintErr(internalErr)
@@ -171,7 +171,7 @@ func cordonNode(cmd *cobra.Command, kubeClient client.Client, inputClusterName s
 					processGroups = append(processGroups, processGroup)
 				}
 			}
-			err = replaceProcessGroups(kubeClient, cluster.Name, processGroups, namespace, withExclusion, wait, false, true)
+			err = replaceProcessGroups(kubeClient, cluster.Name, processGroups, namespace, "", withExclusion, wait, false, true)
 			if err != nil {
 				internalErr := fmt.Sprintf("unable to cordon all Pods for cluster %s\n", cluster.Name)
 				errors = append(errors, internalErr)
@@ -186,7 +186,7 @@ func cordonNode(cmd *cobra.Command, kubeClient client.Client, inputClusterName s
 	return nil
 }
 
-func fetchPods(kubeClient client.Client, clusterName string, namespace string, node string, clusterLabel string) (corev1.PodList, error) {
+func fetchPodsOnNode(kubeClient client.Client, clusterName string, namespace string, node string, clusterLabel string) (corev1.PodList, error) {
 	var pods corev1.PodList
 	var err error
 

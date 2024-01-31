@@ -61,7 +61,7 @@ var _ = Describe("[plugin] remove process groups command", func() {
 
 			DescribeTable("should cordon all targeted processes",
 				func(tc testCase) {
-					err := replaceProcessGroups(k8sClient, clusterName, tc.Instances, namespace, tc.WithExclusion, false, tc.RemoveAllFailed, false)
+					err := replaceProcessGroups(k8sClient, clusterName, tc.Instances, namespace, "", tc.WithExclusion, false, tc.RemoveAllFailed, false)
 					Expect(err).NotTo(HaveOccurred())
 
 					var resCluster fdbv1beta2.FoundationDBCluster
@@ -118,7 +118,7 @@ var _ = Describe("[plugin] remove process groups command", func() {
 				When("adding the same process group to the removal list without exclusion", func() {
 					It("should add the process group to the removal without exclusion list", func() {
 						removals := []string{"test-storage-1"}
-						err := replaceProcessGroups(k8sClient, clusterName, removals, namespace, false, false, false, false)
+						err := replaceProcessGroups(k8sClient, clusterName, removals, namespace, "", false, false, false, false)
 						Expect(err).NotTo(HaveOccurred())
 
 						var resCluster fdbv1beta2.FoundationDBCluster
@@ -138,7 +138,7 @@ var _ = Describe("[plugin] remove process groups command", func() {
 				When("adding the same process group to the removal list", func() {
 					It("should add the process group to the removal without exclusion list", func() {
 						removals := []string{"test-storage-1"}
-						err := replaceProcessGroups(k8sClient, clusterName, removals, namespace, true, false, false, false)
+						err := replaceProcessGroups(k8sClient, clusterName, removals, namespace, "", true, false, false, false)
 						Expect(err).NotTo(HaveOccurred())
 
 						var resCluster fdbv1beta2.FoundationDBCluster
