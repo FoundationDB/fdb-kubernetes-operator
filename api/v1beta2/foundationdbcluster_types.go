@@ -1508,7 +1508,7 @@ func (cluster *FoundationDBCluster) CheckReconciliation(log logr.Logger) (bool, 
 			for _, condition := range processGroup.ProcessGroupConditions {
 				// If there is at least one process with an incorrect command line, that means the operator has to restart
 				// processes.
-				if condition.ProcessGroupConditionType == IncorrectCommandLine {
+				if condition.ProcessGroupConditionType == IncorrectCommandLine && cluster.Status.Generations.NeedsBounce == 0 {
 					logger.V(1).Info("Pending restart of fdbserver processes", "state", "NeedsBounce")
 					cluster.Status.Generations.NeedsBounce = cluster.ObjectMeta.Generation
 				}
