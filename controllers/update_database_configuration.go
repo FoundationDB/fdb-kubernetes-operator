@@ -41,7 +41,7 @@ import (
 type updateDatabaseConfiguration struct{}
 
 // reconcile runs the reconciler's work.
-func (u updateDatabaseConfiguration) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
+func (u updateDatabaseConfiguration) reconcile(_ context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
 	if !pointer.BoolDeref(cluster.Spec.AutomationOptions.ConfigureDatabase, true) {
 		return nil
 	}
@@ -114,16 +114,12 @@ func (u updateDatabaseConfiguration) reconcile(ctx context.Context, r *Foundatio
 		if err != nil {
 			return &requeue{curError: err, delayedRequeue: true}
 		}
-		if initialConfig {
-			cluster.Status.Configured = true
-			err = r.updateOrApply(ctx, cluster)
-			if err != nil {
-				return &requeue{curError: err, delayedRequeue: true}
-			}
-			return nil
-		}
-		logger.Info("Configured database")
 
+		if initialConfig {
+			return &requeue{message: "Requeuing for fetching the initial configuration from FDB cluster", delay: 1 * time.Second}
+		}
+
+		logger.Info("Configured database", "initialConfig", initialConfig)
 		if !equality.Semantic.DeepEqual(nextConfiguration, desiredConfiguration) {
 			return &requeue{message: "Requeuing for next stage of database configuration change", delayedRequeue: true}
 		}
