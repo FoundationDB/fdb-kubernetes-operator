@@ -1918,8 +1918,15 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 		When("all Pods are deleted", func() {
 			var initialPodsCnt int
+			var initialReplaceTime time.Duration
 
 			BeforeEach(func() {
+				availabilityCheck = false
+				initialReplaceTime = time.Duration(pointer.IntDeref(
+					fdbCluster.GetClusterSpec().AutomationOptions.Replacements.FailureDetectionTimeSeconds,
+					90,
+				)) * time.Second
+				Expect(fdbCluster.SetAutoReplacements(false, 30*time.Hour)).ShouldNot(HaveOccurred())
 				// Make sure the operator is not taking any action to prevent any race condition.
 				Expect(fdbCluster.SetSkipReconciliation(true)).NotTo(HaveOccurred())
 
@@ -1954,6 +1961,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 			AfterEach(func() {
 				Expect(fdbCluster.SetSkipReconciliation(false)).NotTo(HaveOccurred())
+				Expect(fdbCluster.SetAutoReplacements(true, initialReplaceTime)).ShouldNot(HaveOccurred())
 			})
 		})
 	})
