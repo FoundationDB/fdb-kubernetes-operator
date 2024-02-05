@@ -126,7 +126,7 @@ func updateNoScheduleList(kubeClient client.Client, clusterName string, pods []s
 	}
 
 	if len(processGroupIDs) == 0 {
-		return fmt.Errorf("please provide atleast one pod")
+		return fmt.Errorf("please provide at least one pod")
 	}
 
 	if wait {

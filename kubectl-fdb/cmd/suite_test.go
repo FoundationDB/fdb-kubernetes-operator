@@ -66,6 +66,7 @@ func generateClusterStruct(name string, namespace string) *fdbv1beta2.Foundation
 			ProcessCounts: fdbv1beta2.ProcessCounts{
 				Storage: 1,
 			},
+			ProcessGroupIDPrefix: name,
 		},
 		Status: fdbv1beta2.FoundationDBClusterStatus{
 			ProcessGroups: []*fdbv1beta2.ProcessGroupStatus{
