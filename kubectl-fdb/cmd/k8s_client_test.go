@@ -207,6 +207,9 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 
 	When("getting the process groups IDs from Pods", func() {
 		When("the cluster doesn't have a prefix", func() {
+			BeforeEach(func() {
+				cluster.Spec.ProcessGroupIDPrefix = ""
+			})
 			DescribeTable("should get all process groups IDs",
 				func(podNames []string, expected []fdbv1beta2.ProcessGroupID) {
 					instances, err := getProcessGroupIDsFromPodName(cluster, podNames)

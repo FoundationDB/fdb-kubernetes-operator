@@ -54,18 +54,18 @@ var _ = Describe("[plugin] buggify no-schedule instances command", func() {
 				Entry("Adding single instance.",
 					testCase{
 						Instances:                     []string{"test-storage-1"},
-						ExpectedInstancesInNoSchedule: []fdbv1beta2.ProcessGroupID{"storage-1"},
+						ExpectedInstancesInNoSchedule: []fdbv1beta2.ProcessGroupID{"test-storage-1"},
 					}),
 				Entry("Adding multiple instances.",
 					testCase{
 						Instances:                     []string{"test-storage-1", "test-storage-2"},
-						ExpectedInstancesInNoSchedule: []fdbv1beta2.ProcessGroupID{"storage-1", "storage-2"},
+						ExpectedInstancesInNoSchedule: []fdbv1beta2.ProcessGroupID{"test-storage-1", "test-storage-2"},
 					}),
 			)
 
 			When("a process group is already in no-schedule", func() {
 				BeforeEach(func() {
-					cluster.Spec.Buggify.NoSchedule = []fdbv1beta2.ProcessGroupID{"storage-1"}
+					cluster.Spec.Buggify.NoSchedule = []fdbv1beta2.ProcessGroupID{"test-storage-1"}
 				})
 
 				type testCase struct {
@@ -90,17 +90,17 @@ var _ = Describe("[plugin] buggify no-schedule instances command", func() {
 					Entry("Adding the same instance.",
 						testCase{
 							Instances:                     []string{"test-storage-1"},
-							ExpectedInstancesInNoSchedule: []fdbv1beta2.ProcessGroupID{"storage-1"},
+							ExpectedInstancesInNoSchedule: []fdbv1beta2.ProcessGroupID{"test-storage-1"},
 						}),
 					Entry("Adding different instance.",
 						testCase{
 							Instances:                     []string{"test-storage-2"},
-							ExpectedInstancesInNoSchedule: []fdbv1beta2.ProcessGroupID{"storage-1", "storage-2"},
+							ExpectedInstancesInNoSchedule: []fdbv1beta2.ProcessGroupID{"test-storage-1", "test-storage-2"},
 						}),
 					Entry("Adding multiple instances.",
 						testCase{
 							Instances:                     []string{"test-storage-2", "test-storage-3"},
-							ExpectedInstancesInNoSchedule: []fdbv1beta2.ProcessGroupID{"storage-1", "storage-2", "storage-3"},
+							ExpectedInstancesInNoSchedule: []fdbv1beta2.ProcessGroupID{"test-storage-1", "test-storage-2", "test-storage-3"},
 						}),
 				)
 			})
@@ -108,7 +108,7 @@ var _ = Describe("[plugin] buggify no-schedule instances command", func() {
 
 		When("removing process group from no-schedule list from a cluster", func() {
 			BeforeEach(func() {
-				cluster.Spec.Buggify.NoSchedule = []fdbv1beta2.ProcessGroupID{"storage-1", "storage-2", "storage-3"}
+				cluster.Spec.Buggify.NoSchedule = []fdbv1beta2.ProcessGroupID{"test-storage-1", "test-storage-2", "test-storage-3"}
 			})
 
 			type testCase struct {
@@ -133,12 +133,12 @@ var _ = Describe("[plugin] buggify no-schedule instances command", func() {
 				Entry("Removing single instance.",
 					testCase{
 						Instances:                     []string{"test-storage-1"},
-						ExpectedInstancesInNoSchedule: []fdbv1beta2.ProcessGroupID{"storage-2", "storage-3"},
+						ExpectedInstancesInNoSchedule: []fdbv1beta2.ProcessGroupID{"test-storage-2", "test-storage-3"},
 					}),
 				Entry("Removing multiple instances.",
 					testCase{
 						Instances:                     []string{"test-storage-2", "test-storage-3"},
-						ExpectedInstancesInNoSchedule: []fdbv1beta2.ProcessGroupID{"storage-1"},
+						ExpectedInstancesInNoSchedule: []fdbv1beta2.ProcessGroupID{"test-storage-1"},
 					}),
 			)
 

@@ -33,6 +33,7 @@ var _ = Describe("[plugin] remove process groups command", func() {
 	When("running remove process groups command", func() {
 		When("removing process groups from a cluster", func() {
 			BeforeEach(func() {
+				cluster.Spec.ProcessGroupIDPrefix = ""
 				cluster.Status = fdbv1beta2.FoundationDBClusterStatus{
 					ProcessGroups: []*fdbv1beta2.ProcessGroupStatus{
 						{
