@@ -123,12 +123,12 @@ func replaceProcessGroups(kubeClient client.Client, clusterName string, ids []st
 			return err
 		}
 		for cluster, pgs := range pgsByCluster {
-			// TODO check over this error logic
 			err = replaceProcessGroupsFromCluster(kubeClient, cluster, pgs, namespace, withExclusion, wait, removeAllFailed)
 			if err != nil {
 				return err
 			}
 		}
+		return nil
 	}
 
 	// single-cluster logic
@@ -183,6 +183,16 @@ func replaceProcessGroupsFromCluster(kubeClient client.Client, cluster *fdbv1bet
 		}
 	}
 
+	/*
+			processGroupSet: "storage-1"
+			processGroupIDs: []{"storage-1"}
+			cluster:
+				ProcessGroups: {ProcessGroupID: "storage-42"} {ProcessGroupID: "storage-1"}
+		bad:
+			cluster:
+				ProcessGroups: {ProcessGroupID: "test-instance-1"}
+
+	*/
 	if withExclusion {
 		cluster.Spec.ProcessGroupsToRemove = cluster.GetProcessGroupsToRemove(processGroupIDs)
 	} else {

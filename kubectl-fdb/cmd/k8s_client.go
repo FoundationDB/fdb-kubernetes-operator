@@ -299,8 +299,7 @@ func getProcessGroupIDsFromPodName(cluster *fdbv1beta2.FoundationDBCluster, podN
 // processGroup objects mapped by clusterName matching the given clusterLabel.
 func fetchProcessGroupsCrossCluster(kubeClient client.Client, namespace string, clusterLabel string, podNames ...string) (map[*fdbv1beta2.FoundationDBCluster][]fdbv1beta2.ProcessGroupID, error) {
 	var pod corev1.Pod
-	pgsByCluster := map[*fdbv1beta2.FoundationDBCluster][]fdbv1beta2.ProcessGroupID{}
-
+	podsByClusterName := map[string][]string{} // start with grouping by cluster-label values and load clusters later
 	for _, podName := range podNames {
 		err := kubeClient.Get(context.Background(), client.ObjectKey{Name: podName, Namespace: namespace}, &pod)
 		if err != nil {
@@ -309,7 +308,15 @@ func fetchProcessGroupsCrossCluster(kubeClient client.Client, namespace string, 
 			}
 			return nil, err
 		}
-		clusterName := pod.Labels[clusterLabel]
+		clusterName, ok := pod.Labels[clusterLabel]
+		if !ok {
+			return nil, fmt.Errorf("no cluster-label '%s' found for pod '%s'", clusterLabel, podName)
+		}
+		podsByClusterName[clusterName] = append(podsByClusterName[clusterName], podName)
+	}
+	// using the clusterName:podNames map, get a *FoundationDBCluster:progressGroupIDs map
+	pgsByCluster := map[*fdbv1beta2.FoundationDBCluster][]fdbv1beta2.ProcessGroupID{}
+	for clusterName, pods := range podsByClusterName {
 		cluster, err := loadCluster(kubeClient, namespace, clusterName)
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
@@ -317,7 +324,9 @@ func fetchProcessGroupsCrossCluster(kubeClient client.Client, namespace string, 
 			}
 			return nil, err
 		}
-		pgsByCluster[cluster] = append(pgsByCluster[cluster], internal.GetProcessGroupIDFromPodName(cluster, podName))
+		for _, podName := range pods {
+			pgsByCluster[cluster] = append(pgsByCluster[cluster], internal.GetProcessGroupIDFromPodName(cluster, podName))
+		}
 	}
 	return pgsByCluster, nil
 }

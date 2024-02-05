@@ -14,10 +14,14 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var k8sClient *mockclient.MockClient
-var cluster *fdbv1beta2.FoundationDBCluster
-var clusterName = "test"
-var namespace = "test"
+var (
+	k8sClient         *mockclient.MockClient
+	cluster           *fdbv1beta2.FoundationDBCluster
+	secondCluster     *fdbv1beta2.FoundationDBCluster
+	clusterName       = "test"
+	secondClusterName = "test2"
+	namespace         = "test"
+)
 
 // MockVersionChecker will help to mock the calls to GitHub API to get 'latest' version in tests
 type MockVersionChecker struct {
