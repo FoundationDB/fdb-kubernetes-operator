@@ -156,7 +156,7 @@ var _ = Describe("[plugin] remove process groups command", func() {
 				})
 			})
 
-			When("processes are removed by pod + clusterLabel criteria", func() {
+			When("processes are removed by pod and clusterLabel criteria", func() {
 				BeforeEach(func() {
 					// creating Pods for first cluster.
 					cluster = generateClusterStruct(clusterName, namespace) // the status is overwritten by prior tests
@@ -183,7 +183,7 @@ var _ = Describe("[plugin] remove process groups command", func() {
 					wantErrorContains string
 				}
 
-				DescribeTable("should remove specified processes via clusterLabel + podName(s)",
+				DescribeTable("should remove specified processes via clusterLabel and podName(s)",
 					func(tc testCase) {
 						err := replaceProcessGroups(k8sClient, tc.clusterNameFilter, tc.podNames, namespace, tc.clusterLabel, true, false, tc.RemoveAllFailed, false)
 						if tc.wantErrorContains != "" {
@@ -192,17 +192,17 @@ var _ = Describe("[plugin] remove process groups command", func() {
 							Expect(err).NotTo(HaveOccurred())
 						}
 
-						for clusterName, cd := range tc.clusterDataMap {
+						for clusterName, clusterData := range tc.clusterDataMap {
 							var resCluster fdbv1beta2.FoundationDBCluster
 							err = k8sClient.Get(context.Background(), client.ObjectKey{
 								Namespace: namespace,
 								Name:      clusterName,
 							}, &resCluster)
 							Expect(err).NotTo(HaveOccurred())
-							Expect(cd.ExpectedInstancesToRemove).To(ContainElements(resCluster.Spec.ProcessGroupsToRemove))
-							Expect(len(cd.ExpectedInstancesToRemove)).To(BeNumerically("==", len(resCluster.Spec.ProcessGroupsToRemove)))
+							Expect(clusterData.ExpectedInstancesToRemove).To(ContainElements(resCluster.Spec.ProcessGroupsToRemove))
+							Expect(len(clusterData.ExpectedInstancesToRemove)).To(BeNumerically("==", len(resCluster.Spec.ProcessGroupsToRemove)))
 							Expect(len(resCluster.Spec.ProcessGroupsToRemoveWithoutExclusion)).To(BeNumerically("==", 0))
-							Expect(cd.ExpectedProcessCounts.Storage).To(Equal(resCluster.Spec.ProcessCounts.Storage))
+							Expect(clusterData.ExpectedProcessCounts.Storage).To(Equal(resCluster.Spec.ProcessCounts.Storage))
 						}
 					},
 					Entry("errors when process group IDs are provided instead of pod names",

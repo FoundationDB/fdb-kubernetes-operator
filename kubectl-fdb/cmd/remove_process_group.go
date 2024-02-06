@@ -183,16 +183,6 @@ func replaceProcessGroupsFromCluster(kubeClient client.Client, cluster *fdbv1bet
 		}
 	}
 
-	/*
-			processGroupSet: "storage-1"
-			processGroupIDs: []{"storage-1"}
-			cluster:
-				ProcessGroups: {ProcessGroupID: "storage-42"} {ProcessGroupID: "storage-1"}
-		bad:
-			cluster:
-				ProcessGroups: {ProcessGroupID: "test-instance-1"}
-
-	*/
 	if withExclusion {
 		cluster.Spec.ProcessGroupsToRemove = cluster.GetProcessGroupsToRemove(processGroupIDs)
 	} else {
