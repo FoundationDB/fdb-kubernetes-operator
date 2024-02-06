@@ -296,7 +296,7 @@ func getProcessGroupIDsFromPodName(cluster *fdbv1beta2.FoundationDBCluster, podN
 }
 
 // fetchProcessGroupsCrossCluster fetches the list of process groups matching the given podNames and returns the
-// processGroup objects mapped by clusterName matching the given clusterLabel.
+// processGroupIDs mapped by clusterName matching the given clusterLabel.
 func fetchProcessGroupsCrossCluster(kubeClient client.Client, namespace string, clusterLabel string, podNames ...string) (map[*fdbv1beta2.FoundationDBCluster][]fdbv1beta2.ProcessGroupID, error) {
 	var pod corev1.Pod
 	podsByClusterName := map[string][]string{} // start with grouping by cluster-label values and load clusters later
