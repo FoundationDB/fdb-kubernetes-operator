@@ -50,6 +50,10 @@ func newRemoveProcessGroupCmd(streams genericclioptions.IOStreams) *cobra.Comman
 			if err != nil {
 				return err
 			}
+			processClass, err := cmd.Flags().GetString("process-class")
+			if err != nil {
+				return err
+			}
 			withExclusion, err := cmd.Flags().GetBool("exclusion")
 			if err != nil {
 				return err
@@ -73,7 +77,7 @@ func newRemoveProcessGroupCmd(streams genericclioptions.IOStreams) *cobra.Comman
 				return err
 			}
 
-			return replaceProcessGroups(kubeClient, cluster, args, namespace, clusterLabel, withExclusion, wait, removeAllFailed, useProcessGroupID)
+			return replaceProcessGroups(kubeClient, cluster, args, namespace, clusterLabel, processClass, withExclusion, wait, removeAllFailed, useProcessGroupID)
 		},
 		Example: `
 # Remove process groups for a cluster in the current namespace
@@ -91,14 +95,18 @@ kubectl fdb -n default remove process-group --use-process-group-id -c cluster st
 
 # Remove all failed process groups for a cluster (all process groups that have a missing process)
 kubectl fdb -n default remove process-group -c cluster --remove-all-failed
+
+# Remove all processes in the cluster that have the given process-class (incompatible with passing pod names or process group IDs)
+kubectl fdb -n default remove process-group -c cluster --process-class="stateless"
 `,
 	}
 
 	cmd.Flags().StringP("fdb-cluster", "c", "", "remove process groups from the provided cluster.")
+	cmd.Flags().String("process-class", "", "remove process groups matching the provided value in the provided cluster.  Using this option ignores provided ids.")
+	cmd.Flags().StringP("cluster-label", "l", fdbv1beta2.FDBClusterLabel, "cluster label used to identify the cluster for a requested pod")
 	cmd.Flags().BoolP("exclusion", "e", true, "define if the process groups should be removed with exclusion.")
 	cmd.Flags().Bool("remove-all-failed", false, "define if all failed processes should be replaced.")
 	cmd.Flags().Bool("use-process-group-id", false, "define if the process-group should be used instead of the Pod name.")
-	cmd.Flags().StringP("cluster-label", "l", fdbv1beta2.FDBClusterLabel, "cluster label used to identify the cluster for a requested pod")
 
 	cmd.SetOut(o.Out)
 	cmd.SetErr(o.ErrOut)
@@ -109,10 +117,12 @@ kubectl fdb -n default remove process-group -c cluster --remove-all-failed
 	return cmd
 }
 
-// replaceProcessGroups adds process groups to the removal list of their respective clusters
-// if a clusterName is specified, it will ONLY do so for the specified cluster
-func replaceProcessGroups(kubeClient client.Client, clusterName string, ids []string, namespace string, clusterLabel string, withExclusion bool, wait bool, removeAllFailed bool, useProcessGroupID bool) error {
-	if len(ids) == 0 && !removeAllFailed {
+// replaceProcessGroups adds process groups to the removal list of their respective clusters.
+// If clusterName is specified, it will ONLY do so for the specified cluster.
+// If processClass is specified, it will ignore the given ids and remove all processes in the given cluster whose pods
+// have a processClassLabel matching the processClass.
+func replaceProcessGroups(kubeClient client.Client, clusterName string, ids []string, namespace string, clusterLabel string, processClass string, withExclusion bool, wait bool, removeAllFailed bool, useProcessGroupID bool) error {
+	if len(ids) == 0 && !removeAllFailed && processClass == "" {
 		return nil
 	}
 
@@ -139,14 +149,22 @@ func replaceProcessGroups(kubeClient client.Client, clusterName string, ids []st
 		}
 		return err
 	}
-	// In this case the user has Pod name specified
+
 	var processGroupIDs []fdbv1beta2.ProcessGroupID
-	if !useProcessGroupID {
+	if processClass != "" { // match against a whole process class, ignore provided ids
+		if len(ids) != 0 {
+			return fmt.Errorf("process identifiers were provided along with a processClass and would be ignored, please only provide one or the other")
+		}
+		processGroupIDs = getProcessGroupIdsWithClass(cluster, processClass)
+		if len(processGroupIDs) == 0 {
+			return fmt.Errorf("found no processGroups of processClass '%s' in cluster %s", processClass, clusterName)
+		}
+	} else if !useProcessGroupID { // match by pod name
 		processGroupIDs, err = getProcessGroupIDsFromPodName(cluster, ids)
 		if err != nil {
 			return err
 		}
-	} else {
+	} else { // match by process group ID
 		for _, id := range ids {
 			processGroupIDs = append(processGroupIDs, fdbv1beta2.ProcessGroupID(id))
 		}

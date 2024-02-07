@@ -62,7 +62,7 @@ var _ = Describe("[plugin] remove process groups command", func() {
 
 			DescribeTable("should cordon all targeted processes",
 				func(tc testCase) {
-					err := replaceProcessGroups(k8sClient, clusterName, tc.Instances, namespace, "", tc.WithExclusion, false, tc.RemoveAllFailed, false)
+					err := replaceProcessGroups(k8sClient, clusterName, tc.Instances, namespace, "", "", tc.WithExclusion, false, tc.RemoveAllFailed, false)
 					Expect(err).NotTo(HaveOccurred())
 
 					var resCluster fdbv1beta2.FoundationDBCluster
@@ -119,7 +119,7 @@ var _ = Describe("[plugin] remove process groups command", func() {
 				When("adding the same process group to the removal list without exclusion", func() {
 					It("should add the process group to the removal without exclusion list", func() {
 						removals := []string{"test-storage-1"}
-						err := replaceProcessGroups(k8sClient, clusterName, removals, namespace, "", false, false, false, false)
+						err := replaceProcessGroups(k8sClient, clusterName, removals, namespace, "", "", false, false, false, false)
 						Expect(err).NotTo(HaveOccurred())
 
 						var resCluster fdbv1beta2.FoundationDBCluster
@@ -139,7 +139,7 @@ var _ = Describe("[plugin] remove process groups command", func() {
 				When("adding the same process group to the removal list", func() {
 					It("should add the process group to the removal without exclusion list", func() {
 						removals := []string{"test-storage-1"}
-						err := replaceProcessGroups(k8sClient, clusterName, removals, namespace, "", true, false, false, false)
+						err := replaceProcessGroups(k8sClient, clusterName, removals, namespace, "", "", true, false, false, false)
 						Expect(err).NotTo(HaveOccurred())
 
 						var resCluster fdbv1beta2.FoundationDBCluster
@@ -178,15 +178,15 @@ var _ = Describe("[plugin] remove process groups command", func() {
 					podNames          []string
 					clusterNameFilter string // if used, then cross-cluster will not work
 					clusterLabel      string
-					RemoveAllFailed   bool
 					clusterDataMap    map[string]clusterData
 					wantErrorContains string
 				}
 
 				DescribeTable("should remove specified processes via clusterLabel and podName(s)",
 					func(tc testCase) {
-						err := replaceProcessGroups(k8sClient, tc.clusterNameFilter, tc.podNames, namespace, tc.clusterLabel, true, false, tc.RemoveAllFailed, false)
+						err := replaceProcessGroups(k8sClient, tc.clusterNameFilter, tc.podNames, namespace, tc.clusterLabel, "", true, false, false, false)
 						if tc.wantErrorContains != "" {
+							Expect(err).To(Not(BeNil()))
 							Expect(err.Error()).To(ContainSubstring(tc.wantErrorContains))
 						} else {
 							Expect(err).NotTo(HaveOccurred())
@@ -330,6 +330,77 @@ var _ = Describe("[plugin] remove process groups command", func() {
 										Storage: 1,
 									},
 								},
+							},
+						},
+					),
+				)
+			})
+			When("processes are specified via processClass", func() {
+				BeforeEach(func() {
+					cluster = generateClusterStruct(clusterName, namespace) // the status is overwritten by prior tests
+					Expect(createPods(clusterName, namespace)).NotTo(HaveOccurred())
+
+				})
+				type testCase struct {
+					ids                       []string // should be ignored when processClass is specified
+					clusterName               string
+					processClass              string
+					wantErrorContains         string
+					ExpectedInstancesToRemove []fdbv1beta2.ProcessGroupID
+				}
+				DescribeTable("should remove specified processes via clusterLabel and podName(s)",
+					func(tc testCase) {
+						err := replaceProcessGroups(k8sClient, tc.clusterName, tc.ids, namespace, "", tc.processClass, true, false, false, false)
+						if tc.wantErrorContains != "" {
+							Expect(err).To(Not(BeNil()))
+							Expect(err.Error()).To(ContainSubstring(tc.wantErrorContains))
+						} else {
+							Expect(err).NotTo(HaveOccurred())
+						}
+
+						var resCluster fdbv1beta2.FoundationDBCluster
+						err = k8sClient.Get(context.Background(), client.ObjectKey{
+							Namespace: namespace,
+							Name:      clusterName,
+						}, &resCluster)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(tc.ExpectedInstancesToRemove).To(ContainElements(resCluster.Spec.ProcessGroupsToRemove))
+						Expect(len(tc.ExpectedInstancesToRemove)).To(BeNumerically("==", len(resCluster.Spec.ProcessGroupsToRemove)))
+						Expect(len(resCluster.Spec.ProcessGroupsToRemoveWithoutExclusion)).To(BeNumerically("==", 0))
+					},
+					Entry("errors when no process groups are found of the given class",
+						testCase{
+							processClass:              "non-existent",
+							wantErrorContains:         fmt.Sprintf("found no processGroups of processClass 'non-existent' in cluster %s", clusterName),
+							clusterName:               clusterName,
+							ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{},
+						},
+					),
+					Entry("errors when ids are provided along with processClass",
+						testCase{
+							ids:                       []string{"ignored", "also-ignored"},
+							wantErrorContains:         "provided along with a processClass and would be ignored",
+							processClass:              string(fdbv1beta2.ProcessClassStateless),
+							clusterName:               clusterName,
+							ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{},
+						},
+					),
+					Entry("removes singular matching process",
+						testCase{
+							processClass: string(fdbv1beta2.ProcessClassStateless),
+							clusterName:  clusterName,
+							ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{
+								fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-3", clusterName)),
+							},
+						},
+					),
+					Entry("removes multiple processes that match",
+						testCase{
+							processClass: string(fdbv1beta2.ProcessClassStorage),
+							clusterName:  clusterName,
+							ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{
+								fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-1", clusterName)),
+								fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-2", clusterName)),
 							},
 						},
 					),
