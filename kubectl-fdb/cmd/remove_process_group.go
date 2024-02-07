@@ -27,7 +27,6 @@ import (
 	"github.com/spf13/cobra"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
-	"log"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -44,6 +43,10 @@ func newRemoveProcessGroupCmd(streams genericclioptions.IOStreams) *cobra.Comman
 				return err
 			}
 			cluster, err := cmd.Flags().GetString("fdb-cluster")
+			if err != nil {
+				return err
+			}
+			clusterLabel, err := cmd.Flags().GetString("cluster-label")
 			if err != nil {
 				return err
 			}
@@ -70,11 +73,14 @@ func newRemoveProcessGroupCmd(streams genericclioptions.IOStreams) *cobra.Comman
 				return err
 			}
 
-			return replaceProcessGroups(kubeClient, cluster, args, namespace, withExclusion, wait, removeAllFailed, useProcessGroupID)
+			return replaceProcessGroups(kubeClient, cluster, args, namespace, clusterLabel, withExclusion, wait, removeAllFailed, useProcessGroupID)
 		},
 		Example: `
 # Remove process groups for a cluster in the current namespace
 kubectl fdb remove process-group -c cluster pod-1 pod-2
+
+# Remove process groups across clusters in the current namespace
+kubectl fdb remove process-group pod-1-cluster-A pod-2-cluster-B -l your-cluster-label
 
 # Remove process groups for a cluster in the namespace default
 kubectl fdb -n default remove process-group -c cluster pod-1 pod-2
@@ -92,10 +98,8 @@ kubectl fdb -n default remove process-group -c cluster --remove-all-failed
 	cmd.Flags().BoolP("exclusion", "e", true, "define if the process groups should be removed with exclusion.")
 	cmd.Flags().Bool("remove-all-failed", false, "define if all failed processes should be replaced.")
 	cmd.Flags().Bool("use-process-group-id", false, "define if the process-group should be used instead of the Pod name.")
-	err := cmd.MarkFlagRequired("fdb-cluster")
-	if err != nil {
-		log.Fatal(err)
-	}
+	cmd.Flags().StringP("cluster-label", "l", fdbv1beta2.FDBClusterLabel, "cluster label used to identify the cluster for a requested pod")
+
 	cmd.SetOut(o.Out)
 	cmd.SetErr(o.ErrOut)
 	cmd.SetIn(o.In)
@@ -105,21 +109,36 @@ kubectl fdb -n default remove process-group -c cluster --remove-all-failed
 	return cmd
 }
 
-// replaceProcessGroups adds process groups to the removal list of the cluster
-func replaceProcessGroups(kubeClient client.Client, clusterName string, ids []string, namespace string, withExclusion bool, wait bool, removeAllFailed bool, useProcessGroupID bool) error {
+// replaceProcessGroups adds process groups to the removal list of their respective clusters
+// if a clusterName is specified, it will ONLY do so for the specified cluster
+func replaceProcessGroups(kubeClient client.Client, clusterName string, ids []string, namespace string, clusterLabel string, withExclusion bool, wait bool, removeAllFailed bool, useProcessGroupID bool) error {
 	if len(ids) == 0 && !removeAllFailed {
 		return nil
 	}
 
-	cluster, err := loadCluster(kubeClient, namespace, clusterName)
+	// cross-cluster logic: given a list of Pod names, we can look up the FDB clusters by pod label, and work across clusters
+	if !useProcessGroupID && clusterName == "" {
+		pgsByCluster, err := fetchProcessGroupsCrossCluster(kubeClient, namespace, clusterLabel, ids...)
+		if err != nil {
+			return err
+		}
+		for cluster, pgs := range pgsByCluster {
+			err = replaceProcessGroupsFromCluster(kubeClient, cluster, pgs, namespace, withExclusion, wait, removeAllFailed)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 
+	// single-cluster logic
+	cluster, err := loadCluster(kubeClient, namespace, clusterName)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return fmt.Errorf("could not get cluster: %s/%s", namespace, clusterName)
 		}
 		return err
 	}
-
 	// In this case the user has Pod name specified
 	var processGroupIDs []fdbv1beta2.ProcessGroupID
 	if !useProcessGroupID {
@@ -132,7 +151,11 @@ func replaceProcessGroups(kubeClient client.Client, clusterName string, ids []st
 			processGroupIDs = append(processGroupIDs, fdbv1beta2.ProcessGroupID(id))
 		}
 	}
+	return replaceProcessGroupsFromCluster(kubeClient, cluster, processGroupIDs, namespace, withExclusion, wait, removeAllFailed)
+}
 
+// replaceProcessGroupsFromCluster removes the process groups ONLY from the specified cluster
+func replaceProcessGroupsFromCluster(kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluster, processGroupIDs []fdbv1beta2.ProcessGroupID, namespace string, withExclusion bool, wait bool, removeAllFailed bool) error {
 	patch := client.MergeFrom(cluster.DeepCopy())
 
 	processGroupSet := map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None{}
@@ -155,7 +178,7 @@ func replaceProcessGroups(kubeClient client.Client, clusterName string, ids []st
 	}
 
 	if wait {
-		if !confirmAction(fmt.Sprintf("Remove %v from cluster %s/%s with exclude: %t", processGroupIDs, namespace, clusterName, withExclusion)) {
+		if !confirmAction(fmt.Sprintf("Remove %v from cluster %s/%s with exclude: %t", processGroupIDs, namespace, cluster.Name, withExclusion)) {
 			return fmt.Errorf("user aborted the removal")
 		}
 	}

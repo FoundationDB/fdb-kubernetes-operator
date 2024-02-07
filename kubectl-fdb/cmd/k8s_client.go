@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"github.com/go-logr/logr"
 	"io"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog/v2"
 	"math/rand"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
@@ -292,6 +293,42 @@ func getProcessGroupIDsFromPodName(cluster *fdbv1beta2.FoundationDBCluster, podN
 	}
 
 	return processGroupIDs, nil
+}
+
+// fetchProcessGroupsCrossCluster fetches the list of process groups matching the given podNames and returns the
+// processGroupIDs mapped by clusterName matching the given clusterLabel.
+func fetchProcessGroupsCrossCluster(kubeClient client.Client, namespace string, clusterLabel string, podNames ...string) (map[*fdbv1beta2.FoundationDBCluster][]fdbv1beta2.ProcessGroupID, error) {
+	var pod corev1.Pod
+	podsByClusterName := map[string][]string{} // start with grouping by cluster-label values and load clusters later
+	for _, podName := range podNames {
+		err := kubeClient.Get(context.Background(), client.ObjectKey{Name: podName, Namespace: namespace}, &pod)
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				return nil, fmt.Errorf("could not get pod: %s/%s", namespace, podName)
+			}
+			return nil, err
+		}
+		clusterName, ok := pod.Labels[clusterLabel]
+		if !ok {
+			return nil, fmt.Errorf("no cluster-label '%s' found for pod '%s'", clusterLabel, podName)
+		}
+		podsByClusterName[clusterName] = append(podsByClusterName[clusterName], podName)
+	}
+	// using the clusterName:podNames map, get a *FoundationDBCluster:progressGroupIDs map
+	pgsByCluster := map[*fdbv1beta2.FoundationDBCluster][]fdbv1beta2.ProcessGroupID{}
+	for clusterName, pods := range podsByClusterName {
+		cluster, err := loadCluster(kubeClient, namespace, clusterName)
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				return nil, fmt.Errorf("could not get cluster: %s/%s", namespace, clusterName)
+			}
+			return nil, err
+		}
+		for _, podName := range pods {
+			pgsByCluster[cluster] = append(pgsByCluster[cluster], internal.GetProcessGroupIDFromPodName(cluster, podName))
+		}
+	}
+	return pgsByCluster, nil
 }
 
 func chooseRandomPod(pods *corev1.PodList) (*corev1.Pod, error) {

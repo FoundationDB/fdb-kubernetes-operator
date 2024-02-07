@@ -22,6 +22,7 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	. "github.com/onsi/ginkgo/v2"
@@ -61,7 +62,7 @@ var _ = Describe("[plugin] remove process groups command", func() {
 
 			DescribeTable("should cordon all targeted processes",
 				func(tc testCase) {
-					err := replaceProcessGroups(k8sClient, clusterName, tc.Instances, namespace, tc.WithExclusion, false, tc.RemoveAllFailed, false)
+					err := replaceProcessGroups(k8sClient, clusterName, tc.Instances, namespace, "", tc.WithExclusion, false, tc.RemoveAllFailed, false)
 					Expect(err).NotTo(HaveOccurred())
 
 					var resCluster fdbv1beta2.FoundationDBCluster
@@ -118,7 +119,7 @@ var _ = Describe("[plugin] remove process groups command", func() {
 				When("adding the same process group to the removal list without exclusion", func() {
 					It("should add the process group to the removal without exclusion list", func() {
 						removals := []string{"test-storage-1"}
-						err := replaceProcessGroups(k8sClient, clusterName, removals, namespace, false, false, false, false)
+						err := replaceProcessGroups(k8sClient, clusterName, removals, namespace, "", false, false, false, false)
 						Expect(err).NotTo(HaveOccurred())
 
 						var resCluster fdbv1beta2.FoundationDBCluster
@@ -138,7 +139,7 @@ var _ = Describe("[plugin] remove process groups command", func() {
 				When("adding the same process group to the removal list", func() {
 					It("should add the process group to the removal without exclusion list", func() {
 						removals := []string{"test-storage-1"}
-						err := replaceProcessGroups(k8sClient, clusterName, removals, namespace, true, false, false, false)
+						err := replaceProcessGroups(k8sClient, clusterName, removals, namespace, "", true, false, false, false)
 						Expect(err).NotTo(HaveOccurred())
 
 						var resCluster fdbv1beta2.FoundationDBCluster
@@ -153,6 +154,186 @@ var _ = Describe("[plugin] remove process groups command", func() {
 						Expect(len(resCluster.Spec.ProcessGroupsToRemoveWithoutExclusion)).To(BeNumerically("==", 0))
 					})
 				})
+			})
+
+			When("processes are removed by pod and clusterLabel criteria", func() {
+				BeforeEach(func() {
+					// creating Pods for first cluster.
+					cluster = generateClusterStruct(clusterName, namespace) // the status is overwritten by prior tests
+					Expect(createPods(clusterName, namespace)).NotTo(HaveOccurred())
+
+					// creating a second cluster
+					secondCluster = generateClusterStruct(secondClusterName, namespace)
+					Expect(k8sClient.Create(context.TODO(), secondCluster)).NotTo(HaveOccurred())
+					Expect(createPods(secondClusterName, namespace)).NotTo(HaveOccurred())
+				})
+
+				// since these tests involve multiple clusters, this allows us to more easily check expected counts on
+				// a cluster-by-cluster basis
+				type clusterData struct {
+					ExpectedInstancesToRemove []fdbv1beta2.ProcessGroupID
+					ExpectedProcessCounts     fdbv1beta2.ProcessCounts
+				}
+				type testCase struct {
+					podNames          []string
+					clusterNameFilter string // if used, then cross-cluster will not work
+					clusterLabel      string
+					RemoveAllFailed   bool
+					clusterDataMap    map[string]clusterData
+					wantErrorContains string
+				}
+
+				DescribeTable("should remove specified processes via clusterLabel and podName(s)",
+					func(tc testCase) {
+						err := replaceProcessGroups(k8sClient, tc.clusterNameFilter, tc.podNames, namespace, tc.clusterLabel, true, false, tc.RemoveAllFailed, false)
+						if tc.wantErrorContains != "" {
+							Expect(err.Error()).To(ContainSubstring(tc.wantErrorContains))
+						} else {
+							Expect(err).NotTo(HaveOccurred())
+						}
+
+						for clusterName, clusterData := range tc.clusterDataMap {
+							var resCluster fdbv1beta2.FoundationDBCluster
+							err = k8sClient.Get(context.Background(), client.ObjectKey{
+								Namespace: namespace,
+								Name:      clusterName,
+							}, &resCluster)
+							Expect(err).NotTo(HaveOccurred())
+							Expect(clusterData.ExpectedInstancesToRemove).To(ContainElements(resCluster.Spec.ProcessGroupsToRemove))
+							Expect(len(clusterData.ExpectedInstancesToRemove)).To(BeNumerically("==", len(resCluster.Spec.ProcessGroupsToRemove)))
+							Expect(len(resCluster.Spec.ProcessGroupsToRemoveWithoutExclusion)).To(BeNumerically("==", 0))
+							Expect(clusterData.ExpectedProcessCounts.Storage).To(Equal(resCluster.Spec.ProcessCounts.Storage))
+						}
+					},
+					Entry("errors when process group IDs are provided instead of pod names",
+						testCase{
+							podNames:          []string{"instance-1"},
+							clusterLabel:      fdbv1beta2.FDBClusterLabel,
+							wantErrorContains: "could not get pod: test/instance-1",
+							clusterDataMap: map[string]clusterData{
+								clusterName: {
+									ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{},
+									ExpectedProcessCounts: fdbv1beta2.ProcessCounts{
+										Storage: 1,
+									},
+								},
+							},
+						},
+					),
+					Entry("errors when no cluster found with given label",
+						testCase{
+							podNames:          []string{fmt.Sprintf("%s-instance-1", clusterName)},
+							clusterLabel:      "invalid-cluster-label",
+							wantErrorContains: fmt.Sprintf("no cluster-label 'invalid-cluster-label' found for pod '%s-instance-1'", clusterName),
+							clusterDataMap: map[string]clusterData{
+								clusterName: {
+									ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{},
+									ExpectedProcessCounts: fdbv1beta2.ProcessCounts{
+										Storage: 1,
+									},
+								},
+							},
+						},
+					),
+					Entry("removes valid 1 process group referred to by pod name and cluster-label",
+						testCase{
+							podNames:     []string{fmt.Sprintf("%s-instance-1", clusterName)},
+							clusterLabel: fdbv1beta2.FDBClusterLabel,
+							clusterDataMap: map[string]clusterData{
+								clusterName: {
+									ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{
+										fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-1", clusterName)),
+									},
+									ExpectedProcessCounts: fdbv1beta2.ProcessCounts{
+										Storage: 1,
+									},
+								},
+								secondClusterName: {
+									ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{},
+									ExpectedProcessCounts: fdbv1beta2.ProcessCounts{
+										Storage: 1,
+									},
+								},
+							},
+						},
+					),
+					Entry("removes two process groups, each on a different cluster",
+						testCase{
+							podNames:     []string{fmt.Sprintf("%s-instance-1", clusterName), fmt.Sprintf("%s-instance-1", secondClusterName)},
+							clusterLabel: fdbv1beta2.FDBClusterLabel,
+							clusterDataMap: map[string]clusterData{
+								clusterName: {
+									ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{
+										fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-1", clusterName)),
+									},
+									ExpectedProcessCounts: fdbv1beta2.ProcessCounts{
+										Storage: 1,
+									},
+								},
+								secondClusterName: {
+									ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{
+										fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-1", secondClusterName)),
+									},
+									ExpectedProcessCounts: fdbv1beta2.ProcessCounts{
+										Storage: 1,
+									},
+								},
+							},
+						},
+					),
+					Entry("removes 3 process groups, on 2 different clusters",
+						testCase{
+							podNames:     []string{fmt.Sprintf("%s-instance-1", clusterName), fmt.Sprintf("%s-instance-1", secondClusterName), fmt.Sprintf("%s-instance-2", secondClusterName)},
+							clusterLabel: fdbv1beta2.FDBClusterLabel,
+							clusterDataMap: map[string]clusterData{
+								clusterName: {
+									ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{
+										fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-1", clusterName)),
+									},
+									ExpectedProcessCounts: fdbv1beta2.ProcessCounts{
+										Storage: 1,
+									},
+								},
+								secondClusterName: {
+									ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{
+										fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-1", secondClusterName)),
+										fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-2", secondClusterName)),
+									},
+									ExpectedProcessCounts: fdbv1beta2.ProcessCounts{
+										Storage: 1,
+									},
+								},
+							},
+						},
+					),
+					Entry("removes 4 process groups, on 2 different clusters",
+						testCase{
+							podNames: []string{fmt.Sprintf("%s-instance-1", clusterName), fmt.Sprintf("%s-instance-2", clusterName),
+								fmt.Sprintf("%s-instance-1", secondClusterName), fmt.Sprintf("%s-instance-2", secondClusterName)},
+							clusterLabel: fdbv1beta2.FDBClusterLabel,
+							clusterDataMap: map[string]clusterData{
+								clusterName: {
+									ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{
+										fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-1", clusterName)),
+										fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-2", clusterName)),
+									},
+									ExpectedProcessCounts: fdbv1beta2.ProcessCounts{
+										Storage: 1,
+									},
+								},
+								secondClusterName: {
+									ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{
+										fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-1", secondClusterName)),
+										fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-2", secondClusterName)),
+									},
+									ExpectedProcessCounts: fdbv1beta2.ProcessCounts{
+										Storage: 1,
+									},
+								},
+							},
+						},
+					),
+				)
 			})
 		})
 	})

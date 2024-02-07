@@ -34,9 +34,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var secondCluster *fdbv1beta2.FoundationDBCluster
-var secondClusterName = "test2"
-
 var _ = Describe("[plugin] cordon command", func() {
 	When("running cordon command", func() {
 		type testCase struct {
