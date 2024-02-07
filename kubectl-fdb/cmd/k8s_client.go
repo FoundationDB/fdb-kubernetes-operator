@@ -297,7 +297,7 @@ func getProcessGroupIDsFromPodName(cluster *fdbv1beta2.FoundationDBCluster, podN
 
 // getProcessGroupIdsWithClass returns a list of ProcessGroupIDs in the given cluster which are of the given processClass
 func getProcessGroupIdsWithClass(cluster *fdbv1beta2.FoundationDBCluster, processClass string) []fdbv1beta2.ProcessGroupID {
-	var matchingProcessGroupIDs []fdbv1beta2.ProcessGroupID
+	matchingProcessGroupIDs := []fdbv1beta2.ProcessGroupID{}
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup.ProcessClass != fdbv1beta2.ProcessClass(processClass) {
 			continue
