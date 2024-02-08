@@ -23,7 +23,6 @@ package cmd
 import (
 	"fmt"
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
@@ -141,42 +140,24 @@ func cordonNode(cmd *cobra.Command, kubeClient client.Client, inputClusterName s
 			errors = append(errors, internalErr)
 			continue
 		}
+		var podNames []string
+		for _, pod := range pods.Items {
+			podNames = append(podNames, pod.Name)
+		}
 
-		clusterNames := getClusterNames(cmd, inputClusterName, pods, clusterLabel)
-		for clusterName := range clusterNames {
-			cmd.Printf("Starting operation on %s, node: %s\n", clusterName, node)
-			cluster, err := loadCluster(kubeClient, namespace, clusterName)
-			if err != nil {
-				internalErr := fmt.Sprintf("unable to load cluster: %s, skipping\n", clusterName)
-				errors = append(errors, internalErr)
-				cmd.PrintErr(internalErr)
-				continue
-			}
-
-			var processGroups []string
-			for _, pod := range pods.Items {
-				// With the field selector above this shouldn't be required, but it's good to
-				// have a second check.
-				if pod.Spec.NodeName != node {
-					cmd.Printf("Pod: %s is not running on node %s will be ignored\n", pod.Name, node)
-					continue
-				}
-
-				if internal.ContainsPod(cluster, pod) {
-					processGroup, ok := pod.Labels[cluster.GetProcessGroupIDLabel()]
-					if !ok {
-						cmd.Printf("could not fetch process group ID from Pod: %s\n", pod.Name)
-						continue
-					}
-					processGroups = append(processGroups, processGroup)
-				}
-			}
-			err = replaceProcessGroups(kubeClient, cluster.Name, processGroups, namespace, "", "", withExclusion, wait, false, true)
-			if err != nil {
-				internalErr := fmt.Sprintf("unable to cordon all Pods for cluster %s\n", cluster.Name)
-				errors = append(errors, internalErr)
-				cmd.PrintErr(internalErr)
-			}
+		cmd.Printf("Cordoning node: %s\n", node)
+		err = replaceProcessGroups(cmd, kubeClient, inputClusterName, podNames, namespace, replaceProcessGroupsOptions{
+			clusterLabel:      clusterLabel,
+			processClass:      "",
+			withExclusion:     withExclusion,
+			wait:              wait,
+			removeAllFailed:   false,
+			useProcessGroupID: false,
+		})
+		if err != nil {
+			internalErr := fmt.Sprintf("unable to cordon all Pods for node %s\n", node)
+			errors = append(errors, internalErr)
+			cmd.PrintErr(internalErr)
 		}
 	}
 	if len(errors) > 0 {

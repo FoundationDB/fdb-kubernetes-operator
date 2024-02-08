@@ -27,6 +27,7 @@ import (
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -62,7 +63,15 @@ var _ = Describe("[plugin] remove process groups command", func() {
 
 			DescribeTable("should cordon all targeted processes",
 				func(tc testCase) {
-					err := replaceProcessGroups(k8sClient, clusterName, tc.Instances, namespace, "", "", tc.WithExclusion, false, tc.RemoveAllFailed, false)
+					cmd := newRemoveProcessGroupCmd(genericclioptions.IOStreams{})
+					err := replaceProcessGroups(cmd, k8sClient, clusterName, tc.Instances, namespace, replaceProcessGroupsOptions{
+						clusterLabel:      "",
+						processClass:      "",
+						withExclusion:     tc.WithExclusion,
+						wait:              false,
+						removeAllFailed:   tc.RemoveAllFailed,
+						useProcessGroupID: false,
+					})
 					Expect(err).NotTo(HaveOccurred())
 
 					var resCluster fdbv1beta2.FoundationDBCluster
@@ -119,7 +128,15 @@ var _ = Describe("[plugin] remove process groups command", func() {
 				When("adding the same process group to the removal list without exclusion", func() {
 					It("should add the process group to the removal without exclusion list", func() {
 						removals := []string{"test-storage-1"}
-						err := replaceProcessGroups(k8sClient, clusterName, removals, namespace, "", "", false, false, false, false)
+						cmd := newRemoveProcessGroupCmd(genericclioptions.IOStreams{})
+						err := replaceProcessGroups(cmd, k8sClient, clusterName, removals, namespace, replaceProcessGroupsOptions{
+							clusterLabel:      "",
+							processClass:      "",
+							withExclusion:     false,
+							wait:              false,
+							removeAllFailed:   false,
+							useProcessGroupID: false,
+						})
 						Expect(err).NotTo(HaveOccurred())
 
 						var resCluster fdbv1beta2.FoundationDBCluster
@@ -139,7 +156,15 @@ var _ = Describe("[plugin] remove process groups command", func() {
 				When("adding the same process group to the removal list", func() {
 					It("should add the process group to the removal without exclusion list", func() {
 						removals := []string{"test-storage-1"}
-						err := replaceProcessGroups(k8sClient, clusterName, removals, namespace, "", "", true, false, false, false)
+						cmd := newRemoveProcessGroupCmd(genericclioptions.IOStreams{})
+						err := replaceProcessGroups(cmd, k8sClient, clusterName, removals, namespace, replaceProcessGroupsOptions{
+							clusterLabel:      "",
+							processClass:      "",
+							withExclusion:     true,
+							wait:              false,
+							removeAllFailed:   false,
+							useProcessGroupID: false,
+						})
 						Expect(err).NotTo(HaveOccurred())
 
 						var resCluster fdbv1beta2.FoundationDBCluster
@@ -184,7 +209,15 @@ var _ = Describe("[plugin] remove process groups command", func() {
 
 				DescribeTable("should remove specified processes via clusterLabel and podName(s)",
 					func(tc testCase) {
-						err := replaceProcessGroups(k8sClient, tc.clusterNameFilter, tc.podNames, namespace, tc.clusterLabel, "", true, false, false, false)
+						cmd := newRemoveProcessGroupCmd(genericclioptions.IOStreams{})
+						err := replaceProcessGroups(cmd, k8sClient, tc.clusterNameFilter, tc.podNames, namespace, replaceProcessGroupsOptions{
+							clusterLabel:      tc.clusterLabel,
+							processClass:      "",
+							withExclusion:     true,
+							wait:              false,
+							removeAllFailed:   false,
+							useProcessGroupID: false,
+						})
 						if tc.wantErrorContains != "" {
 							Expect(err).To(Not(BeNil()))
 							Expect(err.Error()).To(ContainSubstring(tc.wantErrorContains))
@@ -350,7 +383,15 @@ var _ = Describe("[plugin] remove process groups command", func() {
 				}
 				DescribeTable("should remove specified processes via clusterLabel and podName(s)",
 					func(tc testCase) {
-						err := replaceProcessGroups(k8sClient, tc.clusterName, tc.ids, namespace, "", tc.processClass, true, false, false, false)
+						cmd := newRemoveProcessGroupCmd(genericclioptions.IOStreams{})
+						err := replaceProcessGroups(cmd, k8sClient, tc.clusterName, tc.ids, namespace, replaceProcessGroupsOptions{
+							clusterLabel:      "",
+							processClass:      tc.processClass,
+							withExclusion:     true,
+							wait:              false,
+							removeAllFailed:   false,
+							useProcessGroupID: false,
+						})
 						if tc.wantErrorContains != "" {
 							Expect(err).To(Not(BeNil()))
 							Expect(err.Error()).To(ContainSubstring(tc.wantErrorContains))

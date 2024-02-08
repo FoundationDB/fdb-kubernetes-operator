@@ -77,7 +77,14 @@ func newRemoveProcessGroupCmd(streams genericclioptions.IOStreams) *cobra.Comman
 				return err
 			}
 
-			return replaceProcessGroups(kubeClient, cluster, args, namespace, clusterLabel, processClass, withExclusion, wait, removeAllFailed, useProcessGroupID)
+			return replaceProcessGroups(cmd, kubeClient, cluster, args, namespace, replaceProcessGroupsOptions{
+				clusterLabel:      clusterLabel,
+				processClass:      processClass,
+				withExclusion:     withExclusion,
+				wait:              wait,
+				removeAllFailed:   removeAllFailed,
+				useProcessGroupID: useProcessGroupID,
+			})
 		},
 		Example: `
 # Remove process groups for a cluster in the current namespace
@@ -117,26 +124,37 @@ kubectl fdb -n default remove process-group -c cluster --process-class="stateles
 	return cmd
 }
 
+type replaceProcessGroupsOptions struct {
+	clusterLabel      string
+	processClass      string
+	withExclusion     bool
+	wait              bool
+	removeAllFailed   bool
+	useProcessGroupID bool
+}
+
 // replaceProcessGroups adds process groups to the removal list of their respective clusters.
 // If clusterName is specified, it will ONLY do so for the specified cluster.
 // If processClass is specified, it will ignore the given ids and remove all processes in the given cluster whose pods
 // have a processClassLabel matching the processClass.
-func replaceProcessGroups(kubeClient client.Client, clusterName string, ids []string, namespace string, clusterLabel string, processClass string, withExclusion bool, wait bool, removeAllFailed bool, useProcessGroupID bool) error {
-	if len(ids) == 0 && !removeAllFailed && processClass == "" {
+func replaceProcessGroups(cmd *cobra.Command, kubeClient client.Client, clusterName string, ids []string, namespace string, opts replaceProcessGroupsOptions) error {
+	if len(ids) == 0 && !opts.removeAllFailed && opts.processClass == "" {
 		return nil
 	}
 
 	// cross-cluster logic: given a list of Pod names, we can look up the FDB clusters by pod label, and work across clusters
-	if !useProcessGroupID && clusterName == "" {
-		pgsByCluster, err := fetchProcessGroupsCrossCluster(kubeClient, namespace, clusterLabel, ids...)
+	if !opts.useProcessGroupID && clusterName == "" {
+		pgsByCluster, err := fetchProcessGroupsCrossCluster(kubeClient, namespace, opts.clusterLabel, ids...)
 		if err != nil {
 			return err
 		}
 		for cluster, pgs := range pgsByCluster {
-			err = replaceProcessGroupsFromCluster(kubeClient, cluster, pgs, namespace, withExclusion, wait, removeAllFailed)
+			err := replaceProcessGroupsFromCluster(kubeClient, cluster, pgs, namespace, opts.withExclusion, opts.wait, opts.removeAllFailed)
 			if err != nil {
 				return err
 			}
+			cmd.Printf("Cluster %v/%v:\n", namespace, clusterName)
+			cmd.Printf("removed %v (exclude: %t)\n", pgs, opts.withExclusion)
 		}
 		return nil
 	}
@@ -151,15 +169,15 @@ func replaceProcessGroups(kubeClient client.Client, clusterName string, ids []st
 	}
 
 	var processGroupIDs []fdbv1beta2.ProcessGroupID
-	if processClass != "" { // match against a whole process class, ignore provided ids
+	if opts.processClass != "" { // match against a whole process class, ignore provided ids
 		if len(ids) != 0 {
 			return fmt.Errorf("process identifiers were provided along with a processClass and would be ignored, please only provide one or the other")
 		}
-		processGroupIDs = getProcessGroupIdsWithClass(cluster, processClass)
+		processGroupIDs = getProcessGroupIdsWithClass(cluster, opts.processClass)
 		if len(processGroupIDs) == 0 {
-			return fmt.Errorf("found no processGroups of processClass '%s' in cluster %s", processClass, clusterName)
+			return fmt.Errorf("found no processGroups of processClass '%s' in cluster %s", opts.processClass, clusterName)
 		}
-	} else if !useProcessGroupID { // match by pod name
+	} else if !opts.useProcessGroupID { // match by pod name
 		processGroupIDs, err = getProcessGroupIDsFromPodName(cluster, ids)
 		if err != nil {
 			return err
@@ -169,10 +187,17 @@ func replaceProcessGroups(kubeClient client.Client, clusterName string, ids []st
 			processGroupIDs = append(processGroupIDs, fdbv1beta2.ProcessGroupID(id))
 		}
 	}
-	return replaceProcessGroupsFromCluster(kubeClient, cluster, processGroupIDs, namespace, withExclusion, wait, removeAllFailed)
+	err = replaceProcessGroupsFromCluster(kubeClient, cluster, processGroupIDs, namespace, opts.withExclusion, opts.wait, opts.removeAllFailed)
+	if err != nil {
+		return err
+	}
+	cmd.Printf("Cluster %v/%v:\n", namespace, clusterName)
+	cmd.Printf("removed %v (exclude: %t)\n", processGroupIDs, opts.withExclusion)
+	return nil
 }
 
-// replaceProcessGroupsFromCluster removes the process groups ONLY from the specified cluster
+// replaceProcessGroupsFromCluster removes the process groups ONLY from the specified cluster.
+// It also returns the list of processGroupIDs that it removed from the cluster.
 func replaceProcessGroupsFromCluster(kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluster, processGroupIDs []fdbv1beta2.ProcessGroupID, namespace string, withExclusion bool, wait bool, removeAllFailed bool) error {
 	patch := client.MergeFrom(cluster.DeepCopy())
 
@@ -201,10 +226,13 @@ func replaceProcessGroupsFromCluster(kubeClient client.Client, cluster *fdbv1bet
 		}
 	}
 
+	var processGroupIDsForRemoval []fdbv1beta2.ProcessGroupID
 	if withExclusion {
-		cluster.Spec.ProcessGroupsToRemove = cluster.GetProcessGroupsToRemove(processGroupIDs)
+		processGroupIDsForRemoval = cluster.GetProcessGroupsToRemove(processGroupIDs)
+		cluster.Spec.ProcessGroupsToRemove = processGroupIDsForRemoval
 	} else {
-		cluster.Spec.ProcessGroupsToRemoveWithoutExclusion = cluster.GetProcessGroupsToRemoveWithoutExclusion(processGroupIDs)
+		processGroupIDsForRemoval = cluster.GetProcessGroupsToRemoveWithoutExclusion(processGroupIDs)
+		cluster.Spec.ProcessGroupsToRemoveWithoutExclusion = processGroupIDsForRemoval
 	}
 
 	return kubeClient.Patch(ctx.TODO(), cluster, patch)
