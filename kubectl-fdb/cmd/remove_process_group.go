@@ -90,23 +90,23 @@ func newRemoveProcessGroupCmd(streams genericclioptions.IOStreams) *cobra.Comman
 		},
 		Example: `
 # Remove process groups for a cluster in the current namespace
-kubectl fdb remove process-group -c cluster pod-1 pod-2
+kubectl fdb remove process-groups -c cluster pod-1 pod-2
 
 # Remove process groups across clusters in the current namespace
-kubectl fdb remove process-group pod-1-cluster-A pod-2-cluster-B -l your-cluster-label
+kubectl fdb remove process-groups pod-1-cluster-A pod-2-cluster-B -l your-cluster-label
 
 # Remove process groups for a cluster in the namespace default
-kubectl fdb -n default remove process-group -c cluster pod-1 pod-2
+kubectl fdb -n default remove process-groups -c cluster pod-1 pod-2
 
 # Remove process groups for a cluster with the process group ID.
 # The process group ID of a Pod can be fetched with "kubectl get po -L foundationdb.org/fdb-process-group-id"
-kubectl fdb -n default remove process-group --use-process-group-id -c cluster storage-1 storage-2
+kubectl fdb -n default remove process-groups --use-process-group-id -c cluster storage-1 storage-2
 
 # Remove all failed process groups for a cluster (all process groups that have a missing process)
-kubectl fdb -n default remove process-group -c cluster --remove-all-failed
+kubectl fdb -n default remove process-groups -c cluster --remove-all-failed
 
 # Remove all processes in the cluster that have the given process-class (incompatible with passing pod names or process group IDs)
-kubectl fdb -n default remove process-group -c cluster --process-class="stateless"
+kubectl fdb -n default remove process-groups -c cluster --process-class="stateless"
 `,
 	}
 
