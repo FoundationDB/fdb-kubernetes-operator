@@ -64,7 +64,7 @@ var _ = Describe("[plugin] remove process groups command", func() {
 			DescribeTable("should cordon all targeted processes",
 				func(tc testCase) {
 					cmd := newRemoveProcessGroupCmd(genericclioptions.IOStreams{})
-					err := replaceProcessGroups(cmd, k8sClient, clusterName, tc.Instances, namespace, replaceProcessGroupsOptions{
+					_, err := replaceProcessGroups(cmd, k8sClient, clusterName, tc.Instances, namespace, replaceProcessGroupsOptions{
 						clusterLabel:      "",
 						processClass:      "",
 						withExclusion:     tc.WithExclusion,
@@ -129,7 +129,7 @@ var _ = Describe("[plugin] remove process groups command", func() {
 					It("should add the process group to the removal without exclusion list", func() {
 						removals := []string{"test-storage-1"}
 						cmd := newRemoveProcessGroupCmd(genericclioptions.IOStreams{})
-						err := replaceProcessGroups(cmd, k8sClient, clusterName, removals, namespace, replaceProcessGroupsOptions{
+						_, err := replaceProcessGroups(cmd, k8sClient, clusterName, removals, namespace, replaceProcessGroupsOptions{
 							clusterLabel:      "",
 							processClass:      "",
 							withExclusion:     false,
@@ -157,7 +157,7 @@ var _ = Describe("[plugin] remove process groups command", func() {
 					It("should add the process group to the removal without exclusion list", func() {
 						removals := []string{"test-storage-1"}
 						cmd := newRemoveProcessGroupCmd(genericclioptions.IOStreams{})
-						err := replaceProcessGroups(cmd, k8sClient, clusterName, removals, namespace, replaceProcessGroupsOptions{
+						_, err := replaceProcessGroups(cmd, k8sClient, clusterName, removals, namespace, replaceProcessGroupsOptions{
 							clusterLabel:      "",
 							processClass:      "",
 							withExclusion:     true,
@@ -210,7 +210,7 @@ var _ = Describe("[plugin] remove process groups command", func() {
 				DescribeTable("should remove specified processes via clusterLabel and podName(s)",
 					func(tc testCase) {
 						cmd := newRemoveProcessGroupCmd(genericclioptions.IOStreams{})
-						err := replaceProcessGroups(cmd, k8sClient, tc.clusterNameFilter, tc.podNames, namespace, replaceProcessGroupsOptions{
+						_, err := replaceProcessGroups(cmd, k8sClient, tc.clusterNameFilter, tc.podNames, namespace, replaceProcessGroupsOptions{
 							clusterLabel:      tc.clusterLabel,
 							processClass:      "",
 							withExclusion:     true,
@@ -384,7 +384,7 @@ var _ = Describe("[plugin] remove process groups command", func() {
 				DescribeTable("should remove specified processes via clusterLabel and podName(s)",
 					func(tc testCase) {
 						cmd := newRemoveProcessGroupCmd(genericclioptions.IOStreams{})
-						err := replaceProcessGroups(cmd, k8sClient, tc.clusterName, tc.ids, namespace, replaceProcessGroupsOptions{
+						_, err := replaceProcessGroups(cmd, k8sClient, tc.clusterName, tc.ids, namespace, replaceProcessGroupsOptions{
 							clusterLabel:      "",
 							processClass:      tc.processClass,
 							withExclusion:     true,
