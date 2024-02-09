@@ -196,21 +196,3 @@ func fetchPodsOnNode(kubeClient client.Client, clusterName string, namespace str
 
 	return pods, nil
 }
-
-func getClusterNames(cmd *cobra.Command, clusterName string, pods corev1.PodList, clusterLabel string) map[string]fdbv1beta2.None {
-	if clusterName != "" {
-		return map[string]fdbv1beta2.None{clusterName: {}}
-	}
-
-	clusterNames := make(map[string]fdbv1beta2.None)
-	for _, pod := range pods.Items {
-		clusterName, ok := pod.Labels[clusterLabel]
-		if !ok {
-			cmd.PrintErrf("could not fetch cluster name from Pod: %s\n", pod.Name)
-			continue
-		}
-		clusterNames[clusterName] = fdbv1beta2.None{}
-	}
-
-	return clusterNames
-}
