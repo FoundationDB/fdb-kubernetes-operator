@@ -21,7 +21,10 @@
 package cmd
 
 import (
+	ctx "context"
+	"errors"
 	"fmt"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -29,8 +32,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	ctx "context"
 )
 
 func newCordonCmd(streams genericclioptions.IOStreams) *cobra.Command {
@@ -126,19 +127,15 @@ kubectl fdb cordon --node-selector machine=a,disk=fast -l fdb-cluster-label
 
 // cordonNode gets all process groups of this cluster that run on the given nodes and add them to the remove list
 func cordonNode(cmd *cobra.Command, kubeClient client.Client, inputClusterName string, nodes []string, namespace string, withExclusion bool, wait bool, clusterLabel string) error {
-	cmd.Printf("Start to cordon %d nodes\n", len(nodes))
+	cmd.Printf("Starting to cordon %d nodes\n", len(nodes))
 	if len(nodes) == 0 {
-		return nil
+		return errors.New("no nodes were provided for cordoning")
 	}
 
-	var errors []string
 	for _, node := range nodes {
 		pods, err := fetchPodsOnNode(kubeClient, inputClusterName, namespace, node, clusterLabel)
 		if err != nil {
-			internalErr := fmt.Sprintf("Issue fetching Pods running on node: %s. Error: %s\n", node, err)
-			cmd.PrintErr(internalErr)
-			errors = append(errors, internalErr)
-			continue
+			return fmt.Errorf("Issue fetching Pods running on node: %s. Error: %s\n", node, err)
 		}
 		var podNames []string
 		for _, pod := range pods.Items {
@@ -155,15 +152,9 @@ func cordonNode(cmd *cobra.Command, kubeClient client.Client, inputClusterName s
 			useProcessGroupID: false,
 		})
 		if err != nil {
-			internalErr := fmt.Sprintf("unable to cordon all Pods for node %s\n", node)
-			errors = append(errors, internalErr)
-			cmd.PrintErr(internalErr)
+			return fmt.Errorf("Unable to cordon all Pods running on node: %s. Error: %s\n", node, err.Error())
 		}
 	}
-	if len(errors) > 0 {
-		return fmt.Errorf("following operation failed, please check and retry: \n, %s", errors)
-	}
-
 	return nil
 }
 
