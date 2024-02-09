@@ -171,7 +171,7 @@ func cordonNode(cmd *cobra.Command, kubeClient client.Client, inputClusterName s
 					processGroups = append(processGroups, processGroup)
 				}
 			}
-			err = replaceProcessGroups(kubeClient, cluster.Name, processGroups, namespace, "", withExclusion, wait, false, true)
+			err = replaceProcessGroups(kubeClient, cluster.Name, processGroups, namespace, "", "", withExclusion, wait, false, true)
 			if err != nil {
 				internalErr := fmt.Sprintf("unable to cordon all Pods for cluster %s\n", cluster.Name)
 				errors = append(errors, internalErr)

@@ -230,6 +230,20 @@ func createPods(clusterName string, namespace string) error {
 				NodeName: "node-2",
 			},
 		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      fmt.Sprintf("%s-instance-3", clusterName),
+				Namespace: namespace,
+				Labels: map[string]string{
+					fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStateless),
+					fdbv1beta2.FDBClusterLabel:        clusterName,
+					fdbv1beta2.FDBProcessGroupIDLabel: fmt.Sprintf("%s-instance-3", clusterName),
+				},
+			},
+			Spec: corev1.PodSpec{
+				NodeName: "node-3",
+			},
+		},
 	}
 
 	for _, pod := range pods {

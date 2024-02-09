@@ -295,6 +295,18 @@ func getProcessGroupIDsFromPodName(cluster *fdbv1beta2.FoundationDBCluster, podN
 	return processGroupIDs, nil
 }
 
+// getProcessGroupIdsWithClass returns a list of ProcessGroupIDs in the given cluster which are of the given processClass
+func getProcessGroupIdsWithClass(cluster *fdbv1beta2.FoundationDBCluster, processClass string) []fdbv1beta2.ProcessGroupID {
+	matchingProcessGroupIDs := []fdbv1beta2.ProcessGroupID{}
+	for _, processGroup := range cluster.Status.ProcessGroups {
+		if processGroup.ProcessClass != fdbv1beta2.ProcessClass(processClass) {
+			continue
+		}
+		matchingProcessGroupIDs = append(matchingProcessGroupIDs, processGroup.ProcessGroupID)
+	}
+	return matchingProcessGroupIDs
+}
+
 // fetchProcessGroupsCrossCluster fetches the list of process groups matching the given podNames and returns the
 // processGroupIDs mapped by clusterName matching the given clusterLabel.
 func fetchProcessGroupsCrossCluster(kubeClient client.Client, namespace string, clusterLabel string, podNames ...string) (map[*fdbv1beta2.FoundationDBCluster][]fdbv1beta2.ProcessGroupID, error) {
