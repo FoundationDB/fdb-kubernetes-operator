@@ -137,7 +137,7 @@ func cordonNode(cmd *cobra.Command, kubeClient client.Client, inputClusterName s
 	for _, node := range nodes {
 		pods, err := fetchPodsOnNode(kubeClient, inputClusterName, namespace, node, clusterLabel)
 		if err != nil {
-			return fmt.Errorf("issue fetching Pods running on node %s. Error: %s", node, err)
+			return fmt.Errorf("issue fetching Pods running on node %s. Error: %w", node, err)
 		}
 		var podNames []string
 		for _, pod := range pods.Items {
