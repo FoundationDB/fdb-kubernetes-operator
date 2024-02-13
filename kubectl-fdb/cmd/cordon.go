@@ -21,17 +21,17 @@
 package cmd
 
 import (
+	ctx "context"
+	"errors"
 	"fmt"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	ctx "context"
 )
 
 func newCordonCmd(streams genericclioptions.IOStreams) *cobra.Command {
@@ -127,62 +127,38 @@ kubectl fdb cordon --node-selector machine=a,disk=fast -l fdb-cluster-label
 
 // cordonNode gets all process groups of this cluster that run on the given nodes and add them to the remove list
 func cordonNode(cmd *cobra.Command, kubeClient client.Client, inputClusterName string, nodes []string, namespace string, withExclusion bool, wait bool, clusterLabel string) error {
-	cmd.Printf("Start to cordon %d nodes\n", len(nodes))
+	cmd.Printf("Starting to cordon %d nodes\n", len(nodes))
 	if len(nodes) == 0 {
-		return nil
+		return errors.New("no nodes were provided for cordoning")
 	}
 
-	var errors []string
+	var totalRemoved int
+
 	for _, node := range nodes {
 		pods, err := fetchPodsOnNode(kubeClient, inputClusterName, namespace, node, clusterLabel)
 		if err != nil {
-			internalErr := fmt.Sprintf("Issue fetching Pods running on node: %s. Error: %s\n", node, err)
-			cmd.PrintErr(internalErr)
-			errors = append(errors, internalErr)
-			continue
+			return fmt.Errorf("issue fetching Pods running on node %s. Error: %w", node, err)
+		}
+		var podNames []string
+		for _, pod := range pods.Items {
+			podNames = append(podNames, pod.Name)
 		}
 
-		clusterNames := getClusterNames(cmd, inputClusterName, pods, clusterLabel)
-		for clusterName := range clusterNames {
-			cmd.Printf("Starting operation on %s, node: %s\n", clusterName, node)
-			cluster, err := loadCluster(kubeClient, namespace, clusterName)
-			if err != nil {
-				internalErr := fmt.Sprintf("unable to load cluster: %s, skipping\n", clusterName)
-				errors = append(errors, internalErr)
-				cmd.PrintErr(internalErr)
-				continue
-			}
-
-			var processGroups []string
-			for _, pod := range pods.Items {
-				// With the field selector above this shouldn't be required, but it's good to
-				// have a second check.
-				if pod.Spec.NodeName != node {
-					cmd.Printf("Pod: %s is not running on node %s will be ignored\n", pod.Name, node)
-					continue
-				}
-
-				if internal.ContainsPod(cluster, pod) {
-					processGroup, ok := pod.Labels[cluster.GetProcessGroupIDLabel()]
-					if !ok {
-						cmd.Printf("could not fetch process group ID from Pod: %s\n", pod.Name)
-						continue
-					}
-					processGroups = append(processGroups, processGroup)
-				}
-			}
-			err = replaceProcessGroups(kubeClient, cluster.Name, processGroups, namespace, "", "", withExclusion, wait, false, true)
-			if err != nil {
-				internalErr := fmt.Sprintf("unable to cordon all Pods for cluster %s\n", cluster.Name)
-				errors = append(errors, internalErr)
-				cmd.PrintErr(internalErr)
-			}
+		cmd.Printf("\nCordoning node: %s\n", node)
+		removedFromNode, err := replaceProcessGroups(cmd, kubeClient, inputClusterName, podNames, namespace, replaceProcessGroupsOptions{
+			clusterLabel:      clusterLabel,
+			processClass:      "",
+			withExclusion:     withExclusion,
+			wait:              wait,
+			removeAllFailed:   false,
+			useProcessGroupID: false,
+		})
+		if err != nil {
+			return fmt.Errorf("unable to cordon all Pods running on node %s. Error: %s", node, err.Error())
 		}
+		totalRemoved += removedFromNode
 	}
-	if len(errors) > 0 {
-		return fmt.Errorf("following operation failed, please check and retry: \n, %s", errors)
-	}
-
+	cmd.Printf("\nCompleted removal of %d Pods\n", totalRemoved)
 	return nil
 }
 
@@ -214,22 +190,4 @@ func fetchPodsOnNode(kubeClient client.Client, clusterName string, namespace str
 	}
 
 	return pods, nil
-}
-
-func getClusterNames(cmd *cobra.Command, clusterName string, pods corev1.PodList, clusterLabel string) map[string]fdbv1beta2.None {
-	if clusterName != "" {
-		return map[string]fdbv1beta2.None{clusterName: {}}
-	}
-
-	clusterNames := make(map[string]fdbv1beta2.None)
-	for _, pod := range pods.Items {
-		clusterName, ok := pod.Labels[clusterLabel]
-		if !ok {
-			cmd.PrintErrf("could not fetch cluster name from Pod: %s\n", pod.Name)
-			continue
-		}
-		clusterNames[clusterName] = fdbv1beta2.None{}
-	}
-
-	return clusterNames
 }

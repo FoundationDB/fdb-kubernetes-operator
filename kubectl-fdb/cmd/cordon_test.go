@@ -21,7 +21,6 @@
 package cmd
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 
@@ -57,12 +56,7 @@ var _ = Describe("[plugin] cordon command", func() {
 
 		DescribeTable("should cordon all targeted processes",
 			func(input testCase) {
-				// We use these buffers to check the input/output
-				outBuffer := bytes.Buffer{}
-				errBuffer := bytes.Buffer{}
-				inBuffer := bytes.Buffer{}
-
-				cmd := newCordonCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer})
+				cmd := newCordonCmd(genericclioptions.IOStreams{})
 				err := cordonNode(cmd, k8sClient, input.clusterName, input.nodes, namespace, input.WithExclusion, false, input.clusterLabel)
 				Expect(err).NotTo(HaveOccurred())
 
