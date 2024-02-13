@@ -42,6 +42,7 @@ var _ = Describe("[plugin] cordon command", func() {
 			ExpectedInstancesToRemoveWithoutExclusion []fdbv1beta2.ProcessGroupID
 			clusterName                               string
 			clusterLabel                              string
+			wantErrorContains                         string
 		}
 
 		BeforeEach(func() {
@@ -58,7 +59,12 @@ var _ = Describe("[plugin] cordon command", func() {
 			func(input testCase) {
 				cmd := newCordonCmd(genericclioptions.IOStreams{})
 				err := cordonNode(cmd, k8sClient, input.clusterName, input.nodes, namespace, input.WithExclusion, false, input.clusterLabel)
-				Expect(err).NotTo(HaveOccurred())
+				if input.wantErrorContains != "" {
+					Expect(err).To(Not(BeNil()))
+					Expect(err.Error()).To(ContainSubstring(input.wantErrorContains))
+				} else {
+					Expect(err).NotTo(HaveOccurred())
+				}
 
 				clusterNames := []string{clusterName, secondClusterName}
 				var instancesToRemove []fdbv1beta2.ProcessGroupID
@@ -101,8 +107,9 @@ var _ = Describe("[plugin] cordon command", func() {
 					WithExclusion:             true,
 					ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{},
 					ExpectedInstancesToRemoveWithoutExclusion: []fdbv1beta2.ProcessGroupID{},
-					clusterName:  clusterName,
-					clusterLabel: "",
+					clusterName:       clusterName,
+					clusterLabel:      "",
+					wantErrorContains: "no processGroups could be selected with the provided options",
 				}),
 			Entry("Cordon no node nodes without exclusion",
 				testCase{
@@ -110,8 +117,9 @@ var _ = Describe("[plugin] cordon command", func() {
 					WithExclusion:             false,
 					ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{},
 					ExpectedInstancesToRemoveWithoutExclusion: []fdbv1beta2.ProcessGroupID{},
-					clusterName:  clusterName,
-					clusterLabel: "",
+					clusterName:       clusterName,
+					clusterLabel:      "",
+					wantErrorContains: "no processGroups could be selected with the provided options",
 				}),
 			Entry("Cordon all nodes with exclusion",
 				testCase{
@@ -187,8 +195,9 @@ var _ = Describe("[plugin] cordon command", func() {
 					WithExclusion:             false,
 					ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{},
 					ExpectedInstancesToRemoveWithoutExclusion: []fdbv1beta2.ProcessGroupID{},
-					clusterName:  "",
-					clusterLabel: fdbv1beta2.FDBClusterLabel,
+					clusterName:       "",
+					clusterLabel:      fdbv1beta2.FDBClusterLabel,
+					wantErrorContains: "no processGroups could be selected with the provided options",
 				}),
 		)
 	})

@@ -145,14 +145,20 @@ func cordonNode(cmd *cobra.Command, kubeClient client.Client, inputClusterName s
 		}
 
 		cmd.Printf("\nCordoning node: %s\n", node)
-		removedFromNode, err := replaceProcessGroups(cmd, kubeClient, inputClusterName, podNames, namespace, replaceProcessGroupsOptions{
-			clusterLabel:      clusterLabel,
-			processClass:      "",
-			withExclusion:     withExclusion,
-			wait:              wait,
-			removeAllFailed:   false,
-			useProcessGroupID: false,
-		})
+		removedFromNode, err := replaceProcessGroups(cmd, kubeClient,
+			processSelectionOptions{
+				ids:               podNames,
+				namespace:         namespace,
+				clusterName:       inputClusterName,
+				clusterLabel:      clusterLabel,
+				processClass:      "",
+				useProcessGroupID: false,
+			},
+			replaceProcessGroupsOptions{
+				withExclusion:   withExclusion,
+				wait:            wait,
+				removeAllFailed: false,
+			})
 		if err != nil {
 			return fmt.Errorf("unable to cordon all Pods running on node %s. Error: %s", node, err.Error())
 		}
