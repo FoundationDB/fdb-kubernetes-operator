@@ -79,7 +79,7 @@ func newRemoveProcessGroupCmd(streams genericclioptions.IOStreams) *cobra.Comman
 			}
 
 			totalRemoved, err := replaceProcessGroups(cmd, kubeClient,
-				processSelectionOptions{
+				processGroupSelectionOptions{
 					ids:               args,
 					namespace:         namespace,
 					clusterName:       cluster,
@@ -144,25 +144,25 @@ type replaceProcessGroupsOptions struct {
 // If clusterName is specified, it will ONLY do so for the specified cluster.
 // If processClass is specified, it will ignore the given ids and remove all processes in the given cluster whose pods
 // have a processClassLabel matching the processClass.
-func replaceProcessGroups(cmd *cobra.Command, kubeClient client.Client, pgSelectOpts processSelectionOptions, opts replaceProcessGroupsOptions) (int, error) {
-	if len(pgSelectOpts.ids) == 0 && !opts.removeAllFailed && pgSelectOpts.processClass == "" {
+func replaceProcessGroups(cmd *cobra.Command, kubeClient client.Client, processGroupOpts processGroupSelectionOptions, opts replaceProcessGroupsOptions) (int, error) {
+	if len(processGroupOpts.ids) == 0 && !opts.removeAllFailed && processGroupOpts.processClass == "" {
 		return 0, errors.New("no processGroups could be selected with the provided options")
 	}
 
-	pgsByCluster, err := getProcessGroupsByCluster(kubeClient, pgSelectOpts)
+	processGroupsByCluster, err := getProcessGroupsByCluster(kubeClient, processGroupOpts)
 	if err != nil {
 		return 0, err
 	}
 
-	return replaceProcessGroupsFromCluster(cmd, kubeClient, pgsByCluster, pgSelectOpts.namespace, opts)
+	return replaceProcessGroupsFromCluster(cmd, kubeClient, processGroupsByCluster, processGroupOpts.namespace, opts)
 }
 
 // replaceProcessGroupsFromCluster removes the process groups ONLY from the specified cluster.
 // It also returns the list of processGroupIDs that it removed from the cluster.
-func replaceProcessGroupsFromCluster(cmd *cobra.Command, kubeClient client.Client, pgsByCluster map[*fdbv1beta2.FoundationDBCluster][]fdbv1beta2.ProcessGroupID,
+func replaceProcessGroupsFromCluster(cmd *cobra.Command, kubeClient client.Client, processGroupsByCluster map[*fdbv1beta2.FoundationDBCluster][]fdbv1beta2.ProcessGroupID,
 	namespace string, opts replaceProcessGroupsOptions) (int, error) {
 	totalRemoved := 0
-	for cluster, processGroupIDs := range pgsByCluster {
+	for cluster, processGroupIDs := range processGroupsByCluster {
 		cmd.Printf("Cluster %v/%v:\n", namespace, cluster.Name)
 		patch := client.MergeFrom(cluster.DeepCopy())
 

@@ -65,7 +65,7 @@ var _ = Describe("[plugin] remove process groups command", func() {
 				func(tc testCase) {
 					cmd := newRemoveProcessGroupCmd(genericclioptions.IOStreams{})
 					_, err := replaceProcessGroups(cmd, k8sClient,
-						processSelectionOptions{
+						processGroupSelectionOptions{
 							ids:               tc.Instances,
 							namespace:         namespace,
 							clusterName:       clusterName,
@@ -136,7 +136,7 @@ var _ = Describe("[plugin] remove process groups command", func() {
 						removals := []string{"test-storage-1"}
 						cmd := newRemoveProcessGroupCmd(genericclioptions.IOStreams{})
 						_, err := replaceProcessGroups(cmd, k8sClient,
-							processSelectionOptions{
+							processGroupSelectionOptions{
 								ids:               removals,
 								namespace:         namespace,
 								clusterName:       clusterName,
@@ -170,7 +170,7 @@ var _ = Describe("[plugin] remove process groups command", func() {
 						removals := []string{"test-storage-1"}
 						cmd := newRemoveProcessGroupCmd(genericclioptions.IOStreams{})
 						_, err := replaceProcessGroups(cmd, k8sClient,
-							processSelectionOptions{
+							processGroupSelectionOptions{
 								ids:               removals,
 								namespace:         namespace,
 								clusterName:       clusterName,
@@ -229,7 +229,7 @@ var _ = Describe("[plugin] remove process groups command", func() {
 					func(tc testCase) {
 						cmd := newRemoveProcessGroupCmd(genericclioptions.IOStreams{})
 						_, err := replaceProcessGroups(cmd, k8sClient,
-							processSelectionOptions{
+							processGroupSelectionOptions{
 								ids:               tc.podNames,
 								namespace:         namespace,
 								clusterName:       tc.clusterNameFilter,
@@ -409,7 +409,7 @@ var _ = Describe("[plugin] remove process groups command", func() {
 					func(tc testCase) {
 						cmd := newRemoveProcessGroupCmd(genericclioptions.IOStreams{})
 						_, err := replaceProcessGroups(cmd, k8sClient,
-							processSelectionOptions{
+							processGroupSelectionOptions{
 								ids:               tc.ids,
 								namespace:         namespace,
 								clusterName:       clusterName,

@@ -21,13 +21,10 @@
 package cmd
 
 import (
-	ctx "context"
 	"errors"
 	"fmt"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 
 	"github.com/spf13/cobra"
@@ -146,7 +143,7 @@ func cordonNode(cmd *cobra.Command, kubeClient client.Client, inputClusterName s
 
 		cmd.Printf("\nCordoning node: %s\n", node)
 		removedFromNode, err := replaceProcessGroups(cmd, kubeClient,
-			processSelectionOptions{
+			processGroupSelectionOptions{
 				ids:               podNames,
 				namespace:         namespace,
 				clusterName:       inputClusterName,
@@ -166,34 +163,4 @@ func cordonNode(cmd *cobra.Command, kubeClient client.Client, inputClusterName s
 	}
 	cmd.Printf("\nCompleted removal of %d Pods\n", totalRemoved)
 	return nil
-}
-
-func fetchPodsOnNode(kubeClient client.Client, clusterName string, namespace string, node string, clusterLabel string) (corev1.PodList, error) {
-	var pods corev1.PodList
-	var err error
-
-	var podLabelSelector client.ListOption
-
-	if clusterName == "" {
-		podLabelSelector = client.HasLabels([]string{clusterLabel})
-	} else {
-		cluster, err := loadCluster(kubeClient, namespace, clusterName)
-		if err != nil {
-			return pods, fmt.Errorf("unable to load cluster: %s. Error: %w", clusterName, err)
-		}
-
-		podLabelSelector = client.MatchingLabels(cluster.GetMatchLabels())
-	}
-
-	err = kubeClient.List(ctx.Background(), &pods,
-		client.InNamespace(namespace),
-		podLabelSelector,
-		client.MatchingFieldsSelector{
-			Selector: fields.OneTermEqualSelector("spec.nodeName", node),
-		})
-	if err != nil {
-		return pods, fmt.Errorf("unable to fetch pods. Error: %w", err)
-	}
-
-	return pods, nil
 }

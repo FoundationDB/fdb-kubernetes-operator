@@ -23,6 +23,7 @@ package cmd
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -269,5 +270,174 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 				),
 			)
 		})
+	})
+	When("calling getProcessGroupsByCluster", func() {
+		BeforeEach(func() {
+			// creating Pods for first cluster.
+			cluster = generateClusterStruct(clusterName, namespace) // the status is overwritten by prior tests
+			Expect(createPods(clusterName, namespace)).NotTo(HaveOccurred())
+
+			// creating a second cluster
+			secondCluster = generateClusterStruct(secondClusterName, namespace)
+			Expect(k8sClient.Create(context.TODO(), secondCluster)).NotTo(HaveOccurred())
+			Expect(createPods(secondClusterName, namespace)).NotTo(HaveOccurred())
+		})
+		type testCase struct {
+			opts            processGroupSelectionOptions
+			wantResult      map[string][]fdbv1beta2.ProcessGroupID // cluster-name to processGroups in the cluster
+			wantErrContains string
+		}
+		DescribeTable("correctly follow various options",
+			func(tc testCase) {
+				tc.opts.namespace = namespace
+				result, err := getProcessGroupsByCluster(k8sClient, tc.opts)
+				if tc.wantErrContains == "" {
+					Expect(err).To(BeNil())
+				} else {
+					Expect(err).NotTo(BeNil())
+					Expect(err.Error()).To(ContainSubstring(tc.wantErrContains))
+				}
+				// ensure that the maps are equivalent, unfortunately involved due to passing cluster by-pointer
+				Expect(len(tc.wantResult)).To(Equal(len(result)))
+				for wantClusterName, wantProcessGroups := range tc.wantResult {
+					foundInResult := false
+					for cluster, processGroups := range result {
+						if cluster.Name != wantClusterName {
+							continue
+						}
+						foundInResult = true
+						Expect(processGroups).To(HaveExactElements(wantProcessGroups))
+					}
+					Expect(foundInResult).To(BeTrue())
+				}
+			},
+			Entry("errors when neither clusterName nor clusterLabel are passed",
+				testCase{
+					opts:            processGroupSelectionOptions{ids: []string{"something"}},
+					wantErrContains: "processGroups will not be selected without cluster specification",
+				},
+			),
+			Entry("errors when ids are passed along with processClass selector",
+				testCase{
+					opts: processGroupSelectionOptions{
+						ids:          []string{fmt.Sprintf("%s-instance-1", clusterName)},
+						processClass: string(fdbv1beta2.ProcessClassStateless),
+						clusterName:  clusterName,
+					},
+					wantErrContains: "process identifiers were provided along with a processClass and would be ignored, please only provide one or the other",
+				},
+			),
+			Entry("errors when no processGroups are found with the given processClass",
+				testCase{
+					opts: processGroupSelectionOptions{
+						clusterName:  clusterName,
+						processClass: string(fdbv1beta2.ProcessClassProxy),
+					},
+					wantErrContains: fmt.Sprintf("found no processGroups of processClass '%s' in cluster test", fdbv1beta2.ProcessClassProxy),
+				},
+			),
+			Entry("does not find processGroups from clusterLabel when useProcessGroupID is set",
+				testCase{
+					opts: processGroupSelectionOptions{
+						ids:               []string{fmt.Sprintf("%s-instance-1", clusterName)},
+						clusterLabel:      fdbv1beta2.FDBClusterLabel,
+						useProcessGroupID: true,
+					},
+					wantResult:      nil,
+					wantErrContains: "without clusterName specification is only supported when podNames are provided",
+				},
+			),
+			Entry("gets processGroups from podNames and clusterLabel",
+				testCase{
+					opts: processGroupSelectionOptions{
+						clusterLabel: fdbv1beta2.FDBClusterLabel,
+						ids:          []string{fmt.Sprintf("%s-instance-1", clusterName), fmt.Sprintf("%s-instance-3", clusterName)},
+					},
+					wantResult: map[string][]fdbv1beta2.ProcessGroupID{
+						clusterName: {
+							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-1", clusterName)),
+							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-3", clusterName)),
+						},
+					},
+				},
+			),
+			Entry("gets processGroups across clusters from podNames and clusterLabel",
+				testCase{
+					opts: processGroupSelectionOptions{
+						clusterLabel: fdbv1beta2.FDBClusterLabel,
+						ids: []string{
+							fmt.Sprintf("%s-instance-1", clusterName),
+							fmt.Sprintf("%s-instance-1", secondClusterName),
+							fmt.Sprintf("%s-instance-2", secondClusterName),
+						},
+					},
+					wantResult: map[string][]fdbv1beta2.ProcessGroupID{
+						clusterName: {
+							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-1", clusterName)),
+						},
+						secondClusterName: {
+							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-1", secondClusterName)),
+							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-2", secondClusterName)),
+						},
+					},
+				},
+			),
+			Entry("gets processGroups from podNames and cluster name",
+				testCase{
+					opts: processGroupSelectionOptions{
+						ids:         []string{fmt.Sprintf("%s-instance-1", clusterName), fmt.Sprintf("%s-instance-2", clusterName)},
+						clusterName: clusterName,
+					},
+					wantResult: map[string][]fdbv1beta2.ProcessGroupID{
+						clusterName: {
+							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-1", clusterName)),
+							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-2", clusterName)),
+						},
+					},
+				},
+			),
+			Entry("gets processGroups from processGroupIDs (with useProcessGroupID)",
+				testCase{
+					opts: processGroupSelectionOptions{
+						clusterName:       clusterName,
+						useProcessGroupID: true,
+						ids:               []string{fmt.Sprintf("%s-instance-1", clusterName), fmt.Sprintf("%s-instance-2", clusterName)},
+					},
+					wantResult: map[string][]fdbv1beta2.ProcessGroupID{
+						clusterName: {
+							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-1", clusterName)),
+							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-2", clusterName)),
+						},
+					},
+				},
+			),
+			Entry("gets processGroups matching processClassStorage",
+				testCase{
+					opts: processGroupSelectionOptions{
+						clusterName:  clusterName,
+						processClass: string(fdbv1beta2.ProcessClassStorage),
+					},
+					wantResult: map[string][]fdbv1beta2.ProcessGroupID{
+						clusterName: {
+							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-1", clusterName)),
+							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-2", clusterName)),
+						},
+					},
+				},
+			),
+			Entry("gets processGroups matching processClassStateless",
+				testCase{
+					opts: processGroupSelectionOptions{
+						clusterName:  clusterName,
+						processClass: string(fdbv1beta2.ProcessClassStateless),
+					},
+					wantResult: map[string][]fdbv1beta2.ProcessGroupID{
+						clusterName: {
+							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-3", clusterName)),
+						},
+					},
+				},
+			),
+		)
 	})
 })

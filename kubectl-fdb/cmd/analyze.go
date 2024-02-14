@@ -404,7 +404,7 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, cluster *fdbv1
 
 		if len(failedProcessGroups) > 0 {
 			_, err := replaceProcessGroups(cmd, kubeClient,
-				processSelectionOptions{
+				processGroupSelectionOptions{
 					ids:               failedProcessGroups,
 					namespace:         cluster.Namespace,
 					clusterName:       cluster.Name,
