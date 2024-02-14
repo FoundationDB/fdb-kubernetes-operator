@@ -54,6 +54,7 @@ func ReplaceFailedProcessGroups(log logr.Logger, cluster *fdbv1beta2.FoundationD
 	maxReplacements := getMaxReplacements(cluster, cluster.GetMaxConcurrentAutomaticReplacements())
 	hasReplacement := false
 	crashLoopContainerProcessGroups := cluster.GetCrashLoopContainerProcessGroups()
+	localitiesUsedForExclusion := cluster.UseLocalitiesForExclusion()
 
 	for _, processGroupStatus := range cluster.Status.ProcessGroups {
 		// If a process group is already marked for removal we can skip it here.
@@ -92,7 +93,9 @@ func ReplaceFailedProcessGroups(log logr.Logger, cluster *fdbv1beta2.FoundationD
 		}
 
 		skipExclusion := false
-		if len(processGroupStatus.Addresses) == 0 {
+		// Only if localities are not used for exclusions we want to skip the exclusion. Skipping the exclusion could
+		// lead to a race condition, see: https://github.com/FoundationDB/fdb-kubernetes-operator/issues/1890
+		if len(processGroupStatus.Addresses) == 0 && !localitiesUsedForExclusion {
 			if !hasDesiredFaultTolerance {
 				log.Info(
 					"Skip process group with missing address",

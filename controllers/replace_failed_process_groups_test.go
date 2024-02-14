@@ -99,8 +99,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 			cluster.Spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds = pointer.Int(5)
 			cluster.Spec.AutomationOptions.Replacements.TaintReplacementTimeSeconds = pointer.Int(1)
 			// Update cluster config so that generic reconciliation will work
-			err := k8sClient.Update(ctx.TODO(), cluster)
-			Expect(err).NotTo(HaveOccurred())
+			Expect(k8sClient.Update(ctx.TODO(), cluster)).NotTo(HaveOccurred())
 
 			adminClient, err = mock.NewMockAdminClientUncast(cluster, k8sClient)
 
@@ -917,6 +916,38 @@ var _ = Describe("replace_failed_process_groups", func() {
 				It("should not mark the process group for removal", func() {
 					Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]fdbv1beta2.ProcessGroupID{}))
 				})
+			})
+
+			When("the cluster uses localities for exclusions", func() {
+				BeforeEach(func() {
+					processGroup := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-2")
+					processGroup.Addresses = nil
+
+					cluster.Spec.Version = fdbv1beta2.Versions.SupportsLocalityBasedExclusions71.String()
+					cluster.Status.RunningVersion = fdbv1beta2.Versions.SupportsLocalityBasedExclusions71.String()
+					cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(true)
+					Expect(k8sClient.Update(ctx.TODO(), cluster)).NotTo(HaveOccurred())
+				})
+
+				It("should requeue", func() {
+					Expect(result).NotTo(BeNil())
+					Expect(result.message).To(Equal("Removals have been updated in the cluster status"))
+				})
+
+				It("should mark the process group for removal", func() {
+					Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]fdbv1beta2.ProcessGroupID{"storage-2"}))
+				})
+
+				It("should not skip the exclusion", func() {
+					for _, pg := range cluster.Status.ProcessGroups {
+						if pg.ProcessGroupID != "storage-2" {
+							continue
+						}
+
+						Expect(pg.ExclusionSkipped).To(BeFalse())
+					}
+				})
+
 			})
 		})
 
