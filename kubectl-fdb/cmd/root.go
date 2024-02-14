@@ -29,6 +29,7 @@ import (
 	"strings"
 	"time"
 
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -180,6 +181,15 @@ type processGroupSelectionOptions struct {
 	clusterLabel      string
 	processClass      string
 	useProcessGroupID bool
+	conditions        []fdbv1beta2.ProcessGroupConditionType
 }
 
-// TODO add common set of flags which accompany processGroupSelectionOptions https://github.com/FoundationDB/fdb-kubernetes-operator/issues/615
+func addProcessSelectionFlags(cmd *cobra.Command) {
+	cmd.Flags().StringP("fdb-cluster", "c", "", "Selects process groups from the provided cluster. "+
+		"Required if not passing cluster-label.")
+	cmd.Flags().String("process-class", "", "Selects process groups matching the provided value in the provided cluster.  Using this option ignores provided ids.")
+	cmd.Flags().StringP("cluster-label", "l", fdbv1beta2.FDBClusterLabel, "cluster label used to identify the cluster for a requested pod. "+
+		"It is incompatible with use-process-group-id, process-class, and process-condition.")
+	cmd.Flags().Bool("use-process-group-id", false, "Selects process groups by process-group ID instead of the Pod name.")
+	cmd.Flags().StringArray("process-condition", []string{}, "Selects process groups that are in any of the given FDB process group conditions.")
+}

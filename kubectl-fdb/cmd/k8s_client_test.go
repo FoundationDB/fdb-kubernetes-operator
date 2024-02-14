@@ -24,6 +24,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"strings"
 	"time"
 
@@ -290,7 +291,8 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 		DescribeTable("correctly follow various options",
 			func(tc testCase) {
 				tc.opts.namespace = namespace
-				result, err := getProcessGroupsByCluster(k8sClient, tc.opts)
+				cmd := newRemoveProcessGroupCmd(genericclioptions.IOStreams{})
+				result, err := getProcessGroupsByCluster(cmd, k8sClient, tc.opts)
 				if tc.wantErrContains == "" {
 					Expect(err).To(BeNil())
 				} else {
@@ -306,7 +308,8 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 							continue
 						}
 						foundInResult = true
-						Expect(processGroups).To(HaveExactElements(wantProcessGroups))
+						Expect(processGroups).To(ContainElements(wantProcessGroups))
+						Expect(wantProcessGroups).To(ContainElements(processGroups))
 					}
 					Expect(foundInResult).To(BeTrue())
 				}
@@ -324,7 +327,17 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 						processClass: string(fdbv1beta2.ProcessClassStateless),
 						clusterName:  clusterName,
 					},
-					wantErrContains: "process identifiers were provided along with a processClass and would be ignored, please only provide one or the other",
+					wantErrContains: "process identifiers were provided along with a processClass (or processConditions) and would be ignored, please only provide one or the other",
+				},
+			),
+			Entry("errors when conditions are passed along with processClass selector",
+				testCase{
+					opts: processGroupSelectionOptions{
+						conditions:   []fdbv1beta2.ProcessGroupConditionType{fdbv1beta2.PodFailing},
+						processClass: string(fdbv1beta2.ProcessClassStateless),
+						clusterName:  clusterName,
+					},
+					wantErrContains: "selection of processes by both processClass and conditions is not supported at this time",
 				},
 			),
 			Entry("errors when no processGroups are found with the given processClass",
@@ -333,7 +346,7 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 						clusterName:  clusterName,
 						processClass: string(fdbv1beta2.ProcessClassProxy),
 					},
-					wantErrContains: fmt.Sprintf("found no processGroups of processClass '%s' in cluster test", fdbv1beta2.ProcessClassProxy),
+					wantErrContains: "found no processGroups meeting the selection criteria",
 				},
 			),
 			Entry("does not find processGroups from clusterLabel when useProcessGroupID is set",
@@ -344,7 +357,7 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 						useProcessGroupID: true,
 					},
 					wantResult:      nil,
-					wantErrContains: "without clusterName specification is only supported when podNames are provided",
+					wantErrContains: "selection of process groups by cluster-label (cross-cluster selection) is incompatible with use-process-group-id, process-class, and process-condition options",
 				},
 			),
 			Entry("gets processGroups from podNames and clusterLabel",
@@ -436,6 +449,43 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-3", clusterName)),
 						},
 					},
+				},
+			),
+			Entry("gets 2 processGroups matching PodFailing condition",
+				testCase{
+					opts: processGroupSelectionOptions{
+						clusterName: clusterName,
+						conditions:  []fdbv1beta2.ProcessGroupConditionType{fdbv1beta2.PodFailing},
+					},
+					wantResult: map[string][]fdbv1beta2.ProcessGroupID{
+						clusterName: {
+							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-1", clusterName)),
+							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-2", clusterName)),
+						},
+					},
+				},
+			),
+			Entry("gets 1 processGroups matching MissingProcesses condition",
+				testCase{
+					opts: processGroupSelectionOptions{
+						clusterName: clusterName,
+						conditions:  []fdbv1beta2.ProcessGroupConditionType{fdbv1beta2.MissingProcesses},
+					},
+					wantResult: map[string][]fdbv1beta2.ProcessGroupID{
+						clusterName: {
+							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-2", clusterName)),
+						},
+					},
+				},
+			),
+			Entry("gets 0 processGroups matching IncorrectPodSpec condition",
+				testCase{
+					opts: processGroupSelectionOptions{
+						clusterName: clusterName,
+						conditions:  []fdbv1beta2.ProcessGroupConditionType{fdbv1beta2.IncorrectPodSpec},
+					},
+					wantResult:      nil,
+					wantErrContains: "found no processGroups meeting the selection criteria",
 				},
 			),
 		)
