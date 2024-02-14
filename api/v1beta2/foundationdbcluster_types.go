@@ -964,10 +964,14 @@ func GetProcessGroupConditionType(processGroupConditionType string) (ProcessGrou
 		return MissingService, nil
 	case "MissingProcesses":
 		return MissingProcesses, nil
+	case "ResourcesTerminating":
+		return ResourcesTerminating, nil
 	case "SidecarUnreachable":
 		return SidecarUnreachable, nil
 	case "PodPending":
 		return PodPending, nil
+	case "Ready":
+		return ReadyCondition, nil
 	case "NodeTaintDetected":
 		return NodeTaintDetected, nil
 	case "NodeTaintReplacing":
