@@ -26,16 +26,13 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/fatih/color"
-
-	"strings"
-
+	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
-
-	"github.com/spf13/cobra"
 )
 
 // fdbBOptions provides information required to run different
@@ -175,3 +172,14 @@ func usingLatestPluginVersion(cmd *cobra.Command, pluginVersionChecker VersionCh
 
 	return nil
 }
+
+type processGroupSelectionOptions struct {
+	ids               []string
+	namespace         string
+	clusterName       string
+	clusterLabel      string
+	processClass      string
+	useProcessGroupID bool
+}
+
+// TODO add common set of flags which accompany processGroupSelectionOptions https://github.com/FoundationDB/fdb-kubernetes-operator/issues/615
