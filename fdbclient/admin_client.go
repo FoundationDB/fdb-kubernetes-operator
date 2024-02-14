@@ -243,16 +243,16 @@ func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 
 	output, err := client.cmdRunner.runCommand(timeoutContext, getBinaryPath(command.getBinary(), command.getVersion(client.Cluster)), args...)
 	if err != nil {
-		var exitError *exec.ExitError
-		if errors.As(err, &exitError) {
-			client.log.Error(exitError, "Error from FDB command", "code", exitError.ProcessState.ExitCode(), "stdout", string(output), "stderr", string(exitError.Stderr))
-		}
-
-		// If we hit a timeout report it as a timeout error
+		// If we hit a timeout report it as a timeout error and don't log it, but let the caller take care of logging.
 		if strings.Contains(string(output), "Specified timeout reached") {
 			// See: https://apple.github.io/foundationdb/api-error-codes.html
 			// 1031: Operation aborted because the transaction timed out
-			return "", &fdbv1beta2.TimeoutError{Err: err}
+			return "", fdbv1beta2.TimeoutError{Err: err}
+		}
+
+		var exitError *exec.ExitError
+		if errors.As(err, &exitError) {
+			client.log.Error(exitError, "Error from FDB command", "code", exitError.ProcessState.ExitCode(), "stdout", string(output), "stderr", string(exitError.Stderr))
 		}
 
 		return "", err
