@@ -400,7 +400,7 @@ func getProcessGroupsByCluster(cmd *cobra.Command, kubeClient client.Client, opt
 	if opts.clusterName == "" && opts.clusterLabel == "" {
 		return nil, errors.New("processGroups will not be selected without cluster specification")
 	}
-	if opts.clusterName == "" { // cli has a valid default for clusterLabel
+	if opts.clusterName == "" { // cli has a default for clusterLabel
 		if opts.useProcessGroupID || opts.processClass != "" || len(opts.conditions) > 0 {
 			return nil, errors.New("selection of process groups by cluster-label (cross-cluster selection) is " +
 				"incompatible with use-process-group-id, process-class, and process-condition options")
