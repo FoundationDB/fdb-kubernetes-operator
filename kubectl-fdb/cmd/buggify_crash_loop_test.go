@@ -46,7 +46,7 @@ var _ = Describe("[plugin] buggify crash-loop process groups command", func() {
 
 			When("the crash-loop container list is empty", func() {
 				BeforeEach(func() {
-					cluster = generateClusterStruct(clusterName, namespace) // the status is overwritten by prior tests
+					cluster = generateClusterStruct(clusterName, namespace)
 					Expect(createPods(clusterName, namespace)).NotTo(HaveOccurred())
 
 					secondCluster = generateClusterStruct(secondClusterName, namespace)

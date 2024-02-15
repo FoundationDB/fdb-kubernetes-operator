@@ -22,44 +22,117 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("[plugin] buggify no-schedule instances command", func() {
 	When("running buggify no-schedule instances command", func() {
 		When("adding instances to no-schedule list from a cluster", func() {
-			type testCase struct {
-				Instances                     []string
-				ExpectedInstancesInNoSchedule []fdbv1beta2.ProcessGroupID
+			type processGroupOptionsTestCase struct {
+				ProcessGroupOpts                  processGroupSelectionOptions
+				ExpectedProcessGroupsInNoSchedule map[string][]fdbv1beta2.ProcessGroupID // keyed by cluster-name
 			}
+			BeforeEach(func() {
+				cluster = generateClusterStruct(clusterName, namespace)
+				Expect(createPods(clusterName, namespace)).NotTo(HaveOccurred())
+
+				secondCluster = generateClusterStruct(secondClusterName, namespace)
+				Expect(k8sClient.Create(context.TODO(), secondCluster)).NotTo(HaveOccurred())
+				Expect(createPods(secondClusterName, namespace)).NotTo(HaveOccurred())
+			})
 
 			DescribeTable("should add all targeted processes to no-schedule list",
-				func(tc testCase) {
-					err := updateNoScheduleList(k8sClient, clusterName, tc.Instances, namespace, false, false, false)
+				func(tc processGroupOptionsTestCase) {
+					cmd := newBuggifyNoSchedule(genericclioptions.IOStreams{})
+					tc.ProcessGroupOpts.namespace = namespace
+					err := updateNoScheduleList(cmd, k8sClient, buggifyProcessGroupOptions{}, tc.ProcessGroupOpts)
 					Expect(err).NotTo(HaveOccurred())
 
-					var resCluster fdbv1beta2.FoundationDBCluster
-					err = k8sClient.Get(context.Background(), client.ObjectKey{
-						Namespace: namespace,
-						Name:      clusterName,
-					}, &resCluster)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(tc.ExpectedInstancesInNoSchedule).To(ContainElements(resCluster.Spec.Buggify.NoSchedule))
-					Expect(len(tc.ExpectedInstancesInNoSchedule)).To(BeNumerically("==", len(resCluster.Spec.Buggify.NoSchedule)))
+					for cluster, processGroupsInNoSchedule := range tc.ExpectedProcessGroupsInNoSchedule {
+						var resCluster fdbv1beta2.FoundationDBCluster
+						err = k8sClient.Get(context.Background(), client.ObjectKey{
+							Namespace: namespace,
+							Name:      cluster,
+						}, &resCluster)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(processGroupsInNoSchedule).To(ContainElements(resCluster.Spec.Buggify.NoSchedule))
+						Expect(resCluster.Spec.Buggify.NoSchedule).To(ContainElements(processGroupsInNoSchedule))
+						Expect(len(processGroupsInNoSchedule)).To(BeNumerically("==", len(resCluster.Spec.Buggify.NoSchedule)))
+					}
 				},
 				Entry("Adding single instance.",
-					testCase{
-						Instances:                     []string{"test-storage-1"},
-						ExpectedInstancesInNoSchedule: []fdbv1beta2.ProcessGroupID{"test-storage-1"},
+					processGroupOptionsTestCase{
+						ProcessGroupOpts: processGroupSelectionOptions{
+							ids:         []string{"test-storage-1"},
+							clusterName: clusterName,
+						},
+						ExpectedProcessGroupsInNoSchedule: map[string][]fdbv1beta2.ProcessGroupID{
+							clusterName: {"test-storage-1"},
+						},
 					}),
 				Entry("Adding multiple instances.",
-					testCase{
-						Instances:                     []string{"test-storage-1", "test-storage-2"},
-						ExpectedInstancesInNoSchedule: []fdbv1beta2.ProcessGroupID{"test-storage-1", "test-storage-2"},
+					processGroupOptionsTestCase{
+						ProcessGroupOpts: processGroupSelectionOptions{
+							ids:         []string{"test-storage-1", "test-storage-2"},
+							clusterName: clusterName,
+						},
+						ExpectedProcessGroupsInNoSchedule: map[string][]fdbv1beta2.ProcessGroupID{
+							clusterName: {"test-storage-1", "test-storage-2"},
+						},
+					}),
+				Entry("adds multiple instances across clusters.",
+					processGroupOptionsTestCase{
+						ProcessGroupOpts: processGroupSelectionOptions{
+							ids: []string{
+								// the helper function to create pods for the k8s client uses "instance" not "storage" processGroup names
+								fmt.Sprintf("%s-instance-1", clusterName),
+								fmt.Sprintf("%s-instance-2", clusterName),
+								fmt.Sprintf("%s-instance-2", secondClusterName),
+							},
+							clusterLabel: fdbv1beta2.FDBClusterLabel,
+						},
+						ExpectedProcessGroupsInNoSchedule: map[string][]fdbv1beta2.ProcessGroupID{
+							clusterName: {
+								fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-1", clusterName)),
+								fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-2", clusterName)),
+							},
+							secondClusterName: {
+								fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-2", secondClusterName)),
+							},
+						},
+					}),
+				Entry("adds process groups with ProcessClassStorage.",
+					processGroupOptionsTestCase{
+						ProcessGroupOpts: processGroupSelectionOptions{
+							processClass: string(fdbv1beta2.ProcessClassStorage),
+							clusterName:  clusterName,
+						},
+						ExpectedProcessGroupsInNoSchedule: map[string][]fdbv1beta2.ProcessGroupID{
+							clusterName: {
+								// the helper function to create pods for the k8s client uses "instance" not "storage" processGroup names
+								fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-1", clusterName)),
+								fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-2", clusterName)),
+							},
+						},
+					}),
+				Entry("adds process groups with condition MissingProcesses.",
+					processGroupOptionsTestCase{
+						ProcessGroupOpts: processGroupSelectionOptions{
+							clusterName: clusterName,
+							conditions:  []fdbv1beta2.ProcessGroupConditionType{fdbv1beta2.MissingProcesses},
+						},
+						ExpectedProcessGroupsInNoSchedule: map[string][]fdbv1beta2.ProcessGroupID{
+							clusterName: {
+								// the helper function to create pods for the k8s client uses "instance" not "storage" processGroup names
+								fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-2", clusterName)),
+							},
+						},
 					}),
 			)
 
@@ -75,7 +148,13 @@ var _ = Describe("[plugin] buggify no-schedule instances command", func() {
 
 				DescribeTable("should add all targeted processes to no-schedule list",
 					func(tc testCase) {
-						err := updateNoScheduleList(k8sClient, clusterName, tc.Instances, namespace, false, false, false)
+						cmd := newBuggifyNoSchedule(genericclioptions.IOStreams{})
+						processGroupOpts := processGroupSelectionOptions{
+							ids:         tc.Instances,
+							clusterName: clusterName,
+							namespace:   namespace,
+						}
+						err := updateNoScheduleList(cmd, k8sClient, buggifyProcessGroupOptions{}, processGroupOpts)
 						Expect(err).NotTo(HaveOccurred())
 
 						var resCluster fdbv1beta2.FoundationDBCluster
@@ -118,7 +197,18 @@ var _ = Describe("[plugin] buggify no-schedule instances command", func() {
 
 			DescribeTable("should remove all targeted processes from the no-schedule list",
 				func(tc testCase) {
-					err := updateNoScheduleList(k8sClient, clusterName, tc.Instances, namespace, false, true, false)
+					cmd := newBuggifyNoSchedule(genericclioptions.IOStreams{})
+					processGroupOpts := processGroupSelectionOptions{
+						ids:         tc.Instances,
+						clusterName: clusterName,
+						namespace:   namespace,
+					}
+					opts := buggifyProcessGroupOptions{
+						wait:  false,
+						clear: true,
+						clean: false,
+					}
+					err := updateNoScheduleList(cmd, k8sClient, opts, processGroupOpts)
 					Expect(err).NotTo(HaveOccurred())
 
 					var resCluster fdbv1beta2.FoundationDBCluster
@@ -150,7 +240,17 @@ var _ = Describe("[plugin] buggify no-schedule instances command", func() {
 			})
 
 			It("should clear the no-schedule list", func() {
-				err := updateNoScheduleList(k8sClient, clusterName, nil, namespace, false, false, true)
+				cmd := newBuggifyNoSchedule(genericclioptions.IOStreams{})
+				processGroupOpts := processGroupSelectionOptions{
+					clusterName: clusterName,
+					namespace:   namespace,
+				}
+				opts := buggifyProcessGroupOptions{
+					wait:  false,
+					clear: false,
+					clean: true,
+				}
+				err := updateNoScheduleList(cmd, k8sClient, opts, processGroupOpts)
 				Expect(err).NotTo(HaveOccurred())
 
 				var resCluster fdbv1beta2.FoundationDBCluster
@@ -160,6 +260,23 @@ var _ = Describe("[plugin] buggify no-schedule instances command", func() {
 				}, &resCluster)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(len(resCluster.Spec.Buggify.NoSchedule)).To(Equal(0))
+			})
+			It("should error if no cluster name is provided", func() {
+				cmd := newBuggifyNoSchedule(genericclioptions.IOStreams{})
+				opts := buggifyProcessGroupOptions{
+					containerName: fdbv1beta2.MainContainerName,
+					wait:          false,
+					clear:         false,
+					clean:         true,
+				}
+				processGroupOpts := processGroupSelectionOptions{
+					clusterName:  "",
+					clusterLabel: "attempt-cross-cluster-clean",
+					namespace:    namespace,
+				}
+				err := updateNoScheduleList(cmd, k8sClient, opts, processGroupOpts)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("clean option requires cluster-name argument"))
 			})
 		})
 	})
