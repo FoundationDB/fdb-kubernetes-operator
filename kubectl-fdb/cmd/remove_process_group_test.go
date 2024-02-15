@@ -392,7 +392,7 @@ var _ = Describe("[plugin] remove process groups command", func() {
 					),
 				)
 			})
-			When("processes are specified via processClass", func() {
+			When("processes are specified via processClass or condition", func() {
 				BeforeEach(func() {
 					cluster = generateClusterStruct(clusterName, namespace) // the status is overwritten by prior tests
 					Expect(createPods(clusterName, namespace)).NotTo(HaveOccurred())
@@ -402,6 +402,7 @@ var _ = Describe("[plugin] remove process groups command", func() {
 					ids                       []string // should be ignored when processClass is specified
 					clusterName               string
 					processClass              string
+					conditions                []fdbv1beta2.ProcessGroupConditionType
 					wantErrorContains         string
 					ExpectedInstancesToRemove []fdbv1beta2.ProcessGroupID
 				}
@@ -412,10 +413,11 @@ var _ = Describe("[plugin] remove process groups command", func() {
 							processGroupSelectionOptions{
 								ids:               tc.ids,
 								namespace:         namespace,
-								clusterName:       clusterName,
+								clusterName:       tc.clusterName,
 								clusterLabel:      "",
 								processClass:      tc.processClass,
 								useProcessGroupID: false,
+								conditions:        tc.conditions,
 							},
 							replaceProcessGroupsOptions{
 								withExclusion:   true,
@@ -442,18 +444,17 @@ var _ = Describe("[plugin] remove process groups command", func() {
 					Entry("errors when no process groups are found of the given class",
 						testCase{
 							processClass:              "non-existent",
-							wantErrorContains:         fmt.Sprintf("found no processGroups of processClass 'non-existent' in cluster %s", clusterName),
+							wantErrorContains:         "found no processGroups meeting the selection criteria",
 							clusterName:               clusterName,
 							ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{},
 						},
 					),
 					Entry("errors when ids are provided along with processClass",
 						testCase{
-							ids:                       []string{"ignored", "also-ignored"},
-							wantErrorContains:         "provided along with a processClass and would be ignored",
-							processClass:              string(fdbv1beta2.ProcessClassStateless),
-							clusterName:               clusterName,
-							ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{},
+							ids:               []string{"ignored", "also-ignored"},
+							wantErrorContains: "provided along with a processClass (or processConditions) and would be ignored",
+							processClass:      string(fdbv1beta2.ProcessClassStateless),
+							clusterName:       clusterName,
 						},
 					),
 					Entry("removes singular matching process",
@@ -473,6 +474,40 @@ var _ = Describe("[plugin] remove process groups command", func() {
 								fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-1", clusterName)),
 								fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-2", clusterName)),
 							},
+						},
+					),
+					Entry("errors when both processClass and condition are specified",
+						testCase{
+							processClass:      string(fdbv1beta2.ProcessClassStorage),
+							conditions:        []fdbv1beta2.ProcessGroupConditionType{fdbv1beta2.PodFailing},
+							clusterName:       clusterName,
+							wantErrorContains: "selection of processes by both processClass and conditions is not supported",
+						},
+					),
+					Entry("selects all 2 processes with PodFailing",
+						testCase{
+							conditions:  []fdbv1beta2.ProcessGroupConditionType{fdbv1beta2.PodFailing},
+							clusterName: clusterName,
+							ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{
+								fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-1", clusterName)),
+								fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-2", clusterName)),
+							},
+						},
+					),
+					Entry("selects the 1 process with MissingProcesses",
+						testCase{
+							conditions:  []fdbv1beta2.ProcessGroupConditionType{fdbv1beta2.MissingProcesses},
+							clusterName: clusterName,
+							ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{
+								fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-2", clusterName)),
+							},
+						},
+					),
+					Entry("selects all 0 processes in IncorrectPodSpec",
+						testCase{
+							conditions:        []fdbv1beta2.ProcessGroupConditionType{fdbv1beta2.IncorrectPodSpec},
+							clusterName:       clusterName,
+							wantErrorContains: "found no processGroups meeting the selection criteria",
 						},
 					),
 				)

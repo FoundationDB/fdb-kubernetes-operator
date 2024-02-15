@@ -129,10 +129,8 @@ kubectl fdb restart -c cluster --all-processes
 kubectl fdb restart -c cluster --process-condition=MissingProcesses
 `,
 	}
-
-	cmd.Flags().StringP("fdb-cluster", "c", "", "restart processes(s) from the provided cluster.")
+	addProcessSelectionFlags(cmd)
 	cmd.Flags().Bool("all-processes", false, "restart all processes of this cluster.")
-	cmd.Flags().StringArray("process-condition", []string{}, "restart all processes with the given process conditions.")
 	err := cmd.MarkFlagRequired("fdb-cluster")
 	if err != nil {
 		log.Fatal(err)

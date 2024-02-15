@@ -55,6 +55,14 @@ func newRemoveProcessGroupCmd(streams genericclioptions.IOStreams) *cobra.Comman
 			if err != nil {
 				return err
 			}
+			processConditions, err := cmd.Flags().GetStringArray("process-condition")
+			if err != nil {
+				return err
+			}
+			conditions, err := convertConditions(processConditions)
+			if err != nil {
+				return err
+			}
 			withExclusion, err := cmd.Flags().GetBool("exclusion")
 			if err != nil {
 				return err
@@ -86,6 +94,7 @@ func newRemoveProcessGroupCmd(streams genericclioptions.IOStreams) *cobra.Comman
 					clusterLabel:      clusterLabel,
 					processClass:      processClass,
 					useProcessGroupID: useProcessGroupID,
+					conditions:        conditions,
 				},
 				replaceProcessGroupsOptions{
 					withExclusion:   withExclusion,
@@ -117,12 +126,9 @@ kubectl fdb -n default remove process-groups -c cluster --process-class="statele
 `,
 	}
 
-	cmd.Flags().StringP("fdb-cluster", "c", "", "remove process groups from the provided cluster.")
-	cmd.Flags().String("process-class", "", "remove process groups matching the provided value in the provided cluster.  Using this option ignores provided ids.")
-	cmd.Flags().StringP("cluster-label", "l", fdbv1beta2.FDBClusterLabel, "cluster label used to identify the cluster for a requested pod")
+	addProcessSelectionFlags(cmd)
 	cmd.Flags().BoolP("exclusion", "e", true, "define if the process groups should be removed with exclusion.")
 	cmd.Flags().Bool("remove-all-failed", false, "define if all failed processes should be replaced.")
-	cmd.Flags().Bool("use-process-group-id", false, "define if the process-group should be used instead of the Pod name.")
 
 	cmd.SetOut(o.Out)
 	cmd.SetErr(o.ErrOut)
@@ -145,11 +151,11 @@ type replaceProcessGroupsOptions struct {
 // If processClass is specified, it will ignore the given ids and remove all processes in the given cluster whose pods
 // have a processClassLabel matching the processClass.
 func replaceProcessGroups(cmd *cobra.Command, kubeClient client.Client, processGroupOpts processGroupSelectionOptions, opts replaceProcessGroupsOptions) (int, error) {
-	if len(processGroupOpts.ids) == 0 && !opts.removeAllFailed && processGroupOpts.processClass == "" {
+	if len(processGroupOpts.ids) == 0 && !opts.removeAllFailed && processGroupOpts.processClass == "" && len(processGroupOpts.conditions) == 0 {
 		return 0, errors.New("no processGroups could be selected with the provided options")
 	}
 
-	processGroupsByCluster, err := getProcessGroupsByCluster(kubeClient, processGroupOpts)
+	processGroupsByCluster, err := getProcessGroupsByCluster(cmd, kubeClient, processGroupOpts)
 	if err != nil {
 		return 0, err
 	}
