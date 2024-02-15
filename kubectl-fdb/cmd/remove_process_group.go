@@ -62,7 +62,7 @@ func newRemoveProcessGroupCmd(streams genericclioptions.IOStreams) *cobra.Comman
 			}
 
 			totalRemoved, err := replaceProcessGroups(cmd, kubeClient,
-				*processGroupSelectionOpts,
+				processGroupSelectionOpts,
 				replaceProcessGroupsOptions{
 					withExclusion:   withExclusion,
 					wait:            wait,

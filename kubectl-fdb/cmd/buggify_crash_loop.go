@@ -72,7 +72,7 @@ func newBuggifyCrashLoop(streams genericclioptions.IOStreams) *cobra.Command {
 					clear:         clear,
 					clean:         clean,
 				},
-				*processGroupSelectionOpts,
+				processGroupSelectionOpts,
 			)
 		},
 		Example: `
@@ -83,8 +83,13 @@ kubectl fdb buggify crash-loop -c cluster --container-name container-name pod-1 
 # Remove process groups from crash loop state from a cluster in the current namespace with container name
 kubectl fdb buggify crash-loop --clear -c cluster --container-name container-name pod-1 pod-2
 
+# Remove process groups from crash loop state from a cluster in the current namespace with container name across clusters
+kubectl fdb buggify crash-loop --clear --container-name container-name pod-1-cluster-A pod-2-cluster-B -l your-cluster-label
+
 # Clean crash loop list of a cluster in the current namespace with container name
 kubectl fdb buggify crash-loop --clean -c cluster --container-name container-name
+
+See help for even more process group selection options, such as by processClass, conditions, and processGroupID!
 `,
 	}
 	addProcessSelectionFlags(cmd)
@@ -116,7 +121,7 @@ func updateCrashLoopContainerList(cmd *cobra.Command, kubeClient client.Client, 
 		}
 		return cleanCrashLoopContainerList(kubeClient, opts.containerName, processGroupOpts.clusterName, processGroupOpts.namespace, opts)
 	}
-	
+
 	processGroupsByCluster, err := getProcessGroupsByCluster(cmd, kubeClient, processGroupOpts)
 	if err != nil {
 		return err

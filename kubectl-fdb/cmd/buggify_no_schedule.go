@@ -23,8 +23,6 @@ package cmd
 import (
 	ctx "context"
 	"fmt"
-	"log"
-
 	"github.com/spf13/cobra"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
@@ -67,7 +65,7 @@ func newBuggifyNoSchedule(streams genericclioptions.IOStreams) *cobra.Command {
 					wait:  wait,
 					clear: clear,
 					clean: clean,
-				}, *processGroupSelectionOpts)
+				}, processGroupSelectionOpts)
 		},
 		Example: `
 # Add process groups into no-schedule state for a cluster in the current namespace
@@ -76,21 +74,21 @@ kubectl fdb buggify no-schedule -c cluster pod-1 pod-2
 # Remove process groups from no-schedule state from a cluster in the current namespace
 kubectl fdb buggify no-schedule --clear -c cluster pod-1 pod-2
 
+# Remove process groups from no-schedule state from a cluster in the current namespace across clusters
+kubectl fdb buggify no-schedule --clear pod-1-cluster-A pod-2-cluster-B -l your-cluster-label
+
 # Clean no-schedule list of a cluster in the current namespace
 kubectl fdb buggify no-schedule  --clean -c cluster
 
 # Add process groups into no-schedule state for a cluster in the namespace default
 kubectl fdb -n default buggify no-schedule  -c cluster pod-1 pod-2
+
+See help for even more process group selection options, such as by processClass, conditions, and processGroupID!
 `,
 	}
-
-	cmd.Flags().StringP("fdb-cluster", "c", "", "updates the no-schedule list in the provided cluster.")
+	addProcessSelectionFlags(cmd)
 	cmd.Flags().Bool("clear", false, "removes the process groups from the no-schedule list.")
 	cmd.Flags().Bool("clean", false, "removes all process groups from the no-schedule list.")
-	err := cmd.MarkFlagRequired("fdb-cluster")
-	if err != nil {
-		log.Fatal(err)
-	}
 	cmd.SetOut(o.Out)
 	cmd.SetErr(o.ErrOut)
 	cmd.SetIn(o.In)

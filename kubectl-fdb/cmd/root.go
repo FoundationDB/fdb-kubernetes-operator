@@ -194,36 +194,37 @@ func addProcessSelectionFlags(cmd *cobra.Command) {
 	cmd.Flags().StringArray("process-condition", []string{}, "Selects process groups that are in any of the given FDB process group conditions.")
 }
 
-func getProcessSelectionOptsFromFlags(cmd *cobra.Command, o *fdbBOptions, ids []string) (*processGroupSelectionOptions, error) {
+func getProcessSelectionOptsFromFlags(cmd *cobra.Command, o *fdbBOptions, ids []string) (processGroupSelectionOptions, error) {
+	opts := processGroupSelectionOptions{}
 	cluster, err := cmd.Flags().GetString("fdb-cluster")
 	if err != nil {
-		return nil, err
+		return opts, err
 	}
 	clusterLabel, err := cmd.Flags().GetString("cluster-label")
 	if err != nil {
-		return nil, err
+		return opts, err
 	}
 	processClass, err := cmd.Flags().GetString("process-class")
 	if err != nil {
-		return nil, err
+		return opts, err
 	}
 	processConditions, err := cmd.Flags().GetStringArray("process-condition")
 	if err != nil {
-		return nil, err
+		return opts, err
 	}
 	conditions, err := convertConditions(processConditions)
 	if err != nil {
-		return nil, err
+		return opts, err
 	}
 	useProcessGroupID, err := cmd.Flags().GetBool("use-process-group-id")
 	if err != nil {
-		return nil, err
+		return opts, err
 	}
 	namespace, err := getNamespace(*o.configFlags.Namespace)
 	if err != nil {
-		return nil, err
+		return opts, err
 	}
-	return &processGroupSelectionOptions{
+	return processGroupSelectionOptions{
 		ids:               ids,
 		namespace:         namespace,
 		clusterName:       cluster,
