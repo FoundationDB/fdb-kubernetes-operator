@@ -22,6 +22,7 @@ package controllers
 
 import (
 	"context"
+	"time"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbstatus"
 	"github.com/go-logr/logr"
@@ -59,13 +60,21 @@ func (c replaceFailedProcessGroups) reconcile(ctx context.Context, r *Foundation
 
 	// Only replace process groups without an address, if the cluster has the desired fault tolerance and is available.
 	hasDesiredFaultTolerance := fdbstatus.HasDesiredFaultToleranceFromStatus(logger, status, cluster)
-	if replacements.ReplaceFailedProcessGroups(logger, cluster, status, hasDesiredFaultTolerance) {
+	hasReplacement, hasMoreFailedProcesses := replacements.ReplaceFailedProcessGroups(logger, cluster, status, hasDesiredFaultTolerance)
+	// If the reconciler replaced at least one process group we want to update the status and requeue.
+	if hasReplacement {
 		err := r.updateOrApply(ctx, cluster)
 		if err != nil {
 			return &requeue{curError: err}
 		}
 
 		return &requeue{message: "Removals have been updated in the cluster status"}
+	}
+
+	// If there are more failed processes that are not yet automatically replaced, we want the controller to requeue this
+	// request to make sure it takes another attempt to replace the faulty process group(s).
+	if hasMoreFailedProcesses {
+		return &requeue{message: "More failed process groups are detected", delayedRequeue: true, delay: 5 * time.Minute}
 	}
 
 	return nil

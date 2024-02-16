@@ -786,8 +786,10 @@ var _ = Describe("replace_failed_process_groups", func() {
 				processGroup.MarkForRemoval()
 			})
 
-			It("should return nil", func() {
-				Expect(result).To(BeNil())
+			It("should not return nil", func() {
+				Expect(result).NotTo(BeNil())
+				Expect(result.delayedRequeue).To(BeTrue())
+				Expect(result.message).To(Equal("More failed process groups are detected"))
 			})
 
 			It("should not mark the process group for removal", func() {
