@@ -45,15 +45,26 @@ func getMaxReplacements(cluster *fdbv1beta2.FoundationDBCluster, maxReplacements
 
 // ReplaceFailedProcessGroups flags failed processes groups for removal and returns an indicator
 // of whether any processes were thus flagged.
-func ReplaceFailedProcessGroups(log logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, hasDesiredFaultTolerance bool) bool {
-	// Automatic replacements are disabled, so we don't have to check anything further
-	if !cluster.GetEnableAutomaticReplacements() {
-		return false
+func ReplaceFailedProcessGroups(log logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, hasDesiredFaultTolerance bool) (bool, bool) {
+	// Automatic replacements are disabled or set to 0, so we don't have to check anything further
+	if !cluster.GetEnableAutomaticReplacements() || cluster.GetMaxConcurrentAutomaticReplacements() == 0 {
+		return false, false
+	}
+
+	ignore := map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None{}
+	crashLoopContainerProcessGroups := cluster.GetCrashLoopContainerProcessGroups()
+	for _, targets := range crashLoopContainerProcessGroups {
+		// If all Process Groups are targeted to be crash looping, we can skip any further work.
+		if _, ok := targets["*"]; ok {
+			return false, false
+		}
+
+		ignore = targets
 	}
 
 	maxReplacements := getMaxReplacements(cluster, cluster.GetMaxConcurrentAutomaticReplacements())
 	hasReplacement := false
-	crashLoopContainerProcessGroups := cluster.GetCrashLoopContainerProcessGroups()
+	hasMoreFailedProcesses := false
 	localitiesUsedForExclusion := cluster.UseLocalitiesForExclusion()
 
 	for _, processGroupStatus := range cluster.Status.ProcessGroups {
@@ -70,25 +81,13 @@ func ReplaceFailedProcessGroups(log logr.Logger, cluster *fdbv1beta2.FoundationD
 			continue
 		}
 
-		var shouldBeIgnored bool
-		for _, targets := range crashLoopContainerProcessGroups {
-			if _, ok := targets[processGroupStatus.ProcessGroupID]; ok {
-				shouldBeIgnored = true
-				break
-			}
-
-			if _, ok := targets["*"]; ok {
-				shouldBeIgnored = true
-				break
-			}
-		}
-
-		if shouldBeIgnored {
+		failureCondition, failureTime := processGroupStatus.NeedsReplacement(cluster.GetFailureDetectionTimeSeconds(), cluster.GetTaintReplacementTimeSeconds())
+		if failureTime == 0 {
 			continue
 		}
 
-		failureCondition, failureTime := processGroupStatus.NeedsReplacement(cluster.GetFailureDetectionTimeSeconds(), cluster.GetTaintReplacementTimeSeconds())
-		if failureTime == 0 {
+		// If the process is crash looping we can ignore it.
+		if _, ok := ignore[processGroupStatus.ProcessGroupID]; ok {
 			continue
 		}
 
@@ -118,6 +117,9 @@ func ReplaceFailedProcessGroups(log logr.Logger, cluster *fdbv1beta2.FoundationD
 
 		// We are not allowed to replace additional process groups.
 		if maxReplacements <= 0 {
+			// If there are more processes that should be replaced but we hit the replace limit, we want to make sure
+			// the controller queues another reconciliation to eventually replace this failed process group.
+			hasMoreFailedProcesses = true
 			log.Info("Detected replace process group but cannot replace it because we hit the replacement limit",
 				"processGroupID", processGroupStatus.ProcessGroupID,
 				"failureCondition", failureCondition,
@@ -138,5 +140,5 @@ func ReplaceFailedProcessGroups(log logr.Logger, cluster *fdbv1beta2.FoundationD
 		maxReplacements--
 	}
 
-	return hasReplacement
+	return hasReplacement, hasMoreFailedProcesses
 }
