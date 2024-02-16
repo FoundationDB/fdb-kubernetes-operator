@@ -43,8 +43,9 @@ func getMaxReplacements(cluster *fdbv1beta2.FoundationDBCluster, maxReplacements
 	return maxReplacements - removalCount
 }
 
-// ReplaceFailedProcessGroups flags failed processes groups for removal and returns an indicator
-// of whether any processes were thus flagged.
+// ReplaceFailedProcessGroups flags failed processes groups for removal. The first return value will indicate if any
+// new Process Group was removed and the second return value will indicate if there are more Process Groups that
+// needs a replacement, but the operator is not allowed to replace those as the limit is reached.
 func ReplaceFailedProcessGroups(log logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, hasDesiredFaultTolerance bool) (bool, bool) {
 	// Automatic replacements are disabled or set to 0, so we don't have to check anything further
 	if !cluster.GetEnableAutomaticReplacements() || cluster.GetMaxConcurrentAutomaticReplacements() == 0 {
