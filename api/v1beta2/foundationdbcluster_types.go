@@ -1215,6 +1215,12 @@ type AutomaticReplacementOptions struct {
 	// The default is false.
 	Enabled *bool `json:"enabled,omitempty"`
 
+	// FaultDomainBasedReplacements controls whether automatic replacements are targeting all failed process groups
+	// in a fault domain or only specific Process Groups. If this setting is enabled MaxConcurrentReplacements will
+	// provide the information in how many fault domains failed process groups can be replaced.
+	// The default is true.
+	FaultDomainBasedReplacements *bool `json:"faultDomainBasedReplacements,omitempty"`
+
 	// FailureDetectionTimeSeconds controls how long a process must be
 	// failed or missing before it is automatically replaced.
 	// The default is 7200 seconds, or 2 hours.
@@ -2153,6 +2159,12 @@ func (clusterStatus *FoundationDBClusterStatus) AddServersPerDisk(serversPerDisk
 // GetMaxConcurrentAutomaticReplacements returns the cluster setting for MaxConcurrentReplacements, defaults to 1 if unset.
 func (cluster *FoundationDBCluster) GetMaxConcurrentAutomaticReplacements() int {
 	return pointer.IntDeref(cluster.Spec.AutomationOptions.Replacements.MaxConcurrentReplacements, 1)
+}
+
+// FaultDomainBasedReplacements returns true if the operator is allowed to replace all failed process groups of a
+// fault domain. Default is true
+func (cluster *FoundationDBCluster) FaultDomainBasedReplacements() bool {
+	return pointer.BoolDeref(cluster.Spec.AutomationOptions.Replacements.FaultDomainBasedReplacements, true)
 }
 
 // CoordinatorSelectionSetting defines the process class and the priority of it.

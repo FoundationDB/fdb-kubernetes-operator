@@ -48,8 +48,8 @@ var _ = Describe("replace_failed_process_groups", func() {
 
 	BeforeEach(func() {
 		cluster = internal.CreateDefaultCluster()
-		err = k8sClient.Create(ctx.TODO(), cluster)
-		Expect(err).NotTo(HaveOccurred())
+		cluster.Spec.AutomationOptions.Replacements.FaultDomainBasedReplacements = pointer.Bool(false)
+		Expect(k8sClient.Create(ctx.TODO(), cluster)).NotTo(HaveOccurred())
 
 		result, err := reconcileCluster(cluster)
 		Expect(err).NotTo(HaveOccurred())
@@ -640,6 +640,8 @@ var _ = Describe("replace_failed_process_groups", func() {
 			Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]fdbv1beta2.ProcessGroupID{}))
 		})
 	})
+
+	// TODO: add test case for fault domain based tests
 
 	Context("with a process that has been missing for a long time", func() {
 		BeforeEach(func() {
