@@ -43,31 +43,7 @@ func newRemoveProcessGroupCmd(streams genericclioptions.IOStreams) *cobra.Comman
 			if err != nil {
 				return err
 			}
-			cluster, err := cmd.Flags().GetString("fdb-cluster")
-			if err != nil {
-				return err
-			}
-			clusterLabel, err := cmd.Flags().GetString("cluster-label")
-			if err != nil {
-				return err
-			}
-			processClass, err := cmd.Flags().GetString("process-class")
-			if err != nil {
-				return err
-			}
-			processConditions, err := cmd.Flags().GetStringArray("process-condition")
-			if err != nil {
-				return err
-			}
-			conditions, err := convertConditions(processConditions)
-			if err != nil {
-				return err
-			}
 			withExclusion, err := cmd.Flags().GetBool("exclusion")
-			if err != nil {
-				return err
-			}
-			useProcessGroupID, err := cmd.Flags().GetBool("use-process-group-id")
 			if err != nil {
 				return err
 			}
@@ -76,26 +52,17 @@ func newRemoveProcessGroupCmd(streams genericclioptions.IOStreams) *cobra.Comman
 				return err
 			}
 
+			processGroupSelectionOpts, err := getProcessSelectionOptsFromFlags(cmd, o, args)
+			if err != nil {
+				return err
+			}
 			kubeClient, err := getKubeClient(cmd.Context(), o)
 			if err != nil {
 				return err
 			}
 
-			namespace, err := getNamespace(*o.configFlags.Namespace)
-			if err != nil {
-				return err
-			}
-
 			totalRemoved, err := replaceProcessGroups(cmd, kubeClient,
-				processGroupSelectionOptions{
-					ids:               args,
-					namespace:         namespace,
-					clusterName:       cluster,
-					clusterLabel:      clusterLabel,
-					processClass:      processClass,
-					useProcessGroupID: useProcessGroupID,
-					conditions:        conditions,
-				},
+				processGroupSelectionOpts,
 				replaceProcessGroupsOptions{
 					withExclusion:   withExclusion,
 					wait:            wait,

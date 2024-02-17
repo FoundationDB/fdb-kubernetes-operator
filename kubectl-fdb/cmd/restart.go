@@ -22,7 +22,6 @@ package cmd
 
 import (
 	"fmt"
-	"log"
 	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -48,24 +47,16 @@ func newRestartCmd(streams genericclioptions.IOStreams) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			clusterName, err := cmd.Flags().GetString("fdb-cluster")
-			if err != nil {
-				return err
-			}
 			allProcesses, err := cmd.Flags().GetBool("all-processes")
 			if err != nil {
 				return err
 			}
-			processConditions, err := cmd.Flags().GetStringArray("process-condition")
-			if err != nil {
-				return err
-			}
-			conditions, err := convertConditions(processConditions)
+			processGroupSelectionOpts, err := getProcessSelectionOptsFromFlags(cmd, o, args)
 			if err != nil {
 				return err
 			}
 
-			if len(args) == 0 && !allProcesses && len(conditions) == 0 {
+			if len(args) == 0 && !allProcesses && len(processGroupSelectionOpts.conditions) == 0 {
 				return cmd.Help()
 			}
 
@@ -84,36 +75,29 @@ func newRestartCmd(streams genericclioptions.IOStreams) *cobra.Command {
 				return err
 			}
 
-			namespace, err := getNamespace(*o.configFlags.Namespace)
+			processGroupsByCluster, err := getProcessGroupsByCluster(cmd, kubeClient, processGroupSelectionOpts)
 			if err != nil {
 				return err
 			}
-
-			cluster, err := loadCluster(kubeClient, namespace, clusterName)
-			if err != nil {
-				return err
-			}
-
-			var processes []string
-			if allProcesses {
-				pods, err := getPodsForCluster(kubeClient, cluster)
+			for cluster, processGroupIDs := range processGroupsByCluster {
+				// TODO remove this once we've removed support for processGroupID (instead of pod) lookup and
+				//  can more nicely convert getProcessGroupsByCluster to return podNames (possible now, but less clean)
+				var podNames []string
+				for _, processGroupStatus := range cluster.Status.ProcessGroups {
+					for _, processGroupID := range processGroupIDs {
+						if processGroupStatus.ProcessGroupID != processGroupID {
+							continue
+						}
+						podNames = append(podNames, processGroupStatus.GetPodName(cluster))
+					}
+				}
+				err := restartProcesses(cmd, config, clientSet, podNames, processGroupSelectionOpts.namespace, cluster.Name, wait, sleep)
 				if err != nil {
 					return err
 				}
-
-				for _, pod := range pods.Items {
-					processes = append(processes, pod.Name)
-				}
-			} else if len(conditions) > 0 {
-				processes, err = getAllPodsFromClusterWithCondition(cmd.ErrOrStderr(), kubeClient, clusterName, namespace, conditions)
-				if err != nil {
-					return err
-				}
-			} else {
-				processes = args
 			}
 
-			return restartProcesses(cmd, config, clientSet, processes, namespace, clusterName, wait, sleep)
+			return nil
 		},
 		Example: `
 # Restart processes for a cluster in the current namespace
@@ -122,19 +106,20 @@ kubectl fdb restart -c cluster pod-1 -i pod-2
 # Restart processes for a cluster in the namespace default
 kubectl fdb -n default restart -c cluster pod-1 pod-2
 
+# Restart processes for a cluster in the namespace default
+kubectl fdb -n default restart pod-1-cluster-A pod-2-cluster-B -l your-cluster-label
+
 # Restart all processes for a cluster
 kubectl fdb restart -c cluster --all-processes
 
 # Restart all processes for a cluster that have the given condition
 kubectl fdb restart -c cluster --process-condition=MissingProcesses
+
+See help for even more process group selection options, such as by processClass, and processGroupID!
 `,
 	}
 	addProcessSelectionFlags(cmd)
 	cmd.Flags().Bool("all-processes", false, "restart all processes of this cluster.")
-	err := cmd.MarkFlagRequired("fdb-cluster")
-	if err != nil {
-		log.Fatal(err)
-	}
 	cmd.SetOut(o.Out)
 	cmd.SetErr(o.ErrOut)
 	cmd.SetIn(o.In)
@@ -160,17 +145,17 @@ func convertConditions(inputConditions []string) ([]fdbv1beta2.ProcessGroupCondi
 }
 
 //nolint:interfacer // golint has a false-positive here -> `cmd` can be `github.com/hashicorp/go-retryablehttp.Logger`
-func restartProcesses(cmd *cobra.Command, restConfig *rest.Config, kubeClient *kubernetes.Clientset, processes []string, namespace string, clusterName string, wait bool, sleep uint16) error {
+func restartProcesses(cmd *cobra.Command, restConfig *rest.Config, kubeClient *kubernetes.Clientset, podNames []string, namespace, clusterName string, wait bool, sleep uint16) error {
 	if wait {
-		confirmed := confirmAction(fmt.Sprintf("Restart %v in cluster %s/%s", processes, namespace, clusterName))
+		confirmed := confirmAction(fmt.Sprintf("Restart %v in cluster %s/%s", podNames, namespace, clusterName))
 		if !confirmed {
 			return fmt.Errorf("user aborted the removal")
 		}
 	}
 
-	for _, process := range processes {
-		cmd.Printf("Restart process: %s\n", process)
-		_, _, err := executeCmd(restConfig, kubeClient, process, namespace, "pkill fdbserver")
+	for _, pod := range podNames {
+		cmd.Printf("Restart process: %s\n", podNames)
+		_, _, err := executeCmd(restConfig, kubeClient, pod, namespace, "pkill fdbserver")
 		if err != nil {
 			return err
 		}

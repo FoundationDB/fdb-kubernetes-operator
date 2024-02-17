@@ -23,8 +23,6 @@ package cmd
 import (
 	ctx "context"
 	"fmt"
-	"log"
-
 	"github.com/spf13/cobra"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
@@ -51,7 +49,8 @@ func newBuggifyNoSchedule(streams genericclioptions.IOStreams) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			cluster, err := cmd.Flags().GetString("fdb-cluster")
+
+			processGroupSelectionOpts, err := getProcessSelectionOptsFromFlags(cmd, o, args)
 			if err != nil {
 				return err
 			}
@@ -61,12 +60,12 @@ func newBuggifyNoSchedule(streams genericclioptions.IOStreams) *cobra.Command {
 				return err
 			}
 
-			namespace, err := getNamespace(*o.configFlags.Namespace)
-			if err != nil {
-				return err
-			}
-
-			return updateNoScheduleList(kubeClient, cluster, args, namespace, wait, clear, clean)
+			return updateNoScheduleList(cmd, kubeClient,
+				buggifyProcessGroupOptions{
+					wait:  wait,
+					clear: clear,
+					clean: clean,
+				}, processGroupSelectionOpts)
 		},
 		Example: `
 # Add process groups into no-schedule state for a cluster in the current namespace
@@ -75,21 +74,21 @@ kubectl fdb buggify no-schedule -c cluster pod-1 pod-2
 # Remove process groups from no-schedule state from a cluster in the current namespace
 kubectl fdb buggify no-schedule --clear -c cluster pod-1 pod-2
 
+# Remove process groups from no-schedule state from a cluster in the current namespace across clusters
+kubectl fdb buggify no-schedule --clear pod-1-cluster-A pod-2-cluster-B -l your-cluster-label
+
 # Clean no-schedule list of a cluster in the current namespace
 kubectl fdb buggify no-schedule  --clean -c cluster
 
 # Add process groups into no-schedule state for a cluster in the namespace default
 kubectl fdb -n default buggify no-schedule  -c cluster pod-1 pod-2
+
+See help for even more process group selection options, such as by processClass, conditions, and processGroupID!
 `,
 	}
-
-	cmd.Flags().StringP("fdb-cluster", "c", "", "updates the no-schedule list in the provided cluster.")
+	addProcessSelectionFlags(cmd)
 	cmd.Flags().Bool("clear", false, "removes the process groups from the no-schedule list.")
 	cmd.Flags().Bool("clean", false, "removes all process groups from the no-schedule list.")
-	err := cmd.MarkFlagRequired("fdb-cluster")
-	if err != nil {
-		log.Fatal(err)
-	}
 	cmd.SetOut(o.Out)
 	cmd.SetErr(o.ErrOut)
 	cmd.SetIn(o.In)
@@ -100,24 +99,21 @@ kubectl fdb -n default buggify no-schedule  -c cluster pod-1 pod-2
 }
 
 // updateNoScheduleList updates the removal list of the cluster
-func updateNoScheduleList(kubeClient client.Client, clusterName string, pods []string, namespace string, wait bool, clear bool, clean bool) error {
-	cluster, err := loadCluster(kubeClient, namespace, clusterName)
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			return fmt.Errorf("could not get cluster: %s/%s", namespace, clusterName)
+func updateNoScheduleList(cmd *cobra.Command, kubeClient client.Client, opts buggifyProcessGroupOptions, processGroupOpts processGroupSelectionOptions) error {
+	if opts.clean {
+		if processGroupOpts.clusterName == "" {
+			return fmt.Errorf("clean option requires cluster-name argument")
 		}
-		return err
-	}
-
-	processGroupIDs, err := getProcessGroupIDsFromPodName(cluster, pods)
-	if err != nil {
-		return err
-	}
-
-	patch := client.MergeFrom(cluster.DeepCopy())
-	if clean {
-		if wait {
-			if !confirmAction(fmt.Sprintf("Clearing no-schedule list from cluster %s/%s", namespace, clusterName)) {
+		cluster, err := loadCluster(kubeClient, processGroupOpts.namespace, processGroupOpts.clusterName)
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				return fmt.Errorf("could not get cluster: %s/%s", processGroupOpts.namespace, processGroupOpts.clusterName)
+			}
+			return err
+		}
+		patch := client.MergeFrom(cluster.DeepCopy())
+		if opts.wait {
+			if !confirmAction(fmt.Sprintf("Clearing no-schedule list from cluster %s/%s", processGroupOpts.namespace, processGroupOpts.clusterName)) {
 				return fmt.Errorf("user aborted the removal")
 			}
 		}
@@ -125,27 +121,32 @@ func updateNoScheduleList(kubeClient client.Client, clusterName string, pods []s
 		return kubeClient.Patch(ctx.TODO(), cluster, patch)
 	}
 
-	if len(processGroupIDs) == 0 {
-		return fmt.Errorf("please provide at least one pod")
+	processGroupsByCluster, err := getProcessGroupsByCluster(cmd, kubeClient, processGroupOpts)
+	if err != nil {
+		return err
 	}
 
-	if wait {
-		if clear {
-			if !confirmAction(fmt.Sprintf("Removing %v from no-schedule from cluster %s/%s", processGroupIDs, namespace, clusterName)) {
+	for cluster, processGroupIDs := range processGroupsByCluster {
+		patch := client.MergeFrom(cluster.DeepCopy())
+		if len(processGroupIDs) == 0 {
+			return fmt.Errorf("please provide at least one pod")
+		}
+
+		if opts.clear {
+			if opts.wait && !confirmAction(fmt.Sprintf("Removing %v from no-schedule from cluster %s/%s", processGroupIDs, processGroupOpts.namespace, processGroupOpts.clusterName)) {
 				return fmt.Errorf("user aborted the removal")
 			}
+			cluster.RemoveProcessGroupsFromNoScheduleList(processGroupIDs)
 		} else {
-			if !confirmAction(fmt.Sprintf("Adding %v from no-schedule from cluster %s/%s", processGroupIDs, namespace, clusterName)) {
+			if opts.wait && !confirmAction(fmt.Sprintf("Adding %v from no-schedule from cluster %s/%s", processGroupIDs, processGroupOpts.namespace, processGroupOpts.clusterName)) {
 				return fmt.Errorf("user aborted the removal")
 			}
+			cluster.AddProcessGroupsToNoScheduleList(processGroupIDs)
+		}
+		err = kubeClient.Patch(ctx.TODO(), cluster, patch)
+		if err != nil {
+			return err
 		}
 	}
-
-	if clear {
-		cluster.RemoveProcessGroupsFromNoScheduleList(processGroupIDs)
-	} else {
-		cluster.AddProcessGroupsToNoScheduleList(processGroupIDs)
-	}
-
-	return kubeClient.Patch(ctx.TODO(), cluster, patch)
+	return nil
 }
