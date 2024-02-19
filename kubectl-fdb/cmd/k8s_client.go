@@ -386,9 +386,7 @@ func fetchPodNamesCrossCluster(kubeClient client.Client, namespace string, clust
 			}
 			return nil, err
 		}
-		for _, podName := range pods {
-			podsByCluster[cluster] = append(podsByCluster[cluster], podName)
-		}
+		podsByCluster[cluster] = append(podsByCluster[cluster], pods...)
 	}
 	return podsByCluster, nil
 }
