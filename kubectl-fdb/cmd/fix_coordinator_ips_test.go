@@ -41,7 +41,7 @@ var _ = Describe("[plugin] fix-coordinator-ips command", func() {
 		BeforeEach(func() {
 			Expect(k8sClient.Create(context.TODO(), &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "instance-1",
+					Name:      "storage-1",
 					Namespace: namespace,
 					Labels: map[string]string{
 						fdbv1beta2.FDBProcessClassLabel: string(fdbv1beta2.ProcessClassStorage),
@@ -78,7 +78,7 @@ var _ = Describe("[plugin] fix-coordinator-ips command", func() {
 							"-it",
 							"-c",
 							fdbv1beta2.MainContainerName,
-							"instance-1",
+							"storage-1",
 							"--",
 							"bash",
 							"-c",
@@ -100,7 +100,7 @@ var _ = Describe("[plugin] fix-coordinator-ips command", func() {
 							"-it",
 							"-c",
 							fdbv1beta2.MainContainerName,
-							"instance-1",
+							"storage-1",
 							"--",
 							"bash",
 							"-c",

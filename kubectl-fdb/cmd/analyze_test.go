@@ -66,12 +66,12 @@ func getPodList(clusterName string, namespace string, status corev1.PodStatus, d
 		Items: []corev1.Pod{
 			{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "instance-1",
+					Name:      "storage-1",
 					Namespace: namespace,
 					Labels: map[string]string{
 						fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStorage),
 						fdbv1beta2.FDBClusterLabel:        clusterName,
-						fdbv1beta2.FDBProcessGroupIDLabel: "instance-1",
+						fdbv1beta2.FDBProcessGroupIDLabel: "storage-1",
 					},
 					DeletionTimestamp: deletionTimestamp,
 				},
@@ -119,7 +119,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 			Entry("Cluster is fine",
 				testCase{
 					cluster: getCluster(clusterName, namespace, true, true, true, 1, []*fdbv1beta2.ProcessGroupStatus{
-						{ProcessGroupID: "instance-1"},
+						{ProcessGroupID: "storage-1"},
 					}),
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
 						Phase: corev1.PodRunning,
@@ -138,7 +138,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 			Entry("Cluster is unavailable",
 				testCase{
 					cluster: getCluster(clusterName, namespace, false, true, true, 1, []*fdbv1beta2.ProcessGroupStatus{
-						{ProcessGroupID: "instance-1"},
+						{ProcessGroupID: "storage-1"},
 					}),
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
 						Phase: corev1.PodRunning,
@@ -156,7 +156,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 			Entry("Cluster is unhealthy",
 				testCase{
 					cluster: getCluster(clusterName, namespace, true, false, true, 1, []*fdbv1beta2.ProcessGroupStatus{
-						{ProcessGroupID: "instance-1"},
+						{ProcessGroupID: "storage-1"},
 					}),
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
 						Phase: corev1.PodRunning,
@@ -175,7 +175,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 			Entry("Cluster is not fully replicated",
 				testCase{
 					cluster: getCluster(clusterName, namespace, true, true, false, 1, []*fdbv1beta2.ProcessGroupStatus{
-						{ProcessGroupID: "instance-1"},
+						{ProcessGroupID: "storage-1"},
 					}),
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
 						Phase: corev1.PodRunning,
@@ -193,7 +193,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 			Entry("Cluster is not reconciled",
 				testCase{
 					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbv1beta2.ProcessGroupStatus{
-						{ProcessGroupID: "instance-1"},
+						{ProcessGroupID: "storage-1"},
 					}),
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
 						Phase: corev1.PodRunning,
@@ -212,7 +212,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				testCase{
 					cluster: getCluster(clusterName, namespace, true, true, true, 1, []*fdbv1beta2.ProcessGroupStatus{
 						{
-							ProcessGroupID: "instance-1",
+							ProcessGroupID: "storage-1",
 							ProcessGroupConditions: []*fdbv1beta2.ProcessGroupCondition{
 								fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.MissingProcesses),
 							},
@@ -221,7 +221,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
 						Phase: corev1.PodRunning,
 					}, nil),
-					ExpectedErrMsg: fmt.Sprintf("✖ ProcessGroup: instance-1 has the following condition: MissingProcesses since %s", time.Unix(time.Now().Unix(), 0).String()),
+					ExpectedErrMsg: fmt.Sprintf("✖ ProcessGroup: storage-1 has the following condition: MissingProcesses since %s", time.Unix(time.Now().Unix(), 0).String()),
 					ExpectedStdoutMsg: `Checking cluster: test/test
 ✔ Cluster is available
 ✔ Cluster is fully replicated
@@ -235,7 +235,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				testCase{
 					cluster: getCluster(clusterName, namespace, true, true, true, 1, []*fdbv1beta2.ProcessGroupStatus{
 						{
-							ProcessGroupID: "instance-1",
+							ProcessGroupID: "storage-1",
 							ProcessGroupConditions: []*fdbv1beta2.ProcessGroupCondition{
 								fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.MissingProcesses),
 							},
@@ -245,7 +245,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
 						Phase: corev1.PodRunning,
 					}, nil),
-					ExpectedErrMsg: "⚠ ProcessGroup: instance-1 is marked for removal, excluded state: false",
+					ExpectedErrMsg: "⚠ ProcessGroup: storage-1 is marked for removal, excluded state: false",
 					ExpectedStdoutMsg: `Checking cluster: test/test
 ✔ Cluster is available
 ✔ Cluster is fully replicated
@@ -259,12 +259,12 @@ var _ = Describe("[plugin] analyze cluster", func() {
 			Entry("Pod is in Pending phase",
 				testCase{
 					cluster: getCluster(clusterName, namespace, true, true, true, 1, []*fdbv1beta2.ProcessGroupStatus{
-						{ProcessGroupID: "instance-1"},
+						{ProcessGroupID: "storage-1"},
 					}),
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
 						Phase: corev1.PodPending,
 					}, nil),
-					ExpectedErrMsg: "✖ Pod test/instance-1 has unexpected Phase Pending with Reason:",
+					ExpectedErrMsg: "✖ Pod test/storage-1 has unexpected Phase Pending with Reason:",
 					ExpectedStdoutMsg: `Checking cluster: test/test
 ✔ Cluster is available
 ✔ Cluster is fully replicated
@@ -277,7 +277,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 			Entry("Container is in terminated state",
 				testCase{
 					cluster: getCluster(clusterName, namespace, true, true, true, 1, []*fdbv1beta2.ProcessGroupStatus{
-						{ProcessGroupID: "instance-1"},
+						{ProcessGroupID: "storage-1"},
 					}),
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
 						Phase: corev1.PodRunning,
@@ -294,7 +294,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 							},
 						},
 					}, nil),
-					ExpectedErrMsg: "✖ Pod test/instance-1 has an unready container: foundationdb",
+					ExpectedErrMsg: "✖ Pod test/storage-1 has an unready container: foundationdb",
 					ExpectedStdoutMsg: `Checking cluster: test/test
 ✔ Cluster is available
 ✔ Cluster is fully replicated
@@ -307,7 +307,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 			Entry("Container is in ready state",
 				testCase{
 					cluster: getCluster(clusterName, namespace, true, true, true, 1, []*fdbv1beta2.ProcessGroupStatus{
-						{ProcessGroupID: "instance-1"},
+						{ProcessGroupID: "storage-1"},
 					}),
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
 						Phase: corev1.PodRunning,
@@ -332,13 +332,13 @@ var _ = Describe("[plugin] analyze cluster", func() {
 			Entry("Pod is stuck in terminating",
 				testCase{
 					cluster: getCluster(clusterName, namespace, true, true, true, 1, []*fdbv1beta2.ProcessGroupStatus{
-						{ProcessGroupID: "instance-1"},
+						{ProcessGroupID: "storage-1"},
 					}),
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
 						Phase:             corev1.PodRunning,
 						ContainerStatuses: []corev1.ContainerStatus{},
 					}, &metav1.Time{Time: time.Now().Add(-1 * time.Hour)}),
-					ExpectedErrMsg: fmt.Sprintf("✖ Pod test/instance-1 has been stuck in terminating since %s", time.Unix(time.Now().Add(-1*time.Hour).Unix(), 0).String()),
+					ExpectedErrMsg: fmt.Sprintf("✖ Pod test/storage-1 has been stuck in terminating since %s", time.Unix(time.Now().Add(-1*time.Hour).Unix(), 0).String()),
 					ExpectedStdoutMsg: `Checking cluster: test/test
 ✔ Cluster is available
 ✔ Cluster is fully replicated
@@ -352,7 +352,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				testCase{
 					cluster: getCluster(clusterName, namespace, true, true, true, 1, []*fdbv1beta2.ProcessGroupStatus{
 						{
-							ProcessGroupID:     "instance-1",
+							ProcessGroupID:     "storage-1",
 							RemovalTimestamp:   &metav1.Time{Time: time.Now()},
 							ExclusionTimestamp: &metav1.Time{Time: time.Now()},
 						},
@@ -372,7 +372,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 							},
 						},
 					}, &metav1.Time{Time: time.Now().Add(-1 * time.Hour)}),
-					ExpectedErrMsg: "⚠ ProcessGroup: instance-1 is marked for removal, excluded state: true",
+					ExpectedErrMsg: "⚠ ProcessGroup: storage-1 is marked for removal, excluded state: true",
 					ExpectedStdoutMsg: `Checking cluster: test/test
 ✔ Cluster is available
 ✔ Cluster is fully replicated
@@ -387,7 +387,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				testCase{
 					cluster: getCluster(clusterName, namespace, true, true, true, 1, []*fdbv1beta2.ProcessGroupStatus{
 						{
-							ProcessGroupID:     "instance-1",
+							ProcessGroupID:     "storage-1",
 							RemovalTimestamp:   &metav1.Time{Time: time.Now()},
 							ExclusionTimestamp: &metav1.Time{Time: time.Now()},
 						},
@@ -421,7 +421,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 			Entry("Missing Pods",
 				testCase{
 					cluster: getCluster(clusterName, namespace, true, true, true, 1, []*fdbv1beta2.ProcessGroupStatus{
-						{ProcessGroupID: "instance-1"},
+						{ProcessGroupID: "storage-1"},
 					}),
 					podList:        &corev1.PodList{},
 					ExpectedErrMsg: "✖ Found no Pods for this cluster",
@@ -441,7 +441,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
 						Phase: corev1.PodRunning,
 					}, nil),
-					ExpectedErrMsg: "✖ Pod test/instance-1 with the ID instance-1 is not part of the cluster spec status",
+					ExpectedErrMsg: "✖ Pod test/storage-1 with the ID storage-1 is not part of the cluster spec status",
 					ExpectedStdoutMsg: `Checking cluster: test/test
 ✔ Cluster is available
 ✔ Cluster is fully replicated
@@ -455,7 +455,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				testCase{
 					cluster: getCluster(clusterName, namespace, true, true, true, 1, []*fdbv1beta2.ProcessGroupStatus{
 						{
-							ProcessGroupID: "instance-1",
+							ProcessGroupID: "storage-1",
 							ProcessGroupConditions: []*fdbv1beta2.ProcessGroupCondition{
 								fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.MissingProcesses),
 								fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.IncorrectPodSpec),
@@ -465,7 +465,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
 						Phase: corev1.PodRunning,
 					}, nil),
-					ExpectedErrMsg: fmt.Sprintf("✖ ProcessGroup: instance-1 has the following condition: MissingProcesses since %s\n⚠ Ignored 1 conditions", time.Unix(time.Now().Unix(), 0).String()),
+					ExpectedErrMsg: fmt.Sprintf("✖ ProcessGroup: storage-1 has the following condition: MissingProcesses since %s\n⚠ Ignored 1 conditions", time.Unix(time.Now().Unix(), 0).String()),
 					ExpectedStdoutMsg: `Checking cluster: test/test
 ✔ Cluster is available
 ✔ Cluster is fully replicated

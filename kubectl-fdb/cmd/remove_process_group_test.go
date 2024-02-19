@@ -264,9 +264,9 @@ var _ = Describe("[plugin] remove process groups command", func() {
 					},
 					Entry("errors when process group IDs are provided instead of pod names",
 						testCase{
-							podNames:          []string{"instance-1"},
+							podNames:          []string{"storage-1"},
 							clusterLabel:      fdbv1beta2.FDBClusterLabel,
-							wantErrorContains: "could not get pod: test/instance-1",
+							wantErrorContains: "could not get pod: test/storage-1",
 							clusterDataMap: map[string]clusterData{
 								clusterName: {
 									ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{},
@@ -279,9 +279,9 @@ var _ = Describe("[plugin] remove process groups command", func() {
 					),
 					Entry("errors when no cluster found with given label",
 						testCase{
-							podNames:          []string{fmt.Sprintf("%s-instance-1", clusterName)},
+							podNames:          []string{fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage)},
 							clusterLabel:      "invalid-cluster-label",
-							wantErrorContains: fmt.Sprintf("no cluster-label 'invalid-cluster-label' found for pod '%s-instance-1'", clusterName),
+							wantErrorContains: fmt.Sprintf("no cluster-label 'invalid-cluster-label' found for pod '%s-storage-1'", clusterName),
 							clusterDataMap: map[string]clusterData{
 								clusterName: {
 									ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{},
@@ -294,12 +294,12 @@ var _ = Describe("[plugin] remove process groups command", func() {
 					),
 					Entry("removes valid 1 process group referred to by pod name and cluster-label",
 						testCase{
-							podNames:     []string{fmt.Sprintf("%s-instance-1", clusterName)},
+							podNames:     []string{fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage)},
 							clusterLabel: fdbv1beta2.FDBClusterLabel,
 							clusterDataMap: map[string]clusterData{
 								clusterName: {
 									ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{
-										fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-1", clusterName)),
+										fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage)),
 									},
 									ExpectedProcessCounts: fdbv1beta2.ProcessCounts{
 										Storage: 1,
@@ -316,12 +316,12 @@ var _ = Describe("[plugin] remove process groups command", func() {
 					),
 					Entry("removes two process groups, each on a different cluster",
 						testCase{
-							podNames:     []string{fmt.Sprintf("%s-instance-1", clusterName), fmt.Sprintf("%s-instance-1", secondClusterName)},
+							podNames:     []string{fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage), fmt.Sprintf("%s-%s-1", secondClusterName, fdbv1beta2.ProcessClassStorage)},
 							clusterLabel: fdbv1beta2.FDBClusterLabel,
 							clusterDataMap: map[string]clusterData{
 								clusterName: {
 									ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{
-										fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-1", clusterName)),
+										fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage)),
 									},
 									ExpectedProcessCounts: fdbv1beta2.ProcessCounts{
 										Storage: 1,
@@ -329,7 +329,7 @@ var _ = Describe("[plugin] remove process groups command", func() {
 								},
 								secondClusterName: {
 									ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{
-										fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-1", secondClusterName)),
+										fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-1", secondClusterName, fdbv1beta2.ProcessClassStorage)),
 									},
 									ExpectedProcessCounts: fdbv1beta2.ProcessCounts{
 										Storage: 1,
@@ -340,12 +340,12 @@ var _ = Describe("[plugin] remove process groups command", func() {
 					),
 					Entry("removes 3 process groups, on 2 different clusters",
 						testCase{
-							podNames:     []string{fmt.Sprintf("%s-instance-1", clusterName), fmt.Sprintf("%s-instance-1", secondClusterName), fmt.Sprintf("%s-instance-2", secondClusterName)},
+							podNames:     []string{fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage), fmt.Sprintf("%s-%s-1", secondClusterName, fdbv1beta2.ProcessClassStorage), fmt.Sprintf("%s-%s-2", secondClusterName, fdbv1beta2.ProcessClassStorage)},
 							clusterLabel: fdbv1beta2.FDBClusterLabel,
 							clusterDataMap: map[string]clusterData{
 								clusterName: {
 									ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{
-										fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-1", clusterName)),
+										fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage)),
 									},
 									ExpectedProcessCounts: fdbv1beta2.ProcessCounts{
 										Storage: 1,
@@ -353,8 +353,8 @@ var _ = Describe("[plugin] remove process groups command", func() {
 								},
 								secondClusterName: {
 									ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{
-										fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-1", secondClusterName)),
-										fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-2", secondClusterName)),
+										fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-1", secondClusterName, fdbv1beta2.ProcessClassStorage)),
+										fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-2", secondClusterName, fdbv1beta2.ProcessClassStorage)),
 									},
 									ExpectedProcessCounts: fdbv1beta2.ProcessCounts{
 										Storage: 1,
@@ -365,14 +365,14 @@ var _ = Describe("[plugin] remove process groups command", func() {
 					),
 					Entry("removes 4 process groups, on 2 different clusters",
 						testCase{
-							podNames: []string{fmt.Sprintf("%s-instance-1", clusterName), fmt.Sprintf("%s-instance-2", clusterName),
-								fmt.Sprintf("%s-instance-1", secondClusterName), fmt.Sprintf("%s-instance-2", secondClusterName)},
+							podNames: []string{fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage), fmt.Sprintf("%s-%s-2", clusterName, fdbv1beta2.ProcessClassStorage),
+								fmt.Sprintf("%s-%s-1", secondClusterName, fdbv1beta2.ProcessClassStorage), fmt.Sprintf("%s-%s-2", secondClusterName, fdbv1beta2.ProcessClassStorage)},
 							clusterLabel: fdbv1beta2.FDBClusterLabel,
 							clusterDataMap: map[string]clusterData{
 								clusterName: {
 									ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{
-										fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-1", clusterName)),
-										fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-2", clusterName)),
+										fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage)),
+										fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-2", clusterName, fdbv1beta2.ProcessClassStorage)),
 									},
 									ExpectedProcessCounts: fdbv1beta2.ProcessCounts{
 										Storage: 1,
@@ -380,8 +380,8 @@ var _ = Describe("[plugin] remove process groups command", func() {
 								},
 								secondClusterName: {
 									ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{
-										fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-1", secondClusterName)),
-										fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-2", secondClusterName)),
+										fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-1", secondClusterName, fdbv1beta2.ProcessClassStorage)),
+										fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-2", secondClusterName, fdbv1beta2.ProcessClassStorage)),
 									},
 									ExpectedProcessCounts: fdbv1beta2.ProcessCounts{
 										Storage: 1,
@@ -462,7 +462,7 @@ var _ = Describe("[plugin] remove process groups command", func() {
 							processClass: string(fdbv1beta2.ProcessClassStateless),
 							clusterName:  clusterName,
 							ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{
-								fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-3", clusterName)),
+								fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-3", clusterName, fdbv1beta2.ProcessClassStateless)),
 							},
 						},
 					),
@@ -471,8 +471,8 @@ var _ = Describe("[plugin] remove process groups command", func() {
 							processClass: string(fdbv1beta2.ProcessClassStorage),
 							clusterName:  clusterName,
 							ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{
-								fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-1", clusterName)),
-								fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-2", clusterName)),
+								fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage)),
+								fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-2", clusterName, fdbv1beta2.ProcessClassStorage)),
 							},
 						},
 					),
@@ -489,8 +489,8 @@ var _ = Describe("[plugin] remove process groups command", func() {
 							conditions:  []fdbv1beta2.ProcessGroupConditionType{fdbv1beta2.PodFailing},
 							clusterName: clusterName,
 							ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{
-								fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-1", clusterName)),
-								fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-2", clusterName)),
+								fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage)),
+								fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-2", clusterName, fdbv1beta2.ProcessClassStorage)),
 							},
 						},
 					),
@@ -499,7 +499,7 @@ var _ = Describe("[plugin] remove process groups command", func() {
 							conditions:  []fdbv1beta2.ProcessGroupConditionType{fdbv1beta2.MissingProcesses},
 							clusterName: clusterName,
 							ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{
-								fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-2", clusterName)),
+								fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-2", clusterName, fdbv1beta2.ProcessClassStorage)),
 							},
 						},
 					),
