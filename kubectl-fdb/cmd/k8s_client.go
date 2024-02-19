@@ -310,6 +310,19 @@ func getProcessGroupIdsWithClass(cluster *fdbv1beta2.FoundationDBCluster, proces
 	return matchingProcessGroupIDs
 }
 
+// getPodsWithProcessClass returns a list of ProcessGroupIDs in the given cluster which are of the given processClass
+func getPodsWithProcessClass(cluster *fdbv1beta2.FoundationDBCluster, processClass string) []string {
+	matchingPodNames := []string{}
+	for _, processGroupStatus := range cluster.Status.ProcessGroups {
+		if processGroupStatus.ProcessClass != fdbv1beta2.ProcessClass(processClass) {
+			continue
+		}
+		// GetPodName can out-of-bounds index if the podName does not contain the processClass as expected.
+		matchingPodNames = append(matchingPodNames, processGroupStatus.GetPodName(cluster))
+	}
+	return matchingPodNames
+}
+
 // fetchProcessGroupsCrossCluster fetches the list of process groups matching the given podNames and returns the
 // processGroupIDs mapped by clusterName matching the given clusterLabel.
 func fetchProcessGroupsCrossCluster(kubeClient client.Client, namespace string, clusterLabel string, podNames ...string) (map[*fdbv1beta2.FoundationDBCluster][]fdbv1beta2.ProcessGroupID, error) {
@@ -344,6 +357,40 @@ func fetchProcessGroupsCrossCluster(kubeClient client.Client, namespace string, 
 		}
 	}
 	return processGroupsByCluster, nil
+}
+
+// fetchPodNamesCrossCluster fetches the given podNames and returns them mapped by clusterName from the given clusterLabel.
+func fetchPodNamesCrossCluster(kubeClient client.Client, namespace string, clusterLabel string, podNames ...string) (map[*fdbv1beta2.FoundationDBCluster][]string, error) {
+	var pod corev1.Pod
+	podsByClusterName := map[string][]string{} // start with grouping by cluster-label values and load clusters later
+	for _, podName := range podNames {
+		err := kubeClient.Get(context.Background(), client.ObjectKey{Name: podName, Namespace: namespace}, &pod)
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				return nil, fmt.Errorf("could not get pod: %s/%s", namespace, podName)
+			}
+			return nil, err
+		}
+		clusterName, ok := pod.Labels[clusterLabel]
+		if !ok {
+			return nil, fmt.Errorf("no cluster-label '%s' found for pod '%s'", clusterLabel, podName)
+		}
+		podsByClusterName[clusterName] = append(podsByClusterName[clusterName], podName)
+	}
+	podsByCluster := map[*fdbv1beta2.FoundationDBCluster][]string{}
+	for clusterName, pods := range podsByClusterName {
+		cluster, err := loadCluster(kubeClient, namespace, clusterName)
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				return nil, fmt.Errorf("could not get cluster: %s/%s", namespace, clusterName)
+			}
+			return nil, err
+		}
+		for _, podName := range pods {
+			podsByCluster[cluster] = append(podsByCluster[cluster], podName)
+		}
+	}
+	return podsByCluster, nil
 }
 
 func chooseRandomPod(pods *corev1.PodList) (*corev1.Pod, error) {
@@ -391,6 +438,64 @@ func fetchPodsOnNode(kubeClient client.Client, clusterName string, namespace str
 	}
 
 	return pods, nil
+}
+
+// getPodNamesByCluster returns a map of pod names (strings) by FDB cluster that match the criteria in the provided
+// processSelectionOptions.
+func getPodNamesByCluster(cmd *cobra.Command, kubeClient client.Client, opts processGroupSelectionOptions) (map[*fdbv1beta2.FoundationDBCluster][]string, error) {
+	if opts.useProcessGroupID {
+		return nil, errors.New("useProcessGroupID is not supported by getPodNamesByCluster")
+	}
+	// option compatibility checks
+	if opts.clusterName == "" && opts.clusterLabel == "" {
+		return nil, errors.New("podNames will not be selected without cluster specification")
+	}
+	if opts.clusterName == "" { // cli has a default for clusterLabel
+		if opts.useProcessGroupID || opts.processClass != "" || len(opts.conditions) > 0 {
+			return nil, errors.New("selection of pods / process groups by cluster-label (cross-cluster selection) is " +
+				"incompatible with use-process-group-id, process-class, and process-condition options")
+		}
+	}
+	if len(opts.conditions) > 0 && opts.processClass != "" {
+		return nil, errors.New("selection of pods / processGroups by both processClass and conditions is not supported at this time")
+	}
+	if len(opts.ids) != 0 && (opts.processClass != "" || len(opts.conditions) > 0) {
+		return nil, fmt.Errorf("process identifiers were provided along with a processClass (or processConditions) and would be ignored, please only provide one or the other")
+	}
+
+	// cross-cluster logic: given a list of Pod names, we can look up the FDB clusters by pod label, and work across clusters
+	if !opts.useProcessGroupID && opts.clusterName == "" {
+		return fetchPodNamesCrossCluster(kubeClient, opts.namespace, opts.clusterLabel, opts.ids...)
+	}
+
+	// single-cluster logic
+	cluster, err := loadCluster(kubeClient, opts.namespace, opts.clusterName)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil, fmt.Errorf("could not get cluster: %s/%s", opts.namespace, opts.clusterName)
+		}
+		return nil, err
+	}
+	// find the desired process groups in the single cluster
+	var podNames []string
+	if opts.processClass != "" { // match against a whole process class, ignore provided ids
+		podNames = getPodsWithProcessClass(cluster, opts.processClass)
+	} else if len(opts.conditions) > 0 {
+		podNames, err = getAllPodsFromClusterWithCondition(cmd.ErrOrStderr(), kubeClient, opts.clusterName, opts.namespace, opts.conditions)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		podNames = opts.ids
+	}
+
+	if len(podNames) == 0 {
+		return nil, errors.New("found no pods meeting the selection criteria")
+	}
+
+	return map[*fdbv1beta2.FoundationDBCluster][]string{
+		cluster: podNames,
+	}, nil
 }
 
 // getProcessGroupsByCluster returns a map of processGroupIDs by FDB cluster that match the criteria in the provided
