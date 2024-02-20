@@ -83,8 +83,8 @@ spec:
     automationOptions:
       replacements:
         taintReplacementOptions:
-        - Key: example.com/maintenance
-          DurationInSeconds: 3600
+        - key: example.com/maintenance
+          durationInSeconds: 3600
         taintReplacementTimeSeconds: 1800
         enabled: true
 ```
@@ -100,10 +100,10 @@ spec:
     automationOptions:
       replacements:
         taintReplacementOptions:
-        - Key: "*"
-          DurationInSeconds: 3600
-        - Key: example.com/taint-key-to-ignore
-          DurationInSeconds: 9223372036854775807
+        - key: "*"
+          durationInSeconds: 3600
+        - key: example.com/taint-key-to-ignore
+          durationInSeconds: 9223372036854775807
         enabled: true
 ```
 
