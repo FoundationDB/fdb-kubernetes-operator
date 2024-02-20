@@ -724,9 +724,9 @@ func updateTaintCondition(ctx context.Context, r *FoundationDBClusterReconciler,
 				processGroupStatus.UpdateCondition(fdbv1beta2.NodeTaintReplacing, true)
 				logger.Info("Add NodeTaintReplacing condition", "Pod", pod.Name, "Node", node.Name,
 					"TaintKey", taint.Key, "TaintDetectedTime", taintDetectedTime,
-					"TaintDuration", int64(time.Since(time.Unix(taintDetectedTime, 0))),
+					"TaintDuration", time.Since(time.Unix(taintDetectedTime, 0)).String(),
 					"TaintValue", taint.Value, "TaintEffect", taint.Effect,
-					"ClusterTaintDetectionDuration", time.Duration(pointer.Int64Deref(taintConfiguredKey.DurationInSeconds, math.MaxInt64)))
+					"ClusterTaintDetectionDuration", time.Duration(pointer.Int64Deref(taintConfiguredKey.DurationInSeconds, math.MaxInt64)).String())
 			}
 		}
 	}
