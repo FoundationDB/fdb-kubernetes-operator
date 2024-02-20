@@ -75,22 +75,11 @@ func newRestartCmd(streams genericclioptions.IOStreams) *cobra.Command {
 				return err
 			}
 
-			processGroupsByCluster, err := getProcessGroupsByCluster(cmd, kubeClient, processGroupSelectionOpts)
+			podsByCluster, err := getPodNamesByCluster(cmd, kubeClient, processGroupSelectionOpts)
 			if err != nil {
 				return err
 			}
-			for cluster, processGroupIDs := range processGroupsByCluster {
-				// TODO remove this once we've removed support for processGroupID (instead of pod) lookup and
-				//  can more nicely convert getProcessGroupsByCluster to return podNames (possible now, but less clean)
-				var podNames []string
-				for _, processGroupStatus := range cluster.Status.ProcessGroups {
-					for _, processGroupID := range processGroupIDs {
-						if processGroupStatus.ProcessGroupID != processGroupID {
-							continue
-						}
-						podNames = append(podNames, processGroupStatus.GetPodName(cluster))
-					}
-				}
+			for cluster, podNames := range podsByCluster {
 				err := restartProcesses(cmd, config, clientSet, podNames, processGroupSelectionOpts.namespace, cluster.Name, wait, sleep)
 				if err != nil {
 					return err

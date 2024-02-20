@@ -91,19 +91,19 @@ var _ = Describe("[plugin] buggify no-schedule instances command", func() {
 						ProcessGroupOpts: processGroupSelectionOptions{
 							ids: []string{
 								// the helper function to create pods for the k8s client uses "instance" not "storage" processGroup names
-								fmt.Sprintf("%s-instance-1", clusterName),
-								fmt.Sprintf("%s-instance-2", clusterName),
-								fmt.Sprintf("%s-instance-2", secondClusterName),
+								fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage),
+								fmt.Sprintf("%s-%s-2", clusterName, fdbv1beta2.ProcessClassStorage),
+								fmt.Sprintf("%s-%s-2", secondClusterName, fdbv1beta2.ProcessClassStorage),
 							},
 							clusterLabel: fdbv1beta2.FDBClusterLabel,
 						},
 						ExpectedProcessGroupsInNoSchedule: map[string][]fdbv1beta2.ProcessGroupID{
 							clusterName: {
-								fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-1", clusterName)),
-								fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-2", clusterName)),
+								fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage)),
+								fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-2", clusterName, fdbv1beta2.ProcessClassStorage)),
 							},
 							secondClusterName: {
-								fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-2", secondClusterName)),
+								fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-2", secondClusterName, fdbv1beta2.ProcessClassStorage)),
 							},
 						},
 					}),
@@ -116,8 +116,8 @@ var _ = Describe("[plugin] buggify no-schedule instances command", func() {
 						ExpectedProcessGroupsInNoSchedule: map[string][]fdbv1beta2.ProcessGroupID{
 							clusterName: {
 								// the helper function to create pods for the k8s client uses "instance" not "storage" processGroup names
-								fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-1", clusterName)),
-								fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-2", clusterName)),
+								fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage)),
+								fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-2", clusterName, fdbv1beta2.ProcessClassStorage)),
 							},
 						},
 					}),
@@ -130,7 +130,7 @@ var _ = Describe("[plugin] buggify no-schedule instances command", func() {
 						ExpectedProcessGroupsInNoSchedule: map[string][]fdbv1beta2.ProcessGroupID{
 							clusterName: {
 								// the helper function to create pods for the k8s client uses "instance" not "storage" processGroup names
-								fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-2", clusterName)),
+								fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-2", clusterName, fdbv1beta2.ProcessClassStorage)),
 							},
 						},
 					}),

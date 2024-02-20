@@ -43,7 +43,7 @@ var _ = Describe("[plugin] exec command", func() {
 		BeforeEach(func() {
 			Expect(k8sClient.Create(context.TODO(), &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "instance-1",
+					Name:      "storage-1",
 					Namespace: namespace,
 					Labels: map[string]string{
 						fdbv1beta2.FDBProcessClassLabel: string(fdbv1beta2.ProcessClassStorage),
@@ -70,12 +70,12 @@ var _ = Describe("[plugin] exec command", func() {
 			},
 			Entry("Exec into instance with valid pod",
 				testCase{
-					ExpectedArgs: []string{"--namespace", "test", "exec", "-it", "instance-1", "--", "bash"},
+					ExpectedArgs: []string{"--namespace", "test", "exec", "-it", "storage-1", "--", "bash"},
 				}),
 			Entry("Exec into instance with explicit context",
 				testCase{
 					Context:      "remote-kc",
-					ExpectedArgs: []string{"--context", "remote-kc", "--namespace", "test", "exec", "-it", "instance-1", "--", "bash"},
+					ExpectedArgs: []string{"--context", "remote-kc", "--namespace", "test", "exec", "-it", "storage-1", "--", "bash"},
 				}),
 		)
 	})

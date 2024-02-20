@@ -75,14 +75,14 @@ func generateClusterStruct(name string, namespace string) *fdbv1beta2.Foundation
 		Status: fdbv1beta2.FoundationDBClusterStatus{
 			ProcessGroups: []*fdbv1beta2.ProcessGroupStatus{
 				{
-					ProcessGroupID: fdbv1beta2.ProcessGroupID(name + "-instance-1"),
+					ProcessGroupID: fdbv1beta2.ProcessGroupID(name + "-" + string(fdbv1beta2.ProcessClassStorage) + "-1"),
 					ProcessClass:   fdbv1beta2.ProcessClassStorage,
 					ProcessGroupConditions: []*fdbv1beta2.ProcessGroupCondition{
 						fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.PodFailing),
 					},
 				},
 				{
-					ProcessGroupID: fdbv1beta2.ProcessGroupID(name + "-instance-2"),
+					ProcessGroupID: fdbv1beta2.ProcessGroupID(name + "-" + string(fdbv1beta2.ProcessClassStorage) + "-2"),
 					ProcessClass:   fdbv1beta2.ProcessClassStorage,
 					ProcessGroupConditions: []*fdbv1beta2.ProcessGroupCondition{
 						fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.PodFailing),
@@ -90,7 +90,7 @@ func generateClusterStruct(name string, namespace string) *fdbv1beta2.Foundation
 					},
 				},
 				{
-					ProcessGroupID: fdbv1beta2.ProcessGroupID(name + "-instance-3"),
+					ProcessGroupID: fdbv1beta2.ProcessGroupID(name + "-" + string(fdbv1beta2.ProcessClassStateless) + "-3"),
 					ProcessClass:   fdbv1beta2.ProcessClassStateless,
 				},
 			},

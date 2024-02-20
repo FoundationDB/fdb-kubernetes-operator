@@ -52,21 +52,21 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 				Status: fdbv1beta2.FoundationDBClusterStatus{
 					ProcessGroups: []*fdbv1beta2.ProcessGroupStatus{
 						{
-							ProcessGroupID: "instance-1",
+							ProcessGroupID: "storage-1",
 							Addresses:      []string{"1.2.3.4"},
 							ProcessGroupConditions: []*fdbv1beta2.ProcessGroupCondition{
 								fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.MissingProcesses),
 							},
 						},
 						{
-							ProcessGroupID: "instance-2",
+							ProcessGroupID: "storage-2",
 							Addresses:      []string{"1.2.3.5"},
 							ProcessGroupConditions: []*fdbv1beta2.ProcessGroupCondition{
 								fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.IncorrectCommandLine),
 							},
 						},
 						{
-							ProcessGroupID: "instance-3",
+							ProcessGroupID: "stateless-3",
 							Addresses:      []string{"1.2.3.6"},
 							ProcessGroupConditions: []*fdbv1beta2.ProcessGroupCondition{
 								fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.MissingProcesses),
@@ -94,12 +94,12 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 			pods := []corev1.Pod{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "instance-1",
+						Name:      "storage-1",
 						Namespace: namespace,
 						Labels: map[string]string{
 							fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStorage),
 							fdbv1beta2.FDBClusterLabel:        clusterName,
-							fdbv1beta2.FDBProcessGroupIDLabel: "instance-1",
+							fdbv1beta2.FDBProcessGroupIDLabel: "storage-1",
 						},
 					},
 					Status: corev1.PodStatus{
@@ -108,12 +108,12 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 				},
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "instance-2",
+						Name:      "storage-2",
 						Namespace: namespace,
 						Labels: map[string]string{
 							fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStorage),
 							fdbv1beta2.FDBClusterLabel:        clusterName,
-							fdbv1beta2.FDBProcessGroupIDLabel: "instance-2",
+							fdbv1beta2.FDBProcessGroupIDLabel: "storage-2",
 						},
 					},
 					Status: corev1.PodStatus{
@@ -122,12 +122,12 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 				},
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "instance-3",
+						Name:      "stateless-3",
 						Namespace: namespace,
 						Labels: map[string]string{
 							fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStorage),
 							fdbv1beta2.FDBClusterLabel:        clusterName,
-							fdbv1beta2.FDBProcessGroupIDLabel: "instance-3",
+							fdbv1beta2.FDBProcessGroupIDLabel: "stateless-3",
 						},
 					},
 					Status: corev1.PodStatus{
@@ -183,14 +183,14 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 			Entry("Single condition",
 				testCase{
 					conditions:           []fdbv1beta2.ProcessGroupConditionType{fdbv1beta2.MissingProcesses},
-					expected:             []string{"instance-1"},
-					expectedOutputBuffer: "Skipping Process Group: instance-3, Pod is not running, current phase: Failed\n",
+					expected:             []string{"storage-1"},
+					expectedOutputBuffer: "Skipping Process Group: stateless-3, Pod is not running, current phase: Failed\n",
 				}),
 			Entry("Multiple conditions",
 				testCase{
 					conditions:           []fdbv1beta2.ProcessGroupConditionType{fdbv1beta2.MissingProcesses, fdbv1beta2.IncorrectCommandLine},
-					expected:             append(expectedPodNamesMultipleConditions, "instance-1", "instance-2"),
-					expectedOutputBuffer: "Skipping Process Group: instance-3, Pod is not running, current phase: Failed\n",
+					expected:             append(expectedPodNamesMultipleConditions, "storage-1", "storage-2"),
+					expectedOutputBuffer: "Skipping Process Group: stateless-3, Pod is not running, current phase: Failed\n",
 				}),
 			Entry("Single condition and missing pod",
 				testCase{
@@ -201,8 +201,8 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 			Entry("Multiple conditions and missing pod",
 				testCase{
 					conditions:           []fdbv1beta2.ProcessGroupConditionType{fdbv1beta2.MissingProcesses, fdbv1beta2.SidecarUnreachable},
-					expected:             append(expectedPodNamesMultipleConditionsMissingPods, "instance-1"),
-					expectedOutputBuffer: "Skipping Process Group: instance-5, because it does not have a corresponding Pod.\nSkipping Process Group: instance-3, Pod is not running, current phase: Failed\n",
+					expected:             append(expectedPodNamesMultipleConditionsMissingPods, "storage-1"),
+					expectedOutputBuffer: "Skipping Process Group: instance-5, because it does not have a corresponding Pod.\nSkipping Process Group: stateless-3, Pod is not running, current phase: Failed\n",
 				}),
 		)
 	})
@@ -323,7 +323,7 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 			Entry("errors when ids are passed along with processClass selector",
 				testCase{
 					opts: processGroupSelectionOptions{
-						ids:          []string{fmt.Sprintf("%s-instance-1", clusterName)},
+						ids:          []string{fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage)},
 						processClass: string(fdbv1beta2.ProcessClassStateless),
 						clusterName:  clusterName,
 					},
@@ -352,7 +352,7 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 			Entry("does not find processGroups from clusterLabel when useProcessGroupID is set",
 				testCase{
 					opts: processGroupSelectionOptions{
-						ids:               []string{fmt.Sprintf("%s-instance-1", clusterName)},
+						ids:               []string{fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage)},
 						clusterLabel:      fdbv1beta2.FDBClusterLabel,
 						useProcessGroupID: true,
 					},
@@ -364,12 +364,12 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 				testCase{
 					opts: processGroupSelectionOptions{
 						clusterLabel: fdbv1beta2.FDBClusterLabel,
-						ids:          []string{fmt.Sprintf("%s-instance-1", clusterName), fmt.Sprintf("%s-instance-3", clusterName)},
+						ids:          []string{fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage), fmt.Sprintf("%s-%s-3", clusterName, fdbv1beta2.ProcessClassStateless)},
 					},
 					wantResult: map[string][]fdbv1beta2.ProcessGroupID{
 						clusterName: {
-							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-1", clusterName)),
-							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-3", clusterName)),
+							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage)),
+							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-3", clusterName, fdbv1beta2.ProcessClassStateless)),
 						},
 					},
 				},
@@ -379,18 +379,18 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 					opts: processGroupSelectionOptions{
 						clusterLabel: fdbv1beta2.FDBClusterLabel,
 						ids: []string{
-							fmt.Sprintf("%s-instance-1", clusterName),
-							fmt.Sprintf("%s-instance-1", secondClusterName),
-							fmt.Sprintf("%s-instance-2", secondClusterName),
+							fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage),
+							fmt.Sprintf("%s-%s-1", secondClusterName, fdbv1beta2.ProcessClassStorage),
+							fmt.Sprintf("%s-%s-2", secondClusterName, fdbv1beta2.ProcessClassStorage),
 						},
 					},
 					wantResult: map[string][]fdbv1beta2.ProcessGroupID{
 						clusterName: {
-							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-1", clusterName)),
+							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage)),
 						},
 						secondClusterName: {
-							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-1", secondClusterName)),
-							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-2", secondClusterName)),
+							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-1", secondClusterName, fdbv1beta2.ProcessClassStorage)),
+							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-2", secondClusterName, fdbv1beta2.ProcessClassStorage)),
 						},
 					},
 				},
@@ -398,13 +398,13 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 			Entry("gets processGroups from podNames and cluster name",
 				testCase{
 					opts: processGroupSelectionOptions{
-						ids:         []string{fmt.Sprintf("%s-instance-1", clusterName), fmt.Sprintf("%s-instance-2", clusterName)},
+						ids:         []string{fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage), fmt.Sprintf("%s-%s-2", clusterName, fdbv1beta2.ProcessClassStorage)},
 						clusterName: clusterName,
 					},
 					wantResult: map[string][]fdbv1beta2.ProcessGroupID{
 						clusterName: {
-							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-1", clusterName)),
-							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-2", clusterName)),
+							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage)),
+							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-2", clusterName, fdbv1beta2.ProcessClassStorage)),
 						},
 					},
 				},
@@ -414,12 +414,12 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 					opts: processGroupSelectionOptions{
 						clusterName:       clusterName,
 						useProcessGroupID: true,
-						ids:               []string{fmt.Sprintf("%s-instance-1", clusterName), fmt.Sprintf("%s-instance-2", clusterName)},
+						ids:               []string{fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage), fmt.Sprintf("%s-%s-2", clusterName, fdbv1beta2.ProcessClassStorage)},
 					},
 					wantResult: map[string][]fdbv1beta2.ProcessGroupID{
 						clusterName: {
-							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-1", clusterName)),
-							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-2", clusterName)),
+							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage)),
+							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-2", clusterName, fdbv1beta2.ProcessClassStorage)),
 						},
 					},
 				},
@@ -432,8 +432,8 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 					},
 					wantResult: map[string][]fdbv1beta2.ProcessGroupID{
 						clusterName: {
-							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-1", clusterName)),
-							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-2", clusterName)),
+							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage)),
+							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-2", clusterName, fdbv1beta2.ProcessClassStorage)),
 						},
 					},
 				},
@@ -446,7 +446,7 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 					},
 					wantResult: map[string][]fdbv1beta2.ProcessGroupID{
 						clusterName: {
-							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-3", clusterName)),
+							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-3", clusterName, fdbv1beta2.ProcessClassStateless)),
 						},
 					},
 				},
@@ -459,8 +459,8 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 					},
 					wantResult: map[string][]fdbv1beta2.ProcessGroupID{
 						clusterName: {
-							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-1", clusterName)),
-							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-2", clusterName)),
+							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage)),
+							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-2", clusterName, fdbv1beta2.ProcessClassStorage)),
 						},
 					},
 				},
@@ -473,7 +473,7 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 					},
 					wantResult: map[string][]fdbv1beta2.ProcessGroupID{
 						clusterName: {
-							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-instance-2", clusterName)),
+							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-2", clusterName, fdbv1beta2.ProcessClassStorage)),
 						},
 					},
 				},
@@ -486,6 +486,219 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 					},
 					wantResult:      nil,
 					wantErrContains: "found no processGroups meeting the selection criteria",
+				},
+			),
+		)
+	})
+	When("calling getPodNamesByCluster", func() {
+		BeforeEach(func() {
+			// creating Pods for first cluster.
+			cluster = generateClusterStruct(clusterName, namespace) // the status is overwritten by prior tests
+			Expect(createPods(clusterName, namespace)).NotTo(HaveOccurred())
+
+			// creating a second cluster
+			secondCluster = generateClusterStruct(secondClusterName, namespace)
+			Expect(k8sClient.Create(context.TODO(), secondCluster)).NotTo(HaveOccurred())
+			Expect(createPods(secondClusterName, namespace)).NotTo(HaveOccurred())
+		})
+		type testCase struct {
+			opts            processGroupSelectionOptions
+			wantResult      map[string][]string // cluster-name to pod names in the cluster
+			wantErrContains string
+		}
+		DescribeTable("correctly follow various options",
+			func(tc testCase) {
+				tc.opts.namespace = namespace
+				cmd := newRemoveProcessGroupCmd(genericclioptions.IOStreams{})
+				result, err := getPodNamesByCluster(cmd, k8sClient, tc.opts)
+				if tc.wantErrContains == "" {
+					Expect(err).To(BeNil())
+				} else {
+					Expect(err).NotTo(BeNil())
+					Expect(err.Error()).To(ContainSubstring(tc.wantErrContains))
+				}
+				// ensure that the maps are equivalent, unfortunately involved due to passing cluster by-pointer
+				Expect(len(tc.wantResult)).To(Equal(len(result)))
+				for wantClusterName, wantProcessGroups := range tc.wantResult {
+					foundInResult := false
+					for cluster, processGroups := range result {
+						if cluster.Name != wantClusterName {
+							continue
+						}
+						foundInResult = true
+						Expect(processGroups).To(ContainElements(wantProcessGroups))
+						Expect(wantProcessGroups).To(ContainElements(processGroups))
+					}
+					Expect(foundInResult).To(BeTrue())
+				}
+			},
+			Entry("errors when neither clusterName nor clusterLabel are passed",
+				testCase{
+					opts:            processGroupSelectionOptions{ids: []string{"something"}},
+					wantErrContains: "podNames will not be selected without cluster specification",
+				},
+			),
+			Entry("errors when ids are passed along with processClass selector",
+				testCase{
+					opts: processGroupSelectionOptions{
+						ids:          []string{fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage)},
+						processClass: string(fdbv1beta2.ProcessClassStateless),
+						clusterName:  clusterName,
+					},
+					wantErrContains: "process identifiers were provided along with a processClass (or processConditions) and would be ignored, please only provide one or the other",
+				},
+			),
+			Entry("errors when conditions are passed along with processClass selector",
+				testCase{
+					opts: processGroupSelectionOptions{
+						conditions:   []fdbv1beta2.ProcessGroupConditionType{fdbv1beta2.PodFailing},
+						processClass: string(fdbv1beta2.ProcessClassStateless),
+						clusterName:  clusterName,
+					},
+					wantErrContains: "by both processClass and conditions is not supported at this time",
+				},
+			),
+			Entry("errors when no pods are found with the given processClass",
+				testCase{
+					opts: processGroupSelectionOptions{
+						clusterName:  clusterName,
+						processClass: string(fdbv1beta2.ProcessClassProxy),
+					},
+					wantErrContains: "found no pods meeting the selection criteria",
+				},
+			),
+			Entry("does not find pods from clusterLabel when useProcessGroupID is set",
+				testCase{
+					opts: processGroupSelectionOptions{
+						ids:               []string{fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage)},
+						clusterLabel:      fdbv1beta2.FDBClusterLabel,
+						useProcessGroupID: true,
+					},
+					wantResult:      nil,
+					wantErrContains: "useProcessGroupID is not supported",
+				},
+			),
+			Entry("gets pods from podNames and clusterLabel",
+				testCase{
+					opts: processGroupSelectionOptions{
+						clusterLabel: fdbv1beta2.FDBClusterLabel,
+						ids:          []string{fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage), fmt.Sprintf("%s-%s-3", clusterName, fdbv1beta2.ProcessClassStateless)},
+					},
+					wantResult: map[string][]string{
+						clusterName: {
+							fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage),
+							fmt.Sprintf("%s-%s-3", clusterName, fdbv1beta2.ProcessClassStateless),
+						},
+					},
+				},
+			),
+			Entry("gets pods across clusters from podNames and clusterLabel",
+				testCase{
+					opts: processGroupSelectionOptions{
+						clusterLabel: fdbv1beta2.FDBClusterLabel,
+						ids: []string{
+							fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage),
+							fmt.Sprintf("%s-%s-1", secondClusterName, fdbv1beta2.ProcessClassStorage),
+							fmt.Sprintf("%s-%s-2", secondClusterName, fdbv1beta2.ProcessClassStorage),
+						},
+					},
+					wantResult: map[string][]string{
+						clusterName: {
+							fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage),
+						},
+						secondClusterName: {
+							fmt.Sprintf("%s-%s-1", secondClusterName, fdbv1beta2.ProcessClassStorage),
+							fmt.Sprintf("%s-%s-2", secondClusterName, fdbv1beta2.ProcessClassStorage),
+						},
+					},
+				},
+			),
+			Entry("gets pods from podNames and cluster name",
+				testCase{
+					opts: processGroupSelectionOptions{
+						ids:         []string{fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage), fmt.Sprintf("%s-%s-2", clusterName, fdbv1beta2.ProcessClassStorage)},
+						clusterName: clusterName,
+					},
+					wantResult: map[string][]string{
+						clusterName: {
+							fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage),
+							fmt.Sprintf("%s-%s-2", clusterName, fdbv1beta2.ProcessClassStorage),
+						},
+					},
+				},
+			),
+			Entry("errors when useProcessGroupID is set",
+				testCase{
+					opts: processGroupSelectionOptions{
+						clusterName:       clusterName,
+						useProcessGroupID: true,
+						ids:               []string{fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage), fmt.Sprintf("%s-%s-2", clusterName, fdbv1beta2.ProcessClassStorage)},
+					},
+					wantErrContains: "useProcessGroupID is not supported",
+				},
+			),
+			Entry("gets pods matching processClassStorage",
+				testCase{
+					opts: processGroupSelectionOptions{
+						clusterName:  clusterName,
+						processClass: string(fdbv1beta2.ProcessClassStorage),
+					},
+					wantResult: map[string][]string{
+						clusterName: {
+							fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage),
+							fmt.Sprintf("%s-%s-2", clusterName, fdbv1beta2.ProcessClassStorage),
+						},
+					},
+				},
+			),
+			Entry("gets pods matching processClassStateless",
+				testCase{
+					opts: processGroupSelectionOptions{
+						clusterName:  clusterName,
+						processClass: string(fdbv1beta2.ProcessClassStateless),
+					},
+					wantResult: map[string][]string{
+						clusterName: {
+							fmt.Sprintf("%s-%s-3", clusterName, fdbv1beta2.ProcessClassStateless),
+						},
+					},
+				},
+			),
+			Entry("gets 2 pods matching PodFailing condition",
+				testCase{
+					opts: processGroupSelectionOptions{
+						clusterName: clusterName,
+						conditions:  []fdbv1beta2.ProcessGroupConditionType{fdbv1beta2.PodFailing},
+					},
+					wantResult: map[string][]string{
+						clusterName: {
+							fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage),
+							fmt.Sprintf("%s-%s-2", clusterName, fdbv1beta2.ProcessClassStorage),
+						},
+					},
+				},
+			),
+			Entry("gets 1 pods matching MissingProcesses condition",
+				testCase{
+					opts: processGroupSelectionOptions{
+						clusterName: clusterName,
+						conditions:  []fdbv1beta2.ProcessGroupConditionType{fdbv1beta2.MissingProcesses},
+					},
+					wantResult: map[string][]string{
+						clusterName: {
+							fmt.Sprintf("%s-%s-2", clusterName, fdbv1beta2.ProcessClassStorage),
+						},
+					},
+				},
+			),
+			Entry("gets 0 pods matching IncorrectPodSpec condition",
+				testCase{
+					opts: processGroupSelectionOptions{
+						clusterName: clusterName,
+						conditions:  []fdbv1beta2.ProcessGroupConditionType{fdbv1beta2.IncorrectPodSpec},
+					},
+					wantResult:      nil,
+					wantErrContains: "found no pods meeting the selection criteria",
 				},
 			),
 		)
