@@ -28,7 +28,7 @@ import (
 	"github.com/go-logr/logr"
 )
 
-// getReplacementInformation will return the maximum allow replacements for process group based replacements and the
+// getReplacementInformation will return the maximum allowed replacements for process group based replacements and the
 // fault domains that have an ongoing replacement.
 func getReplacementInformation(cluster *fdbv1beta2.FoundationDBCluster, maxReplacements int) (int, map[fdbv1beta2.FaultDomain]fdbv1beta2.None) {
 	faultDomains := map[fdbv1beta2.FaultDomain]fdbv1beta2.None{}
@@ -49,21 +49,29 @@ func getReplacementInformation(cluster *fdbv1beta2.FoundationDBCluster, maxRepla
 
 // removalAllowed will return true if the removal is allowed based on the clusters automatic replacement configuration.
 func removalAllowed(cluster *fdbv1beta2.FoundationDBCluster, maxReplacements int, faultDomainsWithReplacements map[fdbv1beta2.FaultDomain]fdbv1beta2.None, faultDomain fdbv1beta2.FaultDomain) bool {
-	if cluster.FaultDomainBasedReplacements() {
-		_, faultDomainHasReplacements := faultDomainsWithReplacements[faultDomain]
-		// The fault domain has already a replacement ongoing, so we are able to approve the replacement of the failed
-		// process group.
-		if faultDomainHasReplacements {
-			return true
-		}
-
-		// If the replacement targets a process group in a fault domain that has no replacement yet, we have to check
-		// if we reached the max concurrent automatic replacement limit.
-		return len(faultDomainsWithReplacements) < cluster.GetMaxConcurrentAutomaticReplacements()
+	if !cluster.FaultDomainBasedReplacements() {
+		// If we are here we target the replacements on a process group level
+		return maxReplacements > 0
 	}
 
-	// If we are here we target the replacements on a process group level
-	return maxReplacements > 0
+	// We have to check how many fault domains currently have a replacement ongoing. If more than MaxConcurrentReplacements
+	// fault domains have a replacement ongoing, we will reject any further replacement.
+	maxFaultDomainsWithAReplacement := cluster.GetMaxConcurrentAutomaticReplacements()
+	if len(faultDomainsWithReplacements) > maxFaultDomainsWithAReplacement {
+		return false
+	}
+
+	// If the current fault domains with a replacements equals to MaxConcurrentReplacements we are only allowed
+	// to approve the replacement of process groups that are in a fault domain that currently has an ongoing
+	// replacement.
+	if len(faultDomainsWithReplacements) == maxFaultDomainsWithAReplacement {
+		_, faultDomainHasReplacements := faultDomainsWithReplacements[faultDomain]
+		return faultDomainHasReplacements
+	}
+
+	// At this point we have less than MaxConcurrentReplacements fault domains with a replacement, so it's fine to
+	// approve the replacement.
+	return true
 }
 
 // ReplaceFailedProcessGroups flags failed processes groups for removal. The first return value will indicate if any
