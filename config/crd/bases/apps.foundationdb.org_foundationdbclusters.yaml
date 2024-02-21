@@ -10194,6 +10194,8 @@ spec:
                         type: boolean
                       failureDetectionTimeSeconds:
                         type: integer
+                      faultDomainBasedReplacements:
+                        type: boolean
                       maxConcurrentReplacements:
                         default: 1
                         minimum: 0

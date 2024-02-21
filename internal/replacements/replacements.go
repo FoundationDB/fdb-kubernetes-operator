@@ -42,7 +42,7 @@ import (
 func ReplaceMisconfiguredProcessGroups(ctx context.Context, podManager podmanager.PodLifecycleManager, client client.Client, log logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, pvcMap map[fdbv1beta2.ProcessGroupID]corev1.PersistentVolumeClaim) (bool, error) {
 	hasReplacements := false
 
-	maxReplacements := getMaxReplacements(cluster, cluster.GetMaxConcurrentReplacements())
+	maxReplacements, _ := getReplacementInformation(cluster, cluster.GetMaxConcurrentReplacements())
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if maxReplacements <= 0 {
 			log.Info("Early abort, reached limit of concurrent replacements")

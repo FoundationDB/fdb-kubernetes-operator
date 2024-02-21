@@ -36,6 +36,11 @@ func (in *AutomaticReplacementOptions) DeepCopyInto(out *AutomaticReplacementOpt
 		*out = new(bool)
 		**out = **in
 	}
+	if in.FaultDomainBasedReplacements != nil {
+		in, out := &in.FaultDomainBasedReplacements, &out.FaultDomainBasedReplacements
+		*out = new(bool)
+		**out = **in
+	}
 	if in.FailureDetectionTimeSeconds != nil {
 		in, out := &in.FailureDetectionTimeSeconds, &out.FailureDetectionTimeSeconds
 		*out = new(int)

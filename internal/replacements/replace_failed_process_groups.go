@@ -28,7 +28,10 @@ import (
 	"github.com/go-logr/logr"
 )
 
-func getMaxReplacements(cluster *fdbv1beta2.FoundationDBCluster, maxReplacements int) int {
+// getReplacementInformation will return the maximum allowed replacements for process group based replacements and the
+// fault domains that have an ongoing replacement.
+func getReplacementInformation(cluster *fdbv1beta2.FoundationDBCluster, maxReplacements int) (int, map[fdbv1beta2.FaultDomain]fdbv1beta2.None) {
+	faultDomains := map[fdbv1beta2.FaultDomain]fdbv1beta2.None{}
 	// The maximum number of replacements will be the defined number in the cluster spec
 	// minus all currently ongoing replacements e.g. process groups marked for removal but
 	// not fully excluded.
@@ -37,10 +40,38 @@ func getMaxReplacements(cluster *fdbv1beta2.FoundationDBCluster, maxReplacements
 		if processGroupStatus.IsMarkedForRemoval() && !processGroupStatus.IsExcluded() {
 			// Count all removals that are in-flight.
 			removalCount++
+			faultDomains[processGroupStatus.FaultDomain] = fdbv1beta2.None{}
 		}
 	}
 
-	return maxReplacements - removalCount
+	return maxReplacements - removalCount, faultDomains
+}
+
+// removalAllowed will return true if the removal is allowed based on the clusters automatic replacement configuration.
+func removalAllowed(cluster *fdbv1beta2.FoundationDBCluster, maxReplacements int, faultDomainsWithReplacements map[fdbv1beta2.FaultDomain]fdbv1beta2.None, faultDomain fdbv1beta2.FaultDomain) bool {
+	if !cluster.FaultDomainBasedReplacements() {
+		// If we are here we target the replacements on a process group level
+		return maxReplacements > 0
+	}
+
+	// We have to check how many fault domains currently have a replacement ongoing. If more than MaxConcurrentReplacements
+	// fault domains have a replacement ongoing, we will reject any further replacement.
+	maxFaultDomainsWithAReplacement := cluster.GetMaxConcurrentAutomaticReplacements()
+	if len(faultDomainsWithReplacements) > maxFaultDomainsWithAReplacement {
+		return false
+	}
+
+	// If the current fault domains with a replacements equals to MaxConcurrentReplacements we are only allowed
+	// to approve the replacement of process groups that are in a fault domain that currently has an ongoing
+	// replacement.
+	if len(faultDomainsWithReplacements) == maxFaultDomainsWithAReplacement {
+		_, faultDomainHasReplacements := faultDomainsWithReplacements[faultDomain]
+		return faultDomainHasReplacements
+	}
+
+	// At this point we have less than MaxConcurrentReplacements fault domains with a replacement, so it's fine to
+	// approve the replacement.
+	return true
 }
 
 // ReplaceFailedProcessGroups flags failed processes groups for removal. The first return value will indicate if any
@@ -63,7 +94,7 @@ func ReplaceFailedProcessGroups(log logr.Logger, cluster *fdbv1beta2.FoundationD
 		ignore = targets
 	}
 
-	maxReplacements := getMaxReplacements(cluster, cluster.GetMaxConcurrentAutomaticReplacements())
+	maxReplacements, faultDomainsWithReplacements := getReplacementInformation(cluster, cluster.GetMaxConcurrentAutomaticReplacements())
 	hasReplacement := false
 	hasMoreFailedProcesses := false
 	localitiesUsedForExclusion := cluster.UseLocalitiesForExclusion()
@@ -117,7 +148,7 @@ func ReplaceFailedProcessGroups(log logr.Logger, cluster *fdbv1beta2.FoundationD
 		}
 
 		// We are not allowed to replace additional process groups.
-		if maxReplacements <= 0 {
+		if !removalAllowed(cluster, maxReplacements, faultDomainsWithReplacements, processGroupStatus.FaultDomain) {
 			// If there are more processes that should be replaced but we hit the replace limit, we want to make sure
 			// the controller queues another reconciliation to eventually replace this failed process group.
 			hasMoreFailedProcesses = true
@@ -139,6 +170,7 @@ func ReplaceFailedProcessGroups(log logr.Logger, cluster *fdbv1beta2.FoundationD
 		hasReplacement = true
 		processGroupStatus.ExclusionSkipped = skipExclusion
 		maxReplacements--
+		faultDomainsWithReplacements[processGroupStatus.FaultDomain] = fdbv1beta2.None{}
 	}
 
 	return hasReplacement, hasMoreFailedProcesses
