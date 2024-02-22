@@ -45,6 +45,7 @@ type FactoryOptions struct {
 	upgradeString               string
 	cloudProvider               string
 	clusterName                 string
+	storageEngine               string
 	enableChaosTests            bool
 	enableDataLoading           bool
 	cleanup                     bool
@@ -134,6 +135,12 @@ func (options *FactoryOptions) BindFlags(fs *flag.FlagSet) {
 		"data-loader-image",
 		"foundationdb/fdb-data-loader:latest",
 		"defines the data loader image that should be used for testing",
+	)
+	fs.StringVar(
+		&options.storageEngine,
+		"storage-engine",
+		"",
+		"defines the storage-engine that should be used by the created FDB cluster.",
 	)
 	fs.BoolVar(
 		&options.enableChaosTests,
