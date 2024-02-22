@@ -19,6 +19,17 @@ make -C e2e test_operator.run
 
 Every test suite will create at least one namespace, HA cluster tests will create all the required namespaces.
 
+### Reusing an existing test cluster
+
+A test cluster can be reused if wanted, e.g. for test cases that load a large amount of data into the cluster.
+This requires to specify the `CLUSTER_NAME` and the `NAMESPACE`, if those values are not specified the test suite will use randomized values.
+** NOTE ** The limitation of this approach is that the test suite will not update the existing `FoundationDBCluster` in the creation step.
+So if you're modifying the `FoundationDBCluster` spec, you have to recreate the cluster.
+
+```bash
+CLEANUP=false CLUSTER_NAME=dev-cluster-1 NAMESPACE=dev make -kj -C e2e run
+```
+
 ### StorageClass selection
 
 The e2e tests assume that at least one `StorageClass` is present in the target Kubernetes cluster.

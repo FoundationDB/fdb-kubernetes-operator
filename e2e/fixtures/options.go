@@ -33,7 +33,6 @@ import (
 type FactoryOptions struct {
 	namespace                   string
 	chaosNamespace              string
-	prefix                      string
 	context                     string
 	fdbImage                    string // TODO (johscheuer): Make this optional if we use the default
 	sidecarImage                string // TODO (johscheuer): Make this optional if we use the default
@@ -45,6 +44,7 @@ type FactoryOptions struct {
 	storageClass                string
 	upgradeString               string
 	cloudProvider               string
+	clusterName                 string
 	enableChaosTests            bool
 	enableDataLoading           bool
 	cleanup                     bool
@@ -68,12 +68,6 @@ func (options *FactoryOptions) BindFlags(fs *flag.FlagSet) {
 		"chaos-namespace",
 		"",
 		"defines the chaos namespace to run experiments (will be created if missing)",
-	)
-	fs.StringVar(
-		&options.prefix,
-		"prefix",
-		"",
-		"defines the prefix of fdb cluster to run the test (will be created if missing)",
 	)
 	fs.StringVar(
 		&options.context,
@@ -183,6 +177,11 @@ func (options *FactoryOptions) BindFlags(fs *flag.FlagSet) {
 		true,
 		"defines if the operator tests should print the state of the cluster and the according Pods for better debugging.",
 	)
+	fs.StringVar(&options.clusterName,
+		"cluster-name",
+		"",
+		"if defined, the test suite will create a cluster with the specified name or update the setting of an existing cluster."+
+			"For multi-region clusters, this will define the prefix for all clusters.")
 }
 
 func (options *FactoryOptions) validateFlags() error {

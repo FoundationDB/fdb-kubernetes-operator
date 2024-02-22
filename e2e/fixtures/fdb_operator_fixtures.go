@@ -151,7 +151,7 @@ func (factory *Factory) ensureHAFdbClusterExists(
 	options []ClusterOption,
 ) (*HaFdbCluster, error) {
 	fdb := &HaFdbCluster{}
-	clusterPrefix := factory.getClusterPrefix()
+	clusterPrefix := factory.getClusterName()
 
 	databaseConfiguration := config.CreateDatabaseConfiguration()
 	dcIDs := GetDcIDsFromConfig(databaseConfiguration)

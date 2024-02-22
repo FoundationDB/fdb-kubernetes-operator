@@ -7,8 +7,8 @@ compile:
 # INPUT ENVIRONMENT VARIABLES
 TIMEOUT?=168h
 
+CLUSTER_NAME?=
 NAMESPACE?=
-PREFIX?=
 CONTEXT?=
 FDB_VERSION?=7.1.53
 # This will be the version used for upgrade tests.
@@ -111,7 +111,6 @@ nightly-tests: run
 	  --ginkgo.timeout=$(TIMEOUT) \
 	  --timeout=$(TIMEOUT) \
 	  --namespace="$(NAMESPACE)" \
-	  --prefix="$(PREFIX)" \
 	  --context="$(CONTEXT)" \
 	  --fdb-image="$(FDB_IMAGE)" \
 	  --sidecar-image="$(SIDECAR_IMAGE)" \
@@ -129,4 +128,5 @@ nightly-tests: run
 	  --feature-dns=$(FEATURE_DNS) \
 	  --cloud-provider=$(CLOUD_PROVIDER) \
 	  --dump-operator-state=$(DUMP_OPERATOR_STATE) \
+	  --cluster-name=$(CLUSTER_NAME) \
 	  | grep -v 'constructing many client instances from the same exec auth config can cause performance problems during cert rotation' &> $(BASE_DIR)/../logs/$<.log

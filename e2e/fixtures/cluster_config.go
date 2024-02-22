@@ -125,7 +125,7 @@ func DefaultClusterConfig(debugSymbols bool) *ClusterConfig {
 // SetDefaults will set all unset fields to the default values.
 func (config *ClusterConfig) SetDefaults(factory *Factory) {
 	if config.Name == "" {
-		config.Name = factory.getClusterPrefix()
+		config.Name = factory.getClusterName()
 	}
 
 	// Only create the namespace for non HA clusters, otherwise the namespaces will be created in a different way.
