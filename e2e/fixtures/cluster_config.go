@@ -134,7 +134,7 @@ func (config *ClusterConfig) SetDefaults(factory *Factory) {
 	}
 
 	if config.StorageEngine == "" {
-		config.StorageEngine = fdbv1beta2.StorageEngineSSD
+		config.StorageEngine = factory.getStorageEngine()
 	}
 
 	if config.StorageServerPerPod == 0 {

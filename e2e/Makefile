@@ -23,6 +23,7 @@ TEST_USERNAME?=$(USER)
 ENABLE_CHAOS_TESTS?=true
 CHAOS_NAMESPACE?=chaos-testing
 STORAGE_CLASS?=
+STORAGE_ENGINE?=
 DUMP_OPERATOR_STATE?=true
 # Defines the cloud provider used for the underlying Kubernetes cluster. Currently only kind is support, other cloud providers
 # should still work but this test framework has no special cases for those.
@@ -129,4 +130,5 @@ nightly-tests: run
 	  --cloud-provider=$(CLOUD_PROVIDER) \
 	  --dump-operator-state=$(DUMP_OPERATOR_STATE) \
 	  --cluster-name=$(CLUSTER_NAME) \
+	  --storage-engine=$(STORAGE_ENGINE) \
 	  | grep -v 'constructing many client instances from the same exec auth config can cause performance problems during cert rotation' &> $(BASE_DIR)/../logs/$<.log
