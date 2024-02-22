@@ -254,12 +254,12 @@ func (factory *Factory) getContainerOverrides(
 	return mainOverrides, sidecarOverrides
 }
 
-func (factory *Factory) getClusterPrefix() string {
-	prefix := factory.options.prefix
-	if prefix == "" {
+func (factory *Factory) getClusterName() string {
+	if factory.options.clusterName == "" {
 		return fmt.Sprintf("fdb-cluster-%s", RandStringRunes(8))
 	}
-	return prefix
+
+	return factory.options.clusterName
 }
 
 // GetDefaultStorageClass returns either the StorageClass provided by the command line or fetches the StorageClass passed on

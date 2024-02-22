@@ -152,16 +152,19 @@ func (fdbCluster *FdbCluster) RunFdbCliCommandInOperatorWithoutRetry(
 			break
 		}
 
-		var parsedStatus *fdbv1beta2.FoundationDBStatus
-		parsedStatus, err = parseStatusOutput(stdout)
-		// If we cannot parse the status we probably have an error or timeout
-		if err != nil {
-			continue
-		}
+		// Only try to parse the content to json if the command was "status json".
+		if strings.Contains(command, "status json") {
+			var parsedStatus *fdbv1beta2.FoundationDBStatus
+			parsedStatus, err = parseStatusOutput(stdout)
+			// If we cannot parse the status we probably have an error or timeout
+			if err != nil {
+				continue
+			}
 
-		// Quorum of coordinators are available, so we probably use the correct version
-		if parsedStatus.Client.Coordinators.QuorumReachable {
-			break
+			// Quorum of coordinators are available, so we probably use the correct version
+			if parsedStatus.Client.Coordinators.QuorumReachable {
+				break
+			}
 		}
 	}
 
