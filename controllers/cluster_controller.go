@@ -142,7 +142,6 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 	}
 
 	subReconcilers := []clusterSubReconciler{
-		updateStatus{},
 		updateLockConfiguration{},
 		updateConfigMap{},
 		checkClientCompatibility{},
@@ -173,6 +172,42 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 	originalGeneration := cluster.ObjectMeta.Generation
 	normalizedSpec := cluster.Spec.DeepCopy()
 	delayedRequeue := false
+
+	{
+		// run a special reconciliation step for the status update
+		subReconciler := updateStatus{}
+		// We have to set the normalized spec here again otherwise any call to Update() for the status of the cluster
+		// will reset all normalized fields...
+		cluster.Spec = *(normalizedSpec.DeepCopy())
+
+		requeue := runClusterSubReconciler(ctx, clusterLog, subReconciler, r, cluster, status)
+		if requeue != nil {
+			// NOTE: requeuing for the update status subreconciler happens only when coordinators are not valid
+			if requeue.delayedRequeue {
+				clusterLog.Info("Delaying requeue for sub-reconciler",
+					"reconciler", fmt.Sprintf("%T", subReconciler),
+					"message", requeue.message,
+					"error", requeue.curError)
+				delayedRequeue = true
+
+				// skip all reconcilers
+				subReconcilers = nil
+			} else {
+				// in this case use a subset of the reconcilers, apt to fix missing pods issues
+				clusterLog.Info("Running special reconciliation to fix possibly missing coordinator pods",
+					"message", requeue.message,
+					"error", requeue.curError)
+				subReconcilers = []clusterSubReconciler{
+					replaceMisconfiguredProcessGroups{},
+					addProcessGroups{},
+					addServices{},
+					addPVCs{},
+					addPods{},
+					updateStatus{},
+				}
+			}
+		}
+	}
 
 	for _, subReconciler := range subReconcilers {
 		// We have to set the normalized spec here again otherwise any call to Update() for the status of the cluster
