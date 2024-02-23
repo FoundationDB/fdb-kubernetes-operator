@@ -30,6 +30,10 @@ require (
 	sigs.k8s.io/yaml v1.3.0
 )
 
+// Points to https://github.com/apple/foundationdb/pull/11221 once those changes are merged, update the import above
+// and remove the replace statement.
+replace github.com/apple/foundationdb/bindings/go => github.com/johscheuer/foundationdb/bindings/go v0.0.0-20240223072824-51eff72b232d
+
 require golang.org/x/sync v0.3.0
 
 require (
