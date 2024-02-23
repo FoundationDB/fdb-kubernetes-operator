@@ -137,7 +137,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 		clusterLog.Info("Fetch machine-readable status for reconcilitation loop", "cacheStatus", cacheStatus)
 		status, err = r.getStatusFromClusterOrDummyStatus(clusterLog, cluster)
 		if err != nil {
-			clusterLog.Info("could not fetch machine-readable and therefor don't cache the status")
+			clusterLog.Info("could not fetch machine-readable status and therefore didn't cache the it")
 		}
 	}
 

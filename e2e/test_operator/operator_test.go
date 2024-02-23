@@ -49,9 +49,10 @@ import (
 )
 
 var (
-	factory     *fixtures.Factory
-	fdbCluster  *fixtures.FdbCluster
-	testOptions *fixtures.FactoryOptions
+	factory               *fixtures.Factory
+	fdbCluster            *fixtures.FdbCluster
+	testOptions           *fixtures.FactoryOptions
+	scheduleInjectPodKill *fixtures.ChaosMeshExperiment
 )
 
 func init() {
@@ -81,7 +82,7 @@ var _ = BeforeSuite(func() {
 
 	// In order to test the robustness of the operator we try to kill the operator Pods every minute.
 	if factory.ChaosTestsEnabled() {
-		factory.ScheduleInjectPodKill(
+		scheduleInjectPodKill = factory.ScheduleInjectPodKill(
 			fixtures.GetOperatorSelector(fdbCluster.Namespace()),
 			"*/2 * * * *",
 			chaosmesh.OneMode,
@@ -1898,6 +1899,8 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		var initialSetting bool
 
 		BeforeEach(func() {
+			// Until the race condition is resolved in the FDB go bindings make sure the operator is not restarted.
+			factory.DeleteChaosMeshExperimentSafe(scheduleInjectPodKill)
 			cluster := fdbCluster.GetCluster()
 			parsedVersion, err := fdbv1beta2.ParseFdbVersion(cluster.Status.RunningVersion)
 			Expect(err).NotTo(HaveOccurred())
@@ -1914,6 +1917,14 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 		AfterEach(func() {
 			Expect(fdbCluster.SetUseDNSInClusterFile(initialSetting)).ToNot(HaveOccurred())
+
+			if factory.ChaosTestsEnabled() {
+				scheduleInjectPodKill = factory.ScheduleInjectPodKill(
+					fixtures.GetOperatorSelector(fdbCluster.Namespace()),
+					"*/2 * * * *",
+					chaosmesh.OneMode,
+				)
+			}
 		})
 
 		When("all Pods are deleted", func() {
