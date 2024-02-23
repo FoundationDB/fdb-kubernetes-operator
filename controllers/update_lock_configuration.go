@@ -40,12 +40,12 @@ func (updateLockConfiguration) reconcile(_ context.Context, r *FoundationDBClust
 
 	lockClient, err := r.getLockClient(cluster)
 	if err != nil {
-		return &requeue{curError: err}
+		return &requeue{curError: err, delayedRequeue: true}
 	}
 
 	err = lockClient.UpdateDenyList(cluster.Spec.LockOptions.DenyList)
 	if err != nil {
-		return &requeue{curError: err}
+		return &requeue{curError: err, delayedRequeue: true}
 	}
 
 	return nil

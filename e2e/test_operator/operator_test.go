@@ -49,9 +49,10 @@ import (
 )
 
 var (
-	factory     *fixtures.Factory
-	fdbCluster  *fixtures.FdbCluster
-	testOptions *fixtures.FactoryOptions
+	factory               *fixtures.Factory
+	fdbCluster            *fixtures.FdbCluster
+	testOptions           *fixtures.FactoryOptions
+	scheduleInjectPodKill *fixtures.ChaosMeshExperiment
 )
 
 func init() {
@@ -81,7 +82,7 @@ var _ = BeforeSuite(func() {
 
 	// In order to test the robustness of the operator we try to kill the operator Pods every minute.
 	if factory.ChaosTestsEnabled() {
-		factory.ScheduleInjectPodKill(
+		scheduleInjectPodKill = factory.ScheduleInjectPodKill(
 			fixtures.GetOperatorSelector(fdbCluster.Namespace()),
 			"*/2 * * * *",
 			chaosmesh.OneMode,
@@ -1890,6 +1891,88 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 					return messages
 				}).WithPolling(1 * time.Second).WithTimeout(5 * time.Minute).MustPassRepeatedly(5).Should(BeEmpty())
+			})
+		})
+	})
+
+	When("the cluster makes use of DNS in the cluster file", func() {
+		var initialSetting bool
+
+		BeforeEach(func() {
+			// Until the race condition is resolved in the FDB go bindings make sure the operator is not restarted.
+			factory.DeleteChaosMeshExperimentSafe(scheduleInjectPodKill)
+			cluster := fdbCluster.GetCluster()
+			parsedVersion, err := fdbv1beta2.ParseFdbVersion(cluster.Status.RunningVersion)
+			Expect(err).NotTo(HaveOccurred())
+
+			if !parsedVersion.SupportsDNSInClusterFile() {
+				Skip(fmt.Sprintf("current FoundationDB version %s doesn't support DNS", parsedVersion.String()))
+			}
+
+			initialSetting = cluster.UseDNSInClusterFile()
+			if !cluster.UseDNSInClusterFile() {
+				Expect(fdbCluster.SetUseDNSInClusterFile(true)).ToNot(HaveOccurred())
+			}
+		})
+
+		AfterEach(func() {
+			Expect(fdbCluster.SetUseDNSInClusterFile(initialSetting)).ToNot(HaveOccurred())
+
+			if factory.ChaosTestsEnabled() {
+				scheduleInjectPodKill = factory.ScheduleInjectPodKill(
+					fixtures.GetOperatorSelector(fdbCluster.Namespace()),
+					"*/2 * * * *",
+					chaosmesh.OneMode,
+				)
+			}
+		})
+
+		When("all Pods are deleted", func() {
+			var initialPodsCnt int
+			var initialReplaceTime time.Duration
+
+			BeforeEach(func() {
+				availabilityCheck = false
+				initialReplaceTime = time.Duration(pointer.IntDeref(
+					fdbCluster.GetClusterSpec().AutomationOptions.Replacements.FailureDetectionTimeSeconds,
+					90,
+				)) * time.Second
+				Expect(fdbCluster.SetAutoReplacements(false, 30*time.Hour)).ShouldNot(HaveOccurred())
+				// Make sure the operator is not taking any action to prevent any race condition.
+				Expect(fdbCluster.SetSkipReconciliation(true)).NotTo(HaveOccurred())
+
+				// Delete all Pods
+				pods := fdbCluster.GetPods()
+				initialPodsCnt = len(pods.Items)
+				for _, pod := range pods.Items {
+					podToDelete := &pod
+					factory.Delete(podToDelete)
+				}
+
+				// Make sure the Pods are all deleted.
+				Eventually(func() []corev1.Pod {
+					return fdbCluster.GetPods().Items
+				}).WithTimeout(5 * time.Minute).WithPolling(2 * time.Second).Should(BeEmpty())
+
+				// Enable the operator again
+				Expect(fdbCluster.SetSkipReconciliation(false)).NotTo(HaveOccurred())
+			})
+
+			It("should recreate all Pods and bring the cluster into a healthy state again", func() {
+				Eventually(func() int {
+					return len(fdbCluster.GetPods().Items)
+				}).WithTimeout(5 * time.Minute).WithPolling(2 * time.Second).Should(BeNumerically(">=", initialPodsCnt))
+
+				Eventually(func() bool {
+					return fdbCluster.GetStatus().Client.DatabaseStatus.Available
+				}).WithTimeout(5 * time.Minute).WithPolling(2 * time.Second).Should(BeTrue())
+
+				Expect(fdbCluster.WaitForReconciliation()).NotTo(HaveOccurred())
+			})
+
+			AfterEach(func() {
+				Expect(fdbCluster.SetSkipReconciliation(false)).NotTo(HaveOccurred())
+				Expect(fdbCluster.SetAutoReplacements(true, initialReplaceTime)).ShouldNot(HaveOccurred())
 			})
 		})
 	})
