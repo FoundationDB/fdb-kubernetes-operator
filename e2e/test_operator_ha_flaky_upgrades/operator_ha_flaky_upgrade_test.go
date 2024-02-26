@@ -83,7 +83,7 @@ func clusterSetup(beforeVersion string, enableOperatorPodChaos bool) {
 	clusterSetupWithHealthCheckOption(beforeVersion, enableOperatorPodChaos, true)
 }
 
-var _ = Describe("Operator HA Upgrades", Label("e2e", "nightly"), func() {
+var _ = Describe("Operator HA Upgrades", Label("e2e"), func() {
 	BeforeEach(func() {
 		factory = fixtures.CreateFactory(testOptions)
 	})
