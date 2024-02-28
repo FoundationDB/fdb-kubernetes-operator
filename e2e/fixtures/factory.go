@@ -193,14 +193,14 @@ func (factory *Factory) CreateFdbHaCluster(
 		options,
 	)
 
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
 	log.Println(
 		"FoundationDB HA cluster created (at version",
 		cluster.GetPrimary().cluster.Spec.Version,
 		") in minutes",
 		time.Since(startTime).Minutes(),
 	)
-
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	return cluster
 }

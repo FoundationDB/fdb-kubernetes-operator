@@ -186,10 +186,11 @@ func (factory *Factory) ensureHAFdbClusterExists(
 		return nil, err
 	}
 	err = fdb.WaitForReconciliation(CreationTrackerLoggerOption(config.CreationTracker))
-	log.Printf("primary cluster is reconciled in namespaces=%s", namespaces)
 	if err != nil {
 		return nil, err
 	}
+	log.Printf("primary cluster is reconciled in namespaces=%s", namespaces)
+
 	cluster, err := factory.getClusterStatus(fdb.GetPrimary().Name(), fdb.GetPrimary().Namespace())
 	if err != nil {
 		return nil, err
