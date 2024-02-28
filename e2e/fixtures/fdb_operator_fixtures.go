@@ -22,6 +22,7 @@ package fixtures
 
 import (
 	"fmt"
+	"github.com/onsi/gomega"
 	"log"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -149,7 +150,7 @@ func (factory *Factory) ensureHaMemberClusterExists(
 func (factory *Factory) ensureHAFdbClusterExists(
 	config *ClusterConfig,
 	options []ClusterOption,
-) (*HaFdbCluster, error) {
+) *HaFdbCluster {
 	fdb := &HaFdbCluster{}
 	clusterPrefix := factory.getClusterName()
 
@@ -182,19 +183,13 @@ func (factory *Factory) ensureHAFdbClusterExists(
 		initialDatabaseConfiguration,
 		options,
 	)
-	if err != nil {
-		return nil, err
-	}
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	err = fdb.WaitForReconciliation(CreationTrackerLoggerOption(config.CreationTracker))
-	if err != nil {
-		return nil, err
-	}
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	log.Printf("primary cluster is reconciled in namespaces=%s", namespaces)
 
 	cluster, err := factory.getClusterStatus(fdb.GetPrimary().Name(), fdb.GetPrimary().Namespace())
-	if err != nil {
-		return nil, err
-	}
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	for idx := range dcIDs {
 		currentConfig := config.Copy()
@@ -209,20 +204,15 @@ func (factory *Factory) ensureHAFdbClusterExists(
 			&databaseConfiguration,
 			options,
 		)
-		if err != nil {
-			return nil, err
-		}
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	}
 
 	// Wait until clusters are ready
-	err = fdb.WaitForReconciliation(CreationTrackerLoggerOption(config.CreationTracker))
-	if err != nil {
-		return nil, err
-	}
+	gomega.Expect(fdb.WaitForReconciliation(CreationTrackerLoggerOption(config.CreationTracker))).ToNot(gomega.HaveOccurred())
 
 	config.CreationCallback(fdb.GetPrimary())
 
-	return fdb, nil
+	return fdb
 }
 
 // GetDcIDsFromConfig returns  unique DC IDs from the current config.

@@ -188,12 +188,10 @@ func (factory *Factory) CreateFdbHaCluster(
 	startTime := time.Now()
 	config.SetDefaults(factory)
 
-	cluster, err := factory.ensureHAFdbClusterExists(
+	cluster := factory.ensureHAFdbClusterExists(
 		config,
 		options,
 	)
-
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	log.Println(
 		"FoundationDB HA cluster created (at version",
