@@ -188,7 +188,7 @@ func (factory *Factory) CreateFdbHaCluster(
 	startTime := time.Now()
 	config.SetDefaults(factory)
 
-	cluster, err := factory.ensureHAFdbClusterExists(
+	cluster := factory.ensureHAFdbClusterExists(
 		config,
 		options,
 	)
@@ -199,8 +199,6 @@ func (factory *Factory) CreateFdbHaCluster(
 		") in minutes",
 		time.Since(startTime).Minutes(),
 	)
-
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	return cluster
 }
