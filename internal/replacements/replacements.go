@@ -53,7 +53,7 @@ func ReplaceMisconfiguredProcessGroups(ctx context.Context, podManager podmanage
 			continue
 		}
 
-		needsRemoval, err := processGroupNeedsRemoval(ctx, podManager, client, log, cluster, processGroup, pvcMap)
+		needsRemoval, err := ProcessGroupNeedsRemoval(ctx, podManager, client, log, cluster, processGroup, pvcMap)
 
 		// Do not mark for removal if there is an error
 		if err != nil {
@@ -70,7 +70,7 @@ func ReplaceMisconfiguredProcessGroups(ctx context.Context, podManager podmanage
 	return hasReplacements, nil
 }
 
-func processGroupNeedsRemoval(ctx context.Context, podManager podmanager.PodLifecycleManager, client client.Client, log logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, processGroup *fdbv1beta2.ProcessGroupStatus, pvcMap map[fdbv1beta2.ProcessGroupID]corev1.PersistentVolumeClaim) (bool, error) {
+func ProcessGroupNeedsRemoval(ctx context.Context, podManager podmanager.PodLifecycleManager, client client.Client, log logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, processGroup *fdbv1beta2.ProcessGroupStatus, pvcMap map[fdbv1beta2.ProcessGroupID]corev1.PersistentVolumeClaim) (bool, error) {
 	// TODO(johscheuer): Fix how we fetch the pvc to make better use of the controller runtime cache.
 	pvc, hasPVC := pvcMap[processGroup.ProcessGroupID]
 	pod, podErr := podManager.GetPod(ctx, client, cluster, processGroup.GetPodName(cluster))
