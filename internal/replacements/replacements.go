@@ -70,6 +70,7 @@ func ReplaceMisconfiguredProcessGroups(ctx context.Context, podManager podmanage
 	return hasReplacements, nil
 }
 
+// ProcessGroupNeedsRemoval checks if a process group needs to be removed.
 func ProcessGroupNeedsRemoval(ctx context.Context, podManager podmanager.PodLifecycleManager, client client.Client, log logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, processGroup *fdbv1beta2.ProcessGroupStatus, pvcMap map[fdbv1beta2.ProcessGroupID]corev1.PersistentVolumeClaim) (bool, error) {
 	// TODO(johscheuer): Fix how we fetch the pvc to make better use of the controller runtime cache.
 	pvc, hasPVC := pvcMap[processGroup.ProcessGroupID]
