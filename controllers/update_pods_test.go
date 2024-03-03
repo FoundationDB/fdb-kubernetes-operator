@@ -309,7 +309,8 @@ var _ = Describe("update_pods", func() {
 		})
 
 		JustBeforeEach(func() {
-			updates, err = getPodsToUpdate(context.Background(), globalControllerLogger, clusterReconciler, cluster)
+			// TODO update tests with pvcMap
+			updates, err = getPodsToUpdate(context.Background(), globalControllerLogger, clusterReconciler, cluster, nil)
 			if !expectedError {
 				Expect(err).NotTo(HaveOccurred())
 			} else {
