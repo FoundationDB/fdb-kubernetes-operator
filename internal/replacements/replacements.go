@@ -106,7 +106,7 @@ func ProcessGroupNeedsRemoval(ctx context.Context, podManager podmanager.PodLife
 
 func processGroupNeedsRemovalForPVC(cluster *fdbv1beta2.FoundationDBCluster, pvc corev1.PersistentVolumeClaim, log logr.Logger, processGroup *fdbv1beta2.ProcessGroupStatus) (bool, error) {
 	processGroupID := internal.GetProcessGroupIDFromMeta(cluster, pvc.ObjectMeta)
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "pvc", pvc.Name, "processGroupID", processGroupID, "reconciler", "replaceMisconfiguredProcessGroups")
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "pvc", pvc.Name, "processGroupID", processGroupID)
 
 	ownedByCluster := !cluster.ShouldFilterOnOwnerReferences()
 	if !ownedByCluster {
@@ -132,12 +132,12 @@ func processGroupNeedsRemovalForPVC(cluster *fdbv1beta2.FoundationDBCluster, pvc
 	}
 
 	if pvc.Annotations[fdbv1beta2.LastSpecKey] != pvcHash {
-		logger.Info("Replace process group",
+		logger.Info("Process group requires removal",
 			"reason", fmt.Sprintf("PVC spec has changed from %s to %s", pvcHash, pvc.Annotations[fdbv1beta2.LastSpecKey]))
 		return true, nil
 	}
 	if pvc.Name != desiredPVC.Name {
-		logger.Info("Replace process group",
+		logger.Info("Process group requires removal",
 			"reason", fmt.Sprintf("PVC name has changed from %s to %s", desiredPVC.Name, pvc.Name))
 		return true, nil
 	}
@@ -150,7 +150,7 @@ func processGroupNeedsRemovalForPod(cluster *fdbv1beta2.FoundationDBCluster, pod
 		return false, nil
 	}
 
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", processGroupStatus.ProcessGroupID, "reconciler", "replaceMisconfiguredProcessGroups")
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", processGroupStatus.ProcessGroupID)
 
 	if processGroupStatus.IsMarkedForRemoval() {
 		return false, nil
@@ -163,7 +163,7 @@ func processGroupNeedsRemovalForPod(cluster *fdbv1beta2.FoundationDBCluster, pod
 
 	_, desiredProcessGroupID := cluster.GetProcessGroupID(processGroupStatus.ProcessClass, idNum)
 	if processGroupStatus.ProcessGroupID != desiredProcessGroupID {
-		logger.Info("Replace process group",
+		logger.Info("Process group requires removal",
 			"reason", fmt.Sprintf("expect process group ID: %s", desiredProcessGroupID))
 		return true, nil
 	}
@@ -173,7 +173,7 @@ func processGroupNeedsRemovalForPod(cluster *fdbv1beta2.FoundationDBCluster, pod
 		return false, err
 	}
 	if ipSource != cluster.GetPublicIPSource() {
-		logger.Info("Replace process group",
+		logger.Info("Process group requires removal",
 			"reason", fmt.Sprintf("publicIP source has changed from %s to %s", ipSource, cluster.GetPublicIPSource()))
 		return true, nil
 	}
@@ -185,7 +185,7 @@ func processGroupNeedsRemovalForPod(cluster *fdbv1beta2.FoundationDBCluster, pod
 	desiredServersPerPod := cluster.GetDesiredServersPerPod(processGroupStatus.ProcessClass)
 	// Replace the process group if the expected servers differ from the desired servers
 	if serversPerPod != desiredServersPerPod {
-		logger.Info("Replace process group",
+		logger.Info("Process group requires removal",
 			"serversPerPod", serversPerPod,
 			"desiredServersPerPod", desiredServersPerPod,
 			"reason", fmt.Sprintf("serversPerPod have changes from current: %d to desired: %d", serversPerPod, desiredServersPerPod))
@@ -200,7 +200,7 @@ func processGroupNeedsRemovalForPod(cluster *fdbv1beta2.FoundationDBCluster, pod
 		}
 
 		if pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] != specHash {
-			logger.Info("Replace process group",
+			logger.Info("Process group requires removal",
 				"reason", fmt.Sprintf("nodeSelector has changed from %s to %s", pod.Spec.NodeSelector, expectedNodeSelector))
 			return true, nil
 		}
@@ -223,7 +223,7 @@ func processGroupNeedsRemovalForPod(cluster *fdbv1beta2.FoundationDBCluster, pod
 				return false, err
 			}
 
-			logger.Info("Replace process group",
+			logger.Info("Process group requires removal",
 				"reason", "specHash has changed",
 				"desiredSpecHash", specHash,
 				"currentSpecHash", pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey],
@@ -240,13 +240,13 @@ func processGroupNeedsRemovalForPod(cluster *fdbv1beta2.FoundationDBCluster, pod
 		}
 
 		if resourcesNeedsReplacement(desiredSpec.Containers, pod.Spec.Containers) {
-			logger.Info("Replace process group",
+			logger.Info("Process group requires removal",
 				"reason", "Resource requests have changed")
 			return true, nil
 		}
 
 		if resourcesNeedsReplacement(desiredSpec.InitContainers, pod.Spec.InitContainers) {
-			logger.Info("Replace process group",
+			logger.Info("Process group requires removal",
 				"reason", "Resource requests have changed")
 			return true, nil
 		}
