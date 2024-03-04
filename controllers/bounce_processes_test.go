@@ -723,6 +723,30 @@ var _ = Describe("bounceProcesses", func() {
 					Expect(adminClient.KilledAddresses).To(BeEmpty())
 				})
 			})
+
+			When("the FDB version automatically removes old tester processes", func() {
+				var previousVersion string
+
+				BeforeEach(func() {
+					previousVersion = cluster.Status.RunningVersion
+					cluster.Spec.Version = "7.1.57"
+					cluster.Status.RunningVersion = "7.1.57"
+				})
+
+				AfterEach(func() {
+					cluster.Status.RunningVersion = previousVersion
+					cluster.Spec.Version = previousVersion
+				})
+
+				It("should not requeue", func() {
+					Expect(err).NotTo(HaveOccurred())
+					Expect(requeue).To(BeNil())
+				})
+
+				It("should not kill the cluster controller", func() {
+					Expect(adminClient.KilledAddresses).To(BeEmpty())
+				})
+			})
 		})
 
 		When("the unreachable processes include no tester processes", func() {
@@ -774,7 +798,7 @@ var _ = Describe("bounceProcesses", func() {
 			})
 		})
 
-		When("the cluster message doesn not contain unreachable processes", func() {
+		When("the cluster message does not contain unreachable processes", func() {
 			BeforeEach(func() {
 				adminClient, err = mock.NewMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())

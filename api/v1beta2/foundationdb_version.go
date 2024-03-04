@@ -232,6 +232,16 @@ func (version Version) SupportsLocalityBasedExclusions() bool {
 	return version.IsAtLeast(Versions.SupportsLocalityBasedExclusions)
 }
 
+// AutomaticallyRemovesDeadTesterProcesses returns true if the FDB version automatically removes old tester processes
+// from the list of processes.
+func (version Version) AutomaticallyRemovesDeadTesterProcesses() bool {
+	if version.IsProtocolCompatible(Version{Major: 7, Minor: 3, Patch: 0}) {
+		return version.IsAtLeast(Version{Major: 7, Minor: 1, Patch: 35})
+	}
+
+	return version.IsAtLeast(Version{Major: 7, Minor: 1, Patch: 55})
+}
+
 // Versions provides a shorthand for known versions.
 // This is only to be used in testing.
 var Versions = struct {
