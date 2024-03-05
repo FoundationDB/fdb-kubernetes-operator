@@ -19,7 +19,10 @@ At start time, the operator scans this directory for version-specific binaries, 
 
 ## Customizing the Primary Client Library
 
-By default, the primary client library used by the operator is the oldest supported version, as discussed above. If you want to use a newer version of the client library as your primary client, you can control that through additonal init containers. 
+By default, the primary client library used by the operator is the oldest supported version, as discussed above.
+If you want to use a newer version of the client library as your primary client, you can control that through additional init containers.
+**NOTE**: When using this approach it can happen that the operator keeps crashing when all coordinators are deleted, see https://github.com/apple/foundationdb/issues/11222.
+A better solution is to build the operator with the `7.1` version to prevent those crashes.
 
 ```yaml
 # This provides partial configuration for the deployment to show what needs to change in order to

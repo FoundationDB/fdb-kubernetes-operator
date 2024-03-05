@@ -44,3 +44,6 @@ dist/
 
 # Ignore any temporary created kube config files
 *.kubeconfig
+
+# Used for testing locally build FDB library
+libfdb_c.so
