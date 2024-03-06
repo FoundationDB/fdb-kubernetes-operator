@@ -445,10 +445,7 @@ If a process is missing in the machine-readable status the operator will issue a
 The current default for the operator is to use the Pod IP for the exclusion command, if a Pod get's deleted and recreated it could get a new IP address and the operator has to issue a new exclude command for the new IP address.
 To workaround this FoundationDB added support for locality based exclusions in 7.0 and the operator supports this by setting [useLocalitiesForExclusion](https://github.com/FoundationDB/fdb-kubernetes-operator/blob/main/docs/cluster_spec.md#foundationdbclusterautomationoptions) in the FoundationDBCluster spec.
 
-**Warning** the locality-based exclusions are not well tested in our e2e test setup ye.
-locality based exclusion
-
-The operator is not able to use the `failed` option for exclusions.
+NOTE: the operator is not able to use the `failed` option for exclusions.
 
 ## Next
 
