@@ -95,13 +95,7 @@ func ProcessGroupNeedsRemoval(ctx context.Context, podManager podmanager.PodLife
 		return false, podErr
 	}
 
-	needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, processGroup, log)
-
-	if err != nil {
-		return false, err
-	}
-
-	return needsRemoval, nil
+	return  processGroupNeedsRemovalForPod(cluster, pod, processGroup, log)
 }
 
 func processGroupNeedsRemovalForPVC(cluster *fdbv1beta2.FoundationDBCluster, pvc corev1.PersistentVolumeClaim, log logr.Logger, processGroup *fdbv1beta2.ProcessGroupStatus) (bool, error) {
