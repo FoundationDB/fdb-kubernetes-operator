@@ -54,14 +54,6 @@ VOLUME /usr/lib/fdb
 
 WORKDIR /
 
-# Add tini to the operator image to allow to take coredumps.
-ENV TINI_VERSION v0.19.0
-RUN curl --fail -L "https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini" -o /tini && \
-    curl --fail -L "https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini.asc" -o /tini.asc && \
-    gpg --batch --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 595E85A6B1B4779EA4DAAEC70B588DFF0527A9B7 && \
-    gpg --batch --verify /tini.asc /tini
-RUN chmod +x /tini
-
 RUN set -eux && \
     curl --fail -L "${FDB_WEBSITE}/${FDB_VERSION}/foundationdb-clients-${FDB_VERSION}-1.el7.x86_64.rpm" -o foundationdb-clients-${FDB_VERSION}-1.el7.x86_64.rpm && \
     curl --fail -L "${FDB_WEBSITE}/${FDB_VERSION}/foundationdb-clients-${FDB_VERSION}-1.el7.x86_64.rpm.sha256" -o foundationdb-clients-${FDB_VERSION}-1.el7.x86_64.rpm.sha256 && \
@@ -85,4 +77,4 @@ ENV FDB_NETWORK_OPTION_TRACE_ENABLE=/var/log/fdb
 ENV FDB_BINARY_DIR=/usr/bin/fdb
 ENV FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY=/usr/bin/fdb
 
-ENTRYPOINT ["/tini", "--", "/manager"]
+ENTRYPOINT ["/manager"]
