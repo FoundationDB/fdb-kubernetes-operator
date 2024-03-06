@@ -78,7 +78,7 @@ func (bounceProcesses) reconcile(_ context.Context, r *FoundationDBClusterReconc
 		// Check if the status contains unreachable tester processes. In this case the cluster controller must be restarted.
 		// Otherwise the status will contain a message with "status_incomplete" and "unreachable_processes". Those messages
 		// could block further actions like the check if a process is exclude and doesn't serve any roles.
-		clusterControllerAddress := checkIfClusterControllerNeedsRestart(status)
+		clusterControllerAddress := checkIfClusterControllerNeedsRestart(logger, cluster, status)
 		if clusterControllerAddress != nil {
 			logger.Info("found unreachable tester processes in status which requires a cluster controller restart")
 			// Adding the same address twice is not a problem for the kill command, so we can just append the returned address.
@@ -351,8 +351,20 @@ func getAddressesForUpgrade(logger logr.Logger, r *FoundationDBClusterReconciler
 // this might be required. One case is when at least on tester process is running in the cluster and that tester process
 // fails. Currently this leads to the cluster controller reporting unreachable processes and the status incomplete message.
 // Having those messages in the cluster's machine-readable status could block some operations of the operator and the
-// solution to that is to restart the cluster controller process.
-func checkIfClusterControllerNeedsRestart(status *fdbv1beta2.FoundationDBStatus) *fdbv1beta2.ProcessAddress {
+// solution to that is to restart the cluster controller process. If the FDB version supports to remove the old tester
+// worker automatically this step will return no processes to be restarted.
+func checkIfClusterControllerNeedsRestart(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) *fdbv1beta2.ProcessAddress {
+	runningVersion, err := fdbv1beta2.ParseFdbVersion(cluster.GetRunningVersion())
+	if err != nil {
+		logger.Error(err, "could not parse running version in checkIfClusterControllerNeedsRestart")
+		return nil
+	}
+
+	// If the cluster controller automatically removes the dead tester processes, the operator can skip any further work.
+	if runningVersion.AutomaticallyRemovesDeadTesterProcesses() {
+		return nil
+	}
+
 	// If the status contains no cluster messages we can skip further check.
 	if len(status.Cluster.Messages) == 0 {
 		return nil

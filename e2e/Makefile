@@ -10,9 +10,9 @@ TIMEOUT?=168h
 CLUSTER_NAME?=
 NAMESPACE?=
 CONTEXT?=
-FDB_VERSION?=7.1.53
+FDB_VERSION?=7.1.57
 # This will be the version used for upgrade tests.
-NEXT_FDB_VERSION?=7.3.29
+NEXT_FDB_VERSION?=7.3.33
 ## Expectation is that you are running standard build image which generates both regular and debug (Symbols) images.
 FDB_IMAGE?=foundationdb/foundationdb:$(FDB_VERSION)
 SIDECAR_IMAGE?=foundationdb/foundationdb-kubernetes-sidecar:$(FDB_VERSION)-1
