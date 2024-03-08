@@ -263,15 +263,17 @@ func getProcessesReadyForRestart(logger logr.Logger, cluster *fdbv1beta2.Foundat
 		return nil, &requeue{message: "Waiting for config map to sync to all pods", delayedRequeue: true}
 	}
 
-	counts, err := cluster.GetProcessCountsWithDefaults()
-	if err != nil {
-		return nil, &requeue{
-			curError:       err,
-			delayedRequeue: true,
-		}
-	}
-
+	// Only if the cluster is upgraded with ab incompatible version we have to make sure that all processes are ready to be restarted.
+	// In the case of a patch upgrade we will be recreating the Pods anyway without this bounce step.
 	if cluster.IsBeingUpgradedWithVersionIncompatibleVersion() {
+		counts, err := cluster.GetProcessCountsWithDefaults()
+		if err != nil {
+			return nil, &requeue{
+				curError:       err,
+				delayedRequeue: true,
+			}
+		}
+
 		// If we upgrade the cluster wait until all processes are ready for the restart. We don't want to block the restart
 		// if some processes are already upgraded e.g. in the case of version compatible upgrades and we also don't want to
 		// block the restart command if a process is missing longer than the specified GetIgnoreMissingProcessesSeconds.
@@ -289,7 +291,8 @@ func getProcessesReadyForRestart(logger logr.Logger, cluster *fdbv1beta2.Foundat
 			expectedProcesses += counts.Transaction * (cluster.Spec.LogServersPerPod - 1)
 		}
 
-		if expectedProcesses != len(addresses) {
+		// If not all processes are ready to restart we will block the upgrade and delay it.
+		if expectedProcesses > len(addresses) {
 			logger.Info("delay bounce as not all processes are ready to be bounced for upgrade", "expectedProcesses", expectedProcesses, "addresses", len(addresses))
 			return nil, &requeue{
 				message:        fmt.Sprintf("expected %d processes, got %d processes ready to restart", expectedProcesses, len(addresses)),
