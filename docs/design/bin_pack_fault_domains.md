@@ -26,6 +26,8 @@ The label selector will contain the process class and the cluster name, to ensur
 A user can define additional `PodAntiAffinity`s but can't prevent the operator from creating the default `PodAntiAffinity`.
 The only exception is the special fault domain `foundationdb.org/none` and `foundationdb.org/kubernetes-cluster`.
 
+The reason why we use `preferredDuringSchedulingIgnoredDuringExecution` by default (and not `requiredDuringSchedulingIgnoredDuringExecution`) is to make sure that large FoundationDB clusters can still be scheduled on smaller Kubernetes clusters and in most cases having some pods co-located in the same fault domain is not an issue.
+
 In the design we will use the following terms:
 
 - `physical fault domain`: This refers to a fault domain that is available in Kubernetes e.g. a machine running the Kubernetes worker or a higher level fault domain like a rack, data hall etc.
