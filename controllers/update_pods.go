@@ -172,19 +172,6 @@ func getPodsToUpdate(ctx context.Context, logger logr.Logger, reconciler *Founda
 			continue
 		}
 
-		needsRemoval, err := replacements.ProcessGroupNeedsRemoval(ctx, reconciler.PodLifecycleManager, reconciler, logger, cluster, processGroup, pvcMap)
-		// Do not update the Pod if unable to determine if it needs to be removed.
-		if err != nil {
-			logger.V(1).Info("Failed checking if process group needs removal",
-				"processGroupID", processGroup.ProcessGroupID)
-			continue
-		}
-		if needsRemoval {
-			logger.V(1).Info("Skip process group for deletion, requires a removal",
-				"processGroupID", processGroup.ProcessGroupID)
-			continue
-		}
-
 		pod, err := reconciler.PodLifecycleManager.GetPod(ctx, reconciler, cluster, processGroup.GetPodName(cluster))
 		// If a Pod is not found ignore it for now.
 		if err != nil {
@@ -207,6 +194,20 @@ func getPodsToUpdate(ctx context.Context, logger logr.Logger, reconciler *Founda
 
 		// The Pod is updated, so we can continue.
 		if pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] == specHash {
+			continue
+		}
+
+		needsRemoval, err := replacements.ProcessGroupNeedsRemoval(ctx, reconciler.PodLifecycleManager, reconciler, logger, cluster, processGroup, pvcMap)
+		// Do not update the Pod if unable to determine if it needs to be removed.
+		if err != nil {
+			logger.V(1).Info("Skip process group, error checking if it requires a removal",
+				"processGroupID", processGroup.ProcessGroupID,
+				"error", err.Error())
+			continue
+		}
+		if needsRemoval {
+			logger.V(1).Info("Skip process group for deletion, requires a removal",
+				"processGroupID", processGroup.ProcessGroupID)
 			continue
 		}
 
