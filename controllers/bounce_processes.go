@@ -263,7 +263,7 @@ func getProcessesReadyForRestart(logger logr.Logger, cluster *fdbv1beta2.Foundat
 		return nil, &requeue{message: "Waiting for config map to sync to all pods", delayedRequeue: true}
 	}
 
-	// Only if the cluster is upgraded with ab incompatible version we have to make sure that all processes are ready to be restarted.
+	// Only if the cluster is upgraded with an incompatible version we have to make sure that all processes are ready to be restarted.
 	// In the case of a patch upgrade we will be recreating the Pods anyway without this bounce step.
 	if cluster.IsBeingUpgradedWithVersionIncompatibleVersion() {
 		counts, err := cluster.GetProcessCountsWithDefaults()
