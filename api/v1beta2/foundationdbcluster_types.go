@@ -1255,7 +1255,7 @@ type ProcessSettings struct {
 	PodTemplate *corev1.PodTemplateSpec `json:"podTemplate,omitempty"`
 
 	// VolumeClaimTemplate allows customizing the persistent volume claim for the
-	// pod.
+	// pod.  This will be ignored by the operator for stateless processes.
 	VolumeClaimTemplate *corev1.PersistentVolumeClaim `json:"volumeClaimTemplate,omitempty"`
 
 	// CustomParameters defines additional parameters to pass to the fdbserver
@@ -1278,7 +1278,7 @@ func (cluster *FoundationDBCluster) GetProcessSettings(processClass ProcessClass
 		if merged.PodTemplate == nil {
 			merged.PodTemplate = entry.PodTemplate
 		}
-		if merged.VolumeClaimTemplate == nil {
+		if merged.VolumeClaimTemplate == nil && processClass.IsStateful() { // stateless pods will not use a PVC
 			merged.VolumeClaimTemplate = entry.VolumeClaimTemplate
 		}
 		if merged.CustomParameters == nil {

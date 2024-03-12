@@ -733,7 +733,8 @@ func usePvc(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.Pro
 			storage = &storageCopy
 		}
 	}
-	return processClass.IsStateful() && (storage == nil || !storage.IsZero())
+	// TODO can a stateful process ever have this be true? maybe with testing?
+	return storage == nil || !storage.IsZero()
 }
 
 // GetPvc builds a persistent volume claim for a FoundationDB process group.
