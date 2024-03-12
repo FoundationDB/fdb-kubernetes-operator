@@ -722,6 +722,7 @@ func getEnvForMonitorConfigSubstitution(cluster *fdbv1beta2.FoundationDBCluster,
 }
 
 // usePvc determines whether we should attach a PVC to a pod.
+// TODO this could be simplified or cut out by solving https://github.com/FoundationDB/fdb-kubernetes-operator/issues/1966
 func usePvc(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass) bool {
 	var storage *resource.Quantity
 	processSettings := cluster.GetProcessSettings(processClass)
