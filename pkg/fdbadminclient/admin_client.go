@@ -119,4 +119,17 @@ type AdminClient interface {
 
 	// SetTimeout will overwrite the default timeout for interacting the FDB cluster.
 	SetTimeout(timeout time.Duration)
+
+	// GetProcessesUnderMaintenance will return all process groups that are currently stored to be under maintenance.
+	// The result is a map with the process group ID as key and the start of the maintenance as value.
+	GetProcessesUnderMaintenance() (map[fdbv1beta2.ProcessGroupID]int64, error)
+
+	// RemoveProcessesUnderMaintenance will remove the provided process groups from the list of processes that
+	// are planned to be taken down for maintenance. If a process group is not present in the list it will be ignored.
+	RemoveProcessesUnderMaintenance([]fdbv1beta2.ProcessGroupID) error
+
+	// SetProcessesUnderMaintenance will add the provided process groups to the list of processes that will be taken
+	// down for maintenance. The value will be the provided time stamp. If a process group is already present in the
+	// list, the timestamp will be updated.
+	SetProcessesUnderMaintenance([]fdbv1beta2.ProcessGroupID, int64) error
 }

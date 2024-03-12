@@ -1584,6 +1584,11 @@ func (in *MaintenanceModeOptions) DeepCopyInto(out *MaintenanceModeOptions) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.ResetMaintenanceMode != nil {
+		in, out := &in.ResetMaintenanceMode, &out.ResetMaintenanceMode
+		*out = new(bool)
+		**out = **in
+	}
 	if in.MaintenanceModeTimeSeconds != nil {
 		in, out := &in.MaintenanceModeTimeSeconds, &out.MaintenanceModeTimeSeconds
 		*out = new(int)

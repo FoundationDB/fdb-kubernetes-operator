@@ -136,8 +136,17 @@ func (bounceProcesses) reconcile(_ context.Context, r *FoundationDBClusterReconc
 	}
 
 	hasLock, err := r.takeLock(logger, cluster, fmt.Sprintf("bouncing processes: %v", addresses))
-	if !hasLock || err != nil {
+	if err != nil {
 		return &requeue{curError: err}
+	}
+
+	if hasLock {
+		defer func() {
+			lockErr := r.releaseLock(logger, cluster)
+			if lockErr != nil {
+				logger.Error(lockErr, "could not release lock")
+			}
+		}()
 	}
 
 	if useLocks && upgrading {

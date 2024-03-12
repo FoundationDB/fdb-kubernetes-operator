@@ -45,6 +45,7 @@ var _ = Describe("update_pods", func() {
 		type testCase struct {
 			deletionMode         fdbv1beta2.PodUpdateMode
 			expectedDeletionsCnt int
+			maintenanceZone      string
 			expectedErr          error
 		}
 
@@ -84,9 +85,10 @@ var _ = Describe("update_pods", func() {
 			}
 		})
 
+		// TODO (johscheuer): Add test case for maintenance zone!
 		DescribeTable("should delete the Pods based on the deletion mode",
 			func(input testCase) {
-				_, deletion, err := getPodsToDelete(input.deletionMode, updates)
+				_, deletion, err := getPodsToDelete(input.deletionMode, updates, input.maintenanceZone)
 				if input.expectedErr != nil {
 					Expect(err).To(Equal(input.expectedErr))
 				}
@@ -96,26 +98,31 @@ var _ = Describe("update_pods", func() {
 				testCase{
 					deletionMode:         fdbv1beta2.PodUpdateModeZone,
 					expectedDeletionsCnt: 2,
+					maintenanceZone:      "",
 				}),
 			Entry("With the deletion mode Process Group",
 				testCase{
 					deletionMode:         fdbv1beta2.PodUpdateModeProcessGroup,
 					expectedDeletionsCnt: 1,
+					maintenanceZone:      "",
 				}),
 			Entry("With the deletion mode All",
 				testCase{
 					deletionMode:         fdbv1beta2.PodUpdateModeAll,
 					expectedDeletionsCnt: 4,
+					maintenanceZone:      "",
 				}),
 			Entry("With the deletion mode None",
 				testCase{
 					deletionMode:         fdbv1beta2.PodUpdateModeNone,
 					expectedDeletionsCnt: 0,
+					maintenanceZone:      "",
 				}),
 			Entry("With the deletion mode All",
 				testCase{
 					deletionMode:         "banana",
 					expectedDeletionsCnt: 0,
+					maintenanceZone:      "",
 					expectedErr:          fmt.Errorf("unknown deletion mode: \"banana\""),
 				}),
 		)

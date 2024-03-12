@@ -691,7 +691,6 @@ var _ = Describe("update_status", func() {
 		var cluster *fdbv1beta2.FoundationDBCluster
 		var err error
 		var requeue *requeue
-		var adminClient *mock.AdminClient
 
 		BeforeEach(func() {
 			cluster = internal.CreateDefaultCluster()
@@ -705,9 +704,6 @@ var _ = Describe("update_status", func() {
 			generation, err := reloadCluster(cluster)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(generation).To(Equal(int64(1)))
-
-			adminClient, err = mock.NewMockAdminClientUncast(cluster, k8sClient)
-			Expect(err).NotTo(HaveOccurred())
 		})
 
 		JustBeforeEach(func() {
@@ -746,18 +742,6 @@ var _ = Describe("update_status", func() {
 			})
 		})
 
-		When("testing maintenance mode functionality", func() {
-			When("maintenance mode is on", func() {
-				BeforeEach(func() {
-					Expect(adminClient.SetMaintenanceZone("operator-test-1-storage-4", 0)).NotTo(HaveOccurred())
-				})
-
-				It("status maintenance zone should match", func() {
-					Expect(cluster.Status.MaintenanceModeInfo).To(Equal(fdbv1beta2.MaintenanceModeInfo{ZoneID: "operator-test-1-storage-4"}))
-				})
-			})
-		})
-
 		When("multiple storage server per Pod are used", func() {
 			BeforeEach(func() {
 				cluster.Spec.StorageServersPerPod = 2
@@ -770,9 +754,6 @@ var _ = Describe("update_status", func() {
 				generation, err := reloadCluster(cluster)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(generation).To(Equal(int64(2)))
-
-				adminClient, err = mock.NewMockAdminClientUncast(cluster, k8sClient)
-				Expect(err).NotTo(HaveOccurred())
 			})
 
 			It("should set the fault domain for all process groups", func() {

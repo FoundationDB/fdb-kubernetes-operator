@@ -21,11 +21,14 @@
 package fdbclient
 
 import (
+	"bytes"
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbstatus"
+	"github.com/apple/foundationdb/bindings/go/src/fdb"
 	"os"
 	"os/exec"
 	"path"
@@ -705,4 +708,117 @@ func (client *cliAdminClient) getTimeout() time.Duration {
 	}
 
 	return client.timeout
+}
+
+// GetProcessesUnderMaintenance will return all process groups that are currently stored to be under maintenance.
+// The result is a map with the process group ID as key and the start of the maintenance as value.
+func (client *cliAdminClient) GetProcessesUnderMaintenance() (map[fdbv1beta2.ProcessGroupID]int64, error) {
+	db, err := getFDBDatabase(client.Cluster)
+	if err != nil {
+		return nil, err
+	}
+
+	maintenancePrefix := client.Cluster.GetMaintenancePrefix() + "/"
+
+	maintenanceProcesses, err := db.Transact(func(tr fdb.Transaction) (interface{}, error) {
+		err := tr.Options().SetReadSystemKeys()
+		if err != nil {
+			return nil, err
+		}
+
+		keyRange, err := fdb.PrefixRange([]byte(client.Cluster.GetMaintenancePrefix()))
+		if err != nil {
+			return nil, err
+		}
+
+		results := tr.GetRange(keyRange, fdb.RangeOptions{}).GetSliceOrPanic()
+		upgrades := make(map[fdbv1beta2.ProcessGroupID]int64, len(results))
+		for _, result := range results {
+			var timestamp int64
+			parseErr := binary.Read(bytes.NewBuffer(result.Value), binary.LittleEndian, &timestamp)
+			if parseErr != nil {
+				client.log.Error(parseErr, "could not parse timestamp", "byteValue", string(result.Value))
+				// TODO anything better to do here?
+				continue
+			}
+
+			resStr := result.Key.String()
+			idx := strings.LastIndex(resStr, "/")
+			processGroupID := resStr[idx+1:]
+			client.log.Info("found instance under maintenance", "result", resStr, "maintenancePrefix", maintenancePrefix, "processGroupID", processGroupID)
+
+			upgrades[fdbv1beta2.ProcessGroupID(processGroupID)] = timestamp
+		}
+
+		return upgrades, nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	processesUnderMaintenance, isMap := maintenanceProcesses.(map[fdbv1beta2.ProcessGroupID]int64)
+	if !isMap {
+		return nil, fmt.Errorf("invalid return value from transaction in GetProcessesUnderMaintenance: %v", maintenanceProcesses)
+	}
+
+	return processesUnderMaintenance, nil
+}
+
+// RemoveProcessesUnderMaintenance will remove the provided process groups from the list of processes that
+// are planned to be taken down for maintenance.
+func (client *cliAdminClient) RemoveProcessesUnderMaintenance(processGroupIDs []fdbv1beta2.ProcessGroupID) error {
+	db, err := getFDBDatabase(client.Cluster)
+	if err != nil {
+		return err
+	}
+
+	_, err = db.Transact(func(tr fdb.Transaction) (interface{}, error) {
+		err := tr.Options().SetAccessSystemKeys()
+		if err != nil {
+			return nil, err
+		}
+
+		for _, processGroupID := range processGroupIDs {
+			strKey := fmt.Sprintf("%s/%s", client.Cluster.GetMaintenancePrefix(), processGroupID)
+			client.log.V(1).Info("removing process from maintenance list", "processGroupID", processGroupID, "key", strKey)
+			tr.Clear(fdb.Key(strKey))
+		}
+
+		return nil, nil
+	})
+
+	return err
+}
+
+// SetProcessesUnderMaintenance will add the provided process groups to the list of processes that will be taken
+// down for maintenance. The value will be the provided time stamp.
+func (client *cliAdminClient) SetProcessesUnderMaintenance(processGroupIDs []fdbv1beta2.ProcessGroupID, timestamp int64) error {
+	db, err := getFDBDatabase(client.Cluster)
+	if err != nil {
+		return err
+	}
+
+	timestampByteBuffer := new(bytes.Buffer)
+	err = binary.Write(timestampByteBuffer, binary.LittleEndian, timestamp)
+	if err != nil {
+		return err
+	}
+
+	_, err = db.Transact(func(tr fdb.Transaction) (interface{}, error) {
+		err := tr.Options().SetAccessSystemKeys()
+		if err != nil {
+			return nil, err
+		}
+
+		for _, processGroupID := range processGroupIDs {
+			strKey := fmt.Sprintf("%s/%s", client.Cluster.GetMaintenancePrefix(), processGroupID)
+			client.log.V(1).Info("adding process to maintenance list", "processGroupID", processGroupID, "timestamp", timestamp, "key", strKey)
+			tr.Set(fdb.Key(strKey), timestampByteBuffer.Bytes())
+		}
+
+		return nil, nil
+	})
+
+	return err
 }

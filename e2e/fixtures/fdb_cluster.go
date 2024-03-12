@@ -24,6 +24,7 @@ import (
 	ctx "context"
 	"fmt"
 	"golang.org/x/sync/errgroup"
+	"k8s.io/apimachinery/pkg/types"
 	"log"
 	"math"
 	"strconv"
@@ -1363,4 +1364,16 @@ func (fdbCluster *FdbCluster) EnsureTeamTrackersHaveMinReplicas() {
 
 		return minReplicas
 	}).WithTimeout(1 * time.Minute).WithPolling(1 * time.Second).MustPassRepeatedly(5).Should(gomega.BeNumerically(">=", desiredFaultTolerance))
+}
+
+// GetListOfUIDsFromVolumeClaims will return of list of UIDs for the current volume claims for the provided processes class.
+func (fdbCluster *FdbCluster) GetListOfUIDsFromVolumeClaims(processClass fdbv1beta2.ProcessClass) []types.UID {
+	volumesClaims := fdbCluster.GetVolumeClaimsForProcesses(processClass)
+
+	uids := make([]types.UID, 0, len(volumesClaims.Items))
+	for _, volumeClaim := range volumesClaims.Items {
+		uids = append(uids, volumeClaim.ObjectMeta.GetObjectMeta().GetUID())
+	}
+
+	return uids
 }

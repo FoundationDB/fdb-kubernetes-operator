@@ -30,7 +30,10 @@ This cluster will be used for all tests.
 */
 
 import (
+	"bytes"
+	"encoding/binary"
 	"fmt"
+	"k8s.io/apimachinery/pkg/types"
 	"log"
 	"math"
 	"math/rand"
@@ -77,7 +80,7 @@ var _ = BeforeSuite(func() {
 		factory.GetClusterOptions()...,
 	)
 
-	// Load some data async into the cluster. We will only block as long as the Job is created.
+	//Load some data async into the cluster. We will only block as long as the Job is created.
 	factory.CreateDataLoaderIfAbsent(fdbCluster)
 
 	// In order to test the robustness of the operator we try to kill the operator Pods every minute.
@@ -503,7 +506,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			)
 			Expect(len(volumeClaims.Items)).To(Equal(len(initialPods.Items)))
 			for _, volumeClaim := range volumeClaims.Items {
-				req := volumeClaim.Spec.Resources.Requests["storage"]
+				req := volumeClaim.Spec.Resources.Requests[corev1.ResourceStorage]
 				Expect((&req).Value()).To(Equal(newSize.Value()))
 			}
 		})
@@ -1332,36 +1335,6 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		})
 	})
 
-	When("setting the maintenance mode", func() {
-		When("maintenance mode is on", func() {
-			BeforeEach(func() {
-				command := fmt.Sprintf("maintenance on %s %s", "operator-test-1-storage-4", "40000")
-				_, _ = fdbCluster.RunFdbCliCommandInOperator(command, false, 40)
-				// Update the annotation of the FoundationDBCluster resource to make sure the operator starts a new
-				// reconciliation loop. Since the maintenance mode is set outside of Kubernetes the operator will
-				// not automatically be triggered to start a reconciliation loop.
-				fdbCluster.ForceReconcile()
-			})
-
-			AfterEach(func() {
-				_, _ = fdbCluster.RunFdbCliCommandInOperator("maintenance off", false, 40)
-			})
-
-			It("should update the machine-readable status and thr FoundationDBCluster Status to contain the maintenance zone", func() {
-				// Make sure the machine-readable status reflects the maintenance mode.
-				Eventually(func() fdbv1beta2.FaultDomain {
-					return fdbCluster.GetStatus().Cluster.MaintenanceZone
-				}).WithPolling(1 * time.Second).WithTimeout(1 * time.Minute).Should(Equal(fdbv1beta2.FaultDomain("operator-test-1-storage-4")))
-				// Make sure the FoundationDBClusterStatus contains the ZoneID.
-				Eventually(func() fdbv1beta2.FaultDomain {
-					return fdbCluster.GetCluster().Status.MaintenanceModeInfo.ZoneID
-				}).WithPolling(1 * time.Second).WithTimeout(1 * time.Minute).Should(Equal(fdbv1beta2.FaultDomain("operator-test-1-storage-4")))
-			})
-		})
-
-		// TODO (johscheuer): https://github.com/FoundationDB/fdb-kubernetes-operator/issues/1775
-	})
-
 	When("a process group has no address assigned and should be removed", func() {
 		var processGroupID fdbv1beta2.ProcessGroupID
 		var podName string
@@ -1592,10 +1565,6 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 			// Make sure we trigger a reconciliation to speed up the test case and allow the operator to detect the maintenance mode is set.
 			fdbCluster.ForceReconcile()
-
-			Eventually(func() fdbv1beta2.FaultDomain {
-				return fdbCluster.GetCluster().Status.MaintenanceModeInfo.ZoneID
-			}).WithTimeout(5 * time.Minute).WithPolling(1 * time.Second).Should(Equal(targetProcessGroup.FaultDomain))
 
 			// Partition the Pod
 			pod := fdbCluster.GetPod(targetProcessGroup.GetPodName(fdbCluster.GetCachedCluster()))
@@ -2018,19 +1987,18 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		})
 
 		When("a change that requires a replacement of all storage pods", func() {
-			var initialVolumeClaims *corev1.PersistentVolumeClaimList
+			var initialVolumeClaims []types.UID
 			var newCPURequest, initialCPURequest resource.Quantity
-			BeforeEach(func() {
 
-				initialVolumeClaims = fdbCluster.GetVolumeClaimsForProcesses(fdbv1beta2.ProcessClassStorage)
+			BeforeEach(func() {
+				initialVolumeClaims = fdbCluster.GetListOfUIDsFromVolumeClaims(fdbv1beta2.ProcessClassStorage)
 				spec := fdbCluster.GetCluster().Spec.DeepCopy()
-				initialCPURequest = spec.Processes[fdbv1beta2.ProcessClassStorage].PodTemplate.Spec.Containers[0].Resources.Requests["cpu"]
+				initialCPURequest = spec.Processes[fdbv1beta2.ProcessClassStorage].PodTemplate.Spec.Containers[0].Resources.Requests[corev1.ResourceCPU]
 				newCPURequest = initialCPURequest.DeepCopy()
 
 				// An increase in request requires a replacement when ReplaceInstancesWhenResourcesChange is set to true
 				newCPURequest.Add(resource.MustParse("1m"))
-				spec.Processes[fdbv1beta2.ProcessClassStorage].PodTemplate.Spec.Containers[0].Resources.Requests["cpu"] = newCPURequest
-
+				spec.Processes[fdbv1beta2.ProcessClassStorage].PodTemplate.Spec.Containers[0].Resources.Requests[corev1.ResourceCPU] = newCPURequest
 				fdbCluster.UpdateClusterSpecWithSpec(spec)
 
 				// Wait for the reconciliation to finish
@@ -2040,7 +2008,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			AfterEach(func() {
 				// Undo the change to cpu requests
 				spec := fdbCluster.GetCluster().Spec.DeepCopy()
-				spec.Processes[fdbv1beta2.ProcessClassStorage].PodTemplate.Spec.Containers[0].Resources.Requests["cpu"] = initialCPURequest
+				spec.Processes[fdbv1beta2.ProcessClassStorage].PodTemplate.Spec.Containers[0].Resources.Requests[corev1.ResourceCPU] = initialCPURequest
 				fdbCluster.UpdateClusterSpecWithSpec(spec)
 
 				// Wait for the reconciliation to finish
@@ -2049,11 +2017,67 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 			It("should replace all storage pods", func() {
 				// A replacement of a storage pod will create a new PVC. After reconciliation the set of PVCs should be completely changed.
-				volumeClaims := fdbCluster.GetVolumeClaimsForProcesses(fdbv1beta2.ProcessClassStorage)
-				for _, initialVolumeClaim := range initialVolumeClaims.Items {
-					Expect(volumeClaims.Items).NotTo(ContainElement(initialVolumeClaim), "PVC should not be present in the new set of PVCs")
-				}
+				Expect(initialVolumeClaims).NotTo(ContainElements(fdbCluster.GetListOfUIDsFromVolumeClaims(fdbv1beta2.ProcessClassStorage)), "PVC should not be present in the new set of PVCs")
 			})
+		})
+	})
+
+	When("the operator is allowed to reset the maintenance zone", func() {
+		var faultDomain fdbv1beta2.FaultDomain
+		var pickedProcessGroup *fdbv1beta2.ProcessGroupStatus
+
+		BeforeEach(func() {
+			// Make sure we reset the previous behaviour.
+			cluster := fdbCluster.GetCluster()
+			spec := cluster.Spec.DeepCopy()
+			// TODO (johscheuer): Once the new CRD is available change this to ResetMaintenanceMode.
+			spec.AutomationOptions.MaintenanceModeOptions.UseMaintenanceModeChecker = pointer.Bool(true)
+			fdbCluster.UpdateClusterSpecWithSpec(spec)
+
+			for _, processGroup := range cluster.Status.ProcessGroups {
+				if processGroup.ProcessClass != fdbv1beta2.ProcessClassStorage {
+					continue
+				}
+
+				pickedProcessGroup = processGroup
+				break
+			}
+
+			Expect(pickedProcessGroup).NotTo(BeNil())
+			faultDomain = pickedProcessGroup.FaultDomain
+
+			timestampByteBuffer := new(bytes.Buffer)
+			Expect(binary.Write(timestampByteBuffer, binary.LittleEndian, time.Now().Unix())).NotTo(HaveOccurred())
+
+			key := cluster.GetMaintenancePrefix() + "/" + string(pickedProcessGroup.ProcessGroupID)
+			cmd := fmt.Sprintf("writemode on; option on ACCESS_SYSTEM_KEYS; set %s %s", fixtures.FdbPrintable([]byte(key)), fixtures.FdbPrintable(timestampByteBuffer.Bytes()))
+			_, _ = fdbCluster.RunFdbCliCommandInOperator(cmd, true, 120)
+			command := fmt.Sprintf("maintenance on %s %s", pickedProcessGroup.FaultDomain, "3600")
+			_, _ = fdbCluster.RunFdbCliCommandInOperator(command, false, 40)
+		})
+
+		It("should reset the maintenance mode once the Pod was restarted", func() {
+			// Make sure the operator sees the maintenance mode.
+			fdbCluster.ForceReconcile()
+			// Make sure the maintenance mode is not reset until the Pod is recreated
+			Consistently(func() fdbv1beta2.FaultDomain {
+				return fdbCluster.GetStatus().Cluster.MaintenanceZone
+			}).WithTimeout(2 * time.Minute).WithPolling(2 * time.Second).Should(Equal(faultDomain))
+
+			log.Println("Delete Pod")
+			factory.DeletePod(fdbCluster.GetPod(pickedProcessGroup.GetPodName(fdbCluster.GetCluster())))
+
+			// Make sure the maintenance mode is reset
+			Eventually(func() fdbv1beta2.FaultDomain {
+				return fdbCluster.GetStatus().Cluster.MaintenanceZone
+			}).WithTimeout(2 * time.Minute).WithPolling(2 * time.Second).MustPassRepeatedly(10).Should(Equal(fdbv1beta2.FaultDomain("")))
+		})
+
+		AfterEach(func() {
+			spec := fdbCluster.GetCluster().Spec.DeepCopy()
+			// TODO (johscheuer): Once the new CRD is available change this to ResetMaintenanceMode.
+			spec.AutomationOptions.MaintenanceModeOptions.UseMaintenanceModeChecker = pointer.Bool(false)
+			fdbCluster.UpdateClusterSpecWithSpec(spec)
 		})
 	})
 })

@@ -69,6 +69,7 @@ type AdminClient struct {
 	Logs                                     []fdbv1beta2.FoundationDBStatusLogInfo
 	mockError                                error
 	LagInfo                                  map[string]fdbv1beta2.FoundationDBStatusLagInfo
+	processesUnderMaintenance                map[fdbv1beta2.ProcessGroupID]int64
 }
 
 // adminClientCache provides a cache of mock admin clients.
@@ -1057,3 +1058,29 @@ func (client *AdminClient) WithValues(_ ...interface{}) {}
 
 // SetTimeout will overwrite the default timeout for interacting the FDB cluster.
 func (client *AdminClient) SetTimeout(_ time.Duration) {}
+
+// GetProcessesUnderMaintenance will return all process groups that are currently stored to be under maintenance.
+// The result is a map with the process group ID as key and the start of the maintenance as value.
+func (client *AdminClient) GetProcessesUnderMaintenance() (map[fdbv1beta2.ProcessGroupID]int64, error) {
+	return client.processesUnderMaintenance, nil
+}
+
+// RemoveProcessesUnderMaintenance will remove the provided process groups from the list of processes that
+// are planned to be taken down for maintenance.
+func (client *AdminClient) RemoveProcessesUnderMaintenance(ids []fdbv1beta2.ProcessGroupID) error {
+	for _, id := range ids {
+		delete(client.processesUnderMaintenance, id)
+	}
+
+	return nil
+}
+
+// SetProcessesUnderMaintenance will add the provided process groups to the list of processes that will be taken
+// down for maintenance. The value will be the provided time stamp.
+func (client *AdminClient) SetProcessesUnderMaintenance(ids []fdbv1beta2.ProcessGroupID, timestamp int64) error {
+	for _, id := range ids {
+		client.processesUnderMaintenance[id] = timestamp
+	}
+
+	return nil
+}

@@ -52,8 +52,6 @@ type updateStatus struct{}
 func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, databaseStatus *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
 	originalStatus := cluster.Status.DeepCopy()
 	clusterStatus := fdbv1beta2.FoundationDBClusterStatus{}
-	// Pass through Maintenance Mode Info as the maintenance_mode_checker reconciler takes care of updating it
-	originalStatus.MaintenanceModeInfo.DeepCopyInto(&clusterStatus.MaintenanceModeInfo)
 	clusterStatus.Generations.Reconciled = cluster.Status.Generations.Reconciled
 
 	// Initialize with the current desired storage servers per Pod
@@ -132,7 +130,6 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 		clusterStatus.Health.Healthy = databaseStatus.Client.DatabaseStatus.Healthy
 		clusterStatus.Health.FullReplication = databaseStatus.Cluster.FullReplication
 		clusterStatus.Health.DataMovementPriority = databaseStatus.Cluster.Data.MovingData.HighestPriority
-		clusterStatus.MaintenanceModeInfo.ZoneID = databaseStatus.Cluster.MaintenanceZone
 	}
 
 	cluster.Status.RequiredAddresses = clusterStatus.RequiredAddresses

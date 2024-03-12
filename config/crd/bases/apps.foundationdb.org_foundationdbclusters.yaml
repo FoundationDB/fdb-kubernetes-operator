@@ -10169,6 +10169,8 @@ spec:
                         type: boolean
                       maintenanceModeTimeSeconds:
                         type: integer
+                      resetMaintenanceMode:
+                        type: boolean
                     type: object
                   maxConcurrentReplacements:
                     minimum: 0
