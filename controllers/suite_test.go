@@ -185,12 +185,14 @@ func setupClusterForTest(cluster *fdbv1beta2.FoundationDBCluster) error {
 
 func createTestClusterReconciler() *FoundationDBClusterReconciler {
 	return &FoundationDBClusterReconciler{
-		Client:                 k8sClient,
-		Log:                    ctrl.Log.WithName("controllers").WithName("FoundationDBCluster"),
-		Recorder:               k8sClient,
-		InSimulation:           true,
-		PodLifecycleManager:    podmanager.StandardPodLifecycleManager{},
-		PodClientProvider:      mockpodclient.NewMockFdbPodClient,
-		DatabaseClientProvider: mock.DatabaseClientProvider{},
+		Client:                       k8sClient,
+		Log:                          ctrl.Log.WithName("controllers").WithName("FoundationDBCluster"),
+		Recorder:                     k8sClient,
+		InSimulation:                 true,
+		PodLifecycleManager:          podmanager.StandardPodLifecycleManager{},
+		PodClientProvider:            mockpodclient.NewMockFdbPodClient,
+		DatabaseClientProvider:       mock.DatabaseClientProvider{},
+		MaintenanceListStaleDuration: 4 * time.Hour,
+		MaintenanceListWaitDuration:  5 * time.Minute,
 	}
 }

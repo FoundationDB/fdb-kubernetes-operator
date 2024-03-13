@@ -266,7 +266,7 @@ func shouldRequeueDueToTerminatingPod(pod *corev1.Pod, cluster *fdbv1beta2.Found
 		!cluster.ProcessGroupIsBeingRemoved(processGroupID)
 }
 
-func getPodsToDelete(deletionMode fdbv1beta2.PodUpdateMode, updates map[string][]*corev1.Pod, currentMaintenanceZone string) (string, []*corev1.Pod, error) {
+func getPodsToDelete(cluster *fdbv1beta2.FoundationDBCluster, deletionMode fdbv1beta2.PodUpdateMode, updates map[string][]*corev1.Pod, currentMaintenanceZone string) (string, []*corev1.Pod, error) {
 	if deletionMode == fdbv1beta2.PodUpdateModeAll {
 		var deletions []*corev1.Pod
 
@@ -291,11 +291,21 @@ func getPodsToDelete(deletionMode fdbv1beta2.PodUpdateMode, updates map[string][
 	if deletionMode == fdbv1beta2.PodUpdateModeZone {
 		// Default case is zone
 		for zone, zoneProcesses := range updates {
-			// If there is currently an active maintenance zone and the zones are not matching skip any further
-			// work.
-			// TODO (johscheuer): Only if the zone contains storage processes, otherwise we can ignore this check.
+			// If there is currently an active maintenance zone and the zones are not matching check if at least one
+			// storage process is part of the zone.
 			if currentMaintenanceZone != "" && zone != currentMaintenanceZone {
-				continue
+				var containsStorage bool
+				for _, pod := range zoneProcesses {
+					if internal.GetProcessClassFromMeta(cluster, pod.ObjectMeta) == fdbv1beta2.ProcessClassStorage {
+						containsStorage = true
+						break
+					}
+				}
+
+				// If at least one storage process is part of the zone we are not allowed to update this zone.
+				if containsStorage {
+					continue
+				}
 			}
 
 			// Fetch the first zone and stop
@@ -321,7 +331,7 @@ func deletePodsForUpdates(ctx context.Context, r *FoundationDBClusterReconciler,
 		currentMaintenanceZone = string(status.Cluster.MaintenanceZone)
 	}
 
-	zone, deletions, err := getPodsToDelete(deletionMode, updates, currentMaintenanceZone)
+	zone, deletions, err := getPodsToDelete(cluster, deletionMode, updates, currentMaintenanceZone)
 	if err != nil {
 		return &requeue{curError: err}
 	}

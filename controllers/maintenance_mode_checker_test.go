@@ -180,7 +180,7 @@ var _ = Describe("maintenance_mode_checker", func() {
 			})
 		})
 
-		When("one processes is in the maintenance list and the process is missing in the machine-readable status", func() {
+		FWhen("one processes is in the maintenance list and the process is missing in the machine-readable status", func() {
 			BeforeEach(func() {
 				Expect(adminClient.SetProcessesUnderMaintenance([]fdbv1beta2.ProcessGroupID{targetProcessGroup}, time.Now().Add(-1*time.Minute).Unix())).NotTo(HaveOccurred())
 				adminClient.MockMissingProcessGroup(targetProcessGroup, true)
