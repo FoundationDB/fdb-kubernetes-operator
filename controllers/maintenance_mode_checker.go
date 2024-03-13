@@ -26,6 +26,7 @@ import (
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal/maintenance"
 	"github.com/go-logr/logr"
+	"time"
 )
 
 // maintenanceModeChecker provides a reconciliation step for clearing the maintenance mode if all the processes in the current maintenance zone have been restarted.
@@ -83,7 +84,7 @@ func (maintenanceModeChecker) reconcile(_ context.Context, r *FoundationDBCluste
 
 	// Some of the processes are not yet restarted.
 	if len(processesToUpdate) > 0 {
-		return &requeue{message: fmt.Sprintf("Waiting for %d processes in zone %s to be updated", len(processesToUpdate), status.Cluster.MaintenanceZone), delayedRequeue: true}
+		return &requeue{message: fmt.Sprintf("Waiting for %d processes in zone %s to be updated", len(processesToUpdate), status.Cluster.MaintenanceZone), delayedRequeue: true, delay: 5 * time.Second}
 	}
 
 	// Make sure we take a lock before we continue.

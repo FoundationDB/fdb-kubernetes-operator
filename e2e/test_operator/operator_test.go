@@ -2064,13 +2064,14 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				return fdbCluster.GetStatus().Cluster.MaintenanceZone
 			}).WithTimeout(2 * time.Minute).WithPolling(2 * time.Second).Should(Equal(faultDomain))
 
-			log.Println("Delete Pod")
-			factory.DeletePod(fdbCluster.GetPod(pickedProcessGroup.GetPodName(fdbCluster.GetCluster())))
+			podName := pickedProcessGroup.GetPodName(fdbCluster.GetCluster())
+			log.Println("Delete Pod", podName)
+			factory.DeletePod(fdbCluster.GetPod(podName))
 
 			// Make sure the maintenance mode is reset
 			Eventually(func() fdbv1beta2.FaultDomain {
 				return fdbCluster.GetStatus().Cluster.MaintenanceZone
-			}).WithTimeout(2 * time.Minute).WithPolling(2 * time.Second).MustPassRepeatedly(10).Should(Equal(fdbv1beta2.FaultDomain("")))
+			}).WithTimeout(5 * time.Minute).WithPolling(2 * time.Second).MustPassRepeatedly(10).Should(Equal(fdbv1beta2.FaultDomain("")))
 		})
 
 		AfterEach(func() {
