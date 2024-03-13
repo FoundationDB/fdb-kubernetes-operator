@@ -19,7 +19,7 @@ Some more details are covered in this YouTube video: [Operating FoundationDB on 
 ## Running the Operator
 
 To run the operator in your environment, you need to install the operator and the CRDs:
-*Note* this will install the latest version from main.
+_Note_ this will install the latest version from main.
 For a production setup you should refer to a specific tag.
 
 ```bash
@@ -49,16 +49,6 @@ For more information about using the operator, including detailed discussion of 
 For more information on version compatibility, see our [compatibility guide](docs/compatibility.md).
 
 For more information on the fields you can define on the cluster resource, see the [API documentation](docs/cluster_spec.md).
-
-### Using helm
-
-You can also use helm to install and manage the operator:
-
-```bash
-helm repo add fdb-kubernetes-operator https://foundationdb.github.io/fdb-kubernetes-operator/
-helm repo update
-helm install fdb-kubernetes-operator fdb-kubernetes-operator/fdb-kubernetes-operator
- ```
 
 ## Local Development
 
@@ -106,10 +96,10 @@ The test suite is build in a way that you can run the e2e tests against differen
 
 The makefile supports environment variables that allow you to customize your build. You can use these to push to custom docker repos and deployment platforms.
 
-* `IMG`: This specifies the image that gets built for the operator.
-* `SIDECAR_IMG`: This specifies the image for the foundationdb-kubernetes-sidecar process used in init containers for the operator. This does not change the images used for the FoundationDB clusters, which are specified in the cluster spec.
-* `REMOTE_BUILD`: This can be set to 1 to indicate that you are running the operator in a remote environment, rather than on your local development machine. This will activate a [remote build](config/development/remote_build.yaml) patch, which changes the image pull policy in the operator's pod spec. Setting this also tells the Makefile to push images as part of the `rebuild-operator` command.
-* `FDB_WEBSITE`: This specifies the base path for the website used to download FDB client packages in the docker builds. You can use this to download custom binaries from your own host, provided that your path structure matches the paths expected in the [Dockerfile](Dockerfile).
+- `IMG`: This specifies the image that gets built for the operator.
+- `SIDECAR_IMG`: This specifies the image for the foundationdb-kubernetes-sidecar process used in init containers for the operator. This does not change the images used for the FoundationDB clusters, which are specified in the cluster spec.
+- `REMOTE_BUILD`: This can be set to 1 to indicate that you are running the operator in a remote environment, rather than on your local development machine. This will activate a [remote build](config/development/remote_build.yaml) patch, which changes the image pull policy in the operator's pod spec. Setting this also tells the Makefile to push images as part of the `rebuild-operator` command.
+- `FDB_WEBSITE`: This specifies the base path for the website used to download FDB client packages in the docker builds. You can use this to download custom binaries from your own host, provided that your path structure matches the paths expected in the [Dockerfile](Dockerfile).
 
 ## Known Limitations
 
