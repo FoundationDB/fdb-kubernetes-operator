@@ -3,7 +3,7 @@ name: fdb-operator
 description: A Helm chart for foundationDB operator
 home: https://www.foundationdb.org/
 sources:
-  - https://github.com/FoundationDB/fdb-kubernetes-operator/tree/master/helm/fdb-operator
+  - https://github.com/FoundationDB/fdb-kubernetes-operator/tree/main/charts/fdb-operator
 # A chart can be either an 'application' or a 'library' chart.
 #
 # Application charts are a collection of templates that can be packaged into versioned archives

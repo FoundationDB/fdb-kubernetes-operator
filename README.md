@@ -52,13 +52,9 @@ For more information on the fields you can define on the cluster resource, see t
 
 ### Using helm
 
-You can also use helm to install and manage the operator:
-
-```bash
-helm repo add fdb-kubernetes-operator https://foundationdb.github.io/fdb-kubernetes-operator/
-helm repo update
-helm install fdb-kubernetes-operator fdb-kubernetes-operator/fdb-kubernetes-operator
- ```
+This repository contains a helm chart under [charts](./charts).
+The helm chart is not published and not actively tested by our CI.
+The charts are provided by the community on a best-effort base.
 
 ## Local Development
 
