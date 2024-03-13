@@ -26,10 +26,9 @@ import (
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal/maintenance"
 	"github.com/go-logr/logr"
-	"time"
 )
 
-// maintenanceModeChecker provides a reconciliation step for clearing the maintenance mode if all the pods in the current maintenance zone are up.
+// maintenanceModeChecker provides a reconciliation step for clearing the maintenance mode if all the processes in the current maintenance zone have been restarted.
 type maintenanceModeChecker struct{}
 
 // reconcile runs the reconciler's work.
@@ -64,13 +63,8 @@ func (maintenanceModeChecker) reconcile(_ context.Context, r *FoundationDBCluste
 
 	logger.Info("Cluster in maintenance mode", "zone", status.Cluster.MaintenanceZone, "processesUnderMaintenance", processesUnderMaintenance)
 
-	// If none of the process groups are in the specified zone, that means a different operator or a human operator has set the maintenance mode.
-	if len(processesUnderMaintenance) == 0 {
-		return nil
-	}
-
 	// Get all the maintenance information from the FDB cluster.
-	finishedMaintenance, staleMaintenanceInformation, processesToUpdate := maintenance.GetMaintenanceInformation(logger, status, processesUnderMaintenance, 4*time.Hour)
+	finishedMaintenance, staleMaintenanceInformation, processesToUpdate := maintenance.GetMaintenanceInformation(logger, status, processesUnderMaintenance, r.MaintenanceListStaleDuration, r.MaintenanceListWaitDuration)
 	logger.Info("maintenance information", "finishedMaintenance", finishedMaintenance, "staleMaintenanceInformation", staleMaintenanceInformation, "processesToUpdate", processesToUpdate)
 
 	// We can remove the information for all the finished maintenance and the stale entries.

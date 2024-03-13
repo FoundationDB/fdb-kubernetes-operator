@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2024 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,13 +33,14 @@ var _ = Describe("maintenance", func() {
 		status                      *fdbv1beta2.FoundationDBStatus
 		processesUnderMaintenance   map[fdbv1beta2.ProcessGroupID]int64
 		staleDuration               time.Duration
+		differentZoneWaitDuration   time.Duration
 		finishedMaintenance         []fdbv1beta2.ProcessGroupID
 		staleMaintenanceInformation []fdbv1beta2.ProcessGroupID
 		processesToUpdate           []fdbv1beta2.ProcessGroupID
 	}
 
 	DescribeTable("when getting the maintenance information", func(input maintenanceTest) {
-		finishedMaintenance, staleMaintenanceInformation, processesToUpdate := GetMaintenanceInformation(logr.Discard(), input.status, input.processesUnderMaintenance, input.staleDuration)
+		finishedMaintenance, staleMaintenanceInformation, processesToUpdate := GetMaintenanceInformation(logr.Discard(), input.status, input.processesUnderMaintenance, input.staleDuration, input.differentZoneWaitDuration)
 		Expect(finishedMaintenance).To(ConsistOf(input.finishedMaintenance))
 		Expect(staleMaintenanceInformation).To(ConsistOf(input.staleMaintenanceInformation))
 		Expect(processesToUpdate).To(ConsistOf(input.processesToUpdate))
@@ -213,4 +214,6 @@ var _ = Describe("maintenance", func() {
 			},
 		),
 	)
+
+	// TODO test case for different zone -> differentZoneWaitDuration
 })

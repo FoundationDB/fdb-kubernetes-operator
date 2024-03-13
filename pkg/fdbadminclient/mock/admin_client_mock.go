@@ -92,19 +92,20 @@ func NewMockAdminClientUncast(cluster *fdbv1beta2.FoundationDBCluster, kubeClien
 
 	if cachedClient == nil {
 		cachedClient = &AdminClient{
-			Cluster:               cluster.DeepCopy(),
-			KubeClient:            kubeClient,
-			ExcludedAddresses:     make(map[string]fdbv1beta2.None),
-			ReincludedAddresses:   make(map[string]bool),
-			KilledAddresses:       make(map[string]fdbv1beta2.None),
-			missingProcessGroups:  make(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None),
-			missingLocalities:     make(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None),
-			incorrectCommandLines: make(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None),
-			localityInfo:          make(map[fdbv1beta2.ProcessGroupID]map[string]string),
-			currentCommandLines:   make(map[string]string),
-			Knobs:                 make(map[string]fdbv1beta2.None),
-			VersionProcessGroups:  make(map[fdbv1beta2.ProcessGroupID]string),
-			LagInfo:               make(map[string]fdbv1beta2.FoundationDBStatusLagInfo),
+			Cluster:                   cluster.DeepCopy(),
+			KubeClient:                kubeClient,
+			ExcludedAddresses:         make(map[string]fdbv1beta2.None),
+			ReincludedAddresses:       make(map[string]bool),
+			KilledAddresses:           make(map[string]fdbv1beta2.None),
+			missingProcessGroups:      make(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None),
+			missingLocalities:         make(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None),
+			incorrectCommandLines:     make(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None),
+			localityInfo:              make(map[fdbv1beta2.ProcessGroupID]map[string]string),
+			currentCommandLines:       make(map[string]string),
+			Knobs:                     make(map[string]fdbv1beta2.None),
+			VersionProcessGroups:      make(map[fdbv1beta2.ProcessGroupID]string),
+			LagInfo:                   make(map[string]fdbv1beta2.FoundationDBStatusLagInfo),
+			processesUnderMaintenance: make(map[fdbv1beta2.ProcessGroupID]int64),
 		}
 		adminClientCache[cluster.Name] = cachedClient
 		cachedClient.Backups = make(map[string]fdbv1beta2.FoundationDBBackupStatusBackupDetails)
@@ -1062,7 +1063,14 @@ func (client *AdminClient) SetTimeout(_ time.Duration) {}
 // GetProcessesUnderMaintenance will return all process groups that are currently stored to be under maintenance.
 // The result is a map with the process group ID as key and the start of the maintenance as value.
 func (client *AdminClient) GetProcessesUnderMaintenance() (map[fdbv1beta2.ProcessGroupID]int64, error) {
-	return client.processesUnderMaintenance, nil
+	// We have to create a copy here as the map will be a pointer.
+	res := make(map[fdbv1beta2.ProcessGroupID]int64, len(client.processesUnderMaintenance))
+
+	for processGroupID, timestamp := range client.processesUnderMaintenance {
+		res[processGroupID] = timestamp
+	}
+
+	return res, nil
 }
 
 // RemoveProcessesUnderMaintenance will remove the provided process groups from the list of processes that

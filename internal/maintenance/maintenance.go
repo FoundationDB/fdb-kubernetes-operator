@@ -27,11 +27,10 @@ import (
 )
 
 // GetMaintenanceInformation returns the information about processes that have finished, stale information in the maintenance list and processes that still must be updated.
-func GetMaintenanceInformation(logger logr.Logger, status *fdbv1beta2.FoundationDBStatus, processesUnderMaintenance map[fdbv1beta2.ProcessGroupID]int64, staleDuration time.Duration) ([]fdbv1beta2.ProcessGroupID, []fdbv1beta2.ProcessGroupID, []fdbv1beta2.ProcessGroupID) {
+func GetMaintenanceInformation(logger logr.Logger, status *fdbv1beta2.FoundationDBStatus, processesUnderMaintenance map[fdbv1beta2.ProcessGroupID]int64, staleDuration time.Duration, differentZoneWaitDuration time.Duration) ([]fdbv1beta2.ProcessGroupID, []fdbv1beta2.ProcessGroupID, []fdbv1beta2.ProcessGroupID) {
 	finishedMaintenance := make([]fdbv1beta2.ProcessGroupID, 0, len(processesUnderMaintenance))
 	staleMaintenanceInformation := make([]fdbv1beta2.ProcessGroupID, 0, len(processesUnderMaintenance))
 	processesToUpdate := make([]fdbv1beta2.ProcessGroupID, 0, len(processesUnderMaintenance))
-	processesInDifferentZone := map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None{}
 
 	// If the provided status is empty return all processes to be updated.
 	if status == nil {
@@ -44,6 +43,12 @@ func GetMaintenanceInformation(logger logr.Logger, status *fdbv1beta2.Foundation
 	}
 
 	logger.Info("start evaluation", "processesUnderMaintenance", processesUnderMaintenance)
+
+	// If no processes are in the maintenance list, we can skip further checks and we don't have to iterate over
+	// all processes in the cluster.
+	if len(processesUnderMaintenance) == 0 {
+		return nil, nil, nil
+	}
 
 	for _, process := range status.Cluster.Processes {
 		// Only storage processes are affected by the maintenance mode.
@@ -72,21 +77,37 @@ func GetMaintenanceInformation(logger logr.Logger, status *fdbv1beta2.Foundation
 		}
 
 		logger.Info("found process under maintenance", "processGroupID", processGroupID, "zoneID", zoneID, "currentMaintenance", status.Cluster.MaintenanceZone, "startTime", startTime.String(), "maintenanceStartTime", maintenanceStartTime.String(), "UptimeSeconds", process.UptimeSeconds)
+		// Remove the process group ID from processesUnderMaintenance as we have found a processes.
+		delete(processesUnderMaintenance, fdbv1beta2.ProcessGroupID(processGroupID))
+
 		// If the zones are not matching those are probably stale entries. Once they are long enough in the list of
 		// entries they will be removed.
 		if zoneID != string(status.Cluster.MaintenanceZone) {
-			processesInDifferentZone[fdbv1beta2.ProcessGroupID(processGroupID)] = fdbv1beta2.None{}
+			// If the entry was recently added, per default less than 5 minutes, we are adding it to the processesToUpdate
+			// list, even if the zones are not matching. We are doing this to reduce the risk of the operator acting on
+			// a stale version of the machine-readable status, e.g. because of CPU throttling or the operator
+			// caching the machine-readable status and taking a long time to reconcile.
+			durationSineMaintenanceStarted := time.Since(maintenanceStartTime)
+			if durationSineMaintenanceStarted < differentZoneWaitDuration {
+				processesToUpdate = append(processesToUpdate, fdbv1beta2.ProcessGroupID(processGroupID))
+			}
+
+			// If the maintenance start time is longer ago than the define stale duration, we can assume that this is
+			// an old entry that should be cleaned up.
+			if durationSineMaintenanceStarted > staleDuration {
+				staleMaintenanceInformation = append(staleMaintenanceInformation, fdbv1beta2.ProcessGroupID(processGroupID))
+			}
+
 			continue
 		}
 
 		// If the start time is after the maintenance start time, we can assume that maintenance for this specific process is done.
 		if startTime.After(maintenanceStartTime) {
 			finishedMaintenance = append(finishedMaintenance, fdbv1beta2.ProcessGroupID(processGroupID))
-		} else {
-			processesToUpdate = append(processesToUpdate, fdbv1beta2.ProcessGroupID(processGroupID))
+			continue
 		}
 
-		delete(processesUnderMaintenance, fdbv1beta2.ProcessGroupID(processGroupID))
+		processesToUpdate = append(processesToUpdate, fdbv1beta2.ProcessGroupID(processGroupID))
 	}
 
 	// After we checked above the processes that are done with their maintenance and the processes that still must be
@@ -97,13 +118,6 @@ func GetMaintenanceInformation(logger logr.Logger, status *fdbv1beta2.Foundation
 		// an old entry that should be cleaned up.
 		if time.Since(time.Unix(maintenanceStart, 0)) > staleDuration {
 			staleMaintenanceInformation = append(staleMaintenanceInformation, processGroupID)
-			continue
-		}
-
-		// This process is in a different zone than the maintenance zone, so we can ignore it here. It will be cleaned
-		// up after some time, but it will not block the reset of the maintenance zone.
-		_, inDifferentZone := processesInDifferentZone[processGroupID]
-		if inDifferentZone {
 			continue
 		}
 

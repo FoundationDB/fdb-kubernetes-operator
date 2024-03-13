@@ -80,6 +80,8 @@ type Options struct {
 	LogFileMinAge                      time.Duration
 	GetTimeout                         time.Duration
 	PostTimeout                        time.Duration
+	MaintenanceListStaleDuration       time.Duration
+	MaintenanceListWaitDuration        time.Duration
 	// LeaseDuration is the duration that non-leader candidates will
 	// wait to force acquire leadership. This is measured against time of
 	// last observed ack. Default is 15 seconds.
@@ -124,6 +126,8 @@ func (o *Options) BindFlags(fs *flag.FlagSet) {
 	fs.DurationVar(&o.LeaseDuration, "leader-election-lease-duration", 15*time.Second, "the duration that non-leader candidates will wait to force acquire leadership.")
 	fs.DurationVar(&o.RenewDeadline, "leader-election-renew-deadline", 10*time.Second, "the duration that the acting controlplane will retry refreshing leadership before giving up.")
 	fs.DurationVar(&o.RetryPeriod, "leader-election-retry-period", 2*time.Second, "the duration the LeaderElector clients should wait between tries of action.")
+	fs.DurationVar(&o.MaintenanceListStaleDuration, "maintenance-list-stale-duration", 4*time.Hour, "the duration after stale entries will be deleted form the maintenance list. Only has an affect if the operator is allowed to reset the maintenance zone.")
+	fs.DurationVar(&o.MaintenanceListWaitDuration, "maintenance-list-wait-duration", 5*time.Minute, "the duration where a process in the maintenance list in a different zone will be assumed to block the maintenance zone reset. Only has an affect if the operator is allowed to reset the maintenance zone.")
 	fs.DurationVar(&o.MinimumRequiredUptimeCCBounce, "minimum-required-uptime-for-cc-bounce", 1*time.Hour, "the minimum required uptime of the cluster before allowing the operator to restart the CC if there is a failed tester process.")
 	fs.BoolVar(&o.EnableRestartIncompatibleProcesses, "enable-restart-incompatible-processes", true, "This flag enables/disables in the operator to restart incompatible fdbserver processes.")
 	fs.BoolVar(&o.ServerSideApply, "server-side-apply", false, "This flag enables server side apply.")
@@ -248,6 +252,8 @@ func StartManager(
 		clusterReconciler.EnableRecoveryState = operatorOpts.EnableRecoveryState
 		clusterReconciler.CacheDatabaseStatusForReconciliationDefault = operatorOpts.CacheDatabaseStatus
 		clusterReconciler.MinimumRequiredUptimeCCBounce = operatorOpts.MinimumRequiredUptimeCCBounce
+		clusterReconciler.MaintenanceListStaleDuration = operatorOpts.MaintenanceListStaleDuration
+		clusterReconciler.MaintenanceListWaitDuration = operatorOpts.MaintenanceListWaitDuration
 
 		if err := clusterReconciler.SetupWithManager(mgr, operatorOpts.MaxConcurrentReconciles, operatorOpts.EnableNodeIndex, *labelSelector, watchedObjects...); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "FoundationDBCluster")

@@ -1186,7 +1186,6 @@ type MaintenanceModeOptions struct {
 	// ResetMaintenanceMode defines whether the operator should reset the maintenance mode if all storage processes
 	// under the maintenance zone have been restarted. The default is false. If UseMaintenanceModeChecker is set to true
 	// the operator will be allowed to reset the maintenance mode.
-	// TODO (johscheuer): Link to documentation!
 	ResetMaintenanceMode *bool `json:"resetMaintenanceMode,omitempty"`
 
 	// MaintenanceModeTimeSeconds provides the duration for the zone to be in maintenance. It will automatically be switched off after the time elapses.

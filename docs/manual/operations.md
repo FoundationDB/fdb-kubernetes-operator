@@ -131,6 +131,18 @@ The operator supports two integration modes for the maintenance mode:
 The 2. case can make sense if you have another system managing the Kubernetes node upgrades or if you have another component that takes care of the recreation of Pods.
 In most cases a user wants to make use of 1. as this offers the same integrations as 2. but also makes sure that the operator sets the maintenance mode before recreating storage Pods.
 
+```yaml
+spec:
+  automationOptions:
+    maintenanceModeOptions:
+      # Enables option 1
+      UseMaintenanceModeChecker: true
+      # Will enable option 2, is implicitly true if UseMaintenanceModeChecker is true
+      resetMaintenanceMode: true
+```
+
+### Internals
+
 When the operator recreates a storage Pod it will first update the list of process groups under maintenance in the FDB cluster by adding the following values:
 
 ```text
