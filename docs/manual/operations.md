@@ -176,6 +176,8 @@ For the non-storage processes, you should consider to cordon the node before tak
 You can use the [kubectl-fdb cordon](../../kubectl-fdb/Readme.md) for that.
 This will make sure that the processes are proactively excluded, instead of waiting for the FDB failure monitor to discover the failure.
 
+_NOTE_: You should always set the processes under maintenance before setting the maintenance mode.
+
 ### Risks and limitations
 
 There are a few risks and limitations to the current implementation:
