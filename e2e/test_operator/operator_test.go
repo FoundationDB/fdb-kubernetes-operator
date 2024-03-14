@@ -2006,17 +2006,17 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 		When("a change that requires a replacement of all storage pods", func() {
 			var initialVolumeClaims *corev1.PersistentVolumeClaimList
-			var newCpuRequest, initialCpuRequest resource.Quantity
+			var newCPURequest, initialCPURequest resource.Quantity
 			BeforeEach(func() {
 
 				initialVolumeClaims = fdbCluster.GetVolumeClaimsForProcesses(fdbv1beta2.ProcessClassStorage)
 				spec := fdbCluster.GetCluster().Spec.DeepCopy()
-				initialCpuRequest = spec.Processes[fdbv1beta2.ProcessClassStorage].PodTemplate.Spec.Containers[0].Resources.Requests["cpu"]
-				newCpuRequest = initialCpuRequest.DeepCopy()
+				initialCPURequest = spec.Processes[fdbv1beta2.ProcessClassStorage].PodTemplate.Spec.Containers[0].Resources.Requests["cpu"]
+				newCPURequest = initialCPURequest.DeepCopy()
 
 				// An increase in request requires a replacement when ReplaceInstancesWhenResourcesChange is set to true
-				newCpuRequest.Add(resource.MustParse("1m"))
-				spec.Processes[fdbv1beta2.ProcessClassStorage].PodTemplate.Spec.Containers[0].Resources.Requests["cpu"] = newCpuRequest
+				newCPURequest.Add(resource.MustParse("1m"))
+				spec.Processes[fdbv1beta2.ProcessClassStorage].PodTemplate.Spec.Containers[0].Resources.Requests["cpu"] = newCPURequest
 
 				fdbCluster.UpdateClusterSpecWithSpec(spec)
 
@@ -2027,7 +2027,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			AfterEach(func() {
 				// Undo the change to cpu requests
 				spec := fdbCluster.GetCluster().Spec.DeepCopy()
-				spec.Processes[fdbv1beta2.ProcessClassStorage].PodTemplate.Spec.Containers[0].Resources.Requests["cpu"] = initialCpuRequest
+				spec.Processes[fdbv1beta2.ProcessClassStorage].PodTemplate.Spec.Containers[0].Resources.Requests["cpu"] = initialCPURequest
 				fdbCluster.UpdateClusterSpecWithSpec(spec)
 
 				// Wait for the reconciliation to finish
