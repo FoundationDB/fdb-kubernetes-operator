@@ -1976,4 +1976,71 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			})
 		})
 	})
+
+	When("maxConcurrentReplacements is lower than the number of storage pods", func() {
+		var initialConcurrentReplacements *int
+		var initialPodUpdateStrategy fdbv1beta2.PodUpdateStrategy
+		var initialReplaceInstancesWhenResourcesChange *bool
+
+		BeforeEach(func() {
+			// Remember the current settings before updating the spec
+			initialConcurrentReplacements = fdbCluster.GetCluster().Spec.AutomationOptions.MaxConcurrentReplacements
+			initialPodUpdateStrategy = fdbCluster.GetClusterSpec().AutomationOptions.PodUpdateStrategy
+			initialReplaceInstancesWhenResourcesChange = fdbCluster.GetCluster().Spec.ReplaceInstancesWhenResourcesChange
+			// Allow to replacement of 3 pods concurrently, as there are 5 storage servers, there need to be at least 2 rounds of replacements to replace all.
+			spec := fdbCluster.GetCluster().Spec.DeepCopy()
+			spec.AutomationOptions.MaxConcurrentReplacements = pointer.Int(3)
+			spec.AutomationOptions.PodUpdateStrategy = fdbv1beta2.PodUpdateStrategyDelete
+			spec.ReplaceInstancesWhenResourcesChange = pointer.Bool(true)
+			fdbCluster.UpdateClusterSpecWithSpec(spec)
+		})
+
+		AfterEach(func() {
+			// Reset to the initial settings
+			spec := fdbCluster.GetCluster().Spec.DeepCopy()
+			spec.AutomationOptions.MaxConcurrentReplacements = initialConcurrentReplacements
+			spec.AutomationOptions.PodUpdateStrategy = initialPodUpdateStrategy
+			spec.ReplaceInstancesWhenResourcesChange = initialReplaceInstancesWhenResourcesChange
+			fdbCluster.UpdateClusterSpecWithSpec(spec)
+		})
+
+		When("a change that requires a replacement of all storage pods", func() {
+			var initialVolumeClaims *corev1.PersistentVolumeClaimList
+			var newCpuRequest, initialCpuRequest resource.Quantity
+			BeforeEach(func() {
+
+				initialVolumeClaims = fdbCluster.GetVolumeClaimsForProcesses(fdbv1beta2.ProcessClassStorage)
+				spec := fdbCluster.GetCluster().Spec.DeepCopy()
+				initialCpuRequest = spec.Processes[fdbv1beta2.ProcessClassStorage].PodTemplate.Spec.Containers[0].Resources.Requests["cpu"]
+				newCpuRequest = initialCpuRequest.DeepCopy()
+
+				// An increase in request requires a replacement when ReplaceInstancesWhenResourcesChange is set to true
+				newCpuRequest.Add(resource.MustParse("1m"))
+				spec.Processes[fdbv1beta2.ProcessClassStorage].PodTemplate.Spec.Containers[0].Resources.Requests["cpu"] = newCpuRequest
+
+				fdbCluster.UpdateClusterSpecWithSpec(spec)
+
+				// Wait for the reconciliation to finish
+				Expect(fdbCluster.WaitForReconciliation()).NotTo(HaveOccurred())
+			})
+
+			AfterEach(func() {
+				// Undo the change to cpu requests
+				spec := fdbCluster.GetCluster().Spec.DeepCopy()
+				spec.Processes[fdbv1beta2.ProcessClassStorage].PodTemplate.Spec.Containers[0].Resources.Requests["cpu"] = initialCpuRequest
+				fdbCluster.UpdateClusterSpecWithSpec(spec)
+
+				// Wait for the reconciliation to finish
+				Expect(fdbCluster.WaitForReconciliation()).NotTo(HaveOccurred())
+			})
+
+			It("should replace all storage pods", func() {
+				// A replacement of a storage pod will create a new PVC. After reconciliation the set of PVCs should be completely changed.
+				volumeClaims := fdbCluster.GetVolumeClaimsForProcesses(fdbv1beta2.ProcessClassStorage)
+				for _, initialVolumeClaim := range initialVolumeClaims.Items {
+					Expect(volumeClaims.Items).NotTo(ContainElement(initialVolumeClaim), "PVC should not be present in the new set of PVCs")
+				}
+			})
+		})
+	})
 })
