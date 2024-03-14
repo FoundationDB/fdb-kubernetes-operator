@@ -504,8 +504,61 @@ func CanSafelyBounceProcesses(currentUptime float64, minimumUptime float64, stat
 
 // CanSafelyExcludeProcesses currently performs the DefaultSafetyChecks. In the future this check might be extended to
 // perform more specific checks.
+// Deprecated: Make use of CanSafelyExcludeOrIncludeProcesses
 func CanSafelyExcludeProcesses(status *fdbv1beta2.FoundationDBStatus) error {
 	return DefaultSafetyChecks(status, 10, "exclude processes")
+}
+
+func canSafelyExcludeOrIncludeProcesses(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, inclusion bool, minRecoverySeconds float64) error {
+	action := "exclude processes"
+	if inclusion {
+		action = "include processes"
+	}
+
+	err := DefaultSafetyChecks(status, 10, action)
+	if err != nil {
+		return err
+	}
+
+	version, err := fdbv1beta2.ParseFdbVersion(cluster.GetRunningVersion())
+	if err != nil {
+		return err
+	}
+
+	if version.SupportsRecoveryState() {
+		// We want to make sure that the cluster is recovered for some time. This should protect the cluster from
+		// getting into a bad state as a result of frequent inclusions/exclusions.
+		if status.Cluster.RecoveryState.SecondsSinceLastRecovered < minRecoverySeconds {
+			return fmt.Errorf("cannot: %s, clusters last recovery was %0.2f seconds ago, wait until the last recovery was %0.0f seconds ago", action, status.Cluster.RecoveryState.SecondsSinceLastRecovered, minRecoverySeconds)
+		}
+	}
+
+	// In the case of inclusions we also want to make sure we only change the list of excluded server if the cluster is
+	// in a good shape, otherwise the CC might crash: https://github.com/apple/foundationdb/blob/release-7.1/fdbserver/ClusterRecovery.actor.cpp#L575-L579
+	if inclusion {
+		if !recoveryStateAllowsInclusion(status) {
+			return fmt.Errorf("cannot: %s, cluster recovery state is %s, but it must be \"fully_recovered\" or \"all_logs_recruited\"", action, status.Cluster.RecoveryState.Name)
+		}
+	}
+
+	return nil
+}
+
+// See: https://github.com/apple/foundationdb/blob/release-7.1/fdbserver/ClusterRecovery.actor.cpp#L575-L579
+func recoveryStateAllowsInclusion(status *fdbv1beta2.FoundationDBStatus) bool {
+	return status.Cluster.RecoveryState.Name == "fully_recovered" || status.Cluster.RecoveryState.Name == "all_logs_recruited"
+}
+
+// CanSafelyExcludeProcessesWithRecoveryState currently performs the DefaultSafetyChecks and makes sure that the last recovery was at least 60 seconds ago.
+// In the future this check might be extended to perform more specific checks.
+func CanSafelyExcludeProcessesWithRecoveryState(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) error {
+	return canSafelyExcludeOrIncludeProcesses(cluster, status, false, 120.0)
+}
+
+// CanSafelyIncludeProcesses currently performs the DefaultSafetyChecks and makes sure that the last recovery was at least 60 seconds ago.
+// In the future this check might be extended to perform more specific checks.
+func CanSafelyIncludeProcesses(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) error {
+	return canSafelyExcludeOrIncludeProcesses(cluster, status, true, 300.0)
 }
 
 // ConfigurationChangeAllowed will return an error if the configuration change is assumed to be unsafe. If no error

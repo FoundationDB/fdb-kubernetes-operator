@@ -1813,8 +1813,8 @@ var _ = Describe("status_checks", func() {
 
 	When("performing the exclude safety check.", func() {
 		DescribeTable("should return if the safety check is satisfied or not",
-			func(status *fdbv1beta2.FoundationDBStatus, expected error) {
-				err := CanSafelyExcludeProcesses(status)
+			func(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, expected error) {
+				err := CanSafelyExcludeProcessesWithRecoveryState(cluster, status)
 				if expected == nil {
 					Expect(err).To(BeNil())
 				} else {
@@ -1823,6 +1823,11 @@ var _ = Describe("status_checks", func() {
 				}
 			},
 			Entry("cluster is fully reconciled",
+				&fdbv1beta2.FoundationDBCluster{
+					Status: fdbv1beta2.FoundationDBClusterStatus{
+						RunningVersion: "7.1.20",
+					},
+				},
 				&fdbv1beta2.FoundationDBStatus{
 					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
 						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
@@ -1838,6 +1843,11 @@ var _ = Describe("status_checks", func() {
 				nil,
 			),
 			Entry("cluster is unavailable",
+				&fdbv1beta2.FoundationDBCluster{
+					Status: fdbv1beta2.FoundationDBClusterStatus{
+						RunningVersion: "7.1.20",
+					},
+				},
 				&fdbv1beta2.FoundationDBStatus{
 					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
 						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
@@ -1853,6 +1863,11 @@ var _ = Describe("status_checks", func() {
 				fmt.Errorf("cluster is unavailable, cannot exclude processes"),
 			),
 			Entry("cluster has more than one active generations",
+				&fdbv1beta2.FoundationDBCluster{
+					Status: fdbv1beta2.FoundationDBClusterStatus{
+						RunningVersion: "7.1.20",
+					},
+				},
 				&fdbv1beta2.FoundationDBStatus{
 					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
 						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
@@ -1868,6 +1883,11 @@ var _ = Describe("status_checks", func() {
 				nil,
 			),
 			Entry("cluster has more than one active generations",
+				&fdbv1beta2.FoundationDBCluster{
+					Status: fdbv1beta2.FoundationDBClusterStatus{
+						RunningVersion: "7.1.20",
+					},
+				},
 				&fdbv1beta2.FoundationDBStatus{
 					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
 						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
@@ -1881,6 +1901,211 @@ var _ = Describe("status_checks", func() {
 					},
 				},
 				fmt.Errorf("cluster has 11 active generations, but only 10 active generations are allowed to safely exclude processes"),
+			),
+			Entry("cluster's last recovery is 10 seconds ago",
+				&fdbv1beta2.FoundationDBCluster{
+					Status: fdbv1beta2.FoundationDBClusterStatus{
+						RunningVersion: "7.1.57",
+					},
+				},
+				&fdbv1beta2.FoundationDBStatus{
+					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+							Available: true,
+						},
+					},
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						RecoveryState: fdbv1beta2.RecoveryState{
+							ActiveGenerations:         1,
+							SecondsSinceLastRecovered: 10.0,
+						},
+					},
+				},
+				fmt.Errorf("cannot: exclude processes, clusters last recovery was 10.00 seconds ago, wait until the last recovery was 120 seconds ago"),
+			),
+			Entry("cluster's last recovery is 120 seconds ago",
+				&fdbv1beta2.FoundationDBCluster{
+					Status: fdbv1beta2.FoundationDBClusterStatus{
+						RunningVersion: "7.1.57",
+					},
+				},
+				&fdbv1beta2.FoundationDBStatus{
+					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+							Available: true,
+						},
+					},
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						RecoveryState: fdbv1beta2.RecoveryState{
+							ActiveGenerations:         1,
+							SecondsSinceLastRecovered: 120.0,
+						},
+					},
+				},
+				nil,
+			),
+		)
+	})
+
+	When("performing the include safety check.", func() {
+		DescribeTable("should return if the safety check is satisfied or not",
+			func(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, expected error) {
+				err := CanSafelyIncludeProcesses(cluster, status)
+				if expected == nil {
+					Expect(err).To(BeNil())
+				} else {
+					Expect(err).To(HaveOccurred())
+					Expect(err).To(Equal(expected))
+				}
+			},
+			Entry("cluster is fully reconciled",
+				&fdbv1beta2.FoundationDBCluster{
+					Status: fdbv1beta2.FoundationDBClusterStatus{
+						RunningVersion: "7.1.20",
+					},
+				},
+				&fdbv1beta2.FoundationDBStatus{
+					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+							Available: true,
+						},
+					},
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						RecoveryState: fdbv1beta2.RecoveryState{
+							ActiveGenerations: 1,
+							Name:              "fully_recovered",
+						},
+					},
+				},
+				nil,
+			),
+			Entry("cluster is not fully reconciled",
+				&fdbv1beta2.FoundationDBCluster{
+					Status: fdbv1beta2.FoundationDBClusterStatus{
+						RunningVersion: "7.1.20",
+					},
+				},
+				&fdbv1beta2.FoundationDBStatus{
+					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+							Available: true,
+						},
+					},
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						RecoveryState: fdbv1beta2.RecoveryState{
+							ActiveGenerations: 1,
+							Name:              "recovery_transaction",
+						},
+					},
+				},
+				fmt.Errorf("cannot: include processes, cluster recovery state is recovery_transaction, but it must be \"fully_recovered\" or \"all_logs_recruited\""),
+			),
+			Entry("cluster is unavailable",
+				&fdbv1beta2.FoundationDBCluster{
+					Status: fdbv1beta2.FoundationDBClusterStatus{
+						RunningVersion: "7.1.20",
+					},
+				},
+				&fdbv1beta2.FoundationDBStatus{
+					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+							Available: false,
+						},
+					},
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						RecoveryState: fdbv1beta2.RecoveryState{
+							ActiveGenerations: 1,
+							Name:              "fully_recovered",
+						},
+					},
+				},
+				fmt.Errorf("cluster is unavailable, cannot include processes"),
+			),
+			Entry("cluster has more than one active generations",
+				&fdbv1beta2.FoundationDBCluster{
+					Status: fdbv1beta2.FoundationDBClusterStatus{
+						RunningVersion: "7.1.20",
+					},
+				},
+				&fdbv1beta2.FoundationDBStatus{
+					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+							Available: true,
+						},
+					},
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						RecoveryState: fdbv1beta2.RecoveryState{
+							ActiveGenerations: 10,
+							Name:              "fully_recovered",
+						},
+					},
+				},
+				nil,
+			),
+			Entry("cluster has more than one active generations",
+				&fdbv1beta2.FoundationDBCluster{
+					Status: fdbv1beta2.FoundationDBClusterStatus{
+						RunningVersion: "7.1.20",
+					},
+				},
+				&fdbv1beta2.FoundationDBStatus{
+					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+							Available: true,
+						},
+					},
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						RecoveryState: fdbv1beta2.RecoveryState{
+							ActiveGenerations: 11,
+							Name:              "fully_recovered",
+						},
+					},
+				},
+				fmt.Errorf("cluster has 11 active generations, but only 10 active generations are allowed to safely include processes"),
+			),
+			Entry("cluster's last recovery is 10 seconds ago",
+				&fdbv1beta2.FoundationDBCluster{
+					Status: fdbv1beta2.FoundationDBClusterStatus{
+						RunningVersion: "7.1.57",
+					},
+				},
+				&fdbv1beta2.FoundationDBStatus{
+					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+							Available: true,
+						},
+					},
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						RecoveryState: fdbv1beta2.RecoveryState{
+							ActiveGenerations:         1,
+							SecondsSinceLastRecovered: 10.0,
+							Name:                      "fully_recovered",
+						},
+					},
+				},
+				fmt.Errorf("cannot: include processes, clusters last recovery was 10.00 seconds ago, wait until the last recovery was 300 seconds ago"),
+			),
+			Entry("cluster's last recovery is 320 seconds ago",
+				&fdbv1beta2.FoundationDBCluster{
+					Status: fdbv1beta2.FoundationDBClusterStatus{
+						RunningVersion: "7.1.57",
+					},
+				},
+				&fdbv1beta2.FoundationDBStatus{
+					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+							Available: true,
+						},
+					},
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						RecoveryState: fdbv1beta2.RecoveryState{
+							ActiveGenerations:         1,
+							SecondsSinceLastRecovered: 320.0,
+							Name:                      "fully_recovered",
+						},
+					},
+				},
+				nil,
 			),
 		)
 	})

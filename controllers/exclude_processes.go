@@ -72,7 +72,7 @@ func (e excludeProcesses) reconcile(_ context.Context, r *FoundationDBClusterRec
 	}
 
 	// Make sure it's safe to exclude processes.
-	err = fdbstatus.CanSafelyExcludeProcesses(status)
+	err = fdbstatus.CanSafelyExcludeProcessesWithRecoveryState(cluster, status)
 	if err != nil {
 		return &requeue{curError: err, delayedRequeue: true}
 	}

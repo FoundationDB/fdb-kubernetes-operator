@@ -252,32 +252,35 @@ func confirmRemoval(ctx context.Context, logger logr.Logger, r *FoundationDBClus
 }
 
 func includeProcessGroup(ctx context.Context, logger logr.Logger, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, removedProcessGroups map[fdbv1beta2.ProcessGroupID]bool, status *fdbv1beta2.FoundationDBStatus) error {
+	fdbProcessesToInclude, err := getProcessesToInclude(logger, cluster, removedProcessGroups, status)
+	if err != nil {
+		return err
+	}
+
+	if len(fdbProcessesToInclude) == 0 {
+		return nil
+	}
+
+	// Make sure it's safe to include processes.
+	err = fdbstatus.CanSafelyIncludeProcesses(cluster, status)
+	if err != nil {
+		return err
+	}
+
 	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
 	if err != nil {
 		return err
 	}
 	defer adminClient.Close()
 
-	fdbProcessesToInclude, err := getProcessesToInclude(logger, cluster, removedProcessGroups, status)
+	r.Recorder.Event(cluster, corev1.EventTypeNormal, "IncludingProcesses", fmt.Sprintf("Including removed processes: %v", fdbProcessesToInclude))
+
+	err = adminClient.IncludeProcesses(fdbProcessesToInclude)
 	if err != nil {
 		return err
 	}
 
-	if len(fdbProcessesToInclude) > 0 {
-		r.Recorder.Event(cluster, corev1.EventTypeNormal, "IncludingProcesses", fmt.Sprintf("Including removed processes: %v", fdbProcessesToInclude))
-
-		err = adminClient.IncludeProcesses(fdbProcessesToInclude)
-		if err != nil {
-			return err
-		}
-
-		err := r.updateOrApply(ctx, cluster)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return r.updateOrApply(ctx, cluster)
 }
 
 func getProcessesToInclude(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, removedProcessGroups map[fdbv1beta2.ProcessGroupID]bool, status *fdbv1beta2.FoundationDBStatus) ([]fdbv1beta2.ProcessAddress, error) {
