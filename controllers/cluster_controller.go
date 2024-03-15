@@ -77,6 +77,16 @@ type FoundationDBClusterReconciler struct {
 	MinimumRecoveryTimeForExclusion float64
 	MaintenanceListStaleDuration                time.Duration
 	MaintenanceListWaitDuration                 time.Duration
+	// MinimumRecoveryTimeForInclusion defines the duration in seconds that a cluster must be up
+	// before new inclusions are allowed. The operator issuing frequent inclusions in a short time window
+	// could cause instability for the cluster as each inclusion will/can cause a recovery. Delaying the inclusion
+	// of deleted process groups is not an issue as all the process groups that have no resources and are marked for
+	// deletion and are fully excluded, will be batched together in a single inclusion call.
+	MinimumRecoveryTimeForInclusion float64
+	// MinimumRecoveryTimeForExclusion defines the duration in seconds that a cluster must be up
+	// before new exclusions are allowed. The operator issuing frequent exclusions in a short time window
+	// could cause instability for the cluster as each exclusion will/can cause a recovery.
+	MinimumRecoveryTimeForExclusion float64
 }
 
 // NewFoundationDBClusterReconciler creates a new FoundationDBClusterReconciler with defaults.
