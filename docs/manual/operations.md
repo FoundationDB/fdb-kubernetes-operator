@@ -143,7 +143,7 @@ spec:
 
 ### Internals
 
-When the operator recreates a storage Pod it will first update the list of process groups under maintenance in the FDB cluster by adding the following values:
+Before the operator recreates a storage Pod it will first update the list of process groups under maintenance in the FDB cluster by adding the following values:
 
 ```text
 \xff\x02/org.foundationdb.kubernetes-operator/maintenance/<process-groupd-id> <unix-timestamp>
@@ -176,7 +176,7 @@ For the non-storage processes, you should consider to cordon the node before tak
 You can use the [kubectl-fdb cordon](../../kubectl-fdb/Readme.md) for that.
 This will make sure that the processes are proactively excluded, instead of waiting for the FDB failure monitor to discover the failure.
 
-_NOTE_: You should always set the processes under maintenance before setting the maintenance mode.
+_NOTE_: You should always set the processes under maintenance before setting the maintenance mode. See [Internals](#internals) for more details.
 
 ### Risks and limitations
 

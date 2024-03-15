@@ -87,14 +87,14 @@ func GetMaintenanceInformation(logger logr.Logger, status *fdbv1beta2.Foundation
 			// list, even if the zones are not matching. We are doing this to reduce the risk of the operator acting on
 			// a stale version of the machine-readable status, e.g. because of CPU throttling or the operator
 			// caching the machine-readable status and taking a long time to reconcile.
-			durationSineMaintenanceStarted := time.Since(maintenanceStartTime)
-			if durationSineMaintenanceStarted < differentZoneWaitDuration {
+			durationSinceMaintenanceStarted := time.Since(maintenanceStartTime)
+			if durationSinceMaintenanceStarted < differentZoneWaitDuration {
 				processesToUpdate = append(processesToUpdate, fdbv1beta2.ProcessGroupID(processGroupID))
 			}
 
-			// If the maintenance start time is longer ago than the define stale duration, we can assume that this is
+			// If the maintenance start time is longer ago than the defined stale duration, we can assume that this is
 			// an old entry that should be cleaned up.
-			if durationSineMaintenanceStarted > staleDuration {
+			if durationSinceMaintenanceStarted > staleDuration {
 				staleMaintenanceInformation = append(staleMaintenanceInformation, fdbv1beta2.ProcessGroupID(processGroupID))
 			}
 
@@ -114,7 +114,7 @@ func GetMaintenanceInformation(logger logr.Logger, status *fdbv1beta2.Foundation
 	// restarted we have to filter out all stale entries. We filter out those stale entries to make sure the entries
 	// are eventually cleaned up.
 	for processGroupID, maintenanceStart := range processesUnderMaintenance {
-		// If the maintenance start time is longer ago than the define stale duration, we can assume that this is
+		// If the maintenance start time is longer ago than the defined stale duration, we can assume that this is
 		// an old entry that should be cleaned up.
 		if time.Since(time.Unix(maintenanceStart, 0)) > staleDuration {
 			staleMaintenanceInformation = append(staleMaintenanceInformation, processGroupID)

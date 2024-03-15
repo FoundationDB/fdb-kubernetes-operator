@@ -1179,13 +1179,16 @@ type LogGroup string
 // MaintenanceModeOptions controls options for placing zones in maintenance mode.
 type MaintenanceModeOptions struct {
 	// UseMaintenanceModeChecker defines whether the operator is allowed to use maintenance mode before updating pods.
-	// If this setting is set to true the operator will set and reset the maintenance mode when updating pods.
+	// If this setting is set to true the operator will set and reset the maintenance mode when updating pods. If this
+	// setting is set to true, then ResetMaintenanceMode will also be enabled to make sure the operator is able to
+	// reset the maintenance mode again.
 	// Default is false.
 	UseMaintenanceModeChecker *bool `json:"UseMaintenanceModeChecker,omitempty"`
 
 	// ResetMaintenanceMode defines whether the operator should reset the maintenance mode if all storage processes
-	// under the maintenance zone have been restarted. The default is false. If UseMaintenanceModeChecker is set to true
-	// the operator will be allowed to reset the maintenance mode.
+	// under the maintenance zone have been restarted. The default is false. For more details see:
+	// https://github.com/FoundationDB/fdb-kubernetes-operator/blob/improve-maintenance-mode-integration/docs/manual/operations.md#maintenance
+	// Default is false.
 	ResetMaintenanceMode *bool `json:"resetMaintenanceMode,omitempty"`
 
 	// MaintenanceModeTimeSeconds provides the duration for the zone to be in maintenance. It will automatically be switched off after the time elapses.
