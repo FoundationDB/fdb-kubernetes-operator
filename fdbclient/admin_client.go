@@ -734,18 +734,19 @@ func (client *cliAdminClient) GetProcessesUnderMaintenance() (map[fdbv1beta2.Pro
 		results := tr.GetRange(keyRange, fdb.RangeOptions{}).GetSliceOrPanic()
 		upgrades := make(map[fdbv1beta2.ProcessGroupID]int64, len(results))
 		for _, result := range results {
-			var timestamp int64
-			parseErr := binary.Read(bytes.NewBuffer(result.Value), binary.LittleEndian, &timestamp)
-			if parseErr != nil {
-				client.log.Error(parseErr, "could not parse timestamp", "byteValue", string(result.Value))
-				// TODO anything better to do here?
-				continue
-			}
-
 			resStr := result.Key.String()
 			idx := strings.LastIndex(resStr, "/")
 			processGroupID := resStr[idx+1:]
 			client.log.Info("found instance under maintenance", "result", resStr, "maintenancePrefix", maintenancePrefix, "processGroupID", processGroupID)
+
+			var timestamp int64
+			parseErr := binary.Read(bytes.NewBuffer(result.Value), binary.LittleEndian, &timestamp)
+			if parseErr != nil {
+				client.log.Error(parseErr, "could not parse timestamp, will remove bad entry", "byteValue", string(result.Value))
+				// We are setting the value here to 0 to make sure the operator is removing the bad entry.
+				upgrades[fdbv1beta2.ProcessGroupID(processGroupID)] = 0
+				continue
+			}
 
 			upgrades[fdbv1beta2.ProcessGroupID(processGroupID)] = timestamp
 		}

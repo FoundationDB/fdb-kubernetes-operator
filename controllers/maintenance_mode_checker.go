@@ -53,7 +53,7 @@ func (maintenanceModeChecker) reconcile(_ context.Context, r *FoundationDBCluste
 
 	// If the cluster is not available we skip any further checks.
 	if !status.Client.DatabaseStatus.Available {
-		return nil
+		return &requeue{message: "cluster is not available", delayedRequeue: true}
 	}
 
 	// Get all the processes that are currently under maintenance based on the information stored in FDB.

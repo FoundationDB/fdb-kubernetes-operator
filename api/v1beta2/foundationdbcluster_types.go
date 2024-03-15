@@ -306,7 +306,7 @@ type FoundationDBClusterStatus struct {
 	Locks LockSystemStatus `json:"locks,omitempty"`
 
 	// MaintenenanceModeInfo contains information regarding process groups in maintenance mode
-	// Deprecated: This setting it not used anymore.
+	// Deprecated: This setting is not used anymore.
 	MaintenanceModeInfo MaintenanceModeInfo `json:"maintenanceModeInfo,omitempty"`
 
 	// DesiredProcessGroups reflects the number of expected running process groups.
@@ -320,14 +320,14 @@ type FoundationDBClusterStatus struct {
 // into maintenance mode by the operator
 type MaintenanceModeInfo struct {
 	// StartTimestamp provides the timestamp when this zone is put into maintenance mode
-	// Deprecated: This setting it not used anymore.
+	// Deprecated: This setting is not used anymore.
 	StartTimestamp *metav1.Time `json:"startTimestamp,omitempty"`
 	// ZoneID that is placed in maintenance mode
-	// Deprecated: This setting it not used anymore.
+	// Deprecated: This setting is not used anymore.
 	ZoneID FaultDomain `json:"zoneID,omitempty"`
 	// ProcessGroups that are placed in maintenance mode
 	// +kubebuilder:validation:MaxItems=200
-	// Deprecated: This setting it not used anymore.
+	// Deprecated: This setting is not used anymore.
 	ProcessGroups []string `json:"processGroups,omitempty"`
 }
 

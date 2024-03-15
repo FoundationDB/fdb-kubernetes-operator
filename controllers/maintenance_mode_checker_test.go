@@ -72,7 +72,7 @@ var _ = Describe("maintenance_mode_checker", func() {
 			})
 		})
 
-		When("one processes is in the maintenance list with a recent timestamp", func() {
+		When("one processes is in the maintenance list with a more recent timestamp than the wait duration defines.", func() {
 			BeforeEach(func() {
 				Expect(adminClient.SetProcessesUnderMaintenance([]fdbv1beta2.ProcessGroupID{targetProcessGroup}, time.Now().Unix())).NotTo(HaveOccurred())
 			})
@@ -147,7 +147,7 @@ var _ = Describe("maintenance_mode_checker", func() {
 				Expect(maintenanceZone).To(BeEmpty())
 			})
 
-			It("shouldn remove the entry from the maintenance list", func() {
+			It("should remove the entry from the maintenance list", func() {
 				processesUnderMaintenance, err := adminClient.GetProcessesUnderMaintenance()
 				Expect(err).NotTo(HaveOccurred())
 				Expect(processesUnderMaintenance).To(BeEmpty())
@@ -258,6 +258,7 @@ var _ = Describe("maintenance_mode_checker", func() {
 			BeforeEach(func() {
 				Expect(adminClient.SetProcessesUnderMaintenance([]fdbv1beta2.ProcessGroupID{targetProcessGroup}, time.Now().Add(-1*time.Minute).Unix())).NotTo(HaveOccurred())
 				Expect(adminClient.SetProcessesUnderMaintenance([]fdbv1beta2.ProcessGroupID{secondStorageProcess}, time.Now().Add(-1*time.Minute).Unix())).NotTo(HaveOccurred())
+				adminClient.MockMissingProcessGroup(secondStorageProcess, true)
 			})
 
 			It("should requeue", func() {
@@ -307,6 +308,8 @@ var _ = Describe("maintenance_mode_checker", func() {
 			})
 		})
 
+		// In this case the process was added long enough ago to not block the removal of the maintenance zone but not
+		// long enough ago to be considered stale.
 		When("one processes for a different zone is in the maintenance list and was added multiple minutes ago", func() {
 			BeforeEach(func() {
 				Expect(adminClient.SetProcessesUnderMaintenance([]fdbv1beta2.ProcessGroupID{secondStorageProcess}, time.Now().Add(-10*time.Minute).Unix())).NotTo(HaveOccurred())
@@ -330,7 +333,7 @@ var _ = Describe("maintenance_mode_checker", func() {
 			})
 		})
 
-		When("one processes for a different zone is in the maintenance list and was added multiple hours ago", func() {
+		When("one processes for a different zone is in the maintenance list and is considered a stale entry", func() {
 			BeforeEach(func() {
 				Expect(adminClient.SetProcessesUnderMaintenance([]fdbv1beta2.ProcessGroupID{secondStorageProcess}, time.Now().Add(-10*time.Hour).Unix())).NotTo(HaveOccurred())
 			})

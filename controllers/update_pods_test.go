@@ -47,7 +47,6 @@ var _ = Describe("update_pods", func() {
 			expectedDeletionsCnt int
 			maintenanceZone      string
 			expectedErr          error
-			cluster              *fdbv1beta2.FoundationDBCluster
 		}
 
 		BeforeEach(func() {
@@ -100,7 +99,7 @@ var _ = Describe("update_pods", func() {
 
 		DescribeTable("should delete the Pods based on the deletion mode",
 			func(input testCase) {
-				_, deletion, err := getPodsToDelete(input.cluster, input.deletionMode, updates, input.maintenanceZone)
+				_, deletion, err := getPodsToDelete(&fdbv1beta2.FoundationDBCluster{}, input.deletionMode, updates, input.maintenanceZone)
 				if input.expectedErr != nil {
 					Expect(err).To(Equal(input.expectedErr))
 				}
@@ -111,42 +110,36 @@ var _ = Describe("update_pods", func() {
 					deletionMode:         fdbv1beta2.PodUpdateModeZone,
 					expectedDeletionsCnt: 2,
 					maintenanceZone:      "",
-					cluster:              &fdbv1beta2.FoundationDBCluster{},
 				}),
 			Entry("With the deletion mode Zone and an active maintenance zone",
 				testCase{
 					deletionMode:         fdbv1beta2.PodUpdateModeZone,
 					expectedDeletionsCnt: 2,
 					maintenanceZone:      "zone1",
-					cluster:              &fdbv1beta2.FoundationDBCluster{},
 				}),
 			Entry("With the deletion mode Zone and an active maintenance zone that doesn't match",
 				testCase{
 					deletionMode:         fdbv1beta2.PodUpdateModeZone,
 					expectedDeletionsCnt: 0,
 					maintenanceZone:      "zone3",
-					cluster:              &fdbv1beta2.FoundationDBCluster{},
 				}),
 			Entry("With the deletion mode Process Group",
 				testCase{
 					deletionMode:         fdbv1beta2.PodUpdateModeProcessGroup,
 					expectedDeletionsCnt: 1,
 					maintenanceZone:      "",
-					cluster:              &fdbv1beta2.FoundationDBCluster{},
 				}),
 			Entry("With the deletion mode All",
 				testCase{
 					deletionMode:         fdbv1beta2.PodUpdateModeAll,
 					expectedDeletionsCnt: 4,
 					maintenanceZone:      "",
-					cluster:              &fdbv1beta2.FoundationDBCluster{},
 				}),
 			Entry("With the deletion mode None",
 				testCase{
 					deletionMode:         fdbv1beta2.PodUpdateModeNone,
 					expectedDeletionsCnt: 0,
 					maintenanceZone:      "",
-					cluster:              &fdbv1beta2.FoundationDBCluster{},
 				}),
 			Entry("With the deletion mode All",
 				testCase{
@@ -154,7 +147,6 @@ var _ = Describe("update_pods", func() {
 					expectedDeletionsCnt: 0,
 					maintenanceZone:      "",
 					expectedErr:          fmt.Errorf("unknown deletion mode: \"banana\""),
-					cluster:              &fdbv1beta2.FoundationDBCluster{},
 				}),
 		)
 	})
