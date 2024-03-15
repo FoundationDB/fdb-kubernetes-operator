@@ -593,4 +593,32 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 		EntryDescription("Upgrade from %[1]s to %[2]s"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
 	)
+
+	DescribeTable("when maintenance feature is enabled",
+		func(beforeVersion string, targetVersion string) {
+			clusterConfig := fixtures.DefaultClusterConfigWithHaMode(fixtures.HaFourZoneSingleSat, false)
+			clusterConfig.UseMaintenanceMode = true
+
+			clusterSetupWithTestConfig(
+				testConfig{
+					beforeVersion:          beforeVersion,
+					enableOperatorPodChaos: false,
+					enableHealthCheck:      true,
+					loadData:               false,
+					clusterConfig:          clusterConfig,
+				},
+			)
+
+			Expect(fdbCluster.GetPrimary().GetCluster().UseMaintenaceMode()).To(BeTrue())
+			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
+			// Verify that the upgrade proceeds
+			fdbCluster.VerifyVersion(targetVersion)
+			// Wait here for the primary satellite to reconcile, this means all Pods have been replaced
+			Expect(fdbCluster.GetPrimarySatellite().WaitForReconciliation()).NotTo(HaveOccurred())
+			// Make sure the cluster has no data loss
+			fdbCluster.GetPrimary().EnsureTeamTrackersHaveMinReplicas()
+		},
+		EntryDescription("Upgrade from %[1]s to %[2]s"),
+		fixtures.GenerateUpgradeTableEntries(testOptions),
+	)
 })

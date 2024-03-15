@@ -23,57 +23,19 @@ package controllers
 import (
 	"context"
 	"fmt"
-
-	"github.com/go-logr/logr"
-
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal/maintenance"
+	"github.com/go-logr/logr"
+	"time"
 )
 
-// maintenanceModeChecker provides a reconciliation step for clearing the maintenance mode if all the pods in the current maintenance zone are up.
+// maintenanceModeChecker provides a reconciliation step for clearing the maintenance mode if all the processes in the current maintenance zone have been restarted.
 type maintenanceModeChecker struct{}
 
 // reconcile runs the reconciler's work.
-func (maintenanceModeChecker) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, _ *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
-	if !cluster.UseMaintenaceMode() {
+func (maintenanceModeChecker) reconcile(_ context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
+	if !cluster.ResetMaintenanceMode() {
 		return nil
-	}
-
-	if cluster.Status.MaintenanceModeInfo.ZoneID == "" {
-		return nil
-	}
-
-	logger.Info("Cluster in maintenance mode", "zone", cluster.Status.MaintenanceModeInfo.ZoneID)
-
-	var processGroupsToUpdate int
-	var hasProcessGroupsInZone bool
-	for _, processGroup := range cluster.Status.ProcessGroups {
-		if processGroup.FaultDomain != cluster.Status.MaintenanceModeInfo.ZoneID {
-			continue
-		}
-
-		hasProcessGroupsInZone = true
-
-		// If a process group has any conditions like IncorrectPodSpec or MissingProcess, that means the update is not
-		// yet done and we have to wait until this process group is in the desired state.
-		if len(processGroup.ProcessGroupConditions) > 0 {
-			processGroupsToUpdate++
-		}
-	}
-
-	// If none of the process groups are in the specified zone, that means a different operator or a human operator has set the maintenance mode.
-	if !hasProcessGroupsInZone {
-		return nil
-	}
-
-	// Some of the pods are not yet up
-	if processGroupsToUpdate > 0 {
-		return &requeue{message: fmt.Sprintf("Waiting for %d process groups in zone %s to be updated", processGroupsToUpdate, cluster.Status.MaintenanceModeInfo.ZoneID), delayedRequeue: true}
-	}
-
-	// All the Pods for this zone under maintenance are up
-	hasLock, err := r.takeLock(logger, cluster, "maintenance mode check")
-	if !hasLock {
-		return &requeue{curError: err}
 	}
 
 	adminClient, err := r.DatabaseClientProvider.GetAdminClient(cluster, r)
@@ -81,13 +43,65 @@ func (maintenanceModeChecker) reconcile(ctx context.Context, r *FoundationDBClus
 		return &requeue{curError: err, delayedRequeue: true}
 	}
 
-	logger.Info("Switching off maintenance mode", "zone", cluster.Status.MaintenanceModeInfo.ZoneID)
-	err = adminClient.ResetMaintenanceMode()
+	// If the status is not cached, we have to fetch it.
+	if status == nil {
+		status, err = adminClient.GetStatus()
+		if err != nil {
+			return &requeue{curError: err}
+		}
+	}
+
+	// If the cluster is not available we skip any further checks.
+	if !status.Client.DatabaseStatus.Available {
+		return &requeue{message: "cluster is not available", delayedRequeue: true}
+	}
+
+	// Get all the processes that are currently under maintenance based on the information stored in FDB.
+	processesUnderMaintenance, err := adminClient.GetProcessesUnderMaintenance()
 	if err != nil {
 		return &requeue{curError: err, delayedRequeue: true}
 	}
-	cluster.Status.MaintenanceModeInfo = fdbv1beta2.MaintenanceModeInfo{}
-	err = r.updateOrApply(ctx, cluster)
+
+	logger.Info("Cluster in maintenance mode", "zone", status.Cluster.MaintenanceZone, "processesUnderMaintenance", processesUnderMaintenance)
+
+	// Get all the maintenance information from the FDB cluster.
+	finishedMaintenance, staleMaintenanceInformation, processesToUpdate := maintenance.GetMaintenanceInformation(logger, status, processesUnderMaintenance, r.MaintenanceListStaleDuration, r.MaintenanceListWaitDuration)
+	logger.Info("maintenance information", "finishedMaintenance", finishedMaintenance, "staleMaintenanceInformation", staleMaintenanceInformation, "processesToUpdate", processesToUpdate)
+
+	// We can remove the information for all the finished maintenance and the stale entries.
+	if len(finishedMaintenance) > 0 || len(staleMaintenanceInformation) > 0 {
+		// Remove all the processes that finished maintenance and all the stale information.
+		err = adminClient.RemoveProcessesUnderMaintenance(append(finishedMaintenance, staleMaintenanceInformation...))
+		if err != nil {
+			return &requeue{curError: err, delayedRequeue: true}
+		}
+	}
+
+	// If no maintenance zone is active, we can ignore all further steps to reset the maintenance zone.
+	if status.Cluster.MaintenanceZone == "" {
+		return nil
+	}
+
+	// Some of the processes are not yet restarted.
+	if len(processesToUpdate) > 0 {
+		return &requeue{message: fmt.Sprintf("Waiting for %d processes in zone %s to be updated", len(processesToUpdate), status.Cluster.MaintenanceZone), delayedRequeue: true, delay: 5 * time.Second}
+	}
+
+	// Make sure we take a lock before we continue.
+	hasLock, err := r.takeLock(logger, cluster, "maintenance mode check")
+	if !hasLock {
+		return &requeue{curError: err}
+	}
+
+	defer func() {
+		lockErr := r.releaseLock(logger, cluster)
+		if lockErr != nil {
+			logger.Error(lockErr, "could not release lock")
+		}
+	}()
+
+	logger.Info("Switching off maintenance mode", "zone", status.Cluster.MaintenanceZone)
+	err = adminClient.ResetMaintenanceMode()
 	if err != nil {
 		return &requeue{curError: err, delayedRequeue: true}
 	}

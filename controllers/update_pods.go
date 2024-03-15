@@ -23,6 +23,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
 	"time"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbstatus"
@@ -62,11 +63,6 @@ func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconcile
 		if r.PodLifecycleManager.GetDeletionMode(cluster) == fdbv1beta2.PodUpdateModeNone {
 			r.Recorder.Event(cluster, corev1.EventTypeNormal,
 				"NeedsPodsDeletion", "Spec require deleting some pods, but deleting pods is disabled")
-			cluster.Status.Generations.NeedsPodDeletion = cluster.ObjectMeta.Generation
-			err = r.updateOrApply(ctx, cluster)
-			if err != nil {
-				logger.Error(err, "Error updating cluster status")
-			}
 			return &requeue{message: "Pod deletion is disabled"}
 		}
 	}
@@ -75,7 +71,21 @@ func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconcile
 		return nil
 	}
 
-	return deletePodsForUpdates(ctx, r, cluster, updates, logger, status)
+	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r.Client)
+	if err != nil {
+		return &requeue{curError: err, delayedRequeue: true}
+	}
+	defer adminClient.Close()
+
+	// If the status is not cached, we have to fetch it.
+	if status == nil {
+		status, err = adminClient.GetStatus()
+		if err != nil {
+			return &requeue{curError: err}
+		}
+	}
+
+	return deletePodsForUpdates(ctx, r, cluster, updates, logger, status, adminClient)
 }
 
 // processGroupIsUnavailable returns true if the process group is unavailable.
@@ -256,7 +266,7 @@ func shouldRequeueDueToTerminatingPod(pod *corev1.Pod, cluster *fdbv1beta2.Found
 		!cluster.ProcessGroupIsBeingRemoved(processGroupID)
 }
 
-func getPodsToDelete(deletionMode fdbv1beta2.PodUpdateMode, updates map[string][]*corev1.Pod) (string, []*corev1.Pod, error) {
+func getPodsToDelete(cluster *fdbv1beta2.FoundationDBCluster, deletionMode fdbv1beta2.PodUpdateMode, updates map[string][]*corev1.Pod, currentMaintenanceZone string) (string, []*corev1.Pod, error) {
 	if deletionMode == fdbv1beta2.PodUpdateModeAll {
 		var deletions []*corev1.Pod
 
@@ -278,13 +288,32 @@ func getPodsToDelete(deletionMode fdbv1beta2.PodUpdateMode, updates map[string][
 		}
 	}
 
-	// TODO(jscheuermann): If a maintenance zone is already set, we should favour Pods in this zone to be updated.
 	if deletionMode == fdbv1beta2.PodUpdateModeZone {
 		// Default case is zone
-		for zoneName, zoneProcesses := range updates {
+		for zone, zoneProcesses := range updates {
+			// If there is currently an active maintenance zone and the zones are not matching check if at least one
+			// storage process is part of the zone.
+			if currentMaintenanceZone != "" && zone != currentMaintenanceZone {
+				var containsStorage bool
+				for _, pod := range zoneProcesses {
+					if internal.GetProcessClassFromMeta(cluster, pod.ObjectMeta) == fdbv1beta2.ProcessClassStorage {
+						containsStorage = true
+						break
+					}
+				}
+
+				// If at least one storage process is part of the zone we are not allowed to update this zone.
+				if containsStorage {
+					continue
+				}
+			}
+
 			// Fetch the first zone and stop
-			return zoneName, zoneProcesses, nil
+			return zone, zoneProcesses, nil
 		}
+
+		// If we are here no zone was matching.
+		return "", nil, nil
 	}
 
 	if deletionMode == fdbv1beta2.PodUpdateModeNone {
@@ -295,18 +324,21 @@ func getPodsToDelete(deletionMode fdbv1beta2.PodUpdateMode, updates map[string][
 }
 
 // deletePodsForUpdates will delete Pods with the specified deletion mode
-func deletePodsForUpdates(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, updates map[string][]*corev1.Pod, logger logr.Logger, status *fdbv1beta2.FoundationDBStatus) *requeue {
+func deletePodsForUpdates(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, updates map[string][]*corev1.Pod, logger logr.Logger, status *fdbv1beta2.FoundationDBStatus, adminClient fdbadminclient.AdminClient) *requeue {
 	deletionMode := r.PodLifecycleManager.GetDeletionMode(cluster)
-	zone, deletions, err := getPodsToDelete(deletionMode, updates)
+	currentMaintenanceZone := "unknown"
+	if status != nil {
+		currentMaintenanceZone = string(status.Cluster.MaintenanceZone)
+	}
+
+	zone, deletions, err := getPodsToDelete(cluster, deletionMode, updates, currentMaintenanceZone)
 	if err != nil {
 		return &requeue{curError: err}
 	}
 
-	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r.Client)
-	if err != nil {
-		return &requeue{curError: err, delayedRequeue: true}
+	if len(deletions) == 0 {
+		return &requeue{message: "Reconciliation requires deleting pods, but cannot delete any Pods", delay: podSchedulingDelayDuration}
 	}
-	defer adminClient.Close()
 
 	newContext := logr.NewContext(ctx, logger)
 	if status != nil {
@@ -328,15 +360,51 @@ func deletePodsForUpdates(ctx context.Context, r *FoundationDBClusterReconciler,
 		if !hasLock {
 			return &requeue{curError: err}
 		}
+
+		defer func() {
+			lockErr := r.releaseLock(logger, cluster)
+			if lockErr != nil {
+				logger.Error(lockErr, "could not release lock")
+			}
+		}()
 	}
 
-	// TODO(jscheuermann): If a maintenance zone is already set, we should allow to delete Pods in this zone.
+	// If the maintenance mode feature is enabled we have to determine if the maintenance mode must be set. This is only
+	// the case if at least one storage process is in the deletions slice.
 	if deletionMode == fdbv1beta2.PodUpdateModeZone && cluster.UseMaintenaceMode() {
-		logger.Info("Setting maintenance mode", "zone", zone)
+		storageProcessIDs := make([]fdbv1beta2.ProcessGroupID, 0, len(deletions))
+		for _, pod := range deletions {
+			if internal.GetProcessClassFromMeta(cluster, pod.ObjectMeta) != fdbv1beta2.ProcessClassStorage {
+				continue
+			}
 
-		err = adminClient.SetMaintenanceZone(zone, cluster.GetMaintenaceModeTimeoutSeconds())
-		if err != nil {
-			return &requeue{curError: err}
+			processGroupID := internal.GetProcessGroupIDFromMeta(cluster, pod.ObjectMeta)
+			if processGroupID == "" {
+				continue
+			}
+
+			storageProcessIDs = append(storageProcessIDs, processGroupID)
+		}
+
+		// Only if at least one storage process is present in the deletions we have to set the maintenance zone.
+		if len(storageProcessIDs) > 0 {
+			// If there is a maintenance zone active that doesn't match the current zone we have to skip any further work.
+			if status.Cluster.MaintenanceZone != "" && status.Cluster.MaintenanceZone != fdbv1beta2.FaultDomain(zone) {
+				return &requeue{message: "Pods need to be recreated", delayedRequeue: true}
+			}
+			logger.Info("Setting maintenance mode", "zone", zone)
+
+			// Update the process information for the maintenance.
+			err = adminClient.SetProcessesUnderMaintenance(storageProcessIDs, time.Now().Unix())
+			if err != nil {
+				return &requeue{curError: err}
+			}
+
+			// Set the maintenance mode here.
+			err = adminClient.SetMaintenanceZone(zone, cluster.GetMaintenaceModeTimeoutSeconds())
+			if err != nil {
+				return &requeue{curError: err}
+			}
 		}
 	}
 

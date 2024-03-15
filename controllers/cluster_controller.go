@@ -63,6 +63,8 @@ type FoundationDBClusterReconciler struct {
 	GetTimeout                                  time.Duration
 	PostTimeout                                 time.Duration
 	MinimumRequiredUptimeCCBounce               time.Duration
+	MaintenanceListStaleDuration                time.Duration
+	MaintenanceListWaitDuration                 time.Duration
 }
 
 // NewFoundationDBClusterReconciler creates a new FoundationDBClusterReconciler with defaults.

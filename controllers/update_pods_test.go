@@ -45,6 +45,7 @@ var _ = Describe("update_pods", func() {
 		type testCase struct {
 			deletionMode         fdbv1beta2.PodUpdateMode
 			expectedDeletionsCnt int
+			maintenanceZone      string
 			expectedErr          error
 		}
 
@@ -61,11 +62,17 @@ var _ = Describe("update_pods", func() {
 					{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "Pod1",
+							Labels: map[string]string{
+								fdbv1beta2.FDBProcessClassLabel: string(fdbv1beta2.ProcessClassStorage),
+							},
 						},
 					},
 					{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "Pod2",
+							Labels: map[string]string{
+								fdbv1beta2.FDBProcessClassLabel: string(fdbv1beta2.ProcessClassStorage),
+							},
 						},
 					},
 				},
@@ -73,11 +80,17 @@ var _ = Describe("update_pods", func() {
 					{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "Pod3",
+							Labels: map[string]string{
+								fdbv1beta2.FDBProcessClassLabel: string(fdbv1beta2.ProcessClassStorage),
+							},
 						},
 					},
 					{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "Pod4",
+							Labels: map[string]string{
+								fdbv1beta2.FDBProcessClassLabel: string(fdbv1beta2.ProcessClassStorage),
+							},
 						},
 					},
 				},
@@ -86,36 +99,53 @@ var _ = Describe("update_pods", func() {
 
 		DescribeTable("should delete the Pods based on the deletion mode",
 			func(input testCase) {
-				_, deletion, err := getPodsToDelete(input.deletionMode, updates)
+				_, deletion, err := getPodsToDelete(&fdbv1beta2.FoundationDBCluster{}, input.deletionMode, updates, input.maintenanceZone)
 				if input.expectedErr != nil {
 					Expect(err).To(Equal(input.expectedErr))
 				}
-				Expect(len(deletion)).To(Equal(input.expectedDeletionsCnt))
+				Expect(deletion).To(HaveLen(input.expectedDeletionsCnt))
 			},
 			Entry("With the deletion mode Zone",
 				testCase{
 					deletionMode:         fdbv1beta2.PodUpdateModeZone,
 					expectedDeletionsCnt: 2,
+					maintenanceZone:      "",
+				}),
+			Entry("With the deletion mode Zone and an active maintenance zone",
+				testCase{
+					deletionMode:         fdbv1beta2.PodUpdateModeZone,
+					expectedDeletionsCnt: 2,
+					maintenanceZone:      "zone1",
+				}),
+			Entry("With the deletion mode Zone and an active maintenance zone that doesn't match",
+				testCase{
+					deletionMode:         fdbv1beta2.PodUpdateModeZone,
+					expectedDeletionsCnt: 0,
+					maintenanceZone:      "zone3",
 				}),
 			Entry("With the deletion mode Process Group",
 				testCase{
 					deletionMode:         fdbv1beta2.PodUpdateModeProcessGroup,
 					expectedDeletionsCnt: 1,
+					maintenanceZone:      "",
 				}),
 			Entry("With the deletion mode All",
 				testCase{
 					deletionMode:         fdbv1beta2.PodUpdateModeAll,
 					expectedDeletionsCnt: 4,
+					maintenanceZone:      "",
 				}),
 			Entry("With the deletion mode None",
 				testCase{
 					deletionMode:         fdbv1beta2.PodUpdateModeNone,
 					expectedDeletionsCnt: 0,
+					maintenanceZone:      "",
 				}),
 			Entry("With the deletion mode All",
 				testCase{
 					deletionMode:         "banana",
 					expectedDeletionsCnt: 0,
+					maintenanceZone:      "",
 					expectedErr:          fmt.Errorf("unknown deletion mode: \"banana\""),
 				}),
 		)

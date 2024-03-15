@@ -21,6 +21,7 @@
 package fixtures
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -431,4 +432,24 @@ func (fdbCluster FdbCluster) GetCommandlineForProcessesPerClass() map[fdbv1beta2
 	}
 
 	return knobs
+}
+
+// FdbPrintable copied from foundationdb bindings/go/src/fdb/fdb.go func Printable(d []byte) string
+// Printable returns a human readable version of a byte array. The bytes that correspond with
+// ASCII printable characters [32-127) are passed through. Other bytes are
+// replaced with \x followed by a two character zero-padded hex code for byte.
+func FdbPrintable(d []byte) string {
+	buf := new(bytes.Buffer)
+	for _, b := range d {
+		if b >= 32 && b < 127 && b != '\\' {
+			buf.WriteByte(b)
+			continue
+		}
+		if b == '\\' {
+			buf.WriteString("\\\\")
+			continue
+		}
+		buf.WriteString(fmt.Sprintf("\\x%02x", b))
+	}
+	return buf.String()
 }

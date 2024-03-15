@@ -81,6 +81,13 @@ func (c changeCoordinators) reconcile(ctx context.Context, r *FoundationDBCluste
 		return &requeue{curError: err, delayedRequeue: true}
 	}
 
+	defer func() {
+		lockErr := r.releaseLock(logger, cluster)
+		if lockErr != nil {
+			logger.Error(lockErr, "could not release lock")
+		}
+	}()
+
 	logger.Info("Changing coordinators")
 	r.Recorder.Event(cluster, corev1.EventTypeNormal, "ChangingCoordinators", "Choosing new coordinators")
 

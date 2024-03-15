@@ -104,6 +104,13 @@ func (u updateDatabaseConfiguration) reconcile(_ context.Context, r *FoundationD
 			if !hasLock {
 				return &requeue{curError: err, delayedRequeue: true}
 			}
+
+			defer func() {
+				lockErr := r.releaseLock(logger, cluster)
+				if lockErr != nil {
+					logger.Error(lockErr, "could not release lock")
+				}
+			}()
 		}
 
 		logger.Info("Configuring database", "current configuration", currentConfiguration, "desired configuration", desiredConfiguration)

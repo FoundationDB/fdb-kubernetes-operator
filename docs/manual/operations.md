@@ -117,6 +117,76 @@ When using a label selector you must ensure that your FDB custom resources like 
 In addition to that you must ensure that you add the required labels in the `resourceLabels` of the `labels` section in the `FoundationDBCluster` otherwise the operator will ignore events from the created resources.
 For more information how to add additional labels to the resources managed by the operator refer to the [Resource Labeling](customization.md#resource-labeling) section.
 
+## Maintenance
+
+FDB has a feature called [maintenance mode](https://github.com/apple/foundationdb/wiki/Maintenance-mode), which allows the user to let FDB know that a set of storage servers are expected to be taken offline.
+Using the maintenance mode brings the benefit that the data movement is not triggered for the zone under maintenance.
+During upgrades or rollouts, this can reduce the unnecessary data movement.
+
+The operator supports two integration modes for the maintenance mode:
+
+1. The operator will set the maintenance mode when at least one storage Pod is taken down to be recreated and the operator will reset the maintenance mode once all processes (Pods) have been restarted.
+2. The operator will only reset the maintenance mode when all processes have been restarted.
+
+The 2. case can make sense if you have another system managing the Kubernetes node upgrades or if you have another component that takes care of the recreation of Pods.
+In most cases a user wants to make use of 1. as this offers the same integrations as 2. but also makes sure that the operator sets the maintenance mode before recreating storage Pods.
+
+```yaml
+spec:
+  automationOptions:
+    maintenanceModeOptions:
+      # Enables option 1
+      UseMaintenanceModeChecker: true
+      # Will enable option 2, is implicitly true if UseMaintenanceModeChecker is true
+      resetMaintenanceMode: true
+```
+
+### Internals
+
+Before the operator recreates a storage Pod it will first update the list of process groups under maintenance in the FDB cluster by adding the following values:
+
+```text
+\xff\x02/org.foundationdb.kubernetes-operator/maintenance/<process-groupd-id> <unix-timestamp>
+```
+
+For every process group that will be taken down the operator will add an entry.
+The `unix-timestamp` will be the current time, or the time when the maintenance is expected to happen.
+A user can modify the prefix by setting a different value as [lockKeyPrefix](../cluster_spec.md#lockoptions), this value will be appended by `/maintenance/`.
+After this the operator sets the maintenance mode for the zone of the storage Pods.
+
+In the [maintenance mode checker](../../controllers/maintenance_mode_checker.go) the operator will evaluate the current list of processes under maintenance, based a range read over the maintenance key space.
+The [GetMaintenanceInformation method](../../internal/maintenance/maintenance.go) will check the status of those entries, there are the possible outcomes for an entry:
+
+1. The process has not yet restarted, either the maintenance action is still pending or is currently in progress (process has not be restarted).
+2. The maintenance on the process is done, this is discovered by a reporting process in the machine-readable status that was restarted after the maintenance timestamp.
+3. The entry is stale, all entries that are in the list for a longer time, default is 4h, will be removed to make sure old entries are removed.
+
+All processes that have finished the maintenance and the stale entries will be removed from that key space.
+Processes that have not yet finished their maintenance will stay untouched.
+If a maintenance zone is active and some processes have not yet finished the operator will requeue a reconciliation and wait until all processes are done.
+If all processes have finished their maintenance and a maintenance zone is active the operator will reset the maintenance zone.
+
+### External integration
+
+Depending on your Kubernetes setup, you might be able to use this integration during Kubernetes node upgrades.
+You can either use the [SetProcessesUnderMaintenance](../../fdbclient/admin_client.go) implementation or do the according fdbcli call.
+If you want to perform the fdbcli call programmatically you can take a look at the [the operator is allowed to reset the maintenance zone](../../e2e/test_operator/operator_test.go) test case.
+
+For the non-storage processes, you should consider to cordon the node before taking it down for maintenance.
+You can use the [kubectl-fdb cordon](../../kubectl-fdb/Readme.md) for that.
+This will make sure that the processes are proactively excluded, instead of waiting for the FDB failure monitor to discover the failure.
+
+_NOTE_: You should always set the processes under maintenance before setting the maintenance mode. See [Internals](#internals) for more details.
+
+### Risks and limitations
+
+There are a few risks and limitations to the current implementation:
+
+1. If a process is crashing/restarting during the maintenance operation it could lead to a case where the operator is releasing the maintenance mode earlier than it should be.
+
+The current risks are limited to releasing the maintenance mode earlier than it should be.
+In this case data-movement will be triggered for the down processes after 60 seconds, the data-movement shouldn't cause any operational issues.
+
 ## Next
 
 You can continue on to the [next section](scaling.md) or go back to the [table of contents](index.md).

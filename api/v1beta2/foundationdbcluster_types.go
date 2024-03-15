@@ -306,6 +306,7 @@ type FoundationDBClusterStatus struct {
 	Locks LockSystemStatus `json:"locks,omitempty"`
 
 	// MaintenenanceModeInfo contains information regarding process groups in maintenance mode
+	// Deprecated: This setting is not used anymore.
 	MaintenanceModeInfo MaintenanceModeInfo `json:"maintenanceModeInfo,omitempty"`
 
 	// DesiredProcessGroups reflects the number of expected running process groups.
@@ -319,13 +320,14 @@ type FoundationDBClusterStatus struct {
 // into maintenance mode by the operator
 type MaintenanceModeInfo struct {
 	// StartTimestamp provides the timestamp when this zone is put into maintenance mode
-	// Deprecated: This setting it not used anymore.
+	// Deprecated: This setting is not used anymore.
 	StartTimestamp *metav1.Time `json:"startTimestamp,omitempty"`
 	// ZoneID that is placed in maintenance mode
+	// Deprecated: This setting is not used anymore.
 	ZoneID FaultDomain `json:"zoneID,omitempty"`
 	// ProcessGroups that are placed in maintenance mode
 	// +kubebuilder:validation:MaxItems=200
-	// Deprecated: This setting it not used anymore.
+	// Deprecated: This setting is not used anymore.
 	ProcessGroups []string `json:"processGroups,omitempty"`
 }
 
@@ -1177,8 +1179,17 @@ type LogGroup string
 // MaintenanceModeOptions controls options for placing zones in maintenance mode.
 type MaintenanceModeOptions struct {
 	// UseMaintenanceModeChecker defines whether the operator is allowed to use maintenance mode before updating pods.
+	// If this setting is set to true the operator will set and reset the maintenance mode when updating pods. If this
+	// setting is set to true, then ResetMaintenanceMode will also be enabled to make sure the operator is able to
+	// reset the maintenance mode again.
 	// Default is false.
 	UseMaintenanceModeChecker *bool `json:"UseMaintenanceModeChecker,omitempty"`
+
+	// ResetMaintenanceMode defines whether the operator should reset the maintenance mode if all storage processes
+	// under the maintenance zone have been restarted. The default is false. For more details see:
+	// https://github.com/FoundationDB/fdb-kubernetes-operator/blob/improve-maintenance-mode-integration/docs/manual/operations.md#maintenance
+	// Default is false.
+	ResetMaintenanceMode *bool `json:"resetMaintenanceMode,omitempty"`
 
 	// MaintenanceModeTimeSeconds provides the duration for the zone to be in maintenance. It will automatically be switched off after the time elapses.
 	// Default is 600.
@@ -1524,6 +1535,13 @@ func (cluster *FoundationDBCluster) CheckReconciliation(log logr.Logger) (bool, 
 					logger.V(1).Info("Pending restart of fdbserver processes", "state", "NeedsBounce")
 					cluster.Status.Generations.NeedsBounce = cluster.ObjectMeta.Generation
 				}
+
+				// If there is at least one Pod with a IncorrectPodSpec condition we have to delete/recreate that Pod.
+				if condition.ProcessGroupConditionType == IncorrectPodSpec && cluster.Status.Generations.NeedsPodDeletion == 0 {
+					logger.V(1).Info("Pending restart of fdbserver processes", "state", "NeedsPodDeletion")
+					cluster.Status.Generations.NeedsPodDeletion = cluster.ObjectMeta.Generation
+				}
+
 				conditions = append(conditions, condition.ProcessGroupConditionType)
 			}
 
@@ -1940,6 +1958,12 @@ func (cluster *FoundationDBCluster) GetLockPrefix() string {
 	}
 
 	return "\xff\x02/org.foundationdb.kubernetes-operator"
+}
+
+// GetMaintenancePrefix returns the prefix that is used by the operator to store and read maintenance related information.
+// The prefix will be the provided GetLockPrefix appended by "maintenance".
+func (cluster *FoundationDBCluster) GetMaintenancePrefix() string {
+	return fmt.Sprintf("%s/maintenance", cluster.GetLockPrefix())
 }
 
 // GetLockDuration determines how long we hold locks for.
@@ -2374,6 +2398,12 @@ func (cluster *FoundationDBCluster) GetWaitBetweenRemovalsSeconds() int {
 // UseMaintenaceMode returns true if UseMaintenanceModeChecker is set.
 func (cluster *FoundationDBCluster) UseMaintenaceMode() bool {
 	return pointer.BoolDeref(cluster.Spec.AutomationOptions.MaintenanceModeOptions.UseMaintenanceModeChecker, false)
+}
+
+// ResetMaintenanceMode returns true if the operator should reset the maintenance mode once all processes in the fault domain
+// have been restarted. This method will return true if either ResetMaintenanceMode or UseMaintenaceMode is set to true.
+func (cluster *FoundationDBCluster) ResetMaintenanceMode() bool {
+	return pointer.BoolDeref(cluster.Spec.AutomationOptions.MaintenanceModeOptions.UseMaintenanceModeChecker, false) || pointer.BoolDeref(cluster.Spec.AutomationOptions.MaintenanceModeOptions.ResetMaintenanceMode, false)
 }
 
 // GetMaintenaceModeTimeoutSeconds returns the timeout for maintenance zone after which it will be reset.
