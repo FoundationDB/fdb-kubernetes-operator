@@ -288,7 +288,7 @@ FoundationDBClusterStatus defines the observed state of FoundationDBCluster
 | imageTypes | ImageTypes defines the kinds of images that are in use in the cluster. If there is more than one value in the slice the reconcile phase is not finished. | [][ImageType](#imagetype) | false |
 | processGroups | ProcessGroups contain information about a process group. This information is used in multiple places to trigger the according action. | []*[ProcessGroupStatus](#processgroupstatus) | false |
 | locks | Locks contains information about the locking system. | [LockSystemStatus](#locksystemstatus) | false |
-| maintenanceModeInfo | MaintenenanceModeInfo contains information regarding process groups in maintenance mode **Deprecated: This setting it not used anymore.** | [MaintenanceModeInfo](#maintenancemodeinfo) | false |
+| maintenanceModeInfo | MaintenenanceModeInfo contains information regarding process groups in maintenance mode **Deprecated: This setting is not used anymore.** | [MaintenanceModeInfo](#maintenancemodeinfo) | false |
 | desiredProcessGroups | DesiredProcessGroups reflects the number of expected running process groups. | int | false |
 | reconciledProcessGroups | ReconciledProcessGroups reflects the number of process groups that have no condition and are not marked for removal. | int | false |
 
@@ -360,9 +360,9 @@ MaintenanceModeInfo contains information regarding the zone and process groups t
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
-| startTimestamp | StartTimestamp provides the timestamp when this zone is put into maintenance mode **Deprecated: This setting it not used anymore.** | *metav1.Time | false |
-| zoneID | ZoneID that is placed in maintenance mode **Deprecated: This setting it not used anymore.** | [FaultDomain](#faultdomain) | false |
-| processGroups | ProcessGroups that are placed in maintenance mode **Deprecated: This setting it not used anymore.** | []string | false |
+| startTimestamp | StartTimestamp provides the timestamp when this zone is put into maintenance mode **Deprecated: This setting is not used anymore.** | *metav1.Time | false |
+| zoneID | ZoneID that is placed in maintenance mode **Deprecated: This setting is not used anymore.** | [FaultDomain](#faultdomain) | false |
+| processGroups | ProcessGroups that are placed in maintenance mode **Deprecated: This setting is not used anymore.** | []string | false |
 
 [Back to TOC](#table-of-contents)
 
