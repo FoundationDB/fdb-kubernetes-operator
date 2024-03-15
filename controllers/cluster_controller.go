@@ -75,6 +75,8 @@ type FoundationDBClusterReconciler struct {
 	// before new exclusions are allowed. The operator issuing frequent exclusions in a short time window
 	// could cause instability for the cluster as each exclusion will/can cause a recovery.
 	MinimumRecoveryTimeForExclusion float64
+	MaintenanceListStaleDuration                time.Duration
+	MaintenanceListWaitDuration                 time.Duration
 }
 
 // NewFoundationDBClusterReconciler creates a new FoundationDBClusterReconciler with defaults.

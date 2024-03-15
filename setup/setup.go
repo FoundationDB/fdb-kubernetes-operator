@@ -260,6 +260,8 @@ func StartManager(
 		clusterReconciler.MaintenanceListWaitDuration = operatorOpts.MaintenanceListWaitDuration
 		clusterReconciler.MinimumRecoveryTimeForInclusion = operatorOpts.MinimumRecoveryTimeForInclusion
 		clusterReconciler.MinimumRecoveryTimeForExclusion = operatorOpts.MinimumRecoveryTimeForExclusion
+		clusterReconciler.MaintenanceListStaleDuration = operatorOpts.MaintenanceListStaleDuration
+		clusterReconciler.MaintenanceListWaitDuration = operatorOpts.MaintenanceListWaitDuration
 
 		if err := clusterReconciler.SetupWithManager(mgr, operatorOpts.MaxConcurrentReconciles, operatorOpts.EnableNodeIndex, *labelSelector, watchedObjects...); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "FoundationDBCluster")
