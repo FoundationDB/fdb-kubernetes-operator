@@ -734,7 +734,8 @@ func usePvc(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.Pro
 			storage = &storageCopy
 		}
 	}
-	return storage != nil || !storage.IsZero()
+	// TODO should be storage != nil, which would make the IsStateful redundant, but this breaks tests so next commit
+	return processClass.IsStateful() && (storage == nil || !storage.IsZero())
 }
 
 // GetPvc builds a persistent volume claim for a FoundationDB process group.
