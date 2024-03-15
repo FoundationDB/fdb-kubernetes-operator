@@ -130,7 +130,7 @@ func GetRemainingMap(logger logr.Logger, adminClient fdbadminclient.AdminClient,
 		return nil, nil
 	}
 
-	// The CanSafelyRemoveFromStatus will run the exclusion command for processes that are either assumed to be fully excluded
+	// The CanSafelyExcludeProcessesWithRecoveryState will run the exclusion command for processes that are either assumed to be fully excluded
 	// and processes that are currently missing from the machine-readable status. If it's not safe to run the exclude command
 	// we will block all further checks and assume that those processes are not yet excluded. This should reduce the risk
 	// of successive recoveries because of the exclusion call.

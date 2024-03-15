@@ -549,13 +549,13 @@ func recoveryStateAllowsInclusion(status *fdbv1beta2.FoundationDBStatus) bool {
 	return status.Cluster.RecoveryState.Name == "fully_recovered" || status.Cluster.RecoveryState.Name == "all_logs_recruited"
 }
 
-// CanSafelyExcludeProcessesWithRecoveryState currently performs the DefaultSafetyChecks and makes sure that the last recovery was at least 60 seconds ago.
+// CanSafelyExcludeProcessesWithRecoveryState currently performs the DefaultSafetyChecks and makes sure that the last recovery was at least `minRecoverySeconds` seconds ago.
 // In the future this check might be extended to perform more specific checks.
 func CanSafelyExcludeProcessesWithRecoveryState(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, minRecoverySeconds float64) error {
 	return canSafelyExcludeOrIncludeProcesses(cluster, status, false, minRecoverySeconds)
 }
 
-// CanSafelyIncludeProcesses currently performs the DefaultSafetyChecks and makes sure that the last recovery was at least 60 seconds ago.
+// CanSafelyIncludeProcesses currently performs the DefaultSafetyChecks and makes sure that the last recovery was at least `minRecoverySeconds` seconds ago.
 // In the future this check might be extended to perform more specific checks.
 func CanSafelyIncludeProcesses(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, minRecoverySeconds float64) error {
 	return canSafelyExcludeOrIncludeProcesses(cluster, status, true, minRecoverySeconds)

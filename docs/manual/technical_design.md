@@ -321,7 +321,7 @@ This performs the following sequence of steps for every pod:
 1. Trigger the deletion of the service.
 1. Confirm that the service is fully terminated.
 1. Include the processes where all resources are deleted.
-1. Remove the process group from the list of process groups.
+1. Remove the process group from the cluster's list of process groups.
 
 If any process group is marked for removal but cannot complete the sequence above, this will requeue reconciliation.
 However, we will always run through this sequence on all of the process groups that need to be removed, getting as far as we can for each one.

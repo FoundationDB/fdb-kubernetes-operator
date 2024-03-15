@@ -2021,7 +2021,7 @@ var _ = Describe("status_checks", func() {
 				},
 				fmt.Errorf("cluster is unavailable, cannot include processes"),
 			),
-			Entry("cluster has more than one active generations",
+			Entry("cluster has ten or less active generations",
 				&fdbv1beta2.FoundationDBCluster{
 					Status: fdbv1beta2.FoundationDBClusterStatus{
 						RunningVersion: "7.1.20",
@@ -2042,7 +2042,7 @@ var _ = Describe("status_checks", func() {
 				},
 				nil,
 			),
-			Entry("cluster has more than one active generations",
+			Entry("cluster has more than ten active generations",
 				&fdbv1beta2.FoundationDBCluster{
 					Status: fdbv1beta2.FoundationDBClusterStatus{
 						RunningVersion: "7.1.20",
