@@ -296,6 +296,7 @@ var _ = Describe("update_pods", func() {
 	When("fetching all Pods that needs an update", func() {
 		var cluster *fdbv1beta2.FoundationDBCluster
 		var updates map[string][]*corev1.Pod
+		var pvcMap map[fdbv1beta2.ProcessGroupID]corev1.PersistentVolumeClaim
 		var expectedError bool
 		var err error
 
@@ -306,10 +307,16 @@ var _ = Describe("update_pods", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result.Requeue).To(BeFalse())
 			Expect(k8sClient.Get(context.TODO(), ctrlClient.ObjectKeyFromObject(cluster), cluster)).NotTo(HaveOccurred())
+
+			allPvcs := &corev1.PersistentVolumeClaimList{}
+			err = clusterReconciler.List(context.TODO(), allPvcs, internal.GetPodListOptions(cluster, "", "")...)
+			Expect(err).NotTo(HaveOccurred())
+
+			pvcMap = internal.CreatePVCMap(cluster, allPvcs)
 		})
 
 		JustBeforeEach(func() {
-			updates, err = getPodsToUpdate(context.Background(), globalControllerLogger, clusterReconciler, cluster)
+			updates, err = getPodsToUpdate(context.Background(), globalControllerLogger, clusterReconciler, cluster, pvcMap)
 			if !expectedError {
 				Expect(err).NotTo(HaveOccurred())
 			} else {
@@ -326,7 +333,7 @@ var _ = Describe("update_pods", func() {
 		When("there is a spec change for all processes", func() {
 			BeforeEach(func() {
 				storageSettings := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
-				storageSettings.PodTemplate.Spec.NodeSelector = map[string]string{"test": "test"}
+				storageSettings.PodTemplate.Spec.Tolerations = []corev1.Toleration{{Key: "test", Operator: "Exists", Effect: "NoSchedule"}}
 				cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral] = storageSettings
 				Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
 			})
@@ -336,6 +343,19 @@ var _ = Describe("update_pods", func() {
 				Expect(updates).To(HaveLen(1))
 			})
 		})
+		When("there is a spec change requiring a removal", func() {
+			BeforeEach(func() {
+				storageSettings := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
+				// Updates to NodeSelector requires a removal
+				storageSettings.PodTemplate.Spec.NodeSelector = map[string]string{"test": "test"}
+				cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral] = storageSettings
+				Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
+			})
+
+			It("should return no updates", func() {
+				Expect(updates).To(HaveLen(0))
+			})
+		})
 
 		When("max zones with unavailable pods is set to 3 and there are two process groups with pods in pending status", func() {
 			BeforeEach(func() {
@@ -343,7 +363,7 @@ var _ = Describe("update_pods", func() {
 				cluster.Spec.MaxZonesWithUnavailablePods = pointer.Int(3)
 				// Update all processes
 				storageSettings := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
-				storageSettings.PodTemplate.Spec.NodeSelector = map[string]string{"test": "test"}
+				storageSettings.PodTemplate.Spec.Tolerations = []corev1.Toleration{{Key: "test", Operator: "Exists", Effect: "NoSchedule"}}
 				cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral] = storageSettings
 				Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
 
@@ -366,7 +386,7 @@ var _ = Describe("update_pods", func() {
 				cluster.Spec.MaxZonesWithUnavailablePods = pointer.Int(2)
 				// Update all processes
 				storageSettings := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
-				storageSettings.PodTemplate.Spec.NodeSelector = map[string]string{"test": "test"}
+				storageSettings.PodTemplate.Spec.Tolerations = []corev1.Toleration{{Key: "test", Operator: "Exists", Effect: "NoSchedule"}}
 				cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral] = storageSettings
 				Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
 
@@ -389,7 +409,7 @@ var _ = Describe("update_pods", func() {
 				cluster.Spec.MaxZonesWithUnavailablePods = pointer.Int(1)
 				// Update all processes
 				storageSettings := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
-				storageSettings.PodTemplate.Spec.NodeSelector = map[string]string{"test": "test"}
+				storageSettings.PodTemplate.Spec.Tolerations = []corev1.Toleration{{Key: "test", Operator: "Exists", Effect: "NoSchedule"}}
 				cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral] = storageSettings
 				Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
 

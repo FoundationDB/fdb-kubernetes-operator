@@ -53,35 +53,11 @@ func ReplaceMisconfiguredProcessGroups(ctx context.Context, podManager podmanage
 			continue
 		}
 
-		// TODO(johscheuer): Fix how we fetch the pvc to make better use of the controller runtime cache.
-		pvc, hasPVC := pvcMap[processGroup.ProcessGroupID]
-		pod, podErr := podManager.GetPod(ctx, client, cluster, processGroup.GetPodName(cluster))
-		if hasPVC {
-			needsPVCRemoval, err := processGroupNeedsRemovalForPVC(cluster, pvc, log, processGroup)
-			if err != nil {
-				return hasReplacements, err
-			}
+		needsRemoval, err := ProcessGroupNeedsRemoval(ctx, podManager, client, log, cluster, processGroup, pvcMap)
 
-			if needsPVCRemoval && podErr == nil {
-				processGroup.MarkForRemoval()
-				hasReplacements = true
-				maxReplacements--
-				continue
-			}
-		} else if processGroup.ProcessClass.IsStateful() {
-			log.V(1).Info("Could not find PVC for process group ID",
-				"processGroupID", processGroup.ProcessGroupID)
-		}
-
-		if podErr != nil {
-			log.V(1).Info("Could not find Pod for process group ID",
-				"processGroupID", processGroup.ProcessGroupID)
-			continue
-		}
-
-		needsRemoval, err := processGroupNeedsRemoval(cluster, pod, processGroup, log)
+		// Do not mark for removal if there is an error
 		if err != nil {
-			return hasReplacements, err
+			continue
 		}
 
 		if needsRemoval {
@@ -94,9 +70,37 @@ func ReplaceMisconfiguredProcessGroups(ctx context.Context, podManager podmanage
 	return hasReplacements, nil
 }
 
+// ProcessGroupNeedsRemoval checks if a process group needs to be removed.
+func ProcessGroupNeedsRemoval(ctx context.Context, podManager podmanager.PodLifecycleManager, client client.Client, log logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, processGroup *fdbv1beta2.ProcessGroupStatus, pvcMap map[fdbv1beta2.ProcessGroupID]corev1.PersistentVolumeClaim) (bool, error) {
+	// TODO(johscheuer): Fix how we fetch the pvc to make better use of the controller runtime cache.
+	pvc, hasPVC := pvcMap[processGroup.ProcessGroupID]
+	pod, podErr := podManager.GetPod(ctx, client, cluster, processGroup.GetPodName(cluster))
+	if hasPVC {
+		needsPVCRemoval, err := processGroupNeedsRemovalForPVC(cluster, pvc, log, processGroup)
+		if err != nil {
+			return false, err
+		}
+
+		if needsPVCRemoval && podErr == nil {
+			return true, nil
+		}
+	} else if processGroup.ProcessClass.IsStateful() {
+		log.V(1).Info("Could not find PVC for process group ID",
+			"processGroupID", processGroup.ProcessGroupID)
+	}
+
+	if podErr != nil {
+		log.V(1).Info("Could not find Pod for process group ID",
+			"processGroupID", processGroup.ProcessGroupID)
+		return false, podErr
+	}
+
+	return processGroupNeedsRemovalForPod(cluster, pod, processGroup, log)
+}
+
 func processGroupNeedsRemovalForPVC(cluster *fdbv1beta2.FoundationDBCluster, pvc corev1.PersistentVolumeClaim, log logr.Logger, processGroup *fdbv1beta2.ProcessGroupStatus) (bool, error) {
 	processGroupID := internal.GetProcessGroupIDFromMeta(cluster, pvc.ObjectMeta)
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "pvc", pvc.Name, "processGroupID", processGroupID, "reconciler", "replaceMisconfiguredProcessGroups")
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "pvc", pvc.Name, "processGroupID", processGroupID)
 
 	ownedByCluster := !cluster.ShouldFilterOnOwnerReferences()
 	if !ownedByCluster {
@@ -135,12 +139,12 @@ func processGroupNeedsRemovalForPVC(cluster *fdbv1beta2.FoundationDBCluster, pvc
 	return false, nil
 }
 
-func processGroupNeedsRemoval(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod, processGroupStatus *fdbv1beta2.ProcessGroupStatus, log logr.Logger) (bool, error) {
+func processGroupNeedsRemovalForPod(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod, processGroupStatus *fdbv1beta2.ProcessGroupStatus, log logr.Logger) (bool, error) {
 	if pod == nil {
 		return false, nil
 	}
 
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", processGroupStatus.ProcessGroupID, "reconciler", "replaceMisconfiguredProcessGroups")
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", processGroupStatus.ProcessGroupID)
 
 	if processGroupStatus.IsMarkedForRemoval() {
 		return false, nil
