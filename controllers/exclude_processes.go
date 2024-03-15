@@ -71,8 +71,28 @@ func (e excludeProcesses) reconcile(_ context.Context, r *FoundationDBClusterRec
 		return nil
 	}
 
+	// Make sure the exclusions are coordinated across multiple operator instances.
+	if cluster.ShouldUseLocks() {
+		lockClient, err := r.getLockClient(cluster)
+		if err != nil {
+			return &requeue{curError: err}
+		}
+
+		_, err = lockClient.TakeLock()
+		if err != nil {
+			return &requeue{curError: err, delayedRequeue: true}
+		}
+
+		defer func() {
+			err = lockClient.ReleaseLock()
+			if err != nil {
+				logger.Error(err, "could not release lock")
+			}
+		}()
+	}
+
 	// Make sure it's safe to exclude processes.
-	err = fdbstatus.CanSafelyExcludeProcessesWithRecoveryState(cluster, status)
+	err = fdbstatus.CanSafelyExcludeProcessesWithRecoveryState(cluster, status, r.MinimumRecoveryTimeForExclusion)
 	if err != nil {
 		return &requeue{curError: err, delayedRequeue: true}
 	}

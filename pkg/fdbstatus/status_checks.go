@@ -551,14 +551,14 @@ func recoveryStateAllowsInclusion(status *fdbv1beta2.FoundationDBStatus) bool {
 
 // CanSafelyExcludeProcessesWithRecoveryState currently performs the DefaultSafetyChecks and makes sure that the last recovery was at least 60 seconds ago.
 // In the future this check might be extended to perform more specific checks.
-func CanSafelyExcludeProcessesWithRecoveryState(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) error {
-	return canSafelyExcludeOrIncludeProcesses(cluster, status, false, 120.0)
+func CanSafelyExcludeProcessesWithRecoveryState(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, minRecoverySeconds float64) error {
+	return canSafelyExcludeOrIncludeProcesses(cluster, status, false, minRecoverySeconds)
 }
 
 // CanSafelyIncludeProcesses currently performs the DefaultSafetyChecks and makes sure that the last recovery was at least 60 seconds ago.
 // In the future this check might be extended to perform more specific checks.
-func CanSafelyIncludeProcesses(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) error {
-	return canSafelyExcludeOrIncludeProcesses(cluster, status, true, 300.0)
+func CanSafelyIncludeProcesses(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, minRecoverySeconds float64) error {
+	return canSafelyExcludeOrIncludeProcesses(cluster, status, true, minRecoverySeconds)
 }
 
 // ConfigurationChangeAllowed will return an error if the configuration change is assumed to be unsafe. If no error

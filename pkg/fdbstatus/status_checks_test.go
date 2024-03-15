@@ -1814,7 +1814,7 @@ var _ = Describe("status_checks", func() {
 	When("performing the exclude safety check.", func() {
 		DescribeTable("should return if the safety check is satisfied or not",
 			func(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, expected error) {
-				err := CanSafelyExcludeProcessesWithRecoveryState(cluster, status)
+				err := CanSafelyExcludeProcessesWithRecoveryState(cluster, status, 120.0)
 				if expected == nil {
 					Expect(err).To(BeNil())
 				} else {
@@ -1950,7 +1950,7 @@ var _ = Describe("status_checks", func() {
 	When("performing the include safety check.", func() {
 		DescribeTable("should return if the safety check is satisfied or not",
 			func(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, expected error) {
-				err := CanSafelyIncludeProcesses(cluster, status)
+				err := CanSafelyIncludeProcesses(cluster, status, 300.0)
 				if expected == nil {
 					Expect(err).To(BeNil())
 				} else {

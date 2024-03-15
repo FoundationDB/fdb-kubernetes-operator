@@ -63,7 +63,7 @@ func (u removeProcessGroups) reconcile(ctx context.Context, r *FoundationDBClust
 		}
 	}
 
-	remainingMap, err := removals.GetRemainingMap(logger, adminClient, cluster, status)
+	remainingMap, err := removals.GetRemainingMap(logger, adminClient, cluster, status, r.MinimumRecoveryTimeForExclusion)
 	if err != nil {
 		return &requeue{curError: err}
 	}
@@ -133,7 +133,6 @@ func (u removeProcessGroups) reconcile(ctx context.Context, r *FoundationDBClust
 
 	// This will return a map of the newly removed ProcessGroups and the ProcessGroups with the ResourcesTerminating condition
 	removedProcessGroups := r.removeProcessGroups(ctx, logger, cluster, zoneRemovals, zonedRemovals[removals.TerminatingZone])
-
 	err = includeProcessGroup(ctx, logger, r, cluster, removedProcessGroups, status)
 	if err != nil {
 		return &requeue{curError: err}
@@ -261,8 +260,28 @@ func includeProcessGroup(ctx context.Context, logger logr.Logger, r *FoundationD
 		return nil
 	}
 
+	// Make sure the inclusion are coordinated across multiple operator instances.
+	if cluster.ShouldUseLocks() {
+		lockClient, err := r.getLockClient(cluster)
+		if err != nil {
+			return err
+		}
+
+		_, err = lockClient.TakeLock()
+		if err != nil {
+			return err
+		}
+
+		defer func() {
+			err = lockClient.ReleaseLock()
+			if err != nil {
+				logger.Error(err, "could not release lock")
+			}
+		}()
+	}
+
 	// Make sure it's safe to include processes.
-	err = fdbstatus.CanSafelyIncludeProcesses(cluster, status)
+	err = fdbstatus.CanSafelyIncludeProcesses(cluster, status, r.MinimumRecoveryTimeForInclusion)
 	if err != nil {
 		return err
 	}

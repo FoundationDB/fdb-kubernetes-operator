@@ -259,6 +259,11 @@ spec:
         - --zap-log-level=debug
         - --minimum-required-uptime-for-cc-bounce=60s
         #- --server-side-apply
+        # We are setting low values here as the e2e test are taking down processes multiple times
+        # and having a high wait time between recoveries will increase the reliability of the cluster but also
+        # increase the time our e2e test take.
+        - -- minimum-recovery-time-for-inclusion=1.0
+        - -- minimum-recovery-time-for-exclusion=1.0
         image: {{ .OperatorImage }}
         name: manager
         imagePullPolicy: Always

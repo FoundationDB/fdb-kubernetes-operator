@@ -183,7 +183,7 @@ var _ = Describe("remove_process_groups", func() {
 
 					It("should not remove the process group and should not exclude processes", func() {
 						Expect(result).NotTo(BeNil())
-						Expect(result.message).To(Equal("Reconciliation needs to exclude more processes"))
+						Expect(result.curError).To(HaveOccurred())
 						// Ensure resources are not deleted
 						removed, include, err := confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, removedProcessGroup)
 						Expect(err).To(BeNil())

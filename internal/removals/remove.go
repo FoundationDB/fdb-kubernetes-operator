@@ -124,10 +124,19 @@ func GetZonedRemovals(processGroupsToRemove []*fdbv1beta2.ProcessGroupStatus) (m
 }
 
 // GetRemainingMap returns a map that indicates if a process group is fully excluded in the cluster.
-func GetRemainingMap(logger logr.Logger, adminClient fdbadminclient.AdminClient, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) (map[string]bool, error) {
+func GetRemainingMap(logger logr.Logger, adminClient fdbadminclient.AdminClient, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, minRecoverySeconds float64) (map[string]bool, error) {
 	remainingMap, addresses := getAddressesToValidateBeforeRemoval(logger, cluster)
 	if len(addresses) == 0 {
 		return nil, nil
+	}
+
+	// The CanSafelyRemoveFromStatus will run the exclusion command for processes that are either assumed to be fully excluded
+	// and processes that are currently missing from the machine-readable status. If it's not safe to run the exclude command
+	// we will block all further checks and assume that those processes are not yet excluded. This should reduce the risk
+	// of successive recoveries because of the exclusion call.
+	err := fdbstatus.CanSafelyExcludeProcessesWithRecoveryState(cluster, status, minRecoverySeconds)
+	if err != nil {
+		return nil, err
 	}
 
 	remaining, err := fdbstatus.CanSafelyRemoveFromStatus(logger, adminClient, addresses, status)
