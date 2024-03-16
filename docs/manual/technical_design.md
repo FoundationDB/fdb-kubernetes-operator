@@ -234,6 +234,15 @@ The `ChooseRemovals` subreconciler flags processes for removal when the current 
 The `ExcludeProcesses` subreconciler runs an [exclude command](https://apple.github.io/foundationdb/administration.html#removing-machines-from-a-cluster) in `fdbcli` for any process group that is marked for removal and is not already being excluded.
 The `exclude` command tells FoundationDB that a process should not serve any roles, and that any data on that process should be moved to other processes.
 This exclusion can take a long time, but this subreconciler does not wait for exclusion to complete.
+The operator will only run the exclude command if it is safe to run it.
+The safety checks are defined in the [status_checks.go](../../pkg/fdbstatus/status_checks.go) file and includes the following checks:
+
+- There is a low number of active generations.
+- The cluster is available from the client perspective.
+- The last recovery was at least `MinimumRecoveryTimeForExclusion` seconds ago.
+
+The `MinimumRecoveryTimeForExclusion` parameter can be changed with the `--minimum-recovery-time-for-exclusion` argument and the default is `120.0` seconds.
+Having a wait time between the exclusions will reduce the risk of successive recoveries which might cause issues to clients.
 
 The operator will only trigger a replacement if the new processes are available.
 In addition the operator will not trigger any exclusion if any of the process groups with the same process clas has the `MissingProcess` condition for less than 5 minutes.
@@ -304,17 +313,37 @@ The `RemoveProcessGroups` subreconciler deletes any pods that are marked for rem
 
 This performs the following sequence of steps for every pod:
 
-1. Confirm that the exclusion is complete
-1. Trigger the deletion of the pod
-1. Confirm that the pod is fully terminated
-1. Trigger the deletion of the PVC
-1. Confirm that the PVC is fully terminated
-1. Trigger the deletion of the service
-1. Confirm that the service is fully terminated
+1. Confirm that the exclusion is complete.
+1. Trigger the deletion of the pod.
+1. Confirm that the pod is fully terminated.
+1. Trigger the deletion of the PVC.
+1. Confirm that the PVC is fully terminated.
+1. Trigger the deletion of the service.
+1. Confirm that the service is fully terminated.
+1. Include the processes where all resources are deleted.
+1. Remove the process group from the cluster's list of process groups.
 
-If any process group is marked for removal but cannot complete the sequence above, this will requeue reconciliation. However, we will always run through this sequence on all of the process groups that need to be removed, getting as far as we can for each one. This means that one pod being stuck in terminating should not block other pods from being deleted.
+If any process group is marked for removal but cannot complete the sequence above, this will requeue reconciliation.
+However, we will always run through this sequence on all of the process groups that need to be removed, getting as far as we can for each one.
+This means that one pod being stuck in terminating should not block other pods from being deleted.
 
 This will not allow deleting any pods that are serving as coordinators.
+
+The `RemoveProcessGroups` subreconciler has some additional safety checks to reduce the risk of successive recoveries.
+
+The operator will only run the exclude command if it is safe to run it.
+The safety checks are defined in the [status_checks.go](../../pkg/fdbstatus/status_checks.go) file and includes the following checks:
+
+- There is a low number of active generations.
+- The cluster is available from the client perspective.
+- The last recovery was at least `MinimumRecoveryTimeForExclusion` seconds ago.
+
+The `MinimumRecoveryTimeForExclusion` parameter can be changed with the `--minimum-recovery-time-for-exclusion` argument and the default is `120.0` seconds.
+Having a wait time between the exclusions will reduce the risk of successive recoveries which might cause issues to clients.
+
+The same is true for the include operation with the difference that `MinimumRecoveryTimeForInclusion` is used to determine the minimum uptime of the cluster.
+The `MinimumRecoveryTimeForInclusion` parameter can be changed with the `--minimum-recovery-time-for-inclusion` argument and the default is `600.0` seconds. 
+The operator will batch all outstanding inclusion together into a single include call.
 
 ### UpdateStatus (again)
 

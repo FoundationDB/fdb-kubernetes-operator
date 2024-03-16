@@ -63,7 +63,7 @@ func (u removeProcessGroups) reconcile(ctx context.Context, r *FoundationDBClust
 		}
 	}
 
-	remainingMap, err := removals.GetRemainingMap(logger, adminClient, cluster, status)
+	remainingMap, err := removals.GetRemainingMap(logger, adminClient, cluster, status, r.MinimumRecoveryTimeForExclusion)
 	if err != nil {
 		return &requeue{curError: err}
 	}
@@ -133,7 +133,6 @@ func (u removeProcessGroups) reconcile(ctx context.Context, r *FoundationDBClust
 
 	// This will return a map of the newly removed ProcessGroups and the ProcessGroups with the ResourcesTerminating condition
 	removedProcessGroups := r.removeProcessGroups(ctx, logger, cluster, zoneRemovals, zonedRemovals[removals.TerminatingZone])
-
 	err = includeProcessGroup(ctx, logger, r, cluster, removedProcessGroups, status)
 	if err != nil {
 		return &requeue{curError: err}
@@ -252,32 +251,55 @@ func confirmRemoval(ctx context.Context, logger logr.Logger, r *FoundationDBClus
 }
 
 func includeProcessGroup(ctx context.Context, logger logr.Logger, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, removedProcessGroups map[fdbv1beta2.ProcessGroupID]bool, status *fdbv1beta2.FoundationDBStatus) error {
+	fdbProcessesToInclude, err := getProcessesToInclude(logger, cluster, removedProcessGroups, status)
+	if err != nil {
+		return err
+	}
+
+	if len(fdbProcessesToInclude) == 0 {
+		return nil
+	}
+
+	// Make sure the inclusion are coordinated across multiple operator instances.
+	if cluster.ShouldUseLocks() {
+		lockClient, err := r.getLockClient(cluster)
+		if err != nil {
+			return err
+		}
+
+		_, err = lockClient.TakeLock()
+		if err != nil {
+			return err
+		}
+
+		defer func() {
+			err = lockClient.ReleaseLock()
+			if err != nil {
+				logger.Error(err, "could not release lock")
+			}
+		}()
+	}
+
+	// Make sure it's safe to include processes.
+	err = fdbstatus.CanSafelyIncludeProcesses(cluster, status, r.MinimumRecoveryTimeForInclusion)
+	if err != nil {
+		return err
+	}
+
 	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
 	if err != nil {
 		return err
 	}
 	defer adminClient.Close()
 
-	fdbProcessesToInclude, err := getProcessesToInclude(logger, cluster, removedProcessGroups, status)
+	r.Recorder.Event(cluster, corev1.EventTypeNormal, "IncludingProcesses", fmt.Sprintf("Including removed processes: %v", fdbProcessesToInclude))
+
+	err = adminClient.IncludeProcesses(fdbProcessesToInclude)
 	if err != nil {
 		return err
 	}
 
-	if len(fdbProcessesToInclude) > 0 {
-		r.Recorder.Event(cluster, corev1.EventTypeNormal, "IncludingProcesses", fmt.Sprintf("Including removed processes: %v", fdbProcessesToInclude))
-
-		err = adminClient.IncludeProcesses(fdbProcessesToInclude)
-		if err != nil {
-			return err
-		}
-
-		err := r.updateOrApply(ctx, cluster)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return r.updateOrApply(ctx, cluster)
 }
 
 func getProcessesToInclude(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, removedProcessGroups map[fdbv1beta2.ProcessGroupID]bool, status *fdbv1beta2.FoundationDBStatus) ([]fdbv1beta2.ProcessAddress, error) {

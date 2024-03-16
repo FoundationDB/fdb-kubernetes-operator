@@ -77,6 +77,8 @@ type Options struct {
 	LogFileMaxSize                     int
 	LogFileMaxAge                      int
 	MaxNumberOfOldLogFiles             int
+	MinimumRecoveryTimeForExclusion    float64
+	MinimumRecoveryTimeForInclusion    float64
 	LogFileMinAge                      time.Duration
 	GetTimeout                         time.Duration
 	PostTimeout                        time.Duration
@@ -134,6 +136,8 @@ func (o *Options) BindFlags(fs *flag.FlagSet) {
 	fs.BoolVar(&o.EnableRecoveryState, "enable-recovery-state", true, "This flag enables the use of the recovery state for the minimum uptime between bounced if the FDB version supports it.")
 	fs.BoolVar(&o.CacheDatabaseStatus, "cache-database-status", true, "Defines the default value for caching the database status.")
 	fs.BoolVar(&o.EnableNodeIndex, "enable-node-index", false, "Defines if the operator should add an index for accessing node objects. This requires a ClusterRoleBinding with node access. If the taint feature should be used, this setting should be set to true.")
+	fs.Float64Var(&o.MinimumRecoveryTimeForInclusion, "minimum-recovery-time-for-inclusion", 600.0, "Defines the minimum uptime of the cluster before inclusions are allowed. For clusters after 7.1 this will use the recovery state. This should reduce the risk of frequent recoveries because of inclusions.")
+	fs.Float64Var(&o.MinimumRecoveryTimeForExclusion, "minimum-recovery-time-for-exclusion", 120.0, "Defines the minimum uptime of the cluster before exclusions are allowed. For clusters after 7.1 this will use the recovery state. This should reduce the risk of frequent recoveries because of exclusions.")
 }
 
 // StartManager will start the FoundationDB operator manager.
@@ -254,6 +258,12 @@ func StartManager(
 		clusterReconciler.MinimumRequiredUptimeCCBounce = operatorOpts.MinimumRequiredUptimeCCBounce
 		clusterReconciler.MaintenanceListStaleDuration = operatorOpts.MaintenanceListStaleDuration
 		clusterReconciler.MaintenanceListWaitDuration = operatorOpts.MaintenanceListWaitDuration
+		clusterReconciler.MinimumRecoveryTimeForInclusion = operatorOpts.MinimumRecoveryTimeForInclusion
+		clusterReconciler.MinimumRecoveryTimeForExclusion = operatorOpts.MinimumRecoveryTimeForExclusion
+		clusterReconciler.MaintenanceListStaleDuration = operatorOpts.MaintenanceListStaleDuration
+		clusterReconciler.MaintenanceListWaitDuration = operatorOpts.MaintenanceListWaitDuration
+		clusterReconciler.MinimumRecoveryTimeForInclusion = operatorOpts.MinimumRecoveryTimeForInclusion
+		clusterReconciler.MinimumRecoveryTimeForExclusion = operatorOpts.MinimumRecoveryTimeForExclusion
 
 		if err := clusterReconciler.SetupWithManager(mgr, operatorOpts.MaxConcurrentReconciles, operatorOpts.EnableNodeIndex, *labelSelector, watchedObjects...); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "FoundationDBCluster")

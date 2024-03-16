@@ -492,6 +492,12 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 		}
 	}
 
+	status.Cluster.RecoveryState = fdbv1beta2.RecoveryState{
+		Name:                      "fully_recovered",
+		SecondsSinceLastRecovered: 600.0,
+		ActiveGenerations:         1,
+	}
+
 	return status, nil
 }
 
