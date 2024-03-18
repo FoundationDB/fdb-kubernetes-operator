@@ -2051,9 +2051,9 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 			key := cluster.GetMaintenancePrefix() + "/" + string(pickedProcessGroup.ProcessGroupID)
 			cmd := fmt.Sprintf("writemode on; option on ACCESS_SYSTEM_KEYS; set %s %s", fixtures.FdbPrintable([]byte(key)), fixtures.FdbPrintable(timestampByteBuffer.Bytes()))
-			_, _ = fdbCluster.RunFdbCliCommandInOperator(cmd, true, 120)
+			_, _ = fdbCluster.RunFdbCliCommandInOperator(cmd, true, 20)
 			command := fmt.Sprintf("maintenance on %s %s", pickedProcessGroup.FaultDomain, "3600")
-			_, _ = fdbCluster.RunFdbCliCommandInOperator(command, false, 40)
+			_, _ = fdbCluster.RunFdbCliCommandInOperator(command, false, 20)
 		})
 
 		It("should reset the maintenance mode once the Pod was restarted", func() {
