@@ -292,11 +292,61 @@ var _ = Describe("[api] FDBVersion", func() {
 			false,
 		),
 		Entry(
-			"Version is 7.3.36",
+			"Version is 7.3.26",
 			Version{
 				Major: 7,
 				Minor: 3,
 				Patch: 26,
+			},
+			true,
+		),
+	)
+
+	DescribeTable("validating if the provided version automatically removes dead tester processes", func(version Version, expected bool) {
+		Expect(version.AutomaticallyRemovesDeadTesterProcesses()).To(Equal(expected))
+	},
+		Entry(
+			"Version is 6.3",
+			Version{
+				Major: 6,
+				Minor: 3,
+				Patch: 0,
+			},
+			false,
+		),
+		Entry(
+			"Version is 7.1.41",
+			Version{
+				Major: 7,
+				Minor: 1,
+				Patch: 41,
+			},
+			false,
+		),
+		Entry(
+			"Version is 7.1.55",
+			Version{
+				Major: 7,
+				Minor: 1,
+				Patch: 55,
+			},
+			true,
+		),
+		Entry(
+			"Version is 7.3.25",
+			Version{
+				Major: 7,
+				Minor: 3,
+				Patch: 25,
+			},
+			false,
+		),
+		Entry(
+			"Version is 7.3.35",
+			Version{
+				Major: 7,
+				Minor: 3,
+				Patch: 35,
 			},
 			true,
 		),
