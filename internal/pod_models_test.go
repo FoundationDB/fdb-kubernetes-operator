@@ -1698,32 +1698,6 @@ var _ = Describe("pod_models", func() {
 			})
 		})
 
-		Context("with no volume", func() {
-			BeforeEach(func() {
-				cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{fdbv1beta2.ProcessClassGeneral: {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
-					Spec: corev1.PersistentVolumeClaimSpec{
-						Resources: corev1.ResourceRequirements{
-							Requests: corev1.ResourceList{
-								corev1.ResourceStorage: resource.MustParse("0"),
-							},
-						},
-					},
-				}}}
-				err := NormalizeClusterSpec(cluster, DeprecationOptions{})
-				Expect(err).NotTo(HaveOccurred())
-
-				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
-				Expect(err).NotTo(HaveOccurred())
-			})
-
-			It("should use an EmptyDir volume", func() {
-				Expect(spec.Volumes[0]).To(Equal(corev1.Volume{
-					Name:         "data",
-					VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
-				}))
-			})
-		})
-
 		Context("with a host-based fault domain", func() {
 			BeforeEach(func() {
 				cluster.Spec.FaultDomain = fdbv1beta2.FoundationDBClusterFaultDomain{}
@@ -2779,44 +2753,6 @@ var _ = Describe("pod_models", func() {
 			})
 		})
 
-		Context("with a volume size of 0", func() {
-			BeforeEach(func() {
-				cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{fdbv1beta2.ProcessClassGeneral: {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
-					Spec: corev1.PersistentVolumeClaimSpec{
-						Resources: corev1.ResourceRequirements{
-							Requests: corev1.ResourceList{
-								corev1.ResourceStorage: resource.MustParse("0"),
-							},
-						},
-					},
-				}}}
-				pvc, err = GetPvc(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
-				Expect(err).NotTo(HaveOccurred())
-			})
-
-			It("should return a nil PVC", func() {
-				Expect(pvc).To(BeNil())
-			})
-		})
-
-		Context("with a custom storage class", func() {
-			var class string
-			BeforeEach(func() {
-				class = "local"
-				cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{fdbv1beta2.ProcessClassGeneral: {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
-					Spec: corev1.PersistentVolumeClaimSpec{
-						StorageClassName: &class,
-					},
-				}}}
-				pvc, err = GetPvc(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
-				Expect(err).NotTo(HaveOccurred())
-			})
-
-			It("should set the storage class on the PVC", func() {
-				Expect(pvc.Spec.StorageClassName).To(Equal(&class))
-			})
-		})
-
 		Context("for a stateless process group", func() {
 			BeforeEach(func() {
 				pvc, err = GetPvc(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStateless, 1))
@@ -2842,6 +2778,24 @@ var _ = Describe("pod_models", func() {
 					fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStorage),
 					fdbv1beta2.FDBProcessGroupIDLabel: "dc1-storage-1",
 				}))
+			})
+		})
+
+		Context("with a custom storage class", func() {
+			var class string
+			BeforeEach(func() {
+				class = "local"
+				cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{fdbv1beta2.ProcessClassGeneral: {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
+					Spec: corev1.PersistentVolumeClaimSpec{
+						StorageClassName: &class,
+					},
+				}}}
+				pvc, err = GetPvc(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should set the storage class on the PVC", func() {
+				Expect(pvc.Spec.StorageClassName).To(Equal(&class))
 			})
 		})
 

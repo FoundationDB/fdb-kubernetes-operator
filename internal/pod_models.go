@@ -320,7 +320,7 @@ func configureVolumesForContainers(cluster *fdbv1beta2.FoundationDBCluster, podS
 	}
 
 	var mainVolumeSource corev1.VolumeSource
-	if usePvc(cluster, processClass) {
+	if processClass.IsStateful() {
 		var volumeClaimSourceName string
 		if volumeClaimTemplate != nil && volumeClaimTemplate.Name != "" {
 			volumeClaimSourceName = fmt.Sprintf("%s-%s", podName, volumeClaimTemplate.Name)
@@ -721,26 +721,9 @@ func getEnvForMonitorConfigSubstitution(cluster *fdbv1beta2.FoundationDBCluster,
 	return env
 }
 
-// usePvc determines whether we should attach a PVC to a pod.
-// TODO this could be simplified or cut out by solving https://github.com/FoundationDB/fdb-kubernetes-operator/issues/1966
-func usePvc(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass) bool {
-	var storage *resource.Quantity
-	processSettings := cluster.GetProcessSettings(processClass)
-
-	if processSettings.VolumeClaimTemplate != nil {
-		requests := processSettings.VolumeClaimTemplate.Spec.Resources.Requests
-		if requests != nil {
-			storageCopy := requests[corev1.ResourceStorage]
-			storage = &storageCopy
-		}
-	}
-	// TODO should be storage != nil, which would make the IsStateful redundant, but this breaks tests so next commit
-	return processClass.IsStateful() && (storage == nil || !storage.IsZero())
-}
-
 // GetPvc builds a persistent volume claim for a FoundationDB process group.
 func GetPvc(cluster *fdbv1beta2.FoundationDBCluster, processGroup *fdbv1beta2.ProcessGroupStatus) (*corev1.PersistentVolumeClaim, error) {
-	if !usePvc(cluster, processGroup.ProcessClass) {
+	if !processGroup.ProcessClass.IsStateful() {
 		return nil, nil
 	}
 
