@@ -236,7 +236,7 @@ func (version Version) SupportsLocalityBasedExclusions() bool {
 // from the list of processes.
 func (version Version) AutomaticallyRemovesDeadTesterProcesses() bool {
 	if version.IsProtocolCompatible(Version{Major: 7, Minor: 3, Patch: 0}) {
-		return version.IsAtLeast(Version{Major: 7, Minor: 1, Patch: 35})
+		return version.IsAtLeast(Version{Major: 7, Minor: 3, Patch: 35})
 	}
 
 	return version.IsAtLeast(Version{Major: 7, Minor: 1, Patch: 55})
