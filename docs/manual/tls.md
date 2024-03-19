@@ -1,8 +1,13 @@
 # Running with TLS
 
-The operator supports running clusters with mutual TLS to secure connections and control access to the cluster. Running with TLS requires additional configuration that will vary based on your environment. This document will cover the elements you need to configure. We also recommend reading the [main FoundationDB docs on TLS](https://apple.github.io/foundationdb/tls.html).
+The operator supports running clusters with mutual TLS to secure connections and control access to the cluster.
+Running with TLS requires additional configuration that will vary based on your environment.
+This document will cover the elements you need to configure.
+We also recommend reading the [main FoundationDB docs on TLS](https://apple.github.io/foundationdb/tls.html).
 
-Running FDB with mutual TLS means that all server processes must be configured with a certificate, which they will use as both a server certificate and a client certificate. All client processes must also have a client certificate. In order to control access, you must define peer verification rules that specify what certificates a process will accept from the other end of its connections.
+Running FDB with mutual TLS means that all server processes must be configured with a certificate, which they will use as a server and a client certificate.
+All client processes must also have a client certificate.
+In order to control access, you must define peer verification rules that specify what certificates a process will accept from the other end of its connections.
 
 ## Example Cluster with TLS
 
@@ -31,6 +36,7 @@ spec:
   mainContainer:
     enableTls: true
     peerVerificationRules: "S.CN=sample-cluster.foundationdb.example|S.CN=sample-cluster-client.foundationdb.example|S.CN=fdb-kubernetes-operator.foundationdb.example"
+  # This configuration will be used for the communication from the operator to the sidecar.
   sidecarContainer:
     enableTls: true
     peerVerificationRules: "S.CN=fdb-kubernetes-operator.foundationdb.example"

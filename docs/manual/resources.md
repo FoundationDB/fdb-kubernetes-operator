@@ -2,14 +2,16 @@
 
 The operator creates the following resources for a FoundationDB cluster:
 
-* `ConfigMap`: The operator creates one config map for each cluster that holds configuration like the cluster file and the fdbmonitor conf files.
+* `ConfigMap`: The operator creates one config map for each cluster that holds configuration like the cluster file and the `fdbmonitor` conf files.
 * `Service`: By default, the operator creates no services. You can configure a cluster-wide headless service for DNS lookup, and you can configure a per-process-group service that can be used to provide the public IP for the processes, as an alternative to the default behavior of using the pod IP as the public IP.
 * `PersistentVolumeClaim (PVC)`:  We create one persistent volume claim for every stateful process group.
-* `Pod`: We create one pod for every process group, with one container for starting fdbmonitor and one container for starting a helper sidecar.
+* `Pod`: We create one pod for every process group, with one container for starting `fdbmonitor` and one container for starting a helper sidecar.
 
 ## Process Groups
 
-Inside the cluster status, we track an object called `ProcessGroup` which loosely corresponds to a pod in Kubernetes. A process group represents a set of processes that will run inside a single container. In the default case we run one `fdbserver` process in each process group, but if you configure your cluster to run multiple storage servers per disk then we will have multiple storage server processes inside a single process group, with each process group having its own disk. We use the process group to track information about processes that lives outside the lifecycle of any other Kubernetes object, such as an intention to remove the process or adverse conditions that the operator needs to remediate.
+Inside the cluster status, we track an object called `ProcessGroup` which loosely corresponds to a pod in Kubernetes.
+A process group represents a set of processes that will run inside a single container.
+In the default case we run one `fdbserver` process in each process group, but if you configure your cluster to run multiple storage servers per disk then we will have multiple storage server processes inside a single process group, with each process group having its own disk. We use the process group to track information about processes that lives outside the lifecycle of any other Kubernetes object, such as an intention to remove the process or adverse conditions that the operator needs to remediate.
 
 The following conditions can appear on process groups to indicate a problem with those processes:
 

@@ -1,27 +1,44 @@
 # Warnings
 
-This operator aims to support as many different environments and use cases as we can, by offering a variety of customization options. You may find that the stock configurations don't work as desired in your environment. We recommend reading through this entire manual in order to get a feel for how the operator works. There are a few sections that are most likely to be relevant before you create a cluster: [Customizing Your Pods](customizing.md#customizing-your-pods), [Controlling Fault Domains](fault_domains.md), and [Using Multiple Namespaces](customizing.md#using-multiple-namespaces).
+This operator aims to support as many different environments and use cases as we can, by offering a variety of customization options.
+You may find that the stock configurations don't work as desired in your environment.
+We recommend reading through this entire manual in order to get a feel for how the operator works.
+There are a few sections that are most likely to be relevant before you create a cluster:
+
+- [Customizing Your Pods](customizing.md#customizing-your-pods)
+- [Controlling Fault Domains](fault_domains.md)
+- [Using Multiple Namespaces](customizing.md#using-multiple-namespaces).
 
 ## Risks when IPs Change
 
-FoundationDB's service discovery works through a cluster file, which contains a list of coordinator IPs. All processes in the cluster, and all client processes, start up by talking to the coordinators. If the pods that are serving as coordinators get deleted, the operator will recreate them, but they will come up with different IP addresses. If this happens to a majority of the coordinators, the database will not be available, and there is no established procedure for recovering from this. 
+FoundationDB's service discovery works through a cluster file, which contains a list of coordinator IPs.
+All processes in the cluster, and all client processes, start up by talking to the coordinators.
+If the pods that are serving as coordinators get deleted, the operator will recreate them, but they will come up with different IP addresses.
+If this happens to a majority of the coordinators, the database will not be available, and there is no established procedure for recovering from this. 
 
-One way to mitigate this risk is by using service IPs rather than pod IPs as the public IP for your processes. There is more discussion on how to do this in the section on [Choosing your Public IP Source](customization.md#choosing-your-public-ip-source). You may also want to look into using [Pod Disruption Budgets](fault_domains.md#managing-disruption).
+One way to mitigate this is by [using DNS](customization.md#using-dns) for the cluster file.
+Using DNS requires FDB 7.1 or newer.
+In addition to using DNS you should enable exclusions based on [localities](../cluster_spec.md#foundationdbclusterautomationoptions) by setting `useLocalitiesForExclusion` to `true.
+
+If you use an FDB version older than 7.1 you can mitigate this risk by using service IPs rather than pod IPs as the public IP for your processes.
+There is more discussion on how to do this in the section on [Choosing your Public IP Source](customization.md#choosing-your-public-ip-source).
+You may also want to look into using [Pod Disruption Budgets](fault_domains.md#managing-disruption).
 
 ## Securing Connections
 
-The operator runs clusters with insecure connections by default, so the clusters are only as secure as your network and your ACLs allow it to be. We also support using [TLS](tls.md) to secure connections, but this will require additional configuration management.
+The operator runs clusters with insecure connections by default, so the clusters are only as secure as your network and your ACLs allow it to be.
+We also support using [TLS](tls.md) to secure connections, but this requires additional configuration management.
 
 ## Resource Requirements
 
 In the interest of giving everyone a good configuration out of the box, the operator applies resource requirements to the built-in containers.
-The main foundationdb container is configured with 1 CPU and 4 Gi of memory as its requests, based on the [official docs](https://apple.github.io/foundationdb/configuration.html#system-requirements).
+The main `foundationdb` container is configured with 1 CPU and 4 Gi of memory as its requests, based on the [official docs](https://apple.github.io/foundationdb/configuration.html#system-requirements).
 It is also configured to use the same values for limits and requests.
 You can change this behavior by specifying your own resource values in the pod template.
 If you want your container to have no values set for the CPU or memory, and use whatever values are set by default in your Kubernetes environments, you can accomplish this by specifying a resource request for `org.foundationdb/empty: 0`.
 This resource constraint will have no direct effect, but it will ensure that the resource object has a non-empty value, and the operator will then pass that on to the container spec.
 
-The operator also provides a default size of 128 Gi for the volumes your cluster will use. You can customize this in the volume claim template.
+The operator also provides a default size of 128 GiB for the volumes your cluster will use. You can customize this in the volume claim template.
 
 ## Limitations on Pod Customization
 

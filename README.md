@@ -79,6 +79,8 @@ To get this controller running in a local Kubernetes cluster:
    you can set the `BUILD_PLATFORM` env variable `BUILD_PLATFORM="linux/amd64" make rebuild-operator`.
 1. Run `kubectl apply -k ./config/tests/base` to create a new FoundationDB cluster with the operator.
 
+_NOTE_: FoundationDB currently only publishes container images for running on `amd64`/`x64` nodes.
+
 ### Running Locally with nerdctl
 
 Instead of Docker you can also use [nerdctl](https://github.com/containerd/nerdctl) to build and push your images.
