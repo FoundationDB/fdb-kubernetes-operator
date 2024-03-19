@@ -288,7 +288,10 @@ spec:
 
 When running a FoundationDB cluster that is deployed across multiple Kubernetes clusters, each Kubernetes cluster will have its own instance of the operator working on the processes in its cluster.
 There will be some operations that cannot be scoped to a single Kubernetes cluster, such as changing the database configuration.
-The operator provides a locking system to ensure that only one instance of the operator can perform these operations at a time.
+The operator provides a locking system to reduce the risk of those independent operator instance performing the same action at the same time.
+All actions that the operator performs like changing the configuration or restarting processes will lead to the same desired state.
+The locking system is only intended to reduce the risk of frequent reoccurring recoveries.
+
 You can enable this locking system by setting `lockOptions.disableLocks = false` in the cluster spec.
 The locking system is automatically enabled by default for any cluster that has multiple regions in its database configuration, a `zoneCount` greater than 1 in its fault domain configuration, or `redundancyMode` equal to `three_data_hall`.
 
@@ -299,13 +302,13 @@ This locking system uses the FoundationDB cluster as its data source.
 This means that if the cluster is unavailable, no instance of the operator will be able to get a lock.
 If you hit a case where this becomes an issue, you can disable the locking system by setting `lockOptions.disableLocks = true` in the cluster spec.
 
-In most cases, restarts will be done independently in each Kubernetes cluster, and the locking system will be used to ensure a minimum time between the different restarts and avoid multiple recoveries in a short span of time.
+In most cases, restarts will be done independently in each Kubernetes cluster, and the locking system will be used to try to ensure a minimum time between the different restarts and avoid multiple recoveries in a short span of time.
 During upgrades, however, all instances must be restarted at the same time.
 The operator will use the locking system to coordinate this.
 Each instance of the operator will store records indicating what processes it is managing and what version they will be running after the restart.
 Each instance will then try to acquire a lock and confirm that every process reporting to the cluster is ready for the upgrade.
 If all processes are prepared, the operator will restart all of them at once.
-If any instance of the operator is stuck and unable to prepare its processes for the upgrade, the restart will not occur.
+If any instance of the operator is stuck and unable to prepare its processes for the upgrade, the restart will not occur.g
 
 ### Deny List
 
