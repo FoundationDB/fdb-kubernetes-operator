@@ -22,11 +22,12 @@ package fdbstatus
 
 import (
 	"fmt"
+	"math"
+	"strings"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
 	"github.com/go-logr/logr"
-	"math"
-	"strings"
 )
 
 // forbiddenStatusMessages represents messages that could be part of the machine-readable status. Those messages can represent
@@ -489,7 +490,7 @@ func CanSafelyBounceProcesses(currentUptime float64, minimumUptime float64, stat
 	// If the current uptime of the cluster is below the minimum uptime we should not allow to bounce processes. This is
 	// a safeguard to reduce the risk of repeated bounces in a short timeframe.
 	if currentUptime < minimumUptime {
-		return fmt.Errorf("cluster has only been up for %.2f seconds, but must be up for %.2f seconds to safely bounce", minimumUptime, minimumUptime)
+		return fmt.Errorf("cluster has only been up for %.2f seconds, but must be up for %.2f seconds to safely bounce", currentUptime, minimumUptime)
 	}
 
 	// If the machine-readable status reports that a clean bounce is not possible, we shouldn't perform a bounce. This

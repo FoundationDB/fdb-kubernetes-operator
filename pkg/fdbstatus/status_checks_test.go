@@ -22,9 +22,10 @@ package fdbstatus
 
 import (
 	"fmt"
+	"net"
+
 	"github.com/go-logr/logr"
 	"k8s.io/utils/pointer"
-	"net"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -2207,7 +2208,7 @@ var _ = Describe("status_checks", func() {
 				},
 				42.0,
 				60.0,
-				fmt.Errorf("cluster has only been up for 60.00 seconds, but must be up for 60.00 seconds to safely bounce"),
+				fmt.Errorf("cluster has only been up for 42.00 seconds, but must be up for 60.00 seconds to safely bounce"),
 			),
 			Entry("cluster cannot clean bounce",
 				&fdbv1beta2.FoundationDBStatus{
