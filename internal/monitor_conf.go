@@ -49,17 +49,13 @@ func GetStartCommandWithSubstitutions(cluster *fdbv1beta2.FoundationDBCluster, p
 	}
 
 	imageType := GetDesiredImageType(cluster)
-	config, err := GetMonitorProcessConfiguration(cluster, processClass, processCount, imageType, substitutions)
-	if err != nil {
-		return "", err
-	}
+	config := GetMonitorProcessConfiguration(cluster, processClass, processCount, imageType, substitutions)
 
 	extractPlaceholderEnvVars(substitutions, config.Arguments)
 
 	config.BinaryPath = fmt.Sprintf("%s/fdbserver", substitutions["BINARY_DIR"])
 
 	arguments, err := config.GenerateArguments(processNumber, substitutions)
-
 	if err != nil {
 		return "", err
 	}
@@ -131,10 +127,7 @@ func GetMonitorConf(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1b
 func getMonitorConfStartCommandLines(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, substitutions map[string]string, processNumber int, processCount int) ([]string, error) {
 	confLines := make([]string, 0, 20)
 
-	config, err := GetMonitorProcessConfiguration(cluster, processClass, processCount, FDBImageTypeSplit, substitutions)
-	if err != nil {
-		return nil, err
-	}
+	config := GetMonitorProcessConfiguration(cluster, processClass, processCount, FDBImageTypeSplit, substitutions)
 
 	if substitutions == nil {
 		substitutions = make(map[string]string)
@@ -162,8 +155,10 @@ func getMonitorConfStartCommandLines(cluster *fdbv1beta2.FoundationDBCluster, pr
 	return confLines, nil
 }
 
+var equalPattern = regexp.MustCompile(`\s*=\s*`)
+
 // GetMonitorProcessConfiguration builds the monitor conf template for the unified image.
-func GetMonitorProcessConfiguration(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, processCount int, imageType FDBImageType, customParameterSubstitutions map[string]string) (monitorapi.ProcessConfiguration, error) {
+func GetMonitorProcessConfiguration(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, processCount int, imageType FDBImageType, customParameterSubstitutions map[string]string) monitorapi.ProcessConfiguration {
 	configuration := monitorapi.ProcessConfiguration{
 		Version: cluster.Spec.Version,
 	}
@@ -240,10 +235,6 @@ func GetMonitorProcessConfiguration(cluster *fdbv1beta2.FoundationDBCluster, pro
 	podSettings := cluster.GetProcessSettings(processClass)
 
 	if podSettings.CustomParameters != nil {
-		equalPattern, err := regexp.Compile(`\s*=\s*`)
-		if err != nil {
-			return configuration, err
-		}
 		for _, argument := range podSettings.CustomParameters {
 			sanitizedArgument := "--" + equalPattern.ReplaceAllString(string(argument), "=")
 			for key, value := range customParameterSubstitutions {
@@ -268,7 +259,7 @@ func GetMonitorProcessConfiguration(cluster *fdbv1beta2.FoundationDBCluster, pro
 		}})
 	}
 
-	return configuration, nil
+	return configuration
 }
 
 // getKnobParameter will return the knob parameter with a trailing =. If the provided knob is a locality the key will be
