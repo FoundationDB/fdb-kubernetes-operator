@@ -134,8 +134,8 @@ This strategy uses the pod name as the fault domain, which allows each process t
 
 ## Three-Data-Hall Replication
 
-**NOTE**: The support for this redundancy mode is new and might have issues. Please make sure you test this configuration in our test/QA environment.
-The [three-data-hall](https://apple.github.io/foundationdb/configuration.html#single-datacenter-modes) replication can be use to replicate data across three data halls, or availability zones.
+**NOTE**: The support for this redundancy mode is new and might have issues. Please make sure you test this configuration in your test/QA environment.
+The [three-data-hall](https://apple.github.io/foundationdb/configuration.html#single-datacenter-modes) replication can be used to replicate data across three data halls, or availability zones.
 This requires that your fault domains are properly labeled on the Kubernetes nodes.
 Most cloud-providers will use the well-known label [topology.kubernetes.io/zone](https://kubernetes.io/docs/reference/labels-annotations-taints/#topologykubernetesiozone) for this.
 When creating a three-data-hall replicated FoundationDBCluster on Kubernetes we have to create 3 `FoundationDBCluster` resources.
@@ -195,9 +195,9 @@ Operations across the different `FoundationDBCluster` resources are [coordinated
 
 ## Multi-Region Replication
 
-The replication strategies above all describe how data is replicated within a data center.
+The replication strategies above all describe how data is replicated within a data center or a single region.
 They control the `zoneid` field in the cluster's locality.
-If you want to run a cluster across multiple data centers, you can use FoundationDB's multi-region replication.
+If you want to run a cluster across multiple data centers or regions, you can use FoundationDB's multi-region replication.
 This can work with any of the replication strategies above.
 The data center will be a separate fault domain from whatever you provide for the zone.
 
@@ -286,15 +286,29 @@ spec:
 
 ## Coordinating Global Operations
 
-When running a FoundationDB cluster that is deployed across multiple Kubernetes clusters, each Kubernetes cluster will have its own instance of the operator working on the processes in its cluster. There will be some operations that cannot be scoped to a single Kubernetes cluster, such as changing the database configuration.
-The operator provides a locking system to ensure that only one instance of the operator can perform these operations at a time. You can enable this locking system by setting `lockOptions.disableLocks = false` in the cluster spec. The locking system is automatically enabled by default for any cluster that has multiple regions in its database configuration, a `zoneCount` greater than 1 in its fault domain configuration, or `redundancyMode` equal to `three_data_hall`.
+When running a FoundationDB cluster that is deployed across multiple Kubernetes clusters, each Kubernetes cluster will have its own instance of the operator working on the processes in its cluster.
+There will be some operations that cannot be scoped to a single Kubernetes cluster, such as changing the database configuration.
+The operator provides a locking system to reduce the risk of those independent operator instance performing the same action at the same time.
+All actions that the operator performs like changing the configuration or restarting processes will lead to the same desired state.
+The locking system is only intended to reduce the risk of frequent reoccurring recoveries.
+
+You can enable this locking system by setting `lockOptions.disableLocks = false` in the cluster spec.
+The locking system is automatically enabled by default for any cluster that has multiple regions in its database configuration, a `zoneCount` greater than 1 in its fault domain configuration, or `redundancyMode` equal to `three_data_hall`.
 
 The locking system uses the `processGroupIDPrefix` from the cluster spec to identify an process group of the operator.
 Make sure to set this to a unique value for each Kubernetes cluster, both to support the locking system and to prevent duplicate process group IDs.
 
-This locking system uses the FoundationDB cluster as its data source. This means that if the cluster is unavailable, no instance of the operator will be able to get a lock. If you hit a case where this becomes an issue, you can disable the locking system by setting `lockOptions.disableLocks = true` in the cluster spec.
+This locking system uses the FoundationDB cluster as its data source.
+This means that if the cluster is unavailable, no instance of the operator will be able to get a lock.
+If you hit a case where this becomes an issue, you can disable the locking system by setting `lockOptions.disableLocks = true` in the cluster spec.
 
-In most cases, restarts will be done independently in each Kubernetes cluster, and the locking system will be used to ensure a minimum time between the different restarts and avoid multiple recoveries in a short span of time. During upgrades, however, all instances must be restarted at the same time. The operator will use the locking system to coordinate this. Each instance of the operator will store records indicating what processes it is managing and what version they will be running after the restart. Each instance will then try to acquire a lock and confirm that every process reporting to the cluster is ready for the upgrade. If all processes are prepared, the operator will restart all of them at once. If any instance of the operator is stuck and unable to prepare its processes for the upgrade, the restart will not occur.
+In most cases, restarts will be done independently in each Kubernetes cluster, and the locking system will be used to try to ensure a minimum time between the different restarts and avoid multiple recoveries in a short span of time.
+During upgrades, however, all instances must be restarted at the same time.
+The operator will use the locking system to coordinate this.
+Each instance of the operator will store records indicating what processes it is managing and what version they will be running after the restart.
+Each instance will then try to acquire a lock and confirm that every process reporting to the cluster is ready for the upgrade.
+If all processes are prepared, the operator will restart all of them at once.
+If any instance of the operator is stuck and unable to prepare its processes for the upgrade, the restart will not occur.g
 
 ### Deny List
 
@@ -351,16 +365,17 @@ Depending on the requirements the operator can be configured to either prefer or
 The number of coordinators is currently a hardcoded mechanism based on the [following algorithm](https://github.com/FoundationDB/fdb-kubernetes-operator/blob/v0.49.2/api/v1beta1/foundationdbcluster_types.go#L1500-L1508):
 
 ```go
+// DesiredCoordinatorCount returns the number of coordinators to recruit for a cluster.
 func (cluster *FoundationDBCluster) DesiredCoordinatorCount() int {
-	if cluster.Spec.DatabaseConfiguration.UsableRegions > 1 {
-		return 9
-	}
+    if cluster.Spec.DatabaseConfiguration.UsableRegions > 1 || cluster.Spec.DatabaseConfiguration.RedundancyMode == RedundancyModeThreeDataHall {
+        return 9
+    }
 
-	return cluster.MinimumFaultDomains() + cluster.DesiredFaultTolerance()
+    return cluster.MinimumFaultDomains() + cluster.DesiredFaultTolerance()
 }
 ```
 
-For all clusters that use more than one region the operator will recruit 9 coordinators.
+For all clusters that use more than one region or uses `three_data_hall`, the operator will recruit 9 coordinators.
 If the number of regions is `1` the number of recruited coordinators depends on the redundancy mode.
 The number of coordinators is chosen based on the fact that the coordinators use a consensus protocol (Paxos) that needs a majority of processes to be up.
 A common pattern in majority based system is to run `n * 2 + 1` processes, where `n` defines the failures that should be tolerated.
@@ -412,7 +427,6 @@ The operator supports the following classes as coordinators:
 
 FoundationDB clusters that are spread across different DC's or Kubernetes clusters only support the same `coordinatorSelection`.
 The reason behind this is that the coordinator selection is a global process and different `coordinatorSelection` of the `FoundationDBCluster` resources can lead to an undefined behaviour or in the worst case flapping coordinators.
-There are plans to support this feature in the future.
 
 ## Next
 

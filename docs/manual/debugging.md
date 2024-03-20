@@ -93,7 +93,8 @@ Remove [storage-1] from cluster default/sample-cluster with exclude: false and s
 
 **NOTE**: This is a very dangerous operation.
 This will delete the pod and the PVC without checking that the data has been re-replicated.
-You should only due this after checking that the database is available, has not had any data loss, and that the pod is currently not running. You can confirm the first and second check by looking at the cluster status.
+You should only due this after checking that the database is available, has not had any data loss, and that the pod is currently not running.
+You can confirm the first and second check by looking at the cluster status.
 
 ## Exclusions Not Starting Due to Missing Processes
 

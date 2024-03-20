@@ -40,7 +40,6 @@ in advance of the upgrade, through whatever process you need to update your
 clusters safely.
 After you updated the operator you should ensure that all clusters are in a reconciled state and all changes are applied.
 
-
 At this point, you can use the `kubectl-fdb` plugin to check your cluster specs for deprecated fields or defaults.
 For more information see the [kubectl-fdb plugin Readme](../kubectl-fdb/Readme.md) and the `deprecation` subcommand.
 

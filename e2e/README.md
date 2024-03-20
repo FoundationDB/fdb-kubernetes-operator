@@ -23,7 +23,7 @@ Every test suite will create at least one namespace, HA cluster tests will creat
 
 A test cluster can be reused if wanted, e.g. for test cases that load a large amount of data into the cluster.
 This requires to specify the `CLUSTER_NAME` and the `NAMESPACE`, if those values are not specified the test suite will use randomized values.
-** NOTE ** The limitation of this approach is that the test suite will not update the existing `FoundationDBCluster` in the creation step.
+_NOTE_ The limitation of this approach is that the test suite will not update the existing `FoundationDBCluster` in the creation step.
 So if you're modifying the `FoundationDBCluster` spec, you have to recreate the cluster.
 
 ```bash
@@ -80,9 +80,11 @@ You just can rebuild the operator image and push the new image inside the kind c
 CLOUD_PROVIDER=kind make -C e2e kind-update-operator
 ```
 
+_NOTE_: This setup is currently not tested in our CI and requires a Kind cluster that runs with `amd64` nodes.
+
 ## What is tested
 
-The following section will cover which test suites are run when.
+The following section will cover additional details about the test suites.
 
 ### Test running for PRs
 
@@ -108,7 +110,7 @@ You can run those test suites with: `make -kj -C e2e nightly-tests`
 
 ### Tests that are not run regularly
 
-Those tests are only run manually:
+Those tests will not be running automatically:
 
 - [test_operator_creation_velocity](./test_operator_creation_velocity)
 - [test_operator_stress](./test_operator_stress)
@@ -118,6 +120,6 @@ You can run all tests with `make -kj -C e2e run`
 
 ## How to debug failed PR tests
 
-All test suited will be logging to the `logs` folder in the root of this repository.
+All tests will be logging to the `logs` folder in the root of this repository.
 If you want to see the current state of a running test you can use `tail`, e.g. `tail -f ./logs/test_operator.log`, to see the progress of the operator tests, the command assumes you are running it from the project directory.
 All tests that are started by our CI pipelines will report in the PR with the test status.

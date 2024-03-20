@@ -1,12 +1,12 @@
 # Replacements and Deletions
 
 The operator has two different strategies it can use on process groups that are in an undesired state: replacement and deletion.
-In the case of replacement, we will create a brand new process group, move data off of the old process group, and delete the resources for the old process group as well as the records of the process group itself.
-In the case of deletion, we will delete some or all of the resources for the process group and then create new objects with the same names.
-We will cover their details when these different strategies are used in later sections.
+In the case of replacement, the operator will create a brand new process group, move data off of the old process group, and delete the resources for the old process group as well as the records of the process group itself.
+In the case of deletion, the operator will delete some or all of the resources for the process group and then create new objects with the same names.
+Later sections will cover the details when these different strategies are used.
 
-A process group is marked for replacement by setting the `remove` flag on the process group.
-This flag is used during both replacements and shrinks, and a replacement is modeled as a grow followed by a shrink.
+A process group is marked for replacement by setting the `removalTimestamp` on the process group.
+This setting is used during both replacements and shrinks, and a replacement is modeled as a grow followed by a shrink.
 Process groups that are marked for removal are not counted in the number of active process groups when doing a grow, so flagging a process group for removal with no other changes will cause a replacement process to be added.
 Flagging a process group for removal when decreasing the desired process count will cause that process group specifically to be removed to accomplish that decrease in process count.
 Decreasing the desired process count without marking anything for removal will cause the operator to choose process groups that should be removed to accomplish that decrease in process count.
@@ -41,12 +41,12 @@ spec:
 ```
 
 Only Pods that are updated (deleted and recreated) will be considered during the maintenance mode.
-
-**NOTE** The maintenance mode feature is relatively new and has limited e2e test coverage and should therefore used with care.
+For more information about the implementation of the maintenance mode read the [operations guide](./operations.md#maintenance).
 
 ## Automatic Replacements for ProcessGroups in Undesired State
 
-The operator has an option to automatically replace pods that are in a bad state. This behavior is disabled by default, but you can enable it by setting the field `automationOptions.replacements.enabled` in the cluster spec.
+The operator has an option to automatically replace pods that are in a bad state.
+This behavior is disabled by default, but you can enable it by setting the field `automationOptions.replacements.enabled` in the cluster spec.
 This will replace any pods that meet the following criteria:
 
 * The process group has a condition that is eligible for replacement, and has been in that condition for 7200 seconds. This time window is configurable through `automationOptions.replacements.failureDetectionTimeSeconds`.
@@ -120,13 +120,9 @@ spec:
         enabled: true
 ```
 
-## Enforce Full Replication
-
-The operator only removes ProcessGroups when the cluster has the desired fault tolerance and is available. This is enforced by default in 1.0.0.
-
 ## Exclusion strategy of the Operator
 
-See: [Technical Design: Exclude Processes](technical_design.md#excludeprocesses)
+The [Technical Design: Exclude Processes](technical_design.md#excludeprocesses) has more details on the steps and saftey checks performed by the operator before excluding processes.
 
 ## Deletion mode
 
@@ -141,7 +137,9 @@ Depending on your requirements and the underlying Kubernetes cluster you might c
 
 ## Limit Zones (fault domains) with Unavailable Pods
 
-The operator allows to limit the number of zones with unavailable pods during deletions. This is configurable through `maxZonesWithUnavailablePods` in the cluster spec. Which is disabled by default. When enabled the operator will wait before deleting pods if the number of zones with unavailable pods is higher than the configured value and the pods to update do not belong to any of the zones with unavailable pods. This is useful to avoid deleting too many pods from different zones at once when recreating pods is not fast enough.
+The operator allows to limit the number of zones with unavailable pods during deletions.
+This is configurable through `maxZonesWithUnavailablePods` in the cluster spec.
+Which is disabled by default. When enabled the operator will wait before deleting pods if the number of zones with unavailable pods is higher than the configured value and the pods to update do not belong to any of the zones with unavailable pods. This is useful to avoid deleting too many pods from different zones at once when recreating pods is not fast enough.
 
 ## Next
 

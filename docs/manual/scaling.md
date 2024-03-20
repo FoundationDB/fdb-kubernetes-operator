@@ -19,7 +19,9 @@ spec:
     stateless: 4
 ```
 
-This will configure 6 storage processes, 5 log processes, and 4 stateless processes. This is fewer stateless processes than we had by default, which means that some processes will be running multiple roles. This is generally something you want to avoid in a production configuration, as it can lead to high activity on one role starving another role of resources.
+This will configure 6 storage processes, 5 log processes, and 4 stateless processes.
+This is fewer stateless processes than we had by default, which means that some processes will be running multiple roles.
+This is generally something you want to avoid in a production configuration, as it can lead to high activity on one role starving another role of resources.
 
 By default, the operator will provision processes with the following process types and counts:
 
@@ -47,7 +49,10 @@ spec:
     resolvers: 2 # default is 1
 ```
 
-This will provision 1 additional log process and 3 additional stateless processes. After launching those processes, it will change the database configuration to recruit 1 additional log, 2 additional proxies, and 1 additional resolver.
+This will provision 1 additional log process and 3 additional stateless processes.
+After launching those processes, it will change the database configuration to recruit 1 additional log, 2 additional proxies, and 1 additional resolver.
+
+_NOTE_: If you add additional storage processes, it can take some time until the data is evenly distributed again.
 
 ## Shrinking a Cluster
 

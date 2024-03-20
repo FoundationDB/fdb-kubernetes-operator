@@ -4,7 +4,11 @@ This document provides more information on how to customize the way the operator
 
 ## Details on FoundationDB Version Compatibility
 
-Out of the box, the operator only supports a single minor version of FoundationDB, matching the oldest FoundationDB version listed for that operator version in the [compatibility guide](/docs/compatibility.md). This constraint comes from the FoundationDB client library, which must match the protocol version of the servers that it connects to. To connect to newer versions of FoundationDB, you must install a [multi-version client library](https://apple.github.io/foundationdb/api-general.html#multi-version-client-api). The operator supports using init containers to provide additional client libraries independently of the libraries shipped in the basic operator docker image. We have an example of this configuration in our [example deployment configuration](https://github.com/FoundationDB/fdb-kubernetes-operator/blob/main/config/samples/deployment.yaml#L176). This example is updated regularly to include binaries and client libraries for all supported versions of FoundationDB.
+Out of the box, the operator only supports a single minor version of FoundationDB, matching the oldest FoundationDB version listed for that operator version in the [compatibility guide](/docs/compatibility.md).
+This constraint comes from the FoundationDB client library, which must match the protocol version of the servers that it connects to. 
+To connect to newer versions of FoundationDB, you must install a [multi-version client library](https://apple.github.io/foundationdb/api-general.html#multi-version-client-api).
+The operator supports using init containers to provide additional client libraries independently of the libraries shipped in the basic operator docker image. We have an example of this configuration in our [example deployment configuration](../../config/samples/deployment.yaml#L176).
+This example is updated regularly to include binaries and client libraries for all supported versions of FoundationDB.
 
 If you need to customize this, to support pre-releases or custom builds, you can use this example as a baseline and define your own init containers. The configuration for these init containers works as follows:
 

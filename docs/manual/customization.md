@@ -326,7 +326,7 @@ The operator will add a special locality to the fdbserver processes called `dns_
 
 ## Using Multiple Namespaces
 
-Our [sample deployment](https://raw.githubusercontent.com/foundationdb/fdb-kubernetes-operator/master/config/samples/deployment.yaml) configures the operator to run in single-namespace mode, where it only manages resources in the namespace where the operator itself is running. If you want a single deployment of the operator to manage your FDB clusters across all of your namespaces, you will need to run it in global mode. Which mode is appropriate will depend on the constraints of your environment.
+Our [sample deployment](../../config/samples/deployment.yaml) configures the operator to run in single-namespace mode, where it only manages resources in the namespace where the operator itself is running. If you want a single deployment of the operator to manage your FDB clusters across all of your namespaces, you will need to run it in global mode. Which mode is appropriate will depend on the constraints of your environment.
 
 ### Single-Namespace Mode
 
@@ -339,7 +339,7 @@ To run the controller in single-namespace mode, you will need to configure the f
 * A service account for the controller
 * The serviceAccountName field in the controller's pod spec
 * A `WATCH_NAMESPACE` environment variable defined in the controller's pod spec or in the arguments of the container command
-* A Role that grants access to the necessary permissions to all of the resources that the controller manages. See the [sample role](https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/master/config/samples/deployment/rbac_role.yaml) for the list of those permissions.
+* A Role that grants access to the necessary permissions to all of the resources that the controller manages. See the [sample role](../../config/samples/deployment/rbac_role.yaml) for the list of those permissions.
 * A RoleBinding that binds that role to the service account for the controller
 
 The sample deployment provides all of this configuration.
@@ -354,7 +354,7 @@ To run the controller in global mode, you will need to configure the following t
 
 * A service account for the controller
 * The serviceAccountName field in the controller's pod spec
-* A ClusterRole that grants access to the necessary permissions to all of the resources that the controller manages. See the [sample role](https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/master/config/samples/deployment/rbac_role.yaml) for the list of those permissions.
+* A ClusterRole that grants access to the necessary permissions to all of the resources that the controller manages. See the [sample role](../../config/samples/deployment/rbac_role.yaml) for the list of those permissions.
 * A ClusterRoleBinding that binds that role to the service account for the controller
 
 You can build this kind of configuration easily from the sample deployment by changing the following things:

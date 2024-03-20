@@ -19,7 +19,7 @@ You can see logs from the operator by running `kubectl logs -f -l app=fdb-kubern
 
 The example below will cover creating a cluster. All subsequent examples will assume that you have just created this cluster, and will cover an operation on this cluster.
 
-For more information on the fields you can define on the cluster resource, see the [go docs](https://godoc.org/github.com/FoundationDB/fdb-kubernetes-operator/pkg/apis/apps/v1beta2#FoundationDBCluster).
+For more information on the fields you can define on the cluster resource, see the [cluster spec docs](../cluster_spec.md).
 
 For more information on version compatibility, see our [compatibility guide](/docs/compatibility.md).
 
@@ -36,16 +36,29 @@ spec:
   version: 7.1.26
 ```
 
-This will create a cluster with 3 storage processes, 4 log processes, and 7 stateless processes. Each fdbserver process will be in a separate pod, and the pods will have names of the form `sample-cluster-$role-$n`, where `$n` is the process group ID and `$role` is the role for the process.
+This will create a cluster with 3 storage processes, 4 log processes, and 7 stateless processes.
+Each `fdbserver` process will be in a separate pod, and the pods will have names of the form `sample-cluster-$role-$n`, where `$n` is the process group ID and `$role` is the role for the process.
 
-You can run `kubectl get foundationdbcluster sample-cluster` to check the progress of reconciliation. Once the reconciled generation appears in this output, the cluster should be up and ready. After creating the cluster, you can connect to the cluster by running `kubectl exec -it sample-cluster-log-1 -- fdbcli`.
+You can run `kubectl get foundationdbcluster sample-cluster` to check the progress of reconciliation.
+Once the reconciled generation appears in this output, the cluster should be up and ready.
+After creating the cluster, you can connect to the cluster by running `kubectl exec -it sample-cluster-log-1 -- fdbcli`.
 
-This example requires non-trivial resources, based on what a process will need in a production environment. This means that is too large to run in a local testing environment. It also requires disk I/O features that are not present in Docker for Mac. If you want to run these tests in that kind of environment, you can try bringing in the resource requirements, knobs, and fault domain information from a [local testing example](../../config/samples/cluster.yaml).
+This example requires non-trivial resources, based on what a process will need in a production environment.
+This means that it might be too large to run in a local testing environment.
+It also requires disk I/O features that are not present in Docker for Mac.
+If you want to run these tests in that kind of environment, you can try bringing in the resource requirements, knobs, and fault domain information from a [local testing example](../../config/samples/cluster.yaml).
+
+_NOTE_: FoundationDB currently only supports `amd64`/`x64`.
 
 In addition to the pods, the operator will create a Persistent Volume Claim for any stateful
 processes in the cluster. In this example, each volume will be 128 GB.
 
-By default each pod will have two containers and one init container. The `foundationdb` container will run fdbmonitor and fdbserver, and is the main container for the pod. The `foundationdb-kubernetes-sidecar` container will run a sidecar image designed to help run FDB on Kubernetes. It is responsible for managing the fdbmonitor conf files and providing FDB binaries to the `foundationdb` container. The operator will create a config map that contains a template for the monitor conf file, and the sidecar will interpolate instance-specific fields into the conf and make it available to the fdbmonitor process through a shared volume. The "Upgrading a Cluster" has more detail on we manage binaries. The init container will run the same sidecar image, and will ensure that the initial binaries and dynamic conf are ready before the fdbmonitor process starts.
+By default each pod will have two containers and one init container.
+The `foundationdb` container will run `fdbmonitor` and `fdbserver`, and is the main container for the pod. The `foundationdb-kubernetes-sidecar` container will run a sidecar image designed to help run FDB on Kubernetes.
+It is responsible for managing the `fdbmonitor` conf files and providing FDB binaries to the `foundationdb` container. 
+The operator will create a config map that contains a template for the monitor conf file, and the sidecar will interpolate instance-specific fields into the conf and make it available to the fdbmonitor process through a shared volume.
+The "Upgrading a Cluster" has more detail on we manage binaries.
+The init container will run the same sidecar image, and will ensure that the initial binaries and dynamic conf are ready before the `fdbmonitor` process starts.
 
 ## Accessing a Cluster
 
@@ -63,6 +76,22 @@ spec:
       template:
         spec:
           restartPolicy: OnFailure
+          initContainers:
+          - name: init-cluster-file
+            image: foundationdb/foundationdb-kubernetes-sidecar:7.1.26-1
+            args:
+              - --init-mode
+              - --input-dir
+              - /mnt/config-volume
+              - --copy-file
+              - cluster-file
+              - --require-not-empty
+              - cluster-file
+          volumeMounts:
+            - name: config-volume
+              mountPath: /mnt/config-volume
+            - name: shared-volume
+              mountPath: /out-dir
           containers:
           - name: fdbcli-status-cronjob
             image: foundationdb/foundationdb:7.1.26
@@ -74,18 +103,21 @@ spec:
             - name: FDB_CLUSTER_FILE
               value: /mnt/config-volume/cluster-file
             volumeMounts:
-            - name: config-volume
+            - name: shared-volume
               mountPath: /mnt/config-volume
           volumes:
           - name: config-volume
             configMap:
               name: sample-cluster-config
+          - name: shared-volume
+            emptyDir:
+              medium: Memory
 ```
 
 Note that:
 
 * The name of the config map will depend on the name of your cluster.
-* For long-running applications you should ensure that your cluster file is writeable by your application.
+* For long-running applications you should ensure that your cluster file is writeable by your application. You can achieve this by using the init container and copying the cluster-file inside a shared `emptyDir`.
 
 ## Next
 
