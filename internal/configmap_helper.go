@@ -145,10 +145,7 @@ func getConfigMapMetadata(cluster *fdbv1beta2.FoundationDBCluster) metav1.Object
 }
 
 func getDataForMonitorConf(cluster *fdbv1beta2.FoundationDBCluster, imageType FDBImageType, pClass fdbv1beta2.ProcessClass, serversPerPod int) (string, []byte, error) {
-	config, err := GetMonitorProcessConfiguration(cluster, pClass, serversPerPod, imageType, nil)
-	if err != nil {
-		return "", nil, err
-	}
+	config := GetMonitorProcessConfiguration(cluster, pClass, serversPerPod, imageType, nil)
 	jsonData, err := json.Marshal(config)
 	if err != nil {
 		return "", nil, err

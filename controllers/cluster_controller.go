@@ -323,10 +323,7 @@ func (r *FoundationDBClusterReconciler) updatePodDynamicConf(logger logr.Logger,
 
 	imageType := internal.GetImageType(pod)
 	if imageType == internal.FDBImageTypeUnified {
-		config, err := internal.GetMonitorProcessConfiguration(cluster, processClass, serversPerPod, imageType, nil)
-		if err != nil {
-			return false, err
-		}
+		config := internal.GetMonitorProcessConfiguration(cluster, processClass, serversPerPod, imageType, nil)
 		configData, err := json.Marshal(config)
 		if err != nil {
 			return false, err

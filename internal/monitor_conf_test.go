@@ -56,8 +56,7 @@ var _ = Describe("monitor_conf", func() {
 			It("generates conf with an no processes", func() {
 				Expect(cluster).NotTo(BeNil())
 				cluster.Status.ConnectionString = ""
-				config, err := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 1, FDBImageTypeUnified, nil)
-				Expect(err).NotTo(HaveOccurred())
+				config := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 1, FDBImageTypeUnified, nil)
 				Expect(config.RunServers).NotTo(BeNil())
 				Expect(*config.RunServers).To(BeFalse())
 				Expect(config.Version).To(Equal(fdbv1beta2.Versions.Default.String()))
@@ -66,8 +65,7 @@ var _ = Describe("monitor_conf", func() {
 
 		When("running a storage instance", func() {
 			It("generates the conf", func() {
-				config, err := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 1, FDBImageTypeUnified, nil)
-				Expect(err).NotTo(HaveOccurred())
+				config := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 1, FDBImageTypeUnified, nil)
 				Expect(config.Version).To(Equal(fdbv1beta2.Versions.Default.String()))
 				Expect(config.BinaryPath).To(BeEmpty())
 				Expect(config.RunServers).To(BeNil())
@@ -102,8 +100,7 @@ var _ = Describe("monitor_conf", func() {
 
 		When("running a log instance", func() {
 			It("generates the conf", func() {
-				config, err := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassLog, 1, FDBImageTypeUnified, nil)
-				Expect(err).NotTo(HaveOccurred())
+				config := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassLog, 1, FDBImageTypeUnified, nil)
 				Expect(config.Version).To(Equal(fdbv1beta2.Versions.Default.String()))
 				Expect(config.BinaryPath).To(BeEmpty())
 				Expect(config.RunServers).To(BeNil())
@@ -115,8 +112,7 @@ var _ = Describe("monitor_conf", func() {
 
 		When("using the split image type", func() {
 			It("generates the conf", func() {
-				config, err := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 1, FDBImageTypeSplit, nil)
-				Expect(err).NotTo(HaveOccurred())
+				config := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 1, FDBImageTypeSplit, nil)
 				Expect(config.Version).To(Equal(fdbv1beta2.Versions.Default.String()))
 				Expect(config.BinaryPath).To(BeEmpty())
 				Expect(config.RunServers).To(BeNil())
@@ -151,8 +147,7 @@ var _ = Describe("monitor_conf", func() {
 
 		When("running multiple processes", func() {
 			It("adds a process ID argument", func() {
-				config, err := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 2, FDBImageTypeUnified, nil)
-				Expect(err).NotTo(HaveOccurred())
+				config := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 2, FDBImageTypeUnified, nil)
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength + 1))
 				Expect(config.Arguments[7]).To(Equal(monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
 					{Value: "--locality_process_id="},
@@ -167,8 +162,7 @@ var _ = Describe("monitor_conf", func() {
 			})
 
 			It("includes the process number in the data directory", func() {
-				config, err := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 2, FDBImageTypeUnified, nil)
-				Expect(err).NotTo(HaveOccurred())
+				config := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 2, FDBImageTypeUnified, nil)
 				Expect(config.Arguments[6]).To(Equal(monitorapi.Argument{
 					ArgumentType: monitorapi.ConcatenateArgumentType,
 					Values: []monitorapi.Argument{
@@ -186,8 +180,7 @@ var _ = Describe("monitor_conf", func() {
 			})
 
 			It("does not have a listen address", func() {
-				config, err := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 1, FDBImageTypeUnified, nil)
-				Expect(err).NotTo(HaveOccurred())
+				config := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 1, FDBImageTypeUnified, nil)
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength))
 				Expect(config.Arguments[2]).To(Equal(monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
 					{Value: "--public_address=["},
@@ -206,8 +199,7 @@ var _ = Describe("monitor_conf", func() {
 			})
 
 			It("adds a separate listen address", func() {
-				config, err := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 1, FDBImageTypeUnified, nil)
-				Expect(err).NotTo(HaveOccurred())
+				config := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 1, FDBImageTypeUnified, nil)
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength + 1))
 				Expect(config.Arguments[2]).To(Equal(monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
 					{Value: "--public_address=["},
@@ -229,8 +221,7 @@ var _ = Describe("monitor_conf", func() {
 				})
 
 				It("does not have a listen address", func() {
-					config, err := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 1, FDBImageTypeUnified, nil)
-					Expect(err).NotTo(HaveOccurred())
+					config := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 1, FDBImageTypeUnified, nil)
 					Expect(config.Arguments).To(HaveLen(baseArgumentLength))
 					Expect(config.Arguments[2]).To(Equal(monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
 						{Value: "--public_address=["},
@@ -250,8 +241,7 @@ var _ = Describe("monitor_conf", func() {
 			})
 
 			It("includes the TLS flag in the address", func() {
-				config, err := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 1, FDBImageTypeUnified, nil)
-				Expect(err).NotTo(HaveOccurred())
+				config := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 1, FDBImageTypeUnified, nil)
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength))
 				Expect(config.Arguments[2]).To(Equal(monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
 					{Value: "--public_address=["},
@@ -271,8 +261,7 @@ var _ = Describe("monitor_conf", func() {
 			})
 
 			It("includes both addresses", func() {
-				config, err := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 1, FDBImageTypeUnified, nil)
-				Expect(err).NotTo(HaveOccurred())
+				config := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 1, FDBImageTypeUnified, nil)
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength))
 				Expect(config.Arguments[2]).To(Equal(monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
 					{Value: "--public_address=["},
@@ -296,8 +285,7 @@ var _ = Describe("monitor_conf", func() {
 			})
 
 			It("includes both addresses", func() {
-				config, err := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 1, FDBImageTypeUnified, nil)
-				Expect(err).NotTo(HaveOccurred())
+				config := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 1, FDBImageTypeUnified, nil)
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength))
 				Expect(config.Arguments[2]).To(Equal(monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
 					{Value: "--public_address=["},
@@ -322,8 +310,7 @@ var _ = Describe("monitor_conf", func() {
 				})
 
 				It("includes the custom parameters", func() {
-					config, err := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 1, FDBImageTypeUnified, nil)
-					Expect(err).NotTo(HaveOccurred())
+					config := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 1, FDBImageTypeUnified, nil)
 					Expect(config.Arguments).To(HaveLen(baseArgumentLength + 1))
 					Expect(config.Arguments[10]).To(Equal(monitorapi.Argument{Value: "--knob_disable_posix_kernel_aio=1"}))
 				})
@@ -345,8 +332,7 @@ var _ = Describe("monitor_conf", func() {
 				})
 
 				It("includes the custom parameters for that class", func() {
-					config, err := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 1, FDBImageTypeUnified, nil)
-					Expect(err).NotTo(HaveOccurred())
+					config := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 1, FDBImageTypeUnified, nil)
 					Expect(config.Arguments).To(HaveLen(baseArgumentLength + 1))
 					Expect(config.Arguments[10]).To(Equal(monitorapi.Argument{Value: "--knob_test=test1"}))
 				})
@@ -362,8 +348,7 @@ var _ = Describe("monitor_conf", func() {
 			})
 
 			It("uses the variable as the zone ID", func() {
-				config, err := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 1, FDBImageTypeUnified, nil)
-				Expect(err).NotTo(HaveOccurred())
+				config := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 1, FDBImageTypeUnified, nil)
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength))
 
 				Expect(config.Arguments[9]).To(Equal(monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
@@ -379,8 +364,7 @@ var _ = Describe("monitor_conf", func() {
 			})
 
 			It("includes the verification rules", func() {
-				config, err := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 1, FDBImageTypeUnified, nil)
-				Expect(err).NotTo(HaveOccurred())
+				config := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 1, FDBImageTypeUnified, nil)
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength + 1))
 				Expect(config.Arguments[10]).To(Equal(monitorapi.Argument{Value: "--tls_verify_peers=S.CN=foundationdb.org"}))
 			})
@@ -392,8 +376,7 @@ var _ = Describe("monitor_conf", func() {
 			})
 
 			It("includes the log group", func() {
-				config, err := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 1, FDBImageTypeUnified, nil)
-				Expect(err).NotTo(HaveOccurred())
+				config := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 1, FDBImageTypeUnified, nil)
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength))
 				Expect(config.Arguments[5]).To(Equal(monitorapi.Argument{Value: "--loggroup=test-fdb-cluster"}))
 			})
@@ -405,8 +388,7 @@ var _ = Describe("monitor_conf", func() {
 			})
 
 			It("adds an argument for the data center", func() {
-				config, err := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 1, FDBImageTypeUnified, nil)
-				Expect(err).NotTo(HaveOccurred())
+				config := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 1, FDBImageTypeUnified, nil)
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength + 1))
 				Expect(config.Arguments[10]).To(Equal(monitorapi.Argument{Value: "--locality_dcid=dc01"}))
 			})
@@ -418,8 +400,7 @@ var _ = Describe("monitor_conf", func() {
 			})
 
 			It("adds an argument for the data hall", func() {
-				config, err := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 1, FDBImageTypeUnified, nil)
-				Expect(err).NotTo(HaveOccurred())
+				config := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 1, FDBImageTypeUnified, nil)
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength + 1))
 				Expect(config.Arguments[10]).To(Equal(monitorapi.Argument{Value: "--locality_data_hall=dh01"}))
 			})
