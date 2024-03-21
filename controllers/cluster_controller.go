@@ -67,7 +67,6 @@ type FoundationDBClusterReconciler struct {
 	GetTimeout                                  time.Duration
 	PostTimeout                                 time.Duration
 	MinimumRequiredUptimeCCBounce               time.Duration
-<<<<<<< HEAD
 	MaintenanceListStaleDuration                time.Duration
 	MaintenanceListWaitDuration                 time.Duration
 	// MinimumRecoveryTimeForInclusion defines the duration in seconds that a cluster must be up
@@ -80,9 +79,7 @@ type FoundationDBClusterReconciler struct {
 	// before new exclusions are allowed. The operator issuing frequent exclusions in a short time window
 	// could cause instability for the cluster as each exclusion will/can cause a recovery.
 	MinimumRecoveryTimeForExclusion float64
-=======
-	decodingSerializer                          runtime.Serializer
->>>>>>> baf196e6 (Make use of unstructure when using SSA to prevent default values causing issues)
+	decodingSerializer              runtime.Serializer
 }
 
 // NewFoundationDBClusterReconciler creates a new FoundationDBClusterReconciler with defaults.
