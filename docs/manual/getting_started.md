@@ -56,13 +56,15 @@ processes in the cluster. In this example, each volume will be 128 GB.
 By default each pod will have two containers and one init container.
 The `foundationdb` container will run `fdbmonitor` and `fdbserver`, and is the main container for the pod. The `foundationdb-kubernetes-sidecar` container will run a sidecar image designed to help run FDB on Kubernetes.
 It is responsible for managing the `fdbmonitor` conf files and providing FDB binaries to the `foundationdb` container. 
-The operator will create a config map that contains a template for the monitor conf file, and the sidecar will interpolate instance-specific fields into the conf and make it available to the fdbmonitor process through a shared volume.
-The "Upgrading a Cluster" has more detail on we manage binaries.
+The operator will create a `ConfigMap` that contains a template for the monitor conf file, and the sidecar will interpolate instance-specific fields into the conf and make it available to the `fdbmonitor` process through a shared volume.
+The [Upgrading a Cluster](upgrades.md) has more detail on we manage binaries.
 The init container will run the same sidecar image, and will ensure that the initial binaries and dynamic conf are ready before the `fdbmonitor` process starts.
 
 ## Accessing a Cluster
 
-Now that your cluster is deployed, you can easily access the cluster. As an example, we are going to deploy a [Kubernetes Job](https://kubernetes.io/docs/tasks/job/) that will check the status of the cluster every minute. The `cluster file` is available through the exposed `config map` that can be mounted as follows:
+Now that your cluster is deployed, you can easily access the cluster.
+As an example, we are going to deploy a [Kubernetes Job](https://kubernetes.io/docs/tasks/job/) that will check the status of the cluster every minute.
+The `cluster file` is available through the exposed `ConfigMap` that can be used as follows:
 
 ```yaml
 apiVersion: batch/v1
@@ -77,14 +79,20 @@ spec:
         spec:
           restartPolicy: OnFailure
           initContainers:
+          # See the note below this example. The cluster file is copied to a place where the application
+          # can write too. This ensures that long-running applications will keep the cluster-file updated
+          # if the coordinators change.
           - name: init-cluster-file
             image: foundationdb/foundationdb-kubernetes-sidecar:7.1.26-1
             args:
+              # Make sure the sidecar exits when the file is not empty and was successfully copied.
               - --init-mode
               - --input-dir
               - /mnt/config-volume
+              # Only copy the cluster-file that is provided by the ConfigMap
               - --copy-file
               - cluster-file
+              # Make sure the cluster-file is not empty.
               - --require-not-empty
               - cluster-file
           volumeMounts:
@@ -116,7 +124,7 @@ spec:
 
 Note that:
 
-* The name of the config map will depend on the name of your cluster.
+* The name of the `ConfigMap` will depend on the name of your cluster.
 * For long-running applications you should ensure that your cluster file is writeable by your application. You can achieve this by using the init container and copying the cluster-file inside a shared `emptyDir`.
 
 ## Next
