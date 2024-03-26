@@ -56,22 +56,7 @@ This example would replicate storage pods across nodes and enforce that there ar
 
 ### Using kubernetes failure zones
 
-You can change the fault domain configuration to use a different field as well:
-
-```yaml
-apiVersion: apps.foundationdb.org/v1beta2
-kind: FoundationDBCluster
-metadata:
-  name: sample-cluster
-spec:
-  version: 7.1.26
-  faultDomain:
-    key: topology.kubernetes.io/zone
-    valueFrom: spec.zoneName
-```
-
-The example above divides processes across nodes based on the label `topology.kubernetes.io/zone` on the node, and sets the zone locality information in FDB based on the field `spec.zoneName` on the pod. The latter field does not exist, so this configuration cannot work. There is no clear pattern in Kubernetes for allowing pods to access node information other than the host name, which presents challenges using any other kind of fault domain.
-
+There is no clear pattern in Kubernetes for allowing pods to access node information other than the host name, which presents challenges using any other kind of fault domain.
 If you have some other mechanism to make this information available in your pod's environment, you can tell the operator to use an environment variable as the source for the zone locality:
 
 ```yaml
