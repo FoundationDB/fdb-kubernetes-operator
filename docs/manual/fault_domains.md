@@ -71,7 +71,7 @@ spec:
     valueFrom: $RACK
 ```
 
-This will set the `zoneid` locality to whatever is in the `RACK` environment variable for the containers providing the monitor conf, which are `foundationdb-kubernetes-init` and `foundationdb-kubernetes-sidecar`.
+If you specify this `RACK` variable in the cluster `spec.sidecarVariables` then it will set the `zoneid` locality to whatever is in the `RACK` environment variable for the containers providing the monitor conf, which are `foundationdb-kubernetes-init` and `foundationdb-kubernetes-sidecar`.
 
 ## Option 2: Multi-Kubernetes Replication
 
