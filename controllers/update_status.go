@@ -130,6 +130,12 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 		clusterStatus.Health.Healthy = databaseStatus.Client.DatabaseStatus.Healthy
 		clusterStatus.Health.FullReplication = databaseStatus.Cluster.FullReplication
 		clusterStatus.Health.DataMovementPriority = databaseStatus.Cluster.Data.MovingData.HighestPriority
+		// Either set the maintenance zone ID if the cluster has an active maintenance zone or reset it.
+		if databaseStatus.Cluster.MaintenanceZone != "" {
+			clusterStatus.MaintenanceModeInfo.ZoneID = databaseStatus.Cluster.MaintenanceZone
+		} else {
+			clusterStatus.MaintenanceModeInfo = fdbv1beta2.MaintenanceModeInfo{}
+		}
 	}
 
 	cluster.Status.RequiredAddresses = clusterStatus.RequiredAddresses

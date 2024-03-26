@@ -24,6 +24,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	"regexp"
 	"time"
 
@@ -35,6 +38,7 @@ import (
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	sigyaml "sigs.k8s.io/yaml"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podclient"
@@ -75,6 +79,7 @@ type FoundationDBClusterReconciler struct {
 	// before new exclusions are allowed. The operator issuing frequent exclusions in a short time window
 	// could cause instability for the cluster as each exclusion will/can cause a recovery.
 	MinimumRecoveryTimeForExclusion float64
+	decodingSerializer              runtime.Serializer
 }
 
 // NewFoundationDBClusterReconciler creates a new FoundationDBClusterReconciler with defaults.
@@ -83,6 +88,7 @@ func NewFoundationDBClusterReconciler(podLifecycleManager podmanager.PodLifecycl
 		PodLifecycleManager: podLifecycleManager,
 	}
 	r.PodClientProvider = r.newFdbPodClient
+	r.decodingSerializer = yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
 
 	return r
 }
@@ -436,7 +442,7 @@ func (r *FoundationDBClusterReconciler) newFdbPodClient(cluster *fdbv1beta2.Foun
 // updateOrApply updates the status either with server-side apply or if disabled with the normal update call.
 func (r *FoundationDBClusterReconciler) updateOrApply(ctx context.Context, cluster *fdbv1beta2.FoundationDBCluster) error {
 	if r.ServerSideApply {
-		// TODO(johscheuer): We have to set the TypeMeta otherwise the Patch command will fail. This is the rudimentary
+		// We have to set the TypeMeta otherwise the Patch command will fail. This is the rudimentary
 		// support for server side apply which should be enough for the status use case. The controller runtime will
 		// add some additional support in the future: https://github.com/kubernetes-sigs/controller-runtime/issues/347.
 		patch := &fdbv1beta2.FoundationDBCluster{
@@ -451,7 +457,22 @@ func (r *FoundationDBClusterReconciler) updateOrApply(ctx context.Context, clust
 			Status: cluster.Status,
 		}
 
-		return r.Status().Patch(ctx, patch, client.Apply, client.FieldOwner("fdb-operator")) //, client.ForceOwnership)
+		// We are converting the patch into an *unstructured.Unstructured to remove fields that use a default value.
+		// If we are not doing this, empty (nil) fields will be evaluated as if they were set by the default value.
+		// In some previous testing we discovered some issues with that behaviour. With the *unstructured.Unstructured
+		// we make sure that only fields that are actually set will be applied.
+		outBytes, err := sigyaml.Marshal(patch)
+		if err != nil {
+			return err
+		}
+
+		unstructuredPatch := &unstructured.Unstructured{}
+		_, _, err = r.decodingSerializer.Decode(outBytes, nil, unstructuredPatch)
+		if err != nil {
+			return err
+		}
+
+		return r.Status().Patch(ctx, unstructuredPatch, client.Apply, client.FieldOwner("fdb-operator")) //, client.ForceOwnership)
 	}
 
 	return r.Status().Update(ctx, cluster)
