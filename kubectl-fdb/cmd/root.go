@@ -179,6 +179,7 @@ type processGroupSelectionOptions struct {
 	namespace         string
 	clusterName       string
 	clusterLabel      string
+	matchLabels       map[string]string
 	processClass      string
 	useProcessGroupID bool
 	conditions        []fdbv1beta2.ProcessGroupConditionType
@@ -192,6 +193,7 @@ func addProcessSelectionFlags(cmd *cobra.Command) {
 		"It is incompatible with use-process-group-id, process-class, and process-condition.")
 	cmd.Flags().Bool("use-process-group-id", false, "Selects process groups by process-group ID instead of the Pod name.")
 	cmd.Flags().StringArray("process-condition", []string{}, "Selects process groups that are in any of the given FDB process group conditions.")
+	cmd.Flags().StringToString("match-labels", map[string]string{}, "Selects process groups running on pods matching the given labels and are in the provided cluster.")
 }
 
 func getProcessSelectionOptsFromFlags(cmd *cobra.Command, o *fdbBOptions, ids []string) (processGroupSelectionOptions, error) {
@@ -201,6 +203,10 @@ func getProcessSelectionOptsFromFlags(cmd *cobra.Command, o *fdbBOptions, ids []
 		return opts, err
 	}
 	clusterLabel, err := cmd.Flags().GetString("cluster-label")
+	if err != nil {
+		return opts, err
+	}
+	matchLabels, err := cmd.Flags().GetStringToString("match-labels")
 	if err != nil {
 		return opts, err
 	}
@@ -228,6 +234,7 @@ func getProcessSelectionOptsFromFlags(cmd *cobra.Command, o *fdbBOptions, ids []
 		ids:               ids,
 		namespace:         namespace,
 		clusterName:       cluster,
+		matchLabels:       matchLabels,
 		clusterLabel:      clusterLabel,
 		processClass:      processClass,
 		useProcessGroupID: useProcessGroupID,
