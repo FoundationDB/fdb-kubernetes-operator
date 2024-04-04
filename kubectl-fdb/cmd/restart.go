@@ -55,8 +55,8 @@ func newRestartCmd(streams genericclioptions.IOStreams) *cobra.Command {
 			if err != nil {
 				return err
 			}
-
-			if len(args) == 0 && !allProcesses && len(processGroupSelectionOpts.conditions) == 0 {
+			// TODO(nic): consider putting "allProcesses" into the process selection functions to avoid having these checks outside for more sensitive commands
+			if len(args) == 0 && !allProcesses && len(processGroupSelectionOpts.conditions) == 0 && len(processGroupSelectionOpts.matchLabels) == 0 && processGroupSelectionOpts.processClass == "" {
 				return cmd.Help()
 			}
 

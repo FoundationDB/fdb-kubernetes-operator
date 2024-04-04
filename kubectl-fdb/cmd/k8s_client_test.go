@@ -357,7 +357,7 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 						useProcessGroupID: true,
 					},
 					wantResult:      nil,
-					wantErrContains: "selection of process groups by cluster-label (cross-cluster selection) is incompatible with use-process-group-id, process-class, and process-condition options",
+					wantErrContains: "selection of process groups by cluster-label (cross-cluster selection) is incompatible with use-process-group-id, process-class",
 				},
 			),
 			Entry("gets processGroups from podNames and clusterLabel",

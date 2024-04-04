@@ -489,9 +489,11 @@ func getPodNamesByCluster(cmd *cobra.Command, kubeClient client.Client, opts pro
 	if opts.clusterName == "" { // cli has a default for clusterLabel
 		if opts.useProcessGroupID || opts.processClass != "" || len(opts.conditions) > 0 || len(opts.matchLabels) > 0 {
 			return nil, errors.New("selection of pods / process groups by cluster-label (cross-cluster selection) is " +
-				"incompatible with use-process-group-id, process-class, process-condition, and match-labels options")
+				"incompatible with use-process-group-id, process-class, process-condition, and match-labels options.  " +
+				"Please specify a cluster")
 		}
 	}
+
 	if len(opts.conditions) > 0 && opts.processClass != "" {
 		return nil, errors.New("selection of pods / processGroups by both processClass and conditions is not supported at this time")
 	}
@@ -549,7 +551,8 @@ func getProcessGroupsByCluster(cmd *cobra.Command, kubeClient client.Client, opt
 	if opts.clusterName == "" { // cli has a default for clusterLabel
 		if opts.useProcessGroupID || opts.processClass != "" || len(opts.conditions) > 0 {
 			return nil, errors.New("selection of process groups by cluster-label (cross-cluster selection) is " +
-				"incompatible with use-process-group-id, process-class, and process-condition options")
+				"incompatible with use-process-group-id, process-class, process-condition, and match-labels options.  " +
+				"Please specify a cluster")
 		}
 	}
 	if len(opts.conditions) > 0 && opts.processClass != "" {

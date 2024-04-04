@@ -193,7 +193,7 @@ func addProcessSelectionFlags(cmd *cobra.Command) {
 		"It is incompatible with use-process-group-id, process-class, and process-condition.")
 	cmd.Flags().Bool("use-process-group-id", false, "Selects process groups by process-group ID instead of the Pod name.")
 	cmd.Flags().StringArray("process-condition", []string{}, "Selects process groups that are in any of the given FDB process group conditions.")
-	cmd.Flags().StringToString("match-labels", map[string]string{}, "Selects process groups running on pods matching the given labels and are in the provided cluster.")
+	cmd.Flags().StringToString("match-labels", map[string]string{}, "Selects process groups running on pods matching the given labels and are in the provided cluster.  Using this option ignores provided ids.")
 }
 
 func getProcessSelectionOptsFromFlags(cmd *cobra.Command, o *fdbBOptions, ids []string) (processGroupSelectionOptions, error) {
