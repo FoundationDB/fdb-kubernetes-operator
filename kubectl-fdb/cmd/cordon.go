@@ -136,6 +136,9 @@ func cordonNode(cmd *cobra.Command, kubeClient client.Client, inputClusterName s
 		if err != nil {
 			return fmt.Errorf("issue fetching Pods running on node %s. Error: %w", node, err)
 		}
+		if len(pods.Items) == 0 {
+			return fmt.Errorf("no pods were found that were running on node %s", node)
+		}
 		var podNames []string
 		for _, pod := range pods.Items {
 			podNames = append(podNames, pod.Name)

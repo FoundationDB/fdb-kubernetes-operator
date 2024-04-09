@@ -357,7 +357,7 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 						useProcessGroupID: true,
 					},
 					wantResult:      nil,
-					wantErrContains: "selection of process groups by cluster-label (cross-cluster selection) is incompatible with use-process-group-id, process-class, and process-condition options",
+					wantErrContains: "selection of process groups by cluster-label (cross-cluster selection) is incompatible with use-process-group-id, process-class",
 				},
 			),
 			Entry("gets processGroups from podNames and clusterLabel",
@@ -485,6 +485,75 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 						conditions:  []fdbv1beta2.ProcessGroupConditionType{fdbv1beta2.IncorrectPodSpec},
 					},
 					wantResult:      nil,
+					wantErrContains: "found no processGroups meeting the selection criteria",
+				},
+			),
+			Entry("gets all processGroups with given label",
+				testCase{
+					opts: processGroupSelectionOptions{
+						clusterName: clusterName,
+						matchLabels: map[string]string{fdbv1beta2.FDBClusterLabel: clusterName},
+					},
+					wantResult: map[string][]fdbv1beta2.ProcessGroupID{
+						clusterName: {
+							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage)),
+							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-2", clusterName, fdbv1beta2.ProcessClassStorage)),
+							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-3", clusterName, fdbv1beta2.ProcessClassStateless)),
+						},
+					},
+				},
+			),
+			Entry("gets 1 processGroup matching given label",
+				testCase{
+					opts: processGroupSelectionOptions{
+						clusterName: clusterName,
+						matchLabels: map[string]string{
+							fdbv1beta2.FDBProcessClassLabel: string(fdbv1beta2.ProcessClassStateless),
+						},
+					},
+					wantResult: map[string][]fdbv1beta2.ProcessGroupID{
+						clusterName: {
+							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-3", clusterName, fdbv1beta2.ProcessClassStateless)),
+						},
+					},
+				},
+			),
+			Entry("gets 1 processGroup matching given labels",
+				testCase{
+					opts: processGroupSelectionOptions{
+						clusterName: clusterName,
+						matchLabels: map[string]string{
+							fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStateless),
+							fdbv1beta2.FDBProcessGroupIDLabel: fmt.Sprintf("%s-%s-3", clusterName, fdbv1beta2.ProcessClassStateless),
+						},
+					},
+					wantResult: map[string][]fdbv1beta2.ProcessGroupID{
+						clusterName: {
+							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-3", clusterName, fdbv1beta2.ProcessClassStateless)),
+						},
+					},
+				},
+			),
+			Entry("gets 2 processGroups with given label",
+				testCase{
+					opts: processGroupSelectionOptions{
+						clusterName: secondClusterName,
+						matchLabels: map[string]string{fdbv1beta2.FDBProcessClassLabel: string(fdbv1beta2.ProcessClassStorage)},
+					},
+					wantResult: map[string][]fdbv1beta2.ProcessGroupID{
+						secondClusterName: {
+							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-1", secondClusterName, fdbv1beta2.ProcessClassStorage)),
+							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-2", secondClusterName, fdbv1beta2.ProcessClassStorage)),
+						},
+					},
+				},
+			),
+			Entry("gets 0 processGroups with given label",
+				testCase{
+					opts: processGroupSelectionOptions{
+						clusterName: clusterName,
+						matchLabels: map[string]string{fdbv1beta2.FDBProcessClassLabel: string(fdbv1beta2.ProcessClassProxy)},
+					},
 					wantErrContains: "found no processGroups meeting the selection criteria",
 				},
 			),
@@ -698,6 +767,75 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 						conditions:  []fdbv1beta2.ProcessGroupConditionType{fdbv1beta2.IncorrectPodSpec},
 					},
 					wantResult:      nil,
+					wantErrContains: "found no pods meeting the selection criteria",
+				},
+			),
+			Entry("gets all processGroups with given label",
+				testCase{
+					opts: processGroupSelectionOptions{
+						clusterName: clusterName,
+						matchLabels: map[string]string{fdbv1beta2.FDBClusterLabel: clusterName},
+					},
+					wantResult: map[string][]string{
+						clusterName: {
+							fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage),
+							fmt.Sprintf("%s-%s-2", clusterName, fdbv1beta2.ProcessClassStorage),
+							fmt.Sprintf("%s-%s-3", clusterName, fdbv1beta2.ProcessClassStateless),
+						},
+					},
+				},
+			),
+			Entry("gets 1 processGroup matching given label",
+				testCase{
+					opts: processGroupSelectionOptions{
+						clusterName: clusterName,
+						matchLabels: map[string]string{
+							fdbv1beta2.FDBProcessClassLabel: string(fdbv1beta2.ProcessClassStateless),
+						},
+					},
+					wantResult: map[string][]string{
+						clusterName: {
+							fmt.Sprintf("%s-%s-3", clusterName, fdbv1beta2.ProcessClassStateless),
+						},
+					},
+				},
+			),
+			Entry("gets 1 processGroup matching given labels",
+				testCase{
+					opts: processGroupSelectionOptions{
+						clusterName: clusterName,
+						matchLabels: map[string]string{
+							fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStateless),
+							fdbv1beta2.FDBProcessGroupIDLabel: fmt.Sprintf("%s-%s-3", clusterName, fdbv1beta2.ProcessClassStateless),
+						},
+					},
+					wantResult: map[string][]string{
+						clusterName: {
+							fmt.Sprintf("%s-%s-3", clusterName, fdbv1beta2.ProcessClassStateless),
+						},
+					},
+				},
+			),
+			Entry("gets 2 processGroups with given label",
+				testCase{
+					opts: processGroupSelectionOptions{
+						clusterName: secondClusterName,
+						matchLabels: map[string]string{fdbv1beta2.FDBProcessClassLabel: string(fdbv1beta2.ProcessClassStorage)},
+					},
+					wantResult: map[string][]string{
+						secondClusterName: {
+							fmt.Sprintf("%s-%s-1", secondClusterName, fdbv1beta2.ProcessClassStorage),
+							fmt.Sprintf("%s-%s-2", secondClusterName, fdbv1beta2.ProcessClassStorage),
+						},
+					},
+				},
+			),
+			Entry("gets 0 processGroups with given label",
+				testCase{
+					opts: processGroupSelectionOptions{
+						clusterName: clusterName,
+						matchLabels: map[string]string{fdbv1beta2.FDBProcessClassLabel: string(fdbv1beta2.ProcessClassProxy)},
+					},
 					wantErrContains: "found no pods meeting the selection criteria",
 				},
 			),

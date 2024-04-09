@@ -109,7 +109,7 @@ var _ = Describe("[plugin] cordon command", func() {
 					ExpectedInstancesToRemoveWithoutExclusion: []fdbv1beta2.ProcessGroupID{},
 					clusterName:       clusterName,
 					clusterLabel:      "",
-					wantErrorContains: "no processGroups could be selected with the provided options",
+					wantErrorContains: "no pods were found that were running on node",
 				}),
 			Entry("Cordon no node nodes without exclusion",
 				testCase{
@@ -119,7 +119,7 @@ var _ = Describe("[plugin] cordon command", func() {
 					ExpectedInstancesToRemoveWithoutExclusion: []fdbv1beta2.ProcessGroupID{},
 					clusterName:       clusterName,
 					clusterLabel:      "",
-					wantErrorContains: "no processGroups could be selected with the provided options",
+					wantErrorContains: "no pods were found that were running on node",
 				}),
 			Entry("Cordon all nodes with exclusion",
 				testCase{
@@ -197,7 +197,7 @@ var _ = Describe("[plugin] cordon command", func() {
 					ExpectedInstancesToRemoveWithoutExclusion: []fdbv1beta2.ProcessGroupID{},
 					clusterName:       "",
 					clusterLabel:      fdbv1beta2.FDBClusterLabel,
-					wantErrorContains: "no processGroups could be selected with the provided options",
+					wantErrorContains: "no pods were found that were running on node",
 				}),
 		)
 	})

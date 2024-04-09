@@ -90,6 +90,9 @@ kubectl fdb -n default remove process-groups -c cluster --remove-all-failed
 
 # Remove all processes in the cluster that have the given process-class (incompatible with passing pod names or process group IDs)
 kubectl fdb -n default remove process-groups -c cluster --process-class="stateless"
+
+# Remove all processes in the cluster that match the given label set
+kubectl fdb remove process-groups --match-labels="label-key=label-value,other-key=other-value" -c cluster
 `,
 	}
 
@@ -118,7 +121,8 @@ type replaceProcessGroupsOptions struct {
 // If processClass is specified, it will ignore the given ids and remove all processes in the given cluster whose pods
 // have a processClassLabel matching the processClass.
 func replaceProcessGroups(cmd *cobra.Command, kubeClient client.Client, processGroupOpts processGroupSelectionOptions, opts replaceProcessGroupsOptions) (int, error) {
-	if len(processGroupOpts.ids) == 0 && !opts.removeAllFailed && processGroupOpts.processClass == "" && len(processGroupOpts.conditions) == 0 {
+	// TODO(nic): consider putting "allProcesses" into the process selection functions to avoid having these checks outside for more sensitive commands
+	if len(processGroupOpts.ids) == 0 && !opts.removeAllFailed && processGroupOpts.processClass == "" && len(processGroupOpts.conditions) == 0 && len(processGroupOpts.matchLabels) == 0 {
 		return 0, errors.New("no processGroups could be selected with the provided options")
 	}
 
