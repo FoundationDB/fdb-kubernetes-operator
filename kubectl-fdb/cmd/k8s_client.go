@@ -321,7 +321,7 @@ func getPodListMatchingLabels(kubeClient client.Client, namespace string, matchL
 	for key, value := range matchLabels {
 		requirement, err := labels.NewRequirement(key, selection.Equals, []string{value})
 		if err != nil {
-			return pods, err
+			return nil, err
 		}
 		selector = selector.Add(*requirement)
 	}
@@ -331,7 +331,7 @@ func getPodListMatchingLabels(kubeClient client.Client, namespace string, matchL
 		client.MatchingLabelsSelector{Selector: selector},
 	)
 	if err != nil {
-		return pods, err
+		return nil, err
 	}
 
 	return pods, nil
@@ -351,7 +351,7 @@ func getPodsMatchingLabels(kubeClient client.Client, cluster *fdbv1beta2.Foundat
 	}
 	pods, err := getPodListMatchingLabels(kubeClient, namespace, matchLabels)
 	if err != nil {
-		return matchingPodNames, err
+		return nil, err
 	}
 
 	for _, pod := range pods.Items {
