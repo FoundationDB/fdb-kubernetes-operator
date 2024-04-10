@@ -1,10 +1,16 @@
 issues:
+  exclude-files:
+    - "zz_generated.*\\.go$"
   # don't skip warning about doc comments
   # don't exclude the default set of lint
   exclude-use-default: false
   exclude:
     - "ST1000: at least one file in a package should have a package comment"
   exclude-rules:
+  - path: _test\.go
+    linters:
+      - revive
+    text: "dot-imports: should not use dot imports"
   # exclude deprecation warning otherwise we get an error for our own deprecations
   - linters:
     - staticcheck
@@ -68,10 +74,6 @@ linters-settings:
   govet:
     enable:
       - shadow
-  staticcheck:
-    go: "1.20"
-  stylecheck:
-    go: "1.20"
   depguard:
     rules:
       main:
@@ -99,8 +101,7 @@ linters-settings:
           - github.com/chaos-mesh
           - github.com/prometheus
           - github.com/go-logr
+
 run:
   timeout: 10m
-  skip-files:
-    - "zz_generated.*\\.go$"
   allow-parallel-runners: true
