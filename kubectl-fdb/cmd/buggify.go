@@ -34,7 +34,7 @@ func newBuggifyCmd(streams genericclioptions.IOStreams) *cobra.Command {
 		Short: "Subcommand to add process groups to buggify list for a given cluster",
 		Long: "Subcommand to add process groups to buggify list for a given cluster. " +
 			"Supported options: crash-loop, no-schedule, empty-monitor-conf.",
-		RunE: func(c *cobra.Command, args []string) error {
+		RunE: func(c *cobra.Command, _ []string) error {
 			return c.Help()
 		},
 		Example: `

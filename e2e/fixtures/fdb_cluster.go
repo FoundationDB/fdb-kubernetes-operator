@@ -1052,7 +1052,7 @@ func (fdbCluster *FdbCluster) SetEmptyMonitorConf(enable bool) error {
 	}
 
 	var failedPods strings.Builder
-	podMap.Range(func(key any, value any) bool {
+	podMap.Range(func(key any, _ any) bool {
 		podName, ok := key.(string)
 		if !ok {
 			return false

@@ -62,14 +62,15 @@ func NewRootCmd(streams genericclioptions.IOStreams, pluginVersionChecker Versio
 		Short:        "kubectl plugin for the FoundationDB operator.",
 		Long:         `kubectl fdb plugin for the interaction with the FoundationDB operator.`,
 		SilenceUsage: true,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			return cmd.Help()
 		},
-		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 			versionCheck, _ := cmd.Flags().GetBool("version-check")
 			if versionCheck {
 				return usingLatestPluginVersion(cmd, pluginVersionChecker)
 			}
+
 			return nil
 		},
 	}
