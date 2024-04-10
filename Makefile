@@ -29,7 +29,7 @@ GOBIN=$(shell go env GOBIN)
 endif
 
 # Dependencies to fetch through `go`
-CONTROLLER_GEN_PKG?=sigs.k8s.io/controller-tools/cmd/controller-gen@v0.12.0
+CONTROLLER_GEN_PKG?=sigs.k8s.io/controller-tools/cmd/controller-gen@v0.14.0
 CONTROLLER_GEN=$(GOBIN)/controller-gen
 KUSTOMIZE_PKG?=sigs.k8s.io/kustomize/kustomize/v4@v4.5.2
 KUSTOMIZE=$(GOBIN)/kustomize
@@ -39,7 +39,7 @@ GORELEASER_PKG=github.com/goreleaser/goreleaser@v1.20.0
 GORELEASER=$(GOBIN)/goreleaser
 GO_LINES_PKG=github.com/segmentio/golines@v0.11.0
 GO_LINES=$(GOBIN)/golines
-GO_IMPORTS_PKG=golang.org/x/tools/cmd/goimports@v0.7.0
+GO_IMPORTS_PKG=golang.org/x/tools/cmd/goimports@v0.20.0
 GO_IMPORTS=$(GOBIN)/goimports
 
 BUILD_DEPS?=
