@@ -33,7 +33,7 @@ func newGetCmd(streams genericclioptions.IOStreams) *cobra.Command {
 		Use:   "get",
 		Short: "Subcommand to get resources from a given cluster",
 		Long:  "Subcommand to get resources from a given cluster",
-		RunE: func(c *cobra.Command, args []string) error {
+		RunE: func(c *cobra.Command, _ []string) error {
 			return c.Help()
 		},
 		Example: `

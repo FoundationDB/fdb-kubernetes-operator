@@ -176,9 +176,9 @@ func (configuration DatabaseConfiguration) NormalizeConfiguration() DatabaseConf
 				return region.DataCenters[leftIndex].Satellite < region.DataCenters[rightIndex].Satellite
 			} else if region.DataCenters[leftIndex].Priority != region.DataCenters[rightIndex].Priority {
 				return region.DataCenters[leftIndex].Priority > region.DataCenters[rightIndex].Priority
-			} else {
-				return region.DataCenters[leftIndex].ID < region.DataCenters[rightIndex].ID
 			}
+
+			return region.DataCenters[leftIndex].ID < region.DataCenters[rightIndex].ID
 		})
 	}
 

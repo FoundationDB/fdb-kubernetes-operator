@@ -38,7 +38,7 @@ func newBuggifyEmptyMonitorConf(streams genericclioptions.IOStreams) *cobra.Comm
 		Use:   "empty-monitor-conf",
 		Short: "Instructs the operator to update all of the fdbmonitor.conf files to have zero fdbserver processes configured",
 		Long:  "Instructs the operator to update all of the fdbmonitor.conf files to have zero fdbserver processes configured",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			wait, err := cmd.Root().Flags().GetBool("wait")
 			if err != nil {
 				return err

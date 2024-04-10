@@ -792,7 +792,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			})
 
 			It("should replace the all partitioned Pod", func() {
-				Eventually(func(g Gomega) bool {
+				Eventually(func() bool {
 					allUpdatedOrRemoved := true
 					for _, pod := range fdbCluster.GetStatelessPods().Items {
 						creationTime, exists := creationTimestamps[pod.Name]
@@ -1658,7 +1658,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				return fdbCluster.GetPod(podName).Status.Phase
 			}).WithTimeout(10 * time.Minute).WithPolling(5 * time.Second).Should(Equal(corev1.PodRunning))
 
-			Eventually(func(g Gomega) int {
+			Eventually(func() int {
 				var count int
 				processes := fdbCluster.GetStatus().Cluster.Processes
 				for _, process := range processes {

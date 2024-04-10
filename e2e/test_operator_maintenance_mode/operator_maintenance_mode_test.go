@@ -144,7 +144,7 @@ var _ = Describe("Operator maintenance mode tests", Label("e2e"), func() {
 
 				log.Println("Wait until maintenance mode times out")
 				// Wait until the maintenance zone is reset
-				Eventually(func(g Gomega) fdbv1beta2.FaultDomain {
+				Eventually(func() fdbv1beta2.FaultDomain {
 					return fdbCluster.GetStatus().Cluster.MaintenanceZone
 				}).WithTimeout(10 * time.Minute).WithPolling(2 * time.Second).Should(Equal(fdbv1beta2.FaultDomain("")))
 

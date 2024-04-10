@@ -40,7 +40,7 @@ func newVersionCmd(streams genericclioptions.IOStreams) *cobra.Command {
 		Use:   "version",
 		Short: "version of kubectl-fdb & foundationdb-operator",
 		Long:  `version of kubectl-fdb and current running foundationdb-operator`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			operatorName, err := cmd.Root().Flags().GetString("operator-name")
 			if err != nil {
 				return err

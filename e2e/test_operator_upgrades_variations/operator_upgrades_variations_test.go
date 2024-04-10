@@ -167,7 +167,7 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 					DebugSymbols: false,
 				},
 				loadData: true,
-			}, func(cluster *fixtures.FdbCluster) {})
+			}, func(_ *fixtures.FdbCluster) {})
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),

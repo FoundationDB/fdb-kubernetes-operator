@@ -33,7 +33,7 @@ func newRemoveCmd(streams genericclioptions.IOStreams) *cobra.Command {
 		Use:   "remove",
 		Short: "Subcommand to remove process groups from a given cluster",
 		Long:  "Subcommand to remove process groups from a given cluster",
-		RunE: func(c *cobra.Command, args []string) error {
+		RunE: func(c *cobra.Command, _ []string) error {
 			return c.Help()
 		},
 		Example: `
