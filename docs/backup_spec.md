@@ -44,9 +44,9 @@ BlobStoreConfiguration describes the blob store configuration.
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
 | backupName | The name for the backup. If empty defaults to .metadata.name. | string | false |
-| accountName | The account name to use with the backup destination. | string | true |
+| accountName | The account name to use with the backup destination. If no port is included, it will default to 443, or 80 if secure_connection URL Parameter is set to 0. | string | true |
 | bucket | The backup bucket to write to. The default is \"fdb-backups\". | string | false |
-| urlParameters | Additional URL parameters passed to the blobstore URL. | [][URLParameter](#urlparameter) | false |
+| urlParameters | Additional URL parameters passed to the blobstore URL. See: https://apple.github.io/foundationdb/backups.html#backup-urls | [][URLParameter](#urlparameter) | false |
 
 [Back to TOC](#table-of-contents)
 

@@ -94,7 +94,7 @@ var _ = Describe("restore_controller", func() {
 			It("should start a restore", func() {
 				status, err := adminClient.GetRestoreStatus()
 				Expect(err).NotTo(HaveOccurred())
-				Expect(status).To(Equal("blobstore://test@test-service/test-backup?bucket=fdb-backups\n"))
+				Expect(status).To(Equal("blobstore://test@test-service:443/test-backup?bucket=fdb-backups\n"))
 			})
 		})
 

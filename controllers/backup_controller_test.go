@@ -134,7 +134,7 @@ var _ = Describe("backup_controller", func() {
 					AgentCount:           3,
 					DeploymentConfigured: true,
 					BackupDetails: &fdbv1beta2.FoundationDBBackupStatusBackupDetails{
-						URL:                   "blobstore://test@test-service/test-backup?bucket=fdb-backups",
+						URL:                   "blobstore://test@test-service:443/test-backup?bucket=fdb-backups",
 						Running:               true,
 						SnapshotPeriodSeconds: 864000,
 					},
@@ -147,7 +147,7 @@ var _ = Describe("backup_controller", func() {
 			It("should start a backup", func() {
 				status, err := adminClient.GetBackupStatus()
 				Expect(err).NotTo(HaveOccurred())
-				Expect(status.DestinationURL).To(Equal("blobstore://test@test-service/test-backup?bucket=fdb-backups"))
+				Expect(status.DestinationURL).To(Equal("blobstore://test@test-service:443/test-backup?bucket=fdb-backups"))
 				Expect(status.Status.Running).To(BeTrue())
 				Expect(status.BackupAgentsPaused).To(BeFalse())
 			})
