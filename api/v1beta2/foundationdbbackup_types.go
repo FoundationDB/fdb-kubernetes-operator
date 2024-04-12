@@ -18,6 +18,7 @@ package v1beta2
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -327,7 +328,8 @@ func (configuration *BlobStoreConfiguration) getURL(backup string, bucket string
 		defaultPort string
 		sb          strings.Builder
 	)
-	if !strings.Contains(configuration.AccountName, ":") { // add default http port
+	backupURL := &url.URL{Host: configuration.AccountName}
+	if backupURL.Port() == "" {
 		defaultPort = ":443"
 	}
 	for _, param := range configuration.URLParameters {
