@@ -81,6 +81,9 @@ Creating this resource will tell the operator to do the following things:
 1. Create a `sample-cluster-backup-agents` deployment running FoundationDB backup agent processes connecting to the cluster.
 2. Run an `fdbbackup start` command to start a backup at `https://object-store.example:443/sample-cluster` using the bucket name `fdb-backups`.
 
+Do note, that if a port is not provided in the `blobStoreConfiguration.accountName`, it will default to `443`,
+or `80` if `secure_connection` is disabled.
+
 ## Using Secure Connections to the Object Store
 
 By default, the operator assumes you want to use secure connections to your object store. In order to do this, you must provide a certificate, key, and CA file to the backup agents. The CA file must contain the root CA for your object store. The certificate and key must be parseable in order to initialize the TLS subsystem in the backup agents, but the agents will not use the certificate and key to communicate with the object store. You can configure the paths to these files through the environment variables `FDB_TLS_CERTIFICATE_FILE`, `FDB_TLS_KEY_FILE`, and `FDB_TLS_CA_FILE`. In the example above, we have all three of these defined in a secret called `fdb-certs`.

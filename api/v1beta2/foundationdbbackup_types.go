@@ -18,6 +18,7 @@ package v1beta2
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -183,6 +184,8 @@ type BlobStoreConfiguration struct {
 	BackupName string `json:"backupName,omitempty"`
 
 	// The account name to use with the backup destination.
+	// If no port is included, it will default to 443,
+	// or 80 if secure_connection URL Parameter is set to 0.
 	// +kubebuilder:validation:MaxLength=100
 	// +kubebuilder:validation:Required
 	AccountName string `json:"accountName"`
@@ -194,6 +197,7 @@ type BlobStoreConfiguration struct {
 	Bucket string `json:"bucket,omitempty"`
 
 	// Additional URL parameters passed to the blobstore URL.
+	// See: https://apple.github.io/foundationdb/backups.html#backup-urls
 	// +kubebuilder:validation:MaxItems=100
 	URLParameters []URLParameter `json:"urlParameters,omitempty"`
 }
@@ -320,14 +324,33 @@ func (configuration *BlobStoreConfiguration) getURL(backup string, bucket string
 	if configuration.AccountName == "" {
 		return ""
 	}
-
-	var sb strings.Builder
+	var (
+		defaultPort string
+		sb          strings.Builder
+	)
+	backupURL := &url.URL{Host: configuration.AccountName}
+	if backupURL.Port() == "" {
+		defaultPort = ":443"
+	}
 	for _, param := range configuration.URLParameters {
 		sb.WriteString("&")
 		sb.WriteString(string(param))
+		// check if default port should be 80 instead of 443; see https://apple.github.io/foundationdb/backups.html#backup-urls
+		suffix, exists := strings.CutPrefix(string(param), "sc")
+		if !exists {
+			suffix, exists = strings.CutPrefix(string(param), "secure_connection")
+			if !exists { // then it's not setting secure connection
+				continue
+			}
+		}
+		if suffix == "=0" {
+			if defaultPort != "" { // i.e. if a port was not provided
+				defaultPort = ":80"
+			}
+		}
 	}
 
-	return fmt.Sprintf("blobstore://%s/%s?bucket=%s%s", configuration.AccountName, backup, bucket, sb.String())
+	return fmt.Sprintf("blobstore://%s%s/%s?bucket=%s%s", configuration.AccountName, defaultPort, backup, bucket, sb.String())
 }
 
 // BucketName gets the bucket this backup will use.

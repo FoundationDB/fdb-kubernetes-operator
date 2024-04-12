@@ -43,7 +43,7 @@ var _ = Describe("[api] FoundationDBRestore", func() {
 						},
 					},
 				},
-				"blobstore://account@account/mybackup?bucket=fdb-backups"),
+				"blobstore://account@account:443/mybackup?bucket=fdb-backups"),
 			Entry("A restore with a blobstore config with backup name",
 				FoundationDBRestore{
 					ObjectMeta: metav1.ObjectMeta{
@@ -56,7 +56,7 @@ var _ = Describe("[api] FoundationDBRestore", func() {
 						},
 					},
 				},
-				"blobstore://account@account/test?bucket=fdb-backups"),
+				"blobstore://account@account:443/test?bucket=fdb-backups"),
 			Entry("A restore with a blobstore config with a bucket name",
 				FoundationDBRestore{
 					ObjectMeta: metav1.ObjectMeta{
@@ -69,7 +69,7 @@ var _ = Describe("[api] FoundationDBRestore", func() {
 						},
 					},
 				},
-				"blobstore://account@account/mybackup?bucket=my-bucket"),
+				"blobstore://account@account:443/mybackup?bucket=my-bucket"),
 			Entry("A restore with a blobstore config with a bucket and backup name",
 				FoundationDBRestore{
 					ObjectMeta: metav1.ObjectMeta{
@@ -83,7 +83,7 @@ var _ = Describe("[api] FoundationDBRestore", func() {
 						},
 					},
 				},
-				"blobstore://account@account/test?bucket=my-bucket"),
+				"blobstore://account@account:443/test?bucket=my-bucket"),
 			Entry("A restore with a blobstore config with HTTP parameters and backup and bucket name",
 				FoundationDBRestore{
 					ObjectMeta: metav1.ObjectMeta{
@@ -100,7 +100,7 @@ var _ = Describe("[api] FoundationDBRestore", func() {
 						},
 					},
 				},
-				"blobstore://account@account/test?bucket=my-bucket&secure_connection=0"),
+				"blobstore://account@account:80/test?bucket=my-bucket&secure_connection=0"),
 			Entry("A restore with a blobstore config with HTTP parameters",
 				FoundationDBRestore{
 					ObjectMeta: metav1.ObjectMeta{
@@ -115,7 +115,7 @@ var _ = Describe("[api] FoundationDBRestore", func() {
 						},
 					},
 				},
-				"blobstore://account@account/mybackup?bucket=fdb-backups&secure_connection=0"),
+				"blobstore://account@account:80/mybackup?bucket=fdb-backups&secure_connection=0"),
 		)
 	})
 })
