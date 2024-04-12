@@ -71,20 +71,29 @@ var _ = Describe("FoundationDBCustomParameters", func() {
 				FoundationDBCustomParameters{
 					"datadir=test",
 				},
-				errors.New("found the following customParameters violations:\nfound protected customParameter: datadir, please remove this parameter from the customParameters list")),
+				errors.New("found the following customParameters violations:\nfound protected customParameter: datadir, please remove this parameter from the customParameters list"),
+			),
 			Entry("duplicate custom parameters",
 				FoundationDBCustomParameters{
 					"test=test",
 					"test=test",
 				},
-				errors.New("found the following customParameters violations:\nfound duplicated customParameter: test")),
+				errors.New("found the following customParameters violations:\nfound duplicated customParameter: test"),
+			),
 			Entry("duplicate custom parameters",
 				FoundationDBCustomParameters{
 					"test=test",
 					"datadir=test",
 					"test=test",
 				},
-				errors.New("found the following customParameters violations:\nfound protected customParameter: datadir, please remove this parameter from the customParameters list\nfound duplicated customParameter: test")),
+				errors.New("found the following customParameters violations:\nfound protected customParameter: datadir, please remove this parameter from the customParameters list\nfound duplicated customParameter: test"),
+			),
+			Entry("custom parameters that sets general knob",
+				FoundationDBCustomParameters{
+					"restart-delay",
+				},
+				errors.New("found the following customParameters violations:\nfound general or fdbmonitor customParameter: restart-delay, please remove this parameter from the customParameters list as they are not supported"),
+			),
 		)
 	})
 })

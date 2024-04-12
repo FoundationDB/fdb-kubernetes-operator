@@ -45,11 +45,29 @@ func (customParameters FoundationDBCustomParameters) GetKnobsForCLI() []string {
 	return args
 }
 
+var (
+	protectedParameters = map[string]None{
+		"datadir": {},
+	}
+	// See: https://apple.github.io/foundationdb/configuration.html#general-section
+	fdbMonitorGeneralParameters = map[string]None{
+		"cluster-file":                 {},
+		"delete-envvars":               {},
+		"kill-on-configuration-change": {},
+		"disable-lifecycle-logging":    {},
+		"restart-delay":                {},
+		"initial-restart-delay":        {},
+		"restart-backoff":              {},
+		"restart-delay-reset-interval": {},
+		"user":                         {},
+		"group":                        {},
+	}
+)
+
 // ValidateCustomParameters ensures that no duplicate values are set and that no
 // protected/forbidden parameters are set. Theoretically we could also check if FDB
 // supports the given parameter.
 func (customParameters FoundationDBCustomParameters) ValidateCustomParameters() error {
-	protectedParameters := map[string]None{"datadir": {}}
 	parameters := make(map[string]None)
 	violations := make([]string, 0)
 
@@ -60,11 +78,15 @@ func (customParameters FoundationDBCustomParameters) ValidateCustomParameters() 
 		if _, ok := parameters[parameterName]; !ok {
 			parameters[parameterName] = None{}
 		} else {
-			violations = append(violations, fmt.Sprintf("found duplicated customParameter: %v", parameterName))
+			violations = append(violations, fmt.Sprintf("found duplicated customParameter: %s", parameterName))
 		}
 
 		if _, ok := protectedParameters[parameterName]; ok {
-			violations = append(violations, fmt.Sprintf("found protected customParameter: %v, please remove this parameter from the customParameters list", parameterName))
+			violations = append(violations, fmt.Sprintf("found protected customParameter: %s, please remove this parameter from the customParameters list", parameterName))
+		}
+
+		if _, ok := fdbMonitorGeneralParameters[parameterName]; ok {
+			violations = append(violations, fmt.Sprintf("found general or fdbmonitor customParameter: %s, please remove this parameter from the customParameters list as they are not supported", parameterName))
 		}
 	}
 

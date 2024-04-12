@@ -65,6 +65,7 @@ _NOTE_:
 
 - The custom parameters must be unique and duplicate entries for the same process class will lead to a failure.
 - The custom parameters will not be merged together. You have to define the full list of all custom parameters for all process classes.
+- Only custom parameters from the `[fdbserver]` section are support. The operator doesn't support changes to the [[fdbmonitor] and [general] section](https://apple.github.io/foundationdb/configuration.html#general-section).
 
 ## Upgrading a Cluster
 
