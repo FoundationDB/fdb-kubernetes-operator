@@ -264,6 +264,8 @@ spec:
         # increase the time our e2e test take.
         - --minimum-recovery-time-for-inclusion=1.0
         - --minimum-recovery-time-for-exclusion=1.0
+        - --cluster-label-key-for-node-trigger="foundationdb.org/fdb-cluster-name"
+        - --enable-node-index
         image: {{ .OperatorImage }}
         name: manager
         imagePullPolicy: Always
