@@ -438,7 +438,7 @@ ProcessSettings defines process-level settings.
 | ----- | ----------- | ------ | -------- |
 | podTemplate | PodTemplate allows customizing the pod. If a container image with a tag is specified the operator will throw an error and stop processing the cluster. | *[corev1.PodTemplateSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#podtemplatespec-v1-core) | false |
 | volumeClaimTemplate | VolumeClaimTemplate allows customizing the persistent volume claim for the pod.  This will be ignored by the operator for stateless processes. | *[corev1.PersistentVolumeClaim](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#persistentvolumeclaim-v1-core) | false |
-| customParameters | CustomParameters defines additional parameters to pass to the fdbserver process. | FoundationDBCustomParameters | false |
+| customParameters | CustomParameters defines additional parameters to pass to the fdbserver process. Only parameters for the [fdbserver] section are supported. Parameters from the [general] and [fdbmonitor] section are not supported. For more Information see: https://apple.github.io/foundationdb/configuration.html#general-section | FoundationDBCustomParameters | false |
 
 [Back to TOC](#table-of-contents)
 

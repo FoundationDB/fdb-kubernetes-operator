@@ -1270,7 +1270,9 @@ type ProcessSettings struct {
 	VolumeClaimTemplate *corev1.PersistentVolumeClaim `json:"volumeClaimTemplate,omitempty"`
 
 	// CustomParameters defines additional parameters to pass to the fdbserver
-	// process.
+	// process. Only parameters for the [fdbserver] section are supported. Parameters
+	// from the [general] and [fdbmonitor] section are not supported. For more Information
+	// see: https://apple.github.io/foundationdb/configuration.html#general-section
 	CustomParameters FoundationDBCustomParameters `json:"customParameters,omitempty"`
 }
 
