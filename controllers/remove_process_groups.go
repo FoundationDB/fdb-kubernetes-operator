@@ -391,7 +391,12 @@ func (r *FoundationDBClusterReconciler) getProcessGroupsToRemove(logger logr.Log
 }
 
 func (r *FoundationDBClusterReconciler) removeProcessGroups(ctx context.Context, logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, processGroupsToRemove []*fdbv1beta2.ProcessGroupStatus, terminatingProcessGroups []*fdbv1beta2.ProcessGroupStatus) map[fdbv1beta2.ProcessGroupID]bool {
-	r.Recorder.Event(cluster, corev1.EventTypeNormal, "RemovingProcesses", fmt.Sprintf("Removing pods: %v", processGroupsToRemove))
+	processGroupNames := make([]fdbv1beta2.ProcessGroupID, len(processGroupsToRemove))
+	for i, processGroup := range processGroupsToRemove {
+		processGroupNames[i] = processGroup.ProcessGroupID
+	}
+
+	r.Recorder.Event(cluster, corev1.EventTypeNormal, "RemovingProcesses", fmt.Sprintf("Removing process groups: %v", processGroupNames))
 
 	processGroups := append(processGroupsToRemove, terminatingProcessGroups...)
 	for _, processGroup := range processGroups {
