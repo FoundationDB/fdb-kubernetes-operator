@@ -80,6 +80,12 @@ func GetMaintenanceInformation(logger logr.Logger, status *fdbv1beta2.Foundation
 		// Remove the process group ID from processesUnderMaintenance as we have found a processes.
 		delete(processesUnderMaintenance, fdbv1beta2.ProcessGroupID(processGroupID))
 
+		// If the start time is after the maintenance start time, we can assume that maintenance for this specific process is done.
+		if startTime.After(maintenanceStartTime) {
+			finishedMaintenance = append(finishedMaintenance, fdbv1beta2.ProcessGroupID(processGroupID))
+			continue
+		}
+
 		// If the zones are not matching those are probably stale entries. Once they are long enough in the list of
 		// entries they will be removed.
 		if zoneID != string(status.Cluster.MaintenanceZone) {
@@ -98,12 +104,6 @@ func GetMaintenanceInformation(logger logr.Logger, status *fdbv1beta2.Foundation
 				staleMaintenanceInformation = append(staleMaintenanceInformation, fdbv1beta2.ProcessGroupID(processGroupID))
 			}
 
-			continue
-		}
-
-		// If the start time is after the maintenance start time, we can assume that maintenance for this specific process is done.
-		if startTime.After(maintenanceStartTime) {
-			finishedMaintenance = append(finishedMaintenance, fdbv1beta2.ProcessGroupID(processGroupID))
 			continue
 		}
 
