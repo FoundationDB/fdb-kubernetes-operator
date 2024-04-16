@@ -665,11 +665,14 @@ func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler,
 	processGroupStatus.UpdateCondition(fdbv1beta2.PodPending, false)
 
 	if !disableTaintFeature {
-		// Update taint status
-		err = updateTaintCondition(ctx, r, cluster, pod, processGroupStatus, logger)
+		err = updateTaintCondition(ctx, r, cluster, pod, processGroupStatus, logger.WithValues("Pod", pod.Name, "nodeName", pod.Spec.NodeName, "processGroupID", processGroupStatus.ProcessGroupID))
 		if err != nil {
 			return err
 		}
+	} else {
+		// If the taint feature is disabled we should make sure we reset the taint related conditions.
+		processGroupStatus.UpdateCondition(fdbv1beta2.NodeTaintDetected, false)
+		processGroupStatus.UpdateCondition(fdbv1beta2.NodeTaintReplacing, false)
 	}
 
 	return nil
@@ -677,8 +680,8 @@ func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler,
 
 // updateTaintCondition checks pod's node taint label and update pod's taint-related condition accordingly
 func updateTaintCondition(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster,
-	pod *corev1.Pod, processGroupStatus *fdbv1beta2.ProcessGroupStatus, logger logr.Logger) error {
-	logger.V(1).Info("Get pod's node", "Pod", pod.Name, "Pod's node name", pod.Spec.NodeName)
+	pod *corev1.Pod, processGroup *fdbv1beta2.ProcessGroupStatus, logger logr.Logger) error {
+	logger.V(1).Info("Get pod's node")
 
 	node := &corev1.Node{}
 	err := r.Get(ctx, client.ObjectKey{Name: pod.Spec.NodeName}, node)
@@ -687,21 +690,34 @@ func updateTaintCondition(ctx context.Context, r *FoundationDBClusterReconciler,
 	}
 
 	// Check the tainted duration and only mark the process group tainted after the configured tainted duration
-	// TODO: https://github.com/FoundationDB/fdb-kubernetes-operator/issues/1583
+	hasMatchingTaint := checkIfNodeHasTaintsAndUpdateConditions(logger, node.Spec.Taints, cluster, processGroup)
+
+	if !hasMatchingTaint {
+		// Remove NodeTaintDetected condition if the pod is no longer on a tainted node;
+		// This is needed especially when a node's status is flapping
+		// We do not remove NodeTaintReplacing because the NodeTaintReplacing condition is only added when taint is there for configured long time
+		processGroup.UpdateCondition(fdbv1beta2.NodeTaintDetected, false)
+	}
+
+	return nil
+}
+
+func checkIfNodeHasTaintsAndUpdateConditions(logger logr.Logger, taints []corev1.Taint, cluster *fdbv1beta2.FoundationDBCluster, processGroup *fdbv1beta2.ProcessGroupStatus) bool {
 	hasMatchingTaint := false
-	for _, taint := range node.Spec.Taints {
+
+	for _, taint := range taints {
 		hasExactMatch := hasExactMatchedTaintKey(cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions, taint.Key)
 		for _, taintConfiguredKey := range cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions {
 			taintConfiguredKeyString := pointer.StringDeref(taintConfiguredKey.Key, "")
 			if taintConfiguredKeyString == "" || pointer.Int64Deref(taintConfiguredKey.DurationInSeconds, math.MinInt64) < 0 {
-				logger.Info("Cluster's TaintReplacementOption is disabled", "Key",
-					taintConfiguredKey.Key, "DurationInSeconds", taintConfiguredKey.DurationInSeconds,
-					"Pod", pod.Name)
+				logger.Info("Cluster's TaintReplacementOption is disabled",
+					"Key", taintConfiguredKey.Key,
+					"DurationInSeconds", taintConfiguredKey.DurationInSeconds)
 				continue
 			}
 			if taint.Key == "" {
 				// Node's taint is not properly set, skip the node's taint
-				logger.Info("Taint is not properly set", "Node", node.Name, "Taint", taint)
+				logger.Info("Taint is not properly set", "Taint", taint)
 				continue
 			}
 			// If a wildcard is specified as key, it will be used as default value, except there is an exact match defined for the taint key.
@@ -711,30 +727,34 @@ func updateTaintCondition(ctx context.Context, r *FoundationDBClusterReconciler,
 			}
 
 			hasMatchingTaint = true
-			processGroupStatus.UpdateCondition(fdbv1beta2.NodeTaintDetected, true)
-			// Use node taint's timestamp as the NodeTaintDetected condition's starting time
-			if !taint.TimeAdded.IsZero() && taint.TimeAdded.Time.Unix() < *processGroupStatus.GetConditionTime(fdbv1beta2.NodeTaintDetected) {
-				processGroupStatus.UpdateConditionTime(fdbv1beta2.NodeTaintDetected, taint.TimeAdded.Unix())
+			processGroup.UpdateCondition(fdbv1beta2.NodeTaintDetected, true)
+			// Use node taint's timestamp as the NodeTaintDetected condition's starting time.
+			if !taint.TimeAdded.IsZero() && taint.TimeAdded.Time.Unix() < *processGroup.GetConditionTime(fdbv1beta2.NodeTaintDetected) {
+				processGroup.UpdateConditionTime(fdbv1beta2.NodeTaintDetected, taint.TimeAdded.Unix())
 			}
-			taintDetectedTime := pointer.Int64Deref(processGroupStatus.GetConditionTime(fdbv1beta2.NodeTaintDetected), math.MaxInt64)
-			if time.Now().Unix()-taintDetectedTime > pointer.Int64Deref(taintConfiguredKey.DurationInSeconds, math.MaxInt64) {
-				processGroupStatus.UpdateCondition(fdbv1beta2.NodeTaintReplacing, true)
-				logger.Info("Add NodeTaintReplacing condition", "Pod", pod.Name, "Node", node.Name,
-					"TaintKey", taint.Key, "TaintDetectedTime", taintDetectedTime,
-					"TaintDuration", time.Since(time.Unix(taintDetectedTime, 0)).String(),
-					"TaintValue", taint.Value, "TaintEffect", taint.Effect,
-					"ClusterTaintDetectionDuration", time.Duration(pointer.Int64Deref(taintConfiguredKey.DurationInSeconds, math.MaxInt64)).String())
+
+			taintDetectedTimestamp := pointer.Int64Deref(processGroup.GetConditionTime(fdbv1beta2.NodeTaintDetected), math.MaxInt64)
+			// If the process group already has the NodeTaintReplacing condition we can skip any further work.
+			taintReplaceTime := processGroup.GetConditionTime(fdbv1beta2.NodeTaintReplacing)
+			if taintReplaceTime != nil {
+				return hasMatchingTaint
+			}
+
+			if time.Now().Unix()-taintDetectedTimestamp > pointer.Int64Deref(taintConfiguredKey.DurationInSeconds, math.MaxInt64) {
+				taintDetectedTime := time.Unix(taintDetectedTimestamp, 0)
+				processGroup.UpdateCondition(fdbv1beta2.NodeTaintReplacing, true)
+				logger.Info("Add NodeTaintReplacing condition",
+					"TaintKey", taint.Key,
+					"TaintDetectedTime", taintDetectedTime.String(),
+					"TaintDuration", time.Since(taintDetectedTime).String(),
+					"TaintValue", taint.Value,
+					"TaintEffect", taint.Effect,
+					"ClusterTaintDetectionDuration", (time.Duration(pointer.Int64Deref(taintConfiguredKey.DurationInSeconds, math.MaxInt64)) * time.Second).String())
 			}
 		}
 	}
-	if !hasMatchingTaint {
-		// Remove NodeTaintDetected condition if the pod is no longer on a tainted node;
-		// This is needed especially when a node's status is flapping
-		// We do not remove NodeTaintDetected because the NodeTaintDetected condition is only added when taint is there for configured long time
-		processGroupStatus.UpdateCondition(fdbv1beta2.NodeTaintDetected, false)
-	}
 
-	return nil
+	return hasMatchingTaint
 }
 
 func refreshProcessGroupStatus(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBClusterStatus) (*corev1.PersistentVolumeClaimList, error) {
