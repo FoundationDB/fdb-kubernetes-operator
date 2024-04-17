@@ -62,7 +62,9 @@ func (maintenanceModeChecker) reconcile(_ context.Context, r *FoundationDBCluste
 		return &requeue{curError: err, delayedRequeue: true}
 	}
 
-	logger.Info("Cluster in maintenance mode", "zone", status.Cluster.MaintenanceZone, "processesUnderMaintenance", processesUnderMaintenance)
+	if status.Cluster.MaintenanceZone != "" {
+		logger.Info("Cluster in maintenance mode", "zone", status.Cluster.MaintenanceZone, "processesUnderMaintenance", processesUnderMaintenance)
+	}
 
 	// Get all the maintenance information from the FDB cluster.
 	finishedMaintenance, staleMaintenanceInformation, processesToUpdate := maintenance.GetMaintenanceInformation(logger, status, processesUnderMaintenance, r.MaintenanceListStaleDuration, r.MaintenanceListWaitDuration)
