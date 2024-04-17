@@ -79,11 +79,11 @@ func clusterSetupWithConfig(config testConfig) *fixtures.FdbCluster {
 	return cluster
 }
 
-func performUpgrade(config testConfig, validateFunc func(cluster *fixtures.FdbCluster)) {
+func performUpgrade(config testConfig, preUpgradeFunction func(cluster *fixtures.FdbCluster)) {
 	fdbCluster = clusterSetupWithConfig(config)
 	startTime := time.Now()
+	preUpgradeFunction(fdbCluster)
 	Expect(fdbCluster.UpgradeCluster(config.targetVersion, false)).NotTo(HaveOccurred())
-	validateFunc(fdbCluster)
 
 	if !fixtures.VersionsAreProtocolCompatible(config.beforeVersion, config.targetVersion) {
 		// Ensure that the operator is setting the IncorrectConfigMap and IncorrectCommandLine conditions during the upgrade
@@ -275,6 +275,39 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 				loadData: false,
 			}, func(cluster *fixtures.FdbCluster) {
 				Expect(cluster.GetCluster().UseDNSInClusterFile()).To(BeTrue())
+			})
+		},
+		EntryDescription("Upgrade from %[1]s to %[2]s"),
+		fixtures.GenerateUpgradeTableEntries(testOptions),
+	)
+
+	DescribeTable(
+		"upgrading a cluster with coordinator Pods",
+		func(beforeVersion string, targetVersion string) {
+			performUpgrade(testConfig{
+				beforeVersion: beforeVersion,
+				targetVersion: targetVersion,
+				clusterConfig: &fixtures.ClusterConfig{
+					DebugSymbols: false,
+				},
+				loadData: false,
+			}, func(cluster *fixtures.FdbCluster) {
+				// Update the cluster spec to create dedicated coordinator Pods and make use of services as public IP
+				// source.
+				spec := cluster.GetCluster().Spec.DeepCopy()
+				spec.CoordinatorSelection = []fdbv1beta2.CoordinatorSelectionSetting{
+					{
+						Priority:     100,
+						ProcessClass: fdbv1beta2.ProcessClassCoordinator,
+					},
+				}
+				spec.ProcessCounts.Coordinator = fdbCluster.GetCachedCluster().DesiredCoordinatorCount()
+				publicIPSourceService := fdbv1beta2.PublicIPSourceService
+				spec.Routing = fdbv1beta2.RoutingConfig{
+					PublicIPSource: &publicIPSourceService,
+				}
+				fdbCluster.UpdateClusterSpecWithSpec(spec)
+				Expect(fdbCluster.WaitForReconciliation()).NotTo(HaveOccurred())
 			})
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s"),
