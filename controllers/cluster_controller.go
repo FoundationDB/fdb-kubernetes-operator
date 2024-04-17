@@ -289,26 +289,28 @@ func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager, maxCo
 		return err
 	}
 
+	// Only react on generation changes or annotation changes and only watch
+	// resources with the provided label selector.
+	// We cannot use the WithEventFilter method as that would also add the predicate to the node watch.
+	// See: https://github.com/kubernetes-sigs/controller-runtime/issues/2785
+	globalPredicate := builder.WithPredicates(predicate.And(
+		labelSelectorPredicate,
+		predicate.Or(
+			predicate.LabelChangedPredicate{},
+			predicate.GenerationChangedPredicate{},
+			predicate.AnnotationChangedPredicate{},
+		),
+	))
+
 	managerBuilder := ctrl.NewControllerManagedBy(mgr).
 		WithOptions(controller.Options{
 			MaxConcurrentReconciles: maxConcurrentReconciles},
 		).
-		For(&fdbv1beta2.FoundationDBCluster{}).
-		Owns(&corev1.Pod{}).
-		Owns(&corev1.PersistentVolumeClaim{}).
-		Owns(&corev1.ConfigMap{}).
-		Owns(&corev1.Service{}).
-		// Only react on generation changes or annotation changes and only watch
-		// resources with the provided label selector.
-		WithEventFilter(
-			predicate.And(
-				labelSelectorPredicate,
-				predicate.Or(
-					predicate.LabelChangedPredicate{},
-					predicate.GenerationChangedPredicate{},
-					predicate.AnnotationChangedPredicate{},
-				),
-			))
+		For(&fdbv1beta2.FoundationDBCluster{}, globalPredicate).
+		Owns(&corev1.Pod{}, globalPredicate).
+		Owns(&corev1.PersistentVolumeClaim{}, globalPredicate).
+		Owns(&corev1.ConfigMap{}, globalPredicate).
+		Owns(&corev1.Service{}, globalPredicate)
 
 	if r.ClusterLabelKeyForNodeTrigger != "" && enableNodeIndex {
 		managerBuilder.Watches(
