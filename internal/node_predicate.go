@@ -38,26 +38,18 @@ type NodeTaintChangedPredicate struct {
 
 // Create implements Predicate.
 func (n NodeTaintChangedPredicate) Create(_ event.CreateEvent) bool {
-	n.Logger.V(1).Info("Got an CreateEvent")
-	// TODO change to false again
-	return true
+	return false
 }
 
 // Delete implements Predicate.
 func (n NodeTaintChangedPredicate) Delete(_ event.DeleteEvent) bool {
-	n.Logger.V(1).Info("Got an DeleteEvent")
 	return false
 }
 
 // Update returns true if the Update event should be processed. This is the case if the taints for the provided
 // node has been changed.
 func (n NodeTaintChangedPredicate) Update(event event.UpdateEvent) bool {
-	n.Logger.V(1).Info("Got an UpdateEvent")
-	if event.ObjectOld == nil {
-		return false
-	}
-
-	if event.ObjectNew == nil {
+	if event.ObjectOld == nil || event.ObjectNew == nil {
 		return false
 	}
 
@@ -72,13 +64,12 @@ func (n NodeTaintChangedPredicate) Update(event event.UpdateEvent) bool {
 	}
 
 	taintsChanged := !equality.Semantic.DeepEqual(oldNode.Spec.Taints, newNode.Spec.Taints)
-	n.Logger.V(1).Info("Got an update", "taintsChanged", taintsChanged, "oldTaints", oldNode.Spec.Taints, "newTaints", newNode.Spec.Taints)
+	n.Logger.V(1).Info("Got an UpdateEvent", "node", oldNode.Name, "taintsChanged", taintsChanged, "oldTaints", oldNode.Spec.Taints, "newTaints", newNode.Spec.Taints)
 
 	return taintsChanged
 }
 
 // Generic implements Predicate.
 func (n NodeTaintChangedPredicate) Generic(_ event.GenericEvent) bool {
-	n.Logger.V(1).Info("Got an GenericEvent")
 	return false
 }

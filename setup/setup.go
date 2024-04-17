@@ -267,7 +267,7 @@ func StartManager(
 		clusterReconciler.MaintenanceListWaitDuration = operatorOpts.MaintenanceListWaitDuration
 		clusterReconciler.MinimumRecoveryTimeForInclusion = operatorOpts.MinimumRecoveryTimeForInclusion
 		clusterReconciler.MinimumRecoveryTimeForExclusion = operatorOpts.MinimumRecoveryTimeForExclusion
-		clusterReconciler.ClusterLabelKeyForNodeTrigger = operatorOpts.ClusterLabelKeyForNodeTrigger
+		clusterReconciler.ClusterLabelKeyForNodeTrigger = strings.Trim(operatorOpts.ClusterLabelKeyForNodeTrigger, "\"")
 		clusterReconciler.Namespace = operatorOpts.WatchNamespace
 
 		if err := clusterReconciler.SetupWithManager(mgr, operatorOpts.MaxConcurrentReconciles, operatorOpts.EnableNodeIndex, *labelSelector, watchedObjects...); err != nil {
