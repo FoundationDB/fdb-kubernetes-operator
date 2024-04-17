@@ -79,11 +79,11 @@ func clusterSetupWithConfig(config testConfig) *fixtures.FdbCluster {
 	return cluster
 }
 
-func performUpgrade(config testConfig, validateFunc func(cluster *fixtures.FdbCluster)) {
+func performUpgrade(config testConfig, preUpgradeFunction func(cluster *fixtures.FdbCluster)) {
 	fdbCluster = clusterSetupWithConfig(config)
 	startTime := time.Now()
+	preUpgradeFunction(fdbCluster)
 	Expect(fdbCluster.UpgradeCluster(config.targetVersion, false)).NotTo(HaveOccurred())
-	validateFunc(fdbCluster)
 
 	if !fixtures.VersionsAreProtocolCompatible(config.beforeVersion, config.targetVersion) {
 		// Ensure that the operator is setting the IncorrectConfigMap and IncorrectCommandLine conditions during the upgrade
