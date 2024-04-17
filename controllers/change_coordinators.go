@@ -118,6 +118,7 @@ func (c changeCoordinators) reconcile(ctx context.Context, r *FoundationDBCluste
 // selectCandidates is a helper for Reconcile that picks non-excluded, not-being-removed class-matching process groups.
 func selectCandidates(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) ([]locality.Info, error) {
 	candidates := make([]locality.Info, 0, len(status.Cluster.Processes))
+	// used cross-DC
 	for _, process := range status.Cluster.Processes {
 		if process.Excluded || process.UnderMaintenance {
 			continue

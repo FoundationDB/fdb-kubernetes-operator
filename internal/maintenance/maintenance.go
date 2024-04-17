@@ -50,6 +50,7 @@ func GetMaintenanceInformation(logger logr.Logger, status *fdbv1beta2.Foundation
 		return nil, nil, nil
 	}
 
+	// should be cross-dc since we presumedly want maintenance info across DCs
 	for _, process := range status.Cluster.Processes {
 		// Only storage processes are affected by the maintenance mode.
 		if process.ProcessClass != fdbv1beta2.ProcessClassStorage {

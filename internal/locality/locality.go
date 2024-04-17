@@ -293,6 +293,7 @@ func CheckCoordinatorValidity(logger logr.Logger, cluster *fdbv1beta2.Foundation
 		coordinatorLocalities[field] = make(map[string]int)
 	}
 
+	// we do not want to isolate to single DC as this needs to examine all coordinators in the cluster
 	for _, process := range status.Cluster.Processes {
 		processGroupID := process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]
 

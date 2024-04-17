@@ -114,6 +114,7 @@ func processIncompatibleProcesses(ctx context.Context, r *FoundationDBClusterRec
 func parseIncompatibleConnections(logger logr.Logger, status *fdbv1beta2.FoundationDBStatus) map[string]fdbv1beta2.None {
 	processAddressMap := map[string]fdbv1beta2.None{}
 	for _, process := range status.Cluster.Processes {
+		// TODO function sounds like it should work cross-DC, but the reconciler works on pods. Toss up to me since we'd need to thread DC in
 		processAddressMap[process.Address.MachineAddress()] = fdbv1beta2.None{}
 	}
 

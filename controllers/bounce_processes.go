@@ -334,6 +334,9 @@ func getAddressesForUpgrade(logger logr.Logger, r *FoundationDBClusterReconciler
 	notReadyProcesses := make([]string, 0)
 	addresses := make([]fdbv1beta2.ProcessAddress, 0, len(status.Cluster.Processes))
 	for _, process := range status.Cluster.Processes {
+		if cluster.Spec.DataCenter != process.Locality[fdbv1beta2.FDBLocalityDCIDKey] {
+			continue
+		}
 		processID := process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]
 		if process.Version == version.String() {
 			continue
@@ -415,6 +418,7 @@ func checkIfClusterControllerNeedsRestart(logger logr.Logger, cluster *fdbv1beta
 	// We have to validate if at least one tester process is unreachable. In this case we have to restart the cluster
 	// controller. This will cause a recovery and the missing tester process will be removed from the list of unreachable
 	// processes.
+	// cross-DC since we kill using fdbcli regardless of DC
 	for _, process := range status.Cluster.Processes {
 		if process.ProcessClass == fdbv1beta2.ProcessClassTest {
 			if _, ok := unreachableProcessesSet[process.Address.String()]; ok {
