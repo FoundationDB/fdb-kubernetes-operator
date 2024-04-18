@@ -70,6 +70,7 @@ type Options struct {
 	LogFile                            string
 	LogFilePermission                  string
 	LabelSelector                      string
+	ClusterLabelKeyForNodeTrigger      string
 	WatchNamespace                     string
 	CliTimeout                         int
 	MaxCliTimeout                      int
@@ -118,6 +119,8 @@ func (o *Options) BindFlags(fs *flag.FlagSet) {
 	fs.IntVar(&o.LogFileMaxSize, "log-file-max-size", 250, "Defines the maximum size in megabytes of the operator log file before it gets rotated.")
 	fs.StringVar(&o.LogFilePermission, "log-file-permission", "0644",
 		"The file permission for the log file. Only used if log-file is set. Only the octal representation is supported.")
+	fs.StringVar(&o.ClusterLabelKeyForNodeTrigger, "cluster-label-key-for-node-trigger", "",
+		"The label key to use to trigger a reconciliation if a node resources changes. Requires that --enable-node-index is set to true.")
 	fs.IntVar(&o.MaxNumberOfOldLogFiles, "max-old-log-files", 3, "Defines the maximum number of old operator log files to retain.")
 	fs.BoolVar(&o.CompressOldFiles, "compress", false, "Defines whether the rotated log files should be compressed using gzip or not.")
 	fs.BoolVar(&o.PrintVersion, "version", false, "Prints the version of the operator and exits.")
@@ -264,6 +267,8 @@ func StartManager(
 		clusterReconciler.MaintenanceListWaitDuration = operatorOpts.MaintenanceListWaitDuration
 		clusterReconciler.MinimumRecoveryTimeForInclusion = operatorOpts.MinimumRecoveryTimeForInclusion
 		clusterReconciler.MinimumRecoveryTimeForExclusion = operatorOpts.MinimumRecoveryTimeForExclusion
+		clusterReconciler.ClusterLabelKeyForNodeTrigger = strings.Trim(operatorOpts.ClusterLabelKeyForNodeTrigger, "\"")
+		clusterReconciler.Namespace = operatorOpts.WatchNamespace
 
 		if err := clusterReconciler.SetupWithManager(mgr, operatorOpts.MaxConcurrentReconciles, operatorOpts.EnableNodeIndex, *labelSelector, watchedObjects...); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "FoundationDBCluster")

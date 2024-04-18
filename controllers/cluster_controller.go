@@ -24,7 +24,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/types"
 	"regexp"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 	"time"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
@@ -75,6 +81,11 @@ type FoundationDBClusterReconciler struct {
 	// before new exclusions are allowed. The operator issuing frequent exclusions in a short time window
 	// could cause instability for the cluster as each exclusion will/can cause a recovery.
 	MinimumRecoveryTimeForExclusion float64
+	// Namespace for the FoundationDBClusterReconciler, if empty the FoundationDBClusterReconciler will watch all namespaces.
+	Namespace string
+	// ClusterLabelKeyForNodeTrigger if set will trigger a reconciliation for all FoundationDBClusters that host a Pod
+	// on the affected node.
+	ClusterLabelKeyForNodeTrigger string
 }
 
 // NewFoundationDBClusterReconciler creates a new FoundationDBClusterReconciler with defaults.
@@ -234,8 +245,11 @@ func runClusterSubReconciler(ctx context.Context, logger logr.Logger, subReconci
 	return subReconciler.reconcile(ctx, r, cluster, status, subReconcileLogger)
 }
 
-// SetupWithManager prepares a reconciler for use.
-func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager, maxConcurrentReconciles int, enableNodeIndex bool, selector metav1.LabelSelector, watchedObjects ...client.Object) error {
+// updateIndexerForManager will set all the required field indexer for the FoundationDBClusterReconciler.
+func (r *FoundationDBClusterReconciler) updateIndexerForManager(mgr ctrl.Manager, enableNodeIndex bool) error {
+	// TODO (johscheuer): Validate if all those indexers are still needed as we changed the way how the operator
+	// fetches the information.
+	// See: https://github.com/FoundationDB/fdb-kubernetes-operator/issues/1996
 	err := mgr.GetFieldIndexer().IndexField(context.Background(), &corev1.Pod{}, "metadata.name", func(o client.Object) []string {
 		return []string{o.(*corev1.Pod).Name}
 	})
@@ -250,6 +264,15 @@ func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager, maxCo
 		if err != nil {
 			return err
 		}
+
+		if r.ClusterLabelKeyForNodeTrigger != "" {
+			err = mgr.GetFieldIndexer().IndexField(context.Background(), &corev1.Pod{}, "spec.nodeName", func(o client.Object) []string {
+				return []string{o.(*corev1.Pod).Spec.NodeName}
+			})
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	err = mgr.GetFieldIndexer().IndexField(context.Background(), &corev1.Service{}, "metadata.name", func(o client.Object) []string {
@@ -259,9 +282,14 @@ func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager, maxCo
 		return err
 	}
 
-	err = mgr.GetFieldIndexer().IndexField(context.Background(), &corev1.PersistentVolumeClaim{}, "metadata.name", func(o client.Object) []string {
+	return mgr.GetFieldIndexer().IndexField(context.Background(), &corev1.PersistentVolumeClaim{}, "metadata.name", func(o client.Object) []string {
 		return []string{o.(*corev1.PersistentVolumeClaim).Name}
 	})
+}
+
+// SetupWithManager prepares the FoundationDBClusterReconciler for use.
+func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager, maxConcurrentReconciles int, enableNodeIndex bool, selector metav1.LabelSelector, watchedObjects ...client.Object) error {
+	err := r.updateIndexerForManager(mgr, enableNodeIndex)
 	if err != nil {
 		return err
 	}
@@ -271,31 +299,97 @@ func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager, maxCo
 		return err
 	}
 
-	builder := ctrl.NewControllerManagedBy(mgr).
+	// Only react on generation changes or annotation changes and only watch
+	// resources with the provided label selector.
+	// We cannot use the WithEventFilter method as that would also add the predicate to the node watch.
+	// See: https://github.com/kubernetes-sigs/controller-runtime/issues/2785
+	globalPredicate := builder.WithPredicates(predicate.And(
+		labelSelectorPredicate,
+		predicate.Or(
+			predicate.LabelChangedPredicate{},
+			predicate.GenerationChangedPredicate{},
+			predicate.AnnotationChangedPredicate{},
+		),
+	))
+
+	managerBuilder := ctrl.NewControllerManagedBy(mgr).
 		WithOptions(controller.Options{
 			MaxConcurrentReconciles: maxConcurrentReconciles},
 		).
-		For(&fdbv1beta2.FoundationDBCluster{}).
-		Owns(&corev1.Pod{}).
-		Owns(&corev1.PersistentVolumeClaim{}).
-		Owns(&corev1.ConfigMap{}).
-		Owns(&corev1.Service{}).
-		// Only react on generation changes or annotation changes and only watch
-		// resources with the provided label selector.
-		WithEventFilter(
-			predicate.And(
-				labelSelectorPredicate,
-				predicate.Or(
-					predicate.LabelChangedPredicate{},
-					predicate.GenerationChangedPredicate{},
-					predicate.AnnotationChangedPredicate{},
-				),
-			))
+		For(&fdbv1beta2.FoundationDBCluster{}, globalPredicate).
+		Owns(&corev1.Pod{}, globalPredicate).
+		Owns(&corev1.PersistentVolumeClaim{}, globalPredicate).
+		Owns(&corev1.ConfigMap{}, globalPredicate).
+		Owns(&corev1.Service{}, globalPredicate)
+
+	if r.ClusterLabelKeyForNodeTrigger != "" && enableNodeIndex {
+		managerBuilder.Watches(
+			&source.Kind{Type: &corev1.Node{}},
+			handler.EnqueueRequestsFromMapFunc(r.findFoundationDBClusterForNode),
+			builder.WithPredicates(
+				internal.NodeTaintChangedPredicate{
+					Logger: r.Log.WithName("NodeTaintChangedPredicate"),
+				},
+			),
+		)
+	}
 
 	for _, object := range watchedObjects {
-		builder.Owns(object)
+		managerBuilder.Owns(object)
 	}
-	return builder.Complete(r)
+
+	return managerBuilder.Complete(r)
+}
+
+// findFoundationDBClusterForNode will filter out all associated FoundationDBClusters that have a Pod running on that
+// specific node.
+func (r *FoundationDBClusterReconciler) findFoundationDBClusterForNode(node client.Object) []reconcile.Request {
+	logger := r.Log.WithValues("node", node.GetName())
+	podsOnNode := &corev1.PodList{}
+
+	labelSelector := client.HasLabels([]string{r.ClusterLabelKeyForNodeTrigger})
+	var namespaceOption client.ListOption
+	if r.Namespace != "" {
+		namespaceOption = client.InNamespace(r.Namespace)
+	}
+
+	err := r.List(context.Background(), podsOnNode,
+		client.MatchingFieldsSelector{
+			Selector: fields.OneTermEqualSelector("spec.nodeName", node.GetName()),
+		},
+		labelSelector,
+		namespaceOption)
+
+	if err != nil {
+		logger.Error(err, "Processing findFoundationDBClusterForNode could not fetch Pods on node")
+		return []reconcile.Request{}
+	}
+
+	if len(podsOnNode.Items) == 0 {
+		return []reconcile.Request{}
+	}
+
+	logger.V(1).Info("Processing findFoundationDBClusterForNode, found Pods on node that changed", "labelSelector", r.ClusterLabelKeyForNodeTrigger, "podsOnNode", len(podsOnNode.Items))
+
+	requests := make([]reconcile.Request, len(podsOnNode.Items))
+	for i, item := range podsOnNode.Items {
+		// Since we use a label selector all Pods should have the cluster label.
+		clusterName, ok := item.GetLabels()[r.ClusterLabelKeyForNodeTrigger]
+		if !ok {
+			logger.V(1).Info("Missing cluster label information", "triggeringPod", item.Name)
+			continue
+		}
+
+		logger.V(1).Info("Processing findFoundationDBClusterForNode, found cluster that needs an update", "triggeringPod", item.Name, "clusterName", clusterName)
+		requests[i] = reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      clusterName,
+				Namespace: item.GetNamespace(),
+			},
+		}
+	}
+
+	return requests
 }
 
 func (r *FoundationDBClusterReconciler) updatePodDynamicConf(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod) (bool, error) {
