@@ -245,8 +245,11 @@ func runClusterSubReconciler(ctx context.Context, logger logr.Logger, subReconci
 	return subReconciler.reconcile(ctx, r, cluster, status, subReconcileLogger)
 }
 
-// SetupWithManager prepares a reconciler for use.
-func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager, maxConcurrentReconciles int, enableNodeIndex bool, selector metav1.LabelSelector, watchedObjects ...client.Object) error {
+// updateIndexerForManager will set all the required field indexer for the FoundationDBClusterReconciler.
+func (r *FoundationDBClusterReconciler) updateIndexerForManager(mgr ctrl.Manager, enableNodeIndex bool) error {
+	// TODO (johscheuer): Validate if all those indexers are still needed as we changed the way how the operator
+	// fetches the information.
+	// See: https://github.com/FoundationDB/fdb-kubernetes-operator/issues/1996
 	err := mgr.GetFieldIndexer().IndexField(context.Background(), &corev1.Pod{}, "metadata.name", func(o client.Object) []string {
 		return []string{o.(*corev1.Pod).Name}
 	})
@@ -262,11 +265,13 @@ func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager, maxCo
 			return err
 		}
 
-		err = mgr.GetFieldIndexer().IndexField(context.Background(), &corev1.Pod{}, "spec.nodeName", func(o client.Object) []string {
-			return []string{o.(*corev1.Pod).Spec.NodeName}
-		})
-		if err != nil {
-			return err
+		if r.ClusterLabelKeyForNodeTrigger != "" {
+			err = mgr.GetFieldIndexer().IndexField(context.Background(), &corev1.Pod{}, "spec.nodeName", func(o client.Object) []string {
+				return []string{o.(*corev1.Pod).Spec.NodeName}
+			})
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -277,9 +282,14 @@ func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager, maxCo
 		return err
 	}
 
-	err = mgr.GetFieldIndexer().IndexField(context.Background(), &corev1.PersistentVolumeClaim{}, "metadata.name", func(o client.Object) []string {
+	return mgr.GetFieldIndexer().IndexField(context.Background(), &corev1.PersistentVolumeClaim{}, "metadata.name", func(o client.Object) []string {
 		return []string{o.(*corev1.PersistentVolumeClaim).Name}
 	})
+}
+
+// SetupWithManager prepares the FoundationDBClusterReconciler for use.
+func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager, maxConcurrentReconciles int, enableNodeIndex bool, selector metav1.LabelSelector, watchedObjects ...client.Object) error {
+	err := r.updateIndexerForManager(mgr, enableNodeIndex)
 	if err != nil {
 		return err
 	}
