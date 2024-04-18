@@ -120,7 +120,7 @@ func (o *Options) BindFlags(fs *flag.FlagSet) {
 	fs.StringVar(&o.LogFilePermission, "log-file-permission", "0644",
 		"The file permission for the log file. Only used if log-file is set. Only the octal representation is supported.")
 	fs.StringVar(&o.ClusterLabelKeyForNodeTrigger, "cluster-label-key-for-node-trigger", "",
-		"The label key to use to trigger a reconciliation if a node resources changes. Requires that --enable-node-index is set to true.")
+		"The label key to use to trigger a reconciliation if a node resources changes.")
 	fs.IntVar(&o.MaxNumberOfOldLogFiles, "max-old-log-files", 3, "Defines the maximum number of old operator log files to retain.")
 	fs.BoolVar(&o.CompressOldFiles, "compress", false, "Defines whether the rotated log files should be compressed using gzip or not.")
 	fs.BoolVar(&o.PrintVersion, "version", false, "Prints the version of the operator and exits.")
@@ -138,7 +138,7 @@ func (o *Options) BindFlags(fs *flag.FlagSet) {
 	fs.BoolVar(&o.ServerSideApply, "server-side-apply", false, "This flag enables server side apply.")
 	fs.BoolVar(&o.EnableRecoveryState, "enable-recovery-state", true, "This flag enables the use of the recovery state for the minimum uptime between bounced if the FDB version supports it.")
 	fs.BoolVar(&o.CacheDatabaseStatus, "cache-database-status", true, "Defines the default value for caching the database status.")
-	fs.BoolVar(&o.EnableNodeIndex, "enable-node-index", false, "Defines if the operator should add an index for accessing node objects. This requires a ClusterRoleBinding with node access. If the taint feature should be used, this setting should be set to true.")
+	fs.BoolVar(&o.EnableNodeIndex, "enable-node-index", false, "Deprecated, not used anymore. Defines if the operator should add an index for accessing node objects. This requires a ClusterRoleBinding with node access. If the taint feature should be used, this setting should be set to true.")
 	fs.Float64Var(&o.MinimumRecoveryTimeForInclusion, "minimum-recovery-time-for-inclusion", 600.0, "Defines the minimum uptime of the cluster before inclusions are allowed. For clusters after 7.1 this will use the recovery state. This should reduce the risk of frequent recoveries because of inclusions.")
 	fs.Float64Var(&o.MinimumRecoveryTimeForExclusion, "minimum-recovery-time-for-exclusion", 120.0, "Defines the minimum uptime of the cluster before exclusions are allowed. For clusters after 7.1 this will use the recovery state. This should reduce the risk of frequent recoveries because of exclusions.")
 }
@@ -270,7 +270,7 @@ func StartManager(
 		clusterReconciler.ClusterLabelKeyForNodeTrigger = strings.Trim(operatorOpts.ClusterLabelKeyForNodeTrigger, "\"")
 		clusterReconciler.Namespace = operatorOpts.WatchNamespace
 
-		if err := clusterReconciler.SetupWithManager(mgr, operatorOpts.MaxConcurrentReconciles, operatorOpts.EnableNodeIndex, *labelSelector, watchedObjects...); err != nil {
+		if err := clusterReconciler.SetupWithManager(mgr, operatorOpts.MaxConcurrentReconciles, *labelSelector, watchedObjects...); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "FoundationDBCluster")
 			os.Exit(1)
 		}

@@ -246,50 +246,19 @@ func runClusterSubReconciler(ctx context.Context, logger logr.Logger, subReconci
 }
 
 // updateIndexerForManager will set all the required field indexer for the FoundationDBClusterReconciler.
-func (r *FoundationDBClusterReconciler) updateIndexerForManager(mgr ctrl.Manager, enableNodeIndex bool) error {
-	// TODO (johscheuer): Validate if all those indexers are still needed as we changed the way how the operator
-	// fetches the information.
-	// See: https://github.com/FoundationDB/fdb-kubernetes-operator/issues/1996
-	err := mgr.GetFieldIndexer().IndexField(context.Background(), &corev1.Pod{}, "metadata.name", func(o client.Object) []string {
-		return []string{o.(*corev1.Pod).Name}
-	})
-	if err != nil {
-		return err
+func (r *FoundationDBClusterReconciler) updateIndexerForManager(mgr ctrl.Manager) error {
+	if r.ClusterLabelKeyForNodeTrigger == "" {
+		return nil
 	}
 
-	if enableNodeIndex {
-		err = mgr.GetFieldIndexer().IndexField(context.Background(), &corev1.Node{}, "metadata.name", func(o client.Object) []string {
-			return []string{o.(*corev1.Node).Name}
-		})
-		if err != nil {
-			return err
-		}
-
-		if r.ClusterLabelKeyForNodeTrigger != "" {
-			err = mgr.GetFieldIndexer().IndexField(context.Background(), &corev1.Pod{}, "spec.nodeName", func(o client.Object) []string {
-				return []string{o.(*corev1.Pod).Spec.NodeName}
-			})
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	err = mgr.GetFieldIndexer().IndexField(context.Background(), &corev1.Service{}, "metadata.name", func(o client.Object) []string {
-		return []string{o.(*corev1.Service).Name}
-	})
-	if err != nil {
-		return err
-	}
-
-	return mgr.GetFieldIndexer().IndexField(context.Background(), &corev1.PersistentVolumeClaim{}, "metadata.name", func(o client.Object) []string {
-		return []string{o.(*corev1.PersistentVolumeClaim).Name}
+	return mgr.GetFieldIndexer().IndexField(context.Background(), &corev1.Pod{}, "spec.nodeName", func(o client.Object) []string {
+		return []string{o.(*corev1.Pod).Spec.NodeName}
 	})
 }
 
 // SetupWithManager prepares the FoundationDBClusterReconciler for use.
-func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager, maxConcurrentReconciles int, enableNodeIndex bool, selector metav1.LabelSelector, watchedObjects ...client.Object) error {
-	err := r.updateIndexerForManager(mgr, enableNodeIndex)
+func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager, maxConcurrentReconciles int, selector metav1.LabelSelector, watchedObjects ...client.Object) error {
+	err := r.updateIndexerForManager(mgr)
 	if err != nil {
 		return err
 	}
@@ -322,7 +291,7 @@ func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager, maxCo
 		Owns(&corev1.ConfigMap{}, globalPredicate).
 		Owns(&corev1.Service{}, globalPredicate)
 
-	if r.ClusterLabelKeyForNodeTrigger != "" && enableNodeIndex {
+	if r.ClusterLabelKeyForNodeTrigger != "" {
 		managerBuilder.Watches(
 			&source.Kind{Type: &corev1.Node{}},
 			handler.EnqueueRequestsFromMapFunc(r.findFoundationDBClusterForNode),
