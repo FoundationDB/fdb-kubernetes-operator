@@ -418,7 +418,6 @@ func checkIfClusterControllerNeedsRestart(logger logr.Logger, cluster *fdbv1beta
 	// We have to validate if at least one tester process is unreachable. In this case we have to restart the cluster
 	// controller. This will cause a recovery and the missing tester process will be removed from the list of unreachable
 	// processes.
-	// cross-DC since we kill using fdbcli regardless of DC
 	for _, process := range status.Cluster.Processes {
 		if process.ProcessClass == fdbv1beta2.ProcessClassTest {
 			if _, ok := unreachableProcessesSet[process.Address.String()]; ok {

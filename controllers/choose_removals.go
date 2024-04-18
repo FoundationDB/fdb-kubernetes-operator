@@ -69,8 +69,10 @@ func (c chooseRemovals) reconcile(ctx context.Context, r *FoundationDBClusterRec
 	}
 
 	localityMap := make(map[string]locality.Info)
-	// should be cross-DC; this seems to choose what processes to keep based on cross-dc data
 	for _, process := range status.Cluster.Processes {
+		if cluster.Spec.DataCenter != process.Locality[fdbv1beta2.FDBLocalityDCIDKey] {
+			continue
+		}
 		id := process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]
 		localityMap[id] = locality.Info{ID: id, Address: process.Address, LocalityData: process.Locality}
 	}

@@ -532,7 +532,6 @@ func analyzeStatusInternal(cmd *cobra.Command, restConfig *rest.Config, clientSe
 	var foundIssues bool
 
 	processesWithError := make([]string, 0)
-	// should be cross-DC as analyze uses fdbcli cross-DC
 	for _, process := range status.Cluster.Processes {
 		if len(process.Messages) == 0 {
 			continue

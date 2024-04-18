@@ -110,7 +110,6 @@ func getRemainingAndExcludedFromStatus(logger logr.Logger, status *fdbv1beta2.Fo
 	}
 
 	// Check in the status output which processes are already marked for exclusion in the cluster
-	// this should be cross-DC info bc the totals are all cluster-wide
 	for _, process := range status.Cluster.Processes {
 		processAddresses := []string{
 			fmt.Sprintf("%s:%s", fdbv1beta2.FDBLocalityExclusionPrefix, process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]),
@@ -259,7 +258,6 @@ func GetExclusions(status *fdbv1beta2.FoundationDBStatus) ([]fdbv1beta2.ProcessA
 func GetCoordinatorsFromStatus(status *fdbv1beta2.FoundationDBStatus) map[string]fdbv1beta2.None {
 	coordinators := make(map[string]fdbv1beta2.None)
 
-	// should be cross-DC (nature of function getting coordinators)
 	for _, pInfo := range status.Cluster.Processes {
 		for _, roleInfo := range pInfo.Roles {
 			if roleInfo.Role != string(fdbv1beta2.ProcessRoleCoordinator) {
@@ -294,7 +292,6 @@ func GetMinimumUptimeAndAddressMap(logger logr.Logger, cluster *fdbv1beta2.Found
 		minimumUptime = status.Cluster.RecoveryState.SecondsSinceLastRecovered
 	}
 
-	// this is fine since we presumedly want a cross-DC view like SecondsSinceLastRecovered?
 	for _, process := range status.Cluster.Processes {
 		// Ignore tester processes for this check
 		if process.ProcessClass == fdbv1beta2.ProcessClassTest {

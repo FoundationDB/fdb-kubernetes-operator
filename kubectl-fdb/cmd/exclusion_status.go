@@ -166,7 +166,6 @@ func getExclusionStatus(cmd *cobra.Command, restConfig *rest.Config, kubeClient 
 
 		var ongoingExclusions []exclusionResult
 		timestamp := time.Now()
-		// seems like it could be useful to have cross-DC info output here
 		for _, process := range status.Cluster.Processes {
 			if !process.Excluded {
 				continue
