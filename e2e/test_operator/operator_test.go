@@ -81,6 +81,7 @@ var _ = BeforeSuite(func() {
 	)
 
 	//Load some data async into the cluster. We will only block as long as the Job is created.
+	// TODO (johscheuer): Fix this method for the unified image
 	factory.CreateDataLoaderIfAbsent(fdbCluster)
 
 	// In order to test the robustness of the operator we try to kill the operator Pods every minute.
