@@ -296,6 +296,23 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			})
 		})
 
+		Context("when the securityContext doesn't match and the PodSpecHash doesn't match", func() {
+			BeforeEach(func() {
+				pClass = fdbv1beta2.ProcessClassStorage
+				remove = false
+			})
+
+			It("should not need a removal", func() {
+				pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] = "-1"
+
+				pod.Spec.SecurityContext = &corev1.PodSecurityContext{RunAsUser: new(int64)}
+				cluster.Spec.AutomationOptions.PodUpdateStrategy = fdbv1beta2.PodUpdateStrategyReplacement
+				needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, processGroup, log)
+				Expect(needsRemoval).To(BeTrue())
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+
 		Context("when UpdatePodsByReplacement is not set and the PodSpecHash doesn't match", func() {
 			BeforeEach(func() {
 				pClass = fdbv1beta2.ProcessClassStorage

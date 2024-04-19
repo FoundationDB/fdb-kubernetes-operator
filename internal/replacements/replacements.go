@@ -26,16 +26,17 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/kubernetes/pkg/securitycontext"
 	"k8s.io/utils/pointer"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
 )
 
 // ReplaceMisconfiguredProcessGroups checks if the cluster has any misconfigured process groups that must be replaced.
@@ -246,7 +247,11 @@ func processGroupNeedsRemovalForPod(cluster *fdbv1beta2.FoundationDBCluster, pod
 		}
 	}
 
-	return false, nil
+	desiredPod, err := internal.GetPod(cluster, processGroupStatus)
+	if err != nil {
+		return false, err
+	}
+	return fileSecurityContextChanged(desiredPod, pod), nil
 }
 
 func resourcesNeedsReplacement(desired []corev1.Container, current []corev1.Container) bool {
@@ -255,6 +260,48 @@ func resourcesNeedsReplacement(desired []corev1.Container, current []corev1.Cont
 	currentCPURequests, currentMemoryRequests := getCPUandMemoryRequests(current)
 
 	return desiredCPURequests.Cmp(*currentCPURequests) == 1 || desiredMemoryRequests.Cmp(*currentMemoryRequests) == 1
+}
+
+// fileSecurityContextChanged checks for changes in the effective security context by checking that there are no changes
+// to the following SecurityContext (or PodSecurityContext) fields:
+// RunAsGroup, RunAsUser, FSGroup, or FSGroupChangePolicy
+// See https://github.com/FoundationDB/fdb-kubernetes-operator/issues/208 for motivation
+func fileSecurityContextChanged(desired, current *corev1.Pod) bool {
+	// first check for FSGroup or FSGroupChangePolicy changes as that cannot be overridden at container level
+	if desired.Spec.SecurityContext != nil || current.Spec.SecurityContext != nil {
+		if desired.Spec.SecurityContext == nil { // check if changed non-nil -> nil
+			if current.Spec.SecurityContext.FSGroup != nil || current.Spec.SecurityContext.FSGroupChangePolicy != nil {
+				return true
+			}
+		} else if current.Spec.SecurityContext == nil { // check if changed nil -> non-nil
+			if desired.Spec.SecurityContext.FSGroup != nil || desired.Spec.SecurityContext.FSGroupChangePolicy != nil {
+				return true
+			}
+		} else { // both pod security contexts are defined so check they are the same
+			if !equality.Semantic.DeepEqual(desired.Spec.SecurityContext.FSGroup, current.Spec.SecurityContext.FSGroup) ||
+				!equality.Semantic.DeepEqual(desired.Spec.SecurityContext.FSGroupChangePolicy, current.Spec.SecurityContext.FSGroupChangePolicy) {
+				return true
+			}
+		}
+	}
+	// check for RunAsUser and RunAsGroup changes (have to check with container settings, since that can override pod settings)
+	for _, desiredContainer := range desired.Spec.Containers {
+		for _, currentContainer := range current.Spec.Containers {
+			if desiredContainer.Name == currentContainer.Name {
+				desiredEffectiveSecCtx := securitycontext.DetermineEffectiveSecurityContext(desired, &desiredContainer)
+				currentEffectiveSecCtx := securitycontext.DetermineEffectiveSecurityContext(current, &currentContainer)
+				if equality.Semantic.DeepEqual(desiredEffectiveSecCtx, currentEffectiveSecCtx) {
+					continue
+				}
+				if !equality.Semantic.DeepEqual(desiredEffectiveSecCtx.RunAsUser, currentEffectiveSecCtx.RunAsUser) ||
+					!equality.Semantic.DeepEqual(desiredEffectiveSecCtx.RunAsGroup, currentEffectiveSecCtx.RunAsGroup) {
+					// FSGroup is checked at top/pod level
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
 
 func getCPUandMemoryRequests(containers []corev1.Container) (*resource.Quantity, *resource.Quantity) {
