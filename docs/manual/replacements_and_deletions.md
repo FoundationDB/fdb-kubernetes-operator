@@ -70,7 +70,6 @@ If the `cluster.Spec.Buggify.EmptyMonitorConf` setting is active the operator wo
 
 The operator has an option to automatically replace ProcessGroups where the associated Pod is running on a tainted Node.
 This feature is disabled by default, but can be enabled by setting `automationOptions.replacements.taintReplacementOptions`.
-If you want to enable this feature you should set the `--enable-node-index` command line flag to allow the operator to access the nodes with an index.
 
 We use three examples below to illustrate how to set up the feature.
 
