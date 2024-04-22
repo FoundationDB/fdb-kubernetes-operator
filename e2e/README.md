@@ -61,7 +61,7 @@ If those tests are running on a cluster that has no chaos-mesh installed, you ca
 _NOTE_ The unified image is currently experimental and there are no pre-build images.
 
 The source can be found in the [FoundationDB repository](https://github.com/apple/foundationdb/tree/main/fdbkubernetesmonitor#foundationdb-kubernetes-monitor).
-You have to make sure that the image `foundationdb/fdb-kubernetes-monitor` is build and available in the Kubernetes cluster.
+You have to make sure that the image `foundationdb/fdb-kubernetes-monitor` is built and available in the Kubernetes cluster.
 
 ```bash
 FDB_IMAGE=foundationdb/fdb-kubernetes-monitor:7.3.38 \
