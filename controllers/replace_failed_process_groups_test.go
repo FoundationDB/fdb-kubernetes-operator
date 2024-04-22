@@ -135,7 +135,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 			targetPodProcessGroupID = internal.GetProcessGroupIDFromMeta(cluster, podOnTaintedNode.ObjectMeta)
 
 			// Call validateProcessGroups to set processGroupStatus to tainted condition
-			err = validateProcessGroups(ctx.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap, allPvcs, logger)
+			err = validateProcessGroups(ctx.TODO(), clusterReconciler, cluster, processMap, configMap, allPvcs, logger)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(cluster.Status.ProcessGroups)).To(BeNumerically(">", 4))
 			processGroup := cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-4]
@@ -155,7 +155,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 			Expect(k8sClient.Update(ctx.TODO(), node)).NotTo(HaveOccurred())
 			globalControllerLogger.Info("Taint node", "Node name", podOnTaintedNode.Name, "Node taints", node.Spec.Taints)
 
-			err := validateProcessGroups(ctx.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap, allPvcs, logger)
+			err := validateProcessGroups(ctx.TODO(), clusterReconciler, cluster, processMap, configMap, allPvcs, logger)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(cluster.Status.ProcessGroups)).To(BeNumerically(">", 4))
 			targetProcessGroupStatus := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, targetPodProcessGroupID)
@@ -179,7 +179,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 			Expect(k8sClient.Update(ctx.TODO(), node)).NotTo(HaveOccurred())
 			globalControllerLogger.Info("Taint node", "Node name", podOnTaintedNode.Name, "Node taints", node.Spec.Taints)
 
-			err := validateProcessGroups(ctx.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap, allPvcs, logger)
+			err := validateProcessGroups(ctx.TODO(), clusterReconciler, cluster, processMap, configMap, allPvcs, logger)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(cluster.Status.ProcessGroups)).To(BeNumerically(">", 4))
 			targetProcessGroupStatus := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, targetPodProcessGroupID)
@@ -190,7 +190,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 			node.Spec.Taints = []corev1.Taint{}
 			err = k8sClient.Update(ctx.TODO(), node)
 			Expect(err).NotTo(HaveOccurred())
-			err = validateProcessGroups(ctx.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap, allPvcs, logger)
+			err = validateProcessGroups(ctx.TODO(), clusterReconciler, cluster, processMap, configMap, allPvcs, logger)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(cluster.Status.ProcessGroups)).To(BeNumerically(">", 4))
 			targetProcessGroupStatus = fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, targetPodProcessGroupID)
@@ -213,7 +213,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 			globalControllerLogger.Info("Taint node", "Node name", podOnTaintedNode.Name, "Node taints", node.Spec.Taints, "TaintTime", node.Spec.Taints[0].TimeAdded.Time, "Now", time.Now())
 			Expect(k8sClient.Update(ctx.TODO(), node)).NotTo(HaveOccurred())
 
-			err := validateProcessGroups(ctx.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap, allPvcs, logger)
+			err := validateProcessGroups(ctx.TODO(), clusterReconciler, cluster, processMap, configMap, allPvcs, logger)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(cluster.Status.ProcessGroups)).To(BeNumerically(">", 4))
 			targetProcessGroupStatus := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, targetPodProcessGroupID)
@@ -245,7 +245,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 			globalControllerLogger.Info("Taint node", "Node name", podOnTaintedNode.Name, "Node taints", node.Spec.Taints, "TaintTime", node.Spec.Taints[0].TimeAdded.Time, "Now", time.Now())
 			Expect(k8sClient.Update(ctx.TODO(), node)).NotTo(HaveOccurred())
 
-			err := validateProcessGroups(ctx.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap, allPvcs, logger)
+			err := validateProcessGroups(ctx.TODO(), clusterReconciler, cluster, processMap, configMap, allPvcs, logger)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(cluster.Status.ProcessGroups)).To(BeNumerically(">", 4))
 			targetProcessGroupStatus := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, targetPodProcessGroupID)
@@ -283,7 +283,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 			}
 			Expect(tainted).To(Equal(int64(0)))
 
-			err := validateProcessGroups(ctx.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap, allPvcs, logger)
+			err := validateProcessGroups(ctx.TODO(), clusterReconciler, cluster, processMap, configMap, allPvcs, logger)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(cluster.Status.ProcessGroups)).To(BeNumerically(">", 4))
 			targetProcessGroupStatus := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, targetPodProcessGroupID)

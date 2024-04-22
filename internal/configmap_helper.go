@@ -39,8 +39,7 @@ const (
 func GetConfigMap(cluster *fdbv1beta2.FoundationDBCluster) (*corev1.ConfigMap, error) {
 	data := make(map[string]string)
 
-	connectionString := cluster.Status.ConnectionString
-	data[ClusterFileKey] = connectionString
+	data[ClusterFileKey] = cluster.Status.ConnectionString
 	data["running-version"] = cluster.Status.RunningVersion
 
 	var caFile strings.Builder
@@ -104,7 +103,7 @@ func GetConfigMap(cluster *fdbv1beta2.FoundationDBCluster) (*corev1.ConfigMap, e
 
 		if _, useSplitImage := imageTypes[FDBImageTypeSplit]; useSplitImage {
 			for _, serversPerPod := range serversPerPodSlice {
-				err := setMonitorConfForFilename(cluster, data, GetConfigMapMonitorConfEntry(processClass, FDBImageTypeSplit, serversPerPod), connectionString, processClass, serversPerPod)
+				err := setMonitorConfForFilename(cluster, data, GetConfigMapMonitorConfEntry(processClass, FDBImageTypeSplit, serversPerPod), cluster.Status.ConnectionString, processClass, serversPerPod)
 				if err != nil {
 					return nil, err
 				}
