@@ -114,7 +114,7 @@ func processIncompatibleProcesses(ctx context.Context, r *FoundationDBClusterRec
 func parseIncompatibleConnections(logger logr.Logger, status *fdbv1beta2.FoundationDBStatus, dataCenter string) map[string]fdbv1beta2.None {
 	processAddressMap := map[string]fdbv1beta2.None{}
 	for _, process := range status.Cluster.Processes {
-		if dataCenter != process.Locality[fdbv1beta2.FDBLocalityDCIDKey] {
+		if dataCenter != "" && dataCenter != process.Locality[fdbv1beta2.FDBLocalityDCIDKey] {
 			continue
 		}
 		processAddressMap[process.Address.MachineAddress()] = fdbv1beta2.None{}

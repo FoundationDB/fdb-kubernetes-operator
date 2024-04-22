@@ -334,7 +334,7 @@ func getAddressesForUpgrade(logger logr.Logger, r *FoundationDBClusterReconciler
 	notReadyProcesses := make([]string, 0)
 	addresses := make([]fdbv1beta2.ProcessAddress, 0, len(status.Cluster.Processes))
 	for _, process := range status.Cluster.Processes {
-		if cluster.Spec.DataCenter != process.Locality[fdbv1beta2.FDBLocalityDCIDKey] {
+		if cluster.Spec.DataCenter != "" && cluster.Spec.DataCenter != process.Locality[fdbv1beta2.FDBLocalityDCIDKey] {
 			continue
 		}
 		processID := process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]
