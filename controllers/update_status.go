@@ -720,19 +720,37 @@ func checkIfNodeHasTaintsAndUpdateConditions(logger logr.Logger, taints []corev1
 			}
 
 			hasMatchingTaint = true
-			processGroup.UpdateCondition(fdbv1beta2.NodeTaintDetected, true)
-			// Use node taint's timestamp as the NodeTaintDetected condition's starting time.
-			if !taint.TimeAdded.IsZero() && taint.TimeAdded.Time.Unix() < *processGroup.GetConditionTime(fdbv1beta2.NodeTaintDetected) {
-				processGroup.UpdateConditionTime(fdbv1beta2.NodeTaintDetected, taint.TimeAdded.Unix())
+			nodeTaintDetectedTime := processGroup.GetConditionTime(fdbv1beta2.NodeTaintDetected)
+			if nodeTaintDetectedTime == nil {
+				processGroup.UpdateCondition(fdbv1beta2.NodeTaintDetected, true)
+				logger.Info("Add NodeTaintDetected condition",
+					"TaintKey", taint.Key,
+					"TaintValue", taint.Value,
+					"TaintEffect", taint.Effect)
+				// Update nodeTaintDetectedTime here to make sure we are not hitting a nil pointer below.
+				nodeTaintDetectedTime = pointer.Int64(time.Now().Unix())
 			}
 
-			taintDetectedTimestamp := pointer.Int64Deref(processGroup.GetConditionTime(fdbv1beta2.NodeTaintDetected), math.MaxInt64)
+			// Use node taint's timestamp as the NodeTaintDetected condition's starting time.
+			if !taint.TimeAdded.IsZero() && taint.TimeAdded.Time.Unix() < *nodeTaintDetectedTime {
+				logger.Info("Update NodeTaintDetected condition",
+					"TaintKey", taint.Key,
+					"TaintValue", taint.Value,
+					"TaintEffect", taint.Effect,
+					"oldNodeTaintDetectedTime", time.Unix(*nodeTaintDetectedTime, 0).String(),
+					"newNodeTaintDetectedTime", taint.TimeAdded.String())
+				processGroup.UpdateConditionTime(fdbv1beta2.NodeTaintDetected, taint.TimeAdded.Unix())
+				// Update the current timestamp with the new value.
+				nodeTaintDetectedTime = pointer.Int64(taint.TimeAdded.Unix())
+			}
+
 			// If the process group already has the NodeTaintReplacing condition we can skip any further work.
 			taintReplaceTime := processGroup.GetConditionTime(fdbv1beta2.NodeTaintReplacing)
 			if taintReplaceTime != nil {
 				return hasMatchingTaint
 			}
 
+			taintDetectedTimestamp := pointer.Int64Deref(nodeTaintDetectedTime, math.MaxInt64)
 			if time.Now().Unix()-taintDetectedTimestamp > pointer.Int64Deref(taintConfiguredKey.DurationInSeconds, math.MaxInt64) {
 				taintDetectedTime := time.Unix(taintDetectedTimestamp, 0)
 				processGroup.UpdateCondition(fdbv1beta2.NodeTaintReplacing, true)
