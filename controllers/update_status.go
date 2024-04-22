@@ -53,12 +53,11 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 	originalStatus := cluster.Status.DeepCopy()
 	clusterStatus := fdbv1beta2.FoundationDBClusterStatus{}
 	clusterStatus.Generations.Reconciled = cluster.Status.Generations.Reconciled
-
+	clusterStatus.ProcessGroups = cluster.Status.ProcessGroups
 	// Initialize with the current desired storage servers per Pod
 	clusterStatus.StorageServersPerDisk = []int{cluster.GetStorageServersPerPod()}
 	clusterStatus.LogServersPerDisk = []int{cluster.GetLogServersPerPod()}
 	clusterStatus.ImageTypes = []fdbv1beta2.ImageType{fdbv1beta2.ImageType(internal.GetDesiredImageType(cluster))}
-
 	processMap := make(map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo)
 
 	if databaseStatus == nil {
@@ -139,21 +138,13 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 		return &requeue{curError: fmt.Errorf("update_status skipped due to error in GetConfigMap: %w", err)}
 	}
 
-	clusterStatus.ProcessGroups = make([]*fdbv1beta2.ProcessGroupStatus, 0, len(cluster.Status.ProcessGroups))
-	for _, processGroup := range cluster.Status.ProcessGroups {
-		if processGroup != nil && processGroup.ProcessGroupID != "" {
-			clusterStatus.ProcessGroups = append(clusterStatus.ProcessGroups, processGroup)
-		}
-	}
-
 	updateFaultDomains(logger, processMap, &clusterStatus)
-
 	pvcs, err := refreshProcessGroupStatus(ctx, r, cluster, &clusterStatus)
 	if err != nil {
 		return &requeue{curError: fmt.Errorf("update_status skipped due to error in refreshProcessGroupStatus: %w", err)}
 	}
 
-	clusterStatus.ProcessGroups, err = validateProcessGroups(ctx, r, cluster, &clusterStatus, processMap, configMap, pvcs, logger)
+	err = validateProcessGroups(ctx, r, cluster, &clusterStatus, processMap, configMap, pvcs, logger)
 	if err != nil {
 		return &requeue{curError: fmt.Errorf("update_status skipped due to error in validateProcessGroups: %w", err)}
 	}
@@ -441,10 +432,8 @@ func checkAndSetProcessStatus(logger logr.Logger, r *FoundationDBClusterReconcil
 }
 
 // Validate and set progressGroup's status
-func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBClusterStatus, processMap map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo, configMap *corev1.ConfigMap, pvcs *corev1.PersistentVolumeClaimList, logger logr.Logger) ([]*fdbv1beta2.ProcessGroupStatus, error) {
-	processGroups := status.ProcessGroups
+func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBClusterStatus, processMap map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo, configMap *corev1.ConfigMap, pvcs *corev1.PersistentVolumeClaimList, logger logr.Logger) error {
 	processGroupsWithoutExclusion := make(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None, len(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion))
-
 	for _, processGroupID := range cluster.Spec.ProcessGroupsToRemoveWithoutExclusion {
 		processGroupsWithoutExclusion[processGroupID] = fdbv1beta2.None{}
 	}
@@ -456,7 +445,7 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 		logger.Info("Disable taint feature", "Disabled", disableTaintFeature)
 	}
 
-	for _, processGroup := range processGroups {
+	for _, processGroup := range status.ProcessGroups {
 		// If the process group should be removed mark it for removal.
 		if cluster.ProcessGroupIsBeingRemoved(processGroup.ProcessGroupID) {
 			processGroup.MarkForRemoval()
@@ -472,22 +461,26 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 		}
 
 		pod, podError := r.PodLifecycleManager.GetPod(ctx, r, cluster, processGroup.GetPodName(cluster))
+		if podError != nil {
+			// If the process group is not being removed and the Pod is not set we need to put it into
+			// the failing list.
+			if k8serrors.IsNotFound(podError) {
+				// Mark process groups as terminating if the pod has been deleted but other
+				// resources are stuck in terminating.
+				if processGroup.IsMarkedForRemoval() && processGroup.IsExcluded() {
+					processGroup.UpdateCondition(fdbv1beta2.ResourcesTerminating, true)
+				} else {
+					processGroup.UpdateCondition(fdbv1beta2.MissingPod, true)
+				}
 
-		// If the process group is not being removed and the Pod is not set we need to put it into
-		// the failing list.
-		if k8serrors.IsNotFound(podError) {
-			// Mark process groups as terminating if the pod has been deleted but other
-			// resources are stuck in terminating.
-			if processGroup.IsMarkedForRemoval() && processGroup.IsExcluded() {
-				processGroup.UpdateCondition(fdbv1beta2.ResourcesTerminating, true)
-			} else {
-				processGroup.UpdateCondition(fdbv1beta2.MissingPod, true)
+				processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, false)
+				continue
 			}
 
-			processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, false)
+			logger.Info("could not fetch Pod information")
 			continue
 		}
-
+		processGroup.UpdateCondition(fdbv1beta2.MissingPod, false)
 		processGroup.AddAddresses(podmanager.GetPublicIPs(pod, logger), processGroup.IsMarkedForRemoval() || !status.Health.Available)
 
 		// This handles the case where the Pod has a DeletionTimestamp and should be deleted.
@@ -509,11 +502,11 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 			processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, false)
 		}
 
-		// Even the process group will be removed we need to keep the config around.
+		// Even if the process group will be removed we need to keep the config around.
 		// Set the processCount for the process group specific storage servers per pod
 		processCount, err := internal.GetServersPerPodForPod(pod, processGroup.ProcessClass)
 		if err != nil {
-			return processGroups, err
+			return err
 		}
 		status.AddServersPerDisk(processCount, processGroup.ProcessClass)
 
@@ -548,12 +541,12 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 
 		err = checkAndSetProcessStatus(logger, r, cluster, pod, processMap, processCount, processGroup)
 		if err != nil {
-			return processGroups, err
+			return err
 		}
 
 		configMapHash, err := internal.GetDynamicConfHash(configMap, processGroup.ProcessClass, imageType, processCount)
 		if err != nil {
-			return processGroups, err
+			return err
 		}
 
 		var pvc *corev1.PersistentVolumeClaim
@@ -564,11 +557,11 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 
 		err = validateProcessGroup(ctx, r, cluster, pod, pvc, configMapHash, processGroup, disableTaintFeature, logger)
 		if err != nil {
-			return processGroups, err
+			return err
 		}
 	}
 
-	return processGroups, nil
+	return nil
 }
 
 // validateProcessGroup runs specific checks for the status of an process group.
@@ -576,8 +569,8 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster,
 	pod *corev1.Pod, currentPVC *corev1.PersistentVolumeClaim, configMapHash string, processGroupStatus *fdbv1beta2.ProcessGroupStatus,
 	disableTaintFeature bool, logger logr.Logger) error {
-	processGroupStatus.UpdateCondition(fdbv1beta2.MissingPod, pod == nil)
 	if pod == nil {
+		processGroupStatus.UpdateCondition(fdbv1beta2.MissingPod, true)
 		return nil
 	}
 
@@ -600,7 +593,7 @@ func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler,
 	// If we do a cluster version incompatible upgrade we use the fdbv1beta2.IncorrectConfigMap to signal when the operator
 	// can restart fdbserver processes. Since the ConfigMap itself won't change during the upgrade we have to run the updatePodDynamicConf
 	// to make sure all process groups have the required files ready. In the future we will use a different condition to indicate that a
-	// process group si ready to be restarted.
+	// process group is ready to be restarted.
 	var synced bool
 	if cluster.IsBeingUpgradedWithVersionIncompatibleVersion() {
 		synced, err = r.updatePodDynamicConf(logger, cluster, pod)
@@ -693,9 +686,9 @@ func updateTaintCondition(ctx context.Context, r *FoundationDBClusterReconciler,
 	hasMatchingTaint := checkIfNodeHasTaintsAndUpdateConditions(logger, node.Spec.Taints, cluster, processGroup)
 
 	if !hasMatchingTaint {
-		// Remove NodeTaintDetected condition if the pod is no longer on a tainted node;
-		// This is needed especially when a node's status is flapping
-		// We do not remove NodeTaintReplacing because the NodeTaintReplacing condition is only added when taint is there for configured long time
+		// Remove NodeTaintDetected condition if the pod is no longer on a tainted node.
+		// This is needed especially when a node's status is flapping.
+		// We do not remove NodeTaintReplacing because the NodeTaintReplacing condition is only added when taint is there for configured long time.
 		processGroup.UpdateCondition(fdbv1beta2.NodeTaintDetected, false)
 	}
 
@@ -758,14 +751,10 @@ func checkIfNodeHasTaintsAndUpdateConditions(logger logr.Logger, taints []corev1
 }
 
 func refreshProcessGroupStatus(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBClusterStatus) (*corev1.PersistentVolumeClaimList, error) {
-	status.ProcessGroups = make([]*fdbv1beta2.ProcessGroupStatus, 0, len(cluster.Status.ProcessGroups))
 	knownProcessGroups := map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None{}
 
-	for _, processGroup := range cluster.Status.ProcessGroups {
-		if processGroup != nil && processGroup.ProcessGroupID != "" {
-			status.ProcessGroups = append(status.ProcessGroups, processGroup)
-			knownProcessGroups[processGroup.ProcessGroupID] = fdbv1beta2.None{}
-		}
+	for _, processGroup := range status.ProcessGroups {
+		knownProcessGroups[processGroup.ProcessGroupID] = fdbv1beta2.None{}
 	}
 
 	// Track all created resources this will ensure that we catch all resources that are created by the operator
