@@ -323,7 +323,7 @@ func getAddressesForUpgrade(logger logr.Logger, r *FoundationDBClusterReconciler
 	}
 
 	// We don't want to check for fault tolerance here to make sure the operator is able to restart processes if some
-	// processes where restarted before the operator issued the cluster wide restart. For version incompatible upgrades
+	// processes were restarted before the operator issued the cluster wide restart. For version incompatible upgrades
 	// that would mean that the processes restarted earlier are not part of the cluster anymore leading to a fault tolerance
 	// drop.
 	if !status.Client.DatabaseStatus.Available {
@@ -334,9 +334,6 @@ func getAddressesForUpgrade(logger logr.Logger, r *FoundationDBClusterReconciler
 	notReadyProcesses := make([]string, 0)
 	addresses := make([]fdbv1beta2.ProcessAddress, 0, len(status.Cluster.Processes))
 	for _, process := range status.Cluster.Processes {
-		if cluster.Spec.DataCenter != "" && cluster.Spec.DataCenter != process.Locality[fdbv1beta2.FDBLocalityDCIDKey] {
-			continue
-		}
 		processID := process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]
 		if process.Version == version.String() {
 			continue

@@ -82,7 +82,7 @@ func processIncompatibleProcesses(ctx context.Context, r *FoundationDBClusterRec
 
 	logger.Info("incompatible connections", "incompatibleConnections", status.Cluster.IncompatibleConnections)
 
-	incompatibleConnections := parseIncompatibleConnections(logger, status, cluster.Spec.DataCenter)
+	incompatibleConnections := parseIncompatibleConnections(logger, status, cluster)
 	incompatiblePods := make([]*corev1.Pod, 0, len(incompatibleConnections))
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		pod, err := r.PodLifecycleManager.GetPod(ctx, r, cluster, processGroup.GetPodName(cluster))
@@ -111,10 +111,10 @@ func processIncompatibleProcesses(ctx context.Context, r *FoundationDBClusterRec
 
 // parseIncompatibleConnections parses the incompatible connections string slice to a map and removes all false reported incompatible processes.
 // If a process is still part of the cluster status we can assume it's not an incompatible process.
-func parseIncompatibleConnections(logger logr.Logger, status *fdbv1beta2.FoundationDBStatus, dataCenter string) map[string]fdbv1beta2.None {
+func parseIncompatibleConnections(logger logr.Logger, status *fdbv1beta2.FoundationDBStatus, cluster *fdbv1beta2.FoundationDBCluster) map[string]fdbv1beta2.None {
 	processAddressMap := map[string]fdbv1beta2.None{}
 	for _, process := range status.Cluster.Processes {
-		if dataCenter != "" && dataCenter != process.Locality[fdbv1beta2.FDBLocalityDCIDKey] {
+		if !cluster.ProcessSharesDC(process) {
 			continue
 		}
 		processAddressMap[process.Address.MachineAddress()] = fdbv1beta2.None{}

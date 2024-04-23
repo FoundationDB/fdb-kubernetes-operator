@@ -72,7 +72,7 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 	for _, process := range databaseStatus.Cluster.Processes {
 		versionMap[process.Version]++
 		// Ignore all processes for the process map that are for a different data center
-		if cluster.Spec.DataCenter != "" && cluster.Spec.DataCenter != process.Locality[fdbv1beta2.FDBLocalityDCIDKey] {
+		if !cluster.ProcessSharesDC(process) {
 			continue
 		}
 

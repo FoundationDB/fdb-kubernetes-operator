@@ -70,7 +70,7 @@ var _ = Describe("restart_incompatible_pods", func() {
 	)
 
 	DescribeTable("when parsing incompatible connections", func(status *fdbv1beta2.FoundationDBStatus, expected map[string]fdbv1beta2.None) {
-		Expect(parseIncompatibleConnections(logr.Discard(), status, "")).To(Equal(expected))
+		Expect(parseIncompatibleConnections(logr.Discard(), status, nil)).To(Equal(expected))
 	},
 		Entry("empty incompatible map",
 			&fdbv1beta2.FoundationDBStatus{
