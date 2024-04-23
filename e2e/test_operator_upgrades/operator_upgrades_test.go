@@ -28,6 +28,7 @@ Since FoundationDB is version incompatible for major and minor versions and the 
 */
 
 import (
+	"fmt"
 	"log"
 	"strings"
 	"time"
@@ -601,6 +602,56 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 			fdbCluster.UpgradeAndVerify(targetVersion)
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s with a pending pod"),
+		fixtures.GenerateUpgradeTableEntries(testOptions),
+	)
+
+	DescribeTable(
+		"one process is under maintenance",
+		func(beforeVersion string, targetVersion string) {
+			if fixtures.VersionsAreProtocolCompatible(beforeVersion, targetVersion) {
+				Skip("this test only affects version incompatible upgrades")
+			}
+
+			clusterSetup(beforeVersion, true)
+
+			// Pick a storage process and set it under maintenance
+			var storageProcessGroupUnderMaintenance *fdbv1beta2.ProcessGroupStatus
+			for _, processGroup := range fdbCluster.GetCluster().Status.ProcessGroups {
+				if processGroup.ProcessClass != fdbv1beta2.ProcessClassStorage {
+					continue
+				}
+
+				storageProcessGroupUnderMaintenance = processGroup
+				break
+			}
+
+			Expect(storageProcessGroupUnderMaintenance).NotTo(BeNil())
+			Expect(storageProcessGroupUnderMaintenance.FaultDomain).NotTo(BeEmpty())
+			log.Println("picked process group", storageProcessGroupUnderMaintenance.ProcessGroupID, "to be under maintenance with fault domain:", storageProcessGroupUnderMaintenance.FaultDomain)
+			_, _ = fdbCluster.RunFdbCliCommandInOperator(fmt.Sprintf("maintenance on %s 3600", storageProcessGroupUnderMaintenance.FaultDomain), false, 30)
+
+			// Make sure the machine-readable status reflects the maintenance mode
+			Eventually(func() fdbv1beta2.FaultDomain {
+				return fdbCluster.GetStatus().Cluster.MaintenanceZone
+			}).WithTimeout(2 * time.Minute).WithPolling(2 * time.Second).MustPassRepeatedly(5).Should(Equal(storageProcessGroupUnderMaintenance.FaultDomain))
+
+			// Update the cluster version.
+			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
+
+			// Make sure the cluster is not upgraded until the maintenance is removed.
+			Consistently(func() string {
+				return fdbCluster.GetCluster().GetRunningVersion()
+			}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(Equal(beforeVersion))
+			// Turn maintenance off.
+			_, _ = fdbCluster.RunFdbCliCommandInOperator("maintenance off", false, 30)
+
+			// Make sure the cluster is upgraded
+			fdbCluster.VerifyVersion(targetVersion)
+
+			// Make sure the cluster has no data loss.
+			fdbCluster.EnsureTeamTrackersHaveMinReplicas()
+		},
+		EntryDescription("Upgrade from %[1]s to %[2]s"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
 	)
 })

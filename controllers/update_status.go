@@ -111,6 +111,7 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 		clusterStatus.RequiredAddresses.NonTLS = true
 	}
 
+	var currentMaintenanceZone fdbv1beta2.FaultDomain
 	if databaseStatus != nil {
 		for _, coordinator := range databaseStatus.Client.Coordinators.Coordinators {
 			address, err := fdbv1beta2.ParseProcessAddress(coordinator.Address.String())
@@ -129,6 +130,7 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 		clusterStatus.Health.Healthy = databaseStatus.Client.DatabaseStatus.Healthy
 		clusterStatus.Health.FullReplication = databaseStatus.Cluster.FullReplication
 		clusterStatus.Health.DataMovementPriority = databaseStatus.Cluster.Data.MovingData.HighestPriority
+		currentMaintenanceZone = databaseStatus.Cluster.MaintenanceZone
 	}
 
 	cluster.Status.RequiredAddresses = clusterStatus.RequiredAddresses
@@ -144,7 +146,7 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 		return &requeue{curError: fmt.Errorf("update_status skipped due to error in refreshProcessGroupStatus: %w", err)}
 	}
 
-	err = validateProcessGroups(ctx, r, cluster, &clusterStatus, processMap, configMap, pvcs, logger)
+	err = validateProcessGroups(ctx, r, cluster, &clusterStatus, processMap, configMap, pvcs, logger, currentMaintenanceZone)
 	if err != nil {
 		return &requeue{curError: fmt.Errorf("update_status skipped due to error in validateProcessGroups: %w", err)}
 	}
@@ -432,7 +434,7 @@ func checkAndSetProcessStatus(logger logr.Logger, r *FoundationDBClusterReconcil
 }
 
 // Validate and set progressGroup's status
-func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBClusterStatus, processMap map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo, configMap *corev1.ConfigMap, pvcs *corev1.PersistentVolumeClaimList, logger logr.Logger) error {
+func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBClusterStatus, processMap map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo, configMap *corev1.ConfigMap, pvcs *corev1.PersistentVolumeClaimList, logger logr.Logger, maintenanceZone fdbv1beta2.FaultDomain) error {
 	processGroupsWithoutExclusion := make(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None, len(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion))
 	for _, processGroupID := range cluster.Spec.ProcessGroupsToRemoveWithoutExclusion {
 		processGroupsWithoutExclusion[processGroupID] = fdbv1beta2.None{}
@@ -458,6 +460,13 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 				processGroup.ExclusionSkipped = ok
 				processGroup.SetExclude()
 			}
+		}
+
+		// If a process group is under maintenance we want to skip performing checks on the process group to prevent
+		// misleading conditions that could lead to a replacement race condition.
+		if processGroup.IsUnderMaintenance(maintenanceZone) {
+			logger.Info("skip updating the process group as the process group is currently under maintenance", "faultDomain", processGroup.FaultDomain, "maintenanceZone", maintenanceZone)
+			continue
 		}
 
 		pod, podError := r.PodLifecycleManager.GetPod(ctx, r, cluster, processGroup.GetPodName(cluster))
@@ -564,7 +573,7 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 	return nil
 }
 
-// validateProcessGroup runs specific checks for the status of an process group.
+// validateProcessGroup runs specific checks for the status of a process group.
 // returns failing, incorrect, error
 func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster,
 	pod *corev1.Pod, currentPVC *corev1.PersistentVolumeClaim, configMapHash string, processGroupStatus *fdbv1beta2.ProcessGroupStatus,
@@ -656,7 +665,6 @@ func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler,
 
 	processGroupStatus.UpdateCondition(fdbv1beta2.PodFailing, failing)
 	processGroupStatus.UpdateCondition(fdbv1beta2.PodPending, false)
-
 	if !disableTaintFeature {
 		err = updateTaintCondition(ctx, r, cluster, pod, processGroupStatus, logger.WithValues("Pod", pod.Name, "nodeName", pod.Spec.NodeName, "processGroupID", processGroupStatus.ProcessGroupID))
 		if err != nil {
