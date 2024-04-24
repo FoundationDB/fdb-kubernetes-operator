@@ -323,7 +323,7 @@ func getAddressesForUpgrade(logger logr.Logger, r *FoundationDBClusterReconciler
 	}
 
 	// We don't want to check for fault tolerance here to make sure the operator is able to restart processes if some
-	// processes where restarted before the operator issued the cluster wide restart. For version incompatible upgrades
+	// processes were restarted before the operator issued the cluster wide restart. For version incompatible upgrades
 	// that would mean that the processes restarted earlier are not part of the cluster anymore leading to a fault tolerance
 	// drop.
 	if !status.Client.DatabaseStatus.Available {

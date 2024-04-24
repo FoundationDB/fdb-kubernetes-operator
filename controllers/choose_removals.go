@@ -70,6 +70,9 @@ func (c chooseRemovals) reconcile(ctx context.Context, r *FoundationDBClusterRec
 
 	localityMap := make(map[string]locality.Info)
 	for _, process := range status.Cluster.Processes {
+		if !cluster.ProcessSharesDC(process) {
+			continue
+		}
 		id := process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]
 		localityMap[id] = locality.Info{ID: id, Address: process.Address, LocalityData: process.Locality}
 	}
@@ -78,12 +81,12 @@ func (c chooseRemovals) reconcile(ctx context.Context, r *FoundationDBClusterRec
 
 	for _, processClass := range fdbv1beta2.ProcessClasses {
 		desiredCount := desiredCounts[processClass]
-		removedCount := currentCounts[processClass] - desiredCount
+		excessCount := currentCounts[processClass] - desiredCount
 		processClassLocality := make([]locality.Info, 0, currentCounts[processClass])
 
 		for _, processGroup := range cluster.Status.ProcessGroupsByProcessClass(processClass) {
 			if processGroup.IsMarkedForRemoval() {
-				removedCount--
+				excessCount--
 				continue
 			}
 			localityInfo, present := localityMap[string(processGroup.ProcessGroupID)]
@@ -92,8 +95,8 @@ func (c chooseRemovals) reconcile(ctx context.Context, r *FoundationDBClusterRec
 			}
 		}
 
-		if removedCount > 0 {
-			r.Recorder.Event(cluster, corev1.EventTypeNormal, "ShrinkingProcesses", fmt.Sprintf("Removing %d %s processes", removedCount, processClass))
+		if excessCount > 0 {
+			r.Recorder.Event(cluster, corev1.EventTypeNormal, "ShrinkingProcesses", fmt.Sprintf("Removing %d %s processes", excessCount, processClass))
 
 			remainingProcesses, err := locality.ChooseDistributedProcesses(cluster, processClassLocality, desiredCount, locality.ProcessSelectionConstraint{})
 			if err != nil {

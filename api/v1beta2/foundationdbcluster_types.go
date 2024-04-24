@@ -2919,3 +2919,15 @@ func (cluster *FoundationDBCluster) GetProcessGroupID(processClass ProcessClass,
 func (cluster *FoundationDBCluster) IsPodIPFamily6() bool {
 	return cluster.Spec.Routing.PodIPFamily != nil && *cluster.Spec.Routing.PodIPFamily == 6
 }
+
+// ProcessSharesDC returns true if the process's locality matches the cluster's Datacenter.
+// If there is insufficient cluster information, it will return true to avoid filtering when there is insufficient data
+func (cluster *FoundationDBCluster) ProcessSharesDC(process FoundationDBStatusProcessInfo) bool {
+	if cluster == nil || cluster.Spec.DataCenter == "" {
+		return true
+	}
+	if cluster.Spec.DataCenter == process.Locality[FDBLocalityDCIDKey] {
+		return true
+	}
+	return false
+}
