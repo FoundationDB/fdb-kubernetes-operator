@@ -56,7 +56,25 @@ FDB_VERSION=7.1.33 make -C e2e -kj test_operator.run
 
 If those tests are running on a cluster that has no chaos-mesh installed, you can set `ENABLE_CHAOS_TESTS=false` to disable all test that uses chaos-mesh.
 
+### Running the e2e tests with the unified image
+
+_NOTE_ The unified image is currently experimental and there are no pre-build images.
+
+The source can be found in the [FoundationDB repository](https://github.com/apple/foundationdb/tree/main/fdbkubernetesmonitor#foundationdb-kubernetes-monitor).
+You have to make sure that the image `foundationdb/fdb-kubernetes-monitor` is built and available in the Kubernetes cluster.
+
+```bash
+FDB_IMAGE=foundationdb/fdb-kubernetes-monitor:7.3.38 \
+SIDECAR_IMAGE=foundationdb/fdb-kubernetes-monitor:7.3.38 \
+FEATURE_UNIFIED_IMAGE=true \
+UPGRADE_VERSIONS="" \
+FDB_VERSION="7.3.38" \
+make -C e2e test_operator.run
+```
+
 ### Running e2e tests in kind
+
+_NOTE_ This setup is currently not used by our CI.
 
 [kind](https://kind.sigs.k8s.io) provides an easy way to run a local Kubernetes cluster.
 For running tests on a `kind` cluster you should set the `CLOUD_PROVIDER=kind` environment variable to make sure the test framework is creating clusters with smaller resource requirements.

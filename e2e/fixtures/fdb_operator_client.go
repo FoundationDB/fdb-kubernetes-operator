@@ -235,7 +235,7 @@ spec:
             runAsGroup: 0
         # Install this library in a special location to force the operator to
         # use it as the primary library.
-        {{ if eq .FDBVersion.Compact "7.1" }}
+        {{ if .CopyAsPrimary }}
         - name: foundationdb-kubernetes-init-7-1-primary
           image: {{ .BaseImage }}:{{ .SidecarTag}}
           imagePullPolicy: {{ .ImagePullPolicy }}
@@ -383,7 +383,7 @@ spec:
             - fdbrestore
             - --copy-library
             - "{{ .FDBVersion.Compact }}"
-{{ if eq .FDBVersion.Compact "7.1" }}
+{{ if .CopyAsPrimary }}
             - --copy-primary-library
             - "{{ .FDBVersion.Compact }}"
 {{ end }}
@@ -509,11 +509,14 @@ type SidecarConfig struct {
 	FDBVersion fdbv1beta2.Version
 	// ImagePullPolicy represents the pull policy for the sidecar.
 	ImagePullPolicy corev1.PullPolicy
+	// CopyAsPrimary if true the version should be copied as primary library.
+	CopyAsPrimary bool
 }
 
 // GetSidecarConfigs returns the sidecar configs. The sidecar configs can be used to template applications that will use
 // all provided sidecar versions to inject FDB client libraries.
 func (factory *Factory) GetSidecarConfigs() []SidecarConfig {
+	var hasCopyPrimarySet bool
 	additionalSidecarVersions := factory.GetAdditionalSidecarVersions()
 	sidecarConfigs := make([]SidecarConfig, 0, len(additionalSidecarVersions)+1)
 
@@ -522,14 +525,21 @@ func (factory *Factory) GetSidecarConfigs() []SidecarConfig {
 		image = factory.GetFoundationDBImage()
 	}
 
+	defaultConfig := getDefaultSidecarConfig(
+		image,
+		factory.GetFDBVersion(),
+		factory.getImagePullPolicy(),
+		factory.options.featureOperatorUnifiedImage,
+	)
+
+	if factory.GetFDBVersion().SupportsDNSInClusterFile() {
+		defaultConfig.CopyAsPrimary = true
+		hasCopyPrimarySet = true
+	}
+
 	sidecarConfigs = append(
 		sidecarConfigs,
-		getDefaultSidecarConfig(
-			image,
-			factory.GetFDBVersion(),
-			factory.getImagePullPolicy(),
-			factory.options.featureOperatorUnifiedImage,
-		),
+		defaultConfig,
 	)
 	baseImage := sidecarConfigs[0].BaseImage
 
@@ -540,9 +550,15 @@ func (factory *Factory) GetSidecarConfigs() []SidecarConfig {
 			continue
 		}
 
+		sidecarConfig := getSidecarConfig(baseImage, "", version, factory.getImagePullPolicy(), factory.options.featureOperatorUnifiedImage)
+		if !hasCopyPrimarySet && version.SupportsDNSInClusterFile() {
+			sidecarConfig.CopyAsPrimary = true
+			hasCopyPrimarySet = true
+		}
+
 		sidecarConfigs = append(
 			sidecarConfigs,
-			getSidecarConfig(baseImage, "", version, factory.getImagePullPolicy(), factory.options.featureOperatorUnifiedImage),
+			sidecarConfig,
 		)
 	}
 

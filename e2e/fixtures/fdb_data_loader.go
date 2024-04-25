@@ -161,6 +161,123 @@ spec:
         - name: fdb-certs
           secret:
             secretName: {{ .SecretName }}`
+
+	// For now we only load 2GB into the cluster, we can increase this later if we want.
+	dataLoaderJobUnifiedImage = `apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Name }}
+  namespace: {{ .Namespace }}
+  labels:
+    app: {{ .Name }}
+spec:
+  backoffLimit: 2
+  completions: 2
+  parallelism: 2
+  template:
+    spec:
+      containers:
+      - image: {{ .Image }}
+        imagePullPolicy: Always
+        name: {{ .Name }}
+        # This configuration will load ~1GB per data loader.
+        args:
+        - --keys=1000000
+        - --batch-size=50
+        - --value-size=1000
+        env:
+          - name: FDB_CLUSTER_FILE
+            value: /var/dynamic/fdb/fdb.cluster
+          - name: FDB_TLS_CERTIFICATE_FILE
+            value: /tmp/fdb-certs/tls.crt
+          - name: FDB_TLS_CA_FILE
+            value: /tmp/fdb-certs/ca.pem
+          - name: FDB_TLS_KEY_FILE
+            value: /tmp/fdb-certs/tls.key
+          # FDB 7.3 adds a check for loading external client library, which doesn't work with 6.3.
+          # Consider remove this option once 6.3 is no longer being used.
+          - name: FDB_NETWORK_OPTION_IGNORE_EXTERNAL_CLIENT_FAILURES
+            value: ""
+          - name: LD_LIBRARY_PATH
+            value: /var/dynamic/fdb
+          - name: FDB_NETWORK_OPTION_TRACE_LOG_GROUP
+            value: {{ .Name }}
+          - name: FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY
+            value: /var/dynamic/fdb
+          - name: PYTHONUNBUFFERED
+            value: "on"
+        volumeMounts:
+          - name: config-map
+            mountPath: /var/dynamic-conf
+          - name: fdb-libs
+            mountPath: /var/dynamic/fdb
+          - name: fdb-certs
+            mountPath: /tmp/fdb-certs
+            readOnly: true
+        resources:
+         requests:
+           cpu: "1"
+           memory: 4Gi
+      initContainers:
+        {{ range $index, $version := .SidecarVersions }}
+        - name: foundationdb-kubernetes-init-{{ $index }}
+          image: {{ .BaseImage }}:{{ .SidecarTag}}
+          imagePullPolicy: {{ .ImagePullPolicy }}
+          args:
+            - --mode
+            - init
+            - --output-dir
+            - /var/output-files
+            - --copy-library
+            - "{{ .FDBVersion.Compact }}"
+{{ if .CopyAsPrimary }}
+            - --copy-primary-library
+            - "{{ .FDBVersion.Compact }}"
+{{ end }}
+          volumeMounts:
+            - name: fdb-libs
+              mountPath: /var/output-files
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+{{ if .CopyAsPrimary }}
+        - name: foundationdb-kubernetes-init-cluster-file
+          image: {{ .BaseImage }}:{{ .SidecarTag}}
+          imagePullPolicy: {{ .ImagePullPolicy }}
+          args:
+            - --mode
+            - init
+            - --input-dir
+            - /var/dynamic-conf
+            - --output-dir
+            - /var/output-files
+            - --copy-file
+            - fdb.cluster
+            - --require-not-empty
+            - fdb.cluster
+          volumeMounts:
+            - name: fdb-libs
+              mountPath: /var/output-files
+            - name: config-map
+              mountPath: /var/dynamic-conf
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+{{ end }}
+        {{ end }}
+      restartPolicy: Never
+      volumes:
+        - name: config-map
+          configMap:
+            name: {{ .ClusterName }}-config
+            items:
+              - key: cluster-file
+                path: fdb.cluster
+        - name: fdb-libs
+          emptyDir: {}
+        - name: fdb-certs
+          secret:
+            secretName: {{ .SecretName }}`
 )
 
 // dataLoaderConfig represents the configuration of the Dataloader Job.
@@ -197,7 +314,11 @@ func (factory *Factory) CreateDataLoaderIfAbsent(cluster *FdbCluster) {
 		return
 	}
 
-	t, err := template.New("dataLoaderJob").Parse(dataLoaderJob)
+	dataLoaderJobTemplate := dataLoaderJob
+	if factory.options.featureOperatorUnifiedImage {
+		dataLoaderJobTemplate = dataLoaderJobUnifiedImage
+	}
+	t, err := template.New("dataLoaderJob").Parse(dataLoaderJobTemplate)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	buf := bytes.Buffer{}
 	gomega.Expect(t.Execute(&buf, factory.getDataLoaderConfig(cluster))).NotTo(gomega.HaveOccurred())
