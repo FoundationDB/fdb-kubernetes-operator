@@ -18,6 +18,7 @@ package v1beta2
 
 import (
 	"fmt"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"math"
 	"math/rand"
 	"regexp"
@@ -1257,6 +1258,16 @@ type AutomaticReplacementOptions struct {
 	// TaintReplacementOption controls which taint label the operator will react to.
 	// +kubebuilder:validation:MaxItems=32
 	TaintReplacementOptions []TaintReplacementOption `json:"taintReplacementOptions,omitempty"`
+
+	// MaxFaultDomainsWithTaintedProcessGroups defines how many fault domains in the cluster can have process groups
+	// with the NodeTaintReplacing condition and still allow the operator to automatically replace those process groups.
+	// If more fault domains contain process groups with the NodeTaintReplacing condition, the operator will not
+	// automatically replace those process groups. This is a safeguard in addition to MaxConcurrentReplacements to make
+	// sure the operator is not replacing too many process groups if a large number of nodes are tainted. A absolute number
+	// of fault domains or a percentage can be provided.
+	// Defaults to 10% of the fault domains or at least 1.
+	// +kubebuilder:validation:XIntOrString
+	MaxFaultDomainsWithTaintedProcessGroups *intstr.IntOrString `json:"maxFaultDomainsWithTaintedProcessGroups,omitempty"`
 }
 
 // ProcessSettings defines process-level settings.
@@ -2528,7 +2539,7 @@ func (cluster *FoundationDBCluster) GetIgnoreTerminatingPodsSeconds() int {
 	return pointer.IntDeref(cluster.Spec.AutomationOptions.IgnoreTerminatingPodsSeconds, int((10 * time.Minute).Seconds()))
 }
 
-// GetProcessGroupsToRemove will returns the list of Process Group IDs that must be added to the ProcessGroupsToRemove
+// GetProcessGroupsToRemove will return the list of Process Group IDs that must be added to the ProcessGroupsToRemove
 // it will filter out all Process Group IDs that are already marked for removal to make sure those are clean up. If a
 // provided process group ID doesn't exit it will be ignored.
 func (cluster *FoundationDBCluster) GetProcessGroupsToRemove(processGroupIDs []ProcessGroupID) []ProcessGroupID {
@@ -2926,8 +2937,25 @@ func (cluster *FoundationDBCluster) ProcessSharesDC(process FoundationDBStatusPr
 	if cluster == nil || cluster.Spec.DataCenter == "" {
 		return true
 	}
+
 	if cluster.Spec.DataCenter == process.Locality[FDBLocalityDCIDKey] {
 		return true
 	}
+
 	return false
+}
+
+// GetMaxFaultDomainsWithTaintedProcessGroups returns the maximum fault domains that can hold pods on tainted nodes to still
+// allow the operator to automatically replace those pods on the tainted nodes automatically.
+func (cluster *FoundationDBCluster) GetMaxFaultDomainsWithTaintedProcessGroups(faultDomainCnt int) (int, error) {
+	maxAllowed, err := intstr.GetScaledValueFromIntOrPercent(intstr.ValueOrDefault(cluster.Spec.AutomationOptions.Replacements.MaxFaultDomainsWithTaintedProcessGroups, intstr.IntOrString{Type: intstr.String, StrVal: "10%"}), faultDomainCnt, false)
+	if err != nil {
+		return -1, err
+	}
+
+	if maxAllowed < 1 {
+		return 1, nil
+	}
+
+	return maxAllowed, nil
 }

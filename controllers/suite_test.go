@@ -130,10 +130,6 @@ func reconcileCluster(cluster *fdbv1beta2.FoundationDBCluster) (reconcile.Result
 	return reconcileObject(clusterReconciler, cluster.ObjectMeta, requeueLimit)
 }
 
-func reconcileClusterWithCustomRequeueLimit(cluster *fdbv1beta2.FoundationDBCluster, customRequeueLimit int) (reconcile.Result, error) {
-	return reconcileObject(clusterReconciler, cluster.ObjectMeta, customRequeueLimit)
-}
-
 func reconcileBackup(backup *fdbv1beta2.FoundationDBBackup) (reconcile.Result, error) {
 	return reconcileObject(backupReconciler, backup.ObjectMeta, requeueLimit)
 }
