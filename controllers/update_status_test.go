@@ -137,7 +137,7 @@ var _ = Describe("update_status", func() {
 				})
 
 				It("should get both NodeTaintDetected and NodeTaintReplacing condition", func() {
-					Expect(len(processGroupStatus.ProcessGroupConditions)).To(Equal(2))
+					Expect(processGroupStatus.ProcessGroupConditions).To(HaveLen(2))
 					Expect(processGroupStatus.GetCondition(fdbv1beta2.NodeTaintDetected)).NotTo(Equal(nil))
 					Expect(processGroupStatus.GetCondition(fdbv1beta2.NodeTaintReplacing)).NotTo(Equal(nil))
 				})
@@ -159,7 +159,7 @@ var _ = Describe("update_status", func() {
 
 				It("should enable cluster taint feature", func() {
 					// Check taint feature is disabled
-					Expect(len(processGroupStatus.ProcessGroupConditions)).To(Equal(0))
+					Expect(processGroupStatus.ProcessGroupConditions).To(HaveLen(0))
 
 					// Enable taint feature
 					cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions = []fdbv1beta2.TaintReplacementOption{
@@ -175,7 +175,7 @@ var _ = Describe("update_status", func() {
 
 					err = validateProcessGroup(context.TODO(), clusterReconciler, cluster, pod, pvc, pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey], processGroupStatus, cluster.IsTaintFeatureDisabled(), logger)
 					Expect(err).NotTo(HaveOccurred())
-					Expect(len(processGroupStatus.ProcessGroupConditions)).To(Equal(2))
+					Expect(processGroupStatus.ProcessGroupConditions).To(HaveLen(2))
 					Expect(processGroupStatus.GetCondition(fdbv1beta2.NodeTaintDetected)).NotTo(Equal(nil))
 					Expect(processGroupStatus.GetCondition(fdbv1beta2.NodeTaintReplacing)).NotTo(Equal(nil))
 				})
@@ -197,7 +197,7 @@ var _ = Describe("update_status", func() {
 
 				It("should disable taint feature", func() {
 					Expect(err).NotTo(HaveOccurred())
-					Expect(len(processGroupStatus.ProcessGroupConditions)).To(Equal(0))
+					Expect(processGroupStatus.ProcessGroupConditions).To(HaveLen(0))
 				})
 			})
 
@@ -236,14 +236,13 @@ var _ = Describe("update_status", func() {
 
 					err = validateProcessGroup(context.TODO(), clusterReconciler, cluster, pod, pvc, pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey], processGroupStatus, cluster.IsTaintFeatureDisabled(), logger)
 					Expect(err).NotTo(HaveOccurred())
-					Expect(len(processGroupStatus.ProcessGroupConditions)).To(Equal(2))
+					Expect(processGroupStatus.ProcessGroupConditions).To(HaveLen(2))
 					Expect(processGroupStatus.GetCondition(fdbv1beta2.NodeTaintDetected)).NotTo(BeNil())
 					Expect(processGroupStatus.GetCondition(fdbv1beta2.NodeTaintReplacing)).NotTo(BeNil())
 				})
 			})
 
 			When("node taint is removed", func() {
-				// Taint key is removed from tainted node. NodeTaintDetected condition should be removed, but NodeTaintReplacing condition still exist
 				BeforeEach(func() {
 					node.Spec.Taints = []corev1.Taint{
 						{
@@ -255,21 +254,18 @@ var _ = Describe("update_status", func() {
 					}
 				})
 
-				It("should keep NodeTaintReplacing condition", func() {
+				It("shouldn't keep NodeTaintReplacing condition", func() {
 					Expect(len(processGroupStatus.ProcessGroupConditions)).To(Equal(2))
 					Expect(processGroupStatus.GetCondition(fdbv1beta2.NodeTaintDetected)).NotTo(BeNil())
 					Expect(processGroupStatus.GetCondition(fdbv1beta2.NodeTaintReplacing)).NotTo(BeNil())
 
 					// Remove the node taint
-					node.Spec.Taints = []corev1.Taint{}
-					err = k8sClient.Update(context.TODO(), node)
-					Expect(err).NotTo(HaveOccurred())
+					node.Spec.Taints = nil
+					Expect(k8sClient.Update(context.TODO(), node)).NotTo(HaveOccurred())
 					globalControllerLogger.Info("Remove node taint", "Node name", pod.Name, "Node taints", node.Spec.Taints, "Now", time.Now())
 
-					err = validateProcessGroup(context.TODO(), clusterReconciler, cluster, pod, pvc, pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey], processGroupStatus, cluster.IsTaintFeatureDisabled(), logger)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(len(processGroupStatus.ProcessGroupConditions)).To(Equal(1))
-					Expect(processGroupStatus.GetCondition(fdbv1beta2.NodeTaintReplacing)).NotTo(Equal(nil))
+					Expect(validateProcessGroup(context.TODO(), clusterReconciler, cluster, pod, pvc, pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey], processGroupStatus, cluster.IsTaintFeatureDisabled(), logger)).NotTo(HaveOccurred())
+					Expect(processGroupStatus.ProcessGroupConditions).To(BeEmpty())
 				})
 			})
 		})
@@ -317,8 +313,7 @@ var _ = Describe("update_status", func() {
 			}
 
 			allPvcs = &corev1.PersistentVolumeClaimList{}
-			err = clusterReconciler.List(context.TODO(), allPvcs, internal.GetPodListOptions(cluster, "", "")...)
-			Expect(err).NotTo(HaveOccurred())
+			Expect(clusterReconciler.List(context.TODO(), allPvcs, internal.GetPodListOptions(cluster, "", "")...)).NotTo(HaveOccurred())
 		})
 
 		When("process group has no Pod", func() {

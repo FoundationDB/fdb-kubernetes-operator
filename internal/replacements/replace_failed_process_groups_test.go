@@ -114,4 +114,150 @@ var _ = Describe("replace_failed_process_groups", func() {
 		),
 	)
 
+	DescribeTable("when checking if process group replacements because of node taints is allowed", func(cluster *fdbv1beta2.FoundationDBCluster, expected bool) {
+		Expect(nodeTaintReplacementsAllowed(GinkgoLogr, cluster)).To(Equal(expected))
+	},
+		Entry("no process groups with taint condition is present and taint feature is disabled",
+			&fdbv1beta2.FoundationDBCluster{},
+			false,
+		),
+		Entry("no process groups with taint condition is present and taint feature is enabled",
+			&fdbv1beta2.FoundationDBCluster{
+				Spec: fdbv1beta2.FoundationDBClusterSpec{
+					AutomationOptions: fdbv1beta2.FoundationDBClusterAutomationOptions{
+						Replacements: fdbv1beta2.AutomaticReplacementOptions{
+							TaintReplacementOptions: []fdbv1beta2.TaintReplacementOption{
+								// Creating an empty option is good enough for this test case
+								{},
+							},
+						},
+					},
+				},
+			},
+			true,
+		),
+		Entry("one process groups with taint condition is present and taint feature is enabled",
+			&fdbv1beta2.FoundationDBCluster{
+				Spec: fdbv1beta2.FoundationDBClusterSpec{
+					AutomationOptions: fdbv1beta2.FoundationDBClusterAutomationOptions{
+						Replacements: fdbv1beta2.AutomaticReplacementOptions{
+							TaintReplacementOptions: []fdbv1beta2.TaintReplacementOption{
+								// Creating an empty option is good enough for this test case
+								{},
+							},
+						},
+					},
+				},
+				Status: fdbv1beta2.FoundationDBClusterStatus{
+					ProcessGroups: []*fdbv1beta2.ProcessGroupStatus{
+						{
+							ProcessGroupID: "p-1",
+							FaultDomain:    "p-1",
+							ProcessGroupConditions: []*fdbv1beta2.ProcessGroupCondition{
+								{
+									ProcessGroupConditionType: fdbv1beta2.NodeTaintReplacing,
+									Timestamp:                 10,
+								},
+							},
+						},
+						{
+							ProcessGroupID: "p-2",
+							FaultDomain:    "p-2",
+						},
+						{
+							ProcessGroupID: "p-3",
+							FaultDomain:    "p-3",
+						},
+					},
+				},
+			},
+			true,
+		),
+		Entry("two process groups with taint condition in different fault domains are present and taint feature is enabled",
+			&fdbv1beta2.FoundationDBCluster{
+				Spec: fdbv1beta2.FoundationDBClusterSpec{
+					AutomationOptions: fdbv1beta2.FoundationDBClusterAutomationOptions{
+						Replacements: fdbv1beta2.AutomaticReplacementOptions{
+							TaintReplacementOptions: []fdbv1beta2.TaintReplacementOption{
+								// Creating an empty option is good enough for this test case
+								{},
+							},
+						},
+					},
+				},
+				Status: fdbv1beta2.FoundationDBClusterStatus{
+					ProcessGroups: []*fdbv1beta2.ProcessGroupStatus{
+						{
+							ProcessGroupID: "p-1",
+							FaultDomain:    "p-1",
+							ProcessGroupConditions: []*fdbv1beta2.ProcessGroupCondition{
+								{
+									ProcessGroupConditionType: fdbv1beta2.NodeTaintReplacing,
+									Timestamp:                 10,
+								},
+							},
+						},
+						{
+							ProcessGroupID: "p-2",
+							FaultDomain:    "p-2",
+							ProcessGroupConditions: []*fdbv1beta2.ProcessGroupCondition{
+								{
+									ProcessGroupConditionType: fdbv1beta2.NodeTaintReplacing,
+									Timestamp:                 10,
+								},
+							},
+						},
+						{
+							ProcessGroupID: "p-3",
+							FaultDomain:    "p-3",
+						},
+					},
+				},
+			},
+			false,
+		),
+		Entry("two process groups with taint condition in the same fault domain are present and taint feature is enabled",
+			&fdbv1beta2.FoundationDBCluster{
+				Spec: fdbv1beta2.FoundationDBClusterSpec{
+					AutomationOptions: fdbv1beta2.FoundationDBClusterAutomationOptions{
+						Replacements: fdbv1beta2.AutomaticReplacementOptions{
+							TaintReplacementOptions: []fdbv1beta2.TaintReplacementOption{
+								// Creating an empty option is good enough for this test case
+								{},
+							},
+						},
+					},
+				},
+				Status: fdbv1beta2.FoundationDBClusterStatus{
+					ProcessGroups: []*fdbv1beta2.ProcessGroupStatus{
+						{
+							ProcessGroupID: "p-1",
+							FaultDomain:    "p-1",
+							ProcessGroupConditions: []*fdbv1beta2.ProcessGroupCondition{
+								{
+									ProcessGroupConditionType: fdbv1beta2.NodeTaintReplacing,
+									Timestamp:                 10,
+								},
+							},
+						},
+						{
+							ProcessGroupID: "p-2",
+							FaultDomain:    "p-1",
+							ProcessGroupConditions: []*fdbv1beta2.ProcessGroupCondition{
+								{
+									ProcessGroupConditionType: fdbv1beta2.NodeTaintReplacing,
+									Timestamp:                 10,
+								},
+							},
+						},
+						{
+							ProcessGroupID: "p-3",
+							FaultDomain:    "p-3",
+						},
+					},
+				},
+			},
+			true,
+		),
+	)
 })

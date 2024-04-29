@@ -674,8 +674,6 @@ func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler,
 // updateTaintCondition checks pod's node taint label and update pod's taint-related condition accordingly
 func updateTaintCondition(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster,
 	pod *corev1.Pod, processGroup *fdbv1beta2.ProcessGroupStatus, logger logr.Logger) error {
-	logger.V(1).Info("Get pod's node")
-
 	node := &corev1.Node{}
 	err := r.Get(ctx, client.ObjectKey{Name: pod.Spec.NodeName}, node)
 	if err != nil {
@@ -683,13 +681,10 @@ func updateTaintCondition(ctx context.Context, r *FoundationDBClusterReconciler,
 	}
 
 	// Check the tainted duration and only mark the process group tainted after the configured tainted duration
-	hasMatchingTaint := checkIfNodeHasTaintsAndUpdateConditions(logger, node.Spec.Taints, cluster, processGroup)
-
-	if !hasMatchingTaint {
+	if !checkIfNodeHasTaintsAndUpdateConditions(logger, node.Spec.Taints, cluster, processGroup) {
 		// Remove NodeTaintDetected condition if the pod is no longer on a tainted node.
-		// This is needed especially when a node's status is flapping.
-		// We do not remove NodeTaintReplacing because the NodeTaintReplacing condition is only added when taint is there for configured long time.
 		processGroup.UpdateCondition(fdbv1beta2.NodeTaintDetected, false)
+		processGroup.UpdateCondition(fdbv1beta2.NodeTaintReplacing, false)
 	}
 
 	return nil

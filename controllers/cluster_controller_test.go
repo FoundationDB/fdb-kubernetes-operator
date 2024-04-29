@@ -27,7 +27,6 @@ import (
 	"regexp"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient/mock"
 
@@ -2654,30 +2653,17 @@ var _ = Describe("cluster_controller", func() {
 
 			BeforeEach(func() {
 				pods := &corev1.PodList{}
-				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)).NotTo(HaveOccurred())
 
 				recreatedPod = pods.Items[0]
-				err = k8sClient.SetPodIntoFailed(context.Background(), &recreatedPod, "NodeAffinity")
-				Expect(err).NotTo(HaveOccurred())
-				// We have to sleep 1 second otherwise the creation timestamp will be the same
-				time.Sleep(1 * time.Second)
-
+				Expect(k8sClient.SetPodIntoFailed(context.Background(), &recreatedPod, "NodeAffinity")).NotTo(HaveOccurred())
 				generationGap = 0
 			})
 
 			It("should recreate the Pod", func() {
-				pods := &corev1.PodList{}
-				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
-				Expect(err).NotTo(HaveOccurred())
-
-				for _, pod := range pods.Items {
-					if pod.GetName() != recreatedPod.GetName() {
-						continue
-					}
-
-					Expect(recreatedPod.CreationTimestamp.UnixNano()).To(BeNumerically("<", pod.CreationTimestamp.UnixNano()))
-				}
+				pod := &corev1.Pod{}
+				Expect(k8sClient.Get(context.TODO(), client.ObjectKey{Namespace: recreatedPod.Namespace, Name: recreatedPod.Name}, pod)).NotTo(HaveOccurred())
+				Expect(pod.UID).NotTo(Equal(recreatedPod.UID))
 			})
 		})
 

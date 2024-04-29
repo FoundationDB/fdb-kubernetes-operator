@@ -24,6 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	netx "net"
 )
 
@@ -61,6 +62,11 @@ func (in *AutomaticReplacementOptions) DeepCopyInto(out *AutomaticReplacementOpt
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
+	}
+	if in.MaxFaultDomainsWithTaintedProcessGroups != nil {
+		in, out := &in.MaxFaultDomainsWithTaintedProcessGroups, &out.MaxFaultDomainsWithTaintedProcessGroups
+		*out = new(intstr.IntOrString)
+		**out = **in
 	}
 }
 
