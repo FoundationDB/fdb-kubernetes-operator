@@ -117,7 +117,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 	DescribeTable("when checking if process group replacements because of node taints is allowed", func(cluster *fdbv1beta2.FoundationDBCluster, expected bool) {
 		Expect(nodeTaintReplacementsAllowed(GinkgoLogr, cluster)).To(Equal(expected))
 	},
-		Entry("no process groups with taint condition is present and taint feature is enabled",
+		Entry("no process groups with taint condition is present and taint feature is disabled",
 			&fdbv1beta2.FoundationDBCluster{},
 			false,
 		),

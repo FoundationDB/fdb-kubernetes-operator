@@ -243,7 +243,6 @@ var _ = Describe("update_status", func() {
 			})
 
 			When("node taint is removed", func() {
-				// Taint key is removed from tainted node. NodeTaintDetected condition should be removed, but NodeTaintReplacing condition still exist
 				BeforeEach(func() {
 					node.Spec.Taints = []corev1.Taint{
 						{
