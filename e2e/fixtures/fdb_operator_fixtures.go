@@ -168,7 +168,7 @@ func (factory *Factory) ensureHAFdbClusterExists(
 		},
 	}
 
-	namespaces := factory.MultipleNamespaces(dcIDs)
+	namespaces := factory.MultipleNamespaces(config, dcIDs)
 	log.Printf("ensureHAFDBClusterExists namespaces=%s", namespaces)
 
 	newConfig := config.Copy()

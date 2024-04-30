@@ -47,8 +47,13 @@ func (factory *Factory) getRandomizedNamespaceName() string {
 }
 
 // MultipleNamespaces creates multiple namespaces for HA testing.
-func (factory *Factory) MultipleNamespaces(dcIDs []string) []string {
-	factory.options.namespace = factory.getRandomizedNamespaceName()
+func (factory *Factory) MultipleNamespaces(config *ClusterConfig, dcIDs []string) []string {
+	// If a namespace is provided in the config we will use this name as prefix.
+	if config.Namespace != "" {
+		factory.options.namespace = config.Namespace
+	} else {
+		factory.options.namespace = factory.getRandomizedNamespaceName()
+	}
 
 	res := make([]string, len(dcIDs))
 	for idx, dcID := range dcIDs {
