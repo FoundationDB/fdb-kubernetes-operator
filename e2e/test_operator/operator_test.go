@@ -1564,9 +1564,6 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 			_, _ = fdbCluster.RunFdbCliCommandInOperator(fmt.Sprintf("maintenance on %s 3600", targetProcessGroup.FaultDomain), false, 30)
 
-			// Make sure we trigger a reconciliation to speed up the test case and allow the operator to detect the maintenance mode is set.
-			fdbCluster.ForceReconcile()
-
 			// Partition the Pod
 			pod := fdbCluster.GetPod(targetProcessGroup.GetPodName(fdbCluster.GetCachedCluster()))
 			exp = factory.InjectPartitionBetween(
@@ -1581,21 +1578,21 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 			// Make sure the operator notices that the process is not reporting
 			fdbCluster.ForceReconcile()
+		})
 
-			Eventually(func() *int64 {
+		It("should not replace the process group", func() {
+			Consistently(func() []*fdbv1beta2.ProcessGroupCondition {
 				for _, processGroup := range fdbCluster.GetCluster().Status.ProcessGroups {
 					if processGroup.ProcessGroupID != targetProcessGroup.ProcessGroupID {
 						continue
 					}
 
-					return processGroup.GetConditionTime(fdbv1beta2.MissingProcesses)
+					return processGroup.ProcessGroupConditions
 				}
 
 				return nil
-			}).WithTimeout(5 * time.Minute).WithPolling(1 * time.Second).ShouldNot(BeNil())
-		})
+			}).WithTimeout(2 * time.Minute).WithPolling(1 * time.Second).Should(BeEmpty())
 
-		It("should not replace the process group", func() {
 			Consistently(func() bool {
 				for _, processGroup := range fdbCluster.GetCluster().Status.ProcessGroups {
 					if processGroup.ProcessGroupID != targetProcessGroup.ProcessGroupID {
