@@ -164,7 +164,7 @@ func removeProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, c
 		return err
 	}
 	if len(pvcs.Items) == 1 && pvcs.Items[0].DeletionTimestamp.IsZero() {
-		logr.FromContextOrDiscard(ctx).V(1).Info("Deleting pvc", "name", pvcs.Items[0].Name)
+		logr.FromContextOrDiscard(ctx).Info("Deleting pvc", "name", pvcs.Items[0].Name)
 		err = r.Delete(ctx, &pvcs.Items[0])
 		if err != nil {
 			deletionError = errors.Join(deletionError, fmt.Errorf("could not delete PVC: %w", err))
