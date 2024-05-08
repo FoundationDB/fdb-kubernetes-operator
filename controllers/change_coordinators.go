@@ -23,6 +23,8 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"math"
+	"strings"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal/locality"
 	"github.com/go-logr/logr"
@@ -146,9 +148,30 @@ func selectCandidates(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta
 
 		currentLocality, err := locality.InfoForProcess(process, cluster.Spec.MainContainer.EnableTLS)
 		if err != nil {
-			return candidates, err
+			return nil, err
 		}
 
+		priority := cluster.GetClassCandidatePriority(process.ProcessClass)
+		// math.MinInt64 is already the lowest possible priority.
+		if priority != math.MinInt {
+			// If the process is not running in the desired version or the binary is running from the shared volumes
+			// that means this process is pending a Pod recreation and will therefore down for some time.
+			// We reduce the priority in this case to reduce the risk of successive coordinator changes. Reducing the
+			// priority should help in reducing the overall coordinator changes.
+			// See: https://github.com/FoundationDB/fdb-kubernetes-operator/issues/2015
+			if process.Version != cluster.Spec.Version || strings.HasPrefix(process.CommandLine, "/var/") {
+				// ... TODO add more docs here why we do this!
+				if priority == 0 {
+					priority = math.MinInt
+				} else {
+					// math.MinInt64 is the lowest possible priority. By adding the actual priority we make sure that we
+					// still keep the priorities, even if all processes are not yet upgraded.
+					priority = math.MinInt + priority
+				}
+			}
+		}
+
+		currentLocality.Priority = priority
 		candidates = append(candidates, currentLocality)
 	}
 
@@ -161,7 +184,7 @@ func selectCoordinators(logger logr.Logger, cluster *fdbv1beta2.FoundationDBClus
 
 	candidates, err := selectCandidates(cluster, status)
 	if err != nil {
-		return []locality.Info{}, err
+		return nil, err
 	}
 
 	coordinators, err := locality.ChooseDistributedProcesses(cluster, candidates, coordinatorCount, locality.ProcessSelectionConstraint{
@@ -170,7 +193,7 @@ func selectCoordinators(logger logr.Logger, cluster *fdbv1beta2.FoundationDBClus
 
 	logger.Info("Current coordinators", "coordinators", coordinators, "error", err)
 	if err != nil {
-		return candidates, err
+		return nil, err
 	}
 
 	coordinatorStatus := make(map[string]bool, len(status.Client.Coordinators.Coordinators))
@@ -180,15 +203,15 @@ func selectCoordinators(logger logr.Logger, cluster *fdbv1beta2.FoundationDBClus
 
 	hasValidCoordinators, allAddressesValid, err := locality.CheckCoordinatorValidity(logger, cluster, status, coordinatorStatus)
 	if err != nil {
-		return coordinators, err
+		return nil, err
 	}
 
 	if !hasValidCoordinators {
-		return coordinators, fmt.Errorf("new coordinators are not valid")
+		return nil, fmt.Errorf("new coordinators are not valid")
 	}
 
 	if !allAddressesValid {
-		return coordinators, fmt.Errorf("new coordinators contain invalid addresses")
+		return nil, fmt.Errorf("new coordinators contain invalid addresses")
 	}
 
 	return coordinators, nil

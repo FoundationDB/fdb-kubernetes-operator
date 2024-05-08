@@ -43,26 +43,28 @@ type Info struct {
 	// The locality map.
 	LocalityData map[string]string
 
+	// Class defines the process class of this locality.
 	Class fdbv1beta2.ProcessClass
+
+	// Priority defines the priority of this process. The priority will be used in sortLocalities and is defined based
+	// on the CoordinatorSelection setting in the FoundationDBCluster resource.
+	Priority int
 }
 
 // Sort processes by their priority and their ID.
 // We have to do this to ensure we get a deterministic result for selecting the candidates
 // otherwise we get a (nearly) random result since processes are stored in a map which is by definition
 // not sorted and doesn't return values in a stable way.
-func sortLocalities(cluster *fdbv1beta2.FoundationDBCluster, processes []Info) {
+func sortLocalities(processes []Info) {
 	// Sort the processes for ID to ensure we have a stable input
 	sort.SliceStable(processes, func(i, j int) bool {
-		p1 := cluster.GetClassCandidatePriority(processes[i].Class)
-		p2 := cluster.GetClassCandidatePriority(processes[j].Class)
-
 		// If both have the same priority sort them by the process ID
-		if p1 == p2 {
+		if processes[i].Priority == processes[j].Priority {
 			return processes[i].ID < processes[j].ID
 		}
 
 		// prefer processes with a higher priority
-		return p1 > p2
+		return processes[i].Priority > processes[j].Priority
 	})
 }
 
@@ -179,7 +181,7 @@ func ChooseDistributedProcesses(cluster *fdbv1beta2.FoundationDBCluster, process
 	}
 
 	// Sort the processes to ensure a deterministic result
-	sortLocalities(cluster, processes)
+	sortLocalities(processes)
 
 	for len(chosen) < count {
 		choseAny := false

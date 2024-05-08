@@ -790,6 +790,216 @@ var _ = Describe("Change coordinators", func() {
 			})
 		})
 	})
+
+	DescribeTable("selecting coordinator candidates", func(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, expected []locality.Info) {
+		localities, err := selectCandidates(cluster, status)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(localities).To(ConsistOf(expected))
+	},
+		Entry("No priorities are defined and all processes are upgraded",
+			&fdbv1beta2.FoundationDBCluster{
+				Spec: fdbv1beta2.FoundationDBClusterSpec{
+					Version: "7.1.57",
+				},
+			},
+			&fdbv1beta2.FoundationDBStatus{
+				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+					Processes: map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{
+						"1": {
+							ProcessClass: fdbv1beta2.ProcessClassStorage,
+							Locality: map[string]string{
+								fdbv1beta2.FDBLocalityInstanceIDKey: "1",
+							},
+							CommandLine: "--public_address=192.168.0.1:4500",
+							Version:     "7.1.57",
+						},
+					},
+				},
+			},
+			[]locality.Info{
+				{
+					ID: "1",
+					Address: fdbv1beta2.ProcessAddress{
+						IPAddress: net.ParseIP("192.168.0.1"),
+						Port:      4500,
+					},
+					Class: fdbv1beta2.ProcessClassStorage,
+					LocalityData: map[string]string{
+						fdbv1beta2.FDBLocalityInstanceIDKey: "1",
+					},
+				},
+			},
+		),
+		Entry("No priorities are defined and one processes must be upgraded",
+			&fdbv1beta2.FoundationDBCluster{
+				Spec: fdbv1beta2.FoundationDBClusterSpec{
+					Version: "7.1.57",
+				},
+			},
+			&fdbv1beta2.FoundationDBStatus{
+				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+					Processes: map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{
+						"1": {
+							ProcessClass: fdbv1beta2.ProcessClassStorage,
+							Locality: map[string]string{
+								fdbv1beta2.FDBLocalityInstanceIDKey: "1",
+							},
+							CommandLine: "--public_address=192.168.0.1:4500",
+							Version:     "7.1.57",
+						},
+						"2": {
+							ProcessClass: fdbv1beta2.ProcessClassStorage,
+							Locality: map[string]string{
+								fdbv1beta2.FDBLocalityInstanceIDKey: "2",
+							},
+							CommandLine: "--public_address=192.168.0.2:4500",
+							Version:     "7.1.55",
+						},
+					},
+				},
+			},
+			[]locality.Info{
+				{
+					ID: "1",
+					Address: fdbv1beta2.ProcessAddress{
+						IPAddress: net.ParseIP("192.168.0.1"),
+						Port:      4500,
+					},
+					Class: fdbv1beta2.ProcessClassStorage,
+					LocalityData: map[string]string{
+						fdbv1beta2.FDBLocalityInstanceIDKey: "1",
+					},
+				},
+				{
+					ID: "2",
+					Address: fdbv1beta2.ProcessAddress{
+						IPAddress: net.ParseIP("192.168.0.2"),
+						Port:      4500,
+					},
+					Class: fdbv1beta2.ProcessClassStorage,
+					LocalityData: map[string]string{
+						fdbv1beta2.FDBLocalityInstanceIDKey: "2",
+					},
+					Priority: math.MinInt,
+				},
+			},
+		),
+		Entry("Priorities are defined and one processes must be upgraded",
+			&fdbv1beta2.FoundationDBCluster{
+				Spec: fdbv1beta2.FoundationDBClusterSpec{
+					Version: "7.1.57",
+					CoordinatorSelection: []fdbv1beta2.CoordinatorSelectionSetting{
+						{
+							ProcessClass: fdbv1beta2.ProcessClassStorage,
+							Priority:     1000,
+						},
+					},
+				},
+			},
+			&fdbv1beta2.FoundationDBStatus{
+				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+					Processes: map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{
+						"1": {
+							ProcessClass: fdbv1beta2.ProcessClassStorage,
+							Locality: map[string]string{
+								fdbv1beta2.FDBLocalityInstanceIDKey: "1",
+							},
+							CommandLine: "--public_address=192.168.0.1:4500",
+							Version:     "7.1.57",
+						},
+						"2": {
+							ProcessClass: fdbv1beta2.ProcessClassStorage,
+							Locality: map[string]string{
+								fdbv1beta2.FDBLocalityInstanceIDKey: "2",
+							},
+							CommandLine: "--public_address=192.168.0.2:4500",
+							Version:     "7.1.55",
+						},
+					},
+				},
+			},
+			[]locality.Info{
+				{
+					ID: "1",
+					Address: fdbv1beta2.ProcessAddress{
+						IPAddress: net.ParseIP("192.168.0.1"),
+						Port:      4500,
+					},
+					Class: fdbv1beta2.ProcessClassStorage,
+					LocalityData: map[string]string{
+						fdbv1beta2.FDBLocalityInstanceIDKey: "1",
+					},
+					Priority: 1000,
+				},
+				{
+					ID: "2",
+					Address: fdbv1beta2.ProcessAddress{
+						IPAddress: net.ParseIP("192.168.0.2"),
+						Port:      4500,
+					},
+					Class: fdbv1beta2.ProcessClassStorage,
+					LocalityData: map[string]string{
+						fdbv1beta2.FDBLocalityInstanceIDKey: "2",
+					},
+					Priority: math.MinInt + 1000,
+				},
+			},
+		),
+		Entry("No priorities are defined and one processes is using the binary from the shared volume",
+			&fdbv1beta2.FoundationDBCluster{
+				Spec: fdbv1beta2.FoundationDBClusterSpec{
+					Version: "7.1.57",
+				},
+			},
+			&fdbv1beta2.FoundationDBStatus{
+				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+					Processes: map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{
+						"1": {
+							ProcessClass: fdbv1beta2.ProcessClassStorage,
+							Locality: map[string]string{
+								fdbv1beta2.FDBLocalityInstanceIDKey: "1",
+							},
+							CommandLine: "--public_address=192.168.0.1:4500",
+							Version:     "7.1.57",
+						},
+						"2": {
+							ProcessClass: fdbv1beta2.ProcessClassStorage,
+							Locality: map[string]string{
+								fdbv1beta2.FDBLocalityInstanceIDKey: "2",
+							},
+							CommandLine: "/var/dynamic-conf/... --public_address=192.168.0.2:4500",
+							Version:     "7.1.57",
+						},
+					},
+				},
+			},
+			[]locality.Info{
+				{
+					ID: "1",
+					Address: fdbv1beta2.ProcessAddress{
+						IPAddress: net.ParseIP("192.168.0.1"),
+						Port:      4500,
+					},
+					Class: fdbv1beta2.ProcessClassStorage,
+					LocalityData: map[string]string{
+						fdbv1beta2.FDBLocalityInstanceIDKey: "1",
+					},
+				},
+				{
+					ID: "2",
+					Address: fdbv1beta2.ProcessAddress{
+						IPAddress: net.ParseIP("192.168.0.2"),
+						Port:      4500,
+					},
+					Class: fdbv1beta2.ProcessClassStorage,
+					LocalityData: map[string]string{
+						fdbv1beta2.FDBLocalityInstanceIDKey: "2",
+					},
+					Priority: math.MinInt,
+				},
+			},
+		),
+	)
 })
 
 func generateProcessInfoForMultiRegion(dcCount int, satCount int, excludes []string) map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo {

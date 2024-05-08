@@ -159,22 +159,32 @@ var _ = Describe("Localities", func() {
 			}
 		})
 
+		JustBeforeEach(func() {
+			for idx, cur := range localities {
+				localities[idx] = Info{
+					ID:       cur.ID,
+					Class:    cur.Class,
+					Priority: cluster.GetClassCandidatePriority(cur.Class),
+				}
+			}
+		})
+
 		When("no other preferences are defined", func() {
 			BeforeEach(func() {
 				cluster.Spec.CoordinatorSelection = []fdbv1beta2.CoordinatorSelectionSetting{}
 			})
 
-			It("should sort the localities based on the IDs", func() {
-				sortLocalities(cluster, localities)
+			It("should sort the localities based on the IDs but prefer transaction system Pods", func() {
+				sortLocalities(localities)
 
 				Expect(localities[0].Class).To(Equal(fdbv1beta2.ProcessClassLog))
 				Expect(localities[0].ID).To(Equal("log-1"))
-				Expect(localities[1].Class).To(Equal(fdbv1beta2.ProcessClassStorage))
-				Expect(localities[1].ID).To(Equal("storage-1"))
+				Expect(localities[1].Class).To(Equal(fdbv1beta2.ProcessClassTransaction))
+				Expect(localities[1].ID).To(Equal("tlog-1"))
 				Expect(localities[2].Class).To(Equal(fdbv1beta2.ProcessClassStorage))
-				Expect(localities[2].ID).To(Equal("storage-51"))
-				Expect(localities[3].Class).To(Equal(fdbv1beta2.ProcessClassTransaction))
-				Expect(localities[3].ID).To(Equal("tlog-1"))
+				Expect(localities[2].ID).To(Equal("storage-1"))
+				Expect(localities[3].Class).To(Equal(fdbv1beta2.ProcessClassStorage))
+				Expect(localities[3].ID).To(Equal("storage-51"))
 			})
 		})
 
@@ -183,13 +193,13 @@ var _ = Describe("Localities", func() {
 				cluster.Spec.CoordinatorSelection = []fdbv1beta2.CoordinatorSelectionSetting{
 					{
 						ProcessClass: fdbv1beta2.ProcessClassStorage,
-						Priority:     0,
+						Priority:     10,
 					},
 				}
 			})
 
 			It("should sort the localities based on the provided config", func() {
-				sortLocalities(cluster, localities)
+				sortLocalities(localities)
 
 				Expect(localities[0].Class).To(Equal(fdbv1beta2.ProcessClassStorage))
 				Expect(localities[0].ID).To(Equal("storage-1"))
@@ -207,26 +217,26 @@ var _ = Describe("Localities", func() {
 				cluster.Spec.CoordinatorSelection = []fdbv1beta2.CoordinatorSelectionSetting{
 					{
 						ProcessClass: fdbv1beta2.ProcessClassStorage,
-						Priority:     1,
+						Priority:     10,
 					},
 					{
 						ProcessClass: fdbv1beta2.ProcessClassTransaction,
-						Priority:     0,
+						Priority:     1,
 					},
 				}
 			})
 
 			It("should sort the localities based on the provided config", func() {
-				sortLocalities(cluster, localities)
+				sortLocalities(localities)
 
 				Expect(localities[0].Class).To(Equal(fdbv1beta2.ProcessClassStorage))
 				Expect(localities[0].ID).To(Equal("storage-1"))
 				Expect(localities[1].Class).To(Equal(fdbv1beta2.ProcessClassStorage))
 				Expect(localities[1].ID).To(Equal("storage-51"))
-				Expect(localities[2].Class).To(Equal(fdbv1beta2.ProcessClassTransaction))
-				Expect(localities[2].ID).To(Equal("tlog-1"))
-				Expect(localities[3].Class).To(Equal(fdbv1beta2.ProcessClassLog))
-				Expect(localities[3].ID).To(Equal("log-1"))
+				Expect(localities[2].Class).To(Equal(fdbv1beta2.ProcessClassLog))
+				Expect(localities[2].ID).To(Equal("log-1"))
+				Expect(localities[3].Class).To(Equal(fdbv1beta2.ProcessClassTransaction))
+				Expect(localities[3].ID).To(Equal("tlog-1"))
 			})
 		})
 	})

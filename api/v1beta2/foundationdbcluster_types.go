@@ -2248,7 +2248,8 @@ func (cluster *FoundationDBCluster) GetEligibleCandidateClasses() []ProcessClass
 	return candidateClasses
 }
 
-// GetClassCandidatePriority returns the priority for a class. This will be used to sort the processes for coordinator selection
+// GetClassCandidatePriority returns the priority for a class. This will be used to sort the processes for coordinator selection.
+// If not setting is configured, the default will be 0.
 func (cluster *FoundationDBCluster) GetClassCandidatePriority(pClass ProcessClass) int {
 	for _, setting := range cluster.Spec.CoordinatorSelection {
 		if pClass == setting.ProcessClass {
@@ -2256,7 +2257,12 @@ func (cluster *FoundationDBCluster) GetClassCandidatePriority(pClass ProcessClas
 		}
 	}
 
-	return math.MinInt64
+	// For coordinators prefer log processes over storage processes, as those get migrated anyway during an upgrade.
+	if pClass.IsLogProcess() {
+		return 1
+	}
+
+	return 0
 }
 
 // ShouldFilterOnOwnerReferences determines if we should check owner references
