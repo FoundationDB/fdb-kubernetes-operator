@@ -296,14 +296,15 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			})
 		})
 
-		Context("when the securityContext doesn't match and the PodSpecHash doesn't match", func() {
+		Context("when the securityContext doesn't match", func() {
 			BeforeEach(func() {
 				pClass = fdbv1beta2.ProcessClassStorage
 				remove = false
 			})
 
-			It("should not need a removal", func() {
-				pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] = "-1"
+			It("should need a removal for RunAsUser change", func() {
+				// if ReplaceInstancesWhenResourcesChange is true, any spec change should result in replacement
+				cluster.Spec.ReplaceInstancesWhenResourcesChange = new(bool)
 
 				pod.Spec.SecurityContext = &corev1.PodSecurityContext{RunAsUser: new(int64)}
 				cluster.Spec.AutomationOptions.PodUpdateStrategy = fdbv1beta2.PodUpdateStrategyReplacement
@@ -311,6 +312,24 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				Expect(needsRemoval).To(BeTrue())
 				Expect(err).NotTo(HaveOccurred())
 			})
+			It("should need a removal for FSGroup change", func() {
+				// if ReplaceInstancesWhenResourcesChange is true, any spec change should result in replacement
+				cluster.Spec.ReplaceInstancesWhenResourcesChange = new(bool)
+
+				pod.Spec.SecurityContext = &corev1.PodSecurityContext{FSGroup: new(int64)}
+				cluster.Spec.AutomationOptions.PodUpdateStrategy = fdbv1beta2.PodUpdateStrategyReplacement
+				needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, processGroup, log)
+				Expect(needsRemoval).To(BeTrue())
+				Expect(err).NotTo(HaveOccurred())
+			})
+			It("should need a removal with ReplaceInstancesWhenResourcesChange (even with no explicit spec change)", func() {
+				pod.Spec.SecurityContext = &corev1.PodSecurityContext{RunAsUser: new(int64)}
+				cluster.Spec.AutomationOptions.PodUpdateStrategy = fdbv1beta2.PodUpdateStrategyReplacement
+				needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, processGroup, log)
+				Expect(needsRemoval).To(BeTrue())
+				Expect(err).NotTo(HaveOccurred())
+			})
+
 		})
 
 		Context("when UpdatePodsByReplacement is not set and the PodSpecHash doesn't match", func() {
@@ -761,3 +780,140 @@ var _ = Describe("replace_misconfigured_pods", func() {
 		})
 	})
 })
+
+var _ = DescribeTable("file_security_context_changed",
+	func(desired, current *corev1.Pod, wantResult bool) {
+		result := fileSecurityContextChanged(desired, current)
+		Expect(result).To(Equal(wantResult))
+	},
+	Entry("SecurityContext stays nil", &corev1.Pod{Spec: corev1.PodSpec{}}, &corev1.Pod{Spec: corev1.PodSpec{}}, false),
+	// TODO I am unsure about the next 2, I would think nil == plain interface, but sub values (leaf at least) of the interface would have
+	// nil distinct from empty/zero-val?
+	Entry("SecurityContext turns nil from empty",
+		&corev1.Pod{Spec: corev1.PodSpec{SecurityContext: &corev1.PodSecurityContext{}}},
+		&corev1.Pod{Spec: corev1.PodSpec{}},
+		false,
+	),
+	Entry("SecurityContext turns empty from nil",
+		&corev1.Pod{Spec: corev1.PodSpec{}},
+		&corev1.Pod{Spec: corev1.PodSpec{SecurityContext: &corev1.PodSecurityContext{}}},
+		false,
+	),
+	Entry("FSGroup is added",
+		&corev1.Pod{Spec: corev1.PodSpec{SecurityContext: &corev1.PodSecurityContext{FSGroup: new(int64)}}},
+		&corev1.Pod{Spec: corev1.PodSpec{SecurityContext: &corev1.PodSecurityContext{}}},
+		true,
+	),
+	Entry("FSGroup is removed",
+		&corev1.Pod{Spec: corev1.PodSpec{SecurityContext: &corev1.PodSecurityContext{}}},
+		&corev1.Pod{Spec: corev1.PodSpec{SecurityContext: &corev1.PodSecurityContext{FSGroup: new(int64)}}},
+		true,
+	),
+	Entry("FSGroup is changed",
+		&corev1.Pod{Spec: corev1.PodSpec{SecurityContext: &corev1.PodSecurityContext{FSGroup: &[]int64{42}[0]}}}, // one liner for non-zero *int
+		&corev1.Pod{Spec: corev1.PodSpec{SecurityContext: &corev1.PodSecurityContext{FSGroup: new(int64)}}},
+		true,
+	),
+	Entry("FSGroupPolicy is changed",
+		&corev1.Pod{Spec: corev1.PodSpec{SecurityContext: &corev1.PodSecurityContext{
+			FSGroupChangePolicy: &[]corev1.PodFSGroupChangePolicy{corev1.FSGroupChangeAlways}[0]}}},
+		&corev1.Pod{Spec: corev1.PodSpec{SecurityContext: &corev1.PodSecurityContext{
+			FSGroupChangePolicy: &[]corev1.PodFSGroupChangePolicy{corev1.FSGroupChangeOnRootMismatch}[0]}}},
+		true,
+	),
+	Entry("RunAsUser is added to the pod spec",
+		&corev1.Pod{Spec: corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{RunAsUser: &[]int64{42}[0]},
+			Containers:      []corev1.Container{{}}}}, // needs a "matching" container to compare effective settings
+		&corev1.Pod{Spec: corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{},
+			Containers:      []corev1.Container{{}}}},
+		true,
+	),
+	Entry("RunAsUser is added to the container spec",
+		&corev1.Pod{Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{SecurityContext: &corev1.SecurityContext{RunAsUser: &[]int64{42}[0]}}}}},
+		&corev1.Pod{Spec: corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{},
+			Containers:      []corev1.Container{{}}}},
+		true,
+	),
+	Entry("RunAsUser is removed from the container spec",
+		&corev1.Pod{Spec: corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{},
+			Containers:      []corev1.Container{{}}}},
+		&corev1.Pod{Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{SecurityContext: &corev1.SecurityContext{RunAsUser: &[]int64{42}[0]}},
+			}}},
+		true,
+	),
+	Entry("RunAsUser is removed from the container spec but not from the pod (no effective change)",
+		&corev1.Pod{Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{SecurityContext: &corev1.SecurityContext{RunAsUser: &[]int64{42}[0]}},
+			}}},
+		&corev1.Pod{Spec: corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{RunAsUser: &[]int64{42}[0]},
+			Containers: []corev1.Container{
+				{SecurityContext: &corev1.SecurityContext{RunAsUser: &[]int64{42}[0]}},
+			}}},
+		false,
+	),
+	Entry("RunAsUser is changed on container spec",
+		&corev1.Pod{Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{SecurityContext: &corev1.SecurityContext{RunAsUser: &[]int64{111}[0]}},
+			}}},
+		&corev1.Pod{Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{SecurityContext: &corev1.SecurityContext{RunAsUser: &[]int64{42}[0]}},
+			}}},
+		true,
+	),
+	Entry("RunAsGroup is changed on pod spec",
+		&corev1.Pod{Spec: corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{RunAsGroup: &[]int64{111}[0]},
+			Containers:      []corev1.Container{{}}}},
+		&corev1.Pod{Spec: corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{RunAsGroup: &[]int64{42}[0]},
+			Containers:      []corev1.Container{{}}}},
+		true,
+	),
+	Entry("RunAsGroup is moved from podSpec to container spec",
+		&corev1.Pod{Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{SecurityContext: &corev1.SecurityContext{RunAsGroup: &[]int64{42}[0]}},
+			}}},
+		&corev1.Pod{Spec: corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{RunAsGroup: &[]int64{42}[0]},
+			Containers:      []corev1.Container{{}}}},
+		false,
+	),
+	Entry("RunAsGroup is moved from podSpec to container spec and FSGroup changes",
+		&corev1.Pod{Spec: corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{
+				FSGroup: &[]int64{42}[0],
+			},
+			Containers: []corev1.Container{
+				{SecurityContext: &corev1.SecurityContext{
+					RunAsGroup: &[]int64{42}[0]}},
+			}}},
+		&corev1.Pod{Spec: corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{
+				RunAsGroup: &[]int64{42}[0]},
+			Containers: []corev1.Container{{}}}},
+		true,
+	),
+	// this is likely useless as I would assume that we would not be looking at replacing a pod with
+	// no containers in the first place, but if we somehow are it seems better to not replace non-existent processes
+	Entry("No containers exist and RunAsUser is added to the pod spec",
+		&corev1.Pod{Spec: corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{RunAsUser: new(int64)},
+			Containers:      []corev1.Container{{Name: "fdb"}},
+		}},
+		&corev1.Pod{Spec: corev1.PodSpec{SecurityContext: &corev1.PodSecurityContext{}}},
+		false,
+	),
+)

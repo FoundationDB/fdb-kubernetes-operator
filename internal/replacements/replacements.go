@@ -251,6 +251,9 @@ func processGroupNeedsRemovalForPod(cluster *fdbv1beta2.FoundationDBCluster, pod
 	if err != nil {
 		return false, err
 	}
+	// TODO deprecated builtin k8s features edited securityContext automatically, and it doesn't seem outlandish that someone's cluster
+	// could use it or a similar feature, and it would result in constant replacements with no solution unless we feature
+	// guard this... (https://kubernetes.io/blog/2021/04/06/podsecuritypolicy-deprecation-past-present-and-future/)
 	return fileSecurityContextChanged(desiredPod, pod), nil
 }
 
@@ -266,9 +269,12 @@ func resourcesNeedsReplacement(desired []corev1.Container, current []corev1.Cont
 // to the following SecurityContext (or PodSecurityContext) fields:
 // RunAsGroup, RunAsUser, FSGroup, or FSGroupChangePolicy
 // See https://github.com/FoundationDB/fdb-kubernetes-operator/issues/208 for motivation
+// only makes sense if both pods have containers with matching names
 func fileSecurityContextChanged(desired, current *corev1.Pod) bool {
 	// first check for FSGroup or FSGroupChangePolicy changes as that cannot be overridden at container level
-	if desired.Spec.SecurityContext != nil || current.Spec.SecurityContext != nil {
+	// (if pod security context is identical, skip these checks)
+	if (desired.Spec.SecurityContext != nil || current.Spec.SecurityContext != nil) &&
+		!equality.Semantic.DeepEqualWithNilDifferentFromEmpty(desired.Spec.SecurityContext, current.Spec.SecurityContext) {
 		if desired.Spec.SecurityContext == nil { // check if changed non-nil -> nil
 			if current.Spec.SecurityContext.FSGroup != nil || current.Spec.SecurityContext.FSGroupChangePolicy != nil {
 				return true
@@ -278,8 +284,8 @@ func fileSecurityContextChanged(desired, current *corev1.Pod) bool {
 				return true
 			}
 		} else { // both pod security contexts are defined so check they are the same
-			if !equality.Semantic.DeepEqual(desired.Spec.SecurityContext.FSGroup, current.Spec.SecurityContext.FSGroup) ||
-				!equality.Semantic.DeepEqual(desired.Spec.SecurityContext.FSGroupChangePolicy, current.Spec.SecurityContext.FSGroupChangePolicy) {
+			if !equality.Semantic.DeepEqualWithNilDifferentFromEmpty(desired.Spec.SecurityContext.FSGroup, current.Spec.SecurityContext.FSGroup) ||
+				!equality.Semantic.DeepEqualWithNilDifferentFromEmpty(desired.Spec.SecurityContext.FSGroupChangePolicy, current.Spec.SecurityContext.FSGroupChangePolicy) {
 				return true
 			}
 		}
