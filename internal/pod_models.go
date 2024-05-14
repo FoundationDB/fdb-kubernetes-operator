@@ -498,7 +498,12 @@ func configureSidecarContainerForCluster(cluster *fdbv1beta2.FoundationDBCluster
 // configureSidecarContainerForBackup sets up a sidecar container for the init
 // container for a backup process.
 func configureSidecarContainerForBackup(backup *fdbv1beta2.FoundationDBBackup, container *corev1.Container) error {
-	return configureSidecarContainer(container, true, "", "", backup.Spec.Version, nil, backup.Spec.SidecarContainer.ImageConfigs, pointer.BoolDeref(backup.Spec.AllowTagOverride, false))
+	imageConfigs := backup.Spec.SidecarContainer.ImageConfigs
+	if pointer.BoolDeref(backup.Spec.UseUnifiedImage, false) {
+		imageConfigs = backup.Spec.MainContainer.ImageConfigs
+	}
+
+	return configureSidecarContainer(container, true, "", "", backup.Spec.Version, nil, imageConfigs, pointer.BoolDeref(backup.Spec.AllowTagOverride, false))
 }
 
 // configureSidecarContainer sets up a foundationdb-kubernetes-sidecar container.
@@ -797,17 +802,21 @@ func extendEnv(container *corev1.Container, env ...corev1.EnvVar) {
 	}
 }
 
+// GetBackupDeploymentName returns the
+func GetBackupDeploymentName(backup *fdbv1beta2.FoundationDBBackup) string {
+	return fmt.Sprintf("%s-backup-agents", backup.ObjectMeta.Name)
+}
+
 // GetBackupDeployment builds a deployment for backup agents for a cluster.
 func GetBackupDeployment(backup *fdbv1beta2.FoundationDBBackup) (*appsv1.Deployment, error) {
 	agentCount := int32(backup.GetDesiredAgentCount())
 	if agentCount == 0 {
 		return nil, nil
 	}
-	deploymentName := fmt.Sprintf("%s-backup-agents", backup.ObjectMeta.Name)
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:   backup.ObjectMeta.Namespace,
-			Name:        deploymentName,
+			Name:        GetBackupDeploymentName(backup),
 			Annotations: map[string]string{},
 			Labels:      map[string]string{},
 		},
@@ -859,8 +868,29 @@ func GetBackupDeployment(backup *fdbv1beta2.FoundationDBBackup) (*appsv1.Deploym
 	}
 
 	if len(backup.Spec.MainContainer.ImageConfigs) == 0 {
-		backup.Spec.MainContainer.ImageConfigs = []fdbv1beta2.ImageConfig{
-			{BaseImage: "foundationdb/foundationdb"},
+		if pointer.BoolDeref(backup.Spec.UseUnifiedImage, false) {
+			backup.Spec.MainContainer.ImageConfigs = []fdbv1beta2.ImageConfig{
+				{
+					BaseImage: "foundationdb/foundationdb-kubernetes",
+				},
+			}
+		} else {
+			backup.Spec.MainContainer.ImageConfigs = []fdbv1beta2.ImageConfig{
+				{
+					BaseImage: "foundationdb/foundationdb",
+				},
+			}
+		}
+	}
+
+	if len(backup.Spec.SidecarContainer.ImageConfigs) == 0 {
+		if !pointer.BoolDeref(backup.Spec.UseUnifiedImage, false) {
+			backup.Spec.SidecarContainer.ImageConfigs = []fdbv1beta2.ImageConfig{
+				{
+					BaseImage: "foundationdb/foundationdb-kubernetes-sidecar",
+					TagSuffix: "-1",
+				},
+			}
 		}
 	}
 
@@ -868,6 +898,7 @@ func GetBackupDeployment(backup *fdbv1beta2.FoundationDBBackup) (*appsv1.Deploym
 	if err != nil {
 		return nil, err
 	}
+	// Right now the main container only starts the backup agent without doing anything special.
 	mainContainer.Image = image
 	mainContainer.Command = []string{"backup_agent"}
 	args := []string{"--log", "--logdir", "/var/log/fdb-trace-logs"}
@@ -925,12 +956,24 @@ func GetBackupDeployment(backup *fdbv1beta2.FoundationDBBackup) (*appsv1.Deploym
 	}}
 
 	podTemplate.Spec.Volumes = append(podTemplate.Spec.Volumes,
-		corev1.Volume{Name: "logs", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
-		corev1.Volume{Name: "dynamic-conf", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
+		corev1.Volume{
+			Name: "logs",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		},
+		corev1.Volume{
+			Name: "dynamic-conf",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		},
 		corev1.Volume{
 			Name: "config-map",
 			VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
-				LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", backup.Spec.ClusterName)},
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: fmt.Sprintf("%s-config", backup.Spec.ClusterName),
+				},
 				Items: []corev1.KeyToPath{
 					{Key: ClusterFileKey, Path: "fdb.cluster"},
 				},

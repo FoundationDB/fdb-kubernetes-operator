@@ -102,6 +102,10 @@ type FoundationDBBackupSpec struct {
 	// SidecarContainer defines customization for the
 	// foundationdb-kubernetes-sidecar container.
 	SidecarContainer ContainerOverrides `json:"sidecarContainer,omitempty"`
+
+	// UseUnifiedImage determines if we should use the unified image rather than
+	// separate images for the main container and the sidecar container.
+	UseUnifiedImage *bool `json:"useUnifiedImage,omitempty"`
 }
 
 // FoundationDBBackupStatus describes the current status of the backup for a cluster.
