@@ -91,6 +91,7 @@ FoundationDBBackupSpec describes the desired state of the backup for a cluster.
 | blobStoreConfiguration | This is the configuration of the target blobstore for this backup. | *[BlobStoreConfiguration](#blobstoreconfiguration) | false |
 | mainContainer | MainContainer defines customization for the foundationdb container. | ContainerOverrides | false |
 | sidecarContainer | SidecarContainer defines customization for the foundationdb-kubernetes-sidecar container. | ContainerOverrides | false |
+| useUnifiedImage | UseUnifiedImage determines if we should use the unified image rather than separate images for the main container and the sidecar container. | *bool | false |
 
 [Back to TOC](#table-of-contents)
 

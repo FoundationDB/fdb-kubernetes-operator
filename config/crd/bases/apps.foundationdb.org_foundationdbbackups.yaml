@@ -6741,6 +6741,8 @@ spec:
                 type: object
               snapshotPeriodSeconds:
                 type: integer
+              useUnifiedImage:
+                type: boolean
               version:
                 type: string
             required:
