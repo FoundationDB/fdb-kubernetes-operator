@@ -19,7 +19,6 @@ package v1beta2
 import (
 	"encoding/json"
 	"fmt"
-	"math"
 	"math/rand"
 	"net"
 	"os"
@@ -3909,65 +3908,65 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			func(tc testCase) {
 				Expect(tc.cluster.GetClassCandidatePriority(tc.pClass)).To(Equal(tc.expected))
 			},
-			Entry("storage class without any configuration returns highest priority",
+			Entry("storage class without any configuration returns lowest priority",
 				testCase{
 					cluster:  &FoundationDBCluster{},
 					pClass:   ProcessClassStorage,
-					expected: math.MinInt64,
+					expected: 0,
 				}),
-			Entry("log class without any configuration highest prioritye",
+			Entry("log class without any configuration default priority",
 				testCase{
 					cluster:  &FoundationDBCluster{},
 					pClass:   ProcessClassLog,
-					expected: math.MinInt64,
+					expected: 1,
 				}),
-			Entry("transaction class without any configuration highest priority",
+			Entry("transaction class without any configuration default priority",
 				testCase{
 					cluster:  &FoundationDBCluster{},
 					pClass:   ProcessClassTransaction,
-					expected: math.MinInt64,
+					expected: 1,
 				}),
-			Entry("stateless class without any configuration highest priority",
+			Entry("stateless class without any configuration default priority",
 				testCase{
 					cluster:  &FoundationDBCluster{},
 					pClass:   ProcessClassStateless,
-					expected: math.MinInt64,
+					expected: 0,
 				}),
-			Entry("cluster controller class without any configuration highest priority",
+			Entry("cluster controller class without any configuration default priority",
 				testCase{
 					cluster:  &FoundationDBCluster{},
 					pClass:   ProcessClassClusterController,
-					expected: math.MinInt64,
+					expected: 0,
 				}),
-			Entry("storage class with only storage classes returns 1 as priority",
+			Entry("storage class with only storage classes returns 10 as priority",
 				testCase{
 					cluster: &FoundationDBCluster{
 						Spec: FoundationDBClusterSpec{
 							CoordinatorSelection: []CoordinatorSelectionSetting{
 								{
 									ProcessClass: ProcessClassStorage,
-									Priority:     1,
+									Priority:     10,
 								},
 							},
 						},
 					},
 					pClass:   ProcessClassStorage,
-					expected: 1,
+					expected: 10,
 				}),
-			Entry("log class with only storage classes returns highest priority",
+			Entry("log class with only storage classes returns default priority",
 				testCase{
 					cluster: &FoundationDBCluster{
 						Spec: FoundationDBClusterSpec{
 							CoordinatorSelection: []CoordinatorSelectionSetting{
 								{
 									ProcessClass: ProcessClassStorage,
-									Priority:     1,
+									Priority:     0,
 								},
 							},
 						},
 					},
 					pClass:   ProcessClassLog,
-					expected: math.MinInt64,
+					expected: 1,
 				}),
 		)
 	})

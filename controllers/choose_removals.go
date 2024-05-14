@@ -84,6 +84,8 @@ func (c chooseRemovals) reconcile(ctx context.Context, r *FoundationDBClusterRec
 		excessCount := currentCounts[processClass] - desiredCount
 		processClassLocality := make([]locality.Info, 0, currentCounts[processClass])
 
+		// TODO (johscheuer): We could add a higher priority to the process groups that have a condition that requires
+		// an automatic replacement.
 		for _, processGroup := range cluster.Status.ProcessGroupsByProcessClass(processClass) {
 			if processGroup.IsMarkedForRemoval() {
 				excessCount--
