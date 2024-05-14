@@ -96,6 +96,7 @@ type FoundationDBClusterSpec struct {
 	// reconciliation.
 	//
 	// After the initial reconciliation, this will not be used.
+	// +kubebuilder:validation:MaxLength=2000
 	SeedConnectionString string `json:"seedConnectionString,omitempty"`
 
 	// PartialConnectionString provides a way to specify part of the
@@ -274,6 +275,7 @@ type FoundationDBClusterStatus struct {
 	RunningVersion string `json:"runningVersion,omitempty"`
 
 	// ConnectionString defines the contents of the cluster file.
+	// +kubebuilder:validation:MaxLength=2000
 	ConnectionString string `json:"connectionString,omitempty"`
 
 	// Configured defines whether we have configured the database yet.
