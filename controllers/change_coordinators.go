@@ -153,7 +153,7 @@ func selectCandidates(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta
 
 		priority := cluster.GetClassCandidatePriority(process.ProcessClass)
 		// If the process is not running in the desired version or the binary is running from the shared volumes
-		// that means this process is pending a Pod recreation and will therefore down for some time.
+		// that means this process is pending a Pod recreation and will therefore be down for some time.
 		// We reduce the priority in this case to reduce the risk of successive coordinator changes. Reducing the
 		// priority should help in reducing the overall coordinator changes.
 		// See: https://github.com/FoundationDB/fdb-kubernetes-operator/issues/2015
