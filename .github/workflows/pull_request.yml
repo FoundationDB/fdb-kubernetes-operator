@@ -128,12 +128,10 @@ jobs:
           - fdb-kubernetes-operator
           - fdb-data-loader
         include:
-          - image: fdb-kubernetes-operator
-            context: ./
+          - context: ./
             name: foundationdb/fdb-kubernetes-operator
             file: ./Dockerfile
-          - image: fdb-data-loader
-            context: ./sample-apps/data-loader
+          - context: ./sample-apps/data-loader
             name: foundationdb/fdb-data-loader
             file: ./sample-apps/data-loader/Dockerfile
     steps:
@@ -157,10 +155,10 @@ jobs:
           tags: ${{ matrix.name }}:latest
           file: ${{ matrix.file }}
       - name: Run Trivy vulnerability scanner
-        if: ${{ matrix.image }} == 'fdb-kubernetes-operator'
+        if: ${{ matrix.name == 'foundationdb/fdb-kubernetes-operator' }}
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: 'docker.io/foundationdb/fdb-kubernetes-operator:latest'
+          image-ref: "docker.io/${{ matrix.name }}:latest"
           format: 'table'
           exit-code: '1'
           ignore-unfixed: true
