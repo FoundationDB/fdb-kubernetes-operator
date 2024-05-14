@@ -296,4 +296,36 @@ var _ = Describe("Test Operator Velocity", Label("e2e", "nightly"), func() {
 				normalKnobRolloutTimeoutSeconds+int(fdbCluster.GetPrimary().GetCluster().GetLockDuration().Seconds()))
 		})
 	})
+
+	When("a knob is changed and a single pod in the primary region is replaced", func() {
+		BeforeEach(func() {
+			// Start replacement of a random storage Pod.
+			pod := fixtures.ChooseRandomPod(fdbCluster.GetPrimary().GetStoragePods())
+			log.Println("Start replacing", pod.Name)
+			fdbCluster.GetPrimary().ReplacePod(*pod, false)
+		})
+
+		It("should roll out knob changes within expected time", func() {
+			Expect(
+				fdbCluster.SetCustomParameters(
+					fdbv1beta2.ProcessClassGeneral,
+					newGeneralCustomParameters,
+					false,
+				),
+			).NotTo(HaveOccurred())
+			Expect(
+				fdbCluster.SetCustomParameters(
+					fdbv1beta2.ProcessClassStorage,
+					newStorageCustomParameters,
+					false,
+				),
+			).NotTo(HaveOccurred())
+
+			CheckKnobRollout(
+				fdbCluster,
+				newGeneralCustomParameters,
+				newStorageCustomParameters,
+				normalKnobRolloutTimeoutSeconds+int(fdbCluster.GetPrimary().GetCluster().GetLockDuration().Seconds()))
+		})
+	})
 })
