@@ -155,7 +155,7 @@ jobs:
           tags: ${{ matrix.name }}:latest
           file: ${{ matrix.file }}
       - name: Run Trivy vulnerability scanner
-        if: ${{ matrix.name }} == 'foundationdb/fdb-kubernetes-operator'
+        if: ${{ matrix.name == 'foundationdb/fdb-kubernetes-operator' }}
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: "docker.io/${{ matrix.name }}:latest"
