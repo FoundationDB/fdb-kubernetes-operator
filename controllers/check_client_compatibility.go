@@ -88,8 +88,8 @@ func (c checkClientCompatibility) reconcile(_ context.Context, r *FoundationDBCl
 	for _, logGroup := range cluster.GetIgnoreLogGroupsForUpgrade() {
 		ignoredLogGroups[logGroup] = fdbv1beta2.None{}
 	}
-	unsupportedClients := getUnsupportedClients(status.Cluster.Clients.SupportedVersions, protocolVersion, ignoredLogGroups)
 
+	unsupportedClients := getUnsupportedClients(status, protocolVersion, ignoredLogGroups)
 	if len(unsupportedClients) > 0 {
 		message := fmt.Sprintf(
 			"%d clients do not support version %s: %s", len(unsupportedClients),
@@ -103,9 +103,15 @@ func (c checkClientCompatibility) reconcile(_ context.Context, r *FoundationDBCl
 	return nil
 }
 
-func getUnsupportedClients(supportedVersions []fdbv1beta2.FoundationDBStatusSupportedVersion, protocolVersion string, ignoredLogGroups map[fdbv1beta2.LogGroup]fdbv1beta2.None) []string {
+func getUnsupportedClients(status *fdbv1beta2.FoundationDBStatus, protocolVersion string, ignoredLogGroups map[fdbv1beta2.LogGroup]fdbv1beta2.None) []string {
 	var unsupportedClients []string
-	for _, versionInfo := range supportedVersions {
+
+	processAddresses := map[string]fdbv1beta2.None{}
+	for _, process := range status.Cluster.Processes {
+		processAddresses[process.Address.MachineAddress()] = fdbv1beta2.None{}
+	}
+
+	for _, versionInfo := range status.Cluster.Clients.SupportedVersions {
 		if versionInfo.ProtocolVersion == "Unknown" {
 			continue
 		}
@@ -115,9 +121,24 @@ func getUnsupportedClients(supportedVersions []fdbv1beta2.FoundationDBStatusSupp
 				if _, ok := ignoredLogGroups[client.LogGroup]; ok {
 					continue
 				}
+
+				addr, err := fdbv1beta2.ParseProcessAddress(client.Address)
+				// In case we are not able to parse the address, we assume it is an unsupported client.
+				if err != nil {
+					unsupportedClients = append(unsupportedClients, client.Description())
+					continue
+				}
+
+				// If the address is from a running process, it's probably something running in one of the FoundationDB
+				// Pods, like someone manually ran `fdbcli`.
+				if _, ok := processAddresses[addr.MachineAddress()]; ok {
+					continue
+				}
+
 				unsupportedClients = append(unsupportedClients, client.Description())
 			}
 		}
 	}
+
 	return unsupportedClients
 }
