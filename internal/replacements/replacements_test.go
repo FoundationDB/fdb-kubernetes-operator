@@ -783,12 +783,12 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 var _ = DescribeTable("file_security_context_changed",
 	func(desired, current *corev1.Pod, wantResult bool) {
-		result := fileSecurityContextChanged(desired, current)
+		var log logr.Logger
+		logf.SetLogger(zap.New(zap.UseDevMode(true), zap.WriteTo(GinkgoWriter)))
+		result := fileSecurityContextChanged(desired, current, log)
 		Expect(result).To(Equal(wantResult))
 	},
 	Entry("SecurityContext stays nil", &corev1.Pod{Spec: corev1.PodSpec{}}, &corev1.Pod{Spec: corev1.PodSpec{}}, false),
-	// TODO I am unsure about the next 2, I would think nil == plain interface, but sub values (leaf at least) of the interface would have
-	// nil distinct from empty/zero-val?
 	Entry("SecurityContext turns nil from empty",
 		&corev1.Pod{Spec: corev1.PodSpec{SecurityContext: &corev1.PodSecurityContext{}}},
 		&corev1.Pod{Spec: corev1.PodSpec{}},
@@ -820,6 +820,97 @@ var _ = DescribeTable("file_security_context_changed",
 		&corev1.Pod{Spec: corev1.PodSpec{SecurityContext: &corev1.PodSecurityContext{
 			FSGroupChangePolicy: &[]corev1.PodFSGroupChangePolicy{corev1.FSGroupChangeOnRootMismatch}[0]}}},
 		true,
+	),
+	Entry("nothing is changed, empty settings",
+		&corev1.Pod{Spec: corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{},
+			Containers: []corev1.Container{
+				{SecurityContext: &corev1.SecurityContext{}},
+			}}},
+		&corev1.Pod{Spec: corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{},
+			Containers: []corev1.Container{
+				{SecurityContext: &corev1.SecurityContext{}},
+			}}},
+		false,
+	),
+	Entry("only non-file related fields are added to container spec",
+		&corev1.Pod{Spec: corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{},
+			Containers: []corev1.Container{
+				{SecurityContext: &corev1.SecurityContext{WindowsOptions: &corev1.WindowsSecurityContextOptions{HostProcess: new(bool)}}},
+			}}},
+		&corev1.Pod{Spec: corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{},
+			Containers: []corev1.Container{
+				{SecurityContext: &corev1.SecurityContext{}},
+			}}},
+		false,
+	),
+	Entry("only non-file related fields are changed on the container spec",
+		&corev1.Pod{Spec: corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{},
+			Containers: []corev1.Container{
+				{SecurityContext: &corev1.SecurityContext{WindowsOptions: &corev1.WindowsSecurityContextOptions{HostProcess: new(bool)}}},
+			}}},
+		&corev1.Pod{Spec: corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{},
+			Containers: []corev1.Container{
+				{SecurityContext: &corev1.SecurityContext{Privileged: new(bool)}},
+			}}},
+		false,
+	),
+	Entry("only non-file related fields are removed from container spec",
+		&corev1.Pod{Spec: corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{},
+			Containers: []corev1.Container{
+				{SecurityContext: &corev1.SecurityContext{}},
+			}}},
+		&corev1.Pod{Spec: corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{},
+			Containers: []corev1.Container{
+				{SecurityContext: &corev1.SecurityContext{WindowsOptions: &corev1.WindowsSecurityContextOptions{HostProcess: new(bool)}}},
+			}}},
+		false,
+	),
+	Entry("only non-file related fields are added to pod spec",
+		&corev1.Pod{Spec: corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{SupplementalGroups: []int64{1, 2, 3}},
+			Containers: []corev1.Container{
+				{SecurityContext: &corev1.SecurityContext{}},
+			}}},
+		&corev1.Pod{Spec: corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{},
+			Containers: []corev1.Container{
+				{SecurityContext: &corev1.SecurityContext{}},
+			}}},
+		false,
+	),
+	Entry("only non-file related fields are removed from pod spec",
+		&corev1.Pod{Spec: corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{},
+			Containers: []corev1.Container{
+				{SecurityContext: &corev1.SecurityContext{}},
+			}}},
+		&corev1.Pod{Spec: corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{SupplementalGroups: []int64{1, 2, 3}},
+			Containers: []corev1.Container{
+				{SecurityContext: &corev1.SecurityContext{}},
+			}}},
+		false,
+	),
+	Entry("only non-file related fields are changed on the pod spec",
+		&corev1.Pod{Spec: corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{SupplementalGroups: []int64{1, 2, 3}},
+			Containers: []corev1.Container{
+				{SecurityContext: &corev1.SecurityContext{}},
+			}}},
+		&corev1.Pod{Spec: corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{SupplementalGroups: []int64{1, 2, 3, 4, 5}},
+			Containers: []corev1.Container{
+				{SecurityContext: &corev1.SecurityContext{}},
+			}}},
+		false,
 	),
 	Entry("RunAsUser is added to the pod spec",
 		&corev1.Pod{Spec: corev1.PodSpec{
@@ -891,10 +982,51 @@ var _ = DescribeTable("file_security_context_changed",
 			Containers:      []corev1.Container{{}}}},
 		false,
 	),
+	Entry("RunAsGroup is moved from container spec to podSpec",
+		&corev1.Pod{Spec: corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{RunAsGroup: &[]int64{42}[0]},
+			Containers:      []corev1.Container{{}}}},
+		&corev1.Pod{Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{SecurityContext: &corev1.SecurityContext{RunAsGroup: &[]int64{42}[0]}},
+			}}},
+		false,
+	),
 	Entry("RunAsGroup is moved from podSpec to container spec and FSGroup changes",
 		&corev1.Pod{Spec: corev1.PodSpec{
 			SecurityContext: &corev1.PodSecurityContext{
 				FSGroup: &[]int64{42}[0],
+			},
+			Containers: []corev1.Container{
+				{SecurityContext: &corev1.SecurityContext{
+					RunAsGroup: &[]int64{42}[0]}},
+			}}},
+		&corev1.Pod{Spec: corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{
+				RunAsGroup: &[]int64{42}[0]},
+			Containers: []corev1.Container{{}}}},
+		true,
+	),
+	Entry("mix of changes (file and non-file related) that do not result in a change",
+		&corev1.Pod{Spec: corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{
+				SupplementalGroups: []int64{5, 6},
+			},
+			Containers: []corev1.Container{
+				{SecurityContext: &corev1.SecurityContext{
+					RunAsGroup: &[]int64{42}[0]}},
+			}}},
+		&corev1.Pod{Spec: corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{
+				RunAsGroup: &[]int64{42}[0]},
+			Containers: []corev1.Container{{}}}},
+		false,
+	),
+	Entry("mix of changes (file and non-file related) that result in a change",
+		&corev1.Pod{Spec: corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{
+				SupplementalGroups: []int64{5, 6},
+				FSGroup:            new(int64),
 			},
 			Containers: []corev1.Container{
 				{SecurityContext: &corev1.SecurityContext{

@@ -92,7 +92,6 @@ linters-settings:
           - k8s.io/api
           - k8s.io/klog
           - k8s.io/utils
-          - k8s.io/kubernetes
           - github.com/onsi/gomega
           - github.com/onsi/ginkgo
           - github.com/hashicorp
