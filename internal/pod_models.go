@@ -802,7 +802,7 @@ func extendEnv(container *corev1.Container, env ...corev1.EnvVar) {
 	}
 }
 
-// GetBackupDeploymentName returns the
+// GetBackupDeploymentName returns the name for the associated deployment for the FoundationDBBackup.
 func GetBackupDeploymentName(backup *fdbv1beta2.FoundationDBBackup) string {
 	return fmt.Sprintf("%s-backup-agents", backup.ObjectMeta.Name)
 }
