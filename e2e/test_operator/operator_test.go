@@ -2066,10 +2066,16 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			log.Println("Delete Pod", podName)
 			factory.DeletePod(fdbCluster.GetPod(podName))
 
+			lastForceReconcile := time.Now()
 			// Make sure the maintenance mode is reset
 			Eventually(func() fdbv1beta2.FaultDomain {
+				// Make sure we speed up the reconciliation and allow the operator to remove the maintenance mode.
+				if time.Since(lastForceReconcile) > 1*time.Minute {
+					fdbCluster.ForceReconcile()
+					lastForceReconcile = time.Now()
+				}
 				return fdbCluster.GetStatus().Cluster.MaintenanceZone
-			}).WithTimeout(5 * time.Minute).WithPolling(2 * time.Second).MustPassRepeatedly(10).Should(Equal(fdbv1beta2.FaultDomain("")))
+			}).WithTimeout(10 * time.Minute).WithPolling(2 * time.Second).MustPassRepeatedly(10).Should(Equal(fdbv1beta2.FaultDomain("")))
 		})
 
 		AfterEach(func() {
