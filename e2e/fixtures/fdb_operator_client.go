@@ -254,18 +254,8 @@ spec:
       containers:
       - command:
         - /manager
-        args:
-        - --max-concurrent-reconciles=5
-        - --zap-log-level=debug
-        - --minimum-required-uptime-for-cc-bounce=60s
-        #- --server-side-apply
-        # We are setting low values here as the e2e test are taking down processes multiple times
-        # and having a high wait time between recoveries will increase the reliability of the cluster but also
-        # increase the time our e2e test take.
-        - --minimum-recovery-time-for-inclusion=1.0
-        - --minimum-recovery-time-for-exclusion=1.0
-        - --cluster-label-key-for-node-trigger=foundationdb.org/fdb-cluster-name
-        - --enable-node-index
+        args:` + operatorArgs +
+		`
         image: {{ .OperatorImage }}
         name: manager
         imagePullPolicy: Always
@@ -397,10 +387,8 @@ spec:
       containers:
       - command:
         - /manager
-        args:
-        - --max-concurrent-reconciles=5
-        - --zap-log-level=debug
-        #- --server-side-apply
+        args:` + operatorArgs +
+		`
         image: {{ .OperatorImage }}
         name: manager
         imagePullPolicy: Always
@@ -476,6 +464,19 @@ spec:
           secretName: {{ .SecretName }}
       - name: fdb-binaries
         emptyDir: {}`
+	operatorArgs = `
+          - --max-concurrent-reconciles=5
+          - --zap-log-level=debug
+          - --minimum-required-uptime-for-cc-bounce=60s
+          #- --server-side-apply
+          # We are setting low values here as the e2e test are taking down processes multiple times
+          # and having a high wait time between recoveries will increase the reliability of the cluster but also
+          # increase the time our e2e test take.
+          - --minimum-recovery-time-for-inclusion=1.0
+          - --minimum-recovery-time-for-exclusion=1.0
+          - --cluster-label-key-for-node-trigger=foundationdb.org/fdb-cluster-name
+          - --enable-node-index
+`
 )
 
 // operatorConfig represents the configuration of the operator Deployment.
