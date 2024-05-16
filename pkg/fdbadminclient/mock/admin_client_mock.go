@@ -179,7 +179,7 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 			return nil, err
 		}
 
-		processIP, ok := subs["FDB_PUBLIC_IP"]
+		processIP, ok := subs[fdbv1beta2.EnvNamePublicIP]
 		if !ok {
 			processIP = pod.Status.PodIP
 		}

@@ -450,7 +450,7 @@ func GetSubstitutionsFromClusterAndPod(logger logr.Logger, cluster *fdbv1beta2.F
 	}
 
 	ipString := GetPublicIPsForPod(pod, logger)[0]
-	substitutions["FDB_PUBLIC_IP"] = ipString
+	substitutions[fdbv1beta2.EnvNamePublicIP] = ipString
 	if ipString != "" {
 		ip := net.ParseIP(ipString)
 		if ip == nil {
@@ -458,10 +458,10 @@ func GetSubstitutionsFromClusterAndPod(logger logr.Logger, cluster *fdbv1beta2.F
 		}
 
 		if ip.To4() == nil {
-			substitutions["FDB_PUBLIC_IP"] = fmt.Sprintf("[%s]", ipString)
+			substitutions[fdbv1beta2.EnvNamePublicIP] = fmt.Sprintf("[%s]", ipString)
 		}
 	}
-	substitutions["FDB_POD_IP"] = substitutions["FDB_PUBLIC_IP"]
+	substitutions["FDB_POD_IP"] = substitutions[fdbv1beta2.EnvNamePublicIP]
 
 	if cluster.Spec.FaultDomain.Key == fdbv1beta2.NoneFaultDomainKey {
 		substitutions["FDB_MACHINE_ID"] = pod.Name

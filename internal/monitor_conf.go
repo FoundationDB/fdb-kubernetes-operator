@@ -181,11 +181,11 @@ func GetMonitorProcessConfiguration(cluster *fdbv1beta2.FoundationDBCluster, pro
 		zoneVariable = "FDB_ZONE_ID"
 	}
 
-	sampleAddresses := cluster.GetFullAddressList("FDB_PUBLIC_IP", false, 1)
+	sampleAddresses := cluster.GetFullAddressList(fdbv1beta2.EnvNamePublicIP, false, 1)
 	configuration.Arguments = append(configuration.Arguments,
 		monitorapi.Argument{Value: "--cluster_file=/var/fdb/data/fdb.cluster"},
 		monitorapi.Argument{Value: "--seed_cluster_file=/var/dynamic-conf/fdb.cluster"},
-		monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: buildIPArgument("public_address", "FDB_PUBLIC_IP", imageType, sampleAddresses, cluster.Spec.Routing.PodIPFamily)},
+		monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: buildIPArgument("public_address", fdbv1beta2.EnvNamePublicIP, imageType, sampleAddresses, cluster.Spec.Routing.PodIPFamily)},
 		monitorapi.Argument{Value: fmt.Sprintf("--class=%s", processClass)},
 		monitorapi.Argument{Value: "--logdir=/var/log/fdb-trace-logs"},
 		monitorapi.Argument{Value: fmt.Sprintf("--loggroup=%s", logGroup)},

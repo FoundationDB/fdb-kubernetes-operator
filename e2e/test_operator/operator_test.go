@@ -2085,4 +2085,51 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			fdbCluster.UpdateClusterSpecWithSpec(spec)
 		})
 	})
+
+	When("the Pod IP family is set", func() {
+		var initialPodIPFamily *int
+
+		BeforeEach(func() {
+			cluster := fdbCluster.GetCluster()
+			initialPodIPFamily = cluster.Spec.Routing.PodIPFamily
+
+			spec := cluster.Spec.DeepCopy()
+			spec.Routing.PodIPFamily = pointer.Int(4)
+			fdbCluster.UpdateClusterSpecWithSpec(spec)
+			fdbCluster.UpdateClusterSpec()
+			Expect(fdbCluster.WaitForReconciliation(fixtures.SoftReconcileOption(true))).NotTo(HaveOccurred())
+		})
+
+		It("should update the Pod IP family", func() {
+			pods := fdbCluster.GetPods()
+			for _, pod := range pods.Items {
+				var checked bool
+
+				for _, container := range pod.Spec.Containers {
+					if container.Name != fdbv1beta2.MainContainerName {
+						continue
+					}
+
+					// Make sure the FDB_PUBLIC_IP env variable is set.
+					for _, env := range container.Env {
+						if env.Name == fdbv1beta2.EnvNamePublicIP {
+							checked = true
+							break
+						}
+					}
+
+					Expect(checked).To(BeTrue())
+					break
+				}
+			}
+		})
+
+		AfterEach(func() {
+			spec := fdbCluster.GetCluster().Spec.DeepCopy()
+			spec.Routing.PodIPFamily = initialPodIPFamily
+			fdbCluster.UpdateClusterSpecWithSpec(spec)
+			fdbCluster.UpdateClusterSpec()
+			Expect(fdbCluster.WaitForReconciliation()).NotTo(HaveOccurred())
+		})
+	})
 })

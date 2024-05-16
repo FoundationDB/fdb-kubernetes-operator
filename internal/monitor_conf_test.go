@@ -75,7 +75,7 @@ var _ = Describe("monitor_conf", func() {
 				Expect(config.Arguments[1]).To(Equal(monitorapi.Argument{Value: "--seed_cluster_file=/var/dynamic-conf/fdb.cluster"}))
 				Expect(config.Arguments[2]).To(Equal(monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
 					{Value: "--public_address=["},
-					{ArgumentType: monitorapi.EnvironmentArgumentType, Source: "FDB_PUBLIC_IP"},
+					{ArgumentType: monitorapi.EnvironmentArgumentType, Source: fdbv1beta2.EnvNamePublicIP},
 					{Value: "]:"},
 					{ArgumentType: monitorapi.ProcessNumberArgumentType, Offset: 4499, Multiplier: 2},
 				}}))
@@ -122,7 +122,7 @@ var _ = Describe("monitor_conf", func() {
 				Expect(config.Arguments[1]).To(Equal(monitorapi.Argument{Value: "--seed_cluster_file=/var/dynamic-conf/fdb.cluster"}))
 				Expect(config.Arguments[2]).To(Equal(monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
 					{Value: "--public_address="},
-					{ArgumentType: monitorapi.EnvironmentArgumentType, Source: "FDB_PUBLIC_IP"},
+					{ArgumentType: monitorapi.EnvironmentArgumentType, Source: fdbv1beta2.EnvNamePublicIP},
 					{Value: ":"},
 					{ArgumentType: monitorapi.ProcessNumberArgumentType, Offset: 4499, Multiplier: 2},
 				}}))
@@ -184,7 +184,7 @@ var _ = Describe("monitor_conf", func() {
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength))
 				Expect(config.Arguments[2]).To(Equal(monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
 					{Value: "--public_address=["},
-					{ArgumentType: monitorapi.EnvironmentArgumentType, Source: "FDB_PUBLIC_IP"},
+					{ArgumentType: monitorapi.EnvironmentArgumentType, Source: fdbv1beta2.EnvNamePublicIP},
 					{Value: "]:"},
 					{ArgumentType: monitorapi.ProcessNumberArgumentType, Offset: 4499, Multiplier: 2},
 				}}))
@@ -203,7 +203,7 @@ var _ = Describe("monitor_conf", func() {
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength + 1))
 				Expect(config.Arguments[2]).To(Equal(monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
 					{Value: "--public_address=["},
-					{ArgumentType: monitorapi.EnvironmentArgumentType, Source: "FDB_PUBLIC_IP"},
+					{ArgumentType: monitorapi.EnvironmentArgumentType, Source: fdbv1beta2.EnvNamePublicIP},
 					{Value: "]:"},
 					{ArgumentType: monitorapi.ProcessNumberArgumentType, Offset: 4499, Multiplier: 2},
 				}}))
@@ -225,7 +225,7 @@ var _ = Describe("monitor_conf", func() {
 					Expect(config.Arguments).To(HaveLen(baseArgumentLength))
 					Expect(config.Arguments[2]).To(Equal(monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
 						{Value: "--public_address=["},
-						{ArgumentType: monitorapi.EnvironmentArgumentType, Source: "FDB_PUBLIC_IP"},
+						{ArgumentType: monitorapi.EnvironmentArgumentType, Source: fdbv1beta2.EnvNamePublicIP},
 						{Value: "]:"},
 						{ArgumentType: monitorapi.ProcessNumberArgumentType, Offset: 4499, Multiplier: 2},
 					}}))
@@ -245,7 +245,7 @@ var _ = Describe("monitor_conf", func() {
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength))
 				Expect(config.Arguments[2]).To(Equal(monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
 					{Value: "--public_address=["},
-					{ArgumentType: monitorapi.EnvironmentArgumentType, Source: "FDB_PUBLIC_IP"},
+					{ArgumentType: monitorapi.EnvironmentArgumentType, Source: fdbv1beta2.EnvNamePublicIP},
 					{Value: "]:"},
 					{ArgumentType: monitorapi.ProcessNumberArgumentType, Offset: 4498, Multiplier: 2},
 					{Value: ":tls"},
@@ -265,12 +265,12 @@ var _ = Describe("monitor_conf", func() {
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength))
 				Expect(config.Arguments[2]).To(Equal(monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
 					{Value: "--public_address=["},
-					{ArgumentType: monitorapi.EnvironmentArgumentType, Source: "FDB_PUBLIC_IP"},
+					{ArgumentType: monitorapi.EnvironmentArgumentType, Source: fdbv1beta2.EnvNamePublicIP},
 					{Value: "]:"},
 					{ArgumentType: monitorapi.ProcessNumberArgumentType, Offset: 4498, Multiplier: 2},
 					{Value: ":tls"},
 					{Value: ",["},
-					{ArgumentType: monitorapi.EnvironmentArgumentType, Source: "FDB_PUBLIC_IP"},
+					{ArgumentType: monitorapi.EnvironmentArgumentType, Source: fdbv1beta2.EnvNamePublicIP},
 					{Value: "]:"},
 					{ArgumentType: monitorapi.ProcessNumberArgumentType, Offset: 4499, Multiplier: 2},
 				}}))
@@ -289,12 +289,12 @@ var _ = Describe("monitor_conf", func() {
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength))
 				Expect(config.Arguments[2]).To(Equal(monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
 					{Value: "--public_address=["},
-					{ArgumentType: monitorapi.EnvironmentArgumentType, Source: "FDB_PUBLIC_IP"},
+					{ArgumentType: monitorapi.EnvironmentArgumentType, Source: fdbv1beta2.EnvNamePublicIP},
 					{Value: "]:"},
 					{ArgumentType: monitorapi.ProcessNumberArgumentType, Offset: 4498, Multiplier: 2},
 					{Value: ":tls"},
 					{Value: ",["},
-					{ArgumentType: monitorapi.EnvironmentArgumentType, Source: "FDB_PUBLIC_IP"},
+					{ArgumentType: monitorapi.EnvironmentArgumentType, Source: fdbv1beta2.EnvNamePublicIP},
 					{Value: "]:"},
 					{ArgumentType: monitorapi.ProcessNumberArgumentType, Offset: 4499, Multiplier: 2},
 				}}))
@@ -338,7 +338,7 @@ var _ = Describe("monitor_conf", func() {
 				})
 			})
 
-			When("using IPv6", func() {
+			When("using IPv6 as PodIPFamily", func() {
 				BeforeEach(func() {
 					cluster.Spec.Routing.PodIPFamily = pointer.Int(6)
 				})
@@ -348,7 +348,24 @@ var _ = Describe("monitor_conf", func() {
 					Expect(config.Arguments).To(HaveLen(baseArgumentLength))
 					Expect(config.Arguments[2]).To(Equal(monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
 						{Value: "--public_address=["},
-						{ArgumentType: monitorapi.IPListArgumentType, Source: "FDB_PUBLIC_IP", IPFamily: 6},
+						{ArgumentType: monitorapi.IPListArgumentType, Source: fdbv1beta2.EnvNamePublicIP, IPFamily: 6},
+						{Value: "]:"},
+						{ArgumentType: monitorapi.ProcessNumberArgumentType, Offset: 4499, Multiplier: 2},
+					}}))
+				})
+			})
+
+			When("using IPv4 as PodIPFamily", func() {
+				BeforeEach(func() {
+					cluster.Spec.Routing.PodIPFamily = pointer.Int(4)
+				})
+
+				It("specifies the IP family for the public address", func() {
+					config := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 1, FDBImageTypeUnified, nil)
+					Expect(config.Arguments).To(HaveLen(baseArgumentLength))
+					Expect(config.Arguments[2]).To(Equal(monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
+						{Value: "--public_address=["},
+						{ArgumentType: monitorapi.IPListArgumentType, Source: fdbv1beta2.EnvNamePublicIP, IPFamily: 4},
 						{Value: "]:"},
 						{ArgumentType: monitorapi.ProcessNumberArgumentType, Offset: 4499, Multiplier: 2},
 					}}))
