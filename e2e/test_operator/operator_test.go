@@ -2096,7 +2096,6 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			spec := cluster.Spec.DeepCopy()
 			spec.Routing.PodIPFamily = pointer.Int(4)
 			fdbCluster.UpdateClusterSpecWithSpec(spec)
-			fdbCluster.UpdateClusterSpec()
 			Expect(fdbCluster.WaitForReconciliation()).NotTo(HaveOccurred())
 		})
 
@@ -2133,7 +2132,6 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			spec := fdbCluster.GetCluster().Spec.DeepCopy()
 			spec.Routing.PodIPFamily = initialPodIPFamily
 			fdbCluster.UpdateClusterSpecWithSpec(spec)
-			fdbCluster.UpdateClusterSpec()
 			Expect(fdbCluster.WaitForReconciliation()).NotTo(HaveOccurred())
 		})
 	})
