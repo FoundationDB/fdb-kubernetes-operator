@@ -323,6 +323,11 @@ func (foundationDBBackupSpec *FoundationDBBackupSpec) GetAllowTagOverride() bool
 	return pointer.BoolDeref(foundationDBBackupSpec.AllowTagOverride, false)
 }
 
+// UseUnifiedImage returns backup.Spec.UseUnifiedImage or if unset the default false.
+func (backup *FoundationDBBackup) UseUnifiedImage() bool {
+	return pointer.BoolDeref(backup.Spec.UseUnifiedImage, false)
+}
+
 // getURL returns the blobstore URL for the specific configuration
 func (configuration *BlobStoreConfiguration) getURL(backup string, bucket string) string {
 	if configuration.AccountName == "" {

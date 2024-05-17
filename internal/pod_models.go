@@ -499,7 +499,7 @@ func configureSidecarContainerForCluster(cluster *fdbv1beta2.FoundationDBCluster
 // container for a backup process.
 func configureSidecarContainerForBackup(backup *fdbv1beta2.FoundationDBBackup, container *corev1.Container) error {
 	imageConfigs := backup.Spec.SidecarContainer.ImageConfigs
-	if pointer.BoolDeref(backup.Spec.UseUnifiedImage, false) {
+	if backup.UseUnifiedImage() {
 		imageConfigs = backup.Spec.MainContainer.ImageConfigs
 	}
 
@@ -868,7 +868,7 @@ func GetBackupDeployment(backup *fdbv1beta2.FoundationDBBackup) (*appsv1.Deploym
 	}
 
 	if len(backup.Spec.MainContainer.ImageConfigs) == 0 {
-		if pointer.BoolDeref(backup.Spec.UseUnifiedImage, false) {
+		if backup.UseUnifiedImage() {
 			backup.Spec.MainContainer.ImageConfigs = []fdbv1beta2.ImageConfig{
 				{
 					BaseImage: "foundationdb/foundationdb-kubernetes",
@@ -884,7 +884,7 @@ func GetBackupDeployment(backup *fdbv1beta2.FoundationDBBackup) (*appsv1.Deploym
 	}
 
 	if len(backup.Spec.SidecarContainer.ImageConfigs) == 0 {
-		if !pointer.BoolDeref(backup.Spec.UseUnifiedImage, false) {
+		if !backup.UseUnifiedImage() {
 			backup.Spec.SidecarContainer.ImageConfigs = []fdbv1beta2.ImageConfig{
 				{
 					BaseImage: "foundationdb/foundationdb-kubernetes-sidecar",
