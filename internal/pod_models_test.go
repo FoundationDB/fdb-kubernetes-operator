@@ -2941,7 +2941,7 @@ var _ = Describe("pod_models", func() {
 		})
 	})
 
-	Describe("GetBackupDeployment", func() {
+	When("getting the backup deployment", func() {
 		var backup *fdbv1beta2.FoundationDBBackup
 		var deployment *appsv1.Deployment
 
@@ -3290,6 +3290,23 @@ var _ = Describe("pod_models", func() {
 			It("should set the image without validating the tag", func() {
 				Expect(deployment.Spec.Template.Spec.Containers[0].Image).To(Equal("test:main"))
 				Expect(deployment.Spec.Template.Spec.InitContainers[0].Image).To(Equal("test:sidecar"))
+			})
+		})
+
+		When("using the unified image", func() {
+			BeforeEach(func() {
+				backup.Spec.UseUnifiedImage = pointer.Bool(true)
+				deployment, err = GetBackupDeployment(backup)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(deployment).NotTo(BeNil())
+			})
+
+			It("should use the unified image as main and init container", func() {
+				Expect(deployment.Spec.Template.Spec.InitContainers).To(HaveLen(1))
+				Expect(deployment.Spec.Template.Spec.Containers).To(HaveLen(1))
+
+				Expect(deployment.Spec.Template.Spec.InitContainers[0].Image).To(HavePrefix("foundationdb/foundationdb-kubernetes"))
+				Expect(deployment.Spec.Template.Spec.Containers[0].Image).To(HavePrefix("foundationdb/foundationdb-kubernetes"))
 			})
 		})
 	})

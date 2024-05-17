@@ -22,9 +22,9 @@ package controllers
 
 import (
 	"context"
-
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	"k8s.io/apimachinery/pkg/api/equality"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	appsv1 "k8s.io/api/apps/v1"
@@ -40,37 +40,40 @@ func (s updateBackupStatus) reconcile(ctx context.Context, r *FoundationDBBackup
 	status := fdbv1beta2.FoundationDBBackupStatus{}
 	status.Generations.Reconciled = backup.Status.Generations.Reconciled
 
-	backupDeployments := &appsv1.DeploymentList{}
-	err := r.List(ctx, backupDeployments, client.InNamespace(backup.Namespace), client.MatchingLabels(map[string]string{fdbv1beta2.BackupDeploymentLabel: string(backup.ObjectMeta.UID)}))
-	if err != nil {
-		return &requeue{curError: err}
-	}
-
 	desiredBackupDeployment, err := internal.GetBackupDeployment(backup)
 	if err != nil {
 		return &requeue{curError: err}
 	}
 
-	if len(backupDeployments.Items) == 1 && desiredBackupDeployment != nil {
-		backupDeployment := backupDeployments.Items[0]
-		status.AgentCount = int(backupDeployment.Status.ReadyReplicas)
-		if status.AgentCount > int(backupDeployment.Status.UpdatedReplicas) {
-			status.AgentCount = int(backupDeployment.Status.UpdatedReplicas)
+	currentBackupDeployment := &appsv1.Deployment{}
+	err = r.Get(ctx, client.ObjectKey{Namespace: backup.Namespace, Name: internal.GetBackupDeploymentName(backup)}, currentBackupDeployment)
+	if err != nil {
+		if !k8serrors.IsNotFound(err) {
+			return &requeue{curError: err}
 		}
-		generationsMatch := backupDeployment.Status.ObservedGeneration == backupDeployment.ObjectMeta.Generation
 
-		annotationChange := mergeAnnotations(&backupDeployment.ObjectMeta, desiredBackupDeployment.ObjectMeta)
+		currentBackupDeployment = nil
+	}
+
+	if currentBackupDeployment != nil && desiredBackupDeployment != nil {
+		status.AgentCount = int(currentBackupDeployment.Status.ReadyReplicas)
+		if status.AgentCount > int(currentBackupDeployment.Status.UpdatedReplicas) {
+			status.AgentCount = int(currentBackupDeployment.Status.UpdatedReplicas)
+		}
+		generationsMatch := currentBackupDeployment.Status.ObservedGeneration == currentBackupDeployment.ObjectMeta.Generation
+
+		annotationChange := mergeAnnotations(&currentBackupDeployment.ObjectMeta, desiredBackupDeployment.ObjectMeta)
 
 		metadataMatch := !annotationChange &&
-			equality.Semantic.DeepEqual(backupDeployment.ObjectMeta.Labels, desiredBackupDeployment.ObjectMeta.Labels)
+			equality.Semantic.DeepEqual(currentBackupDeployment.ObjectMeta.Labels, desiredBackupDeployment.ObjectMeta.Labels)
 
 		status.DeploymentConfigured = generationsMatch && metadataMatch
 
 		if r.InSimulation {
-			status.AgentCount = int(*backupDeployment.Spec.Replicas)
+			status.AgentCount = int(*currentBackupDeployment.Spec.Replicas)
 			status.DeploymentConfigured = metadataMatch
 		}
-	} else if len(backupDeployments.Items) == 0 && desiredBackupDeployment == nil {
+	} else if currentBackupDeployment == nil && desiredBackupDeployment == nil {
 		status.DeploymentConfigured = true
 	} else {
 		status.DeploymentConfigured = false
