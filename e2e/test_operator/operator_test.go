@@ -2097,12 +2097,17 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			spec.Routing.PodIPFamily = pointer.Int(4)
 			fdbCluster.UpdateClusterSpecWithSpec(spec)
 			fdbCluster.UpdateClusterSpec()
-			Expect(fdbCluster.WaitForReconciliation(fixtures.SoftReconcileOption(true))).NotTo(HaveOccurred())
+			Expect(fdbCluster.WaitForReconciliation()).NotTo(HaveOccurred())
 		})
 
 		It("should update the Pod IP family", func() {
 			pods := fdbCluster.GetPods()
 			for _, pod := range pods.Items {
+				// Ignore Pods that are deleted.
+				if !pod.DeletionTimestamp.IsZero() {
+					continue
+				}
+
 				var checked bool
 
 				for _, container := range pod.Spec.Containers {
