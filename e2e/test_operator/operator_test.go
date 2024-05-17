@@ -428,6 +428,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				fdbCluster.EnsurePodIsDeleted(replacedPod.Name)
 			})
 		})
+
 	})
 
 	When("setting storageServersPerPod", func() {
@@ -1425,6 +1426,49 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 					return fdbCluster.CheckPodIsDeleted(podName)
 				}).WithTimeout(2 * time.Minute).WithPolling(15 * time.Second).Should(BeTrue())
 			})
+		})
+	})
+
+	// TODO also test container level security context change
+	When("replacing Pods due to securityContext changes", func() {
+		var initialPods *corev1.PodList
+		var originalPodSpec, modifiedPodSpec *corev1.PodSpec
+
+		BeforeEach(func() {
+			originalPodSpec = fdbCluster.GetPodTemplateSpec(fdbv1beta2.ProcessClassLog)
+			modifiedPodSpec = originalPodSpec.DeepCopy()
+			modifiedPodSpec.SecurityContext.FSGroupChangePolicy = &[]corev1.PodFSGroupChangePolicy{corev1.FSGroupChangeOnRootMismatch}[0]
+			initialPods = fdbCluster.GetLogPods()
+			Expect(fdbCluster.SetPodTemplateSpec(fdbv1beta2.ProcessClassLog, modifiedPodSpec, false)).NotTo(HaveOccurred())
+		})
+
+		AfterEach(func() {
+			Expect(fdbCluster.SetPodTemplateSpec(fdbv1beta2.ProcessClassLog, originalPodSpec, false)).NotTo(HaveOccurred())
+			// TODO maybe test that it does the same for the revert?
+		})
+
+		It("should replace all the log pods (which had the security context change)", func() {
+			lastForcedReconciliationTime := time.Now()
+			forceReconcileDuration := 4 * time.Minute
+			Eventually(func() bool {
+				// Force a reconcile if needed to make sure we speed up the reconciliation if needed.
+				if time.Since(lastForcedReconciliationTime) >= forceReconcileDuration {
+					fdbCluster.ForceReconcile()
+					lastForcedReconciliationTime = time.Now()
+				}
+
+				// check that all original pods are gone
+				pods := fdbCluster.GetLogPods()
+				Expect(pods.Items).NotTo(ContainElements(initialPods.Items))
+				// TODO maybe instead check if all logs are marked for removal? unclear how long *all* would take?
+				//for _, processGroup := range fdbCluster.GetCluster().Status.ProcessGroups {
+				//	if processGroup.IsMarkedForRemoval() && processGroup.IsExcluded() {
+				//		continue
+				//	}
+				//  <fail>
+				//}
+				return true
+			}).WithTimeout(20 * time.Minute).WithPolling(5 * time.Second).Should(BeTrue())
 		})
 	})
 

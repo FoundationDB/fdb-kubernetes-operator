@@ -62,6 +62,7 @@ type FoundationDBClusterReconciler struct {
 	ServerSideApply                             bool
 	EnableRecoveryState                         bool
 	CacheDatabaseStatusForReconciliationDefault bool
+	ReplaceOnSecurityContextChange              bool
 	PodLifecycleManager                         podmanager.PodLifecycleManager
 	PodClientProvider                           func(*fdbv1beta2.FoundationDBCluster, *corev1.Pod) (podclient.FdbPodClient, error)
 	DatabaseClientProvider                      fdbadminclient.DatabaseClientProvider

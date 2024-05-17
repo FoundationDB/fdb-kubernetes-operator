@@ -476,6 +476,7 @@ spec:
           - --minimum-recovery-time-for-exclusion=1.0
           - --cluster-label-key-for-node-trigger=foundationdb.org/fdb-cluster-name
           - --enable-node-index
+          - --replace-on-security-context-change
 `
 )
 

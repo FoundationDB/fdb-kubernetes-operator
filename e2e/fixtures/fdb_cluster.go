@@ -399,7 +399,7 @@ func (fdbCluster *FdbCluster) UpdateClusterSpec() {
 	fdbCluster.UpdateClusterSpecWithSpec(fdbCluster.cluster.Spec.DeepCopy())
 }
 
-// UpdateClusterSpecWithSpec ensures that the FoundationDBCluster will be updated in Kubernetes. This method as a retry mechanism
+// UpdateClusterSpecWithSpec ensures that the FoundationDBCluster will be updated in Kubernetes. This method has a retry mechanism
 // implemented and ensures that the provided (local) Spec matches the Spec in Kubernetes. You must make sure that you call
 // fdbCluster.GetCluster() before updating the spec, to make sure you are not overwriting the current state with an outdated state.
 // An example on how to update a field with this method:
@@ -1115,6 +1115,34 @@ func (fdbCluster *FdbCluster) GetCustomParameters(
 	processClass fdbv1beta2.ProcessClass,
 ) fdbv1beta2.FoundationDBCustomParameters {
 	return fdbCluster.cluster.Spec.Processes[processClass].CustomParameters
+}
+
+// SetPodTemplateSpec allows to set the pod template spec of the provided process class.
+func (fdbCluster *FdbCluster) SetPodTemplateSpec(
+	processClass fdbv1beta2.ProcessClass,
+	podTemplateSpec *corev1.PodSpec,
+	waitForReconcile bool,
+) error {
+	setting, ok := fdbCluster.cluster.Spec.Processes[processClass]
+	if !ok {
+		return fmt.Errorf("could not find process settings for process class %s", processClass)
+	}
+	setting.PodTemplate.Spec = *podTemplateSpec
+
+	fdbCluster.cluster.Spec.Processes[processClass] = setting
+	fdbCluster.UpdateClusterSpec()
+	if !waitForReconcile {
+		return nil
+	}
+
+	return fdbCluster.WaitForReconciliation()
+}
+
+// GetPodTemplateSpec returns the current pod template spec for the specified process class.
+func (fdbCluster *FdbCluster) GetPodTemplateSpec(
+	processClass fdbv1beta2.ProcessClass,
+) *corev1.PodSpec {
+	return &fdbCluster.cluster.Spec.Processes[processClass].PodTemplate.Spec
 }
 
 // CheckPodIsDeleted return true if Pod no longer exists at the executed time point

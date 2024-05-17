@@ -40,7 +40,7 @@ import (
 )
 
 // ReplaceMisconfiguredProcessGroups checks if the cluster has any misconfigured process groups that must be replaced.
-func ReplaceMisconfiguredProcessGroups(ctx context.Context, podManager podmanager.PodLifecycleManager, client client.Client, log logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, pvcMap map[fdbv1beta2.ProcessGroupID]corev1.PersistentVolumeClaim) (bool, error) {
+func ReplaceMisconfiguredProcessGroups(ctx context.Context, podManager podmanager.PodLifecycleManager, client client.Client, log logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, pvcMap map[fdbv1beta2.ProcessGroupID]corev1.PersistentVolumeClaim, replaceOnSecurityContextChange bool) (bool, error) {
 	hasReplacements := false
 
 	maxReplacements, _ := getReplacementInformation(cluster, cluster.GetMaxConcurrentReplacements())
@@ -54,7 +54,7 @@ func ReplaceMisconfiguredProcessGroups(ctx context.Context, podManager podmanage
 			continue
 		}
 
-		needsRemoval, err := ProcessGroupNeedsRemoval(ctx, podManager, client, log, cluster, processGroup, pvcMap)
+		needsRemoval, err := ProcessGroupNeedsRemoval(ctx, podManager, client, log, cluster, processGroup, pvcMap, replaceOnSecurityContextChange)
 
 		// Do not mark for removal if there is an error
 		if err != nil {
@@ -72,7 +72,7 @@ func ReplaceMisconfiguredProcessGroups(ctx context.Context, podManager podmanage
 }
 
 // ProcessGroupNeedsRemoval checks if a process group needs to be removed.
-func ProcessGroupNeedsRemoval(ctx context.Context, podManager podmanager.PodLifecycleManager, client client.Client, log logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, processGroup *fdbv1beta2.ProcessGroupStatus, pvcMap map[fdbv1beta2.ProcessGroupID]corev1.PersistentVolumeClaim) (bool, error) {
+func ProcessGroupNeedsRemoval(ctx context.Context, podManager podmanager.PodLifecycleManager, client client.Client, log logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, processGroup *fdbv1beta2.ProcessGroupStatus, pvcMap map[fdbv1beta2.ProcessGroupID]corev1.PersistentVolumeClaim, replaceOnSecurityContextChange bool) (bool, error) {
 	// TODO(johscheuer): Fix how we fetch the pvc to make better use of the controller runtime cache.
 	pvc, hasPVC := pvcMap[processGroup.ProcessGroupID]
 	pod, podErr := podManager.GetPod(ctx, client, cluster, processGroup.GetPodName(cluster))
@@ -96,7 +96,7 @@ func ProcessGroupNeedsRemoval(ctx context.Context, podManager podmanager.PodLife
 		return false, podErr
 	}
 
-	return processGroupNeedsRemovalForPod(cluster, pod, processGroup, log)
+	return processGroupNeedsRemovalForPod(cluster, pod, processGroup, log, replaceOnSecurityContextChange)
 }
 
 func processGroupNeedsRemovalForPVC(cluster *fdbv1beta2.FoundationDBCluster, pvc corev1.PersistentVolumeClaim, log logr.Logger, processGroup *fdbv1beta2.ProcessGroupStatus) (bool, error) {
@@ -140,7 +140,7 @@ func processGroupNeedsRemovalForPVC(cluster *fdbv1beta2.FoundationDBCluster, pvc
 	return false, nil
 }
 
-func processGroupNeedsRemovalForPod(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod, processGroupStatus *fdbv1beta2.ProcessGroupStatus, log logr.Logger) (bool, error) {
+func processGroupNeedsRemovalForPod(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod, processGroupStatus *fdbv1beta2.ProcessGroupStatus, log logr.Logger, replaceOnSecurityContextChange bool) (bool, error) {
 	if pod == nil {
 		return false, nil
 	}
@@ -251,10 +251,14 @@ func processGroupNeedsRemovalForPod(cluster *fdbv1beta2.FoundationDBCluster, pod
 	if err != nil {
 		return false, err
 	}
-	// TODO deprecated builtin k8s features edited securityContext automatically, and it doesn't seem outlandish that someone's cluster
-	// could use it or a similar feature, and it would result in constant replacements with no solution unless we feature
-	// guard this... (https://kubernetes.io/blog/2021/04/06/podsecuritypolicy-deprecation-past-present-and-future/)
-	return fileSecurityContextChanged(desiredPod, pod, log), nil
+	// Some k8s instances have security context vetting which may edit the spec automatically.
+	// This would cause changes to security context on a pod or container
+	// to constantly be seen as having a security context change, hence we want to feature guard this.
+	// https://kubernetes.io/blog/2021/04/06/podsecuritypolicy-deprecation-past-present-and-future/
+	if replaceOnSecurityContextChange {
+		return fileSecurityContextChanged(desiredPod, pod, log), nil
+	}
+	return false, nil
 }
 
 func resourcesNeedsReplacement(desired []corev1.Container, current []corev1.Container) bool {
