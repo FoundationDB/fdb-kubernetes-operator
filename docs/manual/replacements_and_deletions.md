@@ -1,6 +1,7 @@
 # Replacements and Deletions
 
 The operator has two different strategies it can use on process groups that are in an undesired state: replacement and deletion.
+Deletion is also known as (pod) recreation.
 In the case of replacement, the operator will create a brand new process group, move data off of the old process group, and delete the resources for the old process group as well as the records of the process group itself.
 In the case of deletion, the operator will delete some or all of the resources for the process group and then create new objects with the same names.
 Later sections will cover the details when these different strategies are used.

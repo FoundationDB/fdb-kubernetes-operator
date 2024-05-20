@@ -77,12 +77,9 @@ Once all Pods are updated to the new image the upgrade is done and the cluster s
 
 #### Note on Recreation vs Replacement
 
-Do note that both "recreation" and "replacement" have a specific meaning here.  Recreation of a pod specifically means that a new \
-pod will be created, with the same process group name + info and the same K8s resources such as the PVC and pod name.  There is no old pod \
-existing at the same time as the new pod with recreation.  Storage servers are recreated in order to reuse the PVC. \
-In contrast, replacement of a pod or process group means that a new (replacement) process group / pod is created, and the \
-old/original process group is excluded, and removed completely once it is fully excluded. \
-Additionally, with replacement, the prior K8s resources are removed and are not reused, nor is the process group name. 
+Do note that both "recreation" (also referred to as "deletion" of a pod/process group) and "replacement" have a specific meaning here,
+see [Replacements and Deletions](https://github.com/FoundationDB/fdb-kubernetes-operator/blob/main/docs/manual/replacements_and_deletions.md#replacements-and-deletions)
+for more information.
 
 ### Known issues
 
