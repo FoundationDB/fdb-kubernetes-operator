@@ -96,7 +96,7 @@ func ProcessGroupNeedsRemoval(ctx context.Context, podManager podmanager.PodLife
 		return false, podErr
 	}
 
-	return processGroupNeedsRemovalForPod(cluster, pod, processGroup, log, replaceOnSecurityContextChange)
+	return processGroupNeedsRemovalForPod(cluster, pod, processGroup, log, hasPVC && replaceOnSecurityContextChange)
 }
 
 func processGroupNeedsRemovalForPVC(cluster *fdbv1beta2.FoundationDBCluster, pvc corev1.PersistentVolumeClaim, log logr.Logger, processGroup *fdbv1beta2.ProcessGroupStatus) (bool, error) {
@@ -253,9 +253,24 @@ func processGroupNeedsRemovalForPod(cluster *fdbv1beta2.FoundationDBCluster, pod
 	}
 	// Some k8s instances have security context vetting which may edit the spec automatically.
 	// This would cause changes to security context on a pod or container
-	// to constantly be seen as having a security context change, hence we want to feature guard this.
+	// to constantly be seen as having a security context change, hence we want to feature guard this
+	// and also guard on the spec hash below
 	// https://kubernetes.io/blog/2021/04/06/podsecuritypolicy-deprecation-past-present-and-future/
 	if replaceOnSecurityContextChange {
+		spec, err := internal.GetPodSpec(cluster, processGroupStatus)
+		if err != nil {
+			return false, err
+		}
+		specHash, err := internal.GetPodSpecHash(cluster, processGroupStatus, spec)
+		if err != nil {
+			return false, err
+		}
+
+		if pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] == specHash {
+			// no changes have been made outside of server-side injected values, do not check for changes
+			// to avoid looping
+			return false, nil
+		}
 		return fileSecurityContextChanged(desiredPod, pod, log), nil
 	}
 	return false, nil

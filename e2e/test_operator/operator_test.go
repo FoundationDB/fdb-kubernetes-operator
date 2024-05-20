@@ -1429,28 +1429,32 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		})
 	})
 
-	// TODO also test container level security context change
+	// this test took 14min to run for me, so I think it is best to just have the one test
 	When("replacing Pods due to securityContext changes", func() {
 		var initialPods *corev1.PodList
 		var originalPodSpec, modifiedPodSpec *corev1.PodSpec
 
 		BeforeEach(func() {
-			originalPodSpec = fdbCluster.GetPodTemplateSpec(fdbv1beta2.ProcessClassLog)
+			if fdbCluster.GetClusterSpec().ReplaceInstancesWhenResourcesChange != nil {
+				Expect(*fdbCluster.GetClusterSpec().ReplaceInstancesWhenResourcesChange).To(BeFalse())
+			}
+			originalPodSpec = fdbCluster.GetPodTemplateSpec(fdbv1beta2.ProcessClassStorage)
+			Expect(originalPodSpec).NotTo(BeNil())
 			modifiedPodSpec = originalPodSpec.DeepCopy()
+			Expect(modifiedPodSpec.SecurityContext).NotTo(BeNil())
 			modifiedPodSpec.SecurityContext.FSGroupChangePolicy = &[]corev1.PodFSGroupChangePolicy{corev1.FSGroupChangeOnRootMismatch}[0]
-			initialPods = fdbCluster.GetLogPods()
-			Expect(fdbCluster.SetPodTemplateSpec(fdbv1beta2.ProcessClassLog, modifiedPodSpec, false)).NotTo(HaveOccurred())
+			initialPods = fdbCluster.GetStoragePods()
+			Expect(fdbCluster.SetPodTemplateSpec(fdbv1beta2.ProcessClassStorage, modifiedPodSpec, false)).NotTo(HaveOccurred())
 		})
 
 		AfterEach(func() {
-			Expect(fdbCluster.SetPodTemplateSpec(fdbv1beta2.ProcessClassLog, originalPodSpec, false)).NotTo(HaveOccurred())
-			// TODO maybe test that it does the same for the revert?
+			Expect(fdbCluster.SetPodTemplateSpec(fdbv1beta2.ProcessClassStorage, originalPodSpec, true)).NotTo(HaveOccurred())
 		})
 
-		It("should replace all the log pods (which had the security context change)", func() {
+		It("should replace all the storage pods (which had the securityContext change)", func() {
 			lastForcedReconciliationTime := time.Now()
 			forceReconcileDuration := 4 * time.Minute
-			Eventually(func() bool {
+			Eventually(func(g Gomega) bool {
 				// Force a reconcile if needed to make sure we speed up the reconciliation if needed.
 				if time.Since(lastForcedReconciliationTime) >= forceReconcileDuration {
 					fdbCluster.ForceReconcile()
@@ -1458,15 +1462,12 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				}
 
 				// check that all original pods are gone
-				pods := fdbCluster.GetLogPods()
-				Expect(pods.Items).NotTo(ContainElements(initialPods.Items))
-				// TODO maybe instead check if all logs are marked for removal? unclear how long *all* would take?
-				//for _, processGroup := range fdbCluster.GetCluster().Status.ProcessGroups {
-				//	if processGroup.IsMarkedForRemoval() && processGroup.IsExcluded() {
-				//		continue
-				//	}
-				//  <fail>
-				//}
+				pods := fdbCluster.GetStoragePods()
+				g.Expect(pods.Items).NotTo(ContainElements(initialPods.Items))
+				for _, pod := range pods.Items {
+					g.Expect(pod.Spec.SecurityContext.FSGroupChangePolicy).ToNot(BeNil())
+					g.Expect(*pod.Spec.SecurityContext.FSGroupChangePolicy).To(Equal(corev1.FSGroupChangeOnRootMismatch))
+				}
 				return true
 			}).WithTimeout(20 * time.Minute).WithPolling(5 * time.Second).Should(BeTrue())
 		})

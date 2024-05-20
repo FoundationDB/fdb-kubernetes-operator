@@ -303,38 +303,49 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			})
 
 			It("should need a removal for RunAsUser change", func() {
+				pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] = "banana"
 				// if ReplaceInstancesWhenResourcesChange is true, any spec change should result in replacement
 				cluster.Spec.ReplaceInstancesWhenResourcesChange = new(bool)
 
 				pod.Spec.SecurityContext = &corev1.PodSecurityContext{RunAsUser: new(int64)}
-				cluster.Spec.AutomationOptions.PodUpdateStrategy = fdbv1beta2.PodUpdateStrategyReplacement
 				needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, processGroup, log, true)
 				Expect(needsRemoval).To(BeTrue())
 				Expect(err).NotTo(HaveOccurred())
 			})
 			It("should need a removal for FSGroup change", func() {
+				pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] = "banana"
 				// if ReplaceInstancesWhenResourcesChange is true, any spec change should result in replacement
 				cluster.Spec.ReplaceInstancesWhenResourcesChange = new(bool)
 
 				pod.Spec.SecurityContext = &corev1.PodSecurityContext{FSGroup: new(int64)}
-				cluster.Spec.AutomationOptions.PodUpdateStrategy = fdbv1beta2.PodUpdateStrategyReplacement
 				needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, processGroup, log, true)
 				Expect(needsRemoval).To(BeTrue())
 				Expect(err).NotTo(HaveOccurred())
 			})
-			It("should need a removal with ReplaceInstancesWhenResourcesChange (even with no explicit spec change)", func() {
+			It("with no spec change, it should not need a removal for FSGroup change to guard against server-side defaults", func() {
+				// do not change last spec key
+				// if ReplaceInstancesWhenResourcesChange is true, any spec change should result in replacement
+				cluster.Spec.ReplaceInstancesWhenResourcesChange = new(bool)
+
+				pod.Spec.SecurityContext = &corev1.PodSecurityContext{FSGroup: new(int64)}
+				needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, processGroup, log, true)
+				Expect(needsRemoval).To(BeFalse())
+				Expect(err).NotTo(HaveOccurred())
+			})
+			It("should need a removal with ReplaceInstancesWhenResourcesChange", func() {
+				pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] = "123"
 				pod.Spec.SecurityContext = &corev1.PodSecurityContext{RunAsUser: new(int64)}
-				cluster.Spec.AutomationOptions.PodUpdateStrategy = fdbv1beta2.PodUpdateStrategyReplacement
 				needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, processGroup, log, true)
 				Expect(needsRemoval).To(BeTrue())
 				Expect(err).NotTo(HaveOccurred())
 			})
-			It("with replaceOnSecurityContextChange false, it should not need a removal for FSGroup change", func() {
+			It("with replaceOnSecurityContextChange and ReplaceInstancesWhenResourcesChange both false,"+
+				" it should not need a removal for FSGroup change", func() {
+				pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] = "123"
 				// if ReplaceInstancesWhenResourcesChange is true, any spec change should result in replacement
 				cluster.Spec.ReplaceInstancesWhenResourcesChange = new(bool)
 
 				pod.Spec.SecurityContext = &corev1.PodSecurityContext{FSGroup: new(int64)}
-				cluster.Spec.AutomationOptions.PodUpdateStrategy = fdbv1beta2.PodUpdateStrategyReplacement
 				needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, processGroup, log, false)
 				Expect(needsRemoval).To(BeFalse())
 				Expect(err).NotTo(HaveOccurred())

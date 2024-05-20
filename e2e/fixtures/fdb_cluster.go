@@ -1142,7 +1142,13 @@ func (fdbCluster *FdbCluster) SetPodTemplateSpec(
 func (fdbCluster *FdbCluster) GetPodTemplateSpec(
 	processClass fdbv1beta2.ProcessClass,
 ) *corev1.PodSpec {
-	return &fdbCluster.cluster.Spec.Processes[processClass].PodTemplate.Spec
+	if classSpec, ok := fdbCluster.cluster.Spec.Processes[processClass]; ok {
+		return &classSpec.PodTemplate.Spec
+	}
+	if generalSpec, ok := fdbCluster.cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]; ok {
+		return &generalSpec.PodTemplate.Spec
+	}
+	return nil
 }
 
 // CheckPodIsDeleted return true if Pod no longer exists at the executed time point
