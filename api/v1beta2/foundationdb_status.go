@@ -325,9 +325,10 @@ type FoundationDBStatusConnectedClient struct {
 
 // Description returns a string description of the a connected client.
 func (client FoundationDBStatusConnectedClient) Description() string {
-	if client.LogGroup == "default" || client.LogGroup == "" {
+	if client.LogGroup == "" {
 		return client.Address
 	}
+
 	return fmt.Sprintf("%s (%s)", client.Address, client.LogGroup)
 }
 
