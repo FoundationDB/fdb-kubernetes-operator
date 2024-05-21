@@ -75,6 +75,12 @@ This reconciler should ensure that the cluster is moving faster towards the desi
 
 Once all Pods are updated to the new image the upgrade is done and the cluster status of the FoundationDB cluster resource in Kubernetes should show that the reconciliation is done.
 
+#### Note on Recreation vs Replacement
+
+Do note that both "recreation" (also referred to as "deletion" of a pod/process group) and "replacement" have a specific meaning here,
+see [Replacements and Deletions](https://github.com/FoundationDB/fdb-kubernetes-operator/blob/main/docs/manual/replacements_and_deletions.md#replacements-and-deletions)
+for more information.
+
 ### Known issues
 
 There are a number of known issues that can occur during an upgrade of FoundationDB running on Kubernetes.
