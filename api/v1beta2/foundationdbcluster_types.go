@@ -2934,7 +2934,7 @@ func (cluster *FoundationDBCluster) GetProcessGroupID(processClass ProcessClass,
 
 // IsPodIPFamily6 determines whether the podIPFamily setting in cluster is set to use the IPv6 family.
 func (cluster *FoundationDBCluster) IsPodIPFamily6() bool {
-	return cluster.Spec.Routing.PodIPFamily != nil && *cluster.Spec.Routing.PodIPFamily == 6
+	return pointer.IntDeref(cluster.Spec.Routing.PodIPFamily, 4) == 6
 }
 
 // ProcessSharesDC returns true if the process's locality matches the cluster's Datacenter.

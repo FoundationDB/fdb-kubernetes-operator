@@ -240,7 +240,7 @@ var _ = Describe("pod_models", func() {
 					"--init-mode",
 				}))
 				Expect(initContainer.Env).To(Equal([]corev1.EnvVar{
-					{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
 					{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
@@ -316,7 +316,7 @@ var _ = Describe("pod_models", func() {
 					"FDB_POD_IP",
 				}))
 				Expect(sidecarContainer.Env).To(Equal([]corev1.EnvVar{
-					{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
 					{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
@@ -513,7 +513,7 @@ var _ = Describe("pod_models", func() {
 
 					Expect(mainContainer.Env).To(Equal([]corev1.EnvVar{
 						{Name: "FDB_CLUSTER_FILE", Value: "/var/dynamic-conf/fdb.cluster"},
-						{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
+						{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 						}},
 						{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
@@ -623,7 +623,7 @@ var _ = Describe("pod_models", func() {
 					Expect(mainContainer.Env).To(Equal([]corev1.EnvVar{
 						{Name: "FDB_CLUSTER_FILE", Value: "/var/dynamic-conf/fdb.cluster"},
 						{Name: "STORAGE_SERVERS_PER_POD", Value: "2"},
-						{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
+						{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 						}},
 						{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
@@ -677,7 +677,7 @@ var _ = Describe("pod_models", func() {
 
 					Expect(mainContainer.Env).To(Equal([]corev1.EnvVar{
 						{Name: "FDB_CLUSTER_FILE", Value: "/var/dynamic-conf/fdb.cluster"},
-						{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
+						{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 						}},
 						{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
@@ -733,7 +733,7 @@ var _ = Describe("pod_models", func() {
 					Expect(mainContainer.Env).To(Equal([]corev1.EnvVar{
 						{Name: "FDB_CLUSTER_FILE", Value: "/var/dynamic-conf/fdb.cluster"},
 						{Name: "LOG_SERVERS_PER_POD", Value: "2"},
-						{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
+						{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 						}},
 						{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
@@ -873,7 +873,7 @@ var _ = Describe("pod_models", func() {
 					"--init-mode",
 				}))
 				Expect(initContainer.Env).To(Equal([]corev1.EnvVar{
-					{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIPs"},
 					}},
 					{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
@@ -911,7 +911,7 @@ var _ = Describe("pod_models", func() {
 					"FDB_POD_IP",
 				}))
 				Expect(sidecarContainer.Env).To(Equal([]corev1.EnvVar{
-					{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIPs"},
 					}},
 					{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
@@ -959,7 +959,7 @@ var _ = Describe("pod_models", func() {
 					"--init-mode",
 				}))
 				Expect(initContainer.Env).To(Equal([]corev1.EnvVar{
-					{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
 					{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
@@ -996,7 +996,7 @@ var _ = Describe("pod_models", func() {
 					"FDB_DNS_NAME",
 				}))
 				Expect(sidecarContainer.Env).To(Equal([]corev1.EnvVar{
-					{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
 					{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
@@ -1043,7 +1043,7 @@ var _ = Describe("pod_models", func() {
 					"--init-mode",
 				}))
 				Expect(initContainer.Env).To(Equal([]corev1.EnvVar{
-					{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
 					{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
@@ -1080,7 +1080,7 @@ var _ = Describe("pod_models", func() {
 					"FDB_DNS_NAME",
 				}))
 				Expect(sidecarContainer.Env).To(Equal([]corev1.EnvVar{
-					{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
 					{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
@@ -1307,7 +1307,7 @@ var _ = Describe("pod_models", func() {
 					"--init-mode",
 				}))
 				Expect(initContainer.Env).To(Equal([]corev1.EnvVar{
-					{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
 					{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
@@ -1383,7 +1383,7 @@ var _ = Describe("pod_models", func() {
 					"FDB_POD_IP",
 				}))
 				Expect(sidecarContainer.Env).To(Equal([]corev1.EnvVar{
-					{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
 					{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
@@ -1502,17 +1502,17 @@ var _ = Describe("pod_models", func() {
 
 			It("should have the environment variables for the IPs in the sidecar container", func() {
 				sidecarEnv := GetEnvVars(spec.Containers[1])
-				Expect(sidecarEnv["FDB_PUBLIC_IP"]).NotTo(BeNil())
-				Expect(sidecarEnv["FDB_PUBLIC_IP"].ValueFrom).NotTo(BeNil())
-				Expect(sidecarEnv["FDB_PUBLIC_IP"].ValueFrom.FieldRef.FieldPath).To(Equal("status.podIP"))
+				Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP]).NotTo(BeNil())
+				Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP].ValueFrom).NotTo(BeNil())
+				Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP].ValueFrom.FieldRef.FieldPath).To(Equal("status.podIP"))
 				Expect(sidecarEnv["FDB_POD_IP"]).NotTo(BeNil())
 			})
 
 			It("should have the environment variables for the IPs in the init container", func() {
 				sidecarEnv := GetEnvVars(spec.InitContainers[0])
-				Expect(sidecarEnv["FDB_PUBLIC_IP"]).NotTo(BeNil())
-				Expect(sidecarEnv["FDB_PUBLIC_IP"].ValueFrom).NotTo(BeNil())
-				Expect(sidecarEnv["FDB_PUBLIC_IP"].ValueFrom.FieldRef.FieldPath).To(Equal("status.podIP"))
+				Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP]).NotTo(BeNil())
+				Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP].ValueFrom).NotTo(BeNil())
+				Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP].ValueFrom.FieldRef.FieldPath).To(Equal("status.podIP"))
 				Expect(sidecarEnv["FDB_POD_IP"]).NotTo(BeNil())
 			})
 		})
@@ -1570,9 +1570,9 @@ var _ = Describe("pod_models", func() {
 
 			It("should have the environment variables for the IPs in the sidecar container", func() {
 				sidecarEnv := GetEnvVars(spec.Containers[1])
-				Expect(sidecarEnv["FDB_PUBLIC_IP"]).NotTo(BeNil())
-				Expect(sidecarEnv["FDB_PUBLIC_IP"].ValueFrom).NotTo(BeNil())
-				Expect(sidecarEnv["FDB_PUBLIC_IP"].ValueFrom.FieldRef.FieldPath).To(Equal("status.podIP"))
+				Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP]).NotTo(BeNil())
+				Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP].ValueFrom).NotTo(BeNil())
+				Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP].ValueFrom.FieldRef.FieldPath).To(Equal("status.podIP"))
 				Expect(sidecarEnv["FDB_POD_IP"]).NotTo(BeNil())
 				Expect(sidecarEnv["FDB_POD_IP"].ValueFrom).NotTo(BeNil())
 				Expect(sidecarEnv["FDB_POD_IP"].ValueFrom.FieldRef.FieldPath).To(Equal("status.podIP"))
@@ -1580,9 +1580,9 @@ var _ = Describe("pod_models", func() {
 
 			It("should have the environment variables for the IPs in the init container", func() {
 				sidecarEnv := GetEnvVars(spec.InitContainers[0])
-				Expect(sidecarEnv["FDB_PUBLIC_IP"]).NotTo(BeNil())
-				Expect(sidecarEnv["FDB_PUBLIC_IP"].ValueFrom).NotTo(BeNil())
-				Expect(sidecarEnv["FDB_PUBLIC_IP"].ValueFrom.FieldRef.FieldPath).To(Equal("status.podIP"))
+				Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP]).NotTo(BeNil())
+				Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP].ValueFrom).NotTo(BeNil())
+				Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP].ValueFrom.FieldRef.FieldPath).To(Equal("status.podIP"))
 				Expect(sidecarEnv["FDB_POD_IP"]).NotTo(BeNil())
 				Expect(sidecarEnv["FDB_POD_IP"].ValueFrom).NotTo(BeNil())
 				Expect(sidecarEnv["FDB_POD_IP"].ValueFrom.FieldRef.FieldPath).To(Equal("status.podIP"))
@@ -1599,9 +1599,9 @@ var _ = Describe("pod_models", func() {
 
 			It("should have the environment variables for the IPs in the sidecar container", func() {
 				sidecarEnv := GetEnvVars(spec.Containers[1])
-				Expect(sidecarEnv["FDB_PUBLIC_IP"]).NotTo(BeNil())
-				Expect(sidecarEnv["FDB_PUBLIC_IP"].ValueFrom).NotTo(BeNil())
-				Expect(sidecarEnv["FDB_PUBLIC_IP"].ValueFrom.FieldRef.FieldPath).To(Equal("metadata.annotations['foundationdb.org/public-ip']"))
+				Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP]).NotTo(BeNil())
+				Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP].ValueFrom).NotTo(BeNil())
+				Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP].ValueFrom.FieldRef.FieldPath).To(Equal("metadata.annotations['foundationdb.org/public-ip']"))
 				Expect(sidecarEnv["FDB_POD_IP"]).NotTo(BeNil())
 				Expect(sidecarEnv["FDB_POD_IP"].ValueFrom).NotTo(BeNil())
 				Expect(sidecarEnv["FDB_POD_IP"].ValueFrom.FieldRef.FieldPath).To(Equal("status.podIP"))
@@ -1609,9 +1609,9 @@ var _ = Describe("pod_models", func() {
 
 			It("should have the environment variables for the IPs in the init container", func() {
 				sidecarEnv := GetEnvVars(spec.InitContainers[0])
-				Expect(sidecarEnv["FDB_PUBLIC_IP"]).NotTo(BeNil())
-				Expect(sidecarEnv["FDB_PUBLIC_IP"].ValueFrom).NotTo(BeNil())
-				Expect(sidecarEnv["FDB_PUBLIC_IP"].ValueFrom.FieldRef.FieldPath).To(Equal("metadata.annotations['foundationdb.org/public-ip']"))
+				Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP]).NotTo(BeNil())
+				Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP].ValueFrom).NotTo(BeNil())
+				Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP].ValueFrom.FieldRef.FieldPath).To(Equal("metadata.annotations['foundationdb.org/public-ip']"))
 				Expect(sidecarEnv["FDB_POD_IP"]).NotTo(BeNil())
 				Expect(sidecarEnv["FDB_POD_IP"].ValueFrom).NotTo(BeNil())
 				Expect(sidecarEnv["FDB_POD_IP"].ValueFrom.FieldRef.FieldPath).To(Equal("status.podIP"))
@@ -1736,7 +1736,7 @@ var _ = Describe("pod_models", func() {
 				initContainer := spec.InitContainers[0]
 				Expect(initContainer.Name).To(Equal(fdbv1beta2.InitContainerName))
 				Expect(initContainer.Env).To(Equal([]corev1.EnvVar{
-					{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
 					{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
@@ -1827,7 +1827,7 @@ var _ = Describe("pod_models", func() {
 				initContainer := spec.InitContainers[0]
 				Expect(initContainer.Name).To(Equal(fdbv1beta2.InitContainerName))
 				Expect(initContainer.Env).To(Equal([]corev1.EnvVar{
-					{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
 					{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
@@ -1877,7 +1877,7 @@ var _ = Describe("pod_models", func() {
 				initContainer := spec.InitContainers[0]
 				Expect(initContainer.Name).To(Equal(fdbv1beta2.InitContainerName))
 				Expect(initContainer.Env).To(Equal([]corev1.EnvVar{
-					{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
 					{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
@@ -2019,7 +2019,7 @@ var _ = Describe("pod_models", func() {
 				Expect(initContainer.Name).To(Equal(fdbv1beta2.InitContainerName))
 				Expect(initContainer.Env).To(Equal([]corev1.EnvVar{
 					{Name: "ADDITIONAL_ENV_FILE", Value: "/var/custom-env-init"},
-					{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
 					{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
@@ -2047,7 +2047,7 @@ var _ = Describe("pod_models", func() {
 				Expect(sidecarContainer.Name).To(Equal(fdbv1beta2.SidecarContainerName))
 				Expect(sidecarContainer.Env).To(Equal([]corev1.EnvVar{
 					{Name: "ADDITIONAL_ENV_FILE", Value: "/var/custom-env"},
-					{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
 					{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
@@ -2093,7 +2093,7 @@ var _ = Describe("pod_models", func() {
 					"--init-mode",
 				}))
 				Expect(initContainer.Env).To(Equal([]corev1.EnvVar{
-					{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
 					{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
@@ -2130,7 +2130,7 @@ var _ = Describe("pod_models", func() {
 					"--tls",
 				}))
 				Expect(sidecarContainer.Env).To(Equal([]corev1.EnvVar{
-					{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
 					{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
@@ -2329,7 +2329,7 @@ var _ = Describe("pod_models", func() {
 			It("should put the prefix in the instance ID", func() {
 				initContainer := spec.InitContainers[0]
 				Expect(initContainer.Env).To(Equal([]corev1.EnvVar{
-					{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
 					{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
@@ -2449,7 +2449,7 @@ var _ = Describe("pod_models", func() {
 				}))
 
 				Expect(sidecarContainer.Env).To(Equal([]corev1.EnvVar{
-					{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
 					{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{

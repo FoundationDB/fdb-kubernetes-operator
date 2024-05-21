@@ -673,7 +673,7 @@ func getEnvForMonitorConfigSubstitution(cluster *fdbv1beta2.FoundationDBCluster,
 			publicIPKey = "status.podIPs"
 		}
 	}
-	env = append(env, corev1.EnvVar{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
+	env = append(env, corev1.EnvVar{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
 		FieldRef: &corev1.ObjectFieldSelector{FieldPath: publicIPKey},
 	}})
 
