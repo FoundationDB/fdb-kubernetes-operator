@@ -478,7 +478,7 @@ var _ = Describe("pod_models", func() {
 			})
 		})
 
-		When("the unified images are enabled", func() {
+		When("the unified image is enabled", func() {
 			BeforeEach(func() {
 				cluster = CreateDefaultCluster()
 				cluster.Spec.UseUnifiedImage = pointer.Bool(true)
@@ -486,6 +486,7 @@ var _ = Describe("pod_models", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 			})
+
 			When("running one storage server per disk", func() {
 				BeforeEach(func() {
 					spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
@@ -803,6 +804,33 @@ var _ = Describe("pod_models", func() {
 					mainContainer := spec.Containers[0]
 					Expect(mainContainer.Name).To(Equal(fdbv1beta2.MainContainerName))
 					Expect(mainContainer.Command).To(Equal([]string{"crash-loop"}))
+				})
+
+				It("should set the correct crash loop arg in sidecar container", func() {
+					sidecarContainer := spec.Containers[1]
+					Expect(sidecarContainer.Name).To(Equal(fdbv1beta2.SidecarContainerName))
+					Expect(sidecarContainer.Command).ToNot(Equal([]string{"crash-loop"}))
+				})
+			})
+
+			When("DNS names should be used", func() {
+				var podName string
+
+				BeforeEach(func() {
+					cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(true)
+					cluster.Status.RunningVersion = fdbv1beta2.Versions.SupportsDNSInClusterFile.String()
+					cluster.Spec.Version = fdbv1beta2.Versions.SupportsDNSInClusterFile.String()
+					Expect(NormalizeClusterSpec(cluster, DeprecationOptions{})).NotTo(HaveOccurred())
+					processGroup := GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1)
+					podName = processGroup.GetPodName(cluster)
+					spec, err = GetPodSpec(cluster, processGroup)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("should set the FDB_DNS_NAME env variable on the main container", func() {
+					mainContainer := spec.Containers[0]
+
+					Expect(mainContainer.Env).To(ContainElements(corev1.EnvVar{Name: "FDB_DNS_NAME", Value: GetPodDNSName(cluster, podName)}))
 				})
 
 				It("should set the correct crash loop arg in sidecar container", func() {

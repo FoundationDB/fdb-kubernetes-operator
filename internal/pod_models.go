@@ -179,17 +179,17 @@ func getContainers(podSpec *corev1.PodSpec) (*corev1.Container, *corev1.Containe
 	return mainContainer, sidecarContainer, nil
 }
 
-func configureContainersForUnifiedImages(cluster *fdbv1beta2.FoundationDBCluster, mainContainer *corev1.Container, sidecarContainer *corev1.Container, processGroupID fdbv1beta2.ProcessGroupID, processClass fdbv1beta2.ProcessClass) error {
+func configureContainersForUnifiedImages(cluster *fdbv1beta2.FoundationDBCluster, mainContainer *corev1.Container, sidecarContainer *corev1.Container, processGroup *fdbv1beta2.ProcessGroupStatus, desiredVersion string) error {
 	mainContainer.Args = []string{
 		"--input-dir", "/var/dynamic-conf",
 		"--log-path", "/var/log/fdb-trace-logs/monitor.log",
 	}
 
-	serversPerPod := cluster.GetDesiredServersPerPod(processClass)
+	serversPerPod := cluster.GetDesiredServersPerPod(processGroup.ProcessClass)
 	if serversPerPod > 1 {
 		desiredServersPerPod := strconv.Itoa(serversPerPod)
 		mainContainer.Args = append(mainContainer.Args, "--process-count", desiredServersPerPod)
-		mainContainer.Env = append(mainContainer.Env, corev1.EnvVar{Name: processClass.GetServersPerPodEnvName(), Value: desiredServersPerPod})
+		mainContainer.Env = append(mainContainer.Env, corev1.EnvVar{Name: processGroup.ProcessClass.GetServersPerPodEnvName(), Value: desiredServersPerPod})
 	}
 
 	mainContainer.VolumeMounts = append(mainContainer.VolumeMounts,
@@ -199,7 +199,7 @@ func configureContainersForUnifiedImages(cluster *fdbv1beta2.FoundationDBCluster
 		corev1.VolumeMount{Name: "fdb-trace-logs", MountPath: "/var/log/fdb-trace-logs"},
 	)
 
-	mainContainer.Env = append(mainContainer.Env, getEnvForMonitorConfigSubstitution(cluster, processGroupID)...)
+	mainContainer.Env = append(mainContainer.Env, getEnvForMonitorConfigSubstitution(cluster, processGroup.ProcessGroupID)...)
 	mainContainer.Env = append(mainContainer.Env, corev1.EnvVar{Name: "FDB_IMAGE_TYPE", Value: string(FDBImageTypeUnified)})
 	mainContainer.Env = append(mainContainer.Env, corev1.EnvVar{Name: "FDB_POD_NAME", ValueFrom: &corev1.EnvVarSource{
 		FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
@@ -207,9 +207,11 @@ func configureContainersForUnifiedImages(cluster *fdbv1beta2.FoundationDBCluster
 	mainContainer.Env = append(mainContainer.Env, corev1.EnvVar{Name: "FDB_POD_NAMESPACE", ValueFrom: &corev1.EnvVarSource{
 		FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"},
 	}})
+	if cluster.DefineDNSLocalityFields() {
+		mainContainer.Env = append(mainContainer.Env, corev1.EnvVar{Name: "FDB_DNS_NAME", Value: GetPodDNSName(cluster, processGroup.GetPodName(cluster))})
+	}
 
-	// Configure sidecar
-	sidecarImage, err := GetImage(sidecarContainer.Image, cluster.Spec.MainContainer.ImageConfigs, cluster.GetRunningVersion(), false)
+	sidecarImage, err := GetImage(sidecarContainer.Image, cluster.Spec.MainContainer.ImageConfigs, desiredVersion, false)
 	if err != nil {
 		return err
 	}
@@ -218,7 +220,7 @@ func configureContainersForUnifiedImages(cluster *fdbv1beta2.FoundationDBCluster
 	sidecarContainer.Args = []string{
 		"--mode", "sidecar",
 		"--output-dir", "/var/fdb/shared-binaries",
-		"--main-container-version", cluster.GetRunningVersion(),
+		"--main-container-version", desiredVersion,
 		"--copy-binary", "fdbserver",
 		"--copy-binary", "fdbcli",
 		"--log-path", "/var/log/fdb-trace-logs/monitor.log",
@@ -231,7 +233,7 @@ func configureContainersForUnifiedImages(cluster *fdbv1beta2.FoundationDBCluster
 
 	for _, crashObjs := range cluster.Spec.Buggify.CrashLoopContainers {
 		for _, pid := range crashObjs.Targets {
-			if pid == processGroupID || pid == "*" {
+			if pid == processGroup.ProcessGroupID || pid == "*" {
 				if crashObjs.ContainerName == mainContainer.Name {
 					mainContainer.Command = []string{"crash-loop"}
 					mainContainer.Args = []string{"crash-loop"}
@@ -388,14 +390,14 @@ func configureNoSchedule(podSpec *corev1.PodSpec, processGroupID fdbv1beta2.Proc
 func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processGroup *fdbv1beta2.ProcessGroupStatus) (*corev1.PodSpec, error) {
 	processSettings := cluster.GetProcessSettings(processGroup.ProcessClass)
 	podSpec := processSettings.PodTemplate.Spec.DeepCopy()
-	useUnifiedImages := pointer.BoolDeref(cluster.Spec.UseUnifiedImage, false)
+	useUnifiedImage := cluster.GetUseUnifiedImage()
 
 	mainContainer, sidecarContainer, err := getContainers(podSpec)
 	if err != nil {
 		return nil, err
 	}
 
-	initContainer, err := getInitContainer(useUnifiedImages, podSpec)
+	initContainer, err := getInitContainer(useUnifiedImage, podSpec)
 	if err != nil {
 		return nil, err
 	}
@@ -423,8 +425,8 @@ func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processGroup *fdbv1beta
 	}
 
 	podName := processGroup.GetPodName(cluster)
-	if useUnifiedImages {
-		err = configureContainersForUnifiedImages(cluster, mainContainer, sidecarContainer, processGroup.ProcessGroupID, processGroup.ProcessClass)
+	if useUnifiedImage {
+		err = configureContainersForUnifiedImages(cluster, mainContainer, sidecarContainer, processGroup, desiredVersion)
 		if err != nil {
 			return nil, err
 		}
@@ -474,7 +476,7 @@ func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processGroup *fdbv1beta
 	configureVolumesForContainers(cluster, podSpec, processSettings.VolumeClaimTemplate, podName, processGroup.ProcessClass)
 	configureNoSchedule(podSpec, processGroup.ProcessGroupID, cluster.Spec.Buggify.NoSchedule)
 
-	if !useUnifiedImages {
+	if !useUnifiedImage {
 		replaceContainers(podSpec.InitContainers, initContainer)
 	}
 	replaceContainers(podSpec.Containers, mainContainer, sidecarContainer)
