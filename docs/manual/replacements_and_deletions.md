@@ -73,6 +73,13 @@ This feature is disabled by default, but can be enabled by setting `automationOp
 
 We use three examples below to illustrate how to set up the feature.
 
+## Automatic Replacement of Pods with SecurityContext changes
+
+Changes in SecurityContext - file ownership ones specifically - can cause problems where FDB is able to read but not write 
+files.  This can cause weird behavior with FDB's atomic writes.  If the Operator setting `ReplaceOnSecurityContextChange` 
+is set to `true`, the Operator can automatically replace pods which have changes to any of the following fields: 
+`FSGroup`, `FSGroupChangePolicy`, `RunAsGroup`, `RunAsUser`.\
+
 ### Example Setup 1
 
 The following YAML setup lets the operator detect Pods running on Nodes with taint key `example.com/maintenance`, set the ProcessGroup' condition to `NodeTaintReplacing`, if their Nodes have been tainted for 3600 seconds, and replace the Pods after 1800 seconds.

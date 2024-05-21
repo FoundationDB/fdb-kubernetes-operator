@@ -835,7 +835,7 @@ var _ = DescribeTable("file_security_context_changed",
 		&corev1.Pod{Spec: corev1.PodSpec{SecurityContext: &corev1.PodSecurityContext{FSGroup: new(int64)}}},
 		true,
 	),
-	Entry("FSGroupPolicy is changed",
+	Entry("FSGroupChangePolicy is changed",
 		&corev1.Pod{Spec: corev1.PodSpec{SecurityContext: &corev1.PodSecurityContext{
 			FSGroupChangePolicy: &[]corev1.PodFSGroupChangePolicy{corev1.FSGroupChangeAlways}[0]}}},
 		&corev1.Pod{Spec: corev1.PodSpec{SecurityContext: &corev1.PodSecurityContext{

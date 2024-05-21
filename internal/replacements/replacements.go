@@ -271,7 +271,7 @@ func processGroupNeedsRemovalForPod(cluster *fdbv1beta2.FoundationDBCluster, pod
 			// to avoid looping
 			return false, nil
 		}
-		return fileSecurityContextChanged(desiredPod, pod, log), nil
+		return fileSecurityContextChanged(desiredPod, pod, logger), nil
 	}
 	return false, nil
 }

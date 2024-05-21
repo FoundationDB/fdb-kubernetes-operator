@@ -142,7 +142,7 @@ func (o *Options) BindFlags(fs *flag.FlagSet) {
 	fs.BoolVar(&o.EnableNodeIndex, "enable-node-index", false, "Deprecated, not used anymore. Defines if the operator should add an index for accessing node objects. This requires a ClusterRoleBinding with node access. If the taint feature should be used, this setting should be set to true.")
 	fs.BoolVar(&o.ReplaceOnSecurityContextChange, "replace-on-security-context-change", false, "This flag enables the operator"+
 		" to automatically replace pods whose effective security context has one of the following fields change: "+
-		"FSGroup, FSGroupPolicy, RunAsGroup, RunAsUser")
+		"FSGroup, FSGroupChangePolicy, RunAsGroup, RunAsUser")
 	fs.Float64Var(&o.MinimumRecoveryTimeForInclusion, "minimum-recovery-time-for-inclusion", 600.0, "Defines the minimum uptime of the cluster before inclusions are allowed. For clusters after 7.1 this will use the recovery state. This should reduce the risk of frequent recoveries because of inclusions.")
 	fs.Float64Var(&o.MinimumRecoveryTimeForExclusion, "minimum-recovery-time-for-exclusion", 120.0, "Defines the minimum uptime of the cluster before exclusions are allowed. For clusters after 7.1 this will use the recovery state. This should reduce the risk of frequent recoveries because of exclusions.")
 }
