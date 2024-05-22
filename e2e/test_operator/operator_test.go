@@ -2185,7 +2185,6 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 						continue
 					}
 
-					log.Println(process.Locality)
 					g.Expect(process.Locality).NotTo(BeEmpty())
 					g.Expect(process.Locality).To(HaveKey(localityKey))
 					g.Expect(process.Locality).To(HaveKey(fdbv1beta2.FDBLocalityInstanceIDKey))
