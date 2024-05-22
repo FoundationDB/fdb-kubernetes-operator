@@ -22,7 +22,6 @@ package internal
 
 import (
 	"fmt"
-	"regexp"
 	"sort"
 	"strings"
 
@@ -49,7 +48,7 @@ func GetStartCommandWithSubstitutions(cluster *fdbv1beta2.FoundationDBCluster, p
 	}
 
 	imageType := GetDesiredImageType(cluster)
-	config := GetMonitorProcessConfiguration(cluster, processClass, processCount, imageType, substitutions)
+	config := GetMonitorProcessConfiguration(cluster, processClass, processCount, imageType)
 
 	extractPlaceholderEnvVars(substitutions, config.Arguments)
 
@@ -127,7 +126,7 @@ func GetMonitorConf(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1b
 func getMonitorConfStartCommandLines(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, substitutions map[string]string, processNumber int, processCount int) ([]string, error) {
 	confLines := make([]string, 0, 20)
 
-	config := GetMonitorProcessConfiguration(cluster, processClass, processCount, FDBImageTypeSplit, substitutions)
+	config := GetMonitorProcessConfiguration(cluster, processClass, processCount, FDBImageTypeSplit)
 
 	if substitutions == nil {
 		substitutions = make(map[string]string)
@@ -155,10 +154,8 @@ func getMonitorConfStartCommandLines(cluster *fdbv1beta2.FoundationDBCluster, pr
 	return confLines, nil
 }
 
-var equalPattern = regexp.MustCompile(`\s*=\s*`)
-
 // GetMonitorProcessConfiguration builds the monitor conf template for the unified image.
-func GetMonitorProcessConfiguration(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, processCount int, imageType FDBImageType, customParameterSubstitutions map[string]string) monitorapi.ProcessConfiguration {
+func GetMonitorProcessConfiguration(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, processCount int, imageType FDBImageType) monitorapi.ProcessConfiguration {
 	configuration := monitorapi.ProcessConfiguration{
 		Version: cluster.Spec.Version,
 	}
@@ -232,15 +229,11 @@ func GetMonitorProcessConfiguration(cluster *fdbv1beta2.FoundationDBCluster, pro
 	}
 
 	podSettings := cluster.GetProcessSettings(processClass)
-
-	if podSettings.CustomParameters != nil {
-		for _, argument := range podSettings.CustomParameters {
-			sanitizedArgument := "--" + equalPattern.ReplaceAllString(string(argument), "=")
-			for key, value := range customParameterSubstitutions {
-				sanitizedArgument = strings.Replace(sanitizedArgument, "$"+key, value, -1)
-			}
-			configuration.Arguments = append(configuration.Arguments, monitorapi.Argument{Value: sanitizedArgument})
-		}
+	for _, argument := range podSettings.CustomParameters {
+		configuration.Arguments = append(configuration.Arguments, monitorapi.Argument{
+			ArgumentType: monitorapi.ConcatenateArgumentType,
+			Values:       generateMonitorArgumentFromCustomParameter(argument),
+		})
 	}
 
 	if cluster.Spec.DataCenter != "" {
@@ -259,6 +252,34 @@ func GetMonitorProcessConfiguration(cluster *fdbv1beta2.FoundationDBCluster, pro
 	}
 
 	return configuration
+}
+
+// Generate the monitor API configuration based on the provided custom parameter
+func generateMonitorArgumentFromCustomParameter(argument fdbv1beta2.FoundationDBCustomParameter) []monitorapi.Argument {
+	splitArgument := strings.Split(string(argument), "=")
+	knob := strings.TrimSpace(splitArgument[0])
+	knobValue := strings.TrimSpace(splitArgument[1])
+	customParameterArgument := make([]monitorapi.Argument, 2)
+	customParameterArgument[0] = monitorapi.Argument{
+		ArgumentType: monitorapi.LiteralArgumentType,
+		Value:        "--" + knob + "=",
+	}
+
+	// If the value starts with an $ we assume that the value is an environment variable and should be replaced
+	// with the actual value.
+	if strings.HasPrefix(splitArgument[1], "$") {
+		customParameterArgument[1] = monitorapi.Argument{
+			ArgumentType: monitorapi.EnvironmentArgumentType,
+			Source:       strings.Trim(knobValue, "$"),
+		}
+	} else {
+		customParameterArgument[1] = monitorapi.Argument{
+			ArgumentType: monitorapi.LiteralArgumentType,
+			Value:        knobValue,
+		}
+	}
+
+	return customParameterArgument
 }
 
 // getKnobParameter will return the knob parameter with a trailing =. If the provided knob is a locality the key will be

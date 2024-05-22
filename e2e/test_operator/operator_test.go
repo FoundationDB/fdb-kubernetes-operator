@@ -2143,4 +2143,57 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			Expect(fdbCluster.WaitForReconciliation()).NotTo(HaveOccurred())
 		})
 	})
+
+	When("setting a locality that is using an environment variable", func() {
+		var initialGeneralCustomParameters fdbv1beta2.FoundationDBCustomParameters
+
+		BeforeEach(func() {
+			// Disable the availability check to prevent flaky tests if the small cluster takes longer to be restarted
+			availabilityCheck = false
+			initialGeneralCustomParameters = fdbCluster.GetCustomParameters(
+				fdbv1beta2.ProcessClassGeneral,
+			)
+
+			newGeneralCustomParameters := append(
+				initialGeneralCustomParameters,
+				"locality_testing=$FDB_INSTANCE_ID",
+			)
+
+			Expect(
+				fdbCluster.SetCustomParameters(
+					fdbv1beta2.ProcessClassGeneral,
+					newGeneralCustomParameters,
+					false,
+				),
+			).NotTo(HaveOccurred())
+		})
+
+		AfterEach(func() {
+			Expect(fdbCluster.SetCustomParameters(
+				fdbv1beta2.ProcessClassGeneral,
+				initialGeneralCustomParameters,
+				true,
+			)).NotTo(HaveOccurred())
+		})
+
+		It("should update the locality with the substituted environment variable", func() {
+			localityKey := "testing"
+			Eventually(func(g Gomega) bool {
+				for _, process := range fdbCluster.GetStatus().Cluster.Processes {
+					// We change the knob only for stateless processes.
+					if process.ProcessClass != fdbv1beta2.ProcessClassStateless {
+						continue
+					}
+
+					log.Println(process.Locality)
+					g.Expect(process.Locality).NotTo(BeEmpty())
+					g.Expect(process.Locality).To(HaveKey(localityKey))
+					g.Expect(process.Locality).To(HaveKey(fdbv1beta2.FDBLocalityInstanceIDKey))
+					g.Expect(process.Locality[localityKey]).To(Equal(process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]))
+				}
+
+				return true
+			}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(BeTrue())
+		})
+	})
 })

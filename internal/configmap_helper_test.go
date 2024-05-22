@@ -93,7 +93,7 @@ var _ = Describe("configmap_helper", func() {
 				config := monitorapi.ProcessConfiguration{}
 				err = json.Unmarshal([]byte(jsonData), &config)
 				Expect(err).NotTo(HaveOccurred())
-				expectedConfig := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 1, FDBImageTypeUnified, nil)
+				expectedConfig := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 1, FDBImageTypeUnified)
 				Expect(config).To(Equal(expectedConfig))
 			})
 
@@ -164,7 +164,7 @@ var _ = Describe("configmap_helper", func() {
 					config := monitorapi.ProcessConfiguration{}
 					err = json.Unmarshal([]byte(jsonData), &config)
 					Expect(err).NotTo(HaveOccurred())
-					expectedConfig := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 1, FDBImageTypeUnified, nil)
+					expectedConfig := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 1, FDBImageTypeUnified)
 					Expect(config).To(Equal(expectedConfig))
 
 					jsonData, present = configMap.Data["fdbmonitor-conf-storage-json-multiple"]
@@ -172,7 +172,7 @@ var _ = Describe("configmap_helper", func() {
 					config = monitorapi.ProcessConfiguration{}
 					err = json.Unmarshal([]byte(jsonData), &config)
 					Expect(err).NotTo(HaveOccurred())
-					expectedConfig = GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 2, FDBImageTypeUnified, nil)
+					expectedConfig = GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 2, FDBImageTypeUnified)
 					Expect(config).To(Equal(expectedConfig))
 				})
 
@@ -210,7 +210,7 @@ var _ = Describe("configmap_helper", func() {
 					config := monitorapi.ProcessConfiguration{}
 					err = json.Unmarshal([]byte(jsonData), &config)
 					Expect(err).NotTo(HaveOccurred())
-					expectedConfig := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassLog, 1, FDBImageTypeUnified, nil)
+					expectedConfig := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassLog, 1, FDBImageTypeUnified)
 					Expect(config).To(Equal(expectedConfig))
 
 					jsonData, present = configMap.Data["fdbmonitor-conf-log-json-multiple"]
@@ -218,7 +218,7 @@ var _ = Describe("configmap_helper", func() {
 					config = monitorapi.ProcessConfiguration{}
 					err = json.Unmarshal([]byte(jsonData), &config)
 					Expect(err).NotTo(HaveOccurred())
-					expectedConfig = GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassLog, 2, FDBImageTypeUnified, nil)
+					expectedConfig = GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassLog, 2, FDBImageTypeUnified)
 					Expect(config).To(Equal(expectedConfig))
 				})
 
