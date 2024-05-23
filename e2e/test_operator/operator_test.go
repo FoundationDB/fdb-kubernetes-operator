@@ -37,6 +37,7 @@ import (
 	"log"
 	"math"
 	"math/rand"
+	"strings"
 	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -81,15 +82,15 @@ var _ = BeforeSuite(func() {
 	)
 
 	//Load some data async into the cluster. We will only block as long as the Job is created.
-	// TODO (johscheuer): Fix this method for the unified image
-	factory.CreateDataLoaderIfAbsent(fdbCluster)
+	// factory.CreateDataLoaderIfAbsent(fdbCluster)
 
 	// In order to test the robustness of the operator we try to kill the operator Pods every minute.
 	if factory.ChaosTestsEnabled() {
-		scheduleInjectPodKill = factory.ScheduleInjectPodKill(
+		scheduleInjectPodKill = factory.ScheduleInjectPodKillWithName(
 			fixtures.GetOperatorSelector(fdbCluster.Namespace()),
 			"*/2 * * * *",
 			chaosmesh.OneMode,
+			fdbCluster.Namespace()+"-"+fdbCluster.Name(),
 		)
 	}
 })
@@ -1899,10 +1900,11 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			Expect(fdbCluster.SetUseDNSInClusterFile(initialSetting)).ToNot(HaveOccurred())
 
 			if factory.ChaosTestsEnabled() {
-				scheduleInjectPodKill = factory.ScheduleInjectPodKill(
+				scheduleInjectPodKill = factory.ScheduleInjectPodKillWithName(
 					fixtures.GetOperatorSelector(fdbCluster.Namespace()),
 					"*/2 * * * *",
 					chaosmesh.OneMode,
+					fdbCluster.Namespace()+"-"+fdbCluster.Name(),
 				)
 			}
 		})
@@ -2193,6 +2195,116 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 				return true
 			}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(BeTrue())
+		})
+	})
+	When("a FDB pod is partitioned from the Kubernetes API", func() {
+		var selectedPod corev1.Pod
+		var exp *fixtures.ChaosMeshExperiment
+		var newCustomParameters, initialCustomParameters fdbv1beta2.FoundationDBCustomParameters
+		var initialRestarts int
+
+		BeforeEach(func() {
+			// If we are not using the unified image, we can skip this test.
+			if !fdbCluster.GetCluster().GetUseUnifiedImage() {
+				Skip("The sidecar image doesn't require connectivity to the Kubernetes API")
+			}
+
+			if !factory.ChaosTestsEnabled() {
+				Skip("Chaos tests are skipped for the operator")
+			}
+
+			selectedPod = fixtures.RandomPickOnePod(fdbCluster.GetStoragePods().Items)
+			for _, status := range selectedPod.Status.ContainerStatuses {
+				initialRestarts += int(status.RestartCount)
+			}
+
+			var kubernetesServiceHost string
+			Eventually(func(g Gomega) error {
+				std, _, err := factory.ExecuteCmdOnPod(
+					&selectedPod,
+					fdbv1beta2.MainContainerName,
+					"printenv KUBERNETES_SERVICE_HOST",
+					false,
+				)
+
+				g.Expect(std).NotTo(BeEmpty())
+				kubernetesServiceHost = strings.TrimSpace(std)
+
+				return err
+			}, 5*time.Minute).ShouldNot(HaveOccurred())
+
+			exp = factory.InjectPartitionWithExternalTargets(fixtures.PodSelector(&selectedPod), []string{kubernetesServiceHost})
+			// Make sure that the partition takes effect.
+			Eventually(func() error {
+				_, _, err := factory.ExecuteCmdOnPod(
+					&selectedPod,
+					fdbv1beta2.MainContainerName,
+					fmt.Sprintf("nc -vz -w 2 %s 443", kubernetesServiceHost),
+					false,
+				)
+
+				return err
+			}).WithTimeout(2 * time.Minute).WithPolling(1 * time.Second).Should(HaveOccurred())
+
+			// Rollout a new knob to check the behaviour in such a case.
+			initialCustomParameters = fdbCluster.GetCustomParameters(
+				fdbv1beta2.ProcessClassStorage,
+			)
+
+			newCustomParameters = append(
+				initialCustomParameters,
+				"knob_max_trace_lines=1000000",
+			)
+
+			Expect(
+				fdbCluster.SetCustomParameters(
+					fdbv1beta2.ProcessClassStorage,
+					newCustomParameters,
+					false,
+				),
+			).NotTo(HaveOccurred())
+		})
+
+		It("should keep the pod up and running", func() {
+			// Make sure the partitioned Pod is not able to update its annotation.
+			Eventually(func() *int64 {
+				selectedProcessGroupID := fixtures.GetProcessGroupID(selectedPod)
+				for _, processGroup := range fdbCluster.GetCluster().Status.ProcessGroups {
+					if processGroup.ProcessGroupID != selectedProcessGroupID {
+						continue
+					}
+
+					return processGroup.GetConditionTime(fdbv1beta2.IncorrectConfigMap)
+				}
+
+				return nil
+			}).WithTimeout(5 * time.Minute).WithPolling(1 * time.Second).MustPassRepeatedly(10).ShouldNot(BeNil())
+
+			// Make sure the Pod was not restarted because of the partition.
+			Consistently(func(g Gomega) int {
+				pod, err := factory.GetPod(fdbCluster.Namespace(), selectedPod.Name)
+				g.Expect(err).NotTo(HaveOccurred())
+
+				var restarts int
+				for _, status := range pod.Status.ContainerStatuses {
+					restarts += int(status.RestartCount)
+				}
+
+				return restarts
+			}).WithTimeout(2 * time.Minute).WithPolling(5 * time.Second).Should(BeNumerically("==", initialRestarts))
+		})
+
+		AfterEach(func() {
+			if exp == nil {
+				return
+			}
+
+			factory.DeleteChaosMeshExperimentSafe(exp)
+			Expect(fdbCluster.SetCustomParameters(
+				fdbv1beta2.ProcessClassGeneral,
+				initialCustomParameters,
+				true,
+			)).NotTo(HaveOccurred())
 		})
 	})
 })

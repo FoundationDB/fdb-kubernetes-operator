@@ -27,16 +27,32 @@ import (
 
 // ScheduleInjectPodKill schedules a Pod Kill action.
 func (factory *Factory) ScheduleInjectPodKill(target chaosmesh.PodSelectorSpec, schedule string, mode chaosmesh.SelectorMode) *ChaosMeshExperiment {
-	return factory.scheduleInjectPod(chaosmesh.PodSelector{
-		Selector: target,
-		Mode:     mode,
-	}, schedule, chaosmesh.PodKillAction)
+	return factory.scheduleInjectPod(
+		chaosmesh.PodSelector{
+			Selector: target,
+			Mode:     mode,
+		},
+		schedule,
+		chaosmesh.PodKillAction,
+		RandStringRunes(32))
 }
 
-func (factory *Factory) scheduleInjectPod(target chaosmesh.PodSelector, schedule string, action chaosmesh.PodChaosAction) *ChaosMeshExperiment {
+// ScheduleInjectPodKillWithName schedules a Pod Kill action with the specified name.
+func (factory *Factory) ScheduleInjectPodKillWithName(target chaosmesh.PodSelectorSpec, schedule string, mode chaosmesh.SelectorMode, name string) *ChaosMeshExperiment {
+	return factory.scheduleInjectPod(
+		chaosmesh.PodSelector{
+			Selector: target,
+			Mode:     mode,
+		},
+		schedule,
+		chaosmesh.PodKillAction,
+		name)
+}
+
+func (factory *Factory) scheduleInjectPod(target chaosmesh.PodSelector, schedule string, action chaosmesh.PodChaosAction, name string) *ChaosMeshExperiment {
 	return factory.CreateExperiment(&chaosmesh.Schedule{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      RandStringRunes(32),
+			Name:      name,
 			Namespace: factory.GetChaosNamespace(),
 			Labels:    factory.GetDefaultLabels(),
 		},

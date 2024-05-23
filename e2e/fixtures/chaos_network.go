@@ -102,6 +102,11 @@ func (factory *Factory) InjectPartition(selector chaosmesh.PodSelectorSpec) *Cha
 	return factory.InjectPartitionBetween(selector, target)
 }
 
+// InjectPartitionWithExternalTargets injects a partition to the provided selector with the external targets
+func (factory *Factory) InjectPartitionWithExternalTargets(selector chaosmesh.PodSelectorSpec, externalTargets []string) *ChaosMeshExperiment {
+	return factory.injectPartitionBetween(selector, nil, chaosmesh.Both, externalTargets)
+}
+
 // InjectPartitionBetween injects a partition between the source and the target.
 func (factory *Factory) InjectPartitionBetween(
 	source chaosmesh.PodSelectorSpec,
@@ -119,16 +124,19 @@ func (factory *Factory) InjectPartitionBetweenWithDirection(
 	return factory.injectPartitionBetween(source, &chaosmesh.PodSelector{
 		Mode:     chaosmesh.AllMode,
 		Selector: target,
-	}, direction)
+	}, direction, nil)
 }
 
 func (factory *Factory) injectPartitionBetween(
 	source chaosmesh.PodSelectorSpec,
 	target *chaosmesh.PodSelector,
 	direction chaosmesh.Direction,
+	externalTargets []string,
 ) *ChaosMeshExperiment {
 	ensurePodPhaseSelectorIsSet(&source)
-	ensurePodPhaseSelectorIsSet(&target.Selector)
+	if target != nil {
+		ensurePodPhaseSelectorIsSet(&target.Selector)
+	}
 
 	return factory.CreateExperiment(&chaosmesh.NetworkChaos{
 		ObjectMeta: metav1.ObjectMeta{
@@ -143,8 +151,9 @@ func (factory *Factory) injectPartitionBetween(
 				Selector: source,
 				Mode:     chaosmesh.AllMode,
 			},
-			Target:    target,
-			Direction: direction,
+			Target:          target,
+			Direction:       direction,
+			ExternalTargets: externalTargets,
 		},
 	})
 }
@@ -160,5 +169,5 @@ func (factory *Factory) InjectPartitionOnSomeTargetPods(
 		Mode:     chaosmesh.FixedMode,
 		Value:    strconv.Itoa(fixedNumber),
 		Selector: target,
-	}, chaosmesh.Both)
+	}, chaosmesh.Both, nil)
 }
