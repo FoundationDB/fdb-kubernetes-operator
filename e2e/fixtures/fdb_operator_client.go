@@ -519,6 +519,9 @@ func (factory *Factory) getSidecarConfigsSplitImage() []SidecarConfig {
 	additionalSidecarVersions := factory.GetAdditionalSidecarVersions()
 	sidecarConfigs := make([]SidecarConfig, 0, len(additionalSidecarVersions)+1)
 	baseImage, tag := GetBaseImageAndTag(factory.GetSidecarImage())
+	if tag == "" {
+		tag = fmt.Sprintf("%s-1", factory.GetFDBVersion())
+	}
 
 	defaultConfig := getDefaultSidecarConfig(
 		baseImage,
