@@ -28,7 +28,6 @@ import (
 	"html/template"
 	"io"
 	"log"
-	"strings"
 	"time"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -179,15 +178,15 @@ rules:
   - watch
   - list
 ---
-  apiVersion: rbac.authorization.k8s.io/v1
-  kind: ClusterRoleBinding
-  metadata:
-    name: {{ .Namespace }}-operator-manager-clusterrolebinding
-  roleRef:
-    apiGroup: rbac.authorization.k8s.io
-    kind: ClusterRole
-    name: {{ .Namespace }}-operator-manager-clusterrole
-  subjects:
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Namespace }}-operator-manager-clusterrolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ .Namespace }}-operator-manager-clusterrole
+subjects:
   - kind: ServiceAccount
     name: fdb-kubernetes-operator-controller-manager
     namespace: {{ .Namespace }}`
@@ -514,23 +513,18 @@ type SidecarConfig struct {
 	CopyAsPrimary bool
 }
 
-// GetSidecarConfigs returns the sidecar configs. The sidecar configs can be used to template applications that will use
-// all provided sidecar versions to inject FDB client libraries.
-func (factory *Factory) GetSidecarConfigs() []SidecarConfig {
+// getSidecarConfigsSplitImage returns the sidecar config for the split image configuration.
+func (factory *Factory) getSidecarConfigsSplitImage() []SidecarConfig {
 	var hasCopyPrimarySet bool
 	additionalSidecarVersions := factory.GetAdditionalSidecarVersions()
 	sidecarConfigs := make([]SidecarConfig, 0, len(additionalSidecarVersions)+1)
-
-	image := factory.GetSidecarImage()
-	if factory.options.featureOperatorUnifiedImage {
-		image = factory.GetFoundationDBImage()
-	}
+	baseImage, tag := GetBaseImageAndTag(factory.GetSidecarImage())
 
 	defaultConfig := getDefaultSidecarConfig(
-		image,
+		baseImage,
+		tag,
 		factory.GetFDBVersion(),
 		factory.getImagePullPolicy(),
-		factory.options.featureOperatorUnifiedImage,
 	)
 
 	if factory.GetFDBVersion().SupportsDNSInClusterFile() {
@@ -542,7 +536,6 @@ func (factory *Factory) GetSidecarConfigs() []SidecarConfig {
 		sidecarConfigs,
 		defaultConfig,
 	)
-	baseImage := sidecarConfigs[0].BaseImage
 
 	// Add all other versions that are required e.g. for major or minor upgrades.
 	for _, version := range additionalSidecarVersions {
@@ -551,7 +544,7 @@ func (factory *Factory) GetSidecarConfigs() []SidecarConfig {
 			continue
 		}
 
-		sidecarConfig := getSidecarConfig(baseImage, "", version, factory.getImagePullPolicy(), factory.options.featureOperatorUnifiedImage)
+		sidecarConfig := getSidecarConfig(baseImage, fmt.Sprintf("%s-1", version), version, factory.getImagePullPolicy())
 		if !hasCopyPrimarySet && version.SupportsDNSInClusterFile() {
 			sidecarConfig.CopyAsPrimary = true
 			hasCopyPrimarySet = true
@@ -566,22 +559,81 @@ func (factory *Factory) GetSidecarConfigs() []SidecarConfig {
 	return sidecarConfigs
 }
 
-func getDefaultSidecarConfig(sidecarImage string, version fdbv1beta2.Version, imagePullPolicy corev1.PullPolicy, useUnifiedImage bool) SidecarConfig {
-	defaultSidecarImage := strings.SplitN(sidecarImage, ":", 2)
-
-	var tag string
-	if len(defaultSidecarImage) > 1 {
-		tag = defaultSidecarImage[1]
+func getTagFromImageConfig(imageConfigs []fdbv1beta2.ImageConfig, version fdbv1beta2.Version) string {
+	for _, imageConfig := range imageConfigs {
+		if imageConfig.Version == version.String() {
+			return imageConfig.Tag
+		}
 	}
 
-	return getSidecarConfig(defaultSidecarImage[0], tag, version, imagePullPolicy, useUnifiedImage)
+	return version.String()
 }
 
-func getSidecarConfig(baseImage string, tag string, version fdbv1beta2.Version, imagePullPolicy corev1.PullPolicy, useUnifiedImage bool) SidecarConfig {
-	if tag == "" && !useUnifiedImage {
-		tag = fmt.Sprintf("%s-1", version)
+// getSidecarConfigsSplitImage returns the sidecar config for the split image configuration.
+func (factory *Factory) getSidecarConfigsUnifiedImage() []SidecarConfig {
+	var hasCopyPrimarySet bool
+	additionalSidecarVersions := factory.GetAdditionalSidecarVersions()
+	sidecarConfigs := make([]SidecarConfig, 0, len(additionalSidecarVersions)+1)
+	baseImage, tag := GetBaseImageAndTag(factory.GetFoundationDBImage())
+	imageConfigs := factory.options.getImageVersionConfig(baseImage)
+	if tag == "" || tag == factory.GetFDBVersionAsString() {
+		tag = getTagFromImageConfig(imageConfigs, factory.GetFDBVersion())
 	}
 
+	defaultConfig := getDefaultSidecarConfig(
+		baseImage,
+		tag,
+		factory.GetFDBVersion(),
+		factory.getImagePullPolicy(),
+	)
+
+	if factory.GetFDBVersion().SupportsDNSInClusterFile() {
+		defaultConfig.CopyAsPrimary = true
+		hasCopyPrimarySet = true
+	}
+
+	sidecarConfigs = append(
+		sidecarConfigs,
+		defaultConfig,
+	)
+
+	// Add all other versions that are required e.g. for major or minor upgrades.
+	for _, version := range additionalSidecarVersions {
+		// Don't add the sidecar another time if we already added it
+		if version.Equal(factory.GetFDBVersion()) {
+			continue
+		}
+
+		sidecarConfig := getSidecarConfig(baseImage, getTagFromImageConfig(imageConfigs, version), version, factory.getImagePullPolicy())
+		if !hasCopyPrimarySet && version.SupportsDNSInClusterFile() {
+			sidecarConfig.CopyAsPrimary = true
+			hasCopyPrimarySet = true
+		}
+
+		sidecarConfigs = append(
+			sidecarConfigs,
+			sidecarConfig,
+		)
+	}
+
+	return sidecarConfigs
+}
+
+// GetSidecarConfigs returns the sidecar configs. The sidecar configs can be used to template applications that will use
+// all provided sidecar versions to inject FDB client libraries.
+func (factory *Factory) GetSidecarConfigs() []SidecarConfig {
+	if factory.options.featureOperatorUnifiedImage {
+		return factory.getSidecarConfigsUnifiedImage()
+	}
+
+	return factory.getSidecarConfigsSplitImage()
+}
+
+func getDefaultSidecarConfig(sidecarImage string, tag string, version fdbv1beta2.Version, imagePullPolicy corev1.PullPolicy) SidecarConfig {
+	return getSidecarConfig(sidecarImage, tag, version, imagePullPolicy)
+}
+
+func getSidecarConfig(baseImage string, tag string, version fdbv1beta2.Version, imagePullPolicy corev1.PullPolicy) SidecarConfig {
 	return SidecarConfig{
 		BaseImage:       baseImage,
 		FDBVersion:      version,

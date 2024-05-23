@@ -46,6 +46,7 @@ type FactoryOptions struct {
 	cloudProvider               string
 	clusterName                 string
 	storageEngine               string
+	fdbVersionTagMapping        string
 	enableChaosTests            bool
 	enableDataLoading           bool
 	cleanup                     bool
@@ -189,6 +190,12 @@ func (options *FactoryOptions) BindFlags(fs *flag.FlagSet) {
 		"",
 		"if defined, the test suite will create a cluster with the specified name or update the setting of an existing cluster."+
 			"For multi-region clusters, this will define the prefix for all clusters.")
+	fs.StringVar(&options.fdbVersionTagMapping,
+		"fdb-version-tag-mapping",
+		"",
+		"if defined, the test suite will use this information to map the image tag to the specified version. Multiple entries can be"+
+			"provided by separating them with a \",\". The mapping must have the format $version:$tag, e.g. 7.1.57:7.1.57-testing."+
+			"This option will only work for the main container with the split image (sidecar).")
 }
 
 func (options *FactoryOptions) validateFlags() error {
@@ -253,7 +260,7 @@ func (options *FactoryOptions) validateFlags() error {
 		options.cloudProvider = strings.ToLower(options.cloudProvider)
 	}
 
-	return nil
+	return options.validateFDBVersionTagMapping()
 }
 
 func validateVersion(label string, version string) error {
@@ -275,4 +282,40 @@ func validateVersion(label string, version string) error {
 	}
 
 	return nil
+}
+
+func (options *FactoryOptions) validateFDBVersionTagMapping() error {
+	if options.fdbVersionTagMapping == "" {
+		return nil
+	}
+
+	mappings := strings.Split(options.fdbVersionTagMapping, ",")
+	for _, mapping := range mappings {
+		versionMapping := strings.Split(mapping, ":")
+		if len(versionMapping) != 2 {
+			return fmt.Errorf("mapping %s is invalid, expected format is $version:$tag", versionMapping)
+		}
+	}
+
+	return nil
+}
+
+func (options *FactoryOptions) getImageVersionConfig(baseImage string) []fdbv1beta2.ImageConfig {
+	if options.fdbVersionTagMapping == "" {
+		return nil
+	}
+
+	mappings := strings.Split(options.fdbVersionTagMapping, ",")
+	imageConfig := make([]fdbv1beta2.ImageConfig, len(mappings))
+
+	for idx, mapping := range mappings {
+		versionMapping := strings.Split(mapping, ":")
+		imageConfig[idx] = fdbv1beta2.ImageConfig{
+			BaseImage: baseImage,
+			Version:   strings.TrimSpace(versionMapping[0]),
+			Tag:       strings.TrimSpace(versionMapping[1]),
+		}
+	}
+
+	return imageConfig
 }
