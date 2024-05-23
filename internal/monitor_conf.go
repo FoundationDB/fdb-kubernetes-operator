@@ -188,7 +188,9 @@ func GetMonitorProcessConfiguration(cluster *fdbv1beta2.FoundationDBCluster, pro
 		monitorapi.Argument{Value: fmt.Sprintf("--loggroup=%s", logGroup)},
 	)
 
-	if processCount > 1 {
+	// If the unified image is used we will always make use the more specific data directory and add the process_id
+	// locality.
+	if processCount > 1 || cluster.GetUseUnifiedImage() {
 		configuration.Arguments = append(configuration.Arguments, monitorapi.Argument{
 			ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
 				{Value: "--datadir=/var/fdb/data/"},

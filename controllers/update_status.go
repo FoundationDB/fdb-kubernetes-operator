@@ -362,19 +362,15 @@ func checkAndSetProcessStatus(logger logr.Logger, r *FoundationDBClusterReconcil
 
 	versionCompatibleUpgrade := cluster.VersionCompatibleUpgradeInProgress()
 	for processNumber := 1; processNumber <= processCount; processNumber++ {
-		var processID fdbv1beta2.ProcessGroupID
-		if processCount > 1 {
-			processID = fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%d", processGroupStatus.ProcessGroupID, processNumber))
-		} else {
-			processID = processGroupStatus.ProcessGroupID
-		}
-
-		processStatus := processMap[processID]
-		if !hasMissingProcesses {
-			hasMissingProcesses = len(processStatus) == 0
+		// If the process status is present under the process group ID take that information, otherwise check if there
+		// is information available under the process_id.
+		processStatus, ok := processMap[processGroupStatus.ProcessGroupID]
+		if !ok {
+			processStatus = processMap[fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%d", processGroupStatus.ProcessGroupID, processNumber))]
 		}
 
 		if len(processStatus) == 0 {
+			hasMissingProcesses = true
 			continue
 		}
 
@@ -419,7 +415,7 @@ func checkAndSetProcessStatus(logger logr.Logger, r *FoundationDBClusterReconcil
 
 	processGroupStatus.UpdateCondition(fdbv1beta2.MissingProcesses, hasMissingProcesses)
 	processGroupStatus.UpdateCondition(fdbv1beta2.SidecarUnreachable, sidecarUnreachable)
-	// If the processes are absent, we are not able to determine the state of the processes and therefore we won't change it.
+	// If the processes are absent, we are not able to determine the state of the processes, therefore we won't change it.
 	if hasMissingProcesses {
 		return nil
 	}
