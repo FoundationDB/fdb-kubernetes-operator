@@ -1354,8 +1354,8 @@ var _ = Describe("Localities", func() {
 			Context("with coordinators divided across two DCs", func() {
 				BeforeEach(func() {
 					for _, process := range status.Cluster.Processes {
-						if process.Locality[fdbv1beta2.FDBLocalityDCIDlKey] == "dc3" {
-							process.Locality[fdbv1beta2.FDBLocalityDCIDlKey] = "dc1"
+						if process.Locality[fdbv1beta2.FDBLocalityDCIDKey] == "dc3" {
+							process.Locality[fdbv1beta2.FDBLocalityDCIDKey] = "dc1"
 						}
 					}
 				})

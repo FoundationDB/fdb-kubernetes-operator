@@ -185,6 +185,11 @@ func configureContainersForUnifiedImages(cluster *fdbv1beta2.FoundationDBCluster
 		"--log-path", "/var/log/fdb-trace-logs/monitor.log",
 	}
 
+	// Allow the fdb-kubernetes-monitor to read the node labels and provide them as custom variables.
+	if cluster.EnableNodeWatch() {
+		mainContainer.Args = append(mainContainer.Args, "--enable-node-watch")
+	}
+
 	serversPerPod := cluster.GetDesiredServersPerPod(processGroup.ProcessClass)
 	if serversPerPod > 1 {
 		desiredServersPerPod := strconv.Itoa(serversPerPod)

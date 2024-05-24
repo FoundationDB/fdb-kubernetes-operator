@@ -779,6 +779,24 @@ var _ = Describe("pod_models", func() {
 				})
 			})
 
+			When("enabling the node watch feature for the unified image", func() {
+				BeforeEach(func() {
+					cluster.Spec.EnableNodeWatch = pointer.Bool(true)
+					spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassLog, 1))
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("should set the flag to enable the node watch feature", func() {
+					mainContainer := spec.Containers[0]
+					Expect(mainContainer.Name).To(Equal(fdbv1beta2.MainContainerName))
+					Expect(mainContainer.Args).To(Equal([]string{
+						"--input-dir", "/var/dynamic-conf",
+						"--log-path", "/var/log/fdb-trace-logs/monitor.log",
+						"--enable-node-watch",
+					}))
+				})
+			})
+
 			Context("with an instance that is crash looping", func() {
 				BeforeEach(func() {
 					cluster.Spec.Buggify.CrashLoop = []fdbv1beta2.ProcessGroupID{"storage-1"}

@@ -94,8 +94,4 @@ const (
 	// FDBLocalityDataHallKey represents the key in the locality map that holds
 	// the data hall.
 	FDBLocalityDataHallKey = "data_hall"
-
-	// FDBLocalityDCIDlKey represents the key in the locality map that holds
-	// the data center ID.
-	FDBLocalityDCIDlKey = "dcid"
 )
