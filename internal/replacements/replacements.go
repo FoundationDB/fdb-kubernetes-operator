@@ -96,7 +96,7 @@ func ProcessGroupNeedsRemoval(ctx context.Context, podManager podmanager.PodLife
 		return false, podErr
 	}
 
-	return processGroupNeedsRemovalForPod(cluster, pod, processGroup, log, hasPVC && replaceOnSecurityContextChange)
+	return processGroupNeedsRemovalForPod(cluster, pod, processGroup, log, replaceOnSecurityContextChange)
 }
 
 func processGroupNeedsRemovalForPVC(cluster *fdbv1beta2.FoundationDBCluster, pvc corev1.PersistentVolumeClaim, log logr.Logger, processGroup *fdbv1beta2.ProcessGroupStatus) (bool, error) {
@@ -187,13 +187,17 @@ func processGroupNeedsRemovalForPod(cluster *fdbv1beta2.FoundationDBCluster, pod
 		return true, nil
 	}
 
+	specHash, err := internal.GetPodSpecHash(cluster, processGroupStatus, nil)
+	if err != nil {
+		return false, err
+	}
+	spec, err := internal.GetPodSpec(cluster, processGroupStatus)
+	if err != nil {
+		return false, err
+	}
+	// TODO the below logic could be consolidated further since the majority of them would be skipped if pod Spec has not changed.
 	expectedNodeSelector := cluster.GetProcessSettings(processGroupStatus.ProcessClass).PodTemplate.Spec.NodeSelector
 	if !equality.Semantic.DeepEqual(pod.Spec.NodeSelector, expectedNodeSelector) {
-		specHash, err := internal.GetPodSpecHash(cluster, processGroupStatus, nil)
-		if err != nil {
-			return false, err
-		}
-
 		if pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] != specHash {
 			logger.Info("Replace process group",
 				"reason", fmt.Sprintf("nodeSelector has changed from %s to %s", pod.Spec.NodeSelector, expectedNodeSelector))
@@ -202,16 +206,6 @@ func processGroupNeedsRemovalForPod(cluster *fdbv1beta2.FoundationDBCluster, pod
 	}
 
 	if cluster.NeedsReplacement(processGroupStatus) {
-		spec, err := internal.GetPodSpec(cluster, processGroupStatus)
-		if err != nil {
-			return false, err
-		}
-
-		specHash, err := internal.GetPodSpecHash(cluster, processGroupStatus, spec)
-		if err != nil {
-			return false, err
-		}
-
 		if pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] != specHash {
 			jsonSpec, err := json.Marshal(spec)
 			if err != nil {
@@ -229,47 +223,33 @@ func processGroupNeedsRemovalForPod(cluster *fdbv1beta2.FoundationDBCluster, pod
 	}
 
 	if pointer.BoolDeref(cluster.Spec.ReplaceInstancesWhenResourcesChange, false) {
-		desiredSpec, err := internal.GetPodSpec(cluster, processGroupStatus)
-		if err != nil {
-			return false, err
-		}
-
-		if resourcesNeedsReplacement(desiredSpec.Containers, pod.Spec.Containers) {
+		if resourcesNeedsReplacement(spec.Containers, pod.Spec.Containers) {
 			logger.Info("Replace process group",
 				"reason", "Resource requests have changed")
 			return true, nil
 		}
 
-		if resourcesNeedsReplacement(desiredSpec.InitContainers, pod.Spec.InitContainers) {
+		if resourcesNeedsReplacement(spec.InitContainers, pod.Spec.InitContainers) {
 			logger.Info("Replace process group",
 				"reason", "Resource requests have changed")
 			return true, nil
 		}
 	}
 
-	desiredPod, err := internal.GetPod(cluster, processGroupStatus)
-	if err != nil {
-		return false, err
-	}
 	// Some k8s instances have security context vetting which may edit the spec automatically.
 	// This would cause changes to security context on a pod or container
 	// to constantly be seen as having a security context change, hence we want to feature guard this
 	// and also guard on the spec hash below
 	// https://kubernetes.io/blog/2021/04/06/podsecuritypolicy-deprecation-past-present-and-future/
 	if replaceOnSecurityContextChange {
-		spec, err := internal.GetPodSpec(cluster, processGroupStatus)
-		if err != nil {
-			return false, err
-		}
-		specHash, err := internal.GetPodSpecHash(cluster, processGroupStatus, spec)
-		if err != nil {
-			return false, err
-		}
-
 		if pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] == specHash {
 			// no changes have been made outside of server-side injected values, do not check for changes
 			// to avoid looping
 			return false, nil
+		}
+		desiredPod, err := internal.GetPod(cluster, processGroupStatus)
+		if err != nil {
+			return false, err
 		}
 		return fileSecurityContextChanged(desiredPod, pod, logger), nil
 	}

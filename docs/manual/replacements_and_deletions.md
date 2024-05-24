@@ -75,10 +75,10 @@ We use three examples below to illustrate how to set up the feature.
 
 ## Automatic Replacement of Pods with SecurityContext changes
 
-Changes in SecurityContext - file ownership ones specifically - can cause problems where FDB is able to read but not write 
-files.  This can cause weird behavior with FDB's atomic writes.  If the Operator setting `ReplaceOnSecurityContextChange` 
-is set to `true`, the Operator can automatically replace pods which have changes to any of the following fields: 
-`FSGroup`, `FSGroupChangePolicy`, `RunAsGroup`, `RunAsUser`.\
+Changes in SecurityContext - file ownership ones specifically - can cause problems where FDB is not able to use (read or write) the
+files.  This can potentially lead to an outage and unavailability of the cluster.  If the Operator command line parameter `--replace-on-security-context-change`
+is set to `true`, the Operator can automatically replace pods which have changes to any of the following fields:
+`FSGroup`, `FSGroupChangePolicy`, `RunAsGroup`, `RunAsUser`.
 
 ### Example Setup 1
 
