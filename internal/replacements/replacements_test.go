@@ -202,7 +202,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			})
 		})
 
-		Context("when the public IP source is set to default", func() {
+		When("the public IP source is set to default", func() {
 			BeforeEach(func() {
 				pClass = fdbv1beta2.ProcessClassStorage
 				remove = false
@@ -221,7 +221,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			})
 		})
 
-		Context("when the storageServersPerPod is changed for a storage class process group", func() {
+		When("the storageServersPerPod is changed for a storage class process group", func() {
 			BeforeEach(func() {
 				pClass = fdbv1beta2.ProcessClassStorage
 				remove = false
@@ -239,7 +239,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			})
 		})
 
-		Context("when the storageServersPerPod is changed for a non storage class process group", func() {
+		When("the storageServersPerPod is changed for a non storage class process group", func() {
 			BeforeEach(func() {
 				pClass = fdbv1beta2.ProcessClassLog
 				remove = false
@@ -257,7 +257,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			})
 		})
 
-		Context("when the nodeSelector changes", func() {
+		When("the nodeSelector changes", func() {
 			BeforeEach(func() {
 				pClass = fdbv1beta2.ProcessClassStorage
 				remove = false
@@ -277,7 +277,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			})
 		})
 
-		Context("when the nodeSelector doesn't match but the PodSpecHash matches", func() {
+		When("the nodeSelector doesn't match but the PodSpecHash matches", func() {
 			BeforeEach(func() {
 				pClass = fdbv1beta2.ProcessClassStorage
 				remove = false
@@ -296,64 +296,77 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			})
 		})
 
-		Context("when the securityContext doesn't match", func() {
+		When("the securityContext doesn't match", func() {
+			var originalSecurityContext *corev1.PodSecurityContext
+			var originalSpecHash string
+
 			BeforeEach(func() {
 				pClass = fdbv1beta2.ProcessClassStorage
 				remove = false
+				originalSecurityContext = pod.Spec.SecurityContext
+				originalSpecHash = pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey]
 			})
 
-			It("should need a removal for RunAsUser change", func() {
-				pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] = "banana"
-				// if ReplaceInstancesWhenResourcesChange is true, any spec change should result in replacement
-				cluster.Spec.ReplaceInstancesWhenResourcesChange = new(bool)
+			When("the last applied spec hash is different from desired spec hash", func() {
+				BeforeEach(func() {
+					pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] = "banana"
+				})
 
-				pod.Spec.SecurityContext = &corev1.PodSecurityContext{RunAsUser: new(int64)}
-				needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, processGroup, log, true)
-				Expect(needsRemoval).To(BeTrue())
-				Expect(err).NotTo(HaveOccurred())
-			})
-			It("should need a removal for FSGroup change", func() {
-				pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] = "banana"
-				// if ReplaceInstancesWhenResourcesChange is true, any spec change should result in replacement
-				cluster.Spec.ReplaceInstancesWhenResourcesChange = new(bool)
+				When("FSGroup is changed", func() {
+					BeforeEach(func() {
+						pod.Spec.SecurityContext = &corev1.PodSecurityContext{FSGroup: pointer.Int64(1234)}
+					})
 
-				pod.Spec.SecurityContext = &corev1.PodSecurityContext{FSGroup: new(int64)}
-				needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, processGroup, log, true)
-				Expect(needsRemoval).To(BeTrue())
-				Expect(err).NotTo(HaveOccurred())
-			})
-			It("with no spec change, it should not need a removal for FSGroup change to guard against server-side defaults", func() {
-				// do not change last spec key
-				// if ReplaceInstancesWhenResourcesChange is true, any spec change should result in replacement
-				cluster.Spec.ReplaceInstancesWhenResourcesChange = new(bool)
+					When("replaceOnSecurityContextChange is true", func() {
+						It("should need a removal", func() {
+							needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, processGroup, log, true)
+							Expect(needsRemoval).To(BeTrue())
+							Expect(err).NotTo(HaveOccurred())
+						})
+					})
 
-				pod.Spec.SecurityContext = &corev1.PodSecurityContext{FSGroup: new(int64)}
-				needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, processGroup, log, true)
-				Expect(needsRemoval).To(BeFalse())
-				Expect(err).NotTo(HaveOccurred())
-			})
-			It("should need a removal with ReplaceInstancesWhenResourcesChange", func() {
-				pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] = "123"
-				pod.Spec.SecurityContext = &corev1.PodSecurityContext{RunAsUser: new(int64)}
-				needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, processGroup, log, true)
-				Expect(needsRemoval).To(BeTrue())
-				Expect(err).NotTo(HaveOccurred())
-			})
-			It("with replaceOnSecurityContextChange and ReplaceInstancesWhenResourcesChange both false,"+
-				" it should not need a removal for FSGroup change", func() {
-				pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] = "123"
-				// if ReplaceInstancesWhenResourcesChange is true, any spec change should result in replacement
-				cluster.Spec.ReplaceInstancesWhenResourcesChange = new(bool)
+					When("replaceOnSecurityContextChange is false", func() {
+						It("should *not* need a removal", func() {
+							needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, processGroup, log, false)
+							Expect(needsRemoval).To(BeFalse())
+							Expect(err).NotTo(HaveOccurred())
+						})
+					})
 
-				pod.Spec.SecurityContext = &corev1.PodSecurityContext{FSGroup: new(int64)}
-				needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, processGroup, log, false)
-				Expect(needsRemoval).To(BeFalse())
-				Expect(err).NotTo(HaveOccurred())
+					AfterAll(func() {
+						pod.Spec.SecurityContext = originalSecurityContext
+					})
+				})
+
+				AfterAll(func() {
+					pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] = originalSpecHash
+				})
+			})
+
+			When("the last applied spec hash is not different from desired spec hash", func() {
+				BeforeEach(func() {
+					pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] = originalSpecHash
+				})
+
+				When("FSGroup is changed", func() {
+					BeforeEach(func() {
+						pod.Spec.SecurityContext = &corev1.PodSecurityContext{FSGroup: pointer.Int64(1234)}
+					})
+
+					It("should not need a removal (guard against server-side defaults)", func() {
+						needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, processGroup, log, true)
+						Expect(needsRemoval).To(BeFalse())
+						Expect(err).NotTo(HaveOccurred())
+					})
+					AfterEach(func() {
+						pod.Spec.SecurityContext = originalSecurityContext
+					})
+				})
 			})
 
 		})
 
-		Context("when UpdatePodsByReplacement is not set and the PodSpecHash doesn't match", func() {
+		When("UpdatePodsByReplacement is not set and the PodSpecHash doesn't match", func() {
 			BeforeEach(func() {
 				pClass = fdbv1beta2.ProcessClassStorage
 				remove = false
@@ -369,7 +382,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			})
 		})
 
-		Context("when PodUpdateStrategyReplacement is set and the PodSpecHash doesn't match", func() {
+		When("PodUpdateStrategyReplacement is set and the PodSpecHash doesn't match", func() {
 			BeforeEach(func() {
 				pClass = fdbv1beta2.ProcessClassStorage
 				remove = false
@@ -384,7 +397,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			})
 		})
 
-		Context("when PodUpdateStrategyTransactionReplacement is set and the PodSpecHash doesn't match for storage", func() {
+		When("PodUpdateStrategyTransactionReplacement is set and the PodSpecHash doesn't match for storage", func() {
 			BeforeEach(func() {
 				pClass = fdbv1beta2.ProcessClassStorage
 				remove = false
@@ -399,7 +412,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			})
 		})
 
-		Context("when PodUpdateStrategyTransactionReplacement is set and the PodSpecHash doesn't match for transaction", func() {
+		When("PodUpdateStrategyTransactionReplacement is set and the PodSpecHash doesn't match for transaction", func() {
 			BeforeEach(func() {
 				pClass = fdbv1beta2.ProcessClassLog
 				remove = false
@@ -446,7 +459,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			})
 		})
 
-		Context("when the memory resources are changed", func() {
+		When("the memory resources are changed", func() {
 			var status *fdbv1beta2.ProcessGroupStatus
 			var pod *corev1.Pod
 
