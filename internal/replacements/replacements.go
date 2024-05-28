@@ -195,7 +195,7 @@ func processGroupNeedsRemovalForPod(cluster *fdbv1beta2.FoundationDBCluster, pod
 	if err != nil {
 		return false, err
 	}
-	// TODO the below logic could be consolidated further since the majority of them would be skipped if pod Spec has not changed.
+	// TODO https://github.com/FoundationDB/fdb-kubernetes-operator/issues/2043
 	expectedNodeSelector := cluster.GetProcessSettings(processGroupStatus.ProcessClass).PodTemplate.Spec.NodeSelector
 	if !equality.Semantic.DeepEqual(pod.Spec.NodeSelector, expectedNodeSelector) {
 		if pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] != specHash {
@@ -247,11 +247,7 @@ func processGroupNeedsRemovalForPod(cluster *fdbv1beta2.FoundationDBCluster, pod
 			// to avoid looping
 			return false, nil
 		}
-		desiredPod, err := internal.GetPod(cluster, processGroupStatus)
-		if err != nil {
-			return false, err
-		}
-		return fileSecurityContextChanged(desiredPod, pod, logger), nil
+		return fileSecurityContextChanged(spec, &pod.Spec, logger), nil
 	}
 	return false, nil
 }
@@ -294,26 +290,26 @@ type containerFileSecurityContext struct {
 // RunAsGroup, RunAsUser, FSGroup, or FSGroupChangePolicy
 // See https://github.com/FoundationDB/fdb-kubernetes-operator/issues/208 for motivation
 // only makes sense if both pods have containers with matching names
-func fileSecurityContextChanged(desired, current *corev1.Pod, log logr.Logger) bool {
+func fileSecurityContextChanged(desired, current *corev1.PodSpec, log logr.Logger) bool {
 	// first check for FSGroup or FSGroupChangePolicy changes as that cannot be overridden at container level
 	// (if pod security context is identical, skip these checks)
-	if (desired.Spec.SecurityContext != nil || current.Spec.SecurityContext != nil) &&
-		!equality.Semantic.DeepEqualWithNilDifferentFromEmpty(desired.Spec.SecurityContext, current.Spec.SecurityContext) {
-		if desired.Spec.SecurityContext == nil { // check if changed non-nil -> nil
-			if current.Spec.SecurityContext.FSGroup != nil || current.Spec.SecurityContext.FSGroupChangePolicy != nil {
+	if (desired.SecurityContext != nil || current.SecurityContext != nil) &&
+		!equality.Semantic.DeepEqualWithNilDifferentFromEmpty(desired.SecurityContext, current.SecurityContext) {
+		if desired.SecurityContext == nil { // check if changed non-nil -> nil
+			if current.SecurityContext.FSGroup != nil || current.SecurityContext.FSGroupChangePolicy != nil {
 				log.Info("Replace process group",
 					"reason", "either FSGroup or FSGroupChangePolicy have changed from defined to undefined (nil) on pod SecurityContext")
 				return true
 			}
-		} else if current.Spec.SecurityContext == nil { // check if changed nil -> non-nil
-			if desired.Spec.SecurityContext.FSGroup != nil || desired.Spec.SecurityContext.FSGroupChangePolicy != nil {
+		} else if current.SecurityContext == nil { // check if changed nil -> non-nil
+			if desired.SecurityContext.FSGroup != nil || desired.SecurityContext.FSGroupChangePolicy != nil {
 				log.Info("Replace process group",
 					"reason", "either FSGroup or FSGroupChangePolicy are newly defined on pod SecurityContext")
 				return true
 			}
 		} else { // both pod security contexts are defined so check they are the same
-			if !equality.Semantic.DeepEqualWithNilDifferentFromEmpty(desired.Spec.SecurityContext.FSGroup, current.Spec.SecurityContext.FSGroup) ||
-				!equality.Semantic.DeepEqualWithNilDifferentFromEmpty(desired.Spec.SecurityContext.FSGroupChangePolicy, current.Spec.SecurityContext.FSGroupChangePolicy) {
+			if !equality.Semantic.DeepEqualWithNilDifferentFromEmpty(desired.SecurityContext.FSGroup, current.SecurityContext.FSGroup) ||
+				!equality.Semantic.DeepEqualWithNilDifferentFromEmpty(desired.SecurityContext.FSGroupChangePolicy, current.SecurityContext.FSGroupChangePolicy) {
 				log.Info("Replace process group",
 					"reason", "either FSGroup or FSGroupChangePolicy has changed for the pod SecurityContext")
 				return true
@@ -321,11 +317,11 @@ func fileSecurityContextChanged(desired, current *corev1.Pod, log logr.Logger) b
 		}
 	}
 	// check for RunAsUser and RunAsGroup changes (have to check with container settings, since that can override pod settings)
-	for _, desiredContainer := range desired.Spec.Containers {
-		for _, currentContainer := range current.Spec.Containers {
+	for _, desiredContainer := range desired.Containers {
+		for _, currentContainer := range current.Containers {
 			if desiredContainer.Name == currentContainer.Name {
-				currentFields := getEffectiveFileSecurityContext(current.Spec.SecurityContext, currentContainer.SecurityContext)
-				desiredFields := getEffectiveFileSecurityContext(desired.Spec.SecurityContext, desiredContainer.SecurityContext)
+				currentFields := getEffectiveFileSecurityContext(current.SecurityContext, currentContainer.SecurityContext)
+				desiredFields := getEffectiveFileSecurityContext(desired.SecurityContext, desiredContainer.SecurityContext)
 				if reflect.DeepEqual(desiredFields, currentFields) {
 					break
 				}
