@@ -210,11 +210,12 @@ func (factory *Factory) getContainerOverrides(
 		GetDebugImage(debugSymbols, factory.GetFoundationDBImage()),
 	)
 
-	mainOverrides := fdbv1beta2.ContainerOverrides{
-		EnableTLS: false,
+	// If the version tag mapping is define make use of that.
+	imageConfigs := factory.options.getImageVersionConfig(mainImage)
+	if len(imageConfigs) == 0 {
 		// The first entry is version specific e.g. this image + tag (if specified) will be used for the provided version
 		// the second entry ensures we set the base image for e.g. upgrades independent of the version.
-		ImageConfigs: []fdbv1beta2.ImageConfig{
+		imageConfigs = []fdbv1beta2.ImageConfig{
 			{
 				BaseImage: mainImage,
 				Tag:       mainTag,
@@ -223,7 +224,12 @@ func (factory *Factory) getContainerOverrides(
 			{
 				BaseImage: mainImage,
 			},
-		},
+		}
+	}
+
+	mainOverrides := fdbv1beta2.ContainerOverrides{
+		EnableTLS:    false,
+		ImageConfigs: imageConfigs,
 	}
 
 	sidecarImage, sidecarTag := GetBaseImageAndTag(

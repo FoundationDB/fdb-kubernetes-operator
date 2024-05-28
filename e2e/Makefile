@@ -35,6 +35,8 @@ UPGRADE_VERSIONS?="$(FDB_VERSION):$(NEXT_FDB_VERSION)"
 FEATURE_UNIFIED_IMAGE?=false
 FEATURE_DNS?=false
 FEATURE_LOCALITIES?=false
+# Allows to specify the tag for a specific FDB version. Format is 7.1.57:7.1.57-testing,7.3.35:7.3.35-debugging
+FDB_VERSION_TAG_MAPPING?=
 
 # Make bash pickier about errors.
 SHELL=/bin/bash -euo pipefail
@@ -131,4 +133,5 @@ nightly-tests: run
 	  --dump-operator-state=$(DUMP_OPERATOR_STATE) \
 	  --cluster-name=$(CLUSTER_NAME) \
 	  --storage-engine=$(STORAGE_ENGINE) \
+	  --fdb-version-tag-mapping=$(FDB_VERSION_TAG_MAPPING) \
 	  | grep -v 'constructing many client instances from the same exec auth config can cause performance problems during cert rotation' &> $(BASE_DIR)/../logs/$<.log
