@@ -163,7 +163,7 @@ func (factory *Factory) getChaosExperiment(
 // CreateExperiment creates a chaos experiment in the cluster with specified type, name and chaos object.
 func (factory *Factory) CreateExperiment(chaos client.Object) *ChaosMeshExperiment {
 	log.Printf("CreateExperiment name=%s, spec=%s", chaos.GetName(), ToJSON(chaos))
-	gomega.Expect(factory.GetControllerRuntimeClient().Create(ctx.Background(), chaos)).NotTo(gomega.HaveOccurred())
+	gomega.Expect(factory.CreateIfAbsent(chaos)).NotTo(gomega.HaveOccurred())
 
 	experiment := ChaosMeshExperiment{
 		chaosObject: chaos,
