@@ -2281,7 +2281,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 		BeforeEach(func() {
 			// If we are not using the unified image, we can skip this test.
-			if !fdbCluster.GetCluster().GetUseUnifiedImage() {
+			if !fdbCluster.GetCluster().UseUnifiedImage() {
 				Skip("The sidecar image doesn't require connectivity to the Kubernetes API")
 			}
 
