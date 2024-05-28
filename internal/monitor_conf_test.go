@@ -668,7 +668,8 @@ var _ = Describe("monitor_conf", func() {
 
 		When("using the unified image", func() {
 			BeforeEach(func() {
-				cluster.Spec.UseUnifiedImage = pointer.Bool(true)
+				imageType := fdbv1beta2.ImageTypeUnified
+				cluster.Spec.ImageType = &imageType
 			})
 
 			It("should generate the unsorted command-line", func() {

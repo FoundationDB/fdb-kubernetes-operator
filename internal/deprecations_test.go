@@ -27,7 +27,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
 )
 
 var _ = Describe("[internal] deprecations", func() {
@@ -256,12 +255,13 @@ var _ = Describe("[internal] deprecations", func() {
 				})
 
 				It("should have the unified images disabled", func() {
-					Expect(cluster.GetUseUnifiedImage()).To(BeFalse())
+					Expect(cluster.UseUnifiedImage()).To(BeFalse())
 				})
 
 				Context("with unified images enabled", func() {
 					BeforeEach(func() {
-						spec.UseUnifiedImage = pointer.Bool(true)
+						imageType := fdbv1beta2.ImageTypeUnified
+						spec.ImageType = &imageType
 					})
 
 					It("should use the default image config for the unified image", func() {

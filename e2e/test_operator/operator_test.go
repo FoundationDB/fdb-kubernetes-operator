@@ -2180,7 +2180,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		It("should update the Pod IP family", func() {
 			var expectedContainerWithEnv string
 			// In the case of the split image the sidecar will have that env variable.
-			if fdbCluster.GetCluster().GetUseUnifiedImage() {
+			if fdbCluster.GetCluster().UseUnifiedImage() {
 				expectedContainerWithEnv = fdbv1beta2.MainContainerName
 			} else {
 				expectedContainerWithEnv = fdbv1beta2.SidecarContainerName

@@ -445,9 +445,9 @@ func (in *FoundationDBBackupSpec) DeepCopyInto(out *FoundationDBBackupSpec) {
 	}
 	in.MainContainer.DeepCopyInto(&out.MainContainer)
 	in.SidecarContainer.DeepCopyInto(&out.SidecarContainer)
-	if in.UseUnifiedImage != nil {
-		in, out := &in.UseUnifiedImage, &out.UseUnifiedImage
-		*out = new(bool)
+	if in.ImageType != nil {
+		in, out := &in.ImageType, &out.ImageType
+		*out = new(ImageType)
 		**out = **in
 	}
 }
@@ -730,9 +730,9 @@ func (in *FoundationDBClusterSpec) DeepCopyInto(out *FoundationDBClusterSpec) {
 		*out = new(bool)
 		**out = **in
 	}
-	if in.UseUnifiedImage != nil {
-		in, out := &in.UseUnifiedImage, &out.UseUnifiedImage
-		*out = new(bool)
+	if in.ImageType != nil {
+		in, out := &in.ImageType, &out.ImageType
+		*out = new(ImageType)
 		**out = **in
 	}
 	if in.MaxZonesWithUnavailablePods != nil {

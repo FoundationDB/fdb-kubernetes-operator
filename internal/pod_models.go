@@ -295,11 +295,11 @@ func setAffinityForFaultDomain(cluster *fdbv1beta2.FoundationDBCluster, podSpec 
 }
 
 func configureVolumesForContainers(cluster *fdbv1beta2.FoundationDBCluster, podSpec *corev1.PodSpec, volumeClaimTemplate *corev1.PersistentVolumeClaim, podName string, processClass fdbv1beta2.ProcessClass) {
-	useUnifiedImages := pointer.BoolDeref(cluster.Spec.UseUnifiedImage, false)
+	useUnifiedImage := cluster.UseUnifiedImage()
 	monitorConfKey := GetConfigMapMonitorConfEntry(processClass, GetDesiredImageType(cluster), cluster.GetDesiredServersPerPod(processClass))
 
 	var monitorConfFile string
-	if useUnifiedImages {
+	if useUnifiedImage {
 		monitorConfFile = "config.json"
 	} else {
 		monitorConfFile = "fdbmonitor.conf"
@@ -340,7 +340,7 @@ func configureVolumesForContainers(cluster *fdbv1beta2.FoundationDBCluster, podS
 		{Name: "data", VolumeSource: mainVolumeSource},
 	}
 
-	if useUnifiedImages {
+	if useUnifiedImage {
 		volumes = append(volumes, corev1.Volume{Name: "shared-binaries", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}})
 	} else {
 		volumes = append(volumes, corev1.Volume{Name: "dynamic-conf", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}})
@@ -390,7 +390,7 @@ func configureNoSchedule(podSpec *corev1.PodSpec, processGroupID fdbv1beta2.Proc
 func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processGroup *fdbv1beta2.ProcessGroupStatus) (*corev1.PodSpec, error) {
 	processSettings := cluster.GetProcessSettings(processGroup.ProcessClass)
 	podSpec := processSettings.PodTemplate.Spec.DeepCopy()
-	useUnifiedImage := cluster.GetUseUnifiedImage()
+	useUnifiedImage := cluster.UseUnifiedImage()
 
 	mainContainer, sidecarContainer, err := getContainers(podSpec)
 	if err != nil {

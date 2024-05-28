@@ -89,13 +89,13 @@ func NormalizeClusterSpec(cluster *fdbv1beta2.FoundationDBCluster, options Depre
 				}
 			}
 
-			if !cluster.GetUseUnifiedImage() {
+			if !cluster.UseUnifiedImage() {
 				template.Spec.InitContainers = customizeContainerFromList(template.Spec.InitContainers, fdbv1beta2.InitContainerName, sidecarUpdater)
 			}
 			template.Spec.Containers = customizeContainerFromList(template.Spec.Containers, fdbv1beta2.SidecarContainerName, sidecarUpdater)
 		})
 
-		updateImageConfigs(&cluster.Spec, cluster.GetUseUnifiedImage())
+		updateImageConfigs(&cluster.Spec, cluster.UseUnifiedImage())
 	}
 
 	if len(cluster.Spec.Buggify.CrashLoop) > 0 {

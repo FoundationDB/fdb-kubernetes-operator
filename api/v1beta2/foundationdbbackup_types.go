@@ -103,9 +103,14 @@ type FoundationDBBackupSpec struct {
 	// foundationdb-kubernetes-sidecar container.
 	SidecarContainer ContainerOverrides `json:"sidecarContainer,omitempty"`
 
-	// UseUnifiedImage determines if we should use the unified image rather than
-	// separate images for the main container and the sidecar container.
-	UseUnifiedImage *bool `json:"useUnifiedImage,omitempty"`
+	// ImageType defines the image type that should be used for the FoundationDBCluster deployment. When the type
+	// is set to "unified" the deployment will use the new fdb-kubernetes-monitor. Otherwise the main container and
+	// the sidecar container will use different images.
+	// Default: split
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Enum=split;unified
+	// +kubebuilder:default:=split
+	ImageType *ImageType `json:"imageType,omitempty"`
 }
 
 // FoundationDBBackupStatus describes the current status of the backup for a cluster.
@@ -323,9 +328,14 @@ func (foundationDBBackupSpec *FoundationDBBackupSpec) GetAllowTagOverride() bool
 	return pointer.BoolDeref(foundationDBBackupSpec.AllowTagOverride, false)
 }
 
-// UseUnifiedImage returns backup.Spec.UseUnifiedImage or if unset the default false.
+// UseUnifiedImage returns true if the unified image should be used.
 func (backup *FoundationDBBackup) UseUnifiedImage() bool {
-	return pointer.BoolDeref(backup.Spec.UseUnifiedImage, false)
+	imageType := ImageTypeSplit
+	if backup.Spec.ImageType != nil {
+		imageType = *backup.Spec.ImageType
+	}
+
+	return imageType == ImageTypeUnified
 }
 
 // getURL returns the blobstore URL for the specific configuration

@@ -3460,6 +3460,13 @@ spec:
                   type: string
                 maxItems: 100
                 type: array
+              imageType:
+                default: split
+                enum:
+                - split
+                - unified
+                maxLength: 1024
+                type: string
               mainContainer:
                 properties:
                   enableLivenessProbe:
@@ -6741,8 +6748,6 @@ spec:
                 type: object
               snapshotPeriodSeconds:
                 type: integer
-              useUnifiedImage:
-                type: boolean
               version:
                 type: string
             required:
