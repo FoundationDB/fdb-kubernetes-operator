@@ -1429,6 +1429,82 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		})
 	})
 
+	// this test took ~8min to run for me, so I think it is best to just have the one test
+	When("replacing Pods due to securityContext changes (General spec change = log + stateless)", func() {
+		var podsNotToReplace, podsToReplace []string
+		var originalPodSpec, modifiedPodSpec, originalStoragePodSpec *corev1.PodSpec
+		var initialPodUpdateStrategy fdbv1beta2.PodUpdateStrategy
+
+		BeforeEach(func() {
+			originalPodSpec = fdbCluster.GetPodTemplateSpec(fdbv1beta2.ProcessClassGeneral)
+			originalStoragePodSpec = fdbCluster.GetPodTemplateSpec(fdbv1beta2.ProcessClassStorage)
+			Expect(originalPodSpec).NotTo(BeNil())
+			modifiedPodSpec = originalPodSpec.DeepCopy()
+			Expect(modifiedPodSpec.SecurityContext).NotTo(BeNil())
+			if originalPodSpec.SecurityContext.FSGroupChangePolicy != nil {
+				Expect(*originalPodSpec.SecurityContext.FSGroupChangePolicy).NotTo(Equal(corev1.FSGroupChangeOnRootMismatch))
+			}
+			modifiedPodSpec.SecurityContext.FSGroupChangePolicy = &[]corev1.PodFSGroupChangePolicy{corev1.FSGroupChangeOnRootMismatch}[0]
+			for _, logPod := range fdbCluster.GetLogPods().Items {
+				podsToReplace = append(podsToReplace, logPod.Name)
+			}
+			for _, statelessPod := range fdbCluster.GetStatelessPods().Items {
+				podsToReplace = append(podsToReplace, statelessPod.Name)
+			}
+			for _, storagePod := range fdbCluster.GetStoragePods().Items {
+				podsToReplace = append(podsToReplace, storagePod.Name)
+			}
+			// if we do not set the PodUpdateStrategy to delete, then the pods will get replaced for the spec change,
+			// meaning we cannot test the security context change on non-storage pods unless we use PodUpdateStrategyDelete
+			// (and storage pod use would make the test take ~5min longer)
+			spec := fdbCluster.GetCluster().Spec.DeepCopy()
+			initialPodUpdateStrategy = spec.AutomationOptions.PodUpdateStrategy
+			spec.AutomationOptions.PodUpdateStrategy = fdbv1beta2.PodUpdateStrategyDelete
+			fdbCluster.UpdateClusterSpecWithSpec(spec)
+			Expect(fdbCluster.SetPodTemplateSpec(fdbv1beta2.ProcessClassGeneral, modifiedPodSpec, false)).NotTo(HaveOccurred())
+		})
+
+		AfterEach(func() {
+			spec := fdbCluster.GetCluster().Spec.DeepCopy()
+			spec.AutomationOptions.PodUpdateStrategy = initialPodUpdateStrategy
+			fdbCluster.UpdateClusterSpecWithSpec(spec)
+			Expect(fdbCluster.SetPodTemplateSpec(fdbv1beta2.ProcessClassGeneral, originalPodSpec, true)).NotTo(HaveOccurred())
+		})
+
+		It("should replace all the log pods (which had the securityContext change)", func() {
+			lastForcedReconciliationTime := time.Now()
+			forceReconcileDuration := 4 * time.Minute
+			Eventually(func(g Gomega) {
+				// Force a reconcile if needed to make sure we speed up the reconciliation if needed.
+				if time.Since(lastForcedReconciliationTime) >= forceReconcileDuration {
+					fdbCluster.ForceReconcile()
+					lastForcedReconciliationTime = time.Now()
+				}
+
+				// check that we replaced the pods we should have and did not replace others
+				currentPods := fdbCluster.GetPodsNames()
+				g.Expect(currentPods).NotTo(ContainElements(podsToReplace))
+				g.Expect(currentPods).To(ContainElements(podsNotToReplace))
+				// check that General template pods (Log + Stateless) are replaced with the new security context
+				logPods := fdbCluster.GetLogPods()
+				for _, pod := range logPods.Items {
+					g.Expect(pod.Spec.SecurityContext.FSGroupChangePolicy).ToNot(BeNil())
+					g.Expect(*pod.Spec.SecurityContext.FSGroupChangePolicy).To(Equal(corev1.FSGroupChangeOnRootMismatch))
+				}
+				statelessPods := fdbCluster.GetStatelessPods()
+				for _, pod := range statelessPods.Items {
+					g.Expect(pod.Spec.SecurityContext.FSGroupChangePolicy).ToNot(BeNil())
+					g.Expect(*pod.Spec.SecurityContext.FSGroupChangePolicy).To(Equal(corev1.FSGroupChangeOnRootMismatch))
+				}
+				// ensure that we only changed pods that are expected to be changed (i.e. don't touch storage)
+				storagePods := fdbCluster.GetStoragePods()
+				for _, pod := range storagePods.Items {
+					g.Expect(pod.Spec.SecurityContext).To(Equal(originalStoragePodSpec.SecurityContext))
+				}
+			}).WithTimeout(15 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
+		})
+	})
+
 	When("migrating a cluster to make use of DNS in the cluster file", func() {
 		BeforeEach(func() {
 			cluster := fdbCluster.GetCluster()

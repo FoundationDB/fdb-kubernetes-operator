@@ -46,7 +46,7 @@ func (c replaceMisconfiguredProcessGroups) reconcile(ctx context.Context, r *Fou
 		return &requeue{curError: err}
 	}
 
-	hasReplacements, err := replacements.ReplaceMisconfiguredProcessGroups(ctx, r.PodLifecycleManager, r, logger, cluster, internal.CreatePVCMap(cluster, pvcs))
+	hasReplacements, err := replacements.ReplaceMisconfiguredProcessGroups(ctx, r.PodLifecycleManager, r, logger, cluster, internal.CreatePVCMap(cluster, pvcs), r.ReplaceOnSecurityContextChange)
 	if err != nil {
 		return &requeue{curError: err}
 	}

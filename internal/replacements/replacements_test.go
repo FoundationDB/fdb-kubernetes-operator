@@ -98,7 +98,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 		Describe("Check process group", func() {
 			When("process group has no Pod", func() {
 				It("should not need removal", func() {
-					needsRemoval, err := processGroupNeedsRemovalForPod(cluster, nil, nil, log)
+					needsRemoval, err := processGroupNeedsRemovalForPod(cluster, nil, nil, log, true)
 					Expect(needsRemoval).To(BeFalse())
 					Expect(err).NotTo(HaveOccurred())
 				})
@@ -111,7 +111,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				})
 
 				It("should not need a removal", func() {
-					needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, processGroup, log)
+					needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, processGroup, log, true)
 					Expect(needsRemoval).To(BeFalse())
 					Expect(err).NotTo(HaveOccurred())
 				})
@@ -125,13 +125,13 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					})
 
 					It("should need a removal", func() {
-						needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, processGroup, log)
+						needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, processGroup, log, true)
 						Expect(needsRemoval).To(BeFalse())
 						Expect(err).NotTo(HaveOccurred())
 
 						// Change the process group ID should trigger a removal
 						cluster.Spec.ProcessGroupIDPrefix = "test"
-						needsRemoval, err = processGroupNeedsRemovalForPod(cluster, pod, processGroup, log)
+						needsRemoval, err = processGroupNeedsRemovalForPod(cluster, pod, processGroup, log, true)
 						Expect(needsRemoval).To(BeTrue())
 						Expect(err).NotTo(HaveOccurred())
 					})
@@ -144,13 +144,13 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					})
 
 					It("should need a removal", func() {
-						needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, processGroup, log)
+						needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, processGroup, log, true)
 						Expect(needsRemoval).To(BeFalse())
 						Expect(err).NotTo(HaveOccurred())
 
 						// Change the process group ID should trigger a removal
 						cluster.Spec.ProcessGroupIDPrefix = "test"
-						needsRemoval, err = processGroupNeedsRemovalForPod(cluster, pod, processGroup, log)
+						needsRemoval, err = processGroupNeedsRemovalForPod(cluster, pod, processGroup, log, true)
 						Expect(needsRemoval).To(BeTrue())
 						Expect(err).NotTo(HaveOccurred())
 					})
@@ -164,13 +164,13 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				})
 
 				It("should need a removal", func() {
-					needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, processGroup, log)
+					needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, processGroup, log, true)
 					Expect(needsRemoval).To(BeFalse())
 					Expect(err).NotTo(HaveOccurred())
 
 					ipSource := fdbv1beta2.PublicIPSourceService
 					cluster.Spec.Routing.PublicIPSource = &ipSource
-					needsRemoval, err = processGroupNeedsRemovalForPod(cluster, pod, processGroup, log)
+					needsRemoval, err = processGroupNeedsRemovalForPod(cluster, pod, processGroup, log, true)
 					Expect(needsRemoval).To(BeTrue())
 					Expect(err).NotTo(HaveOccurred())
 				})
@@ -191,93 +191,93 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				ipSource := fdbv1beta2.PublicIPSourceService
 				cluster.Spec.Routing.PublicIPSource = &ipSource
 
-				needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, processGroup, log)
+				needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, processGroup, log, true)
 				Expect(needsRemoval).To(BeFalse())
 				Expect(err).NotTo(HaveOccurred())
 
 				cluster.Spec.Routing.PublicIPSource = nil
-				needsRemoval, err = processGroupNeedsRemovalForPod(cluster, pod, processGroup, log)
+				needsRemoval, err = processGroupNeedsRemovalForPod(cluster, pod, processGroup, log, true)
 				Expect(needsRemoval).To(BeTrue())
 				Expect(err).NotTo(HaveOccurred())
 			})
 		})
 
-		Context("when the public IP source is set to default", func() {
+		When("the public IP source is set to default", func() {
 			BeforeEach(func() {
 				pClass = fdbv1beta2.ProcessClassStorage
 				remove = false
 			})
 
 			It("should not need a removal", func() {
-				needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, processGroup, log)
+				needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, processGroup, log, true)
 				Expect(needsRemoval).To(BeFalse())
 				Expect(err).NotTo(HaveOccurred())
 
 				ipSource := fdbv1beta2.PublicIPSourcePod
 				cluster.Spec.Routing.PublicIPSource = &ipSource
-				needsRemoval, err = processGroupNeedsRemovalForPod(cluster, pod, processGroup, log)
+				needsRemoval, err = processGroupNeedsRemovalForPod(cluster, pod, processGroup, log, true)
 				Expect(needsRemoval).To(BeFalse())
 				Expect(err).NotTo(HaveOccurred())
 			})
 		})
 
-		Context("when the storageServersPerPod is changed for a storage class process group", func() {
+		When("the storageServersPerPod is changed for a storage class process group", func() {
 			BeforeEach(func() {
 				pClass = fdbv1beta2.ProcessClassStorage
 				remove = false
 			})
 
 			It("should need a removal", func() {
-				needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, processGroup, log)
+				needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, processGroup, log, true)
 				Expect(needsRemoval).To(BeFalse())
 				Expect(err).NotTo(HaveOccurred())
 
 				cluster.Spec.StorageServersPerPod = 2
-				needsRemoval, err = processGroupNeedsRemovalForPod(cluster, pod, processGroup, log)
+				needsRemoval, err = processGroupNeedsRemovalForPod(cluster, pod, processGroup, log, true)
 				Expect(needsRemoval).To(BeTrue())
 				Expect(err).NotTo(HaveOccurred())
 			})
 		})
 
-		Context("when the storageServersPerPod is changed for a non storage class process group", func() {
+		When("the storageServersPerPod is changed for a non storage class process group", func() {
 			BeforeEach(func() {
 				pClass = fdbv1beta2.ProcessClassLog
 				remove = false
 			})
 
 			It("should not need a removal", func() {
-				needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, processGroup, log)
+				needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, processGroup, log, true)
 				Expect(needsRemoval).To(BeFalse())
 				Expect(err).NotTo(HaveOccurred())
 
 				cluster.Spec.StorageServersPerPod = 2
-				needsRemoval, err = processGroupNeedsRemovalForPod(cluster, pod, processGroup, log)
+				needsRemoval, err = processGroupNeedsRemovalForPod(cluster, pod, processGroup, log, true)
 				Expect(needsRemoval).To(BeFalse())
 				Expect(err).NotTo(HaveOccurred())
 			})
 		})
 
-		Context("when the nodeSelector changes", func() {
+		When("the nodeSelector changes", func() {
 			BeforeEach(func() {
 				pClass = fdbv1beta2.ProcessClassStorage
 				remove = false
 			})
 
 			It("should need a removal", func() {
-				needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, processGroup, log)
+				needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, processGroup, log, true)
 				Expect(needsRemoval).To(BeFalse())
 				Expect(err).NotTo(HaveOccurred())
 
 				cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral].PodTemplate.Spec.NodeSelector = map[string]string{
 					"dummy": "test",
 				}
-				needsRemoval, err = processGroupNeedsRemovalForPod(cluster, pod, processGroup, log)
+				needsRemoval, err = processGroupNeedsRemovalForPod(cluster, pod, processGroup, log, true)
 				Expect(needsRemoval).To(BeTrue())
 				Expect(err).NotTo(HaveOccurred())
 			})
 		})
 
-		Context("when the nodeSelector doesn't match but the PodSpecHash matches", func() {
+		When("the nodeSelector doesn't match but the PodSpecHash matches", func() {
 			BeforeEach(func() {
 				pClass = fdbv1beta2.ProcessClassStorage
 				remove = false
@@ -290,13 +290,84 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				pod.Spec.NodeSelector = map[string]string{
 					"dummy": "test",
 				}
-				needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, processGroup, log)
+				needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, processGroup, log, true)
 				Expect(needsRemoval).To(BeFalse())
 				Expect(err).NotTo(HaveOccurred())
 			})
 		})
 
-		Context("when UpdatePodsByReplacement is not set and the PodSpecHash doesn't match", func() {
+		When("the securityContext doesn't match", func() {
+			var originalSecurityContext *corev1.PodSecurityContext
+			var originalSpecHash string
+
+			BeforeEach(func() {
+				pClass = fdbv1beta2.ProcessClassStorage
+				remove = false
+				originalSecurityContext = pod.Spec.SecurityContext
+				originalSpecHash = pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey]
+			})
+
+			When("the last applied spec hash is different from desired spec hash", func() {
+				JustBeforeEach(func() {
+					pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] = "banana"
+				})
+
+				When("FSGroup is changed", func() {
+					JustBeforeEach(func() {
+						pod.Spec.SecurityContext = &corev1.PodSecurityContext{FSGroup: pointer.Int64(1234)}
+					})
+
+					When("replaceOnSecurityContextChange is true", func() {
+						It("should need a removal", func() {
+							needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, processGroup, log, true)
+							Expect(needsRemoval).To(BeTrue())
+							Expect(err).NotTo(HaveOccurred())
+						})
+					})
+
+					When("replaceOnSecurityContextChange is false", func() {
+						It("should *not* need a removal", func() {
+							needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, processGroup, log, false)
+							Expect(needsRemoval).To(BeFalse())
+							Expect(err).NotTo(HaveOccurred())
+						})
+					})
+
+					AfterEach(func() {
+						pod.Spec.SecurityContext = originalSecurityContext
+					})
+				})
+
+				AfterEach(func() {
+					pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] = originalSpecHash
+				})
+			})
+
+			When("the last applied spec hash is not different from desired spec hash", func() {
+				BeforeEach(func() {
+					pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] = originalSpecHash
+				})
+
+				When("FSGroup is changed", func() {
+					JustBeforeEach(func() {
+						pod.Spec.SecurityContext = &corev1.PodSecurityContext{FSGroup: pointer.Int64(1234)}
+					})
+
+					It("should not need a removal (guard against server-side defaults)", func() {
+						needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, processGroup, log, true)
+						Expect(needsRemoval).To(BeFalse())
+						Expect(err).NotTo(HaveOccurred())
+					})
+
+					AfterEach(func() {
+						pod.Spec.SecurityContext = originalSecurityContext
+					})
+				})
+			})
+
+		})
+
+		When("UpdatePodsByReplacement is not set and the PodSpecHash doesn't match", func() {
 			BeforeEach(func() {
 				pClass = fdbv1beta2.ProcessClassStorage
 				remove = false
@@ -306,13 +377,13 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				pod.Spec = corev1.PodSpec{
 					Containers: []corev1.Container{{}},
 				}
-				needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, processGroup, log)
+				needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, processGroup, log, true)
 				Expect(needsRemoval).To(BeFalse())
 				Expect(err).NotTo(HaveOccurred())
 			})
 		})
 
-		Context("when PodUpdateStrategyReplacement is set and the PodSpecHash doesn't match", func() {
+		When("PodUpdateStrategyReplacement is set and the PodSpecHash doesn't match", func() {
 			BeforeEach(func() {
 				pClass = fdbv1beta2.ProcessClassStorage
 				remove = false
@@ -321,13 +392,13 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			It("should need a removal", func() {
 				pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] = "-1"
 				cluster.Spec.AutomationOptions.PodUpdateStrategy = fdbv1beta2.PodUpdateStrategyReplacement
-				needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, processGroup, log)
+				needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, processGroup, log, true)
 				Expect(needsRemoval).To(BeTrue())
 				Expect(err).NotTo(HaveOccurred())
 			})
 		})
 
-		Context("when PodUpdateStrategyTransactionReplacement is set and the PodSpecHash doesn't match for storage", func() {
+		When("PodUpdateStrategyTransactionReplacement is set and the PodSpecHash doesn't match for storage", func() {
 			BeforeEach(func() {
 				pClass = fdbv1beta2.ProcessClassStorage
 				remove = false
@@ -336,13 +407,13 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			It("should not need a removal", func() {
 				pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] = "-1"
 				cluster.Spec.AutomationOptions.PodUpdateStrategy = fdbv1beta2.PodUpdateStrategyTransactionReplacement
-				needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, processGroup, log)
+				needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, processGroup, log, true)
 				Expect(needsRemoval).To(BeFalse())
 				Expect(err).NotTo(HaveOccurred())
 			})
 		})
 
-		Context("when PodUpdateStrategyTransactionReplacement is set and the PodSpecHash doesn't match for transaction", func() {
+		When("PodUpdateStrategyTransactionReplacement is set and the PodSpecHash doesn't match for transaction", func() {
 			BeforeEach(func() {
 				pClass = fdbv1beta2.ProcessClassLog
 				remove = false
@@ -351,7 +422,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			It("should need a removal", func() {
 				pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] = "-1"
 				cluster.Spec.AutomationOptions.PodUpdateStrategy = fdbv1beta2.PodUpdateStrategyTransactionReplacement
-				needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, processGroup, log)
+				needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, processGroup, log, true)
 				Expect(needsRemoval).To(BeTrue())
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -389,7 +460,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			})
 		})
 
-		Context("when the memory resources are changed", func() {
+		When("the memory resources are changed", func() {
 			var status *fdbv1beta2.ProcessGroupStatus
 			var pod *corev1.Pod
 
@@ -403,7 +474,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					ProcessClass:   fdbv1beta2.ProcessClassStorage,
 				}
 
-				needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, status, log)
+				needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, status, log, true)
 				Expect(needsRemoval).To(BeFalse())
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -425,7 +496,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					})
 
 					It("should need a removal", func() {
-						needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, status, log)
+						needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, status, log, true)
 						Expect(needsRemoval).To(BeTrue())
 						Expect(err).NotTo(HaveOccurred())
 					})
@@ -443,7 +514,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					})
 
 					It("should not need a removal", func() {
-						needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, status, log)
+						needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, status, log, true)
 						Expect(needsRemoval).To(BeFalse())
 						Expect(err).NotTo(HaveOccurred())
 					})
@@ -461,7 +532,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					})
 
 					It("should need a removal", func() {
-						needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, status, log)
+						needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, status, log, true)
 						Expect(needsRemoval).To(BeTrue())
 						Expect(err).NotTo(HaveOccurred())
 					})
@@ -479,7 +550,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					})
 
 					It("should not need a removal", func() {
-						needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, status, log)
+						needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, status, log, true)
 						Expect(needsRemoval).To(BeFalse())
 						Expect(err).NotTo(HaveOccurred())
 					})
@@ -500,7 +571,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					})
 
 					It("should need a removal", func() {
-						needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, status, log)
+						needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, status, log, true)
 						Expect(needsRemoval).To(BeTrue())
 						Expect(err).NotTo(HaveOccurred())
 					})
@@ -524,7 +595,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					})
 
 					It("should not need a removal", func() {
-						needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, status, log)
+						needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, status, log, true)
 						Expect(needsRemoval).To(BeFalse())
 						Expect(err).NotTo(HaveOccurred())
 					})
@@ -542,7 +613,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					})
 
 					It("should not need a removal", func() {
-						needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, status, log)
+						needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, status, log, true)
 						Expect(needsRemoval).To(BeFalse())
 						Expect(err).NotTo(HaveOccurred())
 					})
@@ -560,7 +631,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					})
 
 					It("should not need a removal", func() {
-						needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, status, log)
+						needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, status, log, true)
 						Expect(needsRemoval).To(BeFalse())
 						Expect(err).NotTo(HaveOccurred())
 					})
@@ -578,7 +649,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					})
 
 					It("should not need a removal", func() {
-						needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, status, log)
+						needsRemoval, err := processGroupNeedsRemovalForPod(cluster, pod, status, log, true)
 						Expect(needsRemoval).To(BeFalse())
 						Expect(err).NotTo(HaveOccurred())
 					})
@@ -638,7 +709,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			})
 
 			It("should not have a replacements", func() {
-				hasReplacement, err := ReplaceMisconfiguredProcessGroups(context.Background(), podmanager.StandardPodLifecycleManager{}, k8sClient, log, cluster, pvcMap)
+				hasReplacement, err := ReplaceMisconfiguredProcessGroups(context.Background(), podmanager.StandardPodLifecycleManager{}, k8sClient, log, cluster, pvcMap, true)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(hasReplacement).To(BeFalse())
 
@@ -661,7 +732,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			})
 
 			It("should have two replacements", func() {
-				hasReplacement, err := ReplaceMisconfiguredProcessGroups(context.Background(), podmanager.StandardPodLifecycleManager{}, k8sClient, log, cluster, pvcMap)
+				hasReplacement, err := ReplaceMisconfiguredProcessGroups(context.Background(), podmanager.StandardPodLifecycleManager{}, k8sClient, log, cluster, pvcMap, true)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(hasReplacement).To(BeTrue())
 
@@ -680,7 +751,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 		When("Setting is unset", func() {
 			It("should replace all process groups", func() {
-				hasReplacement, err := ReplaceMisconfiguredProcessGroups(context.Background(), podmanager.StandardPodLifecycleManager{}, k8sClient, log, cluster, pvcMap)
+				hasReplacement, err := ReplaceMisconfiguredProcessGroups(context.Background(), podmanager.StandardPodLifecycleManager{}, k8sClient, log, cluster, pvcMap, true)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(hasReplacement).To(BeTrue())
 
@@ -725,7 +796,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				})
 
 				It("should not have any replacements", func() {
-					hasReplacement, err := ReplaceMisconfiguredProcessGroups(context.Background(), podmanager.StandardPodLifecycleManager{}, k8sClient, log, cluster, pvcMap)
+					hasReplacement, err := ReplaceMisconfiguredProcessGroups(context.Background(), podmanager.StandardPodLifecycleManager{}, k8sClient, log, cluster, pvcMap, true)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(hasReplacement).To(BeFalse())
 
@@ -744,3 +815,272 @@ var _ = Describe("replace_misconfigured_pods", func() {
 		})
 	})
 })
+
+var _ = DescribeTable("file_security_context_changed",
+	func(desired, current *corev1.PodSpec, wantResult bool) {
+		var log logr.Logger
+		logf.SetLogger(zap.New(zap.UseDevMode(true), zap.WriteTo(GinkgoWriter)))
+		result := fileSecurityContextChanged(desired, current, log)
+		Expect(result).To(Equal(wantResult))
+	},
+	Entry("SecurityContext stays nil", &corev1.PodSpec{}, &corev1.PodSpec{}, false),
+	Entry("SecurityContext turns nil from empty",
+		&corev1.PodSpec{SecurityContext: &corev1.PodSecurityContext{}},
+		&corev1.PodSpec{},
+		false,
+	),
+	Entry("SecurityContext turns empty from nil",
+		&corev1.PodSpec{},
+		&corev1.PodSpec{SecurityContext: &corev1.PodSecurityContext{}},
+		false,
+	),
+	Entry("FSGroup is added",
+		&corev1.PodSpec{SecurityContext: &corev1.PodSecurityContext{FSGroup: new(int64)}},
+		&corev1.PodSpec{SecurityContext: &corev1.PodSecurityContext{}},
+		true,
+	),
+	Entry("FSGroup is removed",
+		&corev1.PodSpec{SecurityContext: &corev1.PodSecurityContext{}},
+		&corev1.PodSpec{SecurityContext: &corev1.PodSecurityContext{FSGroup: new(int64)}},
+		true,
+	),
+	Entry("FSGroup is changed",
+		&corev1.PodSpec{SecurityContext: &corev1.PodSecurityContext{FSGroup: pointer.Int64(42)}},
+		&corev1.PodSpec{SecurityContext: &corev1.PodSecurityContext{FSGroup: new(int64)}},
+		true,
+	),
+	Entry("FSGroupChangePolicy is changed",
+		&corev1.PodSpec{SecurityContext: &corev1.PodSecurityContext{
+			FSGroupChangePolicy: &[]corev1.PodFSGroupChangePolicy{corev1.FSGroupChangeAlways}[0]}},
+		&corev1.PodSpec{SecurityContext: &corev1.PodSecurityContext{
+			FSGroupChangePolicy: &[]corev1.PodFSGroupChangePolicy{corev1.FSGroupChangeOnRootMismatch}[0]}},
+		true,
+	),
+	Entry("nothing is changed, empty settings",
+		&corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{},
+			Containers: []corev1.Container{
+				{SecurityContext: &corev1.SecurityContext{}},
+			}},
+		&corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{},
+			Containers: []corev1.Container{
+				{SecurityContext: &corev1.SecurityContext{}},
+			}},
+		false,
+	),
+	Entry("only non-file related fields are added to container spec",
+		&corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{},
+			Containers: []corev1.Container{
+				{SecurityContext: &corev1.SecurityContext{WindowsOptions: &corev1.WindowsSecurityContextOptions{HostProcess: new(bool)}}},
+			}},
+		&corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{},
+			Containers: []corev1.Container{
+				{SecurityContext: &corev1.SecurityContext{}},
+			}},
+		false,
+	),
+	Entry("only non-file related fields are changed on the container spec",
+		&corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{},
+			Containers: []corev1.Container{
+				{SecurityContext: &corev1.SecurityContext{WindowsOptions: &corev1.WindowsSecurityContextOptions{HostProcess: new(bool)}}},
+			}},
+		&corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{},
+			Containers: []corev1.Container{
+				{SecurityContext: &corev1.SecurityContext{Privileged: new(bool)}},
+			}},
+		false,
+	),
+	Entry("only non-file related fields are removed from container spec",
+		&corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{},
+			Containers: []corev1.Container{
+				{SecurityContext: &corev1.SecurityContext{}},
+			}},
+		&corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{},
+			Containers: []corev1.Container{
+				{SecurityContext: &corev1.SecurityContext{WindowsOptions: &corev1.WindowsSecurityContextOptions{HostProcess: new(bool)}}},
+			}},
+		false,
+	),
+	Entry("only non-file related fields are added to pod spec",
+		&corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{SupplementalGroups: []int64{1, 2, 3}},
+			Containers: []corev1.Container{
+				{SecurityContext: &corev1.SecurityContext{}},
+			}},
+		&corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{},
+			Containers: []corev1.Container{
+				{SecurityContext: &corev1.SecurityContext{}},
+			}},
+		false,
+	),
+	Entry("only non-file related fields are removed from pod spec",
+		&corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{},
+			Containers: []corev1.Container{
+				{SecurityContext: &corev1.SecurityContext{}},
+			}},
+		&corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{SupplementalGroups: []int64{1, 2, 3}},
+			Containers: []corev1.Container{
+				{SecurityContext: &corev1.SecurityContext{}},
+			}},
+		false,
+	),
+	Entry("only non-file related fields are changed on the pod spec",
+		&corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{SupplementalGroups: []int64{1, 2, 3}},
+			Containers: []corev1.Container{
+				{SecurityContext: &corev1.SecurityContext{}},
+			}},
+		&corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{SupplementalGroups: []int64{1, 2, 3, 4, 5}},
+			Containers: []corev1.Container{
+				{SecurityContext: &corev1.SecurityContext{}},
+			}},
+		false,
+	),
+	Entry("RunAsUser is added to the pod spec",
+		&corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{RunAsUser: pointer.Int64(42)},
+			Containers:      []corev1.Container{{}}}, // needs a "matching" container to compare effective settings
+		&corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{},
+			Containers:      []corev1.Container{{}}},
+		true,
+	),
+	Entry("RunAsUser is added to the container spec",
+		&corev1.PodSpec{
+			Containers: []corev1.Container{
+				{SecurityContext: &corev1.SecurityContext{RunAsUser: pointer.Int64(42)}}}},
+		&corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{},
+			Containers:      []corev1.Container{{}}},
+		true,
+	),
+	Entry("RunAsUser is removed from the container spec",
+		&corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{},
+			Containers:      []corev1.Container{{}}},
+		&corev1.PodSpec{
+			Containers: []corev1.Container{
+				{SecurityContext: &corev1.SecurityContext{RunAsUser: pointer.Int64(42)}},
+			}},
+		true,
+	),
+	Entry("RunAsUser is removed from the container spec but not from the pod (no effective change)",
+		&corev1.PodSpec{
+			Containers: []corev1.Container{
+				{SecurityContext: &corev1.SecurityContext{RunAsUser: pointer.Int64(42)}},
+			}},
+		&corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{RunAsUser: pointer.Int64(42)},
+			Containers: []corev1.Container{
+				{SecurityContext: &corev1.SecurityContext{RunAsUser: pointer.Int64(42)}},
+			}},
+		false,
+	),
+	Entry("RunAsUser is changed on container spec",
+		&corev1.PodSpec{
+			Containers: []corev1.Container{
+				{SecurityContext: &corev1.SecurityContext{RunAsUser: pointer.Int64(111)}},
+			}},
+		&corev1.PodSpec{
+			Containers: []corev1.Container{
+				{SecurityContext: &corev1.SecurityContext{RunAsUser: pointer.Int64(42)}},
+			}},
+		true,
+	),
+	Entry("RunAsGroup is changed on pod spec",
+		&corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{RunAsGroup: pointer.Int64(111)},
+			Containers:      []corev1.Container{{}}},
+		&corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{RunAsGroup: pointer.Int64(42)},
+			Containers:      []corev1.Container{{}}},
+		true,
+	),
+	Entry("RunAsGroup is moved from podSpec to container spec",
+		&corev1.PodSpec{
+			Containers: []corev1.Container{
+				{SecurityContext: &corev1.SecurityContext{RunAsGroup: pointer.Int64(42)}},
+			}},
+		&corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{RunAsGroup: pointer.Int64(42)},
+			Containers:      []corev1.Container{{}}},
+		false,
+	),
+	Entry("RunAsGroup is moved from container spec to podSpec",
+		&corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{RunAsGroup: pointer.Int64(42)},
+			Containers:      []corev1.Container{{}}},
+		&corev1.PodSpec{
+			Containers: []corev1.Container{
+				{SecurityContext: &corev1.SecurityContext{RunAsGroup: pointer.Int64(42)}},
+			}},
+		false,
+	),
+	Entry("RunAsGroup is moved from podSpec to container spec and FSGroup changes",
+		&corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{
+				FSGroup: pointer.Int64(42),
+			},
+			Containers: []corev1.Container{
+				{SecurityContext: &corev1.SecurityContext{
+					RunAsGroup: pointer.Int64(42)}},
+			}},
+		&corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{
+				RunAsGroup: pointer.Int64(42)},
+			Containers: []corev1.Container{{}}},
+		true,
+	),
+	Entry("mix of changes (file and non-file related) that do not result in a change",
+		&corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{
+				SupplementalGroups: []int64{5, 6},
+			},
+			Containers: []corev1.Container{
+				{SecurityContext: &corev1.SecurityContext{
+					RunAsGroup: pointer.Int64(42)}},
+			}},
+		&corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{
+				RunAsGroup: pointer.Int64(42)},
+			Containers: []corev1.Container{{}}},
+		false,
+	),
+	Entry("mix of changes (file and non-file related) that result in a change",
+		&corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{
+				SupplementalGroups: []int64{5, 6},
+				FSGroup:            new(int64),
+			},
+			Containers: []corev1.Container{
+				{SecurityContext: &corev1.SecurityContext{
+					RunAsGroup: pointer.Int64(42)}},
+			}},
+		&corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{
+				RunAsGroup: pointer.Int64(42)},
+			Containers: []corev1.Container{{}}},
+		true,
+	),
+	// this is likely useless as I would assume that we would not be looking at replacing a pod with
+	// no containers in the first place, but if we somehow are it seems better to not replace non-existent processes
+	Entry("No containers exist and RunAsUser is added to the pod spec",
+		&corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{RunAsUser: new(int64)},
+			Containers:      []corev1.Container{{Name: "fdb"}},
+		},
+		&corev1.PodSpec{SecurityContext: &corev1.PodSecurityContext{}},
+		false,
+	),
+)

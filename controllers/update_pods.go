@@ -207,7 +207,7 @@ func getPodsToUpdate(ctx context.Context, logger logr.Logger, reconciler *Founda
 			continue
 		}
 
-		needsRemoval, err := replacements.ProcessGroupNeedsRemoval(ctx, reconciler.PodLifecycleManager, reconciler, logger, cluster, processGroup, pvcMap)
+		needsRemoval, err := replacements.ProcessGroupNeedsRemoval(ctx, reconciler.PodLifecycleManager, reconciler, logger, cluster, processGroup, pvcMap, reconciler.ReplaceOnSecurityContextChange)
 		// Do not update the Pod if unable to determine if it needs to be removed.
 		if err != nil {
 			logger.V(1).Info("Skip process group, error checking if it requires a removal",
