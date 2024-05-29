@@ -1484,7 +1484,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				currentPods := fdbCluster.GetPodsNames()
 				g.Expect(currentPods).NotTo(ContainElements(podsToReplace))
 				g.Expect(currentPods).To(ContainElements(podsNotToReplace))
-				// check that General template pods (Log + Stateless) are not
+				// check that General template pods (Log + Stateless) are replaced with the new security context
 				logPods := fdbCluster.GetLogPods()
 				for _, pod := range logPods.Items {
 					g.Expect(pod.Spec.SecurityContext.FSGroupChangePolicy).ToNot(BeNil())

@@ -308,12 +308,12 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			})
 
 			When("the last applied spec hash is different from desired spec hash", func() {
-				BeforeEach(func() {
+				JustBeforeEach(func() {
 					pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] = "banana"
 				})
 
 				When("FSGroup is changed", func() {
-					BeforeEach(func() {
+					JustBeforeEach(func() {
 						pod.Spec.SecurityContext = &corev1.PodSecurityContext{FSGroup: pointer.Int64(1234)}
 					})
 
@@ -333,12 +333,12 @@ var _ = Describe("replace_misconfigured_pods", func() {
 						})
 					})
 
-					AfterAll(func() {
+					AfterEach(func() {
 						pod.Spec.SecurityContext = originalSecurityContext
 					})
 				})
 
-				AfterAll(func() {
+				AfterEach(func() {
 					pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] = originalSpecHash
 				})
 			})
@@ -349,7 +349,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				})
 
 				When("FSGroup is changed", func() {
-					BeforeEach(func() {
+					JustBeforeEach(func() {
 						pod.Spec.SecurityContext = &corev1.PodSecurityContext{FSGroup: pointer.Int64(1234)}
 					})
 
@@ -358,6 +358,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 						Expect(needsRemoval).To(BeFalse())
 						Expect(err).NotTo(HaveOccurred())
 					})
+
 					AfterEach(func() {
 						pod.Spec.SecurityContext = originalSecurityContext
 					})
