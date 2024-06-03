@@ -124,10 +124,14 @@ func (g generateInitialClusterFile) reconcile(ctx context.Context, r *Foundation
 			logger.Info("Pod is ineligible to be a coordinator due to missing locality information", "processGroupID", processGroupID)
 			continue
 		}
+		currentLocality.Priority = cluster.GetClassCandidatePriority(currentLocality.Class)
 		processLocality = append(processLocality, currentLocality)
 	}
 
-	coordinators, err := locality.ChooseDistributedProcesses(cluster, processLocality, count, locality.ProcessSelectionConstraint{})
+	coordinators, err := locality.ChooseDistributedProcesses(cluster, processLocality, count, locality.ProcessSelectionConstraint{
+		HardLimits:            locality.GetHardLimits(cluster),
+		SelectingCoordinators: true,
+	})
 	if err != nil {
 		return &requeue{curError: err}
 	}

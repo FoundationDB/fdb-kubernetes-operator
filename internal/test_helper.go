@@ -25,6 +25,8 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
+	"math/rand"
+	"strings"
 )
 
 // CreateDefaultCluster creates a default FoundationDBCluster for testing
@@ -103,4 +105,16 @@ func GetProcessGroup(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1
 		ProcessClass:   processClass,
 		ProcessGroupID: processGroupID,
 	}
+}
+
+const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+// GenerateRandomString can be used to generate a random string with length n
+func GenerateRandomString(n int) string {
+	var res strings.Builder
+	for i := 0; i < n; i++ {
+		res.WriteByte(letterBytes[rand.Intn(len(letterBytes))])
+	}
+
+	return res.String()
 }

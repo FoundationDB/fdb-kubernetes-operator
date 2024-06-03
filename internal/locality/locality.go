@@ -21,14 +21,14 @@
 package locality
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
-	"math"
-	"sort"
-
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podclient"
 	"github.com/go-logr/logr"
+	"math"
+	"slices"
 )
 
 // Info captures information about a process for the purposes of
@@ -56,15 +56,18 @@ type Info struct {
 // otherwise we get a (nearly) random result since processes are stored in a map which is by definition
 // not sorted and doesn't return values in a stable way.
 func sortLocalities(processes []Info) {
-	// Sort the processes for ID to ensure we have a stable input
-	sort.SliceStable(processes, func(i, j int) bool {
+	slices.SortStableFunc(processes, func(a, b Info) int {
 		// If both have the same priority sort them by the process ID
-		if processes[i].Priority == processes[j].Priority {
-			return processes[i].ID < processes[j].ID
+		if a.Priority == b.Priority {
+			return cmp.Compare(a.ID, b.ID)
 		}
 
-		// prefer processes with a higher priority
-		return processes[i].Priority > processes[j].Priority
+		// Prefer processes with a higher priority
+		if a.Priority > b.Priority {
+			return -1
+		}
+
+		return 1
 	})
 }
 
@@ -146,10 +149,12 @@ type ProcessSelectionConstraint struct {
 	// HardLimits defines a maximum number of processes to recruit on any single
 	// value for a given locality field.
 	HardLimits map[string]int
+
+	// SelectingCoordinators must be true when the ChooseDistributedProcesses is used to select coordinators.
+	SelectingCoordinators bool
 }
 
-// ChooseDistributedProcesses recruits a maximally well-distributed set
-// of processes from a set of potential candidates.
+// ChooseDistributedProcesses recruits a maximally well-distributed set of processes from a set of potential candidates.
 func ChooseDistributedProcesses(cluster *fdbv1beta2.FoundationDBCluster, processes []Info, count int, constraint ProcessSelectionConstraint) ([]Info, error) {
 	chosen := make([]Info, 0, count)
 	chosenIDs := make(map[string]bool, count)
@@ -178,6 +183,29 @@ func ChooseDistributedProcesses(cluster *fdbv1beta2.FoundationDBCluster, process
 			hardLimits[field] = count
 		}
 		currentLimits[field] = 1
+	}
+
+	if constraint.SelectingCoordinators {
+		// If the cluster runs in a multi-region config and has more than 3 DCs we want to make sure that the primary is
+		// preferred for the 3 coordinators.
+		// See: https://github.com/FoundationDB/fdb-kubernetes-operator/issues/2034
+		if cluster.Spec.DatabaseConfiguration.UsableRegions > 1 && cluster.Spec.DatabaseConfiguration.CountUniqueDataCenters() > 3 {
+			primaryDC := cluster.DesiredDatabaseConfiguration().GetPrimaryDCID()
+
+			mainDCs, satelliteDCs := cluster.Spec.DatabaseConfiguration.GetMainDCsAndSatellites()
+			// We increase the chosen count by 1 to make sure the primary dc will host the 3 coordinators.
+			for dcID := range mainDCs {
+				if primaryDC == dcID {
+					continue
+				}
+
+				chosenCounts[fdbv1beta2.FDBLocalityDCIDKey][dcID]++
+			}
+
+			for dcID := range satelliteDCs {
+				chosenCounts[fdbv1beta2.FDBLocalityDCIDKey][dcID]++
+			}
+		}
 	}
 
 	// Sort the processes to ensure a deterministic result
