@@ -481,7 +481,8 @@ var _ = Describe("monitor_conf", func() {
 
 		When("using the split image", func() {
 			BeforeEach(func() {
-				cluster.Spec.UseUnifiedImage = pointer.Bool(false)
+				imageType := fdbv1beta2.ImageTypeSplit
+				cluster.Spec.ImageType = &imageType
 			})
 
 			When("no additional custom parameters are defined", func() {
