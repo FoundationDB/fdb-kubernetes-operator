@@ -51,8 +51,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 	BeforeEach(func() {
 		log = logf.Log.WithName("replacements")
 		cluster = internal.CreateDefaultCluster()
-		err := internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{UseFutureDefaults: true})
-		Expect(err).NotTo(HaveOccurred())
+		Expect(internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{UseFutureDefaults: true})).NotTo(HaveOccurred())
 
 		cluster.Spec.LabelConfig.FilterOnOwnerReferences = pointer.Bool(false)
 	})
@@ -93,8 +92,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				pod.Spec = *spec
-				err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
-				Expect(err).NotTo(HaveOccurred())
+				Expect(internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})).NotTo(HaveOccurred())
 			})
 
 			When("process group has no Pod", func() {
@@ -523,8 +521,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				pod.Spec = *spec
-				err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
-				Expect(err).NotTo(HaveOccurred())
+				Expect(internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})).NotTo(HaveOccurred())
 			})
 
 			When("the storageServersPerPod is changed for a non storage class process group", func() {
@@ -538,10 +535,22 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				})
 			})
 
-			Context("when PodUpdateStrategyTransactionReplacement is set and the PodSpecHash doesn't match for transaction", func() {
+			When("PodUpdateStrategyTransactionReplacement is set and the PodSpecHash doesn't match for transaction", func() {
 				BeforeEach(func() {
 					pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] = "-1"
 					cluster.Spec.AutomationOptions.PodUpdateStrategy = fdbv1beta2.PodUpdateStrategyTransactionReplacement
+				})
+
+				It("should need a removal", func() {
+					Expect(needsRemoval).To(BeTrue())
+					Expect(err).NotTo(HaveOccurred())
+				})
+			})
+
+			When("process group ID prefix changes", func() {
+				BeforeEach(func() {
+					// Change the process group ID should trigger a removal
+					cluster.Spec.ProcessGroupIDPrefix = "test"
 				})
 
 				It("should need a removal", func() {
