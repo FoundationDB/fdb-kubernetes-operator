@@ -23,6 +23,7 @@ package internal
 import (
 	"encoding/json"
 	"fmt"
+	"k8s.io/utils/pointer"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	monitorapi "github.com/apple/foundationdb/fdbkubernetesmonitor/api"
@@ -155,6 +156,7 @@ var _ = Describe("configmap_helper", func() {
 
 			When("using the unified image", func() {
 				BeforeEach(func() {
+					cluster.Spec.UseUnifiedImage = pointer.Bool(true)
 					cluster.Status.ImageTypes = []fdbv1beta2.ImageType{"unified"}
 				})
 
@@ -167,7 +169,7 @@ var _ = Describe("configmap_helper", func() {
 					expectedConfig := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 1, FDBImageTypeUnified)
 					Expect(config).To(Equal(expectedConfig))
 
-					jsonData, present = configMap.Data["fdbmonitor-conf-storage-json-multiple"]
+					jsonData, present = configMap.Data["fdbmonitor-conf-storage-json"]
 					Expect(present).To(BeTrue())
 					config = monitorapi.ProcessConfiguration{}
 					err = json.Unmarshal([]byte(jsonData), &config)
@@ -175,7 +177,6 @@ var _ = Describe("configmap_helper", func() {
 					expectedConfig = GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 2, FDBImageTypeUnified)
 					Expect(config).To(Equal(expectedConfig))
 				})
-
 			})
 		})
 
@@ -201,6 +202,7 @@ var _ = Describe("configmap_helper", func() {
 
 			When("using the unified image", func() {
 				BeforeEach(func() {
+					cluster.Spec.UseUnifiedImage = pointer.Bool(true)
 					cluster.Status.ImageTypes = []fdbv1beta2.ImageType{"unified"}
 				})
 
@@ -213,7 +215,7 @@ var _ = Describe("configmap_helper", func() {
 					expectedConfig := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassLog, 1, FDBImageTypeUnified)
 					Expect(config).To(Equal(expectedConfig))
 
-					jsonData, present = configMap.Data["fdbmonitor-conf-log-json-multiple"]
+					jsonData, present = configMap.Data["fdbmonitor-conf-log-json"]
 					Expect(present).To(BeTrue())
 					config = monitorapi.ProcessConfiguration{}
 					err = json.Unmarshal([]byte(jsonData), &config)

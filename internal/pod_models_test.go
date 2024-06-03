@@ -652,7 +652,7 @@ var _ = Describe("pod_models", func() {
 						VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
 							LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", cluster.Name)},
 							Items: []corev1.KeyToPath{
-								{Key: "fdbmonitor-conf-storage-json-multiple", Path: "config.json"},
+								{Key: "fdbmonitor-conf-storage-json", Path: "config.json"},
 								{Key: ClusterFileKey, Path: "fdb.cluster"},
 							},
 						}},
@@ -762,7 +762,7 @@ var _ = Describe("pod_models", func() {
 						VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
 							LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", cluster.Name)},
 							Items: []corev1.KeyToPath{
-								{Key: "fdbmonitor-conf-log-json-multiple", Path: "config.json"},
+								{Key: "fdbmonitor-conf-log-json", Path: "config.json"},
 								{Key: ClusterFileKey, Path: "fdb.cluster"},
 							},
 						}},

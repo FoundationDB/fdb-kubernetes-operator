@@ -71,38 +71,38 @@ func GetConfigMap(cluster *fdbv1beta2.FoundationDBCluster) (*corev1.ConfigMap, e
 			continue
 		}
 
-		serversPerPodSlice := []int{1}
-		if processClass == fdbv1beta2.ProcessClassStorage {
-			// If the status field is not initialized we fallback to only the specified count
-			// in the cluster spec. This should only happen in the initial phase of a new cluster.
-			if len(cluster.Status.StorageServersPerDisk) == 0 {
-				serversPerPodSlice = []int{cluster.GetDesiredServersPerPod(processClass)}
-			} else {
-				serversPerPodSlice = cluster.Status.StorageServersPerDisk
-			}
-		}
-
-		if processClass.SupportsMultipleLogServers() {
-			// If the status field is not initialized we fallback to only the specified count
-			// in the cluster spec. This should only happen in the initial phase of a new cluster.
-			if len(cluster.Status.LogServersPerDisk) == 0 {
-				serversPerPodSlice = []int{cluster.GetDesiredServersPerPod(processClass)}
-			} else {
-				serversPerPodSlice = cluster.Status.LogServersPerDisk
-			}
-		}
-
 		if _, useUnifiedImage := imageTypes[FDBImageTypeUnified]; useUnifiedImage {
-			for _, serversPerPod := range serversPerPodSlice {
-				filename, jsonData, err := getDataForMonitorConf(cluster, FDBImageTypeUnified, processClass, serversPerPod)
-				if err != nil {
-					return nil, err
-				}
-				data[filename] = string(jsonData)
+			// The serversPerPod argument will be ignored in the config of the unified image as the values are directly
+			// interpolated in the fdb-kubernetes-monitor, based on the "--process-count" command line flag.
+			filename, jsonData, err := getDataForMonitorConf(cluster, FDBImageTypeUnified, processClass, 0)
+			if err != nil {
+				return nil, err
 			}
+			data[filename] = string(jsonData)
 		}
 
 		if _, useSplitImage := imageTypes[FDBImageTypeSplit]; useSplitImage {
+			serversPerPodSlice := []int{1}
+			if processClass == fdbv1beta2.ProcessClassStorage {
+				// If the status field is not initialized we fallback to only the specified count
+				// in the cluster spec. This should only happen in the initial phase of a new cluster.
+				if len(cluster.Status.StorageServersPerDisk) == 0 {
+					serversPerPodSlice = []int{cluster.GetDesiredServersPerPod(processClass)}
+				} else {
+					serversPerPodSlice = cluster.Status.StorageServersPerDisk
+				}
+			}
+
+			if processClass.SupportsMultipleLogServers() {
+				// If the status field is not initialized we fallback to only the specified count
+				// in the cluster spec. This should only happen in the initial phase of a new cluster.
+				if len(cluster.Status.LogServersPerDisk) == 0 {
+					serversPerPodSlice = []int{cluster.GetDesiredServersPerPod(processClass)}
+				} else {
+					serversPerPodSlice = cluster.Status.LogServersPerDisk
+				}
+			}
+
 			for _, serversPerPod := range serversPerPodSlice {
 				err := setMonitorConfForFilename(cluster, data, GetConfigMapMonitorConfEntry(processClass, FDBImageTypeSplit, serversPerPod), connectionString, processClass, serversPerPod)
 				if err != nil {
@@ -171,9 +171,6 @@ func setMonitorConfForFilename(cluster *fdbv1beta2.FoundationDBCluster, data map
 // GetConfigMapMonitorConfEntry returns the specific key for the monitor conf in the ConfigMap
 func GetConfigMapMonitorConfEntry(pClass fdbv1beta2.ProcessClass, imageType FDBImageType, serversPerPod int) string {
 	if imageType == FDBImageTypeUnified {
-		if serversPerPod > 1 {
-			return fmt.Sprintf("fdbmonitor-conf-%s-json-multiple", pClass)
-		}
 		return fmt.Sprintf("fdbmonitor-conf-%s-json", pClass)
 	}
 	if serversPerPod > 1 {

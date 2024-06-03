@@ -479,33 +479,39 @@ var _ = Describe("monitor_conf", func() {
 			address = pod.Status.PodIP
 		})
 
-		Context("for a basic storage process", func() {
-			It("should substitute the variables in the start command", func() {
-				substitutions, err := GetSubstitutionsFromClusterAndPod(logr.Discard(), cluster, pod)
-				Expect(err).NotTo(HaveOccurred())
-				command, err = GetStartCommandWithSubstitutions(cluster, processClass, substitutions, 1, 1)
-				Expect(err).NotTo(HaveOccurred())
-
-				Expect(command).To(Equal(strings.Join([]string{
-					"/usr/bin/fdbserver",
-					"--class=storage",
-					"--cluster_file=/var/fdb/data/fdb.cluster",
-					"--datadir=/var/fdb/data",
-					fmt.Sprintf("--locality_instance_id=%s", processGroupID),
-					fmt.Sprintf("--locality_machineid=%s-%s", cluster.Name, processGroupID),
-					fmt.Sprintf("--locality_zoneid=%s-%s", cluster.Name, processGroupID),
-					"--logdir=/var/log/fdb-trace-logs",
-					"--loggroup=" + cluster.Name,
-					fmt.Sprintf("--public_address=%s:4501", address),
-					"--seed_cluster_file=/var/dynamic-conf/fdb.cluster",
-				}, " ")))
+		When("using the split image", func() {
+			BeforeEach(func() {
+				cluster.Spec.UseUnifiedImage = pointer.Bool(false)
 			})
 
-			Context("with custom parameters with substitutions", func() {
+			When("no additional custom parameters are defined", func() {
+				It("should substitute the variables in the start command", func() {
+					substitutions, err := GetSubstitutionsFromClusterAndPod(logr.Discard(), cluster, pod)
+					Expect(err).NotTo(HaveOccurred())
+					command, err = GetStartCommandWithSubstitutions(cluster, processClass, substitutions, 1, 1)
+					Expect(err).NotTo(HaveOccurred())
+
+					Expect(command).To(Equal(strings.Join([]string{
+						"/usr/bin/fdbserver",
+						"--class=storage",
+						"--cluster_file=/var/fdb/data/fdb.cluster",
+						"--datadir=/var/fdb/data",
+						fmt.Sprintf("--locality_instance_id=%s", processGroupID),
+						fmt.Sprintf("--locality_machineid=%s-%s", cluster.Name, processGroupID),
+						fmt.Sprintf("--locality_zoneid=%s-%s", cluster.Name, processGroupID),
+						"--logdir=/var/log/fdb-trace-logs",
+						"--loggroup=" + cluster.Name,
+						fmt.Sprintf("--public_address=%s:4501", address),
+						"--seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+					}, " ")))
+				})
+			})
+
+			When("custom parameters with substitutions are defined", func() {
 				It("should substitute the variables in the custom parameters", func() {
-					settings := cluster.Spec.Processes["general"]
+					settings := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
 					settings.CustomParameters = []fdbv1beta2.FoundationDBCustomParameter{"locality_disk_id=$FDB_INSTANCE_ID"}
-					cluster.Spec.Processes["general"] = settings
+					cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral] = settings
 
 					substitutions, err := GetSubstitutionsFromClusterAndPod(logr.Discard(), cluster, pod)
 					Expect(err).NotTo(HaveOccurred())
@@ -521,6 +527,136 @@ var _ = Describe("monitor_conf", func() {
 						fmt.Sprintf("--locality_instance_id=%s", processGroupID),
 						fmt.Sprintf("--locality_machineid=%s-%s", cluster.Name, processGroupID),
 						fmt.Sprintf("--locality_zoneid=%s-%s", cluster.Name, processGroupID),
+						"--logdir=/var/log/fdb-trace-logs",
+						"--loggroup=" + cluster.Name,
+						fmt.Sprintf("--public_address=%s:4501", address),
+						"--seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+					}, " ")))
+				})
+			})
+
+			When("multiple storage servers per Pod are defined", func() {
+				It("should substitute the variables in the start command", func() {
+					substitutions, err := GetSubstitutionsFromClusterAndPod(logr.Discard(), cluster, pod)
+					Expect(err).NotTo(HaveOccurred())
+					command, err = GetStartCommandWithSubstitutions(cluster, processClass, substitutions, 1, 2)
+					Expect(err).NotTo(HaveOccurred())
+
+					id := "storage-1"
+					Expect(command).To(Equal(strings.Join([]string{
+						"/usr/bin/fdbserver",
+						"--class=storage",
+						"--cluster_file=/var/fdb/data/fdb.cluster",
+						"--datadir=/var/fdb/data/1",
+						fmt.Sprintf("--locality_instance_id=%s", id),
+						fmt.Sprintf("--locality_machineid=%s-%s", cluster.Name, id),
+						fmt.Sprintf("--locality_process_id=%s-1", id),
+						fmt.Sprintf("--locality_zoneid=%s-%s", cluster.Name, id),
+						"--logdir=/var/log/fdb-trace-logs",
+						"--loggroup=" + cluster.Name,
+						fmt.Sprintf("--public_address=%s:4501", address),
+						"--seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+					}, " ")))
+
+					command, err = GetStartCommandWithSubstitutions(cluster, processClass, substitutions, 2, 2)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(command).To(Equal(strings.Join([]string{
+						"/usr/bin/fdbserver",
+						"--class=storage",
+						"--cluster_file=/var/fdb/data/fdb.cluster",
+						"--datadir=/var/fdb/data/2",
+						fmt.Sprintf("--locality_instance_id=%s", id),
+						fmt.Sprintf("--locality_machineid=%s-%s", cluster.Name, id),
+						fmt.Sprintf("--locality_process_id=%s-2", id),
+						fmt.Sprintf("--locality_zoneid=%s-%s", cluster.Name, id),
+						"--logdir=/var/log/fdb-trace-logs",
+						"--loggroup=" + cluster.Name,
+						fmt.Sprintf("--public_address=%s:4503", address),
+						"--seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+					}, " ")))
+				})
+			})
+
+			When("host replication is used", func() {
+				BeforeEach(func() {
+					pod.Spec.NodeName = "machine1"
+					cluster.Spec.FaultDomain = fdbv1beta2.FoundationDBClusterFaultDomain{}
+
+					substitutions, err := GetSubstitutionsFromClusterAndPod(logr.Discard(), cluster, pod)
+					Expect(err).NotTo(HaveOccurred())
+					command, err = GetStartCommandWithSubstitutions(cluster, fdbv1beta2.ProcessClassStorage, substitutions, 1, 1)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("should provide the host information in the start command", func() {
+					Expect(command).To(Equal(strings.Join([]string{
+						"/usr/bin/fdbserver",
+						"--class=storage",
+						"--cluster_file=/var/fdb/data/fdb.cluster",
+						"--datadir=/var/fdb/data",
+						"--locality_instance_id=storage-1",
+						"--locality_machineid=machine1",
+						"--locality_zoneid=machine1",
+						"--logdir=/var/log/fdb-trace-logs",
+						"--loggroup=" + cluster.Name,
+						fmt.Sprintf("--public_address=%s:4501", address),
+						"--seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+					}, " ")))
+				})
+			})
+
+			When("cross-Kubernetes replication is used", func() {
+				BeforeEach(func() {
+					pod.Spec.NodeName = "machine1"
+
+					cluster.Spec.FaultDomain = fdbv1beta2.FoundationDBClusterFaultDomain{
+						Key:   "foundationdb.org/kubernetes-cluster",
+						Value: "kc2",
+					}
+
+					substitutions, err := GetSubstitutionsFromClusterAndPod(logr.Discard(), cluster, pod)
+					Expect(err).NotTo(HaveOccurred())
+					command, err = GetStartCommandWithSubstitutions(cluster, fdbv1beta2.ProcessClassStorage, substitutions, 1, 1)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("should put the zone ID in the start command", func() {
+					Expect(command).To(Equal(strings.Join([]string{
+						"/usr/bin/fdbserver",
+						"--class=storage",
+						"--cluster_file=/var/fdb/data/fdb.cluster",
+						"--datadir=/var/fdb/data",
+						"--locality_instance_id=storage-1",
+						"--locality_machineid=machine1",
+						"--locality_zoneid=kc2",
+						"--logdir=/var/log/fdb-trace-logs",
+						"--loggroup=" + cluster.Name,
+						fmt.Sprintf("--public_address=%s:4501", address),
+						"--seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+					}, " ")))
+				})
+			})
+
+			When("the binaries from the main container are used", func() {
+				BeforeEach(func() {
+					cluster.Spec.Version = fdbv1beta2.Versions.Default.String()
+					cluster.Status.RunningVersion = fdbv1beta2.Versions.Default.String()
+					substitutions, err := GetSubstitutionsFromClusterAndPod(logr.Discard(), cluster, pod)
+					Expect(err).NotTo(HaveOccurred())
+					command, err = GetStartCommandWithSubstitutions(cluster, fdbv1beta2.ProcessClassStorage, substitutions, 1, 1)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("should include the binary path in the start command", func() {
+					id := pod.Labels[fdbv1beta2.FDBProcessGroupIDLabel]
+					Expect(command).To(Equal(strings.Join([]string{
+						"/usr/bin/fdbserver",
+						"--class=storage",
+						"--cluster_file=/var/fdb/data/fdb.cluster",
+						"--datadir=/var/fdb/data",
+						fmt.Sprintf("--locality_instance_id=%s", id),
+						fmt.Sprintf("--locality_machineid=%s-%s", cluster.Name, id),
+						fmt.Sprintf("--locality_zoneid=%s-%s", cluster.Name, id),
 						"--logdir=/var/log/fdb-trace-logs",
 						"--loggroup=" + cluster.Name,
 						fmt.Sprintf("--public_address=%s:4501", address),
@@ -549,7 +685,8 @@ var _ = Describe("monitor_conf", func() {
 					"--class=storage",
 					"--logdir=/var/log/fdb-trace-logs",
 					"--loggroup=" + cluster.Name,
-					"--datadir=/var/fdb/data",
+					"--datadir=/var/fdb/data/1",
+					fmt.Sprintf("--locality_process_id=%s-1", processGroupID),
 					fmt.Sprintf("--locality_instance_id=%s", processGroupID),
 					fmt.Sprintf("--locality_machineid=%s-%s", cluster.Name, processGroupID),
 					fmt.Sprintf("--locality_zoneid=%s-%s", cluster.Name, processGroupID),
@@ -582,12 +719,12 @@ var _ = Describe("monitor_conf", func() {
 
 			When("using custom parameters with substitutions", func() {
 				BeforeEach(func() {
-					settings := cluster.Spec.Processes["general"]
+					settings := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
 					settings.CustomParameters = []fdbv1beta2.FoundationDBCustomParameter{
 						"locality_disk_id=$FDB_INSTANCE_ID",
 						"test=$FDB_MACHINE_ID",
 					}
-					cluster.Spec.Processes["general"] = settings
+					cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral] = settings
 				})
 
 				It("should substitute the variables in the custom parameters", func() {
@@ -603,7 +740,8 @@ var _ = Describe("monitor_conf", func() {
 						"--class=storage",
 						"--logdir=/var/log/fdb-trace-logs",
 						"--loggroup=" + cluster.Name,
-						"--datadir=/var/fdb/data",
+						"--datadir=/var/fdb/data/1",
+						fmt.Sprintf("--locality_process_id=%s-1", processGroupID),
 						fmt.Sprintf("--locality_instance_id=%s", processGroupID),
 						fmt.Sprintf("--locality_machineid=%s-%s", cluster.Name, processGroupID),
 						fmt.Sprintf("--locality_zoneid=%s-%s", cluster.Name, processGroupID),
@@ -611,163 +749,6 @@ var _ = Describe("monitor_conf", func() {
 						fmt.Sprintf("--test=%s-%s", cluster.Name, processGroupID),
 					}, " ")))
 				})
-			})
-		})
-
-		When("using the split image", func() {
-			BeforeEach(func() {
-				cluster.Spec.UseUnifiedImage = pointer.Bool(false)
-			})
-
-			It("should generate the sorted command-line", func() {
-				substitutions, err := GetSubstitutionsFromClusterAndPod(logr.Discard(), cluster, pod)
-				Expect(err).NotTo(HaveOccurred())
-				command, err = GetStartCommandWithSubstitutions(cluster, processClass, substitutions, 1, 1)
-				Expect(err).NotTo(HaveOccurred())
-
-				Expect(command).To(Equal(strings.Join([]string{
-					"/usr/bin/fdbserver",
-					"--class=storage",
-					"--cluster_file=/var/fdb/data/fdb.cluster",
-					"--datadir=/var/fdb/data",
-					fmt.Sprintf("--locality_instance_id=%s", processGroupID),
-					fmt.Sprintf("--locality_machineid=%s-%s", cluster.Name, processGroupID),
-					fmt.Sprintf("--locality_zoneid=%s-%s", cluster.Name, processGroupID),
-					"--logdir=/var/log/fdb-trace-logs",
-					"--loggroup=" + cluster.Name,
-					fmt.Sprintf("--public_address=%s:4501", address),
-					"--seed_cluster_file=/var/dynamic-conf/fdb.cluster",
-				}, " ")))
-			})
-		})
-
-		Context("for a basic storage process with multiple storage servers per Pod", func() {
-			It("should substitute the variables in the start command", func() {
-				substitutions, err := GetSubstitutionsFromClusterAndPod(logr.Discard(), cluster, pod)
-				Expect(err).NotTo(HaveOccurred())
-				command, err = GetStartCommandWithSubstitutions(cluster, processClass, substitutions, 1, 2)
-				Expect(err).NotTo(HaveOccurred())
-
-				id := "storage-1"
-				Expect(command).To(Equal(strings.Join([]string{
-					"/usr/bin/fdbserver",
-					"--class=storage",
-					"--cluster_file=/var/fdb/data/fdb.cluster",
-					"--datadir=/var/fdb/data/1",
-					fmt.Sprintf("--locality_instance_id=%s", id),
-					fmt.Sprintf("--locality_machineid=%s-%s", cluster.Name, id),
-					fmt.Sprintf("--locality_process_id=%s-1", id),
-					fmt.Sprintf("--locality_zoneid=%s-%s", cluster.Name, id),
-					"--logdir=/var/log/fdb-trace-logs",
-					"--loggroup=" + cluster.Name,
-					fmt.Sprintf("--public_address=%s:4501", address),
-					"--seed_cluster_file=/var/dynamic-conf/fdb.cluster",
-				}, " ")))
-
-				command, err = GetStartCommandWithSubstitutions(cluster, processClass, substitutions, 2, 2)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(command).To(Equal(strings.Join([]string{
-					"/usr/bin/fdbserver",
-					"--class=storage",
-					"--cluster_file=/var/fdb/data/fdb.cluster",
-					"--datadir=/var/fdb/data/2",
-					fmt.Sprintf("--locality_instance_id=%s", id),
-					fmt.Sprintf("--locality_machineid=%s-%s", cluster.Name, id),
-					fmt.Sprintf("--locality_process_id=%s-2", id),
-					fmt.Sprintf("--locality_zoneid=%s-%s", cluster.Name, id),
-					"--logdir=/var/log/fdb-trace-logs",
-					"--loggroup=" + cluster.Name,
-					fmt.Sprintf("--public_address=%s:4503", address),
-					"--seed_cluster_file=/var/dynamic-conf/fdb.cluster",
-				}, " ")))
-			})
-		})
-
-		Context("with host replication", func() {
-			BeforeEach(func() {
-				pod.Spec.NodeName = "machine1"
-				cluster.Spec.FaultDomain = fdbv1beta2.FoundationDBClusterFaultDomain{}
-
-				substitutions, err := GetSubstitutionsFromClusterAndPod(logr.Discard(), cluster, pod)
-				Expect(err).NotTo(HaveOccurred())
-				command, err = GetStartCommandWithSubstitutions(cluster, fdbv1beta2.ProcessClassStorage, substitutions, 1, 1)
-				Expect(err).NotTo(HaveOccurred())
-			})
-
-			It("should provide the host information in the start command", func() {
-				Expect(command).To(Equal(strings.Join([]string{
-					"/usr/bin/fdbserver",
-					"--class=storage",
-					"--cluster_file=/var/fdb/data/fdb.cluster",
-					"--datadir=/var/fdb/data",
-					"--locality_instance_id=storage-1",
-					"--locality_machineid=machine1",
-					"--locality_zoneid=machine1",
-					"--logdir=/var/log/fdb-trace-logs",
-					"--loggroup=" + cluster.Name,
-					fmt.Sprintf("--public_address=%s:4501", address),
-					"--seed_cluster_file=/var/dynamic-conf/fdb.cluster",
-				}, " ")))
-			})
-		})
-
-		Context("with cross-Kubernetes replication", func() {
-			BeforeEach(func() {
-				pod.Spec.NodeName = "machine1"
-
-				cluster.Spec.FaultDomain = fdbv1beta2.FoundationDBClusterFaultDomain{
-					Key:   "foundationdb.org/kubernetes-cluster",
-					Value: "kc2",
-				}
-
-				substitutions, err := GetSubstitutionsFromClusterAndPod(logr.Discard(), cluster, pod)
-				Expect(err).NotTo(HaveOccurred())
-				command, err = GetStartCommandWithSubstitutions(cluster, fdbv1beta2.ProcessClassStorage, substitutions, 1, 1)
-				Expect(err).NotTo(HaveOccurred())
-			})
-
-			It("should put the zone ID in the start command", func() {
-				Expect(command).To(Equal(strings.Join([]string{
-					"/usr/bin/fdbserver",
-					"--class=storage",
-					"--cluster_file=/var/fdb/data/fdb.cluster",
-					"--datadir=/var/fdb/data",
-					"--locality_instance_id=storage-1",
-					"--locality_machineid=machine1",
-					"--locality_zoneid=kc2",
-					"--logdir=/var/log/fdb-trace-logs",
-					"--loggroup=" + cluster.Name,
-					fmt.Sprintf("--public_address=%s:4501", address),
-					"--seed_cluster_file=/var/dynamic-conf/fdb.cluster",
-				}, " ")))
-			})
-		})
-
-		Context("with binaries from the main container", func() {
-			BeforeEach(func() {
-				cluster.Spec.Version = fdbv1beta2.Versions.Default.String()
-				cluster.Status.RunningVersion = fdbv1beta2.Versions.Default.String()
-				substitutions, err := GetSubstitutionsFromClusterAndPod(logr.Discard(), cluster, pod)
-				Expect(err).NotTo(HaveOccurred())
-				command, err = GetStartCommandWithSubstitutions(cluster, fdbv1beta2.ProcessClassStorage, substitutions, 1, 1)
-				Expect(err).NotTo(HaveOccurred())
-			})
-
-			It("includes the binary path in the start command", func() {
-				id := pod.Labels[fdbv1beta2.FDBProcessGroupIDLabel]
-				Expect(command).To(Equal(strings.Join([]string{
-					"/usr/bin/fdbserver",
-					"--class=storage",
-					"--cluster_file=/var/fdb/data/fdb.cluster",
-					"--datadir=/var/fdb/data",
-					fmt.Sprintf("--locality_instance_id=%s", id),
-					fmt.Sprintf("--locality_machineid=%s-%s", cluster.Name, id),
-					fmt.Sprintf("--locality_zoneid=%s-%s", cluster.Name, id),
-					"--logdir=/var/log/fdb-trace-logs",
-					"--loggroup=" + cluster.Name,
-					fmt.Sprintf("--public_address=%s:4501", address),
-					"--seed_cluster_file=/var/dynamic-conf/fdb.cluster",
-				}, " ")))
 			})
 		})
 	})
