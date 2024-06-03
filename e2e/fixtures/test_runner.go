@@ -23,7 +23,10 @@ package fixtures
 import (
 	"flag"
 	"log"
+	"math/rand"
+	"os"
 	"testing"
+	"time"
 
 	"github.com/onsi/ginkgo/v2/types"
 
@@ -39,6 +42,15 @@ func RunGinkgoTests(t *testing.T, name string) {
 	log.SetFlags(log.LstdFlags)
 	log.SetOutput(ginkgo.GinkgoWriter)
 	gomega.RegisterFailHandler(ginkgo.Fail)
+	_, inCI := os.LookupEnv("CODEBUILD_SRC_DIR")
+	if inCI {
+		// We wait up to 300 seconds before executing the code. In CI all tests will run in parallel and adding some
+		// random wait time should help in making those tests more stable.
+		waitDuration := time.Duration(rand.Intn(300)) * time.Second
+		ginkgo.GinkgoLogr.Info("waiting for", waitDuration.String(), "before executing test suite")
+		time.Sleep(waitDuration)
+	}
+
 	ginkgo.RunSpecs(t, name)
 }
 
