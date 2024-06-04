@@ -42,9 +42,11 @@ func (factory *Factory) createFDBClusterSpec(
 	config *ClusterConfig,
 	databaseConfiguration fdbv1beta2.DatabaseConfiguration,
 ) *fdbv1beta2.FoundationDBCluster {
-	mainContainerOverrides, sidecarContainerOverrides := factory.getContainerOverrides(
-		config.DebugSymbols,
-	)
+	useUnifiedImage := pointer.BoolDeref(config.UseUnifiedImage, factory.options.featureOperatorUnifiedImage)
+	imageType := fdbv1beta2.ImageTypeSplit
+	if useUnifiedImage {
+		imageType = fdbv1beta2.ImageTypeUnified
+	}
 
 	return &fdbv1beta2.FoundationDBCluster{
 		ObjectMeta: metav1.ObjectMeta{
@@ -59,8 +61,9 @@ func (factory *Factory) createFDBClusterSpec(
 			StorageServersPerPod:          config.StorageServerPerPod,
 			LogServersPerPod:              config.LogServersPerPod,
 			LogGroup:                      config.Namespace + "-" + config.Name,
-			MainContainer:                 mainContainerOverrides,
-			SidecarContainer:              sidecarContainerOverrides,
+			MainContainer:                 factory.GetMainContainerOverrides(config.DebugSymbols, useUnifiedImage),
+			ImageType:                     &imageType,
+			SidecarContainer:              factory.GetSidecarContainerOverrides(config.DebugSymbols),
 			FaultDomain: fdbv1beta2.FoundationDBClusterFaultDomain{
 				Key: "foundationdb.org/none",
 			},

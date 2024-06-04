@@ -15,6 +15,7 @@ FDB_VERSION?=7.1.57
 NEXT_FDB_VERSION?=7.3.33
 ## Expectation is that you are running standard build image which generates both regular and debug (Symbols) images.
 FDB_IMAGE?=foundationdb/foundationdb:$(FDB_VERSION)
+UNIFIED_FDB_IMAGE?=foundationdb/fdb-kubernetes-monitor:$(FDB_VERSION)
 SIDECAR_IMAGE?=foundationdb/foundationdb-kubernetes-sidecar:$(FDB_VERSION)-1
 OPERATOR_IMAGE?=foundationdb/fdb-kubernetes-operator:latest
 REGISTRY?=docker.io
@@ -134,4 +135,5 @@ nightly-tests: run
 	  --cluster-name=$(CLUSTER_NAME) \
 	  --storage-engine=$(STORAGE_ENGINE) \
 	  --fdb-version-tag-mapping=$(FDB_VERSION_TAG_MAPPING) \
+	  --unified-fdb-image=$(UNIFIED_FDB_IMAGE) \
 	  | grep -v 'constructing many client instances from the same exec auth config can cause performance problems during cert rotation' &> $(BASE_DIR)/../logs/$<.log

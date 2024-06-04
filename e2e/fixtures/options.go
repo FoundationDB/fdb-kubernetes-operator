@@ -34,8 +34,9 @@ type FactoryOptions struct {
 	namespace                   string
 	chaosNamespace              string
 	context                     string
-	fdbImage                    string // TODO (johscheuer): Make this optional if we use the default
-	sidecarImage                string // TODO (johscheuer): Make this optional if we use the default
+	fdbImage                    string
+	unifiedFDBImage             string
+	sidecarImage                string
 	operatorImage               string
 	dataLoaderImage             string
 	registry                    string
@@ -80,19 +81,25 @@ func (options *FactoryOptions) BindFlags(fs *flag.FlagSet) {
 	fs.StringVar(
 		&options.fdbImage,
 		"fdb-image",
-		"",
+		"foundationdb/foundationdb",
 		"defines the FoundationDB image that should be used for testing",
+	)
+	fs.StringVar(
+		&options.unifiedFDBImage,
+		"unified-fdb-image",
+		"foundationdb/fdb-kubernetes-monitor",
+		"defines the unified FoundationDB image that should be used for testing",
 	)
 	fs.StringVar(
 		&options.sidecarImage,
 		"sidecar-image",
-		"",
+		"foundationdb/foundationdb-kubernetes-sidecar",
 		"defines the FoundationDB sidecar image that should be used for testing",
 	)
 	fs.StringVar(
 		&options.operatorImage,
 		"operator-image",
-		"",
+		"foundationdb/fdb-kubernetes-operator",
 		"defines the Kubernetes Operator image that should be used for testing",
 	)
 	fs.StringVar(
@@ -300,7 +307,7 @@ func (options *FactoryOptions) validateFDBVersionTagMapping() error {
 	return nil
 }
 
-func (options *FactoryOptions) getImageVersionConfig(baseImage string) []fdbv1beta2.ImageConfig {
+func (options *FactoryOptions) getImageVersionConfig(baseImage string, isSidecar bool) []fdbv1beta2.ImageConfig {
 	if options.fdbVersionTagMapping == "" {
 		return nil
 	}
@@ -310,10 +317,15 @@ func (options *FactoryOptions) getImageVersionConfig(baseImage string) []fdbv1be
 
 	for idx, mapping := range mappings {
 		versionMapping := strings.Split(mapping, ":")
+		tag := strings.TrimSpace(versionMapping[1])
+		// The sidecar requires the -1 prefix.
+		if isSidecar {
+			tag = tag + "-1"
+		}
 		imageConfig[idx] = fdbv1beta2.ImageConfig{
 			BaseImage: baseImage,
 			Version:   strings.TrimSpace(versionMapping[0]),
-			Tag:       strings.TrimSpace(versionMapping[1]),
+			Tag:       tag,
 		}
 	}
 

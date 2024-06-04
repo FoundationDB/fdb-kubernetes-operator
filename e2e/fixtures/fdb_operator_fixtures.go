@@ -264,9 +264,3 @@ func WithOneMinuteMinimumUptimeSecondsForBounce(
 func WithLocalitiesForExclusion(_ *Factory, cluster *fdbv1beta2.FoundationDBCluster) {
 	cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(true)
 }
-
-// WithUnifiedImage is an option that enables the unified image for a cluster.
-func WithUnifiedImage(_ *Factory, cluster *fdbv1beta2.FoundationDBCluster) {
-	imageType := fdbv1beta2.ImageTypeUnified
-	cluster.Spec.ImageType = &imageType
-}

@@ -76,6 +76,8 @@ type ClusterConfig struct {
 	UseLocalityBasedExclusions bool
 	// UseDNS if enabled the FoundationDBCluster resource will enable the DNS feature.
 	UseDNS bool
+	// If enabled the cluster will be setup with the unified image.
+	UseUnifiedImage *bool
 	// CreationTracker if specified will be used to log the time between the creations steps.
 	CreationTracker CreationTrackerLogger
 	// Number of machines, this is used for calculating the number of Pods and is not correlated to the actual number
@@ -519,5 +521,6 @@ func (config *ClusterConfig) Copy() *ClusterConfig {
 		CreationCallback:           config.CreationCallback,
 		UseDNS:                     config.UseDNS,
 		UseLocalityBasedExclusions: config.UseLocalityBasedExclusions,
+		UseUnifiedImage:            config.UseUnifiedImage,
 	}
 }
