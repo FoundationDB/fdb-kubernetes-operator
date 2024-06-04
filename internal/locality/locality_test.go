@@ -119,16 +119,17 @@ func generateDefaultStatus(tls bool) *fdbv1beta2.FoundationDBStatus {
 	}
 }
 
-func generateCandidates(dcIDs []string, processesPerDc int) []Info {
+func generateCandidates(dcIDs []string, processesPerDc int, numberOfZones int) []Info {
 	candidates := make([]Info, processesPerDc*len(dcIDs))
 
 	idx := 0
 	for _, dcID := range dcIDs {
 		for i := 0; i < processesPerDc; i++ {
+			zoneIdx := i % numberOfZones
 			candidates[idx] = Info{
 				ID: dcID + strconv.Itoa(i),
 				LocalityData: map[string]string{
-					fdbv1beta2.FDBLocalityZoneIDKey: dcID + "-z" + strconv.Itoa(i),
+					fdbv1beta2.FDBLocalityZoneIDKey: dcID + "-z" + strconv.Itoa(zoneIdx),
 					fdbv1beta2.FDBLocalityDCIDKey:   dcID,
 				},
 			}
@@ -600,7 +601,7 @@ var _ = Describe("Localities", func() {
 
 			When("testing the correct behavior with a small set of candidates", func() {
 				BeforeEach(func() {
-					candidates = generateCandidates(dcIDs, 5)
+					candidates = generateCandidates(dcIDs, 5, 5)
 					result, err = ChooseDistributedProcesses(cluster, candidates, cluster.DesiredCoordinatorCount(), ProcessSelectionConstraint{
 						HardLimits:            GetHardLimits(cluster),
 						SelectingCoordinators: true,
@@ -637,7 +638,10 @@ var _ = Describe("Localities", func() {
 
 					// We sample a function repeatedly to get a statistically significant set of measurements.
 					experiment.Sample(func(_ int) {
-						candidates = generateCandidates(dcIDs, 250)
+						candidates = generateCandidates(dcIDs, 250, 10)
+						rand.Shuffle(len(candidates), func(i, j int) {
+							candidates[i], candidates[j] = candidates[j], candidates[i]
+						})
 						// Only measure the actual execution of ChooseDistributedProcesses.
 						experiment.MeasureDuration("ChooseDistributedProcesses", func() {
 							_, _ = ChooseDistributedProcesses(cluster, candidates, cluster.DesiredCoordinatorCount(), ProcessSelectionConstraint{
