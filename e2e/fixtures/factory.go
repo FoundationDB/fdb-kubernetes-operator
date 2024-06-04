@@ -214,7 +214,7 @@ func (factory *Factory) GetMainContainerOverrides(debugSymbols bool, unifiedImag
 		GetDebugImage(debugSymbols, image),
 	)
 
-	// If the version tag mapping is define make use of that.
+	// If the version tag mapping is defined make use of that.
 	imageConfigs := factory.options.getImageVersionConfig(mainImage, false)
 	if len(imageConfigs) == 0 {
 		// The first entry is version specific e.g. this image + tag (if specified) will be used for the provided version
@@ -244,13 +244,17 @@ func (factory *Factory) GetSidecarContainerOverrides(debugSymbols bool) fdbv1bet
 		GetDebugImage(debugSymbols, factory.GetSidecarImage()),
 	)
 
+	// If the version tag mapping is defined make use of that.
 	imageConfigs := factory.options.getImageVersionConfig(sidecarImage, true)
 	if len(imageConfigs) == 0 {
+		// The first entry is version specific e.g. this image + tag (if specified) will be used for the provided version
+		// the second entry ensures we set the base image for e.g. upgrades independent of the version.
 		imageConfigs = []fdbv1beta2.ImageConfig{
 			{
 				BaseImage: sidecarImage,
 				Tag:       sidecarTag,
 				Version:   factory.GetFDBVersionAsString(),
+				TagSuffix: "-1",
 			},
 			{
 				BaseImage: sidecarImage,
@@ -259,12 +263,10 @@ func (factory *Factory) GetSidecarContainerOverrides(debugSymbols bool) fdbv1bet
 		}
 	}
 
-	sidecarOverrides := fdbv1beta2.ContainerOverrides{
+	return fdbv1beta2.ContainerOverrides{
 		EnableTLS:    false,
 		ImageConfigs: imageConfigs,
 	}
-
-	return sidecarOverrides
 }
 
 func (factory *Factory) getClusterName() string {
