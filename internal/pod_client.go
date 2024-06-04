@@ -37,8 +37,6 @@ import (
 	"strings"
 	"time"
 
-	"k8s.io/utils/pointer"
-
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podclient"
 	monitorapi "github.com/apple/foundationdb/fdbkubernetesmonitor/api"
@@ -432,9 +430,10 @@ func GetImageType(pod *corev1.Pod) FDBImageType {
 // GetDesiredImageType determines whether a cluster is configured to use the
 // unified or the split image.
 func GetDesiredImageType(cluster *fdbv1beta2.FoundationDBCluster) FDBImageType {
-	if pointer.BoolDeref(cluster.Spec.UseUnifiedImage, false) {
+	if cluster.UseUnifiedImage() {
 		return FDBImageTypeUnified
 	}
+
 	return FDBImageTypeSplit
 }
 

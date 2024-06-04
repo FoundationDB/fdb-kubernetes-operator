@@ -228,9 +228,14 @@ type FoundationDBClusterSpec struct {
 	// Deprecated: This setting will be removed in the next major release.
 	UseExplicitListenAddress *bool `json:"useExplicitListenAddress,omitempty"`
 
-	// UseUnifiedImage determines if we should use the unified image rather than
-	// separate images for the main container and the sidecar container.
-	UseUnifiedImage *bool `json:"useUnifiedImage,omitempty"`
+	// ImageType defines the image type that should be used for the FoundationDBCluster deployment. When the type
+	// is set to "unified" the deployment will use the new fdb-kubernetes-monitor. Otherwise the main container and
+	// the sidecar container will use different images.
+	// Default: split
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Enum=split;unified
+	// +kubebuilder:default:=split
+	ImageType *ImageType `json:"imageType,omitempty"`
 
 	// MaxZonesWithUnavailablePods defines the maximum number of zones that can have unavailable pods during the update process.
 	// When unset, there is no limit to the  number of zones with unavailable pods.
@@ -240,6 +245,13 @@ type FoundationDBClusterSpec struct {
 // ImageType defines a single kind of images used in the cluster.
 // +kubebuilder:validation:MaxLength=1024
 type ImageType string
+
+const (
+	// ImageTypeSplit defines the split image type.
+	ImageTypeSplit ImageType = "split"
+	// ImageTypeUnified defines the unified image type.
+	ImageTypeUnified ImageType = "unified"
+)
 
 // FoundationDBClusterStatus defines the observed state of FoundationDBCluster
 type FoundationDBClusterStatus struct {
@@ -2535,9 +2547,14 @@ func (cluster *FoundationDBCluster) GetSidecarContainerEnableReadinessProbe() bo
 	return pointer.BoolDeref(cluster.Spec.SidecarContainer.EnableReadinessProbe, false)
 }
 
-// GetUseUnifiedImage returns cluster.Spec.UseUnifiedImage or if unset the default false
-func (cluster *FoundationDBCluster) GetUseUnifiedImage() bool {
-	return pointer.BoolDeref(cluster.Spec.UseUnifiedImage, false)
+// UseUnifiedImage returns true if the unified image should be used.
+func (cluster *FoundationDBCluster) UseUnifiedImage() bool {
+	imageType := ImageTypeSplit
+	if cluster.Spec.ImageType != nil {
+		imageType = *cluster.Spec.ImageType
+	}
+
+	return imageType == ImageTypeUnified
 }
 
 // GetIgnoreTerminatingPodsSeconds returns the value of IgnoreTerminatingPodsSeconds or defaults to 10 minutes.

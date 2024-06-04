@@ -23,8 +23,6 @@ package internal
 import (
 	"encoding/json"
 	"fmt"
-	"k8s.io/utils/pointer"
-
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	monitorapi "github.com/apple/foundationdb/fdbkubernetesmonitor/api"
 	. "github.com/onsi/ginkgo/v2"
@@ -156,8 +154,9 @@ var _ = Describe("configmap_helper", func() {
 
 			When("using the unified image", func() {
 				BeforeEach(func() {
-					cluster.Spec.UseUnifiedImage = pointer.Bool(true)
-					cluster.Status.ImageTypes = []fdbv1beta2.ImageType{"unified"}
+					imageType := fdbv1beta2.ImageTypeUnified
+					cluster.Spec.ImageType = &imageType
+					cluster.Status.ImageTypes = []fdbv1beta2.ImageType{fdbv1beta2.ImageTypeUnified}
 				})
 
 				It("includes the data for both configurations", func() {
@@ -202,8 +201,9 @@ var _ = Describe("configmap_helper", func() {
 
 			When("using the unified image", func() {
 				BeforeEach(func() {
-					cluster.Spec.UseUnifiedImage = pointer.Bool(true)
-					cluster.Status.ImageTypes = []fdbv1beta2.ImageType{"unified"}
+					imageType := fdbv1beta2.ImageTypeUnified
+					cluster.Spec.ImageType = &imageType
+					cluster.Status.ImageTypes = []fdbv1beta2.ImageType{fdbv1beta2.ImageTypeUnified}
 				})
 
 				It("includes the data for both configurations", func() {

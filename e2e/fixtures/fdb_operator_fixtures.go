@@ -267,5 +267,6 @@ func WithLocalitiesForExclusion(_ *Factory, cluster *fdbv1beta2.FoundationDBClus
 
 // WithUnifiedImage is an option that enables the unified image for a cluster.
 func WithUnifiedImage(_ *Factory, cluster *fdbv1beta2.FoundationDBCluster) {
-	cluster.Spec.UseUnifiedImage = pointer.Bool(true)
+	imageType := fdbv1beta2.ImageTypeUnified
+	cluster.Spec.ImageType = &imageType
 }

@@ -481,7 +481,8 @@ var _ = Describe("pod_models", func() {
 		When("the unified image is enabled", func() {
 			BeforeEach(func() {
 				cluster = CreateDefaultCluster()
-				cluster.Spec.UseUnifiedImage = pointer.Bool(true)
+				imageType := fdbv1beta2.ImageTypeUnified
+				cluster.Spec.ImageType = &imageType
 				err = NormalizeClusterSpec(cluster, DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
@@ -3323,7 +3324,8 @@ var _ = Describe("pod_models", func() {
 
 		When("using the unified image", func() {
 			BeforeEach(func() {
-				backup.Spec.UseUnifiedImage = pointer.Bool(true)
+				imageType := fdbv1beta2.ImageTypeUnified
+				backup.Spec.ImageType = &imageType
 				deployment, err = GetBackupDeployment(backup)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(deployment).NotTo(BeNil())

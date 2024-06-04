@@ -215,7 +215,7 @@ func GetSidecarImage(cluster *fdbv1beta2.FoundationDBCluster, pClass fdbv1beta2.
 	}
 
 	var imageConfigs []fdbv1beta2.ImageConfig
-	if pointer.BoolDeref(cluster.Spec.UseUnifiedImage, false) {
+	if cluster.UseUnifiedImage() {
 		imageConfigs = cluster.Spec.MainContainer.ImageConfigs
 	} else {
 		imageConfigs = cluster.Spec.SidecarContainer.ImageConfigs

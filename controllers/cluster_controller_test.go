@@ -298,7 +298,8 @@ var _ = Describe("cluster_controller", func() {
 				// There is a bug in the fake client that when updating the status the spec is updated.
 				cluster.Spec.MainContainer.ImageConfigs = nil
 				cluster.Spec.SidecarContainer.ImageConfigs = nil
-				cluster.Spec.UseUnifiedImage = pointer.Bool(true)
+				imageType := fdbv1beta2.ImageTypeUnified
+				cluster.Spec.ImageType = &imageType
 				Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
 			})
 
