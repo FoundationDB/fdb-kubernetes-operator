@@ -55,8 +55,23 @@ type Info struct {
 // We have to do this to ensure we get a deterministic result for selecting the candidates
 // otherwise we get a (nearly) random result since processes are stored in a map which is by definition
 // not sorted and doesn't return values in a stable way.
-func sortLocalities(processes []Info) {
+func sortLocalities(primaryDC string, processes []Info) {
 	slices.SortStableFunc(processes, func(a, b Info) int {
+		if primaryDC != "" {
+			aDCLocality := a.LocalityData[fdbv1beta2.FDBLocalityDCIDKey]
+			bDCLocality := b.LocalityData[fdbv1beta2.FDBLocalityDCIDKey]
+
+			if aDCLocality != bDCLocality {
+				if aDCLocality == primaryDC {
+					return -1
+				}
+
+				if bDCLocality == primaryDC {
+					return 1
+				}
+			}
+		}
+
 		// If both have the same priority sort them by the process ID
 		if a.Priority == b.Priority {
 			return cmp.Compare(a.ID, b.ID)
@@ -158,6 +173,7 @@ type ProcessSelectionConstraint struct {
 func ChooseDistributedProcesses(cluster *fdbv1beta2.FoundationDBCluster, processes []Info, count int, constraint ProcessSelectionConstraint) ([]Info, error) {
 	chosen := make([]Info, 0, count)
 	chosenIDs := make(map[string]bool, count)
+	primaryDC := cluster.DesiredDatabaseConfiguration().GetPrimaryDCID()
 
 	fields := constraint.Fields
 	if len(fields) == 0 {
@@ -185,31 +201,8 @@ func ChooseDistributedProcesses(cluster *fdbv1beta2.FoundationDBCluster, process
 		currentLimits[field] = 1
 	}
 
-	if constraint.SelectingCoordinators {
-		// If the cluster runs in a multi-region config and has more than 3 DCs we want to make sure that the primary is
-		// preferred for the 3 coordinators.
-		// See: https://github.com/FoundationDB/fdb-kubernetes-operator/issues/2034
-		if cluster.Spec.DatabaseConfiguration.UsableRegions > 1 && cluster.Spec.DatabaseConfiguration.CountUniqueDataCenters() > 3 {
-			primaryDC := cluster.DesiredDatabaseConfiguration().GetPrimaryDCID()
-
-			mainDCs, satelliteDCs := cluster.Spec.DatabaseConfiguration.GetMainDCsAndSatellites()
-			// We increase the chosen count by 1 to make sure the primary dc will host the 3 coordinators.
-			for dcID := range mainDCs {
-				if primaryDC == dcID {
-					continue
-				}
-
-				chosenCounts[fdbv1beta2.FDBLocalityDCIDKey][dcID]++
-			}
-
-			for dcID := range satelliteDCs {
-				chosenCounts[fdbv1beta2.FDBLocalityDCIDKey][dcID]++
-			}
-		}
-	}
-
-	// Sort the processes to ensure a deterministic result
-	sortLocalities(processes)
+	// Sort the processes to ensure a deterministic result.
+	sortLocalities(primaryDC, processes)
 
 	for len(chosen) < count {
 		choseAny := false
@@ -257,6 +250,7 @@ func ChooseDistributedProcesses(cluster *fdbv1beta2.FoundationDBCluster, process
 					break
 				}
 			}
+
 			if !incrementedLimits {
 				return chosen, notEnoughProcessesError{Desired: count, Chosen: len(chosen), Options: processes}
 			}

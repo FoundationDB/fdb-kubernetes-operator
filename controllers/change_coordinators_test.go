@@ -650,13 +650,23 @@ var _ = Describe("Change coordinators", func() {
 							primaryID + "-log-2",
 							primaryID + "-log-3",
 						}
-
-						shouldFail = true
 					})
 
 					It("should select 3 processes in each remaining dc", func() {
 						Expect(cluster.DesiredCoordinatorCount()).To(BeNumerically("==", 9))
-						Expect(candidates).To(BeEmpty())
+						Expect(candidates).NotTo(BeEmpty())
+
+						dcDistribution := map[string]int{}
+						for _, candidate := range candidates {
+							dcDistribution[candidate.LocalityData[fdbv1beta2.FDBLocalityDCIDKey]]++
+						}
+
+						// We should have 3 different dcs as the primary has no valid processes.
+						Expect(dcDistribution).To(HaveLen(3))
+						for dcID, dcCount := range dcDistribution {
+							Expect(dcID).NotTo(Equal(primaryID))
+							Expect(dcCount).To(BeNumerically("==", 3))
+						}
 					})
 				})
 

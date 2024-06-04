@@ -23,16 +23,17 @@ package locality
 import (
 	"fmt"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podclient/mock"
+	"github.com/go-logr/logr"
+	"github.com/onsi/gomega/gmeasure"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 	"math"
 	"math/rand"
 	"net"
 	"strconv"
 	"strings"
-
-	"github.com/go-logr/logr"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
+	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
@@ -118,6 +119,27 @@ func generateDefaultStatus(tls bool) *fdbv1beta2.FoundationDBStatus {
 	}
 }
 
+func generateCandidates(dcIDs []string, processesPerDc int) []Info {
+	candidates := make([]Info, processesPerDc*len(dcIDs))
+
+	idx := 0
+	for _, dcID := range dcIDs {
+		for i := 0; i < processesPerDc; i++ {
+			candidates[idx] = Info{
+				ID: dcID + strconv.Itoa(i),
+				LocalityData: map[string]string{
+					fdbv1beta2.FDBLocalityZoneIDKey: dcID + "-z" + strconv.Itoa(i),
+					fdbv1beta2.FDBLocalityDCIDKey:   dcID,
+				},
+			}
+
+			idx++
+		}
+	}
+
+	return candidates
+}
+
 var _ = Describe("Localities", func() {
 	var cluster *fdbv1beta2.FoundationDBCluster
 
@@ -184,7 +206,7 @@ var _ = Describe("Localities", func() {
 				})
 
 				It("should sort the localities based on the IDs but prefer transaction system Pods", func() {
-					sortLocalities(localities)
+					sortLocalities("", localities)
 
 					Expect(localities[0].Class).To(Equal(fdbv1beta2.ProcessClassLog))
 					Expect(localities[0].ID).To(Equal("log-1"))
@@ -208,7 +230,7 @@ var _ = Describe("Localities", func() {
 				})
 
 				It("should sort the localities based on the provided config", func() {
-					sortLocalities(localities)
+					sortLocalities("", localities)
 
 					Expect(localities[0].Class).To(Equal(fdbv1beta2.ProcessClassStorage))
 					Expect(localities[0].ID).To(Equal("storage-1"))
@@ -236,7 +258,7 @@ var _ = Describe("Localities", func() {
 				})
 
 				It("should sort the localities based on the provided config", func() {
-					sortLocalities(localities)
+					sortLocalities("", localities)
 
 					Expect(localities[0].Class).To(Equal(fdbv1beta2.ProcessClassStorage))
 					Expect(localities[0].ID).To(Equal("storage-1"))
@@ -250,6 +272,152 @@ var _ = Describe("Localities", func() {
 			})
 		})
 
+		When("a multi-region setup is used", func() {
+			var primaryID, remoteID, primarySatelliteID, remoteSatelliteID string
+
+			BeforeEach(func() {
+				// Generate random names to make sure we test different alphabetical orderings.
+				primaryID = internal.GenerateRandomString(10)
+				remoteID = internal.GenerateRandomString(10)
+				primarySatelliteID = internal.GenerateRandomString(10)
+				remoteSatelliteID = internal.GenerateRandomString(10)
+
+				localities = make([]Info, 12)
+				idx := 0
+				// Make sure the result is randomized
+				dcIDs := []string{primaryID, primarySatelliteID, remoteID, remoteSatelliteID}
+				rand.Shuffle(len(dcIDs), func(i, j int) {
+					dcIDs[i], dcIDs[j] = dcIDs[j], dcIDs[i]
+				})
+
+				for _, dcID := range dcIDs {
+					for i := 0; i < 3; i++ {
+						pClass := fdbv1beta2.ProcessClassStorage
+						// The first locality will be a log process
+						if i == 0 {
+							pClass = fdbv1beta2.ProcessClassLog
+						}
+
+						localities[idx] = Info{
+							ID: dcID + strconv.Itoa(i),
+							LocalityData: map[string]string{
+								fdbv1beta2.FDBLocalityZoneIDKey: dcID + "-z" + strconv.Itoa(i),
+								fdbv1beta2.FDBLocalityDCIDKey:   dcID,
+							},
+							Class: pClass,
+						}
+
+						idx++
+					}
+				}
+
+				// Randomize the order of localities.
+				rand.Shuffle(len(localities), func(i, j int) {
+					localities[i], localities[j] = localities[j], localities[i]
+				})
+
+				cluster.Spec.DatabaseConfiguration = fdbv1beta2.DatabaseConfiguration{
+					UsableRegions: 2,
+					Regions: []fdbv1beta2.Region{
+						{
+							DataCenters: []fdbv1beta2.DataCenter{
+								{
+									ID:       primaryID,
+									Priority: 1,
+								},
+								{
+									ID:        primarySatelliteID,
+									Priority:  1,
+									Satellite: 1,
+								},
+								{
+									ID:        remoteSatelliteID,
+									Priority:  0,
+									Satellite: 1,
+								},
+							},
+						},
+						{
+							DataCenters: []fdbv1beta2.DataCenter{
+								{
+									ID:       remoteID,
+									Priority: 0,
+								},
+								{
+									ID:        remoteSatelliteID,
+									Priority:  1,
+									Satellite: 1,
+								},
+								{
+									ID:        primarySatelliteID,
+									Priority:  0,
+									Satellite: 1,
+								},
+							},
+						},
+					},
+				}
+			})
+
+			JustBeforeEach(func() {
+				sortLocalities(primaryID, localities)
+			})
+
+			When("no other preferences are defined", func() {
+				BeforeEach(func() {
+					cluster.Spec.CoordinatorSelection = []fdbv1beta2.CoordinatorSelectionSetting{}
+				})
+
+				It("should sort the localities based on the IDs but prefer transaction system Pods", func() {
+					Expect(localities[0].Class).To(Equal(fdbv1beta2.ProcessClassLog))
+					Expect(localities[0].LocalityData).To(HaveKeyWithValue(fdbv1beta2.FDBLocalityDCIDKey, primaryID))
+					Expect(localities[1].Class).To(Equal(fdbv1beta2.ProcessClassStorage))
+					Expect(localities[1].LocalityData).To(HaveKeyWithValue(fdbv1beta2.FDBLocalityDCIDKey, primaryID))
+					Expect(localities[2].Class).To(Equal(fdbv1beta2.ProcessClassStorage))
+					Expect(localities[2].LocalityData).To(HaveKeyWithValue(fdbv1beta2.FDBLocalityDCIDKey, primaryID))
+					// The rest of the clusters are ordered by priority and the process ID.
+					Expect(localities[3].Class).To(Equal(fdbv1beta2.ProcessClassLog))
+					Expect(localities[3].LocalityData).To(HaveKey(fdbv1beta2.FDBLocalityDCIDKey))
+					Expect(localities[3].LocalityData[fdbv1beta2.FDBLocalityDCIDKey]).NotTo(Equal(primaryID))
+					Expect(localities[4].Class).To(Equal(fdbv1beta2.ProcessClassLog))
+					Expect(localities[4].LocalityData).To(HaveKey(fdbv1beta2.FDBLocalityDCIDKey))
+					Expect(localities[4].LocalityData[fdbv1beta2.FDBLocalityDCIDKey]).NotTo(Equal(primaryID))
+					Expect(localities[5].Class).To(Equal(fdbv1beta2.ProcessClassLog))
+					Expect(localities[5].LocalityData).To(HaveKey(fdbv1beta2.FDBLocalityDCIDKey))
+					Expect(localities[5].LocalityData[fdbv1beta2.FDBLocalityDCIDKey]).NotTo(Equal(primaryID))
+				})
+			})
+
+			When("when the storage class is preferred", func() {
+				BeforeEach(func() {
+					cluster.Spec.CoordinatorSelection = []fdbv1beta2.CoordinatorSelectionSetting{
+						{
+							ProcessClass: fdbv1beta2.ProcessClassStorage,
+							Priority:     10,
+						},
+					}
+				})
+
+				It("should sort the localities based on the provided config", func() {
+					Expect(localities[0].Class).To(Equal(fdbv1beta2.ProcessClassStorage))
+					Expect(localities[0].LocalityData).To(HaveKeyWithValue(fdbv1beta2.FDBLocalityDCIDKey, primaryID))
+					Expect(localities[1].Class).To(Equal(fdbv1beta2.ProcessClassStorage))
+					Expect(localities[1].LocalityData).To(HaveKeyWithValue(fdbv1beta2.FDBLocalityDCIDKey, primaryID))
+					Expect(localities[2].Class).To(Equal(fdbv1beta2.ProcessClassLog))
+					Expect(localities[2].LocalityData).To(HaveKeyWithValue(fdbv1beta2.FDBLocalityDCIDKey, primaryID))
+					// The rest of the clusters are ordered by priority and the process ID.
+					Expect(localities[3].Class).To(Equal(fdbv1beta2.ProcessClassStorage))
+					Expect(localities[3].LocalityData).To(HaveKey(fdbv1beta2.FDBLocalityDCIDKey))
+					Expect(localities[3].LocalityData[fdbv1beta2.FDBLocalityDCIDKey]).NotTo(Equal(primaryID))
+					Expect(localities[4].Class).To(Equal(fdbv1beta2.ProcessClassStorage))
+					Expect(localities[4].LocalityData).To(HaveKey(fdbv1beta2.FDBLocalityDCIDKey))
+					Expect(localities[4].LocalityData[fdbv1beta2.FDBLocalityDCIDKey]).NotTo(Equal(primaryID))
+					Expect(localities[5].Class).To(Equal(fdbv1beta2.ProcessClassStorage))
+					Expect(localities[5].LocalityData).To(HaveKey(fdbv1beta2.FDBLocalityDCIDKey))
+					Expect(localities[5].LocalityData[fdbv1beta2.FDBLocalityDCIDKey]).NotTo(Equal(primaryID))
+				})
+			})
+		})
 	})
 
 	Describe("chooseDistributedProcesses", func() {
@@ -372,6 +540,7 @@ var _ = Describe("Localities", func() {
 
 		When("a multi-region cluster is used with 4 dcs", func() {
 			var primaryID, remoteID, primarySatelliteID, remoteSatelliteID string
+			var dcIDs []string
 
 			BeforeEach(func() {
 				// Generate random names to make sure we test different alphabetical orderings.
@@ -380,27 +549,11 @@ var _ = Describe("Localities", func() {
 				primarySatelliteID = internal.GenerateRandomString(10)
 				remoteSatelliteID = internal.GenerateRandomString(10)
 
-				candidates = make([]Info, 12)
-				idx := 0
 				// Make sure the result is randomized
-				dcIDs := []string{primaryID, primarySatelliteID, remoteID, remoteSatelliteID}
+				dcIDs = []string{primaryID, primarySatelliteID, remoteID, remoteSatelliteID}
 				rand.Shuffle(len(dcIDs), func(i, j int) {
 					dcIDs[i], dcIDs[j] = dcIDs[j], dcIDs[i]
 				})
-
-				for _, dcID := range dcIDs {
-					for i := 0; i < 3; i++ {
-						candidates[idx] = Info{
-							ID: strconv.Itoa(idx),
-							LocalityData: map[string]string{
-								fdbv1beta2.FDBLocalityZoneIDKey: dcID + "-z" + strconv.Itoa(i),
-								fdbv1beta2.FDBLocalityDCIDKey:   dcID,
-							},
-						}
-
-						idx++
-					}
-				}
 
 				cluster.Spec.DatabaseConfiguration = fdbv1beta2.DatabaseConfiguration{
 					UsableRegions: 2,
@@ -443,28 +596,58 @@ var _ = Describe("Localities", func() {
 						},
 					},
 				}
-
-				result, err = ChooseDistributedProcesses(cluster, candidates, cluster.DesiredCoordinatorCount(), ProcessSelectionConstraint{
-					HardLimits:            GetHardLimits(cluster),
-					SelectingCoordinators: true,
-				})
-				Expect(err).NotTo(HaveOccurred())
 			})
 
-			It("should recruit the processes across multiple dcs and prefer the primary", func() {
-				Expect(len(result)).To(Equal(9))
+			When("testing the correct behavior with a small set of candidates", func() {
+				BeforeEach(func() {
+					candidates = generateCandidates(dcIDs, 5)
+					result, err = ChooseDistributedProcesses(cluster, candidates, cluster.DesiredCoordinatorCount(), ProcessSelectionConstraint{
+						HardLimits:            GetHardLimits(cluster),
+						SelectingCoordinators: true,
+					})
+					Expect(err).NotTo(HaveOccurred())
+				})
 
-				dcCount := map[string]int{}
-				for _, process := range result {
-					dcCount[process.LocalityData[fdbv1beta2.FDBLocalityDCIDKey]]++
-				}
+				It("should recruit the processes across multiple dcs and prefer the primary", func() {
+					Expect(len(result)).To(Equal(9))
 
-				Expect(dcCount).To(Equal(map[string]int{
-					primaryID:          3,
-					remoteID:           2,
-					remoteSatelliteID:  2,
-					primarySatelliteID: 2,
-				}))
+					dcCount := map[string]int{}
+					for _, process := range result {
+						dcCount[process.LocalityData[fdbv1beta2.FDBLocalityDCIDKey]]++
+					}
+
+					Expect(dcCount).To(Equal(map[string]int{
+						primaryID:          3,
+						remoteID:           2,
+						remoteSatelliteID:  2,
+						primarySatelliteID: 2,
+					}))
+				})
+			})
+
+			// Adding a benchmark test for the ChooseDistributedProcesses. In order to print the set use FIt.
+			When("measuring the performance for", func() {
+				It("choose distributed processes", Serial, Label("measurement"), func() {
+					// Create the new experient.
+					experiment := gmeasure.NewExperiment("Choose Distributed Processes")
+
+					// Register the experiment as a ReportEntry - this will cause Ginkgo's reporter infrastructure
+					// to print out the experiment's report and to include the experiment in any generated reports.
+					AddReportEntry(experiment.Name, experiment)
+
+					// We sample a function repeatedly to get a statistically significant set of measurements.
+					experiment.Sample(func(_ int) {
+						candidates = generateCandidates(dcIDs, 250)
+						// Only measure the actual execution of ChooseDistributedProcesses.
+						experiment.MeasureDuration("ChooseDistributedProcesses", func() {
+							_, _ = ChooseDistributedProcesses(cluster, candidates, cluster.DesiredCoordinatorCount(), ProcessSelectionConstraint{
+								HardLimits:            GetHardLimits(cluster),
+								SelectingCoordinators: true,
+							})
+						})
+						// We'll sample the function up to 50 times or up to a minute, whichever comes first.
+					}, gmeasure.SamplingConfig{N: 50, Duration: time.Minute})
+				})
 			})
 		})
 
