@@ -629,7 +629,7 @@ var _ = Describe("Localities", func() {
 			// Adding a benchmark test for the ChooseDistributedProcesses. In order to print the set use FIt.
 			When("measuring the performance for", func() {
 				It("choose distributed processes", Serial, Label("measurement"), func() {
-					// Create the new experient.
+					// Create the new experiment.
 					experiment := gmeasure.NewExperiment("Choose Distributed Processes")
 
 					// Register the experiment as a ReportEntry - this will cause Ginkgo's reporter infrastructure
