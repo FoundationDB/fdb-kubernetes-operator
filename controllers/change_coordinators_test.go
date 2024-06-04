@@ -83,7 +83,7 @@ var _ = Describe("Change coordinators", func() {
 			When("all processes are healthy", func() {
 				It("should only select storage processes", func() {
 					Expect(cluster.DesiredCoordinatorCount()).To(BeNumerically("==", 3))
-					Expect(len(candidates)).To(BeNumerically("==", cluster.DesiredCoordinatorCount()))
+					Expect(candidates).To(HaveLen(cluster.DesiredCoordinatorCount()))
 
 					// Only select Storage processes since we select 3 processes and we have 4 storage processes
 					for _, candidate := range candidates {
@@ -104,7 +104,7 @@ var _ = Describe("Change coordinators", func() {
 
 				It("should only select storage processes and exclude the removed process", func() {
 					Expect(cluster.DesiredCoordinatorCount()).To(BeNumerically("==", 3))
-					Expect(len(candidates)).To(BeNumerically("==", cluster.DesiredCoordinatorCount()))
+					Expect(candidates).To(HaveLen(cluster.DesiredCoordinatorCount()))
 
 					// Only select Storage processes since we select 3 processes and we have 4 storage processes
 					for _, candidate := range candidates {
@@ -147,7 +147,7 @@ var _ = Describe("Change coordinators", func() {
 
 				It("should select 2 storage processes and 1 TLog", func() {
 					Expect(cluster.DesiredCoordinatorCount()).To(BeNumerically("==", 3))
-					Expect(len(candidates)).To(BeNumerically("==", cluster.DesiredCoordinatorCount()))
+					Expect(candidates).To(HaveLen(cluster.DesiredCoordinatorCount()))
 
 					// Only select Storage processes since we select 3 processes and we have 4 storage processes
 					storageCnt := 0
@@ -195,7 +195,7 @@ var _ = Describe("Change coordinators", func() {
 
 				It("should only select log processes", func() {
 					Expect(cluster.DesiredCoordinatorCount()).To(BeNumerically("==", 3))
-					Expect(len(candidates)).To(BeNumerically("==", cluster.DesiredCoordinatorCount()))
+					Expect(candidates).To(HaveLen(cluster.DesiredCoordinatorCount()))
 
 					// Only select Storage processes since we select 3 processes and we have 4 storage processes
 					for _, candidate := range candidates {
@@ -227,9 +227,8 @@ var _ = Describe("Change coordinators", func() {
 			var candidates []locality.Info
 			var excludes []string
 			var removals []fdbv1beta2.ProcessGroupID
-			var dcCnt int
-			var satCnt int
 			var shouldFail bool
+			var primaryID string
 
 			BeforeEach(func() {
 				// ensure a clean state
@@ -241,14 +240,11 @@ var _ = Describe("Change coordinators", func() {
 
 			JustBeforeEach(func() {
 				cluster.Spec.DatabaseConfiguration.UsableRegions = 2
-				cluster.Spec.DataCenter = "dc0"
 				cluster.Spec.ProcessGroupsToRemove = removals
-				setDatabaseConfiguration(cluster, satCnt)
-
 				var err error
 				status, err = adminClient.GetStatus()
 				Expect(err).NotTo(HaveOccurred())
-				status.Cluster.Processes = generateProcessInfoForMultiRegion(dcCnt, satCnt, excludes)
+				status.Cluster.Processes = generateProcessInfoForMultiRegion(cluster.Spec.DatabaseConfiguration, excludes, cluster.GetRunningVersion())
 
 				candidates, err = selectCoordinators(testLogger, cluster, status)
 				if shouldFail {
@@ -260,23 +256,58 @@ var _ = Describe("Change coordinators", func() {
 
 			When("using 2 dcs with 1 satellite", func() {
 				BeforeEach(func() {
-					dcCnt = 2
-					satCnt = 1
+					primaryID = internal.GenerateRandomString(10)
+					remoteID := internal.GenerateRandomString(10)
+					satelliteID := internal.GenerateRandomString(10)
+					cluster.Spec.DataCenter = primaryID
+					cluster.Spec.DatabaseConfiguration.Regions = []fdbv1beta2.Region{
+						{
+							DataCenters: []fdbv1beta2.DataCenter{
+								{
+									ID:       primaryID,
+									Priority: 1,
+								},
+								{
+									ID:        satelliteID,
+									Satellite: 1,
+									Priority:  1,
+								},
+								{
+									ID:        remoteID,
+									Satellite: 1,
+								},
+							},
+						},
+						{
+							DataCenters: []fdbv1beta2.DataCenter{
+								{
+									ID: remoteID,
+								},
+								{
+									ID:        satelliteID,
+									Satellite: 1,
+									Priority:  1,
+								},
+								{
+									ID:        primaryID,
+									Satellite: 1,
+								},
+							},
+						},
+					}
 				})
 
 				When("all processes are healthy", func() {
 					It("should only select storage processes in primary and remote and Tlog in satellite", func() {
 						Expect(cluster.DesiredCoordinatorCount()).To(BeNumerically("==", 9))
-						Expect(len(candidates)).To(BeNumerically("==", cluster.DesiredCoordinatorCount()))
+						Expect(candidates).To(HaveLen(cluster.DesiredCoordinatorCount()))
 
 						// Only select Storage processes since we select 3 processes and we have 4 storage processes
 						storageCnt := 0
 						logCnt := 0
-						zoneCnt := map[string]int{}
+						dcDistribution := map[string]int{}
 						for _, candidate := range candidates {
-							zone := strings.Split(candidate.ID, "-")[0]
-							zoneCnt[zone]++
-
+							dcDistribution[candidate.LocalityData[fdbv1beta2.FDBLocalityDCIDKey]]++
 							if candidate.Class == fdbv1beta2.ProcessClassStorage {
 								storageCnt++
 							}
@@ -290,10 +321,9 @@ var _ = Describe("Change coordinators", func() {
 						Expect(storageCnt).To(BeNumerically("==", 6))
 						Expect(logCnt).To(BeNumerically("==", 3))
 						// We should have 3 different zones
-						Expect(len(zoneCnt)).To(BeNumerically("==", 3))
-
-						for _, zoneVal := range zoneCnt {
-							Expect(zoneVal).To(BeNumerically("==", 3))
+						Expect(len(dcDistribution)).To(BeNumerically("==", 3))
+						for _, dcCount := range dcDistribution {
+							Expect(dcCount).To(BeNumerically("==", 3))
 						}
 					})
 				})
@@ -301,29 +331,27 @@ var _ = Describe("Change coordinators", func() {
 				When("some processes are excluded", func() {
 					BeforeEach(func() {
 						excludes = []string{
-							"dc0-storage-1",
-							"dc0-storage-2",
-							"dc0-storage-3",
-							"dc0-storage-4",
+							primaryID + "-storage-1",
+							primaryID + "-storage-2",
+							primaryID + "-storage-3",
+							primaryID + "-storage-4",
 						}
 					})
 
 					It("should only select storage processes in primary and remote and Tlog in satellites and processes that are not excluded", func() {
 						Expect(cluster.DesiredCoordinatorCount()).To(BeNumerically("==", 9))
-						Expect(len(candidates)).To(BeNumerically("==", cluster.DesiredCoordinatorCount()))
+						Expect(candidates).To(HaveLen(cluster.DesiredCoordinatorCount()))
 
 						// Only select Storage processes since we select 3 processes and we have 4 storage processes
 						storageCnt := 0
 						logCnt := 0
-						zoneCnt := map[string]int{}
+						dcDistribution := map[string]int{}
 						for _, candidate := range candidates {
 							for _, excluded := range excludes {
 								Expect(candidate.ID).NotTo(Equal(excluded))
 							}
 
-							zone := strings.Split(candidate.ID, "-")[0]
-							zoneCnt[zone]++
-
+							dcDistribution[candidate.LocalityData[fdbv1beta2.FDBLocalityDCIDKey]]++
 							if candidate.Class == fdbv1beta2.ProcessClassStorage {
 								storageCnt++
 							}
@@ -337,10 +365,9 @@ var _ = Describe("Change coordinators", func() {
 						Expect(storageCnt).To(BeNumerically("==", 6))
 						Expect(logCnt).To(BeNumerically("==", 3))
 						// We should have 3 different zones
-						Expect(len(zoneCnt)).To(BeNumerically("==", 3))
-
-						for _, zoneVal := range zoneCnt {
-							Expect(zoneVal).To(BeNumerically("==", 3))
+						Expect(len(dcDistribution)).To(BeNumerically("==", 3))
+						for _, dcCount := range dcDistribution {
+							Expect(dcCount).To(BeNumerically("==", 3))
 						}
 					})
 				})
@@ -348,29 +375,27 @@ var _ = Describe("Change coordinators", func() {
 				When("some processes are removed", func() {
 					BeforeEach(func() {
 						removals = []fdbv1beta2.ProcessGroupID{
-							"dc0-storage-1",
-							"dc0-storage-2",
-							"dc0-storage-3",
-							"dc0-storage-4",
+							fdbv1beta2.ProcessGroupID(primaryID + "-storage-1"),
+							fdbv1beta2.ProcessGroupID(primaryID + "-storage-2"),
+							fdbv1beta2.ProcessGroupID(primaryID + "-storage-3"),
+							fdbv1beta2.ProcessGroupID(primaryID + "-storage-4"),
 						}
 					})
 
 					It("should only select storage processes in primary and remote and Tlog in satellites and processes that are not removed", func() {
 						Expect(cluster.DesiredCoordinatorCount()).To(BeNumerically("==", 9))
-						Expect(len(candidates)).To(BeNumerically("==", cluster.DesiredCoordinatorCount()))
+						Expect(candidates).To(HaveLen(cluster.DesiredCoordinatorCount()))
 
 						// Only select Storage processes since we select 3 processes and we have 4 storage processes
 						storageCnt := 0
 						logCnt := 0
-						zoneCnt := map[string]int{}
+						dcDistribution := map[string]int{}
 						for _, candidate := range candidates {
 							for _, removed := range removals {
 								Expect(candidate.ID).NotTo(Equal(removed))
 							}
 
-							zone := strings.Split(candidate.ID, "-")[0]
-							zoneCnt[zone]++
-
+							dcDistribution[candidate.LocalityData[fdbv1beta2.FDBLocalityDCIDKey]]++
 							if candidate.Class == fdbv1beta2.ProcessClassStorage {
 								storageCnt++
 							}
@@ -384,10 +409,10 @@ var _ = Describe("Change coordinators", func() {
 						Expect(storageCnt).To(BeNumerically("==", 6))
 						Expect(logCnt).To(BeNumerically("==", 3))
 						// We should have 3 different zones
-						Expect(len(zoneCnt)).To(BeNumerically("==", 3))
+						Expect(len(dcDistribution)).To(BeNumerically("==", 3))
 
-						for _, zoneVal := range zoneCnt {
-							Expect(zoneVal).To(BeNumerically("==", 3))
+						for _, dcCount := range dcDistribution {
+							Expect(dcCount).To(BeNumerically("==", 3))
 						}
 					})
 				})
@@ -395,18 +420,18 @@ var _ = Describe("Change coordinators", func() {
 				When("all processes in a dc are excluded", func() {
 					BeforeEach(func() {
 						excludes = []string{
-							"dc0-storage-0",
-							"dc0-storage-1",
-							"dc0-storage-2",
-							"dc0-storage-3",
-							"dc0-storage-4",
-							"dc0-storage-5",
-							"dc0-storage-6",
-							"dc0-storage-7",
-							"dc0-log-0",
-							"dc0-log-1",
-							"dc0-log-2",
-							"dc0-log-3",
+							primaryID + "-storage-0",
+							primaryID + "-storage-1",
+							primaryID + "-storage-2",
+							primaryID + "-storage-3",
+							primaryID + "-storage-4",
+							primaryID + "-storage-5",
+							primaryID + "-storage-6",
+							primaryID + "-storage-7",
+							primaryID + "-log-0",
+							primaryID + "-log-1",
+							primaryID + "-log-2",
+							primaryID + "-log-3",
 						}
 
 						shouldFail = true
@@ -432,23 +457,60 @@ var _ = Describe("Change coordinators", func() {
 
 			When("using 2 dcs and 2 satellites", func() {
 				BeforeEach(func() {
-					dcCnt = 2
-					satCnt = 2
+					primaryID = internal.GenerateRandomString(10)
+					remoteID := internal.GenerateRandomString(10)
+					primarySatelliteID := internal.GenerateRandomString(10)
+					remoteSatelliteID := internal.GenerateRandomString(10)
+
+					cluster.Spec.DataCenter = primaryID
+					cluster.Spec.DatabaseConfiguration.Regions = []fdbv1beta2.Region{
+						{
+							DataCenters: []fdbv1beta2.DataCenter{
+								{
+									ID:       primaryID,
+									Priority: 1,
+								},
+								{
+									ID:        primarySatelliteID,
+									Satellite: 1,
+									Priority:  1,
+								},
+								{
+									ID:        remoteSatelliteID,
+									Satellite: 1,
+								},
+							},
+						},
+						{
+							DataCenters: []fdbv1beta2.DataCenter{
+								{
+									ID: remoteID,
+								},
+								{
+									ID:        remoteSatelliteID,
+									Satellite: 1,
+									Priority:  1,
+								},
+								{
+									ID:        primarySatelliteID,
+									Satellite: 1,
+								},
+							},
+						},
+					}
 				})
 
 				When("all processes are healthy", func() {
 					It("should only select storage processes in primary and remote and Tlog in satellites", func() {
 						Expect(cluster.DesiredCoordinatorCount()).To(BeNumerically("==", 9))
-						Expect(len(candidates)).To(BeNumerically("==", cluster.DesiredCoordinatorCount()))
+						Expect(candidates).To(HaveLen(cluster.DesiredCoordinatorCount()))
 
 						// Only select Storage processes since we select 3 processes and we have 4 storage processes
 						storageCnt := 0
 						logCnt := 0
-						zoneCnt := map[string]int{}
+						dcDistribution := map[string]int{}
 						for _, candidate := range candidates {
-							zone := strings.Split(candidate.ID, "-")[0]
-							zoneCnt[zone]++
-
+							dcDistribution[candidate.LocalityData[fdbv1beta2.FDBLocalityDCIDKey]]++
 							if candidate.Class == fdbv1beta2.ProcessClassStorage {
 								storageCnt++
 							}
@@ -458,13 +520,19 @@ var _ = Describe("Change coordinators", func() {
 							}
 						}
 
-						// We should have 3 SS in dc0 2 SS in dc1 and 2 Tlogs in sat0 and 2 Tlogs in sat1
+						// We should have 3 SS in the primary dc 2 SS in the remote dc and 2 Tlogs in each satellite.
 						Expect(storageCnt).To(BeNumerically("==", 5))
 						Expect(logCnt).To(BeNumerically("==", 4))
-						// We should have 3 different zones
-						Expect(len(zoneCnt)).To(BeNumerically("==", 4))
-						for _, zoneVal := range zoneCnt {
-							Expect(zoneVal).To(BeNumerically(">=", 2))
+						Expect(primaryID).To(Equal(cluster.DesiredDatabaseConfiguration().GetPrimaryDCID()))
+						// We should have 4 different dcs,
+						Expect(dcDistribution).To(HaveLen(4))
+						for dcID, dcCount := range dcDistribution {
+							if dcID == primaryID {
+								Expect(dcCount).To(BeNumerically("==", 3))
+								continue
+							}
+
+							Expect(dcCount).To(BeNumerically("==", 2))
 						}
 					})
 				})
@@ -472,29 +540,26 @@ var _ = Describe("Change coordinators", func() {
 				When("some processes are excluded", func() {
 					BeforeEach(func() {
 						excludes = []string{
-							"dc0-storage-1",
-							"dc0-storage-2",
-							"dc0-storage-3",
-							"dc0-storage-4",
+							primaryID + "-storage-1",
+							primaryID + "-storage-2",
+							primaryID + "-storage-3",
+							primaryID + "-storage-4",
 						}
 					})
 
 					It("should only select storage processes in primary and remote and Tlog in satellites and processes that are not excluded", func() {
 						Expect(cluster.DesiredCoordinatorCount()).To(BeNumerically("==", 9))
-						Expect(len(candidates)).To(BeNumerically("==", cluster.DesiredCoordinatorCount()))
+						Expect(candidates).To(HaveLen(cluster.DesiredCoordinatorCount()))
 
 						// Only select Storage processes since we select 3 processes and we have 4 storage processes
 						storageCnt := 0
 						logCnt := 0
-						zoneCnt := map[string]int{}
+						dcDistribution := map[string]int{}
 						for _, candidate := range candidates {
 							for _, excluded := range excludes {
 								Expect(candidate.ID).NotTo(Equal(excluded))
 							}
-
-							zone := strings.Split(candidate.ID, "-")[0]
-							zoneCnt[zone]++
-
+							dcDistribution[candidate.LocalityData[fdbv1beta2.FDBLocalityDCIDKey]]++
 							if candidate.Class == fdbv1beta2.ProcessClassStorage {
 								storageCnt++
 							}
@@ -507,10 +572,15 @@ var _ = Describe("Change coordinators", func() {
 						// We should have 3 SS in dc0 2 SS in dc1 and 2 Tlogs in sat0 and 2 Tlogs in sat1
 						Expect(storageCnt).To(BeNumerically("==", 5))
 						Expect(logCnt).To(BeNumerically("==", 4))
-						// We should have 3 different zones
-						Expect(len(zoneCnt)).To(BeNumerically("==", 4))
-						for _, zoneVal := range zoneCnt {
-							Expect(zoneVal).To(BeNumerically(">=", 2))
+						// We should have 4 different dcs,
+						Expect(dcDistribution).To(HaveLen(4))
+						for dcID, dcCount := range dcDistribution {
+							if dcID == primaryID {
+								Expect(dcCount).To(BeNumerically("==", 3))
+								continue
+							}
+
+							Expect(dcCount).To(BeNumerically("==", 2))
 						}
 					})
 				})
@@ -518,29 +588,27 @@ var _ = Describe("Change coordinators", func() {
 				When("some processes are removed", func() {
 					BeforeEach(func() {
 						removals = []fdbv1beta2.ProcessGroupID{
-							"dc0-storage-1",
-							"dc0-storage-2",
-							"dc0-storage-3",
-							"dc0-storage-4",
+							fdbv1beta2.ProcessGroupID(primaryID + "-storage-1"),
+							fdbv1beta2.ProcessGroupID(primaryID + "-storage-2"),
+							fdbv1beta2.ProcessGroupID(primaryID + "-storage-3"),
+							fdbv1beta2.ProcessGroupID(primaryID + "-storage-4"),
 						}
 					})
 
 					It("should only select storage processes in primary and remote and Tlog in satellites and processes that are not removed", func() {
 						Expect(cluster.DesiredCoordinatorCount()).To(BeNumerically("==", 9))
-						Expect(len(candidates)).To(BeNumerically("==", cluster.DesiredCoordinatorCount()))
+						Expect(candidates).To(HaveLen(cluster.DesiredCoordinatorCount()))
 
 						// Only select Storage processes since we select 3 processes and we have 4 storage processes
 						storageCnt := 0
 						logCnt := 0
-						zoneCnt := map[string]int{}
+						dcDistribution := map[string]int{}
 						for _, candidate := range candidates {
 							for _, removed := range removals {
 								Expect(candidate.ID).NotTo(Equal(removed))
 							}
 
-							zone := strings.Split(candidate.ID, "-")[0]
-							zoneCnt[zone]++
-
+							dcDistribution[candidate.LocalityData[fdbv1beta2.FDBLocalityDCIDKey]]++
 							if candidate.Class == fdbv1beta2.ProcessClassStorage {
 								storageCnt++
 							}
@@ -553,10 +621,15 @@ var _ = Describe("Change coordinators", func() {
 						// We should have 3 SS in dc0 2 SS in dc1 and 2 Tlogs each in sat0 and in sat1
 						Expect(storageCnt).To(BeNumerically("==", 5))
 						Expect(logCnt).To(BeNumerically("==", 4))
-						// We should have 3 different zones
-						Expect(len(zoneCnt)).To(BeNumerically("==", 4))
-						for _, zoneVal := range zoneCnt {
-							Expect(zoneVal).To(BeNumerically(">=", 2))
+						// We should have 4 different dcs.
+						Expect(dcDistribution).To(HaveLen(4))
+						for dcID, dcCount := range dcDistribution {
+							if dcID == primaryID {
+								Expect(dcCount).To(BeNumerically("==", 3))
+								continue
+							}
+
+							Expect(dcCount).To(BeNumerically("==", 2))
 						}
 					})
 				})
@@ -564,53 +637,35 @@ var _ = Describe("Change coordinators", func() {
 				When("all processes in a dc are excluded", func() {
 					BeforeEach(func() {
 						excludes = []string{
-							"dc0-storage-0",
-							"dc0-storage-1",
-							"dc0-storage-2",
-							"dc0-storage-3",
-							"dc0-storage-4",
-							"dc0-storage-5",
-							"dc0-storage-6",
-							"dc0-storage-7",
-							"dc0-log-0",
-							"dc0-log-1",
-							"dc0-log-2",
-							"dc0-log-3",
+							primaryID + "-storage-0",
+							primaryID + "-storage-1",
+							primaryID + "-storage-2",
+							primaryID + "-storage-3",
+							primaryID + "-storage-4",
+							primaryID + "-storage-5",
+							primaryID + "-storage-6",
+							primaryID + "-storage-7",
+							primaryID + "-log-0",
+							primaryID + "-log-1",
+							primaryID + "-log-2",
+							primaryID + "-log-3",
 						}
 					})
 
 					It("should select 3 processes in each remaining dc", func() {
 						Expect(cluster.DesiredCoordinatorCount()).To(BeNumerically("==", 9))
-						Expect(len(candidates)).To(BeNumerically("==", cluster.DesiredCoordinatorCount()))
+						Expect(candidates).NotTo(BeEmpty())
 
-						// Only select Storage processes since we select 3 processes and we have 4 storage processes
-						storageCnt := 0
-						logCnt := 0
-						zoneCnt := map[string]int{}
+						dcDistribution := map[string]int{}
 						for _, candidate := range candidates {
-							for _, excluded := range excludes {
-								Expect(candidate.ID).NotTo(Equal(excluded))
-							}
-
-							zone := strings.Split(candidate.ID, "-")[0]
-							zoneCnt[zone]++
-
-							if candidate.Class == fdbv1beta2.ProcessClassStorage {
-								storageCnt++
-							}
-
-							if candidate.Class == fdbv1beta2.ProcessClassLog {
-								logCnt++
-							}
+							dcDistribution[candidate.LocalityData[fdbv1beta2.FDBLocalityDCIDKey]]++
 						}
 
-						// We should have 3 SS in dc1 and 3 Tlogs each in sat0 and sat1
-						Expect(storageCnt).To(BeNumerically("==", 3))
-						Expect(logCnt).To(BeNumerically("==", 6))
-						// We should have 3 different zones
-						Expect(len(zoneCnt)).To(BeNumerically("==", 3))
-						for _, zoneVal := range zoneCnt {
-							Expect(zoneVal).To(BeNumerically("==", 3))
+						// We should have 3 different dcs as the primary has no valid processes.
+						Expect(dcDistribution).To(HaveLen(3))
+						for dcID, dcCount := range dcDistribution {
+							Expect(dcID).NotTo(Equal(primaryID))
+							Expect(dcCount).To(BeNumerically("==", 3))
 						}
 					})
 				})
@@ -641,7 +696,7 @@ var _ = Describe("Change coordinators", func() {
 				status, err = adminClient.GetStatus()
 				Expect(err).NotTo(HaveOccurred())
 
-				status.Cluster.Processes = generateProcessInfoForThreeDataHall(3, nil)
+				status.Cluster.Processes = generateProcessInfoForThreeDataHall(3, nil, cluster.GetRunningVersion())
 
 				candidates, err = selectCoordinators(logr.Discard(), cluster, status)
 				Expect(err).NotTo(HaveOccurred())
@@ -652,17 +707,15 @@ var _ = Describe("Change coordinators", func() {
 					Expect(cluster.DesiredCoordinatorCount()).To(BeNumerically("==", 9))
 					Expect(len(candidates)).To(BeNumerically("==", cluster.DesiredCoordinatorCount()))
 
-					dataHallCount := map[string]int{}
+					dataHallCounts := map[string]int{}
 					for _, candidate := range candidates {
-						Expect(candidate.ID).To(ContainSubstring("storage"))
-						dataHallCount[strings.Split(candidate.ID, "-")[0]]++
+						Expect(candidate.Class).To(Equal(fdbv1beta2.ProcessClassStorage))
+						dataHallCounts[candidate.LocalityData[fdbv1beta2.FDBLocalityDataHallKey]]++
 					}
 
-					Expect(dataHallCount).To(Equal(map[string]int{
-						"datahall0": 3,
-						"datahall1": 3,
-						"datahall2": 3,
-					}))
+					for _, dataHallCount := range dataHallCounts {
+						Expect(dataHallCount).To(BeNumerically("==", 3))
+					}
 				})
 			})
 
@@ -681,18 +734,16 @@ var _ = Describe("Change coordinators", func() {
 					Expect(len(candidates)).To(BeNumerically("==", cluster.DesiredCoordinatorCount()))
 
 					// Only select Storage processes since we select 3 processes and we have 4 storage processes
-					dataHallCount := map[string]int{}
+					dataHallCounts := map[string]int{}
 					for _, candidate := range candidates {
 						Expect(candidate.ID).NotTo(Equal(removedProcess))
-						Expect(candidate.ID).To(ContainSubstring("storage"))
-						dataHallCount[strings.Split(candidate.ID, "-")[0]]++
+						Expect(candidate.Class).To(Equal(fdbv1beta2.ProcessClassStorage))
+						dataHallCounts[candidate.LocalityData[fdbv1beta2.FDBLocalityDataHallKey]]++
 					}
 
-					Expect(dataHallCount).To(Equal(map[string]int{
-						"datahall0": 3,
-						"datahall1": 3,
-						"datahall2": 3,
-					}))
+					for _, dataHallCount := range dataHallCounts {
+						Expect(dataHallCount).To(BeNumerically("==", 3))
+					}
 				})
 			})
 		})
@@ -1002,38 +1053,37 @@ var _ = Describe("Change coordinators", func() {
 	)
 })
 
-func generateProcessInfoForMultiRegion(dcCount int, satCount int, excludes []string) map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo {
+func generateProcessInfoForMultiRegion(config fdbv1beta2.DatabaseConfiguration, excludes []string, version string) map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo {
 	res := map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{}
 	logCnt := 4
 
-	for i := 0; i < dcCount; i++ {
-		dcid := fmt.Sprintf("dc%d", i)
-
-		generateProcessInfoDetails(res, dcid, "", 8, excludes, fdbv1beta2.ProcessClassStorage)
-		generateProcessInfoDetails(res, dcid, "", logCnt, excludes, fdbv1beta2.ProcessClassLog)
+	mainDCs, satelliteDCs := config.GetMainDCsAndSatellites()
+	for dcID := range mainDCs {
+		generateProcessInfoDetails(res, dcID, "", 8, excludes, fdbv1beta2.ProcessClassStorage, version)
+		generateProcessInfoDetails(res, dcID, "", logCnt, excludes, fdbv1beta2.ProcessClassLog, version)
 	}
 
-	for i := 0; i < satCount; i++ {
-		generateProcessInfoDetails(res, fmt.Sprintf("sat%d", i), "", logCnt, excludes, fdbv1beta2.ProcessClassLog)
+	for satelliteDCID := range satelliteDCs {
+		generateProcessInfoDetails(res, satelliteDCID, "", logCnt, excludes, fdbv1beta2.ProcessClassLog, version)
 	}
 
 	return res
 }
 
-func generateProcessInfoForThreeDataHall(dataHallCount int, excludes []string) map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo {
+func generateProcessInfoForThreeDataHall(dataHallCount int, excludes []string, version string) map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo {
 	res := map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{}
 	logCnt := 4
 
 	for i := 0; i < dataHallCount; i++ {
-		dataHallID := fmt.Sprintf("datahall%d", i)
-		generateProcessInfoDetails(res, "", dataHallID, 8, excludes, fdbv1beta2.ProcessClassStorage)
-		generateProcessInfoDetails(res, "", dataHallID, logCnt, excludes, fdbv1beta2.ProcessClassLog)
+		dataHallID := internal.GenerateRandomString(10)
+		generateProcessInfoDetails(res, "", dataHallID, 8, excludes, fdbv1beta2.ProcessClassStorage, version)
+		generateProcessInfoDetails(res, "", dataHallID, logCnt, excludes, fdbv1beta2.ProcessClassLog, version)
 	}
 
 	return res
 }
 
-func generateProcessInfoDetails(res map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo, dcID string, dataHall string, cnt int, excludes []string, pClass fdbv1beta2.ProcessClass) {
+func generateProcessInfoDetails(res map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo, dcID string, dataHall string, cnt int, excludes []string, pClass fdbv1beta2.ProcessClass, version string) {
 	for idx := 0; idx < cnt; idx++ {
 		excluded := false
 		var zoneID string
@@ -1058,6 +1108,7 @@ func generateProcessInfoDetails(res map[fdbv1beta2.ProcessGroupID]fdbv1beta2.Fou
 		addr := fmt.Sprintf("1.1.1.%d:4501", len(res))
 		processInfo := fdbv1beta2.FoundationDBStatusProcessInfo{
 			ProcessClass: pClass,
+			Version:      version,
 			Locality: map[string]string{
 				fdbv1beta2.FDBLocalityInstanceIDKey: zoneID,
 				fdbv1beta2.FDBLocalityZoneIDKey:     zoneID,
@@ -1079,73 +1130,5 @@ func generateProcessInfoDetails(res map[fdbv1beta2.ProcessGroupID]fdbv1beta2.Fou
 		}
 
 		res[fdbv1beta2.ProcessGroupID(zoneID)] = processInfo
-	}
-}
-
-func setDatabaseConfiguration(cluster *fdbv1beta2.FoundationDBCluster, satCnt int) {
-	if satCnt == 1 {
-		cluster.Spec.DatabaseConfiguration.Regions = []fdbv1beta2.Region{
-			{
-				DataCenters: []fdbv1beta2.DataCenter{
-					{
-						ID: "dc0",
-					},
-					{
-						ID:        "sat0",
-						Satellite: 1,
-					},
-					{
-						ID:        "dc1",
-						Satellite: 1,
-						Priority:  1,
-					},
-				},
-			},
-			{
-				DataCenters: []fdbv1beta2.DataCenter{
-					{
-						ID: "dc1",
-					},
-					{
-						ID:        "sat0",
-						Satellite: 1,
-					},
-					{
-						ID:        "dc0",
-						Satellite: 1,
-						Priority:  1,
-					},
-				},
-			},
-		}
-		return
-	}
-
-	if satCnt == 2 {
-		cluster.Spec.DatabaseConfiguration.Regions = []fdbv1beta2.Region{
-			{
-				DataCenters: []fdbv1beta2.DataCenter{
-					{
-						ID: "dc0",
-					},
-					{
-						ID:        "sat0",
-						Satellite: 1,
-					},
-				},
-			},
-			{
-				DataCenters: []fdbv1beta2.DataCenter{
-					{
-						ID:       "dc1",
-						Priority: 1,
-					},
-					{
-						ID:        "sat1",
-						Satellite: 1,
-					},
-				},
-			},
-		}
 	}
 }

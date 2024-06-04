@@ -24,6 +24,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"math"
 	"reflect"
 	"sort"
 	"strconv"
@@ -560,6 +561,58 @@ func (configuration DatabaseConfiguration) GetNextConfigurationChange(finalConfi
 	}
 
 	return finalConfiguration
+}
+
+// GetPrimaryDCID will return the DC ID of the primary data center. The primary data center is the one with the highest
+// priority in the region configuration.
+// See: https://github.com/apple/foundationdb/wiki/Multi-Region-Replication#concepts
+func (configuration DatabaseConfiguration) GetPrimaryDCID() string {
+	var candidate string
+	priority := math.MinInt
+
+	for _, region := range configuration.Regions {
+		for _, dataCenter := range region.DataCenters {
+			if dataCenter.Satellite != 0 {
+				continue
+			}
+
+			if dataCenter.Priority > priority {
+				candidate = dataCenter.ID
+				priority = dataCenter.Priority
+			}
+		}
+	}
+
+	return candidate
+}
+
+// GetMainDCsAndSatellites will return a set of main dcs and a set of satellites. If a dc is a main dc and a satellite
+// it will only be counted as a main dc.
+func (configuration DatabaseConfiguration) GetMainDCsAndSatellites() (map[string]None, map[string]None) {
+	mainDCs := map[string]None{}
+	satellites := map[string]None{}
+
+	for _, region := range configuration.Regions {
+		for _, dataCenter := range region.DataCenters {
+			if dataCenter.Satellite == 0 {
+				mainDCs[dataCenter.ID] = None{}
+				// If the dc ID is present as satellite we will remove it.
+				delete(satellites, dataCenter.ID)
+
+				// satellites
+				continue
+			}
+
+			// If the dc ID is already present in the main dcs, we will not count this as a satellite.
+			if _, ok := mainDCs[dataCenter.ID]; ok {
+				continue
+			}
+
+			satellites[dataCenter.ID] = None{}
+		}
+	}
+
+	return mainDCs, satellites
 }
 
 func (configuration DatabaseConfiguration) getRegionPriorities() map[string]int {

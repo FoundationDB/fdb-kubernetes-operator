@@ -21,14 +21,14 @@
 package locality
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
-	"math"
-	"sort"
-
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podclient"
 	"github.com/go-logr/logr"
+	"math"
+	"slices"
 )
 
 // Info captures information about a process for the purposes of
@@ -55,16 +55,34 @@ type Info struct {
 // We have to do this to ensure we get a deterministic result for selecting the candidates
 // otherwise we get a (nearly) random result since processes are stored in a map which is by definition
 // not sorted and doesn't return values in a stable way.
-func sortLocalities(processes []Info) {
-	// Sort the processes for ID to ensure we have a stable input
-	sort.SliceStable(processes, func(i, j int) bool {
-		// If both have the same priority sort them by the process ID
-		if processes[i].Priority == processes[j].Priority {
-			return processes[i].ID < processes[j].ID
+func sortLocalities(primaryDC string, processes []Info) {
+	slices.SortStableFunc(processes, func(a, b Info) int {
+		if primaryDC != "" {
+			aDCLocality := a.LocalityData[fdbv1beta2.FDBLocalityDCIDKey]
+			bDCLocality := b.LocalityData[fdbv1beta2.FDBLocalityDCIDKey]
+
+			if aDCLocality != bDCLocality {
+				if aDCLocality == primaryDC {
+					return -1
+				}
+
+				if bDCLocality == primaryDC {
+					return 1
+				}
+			}
 		}
 
-		// prefer processes with a higher priority
-		return processes[i].Priority > processes[j].Priority
+		// If both have the same priority sort them by the process ID
+		if a.Priority == b.Priority {
+			return cmp.Compare(a.ID, b.ID)
+		}
+
+		// Prefer processes with a higher priority
+		if a.Priority > b.Priority {
+			return -1
+		}
+
+		return 1
 	})
 }
 
@@ -146,13 +164,16 @@ type ProcessSelectionConstraint struct {
 	// HardLimits defines a maximum number of processes to recruit on any single
 	// value for a given locality field.
 	HardLimits map[string]int
+
+	// SelectingCoordinators must be true when the ChooseDistributedProcesses is used to select coordinators.
+	SelectingCoordinators bool
 }
 
-// ChooseDistributedProcesses recruits a maximally well-distributed set
-// of processes from a set of potential candidates.
+// ChooseDistributedProcesses recruits a maximally well-distributed set of processes from a set of potential candidates.
 func ChooseDistributedProcesses(cluster *fdbv1beta2.FoundationDBCluster, processes []Info, count int, constraint ProcessSelectionConstraint) ([]Info, error) {
 	chosen := make([]Info, 0, count)
 	chosenIDs := make(map[string]bool, count)
+	primaryDC := cluster.DesiredDatabaseConfiguration().GetPrimaryDCID()
 
 	fields := constraint.Fields
 	if len(fields) == 0 {
@@ -180,8 +201,8 @@ func ChooseDistributedProcesses(cluster *fdbv1beta2.FoundationDBCluster, process
 		currentLimits[field] = 1
 	}
 
-	// Sort the processes to ensure a deterministic result
-	sortLocalities(processes)
+	// Sort the processes to ensure a deterministic result.
+	sortLocalities(primaryDC, processes)
 
 	for len(chosen) < count {
 		choseAny := false
@@ -229,6 +250,7 @@ func ChooseDistributedProcesses(cluster *fdbv1beta2.FoundationDBCluster, process
 					break
 				}
 			}
+
 			if !incrementedLimits {
 				return chosen, notEnoughProcessesError{Desired: count, Chosen: len(chosen), Options: processes}
 			}
