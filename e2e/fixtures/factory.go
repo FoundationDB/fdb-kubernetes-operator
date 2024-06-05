@@ -203,15 +203,19 @@ func (factory *Factory) CreateFdbHaCluster(
 	return cluster
 }
 
-func (factory *Factory) getContainerOverrides(
-	debugSymbols bool,
-) (fdbv1beta2.ContainerOverrides, fdbv1beta2.ContainerOverrides) {
+// GetMainContainerOverrides will return the main container overrides.
+func (factory *Factory) GetMainContainerOverrides(debugSymbols bool, unifiedImage bool) fdbv1beta2.ContainerOverrides {
+	image := factory.GetFoundationDBImage()
+	if unifiedImage {
+		image = factory.GetUnifiedFoundationDBImage()
+	}
+
 	mainImage, mainTag := GetBaseImageAndTag(
-		GetDebugImage(debugSymbols, factory.GetFoundationDBImage()),
+		GetDebugImage(debugSymbols, image),
 	)
 
-	// If the version tag mapping is define make use of that.
-	imageConfigs := factory.options.getImageVersionConfig(mainImage)
+	// If the version tag mapping is defined make use of that.
+	imageConfigs := factory.options.getImageVersionConfig(mainImage, false)
 	if len(imageConfigs) == 0 {
 		// The first entry is version specific e.g. this image + tag (if specified) will be used for the provided version
 		// the second entry ensures we set the base image for e.g. upgrades independent of the version.
@@ -227,35 +231,42 @@ func (factory *Factory) getContainerOverrides(
 		}
 	}
 
-	mainOverrides := fdbv1beta2.ContainerOverrides{
+	return fdbv1beta2.ContainerOverrides{
 		EnableTLS:    false,
 		ImageConfigs: imageConfigs,
 	}
+}
 
+// GetSidecarContainerOverrides will return the sidecar container overrides. If the unified image should be used an empty
+// container override will be returned.
+func (factory *Factory) GetSidecarContainerOverrides(debugSymbols bool) fdbv1beta2.ContainerOverrides {
 	sidecarImage, sidecarTag := GetBaseImageAndTag(
 		GetDebugImage(debugSymbols, factory.GetSidecarImage()),
 	)
-	sidecarOverrides := fdbv1beta2.ContainerOverrides{
-		EnableTLS: false,
-		ImageConfigs: []fdbv1beta2.ImageConfig{
+
+	// If the version tag mapping is defined make use of that.
+	imageConfigs := factory.options.getImageVersionConfig(sidecarImage, true)
+	if len(imageConfigs) == 0 {
+		// The first entry is version specific e.g. this image + tag (if specified) will be used for the provided version
+		// the second entry ensures we set the base image for e.g. upgrades independent of the version.
+		imageConfigs = []fdbv1beta2.ImageConfig{
 			{
 				BaseImage: sidecarImage,
 				Tag:       sidecarTag,
 				Version:   factory.GetFDBVersionAsString(),
+				TagSuffix: "-1",
 			},
 			{
 				BaseImage: sidecarImage,
 				TagSuffix: "-1",
 			},
-		},
+		}
 	}
 
-	// If no tag is specified ensure we add the required tag suffix.
-	if sidecarTag == "" {
-		sidecarOverrides.ImageConfigs[0].TagSuffix = "-1"
+	return fdbv1beta2.ContainerOverrides{
+		EnableTLS:    false,
+		ImageConfigs: imageConfigs,
 	}
-
-	return mainOverrides, sidecarOverrides
 }
 
 func (factory *Factory) getClusterName() string {
@@ -776,10 +787,6 @@ func (factory *Factory) OperatorIsAtLeast(version string) bool {
 func (factory *Factory) GetClusterOptions(options ...ClusterOption) []ClusterOption {
 	options = append(options, WithTLSEnabled)
 
-	if factory.options.featureOperatorUnifiedImage {
-		options = append(options, WithUnifiedImage)
-	}
-
 	if factory.options.featureOperatorLocalities {
 		options = append(options, WithLocalitiesForExclusion)
 	}
@@ -854,6 +861,12 @@ func (factory *Factory) GetSidecarImage() string {
 // prepended.
 func (factory *Factory) GetFoundationDBImage() string {
 	return prependRegistry(factory.options.registry, factory.options.fdbImage)
+}
+
+// GetUnifiedFoundationDBImage returns the unified FoundationDB image provided via command line. If a registry was defined the registry will be
+// prepended.
+func (factory *Factory) GetUnifiedFoundationDBImage() string {
+	return prependRegistry(factory.options.registry, factory.options.unifiedFDBImage)
 }
 
 // getImagePullPolicy returns the image pull policy based on the provided cloud provider. For Kind this will be Never, otherwise
