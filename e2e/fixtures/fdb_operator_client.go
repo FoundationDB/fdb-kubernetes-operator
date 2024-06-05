@@ -511,7 +511,7 @@ type SidecarConfig struct {
 	CopyAsPrimary bool
 }
 
-// getSidecarConfigsSplitImage returns the sidecar config for the split image configuration.
+// getSidecarConfigs returns the sidecar config based on the provided imageConfigs.
 func (factory *Factory) getSidecarConfigs(imageConfigs []fdbv1beta2.ImageConfig) []SidecarConfig {
 	var hasCopyPrimarySet bool
 	additionalSidecarVersions := factory.GetAdditionalSidecarVersions()
@@ -536,14 +536,14 @@ func (factory *Factory) getSidecarConfigs(imageConfigs []fdbv1beta2.ImageConfig)
 
 	// Add all other versions that are required e.g. for major or minor upgrades.
 	for _, version := range additionalSidecarVersions {
-		// Don't add the sidecar another time if we already added it
-		if version.Equal(factory.GetFDBVersion()) {
+		// Don't add the sidecar another time if we already added a protocol compatible version.
+		if version.IsProtocolCompatible(factory.GetFDBVersion()) {
 			continue
 		}
 
 		sidecarConfig := SidecarConfig{
 			Image:           fdbv1beta2.SelectImageConfig(imageConfigs, version.String()).Image(),
-			FDBVersion:      factory.GetFDBVersion(),
+			FDBVersion:      version,
 			ImagePullPolicy: pullPolicy,
 		}
 
