@@ -22,7 +22,7 @@ package controllers
 
 import (
 	"context"
-	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -122,7 +122,7 @@ func (updatePodConfig) reconcile(ctx context.Context, r *FoundationDBClusterReco
 				delayedRequeue = false
 			}
 
-			pod.ObjectMeta.Annotations[fdbv1beta2.OutdatedConfigMapKey] = fmt.Sprintf("%d", time.Now().Unix())
+			pod.ObjectMeta.Annotations[fdbv1beta2.OutdatedConfigMapKey] = strconv.FormatInt(time.Now().Unix(), 10)
 			err = r.PodLifecycleManager.UpdateMetadata(ctx, r, cluster, pod)
 			if err != nil {
 				allSynced = false

@@ -101,7 +101,7 @@ spec:
       initContainers:
         {{ range $index, $version := .SidecarVersions }}
         - name: foundationdb-kubernetes-init-{{ $index }}
-          image: {{ .BaseImage }}:{{ .SidecarTag}}
+          image: {{ .Image }}
           imagePullPolicy: Always
           command:
             - /bin/bash
@@ -118,7 +118,7 @@ spec:
         # Install this library in a special location to force the operator to use it as the primary library.
         {{ if eq .FDBVersion.Compact "7.1" }}
         - name: foundationdb-kubernetes-init-7-1-primary
-          image: {{ .BaseImage }}:{{ .SidecarTag}}
+          image: {{ .Image }}
           imagePullPolicy: {{ .ImagePullPolicy }}
           args:
             # Note that we are only copying a library, rather than copying any binaries. 
@@ -242,7 +242,7 @@ spec:
             runAsGroup: 0
 {{ if .CopyAsPrimary }}
         - name: foundationdb-kubernetes-init-cluster-file
-          image: {{ .BaseImage }}:{{ .SidecarTag}}
+          image: {{ .Image }}
           imagePullPolicy: {{ .ImagePullPolicy }}
           args:
             - --mode

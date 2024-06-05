@@ -406,6 +406,15 @@ func (factory *Factory) startFDBFromClusterSpec(
 		fdbCluster.cluster.Namespace,
 	)
 
+	// Make sure the cluster will be removed once the tests are done.
+	factory.AddShutdownHook(func() error {
+		if fdbCluster == nil {
+			return nil
+		}
+
+		return fdbCluster.Destroy()
+	})
+
 	gomega.Expect(fdbCluster.WaitUntilAvailable()).ToNot(gomega.HaveOccurred())
 	return fdbCluster
 }
