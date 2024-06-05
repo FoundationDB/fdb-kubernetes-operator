@@ -62,7 +62,7 @@ func (updateSidecarVersions) reconcile(ctx context.Context, r *FoundationDBClust
 			continue
 		}
 
-		if internal.GetImageType(pod) != internal.GetDesiredImageType(cluster) {
+		if internal.GetImageType(pod) != cluster.DesiredImageType() {
 			logger.V(1).Info("Ignore process group with the wrong image type",
 				"processGroupID", processGroup.ProcessGroupID)
 			continue

@@ -45,21 +45,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-// FDBImageType describes a type of image a pod or cluster is using.
-type FDBImageType string
-
 const (
 	// MockUnreachableAnnotation defines if a Pod should be unreachable. This annotation
 	// is currently only used for testing cases.
 	MockUnreachableAnnotation = "foundationdb.org/mock-unreachable"
-
-	// FDBImageTypeUnified indicates that a pod is using a unified image for the
-	// main container and sidecar container.
-	FDBImageTypeUnified FDBImageType = "unified"
-
-	// FDBImageTypeSplit indicates that a pod is using a different image for the
-	// main container and sidecar container.
-	FDBImageTypeSplit FDBImageType = "split"
 
 	// CurrentConfigurationAnnotation is the annotation we use to store the
 	// latest configuration.
@@ -111,7 +100,7 @@ type realFdbPodAnnotationClient struct {
 
 // NewFdbPodClient builds a client for working with an FDB Pod
 func NewFdbPodClient(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod, log logr.Logger, getTimeout time.Duration, postTimeout time.Duration) (podclient.FdbPodClient, error) {
-	if GetImageType(pod) == FDBImageTypeUnified {
+	if GetImageType(pod) == fdbv1beta2.ImageTypeUnified {
 		return &realFdbPodAnnotationClient{Cluster: cluster, Pod: pod, logger: log}, nil
 	}
 
@@ -412,29 +401,19 @@ func podHasSidecarTLS(pod *corev1.Pod) bool {
 
 // GetImageType determines whether a pod is using the unified or the split
 // image.
-func GetImageType(pod *corev1.Pod) FDBImageType {
+func GetImageType(pod *corev1.Pod) fdbv1beta2.ImageType {
 	for _, container := range pod.Spec.Containers {
 		if container.Name != fdbv1beta2.MainContainerName {
 			continue
 		}
 		for _, envVar := range container.Env {
-			if envVar.Name == "FDB_IMAGE_TYPE" {
-				return FDBImageType(envVar.Value)
+			if envVar.Name == fdbv1beta2.EnvNameImageType {
+				return fdbv1beta2.ImageType(envVar.Value)
 			}
 		}
 	}
 
-	return FDBImageTypeSplit
-}
-
-// GetDesiredImageType determines whether a cluster is configured to use the
-// unified or the split image.
-func GetDesiredImageType(cluster *fdbv1beta2.FoundationDBCluster) FDBImageType {
-	if cluster.UseUnifiedImage() {
-		return FDBImageTypeUnified
-	}
-
-	return FDBImageTypeSplit
+	return fdbv1beta2.ImageTypeSplit
 }
 
 // GetSubstitutionsFromClusterAndPod returns a map that contains the substitutions based on the provided cluster and Pod.

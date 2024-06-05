@@ -47,7 +47,7 @@ func GetStartCommandWithSubstitutions(cluster *fdbv1beta2.FoundationDBCluster, p
 		return "", nil
 	}
 
-	imageType := GetDesiredImageType(cluster)
+	imageType := cluster.DesiredImageType()
 	config := GetMonitorProcessConfiguration(cluster, processClass, processCount, imageType)
 
 	extractPlaceholderEnvVars(substitutions, config.Arguments)
@@ -59,7 +59,7 @@ func GetStartCommandWithSubstitutions(cluster *fdbv1beta2.FoundationDBCluster, p
 		return "", err
 	}
 
-	if imageType == FDBImageTypeUnified {
+	if imageType == fdbv1beta2.ImageTypeUnified {
 		return strings.Join(arguments, " "), nil
 	}
 
@@ -126,7 +126,7 @@ func GetMonitorConf(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1b
 func getMonitorConfStartCommandLines(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, substitutions map[string]string, processNumber int, processCount int) ([]string, error) {
 	confLines := make([]string, 0, 20)
 
-	config := GetMonitorProcessConfiguration(cluster, processClass, processCount, FDBImageTypeSplit)
+	config := GetMonitorProcessConfiguration(cluster, processClass, processCount, fdbv1beta2.ImageTypeSplit)
 
 	if substitutions == nil {
 		substitutions = make(map[string]string)
@@ -155,7 +155,7 @@ func getMonitorConfStartCommandLines(cluster *fdbv1beta2.FoundationDBCluster, pr
 }
 
 // GetMonitorProcessConfiguration builds the monitor conf template for the unified image.
-func GetMonitorProcessConfiguration(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, processCount int, imageType FDBImageType) monitorapi.ProcessConfiguration {
+func GetMonitorProcessConfiguration(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, processCount int, imageType fdbv1beta2.ImageType) monitorapi.ProcessConfiguration {
 	configuration := monitorapi.ProcessConfiguration{
 		Version: cluster.Spec.Version,
 	}
@@ -304,10 +304,10 @@ func getKnobParameterWithValue(key string, value string, isLocality bool) string
 }
 
 // buildIPArgument builds an argument that takes an IP address from an environment variable
-func buildIPArgument(parameter string, environmentVariable string, imageType FDBImageType, sampleAddresses []fdbv1beta2.ProcessAddress, podIPFamily *int) []monitorapi.Argument {
+func buildIPArgument(parameter string, environmentVariable string, imageType fdbv1beta2.ImageType, sampleAddresses []fdbv1beta2.ProcessAddress, podIPFamily *int) []monitorapi.Argument {
 	var leftIPWrap string
 	var rightIPWrap string
-	if imageType == FDBImageTypeUnified {
+	if imageType == fdbv1beta2.ImageTypeUnified {
 		leftIPWrap = "["
 		rightIPWrap = "]"
 	} else {
@@ -324,7 +324,7 @@ func buildIPArgument(parameter string, environmentVariable string, imageType FDB
 		ipArgument := monitorapi.Argument{
 			Source: environmentVariable,
 		}
-		if podIPFamily != nil && imageType == FDBImageTypeUnified {
+		if podIPFamily != nil && imageType == fdbv1beta2.ImageTypeUnified {
 			ipArgument.ArgumentType = monitorapi.IPListArgumentType
 			ipArgument.IPFamily = *podIPFamily
 		} else {

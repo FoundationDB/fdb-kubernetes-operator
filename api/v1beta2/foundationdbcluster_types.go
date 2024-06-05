@@ -2557,6 +2557,15 @@ func (cluster *FoundationDBCluster) UseUnifiedImage() bool {
 	return imageType == ImageTypeUnified
 }
 
+// DesiredImageType returns the desired image type that should be used.
+func (cluster *FoundationDBCluster) DesiredImageType() ImageType {
+	if cluster.UseUnifiedImage() {
+		return ImageTypeUnified
+	}
+
+	return ImageTypeSplit
+}
+
 // GetIgnoreTerminatingPodsSeconds returns the value of IgnoreTerminatingPodsSeconds or defaults to 10 minutes.
 func (cluster *FoundationDBCluster) GetIgnoreTerminatingPodsSeconds() int {
 	return pointer.IntDeref(cluster.Spec.AutomationOptions.IgnoreTerminatingPodsSeconds, int((10 * time.Minute).Seconds()))

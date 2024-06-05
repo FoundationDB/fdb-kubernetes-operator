@@ -61,9 +61,9 @@ func GetConfigMap(cluster *fdbv1beta2.FoundationDBCluster) (*corev1.ConfigMap, e
 	}
 	desiredCounts := desiredCountStruct.Map()
 
-	imageTypes := make(map[FDBImageType]fdbv1beta2.None, len(cluster.Status.ImageTypes))
+	imageTypes := make(map[fdbv1beta2.ImageType]fdbv1beta2.None, len(cluster.Status.ImageTypes))
 	for _, imageType := range cluster.Status.ImageTypes {
-		imageTypes[FDBImageType(imageType)] = fdbv1beta2.None{}
+		imageTypes[imageType] = fdbv1beta2.None{}
 	}
 
 	for processClass, count := range desiredCounts {
@@ -71,17 +71,17 @@ func GetConfigMap(cluster *fdbv1beta2.FoundationDBCluster) (*corev1.ConfigMap, e
 			continue
 		}
 
-		if _, useUnifiedImage := imageTypes[FDBImageTypeUnified]; useUnifiedImage {
+		if _, useUnifiedImage := imageTypes[fdbv1beta2.ImageTypeUnified]; useUnifiedImage {
 			// The serversPerPod argument will be ignored in the config of the unified image as the values are directly
 			// interpolated in the fdb-kubernetes-monitor, based on the "--process-count" command line flag.
-			filename, jsonData, err := getDataForMonitorConf(cluster, FDBImageTypeUnified, processClass, 0)
+			filename, jsonData, err := getDataForMonitorConf(cluster, fdbv1beta2.ImageTypeUnified, processClass, 0)
 			if err != nil {
 				return nil, err
 			}
 			data[filename] = string(jsonData)
 		}
 
-		if _, useSplitImage := imageTypes[FDBImageTypeSplit]; useSplitImage {
+		if _, useSplitImage := imageTypes[fdbv1beta2.ImageTypeSplit]; useSplitImage {
 			serversPerPodSlice := []int{1}
 			if processClass == fdbv1beta2.ProcessClassStorage {
 				// If the status field is not initialized we fallback to only the specified count
@@ -104,7 +104,7 @@ func GetConfigMap(cluster *fdbv1beta2.FoundationDBCluster) (*corev1.ConfigMap, e
 			}
 
 			for _, serversPerPod := range serversPerPodSlice {
-				err := setMonitorConfForFilename(cluster, data, GetConfigMapMonitorConfEntry(processClass, FDBImageTypeSplit, serversPerPod), connectionString, processClass, serversPerPod)
+				err := setMonitorConfForFilename(cluster, data, GetConfigMapMonitorConfEntry(processClass, fdbv1beta2.ImageTypeSplit, serversPerPod), connectionString, processClass, serversPerPod)
 				if err != nil {
 					return nil, err
 				}
@@ -144,7 +144,7 @@ func getConfigMapMetadata(cluster *fdbv1beta2.FoundationDBCluster) metav1.Object
 	return metadata
 }
 
-func getDataForMonitorConf(cluster *fdbv1beta2.FoundationDBCluster, imageType FDBImageType, pClass fdbv1beta2.ProcessClass, serversPerPod int) (string, []byte, error) {
+func getDataForMonitorConf(cluster *fdbv1beta2.FoundationDBCluster, imageType fdbv1beta2.ImageType, pClass fdbv1beta2.ProcessClass, serversPerPod int) (string, []byte, error) {
 	config := GetMonitorProcessConfiguration(cluster, pClass, serversPerPod, imageType)
 	jsonData, err := json.Marshal(config)
 	if err != nil {
@@ -169,8 +169,8 @@ func setMonitorConfForFilename(cluster *fdbv1beta2.FoundationDBCluster, data map
 }
 
 // GetConfigMapMonitorConfEntry returns the specific key for the monitor conf in the ConfigMap
-func GetConfigMapMonitorConfEntry(pClass fdbv1beta2.ProcessClass, imageType FDBImageType, serversPerPod int) string {
-	if imageType == FDBImageTypeUnified {
+func GetConfigMapMonitorConfEntry(pClass fdbv1beta2.ProcessClass, imageType fdbv1beta2.ImageType, serversPerPod int) string {
+	if imageType == fdbv1beta2.ImageTypeUnified {
 		return fmt.Sprintf("fdbmonitor-conf-%s-json", pClass)
 	}
 	if serversPerPod > 1 {
@@ -183,7 +183,7 @@ func GetConfigMapMonitorConfEntry(pClass fdbv1beta2.ProcessClass, imageType FDBI
 // cluster's dynamic conf.
 //
 // This will omit keys that we do not expect the Pods to reference e.g. for storage Pods only include the storage config.
-func GetDynamicConfHash(configMap *corev1.ConfigMap, pClass fdbv1beta2.ProcessClass, imageType FDBImageType, serversPerPod int) (string, error) {
+func GetDynamicConfHash(configMap *corev1.ConfigMap, pClass fdbv1beta2.ProcessClass, imageType fdbv1beta2.ImageType, serversPerPod int) (string, error) {
 	fields := []string{
 		ClusterFileKey,
 		GetConfigMapMonitorConfEntry(pClass, imageType, serversPerPod),

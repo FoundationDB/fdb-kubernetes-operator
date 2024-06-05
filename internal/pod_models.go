@@ -200,7 +200,7 @@ func configureContainersForUnifiedImages(cluster *fdbv1beta2.FoundationDBCluster
 	)
 
 	mainContainer.Env = append(mainContainer.Env, getEnvForMonitorConfigSubstitution(cluster, processGroup.ProcessGroupID)...)
-	mainContainer.Env = append(mainContainer.Env, corev1.EnvVar{Name: "FDB_IMAGE_TYPE", Value: string(FDBImageTypeUnified)})
+	mainContainer.Env = append(mainContainer.Env, corev1.EnvVar{Name: fdbv1beta2.EnvNameImageType, Value: string(fdbv1beta2.ImageTypeUnified)})
 	mainContainer.Env = append(mainContainer.Env, corev1.EnvVar{Name: "FDB_POD_NAME", ValueFrom: &corev1.EnvVarSource{
 		FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 	}})
@@ -296,7 +296,7 @@ func setAffinityForFaultDomain(cluster *fdbv1beta2.FoundationDBCluster, podSpec 
 
 func configureVolumesForContainers(cluster *fdbv1beta2.FoundationDBCluster, podSpec *corev1.PodSpec, volumeClaimTemplate *corev1.PersistentVolumeClaim, podName string, processClass fdbv1beta2.ProcessClass) {
 	useUnifiedImage := cluster.UseUnifiedImage()
-	monitorConfKey := GetConfigMapMonitorConfEntry(processClass, GetDesiredImageType(cluster), cluster.GetDesiredServersPerPod(processClass))
+	monitorConfKey := GetConfigMapMonitorConfEntry(processClass, cluster.DesiredImageType(), cluster.GetDesiredServersPerPod(processClass))
 
 	var monitorConfFile string
 	if useUnifiedImage {

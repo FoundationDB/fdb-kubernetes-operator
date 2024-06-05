@@ -57,7 +57,7 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 	// Initialize with the current desired storage servers per Pod
 	clusterStatus.StorageServersPerDisk = []int{cluster.GetStorageServersPerPod()}
 	clusterStatus.LogServersPerDisk = []int{cluster.GetLogServersPerPod()}
-	clusterStatus.ImageTypes = []fdbv1beta2.ImageType{fdbv1beta2.ImageType(internal.GetDesiredImageType(cluster))}
+	clusterStatus.ImageTypes = []fdbv1beta2.ImageType{cluster.DesiredImageType()}
 	processMap := make(map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo)
 
 	if databaseStatus == nil {
@@ -227,7 +227,7 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 	// issuing a new reconcile loop.
 	sort.Ints(clusterStatus.StorageServersPerDisk)
 	sort.Ints(clusterStatus.LogServersPerDisk)
-	sort.Slice(clusterStatus.ImageTypes, func(i int, j int) bool {
+	sort.SliceStable(clusterStatus.ImageTypes, func(i int, j int) bool {
 		return string(clusterStatus.ImageTypes[i]) < string(clusterStatus.ImageTypes[j])
 	})
 
@@ -516,16 +516,15 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 		status.AddServersPerDisk(processCount, processGroup.ProcessClass)
 
 		imageType := internal.GetImageType(pod)
-		imageTypeString := fdbv1beta2.ImageType(imageType)
 		imageTypeFound := false
 		for _, currentImageType := range status.ImageTypes {
-			if imageTypeString == currentImageType {
+			if imageType == currentImageType {
 				imageTypeFound = true
 				break
 			}
 		}
 		if !imageTypeFound {
-			status.ImageTypes = append(status.ImageTypes, imageTypeString)
+			status.ImageTypes = append(status.ImageTypes, imageType)
 		}
 
 		if pod.ObjectMeta.DeletionTimestamp.IsZero() && status.HasListenIPsForAllPods {
