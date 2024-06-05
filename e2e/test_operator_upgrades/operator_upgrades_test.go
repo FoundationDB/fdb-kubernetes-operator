@@ -100,7 +100,10 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 	DescribeTable(
 		"upgrading a cluster with a random Pod deleted during rolling bounce phase",
 		func(beforeVersion string, targetVersion string) {
-			clusterSetup(beforeVersion, true)
+			// We disable the availability check here as there could be some race conditions between the operator and
+			// the test suite where two pods are taken down at the same time which would affect the availability of the
+			// cluster.
+			clusterSetup(beforeVersion, false)
 			prevImage := fdbCluster.GetFDBImage()
 
 			// 1. Start upgrade.
