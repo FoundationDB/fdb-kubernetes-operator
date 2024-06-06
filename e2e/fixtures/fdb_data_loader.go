@@ -221,7 +221,7 @@ spec:
       initContainers:
         {{ range $index, $version := .SidecarVersions }}
         - name: foundationdb-kubernetes-init-{{ $index }}
-          image: {{ .BaseImage }}:{{ .SidecarTag}}
+          image: {{ .Image }}
           imagePullPolicy: {{ .ImagePullPolicy }}
           args:
             - --mode
