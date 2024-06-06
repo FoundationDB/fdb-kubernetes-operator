@@ -202,6 +202,45 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				})
 			})
 
+			When("the image type changes", func() {
+				BeforeEach(func() {
+					imageType := fdbv1beta2.ImageTypeUnified
+					cluster.Spec.ImageType = &imageType
+				})
+
+				When("one storage server per pod should be used", func() {
+					BeforeEach(func() {
+						cluster.Spec.StorageServersPerPod = 1
+					})
+
+					It("should need a removal", func() {
+						Expect(needsRemoval).To(BeTrue())
+						Expect(err).NotTo(HaveOccurred())
+					})
+				})
+
+				When("two storage server per pod should be used", func() {
+					BeforeEach(func() {
+						cluster.Spec.StorageServersPerPod = 2
+						// Make sure the Pod is updated, otherwise a replacement will be needed because the storage
+						// server per pod have changed.
+						spec, err := internal.GetPodSpec(cluster, processGroup)
+						Expect(err).NotTo(HaveOccurred())
+
+						pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey], err = internal.GetPodSpecHash(cluster, processGroup, spec)
+						Expect(err).NotTo(HaveOccurred())
+
+						pod.Spec = *spec
+						Expect(internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})).NotTo(HaveOccurred())
+					})
+
+					It("should not need a removal", func() {
+						Expect(needsRemoval).To(BeFalse())
+						Expect(err).NotTo(HaveOccurred())
+					})
+				})
+			})
+
 			When("UpdatePodsByReplacement is not set and the PodSpecHash doesn't match", func() {
 				BeforeEach(func() {
 					pod.Spec = corev1.PodSpec{

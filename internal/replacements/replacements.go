@@ -140,24 +140,24 @@ func processGroupNeedsRemovalForPVC(cluster *fdbv1beta2.FoundationDBCluster, pvc
 	return false, nil
 }
 
-func processGroupNeedsRemovalForPod(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod, processGroupStatus *fdbv1beta2.ProcessGroupStatus, log logr.Logger, replaceOnSecurityContextChange bool) (bool, error) {
+func processGroupNeedsRemovalForPod(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod, processGroup *fdbv1beta2.ProcessGroupStatus, log logr.Logger, replaceOnSecurityContextChange bool) (bool, error) {
 	if pod == nil {
 		return false, nil
 	}
 
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", processGroupStatus.ProcessGroupID)
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", processGroup.ProcessGroupID)
 
-	if processGroupStatus.IsMarkedForRemoval() {
+	if processGroup.IsMarkedForRemoval() {
 		return false, nil
 	}
 
-	idNum, err := processGroupStatus.ProcessGroupID.GetIDNumber()
+	idNum, err := processGroup.ProcessGroupID.GetIDNumber()
 	if err != nil {
 		return false, err
 	}
 
-	_, desiredProcessGroupID := cluster.GetProcessGroupID(processGroupStatus.ProcessClass, idNum)
-	if processGroupStatus.ProcessGroupID != desiredProcessGroupID {
+	_, desiredProcessGroupID := cluster.GetProcessGroupID(processGroup.ProcessClass, idNum)
+	if processGroup.ProcessGroupID != desiredProcessGroupID {
 		logger.Info("Replace process group",
 			"reason", fmt.Sprintf("expect process group ID: %s", desiredProcessGroupID))
 		return true, nil
@@ -172,54 +172,28 @@ func processGroupNeedsRemovalForPod(cluster *fdbv1beta2.FoundationDBCluster, pod
 			"reason", fmt.Sprintf("publicIP source has changed from %s to %s", ipSource, cluster.GetPublicIPSource()))
 		return true, nil
 	}
-	serversPerPod, err := internal.GetServersPerPodForPod(pod, processGroupStatus.ProcessClass)
+	serversPerPod, err := internal.GetServersPerPodForPod(pod, processGroup.ProcessClass)
 	if err != nil {
 		return false, err
 	}
 
-	desiredServersPerPod := cluster.GetDesiredServersPerPod(processGroupStatus.ProcessClass)
+	desiredServersPerPod := cluster.GetDesiredServersPerPod(processGroup.ProcessClass)
 	// Replace the process group if the expected servers differ from the desired servers
 	if serversPerPod != desiredServersPerPod {
 		logger.Info("Replace process group",
 			"serversPerPod", serversPerPod,
 			"desiredServersPerPod", desiredServersPerPod,
-			"reason", fmt.Sprintf("serversPerPod have changes from current: %d to desired: %d", serversPerPod, desiredServersPerPod))
+			"reason", fmt.Sprintf("serversPerPod has changed from current: %d to desired: %d", serversPerPod, desiredServersPerPod))
 		return true, nil
 	}
 
-	specHash, err := internal.GetPodSpecHash(cluster, processGroupStatus, nil)
+	spec, err := internal.GetPodSpec(cluster, processGroup)
 	if err != nil {
 		return false, err
 	}
-	spec, err := internal.GetPodSpec(cluster, processGroupStatus)
+	specHash, err := internal.GetPodSpecHash(cluster, processGroup, spec)
 	if err != nil {
 		return false, err
-	}
-	// TODO https://github.com/FoundationDB/fdb-kubernetes-operator/issues/2043
-	expectedNodeSelector := cluster.GetProcessSettings(processGroupStatus.ProcessClass).PodTemplate.Spec.NodeSelector
-	if !equality.Semantic.DeepEqual(pod.Spec.NodeSelector, expectedNodeSelector) {
-		if pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] != specHash {
-			logger.Info("Replace process group",
-				"reason", fmt.Sprintf("nodeSelector has changed from %s to %s", pod.Spec.NodeSelector, expectedNodeSelector))
-			return true, nil
-		}
-	}
-
-	if cluster.NeedsReplacement(processGroupStatus) {
-		if pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] != specHash {
-			jsonSpec, err := json.Marshal(spec)
-			if err != nil {
-				return false, err
-			}
-
-			logger.Info("Replace process group",
-				"reason", "specHash has changed",
-				"desiredSpecHash", specHash,
-				"currentSpecHash", pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey],
-				"desiredSpec", base64.StdEncoding.EncodeToString(jsonSpec),
-			)
-			return true, nil
-		}
 	}
 
 	if pointer.BoolDeref(cluster.Spec.ReplaceInstancesWhenResourcesChange, false) {
@@ -236,19 +210,49 @@ func processGroupNeedsRemovalForPod(cluster *fdbv1beta2.FoundationDBCluster, pod
 		}
 	}
 
+	if pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] == specHash {
+		return false, nil
+	}
+
+	expectedNodeSelector := cluster.GetProcessSettings(processGroup.ProcessClass).PodTemplate.Spec.NodeSelector
+	if !equality.Semantic.DeepEqual(pod.Spec.NodeSelector, expectedNodeSelector) {
+		logger.Info("Replace process group",
+			"reason", fmt.Sprintf("nodeSelector has changed from %s to %s", pod.Spec.NodeSelector, expectedNodeSelector))
+		return true, nil
+	}
+
+	// If the image type is changed from split to unified and only a single storage server per pod is used, we have to perform
+	// a replacement as the disk layout has changed.
+	if cluster.GetStorageServersPerPod() == 1 && internal.GetImageType(pod) != cluster.DesiredImageType() {
+		logger.Info("Replace process group",
+			"reason", "imageType has been changed and only a single storage server per Pod is used")
+		return true, nil
+	}
+
+	if cluster.NeedsReplacement(processGroup) {
+		jsonSpec, err := json.Marshal(spec)
+		if err != nil {
+			return false, err
+		}
+
+		logger.Info("Replace process group",
+			"reason", "specHash has changed",
+			"desiredSpecHash", specHash,
+			"currentSpecHash", pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey],
+			"desiredSpec", base64.StdEncoding.EncodeToString(jsonSpec),
+		)
+		return true, nil
+	}
+
 	// Some k8s instances have security context vetting which may edit the spec automatically.
 	// This would cause changes to security context on a pod or container
 	// to constantly be seen as having a security context change, hence we want to feature guard this
 	// and also guard on the spec hash below
 	// https://kubernetes.io/blog/2021/04/06/podsecuritypolicy-deprecation-past-present-and-future/
 	if replaceOnSecurityContextChange {
-		if pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] == specHash {
-			// no changes have been made outside of server-side injected values, do not check for changes
-			// to avoid looping
-			return false, nil
-		}
 		return fileSecurityContextChanged(spec, &pod.Spec, logger), nil
 	}
+
 	return false, nil
 }
 

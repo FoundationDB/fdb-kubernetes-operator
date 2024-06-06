@@ -527,7 +527,7 @@ var _ = Describe("pod_models", func() {
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 						}},
 						{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
-						{Name: "FDB_IMAGE_TYPE", Value: "unified"},
+						{Name: fdbv1beta2.EnvNameImageType, Value: "unified"},
 						{Name: "FDB_POD_NAME", ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 						}},
@@ -637,7 +637,7 @@ var _ = Describe("pod_models", func() {
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 						}},
 						{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
-						{Name: "FDB_IMAGE_TYPE", Value: "unified"},
+						{Name: fdbv1beta2.EnvNameImageType, Value: "unified"},
 						{Name: "FDB_POD_NAME", ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 						}},
@@ -691,7 +691,7 @@ var _ = Describe("pod_models", func() {
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 						}},
 						{Name: "FDB_INSTANCE_ID", Value: "log-1"},
-						{Name: "FDB_IMAGE_TYPE", Value: "unified"},
+						{Name: fdbv1beta2.EnvNameImageType, Value: "unified"},
 						{Name: "FDB_POD_NAME", ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 						}},
@@ -747,7 +747,7 @@ var _ = Describe("pod_models", func() {
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 						}},
 						{Name: "FDB_INSTANCE_ID", Value: "log-1"},
-						{Name: "FDB_IMAGE_TYPE", Value: "unified"},
+						{Name: fdbv1beta2.EnvNameImageType, Value: "unified"},
 						{Name: "FDB_POD_NAME", ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 						}},
