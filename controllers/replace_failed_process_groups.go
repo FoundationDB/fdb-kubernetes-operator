@@ -58,6 +58,13 @@ func (c replaceFailedProcessGroups) reconcile(ctx context.Context, r *Foundation
 		}
 	}
 
+	// If the database is unavailable skip further steps as the operator is not able to make any good decision about the automatic
+	// replacements.
+	if !status.Client.DatabaseStatus.Available {
+		logger.Info("Skipping replaceFailedProcessGroups reconciler as the database is not available.")
+		return nil
+	}
+
 	// Only replace process groups without an address, if the cluster has the desired fault tolerance and is available.
 	hasDesiredFaultTolerance := fdbstatus.HasDesiredFaultToleranceFromStatus(logger, status, cluster)
 	hasReplacement, hasMoreFailedProcesses := replacements.ReplaceFailedProcessGroups(logger, cluster, status, hasDesiredFaultTolerance)

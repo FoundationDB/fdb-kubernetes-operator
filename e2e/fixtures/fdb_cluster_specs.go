@@ -72,9 +72,9 @@ func (factory *Factory) createFDBClusterSpec(
 				WaitBetweenRemovalsSeconds: pointer.Int(0),
 				Replacements: fdbv1beta2.AutomaticReplacementOptions{
 					Enabled: pointer.Bool(true),
-					// Setting this to 5 minutes is reasonable to prevent the operator recreating Pods when they wait for
+					// Setting this to 10 minutes is reasonable to prevent the operator recreating Pods when they wait for
 					// new ec2 instances.
-					FailureDetectionTimeSeconds: pointer.Int(300),
+					FailureDetectionTimeSeconds: pointer.Int(600),
 					// Setting TaintReplacementTimeSeconds as half of FailureDetectionTimeSeconds to make taint replacement faster
 					TaintReplacementTimeSeconds: pointer.Int(150),
 					MaxConcurrentReplacements:   pointer.Int(2),
