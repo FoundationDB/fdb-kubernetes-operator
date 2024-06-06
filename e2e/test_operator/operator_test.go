@@ -2122,12 +2122,17 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			Expect(pickedProcessGroup).NotTo(BeNil())
 			faultDomain = pickedProcessGroup.FaultDomain
 
-			timestampByteBuffer := new(bytes.Buffer)
-			Expect(binary.Write(timestampByteBuffer, binary.LittleEndian, time.Now().Unix())).NotTo(HaveOccurred())
-
 			key := cluster.GetMaintenancePrefix() + "/" + string(pickedProcessGroup.ProcessGroupID)
-			cmd := fmt.Sprintf("writemode on; option on ACCESS_SYSTEM_KEYS; set %s %s", fixtures.FdbPrintable([]byte(key)), fixtures.FdbPrintable(timestampByteBuffer.Bytes()))
-			_, _ = fdbCluster.RunFdbCliCommandInOperator(cmd, true, 20)
+			Eventually(func(g Gomega) error {
+				timestampByteBuffer := new(bytes.Buffer)
+				g.Expect(binary.Write(timestampByteBuffer, binary.LittleEndian, time.Now().Unix())).NotTo(HaveOccurred())
+				g.Expect(timestampByteBuffer.Bytes()).NotTo(BeEmpty())
+				cmd := fmt.Sprintf("writemode on; option on ACCESS_SYSTEM_KEYS; set %s %s", fixtures.FdbPrintable([]byte(key)), fixtures.FdbPrintable(timestampByteBuffer.Bytes()))
+				_, _, err := fdbCluster.RunFdbCliCommandInOperatorWithoutRetry(cmd, true, 20)
+
+				return err
+			}).WithTimeout(2 * time.Minute).ShouldNot(HaveOccurred())
+
 			command := fmt.Sprintf("maintenance on %s %s", pickedProcessGroup.FaultDomain, "3600")
 			_, _ = fdbCluster.RunFdbCliCommandInOperator(command, false, 20)
 		})
