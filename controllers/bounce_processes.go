@@ -196,8 +196,8 @@ func getProcessesReadyForRestart(logger logr.Logger, cluster *fdbv1beta2.Foundat
 	var missingAddress []fdbv1beta2.ProcessGroupID
 
 	filterConditions := restarts.GetFilterConditions(cluster)
-	var missingProcesses int
-	var markedForRemoval int
+	missingProcesses := map[fdbv1beta2.ProcessClass]int{}
+	markedForRemoval := map[fdbv1beta2.ProcessClass]int{}
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		// Ignore tester processes in this reconciler as tester processes cannot be restarted with the kill command.
 		if processGroup.ProcessClass == fdbv1beta2.ProcessClassTest {
@@ -216,7 +216,7 @@ func getProcessesReadyForRestart(logger logr.Logger, cluster *fdbv1beta2.Foundat
 		// than the cluster.GetProcessCountsWithDefaults() will return. The total number of process groups will be the result
 		// of cluster.GetProcessCountsWithDefaults() + the number of process groups marked for removal.
 		if processGroup.IsMarkedForRemoval() {
-			markedForRemoval++
+			markedForRemoval[processGroup.ProcessClass]++
 			// If we do a version incompatible upgrade we want to add the excluded processes to the list of processes
 			// that should be restarted, to make sure we restart all processes in the cluster.
 			if versionIncompatibleUpgrade && processGroup.IsExcluded() {
@@ -232,7 +232,7 @@ func getProcessesReadyForRestart(logger logr.Logger, cluster *fdbv1beta2.Foundat
 		if missingTime := processGroup.GetConditionTime(fdbv1beta2.MissingProcesses); missingTime != nil {
 			if time.Unix(*missingTime, 0).Add(cluster.GetIgnoreMissingProcessesSeconds()).Before(time.Now()) {
 				logger.Info("ignore process group with missing process", "processGroupID", processGroup.ProcessGroupID)
-				missingProcesses++
+				missingProcesses[processGroup.ProcessClass]++
 				continue
 			}
 		}
@@ -240,7 +240,7 @@ func getProcessesReadyForRestart(logger logr.Logger, cluster *fdbv1beta2.Foundat
 		// If a Pod is stuck in pending we have to ignore it, as the processes hosted by this Pod will not be running.
 		if cluster.SkipProcessGroup(processGroup) {
 			logger.Info("ignore process group with Pod stuck in pending", "processGroupID", processGroup.ProcessGroupID)
-			missingProcesses++
+			missingProcesses[processGroup.ProcessClass]++
 			continue
 		}
 
@@ -275,36 +275,11 @@ func getProcessesReadyForRestart(logger logr.Logger, cluster *fdbv1beta2.Foundat
 	// Only if the cluster is upgraded with an incompatible version we have to make sure that all processes are ready to be restarted.
 	// In the case of a patch upgrade we will be recreating the Pods anyway without this bounce step.
 	if cluster.IsBeingUpgradedWithVersionIncompatibleVersion() {
-		counts, err := cluster.GetProcessCountsWithDefaults()
+		err := checkIfEnoughProcessesAreRunning(logger, cluster, len(addresses), missingProcesses, markedForRemoval)
+		// If not all processes are ready to restart we will block the upgrade and delay it.
 		if err != nil {
 			return nil, &requeue{
-				curError:       err,
-				delayedRequeue: true,
-			}
-		}
-
-		// If we upgrade the cluster wait until all processes are ready for the restart. We don't want to block the restart
-		// if some processes are already upgraded e.g. in the case of version compatible upgrades and we also don't want to
-		// block the restart command if a process is missing longer than the specified GetIgnoreMissingProcessesSeconds.
-		// Those checks should ensure we only run the restart command if all processes that have to be restarted and are connected
-		// to cluster are ready to be restarted.
-		expectedProcesses := counts.Total() - missingProcesses + markedForRemoval
-		// If more than one storage server per Pod is running we have to account for this. In this case we have to add the
-		// additional storage processes.
-		if cluster.Spec.StorageServersPerPod > 1 {
-			expectedProcesses += counts.Storage * (cluster.Spec.StorageServersPerPod - 1)
-		}
-
-		if cluster.Spec.LogServersPerPod > 1 {
-			expectedProcesses += counts.Log * (cluster.Spec.LogServersPerPod - 1)
-			expectedProcesses += counts.Transaction * (cluster.Spec.LogServersPerPod - 1)
-		}
-
-		// If not all processes are ready to restart we will block the upgrade and delay it.
-		if expectedProcesses > len(addresses) {
-			logger.Info("delay bounce as not all processes are ready to be bounced for upgrade", "expectedProcesses", expectedProcesses, "addresses", len(addresses))
-			return nil, &requeue{
-				message:        fmt.Sprintf("expected %d processes, got %d processes ready to restart", expectedProcesses, len(addresses)),
+				message:        err.Error(),
 				delay:          5 * time.Second,
 				delayedRequeue: true,
 			}
@@ -439,6 +414,43 @@ func checkIfClusterControllerNeedsRestart(logger logr.Logger, cluster *fdbv1beta
 	// Only return the cluster controller address if at least one tester process was part of the unreachable processes list.
 	if unreachableProcessContainsTester {
 		return &clusterControllerAddress
+	}
+
+	return nil
+}
+
+// checkIfEnoughProcessesAreRunning will check if enough processes are reporting to allow the upgrade steps to proceed. This will also account for cases where more than one process is running per pod.
+func checkIfEnoughProcessesAreRunning(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, addressCount int, missingProcesses map[fdbv1beta2.ProcessClass]int, markedForRemoval map[fdbv1beta2.ProcessClass]int) error {
+	counts, err := cluster.GetProcessCountsWithDefaults()
+	if err != nil {
+		return err
+	}
+
+	// If we upgrade the cluster wait until all processes are ready for the restart. We don't want to block the restart
+	// if some processes are already upgraded e.g. in the case of version compatible upgrades and we also don't want to
+	// block the restart command if a process is missing longer than the specified GetIgnoreMissingProcessesSeconds.
+	// Those checks should ensure we only run the restart command if all processes that have to be restarted and are connected
+	// to cluster are ready to be restarted.
+	var expectedProcesses int
+	for processClass, count := range counts.Map() {
+		// If more than a single process should be running in the pod, we have to account for that. The multiplier will
+		// be adjust below to match the servers per pod for storage or log processes.
+		multiplier := 1
+		if processClass.IsLogProcess() {
+			multiplier = cluster.GetLogServersPerPod()
+		} else if processClass == fdbv1beta2.ProcessClassStorage {
+			multiplier = cluster.GetStorageServersPerPod()
+		}
+
+		expectedProcesses += (count - missingProcesses[processClass] + markedForRemoval[processClass]) * multiplier
+		delete(missingProcesses, processClass)
+		delete(markedForRemoval, processClass)
+	}
+
+	// If not all processes are ready to restart we will block the upgrade and delay it.
+	if expectedProcesses > addressCount {
+		logger.Info("delay bounce as not all processes are ready to be bounced for upgrade", "expectedProcesses", expectedProcesses, "addresses", addressCount)
+		return fmt.Errorf("expected %d processes, got %d processes ready to restart", expectedProcesses, addressCount)
 	}
 
 	return nil
