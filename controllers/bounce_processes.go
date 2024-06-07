@@ -443,8 +443,6 @@ func checkIfEnoughProcessesAreRunning(logger logr.Logger, cluster *fdbv1beta2.Fo
 		}
 
 		expectedProcesses += (count - missingProcesses[processClass] + markedForRemoval[processClass]) * multiplier
-		delete(missingProcesses, processClass)
-		delete(markedForRemoval, processClass)
 	}
 
 	// If not all processes are ready to restart we will block the upgrade and delay it.
