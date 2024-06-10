@@ -460,7 +460,7 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 		fixtures.GenerateUpgradeTableEntries(testOptions),
 	)
 
-	FDescribeTable(
+	DescribeTable(
 		"one process is marked for removal",
 		func(beforeVersion string, targetVersion string) {
 			if fixtures.VersionsAreProtocolCompatible(beforeVersion, targetVersion) {
