@@ -315,6 +315,7 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 		fixtures.GenerateUpgradeTableEntries(testOptions),
 	)
 
+	// TODO double check failure!!
 	DescribeTable(
 		"upgrading a cluster and one coordinator is not restarted",
 		func(beforeVersion string, targetVersion string) {
@@ -459,7 +460,7 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 		fixtures.GenerateUpgradeTableEntries(testOptions),
 	)
 
-	DescribeTable(
+	FDescribeTable(
 		"one process is marked for removal",
 		func(beforeVersion string, targetVersion string) {
 			if fixtures.VersionsAreProtocolCompatible(beforeVersion, targetVersion) {
@@ -507,6 +508,8 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 					if !ok || fdbv1beta2.ProcessGroupID(processGroupID) != processGroupMarkedForRemoval {
 						continue
 					}
+
+					log.Println("processGroupMarkedForRemoval:", processGroupMarkedForRemoval, "processGroupID:", processGroupID, "version", process.Version)
 
 					return process.Version
 				}

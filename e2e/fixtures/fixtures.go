@@ -77,6 +77,8 @@ func CheckInvariant(
 	quit := make(chan struct{})
 	waitGroup.Add(1)
 	var failureStartTime time.Time
+	var failureDuration time.Duration
+
 	go func() {
 		defer waitGroup.Done()
 		for {
@@ -87,22 +89,25 @@ func CheckInvariant(
 					if last == nil {
 						log.Printf("invariant %s failed: %v", invariantName, err)
 						failureStartTime = time.Now()
+						last = err
 					}
-					last = err
-					if time.Since(failureStartTime) >= threshold {
+
+					failureDuration = time.Since(failureStartTime)
+					if failureDuration >= threshold {
 						log.Printf(
 							"invariant %s failed after: %v",
 							invariantName,
-							time.Since(failureStartTime),
+							failureDuration.String(),
 						)
 						testFailed = true
 					}
 					continue
 				}
+
 				if last != nil {
 					log.Printf("invariant %s true again", invariantName)
+					last = nil
 				}
-				last = nil
 			case <-quit:
 				ticker.Stop()
 				return
@@ -113,7 +118,7 @@ func CheckInvariant(
 		close(quit)
 		waitGroup.Wait()
 		if testFailed {
-			return fmt.Errorf("invariant %s failed", invariantName)
+			return fmt.Errorf("invariant %s failed for %s", invariantName, failureDuration.String())
 		}
 		return nil
 	})

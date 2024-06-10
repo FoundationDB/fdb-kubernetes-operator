@@ -315,7 +315,7 @@ func (factory *Factory) CreateDataLoaderIfAbsent(cluster *FdbCluster) {
 	}
 
 	dataLoaderJobTemplate := dataLoaderJob
-	if factory.options.featureOperatorUnifiedImage {
+	if factory.UseUnifiedImage() {
 		dataLoaderJobTemplate = dataLoaderJobUnifiedImage
 	}
 	t, err := template.New("dataLoaderJob").Parse(dataLoaderJobTemplate)

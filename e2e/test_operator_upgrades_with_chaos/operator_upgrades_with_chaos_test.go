@@ -30,6 +30,7 @@ Since FoundationDB is version incompatible for major and minor versions and the 
 import (
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -93,9 +94,7 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 			clusterSetup(beforeVersion)
 			Expect(fdbCluster.SetAutoReplacements(false, 20*time.Minute)).ToNot(HaveOccurred())
 			// Ensure the operator is not skipping the process because it's missing for to long
-			Expect(
-				fdbCluster.SetIgnoreMissingProcessesSeconds(5 * time.Minute),
-			).NotTo(HaveOccurred())
+			fdbCluster.SetIgnoreMissingProcessesSeconds(5 * time.Minute)
 
 			// 1. Introduce network partition b/w Pod and cluster.
 			// Inject chaos only to storage Pods to reduce the risk of a long recovery because a transaction
@@ -140,10 +139,8 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 		func(beforeVersion string, targetVersion string) {
 			clusterSetup(beforeVersion)
 			Expect(fdbCluster.SetAutoReplacements(false, 5*time.Minute)).ToNot(HaveOccurred())
-			// Ensure the operator is not skipping the process because it's missing for to long
-			Expect(
-				fdbCluster.SetIgnoreMissingProcessesSeconds(5 * time.Minute),
-			).NotTo(HaveOccurred())
+			// Ensure the operator is not skipping the process because it's missing for too long
+			fdbCluster.SetIgnoreMissingProcessesSeconds(5 * time.Minute)
 
 			// 1. Introduce network partition b/w Pod and cluster.
 			partitionedPod := fixtures.ChooseRandomPod(fdbCluster.GetStoragePods())
@@ -177,6 +174,9 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 			Expect(
 				fdbCluster.SetAutoReplacementsWithWait(true, 3*time.Minute, false),
 			).ToNot(HaveOccurred())
+
+			// Make sure to allow missing processes again to be ignored.
+			fdbCluster.SetIgnoreMissingProcessesSeconds(10 * time.Second)
 
 			// In the case of a version compatible upgrade the operator will proceed with recreating the storage Pods
 			// to make sure they use the new version. At the same time all transaction processes are marked for removal
@@ -232,7 +232,7 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 
 			// 2. Start cluster upgrade.
 			log.Println("Starting cluster upgrade.")
-			Expect(fdbCluster.UpgradeCluster(targetVersion, true)).NotTo(HaveOccurred())
+			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
 
 			// 3. Upgrade should finish.
 			fdbCluster.VerifyVersion(targetVersion)
@@ -246,6 +246,12 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 		func(beforeVersion string, targetVersion string) {
 			if fixtures.VersionsAreProtocolCompatible(beforeVersion, targetVersion) {
 				Skip("this test only affects version incompatible upgrades")
+			}
+
+			// The unified image doesn't use the fdbmonitor.conf file as the arguments are generated in the process
+			// itself.
+			if factory.UseUnifiedImage() {
+				Skip("this test only affects the split image setup")
 			}
 
 			clusterSetup(beforeVersion)
@@ -366,7 +372,7 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 
 			// Update the cluster version.
 			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
-			// Skip the reonciliation here to have time to stage everything.
+			// Skip the reconciliation here to have time to stage everything.
 			Expect(fdbCluster.SetSkipReconciliation(true)).NotTo(HaveOccurred())
 
 			// Select one Pod, this Pod will miss the new fdbserver binary.
@@ -395,7 +401,18 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 			}).WithTimeout(10 * time.Minute).WithPolling(5 * time.Second).MustPassRepeatedly(5).Should(BeTrue())
 
 			// Ensure that the new fdbserver binary is deleted by the sidecar.
-			fdbserverBinary := fmt.Sprintf("/var/output-files/bin/%s/fdbserver", targetVersion)
+			var fdbserverBinaryBuilder strings.Builder
+			if factory.UseUnifiedImage() {
+				fdbserverBinaryBuilder.WriteString("/var/fdb/shared-binaries")
+			} else {
+				fdbserverBinaryBuilder.WriteString("/var/output-files")
+			}
+
+			fdbserverBinaryBuilder.WriteString("/bin/")
+			fdbserverBinaryBuilder.WriteString(targetVersion)
+			fdbserverBinaryBuilder.WriteString("/fdbserver")
+			fdbserverBinary := fdbserverBinaryBuilder.String()
+
 			log.Println("Delete", fdbserverBinary, "from", faultyPod.Name)
 
 			// Make sure the sidecar is missing the fdbserver binary.

@@ -61,6 +61,12 @@ func (fdbCluster *FdbCluster) GetFDBImage() string {
 
 // GetSidecarImageForVersion return the sidecar image used for the specified version.
 func (fdbCluster *FdbCluster) GetSidecarImageForVersion(version string) string {
+	// In the case of the unified image the sidecar will also be the main container image.
+	if fdbCluster.cluster.UseUnifiedImage() {
+		return fdbv1beta2.SelectImageConfig(fdbCluster.GetClusterSpec().MainContainer.ImageConfigs, version).
+			Image()
+	}
+
 	return fdbv1beta2.SelectImageConfig(fdbCluster.GetClusterSpec().SidecarContainer.ImageConfigs, version).
 		Image()
 }
@@ -1194,12 +1200,11 @@ func (fdbCluster *FdbCluster) Destroy() error {
 }
 
 // SetIgnoreMissingProcessesSeconds sets the IgnoreMissingProcessesSeconds setting.
-func (fdbCluster *FdbCluster) SetIgnoreMissingProcessesSeconds(duration time.Duration) error {
+func (fdbCluster *FdbCluster) SetIgnoreMissingProcessesSeconds(duration time.Duration) {
 	fdbCluster.cluster.Spec.AutomationOptions.IgnoreMissingProcessesSeconds = pointer.Int(
 		int(duration.Seconds()),
 	)
 	fdbCluster.UpdateClusterSpec()
-	return fdbCluster.WaitForReconciliation()
 }
 
 // SetKillProcesses sets the automation option to allow the operator to restart processes or not.

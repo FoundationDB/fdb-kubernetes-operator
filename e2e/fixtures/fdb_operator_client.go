@@ -564,7 +564,7 @@ func (factory *Factory) getSidecarConfigs(imageConfigs []fdbv1beta2.ImageConfig)
 // GetSidecarConfigs returns the sidecar configs. The sidecar configs can be used to template applications that will use
 // all provided sidecar versions to inject FDB client libraries.
 func (factory *Factory) GetSidecarConfigs() []SidecarConfig {
-	if factory.options.featureOperatorUnifiedImage {
+	if factory.UseUnifiedImage() {
 		return factory.getSidecarConfigs(factory.GetMainContainerOverrides(false, true).ImageConfigs)
 	}
 
@@ -629,7 +629,7 @@ func (factory *Factory) CreateFDBOperatorIfAbsent(namespace string) error {
 	}
 
 	deploymentTemplate := operatorDeployment
-	if factory.options.featureOperatorUnifiedImage {
+	if factory.UseUnifiedImage() {
 		deploymentTemplate = operatorDeploymentUnifiedImage
 	}
 
