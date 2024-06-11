@@ -879,6 +879,11 @@ func (factory *Factory) getImagePullPolicy() corev1.PullPolicy {
 	return corev1.PullAlways
 }
 
+// UseUnifiedImage returns true if the e2e tests should use the unified image.
+func (factory *Factory) UseUnifiedImage() bool {
+	return factory.options.featureOperatorUnifiedImage
+}
+
 // UpdateNode update node definition
 func (fdbCluster *FdbCluster) UpdateNode(node *corev1.Node) {
 	gomega.Eventually(func() bool {

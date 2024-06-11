@@ -42,7 +42,7 @@ func (factory *Factory) createFDBClusterSpec(
 	config *ClusterConfig,
 	databaseConfiguration fdbv1beta2.DatabaseConfiguration,
 ) *fdbv1beta2.FoundationDBCluster {
-	useUnifiedImage := pointer.BoolDeref(config.UseUnifiedImage, factory.options.featureOperatorUnifiedImage)
+	useUnifiedImage := pointer.BoolDeref(config.UseUnifiedImage, factory.UseUnifiedImage())
 	imageType := fdbv1beta2.ImageTypeSplit
 	if useUnifiedImage {
 		imageType = fdbv1beta2.ImageTypeUnified
@@ -121,7 +121,7 @@ func (factory *Factory) createPodTemplate(
 	var initContainers []corev1.Container
 	var annotations map[string]string
 	// In the case of the unified image we don't need to use an init container.
-	if !factory.options.featureOperatorUnifiedImage {
+	if !factory.UseUnifiedImage() {
 		initContainers = []corev1.Container{
 			{
 				Name:            fdbv1beta2.InitContainerName,

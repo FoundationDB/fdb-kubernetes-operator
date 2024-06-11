@@ -517,6 +517,8 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 						continue
 					}
 
+					log.Println("processGroupMarkedForRemoval:", processGroupMarkedForRemoval, "processGroupID:", processGroupID, "version", process.Version)
+
 					return process.Version
 				}
 
