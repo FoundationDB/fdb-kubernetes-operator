@@ -196,36 +196,44 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 
 	originalGeneration := cluster.ObjectMeta.Generation
 	normalizedSpec := cluster.Spec.DeepCopy()
-	delayedRequeue := false
+	var delayedRequeueDuration time.Duration
+	var delayedRequeue bool
 
 	for _, subReconciler := range subReconcilers {
 		// We have to set the normalized spec here again otherwise any call to Update() for the status of the cluster
 		// will reset all normalized fields...
 		cluster.Spec = *(normalizedSpec.DeepCopy())
 
-		requeue := runClusterSubReconciler(ctx, clusterLog, subReconciler, r, cluster, status)
-		if requeue == nil {
+		req := runClusterSubReconciler(ctx, clusterLog, subReconciler, r, cluster, status)
+		if req == nil {
 			continue
 		}
 
-		if requeue.delayedRequeue {
+		if req.delayedRequeue {
 			clusterLog.Info("Delaying requeue for sub-reconciler",
 				"reconciler", fmt.Sprintf("%T", subReconciler),
-				"message", requeue.message,
-				"error", requeue.curError)
+				"message", req.message,
+				"delayedRequeueDuration", delayedRequeueDuration.String(),
+				"error", req.curError)
+			if delayedRequeueDuration < req.delay {
+				delayedRequeueDuration = req.delay
+			}
+
 			delayedRequeue = true
+
 			continue
 		}
 
-		return processRequeue(requeue, subReconciler, cluster, r.Recorder, clusterLog)
+		return processRequeue(req, subReconciler, cluster, r.Recorder, clusterLog)
 	}
 
-	if cluster.Status.Generations.Reconciled < originalGeneration || delayedRequeue {
+	if cluster.Status.Generations.Reconciled < originalGeneration || delayedRequeue || delayedRequeueDuration > 0 {
 		clusterLog.Info("Cluster was not fully reconciled by reconciliation process", "status", cluster.Status.Generations,
 			"CurrentGeneration", cluster.Status.Generations.Reconciled,
-			"OriginalGeneration", originalGeneration, "DelayedRequeue", delayedRequeue)
+			"OriginalGeneration", originalGeneration,
+			"DelayedRequeue", delayedRequeueDuration.String())
 
-		return ctrl.Result{Requeue: true}, nil
+		return ctrl.Result{Requeue: true, RequeueAfter: delayedRequeueDuration}, nil
 	}
 
 	clusterLog.Info("Reconciliation complete", "generation", cluster.Status.Generations.Reconciled)

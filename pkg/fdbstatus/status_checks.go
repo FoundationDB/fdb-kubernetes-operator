@@ -60,7 +60,7 @@ type StatusContextKey struct{}
 // processes that are fully excluded and don't serve any roles and processes that are not marked for
 // exclusion.
 type exclusionStatus struct {
-	// inProgress containms all addresses that are excluded in the cluster and the exclude command can be used to verify if it's safe to remove this address.
+	// inProgress contains all addresses that are excluded in the cluster and the exclude command can be used to verify if it's safe to remove this address.
 	inProgress []fdbv1beta2.ProcessAddress
 	// fullyExcluded contains all addresses that are excluded and don't have any roles assigned, this is a sign that the process is "fully" excluded and safe to remove.
 	fullyExcluded []fdbv1beta2.ProcessAddress

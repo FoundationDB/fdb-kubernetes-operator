@@ -61,9 +61,9 @@ func (u updateDatabaseConfiguration) reconcile(_ context.Context, r *FoundationD
 	}
 
 	initialConfig := !cluster.Status.Configured
-	if !(initialConfig || status.Client.DatabaseStatus.Available) {
+	if !initialConfig && !status.Client.DatabaseStatus.Available {
 		logger.Info("Skipping database configuration change because database is unavailable")
-		return nil
+		return &requeue{message: "cluster is not available", delayedRequeue: true, delay: 5 * time.Second}
 	}
 
 	desiredConfiguration := cluster.DesiredDatabaseConfiguration()
