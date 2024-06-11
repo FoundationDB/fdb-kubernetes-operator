@@ -2278,10 +2278,11 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(BeTrue())
 		})
 	})
+
 	When("a FDB pod is partitioned from the Kubernetes API", func() {
 		var selectedPod corev1.Pod
 		var exp *fixtures.ChaosMeshExperiment
-		var newCustomParameters, initialCustomParameters fdbv1beta2.FoundationDBCustomParameters
+		var initialCustomParameters fdbv1beta2.FoundationDBCustomParameters
 		var initialRestarts int
 
 		BeforeEach(func() {
@@ -2331,25 +2332,22 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			initialCustomParameters = fdbCluster.GetCustomParameters(
 				fdbv1beta2.ProcessClassStorage,
 			)
-
-			newCustomParameters = append(
-				initialCustomParameters,
-				"knob_max_trace_lines=1000000",
-			)
-
 			Expect(
 				fdbCluster.SetCustomParameters(
 					fdbv1beta2.ProcessClassStorage,
-					newCustomParameters,
+					append(
+						initialCustomParameters,
+						"knob_max_trace_lines=1000000",
+					),
 					false,
 				),
 			).NotTo(HaveOccurred())
 		})
 
 		It("should keep the pod up and running", func() {
+			selectedProcessGroupID := fixtures.GetProcessGroupID(selectedPod)
 			// Make sure the partitioned Pod is not able to update its annotation.
 			Eventually(func() *int64 {
-				selectedProcessGroupID := fixtures.GetProcessGroupID(selectedPod)
 				for _, processGroup := range fdbCluster.GetCluster().Status.ProcessGroups {
 					if processGroup.ProcessGroupID != selectedProcessGroupID {
 						continue
@@ -2361,28 +2359,42 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				return nil
 			}).WithTimeout(5 * time.Minute).WithPolling(1 * time.Second).MustPassRepeatedly(10).ShouldNot(BeNil())
 
-			// Make sure the Pod was not restarted because of the partition.
-			Consistently(func(g Gomega) int {
-				pod, err := factory.GetPod(fdbCluster.Namespace(), selectedPod.Name)
-				g.Expect(err).NotTo(HaveOccurred())
+			expectedStorageServersPerPod := fdbCluster.GetCluster().GetStorageServersPerPod()
+			// Make sure the processes are still reporting the whole time.
+			Consistently(func() int {
+				status := fdbCluster.GetStatus()
 
-				var restarts int
-				for _, status := range pod.Status.ContainerStatuses {
-					restarts += int(status.RestartCount)
+				var runningProcesses int
+				for _, process := range status.Cluster.Processes {
+					if process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey] != string(selectedProcessGroupID) {
+						continue
+					}
+
+					runningProcesses++
 				}
 
-				return restarts
-			}).WithTimeout(2 * time.Minute).WithPolling(5 * time.Second).Should(BeNumerically("==", initialRestarts))
+				return runningProcesses
+			}).WithTimeout(2 * time.Minute).WithPolling(5 * time.Second).Should(BeNumerically("==", expectedStorageServersPerPod))
+
+			// Make sure the Pod was not restarted because of the partition.
+			pod, err := factory.GetPod(fdbCluster.Namespace(), selectedPod.Name)
+			Expect(err).NotTo(HaveOccurred())
+
+			var restarts int
+			for _, status := range pod.Status.ContainerStatuses {
+				restarts += int(status.RestartCount)
+			}
+
+			Expect(restarts).To(BeNumerically("==", initialRestarts))
 		})
 
 		AfterEach(func() {
-			if exp == nil {
-				return
+			if exp != nil {
+				factory.DeleteChaosMeshExperimentSafe(exp)
 			}
 
-			factory.DeleteChaosMeshExperimentSafe(exp)
 			Expect(fdbCluster.SetCustomParameters(
-				fdbv1beta2.ProcessClassGeneral,
+				fdbv1beta2.ProcessClassStorage,
 				initialCustomParameters,
 				true,
 			)).NotTo(HaveOccurred())
