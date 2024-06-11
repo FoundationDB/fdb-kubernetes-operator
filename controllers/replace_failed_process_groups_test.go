@@ -442,7 +442,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 						})
 
 						It("should return nil", func() {
-							Expect(result).To(BeNil())
+							Expect(result).NotTo(BeNil())
 						})
 
 						It("should not mark the process group for removal", func() {
@@ -894,7 +894,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 						})
 
 						It("should return nil", func() {
-							Expect(result).To(BeNil())
+							Expect(result).NotTo(BeNil())
 						})
 
 						It("should not mark the process group for removal", func() {

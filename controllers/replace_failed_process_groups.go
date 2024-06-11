@@ -62,7 +62,7 @@ func (c replaceFailedProcessGroups) reconcile(ctx context.Context, r *Foundation
 	// replacements.
 	if !status.Client.DatabaseStatus.Available {
 		logger.Info("Skipping replaceFailedProcessGroups reconciler as the database is not available.")
-		return nil
+		return &requeue{message: "cluster is not available", delayedRequeue: true, delay: 5 * time.Second}
 	}
 
 	// Only replace process groups without an address, if the cluster has the desired fault tolerance and is available.
