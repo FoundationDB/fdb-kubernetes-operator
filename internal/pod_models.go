@@ -179,7 +179,7 @@ func getContainers(podSpec *corev1.PodSpec) (*corev1.Container, *corev1.Containe
 	return mainContainer, sidecarContainer, nil
 }
 
-func configureContainersForUnifiedImages(cluster *fdbv1beta2.FoundationDBCluster, mainContainer *corev1.Container, sidecarContainer *corev1.Container, processGroup *fdbv1beta2.ProcessGroupStatus, desiredVersion string) error {
+func configureContainersForUnifiedImages(cluster *fdbv1beta2.FoundationDBCluster, mainContainer *corev1.Container, sidecarContainer *corev1.Container, processGroup *fdbv1beta2.ProcessGroupStatus, desiredVersion string, logGroup string) error {
 	mainContainer.Args = []string{
 		"--input-dir", "/var/dynamic-conf",
 		"--log-path", "/var/log/fdb-trace-logs/monitor.log",
@@ -207,6 +207,8 @@ func configureContainersForUnifiedImages(cluster *fdbv1beta2.FoundationDBCluster
 	mainContainer.Env = append(mainContainer.Env, corev1.EnvVar{Name: "FDB_POD_NAMESPACE", ValueFrom: &corev1.EnvVarSource{
 		FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"},
 	}})
+	mainContainer.Env = append(mainContainer.Env, corev1.EnvVar{Name: "FDB_NETWORK_OPTION_TRACE_LOG_GROUP", Value: logGroup})
+	mainContainer.Env = append(mainContainer.Env, corev1.EnvVar{Name: "FDB_NETWORK_OPTION_TRACE_ENABLE", Value: "/var/log/fdb-trace-logs"})
 	if cluster.DefineDNSLocalityFields() {
 		mainContainer.Env = append(mainContainer.Env, corev1.EnvVar{Name: "FDB_DNS_NAME", Value: GetPodDNSName(cluster, processGroup.GetPodName(cluster))})
 	}
@@ -225,6 +227,8 @@ func configureContainersForUnifiedImages(cluster *fdbv1beta2.FoundationDBCluster
 		"--copy-binary", "fdbcli",
 		"--log-path", "/var/log/fdb-trace-logs/monitor.log",
 	}
+	sidecarContainer.Env = append(sidecarContainer.Env, corev1.EnvVar{Name: "FDB_NETWORK_OPTION_TRACE_LOG_GROUP", Value: logGroup})
+	sidecarContainer.Env = append(sidecarContainer.Env, corev1.EnvVar{Name: "FDB_NETWORK_OPTION_TRACE_ENABLE", Value: "/var/log/fdb-trace-logs"})
 
 	sidecarContainer.VolumeMounts = append(sidecarContainer.VolumeMounts,
 		corev1.VolumeMount{Name: "shared-binaries", MountPath: "/var/fdb/shared-binaries"},
@@ -426,7 +430,7 @@ func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processGroup *fdbv1beta
 
 	podName := processGroup.GetPodName(cluster)
 	if useUnifiedImage {
-		err = configureContainersForUnifiedImages(cluster, mainContainer, sidecarContainer, processGroup, desiredVersion)
+		err = configureContainersForUnifiedImages(cluster, mainContainer, sidecarContainer, processGroup, desiredVersion, logGroup)
 		if err != nil {
 			return nil, err
 		}

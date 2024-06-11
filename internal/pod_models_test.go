@@ -534,6 +534,8 @@ var _ = Describe("pod_models", func() {
 						{Name: "FDB_POD_NAMESPACE", ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"},
 						}},
+						{Name: "FDB_NETWORK_OPTION_TRACE_LOG_GROUP", Value: cluster.Name},
+						{Name: "FDB_NETWORK_OPTION_TRACE_ENABLE", Value: "/var/log/fdb-trace-logs"},
 					}))
 
 					Expect(*mainContainer.Resources.Limits.Cpu()).To(Equal(resource.MustParse("1")))
@@ -567,7 +569,10 @@ var _ = Describe("pod_models", func() {
 						{Name: "shared-binaries", MountPath: "/var/fdb/shared-binaries"},
 						{Name: "fdb-trace-logs", MountPath: "/var/log/fdb-trace-logs"},
 					}))
-					Expect(sidecarContainer.Env).To(BeNil())
+					Expect(sidecarContainer.Env).To(Equal([]corev1.EnvVar{
+						{Name: "FDB_NETWORK_OPTION_TRACE_LOG_GROUP", Value: cluster.Name},
+						{Name: "FDB_NETWORK_OPTION_TRACE_ENABLE", Value: "/var/log/fdb-trace-logs"},
+					}))
 					Expect(sidecarContainer.ReadinessProbe).To(BeNil())
 					Expect(*sidecarContainer.SecurityContext.ReadOnlyRootFilesystem).To(BeTrue())
 				})
@@ -644,6 +649,8 @@ var _ = Describe("pod_models", func() {
 						{Name: "FDB_POD_NAMESPACE", ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"},
 						}},
+						{Name: "FDB_NETWORK_OPTION_TRACE_LOG_GROUP", Value: cluster.Name},
+						{Name: "FDB_NETWORK_OPTION_TRACE_ENABLE", Value: "/var/log/fdb-trace-logs"},
 					}))
 				})
 
@@ -698,6 +705,8 @@ var _ = Describe("pod_models", func() {
 						{Name: "FDB_POD_NAMESPACE", ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"},
 						}},
+						{Name: "FDB_NETWORK_OPTION_TRACE_LOG_GROUP", Value: cluster.Name},
+						{Name: "FDB_NETWORK_OPTION_TRACE_ENABLE", Value: "/var/log/fdb-trace-logs"},
 					}))
 				})
 
@@ -754,6 +763,8 @@ var _ = Describe("pod_models", func() {
 						{Name: "FDB_POD_NAMESPACE", ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"},
 						}},
+						{Name: "FDB_NETWORK_OPTION_TRACE_LOG_GROUP", Value: cluster.Name},
+						{Name: "FDB_NETWORK_OPTION_TRACE_ENABLE", Value: "/var/log/fdb-trace-logs"},
 					}))
 				})
 
