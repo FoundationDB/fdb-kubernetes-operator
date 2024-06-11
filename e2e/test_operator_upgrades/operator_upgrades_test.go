@@ -306,6 +306,15 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 			log.Println("Removing crash-loop from", pickedPod.Name)
 			fdbCluster.SetCrashLoopContainers(nil, false)
 
+			// Wait for the Pod to come back again.
+			Eventually(func() corev1.PodPhase {
+				pod := fdbCluster.GetPod(pickedPod.Name)
+
+				return pod.Status.Phase
+			}).WithTimeout(5 * time.Minute).WithPolling(1 * time.Second).MustPassRepeatedly(5).Should(Equal(corev1.PodRunning))
+
+			fdbCluster.ForceReconcile()
+
 			// 5. Upgrade should proceed after we stop killing the sidecar.
 			fdbCluster.VerifyVersion(targetVersion)
 			// Make sure the cluster has no data loss.
