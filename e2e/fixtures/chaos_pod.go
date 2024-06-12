@@ -21,54 +21,80 @@
 package fixtures
 
 import (
-	chaosmesh "github.com/chaos-mesh/chaos-mesh/api/v1alpha1"
+	chaosmeshv1alpha1 "github.com/chaos-mesh/chaos-mesh/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 )
 
 // ScheduleInjectPodKill schedules a Pod Kill action.
-func (factory *Factory) ScheduleInjectPodKill(target chaosmesh.PodSelectorSpec, schedule string, mode chaosmesh.SelectorMode) *ChaosMeshExperiment {
+func (factory *Factory) ScheduleInjectPodKill(target chaosmeshv1alpha1.PodSelectorSpec, schedule string, mode chaosmeshv1alpha1.SelectorMode) *ChaosMeshExperiment {
 	return factory.scheduleInjectPod(
-		chaosmesh.PodSelector{
+		chaosmeshv1alpha1.PodSelector{
 			Selector: target,
 			Mode:     mode,
 		},
 		schedule,
-		chaosmesh.PodKillAction,
+		chaosmeshv1alpha1.PodKillAction,
 		RandStringRunes(32))
 }
 
 // ScheduleInjectPodKillWithName schedules a Pod Kill action with the specified name.
-func (factory *Factory) ScheduleInjectPodKillWithName(target chaosmesh.PodSelectorSpec, schedule string, mode chaosmesh.SelectorMode, name string) *ChaosMeshExperiment {
+func (factory *Factory) ScheduleInjectPodKillWithName(target chaosmeshv1alpha1.PodSelectorSpec, schedule string, mode chaosmeshv1alpha1.SelectorMode, name string) *ChaosMeshExperiment {
 	return factory.scheduleInjectPod(
-		chaosmesh.PodSelector{
+		chaosmeshv1alpha1.PodSelector{
 			Selector: target,
 			Mode:     mode,
 		},
 		schedule,
-		chaosmesh.PodKillAction,
+		chaosmeshv1alpha1.PodKillAction,
 		name)
 }
 
-func (factory *Factory) scheduleInjectPod(target chaosmesh.PodSelector, schedule string, action chaosmesh.PodChaosAction, name string) *ChaosMeshExperiment {
-	return factory.CreateExperiment(&chaosmesh.Schedule{
+func (factory *Factory) scheduleInjectPod(target chaosmeshv1alpha1.PodSelector, schedule string, action chaosmeshv1alpha1.PodChaosAction, name string) *ChaosMeshExperiment {
+	return factory.CreateExperiment(&chaosmeshv1alpha1.Schedule{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: factory.GetChaosNamespace(),
 			Labels:    factory.GetDefaultLabels(),
 		},
-		Spec: chaosmesh.ScheduleSpec{
+		Spec: chaosmeshv1alpha1.ScheduleSpec{
 			Schedule:          schedule,
-			ConcurrencyPolicy: chaosmesh.AllowConcurrent,
-			Type:              chaosmesh.ScheduleTypePodChaos,
+			ConcurrencyPolicy: chaosmeshv1alpha1.AllowConcurrent,
+			Type:              chaosmeshv1alpha1.ScheduleTypePodChaos,
 			HistoryLimit:      1,
-			ScheduleItem: chaosmesh.ScheduleItem{
-				EmbedChaos: chaosmesh.EmbedChaos{
-					PodChaos: &chaosmesh.PodChaosSpec{
+			ScheduleItem: chaosmeshv1alpha1.ScheduleItem{
+				EmbedChaos: chaosmeshv1alpha1.EmbedChaos{
+					PodChaos: &chaosmeshv1alpha1.PodChaosSpec{
 						Action: action,
-						ContainerSelector: chaosmesh.ContainerSelector{
+						ContainerSelector: chaosmeshv1alpha1.ContainerSelector{
 							PodSelector: target,
 						},
 					},
+				},
+			},
+		},
+	})
+}
+
+// PodFailure injects a pod failure for the provided target.
+func (factory *Factory) PodFailure(target chaosmeshv1alpha1.PodSelectorSpec) *ChaosMeshExperiment {
+	return factory.injectPodChaos(target, chaosmeshv1alpha1.PodFailureAction, RandStringRunes(32))
+}
+
+func (factory *Factory) injectPodChaos(target chaosmeshv1alpha1.PodSelectorSpec, action chaosmeshv1alpha1.PodChaosAction, name string) *ChaosMeshExperiment {
+	return factory.CreateExperiment(&chaosmeshv1alpha1.PodChaos{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: factory.GetChaosNamespace(),
+			Labels:    factory.GetDefaultLabels(),
+		},
+		Spec: chaosmeshv1alpha1.PodChaosSpec{
+			Action:   action,
+			Duration: pointer.String(ChaosDurationForever),
+			ContainerSelector: chaosmeshv1alpha1.ContainerSelector{
+				PodSelector: chaosmeshv1alpha1.PodSelector{
+					Selector: target,
+					Mode:     chaosmeshv1alpha1.AllMode,
 				},
 			},
 		},

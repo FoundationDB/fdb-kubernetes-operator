@@ -46,7 +46,7 @@ AutomaticReplacementOptions controls options for automatically replacing failed 
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
-| enabled | Enabled controls whether automatic replacements are enabled. The default is false. | *bool | false |
+| enabled | Enabled controls whether automatic replacements are enabled. The default is true. | *bool | false |
 | faultDomainBasedReplacements | FaultDomainBasedReplacements controls whether automatic replacements are targeting all failed process groups in a fault domain or only specific Process Groups. If this setting is enabled, the number of different fault domains that can have all their failed process groups replaced at the same time will be equal to MaxConcurrentReplacements. e.g. MaxConcurrentReplacements = 2 would mean that at most 2 different fault domains can have their failed process groups replaced at the same time. The default is false. | *bool | false |
 | failureDetectionTimeSeconds | FailureDetectionTimeSeconds controls how long a process must be failed or missing before it is automatically replaced. The default is 7200 seconds, or 2 hours. | *int | false |
 | taintReplacementTimeSeconds | TaintReplacementTimeSeconds controls how long a pod stays in NodeTaintReplacing condition before it is automatically replaced. The default is 1800 seconds, i.e., 30min | *int | false |

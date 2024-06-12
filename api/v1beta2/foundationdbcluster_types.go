@@ -1236,7 +1236,7 @@ type TaintReplacementOption struct {
 // failed processes.
 type AutomaticReplacementOptions struct {
 	// Enabled controls whether automatic replacements are enabled.
-	// The default is false.
+	// The default is true.
 	Enabled *bool `json:"enabled,omitempty"`
 
 	// FaultDomainBasedReplacements controls whether automatic replacements are targeting all failed process groups

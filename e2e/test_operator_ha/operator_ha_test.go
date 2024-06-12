@@ -107,7 +107,7 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 		}
 	})
 
-	When("deleting all Pods in the primary", func() {
+	When("deleting all coordinator Pods in the primary", func() {
 		var initialConnectionString string
 		var initialCoordinators map[string]fdbv1beta2.None
 
@@ -128,6 +128,59 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 				log.Println("deleting coordinator pod:", pod.Name, "with addresses", pod.Status.PodIPs)
 				factory.DeletePod(&pod)
 			}
+		})
+
+		It("should change the coordinators", func() {
+			primary := fdbCluster.GetPrimary()
+			Eventually(func(g Gomega) string {
+				status := primary.GetStatus()
+
+				// Make sure we have the same count of coordinators again and the deleted
+				coordinators := fdbstatus.GetCoordinatorsFromStatus(status)
+				g.Expect(coordinators).To(HaveLen(len(initialCoordinators)))
+
+				return status.Cluster.ConnectionString
+			}).WithTimeout(5 * time.Minute).WithPolling(2 * time.Second).ShouldNot(Equal(initialConnectionString))
+
+			// Make sure the new connection string is propagated in time to all FoundationDBCLuster resources.
+			for _, cluster := range fdbCluster.GetAllClusters() {
+				tmpCluster := cluster
+				Eventually(func() string {
+					return tmpCluster.GetCluster().Status.ConnectionString
+				}).WithTimeout(5 * time.Minute).WithPolling(2 * time.Second).ShouldNot(Equal(initialConnectionString))
+			}
+		})
+	})
+
+	When("the coordinator pods in the primary fail", func() {
+		var exp *fixtures.ChaosMeshExperiment
+		var initialConnectionString string
+		var initialCoordinators map[string]fdbv1beta2.None
+
+		BeforeEach(func() {
+			primary := fdbCluster.GetPrimary()
+			status := primary.GetStatus()
+			initialConnectionString = status.Cluster.ConnectionString
+
+			initialCoordinators = fdbstatus.GetCoordinatorsFromStatus(status)
+			primaryPods := primary.GetPods()
+
+			selectedPods := make([]corev1.Pod, 0, 3)
+			for _, pod := range primaryPods.Items {
+				processGroupID := fixtures.GetProcessGroupID(pod)
+				if _, ok := initialCoordinators[string(processGroupID)]; !ok {
+					continue
+				}
+
+				log.Println("injecting pod failure for coordinator pod:", pod.Name, "with addresses", pod.Status.PodIPs)
+				selectedPods = append(selectedPods, pod)
+			}
+
+			exp = factory.PodFailure(fixtures.PodsSelector(selectedPods))
+		})
+
+		AfterEach(func() {
+			factory.DeleteChaosMeshExperimentSafe(exp)
 		})
 
 		It("should change the coordinators", func() {
