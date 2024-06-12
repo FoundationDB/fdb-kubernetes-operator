@@ -30,15 +30,18 @@ This cluster will be used for all tests.
 */
 
 import (
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"log"
 	"strconv"
 	"time"
 
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/e2e/fixtures"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbstatus"
 	chaosmesh "github.com/chaos-mesh/chaos-mesh/api/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -102,6 +105,51 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 		if availabilityCheck {
 			Expect(fdbCluster.GetPrimary().InvariantClusterStatusAvailable()).NotTo(HaveOccurred())
 		}
+	})
+
+	When("deleting all Pods in the primary", func() {
+		var initialConnectionString string
+		var initialCoordinators map[string]fdbv1beta2.None
+
+		BeforeEach(func() {
+			primary := fdbCluster.GetPrimary()
+			status := primary.GetStatus()
+			initialConnectionString = status.Cluster.ConnectionString
+
+			initialCoordinators = fdbstatus.GetCoordinatorsFromStatus(status)
+			primaryPods := primary.GetPods()
+
+			for _, pod := range primaryPods.Items {
+				processGroupID := fixtures.GetProcessGroupID(pod)
+				if _, ok := initialCoordinators[string(processGroupID)]; !ok {
+					continue
+				}
+
+				log.Println("deleting coordinator pod:", pod.Name, "with addresses", pod.Status.PodIPs)
+				factory.DeletePod(&pod)
+			}
+		})
+
+		It("should change the coordinators", func() {
+			primary := fdbCluster.GetPrimary()
+			Eventually(func(g Gomega) string {
+				status := primary.GetStatus()
+
+				// Make sure we have the same count of coordinators again and the deleted
+				coordinators := fdbstatus.GetCoordinatorsFromStatus(status)
+				g.Expect(coordinators).To(HaveLen(len(initialCoordinators)))
+
+				return status.Cluster.ConnectionString
+			}).WithTimeout(5 * time.Minute).WithPolling(2 * time.Second).ShouldNot(Equal(initialConnectionString))
+
+			// Make sure the new connection string is propagated in time to all FoundationDBCLuster resources.
+			for _, cluster := range fdbCluster.GetAllClusters() {
+				tmpCluster := cluster
+				Eventually(func() string {
+					return tmpCluster.GetCluster().Status.ConnectionString
+				}).WithTimeout(5 * time.Minute).WithPolling(2 * time.Second).ShouldNot(Equal(initialConnectionString))
+			}
+		})
 	})
 
 	When("replacing satellite Pods and the new Pods are stuck in pending", func() {
