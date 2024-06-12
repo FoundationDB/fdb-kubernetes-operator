@@ -30,6 +30,7 @@ This cluster will be used for all tests.
 */
 
 import (
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbstatus"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -102,6 +103,43 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 		if availabilityCheck {
 			Expect(fdbCluster.GetPrimary().InvariantClusterStatusAvailable()).NotTo(HaveOccurred())
 		}
+	})
+
+	When("deleting all Pods in the primary", func() {
+		var initialConnectionString string
+
+		BeforeEach(func() {
+			primary := fdbCluster.GetPrimary()
+			status := primary.GetStatus()
+			initialConnectionString = status.Cluster.ConnectionString
+
+			coordinators := fdbstatus.GetCoordinatorsFromStatus(status)
+			primaryPods := primary.GetPods()
+
+			for _, pod := range primaryPods.Items {
+				processGroupID := fixtures.GetProcessGroupID(pod)
+				if _, ok := coordinators[string(processGroupID)]; !ok {
+					continue
+				}
+
+				log.Println("deleting coordinator pod:", pod.Name, "with addresses", pod.Status.PodIPs)
+				factory.DeletePod(&pod)
+			}
+		})
+
+		It("should change the coordinators", func() {
+			primary := fdbCluster.GetPrimary()
+			Eventually(func() string {
+				return primary.GetStatus().Cluster.ConnectionString
+			}).WithTimeout(5 * time.Minute).WithPolling(2 * time.Second).ShouldNot(Equal(initialConnectionString))
+
+			for _, cluster := range fdbCluster.GetAllClusters() {
+				tmpCluster := cluster
+				Eventually(func() string {
+					return tmpCluster.GetCluster().Status.ConnectionString
+				}).WithTimeout(5 * time.Minute).WithPolling(2 * time.Second).ShouldNot(Equal(initialConnectionString))
+			}
+		})
 	})
 
 	When("replacing satellite Pods and the new Pods are stuck in pending", func() {
