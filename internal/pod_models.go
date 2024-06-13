@@ -207,8 +207,8 @@ func configureContainersForUnifiedImages(cluster *fdbv1beta2.FoundationDBCluster
 	mainContainer.Env = append(mainContainer.Env, corev1.EnvVar{Name: "FDB_POD_NAMESPACE", ValueFrom: &corev1.EnvVarSource{
 		FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"},
 	}})
-	mainContainer.Env = append(mainContainer.Env, corev1.EnvVar{Name: "FDB_NETWORK_OPTION_TRACE_LOG_GROUP", Value: cluster.GetLogGroup()})
-	mainContainer.Env = append(mainContainer.Env, corev1.EnvVar{Name: "FDB_NETWORK_OPTION_TRACE_ENABLE", Value: "/var/log/fdb-trace-logs"})
+	extendEnv(mainContainer, corev1.EnvVar{Name: "FDB_NETWORK_OPTION_TRACE_LOG_GROUP", Value: cluster.GetLogGroup()},
+		corev1.EnvVar{Name: "FDB_NETWORK_OPTION_TRACE_ENABLE", Value: "/var/log/fdb-trace-logs"})
 	if cluster.DefineDNSLocalityFields() {
 		mainContainer.Env = append(mainContainer.Env, corev1.EnvVar{Name: "FDB_DNS_NAME", Value: GetPodDNSName(cluster, processGroup.GetPodName(cluster))})
 	}
