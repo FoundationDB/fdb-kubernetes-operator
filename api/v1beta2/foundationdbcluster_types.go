@@ -2468,6 +2468,15 @@ func (cluster *FoundationDBCluster) NeedsReplacement(processGroup *ProcessGroupS
 	return processGroup.ProcessClass.IsTransaction()
 }
 
+// GetLogGroup returns the cluster's logGroup for use in trace logs
+func (cluster *FoundationDBCluster) GetLogGroup() string {
+	logGroup := cluster.Spec.LogGroup
+	if logGroup == "" {
+		logGroup = cluster.Name
+	}
+	return logGroup
+}
+
 // GetResourceLabels returns the resource labels for all created resources
 func (cluster *FoundationDBCluster) GetResourceLabels() map[string]string {
 	if cluster.Spec.LabelConfig.ResourceLabels != nil {
