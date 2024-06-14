@@ -55,7 +55,7 @@ var _ = AfterSuite(func() {
 	factory.Shutdown()
 })
 
-var _ = PDescribe("Operator Migrate Image Type", Label("e2e"), func() {
+var _ = Describe("Operator Migrate Image Type", Label("e2e"), func() {
 	When("migrating from split to unified", func() {
 		BeforeEach(func() {
 			config := fixtures.DefaultClusterConfig(false)
@@ -65,7 +65,7 @@ var _ = PDescribe("Operator Migrate Image Type", Label("e2e"), func() {
 				factory.GetClusterOptions()...,
 			)
 
-			//Load some data async into the cluster. We will only block as long as the Job is created.
+			// Load some data async into the cluster. We will only block as long as the Job is created.
 			factory.CreateDataLoaderIfAbsent(fdbCluster)
 
 			// Update the cluster spec to run with the unified image.
@@ -114,7 +114,7 @@ var _ = PDescribe("Operator Migrate Image Type", Label("e2e"), func() {
 				factory.GetClusterOptions()...,
 			)
 
-			//Load some data async into the cluster. We will only block as long as the Job is created.
+			// Load some data async into the cluster. We will only block as long as the Job is created.
 			factory.CreateDataLoaderIfAbsent(fdbCluster)
 
 			// Update the cluster spec to run with the split image.

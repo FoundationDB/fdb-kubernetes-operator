@@ -200,7 +200,6 @@ func configureContainersForUnifiedImages(cluster *fdbv1beta2.FoundationDBCluster
 	)
 
 	mainContainer.Env = append(mainContainer.Env, getEnvForMonitorConfigSubstitution(cluster, processGroup.ProcessGroupID)...)
-	mainContainer.Env = append(mainContainer.Env, corev1.EnvVar{Name: fdbv1beta2.EnvNameImageType, Value: string(fdbv1beta2.ImageTypeUnified)})
 	mainContainer.Env = append(mainContainer.Env, corev1.EnvVar{Name: "FDB_POD_NAME", ValueFrom: &corev1.EnvVarSource{
 		FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 	}})
@@ -1031,6 +1030,7 @@ func GetPodMetadata(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1b
 	}
 	metadata.Annotations[fdbv1beta2.LastSpecKey] = specHash
 	metadata.Annotations[fdbv1beta2.PublicIPSourceAnnotation] = string(cluster.GetPublicIPSource())
+	metadata.Annotations[fdbv1beta2.ImageTypeAnnotation] = string(cluster.DesiredImageType())
 
 	return metadata
 }

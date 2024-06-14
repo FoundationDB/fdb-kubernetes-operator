@@ -23,7 +23,4 @@ package v1beta2
 const (
 	// EnvNamePublicIP defines the FDB_PUBLIC_IP environment variable name.
 	EnvNamePublicIP = "FDB_PUBLIC_IP"
-
-	// EnvNameImageType defines the FDB_IMAGE_TYPE environment variable name.
-	EnvNameImageType = "FDB_IMAGE_TYPE"
 )

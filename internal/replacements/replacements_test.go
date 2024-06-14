@@ -531,7 +531,6 @@ var _ = Describe("replace_misconfigured_pods", func() {
 						})
 					})
 				})
-
 			})
 		})
 

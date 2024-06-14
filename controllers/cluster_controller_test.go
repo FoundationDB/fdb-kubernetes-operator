@@ -1304,6 +1304,7 @@ var _ = Describe("cluster_controller", func() {
 							"foundationdb.org/existing-annotation": "test-value",
 							"fdb-annotation":                       "value1",
 							fdbv1beta2.NodeAnnotation:              item.Spec.NodeName,
+							fdbv1beta2.ImageTypeAnnotation:         string(fdbv1beta2.ImageTypeSplit),
 						}))
 					} else {
 						Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
@@ -1312,6 +1313,7 @@ var _ = Describe("cluster_controller", func() {
 							fdbv1beta2.PublicIPSourceAnnotation: "pod",
 							"fdb-annotation":                    "value1",
 							fdbv1beta2.NodeAnnotation:           item.Spec.NodeName,
+							fdbv1beta2.ImageTypeAnnotation:      string(fdbv1beta2.ImageTypeSplit),
 						}))
 					}
 				}
@@ -1442,6 +1444,7 @@ var _ = Describe("cluster_controller", func() {
 							fdbv1beta2.LastSpecKey:              hash,
 							fdbv1beta2.PublicIPSourceAnnotation: "pod",
 							fdbv1beta2.NodeAnnotation:           item.Spec.NodeName,
+							fdbv1beta2.ImageTypeAnnotation:      string(fdbv1beta2.ImageTypeSplit),
 						}))
 					}
 
@@ -1551,6 +1554,7 @@ var _ = Describe("cluster_controller", func() {
 						fdbv1beta2.LastSpecKey:              hash,
 						fdbv1beta2.PublicIPSourceAnnotation: "pod",
 						fdbv1beta2.NodeAnnotation:           item.Spec.NodeName,
+						fdbv1beta2.ImageTypeAnnotation:      string(fdbv1beta2.ImageTypeSplit),
 					}))
 				}
 
