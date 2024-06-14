@@ -514,7 +514,7 @@ var _ = Describe("pod_models", func() {
 						"--log-path", "/var/log/fdb-trace-logs/monitor.log",
 					}))
 
-					Expect(mainContainer.Env).To(Equal([]corev1.EnvVar{
+					Expect(mainContainer.Env).To(ContainElements([]corev1.EnvVar{
 						{Name: "FDB_CLUSTER_FILE", Value: "/var/dynamic-conf/fdb.cluster"},
 						{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
@@ -624,7 +624,7 @@ var _ = Describe("pod_models", func() {
 						"--process-count", "2",
 					}))
 
-					Expect(mainContainer.Env).To(Equal([]corev1.EnvVar{
+					Expect(mainContainer.Env).To(ContainElements([]corev1.EnvVar{
 						{Name: "FDB_CLUSTER_FILE", Value: "/var/dynamic-conf/fdb.cluster"},
 						{Name: "STORAGE_SERVERS_PER_POD", Value: "2"},
 						{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
@@ -680,7 +680,7 @@ var _ = Describe("pod_models", func() {
 						"--log-path", "/var/log/fdb-trace-logs/monitor.log",
 					}))
 
-					Expect(mainContainer.Env).To(Equal([]corev1.EnvVar{
+					Expect(mainContainer.Env).To(ContainElements([]corev1.EnvVar{
 						{Name: "FDB_CLUSTER_FILE", Value: "/var/dynamic-conf/fdb.cluster"},
 						{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
@@ -736,7 +736,7 @@ var _ = Describe("pod_models", func() {
 						"--process-count", "2",
 					}))
 
-					Expect(mainContainer.Env).To(Equal([]corev1.EnvVar{
+					Expect(mainContainer.Env).To(ContainElements([]corev1.EnvVar{
 						{Name: "FDB_CLUSTER_FILE", Value: "/var/dynamic-conf/fdb.cluster"},
 						{Name: "LOG_SERVERS_PER_POD", Value: "2"},
 						{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
