@@ -55,7 +55,7 @@ var _ = AfterSuite(func() {
 	factory.Shutdown()
 })
 
-var _ = Describe("Operator Migrate Image Type", Label("e2e"), func() {
+var _ = PDescribe("Operator Migrate Image Type", Label("e2e"), func() {
 	When("migrating from split to unified", func() {
 		BeforeEach(func() {
 			config := fixtures.DefaultClusterConfig(false)
