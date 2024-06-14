@@ -26,6 +26,8 @@ import (
 	"errors"
 	"html/template"
 	"io"
+	rbacv1 "k8s.io/api/rbac/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"log"
 	"time"
 
@@ -46,18 +48,25 @@ import (
 const (
 	operatorDeploymentName     = "fdb-kubernetes-operator-controller-manager"
 	foundationdbServiceAccount = "fdb-kubernetes"
+	foundationdbNodeRole       = "fdb-kubernetes-node-watcher"
 	// The configuration for the RBAC setup for the operator deployment
 	operatorRBAC = `apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: fdb-kubernetes-operator-controller-manager
   namespace: {{ .Namespace }}
+  labels:
+     foundationdb.org/testing: chaos
+     foundationdb.org/user: {{ .User }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: fdb-kubernetes-operator-manager-role
   namespace: {{ .Namespace }}
+  labels:
+     foundationdb.org/testing: chaos
+     foundationdb.org/user: {{ .User }}
 rules:
 - apiGroups:
   - ""
@@ -155,6 +164,9 @@ kind: RoleBinding
 metadata:
   name: fdb-kubernetes-operator-manager-rolebinding
   namespace: {{ .Namespace }}
+  labels:
+     foundationdb.org/testing: chaos
+     foundationdb.org/user: {{ .User }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -167,6 +179,9 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: {{ .Namespace }}-operator-manager-clusterrole
+  labels:
+     foundationdb.org/testing: chaos
+     foundationdb.org/user: {{ .User }}
 rules:
 - apiGroups:
   - ""
@@ -181,6 +196,9 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: {{ .Namespace }}-operator-manager-clusterrolebinding
+  labels:
+     foundationdb.org/testing: chaos
+     foundationdb.org/user: {{ .User }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -497,6 +515,8 @@ type operatorConfig struct {
 	CPURequests string
 	// MemoryRequests defined the Memory that should be requested.
 	MemoryRequests string
+	// Defines the user that runs the current e2e tests.
+	User string
 }
 
 // SidecarConfig represents the configuration for a sidecar. This can be used for templating.
@@ -590,6 +610,7 @@ func (factory *Factory) getOperatorConfig(namespace string) *operatorConfig {
 		ImagePullPolicy:  factory.getImagePullPolicy(),
 		CPURequests:      cpuRequests,
 		MemoryRequests:   MemoryRequests,
+		User:             factory.options.username,
 	}
 }
 
@@ -627,6 +648,25 @@ func (factory *Factory) CreateFDBOperatorIfAbsent(namespace string) error {
 			factory.CreateIfAbsent(unstructuredObj),
 		).NotTo(gomega.HaveOccurred())
 	}
+
+	// Make sure we delete the cluster scoped objects.
+	factory.AddShutdownHook(func() error {
+		factory.Delete(&rbacv1.ClusterRole{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      namespace + "-operator-manager-clusterrole",
+				Namespace: namespace,
+			},
+		})
+
+		factory.Delete(&rbacv1.ClusterRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      namespace + "-operator-manager-clusterrolebinding",
+				Namespace: namespace,
+			},
+		})
+
+		return nil
+	})
 
 	deploymentTemplate := operatorDeployment
 	if factory.UseUnifiedImage() {

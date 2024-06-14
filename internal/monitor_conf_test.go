@@ -752,6 +752,72 @@ var _ = Describe("monitor_conf", func() {
 					}, " ")))
 				})
 			})
+
+			When("using custom parameters with substitutions for dcid locality", func() {
+				BeforeEach(func() {
+					settings := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
+					settings.CustomParameters = []fdbv1beta2.FoundationDBCustomParameter{
+						"locality_dcid=$FDB_INSTANCE_ID",
+					}
+					cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral] = settings
+					cluster.Spec.DataCenter = "dc"
+				})
+
+				It("should substitute the variables in the custom parameters", func() {
+					substitutions, err := GetSubstitutionsFromClusterAndPod(logr.Discard(), cluster, pod)
+					Expect(err).NotTo(HaveOccurred())
+					command, err = GetStartCommandWithSubstitutions(cluster, processClass, substitutions, 1, 1)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(command).To(Equal(strings.Join([]string{
+						"/usr/bin/fdbserver",
+						"--cluster_file=/var/fdb/data/fdb.cluster",
+						"--seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+						fmt.Sprintf("--public_address=[%s]:4501", address),
+						"--class=storage",
+						"--logdir=/var/log/fdb-trace-logs",
+						"--loggroup=" + cluster.Name,
+						"--datadir=/var/fdb/data/1",
+						fmt.Sprintf("--locality_process_id=%s-1", processGroupID),
+						fmt.Sprintf("--locality_instance_id=%s", processGroupID),
+						fmt.Sprintf("--locality_machineid=%s-%s", cluster.Name, processGroupID),
+						fmt.Sprintf("--locality_zoneid=%s-%s", cluster.Name, processGroupID),
+						fmt.Sprintf("--locality_dcid=%s", processGroupID),
+					}, " ")))
+				})
+			})
+
+			When("using custom parameters with substitutions for data_hall locality", func() {
+				BeforeEach(func() {
+					settings := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
+					settings.CustomParameters = []fdbv1beta2.FoundationDBCustomParameter{
+						"locality_data_hall=$FDB_INSTANCE_ID",
+					}
+					cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral] = settings
+					cluster.Spec.DataHall = "data_hall"
+				})
+
+				It("should substitute the variables in the custom parameters", func() {
+					substitutions, err := GetSubstitutionsFromClusterAndPod(logr.Discard(), cluster, pod)
+					Expect(err).NotTo(HaveOccurred())
+					command, err = GetStartCommandWithSubstitutions(cluster, processClass, substitutions, 1, 1)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(command).To(Equal(strings.Join([]string{
+						"/usr/bin/fdbserver",
+						"--cluster_file=/var/fdb/data/fdb.cluster",
+						"--seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+						fmt.Sprintf("--public_address=[%s]:4501", address),
+						"--class=storage",
+						"--logdir=/var/log/fdb-trace-logs",
+						"--loggroup=" + cluster.Name,
+						"--datadir=/var/fdb/data/1",
+						fmt.Sprintf("--locality_process_id=%s-1", processGroupID),
+						fmt.Sprintf("--locality_instance_id=%s", processGroupID),
+						fmt.Sprintf("--locality_machineid=%s-%s", cluster.Name, processGroupID),
+						fmt.Sprintf("--locality_zoneid=%s-%s", cluster.Name, processGroupID),
+						fmt.Sprintf("--locality_data_hall=%s", processGroupID),
+					}, " ")))
+				})
+			})
 		})
 	})
 

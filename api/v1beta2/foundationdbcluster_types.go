@@ -237,6 +237,14 @@ type FoundationDBClusterSpec struct {
 	// +kubebuilder:default:=split
 	ImageType *ImageType `json:"imageType,omitempty"`
 
+	// EnableNodeWatch determines if the fdb-kubernetes-monitor should read the node resource
+	// and provide the node labels as custom environment variables. This feature is only
+	// available with the UnifiedImage. The node label keys will be prefixed by "NODE_LABEL" and "/" and "."
+	// will be replaced in the key as "_". E.g. from the label "foundationdb.org/testing = awesome" the env variables
+	// NODE_LABEL_FOUNDATIONDB_ORG_TESTING = awesome" will be generated.
+	// This settings requires that the according RBAC permissions for the unified image are setup.
+	EnableNodeWatch *bool `json:"enableNodeWatch,omitempty"`
+
 	// MaxZonesWithUnavailablePods defines the maximum number of zones that can have unavailable pods during the update process.
 	// When unset, there is no limit to the  number of zones with unavailable pods.
 	MaxZonesWithUnavailablePods *int `json:"maxZonesWithUnavailablePods,omitempty"`
@@ -2573,6 +2581,11 @@ func (cluster *FoundationDBCluster) DesiredImageType() ImageType {
 	}
 
 	return ImageTypeSplit
+}
+
+// EnableNodeWatch if enabled the fdb-kubernetes-monitor will provide the node labels as custom environment variables.
+func (cluster *FoundationDBCluster) EnableNodeWatch() bool {
+	return pointer.BoolDeref(cluster.Spec.EnableNodeWatch, false)
 }
 
 // GetIgnoreTerminatingPodsSeconds returns the value of IgnoreTerminatingPodsSeconds or defaults to 10 minutes.

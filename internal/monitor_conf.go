@@ -228,18 +228,27 @@ func GetMonitorProcessConfiguration(cluster *fdbv1beta2.FoundationDBCluster, pro
 	}
 
 	podSettings := cluster.GetProcessSettings(processClass)
+	var hasDCIDLocality, hasDataHallLocality bool
 	for _, argument := range podSettings.CustomParameters {
+		if strings.HasPrefix(string(argument), "locality_"+fdbv1beta2.FDBLocalityDCIDKey) {
+			hasDCIDLocality = true
+		}
+
+		if strings.HasPrefix(string(argument), "locality_"+fdbv1beta2.FDBLocalityDataHallKey) {
+			hasDataHallLocality = true
+		}
+
 		configuration.Arguments = append(configuration.Arguments, monitorapi.Argument{
 			ArgumentType: monitorapi.ConcatenateArgumentType,
 			Values:       generateMonitorArgumentFromCustomParameter(argument),
 		})
 	}
 
-	if cluster.Spec.DataCenter != "" {
-		configuration.Arguments = append(configuration.Arguments, monitorapi.Argument{Value: getKnobParameterWithValue(fdbv1beta2.FDBLocalityDCIDlKey, cluster.Spec.DataCenter, true)})
+	if cluster.Spec.DataCenter != "" && !hasDCIDLocality {
+		configuration.Arguments = append(configuration.Arguments, monitorapi.Argument{Value: getKnobParameterWithValue(fdbv1beta2.FDBLocalityDCIDKey, cluster.Spec.DataCenter, true)})
 	}
 
-	if cluster.Spec.DataHall != "" {
+	if cluster.Spec.DataHall != "" && !hasDataHallLocality {
 		configuration.Arguments = append(configuration.Arguments, monitorapi.Argument{Value: getKnobParameterWithValue(fdbv1beta2.FDBLocalityDataHallKey, cluster.Spec.DataHall, true)})
 	}
 

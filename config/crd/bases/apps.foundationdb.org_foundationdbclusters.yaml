@@ -10419,6 +10419,8 @@ spec:
                   usable_regions:
                     type: integer
                 type: object
+              enableNodeWatch:
+                type: boolean
               faultDomain:
                 properties:
                   key:

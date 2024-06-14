@@ -2400,4 +2400,76 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			)).NotTo(HaveOccurred())
 		})
 	})
+
+	// @johscheuer: Enable test once the CRD is updated.
+	PWhen("enabling the node watch feature", func() {
+		var initialParameters fdbv1beta2.FoundationDBCustomParameters
+
+		BeforeEach(func() {
+			// If we are not using the unified image, we can skip this test.
+			if !fdbCluster.GetCluster().UseUnifiedImage() {
+				Skip("The sidecar image doesn't support reading node labels")
+			}
+
+			// Enable the node watch feature.
+			spec := fdbCluster.GetCluster().Spec.DeepCopy()
+			spec.EnableNodeWatch = pointer.Bool(true)
+			fdbCluster.UpdateClusterSpecWithSpec(spec)
+			Expect(fdbCluster.WaitForReconciliation()).NotTo(HaveOccurred())
+		})
+
+		It("should have enabled the node watch feature on all Pods", func() {
+			pods := fdbCluster.GetPods().Items
+			for _, pod := range pods {
+				for _, container := range pod.Spec.Containers {
+					if container.Name != fdbv1beta2.MainContainerName {
+						continue
+					}
+
+					Expect(container.Args).To(ContainElements("--enable-node-watch"))
+				}
+			}
+
+			initialParameters = fdbCluster.GetCustomParameters(
+				fdbv1beta2.ProcessClassStorage,
+			)
+
+			// Update the storage processes to have the new locality.
+			Expect(fdbCluster.SetCustomParameters(
+				fdbv1beta2.ProcessClassStorage,
+				append(
+					initialParameters,
+					"locality_os=$NODE_LABEL_KUBERNETES_IO_OS",
+				),
+				true,
+			)).NotTo(HaveOccurred())
+
+			Eventually(func(g Gomega) bool {
+				status := fdbCluster.GetStatus()
+				for _, process := range status.Cluster.Processes {
+					if process.ProcessClass != fdbv1beta2.ProcessClassStorage {
+						continue
+					}
+					log.Println(process.Locality)
+					g.Expect(process.Locality).To(HaveKey("os"))
+				}
+
+				return true
+			})
+		})
+
+		AfterEach(func() {
+			Expect(fdbCluster.SetCustomParameters(
+				fdbv1beta2.ProcessClassStorage,
+				initialParameters,
+				false,
+			)).NotTo(HaveOccurred())
+
+			spec := fdbCluster.GetCluster().Spec.DeepCopy()
+			spec.EnableNodeWatch = pointer.Bool(false)
+			fdbCluster.UpdateClusterSpecWithSpec(spec)
+			Expect(fdbCluster.WaitForReconciliation()).NotTo(HaveOccurred())
+
+		})
+	})
 })

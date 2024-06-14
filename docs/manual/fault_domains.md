@@ -21,6 +21,7 @@ spec:
 ```
 
 This configuration will set the fdbmonitor configuration for all processes to use the value from `spec.nodeName` on the pod as the `zoneid` locality field:
+
 ```toml
 [fdbserver.1]
 locality_zoneid = $FDB_ZONE_ID
