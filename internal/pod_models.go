@@ -809,6 +809,7 @@ func extendEnv(container *corev1.Container, env ...corev1.EnvVar) {
 	for _, envVar := range env {
 		if !existingVars[envVar.Name] {
 			container.Env = append(container.Env, envVar)
+			existingVars[envVar.Name] = true
 		}
 	}
 }
