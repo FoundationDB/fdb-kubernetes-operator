@@ -262,12 +262,8 @@ FoundationDBClusterSpec defines the desired state of a cluster.
 | coordinatorSelection | CoordinatorSelection defines which process classes are eligible for coordinator selection. If empty all stateful processes classes are equally eligible. A higher priority means that a process class is preferred over another process class. If the FoundationDB cluster is spans across multiple Kubernetes clusters or DCs the CoordinatorSelection must match in all FoundationDB cluster resources otherwise the coordinator selection process could conflict. | [][CoordinatorSelectionSetting](#coordinatorselectionsetting) | false |
 | labels | LabelConfig allows customizing labels used by the operator. | [LabelConfig](#labelconfig) | false |
 | useExplicitListenAddress | UseExplicitListenAddress determines if we should add a listen address that is separate from the public address. **Deprecated: This setting will be removed in the next major release.** | *bool | false |
-<<<<<<< HEAD
 | imageType | ImageType defines the image type that should be used for the FoundationDBCluster deployment. When the type is set to \"unified\" the deployment will use the new fdb-kubernetes-monitor. Otherwise the main container and the sidecar container will use different images. Default: split | *[ImageType](#imagetype) | false |
-=======
-| useUnifiedImage | UseUnifiedImage determines if we should use the unified image rather than separate images for the main container and the sidecar container. | *bool | false |
 | enableNodeWatch | EnableNodeWatch determines if the fdb-kubernetes-monitor should read the node resource and provide the node labels are custom environment variables. This feature is only available with the UnifiedImage. The node label keys will be prefixed by \"NODE_LABEL\" and \"/\" and \".\" will be replaced in the key as \"_\". E.g. from the label \"foundationdb.org/testing = awesome\" the env variables NODE_LABEL_FOUNDATIONDB_ORG_TESTING = awesome\" will be generated. This settings requires that the according RBAC permissions for the unified image are setup. | *bool | false |
->>>>>>> 6540a12c (Add support for the node watch feature from the unified image)
 | maxZonesWithUnavailablePods | MaxZonesWithUnavailablePods defines the maximum number of zones that can have unavailable pods during the update process. When unset, there is no limit to the  number of zones with unavailable pods. | *int | false |
 
 [Back to TOC](#table-of-contents)

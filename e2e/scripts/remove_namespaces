@@ -33,3 +33,5 @@ kubectl -n chaos-testing delete schedules -l "foundationdb.org/user=$USERNAME,fo
 kubectl -n chaos-testing delete networkchaos -l "foundationdb.org/user=$USERNAME,foundationdb.org/testing=chaos" --wait=false --ignore-not-found
 kubectl -n chaos-testing delete iochaos -l "foundationdb.org/user=$USERNAME,foundationdb.org/testing=chaos" --wait=false --ignore-not-found
 kubectl -n chaos-testing delete podchaos -l "foundationdb.org/user=$USERNAME,foundationdb.org/testing=chaos" --wait=false --ignore-not-found
+kubectl delete clusterrolebinding -l "foundationdb.org/user=$USERNAME,foundationdb.org/testing=chaos" --wait=false --ignore-not-found
+kubectl delete clusterrole -l "foundationdb.org/user=$USERNAME,foundationdb.org/testing=chaos" --wait=false --ignore-not-found
