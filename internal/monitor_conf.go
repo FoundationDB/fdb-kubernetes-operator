@@ -166,10 +166,7 @@ func GetMonitorProcessConfiguration(cluster *fdbv1beta2.FoundationDBCluster, pro
 		configuration.RunServers = pointer.Bool(false)
 	}
 
-	logGroup := cluster.Spec.LogGroup
-	if logGroup == "" {
-		logGroup = cluster.Name
-	}
+	logGroup := cluster.GetLogGroup()
 
 	var zoneVariable string
 	if strings.HasPrefix(cluster.Spec.FaultDomain.ValueFrom, "$") {

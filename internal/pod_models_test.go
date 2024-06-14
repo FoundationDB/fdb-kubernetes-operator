@@ -534,6 +534,8 @@ var _ = Describe("pod_models", func() {
 						{Name: "FDB_POD_NAMESPACE", ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"},
 						}},
+						{Name: "FDB_NETWORK_OPTION_TRACE_LOG_GROUP", Value: cluster.Name},
+						{Name: "FDB_NETWORK_OPTION_TRACE_ENABLE", Value: "/var/log/fdb-trace-logs"},
 					}))
 
 					Expect(*mainContainer.Resources.Limits.Cpu()).To(Equal(resource.MustParse("1")))
@@ -644,6 +646,8 @@ var _ = Describe("pod_models", func() {
 						{Name: "FDB_POD_NAMESPACE", ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"},
 						}},
+						{Name: "FDB_NETWORK_OPTION_TRACE_LOG_GROUP", Value: cluster.Name},
+						{Name: "FDB_NETWORK_OPTION_TRACE_ENABLE", Value: "/var/log/fdb-trace-logs"},
 					}))
 				})
 
@@ -698,6 +702,8 @@ var _ = Describe("pod_models", func() {
 						{Name: "FDB_POD_NAMESPACE", ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"},
 						}},
+						{Name: "FDB_NETWORK_OPTION_TRACE_LOG_GROUP", Value: cluster.Name},
+						{Name: "FDB_NETWORK_OPTION_TRACE_ENABLE", Value: "/var/log/fdb-trace-logs"},
 					}))
 				})
 
@@ -754,6 +760,8 @@ var _ = Describe("pod_models", func() {
 						{Name: "FDB_POD_NAMESPACE", ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"},
 						}},
+						{Name: "FDB_NETWORK_OPTION_TRACE_LOG_GROUP", Value: cluster.Name},
+						{Name: "FDB_NETWORK_OPTION_TRACE_ENABLE", Value: "/var/log/fdb-trace-logs"},
 					}))
 				})
 
