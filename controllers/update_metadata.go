@@ -104,6 +104,8 @@ func (updateMetadata) reconcile(ctx context.Context, r *FoundationDBClusterRecon
 
 func metadataCorrect(desiredMetadata metav1.ObjectMeta, currentMetadata *metav1.ObjectMeta) bool {
 	desiredMetadata.Annotations[fdbv1beta2.LastSpecKey] = currentMetadata.Annotations[fdbv1beta2.LastSpecKey]
+	// Don't change the annotation for the image type, this will require a pod update.
+	desiredMetadata.Annotations[fdbv1beta2.ImageTypeAnnotation] = string(internal.GetImageTypeFromAnnotation(currentMetadata.Annotations))
 	// If the annotations or labels have changed the metadata has to be updated.
 	return !mergeLabelsInMetadata(currentMetadata, desiredMetadata) && !mergeAnnotations(currentMetadata, desiredMetadata)
 }

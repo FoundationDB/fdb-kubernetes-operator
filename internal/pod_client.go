@@ -401,14 +401,20 @@ func podHasSidecarTLS(pod *corev1.Pod) bool {
 
 // GetImageType determines whether a pod is using the unified or the split image.
 func GetImageType(pod *corev1.Pod) fdbv1beta2.ImageType {
-	if pod.Annotations == nil {
+	return GetImageTypeFromAnnotation(pod.Annotations)
+}
+
+// GetImageTypeFromAnnotation determines whether a pod is using the unified or the split image based on the annotations.
+func GetImageTypeFromAnnotation(annotations map[string]string) fdbv1beta2.ImageType {
+	if annotations == nil {
 		return fdbv1beta2.ImageTypeSplit
 	}
 
-	imageType, ok := pod.Annotations[fdbv1beta2.ImageTypeAnnotation]
+	imageType, ok := annotations[fdbv1beta2.ImageTypeAnnotation]
 	if ok {
 		return fdbv1beta2.ImageType(imageType)
 	}
+
 	return fdbv1beta2.ImageTypeSplit
 }
 
