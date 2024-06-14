@@ -238,7 +238,7 @@ type FoundationDBClusterSpec struct {
 	ImageType *ImageType `json:"imageType,omitempty"`
 
 	// EnableNodeWatch determines if the fdb-kubernetes-monitor should read the node resource
-	// and provide the node labels are custom environment variables. This feature is only
+	// and provide the node labels as custom environment variables. This feature is only
 	// available with the UnifiedImage. The node label keys will be prefixed by "NODE_LABEL" and "/" and "."
 	// will be replaced in the key as "_". E.g. from the label "foundationdb.org/testing = awesome" the env variables
 	// NODE_LABEL_FOUNDATIONDB_ORG_TESTING = awesome" will be generated.
