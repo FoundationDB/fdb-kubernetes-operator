@@ -52,6 +52,9 @@ const (
 	// The information is fetched from Pod.Spec.NodeName of the Pod resource.
 	NodeAnnotation = "foundationdb.org/current-node"
 
+	// ImageTypeAnnotation is an annotation key that specifies the image type of the Pod.
+	ImageTypeAnnotation = "foundationdb.org/image-type"
+
 	// FDBProcessGroupIDLabel represents the label that is used to represent a instance ID
 	FDBProcessGroupIDLabel = "foundationdb.org/fdb-process-group-id"
 

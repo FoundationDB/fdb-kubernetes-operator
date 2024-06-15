@@ -36,9 +36,9 @@ var _ = Describe("Update metadata", func() {
 		expectedMeta metav1.ObjectMeta
 	}
 
-	DescribeTable("Test metadata correctness",
+	DescribeTable("test pod metadata correctness",
 		func(tc testCase) {
-			result := metadataCorrect(tc.metadata, &tc.pod.ObjectMeta)
+			result := podMetadataCorrect(tc.metadata, tc.pod)
 			Expect(result).To(Equal(tc.expected))
 			Expect(tc.pod.ObjectMeta.Labels).To(Equal(tc.expectedMeta.Labels))
 			Expect(tc.pod.ObjectMeta.Annotations).To(Equal(tc.expectedMeta.Annotations))
@@ -48,19 +48,22 @@ var _ = Describe("Update metadata", func() {
 				pod: &corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
-							fdbv1beta2.LastSpecKey: "1",
+							fdbv1beta2.LastSpecKey:         "1",
+							fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
 						},
 					},
 				},
 				metadata: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						fdbv1beta2.LastSpecKey: "1",
+						fdbv1beta2.LastSpecKey:         "1",
+						fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
 					},
 				},
 				expected: true,
 				expectedMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						fdbv1beta2.LastSpecKey: "1",
+						fdbv1beta2.LastSpecKey:         "1",
+						fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
 					},
 				},
 			},
@@ -70,19 +73,22 @@ var _ = Describe("Update metadata", func() {
 				pod: &corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
-							fdbv1beta2.LastSpecKey: "1",
+							fdbv1beta2.LastSpecKey:         "1",
+							fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
 						},
 					},
 				},
 				metadata: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						fdbv1beta2.LastSpecKey: "2",
+						fdbv1beta2.LastSpecKey:         "2",
+						fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
 					},
 				},
 				expected: true,
 				expectedMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						fdbv1beta2.LastSpecKey: "1",
+						fdbv1beta2.LastSpecKey:         "1",
+						fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
 					},
 				},
 			},
@@ -92,22 +98,25 @@ var _ = Describe("Update metadata", func() {
 				pod: &corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
-							fdbv1beta2.LastSpecKey: "1",
-							"special":              "43",
+							fdbv1beta2.LastSpecKey:         "1",
+							"special":                      "43",
+							fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
 						},
 					},
 				},
 				metadata: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						fdbv1beta2.LastSpecKey: "1",
-						"special":              "42",
+						fdbv1beta2.LastSpecKey:         "1",
+						"special":                      "42",
+						fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
 					},
 				},
 				expected: false,
 				expectedMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						fdbv1beta2.LastSpecKey: "1",
-						"special":              "42",
+						fdbv1beta2.LastSpecKey:         "1",
+						"special":                      "42",
+						fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
 					},
 				},
 			},
@@ -117,21 +126,24 @@ var _ = Describe("Update metadata", func() {
 				pod: &corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
-							fdbv1beta2.LastSpecKey: "1",
+							fdbv1beta2.LastSpecKey:         "1",
+							fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
 						},
 					},
 				},
 				metadata: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						fdbv1beta2.LastSpecKey: "1",
-						"controller/X":         "wrong",
+						fdbv1beta2.LastSpecKey:         "1",
+						"controller/X":                 "wrong",
+						fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
 					},
 				},
 				expected: false,
 				expectedMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						fdbv1beta2.LastSpecKey: "1",
-						"controller/X":         "wrong",
+						fdbv1beta2.LastSpecKey:         "1",
+						"controller/X":                 "wrong",
+						fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
 					},
 				},
 			},
@@ -141,21 +153,24 @@ var _ = Describe("Update metadata", func() {
 				pod: &corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
-							fdbv1beta2.LastSpecKey: "1",
-							"controller/X":         "wrong",
+							fdbv1beta2.LastSpecKey:         "1",
+							"controller/X":                 "wrong",
+							fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
 						},
 					},
 				},
 				metadata: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						fdbv1beta2.LastSpecKey: "1",
+						fdbv1beta2.LastSpecKey:         "1",
+						fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
 					},
 				},
 				expected: true,
 				expectedMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						fdbv1beta2.LastSpecKey: "1",
-						"controller/X":         "wrong",
+						fdbv1beta2.LastSpecKey:         "1",
+						"controller/X":                 "wrong",
+						fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
 					},
 				},
 			},
@@ -165,22 +180,25 @@ var _ = Describe("Update metadata", func() {
 				pod: &corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
-							fdbv1beta2.LastSpecKey: "1",
-							"controller/X":         "true",
+							fdbv1beta2.LastSpecKey:         "1",
+							"controller/X":                 "true",
+							fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
 						},
 					},
 				},
 				metadata: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						fdbv1beta2.LastSpecKey: "1",
-						"controller/X":         "wrong",
+						fdbv1beta2.LastSpecKey:         "1",
+						"controller/X":                 "wrong",
+						fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
 					},
 				},
 				expected: false,
 				expectedMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						fdbv1beta2.LastSpecKey: "1",
-						"controller/X":         "wrong",
+						fdbv1beta2.LastSpecKey:         "1",
+						"controller/X":                 "wrong",
+						fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
 					},
 				},
 			},
@@ -190,7 +208,8 @@ var _ = Describe("Update metadata", func() {
 				pod: &corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
-							fdbv1beta2.LastSpecKey: "1",
+							fdbv1beta2.LastSpecKey:         "1",
+							fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
 						},
 						Labels: map[string]string{
 							"test": "test",
@@ -199,13 +218,15 @@ var _ = Describe("Update metadata", func() {
 				},
 				metadata: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						fdbv1beta2.LastSpecKey: "1",
+						fdbv1beta2.LastSpecKey:         "1",
+						fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
 					},
 				},
 				expected: true,
 				expectedMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						fdbv1beta2.LastSpecKey: "1",
+						fdbv1beta2.LastSpecKey:         "1",
+						fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
 					},
 					Labels: map[string]string{
 						"test": "test",
@@ -218,7 +239,8 @@ var _ = Describe("Update metadata", func() {
 				pod: &corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
-							fdbv1beta2.LastSpecKey: "1",
+							fdbv1beta2.LastSpecKey:         "1",
+							fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
 						},
 						Labels: map[string]string{
 							fdbv1beta2.FDBProcessClassLabel: "storage",
@@ -227,7 +249,8 @@ var _ = Describe("Update metadata", func() {
 				},
 				metadata: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						fdbv1beta2.LastSpecKey: "1",
+						fdbv1beta2.LastSpecKey:         "1",
+						fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
 					},
 					Labels: map[string]string{
 						fdbv1beta2.FDBProcessClassLabel: "globalControllerLogger",
@@ -236,7 +259,8 @@ var _ = Describe("Update metadata", func() {
 				expected: false,
 				expectedMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						fdbv1beta2.LastSpecKey: "1",
+						fdbv1beta2.LastSpecKey:         "1",
+						fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
 					},
 
 					Labels: map[string]string{
@@ -250,7 +274,8 @@ var _ = Describe("Update metadata", func() {
 				pod: &corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
-							fdbv1beta2.LastSpecKey: "1",
+							fdbv1beta2.LastSpecKey:         "1",
+							fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
 						},
 					},
 					Spec: corev1.PodSpec{
@@ -259,15 +284,47 @@ var _ = Describe("Update metadata", func() {
 				},
 				metadata: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						fdbv1beta2.LastSpecKey:    "1",
-						fdbv1beta2.NodeAnnotation: "testing-node",
+						fdbv1beta2.LastSpecKey:         "1",
+						fdbv1beta2.NodeAnnotation:      "testing-node",
+						fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
 					},
 				},
 				expected: false,
 				expectedMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						fdbv1beta2.LastSpecKey:    "1",
-						fdbv1beta2.NodeAnnotation: "testing-node",
+						fdbv1beta2.LastSpecKey:         "1",
+						fdbv1beta2.NodeAnnotation:      "testing-node",
+						fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
+					},
+				},
+			},
+		),
+		Entry("Metadata for image type is not matching",
+			testCase{
+				pod: &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							fdbv1beta2.LastSpecKey:         "1",
+							fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
+						},
+					},
+					Spec: corev1.PodSpec{
+						NodeName: "testing-node",
+					},
+				},
+				metadata: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						fdbv1beta2.LastSpecKey:         "1",
+						fdbv1beta2.NodeAnnotation:      "testing-node",
+						fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeUnified),
+					},
+				},
+				expected: false,
+				expectedMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						fdbv1beta2.LastSpecKey:         "1",
+						fdbv1beta2.NodeAnnotation:      "testing-node",
+						fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
 					},
 				},
 			},
