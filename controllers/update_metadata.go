@@ -22,7 +22,6 @@ package controllers
 
 import (
 	"context"
-
 	"github.com/go-logr/logr"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
@@ -45,6 +44,7 @@ func (updateMetadata) reconcile(ctx context.Context, r *FoundationDBClusterRecon
 	}
 	pvcMap := internal.CreatePVCMap(cluster, pvcs)
 
+	var shouldRequeue bool
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup.IsMarkedForRemoval() {
 			logger.V(1).Info("Ignore process group marked for removal",
@@ -52,25 +52,9 @@ func (updateMetadata) reconcile(ctx context.Context, r *FoundationDBClusterRecon
 			continue
 		}
 
-		pod, err := r.PodLifecycleManager.GetPod(ctx, r, cluster, processGroup.GetPodName(cluster))
-		if err == nil {
-			metadata := internal.GetPodMetadata(cluster, processGroup.ProcessClass, processGroup.ProcessGroupID, "")
-			if metadata.Annotations == nil {
-				metadata.Annotations = make(map[string]string, 1)
-			}
-
-			if pod.Spec.NodeName != "" {
-				metadata.Annotations[fdbv1beta2.NodeAnnotation] = pod.Spec.NodeName
-			}
-
-			if !metadataCorrect(metadata, &pod.ObjectMeta) {
-				err := r.PodLifecycleManager.UpdateMetadata(ctx, r, cluster, pod)
-				if err != nil {
-					return &requeue{curError: err}
-				}
-			}
-		} else {
-			logger.V(1).Info("Could not find Pod for process group ID",
+		err = updatePodMetadata(ctx, r, cluster, processGroup)
+		if err != nil {
+			logger.Error(err, "Could not update Pod metadata",
 				"processGroupID", processGroup.ProcessGroupID)
 		}
 
@@ -94,18 +78,51 @@ func (updateMetadata) reconcile(ctx context.Context, r *FoundationDBClusterRecon
 		if !metadataCorrect(metadata, &pvc.ObjectMeta) {
 			err = r.Update(ctx, &pvc)
 			if err != nil {
-				return &requeue{curError: err}
+				logger.Error(err, "Could not update PVC metadata",
+					"processGroupID", processGroup.ProcessGroupID)
+				shouldRequeue = true
 			}
 		}
+	}
+
+	if shouldRequeue {
+		return &requeue{message: "could not update all metadata", delayedRequeue: true}
 	}
 
 	return nil
 }
 
-func metadataCorrect(desiredMetadata metav1.ObjectMeta, currentMetadata *metav1.ObjectMeta) bool {
-	desiredMetadata.Annotations[fdbv1beta2.LastSpecKey] = currentMetadata.Annotations[fdbv1beta2.LastSpecKey]
+func updatePodMetadata(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, processGroup *fdbv1beta2.ProcessGroupStatus) error {
+	pod, err := r.PodLifecycleManager.GetPod(ctx, r, cluster, processGroup.GetPodName(cluster))
+	if err != nil {
+		return err
+	}
+
+	desiredMetadata := internal.GetPodMetadata(cluster, processGroup.ProcessClass, processGroup.ProcessGroupID, "")
+	if !podMetadataCorrect(desiredMetadata, pod) {
+		return r.PodLifecycleManager.UpdateMetadata(ctx, r, cluster, pod)
+	}
+
+	return nil
+}
+
+func podMetadataCorrect(desiredMetadata metav1.ObjectMeta, pod *corev1.Pod) bool {
+	if desiredMetadata.Annotations == nil {
+		desiredMetadata.Annotations = make(map[string]string, 1)
+	}
+
+	if pod.Spec.NodeName != "" {
+		desiredMetadata.Annotations[fdbv1beta2.NodeAnnotation] = pod.Spec.NodeName
+	}
+
+	desiredMetadata.Annotations[fdbv1beta2.LastSpecKey] = pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey]
 	// Don't change the annotation for the image type, this will require a pod update.
-	desiredMetadata.Annotations[fdbv1beta2.ImageTypeAnnotation] = string(internal.GetImageTypeFromAnnotation(currentMetadata.Annotations))
+	desiredMetadata.Annotations[fdbv1beta2.ImageTypeAnnotation] = string(internal.GetImageTypeFromAnnotation(pod.ObjectMeta.Annotations))
+
+	return metadataCorrect(desiredMetadata, &pod.ObjectMeta)
+}
+
+func metadataCorrect(desiredMetadata metav1.ObjectMeta, currentMetadata *metav1.ObjectMeta) bool {
 	// If the annotations or labels have changed the metadata has to be updated.
 	return !mergeLabelsInMetadata(currentMetadata, desiredMetadata) && !mergeAnnotations(currentMetadata, desiredMetadata)
 }
