@@ -56,6 +56,7 @@ func (updateMetadata) reconcile(ctx context.Context, r *FoundationDBClusterRecon
 		if err != nil {
 			logger.Error(err, "Could not update Pod metadata",
 				"processGroupID", processGroup.ProcessGroupID)
+			shouldRequeue = true
 		}
 
 		// We can skip all stateless processes because they won't have a PVC attached.
