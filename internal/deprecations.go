@@ -25,6 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/utils/pointer"
 )
 
 // DeprecationOptions controls how deprecations and changes to defaults
@@ -58,6 +59,11 @@ func NormalizeClusterSpec(cluster *fdbv1beta2.FoundationDBCluster, options Depre
 	}
 
 	if !options.OnlyShowChanges {
+		err := updateFutureDefaults(cluster, options)
+		if err != nil {
+			return err
+		}
+
 		// Set up resource requirements for the main container.
 		updatePodTemplates(&cluster.Spec, func(template *corev1.PodTemplateSpec) {
 			template.Spec.Containers, _ = ensureContainerPresent(template.Spec.Containers, fdbv1beta2.MainContainerName, 0)
@@ -217,4 +223,29 @@ func ensureContainerPresent(containers []corev1.Container, name string, insertIn
 	}
 
 	return newContainers, insertIndex
+}
+
+// updateFutureDefaults will update all unset fields with the new default values for the operator release 3.0
+func updateFutureDefaults(cluster *fdbv1beta2.FoundationDBCluster, options DeprecationOptions) error {
+	if !options.UseFutureDefaults {
+		return nil
+	}
+
+	// The operator will use the unified image as default image type in the operator release 2.0.
+	if cluster.Spec.ImageType == nil {
+		imageType := fdbv1beta2.ImageTypeUnified
+		cluster.Spec.ImageType = &imageType
+	}
+
+	// Locality based exclusions will be the default in the next operator release.
+	if cluster.Spec.AutomationOptions.UseLocalitiesForExclusion == nil {
+		cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(true)
+	}
+
+	// The DNS feature will be the default in the next operator release.
+	if cluster.Spec.Routing.UseDNSInClusterFile == nil {
+		cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(true)
+	}
+
+	return nil
 }

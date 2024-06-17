@@ -77,7 +77,7 @@ var _ = Describe("[internal] deprecations", func() {
 			})
 		})
 
-		Describe("defaults", func() {
+		When("the future defaults shouldn't be used", func() {
 			BeforeEach(func() {
 				cluster.Spec.MainContainer.ImageConfigs = append(cluster.Spec.MainContainer.ImageConfigs, fdbv1beta2.ImageConfig{BaseImage: "foundationdb/foundationdb-test"})
 				cluster.Spec.SidecarContainer.ImageConfigs = append(cluster.Spec.SidecarContainer.ImageConfigs, fdbv1beta2.ImageConfig{BaseImage: "foundationdb/foundationdb-kubernetes-sidecar-test"})
@@ -85,22 +85,14 @@ var _ = Describe("[internal] deprecations", func() {
 
 			Context("with the current defaults", func() {
 				JustBeforeEach(func() {
-					err := NormalizeClusterSpec(cluster, DeprecationOptions{UseFutureDefaults: false, OnlyShowChanges: false})
-					Expect(err).NotTo(HaveOccurred())
-				})
-
-				It("should have both containers", func() {
-					generalProcessConfig, present := spec.Processes[fdbv1beta2.ProcessClassGeneral]
-					Expect(present).To(BeTrue())
-					containers := generalProcessConfig.PodTemplate.Spec.Containers
-					Expect(len(containers)).To(Equal(2))
+					Expect(NormalizeClusterSpec(cluster, DeprecationOptions{UseFutureDefaults: false, OnlyShowChanges: false})).NotTo(HaveOccurred())
 				})
 
 				It("should have a main container defined", func() {
 					generalProcessConfig, present := spec.Processes[fdbv1beta2.ProcessClassGeneral]
 					Expect(present).To(BeTrue())
 					containers := generalProcessConfig.PodTemplate.Spec.Containers
-					Expect(len(containers)).To(Equal(2))
+					Expect(containers).To(HaveLen(2))
 					Expect(containers[0].Name).To(Equal(fdbv1beta2.MainContainerName))
 					Expect(containers[0].Resources.Requests).To(Equal(corev1.ResourceList{
 						corev1.ResourceCPU:    resource.MustParse("1"),
@@ -116,7 +108,7 @@ var _ = Describe("[internal] deprecations", func() {
 					generalProcessConfig, present := spec.Processes[fdbv1beta2.ProcessClassGeneral]
 					Expect(present).To(BeTrue())
 					containers := generalProcessConfig.PodTemplate.Spec.Containers
-					Expect(len(containers)).To(Equal(2))
+					Expect(containers).To(HaveLen(2))
 					Expect(containers[1].Name).To(Equal(fdbv1beta2.SidecarContainerName))
 					Expect(containers[1].Resources.Requests).NotTo(BeNil())
 					Expect(containers[1].Resources.Limits).NotTo(BeNil())
@@ -275,10 +267,183 @@ var _ = Describe("[internal] deprecations", func() {
 					})
 
 					It("should not have any init containers in the process settings", func() {
-						Expect(spec.Processes["general"].PodTemplate.Spec.InitContainers).To(HaveLen(0))
+						Expect(spec.Processes[fdbv1beta2.ProcessClassGeneral].PodTemplate.Spec.InitContainers).To(HaveLen(0))
 					})
 				})
 			})
+		})
+
+		When("the future defaults should be used", func() {
+			BeforeEach(func() {
+				cluster.Spec.MainContainer.ImageConfigs = append(cluster.Spec.MainContainer.ImageConfigs, fdbv1beta2.ImageConfig{BaseImage: "foundationdb/foundationdb-test"})
+				cluster.Spec.SidecarContainer.ImageConfigs = append(cluster.Spec.SidecarContainer.ImageConfigs, fdbv1beta2.ImageConfig{BaseImage: "foundationdb/foundationdb-kubernetes-sidecar-test"})
+			})
+
+			JustBeforeEach(func() {
+				cluster.Spec.Version = fdbv1beta2.Versions.SupportsLocalityBasedExclusions71.String()
+				Expect(NormalizeClusterSpec(cluster, DeprecationOptions{UseFutureDefaults: true, OnlyShowChanges: false})).NotTo(HaveOccurred())
+			})
+
+			It("should have the unified image enabled", func() {
+				Expect(cluster.DesiredImageType()).To(Equal(fdbv1beta2.ImageTypeUnified))
+				Expect(cluster.UseLocalitiesForExclusion()).To(BeTrue())
+				Expect(cluster.UseDNSInClusterFile()).To(BeTrue())
+			})
+
+			It("should have a main container defined", func() {
+				generalProcessConfig, present := spec.Processes[fdbv1beta2.ProcessClassGeneral]
+				Expect(present).To(BeTrue())
+				containers := generalProcessConfig.PodTemplate.Spec.Containers
+				Expect(containers).To(HaveLen(2))
+				Expect(containers[0].Name).To(Equal(fdbv1beta2.MainContainerName))
+				Expect(containers[0].Resources.Requests).To(Equal(corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("1"),
+					corev1.ResourceMemory: resource.MustParse("4Gi"),
+				}))
+				Expect(containers[0].Resources.Limits).To(Equal(corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("1"),
+					corev1.ResourceMemory: resource.MustParse("4Gi"),
+				}))
+			})
+
+			It("should have empty sidecar resource requirements", func() {
+				generalProcessConfig, present := spec.Processes[fdbv1beta2.ProcessClassGeneral]
+				Expect(present).To(BeTrue())
+				containers := generalProcessConfig.PodTemplate.Spec.Containers
+				Expect(containers).To(HaveLen(2))
+				Expect(containers[1].Name).To(Equal(fdbv1beta2.SidecarContainerName))
+				Expect(containers[1].Resources.Requests).NotTo(BeNil())
+				Expect(containers[1].Resources.Limits).NotTo(BeNil())
+			})
+
+			It("should have no init containers", func() {
+				generalProcessConfig, present := spec.Processes[fdbv1beta2.ProcessClassGeneral]
+				Expect(present).To(BeTrue())
+				Expect(generalProcessConfig.PodTemplate.Spec.InitContainers).To(HaveLen(0))
+			})
+
+			When("explicit resource requests for the main container are set", func() {
+				BeforeEach(func() {
+					spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{
+						fdbv1beta2.ProcessClassGeneral: {
+							PodTemplate: &corev1.PodTemplateSpec{
+								Spec: corev1.PodSpec{
+									Containers: []corev1.Container{{
+										Name: fdbv1beta2.MainContainerName,
+										Resources: corev1.ResourceRequirements{
+											Requests: corev1.ResourceList{
+												corev1.ResourceCPU: resource.MustParse("1"),
+											},
+											Limits: corev1.ResourceList{
+												corev1.ResourceCPU: resource.MustParse("1"),
+											},
+										},
+									}},
+								},
+							},
+						},
+					}
+				})
+
+				It("should respect the values given", func() {
+					generalProcessConfig, present := spec.Processes[fdbv1beta2.ProcessClassGeneral]
+					Expect(present).To(BeTrue())
+					containers := generalProcessConfig.PodTemplate.Spec.Containers
+					Expect(containers).To(HaveLen(2))
+					Expect(containers[0].Name).To(Equal(fdbv1beta2.MainContainerName))
+					Expect(containers[0].Resources.Requests).To(Equal(corev1.ResourceList{
+						corev1.ResourceCPU: resource.MustParse("1"),
+					}))
+					Expect(containers[0].Resources.Limits).To(Equal(corev1.ResourceList{
+						corev1.ResourceCPU: resource.MustParse("1"),
+					}))
+				})
+			})
+
+			When("explicit resource requests for the sidecar are set", func() {
+				BeforeEach(func() {
+					spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{
+						fdbv1beta2.ProcessClassGeneral: {
+							PodTemplate: &corev1.PodTemplateSpec{
+								Spec: corev1.PodSpec{
+									Containers: []corev1.Container{{
+										Name: fdbv1beta2.SidecarContainerName,
+										Resources: corev1.ResourceRequirements{
+											Requests: corev1.ResourceList{
+												corev1.ResourceCPU: resource.MustParse("1"),
+											},
+											Limits: corev1.ResourceList{
+												corev1.ResourceCPU: resource.MustParse("2"),
+											},
+										},
+									}},
+								},
+							},
+						},
+					}
+				})
+
+				It("should respect the values given", func() {
+					generalProcessConfig, present := spec.Processes[fdbv1beta2.ProcessClassGeneral]
+					Expect(present).To(BeTrue())
+					containers := generalProcessConfig.PodTemplate.Spec.Containers
+					Expect(containers).To(HaveLen(2))
+					Expect(containers[1].Name).To(Equal(fdbv1beta2.SidecarContainerName))
+					Expect(containers[1].Resources.Requests).To(Equal(corev1.ResourceList{
+						corev1.ResourceCPU: resource.MustParse("1"),
+					}))
+					Expect(containers[1].Resources.Limits).To(Equal(corev1.ResourceList{
+						corev1.ResourceCPU: resource.MustParse("2"),
+					}))
+				})
+			})
+
+			It("should have the public IP source set to pod", func() {
+				Expect(cluster.GetPublicIPSource()).NotTo(BeNil())
+				Expect(cluster.GetPublicIPSource()).To(Equal(fdbv1beta2.PublicIPSourcePod))
+			})
+
+			It("should have automatic replacements enabled", func() {
+				Expect(cluster.GetEnableAutomaticReplacements()).To(BeTrue())
+				Expect(cluster.GetFailureDetectionTimeSeconds()).To(Equal(7200))
+			})
+
+			It("should have the probe settings for the sidecar", func() {
+				Expect(cluster.GetSidecarContainerEnableLivenessProbe()).To(BeTrue())
+				Expect(cluster.GetSidecarContainerEnableReadinessProbe()).To(BeFalse())
+			})
+
+			It("should have the default label config", func() {
+				Expect(cluster.GetMatchLabels()).To(Equal(map[string]string{
+					fdbv1beta2.FDBClusterLabel: cluster.Name,
+				}))
+				Expect(cluster.GetResourceLabels()).To(Equal(map[string]string{
+					fdbv1beta2.FDBClusterLabel: cluster.Name,
+				}))
+				Expect(cluster.GetProcessGroupIDLabels()).To(Equal([]string{
+					fdbv1beta2.FDBProcessGroupIDLabel,
+				}))
+				Expect(cluster.GetProcessClassLabels()).To(Equal([]string{
+					fdbv1beta2.FDBProcessClassLabel,
+				}))
+				Expect(cluster.ShouldFilterOnOwnerReferences()).To(BeFalse())
+			})
+
+			It("should have explicit listen addresses disabled", func() {
+				Expect(cluster.GetUseExplicitListenAddress()).To(BeTrue())
+			})
+
+			It("should use the default image config for the unified image", func() {
+				Expect(spec.MainContainer.ImageConfigs).To(Equal([]fdbv1beta2.ImageConfig{
+					{BaseImage: "foundationdb/foundationdb-test"},
+					{BaseImage: "foundationdb/foundationdb-kubernetes"},
+				}))
+
+				Expect(spec.SidecarContainer.ImageConfigs).To(Equal([]fdbv1beta2.ImageConfig{
+					{BaseImage: "foundationdb/foundationdb-kubernetes-sidecar-test"},
+				}))
+			})
+
 		})
 
 		When("adding an image config", func() {
@@ -286,7 +451,7 @@ var _ = Describe("[internal] deprecations", func() {
 				It("should be added", func() {
 					var imageConfigs []fdbv1beta2.ImageConfig
 					ensureImageConfigPresent(&imageConfigs, fdbv1beta2.ImageConfig{BaseImage: "foundationdb/foundationdb"})
-					Expect(len(imageConfigs)).To(Equal(1))
+					Expect(imageConfigs).To(HaveLen(1))
 				})
 			})
 
@@ -299,7 +464,7 @@ var _ = Describe("[internal] deprecations", func() {
 
 				It("should not be added", func() {
 					ensureImageConfigPresent(&imageConfigs, fdbv1beta2.ImageConfig{BaseImage: "foundationdb/foundationdb"})
-					Expect(len(imageConfigs)).To(Equal(1))
+					Expect(imageConfigs).To(HaveLen(1))
 				})
 			})
 		})
