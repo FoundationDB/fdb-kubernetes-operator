@@ -25,22 +25,18 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strconv"
 	"time"
 
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal/buggify"
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal/removals"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbstatus"
+	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbstatus"
-
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal/buggify"
-
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal/removals"
-	"github.com/go-logr/logr"
-
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
-
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	corev1 "k8s.io/api/core/v1"
 )
 
 // removeProcessGroups provides a reconciliation step for removing process groups as part of a
@@ -135,7 +131,7 @@ func (u removeProcessGroups) reconcile(ctx context.Context, r *FoundationDBClust
 	removedProcessGroups := r.removeProcessGroups(ctx, logger, cluster, zoneRemovals, zonedRemovals[removals.TerminatingZone])
 	err = includeProcessGroup(ctx, logger, r, cluster, removedProcessGroups, status)
 	if err != nil {
-		return &requeue{curError: err}
+		return &requeue{curError: err, delayedRequeue: true}
 	}
 
 	return nil
@@ -148,6 +144,15 @@ func removeProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, c
 	pod, err := r.PodLifecycleManager.GetPod(ctx, r, cluster, podName)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return err
+	}
+
+	value, ok := pod.Annotations[fdbv1beta2.IsolateProcessGroupAnnotation]
+	if ok {
+		// Ignore the parsing error here and assume the pod was not isolated.
+		isolated, _ := strconv.ParseBool(value)
+		if isolated {
+			return fmt.Errorf("not allowed to delete Pod and the assosicated resources as the Pod is isolated")
+		}
 	}
 
 	if err == nil && pod.DeletionTimestamp.IsZero() {

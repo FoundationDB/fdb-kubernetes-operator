@@ -48,6 +48,11 @@ const (
 	// IP for a pod.
 	PublicIPAnnotation = "foundationdb.org/public-ip"
 
+	// IsolateProcessGroupAnnotation is the annotation that defines if the current Pod should be isolated. Isolated
+	// process groups will shutdown the fdbserver instance but keep the Pod and other Kubernetes resources running
+	// for debugging purpose.
+	IsolateProcessGroupAnnotation = "foundationdb.org/isolate-process-group"
+
 	// NodeAnnotation is an annotation key that specifies where a Pod is currently running on.
 	// The information is fetched from Pod.Spec.NodeName of the Pod resource.
 	NodeAnnotation = "foundationdb.org/current-node"

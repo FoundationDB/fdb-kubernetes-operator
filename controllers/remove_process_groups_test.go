@@ -24,6 +24,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
+	ctrlClient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient/mock"
 
@@ -114,6 +116,24 @@ var _ = Describe("remove_process_groups", func() {
 				for _, address := range removedProcessGroup.Addresses {
 					adminClient.ExcludedAddresses[address] = fdbv1beta2.None{}
 				}
+			})
+
+			When("the Pod is marked as isolated", func() {
+				BeforeEach(func() {
+					pod := &corev1.Pod{}
+					Expect(k8sClient.Get(context.Background(), ctrlClient.ObjectKey{Name: removedProcessGroup.GetPodName(cluster), Namespace: cluster.Namespace}, pod)).NotTo(HaveOccurred())
+					pod.Annotations[fdbv1beta2.IsolateProcessGroupAnnotation] = "true"
+					Expect(k8sClient.Update(context.Background(), pod)).NotTo(HaveOccurred())
+				})
+
+				It("should not remove that process group", func() {
+					Expect(result).To(BeNil())
+					// Ensure resources are not deleted
+					removed, include, err := confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, removedProcessGroup)
+					Expect(err).To(BeNil())
+					Expect(removed).To(BeFalse())
+					Expect(include).To(BeFalse())
+				})
 			})
 
 			When("using the default setting of EnforceFullReplicationForDeletion", func() {
@@ -399,8 +419,7 @@ var _ = Describe("remove_process_groups", func() {
 					When("a process group is marked as terminating and all resources are removed it should be removed", func() {
 						BeforeEach(func() {
 							secondRemovedProcessGroup.ProcessGroupConditions = append(secondRemovedProcessGroup.ProcessGroupConditions, fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.ResourcesTerminating))
-							err := removeProcessGroup(context.Background(), clusterReconciler, cluster, secondRemovedProcessGroup)
-							Expect(err).NotTo(HaveOccurred())
+							Expect(removeProcessGroup(context.Background(), clusterReconciler, cluster, secondRemovedProcessGroup)).NotTo(HaveOccurred())
 						})
 
 						It("should remove the process group and the terminated process group", func() {
