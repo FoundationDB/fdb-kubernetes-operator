@@ -589,7 +589,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		var initialGeneration int64
 
 		BeforeEach(func() {
-			Expect(fdbCluster.SetSkipReconciliation(true)).ShouldNot(HaveOccurred())
+			fdbCluster.SetSkipReconciliation(true)
 			initialGeneration = fdbCluster.GetCluster().Status.Generations.Reconciled
 		})
 
@@ -608,7 +608,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		})
 
 		AfterEach(func() {
-			Expect(fdbCluster.SetSkipReconciliation(false)).ShouldNot(HaveOccurred())
+			fdbCluster.SetSkipReconciliation(false)
 		})
 	})
 
@@ -1820,13 +1820,13 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			spec.ProcessCounts.Test = 0
 			fdbCluster.UpdateClusterSpecWithSpec(spec)
 			// Let the operator fix the issue.
-			Expect(fdbCluster.SetSkipReconciliation(false)).NotTo(HaveOccurred())
+			fdbCluster.SetSkipReconciliation(false)
 		})
 
 		When("the tester process fails", func() {
 			BeforeEach(func() {
 				// Make sure the operator is not taking any action as long as we are preparing the setup
-				Expect(fdbCluster.SetSkipReconciliation(true)).NotTo(HaveOccurred())
+				fdbCluster.SetSkipReconciliation(true)
 				// We don't need the tester process anymore
 				spec := fdbCluster.GetCluster().Spec.DeepCopy()
 				spec.ProcessCounts.Test = 0
@@ -1860,7 +1860,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				}
 
 				// Let the operator fix the issue.
-				Expect(fdbCluster.SetSkipReconciliation(false)).NotTo(HaveOccurred())
+				fdbCluster.SetSkipReconciliation(false)
 			})
 
 			It("should show the status without any messages", func() {
@@ -1885,7 +1885,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 			BeforeEach(func() {
 				// Make sure the operator is not taking any action as long as we are preparing the setup
-				Expect(fdbCluster.SetSkipReconciliation(true)).NotTo(HaveOccurred())
+				fdbCluster.SetSkipReconciliation(true)
 
 				var partitionedPod corev1.Pod
 
@@ -1927,7 +1927,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				}
 
 				// Let the operator fix the issue.
-				Expect(fdbCluster.SetSkipReconciliation(false)).NotTo(HaveOccurred())
+				fdbCluster.SetSkipReconciliation(false)
 			})
 
 			AfterEach(func() {
@@ -1997,7 +1997,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				)) * time.Second
 				Expect(fdbCluster.SetAutoReplacements(false, 30*time.Hour)).ShouldNot(HaveOccurred())
 				// Make sure the operator is not taking any action to prevent any race condition.
-				Expect(fdbCluster.SetSkipReconciliation(true)).NotTo(HaveOccurred())
+				fdbCluster.SetSkipReconciliation(true)
 
 				// Delete all Pods
 				pods := fdbCluster.GetPods()
@@ -2013,7 +2013,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				}).WithTimeout(5 * time.Minute).WithPolling(2 * time.Second).Should(BeEmpty())
 
 				// Enable the operator again
-				Expect(fdbCluster.SetSkipReconciliation(false)).NotTo(HaveOccurred())
+				fdbCluster.SetSkipReconciliation(false)
 			})
 
 			It("should recreate all Pods and bring the cluster into a healthy state again", func() {
@@ -2029,7 +2029,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			})
 
 			AfterEach(func() {
-				Expect(fdbCluster.SetSkipReconciliation(false)).NotTo(HaveOccurred())
+				fdbCluster.SetSkipReconciliation(false)
 				Expect(fdbCluster.SetAutoReplacements(true, initialReplaceTime)).ShouldNot(HaveOccurred())
 			})
 		})

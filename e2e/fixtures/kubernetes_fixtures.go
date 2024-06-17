@@ -49,7 +49,8 @@ func (factory *Factory) MultipleNamespaces(config *ClusterConfig, dcIDs []string
 	// If a namespace is provided in the config we will use this name as prefix.
 	if config.Namespace != "" {
 		factory.options.namespace = config.Namespace
-	} else {
+	} else if factory.options.namespace == "" {
+		// If not namespace is provided in the config or per command line, we will generate a random name.
 		factory.options.namespace = factory.getRandomizedNamespaceName()
 	}
 

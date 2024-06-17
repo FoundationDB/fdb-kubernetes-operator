@@ -30,8 +30,11 @@ This cluster will be used for all tests.
 */
 
 import (
+	"encoding/json"
+	"fmt"
 	"log"
 	"strconv"
+	"strings"
 	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -171,7 +174,7 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 				},
 				Spec: corev1.ResourceQuotaSpec{
 					Hard: corev1.ResourceList{
-						"persistentvolumeclaims": resource.MustParse(strconv.Itoa(0)),
+						corev1.ResourcePersistentVolumeClaims: resource.MustParse(strconv.Itoa(0)),
 					},
 				},
 			}
@@ -205,6 +208,95 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 				// We should add here another check that the cluster stays in the primary.
 				return runningPods
 			}).WithTimeout(10 * time.Minute).WithPolling(2 * time.Second).Should(BeNumerically(">=", desiredRunningPods))
+		})
+	})
+
+	// Right now this test case doesn't work as there is no way to recover when the majority of coordinators are failing.
+	PWhen("all Pods in the primary and primary satellite failing", func() {
+		BeforeEach(func() {
+			primary := fdbCluster.GetPrimary()
+			primary.SetCrashLoopContainers([]fdbv1beta2.CrashLoopContainerObject{
+				{
+					ContainerName: fdbv1beta2.MainContainerName,
+					Targets:       []fdbv1beta2.ProcessGroupID{"*"},
+				},
+			}, false)
+
+			primarySatellite := fdbCluster.GetPrimarySatellite()
+			primarySatellite.SetCrashLoopContainers([]fdbv1beta2.CrashLoopContainerObject{
+				{
+					ContainerName: fdbv1beta2.MainContainerName,
+					Targets:       []fdbv1beta2.ProcessGroupID{"*"},
+				},
+			}, false)
+
+			primaryPods := primary.GetPods()
+			for _, pod := range primaryPods.Items {
+				factory.DeletePod(&pod)
+			}
+
+			primarySatellitePods := primarySatellite.GetPods()
+			for _, pod := range primarySatellitePods.Items {
+				factory.DeletePod(&pod)
+			}
+
+			remote := fdbCluster.GetRemote()
+			Eventually(func(g Gomega) bool {
+				out, _, err := remote.RunFdbCliCommandInOperatorWithoutRetry("status json", false, 30)
+				log.Println("Fetched status", out, err)
+				g.Expect(err).NotTo(HaveOccurred())
+
+				if strings.HasPrefix(out, "\r\nWARNING") {
+					out = strings.TrimPrefix(
+						out,
+						"\r\nWARNING: Long delay (Ctrl-C to interrupt)\r\n",
+					)
+				}
+
+				status := &fdbv1beta2.FoundationDBStatus{}
+				err = json.Unmarshal([]byte(out), status)
+				g.Expect(err).NotTo(HaveOccurred())
+				return status.Client.DatabaseStatus.Available
+			}).WithTimeout(5 * time.Minute).WithPolling(1 * time.Second).MustPassRepeatedly(4).Should(BeFalse())
+		})
+
+		It("should change the coordinators", func() {
+			newCoordinators := make([]fdbv1beta2.ProcessAddress, 0, 5)
+			remote := fdbCluster.GetRemote()
+			remotePods := remote.GetLogPods()
+
+			for _, pod := range remotePods.Items {
+				if len(newCoordinators) >= 3 {
+					break
+				}
+				addr, err := fdbv1beta2.ParseProcessAddress(fmt.Sprintf("%s:4500:tls", pod.Status.PodIP))
+				Expect(err).NotTo(HaveOccurred())
+				newCoordinators = append(newCoordinators, addr)
+			}
+
+			remoteSatellite := fdbCluster.GetRemoteSatellite()
+			remoteSatellitePods := remoteSatellite.GetLogPods()
+
+			for _, pod := range remoteSatellitePods.Items {
+				if len(newCoordinators) >= 5 {
+					break
+				}
+				addr, err := fdbv1beta2.ParseProcessAddress(fmt.Sprintf("%s:4500:tls", pod.Status.PodIP))
+				Expect(err).NotTo(HaveOccurred())
+				newCoordinators = append(newCoordinators, addr)
+			}
+
+			coordinatorCmd := fmt.Sprintf(
+				"coordinators %s",
+				fdbv1beta2.ProcessAddressesString(newCoordinators, " "),
+			)
+			log.Println("Command:", coordinatorCmd)
+
+			stdout, stderr, err := remote.RunFdbCliCommandInOperatorWithoutRetry(coordinatorCmd, true, 40)
+			log.Println("stdout:\n", stdout, "\nstderr:\n", stderr)
+			Expect(err).NotTo(HaveOccurred())
+
+			// TODO (johscheuer): Update the SeedConnectionString for all clusters.
 		})
 	})
 })
