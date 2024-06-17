@@ -189,6 +189,15 @@ This will make sure that the processes are proactively excluded, instead of wait
 
 _NOTE_: You should always set the processes under maintenance before setting the maintenance mode. See [Internals](#internals) for more details.
 
+## Delaying the shutdown of the Pod
+
+When using the [unified image](./customization.md#unified-vs-split-images) the `fdb-kubernetes-monitor` supports to delay the shutdown of itself.
+The idea is to shutdown the fdbserver processes immediately, but keep the `fdb-kubernetes-monitor` process running for the specified `foundationdb.org/delay-shutdown`.
+The value of the `foundationdb.org/delay-shutdown` annotation must be a valid [golang duration](https://pkg.go.dev/time#ParseDuration).
+Per default the failure detection mechanism of FDB takes 60 seconds to detect a failed storage server.
+Setting the `foundationdb.org/delay-shutdown` annotation to a value greater than 60 seconds will give the FDB cluster additional time to detect the failure before shutting down the actual Pod.
+The value for `foundationdb.org/delay-shutdown` and `terminationGracePeriodSeconds` in the [Pod spec](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-termination) should either match or the `terminationGracePeriodSeconds` should be slightly higher than the delay shutdown.
+
 ### Risks and limitations
 
 There are a few risks and limitations to the current implementation:
