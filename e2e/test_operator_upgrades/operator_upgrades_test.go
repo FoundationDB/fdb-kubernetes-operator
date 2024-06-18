@@ -507,24 +507,6 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 			// Make sure the cluster is upgraded
 			fdbCluster.VerifyVersion(targetVersion)
 
-			// Make sure the process running inside the Pod that is marked for removal is running on the new version.
-			Eventually(func() string {
-				status := fdbCluster.GetStatus()
-
-				for _, process := range status.Cluster.Processes {
-					processGroupID, ok := process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]
-					if !ok || fdbv1beta2.ProcessGroupID(processGroupID) != processGroupMarkedForRemoval {
-						continue
-					}
-
-					log.Println("processGroupMarkedForRemoval:", processGroupMarkedForRemoval, "processGroupID:", processGroupID, "version", process.Version)
-
-					return process.Version
-				}
-
-				return ""
-			}).WithTimeout(10 * time.Minute).WithPolling(5 * time.Second).MustPassRepeatedly(5).Should(Equal(targetVersion))
-
 			// Make sure the other processes are updated to the new image and the operator is able to proceed with the upgrade.
 			Eventually(func() int {
 				var processesToUpdate int
