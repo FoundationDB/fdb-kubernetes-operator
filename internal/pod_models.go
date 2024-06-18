@@ -184,12 +184,13 @@ func configureContainersForUnifiedImages(cluster *fdbv1beta2.FoundationDBCluster
 		"--input-dir", "/var/dynamic-conf",
 		"--log-path", "/var/log/fdb-trace-logs/monitor.log",
 	}
+	var mainContainerEnv []corev1.EnvVar
 
 	serversPerPod := cluster.GetDesiredServersPerPod(processGroup.ProcessClass)
 	if serversPerPod > 1 {
 		desiredServersPerPod := strconv.Itoa(serversPerPod)
 		mainContainer.Args = append(mainContainer.Args, "--process-count", desiredServersPerPod)
-		mainContainer.Env = append(mainContainer.Env, corev1.EnvVar{Name: processGroup.ProcessClass.GetServersPerPodEnvName(), Value: desiredServersPerPod})
+		mainContainerEnv = append(mainContainerEnv, corev1.EnvVar{Name: processGroup.ProcessClass.GetServersPerPodEnvName(), Value: desiredServersPerPod})
 	}
 
 	mainContainer.VolumeMounts = append(mainContainer.VolumeMounts,
@@ -199,27 +200,28 @@ func configureContainersForUnifiedImages(cluster *fdbv1beta2.FoundationDBCluster
 		corev1.VolumeMount{Name: "fdb-trace-logs", MountPath: "/var/log/fdb-trace-logs"},
 	)
 
-	mainContainer.Env = append(mainContainer.Env, getEnvForMonitorConfigSubstitution(cluster, processGroup.ProcessGroupID)...)
-	mainContainer.Env = append(mainContainer.Env, corev1.EnvVar{Name: "FDB_POD_NAME", ValueFrom: &corev1.EnvVarSource{
-		FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
-	}})
-	mainContainer.Env = append(mainContainer.Env, corev1.EnvVar{Name: "FDB_POD_NAMESPACE", ValueFrom: &corev1.EnvVarSource{
-		FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"},
-	}})
-	extendEnv(mainContainer, corev1.EnvVar{Name: "FDB_NETWORK_OPTION_TRACE_LOG_GROUP", Value: cluster.GetLogGroup()},
-		corev1.EnvVar{Name: "FDB_NETWORK_OPTION_TRACE_ENABLE", Value: "/var/log/fdb-trace-logs"})
-
+	mainContainerEnv = append(mainContainerEnv,
+		corev1.EnvVar{Name: "FDB_POD_NAME", ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+		}},
+		corev1.EnvVar{Name: "FDB_POD_NAMESPACE", ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"},
+		}},
+		corev1.EnvVar{Name: "FDB_NETWORK_OPTION_TRACE_LOG_GROUP", Value: cluster.GetLogGroup()},
+		corev1.EnvVar{Name: "FDB_NETWORK_OPTION_TRACE_ENABLE", Value: "/var/log/fdb-trace-logs"},
+	)
+	mainContainerEnv = append(mainContainerEnv, getEnvForMonitorConfigSubstitution(cluster, processGroup.ProcessGroupID)...)
+	if cluster.DefineDNSLocalityFields() {
+		mainContainerEnv = append(mainContainerEnv, corev1.EnvVar{Name: "FDB_DNS_NAME", Value: GetPodDNSName(cluster, processGroup.GetPodName(cluster))})
+	}
 	// Allow the fdb-kubernetes-monitor to read the node labels and provide them as custom variables.
 	if cluster.EnableNodeWatch() {
 		mainContainer.Args = append(mainContainer.Args, "--enable-node-watch")
-		extendEnv(mainContainer, corev1.EnvVar{Name: "FDB_NODE_NAME", ValueFrom: &corev1.EnvVarSource{
+		mainContainerEnv = append(mainContainerEnv, corev1.EnvVar{Name: "FDB_NODE_NAME", ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
 		}})
 	}
-
-	if cluster.DefineDNSLocalityFields() {
-		mainContainer.Env = append(mainContainer.Env, corev1.EnvVar{Name: "FDB_DNS_NAME", Value: GetPodDNSName(cluster, processGroup.GetPodName(cluster))})
-	}
+	extendEnv(mainContainer, mainContainerEnv...)
 
 	sidecarImage, err := GetImage(sidecarContainer.Image, cluster.Spec.MainContainer.ImageConfigs, desiredVersion, false)
 	if err != nil {
@@ -473,7 +475,7 @@ func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processGroup *fdbv1beta
 
 		serversPerPod := cluster.GetDesiredServersPerPod(processGroup.ProcessClass)
 		if serversPerPod > 1 {
-			sidecarContainer.Env = append(sidecarContainer.Env, corev1.EnvVar{Name: processGroup.ProcessClass.GetServersPerPodEnvName(), Value: strconv.Itoa(serversPerPod)})
+			extendEnv(sidecarContainer, corev1.EnvVar{Name: processGroup.ProcessClass.GetServersPerPodEnvName(), Value: strconv.Itoa(serversPerPod)})
 		}
 	}
 
@@ -807,6 +809,7 @@ func extendEnv(container *corev1.Container, env ...corev1.EnvVar) {
 	for _, envVar := range env {
 		if !existingVars[envVar.Name] {
 			container.Env = append(container.Env, envVar)
+			existingVars[envVar.Name] = true
 		}
 	}
 }
