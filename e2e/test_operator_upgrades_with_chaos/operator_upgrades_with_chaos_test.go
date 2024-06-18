@@ -258,8 +258,8 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 
 			// Update the cluster version.
 			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
-			// Skip the reonciliation here to have time to stage everything.
-			Expect(fdbCluster.SetSkipReconciliation(true)).NotTo(HaveOccurred())
+			// Skip the reconciliation here to have time to stage everything.
+			fdbCluster.SetSkipReconciliation(true)
 
 			// Select one Pod, this Pod will mount the fdbmonitor config file as read-only.
 			// This should block the upgrade.
@@ -317,7 +317,7 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 			}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(HaveOccurred())
 
 			// Now we have the faulty Pod prepared with I/O chaos injected, so we can continue with the upgrade.
-			Expect(fdbCluster.SetSkipReconciliation(false)).NotTo(HaveOccurred())
+			fdbCluster.SetSkipReconciliation(false)
 
 			// The cluster will be stuck in this state until the I/O chaos is resolved.
 			expectedConditions := map[fdbv1beta2.ProcessGroupConditionType]bool{
@@ -373,7 +373,7 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 			// Update the cluster version.
 			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
 			// Skip the reconciliation here to have time to stage everything.
-			Expect(fdbCluster.SetSkipReconciliation(true)).NotTo(HaveOccurred())
+			fdbCluster.SetSkipReconciliation(true)
 
 			// Select one Pod, this Pod will miss the new fdbserver binary.
 			// This should block the upgrade.
@@ -427,7 +427,7 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 			}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).ShouldNot(HaveOccurred())
 
 			// Now we have the faulty Pod prepared, so we can continue with the upgrade.
-			Expect(fdbCluster.SetSkipReconciliation(false)).NotTo(HaveOccurred())
+			fdbCluster.SetSkipReconciliation(false)
 
 			// The cluster will be stuck in this state until the Pod is restarted and the new binary is present.
 			expectedConditions := map[fdbv1beta2.ProcessGroupConditionType]bool{

@@ -856,12 +856,11 @@ func (fdbCluster *FdbCluster) SetProcessGroupPrefix(prefix string) error {
 
 // SetSkipReconciliation will set the skip setting for the current FoundationDBCluster. This setting will make sure that
 // the operator is not taking any actions on this cluster.
-func (fdbCluster *FdbCluster) SetSkipReconciliation(skip bool) error {
+func (fdbCluster *FdbCluster) SetSkipReconciliation(skip bool) {
 	fdbCluster.cluster.Spec.Skip = skip
 	// Skip wait for reconciliation since this spec update is in the operator itself and by setting it, the operator
 	// skips reconciliation.
 	fdbCluster.UpdateClusterSpec()
-	return nil
 }
 
 // WaitForPodRemoval will wait until the specified Pod is deleted.
