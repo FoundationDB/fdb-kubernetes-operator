@@ -29,7 +29,6 @@ func FilterBlockedRemovals(cluster *fdbv1beta2.FoundationDBCluster, processGroup
 		return processGroupsToRemove
 	}
 
-	// processGroupsToRemove
 	blockedProcessGroups := make(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None, len(cluster.Spec.Buggify.BlockRemoval))
 	for _, blockedProcessGroup := range cluster.Spec.Buggify.BlockRemoval {
 		blockedProcessGroups[blockedProcessGroup] = fdbv1beta2.None{}
