@@ -75,7 +75,11 @@ func (fdbCluster *FdbCluster) RunFdbCliCommandInOperator(
 			timeout,
 		)
 
-		return fmt.Errorf("could not run the command: \"%s\": got an error: %w", command, err)
+		if err != nil {
+			return fmt.Errorf("could not run the command: \"%s\": got an error: %w", command, err)
+		}
+
+		return nil
 	}).WithTimeout(2 * time.Minute).WithPolling(1 * time.Second).ShouldNot(gomega.HaveOccurred())
 
 	return stdout, stderr
