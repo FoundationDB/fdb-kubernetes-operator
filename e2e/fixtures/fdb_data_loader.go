@@ -24,8 +24,11 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"github.com/onsi/gomega"
 	"io"
+	"text/template"
+	"time"
+
+	"github.com/onsi/gomega"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,8 +37,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"text/template"
-	"time"
 )
 
 const (

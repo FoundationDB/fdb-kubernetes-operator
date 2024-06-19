@@ -21,9 +21,7 @@
 package fixtures
 
 import (
-	"math/rand"
 	"os/user"
-	"time"
 
 	chaosmesh "github.com/chaos-mesh/chaos-mesh/api/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -68,7 +66,6 @@ func getSingleton(options *FactoryOptions) (*singleton, error) {
 		userName = options.username
 	}
 
-	rand.Seed(time.Now().UnixNano())
 	certificate, _ := GenerateCertificate()
 	if err != nil {
 		return nil, err

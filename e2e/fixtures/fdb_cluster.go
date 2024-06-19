@@ -23,14 +23,15 @@ package fixtures
 import (
 	ctx "context"
 	"fmt"
-	"golang.org/x/sync/errgroup"
-	"k8s.io/apimachinery/pkg/types"
 	"log"
 	"math"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"golang.org/x/sync/errgroup"
+	"k8s.io/apimachinery/pkg/types"
 
 	"k8s.io/client-go/util/retry"
 

@@ -21,7 +21,11 @@
 package fixtures
 
 import (
+	ctx "context"
 	"log"
+	"time"
+
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -91,12 +95,31 @@ func (factory *Factory) createNamespace(suffix string) string {
 		namespace = namespace + "-" + suffix
 	}
 
+	factory.checkIfNamespaceIsTerminating(namespace)
 	factory.ensureNamespaceExists(namespace)
 	factory.ensureRBACSetupExists(namespace)
 	gomega.Expect(factory.ensureFDBOperatorExists(namespace)).ToNot(gomega.HaveOccurred())
 	log.Printf("using namespace %s for testing", namespace)
 	factory.AddShutdownHook(func() error {
 		log.Printf("finished all tests, start deleting namespace %s\n", namespace)
+
+		gomega.Eventually(func() error {
+			podList := &corev1.PodList{}
+			err := factory.controllerRuntimeClient.List(ctx.Background(), podList, client.InNamespace(namespace))
+			if err != nil {
+				return err
+			}
+
+			for _, pod := range podList.Items {
+				if len(pod.Finalizers) > 0 {
+					log.Printf("Removing finalizer from Pod %s/%s\n", namespace, pod.Name)
+					factory.SetFinalizerForPod(&pod, []string{})
+				}
+			}
+
+			return nil
+		}).WithTimeout(2 * time.Minute).WithPolling(1 * time.Second).ShouldNot(gomega.HaveOccurred())
+
 		factory.Delete(&corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: namespace,
@@ -107,6 +130,43 @@ func (factory *Factory) createNamespace(suffix string) string {
 	})
 
 	return namespace
+}
+
+// checkIfNamespaceIsTerminating will check if the namespace has a deletionTimestamp set. If so this method will wait
+// up to 5 minutes until the namespace is deleted to prevent race conditions.
+func (factory *Factory) checkIfNamespaceIsTerminating(name string) {
+	controllerClient := factory.GetControllerRuntimeClient()
+	gomega.Eventually(func(g gomega.Gomega) *metav1.Time {
+		namespace := &corev1.Namespace{}
+		err := controllerClient.Get(ctx.Background(), client.ObjectKey{Name: name}, namespace)
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				return nil
+			}
+
+			g.Expect(err).NotTo(gomega.HaveOccurred())
+		}
+
+		deletionTimestamp := namespace.ObjectMeta.DeletionTimestamp
+		// No deletionTimestamp is set, so we can assume the namespace is still running.
+		if deletionTimestamp == nil {
+			return nil
+		}
+
+		// If the namespace is in terminating, we have to check if any pod are stuck in terminating with a finalizer set.
+		log.Printf("Namespace: %s is in terminating state since: %s will wait until the namespace is deleted", namespace, deletionTimestamp.String())
+		podList := &corev1.PodList{}
+		err = controllerClient.List(ctx.Background(), podList, client.InNamespace(name))
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		for _, pod := range podList.Items {
+			if len(pod.Finalizers) > 0 {
+				log.Printf("Removing finalizer from Pod %s/%s\n", namespace, pod.Name)
+				factory.SetFinalizerForPod(&pod, []string{})
+			}
+		}
+
+		return deletionTimestamp
+	}).WithTimeout(5 * time.Minute).WithPolling(1 * time.Second).Should(gomega.BeNil())
 }
 
 func (factory *Factory) ensureNamespaceExists(namespace string) {

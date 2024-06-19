@@ -26,10 +26,11 @@ This test suite includes tests around the interaction of the maintenance mode an
 
 import (
 	"fmt"
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	corev1 "k8s.io/api/core/v1"
 	"log"
 	"time"
+
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	corev1 "k8s.io/api/core/v1"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/e2e/fixtures"
 	. "github.com/onsi/ginkgo/v2"

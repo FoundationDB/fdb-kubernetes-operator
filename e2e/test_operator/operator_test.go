@@ -33,12 +33,13 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"k8s.io/apimachinery/pkg/types"
 	"log"
 	"math"
 	"math/rand"
 	"strings"
 	"time"
+
+	"k8s.io/apimachinery/pkg/types"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/e2e/fixtures"

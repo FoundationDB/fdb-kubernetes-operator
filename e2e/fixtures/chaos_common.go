@@ -23,10 +23,11 @@ package fixtures
 import (
 	ctx "context"
 	"fmt"
-	"golang.org/x/sync/errgroup"
 	"log"
 	"strconv"
 	"time"
+
+	"golang.org/x/sync/errgroup"
 
 	"github.com/onsi/gomega"
 
