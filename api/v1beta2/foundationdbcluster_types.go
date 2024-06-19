@@ -2394,7 +2394,7 @@ func (cluster *FoundationDBCluster) NeedsHeadlessService() bool {
 // UseDNSInClusterFile determines whether we need to use DNS entries in the
 // cluster file for this cluster.
 func (cluster *FoundationDBCluster) UseDNSInClusterFile() bool {
-	runningVersion, err := ParseFdbVersion(cluster.Status.RunningVersion)
+	runningVersion, err := ParseFdbVersion(cluster.GetRunningVersion())
 	// If the version cannot be parsed fall back to false.
 	if err != nil {
 		return false

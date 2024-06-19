@@ -46,13 +46,14 @@ import (
 var _ = Describe("replace_misconfigured_pods", func() {
 	var cluster *fdbv1beta2.FoundationDBCluster
 	var log logr.Logger
+	var deprecationOptions internal.DeprecationOptions
 	logf.SetLogger(zap.New(zap.UseDevMode(true), zap.WriteTo(GinkgoWriter)))
 
 	BeforeEach(func() {
 		log = logf.Log.WithName("replacements")
 		cluster = internal.CreateDefaultCluster()
-		Expect(internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{UseFutureDefaults: true})).NotTo(HaveOccurred())
-
+		deprecationOptions = internal.DeprecationOptions{UseFutureDefaults: false}
+		Expect(internal.NormalizeClusterSpec(cluster, deprecationOptions)).NotTo(HaveOccurred())
 		cluster.Spec.LabelConfig.FilterOnOwnerReferences = pointer.Bool(false)
 	})
 
@@ -92,7 +93,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				pod.Spec = *spec
-				Expect(internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})).NotTo(HaveOccurred())
+				Expect(internal.NormalizeClusterSpec(cluster, deprecationOptions)).NotTo(HaveOccurred())
 			})
 
 			When("process group has no Pod", func() {
@@ -231,7 +232,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 						Expect(err).NotTo(HaveOccurred())
 
 						pod.Spec = *spec
-						Expect(internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})).NotTo(HaveOccurred())
+						Expect(internal.NormalizeClusterSpec(cluster, deprecationOptions)).NotTo(HaveOccurred())
 					})
 
 					It("should not need a removal", func() {
@@ -559,7 +560,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				pod.Spec = *spec
-				Expect(internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})).NotTo(HaveOccurred())
+				Expect(internal.NormalizeClusterSpec(cluster, deprecationOptions)).NotTo(HaveOccurred())
 			})
 
 			When("the storageServersPerPod is changed for a non storage class process group", func() {
