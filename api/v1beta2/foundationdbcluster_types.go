@@ -69,6 +69,10 @@ var conditionsThatNeedReplacement = []ProcessGroupConditionType{MissingProcesses
 
 const (
 	oneHourDuration = 1 * time.Hour
+
+	// maxProcessGroupIDNum is the upper limit for the process group ID numbers. The picked value should be good enough
+	// for the current setup but can be increased in the future.
+	maxProcessGroupIDNum = 99999
 )
 
 func init() {
@@ -2949,8 +2953,35 @@ func (cluster *FoundationDBCluster) GetCurrentProcessGroupsAndProcessCounts() (m
 	return processCounts, processGroupIDs, nil
 }
 
+// GetNextRandomProcessGroupID will return a randomly picked ProcessGroupID, the ID number will be between 1 and maxProcessGroupIDNum.
+// This method makes sure that the returned ProcessGroupID is not in use and not marked to be removed.
+// Using a randomized ProcessGroupID will reduce the risk of reusing the same ProcessGroupID for different process groups, see:
+// https://github.com/FoundationDB/fdb-kubernetes-operator/issues/2071
+func (cluster *FoundationDBCluster) GetNextRandomProcessGroupID(processClass ProcessClass, processGroupIDs map[int]bool) ProcessGroupID {
+	var processGroupID ProcessGroupID
+	for {
+		idNum := rand.Intn(maxProcessGroupIDNum) + 1
+		// If the randomly picked id number is already is use, pick another one.
+		if _, ok := processGroupIDs[idNum]; ok {
+			continue
+		}
+
+		_, processGroupID = cluster.GetProcessGroupID(processClass, idNum)
+		// If the randomly picked process group is marked for removal, pick another one.
+		if cluster.ProcessGroupIsBeingRemoved(processGroupID) {
+			continue
+		}
+
+		// The randomly picked process group is not in use and is not marked for removal, so we can use it.
+		break
+	}
+
+	return processGroupID
+}
+
 // GetNextProcessGroupID will return the next unused ProcessGroupID and the ID number based on the provided ProcessClass
 // and the mapping of used ProcessGroupID.
+// Deprecated: This method shouldn't be used anymore and GetNextRandomProcessGroupID is favoured.
 func (cluster *FoundationDBCluster) GetNextProcessGroupID(processClass ProcessClass, processGroupIDs map[int]bool, idNum int) (ProcessGroupID, int) {
 	var processGroupID ProcessGroupID
 
