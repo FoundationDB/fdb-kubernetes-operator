@@ -42,7 +42,7 @@ var _ = Describe("updatePodConfig", func() {
 		cluster = internal.CreateDefaultCluster()
 		Expect(setupClusterForTest(cluster)).NotTo(HaveOccurred())
 
-		processGroup := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-1")
+		processGroup := internal.PickProcessGroups(cluster, fdbv1beta2.ProcessClassStorage, 1)[0]
 		Expect(processGroup).NotTo(BeNil())
 		pod, err = clusterReconciler.PodLifecycleManager.GetPod(context.TODO(), clusterReconciler, cluster, processGroup.GetPodName(cluster))
 		Expect(err).NotTo(HaveOccurred())
@@ -54,7 +54,6 @@ var _ = Describe("updatePodConfig", func() {
 
 	JustBeforeEach(func() {
 		req = updatePodConfig{}.reconcile(context.TODO(), clusterReconciler, cluster, nil, globalControllerLogger)
-		Expect(err).NotTo(HaveOccurred())
 	})
 
 	Context("with a reconciled cluster", func() {

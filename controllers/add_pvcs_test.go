@@ -80,8 +80,15 @@ var _ = Describe("add_pvcs", func() {
 	})
 
 	Context("with a storage process group with no PVC defined", func() {
+		var newProcessGroupID fdbv1beta2.ProcessGroupID
+		var pickedProcessGroup *fdbv1beta2.ProcessGroupStatus
+
 		BeforeEach(func() {
-			cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-9", "storage", nil))
+			_, processGroupIDs, err := cluster.GetCurrentProcessGroupsAndProcessCounts()
+			Expect(err).NotTo(HaveOccurred())
+			newProcessGroupID = cluster.GetNextRandomProcessGroupID(fdbv1beta2.ProcessClassStorage, processGroupIDs[fdbv1beta2.ProcessClassStorage])
+			pickedProcessGroup = fdbv1beta2.NewProcessGroupStatus(newProcessGroupID, fdbv1beta2.ProcessClassStorage, nil)
+			cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, pickedProcessGroup)
 		})
 
 		It("should not requeue", func() {
@@ -89,30 +96,40 @@ var _ = Describe("add_pvcs", func() {
 		})
 
 		It("should create an extra PVC", func() {
-			Expect(newPVCs.Items).To(HaveLen(len(initialPVCs.Items) + 1))
-			lastPVC := newPVCs.Items[len(newPVCs.Items)-1]
-			Expect(lastPVC.Name).To(Equal("operator-test-1-storage-9-data"))
-			Expect(lastPVC.Labels[fdbv1beta2.FDBProcessGroupIDLabel]).To(Equal("storage-9"))
-			Expect(lastPVC.Labels[fdbv1beta2.FDBProcessClassLabel]).To(Equal("storage"))
-			Expect(lastPVC.OwnerReferences).To(Equal(internal.BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)))
+			var checked bool
+			pvcName := cluster.Name + "-" + string(newProcessGroupID) + "-data"
+			for _, pvc := range newPVCs.Items {
+				if pvc.Name != pvcName {
+					continue
+				}
+
+				Expect(pvc.Labels[fdbv1beta2.FDBProcessGroupIDLabel]).To(Equal(string(newProcessGroupID)))
+				Expect(pvc.Labels[fdbv1beta2.FDBProcessClassLabel]).To(Equal(string(fdbv1beta2.ProcessClassStorage)))
+				Expect(pvc.OwnerReferences).To(Equal(internal.BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)))
+				checked = true
+			}
+
+			Expect(checked).To(BeTrue())
 		})
 
 		When("the process group is being removed", func() {
 			BeforeEach(func() {
-				cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].MarkForRemoval()
+				pickedProcessGroup.MarkForRemoval()
 			})
 
-			It("should not requeue", func() {
-				Expect(requeue).To(BeNil())
-			})
+			When("the process is not excluded", func() {
+				It("should not requeue", func() {
+					Expect(requeue).To(BeNil())
+				})
 
-			It("should create the PVCs", func() {
-				Expect(newPVCs.Items).To(HaveLen(len(initialPVCs.Items) + 1))
+				It("should create the PVCs", func() {
+					Expect(newPVCs.Items).To(HaveLen(len(initialPVCs.Items) + 1))
+				})
 			})
 
 			When("the process is fully excluded", func() {
 				BeforeEach(func() {
-					cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].SetExclude()
+					pickedProcessGroup.SetExclude()
 				})
 
 				It("should not requeue", func() {
@@ -128,7 +145,10 @@ var _ = Describe("add_pvcs", func() {
 
 	Context("with a stateless process group with no PVC defined", func() {
 		BeforeEach(func() {
-			cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("stateless-9", "stateless", nil))
+			_, processGroupIDs, err := cluster.GetCurrentProcessGroupsAndProcessCounts()
+			Expect(err).NotTo(HaveOccurred())
+			newProcessGroupID := cluster.GetNextRandomProcessGroupID(fdbv1beta2.ProcessClassStateless, processGroupIDs[fdbv1beta2.ProcessClassStateless])
+			cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus(newProcessGroupID, fdbv1beta2.ProcessClassStateless, nil))
 		})
 
 		It("should not requeue", func() {

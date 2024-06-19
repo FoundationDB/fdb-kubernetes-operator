@@ -241,6 +241,7 @@ var _ = Describe("update_pods", func() {
 	When("getting the fault domains with unavailable Pods", func() {
 		var cluster *fdbv1beta2.FoundationDBCluster
 		var processGroupsWithFaultDomains map[fdbv1beta2.FaultDomain]fdbv1beta2.None
+		var processGroup *fdbv1beta2.ProcessGroupStatus
 
 		BeforeEach(func() {
 			cluster = internal.CreateDefaultCluster()
@@ -249,6 +250,8 @@ var _ = Describe("update_pods", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result.Requeue).To(BeFalse())
 			Expect(k8sClient.Get(context.TODO(), ctrlClient.ObjectKeyFromObject(cluster), cluster)).NotTo(HaveOccurred())
+
+			processGroup = internal.PickProcessGroups(cluster, fdbv1beta2.ProcessClassStorage, 1)[0]
 		})
 
 		JustBeforeEach(func() {
@@ -257,11 +260,7 @@ var _ = Describe("update_pods", func() {
 
 		When("a Process Group has a Pod with pending condition", func() {
 			BeforeEach(func() {
-				for _, processGroup := range cluster.Status.ProcessGroups {
-					if processGroup.ProcessGroupID == "storage-1" {
-						processGroup.UpdateCondition(fdbv1beta2.PodPending, true)
-					}
-				}
+				processGroup.UpdateCondition(fdbv1beta2.PodPending, true)
 			})
 
 			It("should be marked as unavailable", func() {
@@ -271,11 +270,7 @@ var _ = Describe("update_pods", func() {
 
 		When("a Process Group has missing processes", func() {
 			BeforeEach(func() {
-				for _, processGroup := range cluster.Status.ProcessGroups {
-					if processGroup.ProcessGroupID == "storage-1" {
-						processGroup.UpdateCondition(fdbv1beta2.MissingProcesses, true)
-					}
-				}
+				processGroup.UpdateCondition(fdbv1beta2.MissingProcesses, true)
 			})
 
 			It("should be marked as unavailable", func() {
@@ -285,11 +280,7 @@ var _ = Describe("update_pods", func() {
 
 		When("a Process Group has a Pod running with failed containers", func() {
 			BeforeEach(func() {
-				for _, processGroup := range cluster.Status.ProcessGroups {
-					if processGroup.ProcessGroupID == "storage-1" {
-						processGroup.UpdateCondition(fdbv1beta2.PodFailing, true)
-					}
-				}
+				processGroup.UpdateCondition(fdbv1beta2.PodFailing, true)
 			})
 
 			It("should be marked as unavailable", func() {
@@ -299,7 +290,7 @@ var _ = Describe("update_pods", func() {
 
 		When("a Process Group has a Pod marked for deletion", func() {
 			BeforeEach(func() {
-				pods, err := clusterReconciler.PodLifecycleManager.GetPods(context.TODO(), clusterReconciler, cluster, internal.GetSinglePodListOptions(cluster, "storage-1")...)
+				pods, err := clusterReconciler.PodLifecycleManager.GetPods(context.TODO(), clusterReconciler, cluster, internal.GetSinglePodListOptions(cluster, processGroup.ProcessGroupID)...)
 				Expect(err).NotTo(HaveOccurred())
 				pods[0].DeletionTimestamp = &metav1.Time{Time: time.Now()}
 				err = clusterReconciler.PodLifecycleManager.UpdatePods(context.TODO(), clusterReconciler, cluster, []*corev1.Pod{pods[0]}, true)
@@ -312,7 +303,7 @@ var _ = Describe("update_pods", func() {
 
 		When("a Process Group has no matching Pod", func() {
 			BeforeEach(func() {
-				pods, err := clusterReconciler.PodLifecycleManager.GetPods(context.TODO(), clusterReconciler, cluster, internal.GetSinglePodListOptions(cluster, "storage-1")...)
+				pods, err := clusterReconciler.PodLifecycleManager.GetPods(context.TODO(), clusterReconciler, cluster, internal.GetSinglePodListOptions(cluster, processGroup.ProcessGroupID)...)
 				Expect(err).NotTo(HaveOccurred())
 				err = clusterReconciler.PodLifecycleManager.DeletePod(context.TODO(), clusterReconciler, pods[0])
 				Expect(err).NotTo(HaveOccurred())
@@ -387,71 +378,61 @@ var _ = Describe("update_pods", func() {
 			})
 		})
 
-		When("max zones with unavailable pods is set to 3 and there are two process groups with pods in pending status", func() {
+		When("two process groups have with pods in pending state", func() {
 			BeforeEach(func() {
-				expectedError = false
-				cluster.Spec.MaxZonesWithUnavailablePods = pointer.Int(3)
-				// Update all processes
-				storageSettings := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
-				storageSettings.PodTemplate.Spec.Tolerations = []corev1.Toleration{{Key: "test", Operator: "Exists", Effect: "NoSchedule"}}
-				cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral] = storageSettings
-				Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
-
-				for _, processGroup := range cluster.Status.ProcessGroups {
-					if processGroup.ProcessGroupID == "storage-1" || processGroup.ProcessGroupID == "storage-2" {
-						processGroup.ProcessGroupConditions = append(processGroup.ProcessGroupConditions, fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.PodPending))
-					}
+				for _, processGroup := range internal.PickProcessGroups(cluster, fdbv1beta2.ProcessClassStorage, 2) {
+					processGroup.ProcessGroupConditions = append(processGroup.ProcessGroupConditions, fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.PodPending))
 				}
 			})
 
-			It("should return no errors and a map with the zone and all pods to update", func() {
-				Expect(updates).To(HaveLen(1))
-				Expect(updates["simulation"]).To(HaveLen(4))
-			})
-		})
+			When("max zones with unavailable pods is set to 3", func() {
+				BeforeEach(func() {
+					expectedError = false
+					cluster.Spec.MaxZonesWithUnavailablePods = pointer.Int(3)
+					// Update all processes
+					storageSettings := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
+					storageSettings.PodTemplate.Spec.Tolerations = []corev1.Toleration{{Key: "test", Operator: "Exists", Effect: "NoSchedule"}}
+					cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral] = storageSettings
+					Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
+				})
 
-		When("max zones with unavailable pods is set to 2 and there are two process groups with pods in pending status", func() {
-			BeforeEach(func() {
-				expectedError = false
-				cluster.Spec.MaxZonesWithUnavailablePods = pointer.Int(2)
-				// Update all processes
-				storageSettings := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
-				storageSettings.PodTemplate.Spec.Tolerations = []corev1.Toleration{{Key: "test", Operator: "Exists", Effect: "NoSchedule"}}
-				cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral] = storageSettings
-				Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
-
-				for _, processGroup := range cluster.Status.ProcessGroups {
-					if processGroup.ProcessGroupID == "storage-1" || processGroup.ProcessGroupID == "storage-2" {
-						processGroup.ProcessGroupConditions = append(processGroup.ProcessGroupConditions, fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.PodPending))
-					}
-				}
+				It("should return no errors and a map with the zone and all pods to update", func() {
+					Expect(updates).To(HaveLen(1))
+					Expect(updates["simulation"]).To(HaveLen(4))
+				})
 			})
 
-			It("should return no errors and a map with the zone and two pods to update", func() {
-				Expect(updates).To(HaveLen(1))
-				Expect(updates["simulation"]).To(HaveLen(2))
-			})
-		})
+			When("max zones with unavailable pods is set to 2", func() {
+				BeforeEach(func() {
+					expectedError = false
+					cluster.Spec.MaxZonesWithUnavailablePods = pointer.Int(2)
+					// Update all processes
+					storageSettings := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
+					storageSettings.PodTemplate.Spec.Tolerations = []corev1.Toleration{{Key: "test", Operator: "Exists", Effect: "NoSchedule"}}
+					cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral] = storageSettings
+					Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
+				})
 
-		When("max zones with unavailable pods is set to 1 and there are two process groups with pods in pending status", func() {
-			BeforeEach(func() {
-				expectedError = false
-				cluster.Spec.MaxZonesWithUnavailablePods = pointer.Int(1)
-				// Update all processes
-				storageSettings := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
-				storageSettings.PodTemplate.Spec.Tolerations = []corev1.Toleration{{Key: "test", Operator: "Exists", Effect: "NoSchedule"}}
-				cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral] = storageSettings
-				Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
-
-				for _, processGroup := range cluster.Status.ProcessGroups {
-					if processGroup.ProcessGroupID == "storage-1" || processGroup.ProcessGroupID == "storage-2" {
-						processGroup.ProcessGroupConditions = append(processGroup.ProcessGroupConditions, fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.PodPending))
-					}
-				}
+				It("should return no errors and a map with the zone and two pods to update", func() {
+					Expect(updates).To(HaveLen(1))
+					Expect(updates["simulation"]).To(HaveLen(2))
+				})
 			})
 
-			It("should return no errors and a an empty update map", func() {
-				Expect(updates).To(HaveLen(0))
+			When("max zones with unavailable pods is set to 1", func() {
+				BeforeEach(func() {
+					expectedError = false
+					cluster.Spec.MaxZonesWithUnavailablePods = pointer.Int(1)
+					// Update all processes
+					storageSettings := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
+					storageSettings.PodTemplate.Spec.Tolerations = []corev1.Toleration{{Key: "test", Operator: "Exists", Effect: "NoSchedule"}}
+					cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral] = storageSettings
+					Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
+				})
+
+				It("should return no errors and a an empty update map", func() {
+					Expect(updates).To(HaveLen(0))
+				})
 			})
 		})
 	})

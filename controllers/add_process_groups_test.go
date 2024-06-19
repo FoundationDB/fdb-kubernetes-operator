@@ -62,7 +62,6 @@ var _ = Describe("add_process_groups", func() {
 		_, err = reloadCluster(cluster)
 		Expect(err).NotTo(HaveOccurred())
 		newProcessCounts = fdbv1beta2.CreateProcessCountsFromProcessGroupStatus(cluster.Status.ProcessGroups, true)
-
 	})
 
 	Context("with a reconciled cluster", func() {
@@ -75,11 +74,15 @@ var _ = Describe("add_process_groups", func() {
 		})
 	})
 
-	Context("with a storage process group marked for removal", func() {
+	When("a storage process group is marked for removal", func() {
+		var removedProcessGroup fdbv1beta2.ProcessGroupID
+
 		BeforeEach(func() {
 			for _, processGroup := range cluster.Status.ProcessGroups {
-				if processGroup.ProcessGroupID == "storage-4" {
+				if processGroup.ProcessClass == fdbv1beta2.ProcessClassStorage {
 					processGroup.MarkForRemoval()
+					removedProcessGroup = processGroup.ProcessGroupID
+					break
 				}
 			}
 		})
@@ -87,18 +90,19 @@ var _ = Describe("add_process_groups", func() {
 		It("should add a storage process", func() {
 			storageProcesses := make([]fdbv1beta2.ProcessGroupID, 0, newProcessCounts.Storage)
 			for _, processGroup := range cluster.Status.ProcessGroups {
-				if processGroup.ProcessClass == fdbv1beta2.ProcessClassStorage {
-					storageProcesses = append(storageProcesses, processGroup.ProcessGroupID)
+				if processGroup.ProcessClass != fdbv1beta2.ProcessClassStorage {
+					continue
 				}
+
+				if processGroup.IsMarkedForRemoval() {
+					continue
+				}
+
+				storageProcesses = append(storageProcesses, processGroup.ProcessGroupID)
 			}
-			expectedStorageProcesses := []fdbv1beta2.ProcessGroupID{
-				"storage-1",
-				"storage-2",
-				"storage-3",
-				"storage-4",
-				"storage-5",
-			}
-			Expect(storageProcesses).To(ConsistOf(expectedStorageProcesses))
+
+			Expect(storageProcesses).NotTo(ContainElements(removedProcessGroup))
+			Expect(storageProcesses).To(HaveLen(initialProcessCounts.Storage))
 		})
 
 		It("should not change the log or stateless processes", func() {
@@ -107,12 +111,16 @@ var _ = Describe("add_process_groups", func() {
 		})
 	})
 
-	Context("when replacing a process with a different process group ID prefix", func() {
+	When("replacing a process with a different process group ID prefix", func() {
+		var removedProcessGroup fdbv1beta2.ProcessGroupID
+
 		BeforeEach(func() {
 			for _, processGroup := range cluster.Status.ProcessGroups {
-				if processGroup.ProcessGroupID == "storage-4" {
-					processGroup.ProcessGroupID = "old-prefix-storage-4"
+				if processGroup.ProcessClass == fdbv1beta2.ProcessClassStorage {
 					processGroup.MarkForRemoval()
+					processGroup.ProcessGroupID = "old-" + processGroup.ProcessGroupID
+					removedProcessGroup = processGroup.ProcessGroupID
+					break
 				}
 			}
 		})
@@ -120,18 +128,19 @@ var _ = Describe("add_process_groups", func() {
 		It("should add a storage process", func() {
 			storageProcesses := make([]fdbv1beta2.ProcessGroupID, 0, newProcessCounts.Storage)
 			for _, processGroup := range cluster.Status.ProcessGroups {
-				if processGroup.ProcessClass == fdbv1beta2.ProcessClassStorage {
-					storageProcesses = append(storageProcesses, processGroup.ProcessGroupID)
+				if processGroup.ProcessClass != fdbv1beta2.ProcessClassStorage {
+					continue
 				}
+
+				if processGroup.IsMarkedForRemoval() {
+					continue
+				}
+
+				storageProcesses = append(storageProcesses, processGroup.ProcessGroupID)
 			}
-			expectedStorageProcesses := []fdbv1beta2.ProcessGroupID{
-				"old-prefix-storage-4",
-				"storage-1",
-				"storage-2",
-				"storage-3",
-				"storage-5",
-			}
-			Expect(storageProcesses).To(ConsistOf(expectedStorageProcesses))
+
+			Expect(storageProcesses).NotTo(ContainElements(removedProcessGroup))
+			Expect(storageProcesses).To(HaveLen(initialProcessCounts.Storage))
 		})
 
 		It("should not change the log or stateless processes", func() {
@@ -156,48 +165,13 @@ var _ = Describe("add_process_groups", func() {
 					storageProcesses = append(storageProcesses, processGroup.ProcessGroupID)
 				}
 			}
-			expectedStorageProcesses := []fdbv1beta2.ProcessGroupID{
-				"storage-1",
-				"storage-2",
-				"storage-3",
-				"storage-4",
-				"storage-5",
-				"storage-6",
-			}
-			Expect(storageProcesses).To(ConsistOf(expectedStorageProcesses))
+
+			Expect(storageProcesses).To(HaveLen(cluster.Spec.ProcessCounts.Storage))
 		})
 
 		It("should not change the log or stateless processes", func() {
 			Expect(newProcessCounts.Log).To(Equal(initialProcessCounts.Log))
 			Expect(newProcessCounts.Stateless).To(Equal(initialProcessCounts.Stateless))
-		})
-
-		Context("with a gap in the process numbers", func() {
-			BeforeEach(func() {
-				for _, processGroup := range cluster.Status.ProcessGroups {
-					if processGroup.ProcessGroupID == "storage-4" {
-						processGroup.ProcessGroupID = "storage-7"
-					}
-				}
-			})
-
-			It("should fill in the gap", func() {
-				storageProcesses := make([]fdbv1beta2.ProcessGroupID, 0, newProcessCounts.Storage)
-				for _, processGroup := range cluster.Status.ProcessGroups {
-					if processGroup.ProcessClass == fdbv1beta2.ProcessClassStorage {
-						storageProcesses = append(storageProcesses, processGroup.ProcessGroupID)
-					}
-				}
-				expectedStorageProcesses := []fdbv1beta2.ProcessGroupID{
-					"storage-1",
-					"storage-2",
-					"storage-3",
-					"storage-4",
-					"storage-5",
-					"storage-7",
-				}
-				Expect(storageProcesses).To(ConsistOf(expectedStorageProcesses))
-			})
 		})
 	})
 

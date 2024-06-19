@@ -90,16 +90,18 @@ var _ = Describe("choose_removals", func() {
 		})
 
 		It("should mark one of the process groups for removal", func() {
-			Expect(removals).To(Equal([]fdbv1beta2.ProcessGroupID{"storage-4"}))
+			Expect(removals).To(HaveLen(1))
+			Expect(string(removals[0])).To(ContainSubstring("storage"))
 		})
 
 		Context("with a process group already marked", func() {
+			var processGroupID fdbv1beta2.ProcessGroupID
+
 			BeforeEach(func() {
-				processGroup := cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-3]
-				Expect(processGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-2")))
+				processGroup := internal.PickProcessGroups(cluster, fdbv1beta2.ProcessClassStorage, 1)[0]
 				processGroup.MarkForRemoval()
-				err = clusterReconciler.updateOrApply(context.TODO(), cluster)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(clusterReconciler.updateOrApply(context.TODO(), cluster)).NotTo(HaveOccurred())
+				processGroupID = processGroup.ProcessGroupID
 			})
 
 			It("should not requeue", func() {
@@ -107,22 +109,28 @@ var _ = Describe("choose_removals", func() {
 			})
 
 			It("should leave that process group for removal", func() {
-				Expect(removals).To(Equal([]fdbv1beta2.ProcessGroupID{"storage-2"}))
+				Expect(removals).To(Equal([]fdbv1beta2.ProcessGroupID{processGroupID}))
 			})
 		})
 
 		Context("with multiple processes on one rack", func() {
+			var processGroupIDs []fdbv1beta2.ProcessGroupID
+
 			BeforeEach(func() {
-				adminClient.MockLocalityInfo("storage-1", map[string]string{fdbv1beta2.FDBLocalityZoneIDKey: "r1"})
-				adminClient.MockLocalityInfo("storage-2", map[string]string{fdbv1beta2.FDBLocalityZoneIDKey: "r1"})
+				processGroups := internal.PickProcessGroups(cluster, fdbv1beta2.ProcessClassStorage, 2)
+				adminClient.MockLocalityInfo(processGroups[0].ProcessGroupID, map[string]string{fdbv1beta2.FDBLocalityZoneIDKey: "r1"})
+				adminClient.MockLocalityInfo(processGroups[1].ProcessGroupID, map[string]string{fdbv1beta2.FDBLocalityZoneIDKey: "r1"})
+
+				processGroupIDs = []fdbv1beta2.ProcessGroupID{processGroups[0].ProcessGroupID, processGroups[1].ProcessGroupID}
 			})
 
 			It("should not requeue", func() {
 				Expect(requeue).To(BeNil())
 			})
 
-			It("should mark one of the process groups on that rack for removal", func() {
-				Expect(removals).To(Equal([]fdbv1beta2.ProcessGroupID{"storage-2"}))
+			It("should mark one of the process groups for removal", func() {
+				Expect(removals).To(HaveLen(1))
+				Expect(removals[0]).To(BeElementOf(processGroupIDs))
 			})
 		})
 	})
@@ -138,8 +146,9 @@ var _ = Describe("choose_removals", func() {
 		})
 
 		It("should mark two of the process groups for removal", func() {
-			Expect(removals).To(Equal([]fdbv1beta2.ProcessGroupID{"cluster_controller-1", "storage-4"}))
+			Expect(removals).To(HaveLen(2))
+			Expect(string(removals[0])).To(ContainSubstring("cluster_controller"))
+			Expect(string(removals[1])).To(ContainSubstring("storage"))
 		})
 	})
-
 })

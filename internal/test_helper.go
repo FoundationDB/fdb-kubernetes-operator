@@ -118,3 +118,21 @@ func GenerateRandomString(n int) string {
 
 	return res.String()
 }
+
+// PickProcessGroups will pick a number of process groups for the specified process class.
+func PickProcessGroups(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, count int) []*fdbv1beta2.ProcessGroupStatus {
+	pickedProcessGroups := make([]*fdbv1beta2.ProcessGroupStatus, 0, count)
+
+	for _, processGroup := range cluster.Status.ProcessGroups {
+		if processGroup.ProcessClass != processClass {
+			continue
+		}
+
+		pickedProcessGroups = append(pickedProcessGroups, processGroup)
+		if len(pickedProcessGroups) >= count {
+			break
+		}
+	}
+
+	return pickedProcessGroups
+}

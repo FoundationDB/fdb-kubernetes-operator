@@ -60,13 +60,27 @@ var _ = Describe("remove_process_groups", func() {
 		})
 
 		When("trying to remove a coordinator", func() {
-			coordinatorIP := "1.1.1.1"
-			coordinatorID := fdbv1beta2.ProcessGroupID("storage-1")
+			var coordinatorIP string
+			var coordinatorSet map[string]fdbv1beta2.None
 
 			BeforeEach(func() {
-				marked, processGroup := fdbv1beta2.MarkProcessGroupForRemoval(cluster.Status.ProcessGroups, coordinatorID, fdbv1beta2.ProcessClassStorage, coordinatorIP)
-				Expect(marked).To(BeTrue())
-				Expect(processGroup).To(BeNil())
+
+				adminClient, err := mock.NewMockAdminClient(cluster, k8sClient)
+				Expect(err).NotTo(HaveOccurred())
+				coordinatorSet, err = adminClient.GetCoordinatorSet()
+				Expect(err).NotTo(HaveOccurred())
+
+				for _, processGroup := range cluster.Status.ProcessGroups {
+					if _, ok := coordinatorSet[string(processGroup.ProcessGroupID)]; !ok {
+						continue
+					}
+
+					processGroup.MarkForRemoval()
+					coordinatorIP = processGroup.Addresses[0]
+					break
+				}
+
+				Expect(coordinatorIP).NotTo(BeEmpty())
 			})
 
 			It("should not remove the coordinator", func() {
@@ -79,11 +93,7 @@ var _ = Describe("remove_process_groups", func() {
 					coordinatorIP: false,
 				}
 
-				coordSet := map[string]fdbv1beta2.None{
-					coordinatorIP: {},
-				}
-
-				allExcluded, newExclusions, processes := clusterReconciler.getProcessGroupsToRemove(globalControllerLogger, cluster, remaining, coordSet)
+				allExcluded, newExclusions, processes := clusterReconciler.getProcessGroupsToRemove(globalControllerLogger, cluster, remaining, coordinatorSet)
 				Expect(allExcluded).To(BeFalse())
 				Expect(processes).To(BeEmpty())
 				Expect(newExclusions).To(BeFalse())

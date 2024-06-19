@@ -39,7 +39,9 @@ var _ = Describe("maintenance_mode_checker", func() {
 	var err error
 	var requeue *requeue
 	var adminClient *mock.AdminClient
-	targetProcessGroup := fdbv1beta2.ProcessGroupID("storage-1")
+	var targetProcessGroup fdbv1beta2.ProcessGroupID
+	var secondStorageProcess fdbv1beta2.ProcessGroupID
+	var currentMaintenanceZone fdbv1beta2.FaultDomain
 
 	BeforeEach(func() {
 		cluster = internal.CreateDefaultCluster()
@@ -56,6 +58,11 @@ var _ = Describe("maintenance_mode_checker", func() {
 
 		adminClient, err = mock.NewMockAdminClientUncast(cluster, k8sClient)
 		Expect(err).NotTo(HaveOccurred())
+
+		processGroups := internal.PickProcessGroups(cluster, fdbv1beta2.ProcessClassStorage, 2)
+		targetProcessGroup = processGroups[0].ProcessGroupID
+		currentMaintenanceZone = processGroups[0].FaultDomain
+		secondStorageProcess = processGroups[1].ProcessGroupID
 	})
 
 	JustBeforeEach(func() {
@@ -107,27 +114,7 @@ var _ = Describe("maintenance_mode_checker", func() {
 	})
 
 	When("the maintenance mode is active", func() {
-		var currentMaintenanceZone fdbv1beta2.FaultDomain
-		var secondStorageProcess fdbv1beta2.ProcessGroupID
-
 		BeforeEach(func() {
-			for _, pg := range cluster.Status.ProcessGroups {
-				if pg.ProcessClass != fdbv1beta2.ProcessClassStorage {
-					continue
-				}
-
-				if pg.ProcessGroupID == targetProcessGroup {
-					currentMaintenanceZone = pg.FaultDomain
-					continue
-				}
-
-				if secondStorageProcess != "" {
-					continue
-				}
-
-				secondStorageProcess = pg.ProcessGroupID
-			}
-
 			Expect(currentMaintenanceZone).NotTo(BeEmpty())
 			Expect(adminClient.SetMaintenanceZone(string(currentMaintenanceZone), 3600)).NotTo(HaveOccurred())
 		})
@@ -163,7 +150,7 @@ var _ = Describe("maintenance_mode_checker", func() {
 			It("should requeue", func() {
 				Expect(requeue).NotTo(BeNil())
 				Expect(requeue.delayedRequeue).To(BeTrue())
-				Expect(requeue.message).To(Equal("Waiting for 1 processes in zone operator-test-1-storage-1 to be updated"))
+				Expect(requeue.message).To(HavePrefix("Waiting for 1 processes in zone"))
 			})
 
 			It("shouldn't reset the maintenance", func() {
@@ -189,7 +176,7 @@ var _ = Describe("maintenance_mode_checker", func() {
 			It("should requeue", func() {
 				Expect(requeue).NotTo(BeNil())
 				Expect(requeue.delayedRequeue).To(BeTrue())
-				Expect(requeue.message).To(Equal("Waiting for 1 processes in zone operator-test-1-storage-1 to be updated"))
+				Expect(requeue.message).To(HavePrefix("Waiting for 1 processes in zone"))
 			})
 
 			It("shouldn't reset the maintenance", func() {
@@ -237,7 +224,7 @@ var _ = Describe("maintenance_mode_checker", func() {
 			It("should requeue", func() {
 				Expect(requeue).NotTo(BeNil())
 				Expect(requeue.delayedRequeue).To(BeTrue())
-				Expect(requeue.message).To(Equal("Waiting for 1 processes in zone operator-test-1-storage-1 to be updated"))
+				Expect(requeue.message).To(HavePrefix("Waiting for 1 processes in zone"))
 			})
 
 			It("shouldn't reset the maintenance", func() {
@@ -264,7 +251,7 @@ var _ = Describe("maintenance_mode_checker", func() {
 			It("should requeue", func() {
 				Expect(requeue).NotTo(BeNil())
 				Expect(requeue.delayedRequeue).To(BeTrue())
-				Expect(requeue.message).To(Equal("Waiting for 1 processes in zone operator-test-1-storage-1 to be updated"))
+				Expect(requeue.message).To(HavePrefix("Waiting for 1 processes in zone"))
 			})
 
 			It("shouldn't reset the maintenance", func() {
@@ -291,7 +278,7 @@ var _ = Describe("maintenance_mode_checker", func() {
 			It("should requeue", func() {
 				Expect(requeue).NotTo(BeNil())
 				Expect(requeue.delayedRequeue).To(BeTrue())
-				Expect(requeue.message).To(Equal("Waiting for 1 processes in zone operator-test-1-storage-1 to be updated"))
+				Expect(requeue.message).To(HavePrefix("Waiting for 1 processes in zone"))
 			})
 
 			It("shouldn't reset the maintenance", func() {
