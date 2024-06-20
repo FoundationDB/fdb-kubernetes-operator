@@ -312,13 +312,14 @@ var _ = Describe("update_status", func() {
 		})
 
 		When("process group has no Pod", func() {
+			BeforeEach(func() {
+				Expect(k8sClient.Delete(context.Background(), &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: pickedProcessGroup.GetPodName(cluster), Namespace: cluster.Namespace}})).NotTo(HaveOccurred())
+			})
+
 			It("should be added to the failing Pods", func() {
-				processGroupStatus := fdbv1beta2.NewProcessGroupStatus("storage-100000", fdbv1beta2.ProcessClassStorage, []string{"1.1.1.1"})
-				// Reset the status to only tests for the missing Pod
-				processGroupStatus.ProcessGroupConditions = []*fdbv1beta2.ProcessGroupCondition{}
-				Expect(validateProcessGroup(context.TODO(), clusterReconciler, cluster, nil, nil, "", processGroupStatus, cluster.IsTaintFeatureDisabled(), logger)).NotTo(HaveOccurred())
-				Expect(len(processGroupStatus.ProcessGroupConditions)).To(Equal(1))
-				Expect(processGroupStatus.ProcessGroupConditions[0].ProcessGroupConditionType).To(Equal(fdbv1beta2.MissingPod))
+				Expect(validateProcessGroup(context.TODO(), clusterReconciler, cluster, nil, nil, "", pickedProcessGroup, cluster.IsTaintFeatureDisabled(), logger)).NotTo(HaveOccurred())
+				Expect(pickedProcessGroup.ProcessGroupConditions).To(HaveLen(1))
+				Expect(pickedProcessGroup.ProcessGroupConditions[0].ProcessGroupConditionType).To(Equal(fdbv1beta2.MissingPod))
 			})
 		})
 
@@ -390,6 +391,7 @@ var _ = Describe("update_status", func() {
 
 					incorrectProcesses := fdbv1beta2.FilterByCondition(cluster.Status.ProcessGroups, fdbv1beta2.IncorrectCommandLine, false)
 					Expect(incorrectProcesses).To(ConsistOf([]fdbv1beta2.ProcessGroupID{pickedProcessGroup.ProcessGroupID}))
+					Expect(pickedProcessGroup.IsMarkedForRemoval()).To(BeTrue())
 					Expect(cluster.Status.ProcessGroups).To(HaveLen(17))
 				})
 			})

@@ -92,7 +92,7 @@ func sortPodsByName(pods *corev1.PodList) {
 	})
 }
 
-var _ = FDescribe("cluster_controller", func() {
+var _ = Describe("cluster_controller", func() {
 	var cluster *fdbv1beta2.FoundationDBCluster
 	var fakeConnectionString string
 
