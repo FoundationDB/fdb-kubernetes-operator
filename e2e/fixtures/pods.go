@@ -23,11 +23,12 @@ package fixtures
 import (
 	"context"
 	"fmt"
-	"github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/api/equality"
 	"log"
 	"math/rand"
 	"time"
+
+	"github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/api/equality"
 
 	"github.com/onsi/ginkgo/v2"
 

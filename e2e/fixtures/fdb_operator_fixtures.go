@@ -22,8 +22,9 @@ package fixtures
 
 import (
 	"fmt"
-	"github.com/onsi/gomega"
 	"log"
+
+	"github.com/onsi/gomega"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"k8s.io/apimachinery/pkg/api/equality"

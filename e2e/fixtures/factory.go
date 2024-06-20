@@ -335,6 +335,7 @@ func (factory *Factory) Shutdown() {
 
 	factory.invariantShutdownHooks.InvokeShutdownHandlers()
 	factory.shutdownHooks.InvokeShutdownHandlers()
+	factory.shutdownInProgress = false
 }
 
 // Get returns the (eventually consistent) status of this cluster.  This is used when bootstrapping an
