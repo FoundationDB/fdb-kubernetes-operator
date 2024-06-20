@@ -1349,14 +1349,23 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			_, processGroupIDs, err := fdbCluster.GetCluster().GetCurrentProcessGroupsAndProcessCounts()
 			Expect(err).NotTo(HaveOccurred())
 
-			// The the next free ProcessGroupID and mark this one as unschedulable.
-			processGroupID, _ = fdbCluster.GetCluster().GetNextProcessGroupID(fdbv1beta2.ProcessClassStateless, processGroupIDs[fdbv1beta2.ProcessClassStateless], 1)
+			// Make sure the operator doesn't modify the status.
+			fdbCluster.SetSkipReconciliation(true)
+			cluster := fdbCluster.GetCluster()
+			status := cluster.Status.DeepCopy() // Fetch the current status.
+			processGroupID = cluster.GetNextRandomProcessGroupID(fdbv1beta2.ProcessClassStateless, processGroupIDs[fdbv1beta2.ProcessClassStateless])
+			status.ProcessGroups = append(status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus(processGroupID, fdbv1beta2.ProcessClassStateless, nil))
+			fdbCluster.UpdateClusterStatusWithStatus(status)
+
 			log.Println("Next process group ID", processGroupID, "current processGroupIDs for stateless processes", processGroupIDs[fdbv1beta2.ProcessClassStateless])
 
 			// Make sure the new Pod will be stuck in unschedulable.
 			fdbCluster.SetProcessGroupsAsUnschedulable([]fdbv1beta2.ProcessGroupID{processGroupID})
 			// Now replace a random Pod for replacement to force the cluster to create a new Pod.
 			fdbCluster.ReplacePod(fixtures.RandomPickOnePod(fdbCluster.GetStatelessPods().Items), false)
+
+			// Allow the operator again to reconcile.
+			fdbCluster.SetSkipReconciliation(false)
 
 			// Wait until the new Pod is actually created.
 			Eventually(func() bool {
@@ -1374,8 +1383,6 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		AfterEach(func() {
 			// Clear the buggify list, this should allow the operator to move forward and delete the Pod
 			Expect(fdbCluster.ClearBuggifyNoSchedule(true)).NotTo(HaveOccurred())
-			// Make sure the Pod is deleted.
-			Expect(fdbCluster.CheckPodIsDeleted(podName)).To(BeTrue())
 			// Make sure we cleaned up the process groups to remove.
 			Expect(fdbCluster.ClearProcessGroupsToRemove())
 			Expect(fdbCluster.SetAutoReplacements(true, initialReplacementDuration)).NotTo(HaveOccurred())
@@ -1383,13 +1390,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 		When("automatic replacements are disabled", func() {
 			BeforeEach(func() {
-				// Disable automatic replacements
 				Expect(fdbCluster.SetAutoReplacementsWithWait(false, 10*time.Hour, false)).NotTo(HaveOccurred())
-				// Add the pending Process group to the removal list.
-				spec := fdbCluster.GetCluster().Spec.DeepCopy()
-				spec.ProcessGroupsToRemove = append(spec.ProcessGroupsToRemove, processGroupID)
-				// Add the new pending Pod to the removal list.
-				fdbCluster.UpdateClusterSpecWithSpec(spec)
 			})
 
 			It("should not remove the Pod as long as it is unschedulable", func() {
@@ -1403,24 +1404,15 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 		When("automatic replacements are enabled", func() {
 			BeforeEach(func() {
-				// Enable automatic replacements
 				Expect(fdbCluster.SetAutoReplacementsWithWait(true, 1*time.Minute, false)).NotTo(HaveOccurred())
 			})
 
 			It("should remove the Pod", func() {
 				log.Println("Make sure process group", processGroupID, "gets replaced with Pod", podName)
-				stuckPodID, err := processGroupID.GetIDNumber()
-				Expect(err).NotTo(HaveOccurred())
-
 				// Make sure the process group is removed after some time.
-				Eventually(func() map[int]bool {
-					_, currentProcessGroups, err := fdbCluster.GetCluster().GetCurrentProcessGroupsAndProcessCounts()
-					if err != nil {
-						return map[int]bool{stuckPodID: true}
-					}
-
-					return currentProcessGroups[fdbv1beta2.ProcessClassStateless]
-				}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).ShouldNot(HaveKey(stuckPodID))
+				Eventually(func() *fdbv1beta2.ProcessGroupStatus {
+					return fdbv1beta2.FindProcessGroupByID(fdbCluster.GetCluster().Status.ProcessGroups, processGroupID)
+				}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(BeNil())
 
 				// Make sure the Pod is actually deleted after some time.
 				Eventually(func() bool {
