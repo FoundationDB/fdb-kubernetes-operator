@@ -133,12 +133,16 @@ var _ = Describe("Change coordinators", func() {
 			})
 
 			When("when multiple storage process are marked for removal", func() {
-				removals := []fdbv1beta2.ProcessGroupID{
-					"storage-2",
-					"storage-3",
-				}
+				var removals []fdbv1beta2.ProcessGroupID
 
 				BeforeEach(func() {
+					removals = make([]fdbv1beta2.ProcessGroupID, 0, 2)
+
+					for _, processGroup := range internal.PickProcessGroups(cluster, fdbv1beta2.ProcessClassStorage, 2) {
+						removals = append(removals, processGroup.ProcessGroupID)
+						processGroup.MarkForRemoval()
+					}
+
 					cluster.Spec.ProcessGroupsToRemove = removals
 					for _, removal := range removals {
 						Expect(cluster.ProcessGroupIsBeingRemoved(removal)).To(BeTrue())

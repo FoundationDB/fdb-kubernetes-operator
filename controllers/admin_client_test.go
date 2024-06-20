@@ -39,7 +39,6 @@ import (
 var _ = Describe("admin_client_test", func() {
 	var cluster *fdbv1beta2.FoundationDBCluster
 	var mockAdminClient *mock.AdminClient
-
 	var err error
 
 	BeforeEach(func() {
@@ -103,22 +102,24 @@ var _ = Describe("admin_client_test", func() {
 						},
 					}))
 
-					address := cluster.Status.ProcessGroups[13].Addresses[0]
 					Expect(status.Cluster.Processes).To(HaveLen(len(cluster.Status.ProcessGroups)))
-					Expect(status.Cluster.Processes["operator-test-1-storage-1-1"]).To(Equal(fdbv1beta2.FoundationDBStatusProcessInfo{
+					pickedProcessGroup := internal.PickProcessGroups(cluster, fdbv1beta2.ProcessClassStorage, 1)[0]
+					address := pickedProcessGroup.Addresses[0]
+					zoneID := cluster.Name + "-" + string(pickedProcessGroup.ProcessGroupID)
+					Expect(status.Cluster.Processes[fdbv1beta2.ProcessGroupID(zoneID+"-1")]).To(Equal(fdbv1beta2.FoundationDBStatusProcessInfo{
 						Address: fdbv1beta2.ProcessAddress{
 							IPAddress: net.ParseIP(address),
 							Port:      4501,
 						},
 						ProcessClass: fdbv1beta2.ProcessClassStorage,
-						CommandLine:  fmt.Sprintf("/usr/bin/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --listen_address=%s:4501 --locality_instance_id=storage-1 --locality_machineid=operator-test-1-storage-1 --locality_zoneid=operator-test-1-storage-1 --logdir=/var/log/fdb-trace-logs --loggroup=operator-test-1 --public_address=%s:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster", address, address),
+						CommandLine:  fmt.Sprintf("/usr/bin/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --listen_address=%s:4501 --locality_instance_id=%s --locality_machineid=%s --locality_zoneid=%s --logdir=/var/log/fdb-trace-logs --loggroup=operator-test-1 --public_address=%s:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster", address, pickedProcessGroup.ProcessGroupID, zoneID, zoneID, address),
 						Excluded:     false,
 						Locality: map[string]string{
-							"instance_id": "storage-1",
-							"zoneid":      "operator-test-1-storage-1",
+							"instance_id": string(pickedProcessGroup.ProcessGroupID),
+							"zoneid":      zoneID,
 							"dcid":        "",
 						},
-						Version:       fdbv1beta2.Versions.NextMajorVersion.String(),
+						Version:       cluster.GetRunningVersion(),
 						UptimeSeconds: 60000,
 						Roles:         nil,
 					}))
@@ -145,22 +146,24 @@ var _ = Describe("admin_client_test", func() {
 						},
 					}))
 
-					address := cluster.Status.ProcessGroups[13].Addresses[0]
 					Expect(status.Cluster.Processes).To(HaveLen(len(cluster.Status.ProcessGroups)))
-					Expect(status.Cluster.Processes["operator-test-1-storage-1-1"]).To(Equal(fdbv1beta2.FoundationDBStatusProcessInfo{
+					pickedProcessGroup := internal.PickProcessGroups(cluster, fdbv1beta2.ProcessClassStorage, 1)[0]
+					address := pickedProcessGroup.Addresses[0]
+					zoneID := cluster.Name + "-" + string(pickedProcessGroup.ProcessGroupID)
+					Expect(status.Cluster.Processes[fdbv1beta2.ProcessGroupID(zoneID+"-1")]).To(Equal(fdbv1beta2.FoundationDBStatusProcessInfo{
 						Address: fdbv1beta2.ProcessAddress{
 							IPAddress: net.ParseIP(address),
 							Port:      4501,
 						},
 						ProcessClass: fdbv1beta2.ProcessClassStorage,
-						CommandLine:  fmt.Sprintf("/usr/bin/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --listen_address=%s:4501 --locality_instance_id=storage-1 --locality_machineid=operator-test-1-storage-1 --locality_zoneid=operator-test-1-storage-1 --logdir=/var/log/fdb-trace-logs --loggroup=operator-test-1 --public_address=%s:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster", address, address),
+						CommandLine:  fmt.Sprintf("/usr/bin/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --listen_address=%s:4501 --locality_instance_id=%s --locality_machineid=%s --locality_zoneid=%s --logdir=/var/log/fdb-trace-logs --loggroup=operator-test-1 --public_address=%s:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster", address, pickedProcessGroup.ProcessGroupID, zoneID, zoneID, address),
 						Excluded:     false,
 						Locality: map[string]string{
-							"instance_id": "storage-1",
-							"zoneid":      "operator-test-1-storage-1",
+							"instance_id": string(pickedProcessGroup.ProcessGroupID),
+							"zoneid":      zoneID,
 							"dcid":        "",
 						},
-						Version:       cluster.Spec.Version,
+						Version:       cluster.GetRunningVersion(),
 						UptimeSeconds: 60000,
 						Roles:         nil,
 					}))
@@ -169,14 +172,19 @@ var _ = Describe("admin_client_test", func() {
 		})
 
 		Context("with the DNS names enabled", func() {
+			var processID, podName string
+
 			BeforeEach(func() {
 				cluster.Spec.Routing.DefineDNSLocalityFields = pointer.Bool(true)
 				Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
+				pickedProcessGroup := internal.PickProcessGroups(cluster, fdbv1beta2.ProcessClassStorage, 1)[0]
+				podName = pickedProcessGroup.GetPodName(cluster)
+				processID = podName + "-1"
 			})
 
 			When("the cluster has not been reconciled", func() {
 				It("should not have DNS names in the locality", func() {
-					locality := status.Cluster.Processes["operator-test-1-storage-1-1"].Locality
+					locality := status.Cluster.Processes[fdbv1beta2.ProcessGroupID(processID)].Locality
 					Expect(locality[fdbv1beta2.FDBLocalityDNSNameKey]).To(BeEmpty())
 				})
 			})
@@ -189,8 +197,8 @@ var _ = Describe("admin_client_test", func() {
 				})
 
 				It("should have DNS names in the locality", func() {
-					locality := status.Cluster.Processes["operator-test-1-storage-1-1"].Locality
-					Expect(locality[fdbv1beta2.FDBLocalityDNSNameKey]).To(Equal(internal.GetPodDNSName(cluster, "operator-test-1-storage-1")))
+					locality := status.Cluster.Processes[fdbv1beta2.ProcessGroupID(processID)].Locality
+					Expect(locality[fdbv1beta2.FDBLocalityDNSNameKey]).To(Equal(internal.GetPodDNSName(cluster, podName)))
 				})
 			})
 		})

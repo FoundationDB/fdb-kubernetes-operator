@@ -140,7 +140,7 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 			clusterSetup(beforeVersion)
 			Expect(fdbCluster.SetAutoReplacements(false, 5*time.Minute)).ToNot(HaveOccurred())
 			// Ensure the operator is not skipping the process because it's missing for too long
-			fdbCluster.SetIgnoreMissingProcessesSeconds(5 * time.Minute)
+			fdbCluster.SetIgnoreMissingProcessesSeconds(30 * time.Minute)
 
 			// 1. Introduce network partition b/w Pod and cluster.
 			partitionedPod := fixtures.ChooseRandomPod(fdbCluster.GetStoragePods())
@@ -164,9 +164,6 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 				Consistently(func() bool {
 					return fdbCluster.GetCluster().Status.RunningVersion == beforeVersion
 				}).WithTimeout(2 * time.Minute).WithPolling(2 * time.Second).Should(BeTrue())
-			} else {
-				// Simulate the 2 minute wait otherwise the auto replacement might not succeed in time.
-				time.Sleep(2 * time.Minute)
 			}
 
 			// Enable the auto replacement feature again, but don't wait for reconciliation, otherwise we wait

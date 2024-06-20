@@ -400,6 +400,53 @@ func (fdbCluster *FdbCluster) SetDatabaseConfiguration(
 	return fdbCluster.WaitForReconciliation()
 }
 
+// UpdateClusterStatus updates the FoundationDBCluster status. This method allows to modify the status sub-resource of
+// the FoundationDBCluster resource.
+func (fdbCluster *FdbCluster) UpdateClusterStatus() {
+	fdbCluster.UpdateClusterStatusWithStatus(fdbCluster.cluster.Status.DeepCopy())
+}
+
+// UpdateClusterStatusWithStatus ensures that the FoundationDBCluster status will be updated in Kubernetes. This method has a retry mechanism
+// implemented and ensures that the provided (local) Status matches the status in Kubernetes. You must make sure that you call
+// fdbCluster.GetCluster() before updating the status, to make sure you are not overwriting the current state with an outdated state.
+// An example on how to update a field with this method:
+//
+//		// Make sure the operator doesn't modify the status.
+//		fdbCluster.SetSkipReconciliation(true)
+//		status := fdbCluster.GetCluster().Status.DeepCopy() // Fetch the current status.
+//	    // Create a new process group.
+//		processGroupID = cluster.GetNextRandomProcessGroupID(fdbv1beta2.ProcessClassStateless, processGroupIDs[fdbv1beta2.ProcessClassStateless])
+//		status.ProcessGroups = append(status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus(processGroupID, fdbv1beta2.ProcessClassStateless, nil))
+//		fdbCluster.UpdateClusterStatusWithStatus(status)
+//
+//		// Make sure the operator picks up the work again
+//		fdbCluster.SetSkipReconciliation(false)
+func (fdbCluster *FdbCluster) UpdateClusterStatusWithStatus(desiredStatus *fdbv1beta2.FoundationDBClusterStatus) {
+	fetchedCluster := &fdbv1beta2.FoundationDBCluster{}
+
+	// This is flaky. It sometimes responds with an error saying that the object has been updated.
+	// Try a few times before giving up.
+	gomega.Eventually(func(g gomega.Gomega) bool {
+		err := fdbCluster.getClient().
+			Get(ctx.Background(), client.ObjectKeyFromObject(fdbCluster.cluster), fetchedCluster)
+		g.Expect(err).NotTo(gomega.HaveOccurred(), "error fetching cluster")
+
+		updated := equality.Semantic.DeepEqual(fetchedCluster.Status, *desiredStatus)
+		log.Println("UpdateClusterStatus: updated:", updated)
+		if updated {
+			return true
+		}
+
+		desiredStatus.DeepCopyInto(&fetchedCluster.Status)
+		err = fdbCluster.getClient().Status().Update(ctx.Background(), fetchedCluster)
+		g.Expect(err).NotTo(gomega.HaveOccurred(), "error updating cluster status")
+		// Retry here and let the method fetch the latest version of the cluster again until the spec is updated.
+		return false
+	}).WithTimeout(10 * time.Minute).WithPolling(1 * time.Second).Should(gomega.BeTrue())
+
+	fdbCluster.cluster = fetchedCluster
+}
+
 // UpdateClusterSpec ensures that the FoundationDBCluster will be updated in Kubernetes. This method has a retry mechanism
 // implemented and ensures that the provided (local) Spec matches the Spec in Kubernetes.
 func (fdbCluster *FdbCluster) UpdateClusterSpec() {
@@ -420,13 +467,10 @@ func (fdbCluster *FdbCluster) UpdateClusterSpecWithSpec(desiredSpec *fdbv1beta2.
 
 	// This is flaky. It sometimes responds with an error saying that the object has been updated.
 	// Try a few times before giving up.
-	gomega.Eventually(func() bool {
+	gomega.Eventually(func(g gomega.Gomega) bool {
 		err := fdbCluster.getClient().
 			Get(ctx.Background(), client.ObjectKeyFromObject(fdbCluster.cluster), fetchedCluster)
-		if err != nil {
-			log.Println("UpdateClusterSpec: error fetching cluster:", err)
-			return false
-		}
+		g.Expect(err).NotTo(gomega.HaveOccurred(), "error fetching cluster")
 
 		specUpdated := equality.Semantic.DeepEqual(fetchedCluster.Spec, *desiredSpec)
 		log.Println("UpdateClusterSpec: specUpdated:", specUpdated)
@@ -436,9 +480,7 @@ func (fdbCluster *FdbCluster) UpdateClusterSpecWithSpec(desiredSpec *fdbv1beta2.
 
 		desiredSpec.DeepCopyInto(&fetchedCluster.Spec)
 		err = fdbCluster.getClient().Update(ctx.Background(), fetchedCluster)
-		if err != nil {
-			log.Println("UpdateClusterSpec: error updating cluster:", err)
-		}
+		g.Expect(err).NotTo(gomega.HaveOccurred(), "error updating cluster spec")
 		// Retry here and let the method fetch the latest version of the cluster again until the spec is updated.
 		return false
 	}).WithTimeout(10 * time.Minute).WithPolling(1 * time.Second).Should(gomega.BeTrue())

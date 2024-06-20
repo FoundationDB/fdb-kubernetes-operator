@@ -99,13 +99,15 @@ var _ = Describe("exclude_processes", func() {
 							})
 
 							When("there are failed processes", func() {
-								BeforeEach(func() {
+								var processGroupID fdbv1beta2.ProcessGroupID
 
+								BeforeEach(func() {
 									for idx, processGroup := range cluster.Status.ProcessGroups {
 										if processGroup.ProcessClass != processClass {
 											continue
 										}
 
+										processGroupID = processGroup.ProcessGroupID
 										cluster.Status.ProcessGroups[idx].UpdateCondition(fdbv1beta2.MissingProcesses, true)
 										cluster.Status.ProcessGroups[idx].ProcessGroupConditions[0].Timestamp = time.Now().Add(-10 * time.Minute).Unix()
 										break
@@ -114,7 +116,7 @@ var _ = Describe("exclude_processes", func() {
 
 								It("should not allow the exclusion", func() {
 									Expect(allowedExclusions).To(BeZero())
-									Expect(missingProcesses).To(ConsistOf(fdbv1beta2.ProcessGroupID("storage-1")))
+									Expect(missingProcesses).To(ConsistOf(processGroupID))
 								})
 							})
 						})
@@ -130,13 +132,15 @@ var _ = Describe("exclude_processes", func() {
 							})
 
 							When("there are failed processes", func() {
-								BeforeEach(func() {
+								var processGroupID fdbv1beta2.ProcessGroupID
 
+								BeforeEach(func() {
 									for idx, processGroup := range cluster.Status.ProcessGroups {
 										if processGroup.ProcessClass != processClass {
 											continue
 										}
 
+										processGroupID = processGroup.ProcessGroupID
 										cluster.Status.ProcessGroups[idx].UpdateCondition(fdbv1beta2.MissingProcesses, true)
 										cluster.Status.ProcessGroups[idx].ProcessGroupConditions[0].Timestamp = time.Now().Add(-10 * time.Minute).Unix()
 										break
@@ -145,7 +149,7 @@ var _ = Describe("exclude_processes", func() {
 
 								It("should allow the exclusion", func() {
 									Expect(allowedExclusions).To(BeNumerically("==", cluster.DesiredFaultTolerance()-1))
-									Expect(missingProcesses).To(ConsistOf(fdbv1beta2.ProcessGroupID("storage-1")))
+									Expect(missingProcesses).To(ConsistOf(processGroupID))
 								})
 							})
 						})
@@ -346,7 +350,7 @@ var _ = Describe("exclude_processes", func() {
 
 					It("should not allow the exclusion", func() {
 						Expect(allowedExclusions).To(BeNumerically("==", 0))
-						Expect(missingProcesses).To(Equal([]fdbv1beta2.ProcessGroupID{"storage-1", "storage-10", "storage-11", "storage-12", "storage-13"}))
+						Expect(missingProcesses).To(HaveLen(5))
 					})
 				})
 			})

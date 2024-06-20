@@ -118,8 +118,15 @@ var _ = Describe("add_services", func() {
 	})
 
 	Context("with a process group with no service defined", func() {
+		var newProcessGroupID fdbv1beta2.ProcessGroupID
+		var pickedProcessGroup *fdbv1beta2.ProcessGroupStatus
+
 		BeforeEach(func() {
-			cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-9", "storage", nil))
+			_, processGroupIDs, err := cluster.GetCurrentProcessGroupsAndProcessCounts()
+			Expect(err).NotTo(HaveOccurred())
+			newProcessGroupID = cluster.GetNextRandomProcessGroupID(fdbv1beta2.ProcessClassStorage, processGroupIDs[fdbv1beta2.ProcessClassStorage])
+			pickedProcessGroup = fdbv1beta2.NewProcessGroupStatus(newProcessGroupID, fdbv1beta2.ProcessClassStorage, nil)
+			cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, pickedProcessGroup)
 		})
 
 		It("should not requeue", func() {
@@ -128,12 +135,22 @@ var _ = Describe("add_services", func() {
 
 		It("should create an extra service", func() {
 			Expect(newServices.Items).To(HaveLen(len(initialServices.Items) + 1))
-			lastService := newServices.Items[len(newServices.Items)-1]
-			Expect(lastService.Name).To(Equal("operator-test-1-storage-9"))
-			Expect(lastService.Labels[fdbv1beta2.FDBProcessGroupIDLabel]).To(Equal("storage-9"))
-			Expect(lastService.Labels[fdbv1beta2.FDBProcessClassLabel]).To(Equal("storage"))
-			Expect(lastService.Spec.ClusterIP).NotTo(Equal("None"))
-			Expect(lastService.OwnerReferences).To(Equal(internal.BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)))
+
+			var checked bool
+			serviceName := cluster.Name + "-" + string(newProcessGroupID)
+			for _, svc := range newServices.Items {
+				if svc.Name != serviceName {
+					continue
+				}
+
+				Expect(svc.Labels[fdbv1beta2.FDBProcessGroupIDLabel]).To(Equal(string(newProcessGroupID)))
+				Expect(svc.Labels[fdbv1beta2.FDBProcessClassLabel]).To(Equal(string(fdbv1beta2.ProcessClassStorage)))
+				Expect(svc.OwnerReferences).To(Equal(internal.BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)))
+				Expect(svc.Spec.ClusterIP).NotTo(Equal("None"))
+				checked = true
+			}
+
+			Expect(checked).To(BeTrue())
 		})
 
 		Context("with the pod public IP source", func() {
@@ -153,7 +170,7 @@ var _ = Describe("add_services", func() {
 
 		When("the process group is being removed", func() {
 			BeforeEach(func() {
-				cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].MarkForRemoval()
+				pickedProcessGroup.MarkForRemoval()
 			})
 
 			It("should not requeue", func() {
@@ -166,7 +183,7 @@ var _ = Describe("add_services", func() {
 
 			When("the process group is fully excluded", func() {
 				BeforeEach(func() {
-					cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].SetExclude()
+					pickedProcessGroup.SetExclude()
 				})
 
 				It("should not requeue", func() {
@@ -195,7 +212,6 @@ var _ = Describe("add_services", func() {
 			Expect(newServices.Items).To(HaveLen(len(initialServices.Items)))
 
 			firstService := newServices.Items[0]
-
 			Expect(firstService.Name).To(Equal("operator-test-1"))
 			Expect(firstService.Labels[fdbv1beta2.FDBProcessGroupIDLabel]).To(Equal(""))
 			Expect(firstService.Spec.ClusterIP).To(Equal("None"))

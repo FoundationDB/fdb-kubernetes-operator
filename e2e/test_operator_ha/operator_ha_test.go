@@ -149,6 +149,13 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 			for _, cluster := range fdbCluster.GetAllClusters() {
 				tmpCluster := cluster
 				Eventually(func() string {
+					// The unified image has a mechanism to propagate changes in the cluster file, this allows multi-region
+					// clusters to reconcile faster. In the case of the split image we need "external" events in Kubernetes
+					// to trigger a reconciliation.
+					if !tmpCluster.GetCluster().UseUnifiedImage() {
+						tmpCluster.ForceReconcile()
+					}
+
 					return tmpCluster.GetCluster().Status.ConnectionString
 				}).WithTimeout(5 * time.Minute).WithPolling(2 * time.Second).ShouldNot(Equal(initialConnectionString))
 			}

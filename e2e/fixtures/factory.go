@@ -173,8 +173,8 @@ func (factory *Factory) CreateFdbClusterFromSpec(
 	log.Println(
 		"FoundationDB cluster created (at version",
 		cluster.cluster.Spec.Version,
-		") in minutes",
-		time.Since(startTime).Minutes(),
+		") in",
+		time.Since(startTime).String(),
 	)
 
 	return cluster
