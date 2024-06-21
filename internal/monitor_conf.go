@@ -156,8 +156,13 @@ func getMonitorConfStartCommandLines(cluster *fdbv1beta2.FoundationDBCluster, pr
 
 // GetMonitorProcessConfiguration builds the monitor conf template for the unified image.
 func GetMonitorProcessConfiguration(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, processCount int, imageType fdbv1beta2.ImageType) monitorapi.ProcessConfiguration {
+	version, err := monitorapi.ParseFdbVersion(cluster.Spec.Version)
+	if err != nil {
+		return monitorapi.ProcessConfiguration{}
+	}
+
 	configuration := monitorapi.ProcessConfiguration{
-		Version: cluster.Spec.Version,
+		Version: &version,
 	}
 
 	if cluster.Status.ConnectionString == "" {

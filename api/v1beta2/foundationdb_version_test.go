@@ -21,6 +21,7 @@
 package v1beta2
 
 import (
+	"github.com/apple/foundationdb/fdbkubernetesmonitor/api"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -28,18 +29,18 @@ import (
 var _ = Describe("[api] FDBVersion", func() {
 	When("checking if the protocol and the version are compatible", func() {
 		It("should return the correct compatibility", func() {
-			version := Version{Major: 6, Minor: 2, Patch: 20}
-			Expect(version.IsProtocolCompatible(Version{Major: 6, Minor: 2, Patch: 20})).To(BeTrue())
-			Expect(version.IsProtocolCompatible(Version{Major: 6, Minor: 2, Patch: 22})).To(BeTrue())
-			Expect(version.IsProtocolCompatible(Version{Major: 6, Minor: 3, Patch: 0})).To(BeFalse())
-			Expect(version.IsProtocolCompatible(Version{Major: 6, Minor: 3, Patch: 20})).To(BeFalse())
-			Expect(version.IsProtocolCompatible(Version{Major: 7, Minor: 2, Patch: 20})).To(BeFalse())
+			version := Version{api.Version{Major: 6, Minor: 2, Patch: 20}}
+			Expect(version.IsProtocolCompatible(Version{api.Version{Major: 6, Minor: 2, Patch: 20}})).To(BeTrue())
+			Expect(version.IsProtocolCompatible(Version{api.Version{Major: 6, Minor: 2, Patch: 22}})).To(BeTrue())
+			Expect(version.IsProtocolCompatible(Version{api.Version{Major: 6, Minor: 3, Patch: 0}})).To(BeFalse())
+			Expect(version.IsProtocolCompatible(Version{api.Version{Major: 6, Minor: 3, Patch: 20}})).To(BeFalse())
+			Expect(version.IsProtocolCompatible(Version{api.Version{Major: 7, Minor: 2, Patch: 20}})).To(BeFalse())
 		})
 
 		When("release candidates differ", func() {
 			It("should be incompatible", func() {
-				version := Version{Major: 7, Minor: 0, Patch: 0, ReleaseCandidate: 1}
-				Expect(version.IsProtocolCompatible(Version{Major: 7, Minor: 0, Patch: 0, ReleaseCandidate: 2})).To(BeFalse())
+				version := Version{api.Version{Major: 7, Minor: 0, Patch: 0, ReleaseCandidate: 1}}
+				Expect(version.IsProtocolCompatible(Version{api.Version{Major: 7, Minor: 0, Patch: 0, ReleaseCandidate: 2}})).To(BeFalse())
 			})
 		})
 	})
@@ -48,29 +49,29 @@ var _ = Describe("[api] FDBVersion", func() {
 		It("should return the fdb version struct", func() {
 			version, err := ParseFdbVersion("6.2.11")
 			Expect(err).NotTo(HaveOccurred())
-			Expect(version).To(Equal(Version{Major: 6, Minor: 2, Patch: 11}))
+			Expect(version).To(Equal(Version{api.Version{Major: 6, Minor: 2, Patch: 11}}))
 			Expect(version.HasSeparatedProxies()).To(BeFalse())
 
 			version, err = ParseFdbVersion("prerelease-6.2.11")
 			Expect(err).NotTo(HaveOccurred())
-			Expect(version).To(Equal(Version{Major: 6, Minor: 2, Patch: 11}))
+			Expect(version).To(Equal(Version{api.Version{Major: 6, Minor: 2, Patch: 11}}))
 
 			version, err = ParseFdbVersion("test-6.2.11-test")
 			Expect(err).NotTo(HaveOccurred())
-			Expect(version).To(Equal(Version{Major: 6, Minor: 2, Patch: 11, ReleaseCandidate: 0}))
+			Expect(version).To(Equal(Version{api.Version{Major: 6, Minor: 2, Patch: 11, ReleaseCandidate: 0}}))
 
 			version, err = ParseFdbVersion("7.0.0")
 			Expect(err).NotTo(HaveOccurred())
-			Expect(version).To(Equal(Version{Major: 7, Minor: 0, Patch: 0, ReleaseCandidate: 0}))
+			Expect(version).To(Equal(Version{api.Version{Major: 7, Minor: 0, Patch: 0, ReleaseCandidate: 0}}))
 			Expect(version.HasSeparatedProxies()).To(BeTrue())
 
 			version, err = ParseFdbVersion("7.0.0-rc1")
 			Expect(err).NotTo(HaveOccurred())
-			Expect(version).To(Equal(Version{Major: 7, Minor: 0, Patch: 0, ReleaseCandidate: 1}))
+			Expect(version).To(Equal(Version{api.Version{Major: 7, Minor: 0, Patch: 0, ReleaseCandidate: 1}}))
 
 			version, err = ParseFdbVersion("7.1.0-rc39")
 			Expect(err).NotTo(HaveOccurred())
-			Expect(version).To(Equal(Version{Major: 7, Minor: 1, Patch: 0, ReleaseCandidate: 39}))
+			Expect(version).To(Equal(Version{api.Version{Major: 7, Minor: 1, Patch: 0, ReleaseCandidate: 39}}))
 			Expect(version.HasSeparatedProxies()).To(BeTrue())
 
 			_, err = ParseFdbVersion("6.2")
@@ -79,42 +80,42 @@ var _ = Describe("[api] FDBVersion", func() {
 		})
 
 		It("should format the version correctly", func() {
-			version := Version{Major: 6, Minor: 2, Patch: 11}
+			version := Version{api.Version{Major: 6, Minor: 2, Patch: 11}}
 			Expect(version.String()).To(Equal("6.2.11"))
-			version = Version{Major: 6, Minor: 2, Patch: 11, ReleaseCandidate: 0}
+			version = Version{api.Version{Major: 6, Minor: 2, Patch: 11, ReleaseCandidate: 0}}
 			Expect(version.String()).To(Equal("6.2.11"))
-			version = Version{Major: 6, Minor: 2, Patch: 11, ReleaseCandidate: 1}
+			version = Version{api.Version{Major: 6, Minor: 2, Patch: 11, ReleaseCandidate: 1}}
 			Expect(version.String()).To(Equal("6.2.11-rc1"))
 		})
 	})
 
 	When("getting the next version of the current FDBVersion", func() {
 		It("should return the correct next version", func() {
-			version := Version{Major: 6, Minor: 2, Patch: 20}
-			Expect(version.NextMajorVersion()).To(Equal(Version{Major: 7, Minor: 0, Patch: 0}))
-			Expect(version.NextMinorVersion()).To(Equal(Version{Major: version.Major, Minor: 3, Patch: 0}))
-			Expect(version.NextPatchVersion()).To(Equal(Version{Major: version.Major, Minor: version.Minor, Patch: 21}))
+			version := Version{api.Version{Major: 6, Minor: 2, Patch: 20}}
+			Expect(version.NextMajorVersion()).To(Equal(Version{api.Version{Major: 7, Minor: 0, Patch: 0}}))
+			Expect(version.NextMinorVersion()).To(Equal(Version{api.Version{Major: version.Major, Minor: 3, Patch: 0}}))
+			Expect(version.NextPatchVersion()).To(Equal(Version{api.Version{Major: version.Major, Minor: version.Minor, Patch: 21}}))
 		})
 	})
 
 	When("comparing two FDBVersions", func() {
 		It("should return if they are equal", func() {
-			version := Version{Major: 6, Minor: 2, Patch: 20}
+			version := Version{api.Version{Major: 6, Minor: 2, Patch: 20}}
 			Expect(version.Equal(version)).To(BeTrue())
-			Expect(version.Equal(Version{Major: 7, Minor: 0, Patch: 0})).To(BeFalse())
-			Expect(version.Equal(Version{Major: 7, Minor: 0, Patch: 0})).To(BeFalse())
-			Expect(version.Equal(Version{Major: 6, Minor: 3, Patch: 20})).To(BeFalse())
-			Expect(version.Equal(Version{Major: 6, Minor: 2, Patch: 21})).To(BeFalse())
+			Expect(version.Equal(Version{api.Version{Major: 7, Minor: 0, Patch: 0}})).To(BeFalse())
+			Expect(version.Equal(Version{api.Version{Major: 7, Minor: 0, Patch: 0}})).To(BeFalse())
+			Expect(version.Equal(Version{api.Version{Major: 6, Minor: 3, Patch: 20}})).To(BeFalse())
+			Expect(version.Equal(Version{api.Version{Major: 6, Minor: 2, Patch: 21}})).To(BeFalse())
 		})
 
 		It("should return correct result for IsAtleast", func() {
-			version := Version{Major: 7, Minor: 1, Patch: 0, ReleaseCandidate: 2}
-			Expect(version.IsAtLeast(Version{Major: 7, Minor: 1, Patch: 0})).To(BeFalse())
-			Expect(version.IsAtLeast(Version{Major: 7, Minor: 1, Patch: 0, ReleaseCandidate: 1})).To(BeTrue())
-			Expect(version.IsAtLeast(Version{Major: 7, Minor: 1, Patch: 0, ReleaseCandidate: 3})).To(BeFalse())
+			version := Version{api.Version{Major: 7, Minor: 1, Patch: 0, ReleaseCandidate: 2}}
+			Expect(version.IsAtLeast(Version{api.Version{Major: 7, Minor: 1, Patch: 0}})).To(BeFalse())
+			Expect(version.IsAtLeast(Version{api.Version{Major: 7, Minor: 1, Patch: 0, ReleaseCandidate: 1}})).To(BeTrue())
+			Expect(version.IsAtLeast(Version{api.Version{Major: 7, Minor: 1, Patch: 0, ReleaseCandidate: 3}})).To(BeFalse())
 
-			version = Version{Major: 7, Minor: 1, Patch: 0}
-			Expect(version.IsAtLeast(Version{Major: 7, Minor: 1, Patch: 0, ReleaseCandidate: 1})).To(BeTrue())
+			version = Version{api.Version{Major: 7, Minor: 1, Patch: 0}}
+			Expect(version.IsAtLeast(Version{api.Version{Major: 7, Minor: 1, Patch: 0, ReleaseCandidate: 1}})).To(BeTrue())
 		})
 	})
 
@@ -131,25 +132,25 @@ var _ = Describe("[api] FDBVersion", func() {
 			},
 			Entry("When version is below 6.3.5 and useNonBlockingExcludes is false",
 				testCase{
-					version:                Version{Major: 6, Minor: 3, Patch: 0},
+					version:                Version{api.Version{Major: 6, Minor: 3, Patch: 0}},
 					useNonBlockingExcludes: false,
 					expectedResult:         false,
 				}),
 			Entry("When version is below 6.3.5 and useNonBlockingExcludes is true",
 				testCase{
-					version:                Version{Major: 6, Minor: 3, Patch: 0},
+					version:                Version{api.Version{Major: 6, Minor: 3, Patch: 0}},
 					useNonBlockingExcludes: false,
 					expectedResult:         false,
 				}),
 			Entry("When version is atleast 6.3.5 and useNonBlockingExcludes is false",
 				testCase{
-					version:                Version{Major: 6, Minor: 3, Patch: 5},
+					version:                Version{api.Version{Major: 6, Minor: 3, Patch: 5}},
 					useNonBlockingExcludes: false,
 					expectedResult:         false,
 				}),
 			Entry("When version is atleast 6.3.5 and useNonBlockingExcludes is true",
 				testCase{
-					version:                Version{Major: 6, Minor: 3, Patch: 6},
+					version:                Version{api.Version{Major: 6, Minor: 3, Patch: 6}},
 					useNonBlockingExcludes: true,
 					expectedResult:         true,
 				}),
@@ -160,94 +161,94 @@ var _ = Describe("[api] FDBVersion", func() {
 		Expect(version.SupportsVersionChange(targetVersion)).To(Equal(expected))
 	},
 		Entry("Same version",
-			Version{
+			Version{api.Version{
 				Major: 7,
 				Minor: 1,
 				Patch: 0,
-			},
-			Version{
+			}},
+			Version{api.Version{
 				Major: 7,
 				Minor: 1,
 				Patch: 0,
-			},
+			}},
 			true,
 		),
 		Entry("Patch upgrade",
-			Version{
+			Version{api.Version{
 				Major: 7,
 				Minor: 1,
 				Patch: 0,
-			},
-			Version{
+			}},
+			Version{api.Version{
 				Major: 7,
 				Minor: 1,
 				Patch: 1,
-			},
+			}},
 			true,
 		),
 		Entry("Minor upgrade",
-			Version{
+			Version{api.Version{
 				Major: 7,
 				Minor: 1,
 				Patch: 0,
-			},
-			Version{
+			}},
+			Version{api.Version{
 				Major: 7,
 				Minor: 2,
 				Patch: 0,
-			},
+			}},
 			true,
 		),
 		Entry("Major upgrade",
-			Version{
+			Version{api.Version{
 				Major: 7,
 				Minor: 1,
 				Patch: 0,
-			},
-			Version{
+			}},
+			Version{api.Version{
 				Major: 8,
 				Minor: 1,
 				Patch: 0,
-			},
+			}},
 			true,
 		),
 		Entry("Patch downgrade",
-			Version{
+			Version{api.Version{
 				Major: 7,
 				Minor: 1,
 				Patch: 1,
-			},
-			Version{
+			}},
+			Version{api.Version{
 				Major: 7,
 				Minor: 1,
 				Patch: 0,
-			},
+			}},
 			true,
 		),
 		Entry("Minor downgrade",
-			Version{
+			Version{api.Version{
 				Major: 7,
 				Minor: 1,
 				Patch: 1,
-			},
-			Version{
+			}},
+			Version{api.Version{
 				Major: 7,
 				Minor: 0,
 				Patch: 0,
-			},
+			}},
 			false,
 		),
 		Entry("Major downgrade",
-			Version{
+			Version{api.Version{
 				Major: 7,
 				Minor: 1,
 				Patch: 1,
-			},
-			Version{
+			}},
+			Version{api.Version{
 				Major: 6,
 				Minor: 1,
 				Patch: 0,
-			},
+			}},
 			false,
 		),
 	)
@@ -257,47 +258,47 @@ var _ = Describe("[api] FDBVersion", func() {
 	},
 		Entry(
 			"Version is 6.3",
-			Version{
+			Version{api.Version{
 				Major: 6,
 				Minor: 3,
 				Patch: 0,
-			},
+			}},
 			false,
 		),
 		Entry(
 			"Version is 7.1.41",
-			Version{
+			Version{api.Version{
 				Major: 7,
 				Minor: 1,
 				Patch: 41,
-			},
+			}},
 			false,
 		),
 		Entry(
 			"Version is 7.1.42",
-			Version{
+			Version{api.Version{
 				Major: 7,
 				Minor: 1,
 				Patch: 42,
-			},
+			}},
 			true,
 		),
 		Entry(
 			"Version is 7.3.25",
-			Version{
+			Version{api.Version{
 				Major: 7,
 				Minor: 3,
 				Patch: 25,
-			},
+			}},
 			false,
 		),
 		Entry(
 			"Version is 7.3.26",
-			Version{
+			Version{api.Version{
 				Major: 7,
 				Minor: 3,
 				Patch: 26,
-			},
+			}},
 			true,
 		),
 	)
@@ -307,47 +308,47 @@ var _ = Describe("[api] FDBVersion", func() {
 	},
 		Entry(
 			"Version is 6.3",
-			Version{
+			Version{api.Version{
 				Major: 6,
 				Minor: 3,
 				Patch: 0,
-			},
+			}},
 			false,
 		),
 		Entry(
 			"Version is 7.1.41",
-			Version{
+			Version{api.Version{
 				Major: 7,
 				Minor: 1,
 				Patch: 41,
-			},
+			}},
 			false,
 		),
 		Entry(
 			"Version is 7.1.55",
-			Version{
+			Version{api.Version{
 				Major: 7,
 				Minor: 1,
 				Patch: 55,
-			},
+			}},
 			true,
 		),
 		Entry(
 			"Version is 7.3.25",
-			Version{
+			Version{api.Version{
 				Major: 7,
 				Minor: 3,
 				Patch: 25,
-			},
+			}},
 			false,
 		),
 		Entry(
 			"Version is 7.3.35",
-			Version{
+			Version{api.Version{
 				Major: 7,
 				Minor: 3,
 				Patch: 35,
-			},
+			}},
 			true,
 		),
 	)

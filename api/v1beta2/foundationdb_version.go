@@ -21,9 +21,7 @@
 package v1beta2
 
 import (
-	"fmt"
-	"regexp"
-	"strconv"
+	"github.com/apple/foundationdb/fdbkubernetesmonitor/api"
 )
 
 // Version represents a version of FoundationDB.
@@ -31,148 +29,29 @@ import (
 // This provides convenience methods for checking features available in
 // different versions.
 type Version struct {
-	// Major is the major version
-	Major int
-
-	// Minor is the minor version
-	Minor int
-
-	// Patch is the patch version
-	Patch int
-
-	// ReleaseCandidate is the number from the `-rc\d+` suffix version
-	// of the version if it exists
-	ReleaseCandidate int
+	api.Version
 }
-
-// VersionRegex describes the format of a FoundationDB version.
-var VersionRegex = regexp.MustCompile(`(\d+)\.(\d+)\.(\d+)(-rc(\d+))?`)
 
 // ParseFdbVersion parses a version from its string representation.
 func ParseFdbVersion(version string) (Version, error) {
-	matches := VersionRegex.FindStringSubmatch(version)
-	if matches == nil {
-		return Version{}, fmt.Errorf("could not parse FDB version from %s", version)
-	}
-
-	major, err := strconv.Atoi(matches[1])
+	parsed, err := api.ParseFdbVersion(version)
 	if err != nil {
 		return Version{}, err
 	}
 
-	minor, err := strconv.Atoi(matches[2])
-	if err != nil {
-		return Version{}, err
-	}
-
-	patch, err := strconv.Atoi(matches[3])
-	if err != nil {
-		return Version{}, err
-	}
-
-	rc, err := strconv.Atoi(matches[5])
-	if err != nil {
-		rc = 0
-	}
-
-	return Version{Major: major, Minor: minor, Patch: patch, ReleaseCandidate: rc}, nil
-}
-
-// String gets the string representation of an FDB version.
-func (version Version) String() string {
-	if version.ReleaseCandidate == 0 {
-		return fmt.Sprintf("%d.%d.%d", version.Major, version.Minor, version.Patch)
-	}
-	return fmt.Sprintf("%d.%d.%d-rc%d", version.Major, version.Minor, version.Patch, version.ReleaseCandidate)
-}
-
-// Compact prints the version in the major.minor format.
-func (version Version) Compact() string {
-	return fmt.Sprintf("%d.%d", version.Major, version.Minor)
-}
-
-// IsAtLeast determines if a version is greater than or equal to another version.
-func (version Version) IsAtLeast(other Version) bool {
-	if version.Major < other.Major {
-		return false
-	}
-	if version.Major > other.Major {
-		return true
-	}
-	if version.Minor < other.Minor {
-		return false
-	}
-	if version.Minor > other.Minor {
-		return true
-	}
-	if version.Patch < other.Patch {
-		return false
-	}
-	if version.Patch > other.Patch {
-		return true
-	}
-	if version.ReleaseCandidate == 0 {
-		return true
-	}
-	if other.ReleaseCandidate == 0 {
-		return false
-	}
-	if version.ReleaseCandidate < other.ReleaseCandidate {
-		return false
-	}
-	if version.ReleaseCandidate > other.ReleaseCandidate {
-		return true
-	}
-	return true
-}
-
-// GetBinaryVersion Returns a version string compatible with the log implemented in the sidecars
-func (version Version) GetBinaryVersion() string {
-	if version.ReleaseCandidate > 0 {
-		return version.String()
-	}
-	return version.Compact()
-}
-
-// IsProtocolCompatible determines whether two versions of FDB are protocol
-// compatible.
-func (version Version) IsProtocolCompatible(other Version) bool {
-	return version.Major == other.Major && version.Minor == other.Minor && version.ReleaseCandidate == other.ReleaseCandidate
+	return Version{parsed}, nil
 }
 
 // HasNonBlockingExcludes determines if a version has support for non-blocking
 // exclude commands.
 func (version Version) HasNonBlockingExcludes(useNonBlockingExcludes bool) bool {
-	return version.IsAtLeast(Version{Major: 6, Minor: 3, Patch: 5}) && useNonBlockingExcludes
+	return version.IsAtLeast(Version{api.Version{Major: 6, Minor: 3, Patch: 5}}) && useNonBlockingExcludes
 }
 
 // HasSeparatedProxies determines if a version has support for separate
 // grv/commit proxies
 func (version Version) HasSeparatedProxies() bool {
-	return version.IsAtLeast(Version{Major: 7, Minor: 0, Patch: 0})
-}
-
-// NextMajorVersion returns the next major version of FoundationDB.
-func (version Version) NextMajorVersion() Version {
-	return Version{Major: version.Major + 1, Minor: 0, Patch: 0}
-}
-
-// NextMinorVersion returns the next minor version of FoundationDB.
-func (version Version) NextMinorVersion() Version {
-	return Version{Major: version.Major, Minor: version.Minor + 1, Patch: 0}
-}
-
-// NextPatchVersion returns the next patch version of FoundationDB.
-func (version Version) NextPatchVersion() Version {
-	return Version{Major: version.Major, Minor: version.Minor, Patch: version.Patch + 1}
-}
-
-// Equal checks if two Version are the same.
-func (version Version) Equal(other Version) bool {
-	return version.Major == other.Major &&
-		version.Minor == other.Minor &&
-		version.Patch == other.Patch &&
-		version.ReleaseCandidate == other.ReleaseCandidate
+	return version.IsAtLeast(Version{api.Version{Major: 7, Minor: 0, Patch: 0}})
 }
 
 // IsSupported defines the minimum supported FDB version.
@@ -193,6 +72,7 @@ func (version Version) IsStorageEngineSupported(storageEngine StorageEngine) boo
 	} else if storageEngine == StorageEngineRedwood1 {
 		return version.IsAtLeast(Versions.SupportsRedwood1)
 	}
+
 	return true
 }
 
@@ -225,7 +105,7 @@ func (version Version) SupportsVersionChange(other Version) bool {
 func (version Version) SupportsLocalityBasedExclusions() bool {
 	// If the version is 7.1.* we have to check if it supports locality based exclusions. For all newer versions
 	// we will check against the 7.3 version.
-	if version.IsProtocolCompatible(Version{Major: 7, Minor: 1, Patch: 0}) {
+	if version.IsProtocolCompatible(Version{api.Version{Major: 7, Minor: 1, Patch: 0}}) {
 		return version.IsAtLeast(Versions.SupportsLocalityBasedExclusions71)
 	}
 
@@ -235,11 +115,42 @@ func (version Version) SupportsLocalityBasedExclusions() bool {
 // AutomaticallyRemovesDeadTesterProcesses returns true if the FDB version automatically removes old tester processes
 // from the list of processes.
 func (version Version) AutomaticallyRemovesDeadTesterProcesses() bool {
-	if version.IsProtocolCompatible(Version{Major: 7, Minor: 3, Patch: 0}) {
-		return version.IsAtLeast(Version{Major: 7, Minor: 3, Patch: 35})
+	if version.IsProtocolCompatible(Version{api.Version{Major: 7, Minor: 3, Patch: 0}}) {
+		return version.IsAtLeast(Version{api.Version{Major: 7, Minor: 3, Patch: 35}})
 	}
 
-	return version.IsAtLeast(Version{Major: 7, Minor: 1, Patch: 55})
+	return version.IsAtLeast(Version{api.Version{Major: 7, Minor: 1, Patch: 55}})
+}
+
+// IsProtocolCompatible determines whether two versions of FDB are protocol
+// compatible.
+func (version Version) IsProtocolCompatible(other Version) bool {
+	return version.Version.IsProtocolCompatible(other.Version)
+}
+
+// Equal checks if two Version are the same.
+func (version Version) Equal(other Version) bool {
+	return version.Version.Equal(other.Version)
+}
+
+// IsAtLeast determines if a version is greater than or equal to another version.
+func (version Version) IsAtLeast(other Version) bool {
+	return version.Version.IsAtLeast(other.Version)
+}
+
+// NextMajorVersion returns the next major version of FoundationDB.
+func (version Version) NextMajorVersion() Version {
+	return Version{version.Version.NextMajorVersion()}
+}
+
+// NextMinorVersion returns the next minor version of FoundationDB.
+func (version Version) NextMinorVersion() Version {
+	return Version{version.Version.NextMinorVersion()}
+}
+
+// NextPatchVersion returns the next patch version of FoundationDB.
+func (version Version) NextPatchVersion() Version {
+	return Version{version.Version.NextPatchVersion()}
 }
 
 // Versions provides a shorthand for known versions.
@@ -261,19 +172,19 @@ var Versions = struct {
 	SupportsLocalityBasedExclusions,
 	Default Version
 }{
-	Default:                           Version{Major: 6, Minor: 2, Patch: 21},
-	IncompatibleVersion:               Version{Major: 6, Minor: 1, Patch: 0},
-	PreviousPatchVersion:              Version{Major: 6, Minor: 2, Patch: 20},
-	NextPatchVersion:                  Version{Major: 6, Minor: 2, Patch: 22},
-	NextMajorVersion:                  Version{Major: 7, Minor: 0, Patch: 0},
-	MinimumVersion:                    Version{Major: 6, Minor: 2, Patch: 20},
-	SupportsRocksDBV1:                 Version{Major: 7, Minor: 1, Patch: 0, ReleaseCandidate: 4},
-	SupportsIsPresent:                 Version{Major: 7, Minor: 1, Patch: 4},
-	SupportsShardedRocksDB:            Version{Major: 7, Minor: 2, Patch: 0},
-	SupportsRedwood1Experimental:      Version{Major: 7, Minor: 0, Patch: 0},
-	SupportsRedwood1:                  Version{Major: 7, Minor: 3, Patch: 0},
-	SupportsRecoveryState:             Version{Major: 7, Minor: 1, Patch: 22},
-	SupportsDNSInClusterFile:          Version{Major: 7, Minor: 0, Patch: 0},
-	SupportsLocalityBasedExclusions71: Version{Major: 7, Minor: 1, Patch: 42},
-	SupportsLocalityBasedExclusions:   Version{Major: 7, Minor: 3, Patch: 26},
+	Default:                           Version{api.Version{Major: 6, Minor: 2, Patch: 21}},
+	IncompatibleVersion:               Version{api.Version{Major: 6, Minor: 1, Patch: 0}},
+	PreviousPatchVersion:              Version{api.Version{Major: 6, Minor: 2, Patch: 20}},
+	NextPatchVersion:                  Version{api.Version{Major: 6, Minor: 2, Patch: 22}},
+	NextMajorVersion:                  Version{api.Version{Major: 7, Minor: 0, Patch: 0}},
+	MinimumVersion:                    Version{api.Version{Major: 6, Minor: 2, Patch: 20}},
+	SupportsRocksDBV1:                 Version{api.Version{Major: 7, Minor: 1, Patch: 0, ReleaseCandidate: 4}},
+	SupportsIsPresent:                 Version{api.Version{Major: 7, Minor: 1, Patch: 4}},
+	SupportsShardedRocksDB:            Version{api.Version{Major: 7, Minor: 2, Patch: 0}},
+	SupportsRedwood1Experimental:      Version{api.Version{Major: 7, Minor: 0, Patch: 0}},
+	SupportsRedwood1:                  Version{api.Version{Major: 7, Minor: 3, Patch: 0}},
+	SupportsRecoveryState:             Version{api.Version{Major: 7, Minor: 1, Patch: 22}},
+	SupportsDNSInClusterFile:          Version{api.Version{Major: 7, Minor: 0, Patch: 0}},
+	SupportsLocalityBasedExclusions71: Version{api.Version{Major: 7, Minor: 1, Patch: 42}},
+	SupportsLocalityBasedExclusions:   Version{api.Version{Major: 7, Minor: 3, Patch: 26}},
 }

@@ -4,8 +4,8 @@ go 1.22
 
 require (
 	github.com/apple/foundationdb/bindings/go v0.0.0-20231020161252-ed27c828ca16
-	// Corresponds to chaos-mesh API v2.6.0
 	github.com/apple/foundationdb/fdbkubernetesmonitor v0.0.0-20240515040035-0f510db2a0aa
+	// Corresponds to chaos-mesh API v2.6.0
 	github.com/chaos-mesh/chaos-mesh/api v0.0.0-20230613082117-03097981f627
 	github.com/fatih/color v1.14.1
 	github.com/go-logr/logr v1.2.4
@@ -29,6 +29,9 @@ require (
 	sigs.k8s.io/controller-runtime v0.14.7
 	sigs.k8s.io/yaml v1.3.0
 )
+
+// TOOD (johscheuer): Change this back once https://github.com/apple/foundationdb/pull/11464 is merged.
+replace github.com/apple/foundationdb/fdbkubernetesmonitor => github.com/johscheuer/foundationdb/fdbkubernetesmonitor v0.0.0-20240621140641-d991584ea922
 
 require golang.org/x/sync v0.3.0
 

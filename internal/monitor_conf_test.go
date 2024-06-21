@@ -59,14 +59,14 @@ var _ = Describe("monitor_conf", func() {
 				config := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 1, fdbv1beta2.ImageTypeUnified)
 				Expect(config.RunServers).NotTo(BeNil())
 				Expect(*config.RunServers).To(BeFalse())
-				Expect(config.Version).To(Equal(fdbv1beta2.Versions.Default.String()))
+				Expect(config.Version).To(Equal(&fdbv1beta2.Versions.Default.Version))
 			})
 		})
 
 		When("running a storage instance", func() {
 			It("generates the conf", func() {
 				config := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 1, fdbv1beta2.ImageTypeUnified)
-				Expect(config.Version).To(Equal(fdbv1beta2.Versions.Default.String()))
+				Expect(config.Version).To(Equal(&fdbv1beta2.Versions.Default.Version))
 				Expect(config.BinaryPath).To(BeEmpty())
 				Expect(config.RunServers).To(BeNil())
 
@@ -101,7 +101,7 @@ var _ = Describe("monitor_conf", func() {
 		When("running a log instance", func() {
 			It("generates the conf", func() {
 				config := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassLog, 1, fdbv1beta2.ImageTypeUnified)
-				Expect(config.Version).To(Equal(fdbv1beta2.Versions.Default.String()))
+				Expect(config.Version).To(Equal(&fdbv1beta2.Versions.Default.Version))
 				Expect(config.BinaryPath).To(BeEmpty())
 				Expect(config.RunServers).To(BeNil())
 
@@ -113,7 +113,7 @@ var _ = Describe("monitor_conf", func() {
 		When("using the split image type", func() {
 			It("generates the conf", func() {
 				config := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 1, fdbv1beta2.ImageTypeSplit)
-				Expect(config.Version).To(Equal(fdbv1beta2.Versions.Default.String()))
+				Expect(config.Version).To(Equal(&fdbv1beta2.Versions.Default.Version))
 				Expect(config.BinaryPath).To(BeEmpty())
 				Expect(config.RunServers).To(BeNil())
 
