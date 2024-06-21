@@ -51,22 +51,22 @@ type singleton struct {
 var (
 	once             = sync.Once{}
 	currentSingleton *singleton
+	initializedError error
 )
 
 func getSingleton(options *FactoryOptions) (*singleton, error) {
-	var err error
 	// Setup the singleton once per test suite.
 	once.Do(func() {
-		err = options.validateFlags()
-		if err != nil {
+		initializedError = options.validateFlags()
+		if initializedError != nil {
 			return
 		}
 
 		var userName string
 		if options.username == "" {
 			var u *user.User
-			u, err = user.Current()
-			if err != nil {
+			u, initializedError = user.Current()
+			if initializedError != nil {
 				return
 			}
 			userName = u.Username
@@ -75,52 +75,52 @@ func getSingleton(options *FactoryOptions) (*singleton, error) {
 		}
 
 		var kubeConfig *rest.Config
-		kubeConfig, err = config.GetConfigWithContext(options.context)
-		if err != nil {
+		kubeConfig, initializedError = config.GetConfigWithContext(options.context)
+		if initializedError != nil {
 			return
 		}
 		var kubernetesClient *kubernetes.Clientset
-		kubernetesClient, err = kubernetes.NewForConfig(kubeConfig)
-		if err != nil {
+		kubernetesClient, initializedError = kubernetes.NewForConfig(kubeConfig)
+		if initializedError != nil {
 			return
 		}
 		var fdbVersion fdbv1beta2.Version
-		fdbVersion, err = fdbv1beta2.ParseFdbVersion(options.fdbVersion)
-		if err != nil {
+		fdbVersion, initializedError = fdbv1beta2.ParseFdbVersion(options.fdbVersion)
+		if initializedError != nil {
 			return
 		}
 
 		// Also add Apps v1 and Core v1 to allow to use the controller runtime client
 		// to modify Pods, Deployments etc.
 		curScheme := runtime.NewScheme()
-		err = scheme.AddToScheme(curScheme)
-		if err != nil {
+		initializedError = scheme.AddToScheme(curScheme)
+		if initializedError != nil {
 			return
 		}
-		err = appsv1.AddToScheme(curScheme)
-		if err != nil {
+		initializedError = appsv1.AddToScheme(curScheme)
+		if initializedError != nil {
 			return
 		}
-		err = corev1.AddToScheme(curScheme)
-		if err != nil {
+		initializedError = corev1.AddToScheme(curScheme)
+		if initializedError != nil {
 			return
 		}
-		err = fdbv1beta2.AddToScheme(curScheme)
-		if err != nil {
+		initializedError = fdbv1beta2.AddToScheme(curScheme)
+		if initializedError != nil {
 			return
 		}
-		err = batchv1.AddToScheme(curScheme)
-		if err != nil {
+		initializedError = batchv1.AddToScheme(curScheme)
+		if initializedError != nil {
 			return
 		}
-		err = chaosmesh.AddToScheme(curScheme)
-		if err != nil {
+		initializedError = chaosmesh.AddToScheme(curScheme)
+		if initializedError != nil {
 			return
 		}
 
 		var controllerClient client.Client
-		controllerClient, err = LoadControllerRuntimeFromContext(options.context, curScheme)
-		if err != nil {
+		controllerClient, initializedError = LoadControllerRuntimeFromContext(options.context, curScheme)
+		if initializedError != nil {
 			return
 		}
 
@@ -134,9 +134,13 @@ func getSingleton(options *FactoryOptions) (*singleton, error) {
 		}
 	})
 
+	if initializedError != nil {
+		return nil, initializedError
+	}
+
 	if currentSingleton == nil {
 		return nil, fmt.Errorf("singleton was not initialized")
 	}
 
-	return currentSingleton, err
+	return currentSingleton, nil
 }
