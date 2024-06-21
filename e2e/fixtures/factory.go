@@ -74,13 +74,13 @@ func CreateFactory(options *FactoryOptions) *Factory {
 	configuration, err := getSingleton(options)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-	// TODO (johscheuer): Add an option to make use of ginkgo.GinkgoRandomSeed() to have a deterministic setup with
-	// the pseudo-random-generator seed from Ginkgo.
+	seed := time.Now().Unix()
+	log.Println("using seed:", seed, "for factory")
 	return &Factory{
 		options:                 options,
 		shutdownHooks:           ShutdownHooks{},
 		invariantShutdownHooks:  ShutdownHooks{},
-		randomGenerator:         rand.New(rand.NewSource(time.Now().Unix())),
+		randomGenerator:         rand.New(rand.NewSource(seed)),
 		namespace:               options.namespace,
 		userName:                configuration.userName,
 		controllerRuntimeClient: configuration.controllerRuntimeClient,
