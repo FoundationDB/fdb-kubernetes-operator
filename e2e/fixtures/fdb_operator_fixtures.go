@@ -185,8 +185,7 @@ func (factory *Factory) ensureHAFdbClusterExists(
 		options,
 	)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
-	err = fdb.WaitForReconciliation(CreationTrackerLoggerOption(config.CreationTracker))
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	gomega.Expect(fdb.WaitForReconciliation(CreationTrackerLoggerOption(config.CreationTracker))).ToNot(gomega.HaveOccurred())
 	log.Printf("primary cluster is reconciled in namespaces=%s", namespaces)
 
 	cluster, err := factory.getClusterStatus(fdb.GetPrimary().Name(), fdb.GetPrimary().Namespace())

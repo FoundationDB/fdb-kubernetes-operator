@@ -256,7 +256,7 @@ var _ = Describe("Test Operator Velocity", Label("e2e", "nightly"), func() {
 				fdbCluster.GetPrimary().SetAutoReplacements(false, 1*time.Hour),
 			).NotTo(HaveOccurred())
 			// Partition a storage Pod from the rest of the cluster
-			pod := fixtures.ChooseRandomPod(fdbCluster.GetPrimary().GetStoragePods())
+			pod := factory.ChooseRandomPod(fdbCluster.GetPrimary().GetStoragePods())
 			log.Printf("partition Pod: %s", pod.Name)
 			exp = factory.InjectPartition(fixtures.PodSelector(pod))
 		})
@@ -300,7 +300,7 @@ var _ = Describe("Test Operator Velocity", Label("e2e", "nightly"), func() {
 	When("a knob is changed and a single pod in the primary region is replaced", func() {
 		BeforeEach(func() {
 			// Start replacement of a random storage Pod.
-			pod := fixtures.ChooseRandomPod(fdbCluster.GetPrimary().GetStoragePods())
+			pod := factory.ChooseRandomPod(fdbCluster.GetPrimary().GetStoragePods())
 			log.Println("Start replacing", pod.Name)
 			fdbCluster.GetPrimary().ReplacePod(*pod, false)
 		})

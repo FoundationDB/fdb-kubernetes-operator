@@ -49,7 +49,7 @@ func (factory *Factory) InjectNetworkLoss(lossPercentage string, source chaosmes
 
 	return factory.CreateExperiment(&chaosmesh.NetworkChaos{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      RandStringRunes(32),
+			Name:      factory.RandStringRunes(32),
 			Namespace: factory.GetChaosNamespace(),
 			Labels:    factory.GetDefaultLabels(),
 		},
@@ -140,7 +140,7 @@ func (factory *Factory) injectPartitionBetween(
 
 	return factory.CreateExperiment(&chaosmesh.NetworkChaos{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      RandStringRunes(32),
+			Name:      factory.RandStringRunes(32),
 			Namespace: factory.GetChaosNamespace(),
 			Labels:    factory.GetDefaultLabels(),
 		},

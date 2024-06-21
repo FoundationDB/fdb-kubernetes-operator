@@ -48,7 +48,7 @@ func hashKeyID(n *big.Int) ([]byte, error) {
 
 // GenerateCertificate generates a Kubernetes Secret that contains a valid certificate, key and ca.pem. This method can
 // be used to create e2e test FDB clusters.
-func GenerateCertificate() (*corev1.Secret, error) {
+func (factory *Factory) GenerateCertificate() (*corev1.Secret, error) {
 	caPrivateKey, err := rsa.GenerateKey(rand.Reader, 4096)
 	if err != nil {
 		return nil, err
@@ -147,7 +147,7 @@ func GenerateCertificate() (*corev1.Secret, error) {
 	return &corev1.Secret{
 		Type: corev1.SecretTypeTLS,
 		ObjectMeta: metav1.ObjectMeta{
-			Name: RandStringRunes(32),
+			Name: factory.RandStringRunes(32),
 		},
 		// Let the Kubernetes API do the base64 encoding
 		StringData: map[string]string{

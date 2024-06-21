@@ -86,7 +86,7 @@ var _ = Describe("Operator maintenance mode tests", Label("e2e"), func() {
 		var faultDomain fdbv1beta2.FaultDomain
 
 		BeforeEach(func() {
-			failingStoragePod = fixtures.RandomPickOnePod(fdbCluster.GetStoragePods().Items)
+			failingStoragePod = factory.RandomPickOnePod(fdbCluster.GetStoragePods().Items)
 
 			// Set maintenance mode for this Pod
 			for _, processGroup := range fdbCluster.GetCluster().Status.ProcessGroups {

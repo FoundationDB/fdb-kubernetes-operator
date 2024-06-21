@@ -44,48 +44,44 @@ const (
 // factory.getRandomizedNamespaceName() checks if the username is valid to be used in the namespace name. If so this
 // method will return the namespace name as the username a hyphen and 8 random chars.
 func (factory *Factory) getRandomizedNamespaceName() string {
-	gomega.Expect(factory.singleton.userName).To(gomega.MatchRegexp(namespaceRegEx), "user name contains invalid characters")
-	return factory.singleton.userName + "-" + RandStringRunes(8)
+	gomega.Expect(factory.userName).To(gomega.MatchRegexp(namespaceRegEx), "user name contains invalid characters")
+	return factory.userName + "-" + factory.RandStringRunes(8)
 }
 
 // MultipleNamespaces creates multiple namespaces for HA testing.
 func (factory *Factory) MultipleNamespaces(config *ClusterConfig, dcIDs []string) []string {
 	// If a namespace is provided in the config we will use this name as prefix.
 	if config.Namespace != "" {
-		factory.options.namespace = config.Namespace
-	} else if factory.options.namespace == "" {
+		factory.namespace = config.Namespace
+	} else if factory.namespace == "" {
 		// If not namespace is provided in the config or per command line, we will generate a random name.
-		factory.options.namespace = factory.getRandomizedNamespaceName()
+		factory.namespace = factory.getRandomizedNamespaceName()
 	}
 
-	res := make([]string, len(dcIDs))
+	factory.namespaces = make([]string, len(dcIDs))
 	for idx, dcID := range dcIDs {
-		namespace := factory.createNamespace(dcID)
-		log.Println("Create namespace", namespace)
-		res[idx] = namespace
+		factory.namespaces[idx] = factory.createNamespace(dcID)
 	}
 
-	factory.singleton.namespaces = res
-
-	return res
+	return factory.namespaces
 }
 
 // SingleNamespace returns a single namespace.
 func (factory *Factory) SingleNamespace() string {
-	if len(factory.singleton.namespaces) > 0 {
-		return factory.singleton.namespaces[0]
+	if len(factory.namespaces) > 0 {
+		return factory.namespaces[0]
 	}
 
 	namespace := factory.createNamespace("")
-	if len(factory.singleton.namespaces) == 0 {
-		factory.singleton.namespaces = append(factory.singleton.namespaces, namespace)
+	if len(factory.namespaces) == 0 {
+		factory.namespaces = append(factory.namespaces, namespace)
 	}
 
 	return namespace
 }
 
 func (factory *Factory) createNamespace(suffix string) string {
-	namespace := factory.options.namespace
+	namespace := factory.namespace
 
 	if namespace == "" {
 		namespace = factory.getRandomizedNamespaceName()
@@ -154,7 +150,7 @@ func (factory *Factory) checkIfNamespaceIsTerminating(name string) {
 		}
 
 		// If the namespace is in terminating, we have to check if any pod are stuck in terminating with a finalizer set.
-		log.Printf("Namespace: %s is in terminating state since: %s will wait until the namespace is deleted", namespace, deletionTimestamp.String())
+		log.Printf("Namespace: %s is in terminating state since: %s will wait until the namespace is deleted", namespace.Name, deletionTimestamp.String())
 		podList := &corev1.PodList{}
 		err = controllerClient.List(ctx.Background(), podList, client.InNamespace(name))
 		g.Expect(err).NotTo(gomega.HaveOccurred())

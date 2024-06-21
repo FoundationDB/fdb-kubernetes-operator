@@ -108,6 +108,7 @@ nightly-tests: GINKGO_LABEL_FILTER=--ginkgo.label-filter="pr || nightly"
 nightly-tests: run
 
 %.run: %
+	@sleep $$(shuf -i 1-10 -n 1)
 	go test -timeout=$(TIMEOUT) $(VERBOSE) ./$< \
 	${NO_COLOR} ${GINKGO_VERBOSE} \
 	  $(GINKGO_LABEL_FILTER) \

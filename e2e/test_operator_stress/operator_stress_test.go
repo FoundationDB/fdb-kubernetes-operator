@@ -83,7 +83,7 @@ var _ = Describe("Operator Stress", Label("e2e"), func() {
 			// Since Ginkgo doesn't support what we want, we run this multiple times.
 			for i := 0; i < 10; i++ {
 				Expect(fdbCluster.ClearProcessGroupsToRemove()).ShouldNot(HaveOccurred())
-				pod := fixtures.ChooseRandomPod(fdbCluster.GetPods())
+				pod := factory.ChooseRandomPod(fdbCluster.GetPods())
 				fdbCluster.ReplacePod(*pod, true)
 			}
 		})
