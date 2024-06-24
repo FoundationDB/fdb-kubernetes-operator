@@ -31,30 +31,31 @@ import (
 
 // FactoryOptions defines the (command line) options that are support for the e2e test cases.
 type FactoryOptions struct {
-	namespace                   string
-	chaosNamespace              string
-	context                     string
-	fdbImage                    string
-	unifiedFDBImage             string
-	sidecarImage                string
-	operatorImage               string
-	dataLoaderImage             string
-	registry                    string
-	fdbVersion                  string
-	username                    string
-	storageClass                string
-	upgradeString               string
-	cloudProvider               string
-	clusterName                 string
-	storageEngine               string
-	fdbVersionTagMapping        string
-	enableChaosTests            bool
-	enableDataLoading           bool
-	cleanup                     bool
-	featureOperatorDNS          bool
-	featureOperatorLocalities   bool
-	featureOperatorUnifiedImage bool
-	dumpOperatorState           bool
+	namespace                      string
+	chaosNamespace                 string
+	context                        string
+	fdbImage                       string
+	unifiedFDBImage                string
+	sidecarImage                   string
+	operatorImage                  string
+	dataLoaderImage                string
+	registry                       string
+	fdbVersion                     string
+	username                       string
+	storageClass                   string
+	upgradeString                  string
+	cloudProvider                  string
+	clusterName                    string
+	storageEngine                  string
+	fdbVersionTagMapping           string
+	enableChaosTests               bool
+	enableDataLoading              bool
+	cleanup                        bool
+	featureOperatorDNS             bool
+	featureOperatorLocalities      bool
+	featureOperatorUnifiedImage    bool
+	featureOperatorServerSideApply bool
+	dumpOperatorState              bool
 }
 
 // BindFlags binds the FactoryOptions flags to the provided FlagSet. This can be used to extend the current test setup
@@ -191,6 +192,12 @@ func (options *FactoryOptions) BindFlags(fs *flag.FlagSet) {
 		"dump-operator-state",
 		true,
 		"defines if the operator tests should print the state of the cluster and the according Pods for better debugging.",
+	)
+	fs.BoolVar(
+		&options.featureOperatorServerSideApply,
+		"feature-server-side-apply",
+		true, // TODO change to false.
+		"defines if the operator should make use of server side apply.",
 	)
 	fs.StringVar(&options.clusterName,
 		"cluster-name",

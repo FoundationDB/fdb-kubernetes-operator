@@ -485,7 +485,9 @@ spec:
           - --max-concurrent-reconciles=5
           - --zap-log-level=debug
           - --minimum-required-uptime-for-cc-bounce=60s
+{{ if .EnableServerSideApply }}
           - --server-side-apply
+{{ end }}
           # We are setting low values here as the e2e test are taking down processes multiple times
           # and having a high wait time between recoveries will increase the reliability of the cluster but also
           # increase the time our e2e test take.
@@ -518,6 +520,8 @@ type operatorConfig struct {
 	MemoryRequests string
 	// Defines the user that runs the current e2e tests.
 	User string
+	// EnableServerSideApply if true, the operator will make use of server side apply.
+	EnableServerSideApply bool
 }
 
 // SidecarConfig represents the configuration for a sidecar. This can be used for templating.
@@ -603,15 +607,16 @@ func (factory *Factory) getOperatorConfig(namespace string) *operatorConfig {
 	}
 
 	return &operatorConfig{
-		OperatorImage:    factory.GetOperatorImage(),
-		SecretName:       factory.GetSecretName(),
-		BackupSecretName: factory.GetBackupSecretName(),
-		Namespace:        namespace,
-		SidecarVersions:  factory.GetSidecarConfigs(),
-		ImagePullPolicy:  factory.getImagePullPolicy(),
-		CPURequests:      cpuRequests,
-		MemoryRequests:   MemoryRequests,
-		User:             factory.options.username,
+		OperatorImage:         factory.GetOperatorImage(),
+		SecretName:            factory.GetSecretName(),
+		BackupSecretName:      factory.GetBackupSecretName(),
+		Namespace:             namespace,
+		SidecarVersions:       factory.GetSidecarConfigs(),
+		ImagePullPolicy:       factory.getImagePullPolicy(),
+		CPURequests:           cpuRequests,
+		MemoryRequests:        MemoryRequests,
+		User:                  factory.options.username,
+		EnableServerSideApply: factory.options.featureOperatorServerSideApply,
 	}
 }
 
