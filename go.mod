@@ -7,10 +7,10 @@ require (
 	// Corresponds to chaos-mesh API v2.6.0
 	github.com/apple/foundationdb/fdbkubernetesmonitor v0.0.0-20240515040035-0f510db2a0aa
 	github.com/chaos-mesh/chaos-mesh/api v0.0.0-20230613082117-03097981f627
-	github.com/fatih/color v1.14.1
+	github.com/fatih/color v1.16.0
 	github.com/go-logr/logr v1.2.4
 	github.com/google/go-cmp v0.5.9
-	github.com/hashicorp/go-retryablehttp v0.7.2
+	github.com/hashicorp/go-retryablehttp v0.7.7
 	github.com/onsi/ginkgo/v2 v2.9.7
 	github.com/onsi/gomega v1.27.8
 	github.com/prometheus/client_golang v1.16.0
@@ -68,7 +68,7 @@ require (
 	github.com/magiconair/properties v1.8.7 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
-	github.com/mattn/go-isatty v0.0.17 // indirect
+	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/moby/spdystream v0.2.0 // indirect
@@ -92,7 +92,7 @@ require (
 	go.uber.org/zap v1.25.0 // indirect
 	golang.org/x/net v0.23.0 // indirect
 	golang.org/x/oauth2 v0.5.0 // indirect
-	golang.org/x/sys v0.18.0 // indirect
+	golang.org/x/sys v0.20.0 // indirect
 	golang.org/x/term v0.18.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
