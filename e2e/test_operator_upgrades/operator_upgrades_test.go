@@ -658,10 +658,6 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 				Skip("Chaos tests are skipped for the operator")
 			}
 
-			if fixtures.VersionsAreProtocolCompatible(beforeVersion, targetVersion) {
-				Skip("this test only affects version incompatible upgrades")
-			}
-
 			// If we are not using the unified image, we can skip this test.
 			if !factory.UseUnifiedImage() {
 				Skip("The sidecar image doesn't require connectivity to the Kubernetes API")
@@ -708,9 +704,9 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 				Consistently(func() bool {
 					return fdbCluster.GetCluster().Status.RunningVersion == beforeVersion
 				}).WithTimeout(3 * time.Minute).WithPolling(2 * time.Second).Should(BeTrue())
-			}
 
-			factory.DeleteChaosMeshExperimentSafe(exp)
+				factory.DeleteChaosMeshExperimentSafe(exp)
+			}
 
 			// Make sure the cluster is upgraded
 			fdbCluster.VerifyVersion(targetVersion)
