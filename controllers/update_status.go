@@ -238,7 +238,6 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 	})
 
 	cluster.Status = clusterStatus
-
 	reconciled, err := cluster.CheckReconciliation(logger)
 	if err != nil {
 		return &requeue{curError: err}
@@ -261,6 +260,11 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 			logger.Error(err, "Error updating cluster clusterStatus")
 			return &requeue{curError: err}
 		}
+	}
+
+	// If the cluster is not reconciled, make sure we trigger a new reconciliation loop.
+	if !reconciled {
+		return &requeue{message: "cluster is not fully reconciled", delayedRequeue: true}
 	}
 
 	return nil
