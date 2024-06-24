@@ -196,7 +196,7 @@ func (options *FactoryOptions) BindFlags(fs *flag.FlagSet) {
 	fs.BoolVar(
 		&options.featureOperatorServerSideApply,
 		"feature-server-side-apply",
-		true, // TODO change to false.
+		false,
 		"defines if the operator should make use of server side apply.",
 	)
 	fs.StringVar(&options.clusterName,
