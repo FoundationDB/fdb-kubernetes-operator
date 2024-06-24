@@ -2507,9 +2507,9 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 		AfterEach(func() {
 			pod := &corev1.Pod{}
-			Expect(factory.GetControllerRuntimeClient().Get(ctx.Background(), ctrlClient.ObjectKey{Name: isolatedPod.Name, Namespace: isolatedPod.Namespace}, pod)).NotTo(HaveOccurred())
+			Expect(factory.GetControllerRuntimeClient().Get(context.Background(), ctrlClient.ObjectKey{Name: isolatedPod.Name, Namespace: isolatedPod.Namespace}, pod)).NotTo(HaveOccurred())
 			pod.Annotations[fdbv1beta2.IsolateProcessGroupAnnotation] = "false"
-			Expect(factory.GetControllerRuntimeClient().Update(ctx.Background(), pod)).NotTo(HaveOccurred())
+			Expect(factory.GetControllerRuntimeClient().Update(context.Background(), pod)).NotTo(HaveOccurred())
 		})
 	})
 })
