@@ -181,6 +181,7 @@ For an HA cluster you have to update all clusters that are managed by the operat
 
 _NOTE_: This feature requires the [unified image](./customization.md#unified-vs-split-images).
 _WARNING_: By design this feature can be disruptive as the `fdbserver` process will be directly shutdown by the `fdb-kubernetes-monitor` to keep the state of the Pod.
+_WARNING_: Since this mechanism is not set by the operator itself but with an annotation, that annotation will not be present if the Pod gets deleted. In the case that the Pod is not marked to be removed and not yet fully excluded, the operator will recreate the Pod. Otherwise all resources will be removed.
 
 There might be cases where it is useful to isolate a specific Pod or a set of Pods from the cluster, e.g. in cases where a user wants to debug data corruption or networking issues without affecting the actual cluster.
 In those cases a user can set the Pod annotation `foundationdb.org/isolate-process-group` to `true`.
