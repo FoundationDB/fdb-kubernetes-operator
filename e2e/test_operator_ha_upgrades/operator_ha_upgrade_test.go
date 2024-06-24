@@ -29,7 +29,6 @@ Each test will create a new HA FoundationDB cluster which will be upgraded.
 import (
 	"fmt"
 	"log"
-	"math/rand"
 	"strconv"
 	"strings"
 	"sync"
@@ -422,11 +421,11 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 					return true
 				}
 
-				randomCluster := clusters[rand.Intn(len(clusters))]
+				randomCluster := factory.RandomPickOneCluster(clusters)
 				// Make sure we are not deleting coordinator Pods
 				var randomPod *corev1.Pod
 				Eventually(func() bool {
-					randomPod = fixtures.ChooseRandomPod(randomCluster.GetPods())
+					randomPod = factory.ChooseRandomPod(randomCluster.GetPods())
 					_, ok := coordinatorMap[randomPod.UID]
 					if ok {
 						log.Println("Skipping pod: ", randomPod.Name, "as it is a coordinator")

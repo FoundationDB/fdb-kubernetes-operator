@@ -100,7 +100,7 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 			// Inject chaos only to storage Pods to reduce the risk of a long recovery because a transaction
 			// system Pod was partitioned. The test still has the same checks that will be performed.
 			// Once we have a better availability check for upgrades we can target all pods again.
-			partitionedPod := fixtures.ChooseRandomPod(fdbCluster.GetStoragePods())
+			partitionedPod := factory.ChooseRandomPod(fdbCluster.GetStoragePods())
 			log.Println("Injecting network partition to pod: ", partitionedPod.Name)
 			exp := factory.InjectPartitionBetween(
 				fixtures.PodSelector(partitionedPod),
@@ -143,7 +143,7 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 			fdbCluster.SetIgnoreMissingProcessesSeconds(30 * time.Minute)
 
 			// 1. Introduce network partition b/w Pod and cluster.
-			partitionedPod := fixtures.ChooseRandomPod(fdbCluster.GetStoragePods())
+			partitionedPod := factory.ChooseRandomPod(fdbCluster.GetStoragePods())
 			log.Println("Injecting network partition to pod: ", partitionedPod.Name)
 			_ = factory.InjectPartitionBetween(
 				fixtures.PodSelector(partitionedPod),
@@ -205,7 +205,7 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 			log.Println("Injecting packet loss b/w pod")
 			allPods := fdbCluster.GetAllPods()
 
-			pickedPods := fixtures.RandomPickPod(allPods.Items, len(allPods.Items)/5)
+			pickedPods := factory.RandomPickPod(allPods.Items, len(allPods.Items)/5)
 			Expect(pickedPods).ToNot(BeEmpty())
 			for _, pod := range pickedPods {
 				log.Println("Picked Pod", pod.Name)
@@ -260,7 +260,7 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 
 			// Select one Pod, this Pod will mount the fdbmonitor config file as read-only.
 			// This should block the upgrade.
-			faultyPod := fixtures.RandomPickOnePod(fdbCluster.GetPods().Items)
+			faultyPod := factory.RandomPickOnePod(fdbCluster.GetPods().Items)
 
 			// We have to update the sidecar before the operator is doing it. If we don't do this here the operator
 			// will update the sidecar and then the I/O chaos will be gone. So we prepare the faulty Pod to already
@@ -374,7 +374,7 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 
 			// Select one Pod, this Pod will miss the new fdbserver binary.
 			// This should block the upgrade.
-			faultyPod := fixtures.RandomPickOnePod(fdbCluster.GetPods().Items)
+			faultyPod := factory.RandomPickOnePod(fdbCluster.GetPods().Items)
 
 			// We have to update the sidecar before the operator is doing it. If we don't do this here the operator
 			// will update the sidecar and then the sidecar will copy the binaries at start-up. So we prepare the faulty Pod to already

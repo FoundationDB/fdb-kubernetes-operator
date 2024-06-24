@@ -35,7 +35,6 @@ import (
 	"fmt"
 	"log"
 	"math"
-	"math/rand"
 	"strings"
 	"time"
 
@@ -184,7 +183,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 		When("cluster enables taint feature on focused maintenance taint key", func() {
 			It("should remove the targeted Pod whose Node is tainted", func() {
-				replacedPod := fixtures.RandomPickOnePod(initialPods.Items)
+				replacedPod := factory.RandomPickOnePod(initialPods.Items)
 				// Taint replacePod's node
 				taintedNode = fdbCluster.GetNode(replacedPod.Spec.NodeName)
 				taintedNode.Spec.Taints = []corev1.Taint{
@@ -206,7 +205,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			})
 
 			It("should remove all Pods whose Nodes are tainted", func() {
-				replacedPods := fixtures.RandomPickPod(initialPods.Items, numNodesTainted)
+				replacedPods := factory.RandomPickPod(initialPods.Items, numNodesTainted)
 				for _, pod := range replacedPods {
 					// Taint replacePod's node
 					node := fdbCluster.GetNode(pod.Spec.NodeName)
@@ -215,7 +214,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 							Key:       taintKeyMaintenance,
 							Value:     "rack_maintenance",
 							Effect:    corev1.TaintEffectPreferNoSchedule,
-							TimeAdded: &metav1.Time{Time: time.Now().Add(-time.Millisecond * time.Duration(taintKeyMaintenanceDuration*1000+int64(rand.Intn(1000))))},
+							TimeAdded: &metav1.Time{Time: time.Now().Add(-time.Millisecond * time.Duration(taintKeyMaintenanceDuration*1000+int64(factory.Intn(1000))))},
 						},
 					}
 					log.Printf("Taint node: Pod name:%s Node name:%s Node taints:%+v TaintTime:%+v Now:%+v\n", pod.Name,
@@ -255,7 +254,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			})
 
 			It("should eventually remove the targeted Pod whose Node is tainted", func() {
-				replacedPod := fixtures.RandomPickOnePod(initialPods.Items)
+				replacedPod := factory.RandomPickOnePod(initialPods.Items)
 				// Taint replacePod's node
 				node := fdbCluster.GetNode(replacedPod.Spec.NodeName)
 				node.Spec.Taints = []corev1.Taint{
@@ -277,7 +276,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			})
 
 			It("should eventually remove all Pods whose Nodes are tainted", func() {
-				replacedPods := fixtures.RandomPickPod(initialPods.Items, numNodesTainted)
+				replacedPods := factory.RandomPickPod(initialPods.Items, numNodesTainted)
 				for _, pod := range replacedPods {
 					// Taint replacePod's node
 					node := fdbCluster.GetNode(pod.Spec.NodeName)
@@ -286,7 +285,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 							Key:       taintKeyMaintenance,
 							Value:     "rack_maintenance",
 							Effect:    corev1.TaintEffectPreferNoSchedule,
-							TimeAdded: &metav1.Time{Time: time.Now().Add(-time.Millisecond * time.Duration(taintKeyStarDuration*1000+int64(rand.Intn(1000))))},
+							TimeAdded: &metav1.Time{Time: time.Now().Add(-time.Millisecond * time.Duration(taintKeyStarDuration*1000+int64(factory.Intn(1000))))},
 						},
 					}
 					log.Printf("Taint node: Pod name:%s Node name:%s Node taints:%+v TaintTime:%+v Now:%+v\n", pod.Name,
@@ -319,7 +318,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			})
 
 			It("should not remove any Pod whose Nodes are tainted", func() {
-				targetPods := fixtures.RandomPickPod(initialPods.Items, numNodesTainted)
+				targetPods := factory.RandomPickPod(initialPods.Items, numNodesTainted)
 				var targetPodProcessGroupIDs []fdbv1beta2.ProcessGroupID
 				for _, pod := range targetPods {
 					targetPodProcessGroupIDs = append(targetPodProcessGroupIDs, internal.GetProcessGroupIDFromMeta(fdbCluster.GetCluster(), pod.ObjectMeta))
@@ -330,7 +329,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 							Key:       taintKeyMaintenance,
 							Value:     "rack_maintenance",
 							Effect:    corev1.TaintEffectPreferNoSchedule,
-							TimeAdded: &metav1.Time{Time: time.Now().Add(-time.Millisecond * time.Duration(taintKeyStarDuration*1000+int64(rand.Intn(1000))))},
+							TimeAdded: &metav1.Time{Time: time.Now().Add(-time.Millisecond * time.Duration(taintKeyStarDuration*1000+int64(factory.Intn(1000))))},
 						},
 					}
 					log.Printf("Taint node: Pod name:%s Node name:%s Node taints:%+v TaintTime:%+v Now:%+v\n", pod.Name,
@@ -376,7 +375,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 		JustBeforeEach(func() {
 			initialPods := fdbCluster.GetStatelessPods()
-			replacedPod = fixtures.RandomPickOnePod(initialPods.Items)
+			replacedPod = factory.RandomPickOnePod(initialPods.Items)
 			fdbCluster.ReplacePod(replacedPod, true)
 		})
 
@@ -543,7 +542,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 		BeforeEach(func() {
 			initialPods := fdbCluster.GetStatelessPods()
-			failedPod = fixtures.RandomPickOnePod(initialPods.Items)
+			failedPod = factory.RandomPickOnePod(initialPods.Items)
 			log.Printf("Setting pod %s to unschedulable.", failedPod.Name)
 			Expect(fdbCluster.SetPodAsUnschedulable(failedPod)).NotTo(HaveOccurred())
 			fdbCluster.ReplacePod(failedPod, true)
@@ -564,8 +563,8 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		var podToReplace *corev1.Pod
 
 		BeforeEach(func() {
-			failedPod = fixtures.ChooseRandomPod(fdbCluster.GetStatelessPods())
-			podToReplace = fixtures.ChooseRandomPod(fdbCluster.GetStatelessPods())
+			failedPod = factory.ChooseRandomPod(fdbCluster.GetStatelessPods())
+			podToReplace = factory.ChooseRandomPod(fdbCluster.GetStatelessPods())
 			log.Println(
 				"Failed (unscheduled) Pod:",
 				failedPod.Name,
@@ -596,7 +595,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 		It("should not reconcile and keep the cluster in the same generation", func() {
 			initialStoragePods := fdbCluster.GetStoragePods()
-			podToDelete := fixtures.ChooseRandomPod(initialStoragePods)
+			podToDelete := factory.ChooseRandomPod(initialStoragePods)
 			log.Printf("deleting storage pod %s/%s", podToDelete.Namespace, podToDelete.Name)
 			factory.DeletePod(podToDelete)
 			Eventually(func() int {
@@ -684,7 +683,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		var deleteTime time.Time
 
 		BeforeEach(func() {
-			podToDelete = fixtures.RandomPickOnePod(fdbCluster.GetStoragePods().Items)
+			podToDelete = factory.RandomPickOnePod(fdbCluster.GetStoragePods().Items)
 			log.Printf("deleting storage pod %s/%s", podToDelete.Namespace, podToDelete.Name)
 			deleteTime = time.Now()
 			factory.DeletePod(&podToDelete)
@@ -717,7 +716,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			var partitionedPod *corev1.Pod
 
 			BeforeEach(func() {
-				partitionedPod = fixtures.ChooseRandomPod(fdbCluster.GetStatelessPods())
+				partitionedPod = factory.ChooseRandomPod(fdbCluster.GetStatelessPods())
 				log.Printf("partition Pod: %s", partitionedPod.Name)
 				exp = factory.InjectPartitionBetween(
 					fixtures.PodSelector(partitionedPod),
@@ -761,7 +760,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				Expect(fdbCluster.SetAutoReplacements(false, 30*time.Second)).ShouldNot(HaveOccurred())
 
 				// Pick 2 Pods, so the operator has to replace them one after another
-				partitionedPods = fixtures.RandomPickPod(fdbCluster.GetStatelessPods().Items, 3)
+				partitionedPods = factory.RandomPickPod(fdbCluster.GetStatelessPods().Items, 3)
 				for _, partitionedPod := range partitionedPods {
 					pod := partitionedPod
 					log.Printf("partition Pod: %s", pod.Name)
@@ -833,7 +832,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			}
 			availabilityCheck = false
 			initialPods := fdbCluster.GetLogPods()
-			podWithIOError = fixtures.RandomPickOnePod(initialPods.Items)
+			podWithIOError = factory.RandomPickOnePod(initialPods.Items)
 			log.Printf("Injecting I/O chaos to %s", podWithIOError.Name)
 			exp = factory.InjectDiskFailure(fixtures.PodSelector(&podWithIOError))
 
@@ -871,7 +870,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			}
 			availabilityCheck = false
 			initialPods := fdbCluster.GetLogPods()
-			podWithIOError = fixtures.RandomPickOnePod(initialPods.Items)
+			podWithIOError = factory.RandomPickOnePod(initialPods.Items)
 			log.Printf("injecting iochaos to %s", podWithIOError.Name)
 			exp = factory.InjectIOLatency(fixtures.PodSelector(&podWithIOError), "2s")
 			log.Printf("iochaos injected to %s", podWithIOError.Name)
@@ -923,7 +922,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		var replacedPods []corev1.Pod
 
 		BeforeEach(func() {
-			fdbCluster.ReplacePods(fixtures.RandomPickPod(fdbCluster.GetStatelessPods().Items, 4), true)
+			fdbCluster.ReplacePods(factory.RandomPickPod(fdbCluster.GetStatelessPods().Items, 4), true)
 		})
 
 		AfterEach(func() {
@@ -944,7 +943,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 		BeforeEach(func() {
 			podsBeforeReplacement = fdbCluster.GetPodsNames()
-			replacePod = fixtures.ChooseRandomPod(fdbCluster.GetPods())
+			replacePod = factory.ChooseRandomPod(fdbCluster.GetPods())
 			factory.SetFinalizerForPod(replacePod, []string{"foundationdb.org/test"})
 			fdbCluster.ReplacePod(*replacePod, true)
 		})
@@ -1146,7 +1145,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				candidates = append(candidates, storageClass.Name)
 			}
 
-			targetStorageClass = candidates[rand.Intn(len(candidates))]
+			targetStorageClass = candidates[factory.Intn(len(candidates))]
 
 			Expect(fdbCluster.UpdateStorageClass(
 				targetStorageClass,
@@ -1172,7 +1171,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		var pvc corev1.PersistentVolumeClaim
 
 		BeforeEach(func() {
-			replacePod = fixtures.ChooseRandomPod(fdbCluster.GetLogPods())
+			replacePod = factory.ChooseRandomPod(fdbCluster.GetLogPods())
 			volClaimName := fixtures.GetPvc(replacePod)
 			initialVolumeClaims = fdbCluster.GetVolumeClaimsForProcesses(
 				fdbv1beta2.ProcessClassLog,
@@ -1255,7 +1254,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				fdbv1beta2.FoundationDBCustomParameter(newKnob),
 			)
 
-			pickedPod = fixtures.ChooseRandomPod(fdbCluster.GetStatelessPods())
+			pickedPod = factory.ChooseRandomPod(fdbCluster.GetStatelessPods())
 			log.Println("Selected Pod:", pickedPod.Name, " to be skipped during the restart")
 			fdbCluster.SetIgnoreDuringRestart(
 				[]fdbv1beta2.ProcessGroupID{fixtures.GetProcessGroupID(*pickedPod)},
@@ -1306,7 +1305,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 		BeforeEach(func() {
 			initialPods := fdbCluster.GetStatelessPods()
-			podMarkedForRemoval = fixtures.RandomPickOnePod(initialPods.Items)
+			podMarkedForRemoval = factory.RandomPickOnePod(initialPods.Items)
 			log.Println("Setting Pod", podMarkedForRemoval.Name, "to be blocked to be removed and mark it for removal.")
 			processGroupID = fixtures.GetProcessGroupID(podMarkedForRemoval)
 			fdbCluster.SetBuggifyBlockRemoval([]fdbv1beta2.ProcessGroupID{processGroupID})
@@ -1362,7 +1361,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			// Make sure the new Pod will be stuck in unschedulable.
 			fdbCluster.SetProcessGroupsAsUnschedulable([]fdbv1beta2.ProcessGroupID{processGroupID})
 			// Now replace a random Pod for replacement to force the cluster to create a new Pod.
-			fdbCluster.ReplacePod(fixtures.RandomPickOnePod(fdbCluster.GetStatelessPods().Items), false)
+			fdbCluster.ReplacePod(factory.RandomPickOnePod(fdbCluster.GetStatelessPods().Items), false)
 
 			// Allow the operator again to reconcile.
 			fdbCluster.SetSkipReconciliation(false)
@@ -1589,7 +1588,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			)) * time.Second
 			Expect(fdbCluster.SetAutoReplacements(true, 30*time.Second)).ShouldNot(HaveOccurred())
 
-			pod = fixtures.ChooseRandomPod(fdbCluster.GetStatelessPods())
+			pod = factory.ChooseRandomPod(fdbCluster.GetStatelessPods())
 			log.Printf("exclude Pod: %s", pod.Name)
 			Expect(pod.Status.PodIP).NotTo(BeEmpty())
 			_, _ = fdbCluster.RunFdbCliCommandInOperator(fmt.Sprintf("exclude %s", pod.Status.PodIP), false, 30)
@@ -2288,7 +2287,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				Skip("Chaos tests are skipped for the operator")
 			}
 
-			selectedPod = fixtures.RandomPickOnePod(fdbCluster.GetStoragePods().Items)
+			selectedPod = factory.RandomPickOnePod(fdbCluster.GetStoragePods().Items)
 			for _, status := range selectedPod.Status.ContainerStatuses {
 				initialRestarts += int(status.RestartCount)
 			}

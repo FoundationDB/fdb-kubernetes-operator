@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"strconv"
 	"strings"
 	"text/tabwriter"
@@ -51,25 +52,41 @@ const (
 
 // Factory is a helper struct to organize tests.
 type Factory struct {
-	*singleton
-	shutdownHooks          ShutdownHooks
-	chaosExperiments       []ChaosMeshExperiment
-	invariantShutdownHooks ShutdownHooks
-	beforeVersion          string
-	shutdownInProgress     bool
-	options                *FactoryOptions
+	shutdownHooks           ShutdownHooks
+	chaosExperiments        []ChaosMeshExperiment
+	invariantShutdownHooks  ShutdownHooks
+	shutdownInProgress      bool
+	beforeVersion           string
+	namespace               string
+	userName                string
+	options                 *FactoryOptions
+	randomGenerator         *rand.Rand
+	certificate             *corev1.Secret
+	namespaces              []string
+	controllerRuntimeClient client.Client
+	kubernetesClient        *kubernetes.Clientset
+	config                  *rest.Config
+	fdbVersion              fdbv1beta2.Version
 }
 
 // CreateFactory will create a factory based on the provided options.
 func CreateFactory(options *FactoryOptions) *Factory {
-	singleton, err := getSingleton(options)
+	configuration, err := getSingleton(options)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
+	seed := time.Now().Unix()
+	log.Println("using seed:", seed, "for factory")
 	return &Factory{
-		singleton:              singleton,
-		options:                options,
-		shutdownHooks:          ShutdownHooks{},
-		invariantShutdownHooks: ShutdownHooks{},
+		options:                 options,
+		shutdownHooks:           ShutdownHooks{},
+		invariantShutdownHooks:  ShutdownHooks{},
+		randomGenerator:         rand.New(rand.NewSource(seed)),
+		namespace:               options.namespace,
+		userName:                configuration.userName,
+		controllerRuntimeClient: configuration.controllerRuntimeClient,
+		fdbVersion:              configuration.fdbVersion,
+		kubernetesClient:        configuration.client,
+		config:                  configuration.config,
 	}
 }
 
@@ -95,17 +112,24 @@ func (factory *Factory) GetChaosNamespace() string {
 }
 
 func (factory *Factory) getCertificate() *corev1.Secret {
-	return factory.singleton.certificate
+	if factory.certificate != nil {
+		return factory.certificate
+	}
+
+	certificate, err := factory.GenerateCertificate()
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	factory.certificate = certificate
+	return certificate
 }
 
 // GetControllerRuntimeClient returns the controller runtime client.
 func (factory *Factory) GetControllerRuntimeClient() client.Client {
-	return factory.singleton.controllerRuntimeClient
+	return factory.controllerRuntimeClient
 }
 
 // GetSecretName returns the secret name that contains the certificates used for the current test run.
 func (factory *Factory) GetSecretName() string {
-	return factory.singleton.certificate.Name
+	return factory.getCertificate().Name
 }
 
 // GetBackupSecretName returns the name of the backup secret.
@@ -114,11 +138,11 @@ func (factory *Factory) GetBackupSecretName() string {
 }
 
 func (factory *Factory) getConfig() *rest.Config {
-	return factory.singleton.config
+	return factory.config
 }
 
 func (factory *Factory) getClient() *kubernetes.Clientset {
-	return factory.singleton.client
+	return factory.kubernetesClient
 }
 
 // DeletePod deletes the provided Pod
@@ -136,7 +160,7 @@ func (factory *Factory) GetPod(namespace string, name string) (*corev1.Pod, erro
 
 // GetFDBVersion returns the parsed FDB version.
 func (factory *Factory) GetFDBVersion() fdbv1beta2.Version {
-	return factory.singleton.fdbVersion
+	return factory.fdbVersion
 }
 
 // GetFDBVersionAsString returns the FDB version as string.
@@ -196,8 +220,8 @@ func (factory *Factory) CreateFdbHaCluster(
 	log.Println(
 		"FoundationDB HA cluster created (at version",
 		cluster.GetPrimary().cluster.Spec.Version,
-		") in minutes",
-		time.Since(startTime).Minutes(),
+		") in",
+		time.Since(startTime).String(),
 	)
 
 	return cluster
@@ -271,7 +295,7 @@ func (factory *Factory) GetSidecarContainerOverrides(debugSymbols bool) fdbv1bet
 
 func (factory *Factory) getClusterName() string {
 	if factory.options.clusterName == "" {
-		return fmt.Sprintf("fdb-cluster-%s", RandStringRunes(8))
+		return fmt.Sprintf("fdb-cluster-%s", factory.RandStringRunes(8))
 	}
 
 	return factory.options.clusterName
@@ -402,8 +426,8 @@ func (factory *Factory) startFDBFromClusterSpec(
 
 	fdbCluster, err := factory.ensureFdbClusterExists(spec, config)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred(), "cluster was not created in the expected time")
-	factory.singleton.namespaces = append(
-		factory.singleton.namespaces,
+	factory.namespaces = append(
+		factory.namespaces,
 		fdbCluster.cluster.Namespace,
 	)
 
@@ -912,4 +936,9 @@ func (factory *Factory) getStorageEngine() fdbv1beta2.StorageEngine {
 	}
 
 	return fdbv1beta2.StorageEngine(factory.options.storageEngine)
+}
+
+// Intn wrapper around Intn with the current random generator of the factory.
+func (factory *Factory) Intn(n int) int {
+	return factory.randomGenerator.Intn(n)
 }

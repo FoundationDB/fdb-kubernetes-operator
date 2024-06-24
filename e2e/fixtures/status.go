@@ -91,7 +91,7 @@ func (fdbCluster *FdbCluster) RunFdbCliCommandInOperatorWithoutRetry(
 	printOutput bool,
 	timeout int,
 ) (string, string, error) {
-	pod := ChooseRandomPod(fdbCluster.factory.GetOperatorPods(fdbCluster.Namespace()))
+	pod := fdbCluster.factory.ChooseRandomPod(fdbCluster.factory.GetOperatorPods(fdbCluster.Namespace()))
 	cluster, err := fdbCluster.factory.getClusterStatus(
 		fdbCluster.Name(),
 		fdbCluster.Namespace(),

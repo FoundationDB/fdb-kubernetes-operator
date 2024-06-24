@@ -153,7 +153,7 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 					return true
 				}
 
-				selectedPod := fixtures.RandomPickOnePod(pods)
+				selectedPod := factory.RandomPickOnePod(pods)
 				log.Println("deleting pod: ", selectedPod.Name)
 				factory.DeletePod(&selectedPod)
 				Expect(fdbCluster.WaitForPodRemoval(&selectedPod)).ShouldNot(HaveOccurred())
@@ -249,7 +249,7 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 			Expect(fdbCluster.SetAutoReplacements(false, 20*time.Minute)).ToNot(HaveOccurred())
 
 			// 1. Introduce crash-loop into sidecar container to artificially create a partition.
-			pickedPod := fixtures.ChooseRandomPod(fdbCluster.GetStoragePods())
+			pickedPod := factory.ChooseRandomPod(fdbCluster.GetStoragePods())
 			log.Println("Injecting container fault to crash-loop sidecar process:", pickedPod.Name)
 
 			fdbCluster.SetCrashLoopContainers([]fdbv1beta2.CrashLoopContainerObject{
@@ -372,14 +372,14 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 			// processes during the restart command.
 			statelessPods := fdbCluster.GetStatelessPods()
 			Expect(statelessPods.Items).NotTo(BeEmpty())
-			selectedStatelessPods := fixtures.RandomPickPod(
+			selectedStatelessPods := factory.RandomPickPod(
 				statelessPods.Items,
 				len(statelessPods.Items)/2,
 			)
 
 			logPods := fdbCluster.GetLogPods()
 			Expect(logPods.Items).NotTo(BeEmpty())
-			selectedLogPods := fixtures.RandomPickPod(logPods.Items, len(logPods.Items)/2)
+			selectedLogPods := factory.RandomPickPod(logPods.Items, len(logPods.Items)/2)
 
 			ignoreDuringRestart := make(
 				[]fdbv1beta2.ProcessGroupID,
@@ -479,7 +479,7 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 
 			// Select one Pod, this Pod will be marked to be removed but the actual removal will be blocked. The intention
 			// is to simulate a Pods that should be removed but the removal is not completed yet and an upgrade will be started.
-			podMarkedForRemoval := fixtures.RandomPickOnePod(fdbCluster.GetPods().Items)
+			podMarkedForRemoval := factory.RandomPickOnePod(fdbCluster.GetPods().Items)
 			processGroupMarkedForRemoval := fixtures.GetProcessGroupID(podMarkedForRemoval)
 			log.Println("picked Pod", podMarkedForRemoval.Name, "to be marked for removal")
 			// Use the buggify option to block the actual removal.
@@ -546,7 +546,7 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 
 			// Select one Pod, this Pod will be marked to be removed but the actual removal will be blocked. The intention
 			// is to simulate a Pods that should be removed but the removal is not completed yet and an upgrade will be started.
-			podMarkedForRemoval := fixtures.RandomPickOnePod(fdbCluster.GetPods().Items)
+			podMarkedForRemoval := factory.RandomPickOnePod(fdbCluster.GetPods().Items)
 			processGroupMarkedForRemoval := fixtures.GetProcessGroupID(podMarkedForRemoval)
 			log.Println("picked Pod", podMarkedForRemoval.Name, "to be marked for removal")
 			// Set a finalizer for this Pod to make sure the Pod object cannot be garbage collected
@@ -592,7 +592,7 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 		"upgrading a cluster with a pending pod",
 		func(beforeVersion string, targetVersion string) {
 			clusterSetup(beforeVersion, true)
-			pendingPod := fixtures.RandomPickOnePod(fdbCluster.GetPods().Items)
+			pendingPod := factory.RandomPickOnePod(fdbCluster.GetPods().Items)
 			// Set the pod in pending state.
 			Expect(fdbCluster.SetPodAsUnschedulable(pendingPod)).NotTo(HaveOccurred())
 			fdbCluster.UpgradeAndVerify(targetVersion)

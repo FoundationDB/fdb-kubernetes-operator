@@ -43,7 +43,7 @@ func (factory *Factory) InjectDiskFailure(selector chaosmesh.PodSelectorSpec) *C
 func (factory *Factory) InjectDiskFailureWithPath(selector chaosmesh.PodSelectorSpec, volumePath string, path string, methods []chaosmesh.IoMethod, containers []string) *ChaosMeshExperiment {
 	return factory.CreateExperiment(&chaosmesh.IOChaos{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      RandStringRunes(32),
+			Name:      factory.RandStringRunes(32),
 			Namespace: factory.GetChaosNamespace(),
 			Labels:    factory.GetDefaultLabels(),
 		},
@@ -70,7 +70,7 @@ func (factory *Factory) InjectDiskFailureWithPath(selector chaosmesh.PodSelector
 func (factory *Factory) InjectIOLatency(selector chaosmesh.PodSelectorSpec, delay string) *ChaosMeshExperiment {
 	return factory.CreateExperiment(&chaosmesh.IOChaos{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      RandStringRunes(32),
+			Name:      factory.RandStringRunes(32),
 			Namespace: factory.GetChaosNamespace(),
 			Labels:    factory.GetDefaultLabels(),
 		},

@@ -34,7 +34,7 @@ func (factory *Factory) ScheduleInjectPodKill(target chaosmesh.PodSelectorSpec, 
 		},
 		schedule,
 		chaosmesh.PodKillAction,
-		RandStringRunes(32))
+		factory.RandStringRunes(32))
 }
 
 // ScheduleInjectPodKillWithName schedules a Pod Kill action with the specified name.

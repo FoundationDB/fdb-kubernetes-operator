@@ -24,7 +24,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"math/rand"
 	"time"
 
 	"github.com/onsi/gomega"
@@ -38,23 +37,22 @@ import (
 )
 
 // ChooseRandomPod returns a random pod from the provided array, passing through the provided error.
-func ChooseRandomPod(pods *corev1.PodList) *corev1.Pod {
+func (factory *Factory) ChooseRandomPod(pods *corev1.PodList) *corev1.Pod {
 	items := pods.Items
 	if len(items) == 0 {
 		return nil
 	}
 
-	pickedPod := RandomPickOnePod(pods.Items)
+	pickedPod := factory.RandomPickOnePod(pods.Items)
 
 	return &pickedPod
 }
 
 // RandomPickPod randomly picks the number of Pods from the slice. If the slice contains less than count Pods, all Pods
 // will be returned in a random order.
-func RandomPickPod(input []corev1.Pod, count int) []corev1.Pod {
-	r := rand.New(rand.NewSource(time.Now().Unix()))
+func (factory *Factory) RandomPickPod(input []corev1.Pod, count int) []corev1.Pod {
 	ret := make([]corev1.Pod, count)
-	perm := r.Perm(len(input))
+	perm := factory.randomGenerator.Perm(len(input))
 
 	maxPods := count
 	if count > len(input) {
@@ -69,9 +67,33 @@ func RandomPickPod(input []corev1.Pod, count int) []corev1.Pod {
 	return ret
 }
 
-// RandomPickOnePod will pick on Pods randomly from the Pod slice.
-func RandomPickOnePod(input []corev1.Pod) corev1.Pod {
-	return RandomPickPod(input, 1)[0]
+// RandomPickOnePod will pick one Pods randomly from the Pod slice.
+func (factory *Factory) RandomPickOnePod(input []corev1.Pod) corev1.Pod {
+	return factory.RandomPickPod(input, 1)[0]
+}
+
+// RandomPickCluster randomly picks the number of FdbCluster from the slice. If the slice contains less than count FdbCluster, all FdbCluster
+// will be returned in a random order.
+func (factory *Factory) RandomPickCluster(input []*FdbCluster, count int) []*FdbCluster {
+	ret := make([]*FdbCluster, count)
+	perm := factory.randomGenerator.Perm(len(input))
+
+	maxPods := count
+	if count > len(input) {
+		log.Println("count", count, "is bigger than the number of Pods provided", len(input))
+		maxPods = len(input)
+	}
+
+	for i := 0; i < maxPods; i++ {
+		ret[i] = input[perm[i]]
+	}
+
+	return ret
+}
+
+// RandomPickOneCluster will pick one FdbCluster randomly from the FdbCluster slice.
+func (factory *Factory) RandomPickOneCluster(input []*FdbCluster) *FdbCluster {
+	return factory.RandomPickCluster(input, 1)[0]
 }
 
 // SetFinalizerForPod will set the provided finalizer slice for the Pods

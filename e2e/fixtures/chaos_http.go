@@ -31,7 +31,7 @@ import (
 func (factory *Factory) InjectHTTPClientChaosWrongResultFdbMonitorConf(selector chaosmeshv1alpha1.PodSelectorSpec, namespace string) *ChaosMeshExperiment {
 	return factory.CreateExperiment(&chaosmeshv1alpha1.HTTPChaos{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      RandStringRunes(32),
+			Name:      factory.RandStringRunes(32),
 			Namespace: factory.GetChaosNamespace(),
 			Labels:    factory.GetDefaultLabels(),
 		},
