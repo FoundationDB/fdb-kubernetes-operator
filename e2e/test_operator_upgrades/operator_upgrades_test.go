@@ -650,4 +650,71 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 		EntryDescription("Upgrade from %[1]s to %[2]s"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
 	)
+
+	DescribeTable(
+		"one process cannot connect to the Kubernetes API",
+		func(beforeVersion string, targetVersion string) {
+			if !factory.ChaosTestsEnabled() {
+				Skip("Chaos tests are skipped for the operator")
+			}
+
+			// If we are not using the unified image, we can skip this test.
+			if !factory.UseUnifiedImage() {
+				Skip("The sidecar image doesn't require connectivity to the Kubernetes API")
+			}
+
+			clusterSetup(beforeVersion, true)
+
+			selectedPod := factory.RandomPickOnePod(fdbCluster.GetStoragePods().Items)
+
+			var kubernetesServiceHost string
+			Eventually(func(g Gomega) error {
+				std, _, err := factory.ExecuteCmdOnPod(
+					&selectedPod,
+					fdbv1beta2.MainContainerName,
+					"printenv KUBERNETES_SERVICE_HOST",
+					false,
+				)
+
+				g.Expect(std).NotTo(BeEmpty())
+				kubernetesServiceHost = strings.TrimSpace(std)
+
+				return err
+			}, 5*time.Minute).ShouldNot(HaveOccurred())
+
+			exp := factory.InjectPartitionWithExternalTargets(fixtures.PodSelector(&selectedPod), []string{kubernetesServiceHost})
+			// Make sure that the partition takes effect.
+			Eventually(func() error {
+				_, _, err := factory.ExecuteCmdOnPod(
+					&selectedPod,
+					fdbv1beta2.MainContainerName,
+					fmt.Sprintf("nc -vz -w 2 %s 443", kubernetesServiceHost),
+					false,
+				)
+
+				return err
+			}).WithTimeout(2 * time.Minute).WithPolling(1 * time.Second).Should(HaveOccurred())
+
+			// Update the cluster version.
+			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
+
+			if !fixtures.VersionsAreProtocolCompatible(beforeVersion, targetVersion) {
+				// If the upgrade is version incompatible it will block the upgrade process.
+				// Otherwise, the operator will recreate the Pods.
+				Consistently(func() bool {
+					return fdbCluster.GetCluster().Status.RunningVersion == beforeVersion
+				}).WithTimeout(3 * time.Minute).WithPolling(2 * time.Second).Should(BeTrue())
+
+				factory.DeleteChaosMeshExperimentSafe(exp)
+			}
+
+			// Make sure the cluster is upgraded
+			fdbCluster.VerifyVersion(targetVersion)
+
+			// Make sure the cluster has no data loss.
+			fdbCluster.EnsureTeamTrackersHaveMinReplicas()
+		},
+		EntryDescription("Upgrade from %[1]s to %[2]s"),
+		fixtures.GenerateUpgradeTableEntries(testOptions),
+	)
 })
