@@ -209,17 +209,13 @@ func configureContainersForUnifiedImages(cluster *fdbv1beta2.FoundationDBCluster
 		}},
 		corev1.EnvVar{Name: "FDB_NETWORK_OPTION_TRACE_LOG_GROUP", Value: cluster.GetLogGroup()},
 		corev1.EnvVar{Name: "FDB_NETWORK_OPTION_TRACE_ENABLE", Value: "/var/log/fdb-trace-logs"},
+		corev1.EnvVar{Name: "FDB_NODE_NAME", ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
+		}},
 	)
 	mainContainerEnv = append(mainContainerEnv, getEnvForMonitorConfigSubstitution(cluster, processGroup.ProcessGroupID)...)
 	if cluster.DefineDNSLocalityFields() {
 		mainContainerEnv = append(mainContainerEnv, corev1.EnvVar{Name: "FDB_DNS_NAME", Value: GetPodDNSName(cluster, processGroup.GetPodName(cluster))})
-	}
-	// Allow the fdb-kubernetes-monitor to read the node labels and provide them as custom variables.
-	if cluster.EnableNodeWatch() {
-		mainContainer.Args = append(mainContainer.Args, "--enable-node-watch")
-		mainContainerEnv = append(mainContainerEnv, corev1.EnvVar{Name: "FDB_NODE_NAME", ValueFrom: &corev1.EnvVarSource{
-			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
-		}})
 	}
 	extendEnv(mainContainer, mainContainerEnv...)
 
