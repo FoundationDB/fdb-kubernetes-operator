@@ -42,6 +42,8 @@ github.com/alecthomas/units v0.0.0-20211218093645-b94a6e3cc137 h1:s6gZFSlWYmbqAu
 github.com/alecthomas/units v0.0.0-20211218093645-b94a6e3cc137/go.mod h1:OMCwj8VM1Kc9e19TLln2VL61YJF0x1XFtfdL4JdbSyE=
 github.com/apple/foundationdb/bindings/go v0.0.0-20231020161252-ed27c828ca16 h1:+FSWyyQT1jj2LHHRsIWtTqWcJRmKSJP3IYjOb0NMutU=
 github.com/apple/foundationdb/bindings/go v0.0.0-20231020161252-ed27c828ca16/go.mod h1:OMVSB21p9+xQUIqlGizHPZfjK+SHws1ht+ZytVDoz9U=
+github.com/apple/foundationdb/fdbkubernetesmonitor v0.0.0-20240624150123-ffd43514f4a3 h1:mZAp+VgRNMOoc1il2hBvbWRiMkTBxLeLZSXOa0dJ1so=
+github.com/apple/foundationdb/fdbkubernetesmonitor v0.0.0-20240624150123-ffd43514f4a3/go.mod h1:7RUO/rE+PLfDqx2JNQuy54EsNZ2pivsPYSdFJ0Iw8ho=
 github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5 h1:0CwZNZbxp69SHPdPJAN/hZIm0C4OItdklCFmMRWYpio=
 github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5/go.mod h1:wHh0iHkYZB8zMSxRWpUBQtwG5a7fFgvEO+odwuTv2gs=
 github.com/benbjohnson/clock v1.1.0/go.mod h1:J11/hYXuz8f4ySSvYwY0FKfm+ezbsZBKZxNJlLklBHA=
@@ -211,8 +213,6 @@ github.com/imdario/mergo v0.3.12/go.mod h1:jmQim1M+e3UYxmgPu/WyfjB3N3VflVyUjjjwH
 github.com/inconshreveable/mousetrap v1.0.1 h1:U3uMjPSQEBMNp1lFxmllqCPM6P5u/Xq7Pgzkat/bFNc=
 github.com/inconshreveable/mousetrap v1.0.1/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
 github.com/jessevdk/go-flags v1.4.0/go.mod h1:4FA24M0QyGHXBuZZK/XkWh8h0e1EYbRYJSGM75WSRxI=
-github.com/johscheuer/foundationdb/fdbkubernetesmonitor v0.0.0-20240621140641-d991584ea922 h1:cnf6CKbrhfh/V5CtM195AsV8ALTsrvtWtHaCwb/pBxg=
-github.com/johscheuer/foundationdb/fdbkubernetesmonitor v0.0.0-20240621140641-d991584ea922/go.mod h1:7RUO/rE+PLfDqx2JNQuy54EsNZ2pivsPYSdFJ0Iw8ho=
 github.com/josharian/intern v1.0.0 h1:vlS4z54oSdjm0bgjRigI+G1HpF+tI+9rE5LLzOg8HmY=
 github.com/josharian/intern v1.0.0/go.mod h1:5DoeVV0s6jJacbCEi61lwdGj/aVlrQvzHFFd8Hwg//Y=
 github.com/json-iterator/go v1.1.12 h1:PV8peI4a0ysnczrg+LtxykD8LfKY9ML6u2jnxaEnrnM=
