@@ -2394,8 +2394,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		})
 	})
 
-	// @johscheuer: Enable test once the CRD is updated.
-	PWhen("enabling the node watch feature", func() {
+	When("enabling the node watch feature", func() {
 		var initialParameters fdbv1beta2.FoundationDBCustomParameters
 
 		BeforeEach(func() {
@@ -2405,24 +2404,38 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			}
 
 			// Enable the node watch feature.
-			spec := fdbCluster.GetCluster().Spec.DeepCopy()
-			spec.EnableNodeWatch = pointer.Bool(true)
-			fdbCluster.UpdateClusterSpecWithSpec(spec)
-			Expect(fdbCluster.WaitForReconciliation()).NotTo(HaveOccurred())
-		})
+			spec := fdbCluster.GetPodTemplateSpec(fdbv1beta2.ProcessClassStorage)
+			for idx, container := range spec.Containers {
+				if container.Name != fdbv1beta2.MainContainerName {
+					continue
+				}
 
-		It("should have enabled the node watch feature on all Pods", func() {
-			pods := fdbCluster.GetPods().Items
-			for _, pod := range pods {
-				for _, container := range pod.Spec.Containers {
-					if container.Name != fdbv1beta2.MainContainerName {
+				var hasEnv bool
+				for envIdx, env := range container.Env {
+					if env.Name != "ENABLE_NODE_WATCH" {
 						continue
 					}
 
-					Expect(container.Args).To(ContainElements("--enable-node-watch"))
+					if env.Value != "true" {
+						spec.Containers[idx].Env[envIdx].Value = "true"
+						spec.Containers[idx].Env[envIdx].ValueFrom = nil
+					}
+
+					hasEnv = true
+				}
+
+				if !hasEnv {
+					spec.Containers[idx].Env = append(container.Env, corev1.EnvVar{
+						Name:  "ENABLE_NODE_WATCH",
+						Value: "true",
+					})
 				}
 			}
 
+			Expect(fdbCluster.SetPodTemplateSpec(fdbv1beta2.ProcessClassStorage, spec, true)).NotTo(HaveOccurred())
+		})
+
+		It("should have enabled the node watch feature on all Pods", func() {
 			initialParameters = fdbCluster.GetCustomParameters(
 				fdbv1beta2.ProcessClassStorage,
 			)
@@ -2455,14 +2468,8 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			Expect(fdbCluster.SetCustomParameters(
 				fdbv1beta2.ProcessClassStorage,
 				initialParameters,
-				false,
+				true,
 			)).NotTo(HaveOccurred())
-
-			spec := fdbCluster.GetCluster().Spec.DeepCopy()
-			spec.EnableNodeWatch = pointer.Bool(false)
-			fdbCluster.UpdateClusterSpecWithSpec(spec)
-			Expect(fdbCluster.WaitForReconciliation()).NotTo(HaveOccurred())
-
 		})
 	})
 

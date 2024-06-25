@@ -735,11 +735,6 @@ func (in *FoundationDBClusterSpec) DeepCopyInto(out *FoundationDBClusterSpec) {
 		*out = new(ImageType)
 		**out = **in
 	}
-	if in.EnableNodeWatch != nil {
-		in, out := &in.EnableNodeWatch, &out.EnableNodeWatch
-		*out = new(bool)
-		**out = **in
-	}
 	if in.MaxZonesWithUnavailablePods != nil {
 		in, out := &in.MaxZonesWithUnavailablePods, &out.MaxZonesWithUnavailablePods
 		*out = new(int)
