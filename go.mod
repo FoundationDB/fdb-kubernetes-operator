@@ -4,8 +4,8 @@ go 1.22
 
 require (
 	github.com/apple/foundationdb/bindings/go v0.0.0-20231020161252-ed27c828ca16
+	github.com/apple/foundationdb/fdbkubernetesmonitor v0.0.0-20240624150123-ffd43514f4a3
 	// Corresponds to chaos-mesh API v2.6.0
-	github.com/apple/foundationdb/fdbkubernetesmonitor v0.0.0-20240515040035-0f510db2a0aa
 	github.com/chaos-mesh/chaos-mesh/api v0.0.0-20230613082117-03097981f627
 	github.com/fatih/color v1.14.1
 	github.com/go-logr/logr v1.2.4

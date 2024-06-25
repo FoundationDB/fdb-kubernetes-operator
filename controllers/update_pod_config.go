@@ -22,6 +22,7 @@ package controllers
 
 import (
 	"context"
+	"github.com/apple/foundationdb/fdbkubernetesmonitor/api"
 	"strconv"
 	"time"
 
@@ -122,7 +123,7 @@ func (updatePodConfig) reconcile(ctx context.Context, r *FoundationDBClusterReco
 				delayedRequeue = false
 			}
 
-			pod.ObjectMeta.Annotations[fdbv1beta2.OutdatedConfigMapKey] = strconv.FormatInt(time.Now().Unix(), 10)
+			pod.ObjectMeta.Annotations[api.OutdatedConfigMapAnnotation] = strconv.FormatInt(time.Now().Unix(), 10)
 			err = r.PodLifecycleManager.UpdateMetadata(ctx, r, cluster, pod)
 			if err != nil {
 				allSynced = false
@@ -135,7 +136,7 @@ func (updatePodConfig) reconcile(ctx context.Context, r *FoundationDBClusterReco
 		// Update the LastConfigMapKey annotation once the Pod was updated.
 		if pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey] != configMapHash {
 			pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey] = configMapHash
-			delete(pod.ObjectMeta.Annotations, fdbv1beta2.OutdatedConfigMapKey)
+			delete(pod.ObjectMeta.Annotations, api.OutdatedConfigMapAnnotation)
 			err = r.PodLifecycleManager.UpdateMetadata(ctx, r, cluster, pod)
 			if err != nil {
 				allSynced = false

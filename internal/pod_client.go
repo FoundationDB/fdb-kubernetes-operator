@@ -49,14 +49,6 @@ const (
 	// MockUnreachableAnnotation defines if a Pod should be unreachable. This annotation
 	// is currently only used for testing cases.
 	MockUnreachableAnnotation = "foundationdb.org/mock-unreachable"
-
-	// CurrentConfigurationAnnotation is the annotation we use to store the
-	// latest configuration.
-	CurrentConfigurationAnnotation = "foundationdb.org/launcher-current-configuration"
-
-	// EnvironmentAnnotation is the annotation we use to store the environment
-	// variables.
-	EnvironmentAnnotation = "foundationdb.org/launcher-environment"
 )
 
 // realPodSidecarClient provides a client for use in real environments, using
@@ -327,9 +319,9 @@ func (client *realFdbPodSidecarClient) updateDynamicFiles(filename string, conte
 // GetVariableSubstitutions gets the current keys and values that this
 // instance will substitute into its monitor conf.
 func (client *realFdbPodAnnotationClient) GetVariableSubstitutions() (map[string]string, error) {
-	environmentData, present := client.Pod.Annotations[EnvironmentAnnotation]
+	environmentData, present := client.Pod.Annotations[monitorapi.EnvironmentAnnotation]
 	if !present {
-		client.logger.Info("Waiting for Kubernetes monitor to update annotations", "annotation", EnvironmentAnnotation)
+		client.logger.Info("Waiting for Kubernetes monitor to update annotations", "annotation", monitorapi.EnvironmentAnnotation)
 		return nil, nil
 	}
 	environment := make(map[string]string)
@@ -355,7 +347,7 @@ func (client *realFdbPodAnnotationClient) UpdateFile(name string, contents strin
 			return false, err
 		}
 		currentConfiguration := monitorapi.ProcessConfiguration{}
-		currentData, present := client.Pod.Annotations[CurrentConfigurationAnnotation]
+		currentData, present := client.Pod.Annotations[monitorapi.CurrentConfigurationAnnotation]
 		if !present {
 			client.logger.Info("Waiting for Kubernetes monitor to update annotations", "annotation", currentConfiguration)
 			return false, nil
