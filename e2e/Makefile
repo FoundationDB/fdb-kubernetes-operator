@@ -38,6 +38,13 @@ FEATURE_DNS?=false
 FEATURE_LOCALITIES?=false
 # Allows to specify the tag for a specific FDB version. Format is 7.1.57:7.1.57-testing,7.3.35:7.3.35-debugging
 FDB_VERSION_TAG_MAPPING?=
+# If the FEATURE_SERVER_SIDE_APPLY environment variable is not defined the test suite will be randomly enable (1) or disable (0)
+# the server side apply feature.
+ifndef FEATURE_SERVER_SIDE_APPLY
+  FEATURE_SERVER_SIDE_APPLY=$(shell shuf -i 0-1 -n 1)
+else
+  FEATURE_SERVER_SIDE_APPLY=false
+endif
 
 # Make bash pickier about errors.
 SHELL=/bin/bash -euo pipefail
@@ -137,4 +144,5 @@ nightly-tests: run
 	  --storage-engine=$(STORAGE_ENGINE) \
 	  --fdb-version-tag-mapping=$(FDB_VERSION_TAG_MAPPING) \
 	  --unified-fdb-image=$(UNIFIED_FDB_IMAGE) \
+	  --feature-server-side-apply=$(FEATURE_SERVER_SIDE_APPLY) \
 	  | grep -v 'constructing many client instances from the same exec auth config can cause performance problems during cert rotation' &> $(BASE_DIR)/../logs/$<.log
