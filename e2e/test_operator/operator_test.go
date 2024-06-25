@@ -555,7 +555,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		})
 
 		It("should remove the targeted Pod", func() {
-			fdbCluster.EnsurePodIsDeleted(failedPod.Name)
+			fdbCluster.EnsurePodIsDeletedWithCustomTimeout(failedPod.Name, 10)
 		})
 	})
 
@@ -582,7 +582,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		})
 
 		It("should remove the targeted Pod", func() {
-			fdbCluster.EnsurePodIsDeleted(podToReplace.Name)
+			fdbCluster.EnsurePodIsDeletedWithCustomTimeout(podToReplace.Name, 10)
 		})
 	})
 
