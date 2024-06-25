@@ -31,14 +31,13 @@ This cluster will be used for all tests.
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"fmt"
 	"log"
 	"math"
 	"strings"
 	"time"
-
-	"k8s.io/apimachinery/pkg/types"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/e2e/fixtures"
@@ -49,7 +48,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/pointer"
+	ctrlClient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var (
@@ -2462,6 +2463,53 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			fdbCluster.UpdateClusterSpecWithSpec(spec)
 			Expect(fdbCluster.WaitForReconciliation()).NotTo(HaveOccurred())
 
+		})
+	})
+
+	When("the Pod is set into isolate mode", func() {
+		var isolatedPod corev1.Pod
+
+		BeforeEach(func() {
+			// If we are not using the unified image, we can skip this test.
+			if !fdbCluster.GetCluster().UseUnifiedImage() {
+				Skip("The sidecar image doesn't support reading node labels")
+			}
+
+			isolatedPod = factory.RandomPickOnePod(fdbCluster.GetStatelessPods().Items)
+			isolatedPod.Annotations[fdbv1beta2.IsolateProcessGroupAnnotation] = "true"
+			Expect(factory.GetControllerRuntimeClient().Update(context.Background(), &isolatedPod)).NotTo(HaveOccurred())
+			fdbCluster.ReplacePod(isolatedPod, false)
+		})
+
+		It("should shutdown the fdbserver processes of this Pod", func() {
+			processGroupID := string(fixtures.GetProcessGroupID(isolatedPod))
+			// Make sure the process is not reporting to the cluster.
+			Eventually(func(g Gomega) bool {
+				status := fdbCluster.GetStatus()
+				for _, process := range status.Cluster.Processes {
+					if process.ProcessClass != fdbv1beta2.ProcessClassStateless {
+						continue
+					}
+
+					g.Expect(process.Locality).NotTo(HaveKeyWithValue(fdbv1beta2.FDBLocalityInstanceIDKey, processGroupID))
+				}
+
+				return true
+			}).WithTimeout(2 * time.Minute).WithPolling(1 * time.Second).Should(BeTrue())
+
+			Consistently(func(g Gomega) *metav1.Time {
+				pod, err := factory.GetPod(isolatedPod.Namespace, isolatedPod.Name)
+				g.Expect(err).NotTo(HaveOccurred())
+
+				return pod.DeletionTimestamp
+			}).WithTimeout(2 * time.Minute).WithPolling(1 * time.Second).Should(BeNil())
+		})
+
+		AfterEach(func() {
+			pod := &corev1.Pod{}
+			Expect(factory.GetControllerRuntimeClient().Get(context.Background(), ctrlClient.ObjectKey{Name: isolatedPod.Name, Namespace: isolatedPod.Namespace}, pod)).NotTo(HaveOccurred())
+			pod.Annotations[fdbv1beta2.IsolateProcessGroupAnnotation] = "false"
+			Expect(factory.GetControllerRuntimeClient().Update(context.Background(), pod)).NotTo(HaveOccurred())
 		})
 	})
 })

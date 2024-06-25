@@ -177,6 +177,19 @@ You can also update the config directly by providing the `--update` flag to the 
 Per default a diff of the new changes will be shown before updating the cluster spec.
 For an HA cluster you have to update all clusters that are managed by the operator with the same command to ensure that all operator instance want to converge to the same configuration. 
 
+## Isolate a faulty Pod
+
+_NOTE_: This feature requires the [unified image](./customization.md#unified-vs-split-images).
+_WARNING_: By design this feature can be disruptive as the `fdbserver` process will be directly shutdown by the `fdb-kubernetes-monitor` to keep the state of the Pod.
+_WARNING_: Since this mechanism is not set by the operator itself but with an annotation, that annotation will not be present if the Pod gets deleted. In the case that the Pod is not marked to be removed and not yet fully excluded, the operator will recreate the Pod. Otherwise all resources will be removed.
+
+There might be cases where it is useful to isolate a specific Pod or a set of Pods from the cluster, e.g. in cases where a user wants to debug data corruption or networking issues without affecting the actual cluster.
+In those cases a user can set the Pod annotation `foundationdb.org/isolate-process-group` to `true`.
+The `fdbkubernetesmonitor` will shutdown all instances of the `fdbserver`, but the operator will not delete the resources to allow debugging.
+Once the annotations are updated the user should trigger a replacement of those Pods.
+The replacement will make sure that the operator is starting new Pods for the isolated Pods.
+When the debugging is finished just remove the `foundationdb.org/isolate-process-group` annotation or set it to `false` and the operator will remove the associated resources.
+
 ## Next
 
 You can continue on to the [next section](more.md) or go back to the [table of contents](index.md).
