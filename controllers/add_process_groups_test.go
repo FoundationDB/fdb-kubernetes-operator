@@ -64,7 +64,7 @@ var _ = Describe("add_process_groups", func() {
 		newProcessCounts = fdbv1beta2.CreateProcessCountsFromProcessGroupStatus(cluster.Status.ProcessGroups, true)
 	})
 
-	Context("with a reconciled cluster", func() {
+	When("the cluster is reconciled", func() {
 		It("should not requeue", func() {
 			Expect(requeue).To(BeNil())
 		})
@@ -188,6 +188,30 @@ var _ = Describe("add_process_groups", func() {
 			Expect(processGroupStatus.ProcessGroupConditions[0].ProcessGroupConditionType).To(Equal(fdbv1beta2.MissingProcesses))
 			Expect(processGroupStatus.ProcessGroupConditions[1].ProcessGroupConditionType).To(Equal(fdbv1beta2.MissingPod))
 			Expect(processGroupStatus.ProcessGroupConditions[2].ProcessGroupConditionType).To(Equal(fdbv1beta2.MissingPVC))
+		})
+	})
+
+	When("multiple process groups should be created", func() {
+		var storageProcessCount int
+
+		BeforeEach(func() {
+			// The maximum is 99999, so creating 25000 process groups should have a high probability to randomly generate
+			// a used process group ID.
+			storageProcessCount = 25000
+			cluster.Spec.ProcessCounts.Storage = storageProcessCount
+		})
+
+		It("should not create duplicate entries", func() {
+			storageProcessGroups := map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None{}
+			for _, processGroup := range cluster.Status.ProcessGroups {
+				if processGroup.ProcessClass != fdbv1beta2.ProcessClassStorage {
+					continue
+				}
+
+				storageProcessGroups[processGroup.ProcessGroupID] = fdbv1beta2.None{}
+			}
+
+			Expect(storageProcessGroups).To(HaveLen(storageProcessCount))
 		})
 	})
 })
