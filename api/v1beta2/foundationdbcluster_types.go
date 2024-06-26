@@ -2957,6 +2957,8 @@ func (cluster *FoundationDBCluster) GetNextRandomProcessGroupID(processClass Pro
 			continue
 		}
 
+		// Add the newly picked process group ID.
+		processGroupIDs[idNum] = true
 		// The randomly picked process group is not in use and is not marked for removal, so we can use it.
 		break
 	}
