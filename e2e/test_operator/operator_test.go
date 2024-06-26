@@ -381,6 +381,10 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		})
 
 		BeforeEach(func() {
+			// Until the race condition is resolved in the FDB go bindings make sure the operator is not restarted.
+			// See: https://github.com/apple/foundationdb/issues/11222
+			// We can remove this once 7.1 is the default version.
+			factory.DeleteChaosMeshExperimentSafe(scheduleInjectPodKill)
 			useLocalitiesForExclusion = fdbCluster.GetCluster().UseLocalitiesForExclusion()
 		})
 
@@ -394,6 +398,15 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 			// Making sure we included back all the process groups after exclusion is complete.
 			Expect(fdbCluster.GetStatus().Cluster.DatabaseConfiguration.ExcludedServers).To(BeEmpty())
+
+			if factory.ChaosTestsEnabled() {
+				scheduleInjectPodKill = factory.ScheduleInjectPodKillWithName(
+					fixtures.GetOperatorSelector(fdbCluster.Namespace()),
+					"*/2 * * * *",
+					chaosmesh.OneMode,
+					fdbCluster.Namespace()+"-"+fdbCluster.Name(),
+				)
+			}
 		})
 
 		When("IP addresses are used for exclusion", func() {
@@ -1950,6 +1963,8 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 		BeforeEach(func() {
 			// Until the race condition is resolved in the FDB go bindings make sure the operator is not restarted.
+			// See: https://github.com/apple/foundationdb/issues/11222
+			// We can remove this once 7.1 is the default version.
 			factory.DeleteChaosMeshExperimentSafe(scheduleInjectPodKill)
 			cluster := fdbCluster.GetCluster()
 			parsedVersion, err := fdbv1beta2.ParseFdbVersion(cluster.Status.RunningVersion)

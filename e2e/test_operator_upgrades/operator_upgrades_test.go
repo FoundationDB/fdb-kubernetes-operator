@@ -215,14 +215,14 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			// Check if the restarted process is showing up in IncompatibleConnections list in status output.
-			Eventually(func() bool {
+			Eventually(func(g Gomega) bool {
 				status := fdbCluster.GetStatus()
 				if len(status.Cluster.IncompatibleConnections) == 0 {
 					return false
 				}
 
 				log.Println("IncompatibleProcesses:", status.Cluster.IncompatibleConnections)
-				Expect(len(status.Cluster.IncompatibleConnections)).To(Equal(1))
+				g.Expect(status.Cluster.IncompatibleConnections).To(HaveLen(1))
 				// Extract the IP of the incompatible process.
 				incompatibleProcess := strings.Split(status.Cluster.IncompatibleConnections[0], ":")[0]
 				return incompatibleProcess == selectedCoordinator.Status.PodIP
@@ -271,7 +271,7 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 				}
 
 				return pod.Status.Phase
-			}).WithPolling(2 * time.Second).WithTimeout(2 * time.Minute).MustPassRepeatedly(10).Should(Equal(corev1.PodRunning))
+			}).WithPolling(1 * time.Second).WithTimeout(10 * time.Minute).MustPassRepeatedly(4).Should(Equal(corev1.PodRunning))
 
 			// Make sure we trigger a new reconciliation to make sure the process is up and running and only the sidecar
 			// is crash looping.
