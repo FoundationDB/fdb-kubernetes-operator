@@ -543,7 +543,7 @@ func (r *FoundationDBClusterReconciler) updateOrApply(ctx context.Context, clust
 			return err
 		}
 
-		return r.Status().Patch(ctx, unstructuredPatch, client.Apply, client.FieldOwner("fdb-operator")) //, client.ForceOwnership)
+		return r.Status().Patch(ctx, unstructuredPatch, client.Apply, client.FieldOwner("fdb-operator"), client.ForceOwnership)
 	}
 
 	return r.Status().Update(ctx, cluster)
