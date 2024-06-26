@@ -23,6 +23,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal/coordinator"
 
 	"github.com/go-logr/logr"
 
@@ -137,11 +138,10 @@ func (g generateInitialClusterFile) reconcile(ctx context.Context, r *Foundation
 	}
 
 	for _, currentLocality := range coordinators {
-		connectionString.Coordinators = append(connectionString.Coordinators, getCoordinatorAddress(cluster, currentLocality).String())
+		connectionString.Coordinators = append(connectionString.Coordinators, coordinator.GetCoordinatorAddress(cluster, currentLocality).String())
 	}
 
 	cluster.Status.ConnectionString = connectionString.String()
-
 	err = r.updateOrApply(ctx, cluster)
 	if err != nil {
 		return &requeue{curError: err}

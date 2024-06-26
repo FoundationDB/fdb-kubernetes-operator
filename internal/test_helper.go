@@ -21,11 +21,14 @@
 package internal
 
 import (
+	"context"
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 	"math/rand"
+	ctrlClient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sort"
 	"strings"
 )
 
@@ -135,4 +138,55 @@ func PickProcessGroups(cluster *fdbv1beta2.FoundationDBCluster, processClass fdb
 	}
 
 	return pickedProcessGroups
+}
+
+// SetupClusterForTest will generate all required resources like Pods for test cases.
+func SetupClusterForTest(cluster *fdbv1beta2.FoundationDBCluster, k8sClient ctrlClient.Client) error {
+	counts, err := cluster.GetProcessCountsWithDefaults()
+	if err != nil {
+		return err
+	}
+
+	err = NormalizeClusterSpec(cluster, DeprecationOptions{})
+	if err != nil {
+		return err
+	}
+
+	countMap := counts.Map()
+	processGroupIDs := map[fdbv1beta2.ProcessClass]map[int]bool{}
+
+	ipIdx := 2
+	for processClass, count := range countMap {
+		if count == 0 {
+			continue
+		}
+
+		processGroupIDs[processClass] = map[int]bool{}
+		for i := 1; i <= count; i++ {
+			processGroupID := cluster.GetNextRandomProcessGroupID(processClass, processGroupIDs[processClass])
+			newProcessGroup := fdbv1beta2.NewProcessGroupStatus(processGroupID, processClass, nil)
+			newProcessGroup.ProcessGroupConditions = nil
+
+			ipIdx++
+
+			pod, err := GetPod(cluster, newProcessGroup)
+			if err != nil {
+				return err
+			}
+
+			err = k8sClient.Create(context.Background(), pod)
+			if err != nil {
+				return err
+			}
+
+			newProcessGroup.Addresses = append(newProcessGroup.Addresses, pod.Status.PodIP)
+			cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, newProcessGroup)
+		}
+	}
+
+	sort.SliceStable(cluster.Status.ProcessGroups, func(i, j int) bool {
+		return cluster.Status.ProcessGroups[i].ProcessGroupID < cluster.Status.ProcessGroups[j].ProcessGroupID
+	})
+
+	return nil
 }
