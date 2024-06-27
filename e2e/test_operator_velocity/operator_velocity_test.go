@@ -232,6 +232,11 @@ var _ = Describe("Test Operator Velocity", Label("e2e", "nightly"), func() {
 				),
 			).NotTo(HaveOccurred())
 
+			// Make sure to wait for the cluster to become available again.
+			Eventually(func() bool {
+				return fdbCluster.GetPrimary().IsAvailable()
+			}).WithTimeout(5 * time.Minute).WithPolling(1 * time.Second).Should(BeTrue())
+
 			cluster := fdbCluster.GetPrimary().GetCluster()
 			CheckKnobRollout(
 				fdbCluster,

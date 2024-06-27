@@ -25,6 +25,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"log"
 	"text/template"
 	"time"
 
@@ -364,6 +365,7 @@ func (factory *Factory) CreateDataLoaderIfAbsent(cluster *FdbCluster) {
 
 // WaitUntilDataLoaderIsDone will wait until the data loader Job has finished.
 func (factory *Factory) WaitUntilDataLoaderIsDone(cluster *FdbCluster) {
+	printTime := time.Now()
 	gomega.Eventually(func() int {
 		pods := &corev1.PodList{}
 		gomega.Expect(
@@ -375,15 +377,23 @@ func (factory *Factory) WaitUntilDataLoaderIsDone(cluster *FdbCluster) {
 			),
 		).NotTo(gomega.HaveOccurred())
 
+		shouldPrint := time.Since(printTime) > 1*time.Minute
 		var runningPods int
 		for _, pod := range pods.Items {
+			if shouldPrint {
+				log.Println("Pod:", pod.Name, "Phase:", pod.Status.Phase, "Messages:", pod.Status.Message)
+			}
+
 			if pod.Status.Phase == corev1.PodRunning {
 				runningPods++
 			}
 		}
 
+		if shouldPrint {
+			printTime = time.Now()
+		}
 		return runningPods
-	}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(gomega.BeNumerically(">", 0))
+	}).WithTimeout(10 * time.Minute).WithPolling(5 * time.Second).Should(gomega.BeNumerically(">", 0))
 
 	// Wait for at most 15 minutes to let the data load complete.
 	gomega.Eventually(func() corev1.ConditionStatus {
