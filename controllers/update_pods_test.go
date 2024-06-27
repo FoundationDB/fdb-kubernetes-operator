@@ -379,8 +379,10 @@ var _ = Describe("update_pods", func() {
 			})
 
 			When("a Pod is missing", func() {
+				var picked *fdbv1beta2.ProcessGroupStatus
+
 				BeforeEach(func() {
-					picked := internal.PickProcessGroups(cluster, fdbv1beta2.ProcessClassStorage, 1)[0]
+					picked = internal.PickProcessGroups(cluster, fdbv1beta2.ProcessClassStorage, 1)[0]
 					pod := &corev1.Pod{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      picked.GetPodName(cluster),
@@ -390,9 +392,35 @@ var _ = Describe("update_pods", func() {
 					Expect(k8sClient.Delete(context.Background(), pod)).NotTo(HaveOccurred())
 				})
 
-				It("should return an error and an empty map", func() {
-					Expect(updates).To(HaveLen(0))
-					Expect(err).To(HaveOccurred())
+				When("the process group has no MissingPod condition", func() {
+					It("should return an error and an empty map", func() {
+						Expect(updates).To(HaveLen(0))
+						Expect(err).To(HaveOccurred())
+					})
+				})
+
+				When("the process group has a MissingPod condition less than 90 seconds", func() {
+					BeforeEach(func() {
+						picked.UpdateCondition(fdbv1beta2.MissingPod, true)
+						picked.UpdateConditionTime(fdbv1beta2.MissingPod, time.Now().Add(-50*time.Second).Unix())
+					})
+
+					It("should return an error and an empty map", func() {
+						Expect(updates).To(HaveLen(0))
+						Expect(err).To(HaveOccurred())
+					})
+				})
+
+				When("the process group has a MissingPod condition for more than 90 seconds", func() {
+					BeforeEach(func() {
+						picked.UpdateCondition(fdbv1beta2.MissingPod, true)
+						picked.UpdateConditionTime(fdbv1beta2.MissingPod, time.Now().Add(-120*time.Second).Unix())
+					})
+
+					It("should return no error updates", func() {
+						Expect(updates).To(HaveLen(1))
+						Expect(err).NotTo(HaveOccurred())
+					})
 				})
 			})
 		})
