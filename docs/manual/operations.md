@@ -192,11 +192,16 @@ _NOTE_: You should always set the processes under maintenance before setting the
 ## Delaying the shutdown of the Pod
 
 When using the [unified image](./customization.md#unified-vs-split-images) the `fdb-kubernetes-monitor` supports to delay the shutdown of itself.
-The idea is to shutdown the fdbserver processes immediately, but keep the `fdb-kubernetes-monitor` process running for the specified `foundationdb.org/delay-shutdown`.
+This feature can help to reduce the risk of race conditions in the different checks of the operator and FDB itself.
+Right now the operator performs a different set of checks before updating (deleting and creating) Pods, like a fault tolerance check.
+In some rare cases there could be a risk where a Pod is already deleted and the FDB cluster haven't detected the failed servers yet.
+Per default the failure detection mechanism of FDB takes 60 seconds to mark a storage server as failed.
+The idea of the delayed shutdown feature is to shutdown the fdbserver processes, but keep the `fdb-kubernetes-monitor` process running for the specified `foundationdb.org/delay-shutdown`.
+This will add some additional delay to the Pod deletion and will reduce the risk of race conditions, e.g. by detecting the failed fdbserver process(es) and reduce the current fault tolerance.
 The value of the `foundationdb.org/delay-shutdown` annotation must be a valid [golang duration](https://pkg.go.dev/time#ParseDuration).
-Per default the failure detection mechanism of FDB takes 60 seconds to detect a failed storage server.
 Setting the `foundationdb.org/delay-shutdown` annotation to a value greater than 60 seconds will give the FDB cluster additional time to detect the failure before shutting down the actual Pod.
 The value for `foundationdb.org/delay-shutdown` and `terminationGracePeriodSeconds` in the [Pod spec](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-termination) should either match or the `terminationGracePeriodSeconds` should be slightly higher than the delay shutdown.
+The value for `foundationdb.org/delay-shutdown` should also not to high as this will slow down the rollout process and might be prevented by the Kubernetes cluster.
 
 ### Risks and limitations
 
