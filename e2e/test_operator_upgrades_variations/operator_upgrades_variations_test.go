@@ -111,8 +111,21 @@ func performUpgrade(config testConfig, preUpgradeFunction func(cluster *fixtures
 
 	transactionSystemProcessGroups := make(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None)
 	// Wait until the cluster is upgraded and fully reconciled.
-	Expect(fdbCluster.WaitUntilWithForceReconcile(2, 1200, func(cluster *fdbv1beta2.FoundationDBCluster) bool {
+	Expect(fdbCluster.WaitUntilWithForceReconcile(2, 1500, func(cluster *fdbv1beta2.FoundationDBCluster) bool {
 		for _, processGroup := range cluster.Status.ProcessGroups {
+			missingTime := processGroup.GetConditionTime(fdbv1beta2.MissingProcesses)
+			// If the Pod is missing check if the fdbserver processes are running and check the logs of the fdb-kubernetes-monitor.
+			if missingTime != nil && time.Since(time.Unix(*missingTime, 0)) > 60*time.Second {
+				log.Println("Missing process for:", processGroup.ProcessGroupID)
+				stdout, stderr, err := factory.ExecuteCmd(cluster.Namespace, processGroup.GetPodName(cluster), fdbv1beta2.MainContainerName, "ps aufx", true)
+				log.Println("stdout:", stdout, "stderr", stderr, "err", err)
+
+				pod, err := factory.GetPod(cluster.Namespace, processGroup.GetPodName(cluster))
+				if err != nil {
+					log.Println("logs for", processGroup.ProcessGroupID, ":", factory.GetLogsForPod(*pod, fdbv1beta2.MainContainerName, missingTime))
+				}
+			}
+
 			if processGroup.ProcessClass == fdbv1beta2.ProcessClassStorage {
 				continue
 			}
