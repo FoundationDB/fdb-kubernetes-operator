@@ -318,7 +318,6 @@ var _ = Describe("update_pods", func() {
 		var cluster *fdbv1beta2.FoundationDBCluster
 		var updates map[string][]*corev1.Pod
 		var pvcMap map[fdbv1beta2.ProcessGroupID]corev1.PersistentVolumeClaim
-		var expectedError bool
 		var err error
 
 		BeforeEach(func() {
@@ -338,16 +337,30 @@ var _ = Describe("update_pods", func() {
 
 		JustBeforeEach(func() {
 			updates, err = getPodsToUpdate(context.Background(), globalControllerLogger, clusterReconciler, cluster, pvcMap)
-			if !expectedError {
-				Expect(err).NotTo(HaveOccurred())
-			} else {
-				Expect(err).To(HaveOccurred())
-			}
 		})
 
 		When("the cluster has no changes", func() {
 			It("should return no errors and an empty map", func() {
 				Expect(updates).To(HaveLen(0))
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			When("a Pod is missing", func() {
+				BeforeEach(func() {
+					picked := internal.PickProcessGroups(cluster, fdbv1beta2.ProcessClassStorage, 1)[0]
+					pod := &corev1.Pod{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      picked.GetPodName(cluster),
+							Namespace: cluster.Namespace,
+						},
+					}
+					Expect(k8sClient.Delete(context.Background(), pod)).NotTo(HaveOccurred())
+				})
+
+				It("should return no errors and an empty map", func() {
+					Expect(updates).To(HaveLen(0))
+					Expect(err).NotTo(HaveOccurred())
+				})
 			})
 		})
 
@@ -362,8 +375,56 @@ var _ = Describe("update_pods", func() {
 			It("should return no errors and a map with one zone", func() {
 				// We only have one zone in this case, the simulation zone
 				Expect(updates).To(HaveLen(1))
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			When("a Pod is missing", func() {
+				var picked *fdbv1beta2.ProcessGroupStatus
+
+				BeforeEach(func() {
+					picked = internal.PickProcessGroups(cluster, fdbv1beta2.ProcessClassStorage, 1)[0]
+					pod := &corev1.Pod{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      picked.GetPodName(cluster),
+							Namespace: cluster.Namespace,
+						},
+					}
+					Expect(k8sClient.Delete(context.Background(), pod)).NotTo(HaveOccurred())
+				})
+
+				When("the process group has no MissingPod condition", func() {
+					It("should return an error and an empty map", func() {
+						Expect(updates).To(HaveLen(0))
+						Expect(err).To(HaveOccurred())
+					})
+				})
+
+				When("the process group has a MissingPod condition less than 90 seconds", func() {
+					BeforeEach(func() {
+						picked.UpdateCondition(fdbv1beta2.MissingPod, true)
+						picked.UpdateConditionTime(fdbv1beta2.MissingPod, time.Now().Add(-50*time.Second).Unix())
+					})
+
+					It("should return an error and an empty map", func() {
+						Expect(updates).To(HaveLen(0))
+						Expect(err).To(HaveOccurred())
+					})
+				})
+
+				When("the process group has a MissingPod condition for more than 90 seconds", func() {
+					BeforeEach(func() {
+						picked.UpdateCondition(fdbv1beta2.MissingPod, true)
+						picked.UpdateConditionTime(fdbv1beta2.MissingPod, time.Now().Add(-120*time.Second).Unix())
+					})
+
+					It("should return no error updates", func() {
+						Expect(updates).To(HaveLen(1))
+						Expect(err).NotTo(HaveOccurred())
+					})
+				})
 			})
 		})
+
 		When("there is a spec change requiring a removal", func() {
 			BeforeEach(func() {
 				storageSettings := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
@@ -375,6 +436,7 @@ var _ = Describe("update_pods", func() {
 
 			It("should return no updates", func() {
 				Expect(updates).To(HaveLen(0))
+				Expect(err).NotTo(HaveOccurred())
 			})
 		})
 
@@ -387,7 +449,6 @@ var _ = Describe("update_pods", func() {
 
 			When("max zones with unavailable pods is set to 3", func() {
 				BeforeEach(func() {
-					expectedError = false
 					cluster.Spec.MaxZonesWithUnavailablePods = pointer.Int(3)
 					// Update all processes
 					storageSettings := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
@@ -399,12 +460,12 @@ var _ = Describe("update_pods", func() {
 				It("should return no errors and a map with the zone and all pods to update", func() {
 					Expect(updates).To(HaveLen(1))
 					Expect(updates["simulation"]).To(HaveLen(4))
+					Expect(err).NotTo(HaveOccurred())
 				})
 			})
 
 			When("max zones with unavailable pods is set to 2", func() {
 				BeforeEach(func() {
-					expectedError = false
 					cluster.Spec.MaxZonesWithUnavailablePods = pointer.Int(2)
 					// Update all processes
 					storageSettings := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
@@ -416,12 +477,12 @@ var _ = Describe("update_pods", func() {
 				It("should return no errors and a map with the zone and two pods to update", func() {
 					Expect(updates).To(HaveLen(1))
 					Expect(updates["simulation"]).To(HaveLen(2))
+					Expect(err).NotTo(HaveOccurred())
 				})
 			})
 
 			When("max zones with unavailable pods is set to 1", func() {
 				BeforeEach(func() {
-					expectedError = false
 					cluster.Spec.MaxZonesWithUnavailablePods = pointer.Int(1)
 					// Update all processes
 					storageSettings := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
@@ -432,6 +493,7 @@ var _ = Describe("update_pods", func() {
 
 				It("should return no errors and a an empty update map", func() {
 					Expect(updates).To(HaveLen(0))
+					Expect(err).NotTo(HaveOccurred())
 				})
 			})
 		})

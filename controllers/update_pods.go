@@ -24,6 +24,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
+	"k8s.io/utils/pointer"
 	"time"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbstatus"
@@ -150,6 +151,7 @@ func getPodsToUpdate(ctx context.Context, logger logr.Logger, reconciler *Founda
 		return updates, nil
 	}
 
+	var podMissingError error
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		// When the number of zones with unavailable Pods equals the maxZonesWithUnavailablePods
 		// skip the process group if it does not belong to a zone with unavailable Pods.
@@ -187,6 +189,20 @@ func getPodsToUpdate(ctx context.Context, logger logr.Logger, reconciler *Founda
 		if err != nil {
 			logger.V(1).Info("Could not find Pod for process group ID",
 				"processGroupID", processGroup.ProcessGroupID)
+
+			// Check when the Pod went missing. If the condition is unset the current timestamp will be used, in that case
+			// the fdbv1beta2.MissingPod duration will be smaller than the 90 seconds buffer. The 90 seconds buffer
+			// was chosen as per default the failure detection in FDB takes 60 seconds to detect a failing fdbserver
+			// process (or actually to mark it failed). Without this check there could be a race condition where the
+			// Pod is already removed, so the process group would be skipped here but the fdbserver process is not yet
+			// marked as failed in FDB, which causes FDB to return full replication in the cluster status.
+			//
+			// With the unified image there is support for delaying the shutdown to reduce this risk even further.
+			missingPodDuration := time.Since(time.Unix(pointer.Int64Deref(processGroup.GetConditionTime(fdbv1beta2.MissingPod), time.Now().Unix()), 0))
+			if missingPodDuration < 90*time.Second {
+				podMissingError = fmt.Errorf("ProcessGroup: %s is missing the associated Pod for %s will be blocking until the Pod is missing for at least 90 seconds", processGroup.ProcessGroupID, missingPodDuration.String())
+			}
+
 			continue
 		}
 
@@ -255,6 +271,11 @@ func getPodsToUpdate(ctx context.Context, logger logr.Logger, reconciler *Founda
 			updates[zone] = make([]*corev1.Pod, 0)
 		}
 		updates[zone] = append(updates[zone], pod)
+	}
+
+	// Only if at least one Pod must be updated and we have seen a Pod being missing, return the podMissingError.
+	if len(updates) > 0 && podMissingError != nil {
+		return nil, podMissingError
 	}
 
 	return updates, nil
