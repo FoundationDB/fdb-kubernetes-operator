@@ -24,6 +24,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient/mock"
 	"k8s.io/utils/pointer"
 	"net"
 	"time"
@@ -756,6 +757,68 @@ var _ = Describe("exclude_processes", func() {
 			2,
 			0),
 	)
+
+	When("running the reconciler", func() {
+		var req *requeue
+		var initialConnectionString string
+
+		BeforeEach(func() {
+			cluster = internal.CreateDefaultCluster()
+			Expect(k8sClient.Create(context.TODO(), cluster)).NotTo(HaveOccurred())
+
+			result, err := reconcileCluster(cluster)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.Requeue).To(BeFalse())
+
+			generation, err := reloadCluster(cluster)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(generation).To(Equal(int64(1)))
+
+			cluster.Spec.DatabaseConfiguration.RedundancyMode = fdbv1beta2.RedundancyModeSingle
+			initialConnectionString = cluster.Status.ConnectionString
+		})
+
+		JustBeforeEach(func() {
+			req = excludeProcesses{}.reconcile(context.Background(), clusterReconciler, cluster, nil, GinkgoLogr)
+		})
+
+		// TODO: also add a test case with localities used
+		When("a coordinator should be excluded", func() {
+			BeforeEach(func() {
+				adminClient, err := mock.NewMockAdminClient(cluster, k8sClient)
+				Expect(err).NotTo(HaveOccurred())
+
+				coordinators, err := adminClient.GetCoordinatorSet()
+				Expect(err).NotTo(HaveOccurred())
+
+				for _, processGroup := range cluster.Status.ProcessGroups {
+					if _, ok := coordinators[string(processGroup.ProcessGroupID)]; !ok {
+						continue
+					}
+
+					processGroup.MarkForRemoval()
+					break
+				}
+			})
+
+			FIt("blub", func() {
+				adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(req).To(BeNil())
+				Expect(adminClient.ExcludedAddresses).To(HaveLen(1))
+
+				_, err = reloadCluster(cluster)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(initialConnectionString).NotTo(Equal(cluster.Status.ConnectionString))
+			})
+		})
+
+		/*
+
+		 */
+
+	})
 })
 
 func createMissingProcesses(cluster *fdbv1beta2.FoundationDBCluster, count int, processClass fdbv1beta2.ProcessClass) {
