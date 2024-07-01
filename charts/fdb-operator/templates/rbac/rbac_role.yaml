@@ -26,6 +26,14 @@ rules:
   - patch
   - delete
 - apiGroups:
+  - ""
+  resources:
+  - nodes
+  verbs:
+  - get
+  - watch
+  - list
+- apiGroups:
   - apps.foundationdb.org
   resources:
   - foundationdbclusters
