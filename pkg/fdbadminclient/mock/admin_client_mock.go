@@ -402,6 +402,27 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 		}
 	}
 
+	if client.Cluster.Status.RunningVersion != "" {
+		parsedVersion, err := fdbv1beta2.ParseFdbVersion(client.Cluster.Status.RunningVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		if parsedVersion.SupportsStorageMigrationConfiguration() {
+			if status.Cluster.DatabaseConfiguration.StorageMigrationType == "" {
+				status.Cluster.DatabaseConfiguration.StorageMigrationType = fdbv1beta2.StorageMigrationTypeDisabled
+			}
+
+			if status.Cluster.DatabaseConfiguration.PerpetualStorageWiggleEngine == "" {
+				status.Cluster.DatabaseConfiguration.PerpetualStorageWiggleEngine = fdbv1beta2.StorageEngineNone
+			}
+
+			if status.Cluster.DatabaseConfiguration.PerpetualStorageWiggleLocality == "" {
+				status.Cluster.DatabaseConfiguration.PerpetualStorageWiggleLocality = "0"
+			}
+		}
+	}
+
 	status.Cluster.FullReplication = true
 	status.Cluster.Data.State.Healthy = true
 	status.Cluster.Data.State.Name = "healthy"
@@ -520,6 +541,20 @@ func (client *AdminClient) ConfigureDatabase(configuration fdbv1beta2.DatabaseCo
 	if !ver.HasSeparatedProxies() {
 		client.DatabaseConfiguration.GrvProxies = 0
 		client.DatabaseConfiguration.CommitProxies = 0
+	}
+
+	if ver.SupportsStorageMigrationConfiguration() {
+		if configuration.StorageMigrationType == "" {
+			client.DatabaseConfiguration.StorageMigrationType = fdbv1beta2.StorageMigrationTypeDisabled
+		}
+
+		if configuration.PerpetualStorageWiggleEngine == "" {
+			client.DatabaseConfiguration.PerpetualStorageWiggleEngine = fdbv1beta2.StorageEngineNone
+		}
+
+		if configuration.PerpetualStorageWiggleLocality == "" {
+			client.DatabaseConfiguration.PerpetualStorageWiggleLocality = "0"
+		}
 	}
 
 	return nil

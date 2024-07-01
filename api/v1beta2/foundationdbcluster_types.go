@@ -1895,6 +1895,27 @@ func (cluster *FoundationDBCluster) DesiredDatabaseConfiguration() DatabaseConfi
 		configuration.StorageEngine = StorageEngineMemory2
 	}
 
+	// Make sure to reset any settings that are not supported by earlier FDB versions.
+	if !version.SupportsStorageMigrationConfiguration() {
+		configuration.PerpetualStorageWiggle = 0
+		configuration.StorageMigrationType = ""
+		configuration.PerpetualStorageWiggleLocality = ""
+	} else {
+		// If the storage migration type is not configured, we have to set the defaults.
+		if configuration.StorageMigrationType == "" {
+			configuration.StorageMigrationType = StorageMigrationTypeDisabled
+			configuration.PerpetualStorageWiggle = 0
+		}
+
+		if configuration.PerpetualStorageWiggleLocality == "" {
+			configuration.PerpetualStorageWiggleLocality = "0"
+		}
+
+		if configuration.PerpetualStorageWiggleEngine == "" {
+			configuration.PerpetualStorageWiggleEngine = StorageEngineNone
+		}
+	}
+
 	return configuration
 }
 
