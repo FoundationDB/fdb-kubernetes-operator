@@ -74,10 +74,10 @@ var _ = Describe("configmap_helper", func() {
 				expectedConf, err := GetMonitorConf(cluster, fdbv1beta2.ProcessClassStorage, nil, 1)
 				Expect(err).NotTo(HaveOccurred())
 
-				Expect(configMap.Data[ClusterFileKey]).To(Equal("operator-test:asdfasf@127.0.0.1:4501"))
+				Expect(configMap.Data[fdbv1beta2.ClusterFileKey]).To(Equal("operator-test:asdfasf@127.0.0.1:4501"))
 				Expect(configMap.Data["fdbmonitor-conf-storage"]).To(Equal(expectedConf))
-				Expect(configMap.Data["running-version"]).To(Equal(fdbv1beta2.Versions.Default.String()))
-				Expect(configMap.Data["sidecar-conf"]).To(Equal(""))
+				Expect(configMap.Data[fdbv1beta2.RunningVersionKey]).To(Equal(fdbv1beta2.Versions.Default.String()))
+				Expect(configMap.Data[fdbv1beta2.SidecarConfKey]).To(Equal(""))
 			})
 		})
 
@@ -261,7 +261,7 @@ var _ = Describe("configmap_helper", func() {
 				})
 
 				It("should populate the CA file", func() {
-					Expect(configMap.Data["ca-file"]).To(Equal("-----BEGIN CERTIFICATE-----\nMIIFyDCCA7ACCQDqRnbTl1OkcTANBgkqhkiG9w0BAQsFADCBpTELMAkGA1UEBhMC\n---CERT2----"))
+					Expect(configMap.Data[fdbv1beta2.CaFileKey]).To(Equal("-----BEGIN CERTIFICATE-----\nMIIFyDCCA7ACCQDqRnbTl1OkcTANBgkqhkiG9w0BAQsFADCBpTELMAkGA1UEBhMC\n---CERT2----"))
 				})
 			})
 		})
@@ -272,7 +272,7 @@ var _ = Describe("configmap_helper", func() {
 			})
 
 			It("should empty the monitor conf and cluster file", func() {
-				Expect(configMap.Data[ClusterFileKey]).To(Equal(""))
+				Expect(configMap.Data[fdbv1beta2.ClusterFileKey]).To(Equal(""))
 				Expect(configMap.Data["fdbmonitor-conf-storage"]).To(Equal(""))
 			})
 		})

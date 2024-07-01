@@ -371,7 +371,7 @@ var _ = Describe("pod_models", func() {
 						LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", cluster.Name)},
 						Items: []corev1.KeyToPath{
 							{Key: "fdbmonitor-conf-storage", Path: "fdbmonitor.conf"},
-							{Key: ClusterFileKey, Path: "fdb.cluster"},
+							{Key: fdbv1beta2.ClusterFileKey, Path: "fdb.cluster"},
 						},
 					}},
 				}))
@@ -596,7 +596,7 @@ var _ = Describe("pod_models", func() {
 							LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", cluster.Name)},
 							Items: []corev1.KeyToPath{
 								{Key: "fdbmonitor-conf-storage-json", Path: "config.json"},
-								{Key: ClusterFileKey, Path: "fdb.cluster"},
+								{Key: fdbv1beta2.ClusterFileKey, Path: "fdb.cluster"},
 							},
 						}},
 					}))
@@ -664,7 +664,7 @@ var _ = Describe("pod_models", func() {
 							LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", cluster.Name)},
 							Items: []corev1.KeyToPath{
 								{Key: "fdbmonitor-conf-storage-json", Path: "config.json"},
-								{Key: ClusterFileKey, Path: "fdb.cluster"},
+								{Key: fdbv1beta2.ClusterFileKey, Path: "fdb.cluster"},
 							},
 						}},
 					}))
@@ -722,7 +722,7 @@ var _ = Describe("pod_models", func() {
 							LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", cluster.Name)},
 							Items: []corev1.KeyToPath{
 								{Key: "fdbmonitor-conf-log-json", Path: "config.json"},
-								{Key: ClusterFileKey, Path: "fdb.cluster"},
+								{Key: fdbv1beta2.ClusterFileKey, Path: "fdb.cluster"},
 							},
 						}},
 					}))
@@ -782,7 +782,7 @@ var _ = Describe("pod_models", func() {
 							LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", cluster.Name)},
 							Items: []corev1.KeyToPath{
 								{Key: "fdbmonitor-conf-log-json", Path: "config.json"},
-								{Key: ClusterFileKey, Path: "fdb.cluster"},
+								{Key: fdbv1beta2.ClusterFileKey, Path: "fdb.cluster"},
 							},
 						}},
 					}))
@@ -1455,7 +1455,7 @@ var _ = Describe("pod_models", func() {
 						LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", cluster.Name)},
 						Items: []corev1.KeyToPath{
 							{Key: "fdbmonitor-conf-storage-density-2", Path: "fdbmonitor.conf"},
-							{Key: ClusterFileKey, Path: "fdb.cluster"},
+							{Key: fdbv1beta2.ClusterFileKey, Path: "fdb.cluster"},
 						},
 					}},
 				}))
@@ -2242,7 +2242,7 @@ var _ = Describe("pod_models", func() {
 						LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", cluster.Name)},
 						Items: []corev1.KeyToPath{
 							{Key: "fdbmonitor-conf-storage", Path: "fdbmonitor.conf"},
-							{Key: ClusterFileKey, Path: "fdb.cluster"},
+							{Key: fdbv1beta2.ClusterFileKey, Path: "fdb.cluster"},
 						},
 					}},
 				}))
@@ -2494,8 +2494,8 @@ var _ = Describe("pod_models", func() {
 						LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", cluster.Name)},
 						Items: []corev1.KeyToPath{
 							{Key: "fdbmonitor-conf-storage", Path: "fdbmonitor.conf"},
-							{Key: ClusterFileKey, Path: "fdb.cluster"},
-							{Key: "ca-file", Path: "ca.pem"},
+							{Key: fdbv1beta2.ClusterFileKey, Path: "fdb.cluster"},
+							{Key: fdbv1beta2.CaFileKey, Path: "ca.pem"},
 						},
 					}},
 				}))
@@ -3044,7 +3044,7 @@ var _ = Describe("pod_models", func() {
 						VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
 							LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", cluster.Name)},
 							Items: []corev1.KeyToPath{
-								{Key: ClusterFileKey, Path: "fdb.cluster"},
+								{Key: fdbv1beta2.ClusterFileKey, Path: "fdb.cluster"},
 							},
 						}},
 					},
@@ -3159,7 +3159,7 @@ var _ = Describe("pod_models", func() {
 						VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
 							LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", cluster.Name)},
 							Items: []corev1.KeyToPath{
-								{Key: ClusterFileKey, Path: "fdb.cluster"},
+								{Key: fdbv1beta2.ClusterFileKey, Path: "fdb.cluster"},
 							},
 						}},
 					},

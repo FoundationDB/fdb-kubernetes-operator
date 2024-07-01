@@ -315,11 +315,11 @@ func configureVolumesForContainers(cluster *fdbv1beta2.FoundationDBCluster, podS
 
 	configMapItems := []corev1.KeyToPath{
 		{Key: monitorConfKey, Path: monitorConfFile},
-		{Key: ClusterFileKey, Path: "fdb.cluster"},
+		{Key: fdbv1beta2.ClusterFileKey, Path: "fdb.cluster"},
 	}
 
 	if len(cluster.Spec.TrustedCAs) > 0 {
-		configMapItems = append(configMapItems, corev1.KeyToPath{Key: "ca-file", Path: "ca.pem"})
+		configMapItems = append(configMapItems, corev1.KeyToPath{Key: fdbv1beta2.CaFileKey, Path: "ca.pem"})
 	}
 
 	var configMapRefName string
@@ -983,7 +983,7 @@ func GetBackupDeployment(backup *fdbv1beta2.FoundationDBBackup) (*appsv1.Deploym
 					Name: fmt.Sprintf("%s-config", backup.Spec.ClusterName),
 				},
 				Items: []corev1.KeyToPath{
-					{Key: ClusterFileKey, Path: "fdb.cluster"},
+					{Key: fdbv1beta2.ClusterFileKey, Path: "fdb.cluster"},
 				},
 			}},
 		},

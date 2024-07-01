@@ -162,7 +162,7 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 	clusterStatus.RunningVersion = cluster.Status.RunningVersion
 
 	if clusterStatus.RunningVersion == "" {
-		version, present := existingConfigMap.Data["running-version"]
+		version, present := existingConfigMap.Data[fdbv1beta2.RunningVersionKey]
 		if present {
 			clusterStatus.RunningVersion = version
 		}
@@ -174,7 +174,7 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 
 	clusterStatus.ConnectionString = cluster.Status.ConnectionString
 	if clusterStatus.ConnectionString == "" {
-		clusterStatus.ConnectionString = existingConfigMap.Data[internal.ClusterFileKey]
+		clusterStatus.ConnectionString = existingConfigMap.Data[fdbv1beta2.ClusterFileKey]
 	}
 
 	if clusterStatus.ConnectionString == "" {

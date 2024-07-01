@@ -30,18 +30,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const (
-	// ClusterFileKey defines the key name in the ConfigMap
-	ClusterFileKey = "cluster-file"
-)
-
 // GetConfigMap builds a config map for a cluster's dynamic config
 func GetConfigMap(cluster *fdbv1beta2.FoundationDBCluster) (*corev1.ConfigMap, error) {
 	data := make(map[string]string)
 
 	connectionString := cluster.Status.ConnectionString
-	data[ClusterFileKey] = connectionString
-	data["running-version"] = cluster.Status.RunningVersion
+	data[fdbv1beta2.ClusterFileKey] = connectionString
+	data[fdbv1beta2.RunningVersionKey] = cluster.Status.RunningVersion
 
 	var caFile strings.Builder
 	for _, ca := range cluster.Spec.TrustedCAs {
@@ -52,7 +47,7 @@ func GetConfigMap(cluster *fdbv1beta2.FoundationDBCluster) (*corev1.ConfigMap, e
 	}
 
 	if caFile.Len() > 0 {
-		data["ca-file"] = caFile.String()
+		data[fdbv1beta2.CaFileKey] = caFile.String()
 	}
 
 	desiredCountStruct, err := cluster.GetProcessCountsWithDefaults()
@@ -185,11 +180,11 @@ func GetConfigMapMonitorConfEntry(pClass fdbv1beta2.ProcessClass, imageType fdbv
 // This will omit keys that we do not expect the Pods to reference e.g. for storage Pods only include the storage config.
 func GetDynamicConfHash(configMap *corev1.ConfigMap, pClass fdbv1beta2.ProcessClass, imageType fdbv1beta2.ImageType, serversPerPod int) (string, error) {
 	fields := []string{
-		ClusterFileKey,
+		fdbv1beta2.ClusterFileKey,
 		GetConfigMapMonitorConfEntry(pClass, imageType, serversPerPod),
-		"running-version",
-		"ca-file",
-		"sidecar-conf",
+		fdbv1beta2.RunningVersionKey,
+		fdbv1beta2.CaFileKey,
+		fdbv1beta2.SidecarConfKey,
 	}
 	var data = make(map[string]string, len(fields))
 
