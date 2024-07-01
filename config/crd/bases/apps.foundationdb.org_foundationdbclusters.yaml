@@ -10359,6 +10359,29 @@ spec:
                     type: integer
                   logs:
                     type: integer
+                  perpetual_storage_wiggle:
+                    type: integer
+                  perpetual_storage_wiggle_engine:
+                    enum:
+                    - ""
+                    - ssd
+                    - ssd-1
+                    - ssd-2
+                    - memory
+                    - memory-1
+                    - memory-2
+                    - ssd-redwood-1-experimental
+                    - ssd-redwood-1
+                    - ssd-rocksdb-experimental
+                    - ssd-rocksdb-v1
+                    - ssd-sharded-rocksdb
+                    - memory-radixtree-beta
+                    - custom
+                    - none
+                    maxLength: 100
+                    type: string
+                  perpetual_storage_wiggle_locality:
+                    type: string
                   proxies:
                     type: integer
                   redundancy_mode:
@@ -10416,8 +10439,19 @@ spec:
                     - custom
                     maxLength: 100
                     type: string
+                  storage_migration_type:
+                    enum:
+                    - ""
+                    - disabled
+                    - aggressive
+                    - gradual
+                    maxLength: 100
+                    type: string
                   usable_regions:
                     type: integer
+                required:
+                - perpetual_storage_wiggle
+                - perpetual_storage_wiggle_locality
                 type: object
               faultDomain:
                 properties:
@@ -14101,6 +14135,29 @@ spec:
                     type: integer
                   logs:
                     type: integer
+                  perpetual_storage_wiggle:
+                    type: integer
+                  perpetual_storage_wiggle_engine:
+                    enum:
+                    - ""
+                    - ssd
+                    - ssd-1
+                    - ssd-2
+                    - memory
+                    - memory-1
+                    - memory-2
+                    - ssd-redwood-1-experimental
+                    - ssd-redwood-1
+                    - ssd-rocksdb-experimental
+                    - ssd-rocksdb-v1
+                    - ssd-sharded-rocksdb
+                    - memory-radixtree-beta
+                    - custom
+                    - none
+                    maxLength: 100
+                    type: string
+                  perpetual_storage_wiggle_locality:
+                    type: string
                   proxies:
                     type: integer
                   redundancy_mode:
@@ -14158,8 +14215,19 @@ spec:
                     - custom
                     maxLength: 100
                     type: string
+                  storage_migration_type:
+                    enum:
+                    - ""
+                    - disabled
+                    - aggressive
+                    - gradual
+                    maxLength: 100
+                    type: string
                   usable_regions:
                     type: integer
+                required:
+                - perpetual_storage_wiggle
+                - perpetual_storage_wiggle_locality
                 type: object
               desiredProcessGroups:
                 type: integer

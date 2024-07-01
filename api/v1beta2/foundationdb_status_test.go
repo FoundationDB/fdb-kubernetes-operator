@@ -513,13 +513,16 @@ var _ = Describe("FoundationDBStatus", func() {
 			IncompatibleConnections: []string{},
 			ConnectionString:        "test_cluster:aHeD9ocNXOUxi0dyzU3k7Bhg53SpyrBV@10.1.18.253:4501,10.1.18.254:4501,10.1.19.0:4501",
 			DatabaseConfiguration: DatabaseConfiguration{
-				RedundancyMode:  "double",
-				StorageEngine:   StorageEngineSSD2,
-				UsableRegions:   1,
-				Regions:         nil,
-				ExcludedServers: make([]ExcludedServers, 0),
-				RoleCounts:      RoleCounts{Storage: 0, Logs: 3, Proxies: 3, CommitProxies: 2, GrvProxies: 1, Resolvers: 1, LogRouters: -1, RemoteLogs: -1},
-				VersionFlags:    VersionFlags{LogSpill: 2, LogVersion: 0},
+				RedundancyMode:                 "double",
+				StorageEngine:                  StorageEngineSSD2,
+				UsableRegions:                  1,
+				Regions:                        nil,
+				ExcludedServers:                make([]ExcludedServers, 0),
+				RoleCounts:                     RoleCounts{Storage: 0, Logs: 3, Proxies: 3, CommitProxies: 2, GrvProxies: 1, Resolvers: 1, LogRouters: -1, RemoteLogs: -1},
+				VersionFlags:                   VersionFlags{LogSpill: 2, LogVersion: 0},
+				StorageMigrationType:           StorageMigrationTypeDisabled,
+				PerpetualStorageWiggle:         0,
+				PerpetualStorageWiggleLocality: "0",
 			},
 			Processes: map[ProcessGroupID]FoundationDBStatusProcessInfo{
 				"eb48ada3a682e86363f06aa89e1041fa": {

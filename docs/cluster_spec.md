@@ -517,6 +517,10 @@ DatabaseConfiguration represents the configuration of the database
 | excluded_servers | ExcludedServers defines the list  of excluded servers form the database. | [][ExcludedServers](#excludedservers) | false |
 | RoleCounts | RoleCounts defines how many processes the database should recruit for each role. | [RoleCounts](#rolecounts) | true |
 | VersionFlags | VersionFlags defines internal flags for testing new features in the database. | [VersionFlags](#versionflags) | true |
+| storage_migration_type | StorageMigrationType defines the storage migration type. | [StorageMigrationType](#storagemigrationtype) | true |
+| perpetual_storage_wiggle | PerpetualStorageWiggle defines the wiggle speed. If set to 0 this feature is disabled. When setting StorageMigrationType to StorageMigrationTypeGradual, this value must be greater than 0. | int | true |
+| perpetual_storage_wiggle_locality | PerpetualStorageWiggleLocality if defined the specified locality will be migrated. Format is: <<LOCALITY_KEY>:<LOCALITY_VALUE>\|0> | string | true |
+| perpetual_storage_wiggle_engine | PerpetualStorageWiggleEngine defines the perpetual storage engine type. | [StorageEngine](#storageengine) | true |
 
 [Back to TOC](#table-of-contents)
 
@@ -598,6 +602,12 @@ RoleCounts represents the roles whose counts can be customized.
 ## StorageEngine
 
 StorageEngine defines the storage engine for the database
+
+[Back to TOC](#table-of-contents)
+
+## StorageMigrationType
+
+StorageMigrationType defines the storage migration type.
 
 [Back to TOC](#table-of-contents)
 
