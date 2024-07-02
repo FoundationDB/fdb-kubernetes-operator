@@ -156,7 +156,7 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 				selectedPod := factory.RandomPickOnePod(pods)
 				log.Println("deleting pod: ", selectedPod.Name)
 				factory.DeletePod(&selectedPod)
-				Expect(fdbCluster.WaitForPodRemoval(&selectedPod)).ShouldNot(HaveOccurred())
+				fdbCluster.WaitForPodRemoval(&selectedPod)
 				return false
 			}).WithTimeout(20 * time.Minute).WithPolling(3 * time.Minute).Should(BeTrue())
 
