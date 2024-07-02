@@ -182,7 +182,7 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 			// the injected partition from chaos-mesh is lost and therefore the process is reporting to the cluster again.
 			if !fixtures.VersionsAreProtocolCompatible(beforeVersion, targetVersion) {
 				log.Println("waiting for pod removal:", partitionedPod.Name)
-				Expect(fdbCluster.WaitForPodRemoval(partitionedPod)).ShouldNot(HaveOccurred())
+				fdbCluster.WaitForPodRemoval(partitionedPod)
 				log.Println("pod removed:", partitionedPod.Name)
 			}
 
