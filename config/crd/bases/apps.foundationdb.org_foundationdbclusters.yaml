@@ -10449,9 +10449,6 @@ spec:
                     type: string
                   usable_regions:
                     type: integer
-                required:
-                - perpetual_storage_wiggle
-                - perpetual_storage_wiggle_locality
                 type: object
               faultDomain:
                 properties:
@@ -14225,9 +14222,6 @@ spec:
                     type: string
                   usable_regions:
                     type: integer
-                required:
-                - perpetual_storage_wiggle
-                - perpetual_storage_wiggle_locality
                 type: object
               desiredProcessGroups:
                 type: integer

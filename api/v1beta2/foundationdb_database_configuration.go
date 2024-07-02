@@ -67,22 +67,22 @@ type DatabaseConfiguration struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:Enum="";disabled;aggressive;gradual
 	// +kubebuilder:default:disabled
-	StorageMigrationType StorageMigrationType `json:"storage_migration_type"`
+	StorageMigrationType StorageMigrationType `json:"storage_migration_type,omitempty"`
 
 	// PerpetualStorageWiggle defines the wiggle speed. If set to 0 this feature is disabled.
 	// When setting StorageMigrationType to StorageMigrationTypeGradual, this value must be greater
 	// than 0.
-	PerpetualStorageWiggle int `json:"perpetual_storage_wiggle"`
+	PerpetualStorageWiggle int `json:"perpetual_storage_wiggle,omitempty"`
 
 	// PerpetualStorageWiggleLocality if defined the specified locality will be migrated.
 	// Format is: <<LOCALITY_KEY>:<LOCALITY_VALUE>|0>
-	PerpetualStorageWiggleLocality string `json:"perpetual_storage_wiggle_locality"`
+	PerpetualStorageWiggleLocality string `json:"perpetual_storage_wiggle_locality,omitempty"`
 
 	// PerpetualStorageWiggleEngine defines the perpetual storage engine type.
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:Enum="";ssd;ssd-1;ssd-2;memory;memory-1;memory-2;ssd-redwood-1-experimental;ssd-redwood-1;ssd-rocksdb-experimental;ssd-rocksdb-v1;ssd-sharded-rocksdb;memory-radixtree-beta;custom;none
 	// +kubebuilder:default:none
-	PerpetualStorageWiggleEngine StorageEngine `json:"perpetual_storage_wiggle_engine"`
+	PerpetualStorageWiggleEngine StorageEngine `json:"perpetual_storage_wiggle_engine,omitempty"`
 }
 
 // Region represents a region in the database configuration
