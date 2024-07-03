@@ -42,6 +42,7 @@ import (
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/e2e/fixtures"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbstatus"
 	chaosmesh "github.com/chaos-mesh/chaos-mesh/api/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -370,13 +371,28 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		// fields that we expect are actually set.
 	})
 
-	When("replacing a Pod", func() {
+	When("replacing a coordinator Pod", func() {
 		var replacedPod corev1.Pod
 		var useLocalitiesForExclusion bool
 
 		JustBeforeEach(func() {
-			initialPods := fdbCluster.GetStatelessPods()
-			replacedPod = factory.RandomPickOnePod(initialPods.Items)
+			initialPods := fdbCluster.GetLogPods()
+			coordinators := fdbstatus.GetCoordinatorsFromStatus(fdbCluster.GetStatus())
+
+			for _, pod := range initialPods.Items {
+				_, isCoordinator := coordinators[string(fixtures.GetProcessGroupID(pod))]
+				if isCoordinator {
+					replacedPod = pod
+					break
+				}
+			}
+
+			// In case that none of the log processes are coordinators
+			if replacedPod.Name == "" {
+				replacedPod = factory.RandomPickOnePod(initialPods.Items)
+			}
+
+			log.Println("coordinators:", coordinators, "replacedPod", replacedPod.Name)
 			fdbCluster.ReplacePod(replacedPod, true)
 		})
 

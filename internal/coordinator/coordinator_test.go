@@ -112,24 +112,6 @@ var _ = Describe("Change coordinators", func() {
 				})
 			})
 
-			//When("when one storage process is excluded", func() {
-			//	BeforeEach(func() {
-			//		address := cluster.Status.ProcessGroups[firstStorageIndex+1].Addresses[0]
-			//		adminClient.ExcludedAddresses[address] = fdbv1beta2.None{}
-			//	})
-			//
-			//	It("should only select storage processes and exclude the excluded process", func() {
-			//		Expect(cluster.DesiredCoordinatorCount()).To(BeNumerically("==", 3))
-			//		Expect(len(candidates)).To(BeNumerically("==", cluster.DesiredCoordinatorCount()))
-			//
-			//		// Only select Storage processes since we select 3 processes and we have 4 storage processes
-			//		for _, candidate := range candidates {
-			//			Expect(candidate.ID).NotTo(Equal("storage-2"))
-			//			Expect(candidate.Class).To(Equal(fdbv1beta2.ProcessClassStorage))
-			//		}
-			//	})
-			//})
-
 			When("when multiple storage process are marked for removal", func() {
 				var removals []fdbv1beta2.ProcessGroupID
 

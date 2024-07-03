@@ -38,8 +38,6 @@ var _ = Describe("Change coordinators", func() {
 
 	BeforeEach(func() {
 		cluster = internal.CreateDefaultCluster()
-		//disabled := false
-		//cluster.Spec.LockOptions.DisableLocks = &disabled
 		cluster.Spec.CoordinatorSelection = []fdbv1beta2.CoordinatorSelectionSetting{
 			{
 				ProcessClass: fdbv1beta2.ProcessClassStorage,

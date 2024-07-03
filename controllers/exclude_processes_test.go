@@ -782,7 +782,6 @@ var _ = Describe("exclude_processes", func() {
 			req = excludeProcesses{}.reconcile(context.Background(), clusterReconciler, cluster, nil, GinkgoLogr)
 		})
 
-		// TODO: also add a test case with localities used
 		When("a coordinator should be excluded", func() {
 			BeforeEach(func() {
 				adminClient, err := mock.NewMockAdminClient(cluster, k8sClient)
@@ -801,7 +800,7 @@ var _ = Describe("exclude_processes", func() {
 				}
 			})
 
-			FIt("blub", func() {
+			It("should exclude the process and change the coordinators", func() {
 				adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -812,12 +811,25 @@ var _ = Describe("exclude_processes", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(initialConnectionString).NotTo(Equal(cluster.Status.ConnectionString))
 			})
+
+			When("using localities", func() {
+				BeforeEach(func() {
+					cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(true)
+				})
+
+				It("should exclude the process and change the coordinators", func() {
+					adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
+					Expect(err).NotTo(HaveOccurred())
+
+					Expect(req).To(BeNil())
+					Expect(adminClient.ExcludedAddresses).To(HaveLen(1))
+
+					_, err = reloadCluster(cluster)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(initialConnectionString).NotTo(Equal(cluster.Status.ConnectionString))
+				})
+			})
 		})
-
-		/*
-
-		 */
-
 	})
 })
 

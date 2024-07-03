@@ -154,20 +154,16 @@ func SetupClusterForTest(cluster *fdbv1beta2.FoundationDBCluster, k8sClient ctrl
 
 	countMap := counts.Map()
 	processGroupIDs := map[fdbv1beta2.ProcessClass]map[int]bool{}
-
-	ipIdx := 2
 	for processClass, count := range countMap {
 		if count == 0 {
 			continue
 		}
 
 		processGroupIDs[processClass] = map[int]bool{}
-		for i := 1; i <= count; i++ {
+		for count > 0 {
 			processGroupID := cluster.GetNextRandomProcessGroupID(processClass, processGroupIDs[processClass])
 			newProcessGroup := fdbv1beta2.NewProcessGroupStatus(processGroupID, processClass, nil)
 			newProcessGroup.ProcessGroupConditions = nil
-
-			ipIdx++
 
 			pod, err := GetPod(cluster, newProcessGroup)
 			if err != nil {
@@ -181,6 +177,7 @@ func SetupClusterForTest(cluster *fdbv1beta2.FoundationDBCluster, k8sClient ctrl
 
 			newProcessGroup.Addresses = append(newProcessGroup.Addresses, pod.Status.PodIP)
 			cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, newProcessGroup)
+			count--
 		}
 	}
 
