@@ -907,25 +907,29 @@ func (fdbCluster *FdbCluster) SetSkipReconciliation(skip bool) {
 }
 
 // WaitForPodRemoval will wait until the specified Pod is deleted.
-func (fdbCluster *FdbCluster) WaitForPodRemoval(pod *corev1.Pod) error {
+func (fdbCluster *FdbCluster) WaitForPodRemoval(pod *corev1.Pod) {
 	if pod == nil {
-		return nil
+		return
 	}
 
 	log.Printf("waiting until the pod %s/%s is deleted", pod.Namespace, pod.Name)
 	counter := 0
 	forceReconcile := 10
-
-	// Poll every 2 seconds for a maximum of 40 minutes.
+	errDescription := fmt.Sprintf("pod %s/%s was not removed in the expected time", pod.Namespace, pod.Name)
 	fetchedPod := &corev1.Pod{}
-	err := wait.PollImmediate(2*time.Second, 40*time.Minute, func() (bool, error) {
+	gomega.Eventually(func() bool {
 		err := fdbCluster.getClient().
 			Get(ctx.Background(), client.ObjectKeyFromObject(pod), fetchedPod)
-		if err != nil {
-			if kubeErrors.IsNotFound(err) {
-				return true, nil
-			}
+		if err != nil && kubeErrors.IsNotFound(err) {
+			return true
 		}
+
+		// If the UID of the fetched Pod is different from the UID of the initial Pod we can assume
+		// that the Pod was recreated e.g. by the operator.
+		if fetchedPod != nil && fetchedPod.UID != pod.UID {
+			return true
+		}
+
 		resCluster := fdbCluster.GetCluster()
 		// We have to force a reconcile because the operator only reacts to events.
 		// The network partition of the Pod won't trigger any reconcile and we would have to wait for 10h.
@@ -947,14 +951,9 @@ func (fdbCluster *FdbCluster) WaitForPodRemoval(pod *corev1.Pod) error {
 			counter = -1
 		}
 		counter++
-		return false, nil
-	})
 
-	if err == nil {
-		return nil
-	}
-
-	return fmt.Errorf("pod %s/%s was not removed in the expected time", pod.Namespace, pod.Name)
+		return false
+	}).WithPolling(2*time.Second).WithTimeout(10*time.Minute).Should(gomega.BeTrue(), errDescription)
 }
 
 // GetClusterSpec returns the current cluster spec.

@@ -765,7 +765,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 			It("should replace the partitioned Pod", func() {
 				log.Printf("waiting for pod removal: %s", partitionedPod.Name)
-				Expect(fdbCluster.WaitForPodRemoval(partitionedPod)).ShouldNot(HaveOccurred())
+				fdbCluster.WaitForPodRemoval(partitionedPod)
 				exists, err := factory.DoesPodExist(*partitionedPod)
 				Expect(err).ShouldNot(HaveOccurred())
 				Expect(exists).To(BeFalse())
@@ -1628,7 +1628,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 		It("should replace the excluded Pod", func() {
 			log.Printf("waiting for pod removal: %s", pod.Name)
-			Expect(fdbCluster.WaitForPodRemoval(pod)).ShouldNot(HaveOccurred())
+			fdbCluster.WaitForPodRemoval(pod)
 			exists, err := factory.DoesPodExist(*pod)
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(exists).To(BeFalse())
