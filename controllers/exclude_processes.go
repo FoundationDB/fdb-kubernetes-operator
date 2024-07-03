@@ -26,12 +26,11 @@ import (
 	"net"
 	"time"
 
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal/coordinator"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbstatus"
 	"github.com/go-logr/logr"
-
 	corev1 "k8s.io/api/core/v1"
-
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 )
 
 // ignoreMissingProcessDuration defines the duration a Process Group must have the MissingProcess condition to be
@@ -44,7 +43,7 @@ const ignoreMissingProcessDuration = 5 * time.Minute
 type excludeProcesses struct{}
 
 // reconcile runs the reconciler's work.
-func (e excludeProcesses) reconcile(_ context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
+func (e excludeProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
 	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
 	if err != nil {
 		return &requeue{curError: err}
@@ -89,6 +88,23 @@ func (e excludeProcesses) reconcile(_ context.Context, r *FoundationDBClusterRec
 				logger.Error(err, "could not release lock")
 			}
 		}()
+	}
+
+	// We need the information below to check if the excluded processes are coordinators to make sure we can change the
+	// coordinators before doing the exclusion.
+	coordinators := fdbstatus.GetCoordinatorsFromStatus(status)
+	coordinatorsExclusionString := map[string]fdbv1beta2.None{}
+	coordinatorsAddress := map[string]fdbv1beta2.None{}
+	for _, processGroup := range cluster.Status.ProcessGroups {
+		if _, ok := coordinators[string(processGroup.ProcessGroupID)]; !ok {
+			continue
+		}
+
+		coordinatorsExclusionString[processGroup.GetExclusionString()] = fdbv1beta2.None{}
+
+		for _, addr := range processGroup.Addresses {
+			coordinatorsAddress[addr] = fdbv1beta2.None{}
+		}
 	}
 
 	// Make sure it's safe to exclude processes.
@@ -139,10 +155,40 @@ func (e excludeProcesses) reconcile(_ context.Context, r *FoundationDBClusterRec
 		}
 	}
 
+	var coordinatorExcluded bool
+	for _, excludeProcess := range fdbProcessesToExclude {
+		excludeString := excludeProcess.String()
+		_, excludedLocality := coordinatorsExclusionString[excludeString]
+		_, excludedAddress := coordinatorsAddress[excludeString]
+
+		if excludedAddress || excludedLocality {
+			logger.Info("process to be excluded is also a coordinator", "excludeProcess", excludeProcess.String())
+			coordinatorExcluded = true
+		}
+	}
+
+	var coordinatorErr error
+	// If a coordinator should be excluded, we will change the coordinators before doing the exclusion. This should reduce the
+	// observed recoveries, see: https://github.com/FoundationDB/fdb-kubernetes-operator/issues/2018.
+	if coordinatorExcluded {
+		coordinatorErr = coordinator.ChangeCoordinators(logger, adminClient, cluster, status)
+	}
+
 	r.Recorder.Event(cluster, corev1.EventTypeNormal, "ExcludingProcesses", fmt.Sprintf("Excluding %v", fdbProcessesToExclude))
 	err = adminClient.ExcludeProcesses(fdbProcessesToExclude)
 	if err != nil {
 		return &requeue{curError: err, delayedRequeue: true}
+	}
+
+	if coordinatorErr != nil {
+		return &requeue{curError: err, delayedRequeue: true}
+	}
+
+	if coordinatorExcluded && coordinatorErr == nil {
+		err = r.updateOrApply(ctx, cluster)
+		if err != nil {
+			return &requeue{curError: err, delayedRequeue: true}
+		}
 	}
 
 	return nil
