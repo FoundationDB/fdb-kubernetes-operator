@@ -96,20 +96,14 @@ func (factory *Factory) createNamespace(suffix string) string {
 		}
 
 		err := factory.checkIfNamespaceIsTerminating(namespace)
-		if err != nil {
-			return err
-		}
+		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		err = factory.ensureNamespaceExists(namespace)
-		if err != nil {
-			return err
-		}
+		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		namespaceResource := &corev1.Namespace{}
 		err = factory.controllerRuntimeClient.Get(ctx.Background(), client.ObjectKey{Namespace: "", Name: namespace}, namespaceResource)
-		if err != nil {
-			return err
-		}
+		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		if namespaceResource.Annotations[testSuiteNameAnnotation] != testSuiteName {
 			err = fmt.Errorf("namespace %s already in use by test suite: %s, current test suite: %s", namespace, namespaceResource.Annotations[testSuiteNameAnnotation], testSuiteName)
