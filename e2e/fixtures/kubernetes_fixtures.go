@@ -105,7 +105,6 @@ func (factory *Factory) createNamespace(suffix string) string {
 			return err
 		}
 
-		log.Println("created namespace", namespace)
 		namespaceResource := &corev1.Namespace{}
 		err = factory.controllerRuntimeClient.Get(ctx.Background(), client.ObjectKey{Namespace: "", Name: namespace}, namespaceResource)
 		if err != nil {
@@ -117,6 +116,8 @@ func (factory *Factory) createNamespace(suffix string) string {
 			log.Println(err.Error())
 			return err
 		}
+
+		log.Println("created namespace", namespace)
 
 		return nil
 	}).WithTimeout(10 * time.Minute).WithPolling(1 * time.Second).ShouldNot(gomega.HaveOccurred())
@@ -188,7 +189,7 @@ func (factory *Factory) checkIfNamespaceIsTerminating(name string) error {
 		return nil
 	}
 
-	// If the namespace is in terminating, we have to check if any pod are stuck in terminating with a finalizer set.
+	// If the namespace is in terminating, we have to check if any pods are stuck in terminating with a finalizer set.
 	log.Printf("Namespace: %s is in terminating state since: %s will wait until the namespace is deleted", namespace.Name, deletionTimestamp.String())
 	podList := &corev1.PodList{}
 	err = controllerClient.List(ctx.Background(), podList, client.InNamespace(name))
