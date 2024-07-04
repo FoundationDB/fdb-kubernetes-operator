@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrlClient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient/mock"
@@ -133,6 +134,25 @@ var _ = Describe("remove_process_groups", func() {
 					Expect(err).To(BeNil())
 					Expect(removed).To(BeFalse())
 					Expect(include).To(BeFalse())
+				})
+			})
+
+			When("the Pod doesn't exist", func() {
+				BeforeEach(func() {
+					Expect(k8sClient.Delete(context.Background(), &corev1.Pod{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      removedProcessGroup.GetPodName(cluster),
+							Namespace: cluster.Namespace,
+						}})).NotTo(HaveOccurred())
+				})
+
+				It("should successfully remove that process group", func() {
+					Expect(result).To(BeNil())
+					// Ensure resources are deleted
+					removed, include, err := confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, removedProcessGroup)
+					Expect(err).To(BeNil())
+					Expect(removed).To(BeTrue())
+					Expect(include).To(BeTrue())
 				})
 			})
 
