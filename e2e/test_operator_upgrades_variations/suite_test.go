@@ -28,7 +28,8 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestOperatorUpgrade(t *testing.T) {
+func TestOperatorUpgradesVariations(t *testing.T) {
 	SetDefaultEventuallyTimeout(3 * time.Minute)
+	fixtures.SetTestSuiteName("operator-upgrades-variations")
 	fixtures.RunGinkgoTests(t, "FDB Operator Upgrade variations Test Suite")
 }

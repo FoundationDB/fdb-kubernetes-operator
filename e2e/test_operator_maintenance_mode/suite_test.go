@@ -28,7 +28,8 @@ import (
 	"github.com/onsi/gomega"
 )
 
-func TestOperatorHA(t *testing.T) {
+func TestOperatorMaintenanceMode(t *testing.T) {
 	gomega.SetDefaultEventuallyTimeout(10 * time.Second)
+	fixtures.SetTestSuiteName("operator-maintenance-mode")
 	fixtures.RunGinkgoTests(t, "Operator maintenance mode test suite")
 }

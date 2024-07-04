@@ -34,6 +34,9 @@ import (
 	"github.com/onsi/gomega"
 )
 
+// testSuiteName will be used to prevent namespace conflicts between concurrent running test suites.
+var testSuiteName string
+
 // RunGinkgoTests sets up the current test suite to run Ginkgo tests,
 // then invokes the tests.  It should be invoked by each top level Test*
 // function.
@@ -67,4 +70,10 @@ func InitFlags() *FactoryOptions {
 	flag.Parse()
 
 	return testOptions
+}
+
+// SetTestSuiteName will set the test suite name for the current test suite. You have to ensure that this test suite
+// name is unique across all test suites.
+func SetTestSuiteName(name string) {
+	testSuiteName = name
 }

@@ -28,7 +28,8 @@ import (
 	"github.com/onsi/gomega"
 )
 
-func TestOperator(t *testing.T) {
+func TestOperatorMigrateImageType(t *testing.T) {
 	gomega.SetDefaultEventuallyTimeout(10 * time.Second)
+	fixtures.SetTestSuiteName("operator-migrate-image-type")
 	fixtures.RunGinkgoTests(t, "Operator Migrate Image Type test suite")
 }
