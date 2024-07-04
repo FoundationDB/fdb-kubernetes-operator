@@ -146,19 +146,21 @@ func removeProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, c
 		return err
 	}
 
-	value, ok := pod.Annotations[fdbv1beta2.IsolateProcessGroupAnnotation]
-	if ok {
-		// Ignore the parsing error here and assume the pod was not isolated.
-		isolated, _ := strconv.ParseBool(value)
-		if isolated {
-			return fmt.Errorf("not allowed to delete Pod and the assosicated resources as the Pod is isolated")
+	if err == nil {
+		value, ok := pod.Annotations[fdbv1beta2.IsolateProcessGroupAnnotation]
+		if ok {
+			// Ignore the parsing error here and assume the pod was not isolated.
+			isolated, _ := strconv.ParseBool(value)
+			if isolated {
+				return fmt.Errorf("not allowed to delete Pod and the assosicated resources as the Pod is isolated")
+			}
 		}
-	}
 
-	if err == nil && pod.DeletionTimestamp.IsZero() {
-		err = r.PodLifecycleManager.DeletePod(ctx, r, pod)
-		if err != nil {
-			deletionError = fmt.Errorf("could not delete Pod: %w", err)
+		if pod.DeletionTimestamp.IsZero() {
+			err = r.PodLifecycleManager.DeletePod(ctx, r, pod)
+			if err != nil {
+				deletionError = fmt.Errorf("could not delete Pod: %w", err)
+			}
 		}
 	}
 
