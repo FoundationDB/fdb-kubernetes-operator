@@ -592,7 +592,19 @@ func (r *FoundationDBClusterReconciler) getStatusFromClusterOrDummyStatus(logger
 		return status, nil
 	}
 
+	// When we reached this part of the code the above GetStatus() called failed for some reason.
 	if cluster.Status.Configured {
+		// If the cluster is currently under a version incompatible upgrade, we try to assume the current version based
+		// on the coordinator reachability. If all (or the majority) of coordinators are reachable with a specific version
+		// of fdbcli we can assume that the cluster is running with that version and update the cluster.Status.RunningVersion.
+		// In theory we could use the go bindings if they would expose that information from the multi-version bindings.
+		if cluster.IsBeingUpgradedWithVersionIncompatibleVersion() {
+			// Set the version from the reachable coordinators, if the version points to the desired version defined
+			// in the cluster.Spec.Version, this will unblock some further steps, to allow the operator to bring the cluster
+			// back into a better state.
+			cluster.Status.RunningVersion = adminClient.GetVersionFromReachableCoordinators()
+		}
+
 		return nil, err
 	}
 
