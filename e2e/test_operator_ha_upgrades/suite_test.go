@@ -30,5 +30,6 @@ import (
 
 func TestOperatorHaUpgrade(t *testing.T) {
 	SetDefaultEventuallyTimeout(3 * time.Minute)
+	fixtures.SetTestSuiteName("operator-ha-upgrades")
 	fixtures.RunGinkgoTests(t, "FDB Operator HA Upgrade Test Suite")
 }

@@ -30,5 +30,6 @@ import (
 
 func TestOperator(t *testing.T) {
 	gomega.SetDefaultEventuallyTimeout(10 * time.Second)
+	fixtures.SetTestSuiteName("operator-test")
 	fixtures.RunGinkgoTests(t, "Operator test suite")
 }

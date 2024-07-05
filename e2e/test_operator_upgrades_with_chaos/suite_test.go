@@ -28,7 +28,8 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestOperatorUpgrade(t *testing.T) {
+func TestOperatorUpgradesWithChaos(t *testing.T) {
 	SetDefaultEventuallyTimeout(3 * time.Minute)
+	fixtures.SetTestSuiteName("operator-upgrades-with-chaos")
 	fixtures.RunGinkgoTests(t, "FDB Operator Upgrade Test Suite with chaos-mesh")
 }

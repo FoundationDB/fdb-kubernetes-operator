@@ -30,5 +30,6 @@ import (
 
 func TestOperatorStress(t *testing.T) {
 	SetDefaultEventuallyTimeout(180 * time.Second)
+	fixtures.SetTestSuiteName("operator-stress")
 	fixtures.RunGinkgoTests(t, "FDB Operator stress test suite")
 }

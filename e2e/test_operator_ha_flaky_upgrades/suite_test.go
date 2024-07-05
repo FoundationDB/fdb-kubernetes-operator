@@ -28,7 +28,8 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestOperatorHaUpgrade(t *testing.T) {
+func TestOperatorHaFlakyUpgrade(t *testing.T) {
 	SetDefaultEventuallyTimeout(3 * time.Minute)
+	fixtures.SetTestSuiteName("operator-ha-flaky")
 	fixtures.RunGinkgoTests(t, "FDB Operator HA Upgrade Test Suite")
 }

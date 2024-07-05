@@ -22,6 +22,7 @@ package fixtures
 
 import (
 	ctx "context"
+	"fmt"
 	"log"
 	"time"
 
@@ -38,7 +39,8 @@ import (
 )
 
 const (
-	namespaceRegEx = `^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+	namespaceRegEx          = `^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+	testSuiteNameAnnotation = "foundationdb.org/test-suite"
 )
 
 // factory.getRandomizedNamespaceName() checks if the username is valid to be used in the namespace name. If so this
@@ -81,18 +83,44 @@ func (factory *Factory) SingleNamespace() string {
 }
 
 func (factory *Factory) createNamespace(suffix string) string {
-	namespace := factory.namespace
+	var namespace string
+	gomega.Eventually(func(g gomega.Gomega) error {
+		namespace = factory.namespace
 
-	if namespace == "" {
-		namespace = factory.getRandomizedNamespaceName()
-	}
+		if namespace == "" {
+			namespace = factory.getRandomizedNamespaceName()
+		}
 
-	if suffix != "" {
-		namespace = namespace + "-" + suffix
-	}
+		if suffix != "" {
+			namespace = namespace + "-" + suffix
+		}
 
-	factory.checkIfNamespaceIsTerminating(namespace)
-	factory.ensureNamespaceExists(namespace)
+		err := factory.checkIfNamespaceIsTerminating(namespace)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+
+		err = factory.ensureNamespaceExists(namespace)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+
+		namespaceResource := &corev1.Namespace{}
+		err = factory.controllerRuntimeClient.Get(ctx.Background(), client.ObjectKey{Namespace: "", Name: namespace}, namespaceResource)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+
+		if namespaceResource.Annotations[testSuiteNameAnnotation] != testSuiteName {
+			err = fmt.Errorf("namespace %s already in use by test suite: %s, current test suite: %s", namespace, namespaceResource.Annotations[testSuiteNameAnnotation], testSuiteName)
+			log.Println(err.Error())
+			return err
+		}
+
+		log.Println("created namespace", namespace)
+
+		return nil
+	}).WithTimeout(10 * time.Minute).WithPolling(1 * time.Second).ShouldNot(gomega.HaveOccurred())
+
+	secret := factory.getCertificate()
+	secret.SetNamespace(namespace)
+	secret.SetResourceVersion("")
+	gomega.Expect(factory.CreateIfAbsent(secret)).NotTo(gomega.HaveOccurred())
+
 	factory.ensureRBACSetupExists(namespace)
 	gomega.Expect(factory.ensureFDBOperatorExists(namespace)).ToNot(gomega.HaveOccurred())
 	log.Printf("using namespace %s for testing", namespace)
@@ -130,54 +158,59 @@ func (factory *Factory) createNamespace(suffix string) string {
 
 // checkIfNamespaceIsTerminating will check if the namespace has a deletionTimestamp set. If so this method will wait
 // up to 5 minutes until the namespace is deleted to prevent race conditions.
-func (factory *Factory) checkIfNamespaceIsTerminating(name string) {
+func (factory *Factory) checkIfNamespaceIsTerminating(name string) error {
 	controllerClient := factory.GetControllerRuntimeClient()
-	gomega.Eventually(func(g gomega.Gomega) *metav1.Time {
-		namespace := &corev1.Namespace{}
-		err := controllerClient.Get(ctx.Background(), client.ObjectKey{Name: name}, namespace)
-		if err != nil {
-			if k8serrors.IsNotFound(err) {
-				return nil
-			}
 
-			g.Expect(err).NotTo(gomega.HaveOccurred())
-		}
-
-		deletionTimestamp := namespace.ObjectMeta.DeletionTimestamp
-		// No deletionTimestamp is set, so we can assume the namespace is still running.
-		if deletionTimestamp == nil {
+	namespace := &corev1.Namespace{}
+	err := controllerClient.Get(ctx.Background(), client.ObjectKey{Name: name}, namespace)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
 			return nil
 		}
 
-		// If the namespace is in terminating, we have to check if any pod are stuck in terminating with a finalizer set.
-		log.Printf("Namespace: %s is in terminating state since: %s will wait until the namespace is deleted", namespace.Name, deletionTimestamp.String())
-		podList := &corev1.PodList{}
-		err = controllerClient.List(ctx.Background(), podList, client.InNamespace(name))
-		g.Expect(err).NotTo(gomega.HaveOccurred())
-		for _, pod := range podList.Items {
-			if len(pod.Finalizers) > 0 {
-				log.Printf("Removing finalizer from Pod %s/%s\n", namespace, pod.Name)
-				factory.SetFinalizerForPod(&pod, []string{})
-			}
-		}
+		return err
+	}
 
-		return deletionTimestamp
-	}).WithTimeout(5 * time.Minute).WithPolling(1 * time.Second).Should(gomega.BeNil())
+	namespaceTestSuiteName := namespace.Annotations[testSuiteNameAnnotation]
+	// Don't touch the namespace of another test suite.
+	if namespaceTestSuiteName != testSuiteName {
+		return nil
+	}
+
+	deletionTimestamp := namespace.ObjectMeta.DeletionTimestamp
+	// No deletionTimestamp is set, so we can assume the namespace is still running.
+	if deletionTimestamp == nil {
+		return nil
+	}
+
+	// If the namespace is in terminating, we have to check if any pods are stuck in terminating with a finalizer set.
+	log.Printf("Namespace: %s is in terminating state since: %s will wait until the namespace is deleted", namespace.Name, deletionTimestamp.String())
+	podList := &corev1.PodList{}
+	err = controllerClient.List(ctx.Background(), podList, client.InNamespace(name))
+	if err != nil {
+		return err
+	}
+
+	for _, pod := range podList.Items {
+		if len(pod.Finalizers) > 0 {
+			log.Printf("Removing finalizer from Pod %s/%s\n", namespace, pod.Name)
+			factory.SetFinalizerForPod(&pod, []string{})
+		}
+	}
+
+	return fmt.Errorf("namespace %s is still in terminating state since %s", name, deletionTimestamp.String())
 }
 
-func (factory *Factory) ensureNamespaceExists(namespace string) {
-	gomega.Expect(factory.CreateIfAbsent(&corev1.Namespace{
+func (factory *Factory) ensureNamespaceExists(namespace string) error {
+	return factory.CreateIfAbsent(&corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   namespace,
 			Labels: factory.GetDefaultLabels(),
+			Annotations: map[string]string{
+				testSuiteNameAnnotation: testSuiteName,
+			},
 		},
-	})).NotTo(gomega.HaveOccurred())
-
-	secret := factory.getCertificate()
-	secret.SetNamespace(namespace)
-	secret.SetResourceVersion("")
-
-	gomega.Expect(factory.CreateIfAbsent(secret)).NotTo(gomega.HaveOccurred())
+	})
 }
 
 func (factory *Factory) ensureRBACSetupExists(namespace string) {
