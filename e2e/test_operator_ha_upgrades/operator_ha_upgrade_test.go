@@ -497,7 +497,14 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 	DescribeTable(
 		"when no remote storage processes are restarted",
 		func(beforeVersion string, targetVersion string) {
-			clusterSetup(beforeVersion, false)
+			// We disable the health check here, as the remote storage processes are not restarted and this can be
+			// disruptive to the cluster.
+			clusterSetupWithTestConfig(testConfig{
+				beforeVersion:          beforeVersion,
+				enableOperatorPodChaos: false,
+				enableHealthCheck:      false,
+				loadData:               false,
+			})
 
 			// Select remote storage processes and use the buggify option to skip those
 			// processes during the restart command.

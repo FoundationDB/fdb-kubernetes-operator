@@ -275,7 +275,7 @@ func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 }
 
 // getStatusFromCli uses the fdbcli to connect to the FDB cluster
-func (client *cliAdminClient) getStatusFromCli() (*fdbv1beta2.FoundationDBStatus, error) {
+func (client *cliAdminClient) getStatusFromCli(checkForProcesses bool) (*fdbv1beta2.FoundationDBStatus, error) {
 	// Always use the max timeout here. Otherwise we will retry multiple times with an increasing timeout. As the
 	// timeout is only the upper bound using directly the max timeout reduces the calls to a single call.
 	output, err := client.runCommand(cliCommand{command: "status json", timeout: client.getTimeout()})
@@ -288,13 +288,13 @@ func (client *cliAdminClient) getStatusFromCli() (*fdbv1beta2.FoundationDBStatus
 		return nil, err
 	}
 
-	return parseMachineReadableStatus(client.log, contents)
+	return parseMachineReadableStatus(client.log, contents, checkForProcesses)
 }
 
 // getStatus uses fdbcli to connect to the FDB cluster, if the cluster is upgraded and the initial version returns no processes
 // the new version for fdbcli will be tried.
 func (client *cliAdminClient) getStatus() (*fdbv1beta2.FoundationDBStatus, error) {
-	status, err := client.getStatusFromCli()
+	status, err := client.getStatusFromCli(true)
 
 	// If the cluster is under an upgrade and the getStatus call returns an error, we have to retry it with the new version,
 	// as it could be that the wrong version was selected.
@@ -305,7 +305,7 @@ func (client *cliAdminClient) getStatus() (*fdbv1beta2.FoundationDBStatus, error
 		clusterCopy.Status.RunningVersion = clusterCopy.Spec.Version
 		client.Cluster = clusterCopy
 
-		return client.getStatusFromCli()
+		return client.getStatusFromCli(true)
 	}
 
 	return status, err
@@ -830,11 +830,13 @@ func (client *cliAdminClient) SetProcessesUnderMaintenance(processGroupIDs []fdb
 // a majority of reachable coordinators, the default version from the cluster.Status.RunningVersion will be returned.
 func (client *cliAdminClient) GetVersionFromReachableCoordinators() string {
 	// First we test to get the status from the fdbcli with the current running version defined in cluster.Status.RunningVersion.
-	status, _ := client.getStatusFromCli()
+	status, _ := client.getStatusFromCli(false)
 	if quorumOfCoordinatorsAreReachable(status) {
 		return client.Cluster.Status.RunningVersion
 	}
 
+	// Make a copy of the running version in case that the second call doesn't work.
+	currentRunningVersion := client.Cluster.Status.RunningVersion
 	// If the majority of coordinators are not reachable with the cluster.Status.RunningVersion, we try the desired version
 	// if the cluster is currently performing an version incompatible upgrade.
 	if client.Cluster.IsBeingUpgradedWithVersionIncompatibleVersion() {
@@ -842,13 +844,13 @@ func (client *cliAdminClient) GetVersionFromReachableCoordinators() string {
 		clusterCopy := client.Cluster.DeepCopy()
 		clusterCopy.Status.RunningVersion = clusterCopy.Spec.Version
 		client.Cluster = clusterCopy
-
+		status, _ = client.getStatusFromCli(false)
 		if quorumOfCoordinatorsAreReachable(status) {
 			return clusterCopy.Status.RunningVersion
 		}
 	}
 
-	return client.Cluster.Status.RunningVersion
+	return currentRunningVersion
 }
 
 // quorumOfCoordinatorsAreReachable return false if the status is nil otherwise it will return the value of QuorumReachable.
