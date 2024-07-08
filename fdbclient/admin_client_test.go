@@ -1284,8 +1284,8 @@ protocol fdb00b071010000`,
 				}
 			})
 
-			It("should report the previous version", func() {
-				Expect(version).To(Equal(previousVersion))
+			It("should report an empty string", func() {
+				Expect(version).To(BeEmpty())
 				Expect(err).NotTo(HaveOccurred())
 				Expect(mockRunner.receivedBinary).To(HaveLen(2))
 				Expect(mockRunner.receivedBinary[0]).To(HaveSuffix("7.1/" + fdbcliStr))

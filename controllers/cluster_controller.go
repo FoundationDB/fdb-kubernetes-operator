@@ -603,7 +603,7 @@ func (r *FoundationDBClusterReconciler) getStatusFromClusterOrDummyStatus(logger
 			// in the cluster.Spec.Version, this will unblock some further steps, to allow the operator to bring the cluster
 			// back into a better state.
 			versionFromReachableCoordinators := adminClient.GetVersionFromReachableCoordinators()
-			if versionFromReachableCoordinators != cluster.Status.RunningVersion {
+			if versionFromReachableCoordinators != "" && versionFromReachableCoordinators != cluster.Status.RunningVersion {
 				logger.Info("Update running version in cluster status from reachable coordinators", "versionFromReachableCoordinators", versionFromReachableCoordinators, "currentRunningVersion", cluster.Status.RunningVersion)
 				cluster.Status.RunningVersion = versionFromReachableCoordinators
 			}

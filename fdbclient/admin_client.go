@@ -827,16 +827,14 @@ func (client *cliAdminClient) SetProcessesUnderMaintenance(processGroupIDs []fdb
 // GetVersionFromReachableCoordinators will return the running version based on the reachable coordinators. This method
 // can be used during version incompatible upgrades and based on the responses of the coordinators, this method will
 // assume the current running version of the cluster. If the fdbcli calls for none of the provided version return
-// a majority of reachable coordinators, the default version from the cluster.Status.RunningVersion will be returned.
+// a majority of reachable coordinators, an empty string will be returned.
 func (client *cliAdminClient) GetVersionFromReachableCoordinators() string {
 	// First we test to get the status from the fdbcli with the current running version defined in cluster.Status.RunningVersion.
 	status, _ := client.getStatusFromCli(false)
 	if quorumOfCoordinatorsAreReachable(status) {
-		return client.Cluster.Status.RunningVersion
+		return client.Cluster.GetRunningVersion()
 	}
 
-	// Make a copy of the running version in case that the second call doesn't work.
-	currentRunningVersion := client.Cluster.Status.RunningVersion
 	// If the majority of coordinators are not reachable with the cluster.Status.RunningVersion, we try the desired version
 	// if the cluster is currently performing an version incompatible upgrade.
 	if client.Cluster.IsBeingUpgradedWithVersionIncompatibleVersion() {
@@ -846,11 +844,11 @@ func (client *cliAdminClient) GetVersionFromReachableCoordinators() string {
 		client.Cluster = clusterCopy
 		status, _ = client.getStatusFromCli(false)
 		if quorumOfCoordinatorsAreReachable(status) {
-			return clusterCopy.Status.RunningVersion
+			return clusterCopy.GetRunningVersion()
 		}
 	}
 
-	return currentRunningVersion
+	return ""
 }
 
 // quorumOfCoordinatorsAreReachable return false if the status is nil otherwise it will return the value of QuorumReachable.
