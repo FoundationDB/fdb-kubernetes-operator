@@ -1234,7 +1234,7 @@ protocol fdb00b071010000`,
 			quorumNotReachableStatus = string(quorumNotReachableStatusOut)
 		})
 
-		When("the fdbcli call for the current version returns that the quorum is reachable", func() {
+		When("the fdbcli call for the previous version returns that the quorum is reachable", func() {
 			BeforeEach(func() {
 				mockRunner = &mockCommandRunner{
 					mockedError: nil,
@@ -1285,7 +1285,7 @@ protocol fdb00b071010000`,
 			})
 
 			It("should report the previous version", func() {
-				Expect(version).To(Equal(newVersion))
+				Expect(version).To(Equal(previousVersion))
 				Expect(err).NotTo(HaveOccurred())
 				Expect(mockRunner.receivedBinary).To(HaveLen(2))
 				Expect(mockRunner.receivedBinary[0]).To(HaveSuffix("7.1/" + fdbcliStr))
