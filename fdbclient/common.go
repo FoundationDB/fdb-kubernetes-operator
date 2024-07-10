@@ -46,7 +46,7 @@ const (
 	defaultTransactionTimeout = 5 * time.Second
 )
 
-func parseMachineReadableStatus(logger logr.Logger, contents []byte) (*fdbv1beta2.FoundationDBStatus, error) {
+func parseMachineReadableStatus(logger logr.Logger, contents []byte, checkForProcesses bool) (*fdbv1beta2.FoundationDBStatus, error) {
 	status := &fdbv1beta2.FoundationDBStatus{}
 	err := json.Unmarshal(contents, status)
 	if err != nil {
@@ -75,7 +75,7 @@ func parseMachineReadableStatus(logger logr.Logger, contents []byte) (*fdbv1beta
 		}
 	}
 
-	if len(status.Cluster.Processes) == 0 {
+	if len(status.Cluster.Processes) == 0 && checkForProcesses {
 		logger.Info("machine-readable status is missing process information")
 		return nil, fdbv1beta2.TimeoutError{Err: fmt.Errorf("machine-readable status is missing process information")}
 	}
@@ -141,7 +141,7 @@ func getStatusFromDB(libClient fdbLibClient, logger logr.Logger, timeout time.Du
 		return nil, err
 	}
 
-	return parseMachineReadableStatus(logger, contents)
+	return parseMachineReadableStatus(logger, contents, true)
 }
 
 type realDatabaseClientProvider struct {

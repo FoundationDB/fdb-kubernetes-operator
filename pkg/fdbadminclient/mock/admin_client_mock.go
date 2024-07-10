@@ -1098,3 +1098,12 @@ func (client *AdminClient) SetProcessesUnderMaintenance(ids []fdbv1beta2.Process
 
 	return nil
 }
+
+// GetVersionFromReachableCoordinators will return the running version based on the reachable coordinators. This method
+// can be used during version incompatible upgrades and based on the responses of the coordinators, this method will
+// assume the current running version of the cluster. If the fdbcli calls for none of the provided version return
+// a majority of reachable coordinators, the default version from the cluster.Status.RunningVersion will be returned.
+func (client *AdminClient) GetVersionFromReachableCoordinators() string {
+	// TODO (johscheuer): In the future we could allow to mock another running version.
+	return client.Cluster.Status.RunningVersion
+}

@@ -1167,5 +1167,130 @@ protocol fdb00b071010000`,
 		})
 	})
 
-	// TODO(johscheuer): Add test case for timeout.
+	When("getting the version from the reachable coordinators", func() {
+		var mockRunner *mockCommandRunner
+		var version, previousBinary, newBinary, quorumReachableStatus, quorumNotReachableStatus string
+		var err error
+		previousVersion := "7.1.55"
+		newVersion := "7.3.33"
+
+		JustBeforeEach(func() {
+			cliClient := &cliAdminClient{
+				Cluster: &fdbv1beta2.FoundationDBCluster{
+					Spec: fdbv1beta2.FoundationDBClusterSpec{
+						Version: newVersion,
+					},
+					Status: fdbv1beta2.FoundationDBClusterStatus{
+						RunningVersion: previousVersion,
+					},
+				},
+				clusterFilePath: "test",
+				log:             logr.Discard(),
+				cmdRunner:       mockRunner,
+			}
+
+			version = cliClient.GetVersionFromReachableCoordinators()
+		})
+
+		BeforeEach(func() {
+			tmpDir := GinkgoT().TempDir()
+			GinkgoT().Setenv("FDB_BINARY_DIR", tmpDir)
+
+			binaryDir := path.Join(tmpDir, "7.1")
+			Expect(os.MkdirAll(binaryDir, 0700)).NotTo(HaveOccurred())
+			previousBinary = path.Join(binaryDir, fdbcliStr)
+			_, err := os.Create(previousBinary)
+			Expect(err).NotTo(HaveOccurred())
+
+			binaryDir = path.Join(tmpDir, "7.3")
+			Expect(os.MkdirAll(binaryDir, 0700)).NotTo(HaveOccurred())
+			newBinary = path.Join(binaryDir, fdbcliStr)
+			_, err = os.Create(newBinary)
+			Expect(err).NotTo(HaveOccurred())
+
+			quorumReachable := &fdbv1beta2.FoundationDBStatus{
+				Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+					DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+						Available: true,
+					},
+					Coordinators: fdbv1beta2.FoundationDBStatusCoordinatorInfo{
+						QuorumReachable: true,
+					},
+				},
+			}
+			quorumReachableStatusOut, err := json.Marshal(quorumReachable)
+			Expect(err).NotTo(HaveOccurred())
+			quorumReachableStatus = string(quorumReachableStatusOut)
+
+			quorumNotReachable := &fdbv1beta2.FoundationDBStatus{
+				Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+					Coordinators: fdbv1beta2.FoundationDBStatusCoordinatorInfo{
+						QuorumReachable: false,
+					},
+				},
+			}
+			quorumNotReachableStatusOut, err := json.Marshal(quorumNotReachable)
+			Expect(err).NotTo(HaveOccurred())
+			quorumNotReachableStatus = string(quorumNotReachableStatusOut)
+		})
+
+		When("the fdbcli call for the previous version returns that the quorum is reachable", func() {
+			BeforeEach(func() {
+				mockRunner = &mockCommandRunner{
+					mockedError: nil,
+					mockedOutputPerBinary: map[string]string{
+						previousBinary: quorumReachableStatus,
+						newBinary:      quorumNotReachableStatus,
+					},
+				}
+			})
+
+			It("should report the previous version", func() {
+				Expect(version).To(Equal(previousVersion))
+				Expect(err).NotTo(HaveOccurred())
+				Expect(mockRunner.receivedBinary).To(HaveLen(1))
+				Expect(mockRunner.receivedBinary[0]).To(HaveSuffix("7.1/" + fdbcliStr))
+			})
+		})
+
+		When("the fdbcli call for the new version returns that the quorum is reachable", func() {
+			BeforeEach(func() {
+				mockRunner = &mockCommandRunner{
+					mockedError: nil,
+					mockedOutputPerBinary: map[string]string{
+						previousBinary: quorumNotReachableStatus,
+						newBinary:      quorumReachableStatus,
+					},
+				}
+			})
+
+			It("should report the new version", func() {
+				Expect(version).To(Equal(newVersion))
+				Expect(err).NotTo(HaveOccurred())
+				Expect(mockRunner.receivedBinary).To(HaveLen(2))
+				Expect(mockRunner.receivedBinary[0]).To(HaveSuffix("7.1/" + fdbcliStr))
+				Expect(mockRunner.receivedBinary[1]).To(HaveSuffix("7.3/" + fdbcliStr))
+			})
+		})
+
+		When("none of the fdbcli calls returns that the quorum is reachable", func() {
+			BeforeEach(func() {
+				mockRunner = &mockCommandRunner{
+					mockedError: nil,
+					mockedOutputPerBinary: map[string]string{
+						previousBinary: quorumNotReachableStatus,
+						newBinary:      quorumNotReachableStatus,
+					},
+				}
+			})
+
+			It("should report an empty string", func() {
+				Expect(version).To(BeEmpty())
+				Expect(err).NotTo(HaveOccurred())
+				Expect(mockRunner.receivedBinary).To(HaveLen(2))
+				Expect(mockRunner.receivedBinary[0]).To(HaveSuffix("7.1/" + fdbcliStr))
+				Expect(mockRunner.receivedBinary[1]).To(HaveSuffix("7.3/" + fdbcliStr))
+			})
+		})
+	})
 })
