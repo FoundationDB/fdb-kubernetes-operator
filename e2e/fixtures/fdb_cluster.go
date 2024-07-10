@@ -1419,8 +1419,19 @@ func (fdbCluster *FdbCluster) UpgradeAndVerify(version string) {
 // EnsureTeamTrackersAreHealthy will check if the machine-readable status suggest that the team trackers are healthy
 // and all data is present.
 func (fdbCluster *FdbCluster) EnsureTeamTrackersAreHealthy() {
-	gomega.Eventually(func() bool {
-		for _, tracker := range fdbCluster.GetStatus().Cluster.Data.TeamTrackers {
+	gomega.Eventually(func(g gomega.Gomega) bool {
+		// If the status is initializing the team trackers will be missing. This can happen in cases where e.g.
+		// the DD is restarted or when the SS are restarted. This state is only intermediate and will change once the
+		// DD is done analyzing the current state. If we are not checking for this state, we might see intermediate failures
+		// because of a short period where the DD is restarted and therefore the team trackers are empty.
+		if fdbCluster.GetStatus().Cluster.Data.State.Name == "initializing" {
+			return true
+		}
+
+		// Make sure that the team trackers are reporting.
+		teamTrackers := fdbCluster.GetStatus().Cluster.Data.TeamTrackers
+		g.Expect(teamTrackers).NotTo(gomega.BeEmpty())
+		for _, tracker := range teamTrackers {
 			if !tracker.State.Healthy {
 				return false
 			}
@@ -1434,9 +1445,21 @@ func (fdbCluster *FdbCluster) EnsureTeamTrackersAreHealthy() {
 // match the expected replicas.
 func (fdbCluster *FdbCluster) EnsureTeamTrackersHaveMinReplicas() {
 	desiredFaultTolerance := fdbCluster.GetCachedCluster().DesiredFaultTolerance()
-	gomega.Eventually(func() int {
+	gomega.Eventually(func(g gomega.Gomega) int {
 		minReplicas := math.MaxInt
-		for _, tracker := range fdbCluster.GetStatus().Cluster.Data.TeamTrackers {
+		// If the status is initializing the team trackers will be missing. This can happen in cases where e.g.
+		// the DD is restarted or when the SS are restarted. This state is only intermediate and will change once the
+		// DD is done analyzing the current state. If we are not checking for this state, we might see intermediate failures
+		// because of a short period where the DD is restarted and therefore the team trackers are empty.
+		if fdbCluster.GetStatus().Cluster.Data.State.Name == "initializing" {
+			return desiredFaultTolerance
+		}
+
+		// Make sure that the team trackers are reporting.
+		teamTrackers := fdbCluster.GetStatus().Cluster.Data.TeamTrackers
+		g.Expect(teamTrackers).NotTo(gomega.BeEmpty())
+
+		for _, tracker := range teamTrackers {
 			if minReplicas > tracker.State.MinReplicasRemaining {
 				minReplicas = tracker.State.MinReplicasRemaining
 			}
