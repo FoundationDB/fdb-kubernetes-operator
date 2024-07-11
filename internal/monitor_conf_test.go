@@ -85,15 +85,15 @@ var _ = Describe("monitor_conf", func() {
 				Expect(config.Arguments[6]).To(Equal(monitorapi.Argument{Value: "--datadir=/var/fdb/data"}))
 				Expect(config.Arguments[7]).To(Equal(monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
 					{Value: "--locality_instance_id="},
-					{ArgumentType: monitorapi.EnvironmentArgumentType, Source: "FDB_INSTANCE_ID"},
+					{ArgumentType: monitorapi.EnvironmentArgumentType, Source: fdbv1beta2.EnvNameInstanceId},
 				}}))
 				Expect(config.Arguments[8]).To(Equal(monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
 					{Value: "--locality_machineid="},
-					{ArgumentType: monitorapi.EnvironmentArgumentType, Source: "FDB_MACHINE_ID"},
+					{ArgumentType: monitorapi.EnvironmentArgumentType, Source: fdbv1beta2.EnvNameMachineId},
 				}}))
 				Expect(config.Arguments[9]).To(Equal(monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
 					{Value: "--locality_zoneid="},
-					{ArgumentType: monitorapi.EnvironmentArgumentType, Source: "FDB_ZONE_ID"},
+					{ArgumentType: monitorapi.EnvironmentArgumentType, Source: fdbv1beta2.EnvNameZoneId},
 				}}))
 			})
 		})
@@ -132,15 +132,15 @@ var _ = Describe("monitor_conf", func() {
 				Expect(config.Arguments[6]).To(Equal(monitorapi.Argument{Value: "--datadir=/var/fdb/data"}))
 				Expect(config.Arguments[7]).To(Equal(monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
 					{Value: "--locality_instance_id="},
-					{ArgumentType: monitorapi.EnvironmentArgumentType, Source: "FDB_INSTANCE_ID"},
+					{ArgumentType: monitorapi.EnvironmentArgumentType, Source: fdbv1beta2.EnvNameInstanceId},
 				}}))
 				Expect(config.Arguments[8]).To(Equal(monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
 					{Value: "--locality_machineid="},
-					{ArgumentType: monitorapi.EnvironmentArgumentType, Source: "FDB_MACHINE_ID"},
+					{ArgumentType: monitorapi.EnvironmentArgumentType, Source: fdbv1beta2.EnvNameMachineId},
 				}}))
 				Expect(config.Arguments[9]).To(Equal(monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
 					{Value: "--locality_zoneid="},
-					{ArgumentType: monitorapi.EnvironmentArgumentType, Source: "FDB_ZONE_ID"},
+					{ArgumentType: monitorapi.EnvironmentArgumentType, Source: fdbv1beta2.EnvNameZoneId},
 				}}))
 			})
 		})
@@ -151,13 +151,13 @@ var _ = Describe("monitor_conf", func() {
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength + 1))
 				Expect(config.Arguments[7]).To(Equal(monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
 					{Value: "--locality_process_id="},
-					{ArgumentType: monitorapi.EnvironmentArgumentType, Source: "FDB_INSTANCE_ID"},
+					{ArgumentType: monitorapi.EnvironmentArgumentType, Source: fdbv1beta2.EnvNameInstanceId},
 					{Value: "-"},
 					{ArgumentType: monitorapi.ProcessNumberArgumentType},
 				}}))
 				Expect(config.Arguments[8]).To(Equal(monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
 					{Value: "--locality_instance_id="},
-					{ArgumentType: monitorapi.EnvironmentArgumentType, Source: "FDB_INSTANCE_ID"},
+					{ArgumentType: monitorapi.EnvironmentArgumentType, Source: fdbv1beta2.EnvNameInstanceId},
 				}}))
 			})
 
@@ -209,7 +209,7 @@ var _ = Describe("monitor_conf", func() {
 				}}))
 				Expect(config.Arguments[10]).To(Equal(monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
 					{Value: "--listen_address=["},
-					{ArgumentType: monitorapi.EnvironmentArgumentType, Source: "FDB_POD_IP"},
+					{ArgumentType: monitorapi.EnvironmentArgumentType, Source: fdbv1beta2.EnvNamePodIP},
 					{Value: "]:"},
 					{ArgumentType: monitorapi.ProcessNumberArgumentType, Offset: 4499, Multiplier: 2},
 				}}))
@@ -841,17 +841,17 @@ var _ = Describe("monitor_conf", func() {
 					"kill_on_configuration_change = false",
 					"restart_delay = 60",
 					"[fdbserver.1]",
-					"command = $BINARY_DIR/fdbserver",
+					fmt.Sprintf("command = $%s/fdbserver", fdbv1beta2.EnvNameBinaryDir),
 					"cluster_file = /var/fdb/data/fdb.cluster",
 					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
-					"public_address = $FDB_PUBLIC_IP:4501",
+					fmt.Sprintf("public_address = $%s:4501", fdbv1beta2.EnvNamePublicIP),
 					"class = storage",
 					"logdir = /var/log/fdb-trace-logs",
 					"loggroup = " + cluster.Name,
 					"datadir = /var/fdb/data",
-					"locality_instance_id = $FDB_INSTANCE_ID",
-					"locality_machineid = $FDB_MACHINE_ID",
-					"locality_zoneid = $FDB_ZONE_ID",
+					fmt.Sprintf("locality_instance_id = $%s", fdbv1beta2.EnvNameInstanceId),
+					fmt.Sprintf("locality_machineid = $%s", fdbv1beta2.EnvNameMachineId),
+					fmt.Sprintf("locality_zoneid = $%s", fdbv1beta2.EnvNameZoneId),
 				}, "\n")))
 			})
 		})
@@ -868,17 +868,17 @@ var _ = Describe("monitor_conf", func() {
 					"kill_on_configuration_change = false",
 					"restart_delay = 60",
 					"[fdbserver.1]",
-					"command = $BINARY_DIR/fdbserver",
+					fmt.Sprintf("command = $%s/fdbserver", fdbv1beta2.EnvNameBinaryDir),
 					"cluster_file = /var/fdb/data/fdb.cluster",
 					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
-					"public_address = $FDB_PUBLIC_IP:4501",
+					fmt.Sprintf("public_address = $%s:4501", fdbv1beta2.EnvNamePublicIP),
 					"class = test",
 					"logdir = /var/log/fdb-trace-logs",
 					"loggroup = " + cluster.Name,
 					"datadir = /var/fdb/data",
-					"locality_instance_id = $FDB_INSTANCE_ID",
-					"locality_machineid = $FDB_MACHINE_ID",
-					"locality_zoneid = $FDB_ZONE_ID",
+					fmt.Sprintf("locality_instance_id = $%s", fdbv1beta2.EnvNameInstanceId),
+					fmt.Sprintf("locality_machineid = $%s", fdbv1beta2.EnvNameMachineId),
+					fmt.Sprintf("locality_zoneid = $%s", fdbv1beta2.EnvNameZoneId),
 				}, "\n")))
 			})
 		})
@@ -897,18 +897,18 @@ var _ = Describe("monitor_conf", func() {
 					"kill_on_configuration_change = false",
 					"restart_delay = 60",
 					"[fdbserver.1]",
-					"command = $BINARY_DIR/fdbserver",
+					fmt.Sprintf("command = $%s/fdbserver", fdbv1beta2.EnvNameBinaryDir),
 					"cluster_file = /var/fdb/data/fdb.cluster",
 					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
-					"public_address = $FDB_PUBLIC_IP:4501",
+					fmt.Sprintf("public_address = $%s:4501", fdbv1beta2.EnvNamePublicIP),
 					"class = storage",
 					"logdir = /var/log/fdb-trace-logs",
 					"loggroup = " + cluster.Name,
 					"datadir = /var/fdb/data",
-					"locality_instance_id = $FDB_INSTANCE_ID",
-					"locality_machineid = $FDB_MACHINE_ID",
-					"locality_zoneid = $FDB_ZONE_ID",
-					"locality_dns_name = $FDB_DNS_NAME",
+					fmt.Sprintf("locality_instance_id = $%s", fdbv1beta2.EnvNameInstanceId),
+					fmt.Sprintf("locality_machineid = $%s", fdbv1beta2.EnvNameMachineId),
+					fmt.Sprintf("locality_zoneid = $%s", fdbv1beta2.EnvNameZoneId),
+					fmt.Sprintf("locality_dns_name = $%s", fdbv1beta2.EnvNameDNSName),
 				}, "\n")))
 			})
 		})
@@ -926,18 +926,18 @@ var _ = Describe("monitor_conf", func() {
 					"kill_on_configuration_change = false",
 					"restart_delay = 60",
 					"[fdbserver.1]",
-					"command = $BINARY_DIR/fdbserver",
+					fmt.Sprintf("command = $%s/fdbserver", fdbv1beta2.EnvNameBinaryDir),
 					"cluster_file = /var/fdb/data/fdb.cluster",
 					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
-					"public_address = $FDB_PUBLIC_IP:4501",
+					fmt.Sprintf("public_address = $%s:4501", fdbv1beta2.EnvNamePublicIP),
 					"class = storage",
 					"logdir = /var/log/fdb-trace-logs",
 					"loggroup = " + cluster.Name,
 					"datadir = /var/fdb/data",
-					"locality_instance_id = $FDB_INSTANCE_ID",
-					"locality_machineid = $FDB_MACHINE_ID",
-					"locality_zoneid = $FDB_ZONE_ID",
-					"locality_dns_name = $FDB_DNS_NAME",
+					fmt.Sprintf("locality_instance_id = $%s", fdbv1beta2.EnvNameInstanceId),
+					fmt.Sprintf("locality_machineid = $%s", fdbv1beta2.EnvNameMachineId),
+					fmt.Sprintf("locality_zoneid = $%s", fdbv1beta2.EnvNameZoneId),
+					fmt.Sprintf("locality_dns_name = $%s", fdbv1beta2.EnvNameDNSName),
 				}, "\n")))
 			})
 		})
@@ -955,31 +955,31 @@ var _ = Describe("monitor_conf", func() {
 					"kill_on_configuration_change = false",
 					"restart_delay = 60",
 					"[fdbserver.1]",
-					"command = $BINARY_DIR/fdbserver",
+					fmt.Sprintf("command = $%s/fdbserver", fdbv1beta2.EnvNameBinaryDir),
 					"cluster_file = /var/fdb/data/fdb.cluster",
 					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
-					"public_address = $FDB_PUBLIC_IP:4501",
+					fmt.Sprintf("public_address = $%s:4501", fdbv1beta2.EnvNamePublicIP),
 					"class = storage",
 					"logdir = /var/log/fdb-trace-logs",
 					"loggroup = " + cluster.Name,
 					"datadir = /var/fdb/data/1",
-					"locality_process_id = $FDB_INSTANCE_ID-1",
-					"locality_instance_id = $FDB_INSTANCE_ID",
-					"locality_machineid = $FDB_MACHINE_ID",
-					"locality_zoneid = $FDB_ZONE_ID",
+					fmt.Sprintf("locality_process_id = $%s-1", fdbv1beta2.EnvNameInstanceId),
+					fmt.Sprintf("locality_instance_id = $%s", fdbv1beta2.EnvNameInstanceId),
+					fmt.Sprintf("locality_machineid = $%s", fdbv1beta2.EnvNameMachineId),
+					fmt.Sprintf("locality_zoneid = $%s", fdbv1beta2.EnvNameZoneId),
 					"[fdbserver.2]",
-					"command = $BINARY_DIR/fdbserver",
+					fmt.Sprintf("command = $%s/fdbserver", fdbv1beta2.EnvNameBinaryDir),
 					"cluster_file = /var/fdb/data/fdb.cluster",
 					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
-					"public_address = $FDB_PUBLIC_IP:4503",
+					fmt.Sprintf("public_address = $%s:4503", fdbv1beta2.EnvNamePublicIP),
 					"class = storage",
 					"logdir = /var/log/fdb-trace-logs",
 					"loggroup = " + cluster.Name,
 					"datadir = /var/fdb/data/2",
-					"locality_process_id = $FDB_INSTANCE_ID-2",
-					"locality_instance_id = $FDB_INSTANCE_ID",
-					"locality_machineid = $FDB_MACHINE_ID",
-					"locality_zoneid = $FDB_ZONE_ID",
+					fmt.Sprintf("locality_process_id = $%s-2", fdbv1beta2.EnvNameInstanceId),
+					fmt.Sprintf("locality_instance_id = $%s", fdbv1beta2.EnvNameInstanceId),
+					fmt.Sprintf("locality_machineid = $%s", fdbv1beta2.EnvNameMachineId),
+					fmt.Sprintf("locality_zoneid = $%s", fdbv1beta2.EnvNameZoneId),
 				}, "\n")))
 			})
 		})
@@ -998,17 +998,17 @@ var _ = Describe("monitor_conf", func() {
 					"kill_on_configuration_change = false",
 					"restart_delay = 60",
 					"[fdbserver.1]",
-					"command = $BINARY_DIR/fdbserver",
+					fmt.Sprintf("command = $%s/fdbserver", fdbv1beta2.EnvNameBinaryDir),
 					"cluster_file = /var/fdb/data/fdb.cluster",
 					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
-					"public_address = $FDB_PUBLIC_IP:4501",
+					fmt.Sprintf("public_address = $%s:4501", fdbv1beta2.EnvNamePublicIP),
 					"class = storage",
 					"logdir = /var/log/fdb-trace-logs",
 					"loggroup = " + cluster.Name,
 					"datadir = /var/fdb/data",
-					"locality_instance_id = $FDB_INSTANCE_ID",
-					"locality_machineid = $FDB_MACHINE_ID",
-					"locality_zoneid = $FDB_ZONE_ID",
+					fmt.Sprintf("locality_instance_id = $%s", fdbv1beta2.EnvNameInstanceId),
+					fmt.Sprintf("locality_machineid = $%s", fdbv1beta2.EnvNameMachineId),
+					fmt.Sprintf("locality_zoneid = $%s", fdbv1beta2.EnvNameZoneId),
 				}, "\n")))
 			})
 		})
@@ -1028,18 +1028,18 @@ var _ = Describe("monitor_conf", func() {
 					"kill_on_configuration_change = false",
 					"restart_delay = 60",
 					"[fdbserver.1]",
-					"command = $BINARY_DIR/fdbserver",
+					fmt.Sprintf("command = $%s/fdbserver", fdbv1beta2.EnvNameBinaryDir),
 					"cluster_file = /var/fdb/data/fdb.cluster",
 					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
-					"public_address = $FDB_PUBLIC_IP:4501",
+					fmt.Sprintf("public_address = $%s:4501", fdbv1beta2.EnvNamePublicIP),
 					"class = storage",
 					"logdir = /var/log/fdb-trace-logs",
 					"loggroup = " + cluster.Name,
 					"datadir = /var/fdb/data",
-					"locality_instance_id = $FDB_INSTANCE_ID",
-					"locality_machineid = $FDB_MACHINE_ID",
-					"locality_zoneid = $FDB_ZONE_ID",
-					"listen_address = $FDB_POD_IP:4501",
+					fmt.Sprintf("locality_instance_id = $%s", fdbv1beta2.EnvNameInstanceId),
+					fmt.Sprintf("locality_machineid = $%s", fdbv1beta2.EnvNameMachineId),
+					fmt.Sprintf("locality_zoneid = $%s", fdbv1beta2.EnvNameZoneId),
+					fmt.Sprintf("listen_address = $%s:4501", fdbv1beta2.EnvNamePodIP),
 				}, "\n")))
 			})
 
@@ -1056,17 +1056,17 @@ var _ = Describe("monitor_conf", func() {
 						"kill_on_configuration_change = false",
 						"restart_delay = 60",
 						"[fdbserver.1]",
-						"command = $BINARY_DIR/fdbserver",
+						fmt.Sprintf("command = $%s/fdbserver", fdbv1beta2.EnvNameBinaryDir),
 						"cluster_file = /var/fdb/data/fdb.cluster",
 						"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
-						"public_address = $FDB_PUBLIC_IP:4501",
+						fmt.Sprintf("public_address = $%s:4501", fdbv1beta2.EnvNamePublicIP),
 						"class = storage",
 						"logdir = /var/log/fdb-trace-logs",
 						"loggroup = " + cluster.Name,
 						"datadir = /var/fdb/data",
-						"locality_instance_id = $FDB_INSTANCE_ID",
-						"locality_machineid = $FDB_MACHINE_ID",
-						"locality_zoneid = $FDB_ZONE_ID",
+						fmt.Sprintf("locality_instance_id = $%s", fdbv1beta2.EnvNameInstanceId),
+						fmt.Sprintf("locality_machineid = $%s", fdbv1beta2.EnvNameMachineId),
+						fmt.Sprintf("locality_zoneid = $%s", fdbv1beta2.EnvNameZoneId),
 					}, "\n")))
 				})
 			})
@@ -1087,17 +1087,17 @@ var _ = Describe("monitor_conf", func() {
 					"kill_on_configuration_change = false",
 					"restart_delay = 60",
 					"[fdbserver.1]",
-					"command = $BINARY_DIR/fdbserver",
+					fmt.Sprintf("command = $%s/fdbserver", fdbv1beta2.EnvNameBinaryDir),
 					"cluster_file = /var/fdb/data/fdb.cluster",
 					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
-					"public_address = $FDB_PUBLIC_IP:4500:tls",
+					fmt.Sprintf("public_address = $%s:4500:tls", fdbv1beta2.EnvNamePublicIP),
 					"class = storage",
 					"logdir = /var/log/fdb-trace-logs",
 					"loggroup = " + cluster.Name,
 					"datadir = /var/fdb/data",
-					"locality_instance_id = $FDB_INSTANCE_ID",
-					"locality_machineid = $FDB_MACHINE_ID",
-					"locality_zoneid = $FDB_ZONE_ID",
+					fmt.Sprintf("locality_instance_id = $%s", fdbv1beta2.EnvNameInstanceId),
+					fmt.Sprintf("locality_machineid = $%s", fdbv1beta2.EnvNameMachineId),
+					fmt.Sprintf("locality_zoneid = $%s", fdbv1beta2.EnvNameZoneId),
 				}, "\n")))
 			})
 		})
@@ -1118,17 +1118,17 @@ var _ = Describe("monitor_conf", func() {
 					"kill_on_configuration_change = false",
 					"restart_delay = 60",
 					"[fdbserver.1]",
-					"command = $BINARY_DIR/fdbserver",
+					fmt.Sprintf("command = $%s/fdbserver", fdbv1beta2.EnvNameBinaryDir),
 					"cluster_file = /var/fdb/data/fdb.cluster",
 					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
-					"public_address = $FDB_PUBLIC_IP:4500:tls,$FDB_PUBLIC_IP:4501",
+					fmt.Sprintf("public_address = $%s:4500:tls,$%s:4501", fdbv1beta2.EnvNamePublicIP, fdbv1beta2.EnvNamePublicIP),
 					"class = storage",
 					"logdir = /var/log/fdb-trace-logs",
 					"loggroup = " + cluster.Name,
 					"datadir = /var/fdb/data",
-					"locality_instance_id = $FDB_INSTANCE_ID",
-					"locality_machineid = $FDB_MACHINE_ID",
-					"locality_zoneid = $FDB_ZONE_ID",
+					fmt.Sprintf("locality_instance_id = $%s", fdbv1beta2.EnvNameInstanceId),
+					fmt.Sprintf("locality_machineid = $%s", fdbv1beta2.EnvNameMachineId),
+					fmt.Sprintf("locality_zoneid = $%s", fdbv1beta2.EnvNameZoneId),
 				}, "\n")))
 			})
 		})
@@ -1149,17 +1149,17 @@ var _ = Describe("monitor_conf", func() {
 					"kill_on_configuration_change = false",
 					"restart_delay = 60",
 					"[fdbserver.1]",
-					"command = $BINARY_DIR/fdbserver",
+					fmt.Sprintf("command = $%s/fdbserver", fdbv1beta2.EnvNameBinaryDir),
 					"cluster_file = /var/fdb/data/fdb.cluster",
 					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
-					"public_address = $FDB_PUBLIC_IP:4500:tls,$FDB_PUBLIC_IP:4501",
+					fmt.Sprintf("public_address = $%s:4500:tls,$%s:4501", fdbv1beta2.EnvNamePublicIP, fdbv1beta2.EnvNamePublicIP),
 					"class = storage",
 					"logdir = /var/log/fdb-trace-logs",
 					"loggroup = " + cluster.Name,
 					"datadir = /var/fdb/data",
-					"locality_instance_id = $FDB_INSTANCE_ID",
-					"locality_machineid = $FDB_MACHINE_ID",
-					"locality_zoneid = $FDB_ZONE_ID",
+					fmt.Sprintf("locality_instance_id = $%s", fdbv1beta2.EnvNameInstanceId),
+					fmt.Sprintf("locality_machineid = $%s", fdbv1beta2.EnvNameMachineId),
+					fmt.Sprintf("locality_zoneid = $%s", fdbv1beta2.EnvNameZoneId),
 				}, "\n")))
 			})
 		})
@@ -1180,17 +1180,17 @@ var _ = Describe("monitor_conf", func() {
 						"kill_on_configuration_change = false",
 						"restart_delay = 60",
 						"[fdbserver.1]",
-						"command = $BINARY_DIR/fdbserver",
+						fmt.Sprintf("command = $%s/fdbserver", fdbv1beta2.EnvNameBinaryDir),
 						"cluster_file = /var/fdb/data/fdb.cluster",
 						"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
-						"public_address = $FDB_PUBLIC_IP:4501",
+						fmt.Sprintf("public_address = $%s:4501", fdbv1beta2.EnvNamePublicIP),
 						"class = storage",
 						"logdir = /var/log/fdb-trace-logs",
 						"loggroup = " + cluster.Name,
 						"datadir = /var/fdb/data",
-						"locality_instance_id = $FDB_INSTANCE_ID",
-						"locality_machineid = $FDB_MACHINE_ID",
-						"locality_zoneid = $FDB_ZONE_ID",
+						fmt.Sprintf("locality_instance_id = $%s", fdbv1beta2.EnvNameInstanceId),
+						fmt.Sprintf("locality_machineid = $%s", fdbv1beta2.EnvNameMachineId),
+						fmt.Sprintf("locality_zoneid = $%s", fdbv1beta2.EnvNameZoneId),
 						"knob_disable_posix_kernel_aio = 1",
 					}, "\n")))
 				})
@@ -1219,17 +1219,17 @@ var _ = Describe("monitor_conf", func() {
 						"kill_on_configuration_change = false",
 						"restart_delay = 60",
 						"[fdbserver.1]",
-						"command = $BINARY_DIR/fdbserver",
+						fmt.Sprintf("command = $%s/fdbserver", fdbv1beta2.EnvNameBinaryDir),
 						"cluster_file = /var/fdb/data/fdb.cluster",
 						"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
-						"public_address = $FDB_PUBLIC_IP:4501",
+						fmt.Sprintf("public_address = $%s:4501", fdbv1beta2.EnvNamePublicIP),
 						"class = storage",
 						"logdir = /var/log/fdb-trace-logs",
 						"loggroup = " + cluster.Name,
 						"datadir = /var/fdb/data",
-						"locality_instance_id = $FDB_INSTANCE_ID",
-						"locality_machineid = $FDB_MACHINE_ID",
-						"locality_zoneid = $FDB_ZONE_ID",
+						fmt.Sprintf("locality_instance_id = $%s", fdbv1beta2.EnvNameInstanceId),
+						fmt.Sprintf("locality_machineid = $%s", fdbv1beta2.EnvNameMachineId),
+						fmt.Sprintf("locality_zoneid = $%s", fdbv1beta2.EnvNameZoneId),
 						"knob_test = test1",
 					}, "\n")))
 				})
@@ -1252,16 +1252,16 @@ var _ = Describe("monitor_conf", func() {
 					"kill_on_configuration_change = false",
 					"restart_delay = 60",
 					"[fdbserver.1]",
-					"command = $BINARY_DIR/fdbserver",
+					fmt.Sprintf("command = $%s/fdbserver", fdbv1beta2.EnvNameBinaryDir),
 					"cluster_file = /var/fdb/data/fdb.cluster",
 					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
-					"public_address = $FDB_PUBLIC_IP:4501",
+					fmt.Sprintf("public_address = $%s:4501", fdbv1beta2.EnvNamePublicIP),
 					"class = storage",
 					"logdir = /var/log/fdb-trace-logs",
 					"loggroup = " + cluster.Name,
 					"datadir = /var/fdb/data",
-					"locality_instance_id = $FDB_INSTANCE_ID",
-					"locality_machineid = $FDB_MACHINE_ID",
+					fmt.Sprintf("locality_instance_id = $%s", fdbv1beta2.EnvNameInstanceId),
+					fmt.Sprintf("locality_machineid = $%s", fdbv1beta2.EnvNameMachineId),
 					"locality_zoneid = $RACK",
 				}, "\n")))
 			})
@@ -1280,17 +1280,17 @@ var _ = Describe("monitor_conf", func() {
 					"kill_on_configuration_change = false",
 					"restart_delay = 60",
 					"[fdbserver.1]",
-					"command = $BINARY_DIR/fdbserver",
+					fmt.Sprintf("command = $%s/fdbserver", fdbv1beta2.EnvNameBinaryDir),
 					"cluster_file = /var/fdb/data/fdb.cluster",
 					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
-					"public_address = $FDB_PUBLIC_IP:4501",
+					fmt.Sprintf("public_address = $%s:4501", fdbv1beta2.EnvNamePublicIP),
 					"class = storage",
 					"logdir = /var/log/fdb-trace-logs",
 					"loggroup = " + cluster.Name,
 					"datadir = /var/fdb/data",
-					"locality_instance_id = $FDB_INSTANCE_ID",
-					"locality_machineid = $FDB_MACHINE_ID",
-					"locality_zoneid = $FDB_ZONE_ID",
+					fmt.Sprintf("locality_instance_id = $%s", fdbv1beta2.EnvNameInstanceId),
+					fmt.Sprintf("locality_machineid = $%s", fdbv1beta2.EnvNameMachineId),
+					fmt.Sprintf("locality_zoneid = $%s", fdbv1beta2.EnvNameZoneId),
 					"tls_verify_peers = S.CN=foundationdb.org",
 				}, "\n")))
 			})
@@ -1309,17 +1309,17 @@ var _ = Describe("monitor_conf", func() {
 					"kill_on_configuration_change = false",
 					"restart_delay = 60",
 					"[fdbserver.1]",
-					"command = $BINARY_DIR/fdbserver",
+					fmt.Sprintf("command = $%s/fdbserver", fdbv1beta2.EnvNameBinaryDir),
 					"cluster_file = /var/fdb/data/fdb.cluster",
 					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
-					"public_address = $FDB_PUBLIC_IP:4501",
+					fmt.Sprintf("public_address = $%s:4501", fdbv1beta2.EnvNamePublicIP),
 					"class = storage",
 					"logdir = /var/log/fdb-trace-logs",
 					"loggroup = test-fdb-cluster",
 					"datadir = /var/fdb/data",
-					"locality_instance_id = $FDB_INSTANCE_ID",
-					"locality_machineid = $FDB_MACHINE_ID",
-					"locality_zoneid = $FDB_ZONE_ID",
+					fmt.Sprintf("locality_instance_id = $%s", fdbv1beta2.EnvNameInstanceId),
+					fmt.Sprintf("locality_machineid = $%s", fdbv1beta2.EnvNameMachineId),
+					fmt.Sprintf("locality_zoneid = $%s", fdbv1beta2.EnvNameZoneId),
 				}, "\n")))
 			})
 		})
@@ -1337,17 +1337,17 @@ var _ = Describe("monitor_conf", func() {
 					"kill_on_configuration_change = false",
 					"restart_delay = 60",
 					"[fdbserver.1]",
-					"command = $BINARY_DIR/fdbserver",
+					fmt.Sprintf("command = $%s/fdbserver", fdbv1beta2.EnvNameBinaryDir),
 					"cluster_file = /var/fdb/data/fdb.cluster",
 					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
-					"public_address = $FDB_PUBLIC_IP:4501",
+					fmt.Sprintf("public_address = $%s:4501", fdbv1beta2.EnvNamePublicIP),
 					"class = storage",
 					"logdir = /var/log/fdb-trace-logs",
 					"loggroup = " + cluster.Name,
 					"datadir = /var/fdb/data",
-					"locality_instance_id = $FDB_INSTANCE_ID",
-					"locality_machineid = $FDB_MACHINE_ID",
-					"locality_zoneid = $FDB_ZONE_ID",
+					fmt.Sprintf("locality_instance_id = $%s", fdbv1beta2.EnvNameInstanceId),
+					fmt.Sprintf("locality_machineid = $%s", fdbv1beta2.EnvNameMachineId),
+					fmt.Sprintf("locality_zoneid = $%s", fdbv1beta2.EnvNameZoneId),
 					"locality_dcid = dc01",
 				}, "\n")))
 			})
