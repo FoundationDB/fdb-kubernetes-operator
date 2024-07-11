@@ -196,7 +196,7 @@ var _ = Describe("admin_client_test", func() {
 	DescribeTable("getting the args for the command", func(command cliCommand, client *cliAdminClient, traceOption string, traceFormat string, expectedArgs []string, expectedTimeout time.Duration) {
 		Expect(client).NotTo(BeNil())
 		if traceOption != "" {
-			GinkgoT().Setenv("FDB_NETWORK_OPTION_TRACE_ENABLE", traceOption)
+			GinkgoT().Setenv(fdbv1beta2.EnvNameFDBTraceLogDirPath, traceOption)
 		}
 		if traceFormat != "" {
 			GinkgoT().Setenv("FDB_NETWORK_OPTION_TRACE_FORMAT", traceFormat)

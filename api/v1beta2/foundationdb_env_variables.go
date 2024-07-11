@@ -34,6 +34,14 @@ const (
 	// EnvNameClusterFile specifies the path to the cluster file / file containing the connection string.
 	EnvNameClusterFile = "FDB_CLUSTER_FILE"
 
+	// EnvNameBinaryDir specifies the path of the FDB binary's directory
+	EnvNameBinaryDir = "BINARY_DIR"
+
+	// EnvNameAdditionalEnvFile if specified for the `foundationdb-kubernetes-sidecar` and `foundationdb-kubernetes-init`
+	// containers, its content will be sourced before any container command runs, and you can override or define there
+	// any other environment variable; this can be used for example to inject environment variables using a shared volume
+	EnvNameAdditionalEnvFile = "ADDITIONAL_ENV_FILE"
+
 	// EnvNameTLSCaFile specifies the path to the certificate authority file for TLS connections
 	EnvNameTLSCaFile = "FDB_TLS_CA_FILE"
 
@@ -45,7 +53,7 @@ const (
 
 	// EnvNameTLSVerifiyPeers specifies the peer verification rules for incoming TLS connections to the split-image sidecar.
 	// See https://apple.github.io/foundationdb/tls.html#peer-verification for the format
-	EnvNameTLSVerifiyPeers = "FDB_TLS_VERIFY_PEERS"
+	EnvNameTLSVerifyPeers = "FDB_TLS_VERIFY_PEERS"
 
 	// EnvNameFDBNetworkSunsetThing specifies whether to ignore the failure to initialize some of the external clients
 	// TODO FDB 7.3 adds a check for loading external client library, which doesn't work with 6.3.
@@ -66,9 +74,6 @@ const (
 	// serviced by a single client thread. Spawns multiple worker threads for each version of the client that is loaded.
 	// Setting this to a number greater than one implies disable_local_client.
 	EnvNameClientThreadsPerVersion = "FDB_NETWORK_OPTION_CLIENT_THREADS_PER_VERSION"
-
-	// EnvNameLDLibraryPath tells FoundationDB to load its primary client library from this directory instead of the directory provided by the image
-	EnvNameLDLibraryPath = "LD_LIBRARY_PATH"
 
 	// EnvNamePublicIP defines the public IP for the split-image-sidecar or unified FDB kubernetes monitor
 	EnvNamePublicIP = "FDB_PUBLIC_IP"

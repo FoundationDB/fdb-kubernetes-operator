@@ -26,6 +26,8 @@ import (
 	"path/filepath"
 	"time"
 
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	corev1 "k8s.io/api/core/v1"
@@ -2411,11 +2413,11 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Entry("With a placeholder",
 				testCase{
 					processAddr: ProcessAddress{
-						StringAddress: "$POD_IP",
+						StringAddress: fmt.Sprintf("$%s", fdbv1beta2.EnvNamePodIP),
 						Port:          4500,
 						Flags:         map[string]bool{},
 					},
-					expected: "$POD_IP:4500",
+					expected: fmt.Sprintf("$%s:4500", fdbv1beta2.EnvNamePodIP),
 				}),
 		)
 	})

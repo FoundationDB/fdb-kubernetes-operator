@@ -536,7 +536,7 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 			for _, container := range pod.Spec.Containers {
 				if container.Name == fdbv1beta2.SidecarContainerName || container.Name == fdbv1beta2.MainContainerName {
 					for _, env := range container.Env {
-						if env.Name == "FDB_POD_IP" {
+						if env.Name == fdbv1beta2.EnvNamePodIP {
 							hasPodIP = true
 						}
 					}

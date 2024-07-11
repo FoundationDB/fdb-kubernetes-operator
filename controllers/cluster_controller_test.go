@@ -338,7 +338,7 @@ var _ = Describe("cluster_controller", func() {
 					for _, envVar := range pod.Spec.InitContainers[0].Env {
 						env[envVar.Name] = envVar.Value
 					}
-					Expect(env["FDB_DNS_NAME"]).To(Equal(internal.GetPodDNSName(cluster, pod.Name)))
+					Expect(env[fdbv1beta2.EnvNameDNSName]).To(Equal(internal.GetPodDNSName(cluster, pod.Name)))
 				}
 			})
 		})
@@ -1548,7 +1548,7 @@ var _ = Describe("cluster_controller", func() {
 
 					for _, pod := range pods.Items {
 						Expect(len(pod.Spec.Containers[0].Env)).To(Equal(1))
-						Expect(pod.Spec.Containers[0].Env[0].Name).To(Equal("FDB_CLUSTER_FILE"))
+						Expect(pod.Spec.Containers[0].Env[0].Name).To(Equal(fdbv1beta2.EnvNameClusterFile))
 					}
 				})
 			})
@@ -1580,7 +1580,7 @@ var _ = Describe("cluster_controller", func() {
 
 					for _, pod := range pods.Items {
 						Expect(len(pod.Spec.Containers[0].Env)).To(Equal(1))
-						Expect(pod.Spec.Containers[0].Env[0].Name).To(Equal("FDB_CLUSTER_FILE"))
+						Expect(pod.Spec.Containers[0].Env[0].Name).To(Equal(fdbv1beta2.EnvNameClusterFile))
 					}
 				})
 			})
@@ -1679,11 +1679,11 @@ var _ = Describe("cluster_controller", func() {
 					Expect(container.Name).To(Equal(fdbv1beta2.SidecarContainerName))
 					var podIPEnv corev1.EnvVar
 					for _, env := range container.Env {
-						if env.Name == "FDB_POD_IP" {
+						if env.Name == fdbv1beta2.EnvNamePodIP {
 							podIPEnv = env
 						}
 					}
-					Expect(podIPEnv.Name).To(Equal("FDB_POD_IP"))
+					Expect(podIPEnv.Name).To(Equal(fdbv1beta2.EnvNamePodIP))
 					Expect(podIPEnv.ValueFrom).NotTo(BeNil())
 					Expect(podIPEnv.ValueFrom.FieldRef.FieldPath).To(Equal("status.podIP"))
 				}

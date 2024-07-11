@@ -52,7 +52,7 @@ func GetStartCommandWithSubstitutions(cluster *fdbv1beta2.FoundationDBCluster, p
 
 	extractPlaceholderEnvVars(substitutions, config.Arguments)
 
-	config.BinaryPath = fmt.Sprintf("%s/fdbserver", substitutions["BINARY_DIR"])
+	config.BinaryPath = fmt.Sprintf("%s/fdbserver", substitutions[fdbv1beta2.EnvNameBinaryDir])
 
 	arguments, err := config.GenerateArguments(processNumber, substitutions)
 	if err != nil {
@@ -135,11 +135,11 @@ func getMonitorConfStartCommandLines(cluster *fdbv1beta2.FoundationDBCluster, pr
 	extractPlaceholderEnvVars(substitutions, config.Arguments)
 
 	var binaryDir string
-	substitution, hasSubstitution := substitutions["BINARY_DIR"]
+	substitution, hasSubstitution := substitutions[fdbv1beta2.EnvNameBinaryDir]
 	if hasSubstitution {
 		binaryDir = substitution
 	} else {
-		binaryDir = "$BINARY_DIR"
+		binaryDir = fmt.Sprintf("$%s", fdbv1beta2.EnvNameBinaryDir)
 	}
 
 	confLines = append(confLines, fmt.Sprintf("command = %s/fdbserver", binaryDir))
@@ -177,7 +177,7 @@ func GetMonitorProcessConfiguration(cluster *fdbv1beta2.FoundationDBCluster, pro
 	if strings.HasPrefix(cluster.Spec.FaultDomain.ValueFrom, "$") {
 		zoneVariable = cluster.Spec.FaultDomain.ValueFrom[1:]
 	} else {
-		zoneVariable = "FDB_ZONE_ID"
+		zoneVariable = fdbv1beta2.EnvNameZoneId
 	}
 
 	sampleAddresses := cluster.GetFullAddressList(fdbv1beta2.EnvNamePublicIP, false, 1)
@@ -201,7 +201,7 @@ func GetMonitorProcessConfiguration(cluster *fdbv1beta2.FoundationDBCluster, pro
 		})
 		configuration.Arguments = append(configuration.Arguments, monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
 			{Value: getKnobParameter(fdbv1beta2.FDBLocalityProcessIDKey, true)},
-			{ArgumentType: monitorapi.EnvironmentArgumentType, Source: "FDB_INSTANCE_ID"},
+			{ArgumentType: monitorapi.EnvironmentArgumentType, Source: fdbv1beta2.EnvNameInstanceId},
 			{Value: "-"},
 			{ArgumentType: monitorapi.ProcessNumberArgumentType},
 		}})
@@ -212,11 +212,11 @@ func GetMonitorProcessConfiguration(cluster *fdbv1beta2.FoundationDBCluster, pro
 	configuration.Arguments = append(configuration.Arguments,
 		monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
 			{Value: getKnobParameter(fdbv1beta2.FDBLocalityInstanceIDKey, true)},
-			{ArgumentType: monitorapi.EnvironmentArgumentType, Source: "FDB_INSTANCE_ID"},
+			{ArgumentType: monitorapi.EnvironmentArgumentType, Source: fdbv1beta2.EnvNameInstanceId},
 		}},
 		monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
 			{Value: getKnobParameter(fdbv1beta2.FDBLocalityMachineIDKey, true)},
-			{ArgumentType: monitorapi.EnvironmentArgumentType, Source: "FDB_MACHINE_ID"},
+			{ArgumentType: monitorapi.EnvironmentArgumentType, Source: fdbv1beta2.EnvNameMachineId},
 		}},
 		monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
 			{Value: getKnobParameter(fdbv1beta2.FDBLocalityZoneIDKey, true)},
@@ -225,7 +225,7 @@ func GetMonitorProcessConfiguration(cluster *fdbv1beta2.FoundationDBCluster, pro
 	)
 
 	if cluster.NeedsExplicitListenAddress() && cluster.Status.HasListenIPsForAllPods {
-		configuration.Arguments = append(configuration.Arguments, monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: buildIPArgument("listen_address", "FDB_POD_IP", imageType, sampleAddresses, cluster.Spec.Routing.PodIPFamily)})
+		configuration.Arguments = append(configuration.Arguments, monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: buildIPArgument("listen_address", fdbv1beta2.EnvNamePodIP, imageType, sampleAddresses, cluster.Spec.Routing.PodIPFamily)})
 	}
 
 	if cluster.Spec.MainContainer.PeerVerificationRules != "" {
@@ -260,7 +260,7 @@ func GetMonitorProcessConfiguration(cluster *fdbv1beta2.FoundationDBCluster, pro
 	if cluster.DefineDNSLocalityFields() {
 		configuration.Arguments = append(configuration.Arguments, monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
 			{Value: "--locality_dns_name="},
-			{ArgumentType: monitorapi.EnvironmentArgumentType, Source: "FDB_DNS_NAME"},
+			{ArgumentType: monitorapi.EnvironmentArgumentType, Source: fdbv1beta2.EnvNameDNSName},
 		}})
 	}
 

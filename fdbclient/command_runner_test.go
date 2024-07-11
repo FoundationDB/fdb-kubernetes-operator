@@ -24,6 +24,8 @@ import (
 	"context"
 	"strings"
 
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -52,11 +54,11 @@ var _ = Describe("command_runner", func() {
 		var envVariablesKeys []string
 
 		BeforeEach(func() {
-			GinkgoT().Setenv("FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY", "")
-			GinkgoT().Setenv("FDB_NETWORK_OPTION_IGNORE_EXTERNAL_CLIENT_FAILURES", "")
-			GinkgoT().Setenv("FDB_NETWORK_OPTION_CLIENT_THREADS_PER_VERSION", "")
+			GinkgoT().Setenv(fdbv1beta2.EnvNameFDBExternalClientDir, "")
+			GinkgoT().Setenv(fdbv1beta2.EnvNameFDBNetworkSunsetThing, "")
+			GinkgoT().Setenv(fdbv1beta2.EnvNameClientThreadsPerVersion, "")
 
-			GinkgoT().Setenv("FDB_TLS_CERTIFICATE_FILE", "")
+			GinkgoT().Setenv(fdbv1beta2.EnvNameTLSCert, "")
 
 			for _, env := range getEnvironmentVariablesWithoutExcludedFdbEnv() {
 				envVariablesKeys = append(envVariablesKeys, strings.Split(env, "=")[0])
@@ -64,10 +66,10 @@ var _ = Describe("command_runner", func() {
 		})
 
 		It("should exclude the listed FDB variables but include all others", func() {
-			Expect(envVariablesKeys).NotTo(ContainElement("FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY"))
-			Expect(envVariablesKeys).NotTo(ContainElement("FDB_NETWORK_OPTION_IGNORE_EXTERNAL_CLIENT_FAILURES"))
-			Expect(envVariablesKeys).NotTo(ContainElement("FDB_NETWORK_OPTION_CLIENT_THREADS_PER_VERSION"))
-			Expect(envVariablesKeys).To(ContainElement("FDB_TLS_CERTIFICATE_FILE"))
+			Expect(envVariablesKeys).NotTo(ContainElement(fdbv1beta2.EnvNameFDBExternalClientDir))
+			Expect(envVariablesKeys).NotTo(ContainElement(fdbv1beta2.EnvNameFDBNetworkSunsetThing))
+			Expect(envVariablesKeys).NotTo(ContainElement(fdbv1beta2.EnvNameClientThreadsPerVersion))
+			Expect(envVariablesKeys).To(ContainElement(fdbv1beta2.EnvNameTLSCert))
 		})
 	})
 })

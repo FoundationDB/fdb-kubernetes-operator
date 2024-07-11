@@ -239,23 +239,23 @@ var _ = Describe("pod_models", func() {
 					"--main-container-version",
 					cluster.Spec.Version,
 					"--substitute-variable",
-					"FDB_POD_IP",
+					fdbv1beta2.EnvNamePodIP,
 					"--init-mode",
 				}))
 				Expect(initContainer.Env).To(Equal([]corev1.EnvVar{
 					{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
-					{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNamePodIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
-					{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameMachineId, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameZoneId, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
+					{Name: fdbv1beta2.EnvNameInstanceId, Value: "storage-1"},
 				}))
 				Expect(initContainer.VolumeMounts).To(Equal([]corev1.VolumeMount{
 					{Name: "config-map", MountPath: "/var/input-files"},
@@ -281,7 +281,7 @@ var _ = Describe("pod_models", func() {
 				}))
 
 				Expect(mainContainer.Env).To(Equal([]corev1.EnvVar{
-					{Name: "FDB_CLUSTER_FILE", Value: "/var/dynamic-conf/fdb.cluster"},
+					{Name: fdbv1beta2.EnvNameClusterFile, Value: "/var/dynamic-conf/fdb.cluster"},
 				}))
 
 				Expect(*mainContainer.Resources.Limits.Cpu()).To(Equal(resource.MustParse("1")))
@@ -316,23 +316,23 @@ var _ = Describe("pod_models", func() {
 					"--main-container-version",
 					cluster.Spec.Version,
 					"--substitute-variable",
-					"FDB_POD_IP",
+					fdbv1beta2.EnvNamePodIP,
 				}))
 				Expect(sidecarContainer.Env).To(Equal([]corev1.EnvVar{
 					{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
-					{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNamePodIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
-					{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameMachineId, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameZoneId, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
-					{Name: "FDB_TLS_VERIFY_PEERS", Value: ""},
+					{Name: fdbv1beta2.EnvNameInstanceId, Value: "storage-1"},
+					{Name: fdbv1beta2.EnvNameTLSVerifyPeers, Value: ""},
 				}))
 				Expect(sidecarContainer.VolumeMounts).To(Equal([]corev1.VolumeMount{
 					{Name: "config-map", MountPath: "/var/input-files"},
@@ -515,29 +515,29 @@ var _ = Describe("pod_models", func() {
 					}))
 
 					Expect(mainContainer.Env).To(ConsistOf([]corev1.EnvVar{
-						{Name: "FDB_CLUSTER_FILE", Value: "/var/dynamic-conf/fdb.cluster"},
+						{Name: fdbv1beta2.EnvNameClusterFile, Value: "/var/dynamic-conf/fdb.cluster"},
 						{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 						}},
-						{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
+						{Name: fdbv1beta2.EnvNamePodIP, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 						}},
-						{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+						{Name: fdbv1beta2.EnvNameMachineId, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 						}},
-						{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
+						{Name: fdbv1beta2.EnvNameZoneId, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 						}},
-						{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
-						{Name: "FDB_POD_NAME", ValueFrom: &corev1.EnvVarSource{
+						{Name: fdbv1beta2.EnvNameInstanceId, Value: "storage-1"},
+						{Name: fdbv1beta2.EnvNamePodName, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 						}},
-						{Name: "FDB_POD_NAMESPACE", ValueFrom: &corev1.EnvVarSource{
+						{Name: fdbv1beta2.EnvNamePodNamespace, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"},
 						}},
-						{Name: "FDB_NETWORK_OPTION_TRACE_LOG_GROUP", Value: cluster.Name},
-						{Name: "FDB_NETWORK_OPTION_TRACE_ENABLE", Value: "/var/log/fdb-trace-logs"},
-						{Name: "FDB_NODE_NAME", ValueFrom: &corev1.EnvVarSource{
+						{Name: fdbv1beta2.EnvNameFDBTraceLogGroup, Value: cluster.Name},
+						{Name: fdbv1beta2.EnvNameFDBTraceLogDirPath, Value: "/var/log/fdb-trace-logs"},
+						{Name: fdbv1beta2.EnvNameNodeName, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
 						}},
 					}))
@@ -628,30 +628,30 @@ var _ = Describe("pod_models", func() {
 					}))
 
 					Expect(mainContainer.Env).To(ConsistOf([]corev1.EnvVar{
-						{Name: "FDB_CLUSTER_FILE", Value: "/var/dynamic-conf/fdb.cluster"},
+						{Name: fdbv1beta2.EnvNameClusterFile, Value: "/var/dynamic-conf/fdb.cluster"},
 						{Name: "STORAGE_SERVERS_PER_POD", Value: "2"},
 						{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 						}},
-						{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
+						{Name: fdbv1beta2.EnvNamePodIP, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 						}},
-						{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+						{Name: fdbv1beta2.EnvNameMachineId, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 						}},
-						{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
+						{Name: fdbv1beta2.EnvNameZoneId, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 						}},
-						{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
-						{Name: "FDB_POD_NAME", ValueFrom: &corev1.EnvVarSource{
+						{Name: fdbv1beta2.EnvNameInstanceId, Value: "storage-1"},
+						{Name: fdbv1beta2.EnvNamePodName, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 						}},
-						{Name: "FDB_POD_NAMESPACE", ValueFrom: &corev1.EnvVarSource{
+						{Name: fdbv1beta2.EnvNamePodNamespace, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"},
 						}},
-						{Name: "FDB_NETWORK_OPTION_TRACE_LOG_GROUP", Value: cluster.Name},
-						{Name: "FDB_NETWORK_OPTION_TRACE_ENABLE", Value: "/var/log/fdb-trace-logs"},
-						{Name: "FDB_NODE_NAME", ValueFrom: &corev1.EnvVarSource{
+						{Name: fdbv1beta2.EnvNameFDBTraceLogGroup, Value: cluster.Name},
+						{Name: fdbv1beta2.EnvNameFDBTraceLogDirPath, Value: "/var/log/fdb-trace-logs"},
+						{Name: fdbv1beta2.EnvNameNodeName, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
 						}},
 					}))
@@ -687,29 +687,29 @@ var _ = Describe("pod_models", func() {
 					}))
 
 					Expect(mainContainer.Env).To(ConsistOf([]corev1.EnvVar{
-						{Name: "FDB_CLUSTER_FILE", Value: "/var/dynamic-conf/fdb.cluster"},
+						{Name: fdbv1beta2.EnvNameClusterFile, Value: "/var/dynamic-conf/fdb.cluster"},
 						{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 						}},
-						{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
+						{Name: fdbv1beta2.EnvNamePodIP, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 						}},
-						{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+						{Name: fdbv1beta2.EnvNameMachineId, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 						}},
-						{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
+						{Name: fdbv1beta2.EnvNameZoneId, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 						}},
-						{Name: "FDB_INSTANCE_ID", Value: "log-1"},
-						{Name: "FDB_POD_NAME", ValueFrom: &corev1.EnvVarSource{
+						{Name: fdbv1beta2.EnvNameInstanceId, Value: "log-1"},
+						{Name: fdbv1beta2.EnvNamePodName, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 						}},
-						{Name: "FDB_POD_NAMESPACE", ValueFrom: &corev1.EnvVarSource{
+						{Name: fdbv1beta2.EnvNamePodNamespace, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"},
 						}},
-						{Name: "FDB_NETWORK_OPTION_TRACE_LOG_GROUP", Value: cluster.Name},
-						{Name: "FDB_NETWORK_OPTION_TRACE_ENABLE", Value: "/var/log/fdb-trace-logs"},
-						{Name: "FDB_NODE_NAME", ValueFrom: &corev1.EnvVarSource{
+						{Name: fdbv1beta2.EnvNameFDBTraceLogGroup, Value: cluster.Name},
+						{Name: fdbv1beta2.EnvNameFDBTraceLogDirPath, Value: "/var/log/fdb-trace-logs"},
+						{Name: fdbv1beta2.EnvNameNodeName, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
 						}},
 					}))
@@ -746,30 +746,30 @@ var _ = Describe("pod_models", func() {
 					}))
 
 					Expect(mainContainer.Env).To(ConsistOf([]corev1.EnvVar{
-						{Name: "FDB_CLUSTER_FILE", Value: "/var/dynamic-conf/fdb.cluster"},
+						{Name: fdbv1beta2.EnvNameClusterFile, Value: "/var/dynamic-conf/fdb.cluster"},
 						{Name: "LOG_SERVERS_PER_POD", Value: "2"},
 						{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 						}},
-						{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
+						{Name: fdbv1beta2.EnvNamePodIP, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 						}},
-						{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+						{Name: fdbv1beta2.EnvNameMachineId, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 						}},
-						{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
+						{Name: fdbv1beta2.EnvNameZoneId, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 						}},
-						{Name: "FDB_INSTANCE_ID", Value: "log-1"},
-						{Name: "FDB_POD_NAME", ValueFrom: &corev1.EnvVarSource{
+						{Name: fdbv1beta2.EnvNameInstanceId, Value: "log-1"},
+						{Name: fdbv1beta2.EnvNamePodName, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 						}},
-						{Name: "FDB_POD_NAMESPACE", ValueFrom: &corev1.EnvVarSource{
+						{Name: fdbv1beta2.EnvNamePodNamespace, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"},
 						}},
-						{Name: "FDB_NETWORK_OPTION_TRACE_LOG_GROUP", Value: cluster.Name},
-						{Name: "FDB_NETWORK_OPTION_TRACE_ENABLE", Value: "/var/log/fdb-trace-logs"},
-						{Name: "FDB_NODE_NAME", ValueFrom: &corev1.EnvVarSource{
+						{Name: fdbv1beta2.EnvNameFDBTraceLogGroup, Value: cluster.Name},
+						{Name: fdbv1beta2.EnvNameFDBTraceLogDirPath, Value: "/var/log/fdb-trace-logs"},
+						{Name: fdbv1beta2.EnvNameNodeName, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
 						}},
 					}))
@@ -849,7 +849,7 @@ var _ = Describe("pod_models", func() {
 				It("should set the FDB_DNS_NAME env variable on the main container", func() {
 					mainContainer := spec.Containers[0]
 
-					Expect(mainContainer.Env).To(ContainElements(corev1.EnvVar{Name: "FDB_DNS_NAME", Value: GetPodDNSName(cluster, podName)}))
+					Expect(mainContainer.Env).To(ContainElements(corev1.EnvVar{Name: fdbv1beta2.EnvNameDNSName, Value: GetPodDNSName(cluster, podName)}))
 				})
 
 				It("should set the correct crash loop arg in sidecar container", func() {
@@ -888,23 +888,23 @@ var _ = Describe("pod_models", func() {
 					"--bind-address",
 					"[::]:8080",
 					"--substitute-variable",
-					"FDB_POD_IP",
+					fdbv1beta2.EnvNamePodIP,
 					"--init-mode",
 				}))
 				Expect(initContainer.Env).To(Equal([]corev1.EnvVar{
 					{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIPs"},
 					}},
-					{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNamePodIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIPs"},
 					}},
-					{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameMachineId, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameZoneId, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
+					{Name: fdbv1beta2.EnvNameInstanceId, Value: "storage-1"},
 				}))
 			})
 
@@ -927,23 +927,23 @@ var _ = Describe("pod_models", func() {
 					"--bind-address",
 					"[::]:8080",
 					"--substitute-variable",
-					"FDB_POD_IP",
+					fdbv1beta2.EnvNamePodIP,
 				}))
 				Expect(sidecarContainer.Env).To(Equal([]corev1.EnvVar{
 					{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIPs"},
 					}},
-					{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNamePodIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIPs"},
 					}},
-					{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameMachineId, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameZoneId, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
-					{Name: "FDB_TLS_VERIFY_PEERS", Value: ""},
+					{Name: fdbv1beta2.EnvNameInstanceId, Value: "storage-1"},
+					{Name: fdbv1beta2.EnvNameTLSVerifyPeers, Value: ""},
 				}))
 			})
 		})
@@ -972,26 +972,26 @@ var _ = Describe("pod_models", func() {
 					"--main-container-version",
 					cluster.Spec.Version,
 					"--substitute-variable",
-					"FDB_POD_IP",
+					fdbv1beta2.EnvNamePodIP,
 					"--substitute-variable",
-					"FDB_DNS_NAME",
+					fdbv1beta2.EnvNameDNSName,
 					"--init-mode",
 				}))
 				Expect(initContainer.Env).To(Equal([]corev1.EnvVar{
 					{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
-					{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNamePodIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
-					{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameMachineId, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameZoneId, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
-					{Name: "FDB_DNS_NAME", Value: "operator-test-1-storage-1.operator-test-1.my-ns.svc.cluster.local"},
+					{Name: fdbv1beta2.EnvNameInstanceId, Value: "storage-1"},
+					{Name: fdbv1beta2.EnvNameDNSName, Value: "operator-test-1-storage-1.operator-test-1.my-ns.svc.cluster.local"},
 				}))
 			})
 
@@ -1010,26 +1010,26 @@ var _ = Describe("pod_models", func() {
 					"--main-container-version",
 					cluster.Spec.Version,
 					"--substitute-variable",
-					"FDB_POD_IP",
+					fdbv1beta2.EnvNamePodIP,
 					"--substitute-variable",
-					"FDB_DNS_NAME",
+					fdbv1beta2.EnvNameDNSName,
 				}))
 				Expect(sidecarContainer.Env).To(Equal([]corev1.EnvVar{
 					{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
-					{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNamePodIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
-					{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameMachineId, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameZoneId, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
-					{Name: "FDB_DNS_NAME", Value: "operator-test-1-storage-1.operator-test-1.my-ns.svc.cluster.local"},
-					{Name: "FDB_TLS_VERIFY_PEERS", Value: ""},
+					{Name: fdbv1beta2.EnvNameInstanceId, Value: "storage-1"},
+					{Name: fdbv1beta2.EnvNameDNSName, Value: "operator-test-1-storage-1.operator-test-1.my-ns.svc.cluster.local"},
+					{Name: fdbv1beta2.EnvNameTLSVerifyPeers, Value: ""},
 				}))
 			})
 		})
@@ -1056,26 +1056,26 @@ var _ = Describe("pod_models", func() {
 					"--main-container-version",
 					"6.2.21",
 					"--substitute-variable",
-					"FDB_POD_IP",
+					fdbv1beta2.EnvNamePodIP,
 					"--substitute-variable",
-					"FDB_DNS_NAME",
+					fdbv1beta2.EnvNameDNSName,
 					"--init-mode",
 				}))
 				Expect(initContainer.Env).To(Equal([]corev1.EnvVar{
 					{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
-					{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNamePodIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
-					{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameMachineId, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameZoneId, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
-					{Name: "FDB_DNS_NAME", Value: "operator-test-1-storage-1.operator-test-1.my-ns.svc.cluster.local"},
+					{Name: fdbv1beta2.EnvNameInstanceId, Value: "storage-1"},
+					{Name: fdbv1beta2.EnvNameDNSName, Value: "operator-test-1-storage-1.operator-test-1.my-ns.svc.cluster.local"},
 				}))
 			})
 
@@ -1094,26 +1094,26 @@ var _ = Describe("pod_models", func() {
 					"--main-container-version",
 					"6.2.21",
 					"--substitute-variable",
-					"FDB_POD_IP",
+					fdbv1beta2.EnvNamePodIP,
 					"--substitute-variable",
-					"FDB_DNS_NAME",
+					fdbv1beta2.EnvNameDNSName,
 				}))
 				Expect(sidecarContainer.Env).To(Equal([]corev1.EnvVar{
 					{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
-					{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNamePodIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
-					{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameMachineId, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameZoneId, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
-					{Name: "FDB_DNS_NAME", Value: "operator-test-1-storage-1.operator-test-1.my-ns.svc.cluster.local"},
-					{Name: "FDB_TLS_VERIFY_PEERS", Value: ""},
+					{Name: fdbv1beta2.EnvNameInstanceId, Value: "storage-1"},
+					{Name: fdbv1beta2.EnvNameDNSName, Value: "operator-test-1-storage-1.operator-test-1.my-ns.svc.cluster.local"},
+					{Name: fdbv1beta2.EnvNameTLSVerifyPeers, Value: ""},
 				}))
 			})
 		})
@@ -1322,23 +1322,23 @@ var _ = Describe("pod_models", func() {
 					"--main-container-version",
 					cluster.Spec.Version,
 					"--substitute-variable",
-					"FDB_POD_IP",
+					fdbv1beta2.EnvNamePodIP,
 					"--init-mode",
 				}))
 				Expect(initContainer.Env).To(Equal([]corev1.EnvVar{
 					{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
-					{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNamePodIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
-					{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameMachineId, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameZoneId, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
+					{Name: fdbv1beta2.EnvNameInstanceId, Value: "storage-1"},
 				}))
 				Expect(initContainer.VolumeMounts).To(Equal([]corev1.VolumeMount{
 					{Name: "config-map", MountPath: "/var/input-files"},
@@ -1364,7 +1364,7 @@ var _ = Describe("pod_models", func() {
 				}))
 
 				Expect(mainContainer.Env).To(Equal([]corev1.EnvVar{
-					{Name: "FDB_CLUSTER_FILE", Value: "/var/dynamic-conf/fdb.cluster"},
+					{Name: fdbv1beta2.EnvNameClusterFile, Value: "/var/dynamic-conf/fdb.cluster"},
 				}))
 
 				Expect(*mainContainer.Resources.Limits.Cpu()).To(Equal(resource.MustParse("1")))
@@ -1399,23 +1399,23 @@ var _ = Describe("pod_models", func() {
 					"--main-container-version",
 					cluster.Spec.Version,
 					"--substitute-variable",
-					"FDB_POD_IP",
+					fdbv1beta2.EnvNamePodIP,
 				}))
 				Expect(sidecarContainer.Env).To(Equal([]corev1.EnvVar{
 					{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
-					{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNamePodIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
-					{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameMachineId, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameZoneId, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
-					{Name: "FDB_TLS_VERIFY_PEERS", Value: ""},
+					{Name: fdbv1beta2.EnvNameInstanceId, Value: "storage-1"},
+					{Name: fdbv1beta2.EnvNameTLSVerifyPeers, Value: ""},
 					{Name: "STORAGE_SERVERS_PER_POD", Value: "2"},
 				}))
 				Expect(sidecarContainer.VolumeMounts).To(Equal([]corev1.VolumeMount{
@@ -1494,7 +1494,7 @@ var _ = Describe("pod_models", func() {
 					"--main-container-version",
 					cluster.Spec.Version,
 					"--substitute-variable",
-					"FDB_POD_IP",
+					fdbv1beta2.EnvNamePodIP,
 					"--init-mode",
 				}))
 			})
@@ -1515,7 +1515,7 @@ var _ = Describe("pod_models", func() {
 					"--main-container-version",
 					cluster.Spec.Version,
 					"--substitute-variable",
-					"FDB_POD_IP",
+					fdbv1beta2.EnvNamePodIP,
 				}))
 			})
 
@@ -1524,7 +1524,7 @@ var _ = Describe("pod_models", func() {
 				Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP]).NotTo(BeNil())
 				Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP].ValueFrom).NotTo(BeNil())
 				Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP].ValueFrom.FieldRef.FieldPath).To(Equal("status.podIP"))
-				Expect(sidecarEnv["FDB_POD_IP"]).NotTo(BeNil())
+				Expect(sidecarEnv[fdbv1beta2.EnvNamePodIP]).NotTo(BeNil())
 			})
 
 			It("should have the environment variables for the IPs in the init container", func() {
@@ -1532,7 +1532,7 @@ var _ = Describe("pod_models", func() {
 				Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP]).NotTo(BeNil())
 				Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP].ValueFrom).NotTo(BeNil())
 				Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP].ValueFrom.FieldRef.FieldPath).To(Equal("status.podIP"))
-				Expect(sidecarEnv["FDB_POD_IP"]).NotTo(BeNil())
+				Expect(sidecarEnv[fdbv1beta2.EnvNamePodIP]).NotTo(BeNil())
 			})
 		})
 
@@ -1562,7 +1562,7 @@ var _ = Describe("pod_models", func() {
 					"--main-container-version",
 					cluster.Spec.Version,
 					"--substitute-variable",
-					"FDB_POD_IP",
+					fdbv1beta2.EnvNamePodIP,
 					"--init-mode",
 				}))
 			})
@@ -1583,7 +1583,7 @@ var _ = Describe("pod_models", func() {
 					"--main-container-version",
 					cluster.Spec.Version,
 					"--substitute-variable",
-					"FDB_POD_IP",
+					fdbv1beta2.EnvNamePodIP,
 				}))
 			})
 
@@ -1592,9 +1592,9 @@ var _ = Describe("pod_models", func() {
 				Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP]).NotTo(BeNil())
 				Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP].ValueFrom).NotTo(BeNil())
 				Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP].ValueFrom.FieldRef.FieldPath).To(Equal("status.podIP"))
-				Expect(sidecarEnv["FDB_POD_IP"]).NotTo(BeNil())
-				Expect(sidecarEnv["FDB_POD_IP"].ValueFrom).NotTo(BeNil())
-				Expect(sidecarEnv["FDB_POD_IP"].ValueFrom.FieldRef.FieldPath).To(Equal("status.podIP"))
+				Expect(sidecarEnv[fdbv1beta2.EnvNamePodIP]).NotTo(BeNil())
+				Expect(sidecarEnv[fdbv1beta2.EnvNamePodIP].ValueFrom).NotTo(BeNil())
+				Expect(sidecarEnv[fdbv1beta2.EnvNamePodIP].ValueFrom.FieldRef.FieldPath).To(Equal("status.podIP"))
 			})
 
 			It("should have the environment variables for the IPs in the init container", func() {
@@ -1602,9 +1602,9 @@ var _ = Describe("pod_models", func() {
 				Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP]).NotTo(BeNil())
 				Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP].ValueFrom).NotTo(BeNil())
 				Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP].ValueFrom.FieldRef.FieldPath).To(Equal("status.podIP"))
-				Expect(sidecarEnv["FDB_POD_IP"]).NotTo(BeNil())
-				Expect(sidecarEnv["FDB_POD_IP"].ValueFrom).NotTo(BeNil())
-				Expect(sidecarEnv["FDB_POD_IP"].ValueFrom.FieldRef.FieldPath).To(Equal("status.podIP"))
+				Expect(sidecarEnv[fdbv1beta2.EnvNamePodIP]).NotTo(BeNil())
+				Expect(sidecarEnv[fdbv1beta2.EnvNamePodIP].ValueFrom).NotTo(BeNil())
+				Expect(sidecarEnv[fdbv1beta2.EnvNamePodIP].ValueFrom.FieldRef.FieldPath).To(Equal("status.podIP"))
 			})
 		})
 
@@ -1621,9 +1621,9 @@ var _ = Describe("pod_models", func() {
 				Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP]).NotTo(BeNil())
 				Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP].ValueFrom).NotTo(BeNil())
 				Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP].ValueFrom.FieldRef.FieldPath).To(Equal("metadata.annotations['foundationdb.org/public-ip']"))
-				Expect(sidecarEnv["FDB_POD_IP"]).NotTo(BeNil())
-				Expect(sidecarEnv["FDB_POD_IP"].ValueFrom).NotTo(BeNil())
-				Expect(sidecarEnv["FDB_POD_IP"].ValueFrom.FieldRef.FieldPath).To(Equal("status.podIP"))
+				Expect(sidecarEnv[fdbv1beta2.EnvNamePodIP]).NotTo(BeNil())
+				Expect(sidecarEnv[fdbv1beta2.EnvNamePodIP].ValueFrom).NotTo(BeNil())
+				Expect(sidecarEnv[fdbv1beta2.EnvNamePodIP].ValueFrom.FieldRef.FieldPath).To(Equal("status.podIP"))
 			})
 
 			It("should have the environment variables for the IPs in the init container", func() {
@@ -1631,9 +1631,9 @@ var _ = Describe("pod_models", func() {
 				Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP]).NotTo(BeNil())
 				Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP].ValueFrom).NotTo(BeNil())
 				Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP].ValueFrom.FieldRef.FieldPath).To(Equal("metadata.annotations['foundationdb.org/public-ip']"))
-				Expect(sidecarEnv["FDB_POD_IP"]).NotTo(BeNil())
-				Expect(sidecarEnv["FDB_POD_IP"].ValueFrom).NotTo(BeNil())
-				Expect(sidecarEnv["FDB_POD_IP"].ValueFrom.FieldRef.FieldPath).To(Equal("status.podIP"))
+				Expect(sidecarEnv[fdbv1beta2.EnvNamePodIP]).NotTo(BeNil())
+				Expect(sidecarEnv[fdbv1beta2.EnvNamePodIP].ValueFrom).NotTo(BeNil())
+				Expect(sidecarEnv[fdbv1beta2.EnvNamePodIP].ValueFrom.FieldRef.FieldPath).To(Equal("status.podIP"))
 			})
 
 			It("should have the pod IP in the init container args", func() {
@@ -1652,7 +1652,7 @@ var _ = Describe("pod_models", func() {
 					"--main-container-version",
 					cluster.Spec.Version,
 					"--substitute-variable",
-					"FDB_POD_IP",
+					fdbv1beta2.EnvNamePodIP,
 					"--init-mode",
 				}))
 			})
@@ -1673,7 +1673,7 @@ var _ = Describe("pod_models", func() {
 					"--main-container-version",
 					cluster.Spec.Version,
 					"--substitute-variable",
-					"FDB_POD_IP",
+					fdbv1beta2.EnvNamePodIP,
 				}))
 			})
 		})
@@ -1758,16 +1758,16 @@ var _ = Describe("pod_models", func() {
 					{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
-					{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNamePodIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
-					{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameMachineId, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
 					}},
-					{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameZoneId, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
 					}},
-					{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
+					{Name: fdbv1beta2.EnvNameInstanceId, Value: "storage-1"},
 				}))
 
 			})
@@ -1849,13 +1849,13 @@ var _ = Describe("pod_models", func() {
 					{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
-					{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNamePodIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
-					{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameMachineId, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
 					}},
-					{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
+					{Name: fdbv1beta2.EnvNameInstanceId, Value: "storage-1"},
 				}))
 
 			})
@@ -1899,14 +1899,14 @@ var _ = Describe("pod_models", func() {
 					{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
-					{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNamePodIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
-					{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameMachineId, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
 					}},
-					{Name: "FDB_ZONE_ID", Value: "kc2"},
-					{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
+					{Name: fdbv1beta2.EnvNameZoneId, Value: "kc2"},
+					{Name: fdbv1beta2.EnvNameInstanceId, Value: "storage-1"},
 				}))
 			})
 
@@ -2006,15 +2006,15 @@ var _ = Describe("pod_models", func() {
 							{
 								Name: fdbv1beta2.MainContainerName,
 								Env: []corev1.EnvVar{
-									{Name: "FDB_TLS_CERTIFICATE_FILE", Value: "/var/secrets/cert.pem"},
-									{Name: "FDB_TLS_CA_FILE", Value: "/var/secrets/cert.pem"},
-									{Name: "FDB_TLS_KEY_FILE", Value: "/var/secrets/cert.pem"},
+									{Name: fdbv1beta2.EnvNameTLSCert, Value: "/var/secrets/cert.pem"},
+									{Name: fdbv1beta2.EnvNameTLSCaFile, Value: "/var/secrets/cert.pem"},
+									{Name: fdbv1beta2.EnvNameTLSKeyFile, Value: "/var/secrets/cert.pem"},
 								},
 							},
 							{
 								Name: fdbv1beta2.SidecarContainerName,
 								Env: []corev1.EnvVar{
-									{Name: "ADDITIONAL_ENV_FILE", Value: "/var/custom-env"},
+									{Name: fdbv1beta2.EnvNameAdditionalEnvFile, Value: "/var/custom-env"},
 								},
 							},
 						},
@@ -2022,7 +2022,7 @@ var _ = Describe("pod_models", func() {
 							{
 								Name: fdbv1beta2.InitContainerName,
 								Env: []corev1.EnvVar{
-									{Name: "ADDITIONAL_ENV_FILE", Value: "/var/custom-env-init"},
+									{Name: fdbv1beta2.EnvNameAdditionalEnvFile, Value: "/var/custom-env-init"},
 								},
 							},
 						},
@@ -2037,49 +2037,49 @@ var _ = Describe("pod_models", func() {
 				initContainer := spec.InitContainers[0]
 				Expect(initContainer.Name).To(Equal(fdbv1beta2.InitContainerName))
 				Expect(initContainer.Env).To(Equal([]corev1.EnvVar{
-					{Name: "ADDITIONAL_ENV_FILE", Value: "/var/custom-env-init"},
+					{Name: fdbv1beta2.EnvNameAdditionalEnvFile, Value: "/var/custom-env-init"},
 					{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
-					{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNamePodIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
-					{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameMachineId, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameZoneId, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
+					{Name: fdbv1beta2.EnvNameInstanceId, Value: "storage-1"},
 				}))
 
 				mainContainer := spec.Containers[0]
 				Expect(mainContainer.Name).To(Equal(fdbv1beta2.MainContainerName))
 				Expect(mainContainer.Env).To(Equal([]corev1.EnvVar{
-					{Name: "FDB_TLS_CERTIFICATE_FILE", Value: "/var/secrets/cert.pem"},
-					{Name: "FDB_TLS_CA_FILE", Value: "/var/secrets/cert.pem"},
-					{Name: "FDB_TLS_KEY_FILE", Value: "/var/secrets/cert.pem"},
-					{Name: "FDB_CLUSTER_FILE", Value: "/var/dynamic-conf/fdb.cluster"},
+					{Name: fdbv1beta2.EnvNameTLSCert, Value: "/var/secrets/cert.pem"},
+					{Name: fdbv1beta2.EnvNameTLSCaFile, Value: "/var/secrets/cert.pem"},
+					{Name: fdbv1beta2.EnvNameTLSKeyFile, Value: "/var/secrets/cert.pem"},
+					{Name: fdbv1beta2.EnvNameClusterFile, Value: "/var/dynamic-conf/fdb.cluster"},
 				}))
 
 				sidecarContainer := spec.Containers[1]
 				Expect(sidecarContainer.Name).To(Equal(fdbv1beta2.SidecarContainerName))
 				Expect(sidecarContainer.Env).To(Equal([]corev1.EnvVar{
-					{Name: "ADDITIONAL_ENV_FILE", Value: "/var/custom-env"},
+					{Name: fdbv1beta2.EnvNameAdditionalEnvFile, Value: "/var/custom-env"},
 					{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
-					{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNamePodIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
-					{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameMachineId, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameZoneId, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
-					{Name: "FDB_TLS_VERIFY_PEERS", Value: ""},
+					{Name: fdbv1beta2.EnvNameInstanceId, Value: "storage-1"},
+					{Name: fdbv1beta2.EnvNameTLSVerifyPeers, Value: ""},
 				}))
 			})
 		})
@@ -2108,23 +2108,23 @@ var _ = Describe("pod_models", func() {
 					"--main-container-version",
 					cluster.Spec.Version,
 					"--substitute-variable",
-					"FDB_POD_IP",
+					fdbv1beta2.EnvNamePodIP,
 					"--init-mode",
 				}))
 				Expect(initContainer.Env).To(Equal([]corev1.EnvVar{
 					{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
-					{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNamePodIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
-					{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameMachineId, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameZoneId, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
+					{Name: fdbv1beta2.EnvNameInstanceId, Value: "storage-1"},
 				}))
 			})
 
@@ -2145,24 +2145,24 @@ var _ = Describe("pod_models", func() {
 					"--main-container-version",
 					cluster.Spec.Version,
 					"--substitute-variable",
-					"FDB_POD_IP",
+					fdbv1beta2.EnvNamePodIP,
 					"--tls",
 				}))
 				Expect(sidecarContainer.Env).To(Equal([]corev1.EnvVar{
 					{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
-					{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNamePodIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
-					{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameMachineId, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameZoneId, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
-					{Name: "FDB_TLS_VERIFY_PEERS", Value: "S.CN=foundationdb.org"},
+					{Name: fdbv1beta2.EnvNameInstanceId, Value: "storage-1"},
+					{Name: fdbv1beta2.EnvNameTLSVerifyPeers, Value: "S.CN=foundationdb.org"},
 				}))
 			})
 		})
@@ -2351,16 +2351,16 @@ var _ = Describe("pod_models", func() {
 					{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
-					{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNamePodIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
-					{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameMachineId, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameZoneId, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: "FDB_INSTANCE_ID", Value: "dc1-storage-1"},
+					{Name: fdbv1beta2.EnvNameInstanceId, Value: "dc1-storage-1"},
 				}))
 			})
 		})
@@ -2421,8 +2421,8 @@ var _ = Describe("pod_models", func() {
 			It("should pass the CA file to the main container", func() {
 				mainContainer := spec.Containers[0]
 				Expect(mainContainer.Env).To(Equal([]corev1.EnvVar{
-					{Name: "FDB_CLUSTER_FILE", Value: "/var/dynamic-conf/fdb.cluster"},
-					{Name: "FDB_TLS_CA_FILE", Value: "/var/dynamic-conf/ca.pem"},
+					{Name: fdbv1beta2.EnvNameClusterFile, Value: "/var/dynamic-conf/fdb.cluster"},
+					{Name: fdbv1beta2.EnvNameTLSCaFile, Value: "/var/dynamic-conf/ca.pem"},
 				}))
 			})
 
@@ -2442,7 +2442,7 @@ var _ = Describe("pod_models", func() {
 					"--main-container-version",
 					cluster.Spec.Version,
 					"--substitute-variable",
-					"FDB_POD_IP",
+					fdbv1beta2.EnvNamePodIP,
 					"--init-mode",
 				}))
 			})
@@ -2464,25 +2464,25 @@ var _ = Describe("pod_models", func() {
 					"--main-container-version",
 					cluster.Spec.Version,
 					"--substitute-variable",
-					"FDB_POD_IP",
+					fdbv1beta2.EnvNamePodIP,
 				}))
 
 				Expect(sidecarContainer.Env).To(Equal([]corev1.EnvVar{
 					{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
-					{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNamePodIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
-					{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameMachineId, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameZoneId, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
-					{Name: "FDB_TLS_VERIFY_PEERS", Value: ""},
-					{Name: "FDB_TLS_CA_FILE", Value: "/var/input-files/ca.pem"},
+					{Name: fdbv1beta2.EnvNameInstanceId, Value: "storage-1"},
+					{Name: fdbv1beta2.EnvNameTLSVerifyPeers, Value: ""},
+					{Name: fdbv1beta2.EnvNameTLSCaFile, Value: "/var/input-files/ca.pem"},
 				}))
 			})
 
@@ -3074,7 +3074,7 @@ var _ = Describe("pod_models", func() {
 
 				It("should set the basic environment", func() {
 					Expect(container.Env).To(Equal([]corev1.EnvVar{
-						{Name: "FDB_CLUSTER_FILE", Value: "/var/dynamic-conf/fdb.cluster"},
+						{Name: fdbv1beta2.EnvNameClusterFile, Value: "/var/dynamic-conf/fdb.cluster"},
 					}))
 				})
 
@@ -3180,7 +3180,7 @@ var _ = Describe("pod_models", func() {
 				It("should customize the environment", func() {
 					Expect(container.Env).To(Equal([]corev1.EnvVar{
 						{Name: "FDB_BLOB_CREDENTIALS", Value: "/var/secrets/blob_credentials.json"},
-						{Name: "FDB_CLUSTER_FILE", Value: "/var/dynamic-conf/fdb.cluster"},
+						{Name: fdbv1beta2.EnvNameClusterFile, Value: "/var/dynamic-conf/fdb.cluster"},
 					}))
 				})
 
@@ -3261,7 +3261,7 @@ var _ = Describe("pod_models", func() {
 				container := deployment.Spec.Template.Spec.Containers[0]
 				Expect(container.Env).To(Equal([]corev1.EnvVar{
 					{Name: "FDB_TLS_CA_FILE", Value: "/tmp/ca.pem"},
-					{Name: "FDB_CLUSTER_FILE", Value: "/var/dynamic-conf/fdb.cluster"},
+					{Name: fdbv1beta2.EnvNameClusterFile, Value: "/var/dynamic-conf/fdb.cluster"},
 				}))
 			})
 		})

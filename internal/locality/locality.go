@@ -128,11 +128,11 @@ func InfoFromSidecar(cluster *fdbv1beta2.FoundationDBCluster, client podclient.F
 	// So it should be good to only use the first process address here.
 	// This has the implication that in the initial cluster file only the first processes will be used.
 	return Info{
-		ID:      substitutions["FDB_INSTANCE_ID"],
+		ID:      substitutions[fdbv1beta2.EnvNameInstanceId],
 		Address: cluster.GetFullAddress(substitutions[fdbv1beta2.EnvNamePublicIP], 1),
 		LocalityData: map[string]string{
-			fdbv1beta2.FDBLocalityZoneIDKey:  substitutions["FDB_ZONE_ID"],
-			fdbv1beta2.FDBLocalityDNSNameKey: substitutions["FDB_DNS_NAME"],
+			fdbv1beta2.FDBLocalityZoneIDKey:  substitutions[fdbv1beta2.EnvNameZoneId],
+			fdbv1beta2.FDBLocalityDNSNameKey: substitutions[fdbv1beta2.EnvNameDNSName],
 		},
 	}, nil
 }

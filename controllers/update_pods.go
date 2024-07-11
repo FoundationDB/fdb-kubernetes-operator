@@ -262,7 +262,7 @@ func getPodsToUpdate(ctx context.Context, logger logr.Logger, reconciler *Founda
 			continue
 		}
 
-		zone := substitutions["FDB_ZONE_ID"]
+		zone := substitutions[fdbv1beta2.EnvNameZoneId]
 		if reconciler.InSimulation {
 			zone = "simulation"
 		}
