@@ -24,12 +24,12 @@ const (
 	// EnvNameDNSName specifies the DNS locality (identifies the pod when using DNS in lieu of IP)
 	EnvNameDNSName = "FDB_DNS_NAME"
 
-	// EnvNameMachineId specifies the Machine ID locality. Also defines fault domain along with EnvNameZoneId
-	EnvNameMachineId = "FDB_MACHINE_ID"
+	// EnvNameMachineID specifies the Machine ID locality. Also defines fault domain along with EnvNameZoneID
+	EnvNameMachineID = "FDB_MACHINE_ID"
 
-	// EnvNameZoneId specifies Zone ID locality. Also defines fault domain along with EnvNameMachineId.
-	// The current default value of EnvNameZoneId is the hostname
-	EnvNameZoneId = "FDB_ZONE_ID"
+	// EnvNameZoneID specifies Zone ID locality. Also defines fault domain along with EnvNameMachineID.
+	// The current default value of EnvNameZoneID is the hostname
+	EnvNameZoneID = "FDB_ZONE_ID"
 
 	// EnvNameClusterFile specifies the path to the cluster file / file containing the connection string.
 	EnvNameClusterFile = "FDB_CLUSTER_FILE"
@@ -51,7 +51,7 @@ const (
 	// EnvNameTLSKeyFile specifies the path to the key file for TLS connections
 	EnvNameTLSKeyFile = "FDB_TLS_KEY_FILE"
 
-	// EnvNameTLSVerifiyPeers specifies the peer verification rules for incoming TLS connections to the split-image sidecar.
+	// EnvNameTLSVerifyPeers specifies the peer verification rules for incoming TLS connections to the split-image sidecar.
 	// See https://apple.github.io/foundationdb/tls.html#peer-verification for the format
 	EnvNameTLSVerifyPeers = "FDB_TLS_VERIFY_PEERS"
 
@@ -90,6 +90,6 @@ const (
 	// EnvNameNodeName tells the split-image-sidecar or unified FDB kubernetes monitor the K8s node it is running on
 	EnvNameNodeName = "FDB_NODE_NAME"
 
-	// EnvNameInstanceId specifies the instance ID to the split-image-sidecar or unified FDB kubernetes monitor
-	EnvNameInstanceId = "FDB_INSTANCE_ID"
+	// EnvNameInstanceID specifies the instance ID to the split-image-sidecar or unified FDB kubernetes monitor
+	EnvNameInstanceID = "FDB_INSTANCE_ID"
 )

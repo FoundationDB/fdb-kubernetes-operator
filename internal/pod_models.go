@@ -706,29 +706,29 @@ func getEnvForMonitorConfigSubstitution(cluster *fdbv1beta2.FoundationDBCluster,
 	}
 
 	if faultDomainKey == fdbv1beta2.NoneFaultDomainKey {
-		env = append(env, corev1.EnvVar{Name: fdbv1beta2.EnvNameMachineId, ValueFrom: &corev1.EnvVarSource{
+		env = append(env, corev1.EnvVar{Name: fdbv1beta2.EnvNameMachineID, ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 		}})
-		env = append(env, corev1.EnvVar{Name: fdbv1beta2.EnvNameZoneId, ValueFrom: &corev1.EnvVarSource{
+		env = append(env, corev1.EnvVar{Name: fdbv1beta2.EnvNameZoneID, ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 		}})
 	} else if faultDomainKey == "foundationdb.org/kubernetes-cluster" {
-		env = append(env, corev1.EnvVar{Name: fdbv1beta2.EnvNameMachineId, ValueFrom: &corev1.EnvVarSource{
+		env = append(env, corev1.EnvVar{Name: fdbv1beta2.EnvNameMachineID, ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
 		}})
-		env = append(env, corev1.EnvVar{Name: fdbv1beta2.EnvNameZoneId, Value: cluster.Spec.FaultDomain.Value})
+		env = append(env, corev1.EnvVar{Name: fdbv1beta2.EnvNameZoneID, Value: cluster.Spec.FaultDomain.Value})
 	} else {
-		env = append(env, corev1.EnvVar{Name: fdbv1beta2.EnvNameMachineId, ValueFrom: &corev1.EnvVarSource{
+		env = append(env, corev1.EnvVar{Name: fdbv1beta2.EnvNameMachineID, ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
 		}})
 		if !strings.HasPrefix(faultDomainSource, "$") {
-			env = append(env, corev1.EnvVar{Name: fdbv1beta2.EnvNameZoneId, ValueFrom: &corev1.EnvVarSource{
+			env = append(env, corev1.EnvVar{Name: fdbv1beta2.EnvNameZoneID, ValueFrom: &corev1.EnvVarSource{
 				FieldRef: &corev1.ObjectFieldSelector{FieldPath: faultDomainSource},
 			}})
 		}
 	}
 
-	env = append(env, corev1.EnvVar{Name: fdbv1beta2.EnvNameInstanceId, Value: string(processGroupID)})
+	env = append(env, corev1.EnvVar{Name: fdbv1beta2.EnvNameInstanceID, Value: string(processGroupID)})
 
 	return env
 }

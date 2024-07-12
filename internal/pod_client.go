@@ -436,26 +436,26 @@ func GetSubstitutionsFromClusterAndPod(logger logr.Logger, cluster *fdbv1beta2.F
 	substitutions[fdbv1beta2.EnvNamePodIP] = substitutions[fdbv1beta2.EnvNamePublicIP]
 
 	if cluster.Spec.FaultDomain.Key == fdbv1beta2.NoneFaultDomainKey {
-		substitutions[fdbv1beta2.EnvNameMachineId] = pod.Name
-		substitutions[fdbv1beta2.EnvNameZoneId] = pod.Name
+		substitutions[fdbv1beta2.EnvNameMachineID] = pod.Name
+		substitutions[fdbv1beta2.EnvNameZoneID] = pod.Name
 	} else if cluster.Spec.FaultDomain.Key == "foundationdb.org/kubernetes-cluster" {
-		substitutions[fdbv1beta2.EnvNameMachineId] = pod.Spec.NodeName
-		substitutions[fdbv1beta2.EnvNameZoneId] = cluster.Spec.FaultDomain.Value
+		substitutions[fdbv1beta2.EnvNameMachineID] = pod.Spec.NodeName
+		substitutions[fdbv1beta2.EnvNameZoneID] = cluster.Spec.FaultDomain.Value
 	} else {
 		faultDomainSource := cluster.Spec.FaultDomain.ValueFrom
 		if faultDomainSource == "" {
 			faultDomainSource = "spec.nodeName"
 		}
-		substitutions[fdbv1beta2.EnvNameMachineId] = pod.Spec.NodeName
+		substitutions[fdbv1beta2.EnvNameMachineID] = pod.Spec.NodeName
 
 		if faultDomainSource == "spec.nodeName" {
-			substitutions[fdbv1beta2.EnvNameZoneId] = pod.Spec.NodeName
+			substitutions[fdbv1beta2.EnvNameZoneID] = pod.Spec.NodeName
 		} else {
 			return nil, fmt.Errorf("unsupported fault domain source %s", faultDomainSource)
 		}
 	}
 
-	substitutions[fdbv1beta2.EnvNameInstanceId] = string(GetProcessGroupIDFromMeta(cluster, pod.ObjectMeta))
+	substitutions[fdbv1beta2.EnvNameInstanceID] = string(GetProcessGroupIDFromMeta(cluster, pod.ObjectMeta))
 
 	if cluster.IsBeingUpgradedWithVersionIncompatibleVersion() {
 		substitutions[fdbv1beta2.EnvNameBinaryDir] = fmt.Sprintf("/var/dynamic-conf/bin/%s", cluster.Spec.Version)
@@ -465,7 +465,7 @@ func GetSubstitutionsFromClusterAndPod(logger logr.Logger, cluster *fdbv1beta2.F
 
 	copyableSubstitutions := map[string]fdbv1beta2.None{
 		fdbv1beta2.EnvNameDNSName:    {},
-		fdbv1beta2.EnvNameInstanceId: {},
+		fdbv1beta2.EnvNameInstanceID: {},
 	}
 	for _, container := range pod.Spec.Containers {
 		for _, envVar := range container.Env {

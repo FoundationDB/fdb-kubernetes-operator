@@ -249,13 +249,13 @@ var _ = Describe("pod_models", func() {
 					{Name: fdbv1beta2.EnvNamePodIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
-					{Name: fdbv1beta2.EnvNameMachineId, ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameMachineID, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: fdbv1beta2.EnvNameZoneId, ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameZoneID, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: fdbv1beta2.EnvNameInstanceId, Value: "storage-1"},
+					{Name: fdbv1beta2.EnvNameInstanceID, Value: "storage-1"},
 				}))
 				Expect(initContainer.VolumeMounts).To(Equal([]corev1.VolumeMount{
 					{Name: "config-map", MountPath: "/var/input-files"},
@@ -325,13 +325,13 @@ var _ = Describe("pod_models", func() {
 					{Name: fdbv1beta2.EnvNamePodIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
-					{Name: fdbv1beta2.EnvNameMachineId, ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameMachineID, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: fdbv1beta2.EnvNameZoneId, ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameZoneID, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: fdbv1beta2.EnvNameInstanceId, Value: "storage-1"},
+					{Name: fdbv1beta2.EnvNameInstanceID, Value: "storage-1"},
 					{Name: fdbv1beta2.EnvNameTLSVerifyPeers, Value: ""},
 				}))
 				Expect(sidecarContainer.VolumeMounts).To(Equal([]corev1.VolumeMount{
@@ -522,13 +522,13 @@ var _ = Describe("pod_models", func() {
 						{Name: fdbv1beta2.EnvNamePodIP, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 						}},
-						{Name: fdbv1beta2.EnvNameMachineId, ValueFrom: &corev1.EnvVarSource{
+						{Name: fdbv1beta2.EnvNameMachineID, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 						}},
-						{Name: fdbv1beta2.EnvNameZoneId, ValueFrom: &corev1.EnvVarSource{
+						{Name: fdbv1beta2.EnvNameZoneID, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 						}},
-						{Name: fdbv1beta2.EnvNameInstanceId, Value: "storage-1"},
+						{Name: fdbv1beta2.EnvNameInstanceID, Value: "storage-1"},
 						{Name: fdbv1beta2.EnvNamePodName, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 						}},
@@ -636,13 +636,13 @@ var _ = Describe("pod_models", func() {
 						{Name: fdbv1beta2.EnvNamePodIP, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 						}},
-						{Name: fdbv1beta2.EnvNameMachineId, ValueFrom: &corev1.EnvVarSource{
+						{Name: fdbv1beta2.EnvNameMachineID, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 						}},
-						{Name: fdbv1beta2.EnvNameZoneId, ValueFrom: &corev1.EnvVarSource{
+						{Name: fdbv1beta2.EnvNameZoneID, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 						}},
-						{Name: fdbv1beta2.EnvNameInstanceId, Value: "storage-1"},
+						{Name: fdbv1beta2.EnvNameInstanceID, Value: "storage-1"},
 						{Name: fdbv1beta2.EnvNamePodName, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 						}},
@@ -694,13 +694,13 @@ var _ = Describe("pod_models", func() {
 						{Name: fdbv1beta2.EnvNamePodIP, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 						}},
-						{Name: fdbv1beta2.EnvNameMachineId, ValueFrom: &corev1.EnvVarSource{
+						{Name: fdbv1beta2.EnvNameMachineID, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 						}},
-						{Name: fdbv1beta2.EnvNameZoneId, ValueFrom: &corev1.EnvVarSource{
+						{Name: fdbv1beta2.EnvNameZoneID, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 						}},
-						{Name: fdbv1beta2.EnvNameInstanceId, Value: "log-1"},
+						{Name: fdbv1beta2.EnvNameInstanceID, Value: "log-1"},
 						{Name: fdbv1beta2.EnvNamePodName, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 						}},
@@ -754,13 +754,13 @@ var _ = Describe("pod_models", func() {
 						{Name: fdbv1beta2.EnvNamePodIP, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 						}},
-						{Name: fdbv1beta2.EnvNameMachineId, ValueFrom: &corev1.EnvVarSource{
+						{Name: fdbv1beta2.EnvNameMachineID, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 						}},
-						{Name: fdbv1beta2.EnvNameZoneId, ValueFrom: &corev1.EnvVarSource{
+						{Name: fdbv1beta2.EnvNameZoneID, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 						}},
-						{Name: fdbv1beta2.EnvNameInstanceId, Value: "log-1"},
+						{Name: fdbv1beta2.EnvNameInstanceID, Value: "log-1"},
 						{Name: fdbv1beta2.EnvNamePodName, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 						}},
@@ -898,13 +898,13 @@ var _ = Describe("pod_models", func() {
 					{Name: fdbv1beta2.EnvNamePodIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIPs"},
 					}},
-					{Name: fdbv1beta2.EnvNameMachineId, ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameMachineID, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: fdbv1beta2.EnvNameZoneId, ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameZoneID, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: fdbv1beta2.EnvNameInstanceId, Value: "storage-1"},
+					{Name: fdbv1beta2.EnvNameInstanceID, Value: "storage-1"},
 				}))
 			})
 
@@ -936,13 +936,13 @@ var _ = Describe("pod_models", func() {
 					{Name: fdbv1beta2.EnvNamePodIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIPs"},
 					}},
-					{Name: fdbv1beta2.EnvNameMachineId, ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameMachineID, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: fdbv1beta2.EnvNameZoneId, ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameZoneID, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: fdbv1beta2.EnvNameInstanceId, Value: "storage-1"},
+					{Name: fdbv1beta2.EnvNameInstanceID, Value: "storage-1"},
 					{Name: fdbv1beta2.EnvNameTLSVerifyPeers, Value: ""},
 				}))
 			})
@@ -984,13 +984,13 @@ var _ = Describe("pod_models", func() {
 					{Name: fdbv1beta2.EnvNamePodIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
-					{Name: fdbv1beta2.EnvNameMachineId, ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameMachineID, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: fdbv1beta2.EnvNameZoneId, ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameZoneID, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: fdbv1beta2.EnvNameInstanceId, Value: "storage-1"},
+					{Name: fdbv1beta2.EnvNameInstanceID, Value: "storage-1"},
 					{Name: fdbv1beta2.EnvNameDNSName, Value: "operator-test-1-storage-1.operator-test-1.my-ns.svc.cluster.local"},
 				}))
 			})
@@ -1021,13 +1021,13 @@ var _ = Describe("pod_models", func() {
 					{Name: fdbv1beta2.EnvNamePodIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
-					{Name: fdbv1beta2.EnvNameMachineId, ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameMachineID, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: fdbv1beta2.EnvNameZoneId, ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameZoneID, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: fdbv1beta2.EnvNameInstanceId, Value: "storage-1"},
+					{Name: fdbv1beta2.EnvNameInstanceID, Value: "storage-1"},
 					{Name: fdbv1beta2.EnvNameDNSName, Value: "operator-test-1-storage-1.operator-test-1.my-ns.svc.cluster.local"},
 					{Name: fdbv1beta2.EnvNameTLSVerifyPeers, Value: ""},
 				}))
@@ -1068,13 +1068,13 @@ var _ = Describe("pod_models", func() {
 					{Name: fdbv1beta2.EnvNamePodIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
-					{Name: fdbv1beta2.EnvNameMachineId, ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameMachineID, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: fdbv1beta2.EnvNameZoneId, ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameZoneID, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: fdbv1beta2.EnvNameInstanceId, Value: "storage-1"},
+					{Name: fdbv1beta2.EnvNameInstanceID, Value: "storage-1"},
 					{Name: fdbv1beta2.EnvNameDNSName, Value: "operator-test-1-storage-1.operator-test-1.my-ns.svc.cluster.local"},
 				}))
 			})
@@ -1105,13 +1105,13 @@ var _ = Describe("pod_models", func() {
 					{Name: fdbv1beta2.EnvNamePodIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
-					{Name: fdbv1beta2.EnvNameMachineId, ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameMachineID, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: fdbv1beta2.EnvNameZoneId, ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameZoneID, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: fdbv1beta2.EnvNameInstanceId, Value: "storage-1"},
+					{Name: fdbv1beta2.EnvNameInstanceID, Value: "storage-1"},
 					{Name: fdbv1beta2.EnvNameDNSName, Value: "operator-test-1-storage-1.operator-test-1.my-ns.svc.cluster.local"},
 					{Name: fdbv1beta2.EnvNameTLSVerifyPeers, Value: ""},
 				}))
@@ -1332,13 +1332,13 @@ var _ = Describe("pod_models", func() {
 					{Name: fdbv1beta2.EnvNamePodIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
-					{Name: fdbv1beta2.EnvNameMachineId, ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameMachineID, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: fdbv1beta2.EnvNameZoneId, ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameZoneID, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: fdbv1beta2.EnvNameInstanceId, Value: "storage-1"},
+					{Name: fdbv1beta2.EnvNameInstanceID, Value: "storage-1"},
 				}))
 				Expect(initContainer.VolumeMounts).To(Equal([]corev1.VolumeMount{
 					{Name: "config-map", MountPath: "/var/input-files"},
@@ -1408,13 +1408,13 @@ var _ = Describe("pod_models", func() {
 					{Name: fdbv1beta2.EnvNamePodIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
-					{Name: fdbv1beta2.EnvNameMachineId, ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameMachineID, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: fdbv1beta2.EnvNameZoneId, ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameZoneID, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: fdbv1beta2.EnvNameInstanceId, Value: "storage-1"},
+					{Name: fdbv1beta2.EnvNameInstanceID, Value: "storage-1"},
 					{Name: fdbv1beta2.EnvNameTLSVerifyPeers, Value: ""},
 					{Name: "STORAGE_SERVERS_PER_POD", Value: "2"},
 				}))
@@ -1761,13 +1761,13 @@ var _ = Describe("pod_models", func() {
 					{Name: fdbv1beta2.EnvNamePodIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
-					{Name: fdbv1beta2.EnvNameMachineId, ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameMachineID, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
 					}},
-					{Name: fdbv1beta2.EnvNameZoneId, ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameZoneID, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
 					}},
-					{Name: fdbv1beta2.EnvNameInstanceId, Value: "storage-1"},
+					{Name: fdbv1beta2.EnvNameInstanceID, Value: "storage-1"},
 				}))
 
 			})
@@ -1852,10 +1852,10 @@ var _ = Describe("pod_models", func() {
 					{Name: fdbv1beta2.EnvNamePodIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
-					{Name: fdbv1beta2.EnvNameMachineId, ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameMachineID, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
 					}},
-					{Name: fdbv1beta2.EnvNameInstanceId, Value: "storage-1"},
+					{Name: fdbv1beta2.EnvNameInstanceID, Value: "storage-1"},
 				}))
 
 			})
@@ -1902,11 +1902,11 @@ var _ = Describe("pod_models", func() {
 					{Name: fdbv1beta2.EnvNamePodIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
-					{Name: fdbv1beta2.EnvNameMachineId, ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameMachineID, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
 					}},
-					{Name: fdbv1beta2.EnvNameZoneId, Value: "kc2"},
-					{Name: fdbv1beta2.EnvNameInstanceId, Value: "storage-1"},
+					{Name: fdbv1beta2.EnvNameZoneID, Value: "kc2"},
+					{Name: fdbv1beta2.EnvNameInstanceID, Value: "storage-1"},
 				}))
 			})
 
@@ -2044,13 +2044,13 @@ var _ = Describe("pod_models", func() {
 					{Name: fdbv1beta2.EnvNamePodIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
-					{Name: fdbv1beta2.EnvNameMachineId, ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameMachineID, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: fdbv1beta2.EnvNameZoneId, ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameZoneID, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: fdbv1beta2.EnvNameInstanceId, Value: "storage-1"},
+					{Name: fdbv1beta2.EnvNameInstanceID, Value: "storage-1"},
 				}))
 
 				mainContainer := spec.Containers[0]
@@ -2072,13 +2072,13 @@ var _ = Describe("pod_models", func() {
 					{Name: fdbv1beta2.EnvNamePodIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
-					{Name: fdbv1beta2.EnvNameMachineId, ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameMachineID, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: fdbv1beta2.EnvNameZoneId, ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameZoneID, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: fdbv1beta2.EnvNameInstanceId, Value: "storage-1"},
+					{Name: fdbv1beta2.EnvNameInstanceID, Value: "storage-1"},
 					{Name: fdbv1beta2.EnvNameTLSVerifyPeers, Value: ""},
 				}))
 			})
@@ -2118,13 +2118,13 @@ var _ = Describe("pod_models", func() {
 					{Name: fdbv1beta2.EnvNamePodIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
-					{Name: fdbv1beta2.EnvNameMachineId, ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameMachineID, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: fdbv1beta2.EnvNameZoneId, ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameZoneID, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: fdbv1beta2.EnvNameInstanceId, Value: "storage-1"},
+					{Name: fdbv1beta2.EnvNameInstanceID, Value: "storage-1"},
 				}))
 			})
 
@@ -2155,13 +2155,13 @@ var _ = Describe("pod_models", func() {
 					{Name: fdbv1beta2.EnvNamePodIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
-					{Name: fdbv1beta2.EnvNameMachineId, ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameMachineID, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: fdbv1beta2.EnvNameZoneId, ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameZoneID, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: fdbv1beta2.EnvNameInstanceId, Value: "storage-1"},
+					{Name: fdbv1beta2.EnvNameInstanceID, Value: "storage-1"},
 					{Name: fdbv1beta2.EnvNameTLSVerifyPeers, Value: "S.CN=foundationdb.org"},
 				}))
 			})
@@ -2354,13 +2354,13 @@ var _ = Describe("pod_models", func() {
 					{Name: fdbv1beta2.EnvNamePodIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
-					{Name: fdbv1beta2.EnvNameMachineId, ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameMachineID, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: fdbv1beta2.EnvNameZoneId, ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameZoneID, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: fdbv1beta2.EnvNameInstanceId, Value: "dc1-storage-1"},
+					{Name: fdbv1beta2.EnvNameInstanceID, Value: "dc1-storage-1"},
 				}))
 			})
 		})
@@ -2474,13 +2474,13 @@ var _ = Describe("pod_models", func() {
 					{Name: fdbv1beta2.EnvNamePodIP, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
-					{Name: fdbv1beta2.EnvNameMachineId, ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameMachineID, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: fdbv1beta2.EnvNameZoneId, ValueFrom: &corev1.EnvVarSource{
+					{Name: fdbv1beta2.EnvNameZoneID, ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
-					{Name: fdbv1beta2.EnvNameInstanceId, Value: "storage-1"},
+					{Name: fdbv1beta2.EnvNameInstanceID, Value: "storage-1"},
 					{Name: fdbv1beta2.EnvNameTLSVerifyPeers, Value: ""},
 					{Name: fdbv1beta2.EnvNameTLSCaFile, Value: "/var/input-files/ca.pem"},
 				}))

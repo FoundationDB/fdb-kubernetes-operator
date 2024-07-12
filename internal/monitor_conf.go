@@ -177,7 +177,7 @@ func GetMonitorProcessConfiguration(cluster *fdbv1beta2.FoundationDBCluster, pro
 	if strings.HasPrefix(cluster.Spec.FaultDomain.ValueFrom, "$") {
 		zoneVariable = cluster.Spec.FaultDomain.ValueFrom[1:]
 	} else {
-		zoneVariable = fdbv1beta2.EnvNameZoneId
+		zoneVariable = fdbv1beta2.EnvNameZoneID
 	}
 
 	sampleAddresses := cluster.GetFullAddressList(fdbv1beta2.EnvNamePublicIP, false, 1)
@@ -201,7 +201,7 @@ func GetMonitorProcessConfiguration(cluster *fdbv1beta2.FoundationDBCluster, pro
 		})
 		configuration.Arguments = append(configuration.Arguments, monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
 			{Value: getKnobParameter(fdbv1beta2.FDBLocalityProcessIDKey, true)},
-			{ArgumentType: monitorapi.EnvironmentArgumentType, Source: fdbv1beta2.EnvNameInstanceId},
+			{ArgumentType: monitorapi.EnvironmentArgumentType, Source: fdbv1beta2.EnvNameInstanceID},
 			{Value: "-"},
 			{ArgumentType: monitorapi.ProcessNumberArgumentType},
 		}})
@@ -212,11 +212,11 @@ func GetMonitorProcessConfiguration(cluster *fdbv1beta2.FoundationDBCluster, pro
 	configuration.Arguments = append(configuration.Arguments,
 		monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
 			{Value: getKnobParameter(fdbv1beta2.FDBLocalityInstanceIDKey, true)},
-			{ArgumentType: monitorapi.EnvironmentArgumentType, Source: fdbv1beta2.EnvNameInstanceId},
+			{ArgumentType: monitorapi.EnvironmentArgumentType, Source: fdbv1beta2.EnvNameInstanceID},
 		}},
 		monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
 			{Value: getKnobParameter(fdbv1beta2.FDBLocalityMachineIDKey, true)},
-			{ArgumentType: monitorapi.EnvironmentArgumentType, Source: fdbv1beta2.EnvNameMachineId},
+			{ArgumentType: monitorapi.EnvironmentArgumentType, Source: fdbv1beta2.EnvNameMachineID},
 		}},
 		monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
 			{Value: getKnobParameter(fdbv1beta2.FDBLocalityZoneIDKey, true)},
