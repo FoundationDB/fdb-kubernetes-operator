@@ -9,6 +9,7 @@ metadata:
     cluster-group: test-cluster
   name: test-cluster-$az
 spec:
+  imageType: split
   version: 7.1.26
   faultDomain:
     key: foundationdb.org/none

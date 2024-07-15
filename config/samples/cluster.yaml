@@ -60,6 +60,7 @@ spec:
           resources:
             requests:
               storage: 16G
+    imageType: split
   routing:
     defineDNSLocalityFields: true
   sidecarContainer:
