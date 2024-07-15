@@ -37,7 +37,7 @@ const (
 		Config map constants
 	*/
 
-	// ClusterFileKey defines the key name in the ConfigMap whose value is the cluster file aka connection string
+	// ClusterFileKey defines the key name in the ConfigMap whose value is the content of the cluster file, the connection string.
 	ClusterFileKey = "cluster-file"
 
 	// CaFileKey defines the key name in the ConfigMap whose value contains the trusted certificate authority PEM

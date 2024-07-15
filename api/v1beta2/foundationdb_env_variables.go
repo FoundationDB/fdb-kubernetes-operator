@@ -21,17 +21,17 @@
 package v1beta2
 
 const (
-	// EnvNameDNSName specifies the DNS locality (identifies the pod when using DNS in lieu of IP)
+	// EnvNameDNSName specifies the DNS locality (identifies the pod when using DNS)
 	EnvNameDNSName = "FDB_DNS_NAME"
 
 	// EnvNameMachineID specifies the Machine ID locality. Also defines fault domain along with EnvNameZoneID
 	EnvNameMachineID = "FDB_MACHINE_ID"
 
-	// EnvNameZoneID specifies Zone ID locality. Also defines fault domain along with EnvNameMachineID.
+	// EnvNameZoneID specifies Zone ID locality.
 	// The current default value of EnvNameZoneID is the hostname
 	EnvNameZoneID = "FDB_ZONE_ID"
 
-	// EnvNameClusterFile specifies the path to the cluster file / file containing the connection string.
+	// EnvNameClusterFile specifies the path to the cluster file.
 	EnvNameClusterFile = "FDB_CLUSTER_FILE"
 
 	// EnvNameBinaryDir specifies the path of the FDB binary's directory
