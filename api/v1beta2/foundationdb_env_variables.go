@@ -24,7 +24,7 @@ const (
 	// EnvNameDNSName specifies the DNS locality (identifies the pod when using DNS)
 	EnvNameDNSName = "FDB_DNS_NAME"
 
-	// EnvNameMachineID specifies the Machine ID locality. Also defines fault domain along with EnvNameZoneID
+	// EnvNameMachineID specifies the Machine ID locality.
 	EnvNameMachineID = "FDB_MACHINE_ID"
 
 	// EnvNameZoneID specifies Zone ID locality.
@@ -55,10 +55,10 @@ const (
 	// See https://apple.github.io/foundationdb/tls.html#peer-verification for the format
 	EnvNameTLSVerifyPeers = "FDB_TLS_VERIFY_PEERS"
 
-	// EnvNameFDBNetworkSunsetThing specifies whether to ignore the failure to initialize some of the external clients
+	// EnvNameFDBIgnoreExternalClientFailures specifies whether to ignore the failure to initialize some of the external clients
 	// TODO FDB 7.3 adds a check for loading external client library, which doesn't work with 6.3.
 	//  Consider remove this option once 6.3 is no longer being used.
-	EnvNameFDBNetworkSunsetThing = "FDB_NETWORK_OPTION_IGNORE_EXTERNAL_CLIENT_FAILURES"
+	EnvNameFDBIgnoreExternalClientFailures = "FDB_NETWORK_OPTION_IGNORE_EXTERNAL_CLIENT_FAILURES"
 
 	// EnvNameFDBTraceLogGroup sets the 'LogGroup' attribute with the specified value for all events in the trace output files; default value is 'default'
 	EnvNameFDBTraceLogGroup = "FDB_NETWORK_OPTION_TRACE_LOG_GROUP"
@@ -75,19 +75,19 @@ const (
 	// Setting this to a number greater than one implies disable_local_client.
 	EnvNameClientThreadsPerVersion = "FDB_NETWORK_OPTION_CLIENT_THREADS_PER_VERSION"
 
-	// EnvNamePublicIP defines the public IP for the split-image-sidecar or unified FDB kubernetes monitor
+	// EnvNamePublicIP will be used to set the public address of the started fdbserver process
 	EnvNamePublicIP = "FDB_PUBLIC_IP"
 
-	// EnvNamePodIP specifies the listen address for the split-image-sidecar or unified FDB kubernetes monitor
+	// EnvNamePodIP will be used to set the listen address of the started fdbserver process
 	EnvNamePodIP = "FDB_POD_IP"
 
-	// EnvNamePodName tells the split-image-sidecar or unified FDB kubernetes monitor the name of its pod
+	// EnvNamePodName tells the unified FDB kubernetes monitor the name of its pod
 	EnvNamePodName = "FDB_POD_NAME"
 
-	// EnvNamePodNamespace tells the split-image-sidecar or unified FDB kubernetes monitor the K8s namespace it is running in
+	// EnvNamePodNamespace tells the unified FDB kubernetes monitor the K8s namespace it is running in
 	EnvNamePodNamespace = "FDB_POD_NAMESPACE"
 
-	// EnvNameNodeName tells the split-image-sidecar or unified FDB kubernetes monitor the K8s node it is running on
+	// EnvNameNodeName tells the unified FDB kubernetes monitor the K8s node it is running on
 	EnvNameNodeName = "FDB_NODE_NAME"
 
 	// EnvNameInstanceID specifies the instance ID to the split-image-sidecar or unified FDB kubernetes monitor
