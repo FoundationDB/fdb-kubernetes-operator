@@ -152,7 +152,7 @@ spec:
     processGroupIDPrefix: az1
     dataHall: az1
     databaseConfiguration:
-      redundancyMode: triple
+      redundancy_mode: triple
     processes:
       general:
         podTemplate:
@@ -161,7 +161,7 @@ spec:
               "topology.kubernetes.io/zone": "az1"
 ```
 
-Once the cluster in `az1` is reconciled and running we can change the `redundancyMode` to `three_data_hall`.
+Once the cluster in `az1` is reconciled and running we can change the `redundancy_mode` to `three_data_hall`.
 For the other two created `FoundationDBCluster` resources you have to set the `seedConnectionString` to the current connection string of the `FoundationDBCluster` resource in az1.
 The cluster will be stuck in a reconciling state until the other two `FoundationDBClusters`'s in `az2` and `az3` are created:
 
@@ -176,7 +176,7 @@ spec:
     dataHall: az1
     processGroupIDPrefix: az1
     databaseConfiguration:
-      redundancyMode: three_data_hall
+      redundancy_mode: three_data_hall
     seedConnectionString: ""
     processes:
       general:
@@ -290,7 +290,7 @@ All actions that the operator performs like changing the configuration or restar
 The locking system is only intended to reduce the risk of frequent reoccurring recoveries.
 
 You can enable this locking system by setting `lockOptions.disableLocks = false` in the cluster spec.
-The locking system is automatically enabled by default for any cluster that has multiple regions in its database configuration, a `zoneCount` greater than 1 in its fault domain configuration, or `redundancyMode` equal to `three_data_hall`.
+The locking system is automatically enabled by default for any cluster that has multiple regions in its database configuration, a `zoneCount` greater than 1 in its fault domain configuration, or `redundancy_mode` equal to `three_data_hall`.
 
 The locking system uses the `processGroupIDPrefix` from the cluster spec to identify an process group of the operator.
 Make sure to set this to a unique value for each Kubernetes cluster, both to support the locking system and to prevent duplicate process group IDs.
