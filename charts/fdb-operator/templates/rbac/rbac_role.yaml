@@ -110,6 +110,7 @@ rules:
   - update
   - patch
   - delete
+{{- if .Values.nodeReadClusterRole }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -126,3 +127,5 @@ rules:
   - get
   - watch
   - list
+{{- end }}
+

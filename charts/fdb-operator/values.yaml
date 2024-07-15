@@ -67,3 +67,4 @@ initContainerSecurityContext:
     drop:
       - all
   readOnlyRootFilesystem: true
+nodeReadClusterRole: true
