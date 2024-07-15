@@ -8,6 +8,7 @@ spec:
       enabled: true
   faultDomain:
     key: foundationdb.org/none
+  imageType: split
   labels:
     filterOnOwnerReference: false
     matchLabels:
@@ -60,7 +61,6 @@ spec:
           resources:
             requests:
               storage: 16G
-    imageType: split
   routing:
     defineDNSLocalityFields: true
   sidecarContainer:

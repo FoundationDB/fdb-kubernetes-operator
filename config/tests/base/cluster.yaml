@@ -33,8 +33,8 @@ spec:
   automationOptions:
     replacements:
       enabled: true
+  imageType: split
   processes:
-    imageType: split
     general:
       customParameters:
         # Disable AIO to work around limitations in Docker for Mac's volume

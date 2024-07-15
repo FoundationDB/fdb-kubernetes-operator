@@ -6,6 +6,7 @@ spec:
   blobStoreConfiguration:
     accountName: minio@minio-service:9000
   clusterName: test-cluster
+  imageType: split
   podTemplateSpec:
     spec:
       containers:
@@ -65,6 +66,7 @@ spec:
       enabled: true
   faultDomain:
     key: foundationdb.org/none
+  imageType: split
   labels:
     filterOnOwnerReference: false
     matchLabels:
@@ -117,7 +119,6 @@ spec:
           resources:
             requests:
               storage: 16G
-    imageType: split
   routing:
     defineDNSLocalityFields: true
   sidecarContainer:

@@ -6,6 +6,7 @@ spec:
   version: 7.1.26
   clusterName: test-cluster
   snapshotPeriodSeconds: 3600
+  imageType: split
   blobStoreConfiguration:
     accountName: minio@minio-service:9000
   podTemplateSpec:
