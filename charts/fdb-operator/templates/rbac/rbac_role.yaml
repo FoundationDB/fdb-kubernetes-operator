@@ -110,3 +110,22 @@ rules:
   - update
   - patch
   - delete
+{{- if .Values.nodeReadClusterRole }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "fdb-operator.fullname" . }}-clusterrole
+  labels:
+    {{- include "fdb-operator.labels" . | nindent 4 }}
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  verbs:
+  - get
+  - watch
+  - list
+{{- end }}
+
