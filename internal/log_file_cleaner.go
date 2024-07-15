@@ -27,6 +27,8 @@ import (
 	"strings"
 	"time"
 
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+
 	"github.com/go-logr/logr"
 )
 
@@ -72,7 +74,7 @@ func shouldRemoveLogFile(info os.FileInfo, now time.Time, minFileAge time.Durati
 
 // CleanupOldCliLogs removes old fdbcli log files.
 func (c CliLogFileCleaner) CleanupOldCliLogs() {
-	logDir := os.Getenv("FDB_NETWORK_OPTION_TRACE_ENABLE")
+	logDir := os.Getenv(fdbv1beta2.EnvNameFDBTraceLogDirPath)
 	if logDir == "" {
 		return
 	}

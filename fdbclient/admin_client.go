@@ -213,7 +213,7 @@ func (client *cliAdminClient) getArgsAndTimeout(command cliCommand) ([]string, t
 		args = append(args, client.knobs...)
 	}
 
-	traceDir := os.Getenv("FDB_NETWORK_OPTION_TRACE_ENABLE")
+	traceDir := os.Getenv(fdbv1beta2.EnvNameFDBTraceLogDirPath)
 	if traceDir != "" {
 		args = append(args, "--log")
 

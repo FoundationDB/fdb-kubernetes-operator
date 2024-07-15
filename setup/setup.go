@@ -337,10 +337,10 @@ func moveFDBBinaries(log logr.Logger) error {
 	}
 	defer binFile.Close()
 
-	libDir, err := os.Open(os.Getenv("FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY"))
+	libDir, err := os.Open(os.Getenv(fdbv1beta2.EnvNameFDBExternalClientDir))
 	if err != nil {
 		if os.IsNotExist(err) {
-			err = os.MkdirAll(os.Getenv("FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY"), os.ModeDir|os.ModePerm)
+			err = os.MkdirAll(os.Getenv(fdbv1beta2.EnvNameFDBExternalClientDir), os.ModeDir|os.ModePerm)
 			if err != nil {
 				return err
 			}

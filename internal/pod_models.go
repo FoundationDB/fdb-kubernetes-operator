@@ -201,21 +201,21 @@ func configureContainersForUnifiedImages(cluster *fdbv1beta2.FoundationDBCluster
 	)
 
 	mainContainerEnv = append(mainContainerEnv,
-		corev1.EnvVar{Name: "FDB_POD_NAME", ValueFrom: &corev1.EnvVarSource{
+		corev1.EnvVar{Name: fdbv1beta2.EnvNamePodName, ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 		}},
-		corev1.EnvVar{Name: "FDB_POD_NAMESPACE", ValueFrom: &corev1.EnvVarSource{
+		corev1.EnvVar{Name: fdbv1beta2.EnvNamePodNamespace, ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"},
 		}},
-		corev1.EnvVar{Name: "FDB_NETWORK_OPTION_TRACE_LOG_GROUP", Value: cluster.GetLogGroup()},
-		corev1.EnvVar{Name: "FDB_NETWORK_OPTION_TRACE_ENABLE", Value: "/var/log/fdb-trace-logs"},
-		corev1.EnvVar{Name: "FDB_NODE_NAME", ValueFrom: &corev1.EnvVarSource{
+		corev1.EnvVar{Name: fdbv1beta2.EnvNameFDBTraceLogGroup, Value: cluster.GetLogGroup()},
+		corev1.EnvVar{Name: fdbv1beta2.EnvNameFDBTraceLogDirPath, Value: "/var/log/fdb-trace-logs"},
+		corev1.EnvVar{Name: fdbv1beta2.EnvNameNodeName, ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
 		}},
 	)
 	mainContainerEnv = append(mainContainerEnv, getEnvForMonitorConfigSubstitution(cluster, processGroup.ProcessGroupID)...)
 	if cluster.DefineDNSLocalityFields() {
-		mainContainerEnv = append(mainContainerEnv, corev1.EnvVar{Name: "FDB_DNS_NAME", Value: GetPodDNSName(cluster, processGroup.GetPodName(cluster))})
+		mainContainerEnv = append(mainContainerEnv, corev1.EnvVar{Name: fdbv1beta2.EnvNameDNSName, Value: GetPodDNSName(cluster, processGroup.GetPodName(cluster))})
 	}
 	extendEnv(mainContainer, mainContainerEnv...)
 
@@ -315,11 +315,11 @@ func configureVolumesForContainers(cluster *fdbv1beta2.FoundationDBCluster, podS
 
 	configMapItems := []corev1.KeyToPath{
 		{Key: monitorConfKey, Path: monitorConfFile},
-		{Key: ClusterFileKey, Path: "fdb.cluster"},
+		{Key: fdbv1beta2.ClusterFileKey, Path: "fdb.cluster"},
 	}
 
 	if len(cluster.Spec.TrustedCAs) > 0 {
-		configMapItems = append(configMapItems, corev1.KeyToPath{Key: "ca-file", Path: "ca.pem"})
+		configMapItems = append(configMapItems, corev1.KeyToPath{Key: fdbv1beta2.CaFileKey, Path: "ca.pem"})
 	}
 
 	var configMapRefName string
@@ -421,10 +421,10 @@ func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processGroup *fdbv1beta
 	}
 	mainContainer.Image = image
 
-	extendEnv(mainContainer, corev1.EnvVar{Name: "FDB_CLUSTER_FILE", Value: "/var/dynamic-conf/fdb.cluster"})
+	extendEnv(mainContainer, corev1.EnvVar{Name: fdbv1beta2.EnvNameClusterFile, Value: "/var/dynamic-conf/fdb.cluster"})
 
 	if len(cluster.Spec.TrustedCAs) > 0 {
-		extendEnv(mainContainer, corev1.EnvVar{Name: "FDB_TLS_CA_FILE", Value: "/var/dynamic-conf/ca.pem"})
+		extendEnv(mainContainer, corev1.EnvVar{Name: fdbv1beta2.EnvNameTLSCaFile, Value: "/var/dynamic-conf/ca.pem"})
 	}
 
 	logGroup := cluster.GetLogGroup()
@@ -555,7 +555,7 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, proce
 		}
 
 		if cluster.NeedsExplicitListenAddress() {
-			sidecarArgs = append(sidecarArgs, "--substitute-variable", "FDB_POD_IP")
+			sidecarArgs = append(sidecarArgs, "--substitute-variable", fdbv1beta2.EnvNamePodIP)
 		}
 
 		for _, substitution := range cluster.Spec.SidecarVariables {
@@ -565,8 +565,8 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, proce
 		sidecarEnv = append(sidecarEnv, getEnvForMonitorConfigSubstitution(cluster, processGroupID)...)
 
 		if cluster.DefineDNSLocalityFields() {
-			sidecarArgs = append(sidecarArgs, "--substitute-variable", "FDB_DNS_NAME")
-			sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_DNS_NAME", Value: GetPodDNSName(cluster, podName)})
+			sidecarArgs = append(sidecarArgs, "--substitute-variable", fdbv1beta2.EnvNameDNSName)
+			sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: fdbv1beta2.EnvNameDNSName, Value: GetPodDNSName(cluster, podName)})
 		}
 
 		if !initMode {
@@ -650,10 +650,10 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, proce
 		return nil
 	}
 
-	extendEnv(container, corev1.EnvVar{Name: "FDB_TLS_VERIFY_PEERS", Value: overrides.PeerVerificationRules})
+	extendEnv(container, corev1.EnvVar{Name: fdbv1beta2.EnvNameTLSVerifyPeers, Value: overrides.PeerVerificationRules})
 
 	if hasTrustedCAs {
-		extendEnv(container, corev1.EnvVar{Name: "FDB_TLS_CA_FILE", Value: "/var/input-files/ca.pem"})
+		extendEnv(container, corev1.EnvVar{Name: fdbv1beta2.EnvNameTLSCaFile, Value: "/var/input-files/ca.pem"})
 	}
 
 	return nil
@@ -690,7 +690,7 @@ func getEnvForMonitorConfigSubstitution(cluster *fdbv1beta2.FoundationDBCluster,
 		} else {
 			podIPKey = "status.podIPs"
 		}
-		env = append(env, corev1.EnvVar{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
+		env = append(env, corev1.EnvVar{Name: fdbv1beta2.EnvNamePodIP, ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: podIPKey},
 		}})
 	}
@@ -706,29 +706,29 @@ func getEnvForMonitorConfigSubstitution(cluster *fdbv1beta2.FoundationDBCluster,
 	}
 
 	if faultDomainKey == fdbv1beta2.NoneFaultDomainKey {
-		env = append(env, corev1.EnvVar{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+		env = append(env, corev1.EnvVar{Name: fdbv1beta2.EnvNameMachineID, ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 		}})
-		env = append(env, corev1.EnvVar{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
+		env = append(env, corev1.EnvVar{Name: fdbv1beta2.EnvNameZoneID, ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 		}})
 	} else if faultDomainKey == "foundationdb.org/kubernetes-cluster" {
-		env = append(env, corev1.EnvVar{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+		env = append(env, corev1.EnvVar{Name: fdbv1beta2.EnvNameMachineID, ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
 		}})
-		env = append(env, corev1.EnvVar{Name: "FDB_ZONE_ID", Value: cluster.Spec.FaultDomain.Value})
+		env = append(env, corev1.EnvVar{Name: fdbv1beta2.EnvNameZoneID, Value: cluster.Spec.FaultDomain.Value})
 	} else {
-		env = append(env, corev1.EnvVar{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+		env = append(env, corev1.EnvVar{Name: fdbv1beta2.EnvNameMachineID, ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
 		}})
 		if !strings.HasPrefix(faultDomainSource, "$") {
-			env = append(env, corev1.EnvVar{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
+			env = append(env, corev1.EnvVar{Name: fdbv1beta2.EnvNameZoneID, ValueFrom: &corev1.EnvVarSource{
 				FieldRef: &corev1.ObjectFieldSelector{FieldPath: faultDomainSource},
 			}})
 		}
 	}
 
-	env = append(env, corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: string(processGroupID)})
+	env = append(env, corev1.EnvVar{Name: fdbv1beta2.EnvNameInstanceID, Value: string(processGroupID)})
 
 	return env
 }
@@ -927,7 +927,7 @@ func GetBackupDeployment(backup *fdbv1beta2.FoundationDBBackup) (*appsv1.Deploym
 		mainContainer.Env = make([]corev1.EnvVar, 0, 1)
 	}
 
-	extendEnv(mainContainer, corev1.EnvVar{Name: "FDB_CLUSTER_FILE", Value: "/var/dynamic-conf/fdb.cluster"})
+	extendEnv(mainContainer, corev1.EnvVar{Name: fdbv1beta2.EnvNameClusterFile, Value: "/var/dynamic-conf/fdb.cluster"})
 
 	mainContainer.VolumeMounts = append(mainContainer.VolumeMounts,
 		corev1.VolumeMount{Name: "logs", MountPath: "/var/log/fdb-trace-logs"},
@@ -983,7 +983,7 @@ func GetBackupDeployment(backup *fdbv1beta2.FoundationDBBackup) (*appsv1.Deploym
 					Name: fmt.Sprintf("%s-config", backup.Spec.ClusterName),
 				},
 				Items: []corev1.KeyToPath{
-					{Key: ClusterFileKey, Path: "fdb.cluster"},
+					{Key: fdbv1beta2.ClusterFileKey, Path: "fdb.cluster"},
 				},
 			}},
 		},

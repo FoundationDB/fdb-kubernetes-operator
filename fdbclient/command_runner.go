@@ -46,9 +46,9 @@ type realCommandRunner struct {
 // the other fdb tools.
 func getEnvironmentVariablesWithoutExcludedFdbEnv() []string {
 	excludedEnvironmentVariables := map[string]fdbv1beta2.None{
-		"FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY":       {},
-		"FDB_NETWORK_OPTION_IGNORE_EXTERNAL_CLIENT_FAILURES": {},
-		"FDB_NETWORK_OPTION_CLIENT_THREADS_PER_VERSION":      {},
+		fdbv1beta2.EnvNameFDBExternalClientDir:            {},
+		fdbv1beta2.EnvNameFDBIgnoreExternalClientFailures: {},
+		fdbv1beta2.EnvNameClientThreadsPerVersion:         {},
 	}
 
 	osVariables := os.Environ()

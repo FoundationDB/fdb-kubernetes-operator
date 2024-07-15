@@ -32,4 +32,20 @@ const (
 
 	// NoneFaultDomainKey represents the none fault domain, where every Pod is a fault domain.
 	NoneFaultDomainKey = "foundationdb.org/none"
+
+	/*
+		Config map constants
+	*/
+
+	// ClusterFileKey defines the key name in the ConfigMap whose value is the content of the cluster file, the connection string.
+	ClusterFileKey = "cluster-file"
+
+	// CaFileKey defines the key name in the ConfigMap whose value contains the trusted certificate authority PEM
+	CaFileKey = "ca-file"
+
+	// SidecarConfKey defines the key name in the ConfigMap whose value contains the configuration for the sidecar
+	SidecarConfKey = "sidecar-conf"
+
+	// RunningVersionKey defines the key name in the ConfigMap whose value is the FDB version that the cluster is currently running.
+	RunningVersionKey = "running-version"
 )

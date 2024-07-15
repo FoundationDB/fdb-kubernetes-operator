@@ -193,23 +193,23 @@ func (factory *Factory) createPodTemplate(
 					},
 					Env: []corev1.EnvVar{
 						{
-							Name:  "FDB_TLS_CERTIFICATE_FILE",
+							Name:  fdbv1beta2.EnvNameTLSCert,
 							Value: "/tmp/fdb-certs/tls.crt",
 						},
 						{
-							Name:  "FDB_TLS_CA_FILE",
+							Name:  fdbv1beta2.EnvNameTLSCaFile,
 							Value: "/tmp/fdb-certs/ca.pem",
 						},
 						{
-							Name:  "FDB_TLS_KEY_FILE",
+							Name:  fdbv1beta2.EnvNameTLSKeyFile,
 							Value: "/tmp/fdb-certs/tls.key",
 						},
 						{
-							Name:  "FDB_TLS_VERIFY_PEERS",
+							Name:  fdbv1beta2.EnvNameTLSVerifyPeers,
 							Value: "I.CN=localhost,I.O=Example Inc.,S.CN=localhost,S.O=Example Inc.",
 						},
 						{
-							Name:  "FDB_NETWORK_OPTION_TRACE_ENABLE",
+							Name:  fdbv1beta2.EnvNameFDBTraceLogDirPath,
 							Value: "/var/log/fdb-trace-logs",
 						},
 					},
@@ -236,19 +236,19 @@ func (factory *Factory) createPodTemplate(
 					},
 					Env: []corev1.EnvVar{
 						{
-							Name:  "FDB_TLS_CERTIFICATE_FILE",
+							Name:  fdbv1beta2.EnvNameTLSCert,
 							Value: "/tmp/fdb-certs/tls.crt",
 						},
 						{
-							Name:  "FDB_TLS_CA_FILE",
+							Name:  fdbv1beta2.EnvNameTLSCaFile,
 							Value: "/tmp/fdb-certs/ca.pem",
 						},
 						{
-							Name:  "FDB_TLS_KEY_FILE",
+							Name:  fdbv1beta2.EnvNameTLSKeyFile,
 							Value: "/tmp/fdb-certs/tls.key",
 						},
 						{
-							Name:  "FDB_TLS_VERIFY_PEERS",
+							Name:  fdbv1beta2.EnvNameTLSVerifyPeers,
 							Value: "I.CN=localhost,I.O=Example Inc.,S.CN=localhost,S.O=Example Inc.",
 						},
 					},

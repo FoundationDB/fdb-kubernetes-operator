@@ -101,7 +101,7 @@ var _ = Describe("Change coordinators", func() {
 
 					for _, pod := range pods.Items {
 						container := pod.Spec.Containers[1]
-						container.Env = append(container.Env, corev1.EnvVar{Name: "FDB_DNS_NAME", Value: internal.GetPodDNSName(cluster, pod.Name)})
+						container.Env = append(container.Env, corev1.EnvVar{Name: fdbv1beta2.EnvNameDNSName, Value: internal.GetPodDNSName(cluster, pod.Name)})
 						pod.Spec.Containers[1] = container
 						Expect(k8sClient.Update(context.TODO(), &pod)).NotTo(HaveOccurred())
 					}

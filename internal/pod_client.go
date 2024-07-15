@@ -109,9 +109,9 @@ func NewFdbPodClient(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod, l
 
 	var tlsConfig = &tls.Config{}
 	if useTLS {
-		certFile := os.Getenv("FDB_TLS_CERTIFICATE_FILE")
-		keyFile := os.Getenv("FDB_TLS_KEY_FILE")
-		caFile := os.Getenv("FDB_TLS_CA_FILE")
+		certFile := os.Getenv(fdbv1beta2.EnvNameTLSCert)
+		keyFile := os.Getenv(fdbv1beta2.EnvNameTLSKeyFile)
+		caFile := os.Getenv(fdbv1beta2.EnvNameTLSCaFile)
 
 		if certFile == "" || keyFile == "" || caFile == "" {
 			return nil, errors.New("missing one or more TLS env vars: FDB_TLS_CERTIFICATE_FILE, FDB_TLS_KEY_FILE or FDB_TLS_CA_FILE")
@@ -433,39 +433,39 @@ func GetSubstitutionsFromClusterAndPod(logger logr.Logger, cluster *fdbv1beta2.F
 			substitutions[fdbv1beta2.EnvNamePublicIP] = fmt.Sprintf("[%s]", ipString)
 		}
 	}
-	substitutions["FDB_POD_IP"] = substitutions[fdbv1beta2.EnvNamePublicIP]
+	substitutions[fdbv1beta2.EnvNamePodIP] = substitutions[fdbv1beta2.EnvNamePublicIP]
 
 	if cluster.Spec.FaultDomain.Key == fdbv1beta2.NoneFaultDomainKey {
-		substitutions["FDB_MACHINE_ID"] = pod.Name
-		substitutions["FDB_ZONE_ID"] = pod.Name
+		substitutions[fdbv1beta2.EnvNameMachineID] = pod.Name
+		substitutions[fdbv1beta2.EnvNameZoneID] = pod.Name
 	} else if cluster.Spec.FaultDomain.Key == "foundationdb.org/kubernetes-cluster" {
-		substitutions["FDB_MACHINE_ID"] = pod.Spec.NodeName
-		substitutions["FDB_ZONE_ID"] = cluster.Spec.FaultDomain.Value
+		substitutions[fdbv1beta2.EnvNameMachineID] = pod.Spec.NodeName
+		substitutions[fdbv1beta2.EnvNameZoneID] = cluster.Spec.FaultDomain.Value
 	} else {
 		faultDomainSource := cluster.Spec.FaultDomain.ValueFrom
 		if faultDomainSource == "" {
 			faultDomainSource = "spec.nodeName"
 		}
-		substitutions["FDB_MACHINE_ID"] = pod.Spec.NodeName
+		substitutions[fdbv1beta2.EnvNameMachineID] = pod.Spec.NodeName
 
 		if faultDomainSource == "spec.nodeName" {
-			substitutions["FDB_ZONE_ID"] = pod.Spec.NodeName
+			substitutions[fdbv1beta2.EnvNameZoneID] = pod.Spec.NodeName
 		} else {
 			return nil, fmt.Errorf("unsupported fault domain source %s", faultDomainSource)
 		}
 	}
 
-	substitutions["FDB_INSTANCE_ID"] = string(GetProcessGroupIDFromMeta(cluster, pod.ObjectMeta))
+	substitutions[fdbv1beta2.EnvNameInstanceID] = string(GetProcessGroupIDFromMeta(cluster, pod.ObjectMeta))
 
 	if cluster.IsBeingUpgradedWithVersionIncompatibleVersion() {
-		substitutions["BINARY_DIR"] = fmt.Sprintf("/var/dynamic-conf/bin/%s", cluster.Spec.Version)
+		substitutions[fdbv1beta2.EnvNameBinaryDir] = fmt.Sprintf("/var/dynamic-conf/bin/%s", cluster.Spec.Version)
 	} else {
-		substitutions["BINARY_DIR"] = "/usr/bin"
+		substitutions[fdbv1beta2.EnvNameBinaryDir] = "/usr/bin"
 	}
 
 	copyableSubstitutions := map[string]fdbv1beta2.None{
-		"FDB_DNS_NAME":    {},
-		"FDB_INSTANCE_ID": {},
+		fdbv1beta2.EnvNameDNSName:    {},
+		fdbv1beta2.EnvNameInstanceID: {},
 	}
 	for _, container := range pod.Spec.Containers {
 		for _, envVar := range container.Env {

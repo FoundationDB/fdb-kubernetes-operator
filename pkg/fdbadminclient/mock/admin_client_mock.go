@@ -228,7 +228,7 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 
 				for _, container := range pod.Spec.Containers {
 					for _, envVar := range container.Env {
-						if envVar.Name == "FDB_DNS_NAME" {
+						if envVar.Name == fdbv1beta2.EnvNameDNSName {
 							locality[fdbv1beta2.FDBLocalityDNSNameKey] = envVar.Value
 
 							if client.Cluster.UseDNSInClusterFile() {
