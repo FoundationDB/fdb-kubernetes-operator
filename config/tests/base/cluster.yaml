@@ -33,6 +33,7 @@ spec:
   automationOptions:
     replacements:
       enabled: true
+  imageType: split
   processes:
     general:
       customParameters:

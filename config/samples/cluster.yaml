@@ -8,6 +8,7 @@ spec:
       enabled: true
   faultDomain:
     key: foundationdb.org/none
+  imageType: split
   labels:
     filterOnOwnerReference: false
     matchLabels:
