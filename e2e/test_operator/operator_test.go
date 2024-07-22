@@ -39,6 +39,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/apple/foundationdb/fdbkubernetesmonitor/api"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/e2e/fixtures"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
@@ -2305,6 +2307,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 	When("a FDB pod is partitioned from the Kubernetes API", func() {
 		var selectedPod corev1.Pod
+		var initialConfiguration string
 		var exp *fixtures.ChaosMeshExperiment
 		var initialCustomParameters fdbv1beta2.FoundationDBCustomParameters
 		var initialRestarts int
@@ -2323,6 +2326,8 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			for _, status := range selectedPod.Status.ContainerStatuses {
 				initialRestarts += int(status.RestartCount)
 			}
+
+			initialConfiguration = selectedPod.Annotations[api.CurrentConfigurationAnnotation]
 
 			var kubernetesServiceHost string
 			Eventually(func(g Gomega) error {
@@ -2410,13 +2415,24 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			}
 
 			Expect(restarts).To(BeNumerically("==", initialRestarts))
+
+			// Restart all the processes, to ensure they are running with the expected parameters.
+			stdout, stderr, err := fdbCluster.RunFdbCliCommandInOperatorWithoutRetry("kill; kill all; sleep 10", true, 60)
+			log.Println("stdout", stdout, "stderr", stderr, "err", err)
+
+			// Delete the partition, this allows the partitioned Pod to update its annotations again.
+			factory.DeleteChaosMeshExperimentSafe(exp)
+
+			fdbCluster.ForceReconcile()
+
+			// Ensure the partitioned Pod was able to update its annotations.
+			Eventually(func() string {
+				return fdbCluster.GetPod(selectedPod.Name).Annotations[api.CurrentConfigurationAnnotation]
+			}).WithTimeout(10 * time.Minute).WithPolling(1 * time.Second).ShouldNot(Equal(initialConfiguration))
 		})
 
 		AfterEach(func() {
-			if exp != nil {
-				factory.DeleteChaosMeshExperimentSafe(exp)
-			}
-
+			factory.DeleteChaosMeshExperimentSafe(exp)
 			Expect(fdbCluster.SetCustomParameters(
 				fdbv1beta2.ProcessClassStorage,
 				initialCustomParameters,
