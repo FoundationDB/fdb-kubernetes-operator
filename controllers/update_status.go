@@ -365,6 +365,7 @@ func checkAndSetProcessStatus(logger logr.Logger, r *FoundationDBClusterReconcil
 	}
 
 	versionCompatibleUpgrade := cluster.VersionCompatibleUpgradeInProgress()
+	imageType := internal.GetImageType(pod)
 	for processNumber := 1; processNumber <= processCount; processNumber++ {
 		// If the process status is present under the process group ID take that information, otherwise check if there
 		// is information available under the process_id.
@@ -392,7 +393,7 @@ func checkAndSetProcessStatus(logger logr.Logger, r *FoundationDBClusterReconcil
 				continue
 			}
 
-			commandLine, err := internal.GetStartCommandWithSubstitutions(cluster, processGroupStatus.ProcessClass, substitutions, processNumber, processCount)
+			commandLine, err := internal.GetStartCommandWithSubstitutions(cluster, processGroupStatus.ProcessClass, substitutions, processNumber, processCount, imageType)
 			if err != nil {
 				return err
 			}

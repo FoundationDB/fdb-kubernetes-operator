@@ -200,7 +200,7 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 			command, hasCommandLine := client.currentCommandLines[fullAddress.StringWithoutFlags()]
 			if !hasCommandLine {
 				// We only set the command if we don't have the commandline "cached"
-				command, err = internal.GetStartCommand(client.Cluster, pClass, podClient, processIndex, processCount)
+				command, err = internal.GetStartCommand(client.Cluster, pClass, podClient, processIndex, processCount, internal.GetImageType(&pod))
 				if err != nil {
 					return nil, err
 				}
