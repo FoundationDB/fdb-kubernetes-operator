@@ -316,7 +316,7 @@ func GetFullAddressList(address string, primaryOnly bool, processNumber int, req
 		pAddr := NewProcessAddress(nil, address, GetProcessPort(processNumber, true), map[string]bool{"tls": true})
 		addrs = append(addrs, pAddr)
 
-		if requireTLS && primaryOnly {
+		if primaryOnly {
 			return addrs
 		}
 	}

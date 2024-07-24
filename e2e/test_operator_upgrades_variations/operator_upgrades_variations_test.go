@@ -27,6 +27,7 @@ Each test will create a new FoundationDB cluster which will be upgraded.
 */
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"time"
@@ -117,7 +118,7 @@ func performUpgrade(config testConfig, preUpgradeFunction func(cluster *fixtures
 			// If the Pod is missing check if the fdbserver processes are running and check the logs of the fdb-kubernetes-monitor.
 			if missingTime != nil && time.Since(time.Unix(*missingTime, 0)) > 60*time.Second {
 				log.Println("Missing process for:", processGroup.ProcessGroupID)
-				stdout, stderr, err := factory.ExecuteCmd(cluster.Namespace, processGroup.GetPodName(cluster), fdbv1beta2.MainContainerName, "ps aufx", true)
+				stdout, stderr, err := factory.ExecuteCmd(context.Background(), cluster.Namespace, processGroup.GetPodName(cluster), fdbv1beta2.MainContainerName, "ps aufx", true)
 				log.Println("stdout:", stdout, "stderr", stderr, "err", err)
 
 				pod, err := factory.GetPod(cluster.Namespace, processGroup.GetPodName(cluster))

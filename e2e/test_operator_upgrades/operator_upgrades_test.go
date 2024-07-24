@@ -28,6 +28,7 @@ Since FoundationDB is version incompatible for major and minor versions and the 
 */
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"strings"
@@ -670,6 +671,7 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 			var kubernetesServiceHost string
 			Eventually(func(g Gomega) error {
 				std, _, err := factory.ExecuteCmdOnPod(
+					context.Background(),
 					&selectedPod,
 					fdbv1beta2.MainContainerName,
 					"printenv KUBERNETES_SERVICE_HOST",
@@ -686,6 +688,7 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 			// Make sure that the partition takes effect.
 			Eventually(func() error {
 				_, _, err := factory.ExecuteCmdOnPod(
+					context.Background(),
 					&selectedPod,
 					fdbv1beta2.MainContainerName,
 					fmt.Sprintf("nc -vz -w 2 %s 443", kubernetesServiceHost),

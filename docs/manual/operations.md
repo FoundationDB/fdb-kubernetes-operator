@@ -212,6 +212,55 @@ There are a few risks and limitations to the current implementation:
 The current risks are limited to releasing the maintenance mode earlier than it should be.
 In this case data-movement will be triggered for the down processes after 60 seconds, the data-movement shouldn't cause any operational issues.
 
+## Recover Lost Quorum Of Coordinators
+
+If the coordinators Pods are still running but they got new IP addresses, read [Coordinators Getting New IPs](./debugging.md#coordinators-getting-new-ips).
+In case you lost the quorum of coordinators and you are not able to restore the coordinator state, you have two options:
+
+1. Recover the cluster from the latest backup.
+1. Recover the coordinator state with the risk of data loss.
+
+This section will describe the procedure for case 2.
+
+**NOTE** The assumption here is that at least one coordinator is still available with it's coordinator state.
+**NOTE** This action can cause data loss. Perform those actions with care.
+
+- Set all the `FoundationDBCluster` resources for this FDB cluster to `spec.Skip = true` to make sure the operator is not changing the manual changed state. 
+- Fetch the last connection string from the `FoundationDBCluster` status, e.g. `kubectl get fdb ${cluster} -o jsonpath='{ .status.connectionString }'`. 
+- Copy the coordinator state from one of the running coordinators to your local machine:
+
+```bash
+kubectl cp ${coordinator-pod}:/var/fdb/data/1/coordination-0.fdq ./coordination-0.fdq 
+kubectl cp ${coordinator-pod}:/var/fdb/data/1/coordination-1.fdq ./coordination-1.fdq
+```
+ 
+- Select a number of Pods you want to use as new coordinators and copy the files to those pods:
+
+```bash
+kubectl cp ./coordination-0.fdq ${new-coordinator-pod}:/var/fdb/data/1/coordination-0.fdq 
+kubectl cp ./coordination-1.fdq ${new-coordinator-pod}:/var/fdb/data/1/coordination-1.fdq 
+```
+
+- Update the `ConfigMap` to contain the new connection string, the new connection string must contain the still existing coordinators and the new coordinators. The old entries must be removed.
+- Wait ~1 min until the `ConfigMap` is synced to all Pods, you can check the `/var/dynamic-conf/fdb.cluster` inside a Pod if you are unsure.
+- Now all Pods must be restarted and the previous local cluster file must be deleted to make sure the fdbserver is picking the connection string from the seed cluster file (`/var/dynamic-conf/fdb.cluster`).
+
+```bash
+for pod in $(kubectl get po -l foundationdb.org/fdb-cluster-name=${cluster} -o name --no-headers);
+do
+    echo $pod
+    kubectl $pod -- bash -c 'pkill fdbserver && rm -f /var/fdb/data/fdb.cluster && pkill fdbserver'
+done
+```
+
+If the cluster is a multi-region cluster, perform this step for all running regions.
+
+- Now you can exec into a container and use `fdbcli` to connect to the cluster.
+- If you use a multi-region cluster you have to issue `force_recovery_with_data_loss`.
+- Update the `FoundationDBCluster` `seedConnectionString` under `spec.seedConnectionString` with the new connection string.
+- Now you can set `spec.Skip = false` to let the operator take over again.
+- Depending on the state of the multi-region cluster, you probably want to change the desired database configuration to drop ha.
+
 ## Next
 
 You can continue on to the [next section](scaling.md) or go back to the [table of contents](index.md).
