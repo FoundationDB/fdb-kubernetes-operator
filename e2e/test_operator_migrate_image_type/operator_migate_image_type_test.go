@@ -106,6 +106,61 @@ var _ = PDescribe("Operator Migrate Image Type", Label("e2e"), func() {
 		})
 	})
 
+	When("migrating from split to unified with Pod IP family set", func() {
+		BeforeEach(func() {
+			config := fixtures.DefaultClusterConfig(false)
+			config.UseUnifiedImage = pointer.Bool(false)
+			fdbCluster = factory.CreateFdbCluster(
+				config,
+				factory.GetClusterOptions()...,
+			)
+
+			// Set the Pod IP Family
+			spec := fdbCluster.GetCluster().Spec.DeepCopy()
+			spec.Routing.PodIPFamily = pointer.Int(4)
+			fdbCluster.UpdateClusterSpecWithSpec(spec)
+			Expect(fdbCluster.WaitForReconciliation()).NotTo(HaveOccurred())
+
+			// Load some data async into the cluster. We will only block as long as the Job is created.
+			factory.CreateDataLoaderIfAbsent(fdbCluster)
+
+			// Update the cluster spec to run with the unified image.
+			spec = fdbCluster.GetCluster().Spec.DeepCopy()
+			imageType := fdbv1beta2.ImageTypeUnified
+			spec.ImageType = &imageType
+			// Generate the new config to make use of the unified images.
+			overrides := factory.GetMainContainerOverrides(false, true)
+			overrides.EnableTLS = spec.MainContainer.EnableTLS
+			spec.MainContainer = overrides
+			fdbCluster.UpdateClusterSpecWithSpec(spec)
+			Expect(fdbCluster.WaitForReconciliation()).NotTo(HaveOccurred())
+		})
+
+		AfterEach(func() {
+			Expect(fdbCluster.Destroy()).NotTo(HaveOccurred())
+		})
+
+		It("should convert the cluster", func() {
+			// Make sure we didn't lose data.
+			fdbCluster.EnsureTeamTrackersAreHealthy()
+			fdbCluster.EnsureTeamTrackersHaveMinReplicas()
+
+			unifiedImage := factory.GetUnifiedFoundationDBImage()
+			pods := fdbCluster.GetPods()
+			for _, pod := range pods.Items {
+				// Ignore Pods that are pending the deletion.
+				if !pod.DeletionTimestamp.IsZero() {
+					continue
+				}
+
+				// With the unified image no init containers are used.
+				Expect(pod.Spec.InitContainers).To(HaveLen(0))
+				// Make sure they run the unified image.
+				Expect(pod.Spec.Containers[0].Image).To(ContainSubstring(unifiedImage))
+			}
+		})
+	})
+
 	When("migrating from unified to split", func() {
 		BeforeEach(func() {
 			config := fixtures.DefaultClusterConfig(false)

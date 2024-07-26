@@ -32,24 +32,22 @@ import (
 )
 
 // GetStartCommand builds the expected start command for a process group.
-func GetStartCommand(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, podClient podclient.FdbPodClient, processNumber int, processCount int) (string, error) {
+func GetStartCommand(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, podClient podclient.FdbPodClient, processNumber int, processCount int, imageType fdbv1beta2.ImageType) (string, error) {
 	substitutions, err := podClient.GetVariableSubstitutions()
 	if err != nil {
 		return "", err
 	}
 
-	return GetStartCommandWithSubstitutions(cluster, processClass, substitutions, processNumber, processCount)
+	return GetStartCommandWithSubstitutions(cluster, processClass, substitutions, processNumber, processCount, imageType)
 }
 
 // GetStartCommandWithSubstitutions will be used by GetStartCommand and for internal testing.
-func GetStartCommandWithSubstitutions(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, substitutions map[string]string, processNumber int, processCount int) (string, error) {
+func GetStartCommandWithSubstitutions(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, substitutions map[string]string, processNumber int, processCount int, imageType fdbv1beta2.ImageType) (string, error) {
 	if substitutions == nil {
 		return "", nil
 	}
 
-	imageType := cluster.DesiredImageType()
 	config := GetMonitorProcessConfiguration(cluster, processClass, processCount, imageType)
-
 	extractPlaceholderEnvVars(substitutions, config.Arguments)
 
 	config.BinaryPath = fmt.Sprintf("%s/fdbserver", substitutions[fdbv1beta2.EnvNameBinaryDir])
@@ -354,5 +352,6 @@ func buildIPArgument(parameter string, environmentVariable string, imageType fdb
 			arguments = append(arguments, monitorapi.Argument{Value: fmt.Sprintf(":%s", strings.Join(flags, ":"))})
 		}
 	}
+
 	return arguments
 }
