@@ -33,6 +33,15 @@ const (
 	// NoneFaultDomainKey represents the none fault domain, where every Pod is a fault domain.
 	NoneFaultDomainKey = "foundationdb.org/none"
 
+	// FoundationDBBaseImage represents the default foundationdb base image used with ImageTypeSplit for the main container.
+	FoundationDBBaseImage = "foundationdb/foundationdb"
+
+	// FoundationDBSidecarBaseImage represents the default foundationdb sidecar base image used with ImageTypeSplit for the sidecar container.
+	FoundationDBSidecarBaseImage = "foundationdb/foundationdb-kubernetes-sidecar"
+
+	// FoundationDBKubernetesBaseImage represents the default foundationdb base image used with ImageTypeUnified for the main and sidecar container.
+	FoundationDBKubernetesBaseImage = "foundationdb/fdb-kubernetes-monitor"
+
 	/*
 		Config map constants
 	*/

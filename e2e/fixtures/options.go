@@ -82,19 +82,19 @@ func (options *FactoryOptions) BindFlags(fs *flag.FlagSet) {
 	fs.StringVar(
 		&options.fdbImage,
 		"fdb-image",
-		"foundationdb/foundationdb",
+		fdbv1beta2.FoundationDBBaseImage,
 		"defines the FoundationDB image that should be used for testing",
 	)
 	fs.StringVar(
 		&options.unifiedFDBImage,
 		"unified-fdb-image",
-		"foundationdb/fdb-kubernetes-monitor",
+		fdbv1beta2.FoundationDBKubernetesBaseImage,
 		"defines the unified FoundationDB image that should be used for testing",
 	)
 	fs.StringVar(
 		&options.sidecarImage,
 		"sidecar-image",
-		"foundationdb/foundationdb-kubernetes-sidecar",
+		fdbv1beta2.FoundationDBSidecarBaseImage,
 		"defines the FoundationDB sidecar image that should be used for testing",
 	)
 	fs.StringVar(

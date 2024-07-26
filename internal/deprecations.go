@@ -73,7 +73,7 @@ func NormalizeClusterSpec(cluster *fdbv1beta2.FoundationDBCluster, options Depre
 					// See: https://apple.github.io/foundationdb/configuration.html#system-requirements
 					container.Resources.Requests = corev1.ResourceList{
 						corev1.ResourceCPU:    resource.MustParse("1"),
-						corev1.ResourceMemory: resource.MustParse("4Gi"),
+						corev1.ResourceMemory: resource.MustParse("8Gi"),
 					}
 				}
 
@@ -136,10 +136,10 @@ func NormalizeClusterSpec(cluster *fdbv1beta2.FoundationDBCluster, options Depre
 
 func updateImageConfigs(spec *fdbv1beta2.FoundationDBClusterSpec, useUnifiedImage bool) {
 	if useUnifiedImage {
-		ensureImageConfigPresent(&spec.MainContainer.ImageConfigs, fdbv1beta2.ImageConfig{BaseImage: "foundationdb/foundationdb-kubernetes"})
+		ensureImageConfigPresent(&spec.MainContainer.ImageConfigs, fdbv1beta2.ImageConfig{BaseImage: fdbv1beta2.FoundationDBKubernetesBaseImage})
 	} else {
-		ensureImageConfigPresent(&spec.MainContainer.ImageConfigs, fdbv1beta2.ImageConfig{BaseImage: "foundationdb/foundationdb"})
-		ensureImageConfigPresent(&spec.SidecarContainer.ImageConfigs, fdbv1beta2.ImageConfig{BaseImage: "foundationdb/foundationdb-kubernetes-sidecar", TagSuffix: "-1"})
+		ensureImageConfigPresent(&spec.MainContainer.ImageConfigs, fdbv1beta2.ImageConfig{BaseImage: fdbv1beta2.FoundationDBBaseImage})
+		ensureImageConfigPresent(&spec.SidecarContainer.ImageConfigs, fdbv1beta2.ImageConfig{BaseImage: fdbv1beta2.FoundationDBSidecarBaseImage, TagSuffix: "-1"})
 	}
 }
 

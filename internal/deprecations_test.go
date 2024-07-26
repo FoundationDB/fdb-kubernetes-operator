@@ -96,11 +96,11 @@ var _ = Describe("[internal] deprecations", func() {
 					Expect(containers[0].Name).To(Equal(fdbv1beta2.MainContainerName))
 					Expect(containers[0].Resources.Requests).To(Equal(corev1.ResourceList{
 						corev1.ResourceCPU:    resource.MustParse("1"),
-						corev1.ResourceMemory: resource.MustParse("4Gi"),
+						corev1.ResourceMemory: resource.MustParse("8Gi"),
 					}))
 					Expect(containers[0].Resources.Limits).To(Equal(corev1.ResourceList{
 						corev1.ResourceCPU:    resource.MustParse("1"),
-						corev1.ResourceMemory: resource.MustParse("4Gi"),
+						corev1.ResourceMemory: resource.MustParse("8Gi"),
 					}))
 				})
 
@@ -238,11 +238,11 @@ var _ = Describe("[internal] deprecations", func() {
 				It("should append the standard image components to the image configs", func() {
 					Expect(spec.MainContainer.ImageConfigs).To(Equal([]fdbv1beta2.ImageConfig{
 						{BaseImage: "foundationdb/foundationdb-test"},
-						{BaseImage: "foundationdb/foundationdb"},
+						{BaseImage: fdbv1beta2.FoundationDBBaseImage},
 					}))
 					Expect(spec.SidecarContainer.ImageConfigs).To(Equal([]fdbv1beta2.ImageConfig{
 						{BaseImage: "foundationdb/foundationdb-kubernetes-sidecar-test"},
-						{BaseImage: "foundationdb/foundationdb-kubernetes-sidecar", TagSuffix: "-1"},
+						{BaseImage: fdbv1beta2.FoundationDBSidecarBaseImage, TagSuffix: "-1"},
 					}))
 				})
 
@@ -259,7 +259,7 @@ var _ = Describe("[internal] deprecations", func() {
 					It("should use the default image config for the unified image", func() {
 						Expect(spec.MainContainer.ImageConfigs).To(Equal([]fdbv1beta2.ImageConfig{
 							{BaseImage: "foundationdb/foundationdb-test"},
-							{BaseImage: "foundationdb/foundationdb-kubernetes"},
+							{BaseImage: fdbv1beta2.FoundationDBKubernetesBaseImage},
 						}))
 						Expect(spec.SidecarContainer.ImageConfigs).To(Equal([]fdbv1beta2.ImageConfig{
 							{BaseImage: "foundationdb/foundationdb-kubernetes-sidecar-test"},
@@ -298,11 +298,11 @@ var _ = Describe("[internal] deprecations", func() {
 				Expect(containers[0].Name).To(Equal(fdbv1beta2.MainContainerName))
 				Expect(containers[0].Resources.Requests).To(Equal(corev1.ResourceList{
 					corev1.ResourceCPU:    resource.MustParse("1"),
-					corev1.ResourceMemory: resource.MustParse("4Gi"),
+					corev1.ResourceMemory: resource.MustParse("8Gi"),
 				}))
 				Expect(containers[0].Resources.Limits).To(Equal(corev1.ResourceList{
 					corev1.ResourceCPU:    resource.MustParse("1"),
-					corev1.ResourceMemory: resource.MustParse("4Gi"),
+					corev1.ResourceMemory: resource.MustParse("8Gi"),
 				}))
 			})
 
@@ -436,7 +436,7 @@ var _ = Describe("[internal] deprecations", func() {
 			It("should use the default image config for the unified image", func() {
 				Expect(spec.MainContainer.ImageConfigs).To(Equal([]fdbv1beta2.ImageConfig{
 					{BaseImage: "foundationdb/foundationdb-test"},
-					{BaseImage: "foundationdb/foundationdb-kubernetes"},
+					{BaseImage: fdbv1beta2.FoundationDBKubernetesBaseImage},
 				}))
 
 				Expect(spec.SidecarContainer.ImageConfigs).To(Equal([]fdbv1beta2.ImageConfig{
@@ -450,7 +450,7 @@ var _ = Describe("[internal] deprecations", func() {
 			When("no image config is set", func() {
 				It("should be added", func() {
 					var imageConfigs []fdbv1beta2.ImageConfig
-					ensureImageConfigPresent(&imageConfigs, fdbv1beta2.ImageConfig{BaseImage: "foundationdb/foundationdb"})
+					ensureImageConfigPresent(&imageConfigs, fdbv1beta2.ImageConfig{BaseImage: fdbv1beta2.FoundationDBBaseImage})
 					Expect(imageConfigs).To(HaveLen(1))
 				})
 			})
@@ -459,11 +459,11 @@ var _ = Describe("[internal] deprecations", func() {
 				var imageConfigs []fdbv1beta2.ImageConfig
 
 				BeforeEach(func() {
-					imageConfigs = []fdbv1beta2.ImageConfig{{BaseImage: "foundationdb/foundationdb"}}
+					imageConfigs = []fdbv1beta2.ImageConfig{{BaseImage: fdbv1beta2.FoundationDBBaseImage}}
 				})
 
 				It("should not be added", func() {
-					ensureImageConfigPresent(&imageConfigs, fdbv1beta2.ImageConfig{BaseImage: "foundationdb/foundationdb"})
+					ensureImageConfigPresent(&imageConfigs, fdbv1beta2.ImageConfig{BaseImage: fdbv1beta2.FoundationDBBaseImage})
 					Expect(imageConfigs).To(HaveLen(1))
 				})
 			})

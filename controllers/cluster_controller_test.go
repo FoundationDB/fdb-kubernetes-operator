@@ -311,9 +311,9 @@ var _ = Describe("cluster_controller", func() {
 
 				for _, pod := range pods.Items {
 					Expect(pod.Spec.Containers[0].Name).To(Equal(fdbv1beta2.MainContainerName))
-					Expect(pod.Spec.Containers[0].Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes:%s", fdbv1beta2.Versions.Default)))
+					Expect(pod.Spec.Containers[0].Image).To(And(HavePrefix(fdbv1beta2.FoundationDBKubernetesBaseImage), HaveSuffix(fdbv1beta2.Versions.Default.String())))
 					Expect(pod.Spec.Containers[1].Name).To(Equal(fdbv1beta2.SidecarContainerName))
-					Expect(pod.Spec.Containers[1].Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes:%s", fdbv1beta2.Versions.Default)))
+					Expect(pod.Spec.Containers[1].Image).To(And(HavePrefix(fdbv1beta2.FoundationDBKubernetesBaseImage), HaveSuffix(fdbv1beta2.Versions.Default.String())))
 				}
 			})
 
