@@ -285,9 +285,9 @@ var _ = Describe("pod_models", func() {
 				}))
 
 				Expect(*mainContainer.Resources.Limits.Cpu()).To(Equal(resource.MustParse("1")))
-				Expect(*mainContainer.Resources.Limits.Memory()).To(Equal(resource.MustParse("4Gi")))
+				Expect(*mainContainer.Resources.Limits.Memory()).To(Equal(resource.MustParse("8Gi")))
 				Expect(*mainContainer.Resources.Requests.Cpu()).To(Equal(resource.MustParse("1")))
-				Expect(*mainContainer.Resources.Requests.Memory()).To(Equal(resource.MustParse("4Gi")))
+				Expect(*mainContainer.Resources.Requests.Memory()).To(Equal(resource.MustParse("8Gi")))
 
 				Expect(len(mainContainer.VolumeMounts)).To(Equal(3))
 
@@ -507,7 +507,7 @@ var _ = Describe("pod_models", func() {
 				It("should have the main foundationdb container", func() {
 					mainContainer := spec.Containers[0]
 					Expect(mainContainer.Name).To(Equal(fdbv1beta2.MainContainerName))
-					Expect(mainContainer.Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes:%s", cluster.Spec.Version)))
+					Expect(mainContainer.Image).To(And(HavePrefix(fdbv1beta2.FoundationDBKubernetesBaseImage), HaveSuffix(cluster.Spec.Version)))
 					Expect(mainContainer.Command).To(BeNil())
 					Expect(mainContainer.Args).To(Equal([]string{
 						"--input-dir", "/var/dynamic-conf",
@@ -543,9 +543,9 @@ var _ = Describe("pod_models", func() {
 					}))
 
 					Expect(*mainContainer.Resources.Limits.Cpu()).To(Equal(resource.MustParse("1")))
-					Expect(*mainContainer.Resources.Limits.Memory()).To(Equal(resource.MustParse("4Gi")))
+					Expect(*mainContainer.Resources.Limits.Memory()).To(Equal(resource.MustParse("8Gi")))
 					Expect(*mainContainer.Resources.Requests.Cpu()).To(Equal(resource.MustParse("1")))
-					Expect(*mainContainer.Resources.Requests.Memory()).To(Equal(resource.MustParse("4Gi")))
+					Expect(*mainContainer.Resources.Requests.Memory()).To(Equal(resource.MustParse("8Gi")))
 
 					Expect(mainContainer.VolumeMounts).To(Equal([]corev1.VolumeMount{
 						{Name: "data", MountPath: "/var/fdb/data"},
@@ -560,7 +560,7 @@ var _ = Describe("pod_models", func() {
 				It("should have the sidecar container", func() {
 					sidecarContainer := spec.Containers[1]
 					Expect(sidecarContainer.Name).To(Equal(fdbv1beta2.SidecarContainerName))
-					Expect(sidecarContainer.Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes:%s", cluster.Spec.Version)))
+					Expect(sidecarContainer.Image).To(And(HavePrefix(fdbv1beta2.FoundationDBKubernetesBaseImage), HaveSuffix(cluster.Spec.Version)))
 					Expect(sidecarContainer.Args).To(Equal([]string{
 						"--mode", "sidecar",
 						"--output-dir", "/var/fdb/shared-binaries",
@@ -1368,9 +1368,9 @@ var _ = Describe("pod_models", func() {
 				}))
 
 				Expect(*mainContainer.Resources.Limits.Cpu()).To(Equal(resource.MustParse("1")))
-				Expect(*mainContainer.Resources.Limits.Memory()).To(Equal(resource.MustParse("4Gi")))
+				Expect(*mainContainer.Resources.Limits.Memory()).To(Equal(resource.MustParse("8Gi")))
 				Expect(*mainContainer.Resources.Requests.Cpu()).To(Equal(resource.MustParse("1")))
-				Expect(*mainContainer.Resources.Requests.Memory()).To(Equal(resource.MustParse("4Gi")))
+				Expect(*mainContainer.Resources.Requests.Memory()).To(Equal(resource.MustParse("8Gi")))
 
 				Expect(len(mainContainer.VolumeMounts)).To(Equal(3))
 

@@ -12,7 +12,7 @@ var _ = Describe("[api] ImageConfig", func() {
 		It("applies chooses the first value for each field", func() {
 			configs := []ImageConfig{
 				{
-					BaseImage: "foundationdb/foundationdb",
+					BaseImage: FoundationDBBaseImage,
 					Version:   Versions.Default.String(),
 				},
 				{
@@ -25,7 +25,7 @@ var _ = Describe("[api] ImageConfig", func() {
 
 			finalConfig := SelectImageConfig(configs, Versions.Default.String())
 			Expect(finalConfig).To(Equal(ImageConfig{
-				BaseImage: "foundationdb/foundationdb",
+				BaseImage: FoundationDBBaseImage,
 				Version:   Versions.Default.String(),
 				Tag:       "abcdef",
 				TagSuffix: "-1",
@@ -35,7 +35,7 @@ var _ = Describe("[api] ImageConfig", func() {
 		It("ignores configs that are for different versions", func() {
 			configs := []ImageConfig{
 				{
-					BaseImage: "foundationdb/foundationdb",
+					BaseImage: FoundationDBBaseImage,
 					Version:   Versions.Default.String(),
 				},
 				{
@@ -49,7 +49,7 @@ var _ = Describe("[api] ImageConfig", func() {
 
 			finalConfig := SelectImageConfig(configs, Versions.Default.String())
 			Expect(finalConfig).To(Equal(ImageConfig{
-				BaseImage: "foundationdb/foundationdb",
+				BaseImage: FoundationDBBaseImage,
 				Version:   Versions.Default.String(),
 				TagSuffix: "-1",
 			}))
@@ -59,7 +59,7 @@ var _ = Describe("[api] ImageConfig", func() {
 	When("building image names", func() {
 		It("applies the fields", func() {
 			config := ImageConfig{
-				BaseImage: "foundationdb/foundationdb-kubernetes-sidecar",
+				BaseImage: FoundationDBSidecarBaseImage,
 				Version:   Versions.Default.String(),
 				TagSuffix: "-2",
 			}
@@ -69,7 +69,7 @@ var _ = Describe("[api] ImageConfig", func() {
 
 		It("uses the tag to override the version and tag suffix", func() {
 			config := ImageConfig{
-				BaseImage: "foundationdb/foundationdb-kubernetes-sidecar",
+				BaseImage: FoundationDBSidecarBaseImage,
 				Version:   Versions.Default.String(),
 				Tag:       "abcdef",
 				TagSuffix: "-2",
