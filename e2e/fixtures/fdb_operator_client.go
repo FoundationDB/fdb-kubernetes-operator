@@ -437,6 +437,8 @@ spec:
             value: "/var/log/fdb"
           - name: FDB_NETWORK_OPTION_TRACE_FORMAT
             value: json
+          - name: FDB_NETWORK_OPTION_CLIENT_THREADS_PER_VERSION
+            value: "10"
         ports:
           - name: metrics
             containerPort: 8080
