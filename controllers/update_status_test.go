@@ -334,6 +334,23 @@ var _ = Describe("update_status", func() {
 			})
 		})
 
+		When("the command line is too long", func() {
+			BeforeEach(func() {
+				// Generate a random long string
+				cluster.Spec.MainContainer.PeerVerificationRules = internal.GenerateRandomString(10000)
+			})
+
+			It("should not get any condition assigned", func() {
+				err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap, allPvcs, logger, "")
+				Expect(err).To(HaveOccurred())
+				Expect(cluster.Status.ProcessGroups).To(HaveLen(17))
+				// We expect that no conditions are added in this case.
+				for _, processGroup := range cluster.Status.ProcessGroups {
+					Expect(processGroup.ProcessGroupConditions).To(HaveLen(0))
+				}
+			})
+		})
+
 		When("the pod for the process group is missing", func() {
 			BeforeEach(func() {
 				Expect(k8sClient.Delete(context.TODO(), storagePod)).NotTo(HaveOccurred())
