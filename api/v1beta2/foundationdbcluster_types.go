@@ -65,7 +65,7 @@ type FoundationDBClusterList struct {
 }
 
 var conditionsThatNeedReplacement = []ProcessGroupConditionType{MissingProcesses, PodFailing, MissingPod, MissingPVC,
-	MissingService, PodPending, NodeTaintReplacing, ProcessIsMarkedAsExcluded}
+	MissingService, PodPending, NodeTaintReplacing, ProcessIsMarkedAsExcluded, ProcessHasIOError}
 
 const (
 	oneHourDuration = 1 * time.Hour
@@ -942,6 +942,8 @@ const (
 	NodeTaintReplacing ProcessGroupConditionType = "NodeTaintReplacing"
 	// ProcessIsMarkedAsExcluded represents a process group where at least one process is excluded.
 	ProcessIsMarkedAsExcluded ProcessGroupConditionType = "ProcessIsMarkedAsExcluded"
+	// ProcessHasIOError represents a process group that has an I/O error.
+	ProcessHasIOError ProcessGroupConditionType = "ProcessHasIOError"
 )
 
 // AllProcessGroupConditionTypes returns all ProcessGroupConditionType
@@ -961,6 +963,7 @@ func AllProcessGroupConditionTypes() []ProcessGroupConditionType {
 		NodeTaintDetected,
 		NodeTaintReplacing,
 		ProcessIsMarkedAsExcluded,
+		ProcessHasIOError,
 	}
 }
 
@@ -997,6 +1000,8 @@ func GetProcessGroupConditionType(processGroupConditionType string) (ProcessGrou
 		return NodeTaintReplacing, nil
 	case "ProcessIsMarkedAsExcluded":
 		return ProcessIsMarkedAsExcluded, nil
+	case "ProcessHasIOError":
+		return ProcessHasIOError, nil
 	}
 
 	return "", fmt.Errorf("unknown process group condition type: %s", processGroupConditionType)
