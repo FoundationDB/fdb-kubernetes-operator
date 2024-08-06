@@ -398,6 +398,14 @@ func checkAndSetProcessStatus(logger logr.Logger, r *FoundationDBClusterReconcil
 				return err
 			}
 
+			// If the new command line is longer than 10.000 characters we will throw an error to make sure the operator
+			// is not restarting the cluster the whole time.
+			// See https://github.com/FoundationDB/fdb-kubernetes-operator/issues/2105
+			if len(commandLine) > 10000 {
+				r.Recorder.Event(cluster, corev1.EventTypeWarning, "Command line too long", "Command line exceeds 10.000 characters and will be truncated in the machine-readable status")
+				return fmt.Errorf("command line exceeds 10.000 characters and will be truncated in the machine-readable status: %s", commandLine)
+			}
+
 			// If a version compatible upgrade is in progress, skip the version check since we will run a mixed set of versions
 			// until the cluster is fully reconciled.
 			versionMatch := true
