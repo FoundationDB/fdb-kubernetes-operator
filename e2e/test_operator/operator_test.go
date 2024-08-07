@@ -848,47 +848,93 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			})
 		})
 
+		When("a Pod has a bad disk", func() {
+			var podWithIOError corev1.Pod
+
+			BeforeEach(func() {
+				if !factory.ChaosTestsEnabled() {
+					Skip("Chaos tests are skipped for the operator")
+				}
+				availabilityCheck = false
+				initialPods := fdbCluster.GetStoragePods()
+				podWithIOError = factory.RandomPickOnePod(initialPods.Items)
+				log.Printf("Injecting I/O chaos to %s for 1 minute", podWithIOError.Name)
+				exp = factory.InjectDiskFailureWithDuration(fixtures.PodSelector(&podWithIOError), "1m")
+
+				log.Printf("iochaos injected to %s", podWithIOError.Name)
+				// File creation should fail due to I/O error
+				Eventually(func() error {
+					_, _, err := factory.ExecuteCmdOnPod(
+						&podWithIOError,
+						fdbv1beta2.MainContainerName,
+						"touch /var/fdb/data/test",
+						false,
+					)
+					return err
+				}).WithTimeout(5 * time.Minute).Should(HaveOccurred())
+
+				processGroupID := string(fixtures.GetProcessGroupID(podWithIOError))
+				Eventually(func(g Gomega) []string {
+					status := fdbCluster.GetStatus()
+
+					for _, process := range status.Cluster.Processes {
+						processID, ok := process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]
+						if !ok || processID != processGroupID {
+							continue
+						}
+
+						log.Println(process.Messages)
+						g.Expect(len(process.Messages)).To(BeNumerically(">=", 1))
+
+						messageNames := make([]string, 0, len(process.Messages))
+						for _, message := range process.Messages {
+							messageNames = append(messageNames, message.Name)
+						}
+
+						log.Println(messageNames)
+						return messageNames
+					}
+
+					return nil
+				}).WithPolling(1 * time.Second).WithTimeout(5 * time.Minute).Should(Or(ContainElement("io_error"), ContainElement("io_timeout")))
+
+				fdbCluster.ForceReconcile()
+			})
+
+			It("should remove the targeted process", func() {
+				processGroupID := fixtures.GetProcessGroupID(podWithIOError)
+				// Wait until the process group is marked to be removed.
+				Expect(fdbCluster.WaitUntilWithForceReconcile(1, 600, func(cluster *fdbv1beta2.FoundationDBCluster) bool {
+					for _, processGroup := range cluster.Status.ProcessGroups {
+						if processGroup.ProcessGroupID != processGroupID {
+							continue
+						}
+
+						return processGroup.RemovalTimestamp != nil
+					}
+
+					return false
+				})).NotTo(HaveOccurred())
+
+				// Wait until the process group is removed
+				Expect(fdbCluster.WaitUntilWithForceReconcile(1, 1200, func(cluster *fdbv1beta2.FoundationDBCluster) bool {
+					for _, processGroup := range cluster.Status.ProcessGroups {
+						if processGroup.ProcessGroupID != processGroupID {
+							continue
+						}
+
+						// At this point the process group still exists.
+						return false
+					}
+
+					return true
+				})).NotTo(HaveOccurred())
+			})
+		})
+
 		AfterEach(func() {
 			Expect(fdbCluster.SetAutoReplacements(true, initialReplaceTime)).ShouldNot(HaveOccurred())
 			factory.DeleteChaosMeshExperimentSafe(exp)
-		})
-	})
-
-	When("a Pod has a bad disk", func() {
-		var podWithIOError corev1.Pod
-		var exp *fixtures.ChaosMeshExperiment
-
-		BeforeEach(func() {
-			if !factory.ChaosTestsEnabled() {
-				Skip("Chaos tests are skipped for the operator")
-			}
-			availabilityCheck = false
-			initialPods := fdbCluster.GetLogPods()
-			podWithIOError = factory.RandomPickOnePod(initialPods.Items)
-			log.Printf("Injecting I/O chaos to %s", podWithIOError.Name)
-			exp = factory.InjectDiskFailure(fixtures.PodSelector(&podWithIOError))
-
-			log.Printf("iochaos injected to %s", podWithIOError.Name)
-			// File creation should fail due to I/O error
-			Eventually(func() error {
-				_, _, err := factory.ExecuteCmdOnPod(
-					&podWithIOError,
-					fdbv1beta2.MainContainerName,
-					"touch /var/fdb/data/test",
-					false,
-				)
-				return err
-			}, 5*time.Minute).Should(HaveOccurred())
-		})
-
-		AfterEach(func() {
-			Expect(fdbCluster.ClearProcessGroupsToRemove()).NotTo(HaveOccurred())
-			factory.DeleteChaosMeshExperimentSafe(exp)
-		})
-
-		It("should remove the targeted process", func() {
-			fdbCluster.ReplacePod(podWithIOError, true)
-			fdbCluster.EnsurePodIsDeleted(podWithIOError.Name)
 		})
 	})
 

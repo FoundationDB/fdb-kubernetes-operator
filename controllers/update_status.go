@@ -345,7 +345,7 @@ func checkAndSetProcessStatus(logger logr.Logger, r *FoundationDBClusterReconcil
 		return nil
 	}
 
-	var excluded, hasIncorrectCommandLine, hasMissingProcesses, sidecarUnreachable bool
+	var excluded, hasIncorrectCommandLine, hasMissingProcesses, sidecarUnreachable, hasIOError bool
 	var substitutions map[string]string
 	var err error
 
@@ -383,6 +383,10 @@ func checkAndSetProcessStatus(logger logr.Logger, r *FoundationDBClusterReconcil
 			// Check if the process is reporting any messages, those will normally include error messages.
 			if len(process.Messages) > 0 {
 				logger.Info("found error message(s) for the process", "processGroupID", processGroupStatus.ProcessGroupID, "messages", process.Messages)
+
+				if !hasIOError {
+					hasIOError = checkProcessMessagesForIOError(process.Messages)
+				}
 			}
 
 			if !excluded {
@@ -433,6 +437,7 @@ func checkAndSetProcessStatus(logger logr.Logger, r *FoundationDBClusterReconcil
 		return nil
 	}
 	processGroupStatus.UpdateCondition(fdbv1beta2.ProcessIsMarkedAsExcluded, excluded)
+	processGroupStatus.UpdateCondition(fdbv1beta2.ProcessHasIOError, hasIOError)
 	// If the sidecar is unreachable we are not able to compute the desired commandline.
 	if sidecarUnreachable {
 		return nil
@@ -440,6 +445,18 @@ func checkAndSetProcessStatus(logger logr.Logger, r *FoundationDBClusterReconcil
 	processGroupStatus.UpdateCondition(fdbv1beta2.IncorrectCommandLine, hasIncorrectCommandLine)
 
 	return nil
+}
+
+// checkProcessMessagesForIOError will return true if the provided slice of process messages contains at least one message
+// with io_timeout or io_error.
+func checkProcessMessagesForIOError(messages []fdbv1beta2.FoundationDBStatusProcessMessage) bool {
+	for _, message := range messages {
+		if message.Name == "io_timeout" || message.Name == "io_error" {
+			return true
+		}
+	}
+
+	return false
 }
 
 // Validate and set progressGroup's status
