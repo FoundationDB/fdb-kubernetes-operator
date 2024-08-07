@@ -153,6 +153,12 @@ func (version Version) NextPatchVersion() Version {
 	return Version{version.Version.NextPatchVersion()}
 }
 
+// SupportsStorageMigrationConfiguration returns true if the provided version supports the storage migration
+// configuration in the configure command. Those configurations are available from 7.0+
+func (version Version) SupportsStorageMigrationConfiguration() bool {
+	return version.IsAtLeast(Version{api.Version{Major: 7, Minor: 0, Patch: 0}})
+}
+
 // Versions provides a shorthand for known versions.
 // This is only to be used in testing.
 var Versions = struct {

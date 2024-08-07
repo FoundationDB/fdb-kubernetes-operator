@@ -100,6 +100,9 @@ var _ = Describe("admin_client_test", func() {
 						VersionFlags: fdbv1beta2.VersionFlags{
 							LogSpill: 2,
 						},
+						PerpetualStorageWiggleEngine:   fdbv1beta2.StorageEngineNone,
+						PerpetualStorageWiggleLocality: "0",
+						StorageMigrationType:           fdbv1beta2.StorageMigrationTypeDisabled,
 					}))
 
 					Expect(status.Cluster.Processes).To(HaveLen(len(cluster.Status.ProcessGroups)))
