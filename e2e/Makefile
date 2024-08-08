@@ -10,9 +10,9 @@ TIMEOUT?=168h
 CLUSTER_NAME?=
 NAMESPACE?=
 CONTEXT?=
-FDB_VERSION?=7.1.57
+FDB_VERSION?=7.1.63
 # This will be the version used for upgrade tests.
-NEXT_FDB_VERSION?=7.3.33
+NEXT_FDB_VERSION?=7.3.43
 ## Expectation is that you are running standard build image which generates both regular and debug (Symbols) images.
 FDB_IMAGE?=foundationdb/foundationdb:$(FDB_VERSION)
 UNIFIED_FDB_IMAGE?=foundationdb/fdb-kubernetes-monitor:$(FDB_VERSION)
@@ -44,6 +44,19 @@ ifndef FEATURE_SERVER_SIDE_APPLY
   FEATURE_SERVER_SIDE_APPLY=$(shell shuf -i 0-1 -n 1)
 else
   FEATURE_SERVER_SIDE_APPLY=false
+endif
+
+# If the STORAGE_ENGINE environment variable is not defined the test suite will be randomly choosing between the ssd
+# storage-engine (sqlite) or RocksDB. In the future we can add more storage engines for testing here, e.g. Redwood or
+# sharded RocksDB.
+ifndef STORAGE_ENGINE
+  RANDOM_INT=$(shell shuf -i 0-1 -n 1)
+  ifeq ($(RANDOM_INT), 0)
+    # Default case
+    STORAGE_ENGINE="ssd"
+  else
+    STORAGE_ENGINE="ssd-rocksdb-v1"
+  endif
 endif
 
 # Make bash pickier about errors.
