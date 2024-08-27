@@ -95,13 +95,12 @@ type cliAdminClient struct {
 }
 
 // NewCliAdminClient generates an Admin client for a cluster
-func NewCliAdminClient(cluster *fdbv1beta2.FoundationDBCluster, _ client.Client, log logr.Logger) (fdbadminclient.AdminClient, error) {
+func NewCliAdminClient(cluster *fdbv1beta2.FoundationDBCluster, _ client.Client, logger logr.Logger) (fdbadminclient.AdminClient, error) {
 	clusterFile, err := createClusterFile(cluster)
 	if err != nil {
 		return nil, err
 	}
 
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name)
 	return &cliAdminClient{
 		Cluster:         cluster,
 		clusterFilePath: clusterFile,
