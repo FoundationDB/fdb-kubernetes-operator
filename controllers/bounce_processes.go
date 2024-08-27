@@ -167,6 +167,9 @@ func (c bounceProcesses) reconcile(_ context.Context, r *FoundationDBClusterReco
 		return &requeue{curError: err}
 	}
 
+	// Reset the SecondsSinceLastRecovered sine the operator just restarted some processes, which will could cause a recovery.
+	status.Cluster.RecoveryState.SecondsSinceLastRecovered = 0.0
+
 	// If the cluster was upgraded we will requeue and let the update_status command set the correct version.
 	// Updating the version in this method has the drawback that we upgrade the version independent of the success
 	// of the kill command. The kill command is not reliable, which means that some kill request might not be
