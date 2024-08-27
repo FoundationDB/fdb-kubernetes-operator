@@ -82,13 +82,6 @@ func (e excludeProcesses) reconcile(ctx context.Context, r *FoundationDBClusterR
 		if err != nil {
 			return &requeue{curError: err, delayedRequeue: true}
 		}
-
-		defer func() {
-			lockErr := lockClient.ReleaseLock()
-			if lockErr != nil {
-				logger.Error(lockErr, "could not release lock")
-			}
-		}()
 	}
 
 	// We need the information below to check if the excluded processes are coordinators to make sure we can change the
@@ -192,6 +185,9 @@ func (e excludeProcesses) reconcile(ctx context.Context, r *FoundationDBClusterR
 			return &requeue{curError: err, delayedRequeue: true}
 		}
 	}
+
+	// Reset the SecondsSinceLastRecovered sine the operator just excluded some processes, which will cause a recovery.
+	status.Cluster.RecoveryState.SecondsSinceLastRecovered = 0.0
 
 	return nil
 }

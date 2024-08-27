@@ -279,13 +279,6 @@ func includeProcessGroup(ctx context.Context, logger logr.Logger, r *FoundationD
 		if err != nil {
 			return err
 		}
-
-		defer func() {
-			releaseErr := lockClient.ReleaseLock()
-			if releaseErr != nil {
-				logger.Error(releaseErr, "could not release lock")
-			}
-		}()
 	}
 
 	// Make sure it's safe to include processes.
@@ -299,6 +292,9 @@ func includeProcessGroup(ctx context.Context, logger logr.Logger, r *FoundationD
 	if err != nil {
 		return err
 	}
+
+	// Reset the SecondsSinceLastRecovered sine the operator just included some processes, which will cause a recovery.
+	status.Cluster.RecoveryState.SecondsSinceLastRecovered = 0.0
 
 	return r.updateOrApply(ctx, cluster)
 }

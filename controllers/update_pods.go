@@ -377,17 +377,10 @@ func deletePodsForUpdates(ctx context.Context, r *FoundationDBClusterReconciler,
 	// Only lock the cluster if we are not running in the delete "All" mode.
 	// Otherwise, we want to delete all Pods and don't require a lock to sync with other clusters.
 	if deletionMode != fdbv1beta2.PodUpdateModeAll {
-		hasLock, err := r.takeLock(logger, cluster, "updating pods")
-		if !hasLock {
+		_, err := r.takeLock(logger, cluster, "updating pods")
+		if err != nil {
 			return &requeue{curError: err}
 		}
-
-		defer func() {
-			lockErr := r.releaseLock(logger, cluster)
-			if lockErr != nil {
-				logger.Error(lockErr, "could not release lock")
-			}
-		}()
 	}
 
 	// If the maintenance mode feature is enabled we have to determine if the maintenance mode must be set. This is only
@@ -410,7 +403,7 @@ func deletePodsForUpdates(ctx context.Context, r *FoundationDBClusterReconciler,
 		// Only if at least one storage process is present in the deletions we have to set the maintenance zone.
 		if len(storageProcessIDs) > 0 {
 			// If there is a maintenance zone active that doesn't match the current zone we have to skip any further work.
-			if status.Cluster.MaintenanceZone != "" && status.Cluster.MaintenanceZone != fdbv1beta2.FaultDomain(zone) {
+			if currentMaintenanceZone != "" && currentMaintenanceZone != zone {
 				return &requeue{message: "Pods need to be recreated", delayedRequeue: true}
 			}
 			logger.Info("Setting maintenance mode", "zone", zone)
