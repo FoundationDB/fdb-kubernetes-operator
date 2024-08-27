@@ -56,7 +56,7 @@ func (c chooseRemovals) reconcile(ctx context.Context, r *FoundationDBClusterRec
 
 	// If the status is not cached, we have to fetch it.
 	if status == nil {
-		adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
+		adminClient, err := r.getAdminClient(logger, cluster)
 		if err != nil {
 			return &requeue{curError: err, delayedRequeue: true}
 		}

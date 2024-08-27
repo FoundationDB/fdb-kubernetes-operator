@@ -33,12 +33,12 @@ import (
 type maintenanceModeChecker struct{}
 
 // reconcile runs the reconciler's work.
-func (maintenanceModeChecker) reconcile(_ context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
+func (c maintenanceModeChecker) reconcile(_ context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
 	if !cluster.ResetMaintenanceMode() {
 		return nil
 	}
 
-	adminClient, err := r.DatabaseClientProvider.GetAdminClient(cluster, r)
+	adminClient, err := r.getAdminClient(logger, cluster)
 	if err != nil {
 		return &requeue{curError: err, delayedRequeue: true}
 	}

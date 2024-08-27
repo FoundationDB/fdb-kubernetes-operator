@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/uuid"
 	"regexp"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -123,7 +124,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 		return ctrl.Result{}, err
 	}
 
-	clusterLog := globalControllerLogger.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name)
+	clusterLog := globalControllerLogger.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "traceID", uuid.NewUUID())
 	cacheStatus := cluster.CacheDatabaseStatusForReconciliation(r.CacheDatabaseStatusForReconciliationDefault)
 	// Printout the duration of the reconciliation, independent if the reconciliation was successful or had an error.
 	startTime := time.Now()
@@ -142,7 +143,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 		return ctrl.Result{}, err
 	}
 
-	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
+	adminClient, err := r.getAdminClient(clusterLog, cluster)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -452,14 +453,23 @@ func (r *FoundationDBClusterReconciler) getDatabaseClientProvider() fdbadminclie
 	panic("Cluster reconciler does not have a DatabaseClientProvider defined")
 }
 
-func (r *FoundationDBClusterReconciler) getLockClient(cluster *fdbv1beta2.FoundationDBCluster) (fdbadminclient.LockClient, error) {
-	return r.getDatabaseClientProvider().GetLockClient(cluster)
+// getAdminClient gets the admin client for a reconciler.
+func (r *FoundationDBClusterReconciler) getAdminClient(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster) (fdbadminclient.AdminClient, error) {
+	if r.DatabaseClientProvider != nil {
+		return r.DatabaseClientProvider.GetAdminClientWithLogger(cluster, r, logger)
+	}
+
+	panic("Cluster reconciler does not have a DatabaseClientProvider defined")
+}
+
+func (r *FoundationDBClusterReconciler) getLockClient(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster) (fdbadminclient.LockClient, error) {
+	return r.getDatabaseClientProvider().GetLockClientWithLogger(cluster, logger)
 }
 
 // takeLock attempts to acquire a lock.
 func (r *FoundationDBClusterReconciler) takeLock(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, action string) (bool, error) {
-	logger.Info("Taking lock on cluster", "namespace", cluster.Namespace, "cluster", cluster.Name, "action", action)
-	lockClient, err := r.getLockClient(cluster)
+	logger.Info("Taking lock on cluster", "action", action)
+	lockClient, err := r.getLockClient(logger, cluster)
 	if err != nil {
 		return false, err
 	}
@@ -477,8 +487,8 @@ func (r *FoundationDBClusterReconciler) takeLock(logger logr.Logger, cluster *fd
 
 // releaseLock attempts to release a lock.
 func (r *FoundationDBClusterReconciler) releaseLock(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster) error {
-	logger.Info("Release lock on cluster", "namespace", cluster.Namespace, "cluster", cluster.Name)
-	lockClient, err := r.getLockClient(cluster)
+	logger.Info("Release lock on cluster")
+	lockClient, err := r.getLockClient(logger, cluster)
 	if err != nil {
 		return err
 	}
@@ -575,7 +585,7 @@ func (r *FoundationDBClusterReconciler) getStatusFromClusterOrDummyStatus(logger
 		cluster.Status.ConnectionString = connectionString
 	}
 
-	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
+	adminClient, err := r.getAdminClient(logger, cluster)
 	if err != nil {
 		return nil, err
 	}

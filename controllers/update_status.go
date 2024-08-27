@@ -49,7 +49,7 @@ import (
 type updateStatus struct{}
 
 // reconcile runs the reconciler's work.
-func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, databaseStatus *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
+func (c updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, databaseStatus *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
 	originalStatus := cluster.Status.DeepCopy()
 	clusterStatus := fdbv1beta2.FoundationDBClusterStatus{}
 	clusterStatus.Generations.Reconciled = cluster.Status.Generations.Reconciled
@@ -209,7 +209,7 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 	}
 
 	if len(cluster.Spec.LockOptions.DenyList) > 0 && cluster.ShouldUseLocks() && clusterStatus.Configured {
-		lockClient, err := r.getLockClient(cluster)
+		lockClient, err := r.getLockClient(logger, cluster)
 		if err != nil {
 			return &requeue{curError: err}
 		}
@@ -308,7 +308,7 @@ func tryConnectionOptions(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCl
 	for _, connectionString := range connectionStrings {
 		logger.Info("Attempting to get connection string from cluster", "connectionString", connectionString)
 		cluster.Status.ConnectionString = connectionString
-		adminClient, clientErr := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
+		adminClient, clientErr := r.getAdminClient(logger, cluster)
 		if clientErr != nil {
 			return originalConnectionString, clientErr
 		}

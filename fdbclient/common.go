@@ -149,9 +149,19 @@ type realDatabaseClientProvider struct {
 	log logr.Logger
 }
 
+func (p *realDatabaseClientProvider) GetAdminClientWithLogger(cluster *fdbv1beta2.FoundationDBCluster, kubernetesClient client.Client, logger logr.Logger) (fdbadminclient.AdminClient, error) {
+	return NewCliAdminClient(cluster, kubernetesClient, logger.WithName("fdbclient"))
+}
+
 // GetLockClient generates a client for working with locks through the database.
 func (p *realDatabaseClientProvider) GetLockClient(cluster *fdbv1beta2.FoundationDBCluster) (fdbadminclient.LockClient, error) {
 	return NewRealLockClient(cluster, p.log)
+}
+
+// GetLockClientWithLogger generates a client for working with locks through the database.
+// The provided logger will be used as logger for the LockClient.
+func (p *realDatabaseClientProvider) GetLockClientWithLogger(cluster *fdbv1beta2.FoundationDBCluster, logger logr.Logger) (fdbadminclient.LockClient, error) {
+	return NewRealLockClient(cluster, logger.WithName("fdbclient"))
 }
 
 // GetAdminClient generates a client for performing administrative actions

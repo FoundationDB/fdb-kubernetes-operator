@@ -43,12 +43,12 @@ import (
 type bounceProcesses struct{}
 
 // reconcile runs the reconciler's work.
-func (bounceProcesses) reconcile(_ context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
+func (c bounceProcesses) reconcile(_ context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
 	if !pointer.BoolDeref(cluster.Spec.AutomationOptions.KillProcesses, true) {
 		return nil
 	}
 
-	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
+	adminClient, err := r.getAdminClient(logger, cluster)
 	if err != nil {
 		return &requeue{curError: err}
 	}
@@ -111,7 +111,7 @@ func (bounceProcesses) reconcile(_ context.Context, r *FoundationDBClusterReconc
 	var lockClient fdbadminclient.LockClient
 	useLocks := cluster.ShouldUseLocks()
 	if useLocks {
-		lockClient, err = r.getLockClient(cluster)
+		lockClient, err = r.getLockClient(logger, cluster)
 		if err != nil {
 			return &requeue{curError: err}
 		}
