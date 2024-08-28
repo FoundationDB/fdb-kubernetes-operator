@@ -163,7 +163,13 @@ func (client *realLockClient) updateLock(transaction fdb.Transaction, start int6
 		start,
 		end,
 	}
-	client.log.Info("Setting new lock", "namespace", client.cluster.Namespace, "cluster", client.cluster.Name, "owner", ownerID, "lockValue", lockValue)
+	client.log.Info("Setting new lock",
+		"namespace", client.cluster.Namespace,
+		"cluster", client.cluster.Name,
+		"ownerID", ownerID,
+		"lockValue", lockValue,
+		"startTime", time.Unix(start, 0),
+		"endTime", time.Unix(end, 0))
 	transaction.Set(lockKey, lockValue.Pack())
 }
 
@@ -343,24 +349,44 @@ func (client *realLockClient) ReleaseLock() error {
 			return false, invalidLockValue{key: lockKey, value: lockValue}
 		}
 
-		currentLockStartTime, valid := lockTuple[1].(int64)
+		currentLockStartTimestamp, valid := lockTuple[1].(int64)
 		if !valid {
 			return false, invalidLockValue{key: lockKey, value: lockValue}
 		}
 
-		currentLockEndTime, valid := lockTuple[2].(int64)
+		currentLockEndTimestamp, valid := lockTuple[2].(int64)
 		if !valid {
 			return false, invalidLockValue{key: lockKey, value: lockValue}
 		}
 
 		ownerID := client.cluster.GetLockID()
+		logger := client.log.WithValues(
+			"namespace", client.cluster.Namespace,
+			"cluster", client.cluster.Name,
+			"ownerID", ownerID,
+			"currentLockOwnerID", currentLockOwnerID,
+			"startTime", time.Unix(currentLockStartTimestamp, 0),
+			"endTime", time.Unix(currentLockEndTimestamp, 0))
+
 		if currentLockOwnerID != ownerID {
-			client.log.Info("cannot release lock from other owner", "currentLockOwnerID", currentLockOwnerID, "ownerID", ownerID)
+			logger.Info("cannot release lock from other owner")
 			return false, nil
 		}
 
-		client.log.Info("releasing lock", "ownerID", ownerID, "lockStartTime", currentLockStartTime, "lockEndTime", currentLockEndTime)
+		// Check the timestamp of the logs and make sure to only release locks when the timestamps are valid.
+		// If the lock is not valid anymore, other operator instances can take the lock in takeLockInTransaction.
+		now := time.Now()
+		if currentLockStartTimestamp > now.Unix() {
+			logger.Info("cannot release lock that is taken in the future")
+			return false, nil
+		}
 
+		if currentLockEndTimestamp < now.Unix() {
+			logger.Info("cannot release a lock that is expired")
+			return false, nil
+		}
+
+		logger.Info("releasing lock")
 		transaction.Clear(lockKey)
 
 		return nil, nil
