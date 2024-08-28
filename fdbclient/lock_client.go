@@ -116,9 +116,6 @@ func (client *realLockClient) takeLockInTransaction(transaction fdb.Transaction)
 	ownerID := client.cluster.GetLockID()
 
 	logger := client.log.WithValues(
-		"namespace", client.cluster.Namespace,
-		"cluster", client.cluster.Name,
-		"ownerID", ownerID,
 		"currentLockOwnerID", currentLockOwnerID,
 		"startTime", time.Unix(currentLockStartTime, 0),
 		"endTime", time.Unix(currentLockEndTime, 0))
@@ -164,9 +161,6 @@ func (client *realLockClient) updateLock(transaction fdb.Transaction, start int6
 		end,
 	}
 	client.log.Info("Setting new lock",
-		"namespace", client.cluster.Namespace,
-		"cluster", client.cluster.Name,
-		"ownerID", ownerID,
 		"lockValue", lockValue,
 		"startTime", time.Unix(start, 0),
 		"endTime", time.Unix(end, 0))
@@ -361,9 +355,6 @@ func (client *realLockClient) ReleaseLock() error {
 
 		ownerID := client.cluster.GetLockID()
 		logger := client.log.WithValues(
-			"namespace", client.cluster.Namespace,
-			"cluster", client.cluster.Name,
-			"ownerID", ownerID,
 			"currentLockOwnerID", currentLockOwnerID,
 			"startTime", time.Unix(currentLockStartTimestamp, 0),
 			"endTime", time.Unix(currentLockEndTimestamp, 0))
@@ -418,5 +409,13 @@ func NewRealLockClient(cluster *fdbv1beta2.FoundationDBCluster, log logr.Logger)
 		return nil, err
 	}
 
-	return &realLockClient{cluster: cluster, database: database, log: log}, nil
+	return &realLockClient{
+		cluster:  cluster,
+		database: database,
+		log: log.WithValues(
+			"namespace", cluster.Namespace,
+			"cluster", cluster.Name,
+			"ownerID", cluster.GetLockID(),
+		),
+	}, nil
 }
