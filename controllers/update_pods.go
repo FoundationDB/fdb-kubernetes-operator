@@ -42,7 +42,7 @@ import (
 type updatePods struct{}
 
 // reconcile runs the reconciler's work.
-func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
+func (u updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
 	// TODO(johscheuer): Remove the pvc map an make direct calls.
 	pvcs := &corev1.PersistentVolumeClaimList{}
 	err := r.List(ctx, pvcs, internal.GetPodListOptions(cluster, "", "")...)
@@ -72,7 +72,7 @@ func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconcile
 		return nil
 	}
 
-	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r.Client)
+	adminClient, err := r.getAdminClient(logger, cluster)
 	if err != nil {
 		return &requeue{curError: err, delayedRequeue: true}
 	}

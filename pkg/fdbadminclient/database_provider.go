@@ -22,6 +22,7 @@ package fdbadminclient
 
 import (
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	"github.com/go-logr/logr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -31,7 +32,15 @@ type DatabaseClientProvider interface {
 	// GetLockClient generates a client for working with locks through the database.
 	GetLockClient(cluster *fdbv1beta2.FoundationDBCluster) (LockClient, error)
 
+	// GetLockClientWithLogger generates a client for working with locks through the database.
+	// The provided logger will be used as logger for the LockClient.
+	GetLockClientWithLogger(cluster *fdbv1beta2.FoundationDBCluster, logger logr.Logger) (LockClient, error)
+
 	// GetAdminClient generates a client for performing administrative actions
 	// against the database.
 	GetAdminClient(cluster *fdbv1beta2.FoundationDBCluster, kubernetesClient client.Client) (AdminClient, error)
+
+	// GetAdminClientWithLogger generates a client for performing administrative actions
+	// against the database. The provided logger will be used as logger for the AdminClient.
+	GetAdminClientWithLogger(cluster *fdbv1beta2.FoundationDBCluster, kubernetesClient client.Client, logger logr.Logger) (AdminClient, error)
 }

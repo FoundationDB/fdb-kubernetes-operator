@@ -536,10 +536,8 @@ func canSafelyExcludeOrIncludeProcesses(cluster *fdbv1beta2.FoundationDBCluster,
 
 	// In the case of inclusions we also want to make sure we only change the list of excluded server if the cluster is
 	// in a good shape, otherwise the CC might crash: https://github.com/apple/foundationdb/blob/release-7.1/fdbserver/ClusterRecovery.actor.cpp#L575-L579
-	if inclusion {
-		if !recoveryStateAllowsInclusion(status) {
-			return fmt.Errorf("cannot: %s, cluster recovery state is %s, but it must be \"fully_recovered\" or \"all_logs_recruited\"", action, status.Cluster.RecoveryState.Name)
-		}
+	if inclusion && !recoveryStateAllowsInclusion(status) {
+		return fmt.Errorf("cannot: %s, cluster recovery state is %s, but it must be \"fully_recovered\" or \"all_logs_recruited\"", action, status.Cluster.RecoveryState.Name)
 	}
 
 	return nil

@@ -24,6 +24,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
 	"net"
 	"strconv"
 	"time"
@@ -45,7 +46,7 @@ type removeProcessGroups struct{}
 
 // reconcile runs the reconciler's work.
 func (u removeProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
-	adminClient, err := r.DatabaseClientProvider.GetAdminClient(cluster, r)
+	adminClient, err := r.getAdminClient(logger, cluster)
 	if err != nil {
 		return &requeue{curError: err}
 	}
@@ -116,7 +117,7 @@ func (u removeProcessGroups) reconcile(ctx context.Context, r *FoundationDBClust
 		// last minute).
 		waitTime, allowed := removals.RemovalAllowed(lastDeletion, time.Now().Unix(), cluster.GetWaitBetweenRemovalsSeconds())
 		if !allowed {
-			return &requeue{message: fmt.Sprintf("not allowed to remove process groups, waiting: %v", waitTime), delay: time.Duration(waitTime) * time.Second}
+			return &requeue{message: fmt.Sprintf("not allowed to remove process groups, waiting: %vs", waitTime), delay: time.Duration(waitTime) * time.Second}
 		}
 	}
 
@@ -129,7 +130,7 @@ func (u removeProcessGroups) reconcile(ctx context.Context, r *FoundationDBClust
 
 	// This will return a map of the newly removed ProcessGroups and the ProcessGroups with the ResourcesTerminating condition
 	removedProcessGroups := r.removeProcessGroups(ctx, logger, cluster, zoneRemovals, zonedRemovals[removals.TerminatingZone])
-	err = includeProcessGroup(ctx, logger, r, cluster, removedProcessGroups, status)
+	err = includeProcessGroup(ctx, logger, r, cluster, removedProcessGroups, status, adminClient)
 	if err != nil {
 		return &requeue{curError: err, delayedRequeue: true}
 	}
@@ -257,7 +258,7 @@ func confirmRemoval(ctx context.Context, logger logr.Logger, r *FoundationDBClus
 	return true, canBeIncluded, nil
 }
 
-func includeProcessGroup(ctx context.Context, logger logr.Logger, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, removedProcessGroups map[fdbv1beta2.ProcessGroupID]bool, status *fdbv1beta2.FoundationDBStatus) error {
+func includeProcessGroup(ctx context.Context, logger logr.Logger, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, removedProcessGroups map[fdbv1beta2.ProcessGroupID]bool, status *fdbv1beta2.FoundationDBStatus, adminClient fdbadminclient.AdminClient) error {
 	fdbProcessesToInclude, err := getProcessesToInclude(logger, cluster, removedProcessGroups, status)
 	if err != nil {
 		return err
@@ -269,7 +270,7 @@ func includeProcessGroup(ctx context.Context, logger logr.Logger, r *FoundationD
 
 	// Make sure the inclusion are coordinated across multiple operator instances.
 	if cluster.ShouldUseLocks() {
-		lockClient, err := r.getLockClient(cluster)
+		lockClient, err := r.getLockClient(logger, cluster)
 		if err != nil {
 			return err
 		}
@@ -280,9 +281,9 @@ func includeProcessGroup(ctx context.Context, logger logr.Logger, r *FoundationD
 		}
 
 		defer func() {
-			err = lockClient.ReleaseLock()
-			if err != nil {
-				logger.Error(err, "could not release lock")
+			releaseErr := lockClient.ReleaseLock()
+			if releaseErr != nil {
+				logger.Error(releaseErr, "could not release lock")
 			}
 		}()
 	}
@@ -293,14 +294,7 @@ func includeProcessGroup(ctx context.Context, logger logr.Logger, r *FoundationD
 		return err
 	}
 
-	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
-	if err != nil {
-		return err
-	}
-	defer adminClient.Close()
-
 	r.Recorder.Event(cluster, corev1.EventTypeNormal, "IncludingProcesses", fmt.Sprintf("Including removed processes: %v", fdbProcessesToInclude))
-
 	err = adminClient.IncludeProcesses(fdbProcessesToInclude)
 	if err != nil {
 		return err

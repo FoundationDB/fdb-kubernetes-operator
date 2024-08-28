@@ -44,12 +44,13 @@ type excludeProcesses struct{}
 
 // reconcile runs the reconciler's work.
 func (e excludeProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
-	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
+	adminClient, err := r.getAdminClient(logger, cluster)
 	if err != nil {
 		return &requeue{curError: err}
 	}
 	defer adminClient.Close()
 
+	adminClient.WithValues()
 	// If the status is not cached, we have to fetch it.
 	if status == nil {
 		status, err = adminClient.GetStatus()
@@ -72,7 +73,7 @@ func (e excludeProcesses) reconcile(ctx context.Context, r *FoundationDBClusterR
 
 	// Make sure the exclusions are coordinated across multiple operator instances.
 	if cluster.ShouldUseLocks() {
-		lockClient, err := r.getLockClient(cluster)
+		lockClient, err := r.getLockClient(logger, cluster)
 		if err != nil {
 			return &requeue{curError: err}
 		}
@@ -83,9 +84,9 @@ func (e excludeProcesses) reconcile(ctx context.Context, r *FoundationDBClusterR
 		}
 
 		defer func() {
-			err = lockClient.ReleaseLock()
-			if err != nil {
-				logger.Error(err, "could not release lock")
+			lockErr := lockClient.ReleaseLock()
+			if lockErr != nil {
+				logger.Error(lockErr, "could not release lock")
 			}
 		}()
 	}
@@ -180,11 +181,12 @@ func (e excludeProcesses) reconcile(ctx context.Context, r *FoundationDBClusterR
 		return &requeue{curError: err, delayedRequeue: true}
 	}
 
-	if coordinatorErr != nil {
-		return &requeue{curError: err, delayedRequeue: true}
-	}
+	// Only if a coordinator was excluded we have to check for an error and update the cluster.
+	if coordinatorExcluded {
+		if coordinatorErr != nil {
+			return &requeue{curError: coordinatorErr, delayedRequeue: true}
+		}
 
-	if coordinatorExcluded && coordinatorErr == nil {
 		err = r.updateOrApply(ctx, cluster)
 		if err != nil {
 			return &requeue{curError: err, delayedRequeue: true}

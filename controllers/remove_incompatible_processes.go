@@ -36,7 +36,7 @@ import (
 type removeIncompatibleProcesses struct{}
 
 // reconcile runs the reconciler's work.
-func (removeIncompatibleProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
+func (c removeIncompatibleProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
 	err := processIncompatibleProcesses(ctx, r, logger, cluster, status)
 
 	if err != nil {
@@ -64,7 +64,7 @@ func processIncompatibleProcesses(ctx context.Context, r *FoundationDBClusterRec
 
 	// If the status is not cached, we have to fetch it.
 	if status == nil {
-		adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r.Client)
+		adminClient, err := r.getAdminClient(logger, cluster)
 		if err != nil {
 			return err
 		}

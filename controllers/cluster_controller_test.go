@@ -2516,7 +2516,7 @@ var _ = Describe("cluster_controller", func() {
 			})
 
 			It("should update the deny list", func() {
-				lockClient, err := clusterReconciler.getLockClient(cluster)
+				lockClient, err := clusterReconciler.getLockClient(testLogger, cluster)
 				Expect(err).NotTo(HaveOccurred())
 				list, err := lockClient.GetDenyList()
 				Expect(err).NotTo(HaveOccurred())

@@ -46,7 +46,7 @@ func (c replaceFailedProcessGroups) reconcile(ctx context.Context, r *Foundation
 
 	// If the status is not cached, we have to fetch it.
 	if status == nil {
-		adminClient, err := r.DatabaseClientProvider.GetAdminClient(cluster, r)
+		adminClient, err := r.getAdminClient(logger, cluster)
 		if err != nil {
 			return &requeue{curError: err, delayedRequeue: true}
 		}

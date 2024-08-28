@@ -33,12 +33,12 @@ import (
 type updateLockConfiguration struct{}
 
 // reconcile runs the reconciler's work.
-func (updateLockConfiguration) reconcile(_ context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, _ *fdbv1beta2.FoundationDBStatus, _ logr.Logger) *requeue {
+func (updateLockConfiguration) reconcile(_ context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, _ *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
 	if len(cluster.Spec.LockOptions.DenyList) == 0 || !cluster.ShouldUseLocks() || !cluster.Status.Configured {
 		return nil
 	}
 
-	lockClient, err := r.getLockClient(cluster)
+	lockClient, err := r.getLockClient(logger, cluster)
 	if err != nil {
 		return &requeue{curError: err, delayedRequeue: true}
 	}

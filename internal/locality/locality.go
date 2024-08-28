@@ -377,8 +377,17 @@ func CheckCoordinatorValidity(logger logr.Logger, cluster *fdbv1beta2.Foundation
 			coordinatorAddress = dnsAddress.String()
 		}
 
-		if coordinatorAddress != "" && !process.Excluded && !process.UnderMaintenance {
-			coordinatorStatus[coordinatorAddress] = true
+		if coordinatorAddress != "" {
+			if process.Excluded {
+				pLogger.Info("Coordinator process is excluded, marking it as unhealthy", "class", process.ProcessClass, "address", coordinatorAddress)
+			} else {
+				// The process is not excluded and has an address, so we assume that the coordinator is healthy.
+				coordinatorStatus[coordinatorAddress] = true
+			}
+
+			if process.UnderMaintenance {
+				pLogger.Info("Coordinator process is under maintenance", "class", process.ProcessClass, "address", coordinatorAddress)
+			}
 		}
 
 		if coordinatorAddress != "" {
