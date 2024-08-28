@@ -95,13 +95,6 @@ func (c maintenanceModeChecker) reconcile(_ context.Context, r *FoundationDBClus
 		return &requeue{curError: err}
 	}
 
-	defer func() {
-		lockErr := r.releaseLock(logger, cluster)
-		if lockErr != nil {
-			logger.Error(lockErr, "could not release lock")
-		}
-	}()
-
 	logger.Info("Switching off maintenance mode", "zone", status.Cluster.MaintenanceZone)
 	err = adminClient.ResetMaintenanceMode()
 	if err != nil {

@@ -135,18 +135,9 @@ func (c bounceProcesses) reconcile(_ context.Context, r *FoundationDBClusterReco
 		}
 	}
 
-	hasLock, err := r.takeLock(logger, cluster, fmt.Sprintf("bouncing processes: %v", addresses))
+	_, err = r.takeLock(logger, cluster, fmt.Sprintf("bouncing processes: %v", addresses))
 	if err != nil {
 		return &requeue{curError: err}
-	}
-
-	if hasLock {
-		defer func() {
-			lockErr := r.releaseLock(logger, cluster)
-			if lockErr != nil {
-				logger.Error(lockErr, "could not release lock")
-			}
-		}()
 	}
 
 	if useLocks && upgrading {
@@ -175,6 +166,9 @@ func (c bounceProcesses) reconcile(_ context.Context, r *FoundationDBClusterReco
 	if err != nil {
 		return &requeue{curError: err}
 	}
+
+	// Reset the SecondsSinceLastRecovered sine the operator just restarted some processes, which will could cause a recovery.
+	status.Cluster.RecoveryState.SecondsSinceLastRecovered = 0.0
 
 	// If the cluster was upgraded we will requeue and let the update_status command set the correct version.
 	// Updating the version in this method has the drawback that we upgrade the version independent of the success

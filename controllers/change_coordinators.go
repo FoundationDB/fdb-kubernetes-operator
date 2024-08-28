@@ -75,17 +75,10 @@ func (c changeCoordinators) reconcile(ctx context.Context, r *FoundationDBCluste
 		return nil
 	}
 
-	hasLock, err := r.takeLock(logger, cluster, "changing coordinators")
-	if !hasLock {
+	_, err = r.takeLock(logger, cluster, "changing coordinators")
+	if err != nil {
 		return &requeue{curError: err, delayedRequeue: true}
 	}
-
-	defer func() {
-		lockErr := r.releaseLock(logger, cluster)
-		if lockErr != nil {
-			logger.Error(lockErr, "could not release lock")
-		}
-	}()
 
 	logger.Info("Changing coordinators")
 	r.Recorder.Event(cluster, corev1.EventTypeNormal, "ChangingCoordinators", "Choosing new coordinators")
@@ -94,6 +87,9 @@ func (c changeCoordinators) reconcile(ctx context.Context, r *FoundationDBCluste
 	if err != nil {
 		return &requeue{curError: err, delayedRequeue: true}
 	}
+
+	// Reset the SecondsSinceLastRecovered sine the operator just changed the coordinators, which will cause a recovery.
+	status.Cluster.RecoveryState.SecondsSinceLastRecovered = 0.0
 
 	err = r.updateOrApply(ctx, cluster)
 	if err != nil {
