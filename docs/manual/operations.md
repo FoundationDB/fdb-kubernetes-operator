@@ -222,7 +222,7 @@ In case you lost the quorum of coordinators and you are not able to restore the 
 
 This section will describe the procedure for case 2.
 
-**NOTE** The assumption here is that at least one coordinator is still available with it's coordinator state.
+**NOTE** The assumption here is that at least one coordinator is still available with its coordinator state.
 **NOTE** This action can cause data loss. Perform those actions with care.
 
 - Set all the `FoundationDBCluster` resources for this FDB cluster to `spec.Skip = true` to make sure the operator is not changing the manual changed state. 
