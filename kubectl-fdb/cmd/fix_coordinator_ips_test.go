@@ -21,7 +21,10 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
+
+	"k8s.io/cli-runtime/pkg/genericclioptions"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	. "github.com/onsi/ginkgo/v2"
@@ -156,7 +159,14 @@ var _ = Describe("[plugin] fix-coordinator-ips command", func() {
 						}
 					}
 				}
-				err := updateIPsInConnectionString(cluster)
+
+				// We use these buffers to check the input/output
+				outBuffer := bytes.Buffer{}
+				errBuffer := bytes.Buffer{}
+				inBuffer := bytes.Buffer{}
+
+				rootCmd := NewRootCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer}, &MockVersionChecker{})
+				err := updateIPsInConnectionString(context.Background(), rootCmd, cluster, k8sClient)
 
 				if input.ExpectedError != "" {
 					Expect(err).To(HaveOccurred())

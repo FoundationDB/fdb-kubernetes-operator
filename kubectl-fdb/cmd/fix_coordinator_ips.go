@@ -21,13 +21,16 @@
 package cmd
 
 import (
-	ctx "context"
+	"context"
 	"fmt"
 	"log"
 	"net"
 	"os"
 	"os/exec"
 	"strings"
+
+	"github.com/go-logr/logr"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
@@ -74,7 +77,7 @@ func newFixCoordinatorIPsCmd(streams genericclioptions.IOStreams) *cobra.Command
 				return err
 			}
 
-			err = runFixCoordinatorIPs(kubeClient, cluster, *o.configFlags.Context, namespace, dryRun)
+			err = runFixCoordinatorIPs(cmd.Context(), cmd, kubeClient, cluster, *o.configFlags.Context, namespace, dryRun)
 			if err != nil {
 				return err
 			}
@@ -104,7 +107,7 @@ func newFixCoordinatorIPsCmd(streams genericclioptions.IOStreams) *cobra.Command
 
 // buildClusterFileUpdateCommands generates commands for using kubectl exec to
 // update the cluster file in the pods for a cluster.
-func buildClusterFileUpdateCommands(cluster *fdbv1beta2.FoundationDBCluster, kubeClient client.Client, context string, namespace string, kubectlPath string) ([]exec.Cmd, error) {
+func buildClusterFileUpdateCommands(cluster *fdbv1beta2.FoundationDBCluster, kubeClient client.Client, kubeContext string, namespace string, kubectlPath string) ([]exec.Cmd, error) {
 	pods := &corev1.PodList{}
 
 	selector := labels.NewSelector()
@@ -128,7 +131,7 @@ func buildClusterFileUpdateCommands(cluster *fdbv1beta2.FoundationDBCluster, kub
 	}
 	selector = selector.Add(*processClassRequirement)
 
-	err = kubeClient.List(ctx.Background(), pods,
+	err = kubeClient.List(context.Background(), pods,
 		client.InNamespace(namespace),
 		client.MatchingLabelsSelector{Selector: selector},
 		client.MatchingFields{"status.phase": "Running"},
@@ -138,8 +141,8 @@ func buildClusterFileUpdateCommands(cluster *fdbv1beta2.FoundationDBCluster, kub
 	}
 
 	baseArgs := []string{kubectlPath, "--namespace", namespace}
-	if context != "" {
-		baseArgs = append(baseArgs, "--context", context)
+	if kubeContext != "" {
+		baseArgs = append(baseArgs, "--context", kubeContext)
 	}
 	baseArgs = append(baseArgs, "exec", "-it", "-c", fdbv1beta2.MainContainerName)
 
@@ -163,44 +166,97 @@ func buildClusterFileUpdateCommands(cluster *fdbv1beta2.FoundationDBCluster, kub
 
 // updateIPsInConnectionString updates the connection string in the cluster
 // status by replacing old coordinator IPs with the latest IPs.
-func updateIPsInConnectionString(cluster *fdbv1beta2.FoundationDBCluster) error {
+func updateIPsInConnectionString(ctx context.Context, cmd *cobra.Command, cluster *fdbv1beta2.FoundationDBCluster, kubeClient client.Client) error {
 	connectionString, err := fdbv1beta2.ParseConnectionString(cluster.Status.ConnectionString)
 	if err != nil {
 		return err
 	}
+
+	// Fetch the associated process group from the coordinator address.
+	coordinatorProcessGroup := map[string]*fdbv1beta2.ProcessGroupStatus{}
+	for _, coordinator := range connectionString.Coordinators {
+		coordinatorAddress, err := fdbv1beta2.ParseProcessAddress(coordinator)
+		if err != nil {
+			return err
+		}
+
+		var processGroupFound bool
+		for _, processGroup := range cluster.Status.ProcessGroups {
+			if processGroupFound {
+				break
+			}
+			for _, address := range processGroup.Addresses {
+				if address == coordinatorAddress.IPAddress.String() {
+					coordinatorProcessGroup[coordinatorAddress.MachineAddress()] = processGroup
+
+					cmd.Println(coordinatorAddress.MachineAddress(), "is associated with process group:", processGroup.ProcessGroupID)
+					processGroupFound = true
+				}
+				break
+			}
+		}
+	}
+
+	// Update the new coordinators
 	newCoordinators := make([]string, len(connectionString.Coordinators))
 	for coordinatorIndex, coordinator := range connectionString.Coordinators {
 		coordinatorAddress, err := fdbv1beta2.ParseProcessAddress(coordinator)
 		if err != nil {
 			return err
 		}
-		for _, processGroup := range cluster.Status.ProcessGroups {
+
+		processGroup, ok := coordinatorProcessGroup[coordinatorAddress.MachineAddress()]
+		if !ok {
+			// Keep the old address if the coordinator process group is missing.
+			newCoordinators[coordinatorIndex] = coordinatorAddress.String()
+			cmd.Println("ProcessGroup for", coordinatorAddress.MachineAddress(), "is missing in the FoundationDBCluster status, coordinator address will not be updated")
+			continue
+		}
+
+		// Fetch the IP address from the running Pod, if the Pod doesn't exist or is not running, we fall back to the process group address.
+		pod := &corev1.Pod{}
+		kubeErr := kubeClient.Get(ctx, client.ObjectKey{Name: processGroup.GetPodName(cluster), Namespace: cluster.Namespace}, pod)
+		if k8serrors.IsNotFound(kubeErr) || len(pod.Status.PodIPs) == 0 {
+			cmd.Println("Pod for process group", processGroup.ProcessGroupID, "not found will try to read information from FoundationDBCluster status")
 			for _, address := range processGroup.Addresses {
 				if address == coordinatorAddress.IPAddress.String() {
 					coordinatorAddress.IPAddress = net.ParseIP(processGroup.Addresses[len(processGroup.Addresses)-1])
-					newCoordinators[coordinatorIndex] = coordinatorAddress.String()
 				}
 			}
+		} else { // Update the Coordinator address from the running Pod information.
+			// Logs are discarded right now until we implement a log.Logger in the plugin.
+			publicIPs := internal.GetPublicIPsForPod(pod, logr.Discard())
+			if len(publicIPs) == 0 {
+				cmd.Println("Couldn't find addresses for Pod", pod.Name)
+			}
+
+			cmd.Println("Update the coordinator address for", coordinatorAddress.IPAddress.String(), "to new IP address:", publicIPs[0])
+			coordinatorAddress.IPAddress = net.ParseIP(publicIPs[0])
 		}
+
+		newCoordinators[coordinatorIndex] = coordinatorAddress.String()
+
 		if newCoordinators[coordinatorIndex] == "" {
-			log.Printf("Could not find process for coordinator IP %s", coordinator)
+			cmd.Println("Could not find process for coordinator IP", coordinator)
 			newCoordinators[coordinatorIndex] = coordinator
 		}
 	}
+
 	connectionString.Coordinators = newCoordinators
 	cluster.Status.ConnectionString = connectionString.String()
 
 	return nil
 }
 
-func runFixCoordinatorIPs(kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluster, context string, namespace string, dryRun bool) error {
+func runFixCoordinatorIPs(ctx context.Context, cmd *cobra.Command, kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluster, context string, namespace string, dryRun bool) error {
+	cmd.Println("Current connection string:", cluster.Status.ConnectionString)
 	patch := client.MergeFrom(cluster.DeepCopy())
-	err := updateIPsInConnectionString(cluster)
+	err := updateIPsInConnectionString(ctx, cmd, cluster, kubeClient)
 	if err != nil {
 		return err
 	}
 
-	log.Printf("New connection string: %s", cluster.Status.ConnectionString)
+	cmd.Println("New connection string:", cluster.Status.ConnectionString)
 
 	kubectlPath, err := exec.LookPath("kubectl")
 	if err != nil {
@@ -211,21 +267,33 @@ func runFixCoordinatorIPs(kubeClient client.Client, cluster *fdbv1beta2.Foundati
 	if err != nil {
 		return err
 	}
+
 	for _, command := range commands {
 		if dryRun {
-			log.Printf("Update command: %s", strings.Join(command.Args, " "))
+			cmd.Println("Update command:", strings.Join(command.Args, " "))
 		} else {
 			err := command.Run()
 			if err != nil {
-				log.Print(err.Error())
+				cmd.Println(err.Error())
 			}
 		}
 	}
 
 	if !dryRun {
-		err = kubeClient.Status().Patch(ctx.Background(), cluster, patch)
+		// Update the ConfigMap to sync the new connection string.
+		newConfigMap, err := internal.GetConfigMap(cluster)
 		if err != nil {
-			return err
+			cmd.Println(err.Error())
+		}
+
+		kubeErr := kubeClient.Update(ctx, newConfigMap)
+		if kubeErr != nil {
+			cmd.Print(kubeErr.Error())
+		}
+
+		kubeErr = kubeClient.Status().Patch(ctx, cluster, patch)
+		if kubeErr != nil {
+			return kubeErr
 		}
 	}
 
