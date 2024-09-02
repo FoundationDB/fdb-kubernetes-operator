@@ -209,7 +209,7 @@ func updateIPsInConnectionString(ctx context.Context, cmd *cobra.Command, cluste
 		if !ok {
 			// Keep the old address if the coordinator process group is missing.
 			newCoordinators[coordinatorIndex] = coordinatorAddress.String()
-			cmd.Println("ProcessGroup for", coordinatorAddress.MachineAddress(), "is missing in the FoundationDBCluster status, coordinator address will be ignored")
+			cmd.Println("ProcessGroup for", coordinatorAddress.MachineAddress(), "is missing in the FoundationDBCluster status, coordinator address will not be updated")
 			continue
 		}
 
