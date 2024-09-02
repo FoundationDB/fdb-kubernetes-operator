@@ -34,9 +34,10 @@ COPY fdbclient/ fdbclient/
 COPY internal/ internal/
 COPY pkg/ pkg/
 COPY mock-kubernetes-client/ mock-kubernetes-client/
+COPY kubectl-fdb/ kubectl-fdb/
 
 # Build
-RUN CGO_ENABLED=1 GOOS=linux GOARCH=amd64 GO111MODULE=on make manager
+RUN CGO_ENABLED=1 GOOS=linux GOARCH=amd64 GO111MODULE=on make manager plugin-go
 
 # Create user and group here since we don't have the tools
 # in distroless
@@ -67,6 +68,7 @@ RUN set -eux && \
 COPY --from=builder /etc/passwd /etc/passwd
 COPY --from=builder /etc/group /etc/group
 COPY --chown=fdb:fdb --from=builder /workspace/bin/manager .
+COPY --chown=fdb:fdb --from=builder /workspace/bin/kubectl-fdb /usr/local/bin/kubectl-fdb
 COPY --chown=fdb:fdb --from=builder /var/log/fdb/.keep /var/log/fdb/.keep
 
 # Set to the numeric UID of fdb user to satisfy PodSecurityPolices which enforce runAsNonRoot

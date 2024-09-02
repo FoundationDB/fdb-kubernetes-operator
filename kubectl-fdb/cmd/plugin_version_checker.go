@@ -3,13 +3,14 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/hashicorp/go-retryablehttp"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/hashicorp/go-retryablehttp"
 )
 
 // VersionChecker interface to help us mock test the version checker
@@ -71,8 +72,7 @@ func isVersionFileCreatedToday(filename string) bool {
 func writeVersionToLocalTempFile(fileName string, version string) (int, error) {
 	file, err := os.OpenFile(fileName, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
 	if err != nil {
-		// Handle the error if the file cannot be opened.
-		panic(err)
+		return 0, err
 	}
 	defer file.Close()
 	return file.WriteString(version)
@@ -103,10 +103,10 @@ func readVersionFromGitHub() (string, error) {
 		fmt.Println("Failed to fetch kubectl-fdb version from GitHub")
 		return "", err
 	}
-	if resp == nil {
-		return "", nil
-	}
-	defer resp.Body.Close()
+
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 	body, err := io.ReadAll(resp.Body)
 
 	if err != nil {

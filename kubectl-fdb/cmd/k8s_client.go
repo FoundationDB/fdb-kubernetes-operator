@@ -21,7 +21,6 @@
 package cmd
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -44,11 +43,8 @@ import (
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -182,10 +178,10 @@ func getNodes(kubeClient client.Client, nodeSelector map[string]string) ([]strin
 	return nodes, nil
 }
 
-func getPodsForCluster(kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluster) (*corev1.PodList, error) {
+func getPodsForCluster(ctx context.Context, kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluster) (*corev1.PodList, error) {
 	var podList corev1.PodList
 	err := kubeClient.List(
-		context.Background(),
+		ctx,
 		&podList,
 		client.MatchingLabels(cluster.GetMatchLabels()),
 		client.InNamespace(cluster.GetNamespace()))
@@ -193,44 +189,19 @@ func getPodsForCluster(kubeClient client.Client, cluster *fdbv1beta2.FoundationD
 	return &podList, err
 }
 
-func executeCmd(restConfig *rest.Config, kubeClient *kubernetes.Clientset, podName string, namespace string, command string) (*bytes.Buffer, *bytes.Buffer, error) {
-	cmd := []string{
-		"/bin/bash",
-		"-c",
-		command,
-	}
-	req := kubeClient.CoreV1().RESTClient().Post().
-		Resource("pods").Name(podName).
-		Namespace(namespace).SubResource("exec")
+func getRunningPodsForCluster(ctx context.Context, kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluster) (*corev1.PodList, error) {
+	var podList corev1.PodList
+	err := kubeClient.List(
+		ctx,
+		&podList,
+		client.MatchingLabels(cluster.GetMatchLabels()),
+		client.InNamespace(cluster.GetNamespace()),
+		client.MatchingFields{"status.phase": "Running"})
 
-	option := &corev1.PodExecOptions{
-		Command:   cmd,
-		Container: fdbv1beta2.MainContainerName,
-		Stdin:     false,
-		Stdout:    true,
-		Stderr:    true,
-		TTY:       true,
-	}
-	req.VersionedParams(
-		option,
-		clientgoscheme.ParameterCodec,
-	)
-	exec, err := remotecommand.NewSPDYExecutor(restConfig, "POST", req.URL())
-	if err != nil {
-		return nil, nil, err
-	}
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	err = exec.Stream(remotecommand.StreamOptions{
-		Stdin:  nil,
-		Stdout: &stdout,
-		Stderr: &stderr,
-	})
-
-	return &stdout, &stderr, err
+	return &podList, err
 }
 
-func getAllPodsFromClusterWithCondition(stdErr io.Writer, kubeClient client.Client, clusterName string, namespace string, conditions []fdbv1beta2.ProcessGroupConditionType) ([]string, error) {
+func getAllPodsFromClusterWithCondition(ctx context.Context, stdErr io.Writer, kubeClient client.Client, clusterName string, namespace string, conditions []fdbv1beta2.ProcessGroupConditionType) ([]string, error) {
 	cluster, err := loadCluster(kubeClient, namespace, clusterName)
 	if err != nil {
 		return []string{}, err
@@ -249,7 +220,7 @@ func getAllPodsFromClusterWithCondition(stdErr io.Writer, kubeClient client.Clie
 	}
 
 	podNames := make([]string, 0, len(processesSet))
-	pods, err := getPodsForCluster(kubeClient, cluster)
+	pods, err := getPodsForCluster(ctx, kubeClient, cluster)
 	if err != nil {
 		return podNames, err
 	}
@@ -261,7 +232,7 @@ func getAllPodsFromClusterWithCondition(stdErr io.Writer, kubeClient client.Clie
 
 	for process := range processesSet {
 		if _, ok := podMap[string(process)]; !ok {
-			fmt.Fprintf(stdErr, "Skipping Process Group: %s, because it does not have a corresponding Pod.\n", process)
+			_, _ = fmt.Fprintf(stdErr, "Skipping Process Group: %s, because it does not have a corresponding Pod.\n", process)
 			continue
 		}
 		pod := podMap[string(process)]
@@ -270,7 +241,7 @@ func getAllPodsFromClusterWithCondition(stdErr io.Writer, kubeClient client.Clie
 			continue
 		}
 		if pod.Status.Phase != corev1.PodRunning {
-			fmt.Fprintf(stdErr, "Skipping Process Group: %s, Pod is not running, current phase: %s\n", process, pod.Status.Phase)
+			_, _ = fmt.Fprintf(stdErr, "Skipping Process Group: %s, Pod is not running, current phase: %s\n", process, pod.Status.Phase)
 			continue
 		}
 
@@ -524,7 +495,7 @@ func getPodNamesByCluster(cmd *cobra.Command, kubeClient client.Client, opts pro
 			return nil, err
 		}
 	} else if len(opts.conditions) > 0 {
-		podNames, err = getAllPodsFromClusterWithCondition(cmd.ErrOrStderr(), kubeClient, opts.clusterName, opts.namespace, opts.conditions)
+		podNames, err = getAllPodsFromClusterWithCondition(cmd.Context(), cmd.ErrOrStderr(), kubeClient, opts.clusterName, opts.namespace, opts.conditions)
 		if err != nil {
 			return nil, err
 		}
@@ -585,7 +556,7 @@ func getProcessGroupsByCluster(cmd *cobra.Command, kubeClient client.Client, opt
 	} else if len(opts.matchLabels) > 0 {
 		podNames, err = getPodsMatchingLabels(kubeClient, cluster, opts.namespace, opts.matchLabels)
 	} else if len(opts.conditions) > 0 {
-		podNames, err = getAllPodsFromClusterWithCondition(cmd.ErrOrStderr(), kubeClient, opts.clusterName, opts.namespace, opts.conditions)
+		podNames, err = getAllPodsFromClusterWithCondition(cmd.Context(), cmd.ErrOrStderr(), kubeClient, opts.clusterName, opts.namespace, opts.conditions)
 	} else if !opts.useProcessGroupID { // match by pod name
 		podNames = opts.ids
 	} else { // match by process group ID

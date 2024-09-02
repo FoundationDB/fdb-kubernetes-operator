@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 
+	kubeHelper "github.com/FoundationDB/fdb-kubernetes-operator/internal/kubernetes"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -46,6 +48,8 @@ var _ = BeforeSuite(func() {
 	Expect(fdbv1beta2.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
 	// We have to create those indexes, otherwise the fake client is complaining.
 	k8sClient = mockclient.NewMockClientWithHooksAndIndexes(scheme.Scheme, nil, nil, true)
+	// Allow the unit tests to run the spdy executor, we can extend that later to allow better mocking.
+	kubeHelper.NewSPDYExecutor = kubeHelper.FakeNewSPDYExecutor
 })
 
 var _ = BeforeEach(func() {

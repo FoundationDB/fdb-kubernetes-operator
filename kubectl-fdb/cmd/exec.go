@@ -21,23 +21,17 @@
 package cmd
 
 import (
-	ctx "context"
-	"fmt"
 	"log"
-	"math/rand"
-	"os"
-	"os/exec"
+	"strings"
 
-	"k8s.io/cli-runtime/pkg/genericclioptions"
-
+	kubeHelper "github.com/FoundationDB/fdb-kubernetes-operator/internal/kubernetes"
 	"github.com/spf13/cobra"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/selection"
+	"golang.org/x/net/context"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 )
 
 func newExecCmd(streams genericclioptions.IOStreams) *cobra.Command {
@@ -68,12 +62,12 @@ func newExecCmd(streams genericclioptions.IOStreams) *cobra.Command {
 				return err
 			}
 
-			err = runExec(kubeClient, cluster, *o.configFlags.Context, namespace, args)
+			config, err := o.configFlags.ToRESTConfig()
 			if err != nil {
 				return err
 			}
 
-			return nil
+			return runExec(cmd.Context(), kubeClient, cluster, config, args)
 		},
 		Example: `
  # Open a shell.
@@ -98,76 +92,21 @@ func newExecCmd(streams genericclioptions.IOStreams) *cobra.Command {
 	return cmd
 }
 
-func buildCommand(kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluster, context string, namespace string, commandArgs []string) (exec.Cmd, error) {
-	pods := &corev1.PodList{}
-
-	selector := labels.NewSelector()
-
-	err := internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
-	if err != nil {
-		return exec.Cmd{}, err
-	}
-
-	for key, value := range cluster.GetMatchLabels() {
-		requirement, err := labels.NewRequirement(key, selection.Equals, []string{value})
-		if err != nil {
-			return exec.Cmd{}, err
-		}
-		selector = selector.Add(*requirement)
-	}
-
-	processClassRequirement, err := labels.NewRequirement(cluster.GetProcessClassLabel(), selection.Exists, nil)
-	if err != nil {
-		return exec.Cmd{}, err
-	}
-	selector = selector.Add(*processClassRequirement)
-
-	err = kubeClient.List(ctx.Background(), pods,
-		client.InNamespace(namespace),
-		client.MatchingLabelsSelector{Selector: selector},
-		client.MatchingFields{"status.phase": "Running"},
-	)
-	if err != nil {
-		return exec.Cmd{}, err
-	}
-	if len(pods.Items) == 0 {
-		return exec.Cmd{}, fmt.Errorf("no usable pods found for cluster %s", cluster.Name)
-	}
-	kubectlPath, err := exec.LookPath("kubectl")
-	if err != nil {
-		return exec.Cmd{}, err
-	}
-
-	args := []string{kubectlPath}
-	if context != "" {
-		args = append(args, "--context", context)
-	}
-
-	randomPodIndex := rand.Int31n(int32(len(pods.Items)))
-
-	args = append(args, "--namespace", namespace, "exec", "-it", pods.Items[randomPodIndex].Name)
-	if len(commandArgs) > 0 {
-		args = append(args, "--")
-		args = append(args, commandArgs...)
-	} else {
-		args = append(args, "--", "bash")
-	}
-
-	execCommand := exec.Cmd{
-		Path:   kubectlPath,
-		Args:   args,
-		Stdin:  os.Stdin,
-		Stdout: os.Stdout,
-		Stderr: os.Stderr,
-	}
-
-	return execCommand, nil
-}
-
-func runExec(kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluster, context string, namespace string, commandArgs []string) error {
-	command, err := buildCommand(kubeClient, cluster, context, namespace, commandArgs)
+func runExec(ctx context.Context, kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluster, config *rest.Config, commandArgs []string) error {
+	pods, err := getRunningPodsForCluster(ctx, kubeClient, cluster)
 	if err != nil {
 		return err
 	}
-	return command.Run()
+
+	clientPod, err := kubeHelper.PickRandomPod(pods)
+	if err != nil {
+		return err
+	}
+
+	_, stderr, err := kubeHelper.ExecuteCommandOnPod(ctx, kubeClient, config, clientPod, fdbv1beta2.MainContainerName, strings.Join(commandArgs, " "), false)
+	if err != nil {
+		log.Println(stderr)
+	}
+
+	return err
 }

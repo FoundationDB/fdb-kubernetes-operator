@@ -37,5 +37,4 @@ var _ = Describe("[plugin] exclustion stats command", func() {
 		Entry("five TiB", 5*1024*1024*1024*1024, "5.00Ti"),
 		Entry("six Pib", 6*1024*1024*1024*1024*1024, "6.00Pi"),
 	)
-
 })

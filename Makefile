@@ -111,6 +111,9 @@ manager: bin/manager
 bin/manager: ${GO_SRC}
 	go build -ldflags="-s -w -X github.com/FoundationDB/fdb-kubernetes-operator/setup.operatorVersion=${TAG}" -o bin/manager main.go
 
+plugin-go:
+	go build -ldflags="-s -w -X github.com/FoundationDB/fdb-kubernetes-operator/kubectl-fdb/cmd.pluginVersion=${TAG}" -o bin/kubectl-fdb ./kubectl-fdb/main.go
+
 # Build kubectl-fdb binary
 plugin: bin/kubectl-fdb
 

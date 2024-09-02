@@ -29,91 +29,10 @@ import (
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var _ = Describe("[plugin] fix-coordinator-ips command", func() {
-	When("building cluster file update commands", func() {
-		type testCase struct {
-			Context          string
-			ExpectedCommands [][]string
-			ExpectedError    string
-		}
-
-		BeforeEach(func() {
-			Expect(k8sClient.Create(context.TODO(), &corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "storage-1",
-					Namespace: namespace,
-					Labels: map[string]string{
-						fdbv1beta2.FDBProcessClassLabel: string(fdbv1beta2.ProcessClassStorage),
-						fdbv1beta2.FDBClusterLabel:      clusterName,
-					},
-				},
-			})).NotTo(HaveOccurred())
-		})
-
-		DescribeTable("should execute the provided command",
-			func(input testCase) {
-				cluster.Status.ConnectionString = "test:test@127.0.0.1:4501"
-				commands, err := buildClusterFileUpdateCommands(cluster, k8sClient, input.Context, namespace, "/usr/local/bin/kubectl")
-
-				if input.ExpectedError != "" {
-					Expect(err).To(HaveOccurred())
-					Expect(err.Error()).To(Equal(input.ExpectedError))
-				} else {
-					Expect(err).NotTo(HaveOccurred())
-					Expect(commands).To(HaveLen(len(input.ExpectedCommands)))
-					for index, command := range commands {
-						Expect(command.Args).To(Equal(input.ExpectedCommands[index]))
-					}
-				}
-			},
-			Entry("instance with valid pod",
-				testCase{
-					ExpectedCommands: [][]string{
-						{
-							"/usr/local/bin/kubectl",
-							"--namespace",
-							"test",
-							"exec",
-							"-it",
-							"-c",
-							fdbv1beta2.MainContainerName,
-							"storage-1",
-							"--",
-							"bash",
-							"-c",
-							"echo test:test@127.0.0.1:4501 > /var/fdb/data/fdb.cluster && pkill fdbserver",
-						},
-					},
-				}),
-			Entry("instance with explicit context",
-				testCase{
-					Context: "remote-kc",
-					ExpectedCommands: [][]string{
-						{
-							"/usr/local/bin/kubectl",
-							"--namespace",
-							"test",
-							"--context",
-							"remote-kc",
-							"exec",
-							"-it",
-							"-c",
-							fdbv1beta2.MainContainerName,
-							"storage-1",
-							"--",
-							"bash",
-							"-c",
-							"echo test:test@127.0.0.1:4501 > /var/fdb/data/fdb.cluster && pkill fdbserver",
-						},
-					},
-				},
-			),
-		)
-	})
 	When("updating the connection string", func() {
 		type testCase struct {
 			Context                  string

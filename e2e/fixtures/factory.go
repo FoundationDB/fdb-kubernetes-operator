@@ -21,7 +21,6 @@
 package fixtures
 
 import (
-	"bytes"
 	ctx "context"
 	"fmt"
 	"golang.org/x/net/context"
@@ -34,15 +33,13 @@ import (
 	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	kubeHelper "github.com/FoundationDB/fdb-kubernetes-operator/internal/kubernetes"
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/duration"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/remotecommand"
-	"k8s.io/kubectl/pkg/scheme"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -65,7 +62,6 @@ type Factory struct {
 	certificate             *corev1.Secret
 	namespaces              []string
 	controllerRuntimeClient client.Client
-	kubernetesClient        *kubernetes.Clientset
 	config                  *rest.Config
 	fdbVersion              fdbv1beta2.Version
 }
@@ -86,7 +82,6 @@ func CreateFactory(options *FactoryOptions) *Factory {
 		userName:                configuration.userName,
 		controllerRuntimeClient: configuration.controllerRuntimeClient,
 		fdbVersion:              configuration.fdbVersion,
-		kubernetesClient:        configuration.client,
 		config:                  configuration.config,
 	}
 }
@@ -140,10 +135,6 @@ func (factory *Factory) GetBackupSecretName() string {
 
 func (factory *Factory) getConfig() *rest.Config {
 	return factory.config
-}
-
-func (factory *Factory) getClient() *kubernetes.Clientset {
-	return factory.kubernetesClient
 }
 
 // DeletePod deletes the provided Pod
@@ -448,7 +439,14 @@ func (factory *Factory) ExecuteCmdOnPod(
 	command string,
 	printOutput bool,
 ) (string, string, error) {
-	return factory.ExecuteCmd(ctx, pod.Namespace, pod.Name, container, command, printOutput)
+	return kubeHelper.ExecuteCommandOnPod(
+		context.Background(),
+		factory.GetControllerRuntimeClient(),
+		factory.getConfig(),
+		pod,
+		container,
+		command,
+		printOutput)
 }
 
 // ExecuteCmd executes command in the default container of a Pod with shell, returns stdout and stderr.
@@ -460,32 +458,15 @@ func (factory *Factory) ExecuteCmd(
 	command string,
 	printOutput bool,
 ) (string, string, error) {
-	cmd := []string{
-		"/bin/bash",
-		"-c",
+	return kubeHelper.ExecuteCommand(
+		context.Background(),
+		factory.GetControllerRuntimeClient(),
+		factory.getConfig(),
+		namespace,
+		name,
+		container,
 		command,
-	}
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	err := factory.ExecuteCommandRaw(ctx, namespace, name, container, cmd, nil, &stdout, &stderr, false)
-	sout := stdout.String()
-	serr := stderr.String()
-	// TODO: Stream these to our own stdout as we run.
-	if printOutput {
-		if sout != "" && !strings.Contains(serr, "constructing many client") {
-			log.Println(sout)
-		}
-		// Callers of this used to skip printing serr if err was nil, but we never populate serr
-		// if err is nil; always print for now.
-		if serr != "" &&
-			!strings.Contains(
-				serr,
-				"constructing many client",
-			) { // ignoring constructing many client message
-			log.Println(serr)
-		}
-	}
-	return sout, serr, err
+		printOutput)
 }
 
 // ExecuteCommandRaw will run the command without putting it into a shell.
@@ -500,105 +481,36 @@ func (factory *Factory) ExecuteCommandRaw(
 	stderr io.Writer,
 	isTty bool,
 ) error {
-	req := factory.getClient().CoreV1().RESTClient().Post().
-		Resource("pods").Name(name).
-		Namespace(namespace).SubResource("exec")
-	option := &corev1.PodExecOptions{
-		Command:   command,
-		Container: container,
-		Stdin:     stdin != nil,
-		Stdout:    stdout != nil,
-		Stderr:    stderr != nil,
-		TTY:       isTty,
-	}
-	req.VersionedParams(
-		option,
-		scheme.ParameterCodec,
-	)
-	spdyExec, err := remotecommand.NewSPDYExecutor(factory.getConfig(), "POST", req.URL())
-	if err != nil {
-		return err
-	}
-	return spdyExec.StreamWithContext(ctx,
-		remotecommand.StreamOptions{
-			Stdin:  stdin,
-			Stdout: stdout,
-			Stderr: stderr,
-		})
-}
-
-// DownloadFile will download the file from the provided Pod/container into w.
-func (factory *Factory) DownloadFile(ctx context.Context, target *corev1.Pod, container string, src string, w io.Writer) error {
-	errOut := bytes.NewBuffer([]byte{})
-	reader, writer := io.Pipe()
-	defer func() {
-		log.Println("Done downloading file")
-		_ = writer.Close()
-	}()
-
-	// Copy the content from stdout of the container to the new file.
-	go func() {
-		defer func() {
-			_ = writer.Close()
-		}()
-		_, err := io.Copy(w, reader)
-		if err != nil {
-			log.Println("DownloadFile copy, err:", err)
-		}
-	}()
-
-	err := factory.ExecuteCommandRaw(ctx, target.Namespace, target.Name, container, []string{"/bin/cp", src, "/dev/stdout"}, nil, writer, errOut, false)
-	if err != nil {
-		log.Println(errOut.String())
-	}
-
-	return err
-}
-
-// UploadFile uploads a file from src into the Pod/container dst.
-func (factory *Factory) UploadFile(ctx context.Context, target *corev1.Pod, container string, src io.Reader, dst string) error {
-	out := bytes.NewBuffer([]byte{})
-	errOut := bytes.NewBuffer([]byte{})
-	reader, writer := io.Pipe()
-	defer func() {
-		log.Println("Done uploading file")
-		_ = reader.Close()
-	}()
-
-	// Read the file provided via src and pipe it to the reader.
-	go func(r io.Reader, writer *io.PipeWriter) {
-		defer func() {
-			_ = writer.Close()
-		}()
-		_, err := io.Copy(writer, r)
-		if err != nil {
-			log.Println("UploadFile copy, err:", err)
-		}
-	}(src, writer)
-
-	err := factory.ExecuteCommandRaw(ctx, target.Namespace, target.Name, container, []string{"tee", "-a", dst}, reader, out, errOut, false)
-	if err != nil {
-		log.Println(errOut.String())
-	}
-
-	return err
+	return kubeHelper.ExecuteCommandRaw(
+		context.Background(),
+		factory.GetControllerRuntimeClient(),
+		factory.getConfig(),
+		namespace,
+		name,
+		container,
+		command,
+		stdin,
+		stdout,
+		stderr,
+		isTty)
 }
 
 // GetLogsFromPod returns the logs for the provided Pod and container
 func (factory *Factory) GetLogsFromPod(pod *corev1.Pod, container string) string {
-	req := factory.getClient().CoreV1().RESTClient().Get().
-		Namespace(pod.Namespace).
-		Name(pod.Name).
-		Resource("pods").
-		SubResource("log").
-		Param("container", container)
-	readCloser, err := req.Stream(ctx.Background())
+	logs, err := kubeHelper.GetLogsFromPod(context.Background(), factory.GetControllerRuntimeClient(), factory.getConfig(), pod, container, pointer.Int64(pod.CreationTimestamp.Unix()))
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	defer func() { _ = readCloser.Close() }()
-	var out bytes.Buffer
-	_, err = io.Copy(&out, readCloser)
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	return out.String()
+
+	return logs
+}
+
+// GetLogsForPod will fetch the logs for the specified Pod and container since the provided seconds.
+func (factory *Factory) GetLogsForPod(pod *corev1.Pod, container string, since *int64) string {
+	logs, err := kubeHelper.GetLogsFromPod(context.Background(), factory.GetControllerRuntimeClient(), factory.getConfig(), pod, container, since)
+	if err != nil {
+		log.Println(err)
+	}
+
+	return logs
 }
 
 // GetDefaultLabels returns the default labels set to all resources.
@@ -807,37 +719,9 @@ func (factory *Factory) DumpState(fdbCluster *FdbCluster) {
 
 	// Printout the logs of the operator Pods for the last 90 seconds.
 	for _, pod := range operatorPods {
-		log.Println(factory.GetLogsForPod(pod, "manager", pointer.Int64(300)))
+		targetPod := pod
+		log.Println(factory.GetLogsForPod(&targetPod, "manager", pointer.Int64(300)))
 	}
-}
-
-// GetLogsForPod will fetch the logs for the specified Pod and container since the provided seconds.
-func (factory *Factory) GetLogsForPod(pod corev1.Pod, container string, since *int64) string {
-	req := factory.getClient().CoreV1().
-		Pods(pod.Namespace).
-		GetLogs(pod.Name, &corev1.PodLogOptions{
-			Container:    container,
-			Follow:       false,
-			SinceSeconds: since,
-		})
-
-	readCloser, err := req.Stream(ctx.Background())
-	if err != nil {
-		log.Println(err)
-		return ""
-	}
-
-	logs, err := io.ReadAll(readCloser)
-	if err != nil {
-		log.Println(err)
-		_ = readCloser.Close()
-		return ""
-	}
-	if len(logs) == 0 {
-		return ""
-	}
-
-	return string(logs)
 }
 
 // DumpStateHaCluster can be used to dump the state of the HA cluster. This includes the Kubernetes custom resource

@@ -28,6 +28,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/rest"
 )
 
 var _ = Describe("[plugin] exec command", func() {
@@ -55,18 +56,7 @@ var _ = Describe("[plugin] exec command", func() {
 
 		DescribeTable("should execute the provided command",
 			func(input testCase) {
-				command, err := buildCommand(k8sClient, cluster, input.Context, namespace, input.Command)
-
-				if input.ExpectedError != "" {
-					Expect(err).To(HaveOccurred())
-					Expect(err.Error()).To(Equal(input.ExpectedError))
-				} else {
-					Expect(err).NotTo(HaveOccurred())
-					Expect(command).NotTo(Equal(""))
-					expectedArgs := []string{command.Path}
-					expectedArgs = append(expectedArgs, input.ExpectedArgs...)
-					Expect(command.Args).To(Equal(expectedArgs))
-				}
+				Expect(runExec(context.Background(), k8sClient, cluster, &rest.Config{}, input.Command)).NotTo(HaveOccurred())
 			},
 			Entry("Exec into instance with valid pod",
 				testCase{

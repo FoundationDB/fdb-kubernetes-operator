@@ -33,7 +33,6 @@ import (
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -43,7 +42,6 @@ type singleton struct {
 	options                 *FactoryOptions
 	userName                string
 	config                  *rest.Config
-	client                  *kubernetes.Clientset
 	controllerRuntimeClient client.Client
 	fdbVersion              fdbv1beta2.Version
 }
@@ -76,11 +74,6 @@ func getSingleton(options *FactoryOptions) (*singleton, error) {
 
 		var kubeConfig *rest.Config
 		kubeConfig, initializedError = config.GetConfigWithContext(options.context)
-		if initializedError != nil {
-			return
-		}
-		var kubernetesClient *kubernetes.Clientset
-		kubernetesClient, initializedError = kubernetes.NewForConfig(kubeConfig)
 		if initializedError != nil {
 			return
 		}
@@ -128,7 +121,6 @@ func getSingleton(options *FactoryOptions) (*singleton, error) {
 			options:                 options,
 			userName:                userName,
 			config:                  kubeConfig,
-			client:                  kubernetesClient,
 			fdbVersion:              fdbVersion,
 			controllerRuntimeClient: controllerClient,
 		}
