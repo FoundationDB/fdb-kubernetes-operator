@@ -21,17 +21,16 @@
 package cmd
 
 import (
+	"context"
 	"log"
 	"strings"
 
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	kubeHelper "github.com/FoundationDB/fdb-kubernetes-operator/internal/kubernetes"
 	"github.com/spf13/cobra"
-	"golang.org/x/net/context"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 )
 
 func newExecCmd(streams genericclioptions.IOStreams) *cobra.Command {

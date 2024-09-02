@@ -22,8 +22,8 @@ package kubernetes
 
 import (
 	"bytes"
+	"context"
 	"fmt"
-	"golang.org/x/net/context"
 	"io"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -36,6 +36,7 @@ import (
 	"net/url"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
+	"sync"
 )
 
 // NewSPDYExecutor defines the NewSPDYExecutor method used for this package. For normal code you don't have to change it.
@@ -137,6 +138,87 @@ func ExecuteCommandOnPod(
 	printOutput bool,
 ) (string, string, error) {
 	return ExecuteCommand(ctx, kubeClient, config, pod.Namespace, pod.Name, container, command, printOutput)
+}
+
+// DownloadFile will download the file from the provided Pod/container into dst.
+func DownloadFile(
+	ctx context.Context,
+	kubeClient client.Client,
+	config *rest.Config,
+	target *corev1.Pod,
+	container string,
+	src string,
+	dst io.Writer) error {
+	errOut := bytes.NewBuffer([]byte{})
+	reader, writer := io.Pipe()
+	wg := sync.WaitGroup{}
+
+	defer func() {
+		log.Println("Done downloading file")
+		_ = writer.Close()
+	}()
+
+	wg.Add(1)
+	// Copy the content from stdout of the container to the new file.
+	go func() {
+		defer func() {
+			_ = writer.Close()
+		}()
+		_, err := io.Copy(dst, reader)
+		if err != nil {
+			log.Println("DownloadFile copy, err:", err)
+		}
+		wg.Done()
+	}()
+
+	err := ExecuteCommandRaw(ctx, kubeClient, config, target.Namespace, target.Name, container, []string{"/bin/cp", src, "/dev/stdout"}, nil, writer, errOut, false)
+	if err != nil {
+		log.Println(errOut.String())
+	}
+
+	wg.Wait()
+	return err
+}
+
+// UploadFile uploads a file from src into the Pod/container dst.
+func UploadFile(
+	ctx context.Context,
+	kubeClient client.Client,
+	config *rest.Config,
+	target *corev1.Pod,
+	container string,
+	src io.Reader,
+	dst string) error {
+	out := bytes.NewBuffer([]byte{})
+	errOut := bytes.NewBuffer([]byte{})
+	reader, writer := io.Pipe()
+	wg := sync.WaitGroup{}
+
+	defer func() {
+		log.Println("Done uploading file")
+		_ = reader.Close()
+	}()
+
+	wg.Add(1)
+	// Read the file provided via src and pipe it to the reader.
+	go func(r io.Reader, writer *io.PipeWriter) {
+		defer func() {
+			_ = writer.Close()
+		}()
+		_, err := io.Copy(writer, r)
+		if err != nil {
+			log.Println("UploadFile copy, err:", err)
+		}
+		wg.Done()
+	}(src, writer)
+
+	err := ExecuteCommandRaw(ctx, kubeClient, config, target.Namespace, target.Name, container, []string{"tee", "-a", dst}, reader, out, errOut, false)
+	if err != nil {
+		log.Println(errOut.String())
+	}
+
+	wg.Wait()
+	return err
 }
 
 // GetLogsFromPod will fetch the logs for the specified Pod and container since the provided seconds.

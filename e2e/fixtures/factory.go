@@ -21,9 +21,8 @@
 package fixtures
 
 import (
-	ctx "context"
+	"context"
 	"fmt"
-	"golang.org/x/net/context"
 	"io"
 	"log"
 	"math/rand"
@@ -145,7 +144,7 @@ func (factory *Factory) DeletePod(pod *corev1.Pod) {
 // GetPod returns the Pod matching the namespace and name
 func (factory *Factory) GetPod(namespace string, name string) (*corev1.Pod, error) {
 	pod := &corev1.Pod{}
-	err := factory.GetControllerRuntimeClient().Get(ctx.Background(), client.ObjectKey{Name: name, Namespace: namespace}, pod)
+	err := factory.GetControllerRuntimeClient().Get(context.Background(), client.ObjectKey{Name: name, Namespace: namespace}, pod)
 
 	return pod, err
 }
@@ -329,7 +328,7 @@ func (factory *Factory) GetContext() string {
 func (factory *Factory) GetStorageClasses(labels map[string]string) *storagev1.StorageClassList {
 	storageClasses := &storagev1.StorageClassList{}
 	gomega.Expect(
-		factory.GetControllerRuntimeClient().List(ctx.TODO(), storageClasses, client.MatchingLabels(labels))).NotTo(gomega.HaveOccurred())
+		factory.GetControllerRuntimeClient().List(context.Background(), storageClasses, client.MatchingLabels(labels))).NotTo(gomega.HaveOccurred())
 
 	return storageClasses
 }
@@ -362,7 +361,7 @@ func (factory *Factory) getClusterStatus(
 ) (*fdbv1beta2.FoundationDBCluster, error) {
 	clusterRequest := &fdbv1beta2.FoundationDBCluster{}
 	err := factory.GetControllerRuntimeClient().
-		Get(ctx.Background(), client.ObjectKey{
+		Get(context.Background(), client.ObjectKey{
 			Name:      name,
 			Namespace: namespace}, clusterRequest)
 	if err != nil {
@@ -440,7 +439,7 @@ func (factory *Factory) ExecuteCmdOnPod(
 	printOutput bool,
 ) (string, string, error) {
 	return kubeHelper.ExecuteCommandOnPod(
-		context.Background(),
+		ctx,
 		factory.GetControllerRuntimeClient(),
 		factory.getConfig(),
 		pod,
@@ -459,7 +458,7 @@ func (factory *Factory) ExecuteCmd(
 	printOutput bool,
 ) (string, string, error) {
 	return kubeHelper.ExecuteCommand(
-		context.Background(),
+		ctx,
 		factory.GetControllerRuntimeClient(),
 		factory.getConfig(),
 		namespace,
@@ -482,7 +481,7 @@ func (factory *Factory) ExecuteCommandRaw(
 	isTty bool,
 ) error {
 	return kubeHelper.ExecuteCommandRaw(
-		context.Background(),
+		ctx,
 		factory.GetControllerRuntimeClient(),
 		factory.getConfig(),
 		namespace,
@@ -493,6 +492,40 @@ func (factory *Factory) ExecuteCommandRaw(
 		stdout,
 		stderr,
 		isTty)
+}
+
+// DownloadFile will download the file from the provided Pod/container into w.
+func (factory *Factory) DownloadFile(
+	ctx context.Context,
+	target *corev1.Pod,
+	container string,
+	src string,
+	w io.Writer) error {
+	return kubeHelper.DownloadFile(
+		ctx,
+		factory.GetControllerRuntimeClient(),
+		factory.getConfig(),
+		target,
+		container,
+		src,
+		w)
+}
+
+// UploadFile uploads a file from src into the Pod/container dst.
+func (factory *Factory) UploadFile(
+	ctx context.Context,
+	target *corev1.Pod,
+	container string,
+	src io.Reader,
+	dst string) error {
+	return kubeHelper.UploadFile(
+		ctx,
+		factory.GetControllerRuntimeClient(),
+		factory.getConfig(),
+		target,
+		container,
+		src,
+		dst)
 }
 
 // GetLogsFromPod returns the logs for the provided Pod and container
@@ -692,7 +725,7 @@ func (factory *Factory) DumpState(fdbCluster *FdbCluster) {
 	)
 	// Printout all Pods for this namespace
 	pods := &corev1.PodList{}
-	err := factory.controllerRuntimeClient.List(ctx.Background(), pods, client.InNamespace(cluster.Namespace))
+	err := factory.controllerRuntimeClient.List(context.Background(), pods, client.InNamespace(cluster.Namespace))
 	if err != nil {
 		log.Println(err)
 		return
@@ -784,14 +817,14 @@ func (factory *Factory) CreateIfAbsent(object client.Object) error {
 	ctrlClient := factory.GetControllerRuntimeClient()
 	err := ctrlClient.
 		Get(
-			ctx.Background(),
+			context.Background(),
 			client.ObjectKey{Namespace: object.GetNamespace(), Name: object.GetName()},
 			objectCopy,
 		)
 
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			return ctrlClient.Create(ctx.Background(), object)
+			return ctrlClient.Create(context.Background(), object)
 		}
 
 		return err
@@ -802,7 +835,7 @@ func (factory *Factory) CreateIfAbsent(object client.Object) error {
 
 // Delete will delete the provided resource if it exists.
 func (factory *Factory) Delete(object client.Object) {
-	err := factory.GetControllerRuntimeClient().Delete(ctx.TODO(), object)
+	err := factory.GetControllerRuntimeClient().Delete(context.Background(), object)
 	if err == nil || k8serrors.IsNotFound(err) {
 		return
 	}
@@ -858,7 +891,7 @@ func (factory *Factory) UseUnifiedImage() bool {
 // UpdateNode update node definition
 func (fdbCluster *FdbCluster) UpdateNode(node *corev1.Node) {
 	gomega.Eventually(func() bool {
-		err := fdbCluster.getClient().Update(ctx.Background(), node)
+		err := fdbCluster.getClient().Update(context.Background(), node)
 		return err == nil
 	}).WithTimeout(time.Duration(2) * time.Minute).WithPolling(2 * time.Second).Should(gomega.BeTrue())
 }
@@ -869,7 +902,7 @@ func (fdbCluster *FdbCluster) GetNode(name string) *corev1.Node {
 	node := &corev1.Node{}
 	gomega.Eventually(func() error {
 		return fdbCluster.getClient().
-			Get(ctx.TODO(), client.ObjectKey{Name: name}, node)
+			Get(context.Background(), client.ObjectKey{Name: name}, node)
 	}).WithTimeout(2 * time.Minute).WithPolling(1 * time.Second).ShouldNot(gomega.HaveOccurred())
 
 	return node

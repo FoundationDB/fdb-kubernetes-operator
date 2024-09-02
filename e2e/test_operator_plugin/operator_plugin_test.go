@@ -25,6 +25,7 @@ This test suite includes functional tests for the kubectl-fdb plugin.
 */
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"time"
@@ -78,7 +79,7 @@ var _ = Describe("Operator Plugin", Label("e2e", "pr"), func() {
 			operatorPod := factory.RandomPickOnePod(factory.GetOperatorPods(fdbCluster.Namespace()).Items)
 			log.Println("operatorPod", operatorPod.Name)
 			Eventually(func(g Gomega) string {
-				stdout, stderr, err := factory.ExecuteCmdOnPod(&operatorPod, "manager", fmt.Sprintf("kubectl-fdb -n %s version", fdbCluster.Namespace()), false)
+				stdout, stderr, err := factory.ExecuteCmdOnPod(context.Background(), &operatorPod, "manager", fmt.Sprintf("kubectl-fdb -n %s version", fdbCluster.Namespace()), false)
 				g.Expect(err).NotTo(HaveOccurred(), stderr)
 				return stdout
 			}).WithTimeout(10 * time.Minute).WithPolling(2 * time.Second).Should(And(ContainSubstring("kubectl-fdb:"), ContainSubstring("foundationdb-operator:")))

@@ -22,7 +22,6 @@ package cmd
 
 import (
 	"bytes"
-	"context"
 
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 
@@ -85,7 +84,7 @@ var _ = Describe("[plugin] fix-coordinator-ips command", func() {
 				inBuffer := bytes.Buffer{}
 
 				rootCmd := NewRootCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer}, &MockVersionChecker{})
-				err := updateIPsInConnectionString(context.Background(), rootCmd, cluster, k8sClient)
+				err := updateIPsInConnectionString(rootCmd, cluster, k8sClient)
 
 				if input.ExpectedError != "" {
 					Expect(err).To(HaveOccurred())
