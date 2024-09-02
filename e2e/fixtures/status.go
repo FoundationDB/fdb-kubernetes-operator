@@ -22,6 +22,7 @@ package fixtures
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -133,6 +134,7 @@ func (fdbCluster *FdbCluster) RunFdbCliCommandInOperatorWithoutRetry(
 	// is returned) we will try the version for the spec. This should reduce some test flakiness.
 	for _, fdbCliPath := range fdbCliPaths {
 		stdout, stderr, err = fdbCluster.factory.ExecuteCmd(
+			context.Background(),
 			pod.Namespace,
 			pod.Name,
 			"manager",

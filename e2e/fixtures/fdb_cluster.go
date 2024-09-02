@@ -23,6 +23,7 @@ package fixtures
 import (
 	ctx "context"
 	"fmt"
+	"golang.org/x/net/context"
 	"log"
 	"math"
 	"strconv"
@@ -79,7 +80,7 @@ func (fdbCluster *FdbCluster) ExecuteCmdOnPod(
 	command string,
 	printOutput bool,
 ) (string, string, error) {
-	return fdbCluster.factory.ExecuteCmd(pod.Namespace, pod.Name, container, command, printOutput)
+	return fdbCluster.factory.ExecuteCmd(context.Background(), pod.Namespace, pod.Name, container, command, printOutput)
 }
 
 func (factory *Factory) createFdbClusterObject(
@@ -1479,4 +1480,16 @@ func (fdbCluster *FdbCluster) GetListOfUIDsFromVolumeClaims(processClass fdbv1be
 	}
 
 	return uids
+}
+
+// UpdateConnectionString will update the connection string in the ConfigMap and the SeedConnectionString of the custer.
+func (fdbCluster *FdbCluster) UpdateConnectionString(connectionString string) {
+	fdbCluster.cluster.Spec.SeedConnectionString = connectionString
+	fdbCluster.UpdateClusterSpec()
+
+	cm := &corev1.ConfigMap{}
+	gomega.Expect(fdbCluster.factory.controllerRuntimeClient.Get(ctx.Background(), client.ObjectKey{Namespace: fdbCluster.Namespace(), Name: fdbCluster.Name() + "-config"}, cm)).NotTo(gomega.HaveOccurred())
+	gomega.Expect(cm.Data).To(gomega.HaveKey(fdbv1beta2.ClusterFileKey))
+	cm.Data[fdbv1beta2.ClusterFileKey] = connectionString
+	gomega.Expect(fdbCluster.factory.controllerRuntimeClient.Update(ctx.Background(), cm)).NotTo(gomega.HaveOccurred())
 }

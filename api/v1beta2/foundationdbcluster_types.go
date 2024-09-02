@@ -96,10 +96,9 @@ type FoundationDBClusterSpec struct {
 	// infer the process counts based on the database configuration.
 	ProcessCounts ProcessCounts `json:"processCounts,omitempty"`
 
-	// SeedConnectionString provides a connection string for the initial
-	// reconciliation.
-	//
-	// After the initial reconciliation, this will not be used.
+	// SeedConnectionString provides an additional connection string. This connection string will be used in addition
+	// to the connection string defined under cluster.Status.ConnectionString to connect to the cluster. This setting
+	// can be used to create a multi-region cluster or to recover a cluster if it is out of sync.
 	SeedConnectionString string `json:"seedConnectionString,omitempty"`
 
 	// PartialConnectionString provides a way to specify part of the

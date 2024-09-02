@@ -865,6 +865,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				// File creation should fail due to I/O error
 				Eventually(func() error {
 					_, _, err := factory.ExecuteCmdOnPod(
+						context.Background(),
 						&podWithIOError,
 						fdbv1beta2.MainContainerName,
 						"touch /var/fdb/data/test",
@@ -2378,6 +2379,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			var kubernetesServiceHost string
 			Eventually(func(g Gomega) error {
 				std, _, err := factory.ExecuteCmdOnPod(
+					context.Background(),
 					&selectedPod,
 					fdbv1beta2.MainContainerName,
 					"printenv KUBERNETES_SERVICE_HOST",
@@ -2394,6 +2396,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			// Make sure that the partition takes effect.
 			Eventually(func() error {
 				_, _, err := factory.ExecuteCmdOnPod(
+					context.Background(),
 					&selectedPod,
 					fdbv1beta2.MainContainerName,
 					fmt.Sprintf("nc -vz -w 2 %s 443", kubernetesServiceHost),

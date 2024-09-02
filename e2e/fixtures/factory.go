@@ -24,6 +24,7 @@ import (
 	"bytes"
 	ctx "context"
 	"fmt"
+	"golang.org/x/net/context"
 	"io"
 	"log"
 	"math/rand"
@@ -441,16 +442,18 @@ type ClusterOption func(*Factory, *fdbv1beta2.FoundationDBCluster)
 
 // ExecuteCmdOnPod runs a command on the provided Pod. The command will be executed inside a bash -c ”.
 func (factory *Factory) ExecuteCmdOnPod(
+	ctx context.Context,
 	pod *corev1.Pod,
 	container string,
 	command string,
 	printOutput bool,
 ) (string, string, error) {
-	return factory.ExecuteCmd(pod.Namespace, pod.Name, container, command, printOutput)
+	return factory.ExecuteCmd(ctx, pod.Namespace, pod.Name, container, command, printOutput)
 }
 
 // ExecuteCmd executes command in the default container of a Pod with shell, returns stdout and stderr.
 func (factory *Factory) ExecuteCmd(
+	ctx context.Context,
 	namespace string,
 	name string,
 	container string,
@@ -464,7 +467,7 @@ func (factory *Factory) ExecuteCmd(
 	}
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	err := factory.ExecuteCommandRaw(namespace, name, container, cmd, nil, &stdout, &stderr, false)
+	err := factory.ExecuteCommandRaw(ctx, namespace, name, container, cmd, nil, &stdout, &stderr, false)
 	sout := stdout.String()
 	serr := stderr.String()
 	// TODO: Stream these to our own stdout as we run.
@@ -487,6 +490,7 @@ func (factory *Factory) ExecuteCmd(
 
 // ExecuteCommandRaw will run the command without putting it into a shell.
 func (factory *Factory) ExecuteCommandRaw(
+	ctx context.Context,
 	namespace string,
 	name string,
 	container string,
@@ -511,15 +515,73 @@ func (factory *Factory) ExecuteCommandRaw(
 		option,
 		scheme.ParameterCodec,
 	)
-	exec, err := remotecommand.NewSPDYExecutor(factory.getConfig(), "POST", req.URL())
+	spdyExec, err := remotecommand.NewSPDYExecutor(factory.getConfig(), "POST", req.URL())
 	if err != nil {
 		return err
 	}
-	return exec.Stream(remotecommand.StreamOptions{
-		Stdin:  stdin,
-		Stdout: stdout,
-		Stderr: stderr,
-	})
+	return spdyExec.StreamWithContext(ctx,
+		remotecommand.StreamOptions{
+			Stdin:  stdin,
+			Stdout: stdout,
+			Stderr: stderr,
+		})
+}
+
+// DownloadFile will download the file from the provided Pod/container into w.
+func (factory *Factory) DownloadFile(ctx context.Context, target *corev1.Pod, container string, src string, w io.Writer) error {
+	errOut := bytes.NewBuffer([]byte{})
+	reader, writer := io.Pipe()
+	defer func() {
+		log.Println("Done downloading file")
+		_ = writer.Close()
+	}()
+
+	// Copy the content from stdout of the container to the new file.
+	go func() {
+		defer func() {
+			_ = writer.Close()
+		}()
+		_, err := io.Copy(w, reader)
+		if err != nil {
+			log.Println("DownloadFile copy, err:", err)
+		}
+	}()
+
+	err := factory.ExecuteCommandRaw(ctx, target.Namespace, target.Name, container, []string{"/bin/cp", src, "/dev/stdout"}, nil, writer, errOut, false)
+	if err != nil {
+		log.Println(errOut.String())
+	}
+
+	return err
+}
+
+// UploadFile uploads a file from src into the Pod/container dst.
+func (factory *Factory) UploadFile(ctx context.Context, target *corev1.Pod, container string, src io.Reader, dst string) error {
+	out := bytes.NewBuffer([]byte{})
+	errOut := bytes.NewBuffer([]byte{})
+	reader, writer := io.Pipe()
+	defer func() {
+		log.Println("Done uploading file")
+		_ = reader.Close()
+	}()
+
+	// Read the file provided via src and pipe it to the reader.
+	go func(r io.Reader, writer *io.PipeWriter) {
+		defer func() {
+			_ = writer.Close()
+		}()
+		_, err := io.Copy(writer, r)
+		if err != nil {
+			log.Println("UploadFile copy, err:", err)
+		}
+	}(src, writer)
+
+	err := factory.ExecuteCommandRaw(ctx, target.Namespace, target.Name, container, []string{"tee", "-a", dst}, reader, out, errOut, false)
+	if err != nil {
+		log.Println(errOut.String())
+	}
+
+	return err
 }
 
 // GetLogsFromPod returns the logs for the provided Pod and container
