@@ -25,18 +25,19 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
+	"math/rand"
+	"net/url"
+
+	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/kubectl/pkg/scheme"
-	"log"
-	"math/rand"
-	"net/url"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
-	"sync"
 )
 
 // NewSPDYExecutor defines the NewSPDYExecutor method used for this package. For normal code you don't have to change it.
@@ -151,32 +152,35 @@ func DownloadFile(
 	dst io.Writer) error {
 	errOut := bytes.NewBuffer([]byte{})
 	reader, writer := io.Pipe()
-	wg := sync.WaitGroup{}
+	var wg errgroup.Group
 
 	defer func() {
 		log.Println("Done downloading file")
-		_ = writer.Close()
 	}()
 
-	wg.Add(1)
 	// Copy the content from stdout of the container to the new file.
-	go func() {
+	wg.Go(func() error {
 		defer func() {
-			_ = writer.Close()
+			_ = reader.Close()
 		}()
 		_, err := io.Copy(dst, reader)
-		if err != nil {
-			log.Println("DownloadFile copy, err:", err)
-		}
-		wg.Done()
-	}()
+		return err
+	})
 
 	err := ExecuteCommandRaw(ctx, kubeClient, config, target.Namespace, target.Name, container, []string{"/bin/cp", src, "/dev/stdout"}, nil, writer, errOut, false)
 	if err != nil {
 		log.Println(errOut.String())
 	}
 
-	wg.Wait()
+	// Close the writer to let the reader terminate.
+	_ = writer.Close()
+
+	// In case of a pipe error return the pipe error, otherwise return err.
+	pipeErr := wg.Wait()
+	if pipeErr != nil {
+		return pipeErr
+	}
+
 	return err
 }
 
@@ -192,32 +196,35 @@ func UploadFile(
 	out := bytes.NewBuffer([]byte{})
 	errOut := bytes.NewBuffer([]byte{})
 	reader, writer := io.Pipe()
-	wg := sync.WaitGroup{}
+	var wg errgroup.Group
 
 	defer func() {
 		log.Println("Done uploading file")
-		_ = reader.Close()
 	}()
 
-	wg.Add(1)
 	// Read the file provided via src and pipe it to the reader.
-	go func(r io.Reader, writer *io.PipeWriter) {
+	wg.Go(func() error {
 		defer func() {
 			_ = writer.Close()
 		}()
-		_, err := io.Copy(writer, r)
-		if err != nil {
-			log.Println("UploadFile copy, err:", err)
-		}
-		wg.Done()
-	}(src, writer)
+		_, err := io.Copy(writer, src)
+		return err
+	})
 
 	err := ExecuteCommandRaw(ctx, kubeClient, config, target.Namespace, target.Name, container, []string{"tee", "-a", dst}, reader, out, errOut, false)
 	if err != nil {
 		log.Println(errOut.String())
 	}
 
-	wg.Wait()
+	// Close the reader to let the writer terminate.
+	_ = reader.Close()
+
+	// In case of a pipe error return the pipe error, otherwise return err.
+	pipeErr := wg.Wait()
+	if pipeErr != nil {
+		return pipeErr
+	}
+
 	return err
 }
 

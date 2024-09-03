@@ -500,7 +500,7 @@ func (factory *Factory) DownloadFile(
 	target *corev1.Pod,
 	container string,
 	src string,
-	w io.Writer) error {
+	dst io.Writer) error {
 	return kubeHelper.DownloadFile(
 		ctx,
 		factory.GetControllerRuntimeClient(),
@@ -508,7 +508,7 @@ func (factory *Factory) DownloadFile(
 		target,
 		container,
 		src,
-		w)
+		dst)
 }
 
 // UploadFile uploads a file from src into the Pod/container dst.
