@@ -241,6 +241,14 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 				factory.DeletePod(&pod)
 			}
 
+			remoteSatellite := fdbCluster.GetRemoteSatellite()
+			remoteSatellite.SetSkipReconciliation(true)
+
+			remoteSatellitePods := remoteSatellite.GetPods()
+			for _, pod := range remoteSatellitePods.Items {
+				factory.DeletePod(&pod)
+			}
+
 			// Wait a short amount of time to let the cluster see that the primary and primary satellite is down.
 			time.Sleep(5 * time.Second)
 		})
@@ -258,8 +266,6 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 			// Set all the `FoundationDBCluster` resources for this FDB cluster to `spec.Skip = true` to make sure the operator is not changing the manual changed state.
 			remote := fdbCluster.GetRemote()
 			remote.SetSkipReconciliation(true)
-			remoteSatellite := fdbCluster.GetRemoteSatellite()
-			remoteSatellite.SetSkipReconciliation(true)
 
 			// Fetch the last connection string from the `FoundationDBCluster` status, e.g. `kubectl get fdb ${cluster} -o jsonpath='{ .status.connectionString }'`.
 			lastConnectionString := remote.GetCluster().Status.ConnectionString
@@ -292,28 +298,6 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 				Expect(err).NotTo(HaveOccurred())
 				if coordinatorAddr, ok := coordinators[addr.MachineAddress()]; ok {
 					log.Println("Found coordinator for remote", pod.Name, "address", coordinatorAddr.String())
-					runningCoordinators[addr.MachineAddress()] = fdbv1beta2.None{}
-					newCoordinators = append(newCoordinators, coordinatorAddr)
-					if runningCoordinator == nil {
-						loopPod := pod
-						runningCoordinator = &loopPod
-					}
-					continue
-				}
-
-				if !fixtures.GetProcessClass(pod).IsTransaction() {
-					continue
-				}
-
-				candidates = append(candidates, pod)
-			}
-
-			remoteSatellitePods := remoteSatellite.GetPods()
-			for _, pod := range remoteSatellitePods.Items {
-				addr, err := fdbv1beta2.ParseProcessAddress(pod.Status.PodIP)
-				Expect(err).NotTo(HaveOccurred())
-				if coordinatorAddr, ok := coordinators[addr.MachineAddress()]; ok {
-					log.Println("Found coordinator for remote satellite", pod.Name, "address", addr.MachineAddress())
 					runningCoordinators[addr.MachineAddress()] = fdbv1beta2.None{}
 					newCoordinators = append(newCoordinators, coordinatorAddr)
 					if runningCoordinator == nil {
@@ -422,27 +406,34 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 				Expect(err).NotTo(HaveOccurred())
 			}
 
-			for _, pod := range remoteSatellite.GetPods().Items {
-				_, _, err := factory.ExecuteCmd(context.Background(), pod.Namespace, pod.Name, fdbv1beta2.MainContainerName, "pkill fdbserver && rm -f /var/fdb/data/fdb.cluster && pkill fdbserver || true", debugOutput)
-				Expect(err).NotTo(HaveOccurred())
-			}
-
 			log.Println("force recovery")
+			dataCenterID := remote.GetCluster().Spec.DataCenter
 			// Now you can exec into a container and use `fdbcli` to connect to the cluster.
 			// If you use a multi-region cluster you have to issue `force_recovery_with_data_loss`
-			_, _, err = remote.RunFdbCliCommandInOperatorWithoutRetry(fmt.Sprintf("force_recovery_with_data_loss %s", remote.GetCluster().Spec.DataCenter), true, 40)
+			_, _, err = remote.RunFdbCliCommandInOperatorWithoutRetry(fmt.Sprintf("force_recovery_with_data_loss %s", dataCenterID), true, 40)
 			Expect(err).NotTo(HaveOccurred())
 
 			// Now you can set `spec.Skip = false` to let the operator take over again.
 			remote.SetSkipReconciliation(false)
-			remoteSatellite.SetSkipReconciliation(false)
+
+			newDatabaseConfiguration := remote.GetCluster().Spec.DatabaseConfiguration.FailOver()
+			// Drop the multi-region configuration.
+			newDatabaseConfiguration.Regions = []fdbv1beta2.Region{
+				{
+					DataCenters: []fdbv1beta2.DataCenter{
+						{
+							ID: dataCenterID,
+						},
+					},
+				},
+			}
+
+			Expect(remote.SetDatabaseConfiguration(newDatabaseConfiguration, false)).NotTo(HaveOccurred())
 
 			// Ensure the cluster is available again.
 			Eventually(func() bool {
 				return remote.GetStatus().Client.DatabaseStatus.Available
 			}).WithTimeout(2 * time.Minute).WithPolling(1 * time.Second).Should(BeTrue())
-
-			// TODO (johscheuer): Add additional testing for different cases.
 		})
 	})
 })

@@ -24,13 +24,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
-	"math/rand"
-	"strings"
-
 	fdbv1beta1 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+	"io"
+	"k8s.io/client-go/rest"
+	"math/rand"
+	"strings"
 
 	"github.com/go-logr/logr"
 	"github.com/spf13/cobra"
@@ -56,6 +56,15 @@ func getKubeClient(ctx context.Context, o *fdbBOptions) (client.Client, error) {
 		return nil, err
 	}
 
+	namespace, err := getNamespace(*o.configFlags.Namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	return setupKubeClient(ctx, config, namespace)
+}
+
+func setupKubeClient(ctx context.Context, config *rest.Config, namespace string) (client.Client, error) {
 	scheme := runtime.NewScheme()
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(fdbv1beta1.AddToScheme(scheme))
@@ -70,11 +79,6 @@ func getKubeClient(ctx context.Context, o *fdbBOptions) (client.Client, error) {
 			SuppressWarnings: true,
 		},
 	})
-	if err != nil {
-		return nil, err
-	}
-
-	namespace, err := getNamespace(*o.configFlags.Namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -122,6 +126,12 @@ func getKubeClient(ctx context.Context, o *fdbBOptions) (client.Client, error) {
 		CacheUnstructured: false,
 	})
 }
+
+// new connection string:
+// jdev_primary:hl1OUGX1ZxEu9RZVskI7zzeOslONG4uG@100.82.25.144:4500:tls,100.82.146.33:4500:tls,100.82.34.55:4500:tls,100.82.161.22:4500:tls,100.82.67.100:4500:tls
+// cat /var/dynamic-conf/fdb.cluster
+// jdev_primary:hl1OUGX1ZxEu9RZVskI7zzeOslONG4uG@100.82.25.144:4500:tls,100.82.146.33:4500:tls,100.82.34.55:4500:tls,100.82.161.22:4500:tls,100.82.67.100:4500:tls
+//
 
 func getNamespace(namespace string) (string, error) {
 	if namespace != "" {
@@ -581,4 +591,35 @@ func getProcessGroupsByCluster(cmd *cobra.Command, kubeClient client.Client, opt
 	return map[*fdbv1beta2.FoundationDBCluster][]fdbv1beta2.ProcessGroupID{
 		cluster: processGroupIDs,
 	}, nil
+}
+
+func setSkipReconciliation(ctx context.Context, kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluster, skip bool) error {
+	patch := client.MergeFrom(cluster.DeepCopy())
+	cluster.Spec.Skip = skip
+	return kubeClient.Patch(ctx, cluster, patch)
+}
+
+func updateConnectionString(ctx context.Context, kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluster, connectionString string) error {
+	patch := client.MergeFrom(cluster.DeepCopy())
+	cluster.Status.ConnectionString = connectionString
+	err := kubeClient.Status().Patch(ctx, cluster, patch)
+	if err != nil {
+		return err
+	}
+
+	// In addition to the FoundationDBCluster also update the ConfigMap.
+	cm := &corev1.ConfigMap{}
+	err = kubeClient.Get(ctx, client.ObjectKey{Namespace: cluster.Namespace, Name: cluster.Name + "-config"}, cm)
+	if err != nil {
+		return err
+	}
+
+	cm.Data[fdbv1beta2.ClusterFileKey] = connectionString
+	return kubeClient.Update(ctx, cm)
+}
+
+func updateDatabaseConfiguration(ctx context.Context, kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluster, configuration fdbv1beta2.DatabaseConfiguration) error {
+	patch := client.MergeFrom(cluster.DeepCopy())
+	cluster.Spec.DatabaseConfiguration = configuration
+	return kubeClient.Patch(ctx, cluster, patch)
 }
