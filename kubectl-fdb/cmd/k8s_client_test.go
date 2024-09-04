@@ -24,9 +24,10 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"strings"
 	"time"
+
+	"k8s.io/cli-runtime/pkg/genericclioptions"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	corev1 "k8s.io/api/core/v1"
@@ -169,7 +170,7 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 		DescribeTable("should show all deprecations",
 			func(tc testCase) {
 				outBuffer := bytes.Buffer{}
-				pods, err := getAllPodsFromClusterWithCondition(&outBuffer, k8sClient, clusterName, namespace, tc.conditions)
+				pods, err := getAllPodsFromClusterWithCondition(context.Background(), &outBuffer, k8sClient, clusterName, namespace, tc.conditions)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(pods).Should(ConsistOf(tc.expected))
 				Expect(strings.Split(outBuffer.String(), "\n")).Should(ConsistOf(strings.Split(tc.expectedOutputBuffer, "\n")))

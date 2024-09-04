@@ -123,7 +123,7 @@ func performUpgrade(config testConfig, preUpgradeFunction func(cluster *fixtures
 
 				pod, err := factory.GetPod(cluster.Namespace, processGroup.GetPodName(cluster))
 				if err != nil {
-					log.Println("logs for", processGroup.ProcessGroupID, ":", factory.GetLogsForPod(*pod, fdbv1beta2.MainContainerName, missingTime))
+					log.Println("logs for", processGroup.ProcessGroupID, ":", factory.GetLogsForPod(pod, fdbv1beta2.MainContainerName, missingTime))
 				}
 			}
 

@@ -23,11 +23,12 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbstatus"
 	"strings"
 	"time"
 
-	"k8s.io/client-go/kubernetes"
+	kubeHelper "github.com/FoundationDB/fdb-kubernetes-operator/internal/kubernetes"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbstatus"
+
 	"k8s.io/client-go/rest"
 
 	"context"
@@ -110,11 +111,6 @@ func newAnalyzeCmd(streams genericclioptions.IOStreams) *cobra.Command {
 				return err
 			}
 
-			clientSet, err := kubernetes.NewForConfig(config)
-			if err != nil {
-				return err
-			}
-
 			// TODO (jscheuermann): Don't load clusters twice if we check all clusters
 			var clusters []string
 			if allClusters {
@@ -148,7 +144,7 @@ func newAnalyzeCmd(streams genericclioptions.IOStreams) *cobra.Command {
 					continue
 				}
 
-				err = analyzeStatus(cmd, config, clientSet, kubeClient, cluster, autoFix)
+				err = analyzeStatus(cmd, config, kubeClient, cluster, autoFix)
 				if err != nil {
 					errs = append(errs, err)
 				}
@@ -326,7 +322,7 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, cluster *fdbv1
 	}
 
 	// 4. Check if all Pods are up and running
-	pods, err := getPodsForCluster(kubeClient, cluster)
+	pods, err := getPodsForCluster(cmd.Context(), kubeClient, cluster)
 	if err != nil {
 		return err
 	}
@@ -469,15 +465,15 @@ func filterDeletePods(replacements []string, killPods []corev1.Pod) []corev1.Pod
 	return res
 }
 
-func getStatus(restConfig *rest.Config, clientSet *kubernetes.Clientset, pod *corev1.Pod) (*fdbv1beta2.FoundationDBStatus, error) {
-	stdout, stderr, err := executeCmd(restConfig, clientSet, pod.Name, pod.Namespace, "fdbcli --exec 'status json'")
+func getStatus(ctx context.Context, kubeClient client.Client, restConfig *rest.Config, pod *corev1.Pod) (*fdbv1beta2.FoundationDBStatus, error) {
+	stdout, stderr, err := kubeHelper.ExecuteCommandOnPod(ctx, kubeClient, restConfig, pod, fdbv1beta2.MainContainerName, "fdbcli --exec 'status json'", false)
 	if err != nil {
 		return nil, fmt.Errorf("error getting status: %s, %w", stderr, err)
 	}
 
-	content, err := fdbstatus.RemoveWarningsInJSON(stdout.String())
+	content, err := fdbstatus.RemoveWarningsInJSON(stdout)
 	if err != nil {
-		fmt.Println(stdout.String())
+		fmt.Println(stdout)
 		return nil, err
 	}
 
@@ -490,14 +486,14 @@ func getStatus(restConfig *rest.Config, clientSet *kubernetes.Clientset, pod *co
 	return status, nil
 }
 
-func analyzeStatus(cmd *cobra.Command, restConfig *rest.Config, clientSet *kubernetes.Clientset, kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluster, autoFix bool) error {
+func analyzeStatus(cmd *cobra.Command, restConfig *rest.Config, kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluster, autoFix bool) error {
 	if cluster == nil {
 		return fmt.Errorf("error provided cluster is nil")
 	}
 
 	cmd.Printf("Checking cluster: %s/%s with auto-fix: %t\n", cluster.Namespace, cluster.Name, autoFix)
 
-	pods, err := getPodsForCluster(kubeClient, cluster)
+	pods, err := getPodsForCluster(cmd.Context(), kubeClient, cluster)
 	if err != nil {
 		return err
 	}
@@ -512,7 +508,7 @@ func analyzeStatus(cmd *cobra.Command, restConfig *rest.Config, clientSet *kuber
 
 	// Try to get the status for 5 times
 	for tries < 5 {
-		status, err = getStatus(restConfig, clientSet, pod)
+		status, err = getStatus(cmd.Context(), kubeClient, restConfig, pod)
 		if err == nil {
 			break
 		}
@@ -525,10 +521,10 @@ func analyzeStatus(cmd *cobra.Command, restConfig *rest.Config, clientSet *kuber
 		return err
 	}
 
-	return analyzeStatusInternal(cmd, restConfig, clientSet, status, pod, autoFix, cluster.Name)
+	return analyzeStatusInternal(cmd, restConfig, kubeClient, status, pod, autoFix, cluster.Name)
 }
 
-func analyzeStatusInternal(cmd *cobra.Command, restConfig *rest.Config, clientSet *kubernetes.Clientset, status *fdbv1beta2.FoundationDBStatus, pod *corev1.Pod, autoFix bool, clusterName string) error {
+func analyzeStatusInternal(cmd *cobra.Command, restConfig *rest.Config, kubeClient client.Client, status *fdbv1beta2.FoundationDBStatus, pod *corev1.Pod, autoFix bool, clusterName string) error {
 	var foundIssues bool
 
 	processesWithError := make([]string, 0)
@@ -556,9 +552,9 @@ func analyzeStatusInternal(cmd *cobra.Command, restConfig *rest.Config, clientSe
 		for _, process := range processesWithError {
 			cmd.Println("Start killing", process)
 			killCmd := fmt.Sprintf("kill; kill %s; sleep 5; status", process)
-			_, stderr, err := executeCmd(restConfig, clientSet, pod.Name, pod.Namespace, fmt.Sprintf("fdbcli --exec '%s'", killCmd))
+			_, stderr, err := kubeHelper.ExecuteCommandOnPod(cmd.Context(), kubeClient, restConfig, pod, fdbv1beta2.MainContainerName, fmt.Sprintf("fdbcli --exec '%s'", killCmd), false)
 			if err != nil {
-				return fmt.Errorf("error killing process %s status: %s, %w", process, stderr.String(), err)
+				return fmt.Errorf("error killing process %s status: %s, %w", process, stderr, err)
 			}
 			time.Sleep(5 * time.Second)
 		}

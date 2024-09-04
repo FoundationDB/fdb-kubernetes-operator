@@ -21,27 +21,20 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"net"
-	"os"
-	"os/exec"
-	"strings"
-
-	"github.com/go-logr/logr"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/cli-runtime/pkg/genericclioptions"
-
-	"github.com/spf13/cobra"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/selection"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+	kubeHelper "github.com/FoundationDB/fdb-kubernetes-operator/internal/kubernetes"
+	"github.com/go-logr/logr"
+	"github.com/spf13/cobra"
+	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func newFixCoordinatorIPsCmd(streams genericclioptions.IOStreams) *cobra.Command {
@@ -77,12 +70,12 @@ func newFixCoordinatorIPsCmd(streams genericclioptions.IOStreams) *cobra.Command
 				return err
 			}
 
-			err = runFixCoordinatorIPs(cmd.Context(), cmd, kubeClient, cluster, *o.configFlags.Context, namespace, dryRun)
+			config, err := o.configFlags.ToRESTConfig()
 			if err != nil {
 				return err
 			}
 
-			return nil
+			return runFixCoordinatorIPs(cmd, kubeClient, cluster, config, dryRun)
 		},
 		Example: `
   # Update the coordinator IPs for the cluster
@@ -105,68 +98,9 @@ func newFixCoordinatorIPsCmd(streams genericclioptions.IOStreams) *cobra.Command
 	return cmd
 }
 
-// buildClusterFileUpdateCommands generates commands for using kubectl exec to
-// update the cluster file in the pods for a cluster.
-func buildClusterFileUpdateCommands(cluster *fdbv1beta2.FoundationDBCluster, kubeClient client.Client, kubeContext string, namespace string, kubectlPath string) ([]exec.Cmd, error) {
-	pods := &corev1.PodList{}
-
-	selector := labels.NewSelector()
-
-	err := internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
-	if err != nil {
-		return nil, err
-	}
-
-	for key, value := range cluster.GetMatchLabels() {
-		requirement, err := labels.NewRequirement(key, selection.Equals, []string{value})
-		if err != nil {
-			return nil, err
-		}
-		selector = selector.Add(*requirement)
-	}
-
-	processClassRequirement, err := labels.NewRequirement(cluster.GetProcessClassLabel(), selection.Exists, nil)
-	if err != nil {
-		return nil, err
-	}
-	selector = selector.Add(*processClassRequirement)
-
-	err = kubeClient.List(context.Background(), pods,
-		client.InNamespace(namespace),
-		client.MatchingLabelsSelector{Selector: selector},
-		client.MatchingFields{"status.phase": "Running"},
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	baseArgs := []string{kubectlPath, "--namespace", namespace}
-	if kubeContext != "" {
-		baseArgs = append(baseArgs, "--context", kubeContext)
-	}
-	baseArgs = append(baseArgs, "exec", "-it", "-c", fdbv1beta2.MainContainerName)
-
-	execArgs := []string{"--", "bash", "-c", fmt.Sprintf("echo %s > /var/fdb/data/fdb.cluster && pkill fdbserver", cluster.Status.ConnectionString)}
-	execCommands := make([]exec.Cmd, 0, len(pods.Items))
-
-	for _, pod := range pods.Items {
-		args := append(baseArgs, pod.Name)
-		args = append(args, execArgs...)
-		execCommands = append(execCommands, exec.Cmd{
-			Path:   kubectlPath,
-			Args:   args,
-			Stdin:  os.Stdin,
-			Stdout: os.Stdout,
-			Stderr: os.Stderr,
-		})
-	}
-
-	return execCommands, nil
-}
-
 // updateIPsInConnectionString updates the connection string in the cluster
 // status by replacing old coordinator IPs with the latest IPs.
-func updateIPsInConnectionString(ctx context.Context, cmd *cobra.Command, cluster *fdbv1beta2.FoundationDBCluster, kubeClient client.Client) error {
+func updateIPsInConnectionString(cmd *cobra.Command, cluster *fdbv1beta2.FoundationDBCluster, kubeClient client.Client) error {
 	connectionString, err := fdbv1beta2.ParseConnectionString(cluster.Status.ConnectionString)
 	if err != nil {
 		return err
@@ -215,7 +149,7 @@ func updateIPsInConnectionString(ctx context.Context, cmd *cobra.Command, cluste
 
 		// Fetch the IP address from the running Pod, if the Pod doesn't exist or is not running, we fall back to the process group address.
 		pod := &corev1.Pod{}
-		kubeErr := kubeClient.Get(ctx, client.ObjectKey{Name: processGroup.GetPodName(cluster), Namespace: cluster.Namespace}, pod)
+		kubeErr := kubeClient.Get(cmd.Context(), client.ObjectKey{Name: processGroup.GetPodName(cluster), Namespace: cluster.Namespace}, pod)
 		if k8serrors.IsNotFound(kubeErr) || len(pod.Status.PodIPs) == 0 {
 			cmd.Println("Pod for process group", processGroup.ProcessGroupID, "not found will try to read information from FoundationDBCluster status")
 			for _, address := range processGroup.Addresses {
@@ -248,34 +182,32 @@ func updateIPsInConnectionString(ctx context.Context, cmd *cobra.Command, cluste
 	return nil
 }
 
-func runFixCoordinatorIPs(ctx context.Context, cmd *cobra.Command, kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluster, context string, namespace string, dryRun bool) error {
+func runFixCoordinatorIPs(cmd *cobra.Command, kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluster, config *rest.Config, dryRun bool) error {
 	cmd.Println("Current connection string:", cluster.Status.ConnectionString)
 	patch := client.MergeFrom(cluster.DeepCopy())
-	err := updateIPsInConnectionString(ctx, cmd, cluster, kubeClient)
+	err := updateIPsInConnectionString(cmd, cluster, kubeClient)
 	if err != nil {
 		return err
 	}
 
 	cmd.Println("New connection string:", cluster.Status.ConnectionString)
-
-	kubectlPath, err := exec.LookPath("kubectl")
+	pods, err := getRunningPodsForCluster(cmd.Context(), kubeClient, cluster)
 	if err != nil {
 		return err
 	}
 
-	commands, err := buildClusterFileUpdateCommands(cluster, kubeClient, context, namespace, kubectlPath)
-	if err != nil {
-		return err
-	}
-
-	for _, command := range commands {
+	command := fmt.Sprintf("echo %s > /var/fdb/data/fdb.cluster && pkill fdbserver", cluster.Status.ConnectionString)
+	for _, pod := range pods.Items {
 		if dryRun {
-			cmd.Println("Update command:", strings.Join(command.Args, " "))
-		} else {
-			err := command.Run()
-			if err != nil {
-				cmd.Println(err.Error())
-			}
+			log.Println("update command:", command, "on Pod:", pod.Name)
+			continue
+		}
+
+		targetPod := pod
+		_, stderr, cmdErr := kubeHelper.ExecuteCommandOnPod(cmd.Context(), kubeClient, config, &targetPod, fdbv1beta2.MainContainerName, command, false)
+
+		if cmdErr != nil {
+			log.Println(stderr)
 		}
 	}
 
@@ -286,15 +218,12 @@ func runFixCoordinatorIPs(ctx context.Context, cmd *cobra.Command, kubeClient cl
 			cmd.Println(err.Error())
 		}
 
-		kubeErr := kubeClient.Update(ctx, newConfigMap)
+		kubeErr := kubeClient.Update(cmd.Context(), newConfigMap)
 		if kubeErr != nil {
 			cmd.Print(kubeErr.Error())
 		}
 
-		kubeErr = kubeClient.Status().Patch(ctx, cluster, patch)
-		if kubeErr != nil {
-			return kubeErr
-		}
+		return kubeClient.Status().Patch(cmd.Context(), cluster, patch)
 	}
 
 	return nil

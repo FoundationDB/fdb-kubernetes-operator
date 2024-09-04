@@ -23,15 +23,18 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbstatus"
 	"sort"
 	"strconv"
 	"time"
 
+	kubeHelper "github.com/FoundationDB/fdb-kubernetes-operator/internal/kubernetes"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbstatus"
+	corev1 "k8s.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/spf13/cobra"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
 
@@ -59,11 +62,6 @@ func newExclusionStatusCmd(streams genericclioptions.IOStreams) *cobra.Command {
 				return err
 			}
 
-			clientSet, err := kubernetes.NewForConfig(config)
-			if err != nil {
-				return err
-			}
-
 			kubeClient, err := getKubeClient(cmd.Context(), o)
 			if err != nil {
 				return err
@@ -79,22 +77,17 @@ func newExclusionStatusCmd(streams genericclioptions.IOStreams) *cobra.Command {
 				return err
 			}
 
-			pods, err := getPodsForCluster(kubeClient, cluster)
+			pods, err := getRunningPodsForCluster(cmd.Context(), kubeClient, cluster)
 			if err != nil {
 				return err
 			}
 
-			if len(pods.Items) == 0 {
-				return fmt.Errorf("no running Pods are found for cluster: %s/%s", cluster.Namespace, cluster.Name)
-			}
-
-			// TODO get the pod randomly
-			err = getExclusionStatus(cmd, config, clientSet, pods.Items[0].Name, namespace, ignoreFullyExcluded, interval)
+			clientPod, err := kubeHelper.PickRandomPod(pods)
 			if err != nil {
 				return err
 			}
 
-			return nil
+			return getExclusionStatus(cmd, config, kubeClient, clientPod, ignoreFullyExcluded, interval)
 		},
 		Example: `
 Experimental feature!
@@ -132,24 +125,24 @@ type exclusionResult struct {
 	timestamp   time.Time
 }
 
-func getExclusionStatus(cmd *cobra.Command, restConfig *rest.Config, kubeClient *kubernetes.Clientset, clientPod string, namespace string, ignoreFullyExcluded bool, interval time.Duration) error {
+func getExclusionStatus(cmd *cobra.Command, restConfig *rest.Config, kubeClient client.Client, clientPod *corev1.Pod, ignoreFullyExcluded bool, interval time.Duration) error {
 	timer := time.NewTicker(interval)
 	previousRun := map[string]exclusionResult{}
 
 	for {
 		// TODO: Keeping a stream open is probably more efficient.
-		out, serr, err := executeCmd(restConfig, kubeClient, clientPod, namespace, "fdbcli --exec 'status json'")
+		stdout, stderr, err := kubeHelper.ExecuteCommandOnPod(cmd.Context(), kubeClient, restConfig, clientPod, fdbv1beta2.MainContainerName, "fdbcli --exec 'status json'", false)
 		if err != nil {
 			// If an error occurs retry
 			cmd.PrintErrln(err)
 			continue
 		}
 
-		if serr.Len() > 0 {
-			cmd.PrintErrln(serr.String())
+		if stderr != "" {
+			cmd.PrintErrln(stderr)
 		}
 
-		res, err := fdbstatus.RemoveWarningsInJSON(out.String())
+		res, err := fdbstatus.RemoveWarningsInJSON(stdout)
 		if err != nil {
 			// If an error occurs retry
 			cmd.PrintErrln(err)

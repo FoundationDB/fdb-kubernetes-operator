@@ -1,9 +1,9 @@
 /*
- * main.go
+ * suite_test.go
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2020 Apple Inc. and the FoundationDB project authors
+ * Copyright 2023 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,22 +18,18 @@
  * limitations under the License.
  */
 
-package main
+package operator
 
 import (
-	"os"
+	"testing"
+	"time"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/kubectl-fdb/cmd"
-	"github.com/spf13/pflag"
-	"k8s.io/cli-runtime/pkg/genericclioptions"
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	"github.com/FoundationDB/fdb-kubernetes-operator/e2e/fixtures"
+	"github.com/onsi/gomega"
 )
 
-func main() {
-	flags := pflag.NewFlagSet("kubectl-fdb", pflag.ExitOnError)
-	pflag.CommandLine = flags
-	root := cmd.NewRootCmd(genericclioptions.IOStreams{In: os.Stdin, Out: os.Stdout, ErrOut: os.Stderr}, &cmd.RealVersionChecker{})
-	if err := root.Execute(); err != nil {
-		os.Exit(1)
-	}
+func TestOperator(t *testing.T) {
+	gomega.SetDefaultEventuallyTimeout(10 * time.Second)
+	fixtures.SetTestSuiteName("operator-plugin-test")
+	fixtures.RunGinkgoTests(t, "Operator plugin test suite")
 }
