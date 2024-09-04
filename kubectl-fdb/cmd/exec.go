@@ -23,7 +23,7 @@ package cmd
 import (
 	"context"
 	"log"
-	"strings"
+	"os"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	kubeHelper "github.com/FoundationDB/fdb-kubernetes-operator/internal/kubernetes"
@@ -102,10 +102,5 @@ func runExec(ctx context.Context, kubeClient client.Client, cluster *fdbv1beta2.
 		return err
 	}
 
-	_, stderr, err := kubeHelper.ExecuteCommandOnPod(ctx, kubeClient, config, clientPod, fdbv1beta2.MainContainerName, strings.Join(commandArgs, " "), false)
-	if err != nil {
-		log.Println(stderr)
-	}
-
-	return err
+	return kubeHelper.ExecuteCommandRaw(ctx, kubeClient, config, clientPod.Namespace, clientPod.Name, fdbv1beta2.MainContainerName, commandArgs, os.Stdin, os.Stdout, os.Stderr, true)
 }
