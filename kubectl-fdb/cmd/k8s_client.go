@@ -127,12 +127,6 @@ func setupKubeClient(ctx context.Context, config *rest.Config, namespace string)
 	})
 }
 
-// new connection string:
-// jdev_primary:hl1OUGX1ZxEu9RZVskI7zzeOslONG4uG@100.82.25.144:4500:tls,100.82.146.33:4500:tls,100.82.34.55:4500:tls,100.82.161.22:4500:tls,100.82.67.100:4500:tls
-// cat /var/dynamic-conf/fdb.cluster
-// jdev_primary:hl1OUGX1ZxEu9RZVskI7zzeOslONG4uG@100.82.25.144:4500:tls,100.82.146.33:4500:tls,100.82.34.55:4500:tls,100.82.161.22:4500:tls,100.82.67.100:4500:tls
-//
-
 func getNamespace(namespace string) (string, error) {
 	if namespace != "" {
 		return namespace, nil

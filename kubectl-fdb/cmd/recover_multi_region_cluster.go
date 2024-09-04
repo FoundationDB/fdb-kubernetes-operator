@@ -24,7 +24,7 @@ import (
 	"context"
 	"fmt"
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	"github.com/FoundationDB/fdb-kubernetes-operator/e2e/fixtures"
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	kubeHelper "github.com/FoundationDB/fdb-kubernetes-operator/internal/kubernetes"
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
@@ -101,23 +101,12 @@ func newRecoverMultiRegionClusterCmd(streams genericclioptions.IOStreams) *cobra
 					namespace:   namespace,
 				})
 		},
-		// TODO update --> Update examples
 		Example: `
-# Analyze the cluster "sample-cluster-1" in the current namespace
+# Recover the multi-region cluster "sample-cluster-1" in the current namespace
 kubectl fdb recover-multi-region-cluster sample-cluster-1
 
-# Analyze the cluster "sample-cluster-1" in the namespace "test-namespace"
-kubectl fdb -n test-namespace analyze sample-cluster-1
-
-# Analyze the cluster "sample-cluster-1" in the current namespace and fixes issues
-kubectl fdb analyze --auto-fix sample-cluster-1
-
-# Analyze the cluster "sample-cluster-1" in the current namespace and ignore the IncorrectCommandLine and IncorrectPodSpec condition
-kubectl fdb analyze --ignore-condition=IncorrectCommandLine --ignore-condition=IncorrectPodSpec sample-cluster-1
-
-# Per default the plugin will print out how many process groups are marked for removal instead of printing out each process group.
-# This can be disabled by using the ignore-removals flag to print out the details about process groups that are marked for removal.
-kubectl fdb analyze --ignore-removals=false sample-cluster-1
+# Recover the multi-region cluster "sample-cluster-1" in the "testing" namespace
+kubectl fdb recover-multi-region-cluster -n testing sample-cluster-1
 `,
 	}
 	cmd.SetOut(o.Out)
@@ -206,7 +195,7 @@ func recoverMultiRegionCluster(cmd *cobra.Command, opts recoverMultiRegionCluste
 			continue
 		}
 
-		if !fixtures.GetProcessClass(pod).IsStateful() {
+		if !internal.GetProcessClassFromMeta(cluster, pod.ObjectMeta).IsStateful() {
 			continue
 		}
 
