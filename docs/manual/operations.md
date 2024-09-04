@@ -261,6 +261,9 @@ If the cluster is a multi-region cluster, perform this step for all running regi
 - Now you can set `spec.Skip = false` to let the operator take over again.
 - Depending on the state of the multi-region cluster, you probably want to change the desired database configuration to drop ha.
 
+The [kubectl-fdb plugin](../../kubectl-fdb/Readme.md) provides a `recover-multi-region-cluster` command that can be used to automatically recover a cluster with the above steps.
+The command has some additional safety checks, to ensure the steps are only performed on a cluster that is unhealthy and the majority of coordinators are unreachable.
+
 ## Next
 
 You can continue on to the [next section](scaling.md) or go back to the [table of contents](index.md).
