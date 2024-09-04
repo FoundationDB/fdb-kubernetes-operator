@@ -36,9 +36,11 @@ import (
 )
 
 var (
-	factory     *fixtures.Factory
-	fdbCluster  *fixtures.FdbCluster
-	testOptions *fixtures.FactoryOptions
+	factory        *fixtures.Factory
+	fdbCluster     *fixtures.HaFdbCluster
+	testOptions    *fixtures.FactoryOptions
+	clusterConfig  *fixtures.ClusterConfig
+	clusterOptions []fixtures.ClusterOption
 )
 
 func init() {
@@ -47,10 +49,12 @@ func init() {
 
 var _ = BeforeSuite(func() {
 	factory = fixtures.CreateFactory(testOptions)
-	fdbCluster = factory.CreateFdbCluster(
-		fixtures.DefaultClusterConfig(false),
-		factory.GetClusterOptions()...,
-	)
+	clusterOptions = factory.GetClusterOptions()
+	clusterConfig = fixtures.DefaultClusterConfigWithHaMode(fixtures.HaFourZoneSingleSat, false)
+	fdbCluster = factory.CreateFdbHaCluster(clusterConfig, clusterOptions...)
+
+	// Load some data into the cluster.
+	factory.CreateDataLoaderIfAbsent(fdbCluster.GetPrimary())
 })
 
 var _ = AfterSuite(func() {
@@ -63,26 +67,79 @@ var _ = AfterSuite(func() {
 var _ = Describe("Operator Plugin", Label("e2e", "pr"), func() {
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
-			factory.DumpState(fdbCluster)
+			factory.DumpStateHaCluster(fdbCluster)
 		}
-		Expect(fdbCluster.WaitForReconciliation()).ToNot(HaveOccurred())
-		factory.StopInvariantCheck()
-		// Make sure all data is present in the cluster
-		fdbCluster.EnsureTeamTrackersAreHealthy()
-		fdbCluster.EnsureTeamTrackersHaveMinReplicas()
 	})
 
 	When("getting the plugin version from the operator pod", func() {
 		It("should print the version", func() {
 			// Pick one operator pod and execute the kubectl version command to ensure that kubectl-fdb is present
 			// and can be executed.
-			operatorPod := factory.RandomPickOnePod(factory.GetOperatorPods(fdbCluster.Namespace()).Items)
+			operatorPod := factory.RandomPickOnePod(factory.GetOperatorPods(fdbCluster.GetPrimary().Namespace()).Items)
 			log.Println("operatorPod", operatorPod.Name)
 			Eventually(func(g Gomega) string {
-				stdout, stderr, err := factory.ExecuteCmdOnPod(context.Background(), &operatorPod, "manager", fmt.Sprintf("kubectl-fdb -n %s version", fdbCluster.Namespace()), false)
+				stdout, stderr, err := factory.ExecuteCmdOnPod(context.Background(), &operatorPod, "manager", fmt.Sprintf("kubectl-fdb -n %s version --version-check=false", fdbCluster.GetPrimary().Namespace()), false)
 				g.Expect(err).NotTo(HaveOccurred(), stderr)
 				return stdout
 			}).WithTimeout(10 * time.Minute).WithPolling(2 * time.Second).Should(And(ContainSubstring("kubectl-fdb:"), ContainSubstring("foundationdb-operator:")))
+		})
+	})
+
+	When("all Pods in the primary and satellites are down", func() {
+		BeforeEach(func() {
+			// This tests is a destructive test where the cluster will stop working for some period.
+			primary := fdbCluster.GetPrimary()
+			primary.SetSkipReconciliation(true)
+
+			primarySatellite := fdbCluster.GetPrimarySatellite()
+			primarySatellite.SetSkipReconciliation(true)
+
+			primaryPods := primary.GetPods()
+			for _, pod := range primaryPods.Items {
+				factory.DeletePod(&pod)
+			}
+
+			primarySatellitePods := primarySatellite.GetPods()
+			for _, pod := range primarySatellitePods.Items {
+				factory.DeletePod(&pod)
+			}
+
+			remoteSatellite := fdbCluster.GetRemoteSatellite()
+			remoteSatellite.SetSkipReconciliation(true)
+
+			remoteSatellitePods := remoteSatellite.GetPods()
+			for _, pod := range remoteSatellitePods.Items {
+				factory.DeletePod(&pod)
+			}
+
+			// Wait a short amount of time to let the cluster see that the primary and primary satellite is down.
+			time.Sleep(5 * time.Second)
+		})
+
+		AfterEach(func() {
+			// Delete the broken cluster.
+			fdbCluster.Delete()
+			// Recreate the cluster to make sure  the next tests can proceed
+			fdbCluster = factory.CreateFdbHaCluster(clusterConfig, clusterOptions...)
+			// Load some data into the cluster.
+			factory.CreateDataLoaderIfAbsent(fdbCluster.GetPrimary())
+		})
+
+		It("should recover the coordinators", func() {
+			remote := fdbCluster.GetRemote()
+			// Pick one operator pod and execute the recovery command
+			operatorPod := factory.RandomPickOnePod(factory.GetOperatorPods(remote.Namespace()).Items)
+			log.Println("operatorPod", operatorPod.Name)
+			Eventually(func() error {
+				stdout, stderr, err := factory.ExecuteCmdOnPod(context.Background(), &operatorPod, "manager", fmt.Sprintf("kubectl-fdb -n %s recover-multi-region-cluster %s --version-check=false --wait=false", remote.Namespace(), remote.Name()), false)
+				log.Println("stdout:", stdout, "stderr:", stderr)
+				return err
+			}).WithTimeout(30 * time.Minute).WithPolling(5 * time.Minute).ShouldNot(HaveOccurred())
+
+			// Ensure the cluster is available again.
+			Eventually(func() bool {
+				return remote.GetStatus().Client.DatabaseStatus.Available
+			}).WithTimeout(2 * time.Minute).WithPolling(1 * time.Second).Should(BeTrue())
 		})
 	})
 })
