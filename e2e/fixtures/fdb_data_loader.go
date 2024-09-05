@@ -25,6 +25,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"log"
 	"text/template"
 	"time"
@@ -312,6 +313,12 @@ func (factory *Factory) getDataLoaderConfig(cluster *FdbCluster) *dataLoaderConf
 
 // CreateDataLoaderIfAbsent will create the data loader for the provided cluster and load some random data into the cluster.
 func (factory *Factory) CreateDataLoaderIfAbsent(cluster *FdbCluster) {
+	factory.CreateDataLoaderIfAbsentWithWait(cluster, true)
+}
+
+// CreateDataLoaderIfAbsentWithWait will create the data loader for the provided cluster and load some random data into the cluster.
+// If wait is true, the method will wait until the data loader has finished.
+func (factory *Factory) CreateDataLoaderIfAbsentWithWait(cluster *FdbCluster, wait bool) {
 	if !factory.options.enableDataLoading {
 		return
 	}
@@ -347,15 +354,27 @@ func (factory *Factory) CreateDataLoaderIfAbsent(cluster *FdbCluster) {
 		).NotTo(gomega.HaveOccurred())
 	}
 
-	factory.WaitUntilDataLoaderIsDone(cluster)
+	if !wait {
+		return
+	}
 
+	factory.WaitUntilDataLoaderIsDone(cluster)
+	factory.DeleteDataLoader(cluster)
+}
+
+// DeleteDataLoader will delete the data loader job
+func (factory *Factory) DeleteDataLoader(cluster *FdbCluster) {
 	// Remove data loader Pods again, as the loading was done.
-	gomega.Expect(factory.controllerRuntimeClient.Delete(context.Background(), &batchv1.Job{
+	err := factory.controllerRuntimeClient.Delete(context.Background(), &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      dataLoaderName,
 			Namespace: cluster.Namespace(),
 		},
-	})).NotTo(gomega.HaveOccurred())
+	})
+
+	if err != nil && !k8serrors.IsNotFound(err) {
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	}
 
 	gomega.Expect(factory.controllerRuntimeClient.DeleteAllOf(context.Background(), &corev1.Pod{},
 		client.InNamespace(cluster.Namespace()),
