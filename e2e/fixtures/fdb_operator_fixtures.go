@@ -140,9 +140,6 @@ func (factory *Factory) ensureHaMemberClusterExists(
 		fetchedCluster.cluster.Spec.SeedConnectionString = seedConnection
 		log.Printf("update cluster: %s/%s", curCluster.cluster.Namespace, curCluster.cluster.Name)
 		fetchedCluster.UpdateClusterSpec()
-		if err != nil {
-			return err
-		}
 	}
 
 	return haFdbCluster.addCluster(fetchedCluster)

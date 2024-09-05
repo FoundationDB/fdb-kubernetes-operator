@@ -286,7 +286,7 @@ func (factory *Factory) GetSidecarContainerOverrides(debugSymbols bool) fdbv1bet
 
 func (factory *Factory) getClusterName() string {
 	if factory.options.clusterName == "" {
-		return fmt.Sprintf("fdb-cluster-%s", factory.RandStringRunes(8))
+		return fmt.Sprintf("%s-%s", testSuiteName, factory.RandStringRunes(8))
 	}
 
 	return factory.options.clusterName

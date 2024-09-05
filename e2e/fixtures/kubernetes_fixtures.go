@@ -47,7 +47,9 @@ const (
 // method will return the namespace name as the username a hyphen and 8 random chars.
 func (factory *Factory) getRandomizedNamespaceName() string {
 	gomega.Expect(factory.userName).To(gomega.MatchRegexp(namespaceRegEx), "user name contains invalid characters")
-	return factory.userName + "-" + factory.RandStringRunes(8)
+	name := factory.userName + "-" + testSuiteName + "-" + factory.RandStringRunes(8)
+	log.Println("namespace:", name, "length:", len(name))
+	return name
 }
 
 // MultipleNamespaces creates multiple namespaces for HA testing.
@@ -94,6 +96,8 @@ func (factory *Factory) createNamespace(suffix string) string {
 		if suffix != "" {
 			namespace = namespace + "-" + suffix
 		}
+
+		g.Expect(len(namespace)).To(gomega.BeNumerically("<=", 63))
 
 		err := factory.checkIfNamespaceIsTerminating(namespace)
 		g.Expect(err).NotTo(gomega.HaveOccurred())

@@ -38,11 +38,11 @@ const (
 	// RemoteID is the suffix for the remote FoundationDBCluster
 	RemoteID = "remote"
 	// PrimarySatelliteID is the suffix for the primary satellite FoundationDBCluster
-	PrimarySatelliteID = "primary-satellite"
+	PrimarySatelliteID = "primary-sat"
 	// RemoteSatelliteID is the suffix for the remote satellite FoundationDBCluster
-	RemoteSatelliteID = "remote-satellite"
+	RemoteSatelliteID = "remote-sat"
 	// SatelliteID is the suffix for the satellite FoundationDBCluster
-	SatelliteID = "satellite"
+	SatelliteID = "sat"
 )
 
 // HaFdbCluster is a struct around handling HA FoundationDBClusters.
