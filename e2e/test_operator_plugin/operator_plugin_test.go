@@ -33,6 +33,7 @@ import (
 	"github.com/FoundationDB/fdb-kubernetes-operator/e2e/fixtures"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"golang.org/x/sync/errgroup"
 )
 
 var (
@@ -94,24 +95,35 @@ var _ = Describe("Operator Plugin", Label("e2e", "pr"), func() {
 			remoteSatellite := fdbCluster.GetRemoteSatellite()
 			remoteSatellite.SetSkipReconciliation(true)
 
+			var wg errgroup.Group
 			log.Println("Delete Pods in primary")
-			primaryPods := primary.GetPods()
-			for _, pod := range primaryPods.Items {
-				factory.DeletePod(&pod)
-			}
+			wg.Go(func() error {
+				for _, pod := range primary.GetPods().Items {
+					factory.DeletePod(&pod)
+				}
+
+				return nil
+			})
 
 			log.Println("Delete Pods in primary satellite")
-			primarySatellitePods := primarySatellite.GetPods()
-			for _, pod := range primarySatellitePods.Items {
-				factory.DeletePod(&pod)
-			}
+			wg.Go(func() error {
+				for _, pod := range primarySatellite.GetPods().Items {
+					factory.DeletePod(&pod)
+				}
+
+				return nil
+			})
 
 			log.Println("Delete Pods in remote satellite")
-			remoteSatellitePods := remoteSatellite.GetPods()
-			for _, pod := range remoteSatellitePods.Items {
-				factory.DeletePod(&pod)
-			}
+			wg.Go(func() error {
+				for _, pod := range remoteSatellite.GetPods().Items {
+					factory.DeletePod(&pod)
+				}
 
+				return nil
+			})
+
+			Expect(wg.Wait()).NotTo(HaveOccurred())
 			// Wait a short amount of time to let the cluster see that the primary and primary satellite is down.
 			time.Sleep(5 * time.Second)
 

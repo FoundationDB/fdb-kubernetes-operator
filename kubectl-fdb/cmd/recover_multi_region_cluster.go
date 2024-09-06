@@ -23,6 +23,11 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"os"
+	"path"
+	"strings"
+	"time"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	kubeHelper "github.com/FoundationDB/fdb-kubernetes-operator/internal/kubernetes"
@@ -30,12 +35,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/rest"
-	"log"
-	"os"
-	"path"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strings"
-	"time"
 )
 
 // recoverMultiRegionClusterOpts struct to pass down all args to the actual runner.
@@ -127,7 +127,7 @@ func recoverMultiRegionCluster(cmd *cobra.Command, opts recoverMultiRegionCluste
 		return err
 	}
 
-	err = checkIfClusterIsUnavailableAndMajorityOfCoordinatorsAreUnreachable(cmd.Context(), opts.client, opts.config, cluster)
+	err = checkIfClusterIsUnavailableAndMajorityOfCoordinatorsAreUnreachable(cmd, opts.client, opts.config, cluster)
 	if err != nil {
 		return err
 	}
@@ -146,7 +146,7 @@ func recoverMultiRegionCluster(cmd *cobra.Command, opts recoverMultiRegionCluste
 	if len(addresses) != 9 {
 		return fmt.Errorf("expected exactly 9 addresses, got %d", len(addresses))
 	}
-	log.Println("current connection string", lastConnectionString)
+	cmd.Println("current connection string", lastConnectionString)
 
 	var useTLS bool
 	coordinators := map[string]fdbv1beta2.ProcessAddress{}
@@ -156,13 +156,13 @@ func recoverMultiRegionCluster(cmd *cobra.Command, opts recoverMultiRegionCluste
 			return parseErr
 		}
 
-		log.Println("found coordinator", parsed.String())
+		cmd.Println("found coordinator", parsed.String())
 		coordinators[parsed.MachineAddress()] = parsed
 		// If the tls flag is present we assume that the coordinators should make use of TLS.
 		_, useTLS = parsed.Flags["tls"]
 	}
 
-	log.Println("current coordinators", coordinators, "useTLS", useTLS)
+	cmd.Println("current coordinators", coordinators, "useTLS", useTLS)
 	// Fetch all Pods and coordinators for the remote and remote satellite.
 	runningCoordinators := map[string]fdbv1beta2.None{}
 	newCoordinators := make([]fdbv1beta2.ProcessAddress, 0, 5)
@@ -187,7 +187,7 @@ func recoverMultiRegionCluster(cmd *cobra.Command, opts recoverMultiRegionCluste
 
 		loopPod := pod
 		if coordinatorAddr, ok := coordinators[addr.MachineAddress()]; ok {
-			log.Println("Found coordinator for cluster", pod.Name, "address", addr.MachineAddress())
+			cmd.Println("Found coordinator for cluster", pod.Name, "address", addr.MachineAddress())
 			runningCoordinators[addr.MachineAddress()] = fdbv1beta2.None{}
 			newCoordinators = append(newCoordinators, coordinatorAddr)
 
@@ -209,13 +209,13 @@ func recoverMultiRegionCluster(cmd *cobra.Command, opts recoverMultiRegionCluste
 	// Pick 5 new coordinators.
 	needsUpload := make([]*corev1.Pod, 0, 5)
 	for len(newCoordinators) < 5 {
-		fmt.Println("Current coordinators:", len(newCoordinators))
+		cmd.Println("Current coordinators:", len(newCoordinators))
 		candidate := candidates[len(newCoordinators)]
 		addr, parseErr := fdbv1beta2.ParseProcessAddress(candidate.Status.PodIP)
 		if parseErr != nil {
 			return parseErr
 		}
-		fmt.Println("Adding pod as new coordinators:", candidate.Name)
+		cmd.Println("Adding pod as new coordinators:", candidate.Name)
 		if useTLS {
 			addr.Port = 4500
 			addr.Flags = map[string]bool{"tls": true}
@@ -234,17 +234,22 @@ func recoverMultiRegionCluster(cmd *cobra.Command, opts recoverMultiRegionCluste
 		tmpCoordinatorFiles[idx] = path.Join(tmpDir, coordinatorFile)
 	}
 
-	log.Println("tmpCoordinatorFiles", tmpCoordinatorFiles)
-	stdout, stderr, err := kubeHelper.ExecuteCommandOnPod(context.Background(), opts.client, opts.config, runningCoordinator, fdbv1beta2.MainContainerName, "find /var/fdb/data/ -type f -name 'coordination-0.fdq'", true)
+	cmd.Println("tmpCoordinatorFiles", tmpCoordinatorFiles, "checking the location of the coordination-0.fdq in Pod", runningCoordinator.Name)
+	stdout, stderr, err := kubeHelper.ExecuteCommandOnPod(context.Background(), opts.client, opts.config, runningCoordinator, fdbv1beta2.MainContainerName, "find /var/fdb/data/ -type f -name 'coordination-0.fdq' -print -quit | head -n 1", false)
 	if err != nil {
-		log.Println(stderr)
+		cmd.Println(stderr)
 		return err
 	}
 
-	dataDir := path.Dir(strings.TrimSpace(stdout))
-	log.Println("dataDir:", dataDir)
+	lines := strings.Split(stdout, "\n")
+	if len(lines) == 0 {
+		return fmt.Errorf("no coordination file found in %s", runningCoordinator.Name)
+	}
+
+	dataDir := path.Dir(strings.TrimSpace(lines[0]))
+	cmd.Println("dataDir:", dataDir)
 	for idx, coordinatorFile := range coordinatorFiles {
-		err = downloadCoordinatorFile(cmd.Context(), opts.client, opts.config, runningCoordinator, path.Join(dataDir, coordinatorFile), tmpCoordinatorFiles[idx])
+		err = downloadCoordinatorFile(cmd, opts.client, opts.config, runningCoordinator, path.Join(dataDir, coordinatorFile), tmpCoordinatorFiles[idx])
 		if err != nil {
 			return err
 		}
@@ -252,7 +257,7 @@ func recoverMultiRegionCluster(cmd *cobra.Command, opts recoverMultiRegionCluste
 
 	for _, target := range needsUpload {
 		for idx, coordinatorFile := range coordinatorFiles {
-			err = uploadCoordinatorFile(cmd.Context(), opts.client, opts.config, target, tmpCoordinatorFiles[idx], path.Join(dataDir, coordinatorFile))
+			err = uploadCoordinatorFile(cmd, opts.client, opts.config, target, tmpCoordinatorFiles[idx], path.Join(dataDir, coordinatorFile))
 			if err != nil {
 				return err
 			}
@@ -273,7 +278,7 @@ func recoverMultiRegionCluster(cmd *cobra.Command, opts recoverMultiRegionCluste
 	}
 
 	newCS := newConnectionString.String()
-	log.Println("new connection string:", newCS)
+	cmd.Println("new connection string:", newCS)
 	err = updateConnectionString(cmd.Context(), opts.client, cluster, newCS)
 	if err != nil {
 		return err
@@ -282,7 +287,7 @@ func recoverMultiRegionCluster(cmd *cobra.Command, opts recoverMultiRegionCluste
 	// Wait ~1 min until the `ConfigMap` is synced to all Pods, you can check the `/var/dynamic-conf/fdb.cluster` inside a Pod if you are unsure.
 	time.Sleep(2 * time.Minute)
 
-	log.Println("Killing fdbserver processes")
+	cmd.Println("Killing fdbserver processes")
 	// Now all Pods must be restarted and the previous local cluster file must be deleted to make sure the fdbserver is picking the connection string from the seed cluster file (`/var/dynamic-conf/fdb.cluster`).
 	err = restartFdbserverInCluster(cmd.Context(), opts.client, opts.config, cluster)
 	if err != nil {
@@ -298,10 +303,10 @@ func recoverMultiRegionCluster(cmd *cobra.Command, opts recoverMultiRegionCluste
 	var attempts int
 	var failOverErr error
 	for attempts < 5 {
-		log.Println("Triggering force recovery with command:", command, "attempt:", attempts)
+		cmd.Println("Triggering force recovery with command:", command, "attempt:", attempts)
 		failOverErr = kubeHelper.ExecuteCommandRaw(cmd.Context(), opts.client, opts.config, runningCoordinator.Namespace, runningCoordinator.Name, fdbv1beta2.MainContainerName, command, nil, cmd.OutOrStdout(), cmd.OutOrStderr(), false)
 		if failOverErr != nil {
-			log.Println("failed:", failOverErr.Error(), "waiting 15 seconds")
+			cmd.Println("failed:", failOverErr.Error(), "waiting 15 seconds")
 			time.Sleep(15 * time.Second)
 			attempts++
 			continue
@@ -340,7 +345,7 @@ func recoverMultiRegionCluster(cmd *cobra.Command, opts recoverMultiRegionCluste
 	return nil
 }
 
-func downloadCoordinatorFile(ctx context.Context, kubeClient client.Client, config *rest.Config, pod *corev1.Pod, src string, dst string) error {
+func downloadCoordinatorFile(cmd *cobra.Command, kubeClient client.Client, config *rest.Config, pod *corev1.Pod, src string, dst string) error {
 	tmpCoordinatorFile, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0600)
 	if err != nil {
 		return err
@@ -350,8 +355,8 @@ func downloadCoordinatorFile(ctx context.Context, kubeClient client.Client, conf
 		_ = tmpCoordinatorFile.Close()
 	}()
 
-	log.Println("Download files, target:", dst, "source", src, "pod", pod.Name, "namespace", pod.Namespace)
-	err = kubeHelper.DownloadFile(ctx, kubeClient, config, pod, fdbv1beta2.MainContainerName, src, tmpCoordinatorFile)
+	cmd.Println("Download files, target:", dst, "source", src, "pod", pod.Name, "namespace", pod.Namespace)
+	err = kubeHelper.DownloadFile(cmd.Context(), kubeClient, config, pod, fdbv1beta2.MainContainerName, src, tmpCoordinatorFile)
 	if err != nil {
 		return err
 	}
@@ -368,7 +373,7 @@ func downloadCoordinatorFile(ctx context.Context, kubeClient client.Client, conf
 	return nil
 }
 
-func uploadCoordinatorFile(ctx context.Context, kubeClient client.Client, config *rest.Config, pod *corev1.Pod, src string, dst string) error {
+func uploadCoordinatorFile(cmd *cobra.Command, kubeClient client.Client, config *rest.Config, pod *corev1.Pod, src string, dst string) error {
 	tmpCoordinatorFile, err := os.OpenFile(src, os.O_RDONLY, 0600)
 	if err != nil {
 		return err
@@ -378,9 +383,9 @@ func uploadCoordinatorFile(ctx context.Context, kubeClient client.Client, config
 		_ = tmpCoordinatorFile.Close()
 	}()
 
-	log.Println("Upload files, target:", dst, "source", src, "pod", pod.Name, "namespace", pod.Namespace)
+	cmd.Println("Upload files, target:", dst, "source", src, "pod", pod.Name, "namespace", pod.Namespace)
 
-	return kubeHelper.UploadFile(ctx, kubeClient, config, pod, fdbv1beta2.MainContainerName, tmpCoordinatorFile, dst)
+	return kubeHelper.UploadFile(cmd.Context(), kubeClient, config, pod, fdbv1beta2.MainContainerName, tmpCoordinatorFile, dst)
 }
 
 func restartFdbserverInCluster(ctx context.Context, kubeClient client.Client, config *rest.Config, cluster *fdbv1beta2.FoundationDBCluster) error {
@@ -400,8 +405,8 @@ func restartFdbserverInCluster(ctx context.Context, kubeClient client.Client, co
 	return nil
 }
 
-func checkIfClusterIsUnavailableAndMajorityOfCoordinatorsAreUnreachable(ctx context.Context, kubeClient client.Client, config *rest.Config, cluster *fdbv1beta2.FoundationDBCluster) error {
-	pods, err := getRunningPodsForCluster(ctx, kubeClient, cluster)
+func checkIfClusterIsUnavailableAndMajorityOfCoordinatorsAreUnreachable(cmd *cobra.Command, kubeClient client.Client, config *rest.Config, cluster *fdbv1beta2.FoundationDBCluster) error {
+	pods, err := getRunningPodsForCluster(cmd.Context(), kubeClient, cluster)
 	if err != nil {
 		return err
 	}
@@ -411,8 +416,8 @@ func checkIfClusterIsUnavailableAndMajorityOfCoordinatorsAreUnreachable(ctx cont
 		return err
 	}
 
-	fmt.Println("Getting the status from:", clientPod.Name)
-	status, err := getStatus(ctx, kubeClient, config, clientPod)
+	cmd.Println("Getting the status from:", clientPod.Name)
+	status, err := getStatus(cmd.Context(), kubeClient, config, clientPod)
 	if err != nil {
 		return err
 	}
