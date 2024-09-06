@@ -60,7 +60,7 @@ func newRecoverMultiRegionClusterCmd(streams genericclioptions.IOStreams) *cobra
 			}
 
 			if len(args) != 1 {
-				return fmt.Errorf("exactly one argument must be specified, %v", args)
+				return fmt.Errorf("exactly one cluster name must be specified, provided args: %v", args)
 			}
 
 			clusterName := args[0]
@@ -87,7 +87,7 @@ func newRecoverMultiRegionClusterCmd(streams genericclioptions.IOStreams) *cobra
 					return fmt.Errorf("aborted recover multi-region aciton")
 				}
 
-				confirmed = confirmAction("WARNING:\nEnsure that all the other Pods that are not part of the target cluster are deleted and shutdown.")
+				confirmed = confirmAction("WARNING:\nIf this is a multi-region cluster, or is spread across different namespaces/Kubernetes clusters.\nEnsure that all Pods of this FDB cluster: %s in the other namespaces/Kubernetes clusters are deleted and shutdown.")
 				if !confirmed {
 					return fmt.Errorf("aborted recover multi-region aciton")
 				}
