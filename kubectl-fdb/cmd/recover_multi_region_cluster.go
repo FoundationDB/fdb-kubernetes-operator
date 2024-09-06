@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -256,8 +256,10 @@ func recoverMultiRegionCluster(cmd *cobra.Command, opts recoverMultiRegionCluste
 	}
 
 	for _, target := range needsUpload {
+		targetDataDir := getDataDir(dataDir, target, cluster)
+
 		for idx, coordinatorFile := range coordinatorFiles {
-			err = uploadCoordinatorFile(cmd, opts.client, opts.config, target, tmpCoordinatorFiles[idx], path.Join(dataDir, coordinatorFile))
+			err = uploadCoordinatorFile(cmd, opts.client, opts.config, target, tmpCoordinatorFiles[idx], path.Join(targetDataDir, coordinatorFile))
 			if err != nil {
 				return err
 			}
@@ -343,6 +345,36 @@ func recoverMultiRegionCluster(cmd *cobra.Command, opts recoverMultiRegionCluste
 	}
 
 	return nil
+}
+
+// getDataDir will return the target data directory to upload the coordinator files to. The directory can be different, depending
+// on the used image type and if more than one process should be running inside the Pod.
+func getDataDir(dataDir string, pod *corev1.Pod, cluster *fdbv1beta2.FoundationDBCluster) string {
+	baseDir := dataDir
+	// If the dataDir has a suffix for the process we remove it.
+	if dataDir != "/var/fdb/data" {
+		baseDir = path.Dir(dataDir)
+	}
+
+	// If the unified image is used we can simply return /var/fdb/data/1, as the unified image will always add the process
+	// directory, even if only a single process is running inside the Pod.
+	if cluster.UseUnifiedImage() {
+		return path.Join(baseDir, "/1")
+	}
+
+	// In this path we use the split image, so the process directory is only added if more than one process should be running
+	processClass := internal.GetProcessClassFromMeta(cluster, pod.ObjectMeta)
+
+	if processClass.IsLogProcess() && cluster.GetLogServersPerPod() > 1 {
+		return path.Join(baseDir, "/1")
+	}
+
+	if processClass == fdbv1beta2.ProcessClassStorage && cluster.GetStorageServersPerPod() > 1 {
+		return path.Join(baseDir, "/1")
+	}
+
+	// This is the default case if we are running one process per Pod for this storage class and using the split image.
+	return baseDir
 }
 
 func downloadCoordinatorFile(cmd *cobra.Command, kubeClient client.Client, config *rest.Config, pod *corev1.Pod, src string, dst string) error {
