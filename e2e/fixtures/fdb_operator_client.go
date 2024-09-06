@@ -111,6 +111,7 @@ rules:
   resources:
   - pods/exec
   verbs:
+  - get
   - create
 - apiGroups:
   - apps.foundationdb.org

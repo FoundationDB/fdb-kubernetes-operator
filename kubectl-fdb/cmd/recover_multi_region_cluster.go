@@ -202,6 +202,10 @@ func recoverMultiRegionCluster(cmd *cobra.Command, opts recoverMultiRegionCluste
 		candidates = append(candidates, &loopPod)
 	}
 
+	if runningCoordinator == nil {
+		return fmt.Errorf("could not find any running coordinator for this cluster")
+	}
+
 	// Pick 5 new coordinators.
 	needsUpload := make([]*corev1.Pod, 0, 5)
 	for len(newCoordinators) < 5 {
@@ -288,16 +292,16 @@ func recoverMultiRegionCluster(cmd *cobra.Command, opts recoverMultiRegionCluste
 	// Wait until all fdbservers have started again.
 	time.Sleep(1 * time.Minute)
 
-	command := fmt.Sprintf("fdbcli --exec 'force_recovery_with_data_loss %s'", cluster.Spec.DataCenter)
+	command := []string{"fdbcli", "--exec", fmt.Sprintf("force_recovery_with_data_loss %s", cluster.Spec.DataCenter)}
 	// Now you can exec into a container and use `fdbcli` to connect to the cluster.
 	// If you use a multi-region cluster you have to issue `force_recovery_with_data_loss`
 	var attempts int
 	var failOverErr error
 	for attempts < 5 {
 		log.Println("Triggering force recovery with command:", command, "attempt:", attempts)
-		_, stderr, failOverErr = kubeHelper.ExecuteCommandOnPod(cmd.Context(), opts.client, opts.config, runningCoordinator, fdbv1beta2.MainContainerName, command, false)
+		failOverErr = kubeHelper.ExecuteCommandRaw(cmd.Context(), opts.client, opts.config, runningCoordinator.Namespace, runningCoordinator.Name, fdbv1beta2.MainContainerName, command, nil, cmd.OutOrStdout(), cmd.OutOrStderr(), false)
 		if failOverErr != nil {
-			log.Println("failed:", stderr, "waiting 15 seconds")
+			log.Println("failed:", failOverErr.Error(), "waiting 15 seconds")
 			time.Sleep(15 * time.Second)
 			attempts++
 			continue
@@ -393,7 +397,7 @@ func restartFdbserverInCluster(ctx context.Context, kubeClient client.Client, co
 		}
 	}
 
-	return err
+	return nil
 }
 
 func checkIfClusterIsUnavailableAndMajorityOfCoordinatorsAreUnreachable(ctx context.Context, kubeClient client.Client, config *rest.Config, cluster *fdbv1beta2.FoundationDBCluster) error {
@@ -407,6 +411,7 @@ func checkIfClusterIsUnavailableAndMajorityOfCoordinatorsAreUnreachable(ctx cont
 		return err
 	}
 
+	fmt.Println("Getting the status from:", clientPod.Name)
 	status, err := getStatus(ctx, kubeClient, config, clientPod)
 	if err != nil {
 		return err

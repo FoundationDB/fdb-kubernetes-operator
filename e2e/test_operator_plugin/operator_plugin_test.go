@@ -52,9 +52,6 @@ var _ = BeforeSuite(func() {
 	clusterOptions = factory.GetClusterOptions()
 	clusterConfig = fixtures.DefaultClusterConfigWithHaMode(fixtures.HaFourZoneSingleSat, false)
 	fdbCluster = factory.CreateFdbHaCluster(clusterConfig, clusterOptions...)
-
-	// Load some data into the cluster.
-	factory.CreateDataLoaderIfAbsent(fdbCluster.GetPrimary())
 })
 
 var _ = AfterSuite(func() {
@@ -78,7 +75,7 @@ var _ = Describe("Operator Plugin", Label("e2e", "pr"), func() {
 			operatorPod := factory.RandomPickOnePod(factory.GetOperatorPods(fdbCluster.GetPrimary().Namespace()).Items)
 			log.Println("operatorPod", operatorPod.Name)
 			Eventually(func(g Gomega) string {
-				stdout, stderr, err := factory.ExecuteCmdOnPod(context.Background(), &operatorPod, "manager", fmt.Sprintf("kubectl-fdb -n %s version --version-check=false", fdbCluster.GetPrimary().Namespace()), false)
+				stdout, stderr, err := factory.ExecuteCmdOnPod(context.Background(), &operatorPod, "manager", fmt.Sprintf("kubectl-fdb -n %s --version-check=false version", fdbCluster.GetPrimary().Namespace()), false)
 				g.Expect(err).NotTo(HaveOccurred(), stderr)
 				return stdout
 			}).WithTimeout(10 * time.Minute).WithPolling(2 * time.Second).Should(And(ContainSubstring("kubectl-fdb:"), ContainSubstring("foundationdb-operator:")))
@@ -94,19 +91,22 @@ var _ = Describe("Operator Plugin", Label("e2e", "pr"), func() {
 			primarySatellite := fdbCluster.GetPrimarySatellite()
 			primarySatellite.SetSkipReconciliation(true)
 
+			remoteSatellite := fdbCluster.GetRemoteSatellite()
+			remoteSatellite.SetSkipReconciliation(true)
+
+			log.Println("Delete Pods in primary")
 			primaryPods := primary.GetPods()
 			for _, pod := range primaryPods.Items {
 				factory.DeletePod(&pod)
 			}
 
+			log.Println("Delete Pods in primary satellite")
 			primarySatellitePods := primarySatellite.GetPods()
 			for _, pod := range primarySatellitePods.Items {
 				factory.DeletePod(&pod)
 			}
 
-			remoteSatellite := fdbCluster.GetRemoteSatellite()
-			remoteSatellite.SetSkipReconciliation(true)
-
+			log.Println("Delete Pods in remote satellite")
 			remoteSatellitePods := remoteSatellite.GetPods()
 			for _, pod := range remoteSatellitePods.Items {
 				factory.DeletePod(&pod)
@@ -114,24 +114,29 @@ var _ = Describe("Operator Plugin", Label("e2e", "pr"), func() {
 
 			// Wait a short amount of time to let the cluster see that the primary and primary satellite is down.
 			time.Sleep(5 * time.Second)
+
+			remote := fdbCluster.GetRemote()
+			// Ensure the cluster is unavailable.
+			Eventually(func() bool {
+				return remote.GetStatus().Client.DatabaseStatus.Available
+			}).WithTimeout(2 * time.Minute).WithPolling(1 * time.Second).Should(BeFalse())
 		})
 
 		AfterEach(func() {
+			log.Println("Recreate cluster")
 			// Delete the broken cluster.
 			fdbCluster.Delete()
 			// Recreate the cluster to make sure  the next tests can proceed
 			fdbCluster = factory.CreateFdbHaCluster(clusterConfig, clusterOptions...)
-			// Load some data into the cluster.
-			factory.CreateDataLoaderIfAbsent(fdbCluster.GetPrimary())
 		})
 
 		It("should recover the coordinators", func() {
 			remote := fdbCluster.GetRemote()
 			// Pick one operator pod and execute the recovery command
 			operatorPod := factory.RandomPickOnePod(factory.GetOperatorPods(remote.Namespace()).Items)
-			log.Println("operatorPod", operatorPod.Name)
+			log.Println("operatorPod:", operatorPod.Name)
 			Eventually(func() error {
-				stdout, stderr, err := factory.ExecuteCmdOnPod(context.Background(), &operatorPod, "manager", fmt.Sprintf("kubectl-fdb -n %s recover-multi-region-cluster %s --version-check=false --wait=false", remote.Namespace(), remote.Name()), false)
+				stdout, stderr, err := factory.ExecuteCmdOnPod(context.Background(), &operatorPod, "manager", fmt.Sprintf("kubectl-fdb -n %s recover-multi-region-cluster --version-check=false --wait=false %s", remote.Namespace(), remote.Name()), false)
 				log.Println("stdout:", stdout, "stderr:", stderr)
 				return err
 			}).WithTimeout(30 * time.Minute).WithPolling(5 * time.Minute).ShouldNot(HaveOccurred())
