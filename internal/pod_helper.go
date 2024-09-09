@@ -236,3 +236,19 @@ func GetPublicIPSource(pod *corev1.Pod) (fdbv1beta2.PublicIPSource, error) {
 	}
 	return fdbv1beta2.PublicIPSource(source), nil
 }
+
+// PodHasSidecarTLS determines whether a pod currently has TLS enabled for the sidecar process.
+// This method should only be used for split images.
+func PodHasSidecarTLS(pod *corev1.Pod) bool {
+	for _, container := range pod.Spec.Containers {
+		if container.Name == fdbv1beta2.SidecarContainerName {
+			for _, arg := range container.Args {
+				if arg == "--tls" {
+					return true
+				}
+			}
+		}
+	}
+
+	return false
+}

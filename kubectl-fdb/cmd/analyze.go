@@ -466,7 +466,7 @@ func filterDeletePods(replacements []string, killPods []corev1.Pod) []corev1.Pod
 }
 
 func getStatus(ctx context.Context, kubeClient client.Client, restConfig *rest.Config, pod *corev1.Pod) (*fdbv1beta2.FoundationDBStatus, error) {
-	stdout, stderr, err := kubeHelper.ExecuteCommandOnPod(ctx, kubeClient, restConfig, pod, fdbv1beta2.MainContainerName, "fdbcli --exec 'status json'", false)
+	stdout, stderr, err := kubeHelper.ExecuteCommandOnPod(ctx, kubeClient, restConfig, pod, fdbv1beta2.MainContainerName, "fdbcli --timeout=40 --exec 'status json'", false)
 	if err != nil {
 		return nil, fmt.Errorf("error getting status: %s, %w", stderr, err)
 	}

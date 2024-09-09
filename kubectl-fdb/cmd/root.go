@@ -23,17 +23,14 @@ package cmd
 import (
 	"bufio"
 	"fmt"
-	"log"
-	"math/rand"
-	"os"
-	"strings"
-	"time"
-
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"log"
+	"os"
+	"strings"
 )
 
 // fdbBOptions provides information required to run different
@@ -53,8 +50,6 @@ func newFDBOptions(streams genericclioptions.IOStreams) *fdbBOptions {
 
 // NewRootCmd provides a cobra command wrapping FDB actions
 func NewRootCmd(streams genericclioptions.IOStreams, pluginVersionChecker VersionChecker) *cobra.Command {
-	rand.Seed(time.Now().Unix())
-
 	o := newFDBOptions(streams)
 
 	cmd := &cobra.Command{
@@ -96,6 +91,7 @@ func NewRootCmd(streams genericclioptions.IOStreams, pluginVersionChecker Versio
 		newFixCoordinatorIPsCmd(streams),
 		newGetCmd(streams),
 		newBuggifyCmd(streams),
+		newRecoverMultiRegionClusterCmd(streams),
 	)
 
 	return cmd
