@@ -74,7 +74,7 @@ var _ = Describe("Operator Plugin", Label("e2e", "pr"), func() {
 			// Pick one operator pod and execute the kubectl version command to ensure that kubectl-fdb is present
 			// and can be executed.
 			operatorPod := factory.RandomPickOnePod(factory.GetOperatorPods(fdbCluster.GetPrimary().Namespace()).Items)
-			log.Println("operatorPod", operatorPod.Name)
+			log.Println("operatorPod:", operatorPod.Name)
 			Eventually(func(g Gomega) string {
 				stdout, stderr, err := factory.ExecuteCmdOnPod(context.Background(), &operatorPod, "manager", fmt.Sprintf("kubectl-fdb -n %s --version-check=false version", fdbCluster.GetPrimary().Namespace()), false)
 				g.Expect(err).NotTo(HaveOccurred(), stderr)
@@ -147,11 +147,9 @@ var _ = Describe("Operator Plugin", Label("e2e", "pr"), func() {
 			// Pick one operator pod and execute the recovery command
 			operatorPod := factory.RandomPickOnePod(factory.GetOperatorPods(remote.Namespace()).Items)
 			log.Println("operatorPod:", operatorPod.Name)
-			Eventually(func() error {
-				stdout, stderr, err := factory.ExecuteCmdOnPod(context.Background(), &operatorPod, "manager", fmt.Sprintf("kubectl-fdb -n %s recover-multi-region-cluster --version-check=false --wait=false %s", remote.Namespace(), remote.Name()), false)
-				log.Println("stdout:", stdout, "stderr:", stderr)
-				return err
-			}).WithTimeout(30 * time.Minute).WithPolling(5 * time.Minute).ShouldNot(HaveOccurred())
+			stdout, stderr, err := factory.ExecuteCmdOnPod(context.Background(), &operatorPod, "manager", fmt.Sprintf("kubectl-fdb -n %s recover-multi-region-cluster --version-check=false --wait=false %s", remote.Namespace(), remote.Name()), false)
+			log.Println("stdout:", stdout, "stderr:", stderr)
+			Expect(err).NotTo(HaveOccurred())
 
 			// Ensure the cluster is available again.
 			Eventually(func() bool {

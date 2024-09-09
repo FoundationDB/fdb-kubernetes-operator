@@ -105,7 +105,7 @@ func NewFdbPodClient(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod, l
 		}
 	}
 
-	useTLS := podHasSidecarTLS(pod)
+	useTLS := PodHasSidecarTLS(pod)
 
 	var tlsConfig = &tls.Config{}
 	if useTLS {
@@ -373,22 +373,6 @@ func (client *realFdbPodAnnotationClient) UpdateFile(name string, contents strin
 // these checks internally.
 func (client *realFdbPodAnnotationClient) IsPresent(_ string) (bool, error) {
 	return true, nil
-}
-
-// podHasSidecarTLS determines whether a pod currently has TLS enabled for the
-// sidecar process.
-func podHasSidecarTLS(pod *corev1.Pod) bool {
-	for _, container := range pod.Spec.Containers {
-		if container.Name == fdbv1beta2.SidecarContainerName {
-			for _, arg := range container.Args {
-				if arg == "--tls" {
-					return true
-				}
-			}
-		}
-	}
-
-	return false
 }
 
 // GetImageType determines whether a pod is using the unified or the split image.

@@ -21,9 +21,7 @@
 package cmd
 
 import (
-	"context"
 	"log"
-	"os"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	kubeHelper "github.com/FoundationDB/fdb-kubernetes-operator/internal/kubernetes"
@@ -66,7 +64,7 @@ func newExecCmd(streams genericclioptions.IOStreams) *cobra.Command {
 				return err
 			}
 
-			return runExec(cmd.Context(), kubeClient, cluster, config, args)
+			return runExec(cmd, kubeClient, cluster, config, args)
 		},
 		Example: `
  # Open a shell.
@@ -91,8 +89,8 @@ func newExecCmd(streams genericclioptions.IOStreams) *cobra.Command {
 	return cmd
 }
 
-func runExec(ctx context.Context, kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluster, config *rest.Config, commandArgs []string) error {
-	pods, err := getRunningPodsForCluster(ctx, kubeClient, cluster)
+func runExec(cmd *cobra.Command, kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluster, config *rest.Config, commandArgs []string) error {
+	pods, err := getRunningPodsForCluster(cmd.Context(), kubeClient, cluster)
 	if err != nil {
 		return err
 	}
@@ -102,5 +100,5 @@ func runExec(ctx context.Context, kubeClient client.Client, cluster *fdbv1beta2.
 		return err
 	}
 
-	return kubeHelper.ExecuteCommandRaw(ctx, kubeClient, config, clientPod.Namespace, clientPod.Name, fdbv1beta2.MainContainerName, commandArgs, os.Stdin, os.Stdout, os.Stderr, true)
+	return kubeHelper.ExecuteCommandRaw(cmd.Context(), kubeClient, config, clientPod.Namespace, clientPod.Name, fdbv1beta2.MainContainerName, commandArgs, cmd.InOrStdin(), cmd.OutOrStdout(), cmd.OutOrStderr(), true)
 }

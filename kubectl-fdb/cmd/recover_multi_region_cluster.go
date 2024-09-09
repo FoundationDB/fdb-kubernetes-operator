@@ -142,10 +142,7 @@ func recoverMultiRegionCluster(cmd *cobra.Command, opts recoverMultiRegionCluste
 	lastConnectionString := cluster.Status.ConnectionString
 	lastConnectionStringParts := strings.Split(lastConnectionString, "@")
 	addresses := strings.Split(lastConnectionStringParts[1], ",")
-	// Since this is a multi-region cluster, we expect 9 coordinators.
-	if len(addresses) != 9 {
-		return fmt.Errorf("expected exactly 9 addresses, got %d", len(addresses))
-	}
+
 	cmd.Println("current connection string", lastConnectionString)
 
 	var useTLS bool
@@ -206,9 +203,28 @@ func recoverMultiRegionCluster(cmd *cobra.Command, opts recoverMultiRegionCluste
 		return fmt.Errorf("could not find any running coordinator for this cluster")
 	}
 
+	// Drop the multi-region setup if present.
+	newDatabaseConfiguration := cluster.Spec.DatabaseConfiguration.DeepCopy()
+	// Drop the multi-region configuration.
+	newDatabaseConfiguration.UsableRegions = 1
+	newDatabaseConfiguration.Regions = []fdbv1beta2.Region{
+		{
+			DataCenters: []fdbv1beta2.DataCenter{
+				{
+					ID: cluster.Spec.DataCenter,
+				},
+			},
+		},
+	}
+	cmd.Println("Update the database configuration to single region configuration")
+	err = updateDatabaseConfiguration(cmd.Context(), opts.client, cluster, *newDatabaseConfiguration)
+	if err != nil {
+		return err
+	}
+
 	// Pick 5 new coordinators.
-	needsUpload := make([]*corev1.Pod, 0, 5)
-	for len(newCoordinators) < 5 {
+	needsUpload := make([]*corev1.Pod, 0, cluster.DesiredCoordinatorCount())
+	for len(newCoordinators) < cluster.DesiredCoordinatorCount() {
 		cmd.Println("Current coordinators:", len(newCoordinators))
 		candidate := candidates[len(newCoordinators)]
 		addr, parseErr := fdbv1beta2.ParseProcessAddress(candidate.Status.PodIP)
@@ -226,42 +242,45 @@ func recoverMultiRegionCluster(cmd *cobra.Command, opts recoverMultiRegionCluste
 		needsUpload = append(needsUpload, candidate)
 	}
 
-	// Copy the coordinator state from one of the running coordinators to your local machine:
-	coordinatorFiles := []string{"coordination-0.fdq", "coordination-1.fdq"}
-	tmpCoordinatorFiles := make([]string, 2)
-	tmpDir := os.TempDir()
-	for idx, coordinatorFile := range coordinatorFiles {
-		tmpCoordinatorFiles[idx] = path.Join(tmpDir, coordinatorFile)
-	}
+	// If at least one coordinator needs to get the files uploaded, we perform the download and upload for the coordinators.
+	if len(needsUpload) > 0 {
+		// Copy the coordinator state from one of the running coordinators to your local machine:
+		coordinatorFiles := []string{"coordination-0.fdq", "coordination-1.fdq"}
+		tmpCoordinatorFiles := make([]string, 2)
+		tmpDir := os.TempDir()
+		for idx, coordinatorFile := range coordinatorFiles {
+			tmpCoordinatorFiles[idx] = path.Join(tmpDir, coordinatorFile)
+		}
 
-	cmd.Println("tmpCoordinatorFiles", tmpCoordinatorFiles, "checking the location of the coordination-0.fdq in Pod", runningCoordinator.Name)
-	stdout, stderr, err := kubeHelper.ExecuteCommandOnPod(context.Background(), opts.client, opts.config, runningCoordinator, fdbv1beta2.MainContainerName, "find /var/fdb/data/ -type f -name 'coordination-0.fdq' -print -quit | head -n 1", false)
-	if err != nil {
-		cmd.Println(stderr)
-		return err
-	}
-
-	lines := strings.Split(stdout, "\n")
-	if len(lines) == 0 {
-		return fmt.Errorf("no coordination file found in %s", runningCoordinator.Name)
-	}
-
-	dataDir := path.Dir(strings.TrimSpace(lines[0]))
-	cmd.Println("dataDir:", dataDir)
-	for idx, coordinatorFile := range coordinatorFiles {
-		err = downloadCoordinatorFile(cmd, opts.client, opts.config, runningCoordinator, path.Join(dataDir, coordinatorFile), tmpCoordinatorFiles[idx])
+		cmd.Println("tmpCoordinatorFiles", tmpCoordinatorFiles, "checking the location of the coordination-0.fdq in Pod", runningCoordinator.Name)
+		stdout, stderr, err := kubeHelper.ExecuteCommandOnPod(context.Background(), opts.client, opts.config, runningCoordinator, fdbv1beta2.MainContainerName, "find /var/fdb/data/ -type f -name 'coordination-0.fdq' -print -quit | head -n 1", false)
 		if err != nil {
+			cmd.Println(stderr)
 			return err
 		}
-	}
 
-	for _, target := range needsUpload {
-		targetDataDir := getDataDir(dataDir, target, cluster)
+		lines := strings.Split(stdout, "\n")
+		if len(lines) == 0 {
+			return fmt.Errorf("no coordination file found in %s", runningCoordinator.Name)
+		}
 
+		dataDir := path.Dir(strings.TrimSpace(lines[0]))
+		cmd.Println("dataDir:", dataDir)
 		for idx, coordinatorFile := range coordinatorFiles {
-			err = uploadCoordinatorFile(cmd, opts.client, opts.config, target, tmpCoordinatorFiles[idx], path.Join(targetDataDir, coordinatorFile))
+			err = downloadCoordinatorFile(cmd, opts.client, opts.config, runningCoordinator, path.Join(dataDir, coordinatorFile), tmpCoordinatorFiles[idx])
 			if err != nil {
 				return err
+			}
+		}
+
+		for _, target := range needsUpload {
+			targetDataDir := getDataDir(dataDir, target, cluster)
+
+			for idx, coordinatorFile := range coordinatorFiles {
+				err = uploadCoordinatorFile(cmd, opts.client, opts.config, target, tmpCoordinatorFiles[idx], path.Join(targetDataDir, coordinatorFile))
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -289,6 +308,37 @@ func recoverMultiRegionCluster(cmd *cobra.Command, opts recoverMultiRegionCluste
 	// Wait ~1 min until the `ConfigMap` is synced to all Pods, you can check the `/var/dynamic-conf/fdb.cluster` inside a Pod if you are unsure.
 	time.Sleep(2 * time.Minute)
 
+	// If the split image is used we have to update the copied files by making a POST request against the sidecar API.
+	// In the unified image, this step is not required as the dynamic files are directly mounted in the main container.
+	// We are not deleting the Pods as the operator is set to skip the reconciliation and therefore the deleted Pods
+	// would not be recreated.
+	if !cluster.UseUnifiedImage() {
+		cmd.Println("The cluster uses the split image, the plugin will update the copied files")
+		for _, pod := range pods.Items {
+			loopPod := pod
+
+			command := []string{"/bin/bash", "-c"}
+
+			var curlStr strings.Builder
+			curlStr.WriteString("curl -X POST")
+			if internal.PodHasSidecarTLS(&loopPod) {
+				curlStr.WriteString(" --cacert ${FDB_TLS_CA_FILE} --cert ${FDB_TLS_CERTIFICATE_FILE} --key ${FDB_TLS_KEY_FILE} -k https://")
+			} else {
+				curlStr.WriteString(" http://")
+			}
+
+			curlStr.WriteString(loopPod.Status.PodIP)
+			curlStr.WriteString(":8080/copy_files > /dev/null")
+
+			command = append(command, curlStr.String())
+
+			err = kubeHelper.ExecuteCommandRaw(cmd.Context(), opts.client, opts.config, runningCoordinator.Namespace, runningCoordinator.Name, fdbv1beta2.MainContainerName, command, nil, cmd.OutOrStdout(), cmd.OutOrStderr(), false)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
 	cmd.Println("Killing fdbserver processes")
 	// Now all Pods must be restarted and the previous local cluster file must be deleted to make sure the fdbserver is picking the connection string from the seed cluster file (`/var/dynamic-conf/fdb.cluster`).
 	err = restartFdbserverInCluster(cmd.Context(), opts.client, opts.config, cluster)
@@ -302,41 +352,12 @@ func recoverMultiRegionCluster(cmd *cobra.Command, opts recoverMultiRegionCluste
 	command := []string{"fdbcli", "--exec", fmt.Sprintf("force_recovery_with_data_loss %s", cluster.Spec.DataCenter)}
 	// Now you can exec into a container and use `fdbcli` to connect to the cluster.
 	// If you use a multi-region cluster you have to issue `force_recovery_with_data_loss`
-	var attempts int
-	var failOverErr error
-	for attempts < 5 {
-		cmd.Println("Triggering force recovery with command:", command, "attempt:", attempts)
-		failOverErr = kubeHelper.ExecuteCommandRaw(cmd.Context(), opts.client, opts.config, runningCoordinator.Namespace, runningCoordinator.Name, fdbv1beta2.MainContainerName, command, nil, cmd.OutOrStdout(), cmd.OutOrStderr(), false)
-		if failOverErr != nil {
-			cmd.Println("failed:", failOverErr.Error(), "waiting 15 seconds")
-			time.Sleep(15 * time.Second)
-			attempts++
-			continue
-		}
-
-		break
-	}
-
-	if failOverErr != nil {
-		return failOverErr
-	}
-
-	newDatabaseConfiguration := cluster.Spec.DatabaseConfiguration.FailOver()
-	// Drop the multi-region configuration.
-	newDatabaseConfiguration.Regions = []fdbv1beta2.Region{
-		{
-			DataCenters: []fdbv1beta2.DataCenter{
-				{
-					ID: cluster.Spec.DataCenter,
-				},
-			},
-		},
-	}
-
-	err = updateDatabaseConfiguration(cmd.Context(), opts.client, cluster, newDatabaseConfiguration)
+	cmd.Println("Triggering force recovery with command:", command)
+	err = kubeHelper.ExecuteCommandRaw(cmd.Context(), opts.client, opts.config, runningCoordinator.Namespace, runningCoordinator.Name, fdbv1beta2.MainContainerName, command, nil, cmd.OutOrStdout(), cmd.OutOrStderr(), false)
 	if err != nil {
 		return err
 	}
+
 	// Now you can set `spec.Skip = false` to let the operator take over again.
 	// Skip the cluster, make sure the operator is not taking any action on the cluster.
 	err = setSkipReconciliation(cmd.Context(), opts.client, cluster, false)

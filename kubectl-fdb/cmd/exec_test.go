@@ -21,7 +21,9 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	. "github.com/onsi/ginkgo/v2"
@@ -56,7 +58,12 @@ var _ = Describe("[plugin] exec command", func() {
 
 		DescribeTable("should execute the provided command",
 			func(input testCase) {
-				Expect(runExec(context.Background(), k8sClient, cluster, &rest.Config{}, input.Command)).NotTo(HaveOccurred())
+				outBuffer := bytes.Buffer{}
+				errBuffer := bytes.Buffer{}
+				inBuffer := bytes.Buffer{}
+
+				rootCmd := NewRootCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer}, &MockVersionChecker{})
+				Expect(runExec(rootCmd, k8sClient, cluster, &rest.Config{}, input.Command)).NotTo(HaveOccurred())
 			},
 			Entry("Exec into instance with valid pod",
 				testCase{
