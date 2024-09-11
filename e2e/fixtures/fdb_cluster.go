@@ -1497,7 +1497,7 @@ func (fdbCluster *FdbCluster) UpdateConnectionString(connectionString string) {
 }
 
 // CreateTesterDeployment will create a deployment that runs tester processes with the specified number of replicas.
-func (fdbCluster *FdbCluster) CreateTesterDeployment(replicas int) {
+func (fdbCluster *FdbCluster) CreateTesterDeployment(replicas int) *appsv1.Deployment {
 	deploymentName := fdbCluster.Name() + "-tester"
 
 	deploymentLabels := map[string]string{
@@ -1725,4 +1725,6 @@ func (fdbCluster *FdbCluster) CreateTesterDeployment(replicas int) {
 
 		return runningReplicas
 	}).WithTimeout(10 * time.Minute).WithPolling(2 * time.Second).Should(gomega.BeNumerically(">=", replicas))
+
+	return deploy
 }

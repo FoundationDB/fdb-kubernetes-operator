@@ -644,9 +644,9 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 			)
 
 			// Start tester processes in the primary side
-			fdbCluster.GetPrimary().CreateTesterDeployment(4)
+			primaryTester := fdbCluster.GetPrimary().CreateTesterDeployment(4)
 			// Start tester processes in the remote side
-			fdbCluster.GetRemote().CreateTesterDeployment(4)
+			remoteTester := fdbCluster.GetRemote().CreateTesterDeployment(4)
 
 			// Start the upgrade with the tester processes present.
 			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
@@ -656,6 +656,9 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 			Expect(fdbCluster.GetPrimarySatellite().WaitForReconciliation()).NotTo(HaveOccurred())
 			// Make sure the cluster has no data loss
 			fdbCluster.GetPrimary().EnsureTeamTrackersHaveMinReplicas()
+
+			factory.Delete(primaryTester)
+			factory.Delete(remoteTester)
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
