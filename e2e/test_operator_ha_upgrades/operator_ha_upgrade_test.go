@@ -628,4 +628,36 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 		EntryDescription("Upgrade from %[1]s to %[2]s"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
 	)
+
+	DescribeTable("when tester processes are running in the primary and remote dc",
+		func(beforeVersion string, targetVersion string) {
+			clusterConfig := fixtures.DefaultClusterConfigWithHaMode(fixtures.HaFourZoneSingleSat, false)
+
+			clusterSetupWithTestConfig(
+				testConfig{
+					beforeVersion:          beforeVersion,
+					enableOperatorPodChaos: false,
+					enableHealthCheck:      false,
+					loadData:               false,
+					clusterConfig:          clusterConfig,
+				},
+			)
+
+			// Start tester processes in the primary side
+			fdbCluster.GetPrimary().CreateTesterDeployment(4)
+			// Start tester processes in the remote side
+			fdbCluster.GetRemote().CreateTesterDeployment(4)
+
+			// Start the upgrade with the tester processes present.
+			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
+			// Verify that the upgrade proceeds
+			fdbCluster.VerifyVersion(targetVersion)
+			// Wait here for the primary satellite to reconcile, this means all Pods have been replaced
+			Expect(fdbCluster.GetPrimarySatellite().WaitForReconciliation()).NotTo(HaveOccurred())
+			// Make sure the cluster has no data loss
+			fdbCluster.GetPrimary().EnsureTeamTrackersHaveMinReplicas()
+		},
+		EntryDescription("Upgrade from %[1]s to %[2]s"),
+		fixtures.GenerateUpgradeTableEntries(testOptions),
+	)
 })

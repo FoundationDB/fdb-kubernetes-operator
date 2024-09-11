@@ -21,15 +21,17 @@
 package fixtures
 
 import (
-	ctx "context"
+	"context"
 	"fmt"
-	"golang.org/x/net/context"
 	"log"
 	"math"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	appsv1 "k8s.io/api/apps/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"golang.org/x/sync/errgroup"
 	"k8s.io/apimachinery/pkg/types"
@@ -118,18 +120,18 @@ func (fdbCluster *FdbCluster) WaitUntilExists() {
 
 	gomega.Eventually(func() error {
 		return fdbCluster.getClient().
-			Get(ctx.Background(), key, &clusterRequest)
+			Get(context.Background(), key, &clusterRequest)
 	}).WithTimeout(2 * time.Minute).ShouldNot(gomega.HaveOccurred())
 }
 
 // Create asynchronously creates this FDB cluster.
 func (fdbCluster *FdbCluster) Create() error {
-	return fdbCluster.getClient().Create(ctx.Background(), fdbCluster.cluster)
+	return fdbCluster.getClient().Create(context.Background(), fdbCluster.cluster)
 }
 
 // Update asynchronously updates this FDB cluster definition.
 func (fdbCluster *FdbCluster) Update() error {
-	return fdbCluster.getClient().Update(ctx.Background(), fdbCluster.cluster)
+	return fdbCluster.getClient().Update(context.Background(), fdbCluster.cluster)
 }
 
 // ReconciliationOptions defines the different reconciliation options.
@@ -341,7 +343,7 @@ func (fdbCluster *FdbCluster) ForceReconcile() {
 	// This will apply an Annotation to the object which will trigger the reconcile loop.
 	// This should speed up the reconcile phase.
 	err := fdbCluster.getClient().Patch(
-		ctx.Background(),
+		context.Background(),
 		fdbCluster.cluster,
 		patch)
 	if err != nil {
@@ -429,7 +431,7 @@ func (fdbCluster *FdbCluster) UpdateClusterStatusWithStatus(desiredStatus *fdbv1
 	// Try a few times before giving up.
 	gomega.Eventually(func(g gomega.Gomega) bool {
 		err := fdbCluster.getClient().
-			Get(ctx.Background(), client.ObjectKeyFromObject(fdbCluster.cluster), fetchedCluster)
+			Get(context.Background(), client.ObjectKeyFromObject(fdbCluster.cluster), fetchedCluster)
 		g.Expect(err).NotTo(gomega.HaveOccurred(), "error fetching cluster")
 
 		updated := equality.Semantic.DeepEqual(fetchedCluster.Status, *desiredStatus)
@@ -439,7 +441,7 @@ func (fdbCluster *FdbCluster) UpdateClusterStatusWithStatus(desiredStatus *fdbv1
 		}
 
 		desiredStatus.DeepCopyInto(&fetchedCluster.Status)
-		err = fdbCluster.getClient().Status().Update(ctx.Background(), fetchedCluster)
+		err = fdbCluster.getClient().Status().Update(context.Background(), fetchedCluster)
 		g.Expect(err).NotTo(gomega.HaveOccurred(), "error updating cluster status")
 		// Retry here and let the method fetch the latest version of the cluster again until the spec is updated.
 		return false
@@ -470,7 +472,7 @@ func (fdbCluster *FdbCluster) UpdateClusterSpecWithSpec(desiredSpec *fdbv1beta2.
 	// Try a few times before giving up.
 	gomega.Eventually(func(g gomega.Gomega) bool {
 		err := fdbCluster.getClient().
-			Get(ctx.Background(), client.ObjectKeyFromObject(fdbCluster.cluster), fetchedCluster)
+			Get(context.Background(), client.ObjectKeyFromObject(fdbCluster.cluster), fetchedCluster)
 		g.Expect(err).NotTo(gomega.HaveOccurred(), "error fetching cluster")
 
 		specUpdated := equality.Semantic.DeepEqual(fetchedCluster.Spec, *desiredSpec)
@@ -480,7 +482,7 @@ func (fdbCluster *FdbCluster) UpdateClusterSpecWithSpec(desiredSpec *fdbv1beta2.
 		}
 
 		desiredSpec.DeepCopyInto(&fetchedCluster.Spec)
-		err = fdbCluster.getClient().Update(ctx.Background(), fetchedCluster)
+		err = fdbCluster.getClient().Update(context.Background(), fetchedCluster)
 		g.Expect(err).NotTo(gomega.HaveOccurred(), "error updating cluster spec")
 		// Retry here and let the method fetch the latest version of the cluster again until the spec is updated.
 		return false
@@ -495,7 +497,7 @@ func (fdbCluster *FdbCluster) GetAllPods() *corev1.PodList {
 
 	gomega.Eventually(func() error {
 		return fdbCluster.getClient().
-			List(ctx.TODO(), podList, client.MatchingLabels(fdbCluster.cluster.GetMatchLabels()))
+			List(context.Background(), podList, client.MatchingLabels(fdbCluster.cluster.GetMatchLabels()))
 	}).WithTimeout(1 * time.Minute).WithPolling(1 * time.Second).ShouldNot(gomega.HaveOccurred())
 
 	return podList
@@ -506,7 +508,7 @@ func (fdbCluster *FdbCluster) GetPods() *corev1.PodList {
 	podList := &corev1.PodList{}
 
 	gomega.Eventually(func() error {
-		return fdbCluster.getClient().List(ctx.TODO(), podList,
+		return fdbCluster.getClient().List(context.Background(), podList,
 			client.InNamespace(fdbCluster.Namespace()),
 			client.MatchingLabels(fdbCluster.cluster.GetMatchLabels()),
 			client.MatchingFields(map[string]string{"status.phase": string(corev1.PodRunning)}),
@@ -534,7 +536,7 @@ func (fdbCluster *FdbCluster) getPodsByProcessClass(
 	podList := &corev1.PodList{}
 
 	gomega.Eventually(func() error {
-		return fdbCluster.getClient().List(ctx.TODO(), podList,
+		return fdbCluster.getClient().List(context.Background(), podList,
 			client.InNamespace(fdbCluster.Namespace()),
 			client.MatchingLabels(map[string]string{
 				fdbv1beta2.FDBClusterLabel:      fdbCluster.cluster.Name,
@@ -570,7 +572,7 @@ func (fdbCluster *FdbCluster) GetPod(name string) *corev1.Pod {
 	// Retry if for some reasons an error is returned
 	gomega.Eventually(func() error {
 		return fdbCluster.getClient().
-			Get(ctx.TODO(), client.ObjectKey{Name: name, Namespace: fdbCluster.Namespace()}, pod)
+			Get(context.Background(), client.ObjectKey{Name: name, Namespace: fdbCluster.Namespace()}, pod)
 	}).WithTimeout(2 * time.Minute).WithPolling(1 * time.Second).ShouldNot(gomega.HaveOccurred())
 
 	return pod
@@ -601,7 +603,7 @@ func (fdbCluster *FdbCluster) GetVolumeClaimsForProcesses(
 	volumeClaimList := &corev1.PersistentVolumeClaimList{}
 	gomega.Expect(
 		fdbCluster.getClient().
-			List(ctx.TODO(), volumeClaimList,
+			List(context.Background(), volumeClaimList,
 				client.InNamespace(fdbCluster.Namespace()),
 				client.MatchingLabels(map[string]string{
 					fdbv1beta2.FDBClusterLabel:      fdbCluster.cluster.Name,
@@ -780,7 +782,7 @@ func (fdbCluster *FdbCluster) SetPodAsUnschedulable(pod corev1.Pod) error {
 	fetchedPod := &corev1.Pod{}
 	return wait.PollImmediate(2*time.Second, 5*time.Minute, func() (bool, error) {
 		err := fdbCluster.getClient().
-			Get(ctx.Background(), client.ObjectKeyFromObject(&pod), fetchedPod)
+			Get(context.Background(), client.ObjectKeyFromObject(&pod), fetchedPod)
 		if err != nil {
 			if kubeErrors.IsNotFound(err) {
 				return false, nil
@@ -790,7 +792,7 @@ func (fdbCluster *FdbCluster) SetPodAsUnschedulable(pod corev1.Pod) error {
 
 		// Try deleting the Pod as a workaround until the operator handle all cases.
 		if fetchedPod.Spec.NodeName != "" && fetchedPod.DeletionTimestamp.IsZero() {
-			_ = fdbCluster.getClient().Delete(ctx.Background(), &pod)
+			_ = fdbCluster.getClient().Delete(context.Background(), &pod)
 		}
 
 		return fetchedPod.Spec.NodeName == "", nil
@@ -849,7 +851,7 @@ func (fdbCluster *FdbCluster) GetServices() *corev1.ServiceList {
 	serviceList := &corev1.ServiceList{}
 	gomega.Expect(
 		fdbCluster.getClient().List(
-			ctx.TODO(),
+			context.Background(),
 			serviceList,
 			client.InNamespace(fdbCluster.Namespace()),
 			client.MatchingLabels(fdbCluster.GetResourceLabels())),
@@ -920,7 +922,7 @@ func (fdbCluster *FdbCluster) WaitForPodRemoval(pod *corev1.Pod) {
 	fetchedPod := &corev1.Pod{}
 	gomega.Eventually(func() bool {
 		err := fdbCluster.getClient().
-			Get(ctx.Background(), client.ObjectKeyFromObject(pod), fetchedPod)
+			Get(context.Background(), client.ObjectKeyFromObject(pod), fetchedPod)
 		if err != nil && kubeErrors.IsNotFound(err) {
 			return true
 		}
@@ -946,7 +948,7 @@ func (fdbCluster *FdbCluster) WaitForPodRemoval(pod *corev1.Pod) {
 			// This will apply an Annotation to the object which will trigger the reconcile loop.
 			// This should speed up the reconcile phase.
 			_ = fdbCluster.getClient().Patch(
-				ctx.Background(),
+				context.Background(),
 				resCluster,
 				patch)
 			counter = -1
@@ -996,7 +998,7 @@ func (fdbCluster *FdbCluster) SetFinalizerForPvc(
 ) error {
 	patch := client.MergeFrom(pvc.DeepCopy())
 	pvc.SetFinalizers(finalizers)
-	return fdbCluster.getClient().Patch(ctx.Background(), &pvc, patch)
+	return fdbCluster.getClient().Patch(context.Background(), &pvc, patch)
 }
 
 // UpdateStorageClass this will set the StorageClass for the provided process class of the current FoundationDBCluster.
@@ -1008,7 +1010,7 @@ func (fdbCluster *FdbCluster) UpdateStorageClass(
 	resCluster := fdbCluster.GetCluster()
 	patch := client.MergeFrom(resCluster.DeepCopy())
 	resCluster.Spec.Processes[processClass].VolumeClaimTemplate.Spec.StorageClassName = &storageClass
-	_ = fdbCluster.getClient().Patch(ctx.Background(), resCluster, patch)
+	_ = fdbCluster.getClient().Patch(context.Background(), resCluster, patch)
 	return fdbCluster.WaitForReconciliation()
 }
 
@@ -1203,7 +1205,7 @@ func (fdbCluster *FdbCluster) GetPodTemplateSpec(
 func (fdbCluster *FdbCluster) CheckPodIsDeleted(podName string) bool {
 	pod := &corev1.Pod{}
 	err := fdbCluster.getClient().
-		Get(ctx.TODO(), client.ObjectKey{Namespace: fdbCluster.Namespace(), Name: podName}, pod)
+		Get(context.Background(), client.ObjectKey{Namespace: fdbCluster.Namespace(), Name: podName}, pod)
 
 	if err != nil {
 		if kubeErrors.IsNotFound(err) {
@@ -1238,7 +1240,7 @@ func (fdbCluster *FdbCluster) SetUseDNSInClusterFile(useDNSInClusterFile bool) e
 // Destroy will remove the underlying cluster.
 func (fdbCluster *FdbCluster) Destroy() error {
 	return fdbCluster.getClient().
-		Delete(ctx.Background(), fdbCluster.cluster)
+		Delete(context.Background(), fdbCluster.cluster)
 }
 
 // SetIgnoreMissingProcessesSeconds sets the IgnoreMissingProcessesSeconds setting.
@@ -1310,7 +1312,7 @@ func (fdbCluster *FdbCluster) UpdateContainerImage(pod *corev1.Pod, containerNam
 		pod.Spec.Containers[idx].Image = image
 	}
 
-	gomega.Expect(fdbCluster.factory.GetControllerRuntimeClient().Update(ctx.Background(), pod)).NotTo(gomega.HaveOccurred())
+	gomega.Expect(fdbCluster.factory.GetControllerRuntimeClient().Update(context.Background(), pod)).NotTo(gomega.HaveOccurred())
 }
 
 // SetBuggifyBlockRemoval will set the provided list of process group IDs to be blocked for removal.
@@ -1376,7 +1378,7 @@ func (fdbCluster *FdbCluster) UpdateAnnotationsAndLabels(annotations map[string]
 	gomega.Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		fetchedCluster := &fdbv1beta2.FoundationDBCluster{}
 		err := fdbCluster.getClient().
-			Get(ctx.Background(), client.ObjectKeyFromObject(fdbCluster.cluster), fetchedCluster)
+			Get(context.Background(), client.ObjectKeyFromObject(fdbCluster.cluster), fetchedCluster)
 		if err != nil {
 			return err
 		}
@@ -1386,7 +1388,7 @@ func (fdbCluster *FdbCluster) UpdateAnnotationsAndLabels(annotations map[string]
 		fetchedCluster.Labels = labels
 
 		return fdbCluster.getClient().Patch(
-			ctx.Background(),
+			context.Background(),
 			fetchedCluster,
 			patch)
 	})).NotTo(gomega.HaveOccurred())
@@ -1488,8 +1490,239 @@ func (fdbCluster *FdbCluster) UpdateConnectionString(connectionString string) {
 	fdbCluster.UpdateClusterSpec()
 
 	cm := &corev1.ConfigMap{}
-	gomega.Expect(fdbCluster.factory.controllerRuntimeClient.Get(ctx.Background(), client.ObjectKey{Namespace: fdbCluster.Namespace(), Name: fdbCluster.Name() + "-config"}, cm)).NotTo(gomega.HaveOccurred())
+	gomega.Expect(fdbCluster.factory.controllerRuntimeClient.Get(context.Background(), client.ObjectKey{Namespace: fdbCluster.Namespace(), Name: fdbCluster.Name() + "-config"}, cm)).NotTo(gomega.HaveOccurred())
 	gomega.Expect(cm.Data).To(gomega.HaveKey(fdbv1beta2.ClusterFileKey))
 	cm.Data[fdbv1beta2.ClusterFileKey] = connectionString
-	gomega.Expect(fdbCluster.factory.controllerRuntimeClient.Update(ctx.Background(), cm)).NotTo(gomega.HaveOccurred())
+	gomega.Expect(fdbCluster.factory.controllerRuntimeClient.Update(context.Background(), cm)).NotTo(gomega.HaveOccurred())
+}
+
+// CreateTesterDeployment will create a deployment that runs tester processes with the specified number of replicas.
+func (fdbCluster *FdbCluster) CreateTesterDeployment(replicas int) {
+	deploymentName := fdbCluster.Name() + "-tester"
+
+	deploymentLabels := map[string]string{
+		"app":                           deploymentName,
+		fdbv1beta2.FDBProcessClassLabel: string(fdbv1beta2.ProcessClassTest),
+	}
+
+	mainImage := fdbv1beta2.SelectImageConfig(fdbCluster.factory.GetMainContainerOverrides(false, fdbCluster.cluster.UseUnifiedImage()).ImageConfigs, fdbCluster.cluster.Spec.Version).Image()
+
+	var initArgs []string
+	var sidecarImage string
+	if fdbCluster.cluster.UseUnifiedImage() {
+		sidecarImage = mainImage
+		initArgs = []string{"--mode", "init", "--input-dir", "/var/input-files", "--output-dir", "/var/output-files", "--require-not-empty", "fdb.cluster", "--copy-file", "fdb.cluster"}
+	} else {
+		sidecarImage = fdbv1beta2.SelectImageConfig(fdbCluster.factory.GetSidecarContainerOverrides(fdbCluster.cluster.UseUnifiedImage()).ImageConfigs, fdbCluster.cluster.Spec.Version).Image()
+		initArgs = []string{"--init-mode", "--require-not-empty", "fdb.cluster", "--copy-file", "fdb.cluster"}
+	}
+
+	deploy := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      deploymentName,
+			Namespace: fdbCluster.Namespace(),
+			Labels:    deploymentLabels,
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: pointer.Int32(int32(replicas)),
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app": deploymentName,
+				},
+			},
+			Strategy: appsv1.DeploymentStrategy{
+				Type: appsv1.RecreateDeploymentStrategyType,
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: deploymentLabels,
+				},
+				Spec: corev1.PodSpec{
+					ServiceAccountName: foundationdbServiceAccount,
+					SecurityContext: &corev1.PodSecurityContext{
+						FSGroup: pointer.Int64(4059),
+					},
+					InitContainers: []corev1.Container{
+						{
+							Name:            fdbv1beta2.InitContainerName,
+							ImagePullPolicy: fdbCluster.factory.getImagePullPolicy(),
+							Image:           sidecarImage,
+							SecurityContext: &corev1.SecurityContext{
+								Privileged:               pointer.Bool(true),
+								AllowPrivilegeEscalation: pointer.Bool(true), // for performance profiling
+								ReadOnlyRootFilesystem: pointer.Bool(
+									false,
+								), // to allow I/O chaos to succeed
+							},
+							Args: initArgs,
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "dynamic-conf",
+									MountPath: "/var/output-files",
+								},
+								{
+									Name:      "config-map",
+									MountPath: "/var/input-files",
+								},
+							},
+						},
+					},
+					Containers: []corev1.Container{
+						{
+							Name:            fdbv1beta2.MainContainerName,
+							ImagePullPolicy: fdbCluster.factory.getImagePullPolicy(),
+							Image:           mainImage,
+							SecurityContext: &corev1.SecurityContext{
+								Privileged:               pointer.Bool(true),
+								AllowPrivilegeEscalation: pointer.Bool(true), // for performance profiling
+								ReadOnlyRootFilesystem: pointer.Bool(
+									false,
+								), // to allow I/O chaos to succeed
+							},
+							Command: []string{
+								"/usr/bin/fdbserver",
+							},
+							Args: []string{
+								"--class",
+								string(fdbv1beta2.ProcessClassTest),
+								"--public_address",
+								"[$(" + fdbv1beta2.EnvNamePublicIP + ")]:4500",
+								"--datadir",
+								"/var/fdb/data",
+								"--logdir",
+								"/var/log/fdb-trace-logs",
+								"--loggroup", fdbCluster.cluster.GetLogGroup(),
+								"--locality_zoneid",
+								"$(" + fdbv1beta2.EnvNameMachineID + ")",
+								"--locality_dcid",
+								fdbCluster.cluster.Spec.DataCenter,
+							},
+							Env: []corev1.EnvVar{
+								{
+									Name:  fdbv1beta2.EnvNameTLSCert,
+									Value: "/tmp/fdb-certs/tls.crt",
+								},
+								{
+									Name:  fdbv1beta2.EnvNameTLSCaFile,
+									Value: "/tmp/fdb-certs/ca.pem",
+								},
+								{
+									Name:  fdbv1beta2.EnvNameTLSKeyFile,
+									Value: "/tmp/fdb-certs/tls.key",
+								},
+								{
+									Name:  fdbv1beta2.EnvNameTLSVerifyPeers,
+									Value: "I.CN=localhost,I.O=Example Inc.,S.CN=localhost,S.O=Example Inc.",
+								},
+								{
+									Name:  fdbv1beta2.EnvNameFDBTraceLogDirPath,
+									Value: "/var/log/fdb-trace-logs",
+								},
+
+								{
+									Name:  fdbv1beta2.EnvNameClusterFile,
+									Value: "/var/dynamic-conf/fdb.cluster",
+								},
+								{
+									Name: fdbv1beta2.EnvNamePublicIP,
+									ValueFrom: &corev1.EnvVarSource{
+										FieldRef: &corev1.ObjectFieldSelector{
+											FieldPath: "status.podIP",
+										},
+									},
+								},
+								{
+									Name: fdbv1beta2.EnvNameMachineID,
+									ValueFrom: &corev1.EnvVarSource{
+										FieldRef: &corev1.ObjectFieldSelector{
+											FieldPath: "spec.nodeName",
+										},
+									},
+								},
+							},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "fdb-certs",
+									ReadOnly:  true,
+									MountPath: "/tmp/fdb-certs",
+								},
+								{
+									Name:      "dynamic-conf",
+									MountPath: "/var/dynamic-conf",
+								},
+								{
+									Name:      "data",
+									MountPath: "/var/fdb/data",
+								},
+							},
+						},
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: "config-map",
+							VolumeSource: corev1.VolumeSource{
+								ConfigMap: &corev1.ConfigMapVolumeSource{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: fdbCluster.Name() + "-config",
+									},
+									Items: []corev1.KeyToPath{
+										{
+											Key:  fdbv1beta2.ClusterFileKey,
+											Path: "fdb.cluster",
+										},
+									},
+								},
+							},
+						},
+						{
+							Name: "data",
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
+							},
+						},
+						{
+							Name: "logs",
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
+							},
+						},
+						{
+							Name: "dynamic-conf",
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
+							},
+						},
+						{
+							Name: "fdb-certs",
+							VolumeSource: corev1.VolumeSource{
+								Secret: &corev1.SecretVolumeSource{
+									SecretName: fdbCluster.factory.GetSecretName(),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	gomega.Expect(fdbCluster.factory.controllerRuntimeClient.Create(context.Background(), deploy)).NotTo(gomega.HaveOccurred())
+	gomega.Eventually(func(g gomega.Gomega) int {
+		pods := &corev1.PodList{}
+
+		err := fdbCluster.factory.controllerRuntimeClient.List(context.Background(), pods,
+			client.InNamespace(fdbCluster.Namespace()),
+			client.MatchingLabels(map[string]string{"app": deploymentName}))
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+
+		var runningReplicas int
+		for _, pod := range pods.Items {
+			if pod.Status.Phase == corev1.PodRunning && pod.DeletionTimestamp.IsZero() {
+				runningReplicas++
+				continue
+			}
+		}
+
+		return runningReplicas
+	}).WithTimeout(10 * time.Minute).WithPolling(2 * time.Second).Should(gomega.BeNumerically(">=", replicas))
 }
