@@ -283,6 +283,37 @@ func getProcessesReadyForRestart(logger logr.Logger, cluster *fdbv1beta2.Foundat
 	return addresses, nil
 }
 
+// getUpgradeAddressesFromStatus will return the processes that can be upgraded and all the processes that are not ready to be upgraded.
+func getUpgradeAddressesFromStatus(logger logr.Logger, status *fdbv1beta2.FoundationDBStatus, pendingUpgrades map[fdbv1beta2.ProcessGroupID]bool, version string) ([]fdbv1beta2.ProcessAddress, []string) {
+	notReadyProcesses := make([]string, 0)
+	addresses := make([]fdbv1beta2.ProcessAddress, 0, len(status.Cluster.Processes))
+	for _, process := range status.Cluster.Processes {
+		// Ignore any tester processes as those are not restarted with the kill command.
+		if process.ProcessClass == fdbv1beta2.ProcessClassTest {
+			continue
+		}
+
+		processID, ok := process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]
+		if !ok {
+			logger.Info("Ignore process with missing locality field", "address", process.Address.String())
+			continue
+		}
+
+		if process.Version == version {
+			continue
+		}
+
+		if pendingUpgrades[fdbv1beta2.ProcessGroupID(processID)] {
+			addresses = append(addresses, process.Address)
+			continue
+		}
+
+		notReadyProcesses = append(notReadyProcesses, processID)
+	}
+
+	return addresses, notReadyProcesses
+}
+
 // getAddressesForUpgrade checks that all processes in a cluster are ready to be
 // upgraded and returns the full list of addresses.
 func getAddressesForUpgrade(logger logr.Logger, r *FoundationDBClusterReconciler, status *fdbv1beta2.FoundationDBStatus, lockClient fdbadminclient.LockClient, cluster *fdbv1beta2.FoundationDBCluster, version fdbv1beta2.Version) ([]fdbv1beta2.ProcessAddress, *requeue) {
@@ -300,20 +331,7 @@ func getAddressesForUpgrade(logger logr.Logger, r *FoundationDBClusterReconciler
 		return nil, &requeue{message: "Deferring upgrade until database is available"}
 	}
 
-	notReadyProcesses := make([]string, 0)
-	addresses := make([]fdbv1beta2.ProcessAddress, 0, len(status.Cluster.Processes))
-	for _, process := range status.Cluster.Processes {
-		processID := process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]
-		if process.Version == version.String() {
-			continue
-		}
-		if pendingUpgrades[fdbv1beta2.ProcessGroupID(processID)] {
-			addresses = append(addresses, process.Address)
-		} else {
-			notReadyProcesses = append(notReadyProcesses, processID)
-		}
-	}
-
+	addresses, notReadyProcesses := getUpgradeAddressesFromStatus(logger, status, pendingUpgrades, version.String())
 	if len(notReadyProcesses) > 0 {
 		logger.Info("Deferring upgrade until all processes are ready to be upgraded", "remainingProcesses", notReadyProcesses)
 		message := fmt.Sprintf("Waiting for processes to be updated: %v", notReadyProcesses)
