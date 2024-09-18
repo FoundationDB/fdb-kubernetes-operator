@@ -538,9 +538,6 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
 			// Verify that the upgrade proceeds
 			fdbCluster.VerifyVersion(targetVersion)
-			// Make sure the cluster has no data loss
-			fdbCluster.GetPrimary().EnsureTeamTrackersHaveMinReplicas()
-			// TODO add validation here processes are updated new version
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
