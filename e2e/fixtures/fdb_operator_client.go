@@ -87,12 +87,6 @@ rules:
   - patch
   - delete
 - apiGroups:
-  - ""
-  resources:
-  - pods/exec
-  verbs:
-  - create
-- apiGroups:
   - apps.foundationdb.org
   resources:
   - foundationdbclusters

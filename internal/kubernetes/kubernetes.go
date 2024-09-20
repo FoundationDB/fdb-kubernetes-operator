@@ -245,7 +245,7 @@ func GetLogsFromPod(
 		return "", err
 	}
 
-	req := restClient.Post().
+	req := restClient.Get().
 		Resource("pods").
 		Namespace(pod.Namespace).
 		Name(pod.Name).
