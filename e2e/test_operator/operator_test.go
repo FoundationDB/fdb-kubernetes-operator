@@ -85,6 +85,10 @@ var _ = BeforeSuite(func() {
 		factory.GetClusterOptions()...,
 	)
 
+	// Make sure that the test suite is able to fetch logs from Pods.
+	operatorPod := factory.RandomPickOnePod(factory.GetOperatorPods(fdbCluster.Namespace()).Items)
+	Expect(factory.GetLogsForPod(&operatorPod, "manager", nil)).NotTo(BeEmpty())
+
 	//Load some data async into the cluster. We will only block as long as the Job is created.
 	factory.CreateDataLoaderIfAbsent(fdbCluster)
 

@@ -528,14 +528,6 @@ func (factory *Factory) UploadFile(
 		dst)
 }
 
-// GetLogsFromPod returns the logs for the provided Pod and container
-func (factory *Factory) GetLogsFromPod(pod *corev1.Pod, container string) string {
-	logs, err := kubeHelper.GetLogsFromPod(context.Background(), factory.GetControllerRuntimeClient(), factory.getConfig(), pod, container, pointer.Int64(pod.CreationTimestamp.Unix()))
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-
-	return logs
-}
-
 // GetLogsForPod will fetch the logs for the specified Pod and container since the provided seconds.
 func (factory *Factory) GetLogsForPod(pod *corev1.Pod, container string, since *int64) string {
 	logs, err := kubeHelper.GetLogsFromPod(context.Background(), factory.GetControllerRuntimeClient(), factory.getConfig(), pod, container, since)
