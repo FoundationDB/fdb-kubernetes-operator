@@ -26,6 +26,8 @@ expected under different scenarios.
 */
 
 import (
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	"k8s.io/utils/pointer"
 	"log"
 	"strconv"
 	"time"
@@ -76,13 +78,14 @@ var _ = Describe("Operator Migrations", Label("e2e", "pr"), func() {
 
 	When("a migration is triggered and the namespace quota is limited", func() {
 		prefix := "banana"
+		var quota *corev1.ResourceQuota
 
 		BeforeEach(func() {
 			processCounts, err := fdbCluster.GetCluster().GetProcessCountsWithDefaults()
 			Expect(err).NotTo(HaveOccurred())
 			// Create Quota to limit the additional Pods that can be created to 5, the actual value here is 7 ,because we run
 			// 2 Operator Pods.
-			Expect(factory.CreateIfAbsent(&corev1.ResourceQuota{
+			quota = &corev1.ResourceQuota{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "testing-quota",
 					Namespace: fdbCluster.Namespace(),
@@ -92,9 +95,13 @@ var _ = Describe("Operator Migrations", Label("e2e", "pr"), func() {
 						"count/pods": resource.MustParse(strconv.Itoa(processCounts.Total() + 7)),
 					},
 				},
-			})).NotTo(HaveOccurred())
-
+			}
+			Expect(factory.CreateIfAbsent(quota)).NotTo(HaveOccurred())
 			Expect(fdbCluster.SetProcessGroupPrefix(prefix)).NotTo(HaveOccurred())
+		})
+
+		AfterEach(func() {
+			factory.Delete(quota)
 		})
 
 		It("should add the prefix to all instances", func() {
@@ -118,6 +125,45 @@ var _ = Describe("Operator Migrations", Label("e2e", "pr"), func() {
 
 				return true
 			}).WithTimeout(40 * time.Minute).WithPolling(5 * time.Second).Should(BeTrue())
+			Expect(fdbCluster.WaitForReconciliation()).NotTo(HaveOccurred())
+		})
+	})
+
+	// TODO (johscheuer): Enable once the CRD in the CI setup is updated.
+	PWhen("migrating the storage engine", func() {
+		var newStorageEngine fdbv1beta2.StorageEngine
+
+		BeforeEach(func() {
+			spec := fdbCluster.GetCluster().Spec.DeepCopy()
+			initialEngine := spec.DatabaseConfiguration.NormalizeConfiguration().StorageEngine
+			log.Println("initialEngine", initialEngine)
+			if initialEngine == fdbv1beta2.StorageEngineSSD2 {
+				newStorageEngine = fdbv1beta2.StorageEngineRocksDbV1
+			} else {
+				newStorageEngine = fdbv1beta2.StorageEngineSSD2
+			}
+
+			migrationType := fdbv1beta2.StorageMigrationTypeGradual
+			spec.DatabaseConfiguration.PerpetualStorageWiggleLocality = nil
+			spec.DatabaseConfiguration.StorageMigrationType = &migrationType
+			spec.DatabaseConfiguration.PerpetualStorageWiggle = pointer.Int(1)
+			spec.DatabaseConfiguration.StorageEngine = newStorageEngine
+			fdbCluster.UpdateClusterSpecWithSpec(spec)
+		})
+
+		It("should add the prefix to all instances", func() {
+			lastForcedReconciliationTime := time.Now()
+			forceReconcileDuration := 4 * time.Minute
+
+			Eventually(func() fdbv1beta2.StorageEngine {
+				// Force a reconcile if needed to make sure we speed up the reconciliation if needed.
+				if time.Since(lastForcedReconciliationTime) >= forceReconcileDuration {
+					fdbCluster.ForceReconcile()
+					lastForcedReconciliationTime = time.Now()
+				}
+
+				return fdbCluster.GetStatus().Cluster.DatabaseConfiguration.StorageEngine
+			}).WithTimeout(40 * time.Minute).WithPolling(5 * time.Second).Should(Equal(newStorageEngine))
 			Expect(fdbCluster.WaitForReconciliation()).NotTo(HaveOccurred())
 		})
 	})

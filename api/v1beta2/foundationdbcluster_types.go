@@ -1895,7 +1895,40 @@ func (cluster *FoundationDBCluster) DesiredDatabaseConfiguration() DatabaseConfi
 		configuration.StorageEngine = StorageEngineMemory2
 	}
 
+	// Make sure to reset any settings that are not supported by earlier FDB versions.
+	if !version.SupportsStorageMigrationConfiguration() {
+		configuration.PerpetualStorageWiggle = nil
+		configuration.StorageMigrationType = nil
+		configuration.PerpetualStorageWiggleLocality = nil
+	}
+
 	return configuration
+}
+
+// ClearUnsetDatabaseConfigurationKnobs cleas any knobs that are not set in the FoundationDBCluster spec
+// but which is present in the DatabaseConfiguration returned from the FoundationDBStatus.
+func (cluster *FoundationDBCluster) ClearUnsetDatabaseConfigurationKnobs(configuration *DatabaseConfiguration) {
+	// We have to reset the excluded servers here otherwise we will trigger a reconfiguration if one or more servers
+	// are excluded.
+	configuration.ExcludedServers = nil
+	// Remove any specific version flags
+	cluster.ClearMissingVersionFlags(configuration)
+
+	if cluster.Spec.DatabaseConfiguration.StorageMigrationType == nil {
+		configuration.StorageMigrationType = nil
+	}
+
+	if cluster.Spec.DatabaseConfiguration.PerpetualStorageWiggleLocality == nil {
+		configuration.PerpetualStorageWiggleLocality = nil
+	}
+
+	if cluster.Spec.DatabaseConfiguration.PerpetualStorageWiggleEngine == nil {
+		configuration.PerpetualStorageWiggleEngine = nil
+	}
+
+	if cluster.Spec.DatabaseConfiguration.PerpetualStorageWiggle == nil {
+		configuration.PerpetualStorageWiggle = nil
+	}
 }
 
 // ClearMissingVersionFlags clears any version flags in the given configuration that are not

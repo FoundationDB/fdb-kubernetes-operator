@@ -24,6 +24,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbstatus"
+	"k8s.io/utils/pointer"
 	"net"
 	"strings"
 	"sync"
@@ -402,6 +403,29 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 		}
 	}
 
+	if client.Cluster.Status.RunningVersion != "" {
+		parsedVersion, err := fdbv1beta2.ParseFdbVersion(client.Cluster.Status.RunningVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		if parsedVersion.SupportsStorageMigrationConfiguration() {
+			if status.Cluster.DatabaseConfiguration.StorageMigrationType == nil {
+				wiggleTypeDisabled := fdbv1beta2.StorageMigrationTypeDisabled
+				status.Cluster.DatabaseConfiguration.StorageMigrationType = &wiggleTypeDisabled
+			}
+
+			if status.Cluster.DatabaseConfiguration.PerpetualStorageWiggleEngine == nil {
+				storageEngineNone := fdbv1beta2.StorageEngineNone
+				status.Cluster.DatabaseConfiguration.PerpetualStorageWiggleEngine = &storageEngineNone
+			}
+
+			if status.Cluster.DatabaseConfiguration.PerpetualStorageWiggleLocality == nil {
+				status.Cluster.DatabaseConfiguration.PerpetualStorageWiggleLocality = pointer.String("0")
+			}
+		}
+	}
+
 	status.Cluster.FullReplication = true
 	status.Cluster.Data.State.Healthy = true
 	status.Cluster.Data.State.Name = "healthy"
@@ -520,6 +544,22 @@ func (client *AdminClient) ConfigureDatabase(configuration fdbv1beta2.DatabaseCo
 	if !ver.HasSeparatedProxies() {
 		client.DatabaseConfiguration.GrvProxies = 0
 		client.DatabaseConfiguration.CommitProxies = 0
+	}
+
+	if ver.SupportsStorageMigrationConfiguration() {
+		if configuration.StorageMigrationType == nil {
+			migrationType := fdbv1beta2.StorageMigrationTypeDisabled
+			client.DatabaseConfiguration.StorageMigrationType = &migrationType
+		}
+
+		if configuration.PerpetualStorageWiggleEngine == nil {
+			storageEngineNone := fdbv1beta2.StorageEngineNone
+			client.DatabaseConfiguration.PerpetualStorageWiggleEngine = &storageEngineNone
+		}
+
+		if configuration.PerpetualStorageWiggleLocality == nil {
+			client.DatabaseConfiguration.PerpetualStorageWiggleLocality = pointer.String("0")
+		}
 	}
 
 	return nil

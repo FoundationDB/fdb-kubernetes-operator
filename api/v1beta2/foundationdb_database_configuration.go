@@ -62,6 +62,27 @@ type DatabaseConfiguration struct {
 	// VersionFlags defines internal flags for testing new features in the
 	// database.
 	VersionFlags `json:""`
+
+	// StorageMigrationType defines the storage migration type.
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Enum="";disabled;aggressive;gradual
+	// +kubebuilder:default:disabled
+	StorageMigrationType *StorageMigrationType `json:"storage_migration_type,omitempty"`
+
+	// PerpetualStorageWiggle defines the wiggle speed. If set to 0 this feature is disabled.
+	// When setting StorageMigrationType to StorageMigrationTypeGradual, this value must be greater
+	// than 0.
+	PerpetualStorageWiggle *int `json:"perpetual_storage_wiggle,omitempty"`
+
+	// PerpetualStorageWiggleLocality if defined the specified locality will be migrated.
+	// Format is: <<LOCALITY_KEY>:<LOCALITY_VALUE>|0>
+	PerpetualStorageWiggleLocality *string `json:"perpetual_storage_wiggle_locality,omitempty"`
+
+	// PerpetualStorageWiggleEngine defines the perpetual storage engine type.
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Enum="";ssd;ssd-1;ssd-2;memory;memory-1;memory-2;ssd-redwood-1-experimental;ssd-redwood-1;ssd-rocksdb-experimental;ssd-rocksdb-v1;ssd-sharded-rocksdb;memory-radixtree-beta;custom;none
+	// +kubebuilder:default:none
+	PerpetualStorageWiggleEngine *StorageEngine `json:"perpetual_storage_wiggle_engine,omitempty"`
 }
 
 // Region represents a region in the database configuration
@@ -348,6 +369,8 @@ func (configuration *DatabaseConfiguration) GetRoleCountsWithDefaults(version Ve
 // made simultaneously, this will produce a subset of the changes that move
 // in the correct direction. Applying this method repeatedly will eventually
 // converge on the final configuration.
+//
+// See: https://apple.github.io/foundationdb/configuration.html#migrating-a-database-to-use-a-region-configuration
 func (configuration DatabaseConfiguration) GetNextConfigurationChange(finalConfiguration DatabaseConfiguration) DatabaseConfiguration {
 	if !reflect.DeepEqual(configuration.Regions, finalConfiguration.Regions) {
 		result := configuration.DeepCopy()
@@ -393,6 +416,7 @@ func (configuration DatabaseConfiguration) GetNextConfigurationChange(finalConfi
 				currentPriorities[regionToAdd] = priority
 			}
 		}
+
 		if len(result.Regions) != len(configuration.Regions) {
 			return *result
 		}
@@ -505,7 +529,6 @@ func (configuration DatabaseConfiguration) GetNextConfigurationChange(finalConfi
 		//
 		// Before changing priorities, we must ensure that all regions are
 		// usable.
-
 		maxCurrent := ""
 		maxNext := ""
 
@@ -726,6 +749,28 @@ func (configuration DatabaseConfiguration) GetConfigurationString(version string
 	configurationString.WriteString(" regions=")
 	configurationString.WriteString(regionString)
 
+	if fdbVersion.SupportsStorageMigrationConfiguration() {
+		if configuration.StorageMigrationType != nil {
+			configurationString.WriteString(" storage_migration_type=")
+			configurationString.WriteString(string(*configuration.StorageMigrationType))
+		}
+
+		if configuration.PerpetualStorageWiggle != nil {
+			configurationString.WriteString(" perpetual_storage_wiggle=")
+			configurationString.WriteString(strconv.Itoa(*configuration.PerpetualStorageWiggle))
+		}
+
+		if configuration.PerpetualStorageWiggleLocality != nil {
+			configurationString.WriteString(" perpetual_storage_wiggle_locality=")
+			configurationString.WriteString(*configuration.PerpetualStorageWiggleLocality)
+		}
+
+		if configuration.PerpetualStorageWiggleEngine != nil {
+			configurationString.WriteString(" perpetual_storage_wiggle_engine=")
+			configurationString.WriteString(string(*configuration.PerpetualStorageWiggleEngine))
+		}
+	}
+
 	return configurationString.String(), nil
 }
 
@@ -831,6 +876,21 @@ const (
 	StorageEngineRedwood1Experimental StorageEngine = "ssd-redwood-1-experimental"
 	// StorageEngineRedwood1 defines the storage engine ssd-redwood-1.
 	StorageEngineRedwood1 StorageEngine = "ssd-redwood-1"
+	// StorageEngineNone defines the storage engine none for the perpetual_storage_wiggle_engine option.
+	StorageEngineNone StorageEngine = "none"
+)
+
+// StorageMigrationType defines the storage migration type.
+// +kubebuilder:validation:MaxLength=100
+type StorageMigrationType string
+
+const (
+	// StorageMigrationTypeDisabled defines the storage migration type disabled.
+	StorageMigrationTypeDisabled StorageMigrationType = "disabled"
+	// StorageMigrationTypeAggressive defines the storage migration type aggressive.
+	StorageMigrationTypeAggressive StorageMigrationType = "aggressive"
+	// StorageMigrationTypeGradual defines the storage migration type gradual.
+	StorageMigrationTypeGradual StorageMigrationType = "gradual"
 )
 
 // RoleCounts represents the roles whose counts can be customized.

@@ -674,6 +674,159 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		})
 	})
 
+	When("getting desired database configuration", func() {
+		When("the FDB version doesn't support storage migration", func() {
+			var configuration DatabaseConfiguration
+
+			BeforeEach(func() {
+				cluster := &FoundationDBCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "foo",
+						Namespace: "default",
+					},
+					Spec: FoundationDBClusterSpec{
+						Version: "6.3.0",
+					},
+				}
+
+				configuration = cluster.DesiredDatabaseConfiguration()
+			})
+
+			It("should set the all storage migration related values to the empty defaults", func() {
+				Expect(configuration.PerpetualStorageWiggleLocality).To(BeNil())
+				Expect(configuration.PerpetualStorageWiggle).To(BeNil())
+				Expect(configuration.StorageMigrationType).To(BeNil())
+			})
+			It("should set the all storage migration related values to the empty defaults", func() {
+				configurationString, err := configuration.GetConfigurationString("6.3.0")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(configurationString).NotTo(ContainSubstring("storage_migration_type"))
+				Expect(configurationString).NotTo(ContainSubstring("perpetual_storage_wiggle"))
+				Expect(configurationString).NotTo(ContainSubstring("perpetual_storage_wiggle_locality"))
+				Expect(configurationString).NotTo(ContainSubstring("perpetual_storage_wiggle_engine"))
+			})
+		})
+
+		When("the FDB version does support the storage migration", func() {
+			var configuration DatabaseConfiguration
+
+			When("no storage migration settings are set", func() {
+				BeforeEach(func() {
+					cluster := &FoundationDBCluster{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: "default",
+						},
+						Spec: FoundationDBClusterSpec{
+							Version: "7.1.0",
+						},
+					}
+
+					configuration = cluster.DesiredDatabaseConfiguration()
+				})
+
+				It("should set the all storage migration related values to the defaults", func() {
+					Expect(configuration.PerpetualStorageWiggleLocality).To(BeNil())
+					Expect(configuration.PerpetualStorageWiggle).To(BeNil())
+					Expect(configuration.StorageMigrationType).To(BeNil())
+				})
+
+				It("should set the all storage migration related values to the empty defaults", func() {
+					configurationString, err := configuration.GetConfigurationString("7.1.0")
+					Expect(err).NotTo(HaveOccurred())
+					Expect(configurationString).NotTo(ContainSubstring("storage_migration_type=disabled"))
+					Expect(configurationString).NotTo(ContainSubstring("perpetual_storage_wiggle"))
+					Expect(configurationString).NotTo(ContainSubstring("perpetual_storage_wiggle_locality"))
+					Expect(configurationString).NotTo(ContainSubstring("perpetual_storage_wiggle_engine"))
+				})
+			})
+
+			When("storage migration settings are set", func() {
+				BeforeEach(func() {
+					migrationType := StorageMigrationTypeGradual
+					cluster := &FoundationDBCluster{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: "default",
+						},
+						Spec: FoundationDBClusterSpec{
+							Version: "7.1.0",
+							DatabaseConfiguration: DatabaseConfiguration{
+								StorageMigrationType:           &migrationType,
+								PerpetualStorageWiggle:         pointer.Int(1),
+								PerpetualStorageWiggleLocality: nil,
+							},
+						},
+					}
+
+					configuration = cluster.DesiredDatabaseConfiguration()
+				})
+
+				It("should return all storage migration related values", func() {
+					Expect(configuration.PerpetualStorageWiggleLocality).To(BeNil())
+					Expect(configuration.PerpetualStorageWiggle).NotTo(BeNil())
+					Expect(*configuration.PerpetualStorageWiggle).To(Equal(1))
+					Expect(configuration.StorageMigrationType).NotTo(BeNil())
+					Expect(*configuration.StorageMigrationType).To(Equal(StorageMigrationTypeGradual))
+					Expect(configuration.PerpetualStorageWiggleEngine).To(BeNil())
+				})
+
+				It("should set the all storage migration related values to the empty defaults", func() {
+					configurationString, err := configuration.GetConfigurationString("7.1.0")
+					Expect(err).NotTo(HaveOccurred())
+					Expect(configurationString).To(ContainSubstring("storage_migration_type=gradual"))
+					Expect(configurationString).To(ContainSubstring("perpetual_storage_wiggle=1"))
+					Expect(configurationString).NotTo(ContainSubstring("perpetual_storage_wiggle_locality"))
+					Expect(configurationString).NotTo(ContainSubstring("perpetual_storage_wiggle_engine"))
+				})
+			})
+
+			When("storage migration settings with perpetual storage engine set", func() {
+				BeforeEach(func() {
+					migrationType := StorageMigrationTypeGradual
+					engine := StorageEngineRocksDbV1
+					cluster := &FoundationDBCluster{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: "default",
+						},
+						Spec: FoundationDBClusterSpec{
+							Version: "7.1.0",
+							DatabaseConfiguration: DatabaseConfiguration{
+								StorageMigrationType:           &migrationType,
+								PerpetualStorageWiggle:         pointer.Int(1),
+								PerpetualStorageWiggleLocality: pointer.String("dcid:remote"),
+								PerpetualStorageWiggleEngine:   &engine,
+							},
+						},
+					}
+
+					configuration = cluster.DesiredDatabaseConfiguration()
+				})
+
+				It("should return all storage migration related values", func() {
+					Expect(configuration.PerpetualStorageWiggleLocality).NotTo(BeNil())
+					Expect(*configuration.PerpetualStorageWiggleLocality).To(Equal("dcid:remote"))
+					Expect(configuration.PerpetualStorageWiggle).NotTo(BeNil())
+					Expect(*configuration.PerpetualStorageWiggle).To(Equal(1))
+					Expect(configuration.StorageMigrationType).NotTo(BeNil())
+					Expect(*configuration.StorageMigrationType).To(Equal(StorageMigrationTypeGradual))
+					Expect(configuration.PerpetualStorageWiggleEngine).NotTo(BeNil())
+					Expect(*configuration.PerpetualStorageWiggleEngine).To(Equal(StorageEngineRocksDbV1))
+				})
+
+				It("should set the all storage migration related values to the empty defaults", func() {
+					configurationString, err := configuration.GetConfigurationString("7.1.0")
+					Expect(err).NotTo(HaveOccurred())
+					Expect(configurationString).To(ContainSubstring("storage_migration_type=gradual"))
+					Expect(configurationString).To(ContainSubstring("perpetual_storage_wiggle=1"))
+					Expect(configurationString).To(ContainSubstring("perpetual_storage_wiggle_locality=dcid:remote"))
+					Expect(configurationString).To(ContainSubstring("perpetual_storage_wiggle_engine=ssd-rocksdb-v1"))
+				})
+			})
+		})
+	})
+
 	When("parsing the backup status for 6.2", func() {
 		It("should be parsed correctly", func() {
 			statusFile, err := os.OpenFile(filepath.Join("testdata", "fdbbackup_status_6_2.json"), os.O_RDONLY, os.ModePerm)

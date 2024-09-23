@@ -97,9 +97,7 @@ func (c updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterRecon
 	// the configuration will be overwritten with the default values.
 	if databaseStatus.Client.DatabaseStatus.Available {
 		clusterStatus.DatabaseConfiguration = databaseStatus.Cluster.DatabaseConfiguration.NormalizeConfigurationWithSeparatedProxies(cluster.Spec.Version, cluster.Spec.DatabaseConfiguration.AreSeparatedProxiesConfigured())
-		// Removing excluded servers as we don't want them during comparison.
-		clusterStatus.DatabaseConfiguration.ExcludedServers = nil
-		cluster.ClearMissingVersionFlags(&clusterStatus.DatabaseConfiguration)
+		cluster.ClearUnsetDatabaseConfigurationKnobs(&clusterStatus.DatabaseConfiguration)
 	}
 
 	// If we saw at least once that the cluster was configured, we assume that the cluster is always configured.
@@ -112,26 +110,24 @@ func (c updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterRecon
 	}
 
 	var currentMaintenanceZone fdbv1beta2.FaultDomain
-	if databaseStatus != nil {
-		for _, coordinator := range databaseStatus.Client.Coordinators.Coordinators {
-			address, err := fdbv1beta2.ParseProcessAddress(coordinator.Address.String())
-			if err != nil {
-				return &requeue{curError: fmt.Errorf("update_status skipped due to error in ParseProcessAddress: %w", err)}
-			}
-
-			if address.Flags["tls"] {
-				clusterStatus.RequiredAddresses.TLS = true
-			} else {
-				clusterStatus.RequiredAddresses.NonTLS = true
-			}
+	for _, coordinator := range databaseStatus.Client.Coordinators.Coordinators {
+		address, err := fdbv1beta2.ParseProcessAddress(coordinator.Address.String())
+		if err != nil {
+			return &requeue{curError: fmt.Errorf("update_status skipped due to error in ParseProcessAddress: %w", err)}
 		}
 
-		clusterStatus.Health.Available = databaseStatus.Client.DatabaseStatus.Available
-		clusterStatus.Health.Healthy = databaseStatus.Client.DatabaseStatus.Healthy
-		clusterStatus.Health.FullReplication = databaseStatus.Cluster.FullReplication
-		clusterStatus.Health.DataMovementPriority = databaseStatus.Cluster.Data.MovingData.HighestPriority
-		currentMaintenanceZone = databaseStatus.Cluster.MaintenanceZone
+		if address.Flags["tls"] {
+			clusterStatus.RequiredAddresses.TLS = true
+		} else {
+			clusterStatus.RequiredAddresses.NonTLS = true
+		}
 	}
+
+	clusterStatus.Health.Available = databaseStatus.Client.DatabaseStatus.Available
+	clusterStatus.Health.Healthy = databaseStatus.Client.DatabaseStatus.Healthy
+	clusterStatus.Health.FullReplication = databaseStatus.Cluster.FullReplication
+	clusterStatus.Health.DataMovementPriority = databaseStatus.Cluster.Data.MovingData.HighestPriority
+	currentMaintenanceZone = databaseStatus.Cluster.MaintenanceZone
 
 	cluster.Status.RequiredAddresses = clusterStatus.RequiredAddresses
 
