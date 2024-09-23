@@ -67,22 +67,22 @@ type DatabaseConfiguration struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:Enum="";disabled;aggressive;gradual
 	// +kubebuilder:default:disabled
-	StorageMigrationType StorageMigrationType `json:"storage_migration_type,omitempty"`
+	StorageMigrationType *StorageMigrationType `json:"storage_migration_type,omitempty"`
 
 	// PerpetualStorageWiggle defines the wiggle speed. If set to 0 this feature is disabled.
 	// When setting StorageMigrationType to StorageMigrationTypeGradual, this value must be greater
 	// than 0.
-	PerpetualStorageWiggle int `json:"perpetual_storage_wiggle,omitempty"`
+	PerpetualStorageWiggle *int `json:"perpetual_storage_wiggle,omitempty"`
 
 	// PerpetualStorageWiggleLocality if defined the specified locality will be migrated.
 	// Format is: <<LOCALITY_KEY>:<LOCALITY_VALUE>|0>
-	PerpetualStorageWiggleLocality string `json:"perpetual_storage_wiggle_locality,omitempty"`
+	PerpetualStorageWiggleLocality *string `json:"perpetual_storage_wiggle_locality,omitempty"`
 
 	// PerpetualStorageWiggleEngine defines the perpetual storage engine type.
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:Enum="";ssd;ssd-1;ssd-2;memory;memory-1;memory-2;ssd-redwood-1-experimental;ssd-redwood-1;ssd-rocksdb-experimental;ssd-rocksdb-v1;ssd-sharded-rocksdb;memory-radixtree-beta;custom;none
 	// +kubebuilder:default:none
-	PerpetualStorageWiggleEngine StorageEngine `json:"perpetual_storage_wiggle_engine,omitempty"`
+	PerpetualStorageWiggleEngine *StorageEngine `json:"perpetual_storage_wiggle_engine,omitempty"`
 }
 
 // Region represents a region in the database configuration
@@ -266,18 +266,6 @@ func (configuration DatabaseConfiguration) NormalizeConfigurationWithSeparatedPr
 			result.CommitProxies = 0
 		} else {
 			result.Proxies = 0
-		}
-	}
-
-	if parsedVersion.SupportsStorageMigrationConfiguration() {
-		if configuration.StorageMigrationType == "" {
-			configuration.StorageMigrationType = StorageMigrationTypeDisabled
-			configuration.PerpetualStorageWiggle = 0
-			configuration.PerpetualStorageWiggleLocality = "0"
-		}
-
-		if configuration.PerpetualStorageWiggleEngine == "" {
-			configuration.PerpetualStorageWiggleEngine = StorageEngineNone
 		}
 	}
 
@@ -762,24 +750,24 @@ func (configuration DatabaseConfiguration) GetConfigurationString(version string
 	configurationString.WriteString(regionString)
 
 	if fdbVersion.SupportsStorageMigrationConfiguration() {
-		if configuration.StorageMigrationType != "" {
+		if configuration.StorageMigrationType != nil {
 			configurationString.WriteString(" storage_migration_type=")
-			configurationString.WriteString(string(configuration.StorageMigrationType))
+			configurationString.WriteString(string(*configuration.StorageMigrationType))
 		}
 
-		if configuration.PerpetualStorageWiggle > 0 {
+		if configuration.PerpetualStorageWiggle != nil {
 			configurationString.WriteString(" perpetual_storage_wiggle=")
-			configurationString.WriteString(strconv.Itoa(configuration.PerpetualStorageWiggle))
+			configurationString.WriteString(strconv.Itoa(*configuration.PerpetualStorageWiggle))
 		}
 
-		if configuration.PerpetualStorageWiggleLocality != "0" && configuration.PerpetualStorageWiggleLocality != "" {
+		if configuration.PerpetualStorageWiggleLocality != nil {
 			configurationString.WriteString(" perpetual_storage_wiggle_locality=")
-			configurationString.WriteString(configuration.PerpetualStorageWiggleLocality)
+			configurationString.WriteString(*configuration.PerpetualStorageWiggleLocality)
 		}
 
-		if configuration.PerpetualStorageWiggleEngine != StorageEngineNone && configuration.PerpetualStorageWiggleEngine != "" {
+		if configuration.PerpetualStorageWiggleEngine != nil {
 			configurationString.WriteString(" perpetual_storage_wiggle_engine=")
-			configurationString.WriteString(string(configuration.PerpetualStorageWiggleEngine))
+			configurationString.WriteString(string(*configuration.PerpetualStorageWiggleEngine))
 		}
 	}
 

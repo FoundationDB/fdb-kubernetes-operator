@@ -508,6 +508,7 @@ var _ = Describe("FoundationDBStatus", func() {
 	})
 
 	When("parsing the status json with a 7.1.0-rc1 cluster", func() {
+		migrationType := StorageMigrationTypeDisabled
 		status := FoundationDBStatusClusterInfo{
 			Messages:                []FoundationDBStatusMessage{},
 			IncompatibleConnections: []string{},
@@ -520,9 +521,9 @@ var _ = Describe("FoundationDBStatus", func() {
 				ExcludedServers:                make([]ExcludedServers, 0),
 				RoleCounts:                     RoleCounts{Storage: 0, Logs: 3, Proxies: 3, CommitProxies: 2, GrvProxies: 1, Resolvers: 1, LogRouters: -1, RemoteLogs: -1},
 				VersionFlags:                   VersionFlags{LogSpill: 2, LogVersion: 0},
-				StorageMigrationType:           StorageMigrationTypeDisabled,
-				PerpetualStorageWiggle:         0,
-				PerpetualStorageWiggleLocality: "0",
+				StorageMigrationType:           &migrationType,
+				PerpetualStorageWiggle:         pointer.Int(0),
+				PerpetualStorageWiggleLocality: pointer.String("0"),
 			},
 			Processes: map[ProcessGroupID]FoundationDBStatusProcessInfo{
 				"eb48ada3a682e86363f06aa89e1041fa": {

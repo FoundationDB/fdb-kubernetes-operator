@@ -69,10 +69,7 @@ func (u updateDatabaseConfiguration) reconcile(_ context.Context, r *FoundationD
 	desiredConfiguration := cluster.DesiredDatabaseConfiguration()
 	desiredConfiguration.RoleCounts.Storage = 0
 	currentConfiguration := status.Cluster.DatabaseConfiguration.NormalizeConfigurationWithSeparatedProxies(cluster.Spec.Version, cluster.Spec.DatabaseConfiguration.AreSeparatedProxiesConfigured())
-	// We have to reset the excluded servers here otherwise we will trigger a reconfiguration if one or more servers
-	// are excluded.
-	currentConfiguration.ExcludedServers = nil
-	cluster.ClearMissingVersionFlags(&currentConfiguration)
+	cluster.ClearUnsetDatabaseConfigurationKnobs(&currentConfiguration)
 
 	runningVersion, err := fdbv1beta2.ParseFdbVersion(cluster.GetRunningVersion())
 	if err != nil {

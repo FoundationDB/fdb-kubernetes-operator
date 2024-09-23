@@ -24,6 +24,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbstatus"
+	"k8s.io/utils/pointer"
 	"net"
 	"strings"
 	"sync"
@@ -409,16 +410,18 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 		}
 
 		if parsedVersion.SupportsStorageMigrationConfiguration() {
-			if status.Cluster.DatabaseConfiguration.StorageMigrationType == "" {
-				status.Cluster.DatabaseConfiguration.StorageMigrationType = fdbv1beta2.StorageMigrationTypeDisabled
+			if status.Cluster.DatabaseConfiguration.StorageMigrationType == nil {
+				wiggleTypeDisabled := fdbv1beta2.StorageMigrationTypeDisabled
+				status.Cluster.DatabaseConfiguration.StorageMigrationType = &wiggleTypeDisabled
 			}
 
-			if status.Cluster.DatabaseConfiguration.PerpetualStorageWiggleEngine == "" {
-				status.Cluster.DatabaseConfiguration.PerpetualStorageWiggleEngine = fdbv1beta2.StorageEngineNone
+			if status.Cluster.DatabaseConfiguration.PerpetualStorageWiggleEngine == nil {
+				storageEngineNone := fdbv1beta2.StorageEngineNone
+				status.Cluster.DatabaseConfiguration.PerpetualStorageWiggleEngine = &storageEngineNone
 			}
 
-			if status.Cluster.DatabaseConfiguration.PerpetualStorageWiggleLocality == "" {
-				status.Cluster.DatabaseConfiguration.PerpetualStorageWiggleLocality = "0"
+			if status.Cluster.DatabaseConfiguration.PerpetualStorageWiggleLocality == nil {
+				status.Cluster.DatabaseConfiguration.PerpetualStorageWiggleLocality = pointer.String("0")
 			}
 		}
 	}
@@ -544,16 +547,18 @@ func (client *AdminClient) ConfigureDatabase(configuration fdbv1beta2.DatabaseCo
 	}
 
 	if ver.SupportsStorageMigrationConfiguration() {
-		if configuration.StorageMigrationType == "" {
-			client.DatabaseConfiguration.StorageMigrationType = fdbv1beta2.StorageMigrationTypeDisabled
+		if configuration.StorageMigrationType == nil {
+			migrationType := fdbv1beta2.StorageMigrationTypeDisabled
+			client.DatabaseConfiguration.StorageMigrationType = &migrationType
 		}
 
-		if configuration.PerpetualStorageWiggleEngine == "" {
-			client.DatabaseConfiguration.PerpetualStorageWiggleEngine = fdbv1beta2.StorageEngineNone
+		if configuration.PerpetualStorageWiggleEngine == nil {
+			storageEngineNone := fdbv1beta2.StorageEngineNone
+			client.DatabaseConfiguration.PerpetualStorageWiggleEngine = &storageEngineNone
 		}
 
-		if configuration.PerpetualStorageWiggleLocality == "" {
-			client.DatabaseConfiguration.PerpetualStorageWiggleLocality = "0"
+		if configuration.PerpetualStorageWiggleLocality == nil {
+			client.DatabaseConfiguration.PerpetualStorageWiggleLocality = pointer.String("0")
 		}
 	}
 

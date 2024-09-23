@@ -84,6 +84,8 @@ var _ = Describe("admin_client_test", func() {
 				})
 
 				It("should generate the status", func() {
+					noneEngine := fdbv1beta2.StorageEngineNone
+					migrationtypeDisabled := fdbv1beta2.StorageMigrationTypeDisabled
 					Expect(status.Cluster.DatabaseConfiguration).To(Equal(fdbv1beta2.DatabaseConfiguration{
 						RedundancyMode: fdbv1beta2.RedundancyModeDouble,
 						StorageEngine:  fdbv1beta2.StorageEngineSSD2,
@@ -100,9 +102,9 @@ var _ = Describe("admin_client_test", func() {
 						VersionFlags: fdbv1beta2.VersionFlags{
 							LogSpill: 2,
 						},
-						PerpetualStorageWiggleEngine:   fdbv1beta2.StorageEngineNone,
-						PerpetualStorageWiggleLocality: "0",
-						StorageMigrationType:           fdbv1beta2.StorageMigrationTypeDisabled,
+						PerpetualStorageWiggleEngine:   &noneEngine,
+						PerpetualStorageWiggleLocality: pointer.String("0"),
+						StorageMigrationType:           &migrationtypeDisabled,
 					}))
 
 					Expect(status.Cluster.Processes).To(HaveLen(len(cluster.Status.ProcessGroups)))

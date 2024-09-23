@@ -27,6 +27,7 @@ expected under different scenarios.
 
 import (
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	"k8s.io/utils/pointer"
 	"log"
 	"strconv"
 	"time"
@@ -142,9 +143,10 @@ var _ = Describe("Operator Migrations", Label("e2e", "pr"), func() {
 				newStorageEngine = fdbv1beta2.StorageEngineSSD2
 			}
 
-			spec.DatabaseConfiguration.PerpetualStorageWiggleLocality = ""
-			spec.DatabaseConfiguration.StorageMigrationType = fdbv1beta2.StorageMigrationTypeGradual
-			spec.DatabaseConfiguration.PerpetualStorageWiggle = 1
+			migrationType := fdbv1beta2.StorageMigrationTypeGradual
+			spec.DatabaseConfiguration.PerpetualStorageWiggleLocality = nil
+			spec.DatabaseConfiguration.StorageMigrationType = &migrationType
+			spec.DatabaseConfiguration.PerpetualStorageWiggle = pointer.Int(1)
 			spec.DatabaseConfiguration.StorageEngine = newStorageEngine
 			fdbCluster.UpdateClusterSpecWithSpec(spec)
 		})
