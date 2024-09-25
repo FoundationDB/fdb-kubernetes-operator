@@ -4,7 +4,9 @@ metadata:
   name: test-cluster
 spec:
   blobStoreConfiguration:
-    accountName: minio@minio-service:9000
+    accountName: seaweedfs@seaweedfs:8333
+    urlParameters:
+    - secure_connection=0
   clusterName: test-cluster
   imageType: split
   podTemplateSpec:
@@ -49,7 +51,7 @@ spec:
       volumes:
       - name: backup-credentials
         secret:
-          secretName: minio-credentials
+          secretName: backup-credentials
       - name: fdb-certs
         secret:
           secretName: fdb-kubernetes-operator-secrets
