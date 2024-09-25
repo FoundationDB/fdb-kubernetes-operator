@@ -26,6 +26,7 @@ CHAOS_NAMESPACE?=chaos-testing
 STORAGE_CLASS?=
 STORAGE_ENGINE?=
 DUMP_OPERATOR_STATE?=true
+SEAWEEDFS_IMAGE?=chrislusf/seaweedfs:3.73
 # Defines the cloud provider used for the underlying Kubernetes cluster. Currently only kind is support, other cloud providers
 # should still work but this test framework has no special cases for those.
 CLOUD_PROVIDER?=
@@ -158,4 +159,5 @@ nightly-tests: run
 	  --fdb-version-tag-mapping=$(FDB_VERSION_TAG_MAPPING) \
 	  --unified-fdb-image=$(UNIFIED_FDB_IMAGE) \
 	  --feature-server-side-apply=$(FEATURE_SERVER_SIDE_APPLY) \
+	  --seaweedfs-image=$(SEAWEEDFS_IMAGE) \
 	  | grep -v 'constructing many client instances from the same exec auth config can cause performance problems during cert rotation' &> $(BASE_DIR)/../logs/$<.log

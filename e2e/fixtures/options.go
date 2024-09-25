@@ -38,6 +38,7 @@ type FactoryOptions struct {
 	unifiedFDBImage                string
 	sidecarImage                   string
 	operatorImage                  string
+	seaweedFSImage                 string
 	dataLoaderImage                string
 	registry                       string
 	fdbVersion                     string
@@ -210,6 +211,12 @@ func (options *FactoryOptions) BindFlags(fs *flag.FlagSet) {
 		"if defined, the test suite will use this information to map the image tag to the specified version. Multiple entries can be"+
 			"provided by separating them with a \",\". The mapping must have the format $version:$tag, e.g. 7.1.57:7.1.57-testing."+
 			"This option will only work for the main container with the split image (sidecar).")
+	fs.StringVar(
+		&options.seaweedFSImage,
+		"seaweedfs-image",
+		"chrislusf/seaweedfs:3.73",
+		"defines the seaweedfs image that should be used for testing. SeaweedFS is used for backup and restore testing to spin up a S3 compatible blobstore.",
+	)
 }
 
 func (options *FactoryOptions) validateFlags() error {
