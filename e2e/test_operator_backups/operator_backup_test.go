@@ -43,6 +43,10 @@ func init() {
 }
 
 var _ = BeforeSuite(func() {
+	if factory.GetFDBVersionAsString() == "7.1.63" {
+		Skip("Skip backup tests with 7.1.63 as this version has a bug in the fdbbackup agent")
+	}
+
 	factory = fixtures.CreateFactory(testOptions)
 	fdbCluster = factory.CreateFdbCluster(
 		fixtures.DefaultClusterConfig(false),
