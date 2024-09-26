@@ -221,8 +221,6 @@ func (factory *Factory) waitUntilBlobstorePodsRunning(namespace string) {
 	expectedReplicas := int(pointer.Int32Deref(deployment.Spec.Replicas, 1))
 	gomega.Eventually(func(g gomega.Gomega) int {
 		pods := factory.getBlobstorePods(namespace)
-
-		log.Println("waiting for Pods to be running:", len(pods.Items), "expected:", expectedReplicas)
 		var runningReplicas int
 		for _, pod := range pods.Items {
 			if pod.Status.Phase == corev1.PodRunning && pod.DeletionTimestamp.IsZero() {

@@ -188,13 +188,21 @@ func (fdbBackup *FdbBackup) Pause() {
 func (fdbBackup *FdbBackup) WaitForReconciliation() {
 	objectKey := client.ObjectKeyFromObject(fdbBackup.backup)
 
+	startTime := time.Now()
+	waitDuration := 5 * time.Minute
 	gomega.Eventually(func(g gomega.Gomega) bool {
 		curBackup := &fdbv1beta2.FoundationDBBackup{}
 		g.Expect(fdbBackup.fdbCluster.factory.GetControllerRuntimeClient().
 			Get(context.Background(), objectKey, curBackup)).NotTo(gomega.HaveOccurred())
 
+		// Dump the operator and cluster status after 5 minutes
+		if time.Since(startTime) > waitDuration {
+			fdbBackup.fdbCluster.factory.DumpState(fdbBackup.fdbCluster)
+			startTime = time.Now()
+		}
+
 		return curBackup.Status.Generations.Reconciled == curBackup.ObjectMeta.Generation
-	}).WithTimeout(15*time.Minute).WithPolling(2*time.Second).Should(gomega.BeTrue(), "error waiting for reconciliation")
+	}).WithTimeout(15*time.Minute).WithPolling(2*time.Second).Should(gomega.BeTrue(), "error waiting for reconciliation of FDB backup")
 }
 
 // WaitForRestorableVersion will wait until the back is restorable.

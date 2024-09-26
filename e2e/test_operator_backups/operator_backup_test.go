@@ -71,16 +71,14 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 			backup = factory.CreateBackupForCluster(fdbCluster)
 			keyValues = fdbCluster.GenerateRandomValues(10, prefix)
 			fdbCluster.WriteKeyValues(keyValues)
-			clusterVersion := fdbCluster.GetClusterVersion()
-			backup.WaitForRestorableVersion(clusterVersion)
+			backup.WaitForRestorableVersion(fdbCluster.GetClusterVersion())
 			backup.Stop()
 		})
 
 		It("should restore the cluster successfully", func() {
 			fdbCluster.ClearRange([]byte{prefix}, 60)
 			factory.CreateRestoreForCluster(backup)
-			restoreValues := fdbCluster.GetRange([]byte{prefix}, 25, 60)
-			Expect(restoreValues).Should(Equal(keyValues))
+			Expect(fdbCluster.GetRange([]byte{prefix}, 25, 60)).Should(Equal(keyValues))
 		})
 	})
 })
