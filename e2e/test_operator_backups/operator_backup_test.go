@@ -44,9 +44,6 @@ func init() {
 
 var _ = BeforeSuite(func() {
 	factory = fixtures.CreateFactory(testOptions)
-	if factory.GetFDBVersionAsString() == "7.1.63" {
-		Skip("Skip backup tests with 7.1.63 as this version has a bug in the fdbbackup agent")
-	}
 
 	fdbCluster = factory.CreateFdbCluster(
 		fixtures.DefaultClusterConfig(false),
@@ -71,6 +68,10 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 		var backup *fixtures.FdbBackup
 
 		BeforeEach(func() {
+			if factory.GetFDBVersionAsString() == "7.1.63" {
+				Skip("Skip backup tests with 7.1.63 as this version has a bug in the fdbbackup agent")
+			}
+
 			log.Println("creating backup for cluster")
 			backup = factory.CreateBackupForCluster(fdbCluster)
 			keyValues = fdbCluster.GenerateRandomValues(10, prefix)
