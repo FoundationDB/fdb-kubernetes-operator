@@ -231,7 +231,7 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 			fdbCluster.GetRemote().UpdateClusterSpecWithSpec(spec)
 		})
 
-		FWhen("when a remote log has network latency issues and gets replaced", func() {
+		When("when a remote log has network latency issues and gets replaced", func() {
 			var experiment *fixtures.ChaosMeshExperiment
 
 			BeforeEach(func() {
