@@ -77,7 +77,7 @@ metadata:
   namespace: {{ .Namespace }}
 stringData:
   admin_access_key_id: "seaweedfs"
-  admin_secret_access_key: "totallys3cure"
+  admin_secret_access_key: "tot4llys3cure"
   seaweedfs_s3_config: |
     {
       "identities": [
