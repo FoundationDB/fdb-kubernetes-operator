@@ -11,24 +11,13 @@ is reconciled, you can run backup commands from the backup agent containers:
 kubectl exec deployment/test-cluster-backup-agents -- fdbbackup status
 ```
 
-This example uses configuration for a local MinIO instance, which is set up as
+This example uses configuration for a local [SeaweedFS](https://github.com/seaweedfs/seaweedfs) instance, which is set up as
 part of the local testing environment for the operator. This instance has
 certificates stored in Kubernetes secrets, and credentials that are hardcoded
 in the YAML. This configuration is for testing purposes only. You will need to
 determine the appropriate way of managing certificates and credentials for
 your real environment and endpoints, as well as the appropriate backup
-solution to use. We use MinIO in our local tests due to its lightweight setup,
-but you can backup to any S3-compatible object storage service.
-
-You can browse the local MinIO instance at https://localhost:9000 by using `kubectl port-forward pod/minio-0 9000:9000`.
-Note: This will use a certificate that is not in your browser's trust store,
-so you will get a security warning. The credentials for MinIO can be fetched
-with:
-
-```bash
-$ kubectl get secret minio-creds-secret -o jsonpath='{.data.accesskey}' | base64 -D - | pbcopy
-$ kubectl get secret minio-creds-secret -o jsonpath='{.data.secretkey}' | base64 -D - | pbcopy
-```
+solution to use. You can backup to any S3-compatible object storage service.
 
 If you want to test a restore, you can take the following steps:
 
@@ -51,5 +40,5 @@ If you want to test a restore, you can take the following steps:
 Once that is done, you can clean up the backup by running:
 
 ```bash
-kubectl exec deployment/test-cluster-backup-agents -- fdbbackup delete -d "blobstore://minio@minio-service:9000/test-cluster?bucket=fdb-backups"
+kubectl -n jscheuermann exec deployment/test-cluster-backup-agents -- fdbbackup delete -d "blobstore://seaweedfs@seaweedfs:8333/test-cluster?bucket=fdb-backups&secure_connection=0"
 ```

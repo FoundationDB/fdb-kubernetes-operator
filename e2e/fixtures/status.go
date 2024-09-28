@@ -460,5 +460,83 @@ func FdbPrintable(d []byte) string {
 		}
 		buf.WriteString(fmt.Sprintf("\\x%02x", b))
 	}
+
 	return buf.String()
+}
+
+// FdbStrinc returns the first key that would sort outside the range prefixed by
+// // prefix, or an error if prefix is empty or contains only 0xFF bytes.
+// Copied from foundationdb bindings/go/src/fdb/range.go func Strinc(prefix []byte) ([]byte, error)
+func FdbStrinc(prefix []byte) ([]byte, error) {
+	for i := len(prefix) - 1; i >= 0; i-- {
+		if prefix[i] != 0xFF {
+			ret := make([]byte, i+1)
+			copy(ret, prefix[:i+1])
+			ret[i]++
+			return ret, nil
+		}
+	}
+	return nil, fmt.Errorf("key must contain at least one byte not equal to 0xFF")
+}
+
+// Unprintable adapted from foundationdb fdbclient/NativeAPI.actor.cpp std::string unprintable(std::string const& val).
+func Unprintable(val string) ([]byte, error) {
+	s := new(bytes.Buffer)
+	for i := 0; i < len(val); i++ {
+		c := val[i]
+		if c == '\\' {
+			i++
+			if i == len(val) {
+				return nil, fmt.Errorf(fmt.Sprintf("end after one \\ when unprint [%s]", val))
+			}
+			switch val[i] {
+			case '\\':
+				{
+					s.WriteByte('\\')
+				}
+			case 'x':
+				{
+					if i+2 >= len(val) {
+						return nil, fmt.Errorf(
+							fmt.Sprintf("not have two chars after \\x when unprint [%s]", val),
+						)
+					}
+					d1, err := unhex(val[i+1])
+					if err != nil {
+						return nil, err
+					}
+					d2, err := unhex(val[i+2])
+					if err != nil {
+						return nil, err
+					}
+					s.WriteByte(byte((d1 << 4) + d2))
+					i += 2
+				}
+			default:
+				{
+					return nil, fmt.Errorf(
+						fmt.Sprintf("after \\ it's neither \\ nor x when unprint %s", val),
+					)
+				}
+			}
+		} else {
+			s.WriteByte(c)
+		}
+	}
+	return s.Bytes(), nil
+}
+
+// unhex adapted from foundationdb fdbclient/NativeAPI.actor.cpp std::string int unhex(char c).
+func unhex(c byte) (int, error) {
+	if c >= '0' && c <= '9' {
+		return int(c - '0'), nil
+	}
+	if c >= 'a' && c <= 'f' {
+		return int(c - 'a' + 10), nil
+	}
+	if c >= 'A' && c <= 'F' {
+		return int(c - 'A' + 10), nil
+	}
+
+	return -1, fmt.Errorf(fmt.Sprintf("failed to unhex %x", c))
 }

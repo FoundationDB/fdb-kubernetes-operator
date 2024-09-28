@@ -6,7 +6,7 @@ set -eu
 #
 # This source file is part of the FoundationDB open source project
 #
-# Copyright 2018-2019 Apple Inc. and the FoundationDB project authors
+# Copyright 2018-2024 Apple Inc. and the FoundationDB project authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,7 +22,6 @@ set -eu
 #
 
 # This script generates secrets with test certs for use in local testing.
-
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
 cd "${SCRIPT_DIR}"
 

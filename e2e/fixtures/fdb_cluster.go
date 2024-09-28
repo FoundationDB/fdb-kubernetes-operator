@@ -1727,3 +1727,122 @@ func (fdbCluster *FdbCluster) CreateTesterDeployment(replicas int) *appsv1.Deplo
 
 	return deploy
 }
+
+// GetClusterVersion returns the cluster's version
+func (fdbCluster *FdbCluster) GetClusterVersion() uint64 {
+	stdout, _, err := fdbCluster.RunFdbCliCommandInOperatorWithoutRetry("getversion", false, 30)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+	version, err := strconv.ParseUint(strings.TrimSpace(stdout), 10, 64)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+	return version
+}
+
+// ClearRange will delete the provided range.
+func (fdbCluster *FdbCluster) ClearRange(prefixBytes []byte, timeout int) {
+	begin := FdbPrintable(prefixBytes)
+	endBytes, err := FdbStrinc(prefixBytes)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	end := FdbPrintable(endBytes)
+	_, stderr, err := fdbCluster.RunFdbCliCommandInOperatorWithoutRetry(fmt.Sprintf(
+		"writemode on; clearrange %s %s",
+		begin,
+		end,
+	), false, timeout)
+
+	gomega.Expect(err).NotTo(gomega.HaveOccurred(), stderr)
+}
+
+// KeyValue represents a key and value that can be stored in FDB.
+type KeyValue struct {
+	Key   []byte
+	Value []byte
+}
+
+// GetKey returns all the printable characters of the key.
+func (keyValue *KeyValue) GetKey() string {
+	return FdbPrintable(keyValue.Key)
+}
+
+// GetValue returns all printable characters of the value.
+func (keyValue *KeyValue) GetValue() string {
+	return FdbPrintable(keyValue.Value)
+}
+
+// GetRange will return the values of the provided range.
+func (fdbCluster *FdbCluster) GetRange(
+	prefixBytes []byte,
+	limit int,
+	timeout int,
+) (keyValues []KeyValue) {
+	endBytes, err := FdbStrinc(prefixBytes)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+	stdout, _, err := fdbCluster.RunFdbCliCommandInOperatorWithoutRetry(fmt.Sprintf(
+		"option on ACCESS_SYSTEM_KEYS; getrange %s %s %d",
+		FdbPrintable(prefixBytes),
+		FdbPrintable(endBytes),
+		limit,
+	), false, timeout)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+	for _, line := range strings.Split(strings.TrimSuffix(stdout, "\n"), "\n") {
+		line = strings.TrimSpace(line)
+		sep := "' is `"
+		idx := strings.Index(line, sep)
+		if idx != -1 {
+			key, parseErr := Unprintable(line[1:idx]) // Remove the first "`"
+			gomega.Expect(parseErr).NotTo(gomega.HaveOccurred())
+			value, parseErr := Unprintable(line[idx+len(sep) : len(line)-1]) // Remove the last "'"
+			gomega.Expect(parseErr).NotTo(gomega.HaveOccurred())
+			keyValues = append(keyValues, KeyValue{
+				Key:   key,
+				Value: value,
+			})
+		}
+	}
+
+	return keyValues
+}
+
+// GenerateRandomValues will generate n random values with the provided prefix.
+func (fdbCluster *FdbCluster) GenerateRandomValues(
+	n int,
+	prefix byte,
+) []KeyValue {
+	res := make([]KeyValue, 0, n)
+	index := []byte{'a'}
+	var err error
+	for i := 0; i < n; i++ {
+		res = append(res, KeyValue{
+			Key:   append([]byte{prefix}, index...),
+			Value: []byte(fdbCluster.factory.RandStringRunes(4)),
+		})
+		index, err = FdbStrinc(index)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	}
+
+	return res
+}
+
+// WriteKeyValue writes a single key value pair into FDB.
+func (fdbCluster *FdbCluster) WriteKeyValue(
+	keyValue KeyValue,
+	timeout int,
+) {
+	_, stderr, err := fdbCluster.RunFdbCliCommandInOperatorWithoutRetry(
+		fmt.Sprintf("writemode on; set %s %s", keyValue.GetKey(), keyValue.GetValue()),
+		false,
+		timeout,
+	)
+
+	gomega.Expect(err).NotTo(gomega.HaveOccurred(), stderr)
+}
+
+// WriteKeyValues writes multiples key values into FDB.
+func (fdbCluster *FdbCluster) WriteKeyValues(keyValues []KeyValue) {
+	for _, kv := range keyValues {
+		fdbCluster.WriteKeyValue(kv, 30)
+	}
+}

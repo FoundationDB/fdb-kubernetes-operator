@@ -125,6 +125,27 @@ func (factory *Factory) createNamespace(suffix string) string {
 	secret.SetResourceVersion("")
 	gomega.Expect(factory.CreateIfAbsent(secret)).NotTo(gomega.HaveOccurred())
 
+	// Create the backup credentials for backup related operations.
+	backupCredentials := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      factory.GetBackupSecretName(),
+			Namespace: namespace,
+		},
+		StringData: map[string]string{
+			"credentials": `{
+	"accounts": {
+		"seaweedfs@seaweedfs": {
+			"secret" : "tot4llys3cure"
+		},
+		"seaweedfs@seaweedfs:8333": {
+			"secret" : "tot4llys3cure"
+		}
+	}
+}`,
+		},
+	}
+	gomega.Expect(factory.CreateIfAbsent(backupCredentials)).NotTo(gomega.HaveOccurred())
+
 	factory.ensureRBACSetupExists(namespace)
 	gomega.Expect(factory.ensureFDBOperatorExists(namespace)).ToNot(gomega.HaveOccurred())
 	log.Printf("using namespace %s for testing", namespace)

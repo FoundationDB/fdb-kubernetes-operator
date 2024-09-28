@@ -4,7 +4,7 @@
 #
 # This source file is part of the FoundationDB open source project
 #
-# Copyright 2018-2019 Apple Inc. and the FoundationDB project authors
+# Copyright 2018-2024 Apple Inc. and the FoundationDB project authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,4 +23,4 @@
 # The cert will be stored in the repository, so you do not need to run this
 # yourself unless the certificate has expired.
 
-openssl req -x509 -newkey rsa:4096 -nodes -keyout config/test-certs/key.pem -out config/test-certs/cert.pem -days 365 -subj '/CN=localhost' -reqexts SAN -extensions SAN -config <(cat /etc/ssl/openssl.cnf <(printf "[SAN]\nsubjectAltName=DNS:minio-service")) 
+openssl req -x509 -newkey rsa:4096 -nodes -keyout config/test-certs/key.pem -out config/test-certs/cert.pem -days 365 -subj '/CN=localhost' -reqexts SAN -extensions SAN -config <(cat /etc/ssl/openssl.cnf <(printf "[SAN]\nsubjectAltName=DNS:seaweedfs"))

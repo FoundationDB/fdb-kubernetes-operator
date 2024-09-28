@@ -1,0 +1,114 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: seaweedfs
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8333
+      targetPort: 8333
+      protocol: TCP
+  selector:
+    app: seaweedfs
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: seaweedfs
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Gi
+---
+apiVersion: v1
+kind: Secret
+type: Opaque
+metadata:
+  name: seaweedfs-s3-secret
+stringData:
+  admin_access_key_id: "seaweedfs"
+  admin_secret_access_key: "tot4llys3cure"
+  seaweedfs_s3_config: |
+    {
+      "identities": [
+        {
+          "name": "anvAdmin",
+          "credentials": [
+            {
+              "accessKey": "seaweedfs",
+              "secretKey": "tot4llys3cure"
+            }
+          ],
+          "actions": [
+            "Admin",
+            "Read",
+            "List",
+            "Tagging",
+            "Write"
+          ]
+        }
+      ]
+    }
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: seaweedfs
+  name: seaweedfs
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: seaweedfs
+  template:
+    metadata:
+      labels:
+        app: seaweedfs
+    spec:
+      containers:
+        - image: chrislusf/seaweedfs:3.73
+          args:
+            - server
+            - -dir=/data
+            - -s3
+            - -s3.config=/etc/sw/seaweedfs_s3_config
+          name: manager
+          ports:
+            - containerPort: 8333
+              name: seaweedfs
+          resources:
+            limits:
+              cpu: "2"
+              memory: 4Gi
+            requests:
+              cpu: "1"
+              memory: 2Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            privileged: false
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - mountPath: /data
+              name: data
+            - mountPath: /tmp
+              name: tmp
+            - mountPath: /etc/sw
+              name: users-config
+              readOnly: true
+      terminationGracePeriodSeconds: 10
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: seaweedfs
+        - name: tmp
+          emptyDir: {}
+        - name: users-config
+          secret:
+            defaultMode: 420
+            secretName: seaweedfs-s3-secret

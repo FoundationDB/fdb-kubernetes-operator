@@ -337,7 +337,6 @@ spec:
       - name: backup-credentials
         secret:
           secretName: {{ .BackupSecretName }}
-          optional: true
       - name: fdb-certs
         secret:
           secretName: {{ .SecretName }}
@@ -472,7 +471,6 @@ spec:
       - name: backup-credentials
         secret:
           secretName: {{ .BackupSecretName }}
-          optional: true
       - name: fdb-certs
         secret:
           secretName: {{ .SecretName }}

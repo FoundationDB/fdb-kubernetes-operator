@@ -5,4 +5,4 @@ metadata:
 spec:
  destinationClusterName: test-cluster
  blobStoreConfiguration:
-  accountName: minio@minio-service:9000
+  accountName: seaweedfs@seaweedfs:8333

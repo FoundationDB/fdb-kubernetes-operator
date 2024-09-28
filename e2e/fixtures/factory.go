@@ -742,7 +742,7 @@ func (factory *Factory) DumpState(fdbCluster *FdbCluster) {
 
 	log.Println(buffer.String())
 
-	// Printout the logs of the operator Pods for the last 90 seconds.
+	// Printout the logs of the operator Pods for the last 300 seconds.
 	for _, pod := range operatorPods {
 		targetPod := pod
 		log.Println(factory.GetLogsForPod(&targetPod, "manager", pointer.Int64(300)))
