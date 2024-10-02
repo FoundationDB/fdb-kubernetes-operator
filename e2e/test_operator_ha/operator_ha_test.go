@@ -235,11 +235,7 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 			var experiment *fixtures.ChaosMeshExperiment
 
 			BeforeEach(func() {
-				spec := fdbCluster.GetRemote().GetCluster().Spec.DeepCopy()
-				spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(true)
-				fdbCluster.GetRemote().UpdateClusterSpecWithSpec(spec)
-				Expect(fdbCluster.GetRemote().GetCluster().UseLocalitiesForExclusion()).To(BeTrue())
-				dcID := spec.DataCenter
+				dcID := fdbCluster.GetRemote().GetCluster().Spec.DataCenter
 
 				status := fdbCluster.GetPrimary().GetStatus()
 
