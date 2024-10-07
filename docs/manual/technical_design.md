@@ -428,9 +428,10 @@ The sidecar has an important role to play in the upgrade flow. The monitor conf 
 
 ### Unified Image
 
-**NOTE**: The unified image is still experimental, and is not recommended outside of development environments.
-
-When using the unified image, the `foundationdb` container runs a `fdb-kubernetes-monitor` process, which is responsible for starting `fdbserver` processes. `fdb-kubernetes-monitor` receives its configuration in the form of a JSON file, which provides the command-line arguments in a structured form. These arguments can reference environment variables, which will be filled in by `fdb-kubernetes-monitor`. They can also reference the process number, which allows `fdb-kubernetes-monitor` to start multiple `fdbserver` processes that use different ports and different data directories.
+When using the unified image, the `foundationdb` container runs a `fdb-kubernetes-monitor` process, which is responsible for starting `fdbserver` processes.
+`fdb-kubernetes-monitor` receives its configuration in the form of a JSON file, which provides the command-line arguments in a structured form.
+These arguments can reference environment variables, which will be filled in by `fdb-kubernetes-monitor`.
+They can also reference the process number, which allows `fdb-kubernetes-monitor` to start multiple `fdbserver` processes that use different ports and different data directories.
 
 The flow for updating the monitor conf file has the following steps:
 
