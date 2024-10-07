@@ -119,7 +119,7 @@ spec:
             runAsUser: 0
             runAsGroup: 0
         # Install this library in a special location to force the operator to use it as the primary library.
-        {{ if eq .FDBVersion.Compact "7.1" }}
+        {{ if .CopyAsPrimary }}
         - name: foundationdb-kubernetes-init-7-1-primary
           image: {{ .Image }}
           imagePullPolicy: {{ .ImagePullPolicy }}

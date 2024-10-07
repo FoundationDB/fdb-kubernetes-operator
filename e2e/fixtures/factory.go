@@ -225,62 +225,26 @@ func (factory *Factory) GetMainContainerOverrides(debugSymbols bool, unifiedImag
 		image = factory.GetUnifiedFoundationDBImage()
 	}
 
-	mainImage, mainTag := GetBaseImageAndTag(
+	mainImage, tag := GetBaseImageAndTag(
 		GetDebugImage(debugSymbols, image),
 	)
 
-	// If the version tag mapping is defined make use of that.
-	imageConfigs := factory.options.getImageVersionConfig(mainImage, false)
-	if len(imageConfigs) == 0 {
-		// The first entry is version specific e.g. this image + tag (if specified) will be used for the provided version
-		// the second entry ensures we set the base image for e.g. upgrades independent of the version.
-		imageConfigs = []fdbv1beta2.ImageConfig{
-			{
-				BaseImage: mainImage,
-				Tag:       mainTag,
-				Version:   factory.GetFDBVersionAsString(),
-			},
-			{
-				BaseImage: mainImage,
-			},
-		}
-	}
-
 	return fdbv1beta2.ContainerOverrides{
 		EnableTLS:    false,
-		ImageConfigs: imageConfigs,
+		ImageConfigs: factory.options.getImageVersionConfig(mainImage, tag, false),
 	}
 }
 
 // GetSidecarContainerOverrides will return the sidecar container overrides. If the unified image should be used an empty
 // container override will be returned.
 func (factory *Factory) GetSidecarContainerOverrides(debugSymbols bool) fdbv1beta2.ContainerOverrides {
-	sidecarImage, sidecarTag := GetBaseImageAndTag(
+	image, tag := GetBaseImageAndTag(
 		GetDebugImage(debugSymbols, factory.GetSidecarImage()),
 	)
 
-	// If the version tag mapping is defined make use of that.
-	imageConfigs := factory.options.getImageVersionConfig(sidecarImage, true)
-	if len(imageConfigs) == 0 {
-		// The first entry is version specific e.g. this image + tag (if specified) will be used for the provided version
-		// the second entry ensures we set the base image for e.g. upgrades independent of the version.
-		imageConfigs = []fdbv1beta2.ImageConfig{
-			{
-				BaseImage: sidecarImage,
-				Tag:       sidecarTag,
-				Version:   factory.GetFDBVersionAsString(),
-				TagSuffix: "-1",
-			},
-			{
-				BaseImage: sidecarImage,
-				TagSuffix: "-1",
-			},
-		}
-	}
-
 	return fdbv1beta2.ContainerOverrides{
 		EnableTLS:    false,
-		ImageConfigs: imageConfigs,
+		ImageConfigs: factory.options.getImageVersionConfig(image, tag, true),
 	}
 }
 
