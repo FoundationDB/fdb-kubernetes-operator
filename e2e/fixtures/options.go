@@ -321,6 +321,7 @@ func (options *FactoryOptions) validateFDBVersionTagMapping() error {
 	return nil
 }
 
+// getTagSuffix returns "-1" if the tag suffix should be used for a sidecar image.
 func getTagSuffix(isSidecar bool) string {
 	if isSidecar {
 		return "-1"
@@ -329,13 +330,22 @@ func getTagSuffix(isSidecar bool) string {
 	return ""
 }
 
+// getTagWithSuffix returns the tag with the required suffix if the image is needed for the sidecar image.
+func getTagWithSuffix(tag string, isSidecar bool) string {
+	if tag != "" && isSidecar {
+		return tag + getTagSuffix(isSidecar)
+	}
+
+	return tag
+}
+
 func (options *FactoryOptions) getImageVersionConfig(baseImage string, versionTag string, isSidecar bool) []fdbv1beta2.ImageConfig {
 	if options.fdbVersionTagMapping == "" {
 		return []fdbv1beta2.ImageConfig{
 			{
 				BaseImage: baseImage,
 				Version:   options.fdbVersion,
-				Tag:       versionTag,
+				Tag:       getTagWithSuffix(versionTag, isSidecar),
 				TagSuffix: getTagSuffix(isSidecar),
 			},
 			{
@@ -349,16 +359,11 @@ func (options *FactoryOptions) getImageVersionConfig(baseImage string, versionTa
 	imageConfig := make([]fdbv1beta2.ImageConfig, len(mappings)+1)
 	for idx, mapping := range mappings {
 		versionMapping := strings.Split(mapping, ":")
-		tag := strings.TrimSpace(versionMapping[1])
-		// The sidecar requires the -1 prefix.
-		if isSidecar {
-			tag = tag + "-1"
-		}
 
 		imageConfig[idx] = fdbv1beta2.ImageConfig{
 			BaseImage: baseImage,
 			Version:   strings.TrimSpace(versionMapping[0]),
-			Tag:       tag,
+			Tag:       getTagWithSuffix(strings.TrimSpace(versionMapping[1]), isSidecar),
 		}
 	}
 
