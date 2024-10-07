@@ -89,7 +89,7 @@ var _ = BeforeSuite(func() {
 	operatorPod := factory.RandomPickOnePod(factory.GetOperatorPods(fdbCluster.Namespace()).Items)
 	Expect(factory.GetLogsForPod(&operatorPod, "manager", nil)).NotTo(BeEmpty())
 
-	//Load some data async into the cluster. We will only block as long as the Job is created.
+	// Load some data async into the cluster. We will only block as long as the Job is created.
 	factory.CreateDataLoaderIfAbsent(fdbCluster)
 
 	// In order to test the robustness of the operator we try to kill the operator Pods every minute.
@@ -375,92 +375,6 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 		// TODO (johscheuer): We should check here further fields in the FoundationDBCluster resource to make sure the
 		// fields that we expect are actually set.
-	})
-
-	PWhen("replacing log Pod with high queue", func() {
-		var experiment *fixtures.ChaosMeshExperiment
-
-		BeforeEach(func() {
-			spec := fdbCluster.GetCluster().Spec.DeepCopy()
-			spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(true)
-			fdbCluster.UpdateClusterSpecWithSpec(spec)
-			Expect(fdbCluster.GetCluster().UseLocalitiesForExclusion()).To(BeTrue())
-
-			// Until the race condition is resolved in the FDB go bindings make sure the operator is not restarted.
-			// See: https://github.com/apple/foundationdb/issues/11222
-			// We can remove this once 7.1 is the default version.
-			factory.DeleteChaosMeshExperimentSafe(scheduleInjectPodKill)
-			status := fdbCluster.GetStatus()
-
-			var processGroupID fdbv1beta2.ProcessGroupID
-			for _, process := range status.Cluster.Processes {
-				var isLog bool
-				for _, role := range process.Roles {
-					if role.Role == "log" {
-						isLog = true
-						break
-					}
-				}
-
-				if !isLog {
-					continue
-				}
-
-				processGroupID = fdbv1beta2.ProcessGroupID(process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey])
-				break
-			}
-
-			var replacedPod corev1.Pod
-			for _, pod := range fdbCluster.GetLogPods().Items {
-				if fixtures.GetProcessGroupID(pod) != processGroupID {
-					continue
-				}
-
-				replacedPod = pod
-				break
-			}
-
-			log.Println("Inject chaos")
-			experiment = factory.InjectPodStress(fixtures.PodSelector(&replacedPod), []string{fdbv1beta2.MainContainerName}, nil, &chaosmesh.CPUStressor{
-				Stressor: chaosmesh.Stressor{
-					Workers: 1,
-				},
-				Load: pointer.Int(80),
-			})
-
-			factory.CreateDataLoaderIfAbsent(fdbCluster)
-
-			time.Sleep(1 * time.Minute)
-			log.Println("replacedPod", replacedPod.Name, "useLocalitiesForExclusion", fdbCluster.GetCluster().UseLocalitiesForExclusion())
-			fdbCluster.ReplacePod(replacedPod, true)
-		})
-
-		It("should exclude the server", func() {
-			Eventually(func() []fdbv1beta2.ExcludedServers {
-				status := fdbCluster.GetStatus()
-				excludedServers := status.Cluster.DatabaseConfiguration.ExcludedServers
-				log.Println("excludedServers", excludedServers)
-				return excludedServers
-			}).WithTimeout(15 * time.Minute).WithPolling(1 * time.Second).Should(BeEmpty())
-		})
-
-		AfterEach(func() {
-			Expect(fdbCluster.ClearProcessGroupsToRemove()).NotTo(HaveOccurred())
-			factory.DeleteChaosMeshExperimentSafe(experiment)
-			// Making sure we included back all the process groups after exclusion is complete.
-			Expect(fdbCluster.GetStatus().Cluster.DatabaseConfiguration.ExcludedServers).To(BeEmpty())
-
-			if factory.ChaosTestsEnabled() {
-				scheduleInjectPodKill = factory.ScheduleInjectPodKillWithName(
-					fixtures.GetOperatorSelector(fdbCluster.Namespace()),
-					"*/2 * * * *",
-					chaosmesh.OneMode,
-					fdbCluster.Namespace()+"-"+fdbCluster.Name(),
-				)
-			}
-
-			factory.DeleteDataLoader(fdbCluster)
-		})
 	})
 
 	When("replacing a coordinator Pod", func() {

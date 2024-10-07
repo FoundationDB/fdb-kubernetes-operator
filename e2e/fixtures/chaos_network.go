@@ -171,3 +171,33 @@ func (factory *Factory) InjectPartitionOnSomeTargetPods(
 		Selector: target,
 	}, chaosmesh.Both, nil)
 }
+
+// InjectNetworkLatency injects network latency between the source and the target.
+func (factory *Factory) InjectNetworkLatency(source chaosmesh.PodSelectorSpec, target chaosmesh.PodSelectorSpec, direction chaosmesh.Direction, delay *chaosmesh.DelaySpec) *ChaosMeshExperiment {
+	ensurePodPhaseSelectorIsSet(&source)
+	ensurePodPhaseSelectorIsSet(&target)
+
+	return factory.CreateExperiment(&chaosmesh.NetworkChaos{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      factory.RandStringRunes(32),
+			Namespace: factory.GetChaosNamespace(),
+			Labels:    factory.GetDefaultLabels(),
+		},
+		Spec: chaosmesh.NetworkChaosSpec{
+			Action:   chaosmesh.DelayAction,
+			Duration: pointer.String(ChaosDurationForever),
+			PodSelector: chaosmesh.PodSelector{
+				Selector: source,
+				Mode:     chaosmesh.AllMode,
+			},
+			Target: &chaosmesh.PodSelector{
+				Mode:     chaosmesh.AllMode,
+				Selector: target,
+			},
+			Direction: direction,
+			TcParameter: chaosmesh.TcParameter{
+				Delay: delay,
+			},
+		},
+	})
+}

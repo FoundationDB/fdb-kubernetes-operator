@@ -34,6 +34,8 @@ import (
 	"strconv"
 	"time"
 
+	"k8s.io/utils/pointer"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/e2e/fixtures"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbstatus"
@@ -209,6 +211,107 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 				// We should add here another check that the cluster stays in the primary.
 				return runningPods
 			}).WithTimeout(10 * time.Minute).WithPolling(2 * time.Second).Should(BeNumerically(">=", desiredRunningPods))
+		})
+	})
+
+	When("locality based exclusions are enabled", func() {
+		var initialUseLocalitiesForExclusion bool
+
+		BeforeEach(func() {
+			spec := fdbCluster.GetRemote().GetCluster().Spec.DeepCopy()
+			initialUseLocalitiesForExclusion = fdbCluster.GetRemote().GetCluster().UseLocalitiesForExclusion()
+			spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(true)
+			fdbCluster.GetRemote().UpdateClusterSpecWithSpec(spec)
+			Expect(fdbCluster.GetRemote().GetCluster().UseLocalitiesForExclusion()).To(BeTrue())
+		})
+
+		AfterEach(func() {
+			spec := fdbCluster.GetRemote().GetCluster().Spec.DeepCopy()
+			spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(initialUseLocalitiesForExclusion)
+			fdbCluster.GetRemote().UpdateClusterSpecWithSpec(spec)
+		})
+
+		When("when a remote log has network latency issues and gets replaced", func() {
+			var experiment *fixtures.ChaosMeshExperiment
+
+			BeforeEach(func() {
+				dcID := fdbCluster.GetRemote().GetCluster().Spec.DataCenter
+
+				status := fdbCluster.GetPrimary().GetStatus()
+
+				var processGroupID fdbv1beta2.ProcessGroupID
+				for _, process := range status.Cluster.Processes {
+					dc, ok := process.Locality[fdbv1beta2.FDBLocalityDCIDKey]
+					if !ok || dc != dcID {
+						continue
+					}
+
+					var isLog bool
+					for _, role := range process.Roles {
+						if role.Role == "log" {
+							isLog = true
+							break
+						}
+					}
+
+					if !isLog {
+						continue
+					}
+
+					processGroupID = fdbv1beta2.ProcessGroupID(process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey])
+					break
+				}
+
+				log.Println("Will inject chaos into", processGroupID, "and replace it")
+				var replacedPod corev1.Pod
+				for _, pod := range fdbCluster.GetRemote().GetLogPods().Items {
+					if fixtures.GetProcessGroupID(pod) != processGroupID {
+						continue
+					}
+
+					replacedPod = pod
+					break
+				}
+
+				log.Println("Inject latency chaos")
+				experiment = factory.InjectNetworkLatency(
+					fixtures.PodSelector(&replacedPod),
+					chaosmesh.PodSelectorSpec{
+						GenericSelectorSpec: chaosmesh.GenericSelectorSpec{
+							Namespaces:     []string{fdbCluster.GetRemote().Namespace()},
+							LabelSelectors: fdbCluster.GetRemote().GetCachedCluster().GetMatchLabels(),
+						},
+					}, chaosmesh.Both,
+					&chaosmesh.DelaySpec{
+						Latency:     "250ms",
+						Correlation: "100",
+						Jitter:      "0",
+					})
+
+				// TODO (johscheuer): Allow to have this as a long running task until the test is done.
+				factory.CreateDataLoaderIfAbsentWithWait(fdbCluster.GetPrimary(), false)
+
+				time.Sleep(1 * time.Minute)
+				log.Println("replacedPod", replacedPod.Name, "useLocalitiesForExclusion", fdbCluster.GetPrimary().GetCluster().UseLocalitiesForExclusion())
+				fdbCluster.GetRemote().ReplacePod(replacedPod, true)
+			})
+
+			It("should exclude and remove the pod", func() {
+				Eventually(func() []fdbv1beta2.ExcludedServers {
+					status := fdbCluster.GetPrimary().GetStatus()
+					excludedServers := status.Cluster.DatabaseConfiguration.ExcludedServers
+					log.Println("excludedServers", excludedServers)
+					return excludedServers
+				}).WithTimeout(15 * time.Minute).WithPolling(1 * time.Second).Should(BeEmpty())
+			})
+
+			AfterEach(func() {
+				Expect(fdbCluster.GetRemote().ClearProcessGroupsToRemove()).NotTo(HaveOccurred())
+				factory.DeleteChaosMeshExperimentSafe(experiment)
+				// Making sure we included back all the process groups after exclusion is complete.
+				Expect(fdbCluster.GetPrimary().GetStatus().Cluster.DatabaseConfiguration.ExcludedServers).To(BeEmpty())
+				factory.DeleteDataLoader(fdbCluster.GetPrimary())
+			})
 		})
 	})
 })
