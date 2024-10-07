@@ -428,9 +428,10 @@ The sidecar has an important role to play in the upgrade flow. The monitor conf 
 
 ### Unified Image
 
-**NOTE**: The unified image is still experimental, and is not recommended outside of development environments.
-
-When using the unified image, the `foundationdb` container runs a `fdb-kubernetes-monitor` process, which is responsible for starting `fdbserver` processes. `fdb-kubernetes-monitor` receives its configuration in the form of a JSON file, which provides the command-line arguments in a structured form. These arguments can reference environment variables, which will be filled in by `fdb-kubernetes-monitor`. They can also reference the process number, which allows `fdb-kubernetes-monitor` to start multiple `fdbserver` processes that use different ports and different data directories.
+When using the unified image, the `foundationdb` container runs a `fdb-kubernetes-monitor` process, which is responsible for starting `fdbserver` processes.
+`fdb-kubernetes-monitor` receives its configuration in the form of a JSON file, which provides the command-line arguments in a structured form.
+These arguments can reference environment variables, which will be filled in by `fdb-kubernetes-monitor`.
+They can also reference the process number, which allows `fdb-kubernetes-monitor` to start multiple `fdbserver` processes that use different ports and different data directories.
 
 The flow for updating the monitor conf file has the following steps:
 
@@ -447,7 +448,7 @@ The active configuration is stored on the pod under the annotation `foundationdb
 
 **NOTE**: Because the pod annotations are used to communicate the state in this flow, the pods must have a service account token that has permissions to read and write pods.
 
-fdb-kubernetes-monitor does not watch the `fdb.cluster` for updates. Changes to the connection string will be sent directly to the fdbserver processes through the `coordinators` command in the CLI.
+`fdb-kubernetes-monitor` does not watch the `fdb.cluster` for updates. Changes to the connection string will be sent directly to the fdbserver processes through the `coordinators` command in the CLI.
 
 When the operator checks the status of the cluster, it needs to check if the process start commands are an exact match for the expected values based on the cluster spec. In order to make this comparison, it needs to fill in pod-specific information like the address and node name. fdb-kubernetes-monitor provides this information through the `foundationdb.org/launcher-environment` annotation on the pod, which contains a map of environment variables to their values. The operator uses this annotation when performing this check on the start command.
 

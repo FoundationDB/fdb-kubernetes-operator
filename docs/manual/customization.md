@@ -506,10 +506,8 @@ kubectl label pod,pvc,configmap,service -l foundationdb.org/fdb-cluster-name=sam
 The operator currently supports two different image types: a split image and a unified image.
 The split image provides two different images for the `foundationdb` container and the `foundationdb-kubernetes-sidecar` container.
 The unified image provides a single image which handles launching `fdbserver` processes as well as providing feedback to the operator on locality information and updates to dynamic conf.
-
-**NOTE**: The unified image is still experimental, and is not recommended outside of development environments.
-
-The default behavior in the operator is to use the split image. To switch to the unified image, set the flag in the cluster spec as follows:
+The default behavior in the operator is to use the split image.
+To switch to the unified image, set the flag in the cluster spec as follows:
 
 ```yaml
 apiVersion: apps.foundationdb.org/v1beta2
