@@ -321,14 +321,32 @@ func (options *FactoryOptions) validateFDBVersionTagMapping() error {
 	return nil
 }
 
-func (options *FactoryOptions) getImageVersionConfig(baseImage string, isSidecar bool) []fdbv1beta2.ImageConfig {
+func getTagSuffix(isSidecar bool) string {
+	if isSidecar {
+		return "-1"
+	}
+
+	return ""
+}
+
+func (options *FactoryOptions) getImageVersionConfig(baseImage string, versionTag string, isSidecar bool) []fdbv1beta2.ImageConfig {
 	if options.fdbVersionTagMapping == "" {
-		return nil
+		return []fdbv1beta2.ImageConfig{
+			{
+				BaseImage: baseImage,
+				Version:   options.fdbVersion,
+				Tag:       versionTag,
+				TagSuffix: getTagSuffix(isSidecar),
+			},
+			{
+				BaseImage: baseImage,
+				TagSuffix: getTagSuffix(isSidecar),
+			},
+		}
 	}
 
 	mappings := strings.Split(options.fdbVersionTagMapping, ",")
-	imageConfig := make([]fdbv1beta2.ImageConfig, len(mappings))
-
+	imageConfig := make([]fdbv1beta2.ImageConfig, len(mappings)+1)
 	for idx, mapping := range mappings {
 		versionMapping := strings.Split(mapping, ":")
 		tag := strings.TrimSpace(versionMapping[1])
@@ -336,11 +354,19 @@ func (options *FactoryOptions) getImageVersionConfig(baseImage string, isSidecar
 		if isSidecar {
 			tag = tag + "-1"
 		}
+
 		imageConfig[idx] = fdbv1beta2.ImageConfig{
 			BaseImage: baseImage,
 			Version:   strings.TrimSpace(versionMapping[0]),
 			Tag:       tag,
 		}
+	}
+
+	// Always add the base image config to make sure that the default images can be used, even if only a subset
+	// of versions use a version tag mapping.
+	imageConfig[len(mappings)] = fdbv1beta2.ImageConfig{
+		BaseImage: baseImage,
+		TagSuffix: getTagSuffix(isSidecar),
 	}
 
 	return imageConfig
