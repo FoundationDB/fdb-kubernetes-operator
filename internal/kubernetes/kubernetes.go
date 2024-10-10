@@ -33,8 +33,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/remotecommand"
+	"k8s.io/kubectl/pkg/cmd/exec"
 	"k8s.io/kubectl/pkg/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
@@ -68,6 +70,33 @@ func ExecuteCommandRaw(
 	stderr io.Writer,
 	isTty bool,
 ) error {
+	// The exec.StreamOptions struct is used below to set up the tty if needed. This will prevent issues with
+	// output and input if another terminal is started, e.g. is someone does kubectl fdb -c dev -- fdbcli
+	opts := &exec.StreamOptions{
+		PodName:       name,
+		Namespace:     namespace,
+		ContainerName: container,
+		Stdin:         stdin != nil,
+		TTY:           isTty,
+		IOStreams: genericclioptions.IOStreams{
+			In:     stdin,
+			Out:    stdout,
+			ErrOut: stderr,
+		},
+	}
+
+	// Those lines are copied and adjusted from https://github.com/kubernetes/kubectl/blob/master/pkg/cmd/exec/exec.go#L355
+	t := opts.SetupTTY()
+	var sizeQueue remotecommand.TerminalSizeQueue
+	if t.Raw {
+		// this call spawns a goroutine to monitor/update the terminal size
+		sizeQueue = t.MonitorSize(t.GetSize())
+
+		// unset p.Err if it was previously set because both stdout and stderr go over p.Out when tty is
+		// true
+		opts.ErrOut = nil
+	}
+
 	restClient, err := getRestClient(kubeClient, config)
 	if err != nil {
 		return err
@@ -82,22 +111,26 @@ func ExecuteCommandRaw(
 		&corev1.PodExecOptions{
 			Command:   command,
 			Container: container,
-			Stdin:     stdin != nil,
-			Stdout:    stdout != nil,
-			Stderr:    stderr != nil,
-			TTY:       isTty,
+			Stdin:     opts.Stdin,
+			Stdout:    opts.Out != nil,
+			Stderr:    opts.ErrOut != nil,
+			TTY:       t.Raw,
 		},
 		scheme.ParameterCodec,
 	)
-	exec, err := NewSPDYExecutor(config, "POST", req.URL())
+	executor, err := NewSPDYExecutor(config, "POST", req.URL())
 	if err != nil {
 		return err
 	}
 
-	return exec.StreamWithContext(ctx, remotecommand.StreamOptions{
-		Stdin:  stdin,
-		Stdout: stdout,
-		Stderr: stderr,
+	return t.Safe(func() error {
+		return executor.StreamWithContext(ctx, remotecommand.StreamOptions{
+			Stdin:             opts.In,
+			Stdout:            opts.Out,
+			Stderr:            opts.ErrOut,
+			Tty:               t.Raw,
+			TerminalSizeQueue: sizeQueue,
+		})
 	})
 }
 
