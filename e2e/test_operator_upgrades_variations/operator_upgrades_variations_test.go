@@ -83,6 +83,7 @@ func clusterSetupWithConfig(config testConfig) *fixtures.FdbCluster {
 func performUpgrade(config testConfig, preUpgradeFunction func(cluster *fixtures.FdbCluster)) {
 	fdbCluster = clusterSetupWithConfig(config)
 	startTime := time.Now()
+	loggingTime := time.Now()
 	preUpgradeFunction(fdbCluster)
 	Expect(fdbCluster.UpgradeCluster(config.targetVersion, false)).NotTo(HaveOccurred())
 
@@ -96,8 +97,9 @@ func performUpgrade(config testConfig, preUpgradeFunction func(cluster *fixtures
 
 		Eventually(func() bool {
 			// If the status is not updated after 5 minutes try a force reconciliation.
-			if time.Since(startTime) > 5*time.Minute {
+			if time.Since(loggingTime) > 5*time.Minute {
 				fdbCluster.ForceReconcile()
+				loggingTime = time.Now()
 			}
 
 			for _, processGroup := range fdbCluster.GetCluster().Status.ProcessGroups {
@@ -110,6 +112,7 @@ func performUpgrade(config testConfig, preUpgradeFunction func(cluster *fixtures
 		}).WithTimeout(10 * time.Minute).WithPolling(5 * time.Second).Should(BeTrue())
 	}
 
+	loggingTime = time.Now()
 	transactionSystemProcessGroups := make(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None)
 	// Wait until the cluster is upgraded and fully reconciled.
 	Expect(fdbCluster.WaitUntilWithForceReconcile(2, 1500, func(cluster *fdbv1beta2.FoundationDBCluster) bool {
@@ -132,6 +135,12 @@ func performUpgrade(config testConfig, preUpgradeFunction func(cluster *fixtures
 			}
 
 			transactionSystemProcessGroups[processGroup.ProcessGroupID] = fdbv1beta2.None{}
+		}
+
+		// If the cluster is not upgraded after 5 minutes print out the running and the expected version.
+		if time.Since(loggingTime) > 5*time.Minute {
+			log.Println("current running version:", cluster.Status.RunningVersion, "expected running version:", config.targetVersion)
+			loggingTime = time.Now()
 		}
 
 		// Allow soft reconciliation and make sure the running version was updated
