@@ -69,6 +69,23 @@ FDB_VERSION="7.3.38" \
 make -C e2e test_operator.run
 ```
 
+### Running the e2e tests with a custom FDB version
+
+The operator e2e tests support to run with custom FDB versions that are not yet released.
+The next steps assume that you are able to build a container image for FDB with a custom version.
+The `UPGRADE_VERSIONS` defines which versions should be used for the upgrade tests.
+The `FDB_VERSION_TAG_MAPPING` provides a way to overwrite the image tag that will be used for the specific tag.
+If you use the [split image](../docs/manual/technical_design.md#split-image) you have to build the main `foundationdb` image and the `foundationdb-kubernetes-sidecar` image.
+If you use the [unified image](../docs/manual/technical_design.md#unified-image) you only have to build the `fdb-kubernetes-monitor` image.
+You have to make sure that the version used in the `FDB_VERSION_TAG_MAPPING` maps to the actual `fdbserver` version in the container image, otherwise some checks will fail because the actual running server is in a different version that the expected version.
+
+```bash
+FDB_VERSION="7.3.43" \
+UPGRADE_VERSIONS="7.3.43:7.3.52" \
+FDB_VERSION_TAG_MAPPING="7.3.52:7.3.52-custom-build" \
+make -C e2e test_operator_upgrades.run
+```
+
 ### Running e2e tests in kind
 
 _NOTE_ This setup is currently not used by our CI.
