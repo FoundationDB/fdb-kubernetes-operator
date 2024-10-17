@@ -268,10 +268,6 @@ func StartManager(
 		clusterReconciler.MaintenanceListWaitDuration = operatorOpts.MaintenanceListWaitDuration
 		clusterReconciler.MinimumRecoveryTimeForInclusion = operatorOpts.MinimumRecoveryTimeForInclusion
 		clusterReconciler.MinimumRecoveryTimeForExclusion = operatorOpts.MinimumRecoveryTimeForExclusion
-		clusterReconciler.MaintenanceListStaleDuration = operatorOpts.MaintenanceListStaleDuration
-		clusterReconciler.MaintenanceListWaitDuration = operatorOpts.MaintenanceListWaitDuration
-		clusterReconciler.MinimumRecoveryTimeForInclusion = operatorOpts.MinimumRecoveryTimeForInclusion
-		clusterReconciler.MinimumRecoveryTimeForExclusion = operatorOpts.MinimumRecoveryTimeForExclusion
 		clusterReconciler.ClusterLabelKeyForNodeTrigger = strings.Trim(operatorOpts.ClusterLabelKeyForNodeTrigger, "\"")
 		clusterReconciler.Namespace = operatorOpts.WatchNamespace
 
