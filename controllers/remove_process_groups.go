@@ -132,9 +132,8 @@ func (u removeProcessGroups) reconcile(ctx context.Context, r *FoundationDBClust
 	removedProcessGroups := r.removeProcessGroups(ctx, logger, cluster, zoneRemovals, zonedRemovals[removals.TerminatingZone])
 	err = includeProcessGroup(ctx, logger, r, cluster, removedProcessGroups, status, adminClient)
 	if err != nil {
-		delay := time.Duration(int(r.MinimumRecoveryTimeForInclusion-status.Cluster.RecoveryState.SecondsSinceLastRecovered)) * time.Second
-		_ = delay
-		return &requeue{curError: err, delayedRequeue: true, delay: 0}
+		// If the inclusion is blocked or another issues happened we will retry in 60 seconds.
+		return &requeue{curError: err, delayedRequeue: true, delay: 60 * time.Second}
 	}
 
 	return nil
