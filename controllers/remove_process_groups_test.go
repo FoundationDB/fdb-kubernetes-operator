@@ -640,7 +640,7 @@ var _ = Describe("remove_process_groups", func() {
 					removedProcessGroups[removedProcessGroup.ProcessGroupID] = true
 				})
 
-				It("should include one process", func() {
+				It("should include two process addresses", func() {
 					processesToInclude, newProcessGroups, err := getProcessesToInclude(logr.Logger{}, cluster, removedProcessGroups, status)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(processesToInclude).To(HaveLen(2))
