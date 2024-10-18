@@ -560,7 +560,7 @@ var _ = Describe("remove_process_groups", func() {
 			})
 
 			When("including no process", func() {
-				FIt("should not include any process", func() {
+				It("should not include any process", func() {
 					processesToInclude, newProcessGroups, err := getProcessesToInclude(logr.Logger{}, cluster, removedProcessGroups, status)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(processesToInclude).To(BeEmpty())
