@@ -22,13 +22,31 @@ package internal
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"strings"
 
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 )
+
+// ResourceNotDeleted can be returned if the resource is not yet deleted.
+type ResourceNotDeleted struct {
+	Resource client.Object
+}
+
+// Error returns the error message of the internal timeout error.
+func (err ResourceNotDeleted) Error() string {
+	return fmt.Sprintf("resource: %s is missing the deletion timestamp.", err.Resource.GetName())
+}
+
+// IsResourceNotDeleted returns true if provided error is of the type IsResourceNotDeleted.
+func IsResourceNotDeleted(err error) bool {
+	var targetErr ResourceNotDeleted
+	return errors.As(err, &targetErr)
+}
 
 // IsNetworkError returns true if the network is a network error net.Error
 func IsNetworkError(err error) bool {
