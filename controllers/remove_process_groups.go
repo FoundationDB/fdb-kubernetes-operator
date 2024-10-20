@@ -198,21 +198,21 @@ func removeProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, c
 	return deletionError
 }
 
-func confirmRemoval(ctx context.Context, logger logr.Logger, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, processGroup *fdbv1beta2.ProcessGroupStatus) (bool, bool, error) {
+func confirmRemoval(ctx context.Context, logger logr.Logger, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, processGroup *fdbv1beta2.ProcessGroupStatus) (bool, error) {
 	canBeIncluded := true
 
 	podName := processGroup.GetPodName(cluster)
 	pod, err := r.PodLifecycleManager.GetPod(ctx, r, cluster, podName)
 	// If we get an error different from not found we will return the error.
 	if err != nil && !k8serrors.IsNotFound(err) {
-		return false, false, err
+		return false, err
 	}
 
 	// The Pod resource still exists, so we have to validate the deletion timestamp.
 	if err == nil {
 		if pod.DeletionTimestamp.IsZero() {
 			logger.Info("Waiting for process group to get torn down", "processGroupID", processGroup.ProcessGroupID, "pod", podName)
-			return false, false, nil
+			return false, internal.ResourceNotDeleted{Resource: pod}
 		}
 
 		// Pod is in terminating state so we don't want to block, but we also don't want to include it
@@ -223,40 +223,41 @@ func confirmRemoval(ctx context.Context, logger logr.Logger, r *FoundationDBClus
 	pvcs := &corev1.PersistentVolumeClaimList{}
 	err = r.List(ctx, pvcs, internal.GetSinglePodListOptions(cluster, processGroup.ProcessGroupID)...)
 	if err != nil {
-		return false, canBeIncluded, err
+		return false, err
 	}
 
 	if len(pvcs.Items) == 1 {
-		if pvcs.Items[0].DeletionTimestamp == nil {
-			logger.Info("Waiting for volume claim to get torn down", "processGroupID", processGroup.ProcessGroupID, "pvc", pvcs.Items[0].Name)
-			return false, false, nil
+		pvc := pvcs.Items[0]
+		if pvc.DeletionTimestamp == nil {
+			logger.Info("Waiting for volume claim to get torn down", "processGroupID", processGroup.ProcessGroupID, "pvc", pvc.Name)
+			return false, internal.ResourceNotDeleted{Resource: &pvc}
 		}
 
 		// PVC is in terminating state so we don't want to block, but we also don't want to include it
 		canBeIncluded = false
 	} else if len(pvcs.Items) > 1 {
-		return false, false, fmt.Errorf("multiple PVCs found for cluster %s, processGroupID %s", cluster.Name, processGroup.ProcessGroupID)
+		return false, fmt.Errorf("multiple PVCs found for cluster %s, processGroupID %s", cluster.Name, processGroup.ProcessGroupID)
 	}
 
 	service := &corev1.Service{}
 	err = r.Get(ctx, client.ObjectKey{Name: podName, Namespace: cluster.Namespace}, service)
 	// If we get an error different from not found we will return the error.
 	if err != nil && !k8serrors.IsNotFound(err) {
-		return false, false, err
+		return false, err
 	}
 
 	// The Pod resource still exists, so we have to validate the deletion timestamp.
 	if err == nil {
 		if service.DeletionTimestamp.IsZero() {
 			logger.Info("Waiting for process group to get torn down", "processGroupID", processGroup.ProcessGroupID, "service", podName)
-			return false, false, nil
+			return false, internal.ResourceNotDeleted{Resource: service}
 		}
 
 		// Service is in terminating state so we don't want to block, but we also don't want to include it
 		canBeIncluded = false
 	}
 
-	return true, canBeIncluded, nil
+	return canBeIncluded, nil
 }
 
 func includeProcessGroup(ctx context.Context, logger logr.Logger, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, removedProcessGroups map[fdbv1beta2.ProcessGroupID]bool, status *fdbv1beta2.FoundationDBStatus, adminClient fdbadminclient.AdminClient) error {
@@ -420,18 +421,15 @@ func (r *FoundationDBClusterReconciler) removeProcessGroups(ctx context.Context,
 	// We have to check if the currently removed process groups are completely removed.
 	// In addition, we have to check if one of the terminating process groups has been cleaned up.
 	for _, processGroup := range processGroups {
-		removed, include, err := confirmRemoval(ctx, logger, r, cluster, processGroup)
-		if err != nil {
+		include, err := confirmRemoval(ctx, logger, r, cluster, processGroup)
+		if err != nil && !internal.IsResourceNotDeleted(err) {
 			logger.Error(err, "Error during confirm process group removal", "processGroupID", processGroup.ProcessGroupID)
 			continue
 		}
 
-		if removed {
-			// Pods that are stuck in terminating shouldn't block reconciliation, but we also
-			// don't want to include them since they have an unknown state.
-			removedProcessGroups[processGroup.ProcessGroupID] = include
-			continue
-		}
+		// Pods that are stuck in terminating shouldn't block reconciliation, but we also
+		// don't want to include them since they have an unknown state.
+		removedProcessGroups[processGroup.ProcessGroupID] = include
 	}
 
 	return removedProcessGroups
