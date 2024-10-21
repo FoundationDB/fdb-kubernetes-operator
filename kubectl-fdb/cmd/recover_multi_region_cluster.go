@@ -182,6 +182,8 @@ func recoverMultiRegionCluster(cmd *cobra.Command, opts recoverMultiRegionCluste
 			return parseErr
 		}
 
+		cmd.Println("checking pod:", pod.Name, "address:", addr, "pod IPs:", pod.Status.PodIP, "machineAddr:", addr.MachineAddress())
+
 		loopPod := pod
 		if coordinatorAddr, ok := coordinators[addr.MachineAddress()]; ok {
 			cmd.Println("Found coordinator for cluster", pod.Name, "address", addr.MachineAddress())
