@@ -30,6 +30,8 @@ import (
 	"log"
 	"time"
 
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/e2e/fixtures"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -95,6 +97,9 @@ var _ = Describe("Operator Plugin", Label("e2e", "pr"), func() {
 			remoteSatellite := fdbCluster.GetRemoteSatellite()
 			remoteSatellite.SetSkipReconciliation(true)
 
+			remote := fdbCluster.GetRemote()
+			remote.SetSkipReconciliation(true)
+
 			var wg errgroup.Group
 			log.Println("Delete Pods in primary")
 			wg.Go(func() error {
@@ -127,7 +132,6 @@ var _ = Describe("Operator Plugin", Label("e2e", "pr"), func() {
 			// Wait a short amount of time to let the cluster see that the primary and primary satellite is down.
 			time.Sleep(5 * time.Second)
 
-			remote := fdbCluster.GetRemote()
 			// Ensure the cluster is unavailable.
 			Eventually(func() bool {
 				return remote.GetStatus().Client.DatabaseStatus.Available
@@ -155,6 +159,106 @@ var _ = Describe("Operator Plugin", Label("e2e", "pr"), func() {
 			Eventually(func() bool {
 				return remote.GetStatus().Client.DatabaseStatus.Available
 			}).WithTimeout(2 * time.Minute).WithPolling(1 * time.Second).Should(BeTrue())
+		})
+	})
+
+	// TODO(johscheuer): Enable once https://github.com/FoundationDB/fdb-kubernetes-operator/issues/2153 is fixed.
+	PWhen("all Pods in the primary and satellites are down with", func() {
+		BeforeEach(func() {
+			runningVersion := fdbCluster.GetPrimary().GetCluster().GetRunningVersion()
+			parsedVersion, err := fdbv1beta2.ParseFdbVersion(runningVersion)
+			Expect(err).NotTo(HaveOccurred())
+
+			if !parsedVersion.SupportsDNSInClusterFile() {
+				Skip(fmt.Sprintf("Current FDB version: \"%s\" doesn't support DNS names in the cluster file", runningVersion))
+			}
+		})
+
+		When("DNS names in the cluster file are supported", func() {
+			BeforeEach(func() {
+				var errGroup errgroup.Group
+				// Enable DNS names in the cluster file for the whole cluster.
+				for _, cluster := range fdbCluster.GetAllClusters() {
+					target := cluster
+					errGroup.Go(func() error {
+						return target.SetUseDNSInClusterFile(true)
+					})
+				}
+				Expect(errGroup.Wait()).NotTo(HaveOccurred())
+
+				// This tests is a destructive test where the cluster will stop working for some period.
+				primary := fdbCluster.GetPrimary()
+				primary.SetSkipReconciliation(true)
+
+				primarySatellite := fdbCluster.GetPrimarySatellite()
+				primarySatellite.SetSkipReconciliation(true)
+
+				remoteSatellite := fdbCluster.GetRemoteSatellite()
+				remoteSatellite.SetSkipReconciliation(true)
+
+				remote := fdbCluster.GetRemote()
+				remote.SetSkipReconciliation(true)
+
+				var wg errgroup.Group
+				log.Println("Delete Pods in primary")
+				wg.Go(func() error {
+					for _, pod := range primary.GetPods().Items {
+						factory.DeletePod(&pod)
+					}
+
+					return nil
+				})
+
+				log.Println("Delete Pods in primary satellite")
+				wg.Go(func() error {
+					for _, pod := range primarySatellite.GetPods().Items {
+						factory.DeletePod(&pod)
+					}
+
+					return nil
+				})
+
+				log.Println("Delete Pods in remote satellite")
+				wg.Go(func() error {
+					for _, pod := range remoteSatellite.GetPods().Items {
+						factory.DeletePod(&pod)
+					}
+
+					return nil
+				})
+
+				Expect(wg.Wait()).NotTo(HaveOccurred())
+				// Wait a short amount of time to let the cluster see that the primary and primary satellite is down.
+				time.Sleep(5 * time.Second)
+
+				// Ensure the cluster is unavailable.
+				Eventually(func() bool {
+					return remote.GetStatus().Client.DatabaseStatus.Available
+				}).WithTimeout(2 * time.Minute).WithPolling(1 * time.Second).Should(BeFalse())
+			})
+
+			AfterEach(func() {
+				log.Println("Recreate cluster")
+				// Delete the broken cluster.
+				fdbCluster.Delete()
+				// Recreate the cluster to make sure  the next tests can proceed
+				fdbCluster = factory.CreateFdbHaCluster(clusterConfig, clusterOptions...)
+			})
+
+			It("should recover the coordinators", func() {
+				remote := fdbCluster.GetRemote()
+				// Pick one operator pod and execute the recovery command
+				operatorPod := factory.RandomPickOnePod(factory.GetOperatorPods(remote.Namespace()).Items)
+				log.Println("operatorPod:", operatorPod.Name)
+				stdout, stderr, err := factory.ExecuteCmdOnPod(context.Background(), &operatorPod, "manager", fmt.Sprintf("kubectl-fdb -n %s recover-multi-region-cluster --version-check=false --wait=false %s", remote.Namespace(), remote.Name()), false)
+				log.Println("stdout:", stdout, "stderr:", stderr)
+				Expect(err).NotTo(HaveOccurred())
+
+				// Ensure the cluster is available again.
+				Eventually(func() bool {
+					return remote.GetStatus().Client.DatabaseStatus.Available
+				}).WithTimeout(2 * time.Minute).WithPolling(1 * time.Second).Should(BeTrue())
+			})
 		})
 	})
 })
