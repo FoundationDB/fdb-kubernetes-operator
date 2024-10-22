@@ -2,7 +2,7 @@ ARG FDB_VERSION=6.2.29
 ARG FDB_WEBSITE=https://github.com/apple/foundationdb/releases/download
 
 # Build the manager binary
-FROM docker.io/library/golang:1.22.7 AS builder
+FROM docker.io/library/golang:1.22.8 AS builder
 
 ARG FDB_VERSION
 ARG FDB_WEBSITE
