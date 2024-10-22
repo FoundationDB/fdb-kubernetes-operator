@@ -48,6 +48,14 @@ func (factory *Factory) createFDBClusterSpec(
 		imageType = fdbv1beta2.ImageTypeUnified
 	}
 
+	faultDomain := fdbv1beta2.FoundationDBClusterFaultDomain{
+		Key: "foundationdb.org/none",
+	}
+	if config.SimulateCustomFaultDomainEnv {
+		faultDomain.ValueFrom = "$" + fdbv1beta2.EnvNameInstanceID
+		faultDomain.Key = corev1.LabelHostname
+	}
+
 	return &fdbv1beta2.FoundationDBCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      config.Name,
@@ -64,9 +72,7 @@ func (factory *Factory) createFDBClusterSpec(
 			MainContainer:                 factory.GetMainContainerOverrides(config.DebugSymbols, useUnifiedImage),
 			ImageType:                     &imageType,
 			SidecarContainer:              factory.GetSidecarContainerOverrides(config.DebugSymbols),
-			FaultDomain: fdbv1beta2.FoundationDBClusterFaultDomain{
-				Key: "foundationdb.org/none",
-			},
+			FaultDomain:                   faultDomain,
 			AutomationOptions: fdbv1beta2.FoundationDBClusterAutomationOptions{
 				// We have to wait long enough to ensure the operator is not recreating too many Pods at the same time.
 				WaitBetweenRemovalsSeconds: pointer.Int(0),

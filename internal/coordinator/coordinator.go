@@ -115,8 +115,7 @@ func selectCoordinatorsLocalities(logger logr.Logger, cluster *fdbv1beta2.Founda
 	}
 
 	coordinators, err := locality.ChooseDistributedProcesses(cluster, candidates, coordinatorCount, locality.ProcessSelectionConstraint{
-		HardLimits:            locality.GetHardLimits(cluster),
-		SelectingCoordinators: true,
+		HardLimits: locality.GetHardLimits(cluster),
 	})
 
 	logger.Info("Current coordinators", "coordinators", coordinators, "error", err)

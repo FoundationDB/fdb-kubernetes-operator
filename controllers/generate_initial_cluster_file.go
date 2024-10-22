@@ -47,7 +47,7 @@ func (g generateInitialClusterFile) reconcile(ctx context.Context, r *Foundation
 	}
 
 	logger.Info("Generating initial cluster file")
-	r.Recorder.Event(cluster, corev1.EventTypeNormal, "ChangingCoordinators", "Choosing initial coordinators")
+	r.Recorder.Event(cluster, corev1.EventTypeNormal, "GenerateInitialCoordinators", "Choosing initial coordinators")
 
 	processCounts, err := cluster.GetProcessCountsWithDefaults()
 	if err != nil {
@@ -130,8 +130,7 @@ func (g generateInitialClusterFile) reconcile(ctx context.Context, r *Foundation
 	}
 
 	coordinators, err := locality.ChooseDistributedProcesses(cluster, processLocality, count, locality.ProcessSelectionConstraint{
-		HardLimits:            locality.GetHardLimits(cluster),
-		SelectingCoordinators: true,
+		HardLimits: locality.GetHardLimits(cluster),
 	})
 	if err != nil {
 		return &requeue{curError: err}
