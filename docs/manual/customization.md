@@ -248,8 +248,10 @@ Using service IPs presents its own challenges:
 
 Using Pod IPs has the limitation that Pods might get a new IP address if they are recreated and sometimes using service IPs is not the right approach.
 FDB supports to use DNS in the cluster file since 7.1 and the operator can make use of that.
-*Note*: This requires the following customization to inject the 7.1 library and use it as primary library (see code example below). As an alternative you can build the operator image by yourself that contains the 7.1 library as the primary library.
-Building the operator by yourself can be achieved with `docker build --build-arg FDB_VERSION=7.1.33 -t foundationdb/fdb-kubernetes-operator .`.
+
+*Note*: This requires the following customization to inject the 7.1 library and use it as primary library (see code example below).
+As an alternative you can build the operator image by yourself that contains the 7.1 library as the primary library.
+Building the operator by yourself can be achieved with `docker build --build-arg FDB_VERSION=7.1.26 -t foundationdb/fdb-kubernetes-operator .`.
 
 ```yaml
       initContainers:
@@ -257,7 +259,7 @@ Building the operator by yourself can be achieved with `docker build --build-arg
          # Install this library in a special location to force the operator to
          # use it as the primary library.
          - name: foundationdb-kubernetes-init-7-1-primary
-           image: foundationdb/foundationdb-kubernetes-sidecar:7.1.25
+           image: foundationdb/foundationdb-kubernetes-sidecar:7.1.26-1
            args:
              - "--copy-library"
              - "7.1"
@@ -284,7 +286,7 @@ kind: FoundationDBCluster
 metadata:
     name: sample-cluster
 spec:
-  version: 7.1.25
+  version: 7.1.26
   routing:
     useDNSInClusterFile: true
 ```
