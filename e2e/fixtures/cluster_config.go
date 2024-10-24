@@ -78,6 +78,9 @@ type ClusterConfig struct {
 	UseDNS bool
 	// If enabled the cluster will be setup with the unified image.
 	UseUnifiedImage *bool
+	// SimulateCustomFaultDomainEnv will simulate the use case that a user has set a custom environment variable to
+	// be used as zone ID.
+	SimulateCustomFaultDomainEnv bool
 	// CreationTracker if specified will be used to log the time between the creations steps.
 	CreationTracker CreationTrackerLogger
 	// Number of machines, this is used for calculating the number of Pods and is not correlated to the actual number

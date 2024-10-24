@@ -434,8 +434,6 @@ func GetSubstitutionsFromClusterAndPod(logger logr.Logger, cluster *fdbv1beta2.F
 
 		if faultDomainSource == "spec.nodeName" {
 			substitutions[fdbv1beta2.EnvNameZoneID] = pod.Spec.NodeName
-		} else {
-			return nil, fmt.Errorf("unsupported fault domain source %s", faultDomainSource)
 		}
 	}
 
@@ -450,6 +448,7 @@ func GetSubstitutionsFromClusterAndPod(logger logr.Logger, cluster *fdbv1beta2.F
 	copyableSubstitutions := map[string]fdbv1beta2.None{
 		fdbv1beta2.EnvNameDNSName:    {},
 		fdbv1beta2.EnvNameInstanceID: {},
+		"CUSTOM_ENV":                 {},
 	}
 	for _, container := range pod.Spec.Containers {
 		for _, envVar := range container.Env {

@@ -29,6 +29,7 @@ import (
 	"github.com/go-logr/logr"
 	"math"
 	"slices"
+	"strings"
 )
 
 // Info captures information about a process for the purposes of
@@ -114,6 +115,7 @@ func InfoForProcess(process fdbv1beta2.FoundationDBStatusProcessInfo, mainContai
 
 // InfoFromSidecar converts the process information from the sidecar's
 // context into locality info for selecting processes.
+// This method is only used during the initial bootstrapping of the cluster when no fdbserver processes are running.
 func InfoFromSidecar(cluster *fdbv1beta2.FoundationDBCluster, client podclient.FdbPodClient) (Info, error) {
 	substitutions, err := client.GetVariableSubstitutions()
 	if err != nil {
@@ -124,6 +126,25 @@ func InfoFromSidecar(cluster *fdbv1beta2.FoundationDBCluster, client podclient.F
 		return Info{}, nil
 	}
 
+	// Take the zone ID from the FDB_ZONE_ID if present.
+	zoneID, present := substitutions[fdbv1beta2.EnvNameZoneID]
+	if !present {
+		// If the FDB_ZONE_ID is not present, the user specified another environment variable that represents the
+		// zone ID.
+		var zoneVariable string
+		if strings.HasPrefix(cluster.Spec.FaultDomain.ValueFrom, "$") {
+			zoneVariable = cluster.Spec.FaultDomain.ValueFrom[1:]
+		} else {
+			zoneVariable = fdbv1beta2.EnvNameZoneID
+		}
+
+		zoneID = substitutions[zoneVariable]
+	}
+
+	if zoneID == "" {
+		return Info{}, errors.New("no zone ID found in Sidecar information")
+	}
+
 	// This locality information is only used during the initial cluster file generation.
 	// So it should be good to only use the first process address here.
 	// This has the implication that in the initial cluster file only the first processes will be used.
@@ -131,7 +152,7 @@ func InfoFromSidecar(cluster *fdbv1beta2.FoundationDBCluster, client podclient.F
 		ID:      substitutions[fdbv1beta2.EnvNameInstanceID],
 		Address: cluster.GetFullAddress(substitutions[fdbv1beta2.EnvNamePublicIP], 1),
 		LocalityData: map[string]string{
-			fdbv1beta2.FDBLocalityZoneIDKey:  substitutions[fdbv1beta2.EnvNameZoneID],
+			fdbv1beta2.FDBLocalityZoneIDKey:  zoneID,
 			fdbv1beta2.FDBLocalityDNSNameKey: substitutions[fdbv1beta2.EnvNameDNSName],
 		},
 	}, nil
@@ -164,9 +185,6 @@ type ProcessSelectionConstraint struct {
 	// HardLimits defines a maximum number of processes to recruit on any single
 	// value for a given locality field.
 	HardLimits map[string]int
-
-	// SelectingCoordinators must be true when the ChooseDistributedProcesses is used to select coordinators.
-	SelectingCoordinators bool
 }
 
 // ChooseDistributedProcesses recruits a maximally well-distributed set of processes from a set of potential candidates.

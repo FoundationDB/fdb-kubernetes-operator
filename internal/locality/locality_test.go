@@ -603,8 +603,7 @@ var _ = Describe("Localities", func() {
 				BeforeEach(func() {
 					candidates = generateCandidates(dcIDs, 5, 5)
 					result, err = ChooseDistributedProcesses(cluster, candidates, cluster.DesiredCoordinatorCount(), ProcessSelectionConstraint{
-						HardLimits:            GetHardLimits(cluster),
-						SelectingCoordinators: true,
+						HardLimits: GetHardLimits(cluster),
 					})
 					Expect(err).NotTo(HaveOccurred())
 				})
@@ -645,8 +644,7 @@ var _ = Describe("Localities", func() {
 						// Only measure the actual execution of ChooseDistributedProcesses.
 						experiment.MeasureDuration("ChooseDistributedProcesses", func() {
 							_, _ = ChooseDistributedProcesses(cluster, candidates, cluster.DesiredCoordinatorCount(), ProcessSelectionConstraint{
-								HardLimits:            GetHardLimits(cluster),
-								SelectingCoordinators: true,
+								HardLimits: GetHardLimits(cluster),
 							})
 						})
 						// We'll sample the function up to 50 times or up to a minute, whichever comes first.
@@ -754,8 +752,7 @@ var _ = Describe("Localities", func() {
 				}
 
 				result, err = ChooseDistributedProcesses(cluster, candidates, cluster.DesiredCoordinatorCount(), ProcessSelectionConstraint{
-					HardLimits:            GetHardLimits(cluster),
-					SelectingCoordinators: true,
+					HardLimits: GetHardLimits(cluster),
 				})
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -1049,6 +1046,104 @@ var _ = Describe("Localities", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						internal.MockUnreachableAnnotation: "true",
+					},
+				},
+			},
+			Info{},
+			true,
+		),
+		Entry("locality information is read from a different environment variables",
+			&fdbv1beta2.FoundationDBCluster{
+				Spec: fdbv1beta2.FoundationDBClusterSpec{
+					FaultDomain: fdbv1beta2.FoundationDBClusterFaultDomain{
+						Key:       corev1.LabelHostname,
+						ValueFrom: "$CUSTOM_ENV",
+					},
+				},
+				Status: fdbv1beta2.FoundationDBClusterStatus{
+					RequiredAddresses: fdbv1beta2.RequiredAddressSet{
+						NonTLS: true,
+					},
+				},
+			},
+			&corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					Labels: map[string]string{
+						fdbv1beta2.FDBProcessGroupIDLabel: "test",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "foundationdb-kubernetes-sidecar",
+							Args: []string{
+								"--public-ip-family",
+								"4",
+							},
+							Env: []corev1.EnvVar{
+								{
+									Name:  "CUSTOM_ENV",
+									Value: "custom-zone-id",
+								},
+							},
+						},
+					},
+				},
+				Status: corev1.PodStatus{
+					PodIPs: []corev1.PodIP{
+						{IP: "1.1.1.1"},
+					},
+				},
+			},
+			Info{
+				ID: "test",
+				Address: fdbv1beta2.ProcessAddress{
+					IPAddress: net.ParseIP("1.1.1.1"),
+					Port:      4501,
+				},
+				LocalityData: map[string]string{
+					fdbv1beta2.FDBLocalityZoneIDKey:  "custom-zone-id",
+					fdbv1beta2.FDBLocalityDNSNameKey: "",
+				},
+			},
+			false,
+		),
+		Entry("locality information is read from a different environment variable which is missing",
+			&fdbv1beta2.FoundationDBCluster{
+				Spec: fdbv1beta2.FoundationDBClusterSpec{
+					FaultDomain: fdbv1beta2.FoundationDBClusterFaultDomain{
+						Key:       corev1.LabelHostname,
+						ValueFrom: "$CUSTOM_ENV",
+					},
+				},
+				Status: fdbv1beta2.FoundationDBClusterStatus{
+					RequiredAddresses: fdbv1beta2.RequiredAddressSet{
+						NonTLS: true,
+					},
+				},
+			},
+			&corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					Labels: map[string]string{
+						fdbv1beta2.FDBProcessGroupIDLabel: "test",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "foundationdb-kubernetes-sidecar",
+							Args: []string{
+								"--public-ip-family",
+								"4",
+							},
+						},
+					},
+				},
+				Status: corev1.PodStatus{
+					PodIPs: []corev1.PodIP{
+						{IP: "1.1.1.1"},
 					},
 				},
 			},

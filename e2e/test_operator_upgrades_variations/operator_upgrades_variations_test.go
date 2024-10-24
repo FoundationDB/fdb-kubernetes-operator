@@ -32,6 +32,8 @@ import (
 	"log"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/e2e/fixtures"
 	. "github.com/onsi/ginkgo/v2"
@@ -119,7 +121,7 @@ func performUpgrade(config testConfig, preUpgradeFunction func(cluster *fixtures
 		for _, processGroup := range cluster.Status.ProcessGroups {
 			missingTime := processGroup.GetConditionTime(fdbv1beta2.MissingProcesses)
 			// If the Pod is missing check if the fdbserver processes are running and check the logs of the fdb-kubernetes-monitor.
-			if missingTime != nil && time.Since(time.Unix(*missingTime, 0)) > 60*time.Second {
+			if missingTime != nil && time.Since(time.Unix(*missingTime, 0)) > 120*time.Second && !processGroup.IsMarkedForRemoval() && !processGroup.IsExcluded() {
 				log.Println("Missing process for:", processGroup.ProcessGroupID)
 				stdout, stderr, err := factory.ExecuteCmd(context.Background(), cluster.Namespace, processGroup.GetPodName(cluster), fdbv1beta2.MainContainerName, "ps aufx", true)
 				log.Println("stdout:", stdout, "stderr", stderr, "err", err)
@@ -331,6 +333,28 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 				}
 				fdbCluster.UpdateClusterSpecWithSpec(spec)
 				Expect(fdbCluster.WaitForReconciliation()).NotTo(HaveOccurred())
+			})
+		},
+		EntryDescription("Upgrade from %[1]s to %[2]s"),
+		fixtures.GenerateUpgradeTableEntries(testOptions),
+	)
+
+	DescribeTable(
+		"upgrading a cluster with zone ID from a custom environment variable",
+		func(beforeVersion string, targetVersion string) {
+			performUpgrade(testConfig{
+				beforeVersion: beforeVersion,
+				targetVersion: targetVersion,
+				clusterConfig: &fixtures.ClusterConfig{
+					DebugSymbols:                 false,
+					SimulateCustomFaultDomainEnv: true,
+				},
+				loadData: false,
+			}, func(cluster *fixtures.FdbCluster) {
+				spec := cluster.GetCluster().Spec.DeepCopy()
+
+				Expect(spec.FaultDomain.Key).To(Equal(corev1.LabelHostname))
+				Expect(spec.FaultDomain.ValueFrom).To(HaveSuffix(fdbv1beta2.EnvNameInstanceID))
 			})
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s"),
