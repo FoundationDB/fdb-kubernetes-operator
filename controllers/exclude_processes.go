@@ -113,6 +113,13 @@ func (e excludeProcesses) reconcile(ctx context.Context, r *FoundationDBClusterR
 		return &requeue{curError: err, delayedRequeue: true}
 	}
 
+	// transactionSystemExclusionAllowed will keep track if the exclusion is allowed and if the operator is allowed to
+	// exclude processes from the transaction system. If multiple processes from different processes classes that are part
+	// of the transaction system should be excluded, the operator will expect that the exclusion is allowed for all
+	// transaction system processes. The idea here is to reduce the number of recoveries during transaction system
+	// migrations as the stateless pods are often created much faster than the log pod as the stateless pods don't have
+	// to wait for the storage provisioning.
+	transactionSystemExclusionAllowed := true
 	desiredProcessesMap := desiredProcesses.Map()
 	for processClass := range fdbProcessesToExcludeByClass {
 		contextLogger := logger.WithValues("processClass", processClass)
@@ -120,7 +127,11 @@ func (e excludeProcesses) reconcile(ctx context.Context, r *FoundationDBClusterR
 		processesToExclude := fdbProcessesToExcludeByClass[processClass]
 
 		allowedExclusions, missingProcesses := getAllowedExclusionsAndMissingProcesses(contextLogger, cluster, processClass, desiredProcessesMap[processClass], ongoingExclusions, r.InSimulation)
+		// TODO (johscheuer): Should we also batch exclusions for storage servers? Those should be rare compared to replacements in the transaction system.
 		if allowedExclusions <= 0 {
+			if processClass.IsTransaction() {
+				transactionSystemExclusionAllowed = false
+			}
 			contextLogger.Info("Waiting for missing processes before continuing with the exclusion", "missingProcesses", missingProcesses, "addressesToExclude", processesToExclude, "allowedExclusions", allowedExclusions, "ongoingExclusions", ongoingExclusions)
 			continue
 		}
@@ -134,7 +145,7 @@ func (e excludeProcesses) reconcile(ctx context.Context, r *FoundationDBClusterR
 			allowedExclusions = len(processesToExclude)
 		}
 
-		// TODO: As a next step we could exclude transaction (log + stateless) processes together and exclude
+		// TODO (johscheuer): As a next step we could exclude transaction (log + stateless) processes together and exclude
 		// storage processes with a separate call. This would make sure that no storage checks will block
 		// the exclusion of transaction processes.
 
@@ -145,6 +156,15 @@ func (e excludeProcesses) reconcile(ctx context.Context, r *FoundationDBClusterR
 	if len(fdbProcessesToExclude) == 0 {
 		return &requeue{
 			message:        "more exclusions needed but not allowed, have to wait for new processes to come up",
+			delayedRequeue: true,
+		}
+	}
+
+	// In case that there are processes from different transaction process classes, we expect that the operator is allowed
+	// to exclude processes from all the different process classes. If not the operator will delay the exclusion.
+	if !transactionSystemExclusionAllowed {
+		return &requeue{
+			message:        "more exclusions needed but not allowed, have to wait until new processes for the transaction system are up to reduce number of recoveries.",
 			delayedRequeue: true,
 		}
 	}

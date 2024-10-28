@@ -830,6 +830,97 @@ var _ = Describe("exclude_processes", func() {
 				})
 			})
 		})
+
+		When("transaction system processes should be excluded", func() {
+			When("a stateless and a log process should be excluded", func() {
+				BeforeEach(func() {
+					var pickedStateless, pickedLog bool
+
+					_, processGroupIDs, err := cluster.GetCurrentProcessGroupsAndProcessCounts()
+					Expect(err).NotTo(HaveOccurred())
+					cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus(cluster.GetNextRandomProcessGroupID(fdbv1beta2.ProcessClassLog, processGroupIDs[fdbv1beta2.ProcessClassLog]), fdbv1beta2.ProcessClassLog, nil))
+					cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].ProcessGroupConditions = nil
+					cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus(cluster.GetNextRandomProcessGroupID(fdbv1beta2.ProcessClassStateless, processGroupIDs[fdbv1beta2.ProcessClassStateless]), fdbv1beta2.ProcessClassStateless, nil))
+					cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].ProcessGroupConditions = nil
+
+					markedForRemoval := make([]fdbv1beta2.ProcessGroupID, 0, 2)
+					for _, processGroup := range cluster.Status.ProcessGroups {
+						if !processGroup.ProcessClass.IsTransaction() || processGroup.ProcessClass == fdbv1beta2.ProcessClassClusterController {
+							continue
+						}
+
+						if pickedLog && pickedStateless {
+							break
+						}
+
+						if !processGroup.ProcessClass.IsLogProcess() {
+							if pickedStateless {
+								continue
+							}
+							pickedStateless = true
+						}
+
+						if processGroup.ProcessClass.IsLogProcess() {
+							if pickedLog {
+								continue
+							}
+							pickedLog = true
+						}
+
+						processGroup.MarkForRemoval()
+						markedForRemoval = append(markedForRemoval, processGroup.ProcessGroupID)
+					}
+
+					Expect(markedForRemoval).To(HaveLen(2))
+				})
+
+				When("no processes are missing", func() {
+					It("should exclude the process", func() {
+						adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
+						Expect(err).NotTo(HaveOccurred())
+
+						Expect(req).To(BeNil())
+						Expect(adminClient.ExcludedAddresses).To(HaveLen(2))
+					})
+				})
+
+				When("a transaction process is missing", func() {
+					var missingProcssGroup *fdbv1beta2.ProcessGroupStatus
+
+					BeforeEach(func() {
+						_, processGroupIDs, err := cluster.GetCurrentProcessGroupsAndProcessCounts()
+						Expect(err).NotTo(HaveOccurred())
+
+						missingProcssGroup = fdbv1beta2.NewProcessGroupStatus(cluster.GetNextRandomProcessGroupID(fdbv1beta2.ProcessClassLog, processGroupIDs[fdbv1beta2.ProcessClassLog]), fdbv1beta2.ProcessClassLog, nil)
+						cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, missingProcssGroup)
+						// We have to set InSimulation here to false, otherwise the MissingProcess timestamp will be ignored.
+						clusterReconciler.InSimulation = false
+					})
+
+					It("should not exclude the process", func() {
+						adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
+						Expect(err).NotTo(HaveOccurred())
+
+						Expect(req).NotTo(BeNil())
+						Expect(adminClient.ExcludedAddresses).To(BeEmpty())
+					})
+
+					When("the transaction process is missing for more than 10 minutes", func() {
+						BeforeEach(func() {
+							missingProcssGroup.ProcessGroupConditions[0].Timestamp = time.Now().Add(-10 * time.Minute).Unix()
+						})
+
+						It("should exclude the process", func() {
+							adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
+							Expect(err).NotTo(HaveOccurred())
+
+							Expect(req).To(BeNil())
+							Expect(adminClient.ExcludedAddresses).To(HaveLen(2))
+						})
+					})
+				})
+			})
+		})
 	})
 })
 
