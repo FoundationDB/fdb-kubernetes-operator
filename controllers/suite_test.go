@@ -106,6 +106,7 @@ var _ = AfterEach(func() {
 	k8sClient.Clear()
 	mock.ClearMockAdminClients()
 	mock.ClearMockLockClients()
+	clusterReconciler.InSimulation = true
 })
 
 func createDefaultRestore(cluster *fdbv1beta2.FoundationDBCluster) *fdbv1beta2.FoundationDBRestore {
