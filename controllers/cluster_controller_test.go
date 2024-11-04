@@ -587,36 +587,38 @@ var _ = Describe("cluster_controller", func() {
 				Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
 			})
 
-			It("should replace the targeted Pod and update the cluster status", func() {
-				pods := &corev1.PodList{}
-				Expect(k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)).NotTo(HaveOccurred())
-				Expect(pods.Items).To(HaveLen(17))
+			When("the pod is in a healthy state", func() {
+				It("should replace the targeted Pod and update the cluster status", func() {
+					pods := &corev1.PodList{}
+					Expect(k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)).NotTo(HaveOccurred())
+					Expect(pods.Items).To(HaveLen(17))
 
-				Expect(getProcessClassMap(cluster, pods.Items)).To(Equal(map[fdbv1beta2.ProcessClass]int{
-					fdbv1beta2.ProcessClassStorage:           4,
-					fdbv1beta2.ProcessClassLog:               4,
-					fdbv1beta2.ProcessClassStateless:         8,
-					fdbv1beta2.ProcessClassClusterController: 1,
-				}))
+					Expect(getProcessClassMap(cluster, pods.Items)).To(Equal(map[fdbv1beta2.ProcessClass]int{
+						fdbv1beta2.ProcessClassStorage:           4,
+						fdbv1beta2.ProcessClassLog:               4,
+						fdbv1beta2.ProcessClassStateless:         8,
+						fdbv1beta2.ProcessClassClusterController: 1,
+					}))
 
-				processGroupIDs := make([]string, 17)
-				for idx, pod := range pods.Items {
-					processGroupIDs[idx] = pod.Labels[fdbv1beta2.FDBProcessGroupIDLabel]
-				}
-				Expect(processGroupIDs).NotTo(ContainElements(string(replacedProcessGroup.ProcessGroupID)))
+					processGroupIDs := make([]string, 17)
+					for idx, pod := range pods.Items {
+						processGroupIDs[idx] = pod.Labels[fdbv1beta2.FDBProcessGroupIDLabel]
+					}
+					Expect(processGroupIDs).NotTo(ContainElements(string(replacedProcessGroup.ProcessGroupID)))
 
-				// Should change the connection string
-				Expect(cluster.Status.ConnectionString).NotTo(Equal(originalConnectionString))
+					// Should change the connection string
+					Expect(cluster.Status.ConnectionString).NotTo(Equal(originalConnectionString))
 
-				// Should remove the process group
-				Expect(fdbv1beta2.ContainsProcessGroupID(cluster.Status.ProcessGroups, replacedProcessGroup.ProcessGroupID)).To(BeFalse())
+					// Should remove the process group
+					Expect(fdbv1beta2.ContainsProcessGroupID(cluster.Status.ProcessGroups, replacedProcessGroup.ProcessGroupID)).To(BeFalse())
 
-				// Should exclude and re-include the process
-				adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(adminClient).NotTo(BeNil())
-				Expect(adminClient.ExcludedAddresses).To(BeEmpty())
-				Expect(adminClient.ReincludedAddresses).To(HaveKeyWithValue(replacedProcessGroup.Addresses[0], true))
+					// Should exclude and re-include the process
+					adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(adminClient).NotTo(BeNil())
+					Expect(adminClient.ExcludedAddresses).To(BeEmpty())
+					Expect(adminClient.ReincludedAddresses).To(HaveKeyWithValue(replacedProcessGroup.Addresses[0], true))
+				})
 			})
 
 			When("a pod is stuck in terminating", func() {
@@ -738,7 +740,7 @@ var _ = Describe("cluster_controller", func() {
 				})
 			})
 
-			Context("with a removal with no exclusion", func() {
+			When("the pod should be removed without an exclusion", func() {
 				BeforeEach(func() {
 					pod := &corev1.Pod{}
 					Expect(k8sClient.Get(context.Background(), client.ObjectKey{Name: replacedProcessGroup.GetPodName(cluster), Namespace: cluster.Namespace}, pod))

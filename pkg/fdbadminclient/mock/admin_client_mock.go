@@ -579,6 +579,7 @@ func (client *AdminClient) ExcludeProcesses(addresses []fdbv1beta2.ProcessAddres
 		address := pAddr.String()
 		client.ExcludedAddresses[address] = fdbv1beta2.None{}
 	}
+
 	return nil
 }
 
@@ -589,13 +590,14 @@ func (client *AdminClient) IncludeProcesses(addresses []fdbv1beta2.ProcessAddres
 	defer adminClientMutex.Unlock()
 
 	for _, address := range addresses {
-		address := address.String()
-		_, ok := client.ExcludedAddresses[address]
+		addr := address.String()
+		_, ok := client.ExcludedAddresses[addr]
 		if ok {
-			client.ReincludedAddresses[address] = true
-			delete(client.ExcludedAddresses, address)
+			client.ReincludedAddresses[addr] = true
+			delete(client.ExcludedAddresses, addr)
 		}
 	}
+
 	return nil
 }
 
