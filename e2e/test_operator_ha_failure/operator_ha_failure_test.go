@@ -97,7 +97,6 @@ var _ = Describe("Operator HA Failure tests", Label("e2e"), func() {
 			primarySatellite := fdbCluster.GetPrimarySatellite()
 			remote := fdbCluster.GetRemote()
 			remoteSatellite := fdbCluster.GetRemoteSatellite()
-			// ..
 			experiments = make([]*fixtures.ChaosMeshExperiment, 0, 2)
 			// Inject a partition between primary and the remote + remote satellite
 			experiments = append(experiments, factory.InjectPartitionBetween(
@@ -137,12 +136,15 @@ var _ = Describe("Operator HA Failure tests", Label("e2e"), func() {
 
 			keyValues = primary.GenerateRandomValues(10, prefix)
 			primary.WriteKeyValuesWithTimeout(keyValues, 120)
-			// Destroy primary and primary satellite (should have write that are not present in DB).
+			// Destroy primary and primary satellite (should have mutations that are not present in the remote side).
 			primary.SetSkipReconciliation(true)
 			primarySatellite.SetSkipReconciliation(true)
+			// We also destroy the remote satellite, it shouldn't matter in this case as the remote satellite
+			// has no data anyways. But the idea here is to reduce the possible interaction between the remote
+			// and the remote satellite during the forced fail-over.
 			remoteSatellite.SetSkipReconciliation(true)
 
-			// We could probably simulate that with the suspend command.
+			// We could probably simulate that with the suspend command, but destroying the pods is a more robust solution.
 			var wg errgroup.Group
 			log.Println("Delete Pods in primary")
 			wg.Go(func() error {
