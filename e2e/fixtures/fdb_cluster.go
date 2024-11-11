@@ -1840,9 +1840,14 @@ func (fdbCluster *FdbCluster) WriteKeyValue(
 	gomega.Expect(err).NotTo(gomega.HaveOccurred(), stderr)
 }
 
+// WriteKeyValuesWithTimeout writes multiples key values into FDB with the specified timeout.
+func (fdbCluster *FdbCluster) WriteKeyValuesWithTimeout(keyValues []KeyValue, timeout int) {
+	for _, kv := range keyValues {
+		fdbCluster.WriteKeyValue(kv, timeout)
+	}
+}
+
 // WriteKeyValues writes multiples key values into FDB.
 func (fdbCluster *FdbCluster) WriteKeyValues(keyValues []KeyValue) {
-	for _, kv := range keyValues {
-		fdbCluster.WriteKeyValue(kv, 30)
-	}
+	fdbCluster.WriteKeyValuesWithTimeout(keyValues, 30)
 }
