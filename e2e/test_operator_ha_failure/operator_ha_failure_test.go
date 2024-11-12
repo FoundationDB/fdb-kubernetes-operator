@@ -21,12 +21,7 @@
 package operatorhafailure
 
 /*
-This test suite includes functional tests to ensure normal operational tasks are working fine.
-Those tests include replacements of healthy or fault Pods and setting different configurations.
-
-The assumption is that every test case reverts the changes that were done on the cluster.
-In order to improve the test speed we only create one FoundationDB HA cluster initially.
-This cluster will be used for all tests.
+This test suite contains destructive test cases for a multi-region FDB cluster (HA cluster).
 */
 
 import (
@@ -76,10 +71,10 @@ var _ = AfterSuite(func() {
 })
 
 // This test suite contains destructive tests which will break the cluster after the test is done.
-// Those tests are currently not run by our CI, as those tests might be flaky. The intention of those tests
-// is to simplify the manual testing of different scenarios, that could lead to data loss.
+// These tests are currently not run by our CI, as those tests might be flaky. The intention of these tests
+// is to simplify the manual testing of different scenarios that could lead to data loss.
 var _ = Describe("Operator HA Failure tests", Label("e2e"), func() {
-	FWhen("simulating data-loss during fail-over", func() {
+	When("simulating data-loss during fail-over", func() {
 		var experiments []*fixtures.ChaosMeshExperiment
 		var keyValues []fixtures.KeyValue
 		var prefix byte = 'a'
@@ -92,7 +87,7 @@ var _ = Describe("Operator HA Failure tests", Label("e2e"), func() {
 			// satellite. Then the cluster will be loaded with data, which will work because the primary and primary
 			// satellite are available. Before deleting the partition we destroy the primary and the primary satellite
 			// and then we forcefully recover the remote side, which will cause data loss, as the mutation are not synced
-			// from the primary side to the remove (partitioned).
+			// from the primary side to the remote (partitioned).
 			primary := fdbCluster.GetPrimary()
 			primarySatellite := fdbCluster.GetPrimarySatellite()
 			remote := fdbCluster.GetRemote()
