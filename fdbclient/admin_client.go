@@ -442,7 +442,7 @@ func getKillCommand(addresses []fdbv1beta2.ProcessAddress, isUpgrade bool) strin
 	killCmd.WriteString(addrString)
 
 	if isUpgrade {
-		killCmd.WriteString("; sleep 1; kill")
+		killCmd.WriteString("; sleep 1; kill ")
 		killCmd.WriteString(addrString)
 	}
 	killCmd.WriteString("; sleep 5")
