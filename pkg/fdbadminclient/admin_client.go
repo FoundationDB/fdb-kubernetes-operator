@@ -56,6 +56,10 @@ type AdminClient interface {
 	// KillProcesses restarts processes
 	KillProcesses(addresses []fdbv1beta2.ProcessAddress) error
 
+	// KillProcessesForUpgrade restarts processes for upgrades, this will issue 2 kill commands to make sure all
+	// processes are restarted.
+	KillProcessesForUpgrade(addresses []fdbv1beta2.ProcessAddress) error
+
 	// ChangeCoordinators changes the coordinator set
 	ChangeCoordinators(addresses []fdbv1beta2.ProcessAddress) (string, error)
 

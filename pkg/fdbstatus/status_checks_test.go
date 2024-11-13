@@ -842,7 +842,7 @@ var _ = Describe("status_checks", func() {
 					},
 				},
 			}),
-		Entry("when recovered since is enabled and version supports it",
+		Entry("when recovered since is enabled and version supports it it should use the minimum of recovered since or process uptime",
 			&fdbv1beta2.FoundationDBCluster{
 				Spec: fdbv1beta2.FoundationDBClusterSpec{
 					Version: fdbv1beta2.Versions.SupportsRecoveryState.String(),
@@ -866,7 +866,7 @@ var _ = Describe("status_checks", func() {
 				},
 			},
 			true,
-			90.0,
+			30.0,
 			map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.ProcessAddress{
 				"test": {
 					{

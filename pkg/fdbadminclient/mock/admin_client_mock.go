@@ -702,6 +702,12 @@ func (client *AdminClient) KillProcesses(addresses []fdbv1beta2.ProcessAddress) 
 	return nil
 }
 
+// KillProcessesForUpgrade restarts processes for upgrades, this will issue 2 kill commands to make sure all
+// processes are restarted.
+func (client *AdminClient) KillProcessesForUpgrade(addresses []fdbv1beta2.ProcessAddress) error {
+	return client.KillProcesses(addresses)
+}
+
 // ChangeCoordinators changes the coordinator set
 func (client *AdminClient) ChangeCoordinators(addresses []fdbv1beta2.ProcessAddress) (string, error) {
 	adminClientMutex.Lock()
