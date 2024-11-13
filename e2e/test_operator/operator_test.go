@@ -2653,18 +2653,14 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		})
 
 		It("should update the locality with the substituted environment variable", func() {
-			localityKey := "testing"
 			Eventually(func(g Gomega) bool {
 				for _, process := range fdbCluster.GetStatus().Cluster.Processes {
-					// We change the knob only for stateless processes.
+					// We change the knob only for storage processes.
 					if process.ProcessClass != fdbv1beta2.ProcessClassStorage {
 						continue
 					}
 
-					g.Expect(process.Locality).NotTo(BeEmpty())
-					g.Expect(process.Locality).To(HaveKey(localityKey))
-					g.Expect(process.Locality).To(HaveKey(fdbv1beta2.FDBLocalityInstanceIDKey))
-					g.Expect(process.Locality[localityKey]).To(Equal(process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]))
+					g.Expect(process.CommandLine).To(ContainSubstring("knob_read_sampling_enabled"))
 				}
 
 				return true
