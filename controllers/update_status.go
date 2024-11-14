@@ -432,6 +432,15 @@ func checkAndSetProcessStatus(logger logr.Logger, r *FoundationDBClusterReconcil
 	if hasMissingProcesses {
 		return nil
 	}
+
+	// If the processes of this process group are not being excluded anymore, we will reset the exclusion timestamp.
+	// This allows to handle cases were a process was fully excluded but not yet removed and someone manually includes
+	// the processes back. If multiple processes are running inside the pod and at least one process is excluded,
+	// all processes are assumed to be excluded (as the operator always exclude all processes of a pod).
+	if !excluded && !processGroupStatus.ExclusionTimestamp.IsZero() {
+		processGroupStatus.ExclusionTimestamp = nil
+	}
+
 	processGroupStatus.UpdateCondition(fdbv1beta2.ProcessIsMarkedAsExcluded, excluded)
 	processGroupStatus.UpdateCondition(fdbv1beta2.ProcessHasIOError, hasIOError)
 	// If the sidecar is unreachable we are not able to compute the desired commandline.
