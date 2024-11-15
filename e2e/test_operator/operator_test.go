@@ -2494,9 +2494,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		})
 	})
 
-	// The current nightly use a version of the unified image that doesn't support this feature yet. Once we update the
-	// image we should also enable this test again.
-	PWhen("enabling the node watch feature", func() {
+	When("enabling the node watch feature", func() {
 		var initialParameters fdbv1beta2.FoundationDBCustomParameters
 
 		BeforeEach(func() {
@@ -2575,9 +2573,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		})
 	})
 
-	// The current nightly use a version of the unified image that doesn't support this feature yet. Once we update the
-	// image we should also enable this test again.
-	PWhen("the Pod is set into isolate mode", func() {
+	When("the Pod is set into isolate mode", func() {
 		var isolatedPod corev1.Pod
 
 		BeforeEach(func() {
