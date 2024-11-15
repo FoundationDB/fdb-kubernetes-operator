@@ -2619,4 +2619,48 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			Expect(factory.GetControllerRuntimeClient().Update(context.Background(), pod)).NotTo(HaveOccurred())
 		})
 	})
+
+	When("a new knob for storage servers is rolled out to the cluster", func() {
+		var initialCustomParameters fdbv1beta2.FoundationDBCustomParameters
+
+		BeforeEach(func() {
+			initialCustomParameters = fdbCluster.GetCustomParameters(
+				fdbv1beta2.ProcessClassStorage,
+			)
+
+			Expect(
+				fdbCluster.SetCustomParameters(
+					fdbv1beta2.ProcessClassStorage,
+					append(
+						initialCustomParameters,
+						"knob_read_sampling_enabled=true",
+					),
+					false,
+				),
+			).NotTo(HaveOccurred())
+		})
+
+		AfterEach(func() {
+			Expect(fdbCluster.SetCustomParameters(
+				fdbv1beta2.ProcessClassStorage,
+				initialCustomParameters,
+				true,
+			)).NotTo(HaveOccurred())
+		})
+
+		It("should update the locality with the substituted environment variable", func() {
+			Eventually(func(g Gomega) bool {
+				for _, process := range fdbCluster.GetStatus().Cluster.Processes {
+					// We change the knob only for storage processes.
+					if process.ProcessClass != fdbv1beta2.ProcessClassStorage {
+						continue
+					}
+
+					g.Expect(process.CommandLine).To(ContainSubstring("knob_read_sampling_enabled"))
+				}
+
+				return true
+			}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(BeTrue())
+		})
+	})
 })

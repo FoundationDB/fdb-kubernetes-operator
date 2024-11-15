@@ -162,12 +162,18 @@ func (c bounceProcesses) reconcile(_ context.Context, r *FoundationDBClusterReco
 
 	logger.Info("Bouncing processes", "addresses", addresses, "upgrading", upgrading)
 	r.Recorder.Event(cluster, corev1.EventTypeNormal, "BouncingProcesses", fmt.Sprintf("Bouncing processes: %v", addresses))
-	err = adminClient.KillProcesses(addresses)
+	if upgrading {
+		// When upgrading, we want to issue two restart commands to increase the probability that we are restarting all
+		// processes in the cluster.
+		err = adminClient.KillProcessesForUpgrade(addresses)
+	} else {
+		err = adminClient.KillProcesses(addresses)
+	}
 	if err != nil {
 		return &requeue{curError: err}
 	}
 
-	// Reset the SecondsSinceLastRecovered sine the operator just restarted some processes, which will could cause a recovery.
+	// Reset the SecondsSinceLastRecovered since the operator just restarted some processes, which could cause a recovery.
 	status.Cluster.RecoveryState.SecondsSinceLastRecovered = 0.0
 
 	// If the cluster was upgraded we will requeue and let the update_status command set the correct version.

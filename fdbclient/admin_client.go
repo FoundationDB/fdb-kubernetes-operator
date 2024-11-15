@@ -434,18 +434,43 @@ func (client *cliAdminClient) CanSafelyRemove(addresses []fdbv1beta2.ProcessAddr
 	return fdbstatus.CanSafelyRemoveFromStatus(client.log, client, addresses, status)
 }
 
+func getKillCommand(addresses []fdbv1beta2.ProcessAddress, isUpgrade bool) string {
+	var killCmd strings.Builder
+
+	addrString := fdbv1beta2.ProcessAddressesStringWithoutFlags(addresses, " ")
+	killCmd.WriteString("kill; kill ")
+	killCmd.WriteString(addrString)
+
+	if isUpgrade {
+		killCmd.WriteString("; sleep 1; kill ")
+		killCmd.WriteString(addrString)
+	}
+	killCmd.WriteString("; sleep 5")
+
+	return killCmd.String()
+}
+
 // KillProcesses restarts processes
 func (client *cliAdminClient) KillProcesses(addresses []fdbv1beta2.ProcessAddress) error {
 	if len(addresses) == 0 {
 		return nil
 	}
 
-	killCommand := fmt.Sprintf(
-		"kill; kill %[1]s; sleep 1; kill %[1]s; sleep 5",
-		fdbv1beta2.ProcessAddressesStringWithoutFlags(addresses, " "),
-	)
 	// Run the kill command once with the max timeout to reduce the risk of multiple recoveries happening.
-	_, err := client.runCommand(cliCommand{command: killCommand, timeout: client.getTimeout()})
+	_, err := client.runCommand(cliCommand{command: getKillCommand(addresses, false), timeout: client.getTimeout()})
+
+	return err
+}
+
+// KillProcessesForUpgrade restarts processes for upgrades, this will issue 2 kill commands to make sure all
+// processes are restarted.
+func (client *cliAdminClient) KillProcessesForUpgrade(addresses []fdbv1beta2.ProcessAddress) error {
+	if len(addresses) == 0 {
+		return nil
+	}
+
+	// Run the kill command once with the max timeout to reduce the risk of multiple recoveries happening.
+	_, err := client.runCommand(cliCommand{command: getKillCommand(addresses, true), timeout: client.getTimeout()})
 
 	return err
 }

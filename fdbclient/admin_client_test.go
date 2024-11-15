@@ -1293,4 +1293,19 @@ protocol fdb00b071010000`,
 			})
 		})
 	})
+
+	When("getting the kill command", func() {
+		addresses := []fdbv1beta2.ProcessAddress{{
+			IPAddress: net.ParseIP("192.168.0.2"),
+			Port:      4500,
+		}}
+
+		When("the cluster is upgraded ", func() {
+			Expect(getKillCommand(addresses, true)).To(Equal("kill; kill 192.168.0.2:4500; sleep 1; kill 192.168.0.2:4500; sleep 5"))
+		})
+
+		When("the cluster is not upgraded", func() {
+			Expect(getKillCommand(addresses, false)).To(Equal("kill; kill 192.168.0.2:4500; sleep 5"))
+		})
+	})
 })

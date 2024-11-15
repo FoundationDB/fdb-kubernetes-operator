@@ -283,12 +283,10 @@ func GetMinimumUptimeAndAddressMap(logger logr.Logger, cluster *fdbv1beta2.Found
 		return 0, nil, err
 	}
 
-	useRecoveryState := runningVersion.SupportsRecoveryState() && recoveryStateEnabled
-
 	addressMap := make(map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.ProcessAddress, len(status.Cluster.Processes))
 
 	minimumUptime := math.Inf(1)
-	if useRecoveryState {
+	if runningVersion.SupportsRecoveryState() && recoveryStateEnabled {
 		minimumUptime = status.Cluster.RecoveryState.SecondsSinceLastRecovered
 	}
 
@@ -307,7 +305,7 @@ func GetMinimumUptimeAndAddressMap(logger logr.Logger, cluster *fdbv1beta2.Found
 
 		addressMap[fdbv1beta2.ProcessGroupID(processGroupID)] = append(addressMap[fdbv1beta2.ProcessGroupID(process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey])], process.Address)
 
-		if useRecoveryState || process.Excluded {
+		if process.Excluded {
 			continue
 		}
 
@@ -317,7 +315,10 @@ func GetMinimumUptimeAndAddressMap(logger logr.Logger, cluster *fdbv1beta2.Found
 			continue
 		}
 
+		// If the SecondsSinceLastRecovered is higher than the process uptime, we want to use the process uptime, e.g. in
+		// cases where only storage processes are restarted.
 		if process.UptimeSeconds < minimumUptime {
+			logger.V(1).Info("Process uptime is less than the last recovery", "processGroupID", process.Address, "minimumUptime", minimumUptime, "process.UptimeSeconds", process.UptimeSeconds)
 			minimumUptime = process.UptimeSeconds
 		}
 	}
