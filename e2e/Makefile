@@ -34,7 +34,6 @@ CLOUD_PROVIDER?=
 UPGRADE_VERSIONS?="$(FDB_VERSION):$(NEXT_FDB_VERSION)"
 # Those are feature flags for the operator tests. Enable a feature if you want to run the operator tests with a specific
 # feature enabled e.g. like DNS.
-FEATURE_UNIFIED_IMAGE?=false
 FEATURE_DNS?=false
 FEATURE_LOCALITIES?=false
 # Allows to specify the tag for a specific FDB version. Format is 7.1.57:7.1.57-testing,7.3.35:7.3.35-debugging
@@ -45,6 +44,14 @@ ifndef FEATURE_SERVER_SIDE_APPLY
   FEATURE_SERVER_SIDE_APPLY=$(shell shuf -i 0-1 -n 1)
 else
   FEATURE_SERVER_SIDE_APPLY=false
+endif
+
+# If the FEATURE_UNIFIED_IMAGE environment variable is not defined the test suite will be randomly enable (1) or disable (0)
+# the unified image feature.
+ifndef FEATURE_UNIFIED_IMAGE
+  FEATURE_UNIFIED_IMAGE=$(shell shuf -i 0-1 -n 1)
+else
+  FEATURE_UNIFIED_IMAGE=false
 endif
 
 # If the STORAGE_ENGINE environment variable is not defined the test suite will be randomly choosing between the ssd
