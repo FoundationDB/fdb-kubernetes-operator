@@ -42,16 +42,12 @@ FDB_VERSION_TAG_MAPPING?=
 # the server side apply feature.
 ifndef FEATURE_SERVER_SIDE_APPLY
   FEATURE_SERVER_SIDE_APPLY=$(shell shuf -i 0-1 -n 1)
-else
-  FEATURE_SERVER_SIDE_APPLY=false
 endif
 
 # If the FEATURE_UNIFIED_IMAGE environment variable is not defined the test suite will be randomly enable (1) or disable (0)
 # the unified image feature.
 ifndef FEATURE_UNIFIED_IMAGE
   FEATURE_UNIFIED_IMAGE=$(shell shuf -i 0-1 -n 1)
-else
-  FEATURE_UNIFIED_IMAGE=false
 endif
 
 # If the STORAGE_ENGINE environment variable is not defined the test suite will be randomly choosing between the ssd
