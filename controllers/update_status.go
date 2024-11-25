@@ -438,6 +438,7 @@ func checkAndSetProcessStatus(logger logr.Logger, r *FoundationDBClusterReconcil
 	// the processes back. If multiple processes are running inside the pod and at least one process is excluded,
 	// all processes are assumed to be excluded (as the operator always exclude all processes of a pod).
 	if !excluded && !processGroupStatus.ExclusionTimestamp.IsZero() {
+		logger.Info("reset exclusion", "processGroupID", processGroupStatus.ProcessGroupID, "previousTimestamp", processGroupStatus.ExclusionTimestamp)
 		processGroupStatus.ExclusionTimestamp = nil
 	}
 
