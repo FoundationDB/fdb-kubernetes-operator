@@ -127,7 +127,6 @@ func (u removeProcessGroups) reconcile(ctx context.Context, r *FoundationDBClust
 	}
 
 	logger.Info("Removing process groups", "zone", zone, "count", len(zoneRemovals), "deletionMode", cluster.GetRemovalMode())
-
 	// This will return a map of the newly removed ProcessGroups and the ProcessGroups with the ResourcesTerminating condition
 	removedProcessGroups := r.removeProcessGroups(ctx, logger, cluster, zoneRemovals, zonedRemovals[removals.TerminatingZone])
 	err = includeProcessGroup(ctx, logger, r, cluster, removedProcessGroups, status, adminClient)
@@ -269,7 +268,7 @@ func includeProcessGroup(ctx context.Context, logger logr.Logger, r *FoundationD
 	if len(fdbProcessesToInclude) == 0 {
 		// In case that the operator was removing a process group without exclusion.
 		// We can update the process groups at this stage, as no other processes must be included.
-		if len(cluster.Status.ProcessGroups) != len(newProcessGroups) {
+		if len(cluster.Status.ProcessGroups) != len(newProcessGroups) && len(newProcessGroups) > 0 {
 			cluster.Status.ProcessGroups = newProcessGroups
 			return r.updateOrApply(ctx, cluster)
 		}
@@ -314,7 +313,7 @@ func getProcessesToInclude(logger logr.Logger, cluster *fdbv1beta2.FoundationDBC
 	fdbProcessesToInclude := make([]fdbv1beta2.ProcessAddress, 0)
 
 	if len(removedProcessGroups) == 0 {
-		return fdbProcessesToInclude, nil, nil
+		return fdbProcessesToInclude, cluster.Status.ProcessGroups, nil
 	}
 
 	excludedServers, err := fdbstatus.GetExclusions(status)

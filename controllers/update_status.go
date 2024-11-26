@@ -239,7 +239,7 @@ func (c updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterRecon
 		return &requeue{curError: err}
 	}
 
-	if reconciled {
+	if reconciled && cluster.ShouldUseLocks() {
 		// Once the cluster is reconciled the operator will release any pending locks for this cluster.
 		lockErr := r.releaseLock(logger, cluster)
 		if lockErr != nil {
@@ -338,6 +338,9 @@ func checkAndSetProcessStatus(logger logr.Logger, r *FoundationDBClusterReconcil
 	// Only perform any process specific validation if the machine-readable status has at least one process. We can improve this check
 	// later by validating additional messages in the machine-readable status.
 	if len(processMap) == 0 {
+		// TODO (johscheuer): Should we reset the exclusion state if the processes are missing? In this case we cannot
+		// know if the process was fully excluded or not and we could run into issues like: https://github.com/FoundationDB/fdb-kubernetes-operator/issues/1912
+		// This change needs some additional testing to ensure we understand the possible side effects.
 		return nil
 	}
 
