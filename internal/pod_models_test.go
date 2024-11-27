@@ -3354,6 +3354,17 @@ var _ = Describe("pod_models", func() {
 				Expect(deployment.Spec.Template.Spec.Containers).To(HaveLen(1))
 
 				Expect(deployment.Spec.Template.Spec.InitContainers[0].Image).To(HavePrefix("foundationdb/foundationdb-kubernetes"))
+				Expect(deployment.Spec.Template.Spec.InitContainers[0].Args).To(ConsistOf(
+					"--copy-file",
+					"fdb.cluster",
+					"--require-not-empty",
+					"fdb.cluster",
+					"--mode",
+					"init",
+					"--output-dir",
+					"/var/output-files",
+					"--input-dir",
+					"/var/input-files"))
 				Expect(deployment.Spec.Template.Spec.Containers[0].Image).To(HavePrefix("foundationdb/foundationdb-kubernetes"))
 			})
 		})
