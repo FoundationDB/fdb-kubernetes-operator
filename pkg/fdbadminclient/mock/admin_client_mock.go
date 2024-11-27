@@ -583,6 +583,12 @@ func (client *AdminClient) ExcludeProcesses(addresses []fdbv1beta2.ProcessAddres
 	return nil
 }
 
+// ExcludeProcessesWithNoWait starts evacuating processes so that they can be removed from the database. If noWait is
+// set to true, the exclude command will not block until all data is moved away from the processes.
+func (client *AdminClient) ExcludeProcessesWithNoWait(addresses []fdbv1beta2.ProcessAddress, _ bool) error {
+	return client.ExcludeProcesses(addresses)
+}
+
 // IncludeProcesses removes processes from the exclusion list and allows
 // them to take on roles again.
 func (client *AdminClient) IncludeProcesses(addresses []fdbv1beta2.ProcessAddress) error {

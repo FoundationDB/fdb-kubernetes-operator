@@ -189,7 +189,11 @@ func (e excludeProcesses) reconcile(ctx context.Context, r *FoundationDBClusterR
 	}
 
 	r.Recorder.Event(cluster, corev1.EventTypeNormal, "ExcludingProcesses", fmt.Sprintf("Excluding %v", fdbProcessesToExclude))
-	err = adminClient.ExcludeProcesses(fdbProcessesToExclude)
+	// We use the no_wait exclusion here to trigger the exclusion without waiting for the data movement to complete.
+	// There is no need to wait for the data movement to complete in this call as later calls will verify that the
+	// data is moved and the processes are fully excluded. Using the no_wait flag here will reduce the timeout errors
+	// as those are hit most of the time if at least one storage process is included in the exclusion list.
+	err = adminClient.ExcludeProcessesWithNoWait(fdbProcessesToExclude, true)
 	if err != nil {
 		return &requeue{curError: err, delayedRequeue: true}
 	}
@@ -206,7 +210,7 @@ func (e excludeProcesses) reconcile(ctx context.Context, r *FoundationDBClusterR
 		}
 	}
 
-	// Reset the SecondsSinceLastRecovered sine the operator just excluded some processes, which will cause a recovery.
+	// Reset the SecondsSinceLastRecovered since the operator just excluded some processes, which will cause a recovery.
 	status.Cluster.RecoveryState.SecondsSinceLastRecovered = 0.0
 
 	return nil

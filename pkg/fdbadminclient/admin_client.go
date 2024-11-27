@@ -38,6 +38,10 @@ type AdminClient interface {
 	// from the database.
 	ExcludeProcesses(addresses []fdbv1beta2.ProcessAddress) error
 
+	// ExcludeProcessesWithNoWait starts evacuating processes so that they can be removed from the database. If noWait is
+	// set to true, the exclude command will not block until all data is moved away from the processes.
+	ExcludeProcessesWithNoWait(addresses []fdbv1beta2.ProcessAddress, noWait bool) error
+
 	// IncludeProcesses removes processes from the exclusion list and allows
 	// them to take on roles again.
 	IncludeProcesses(addresses []fdbv1beta2.ProcessAddress) error

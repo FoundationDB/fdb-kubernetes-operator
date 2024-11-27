@@ -377,6 +377,12 @@ func (client *cliAdminClient) ResetMaintenanceMode() error {
 
 // ExcludeProcesses starts evacuating processes so that they can be removed from the database.
 func (client *cliAdminClient) ExcludeProcesses(addresses []fdbv1beta2.ProcessAddress) error {
+	return client.ExcludeProcessesWithNoWait(addresses, client.Cluster.GetUseNonBlockingExcludes())
+}
+
+// ExcludeProcessesWithNoWait starts evacuating processes so that they can be removed from the database. If noWait is
+// set to true, the exclude command will not block until all data is moved away from the processes.
+func (client *cliAdminClient) ExcludeProcessesWithNoWait(addresses []fdbv1beta2.ProcessAddress, noWait bool) error {
 	if len(addresses) == 0 {
 		return nil
 	}
@@ -388,7 +394,7 @@ func (client *cliAdminClient) ExcludeProcesses(addresses []fdbv1beta2.ProcessAdd
 
 	var excludeCommand strings.Builder
 	excludeCommand.WriteString("exclude ")
-	if version.HasNonBlockingExcludes(client.Cluster.GetUseNonBlockingExcludes()) {
+	if version.HasNonBlockingExcludes(noWait) {
 		excludeCommand.WriteString("no_wait ")
 	}
 
