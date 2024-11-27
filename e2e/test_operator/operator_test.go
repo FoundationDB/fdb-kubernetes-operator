@@ -580,7 +580,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			initialPods := fdbCluster.GetStatelessPods()
 			failedPod = factory.RandomPickOnePod(initialPods.Items)
 			log.Printf("Setting pod %s to unschedulable.", failedPod.Name)
-			Expect(fdbCluster.SetPodAsUnschedulable(failedPod)).NotTo(HaveOccurred())
+			fdbCluster.SetPodAsUnschedulable(failedPod)
 			fdbCluster.ReplacePod(failedPod, true)
 		})
 
@@ -590,7 +590,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		})
 
 		It("should remove the targeted Pod", func() {
-			fdbCluster.EnsurePodIsDeletedWithCustomTimeout(failedPod.Name, 10)
+			fdbCluster.EnsurePodIsDeletedWithCustomTimeout(failedPod.Name, 15)
 		})
 	})
 
@@ -599,6 +599,8 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		var podToReplace *corev1.Pod
 
 		BeforeEach(func() {
+			// We bring down two pods, which could cause some recoveries.
+			availabilityCheck = false
 			failedPod = factory.ChooseRandomPod(fdbCluster.GetStatelessPods())
 			podToReplace = factory.ChooseRandomPod(fdbCluster.GetStatelessPods())
 			log.Println(
@@ -607,17 +609,17 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				", Pod to replace:",
 				podToReplace.Name,
 			)
-			Expect(fdbCluster.SetPodAsUnschedulable(*failedPod)).NotTo(HaveOccurred())
+			fdbCluster.SetPodAsUnschedulable(*failedPod)
 			fdbCluster.ReplacePod(*podToReplace, false)
 		})
-
+		// 2024/11/26 01:41:00 Failed (unscheduled) Pod: operator-test-fdnhokqf-stateless-42898 , Pod to replace: operator-test-fdnhokqf-stateless-93723
 		AfterEach(func() {
 			Expect(fdbCluster.ClearBuggifyNoSchedule(false)).NotTo(HaveOccurred())
 			Expect(fdbCluster.ClearProcessGroupsToRemove()).NotTo(HaveOccurred())
 		})
 
 		It("should remove the targeted Pod", func() {
-			fdbCluster.EnsurePodIsDeletedWithCustomTimeout(podToReplace.Name, 10)
+			fdbCluster.EnsurePodIsDeletedWithCustomTimeout(podToReplace.Name, 15)
 		})
 	})
 

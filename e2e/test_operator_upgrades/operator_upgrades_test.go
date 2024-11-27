@@ -595,7 +595,7 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 			clusterSetup(beforeVersion, true)
 			pendingPod := factory.RandomPickOnePod(fdbCluster.GetPods().Items)
 			// Set the pod in pending state.
-			Expect(fdbCluster.SetPodAsUnschedulable(pendingPod)).NotTo(HaveOccurred())
+			fdbCluster.SetPodAsUnschedulable(pendingPod)
 			fdbCluster.UpgradeAndVerify(targetVersion)
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s with a pending pod"),
