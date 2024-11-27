@@ -9,9 +9,22 @@
 ## Background
 
 The current way to run multi-region FoundationDB deployments with the operator is to run multiple operator instances in different namespaces and/or in different Kubernetes clusters.
-This brings a few synchronization challenges as those different operator instances are not communication with each other and they are not sharing state.
+This brings a few synchronization challenges as those different operator instances are not communicating with each other and they are not sharing state.
 We already added the `LockClient` to synchronize the upgrade step for minor and major upgrades, where all processes must be restarted at once.
-The `LockClient` is also used to get a lease that allows the operator instance to perform certain actions, like exclusions, that should only be execute by one instance at a time.
+The `LockClient` is also used to get a lease that allows the operator instance to perform certain actions, like exclusions, that should only be executed by one instance at a time.
+
+The difference between the upgrades and the other operations that should be coordinated is that the upgrades have a "global" source of truth.
+During the upgrades the each operator instance can check that all processes in the cluster are ready for being upgraded.
+In contrast the other operations are lacking such a "global" source of truth and only have their own local state based on th `FoundationDBCluster` resource.
+Adding an optimistic coordination mechanism doesn't guarantee that the operations are executed once but it will increase the probability that the operator instance have enough time to coordinate.
+Most operations have some requirements before they can be executed, e.g. in case of a knob rollout the `ConfigMap` must be updated and synced to all affected Pods or in the case of a replacement a new pod and the according resources must be created.
+The waiting time until the prerequisites are satisfied should be enough time to allow the individual operator instances to update the pending list for the coordination.
+This is still an imperfect solution which will not guarantee that the operator instances will coordinate, but the solution is a good enough solution until we have a multi-cluster operator.
+In order to increase the probability that the different operator instances have time to update the pending list, we could add a dedicated wait window until an operation will be executed.
+Adding a wait window will have the side effect that the rollout of a change might take longer than required.
+
+One assumption for the coordination is, that all operations that could use coordination will update the `FoundationDBCluster` resources in a short time window, e.g. by the same deploy pipeline.
+
 
 ## General Design Goals
 
@@ -44,14 +57,14 @@ The following methods will be added:
 - `RemoveFromPendingForInclusion`: Removes the process group ID from the set of process groups that should be included.
 - `RemoveFromPendingForRestart`: Removes the process group ID from the set of process groups that should be restarted.
 - `AddReadyForExclusion`: Adds the process group ID to a set of process groups that are ready to be excluded.
-- `AddReadyForInlusion`: Adds the process group ID to a set of process groups that are ready to be included.
+- `AddReadyForInclusion`: Adds the process group ID to a set of process groups that are ready to be included.
 - `AddReadyForRestart`: Adds the process group ID to a set of process groups that are ready to be restarted.
 - `GetPendingForRemoval`: Gets the process group IDs for all process groups that are marked for removal.
 - `GetPendingForExclusion`: Gets the process group IDs for all process groups that should be excluded.
 - `GetPendingForInclusion`: Gets the process group IDs for all the process groups that should be included.
 - `GetPendingForRestart`: Gets the process group IDs for all the process groups that should be restarted.
 - `GetReadyForExclusion`: Gets the process group IDs for all the process groups that are ready to be excluded.
-- `GetReadyForInlusion`: Gets the process group IDs for all the process groups that are ready to be included.
+- `GetReadyForInclusion`: Gets the process group IDs for all the process groups that are ready to be included.
 - `GetReadyForRestart`: Gets the process group IDs fir akk tge process groups that are ready to be restarted.
 
 
