@@ -48,17 +48,13 @@ The idea is to extend the existing `AdminClient` with some similar functionality
 
 The following methods will be added:
 
-- `AddPendingForRemoval`: Adds the process group ID to a set of process groups that are marked for removal.
-- `AddPendingForExclusion`: Adds the process group ID to a set of process groups that should be excluded.
-- `AddPendingForInclusion`: Adds the process group ID to a set of process groups that should be included.
-- `AddPendingForRestart`: Adds the process group ID to a set of process groups that should be restarted.
-- `RemoveFromPendingForRemoval`: Removes the process group ID from the set of process groups that should be removed.
-- `RemoveFromPendingForExclusion`: Removes the process group ID from the set of process groups that should be excluded.
-- `RemoveFromPendingForInclusion`: Removes the process group ID from the set of process groups that should be included.
-- `RemoveFromPendingForRestart`: Removes the process group ID from the set of process groups that should be restarted.
-- `AddReadyForExclusion`: Adds the process group ID to a set of process groups that are ready to be excluded.
-- `AddReadyForInclusion`: Adds the process group ID to a set of process groups that are ready to be included.
-- `AddReadyForRestart`: Adds the process group ID to a set of process groups that are ready to be restarted.
+- `UpdatePendingForRemoval`: Updates the set of process groups that are marked for removal, an update can be eiter the addition or removal of a process group.
+- `UpdatePendingForExclusion`: Updates the set of process groups that should be excluded, an update can be eiter the addition or removal of a process group.
+- `UpdatePendingForInclusion`: Updates the set of process groups that should be included, an update can be eiter the addition or removal of a process group.
+- `UpdatePendingForRestart`: Updates the set of process groups that should be restarted, an update can be eiter the addition or removal of a process group.
+- `UpdateReadyForExclusion`: Updates the set of process groups that are ready to be excluded, an update can be eiter the addition or removal of a process group
+- `UpdateReadyForInclusion`: Updates the set of process groups that are ready to be included, an update can be eiter the addition or removal of a process group.
+- `UpdateReadyForRestart`: Updates the set of process groups that are ready to be restarted, an update can be eiter the addition or removal of a process group
 - `GetPendingForRemoval`: Gets the process group IDs for all process groups that are marked for removal.
 - `GetPendingForExclusion`: Gets the process group IDs for all process groups that should be excluded.
 - `GetPendingForInclusion`: Gets the process group IDs for all the process groups that should be included.
@@ -67,14 +63,9 @@ The following methods will be added:
 - `GetReadyForInclusion`: Gets the process group IDs for all the process groups that are ready to be included.
 - `GetReadyForRestart`: Gets the process group IDs fir akk tge process groups that are ready to be restarted.
 
+The following sub-reconciler will be added or modified:
 
-The information will be stored in FDB itself, so it will be available for all operators and will get the same benefits from the transaction guarantees.
-The keys will be prefixed with the `client.cluster.GetLockPrefix()` (default `\xff\xff/org.foundationdb.kubernetes-operator`) and the according path, e.g. `readyForExclusion`.
-The value will be empty, except for the `readyForExclusion` and `readyForInclusion` case, in those cases the value will be the process group address(es).
-
-The following sub-reconciler will be modified:
-
-- `updateStatus`: Will add process groups that are marked for removal to the key range and removes them from the key range if they are not being present anymore in the `FoundationDBCluster` status and the process group prefix matches. This sub-reconciler will also remove process groups from the `readyForExclusion`, `readyForInclusion` and `readyForRestart` (and the same for pending).
+- `operatorCoordination`: Will add process groups that are marked for removal to the key range and removes them from the key range if they are not being present anymore in the `FoundationDBCluster` status and the process group prefix matches. This sub-reconciler will also remove process groups from the `readyForExclusion`, `readyForInclusion` and `readyForRestart` (and the same for pending).
 - `excludeProcesses`: Will add process groups that are pending for exclusions and add process groups that are ready for exclusion.
 - `changeCoordinators`: Will read the `pendingForRemoval` set and will not take any process group from this set as a candidate for the new coordinators.
 - `removeProcessGroups`: Will add process groups that can be included to `readyForInclusion`.
@@ -83,19 +74,56 @@ We will add a new setting under the `FoundationDBClusterAutomationOptions` with 
 The default will be `local`, which will represent the current state and the new mechanism can be enabled by setting the value to `global`.
 Those changes will add some additional load to the cluster, but the additional load should be fairly limited compared to the customer load on those clusters and the request pattern will be mostly reading the data.
 
-Pseudo-Code changes for the `excludeProcesses` sub-reconciler:
+### FoundationDB Key Space
+
+The information about pending and ready processes will be stored in FDB itself, so it will be available for all operators and will get the same benefits from the transaction guarantees.
+The keys will be prefixed with the `client.cluster.GetLockPrefix()` (default `\xff\xff/org.foundationdb.kubernetes-operator`) and the according path, e.g. `readyForExclusion`.
+The value will be empty, except for the `readyForExclusion` and `readyForInclusion` case, in those cases the value will be the process group address(es) that should be used for exclusion or inclusion.
+
+For efficient scans we will add a sub-path between the prefix and the process group id with the process group id prefix.
+
+Example: The resulting key-value mappings for the process group id `kube-cluster-1-storage-1` (`kube-cluster-1` is the process group id prefix) with locality based exclusions enabled will look like this for the exclusion case:
+
+```text
+# This key will be directly added when the process group is marked for removal.
+\xff\xff/org.foundationdb.kubernetes-operator/pendingForExclusion/kube-cluster-1/kube-cluster-1-storage-1 - {}
+# This key will be added by the exclusion sub-reconciler, as soon as the exclusion could be executed.
+\xff\xff/org.foundationdb.kubernetes-operator/readyForExclusion/kube-cluster-1/kube-cluster-1-storage-1 - locality_instance_id:kube-cluster-1-storage-1
+```
+
+Each operator instance will only write or delete the "local" process groups.
+"Local" means in this context that the operator instance only writes into the sub-path that has the `processGroupIDPrefix` which is defined in the `FoundationDBCluster` resource.
+The operator instance will read the data from all process groups to.
+The reading and writing will be handled in a transaction to ensure either all keys are updated or none.
+
+In the case that the `processGroupIDPrefix` should change, the operator will migrate all the "old" keys to the desired keys in a single transaction.
+
+Example: The above `processGroupIDPrefix` changes from `kube-cluster-1` to `unicorn`:
+
+```text
+\xff\xff/org.foundationdb.kubernetes-operator/pendingForExclusion/kube-cluster-1/kube-cluster-1-storage-1 --> \xff\xff/org.foundationdb.kubernetes-operator/pendingForExclusion/unicorn/kube-cluster-1-storage-1
+\xff\xff/org.foundationdb.kubernetes-operator/readyForExclusion/kube-cluster-1/kube-cluster-1-storage-1  --> \xff\xff/org.foundationdb.kubernetes-operator/readyForExclusion/unicorn/kube-cluster-1-storage-1
+```
+
+Once the required action was executed or the process groups are not being part of the cluster anymore the entries will be removed.
+The `UpdateStatus` sub-reconciler will perform checks to remove old entries.
+
+### Example Exclusion Sub-Reconciler
+
+The following example will show the required modifications for the `excludeProcesses` sub-reconciler.
+
+1. The operator instance fetches all processes that are pending for exclusion from the `\xff\xff/org.foundationdb.kubernetes-operator/pendingForExclusion` key space.
+2. The operator instance will filter out all local process groups that must be excluded but are missing in the `pendingForExclusion` key space and adds them.
+3. In the next step the operator performs the same steps to check if the exclusions could be done.
+4. If the local exclusions are allowed, the operator will add all the processes that can be excluded to the `\xff\xff/org.foundationdb.kubernetes-operator/readyForExclusion` key space.
+5. Now the operator checks if all the entries from `pendingForExclusion` are also present in `readyForExclusion`, this check should be done on a process class basis.
+6. If the two sets are coherent (contain the exact same elements), the operator will perform the usual exclusion steps, e.g. get a lock before issuing the exclude command.
+
+In the initial implementation we are not adding any dedicated wait steps to increase the probability that each operator instance can add its entries to the key space.
+The assumption here is that all operations have some prerequisites before they can be executed and in most cases waiting for the prerequisites should give the operator instances enough time to add the process groups to the pending list(s).
 
 ```go
 func (e excludeProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
-	pendingForExclusions, err := adminClient.GetPendingForExclusion()
-	// error handling
-	// Filter missing process groups from pendingForExclusions to only add new process groups if they are currently not present.
-	// Ensure that pendingForExclusions includes all the process groups (also the newly added once).
-	if len(missingFdbProcessesToExclude) > 0 {
-		err := adminClient.AddPendingForExclusion(missingFdbProcessesToExclude)
-		// error handling
-	}
-
 	// Check which processes can be excluded and if it's safe to exclude processes.
 	// ...
 	// In case that there are processes from different transaction process classes, we expect that the operator is allowed
@@ -107,15 +135,17 @@ func (e excludeProcesses) reconcile(ctx context.Context, r *FoundationDBClusterR
 		}
 	}
 
+	pendingForExclusions, err := adminClient.GetPendingForExclusion()
+	// error handling
 	readyForExclusion, err := adminClient.GetReadyForExclusion()
 	// error handling
-	// Ensure that pendingForExclusions includes all the process groups (also the newly added once).
 	// Add the new process groups that are ready to be excluded.
-	err := adminClient.AddReadyForExclusion(missingFdbProcessesReadyToExclude)
+	err := adminClient.UpdateReadyForExclusion(missingFdbProcessesReadyToExclude)
 	// error handling
 
-	// check if readyForExclusion contains all the process groups from pendingForExclusions if so proceed with the exclusion, if not
-	// do a delayed requeue but don't issue the exclusion
+	// Ensure that pendingForExclusions includes all the process groups (also the newly added once).
+	// Check if readyForExclusion contains all the process groups from pendingForExclusions if so proceed with the exclusion, if not
+	// do a delayed requeue but don't issue the exclusion.
 	if !equality.Semantic.DeepEqual(readyForExclusion, pendingForExclusions) {
 		return &requeue{
 			message:        fmt.Sprintf("more processes are pending exclusions, will wait until they are ready to be excluded %d/%d", len(readyForExclusion), len(pendingForExclusions)),
@@ -130,6 +160,99 @@ func (e excludeProcesses) reconcile(ctx context.Context, r *FoundationDBClusterR
 	}
 
 	// Perform exclusion for all the readyForExclusion addresses
+
+	return nil
+}
+```
+
+### Operator Coordination Sub-Reconciler
+
+This new sub-reconciler will run after the first `updateStatus` sub-reconciler and will be responsible for adding and removing process groups from the state in the FoundationDBCluster.
+For this the operator will iterate over all process groups from the `FoundationDBCluster` resource.
+Since this sub-reconciler runs after the first `updateStatus` sub-reconciler it should have the latest information.
+
+When a process group is marked for removal and not excluded the operator will add this process group to the set of `pendingForRemoval`, `pendingForExclusion` and `pendingForInclusion`.
+When a process group has the `IncorrectCommandLine` condition it will be added to `pendingForRestart`.
+When a process group has a non-nil `ExclusionTimestamp` it will be removed from `pendingForExclusion` and `readyForExclusion` as the process group was excluded.
+When a process group is removed all associated entries will be removed too.
+
+If the `synronizationMode` is set to `local` the operator will skip any work and any data that is still present must be deleted manually.
+Otherwise the sub-reconciler would need to always read the key ranges which could have an affect to existing FoundationDB clusters.
+
+The goal of this new sub-reconciler is to manage the state in FoundationDB for the local process groups.
+Adding a new sub-reconciler will be easier to maintain instead of adding this logic to the `updateStatus` sub-reconciler.
+
+```go
+func (reconciler operatorCoordination) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, _ *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
+	// If the synchronization mode is local (default) skip all work
+	if cluster.GetSynronizationMode() == string(fdbv1beta2.SynronizationModeLocal) {
+		return nil
+	}
+
+	// Create an admin client to interact with the FoundationDB cluster
+	adminClient, err := r.getAdminClient(logger, cluster)
+	if err != nil {
+		return &requeue{curError: err}
+	}
+	defer adminClient.Close()
+
+	// Read all data from the lists to get the current state. If a prefix is provided to the get methods, only
+	// process groups with the additional sub path will be returned.
+	pendingForExclusion, err := adminClient.GetPendingForExclusion(cluster.Spec.ProcessGroupPrefix)
+	// error handling
+	// repeat for all get methods
+
+	// UpdateAction can be "delete" or "add". If the action is "add" the entry will be added, if
+	// the action is "delete" the entry will be deleted.
+	updatesPendingForExclusion := map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{}
+
+	// Iterate over all process groups to generate the expected state.
+	for _, processGroup := range cluster.Status.ProcessGroups {
+		// Keep track of the visited process group to remove entries from removed process groups.
+		visited[processGroup.ProcessGroupID] = fdbv1beta2.None{}
+		if processGroup.IsMarkedForRemoval() && !processGroup.IsExcluded() {
+			// Check if process group is present in pendingForRemoval, pendingForExclusion and pendingForInclusion.
+			// If not add it to the according set.
+			// ...
+
+			// Will be repeated for the other fields.
+			if _, ok := pendingForExclusion[processGroup.ProcessGroupID]; !ok {
+				updatesPendingForExclusion[processGroup.ProcessGroupID] = fdbv1beta2.UpdateActionAdd
+			}
+		}
+
+		if processGroup.GetConditionTime(fdbv1beta2.IncorrectCommandLine) != nil {
+			// Check if the process group is present in pendingForRestart.
+			// If not add it to the according set.
+			// ...
+		} else {
+			// Check if the process group is present in pendingForRestart or readyForRestart.
+			// If so, add them to the set to remove those entries as the process has the correct command line.
+			// ...
+		}
+
+		if processGroup.IsExcluded() {
+			// Check if the process group is present in pendingForExclusion or readyForExclusion.
+			// If so, add them to the set to remove those entries as the process is already excluded.
+			// ...
+			if _, ok := pendingForExclusion[processGroup.ProcessGroupID]; ok {
+				updatesPendingForExclusion[processGroup.ProcessGroupID] = fdbv1beta2.UpdateActionDelete
+			}
+		}
+	}
+
+	// Iterate over all the sets and mark all entries that are associated with a removed process group to be
+	// removed.
+	for _, processGroup :- range  updatesPendingForExclusion {
+		// If the process group was not visited the process group was removed and all the
+		// associated entries should be removed too.
+		if _, ok := visited[processGroup.ProcessGroupID]; !ok {
+			updatesPendingForExclusion[processGroup.ProcessGroupID] = fdbv1beta2.UpdateActionDelete
+		}
+	}
+
+	err = adminClient.UpdatePendingForExclusion(updatesPendingForExclusion)
+	// error handling
 
 	return nil
 }
