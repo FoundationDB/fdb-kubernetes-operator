@@ -77,7 +77,8 @@ func CheckInvariant(
 	quit := make(chan struct{})
 	waitGroup.Add(1)
 	var failureStartTime time.Time
-	var failureDuration time.Duration
+	var currentFailureDuration time.Duration
+	var longestFailureDuration time.Duration
 
 	go func() {
 		defer waitGroup.Done()
@@ -92,14 +93,24 @@ func CheckInvariant(
 						last = err
 					}
 
-					failureDuration = time.Since(failureStartTime)
-					if failureDuration >= threshold {
+					currentFailureDuration = time.Since(failureStartTime)
+					if currentFailureDuration >= threshold {
 						log.Printf(
 							"invariant %s failed after: %v",
 							invariantName,
-							failureDuration.String(),
+							currentFailureDuration.String(),
 						)
 						testFailed = true
+
+						// If the current failure duration is longer than the longest failure duration
+						// update the longest failure duration. The longest failure duration is used to report
+						// the failure duration in cases where the cluster was unavailable longer than the
+						// threshold. If we are not setting this value, we could see cases where the cluster was
+						// unavailable longer than the threshold but the cluster recovered and therefore the
+						// error message is reporting the incorrect failure duration.
+						if currentFailureDuration > longestFailureDuration {
+							longestFailureDuration = currentFailureDuration
+						}
 					}
 					continue
 				}
@@ -118,7 +129,7 @@ func CheckInvariant(
 		close(quit)
 		waitGroup.Wait()
 		if testFailed {
-			return fmt.Errorf("invariant %s failed for %s", invariantName, failureDuration.String())
+			return fmt.Errorf("invariant %s failed for %s", invariantName, longestFailureDuration.String())
 		}
 		return nil
 	})

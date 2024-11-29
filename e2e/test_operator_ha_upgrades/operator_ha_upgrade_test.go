@@ -391,7 +391,7 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 
 			// Keep deleting pods until all clusters are running with the new version.
 			clusters := fdbCluster.GetAllClusters()
-			Eventually(func() bool {
+			Eventually(func(g Gomega) bool {
 				coordinatorMap := map[k8sTypes.UID]corev1.Pod{}
 
 				// Are all clusters running at "targetVersion"?
@@ -405,7 +405,7 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 
 					if dbCluster.Status.RunningVersion == targetVersion {
 						log.Println(
-							"Cluster ",
+							"Cluster",
 							cluster.Name(),
 							"is running at version ",
 							targetVersion,
@@ -424,17 +424,17 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 				randomCluster := factory.RandomPickOneCluster(clusters)
 				// Make sure we are not deleting coordinator Pods
 				var randomPod *corev1.Pod
-				Eventually(func() bool {
+				g.Eventually(func() bool {
 					randomPod = factory.ChooseRandomPod(randomCluster.GetPods())
 					_, ok := coordinatorMap[randomPod.UID]
 					if ok {
-						log.Println("Skipping pod: ", randomPod.Name, "as it is a coordinator")
+						log.Println("Skipping pod:", randomPod.Name, "as it is a coordinator")
 					}
 
 					return ok
 				}).WithTimeout(2 * time.Minute).WithPolling(1 * time.Second).Should(BeFalse())
 
-				log.Println("Deleting pod: ", randomPod.Name)
+				log.Println("Deleting pod:", randomPod.Name)
 				factory.DeletePod(randomPod)
 				return false
 			}).WithTimeout(30 * time.Minute).WithPolling(2 * time.Minute).Should(BeTrue())
