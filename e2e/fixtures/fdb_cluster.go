@@ -776,27 +776,22 @@ func (fdbCluster *FdbCluster) UpdateLogProcessCount(newLogProcessCount int) erro
 
 // SetPodAsUnschedulable sets the provided Pod on the NoSchedule list of the current FoundationDBCluster. This will make
 // sure that the Pod is stuck in Pending.
-func (fdbCluster *FdbCluster) SetPodAsUnschedulable(pod corev1.Pod) error {
+func (fdbCluster *FdbCluster) SetPodAsUnschedulable(pod corev1.Pod) {
 	fdbCluster.SetProcessGroupsAsUnschedulable([]fdbv1beta2.ProcessGroupID{GetProcessGroupID(pod)})
 
-	fetchedPod := &corev1.Pod{}
-	return wait.PollImmediate(2*time.Second, 5*time.Minute, func() (bool, error) {
+	gomega.Eventually(func(g gomega.Gomega) string {
+		fetchedPod := &corev1.Pod{}
 		err := fdbCluster.getClient().
 			Get(context.Background(), client.ObjectKeyFromObject(&pod), fetchedPod)
-		if err != nil {
-			if kubeErrors.IsNotFound(err) {
-				return false, nil
-			}
-			return false, err
-		}
+		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		// Try deleting the Pod as a workaround until the operator handle all cases.
 		if fetchedPod.Spec.NodeName != "" && fetchedPod.DeletionTimestamp.IsZero() {
 			_ = fdbCluster.getClient().Delete(context.Background(), &pod)
 		}
 
-		return fetchedPod.Spec.NodeName == "", nil
-	})
+		return fetchedPod.Spec.NodeName
+	}).WithTimeout(5*time.Minute).WithPolling(2*time.Second).MustPassRepeatedly(5).Should(gomega.BeEmpty(), "Not able to set pod as unschedulable")
 }
 
 // SetProcessGroupsAsUnschedulable sets the provided process groups on the NoSchedule list of the current FoundationDBCluster. This will make
@@ -1219,7 +1214,15 @@ func (fdbCluster *FdbCluster) CheckPodIsDeleted(podName string) bool {
 // EnsurePodIsDeletedWithCustomTimeout validates that a Pod is either not existing or is marked as deleted with a non-zero deletion timestamp.
 // It times out after timeoutMinutes.
 func (fdbCluster *FdbCluster) EnsurePodIsDeletedWithCustomTimeout(podName string, timeoutMinutes int) {
+	lastForceReconcile := time.Now()
 	gomega.Eventually(func() bool {
+		// Force a reconciliation every minute to ensure the deletion will be done in a more timely manner (without
+		// the reconciliation getting delayed by the requeue mechanism).
+		if time.Since(lastForceReconcile) > 1*time.Minute {
+			fdbCluster.ForceReconcile()
+			lastForceReconcile = time.Now()
+		}
+
 		return fdbCluster.CheckPodIsDeleted(podName)
 	}).WithTimeout(time.Duration(timeoutMinutes) * time.Minute).WithPolling(1 * time.Second).Should(gomega.BeTrue())
 }

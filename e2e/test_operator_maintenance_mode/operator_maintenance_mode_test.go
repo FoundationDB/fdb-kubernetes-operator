@@ -103,7 +103,7 @@ var _ = Describe("Operator maintenance mode tests", Label("e2e"), func() {
 			fdbCluster.RunFdbCliCommandInOperator(fmt.Sprintf("maintenance on %s 240", faultDomain), false, 60)
 
 			// Set this Pod as unschedulable to keep it pending.
-			Expect(fdbCluster.SetPodAsUnschedulable(failingStoragePod)).NotTo(HaveOccurred())
+			fdbCluster.SetPodAsUnschedulable(failingStoragePod)
 		})
 
 		AfterEach(func() {
