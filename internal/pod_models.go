@@ -499,7 +499,7 @@ func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processGroup *fdbv1beta
 // configureSidecarContainerForCluster sets up a sidecar container for a sidecar
 // in the FDB cluster.
 func configureSidecarContainerForCluster(cluster *fdbv1beta2.FoundationDBCluster, podName string, container *corev1.Container, initMode bool, processGroupID fdbv1beta2.ProcessGroupID, fdbVersion string) error {
-	return configureSidecarContainer(container, initMode, processGroupID, podName, fdbVersion, cluster, cluster.Spec.SidecarContainer.ImageConfigs, false)
+	return configureSidecarContainer(container, initMode, processGroupID, podName, fdbVersion, cluster, cluster.Spec.SidecarContainer.ImageConfigs, false, false)
 }
 
 // configureSidecarContainerForBackup sets up a sidecar container for the init
@@ -510,11 +510,11 @@ func configureSidecarContainerForBackup(backup *fdbv1beta2.FoundationDBBackup, c
 		imageConfigs = backup.Spec.MainContainer.ImageConfigs
 	}
 
-	return configureSidecarContainer(container, true, "", "", backup.Spec.Version, nil, imageConfigs, pointer.BoolDeref(backup.Spec.AllowTagOverride, false))
+	return configureSidecarContainer(container, true, "", "", backup.Spec.Version, nil, imageConfigs, pointer.BoolDeref(backup.Spec.AllowTagOverride, false), backup.UseUnifiedImage())
 }
 
 // configureSidecarContainer sets up a foundationdb-kubernetes-sidecar container.
-func configureSidecarContainer(container *corev1.Container, initMode bool, processGroupID fdbv1beta2.ProcessGroupID, podName string, versionString string, optionalCluster *fdbv1beta2.FoundationDBCluster, imageConfigs []fdbv1beta2.ImageConfig, allowTagOverride bool) error {
+func configureSidecarContainer(container *corev1.Container, initMode bool, processGroupID fdbv1beta2.ProcessGroupID, podName string, versionString string, optionalCluster *fdbv1beta2.FoundationDBCluster, imageConfigs []fdbv1beta2.ImageConfig, allowTagOverride bool, useUnifiedImage bool) error {
 	sidecarEnv := make([]corev1.EnvVar, 0, 4)
 
 	hasTrustedCAs := optionalCluster != nil && len(optionalCluster.Spec.TrustedCAs) > 0
@@ -527,14 +527,6 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, proce
 	if hasTrustedCAs {
 		sidecarArgs = append(sidecarArgs, "--copy-file", "ca.pem")
 	}
-	if optionalCluster != nil {
-		sidecarArgs = append(sidecarArgs,
-			"--input-monitor-conf", "fdbmonitor.conf",
-			"--copy-binary", "fdbserver",
-			"--copy-binary", "fdbcli",
-			"--main-container-version", versionString,
-		)
-	}
 
 	if optionalCluster == nil {
 		sidecarArgs = append(sidecarArgs, "--require-not-empty")
@@ -542,6 +534,13 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, proce
 	}
 
 	if optionalCluster != nil {
+		sidecarArgs = append(sidecarArgs,
+			"--input-monitor-conf", "fdbmonitor.conf",
+			"--copy-binary", "fdbserver",
+			"--copy-binary", "fdbcli",
+			"--main-container-version", versionString,
+		)
+
 		cluster := optionalCluster
 
 		if cluster.Spec.Routing.PodIPFamily != nil {
@@ -598,7 +597,11 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, proce
 	}
 
 	if initMode {
-		sidecarArgs = append(sidecarArgs, "--init-mode")
+		if useUnifiedImage {
+			sidecarArgs = append(sidecarArgs, "--mode", "init", "--output-dir", "/var/output-files", "--input-dir", "/var/input-files")
+		} else {
+			sidecarArgs = append(sidecarArgs, "--init-mode")
+		}
 	}
 
 	extendEnv(container, sidecarEnv...)
