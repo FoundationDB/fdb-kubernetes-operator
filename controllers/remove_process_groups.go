@@ -384,7 +384,7 @@ func (r *FoundationDBClusterReconciler) getProcessGroupsToRemove(logger logr.Log
 		}
 
 		excluded, err := processGroup.AllAddressesExcluded(logger, remainingMap)
-		if !excluded || err != nil {
+		if processGroup.ProcessClass != fdbv1beta2.ProcessClassTest && (!excluded || err != nil) {
 			logger.Info("Incomplete exclusion still present in removeProcessGroups step", "processGroupID", processGroup.ProcessGroupID, "error", err)
 			allExcluded = false
 			continue

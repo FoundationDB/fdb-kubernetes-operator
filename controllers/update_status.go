@@ -392,6 +392,12 @@ func checkAndSetProcessStatus(logger logr.Logger, r *FoundationDBClusterReconcil
 				excluded = process.Excluded
 			}
 
+			if process.ProcessClass == fdbv1beta2.ProcessClassTest && processGroupStatus.IsMarkedForRemoval() {
+				processGroupStatus.ExclusionSkipped = ok
+				processGroupStatus.SetExclude()
+				excluded = true
+			}
+
 			if len(substitutions) == 0 {
 				continue
 			}
@@ -440,7 +446,7 @@ func checkAndSetProcessStatus(logger logr.Logger, r *FoundationDBClusterReconcil
 	// This allows to handle cases were a process was fully excluded but not yet removed and someone manually includes
 	// the processes back. If multiple processes are running inside the pod and at least one process is excluded,
 	// all processes are assumed to be excluded (as the operator always exclude all processes of a pod).
-	if !excluded && !processGroupStatus.ExclusionTimestamp.IsZero() {
+	if !excluded && !processGroupStatus.ExclusionSkipped && !processGroupStatus.ExclusionTimestamp.IsZero() {
 		logger.Info("reset exclusion", "processGroupID", processGroupStatus.ProcessGroupID, "previousTimestamp", processGroupStatus.ExclusionTimestamp)
 		processGroupStatus.ExclusionTimestamp = nil
 	}
@@ -491,7 +497,8 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 			// If the process group should be removed without exclusion or the process class is test, remove it without
 			// further checks. For the test processes there is no reason to try to exclude them as they are not maintaining
 			// any data.
-			if ok || processGroup.ProcessClass == fdbv1beta2.ProcessClassTest {
+			if !processGroup.ExclusionSkipped && (ok || processGroup.ProcessClass == fdbv1beta2.ProcessClassTest) {
+				logger.V(1).Info("Process group is being removed without exclusion", "ProcessGroupID", processGroup.ProcessGroupID)
 				processGroup.ExclusionSkipped = ok
 				processGroup.SetExclude()
 			}
