@@ -28,6 +28,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-logr/logr"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	kubeHelper "github.com/FoundationDB/fdb-kubernetes-operator/internal/kubernetes"
@@ -145,6 +147,7 @@ func recoverMultiRegionCluster(cmd *cobra.Command, opts recoverMultiRegionCluste
 
 	cmd.Println("current connection string", lastConnectionString)
 
+	usesDNSInClusterFile := cluster.UseDNSInClusterFile()
 	var useTLS bool
 	coordinators := map[string]fdbv1beta2.ProcessAddress{}
 	for _, addr := range addresses {
@@ -177,9 +180,23 @@ func recoverMultiRegionCluster(cmd *cobra.Command, opts recoverMultiRegionCluste
 	// Find a running coordinator to copy the coordinator files from.
 	var runningCoordinator *corev1.Pod
 	for _, pod := range pods.Items {
-		addr, parseErr := fdbv1beta2.ParseProcessAddress(pod.Status.PodIP)
-		if parseErr != nil {
-			return parseErr
+		var addr fdbv1beta2.ProcessAddress
+		if usesDNSInClusterFile {
+			dnsName := internal.GetPodDNSName(cluster, pod.GetName())
+			addr = fdbv1beta2.ProcessAddress{StringAddress: dnsName}
+		} else {
+			currentPod := pod
+			publicIPs := internal.GetPublicIPsForPod(&currentPod, logr.Discard())
+			if len(publicIPs) == 0 {
+				cmd.Println("Found no public IPs for pod:", pod.Name)
+				continue
+			}
+
+			var parseErr error
+			addr, parseErr = fdbv1beta2.ParseProcessAddress(publicIPs[0])
+			if parseErr != nil {
+				return parseErr
+			}
 		}
 
 		cmd.Println("checking pod:", pod.Name, "address:", addr, "pod IPs:", pod.Status.PodIP, "machineAddr:", addr.MachineAddress())
