@@ -162,8 +162,7 @@ var _ = Describe("Operator Plugin", Label("e2e", "pr"), func() {
 		})
 	})
 
-	// TODO(johscheuer): Enable once https://github.com/FoundationDB/fdb-kubernetes-operator/issues/2153 is fixed.
-	PWhen("all Pods in the primary and satellites are down with", func() {
+	When("all Pods in the primary and satellites are down with", func() {
 		BeforeEach(func() {
 			runningVersion := fdbCluster.GetPrimary().GetCluster().GetRunningVersion()
 			parsedVersion, err := fdbv1beta2.ParseFdbVersion(runningVersion)
