@@ -28,13 +28,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-logr/logr"
-
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	kubeHelper "github.com/FoundationDB/fdb-kubernetes-operator/internal/kubernetes"
+	"github.com/go-logr/logr"
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -162,7 +162,7 @@ func recoverMultiRegionCluster(cmd *cobra.Command, opts recoverMultiRegionCluste
 		_, useTLS = parsed.Flags["tls"]
 	}
 
-	cmd.Println("current coordinators", coordinators, "useTLS", useTLS)
+	cmd.Println("Current coordinators", coordinators, "useTLS", useTLS)
 	// Fetch all Pods and coordinators for the remote and remote satellite.
 	runningCoordinators := map[string]fdbv1beta2.None{}
 	newCoordinators := make([]fdbv1beta2.ProcessAddress, 0, 5)
@@ -199,7 +199,7 @@ func recoverMultiRegionCluster(cmd *cobra.Command, opts recoverMultiRegionCluste
 			}
 		}
 
-		cmd.Println("checking pod:", pod.Name, "address:", addr, "pod IPs:", pod.Status.PodIP, "machineAddr:", addr.MachineAddress())
+		cmd.Println("Checking pod", pod.Name, "address", addr.MachineAddress())
 
 		loopPod := pod
 		if coordinatorAddr, ok := coordinators[addr.MachineAddress()]; ok {
@@ -250,7 +250,7 @@ func recoverMultiRegionCluster(cmd *cobra.Command, opts recoverMultiRegionCluste
 		if parseErr != nil {
 			return parseErr
 		}
-		cmd.Println("Adding pod as new coordinators:", candidate.Name)
+		cmd.Println("Adding pod as new coordinator:", candidate.Name)
 		if useTLS {
 			addr.Port = 4500
 			addr.Flags = map[string]bool{"tls": true}
@@ -360,7 +360,7 @@ func recoverMultiRegionCluster(cmd *cobra.Command, opts recoverMultiRegionCluste
 
 	cmd.Println("Killing fdbserver processes")
 	// Now all Pods must be restarted and the previous local cluster file must be deleted to make sure the fdbserver is picking the connection string from the seed cluster file (`/var/dynamic-conf/fdb.cluster`).
-	err = restartFdbserverInCluster(cmd.Context(), opts.client, opts.config, cluster)
+	err = restartFdbserverInCluster(cmd.Context(), cmd, opts.client, opts.config, cluster)
 	if err != nil {
 		return err
 	}
@@ -460,16 +460,55 @@ func uploadCoordinatorFile(cmd *cobra.Command, kubeClient client.Client, config 
 	return kubeHelper.UploadFile(cmd.Context(), kubeClient, config, pod, fdbv1beta2.MainContainerName, tmpCoordinatorFile, dst)
 }
 
-func restartFdbserverInCluster(ctx context.Context, kubeClient client.Client, config *rest.Config, cluster *fdbv1beta2.FoundationDBCluster) error {
+// restartFdbserverInCluster will try to restart all fdbserver processes inside all the pods of the cluster. If the restart fails, it will be retried again two more times.
+func restartFdbserverInCluster(ctx context.Context, cmd *cobra.Command, kubeClient client.Client, config *rest.Config, cluster *fdbv1beta2.FoundationDBCluster) error {
 	pods, err := getRunningPodsForCluster(ctx, kubeClient, cluster)
 	if err != nil {
 		return err
 	}
 
 	// Now all Pods must be restarted and the previous local cluster file must be deleted to make sure the fdbserver is picking the connection string from the seed cluster file (`/var/dynamic-conf/fdb.cluster`).
+	retryRestart := make([]corev1.Pod, 0, len(pods.Items))
 	for _, pod := range pods.Items {
-		_, _, err := kubeHelper.ExecuteCommand(context.Background(), kubeClient, config, pod.Namespace, pod.Name, fdbv1beta2.MainContainerName, "pkill fdbserver && rm -f /var/fdb/data/fdb.cluster && pkill fdbserver || true", false)
+		var stderr string
+		_, _, err = kubeHelper.ExecuteCommand(context.Background(), kubeClient, config, pod.Namespace, pod.Name, fdbv1beta2.MainContainerName, "pkill fdbserver && rm -f /var/fdb/data/fdb.cluster && pkill fdbserver || true", false)
 		if err != nil {
+			// If the pod doesn't exist anymore ignore the error. The pod will have the new configuration when recreated again.
+			if k8serrors.IsNotFound(err) {
+				continue
+			}
+
+			time.Sleep(1 * time.Second)
+			cmd.Println("error restarting process in pod", pod.Name, "got error", err.Error(), "will be directly retried, stderr:", stderr)
+			_, stderr, err = kubeHelper.ExecuteCommand(context.Background(), kubeClient, config, pod.Namespace, pod.Name, fdbv1beta2.MainContainerName, "pkill fdbserver && rm -f /var/fdb/data/fdb.cluster && pkill fdbserver || true", false)
+			if err != nil {
+				cmd.Println("error restarting process in pod", pod.Name, "got error", err.Error(), "will be retried later, stderr:", stderr)
+				retryRestart = append(retryRestart, pod)
+			}
+		}
+	}
+
+	if len(retryRestart) == 0 {
+		return nil
+	}
+
+	// If we have more than one pod where we failed to restart the fdbserver processes, wait ten seconds before trying again.
+	time.Sleep(10 * time.Second)
+	cmd.Println("Failed to restart the fdbserver processes in", len(retryRestart), "pods, will be retried now.")
+
+	for _, pod := range retryRestart {
+		// Pod is marked for deletion, so we can skip it here.
+		if !pod.DeletionTimestamp.IsZero() {
+			continue
+		}
+
+		_, _, err = kubeHelper.ExecuteCommand(context.Background(), kubeClient, config, pod.Namespace, pod.Name, fdbv1beta2.MainContainerName, "pkill fdbserver && rm -f /var/fdb/data/fdb.cluster && pkill fdbserver || true", false)
+		if err != nil {
+			// If the pod doesn't exist anymore ignore the error. The pod will have the new configuration when recreated again.
+			if k8serrors.IsNotFound(err) {
+				continue
+			}
+
 			return err
 		}
 	}
