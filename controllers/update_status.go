@@ -239,7 +239,7 @@ func (c updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterRecon
 		return &requeue{curError: err}
 	}
 
-	if reconciled {
+	if reconciled && cluster.ShouldUseLocks() {
 		// Once the cluster is reconciled the operator will release any pending locks for this cluster.
 		lockErr := r.releaseLock(logger, cluster)
 		if lockErr != nil {
@@ -338,6 +338,9 @@ func checkAndSetProcessStatus(logger logr.Logger, r *FoundationDBClusterReconcil
 	// Only perform any process specific validation if the machine-readable status has at least one process. We can improve this check
 	// later by validating additional messages in the machine-readable status.
 	if len(processMap) == 0 {
+		// TODO (johscheuer): Should we reset the exclusion state if the processes are missing? In this case we cannot
+		// know if the process was fully excluded or not and we could run into issues like: https://github.com/FoundationDB/fdb-kubernetes-operator/issues/1912
+		// This change needs some additional testing to ensure we understand the possible side effects.
 		return nil
 	}
 
@@ -389,6 +392,12 @@ func checkAndSetProcessStatus(logger logr.Logger, r *FoundationDBClusterReconcil
 				excluded = process.Excluded
 			}
 
+			if process.ProcessClass == fdbv1beta2.ProcessClassTest && processGroupStatus.IsMarkedForRemoval() {
+				processGroupStatus.ExclusionSkipped = ok
+				processGroupStatus.SetExclude()
+				excluded = true
+			}
+
 			if len(substitutions) == 0 {
 				continue
 			}
@@ -432,6 +441,16 @@ func checkAndSetProcessStatus(logger logr.Logger, r *FoundationDBClusterReconcil
 	if hasMissingProcesses {
 		return nil
 	}
+
+	// If the processes of this process group are not being excluded anymore, we will reset the exclusion timestamp.
+	// This allows to handle cases were a process was fully excluded but not yet removed and someone manually includes
+	// the processes back. If multiple processes are running inside the pod and at least one process is excluded,
+	// all processes are assumed to be excluded (as the operator always exclude all processes of a pod).
+	if !excluded && !processGroupStatus.ExclusionSkipped && !processGroupStatus.ExclusionTimestamp.IsZero() {
+		logger.Info("reset exclusion", "processGroupID", processGroupStatus.ProcessGroupID, "previousTimestamp", processGroupStatus.ExclusionTimestamp)
+		processGroupStatus.ExclusionTimestamp = nil
+	}
+
 	processGroupStatus.UpdateCondition(fdbv1beta2.ProcessIsMarkedAsExcluded, excluded)
 	processGroupStatus.UpdateCondition(fdbv1beta2.ProcessHasIOError, hasIOError)
 	// If the sidecar is unreachable we are not able to compute the desired commandline.
@@ -478,7 +497,8 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 			// If the process group should be removed without exclusion or the process class is test, remove it without
 			// further checks. For the test processes there is no reason to try to exclude them as they are not maintaining
 			// any data.
-			if ok || processGroup.ProcessClass == fdbv1beta2.ProcessClassTest {
+			if !processGroup.ExclusionSkipped && (ok || processGroup.ProcessClass == fdbv1beta2.ProcessClassTest) {
+				logger.V(1).Info("Process group is being removed without exclusion", "ProcessGroupID", processGroup.ProcessGroupID)
 				processGroup.ExclusionSkipped = ok
 				processGroup.SetExclude()
 			}

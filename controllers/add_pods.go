@@ -61,7 +61,7 @@ func (a addPods) reconcile(ctx context.Context, r *FoundationDBClusterReconciler
 		}
 
 		// Ignore the is not found error, as we are checking here if we should create Pods.
-		if err != nil && !k8serrors.IsNotFound(err) {
+		if !k8serrors.IsNotFound(err) {
 			return &requeue{curError: err}
 		}
 
