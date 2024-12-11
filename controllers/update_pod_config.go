@@ -22,9 +22,10 @@ package controllers
 
 import (
 	"context"
-	"github.com/apple/foundationdb/fdbkubernetesmonitor/api"
 	"strconv"
 	"time"
+
+	"github.com/apple/foundationdb/fdbkubernetesmonitor/api"
 
 	"github.com/go-logr/logr"
 

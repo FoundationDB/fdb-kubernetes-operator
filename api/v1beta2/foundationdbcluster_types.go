@@ -1205,6 +1205,19 @@ type FoundationDBClusterAutomationOptions struct {
 	// The default is a list that includes "fdb-kubernetes-operator".
 	// +kubebuilder:validation:MaxItems=10
 	IgnoreLogGroupsForUpgrade []LogGroup `json:"ignoreLogGroupsForUpgrade,omitempty"`
+
+	// SynchronizationMode defines the synchronization mode for clusters that are managed by multiple operator instances.
+	// The default is "local" which means all operator instances are only acting on their local processes, with the exception for
+	// cluster upgrades. In the "global" mode the operator instances coordinate actions to only issue a single
+	// exclude/bounce/include to reduce the disruptions. The global coordination mode is based on an optimistic mode
+	// and there are no guarantees that the action will only be executed once, e.g. because of a slow operator instance.
+	//
+	// More details:
+	// https://github.com/FoundationDB/fdb-kubernetes-operator/blob/main/docs/design/better_coordination_multi_operator.md
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Enum=local;global
+	// +kubebuilder:default:=local
+	SynchronizationMode *string `json:"synchronizationMode,omitempty"`
 }
 
 // LogGroup represents a LogGroup used by a FoundationDB process to log trace events. The LogGroup can be used to filter
@@ -3138,4 +3151,34 @@ func (cluster *FoundationDBCluster) GetMaxFaultDomainsWithTaintedProcessGroups(f
 	}
 
 	return maxAllowed, nil
+}
+
+// UpdateAction defines the update action for an entry in the multi-region coordination key-space.
+type UpdateAction string
+
+const (
+	// UpdateActionAdd will add or update the provided information.
+	UpdateActionAdd UpdateAction = "add"
+	// UpdateActionDelete will remove the provided associated information.
+	UpdateActionDelete UpdateAction = "delete"
+)
+
+// SynchronizationMode defines the synchronization mode.
+// +kubebuilder:validation:MaxLength=256
+type SynchronizationMode string
+
+const (
+	// SynchronizationModeLocal defines the local synchronization mode.
+	SynchronizationModeLocal SynchronizationMode = "local"
+	// SynchronizationModeGlobal SynchronizationMode the global synchronization mode.
+	SynchronizationModeGlobal SynchronizationMode = "global"
+)
+
+// GetSynchronizationMode returns the current SynchronizationMode.
+func (cluster *FoundationDBCluster) GetSynchronizationMode() SynchronizationMode {
+	if !cluster.Status.Configured {
+		return SynchronizationModeLocal
+	}
+
+	return SynchronizationMode(pointer.StringDeref(cluster.Spec.AutomationOptions.SynchronizationMode, string(SynchronizationModeLocal)))
 }

@@ -22,11 +22,11 @@ package controllers
 
 import (
 	"context"
-	"github.com/go-logr/logr"
 	"testing"
 	"time"
 
 	mockpodclient "github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/podclient/mock"
+	"github.com/go-logr/logr"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient/mock"
 

@@ -22,9 +22,10 @@ package controllers
 
 import (
 	"context"
+	"time"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient/mock"
 	"k8s.io/utils/pointer"
-	"time"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
 

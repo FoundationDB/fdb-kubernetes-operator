@@ -886,3 +886,13 @@ func (factory *Factory) GetNodeSelector() string {
 	}
 	return factory.options.nodeSelector
 }
+
+// GetSynchronizationMode returns the desired fdbv1beta2.SynchronizationMode if unset, the default will be
+// fdbv1beta2.SynchronizationModeLocal.
+func (factory *Factory) GetSynchronizationMode() fdbv1beta2.SynchronizationMode {
+	if factory.options.synchronizationMode == "" {
+		return fdbv1beta2.SynchronizationModeLocal
+	}
+
+	return fdbv1beta2.SynchronizationMode(factory.options.synchronizationMode)
+}

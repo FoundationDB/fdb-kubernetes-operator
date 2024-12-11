@@ -30,7 +30,7 @@ import (
 
 var _ = Describe("Cluster configuration", func() {
 	DescribeTable("when generating the Pod resources", func(config *ClusterConfig, processClass fdbv1beta2.ProcessClass, expected corev1.ResourceList) {
-		config.SetDefaults(nil)
+		config.SetDefaults(&Factory{options: &FactoryOptions{}})
 		generated := config.generatePodResources(processClass)
 		Expect(generated.Cpu().String()).To(Equal(expected.Cpu().String()))
 		Expect(generated.Memory().String()).To(Equal(expected.Memory().String()))
@@ -40,7 +40,6 @@ var _ = Describe("Cluster configuration", func() {
 				Name:                "test",
 				Namespace:           "unit-test",
 				StorageEngine:       fdbv1beta2.StorageEngineRocksDbV1,
-				cloudProvider:       "test",
 				StorageServerPerPod: 1,
 			},
 			fdbv1beta2.ProcessClassGeneral,
@@ -53,7 +52,6 @@ var _ = Describe("Cluster configuration", func() {
 				Name:                "test",
 				Namespace:           "unit-test",
 				StorageEngine:       fdbv1beta2.StorageEngineRocksDbV1,
-				cloudProvider:       "test",
 				StorageServerPerPod: 1,
 			},
 			fdbv1beta2.ProcessClassStorage,
@@ -66,7 +64,6 @@ var _ = Describe("Cluster configuration", func() {
 				Name:                "test",
 				Namespace:           "unit-test",
 				StorageEngine:       fdbv1beta2.StorageEngineRocksDbV1,
-				cloudProvider:       "test",
 				StorageServerPerPod: 1,
 				Performance:         true,
 			},
@@ -80,7 +77,6 @@ var _ = Describe("Cluster configuration", func() {
 				Name:                "test",
 				Namespace:           "unit-test",
 				StorageEngine:       fdbv1beta2.StorageEngineRocksDbV1,
-				cloudProvider:       "test",
 				StorageServerPerPod: 1,
 				Performance:         true,
 			},
@@ -95,7 +91,6 @@ var _ = Describe("Cluster configuration", func() {
 				Name:                "test",
 				Namespace:           "unit-test",
 				StorageEngine:       fdbv1beta2.StorageEngineRocksDbV1,
-				cloudProvider:       "test",
 				Performance:         true,
 			},
 			fdbv1beta2.ProcessClassStorage,
@@ -110,7 +105,6 @@ var _ = Describe("Cluster configuration", func() {
 				Namespace:           "unit-test",
 				MemoryPerPod:        "16Gi",
 				StorageEngine:       fdbv1beta2.StorageEngineRocksDbV1,
-				cloudProvider:       "test",
 				StorageServerPerPod: 1,
 				Performance:         true,
 			},
@@ -126,7 +120,6 @@ var _ = Describe("Cluster configuration", func() {
 				Namespace:           "unit-test",
 				MemoryPerPod:        "16Gi",
 				StorageEngine:       fdbv1beta2.StorageEngineRocksDbV1,
-				cloudProvider:       "test",
 				Performance:         true,
 			},
 			fdbv1beta2.ProcessClassStorage,

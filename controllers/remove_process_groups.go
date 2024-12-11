@@ -24,7 +24,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient"
 	"net"
 	"strconv"
 	"time"
@@ -32,7 +31,9 @@ import (
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/buggify"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/coordination"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/removals"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbstatus"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -262,9 +263,27 @@ func confirmRemoval(ctx context.Context, logger logr.Logger, r *FoundationDBClus
 }
 
 func includeProcessGroup(ctx context.Context, logger logr.Logger, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, removedProcessGroups map[fdbv1beta2.ProcessGroupID]bool, status *fdbv1beta2.FoundationDBStatus, adminClient fdbadminclient.AdminClient) error {
-	fdbProcessesToInclude, newProcessGroups, err := getProcessesToInclude(logger, cluster, removedProcessGroups, status)
+	// Update here for ready inclusion --> Check here
+	var readyForInclusion map[fdbv1beta2.ProcessGroupID]time.Time
+	readyForInclusionUpdates := map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{}
+	if cluster.GetSynchronizationMode() == fdbv1beta2.SynchronizationModeGlobal {
+		var err error
+		readyForInclusion, err = adminClient.GetReadyForInclusion(cluster.Spec.ProcessGroupIDPrefix)
+		if err != nil {
+			return err
+		}
+	}
+
+	fdbProcessesToInclude, newProcessGroups, err := getProcessesToInclude(logger, cluster, removedProcessGroups, status, readyForInclusion, readyForInclusionUpdates)
 	if err != nil {
 		return err
+	}
+
+	if cluster.GetSynchronizationMode() == fdbv1beta2.SynchronizationModeGlobal {
+		err = adminClient.UpdateReadyForInclusion(readyForInclusionUpdates)
+		if err != nil {
+			return err
+		}
 	}
 
 	if len(fdbProcessesToInclude) == 0 {
@@ -278,14 +297,31 @@ func includeProcessGroup(ctx context.Context, logger logr.Logger, r *FoundationD
 		return nil
 	}
 
-	// Make sure the inclusion are coordinated across multiple operator instances.
-	err = r.takeLock(logger, cluster, "remove process groups")
+	// Make sure it's safe to include processes.
+	err = fdbstatus.CanSafelyIncludeProcesses(cluster, status, r.MinimumRecoveryTimeForInclusion)
 	if err != nil {
 		return err
 	}
 
-	// Make sure it's safe to include processes.
-	err = fdbstatus.CanSafelyIncludeProcesses(cluster, status, r.MinimumRecoveryTimeForInclusion)
+	if cluster.GetSynchronizationMode() == fdbv1beta2.SynchronizationModeGlobal {
+		pendingForInclusion, err := adminClient.GetPendingForInclusion("")
+		if err != nil {
+			return err
+		}
+
+		readyForInclusion, err = adminClient.GetReadyForInclusion("")
+		if err != nil {
+			return err
+		}
+
+		err = coordination.AllProcessesReady(logger, pendingForInclusion, readyForInclusion, r.GlobalSynchronizationWaitDuration)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Make sure the inclusion are coordinated across multiple operator instances.
+	err = r.takeLock(logger, cluster, "include removed process groups")
 	if err != nil {
 		return err
 	}
@@ -304,7 +340,7 @@ func includeProcessGroup(ctx context.Context, logger logr.Logger, r *FoundationD
 	return r.updateOrApply(ctx, cluster)
 }
 
-func getProcessesToInclude(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, removedProcessGroups map[fdbv1beta2.ProcessGroupID]bool, status *fdbv1beta2.FoundationDBStatus) ([]fdbv1beta2.ProcessAddress, []*fdbv1beta2.ProcessGroupStatus, error) {
+func getProcessesToInclude(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, removedProcessGroups map[fdbv1beta2.ProcessGroupID]bool, status *fdbv1beta2.FoundationDBStatus, readyForInclusion map[fdbv1beta2.ProcessGroupID]time.Time, readyForInclusionUpdates map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction) ([]fdbv1beta2.ProcessAddress, []*fdbv1beta2.ProcessGroupStatus, error) {
 	fdbProcessesToInclude := make([]fdbv1beta2.ProcessAddress, 0)
 
 	if len(removedProcessGroups) == 0 {
@@ -329,6 +365,10 @@ func getProcessesToInclude(logger logr.Logger, cluster *fdbv1beta2.FoundationDBC
 			if _, ok := excludedServersMap[exclusionString]; ok {
 				fdbProcessesToInclude = append(fdbProcessesToInclude, fdbv1beta2.ProcessAddress{StringAddress: exclusionString})
 				foundInExcludedServerList = true
+
+				if _, ok := readyForInclusion[processGroup.ProcessGroupID]; !ok {
+					readyForInclusionUpdates[processGroup.ProcessGroupID] = fdbv1beta2.UpdateActionAdd
+				}
 			}
 
 			for _, pAddr := range processGroup.Addresses {
@@ -343,6 +383,9 @@ func getProcessesToInclude(logger logr.Logger, cluster *fdbv1beta2.FoundationDBC
 				if _, ok := excludedServersMap[pAddr]; ok {
 					fdbProcessesToInclude = append(fdbProcessesToInclude, fdbv1beta2.ProcessAddress{IPAddress: net.ParseIP(pAddr)})
 					foundInExcludedServerList = true
+					if _, ok := readyForInclusion[processGroup.ProcessGroupID]; !ok {
+						readyForInclusionUpdates[processGroup.ProcessGroupID] = fdbv1beta2.UpdateActionAdd
+					}
 				}
 			}
 

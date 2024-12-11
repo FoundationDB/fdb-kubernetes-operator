@@ -25,10 +25,11 @@ import (
 	"context"
 	"errors"
 	"io"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"log"
 	"text/template"
 	"time"
+
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/onsi/gomega"
 	batchv1 "k8s.io/api/batch/v1"

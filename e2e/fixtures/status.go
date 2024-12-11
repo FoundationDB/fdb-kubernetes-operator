@@ -428,8 +428,11 @@ func (fdbCluster *FdbCluster) GetPodsWithRole(role fdbv1beta2.ProcessRole) []cor
 
 // GetCommandlineForProcessesPerClass fetches the commandline args for all processes except of the specified class.
 func (fdbCluster FdbCluster) GetCommandlineForProcessesPerClass() map[fdbv1beta2.ProcessClass][]string {
-	status := fdbCluster.GetStatus()
+	return fdbCluster.GetCommandlineForProcessesPerClassWithStatus(fdbCluster.GetStatus())
+}
 
+// GetCommandlineForProcessesPerClassWithStatus fetches the commandline args for all processes except of the specified class.
+func (fdbCluster FdbCluster) GetCommandlineForProcessesPerClassWithStatus(status *fdbv1beta2.FoundationDBStatus) map[fdbv1beta2.ProcessClass][]string {
 	knobs := map[fdbv1beta2.ProcessClass][]string{}
 	for _, process := range status.Cluster.Processes {
 		if _, ok := knobs[process.ProcessClass]; !ok {

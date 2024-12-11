@@ -89,6 +89,11 @@ type Options struct {
 	PostTimeout                        time.Duration
 	MaintenanceListStaleDuration       time.Duration
 	MaintenanceListWaitDuration        time.Duration
+	// GlobalSynchronizationWaitDuration is the wait time for the operator when the synchronization mode is set to
+	// global. The wait time defines the period where no updates for the according action should happen. Increasing the
+	// wait time will increase the chances that all updates are part of the list but will also delay the rollout of
+	// the change.
+	GlobalSynchronizationWaitDuration time.Duration
 	// LeaseDuration is the duration that non-leader candidates will
 	// wait to force acquire leadership. This is measured against time of
 	// last observed ack. Default is 15 seconds.
@@ -139,6 +144,7 @@ func (o *Options) BindFlags(fs *flag.FlagSet) {
 	fs.DurationVar(&o.MaintenanceListStaleDuration, "maintenance-list-stale-duration", 4*time.Hour, "the duration after stale entries will be deleted form the maintenance list. Only has an affect if the operator is allowed to reset the maintenance zone.")
 	fs.DurationVar(&o.MaintenanceListWaitDuration, "maintenance-list-wait-duration", 5*time.Minute, "the duration where a process in the maintenance list in a different zone will be assumed to block the maintenance zone reset. Only has an affect if the operator is allowed to reset the maintenance zone.")
 	fs.DurationVar(&o.MinimumRequiredUptimeCCBounce, "minimum-required-uptime-for-cc-bounce", 1*time.Hour, "the minimum required uptime of the cluster before allowing the operator to restart the CC if there is a failed tester process.")
+	fs.DurationVar(&o.GlobalSynchronizationWaitDuration, "global-synchronization-wait-duration", 30*time.Second, "the wait time for the global synchronization mode in multi-region deployments")
 	fs.BoolVar(&o.EnableRestartIncompatibleProcesses, "enable-restart-incompatible-processes", true, "This flag enables/disables in the operator to restart incompatible fdbserver processes.")
 	fs.BoolVar(&o.ServerSideApply, "server-side-apply", false, "This flag enables server side apply.")
 	fs.BoolVar(&o.EnableRecoveryState, "enable-recovery-state", true, "This flag enables the use of the recovery state for the minimum uptime between bounced if the FDB version supports it.")
@@ -274,6 +280,7 @@ func StartManager(
 		clusterReconciler.MinimumRecoveryTimeForExclusion = operatorOpts.MinimumRecoveryTimeForExclusion
 		clusterReconciler.ClusterLabelKeyForNodeTrigger = strings.Trim(operatorOpts.ClusterLabelKeyForNodeTrigger, "\"")
 		clusterReconciler.Namespace = operatorOpts.WatchNamespace
+		clusterReconciler.GlobalSynchronizationWaitDuration = operatorOpts.GlobalSynchronizationWaitDuration
 
 		// If the provided PodLifecycleManager supports the update method, we can set the desired update method, otherwise the
 		// update method will be ignored.

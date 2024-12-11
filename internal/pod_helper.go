@@ -25,9 +25,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	monitorapi "github.com/apple/foundationdb/fdbkubernetesmonitor/api"
 	"net"
 	"strconv"
+
+	monitorapi "github.com/apple/foundationdb/fdbkubernetesmonitor/api"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/go-logr/logr"

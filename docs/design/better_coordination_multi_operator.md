@@ -48,13 +48,13 @@ The idea is to extend the existing `AdminClient` with some similar functionality
 
 The following methods will be added:
 
-- `UpdatePendingForRemoval`: Updates the set of process groups that are marked for removal, an update can be eiter the addition or removal of a process group.
-- `UpdatePendingForExclusion`: Updates the set of process groups that should be excluded, an update can be eiter the addition or removal of a process group.
-- `UpdatePendingForInclusion`: Updates the set of process groups that should be included, an update can be eiter the addition or removal of a process group.
-- `UpdatePendingForRestart`: Updates the set of process groups that should be restarted, an update can be eiter the addition or removal of a process group.
-- `UpdateReadyForExclusion`: Updates the set of process groups that are ready to be excluded, an update can be eiter the addition or removal of a process group
-- `UpdateReadyForInclusion`: Updates the set of process groups that are ready to be included, an update can be eiter the addition or removal of a process group.
-- `UpdateReadyForRestart`: Updates the set of process groups that are ready to be restarted, an update can be eiter the addition or removal of a process group
+- `UpdatePendingForRemoval`: Updates the set of process groups that are marked for removal, an update can be either the addition or removal of a process group.
+- `UpdatePendingForExclusion`: Updates the set of process groups that should be excluded, an update can be either the addition or removal of a process group.
+- `UpdatePendingForInclusion`: Updates the set of process groups that should be included, an update can be either the addition or removal of a process group.
+- `UpdatePendingForRestart`: Updates the set of process groups that should be restarted, an update can be either the addition or removal of a process group.
+- `UpdateReadyForExclusion`: Updates the set of process groups that are ready to be excluded, an update can be either the addition or removal of a process group
+- `UpdateReadyForInclusion`: Updates the set of process groups that are ready to be included, an update can be either the addition or removal of a process group.
+- `UpdateReadyForRestart`: Updates the set of process groups that are ready to be restarted, an update can be either the addition or removal of a process group
 - `GetPendingForRemoval`: Gets the process group IDs for all process groups that are marked for removal.
 - `GetPendingForExclusion`: Gets the process group IDs for all process groups that should be excluded.
 - `GetPendingForInclusion`: Gets the process group IDs for all the process groups that should be included.

@@ -100,6 +100,7 @@ func (factory *Factory) createFDBClusterSpec(
 					"fdb-kubernetes-operator",
 				},
 				UseLocalitiesForExclusion: config.UseLocalityBasedExclusions,
+				SynchronizationMode:       pointer.String(string(config.SynchronizationMode)),
 			},
 			Routing: fdbv1beta2.RoutingConfig{
 				UseDNSInClusterFile: config.UseDNS,

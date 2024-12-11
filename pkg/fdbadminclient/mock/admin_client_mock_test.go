@@ -335,6 +335,836 @@ var _ = Describe("mock_client", func() {
 			Expect(status.Cluster.Logs).To(HaveLen(1))
 		})
 	})
+
+	When("working with the multi-region coordination methods", func() {
+		var adminClient *AdminClient
+		var cluster *fdbv1beta2.FoundationDBCluster
+
+		BeforeEach(func() {
+			cluster = internal.CreateDefaultCluster()
+
+			var err error
+			adminClient, err = NewMockAdminClientUncast(cluster, k8sClient)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		When("updating the pending for removal", func() {
+			var updates map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction
+
+			JustBeforeEach(func() {
+				Expect(adminClient.UpdatePendingForRemoval(updates)).NotTo(HaveOccurred())
+			})
+
+			When("adding a pending for removal", func() {
+				When("the process group doesn't exist", func() {
+					BeforeEach(func() {
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"doesntExist": fdbv1beta2.UpdateActionAdd}
+					})
+
+					It("should add the process group to the map", func() {
+						Expect(adminClient.pendingForRemoval).To(HaveKey(fdbv1beta2.ProcessGroupID("doesntExist")))
+					})
+				})
+
+				When("the process group exists", func() {
+					BeforeEach(func() {
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"storage-1": fdbv1beta2.UpdateActionAdd}
+					})
+
+					BeforeEach(func() {
+						cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1", fdbv1beta2.ProcessClassStorage, []string{"192.168.0.2"}))
+						adminClient.Cluster = cluster
+					})
+
+					It("should add the process group to the map", func() {
+						Expect(adminClient.pendingForRemoval).To(HaveLen(1))
+						Expect(adminClient.pendingForRemoval).To(HaveKey(fdbv1beta2.ProcessGroupID("storage-1")))
+					})
+				})
+			})
+
+			When("removing a pending for removal", func() {
+				When("the process group doesn't exist", func() {
+					BeforeEach(func() {
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"doesntExist": fdbv1beta2.UpdateActionDelete}
+					})
+
+					It("shouldn't change the map", func() {
+						Expect(adminClient.pendingForRemoval).To(BeEmpty())
+					})
+				})
+
+				When("the process group exists", func() {
+					BeforeEach(func() {
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"storage-1": fdbv1beta2.UpdateActionDelete}
+						cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1", fdbv1beta2.ProcessClassStorage, []string{"192.168.0.2"}))
+						adminClient.Cluster = cluster
+					})
+
+					When("the process group is not in the map", func() {
+						It("should not add the process group to the map", func() {
+							Expect(adminClient.pendingForRemoval).To(BeEmpty())
+						})
+					})
+
+					When("the process group is in the map", func() {
+						BeforeEach(func() {
+							adminClient.pendingForRemoval = map[fdbv1beta2.ProcessGroupID]time.Time{"storage-1": {}}
+						})
+
+						It("should not remove the process group from the map", func() {
+							Expect(adminClient.pendingForRemoval).To(BeEmpty())
+						})
+					})
+				})
+			})
+		})
+
+		When("updating the pending for exclusion", func() {
+			var updates map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction
+
+			JustBeforeEach(func() {
+				Expect(adminClient.UpdatePendingForExclusion(updates)).NotTo(HaveOccurred())
+			})
+
+			When("adding a pending for exclusion", func() {
+				When("the process group doesn't exist", func() {
+					BeforeEach(func() {
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"doesntExist": fdbv1beta2.UpdateActionAdd}
+					})
+
+					It("should add the process group to the map", func() {
+						Expect(adminClient.pendingForExclusion).To(HaveKey(fdbv1beta2.ProcessGroupID("doesntExist")))
+					})
+				})
+
+				When("the process group exists", func() {
+					BeforeEach(func() {
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"storage-1": fdbv1beta2.UpdateActionAdd}
+					})
+
+					BeforeEach(func() {
+						cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1", fdbv1beta2.ProcessClassStorage, []string{"192.168.0.2"}))
+						adminClient.Cluster = cluster
+					})
+
+					It("should add the process group to the map", func() {
+						Expect(adminClient.pendingForExclusion).To(HaveLen(1))
+						Expect(adminClient.pendingForExclusion).To(HaveKey(fdbv1beta2.ProcessGroupID("storage-1")))
+					})
+				})
+			})
+
+			When("removing a pending for exclusion", func() {
+				When("the process group doesn't exist", func() {
+					BeforeEach(func() {
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"doesntExist": fdbv1beta2.UpdateActionDelete}
+					})
+
+					It("shouldn't change the map", func() {
+						Expect(adminClient.pendingForExclusion).To(BeEmpty())
+					})
+				})
+
+				When("the process group exists", func() {
+					BeforeEach(func() {
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"storage-1": fdbv1beta2.UpdateActionDelete}
+						cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1", fdbv1beta2.ProcessClassStorage, []string{"192.168.0.2"}))
+						adminClient.Cluster = cluster
+					})
+
+					When("the process group is not in the map", func() {
+						It("should not add the process group to the map", func() {
+							Expect(adminClient.pendingForExclusion).To(BeEmpty())
+						})
+					})
+
+					When("the process group is in the map", func() {
+						BeforeEach(func() {
+							adminClient.pendingForExclusion = map[fdbv1beta2.ProcessGroupID]time.Time{"storage-1": {}}
+						})
+
+						It("should not remove the process group from the map", func() {
+							Expect(adminClient.pendingForExclusion).To(BeEmpty())
+						})
+					})
+				})
+			})
+		})
+
+		When("updating the pending for inclusion", func() {
+			var updates map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction
+
+			JustBeforeEach(func() {
+				Expect(adminClient.UpdatePendingForInclusion(updates)).NotTo(HaveOccurred())
+			})
+
+			When("adding a pending for inclusion", func() {
+				When("the process group doesn't exist", func() {
+					BeforeEach(func() {
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"doesntExist": fdbv1beta2.UpdateActionAdd}
+					})
+
+					It("should add the process group to the map", func() {
+						Expect(adminClient.pendingForInclusion).To(HaveKey(fdbv1beta2.ProcessGroupID("doesntExist")))
+					})
+				})
+
+				When("the process group exists", func() {
+					BeforeEach(func() {
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"storage-1": fdbv1beta2.UpdateActionAdd}
+					})
+
+					BeforeEach(func() {
+						cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1", fdbv1beta2.ProcessClassStorage, []string{"192.168.0.2"}))
+						adminClient.Cluster = cluster
+					})
+
+					It("should add the process group to the map", func() {
+						Expect(adminClient.pendingForInclusion).To(HaveLen(1))
+						Expect(adminClient.pendingForInclusion).To(HaveKey(fdbv1beta2.ProcessGroupID("storage-1")))
+					})
+				})
+			})
+
+			When("removing a pending for inclusion", func() {
+				When("the process group doesn't exist", func() {
+					BeforeEach(func() {
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"doesntExist": fdbv1beta2.UpdateActionDelete}
+					})
+
+					It("shouldn't change the map", func() {
+						Expect(adminClient.pendingForRemoval).To(BeEmpty())
+					})
+				})
+
+				When("the process group exists", func() {
+					BeforeEach(func() {
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"storage-1": fdbv1beta2.UpdateActionDelete}
+						cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1", fdbv1beta2.ProcessClassStorage, []string{"192.168.0.2"}))
+						adminClient.Cluster = cluster
+					})
+
+					When("the process group is not in the map", func() {
+						It("should not add the process group to the map", func() {
+							Expect(adminClient.pendingForInclusion).To(BeEmpty())
+						})
+					})
+
+					When("the process group is in the map", func() {
+						BeforeEach(func() {
+							adminClient.pendingForInclusion = map[fdbv1beta2.ProcessGroupID]time.Time{"storage-1": {}}
+						})
+
+						It("should not remove the process group from the map", func() {
+							Expect(adminClient.pendingForInclusion).To(BeEmpty())
+						})
+					})
+				})
+			})
+		})
+
+		When("updating the pending for restart", func() {
+			var updates map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction
+
+			JustBeforeEach(func() {
+				Expect(adminClient.UpdatePendingForRestart(updates)).NotTo(HaveOccurred())
+			})
+
+			When("adding a pending for restart", func() {
+				When("the process group doesn't exist", func() {
+					BeforeEach(func() {
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"doesntExist": fdbv1beta2.UpdateActionAdd}
+					})
+
+					It("should add the process group to the map", func() {
+						Expect(adminClient.pendingForRestart).To(HaveKey(fdbv1beta2.ProcessGroupID("doesntExist")))
+					})
+				})
+
+				When("the process group exists", func() {
+					BeforeEach(func() {
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"storage-1": fdbv1beta2.UpdateActionAdd}
+					})
+
+					BeforeEach(func() {
+						cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1", fdbv1beta2.ProcessClassStorage, []string{"192.168.0.2"}))
+						adminClient.Cluster = cluster
+					})
+
+					It("should add the process group to the map", func() {
+						Expect(adminClient.pendingForRestart).To(HaveLen(1))
+						Expect(adminClient.pendingForRestart).To(HaveKey(fdbv1beta2.ProcessGroupID("storage-1")))
+					})
+				})
+			})
+
+			When("removing a pending for restart", func() {
+				When("the process group doesn't exist", func() {
+					BeforeEach(func() {
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"doesntExist": fdbv1beta2.UpdateActionDelete}
+					})
+
+					It("shouldn't change the map", func() {
+						Expect(adminClient.pendingForRestart).To(BeEmpty())
+					})
+				})
+
+				When("the process group exists", func() {
+					BeforeEach(func() {
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"storage-1": fdbv1beta2.UpdateActionDelete}
+						cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1", fdbv1beta2.ProcessClassStorage, []string{"192.168.0.2"}))
+						adminClient.Cluster = cluster
+					})
+
+					When("the process group is not in the map", func() {
+						It("should not add the process group to the map", func() {
+							Expect(adminClient.pendingForRestart).To(BeEmpty())
+						})
+					})
+
+					When("the process group is in the map", func() {
+						BeforeEach(func() {
+							adminClient.pendingForRestart = map[fdbv1beta2.ProcessGroupID]time.Time{"storage-1": {}}
+						})
+
+						It("should not remove the process group from the map", func() {
+							Expect(adminClient.pendingForRestart).To(BeEmpty())
+						})
+					})
+				})
+			})
+		})
+
+		When("updating the ready for exclusion", func() {
+			var updates map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction
+
+			JustBeforeEach(func() {
+				Expect(adminClient.UpdateReadyForExclusion(updates)).NotTo(HaveOccurred())
+			})
+
+			When("adding a ready for exclusion", func() {
+				When("the process group doesn't exist", func() {
+					BeforeEach(func() {
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"doesntExist": fdbv1beta2.UpdateActionAdd}
+					})
+
+					It("should add the process group to the map", func() {
+						Expect(adminClient.readyForExclusion).To(HaveKey(fdbv1beta2.ProcessGroupID("doesntExist")))
+					})
+				})
+
+				When("the process group exists", func() {
+					BeforeEach(func() {
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"storage-1": fdbv1beta2.UpdateActionAdd}
+					})
+
+					BeforeEach(func() {
+						cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1", fdbv1beta2.ProcessClassStorage, []string{"192.168.0.2"}))
+						adminClient.Cluster = cluster
+					})
+
+					It("should add the process group to the map", func() {
+						Expect(adminClient.readyForExclusion).To(HaveLen(1))
+						Expect(adminClient.readyForExclusion).To(HaveKey(fdbv1beta2.ProcessGroupID("storage-1")))
+					})
+				})
+			})
+
+			When("removing a ready for exclusion", func() {
+				When("the process group doesn't exist", func() {
+					BeforeEach(func() {
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"doesntExist": fdbv1beta2.UpdateActionDelete}
+					})
+
+					It("shouldn't change the map", func() {
+						Expect(adminClient.readyForExclusion).To(BeEmpty())
+					})
+				})
+
+				When("the process group exists", func() {
+					BeforeEach(func() {
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"storage-1": fdbv1beta2.UpdateActionDelete}
+						cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1", fdbv1beta2.ProcessClassStorage, []string{"192.168.0.2"}))
+						adminClient.Cluster = cluster
+					})
+
+					When("the process group is not in the map", func() {
+						It("should not add the process group to the map", func() {
+							Expect(adminClient.readyForExclusion).To(BeEmpty())
+						})
+					})
+
+					When("the process group is in the map", func() {
+						BeforeEach(func() {
+							adminClient.readyForExclusion = map[fdbv1beta2.ProcessGroupID]time.Time{"storage-1": {}}
+						})
+
+						It("should remove the process group from the map", func() {
+							Expect(adminClient.readyForExclusion).To(BeEmpty())
+						})
+					})
+				})
+			})
+		})
+
+		When("updating the ready for inclusion", func() {
+			var updates map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction
+
+			JustBeforeEach(func() {
+				Expect(adminClient.UpdateReadyForInclusion(updates)).NotTo(HaveOccurred())
+			})
+
+			When("adding a ready for inclusion", func() {
+				When("the process group doesn't exist", func() {
+					BeforeEach(func() {
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"doesntExist": fdbv1beta2.UpdateActionAdd}
+					})
+
+					It("should add the process group to the map", func() {
+						Expect(adminClient.readyForInclusion).To(HaveKey(fdbv1beta2.ProcessGroupID("doesntExist")))
+					})
+				})
+
+				When("the process group exists", func() {
+					BeforeEach(func() {
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"storage-1": fdbv1beta2.UpdateActionAdd}
+					})
+
+					BeforeEach(func() {
+						cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1", fdbv1beta2.ProcessClassStorage, []string{"192.168.0.2"}))
+						adminClient.Cluster = cluster
+					})
+
+					It("should add the process group to the map", func() {
+						Expect(adminClient.readyForInclusion).To(HaveLen(1))
+						Expect(adminClient.readyForInclusion).To(HaveKey(fdbv1beta2.ProcessGroupID("storage-1")))
+					})
+				})
+			})
+
+			When("removing a ready for inclusion", func() {
+				When("the process group doesn't exist", func() {
+					BeforeEach(func() {
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"doesntExist": fdbv1beta2.UpdateActionDelete}
+					})
+
+					It("shouldn't change map", func() {
+						Expect(adminClient.readyForInclusion).To(BeEmpty())
+					})
+				})
+
+				When("the process group exists", func() {
+					BeforeEach(func() {
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"storage-1": fdbv1beta2.UpdateActionDelete}
+						cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1", fdbv1beta2.ProcessClassStorage, []string{"192.168.0.2"}))
+						adminClient.Cluster = cluster
+					})
+
+					When("the process group is not in the map", func() {
+						It("should not add the process group to the map", func() {
+							Expect(adminClient.readyForInclusion).To(BeEmpty())
+						})
+					})
+
+					When("the process group is in the map", func() {
+						BeforeEach(func() {
+							adminClient.readyForInclusion = map[fdbv1beta2.ProcessGroupID]time.Time{"storage-1": {}}
+						})
+
+						It("should not remove the process group from the map", func() {
+							Expect(adminClient.readyForInclusion).To(BeEmpty())
+						})
+					})
+				})
+			})
+		})
+
+		When("updating the ready for restart", func() {
+			var updates map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction
+
+			JustBeforeEach(func() {
+				Expect(adminClient.UpdateReadyForRestart(updates)).NotTo(HaveOccurred())
+			})
+
+			When("adding a ready for restart", func() {
+				When("the process group doesn't exist", func() {
+					BeforeEach(func() {
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"doesntExist": fdbv1beta2.UpdateActionAdd}
+					})
+
+					It("should add the process group to the map", func() {
+						Expect(adminClient.readyForRestart).To(HaveKey(fdbv1beta2.ProcessGroupID("doesntExist")))
+					})
+				})
+
+				When("the process group exists", func() {
+					BeforeEach(func() {
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"storage-1": fdbv1beta2.UpdateActionAdd}
+					})
+
+					BeforeEach(func() {
+						cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1", fdbv1beta2.ProcessClassStorage, []string{"192.168.0.2"}))
+						adminClient.Cluster = cluster
+					})
+
+					It("should add the process group to the map", func() {
+						Expect(adminClient.readyForRestart).To(HaveLen(1))
+						Expect(adminClient.readyForRestart).To(HaveKey(fdbv1beta2.ProcessGroupID("storage-1")))
+					})
+				})
+			})
+
+			When("removing a ready for restart", func() {
+				When("the process group doesn't exist", func() {
+					BeforeEach(func() {
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"doesntExist": fdbv1beta2.UpdateActionDelete}
+					})
+
+					It("should not add the process group to the map", func() {
+						Expect(adminClient.readyForRestart).To(BeEmpty())
+					})
+				})
+
+				When("the process group exists", func() {
+					BeforeEach(func() {
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"storage-1": fdbv1beta2.UpdateActionDelete}
+						cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1", fdbv1beta2.ProcessClassStorage, []string{"192.168.0.2"}))
+						adminClient.Cluster = cluster
+					})
+
+					When("the process group is not in the map", func() {
+						It("should not add the process group to the map", func() {
+							Expect(adminClient.readyForRestart).To(BeEmpty())
+						})
+					})
+
+					When("the process group is in the map", func() {
+						BeforeEach(func() {
+							adminClient.readyForRestart = map[fdbv1beta2.ProcessGroupID]time.Time{"storage-1": {}}
+						})
+
+						It("should not remove the process group from the map", func() {
+							Expect(adminClient.readyForRestart).To(BeEmpty())
+						})
+					})
+				})
+			})
+		})
+
+		When("getting the pending for removal", func() {
+			var result map[fdbv1beta2.ProcessGroupID]time.Time
+			var prefix string
+
+			JustBeforeEach(func() {
+				var err error
+				result, err = adminClient.GetPendingForRemoval(prefix)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			When("no pending for removal exists", func() {
+				It("should return an empty map", func() {
+					Expect(result).To(BeEmpty())
+				})
+			})
+
+			When("two pending for removal exists", func() {
+				BeforeEach(func() {
+					adminClient.pendingForRemoval = map[fdbv1beta2.ProcessGroupID]time.Time{
+						"storage-1":        {},
+						"prefix-storage-1": {},
+					}
+				})
+
+				When("no prefix is specified", func() {
+					It("should return all entries", func() {
+						Expect(result).To(HaveLen(2))
+					})
+				})
+
+				When("a prefix is specified", func() {
+					BeforeEach(func() {
+						prefix = "prefix"
+					})
+
+					It("should return all matching entries", func() {
+						Expect(result).To(HaveLen(1))
+						Expect(result).To(HaveKey(fdbv1beta2.ProcessGroupID("prefix-storage-1")))
+					})
+				})
+			})
+		})
+
+		When("getting the pending for exclusion", func() {
+			var result map[fdbv1beta2.ProcessGroupID]time.Time
+			var prefix string
+
+			JustBeforeEach(func() {
+				var err error
+				result, err = adminClient.GetPendingForExclusion(prefix)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			When("no pending for exclusion exists", func() {
+				It("should return an empty map", func() {
+					Expect(result).To(BeEmpty())
+				})
+			})
+
+			When("two pending for exclusion exists", func() {
+				BeforeEach(func() {
+					adminClient.pendingForExclusion = map[fdbv1beta2.ProcessGroupID]time.Time{
+						"storage-1":        {},
+						"prefix-storage-1": {},
+					}
+				})
+
+				When("no prefix is specified", func() {
+					It("should return all entries", func() {
+						Expect(result).To(HaveLen(2))
+					})
+				})
+
+				When("a prefix is specified", func() {
+					BeforeEach(func() {
+						prefix = "prefix"
+					})
+
+					It("should return all matching entries", func() {
+						Expect(result).To(HaveLen(1))
+						Expect(result).To(HaveKey(fdbv1beta2.ProcessGroupID("prefix-storage-1")))
+					})
+				})
+			})
+		})
+
+		When("getting the pending for inclusion", func() {
+			var result map[fdbv1beta2.ProcessGroupID]time.Time
+			var prefix string
+
+			JustBeforeEach(func() {
+				var err error
+				result, err = adminClient.GetPendingForInclusion(prefix)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			When("no pending for inclusion exists", func() {
+				It("should return an empty map", func() {
+					Expect(result).To(BeEmpty())
+				})
+			})
+
+			When("two pending for inclusion exists", func() {
+				BeforeEach(func() {
+					adminClient.pendingForInclusion = map[fdbv1beta2.ProcessGroupID]time.Time{
+						"storage-1":        {},
+						"prefix-storage-1": {},
+					}
+				})
+
+				When("no prefix is specified", func() {
+					It("should return all entries", func() {
+						Expect(result).To(HaveLen(2))
+					})
+				})
+
+				When("a prefix is specified", func() {
+					BeforeEach(func() {
+						prefix = "prefix"
+					})
+
+					It("should return all matching entries", func() {
+						Expect(result).To(HaveLen(1))
+						Expect(result).To(HaveKey(fdbv1beta2.ProcessGroupID("prefix-storage-1")))
+					})
+				})
+			})
+		})
+
+		When("getting the pending for restart", func() {
+			var result map[fdbv1beta2.ProcessGroupID]time.Time
+			var prefix string
+
+			JustBeforeEach(func() {
+				var err error
+				result, err = adminClient.GetPendingForRestart(prefix)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			When("no pending for restart exists", func() {
+				It("should return an empty map", func() {
+					Expect(result).To(BeEmpty())
+				})
+			})
+
+			When("two pending for restart exists", func() {
+				BeforeEach(func() {
+					adminClient.pendingForRestart = map[fdbv1beta2.ProcessGroupID]time.Time{
+						"storage-1":        {},
+						"prefix-storage-1": {},
+					}
+				})
+
+				When("no prefix is specified", func() {
+					It("should return all entries", func() {
+						Expect(result).To(HaveLen(2))
+					})
+				})
+
+				When("a prefix is specified", func() {
+					BeforeEach(func() {
+						prefix = "prefix"
+					})
+
+					It("should return all matching entries", func() {
+						Expect(result).To(HaveLen(1))
+						Expect(result).To(HaveKey(fdbv1beta2.ProcessGroupID("prefix-storage-1")))
+					})
+				})
+			})
+		})
+
+		When("getting the ready for exclusion", func() {
+			var result map[fdbv1beta2.ProcessGroupID]time.Time
+			var prefix string
+
+			JustBeforeEach(func() {
+				var err error
+				result, err = adminClient.GetReadyForExclusion(prefix)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			When("no ready for exclusion exists", func() {
+				It("should return an empty map", func() {
+					Expect(result).To(BeEmpty())
+				})
+			})
+
+			When("two ready for exclusion exists", func() {
+				BeforeEach(func() {
+					adminClient.readyForExclusion = map[fdbv1beta2.ProcessGroupID]time.Time{
+						"storage-1":        {},
+						"prefix-storage-1": {},
+					}
+					adminClient.Cluster.Status.ProcessGroups = append(adminClient.Cluster.Status.ProcessGroups,
+						fdbv1beta2.NewProcessGroupStatus("storage-1", fdbv1beta2.ProcessClassStorage, []string{"192.168.0.2"}),
+						fdbv1beta2.NewProcessGroupStatus("prefix-storage-1", fdbv1beta2.ProcessClassStorage, []string{"192.168.0.3"}),
+					)
+				})
+
+				When("no prefix is specified", func() {
+					It("should return all entries", func() {
+						Expect(result).To(HaveLen(2))
+					})
+				})
+
+				When("a prefix is specified", func() {
+					BeforeEach(func() {
+						prefix = "prefix"
+					})
+
+					It("should return all matching entries", func() {
+						Expect(result).To(HaveLen(1))
+						Expect(result).To(HaveKey(fdbv1beta2.ProcessGroupID("prefix-storage-1")))
+					})
+				})
+			})
+		})
+
+		When("getting the ready for inclusion", func() {
+			var result map[fdbv1beta2.ProcessGroupID]time.Time
+			var prefix string
+
+			JustBeforeEach(func() {
+				var err error
+				result, err = adminClient.GetReadyForInclusion(prefix)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			When("no ready for inclusion exists", func() {
+				It("should return an empty map", func() {
+					Expect(result).To(BeEmpty())
+				})
+			})
+
+			When("two ready for inclusion exists", func() {
+				BeforeEach(func() {
+					adminClient.readyForInclusion = map[fdbv1beta2.ProcessGroupID]time.Time{
+						"storage-1":        {},
+						"prefix-storage-1": {},
+					}
+					adminClient.Cluster.Status.ProcessGroups = append(adminClient.Cluster.Status.ProcessGroups,
+						fdbv1beta2.NewProcessGroupStatus("storage-1", fdbv1beta2.ProcessClassStorage, []string{"192.168.0.2"}),
+						fdbv1beta2.NewProcessGroupStatus("prefix-storage-1", fdbv1beta2.ProcessClassStorage, []string{"192.168.0.3"}),
+					)
+				})
+
+				When("no prefix is specified", func() {
+					It("should return all entries", func() {
+						Expect(result).To(HaveLen(2))
+					})
+				})
+
+				When("a prefix is specified", func() {
+					BeforeEach(func() {
+						prefix = "prefix"
+					})
+
+					It("should return all matching entries", func() {
+						Expect(result).To(HaveLen(1))
+						Expect(result).To(HaveKey(fdbv1beta2.ProcessGroupID("prefix-storage-1")))
+					})
+				})
+			})
+		})
+
+		When("getting the ready for restart", func() {
+			var result map[fdbv1beta2.ProcessGroupID]time.Time
+			var prefix string
+
+			JustBeforeEach(func() {
+				var err error
+				result, err = adminClient.GetReadyForRestart(prefix)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			When("no ready for restart exists", func() {
+				It("should return an empty map", func() {
+					Expect(result).To(BeEmpty())
+				})
+			})
+
+			When("two ready for restart exists", func() {
+				BeforeEach(func() {
+					adminClient.readyForRestart = map[fdbv1beta2.ProcessGroupID]time.Time{
+						"storage-1":        {},
+						"prefix-storage-1": {},
+					}
+					adminClient.Cluster.Status.ProcessGroups = append(adminClient.Cluster.Status.ProcessGroups,
+						fdbv1beta2.NewProcessGroupStatus("storage-1", fdbv1beta2.ProcessClassStorage, []string{"192.168.0.2"}),
+						fdbv1beta2.NewProcessGroupStatus("prefix-storage-1", fdbv1beta2.ProcessClassStorage, []string{"192.168.0.3"}),
+					)
+				})
+
+				When("no prefix is specified", func() {
+					It("should return all entries", func() {
+						Expect(result).To(HaveLen(2))
+					})
+				})
+
+				When("a prefix is specified", func() {
+					BeforeEach(func() {
+						prefix = "prefix"
+					})
+
+					It("should return all matching entries", func() {
+						Expect(result).To(HaveLen(1))
+						Expect(result).To(HaveKey(fdbv1beta2.ProcessGroupID("prefix-storage-1")))
+					})
+				})
+			})
+		})
+	})
 })
 
 func getCommandlineForProcessFromStatus(status *fdbv1beta2.FoundationDBStatus, targetProcess string) string {

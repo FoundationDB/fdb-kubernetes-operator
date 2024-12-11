@@ -903,6 +903,7 @@ func GetBackupDeployment(backup *fdbv1beta2.FoundationDBBackup) (*appsv1.Deploym
 	if err != nil {
 		return nil, err
 	}
+
 	// Right now the main container only starts the backup agent without doing anything special.
 	mainContainer.Image = image
 	mainContainer.Command = []string{"backup_agent"}

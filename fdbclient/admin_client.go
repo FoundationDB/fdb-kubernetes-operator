@@ -27,8 +27,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbstatus"
-	"github.com/apple/foundationdb/bindings/go/src/fdb"
 	"os"
 	"os/exec"
 	"path"
@@ -36,6 +34,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbstatus"
+	"github.com/apple/foundationdb/bindings/go/src/fdb"
 
 	"github.com/go-logr/logr"
 
@@ -872,4 +873,90 @@ func quorumOfCoordinatorsAreReachable(status *fdbv1beta2.FoundationDBStatus) boo
 	}
 
 	return status.Client.Coordinators.QuorumReachable
+}
+
+// ...
+const (
+	pendingForRemoval   = "pendingForRemoval"
+	pendingForExclusion = "pendingForExclusion"
+	pendingForInclusion = "pendingForInclusion"
+	pendingForRestart   = "pendingForRestart"
+	readyForExclusion   = "readyForExclusion"
+	readyForInclusion   = "readyForInclusion"
+	readyForRestart     = "readyForRestart"
+)
+
+// UpdatePendingForRemoval updates the set of process groups that are marked for removal, an update can be either the addition or removal of a process group.
+func (client *cliAdminClient) UpdatePendingForRemoval(updates map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction) error {
+	return client.fdbLibClient.updateGlobalCoordinationKeys(pendingForRemoval, updates)
+}
+
+// UpdatePendingForExclusion updates the set of process groups that should be excluded, an update can be either the addition or removal of a process group.
+func (client *cliAdminClient) UpdatePendingForExclusion(updates map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction) error {
+	return client.fdbLibClient.updateGlobalCoordinationKeys(pendingForExclusion, updates)
+}
+
+// UpdatePendingForInclusion updates the set of process groups that should be included, an update can be either the addition or removal of a process group.
+func (client *cliAdminClient) UpdatePendingForInclusion(updates map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction) error {
+	return client.fdbLibClient.updateGlobalCoordinationKeys(pendingForInclusion, updates)
+}
+
+// UpdatePendingForRestart updates the set of process groups that should be restarted, an update can be either the addition or removal of a process group.
+func (client *cliAdminClient) UpdatePendingForRestart(updates map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction) error {
+	return client.fdbLibClient.updateGlobalCoordinationKeys(pendingForRestart, updates)
+}
+
+// UpdateReadyForExclusion updates the set of process groups that are ready to be excluded, an update can be either the addition or removal of a process group.
+func (client *cliAdminClient) UpdateReadyForExclusion(updates map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction) error {
+	return client.fdbLibClient.updateGlobalCoordinationKeys(readyForExclusion, updates)
+}
+
+// UpdateReadyForInclusion updates the set of process groups that are ready to be included, an update can be either the addition or removal of a process group.
+func (client *cliAdminClient) UpdateReadyForInclusion(updates map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction) error {
+	return client.fdbLibClient.updateGlobalCoordinationKeys(readyForInclusion, updates)
+}
+
+// UpdateReadyForRestart updates the set of process groups that are ready to be restarted, an update can be either the addition or removal of a process group
+func (client *cliAdminClient) UpdateReadyForRestart(updates map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction) error {
+	return client.fdbLibClient.updateGlobalCoordinationKeys(readyForRestart, updates)
+}
+
+// GetPendingForRemoval gets the process group IDs for all process groups that are marked for removal.
+func (client *cliAdminClient) GetPendingForRemoval(prefix string) (map[fdbv1beta2.ProcessGroupID]time.Time, error) {
+	return client.fdbLibClient.getGlobalCoordinationKeys(path.Join(pendingForRemoval, prefix))
+}
+
+// GetPendingForExclusion gets the process group IDs for all process groups that should be excluded.
+func (client *cliAdminClient) GetPendingForExclusion(prefix string) (map[fdbv1beta2.ProcessGroupID]time.Time, error) {
+	return client.fdbLibClient.getGlobalCoordinationKeys(path.Join(pendingForExclusion, prefix))
+}
+
+// GetPendingForInclusion gets the process group IDs for all the process groups that should be included.
+func (client *cliAdminClient) GetPendingForInclusion(prefix string) (map[fdbv1beta2.ProcessGroupID]time.Time, error) {
+	return client.fdbLibClient.getGlobalCoordinationKeys(path.Join(pendingForInclusion, prefix))
+}
+
+// GetPendingForRestart gets the process group IDs for all the process groups that should be restarted.
+func (client *cliAdminClient) GetPendingForRestart(prefix string) (map[fdbv1beta2.ProcessGroupID]time.Time, error) {
+	return client.fdbLibClient.getGlobalCoordinationKeys(path.Join(pendingForRestart, prefix))
+}
+
+// GetReadyForExclusion gets the process group IDs for all the process groups that are ready to be excluded.
+func (client *cliAdminClient) GetReadyForExclusion(prefix string) (map[fdbv1beta2.ProcessGroupID]time.Time, error) {
+	return client.fdbLibClient.getGlobalCoordinationKeys(path.Join(readyForExclusion, prefix))
+}
+
+// GetReadyForInclusion gets the process group IDs for all the process groups that are ready to be included.
+func (client *cliAdminClient) GetReadyForInclusion(prefix string) (map[fdbv1beta2.ProcessGroupID]time.Time, error) {
+	return client.fdbLibClient.getGlobalCoordinationKeys(path.Join(readyForInclusion, prefix))
+}
+
+// GetReadyForRestart gets the process group IDs fir all the process groups that are ready to be restarted.
+func (client *cliAdminClient) GetReadyForRestart(prefix string) (map[fdbv1beta2.ProcessGroupID]time.Time, error) {
+	return client.fdbLibClient.getGlobalCoordinationKeys(path.Join(readyForRestart, prefix))
+}
+
+// ClearReadyForRestart removes all the process group IDs for all the process groups that are ready to be restarted.
+func (client *cliAdminClient) ClearReadyForRestart() error {
+	return client.fdbLibClient.clearGlobalCoordinationKeys(readyForRestart)
 }
