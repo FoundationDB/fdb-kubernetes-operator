@@ -313,5 +313,113 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 				factory.DeleteDataLoader(fdbCluster.GetPrimary())
 			})
 		})
+
+		PWhen("when a remote side has network latency issues and a pod gets replaced", func() {
+			/*
+
+				TODO (johscheuer): This test should be running with a bigger multi-region cluster e.g.:
+
+					config := fixtures.DefaultClusterConfigWithHaMode(fixtures.HaFourZoneSingleSat, false)
+					config.StorageServerPerPod = 8
+					config.MachineCount = 10
+					config.DisksPerMachine = 8
+
+			*/
+			var experiment *fixtures.ChaosMeshExperiment
+
+			BeforeEach(func() {
+				dcID := fdbCluster.GetRemote().GetCluster().Spec.DataCenter
+
+				status := fdbCluster.GetPrimary().GetStatus()
+
+				var processGroupID fdbv1beta2.ProcessGroupID
+				for _, process := range status.Cluster.Processes {
+					dc, ok := process.Locality[fdbv1beta2.FDBLocalityDCIDKey]
+					if !ok || dc != dcID {
+						continue
+					}
+
+					var isLog bool
+					for _, role := range process.Roles {
+						if role.Role == "log" {
+							isLog = true
+							break
+						}
+					}
+
+					if !isLog {
+						continue
+					}
+
+					processGroupID = fdbv1beta2.ProcessGroupID(process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey])
+					break
+				}
+
+				log.Println("Will inject chaos into", processGroupID, "and replace it")
+				var replacedPod corev1.Pod
+				for _, pod := range fdbCluster.GetRemote().GetLogPods().Items {
+					if fixtures.GetProcessGroupID(pod) != processGroupID {
+						continue
+					}
+
+					replacedPod = pod
+					break
+				}
+
+				log.Println("Inject latency chaos")
+				experiment = factory.InjectNetworkLatency(
+					chaosmesh.PodSelectorSpec{
+						GenericSelectorSpec: chaosmesh.GenericSelectorSpec{
+							Namespaces:     []string{fdbCluster.GetRemote().Namespace()},
+							LabelSelectors: fdbCluster.GetRemote().GetCachedCluster().GetMatchLabels(),
+						},
+					},
+					chaosmesh.PodSelectorSpec{
+						GenericSelectorSpec: chaosmesh.GenericSelectorSpec{
+							Namespaces: []string{
+								fdbCluster.GetPrimary().Namespace(),
+								fdbCluster.GetPrimarySatellite().Namespace(),
+								fdbCluster.GetRemote().Namespace(),
+								fdbCluster.GetRemoteSatellite().Namespace(),
+							},
+							ExpressionSelectors: []metav1.LabelSelectorRequirement{
+								{
+									Key:      fdbv1beta2.FDBClusterLabel,
+									Operator: metav1.LabelSelectorOpExists,
+								},
+							},
+						},
+					}, chaosmesh.Both,
+					&chaosmesh.DelaySpec{
+						Latency:     "250ms",
+						Correlation: "100",
+						Jitter:      "0",
+					})
+
+				// TODO (johscheuer): Allow to have this as a long running task until the test is done.
+				factory.CreateDataLoaderIfAbsentWithWait(fdbCluster.GetPrimary(), false)
+
+				time.Sleep(1 * time.Minute)
+				log.Println("replacedPod", replacedPod.Name, "useLocalitiesForExclusion", fdbCluster.GetPrimary().GetCluster().UseLocalitiesForExclusion())
+				fdbCluster.GetRemote().ReplacePod(replacedPod, true)
+			})
+
+			It("should exclude and remove the pod", func() {
+				Eventually(func() []fdbv1beta2.ExcludedServers {
+					status := fdbCluster.GetPrimary().GetStatus()
+					excludedServers := status.Cluster.DatabaseConfiguration.ExcludedServers
+					log.Println("excludedServers", excludedServers)
+					return excludedServers
+				}).WithTimeout(15 * time.Minute).WithPolling(1 * time.Second).Should(BeEmpty())
+			})
+
+			AfterEach(func() {
+				Expect(fdbCluster.GetRemote().ClearProcessGroupsToRemove()).NotTo(HaveOccurred())
+				factory.DeleteChaosMeshExperimentSafe(experiment)
+				// Making sure we included back all the process groups after exclusion is complete.
+				Expect(fdbCluster.GetPrimary().GetStatus().Cluster.DatabaseConfiguration.ExcludedServers).To(BeEmpty())
+				factory.DeleteDataLoader(fdbCluster.GetPrimary())
+			})
+		})
 	})
 })
