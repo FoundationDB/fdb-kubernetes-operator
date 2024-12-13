@@ -2665,4 +2665,70 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(BeTrue())
 		})
 	})
+
+	When("a process is marked for removal and was excluded", func() {
+		var pickedProcessGroupID fdbv1beta2.ProcessGroupID
+		var initialExclusionTimestamp *metav1.Time
+		var pickedPod corev1.Pod
+
+		BeforeEach(func() {
+			pickedPod = factory.RandomPickOnePod(fdbCluster.GetStatelessPods().Items)
+			pickedProcessGroupID = fixtures.GetProcessGroupID(pickedPod)
+			log.Println("pickedProcessGroupID", pickedProcessGroupID, "pickedPod", pickedPod.Status.PodIP)
+
+			spec := fdbCluster.GetCluster().Spec.DeepCopy()
+			spec.AutomationOptions.RemovalMode = fdbv1beta2.PodUpdateModeNone
+			fdbCluster.UpdateClusterSpecWithSpec(spec)
+
+			fdbCluster.ReplacePod(pickedPod, false)
+			Expect(fdbCluster.WaitUntilWithForceReconcile(1, 900, func(cluster *fdbv1beta2.FoundationDBCluster) bool {
+				for _, processGroup := range cluster.Status.ProcessGroups {
+					if processGroup.ProcessGroupID != pickedProcessGroupID {
+						continue
+					}
+
+					initialExclusionTimestamp = processGroup.ExclusionTimestamp
+					break
+				}
+
+				log.Println("initialExclusionTimestamp", initialExclusionTimestamp)
+				return initialExclusionTimestamp != nil
+			})).NotTo(HaveOccurred(), "process group is missing the exclusion timestamp")
+			// Ensure that the IP is excluded
+			Expect(fdbCluster.GetStatus().Cluster.DatabaseConfiguration.ExcludedServers).To(ContainElements(fdbv1beta2.ExcludedServers{Address: pickedPod.Status.PodIP}))
+		})
+
+		AfterEach(func() {
+			spec := fdbCluster.GetCluster().Spec.DeepCopy()
+			spec.AutomationOptions.RemovalMode = fdbv1beta2.PodUpdateModeZone
+			fdbCluster.UpdateClusterSpecWithSpec(spec)
+			Expect(fdbCluster.ClearProcessGroupsToRemove()).NotTo(HaveOccurred())
+		})
+
+		When("the process gets included again", func() {
+			BeforeEach(func() {
+				fdbCluster.RunFdbCliCommandInOperator("include all", false, 60)
+			})
+
+			It("should be excluded a second time", func() {
+				var newExclusionTimestamp *metav1.Time
+
+				Expect(fdbCluster.WaitUntilWithForceReconcile(1, 900, func(cluster *fdbv1beta2.FoundationDBCluster) bool {
+					for _, processGroup := range cluster.Status.ProcessGroups {
+						if processGroup.ProcessGroupID != pickedProcessGroupID {
+							continue
+						}
+
+						newExclusionTimestamp = processGroup.ExclusionTimestamp
+						log.Println("ProcessGroup:", processGroup.String())
+						break
+					}
+
+					return newExclusionTimestamp != nil && !newExclusionTimestamp.Equal(initialExclusionTimestamp)
+				})).NotTo(HaveOccurred(), "process group is missing the exclusion timestamp")
+				Expect(initialExclusionTimestamp.Before(newExclusionTimestamp)).To(BeTrue())
+				Expect(initialExclusionTimestamp).NotTo(Equal(newExclusionTimestamp))
+			})
+		})
+	})
 })

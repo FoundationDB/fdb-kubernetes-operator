@@ -655,6 +655,24 @@ var _ = Describe("update_status", func() {
 				Expect(pendingCount).To(BeNumerically("==", 1))
 			})
 		})
+
+		When("a process group is set as excluded but the processes are not excluded", func() {
+			BeforeEach(func() {
+				processGroup := cluster.Status.ProcessGroups[0]
+				processGroup.SetExclude()
+				Expect(processGroup.IsExcluded()).To(BeTrue())
+			})
+
+			It("should remove the exclusion", func() {
+				err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap, allPvcs, logger, "")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(cluster.Status.ProcessGroups).To(HaveLen(17))
+				for _, processGroup := range cluster.Status.ProcessGroups {
+					Expect(processGroup.ProcessGroupConditions).To(HaveLen(0))
+					Expect(processGroup.IsExcluded()).To(BeFalse())
+				}
+			})
+		})
 	})
 
 	Describe("Reconcile", func() {

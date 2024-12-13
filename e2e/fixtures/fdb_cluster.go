@@ -302,6 +302,7 @@ func (fdbCluster *FdbCluster) WaitUntilWithForceReconcile(pollTimeInSeconds int,
 	lastForcedReconciliationTime := time.Now()
 	forceReconcileDuration := 4 * time.Minute
 
+	// TODO (johscheuer): Convert this into a gomega statement.
 	return wait.PollImmediate(
 		time.Duration(pollTimeInSeconds)*time.Second,
 		time.Duration(timeOutInSeconds)*time.Second,

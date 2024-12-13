@@ -75,12 +75,13 @@ var _ = BeforeSuite(func() {
 	testLogger = logf.Log
 	Expect(scheme.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
 	Expect(fdbv1beta2.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
+})
 
+var _ = BeforeEach(func() {
 	// +kubebuilder:scaffold:scheme
 	k8sClient = mockclient.NewMockClient(scheme.Scheme)
 
 	clusterReconciler = createTestClusterReconciler()
-
 	backupReconciler = &FoundationDBBackupReconciler{
 		Client:                 k8sClient,
 		Log:                    ctrl.Log.WithName("controllers").WithName("FoundationDBBackup"),
