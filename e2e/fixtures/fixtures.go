@@ -55,7 +55,7 @@ func (shutdown *ShutdownHooks) InvokeShutdownHandlers() {
 	// we are doing any checks. If the below Expect expression is false the further execution will be stopped and
 	// the handler would never be reset.
 	handler := shutdown.handlers
-	// clear handlers so we can be reused.
+	// clear handlers so it can be reused.
 	shutdown.handlers = []func() error{}
 	// iterate over the array in reverse order.
 	for i := len(handler); i != 0; i-- {
