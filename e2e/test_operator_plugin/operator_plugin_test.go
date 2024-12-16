@@ -65,12 +65,6 @@ var _ = AfterSuite(func() {
 })
 
 var _ = Describe("Operator Plugin", Label("e2e", "pr"), func() {
-	AfterEach(func() {
-		if CurrentSpecReport().Failed() {
-			factory.DumpStateHaCluster(fdbCluster)
-		}
-	})
-
 	When("getting the plugin version from the operator pod", func() {
 		It("should print the version", func() {
 			// Pick one operator pod and execute the kubectl version command to ensure that kubectl-fdb is present
@@ -141,8 +135,9 @@ var _ = Describe("Operator Plugin", Label("e2e", "pr"), func() {
 		AfterEach(func() {
 			log.Println("Recreate cluster")
 			// Delete the broken cluster.
-			fdbCluster.Delete()
+			factory.Shutdown()
 			// Recreate the cluster to make sure  the next tests can proceed
+			factory = fixtures.CreateFactory(testOptions)
 			fdbCluster = factory.CreateFdbHaCluster(clusterConfig, clusterOptions...)
 		})
 
@@ -184,6 +179,10 @@ var _ = Describe("Operator Plugin", Label("e2e", "pr"), func() {
 					})
 				}
 				Expect(errGroup.Wait()).NotTo(HaveOccurred())
+
+				for _, cluster := range fdbCluster.GetAllClusters() {
+					Expect(cluster.GetCluster().UseDNSInClusterFile()).To(BeTrue())
+				}
 
 				// This tests is a destructive test where the cluster will stop working for some period.
 				primary := fdbCluster.GetPrimary()
@@ -239,8 +238,9 @@ var _ = Describe("Operator Plugin", Label("e2e", "pr"), func() {
 			AfterEach(func() {
 				log.Println("Recreate cluster")
 				// Delete the broken cluster.
-				fdbCluster.Delete()
+				factory.Shutdown()
 				// Recreate the cluster to make sure  the next tests can proceed
+				factory = fixtures.CreateFactory(testOptions)
 				fdbCluster = factory.CreateFdbHaCluster(clusterConfig, clusterOptions...)
 			})
 

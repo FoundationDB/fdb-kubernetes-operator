@@ -309,11 +309,14 @@ func (factory *Factory) Shutdown() {
 	time.Sleep(15 * time.Second)
 	err := factory.CleanupChaosMeshExperiments()
 	if err != nil {
-		return
+		log.Println("Could not delete chaos mesh experiments", err.Error())
 	}
 
+	log.Println("Calling", len(factory.invariantShutdownHooks.handlers), "invariantShutdownHooks")
 	factory.invariantShutdownHooks.InvokeShutdownHandlers()
+	log.Println("Calling", len(factory.invariantShutdownHooks.handlers), "shutdownHooks")
 	factory.shutdownHooks.InvokeShutdownHandlers()
+	log.Println("Shutdown is done")
 	factory.shutdownInProgress = false
 }
 
