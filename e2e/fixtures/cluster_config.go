@@ -57,6 +57,10 @@ const (
 
 // GetRedundancyMode returns the redundancy mode based on the cluster configuration.
 func (config ClusterConfig) GetRedundancyMode() fdbv1beta2.RedundancyMode {
+	if config.RedundancyMode != "" {
+		return config.RedundancyMode
+	}
+
 	if config.HaMode == HaFourZoneDoubleSatRF4 {
 		return fdbv1beta2.RedundancyModeDouble
 	}
@@ -112,6 +116,9 @@ type ClusterConfig struct {
 	CustomParameters map[fdbv1beta2.ProcessClass]fdbv1beta2.FoundationDBCustomParameters
 	// CreationCallback allows to specify a method that will be called after the cluster was created.
 	CreationCallback func(fdbCluster *FdbCluster)
+	// RedundancyMode defines the redundancy mode that should be used. If undefined the default is triple, except for
+	// the HaFourZoneDoubleSatRF4 configuration.
+	RedundancyMode fdbv1beta2.RedundancyMode
 }
 
 // DefaultClusterConfigWithHaMode returns the default cluster configuration with the provided HA Mode.
@@ -261,28 +268,57 @@ func (config *ClusterConfig) CreateDatabaseConfiguration() fdbv1beta2.DatabaseCo
 	return fdbv1beta2.DatabaseConfiguration{}
 }
 
-func (config *ClusterConfig) getCustomParametersForProcessClass(processClass fdbv1beta2.ProcessClass) fdbv1beta2.FoundationDBCustomParameters {
-	customParameters, ok := config.CustomParameters[processClass]
-	if !ok {
-		return []fdbv1beta2.FoundationDBCustomParameter{
-			"trace_format=json",
+type customParameterInput struct {
+	key   string
+	value string
+}
+
+func (input *customParameterInput) getCustomParameter() fdbv1beta2.FoundationDBCustomParameter {
+	return fdbv1beta2.FoundationDBCustomParameter(input.key + "=" + input.value)
+}
+
+func addKnobIfMissing(inputs []customParameterInput, customParameters []fdbv1beta2.FoundationDBCustomParameter) fdbv1beta2.FoundationDBCustomParameters {
+	hasKnob := map[string]fdbv1beta2.None{}
+	// Check which knobs are already set.
+	for _, customParameter := range customParameters {
+		for _, input := range inputs {
+			if !strings.Contains(string(customParameter), input.key) {
+				continue
+			}
+
+			hasKnob[input.key] = fdbv1beta2.None{}
+			break
 		}
 	}
 
-	containsTraceParameter := false
-	for _, customParameter := range customParameters {
-		if !strings.Contains(string(customParameter), "trace_format") {
+	for _, input := range inputs {
+		if _, ok := hasKnob[input.key]; ok {
 			continue
 		}
 
-		containsTraceParameter = true
-	}
-
-	if !containsTraceParameter {
-		customParameters = append(customParameters, "trace_format=json")
+		customParameters = append(customParameters, input.getCustomParameter())
 	}
 
 	return customParameters
+}
+
+func (config *ClusterConfig) getCustomParametersForProcessClass(processClass fdbv1beta2.ProcessClass) fdbv1beta2.FoundationDBCustomParameters {
+	requiredKnobs := []customParameterInput{
+		{
+			key:   "trace_format",
+			value: "json",
+		},
+	}
+
+	// If the three data hall redundancy is set, we have to add the additional locality.
+	if config.GetRedundancyMode() == fdbv1beta2.RedundancyModeThreeDataHall {
+		requiredKnobs = append(requiredKnobs, customParameterInput{
+			key:   "locality_data_hall",
+			value: "$NODE_LABEL_TOPOLOGY_KUBERNETES_IO_ZONE",
+		})
+	}
+
+	return addKnobIfMissing(requiredKnobs, config.CustomParameters[processClass])
 }
 
 func getDatabaseConfigurationFourZoneSingleSat(
@@ -471,6 +507,11 @@ func (config *ClusterConfig) CalculateRoleCounts() fdbv1beta2.RoleCounts {
 		// For a HA cluster set log routers and remote logs the same as logs.
 		roleCounts.RemoteLogs = roleCounts.Logs
 		roleCounts.LogRouters = roleCounts.Logs
+	}
+
+	// Add enough log processes for the three_data_hall setup.
+	if config.GetRedundancyMode() == fdbv1beta2.RedundancyModeThreeDataHall {
+		roleCounts.Logs = max(roleCounts.Logs, 9)
 	}
 
 	return roleCounts
