@@ -1,0 +1,56 @@
+apiVersion: apps.foundationdb.org/v1beta2
+kind: FoundationDBCluster
+metadata:
+  labels:
+    cluster-group: test-cluster
+  name: test-cluster
+spec:
+  # The unified image supports to make use of node labels, so setting up a three data hall cluster
+  # is easier with the unified image.
+  imageType: unified
+  version: 7.1.63
+  faultDomain:
+    key: kubernetes.io/hostname
+  processCounts:
+    stateless: -1
+  databaseConfiguration:
+    # Ensure that enough coordinators are available. The processes will be spread across the different zones.
+    logs: 9
+    storage: 9
+    redundancy_mode: "three_data_hall"
+  processes:
+    general:
+      customParameters:
+      - "knob_disable_posix_kernel_aio=1"
+      - "locality_data_hall=$NODE_LABEL_TOPOLOGY_KUBERNETES_IO_ZONE"
+      volumeClaimTemplate:
+        spec:
+          resources:
+            requests:
+              storage: "16G"
+      podTemplate:
+        spec:
+          securityContext:
+            runAsUser: 4059
+            runAsGroup: 4059
+            fsGroup: 4059
+          serviceAccount: fdb-kubernetes
+          # Make sure that the pods are spread equally across the different availability zones.
+          topologySpreadConstraints:
+            - maxSkew: 1
+              topologyKey: topology.kubernetes.io/zone
+              whenUnsatisfiable: DoNotSchedule
+              labelSelector:
+                matchLabels:
+                  foundationdb.org/fdb-cluster-name: test-cluster
+          containers:
+            - name: foundationdb
+              env:
+                # This feature allows the fdb-kubernetes-monitor to read the labels from the node where
+                # it is running.
+                - name: ENABLE_NODE_WATCH
+                  value: "true"
+              resources:
+                requests:
+                  cpu: 250m
+                  memory: 128Mi
