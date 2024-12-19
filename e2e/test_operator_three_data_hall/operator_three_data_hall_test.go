@@ -50,12 +50,9 @@ func init() {
 
 var _ = BeforeSuite(func() {
 	factory = fixtures.CreateFactory(testOptions)
-	if !factory.UseUnifiedImage() {
-		Skip("three data hall tests are only supported with the unified image")
-	}
-
 	config := fixtures.DefaultClusterConfig(false)
 	config.RedundancyMode = fdbv1beta2.RedundancyModeThreeDataHall
+	config.UseUnifiedImage = pointer.Bool(true)
 
 	fdbCluster = factory.CreateFdbCluster(
 		config,
