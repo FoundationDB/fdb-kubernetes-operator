@@ -29,3 +29,7 @@ This will remove all created resources:
 ```bash
 kubectl delete -f ./config/tests/three_data_hall/cluster.yaml
 ```
+
+## Migration to a Three-Data-Hall cluster
+
+See [Fault domains](../../../docs/manual/fault_domains.md)
