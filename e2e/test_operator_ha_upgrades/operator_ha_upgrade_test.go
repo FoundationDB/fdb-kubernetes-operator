@@ -494,7 +494,10 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 		fixtures.GenerateUpgradeTableEntries(testOptions),
 	)
 
-	DescribeTable(
+	// TODO (johscheuer): Ensure this test passes reliably. Right now the cluster sometimes gets stuck and needs
+	// manual intervention.
+	// See: https://github.com/FoundationDB/fdb-kubernetes-operator/issues/2196
+	PDescribeTable(
 		"when no remote storage processes are restarted",
 		func(beforeVersion string, targetVersion string) {
 			// We disable the health check here, as the remote storage processes are not restarted and this can be
