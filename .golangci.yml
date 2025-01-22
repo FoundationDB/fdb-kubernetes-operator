@@ -39,7 +39,7 @@ linters:
     - dogsled
     - errcheck
     - errorlint
-    - exportloopref
+    - copyloopvar
 #    - goconst
 #    - gocritic
 #    - gocyclo

@@ -43,7 +43,7 @@ func newBuggifyCrashLoop(streams genericclioptions.IOStreams) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			clear, err := cmd.Flags().GetBool("clear")
+			clearFlag, err := cmd.Flags().GetBool("clear")
 			if err != nil {
 				return err
 			}
@@ -70,7 +70,7 @@ func newBuggifyCrashLoop(streams genericclioptions.IOStreams) *cobra.Command {
 				buggifyProcessGroupOptions{
 					containerName: containerName,
 					wait:          wait,
-					clear:         clear,
+					clear:         clearFlag,
 					clean:         clean,
 				},
 				processGroupSelectionOpts,

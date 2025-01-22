@@ -42,7 +42,7 @@ func newBuggifyNoSchedule(streams genericclioptions.IOStreams) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			clear, err := cmd.Flags().GetBool("clear")
+			clearFlag, err := cmd.Flags().GetBool("clear")
 			if err != nil {
 				return err
 			}
@@ -64,7 +64,7 @@ func newBuggifyNoSchedule(streams genericclioptions.IOStreams) *cobra.Command {
 			return updateNoScheduleList(cmd, kubeClient,
 				buggifyProcessGroupOptions{
 					wait:  wait,
-					clear: clear,
+					clear: clearFlag,
 					clean: clean,
 				}, processGroupSelectionOpts)
 		},
