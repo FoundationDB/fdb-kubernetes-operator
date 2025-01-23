@@ -10,13 +10,13 @@ TIMEOUT?=168h
 CLUSTER_NAME?=
 NAMESPACE?=
 CONTEXT?=
-FDB_VERSION?=7.1.63
+FDB_VERSION?=7.1.57
 # This will be the version used for upgrade tests.
-NEXT_FDB_VERSION?=7.3.43
+NEXT_FDB_VERSION?=7.3.59
 ## Expectation is that you are running standard build image which generates both regular and debug (Symbols) images.
-FDB_IMAGE?=foundationdb/foundationdb:$(FDB_VERSION)
-UNIFIED_FDB_IMAGE?=foundationdb/fdb-kubernetes-monitor:$(FDB_VERSION)
-SIDECAR_IMAGE?=foundationdb/foundationdb-kubernetes-sidecar:$(FDB_VERSION)-1
+FDB_IMAGE?=foundationdb/foundationdb
+UNIFIED_FDB_IMAGE?=foundationdb/fdb-kubernetes-monitor
+SIDECAR_IMAGE?=foundationdb/foundationdb-kubernetes-sidecar
 OPERATOR_IMAGE?=foundationdb/fdb-kubernetes-operator:latest
 REGISTRY?=docker.io
 CLEANUP?=true

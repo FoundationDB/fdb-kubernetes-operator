@@ -22,6 +22,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -158,7 +159,7 @@ func newAnalyzeCmd(streams genericclioptions.IOStreams) *cobra.Command {
 					errMsg.WriteString(err.Error())
 				}
 
-				return fmt.Errorf(errMsg.String())
+				return errors.New(errMsg.String())
 			}
 
 			return nil
@@ -219,7 +220,7 @@ func allConditionsValid(conditions []string) error {
 		return nil
 	}
 
-	return fmt.Errorf(errString.String())
+	return errors.New(errString.String())
 }
 
 func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluster, autoFix bool, wait bool, ignoreConditions []string, ignoreRemovals bool) error {

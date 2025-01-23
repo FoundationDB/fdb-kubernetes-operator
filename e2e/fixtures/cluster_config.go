@@ -517,22 +517,6 @@ func (config *ClusterConfig) CalculateRoleCounts() fdbv1beta2.RoleCounts {
 	return roleCounts
 }
 
-func max(a int, b int) int {
-	if a > b {
-		return a
-	}
-
-	return b
-}
-
-func min(a int, b int) int {
-	if a < b {
-		return a
-	}
-
-	return b
-}
-
 func calculateProxies(proxies int) (int, int) {
 	// This calculation is only a rough estimate and can change based on the workload.
 	// Use 1/4 of the proxies for GRV or at max 4 processes

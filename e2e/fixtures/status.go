@@ -487,7 +487,7 @@ func Unprintable(val string) ([]byte, error) {
 		if c == '\\' {
 			i++
 			if i == len(val) {
-				return nil, fmt.Errorf(fmt.Sprintf("end after one \\ when unprint [%s]", val))
+				return nil, fmt.Errorf("end after one \\ when unprint [%s]", val)
 			}
 			switch val[i] {
 			case '\\':
@@ -497,9 +497,7 @@ func Unprintable(val string) ([]byte, error) {
 			case 'x':
 				{
 					if i+2 >= len(val) {
-						return nil, fmt.Errorf(
-							fmt.Sprintf("not have two chars after \\x when unprint [%s]", val),
-						)
+						return nil, fmt.Errorf("not have two chars after \\x when unprint [%s]", val)
 					}
 					d1, err := unhex(val[i+1])
 					if err != nil {
@@ -514,9 +512,7 @@ func Unprintable(val string) ([]byte, error) {
 				}
 			default:
 				{
-					return nil, fmt.Errorf(
-						fmt.Sprintf("after \\ it's neither \\ nor x when unprint %s", val),
-					)
+					return nil, fmt.Errorf("after \\ it's neither \\ nor x when unprint %s", val)
 				}
 			}
 		} else {
@@ -538,5 +534,5 @@ func unhex(c byte) (int, error) {
 		return int(c - 'A' + 10), nil
 	}
 
-	return -1, fmt.Errorf(fmt.Sprintf("failed to unhex %x", c))
+	return -1, fmt.Errorf("failed to unhex %x", c)
 }

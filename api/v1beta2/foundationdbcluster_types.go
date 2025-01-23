@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta2
 
 import (
+	"errors"
 	"fmt"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"math"
@@ -2918,7 +2919,7 @@ func (cluster *FoundationDBCluster) Validate() error {
 		return nil
 	}
 
-	return fmt.Errorf(strings.Join(validations, ", "))
+	return errors.New(strings.Join(validations, ", "))
 }
 
 // IsTaintFeatureDisabled return true if operator is configured to not replace Pods tainted Nodes OR
