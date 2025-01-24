@@ -70,7 +70,9 @@ func (r *FoundationDBRestoreReconciler) Reconcile(ctx context.Context, request c
 	restoreLog := globalControllerLogger.WithValues("namespace", restore.Namespace, "restore", restore.Name)
 
 	subReconcilers := []restoreSubReconciler{
+		updateRestoreStatus{},
 		startRestore{},
+		updateRestoreStatus{},
 	}
 
 	for _, subReconciler := range subReconcilers {
