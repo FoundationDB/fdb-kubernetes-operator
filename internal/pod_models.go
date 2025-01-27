@@ -481,9 +481,23 @@ func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processGroup *fdbv1beta
 	configureVolumesForContainers(cluster, podSpec, processSettings.VolumeClaimTemplate, podName, processGroup.ProcessClass)
 	configureNoSchedule(podSpec, processGroup.ProcessGroupID, cluster.Spec.Buggify.NoSchedule)
 
-	if !useUnifiedImage {
+	if useUnifiedImage {
+		var writeIdx int
+		for _, container := range podSpec.InitContainers {
+			// Skip the init container for the unified image.
+			if container.Name == fdbv1beta2.InitContainerName {
+				continue
+			}
+
+			podSpec.InitContainers[writeIdx] = container
+			writeIdx++
+		}
+
+		podSpec.InitContainers = podSpec.InitContainers[:writeIdx]
+	} else {
 		replaceContainers(podSpec.InitContainers, initContainer)
 	}
+
 	replaceContainers(podSpec.Containers, mainContainer, sidecarContainer)
 
 	headlessService := GetHeadlessService(cluster)

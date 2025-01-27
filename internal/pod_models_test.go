@@ -858,6 +858,27 @@ var _ = Describe("pod_models", func() {
 					Expect(sidecarContainer.Command).ToNot(Equal([]string{"crash-loop"}))
 				})
 			})
+
+			When("a init container with the name foundationdb-kubernetes-init is specified", func() {
+				BeforeEach(func() {
+					Expect(NormalizeClusterSpec(cluster, DeprecationOptions{})).NotTo(HaveOccurred())
+					processSettings := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
+					processSettings.PodTemplate.Spec.InitContainers = []corev1.Container{
+						{
+							Name: fdbv1beta2.InitContainerName,
+						},
+					}
+					cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral] = processSettings
+
+					processGroup := GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1)
+					spec, err = GetPodSpec(cluster, processGroup)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("should not generate an init container container", func() {
+					Expect(spec.InitContainers).To(BeEmpty())
+				})
+			})
 		})
 
 		Context("with a pod IP family defined", func() {
