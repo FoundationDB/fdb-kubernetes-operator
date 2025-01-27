@@ -22,6 +22,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient/mock"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
 	"k8s.io/apimachinery/pkg/types"
@@ -309,6 +310,15 @@ var _ = Describe("update_status", func() {
 
 			allPvcs = &corev1.PersistentVolumeClaimList{}
 			Expect(clusterReconciler.List(context.TODO(), allPvcs, internal.GetPodListOptions(cluster, "", "")...)).NotTo(HaveOccurred())
+		})
+
+		When("cannot get cluster spec", func() {
+			It("should fail", func() {
+				adminClient.MockGetConnectionStringError(fmt.Errorf("mock error"))
+				result, err := reconcileCluster(cluster)
+				Expect(result.Requeue).To(Equal(true))
+				Expect(err).NotTo(HaveOccurred())
+			})
 		})
 
 		When("process group has no Pod", func() {

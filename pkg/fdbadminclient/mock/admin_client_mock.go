@@ -69,6 +69,7 @@ type AdminClient struct {
 	TeamTracker                              []fdbv1beta2.FoundationDBStatusTeamTracker
 	Logs                                     []fdbv1beta2.FoundationDBStatusLogInfo
 	mockError                                error
+	mockGetConnectionStringError             error
 	LagInfo                                  map[string]fdbv1beta2.FoundationDBStatusLagInfo
 	processesUnderMaintenance                map[fdbv1beta2.ProcessGroupID]int64
 }
@@ -744,6 +745,9 @@ func (client *AdminClient) ChangeCoordinators(addresses []fdbv1beta2.ProcessAddr
 func (client *AdminClient) GetConnectionString() (string, error) {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
+	if client.mockGetConnectionStringError != nil {
+		return "", client.mockGetConnectionStringError
+	}
 
 	return client.Cluster.Status.ConnectionString, nil
 }
@@ -1060,6 +1064,11 @@ func (client *AdminClient) MockUptimeSecondsForMaintenanceZone(seconds float64) 
 // a nil value to this method.
 func (client *AdminClient) MockError(err error) {
 	client.mockError = err
+}
+
+// MockGetConnectionStringError mocks an error that will be returned by GetConnectionString()
+func (client *AdminClient) MockGetConnectionStringError(err error) {
+	client.mockGetConnectionStringError = err
 }
 
 // SetLimitingDurabilityLag sets/mocks the limiting durability lag of any storage server in the cluster.
