@@ -25,6 +25,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"math/rand"
 	"os"
 	"path"
 	"time"
@@ -110,23 +111,22 @@ func createClusterFile(cluster *fdbv1beta2.FoundationDBCluster) (string, error) 
 
 // ensureClusterFileIsPresent will ensure that the cluster file with the specified connection string is present.
 func ensureClusterFileIsPresent(dir string, uid string, connectionString string) (string, error) {
-	clusterFileName := path.Join(dir, uid)
+	for {
+		clusterFileName := path.Join(dir, fmt.Sprintf("%s-%d", uid, rand.Uint64()))
 
-	// Try to read the file to check if the file already exists and if so, if the content matches
-	content, err := os.ReadFile(clusterFileName)
-
-	// If the file doesn't exist we have to create it
-	if errors.Is(err, fs.ErrNotExist) {
-		return clusterFileName, os.WriteFile(clusterFileName, []byte(connectionString), 0777)
+		f, err := os.OpenFile(clusterFileName, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0777)
+		if err != nil {
+			if errors.Is(err, fs.ErrExist) {
+				continue
+			}
+			return "", err
+		}
+		_, err = f.Write([]byte(connectionString))
+		if err1 := f.Close(); err1 != nil && err == nil {
+			err = err1
+		}
+		return clusterFileName, err
 	}
-
-	// The content of the cluster file is already correct.
-	if string(content) == connectionString {
-		return clusterFileName, nil
-	}
-
-	// The content doesn't match, so we have to write the new content to the cluster file.
-	return clusterFileName, os.WriteFile(clusterFileName, []byte(connectionString), 0777)
 }
 
 // getConnectionStringFromDB gets the database's connection string directly from the system key

@@ -687,8 +687,7 @@ func (client *cliAdminClient) GetRestoreStatus() (string, error) {
 
 // Close cleans up any pending resources.
 func (client *cliAdminClient) Close() error {
-	// Allow to reuse the same file.
-	return nil
+	return os.Remove(client.clusterFilePath)
 }
 
 // GetCoordinatorSet gets the current coordinators from the status
