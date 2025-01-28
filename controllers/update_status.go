@@ -306,7 +306,7 @@ func tryConnectionOptions(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCl
 		cluster.Status.ConnectionString = connectionString
 		adminClient, clientErr := r.getAdminClient(logger, cluster)
 		if clientErr != nil {
-			return originalConnectionString, clientErr
+			return "", clientErr
 		}
 
 		// If the cluster is not yet configured, we can reduce the timeout to make sure the initial reconcile steps
@@ -330,7 +330,7 @@ func tryConnectionOptions(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCl
 		logger.Error(err, "Error getting connection string from cluster", "connectionString", connectionString)
 	}
 
-	return originalConnectionString, fmt.Errorf("could not get connection string from cluster")
+	return "", fmt.Errorf("could not get connection string from cluster")
 }
 
 // checkAndSetProcessStatus checks the status of the Process and if missing or incorrect add it to the related status field
