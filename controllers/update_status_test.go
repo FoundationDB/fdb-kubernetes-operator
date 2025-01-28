@@ -312,7 +312,7 @@ var _ = Describe("update_status", func() {
 			Expect(clusterReconciler.List(context.TODO(), allPvcs, internal.GetPodListOptions(cluster, "", "")...)).NotTo(HaveOccurred())
 		})
 
-		When("cannot get cluster spec", func() {
+		When("cannot get the connection string", func() {
 			It("should fail", func() {
 				adminClient.MockGetConnectionStringError(fmt.Errorf("mock error"))
 				result, err := reconcileCluster(cluster)
