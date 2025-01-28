@@ -58,6 +58,12 @@ FoundationDBRestoreSpec describes the desired state of the backup for a cluster.
 
 [Back to TOC](#table-of-contents)
 
+## FoundationDBRestoreState
+
+FoundationDBRestoreState represents the states for a restore in FDB: https://github.com/apple/foundationdb/blob/fe47ce24d361a8c2d625c4d549f86ff98363de9e/fdbclient/FileBackupAgent.actor.cpp#L120-L140
+
+[Back to TOC](#table-of-contents)
+
 ## FoundationDBRestoreStatus
 
 FoundationDBRestoreStatus describes the current status of the restore for a cluster.
@@ -65,6 +71,7 @@ FoundationDBRestoreStatus describes the current status of the restore for a clus
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
 | running | Running describes whether the restore is currently running. | bool | false |
+| state | State describes the FoundationDBRestoreState state. | [FoundationDBRestoreState](#foundationdbrestorestate) | false |
 
 [Back to TOC](#table-of-contents)
 

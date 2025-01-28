@@ -22,6 +22,9 @@ package fixtures
 
 import (
 	"context"
+	"log"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strconv"
 	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -56,17 +59,33 @@ func (factory *Factory) CreateRestoreForCluster(backup *FdbBackup) {
 
 // waitForRestoreToComplete waits until the restore completed.
 func waitForRestoreToComplete(backup *FdbBackup) {
-	gomega.Eventually(func(g gomega.Gomega) string {
-		backupPod := backup.GetBackupPod()
+	ctrlClient := backup.fdbCluster.getClient()
 
-		out, _, err := backup.fdbCluster.ExecuteCmdOnPod(
-			*backupPod,
-			fdbv1beta2.MainContainerName,
-			"fdbrestore status --dest_cluster_file $FDB_CLUSTER_FILE",
-			false,
-		)
-		g.Expect(err).NotTo(gomega.HaveOccurred())
+	lastReconcile := time.Now()
+	gomega.Eventually(func(g gomega.Gomega) fdbv1beta2.FoundationDBRestoreState {
+		restore := &fdbv1beta2.FoundationDBRestore{}
+		g.Expect(ctrlClient.Get(context.Background(), client.ObjectKeyFromObject(backup.backup), restore)).To(gomega.Succeed())
+		log.Println("restore state:", restore.Status.State)
 
-		return out
-	}).WithTimeout(20 * time.Minute).WithPolling(2 * time.Second).Should(gomega.ContainSubstring("State: completed"))
+		if time.Since(lastReconcile) > time.Minute {
+			lastReconcile = time.Now()
+			patch := client.MergeFrom(restore.DeepCopy())
+			if restore.Annotations == nil {
+				restore.Annotations = make(map[string]string)
+			}
+			restore.Annotations["foundationdb.org/reconcile"] = strconv.FormatInt(
+				time.Now().UnixNano(),
+				10,
+			)
+
+			// This will apply an Annotation to the object which will trigger the reconcile loop.
+			// This should speed up the reconcile phase.
+			gomega.Expect(ctrlClient.Patch(
+				context.Background(),
+				restore,
+				patch)).To(gomega.Succeed())
+		}
+
+		return restore.Status.State
+	}).WithTimeout(20 * time.Minute).WithPolling(1 * time.Second).Should(gomega.Equal(fdbv1beta2.CompletedFoundationDBRestoreState))
 }

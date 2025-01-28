@@ -44,6 +44,7 @@ func (s startRestore) reconcile(ctx context.Context, r *FoundationDBRestoreRecon
 		return &requeue{curError: err}
 	}
 
+	// TODO (johscheuer): Make use of the status.state setting to see if the restore was started.
 	if len(strings.TrimSpace(status)) == 0 {
 		err = adminClient.StartRestore(restore.BackupURL(), restore.Spec.KeyRanges)
 		if err != nil {
@@ -55,6 +56,8 @@ func (s startRestore) reconcile(ctx context.Context, r *FoundationDBRestoreRecon
 		if err != nil {
 			return &requeue{curError: err}
 		}
+
+		return nil
 	}
 
 	return nil

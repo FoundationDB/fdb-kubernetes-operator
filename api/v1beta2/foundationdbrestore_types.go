@@ -24,6 +24,7 @@ import (
 // +kubebuilder:resource:shortName=fdbrestore
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:printcolumn:name="State",type=string,JSONPath=`.status.state`
 // +kubebuilder:storageversion
 
 // FoundationDBRestore is the Schema for the foundationdbrestores API
@@ -65,7 +66,31 @@ type FoundationDBRestoreSpec struct {
 type FoundationDBRestoreStatus struct {
 	// Running describes whether the restore is currently running.
 	Running bool `json:"running,omitempty"`
+	// State describes the FoundationDBRestoreState state.
+	State FoundationDBRestoreState `json:"state,omitempty"`
 }
+
+// FoundationDBRestoreState represents the states for a restore in FDB:
+// https://github.com/apple/foundationdb/blob/fe47ce24d361a8c2d625c4d549f86ff98363de9e/fdbclient/FileBackupAgent.actor.cpp#L120-L140
+// +kubebuilder:validation:MaxLength=50
+type FoundationDBRestoreState string
+
+const (
+	// UninitializedFoundationDBRestoreState represents the uninitialized state.
+	UninitializedFoundationDBRestoreState FoundationDBRestoreState = "uninitialized"
+	// QueuedFoundationDBRestoreState represents the queued state.
+	QueuedFoundationDBRestoreState FoundationDBRestoreState = "queued"
+	// StartingFoundationDBRestoreState represents the starting state.
+	StartingFoundationDBRestoreState FoundationDBRestoreState = "starting"
+	// RunningFoundationDBRestoreState represents the running state.
+	RunningFoundationDBRestoreState FoundationDBRestoreState = "running"
+	// CompletedFoundationDBRestoreState represents the completed state.
+	CompletedFoundationDBRestoreState FoundationDBRestoreState = "completed"
+	// AbortedFoundationDBRestoreState represents the aborted state.
+	AbortedFoundationDBRestoreState FoundationDBRestoreState = "aborted"
+	// UnknownFoundationDBRestoreState represents the unknown state.
+	UnknownFoundationDBRestoreState FoundationDBRestoreState = "Unknown"
+)
 
 // FoundationDBKeyRange describes a range of keys for a command.
 //
