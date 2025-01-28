@@ -188,7 +188,27 @@ spec:
 
 Once all three `FoundationDBCluster` resources are marked as reconciled the FoundationDB cluster is up and running.
 You can run this configuration in the same namespace, different namespaces or even across multiple different Kubernetes clusters.
-Operations across the different `FoundationDBCluster` resources are [coordinated](#coordinating-global-operations). 
+Operations across the different `FoundationDBCluster` resources are [coordinated](#coordinating-global-operations).
+
+### Migrating an existing cluster to Three-Data-Hall Replication
+
+NOTE: these steps are for the `split` image setup, which is still the default; for the `unified` image setup migration path is simpler.
+
+It is possible to gracefully migrate a cluster in single, double or triple replication to Three-Data-Hall replication by following these steps:
+
+1. create 3 exact clones of the original k8s FoundationDB cluster object (thus still with same replication) and change these fields: `metadata.name`,`spec.processGroupIDPrefix`, `spec.dataHall`, `spec.dataCenter`
+2. make sure that `skip: true` is set on their YAML definition so that operator will not attempt to configure them
+3. make sure that `seedConnectionString:` is set to to the current connection string of the original cluster
+4. run `kubectl create` for each of them
+5. set the configured state and connection string in their status subresource by using: `kubectl patch fdb my-new-cluster-a --type=merge --subresource status --patch "status: {configured: true, connectionString: \"...\" }"`; use the original cluster connection string here
+6. set `skip: false` on each of the 3 new clusters, and then wait for reconciliation to finish
+7. start a lengthy exclude procedure that will exclude all the processes of the original cluster; suggested order: `log`, `storage`, `coordinator`, `stateless`
+8. delete the original cluster once all exclusions are complete
+9. set `redundancyMode` to `three_data_hall` for the 3 new FoundationDB clusters, one after another
+10. patch seed connection string of 2 of the 3 new clusters to point to the third one e.g. if you have created clusters A,B,C, set the seed connection string of B and C to point to A and make sure that A has no seed connection string; this step is not crucial but practically helpful sometimes
+11. scale down clusters to use 1/3 of the original resources (each of them needs only 3 coordinators and 1/3 of the resources used for other classes)
+
+This procedure mitigates temporary issues (`1031` timeouts) which may happen with sustained traffic when data distributor and master are being reallocated while redundancy mode is changed and/or data is being moved.
 
 ## Multi-Region Replication
 
