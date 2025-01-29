@@ -25,9 +25,11 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"k8s.io/apimachinery/pkg/types"
 	"math/rand"
 	"os"
 	"path"
+	"sync"
 	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -42,6 +44,10 @@ var DefaultCLITimeout = 10 * time.Second
 
 // MaxCliTimeout is the maximum CLI timeout that will be used for requests that might be slower to respond.
 var MaxCliTimeout = 40 * time.Second
+
+// Keeps a singleton databases. The key is the cluster UID. Guarded by the mutex below for read and write access.
+var databaseSingleton map[types.UID]*fdb.Database
+var databaseSingletonMutex = &sync.Mutex{}
 
 const (
 	defaultTransactionTimeout = 5 * time.Second
@@ -84,24 +90,29 @@ func parseMachineReadableStatus(logger logr.Logger, contents []byte, checkForPro
 	return status, nil
 }
 
-// getFDBDatabase opens an FDB database.
+// getFDBDatabase returns the singleton FDB database. May return an error if initializing the singleton failed.
 func getFDBDatabase(cluster *fdbv1beta2.FoundationDBCluster) (fdb.Database, error) {
-	clusterFile, err := createClusterFile(cluster)
-	if err != nil {
-		return fdb.Database{}, err
-	}
+	databaseSingletonMutex.Lock()
+	defer databaseSingletonMutex.Unlock()
+	if databaseSingleton[cluster.UID] == nil {
+		clusterFile, err := createClusterFile(cluster)
+		if err != nil {
+			return fdb.Database{}, err
+		}
 
-	database, err := fdb.OpenDatabase(clusterFile)
-	if err != nil {
-		return fdb.Database{}, err
-	}
+		database, err := fdb.OpenDatabase(clusterFile)
+		if err != nil {
+			return fdb.Database{}, err
+		}
 
-	err = database.Options().SetTransactionTimeout(defaultTransactionTimeout.Milliseconds())
-	if err != nil {
-		return fdb.Database{}, err
+		err = database.Options().SetTransactionTimeout(defaultTransactionTimeout.Milliseconds())
+		if err != nil {
+			return fdb.Database{}, err
+		}
+		databaseSingleton[cluster.UID] = &database
 	}
-
-	return database, nil
+	// This is a copy, but fdb.Database is just a pointer-to-implementation and cheap to copy.
+	return *databaseSingleton[cluster.UID], nil
 }
 
 // createClusterFile will create or update the cluster file for the specified cluster.
