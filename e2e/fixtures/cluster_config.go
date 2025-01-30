@@ -103,6 +103,8 @@ type ClusterConfig struct {
 	Namespace string
 	// Name of the cluster to be created, if empty a random name will be used.
 	Name string
+	// TLSPeerVerification represents the TLS peer verification that should be used for the cluster.
+	TLSPeerVerification string
 	// cloudProvider defines the cloud provider used to create the Kubernetes cluster. This value is set in the SetDefaults
 	// method.
 	cloudProvider cloudProvider
@@ -165,6 +167,10 @@ func (config *ClusterConfig) SetDefaults(factory *Factory) {
 
 	if config.cloudProvider == "" {
 		config.cloudProvider = cloudProvider(factory.options.cloudProvider)
+	}
+
+	if config.TLSPeerVerification == "" {
+		config.TLSPeerVerification = "I.CN=localhost,I.O=Example Inc.,S.CN=localhost,S.O=Example Inc."
 	}
 }
 
