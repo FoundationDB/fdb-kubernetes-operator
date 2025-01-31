@@ -23,9 +23,10 @@ package fixtures
 import (
 	"context"
 	"log"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strconv"
 	"time"
+
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/onsi/gomega"
@@ -84,6 +85,16 @@ func waitForRestoreToComplete(backup *FdbBackup) {
 				context.Background(),
 				restore,
 				patch)).To(gomega.Succeed())
+
+			out, _, err := backup.fdbCluster.ExecuteCmdOnPod(
+				*backup.GetBackupPod(),
+				fdbv1beta2.MainContainerName,
+				"fdbrestore status --dest_cluster_file $FDB_CLUSTER_FILE",
+				false,
+			)
+
+			log.Println(out)
+			g.Expect(err).To(gomega.Succeed())
 		}
 
 		return restore.Status.State

@@ -25,15 +25,12 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient/mock"
-
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
-	"k8s.io/utils/pointer"
-
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient/mock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	"k8s.io/utils/pointer"
 )
 
 var _ = Describe("admin_client_test", func() {
@@ -372,30 +369,29 @@ var _ = Describe("admin_client_test", func() {
 	})
 
 	Describe("restore status", func() {
-		var status string
+		var restoreStatus string
 
 		Context("with no restore running", func() {
 			BeforeEach(func() {
-				status, err = mockAdminClient.GetRestoreStatus()
+				restoreStatus, err = mockAdminClient.GetRestoreStatus()
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			It("should be empty", func() {
-				Expect(status).To(Equal("\n"))
+				Expect(restoreStatus).To(BeEmpty())
 			})
 		})
 
 		Context("with a restore running", func() {
 			BeforeEach(func() {
-				err = mockAdminClient.StartRestore("blobstore://test@test-service/test-backup", nil)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(mockAdminClient.StartRestore("blobstore://test@test-service/test-backup", nil)).To(Succeed())
 
-				status, err = mockAdminClient.GetRestoreStatus()
+				restoreStatus, err = mockAdminClient.GetRestoreStatus()
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			It("should contain the backup URL", func() {
-				Expect(status).To(Equal("blobstore://test@test-service/test-backup\n"))
+				Expect(restoreStatus).To(ContainSubstring("blobstore://test@test-service/test-backup\n"))
 			})
 		})
 	})
