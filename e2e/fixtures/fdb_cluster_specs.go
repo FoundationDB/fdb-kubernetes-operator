@@ -281,7 +281,7 @@ func (factory *Factory) createPodTemplate(
 						},
 						{
 							Name:  fdbv1beta2.EnvNameTLSVerifyPeers,
-							Value: "I.CN=localhost,I.O=Example Inc.,S.CN=localhost,S.O=Example Inc.",
+							Value: config.TLSPeerVerification,
 						},
 					},
 					VolumeMounts: []corev1.VolumeMount{
