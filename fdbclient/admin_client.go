@@ -490,17 +490,11 @@ func (client *cliAdminClient) ChangeCoordinators(addresses []fdbv1beta2.ProcessA
 	if err != nil {
 		return "", err
 	}
-
-	connectionStringBytes, err := os.ReadFile(client.clusterFilePath)
+	connectionString, err := client.GetConnectionString()
 	if err != nil {
 		return "", err
 	}
-
-	connectionString, err := fdbv1beta2.ParseConnectionString(string(connectionStringBytes))
-	if err != nil {
-		return "", err
-	}
-	return connectionString.String(), nil
+	return connectionString, nil
 }
 
 // cleanConnectionStringOutput is a helper method to remove unrelated output from the get command in the connection string
