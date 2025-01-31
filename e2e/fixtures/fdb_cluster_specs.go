@@ -234,7 +234,7 @@ func (factory *Factory) createPodTemplate(
 						},
 						{
 							Name:  fdbv1beta2.EnvNameTLSVerifyPeers,
-							Value: "I.CN=localhost,I.O=Example Inc.,S.CN=localhost,S.O=Example Inc.",
+							Value: "I.CN=localhost,I.O=Example Inc.,S.CN=localhost,S.O=Example Inc.|Subject.CN=*.s3-us-west-2.amazonaws.com",
 						},
 						{
 							Name:  fdbv1beta2.EnvNameFDBTraceLogDirPath,
@@ -281,7 +281,7 @@ func (factory *Factory) createPodTemplate(
 						},
 						{
 							Name:  fdbv1beta2.EnvNameTLSVerifyPeers,
-							Value: "I.CN=localhost,I.O=Example Inc.,S.CN=localhost,S.O=Example Inc.",
+							Value: "I.CN=localhost,I.O=Example Inc.,S.CN=localhost,S.O=Example Inc.|Subject.CN=*.s3-us-west-2.amazonaws.com",
 						},
 					},
 					VolumeMounts: []corev1.VolumeMount{
