@@ -391,7 +391,7 @@ var _ = Describe("admin_client_test", func() {
 			})
 
 			It("should contain the backup URL", func() {
-				Expect(restoreStatus).To(ContainSubstring("blobstore://test@test-service/test-backup\n"))
+				Expect(restoreStatus).To(ContainSubstring("blobstore://test@test-service/test-backup"))
 			})
 		})
 	})
