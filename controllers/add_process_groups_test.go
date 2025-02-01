@@ -22,12 +22,14 @@ package controllers
 
 import (
 	"context"
-
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+	"fmt"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient/mock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/utils/pointer"
 )
 
 var _ = Describe("add_process_groups", func() {
@@ -195,23 +197,68 @@ var _ = Describe("add_process_groups", func() {
 		var storageProcessCount int
 
 		BeforeEach(func() {
-			// The maximum is 99999, so creating 25000 process groups should have a high probability to randomly generate
-			// a used process group ID.
-			storageProcessCount = 25000
+			fdbv1beta2.MaxProcessGroupIDNum = 1000
+			storageProcessCount = 500
 			cluster.Spec.ProcessCounts.Storage = storageProcessCount
+			cluster.Status.RunningVersion = fdbv1beta2.Versions.SupportsLocalityBasedExclusions71.String()
 		})
 
-		It("should not create duplicate entries", func() {
-			storageProcessGroups := map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None{}
-			for _, processGroup := range cluster.Status.ProcessGroups {
-				if processGroup.ProcessClass != fdbv1beta2.ProcessClassStorage {
-					continue
+		When("no exclusions are present", func() {
+			It("should not create duplicate entries", func() {
+				storageProcessGroups := map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None{}
+				for _, processGroup := range cluster.Status.ProcessGroups {
+					if processGroup.ProcessClass != fdbv1beta2.ProcessClassStorage {
+						continue
+					}
+
+					storageProcessGroups[processGroup.ProcessGroupID] = fdbv1beta2.None{}
 				}
 
-				storageProcessGroups[processGroup.ProcessGroupID] = fdbv1beta2.None{}
-			}
+				Expect(storageProcessGroups).To(HaveLen(storageProcessCount))
+			})
+		})
 
-			Expect(storageProcessGroups).To(HaveLen(storageProcessCount))
+		When("exclusions are present", func() {
+			var excludedProcessGroupIDs map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None
+
+			BeforeEach(func() {
+				cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(true)
+				adminClient, err := mock.NewMockAdminClient(cluster, k8sClient)
+				Expect(err).To(Succeed())
+
+				currentProcessGroupIDs := map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None{}
+				for _, processGroup := range cluster.Status.ProcessGroups {
+					currentProcessGroupIDs[processGroup.ProcessGroupID] = fdbv1beta2.None{}
+				}
+
+				excludedCnt := 100
+				exclusions := make([]fdbv1beta2.ProcessAddress, 0, excludedCnt)
+				excludedProcessGroupIDs = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None{}
+				for i := 0; i < excludedCnt; i++ {
+					processGroupID := fdbv1beta2.ProcessGroupID(fmt.Sprintf("storage-%d", i))
+					if _, ok := currentProcessGroupIDs[processGroupID]; ok {
+						continue
+					}
+					excludedProcessGroupIDs[processGroupID] = fdbv1beta2.None{}
+					exclusions = append(exclusions, fdbv1beta2.ProcessAddress{StringAddress: fmt.Sprintf("%s:%s", fdbv1beta2.FDBLocalityExclusionPrefix, processGroupID)})
+				}
+
+				Expect(adminClient.ExcludeProcesses(exclusions)).To(Succeed())
+			})
+
+			It("should not create duplicate entries and should not pick any entry from the exclusion list", func() {
+				storageProcessGroups := make([]fdbv1beta2.ProcessGroupID, 0, len(cluster.Status.ProcessGroups))
+				for _, processGroup := range cluster.Status.ProcessGroups {
+					if processGroup.ProcessClass != fdbv1beta2.ProcessClassStorage {
+						continue
+					}
+
+					Expect(excludedProcessGroupIDs).NotTo(HaveKey(processGroup.ProcessGroupID))
+					storageProcessGroups = append(storageProcessGroups, processGroup.ProcessGroupID)
+				}
+
+				Expect(storageProcessGroups).To(HaveLen(storageProcessCount))
+			})
 		})
 	})
 })
