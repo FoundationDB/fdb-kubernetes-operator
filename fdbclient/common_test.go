@@ -44,35 +44,7 @@ var _ = Describe("common_test", func() {
 
 		When("the cluster file doesn't exist", func() {
 			It("should create the cluster file with the correct content", func() {
-				Expect(clusterFile).To(Equal(path.Join(tmpDir, uid)))
-				content, err := os.ReadFile(clusterFile)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(string(content)).To(Equal(connectionString))
-			})
-		})
-
-		When("the cluster file exist with the wrong content", func() {
-			BeforeEach(func() {
-				err := os.WriteFile(path.Join(os.TempDir(), uid), []byte("wrong"), 0777)
-				Expect(err).NotTo(HaveOccurred())
-			})
-
-			It("should update the cluster file with the correct content", func() {
-				Expect(clusterFile).To(Equal(path.Join(tmpDir, uid)))
-				content, err := os.ReadFile(clusterFile)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(string(content)).To(Equal(connectionString))
-			})
-		})
-
-		When("the cluster file exist with the correct content", func() {
-			BeforeEach(func() {
-				err := os.WriteFile(path.Join(os.TempDir(), uid), []byte(connectionString), 0777)
-				Expect(err).NotTo(HaveOccurred())
-			})
-
-			It("should keep the cluster file with the correct content", func() {
-				Expect(clusterFile).To(Equal(path.Join(tmpDir, uid)))
+				Expect(clusterFile).To(HavePrefix(path.Join(tmpDir, uid+"-")))
 				content, err := os.ReadFile(clusterFile)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(string(content)).To(Equal(connectionString))
