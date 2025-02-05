@@ -5809,4 +5809,51 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			})
 		})
 	})
+
+	When("validating if the new process group ID is allowed", func() {
+		var valid bool
+		var cluster *FoundationDBCluster
+		var exclusions map[ProcessGroupID]None
+
+		JustBeforeEach(func() {
+			valid = cluster.newProcessGroupIDAllowed(ProcessGroupID("storage-1"), exclusions)
+		})
+
+		When("no process group is marked for removal or excluded", func() {
+			BeforeEach(func() {
+				cluster = &FoundationDBCluster{}
+			})
+
+			It("should detect the new process group ID as valid", func() {
+				Expect(valid).To(BeTrue())
+			})
+		})
+
+		When("the process group is marked for removal", func() {
+			BeforeEach(func() {
+				cluster = &FoundationDBCluster{
+					Spec: FoundationDBClusterSpec{
+						ProcessGroupsToRemove: []ProcessGroupID{ProcessGroupID("storage-1")},
+					},
+				}
+			})
+
+			It("should detect the new process group ID as invalid", func() {
+				Expect(valid).To(BeFalse())
+			})
+		})
+
+		When("the process group is excluded", func() {
+			BeforeEach(func() {
+				cluster = &FoundationDBCluster{}
+				exclusions = map[ProcessGroupID]None{
+					ProcessGroupID("storage-1"): {},
+				}
+			})
+
+			It("should detect the new process group ID as invalid", func() {
+				Expect(valid).To(BeFalse())
+			})
+		})
+	})
 })

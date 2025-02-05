@@ -23,6 +23,8 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"strings"
+
 	"github.com/go-logr/logr"
 
 	corev1 "k8s.io/api/core/v1"
@@ -34,15 +36,44 @@ import (
 type addProcessGroups struct{}
 
 // reconcile runs the reconciler's work.
-func (a addProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, _ *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
+func (a addProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
 	desiredCountStruct, err := cluster.GetProcessCountsWithDefaults()
 	if err != nil {
 		return &requeue{curError: err}
 	}
+
 	desiredCounts := desiredCountStruct.Map()
 	processCounts, processGroupIDs, err := cluster.GetCurrentProcessGroupsAndProcessCounts()
 	if err != nil {
 		return &requeue{curError: err}
+	}
+
+	exclusions := map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None{}
+	if cluster.UseLocalitiesForExclusion() {
+		if status == nil {
+			adminClient, err := r.getAdminClient(logger, cluster)
+			if err != nil {
+				return &requeue{curError: err, delayedRequeue: true}
+			}
+
+			status, err = adminClient.GetStatus()
+			if err != nil {
+				return &requeue{curError: err, delayedRequeue: true}
+			}
+		}
+
+		prefix := fdbv1beta2.FDBLocalityExclusionPrefix + ":"
+		for _, excludedServer := range status.Cluster.DatabaseConfiguration.ExcludedServers {
+			if excludedServer.Locality == "" {
+				continue
+			}
+
+			processGroupID, found := strings.CutPrefix(excludedServer.Locality, prefix)
+			if !found {
+				continue
+			}
+			exclusions[fdbv1beta2.ProcessGroupID(processGroupID)] = fdbv1beta2.None{}
+		}
 	}
 
 	hasNewProcessGroups := false
@@ -65,8 +96,8 @@ func (a addProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterR
 		logger.Info("Adding new Process Groups", "processClass", processClass, "newCount", newCount, "desiredCount", desiredCount, "currentCount", processCounts[processClass])
 		r.Recorder.Event(cluster, corev1.EventTypeNormal, "AddingProcesses", fmt.Sprintf("Adding %d %s processes", newCount, processClass))
 		for i := 0; i < newCount; i++ {
-			processGroupID := cluster.GetNextRandomProcessGroupID(processClass, processGroupIDs[processClass])
-			logger.Info("Adding new Process Group to cluster", "processClass", processClass, "processGroupID", processGroupID)
+			processGroupID := cluster.GetNextRandomProcessGroupIDWithExclusions(processClass, processGroupIDs[processClass], exclusions)
+			logger.Info("Adding new Process Group to cluster", "processClass", processClass, "processGroupID", processGroupID, "exclusions", exclusions)
 			cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus(processGroupID, processClass, nil))
 		}
 	}
