@@ -131,64 +131,75 @@ This strategy uses the pod name as the fault domain, which allows each process t
 
 ## Three-Data-Hall Replication
 
-**NOTE**: The support for this redundancy mode is new and might have issues. Please make sure you test this configuration in your test/QA environment.
 The [three-data-hall](https://apple.github.io/foundationdb/configuration.html#single-datacenter-modes) replication can be used to replicate data across three data halls, or availability zones.
 This requires that your fault domains are properly labeled on the Kubernetes nodes.
 Most cloud-providers will use the well-known label [topology.kubernetes.io/zone](https://kubernetes.io/docs/reference/labels-annotations-taints/#topologykubernetesiozone) for this.
-When creating a three-data-hall replicated FoundationDBCluster on Kubernetes we have to create 3 `FoundationDBCluster` resources.
-**NOTE**: This is a limitation of the current approach not to read any information from the Kubernetes nodes and simplify the scheduling logic of the operator.
-In the future, this might change and the deployment model for a three-data-hall FoundationDB cluster will be simplified.
-
-We have to start with a simple `FoundationDBCluster` that is running in one single availability zone, e.g. `az1`:
-
-```yaml
-apiVersion: apps.foundationdb.org/v1beta2
-kind: FoundationDBCluster
-metadata:
-  name: sample-cluster-az1
-spec:
-  version: 7.1.26
-  spec:
-    processGroupIDPrefix: az1
-    dataHall: az1
-    databaseConfiguration:
-      redundancy_mode: triple
-    processes:
-      general:
-        podTemplate:
-          spec:
-            nodeSelector:
-              "topology.kubernetes.io/zone": "az1"
-```
-
-Once the cluster in `az1` is reconciled and running we can change the `redundancy_mode` to `three_data_hall`.
-For the other two created `FoundationDBCluster` resources you have to set the `seedConnectionString` to the current connection string of the `FoundationDBCluster` resource in az1.
-The cluster will be stuck in a reconciling state until the other two `FoundationDBClusters`'s in `az2` and `az3` are created:
+**NOTE**: This setup expects that the `unified` image is used with the operator version `v1.53.0` or newer.
+The setup requires that the `fdb-kubernetes-monitor` is able to read node resources to get the node label from them.
+The [rbac setup](../../config/tests/three_data_hall/unified_image_role.yaml) can be used for this.
+We then just create a FoundationDBCluster that the operator will spread across the availability zones.
 
 ```yaml
 apiVersion: apps.foundationdb.org/v1beta2
 kind: FoundationDBCluster
 metadata:
-  name: sample-cluster-az1
+  labels:
+    cluster-group: test-cluster
+  name: sample-cluster
 spec:
-  version: 7.1.26
-  spec:
-    dataHall: az1
-    processGroupIDPrefix: az1
-    databaseConfiguration:
-      redundancy_mode: three_data_hall
-    seedConnectionString: ""
-    processes:
-      general:
-        podTemplate:
-          spec:
-            nodeSelector:
-              "topology.kubernetes.io/zone": "az1"
+  # The unified image supports to make use of node labels, so setting up a three data hall cluster
+  # is easier with the unified image.
+  imageType: unified
+  version: 7.1.63
+  faultDomain:
+    key: kubernetes.io/hostname
+  processCounts:
+    stateless: -1
+  databaseConfiguration:
+    # Ensure that enough coordinators are available. The processes will be spread across the different zones.
+    logs: 9
+    storage: 9
+    redundancy_mode: "three_data_hall"
+  processes:
+    general:
+      customParameters:
+        # This is a special env variables that will be updated by the fdb-kubernetes-monitor.
+        - "locality_data_hall=$NODE_LABEL_TOPOLOGY_KUBERNETES_IO_ZONE"
+      volumeClaimTemplate:
+        spec:
+          resources:
+            requests:
+              storage: "16G"
+      podTemplate:
+        spec:
+          securityContext:
+            runAsUser: 4059
+            runAsGroup: 4059
+            fsGroup: 4059
+          serviceAccount: fdb-kubernetes
+          # Make sure that the pods are spread equally across the different availability zones.
+          topologySpreadConstraints:
+            - maxSkew: 1
+              topologyKey: topology.kubernetes.io/zone
+              whenUnsatisfiable: DoNotSchedule
+              labelSelector:
+                matchLabels:
+                  foundationdb.org/fdb-cluster-name: sample-cluster
+                  # This must be repeated for the other process classes with the correct
+                  # process class.
+                  foundationdb.org/fdb-process-class: general
+          containers:
+            - name: foundationdb
+              env:
+                # This feature allows the fdb-kubernetes-monitor to read the labels from the node where
+                # it is running.
+                - name: ENABLE_NODE_WATCH
+                  value: "true"
+              resources:
+                requests:
+                  cpu: 250m
+                  memory: 128Mi
 ```
-
-Once all three `FoundationDBCluster` resources are marked as reconciled the FoundationDB cluster is up and running.
-You can run this configuration in the same namespace, different namespaces or even across multiple different Kubernetes clusters.
-Operations across the different `FoundationDBCluster` resources are [coordinated](#coordinating-global-operations).
 
 ### Migrating an existing cluster to Three-Data-Hall Replication
 
