@@ -22,21 +22,20 @@ package controllers
 
 import (
 	"context"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
-
-	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
 	"github.com/go-logr/logr"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
 // FoundationDBRestoreReconciler reconciles a FoundationDBRestore object
@@ -67,7 +66,7 @@ func (r *FoundationDBRestoreReconciler) Reconcile(ctx context.Context, request c
 		return ctrl.Result{}, err
 	}
 
-	restoreLog := globalControllerLogger.WithValues("namespace", restore.Namespace, "restore", restore.Name)
+	restoreLog := globalControllerLogger.WithValues("namespace", restore.Namespace, "restore", restore.Name, "traceID", uuid.NewUUID())
 
 	subReconcilers := []restoreSubReconciler{
 		updateRestoreStatus{},
@@ -76,12 +75,24 @@ func (r *FoundationDBRestoreReconciler) Reconcile(ctx context.Context, request c
 	}
 
 	for _, subReconciler := range subReconcilers {
-		requeue := subReconciler.reconcile(ctx, r, restore)
-		if requeue == nil {
+		req := subReconciler.reconcile(ctx, r, restore)
+		if req == nil {
 			continue
 		}
+		return processRequeue(req, subReconciler, restore, r.Recorder, restoreLog)
+	}
 
-		return processRequeue(requeue, subReconciler, restore, r.Recorder, restoreLog)
+	if restore.Status.State != fdbv1beta2.CompletedFoundationDBRestoreState {
+		restoreLog.Info("Restore has not yet completed",
+			"Status", restore.Status.State,
+			"Running", restore.Status.Running)
+
+		// Check the status of the restore every 5 minutes, otherwise check the status every minute.
+		if restore.Status.State != fdbv1beta2.RunningFoundationDBRestoreState {
+			return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Minute}, nil
+		}
+
+		return ctrl.Result{Requeue: true, RequeueAfter: 1 * time.Minute}, nil
 	}
 
 	restoreLog.Info("Reconciliation complete")

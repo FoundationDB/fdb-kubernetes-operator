@@ -905,7 +905,11 @@ func (client *AdminClient) GetRestoreStatus() (string, error) {
 		return "", client.mockError
 	}
 
-	return fmt.Sprintf("%s\n", client.restoreURL), nil
+	if client.restoreURL == "" {
+		return "", nil
+	}
+
+	return fmt.Sprintf("%s, State: completed\n", client.restoreURL), nil
 }
 
 // MockClientVersion returns a mocked client version

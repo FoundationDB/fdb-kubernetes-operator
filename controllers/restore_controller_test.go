@@ -83,18 +83,15 @@ var _ = Describe("restore_controller", func() {
 			result, err := reconcileRestore(restore)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result.Requeue).To(BeFalse())
-
-			err = reloadRestore(restore)
-			Expect(err).NotTo(HaveOccurred())
-			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: restore.Namespace, Name: restore.Name}, cluster)
-			Expect(err).NotTo(HaveOccurred())
+			Expect(reloadRestore(restore)).To(Succeed())
+			Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: restore.Namespace, Name: restore.Name}, cluster)).To(Succeed())
 		})
 
-		Context("when reconciling a new restore", func() {
+		When("reconciling a new restore", func() {
 			It("should start a restore", func() {
 				status, err := adminClient.GetRestoreStatus()
 				Expect(err).NotTo(HaveOccurred())
-				Expect(status).To(Equal("blobstore://test@test-service:443/test-backup?bucket=fdb-backups\n"))
+				Expect(status).To(ContainSubstring("blobstore://test@test-service:443/test-backup?bucket=fdb-backups"))
 			})
 		})
 
@@ -103,8 +100,7 @@ var _ = Describe("restore_controller", func() {
 				restore.Spec.CustomParameters = fdbv1beta2.FoundationDBCustomParameters{
 					"knob_http_verbose_level=3",
 				}
-				err = k8sClient.Update(context.TODO(), restore)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(k8sClient.Update(context.TODO(), restore)).To(Succeed())
 			})
 
 			It("should append the custom parameters to the command", func() {
