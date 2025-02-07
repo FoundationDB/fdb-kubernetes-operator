@@ -333,6 +333,12 @@ func getTagSuffix(isSidecar bool) string {
 // getTagWithSuffix returns the tag with the required suffix if the image is needed for the sidecar image.
 func getTagWithSuffix(tag string, isSidecar bool) string {
 	if tag != "" && isSidecar {
+		tagSuffix := getTagSuffix(isSidecar)
+		// Suffix is already present, so we don't have to add it again.
+		if strings.HasSuffix(tag, tagSuffix) {
+			return tag
+		}
+
 		return tag + getTagSuffix(isSidecar)
 	}
 
