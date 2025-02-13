@@ -55,27 +55,24 @@ func (client *realLockClient) Disabled() bool {
 }
 
 // TakeLock attempts to acquire a lock.
-func (client *realLockClient) TakeLock() (bool, error) {
+func (client *realLockClient) TakeLock() error {
 	if client.disableLocks {
-		return true, nil
+		return nil
 	}
 
-	hasLock, err := client.database.Transact(func(transaction fdb.Transaction) (interface{}, error) {
-		return client.takeLockInTransaction(transaction)
+	_, err := client.database.Transact(func(transaction fdb.Transaction) (interface{}, error) {
+		lockErr := client.takeLockInTransaction(transaction)
+		return nil, lockErr
 	})
 
-	if hasLock == nil {
-		return false, err
-	}
-
-	return hasLock.(bool), err
+	return err
 }
 
 // takeLockInTransaction attempts to acquire a lock using an open transaction.
-func (client *realLockClient) takeLockInTransaction(transaction fdb.Transaction) (bool, error) {
+func (client *realLockClient) takeLockInTransaction(transaction fdb.Transaction) error {
 	err := transaction.Options().SetAccessSystemKeys()
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	lockKey := fdb.Key(fmt.Sprintf("%s/global", client.cluster.GetLockPrefix()))
@@ -84,31 +81,31 @@ func (client *realLockClient) takeLockInTransaction(transaction fdb.Transaction)
 	if len(lockValue) == 0 {
 		client.log.Info("Setting initial lock")
 		client.updateLock(transaction, 0)
-		return true, nil
+		return nil
 	}
 
 	lockTuple, err := tuple.Unpack(lockValue)
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	if len(lockTuple) < 3 {
-		return false, invalidLockValue{key: lockKey, value: lockValue}
+		return invalidLockValue{key: lockKey, value: lockValue}
 	}
 
 	currentLockOwnerID, valid := lockTuple[0].(string)
 	if !valid {
-		return false, invalidLockValue{key: lockKey, value: lockValue}
+		return invalidLockValue{key: lockKey, value: lockValue}
 	}
 
 	currentLockStartTime, valid := lockTuple[1].(int64)
 	if !valid {
-		return false, invalidLockValue{key: lockKey, value: lockValue}
+		return invalidLockValue{key: lockKey, value: lockValue}
 	}
 
 	currentLockEndTime, valid := lockTuple[2].(int64)
 	if !valid {
-		return false, invalidLockValue{key: lockKey, value: lockValue}
+		return invalidLockValue{key: lockKey, value: lockValue}
 	}
 
 	// ownerID represents the current cluster ID. If a lock is present the currentLockOwnerID represents the operator
@@ -123,7 +120,7 @@ func (client *realLockClient) takeLockInTransaction(transaction fdb.Transaction)
 	newOwnerDenied := transaction.Get(client.getDenyListKey(ownerID)).MustGet() != nil
 	if newOwnerDenied {
 		logger.Info("Failed to get lock due to deny list")
-		return false, nil
+		return nil
 	}
 
 	oldOwnerDenied := transaction.Get(client.getDenyListKey(currentLockOwnerID)).MustGet() != nil
@@ -132,18 +129,18 @@ func (client *realLockClient) takeLockInTransaction(transaction fdb.Transaction)
 	if shouldClear {
 		logger.Info("Clearing expired lock")
 		client.updateLock(transaction, currentLockStartTime)
-		return true, nil
+		return nil
 	}
 
 	if currentLockOwnerID == ownerID {
 		logger.Info("Extending previous lock")
 		client.updateLock(transaction, currentLockStartTime)
-		return true, nil
+		return nil
 	}
 
 	logger.Info("Failed to get lock")
 
-	return false, nil
+	return fmt.Errorf("failed to get the lock")
 }
 
 // updateLock sets the keys to acquire a lock.

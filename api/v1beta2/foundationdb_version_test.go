@@ -29,72 +29,73 @@ import (
 var _ = Describe("[api] FDBVersion", func() {
 	When("checking if the protocol and the version are compatible", func() {
 		It("should return the correct compatibility", func() {
-			version := Version{api.Version{Major: 6, Minor: 2, Patch: 20}}
-			Expect(version.IsProtocolCompatible(Version{api.Version{Major: 6, Minor: 2, Patch: 20}})).To(BeTrue())
-			Expect(version.IsProtocolCompatible(Version{api.Version{Major: 6, Minor: 2, Patch: 22}})).To(BeTrue())
-			Expect(version.IsProtocolCompatible(Version{api.Version{Major: 6, Minor: 3, Patch: 0}})).To(BeFalse())
-			Expect(version.IsProtocolCompatible(Version{api.Version{Major: 6, Minor: 3, Patch: 20}})).To(BeFalse())
-			Expect(version.IsProtocolCompatible(Version{api.Version{Major: 7, Minor: 2, Patch: 20}})).To(BeFalse())
+			version := Versions.Default
+			compareVersion := Versions.Default
+			compareVersion.Patch++
+			Expect(version.IsProtocolCompatible(version)).To(BeTrue())
+			Expect(version.IsProtocolCompatible(compareVersion)).To(BeTrue())
+			compareVersion.Minor++
+			Expect(version.IsProtocolCompatible(compareVersion)).To(BeFalse())
+			compareVersion.Major++
+			Expect(version.IsProtocolCompatible(compareVersion)).To(BeFalse())
 		})
 
 		When("release candidates differ", func() {
 			It("should be incompatible", func() {
-				version := Version{api.Version{Major: 7, Minor: 0, Patch: 0, ReleaseCandidate: 1}}
-				Expect(version.IsProtocolCompatible(Version{api.Version{Major: 7, Minor: 0, Patch: 0, ReleaseCandidate: 2}})).To(BeFalse())
+				version := Versions.Default
+				version.ReleaseCandidate = 1
+				compareVersion := Versions.Default
+				compareVersion.ReleaseCandidate = 2
+				Expect(version.IsProtocolCompatible(compareVersion)).To(BeFalse())
 			})
 		})
 	})
 
 	Context("Using the fdb version", func() {
 		It("should return the fdb version struct", func() {
-			version, err := ParseFdbVersion("6.2.11")
+			version, err := ParseFdbVersion(Versions.Default.String())
 			Expect(err).NotTo(HaveOccurred())
-			Expect(version).To(Equal(Version{api.Version{Major: 6, Minor: 2, Patch: 11}}))
-			Expect(version.HasSeparatedProxies()).To(BeFalse())
+			Expect(version).To(Equal(Versions.Default))
 
-			version, err = ParseFdbVersion("prerelease-6.2.11")
+			version, err = ParseFdbVersion("prerelease-" + Versions.Default.String())
 			Expect(err).NotTo(HaveOccurred())
-			Expect(version).To(Equal(Version{api.Version{Major: 6, Minor: 2, Patch: 11}}))
+			Expect(version).To(Equal(Versions.Default))
 
-			version, err = ParseFdbVersion("test-6.2.11-test")
+			version, err = ParseFdbVersion("test-" + Versions.Default.String() + "-test")
 			Expect(err).NotTo(HaveOccurred())
-			Expect(version).To(Equal(Version{api.Version{Major: 6, Minor: 2, Patch: 11, ReleaseCandidate: 0}}))
+			Expect(version).To(Equal(Versions.Default))
 
-			version, err = ParseFdbVersion("7.0.0")
+			version, err = ParseFdbVersion(Versions.Default.String() + "-rc1")
 			Expect(err).NotTo(HaveOccurred())
-			Expect(version).To(Equal(Version{api.Version{Major: 7, Minor: 0, Patch: 0, ReleaseCandidate: 0}}))
-			Expect(version.HasSeparatedProxies()).To(BeTrue())
+			expectedVersion := Versions.Default
+			expectedVersion.ReleaseCandidate = 1
+			Expect(version).To(Equal(expectedVersion))
 
-			version, err = ParseFdbVersion("7.0.0-rc1")
+			version, err = ParseFdbVersion(Versions.Default.String() + "-rc39")
 			Expect(err).NotTo(HaveOccurred())
-			Expect(version).To(Equal(Version{api.Version{Major: 7, Minor: 0, Patch: 0, ReleaseCandidate: 1}}))
+			expectedVersion = Versions.Default
+			expectedVersion.ReleaseCandidate = 39
+			Expect(version).To(Equal(expectedVersion))
 
-			version, err = ParseFdbVersion("7.1.0-rc39")
-			Expect(err).NotTo(HaveOccurred())
-			Expect(version).To(Equal(Version{api.Version{Major: 7, Minor: 1, Patch: 0, ReleaseCandidate: 39}}))
-			Expect(version.HasSeparatedProxies()).To(BeTrue())
-
-			_, err = ParseFdbVersion("6.2")
+			_, err = ParseFdbVersion(Versions.Default.Compact())
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(Equal("could not parse FDB version from 6.2"))
+			Expect(err.Error()).To(HavePrefix("could not parse FDB version from"))
 		})
 
 		It("should format the version correctly", func() {
-			version := Version{api.Version{Major: 6, Minor: 2, Patch: 11}}
-			Expect(version.String()).To(Equal("6.2.11"))
-			version = Version{api.Version{Major: 6, Minor: 2, Patch: 11, ReleaseCandidate: 0}}
-			Expect(version.String()).To(Equal("6.2.11"))
-			version = Version{api.Version{Major: 6, Minor: 2, Patch: 11, ReleaseCandidate: 1}}
-			Expect(version.String()).To(Equal("6.2.11-rc1"))
+			version := Versions.Default
+			Expect(version.String()).To(Equal("7.1.57"))
+			version.ReleaseCandidate = 1
+			Expect(version.String()).To(Equal("7.1.57-rc1"))
 		})
 	})
 
 	When("getting the next version of the current FDBVersion", func() {
 		It("should return the correct next version", func() {
-			version := Version{api.Version{Major: 6, Minor: 2, Patch: 20}}
-			Expect(version.NextMajorVersion()).To(Equal(Version{api.Version{Major: 7, Minor: 0, Patch: 0}}))
-			Expect(version.NextMinorVersion()).To(Equal(Version{api.Version{Major: version.Major, Minor: 3, Patch: 0}}))
-			Expect(version.NextPatchVersion()).To(Equal(Version{api.Version{Major: version.Major, Minor: version.Minor, Patch: 21}}))
+			version := Versions.Default
+			Expect(version.NextMajorVersion()).To(Equal(Version{api.Version{Major: 8, Minor: 0, Patch: 0}}))
+			Expect(version.NextMinorVersion()).To(Equal(Version{api.Version{Major: version.Major, Minor: 2, Patch: 0}}))
+			Expect(version.NextPatchVersion()).To(Equal(Version{api.Version{Major: version.Major, Minor: version.Minor, Patch: 58}}))
 		})
 	})
 
@@ -117,44 +118,6 @@ var _ = Describe("[api] FDBVersion", func() {
 			version = Version{api.Version{Major: 7, Minor: 1, Patch: 0}}
 			Expect(version.IsAtLeast(Version{api.Version{Major: 7, Minor: 1, Patch: 0, ReleaseCandidate: 1}})).To(BeTrue())
 		})
-	})
-
-	When("checking if the version has support for non-blocking exclude commands", func() {
-		type testCase struct {
-			version                Version
-			useNonBlockingExcludes bool
-			expectedResult         bool
-		}
-
-		DescribeTable("should return if non-blocking excludes are enabled",
-			func(tc testCase) {
-				Expect(tc.version.HasNonBlockingExcludes(tc.useNonBlockingExcludes)).To(Equal(tc.expectedResult))
-			},
-			Entry("When version is below 6.3.5 and useNonBlockingExcludes is false",
-				testCase{
-					version:                Version{api.Version{Major: 6, Minor: 3, Patch: 0}},
-					useNonBlockingExcludes: false,
-					expectedResult:         false,
-				}),
-			Entry("When version is below 6.3.5 and useNonBlockingExcludes is true",
-				testCase{
-					version:                Version{api.Version{Major: 6, Minor: 3, Patch: 0}},
-					useNonBlockingExcludes: false,
-					expectedResult:         false,
-				}),
-			Entry("When version is atleast 6.3.5 and useNonBlockingExcludes is false",
-				testCase{
-					version:                Version{api.Version{Major: 6, Minor: 3, Patch: 5}},
-					useNonBlockingExcludes: false,
-					expectedResult:         false,
-				}),
-			Entry("When version is atleast 6.3.5 and useNonBlockingExcludes is true",
-				testCase{
-					version:                Version{api.Version{Major: 6, Minor: 3, Patch: 6}},
-					useNonBlockingExcludes: true,
-					expectedResult:         true,
-				}),
-		)
 	})
 
 	DescribeTable("validating in a version check is allowed", func(version Version, targetVersion Version, expected bool) {

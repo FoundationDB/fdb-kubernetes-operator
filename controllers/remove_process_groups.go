@@ -278,12 +278,7 @@ func includeProcessGroup(ctx context.Context, logger logr.Logger, r *FoundationD
 
 	// Make sure the inclusion are coordinated across multiple operator instances.
 	if cluster.ShouldUseLocks() {
-		lockClient, err := r.getLockClient(logger, cluster)
-		if err != nil {
-			return err
-		}
-
-		_, err = lockClient.TakeLock()
+		err = r.takeLock(logger, cluster, "remove process groups")
 		if err != nil {
 			return err
 		}
@@ -337,6 +332,13 @@ func getProcessesToInclude(logger logr.Logger, cluster *fdbv1beta2.FoundationDBC
 			}
 
 			for _, pAddr := range processGroup.Addresses {
+				// Ensure we include the process address if the removed process group is a log process as we are always
+				// excluding the log process with locality and IP address
+				if foundInExcludedServerList && processGroup.ProcessClass.IsLogProcess() {
+					fdbProcessesToInclude = append(fdbProcessesToInclude, fdbv1beta2.ProcessAddress{IPAddress: net.ParseIP(pAddr)})
+					continue
+				}
+
 				if _, ok := excludedServersMap[pAddr]; ok {
 					fdbProcessesToInclude = append(fdbProcessesToInclude, fdbv1beta2.ProcessAddress{IPAddress: net.ParseIP(pAddr)})
 					foundInExcludedServerList = true

@@ -90,8 +90,8 @@ func (c maintenanceModeChecker) reconcile(_ context.Context, r *FoundationDBClus
 	}
 
 	// Make sure we take a lock before we continue.
-	hasLock, err := r.takeLock(logger, cluster, "maintenance mode check")
-	if !hasLock {
+	err = r.takeLock(logger, cluster, "maintenance mode check")
+	if err != nil {
 		return &requeue{curError: err}
 	}
 

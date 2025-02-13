@@ -30,7 +30,7 @@ type LockClient interface {
 	Disabled() bool
 
 	// TakeLock attempts to acquire a lock.
-	TakeLock() (bool, error)
+	TakeLock() error
 
 	// ReleaseLock will release the current lock. The method will only release the lock if the current
 	// operator is the lock holder.

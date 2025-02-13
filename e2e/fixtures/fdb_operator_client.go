@@ -533,7 +533,6 @@ type SidecarConfig struct {
 
 // getSidecarConfigs returns the sidecar config based on the provided imageConfigs.
 func (factory *Factory) getSidecarConfigs(imageConfigs []fdbv1beta2.ImageConfig) []SidecarConfig {
-	var hasCopyPrimarySet bool
 	additionalSidecarVersions := factory.GetAdditionalSidecarVersions()
 	sidecarConfigs := make([]SidecarConfig, 0, len(additionalSidecarVersions)+1)
 	pullPolicy := factory.getImagePullPolicy()
@@ -542,11 +541,7 @@ func (factory *Factory) getSidecarConfigs(imageConfigs []fdbv1beta2.ImageConfig)
 		Image:           fdbv1beta2.SelectImageConfig(imageConfigs, factory.GetFDBVersionAsString()).Image(),
 		FDBVersion:      factory.GetFDBVersion(),
 		ImagePullPolicy: pullPolicy,
-	}
-
-	if factory.GetFDBVersion().SupportsDNSInClusterFile() {
-		defaultConfig.CopyAsPrimary = true
-		hasCopyPrimarySet = true
+		CopyAsPrimary:   true,
 	}
 
 	sidecarConfigs = append(
@@ -565,11 +560,6 @@ func (factory *Factory) getSidecarConfigs(imageConfigs []fdbv1beta2.ImageConfig)
 			Image:           fdbv1beta2.SelectImageConfig(imageConfigs, version.String()).Image(),
 			FDBVersion:      version,
 			ImagePullPolicy: pullPolicy,
-		}
-
-		if !hasCopyPrimarySet && version.SupportsDNSInClusterFile() {
-			sidecarConfig.CopyAsPrimary = true
-			hasCopyPrimarySet = true
 		}
 
 		sidecarConfigs = append(

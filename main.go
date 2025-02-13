@@ -30,7 +30,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	fdbv1beta1 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
 	"github.com/FoundationDB/fdb-kubernetes-operator/setup"
@@ -43,7 +42,6 @@ var (
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-	utilruntime.Must(fdbv1beta1.AddToScheme(scheme))
 	utilruntime.Must(fdbv1beta2.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
@@ -69,7 +67,9 @@ func main() {
 		ctrl.Log)
 
 	if file != nil {
-		defer file.Close()
+		defer func() {
+			_ = file.Close()
+		}()
 	}
 
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {

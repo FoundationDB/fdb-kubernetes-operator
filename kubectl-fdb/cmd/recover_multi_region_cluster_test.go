@@ -30,6 +30,7 @@ import (
 
 var _ = Describe("[plugin] running the recover multi-region cluster command", func() {
 	var imageTypeUnified = fdbv1beta2.ImageTypeUnified
+	var imageTypeSplit = fdbv1beta2.ImageTypeSplit
 	type dataDirTest struct {
 		input    string
 		pod      *corev1.Pod
@@ -50,7 +51,11 @@ var _ = Describe("[plugin] running the recover multi-region cluster command", fu
 						},
 					},
 				},
-				cluster:  &fdbv1beta2.FoundationDBCluster{},
+				cluster: &fdbv1beta2.FoundationDBCluster{
+					Spec: fdbv1beta2.FoundationDBClusterSpec{
+						ImageType: &imageTypeSplit,
+					},
+				},
 				expected: "/var/fdb/data",
 			},
 		),
@@ -64,7 +69,11 @@ var _ = Describe("[plugin] running the recover multi-region cluster command", fu
 						},
 					},
 				},
-				cluster:  &fdbv1beta2.FoundationDBCluster{},
+				cluster: &fdbv1beta2.FoundationDBCluster{
+					Spec: fdbv1beta2.FoundationDBClusterSpec{
+						ImageType: &imageTypeSplit,
+					},
+				},
 				expected: "/var/fdb/data",
 			},
 		),
@@ -81,6 +90,7 @@ var _ = Describe("[plugin] running the recover multi-region cluster command", fu
 				cluster: &fdbv1beta2.FoundationDBCluster{
 					Spec: fdbv1beta2.FoundationDBClusterSpec{
 						StorageServersPerPod: 2,
+						ImageType:            &imageTypeSplit,
 					},
 				},
 				expected: "/var/fdb/data/1",

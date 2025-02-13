@@ -83,7 +83,7 @@ func (u updateDatabaseConfiguration) reconcile(_ context.Context, r *FoundationD
 		} else {
 			nextConfiguration = currentConfiguration.GetNextConfigurationChange(desiredConfiguration)
 		}
-		configurationString, _ := nextConfiguration.GetConfigurationString(cluster.Spec.Version)
+		configurationString, _ := nextConfiguration.GetConfigurationString()
 
 		if !initialConfig {
 			err = fdbstatus.ConfigurationChangeAllowed(status, runningVersion.SupportsRecoveryState() && r.EnableRecoveryState)
@@ -96,9 +96,9 @@ func (u updateDatabaseConfiguration) reconcile(_ context.Context, r *FoundationD
 		}
 
 		if !initialConfig {
-			hasLock, err := r.takeLock(logger, cluster,
+			err := r.takeLock(logger, cluster,
 				fmt.Sprintf("reconfiguring the database to `%s`", configurationString))
-			if !hasLock {
+			if err != nil {
 				return &requeue{curError: err, delayedRequeue: true}
 			}
 		}

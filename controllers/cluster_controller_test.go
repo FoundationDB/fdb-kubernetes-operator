@@ -24,6 +24,9 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbstatus"
+	"github.com/onsi/gomega/format"
+	"k8s.io/utils/net"
 	"regexp"
 	"sort"
 	"strings"
@@ -53,7 +56,6 @@ import (
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 )
 
-var firstLogIndex = 1
 var firstStorageIndex = 13
 
 // reloadCluster reloads FoundationDBCluster object info to its local copy.
@@ -92,7 +94,7 @@ func sortPodsByName(pods *corev1.PodList) {
 	})
 }
 
-var _ = Describe("cluster_controller", func() {
+var _ = FDescribe("cluster_controller", func() {
 	var cluster *fdbv1beta2.FoundationDBCluster
 	var fakeConnectionString string
 
@@ -201,11 +203,10 @@ var _ = Describe("cluster_controller", func() {
 				Expect(len(cluster.Status.ProcessGroups)).To(Equal(len(pods.Items)))
 			})
 
-			It("should not create any services", func() {
+			It("should create an headless service", func() {
 				services := &corev1.ServiceList{}
-				err := k8sClient.List(context.TODO(), services, getListOptions(cluster)...)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(len(services.Items)).To(Equal(0))
+				Expect(k8sClient.List(context.TODO(), services, getListOptions(cluster)...)).NotTo(HaveOccurred())
+				Expect(services.Items).To(HaveLen(1))
 			})
 
 			It("should fill in the required fields in the configuration", func() {
@@ -272,14 +273,15 @@ var _ = Describe("cluster_controller", func() {
 				desiredCounts, err := cluster.GetProcessCountsWithDefaults()
 				Expect(err).NotTo(HaveOccurred())
 				Expect(processCounts).To(Equal(desiredCounts))
-				Expect(len(fdbv1beta2.FilterByCondition(cluster.Status.ProcessGroups, fdbv1beta2.IncorrectCommandLine, false))).To(Equal(0))
-				Expect(len(fdbv1beta2.FilterByCondition(cluster.Status.ProcessGroups, fdbv1beta2.MissingProcesses, false))).To(Equal(0))
+				Expect(fdbv1beta2.FilterByCondition(cluster.Status.ProcessGroups, fdbv1beta2.IncorrectCommandLine, false)).To(HaveLen(0))
+				Expect(fdbv1beta2.FilterByCondition(cluster.Status.ProcessGroups, fdbv1beta2.MissingProcesses, false)).To(HaveLen(0))
 
 				status, err := adminClient.GetStatus()
 				Expect(err).NotTo(HaveOccurred())
 
 				configuration := status.Cluster.DatabaseConfiguration.DeepCopy()
 				configuration.LogSpill = 0
+				cluster.ClearUnsetDatabaseConfigurationKnobs(configuration)
 				Expect(cluster.Status.DatabaseConfiguration).To(Equal(*configuration))
 
 				Expect(cluster.Status.Health).To(Equal(fdbv1beta2.ClusterHealth{
@@ -322,15 +324,13 @@ var _ = Describe("cluster_controller", func() {
 			})
 		})
 
-		When("enabling the DNS names in the cluster file", func() {
+		When("disabling the DNS names in the cluster file", func() {
 			BeforeEach(func() {
-				cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(true)
-				cluster.Spec.Version = fdbv1beta2.Versions.SupportsDNSInClusterFile.String()
-				cluster.Status.RunningVersion = fdbv1beta2.Versions.SupportsDNSInClusterFile.String()
+				cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(false)
 				Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
 			})
 
-			It("should update the pods", func() {
+			It("should disable DNS names for the pods", func() {
 				pods := &corev1.PodList{}
 				Expect(k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)).NotTo(HaveOccurred())
 				for _, pod := range pods.Items {
@@ -338,7 +338,7 @@ var _ = Describe("cluster_controller", func() {
 					for _, envVar := range pod.Spec.InitContainers[0].Env {
 						env[envVar.Name] = envVar.Value
 					}
-					Expect(env[fdbv1beta2.EnvNameDNSName]).To(Equal(internal.GetPodDNSName(cluster, pod.Name)))
+					Expect(env).NotTo(HaveKey(fdbv1beta2.EnvNameDNSName))
 				}
 			})
 		})
@@ -409,14 +409,13 @@ var _ = Describe("cluster_controller", func() {
 		Context("with a decreased process count", func() {
 			BeforeEach(func() {
 				cluster.Spec.ProcessCounts.Storage = 3
-				err = k8sClient.Update(context.TODO(), cluster)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(k8sClient.Update(context.TODO(), cluster)).To(Succeed())
 			})
 
 			It("should remove the pods", func() {
 				pods := &corev1.PodList{}
-				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
-				Expect(len(pods.Items)).To(Equal(len(originalPods.Items) - 1))
+				Expect(k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)).To(Succeed())
+				Expect(pods.Items).To(HaveLen(len(originalPods.Items) - 1))
 				sortPodsByName(pods)
 
 				Expect(pods.Items[0].Name).To(Equal(originalPods.Items[0].Name))
@@ -438,8 +437,9 @@ var _ = Describe("cluster_controller", func() {
 				Expect(adminClient.ExcludedAddresses).To(BeEmpty())
 
 				removedItem := originalPods.Items[16]
+				exclusionString := fmt.Sprintf("%s:%s", fdbv1beta2.FDBLocalityExclusionPrefix, removedItem.ObjectMeta.Labels[fdbv1beta2.FDBProcessGroupIDLabel])
 				Expect(adminClient.ReincludedAddresses).To(Equal(map[string]bool{
-					removedItem.Status.PodIP: true,
+					exclusionString: true,
 				}))
 			})
 		})
@@ -447,8 +447,7 @@ var _ = Describe("cluster_controller", func() {
 		Context("with an increased process count", func() {
 			BeforeEach(func() {
 				cluster.Spec.ProcessCounts.Storage = 5
-				err := k8sClient.Update(context.TODO(), cluster)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(k8sClient.Update(context.TODO(), cluster)).To(Succeed())
 			})
 
 			It("should add additional pods", func() {
@@ -646,7 +645,7 @@ var _ = Describe("cluster_controller", func() {
 					Expect(err).NotTo(HaveOccurred())
 					Expect(adminClient).NotTo(BeNil())
 					Expect(adminClient.ReincludedAddresses).To(HaveLen(0))
-					Expect(adminClient.ExcludedAddresses).To(HaveLen(1))
+					Expect(adminClient.ExcludedAddresses).To(HaveLen(2))
 					Expect(adminClient.ExcludedAddresses).To(HaveKey(
 						replacedProcessGroup.Addresses[0],
 					))
@@ -683,7 +682,7 @@ var _ = Describe("cluster_controller", func() {
 					Expect(err).NotTo(HaveOccurred())
 					Expect(adminClient).NotTo(BeNil())
 					Expect(adminClient.ReincludedAddresses).To(HaveLen(0))
-					Expect(adminClient.ExcludedAddresses).To(HaveLen(1))
+					Expect(adminClient.ExcludedAddresses).To(HaveLen(2))
 					Expect(adminClient.ExcludedAddresses).To(HaveKey(
 						replacedProcessGroup.Addresses[0],
 					))
@@ -1623,12 +1622,11 @@ var _ = Describe("cluster_controller", func() {
 				services := &corev1.ServiceList{}
 				err = k8sClient.List(context.TODO(), services, getListOptions(cluster)...)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(len(services.Items)).To(Equal(len(pods.Items)))
+				Expect(services.Items).To(HaveLen(len(pods.Items) + 1))
 
 				service := &corev1.Service{}
 				pod := pods.Items[0]
-				err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: pod.Namespace, Name: pod.Name}, service)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: pod.Namespace, Name: pod.Name}, service)).To(Succeed())
 				Expect(service.Spec.Type).To(Equal(corev1.ServiceTypeClusterIP))
 				Expect(len(service.Spec.Ports)).To(Equal(cluster.GetStorageServersPerPod() * 2))
 			})
@@ -1742,8 +1740,7 @@ var _ = Describe("cluster_controller", func() {
 						return pod.Name
 					}, Equal(originalPods.Items[idx].Name)))
 				}
-				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)).To(Succeed())
 				sortPodsByName(pods)
 
 				// Exactly as many pods as we started with
@@ -1756,9 +1753,8 @@ var _ = Describe("cluster_controller", func() {
 				Expect(pods.Items).NotTo(ContainOriginalPod(16))
 
 				services := &corev1.ServiceList{}
-				err = k8sClient.List(context.TODO(), services, getListOptions(cluster)...)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(len(services.Items)).To(Equal(len(pods.Items)))
+				Expect(k8sClient.List(context.TODO(), services, getListOptions(cluster)...)).To(Succeed())
+				Expect(services.Items).To(HaveLen(len(pods.Items) + 1))
 
 				var storagePod corev1.Pod
 				for _, pod := range pods.Items {
@@ -1824,17 +1820,20 @@ var _ = Describe("cluster_controller", func() {
 
 		Context("with a conversion to IPv6", func() {
 			BeforeEach(func() {
-				family := 6
-				cluster.Spec.Routing.PodIPFamily = &family
-				err := k8sClient.Update(context.TODO(), cluster)
-				Expect(err).NotTo(HaveOccurred())
+				cluster.Spec.Routing.PodIPFamily = pointer.Int(6)
+				Expect(k8sClient.Update(context.TODO(), cluster)).To(Succeed())
 			})
 
 			It("should make the processes listen on an IPV6 address", func() {
-				address1 := cluster.Status.ProcessGroups[1].Addresses[0]
-				address2 := cluster.Status.ProcessGroups[2].Addresses[0]
-				address3 := cluster.Status.ProcessGroups[3].Addresses[0]
-				Expect(cluster.Status.ConnectionString).To(HaveSuffix(fmt.Sprintf("@[%s]:4501,[%s]:4501,[%s]:4501", address1, address2, address3)))
+				adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
+				Expect(err).To(Succeed())
+
+				status, err := adminClient.GetStatus()
+				Expect(err).To(Succeed())
+
+				for _, process := range status.Cluster.Processes {
+					Expect(net.IsIPv6(process.Address.IPAddress)).To(BeTrue())
+				}
 			})
 		})
 
@@ -1845,11 +1844,9 @@ var _ = Describe("cluster_controller", func() {
 				mock.ClearMockLockClients()
 
 				cluster = internal.CreateDefaultCluster()
-				family := 6
-				cluster.Spec.Routing.PodIPFamily = &family
+				cluster.Spec.Routing.PodIPFamily = pointer.Int(6)
 
-				err = k8sClient.Create(context.TODO(), cluster)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(k8sClient.Create(context.TODO(), cluster)).To(Succeed())
 
 				result, err := reconcileCluster(cluster)
 				Expect(err).NotTo(HaveOccurred())
@@ -1862,9 +1859,8 @@ var _ = Describe("cluster_controller", func() {
 				originalVersion = cluster.ObjectMeta.Generation
 
 				originalPods = &corev1.PodList{}
-				err = k8sClient.List(context.TODO(), originalPods, getListOptions(cluster)...)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(len(originalPods.Items)).To(Equal(17))
+				Expect(k8sClient.List(context.TODO(), originalPods, getListOptions(cluster)...)).To(Succeed())
+				Expect(originalPods.Items).To(HaveLen(17))
 
 				sortPodsByName(originalPods)
 
@@ -1872,10 +1868,15 @@ var _ = Describe("cluster_controller", func() {
 			})
 
 			It("should make the processes listen on an IPV6 address", func() {
-				address1 := cluster.Status.ProcessGroups[firstLogIndex].Addresses[0]
-				address2 := cluster.Status.ProcessGroups[firstLogIndex+1].Addresses[0]
-				address3 := cluster.Status.ProcessGroups[firstLogIndex+2].Addresses[0]
-				Expect(cluster.Status.ConnectionString).To(HaveSuffix(fmt.Sprintf("@[%s]:4501,[%s]:4501,[%s]:4501", address1, address2, address3)))
+				adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
+				Expect(err).To(Succeed())
+
+				status, err := adminClient.GetStatus()
+				Expect(err).To(Succeed())
+
+				for _, process := range status.Cluster.Processes {
+					Expect(net.IsIPv6(process.Address.IPAddress)).To(BeTrue())
+				}
 			})
 		})
 
@@ -1887,22 +1888,27 @@ var _ = Describe("cluster_controller", func() {
 						Priority:     0,
 					},
 				}
-				err := k8sClient.Update(context.TODO(), cluster)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(k8sClient.Update(context.TODO(), cluster)).To(Succeed())
 			})
 
 			It("should only have storage processes as coordinator", func() {
-				connectionString, err := fdbv1beta2.ParseConnectionString(cluster.Status.ConnectionString)
-				Expect(err).NotTo(HaveOccurred())
+				adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
+				Expect(err).To(Succeed())
 
-				addressClassMap := map[string]fdbv1beta2.ProcessClass{}
-				for _, pGroup := range cluster.Status.ProcessGroups {
-					addressClassMap[fmt.Sprintf("%s:4501", pGroup.Addresses[0])] = pGroup.ProcessClass
+				status, err := adminClient.GetStatus()
+				Expect(err).To(Succeed())
+
+				coordinators := fdbstatus.GetCoordinatorsFromStatus(status)
+				var validatedCoordinators int
+				for _, process := range status.Cluster.Processes {
+					if _, ok := coordinators[process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]]; !ok {
+						continue
+					}
+					Expect(process.ProcessClass).To(Equal(fdbv1beta2.ProcessClassStorage))
+					validatedCoordinators++
 				}
 
-				for _, coordinator := range connectionString.Coordinators {
-					Expect(addressClassMap[coordinator]).To(Equal(fdbv1beta2.ProcessClassStorage))
-				}
+				Expect(coordinators).To(HaveLen(validatedCoordinators))
 			})
 
 			When("changing the coordinator selection to only select log processes", func() {
@@ -1919,17 +1925,23 @@ var _ = Describe("cluster_controller", func() {
 				})
 
 				It("should only have log processes as coordinator", func() {
-					connectionString, err := fdbv1beta2.ParseConnectionString(cluster.Status.ConnectionString)
-					Expect(err).NotTo(HaveOccurred())
+					adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
+					Expect(err).To(Succeed())
 
-					addressClassMap := map[string]fdbv1beta2.ProcessClass{}
-					for _, pGroup := range cluster.Status.ProcessGroups {
-						addressClassMap[fmt.Sprintf("%s:4501", pGroup.Addresses[0])] = pGroup.ProcessClass
+					status, err := adminClient.GetStatus()
+					Expect(err).To(Succeed())
+
+					coordinators := fdbstatus.GetCoordinatorsFromStatus(status)
+					var validatedCoordinators int
+					for _, process := range status.Cluster.Processes {
+						if _, ok := coordinators[process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]]; !ok {
+							continue
+						}
+						Expect(process.ProcessClass).To(Equal(fdbv1beta2.ProcessClassLog))
+						validatedCoordinators++
 					}
 
-					for _, coordinator := range connectionString.Coordinators {
-						Expect(addressClassMap[coordinator]).To(Equal(fdbv1beta2.ProcessClassLog))
-					}
+					Expect(coordinators).To(HaveLen(validatedCoordinators))
 				})
 			})
 		})
@@ -2465,7 +2477,7 @@ var _ = Describe("cluster_controller", func() {
 			})
 		})
 
-		Context("when enabling a headless service", func() {
+		When("enabling a headless service", func() {
 			BeforeEach(func() {
 				cluster.Spec.Routing.HeadlessService = pointer.Bool(true)
 				err = k8sClient.Update(context.TODO(), cluster)
@@ -2482,11 +2494,10 @@ var _ = Describe("cluster_controller", func() {
 			})
 		})
 
-		Context("when disabling a headless service", func() {
+		When("disabling a headless service", func() {
 			BeforeEach(func() {
 				cluster.Spec.Routing.HeadlessService = pointer.Bool(true)
-				err = k8sClient.Update(context.TODO(), cluster)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(k8sClient.Update(context.TODO(), cluster)).To(Succeed())
 
 				_, err := reconcileCluster(cluster)
 				Expect(err).NotTo(HaveOccurred())
@@ -2495,10 +2506,10 @@ var _ = Describe("cluster_controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(generation).To(Equal(originalVersion + 1))
 
-				*cluster.Spec.Routing.HeadlessService = false
+				cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(false)
+				cluster.Spec.Routing.HeadlessService = pointer.Bool(false)
 				generationGap = 2
-				err = k8sClient.Update(context.TODO(), cluster)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(k8sClient.Update(context.TODO(), cluster)).To(Succeed())
 			})
 
 			It("should remove a service", func() {
@@ -2643,56 +2654,14 @@ var _ = Describe("cluster_controller", func() {
 			})
 		})
 
-		When("creating a cluster with RocksDB as storage engine", func() {
+		When("changing the storage engine to RocksDB", func() {
 			When("using rocksdb-v1 engine", func() {
-				When("using 6.3.26", func() {
+				When("using the default 7.1 version", func() {
 					BeforeEach(func() {
 						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineRocksDbV1
-						cluster.Spec.Version = "6.3.26"
-						err := k8sClient.Update(context.TODO(), cluster)
-						Expect(err).NotTo(HaveOccurred())
-						shouldCompleteReconciliation = false
+						Expect(k8sClient.Update(context.TODO(), cluster)).To(Succeed())
 					})
-					It("generations are not matching", func() {
-						generations, err := reloadClusterGenerations(cluster)
-						Expect(err).NotTo(HaveOccurred())
-						Expect(generations.Reconciled).ToNot(Equal(cluster.ObjectMeta.Generation))
-					})
-				})
-				When("using 7.1.0-rc3", func() {
-					BeforeEach(func() {
-						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineRocksDbV1
-						cluster.Spec.Version = "7.1.0-rc3"
-						err := k8sClient.Update(context.TODO(), cluster)
-						Expect(err).NotTo(HaveOccurred())
-						shouldCompleteReconciliation = false
-					})
-					It("generations are not matching", func() {
-						generations, err := reloadClusterGenerations(cluster)
-						Expect(err).NotTo(HaveOccurred())
-						Expect(generations.Reconciled).ToNot(Equal(cluster.ObjectMeta.Generation))
-					})
-				})
-				When("using 7.1.0", func() {
-					BeforeEach(func() {
-						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineRocksDbV1
-						cluster.Spec.Version = "7.1.0"
-						err := k8sClient.Update(context.TODO(), cluster)
-						Expect(err).NotTo(HaveOccurred())
-					})
-					It("generations are matching", func() {
-						generations, err := reloadClusterGenerations(cluster)
-						Expect(err).NotTo(HaveOccurred())
-						Expect(generations.Reconciled).To(Equal(cluster.ObjectMeta.Generation))
-					})
-				})
-				When("using 7.1.0-rc4", func() {
-					BeforeEach(func() {
-						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineRocksDbV1
-						cluster.Spec.Version = "7.1.0-rc4"
-						err := k8sClient.Update(context.TODO(), cluster)
-						Expect(err).NotTo(HaveOccurred())
-					})
+
 					It("generations are matching", func() {
 						generations, err := reloadClusterGenerations(cluster)
 						Expect(err).NotTo(HaveOccurred())
@@ -2702,115 +2671,59 @@ var _ = Describe("cluster_controller", func() {
 			})
 
 			When("using ssd-rocksdb-experimental", func() {
-				When("using 7.1.0-rc4", func() {
+				When("using the default 7.1 version", func() {
 					BeforeEach(func() {
 						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineRocksDbExperimental
-						cluster.Spec.Version = "7.1.0-rc4"
-						err := k8sClient.Update(context.TODO(), cluster)
-						Expect(err).NotTo(HaveOccurred())
-						shouldCompleteReconciliation = false
+						Expect(k8sClient.Update(context.TODO(), cluster)).To(Succeed())
 					})
-					It("generations are not matching", func() {
-						generations, err := reloadClusterGenerations(cluster)
-						Expect(err).NotTo(HaveOccurred())
-						Expect(generations.Reconciled).ToNot(Equal(cluster.ObjectMeta.Generation))
-					})
-				})
-				When("using 7.1.0", func() {
-					BeforeEach(func() {
-						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineRocksDbExperimental
-						cluster.Spec.Version = "7.1.0"
-						err := k8sClient.Update(context.TODO(), cluster)
-						Expect(err).NotTo(HaveOccurred())
-						shouldCompleteReconciliation = false
-					})
-					It("generations are not matching", func() {
-						generations, err := reloadClusterGenerations(cluster)
-						Expect(err).NotTo(HaveOccurred())
-						Expect(generations.Reconciled).ToNot(Equal(cluster.ObjectMeta.Generation))
-					})
-				})
-				When("using 7.1.0-rc3", func() {
-					BeforeEach(func() {
-						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineRocksDbExperimental
-						cluster.Spec.Version = "7.1.0-rc3"
-						err := k8sClient.Update(context.TODO(), cluster)
-						Expect(err).NotTo(HaveOccurred())
-					})
+
 					It("generations are matching", func() {
 						generations, err := reloadClusterGenerations(cluster)
 						Expect(err).NotTo(HaveOccurred())
 						Expect(generations.Reconciled).To(Equal(cluster.ObjectMeta.Generation))
-					})
-				})
-				When("using 6.3.24", func() {
-					BeforeEach(func() {
-						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineRocksDbExperimental
-						cluster.Spec.Version = "6.3.24"
-						err := k8sClient.Update(context.TODO(), cluster)
-						Expect(err).NotTo(HaveOccurred())
-					})
-					It("generations are matching", func() {
-						generations, err := reloadClusterGenerations(cluster)
-						Expect(err).NotTo(HaveOccurred())
-						Expect(generations.Reconciled).To(Equal(cluster.ObjectMeta.Generation))
-					})
-				})
-			})
-			When("using ssd-sharded-rocksdb", func() {
-				When("using 7.2.0", func() {
-					BeforeEach(func() {
-						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineShardedRocksDB
-						cluster.Spec.Version = "7.2.0"
-						err := k8sClient.Update(context.TODO(), cluster)
-						Expect(err).NotTo(HaveOccurred())
-					})
-					It("generations are matching", func() {
-						generations, err := reloadClusterGenerations(cluster)
-						Expect(err).NotTo(HaveOccurred())
-						Expect(generations.Reconciled).To(Equal(cluster.ObjectMeta.Generation))
-					})
-				})
-				When("using 7.1.0", func() {
-					BeforeEach(func() {
-						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineShardedRocksDB
-						cluster.Spec.Version = "7.1.0"
-						err := k8sClient.Update(context.TODO(), cluster)
-						Expect(err).NotTo(HaveOccurred())
-						shouldCompleteReconciliation = false
-					})
-					It("generations are not matching", func() {
-						generations, err := reloadClusterGenerations(cluster)
-						Expect(err).NotTo(HaveOccurred())
-						Expect(generations.Reconciled).ToNot(Equal(cluster.ObjectMeta.Generation))
-					})
-				})
-				When("using 6.3.24", func() {
-					BeforeEach(func() {
-						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineShardedRocksDB
-						cluster.Spec.Version = "6.3.24"
-						err := k8sClient.Update(context.TODO(), cluster)
-						Expect(err).NotTo(HaveOccurred())
-						shouldCompleteReconciliation = false
-					})
-					It("generations are not matching", func() {
-						generations, err := reloadClusterGenerations(cluster)
-						Expect(err).NotTo(HaveOccurred())
-						Expect(generations.Reconciled).ToNot(Equal(cluster.ObjectMeta.Generation))
 					})
 				})
 			})
 
+			When("using ssd-sharded-rocksdb", func() {
+				When("using a version that supports sharded-rocksdb", func() {
+					BeforeEach(func() {
+						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineShardedRocksDB
+						cluster.Spec.Version = fdbv1beta2.Versions.SupportsShardedRocksDB.String()
+						Expect(k8sClient.Update(context.TODO(), cluster)).To(Succeed())
+						Expect(err).NotTo(HaveOccurred())
+					})
+
+					It("generations are matching", func() {
+						generations, err := reloadClusterGenerations(cluster)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(generations.Reconciled).To(Equal(cluster.ObjectMeta.Generation))
+					})
+				})
+
+				When("using the default 7.1 version", func() {
+					BeforeEach(func() {
+						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineShardedRocksDB
+						Expect(k8sClient.Update(context.TODO(), cluster)).To(Succeed())
+						shouldCompleteReconciliation = false
+					})
+
+					It("generations are not matching", func() {
+						generations, err := reloadClusterGenerations(cluster)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(generations.Reconciled).ToNot(Equal(cluster.ObjectMeta.Generation))
+					})
+				})
+			})
 		})
 
-		When("creating a cluster with Redwood as storage engine", func() {
+		When("changing the storage engine to Redwood", func() {
 			When("using ssd-redwood-1-experimental", func() {
 				When("using 7.2.0", func() {
 					BeforeEach(func() {
 						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineRedwood1Experimental
-						cluster.Spec.Version = "7.2.0"
-						err := k8sClient.Update(context.TODO(), cluster)
-						Expect(err).NotTo(HaveOccurred())
+						cluster.Spec.Version = fdbv1beta2.Versions.SupportsRedwood1.String()
+						Expect(k8sClient.Update(context.TODO(), cluster)).To(Succeed())
 					})
 					It("generations are matching", func() {
 						generations, err := reloadClusterGenerations(cluster)
@@ -2818,10 +2731,10 @@ var _ = Describe("cluster_controller", func() {
 						Expect(generations.Reconciled).To(Equal(cluster.ObjectMeta.Generation))
 					})
 				})
-				When("using 7.1.0", func() {
+
+				When("using the default 7.1 version", func() {
 					BeforeEach(func() {
 						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineRedwood1Experimental
-						cluster.Spec.Version = "7.1.0"
 						err := k8sClient.Update(context.TODO(), cluster)
 						Expect(err).NotTo(HaveOccurred())
 					})
@@ -2829,37 +2742,9 @@ var _ = Describe("cluster_controller", func() {
 						generations, err := reloadClusterGenerations(cluster)
 						Expect(err).NotTo(HaveOccurred())
 						Expect(generations.Reconciled).To(Equal(cluster.ObjectMeta.Generation))
-					})
-				})
-				When("using 7.0.0", func() {
-					BeforeEach(func() {
-						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineRedwood1Experimental
-						cluster.Spec.Version = "7.0.0"
-						err := k8sClient.Update(context.TODO(), cluster)
-						Expect(err).NotTo(HaveOccurred())
-					})
-					It("generations are matching", func() {
-						generations, err := reloadClusterGenerations(cluster)
-						Expect(err).NotTo(HaveOccurred())
-						Expect(generations.Reconciled).To(Equal(cluster.ObjectMeta.Generation))
-					})
-				})
-				When("using 6.3.24", func() {
-					BeforeEach(func() {
-						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineRedwood1Experimental
-						cluster.Spec.Version = "6.3.24"
-						err := k8sClient.Update(context.TODO(), cluster)
-						Expect(err).NotTo(HaveOccurred())
-						shouldCompleteReconciliation = false
-					})
-					It("generations are not matching", func() {
-						generations, err := reloadClusterGenerations(cluster)
-						Expect(err).NotTo(HaveOccurred())
-						Expect(generations.Reconciled).ToNot(Equal(cluster.ObjectMeta.Generation))
 					})
 				})
 			})
-
 		})
 
 		When("When a process have an incorrect commandline", func() {
@@ -2909,6 +2794,9 @@ var _ = Describe("cluster_controller", func() {
 
 		BeforeEach(func() {
 			cluster.Status.ConnectionString = fakeConnectionString
+			format.MaxLength = 5000
+			format.MaxDepth = 100
+			format.TruncatedDiff = false
 		})
 
 		Context("with a test process group", func() {
@@ -2934,6 +2822,7 @@ var _ = Describe("cluster_controller", func() {
 					"locality_instance_id = $FDB_INSTANCE_ID",
 					"locality_machineid = $FDB_MACHINE_ID",
 					"locality_zoneid = $FDB_ZONE_ID",
+					"locality_dns_name = $FDB_DNS_NAME",
 				}, "\n")))
 			})
 		})
@@ -2961,6 +2850,7 @@ var _ = Describe("cluster_controller", func() {
 					"locality_instance_id = $FDB_INSTANCE_ID",
 					"locality_machineid = $FDB_MACHINE_ID",
 					"locality_zoneid = $FDB_ZONE_ID",
+					"locality_dns_name = $FDB_DNS_NAME",
 				}, "\n")))
 			})
 		})
@@ -2990,6 +2880,7 @@ var _ = Describe("cluster_controller", func() {
 					"locality_instance_id = $FDB_INSTANCE_ID",
 					"locality_machineid = $FDB_MACHINE_ID",
 					"locality_zoneid = $FDB_ZONE_ID",
+					"locality_dns_name = $FDB_DNS_NAME",
 					"[fdbserver.2]",
 					"command = $BINARY_DIR/fdbserver",
 					"cluster_file = /var/fdb/data/fdb.cluster",
@@ -3003,6 +2894,7 @@ var _ = Describe("cluster_controller", func() {
 					"locality_instance_id = $FDB_INSTANCE_ID",
 					"locality_machineid = $FDB_MACHINE_ID",
 					"locality_zoneid = $FDB_ZONE_ID",
+					"locality_dns_name = $FDB_DNS_NAME",
 				}, "\n")))
 			})
 		})
@@ -3032,6 +2924,7 @@ var _ = Describe("cluster_controller", func() {
 					"locality_instance_id = $FDB_INSTANCE_ID",
 					"locality_machineid = $FDB_MACHINE_ID",
 					"locality_zoneid = $FDB_ZONE_ID",
+					"locality_dns_name = $FDB_DNS_NAME",
 					"[fdbserver.2]",
 					"command = $BINARY_DIR/fdbserver",
 					"cluster_file = /var/fdb/data/fdb.cluster",
@@ -3045,6 +2938,7 @@ var _ = Describe("cluster_controller", func() {
 					"locality_instance_id = $FDB_INSTANCE_ID",
 					"locality_machineid = $FDB_MACHINE_ID",
 					"locality_zoneid = $FDB_ZONE_ID",
+					"locality_dns_name = $FDB_DNS_NAME",
 				}, "\n")))
 			})
 		})
@@ -3074,6 +2968,7 @@ var _ = Describe("cluster_controller", func() {
 					"locality_instance_id = $FDB_INSTANCE_ID",
 					"locality_machineid = $FDB_MACHINE_ID",
 					"locality_zoneid = $FDB_ZONE_ID",
+					"locality_dns_name = $FDB_DNS_NAME",
 				}, "\n")))
 			})
 		})
@@ -3105,6 +3000,7 @@ var _ = Describe("cluster_controller", func() {
 					"locality_machineid = $FDB_MACHINE_ID",
 					"locality_zoneid = $FDB_ZONE_ID",
 					"listen_address = $FDB_POD_IP:4501",
+					"locality_dns_name = $FDB_DNS_NAME",
 				}, "\n")))
 			})
 
@@ -3132,6 +3028,7 @@ var _ = Describe("cluster_controller", func() {
 						"locality_instance_id = $FDB_INSTANCE_ID",
 						"locality_machineid = $FDB_MACHINE_ID",
 						"locality_zoneid = $FDB_ZONE_ID",
+						"locality_dns_name = $FDB_DNS_NAME",
 					}, "\n")))
 				})
 			})
@@ -3163,6 +3060,7 @@ var _ = Describe("cluster_controller", func() {
 					"locality_instance_id = $FDB_INSTANCE_ID",
 					"locality_machineid = $FDB_MACHINE_ID",
 					"locality_zoneid = $FDB_ZONE_ID",
+					"locality_dns_name = $FDB_DNS_NAME",
 				}, "\n")))
 			})
 		})
@@ -3194,6 +3092,7 @@ var _ = Describe("cluster_controller", func() {
 					"locality_instance_id = $FDB_INSTANCE_ID",
 					"locality_machineid = $FDB_MACHINE_ID",
 					"locality_zoneid = $FDB_ZONE_ID",
+					"locality_dns_name = $FDB_DNS_NAME",
 				}, "\n")))
 			})
 		})
@@ -3225,6 +3124,7 @@ var _ = Describe("cluster_controller", func() {
 					"locality_instance_id = $FDB_INSTANCE_ID",
 					"locality_machineid = $FDB_MACHINE_ID",
 					"locality_zoneid = $FDB_ZONE_ID",
+					"locality_dns_name = $FDB_DNS_NAME",
 				}, "\n")))
 			})
 		})
@@ -3257,6 +3157,7 @@ var _ = Describe("cluster_controller", func() {
 						"locality_machineid = $FDB_MACHINE_ID",
 						"locality_zoneid = $FDB_ZONE_ID",
 						"knob_disable_posix_kernel_aio = 1",
+						"locality_dns_name = $FDB_DNS_NAME",
 					}, "\n")))
 				})
 			})
@@ -3296,6 +3197,7 @@ var _ = Describe("cluster_controller", func() {
 						"locality_machineid = $FDB_MACHINE_ID",
 						"locality_zoneid = $FDB_ZONE_ID",
 						"knob_test = test1",
+						"locality_dns_name = $FDB_DNS_NAME",
 					}, "\n")))
 				})
 			})
@@ -3328,6 +3230,7 @@ var _ = Describe("cluster_controller", func() {
 					"locality_instance_id = $FDB_INSTANCE_ID",
 					"locality_machineid = $FDB_MACHINE_ID",
 					"locality_zoneid = $RACK",
+					"locality_dns_name = $FDB_DNS_NAME",
 				}, "\n")))
 			})
 		})
@@ -3358,6 +3261,7 @@ var _ = Describe("cluster_controller", func() {
 					"locality_instance_id = $FDB_INSTANCE_ID",
 					"locality_machineid = $FDB_MACHINE_ID",
 					"locality_zoneid = $FDB_ZONE_ID",
+					"locality_dns_name = $FDB_DNS_NAME",
 				}, "\n")))
 			})
 		})
@@ -3387,6 +3291,7 @@ var _ = Describe("cluster_controller", func() {
 					"locality_machineid = $FDB_MACHINE_ID",
 					"locality_zoneid = $FDB_ZONE_ID",
 					"tls_verify_peers = S.CN=foundationdb.org",
+					"locality_dns_name = $FDB_DNS_NAME",
 				}, "\n")))
 			})
 		})
@@ -3415,6 +3320,7 @@ var _ = Describe("cluster_controller", func() {
 					"locality_instance_id = $FDB_INSTANCE_ID",
 					"locality_machineid = $FDB_MACHINE_ID",
 					"locality_zoneid = $FDB_ZONE_ID",
+					"locality_dns_name = $FDB_DNS_NAME",
 				}, "\n")))
 			})
 		})
@@ -3444,6 +3350,7 @@ var _ = Describe("cluster_controller", func() {
 					"locality_machineid = $FDB_MACHINE_ID",
 					"locality_zoneid = $FDB_ZONE_ID",
 					"locality_dcid = dc01",
+					"locality_dns_name = $FDB_DNS_NAME",
 				}, "\n")))
 			})
 		})

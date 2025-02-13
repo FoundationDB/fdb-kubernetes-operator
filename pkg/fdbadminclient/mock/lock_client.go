@@ -43,8 +43,8 @@ type LockClient struct {
 }
 
 // TakeLock attempts to acquire a lock.
-func (client *LockClient) TakeLock() (bool, error) {
-	return true, nil
+func (client *LockClient) TakeLock() error {
+	return nil
 }
 
 // Disabled determines if the client should automatically grant locks.
