@@ -256,7 +256,7 @@ func (factory *Factory) createPodTemplate(
 			Resources: corev1.ResourceRequirements{
 				Requests: config.generateSidecarResources(),
 			},
-			Env:          sidecarContainerEnv,
+			Env: sidecarContainerEnv,
 			VolumeMounts: []corev1.VolumeMount{
 				{
 					Name:      "fdb-certs",
@@ -325,8 +325,8 @@ func (factory *Factory) createPodTemplate(
 			SecurityContext: &corev1.PodSecurityContext{
 				FSGroup: pointer.Int64(4059),
 			},
-			Containers:                containers,
-			Volumes:                   volumes,
+			Containers: containers,
+			Volumes:    volumes,
 		},
 	}
 }

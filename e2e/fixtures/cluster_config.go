@@ -567,6 +567,6 @@ func (config *ClusterConfig) Copy() *ClusterConfig {
 		AdditionalContainers:       config.AdditionalContainers,
 		AdditionalEnvVars:          config.AdditionalEnvVars,
 		AdditionalVolumes:          config.AdditionalVolumes,
-		AdditionalVolumeMounts:    config.AdditionalVolumeMounts,
+		AdditionalVolumeMounts:     config.AdditionalVolumeMounts,
 	}
 }
