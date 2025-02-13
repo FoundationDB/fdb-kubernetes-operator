@@ -25,6 +25,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"reflect"
 
 	"github.com/go-logr/logr"
@@ -40,7 +41,7 @@ import (
 )
 
 // ReplaceMisconfiguredProcessGroups checks if the cluster has any misconfigured process groups that must be replaced.
-func ReplaceMisconfiguredProcessGroups(ctx context.Context, podManager podmanager.PodLifecycleManager, client client.Client, log logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, pvcMap map[fdbv1beta2.ProcessGroupID]corev1.PersistentVolumeClaim, replaceOnSecurityContextChange bool) (bool, error) {
+func ReplaceMisconfiguredProcessGroups(ctx context.Context, podManager podmanager.PodLifecycleManager, ctrlClient client.Client, log logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, replaceOnSecurityContextChange bool) (bool, error) {
 	hasReplacements := false
 
 	maxReplacements, _ := getReplacementInformation(cluster, cluster.GetMaxConcurrentReplacements())
@@ -54,7 +55,7 @@ func ReplaceMisconfiguredProcessGroups(ctx context.Context, podManager podmanage
 			continue
 		}
 
-		needsRemoval, err := ProcessGroupNeedsRemoval(ctx, podManager, client, log, cluster, processGroup, pvcMap, replaceOnSecurityContextChange)
+		needsRemoval, err := ProcessGroupNeedsRemoval(ctx, podManager, ctrlClient, log, cluster, processGroup, replaceOnSecurityContextChange)
 
 		// Do not mark for removal if there is an error
 		if err != nil {
@@ -72,22 +73,26 @@ func ReplaceMisconfiguredProcessGroups(ctx context.Context, podManager podmanage
 }
 
 // ProcessGroupNeedsRemoval checks if a process group needs to be removed.
-func ProcessGroupNeedsRemoval(ctx context.Context, podManager podmanager.PodLifecycleManager, client client.Client, log logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, processGroup *fdbv1beta2.ProcessGroupStatus, pvcMap map[fdbv1beta2.ProcessGroupID]corev1.PersistentVolumeClaim, replaceOnSecurityContextChange bool) (bool, error) {
-	// TODO(johscheuer): Fix how we fetch the pvc to make better use of the controller runtime cache.
-	pvc, hasPVC := pvcMap[processGroup.ProcessGroupID]
-	pod, podErr := podManager.GetPod(ctx, client, cluster, processGroup.GetPodName(cluster))
-	if hasPVC {
-		needsPVCRemoval, err := processGroupNeedsRemovalForPVC(cluster, pvc, log, processGroup)
+func ProcessGroupNeedsRemoval(ctx context.Context, podManager podmanager.PodLifecycleManager, ctrlClient client.Client, log logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, processGroup *fdbv1beta2.ProcessGroupStatus, replaceOnSecurityContextChange bool) (bool, error) {
+	pod, podErr := podManager.GetPod(ctx, ctrlClient, cluster, processGroup.GetPodName(cluster))
+	if processGroup.ProcessClass.IsStateful() {
+		pvc := &corev1.PersistentVolumeClaim{}
+		err := ctrlClient.Get(ctx, client.ObjectKey{Namespace: cluster.Namespace, Name: processGroup.GetPvcName(cluster)}, pvc)
 		if err != nil {
-			return false, err
-		}
+			if k8serrors.IsNotFound(err) {
+				log.V(1).Info("Could not find PVC for process group ID",
+					"processGroupID", processGroup.ProcessGroupID)
+			}
+		} else {
+			needsPVCRemoval, err := processGroupNeedsRemovalForPVC(cluster, pvc, log, processGroup)
+			if err != nil {
+				return false, err
+			}
 
-		if needsPVCRemoval && podErr == nil {
-			return true, nil
+			if needsPVCRemoval && podErr == nil {
+				return true, nil
+			}
 		}
-	} else if processGroup.ProcessClass.IsStateful() {
-		log.V(1).Info("Could not find PVC for process group ID",
-			"processGroupID", processGroup.ProcessGroupID)
 	}
 
 	if podErr != nil {
@@ -99,7 +104,7 @@ func ProcessGroupNeedsRemoval(ctx context.Context, podManager podmanager.PodLife
 	return processGroupNeedsRemovalForPod(cluster, pod, processGroup, log, replaceOnSecurityContextChange)
 }
 
-func processGroupNeedsRemovalForPVC(cluster *fdbv1beta2.FoundationDBCluster, pvc corev1.PersistentVolumeClaim, log logr.Logger, processGroup *fdbv1beta2.ProcessGroupStatus) (bool, error) {
+func processGroupNeedsRemovalForPVC(cluster *fdbv1beta2.FoundationDBCluster, pvc *corev1.PersistentVolumeClaim, log logr.Logger, processGroup *fdbv1beta2.ProcessGroupStatus) (bool, error) {
 	processGroupID := internal.GetProcessGroupIDFromMeta(cluster, pvc.ObjectMeta)
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "pvc", pvc.Name, "processGroupID", processGroupID)
 

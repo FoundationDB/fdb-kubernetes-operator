@@ -288,7 +288,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				})
 
 				JustBeforeEach(func() {
-					needsRemoval, err = processGroupNeedsRemovalForPVC(cluster, *pvc, log, processGroup)
+					needsRemoval, err = processGroupNeedsRemovalForPVC(cluster, pvc, log, processGroup)
 				})
 
 				When("PVC name doesn't match", func() {
@@ -601,10 +601,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 	})
 
 	When("using MaxConcurrentMisconfiguredReplacements", func() {
-		var pvcMap map[fdbv1beta2.ProcessGroupID]corev1.PersistentVolumeClaim
-
 		BeforeEach(func() {
-			pvcMap = map[fdbv1beta2.ProcessGroupID]corev1.PersistentVolumeClaim{}
 
 			for i := 0; i < 10; i++ {
 				_, id := cluster.GetProcessGroupID(fdbv1beta2.ProcessClassStorage, i)
@@ -614,10 +611,12 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				}
 				newPVC, err := internal.GetPvc(cluster, processGroup)
 				Expect(err).NotTo(HaveOccurred())
-				pvcMap[id] = *newPVC
+				Expect(k8sClient.Create(context.Background(), newPVC)).To(Succeed())
+
 				newPod, err := internal.GetPod(cluster, processGroup)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(k8sClient.Create(context.Background(), newPod)).NotTo(HaveOccurred())
+				Expect(k8sClient.Create(context.Background(), newPod)).To(Succeed())
+
 				// Populate process groups
 				cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus(id, fdbv1beta2.ProcessClassStorage, nil))
 			}
@@ -631,10 +630,11 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 				newPVC, err := internal.GetPvc(cluster, processGroup)
 				Expect(err).NotTo(HaveOccurred())
-				pvcMap[id] = *newPVC
+				Expect(k8sClient.Create(context.Background(), newPVC)).To(Succeed())
+
 				newPod, err := internal.GetPod(cluster, processGroup)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(k8sClient.Create(context.Background(), newPod)).NotTo(HaveOccurred())
+				Expect(k8sClient.Create(context.Background(), newPod)).To(Succeed())
 				// Populate process groups
 				cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus(id, fdbv1beta2.ProcessClassTransaction, nil))
 			}
@@ -651,7 +651,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			})
 
 			It("should not have a replacements", func() {
-				hasReplacement, err := ReplaceMisconfiguredProcessGroups(context.Background(), podmanager.StandardPodLifecycleManager{}, k8sClient, log, cluster, pvcMap, true)
+				hasReplacement, err := ReplaceMisconfiguredProcessGroups(context.Background(), podmanager.StandardPodLifecycleManager{}, k8sClient, log, cluster, true)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(hasReplacement).To(BeFalse())
 
@@ -674,7 +674,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			})
 
 			It("should have two replacements", func() {
-				hasReplacement, err := ReplaceMisconfiguredProcessGroups(context.Background(), podmanager.StandardPodLifecycleManager{}, k8sClient, log, cluster, pvcMap, true)
+				hasReplacement, err := ReplaceMisconfiguredProcessGroups(context.Background(), podmanager.StandardPodLifecycleManager{}, k8sClient, log, cluster, true)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(hasReplacement).To(BeTrue())
 
@@ -693,7 +693,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 		When("Setting is unset", func() {
 			It("should replace all process groups", func() {
-				hasReplacement, err := ReplaceMisconfiguredProcessGroups(context.Background(), podmanager.StandardPodLifecycleManager{}, k8sClient, log, cluster, pvcMap, true)
+				hasReplacement, err := ReplaceMisconfiguredProcessGroups(context.Background(), podmanager.StandardPodLifecycleManager{}, k8sClient, log, cluster, true)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(hasReplacement).To(BeTrue())
 
@@ -738,7 +738,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				})
 
 				It("should not have any replacements", func() {
-					hasReplacement, err := ReplaceMisconfiguredProcessGroups(context.Background(), podmanager.StandardPodLifecycleManager{}, k8sClient, log, cluster, pvcMap, true)
+					hasReplacement, err := ReplaceMisconfiguredProcessGroups(context.Background(), podmanager.StandardPodLifecycleManager{}, k8sClient, log, cluster, true)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(hasReplacement).To(BeFalse())
 

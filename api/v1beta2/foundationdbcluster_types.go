@@ -507,6 +507,16 @@ func (processGroupStatus *ProcessGroupStatus) GetPodName(cluster *FoundationDBCl
 	return sb.String()
 }
 
+// GetPvcName returns the PVC name for the associated Process Group. If the process class doesn't use PVCs, an empty
+// string is returned.
+func (processGroupStatus *ProcessGroupStatus) GetPvcName(cluster *FoundationDBCluster) string {
+	if !processGroupStatus.ProcessClass.IsStateful() {
+		return ""
+	}
+
+	return fmt.Sprintf("%s-data", processGroupStatus.GetPodName(cluster))
+}
+
 // NeedsReplacement checks if the ProcessGroupStatus has conditions that require a replacement of the failed Process Group.
 // The method will return the failure condition and the timestamp. If no failure is detected an empty condition and a 0
 // will be returned.
