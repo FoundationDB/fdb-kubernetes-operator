@@ -27,10 +27,7 @@ import (
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal/replacements"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
-
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	corev1 "k8s.io/api/core/v1"
 )
 
 // replaceMisconfiguredProcessGroups identifies processes that need to be replaced in
@@ -39,14 +36,7 @@ type replaceMisconfiguredProcessGroups struct{}
 
 // reconcile runs the reconciler's work.
 func (c replaceMisconfiguredProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, _ *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
-	// TODO(johscheuer): Remove the pvc map an make direct calls.
-	pvcs := &corev1.PersistentVolumeClaimList{}
-	err := r.List(ctx, pvcs, internal.GetPodListOptions(cluster, "", "")...)
-	if err != nil {
-		return &requeue{curError: err}
-	}
-
-	hasReplacements, err := replacements.ReplaceMisconfiguredProcessGroups(ctx, r.PodLifecycleManager, r, logger, cluster, internal.CreatePVCMap(cluster, pvcs), r.ReplaceOnSecurityContextChange)
+	hasReplacements, err := replacements.ReplaceMisconfiguredProcessGroups(ctx, r.PodLifecycleManager, r, logger, cluster, r.ReplaceOnSecurityContextChange)
 	if err != nil {
 		return &requeue{curError: err}
 	}

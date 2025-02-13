@@ -219,6 +219,7 @@ var _ = Describe("add_services", func() {
 
 		Context("with the headless service disabled", func() {
 			BeforeEach(func() {
+				cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(false)
 				cluster.Spec.Routing.HeadlessService = pointer.Bool(false)
 			})
 

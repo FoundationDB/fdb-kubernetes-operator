@@ -22,6 +22,7 @@ package controllers
 
 import (
 	"context"
+	"k8s.io/utils/pointer"
 	"math"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -30,7 +31,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/utils/pointer"
 )
 
 var _ = Describe("Change coordinators", func() {
@@ -77,44 +77,37 @@ var _ = Describe("Change coordinators", func() {
 			})
 		})
 
-		When("enabling DNS in the cluster file", func() {
+		When("the Pods do not have DNS names", func() {
+			It("should not requeue", func() {
+				Expect(requeue).To(BeNil())
+			})
+
+			It("should not change the cluster file", func() {
+				Expect(cluster.Status.ConnectionString).To(Equal(originalConnectionString))
+			})
+		})
+
+		When("the connection string shouldn't be using DNS entries", func() {
 			BeforeEach(func() {
-				cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(true)
-				cluster.Spec.Version = fdbv1beta2.Versions.SupportsDNSInClusterFile.String()
-				cluster.Status.RunningVersion = fdbv1beta2.Versions.SupportsDNSInClusterFile.String()
+				cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(false)
+				pods := &corev1.PodList{}
+				Expect(k8sClient.List(context.TODO(), pods)).NotTo(HaveOccurred())
+
+				for _, pod := range pods.Items {
+					container := pod.Spec.Containers[1]
+					container.Env = append(container.Env, corev1.EnvVar{Name: fdbv1beta2.EnvNameDNSName, Value: internal.GetPodDNSName(cluster, pod.Name)})
+					pod.Spec.Containers[1] = container
+					Expect(k8sClient.Update(context.TODO(), &pod)).NotTo(HaveOccurred())
+				}
 			})
 
-			When("the Pods do not have DNS names", func() {
-				It("should not requeue", func() {
-					Expect(requeue).To(BeNil())
-				})
-
-				It("should not change the cluster file", func() {
-					Expect(cluster.Status.ConnectionString).To(Equal(originalConnectionString))
-				})
+			It("should not requeue", func() {
+				Expect(requeue).To(BeNil())
 			})
 
-			When("the Pods have DNS names", func() {
-				BeforeEach(func() {
-					pods := &corev1.PodList{}
-					Expect(k8sClient.List(context.TODO(), pods)).NotTo(HaveOccurred())
-
-					for _, pod := range pods.Items {
-						container := pod.Spec.Containers[1]
-						container.Env = append(container.Env, corev1.EnvVar{Name: fdbv1beta2.EnvNameDNSName, Value: internal.GetPodDNSName(cluster, pod.Name)})
-						pod.Spec.Containers[1] = container
-						Expect(k8sClient.Update(context.TODO(), &pod)).NotTo(HaveOccurred())
-					}
-				})
-
-				It("should not requeue", func() {
-					Expect(requeue).To(BeNil())
-				})
-
-				It("should change the cluster file", func() {
-					Expect(cluster.Status.ConnectionString).NotTo(Equal(originalConnectionString))
-					Expect(cluster.Status.ConnectionString).To(ContainSubstring("my-ns.svc.cluster.local"))
-				})
+			It("should change the cluster file", func() {
+				Expect(cluster.Status.ConnectionString).NotTo(Equal(originalConnectionString))
+				Expect(cluster.Status.ConnectionString).NotTo(ContainSubstring("my-ns.svc.cluster.local"))
 			})
 		})
 

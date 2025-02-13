@@ -317,7 +317,6 @@ var _ = Describe("update_pods", func() {
 	When("fetching all Pods that needs an update", func() {
 		var cluster *fdbv1beta2.FoundationDBCluster
 		var updates map[string][]*corev1.Pod
-		var pvcMap map[fdbv1beta2.ProcessGroupID]corev1.PersistentVolumeClaim
 		var err error
 
 		BeforeEach(func() {
@@ -327,16 +326,10 @@ var _ = Describe("update_pods", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result.Requeue).To(BeFalse())
 			Expect(k8sClient.Get(context.TODO(), ctrlClient.ObjectKeyFromObject(cluster), cluster)).NotTo(HaveOccurred())
-
-			allPvcs := &corev1.PersistentVolumeClaimList{}
-			err = clusterReconciler.List(context.TODO(), allPvcs, internal.GetPodListOptions(cluster, "", "")...)
-			Expect(err).NotTo(HaveOccurred())
-
-			pvcMap = internal.CreatePVCMap(cluster, allPvcs)
 		})
 
 		JustBeforeEach(func() {
-			updates, err = getPodsToUpdate(context.Background(), globalControllerLogger, clusterReconciler, cluster, pvcMap)
+			updates, err = getPodsToUpdate(context.Background(), globalControllerLogger, clusterReconciler, cluster)
 		})
 
 		When("the cluster has no changes", func() {
