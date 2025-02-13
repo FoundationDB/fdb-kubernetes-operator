@@ -135,7 +135,7 @@ func (c bounceProcesses) reconcile(_ context.Context, r *FoundationDBClusterReco
 		}
 	}
 
-	_, err = r.takeLock(logger, cluster, fmt.Sprintf("bouncing processes: %v", addresses))
+	err = r.takeLock(logger, cluster, fmt.Sprintf("bouncing processes: %v", addresses))
 	if err != nil {
 		return &requeue{curError: err}
 	}
