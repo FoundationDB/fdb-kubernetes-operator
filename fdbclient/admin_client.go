@@ -490,17 +490,11 @@ func (client *cliAdminClient) ChangeCoordinators(addresses []fdbv1beta2.ProcessA
 	if err != nil {
 		return "", err
 	}
-
-	connectionStringBytes, err := os.ReadFile(client.clusterFilePath)
+	connectionString, err := client.GetConnectionString()
 	if err != nil {
 		return "", err
 	}
-
-	connectionString, err := fdbv1beta2.ParseConnectionString(string(connectionStringBytes))
-	if err != nil {
-		return "", err
-	}
-	return connectionString.String(), nil
+	return connectionString, nil
 }
 
 // cleanConnectionStringOutput is a helper method to remove unrelated output from the get command in the connection string
@@ -687,8 +681,7 @@ func (client *cliAdminClient) GetRestoreStatus() (string, error) {
 
 // Close cleans up any pending resources.
 func (client *cliAdminClient) Close() error {
-	// Allow to reuse the same file.
-	return nil
+	return os.Remove(client.clusterFilePath)
 }
 
 // GetCoordinatorSet gets the current coordinators from the status
