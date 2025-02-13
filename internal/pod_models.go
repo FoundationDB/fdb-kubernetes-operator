@@ -301,9 +301,9 @@ func setAffinityForFaultDomain(cluster *fdbv1beta2.FoundationDBCluster, podSpec 
 	}
 }
 
-func configureVolumesForContainers(cluster *fdbv1beta2.FoundationDBCluster, podSpec *corev1.PodSpec, volumeClaimTemplate *corev1.PersistentVolumeClaim, podName string, processClass fdbv1beta2.ProcessClass) {
+func configureVolumesForContainers(cluster *fdbv1beta2.FoundationDBCluster, podSpec *corev1.PodSpec, processGroup *fdbv1beta2.ProcessGroupStatus) {
 	useUnifiedImage := cluster.UseUnifiedImage()
-	monitorConfKey := GetConfigMapMonitorConfEntry(processClass, cluster.DesiredImageType(), cluster.GetDesiredServersPerPod(processClass))
+	monitorConfKey := GetConfigMapMonitorConfEntry(processGroup.ProcessClass, cluster.DesiredImageType(), cluster.GetDesiredServersPerPod(processGroup.ProcessClass))
 
 	var monitorConfFile string
 	if useUnifiedImage {
@@ -322,15 +322,9 @@ func configureVolumesForContainers(cluster *fdbv1beta2.FoundationDBCluster, podS
 	}
 
 	var mainVolumeSource corev1.VolumeSource
-	if processClass.IsStateful() {
-		var volumeClaimSourceName string
-		if volumeClaimTemplate != nil && volumeClaimTemplate.Name != "" {
-			volumeClaimSourceName = fmt.Sprintf("%s-%s", podName, volumeClaimTemplate.Name)
-		} else {
-			volumeClaimSourceName = fmt.Sprintf("%s-data", podName)
-		}
+	if processGroup.ProcessClass.IsStateful() {
 		mainVolumeSource.PersistentVolumeClaim = &corev1.PersistentVolumeClaimVolumeSource{
-			ClaimName: volumeClaimSourceName,
+			ClaimName: processGroup.GetPvcName(cluster),
 		}
 	} else {
 		mainVolumeSource.EmptyDir = &corev1.EmptyDirVolumeSource{}
@@ -472,7 +466,7 @@ func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processGroup *fdbv1beta
 	ensureSecurityContextIsPresent(mainContainer)
 	ensureSecurityContextIsPresent(sidecarContainer)
 	setAffinityForFaultDomain(cluster, podSpec, processGroup.ProcessClass)
-	configureVolumesForContainers(cluster, podSpec, processSettings.VolumeClaimTemplate, podName, processGroup.ProcessClass)
+	configureVolumesForContainers(cluster, podSpec, processGroup)
 	configureNoSchedule(podSpec, processGroup.ProcessGroupID, cluster.Spec.Buggify.NoSchedule)
 
 	if useUnifiedImage {
@@ -759,12 +753,7 @@ func GetPvc(cluster *fdbv1beta2.FoundationDBCluster, processGroup *fdbv1beta2.Pr
 	}
 
 	pvc.ObjectMeta = GetPvcMetadata(cluster, processGroup.ProcessClass, processGroup.ProcessGroupID)
-	name := processGroup.GetPodName(cluster)
-	if pvc.ObjectMeta.Name == "" {
-		pvc.ObjectMeta.Name = fmt.Sprintf("%s-data", name)
-	} else {
-		pvc.ObjectMeta.Name = fmt.Sprintf("%s-%s", name, pvc.ObjectMeta.Name)
-	}
+	pvc.ObjectMeta.Name = processGroup.GetPvcName(cluster)
 
 	if pvc.Spec.AccessModes == nil {
 		pvc.Spec.AccessModes = []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}

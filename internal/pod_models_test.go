@@ -2495,28 +2495,13 @@ var _ = Describe("pod_models", func() {
 			})
 		})
 
-		Context("with custom pvc", func() {
-			BeforeEach(func() {
-				cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{fdbv1beta2.ProcessClassGeneral: {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: "claim1"}}}}
-				err = NormalizeClusterSpec(cluster, DeprecationOptions{})
-				Expect(err).NotTo(HaveOccurred())
-
-				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
-				Expect(err).NotTo(HaveOccurred())
-			})
-
-			It("adds data volume that refers to custom pvc", func() {
-				Expect(spec.Volumes[0].VolumeSource.PersistentVolumeClaim.ClaimName).To(Equal(fmt.Sprintf("%s-storage-1-%s", cluster.Name, "claim1")))
-			})
-		})
-
 		Context("with no custom pvc", func() {
 			BeforeEach(func() {
 				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
 				Expect(err).NotTo(HaveOccurred())
 			})
 			It("adds data volume that refers to default pvc", func() {
-				Expect(spec.Volumes[0].VolumeSource.PersistentVolumeClaim.ClaimName).To(Equal(fmt.Sprintf("%s-storage-1-%s", cluster.Name, "data")))
+				Expect(spec.Volumes[0].VolumeSource.PersistentVolumeClaim.ClaimName).To(Equal(fmt.Sprintf("%s-storage-1-data", cluster.Name)))
 			})
 		})
 
@@ -2993,20 +2978,6 @@ var _ = Describe("pod_models", func() {
 					fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStorage),
 					fdbv1beta2.FDBProcessGroupIDLabel: "dc1-storage-1",
 				}))
-			})
-		})
-
-		Context("with custom name in the suffix", func() {
-			BeforeEach(func() {
-				cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{fdbv1beta2.ProcessClassGeneral: {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
-					ObjectMeta: metav1.ObjectMeta{Name: "pvc1"},
-				}}}
-				pvc, err = GetPvc(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
-				Expect(err).NotTo(HaveOccurred())
-			})
-
-			It("should include claim name with custom suffix", func() {
-				Expect(pvc.Name).To(Equal(fmt.Sprintf("%s-storage-1-pvc1", cluster.Name)))
 			})
 		})
 
