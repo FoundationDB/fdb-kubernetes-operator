@@ -255,6 +255,7 @@ type ImageType string
 
 const (
 	// ImageTypeSplit defines the split image type.
+	// Deprecated: New features will only be implemented for the unified.
 	ImageTypeSplit ImageType = "split"
 	// ImageTypeUnified defines the unified image type.
 	ImageTypeUnified ImageType = "unified"
@@ -1357,9 +1358,7 @@ func (cluster *FoundationDBCluster) GetProcessSettings(processClass ProcessClass
 // the UsableRegions is greater than 1. It will be equal to -1 when the
 // UsableRegions is less than or equal to 1.
 func (cluster *FoundationDBCluster) GetRoleCountsWithDefaults() RoleCounts {
-	// We can ignore the error here since the version will be validated in an earlier step.
-	version, _ := ParseFdbVersion(cluster.GetRunningVersion())
-	return cluster.Spec.DatabaseConfiguration.GetRoleCountsWithDefaults(version, cluster.DesiredFaultTolerance())
+	return cluster.Spec.DatabaseConfiguration.GetRoleCountsWithDefaults(cluster.DesiredFaultTolerance())
 }
 
 // calculateProcessCount determines the process count from a given role count.
@@ -1473,12 +1472,7 @@ func (cluster *FoundationDBCluster) GetProcessCountsWithDefaults() (ProcessCount
 		primaryStatelessCount += cluster.calculateProcessCountFromRole(1, processCounts.Ratekeeper) +
 			cluster.calculateProcessCountFromRole(1, processCounts.DataDistributor)
 
-		fdbVersion, err := ParseFdbVersion(cluster.GetRunningVersion())
-		if err != nil {
-			return *processCounts, err
-		}
-
-		if fdbVersion.HasSeparatedProxies() && cluster.Spec.DatabaseConfiguration.AreSeparatedProxiesConfigured() {
+		if cluster.Spec.DatabaseConfiguration.AreSeparatedProxiesConfigured() {
 			primaryStatelessCount += cluster.calculateProcessCountFromRole(roleCounts.GrvProxies, processCounts.GrvProxy)
 			primaryStatelessCount += cluster.calculateProcessCountFromRole(roleCounts.CommitProxies, processCounts.CommitProxy)
 		} else {
@@ -1884,8 +1878,7 @@ func (cluster *FoundationDBCluster) DesiredDatabaseConfiguration() DatabaseConfi
 	configuration.RoleCounts = cluster.GetRoleCountsWithDefaults()
 	configuration.RoleCounts.Storage = 0
 
-	version, _ := ParseFdbVersion(cluster.GetRunningVersion())
-	if version.HasSeparatedProxies() && cluster.Spec.DatabaseConfiguration.AreSeparatedProxiesConfigured() {
+	if cluster.Spec.DatabaseConfiguration.AreSeparatedProxiesConfigured() {
 		configuration.RoleCounts.Proxies = 0
 	} else {
 		configuration.RoleCounts.GrvProxies = 0
@@ -1897,13 +1890,6 @@ func (cluster *FoundationDBCluster) DesiredDatabaseConfiguration() DatabaseConfi
 	}
 	if configuration.StorageEngine == StorageEngineMemory {
 		configuration.StorageEngine = StorageEngineMemory2
-	}
-
-	// Make sure to reset any settings that are not supported by earlier FDB versions.
-	if !version.SupportsStorageMigrationConfiguration() {
-		configuration.PerpetualStorageWiggle = nil
-		configuration.StorageMigrationType = nil
-		configuration.PerpetualStorageWiggleLocality = nil
 	}
 
 	return configuration
@@ -2364,7 +2350,7 @@ func (cluster *FoundationDBCluster) GetUseNonBlockingExcludes() bool {
 	return pointer.BoolDeref(cluster.Spec.AutomationOptions.UseNonBlockingExcludes, false)
 }
 
-// UseLocalitiesForExclusion returns the value of UseLocalitiesForExclusion or false if unset.
+// UseLocalitiesForExclusion returns the value of UseLocalitiesForExclusion or true if unset.
 func (cluster *FoundationDBCluster) UseLocalitiesForExclusion() bool {
 	fdbVersion, err := ParseFdbVersion(cluster.GetRunningVersion())
 	if err != nil {
@@ -2373,7 +2359,7 @@ func (cluster *FoundationDBCluster) UseLocalitiesForExclusion() bool {
 		return false
 	}
 
-	return fdbVersion.SupportsLocalityBasedExclusions() && pointer.BoolDeref(cluster.Spec.AutomationOptions.UseLocalitiesForExclusion, false)
+	return fdbVersion.SupportsLocalityBasedExclusions() && pointer.BoolDeref(cluster.Spec.AutomationOptions.UseLocalitiesForExclusion, true)
 }
 
 // GetProcessClassLabel provides the label that this cluster is using for the
@@ -2426,16 +2412,9 @@ func (cluster *FoundationDBCluster) NeedsHeadlessService() bool {
 	return cluster.DefineDNSLocalityFields() || pointer.BoolDeref(cluster.Spec.Routing.HeadlessService, false)
 }
 
-// UseDNSInClusterFile determines whether we need to use DNS entries in the
-// cluster file for this cluster.
+// UseDNSInClusterFile determines whether we need to use DNS entries in the cluster file for this cluster.
 func (cluster *FoundationDBCluster) UseDNSInClusterFile() bool {
-	runningVersion, err := ParseFdbVersion(cluster.GetRunningVersion())
-	// If the version cannot be parsed fall back to false.
-	if err != nil {
-		return false
-	}
-
-	return runningVersion.SupportsDNSInClusterFile() && pointer.BoolDeref(cluster.Spec.Routing.UseDNSInClusterFile, false)
+	return pointer.BoolDeref(cluster.Spec.Routing.UseDNSInClusterFile, true)
 }
 
 // DefineDNSLocalityFields determines whether we need to put DNS entries in the
@@ -2601,12 +2580,11 @@ func (cluster *FoundationDBCluster) GetSidecarContainerEnableReadinessProbe() bo
 
 // UseUnifiedImage returns true if the unified image should be used.
 func (cluster *FoundationDBCluster) UseUnifiedImage() bool {
-	imageType := ImageTypeSplit
 	if cluster.Spec.ImageType != nil {
-		imageType = *cluster.Spec.ImageType
+		return *cluster.Spec.ImageType == ImageTypeUnified
 	}
 
-	return imageType == ImageTypeUnified
+	return true
 }
 
 // DesiredImageType returns the desired image type that should be used.
@@ -3022,7 +3000,7 @@ func (cluster *FoundationDBCluster) newProcessGroupIDAllowed(processGroupID Proc
 		return false
 	}
 
-	// If the randomly picked process group is part of the locality based exclusions, we shoudln't pick it.
+	// If the randomly picked process group is part of the locality based exclusions, we shouldn't pick it.
 	// See: https://github.com/FoundationDB/fdb-kubernetes-operator/issues/1862
 	if _, ok := exclusions[processGroupID]; ok {
 		return false

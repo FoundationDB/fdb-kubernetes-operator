@@ -66,7 +66,7 @@ var _ = Describe("update_sidecar_versions", func() {
 						fdbv1beta2.ContainerOverrides{},
 						map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{}),
 					hasError: false,
-				}, "foundationdb/foundationdb-kubernetes-sidecar:6.2.21-1"),
+				}, "foundationdb/foundationdb-kubernetes-sidecar:7.1.57-1"),
 			Entry("sidecar override is set",
 				testCase{
 					pClass: fdbv1beta2.ProcessClassStorage,
@@ -74,7 +74,7 @@ var _ = Describe("update_sidecar_versions", func() {
 						fdbv1beta2.ContainerOverrides{ImageConfigs: []fdbv1beta2.ImageConfig{{BaseImage: "sidecar-override"}}},
 						map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{}),
 					hasError: false,
-				}, "sidecar-override:6.2.21-1"),
+				}, "sidecar-override:7.1.57-1"),
 			Entry("settings override sidecar",
 				testCase{
 					pClass: fdbv1beta2.ProcessClassStorage,
@@ -95,7 +95,7 @@ var _ = Describe("update_sidecar_versions", func() {
 							},
 						}),
 					hasError: false,
-				}, "settings-override:6.2.21-1"),
+				}, "settings-override:7.1.57-1"),
 			Entry("settings override sidecar with tag without override",
 				testCase{
 					pClass: fdbv1beta2.ProcessClassStorage,

@@ -71,8 +71,7 @@ var _ = Describe("backup_controller", func() {
 		var generationGap int64
 
 		BeforeEach(func() {
-			err = k8sClient.Create(context.TODO(), cluster)
-			Expect(err).NotTo(HaveOccurred())
+			Expect(k8sClient.Create(context.TODO(), cluster)).To(Succeed())
 
 			result, err := reconcileCluster(cluster)
 			Expect(err).NotTo(HaveOccurred())
@@ -82,11 +81,9 @@ var _ = Describe("backup_controller", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(generation).NotTo(Equal(int64(0)))
 
-			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
-			Expect(err).NotTo(HaveOccurred())
+			Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)).To(Succeed())
 
-			err = k8sClient.Create(context.TODO(), backup)
-			Expect(err).NotTo(HaveOccurred())
+			Expect(k8sClient.Create(context.TODO(), backup)).To(Succeed())
 
 			result, err = reconcileBackup(backup)
 			Expect(err).NotTo(HaveOccurred())
@@ -95,8 +92,7 @@ var _ = Describe("backup_controller", func() {
 			generation, err = reloadBackup(backup)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(generation).NotTo(Equal(int64(0)))
-			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
-			Expect(err).NotTo(HaveOccurred())
+			Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)).To(Succeed())
 
 			originalVersion = backup.ObjectMeta.Generation
 			generationGap = 1
@@ -292,7 +288,7 @@ var _ = Describe("backup_controller", func() {
 				Expect(deployments.Items[0].ObjectMeta.Annotations).To(Equal(map[string]string{
 					"fdb-test-1":                         "test-value-1",
 					"fdb-test-2":                         "test-value-2",
-					"foundationdb.org/last-applied-spec": "a1d6ee086624f097243eb14aefbedf84a9016ba0f85640f11020bf50ec9e6d9b",
+					"foundationdb.org/last-applied-spec": "8d2e3abf517313fabdf4e19e50b46f9d5b63e5c5d587a01565008945a2dec87f",
 				}))
 			})
 		})

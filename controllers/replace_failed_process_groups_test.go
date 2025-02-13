@@ -408,6 +408,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 				Context("with no addresses", func() {
 					BeforeEach(func() {
 						processGroup.Addresses = nil
+						cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(false)
 					})
 
 					It("should requeue", func() {
@@ -899,6 +900,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 					When("the cluster doesn't have full fault tolerance", func() {
 						BeforeEach(func() {
 							processGroup.Addresses = nil
+							cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(false)
 
 							adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 							Expect(err).NotTo(HaveOccurred())

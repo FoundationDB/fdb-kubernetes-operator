@@ -40,6 +40,7 @@ var _ = Describe("admin_client_test", func() {
 
 	BeforeEach(func() {
 		cluster = internal.CreateDefaultCluster()
+		cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(false)
 		Expect(k8sClient.Create(context.TODO(), cluster)).NotTo(HaveOccurred())
 
 		result, err := reconcileCluster(cluster)
@@ -64,22 +65,6 @@ var _ = Describe("admin_client_test", func() {
 
 		Context("with a basic cluster", func() {
 			When("the version supports grv and commit proxies", func() {
-				BeforeEach(func() {
-					cluster.Spec.Version = fdbv1beta2.Versions.NextMajorVersion.String()
-					Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
-
-					result, err := reconcileCluster(cluster)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(result.Requeue).To(BeFalse())
-
-					generation, err := reloadCluster(cluster)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(generation).NotTo(Equal(int64(0)))
-
-					mockAdminClient, err = mock.NewMockAdminClientUncast(cluster, k8sClient)
-					Expect(err).NotTo(HaveOccurred())
-				})
-
 				It("should generate the status", func() {
 					noneEngine := fdbv1beta2.StorageEngineNone
 					migrationtypeDisabled := fdbv1beta2.StorageMigrationTypeDisabled
@@ -102,50 +87,6 @@ var _ = Describe("admin_client_test", func() {
 						PerpetualStorageWiggleEngine:   &noneEngine,
 						PerpetualStorageWiggleLocality: pointer.String("0"),
 						StorageMigrationType:           &migrationtypeDisabled,
-					}))
-
-					Expect(status.Cluster.Processes).To(HaveLen(len(cluster.Status.ProcessGroups)))
-					pickedProcessGroup := internal.PickProcessGroups(cluster, fdbv1beta2.ProcessClassStorage, 1)[0]
-					address := pickedProcessGroup.Addresses[0]
-					zoneID := cluster.Name + "-" + string(pickedProcessGroup.ProcessGroupID)
-					Expect(status.Cluster.Processes[fdbv1beta2.ProcessGroupID(zoneID+"-1")]).To(Equal(fdbv1beta2.FoundationDBStatusProcessInfo{
-						Address: fdbv1beta2.ProcessAddress{
-							IPAddress: net.ParseIP(address),
-							Port:      4501,
-						},
-						ProcessClass: fdbv1beta2.ProcessClassStorage,
-						CommandLine:  fmt.Sprintf("/usr/bin/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --listen_address=%s:4501 --locality_instance_id=%s --locality_machineid=%s --locality_zoneid=%s --logdir=/var/log/fdb-trace-logs --loggroup=operator-test-1 --public_address=%s:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster", address, pickedProcessGroup.ProcessGroupID, zoneID, zoneID, address),
-						Excluded:     false,
-						Locality: map[string]string{
-							"instance_id": string(pickedProcessGroup.ProcessGroupID),
-							"zoneid":      zoneID,
-							"dcid":        "",
-						},
-						Version:       cluster.GetRunningVersion(),
-						UptimeSeconds: 60000,
-						Roles:         nil,
-					}))
-				})
-			})
-
-			When("the version does not supports grv and commit proxies", func() {
-				It("should generate the status", func() {
-					Expect(status.Cluster.DatabaseConfiguration).To(Equal(fdbv1beta2.DatabaseConfiguration{
-						RedundancyMode: fdbv1beta2.RedundancyModeDouble,
-						StorageEngine:  fdbv1beta2.StorageEngineSSD2,
-						UsableRegions:  1,
-						RoleCounts: fdbv1beta2.RoleCounts{
-							Logs:          3,
-							Proxies:       3,
-							CommitProxies: 0,
-							GrvProxies:    0,
-							Resolvers:     1,
-							LogRouters:    -1,
-							RemoteLogs:    -1,
-						},
-						VersionFlags: fdbv1beta2.VersionFlags{
-							LogSpill: 2,
-						},
 					}))
 
 					Expect(status.Cluster.Processes).To(HaveLen(len(cluster.Status.ProcessGroups)))

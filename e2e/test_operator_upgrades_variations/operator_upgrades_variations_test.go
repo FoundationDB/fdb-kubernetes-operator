@@ -28,7 +28,6 @@ Each test will create a new FoundationDB cluster which will be upgraded.
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"time"
 
@@ -284,12 +283,6 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 	DescribeTable(
 		"with DNS in cluster file enabled",
 		func(beforeVersion string, targetVersion string) {
-			parsedVersion, err := fdbv1beta2.ParseFdbVersion(beforeVersion)
-			Expect(err).NotTo(HaveOccurred())
-			if !parsedVersion.SupportsDNSInClusterFile() {
-				Skip(fmt.Sprintf("FoundationDB version: %s, does not support the usage of DNS", beforeVersion))
-			}
-
 			performUpgrade(testConfig{
 				beforeVersion: beforeVersion,
 				targetVersion: targetVersion,

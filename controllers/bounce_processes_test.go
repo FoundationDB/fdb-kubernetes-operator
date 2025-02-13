@@ -698,6 +698,8 @@ var _ = Describe("bounceProcesses", func() {
 		When("when there are unreachable processes", func() {
 			When("the unreachable processes include at least one tester process", func() {
 				BeforeEach(func() {
+					cluster.Spec.Version = "7.1.0"
+					cluster.Status.RunningVersion = cluster.Spec.Version
 					adminClient, err = mock.NewMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
 

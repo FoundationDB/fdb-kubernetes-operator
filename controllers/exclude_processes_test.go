@@ -44,6 +44,7 @@ var _ = Describe("exclude_processes", func() {
 	When("validating if processes can be excluded", func() {
 		BeforeEach(func() {
 			cluster = internal.CreateDefaultCluster()
+			cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(false)
 			Expect(k8sClient.Create(context.TODO(), cluster)).NotTo(HaveOccurred())
 
 			result, err := reconcileCluster(cluster)
@@ -449,7 +450,9 @@ var _ = Describe("exclude_processes", func() {
 
 		Context("cluster doesn't supports locality based exclusions", func() {
 			BeforeEach(func() {
-				cluster.Spec.Version = fdbv1beta2.Versions.Default.String()
+				version := fdbv1beta2.Versions.SupportsLocalityBasedExclusions71
+				version.Patch--
+				cluster.Spec.Version = version.String()
 			})
 
 			When("there are no exclusions", func() {

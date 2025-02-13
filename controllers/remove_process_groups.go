@@ -337,6 +337,13 @@ func getProcessesToInclude(logger logr.Logger, cluster *fdbv1beta2.FoundationDBC
 			}
 
 			for _, pAddr := range processGroup.Addresses {
+				// Ensure we include the process address if the removed process group is a log process as we are always
+				// excluding the log process with locality and IP address
+				if foundInExcludedServerList && processGroup.ProcessClass.IsLogProcess() {
+					fdbProcessesToInclude = append(fdbProcessesToInclude, fdbv1beta2.ProcessAddress{IPAddress: net.ParseIP(pAddr)})
+					continue
+				}
+
 				if _, ok := excludedServersMap[pAddr]; ok {
 					fdbProcessesToInclude = append(fdbProcessesToInclude, fdbv1beta2.ProcessAddress{IPAddress: net.ParseIP(pAddr)})
 					foundInExcludedServerList = true

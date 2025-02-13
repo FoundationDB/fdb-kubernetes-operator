@@ -46,7 +46,7 @@ var _ = Describe("monitor_conf", func() {
 	})
 
 	Context("GetUnifedMonitorConf", func() {
-		var baseArgumentLength = 10
+		var baseArgumentLength = 11
 
 		BeforeEach(func() {
 			cluster.Status.ConnectionString = fakeConnectionString
@@ -385,7 +385,7 @@ var _ = Describe("monitor_conf", func() {
 				It("specifies the IP family for the public address", func() {
 					config := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 1, fdbv1beta2.ImageTypeUnified)
 					Expect(config.Arguments).To(HaveLen(baseArgumentLength))
-					Expect(config.Arguments[2]).To(Equal(monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
+					Expect(config.Arguments).To(ContainElement(monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
 						{Value: "--public_address=["},
 						{ArgumentType: monitorapi.IPListArgumentType, Source: fdbv1beta2.EnvNamePublicIP, IPFamily: 4},
 						{Value: "]:"},
@@ -407,7 +407,7 @@ var _ = Describe("monitor_conf", func() {
 				config := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 1, fdbv1beta2.ImageTypeUnified)
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength))
 
-				Expect(config.Arguments[9]).To(Equal(monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
+				Expect(config.Arguments).To(ContainElement(monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
 					{Value: "--locality_zoneid="},
 					{ArgumentType: monitorapi.EnvironmentArgumentType, Source: "RACK"},
 				}}))
@@ -422,7 +422,7 @@ var _ = Describe("monitor_conf", func() {
 			It("includes the verification rules", func() {
 				config := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 1, fdbv1beta2.ImageTypeUnified)
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength + 1))
-				Expect(config.Arguments[10]).To(Equal(monitorapi.Argument{Value: "--tls_verify_peers=S.CN=foundationdb.org"}))
+				Expect(config.Arguments).To(ContainElement(monitorapi.Argument{Value: "--tls_verify_peers=S.CN=foundationdb.org"}))
 			})
 		})
 
@@ -434,7 +434,7 @@ var _ = Describe("monitor_conf", func() {
 			It("includes the log group", func() {
 				config := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 1, fdbv1beta2.ImageTypeUnified)
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength))
-				Expect(config.Arguments[5]).To(Equal(monitorapi.Argument{Value: "--loggroup=test-fdb-cluster"}))
+				Expect(config.Arguments).To(ContainElement(monitorapi.Argument{Value: "--loggroup=test-fdb-cluster"}))
 			})
 		})
 
@@ -446,7 +446,7 @@ var _ = Describe("monitor_conf", func() {
 			It("adds an argument for the data center", func() {
 				config := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 1, fdbv1beta2.ImageTypeUnified)
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength + 1))
-				Expect(config.Arguments[10]).To(Equal(monitorapi.Argument{Value: "--locality_dcid=dc01"}))
+				Expect(config.Arguments).To(ContainElement(monitorapi.Argument{Value: "--locality_dcid=dc01"}))
 			})
 		})
 
@@ -458,7 +458,7 @@ var _ = Describe("monitor_conf", func() {
 			It("adds an argument for the data hall", func() {
 				config := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 1, fdbv1beta2.ImageTypeUnified)
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength + 1))
-				Expect(config.Arguments[10]).To(Equal(monitorapi.Argument{Value: "--locality_data_hall=dh01"}))
+				Expect(config.Arguments).To(ContainElement(monitorapi.Argument{Value: "--locality_data_hall=dh01"}))
 			})
 		})
 	})
@@ -497,6 +497,7 @@ var _ = Describe("monitor_conf", func() {
 						"--class=storage",
 						"--cluster_file=/var/fdb/data/fdb.cluster",
 						"--datadir=/var/fdb/data",
+						fmt.Sprintf("--locality_dns_name=%s", substitutions[fdbv1beta2.EnvNameDNSName]),
 						fmt.Sprintf("--locality_instance_id=%s", processGroupID),
 						fmt.Sprintf("--locality_machineid=%s-%s", cluster.Name, processGroupID),
 						fmt.Sprintf("--locality_zoneid=%s-%s", cluster.Name, processGroupID),
@@ -525,6 +526,7 @@ var _ = Describe("monitor_conf", func() {
 						"--cluster_file=/var/fdb/data/fdb.cluster",
 						"--datadir=/var/fdb/data",
 						fmt.Sprintf("--locality_disk_id=%s", processGroupID),
+						fmt.Sprintf("--locality_dns_name=%s", substitutions[fdbv1beta2.EnvNameDNSName]),
 						fmt.Sprintf("--locality_instance_id=%s", processGroupID),
 						fmt.Sprintf("--locality_machineid=%s-%s", cluster.Name, processGroupID),
 						fmt.Sprintf("--locality_zoneid=%s-%s", cluster.Name, processGroupID),
@@ -549,6 +551,7 @@ var _ = Describe("monitor_conf", func() {
 						"--class=storage",
 						"--cluster_file=/var/fdb/data/fdb.cluster",
 						"--datadir=/var/fdb/data/1",
+						fmt.Sprintf("--locality_dns_name=%s", substitutions[fdbv1beta2.EnvNameDNSName]),
 						fmt.Sprintf("--locality_instance_id=%s", id),
 						fmt.Sprintf("--locality_machineid=%s-%s", cluster.Name, id),
 						fmt.Sprintf("--locality_process_id=%s-1", id),
@@ -566,6 +569,7 @@ var _ = Describe("monitor_conf", func() {
 						"--class=storage",
 						"--cluster_file=/var/fdb/data/fdb.cluster",
 						"--datadir=/var/fdb/data/2",
+						fmt.Sprintf("--locality_dns_name=%s", substitutions[fdbv1beta2.EnvNameDNSName]),
 						fmt.Sprintf("--locality_instance_id=%s", id),
 						fmt.Sprintf("--locality_machineid=%s-%s", cluster.Name, id),
 						fmt.Sprintf("--locality_process_id=%s-2", id),
@@ -579,11 +583,13 @@ var _ = Describe("monitor_conf", func() {
 			})
 
 			When("host replication is used", func() {
+				var substitutions map[string]string
+
 				BeforeEach(func() {
 					pod.Spec.NodeName = "machine1"
 					cluster.Spec.FaultDomain = fdbv1beta2.FoundationDBClusterFaultDomain{}
 
-					substitutions, err := GetSubstitutionsFromClusterAndPod(logr.Discard(), cluster, pod)
+					substitutions, err = GetSubstitutionsFromClusterAndPod(logr.Discard(), cluster, pod)
 					Expect(err).NotTo(HaveOccurred())
 					command, err = GetStartCommandWithSubstitutions(cluster, fdbv1beta2.ProcessClassStorage, substitutions, 1, 1, cluster.DesiredImageType())
 					Expect(err).NotTo(HaveOccurred())
@@ -595,6 +601,7 @@ var _ = Describe("monitor_conf", func() {
 						"--class=storage",
 						"--cluster_file=/var/fdb/data/fdb.cluster",
 						"--datadir=/var/fdb/data",
+						fmt.Sprintf("--locality_dns_name=%s", substitutions[fdbv1beta2.EnvNameDNSName]),
 						"--locality_instance_id=storage-1",
 						"--locality_machineid=machine1",
 						"--locality_zoneid=machine1",
@@ -607,6 +614,8 @@ var _ = Describe("monitor_conf", func() {
 			})
 
 			When("cross-Kubernetes replication is used", func() {
+				var substitutions map[string]string
+
 				BeforeEach(func() {
 					pod.Spec.NodeName = "machine1"
 
@@ -615,7 +624,7 @@ var _ = Describe("monitor_conf", func() {
 						Value: "kc2",
 					}
 
-					substitutions, err := GetSubstitutionsFromClusterAndPod(logr.Discard(), cluster, pod)
+					substitutions, err = GetSubstitutionsFromClusterAndPod(logr.Discard(), cluster, pod)
 					Expect(err).NotTo(HaveOccurred())
 					command, err = GetStartCommandWithSubstitutions(cluster, fdbv1beta2.ProcessClassStorage, substitutions, 1, 1, cluster.DesiredImageType())
 					Expect(err).NotTo(HaveOccurred())
@@ -627,6 +636,7 @@ var _ = Describe("monitor_conf", func() {
 						"--class=storage",
 						"--cluster_file=/var/fdb/data/fdb.cluster",
 						"--datadir=/var/fdb/data",
+						fmt.Sprintf("--locality_dns_name=%s", substitutions[fdbv1beta2.EnvNameDNSName]),
 						"--locality_instance_id=storage-1",
 						"--locality_machineid=machine1",
 						"--locality_zoneid=kc2",
@@ -639,10 +649,12 @@ var _ = Describe("monitor_conf", func() {
 			})
 
 			When("the binaries from the main container are used", func() {
+				var substitutions map[string]string
+
 				BeforeEach(func() {
 					cluster.Spec.Version = fdbv1beta2.Versions.Default.String()
 					cluster.Status.RunningVersion = fdbv1beta2.Versions.Default.String()
-					substitutions, err := GetSubstitutionsFromClusterAndPod(logr.Discard(), cluster, pod)
+					substitutions, err = GetSubstitutionsFromClusterAndPod(logr.Discard(), cluster, pod)
 					Expect(err).NotTo(HaveOccurred())
 					command, err = GetStartCommandWithSubstitutions(cluster, fdbv1beta2.ProcessClassStorage, substitutions, 1, 1, cluster.DesiredImageType())
 					Expect(err).NotTo(HaveOccurred())
@@ -655,6 +667,7 @@ var _ = Describe("monitor_conf", func() {
 						"--class=storage",
 						"--cluster_file=/var/fdb/data/fdb.cluster",
 						"--datadir=/var/fdb/data",
+						fmt.Sprintf("--locality_dns_name=%s", substitutions[fdbv1beta2.EnvNameDNSName]),
 						fmt.Sprintf("--locality_instance_id=%s", id),
 						fmt.Sprintf("--locality_machineid=%s-%s", cluster.Name, id),
 						fmt.Sprintf("--locality_zoneid=%s-%s", cluster.Name, id),
@@ -692,6 +705,7 @@ var _ = Describe("monitor_conf", func() {
 					fmt.Sprintf("--locality_instance_id=%s", processGroupID),
 					fmt.Sprintf("--locality_machineid=%s-%s", cluster.Name, processGroupID),
 					fmt.Sprintf("--locality_zoneid=%s-%s", cluster.Name, processGroupID),
+					fmt.Sprintf("--locality_dns_name=%s", substitutions[fdbv1beta2.EnvNameDNSName]),
 				}, " ")))
 			})
 
@@ -715,6 +729,7 @@ var _ = Describe("monitor_conf", func() {
 						fmt.Sprintf("--locality_instance_id=%s", processGroupID),
 						fmt.Sprintf("--locality_machineid=%s-%s", cluster.Name, processGroupID),
 						fmt.Sprintf("--locality_zoneid=%s-%s", cluster.Name, processGroupID),
+						fmt.Sprintf("--locality_dns_name=%s", substitutions[fdbv1beta2.EnvNameDNSName]),
 					}, " ")))
 				})
 			})
@@ -749,6 +764,7 @@ var _ = Describe("monitor_conf", func() {
 						fmt.Sprintf("--locality_zoneid=%s-%s", cluster.Name, processGroupID),
 						fmt.Sprintf("--locality_disk_id=%s", processGroupID),
 						fmt.Sprintf("--test=%s-%s", cluster.Name, processGroupID),
+						fmt.Sprintf("--locality_dns_name=%s", substitutions[fdbv1beta2.EnvNameDNSName]),
 					}, " ")))
 				})
 			})
@@ -782,6 +798,7 @@ var _ = Describe("monitor_conf", func() {
 						fmt.Sprintf("--locality_machineid=%s-%s", cluster.Name, processGroupID),
 						fmt.Sprintf("--locality_zoneid=%s-%s", cluster.Name, processGroupID),
 						fmt.Sprintf("--locality_dcid=%s", processGroupID),
+						fmt.Sprintf("--locality_dns_name=%s", substitutions[fdbv1beta2.EnvNameDNSName]),
 					}, " ")))
 				})
 			})
@@ -815,6 +832,7 @@ var _ = Describe("monitor_conf", func() {
 						fmt.Sprintf("--locality_machineid=%s-%s", cluster.Name, processGroupID),
 						fmt.Sprintf("--locality_zoneid=%s-%s", cluster.Name, processGroupID),
 						fmt.Sprintf("--locality_data_hall=%s", processGroupID),
+						fmt.Sprintf("--locality_dns_name=%s", substitutions[fdbv1beta2.EnvNameDNSName]),
 					}, " ")))
 				})
 			})
@@ -852,6 +870,7 @@ var _ = Describe("monitor_conf", func() {
 					fmt.Sprintf("locality_instance_id = $%s", fdbv1beta2.EnvNameInstanceID),
 					fmt.Sprintf("locality_machineid = $%s", fdbv1beta2.EnvNameMachineID),
 					fmt.Sprintf("locality_zoneid = $%s", fdbv1beta2.EnvNameZoneID),
+					fmt.Sprintf("locality_dns_name = $%s", fdbv1beta2.EnvNameDNSName),
 				}, "\n")))
 			})
 		})
@@ -879,14 +898,14 @@ var _ = Describe("monitor_conf", func() {
 					fmt.Sprintf("locality_instance_id = $%s", fdbv1beta2.EnvNameInstanceID),
 					fmt.Sprintf("locality_machineid = $%s", fdbv1beta2.EnvNameMachineID),
 					fmt.Sprintf("locality_zoneid = $%s", fdbv1beta2.EnvNameZoneID),
+					fmt.Sprintf("locality_dns_name = $%s", fdbv1beta2.EnvNameDNSName),
 				}, "\n")))
 			})
 		})
 
-		Context("with DNS names enabled", func() {
+		Context("with DNS names in locality fields disabled", func() {
 			BeforeEach(func() {
-				cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(true)
-				cluster.Status.RunningVersion = fdbv1beta2.Versions.SupportsDNSInClusterFile.String()
+				cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(false)
 				conf, err = GetMonitorConf(cluster, fdbv1beta2.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -908,36 +927,6 @@ var _ = Describe("monitor_conf", func() {
 					fmt.Sprintf("locality_instance_id = $%s", fdbv1beta2.EnvNameInstanceID),
 					fmt.Sprintf("locality_machineid = $%s", fdbv1beta2.EnvNameMachineID),
 					fmt.Sprintf("locality_zoneid = $%s", fdbv1beta2.EnvNameZoneID),
-					fmt.Sprintf("locality_dns_name = $%s", fdbv1beta2.EnvNameDNSName),
-				}, "\n")))
-			})
-		})
-
-		Context("with DNS names in locality fields", func() {
-			BeforeEach(func() {
-				cluster.Spec.Routing.DefineDNSLocalityFields = pointer.Bool(true)
-				conf, err = GetMonitorConf(cluster, fdbv1beta2.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
-				Expect(err).NotTo(HaveOccurred())
-			})
-
-			It("should generate the storage conf", func() {
-				Expect(conf).To(Equal(strings.Join([]string{
-					"[general]",
-					"kill_on_configuration_change = false",
-					"restart_delay = 60",
-					"[fdbserver.1]",
-					fmt.Sprintf("command = $%s/fdbserver", fdbv1beta2.EnvNameBinaryDir),
-					"cluster_file = /var/fdb/data/fdb.cluster",
-					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
-					fmt.Sprintf("public_address = $%s:4501", fdbv1beta2.EnvNamePublicIP),
-					"class = storage",
-					"logdir = /var/log/fdb-trace-logs",
-					"loggroup = " + cluster.Name,
-					"datadir = /var/fdb/data",
-					fmt.Sprintf("locality_instance_id = $%s", fdbv1beta2.EnvNameInstanceID),
-					fmt.Sprintf("locality_machineid = $%s", fdbv1beta2.EnvNameMachineID),
-					fmt.Sprintf("locality_zoneid = $%s", fdbv1beta2.EnvNameZoneID),
-					fmt.Sprintf("locality_dns_name = $%s", fdbv1beta2.EnvNameDNSName),
 				}, "\n")))
 			})
 		})
@@ -967,6 +956,7 @@ var _ = Describe("monitor_conf", func() {
 					fmt.Sprintf("locality_instance_id = $%s", fdbv1beta2.EnvNameInstanceID),
 					fmt.Sprintf("locality_machineid = $%s", fdbv1beta2.EnvNameMachineID),
 					fmt.Sprintf("locality_zoneid = $%s", fdbv1beta2.EnvNameZoneID),
+					fmt.Sprintf("locality_dns_name = $%s", fdbv1beta2.EnvNameDNSName),
 					"[fdbserver.2]",
 					fmt.Sprintf("command = $%s/fdbserver", fdbv1beta2.EnvNameBinaryDir),
 					"cluster_file = /var/fdb/data/fdb.cluster",
@@ -980,6 +970,7 @@ var _ = Describe("monitor_conf", func() {
 					fmt.Sprintf("locality_instance_id = $%s", fdbv1beta2.EnvNameInstanceID),
 					fmt.Sprintf("locality_machineid = $%s", fdbv1beta2.EnvNameMachineID),
 					fmt.Sprintf("locality_zoneid = $%s", fdbv1beta2.EnvNameZoneID),
+					fmt.Sprintf("locality_dns_name = $%s", fdbv1beta2.EnvNameDNSName),
 				}, "\n")))
 			})
 		})
@@ -1009,6 +1000,7 @@ var _ = Describe("monitor_conf", func() {
 					fmt.Sprintf("locality_instance_id = $%s", fdbv1beta2.EnvNameInstanceID),
 					fmt.Sprintf("locality_machineid = $%s", fdbv1beta2.EnvNameMachineID),
 					fmt.Sprintf("locality_zoneid = $%s", fdbv1beta2.EnvNameZoneID),
+					fmt.Sprintf("locality_dns_name = $%s", fdbv1beta2.EnvNameDNSName),
 				}, "\n")))
 			})
 		})
@@ -1040,6 +1032,7 @@ var _ = Describe("monitor_conf", func() {
 					fmt.Sprintf("locality_machineid = $%s", fdbv1beta2.EnvNameMachineID),
 					fmt.Sprintf("locality_zoneid = $%s", fdbv1beta2.EnvNameZoneID),
 					fmt.Sprintf("listen_address = $%s:4501", fdbv1beta2.EnvNamePodIP),
+					fmt.Sprintf("locality_dns_name = $%s", fdbv1beta2.EnvNameDNSName),
 				}, "\n")))
 			})
 
@@ -1067,6 +1060,7 @@ var _ = Describe("monitor_conf", func() {
 						fmt.Sprintf("locality_instance_id = $%s", fdbv1beta2.EnvNameInstanceID),
 						fmt.Sprintf("locality_machineid = $%s", fdbv1beta2.EnvNameMachineID),
 						fmt.Sprintf("locality_zoneid = $%s", fdbv1beta2.EnvNameZoneID),
+						fmt.Sprintf("locality_dns_name = $%s", fdbv1beta2.EnvNameDNSName),
 					}, "\n")))
 				})
 			})
@@ -1098,6 +1092,7 @@ var _ = Describe("monitor_conf", func() {
 					fmt.Sprintf("locality_instance_id = $%s", fdbv1beta2.EnvNameInstanceID),
 					fmt.Sprintf("locality_machineid = $%s", fdbv1beta2.EnvNameMachineID),
 					fmt.Sprintf("locality_zoneid = $%s", fdbv1beta2.EnvNameZoneID),
+					fmt.Sprintf("locality_dns_name = $%s", fdbv1beta2.EnvNameDNSName),
 				}, "\n")))
 			})
 		})
@@ -1129,6 +1124,7 @@ var _ = Describe("monitor_conf", func() {
 					fmt.Sprintf("locality_instance_id = $%s", fdbv1beta2.EnvNameInstanceID),
 					fmt.Sprintf("locality_machineid = $%s", fdbv1beta2.EnvNameMachineID),
 					fmt.Sprintf("locality_zoneid = $%s", fdbv1beta2.EnvNameZoneID),
+					fmt.Sprintf("locality_dns_name = $%s", fdbv1beta2.EnvNameDNSName),
 				}, "\n")))
 			})
 		})
@@ -1160,6 +1156,7 @@ var _ = Describe("monitor_conf", func() {
 					fmt.Sprintf("locality_instance_id = $%s", fdbv1beta2.EnvNameInstanceID),
 					fmt.Sprintf("locality_machineid = $%s", fdbv1beta2.EnvNameMachineID),
 					fmt.Sprintf("locality_zoneid = $%s", fdbv1beta2.EnvNameZoneID),
+					fmt.Sprintf("locality_dns_name = $%s", fdbv1beta2.EnvNameDNSName),
 				}, "\n")))
 			})
 		})
@@ -1192,6 +1189,7 @@ var _ = Describe("monitor_conf", func() {
 						fmt.Sprintf("locality_machineid = $%s", fdbv1beta2.EnvNameMachineID),
 						fmt.Sprintf("locality_zoneid = $%s", fdbv1beta2.EnvNameZoneID),
 						"knob_disable_posix_kernel_aio = 1",
+						fmt.Sprintf("locality_dns_name = $%s", fdbv1beta2.EnvNameDNSName),
 					}, "\n")))
 				})
 			})
@@ -1231,6 +1229,7 @@ var _ = Describe("monitor_conf", func() {
 						fmt.Sprintf("locality_machineid = $%s", fdbv1beta2.EnvNameMachineID),
 						fmt.Sprintf("locality_zoneid = $%s", fdbv1beta2.EnvNameZoneID),
 						"knob_test = test1",
+						fmt.Sprintf("locality_dns_name = $%s", fdbv1beta2.EnvNameDNSName),
 					}, "\n")))
 				})
 			})
@@ -1263,6 +1262,7 @@ var _ = Describe("monitor_conf", func() {
 					fmt.Sprintf("locality_instance_id = $%s", fdbv1beta2.EnvNameInstanceID),
 					fmt.Sprintf("locality_machineid = $%s", fdbv1beta2.EnvNameMachineID),
 					"locality_zoneid = $RACK",
+					fmt.Sprintf("locality_dns_name = $%s", fdbv1beta2.EnvNameDNSName),
 				}, "\n")))
 			})
 		})
@@ -1292,6 +1292,7 @@ var _ = Describe("monitor_conf", func() {
 					fmt.Sprintf("locality_machineid = $%s", fdbv1beta2.EnvNameMachineID),
 					fmt.Sprintf("locality_zoneid = $%s", fdbv1beta2.EnvNameZoneID),
 					"tls_verify_peers = S.CN=foundationdb.org",
+					fmt.Sprintf("locality_dns_name = $%s", fdbv1beta2.EnvNameDNSName),
 				}, "\n")))
 			})
 		})
@@ -1320,6 +1321,7 @@ var _ = Describe("monitor_conf", func() {
 					fmt.Sprintf("locality_instance_id = $%s", fdbv1beta2.EnvNameInstanceID),
 					fmt.Sprintf("locality_machineid = $%s", fdbv1beta2.EnvNameMachineID),
 					fmt.Sprintf("locality_zoneid = $%s", fdbv1beta2.EnvNameZoneID),
+					fmt.Sprintf("locality_dns_name = $%s", fdbv1beta2.EnvNameDNSName),
 				}, "\n")))
 			})
 		})
@@ -1332,7 +1334,7 @@ var _ = Describe("monitor_conf", func() {
 			})
 
 			It("should include the log group", func() {
-				Expect(conf).To(Equal(strings.Join([]string{
+				t := strings.Join([]string{
 					"[general]",
 					"kill_on_configuration_change = false",
 					"restart_delay = 60",
@@ -1349,7 +1351,9 @@ var _ = Describe("monitor_conf", func() {
 					fmt.Sprintf("locality_machineid = $%s", fdbv1beta2.EnvNameMachineID),
 					fmt.Sprintf("locality_zoneid = $%s", fdbv1beta2.EnvNameZoneID),
 					"locality_dcid = dc01",
-				}, "\n")))
+					fmt.Sprintf("locality_dns_name = $%s", fdbv1beta2.EnvNameDNSName),
+				}, "\n")
+				Expect(conf).To(Equal(t))
 			})
 		})
 	})

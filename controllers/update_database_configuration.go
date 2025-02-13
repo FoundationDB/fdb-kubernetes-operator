@@ -83,7 +83,7 @@ func (u updateDatabaseConfiguration) reconcile(_ context.Context, r *FoundationD
 		} else {
 			nextConfiguration = currentConfiguration.GetNextConfigurationChange(desiredConfiguration)
 		}
-		configurationString, _ := nextConfiguration.GetConfigurationString(cluster.Spec.Version)
+		configurationString, _ := nextConfiguration.GetConfigurationString()
 
 		if !initialConfig {
 			err = fdbstatus.ConfigurationChangeAllowed(status, runningVersion.SupportsRecoveryState() && r.EnableRecoveryState)

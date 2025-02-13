@@ -741,7 +741,7 @@ var _ = Describe("Change coordinators", func() {
 		Entry("No priorities are defined and all processes are upgraded",
 			&fdbv1beta2.FoundationDBCluster{
 				Spec: fdbv1beta2.FoundationDBClusterSpec{
-					Version: "7.1.57",
+					Version: fdbv1beta2.Versions.Default.String(),
 				},
 			},
 			&fdbv1beta2.FoundationDBStatus{
@@ -751,6 +751,7 @@ var _ = Describe("Change coordinators", func() {
 							ProcessClass: fdbv1beta2.ProcessClassStorage,
 							Locality: map[string]string{
 								fdbv1beta2.FDBLocalityInstanceIDKey: "1",
+								fdbv1beta2.FDBLocalityDNSNameKey:    "1",
 							},
 							CommandLine: "--public_address=192.168.0.1:4500",
 							Version:     "7.1.57",
@@ -768,6 +769,7 @@ var _ = Describe("Change coordinators", func() {
 					Class: fdbv1beta2.ProcessClassStorage,
 					LocalityData: map[string]string{
 						fdbv1beta2.FDBLocalityInstanceIDKey: "1",
+						fdbv1beta2.FDBLocalityDNSNameKey:    "1",
 					},
 				},
 			},
@@ -785,6 +787,7 @@ var _ = Describe("Change coordinators", func() {
 							ProcessClass: fdbv1beta2.ProcessClassStorage,
 							Locality: map[string]string{
 								fdbv1beta2.FDBLocalityInstanceIDKey: "1",
+								fdbv1beta2.FDBLocalityDNSNameKey:    "1",
 							},
 							CommandLine: "--public_address=192.168.0.1:4500",
 							Version:     "7.1.57",
@@ -793,6 +796,7 @@ var _ = Describe("Change coordinators", func() {
 							ProcessClass: fdbv1beta2.ProcessClassStorage,
 							Locality: map[string]string{
 								fdbv1beta2.FDBLocalityInstanceIDKey: "2",
+								fdbv1beta2.FDBLocalityDNSNameKey:    "2",
 							},
 							CommandLine: "--public_address=192.168.0.2:4500",
 							Version:     "7.1.55",
@@ -810,6 +814,7 @@ var _ = Describe("Change coordinators", func() {
 					Class: fdbv1beta2.ProcessClassStorage,
 					LocalityData: map[string]string{
 						fdbv1beta2.FDBLocalityInstanceIDKey: "1",
+						fdbv1beta2.FDBLocalityDNSNameKey:    "1",
 					},
 				},
 				{
@@ -821,6 +826,7 @@ var _ = Describe("Change coordinators", func() {
 					Class: fdbv1beta2.ProcessClassStorage,
 					LocalityData: map[string]string{
 						fdbv1beta2.FDBLocalityInstanceIDKey: "2",
+						fdbv1beta2.FDBLocalityDNSNameKey:    "2",
 					},
 					Priority: math.MinInt,
 				},
@@ -845,17 +851,19 @@ var _ = Describe("Change coordinators", func() {
 							ProcessClass: fdbv1beta2.ProcessClassStorage,
 							Locality: map[string]string{
 								fdbv1beta2.FDBLocalityInstanceIDKey: "1",
+								fdbv1beta2.FDBLocalityDNSNameKey:    "1",
 							},
 							CommandLine: "--public_address=192.168.0.1:4500",
-							Version:     "7.1.57",
+							Version:     fdbv1beta2.Versions.Default.String(),
 						},
 						"2": {
 							ProcessClass: fdbv1beta2.ProcessClassStorage,
 							Locality: map[string]string{
 								fdbv1beta2.FDBLocalityInstanceIDKey: "2",
+								fdbv1beta2.FDBLocalityDNSNameKey:    "2",
 							},
 							CommandLine: "--public_address=192.168.0.2:4500",
-							Version:     "7.1.55",
+							Version:     fdbv1beta2.Versions.PreviousPatchVersion.String(),
 						},
 					},
 				},
@@ -870,6 +878,7 @@ var _ = Describe("Change coordinators", func() {
 					Class: fdbv1beta2.ProcessClassStorage,
 					LocalityData: map[string]string{
 						fdbv1beta2.FDBLocalityInstanceIDKey: "1",
+						fdbv1beta2.FDBLocalityDNSNameKey:    "1",
 					},
 					Priority: 1000,
 				},
@@ -882,6 +891,7 @@ var _ = Describe("Change coordinators", func() {
 					Class: fdbv1beta2.ProcessClassStorage,
 					LocalityData: map[string]string{
 						fdbv1beta2.FDBLocalityInstanceIDKey: "2",
+						fdbv1beta2.FDBLocalityDNSNameKey:    "2",
 					},
 					Priority: math.MinInt + 1000,
 				},
@@ -900,17 +910,19 @@ var _ = Describe("Change coordinators", func() {
 							ProcessClass: fdbv1beta2.ProcessClassStorage,
 							Locality: map[string]string{
 								fdbv1beta2.FDBLocalityInstanceIDKey: "1",
+								fdbv1beta2.FDBLocalityDNSNameKey:    "1",
 							},
 							CommandLine: "--public_address=192.168.0.1:4500",
-							Version:     "7.1.57",
+							Version:     fdbv1beta2.Versions.Default.String(),
 						},
 						"2": {
 							ProcessClass: fdbv1beta2.ProcessClassStorage,
 							Locality: map[string]string{
 								fdbv1beta2.FDBLocalityInstanceIDKey: "2",
+								fdbv1beta2.FDBLocalityDNSNameKey:    "2",
 							},
 							CommandLine: "/var/dynamic-conf/... --public_address=192.168.0.2:4500",
-							Version:     "7.1.57",
+							Version:     fdbv1beta2.Versions.Default.String(),
 						},
 					},
 				},
@@ -925,6 +937,7 @@ var _ = Describe("Change coordinators", func() {
 					Class: fdbv1beta2.ProcessClassStorage,
 					LocalityData: map[string]string{
 						fdbv1beta2.FDBLocalityInstanceIDKey: "1",
+						fdbv1beta2.FDBLocalityDNSNameKey:    "1",
 					},
 				},
 				{
@@ -936,6 +949,7 @@ var _ = Describe("Change coordinators", func() {
 					Class: fdbv1beta2.ProcessClassStorage,
 					LocalityData: map[string]string{
 						fdbv1beta2.FDBLocalityInstanceIDKey: "2",
+						fdbv1beta2.FDBLocalityDNSNameKey:    "2",
 					},
 					Priority: math.MinInt,
 				},
@@ -996,17 +1010,19 @@ func generateProcessInfoDetails(res map[fdbv1beta2.ProcessGroupID]fdbv1beta2.Fou
 			break
 		}
 
-		addr := fmt.Sprintf("1.1.1.%d:4501", len(res))
+		ipAddr := fmt.Sprintf("1.1.1.%d", len(res))
+		addr := fmt.Sprintf("%s:4501", ipAddr)
 		processInfo := fdbv1beta2.FoundationDBStatusProcessInfo{
 			ProcessClass: pClass,
 			Version:      version,
 			Locality: map[string]string{
 				fdbv1beta2.FDBLocalityInstanceIDKey: zoneID,
 				fdbv1beta2.FDBLocalityZoneIDKey:     zoneID,
+				fdbv1beta2.FDBLocalityDNSNameKey:    zoneID,
 			},
 			Excluded: excluded,
 			Address: fdbv1beta2.ProcessAddress{
-				IPAddress: net.ParseIP(fmt.Sprintf("1.1.1.%d", len(res))),
+				IPAddress: net.ParseIP(ipAddr),
 				Port:      4501,
 			},
 			CommandLine: fmt.Sprintf("/fdbserver --public_address=%s", addr),
