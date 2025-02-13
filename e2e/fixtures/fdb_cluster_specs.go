@@ -170,6 +170,98 @@ func (factory *Factory) createPodTemplate(
 		}
 	}
 
+	containers := []corev1.Container{
+		{
+			Name:            fdbv1beta2.MainContainerName,
+			ImagePullPolicy: factory.getImagePullPolicy(),
+			Resources:       mainContainerResources,
+			SecurityContext: &corev1.SecurityContext{
+				Privileged:               pointer.Bool(true),
+				AllowPrivilegeEscalation: pointer.Bool(true), // for performance profiling
+				ReadOnlyRootFilesystem: pointer.Bool(
+					false,
+				), // to allow I/O chaos to succeed
+			},
+			Env: []corev1.EnvVar{
+				{
+					Name:  fdbv1beta2.EnvNameTLSCert,
+					Value: "/tmp/fdb-certs/tls.crt",
+				},
+				{
+					Name:  fdbv1beta2.EnvNameTLSCaFile,
+					Value: "/tmp/fdb-certs/ca.pem",
+				},
+				{
+					Name:  fdbv1beta2.EnvNameTLSKeyFile,
+					Value: "/tmp/fdb-certs/tls.key",
+				},
+				{
+					Name:  fdbv1beta2.EnvNameTLSVerifyPeers,
+					Value: config.TLSPeerVerification,
+				},
+				{
+					Name:  fdbv1beta2.EnvNameFDBTraceLogDirPath,
+					Value: "/var/log/fdb-trace-logs",
+				},
+				{
+					Name:  "ENABLE_NODE_WATCH",
+					Value: "true",
+				},
+			},
+			VolumeMounts: []corev1.VolumeMount{
+				{
+					Name:      "fdb-certs",
+					ReadOnly:  true,
+					MountPath: "/tmp/fdb-certs",
+				},
+			},
+		},
+		{
+			Name:            fdbv1beta2.SidecarContainerName,
+			ImagePullPolicy: factory.getImagePullPolicy(),
+			SecurityContext: &corev1.SecurityContext{
+				//Privileged:               pointer.Bool(true),
+				//AllowPrivilegeEscalation: pointer.Bool(true), // for performance profiling
+				ReadOnlyRootFilesystem: pointer.Bool(
+					false,
+				), // to allow I/O chaos to succeed
+			},
+			Resources: corev1.ResourceRequirements{
+				Requests: config.generateSidecarResources(),
+			},
+			Env: []corev1.EnvVar{
+				{
+					Name:  fdbv1beta2.EnvNameTLSCert,
+					Value: "/tmp/fdb-certs/tls.crt",
+				},
+				{
+					Name:  fdbv1beta2.EnvNameTLSCaFile,
+					Value: "/tmp/fdb-certs/ca.pem",
+				},
+				{
+					Name:  fdbv1beta2.EnvNameTLSKeyFile,
+					Value: "/tmp/fdb-certs/tls.key",
+				},
+				{
+					Name:  fdbv1beta2.EnvNameTLSVerifyPeers,
+					Value: config.TLSPeerVerification,
+				},
+			},
+			VolumeMounts: []corev1.VolumeMount{
+				{
+					Name:      "fdb-certs",
+					ReadOnly:  true,
+					MountPath: "/tmp/fdb-certs",
+				},
+			},
+		},
+	}
+
+	// Append any additional containers if specified
+	if len(config.AdditionalContainers) > 0 {
+		containers = append(containers, config.AdditionalContainers...)
+	}
+
 	return &corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			// Tell the cluster autoscaler never to remove a node that an FDB pod is running on.
@@ -207,92 +299,7 @@ func (factory *Factory) createPodTemplate(
 			SecurityContext: &corev1.PodSecurityContext{
 				FSGroup: pointer.Int64(4059),
 			},
-			Containers: []corev1.Container{
-				{
-					Name:            fdbv1beta2.MainContainerName,
-					ImagePullPolicy: factory.getImagePullPolicy(),
-					Resources:       mainContainerResources,
-					SecurityContext: &corev1.SecurityContext{
-						Privileged:               pointer.Bool(true),
-						AllowPrivilegeEscalation: pointer.Bool(true), // for performance profiling
-						ReadOnlyRootFilesystem: pointer.Bool(
-							false,
-						), // to allow I/O chaos to succeed
-					},
-					Env: []corev1.EnvVar{
-						{
-							Name:  fdbv1beta2.EnvNameTLSCert,
-							Value: "/tmp/fdb-certs/tls.crt",
-						},
-						{
-							Name:  fdbv1beta2.EnvNameTLSCaFile,
-							Value: "/tmp/fdb-certs/ca.pem",
-						},
-						{
-							Name:  fdbv1beta2.EnvNameTLSKeyFile,
-							Value: "/tmp/fdb-certs/tls.key",
-						},
-						{
-							Name:  fdbv1beta2.EnvNameTLSVerifyPeers,
-							Value: config.TLSPeerVerification,
-						},
-						{
-							Name:  fdbv1beta2.EnvNameFDBTraceLogDirPath,
-							Value: "/var/log/fdb-trace-logs",
-						},
-						{
-							Name:  "ENABLE_NODE_WATCH",
-							Value: "true",
-						},
-					},
-					VolumeMounts: []corev1.VolumeMount{
-						{
-							Name:      "fdb-certs",
-							ReadOnly:  true,
-							MountPath: "/tmp/fdb-certs",
-						},
-					},
-				},
-				{
-					Name:            fdbv1beta2.SidecarContainerName,
-					ImagePullPolicy: factory.getImagePullPolicy(),
-					SecurityContext: &corev1.SecurityContext{
-						//Privileged:               pointer.Bool(true),
-						//AllowPrivilegeEscalation: pointer.Bool(true), // for performance profiling
-						ReadOnlyRootFilesystem: pointer.Bool(
-							false,
-						), // to allow I/O chaos to succeed
-					},
-					Resources: corev1.ResourceRequirements{
-						Requests: config.generateSidecarResources(),
-					},
-					Env: []corev1.EnvVar{
-						{
-							Name:  fdbv1beta2.EnvNameTLSCert,
-							Value: "/tmp/fdb-certs/tls.crt",
-						},
-						{
-							Name:  fdbv1beta2.EnvNameTLSCaFile,
-							Value: "/tmp/fdb-certs/ca.pem",
-						},
-						{
-							Name:  fdbv1beta2.EnvNameTLSKeyFile,
-							Value: "/tmp/fdb-certs/tls.key",
-						},
-						{
-							Name:  fdbv1beta2.EnvNameTLSVerifyPeers,
-							Value: config.TLSPeerVerification,
-						},
-					},
-					VolumeMounts: []corev1.VolumeMount{
-						{
-							Name:      "fdb-certs",
-							ReadOnly:  true,
-							MountPath: "/tmp/fdb-certs",
-						},
-					},
-				},
-			},
+			Containers:                containers,
 			Volumes: []corev1.Volume{
 				{
 					Name: "fdb-certs",

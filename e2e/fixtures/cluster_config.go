@@ -121,6 +121,8 @@ type ClusterConfig struct {
 	// RedundancyMode defines the redundancy mode that should be used. If undefined the default is triple, except for
 	// the HaFourZoneDoubleSatRF4 configuration.
 	RedundancyMode fdbv1beta2.RedundancyMode
+	// AdditionalContainers allows specifying additional containers that will be added to all Pods
+	AdditionalContainers []corev1.Container
 }
 
 // DefaultClusterConfigWithHaMode returns the default cluster configuration with the provided HA Mode.
@@ -556,5 +558,6 @@ func (config *ClusterConfig) Copy() *ClusterConfig {
 		UseDNS:                     config.UseDNS,
 		UseLocalityBasedExclusions: config.UseLocalityBasedExclusions,
 		UseUnifiedImage:            config.UseUnifiedImage,
+		AdditionalContainers:       config.AdditionalContainers,
 	}
 }
