@@ -170,6 +170,70 @@ func (factory *Factory) createPodTemplate(
 		}
 	}
 
+	mainContainerEnv := []corev1.EnvVar{
+		{
+			Name:  fdbv1beta2.EnvNameTLSCert,
+			Value: "/tmp/fdb-certs/tls.crt",
+		},
+		{
+			Name:  fdbv1beta2.EnvNameTLSCaFile,
+			Value: "/tmp/fdb-certs/ca.pem",
+		},
+		{
+			Name:  fdbv1beta2.EnvNameTLSKeyFile,
+			Value: "/tmp/fdb-certs/tls.key",
+		},
+		{
+			Name:  fdbv1beta2.EnvNameTLSVerifyPeers,
+			Value: config.TLSPeerVerification,
+		},
+		{
+			Name:  fdbv1beta2.EnvNameFDBTraceLogDirPath,
+			Value: "/var/log/fdb-trace-logs",
+		},
+		{
+			Name:  "ENABLE_NODE_WATCH",
+			Value: "true",
+		},
+	}
+
+	// Add any additional env vars
+	if len(config.AdditionalEnvVars) > 0 {
+		mainContainerEnv = append(mainContainerEnv, config.AdditionalEnvVars...)
+	}
+
+	sidecarContainerEnv := []corev1.EnvVar{
+		{
+			Name:  fdbv1beta2.EnvNameTLSCert,
+			Value: "/tmp/fdb-certs/tls.crt",
+		},
+		{
+			Name:  fdbv1beta2.EnvNameTLSCaFile,
+			Value: "/tmp/fdb-certs/ca.pem",
+		},
+		{
+			Name:  fdbv1beta2.EnvNameTLSKeyFile,
+			Value: "/tmp/fdb-certs/tls.key",
+		},
+		{
+			Name:  fdbv1beta2.EnvNameTLSVerifyPeers,
+			Value: config.TLSPeerVerification,
+		},
+	}
+
+	mainContainerVolumeMounts := []corev1.VolumeMount{
+		{
+			Name:      "fdb-certs",
+			ReadOnly:  true,
+			MountPath: "/tmp/fdb-certs",
+		},
+	}
+
+	// Add any additional volume mounts to main container
+	if len(config.AdditionalVolumeMounts) > 0 {
+		mainContainerVolumeMounts = append(mainContainerVolumeMounts, config.AdditionalVolumeMounts...)
+	}
+
 	containers := []corev1.Container{
 		{
 			Name:            fdbv1beta2.MainContainerName,
@@ -177,76 +241,22 @@ func (factory *Factory) createPodTemplate(
 			Resources:       mainContainerResources,
 			SecurityContext: &corev1.SecurityContext{
 				Privileged:               pointer.Bool(true),
-				AllowPrivilegeEscalation: pointer.Bool(true), // for performance profiling
-				ReadOnlyRootFilesystem: pointer.Bool(
-					false,
-				), // to allow I/O chaos to succeed
+				AllowPrivilegeEscalation: pointer.Bool(true),
+				ReadOnlyRootFilesystem:   pointer.Bool(false),
 			},
-			Env: []corev1.EnvVar{
-				{
-					Name:  fdbv1beta2.EnvNameTLSCert,
-					Value: "/tmp/fdb-certs/tls.crt",
-				},
-				{
-					Name:  fdbv1beta2.EnvNameTLSCaFile,
-					Value: "/tmp/fdb-certs/ca.pem",
-				},
-				{
-					Name:  fdbv1beta2.EnvNameTLSKeyFile,
-					Value: "/tmp/fdb-certs/tls.key",
-				},
-				{
-					Name:  fdbv1beta2.EnvNameTLSVerifyPeers,
-					Value: config.TLSPeerVerification,
-				},
-				{
-					Name:  fdbv1beta2.EnvNameFDBTraceLogDirPath,
-					Value: "/var/log/fdb-trace-logs",
-				},
-				{
-					Name:  "ENABLE_NODE_WATCH",
-					Value: "true",
-				},
-			},
-			VolumeMounts: []corev1.VolumeMount{
-				{
-					Name:      "fdb-certs",
-					ReadOnly:  true,
-					MountPath: "/tmp/fdb-certs",
-				},
-			},
+			Env:          mainContainerEnv,
+			VolumeMounts: mainContainerVolumeMounts,
 		},
 		{
 			Name:            fdbv1beta2.SidecarContainerName,
 			ImagePullPolicy: factory.getImagePullPolicy(),
 			SecurityContext: &corev1.SecurityContext{
-				//Privileged:               pointer.Bool(true),
-				//AllowPrivilegeEscalation: pointer.Bool(true), // for performance profiling
-				ReadOnlyRootFilesystem: pointer.Bool(
-					false,
-				), // to allow I/O chaos to succeed
+				ReadOnlyRootFilesystem: pointer.Bool(false),
 			},
 			Resources: corev1.ResourceRequirements{
 				Requests: config.generateSidecarResources(),
 			},
-			Env: []corev1.EnvVar{
-				{
-					Name:  fdbv1beta2.EnvNameTLSCert,
-					Value: "/tmp/fdb-certs/tls.crt",
-				},
-				{
-					Name:  fdbv1beta2.EnvNameTLSCaFile,
-					Value: "/tmp/fdb-certs/ca.pem",
-				},
-				{
-					Name:  fdbv1beta2.EnvNameTLSKeyFile,
-					Value: "/tmp/fdb-certs/tls.key",
-				},
-				{
-					Name:  fdbv1beta2.EnvNameTLSVerifyPeers,
-					Value: config.TLSPeerVerification,
-				},
-			},
+			Env:          sidecarContainerEnv,
 			VolumeMounts: []corev1.VolumeMount{
 				{
 					Name:      "fdb-certs",
@@ -260,6 +270,22 @@ func (factory *Factory) createPodTemplate(
 	// Append any additional containers if specified
 	if len(config.AdditionalContainers) > 0 {
 		containers = append(containers, config.AdditionalContainers...)
+	}
+
+	volumes := []corev1.Volume{
+		{
+			Name: "fdb-certs",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: factory.GetSecretName(),
+				},
+			},
+		},
+	}
+
+	// Add any additional volumes to the Pod
+	if len(config.AdditionalVolumes) > 0 {
+		volumes = append(volumes, config.AdditionalVolumes...)
 	}
 
 	return &corev1.PodTemplateSpec{
@@ -300,16 +326,7 @@ func (factory *Factory) createPodTemplate(
 				FSGroup: pointer.Int64(4059),
 			},
 			Containers:                containers,
-			Volumes: []corev1.Volume{
-				{
-					Name: "fdb-certs",
-					VolumeSource: corev1.VolumeSource{
-						Secret: &corev1.SecretVolumeSource{
-							SecretName: factory.GetSecretName(),
-						},
-					},
-				},
-			},
+			Volumes:                   volumes,
 		},
 	}
 }
