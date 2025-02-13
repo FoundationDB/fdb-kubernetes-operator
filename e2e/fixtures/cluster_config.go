@@ -121,6 +121,14 @@ type ClusterConfig struct {
 	// RedundancyMode defines the redundancy mode that should be used. If undefined the default is triple, except for
 	// the HaFourZoneDoubleSatRF4 configuration.
 	RedundancyMode fdbv1beta2.RedundancyMode
+	// AdditionalContainers allows specifying additional containers that will be added to all Pods
+	AdditionalContainers []corev1.Container
+	// AdditionalEnvVars allows specifying additional environment variables that will be added to the main container
+	AdditionalEnvVars []corev1.EnvVar
+	// AdditionalVolumeMounts allows specifying additional volume mounts for the main container
+	AdditionalVolumeMounts []corev1.VolumeMount
+	// AdditionalVolumes allows specifying additional volumes that will be added to the Pod
+	AdditionalVolumes []corev1.Volume
 }
 
 // DefaultClusterConfigWithHaMode returns the default cluster configuration with the provided HA Mode.
@@ -556,5 +564,9 @@ func (config *ClusterConfig) Copy() *ClusterConfig {
 		UseDNS:                     config.UseDNS,
 		UseLocalityBasedExclusions: config.UseLocalityBasedExclusions,
 		UseUnifiedImage:            config.UseUnifiedImage,
+		AdditionalContainers:       config.AdditionalContainers,
+		AdditionalEnvVars:          config.AdditionalEnvVars,
+		AdditionalVolumes:          config.AdditionalVolumes,
+		AdditionalVolumeMounts:     config.AdditionalVolumeMounts,
 	}
 }
