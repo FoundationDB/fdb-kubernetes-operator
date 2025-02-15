@@ -146,5 +146,5 @@ func getConfigurationString(kubeClient client.Client, clusterName string, namesp
 		config = config.FailOver()
 	}
 
-	return config.GetConfigurationString(cluster.Spec.Version)
+	return config.GetConfigurationString()
 }

@@ -256,17 +256,14 @@ func (configuration *DatabaseConfiguration) CountUniqueDataCenters() int {
 // This will fill in defaults of -1 for some fields that have a default
 // of 0, and will ensure that the region configuration is ordered
 // consistently.
-func (configuration DatabaseConfiguration) NormalizeConfigurationWithSeparatedProxies(version string, areSeparatedProxiesConfigured bool) DatabaseConfiguration {
+func (configuration DatabaseConfiguration) NormalizeConfigurationWithSeparatedProxies(_ string, areSeparatedProxiesConfigured bool) DatabaseConfiguration {
 	result := configuration.NormalizeConfiguration()
 
-	parsedVersion, _ := ParseFdbVersion(version)
-	if parsedVersion.HasSeparatedProxies() {
-		if !areSeparatedProxiesConfigured {
-			result.GrvProxies = 0
-			result.CommitProxies = 0
-		} else {
-			result.Proxies = 0
-		}
+	if !areSeparatedProxiesConfigured {
+		result.GrvProxies = 0
+		result.CommitProxies = 0
+	} else {
+		result.Proxies = 0
 	}
 
 	return result
@@ -314,7 +311,7 @@ func (configuration DatabaseConfiguration) getRegion(id string, priority int) Re
 // The default LogRouters value will be equal to 3 times the Logs value when
 // the UsableRegions is greater than 1. It will be equal to -1 when the
 // UsableRegions is less than or equal to 1.
-func (configuration *DatabaseConfiguration) GetRoleCountsWithDefaults(version Version, faultTolerance int) RoleCounts {
+func (configuration *DatabaseConfiguration) GetRoleCountsWithDefaults(faultTolerance int) RoleCounts {
 	counts := configuration.RoleCounts.DeepCopy()
 	if counts.Storage == 0 {
 		counts.Storage = 2*faultTolerance + 1
@@ -323,24 +320,17 @@ func (configuration *DatabaseConfiguration) GetRoleCountsWithDefaults(version Ve
 		counts.Logs = configuration.RedundancyMode.getDefaultLogCount()
 	}
 
-	if version.HasSeparatedProxies() {
-		if counts.CommitProxies == 0 && counts.GrvProxies == 0 && counts.Proxies == 0 {
-			counts.Proxies = 3
-		} else if counts.Proxies == 0 {
-			if counts.GrvProxies == 0 {
-				counts.GrvProxies = 1
-			}
-			if counts.CommitProxies == 0 {
-				counts.CommitProxies = 2
-			}
+	if counts.CommitProxies == 0 && counts.GrvProxies == 0 && counts.Proxies == 0 {
+		counts.Proxies = 3
+	} else if counts.Proxies == 0 {
+		if counts.GrvProxies == 0 {
+			counts.GrvProxies = 1
 		}
-	} else {
-		if counts.Proxies == 0 {
-			counts.Proxies = 3
+		if counts.CommitProxies == 0 {
+			counts.CommitProxies = 2
 		}
-		counts.CommitProxies = 0
-		counts.GrvProxies = 0
 	}
+
 	if counts.Resolvers == 0 {
 		counts.Resolvers = 1
 	}
@@ -667,11 +657,12 @@ func (configuration DatabaseConfiguration) AreSeparatedProxiesConfigured() bool 
 // AreSeparatedProxiesConfigured(), then this function will return the
 // string "commit_proxies=%d grv_proxies=%d", otherwise just
 // "proxies=%d" using the correct counts of the configuration object.
-func (configuration DatabaseConfiguration) GetProxiesString(version Version) string {
-	counts := configuration.GetRoleCountsWithDefaults(version, DesiredFaultTolerance(configuration.RedundancyMode))
-	if version.HasSeparatedProxies() && configuration.AreSeparatedProxiesConfigured() {
+func (configuration DatabaseConfiguration) GetProxiesString() string {
+	counts := configuration.GetRoleCountsWithDefaults(DesiredFaultTolerance(configuration.RedundancyMode))
+	if configuration.AreSeparatedProxiesConfigured() {
 		return fmt.Sprintf(" commit_proxies=%d grv_proxies=%d", counts.CommitProxies, counts.GrvProxies)
 	}
+
 	return fmt.Sprintf(" proxies=%d", counts.Proxies)
 }
 
@@ -695,17 +686,11 @@ func (configuration DatabaseConfiguration) FillInDefaultsFromStatus() DatabaseCo
 }
 
 // GetConfigurationString gets the CLI command for configuring a database.
-func (configuration DatabaseConfiguration) GetConfigurationString(version string) (string, error) {
+func (configuration DatabaseConfiguration) GetConfigurationString() (string, error) {
 	var configurationString strings.Builder
 	configurationString.WriteString(string(configuration.RedundancyMode))
 	configurationString.WriteString(" ")
 	configurationString.WriteString(string(configuration.StorageEngine))
-
-	fdbVersion, err := ParseFdbVersion(version)
-	if err != nil {
-		return "", err
-	}
-
 	configurationString.WriteString(" usable_regions=")
 	configurationString.WriteString(strconv.Itoa(configuration.UsableRegions))
 
@@ -723,7 +708,7 @@ func (configuration DatabaseConfiguration) GetConfigurationString(version string
 		}
 	}
 
-	configurationString.WriteString(configuration.GetProxiesString(fdbVersion))
+	configurationString.WriteString(configuration.GetProxiesString())
 
 	flags := configuration.VersionFlags.Map()
 	for flag, value := range flags {
@@ -749,26 +734,24 @@ func (configuration DatabaseConfiguration) GetConfigurationString(version string
 	configurationString.WriteString(" regions=")
 	configurationString.WriteString(regionString)
 
-	if fdbVersion.SupportsStorageMigrationConfiguration() {
-		if configuration.StorageMigrationType != nil {
-			configurationString.WriteString(" storage_migration_type=")
-			configurationString.WriteString(string(*configuration.StorageMigrationType))
-		}
+	if configuration.StorageMigrationType != nil {
+		configurationString.WriteString(" storage_migration_type=")
+		configurationString.WriteString(string(*configuration.StorageMigrationType))
+	}
 
-		if configuration.PerpetualStorageWiggle != nil {
-			configurationString.WriteString(" perpetual_storage_wiggle=")
-			configurationString.WriteString(strconv.Itoa(*configuration.PerpetualStorageWiggle))
-		}
+	if configuration.PerpetualStorageWiggle != nil {
+		configurationString.WriteString(" perpetual_storage_wiggle=")
+		configurationString.WriteString(strconv.Itoa(*configuration.PerpetualStorageWiggle))
+	}
 
-		if configuration.PerpetualStorageWiggleLocality != nil {
-			configurationString.WriteString(" perpetual_storage_wiggle_locality=")
-			configurationString.WriteString(*configuration.PerpetualStorageWiggleLocality)
-		}
+	if configuration.PerpetualStorageWiggleLocality != nil {
+		configurationString.WriteString(" perpetual_storage_wiggle_locality=")
+		configurationString.WriteString(*configuration.PerpetualStorageWiggleLocality)
+	}
 
-		if configuration.PerpetualStorageWiggleEngine != nil {
-			configurationString.WriteString(" perpetual_storage_wiggle_engine=")
-			configurationString.WriteString(string(*configuration.PerpetualStorageWiggleEngine))
-		}
+	if configuration.PerpetualStorageWiggleEngine != nil {
+		configurationString.WriteString(" perpetual_storage_wiggle_engine=")
+		configurationString.WriteString(string(*configuration.PerpetualStorageWiggleEngine))
 	}
 
 	return configurationString.String(), nil

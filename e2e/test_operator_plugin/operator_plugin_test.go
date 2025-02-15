@@ -30,8 +30,6 @@ import (
 	"log"
 	"time"
 
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-
 	"github.com/FoundationDB/fdb-kubernetes-operator/e2e/fixtures"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -158,16 +156,6 @@ var _ = Describe("Operator Plugin", Label("e2e", "pr"), func() {
 	})
 
 	When("all Pods in the primary and satellites are down", func() {
-		BeforeEach(func() {
-			runningVersion := fdbCluster.GetPrimary().GetCluster().GetRunningVersion()
-			parsedVersion, err := fdbv1beta2.ParseFdbVersion(runningVersion)
-			Expect(err).NotTo(HaveOccurred())
-
-			if !parsedVersion.SupportsDNSInClusterFile() {
-				Skip(fmt.Sprintf("Current FDB version: \"%s\" doesn't support DNS names in the cluster file", runningVersion))
-			}
-		})
-
 		When("DNS names in the cluster file are used", func() {
 			BeforeEach(func() {
 				var errGroup errgroup.Group

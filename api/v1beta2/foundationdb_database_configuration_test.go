@@ -58,7 +58,7 @@ var _ = Describe("DatabaseConfiguration", func() {
 
 		When("the configuration string is calculated", func() {
 			It("should print the correct configuration string", func() {
-				Expect(config.GetConfigurationString(Versions.Default.String())).To(Equal("triple ssd usable_regions=1 logs=3 resolvers=1 log_routers=0 remote_logs=0 proxies=3 regions=[{\\\"datacenters\\\":[{\\\"id\\\":\\\"primary\\\",\\\"priority\\\":1}]}]"))
+				Expect(config.GetConfigurationString()).To(Equal("triple ssd usable_regions=1 logs=3 resolvers=1 log_routers=0 remote_logs=0 proxies=3 regions=[{\\\"datacenters\\\":[{\\\"id\\\":\\\"primary\\\",\\\"priority\\\":1}]}]"))
 			})
 		})
 
@@ -66,7 +66,7 @@ var _ = Describe("DatabaseConfiguration", func() {
 			It("should not change the config and print the correct configuration string", func() {
 				newConfig := config.FailOver()
 				Expect(newConfig).To(Equal(*config))
-				Expect(newConfig.GetConfigurationString(Versions.Default.String())).To(Equal("triple ssd usable_regions=1 logs=3 resolvers=1 log_routers=0 remote_logs=0 proxies=3 regions=[{\\\"datacenters\\\":[{\\\"id\\\":\\\"primary\\\",\\\"priority\\\":1}]}]"))
+				Expect(newConfig.GetConfigurationString()).To(Equal("triple ssd usable_regions=1 logs=3 resolvers=1 log_routers=0 remote_logs=0 proxies=3 regions=[{\\\"datacenters\\\":[{\\\"id\\\":\\\"primary\\\",\\\"priority\\\":1}]}]"))
 			})
 		})
 	})
@@ -124,7 +124,7 @@ var _ = Describe("DatabaseConfiguration", func() {
 
 		When("the configuration string is calculated", func() {
 			It("should print the correct configuration string", func() {
-				Expect(config.GetConfigurationString(Versions.Default.String())).To(Equal("triple ssd usable_regions=1 logs=3 resolvers=1 log_routers=0 remote_logs=0 proxies=3 regions=[{\\\"datacenters\\\":[{\\\"id\\\":\\\"primary\\\",\\\"priority\\\":1},{\\\"id\\\":\\\"primary-sat\\\",\\\"priority\\\":1,\\\"satellite\\\":1}],\\\"satellite_logs\\\":3,\\\"satellite_redundancy_mode\\\":\\\"one_satellite_single\\\"},{\\\"datacenters\\\":[{\\\"id\\\":\\\"remote\\\"},{\\\"id\\\":\\\"remote-sat\\\",\\\"priority\\\":1,\\\"satellite\\\":1}],\\\"satellite_logs\\\":3,\\\"satellite_redundancy_mode\\\":\\\"one_satellite_double\\\"}]"))
+				Expect(config.GetConfigurationString()).To(Equal("triple ssd usable_regions=1 logs=3 resolvers=1 log_routers=0 remote_logs=0 proxies=3 regions=[{\\\"datacenters\\\":[{\\\"id\\\":\\\"primary\\\",\\\"priority\\\":1},{\\\"id\\\":\\\"primary-sat\\\",\\\"priority\\\":1,\\\"satellite\\\":1}],\\\"satellite_logs\\\":3,\\\"satellite_redundancy_mode\\\":\\\"one_satellite_single\\\"},{\\\"datacenters\\\":[{\\\"id\\\":\\\"remote\\\"},{\\\"id\\\":\\\"remote-sat\\\",\\\"priority\\\":1,\\\"satellite\\\":1}],\\\"satellite_logs\\\":3,\\\"satellite_redundancy_mode\\\":\\\"one_satellite_double\\\"}]"))
 			})
 		})
 
@@ -153,7 +153,7 @@ var _ = Describe("DatabaseConfiguration", func() {
 				Expect(newConfig.Regions[1].DataCenters[1].ID).To(Equal("remote-sat"))
 				Expect(newConfig.Regions[1].DataCenters[1].Satellite).To(Equal(1))
 
-				Expect(newConfig.GetConfigurationString(Versions.Default.String())).To(Equal("triple ssd usable_regions=1 logs=3 resolvers=1 log_routers=0 remote_logs=0 proxies=3 regions=[{\\\"datacenters\\\":[{\\\"id\\\":\\\"primary\\\"},{\\\"id\\\":\\\"primary-sat\\\",\\\"priority\\\":1,\\\"satellite\\\":1}],\\\"satellite_logs\\\":3,\\\"satellite_redundancy_mode\\\":\\\"one_satellite_single\\\"},{\\\"datacenters\\\":[{\\\"id\\\":\\\"remote\\\",\\\"priority\\\":1},{\\\"id\\\":\\\"remote-sat\\\",\\\"priority\\\":1,\\\"satellite\\\":1}],\\\"satellite_logs\\\":3,\\\"satellite_redundancy_mode\\\":\\\"one_satellite_double\\\"}]"))
+				Expect(newConfig.GetConfigurationString()).To(Equal("triple ssd usable_regions=1 logs=3 resolvers=1 log_routers=0 remote_logs=0 proxies=3 regions=[{\\\"datacenters\\\":[{\\\"id\\\":\\\"primary\\\"},{\\\"id\\\":\\\"primary-sat\\\",\\\"priority\\\":1,\\\"satellite\\\":1}],\\\"satellite_logs\\\":3,\\\"satellite_redundancy_mode\\\":\\\"one_satellite_single\\\"},{\\\"datacenters\\\":[{\\\"id\\\":\\\"remote\\\",\\\"priority\\\":1},{\\\"id\\\":\\\"remote-sat\\\",\\\"priority\\\":1,\\\"satellite\\\":1}],\\\"satellite_logs\\\":3,\\\"satellite_redundancy_mode\\\":\\\"one_satellite_double\\\"}]"))
 			})
 		})
 	})

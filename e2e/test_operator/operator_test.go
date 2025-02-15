@@ -1584,15 +1584,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 	When("migrating a cluster to make use of DNS in the cluster file", func() {
 		BeforeEach(func() {
-			cluster := fdbCluster.GetCluster()
-			parsedVersion, err := fdbv1beta2.ParseFdbVersion(cluster.Status.RunningVersion)
-			Expect(err).NotTo(HaveOccurred())
-
-			if !parsedVersion.SupportsDNSInClusterFile() {
-				Skip(fmt.Sprintf("current FoundationDB version %s doesn't support DNS", parsedVersion.String()))
-			}
-
-			if cluster.UseDNSInClusterFile() {
+			if fdbCluster.GetCluster().UseDNSInClusterFile() {
 				Skip("cluster already uses DNS")
 			}
 
@@ -2038,12 +2030,6 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			// We can remove this once 7.1 is the default version.
 			factory.DeleteChaosMeshExperimentSafe(scheduleInjectPodKill)
 			cluster := fdbCluster.GetCluster()
-			parsedVersion, err := fdbv1beta2.ParseFdbVersion(cluster.Status.RunningVersion)
-			Expect(err).NotTo(HaveOccurred())
-
-			if !parsedVersion.SupportsDNSInClusterFile() {
-				Skip(fmt.Sprintf("current FoundationDB version %s doesn't support DNS", parsedVersion.String()))
-			}
 
 			initialSetting = cluster.UseDNSInClusterFile()
 			if !cluster.UseDNSInClusterFile() {
