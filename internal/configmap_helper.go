@@ -130,13 +130,13 @@ func getConfigMapMetadata(cluster *fdbv1beta2.FoundationDBCluster) metav1.Object
 		metadata = GetObjectMetadata(cluster, nil, "", "")
 	}
 
-	if metadata.Name == "" {
-		metadata.Name = fmt.Sprintf("%s-config", cluster.Name)
-	} else {
-		metadata.Name = fmt.Sprintf("%s-%s", cluster.Name, metadata.Name)
-	}
+	metadata.Name = getConfigMapName(cluster.Name)
 
 	return metadata
+}
+
+func getConfigMapName(clusterName string) string {
+	return fmt.Sprintf("%s-config", clusterName)
 }
 
 func getDataForMonitorConf(cluster *fdbv1beta2.FoundationDBCluster, imageType fdbv1beta2.ImageType, pClass fdbv1beta2.ProcessClass, serversPerPod int) (string, []byte, error) {

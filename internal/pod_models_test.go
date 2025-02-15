@@ -303,7 +303,7 @@ var _ = Describe("pod_models", func() {
 			It("should have the sidecar container", func() {
 				sidecarContainer := spec.Containers[1]
 				Expect(sidecarContainer.Name).To(Equal(fdbv1beta2.SidecarContainerName))
-				Expect(sidecarContainer.Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes-sidecar:%s-1", cluster.Spec.Version)))
+				Expect(sidecarContainer.Image).To(Equal(fmt.Sprintf("%s:%s-1", fdbv1beta2.FoundationDBSidecarBaseImage, cluster.Spec.Version)))
 				Expect(sidecarContainer.Args).To(Equal([]string{
 					"--copy-file",
 					"fdb.cluster",
@@ -2386,18 +2386,6 @@ var _ = Describe("pod_models", func() {
 			})
 		})
 
-		Context("with custom map", func() {
-			BeforeEach(func() {
-				cluster.Spec.ConfigMap = &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "config1"}}
-				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
-				Expect(err).NotTo(HaveOccurred())
-			})
-
-			It("adds config-map volume that refers to custom map", func() {
-				Expect(spec.Volumes[2].VolumeSource.ConfigMap.LocalObjectReference.Name).To(Equal(fmt.Sprintf("%s-%s", cluster.Name, "config1")))
-			})
-		})
-
 		Context("with no custom map", func() {
 			BeforeEach(func() {
 				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
@@ -3374,7 +3362,7 @@ var _ = Describe("pod_models", func() {
 				Expect(deployment.Spec.Template.Spec.InitContainers).To(HaveLen(1))
 				Expect(deployment.Spec.Template.Spec.Containers).To(HaveLen(1))
 
-				Expect(deployment.Spec.Template.Spec.InitContainers[0].Image).To(HavePrefix("foundationdb/foundationdb-kubernetes"))
+				Expect(deployment.Spec.Template.Spec.InitContainers[0].Image).To(HavePrefix(fdbv1beta2.FoundationDBKubernetesBaseImage))
 				Expect(deployment.Spec.Template.Spec.InitContainers[0].Args).To(ConsistOf(
 					"--copy-file",
 					"fdb.cluster",
@@ -3386,7 +3374,7 @@ var _ = Describe("pod_models", func() {
 					"/var/output-files",
 					"--input-dir",
 					"/var/input-files"))
-				Expect(deployment.Spec.Template.Spec.Containers[0].Image).To(HavePrefix("foundationdb/foundationdb-kubernetes"))
+				Expect(deployment.Spec.Template.Spec.Containers[0].Image).To(HavePrefix(fdbv1beta2.FoundationDBKubernetesBaseImage))
 			})
 		})
 	})

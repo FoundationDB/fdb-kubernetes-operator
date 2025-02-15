@@ -73,10 +73,9 @@ func generateServicePorts(processesPerPod int) []corev1.ServicePort {
 
 // GetService builds a service for a new process group
 func GetService(cluster *fdbv1beta2.FoundationDBCluster, processGroup *fdbv1beta2.ProcessGroupStatus) (*corev1.Service, error) {
-	owner := BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
 	metadata := GetObjectMetadata(cluster, nil, processGroup.ProcessClass, processGroup.ProcessGroupID)
 	metadata.Name = processGroup.GetPodName(cluster)
-	metadata.OwnerReferences = owner
+	metadata.OwnerReferences = BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
 
 	processesPerPod := 1
 	if processGroup.ProcessClass == fdbv1beta2.ProcessClassStorage {
@@ -322,13 +321,6 @@ func configureVolumesForContainers(cluster *fdbv1beta2.FoundationDBCluster, podS
 		configMapItems = append(configMapItems, corev1.KeyToPath{Key: fdbv1beta2.CaFileKey, Path: "ca.pem"})
 	}
 
-	var configMapRefName string
-	if cluster.Spec.ConfigMap != nil && cluster.Spec.ConfigMap.Name != "" {
-		configMapRefName = fmt.Sprintf("%s-%s", cluster.Name, cluster.Spec.ConfigMap.Name)
-	} else {
-		configMapRefName = fmt.Sprintf("%s-config", cluster.Name)
-	}
-
 	var mainVolumeSource corev1.VolumeSource
 	if processClass.IsStateful() {
 		var volumeClaimSourceName string
@@ -355,8 +347,10 @@ func configureVolumesForContainers(cluster *fdbv1beta2.FoundationDBCluster, podS
 	}
 	volumes = append(volumes,
 		corev1.Volume{Name: "config-map", VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
-			LocalObjectReference: corev1.LocalObjectReference{Name: configMapRefName},
-			Items:                configMapItems,
+			LocalObjectReference: corev1.LocalObjectReference{
+				Name: getConfigMapName(cluster.Name),
+			},
+			Items: configMapItems,
 		}}},
 		corev1.Volume{Name: "fdb-trace-logs", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
 	)
@@ -629,7 +623,7 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, proce
 	if len(imageConfigs) > 0 {
 		overrides.ImageConfigs = imageConfigs
 	} else {
-		overrides.ImageConfigs = []fdbv1beta2.ImageConfig{{BaseImage: "foundationdb/foundationdb-kubernetes-sidecar", TagSuffix: "-1"}}
+		overrides.ImageConfigs = []fdbv1beta2.ImageConfig{{BaseImage: fdbv1beta2.FoundationDBSidecarBaseImage, TagSuffix: "-1"}}
 	}
 
 	if overrides.EnableTLS && !initMode {
@@ -896,13 +890,13 @@ func GetBackupDeployment(backup *fdbv1beta2.FoundationDBBackup) (*appsv1.Deploym
 		if backup.UseUnifiedImage() {
 			backup.Spec.MainContainer.ImageConfigs = []fdbv1beta2.ImageConfig{
 				{
-					BaseImage: "foundationdb/foundationdb-kubernetes",
+					BaseImage: fdbv1beta2.FoundationDBKubernetesBaseImage,
 				},
 			}
 		} else {
 			backup.Spec.MainContainer.ImageConfigs = []fdbv1beta2.ImageConfig{
 				{
-					BaseImage: "foundationdb/foundationdb",
+					BaseImage: fdbv1beta2.FoundationDBBaseImage,
 				},
 			}
 		}
@@ -912,7 +906,7 @@ func GetBackupDeployment(backup *fdbv1beta2.FoundationDBBackup) (*appsv1.Deploym
 		if !backup.UseUnifiedImage() {
 			backup.Spec.SidecarContainer.ImageConfigs = []fdbv1beta2.ImageConfig{
 				{
-					BaseImage: "foundationdb/foundationdb-kubernetes-sidecar",
+					BaseImage: fdbv1beta2.FoundationDBSidecarBaseImage,
 					TagSuffix: "-1",
 				},
 			}
@@ -997,7 +991,7 @@ func GetBackupDeployment(backup *fdbv1beta2.FoundationDBBackup) (*appsv1.Deploym
 			Name: "config-map",
 			VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
 				LocalObjectReference: corev1.LocalObjectReference{
-					Name: fmt.Sprintf("%s-config", backup.Spec.ClusterName),
+					Name: getConfigMapName(backup.Spec.ClusterName),
 				},
 				Items: []corev1.KeyToPath{
 					{Key: fdbv1beta2.ClusterFileKey, Path: "fdb.cluster"},
