@@ -390,14 +390,18 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 		status.Cluster.DatabaseConfiguration.VersionFlags.LogSpill = 2
 	}
 
-	if len(client.ExcludedAddresses) > 0 {
-		status.Cluster.DatabaseConfiguration.ExcludedServers = make([]fdbv1beta2.ExcludedServers, 0, len(client.ExcludedAddresses))
-	}
-	for excludedAddresses := range client.ExcludedAddresses {
-		if net.ParseIP(excludedAddresses) != nil {
-			status.Cluster.DatabaseConfiguration.ExcludedServers = append(status.Cluster.DatabaseConfiguration.ExcludedServers, fdbv1beta2.ExcludedServers{Address: excludedAddresses})
-		} else {
-			status.Cluster.DatabaseConfiguration.ExcludedServers = append(status.Cluster.DatabaseConfiguration.ExcludedServers, fdbv1beta2.ExcludedServers{Locality: excludedAddresses})
+	exclusions := client.getExcludedAddresses()
+	// If no exclusions are present the status.Cluster.DatabaseConfiguration.ExcludedServers should be nil and not an
+	// empty slice.
+	if len(exclusions) > 0 {
+		status.Cluster.DatabaseConfiguration.ExcludedServers = make([]fdbv1beta2.ExcludedServers, 0, len(exclusions))
+		for _, exclusion := range exclusions {
+			if exclusion.IPAddress == nil {
+				status.Cluster.DatabaseConfiguration.ExcludedServers = append(status.Cluster.DatabaseConfiguration.ExcludedServers, fdbv1beta2.ExcludedServers{Locality: exclusion.MachineAddress()})
+				continue
+			}
+
+			status.Cluster.DatabaseConfiguration.ExcludedServers = append(status.Cluster.DatabaseConfiguration.ExcludedServers, fdbv1beta2.ExcludedServers{Address: exclusion.MachineAddress()})
 		}
 	}
 
@@ -532,7 +536,7 @@ func (client *AdminClient) processIsExcluded(fullAddress fdbv1beta2.ProcessAddre
 		return true
 	}
 
-	if client.Cluster.UseLocalitiesForExclusion() && len(client.ExcludedAddresses) > 0 {
+	if client.Cluster.UseLocalitiesForExclusion() {
 		localityExclusionString := fmt.Sprintf("%s:%s", fdbv1beta2.FDBLocalityExclusionPrefix, processGroupID)
 		if _, isExcluded := client.ExcludedAddresses[localityExclusionString]; isExcluded {
 			return true
@@ -543,7 +547,7 @@ func (client *AdminClient) processIsExcluded(fullAddress fdbv1beta2.ProcessAddre
 }
 
 // ConfigureDatabase changes the database configuration
-func (client *AdminClient) ConfigureDatabase(configuration fdbv1beta2.DatabaseConfiguration, _ bool, _ string) error {
+func (client *AdminClient) ConfigureDatabase(configuration fdbv1beta2.DatabaseConfiguration, _ bool) error {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
@@ -656,8 +660,31 @@ func (client *AdminClient) CanSafelyRemove(addresses []fdbv1beta2.ProcessAddress
 	return remaining, nil
 }
 
-// GetExclusions gets a list of the addresses currently excluded from the
-// database.
+// getExcludedAddresses will return the excluded addresses based on the client.ExcludedAddresses.
+func (client *AdminClient) getExcludedAddresses() []fdbv1beta2.ProcessAddress {
+	if len(client.ExcludedAddresses) == 0 {
+		return []fdbv1beta2.ProcessAddress{}
+	}
+
+	excludedAddresses := make([]fdbv1beta2.ProcessAddress, 0, len(client.ExcludedAddresses))
+	for addr := range client.ExcludedAddresses {
+		ip := net.ParseIP(addr)
+		if ip == nil {
+			excludedAddresses = append(excludedAddresses, fdbv1beta2.ProcessAddress{StringAddress: addr})
+			continue
+		}
+
+		excludedAddresses = append(excludedAddresses, fdbv1beta2.ProcessAddress{
+			IPAddress: net.ParseIP(addr),
+			Port:      0,
+			Flags:     nil,
+		})
+	}
+
+	return excludedAddresses
+}
+
+// GetExclusions gets a list of the addresses currently excluded from the database.
 func (client *AdminClient) GetExclusions() ([]fdbv1beta2.ProcessAddress, error) {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
@@ -666,20 +693,7 @@ func (client *AdminClient) GetExclusions() ([]fdbv1beta2.ProcessAddress, error) 
 		return nil, client.mockError
 	}
 
-	pAddrs := make([]fdbv1beta2.ProcessAddress, 0, len(client.ExcludedAddresses))
-	for addr := range client.ExcludedAddresses {
-		ip := net.ParseIP(addr)
-		if ip == nil {
-			pAddrs = append(pAddrs, fdbv1beta2.ProcessAddress{StringAddress: addr})
-		} else {
-			pAddrs = append(pAddrs, fdbv1beta2.ProcessAddress{
-				IPAddress: net.ParseIP(addr),
-				Port:      0,
-				Flags:     nil,
-			})
-		}
-	}
-	return pAddrs, nil
+	return client.getExcludedAddresses(), nil
 }
 
 // KillProcesses restarts processes

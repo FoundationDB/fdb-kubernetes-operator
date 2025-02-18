@@ -210,6 +210,14 @@ func (configuration DatabaseConfiguration) NormalizeConfiguration() DatabaseConf
 		result.StorageEngine = StorageEngineSSD2
 	}
 
+	// When separate (GRV and commit) proxies are used ensure that the proxies count is set to 0.
+	if configuration.AreSeparatedProxiesConfigured() {
+		result.Proxies = 0
+	} else {
+		result.GrvProxies = 0
+		result.CommitProxies = 0
+	}
+
 	for _, region := range result.Regions {
 		sort.Slice(region.DataCenters, func(leftIndex int, rightIndex int) bool {
 			if region.DataCenters[leftIndex].Satellite != region.DataCenters[rightIndex].Satellite {
@@ -245,28 +253,6 @@ func (configuration *DatabaseConfiguration) CountUniqueDataCenters() int {
 	}
 
 	return len(uniqueDataCenters)
-}
-
-// NormalizeConfigurationWithSeparatedProxies ensures a standardized
-// format and defaults when comparing database configuration in the
-// cluster spec with database configuration in the cluster status,
-// taking into account if the current running version of FDB supports
-// them and if we need them configured.
-//
-// This will fill in defaults of -1 for some fields that have a default
-// of 0, and will ensure that the region configuration is ordered
-// consistently.
-func (configuration DatabaseConfiguration) NormalizeConfigurationWithSeparatedProxies(_ string, areSeparatedProxiesConfigured bool) DatabaseConfiguration {
-	result := configuration.NormalizeConfiguration()
-
-	if !areSeparatedProxiesConfigured {
-		result.GrvProxies = 0
-		result.CommitProxies = 0
-	} else {
-		result.Proxies = 0
-	}
-
-	return result
 }
 
 func (configuration DatabaseConfiguration) getRegion(id string, priority int) Region {
@@ -318,6 +304,14 @@ func (configuration *DatabaseConfiguration) GetRoleCountsWithDefaults(faultToler
 	}
 	if counts.Logs == 0 {
 		counts.Logs = configuration.RedundancyMode.getDefaultLogCount()
+	}
+
+	// Ensure that the proxies are set to 0 if separate proxies are set.
+	if configuration.AreSeparatedProxiesConfigured() {
+		counts.Proxies = 0
+	} else {
+		counts.GrvProxies = 0
+		counts.CommitProxies = 0
 	}
 
 	if counts.CommitProxies == 0 && counts.GrvProxies == 0 && counts.Proxies == 0 {

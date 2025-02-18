@@ -358,7 +358,7 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 		fixtures.GenerateUpgradeTableEntries(testOptions),
 	)
 
-	FDescribeTable(
+	DescribeTable(
 		"upgrading a cluster and one process is missing the new binary",
 		func(beforeVersion string, targetVersion string) {
 			if fixtures.VersionsAreProtocolCompatible(beforeVersion, targetVersion) {

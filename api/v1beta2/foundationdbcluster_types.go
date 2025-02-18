@@ -1874,16 +1874,9 @@ type ContainerOverrides struct {
 // DesiredDatabaseConfiguration builds the database configuration for the
 // cluster based on its spec.
 func (cluster *FoundationDBCluster) DesiredDatabaseConfiguration() DatabaseConfiguration {
-	configuration := cluster.Spec.DatabaseConfiguration.NormalizeConfigurationWithSeparatedProxies(cluster.GetRunningVersion(), cluster.Spec.DatabaseConfiguration.AreSeparatedProxiesConfigured())
+	configuration := cluster.Spec.DatabaseConfiguration.NormalizeConfiguration()
 	configuration.RoleCounts = cluster.GetRoleCountsWithDefaults()
 	configuration.RoleCounts.Storage = 0
-
-	if cluster.Spec.DatabaseConfiguration.AreSeparatedProxiesConfigured() {
-		configuration.RoleCounts.Proxies = 0
-	} else {
-		configuration.RoleCounts.GrvProxies = 0
-		configuration.RoleCounts.CommitProxies = 0
-	}
 
 	if configuration.StorageEngine == StorageEngineSSD {
 		configuration.StorageEngine = StorageEngineSSD2

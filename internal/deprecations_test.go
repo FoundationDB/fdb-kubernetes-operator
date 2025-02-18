@@ -113,7 +113,7 @@ var _ = Describe("[internal] deprecations", func() {
 					Expect(containers[1].Resources.Limits).NotTo(BeNil())
 				})
 
-				It("should not have an empty init container resource requirements", func() {
+				It("should not have an init container", func() {
 					generalProcessConfig, present := spec.Processes[fdbv1beta2.ProcessClassGeneral]
 					Expect(present).To(BeTrue())
 					Expect(generalProcessConfig.PodTemplate.Spec.InitContainers).To(HaveLen(0))

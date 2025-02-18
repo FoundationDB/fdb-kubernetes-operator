@@ -24,36 +24,29 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbstatus"
-	"github.com/onsi/gomega/format"
-	"k8s.io/utils/net"
 	"regexp"
 	"sort"
 	"strings"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient/mock"
-
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
-
-	"k8s.io/utils/pointer"
-
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
-
-	"github.com/prometheus/common/expfmt"
-	"sigs.k8s.io/controller-runtime/pkg/metrics"
-
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient/mock"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbstatus"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/format"
 	gomegatypes "github.com/onsi/gomega/types"
-
+	"github.com/prometheus/common/expfmt"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/net"
+	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
 var firstStorageIndex = 13
@@ -94,13 +87,11 @@ func sortPodsByName(pods *corev1.PodList) {
 	})
 }
 
-var _ = FDescribe("cluster_controller", func() {
+var _ = Describe("cluster_controller", func() {
 	var cluster *fdbv1beta2.FoundationDBCluster
-	var fakeConnectionString string
 
 	BeforeEach(func() {
 		cluster = internal.CreateDefaultCluster()
-		fakeConnectionString = "operator-test:asdfasf@127.0.0.1:4501"
 	})
 
 	Describe("Reconciliation", func() {
@@ -1092,7 +1083,7 @@ var _ = FDescribe("cluster_controller", func() {
 
 					configuration := cluster.DesiredDatabaseConfiguration()
 					configuration.LogVersion = 3
-					err = adminClient.ConfigureDatabase(configuration, false, cluster.Spec.Version)
+					err = adminClient.ConfigureDatabase(configuration, false)
 					Expect(err).NotTo(HaveOccurred())
 
 					generationGap = 1
@@ -1874,6 +1865,7 @@ var _ = FDescribe("cluster_controller", func() {
 				status, err := adminClient.GetStatus()
 				Expect(err).To(Succeed())
 
+				Expect(status.Cluster.Processes).To(HaveLen(17))
 				for _, process := range status.Cluster.Processes {
 					Expect(net.IsIPv6(process.Address.IPAddress)).To(BeTrue())
 				}
@@ -2656,7 +2648,7 @@ var _ = FDescribe("cluster_controller", func() {
 
 		When("changing the storage engine to RocksDB", func() {
 			When("using rocksdb-v1 engine", func() {
-				When("using the default 7.1 version", func() {
+				When("using the default version", func() {
 					BeforeEach(func() {
 						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineRocksDbV1
 						Expect(k8sClient.Update(context.TODO(), cluster)).To(Succeed())
@@ -2671,7 +2663,7 @@ var _ = FDescribe("cluster_controller", func() {
 			})
 
 			When("using ssd-rocksdb-experimental", func() {
-				When("using the default 7.1 version", func() {
+				When("using the default version", func() {
 					BeforeEach(func() {
 						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineRocksDbExperimental
 						Expect(k8sClient.Update(context.TODO(), cluster)).To(Succeed())
@@ -2701,7 +2693,7 @@ var _ = FDescribe("cluster_controller", func() {
 					})
 				})
 
-				When("using the default 7.1 version", func() {
+				When("using the default version", func() {
 					BeforeEach(func() {
 						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineShardedRocksDB
 						Expect(k8sClient.Update(context.TODO(), cluster)).To(Succeed())
@@ -2719,7 +2711,7 @@ var _ = FDescribe("cluster_controller", func() {
 
 		When("changing the storage engine to Redwood", func() {
 			When("using ssd-redwood-1-experimental", func() {
-				When("using 7.2.0", func() {
+				When("using a version that supports redwood-v1", func() {
 					BeforeEach(func() {
 						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineRedwood1Experimental
 						cluster.Spec.Version = fdbv1beta2.Versions.SupportsRedwood1.String()
@@ -2732,7 +2724,7 @@ var _ = FDescribe("cluster_controller", func() {
 					})
 				})
 
-				When("using the default 7.1 version", func() {
+				When("using the default version", func() {
 					BeforeEach(func() {
 						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineRedwood1Experimental
 						err := k8sClient.Update(context.TODO(), cluster)
@@ -2747,7 +2739,7 @@ var _ = FDescribe("cluster_controller", func() {
 			})
 		})
 
-		When("When a process have an incorrect commandline", func() {
+		When("a process have an incorrect commandline", func() {
 			var adminClient *mock.AdminClient
 			var first, second *fdbv1beta2.ProcessGroupStatus
 
@@ -2793,7 +2785,7 @@ var _ = FDescribe("cluster_controller", func() {
 		var err error
 
 		BeforeEach(func() {
-			cluster.Status.ConnectionString = fakeConnectionString
+			cluster.Status.ConnectionString = "operator-test:asdfasf@127.0.0.1:4501"
 			format.MaxLength = 5000
 			format.MaxDepth = 100
 			format.TruncatedDiff = false
