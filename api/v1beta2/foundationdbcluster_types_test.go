@@ -2515,7 +2515,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			It("should set the correct value (-1) for log routers", func() {
 				spec := DatabaseConfiguration{}
 				spec.RemoteLogs = 9
-				normalized := spec.NormalizeConfiguration()
+				normalized := spec.NormalizeConfiguration(&FoundationDBCluster{})
 				Expect(normalized.LogRouters).To(Equal(-1))
 				Expect(normalized.RemoteLogs).To(Equal(9))
 			})
@@ -2563,7 +2563,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						},
 					},
 				}
-				normalized := spec.NormalizeConfiguration()
+				normalized := spec.NormalizeConfiguration(&FoundationDBCluster{})
 				Expect(normalized.Regions).To(Equal([]Region{
 					{
 						DataCenters: []DataCenter{
@@ -2647,7 +2647,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						},
 					},
 				}
-				normalized := spec.NormalizeConfiguration()
+				normalized := spec.NormalizeConfiguration(&FoundationDBCluster{})
 				Expect(normalized.Regions).To(Equal([]Region{
 					{
 						DataCenters: []DataCenter{

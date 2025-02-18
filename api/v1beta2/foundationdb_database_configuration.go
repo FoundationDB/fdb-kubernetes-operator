@@ -188,7 +188,7 @@ func (configuration *DatabaseConfiguration) FailOver() DatabaseConfiguration {
 //
 // This will fill in defaults of -1 for some fields that have a default of 0,
 // and will ensure that the region configuration is ordered consistently.
-func (configuration DatabaseConfiguration) NormalizeConfiguration() DatabaseConfiguration {
+func (configuration DatabaseConfiguration) NormalizeConfiguration(cluster *FoundationDBCluster) DatabaseConfiguration {
 	result := configuration.DeepCopy()
 
 	if result.RemoteLogs == 0 {
@@ -211,7 +211,7 @@ func (configuration DatabaseConfiguration) NormalizeConfiguration() DatabaseConf
 	}
 
 	// When separate (GRV and commit) proxies are used ensure that the proxies count is set to 0.
-	if configuration.AreSeparatedProxiesConfigured() {
+	if cluster.Spec.DatabaseConfiguration.AreSeparatedProxiesConfigured() {
 		result.Proxies = 0
 	} else {
 		result.GrvProxies = 0
@@ -239,6 +239,7 @@ func (configuration DatabaseConfiguration) NormalizeConfiguration() DatabaseConf
 		return leftID < rightID
 	})
 
+	cluster.ClearUnsetDatabaseConfigurationKnobs(result)
 	return *result
 }
 

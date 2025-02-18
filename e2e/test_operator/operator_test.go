@@ -1842,7 +1842,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		})
 
 		It("should configure the database to run with GRV and commit proxies but keep the proxies in the status field of the FoundationDB resource", func() {
-			// Make sure the FoundationDB configured GRV and commit proxies.
+			// Make sure GRV and commit proxies are configured.
 			status := fdbCluster.GetStatus()
 			Expect(status.Cluster.DatabaseConfiguration.RoleCounts.CommitProxies).To(BeNumerically(">", 0))
 			Expect(status.Cluster.DatabaseConfiguration.RoleCounts.GrvProxies).To(BeNumerically(">", 0))

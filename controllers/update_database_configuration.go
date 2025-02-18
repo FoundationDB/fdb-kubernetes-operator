@@ -68,8 +68,7 @@ func (u updateDatabaseConfiguration) reconcile(_ context.Context, r *FoundationD
 
 	desiredConfiguration := cluster.DesiredDatabaseConfiguration()
 	desiredConfiguration.RoleCounts.Storage = 0
-	currentConfiguration := status.Cluster.DatabaseConfiguration.NormalizeConfiguration()
-	cluster.ClearUnsetDatabaseConfigurationKnobs(&currentConfiguration)
+	currentConfiguration := status.Cluster.DatabaseConfiguration.NormalizeConfiguration(cluster)
 
 	runningVersion, err := fdbv1beta2.ParseFdbVersion(cluster.GetRunningVersion())
 	if err != nil {

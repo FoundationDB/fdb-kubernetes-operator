@@ -1874,7 +1874,7 @@ type ContainerOverrides struct {
 // DesiredDatabaseConfiguration builds the database configuration for the
 // cluster based on its spec.
 func (cluster *FoundationDBCluster) DesiredDatabaseConfiguration() DatabaseConfiguration {
-	configuration := cluster.Spec.DatabaseConfiguration.NormalizeConfiguration()
+	configuration := cluster.Spec.DatabaseConfiguration.NormalizeConfiguration(cluster)
 	configuration.RoleCounts = cluster.GetRoleCountsWithDefaults()
 	configuration.RoleCounts.Storage = 0
 
@@ -1888,8 +1888,8 @@ func (cluster *FoundationDBCluster) DesiredDatabaseConfiguration() DatabaseConfi
 	return configuration
 }
 
-// ClearUnsetDatabaseConfigurationKnobs cleas any knobs that are not set in the FoundationDBCluster spec
-// but which is present in the DatabaseConfiguration returned from the FoundationDBStatus.
+// ClearUnsetDatabaseConfigurationKnobs clears any knobs that are not set in the FoundationDBCluster spec
+// but which are present in the DatabaseConfiguration returned from the FoundationDBStatus.
 func (cluster *FoundationDBCluster) ClearUnsetDatabaseConfigurationKnobs(configuration *DatabaseConfiguration) {
 	// We have to reset the excluded servers here otherwise we will trigger a reconfiguration if one or more servers
 	// are excluded.
@@ -1911,6 +1911,14 @@ func (cluster *FoundationDBCluster) ClearUnsetDatabaseConfigurationKnobs(configu
 
 	if cluster.Spec.DatabaseConfiguration.PerpetualStorageWiggle == nil {
 		configuration.PerpetualStorageWiggle = nil
+	}
+
+	// In case of the proxies, those are always set, even thought if only the GRV/commit proxies should be configured.
+	if cluster.Spec.DatabaseConfiguration.AreSeparatedProxiesConfigured() {
+		configuration.Proxies = 0
+	} else {
+		configuration.CommitProxies = 0
+		configuration.GrvProxies = 0
 	}
 }
 
