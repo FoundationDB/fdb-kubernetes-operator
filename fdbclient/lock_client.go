@@ -410,12 +410,6 @@ func (err invalidLockValue) Error() string {
 
 // Close cleans up any pending resources.
 func (client *realLockClient) Close() error {
-	clientMutex.Lock()
-	defer func() {
-		clientMutex.Unlock()
-	}()
-
-	// Allow to reuse the same file.
 	return closeClient(client.log, client.identifier, client.clusterFilePath)
 }
 
@@ -434,7 +428,7 @@ func NewRealLockClient(cluster *fdbv1beta2.FoundationDBCluster, logger logr.Logg
 		return nil, errors.New("cluster does not have a connection string")
 	}
 
-	database, clusterFile, err := getFDBDatabase(cluster)
+	database, clusterFile, err := getFDBDatabase(logger, cluster)
 	if err != nil {
 		return nil, err
 	}

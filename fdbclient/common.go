@@ -56,7 +56,9 @@ var clientMutex sync.Mutex
 // method is called, all resources will be cleaned up.
 var clientRefCounter sync.Map
 
-// incrementClientRefCounter ... TODO! --> The cluster could be changing, so it would be better to store the generationID per client.
+// incrementClientRefCounter will be called for every new client that is created. The clientRefCounter with the provided
+// cluster will be used to track the active clients. The key will be the generation ID of the connection string and the
+// cluster UID.
 func incrementClientRefCounter(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster) (string, error) {
 	key, err := clusterFileKey(cluster)
 	if err != nil {
@@ -68,7 +70,14 @@ func incrementClientRefCounter(logger logr.Logger, cluster *fdbv1beta2.Foundatio
 	return key, nil
 }
 
+// closeClient will take a lock and then decrease the clientRefCounter for the provided key. If the clientRefCounter
+// is equal to or less than 0, the cluster file at the clusterFilePath will be deleted.
 func closeClient(logger logr.Logger, key string, clusterFilePath string) error {
+	clientMutex.Lock()
+	defer func() {
+		clientMutex.Unlock()
+	}()
+
 	if key == "" {
 		return nil
 	}
@@ -97,7 +106,8 @@ func closeClient(logger logr.Logger, key string, clusterFilePath string) error {
 	return nil
 }
 
-// updateClientRefCounter ... TODO!
+// updateClientRefCounter will update the clientRefCounter with the provided key. If the key doesn't exist, a new entry
+// will be created. The value should be 1 or -1, to either increment or decrement the value.
 func updateClientRefCounter(key string, value int64) int64 {
 	val, _ := clientRefCounter.LoadOrStore(key, new(int64))
 	ptr := val.(*int64)
@@ -144,8 +154,8 @@ func parseMachineReadableStatus(logger logr.Logger, contents []byte, checkForPro
 }
 
 // getFDBDatabase opens an FDB database.
-func getFDBDatabase(cluster *fdbv1beta2.FoundationDBCluster) (fdb.Database, string, error) {
-	clusterFile, err := createClusterFile(cluster)
+func getFDBDatabase(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster) (fdb.Database, string, error) {
+	clusterFile, err := createClusterFile(logger, cluster)
 	if err != nil {
 		return fdb.Database{}, "", err
 	}
@@ -173,40 +183,43 @@ func clusterFileKey(cluster *fdbv1beta2.FoundationDBCluster) (string, error) {
 }
 
 // createClusterFile will create or update the cluster file for the specified cluster.
-func createClusterFile(cluster *fdbv1beta2.FoundationDBCluster) (string, error) {
+func createClusterFile(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster) (string, error) {
 	clusterFile, err := clusterFileKey(cluster)
 	if err != nil {
 		return "", err
 	}
 
-	return ensureClusterFileIsPresent(path.Join(os.TempDir(), cluster.Name), clusterFile, cluster.Status.ConnectionString)
+	return ensureClusterFileIsPresent(logger, path.Join(os.TempDir(), cluster.Name), clusterFile, cluster.Status.ConnectionString)
 }
 
 // ensureClusterFileIsPresent will ensure that the cluster file with the specified connection string is present.
-func ensureClusterFileIsPresent(dir string, uid string, connectionString string) (string, error) {
-	clusterFileName := path.Join(dir, uid)
+func ensureClusterFileIsPresent(logger logr.Logger, dir string, fileName string, connectionString string) (string, error) {
+	clusterFileName := path.Join(dir, fileName)
 
-	// Try to read the file to check if the file already exists and if so, if the content matches
-	content, err := os.ReadFile(clusterFileName)
+	logger.V(1).Info("creating cluster file", "dir", dir, "fileName", fileName, "clusterFileName", clusterFileName)
+	// Try to read the file to check if the file already exists.
+	_, err := os.Stat(clusterFileName)
+	if err != nil {
+		// If the file doesn't exist we have to create it
+		if !errors.Is(err, fs.ErrNotExist) {
+			return "", err
+		}
 
-	// If the file doesn't exist we have to create it
-	if errors.Is(err, fs.ErrNotExist) {
-		// Ensure the directory exists, otherwise create it
+		// Ensure the directory exists.
 		err = os.MkdirAll(dir, 0777)
 		if err != nil {
 			return "", err
 		}
 
-		return clusterFileName, os.WriteFile(clusterFileName, []byte(connectionString), 0777)
+		// Create the cluster file with the expected connection string.
+		err = os.WriteFile(clusterFileName, []byte(connectionString), 0777)
+		if err != nil {
+			return "", err
+		}
 	}
 
-	// The content of the cluster file is already correct.
-	if string(content) == connectionString {
-		return clusterFileName, nil
-	}
-
-	// The content doesn't match, so we have to write the new content to the cluster file.
-	return clusterFileName, os.WriteFile(clusterFileName, []byte(connectionString), 0777)
+	// The cluster file already exists, so we are not overwriting it.
+	return clusterFileName, nil
 }
 
 // getConnectionStringFromDB gets the database's connection string directly from the system key

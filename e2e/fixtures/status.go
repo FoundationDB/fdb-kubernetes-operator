@@ -119,7 +119,7 @@ func (fdbCluster *FdbCluster) RunFdbCliCommandInOperatorWithoutRetry(
 		)
 	}
 
-	clusterFile := fmt.Sprintf("/tmp/%s", cluster.Name)
+	clusterFile := fmt.Sprintf("/tmp/%s.fdbcli", cluster.Name)
 
 	var timeoutArgs string
 	if timeout > 0 {

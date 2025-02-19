@@ -116,7 +116,7 @@ func NewCliAdminClient(cluster *fdbv1beta2.FoundationDBCluster, _ client.Client,
 		}, nil
 	}
 
-	clusterFile, err := createClusterFile(cluster)
+	clusterFile, err := createClusterFile(logger, cluster)
 	if err != nil {
 		return nil, err
 	}
@@ -512,16 +512,7 @@ func (client *cliAdminClient) ChangeCoordinators(addresses []fdbv1beta2.ProcessA
 		return "", err
 	}
 
-	connectionStringBytes, err := os.ReadFile(client.clusterFilePath)
-	if err != nil {
-		return "", err
-	}
-
-	connectionString, err := fdbv1beta2.ParseConnectionString(string(connectionStringBytes))
-	if err != nil {
-		return "", err
-	}
-	return connectionString.String(), nil
+	return client.GetConnectionString()
 }
 
 // cleanConnectionStringOutput is a helper method to remove unrelated output from the get command in the connection string
@@ -708,12 +699,6 @@ func (client *cliAdminClient) GetRestoreStatus() (string, error) {
 
 // Close cleans up any pending resources.
 func (client *cliAdminClient) Close() error {
-	clientMutex.Lock()
-	defer func() {
-		clientMutex.Unlock()
-	}()
-
-	// Allow to reuse the same file.
 	return closeClient(client.log, client.identifier, client.clusterFilePath)
 }
 
@@ -769,7 +754,7 @@ func (client *cliAdminClient) getTimeout() time.Duration {
 // GetProcessesUnderMaintenance will return all process groups that are currently stored to be under maintenance.
 // The result is a map with the process group ID as key and the start of the maintenance as value.
 func (client *cliAdminClient) GetProcessesUnderMaintenance() (map[fdbv1beta2.ProcessGroupID]int64, error) {
-	db, _, err := getFDBDatabase(client.Cluster)
+	db, _, err := getFDBDatabase(client.log, client.Cluster)
 	if err != nil {
 		return nil, err
 	}
@@ -825,7 +810,7 @@ func (client *cliAdminClient) GetProcessesUnderMaintenance() (map[fdbv1beta2.Pro
 // RemoveProcessesUnderMaintenance will remove the provided process groups from the list of processes that
 // are planned to be taken down for maintenance.
 func (client *cliAdminClient) RemoveProcessesUnderMaintenance(processGroupIDs []fdbv1beta2.ProcessGroupID) error {
-	db, _, err := getFDBDatabase(client.Cluster)
+	db, _, err := getFDBDatabase(client.log, client.Cluster)
 	if err != nil {
 		return err
 	}
@@ -851,7 +836,7 @@ func (client *cliAdminClient) RemoveProcessesUnderMaintenance(processGroupIDs []
 // SetProcessesUnderMaintenance will add the provided process groups to the list of processes that will be taken
 // down for maintenance. The value will be the provided time stamp.
 func (client *cliAdminClient) SetProcessesUnderMaintenance(processGroupIDs []fdbv1beta2.ProcessGroupID, timestamp int64) error {
-	db, _, err := getFDBDatabase(client.Cluster)
+	db, _, err := getFDBDatabase(client.log, client.Cluster)
 	if err != nil {
 		return err
 	}
