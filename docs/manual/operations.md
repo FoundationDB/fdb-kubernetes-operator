@@ -17,7 +17,10 @@ The operator uses the `locality_instance_id` to identify the process from the [m
 
 ## Replacing a Process
 
-If you delete a pod, the operator will automatically create a new pod to replace it. If there is a volume available for re-use, we will create a new pod to match that volume. This means that in general you can replace a bad process just by deleting the pod. This may not be desirable in all situations, as it creates a loss of fault tolerance until the replacement pod is created. This also requires that the original volume be available, which may not be possible in some failure scenarios.
+If you delete a pod, the operator will automatically create a new pod to replace it. If there is a volume available for re-use, we will create a new pod to match that volume.
+This means that in general you can replace a bad process just by deleting the pod.
+This may not be desirable in all situations, as it creates a loss of fault tolerance until the replacement pod is created.
+This also requires that the original volume be available, which may not be possible in some failure scenarios.
 
 As an alternative, you can replace a pod by explicitly placing it in the `processGroupsToRemove` list:
 
@@ -98,13 +101,13 @@ spec:
 ```
 
 The default value for the log group of the operator is `fdb-kubernetes-operator` but can be changed by setting the environment variable `FDB_NETWORK_OPTION_TRACE_LOG_GROUP`.
-The operator version `v1.19.0` and never sets this value as a default and those changes are not required.
+The operator version `v1.19.0` and newer sets this value as a default and those changes are not required.
 
 The upgrade process is described in more detail in [upgrades](./upgrades.md).
 
 ## Renaming a Cluster
 
-The name of a cluster is immutable, and it is included in the names of all of the dependent resources, as well as in labels on the resources.
+The name of a cluster is immutable, and it is included in the names of all the dependent resources, as well as in labels on the resources.
 If you want to change the name later on, you can do so with the following steps.
 This example assumes you are renaming the cluster `sample-cluster` to `sample-cluster-2`.
 

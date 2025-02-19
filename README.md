@@ -111,6 +111,6 @@ The makefile supports environment variables that allow you to customize your bui
 
 ## Known Limitations
 
-1. Support for backups in the operator is still in development, and there are significant missing features.
+1. Support for backups in the operator is still in development, and there are some missing features.
 1. Additional limitations can be found under [Warnings](docs/manual/warnings.md).
 1. The created FoundationDB cluster is only reachable from within the Kubernetes cluster. Except if the assigned IP addresses for the Pods are also reachable outside of the Kubernetes cluster.

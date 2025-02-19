@@ -6,7 +6,7 @@ You can restore to any point in time after the end of the first snapshot.
 
 You can find more information about the backup feature in the [FoundationDB Backup documentation](https://apple.github.io/foundationdb/backups.html).
 
-**Warning**: Support for backups in the operator is still in development, and there are significant missing features.
+**Warning**: Support for backups in the operator is still in development, and there are some missing features.
 
 ## Example Backup
 

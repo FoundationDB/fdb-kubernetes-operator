@@ -67,6 +67,9 @@ As an example, we are going to deploy a [Kubernetes Job](https://kubernetes.io/d
 The `cluster file` is available through the exposed `ConfigMap` that can be used as follows:
 
 ```yaml
+# TODO update this example with the unified image
+
+
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -83,19 +86,22 @@ spec:
           # can write too. This ensures that long-running applications will keep the cluster-file updated
           # if the coordinators change.
           - name: init-cluster-file
-            image: foundationdb/foundationdb-kubernetes-sidecar:7.1.26-1
+            image: foundationdb/fdb-kubernetes-monitor:7.1.26
             args:
               # Make sure the sidecar exits when the file is not empty and was successfully copied.
-              - --init-mode
+              - --mode
+              - init
               - --input-dir
               - /mnt/config-volume
+              - --output-dir
+              - /out-dir
               # Only copy the cluster-file that is provided by the ConfigMap
               - --copy-file
               - cluster-file
               # Make sure the cluster-file is not empty.
               - --require-not-empty
               - cluster-file
-          volumeMounts:
+            volumeMounts:
             - name: config-volume
               mountPath: /mnt/config-volume
             - name: shared-volume

@@ -27,8 +27,10 @@ published for each major version.
 |------------------|---------------------|--------------------------|------------------------|-------------------------------|
 | 0.x              | 0.51.1              | v1beta1                  | 6.1.12+                | 1.15.0+                       |
 | 1.x              | -                   | v1beta1,v1beta2          | 6.2.20+                | 1.19.0+                       |
+| 2.x              | -                   | v1beta2                  | 7.1.0+                 | 1.19.0+                       |
 
-Note that the base operator image only supports a single version of FoundationDB. For more information about using different versions of FoundationDB, see the [Operator Customization](/docs/manual/operator_customization.md) guide in the user manual.
+Note that the base operator image only supports a single version of FoundationDB.
+For more information about using different versions of FoundationDB, see the [Operator Customization](/docs/manual/operator_customization.md) guide in the user manual.
 
 ## Preparing for a Major Release
 
@@ -36,8 +38,7 @@ Before you upgrade to a new major version, you should first update the operator
 and the CRD to the most recent release for the major version you are currently
 running. You can find that release in the table above. This will ensure that you
 can opt in to new behavior and move to the latest supported fields in the spec
-in advance of the upgrade, through whatever process you need to update your
-clusters safely.
+in advance of the upgrade, through whatever process you need to update your clusters safely.
 After you updated the operator you should ensure that all clusters are in a reconciled state and all changes are applied.
 
 At this point, you can use the `kubectl-fdb` plugin to check your cluster specs for deprecated fields or defaults.
