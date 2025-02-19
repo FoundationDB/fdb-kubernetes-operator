@@ -120,7 +120,7 @@ func (client *realLockClient) takeLockInTransaction(transaction fdb.Transaction)
 	newOwnerDenied := transaction.Get(client.getDenyListKey(ownerID)).MustGet() != nil
 	if newOwnerDenied {
 		logger.Info("Failed to get lock due to deny list")
-		return nil
+		return fmt.Errorf("failed to get lock due to deny list, owner ID: %s is on deny list", ownerID)
 	}
 
 	oldOwnerDenied := transaction.Get(client.getDenyListKey(currentLockOwnerID)).MustGet() != nil
