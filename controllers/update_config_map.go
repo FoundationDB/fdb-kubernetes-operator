@@ -24,14 +24,11 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/go-logr/logr"
-
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
-
-	"k8s.io/apimachinery/pkg/api/equality"
-
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 )

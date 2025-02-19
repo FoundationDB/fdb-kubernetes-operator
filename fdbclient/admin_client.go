@@ -332,8 +332,8 @@ func (client *cliAdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error
 }
 
 // ConfigureDatabase sets the database configuration
-func (client *cliAdminClient) ConfigureDatabase(configuration fdbv1beta2.DatabaseConfiguration, newDatabase bool, version string) error {
-	configurationString, err := configuration.GetConfigurationString(version)
+func (client *cliAdminClient) ConfigureDatabase(configuration fdbv1beta2.DatabaseConfiguration, newDatabase bool) error {
+	configurationString, err := configuration.GetConfigurationString()
 	if err != nil {
 		return err
 	}
@@ -387,20 +387,15 @@ func (client *cliAdminClient) ExcludeProcessesWithNoWait(addresses []fdbv1beta2.
 		return nil
 	}
 
-	version, err := fdbv1beta2.ParseFdbVersion(client.Cluster.Spec.Version)
-	if err != nil {
-		return err
-	}
-
 	var excludeCommand strings.Builder
 	excludeCommand.WriteString("exclude ")
-	if version.HasNonBlockingExcludes(noWait) {
+	if noWait {
 		excludeCommand.WriteString("no_wait ")
 	}
 
 	excludeCommand.WriteString(fdbv1beta2.ProcessAddressesString(addresses, " "))
 
-	_, err = client.runCommand(cliCommand{command: excludeCommand.String(), timeout: client.getTimeout()})
+	_, err := client.runCommand(cliCommand{command: excludeCommand.String(), timeout: client.getTimeout()})
 
 	return err
 }

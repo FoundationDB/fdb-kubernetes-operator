@@ -42,18 +42,6 @@ func ParseFdbVersion(version string) (Version, error) {
 	return Version{parsed}, nil
 }
 
-// HasNonBlockingExcludes determines if a version has support for non-blocking
-// exclude commands.
-func (version Version) HasNonBlockingExcludes(useNonBlockingExcludes bool) bool {
-	return version.IsAtLeast(Version{api.Version{Major: 6, Minor: 3, Patch: 5}}) && useNonBlockingExcludes
-}
-
-// HasSeparatedProxies determines if a version has support for separate
-// grv/commit proxies
-func (version Version) HasSeparatedProxies() bool {
-	return version.IsAtLeast(Version{api.Version{Major: 7, Minor: 0, Patch: 0}})
-}
-
 // IsSupported defines the minimum supported FDB version.
 func (version Version) IsSupported() bool {
 	return version.IsAtLeast(Versions.MinimumVersion)
@@ -61,14 +49,8 @@ func (version Version) IsSupported() bool {
 
 // IsStorageEngineSupported return true if storage engine is supported by FDB version.
 func (version Version) IsStorageEngineSupported(storageEngine StorageEngine) bool {
-	if storageEngine == StorageEngineRocksDbV1 {
-		return version.IsAtLeast(Versions.SupportsRocksDBV1)
-	} else if storageEngine == StorageEngineRocksDbExperimental {
-		return !version.IsAtLeast(Versions.SupportsRocksDBV1)
-	} else if storageEngine == StorageEngineShardedRocksDB {
+	if storageEngine == StorageEngineShardedRocksDB {
 		return version.IsAtLeast(Versions.SupportsShardedRocksDB)
-	} else if storageEngine == StorageEngineRedwood1Experimental {
-		return version.IsAtLeast(Versions.SupportsRedwood1Experimental)
 	} else if storageEngine == StorageEngineRedwood1 {
 		return version.IsAtLeast(Versions.SupportsRedwood1)
 	}
@@ -89,11 +71,6 @@ func (version Version) SupportsIsPresent() bool {
 // SupportsRecoveryState returns true if the version of FDB supports the recovered since field.
 func (version Version) SupportsRecoveryState() bool {
 	return version.IsAtLeast(Versions.SupportsRecoveryState)
-}
-
-// SupportsDNSInClusterFile returns true if the version of FDB supports the usage of DNS names in the cluster file.
-func (version Version) SupportsDNSInClusterFile() bool {
-	return version.IsAtLeast(Versions.SupportsDNSInClusterFile)
 }
 
 // SupportsVersionChange returns true if the current version can be downgraded or upgraded to provided other version.
@@ -153,44 +130,32 @@ func (version Version) NextPatchVersion() Version {
 	return Version{version.Version.NextPatchVersion()}
 }
 
-// SupportsStorageMigrationConfiguration returns true if the provided version supports the storage migration
-// configuration in the configure command. Those configurations are available from 7.0+
-func (version Version) SupportsStorageMigrationConfiguration() bool {
-	return version.IsAtLeast(Version{api.Version{Major: 7, Minor: 0, Patch: 0}})
-}
-
 // Versions provides a shorthand for known versions.
 // This is only to be used in testing.
 var Versions = struct {
 	NextMajorVersion,
 	NextPatchVersion,
 	MinimumVersion,
-	SupportsRocksDBV1,
 	SupportsIsPresent,
 	SupportsShardedRocksDB,
-	SupportsRedwood1Experimental,
 	SupportsRedwood1,
 	IncompatibleVersion,
 	PreviousPatchVersion,
 	SupportsRecoveryState,
-	SupportsDNSInClusterFile,
 	SupportsLocalityBasedExclusions71,
 	SupportsLocalityBasedExclusions,
 	Default Version
 }{
-	Default:                           Version{api.Version{Major: 6, Minor: 2, Patch: 21}},
-	IncompatibleVersion:               Version{api.Version{Major: 6, Minor: 1, Patch: 0}},
-	PreviousPatchVersion:              Version{api.Version{Major: 6, Minor: 2, Patch: 20}},
-	NextPatchVersion:                  Version{api.Version{Major: 6, Minor: 2, Patch: 22}},
-	NextMajorVersion:                  Version{api.Version{Major: 7, Minor: 0, Patch: 0}},
-	MinimumVersion:                    Version{api.Version{Major: 6, Minor: 2, Patch: 20}},
-	SupportsRocksDBV1:                 Version{api.Version{Major: 7, Minor: 1, Patch: 0, ReleaseCandidate: 4}},
+	Default:                           Version{api.Version{Major: 7, Minor: 1, Patch: 57}},
+	IncompatibleVersion:               Version{api.Version{Major: 7, Minor: 0, Patch: 0}},
+	PreviousPatchVersion:              Version{api.Version{Major: 7, Minor: 1, Patch: 56}},
+	NextPatchVersion:                  Version{api.Version{Major: 7, Minor: 1, Patch: 68}},
+	NextMajorVersion:                  Version{api.Version{Major: 8, Minor: 0, Patch: 0}},
+	MinimumVersion:                    Version{api.Version{Major: 7, Minor: 1, Patch: 0}},
 	SupportsIsPresent:                 Version{api.Version{Major: 7, Minor: 1, Patch: 4}},
 	SupportsShardedRocksDB:            Version{api.Version{Major: 7, Minor: 2, Patch: 0}},
-	SupportsRedwood1Experimental:      Version{api.Version{Major: 7, Minor: 0, Patch: 0}},
 	SupportsRedwood1:                  Version{api.Version{Major: 7, Minor: 3, Patch: 0}},
 	SupportsRecoveryState:             Version{api.Version{Major: 7, Minor: 1, Patch: 22}},
-	SupportsDNSInClusterFile:          Version{api.Version{Major: 7, Minor: 0, Patch: 0}},
 	SupportsLocalityBasedExclusions71: Version{api.Version{Major: 7, Minor: 1, Patch: 42}},
 	SupportsLocalityBasedExclusions:   Version{api.Version{Major: 7, Minor: 3, Patch: 26}},
 }

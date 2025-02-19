@@ -1584,15 +1584,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 	When("migrating a cluster to make use of DNS in the cluster file", func() {
 		BeforeEach(func() {
-			cluster := fdbCluster.GetCluster()
-			parsedVersion, err := fdbv1beta2.ParseFdbVersion(cluster.Status.RunningVersion)
-			Expect(err).NotTo(HaveOccurred())
-
-			if !parsedVersion.SupportsDNSInClusterFile() {
-				Skip(fmt.Sprintf("current FoundationDB version %s doesn't support DNS", parsedVersion.String()))
-			}
-
-			if cluster.UseDNSInClusterFile() {
+			if fdbCluster.GetCluster().UseDNSInClusterFile() {
 				Skip("cluster already uses DNS")
 			}
 
@@ -1850,7 +1842,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		})
 
 		It("should configure the database to run with GRV and commit proxies but keep the proxies in the status field of the FoundationDB resource", func() {
-			// Make sure the FoundationDB configured GRV and commit proxies.
+			// Make sure GRV and commit proxies are configured.
 			status := fdbCluster.GetStatus()
 			Expect(status.Cluster.DatabaseConfiguration.RoleCounts.CommitProxies).To(BeNumerically(">", 0))
 			Expect(status.Cluster.DatabaseConfiguration.RoleCounts.GrvProxies).To(BeNumerically(">", 0))
@@ -2038,12 +2030,6 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			// We can remove this once 7.1 is the default version.
 			factory.DeleteChaosMeshExperimentSafe(scheduleInjectPodKill)
 			cluster := fdbCluster.GetCluster()
-			parsedVersion, err := fdbv1beta2.ParseFdbVersion(cluster.Status.RunningVersion)
-			Expect(err).NotTo(HaveOccurred())
-
-			if !parsedVersion.SupportsDNSInClusterFile() {
-				Skip(fmt.Sprintf("current FoundationDB version %s doesn't support DNS", parsedVersion.String()))
-			}
 
 			initialSetting = cluster.UseDNSInClusterFile()
 			if !cluster.UseDNSInClusterFile() {

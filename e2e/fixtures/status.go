@@ -77,7 +77,7 @@ func (fdbCluster *FdbCluster) RunFdbCliCommandInOperator(
 		)
 
 		if err != nil {
-			return fmt.Errorf("could not run the command: \"%s\": got an error: %w", command, err)
+			return fmt.Errorf("could not run the command: \"%s\": got an error: %w, stderr: %s", command, err, stderr)
 		}
 
 		return nil

@@ -71,8 +71,7 @@ var _ = Describe("[internal] deprecations", func() {
 							},
 						},
 					}
-					err := NormalizeClusterSpec(cluster, DeprecationOptions{})
-					Expect(err).To(HaveOccurred())
+					Expect(NormalizeClusterSpec(cluster, DeprecationOptions{})).NotTo(Succeed())
 				})
 			})
 		})
@@ -114,14 +113,10 @@ var _ = Describe("[internal] deprecations", func() {
 					Expect(containers[1].Resources.Limits).NotTo(BeNil())
 				})
 
-				It("should have empty init container resource requirements", func() {
+				It("should not have an init container", func() {
 					generalProcessConfig, present := spec.Processes[fdbv1beta2.ProcessClassGeneral]
 					Expect(present).To(BeTrue())
-					containers := generalProcessConfig.PodTemplate.Spec.InitContainers
-					Expect(len(containers)).To(Equal(1))
-					Expect(containers[0].Name).To(Equal(fdbv1beta2.InitContainerName))
-					Expect(containers[0].Resources.Requests).NotTo(BeNil())
-					Expect(containers[0].Resources.Limits).NotTo(BeNil())
+					Expect(generalProcessConfig.PodTemplate.Spec.InitContainers).To(HaveLen(0))
 				})
 
 				Context("with explicit resource requests for the main container", func() {
@@ -151,7 +146,7 @@ var _ = Describe("[internal] deprecations", func() {
 						generalProcessConfig, present := spec.Processes[fdbv1beta2.ProcessClassGeneral]
 						Expect(present).To(BeTrue())
 						containers := generalProcessConfig.PodTemplate.Spec.Containers
-						Expect(len(containers)).To(Equal(2))
+						Expect(containers).To(HaveLen(2))
 						Expect(containers[0].Name).To(Equal(fdbv1beta2.MainContainerName))
 						Expect(containers[0].Resources.Requests).To(Equal(corev1.ResourceList{
 							corev1.ResourceCPU: resource.MustParse("1"),
@@ -238,16 +233,15 @@ var _ = Describe("[internal] deprecations", func() {
 				It("should append the standard image components to the image configs", func() {
 					Expect(spec.MainContainer.ImageConfigs).To(Equal([]fdbv1beta2.ImageConfig{
 						{BaseImage: "foundationdb/foundationdb-test"},
-						{BaseImage: fdbv1beta2.FoundationDBBaseImage},
+						{BaseImage: fdbv1beta2.FoundationDBKubernetesBaseImage},
 					}))
 					Expect(spec.SidecarContainer.ImageConfigs).To(Equal([]fdbv1beta2.ImageConfig{
 						{BaseImage: "foundationdb/foundationdb-kubernetes-sidecar-test"},
-						{BaseImage: fdbv1beta2.FoundationDBSidecarBaseImage, TagSuffix: "-1"},
 					}))
 				})
 
-				It("should have the unified images disabled", func() {
-					Expect(cluster.UseUnifiedImage()).To(BeFalse())
+				It("should have the unified image enabled", func() {
+					Expect(cluster.UseUnifiedImage()).To(BeTrue())
 				})
 
 				Context("with unified images enabled", func() {

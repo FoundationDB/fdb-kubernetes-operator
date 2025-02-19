@@ -96,8 +96,7 @@ func (c updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterRecon
 	// about the current database configuration, leading to a wrong signal that the database configuration must be changed as
 	// the configuration will be overwritten with the default values.
 	if databaseStatus.Client.DatabaseStatus.Available {
-		clusterStatus.DatabaseConfiguration = databaseStatus.Cluster.DatabaseConfiguration.NormalizeConfigurationWithSeparatedProxies(cluster.Spec.Version, cluster.Spec.DatabaseConfiguration.AreSeparatedProxiesConfigured())
-		cluster.ClearUnsetDatabaseConfigurationKnobs(&clusterStatus.DatabaseConfiguration)
+		clusterStatus.DatabaseConfiguration = databaseStatus.Cluster.DatabaseConfiguration.NormalizeConfiguration(cluster)
 	}
 
 	// If we saw at least once that the cluster was configured, we assume that the cluster is always configured.

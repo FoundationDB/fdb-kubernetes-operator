@@ -27,220 +27,223 @@ import (
 	"net"
 )
 
-var status = &fdbv1beta2.FoundationDBStatus{
-	Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
-		Clients: fdbv1beta2.FoundationDBStatusClusterClientInfo{
-			SupportedVersions: []fdbv1beta2.FoundationDBStatusSupportedVersion{
-				{
-					ClientVersion: "Unknown",
-					ConnectedClients: []fdbv1beta2.FoundationDBStatusConnectedClient{
-						{
-							Address:  "10.1.38.92:52762",
-							LogGroup: "default",
-						},
-						{
-							Address:  "10.1.38.92:56406",
-							LogGroup: "default",
-						},
-						{
-							Address:  "10.1.38.103:43346",
-							LogGroup: "default",
-						},
-						{
-							Address:  "10.1.38.103:43354",
-							LogGroup: "default",
-						},
-						{
-							Address:  "10.1.38.103:51458",
-							LogGroup: "default",
-						},
-						{
-							Address:  "10.1.38.103:51472",
-							LogGroup: "default",
-						},
-						{
-							Address:  "10.1.38.103:59442",
-							LogGroup: "default",
-						},
-						{
-							Address:  "10.1.38.103:59942",
-							LogGroup: "default",
-						},
-						{
-							Address:  "10.1.38.103:60222",
-							LogGroup: "default",
-						},
-						{
-							Address:  "10.1.38.103:60230",
-							LogGroup: "default",
-						},
-					},
-					MaxProtocolClients: nil,
-					ProtocolVersion:    "Unknown",
-					SourceVersion:      "Unknown",
-				},
-				{
-					ClientVersion: "6.1.8",
-					ConnectedClients: []fdbv1beta2.FoundationDBStatusConnectedClient{
-						{
-							Address:  "10.1.38.106:35640",
-							LogGroup: "sample-cluster-client",
-						},
-						{
-							Address:  "10.1.38.106:36128",
-							LogGroup: "sample-cluster-client",
-						},
-						{
-							Address:  "10.1.38.106:36802",
-							LogGroup: "sample-cluster-client",
-						},
-						{
-							Address:  "10.1.38.107:42234",
-							LogGroup: "sample-cluster-client",
-						},
-						{
-							Address:  "10.1.38.107:49684",
-							LogGroup: "sample-cluster-client",
-						},
-						{
-							Address:  "10.1.38.108:47320",
-							LogGroup: "sample-cluster-client",
-						},
-						{
-							Address:  "10.1.38.108:47388",
-							LogGroup: "sample-cluster-client",
-						},
-						{
-							Address:  "10.1.38.108:58734",
-							LogGroup: "sample-cluster-client",
-						},
-						{
-							Address:  "10.1.38.103:60222",
-							LogGroup: "default",
-						},
-						{
-							Address:  "10.1.38.103:60230",
-							LogGroup: "default",
-						},
-					},
-					MaxProtocolClients: nil,
-					ProtocolVersion:    "fdb00b061060001",
-					SourceVersion:      "bd6b10cbcee08910667194e6388733acd3b80549",
-				},
-				{
-					ClientVersion: "6.2.15",
-					ConnectedClients: []fdbv1beta2.FoundationDBStatusConnectedClient{
-						{
-							Address:  "10.1.38.106:35640",
-							LogGroup: "sample-cluster-client",
-						},
-						{
-							Address:  "10.1.38.106:36128",
-							LogGroup: "sample-cluster-client",
-						},
-						{
-							Address:  "10.1.38.106:36802",
-							LogGroup: "sample-cluster-client",
-						},
-						{
-							Address:  "10.1.38.107:42234",
-							LogGroup: "sample-cluster-client",
-						},
-						{
-							Address:  "10.1.38.107:49684",
-							LogGroup: "sample-cluster-client",
-						},
-						{
-							Address:  "10.1.38.108:47320",
-							LogGroup: "sample-cluster-client",
-						},
-						{
-							Address:  "10.1.38.108:47388",
-							LogGroup: "sample-cluster-client",
-						},
-						{
-							Address:  "10.1.38.108:58734",
-							LogGroup: "sample-cluster-client",
-						},
-						{
-							Address:  "10.1.18.249:34874",
-							LogGroup: "fdb-kubernetes-operator",
-						},
-						{
-							Address:  "10.1.18.249:35022",
-							LogGroup: "fdb-kubernetes-operator",
-						},
-						{
-							Address:  "10.1.38.103:60222",
-							LogGroup: "default",
-						},
-						{
-							Address:  "10.1.38.103:60230",
-							LogGroup: "default",
-						},
-					},
-					MaxProtocolClients: []fdbv1beta2.FoundationDBStatusConnectedClient{
-						{
-							Address:  "10.1.38.106:35640",
-							LogGroup: "sample-cluster-client",
-						},
-						{
-							Address:  "10.1.38.106:36128",
-							LogGroup: "sample-cluster-client",
-						},
-						{
-							Address:  "10.1.38.106:36802",
-							LogGroup: "sample-cluster-client",
-						},
-						{
-							Address:  "10.1.38.107:42234",
-							LogGroup: "sample-cluster-client",
-						},
-						{
-							Address:  "10.1.38.107:49684",
-							LogGroup: "sample-cluster-client",
-						},
-						{
-							Address:  "10.1.38.108:47320",
-							LogGroup: "sample-cluster-client",
-						},
-						{
-							Address:  "10.1.38.108:47388",
-							LogGroup: "sample-cluster-client",
-						},
-						{
-							Address:  "10.1.38.108:58734",
-							LogGroup: "sample-cluster-client",
-						},
-						{
-							Address:  "10.1.18.249:34874",
-							LogGroup: "fdb-kubernetes-operator",
-						},
-						{
-							Address:  "10.1.18.249:35022",
-							LogGroup: "fdb-kubernetes-operator",
-						},
-						{
-							Address:  "10.1.38.103:60222",
-							LogGroup: "default",
-						},
-						{
-							Address:  "10.1.38.103:60230",
-							LogGroup: "default",
-						},
-					},
-					ProtocolVersion: "fdb00b062010002",
-					SourceVersion:   "20566f2ff06a7e822b30e8cfd91090fbd863a393",
-				},
-			},
-		},
-	},
-}
-
 var _ = Describe("check client compatibility", func() {
 	When("getting the list of unsupported clients from the cluster status json", func() {
 		var unsupportedClients []string
 		var ignoredLogGroups map[fdbv1beta2.LogGroup]fdbv1beta2.None
+		var status *fdbv1beta2.FoundationDBStatus
+
+		BeforeEach(func() {
+			status = &fdbv1beta2.FoundationDBStatus{
+				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+					Clients: fdbv1beta2.FoundationDBStatusClusterClientInfo{
+						SupportedVersions: []fdbv1beta2.FoundationDBStatusSupportedVersion{
+							{
+								ClientVersion: "Unknown",
+								ConnectedClients: []fdbv1beta2.FoundationDBStatusConnectedClient{
+									{
+										Address:  "10.1.38.92:52762",
+										LogGroup: "default",
+									},
+									{
+										Address:  "10.1.38.92:56406",
+										LogGroup: "default",
+									},
+									{
+										Address:  "10.1.38.103:43346",
+										LogGroup: "default",
+									},
+									{
+										Address:  "10.1.38.103:43354",
+										LogGroup: "default",
+									},
+									{
+										Address:  "10.1.38.103:51458",
+										LogGroup: "default",
+									},
+									{
+										Address:  "10.1.38.103:51472",
+										LogGroup: "default",
+									},
+									{
+										Address:  "10.1.38.103:59442",
+										LogGroup: "default",
+									},
+									{
+										Address:  "10.1.38.103:59942",
+										LogGroup: "default",
+									},
+									{
+										Address:  "10.1.38.103:60222",
+										LogGroup: "default",
+									},
+									{
+										Address:  "10.1.38.103:60230",
+										LogGroup: "default",
+									},
+								},
+								MaxProtocolClients: nil,
+								ProtocolVersion:    "Unknown",
+								SourceVersion:      "Unknown",
+							},
+							{
+								ClientVersion: "6.1.8",
+								ConnectedClients: []fdbv1beta2.FoundationDBStatusConnectedClient{
+									{
+										Address:  "10.1.38.106:35640",
+										LogGroup: "sample-cluster-client",
+									},
+									{
+										Address:  "10.1.38.106:36128",
+										LogGroup: "sample-cluster-client",
+									},
+									{
+										Address:  "10.1.38.106:36802",
+										LogGroup: "sample-cluster-client",
+									},
+									{
+										Address:  "10.1.38.107:42234",
+										LogGroup: "sample-cluster-client",
+									},
+									{
+										Address:  "10.1.38.107:49684",
+										LogGroup: "sample-cluster-client",
+									},
+									{
+										Address:  "10.1.38.108:47320",
+										LogGroup: "sample-cluster-client",
+									},
+									{
+										Address:  "10.1.38.108:47388",
+										LogGroup: "sample-cluster-client",
+									},
+									{
+										Address:  "10.1.38.108:58734",
+										LogGroup: "sample-cluster-client",
+									},
+									{
+										Address:  "10.1.38.103:60222",
+										LogGroup: "default",
+									},
+									{
+										Address:  "10.1.38.103:60230",
+										LogGroup: "default",
+									},
+								},
+								MaxProtocolClients: nil,
+								ProtocolVersion:    "fdb00b061060001",
+								SourceVersion:      "bd6b10cbcee08910667194e6388733acd3b80549",
+							},
+							{
+								ClientVersion: "6.2.15",
+								ConnectedClients: []fdbv1beta2.FoundationDBStatusConnectedClient{
+									{
+										Address:  "10.1.38.106:35640",
+										LogGroup: "sample-cluster-client",
+									},
+									{
+										Address:  "10.1.38.106:36128",
+										LogGroup: "sample-cluster-client",
+									},
+									{
+										Address:  "10.1.38.106:36802",
+										LogGroup: "sample-cluster-client",
+									},
+									{
+										Address:  "10.1.38.107:42234",
+										LogGroup: "sample-cluster-client",
+									},
+									{
+										Address:  "10.1.38.107:49684",
+										LogGroup: "sample-cluster-client",
+									},
+									{
+										Address:  "10.1.38.108:47320",
+										LogGroup: "sample-cluster-client",
+									},
+									{
+										Address:  "10.1.38.108:47388",
+										LogGroup: "sample-cluster-client",
+									},
+									{
+										Address:  "10.1.38.108:58734",
+										LogGroup: "sample-cluster-client",
+									},
+									{
+										Address:  "10.1.18.249:34874",
+										LogGroup: "fdb-kubernetes-operator",
+									},
+									{
+										Address:  "10.1.18.249:35022",
+										LogGroup: "fdb-kubernetes-operator",
+									},
+									{
+										Address:  "10.1.38.103:60222",
+										LogGroup: "default",
+									},
+									{
+										Address:  "10.1.38.103:60230",
+										LogGroup: "default",
+									},
+								},
+								MaxProtocolClients: []fdbv1beta2.FoundationDBStatusConnectedClient{
+									{
+										Address:  "10.1.38.106:35640",
+										LogGroup: "sample-cluster-client",
+									},
+									{
+										Address:  "10.1.38.106:36128",
+										LogGroup: "sample-cluster-client",
+									},
+									{
+										Address:  "10.1.38.106:36802",
+										LogGroup: "sample-cluster-client",
+									},
+									{
+										Address:  "10.1.38.107:42234",
+										LogGroup: "sample-cluster-client",
+									},
+									{
+										Address:  "10.1.38.107:49684",
+										LogGroup: "sample-cluster-client",
+									},
+									{
+										Address:  "10.1.38.108:47320",
+										LogGroup: "sample-cluster-client",
+									},
+									{
+										Address:  "10.1.38.108:47388",
+										LogGroup: "sample-cluster-client",
+									},
+									{
+										Address:  "10.1.38.108:58734",
+										LogGroup: "sample-cluster-client",
+									},
+									{
+										Address:  "10.1.18.249:34874",
+										LogGroup: "fdb-kubernetes-operator",
+									},
+									{
+										Address:  "10.1.18.249:35022",
+										LogGroup: "fdb-kubernetes-operator",
+									},
+									{
+										Address:  "10.1.38.103:60222",
+										LogGroup: "default",
+									},
+									{
+										Address:  "10.1.38.103:60230",
+										LogGroup: "default",
+									},
+								},
+								ProtocolVersion: "fdb00b062010002",
+								SourceVersion:   "20566f2ff06a7e822b30e8cfd91090fbd863a393",
+							},
+						},
+					},
+				},
+			}
+		})
 
 		JustBeforeEach(func() {
 			unsupportedClients = getUnsupportedClients(status, "fdb00b063010001", ignoredLogGroups)

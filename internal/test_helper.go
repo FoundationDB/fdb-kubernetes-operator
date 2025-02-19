@@ -34,6 +34,7 @@ import (
 
 // CreateDefaultCluster creates a default FoundationDBCluster for testing
 func CreateDefaultCluster() *fdbv1beta2.FoundationDBCluster {
+	imageType := fdbv1beta2.ImageTypeSplit
 	return &fdbv1beta2.FoundationDBCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "operator-test-1",
@@ -57,6 +58,8 @@ func CreateDefaultCluster() *fdbv1beta2.FoundationDBCluster {
 				WaitBetweenRemovalsSeconds: pointer.Int(0),
 			},
 			MinimumUptimeSecondsForBounce: 1,
+			// TODO (johscheuer): Change this to the default one and adjust all test cases.
+			ImageType: &imageType,
 		},
 		Status: fdbv1beta2.FoundationDBClusterStatus{
 			RequiredAddresses: fdbv1beta2.RequiredAddressSet{

@@ -1306,17 +1306,23 @@ func (fdbCluster *FdbCluster) SetIgnoreDuringRestart(processes []fdbv1beta2.Proc
 	gomega.Expect(fdbCluster.WaitForReconciliation()).NotTo(gomega.HaveOccurred())
 }
 
-// UpdateContainerImage sets the image for the provided Pod for the porvided container.
+// UpdateContainerImage sets the image for the provided Pod for the provided container.
 func (fdbCluster *FdbCluster) UpdateContainerImage(pod *corev1.Pod, containerName string, image string) {
-	for idx, container := range pod.Spec.Containers {
-		if container.Name != containerName {
-			continue
+	gomega.Eventually(func(g gomega.Gomega) error {
+		updatePod := &corev1.Pod{}
+
+		g.Expect(fdbCluster.getClient().Get(context.Background(), client.ObjectKeyFromObject(pod), updatePod)).To(gomega.Succeed())
+
+		for idx, container := range updatePod.Spec.Containers {
+			if container.Name != containerName {
+				continue
+			}
+
+			updatePod.Spec.Containers[idx].Image = image
 		}
 
-		pod.Spec.Containers[idx].Image = image
-	}
-
-	gomega.Expect(fdbCluster.factory.GetControllerRuntimeClient().Update(context.Background(), pod)).NotTo(gomega.HaveOccurred())
+		return fdbCluster.factory.GetControllerRuntimeClient().Update(context.Background(), updatePod)
+	}).ShouldNot(gomega.HaveOccurred())
 }
 
 // SetBuggifyBlockRemoval will set the provided list of process group IDs to be blocked for removal.

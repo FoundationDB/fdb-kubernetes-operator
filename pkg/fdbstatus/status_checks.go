@@ -113,7 +113,7 @@ func getRemainingAndExcludedFromStatus(logger logr.Logger, status *fdbv1beta2.Fo
 	for _, process := range status.Cluster.Processes {
 		processAddresses := []string{
 			fmt.Sprintf("%s:%s", fdbv1beta2.FDBLocalityExclusionPrefix, process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]),
-			process.Address.MachineAddress(),
+			process.Address.IPAddress.String(),
 		}
 
 		// We have to verify the IP address and the locality of this process, if neither should be verified we skip any

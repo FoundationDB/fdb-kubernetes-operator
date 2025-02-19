@@ -178,7 +178,7 @@ var _ = Describe("[plugin] configuration command", func() {
 					Expect(config.Regions[1].DataCenters[2].Satellite).To(Equal(1))
 					Expect(config.Regions[1].DataCenters[2].Priority).To(Equal(0))
 
-					Expect(config.GetConfigurationString(fdbv1beta2.Versions.Default.String())).To(Equal("  usable_regions=0 logs=0 resolvers=0 log_routers=0 remote_logs=0 proxies=3 regions=[{\\\"datacenters\\\":[{\\\"id\\\":\\\"primary\\\"},{\\\"id\\\":\\\"primary-sat\\\",\\\"priority\\\":1,\\\"satellite\\\":1},{\\\"id\\\":\\\"remote-sat\\\",\\\"satellite\\\":1}],\\\"satellite_logs\\\":3,\\\"satellite_redundancy_mode\\\":\\\"one_satellite_single\\\"},{\\\"datacenters\\\":[{\\\"id\\\":\\\"remote\\\",\\\"priority\\\":1},{\\\"id\\\":\\\"remote-sat\\\",\\\"priority\\\":1,\\\"satellite\\\":1},{\\\"id\\\":\\\"primary-sat\\\",\\\"satellite\\\":1}],\\\"satellite_logs\\\":3,\\\"satellite_redundancy_mode\\\":\\\"one_satellite_double\\\"}]"))
+					Expect(config.GetConfigurationString()).To(Equal("  usable_regions=0 logs=0 resolvers=0 log_routers=0 remote_logs=0 proxies=3 regions=[{\\\"datacenters\\\":[{\\\"id\\\":\\\"primary\\\"},{\\\"id\\\":\\\"primary-sat\\\",\\\"priority\\\":1,\\\"satellite\\\":1},{\\\"id\\\":\\\"remote-sat\\\",\\\"satellite\\\":1}],\\\"satellite_logs\\\":3,\\\"satellite_redundancy_mode\\\":\\\"one_satellite_single\\\"},{\\\"datacenters\\\":[{\\\"id\\\":\\\"remote\\\",\\\"priority\\\":1},{\\\"id\\\":\\\"remote-sat\\\",\\\"priority\\\":1,\\\"satellite\\\":1},{\\\"id\\\":\\\"primary-sat\\\",\\\"satellite\\\":1}],\\\"satellite_logs\\\":3,\\\"satellite_redundancy_mode\\\":\\\"one_satellite_double\\\"}]"))
 				})
 			})
 		})

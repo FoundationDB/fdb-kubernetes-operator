@@ -189,9 +189,7 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 			var fdbRoles []fdbv1beta2.FoundationDBStatusProcessRoleInfo
 
 			fullAddress := client.Cluster.GetFullAddress(processIP, processIndex)
-			_, ipExcluded := client.ExcludedAddresses[processIP]
-			_, addressExcluded := client.ExcludedAddresses[fullAddress.String()]
-			excluded := ipExcluded || addressExcluded
+			excluded := client.processIsExcluded(fullAddress, processGroupID)
 
 			pClass, err := podmanager.GetProcessClass(client.Cluster, &pod)
 			if err != nil {
@@ -392,37 +390,34 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 		status.Cluster.DatabaseConfiguration.VersionFlags.LogSpill = 2
 	}
 
-	if len(client.ExcludedAddresses) > 0 {
-		status.Cluster.DatabaseConfiguration.ExcludedServers = make([]fdbv1beta2.ExcludedServers, 0, len(client.ExcludedAddresses))
-	}
-	for excludedAddresses := range client.ExcludedAddresses {
-		if net.ParseIP(excludedAddresses) != nil {
-			status.Cluster.DatabaseConfiguration.ExcludedServers = append(status.Cluster.DatabaseConfiguration.ExcludedServers, fdbv1beta2.ExcludedServers{Address: excludedAddresses})
-		} else {
-			status.Cluster.DatabaseConfiguration.ExcludedServers = append(status.Cluster.DatabaseConfiguration.ExcludedServers, fdbv1beta2.ExcludedServers{Locality: excludedAddresses})
+	exclusions := client.getExcludedAddresses()
+	// If no exclusions are present the status.Cluster.DatabaseConfiguration.ExcludedServers should be nil and not an
+	// empty slice.
+	if len(exclusions) > 0 {
+		status.Cluster.DatabaseConfiguration.ExcludedServers = make([]fdbv1beta2.ExcludedServers, 0, len(exclusions))
+		for _, exclusion := range exclusions {
+			if exclusion.IPAddress == nil {
+				status.Cluster.DatabaseConfiguration.ExcludedServers = append(status.Cluster.DatabaseConfiguration.ExcludedServers, fdbv1beta2.ExcludedServers{Locality: exclusion.MachineAddress()})
+				continue
+			}
+
+			status.Cluster.DatabaseConfiguration.ExcludedServers = append(status.Cluster.DatabaseConfiguration.ExcludedServers, fdbv1beta2.ExcludedServers{Address: exclusion.MachineAddress()})
 		}
 	}
 
 	if client.Cluster.Status.RunningVersion != "" {
-		parsedVersion, err := fdbv1beta2.ParseFdbVersion(client.Cluster.Status.RunningVersion)
-		if err != nil {
-			return nil, err
+		if status.Cluster.DatabaseConfiguration.StorageMigrationType == nil {
+			wiggleTypeDisabled := fdbv1beta2.StorageMigrationTypeDisabled
+			status.Cluster.DatabaseConfiguration.StorageMigrationType = &wiggleTypeDisabled
 		}
 
-		if parsedVersion.SupportsStorageMigrationConfiguration() {
-			if status.Cluster.DatabaseConfiguration.StorageMigrationType == nil {
-				wiggleTypeDisabled := fdbv1beta2.StorageMigrationTypeDisabled
-				status.Cluster.DatabaseConfiguration.StorageMigrationType = &wiggleTypeDisabled
-			}
+		if status.Cluster.DatabaseConfiguration.PerpetualStorageWiggleEngine == nil {
+			storageEngineNone := fdbv1beta2.StorageEngineNone
+			status.Cluster.DatabaseConfiguration.PerpetualStorageWiggleEngine = &storageEngineNone
+		}
 
-			if status.Cluster.DatabaseConfiguration.PerpetualStorageWiggleEngine == nil {
-				storageEngineNone := fdbv1beta2.StorageEngineNone
-				status.Cluster.DatabaseConfiguration.PerpetualStorageWiggleEngine = &storageEngineNone
-			}
-
-			if status.Cluster.DatabaseConfiguration.PerpetualStorageWiggleLocality == nil {
-				status.Cluster.DatabaseConfiguration.PerpetualStorageWiggleLocality = pointer.String("0")
-			}
+		if status.Cluster.DatabaseConfiguration.PerpetualStorageWiggleLocality == nil {
+			status.Cluster.DatabaseConfiguration.PerpetualStorageWiggleLocality = pointer.String("0")
 		}
 	}
 
@@ -525,8 +520,34 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 	return status, nil
 }
 
+// processIsExcluded checks if the process is excluded by IP, IP:Port or by locality (so far the locality only matches for
+// the instance_id, as the operator makes use of that one.
+func (client *AdminClient) processIsExcluded(fullAddress fdbv1beta2.ProcessAddress, processGroupID fdbv1beta2.ProcessGroupID) bool {
+	if len(client.ExcludedAddresses) == 0 {
+		return false
+	}
+
+	_, ipExcluded := client.ExcludedAddresses[fullAddress.IPAddress.String()]
+	if ipExcluded {
+		return true
+	}
+	_, addressExcluded := client.ExcludedAddresses[fullAddress.String()]
+	if addressExcluded {
+		return true
+	}
+
+	if client.Cluster.UseLocalitiesForExclusion() {
+		localityExclusionString := fmt.Sprintf("%s:%s", fdbv1beta2.FDBLocalityExclusionPrefix, processGroupID)
+		if _, isExcluded := client.ExcludedAddresses[localityExclusionString]; isExcluded {
+			return true
+		}
+	}
+
+	return false
+}
+
 // ConfigureDatabase changes the database configuration
-func (client *AdminClient) ConfigureDatabase(configuration fdbv1beta2.DatabaseConfiguration, _ bool, version string) error {
+func (client *AdminClient) ConfigureDatabase(configuration fdbv1beta2.DatabaseConfiguration, _ bool) error {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
@@ -535,31 +556,18 @@ func (client *AdminClient) ConfigureDatabase(configuration fdbv1beta2.DatabaseCo
 	}
 
 	client.DatabaseConfiguration = configuration.DeepCopy()
-
-	ver, err := fdbv1beta2.ParseFdbVersion(version)
-	if err != nil {
-		return err
+	if configuration.StorageMigrationType == nil {
+		migrationType := fdbv1beta2.StorageMigrationTypeDisabled
+		client.DatabaseConfiguration.StorageMigrationType = &migrationType
 	}
 
-	if !ver.HasSeparatedProxies() {
-		client.DatabaseConfiguration.GrvProxies = 0
-		client.DatabaseConfiguration.CommitProxies = 0
+	if configuration.PerpetualStorageWiggleEngine == nil {
+		storageEngineNone := fdbv1beta2.StorageEngineNone
+		client.DatabaseConfiguration.PerpetualStorageWiggleEngine = &storageEngineNone
 	}
 
-	if ver.SupportsStorageMigrationConfiguration() {
-		if configuration.StorageMigrationType == nil {
-			migrationType := fdbv1beta2.StorageMigrationTypeDisabled
-			client.DatabaseConfiguration.StorageMigrationType = &migrationType
-		}
-
-		if configuration.PerpetualStorageWiggleEngine == nil {
-			storageEngineNone := fdbv1beta2.StorageEngineNone
-			client.DatabaseConfiguration.PerpetualStorageWiggleEngine = &storageEngineNone
-		}
-
-		if configuration.PerpetualStorageWiggleLocality == nil {
-			client.DatabaseConfiguration.PerpetualStorageWiggleLocality = pointer.String("0")
-		}
+	if configuration.PerpetualStorageWiggleLocality == nil {
+		client.DatabaseConfiguration.PerpetualStorageWiggleLocality = pointer.String("0")
 	}
 
 	return nil
@@ -652,8 +660,31 @@ func (client *AdminClient) CanSafelyRemove(addresses []fdbv1beta2.ProcessAddress
 	return remaining, nil
 }
 
-// GetExclusions gets a list of the addresses currently excluded from the
-// database.
+// getExcludedAddresses will return the excluded addresses based on the client.ExcludedAddresses.
+func (client *AdminClient) getExcludedAddresses() []fdbv1beta2.ProcessAddress {
+	if len(client.ExcludedAddresses) == 0 {
+		return []fdbv1beta2.ProcessAddress{}
+	}
+
+	excludedAddresses := make([]fdbv1beta2.ProcessAddress, 0, len(client.ExcludedAddresses))
+	for addr := range client.ExcludedAddresses {
+		ip := net.ParseIP(addr)
+		if ip == nil {
+			excludedAddresses = append(excludedAddresses, fdbv1beta2.ProcessAddress{StringAddress: addr})
+			continue
+		}
+
+		excludedAddresses = append(excludedAddresses, fdbv1beta2.ProcessAddress{
+			IPAddress: net.ParseIP(addr),
+			Port:      0,
+			Flags:     nil,
+		})
+	}
+
+	return excludedAddresses
+}
+
+// GetExclusions gets a list of the addresses currently excluded from the database.
 func (client *AdminClient) GetExclusions() ([]fdbv1beta2.ProcessAddress, error) {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
@@ -662,20 +693,7 @@ func (client *AdminClient) GetExclusions() ([]fdbv1beta2.ProcessAddress, error) 
 		return nil, client.mockError
 	}
 
-	pAddrs := make([]fdbv1beta2.ProcessAddress, 0, len(client.ExcludedAddresses))
-	for addr := range client.ExcludedAddresses {
-		ip := net.ParseIP(addr)
-		if ip == nil {
-			pAddrs = append(pAddrs, fdbv1beta2.ProcessAddress{StringAddress: addr})
-		} else {
-			pAddrs = append(pAddrs, fdbv1beta2.ProcessAddress{
-				IPAddress: net.ParseIP(addr),
-				Port:      0,
-				Flags:     nil,
-			})
-		}
-	}
-	return pAddrs, nil
+	return client.getExcludedAddresses(), nil
 }
 
 // KillProcesses restarts processes
@@ -687,6 +705,11 @@ func (client *AdminClient) KillProcesses(addresses []fdbv1beta2.ProcessAddress) 
 	}
 
 	for _, addr := range addresses {
+		// Set the StringAddress to an empty string, to ensure the IP address will be picked. The kill command doesn't
+		// support localities right now.
+		if addr.IPAddress != nil {
+			addr.StringAddress = ""
+		}
 		client.KilledAddresses[addr.String()] = fdbv1beta2.None{}
 		// Remove the commandline from the cached status and let it be recomputed in the next GetStatus request.
 		// This reflects that the commandline will only be updated if the processes are actually be restarted.

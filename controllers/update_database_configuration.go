@@ -68,8 +68,7 @@ func (u updateDatabaseConfiguration) reconcile(_ context.Context, r *FoundationD
 
 	desiredConfiguration := cluster.DesiredDatabaseConfiguration()
 	desiredConfiguration.RoleCounts.Storage = 0
-	currentConfiguration := status.Cluster.DatabaseConfiguration.NormalizeConfigurationWithSeparatedProxies(cluster.Spec.Version, cluster.Spec.DatabaseConfiguration.AreSeparatedProxiesConfigured())
-	cluster.ClearUnsetDatabaseConfigurationKnobs(&currentConfiguration)
+	currentConfiguration := status.Cluster.DatabaseConfiguration.NormalizeConfiguration(cluster)
 
 	runningVersion, err := fdbv1beta2.ParseFdbVersion(cluster.GetRunningVersion())
 	if err != nil {
@@ -83,7 +82,7 @@ func (u updateDatabaseConfiguration) reconcile(_ context.Context, r *FoundationD
 		} else {
 			nextConfiguration = currentConfiguration.GetNextConfigurationChange(desiredConfiguration)
 		}
-		configurationString, _ := nextConfiguration.GetConfigurationString(cluster.Spec.Version)
+		configurationString, _ := nextConfiguration.GetConfigurationString()
 
 		if !initialConfig {
 			err = fdbstatus.ConfigurationChangeAllowed(status, runningVersion.SupportsRecoveryState() && r.EnableRecoveryState)
@@ -107,7 +106,7 @@ func (u updateDatabaseConfiguration) reconcile(_ context.Context, r *FoundationD
 		r.Recorder.Event(cluster, corev1.EventTypeNormal, "ConfiguringDatabase",
 			fmt.Sprintf("Setting database configuration to `%s`", configurationString),
 		)
-		err = adminClient.ConfigureDatabase(nextConfiguration, initialConfig, cluster.Spec.Version)
+		err = adminClient.ConfigureDatabase(nextConfiguration, initialConfig)
 		if err != nil {
 			return &requeue{curError: err, delayedRequeue: true}
 		}
