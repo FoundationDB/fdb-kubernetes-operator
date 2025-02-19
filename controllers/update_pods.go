@@ -43,14 +43,7 @@ type updatePods struct{}
 
 // reconcile runs the reconciler's work.
 func (u updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
-	// TODO(johscheuer): Remove the pvc map an make direct calls.
-	pvcs := &corev1.PersistentVolumeClaimList{}
-	err := r.List(ctx, pvcs, internal.GetPodListOptions(cluster, "", "")...)
-	if err != nil {
-		return &requeue{curError: err}
-	}
-
-	updates, err := getPodsToUpdate(ctx, logger, r, cluster, internal.CreatePVCMap(cluster, pvcs))
+	updates, err := getPodsToUpdate(ctx, logger, r, cluster)
 	if err != nil {
 		return &requeue{curError: err, delay: podSchedulingDelayDuration, delayedRequeue: true}
 	}
@@ -137,7 +130,7 @@ func getFaultDomainsWithUnavailablePods(ctx context.Context, logger logr.Logger,
 }
 
 // getPodsToUpdate returns a map of Zone to Pods mapping. The map has the fault domain as key and all Pods in that fault domain will be present as a slice of *corev1.Pod.
-func getPodsToUpdate(ctx context.Context, logger logr.Logger, reconciler *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, pvcMap map[fdbv1beta2.ProcessGroupID]corev1.PersistentVolumeClaim) (map[string][]*corev1.Pod, error) {
+func getPodsToUpdate(ctx context.Context, logger logr.Logger, reconciler *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) (map[string][]*corev1.Pod, error) {
 	updates := make(map[string][]*corev1.Pod)
 
 	faultDomainsWithUnavailablePods := getFaultDomainsWithUnavailablePods(ctx, logger, reconciler, cluster)
@@ -223,7 +216,7 @@ func getPodsToUpdate(ctx context.Context, logger logr.Logger, reconciler *Founda
 			continue
 		}
 
-		needsRemoval, err := replacements.ProcessGroupNeedsRemoval(ctx, reconciler.PodLifecycleManager, reconciler, logger, cluster, processGroup, pvcMap, reconciler.ReplaceOnSecurityContextChange)
+		needsRemoval, err := replacements.ProcessGroupNeedsRemoval(ctx, reconciler.PodLifecycleManager, reconciler, logger, cluster, processGroup, reconciler.ReplaceOnSecurityContextChange)
 		// Do not update the Pod if unable to determine if it needs to be removed.
 		if err != nil {
 			logger.V(1).Info("Skip process group, error checking if it requires a removal",
