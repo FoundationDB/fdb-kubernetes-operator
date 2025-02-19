@@ -53,4 +53,7 @@ type LockClient interface {
 
 	// UpdateDenyList updates the deny list to match a list of entries.
 	UpdateDenyList(locks []fdbv1beta2.LockDenyListEntry) error
+
+	// Close cleans up any pending resources.
+	Close() error
 }

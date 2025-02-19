@@ -43,13 +43,15 @@ func (a addPods) reconcile(ctx context.Context, r *FoundationDBClusterReconciler
 	}
 	existingConfigMap := &corev1.ConfigMap{}
 	err = r.Get(ctx, types.NamespacedName{Namespace: configMap.Namespace, Name: configMap.Name}, existingConfigMap)
-	if err != nil && k8serrors.IsNotFound(err) {
-		logger.Info("Creating config map", "name", configMap.Name)
-		err = r.Create(ctx, configMap)
-		if err != nil {
-			return &requeue{curError: err}
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			logger.Info("Creating config map", "name", configMap.Name)
+			err = r.Create(ctx, configMap)
+			if err != nil {
+				return &requeue{curError: err}
+			}
 		}
-	} else if err != nil {
+
 		return &requeue{curError: err}
 	}
 

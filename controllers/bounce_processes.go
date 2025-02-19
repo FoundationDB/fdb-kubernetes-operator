@@ -50,9 +50,11 @@ func (c bounceProcesses) reconcile(_ context.Context, r *FoundationDBClusterReco
 
 	adminClient, err := r.getAdminClient(logger, cluster)
 	if err != nil {
-		return &requeue{curError: err}
+		return &requeue{curError: err, delayedRequeue: true}
 	}
-	defer adminClient.Close()
+	defer func() {
+		_ = adminClient.Close()
+	}()
 
 	// If the status is not cached, we have to fetch it.
 	if status == nil {
@@ -115,6 +117,10 @@ func (c bounceProcesses) reconcile(_ context.Context, r *FoundationDBClusterReco
 		if err != nil {
 			return &requeue{curError: err}
 		}
+
+		defer func() {
+			_ = lockClient.Close()
+		}()
 	}
 	version, err := fdbv1beta2.ParseFdbVersion(cluster.Spec.Version)
 	if err != nil {

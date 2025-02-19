@@ -46,9 +46,11 @@ type excludeProcesses struct{}
 func (e excludeProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
 	adminClient, err := r.getAdminClient(logger, cluster)
 	if err != nil {
-		return &requeue{curError: err}
+		return &requeue{curError: err, delayedRequeue: true}
 	}
-	defer adminClient.Close()
+	defer func() {
+		_ = adminClient.Close()
+	}()
 
 	adminClient.WithValues()
 	// If the status is not cached, we have to fetch it.
@@ -77,6 +79,10 @@ func (e excludeProcesses) reconcile(ctx context.Context, r *FoundationDBClusterR
 		if err != nil {
 			return &requeue{curError: err}
 		}
+
+		defer func() {
+			_ = lockClient.Close()
+		}()
 
 		_, err = lockClient.TakeLock()
 		if err != nil {

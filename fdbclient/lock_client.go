@@ -21,6 +21,7 @@
 package fdbclient
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -47,6 +48,15 @@ type realLockClient struct {
 
 	// log implementation for logging output
 	log logr.Logger
+
+	// clusterFilePath defines the path where the cluster file was created.
+	clusterFilePath string
+
+	// identifier is a key based on the generation ID from the connection string and the cluster UID. This value is set
+	// during the creation of the client and is stored in the client to prevent cases where the cluster resource
+	// is updated with a different connection string. The identifier will be used during the shutdown mechanism
+	// of the client.
+	identifier string
 }
 
 // Disabled determines if the client should automatically grant locks.
@@ -398,21 +408,48 @@ func (err invalidLockValue) Error() string {
 	return fmt.Sprintf("Could not decode value %s for key %s", err.value, err.key)
 }
 
+// Close cleans up any pending resources.
+func (client *realLockClient) Close() error {
+	clientMutex.Lock()
+	defer func() {
+		clientMutex.Unlock()
+	}()
+
+	// Allow to reuse the same file.
+	return closeClient(client.log, client.identifier, client.clusterFilePath)
+}
+
 // NewRealLockClient creates a lock client.
-func NewRealLockClient(cluster *fdbv1beta2.FoundationDBCluster, log logr.Logger) (fdbadminclient.LockClient, error) {
+func NewRealLockClient(cluster *fdbv1beta2.FoundationDBCluster, logger logr.Logger) (fdbadminclient.LockClient, error) {
 	if !cluster.ShouldUseLocks() {
 		return &realLockClient{disableLocks: true}, nil
 	}
 
-	database, err := getFDBDatabase(cluster)
+	clientMutex.Lock()
+	defer func() {
+		clientMutex.Unlock()
+	}()
+
+	if cluster.Status.ConnectionString == "" {
+		return nil, errors.New("cluster does not have a connection string")
+	}
+
+	database, clusterFile, err := getFDBDatabase(cluster)
+	if err != nil {
+		return nil, err
+	}
+
+	identifier, err := incrementClientRefCounter(logger, cluster)
 	if err != nil {
 		return nil, err
 	}
 
 	return &realLockClient{
-		cluster:  cluster,
-		database: database,
-		log: log.WithValues(
+		cluster:         cluster,
+		database:        database,
+		clusterFilePath: clusterFile,
+		identifier:      identifier,
+		log: logger.WithValues(
 			"namespace", cluster.Namespace,
 			"cluster", cluster.Name,
 			"ownerID", cluster.GetLockID(),

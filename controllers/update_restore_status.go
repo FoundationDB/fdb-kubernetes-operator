@@ -35,9 +35,11 @@ type updateRestoreStatus struct {
 func (updateRestoreStatus) reconcile(ctx context.Context, r *FoundationDBRestoreReconciler, restore *fdbv1beta2.FoundationDBRestore) *requeue {
 	adminClient, err := r.adminClientForRestore(ctx, restore)
 	if err != nil {
-		return &requeue{curError: err}
+		return &requeue{curError: err, delayedRequeue: true}
 	}
-	defer adminClient.Close()
+	defer func() {
+		_ = adminClient.Close()
+	}()
 
 	status, err := adminClient.GetRestoreStatus()
 	if err != nil {

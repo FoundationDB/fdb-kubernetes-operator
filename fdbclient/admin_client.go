@@ -76,6 +76,12 @@ type cliAdminClient struct {
 	// for this session.
 	clusterFilePath string
 
+	// identifier is a key based on the generation ID from the connection string and the cluster UID. This value is set
+	// during the creation of the client and is stored in the client to prevent cases where the cluster resource
+	// is updated with a different connection string. The identifier will be used during the shutdown mechanism
+	// of the client.
+	identifier string
+
 	// custom parameters that should be set.
 	knobs []string
 
@@ -96,7 +102,26 @@ type cliAdminClient struct {
 
 // NewCliAdminClient generates an Admin client for a cluster
 func NewCliAdminClient(cluster *fdbv1beta2.FoundationDBCluster, _ client.Client, logger logr.Logger) (fdbadminclient.AdminClient, error) {
+	clientMutex.Lock()
+	defer func() {
+		clientMutex.Unlock()
+	}()
+
+	if cluster.Status.ConnectionString == "" {
+		logger.V(1).Info("cluster does not have a connection string")
+		return &cliAdminClient{
+			Cluster:   cluster,
+			log:       logger,
+			cmdRunner: &realCommandRunner{log: logger},
+		}, nil
+	}
+
 	clusterFile, err := createClusterFile(cluster)
+	if err != nil {
+		return nil, err
+	}
+
+	identifier, err := incrementClientRefCounter(logger, cluster)
 	if err != nil {
 		return nil, err
 	}
@@ -104,6 +129,7 @@ func NewCliAdminClient(cluster *fdbv1beta2.FoundationDBCluster, _ client.Client,
 	return &cliAdminClient{
 		Cluster:         cluster,
 		clusterFilePath: clusterFile,
+		identifier:      identifier,
 		log:             logger,
 		cmdRunner:       &realCommandRunner{log: logger},
 		fdbLibClient: &realFdbLibClient{
@@ -682,8 +708,13 @@ func (client *cliAdminClient) GetRestoreStatus() (string, error) {
 
 // Close cleans up any pending resources.
 func (client *cliAdminClient) Close() error {
+	clientMutex.Lock()
+	defer func() {
+		clientMutex.Unlock()
+	}()
+
 	// Allow to reuse the same file.
-	return nil
+	return closeClient(client.log, client.identifier, client.clusterFilePath)
 }
 
 // GetCoordinatorSet gets the current coordinators from the status
@@ -738,7 +769,7 @@ func (client *cliAdminClient) getTimeout() time.Duration {
 // GetProcessesUnderMaintenance will return all process groups that are currently stored to be under maintenance.
 // The result is a map with the process group ID as key and the start of the maintenance as value.
 func (client *cliAdminClient) GetProcessesUnderMaintenance() (map[fdbv1beta2.ProcessGroupID]int64, error) {
-	db, err := getFDBDatabase(client.Cluster)
+	db, _, err := getFDBDatabase(client.Cluster)
 	if err != nil {
 		return nil, err
 	}
@@ -794,7 +825,7 @@ func (client *cliAdminClient) GetProcessesUnderMaintenance() (map[fdbv1beta2.Pro
 // RemoveProcessesUnderMaintenance will remove the provided process groups from the list of processes that
 // are planned to be taken down for maintenance.
 func (client *cliAdminClient) RemoveProcessesUnderMaintenance(processGroupIDs []fdbv1beta2.ProcessGroupID) error {
-	db, err := getFDBDatabase(client.Cluster)
+	db, _, err := getFDBDatabase(client.Cluster)
 	if err != nil {
 		return err
 	}
@@ -820,7 +851,7 @@ func (client *cliAdminClient) RemoveProcessesUnderMaintenance(processGroupIDs []
 // SetProcessesUnderMaintenance will add the provided process groups to the list of processes that will be taken
 // down for maintenance. The value will be the provided time stamp.
 func (client *cliAdminClient) SetProcessesUnderMaintenance(processGroupIDs []fdbv1beta2.ProcessGroupID, timestamp int64) error {
-	db, err := getFDBDatabase(client.Cluster)
+	db, _, err := getFDBDatabase(client.Cluster)
 	if err != nil {
 		return err
 	}

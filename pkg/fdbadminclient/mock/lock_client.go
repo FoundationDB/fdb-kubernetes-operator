@@ -145,3 +145,8 @@ func (client *LockClient) ClearPendingUpgrades() error {
 func ClearMockLockClients() {
 	lockClientCache = map[string]*LockClient{}
 }
+
+// Close cleans up any pending resources.
+func (client *LockClient) Close() error {
+	return nil
+}

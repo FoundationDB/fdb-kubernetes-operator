@@ -25,8 +25,11 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"k8s.io/utils/pointer"
 	"os"
 	"path"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -45,6 +48,63 @@ var MaxCliTimeout = 40 * time.Second
 const (
 	defaultTransactionTimeout = 5 * time.Second
 )
+
+// clientMutex is used to coordinate the creation and close (deletion) of clients.
+var clientMutex sync.Mutex
+
+// clientRefCounter is used to count the open references for a specific cluster file, if the counter is 0 when the Close()
+// method is called, all resources will be cleaned up.
+var clientRefCounter sync.Map
+
+// incrementClientRefCounter ... TODO! --> The cluster could be changing, so it would be better to store the generationID per client.
+func incrementClientRefCounter(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster) (string, error) {
+	key, err := clusterFileKey(cluster)
+	if err != nil {
+		return "", err
+	}
+
+	cnt := updateClientRefCounter(key, 1)
+	logger.V(1).Info("incrementing client ref counter", "key", key, "refCounter", cnt)
+	return key, nil
+}
+
+func closeClient(logger logr.Logger, key string, clusterFilePath string) error {
+	if key == "" {
+		return nil
+	}
+
+	cnt := updateClientRefCounter(key, -1)
+	logger.V(1).Info("decrementing client ref counter", "key", key, "refCounter", cnt)
+
+	if cnt <= 0 {
+		logger.V(1).Info("closing database and clean up cluster file", "key", key, "refCounter", cnt, "clusterFilePath", clusterFilePath)
+		err := os.Remove(clusterFilePath)
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				return nil
+			}
+
+			return err
+		}
+
+		// TODO (johscheuer): Close FDB database -> Must be implemented in the client bindings to free resources in the
+		// map, otherwise the map will increase with every new connection string.
+
+		// Delete the entry from the sync.Map as the reference count is 0.
+		clientRefCounter.Delete(key)
+	}
+
+	return nil
+}
+
+// updateClientRefCounter ... TODO!
+func updateClientRefCounter(key string, value int64) int64 {
+	val, _ := clientRefCounter.LoadOrStore(key, new(int64))
+	ptr := val.(*int64)
+	atomic.AddInt64(ptr, value)
+
+	return pointer.Int64Deref(ptr, 1)
+}
 
 func parseMachineReadableStatus(logger logr.Logger, contents []byte, checkForProcesses bool) (*fdbv1beta2.FoundationDBStatus, error) {
 	status := &fdbv1beta2.FoundationDBStatus{}
@@ -84,28 +144,42 @@ func parseMachineReadableStatus(logger logr.Logger, contents []byte, checkForPro
 }
 
 // getFDBDatabase opens an FDB database.
-func getFDBDatabase(cluster *fdbv1beta2.FoundationDBCluster) (fdb.Database, error) {
+func getFDBDatabase(cluster *fdbv1beta2.FoundationDBCluster) (fdb.Database, string, error) {
 	clusterFile, err := createClusterFile(cluster)
 	if err != nil {
-		return fdb.Database{}, err
+		return fdb.Database{}, "", err
 	}
 
 	database, err := fdb.OpenDatabase(clusterFile)
 	if err != nil {
-		return fdb.Database{}, err
+		return fdb.Database{}, clusterFile, err
 	}
 
 	err = database.Options().SetTransactionTimeout(defaultTransactionTimeout.Milliseconds())
 	if err != nil {
-		return fdb.Database{}, err
+		return fdb.Database{}, clusterFile, err
 	}
 
-	return database, nil
+	return database, clusterFile, nil
+}
+
+func clusterFileKey(cluster *fdbv1beta2.FoundationDBCluster) (string, error) {
+	parsedConnectionString, err := fdbv1beta2.ParseConnectionString(cluster.Status.ConnectionString)
+	if err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("%s@%s", parsedConnectionString.GenerationID, cluster.UID), nil
 }
 
 // createClusterFile will create or update the cluster file for the specified cluster.
 func createClusterFile(cluster *fdbv1beta2.FoundationDBCluster) (string, error) {
-	return ensureClusterFileIsPresent(os.TempDir(), string(cluster.UID), cluster.Status.ConnectionString)
+	clusterFile, err := clusterFileKey(cluster)
+	if err != nil {
+		return "", err
+	}
+
+	return ensureClusterFileIsPresent(path.Join(os.TempDir(), cluster.Name), clusterFile, cluster.Status.ConnectionString)
 }
 
 // ensureClusterFileIsPresent will ensure that the cluster file with the specified connection string is present.
@@ -117,6 +191,12 @@ func ensureClusterFileIsPresent(dir string, uid string, connectionString string)
 
 	// If the file doesn't exist we have to create it
 	if errors.Is(err, fs.ErrNotExist) {
+		// Ensure the directory exists, otherwise create it
+		err = os.MkdirAll(dir, 0777)
+		if err != nil {
+			return "", err
+		}
+
 		return clusterFileName, os.WriteFile(clusterFileName, []byte(connectionString), 0777)
 	}
 

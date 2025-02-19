@@ -48,9 +48,11 @@ type removeProcessGroups struct{}
 func (u removeProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
 	adminClient, err := r.getAdminClient(logger, cluster)
 	if err != nil {
-		return &requeue{curError: err}
+		return &requeue{curError: err, delayedRequeue: true}
 	}
-	defer adminClient.Close()
+	defer func() {
+		_ = adminClient.Close()
+	}()
 
 	// If the status is not cached, we have to fetch it.
 	if status == nil {
@@ -282,6 +284,10 @@ func includeProcessGroup(ctx context.Context, logger logr.Logger, r *FoundationD
 		if err != nil {
 			return err
 		}
+
+		defer func() {
+			_ = lockClient.Close()
+		}()
 
 		_, err = lockClient.TakeLock()
 		if err != nil {
