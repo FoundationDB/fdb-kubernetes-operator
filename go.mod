@@ -32,6 +32,9 @@ require (
 	sigs.k8s.io/yaml v1.3.0
 )
 
+// TODO (johscheuer): Update this before merging and once the upstream PR is merged.
+replace github.com/apple/foundationdb/bindings/go => github.com/johscheuer/foundationdb/bindings/go v0.0.0-20250220102233-c776de82d5fb
+
 require golang.org/x/sync v0.10.0
 
 require golang.org/x/net v0.34.0 // indirect

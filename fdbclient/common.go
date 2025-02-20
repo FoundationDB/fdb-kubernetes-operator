@@ -74,9 +74,9 @@ func incrementClientRefCounter(logger logr.Logger, cluster *fdbv1beta2.Foundatio
 // is equal to or less than 0, the cluster file at the clusterFilePath will be deleted.
 func closeClient(logger logr.Logger, key string, clusterFilePath string) error {
 	clientMutex.Lock()
-	defer func() {
-		clientMutex.Unlock()
-	}()
+	defer clientMutex.Unlock()
+	databaseMutex.Lock()
+	defer databaseMutex.Unlock()
 
 	if key == "" {
 		return nil
@@ -86,7 +86,17 @@ func closeClient(logger logr.Logger, key string, clusterFilePath string) error {
 	logger.V(1).Info("decrementing client ref counter", "key", key, "refCounter", cnt)
 
 	if cnt <= 0 {
-		logger.V(1).Info("closing database and clean up cluster file", "key", key, "refCounter", cnt, "clusterFilePath", clusterFilePath)
+		// Make sure to first close the database if a database is opened with this key. Otherwise,
+		// we have a race condition where we deleted the cluster file but the database is updating the cluster file
+		// before it is closed.
+		loadedDatabase, ok := databaseMap[key]
+		if ok {
+			logger.V(1).Info("closing database", "key", key, "refCounter", cnt, "clusterFilePath", clusterFilePath, "databaseMap", databaseMap)
+			loadedDatabase.Close()
+			delete(databaseMap, key)
+		}
+
+		logger.V(1).Info("clean up cluster file", "key", key, "refCounter", cnt, "clusterFilePath", clusterFilePath)
 		err := os.Remove(clusterFilePath)
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {
@@ -95,9 +105,6 @@ func closeClient(logger logr.Logger, key string, clusterFilePath string) error {
 
 			return err
 		}
-
-		// TODO (johscheuer): Close FDB database -> Must be implemented in the client bindings to free resources in the
-		// map, otherwise the map will increase with every new connection string.
 
 		// Delete the entry from the sync.Map as the reference count is 0.
 		clientRefCounter.Delete(key)
@@ -153,11 +160,32 @@ func parseMachineReadableStatus(logger logr.Logger, contents []byte, checkForPro
 	return status, nil
 }
 
+// databaseMutex is used to synchronize the creation/loading of the fdb.Database resource for this cluster.
+var databaseMutex sync.Mutex
+
+// databaseMap keeps track of the fdb.Database that was opened for a specific cluster file (generation ID and cluster
+// UID).
+var databaseMap = make(map[string]fdb.Database)
+
 // getFDBDatabase opens an FDB database.
 func getFDBDatabase(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster) (fdb.Database, string, error) {
+	databaseMutex.Lock()
+	defer databaseMutex.Unlock()
+
+	key, err := clusterFileKey(cluster)
+	if err != nil {
+		return fdb.Database{}, "", err
+	}
+
 	clusterFile, err := createClusterFile(logger, cluster)
 	if err != nil {
 		return fdb.Database{}, "", err
+	}
+
+	// If the database was already opened, just return it.
+	loadedDatabase, ok := databaseMap[key]
+	if ok {
+		return loadedDatabase, clusterFile, nil
 	}
 
 	database, err := fdb.OpenDatabase(clusterFile)
@@ -169,6 +197,8 @@ func getFDBDatabase(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster)
 	if err != nil {
 		return fdb.Database{}, clusterFile, err
 	}
+
+	databaseMap[key] = database
 
 	return database, clusterFile, nil
 }
