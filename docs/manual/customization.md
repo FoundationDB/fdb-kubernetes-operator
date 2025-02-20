@@ -254,7 +254,7 @@ Using service IPs presents its own challenges:
 
 ## Using Multiple Namespaces
 
-Our [sample deployment](../../config/samples/deployment.yaml) configures the operator to run in single-namespace mode, where it only manages resources in the namespace where the operator itself is running.If you want a single deployment of the operator to manage your FDB clusters across all of your namespaces, you will need to run it in global mode. Which mode is appropriate will depend on the constraints of your environment.
+Our [sample deployment](../../config/samples/deployment.yaml) configures the operator to run in single-namespace mode, where it only manages resources in the namespace where the operator itself is running. If you want a single deployment of the operator to manage your FDB clusters across all of your namespaces, you will need to run it in global mode. Which mode is appropriate will depend on the constraints of your environment.
 
 ### Single-Namespace Mode
 
