@@ -147,7 +147,9 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	defer adminClient.Close()
+	defer func() {
+		_ = adminClient.Close()
+	}()
 
 	err = cluster.Validate()
 	if err != nil {
@@ -172,6 +174,9 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 		}
 	}
 
+	// TODO (johscheuer): Dynamically run those sub reconcilers, depending on the state of the cluster, e.g. during the
+	// initial reconciliation a different set of sub reconcilers must be run than during normal operations (and most sub
+	// reconcilers will not be performing any action).
 	subReconcilers := []clusterSubReconciler{
 		updateStatus{},
 		updateLockConfiguration{},
@@ -474,6 +479,10 @@ func (r *FoundationDBClusterReconciler) takeLock(logger logr.Logger, cluster *fd
 		return false, err
 	}
 
+	defer func() {
+		_ = lockClient.Close()
+	}()
+
 	hasLock, err := lockClient.TakeLock()
 	if err != nil {
 		return false, err
@@ -573,7 +582,7 @@ func (r *FoundationDBClusterReconciler) getStatusFromClusterOrDummyStatus(logger
 	}
 
 	connectionString, err := tryConnectionOptions(logger, cluster, r)
-	if err != nil {
+	if err != nil && cluster.Status.Configured {
 		return nil, err
 	}
 
@@ -589,7 +598,9 @@ func (r *FoundationDBClusterReconciler) getStatusFromClusterOrDummyStatus(logger
 	if err != nil {
 		return nil, err
 	}
-	defer adminClient.Close()
+	defer func() {
+		_ = adminClient.Close()
+	}()
 
 	// If the cluster is not yet configured, we can reduce the timeout to make sure the initial reconcile steps
 	// are faster.

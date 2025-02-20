@@ -45,7 +45,9 @@ func (c changeCoordinators) reconcile(ctx context.Context, r *FoundationDBCluste
 	if err != nil {
 		return &requeue{curError: err, delayedRequeue: true}
 	}
-	defer adminClient.Close()
+	defer func() {
+		_ = adminClient.Close()
+	}()
 
 	// If the status is not cached, we have to fetch it.
 	if status == nil {

@@ -43,6 +43,10 @@ func (c maintenanceModeChecker) reconcile(_ context.Context, r *FoundationDBClus
 		return &requeue{curError: err, delayedRequeue: true}
 	}
 
+	defer func() {
+		_ = adminClient.Close()
+	}()
+
 	// If the status is not cached, we have to fetch it.
 	if status == nil {
 		status, err = adminClient.GetStatus()

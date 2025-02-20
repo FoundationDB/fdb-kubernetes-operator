@@ -21,6 +21,7 @@
 package fdbclient
 
 import (
+	"github.com/go-logr/logr"
 	"os"
 	"path"
 
@@ -35,10 +36,13 @@ var _ = Describe("common_test", func() {
 		uid := "testuid"
 		connectionString := "test@test:127.0.0.1:4500"
 
+		BeforeEach(func() {
+			tmpDir = GinkgoT().TempDir()
+		})
+
 		JustBeforeEach(func() {
 			var err error
-			tmpDir = GinkgoT().TempDir()
-			clusterFile, err = ensureClusterFileIsPresent(tmpDir, uid, connectionString)
+			clusterFile, err = ensureClusterFileIsPresent(logr.Discard(), tmpDir, uid, connectionString)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -53,21 +57,20 @@ var _ = Describe("common_test", func() {
 
 		When("the cluster file exist with the wrong content", func() {
 			BeforeEach(func() {
-				err := os.WriteFile(path.Join(os.TempDir(), uid), []byte("wrong"), 0777)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(os.WriteFile(path.Join(tmpDir, uid), []byte("wrong"), 0777)).To(Succeed())
 			})
 
-			It("should update the cluster file with the correct content", func() {
+			It("should not update the cluster file with the correct content", func() {
 				Expect(clusterFile).To(Equal(path.Join(tmpDir, uid)))
 				content, err := os.ReadFile(clusterFile)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(string(content)).To(Equal(connectionString))
+				Expect(string(content)).To(Equal("wrong"))
 			})
 		})
 
 		When("the cluster file exist with the correct content", func() {
 			BeforeEach(func() {
-				err := os.WriteFile(path.Join(os.TempDir(), uid), []byte(connectionString), 0777)
+				err := os.WriteFile(path.Join(tmpDir, uid), []byte(connectionString), 0777)
 				Expect(err).NotTo(HaveOccurred())
 			})
 

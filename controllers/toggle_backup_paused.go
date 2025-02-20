@@ -42,9 +42,11 @@ func (s toggleBackupPaused) reconcile(ctx context.Context, r *FoundationDBBackup
 	if backup.ShouldBePaused() && !backup.Status.BackupDetails.Paused {
 		adminClient, err := r.adminClientForBackup(ctx, backup)
 		if err != nil {
-			return &requeue{curError: err}
+			return &requeue{curError: err, delayedRequeue: true}
 		}
-		defer adminClient.Close()
+		defer func() {
+			_ = adminClient.Close()
+		}()
 
 		err = adminClient.PauseBackups()
 		if err != nil {
@@ -56,7 +58,9 @@ func (s toggleBackupPaused) reconcile(ctx context.Context, r *FoundationDBBackup
 		if err != nil {
 			return &requeue{curError: err}
 		}
-		defer adminClient.Close()
+		defer func() {
+			_ = adminClient.Close()
+		}()
 
 		err = adminClient.ResumeBackups()
 		if err != nil {

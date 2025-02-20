@@ -69,7 +69,9 @@ func (u updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 	if err != nil {
 		return &requeue{curError: err, delayedRequeue: true}
 	}
-	defer adminClient.Close()
+	defer func() {
+		_ = adminClient.Close()
+	}()
 
 	// If the status is not cached, we have to fetch it.
 	if status == nil {

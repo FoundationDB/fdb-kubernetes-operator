@@ -50,7 +50,9 @@ func (c replaceFailedProcessGroups) reconcile(ctx context.Context, r *Foundation
 		if err != nil {
 			return &requeue{curError: err, delayedRequeue: true}
 		}
-		defer adminClient.Close()
+		defer func() {
+			_ = adminClient.Close()
+		}()
 
 		status, err = adminClient.GetStatus()
 		if err != nil {

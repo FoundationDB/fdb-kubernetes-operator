@@ -56,6 +56,10 @@ func (a addProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterR
 				return &requeue{curError: err, delayedRequeue: true}
 			}
 
+			defer func() {
+				_ = adminClient.Close()
+			}()
+
 			status, err = adminClient.GetStatus()
 			if err != nil {
 				return &requeue{curError: err, delayedRequeue: true}
