@@ -40,9 +40,7 @@ var _ = Describe("lock_client_test", func() {
 
 	Describe("TakeLock", func() {
 		It("returns true", func() {
-			success, err := lockClient.TakeLock()
-			Expect(err).NotTo(HaveOccurred())
-			Expect(success).To(BeTrue())
+			Expect(lockClient.TakeLock()).To(Succeed())
 		})
 	})
 

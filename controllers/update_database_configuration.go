@@ -95,9 +95,9 @@ func (u updateDatabaseConfiguration) reconcile(_ context.Context, r *FoundationD
 		}
 
 		if !initialConfig {
-			hasLock, err := r.takeLock(logger, cluster,
+			err := r.takeLock(logger, cluster,
 				fmt.Sprintf("reconfiguring the database to `%s`", configurationString))
-			if !hasLock {
+			if err != nil {
 				return &requeue{curError: err, delayedRequeue: true}
 			}
 		}

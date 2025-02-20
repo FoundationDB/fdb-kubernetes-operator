@@ -467,22 +467,14 @@ func (r *FoundationDBClusterReconciler) getLockClient(logger logr.Logger, cluste
 }
 
 // takeLock attempts to acquire a lock.
-func (r *FoundationDBClusterReconciler) takeLock(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, action string) (bool, error) {
+func (r *FoundationDBClusterReconciler) takeLock(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, action string) error {
 	logger.Info("Taking lock on cluster", "action", action)
 	lockClient, err := r.getLockClient(logger, cluster)
 	if err != nil {
-		return false, err
+		return err
 	}
 
-	hasLock, err := lockClient.TakeLock()
-	if err != nil {
-		return false, err
-	}
-
-	if !hasLock {
-		r.Recorder.Event(cluster, corev1.EventTypeNormal, "LockAcquisitionFailed", fmt.Sprintf("Lock required before %s", action))
-	}
-	return hasLock, nil
+	return lockClient.TakeLock()
 }
 
 // releaseLock attempts to release a lock.

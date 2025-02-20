@@ -75,7 +75,7 @@ func (c changeCoordinators) reconcile(ctx context.Context, r *FoundationDBCluste
 		return nil
 	}
 
-	_, err = r.takeLock(logger, cluster, "changing coordinators")
+	err = r.takeLock(logger, cluster, "changing coordinators")
 	if err != nil {
 		return &requeue{curError: err, delayedRequeue: true}
 	}

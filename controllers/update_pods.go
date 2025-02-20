@@ -370,7 +370,7 @@ func deletePodsForUpdates(ctx context.Context, r *FoundationDBClusterReconciler,
 	// Only lock the cluster if we are not running in the delete "All" mode.
 	// Otherwise, we want to delete all Pods and don't require a lock to sync with other clusters.
 	if deletionMode != fdbv1beta2.PodUpdateModeAll {
-		_, err := r.takeLock(logger, cluster, "updating pods")
+		err := r.takeLock(logger, cluster, "updating pods")
 		if err != nil {
 			return &requeue{curError: err}
 		}

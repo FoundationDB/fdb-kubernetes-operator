@@ -73,12 +73,7 @@ func (e excludeProcesses) reconcile(ctx context.Context, r *FoundationDBClusterR
 
 	// Make sure the exclusions are coordinated across multiple operator instances.
 	if cluster.ShouldUseLocks() {
-		lockClient, err := r.getLockClient(logger, cluster)
-		if err != nil {
-			return &requeue{curError: err}
-		}
-
-		_, err = lockClient.TakeLock()
+		err = r.takeLock(logger, cluster, "exclude processes")
 		if err != nil {
 			return &requeue{curError: err, delayedRequeue: true}
 		}
