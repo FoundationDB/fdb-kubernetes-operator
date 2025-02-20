@@ -25,8 +25,6 @@ At start time, the operator scans this directory for version-specific binaries, 
 
 By default, the primary client library used by the operator is the oldest supported version, as discussed above.
 If you want to use a newer version of the client library as your primary client, you can control that through additional init containers.
-**NOTE**: When using this approach it can happen that the operator keeps crashing when all coordinators are deleted, see https://github.com/apple/foundationdb/issues/11222.
-A better solution is to build the operator with the `7.1` version to prevent those crashes.
 
 ```yaml
 # This provides partial configuration for the deployment to show what needs to change in order to
@@ -41,31 +39,35 @@ apiVersion: apps/v1
        initContainers:
          # Install this library in a special location to force the operator to
          # use it as the primary library.
-         - name: foundationdb-kubernetes-init-7-1-primary
-           image: foundationdb/foundationdb-kubernetes-sidecar:7.1.5
+         - name: foundationdb-kubernetes-init-7-3-primary
+           image: foundationdb/fdb-kubernetes-monitor:7.3.59
            args:
              # Note that we are only copying a library, rather than copying any binaries. 
-             - "--copy-library"
-             - "7.1"
-             - "--output-dir"
-             - "/var/output-files/primary" # Note that we use `primary` as the subdirectory rather than specifying the FoundationDB version like we did in the other examples.
-             - "--init-mode"
+             - --copy-library
+             - "7.3"
+             - --copy-primary-library
+             - "7.3"
+             - --output-dir
+             - /var/output-files/primary # Note that we use `primary` as the subdirectory rather than specifying the FoundationDB version like we did in the other examples.
+             - --mode
+             - init
            volumeMounts:
              - name: fdb-binaries
                mountPath: /var/output-files
          # Install binaries alone, to a different directory than the primary client library.
-         - name: foundationdb-kubernetes-init-7-1
-           image: foundationdb/foundationdb-kubernetes-sidecar:7.1.5
+         - name: foundationdb-kubernetes-init-7-3
+           image: foundationdb/fdb-kubernetes-monitor:7.3.59
            args:
-             - "--copy-binary"
-             - "fdbcli"
-             - "--copy-binary"
-             - "fdbbackup"
-             - "--copy-binary"
-             - "fdbrestore"
-             - "--output-dir"
-             - "/var/output-files/7.1.5"
-             - "--init-mode"
+             - --copy-binary
+             - fdbcli
+             - --copy-binary
+             - fdbbackup
+             - --copy-binary
+             - fdbrestore
+             - --output-dir
+             - /var/output-files"
+             - --mode
+             - init
            volumeMounts:
              - name: fdb-binaries
                mountPath: /var/output-files

@@ -379,7 +379,7 @@ Once that change is fully reconciled, you can clear the deny list from the spec.
 
 [Pod disruption budgets](https://kubernetes.io/docs/tasks/run-application/configure-pdb/)
 are a good idea to prevent simultaneous disruption to many components in a
-cluster, particularly during the upgrade of nodepools in public clouds. The
+cluster, particularly during the upgrade of node pools in public clouds. The
 operator does not yet create these automatically. To aid in creation of PDBs the
 operator preferentially selects coordinators from just storage pods, then if
 there are not enough storage pods, or the storage pods are not spread across

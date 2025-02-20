@@ -2,11 +2,19 @@
 
 This document covers some of the options the operator provides for customizing your FoundationDB deployment.
 
-Many of these customizations involve the `processes` field in the cluster spec, which we will refer to as the "process settings". This field is a dictionary, mapping a process class to a process settings object. This also supports a special key called `general` which is applied to all process classes. If a value is specified for a specific process class, the `general` value will be ignored. These values are merged at the top level of the process settings object. If you specify a `volumeClaimTemplate` object in the `storage` settings and a `podTemplate` object in the `general` settings, the storage processes will use both the custom `volumeClaimTemplate` and the general `podTemplate`. If you specify a `podTemplate` object in the `storage` settings and `podTemplate` object in the `general` settings, the storage processes will only use the values given in the `storage` settings, and will ignore the pod template from the `general` settings completely.
+Many of these customizations involve the `processes` field in the cluster spec, which we will refer to as the "process settings".
+This field is a dictionary, mapping a process class to a process settings object.
+This also supports a special key called `general` which is applied to all process classes.
+If a value is specified for a specific process class, the `general` value will be ignored.
+These values are merged at the top level of the process settings object.
+If you specify a `volumeClaimTemplate` object in the `storage` settings and a `podTemplate` object in the `general` settings, the storage processes will use both the custom `volumeClaimTemplate` and the general `podTemplate`.
+If you specify a `podTemplate` object in the `storage` settings and `podTemplate` object in the `general` settings, the storage processes will only use the values given in the `storage` settings, and will ignore the pod template from the `general` settings completely.
 
 ## Running Multiple Storage Servers per Pod
 
-Since FoundationDB is limited to a single core it can make sense to run multiple storage server per disk. You can change the number of storage server per Pod with the `storageServersPerPod` setting. This will start multiple FDB processes inside of a single container, under a single `fdbmonitor` process.
+Since FoundationDB is limited to a single core it can make sense to run multiple storage server per disk.
+You can change the number of storage server per Pod with the `storageServersPerPod` setting.
+This will start multiple FDB processes inside of a single container, under a single `fdbmonitor` process.
 
 ```yaml
 apiVersion: apps.foundationdb.org/v1beta2
@@ -19,7 +27,7 @@ spec:
     storageServersPerPod: 2
 ```
 
-A change to the `storageServersPerPod` will replace all of the storage pods. For more information about this feature read the [multiple storage servers per pod](/docs/design/implemented/multiple_storage_per_disk.md) design doc.
+A change to the `storageServersPerPod` will replace all the storage pods. For more information about this feature read the [multiple storage servers per pod](/docs/design/implemented/multiple_storage_per_disk.md) design doc.
 
 ## Customizing the Volumes
 
@@ -244,88 +252,6 @@ Using service IPs presents its own challenges:
 * We currently only support services with the ClusterIP type. These IPs may not be routable from outside the Kubernetes cluster.
 * The Service IP space is often more limited than the pod IP space, which could cause you to run out of service IPs.
 
-## Using DNS
-
-Using Pod IPs has the limitation that Pods might get a new IP address if they are recreated and sometimes using service IPs is not the right approach.
-FDB supports to use DNS in the cluster file since 7.1 and the operator can make use of that.
-
-*Note*: This requires the following customization to inject the 7.1 library and use it as primary library (see code example below).
-As an alternative you can build the operator image by yourself that contains the 7.1 library as the primary library.
-Building the operator by yourself can be achieved with `docker build --build-arg FDB_VERSION=7.1.26 -t foundationdb/fdb-kubernetes-operator .`.
-
-```yaml
-      initContainers:
-         ...
-         # Install this library in a special location to force the operator to
-         # use it as the primary library.
-         - name: foundationdb-kubernetes-init-7-1-primary
-           image: foundationdb/foundationdb-kubernetes-sidecar:7.1.26-1
-           args:
-             - "--copy-library"
-             - "7.1"
-             - "--output-dir"
-             - "/var/output-files/primary"
-             - "--init-mode"
-           volumeMounts:
-             - name: fdb-binaries
-               mountPath: /var/output-files
-      containers:
-         - name: manager
-           imagePullPolicy: IfNotPresent
-           env:
-             - name: LD_LIBRARY_PATH
-               value: /usr/bin/fdb/primary/lib
-```
-
-The important part here is to add an additional init container with the 7.1 version and copy the library into `.../primary`, this library will be used by the operator as primary library.
-Once you set `useDNSInClusterFile` to true the operator will make the required changes to use DNS instead of IPs in the cluster file.
-
-```yaml
-apiVersion: apps.foundationdb.org/v1beta2
-kind: FoundationDBCluster
-metadata:
-    name: sample-cluster
-spec:
-  version: 7.1.26
-  routing:
-    useDNSInClusterFile: true
-```
-
-The generated connection string will look like this:
-
-```bash
-$ kubectl get cm test-cluster-config  -o jsonpath='{.data.cluster-file}'
-test_cluster:YeA03hA3hSC9vRnc2snrHf9o3rOZHe8o@test-cluster-storage-1.test-cluster.default.svc.cluster.local:4501,test-cluster-storage-2.test-cluster.default.svc.cluster.local:4501,test-cluster-storage-3.test-cluster.default.svc.cluster.local:4501
-```
-
-and the status command will show that the coordianators are resolved using the DNS names:
-
-```bash
-$ fdbcli --exec 'status details'
-Using cluster file `/var/dynamic-conf/fdb.cluster'.
-
-Configuration:
-...
-
-Coordination servers:
-  test-cluster-storage-1.test-cluster.default.svc.cluster.local:4501  (reachable)
-  test-cluster-storage-2.test-cluster.default.svc.cluster.local:4501  (reachable)
-  test-cluster-storage-3.test-cluster.default.svc.cluster.local:4501  (reachable)
-```
-
-The operator will add a special locality to the fdbserver processes called `dns_name` which stores the dns name for this process:
-
-```json
-     "locality" : {
-                    "dns_name" : "test-cluster-storage-3.test-cluster.default.svc.cluster.local",
-                    "instance_id" : "storage-3",
-                    "machineid" : "test-cluster-storage-3",
-                    "processid" : "fb1980fe9c2a6aef589ea0fd5c6131a2",
-                    "zoneid" : "test-cluster-storage-3"
-                },
-
-```
-
 ## Using Multiple Namespaces
 
 Our [sample deployment](../../config/samples/deployment.yaml) configures the operator to run in single-namespace mode, where it only manages resources in the namespace where the operator itself is running. If you want a single deployment of the operator to manage your FDB clusters across all of your namespaces, you will need to run it in global mode. Which mode is appropriate will depend on the constraints of your environment.
@@ -508,8 +434,8 @@ kubectl label pod,pvc,configmap,service -l foundationdb.org/fdb-cluster-name=sam
 The operator currently supports two different image types: a split image and a unified image.
 The split image provides two different images for the `foundationdb` container and the `foundationdb-kubernetes-sidecar` container.
 The unified image provides a single image which handles launching `fdbserver` processes as well as providing feedback to the operator on locality information and updates to dynamic conf.
-The default behavior in the operator is to use the split image.
-To switch to the unified image, set the flag in the cluster spec as follows:
+The default behavior in the operator is to use the unified image.
+To switch to the split image, set the flag in the cluster spec as follows:
 
 ```yaml
 apiVersion: apps.foundationdb.org/v1beta2
@@ -518,8 +444,10 @@ metadata:
   name: sample-cluster
 spec:
   version: 7.1.26
-  imageType: "unified"
+  imageType: "split"
 ```
+
+**NOTE**: The split image is deprecated and new features will only be implemented in the unified image.
 
 For more information on how the interaction between the operator and these images works, see the [technical design](technical_design.md#interaction-between-the-operator-and-the-pods).
 
