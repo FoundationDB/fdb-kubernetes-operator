@@ -241,7 +241,7 @@ type FoundationDBClusterSpec struct {
 	// Default: split
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:Enum=split;unified
-	// +kubebuilder:default:=split
+	// +kubebuilder:default:=unified
 	ImageType *ImageType `json:"imageType,omitempty"`
 
 	// MaxZonesWithUnavailablePods defines the maximum number of zones that can have unavailable pods during the update process.
