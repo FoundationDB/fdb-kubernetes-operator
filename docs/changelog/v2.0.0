@@ -1,0 +1,14 @@
+# v2.0.0
+
+## Changes
+
+### Operator
+
+* Update the image type default in the CRD [#2220](https://github.com/FoundationDB/fdb-kubernetes-operator/pull/2220)
+* Update docs for v2 release [#2219](https://github.com/FoundationDB/fdb-kubernetes-operator/pull/2219)
+* Fix typo storagerServersPerPod [#2218](https://github.com/FoundationDB/fdb-kubernetes-operator/pull/2218)
+* Ensure that the ConfigMap name for the cluster can't be modified [#2215](https://github.com/FoundationDB/fdb-kubernetes-operator/pull/2215)
+* Streamline lock client usage [#2214](https://github.com/FoundationDB/fdb-kubernetes-operator/pull/2214)
+* Ensure operator uses static names for PVC. [#2213](https://github.com/FoundationDB/fdb-kubernetes-operator/pull/2213)
+* Changes for the operator v2 release [#2212](https://github.com/FoundationDB/fdb-kubernetes-operator/pull/2212)
+* Expose the multi-region recover mechanism [#2210](https://github.com/FoundationDB/fdb-kubernetes-operator/pull/2210)
