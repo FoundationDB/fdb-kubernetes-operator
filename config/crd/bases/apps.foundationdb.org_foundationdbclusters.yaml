@@ -396,7 +396,7 @@ spec:
               ignoreUpgradabilityChecks:
                 type: boolean
               imageType:
-                default: split
+                default: unified
                 enum:
                 - split
                 - unified
