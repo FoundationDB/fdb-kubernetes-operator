@@ -554,8 +554,15 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 			factory.SetFinalizerForPod(&podMarkedForRemoval, []string{"foundationdb.org/test"})
 			// Don't wait for reconciliation as the cluster will never reconcile.
 			fdbCluster.ReplacePod(podMarkedForRemoval, false)
+
+			timeSinceLastForceReconcile := time.Now()
 			// Make sure the process group is marked for removal
 			Eventually(func() *int64 {
+				if time.Since(timeSinceLastForceReconcile) > 1*time.Minute {
+					fdbCluster.ForceReconcile()
+					timeSinceLastForceReconcile = time.Now()
+				}
+
 				cluster := fdbCluster.GetCluster()
 
 				for _, processGroup := range cluster.Status.ProcessGroups {

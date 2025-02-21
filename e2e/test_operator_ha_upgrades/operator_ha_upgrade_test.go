@@ -557,7 +557,6 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 			}
 
 			clusterConfig := fixtures.DefaultClusterConfigWithHaMode(fixtures.HaFourZoneSingleSat, false)
-			clusterConfig.UseLocalityBasedExclusions = true
 
 			clusterSetupWithTestConfig(
 				testConfig{

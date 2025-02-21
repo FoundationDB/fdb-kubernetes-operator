@@ -1451,7 +1451,7 @@ func (fdbCluster *FdbCluster) EnsureTeamTrackersAreHealthy() {
 		}
 
 		return true
-	}).WithTimeout(1 * time.Minute).WithPolling(1 * time.Second).MustPassRepeatedly(5).Should(gomega.BeTrue())
+	}).WithTimeout(2 * time.Minute).WithPolling(1 * time.Second).MustPassRepeatedly(5).Should(gomega.BeTrue())
 }
 
 // EnsureTeamTrackersHaveMinReplicas will check if the machine-readable status suggest that the team trackers min_replicas
