@@ -47,7 +47,7 @@ func (fdbClient *realFdbLibClient) getValueFromDBUsingKey(fdbKey string, timeout
 	defer func() {
 		fdbClient.logger.Info("Done fetching values from FDB", "key", fdbKey)
 	}()
-	database, err := getFDBDatabase(fdbClient.cluster)
+	database, err := getFDBDatabase(fdbClient.logger, fdbClient.cluster)
 	if err != nil {
 		return nil, err
 	}
