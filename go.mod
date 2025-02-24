@@ -1,6 +1,6 @@
 module github.com/FoundationDB/fdb-kubernetes-operator/v2
 
-go 1.22
+go 1.22.7
 
 require (
 	// Binding version for 7.1.67
