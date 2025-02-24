@@ -27,6 +27,7 @@ This test suite contains tests related to backup and restore with the operator.
 import (
 	"log"
 
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/fixtures"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -44,6 +45,20 @@ func init() {
 
 var _ = BeforeSuite(func() {
 	factory = fixtures.CreateFactory(testOptions)
+
+	badBackupVersion, err := fdbv1beta2.ParseFdbVersion("7.3.50")
+	Expect(err).NotTo(HaveOccurred())
+	goodBackupVersion, err := fdbv1beta2.ParseFdbVersion("7.3.62")
+	Expect(err).NotTo(HaveOccurred())
+
+	version := factory.GetFDBVersion()
+	if version.IsAtLeast(badBackupVersion) && !version.IsAtLeast(goodBackupVersion) {
+		Skip("version has a bug in the backup version that prevents tests to succeed")
+	}
+
+	if factory.GetFDBVersionAsString() == "7.1.63" {
+		Skip("Skip backup tests with 7.1.63 as this version has a bug in the fdbbackup agent")
+	}
 
 	fdbCluster = factory.CreateFdbCluster(
 		fixtures.DefaultClusterConfig(false),
@@ -68,10 +83,6 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 		var backup *fixtures.FdbBackup
 
 		BeforeEach(func() {
-			if factory.GetFDBVersionAsString() == "7.1.63" {
-				Skip("Skip backup tests with 7.1.63 as this version has a bug in the fdbbackup agent")
-			}
-
 			log.Println("creating backup for cluster")
 			backup = factory.CreateBackupForCluster(fdbCluster)
 			keyValues = fdbCluster.GenerateRandomValues(10, prefix)
