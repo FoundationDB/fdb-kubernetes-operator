@@ -23,7 +23,7 @@ package controllers
 import (
 	"context"
 
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 )
 
 // stopBackup provides a reconciliation step for stopping backup.
@@ -40,7 +40,9 @@ func (s stopBackup) reconcile(ctx context.Context, r *FoundationDBBackupReconcil
 	if err != nil {
 		return &requeue{curError: err}
 	}
-	defer adminClient.Close()
+	defer func() {
+		_ = adminClient.Close()
+	}()
 
 	err = adminClient.StopBackup(backup.BackupURL())
 	if err != nil {

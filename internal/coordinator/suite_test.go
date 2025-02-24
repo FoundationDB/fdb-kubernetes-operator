@@ -25,13 +25,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient/mock"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient/mock"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	mockclient "github.com/FoundationDB/fdb-kubernetes-operator/mock-kubernetes-client/client"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
+	mockclient "github.com/FoundationDB/fdb-kubernetes-operator/v2/mock-kubernetes-client/client"
 
 	"github.com/onsi/gomega/gexec"
 	"k8s.io/client-go/kubernetes/scheme"

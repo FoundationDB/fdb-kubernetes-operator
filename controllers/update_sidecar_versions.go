@@ -26,13 +26,13 @@ import (
 
 	"github.com/go-logr/logr"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/podmanager"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
 
 	corev1 "k8s.io/api/core/v1"
 
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 )
 
 // updateSidecarVersions provides a reconciliation step for upgrading the

@@ -27,15 +27,15 @@ import (
 	"sort"
 	"time"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal/locality"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/locality"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/podmanager"
 	"github.com/go-logr/logr"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
 
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -338,7 +338,7 @@ func checkAndSetProcessStatus(logger logr.Logger, r *FoundationDBClusterReconcil
 	// later by validating additional messages in the machine-readable status.
 	if len(processMap) == 0 {
 		// TODO (johscheuer): Should we reset the exclusion state if the processes are missing? In this case we cannot
-		// know if the process was fully excluded or not and we could run into issues like: https://github.com/FoundationDB/fdb-kubernetes-operator/issues/1912
+		// know if the process was fully excluded or not and we could run into issues like: https://github.com/FoundationDB/fdb-kubernetes-operator/v2/issues/1912
 		// This change needs some additional testing to ensure we understand the possible side effects.
 		return nil
 	}
@@ -408,7 +408,7 @@ func checkAndSetProcessStatus(logger logr.Logger, r *FoundationDBClusterReconcil
 
 			// If the new command line is longer than 10.000 characters we will throw an error to make sure the operator
 			// is not restarting the cluster the whole time.
-			// See https://github.com/FoundationDB/fdb-kubernetes-operator/issues/2105
+			// See https://github.com/FoundationDB/fdb-kubernetes-operator/v2/issues/2105
 			if len(commandLine) > 10000 {
 				r.Recorder.Event(cluster, corev1.EventTypeWarning, "Command line too long", "Command line exceeds 10.000 characters and will be truncated in the machine-readable status")
 				return fmt.Errorf("command line exceeds 10.000 characters and will be truncated in the machine-readable status: %s", commandLine)

@@ -24,16 +24,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient"
 	"net"
 	"strconv"
 	"time"
 
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal/buggify"
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal/removals"
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbstatus"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/buggify"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/removals"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbstatus"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -50,7 +50,9 @@ func (u removeProcessGroups) reconcile(ctx context.Context, r *FoundationDBClust
 	if err != nil {
 		return &requeue{curError: err}
 	}
-	defer adminClient.Close()
+	defer func() {
+		_ = adminClient.Close()
+	}()
 
 	// If the status is not cached, we have to fetch it.
 	if status == nil {
@@ -165,7 +167,7 @@ func removeProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, c
 		}
 	}
 
-	// TODO(johscheuer): https://github.com/FoundationDB/fdb-kubernetes-operator/issues/1638
+	// TODO(johscheuer): https://github.com/FoundationDB/fdb-kubernetes-operator/v2/issues/1638
 	pvcs := &corev1.PersistentVolumeClaimList{}
 	err = r.List(ctx, pvcs, internal.GetSinglePodListOptions(cluster, processGroup.ProcessGroupID)...)
 	if err != nil {
@@ -218,7 +220,7 @@ func confirmRemoval(ctx context.Context, logger logr.Logger, r *FoundationDBClus
 		canBeIncluded = false
 	}
 
-	// TODO(johscheuer): https://github.com/FoundationDB/fdb-kubernetes-operator/issues/1638
+	// TODO(johscheuer): https://github.com/FoundationDB/fdb-kubernetes-operator/v2/issues/1638
 	pvcs := &corev1.PersistentVolumeClaimList{}
 	err = r.List(ctx, pvcs, internal.GetSinglePodListOptions(cluster, processGroup.ProcessGroupID)...)
 	if err != nil {

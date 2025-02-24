@@ -23,7 +23,7 @@ package main
 import (
 	"os"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/kubectl-fdb/cmd"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/kubectl-fdb/cmd"
 	"github.com/spf13/pflag"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"

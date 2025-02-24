@@ -23,7 +23,7 @@ package cmd
 import (
 	"bufio"
 	"fmt"
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -163,7 +163,7 @@ func usingLatestPluginVersion(cmd *cobra.Command, pluginVersionChecker VersionCh
 	if pluginVersion != latestPluginVersion {
 		versionMessage := "kubectl-fdb plugin is not up-to-date, please install the latest version and try again!\n" +
 			"Your version:[" + pluginVersion + "], latest release version:[" + latestPluginVersion + "].\n" +
-			"Installation instructions can be found here: https://github.com/FoundationDB/fdb-kubernetes-operator/blob/main/kubectl-fdb/Readme.md"
+			"Installation instructions can be found here: https://github.com/FoundationDB/fdb-kubernetes-operator/v2/blob/main/kubectl-fdb/Readme.md"
 		cmd.Println(versionMessage)
 		return fmt.Errorf("outdated plugin version")
 	}

@@ -20,7 +20,7 @@
 
 package restarts
 
-import fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+import fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 
 // GetFilterConditions returns the filter conditions to get the processes that should be restarted.
 func GetFilterConditions(cluster *fdbv1beta2.FoundationDBCluster) map[fdbv1beta2.ProcessGroupConditionType]bool {

@@ -30,8 +30,8 @@ import (
 	"log"
 	"time"
 
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	"github.com/FoundationDB/fdb-kubernetes-operator/e2e/fixtures"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/fixtures"
 	chaosmesh "github.com/chaos-mesh/chaos-mesh/api/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -95,7 +95,7 @@ var _ = Describe("Operator HA Upgrades", Label("e2e"), func() {
 		factory.Shutdown()
 	})
 
-	// https://github.com/FoundationDB/fdb-kubernetes-operator/issues/172, debug why this test is flaky and how
+	// https://github.com/FoundationDB/fdb-kubernetes-operator/v2/issues/172, debug why this test is flaky and how
 	// to make it stable.
 	DescribeTable(
 		"when no remote processes are restarted",

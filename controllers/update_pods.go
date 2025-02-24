@@ -23,16 +23,16 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient"
 	"k8s.io/utils/pointer"
 	"time"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbstatus"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbstatus"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal/replacements"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/replacements"
 
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -69,7 +69,9 @@ func (u updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 	if err != nil {
 		return &requeue{curError: err, delayedRequeue: true}
 	}
-	defer adminClient.Close()
+	defer func() {
+		_ = adminClient.Close()
+	}()
 
 	// If the status is not cached, we have to fetch it.
 	if status == nil {

@@ -27,7 +27,7 @@ import (
 	"strings"
 	"time"
 
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 
 	"github.com/go-logr/logr"
 )

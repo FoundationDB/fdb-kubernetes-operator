@@ -28,7 +28,7 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 )
 

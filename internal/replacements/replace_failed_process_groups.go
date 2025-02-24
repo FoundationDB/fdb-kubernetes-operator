@@ -24,7 +24,7 @@ import (
 	"fmt"
 	"time"
 
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/go-logr/logr"
 )
 
@@ -185,7 +185,7 @@ func ReplaceFailedProcessGroups(logger logr.Logger, cluster *fdbv1beta2.Foundati
 		// Only if localities are not used for exclusions we should be skipping the exclusion.
 		// Skipping the exclusion could lead to a race condition, which can be prevented if
 		// we are able to exclude by locality.
-		// see: https://github.com/FoundationDB/fdb-kubernetes-operator/issues/1890
+		// see: https://github.com/FoundationDB/fdb-kubernetes-operator/v2/issues/1890
 		if len(processGroup.Addresses) == 0 && !localitiesUsedForExclusion {
 			if !hasDesiredFaultTolerance {
 				logger.Info(

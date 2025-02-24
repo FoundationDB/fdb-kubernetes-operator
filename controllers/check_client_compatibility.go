@@ -30,7 +30,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 )
 
 // checkClientCompatibility confirms that all clients are compatible with the
@@ -69,7 +69,9 @@ func (c checkClientCompatibility) reconcile(_ context.Context, r *FoundationDBCl
 	if err != nil {
 		return &requeue{curError: err}
 	}
-	defer adminClient.Close()
+	defer func() {
+		_ = adminClient.Close()
+	}()
 
 	// If the status is not cached, we have to fetch it.
 	if status == nil {

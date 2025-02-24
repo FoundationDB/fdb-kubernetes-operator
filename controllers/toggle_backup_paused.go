@@ -23,7 +23,7 @@ package controllers
 import (
 	"context"
 
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 )
 
 // toggleBackupPaused provides a reconciliation step for pausing an unpausing
@@ -44,7 +44,9 @@ func (s toggleBackupPaused) reconcile(ctx context.Context, r *FoundationDBBackup
 		if err != nil {
 			return &requeue{curError: err}
 		}
-		defer adminClient.Close()
+		defer func() {
+			_ = adminClient.Close()
+		}()
 
 		err = adminClient.PauseBackups()
 		if err != nil {
@@ -56,7 +58,9 @@ func (s toggleBackupPaused) reconcile(ctx context.Context, r *FoundationDBBackup
 		if err != nil {
 			return &requeue{curError: err}
 		}
-		defer adminClient.Close()
+		defer func() {
+			_ = adminClient.Close()
+		}()
 
 		err = adminClient.ResumeBackups()
 		if err != nil {

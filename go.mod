@@ -1,4 +1,4 @@
-module github.com/FoundationDB/fdb-kubernetes-operator
+module github.com/FoundationDB/fdb-kubernetes-operator/v2
 
 go 1.22
 
@@ -32,9 +32,9 @@ require (
 	sigs.k8s.io/yaml v1.3.0
 )
 
-require golang.org/x/sync v0.10.0
-
 require golang.org/x/net v0.34.0 // indirect
+
+require golang.org/x/sync v0.10.0
 
 require (
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect

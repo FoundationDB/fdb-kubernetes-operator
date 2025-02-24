@@ -22,9 +22,9 @@ package coordinator
 
 import (
 	"fmt"
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal/locality"
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/locality"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient"
 	"github.com/go-logr/logr"
 	"math"
 	"strings"
@@ -59,7 +59,7 @@ func selectCandidates(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta
 			continue
 		}
 
-		// Ignore processes with missing locality, see: https://github.com/FoundationDB/fdb-kubernetes-operator/issues/1254
+		// Ignore processes with missing locality, see: https://github.com/FoundationDB/fdb-kubernetes-operator/v2/issues/1254
 		if len(process.Locality) == 0 {
 			continue
 		}
@@ -86,7 +86,7 @@ func selectCandidates(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta
 		// that means this process is pending a Pod recreation and will therefore be down for some time.
 		// We reduce the priority in this case to reduce the risk of successive coordinator changes. Reducing the
 		// priority should help in reducing the overall coordinator changes.
-		// See: https://github.com/FoundationDB/fdb-kubernetes-operator/issues/2015
+		// See: https://github.com/FoundationDB/fdb-kubernetes-operator/v2/issues/2015
 		if process.Version != cluster.Spec.Version || strings.HasPrefix(process.CommandLine, "/var/") {
 			// math.MinInt64 is the lowest possible priority. By adding the actual priority we make sure that we
 			// still keep the priorities, even if all processes are not yet upgraded.

@@ -23,17 +23,17 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal/coordinator"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/coordinator"
 
 	"github.com/go-logr/logr"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal/locality"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/locality"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
 
 	corev1 "k8s.io/api/core/v1"
 
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 )
 
 // generateInitialClusterFile provides a reconciliation step for generating the

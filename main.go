@@ -21,7 +21,7 @@ import (
 
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/podmanager"
 
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -30,9 +30,9 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
-	"github.com/FoundationDB/fdb-kubernetes-operator/setup"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/controllers"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/setup"
 	// +kubebuilder:scaffold:imports
 )
 
