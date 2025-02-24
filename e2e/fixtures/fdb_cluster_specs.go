@@ -21,7 +21,7 @@
 package fixtures
 
 import (
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -116,12 +116,12 @@ func (factory *Factory) createPodTemplate(
 	config *ClusterConfig,
 ) *corev1.PodTemplateSpec {
 	// The operator is causing this to not work as desired reference:
-	// https://github.com/FoundationDB/fdb-kubernetes-operator/blob/main/internal/deprecations.go#L75-L77
+	// https://github.com/FoundationDB/fdb-kubernetes-operator/v2/blob/main/internal/deprecations.go#L75-L77
 	mainContainerResources := corev1.ResourceRequirements{
 		Requests: config.generatePodResources(processClass),
 	}
 
-	// See: https://github.com/FoundationDB/fdb-kubernetes-operator/blob/main/docs/manual/warnings.md#resource-requirements otherwise
+	// See: https://github.com/FoundationDB/fdb-kubernetes-operator/v2/blob/main/docs/manual/warnings.md#resource-requirements otherwise
 	// the operator will set the default limits.
 	if !config.Performance {
 		mainContainerResources.Limits = corev1.ResourceList{

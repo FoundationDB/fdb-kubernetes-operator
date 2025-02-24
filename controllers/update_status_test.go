@@ -22,8 +22,8 @@ package controllers
 
 import (
 	"context"
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient/mock"
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient/mock"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/podmanager"
 	"k8s.io/apimachinery/pkg/types"
 	ctrlClient "sigs.k8s.io/controller-runtime/pkg/client"
 	"time"
@@ -34,9 +34,9 @@ import (
 
 	"k8s.io/utils/pointer"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
 
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"

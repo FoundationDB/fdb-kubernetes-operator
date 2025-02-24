@@ -25,7 +25,7 @@ import (
 	"encoding/json"
 	"time"
 
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -45,7 +45,7 @@ func (factory *Factory) CreateBackupForCluster(
 	fdbCluster *FdbCluster,
 ) *FdbBackup {
 	// For more information how the backup system with the operator is working please look at
-	// the operator documentation: https://github.com/FoundationDB/fdb-kubernetes-operator/blob/master/docs/manual/backup.md
+	// the operator documentation: https://github.com/FoundationDB/fdb-kubernetes-operator/v2/blob/master/docs/manual/backup.md
 	fdbVersion := factory.GetFDBVersion()
 
 	backup := &fdbv1beta2.FoundationDBBackup{

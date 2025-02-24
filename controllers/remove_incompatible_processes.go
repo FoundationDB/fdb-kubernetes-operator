@@ -28,11 +28,11 @@ import (
 
 	"github.com/go-logr/logr"
 
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 )
 
 // removeIncompatibleProcesses is a reconciler that will restart incompatible fdbserver processes, this can happen
-// during an upgrade when the kill command doesn't reach all processes, see: https://github.com/FoundationDB/fdb-kubernetes-operator/issues/1281
+// during an upgrade when the kill command doesn't reach all processes, see: https://github.com/FoundationDB/fdb-kubernetes-operator/v2/issues/1281
 type removeIncompatibleProcesses struct{}
 
 // reconcile runs the reconciler's work.
@@ -68,7 +68,9 @@ func processIncompatibleProcesses(ctx context.Context, r *FoundationDBClusterRec
 		if err != nil {
 			return err
 		}
-		defer adminClient.Close()
+		defer func() {
+			_ = adminClient.Close()
+		}()
 
 		status, err = adminClient.GetStatus()
 		if err != nil {

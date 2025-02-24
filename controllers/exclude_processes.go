@@ -26,9 +26,9 @@ import (
 	"net"
 	"time"
 
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal/coordinator"
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbstatus"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/coordinator"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbstatus"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -48,7 +48,9 @@ func (e excludeProcesses) reconcile(ctx context.Context, r *FoundationDBClusterR
 	if err != nil {
 		return &requeue{curError: err}
 	}
-	defer adminClient.Close()
+	defer func() {
+		_ = adminClient.Close()
+	}()
 
 	adminClient.WithValues()
 	// If the status is not cached, we have to fetch it.
@@ -178,7 +180,7 @@ func (e excludeProcesses) reconcile(ctx context.Context, r *FoundationDBClusterR
 
 	var coordinatorErr error
 	// If a coordinator should be excluded, we will change the coordinators before doing the exclusion. This should reduce the
-	// observed recoveries, see: https://github.com/FoundationDB/fdb-kubernetes-operator/issues/2018.
+	// observed recoveries, see: https://github.com/FoundationDB/fdb-kubernetes-operator/v2/issues/2018.
 	if coordinatorExcluded {
 		coordinatorErr = coordinator.ChangeCoordinators(logger, adminClient, cluster, status)
 	}

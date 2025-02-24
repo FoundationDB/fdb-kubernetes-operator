@@ -28,14 +28,14 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // CreateRestoreForCluster will create a FoundationDBRestore resource based on the provided backup resource.
 // For more information how the backup system with the operator is working please look at
-// the operator documentation: https://github.com/FoundationDB/fdb-kubernetes-operator/blob/master/docs/manual/backup.md
+// the operator documentation: https://github.com/FoundationDB/fdb-kubernetes-operator/v2/blob/master/docs/manual/backup.md
 func (factory *Factory) CreateRestoreForCluster(backup *FdbBackup) {
 	gomega.Expect(backup).NotTo(gomega.BeNil())
 	restore := &fdbv1beta2.FoundationDBRestore{

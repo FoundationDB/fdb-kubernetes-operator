@@ -1223,7 +1223,7 @@ type MaintenanceModeOptions struct {
 
 	// ResetMaintenanceMode defines whether the operator should reset the maintenance mode if all storage processes
 	// under the maintenance zone have been restarted. The default is false. For more details see:
-	// https://github.com/FoundationDB/fdb-kubernetes-operator/blob/improve-maintenance-mode-integration/docs/manual/operations.md#maintenance
+	// https://github.com/FoundationDB/fdb-kubernetes-operator/v2/blob/improve-maintenance-mode-integration/docs/manual/operations.md#maintenance
 	// Default is false.
 	ResetMaintenanceMode *bool `json:"resetMaintenanceMode,omitempty"`
 
@@ -2971,7 +2971,7 @@ func (cluster *FoundationDBCluster) GetCurrentProcessGroupsAndProcessCounts() (m
 // GetNextRandomProcessGroupID will return a randomly picked ProcessGroupID, the ID number will be between 1 and maxProcessGroupIDNum.
 // This method makes sure that the returned ProcessGroupID is not in use and not marked to be removed.
 // Using a randomized ProcessGroupID will reduce the risk of reusing the same ProcessGroupID for different process groups, see:
-// https://github.com/FoundationDB/fdb-kubernetes-operator/issues/2071
+// https://github.com/FoundationDB/fdb-kubernetes-operator/v2/issues/2071
 func (cluster *FoundationDBCluster) GetNextRandomProcessGroupID(processClass ProcessClass, processGroupIDs map[int]bool) ProcessGroupID {
 	return cluster.GetNextRandomProcessGroupIDWithExclusions(processClass, processGroupIDs, nil)
 }
@@ -2979,7 +2979,7 @@ func (cluster *FoundationDBCluster) GetNextRandomProcessGroupID(processClass Pro
 // GetNextRandomProcessGroupIDWithExclusions will return a randomly picked ProcessGroupID, the ID number will be between 1 and MaxProcessGroupIDNum.
 // This method makes sure that the returned ProcessGroupID is not in use and not marked to be removed and is not excluded.
 // Using a randomized ProcessGroupID will reduce the risk of reusing the same ProcessGroupID for different process groups, see:
-// https://github.com/FoundationDB/fdb-kubernetes-operator/issues/2071
+// https://github.com/FoundationDB/fdb-kubernetes-operator/v2/issues/2071
 func (cluster *FoundationDBCluster) GetNextRandomProcessGroupIDWithExclusions(processClass ProcessClass, processGroupIDs map[int]bool, exclusions map[ProcessGroupID]None) ProcessGroupID {
 	var processGroupID ProcessGroupID
 	for {
@@ -3012,7 +3012,7 @@ func (cluster *FoundationDBCluster) newProcessGroupIDAllowed(processGroupID Proc
 	}
 
 	// If the randomly picked process group is part of the locality based exclusions, we shouldn't pick it.
-	// See: https://github.com/FoundationDB/fdb-kubernetes-operator/issues/1862
+	// See: https://github.com/FoundationDB/fdb-kubernetes-operator/v2/issues/1862
 	if _, ok := exclusions[processGroupID]; ok {
 		return false
 	}

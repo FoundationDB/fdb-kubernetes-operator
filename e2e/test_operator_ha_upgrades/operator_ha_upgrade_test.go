@@ -38,8 +38,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	"github.com/FoundationDB/fdb-kubernetes-operator/e2e/fixtures"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/fixtures"
 	chaosmesh "github.com/chaos-mesh/chaos-mesh/api/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -496,7 +496,7 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 
 	// TODO (johscheuer): Ensure this test passes reliably. Right now the cluster sometimes gets stuck and needs
 	// manual intervention.
-	// See: https://github.com/FoundationDB/fdb-kubernetes-operator/issues/2196
+	// See: https://github.com/FoundationDB/fdb-kubernetes-operator/v2/issues/2196
 	PDescribeTable(
 		"when no remote storage processes are restarted",
 		func(beforeVersion string, targetVersion string) {

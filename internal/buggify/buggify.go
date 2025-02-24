@@ -20,7 +20,7 @@
 
 package buggify
 
-import fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+import fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 
 // FilterBlockedRemovals will remove all matching process groups from the processGroupsToRemove slice that are defined in
 // the BlockRemoval.

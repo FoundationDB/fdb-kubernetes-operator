@@ -35,9 +35,9 @@ import (
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/podmanager"
 )
 
 // ReplaceMisconfiguredProcessGroups checks if the cluster has any misconfigured process groups that must be replaced.
@@ -297,7 +297,7 @@ type containerFileSecurityContext struct {
 // fileSecurityContextChanged checks for changes in the effective security context by checking that there are no changes
 // to the following SecurityContext (or PodSecurityContext) fields:
 // RunAsGroup, RunAsUser, FSGroup, or FSGroupChangePolicy
-// See https://github.com/FoundationDB/fdb-kubernetes-operator/issues/208 for motivation
+// See https://github.com/FoundationDB/fdb-kubernetes-operator/v2/issues/208 for motivation
 // only makes sense if both pods have containers with matching names
 func fileSecurityContextChanged(desired, current *corev1.PodSpec, log logr.Logger) bool {
 	// first check for FSGroup or FSGroupChangePolicy changes as that cannot be overridden at container level

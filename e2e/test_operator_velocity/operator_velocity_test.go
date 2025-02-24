@@ -29,8 +29,8 @@ import (
 	"strings"
 	"time"
 
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	"github.com/FoundationDB/fdb-kubernetes-operator/e2e/fixtures"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/fixtures"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/utils/pointer"
@@ -44,7 +44,7 @@ const (
 	// The time will be the minimum uptime * no. of clusters e.g. 4 for an HA cluster
 	// If we have a minimum uptime of 60 seconds we should target 240 seconds as the worst case.
 	// In most cases the initial/first restart will be faster.
-	// TODO (johscheuer): Change this back once https://github.com/FoundationDB/fdb-kubernetes-operator/issues/1361 is fixed.
+	// TODO (johscheuer): Change this back once https://github.com/FoundationDB/fdb-kubernetes-operator/v2/issues/1361 is fixed.
 	normalKnobRolloutTimeoutSeconds = 600 // 240
 )
 

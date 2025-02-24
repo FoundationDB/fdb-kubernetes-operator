@@ -26,7 +26,7 @@ import (
 	"fmt"
 	"strings"
 
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 )
 
 // FactoryOptions defines the (command line) options that are support for the e2e test cases.

@@ -37,18 +37,18 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	"time"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/podmanager"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	sigyaml "sigs.k8s.io/yaml"
 
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podclient"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/podclient"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -147,7 +147,9 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	defer adminClient.Close()
+	defer func() {
+		_ = adminClient.Close()
+	}()
 
 	err = cluster.Validate()
 	if err != nil {
@@ -581,7 +583,9 @@ func (r *FoundationDBClusterReconciler) getStatusFromClusterOrDummyStatus(logger
 	if err != nil {
 		return nil, err
 	}
-	defer adminClient.Close()
+	defer func() {
+		_ = adminClient.Close()
+	}()
 
 	// If the cluster is not yet configured, we can reduce the timeout to make sure the initial reconcile steps
 	// are faster.

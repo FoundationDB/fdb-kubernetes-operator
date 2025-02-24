@@ -38,10 +38,10 @@ import (
 
 	"github.com/go-logr/logr"
 
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
-	"github.com/FoundationDB/fdb-kubernetes-operator/fdbclient"
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/controllers"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/fdbclient"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
 	"gopkg.in/natefinch/lumberjack.v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"

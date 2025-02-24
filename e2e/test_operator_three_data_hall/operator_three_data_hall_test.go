@@ -25,9 +25,9 @@ This test suite includes functional tests for FDB clusters running in the three_
 */
 
 import (
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	"github.com/FoundationDB/fdb-kubernetes-operator/e2e/fixtures"
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbstatus"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/fixtures"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbstatus"
 	chaosmesh "github.com/chaos-mesh/chaos-mesh/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/pointer"

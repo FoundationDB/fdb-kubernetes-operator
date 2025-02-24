@@ -23,7 +23,7 @@ package controllers
 import (
 	"context"
 
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 )
 
 // modifyBackup provides a reconciliation step for modifying a backup's
@@ -43,7 +43,9 @@ func (s modifyBackup) reconcile(ctx context.Context, r *FoundationDBBackupReconc
 		if err != nil {
 			return &requeue{curError: err}
 		}
-		defer adminClient.Close()
+		defer func() {
+			_ = adminClient.Close()
+		}()
 
 		err = adminClient.ModifyBackup(snapshotPeriod)
 		if err != nil {

@@ -24,11 +24,11 @@ import (
 	"context"
 	"time"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbstatus"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbstatus"
 	"github.com/go-logr/logr"
 
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal/replacements"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/replacements"
 )
 
 // replaceFailedProcessGroups identifies processes groups that have failed and need to be
@@ -50,7 +50,9 @@ func (c replaceFailedProcessGroups) reconcile(ctx context.Context, r *Foundation
 		if err != nil {
 			return &requeue{curError: err, delayedRequeue: true}
 		}
-		defer adminClient.Close()
+		defer func() {
+			_ = adminClient.Close()
+		}()
 
 		status, err = adminClient.GetStatus()
 		if err != nil {

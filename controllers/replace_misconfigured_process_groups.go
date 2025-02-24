@@ -25,9 +25,9 @@ import (
 
 	"github.com/go-logr/logr"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal/replacements"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/replacements"
 
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 )
 
 // replaceMisconfiguredProcessGroups identifies processes that need to be replaced in

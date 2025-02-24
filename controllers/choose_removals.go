@@ -26,11 +26,11 @@ import (
 
 	"github.com/go-logr/logr"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal/locality"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/locality"
 
 	corev1 "k8s.io/api/core/v1"
 
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 )
 
 // chooseRemovals chooses which processes will be removed during a shrink.
@@ -60,7 +60,9 @@ func (c chooseRemovals) reconcile(ctx context.Context, r *FoundationDBClusterRec
 		if err != nil {
 			return &requeue{curError: err, delayedRequeue: true}
 		}
-		defer adminClient.Close()
+		defer func() {
+			_ = adminClient.Close()
+		}()
 
 		status, err = adminClient.GetStatus()
 		if err != nil {

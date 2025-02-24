@@ -27,7 +27,7 @@ This test suite contains tests related to backup and restore with the operator.
 import (
 	"log"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/e2e/fixtures"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/fixtures"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )

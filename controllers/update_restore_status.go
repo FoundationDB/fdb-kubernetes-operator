@@ -22,7 +22,7 @@ package controllers
 
 import (
 	"context"
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"regexp"
 	"strings"
 )
@@ -37,7 +37,9 @@ func (updateRestoreStatus) reconcile(ctx context.Context, r *FoundationDBRestore
 	if err != nil {
 		return &requeue{curError: err}
 	}
-	defer adminClient.Close()
+	defer func() {
+		_ = adminClient.Close()
+	}()
 
 	status, err := adminClient.GetRestoreStatus()
 	if err != nil {
