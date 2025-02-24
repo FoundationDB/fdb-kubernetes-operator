@@ -29,6 +29,8 @@ import (
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/fixtures"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 var (
@@ -46,8 +48,11 @@ var _ = BeforeSuite(func() {
 
 	badBackupVersion, err := fdbv1beta2.ParseFdbVersion("7.3.50")
 	Expect(err).NotTo(HaveOccurred())
+	goodBackupVersion, err := fdbv1beta2.ParseFdbVersion("7.3.62")
+	Expect(err).NotTo(HaveOccurred())
+
 	version := factory.GetFDBVersion()
-	if version.IsAtLeast(badBackupVersion) {
+	if version.IsAtLeast(badBackupVersion) && !version.IsAtLeast(goodBackupVersion) {
 		Skip("version has a bug in the backup version that prevents tests to succeed")
 	}
 
