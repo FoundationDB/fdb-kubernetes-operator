@@ -38,6 +38,20 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+func normalizeClusterfileName(args []string) []string {
+	result := args
+	for i, arg := range result {
+		if arg == "-C" || arg == "--dest_cluster_file" {
+			result[i+1] = "<placeholder>"
+		}
+	}
+	return result
+}
+
+func newMockFdbLibClientForGetConnectionString() *mockFdbLibClient {
+	return &mockFdbLibClient{mockedKeyValue: map[string][]byte{"\xff/coordinators": []byte("mockConnectionString:abcd@127.0.0.1:4500")}}
+}
+
 var _ = Describe("admin_client_test", func() {
 	When("parsing the connection string", func() {
 		DescribeTable("it should return the correct connection string",
@@ -202,9 +216,10 @@ var _ = Describe("admin_client_test", func() {
 			GinkgoT().Setenv("FDB_NETWORK_OPTION_TRACE_FORMAT", traceFormat)
 		}
 
-		args, timeout := client.getArgsAndTimeout(command)
+		args, timeout, err := client.getArgsAndTimeout(command)
+		Expect(err).To(Not(HaveOccurred()))
 		Expect(timeout).To(Equal(expectedTimeout))
-		Expect(args).To(HaveExactElements(expectedArgs))
+		Expect(normalizeClusterfileName(args)).To(HaveExactElements(normalizeClusterfileName(expectedArgs)))
 	},
 		Entry("using fdbcli and trace options are disabled",
 			cliCommand{
@@ -213,9 +228,9 @@ var _ = Describe("admin_client_test", func() {
 				timeout: 1 * time.Second,
 			},
 			&cliAdminClient{
-				Cluster:         nil,
-				clusterFilePath: "test",
-				log:             logr.Discard(),
+				Cluster:      nil,
+				log:          logr.Discard(),
+				fdbLibClient: newMockFdbLibClientForGetConnectionString(),
 			},
 			"",
 			"",
@@ -233,9 +248,9 @@ var _ = Describe("admin_client_test", func() {
 				timeout: 1 * time.Second,
 			},
 			&cliAdminClient{
-				Cluster:         nil,
-				clusterFilePath: "test",
-				log:             logr.Discard(),
+				Cluster:      nil,
+				log:          logr.Discard(),
+				fdbLibClient: newMockFdbLibClientForGetConnectionString(),
 			},
 			"",
 			"",
@@ -256,9 +271,9 @@ var _ = Describe("admin_client_test", func() {
 				timeout: 1 * time.Second,
 			},
 			&cliAdminClient{
-				Cluster:         nil,
-				clusterFilePath: "test",
-				log:             logr.Discard(),
+				Cluster:      nil,
+				log:          logr.Discard(),
+				fdbLibClient: newMockFdbLibClientForGetConnectionString(),
 			},
 			"/tmp",
 			"",
@@ -284,9 +299,9 @@ var _ = Describe("admin_client_test", func() {
 				timeout: 1 * time.Second,
 			},
 			&cliAdminClient{
-				Cluster:         nil,
-				clusterFilePath: "test",
-				log:             logr.Discard(),
+				Cluster:      nil,
+				log:          logr.Discard(),
+				fdbLibClient: newMockFdbLibClientForGetConnectionString(),
 			},
 			"/tmp",
 			"json",
@@ -312,10 +327,10 @@ var _ = Describe("admin_client_test", func() {
 				timeout: 1 * time.Second,
 			},
 			&cliAdminClient{
-				Cluster:         nil,
-				clusterFilePath: "test",
-				log:             logr.Discard(),
-				knobs:           []string{"--knob-testing=1"},
+				Cluster:      nil,
+				log:          logr.Discard(),
+				knobs:        []string{"--knob-testing=1"},
+				fdbLibClient: newMockFdbLibClientForGetConnectionString(),
 			},
 			"",
 			"",
@@ -338,9 +353,9 @@ var _ = Describe("admin_client_test", func() {
 				timeout: 1 * time.Second,
 			},
 			&cliAdminClient{
-				Cluster:         nil,
-				clusterFilePath: "test",
-				log:             logr.Discard(),
+				Cluster:      nil,
+				log:          logr.Discard(),
+				fdbLibClient: newMockFdbLibClientForGetConnectionString(),
 			},
 			"",
 			"",
@@ -360,9 +375,9 @@ var _ = Describe("admin_client_test", func() {
 				timeout: 1 * time.Second,
 			},
 			&cliAdminClient{
-				Cluster:         nil,
-				clusterFilePath: "test",
-				log:             logr.Discard(),
+				Cluster:      nil,
+				log:          logr.Discard(),
+				fdbLibClient: newMockFdbLibClientForGetConnectionString(),
 			},
 			"/tmp",
 			"",
@@ -385,9 +400,9 @@ var _ = Describe("admin_client_test", func() {
 				timeout: 1 * time.Second,
 			},
 			&cliAdminClient{
-				Cluster:         nil,
-				clusterFilePath: "test",
-				log:             logr.Discard(),
+				Cluster:      nil,
+				log:          logr.Discard(),
+				fdbLibClient: newMockFdbLibClientForGetConnectionString(),
 			},
 			"/tmp",
 			"json",
@@ -410,10 +425,10 @@ var _ = Describe("admin_client_test", func() {
 				timeout: 1 * time.Second,
 			},
 			&cliAdminClient{
-				Cluster:         nil,
-				clusterFilePath: "test",
-				log:             logr.Discard(),
-				knobs:           []string{"--knob-testing=1"},
+				Cluster:      nil,
+				log:          logr.Discard(),
+				knobs:        []string{"--knob-testing=1"},
+				fdbLibClient: newMockFdbLibClientForGetConnectionString(),
 			},
 			"",
 			"",
@@ -435,9 +450,9 @@ var _ = Describe("admin_client_test", func() {
 				timeout: 1 * time.Second,
 			},
 			&cliAdminClient{
-				Cluster:         nil,
-				clusterFilePath: "test",
-				log:             logr.Discard(),
+				Cluster:      nil,
+				log:          logr.Discard(),
+				fdbLibClient: newMockFdbLibClientForGetConnectionString(),
 			},
 			"",
 			"",
@@ -457,9 +472,9 @@ var _ = Describe("admin_client_test", func() {
 				timeout: 1 * time.Second,
 			},
 			&cliAdminClient{
-				Cluster:         nil,
-				clusterFilePath: "test",
-				log:             logr.Discard(),
+				Cluster:      nil,
+				log:          logr.Discard(),
+				fdbLibClient: newMockFdbLibClientForGetConnectionString(),
 			},
 			"/tmp",
 			"",
@@ -482,9 +497,9 @@ var _ = Describe("admin_client_test", func() {
 				timeout: 1 * time.Second,
 			},
 			&cliAdminClient{
-				Cluster:         nil,
-				clusterFilePath: "test",
-				log:             logr.Discard(),
+				Cluster:      nil,
+				log:          logr.Discard(),
+				fdbLibClient: newMockFdbLibClientForGetConnectionString(),
 			},
 			"/tmp",
 			"json",
@@ -507,10 +522,10 @@ var _ = Describe("admin_client_test", func() {
 				timeout: 1 * time.Second,
 			},
 			&cliAdminClient{
-				Cluster:         nil,
-				clusterFilePath: "test",
-				log:             logr.Discard(),
-				knobs:           []string{"--knob-testing=1"},
+				Cluster:      nil,
+				log:          logr.Discard(),
+				knobs:        []string{"--knob-testing=1"},
+				fdbLibClient: newMockFdbLibClientForGetConnectionString(),
 			},
 			"",
 			"",
@@ -532,10 +547,10 @@ var _ = Describe("admin_client_test", func() {
 
 		JustBeforeEach(func() {
 			cliClient := &cliAdminClient{
-				Cluster:         nil,
-				clusterFilePath: "test",
-				log:             logr.Discard(),
-				cmdRunner:       mockRunner,
+				Cluster:      nil,
+				log:          logr.Discard(),
+				cmdRunner:    mockRunner,
+				fdbLibClient: newMockFdbLibClientForGetConnectionString(),
 			}
 
 			protocolVersion, err = cliClient.GetProtocolVersion("7.1.21")
@@ -609,10 +624,10 @@ protocol fdb00b071010000`,
 
 		JustBeforeEach(func() {
 			cliClient := &cliAdminClient{
-				Cluster:         nil,
-				clusterFilePath: "test",
-				log:             logr.Discard(),
-				cmdRunner:       mockRunner,
+				Cluster:      nil,
+				log:          logr.Discard(),
+				cmdRunner:    mockRunner,
+				fdbLibClient: newMockFdbLibClientForGetConnectionString(),
 			}
 
 			supported, err = cliClient.VersionSupported(fdbv1beta2.Versions.Default.String())
@@ -671,9 +686,9 @@ protocol fdb00b071010000`,
 						RunningVersion: fdbv1beta2.Versions.Default.String(),
 					},
 				},
-				clusterFilePath: "test",
-				log:             logr.Discard(),
-				cmdRunner:       mockRunner,
+				log:          logr.Discard(),
+				cmdRunner:    mockRunner,
+				fdbLibClient: newMockFdbLibClientForGetConnectionString(),
 			}
 
 			status, err = cliClient.getStatus()
@@ -782,10 +797,10 @@ protocol fdb00b071010000`,
 			}
 
 			cliClient := &cliAdminClient{
-				Cluster:         cluster,
-				clusterFilePath: "test",
-				log:             logr.Discard(),
-				cmdRunner:       mockRunner,
+				Cluster:      cluster,
+				log:          logr.Discard(),
+				cmdRunner:    mockRunner,
+				fdbLibClient: newMockFdbLibClientForGetConnectionString(),
 			}
 
 			Expect(cliClient.ExcludeProcesses([]fdbv1beta2.ProcessAddress{{
@@ -841,15 +856,14 @@ protocol fdb00b071010000`,
 			}
 
 			cliClient := &cliAdminClient{
-				Cluster:         cluster,
-				clusterFilePath: "test",
-				log:             logr.Discard(),
-				cmdRunner:       mockRunner,
-				fdbLibClient:    mockFdbClient,
+				Cluster:      cluster,
+				log:          logr.Discard(),
+				cmdRunner:    mockRunner,
+				fdbLibClient: mockFdbClient,
 			}
 
 			result, err = cliClient.CanSafelyRemove(addressesToCheck)
-			Expect(mockFdbClient.requestedKey).To(Equal("\xff\xff/status/json"))
+			Expect(mockFdbClient.requestedKeys).To(ContainElement("\xff\xff/status/json"))
 		})
 
 		BeforeEach(func() {
@@ -913,9 +927,9 @@ protocol fdb00b071010000`,
 			statusBytes, err := json.Marshal(status)
 			Expect(err).NotTo(HaveOccurred())
 
-			mockFdbClient = &mockFdbLibClient{
-				mockedOutput: statusBytes,
-			}
+			// mock will return a fake connection string, and statusBytes on all other queries.
+			mockFdbClient = newMockFdbLibClientForGetConnectionString()
+			mockFdbClient.mockedOutput = statusBytes
 
 			mockRunner = &mockCommandRunner{
 				mockedError:  nil,
@@ -1184,9 +1198,9 @@ protocol fdb00b071010000`,
 						RunningVersion: previousVersion,
 					},
 				},
-				clusterFilePath: "test",
-				log:             logr.Discard(),
-				cmdRunner:       mockRunner,
+				log:          logr.Discard(),
+				cmdRunner:    mockRunner,
+				fdbLibClient: newMockFdbLibClientForGetConnectionString(),
 			}
 
 			version = cliClient.GetVersionFromReachableCoordinators()

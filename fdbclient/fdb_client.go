@@ -94,16 +94,22 @@ func (fdbClient *realFdbLibClient) getValueFromDBUsingKey(fdbKey string, timeout
 
 // mockFdbLibClient is a mock for unit testing.
 type mockFdbLibClient struct {
-	// mockedOutput is the output returned by getValueFromDBUsingKey.
+	// mockedKeyValue indicates outputs to return for specific keys in getValueFromDBUsingKey. If no entry matches,
+	// the default mockedOutput below is returned.
+	mockedKeyValue map[string][]byte
+	// mockedOutput is the default output returned by getValueFromDBUsingKey.
 	mockedOutput []byte
 	// mockedError is the error returned by getValueFromDBUsingKey.
 	mockedError error
-	// requestedKey will be the key that was used to call getValueFromDBUsingKey.
-	requestedKey string
+	// requestedKey will contain all the key that were used to call getValueFromDBUsingKey.
+	requestedKeys []string
 }
 
 func (fdbClient *mockFdbLibClient) getValueFromDBUsingKey(fdbKey string, _ time.Duration) ([]byte, error) {
-	fdbClient.requestedKey = fdbKey
-
+	fdbClient.requestedKeys = append(fdbClient.requestedKeys, fdbKey)
+	output, ok := fdbClient.mockedKeyValue[fdbKey]
+	if ok {
+		return output, nil
+	}
 	return fdbClient.mockedOutput, fdbClient.mockedError
 }
