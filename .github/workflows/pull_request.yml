@@ -128,10 +128,12 @@ jobs:
           - fdb-kubernetes-operator
           - fdb-data-loader
         include:
-          - context: ./
+          - image: fdb-kubernetes-operator
+            context: ./
             name: foundationdb/fdb-kubernetes-operator
             file: ./Dockerfile
-          - context: ./sample-apps/data-loader
+          - image: fdb-data-loader
+            context: ./sample-apps/data-loader
             name: foundationdb/fdb-data-loader
             file: ./sample-apps/data-loader/Dockerfile
     steps:
@@ -164,4 +166,3 @@ jobs:
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
-
