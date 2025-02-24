@@ -374,7 +374,7 @@ MaintenanceModeOptions controls options for placing zones in maintenance mode.
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
 | UseMaintenanceModeChecker | UseMaintenanceModeChecker defines whether the operator is allowed to use maintenance mode before updating pods. If this setting is set to true the operator will set and reset the maintenance mode when updating pods. If this setting is set to true, then ResetMaintenanceMode will also be enabled to make sure the operator is able to reset the maintenance mode again. Default is false. | *bool | false |
-| resetMaintenanceMode | ResetMaintenanceMode defines whether the operator should reset the maintenance mode if all storage processes under the maintenance zone have been restarted. The default is false. For more details see: https://github.com/FoundationDB/fdb-kubernetes-operator/blob/improve-maintenance-mode-integration/docs/manual/operations.md#maintenance Default is false. | *bool | false |
+| resetMaintenanceMode | ResetMaintenanceMode defines whether the operator should reset the maintenance mode if all storage processes under the maintenance zone have been restarted. The default is false. For more details see: https://github.com/FoundationDB/fdb-kubernetes-operator/v2/blob/improve-maintenance-mode-integration/docs/manual/operations.md#maintenance Default is false. | *bool | false |
 | maintenanceModeTimeSeconds | MaintenanceModeTimeSeconds provides the duration for the zone to be in maintenance. It will automatically be switched off after the time elapses. Default is 600. | *int | false |
 
 [Back to TOC](#table-of-contents)
