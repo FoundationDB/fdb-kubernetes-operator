@@ -259,13 +259,6 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 	DescribeTable(
 		"with locality based exclusions disabled",
 		func(beforeVersion string, targetVersion string) {
-			fdbVersion, err := fdbv1beta2.ParseFdbVersion(beforeVersion)
-			Expect(err).NotTo(HaveOccurred())
-
-			if !fdbVersion.SupportsLocalityBasedExclusions() {
-				Skip("provided FDB version: " + beforeVersion + " doesn't support locality based exclusions")
-			}
-
 			performUpgrade(testConfig{
 				beforeVersion: beforeVersion,
 				targetVersion: targetVersion,
@@ -275,7 +268,7 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 				},
 				loadData: false,
 			}, func(cluster *fixtures.FdbCluster) {
-				Expect(cluster.GetCluster().UseLocalitiesForExclusion()).To(BeTrue())
+				Expect(cluster.GetCluster().UseLocalitiesForExclusion()).To(BeFalse())
 			})
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s"),
@@ -294,7 +287,7 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 				},
 				loadData: false,
 			}, func(cluster *fixtures.FdbCluster) {
-				Expect(cluster.GetCluster().UseDNSInClusterFile()).To(BeTrue())
+				Expect(cluster.GetCluster().UseDNSInClusterFile()).To(BeFalse())
 			})
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s"),

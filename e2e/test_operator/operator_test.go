@@ -665,11 +665,18 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 	})
 
 	When("changing the public IP source", func() {
-		It("should change the public IP source and create/delete services", func() {
+		BeforeEach(func() {
+			if fdbCluster.GetCluster().UseDNSInClusterFile() {
+				Skip("using DNS and public IP from service is not tested")
+			}
+
 			log.Printf("set public IP source to %s", fdbv1beta2.PublicIPSourceService)
 			Expect(
 				fdbCluster.SetPublicIPSource(fdbv1beta2.PublicIPSourceService),
 			).ShouldNot(HaveOccurred())
+		})
+
+		It("should change the public IP source and create/delete services", func() {
 			Eventually(func() bool {
 				pods := fdbCluster.GetPods()
 				svcList := fdbCluster.GetServices()
@@ -2667,6 +2674,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			fdbCluster.UpdateClusterSpecWithSpec(spec)
 
 			fdbCluster.ReplacePod(pickedPod, false)
+			var pickedProcessGroup *fdbv1beta2.ProcessGroupStatus
 			Expect(fdbCluster.WaitUntilWithForceReconcile(1, 900, func(cluster *fdbv1beta2.FoundationDBCluster) bool {
 				for _, processGroup := range cluster.Status.ProcessGroups {
 					if processGroup.ProcessGroupID != pickedProcessGroupID {
@@ -2674,14 +2682,24 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 					}
 
 					initialExclusionTimestamp = processGroup.ExclusionTimestamp
+					pickedProcessGroup = processGroup
 					break
 				}
 
 				log.Println("initialExclusionTimestamp", initialExclusionTimestamp)
 				return initialExclusionTimestamp != nil
 			})).NotTo(HaveOccurred(), "process group is missing the exclusion timestamp")
+
+			var excludedServer fdbv1beta2.ExcludedServers
+			if fdbCluster.GetCluster().UseLocalitiesForExclusion() {
+				Expect(pickedProcessGroup).NotTo(BeNil())
+				excludedServer = fdbv1beta2.ExcludedServers{Locality: pickedProcessGroup.GetExclusionString()}
+			} else {
+				excludedServer = fdbv1beta2.ExcludedServers{Address: pickedPod.Status.PodIP}
+			}
+
 			// Ensure that the IP is excluded
-			Expect(fdbCluster.GetStatus().Cluster.DatabaseConfiguration.ExcludedServers).To(ContainElements(fdbv1beta2.ExcludedServers{Address: pickedPod.Status.PodIP}))
+			Expect(fdbCluster.GetStatus().Cluster.DatabaseConfiguration.ExcludedServers).To(ContainElements(excludedServer))
 		})
 
 		AfterEach(func() {

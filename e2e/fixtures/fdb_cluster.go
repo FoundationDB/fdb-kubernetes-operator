@@ -676,6 +676,7 @@ func (fdbCluster *FdbCluster) SetTransactionServerPerPod(
 
 // ReplacePod replaces the provided Pod if it's part of the FoundationDBCluster.
 func (fdbCluster *FdbCluster) ReplacePod(pod corev1.Pod, waitForReconcile bool) {
+	cluster := fdbCluster.GetCluster()
 	fdbCluster.cluster.Spec.ProcessGroupsToRemove = []fdbv1beta2.ProcessGroupID{GetProcessGroupID(pod)}
 	fdbCluster.UpdateClusterSpec()
 
@@ -683,7 +684,7 @@ func (fdbCluster *FdbCluster) ReplacePod(pod corev1.Pod, waitForReconcile bool) 
 		return
 	}
 
-	gomega.Expect(fdbCluster.WaitForReconciliation(SoftReconcileOption(true))).NotTo(gomega.HaveOccurred())
+	gomega.Expect(fdbCluster.WaitForReconciliation(SoftReconcileOption(true), MinimumGenerationOption(cluster.Generation+1))).NotTo(gomega.HaveOccurred())
 }
 
 // ReplacePods replaces the provided Pods in the current FoundationDBCluster.

@@ -174,6 +174,7 @@ var _ = Describe("Operator with three data hall", Label("e2e", "pr"), func() {
 				spec := fdbCluster.GetCluster().Spec.DeepCopy()
 				spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(false)
 				fdbCluster.UpdateClusterSpecWithSpec(spec)
+				Expect(fdbCluster.GetCluster().UseLocalitiesForExclusion()).To(BeFalse())
 			})
 
 			It("should remove the targeted Pod", func() {
