@@ -131,6 +131,20 @@ nightly-tests: GINKGO_LABEL_FILTER=--ginkgo.label-filter="pr || nightly"
 # Run the actual nightly tests
 nightly-tests: run
 
+# Only run tests that are labeled with the "foundationdb-pr" label, this is used for the cluster tests in the
+# foundationdb repo.
+foundationdb-pr-tests: GINKGO_LABEL_FILTER=--ginkgo.label-filter="foundationdb-pr"
+
+# Run the actual foundationdb-pr tests.
+foundationdb-pr-tests: run
+
+# Only run tests that are labeled with the "foundationdb-nightly" or "foundationdb-pr"  label, this is used for the cluster tests in the
+# foundationdb repo.
+foundationdb-nightly-tests: GINKGO_LABEL_FILTER=--ginkgo.label-filter="foundationdb-pr || foundationdb-nightly"
+
+# Run the actual foundationdb-nightly tests.
+foundationdb-nightly-tests: run
+
 %.run: %
 	@sleep $$(shuf -i 1-10 -n 1)
 	go test -timeout=$(TIMEOUT) $(VERBOSE) ./$< \

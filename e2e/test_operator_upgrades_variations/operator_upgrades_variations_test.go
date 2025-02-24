@@ -182,7 +182,7 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 	// this setup allows to dynamically generate the table entries that will be executed e.g. to test different upgrades
 	// for different versions without hard coding or having multiple flags.
 	DescribeTable(
-		"upgrading a cluster without chaos",
+		"upgrading a cluster without chaos", Label("foundationdb-pr"),
 		func(beforeVersion string, targetVersion string) {
 			performUpgrade(testConfig{
 				beforeVersion: beforeVersion,
