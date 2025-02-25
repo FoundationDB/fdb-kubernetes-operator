@@ -417,7 +417,7 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 				_, _, err := fdbCluster.ExecuteCmdOnPod(
 					faultyPod,
 					fdbv1beta2.SidecarContainerName,
-					fmt.Sprintf("rm -f %s || true", fdbserverBinary),
+					fmt.Sprintf("rm -f %s", fdbserverBinary),
 					false)
 
 				return err
