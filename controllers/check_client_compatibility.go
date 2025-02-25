@@ -69,9 +69,6 @@ func (c checkClientCompatibility) reconcile(_ context.Context, r *FoundationDBCl
 	if err != nil {
 		return &requeue{curError: err}
 	}
-	defer func() {
-		_ = adminClient.Close()
-	}()
 
 	// If the status is not cached, we have to fetch it.
 	if status == nil {

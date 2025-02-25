@@ -401,7 +401,7 @@ func NewRealLockClient(cluster *fdbv1beta2.FoundationDBCluster, log logr.Logger)
 		return &realLockClient{disableLocks: true}, nil
 	}
 
-	database, err := getFDBDatabase(cluster)
+	database, err := getFDBDatabase(log, cluster)
 	if err != nil {
 		return nil, err
 	}
