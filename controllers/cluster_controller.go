@@ -556,17 +556,18 @@ func (r *FoundationDBClusterReconciler) updateOrApply(ctx context.Context, clust
 // getStatusFromClusterOrDummyStatus will fetch the machine-readable status from the FoundationDBCluster if the cluster is configured. If not a default status is returned indicating, that
 // some configuration is missing.
 func (r *FoundationDBClusterReconciler) getStatusFromClusterOrDummyStatus(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster) (*fdbv1beta2.FoundationDBStatus, error) {
-	if cluster.Status.ConnectionString == "" {
-		return &fdbv1beta2.FoundationDBStatus{
-			Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
-				Layers: fdbv1beta2.FoundationDBStatusLayerInfo{
-					Error: "configurationMissing",
-				},
-			},
-		}, nil
+	adminClient, err := r.getAdminClient(logger, cluster)
+	if err != nil {
+		return nil, err
+	}
+	defer adminClient.Close()
+	// If the cluster is not yet configured, we can reduce the timeout to make sure the initial reconcile steps
+	// are faster.
+	if !cluster.Status.Configured {
+		adminClient.SetTimeout(10 * time.Second)
 	}
 
-	connectionString, err := tryConnectionOptions(logger, cluster, r)
+	connectionString, err := adminClient.GetConnectionString()
 	if err != nil {
 		return nil, err
 	}
@@ -577,20 +578,6 @@ func (r *FoundationDBClusterReconciler) getStatusFromClusterOrDummyStatus(logger
 		logger.Info("Updating out-of-date connection string", "previousConnectionString", cluster.Status.ConnectionString, "newConnectionString", connectionString)
 		r.Recorder.Event(cluster, corev1.EventTypeNormal, "UpdatingConnectionString", fmt.Sprintf("Setting connection string to %s", connectionString))
 		cluster.Status.ConnectionString = connectionString
-	}
-
-	adminClient, err := r.getAdminClient(logger, cluster)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		_ = adminClient.Close()
-	}()
-
-	// If the cluster is not yet configured, we can reduce the timeout to make sure the initial reconcile steps
-	// are faster.
-	if !cluster.Status.Configured {
-		adminClient.SetTimeout(10 * time.Second)
 	}
 
 	status, err := adminClient.GetStatus()

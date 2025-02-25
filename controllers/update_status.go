@@ -277,61 +277,6 @@ func containsAll(current map[string]string, desired map[string]string) bool {
 	return true
 }
 
-// optionList creates an order-preserved unique list
-func optionList(options ...string) []string {
-	valueMap := make(map[string]bool, len(options))
-	values := make([]string, 0, len(options))
-	for _, option := range options {
-		if option != "" && !valueMap[option] {
-			values = append(values, option)
-			valueMap[option] = true
-		}
-	}
-	return values
-}
-
-// tryConnectionOptions attempts to connect with all the connection strings for this cluster and
-// returns the connection string that allows connecting to the cluster.
-func tryConnectionOptions(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, r *FoundationDBClusterReconciler) (string, error) {
-	connectionStrings := optionList(cluster.Status.ConnectionString, cluster.Spec.SeedConnectionString)
-	logger.Info("Trying connection options", "connectionString", connectionStrings)
-
-	originalConnectionString := cluster.Status.ConnectionString
-	defer func() { cluster.Status.ConnectionString = originalConnectionString }()
-
-	var err error
-	for _, connectionString := range connectionStrings {
-		logger.Info("Attempting to get connection string from cluster", "connectionString", connectionString)
-		cluster.Status.ConnectionString = connectionString
-		adminClient, clientErr := r.getAdminClient(logger, cluster)
-		if clientErr != nil {
-			return originalConnectionString, clientErr
-		}
-
-		// If the cluster is not yet configured, we can reduce the timeout to make sure the initial reconcile steps
-		// are faster.
-		if !cluster.Status.Configured {
-			adminClient.SetTimeout(10 * time.Second)
-		}
-
-		var activeConnectionString string
-		activeConnectionString, err = adminClient.GetConnectionString()
-
-		closeErr := adminClient.Close()
-		if closeErr != nil {
-			logger.V(1).Info("Could not close admin client", "error", closeErr)
-		}
-
-		if err == nil {
-			logger.Info("Chose connection option", "connectionString", activeConnectionString)
-			return activeConnectionString, nil
-		}
-		logger.Error(err, "Error getting connection string from cluster", "connectionString", connectionString)
-	}
-
-	return originalConnectionString, nil
-}
-
 // checkAndSetProcessStatus checks the status of the Process and if missing or incorrect add it to the related status field
 func checkAndSetProcessStatus(logger logr.Logger, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod, processMap map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo, processCount int, processGroupStatus *fdbv1beta2.ProcessGroupStatus) error {
 	// Only perform any process specific validation if the machine-readable status has at least one process. We can improve this check
