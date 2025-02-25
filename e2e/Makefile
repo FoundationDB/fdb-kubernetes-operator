@@ -34,8 +34,8 @@ CLOUD_PROVIDER?=
 UPGRADE_VERSIONS?="$(FDB_VERSION):$(NEXT_FDB_VERSION)"
 # Those are feature flags for the operator tests. Enable a feature if you want to run the operator tests with a specific
 # feature enabled e.g. like DNS.
-FEATURE_DNS?=false
-FEATURE_LOCALITIES?=false
+FEATURE_DNS?=
+FEATURE_LOCALITIES?=
 # Allows to specify the tag for a specific FDB version. Format is 7.1.57:7.1.57-testing,7.3.35:7.3.35-debugging
 FDB_VERSION_TAG_MAPPING?=
 # If the FEATURE_SERVER_SIDE_APPLY environment variable is not defined the test suite will be randomly enable (1) or disable (0)
@@ -145,6 +145,14 @@ foundationdb-nightly-tests: GINKGO_LABEL_FILTER=--ginkgo.label-filter="foundatio
 # Run the actual foundationdb-nightly tests.
 foundationdb-nightly-tests: run
 
+ifdef FEATURE_LOCALITIES
+  FEATURE_LOCALITIES_FLAG=--feature-localities=$(FEATURE_LOCALITIES)
+endif
+
+ifdef FEATURE_DNS
+  FEATURE_DNS_FLAG=--feature-dns=$(FEATURE_DNS)
+endif
+
 %.run: %
 	@sleep $$(shuf -i 1-10 -n 1)
 	go test -timeout=$(TIMEOUT) $(VERBOSE) ./$< \
@@ -167,8 +175,6 @@ foundationdb-nightly-tests: run
 	  --enable-chaos-tests=$(ENABLE_CHAOS_TESTS) \
 	  --upgrade-versions=$(UPGRADE_VERSIONS) \
 	  --feature-unified-image=$(FEATURE_UNIFIED_IMAGE) \
-	  --feature-localities=$(FEATURE_LOCALITIES) \
-	  --feature-dns=$(FEATURE_DNS) \
 	  --cloud-provider=$(CLOUD_PROVIDER) \
 	  --dump-operator-state=$(DUMP_OPERATOR_STATE) \
 	  --cluster-name=$(CLUSTER_NAME) \
@@ -176,5 +182,5 @@ foundationdb-nightly-tests: run
 	  --fdb-version-tag-mapping=$(FDB_VERSION_TAG_MAPPING) \
 	  --unified-fdb-image=$(UNIFIED_FDB_IMAGE) \
 	  --feature-server-side-apply=$(FEATURE_SERVER_SIDE_APPLY) \
-	  --seaweedfs-image=$(SEAWEEDFS_IMAGE) \
+	  --seaweedfs-image=$(SEAWEEDFS_IMAGE) $(FEATURE_LOCALITIES_FLAG) $(FEATURE_DNS) \
 	  | grep -v 'constructing many client instances from the same exec auth config can cause performance problems during cert rotation' &> $(BASE_DIR)/../logs/$<.log

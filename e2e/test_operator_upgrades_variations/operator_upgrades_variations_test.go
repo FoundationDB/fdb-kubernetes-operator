@@ -31,6 +31,8 @@ import (
 	"log"
 	"time"
 
+	"k8s.io/utils/pointer"
+
 	corev1 "k8s.io/api/core/v1"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
@@ -255,25 +257,18 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 	)
 
 	DescribeTable(
-		"with locality based exclusions",
+		"with locality based exclusions disabled",
 		func(beforeVersion string, targetVersion string) {
-			fdbVersion, err := fdbv1beta2.ParseFdbVersion(beforeVersion)
-			Expect(err).NotTo(HaveOccurred())
-
-			if !fdbVersion.SupportsLocalityBasedExclusions() {
-				Skip("provided FDB version: " + beforeVersion + " doesn't support locality based exclusions")
-			}
-
 			performUpgrade(testConfig{
 				beforeVersion: beforeVersion,
 				targetVersion: targetVersion,
 				clusterConfig: &fixtures.ClusterConfig{
 					DebugSymbols:               false,
-					UseLocalityBasedExclusions: true,
+					UseLocalityBasedExclusions: pointer.Bool(false),
 				},
 				loadData: false,
 			}, func(cluster *fixtures.FdbCluster) {
-				Expect(cluster.GetCluster().UseLocalitiesForExclusion()).To(BeTrue())
+				Expect(cluster.GetCluster().UseLocalitiesForExclusion()).To(BeFalse())
 			})
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s"),
@@ -281,18 +276,18 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 	)
 
 	DescribeTable(
-		"with DNS in cluster file enabled",
+		"with DNS in cluster file disabled",
 		func(beforeVersion string, targetVersion string) {
 			performUpgrade(testConfig{
 				beforeVersion: beforeVersion,
 				targetVersion: targetVersion,
 				clusterConfig: &fixtures.ClusterConfig{
 					DebugSymbols: false,
-					UseDNS:       true,
+					UseDNS:       pointer.Bool(false),
 				},
 				loadData: false,
 			}, func(cluster *fixtures.FdbCluster) {
-				Expect(cluster.GetCluster().UseDNSInClusterFile()).To(BeTrue())
+				Expect(cluster.GetCluster().UseDNSInClusterFile()).To(BeFalse())
 			})
 		},
 		EntryDescription("Upgrade from %[1]s to %[2]s"),
@@ -310,8 +305,7 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 				},
 				loadData: false,
 			}, func(cluster *fixtures.FdbCluster) {
-				// Update the cluster spec to create dedicated coordinator Pods and make use of services as public IP
-				// source.
+				// Update the cluster spec to create dedicated coordinator Pods and make use DNS in the cluster file.
 				spec := cluster.GetCluster().Spec.DeepCopy()
 				spec.CoordinatorSelection = []fdbv1beta2.CoordinatorSelectionSetting{
 					{
@@ -319,11 +313,7 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 						ProcessClass: fdbv1beta2.ProcessClassCoordinator,
 					},
 				}
-				spec.ProcessCounts.Coordinator = fdbCluster.GetCachedCluster().DesiredCoordinatorCount()
-				publicIPSourceService := fdbv1beta2.PublicIPSourceService
-				spec.Routing = fdbv1beta2.RoutingConfig{
-					PublicIPSource: &publicIPSourceService,
-				}
+				spec.ProcessCounts.Coordinator = fdbCluster.GetCachedCluster().DesiredCoordinatorCount() + fdbCluster.GetCachedCluster().DesiredFaultTolerance()
 				fdbCluster.UpdateClusterSpecWithSpec(spec)
 				Expect(fdbCluster.WaitForReconciliation()).NotTo(HaveOccurred())
 			})

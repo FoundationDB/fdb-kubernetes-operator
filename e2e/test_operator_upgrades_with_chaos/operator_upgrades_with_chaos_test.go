@@ -433,8 +433,14 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 			}
 			faultyProcessGroupID := fixtures.GetProcessGroupID(faultyPod)
 
+			creationTimestamp := faultyPod.CreationTimestamp
 			// The upgrade will be stuck until the new fdbserver binary is copied to the shared directory again.
 			Eventually(func() bool {
+				currentPod := fdbCluster.GetPod(faultyPod.Name)
+				if creationTimestamp.Compare(currentPod.CreationTimestamp.Time) != 0 {
+					Skip("Faulty Pod was deleted, skipping test as the test setup failed.")
+				}
+
 				cluster := fdbCluster.GetCluster()
 				for _, processGroup := range cluster.Status.ProcessGroups {
 					if processGroup.ProcessGroupID != faultyProcessGroupID {

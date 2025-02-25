@@ -169,8 +169,7 @@ func (factory *Factory) CreateFdbCluster(
 	config *ClusterConfig,
 	options ...ClusterOption,
 ) *FdbCluster {
-	spec := factory.GenerateFDBClusterSpec(config)
-	return factory.CreateFdbClusterFromSpec(spec, config, options...)
+	return factory.CreateFdbClusterFromSpec(factory.GenerateFDBClusterSpec(config), config, options...)
 }
 
 // CreateFdbClusterFromSpec creates a FDB cluster. This method can be used in combination with the GenerateFDBClusterSpec method.

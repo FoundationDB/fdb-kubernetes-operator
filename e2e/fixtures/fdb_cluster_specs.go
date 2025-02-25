@@ -99,10 +99,10 @@ func (factory *Factory) createFDBClusterSpec(
 				IgnoreLogGroupsForUpgrade: []fdbv1beta2.LogGroup{
 					"fdb-kubernetes-operator",
 				},
-				UseLocalitiesForExclusion: pointer.Bool(config.UseLocalityBasedExclusions),
+				UseLocalitiesForExclusion: config.UseLocalityBasedExclusions,
 			},
 			Routing: fdbv1beta2.RoutingConfig{
-				UseDNSInClusterFile: pointer.Bool(config.UseDNS),
+				UseDNSInClusterFile: config.UseDNS,
 				HeadlessService: pointer.Bool(
 					true,
 				), // to make switching between hostname <-> IP smooth

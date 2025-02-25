@@ -107,8 +107,8 @@ func recreateService(ctx context.Context, r *FoundationDBClusterReconciler, curr
 	if err != nil {
 		return err
 	}
-	err = r.Create(ctx, newService)
-	return err
+
+	return r.Create(ctx, newService)
 }
 
 // updateServices updates selected safe fields on a service based on a new
@@ -134,5 +134,6 @@ func updateService(ctx context.Context, logger logr.Logger, cluster *fdbv1beta2.
 		logger.Info("Updating service")
 		return r.Update(ctx, currentService)
 	}
+
 	return nil
 }

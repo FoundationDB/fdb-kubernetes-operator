@@ -77,9 +77,9 @@ type ClusterConfig struct {
 	// UseMaintenanceMode if enabled the FoundationDBCluster resource will enable the maintenance mode.
 	UseMaintenanceMode bool
 	// UseLocalityBasedExclusions if enabled the FoundationDBCluster resource will enable the locality based exclusions.
-	UseLocalityBasedExclusions bool
+	UseLocalityBasedExclusions *bool
 	// UseDNS if enabled the FoundationDBCluster resource will enable the DNS feature.
-	UseDNS bool
+	UseDNS *bool
 	// If enabled the cluster will be setup with the unified image.
 	UseUnifiedImage *bool
 	// SimulateCustomFaultDomainEnv will simulate the use case that a user has set a custom environment variable to
