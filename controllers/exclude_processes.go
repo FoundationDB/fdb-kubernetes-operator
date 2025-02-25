@@ -48,9 +48,6 @@ func (e excludeProcesses) reconcile(ctx context.Context, r *FoundationDBClusterR
 	if err != nil {
 		return &requeue{curError: err}
 	}
-	defer func() {
-		_ = adminClient.Close()
-	}()
 
 	adminClient.WithValues()
 	// If the status is not cached, we have to fetch it.

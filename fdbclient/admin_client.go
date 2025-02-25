@@ -681,12 +681,6 @@ func (client *cliAdminClient) GetRestoreStatus() (string, error) {
 	})
 }
 
-// Close cleans up any pending resources.
-func (client *cliAdminClient) Close() error {
-	// Allow to reuse the same file.
-	return nil
-}
-
 // GetCoordinatorSet gets the current coordinators from the status
 func (client *cliAdminClient) GetCoordinatorSet() (map[string]fdbv1beta2.None, error) {
 	status, err := client.GetStatus()

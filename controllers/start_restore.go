@@ -37,9 +37,6 @@ func (s startRestore) reconcile(ctx context.Context, r *FoundationDBRestoreRecon
 	if err != nil {
 		return &requeue{curError: err}
 	}
-	defer func() {
-		_ = adminClient.Close()
-	}()
 
 	status, err := adminClient.GetRestoreStatus()
 	if err != nil {

@@ -147,9 +147,6 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	defer func() {
-		_ = adminClient.Close()
-	}()
 
 	err = cluster.Validate()
 	if err != nil {
@@ -560,7 +557,6 @@ func (r *FoundationDBClusterReconciler) getStatusFromClusterOrDummyStatus(logger
 	if err != nil {
 		return nil, err
 	}
-	defer adminClient.Close()
 	// If the cluster is not yet configured, we can reduce the timeout to make sure the initial reconcile steps
 	// are faster.
 	if !cluster.Status.Configured {

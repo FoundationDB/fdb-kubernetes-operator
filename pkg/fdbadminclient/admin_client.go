@@ -102,10 +102,6 @@ type AdminClient interface {
 	// GetRestoreStatus gets the status of the current restore.
 	GetRestoreStatus() (string, error)
 
-	// Close shuts down any resources for the client once it is no longer
-	// needed.
-	Close() error
-
 	// GetCoordinatorSet returns a set of the current coordinators.
 	GetCoordinatorSet() (map[string]fdbv1beta2.None, error)
 

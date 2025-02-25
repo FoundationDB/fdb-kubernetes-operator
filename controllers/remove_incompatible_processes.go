@@ -68,9 +68,6 @@ func processIncompatibleProcesses(ctx context.Context, r *FoundationDBClusterRec
 		if err != nil {
 			return err
 		}
-		defer func() {
-			_ = adminClient.Close()
-		}()
 
 		status, err = adminClient.GetStatus()
 		if err != nil {

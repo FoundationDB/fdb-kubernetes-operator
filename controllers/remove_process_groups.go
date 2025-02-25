@@ -50,9 +50,6 @@ func (u removeProcessGroups) reconcile(ctx context.Context, r *FoundationDBClust
 	if err != nil {
 		return &requeue{curError: err}
 	}
-	defer func() {
-		_ = adminClient.Close()
-	}()
 
 	// If the status is not cached, we have to fetch it.
 	if status == nil {
