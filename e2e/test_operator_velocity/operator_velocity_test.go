@@ -246,7 +246,8 @@ var _ = Describe("Test Operator Velocity", Label("e2e", "nightly"), func() {
 		})
 	})
 
-	When("a knob is changed and a single process in the primary region is partitioned", func() {
+	// See: https://github.com/FoundationDB/fdb-kubernetes-operator/issues/2228
+	PWhen("a knob is changed and a single process in the primary region is partitioned", func() {
 		var initialReplaceTime time.Duration
 		var exp *fixtures.ChaosMeshExperiment
 

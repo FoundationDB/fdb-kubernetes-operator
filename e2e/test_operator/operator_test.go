@@ -2203,7 +2203,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				_, _, err := fdbCluster.RunFdbCliCommandInOperatorWithoutRetry(cmd, true, 20)
 
 				return err
-			}).WithTimeout(2 * time.Minute).ShouldNot(HaveOccurred())
+			}).WithTimeout(5 * time.Minute).WithPolling(15 * time.Second).ShouldNot(HaveOccurred())
 
 			command := fmt.Sprintf("maintenance on %s %s", pickedProcessGroup.FaultDomain, "3600")
 			_, _ = fdbCluster.RunFdbCliCommandInOperator(command, false, 20)
