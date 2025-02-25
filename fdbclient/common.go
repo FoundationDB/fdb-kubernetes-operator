@@ -25,6 +25,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"k8s.io/apimachinery/pkg/types"
 	"os"
 	"path"
 	"sync"
@@ -150,13 +151,13 @@ var lock = &sync.Mutex{}
 type realDatabaseClientProvider struct {
 	// log implementation for logging output
 	log logr.Logger
+
+	// adminClients maps cluster UID to admin client.
+	mutex        *sync.Mutex
+	adminClients map[types.UID]fdbadminclient.AdminClient
 }
 
 var singletonRealDatabaseClientProvider *realDatabaseClientProvider
-
-func (p *realDatabaseClientProvider) GetAdminClientWithLogger(cluster *fdbv1beta2.FoundationDBCluster, kubernetesClient client.Client, logger logr.Logger) (fdbadminclient.AdminClient, error) {
-	return NewCliAdminClient(cluster, kubernetesClient, logger.WithName("fdbclient"))
-}
 
 // GetLockClient generates a client for working with locks through the database.
 func (p *realDatabaseClientProvider) GetLockClient(cluster *fdbv1beta2.FoundationDBCluster) (fdbadminclient.LockClient, error) {
@@ -169,10 +170,24 @@ func (p *realDatabaseClientProvider) GetLockClientWithLogger(cluster *fdbv1beta2
 	return NewRealLockClient(cluster, logger.WithName("fdbclient"))
 }
 
-// GetAdminClient generates a client for performing administrative actions
-// against the database.
+func (p *realDatabaseClientProvider) GetAdminClientWithLogger(cluster *fdbv1beta2.FoundationDBCluster, kubernetesClient client.Client, logger logr.Logger) (fdbadminclient.AdminClient, error) {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+	adminClient, ok := p.adminClients[cluster.UID]
+	if ok {
+		return adminClient, nil
+	}
+	adminClient, err := NewCliAdminClient(cluster, kubernetesClient, logger.WithName("fdbclient"))
+	if err != nil {
+		return nil, err
+	}
+	p.adminClients[cluster.UID] = adminClient
+	return adminClient, nil
+}
+
+// GetAdminClient returns a client for performing administrative actions against the database.
 func (p *realDatabaseClientProvider) GetAdminClient(cluster *fdbv1beta2.FoundationDBCluster, kubernetesClient client.Client) (fdbadminclient.AdminClient, error) {
-	return NewCliAdminClient(cluster, kubernetesClient, p.log)
+	return p.GetAdminClientWithLogger(cluster, kubernetesClient, p.log)
 }
 
 // GetDatabaseClientProvider returns the singleton client provider for talking to real databases.

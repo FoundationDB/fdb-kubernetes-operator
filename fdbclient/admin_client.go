@@ -91,9 +91,10 @@ type cliAdminClient struct {
 	timeout time.Duration
 }
 
-// NewCliAdminClient generates an Admin client for a cluster
+// NewCliAdminClient generates a new Admin client for a cluster, using the seed connection string.
+// Generally use the dtabase provider's GetAdminClient to retrieve the existing admin client for a cluster.
 func NewCliAdminClient(cluster *fdbv1beta2.FoundationDBCluster, _ client.Client, logger logr.Logger) (fdbadminclient.AdminClient, error) {
-	_, err := createClusterFile(cluster)
+	_, err := ensureClusterFileIsPresent(os.TempDir(), string(cluster.UID), cluster.Spec.SeedConnectionString)
 	if err != nil {
 		return nil, err
 	}
