@@ -27,6 +27,7 @@ import (
 	"io/fs"
 	"os"
 	"path"
+	"sync"
 	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
@@ -144,10 +145,14 @@ func getStatusFromDB(libClient fdbLibClient, logger logr.Logger, timeout time.Du
 	return parseMachineReadableStatus(logger, contents, true)
 }
 
+var lock = &sync.Mutex{}
+
 type realDatabaseClientProvider struct {
 	// log implementation for logging output
 	log logr.Logger
 }
+
+var singletonRealDatabaseClientProvider *realDatabaseClientProvider
 
 func (p *realDatabaseClientProvider) GetAdminClientWithLogger(cluster *fdbv1beta2.FoundationDBCluster, kubernetesClient client.Client, logger logr.Logger) (fdbadminclient.AdminClient, error) {
 	return NewCliAdminClient(cluster, kubernetesClient, logger.WithName("fdbclient"))
@@ -170,10 +175,14 @@ func (p *realDatabaseClientProvider) GetAdminClient(cluster *fdbv1beta2.Foundati
 	return NewCliAdminClient(cluster, kubernetesClient, p.log)
 }
 
-// NewDatabaseClientProvider generates a client provider for talking to real
-// databases.
-func NewDatabaseClientProvider(log logr.Logger) fdbadminclient.DatabaseClientProvider {
-	return &realDatabaseClientProvider{
-		log: log.WithName("fdbclient"),
+// GetDatabaseClientProvider returns the singleton client provider for talking to real databases.
+func GetDatabaseClientProvider(log logr.Logger) fdbadminclient.DatabaseClientProvider {
+	lock.Lock()
+	defer lock.Unlock()
+	if singletonRealDatabaseClientProvider != nil {
+		singletonRealDatabaseClientProvider = &realDatabaseClientProvider{
+			log: log.WithName("fdbclient"),
+		}
 	}
+	return singletonRealDatabaseClientProvider
 }
