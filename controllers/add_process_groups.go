@@ -23,8 +23,7 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"strings"
-
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbstatus"
 	"github.com/go-logr/logr"
 
 	corev1 "k8s.io/api/core/v1"
@@ -48,32 +47,11 @@ func (a addProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterR
 		return &requeue{curError: err}
 	}
 
-	exclusions := map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None{}
-	if cluster.UseLocalitiesForExclusion() {
-		if status == nil {
-			adminClient, err := r.getAdminClient(logger, cluster)
-			if err != nil {
-				return &requeue{curError: err, delayedRequeue: true}
-			}
-
-			status, err = adminClient.GetStatus()
-			if err != nil {
-				return &requeue{curError: err, delayedRequeue: true}
-			}
-		}
-
-		prefix := fdbv1beta2.FDBLocalityExclusionPrefix + ":"
-		for _, excludedServer := range status.Cluster.DatabaseConfiguration.ExcludedServers {
-			if excludedServer.Locality == "" {
-				continue
-			}
-
-			processGroupID, found := strings.CutPrefix(excludedServer.Locality, prefix)
-			if !found {
-				continue
-			}
-			exclusions[fdbv1beta2.ProcessGroupID(processGroupID)] = fdbv1beta2.None{}
-		}
+	// Fetch the excluded localities from the provided machine-readable status. If the status is not available, e.g. because
+	// the cluster is unavailable, return an empty map and continue with adding new process groups if required.
+	exclusions, getLocalitiesErr := fdbstatus.GetExcludedLocalitiesFromStatus(logger, cluster, status, r.getAdminClient)
+	if getLocalitiesErr != nil {
+		logger.Error(err, "Error getting exclusion list")
 	}
 
 	hasNewProcessGroups := false
@@ -107,6 +85,10 @@ func (a addProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterR
 		if err != nil {
 			return &requeue{curError: err}
 		}
+	}
+
+	if getLocalitiesErr != nil {
+		return &requeue{curError: getLocalitiesErr, delayedRequeue: true}
 	}
 
 	return nil

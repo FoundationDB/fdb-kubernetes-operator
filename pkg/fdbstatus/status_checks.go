@@ -595,3 +595,36 @@ func ConfigurationChangeAllowed(status *fdbv1beta2.FoundationDBStatus, useRecove
 
 	return nil
 }
+
+// GetExcludedLocalitiesFromStatus returns the excluded localities based on the machine-readable status. If the provided status is empty a new status is fetched.
+func GetExcludedLocalitiesFromStatus(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, getAdminClient func(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster) (fdbadminclient.AdminClient, error)) (map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None, error) {
+	exclusions := map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None{}
+	if cluster.UseLocalitiesForExclusion() {
+		if status == nil {
+			adminClient, err := getAdminClient(logger, cluster)
+			if err != nil {
+				return exclusions, err
+			}
+
+			status, err = adminClient.GetStatus()
+			if err != nil {
+				return exclusions, err
+			}
+		}
+
+		prefix := fdbv1beta2.FDBLocalityExclusionPrefix + ":"
+		for _, excludedServer := range status.Cluster.DatabaseConfiguration.ExcludedServers {
+			if excludedServer.Locality == "" {
+				continue
+			}
+
+			processGroupID, found := strings.CutPrefix(excludedServer.Locality, prefix)
+			if !found {
+				continue
+			}
+			exclusions[fdbv1beta2.ProcessGroupID(processGroupID)] = fdbv1beta2.None{}
+		}
+	}
+
+	return exclusions, nil
+}

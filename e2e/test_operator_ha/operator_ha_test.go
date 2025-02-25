@@ -125,13 +125,31 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 				}
 
 				log.Println("deleting coordinator pod:", pod.Name, "with addresses", pod.Status.PodIPs)
+				// Set Pod as unschedulable to ensure that they are not recreated. Otherwise the Pods might be recreated
+				// fast enough to not result in a new connection string.
+				fdbCluster.GetPrimary().SetPodAsUnschedulable(pod)
 				factory.DeletePod(&pod)
 			}
 		})
 
+		AfterEach(func() {
+			Expect(fdbCluster.GetPrimary().ClearBuggifyNoSchedule(true)).To(Succeed())
+		})
+
 		It("should change the coordinators", func() {
 			primary := fdbCluster.GetPrimary()
+
+			lastForceReconcile := time.Now()
 			Eventually(func(g Gomega) string {
+				// Ensure that the coordinators are changed in a timely manner for the test case.
+				if time.Since(lastForceReconcile) > 1*time.Minute {
+					for _, cluster := range fdbCluster.GetAllClusters() {
+						cluster.ForceReconcile()
+					}
+
+					lastForceReconcile = time.Now()
+				}
+
 				status := primary.GetStatus()
 
 				// Make sure we have the same count of coordinators again and the deleted
@@ -139,7 +157,7 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 				g.Expect(coordinators).To(HaveLen(len(initialCoordinators)))
 
 				return status.Cluster.ConnectionString
-			}).WithTimeout(5 * time.Minute).WithPolling(2 * time.Second).ShouldNot(Equal(initialConnectionString))
+			}).WithTimeout(10 * time.Minute).WithPolling(2 * time.Second).ShouldNot(Equal(initialConnectionString))
 
 			// Make sure the new connection string is propagated in time to all FoundationDBCLuster resources.
 			for _, cluster := range fdbCluster.GetAllClusters() {
