@@ -49,19 +49,27 @@ func metadataMatches(currentMetadata metav1.ObjectMeta, desiredMetadata metav1.O
 	return containsAll(currentMetadata.Labels, desiredMetadata.Labels) && containsAll(currentMetadata.Annotations, desiredMetadata.Annotations)
 }
 
-// mergeLabels merges the the labels specified by the operator into
+// mergeLabels merges the labels specified by the operator into
 // on object's metadata.
 //
 // This will return whether the target's labels have changed.
 func mergeLabelsInMetadata(target *metav1.ObjectMeta, desired metav1.ObjectMeta) bool {
+	if target.Labels == nil && len(desired.Labels) > 0 {
+		target.Labels = map[string]string{}
+	}
+
 	return mergeMap(target.Labels, desired.Labels)
 }
 
-// mergeAnnotations merges the the annotations specified by the operator into
+// mergeAnnotations merges the annotations specified by the operator into
 // on object's metadata.
 //
 // This will return whether the target's annotations have changed.
 func mergeAnnotations(target *metav1.ObjectMeta, desired metav1.ObjectMeta) bool {
+	if target.Annotations == nil && len(desired.Annotations) > 0 {
+		target.Annotations = map[string]string{}
+	}
+
 	return mergeMap(target.Annotations, desired.Annotations)
 }
 
