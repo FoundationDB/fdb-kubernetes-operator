@@ -194,7 +194,6 @@ func (reconciler operatorCoordination) reconcile(ctx context.Context, r *Foundat
 	if err != nil {
 		return &requeue{curError: err}
 	}
-	defer adminClient.Close()
 
 	// Read all data from the lists to get the current state. If a prefix is provided to the get methods, only
 	// process groups with the additional sub path will be returned.

@@ -21,6 +21,7 @@
 package fdbclient
 
 import (
+	"github.com/go-logr/logr"
 	"os"
 	"path"
 
@@ -38,7 +39,7 @@ var _ = Describe("common_test", func() {
 		JustBeforeEach(func() {
 			var err error
 			tmpDir = GinkgoT().TempDir()
-			clusterFile, err = ensureClusterFileIsPresent(tmpDir, uid, connectionString)
+			clusterFile, err = ensureClusterFileIsPresent(logr.Discard(), tmpDir, uid, connectionString)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
