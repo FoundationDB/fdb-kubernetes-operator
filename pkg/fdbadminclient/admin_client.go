@@ -67,7 +67,8 @@ type AdminClient interface {
 	// ChangeCoordinators changes the coordinator set
 	ChangeCoordinators(addresses []fdbv1beta2.ProcessAddress) (string, error)
 
-	// GetConnectionString fetches the latest connection string.
+	// GetConnectionString fetches the latest connection string. This method will make use of fdbcli to ensure that the
+	// cluster file managed by the fdb client library is not changed.
 	GetConnectionString() (string, error)
 
 	// VersionSupported reports whether we can support a cluster with a given

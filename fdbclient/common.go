@@ -27,6 +27,7 @@ import (
 	"io/fs"
 	"os"
 	"path"
+	"sync"
 	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
@@ -85,7 +86,7 @@ func parseMachineReadableStatus(logger logr.Logger, contents []byte, checkForPro
 
 // getFDBDatabase opens an FDB database.
 func getFDBDatabase(cluster *fdbv1beta2.FoundationDBCluster) (fdb.Database, error) {
-	clusterFile, err := createClusterFile(cluster)
+	clusterFile, err := ensureClusterFileIsPresent(path.Join(os.TempDir(), string(cluster.UID)), cluster.Status.ConnectionString)
 	if err != nil {
 		return fdb.Database{}, err
 	}
@@ -103,35 +104,75 @@ func getFDBDatabase(cluster *fdbv1beta2.FoundationDBCluster) (fdb.Database, erro
 	return database, nil
 }
 
-// createClusterFile will create or update the cluster file for the specified cluster.
-func createClusterFile(cluster *fdbv1beta2.FoundationDBCluster) (string, error) {
-	return ensureClusterFileIsPresent(os.TempDir(), string(cluster.UID), cluster.Status.ConnectionString)
-}
+// clusterFileMutex is used to synchronize the creation of the initial cluster file.
+var clusterFileMutex sync.Mutex
 
-// ensureClusterFileIsPresent will ensure that the cluster file with the specified connection string is present.
-func ensureClusterFileIsPresent(dir string, uid string, connectionString string) (string, error) {
-	clusterFileName := path.Join(dir, uid)
-
-	// Try to read the file to check if the file already exists and if so, if the content matches
-	content, err := os.ReadFile(clusterFileName)
-
-	// If the file doesn't exist we have to create it
-	if errors.Is(err, fs.ErrNotExist) {
-		return clusterFileName, os.WriteFile(clusterFileName, []byte(connectionString), 0777)
-	}
-
-	// The content of the cluster file is already correct.
-	if string(content) == connectionString {
+// ensureClusterFileIsPresent will ensure that the cluster file with the specified connection string is present. If the cluster file
+// is already present, the cluster file will not be updated.
+func ensureClusterFileIsPresent(clusterFileName string, connectionString string) (string, error) {
+	// Check if the file already exists, if so, just return the cluster file name and don't modify the existing cluster file.
+	// Since we only check if the file exist, we don't need a mutex here.
+	_, err := os.Stat(clusterFileName)
+	if err == nil {
 		return clusterFileName, nil
 	}
 
-	// The content doesn't match, so we have to write the new content to the cluster file.
-	return clusterFileName, os.WriteFile(clusterFileName, []byte(connectionString), 0777)
+	// If the file doesn't exist we have to create it
+	if errors.Is(err, fs.ErrNotExist) {
+		// Ensure that only a single go routine creates the initial cluster file.
+		clusterFileMutex.Lock()
+		defer clusterFileMutex.Unlock()
+
+		// Check a second time here if the file now exists, in theory there could be a race where one go routine checked
+		// that the file doesn't exist and before taking the mutex, the file was now created in parallel.
+		_, err = os.Stat(clusterFileName)
+		if err == nil {
+			return clusterFileName, nil
+		}
+
+		createDirErr := os.MkdirAll(path.Dir(clusterFileName), 0777)
+		if createDirErr != nil {
+			return "", createDirErr
+		}
+
+		return clusterFileName, os.WriteFile(clusterFileName, []byte(connectionString), 0777)
+	}
+
+	// If we end up here there was a different error which might indicate some permission errors or I/O errors.
+	return "", err
+}
+
+// createClusterFileForCommandLine will create a cluster file that can be used by the fdb cli tooling, e.g. fdbcli or
+// fdbbackup. The file should be deleted after use.
+func createClusterFileForCommandLine(cluster *fdbv1beta2.FoundationDBCluster) (*os.File, error) {
+	tmpDir := path.Join(os.TempDir(), fmt.Sprintf("%s-cli", cluster.UID))
+	err := os.MkdirAll(tmpDir, 0777)
+	if err != nil {
+		return nil, err
+	}
+
+	randomFile, err := os.CreateTemp(tmpDir, "")
+	if err != nil {
+		return nil, err
+	}
+
+	return randomFile, os.WriteFile(randomFile.Name(), []byte(cluster.Status.ConnectionString), 0777)
 }
 
 // getConnectionStringFromDB gets the database's connection string directly from the system key
-func getConnectionStringFromDB(libClient fdbLibClient, timeout time.Duration) ([]byte, error) {
-	return libClient.getValueFromDBUsingKey("\xff/coordinators", timeout)
+func getConnectionStringFromDB(libClient fdbLibClient, timeout time.Duration) (string, error) {
+	outputBytes, err := libClient.getValueFromDBUsingKey("\xff/coordinators", timeout)
+	if err != nil {
+		return "", err
+	}
+
+	var connectionString fdbv1beta2.ConnectionString
+	connectionString, err = fdbv1beta2.ParseConnectionString(cleanConnectionStringOutput(string(outputBytes)))
+	if err != nil {
+		return "", err
+	}
+
+	return connectionString.String(), nil
 }
 
 // getStatusFromDB gets the database's status directly from the system key
