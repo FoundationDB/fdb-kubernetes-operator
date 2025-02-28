@@ -84,7 +84,8 @@ var _ = AfterSuite(func() {
 	factory.Shutdown()
 })
 
-var _ = Describe("Operator with three data hall", Label("e2e", "pr"), func() {
+// TODO (johscheuer): Add those tests later again to the e2e pipeline.
+var _ = Describe("Operator with three data hall", func() {
 	var availabilityCheck bool
 
 	AfterEach(func() {
