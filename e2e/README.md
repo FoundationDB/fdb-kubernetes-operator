@@ -220,3 +220,8 @@ You can run all tests with `make -kj -C e2e run`
 All tests will be logging to the `logs` folder in the root of this repository.
 If you want to see the current state of a running test you can use `tail`, e.g. `tail -f ./logs/test_operator.log`, to see the progress of the operator tests, the command assumes you are running it from the project directory.
 All tests that are started by our CI pipelines will report in the PR with the test status.
+
+The e2e tests start new pods frequently. Tests will fail if scheduling or provisioning is slow. In environments using
+node provisioners such as `karpenter` (like AWS EKS), it is advisable to ensure there is enough spare capacity, by configuring a
+minimum cluster size and/or by using fewer larger nodes. On the other hand, the cluster should have at least a handful
+of nodes (say 5) to make it less likely that a majority of coordinators get scheduled on the same node.
