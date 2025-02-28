@@ -46,6 +46,15 @@ The e2e test suite has some tests, that will test a migration from one `StorageC
 To prevent potential issues, the e2e test suite will only select `StorageClasses` that have the label `foundationdb.org/operator-testing=true`.
 If the test suite is not able to get at least 2 different `StorageClasses` the migration test will be skipped.
 
+### Using a custom nodeSelector
+
+To start the FDB cluster on nodes matching a particular label (e.g. a particular node pool), you can provide a single
+key-value pair in an environment variable that is added to the nodeSelector:
+
+```bash
+NODE_SELECTOR="my-label=true"
+```
+
 ### Customize the e2e test runs
 
 The `Makefile` provides different options to customize a test run, e.g. with `FDB_VERSION` a user can specify the used FDB version for a test run:
