@@ -584,7 +584,7 @@ func writePodInformation(pod corev1.Pod) string {
 	buffer.WriteString(strconv.Itoa(containers))
 	buffer.WriteString("\t")
 	buffer.WriteString(string(pod.Status.Phase))
-
+	buffer.WriteString("\t")
 	if pod.Status.Phase == corev1.PodPending {
 		for _, condition := range pod.Status.Conditions {
 			// Only check the PodScheduled condition.
@@ -594,12 +594,11 @@ func writePodInformation(pod corev1.Pod) string {
 
 			// If the Pod is scheduled we can ignore this condition.
 			if condition.Status == corev1.ConditionTrue {
-				buffer.WriteString("\t-")
+				buffer.WriteString("-")
 				continue
 			}
 
 			// Printout the message, why the Pod is not scheduling.
-			buffer.WriteString("\t")
 			if condition.Message != "" {
 				buffer.WriteString(condition.Message)
 			} else {
@@ -607,7 +606,7 @@ func writePodInformation(pod corev1.Pod) string {
 			}
 		}
 	} else {
-		buffer.WriteString("\t-")
+		buffer.WriteString("-")
 	}
 
 	buffer.WriteString("\t")
