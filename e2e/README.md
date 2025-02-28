@@ -35,6 +35,40 @@ make -C e2e test_operator.run
 
 Every test suite will create at least one namespace, HA cluster tests will create all the required namespaces.
 
+### Running against a custom operator version
+
+By default, the tests will test the "latest" official version (`docker.io/fdb-kubernetes-operator:latest`). To test
+against a custom-built operator, there are three approaches:
+
+#### Specify the operator container image
+
+You can specify which container image to use via environment variable:
+
+```bash
+OPERATOR_IMAGE=fdb-kubernetes-operator:v1.54.0
+```
+
+#### Use a private container registry
+
+You can specify a different container registry than `docker.io`:
+
+```bash
+REGISTRY=12345.dkr.ecr.us-east-1.amazonaws.com
+```
+
+The e2e test will now read all images from there, so make sure to have all the necessary FoundationDB containers
+in this registry, too.
+
+#### Specify registry per container
+
+It is possible to use different registries for the operator and system under test by including the registry in the container image specification, e.g.:
+
+```bash
+REGISTRY=
+OPERATOR_IMAGE=12345.dkr.ecr.us-east-1.amazonaws.com/fdb-kubernetes-operator:latest
+UNIFIED_FDB_IMAGE=docker.io/foundationdb/fdb-kubernetes-monitor
+```
+
 ### Reusing an existing test cluster
 
 A test cluster can be reused if wanted, e.g. for test cases that load a large amount of data into the cluster.
