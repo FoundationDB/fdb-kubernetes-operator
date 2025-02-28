@@ -166,6 +166,17 @@ func (e excludeProcesses) reconcile(ctx context.Context, r *FoundationDBClusterR
 		}
 	}
 
+	r.Recorder.Event(cluster, corev1.EventTypeNormal, "ExcludingProcesses", fmt.Sprintf("Excluding %v", fdbProcessesToExclude))
+	// We use the no_wait exclusion here to trigger the exclusion without waiting for the data movement to complete.
+	// There is no need to wait for the data movement to complete in this call as later calls will verify that the
+	// data is moved and the processes are fully excluded. Using the no_wait flag here will reduce the timeout errors
+	// as those are hit most of the time if at least one storage process is included in the exclusion list.
+	err = adminClient.ExcludeProcessesWithNoWait(fdbProcessesToExclude, true)
+	// If the exclusion failed, we don't want to change the coordinators and delay the coordinators change to a later time.
+	if err != nil {
+		return &requeue{curError: err, delayedRequeue: true}
+	}
+
 	var coordinatorExcluded bool
 	for _, excludeProcess := range fdbProcessesToExclude {
 		excludeString := excludeProcess.String()
@@ -178,25 +189,11 @@ func (e excludeProcesses) reconcile(ctx context.Context, r *FoundationDBClusterR
 		}
 	}
 
-	var coordinatorErr error
-	// If a coordinator should be excluded, we will change the coordinators before doing the exclusion. This should reduce the
-	// observed recoveries, see: https://github.com/FoundationDB/fdb-kubernetes-operator/v2/issues/2018.
-	if coordinatorExcluded {
-		coordinatorErr = coordinator.ChangeCoordinators(logger, adminClient, cluster, status)
-	}
-
-	r.Recorder.Event(cluster, corev1.EventTypeNormal, "ExcludingProcesses", fmt.Sprintf("Excluding %v", fdbProcessesToExclude))
-	// We use the no_wait exclusion here to trigger the exclusion without waiting for the data movement to complete.
-	// There is no need to wait for the data movement to complete in this call as later calls will verify that the
-	// data is moved and the processes are fully excluded. Using the no_wait flag here will reduce the timeout errors
-	// as those are hit most of the time if at least one storage process is included in the exclusion list.
-	err = adminClient.ExcludeProcessesWithNoWait(fdbProcessesToExclude, true)
-	if err != nil {
-		return &requeue{curError: err, delayedRequeue: true}
-	}
-
 	// Only if a coordinator was excluded we have to check for an error and update the cluster.
 	if coordinatorExcluded {
+		// If a coordinator should be excluded, we will change the coordinators directly after the exclusion.
+		// This should reduce the observed recoveries, see: https://github.com/FoundationDB/fdb-kubernetes-operator/v2/issues/2018.
+		coordinatorErr := coordinator.ChangeCoordinators(logger, adminClient, cluster, status)
 		if coordinatorErr != nil {
 			return &requeue{curError: coordinatorErr, delayedRequeue: true}
 		}
