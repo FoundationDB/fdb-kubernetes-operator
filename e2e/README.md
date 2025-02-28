@@ -3,6 +3,22 @@
 Those test must be running on a Kubernetes cluster that has `amd64` Linux nodes as FoundationDB currently has no builds for `arm64`.
 Every test suite has a head in the `*_test.go` file that describes the test cases and the targeted scenarios.
 
+## Setup
+
+The e2e tests expect certain customizations in the Kubernetes cluster. To deploy those in the cluster, run:
+
+```bash
+make install
+```
+
+This is only necessary once.
+
+To cover storage class migrations in tests, annotate your cluster's storage classes as follows. Alternatively, you can skip those tests and provide the default storage class (see "StorageClass selection" below).  
+
+* Annotate the `StorageClass` to use for most tests with the label: `"storageclass.kubernetes.io/is-default-class=true`.
+* Annotate at least two `StorageClasses` with the label `foundationdb.org/operator-testing=true`.  If the test suite is not able to get at least 2 different `StorageClasses` the migration test will be skipped.
+
+
 ## Running the e2e tests
 
 The following command will run all the operator related tests with the default values:
@@ -39,12 +55,7 @@ You can provide the targeted `StorageClass` as an environment variable:
 STORAGE_CLASS='my-fancy-storage' make -kj -C e2e test_operator.run
 ```
 
-If the `STORAGE_CLASS` is not set, the operator will take the default `StorageClass` in this cluster.
-The default `StorageClass` will be identified based on the annotation: `"storageclass.kubernetes.io/is-default-class=true`.
-
-The e2e test suite has some tests, that will test a migration from one `StorageClass` to another.
-To prevent potential issues, the e2e test suite will only select `StorageClasses` that have the label `foundationdb.org/operator-testing=true`.
-If the test suite is not able to get at least 2 different `StorageClasses` the migration test will be skipped.
+If the `STORAGE_CLASS` is not set, the operator will pick storage classes based on labels, see "Setup" above.
 
 ### Using a custom nodeSelector
 
