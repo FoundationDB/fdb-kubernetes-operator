@@ -172,6 +172,8 @@ func (e excludeProcesses) reconcile(ctx context.Context, r *FoundationDBClusterR
 	// data is moved and the processes are fully excluded. Using the no_wait flag here will reduce the timeout errors
 	// as those are hit most of the time if at least one storage process is included in the exclusion list.
 	err = adminClient.ExcludeProcessesWithNoWait(fdbProcessesToExclude, true)
+	// Reset the SecondsSinceLastRecovered since the operator just excluded some processes, which will cause a recovery.
+	status.Cluster.RecoveryState.SecondsSinceLastRecovered = 0.0
 	// If the exclusion failed, we don't want to change the coordinators and delay the coordinators change to a later time.
 	if err != nil {
 		return &requeue{curError: err, delayedRequeue: true}
@@ -203,9 +205,6 @@ func (e excludeProcesses) reconcile(ctx context.Context, r *FoundationDBClusterR
 			return &requeue{curError: err, delayedRequeue: true}
 		}
 	}
-
-	// Reset the SecondsSinceLastRecovered since the operator just excluded some processes, which will cause a recovery.
-	status.Cluster.RecoveryState.SecondsSinceLastRecovered = 0.0
 
 	return nil
 }
