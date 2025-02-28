@@ -142,7 +142,7 @@ make -C e2e test_operator_upgrades.run
 
 ### Running e2e tests in kind
 
-_NOTE_ This setup is currently not used by our CI.
+_NOTE_ This setup is currently not used by anyone and is not being maintained. Some tests currently do not pass in `kind.`
 
 [kind](https://kind.sigs.k8s.io) provides an easy way to run a local Kubernetes cluster.
 For running tests on a `kind` cluster you should set the `CLOUD_PROVIDER=kind` environment variable to make sure the test framework is creating clusters with smaller resource requirements.
@@ -152,7 +152,18 @@ The following steps assume that `kind` and `helm` are already installed.
 make -C e2e kind-setup
 ```
 
-This will call the [setup_e2e.sh](./scripts/setup_e2e.sh) script to setup `kind` and install chaos-mesh.
+This will call the [setup_e2e.sh](./scripts/setup_e2e.sh) script to setup `kind` and install chaos-mesh. Kind clusters do not load images
+from a container registry, they need to be explicitly loaded and `kind-setup` doesn't do this correctly right now.  So 
+you may need to explicitly load missing images into the kind cluster, like:
+
+```bash
+kind load docker-image -n e2e-tests docker.io/foundationdb/fdb-kubernetes-monitor:7.1.57
+kind load docker-image -n e2e-tests docker.io/foundationdb/fdb-kubernetes-monitor:7.3.59
+```
+
+If you forgot one, the test will not be able to schedule FoundationDB nodes. You can see what is missing by looking
+at the events section of the `kubectl describe pod` output.
+
 After testing you can run the following command to remove the kind cluster:
 
 ```bash
