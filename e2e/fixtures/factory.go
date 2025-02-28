@@ -879,3 +879,8 @@ func (factory *Factory) getStorageEngine() fdbv1beta2.StorageEngine {
 func (factory *Factory) Intn(n int) int {
 	return factory.randomGenerator.Intn(n)
 }
+
+// GetNodeSelector returns the node selector, which is an empty string or has the format key=value.
+func (factory *Factory) GetNodeSelector() string {
+	return factory.options.nodeSelector
+}
