@@ -384,7 +384,6 @@ func CheckCoordinatorValidity(logger logr.Logger, cluster *fdbv1beta2.Foundation
 			Flags:         ipAddress.Flags,
 		}
 		_, isCoordinatorWithDNS := coordinatorStatus[dnsAddress.String()]
-
 		if !isCoordinatorWithDNS {
 			dnsAddress = ipAddress
 			dnsAddress.FromHostname = true
