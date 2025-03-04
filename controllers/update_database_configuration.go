@@ -62,21 +62,11 @@ func (u updateDatabaseConfiguration) reconcile(_ context.Context, r *FoundationD
 		}
 	}
 
-	initialConfig := !cluster.Status.Configured
-	if !initialConfig && !status.Client.DatabaseStatus.Available {
-		logger.Info("Skipping database configuration change because database is unavailable")
-		return &requeue{message: "cluster is not available", delayedRequeue: true, delay: 5 * time.Second}
-	}
+	initialConfig := !fdbstatus.ClusterIsConfigured(cluster, status)
 
 	desiredConfiguration := cluster.DesiredDatabaseConfiguration()
 	desiredConfiguration.RoleCounts.Storage = 0
 	currentConfiguration := status.Cluster.DatabaseConfiguration.NormalizeConfiguration(cluster)
-
-	runningVersion, err := fdbv1beta2.ParseFdbVersion(cluster.GetRunningVersion())
-	if err != nil {
-		return &requeue{curError: err, delayedRequeue: true}
-	}
-
 	if initialConfig || !equality.Semantic.DeepEqual(desiredConfiguration, currentConfiguration) {
 		var nextConfiguration fdbv1beta2.DatabaseConfiguration
 		if initialConfig {
@@ -84,20 +74,26 @@ func (u updateDatabaseConfiguration) reconcile(_ context.Context, r *FoundationD
 		} else {
 			nextConfiguration = currentConfiguration.GetNextConfigurationChange(desiredConfiguration)
 		}
-		configurationString, _ := nextConfiguration.GetConfigurationString()
+		configurationString, configErr := nextConfiguration.GetConfigurationString()
+		if configErr != nil {
+			return &requeue{curError: err, delayedRequeue: true}
+		}
 
 		if !initialConfig {
+			runningVersion, err := fdbv1beta2.ParseFdbVersion(cluster.GetRunningVersion())
+			if err != nil {
+				return &requeue{curError: err, delayedRequeue: true}
+			}
+
 			err = fdbstatus.ConfigurationChangeAllowed(status, runningVersion.SupportsRecoveryState() && r.EnableRecoveryState)
 			if err != nil {
 				logger.Info("Changing current configuration is not safe", "error", err, "current configuration", currentConfiguration, "desired configuration", desiredConfiguration)
 				r.Recorder.Event(cluster, corev1.EventTypeNormal, "NeedsConfigurationChange",
-					fmt.Sprintf("Spec require configuration change to `%s`, but configuration change is not safe: %s", configurationString, err.Error()))
+					fmt.Sprintf("Spec requires configuration change to `%s`, but configuration change is not safe: %s", configurationString, err.Error()))
 				return &requeue{message: "Configuration change is not safe, retry later", delayedRequeue: true, delay: 10 * time.Second}
 			}
-		}
 
-		if !initialConfig {
-			err := r.takeLock(logger, cluster,
+			err = r.takeLock(logger, cluster,
 				fmt.Sprintf("reconfiguring the database to `%s`", configurationString))
 			if err != nil {
 				return &requeue{curError: err, delayedRequeue: true}

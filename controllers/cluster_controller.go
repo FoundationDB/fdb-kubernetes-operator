@@ -470,6 +470,10 @@ func (r *FoundationDBClusterReconciler) getLockClient(logger logr.Logger, cluste
 
 // takeLock attempts to acquire a lock.
 func (r *FoundationDBClusterReconciler) takeLock(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, action string) error {
+	if !cluster.ShouldUseLocks() {
+		return nil
+	}
+
 	logger.Info("Taking lock on cluster", "action", action)
 	lockClient, err := r.getLockClient(logger, cluster)
 	if err != nil {
