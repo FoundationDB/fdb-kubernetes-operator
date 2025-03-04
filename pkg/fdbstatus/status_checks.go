@@ -628,3 +628,10 @@ func GetExcludedLocalitiesFromStatus(logger logr.Logger, cluster *fdbv1beta2.Fou
 
 	return exclusions, nil
 }
+
+// ClusterIsConfigured will return true if the cluster is configured based on the machine-readable status of the status of
+// the FoundationDBCLuster resource.
+func ClusterIsConfigured(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) bool {
+	// If we saw at least once that the cluster was configured, we assume that the cluster is always configured.
+	return cluster.Status.Configured || (status.Client.DatabaseStatus.Available && status.Cluster.Layers.Error != "configurationMissing")
+}
