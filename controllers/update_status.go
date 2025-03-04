@@ -23,6 +23,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbstatus"
 	"math"
 	"sort"
 	"time"
@@ -99,8 +100,7 @@ func (c updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterRecon
 		clusterStatus.DatabaseConfiguration = databaseStatus.Cluster.DatabaseConfiguration.NormalizeConfiguration(cluster)
 	}
 
-	// If we saw at least once that the cluster was configured, we assume that the cluster is always configured.
-	clusterStatus.Configured = cluster.Status.Configured || (databaseStatus.Client.DatabaseStatus.Available && databaseStatus.Cluster.Layers.Error != "configurationMissing")
+	clusterStatus.Configured = fdbstatus.ClusterIsConfigured(cluster, databaseStatus)
 
 	if cluster.Spec.MainContainer.EnableTLS {
 		clusterStatus.RequiredAddresses.TLS = true
