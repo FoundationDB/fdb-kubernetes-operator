@@ -30,7 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/uuid"
-	"regexp"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -489,8 +488,6 @@ func (r *FoundationDBClusterReconciler) releaseLock(logger logr.Logger, cluster 
 
 	return lockClient.ReleaseLock()
 }
-
-var connectionStringNameRegex, _ = regexp.Compile("[^A-Za-z0-9_]")
 
 // clusterSubReconciler describes a class that does part of the work of
 // reconciliation for a cluster.
