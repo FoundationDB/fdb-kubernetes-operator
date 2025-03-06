@@ -30,25 +30,45 @@ import (
 
 var _ = Describe("Cluster configuration", func() {
 	DescribeTable("when generating the Pod resources", func(config *ClusterConfig, processClass fdbv1beta2.ProcessClass, expected corev1.ResourceList) {
-		Expect(config.generatePodResources(processClass)).To(Equal(expected))
+		config.SetDefaults(nil)
+		generated := config.generatePodResources(processClass)
+		Expect(generated.Cpu().String()).To(Equal(expected.Cpu().String()))
+		Expect(generated.Memory().String()).To(Equal(expected.Memory().String()))
 	},
 		Entry("empty config for general process class",
-			&ClusterConfig{},
+			&ClusterConfig{
+				Name:                "test",
+				Namespace:           "unit-test",
+				StorageEngine:       fdbv1beta2.StorageEngineRocksDbV1,
+				cloudProvider:       "test",
+				StorageServerPerPod: 1,
+			},
 			fdbv1beta2.ProcessClassGeneral,
 			corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse("0.2"),
-				corev1.ResourceMemory: resource.MustParse("2Gi"),
+				corev1.ResourceCPU:    resource.MustParse("1"),
+				corev1.ResourceMemory: resource.MustParse("8Gi"),
 			}),
 		Entry("empty config for storage process class",
-			&ClusterConfig{},
+			&ClusterConfig{
+				Name:                "test",
+				Namespace:           "unit-test",
+				StorageEngine:       fdbv1beta2.StorageEngineRocksDbV1,
+				cloudProvider:       "test",
+				StorageServerPerPod: 1,
+			},
 			fdbv1beta2.ProcessClassStorage,
 			corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse("0.2"),
-				corev1.ResourceMemory: resource.MustParse("2Gi"),
+				corev1.ResourceCPU:    resource.MustParse("1"),
+				corev1.ResourceMemory: resource.MustParse("8Gi"),
 			}),
 		Entry("performance config for general process class",
 			&ClusterConfig{
-				Performance: true,
+				Name:                "test",
+				Namespace:           "unit-test",
+				StorageEngine:       fdbv1beta2.StorageEngineRocksDbV1,
+				cloudProvider:       "test",
+				StorageServerPerPod: 1,
+				Performance:         true,
 			},
 			fdbv1beta2.ProcessClassGeneral,
 			corev1.ResourceList{
@@ -57,7 +77,12 @@ var _ = Describe("Cluster configuration", func() {
 			}),
 		Entry("performance config for storage process class",
 			&ClusterConfig{
-				Performance: true,
+				Name:                "test",
+				Namespace:           "unit-test",
+				StorageEngine:       fdbv1beta2.StorageEngineRocksDbV1,
+				cloudProvider:       "test",
+				StorageServerPerPod: 1,
+				Performance:         true,
 			},
 			fdbv1beta2.ProcessClassStorage,
 			corev1.ResourceList{
@@ -66,31 +91,73 @@ var _ = Describe("Cluster configuration", func() {
 			}),
 		Entry("performance config for storage process class with multiple storage servers per disk",
 			&ClusterConfig{
-				Performance:         true,
 				StorageServerPerPod: 2,
+				Name:                "test",
+				Namespace:           "unit-test",
+				StorageEngine:       fdbv1beta2.StorageEngineRocksDbV1,
+				cloudProvider:       "test",
+				Performance:         true,
 			},
 			fdbv1beta2.ProcessClassStorage,
 			corev1.ResourceList{
 				corev1.ResourceCPU:    resource.MustParse("2"),
 				corev1.ResourceMemory: resource.MustParse("16Gi"),
 			}),
-		Entry("empty config for general process class for Kind",
+
+		Entry("performance config for storage process class with custom memory",
 			&ClusterConfig{
-				cloudProvider: "kind",
-			},
-			fdbv1beta2.ProcessClassGeneral,
-			corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse("0.2"),
-				corev1.ResourceMemory: resource.MustParse("2Gi"),
-			}),
-		Entry("empty config for storage process class",
-			&ClusterConfig{
-				cloudProvider: "kind",
+				Name:                "test",
+				Namespace:           "unit-test",
+				MemoryPerPod:        "16Gi",
+				StorageEngine:       fdbv1beta2.StorageEngineRocksDbV1,
+				cloudProvider:       "test",
+				StorageServerPerPod: 1,
+				Performance:         true,
 			},
 			fdbv1beta2.ProcessClassStorage,
 			corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse("0.2"),
-				corev1.ResourceMemory: resource.MustParse("2Gi"),
+				corev1.ResourceCPU:    resource.MustParse("1"),
+				corev1.ResourceMemory: resource.MustParse("16Gi"),
+			}),
+		Entry("performance config for storage process class with multiple storage servers per disk with custom memory",
+			&ClusterConfig{
+				StorageServerPerPod: 2,
+				Name:                "test",
+				Namespace:           "unit-test",
+				MemoryPerPod:        "16Gi",
+				StorageEngine:       fdbv1beta2.StorageEngineRocksDbV1,
+				cloudProvider:       "test",
+				Performance:         true,
+			},
+			fdbv1beta2.ProcessClassStorage,
+			corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("2"),
+				corev1.ResourceMemory: resource.MustParse("32Gi"),
+			}),
+		Entry("empty config for general process class for kind",
+			&ClusterConfig{
+				cloudProvider: "kind",
+				Name:          "test",
+				Namespace:     "unit-test",
+				StorageEngine: fdbv1beta2.StorageEngineRocksDbV1,
+			},
+			fdbv1beta2.ProcessClassGeneral,
+			corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("1"),
+				corev1.ResourceMemory: resource.MustParse("8Gi"),
+			}),
+		Entry("empty config for storage process class for kind",
+			&ClusterConfig{
+				cloudProvider:       "kind",
+				Name:                "test",
+				Namespace:           "unit-test",
+				StorageEngine:       fdbv1beta2.StorageEngineRocksDbV1,
+				StorageServerPerPod: 1,
+			},
+			fdbv1beta2.ProcessClassStorage,
+			corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("1"),
+				corev1.ResourceMemory: resource.MustParse("8Gi"),
 			}),
 	)
 })

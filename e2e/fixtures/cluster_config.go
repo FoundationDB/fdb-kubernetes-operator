@@ -21,10 +21,8 @@
 package fixtures
 
 import (
-	"fmt"
 	"log"
 	"math"
-	"strconv"
 	"strings"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
@@ -96,6 +94,12 @@ type ClusterConfig struct {
 	StorageServerPerPod int
 	// LogServersPerPod defines the value that is set in the FoundationDBClusterSpec for this setting.
 	LogServersPerPod int
+	// MemoryPerPodInGb defines the default memory for pods created by this cluster. If more than one process is running inside the
+	// pod the memory size will be increased proportionally. If not set, will default to 8Gi
+	MemoryPerPod string
+	// CpusPerPod defines the default CPU size for pods created by this cluster. If more than one process is running inside the
+	// pod the CPU size will be increased proportionally. If not set will default to 1.
+	CpusPerPod string
 	// VolumeSize the size of the volumes that should be created for stateful Pods.
 	VolumeSize string
 	// Namespace to create the cluster in, if empty will use a randomly generated namespace. The setup won't create the
@@ -172,6 +176,14 @@ func (config *ClusterConfig) SetDefaults(factory *Factory) {
 	if config.TLSPeerVerification == "" {
 		config.TLSPeerVerification = "I.CN=localhost,I.O=Example Inc.,S.CN=localhost,S.O=Example Inc."
 	}
+
+	if config.MemoryPerPod == "" {
+		config.MemoryPerPod = "8Gi"
+	}
+
+	if config.CpusPerPod == "" {
+		config.CpusPerPod = "1"
+	}
 }
 
 // getVolumeSize returns the volume size in as a string. If no volume size is defined a default will be set based on
@@ -213,31 +225,30 @@ func (config *ClusterConfig) generateSidecarResources() corev1.ResourceList {
 func (config *ClusterConfig) generatePodResources(
 	processClass fdbv1beta2.ProcessClass,
 ) corev1.ResourceList {
-	if !config.Performance {
-		// Minimal resource requests for this cluster to be functional
-		return corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("0.2"),
-			corev1.ResourceMemory: resource.MustParse("2Gi"),
+	// FDB is single threaded so we can assign 1 CPU per process in this Pod and 8 GiB is the default memory footprint
+	// for an fdbserver process.
+	cpuResources := resource.MustParse(config.CpusPerPod)
+	memoryResources := resource.MustParse(config.MemoryPerPod)
+	originalCPUResources := cpuResources.DeepCopy()
+	originalMemoryResources := memoryResources.DeepCopy()
+
+	if processClass == fdbv1beta2.ProcessClassStorage && config.StorageServerPerPod > 1 {
+		for i := 1; i < config.StorageServerPerPod; i++ {
+			cpuResources.Add(originalCPUResources)
+			memoryResources.Add(originalMemoryResources)
 		}
 	}
 
-	// FDB is single threaded so we can assign 1 CPU per process in this Pod and 8 Gi is the default memory footprint
-	// for an fdbserver process.
-	cpu := 1
-	memory := 8
-	if processClass == fdbv1beta2.ProcessClassStorage && config.StorageServerPerPod > 1 {
-		cpu *= config.StorageServerPerPod
-		memory *= config.StorageServerPerPod
-	}
-
 	if processClass == fdbv1beta2.ProcessClassLog && config.LogServersPerPod > 1 {
-		cpu *= config.LogServersPerPod
-		memory *= config.LogServersPerPod
+		for i := 1; i < config.StorageServerPerPod; i++ {
+			cpuResources.Add(originalCPUResources)
+			memoryResources.Add(originalMemoryResources)
+		}
 	}
 
 	return corev1.ResourceList{
-		corev1.ResourceCPU:    resource.MustParse(strconv.Itoa(cpu)),
-		corev1.ResourceMemory: resource.MustParse(fmt.Sprintf("%dGi", memory)),
+		corev1.ResourceCPU:    cpuResources,
+		corev1.ResourceMemory: memoryResources,
 	}
 }
 
@@ -536,7 +547,6 @@ func calculateProxies(proxies int) (int, int) {
 // Copy will return a new struct of the ClusterConfig.
 func (config *ClusterConfig) Copy() *ClusterConfig {
 	return &ClusterConfig{
-		Performance:                config.Performance,
 		DebugSymbols:               config.DebugSymbols,
 		UseMaintenanceMode:         config.UseMaintenanceMode,
 		CreationTracker:            config.CreationTracker,
@@ -556,5 +566,7 @@ func (config *ClusterConfig) Copy() *ClusterConfig {
 		UseDNS:                     config.UseDNS,
 		UseLocalityBasedExclusions: config.UseLocalityBasedExclusions,
 		UseUnifiedImage:            config.UseUnifiedImage,
+		MemoryPerPod:               config.MemoryPerPod,
+		CpusPerPod:                 config.CpusPerPod,
 	}
 }
