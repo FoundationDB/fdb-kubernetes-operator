@@ -24,7 +24,7 @@ import (
 	"context"
 	"reflect"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -38,7 +38,7 @@ import (
 type updateConfigMap struct{}
 
 // reconcile runs the reconciler's work.
-func (u updateConfigMap) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster, _ *fdbtypes.FoundationDBStatus, logger logr.Logger) *requeue {
+func (u updateConfigMap) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, _ *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
 	configMap, err := internal.GetConfigMap(cluster)
 	if err != nil {
 		return &requeue{curError: err}
