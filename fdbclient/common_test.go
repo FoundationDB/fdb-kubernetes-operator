@@ -38,7 +38,7 @@ var _ = Describe("common_test", func() {
 		JustBeforeEach(func() {
 			var err error
 			tmpDir = GinkgoT().TempDir()
-			clusterFile, err = ensureClusterFileIsPresent(tmpDir, uid, connectionString)
+			clusterFile, err = ensureClusterFileIsPresent(path.Join(tmpDir, uid), connectionString)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -53,7 +53,7 @@ var _ = Describe("common_test", func() {
 
 		When("the cluster file exist with the wrong content", func() {
 			BeforeEach(func() {
-				err := os.WriteFile(path.Join(os.TempDir(), uid), []byte("wrong"), 0777)
+				err := os.WriteFile(path.Join(GinkgoT().TempDir(), uid), []byte("wrong"), 0777)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -67,7 +67,7 @@ var _ = Describe("common_test", func() {
 
 		When("the cluster file exist with the correct content", func() {
 			BeforeEach(func() {
-				err := os.WriteFile(path.Join(os.TempDir(), uid), []byte(connectionString), 0777)
+				err := os.WriteFile(path.Join(GinkgoT().TempDir(), uid), []byte(connectionString), 0777)
 				Expect(err).NotTo(HaveOccurred())
 			})
 

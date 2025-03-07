@@ -29,6 +29,9 @@ import (
 	"path"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+
 	"k8s.io/utils/pointer"
 
 	"github.com/go-logr/logr"
@@ -202,7 +205,7 @@ var _ = Describe("admin_client_test", func() {
 			GinkgoT().Setenv("FDB_NETWORK_OPTION_TRACE_FORMAT", traceFormat)
 		}
 
-		args, timeout := client.getArgsAndTimeout(command)
+		args, timeout := client.getArgsAndTimeout(command, "test")
 		Expect(timeout).To(Equal(expectedTimeout))
 		Expect(args).To(HaveExactElements(expectedArgs))
 	},
@@ -213,9 +216,8 @@ var _ = Describe("admin_client_test", func() {
 				timeout: 1 * time.Second,
 			},
 			&cliAdminClient{
-				Cluster:         nil,
-				clusterFilePath: "test",
-				log:             logr.Discard(),
+				Cluster: nil,
+				log:     logr.Discard(),
 			},
 			"",
 			"",
@@ -233,9 +235,8 @@ var _ = Describe("admin_client_test", func() {
 				timeout: 1 * time.Second,
 			},
 			&cliAdminClient{
-				Cluster:         nil,
-				clusterFilePath: "test",
-				log:             logr.Discard(),
+				Cluster: nil,
+				log:     logr.Discard(),
 			},
 			"",
 			"",
@@ -256,9 +257,8 @@ var _ = Describe("admin_client_test", func() {
 				timeout: 1 * time.Second,
 			},
 			&cliAdminClient{
-				Cluster:         nil,
-				clusterFilePath: "test",
-				log:             logr.Discard(),
+				Cluster: nil,
+				log:     logr.Discard(),
 			},
 			"/tmp",
 			"",
@@ -284,9 +284,8 @@ var _ = Describe("admin_client_test", func() {
 				timeout: 1 * time.Second,
 			},
 			&cliAdminClient{
-				Cluster:         nil,
-				clusterFilePath: "test",
-				log:             logr.Discard(),
+				Cluster: nil,
+				log:     logr.Discard(),
 			},
 			"/tmp",
 			"json",
@@ -312,10 +311,9 @@ var _ = Describe("admin_client_test", func() {
 				timeout: 1 * time.Second,
 			},
 			&cliAdminClient{
-				Cluster:         nil,
-				clusterFilePath: "test",
-				log:             logr.Discard(),
-				knobs:           []string{"--knob-testing=1"},
+				Cluster: nil,
+				log:     logr.Discard(),
+				knobs:   []string{"--knob-testing=1"},
 			},
 			"",
 			"",
@@ -338,9 +336,8 @@ var _ = Describe("admin_client_test", func() {
 				timeout: 1 * time.Second,
 			},
 			&cliAdminClient{
-				Cluster:         nil,
-				clusterFilePath: "test",
-				log:             logr.Discard(),
+				Cluster: nil,
+				log:     logr.Discard(),
 			},
 			"",
 			"",
@@ -360,9 +357,8 @@ var _ = Describe("admin_client_test", func() {
 				timeout: 1 * time.Second,
 			},
 			&cliAdminClient{
-				Cluster:         nil,
-				clusterFilePath: "test",
-				log:             logr.Discard(),
+				Cluster: nil,
+				log:     logr.Discard(),
 			},
 			"/tmp",
 			"",
@@ -385,9 +381,8 @@ var _ = Describe("admin_client_test", func() {
 				timeout: 1 * time.Second,
 			},
 			&cliAdminClient{
-				Cluster:         nil,
-				clusterFilePath: "test",
-				log:             logr.Discard(),
+				Cluster: nil,
+				log:     logr.Discard(),
 			},
 			"/tmp",
 			"json",
@@ -410,10 +405,9 @@ var _ = Describe("admin_client_test", func() {
 				timeout: 1 * time.Second,
 			},
 			&cliAdminClient{
-				Cluster:         nil,
-				clusterFilePath: "test",
-				log:             logr.Discard(),
-				knobs:           []string{"--knob-testing=1"},
+				Cluster: nil,
+				log:     logr.Discard(),
+				knobs:   []string{"--knob-testing=1"},
 			},
 			"",
 			"",
@@ -435,9 +429,8 @@ var _ = Describe("admin_client_test", func() {
 				timeout: 1 * time.Second,
 			},
 			&cliAdminClient{
-				Cluster:         nil,
-				clusterFilePath: "test",
-				log:             logr.Discard(),
+				Cluster: nil,
+				log:     logr.Discard(),
 			},
 			"",
 			"",
@@ -457,9 +450,8 @@ var _ = Describe("admin_client_test", func() {
 				timeout: 1 * time.Second,
 			},
 			&cliAdminClient{
-				Cluster:         nil,
-				clusterFilePath: "test",
-				log:             logr.Discard(),
+				Cluster: nil,
+				log:     logr.Discard(),
 			},
 			"/tmp",
 			"",
@@ -482,9 +474,8 @@ var _ = Describe("admin_client_test", func() {
 				timeout: 1 * time.Second,
 			},
 			&cliAdminClient{
-				Cluster:         nil,
-				clusterFilePath: "test",
-				log:             logr.Discard(),
+				Cluster: nil,
+				log:     logr.Discard(),
 			},
 			"/tmp",
 			"json",
@@ -507,10 +498,9 @@ var _ = Describe("admin_client_test", func() {
 				timeout: 1 * time.Second,
 			},
 			&cliAdminClient{
-				Cluster:         nil,
-				clusterFilePath: "test",
-				log:             logr.Discard(),
-				knobs:           []string{"--knob-testing=1"},
+				Cluster: nil,
+				log:     logr.Discard(),
+				knobs:   []string{"--knob-testing=1"},
 			},
 			"",
 			"",
@@ -532,10 +522,13 @@ var _ = Describe("admin_client_test", func() {
 
 		JustBeforeEach(func() {
 			cliClient := &cliAdminClient{
-				Cluster:         nil,
-				clusterFilePath: "test",
-				log:             logr.Discard(),
-				cmdRunner:       mockRunner,
+				Cluster: &fdbv1beta2.FoundationDBCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						UID: types.UID("1234"),
+					},
+				},
+				log:       logr.Discard(),
+				cmdRunner: mockRunner,
 			}
 
 			protocolVersion, err = cliClient.GetProtocolVersion("7.1.21")
@@ -609,10 +602,9 @@ protocol fdb00b071010000`,
 
 		JustBeforeEach(func() {
 			cliClient := &cliAdminClient{
-				Cluster:         nil,
-				clusterFilePath: "test",
-				log:             logr.Discard(),
-				cmdRunner:       mockRunner,
+				Cluster:   nil,
+				log:       logr.Discard(),
+				cmdRunner: mockRunner,
 			}
 
 			supported, err = cliClient.VersionSupported(fdbv1beta2.Versions.Default.String())
@@ -671,9 +663,8 @@ protocol fdb00b071010000`,
 						RunningVersion: fdbv1beta2.Versions.Default.String(),
 					},
 				},
-				clusterFilePath: "test",
-				log:             logr.Discard(),
-				cmdRunner:       mockRunner,
+				log:       logr.Discard(),
+				cmdRunner: mockRunner,
 			}
 
 			status, err = cliClient.getStatus()
@@ -782,10 +773,9 @@ protocol fdb00b071010000`,
 			}
 
 			cliClient := &cliAdminClient{
-				Cluster:         cluster,
-				clusterFilePath: "test",
-				log:             logr.Discard(),
-				cmdRunner:       mockRunner,
+				Cluster:   cluster,
+				log:       logr.Discard(),
+				cmdRunner: mockRunner,
 			}
 
 			Expect(cliClient.ExcludeProcesses([]fdbv1beta2.ProcessAddress{{
@@ -841,11 +831,10 @@ protocol fdb00b071010000`,
 			}
 
 			cliClient := &cliAdminClient{
-				Cluster:         cluster,
-				clusterFilePath: "test",
-				log:             logr.Discard(),
-				cmdRunner:       mockRunner,
-				fdbLibClient:    mockFdbClient,
+				Cluster:      cluster,
+				log:          logr.Discard(),
+				cmdRunner:    mockRunner,
+				fdbLibClient: mockFdbClient,
 			}
 
 			result, err = cliClient.CanSafelyRemove(addressesToCheck)
@@ -1184,9 +1173,8 @@ protocol fdb00b071010000`,
 						RunningVersion: previousVersion,
 					},
 				},
-				clusterFilePath: "test",
-				log:             logr.Discard(),
-				cmdRunner:       mockRunner,
+				log:       logr.Discard(),
+				cmdRunner: mockRunner,
 			}
 
 			version = cliClient.GetVersionFromReachableCoordinators()
