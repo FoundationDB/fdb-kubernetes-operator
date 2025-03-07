@@ -23,11 +23,18 @@ package fdbstatus
 import (
 	"fmt"
 	"math"
+	"strconv"
 	"strings"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient"
 	"github.com/go-logr/logr"
+)
+
+const (
+	maximumDataLag = 60.0
+	// maximumQueueByteSize is per default 250 MB
+	maximumQueueByteSize = 250 * 1024 * 1024
 )
 
 // forbiddenStatusMessages represents messages that could be part of the machine-readable status. Those messages can represent
@@ -588,9 +595,29 @@ func ConfigurationChangeAllowed(status *fdbv1beta2.FoundationDBStatus, useRecove
 		return fmt.Errorf("clusters last recovery was %0.2f seconds ago, wait until the last recovery was 60 seconds ago", status.Cluster.RecoveryState.SecondsSinceLastRecovered)
 	}
 
+	return CheckQosStatus(status)
+}
+
+// CheckQosStatus will perform checks on the QoS related metrics from the machine-readable status to validate if certain
+// changes are safe.
+// Check https://apple.github.io/foundationdb/administration.html#machine-readable-status for some additional background
+// information.
+func CheckQosStatus(status *fdbv1beta2.FoundationDBStatus) error {
 	// We picked this value from the FoundationDB implementation, this is the default threshold to report a process as lagging.
-	if status.Cluster.Qos.WorstDataLagStorageServer.Seconds > 60.0 {
-		return fmt.Errorf("data lag is to high to issue configuration change, current data lag in seconds: %0.2f", status.Cluster.Qos.WorstDataLagStorageServer.Seconds)
+	if status.Cluster.Qos.WorstDataLagStorageServer.Seconds > maximumDataLag {
+		return fmt.Errorf("worst data lag is to high, current worst data lag in seconds: %0.2f, maximum allowed lag:  %0.2f", status.Cluster.Qos.WorstDataLagStorageServer.Seconds, maximumDataLag)
+	}
+
+	if status.Cluster.Qos.WorstDurabilityLagStorageServer.Seconds > maximumDataLag {
+		return fmt.Errorf("worst durability lag is to high, current worst durability lag in seconds: %0.2f, maximum allowed lag:  %0.2f", status.Cluster.Qos.WorstDurabilityLagStorageServer.Seconds, maximumDataLag)
+	}
+
+	if status.Cluster.Qos.WorstQueueBytesLogServer > maximumQueueByteSize {
+		return fmt.Errorf("worst queue bytes for log server is to high, current worst queue bytes: %s, maximum allowed queue bytes: %s", PrettyPrintBytes(status.Cluster.Qos.WorstQueueBytesLogServer), PrettyPrintBytes(maximumQueueByteSize))
+	}
+
+	if status.Cluster.Qos.WorstQueueBytesStorageServer > maximumQueueByteSize {
+		return fmt.Errorf("worst queue bytes for storage server is to high, current worst queue bytes: %s, maximum allowed queue bytes: %s", PrettyPrintBytes(status.Cluster.Qos.WorstQueueBytesStorageServer), PrettyPrintBytes(maximumQueueByteSize))
 	}
 
 	return nil
@@ -627,4 +654,31 @@ func GetExcludedLocalitiesFromStatus(logger logr.Logger, cluster *fdbv1beta2.Fou
 	}
 
 	return exclusions, nil
+}
+
+// CanSafelyRemoveMaintenanceMode will return true if the maintenance mode can be disabled.
+func CanSafelyRemoveMaintenanceMode(status *fdbv1beta2.FoundationDBStatus) error {
+	err := DefaultSafetyChecks(status, 10, "remove maintenance mode")
+	if err != nil {
+		return err
+	}
+
+	return CheckQosStatus(status)
+}
+
+// PrettyPrintBytes will return a string that represents the storedBytes in a human-readable format.
+func PrettyPrintBytes(bytes int64) string {
+	units := []string{"", "Ki", "Mi", "Gi", "Ti", "Pi"}
+
+	currentBytes := float64(bytes)
+	for _, unit := range units {
+		if currentBytes < 1024 {
+			return fmt.Sprintf("%3.2f%s", currentBytes, unit)
+		}
+
+		currentBytes /= 1024
+	}
+
+	// Fallback will be to printout the bytes.
+	return strconv.FormatInt(bytes, 10)
 }

@@ -180,6 +180,10 @@ Processes that have not yet finished their maintenance will stay untouched.
 If a maintenance zone is active and some processes have not yet finished the operator will requeue a reconciliation and wait until all processes are done.
 If all processes have finished their maintenance and a maintenance zone is active the operator will reset the maintenance zone.
 
+Before the operator performs the reset of the maintenance zone it will check the [QoS](https://apple.github.io/foundationdb/administration.html#machine-readable-status) metrics of the machine-readable status.
+It will wait until no storage server is lagging behind more than 60 seconds and it will ensure that the queued bytes for log and storage servers are not exceeding 250MB.
+For more details check the `CheckQosStatus` method in the [fdbstatus package](https://github.com/FoundationDB/fdb-kubernetes-operator/tree/main/pkg/fdbstatus)
+
 ### External integration
 
 Depending on your Kubernetes setup, you might be able to use this integration during Kubernetes node upgrades.
