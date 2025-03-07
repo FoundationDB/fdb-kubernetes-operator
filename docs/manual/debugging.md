@@ -190,6 +190,13 @@ Once the annotations are updated the user should trigger a replacement of those 
 The replacement will make sure that the operator is starting new Pods for the isolated Pods.
 When the debugging is finished just remove the `foundationdb.org/isolate-process-group` annotation or set it to `false` and the operator will remove the associated resources.
 
+## Operator stuck with old connection string
+
+If more than one operator instance is used to manage a FoundationDB cluster, e.g. in case of a multi-region cluster, there can be cases where an operator instance was partitioned for a long time.
+In this case the operator might not be able to connect again to the cluster because the coordinators have changed and none of the old coordinators are still running.
+In this case use the [kubectl-fdb plugin](../../kubectl-fdb/Readme.md) to update the connection string in the `FoundationDBCluster` resource status and restart the operator pod.
+You can use the `kubectl update connection-string` command to update the connection string for a cluster.
+
 ## Next
 
 You can continue on to the [next section](more.md) or go back to the [table of contents](index.md).

@@ -77,6 +77,7 @@ func generateClusterStruct(name string, namespace string) *fdbv1beta2.Foundation
 			ProcessGroupIDPrefix: name,
 		},
 		Status: fdbv1beta2.FoundationDBClusterStatus{
+			ConnectionString: "test:id1234@127.0.0.1:4500",
 			ProcessGroups: []*fdbv1beta2.ProcessGroupStatus{
 				{
 					ProcessGroupID: fdbv1beta2.ProcessGroupID(name + "-" + string(fdbv1beta2.ProcessClassStorage) + "-1"),

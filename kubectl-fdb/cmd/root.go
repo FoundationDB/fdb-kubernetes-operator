@@ -92,6 +92,7 @@ func NewRootCmd(streams genericclioptions.IOStreams, pluginVersionChecker Versio
 		newGetCmd(streams),
 		newBuggifyCmd(streams),
 		newRecoverMultiRegionClusterCmd(streams),
+		newUpdateCmd(streams),
 	)
 
 	return cmd
