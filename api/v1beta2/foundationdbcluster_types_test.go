@@ -811,18 +811,110 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 	}
 
 	When("parsing the connection string", func() {
-		It("should be parsed correctly", func() {
-			str, err := ParseConnectionString("test:abcd@127.0.0.1:4500,127.0.0.2:4500,127.0.0.3:4500")
-			Expect(err).NotTo(HaveOccurred())
-			Expect(str.DatabaseName).To(Equal("test"))
-			Expect(str.GenerationID).To(Equal("abcd"))
-			Expect(str.Coordinators).To(Equal(coordinatorsStr))
+		var str ConnectionString
+		var err error
+		var input string
 
-			str, err = ParseConnectionString("test:abcd")
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(Equal("invalid connection string test:abcd"))
+		JustBeforeEach(func() {
+			str, err = ParseConnectionString(input)
+		})
+
+		When("the input is valid", func() {
+			BeforeEach(func() {
+				input = "test:abcd@127.0.0.1:4500,127.0.0.2:4500,127.0.0.3:4500"
+			})
+
+			It("should be parsed correctly", func() {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(str.DatabaseName).To(Equal("test"))
+				Expect(str.GenerationID).To(Equal("abcd"))
+				Expect(str.Coordinators).To(ConsistOf(coordinatorsStr))
+			})
+		})
+
+		When("the input is invalid", func() {
+			BeforeEach(func() {
+				input = "test:abcd"
+			})
+
+			It("should return an error", func() {
+				Expect(err).To(MatchError(ContainSubstring("invalid connection string: test:abcd, could not split string to get generation ID")))
+			})
+		})
+
+		When("the input has an invalid char", func() {
+			BeforeEach(func() {
+				input = "te-st:abcd"
+			})
+
+			It("should return an error", func() {
+				Expect(err).To(MatchError(ContainSubstring("invalid connection string: te-st:abcd, only alphanumeric characters (a-z, A-Z, 0-9) and underscores are allowed")))
+			})
+		})
+
+		When("the input has an empty description", func() {
+			BeforeEach(func() {
+				input = ":abcd@127.0.0.1:4500,127.0.0.2:4500,127.0.0.3:4500"
+			})
+
+			It("should return an error", func() {
+				Expect(err).To(MatchError(ContainSubstring("invalid connection string: :abcd@127.0.0.1:4500,127.0.0.2:4500,127.0.0.3:4500, only alphanumeric characters (a-z, A-Z, 0-9) and underscores are allowed")))
+			})
+		})
+
+		When("the input has an generation description", func() {
+			BeforeEach(func() {
+				input = "test:@127.0.0.1:4500,127.0.0.2:4500,127.0.0.3:4500"
+			})
+
+			It("should return an error", func() {
+				Expect(err).To(MatchError(ContainSubstring("invalid connection string: test:@127.0.0.1:4500,127.0.0.2:4500,127.0.0.3:4500, only alphanumeric characters (a-z, A-Z, 0-9) are allowed")))
+			})
+		})
+
+		When("the input has no coordinators", func() {
+			BeforeEach(func() {
+				input = "test:abcd@"
+			})
+
+			It("should return an error", func() {
+				Expect(err).To(MatchError(ContainSubstring("invalid connection string: test:abcd@, connection string must contain at least one coordinator")))
+			})
+		})
+
+		When("the input is valid with a single char description", func() {
+			BeforeEach(func() {
+				input = "s:abcd@127.0.0.1:4500,127.0.0.2:4500,127.0.0.3:4500"
+			})
+
+			It("should be parsed correctly", func() {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(str.DatabaseName).To(Equal("s"))
+				Expect(str.GenerationID).To(Equal("abcd"))
+				Expect(str.Coordinators).To(ConsistOf(coordinatorsStr))
+			})
+		})
+
+		When("the input is valid with amultiple underscores", func() {
+			BeforeEach(func() {
+				input = "fdb_cluster_52v1bpr8:rhUbBjrtyweZBQO1U3Td81zyP9d46yEh@100.82.81.253:4500:tls,100.82.71.5:4500:tls,100.82.119.151:4500:tls,100.82.122.125:4500:tls,100.82.76.240:4500:tls"
+			})
+
+			It("should be parsed correctly", func() {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(str.DatabaseName).To(Equal("fdb_cluster_52v1bpr8"))
+				Expect(str.GenerationID).To(Equal("rhUbBjrtyweZBQO1U3Td81zyP9d46yEh"))
+				Expect(str.Coordinators).To(HaveLen(5))
+			})
 		})
 	})
+
+	DescribeTable("sanitize connection string description", func(input string, expected string) {
+		Expect(SanitizeConnectionStringDescription(input)).To(Equal(expected))
+	},
+		Entry("without hyphen", "test", "test"),
+		Entry("with hyphen", "test-string", "test_string"),
+	)
 
 	When("formatting the connection string", func() {
 		It("should be formatted correctly", func() {
