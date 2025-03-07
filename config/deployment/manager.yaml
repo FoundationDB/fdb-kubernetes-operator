@@ -83,7 +83,7 @@ spec:
       containers:
         - command:
             - /manager
-          image: foundationdb/fdb-kubernetes-operator:v2.0.0
+          image: foundationdb/fdb-kubernetes-operator:v2.1.0
           name: manager
           env:
             - name: WATCH_NAMESPACE
