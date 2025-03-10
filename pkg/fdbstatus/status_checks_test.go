@@ -2364,7 +2364,81 @@ var _ = Describe("status_checks", func() {
 				},
 			},
 			true,
-			fmt.Errorf("data lag is to high to issue configuration change, current data lag in seconds: 61.00"),
+			fmt.Errorf("worst data lag is to high, current worst data lag in seconds: 61.00, maximum allowed lag:  60.00"),
+		),
+	)
+
+	DescribeTable("pretty printing the stored bytes", func(bytes int64, expected string) {
+		Expect(PrettyPrintBytes(bytes)).To(Equal(expected))
+	},
+		Entry("a few bytes", int64(1023), "1023.00"),
+		Entry("two KiB", int64(2*1024), "2.00Ki"),
+		Entry("two and a half KiB", int64(2*1024+512), "2.50Ki"),
+		Entry("three MiB", int64(3*1024*1024), "3.00Mi"),
+		Entry("four GiB", int64(4*1024*1024*1024), "4.00Gi"),
+		Entry("five TiB", int64(5*1024*1024*1024*1024), "5.00Ti"),
+		Entry("six Pib", int64(6*1024*1024*1024*1024*1024), "6.00Pi"),
+	)
+
+	DescribeTable("checking the QoS status", func(input *fdbv1beta2.FoundationDBStatus, expected error) {
+		result := CheckQosStatus(input)
+		if expected == nil {
+			Expect(result).To(Succeed())
+		} else {
+			Expect(result).To(MatchError(expected))
+		}
+	},
+		Entry("all values are below threshold",
+			&fdbv1beta2.FoundationDBStatus{
+				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+					Qos: fdbv1beta2.FoundationDBStatusQosInfo{},
+				},
+			},
+			nil,
+		),
+		Entry("worst data lag storage server is to high",
+			&fdbv1beta2.FoundationDBStatus{
+				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+					Qos: fdbv1beta2.FoundationDBStatusQosInfo{
+						WorstDataLagStorageServer: fdbv1beta2.FoundationDBStatusLagInfo{
+							Seconds: maximumDataLag + 1,
+						},
+					},
+				},
+			},
+			fmt.Errorf("worst data lag is to high, current worst data lag in seconds: 61.00, maximum allowed lag:  60.00"),
+		),
+		Entry("worst durability lag storage server is to high",
+			&fdbv1beta2.FoundationDBStatus{
+				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+					Qos: fdbv1beta2.FoundationDBStatusQosInfo{
+						WorstDurabilityLagStorageServer: fdbv1beta2.FoundationDBStatusLagInfo{
+							Seconds: maximumDataLag + 1,
+						},
+					},
+				},
+			},
+			fmt.Errorf("worst durability lag is to high, current worst durability lag in seconds: 61.00, maximum allowed lag:  60.00"),
+		),
+		Entry("worst queue bytes for log server is to high",
+			&fdbv1beta2.FoundationDBStatus{
+				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+					Qos: fdbv1beta2.FoundationDBStatusQosInfo{
+						WorstQueueBytesLogServer: 500 * 1024 * 1024,
+					},
+				},
+			},
+			fmt.Errorf("worst queue bytes for log server is to high, current worst queue bytes: 500.00Mi, maximum allowed queue bytes: 250.00Mi"),
+		),
+		Entry("worst queue bytes for storage server is to high",
+			&fdbv1beta2.FoundationDBStatus{
+				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+					Qos: fdbv1beta2.FoundationDBStatusQosInfo{
+						WorstQueueBytesStorageServer: 500 * 1024 * 1024,
+					},
+				},
+			},
+			fmt.Errorf("worst queue bytes for storage server is to high, current worst queue bytes: 500.00Mi, maximum allowed queue bytes: 250.00Mi"),
 		),
 	)
 })

@@ -383,6 +383,10 @@ type FoundationDBStatusQosInfo struct {
 	LimitingDurabilityLagStorageServer FoundationDBStatusLagInfo `json:"limiting_durability_lag_storage_server,omitempty"`
 	WorstDataLagStorageServer          FoundationDBStatusLagInfo `json:"worst_data_lag_storage_server,omitempty"`
 	WorstDurabilityLagStorageServer    FoundationDBStatusLagInfo `json:"worst_durability_lag_storage_server,omitempty"`
+	// WorstQueueBytesLogServer refers to the worst_queue_bytes_log_server field in the machine readable status
+	WorstQueueBytesLogServer int64 `json:"worst_queue_bytes_log_server,omitempty"`
+	// WorstQueueBytesStorageServer refers to the worst_queue_bytes_storage_server field in the machine readable status
+	WorstQueueBytesStorageServer int64 `json:"worst_queue_bytes_storage_server,omitempty"`
 }
 
 // ProcessRole models the role of a pod.

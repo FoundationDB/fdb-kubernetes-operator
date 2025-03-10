@@ -22,9 +22,7 @@ package cmd
 
 import (
 	"encoding/json"
-	"fmt"
 	"sort"
-	"strconv"
 	"time"
 
 	kubeHelper "github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/kubernetes"
@@ -214,7 +212,7 @@ func getExclusionStatus(cmd *cobra.Command, restConfig *rest.Config, kubeClient 
 		})
 
 		for _, exclusion := range ongoingExclusions {
-			cmd.Printf("%s:\t %s are left - estimate: %s\n", exclusion.id, prettyPrintStoredBytes(exclusion.storedBytes), exclusion.estimate)
+			cmd.Printf("%s:\t %s are left - estimate: %s\n", exclusion.id, fdbstatus.PrettyPrintBytes(int64(exclusion.storedBytes)), exclusion.estimate)
 		}
 
 		cmd.Println("There are", len(ongoingExclusions), "processes that are not fully excluded.")
@@ -223,21 +221,4 @@ func getExclusionStatus(cmd *cobra.Command, restConfig *rest.Config, kubeClient 
 	}
 
 	return nil
-}
-
-// prettyPrintStoredBytes will return a string that represents the storedBytes in a human-readable format.
-func prettyPrintStoredBytes(storedBytes int) string {
-	units := []string{"", "Ki", "Mi", "Gi", "Ti", "Pi"}
-
-	currentBytes := float64(storedBytes)
-	for _, unit := range units {
-		if currentBytes < 1024 {
-			return fmt.Sprintf("%3.2f%s", currentBytes, unit)
-		}
-
-		currentBytes /= 1024
-	}
-
-	// Fallback will be to printout the bytes.
-	return strconv.Itoa(storedBytes)
 }

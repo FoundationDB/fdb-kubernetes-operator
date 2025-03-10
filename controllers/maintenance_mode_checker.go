@@ -25,6 +25,7 @@ import (
 	"fmt"
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/maintenance"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbstatus"
 	"github.com/go-logr/logr"
 	"time"
 )
@@ -89,10 +90,16 @@ func (c maintenanceModeChecker) reconcile(_ context.Context, r *FoundationDBClus
 		return &requeue{message: fmt.Sprintf("Waiting for %d processes in zone %s to be updated", len(processesToUpdate), status.Cluster.MaintenanceZone), delayedRequeue: true, delay: 5 * time.Second}
 	}
 
+	// Check if the maintenance mode can be removed.
+	err = fdbstatus.CanSafelyRemoveMaintenanceMode(status)
+	if err != nil {
+		return &requeue{curError: err, delayedRequeue: true}
+	}
+
 	// Make sure we take a lock before we continue.
 	err = r.takeLock(logger, cluster, "maintenance mode check")
 	if err != nil {
-		return &requeue{curError: err}
+		return &requeue{curError: err, delayedRequeue: true}
 	}
 
 	logger.Info("Switching off maintenance mode", "zone", status.Cluster.MaintenanceZone)
