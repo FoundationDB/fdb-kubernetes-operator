@@ -881,5 +881,8 @@ func (factory *Factory) Intn(n int) int {
 
 // GetNodeSelector returns the node selector, which is an empty string or has the format key=value.
 func (factory *Factory) GetNodeSelector() string {
+	if factory == nil {
+		return ""
+	}
 	return factory.options.nodeSelector
 }
