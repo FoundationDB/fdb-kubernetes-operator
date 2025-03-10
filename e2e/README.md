@@ -5,13 +5,13 @@ Every test suite has a head in the `*_test.go` file that describes the test case
 
 ## Setup
 
-The e2e tests expect certain customizations in the Kubernetes cluster. To deploy those in the cluster, run:
+The e2e tests expect that the CRD's from the FoundationDB Kubernetes operator are installed in the Kubernetes cluster. To deploy the CRDs in the cluster, run:
 
 ```bash
 make install
 ```
 
-This is only necessary once.
+This is only necessary once. Except if you're changing the CRD's.
 
 To cover storage class migrations in tests, annotate your cluster's storage classes as follows. Alternatively, you can skip those tests and provide the default storage class (see "StorageClass selection" below).  
 
@@ -139,45 +139,6 @@ UPGRADE_VERSIONS="7.3.43:7.3.52" \
 FDB_VERSION_TAG_MAPPING="7.3.52:7.3.52-custom-build" \
 make -C e2e test_operator_upgrades.run
 ```
-
-### Running e2e tests in kind
-
-_NOTE_ This setup is currently not used by anyone and is not being maintained. Some tests currently do not pass in `kind.`
-
-[kind](https://kind.sigs.k8s.io) provides an easy way to run a local Kubernetes cluster.
-For running tests on a `kind` cluster you should set the `CLOUD_PROVIDER=kind` environment variable to make sure the test framework is creating clusters with smaller resource requirements.
-The following steps assume that `kind` and `helm` are already installed.
-
-```bash
-make -C e2e kind-setup
-```
-
-This will call the [setup_e2e.sh](./scripts/setup_e2e.sh) script to setup `kind` and install chaos-mesh. Kind clusters do not load images
-from a container registry, they need to be explicitly loaded and `kind-setup` doesn't do this correctly right now.  So 
-you may need to explicitly load missing images into the kind cluster, like:
-
-```bash
-kind load docker-image -n e2e-tests docker.io/foundationdb/fdb-kubernetes-monitor:7.1.57
-kind load docker-image -n e2e-tests docker.io/foundationdb/fdb-kubernetes-monitor:7.3.59
-```
-
-If you forgot one, the test will not be able to schedule FoundationDB nodes. You can see what is missing by looking
-at the events section of the `kubectl describe pod` output.
-
-After testing you can run the following command to remove the kind cluster:
-
-```bash
-make -C e2e kind-destroy
-```
-
-If you want to iterate over different builds of the operator, you don't have to recreate the kind cluster multiple times.
-You just can rebuild the operator image and push the new image inside the kind cluster:
-
-```bash
-CLOUD_PROVIDER=kind make -C e2e kind-update-operator
-```
-
-_NOTE_: This setup is currently not tested in our CI and requires a Kind cluster that runs with `amd64` nodes.
 
 ## What is tested
 
