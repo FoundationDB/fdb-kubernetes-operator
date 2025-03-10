@@ -279,11 +279,9 @@ func includeProcessGroup(ctx context.Context, logger logr.Logger, r *FoundationD
 	}
 
 	// Make sure the inclusion are coordinated across multiple operator instances.
-	if cluster.ShouldUseLocks() {
-		err = r.takeLock(logger, cluster, "remove process groups")
-		if err != nil {
-			return err
-		}
+	err = r.takeLock(logger, cluster, "remove process groups")
+	if err != nil {
+		return err
 	}
 
 	// Make sure it's safe to include processes.
