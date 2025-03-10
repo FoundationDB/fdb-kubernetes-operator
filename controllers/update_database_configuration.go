@@ -50,9 +50,6 @@ func (u updateDatabaseConfiguration) reconcile(_ context.Context, r *FoundationD
 	if err != nil {
 		return &requeue{curError: err, delayedRequeue: true}
 	}
-	defer func() {
-		_ = adminClient.Close()
-	}()
 
 	// If the status is not cached, we have to fetch it.
 	if status == nil {

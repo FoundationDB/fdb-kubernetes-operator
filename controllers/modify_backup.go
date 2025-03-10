@@ -43,9 +43,6 @@ func (s modifyBackup) reconcile(ctx context.Context, r *FoundationDBBackupReconc
 		if err != nil {
 			return &requeue{curError: err}
 		}
-		defer func() {
-			_ = adminClient.Close()
-		}()
 
 		err = adminClient.ModifyBackup(snapshotPeriod)
 		if err != nil {

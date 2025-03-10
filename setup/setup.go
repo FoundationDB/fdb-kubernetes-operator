@@ -254,7 +254,7 @@ func StartManager(
 		clusterReconciler.Client = mgr.GetClient()
 		clusterReconciler.Recorder = mgr.GetEventRecorderFor("foundationdbcluster-controller")
 		clusterReconciler.DeprecationOptions = operatorOpts.DeprecationOptions
-		clusterReconciler.DatabaseClientProvider = fdbclient.NewDatabaseClientProvider(logger)
+		clusterReconciler.DatabaseClientProvider = fdbclient.GetDatabaseClientProvider(logger)
 		clusterReconciler.GetTimeout = operatorOpts.GetTimeout
 		clusterReconciler.PostTimeout = operatorOpts.PostTimeout
 		clusterReconciler.Log = logr.WithName("controllers").WithName("FoundationDBCluster")
@@ -284,7 +284,7 @@ func StartManager(
 	if backupReconciler != nil {
 		backupReconciler.Client = mgr.GetClient()
 		backupReconciler.Recorder = mgr.GetEventRecorderFor("foundationdbbackup-controller")
-		backupReconciler.DatabaseClientProvider = fdbclient.NewDatabaseClientProvider(logger)
+		backupReconciler.DatabaseClientProvider = fdbclient.GetDatabaseClientProvider(logger)
 		backupReconciler.Log = logr.WithName("controllers").WithName("FoundationDBBackup")
 		backupReconciler.ServerSideApply = operatorOpts.ServerSideApply
 
@@ -297,7 +297,7 @@ func StartManager(
 	if restoreReconciler != nil {
 		restoreReconciler.Client = mgr.GetClient()
 		restoreReconciler.Recorder = mgr.GetEventRecorderFor("foundationdbrestore-controller")
-		restoreReconciler.DatabaseClientProvider = fdbclient.NewDatabaseClientProvider(logger)
+		restoreReconciler.DatabaseClientProvider = fdbclient.GetDatabaseClientProvider(logger)
 		restoreReconciler.Log = logr.WithName("controllers").WithName("FoundationDBRestore")
 		restoreReconciler.ServerSideApply = operatorOpts.ServerSideApply
 

@@ -25,8 +25,10 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"k8s.io/apimachinery/pkg/types"
 	"os"
 	"path"
+	"sync"
 	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
@@ -84,8 +86,8 @@ func parseMachineReadableStatus(logger logr.Logger, contents []byte, checkForPro
 }
 
 // getFDBDatabase opens an FDB database.
-func getFDBDatabase(cluster *fdbv1beta2.FoundationDBCluster) (fdb.Database, error) {
-	clusterFile, err := createClusterFile(cluster)
+func getFDBDatabase(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster) (fdb.Database, error) {
+	clusterFile, err := createClusterFile(logger, cluster)
 	if err != nil {
 		return fdb.Database{}, err
 	}
@@ -104,12 +106,12 @@ func getFDBDatabase(cluster *fdbv1beta2.FoundationDBCluster) (fdb.Database, erro
 }
 
 // createClusterFile will create or update the cluster file for the specified cluster.
-func createClusterFile(cluster *fdbv1beta2.FoundationDBCluster) (string, error) {
-	return ensureClusterFileIsPresent(os.TempDir(), string(cluster.UID), cluster.Status.ConnectionString)
+func createClusterFile(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster) (string, error) {
+	return ensureClusterFileIsPresent(logger, os.TempDir(), string(cluster.UID), cluster.Status.ConnectionString)
 }
 
 // ensureClusterFileIsPresent will ensure that the cluster file with the specified connection string is present.
-func ensureClusterFileIsPresent(dir string, uid string, connectionString string) (string, error) {
+func ensureClusterFileIsPresent(logger logr.Logger, dir string, uid string, connectionString string) (string, error) {
 	clusterFileName := path.Join(dir, uid)
 
 	// Try to read the file to check if the file already exists and if so, if the content matches
@@ -120,13 +122,12 @@ func ensureClusterFileIsPresent(dir string, uid string, connectionString string)
 		return clusterFileName, os.WriteFile(clusterFileName, []byte(connectionString), 0777)
 	}
 
-	// The content of the cluster file is already correct.
-	if string(content) == connectionString {
-		return clusterFileName, nil
+	// The content doesn't match, looks like we have an outdated connection string - the next round of reconciliation
+	// will update it.
+	if string(content) != connectionString {
+		logger.Info("cluster file content does not match. File: %s Expected: %s Actual: %s", clusterFileName, connectionString, string(content))
 	}
-
-	// The content doesn't match, so we have to write the new content to the cluster file.
-	return clusterFileName, os.WriteFile(clusterFileName, []byte(connectionString), 0777)
+	return clusterFileName, nil
 }
 
 // getConnectionStringFromDB gets the database's connection string directly from the system key
@@ -144,14 +145,18 @@ func getStatusFromDB(libClient fdbLibClient, logger logr.Logger, timeout time.Du
 	return parseMachineReadableStatus(logger, contents, true)
 }
 
+var lock = &sync.Mutex{}
+
 type realDatabaseClientProvider struct {
 	// log implementation for logging output
 	log logr.Logger
+
+	// adminClients maps cluster UID to admin client.
+	mutex        *sync.Mutex
+	adminClients map[types.UID]fdbadminclient.AdminClient
 }
 
-func (p *realDatabaseClientProvider) GetAdminClientWithLogger(cluster *fdbv1beta2.FoundationDBCluster, kubernetesClient client.Client, logger logr.Logger) (fdbadminclient.AdminClient, error) {
-	return NewCliAdminClient(cluster, kubernetesClient, logger.WithName("fdbclient"))
-}
+var singletonRealDatabaseClientProvider *realDatabaseClientProvider
 
 // GetLockClient generates a client for working with locks through the database.
 func (p *realDatabaseClientProvider) GetLockClient(cluster *fdbv1beta2.FoundationDBCluster) (fdbadminclient.LockClient, error) {
@@ -164,16 +169,34 @@ func (p *realDatabaseClientProvider) GetLockClientWithLogger(cluster *fdbv1beta2
 	return NewRealLockClient(cluster, logger.WithName("fdbclient"))
 }
 
-// GetAdminClient generates a client for performing administrative actions
-// against the database.
-func (p *realDatabaseClientProvider) GetAdminClient(cluster *fdbv1beta2.FoundationDBCluster, kubernetesClient client.Client) (fdbadminclient.AdminClient, error) {
-	return NewCliAdminClient(cluster, kubernetesClient, p.log)
+func (p *realDatabaseClientProvider) GetAdminClientWithLogger(cluster *fdbv1beta2.FoundationDBCluster, kubernetesClient client.Client, logger logr.Logger) (fdbadminclient.AdminClient, error) {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+	adminClient, ok := p.adminClients[cluster.UID]
+	if ok {
+		return adminClient, nil
+	}
+	adminClient, err := NewCliAdminClient(cluster, kubernetesClient, logger.WithName("fdbclient"))
+	if err != nil {
+		return nil, err
+	}
+	p.adminClients[cluster.UID] = adminClient
+	return adminClient, nil
 }
 
-// NewDatabaseClientProvider generates a client provider for talking to real
-// databases.
-func NewDatabaseClientProvider(log logr.Logger) fdbadminclient.DatabaseClientProvider {
-	return &realDatabaseClientProvider{
-		log: log.WithName("fdbclient"),
+// GetAdminClient returns a client for performing administrative actions against the database.
+func (p *realDatabaseClientProvider) GetAdminClient(cluster *fdbv1beta2.FoundationDBCluster, kubernetesClient client.Client) (fdbadminclient.AdminClient, error) {
+	return p.GetAdminClientWithLogger(cluster, kubernetesClient, p.log)
+}
+
+// GetDatabaseClientProvider returns the singleton client provider for talking to real databases.
+func GetDatabaseClientProvider(log logr.Logger) fdbadminclient.DatabaseClientProvider {
+	lock.Lock()
+	defer lock.Unlock()
+	if singletonRealDatabaseClientProvider != nil {
+		singletonRealDatabaseClientProvider = &realDatabaseClientProvider{
+			log: log.WithName("fdbclient"),
+		}
 	}
+	return singletonRealDatabaseClientProvider
 }

@@ -83,9 +83,6 @@ func (s updateBackupStatus) reconcile(ctx context.Context, r *FoundationDBBackup
 	if err != nil {
 		return &requeue{curError: err}
 	}
-	defer func() {
-		_ = adminClient.Close()
-	}()
 
 	liveStatus, err := adminClient.GetBackupStatus()
 	if err != nil {
