@@ -216,18 +216,23 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			// Check if the restarted process is showing up in IncompatibleConnections list in status output.
-			Eventually(func(g Gomega) bool {
+			Eventually(func(g Gomega) map[string]fdbv1beta2.None {
 				status := fdbCluster.GetStatus()
 				if len(status.Cluster.IncompatibleConnections) == 0 {
-					return false
+					return nil
 				}
 
 				log.Println("IncompatibleProcesses:", status.Cluster.IncompatibleConnections)
-				g.Expect(status.Cluster.IncompatibleConnections).To(HaveLen(1))
-				// Extract the IP of the incompatible process.
-				incompatibleProcess := strings.Split(status.Cluster.IncompatibleConnections[0], ":")[0]
-				return incompatibleProcess == selectedCoordinator.Status.PodIP
-			}).WithTimeout(180 * time.Second).WithPolling(4 * time.Second).Should(BeTrue())
+				result := make(map[string]fdbv1beta2.None)
+				// Ensure that all reported incompatible connections are from the selectedCoordinator.
+				for _, incompatibleConnection := range status.Cluster.IncompatibleConnections {
+					parsedAddr, err := fdbv1beta2.ParseProcessAddress(incompatibleConnection)
+					g.Expect(err).NotTo(HaveOccurred())
+					result[parsedAddr.MachineAddress()] = fdbv1beta2.None{}
+				}
+
+				return result
+			}).WithTimeout(180 * time.Second).WithPolling(4 * time.Second).Should(And(HaveLen(1), HaveKey(selectedCoordinator.Status.PodIP)))
 
 			// Allow the operator to restart processes and the upgrade should continue and finish.
 			fdbCluster.SetKillProcesses(true)
