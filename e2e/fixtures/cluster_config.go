@@ -176,6 +176,11 @@ func (config *ClusterConfig) SetDefaults(factory *Factory) {
 	if config.TLSPeerVerification == "" {
 		config.TLSPeerVerification = "I.CN=localhost,I.O=Example Inc.,S.CN=localhost,S.O=Example Inc."
 	}
+	nodeSelector := factory.GetNodeSelector()
+	if nodeSelector != "" {
+		splitSelector := strings.Split(nodeSelector, "=")
+		config.NodeSelector = map[string]string{splitSelector[0]: splitSelector[1]}
+	}
 
 	if config.MemoryPerPod == "" {
 		config.MemoryPerPod = "8Gi"

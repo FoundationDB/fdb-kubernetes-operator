@@ -3,6 +3,22 @@
 Those test must be running on a Kubernetes cluster that has `amd64` Linux nodes as FoundationDB currently has no builds for `arm64`.
 Every test suite has a head in the `*_test.go` file that describes the test cases and the targeted scenarios.
 
+## Setup
+
+The e2e tests expect that the CRD's from the FoundationDB Kubernetes operator are installed in the Kubernetes cluster. To deploy the CRDs in the cluster, run:
+
+```bash
+make install
+```
+
+This is only necessary once. Except if you're changing the CRD's.
+
+To cover storage class migrations in tests, annotate your cluster's storage classes as follows. Alternatively, you can skip those tests and provide the default storage class (see "StorageClass selection" below).  
+
+* Annotate the `StorageClass` to use for most tests with the label: `"storageclass.kubernetes.io/is-default-class=true`.
+* Annotate at least two `StorageClasses` with the label `foundationdb.org/operator-testing=true`.  If the test suite is not able to get at least 2 different `StorageClasses` the migration test will be skipped.
+
+
 ## Running the e2e tests
 
 The following command will run all the operator related tests with the default values:
@@ -18,6 +34,40 @@ make -C e2e test_operator.run
 ```
 
 Every test suite will create at least one namespace, HA cluster tests will create all the required namespaces.
+
+### Running against a custom operator version
+
+By default, the tests will test the "latest" official version (`docker.io/fdb-kubernetes-operator:latest`). To test
+against a custom-built operator, there are three approaches:
+
+#### Specify the operator container image
+
+You can specify which container image to use via environment variable:
+
+```bash
+OPERATOR_IMAGE=fdb-kubernetes-operator:v1.54.0
+```
+
+#### Use a private container registry
+
+You can specify a different container registry than `docker.io`:
+
+```bash
+REGISTRY=12345.dkr.ecr.us-east-1.amazonaws.com
+```
+
+The e2e test will now read all images from there, so make sure to have all the necessary FoundationDB containers
+in this registry, too.
+
+#### Specify registry per container
+
+It is possible to use different registries for the operator and system under test by including the registry in the container image specification, e.g.:
+
+```bash
+REGISTRY=
+OPERATOR_IMAGE=12345.dkr.ecr.us-east-1.amazonaws.com/fdb-kubernetes-operator:latest
+UNIFIED_FDB_IMAGE=docker.io/foundationdb/fdb-kubernetes-monitor
+```
 
 ### Reusing an existing test cluster
 
@@ -39,12 +89,16 @@ You can provide the targeted `StorageClass` as an environment variable:
 STORAGE_CLASS='my-fancy-storage' make -kj -C e2e test_operator.run
 ```
 
-If the `STORAGE_CLASS` is not set, the operator will take the default `StorageClass` in this cluster.
-The default `StorageClass` will be identified based on the annotation: `"storageclass.kubernetes.io/is-default-class=true`.
+If the `STORAGE_CLASS` is not set, the operator will pick storage classes based on labels, see "Setup" above.
 
-The e2e test suite has some tests, that will test a migration from one `StorageClass` to another.
-To prevent potential issues, the e2e test suite will only select `StorageClasses` that have the label `foundationdb.org/operator-testing=true`.
-If the test suite is not able to get at least 2 different `StorageClasses` the migration test will be skipped.
+### Using a custom nodeSelector
+
+To start the FDB cluster on nodes matching a particular label (e.g. a particular node pool), you can provide a single
+key-value pair in an environment variable that is added to the nodeSelector:
+
+```bash
+NODE_SELECTOR="my-label=true"
+```
 
 ### Customize the e2e test runs
 
@@ -85,34 +139,6 @@ UPGRADE_VERSIONS="7.3.43:7.3.52" \
 FDB_VERSION_TAG_MAPPING="7.3.52:7.3.52-custom-build" \
 make -C e2e test_operator_upgrades.run
 ```
-
-### Running e2e tests in kind
-
-_NOTE_ This setup is currently not used by our CI.
-
-[kind](https://kind.sigs.k8s.io) provides an easy way to run a local Kubernetes cluster.
-For running tests on a `kind` cluster you should set the `CLOUD_PROVIDER=kind` environment variable to make sure the test framework is creating clusters with smaller resource requirements.
-The following steps assume that `kind` and `helm` are already installed.
-
-```bash
-make -C e2e kind-setup
-```
-
-This will call the [setup_e2e.sh](./scripts/setup_e2e.sh) script to setup `kind` and install chaos-mesh.
-After testing you can run the following command to remove the kind cluster:
-
-```bash
-make -C e2e kind-destroy
-```
-
-If you want to iterate over different builds of the operator, you don't have to recreate the kind cluster multiple times.
-You just can rebuild the operator image and push the new image inside the kind cluster:
-
-```bash
-CLOUD_PROVIDER=kind make -C e2e kind-update-operator
-```
-
-_NOTE_: This setup is currently not tested in our CI and requires a Kind cluster that runs with `amd64` nodes.
 
 ## What is tested
 
@@ -155,3 +181,8 @@ You can run all tests with `make -kj -C e2e run`
 All tests will be logging to the `logs` folder in the root of this repository.
 If you want to see the current state of a running test you can use `tail`, e.g. `tail -f ./logs/test_operator.log`, to see the progress of the operator tests, the command assumes you are running it from the project directory.
 All tests that are started by our CI pipelines will report in the PR with the test status.
+
+The e2e tests start new pods frequently. Tests will fail if scheduling or provisioning is slow. In environments using
+node provisioners such as `karpenter` (like AWS EKS), it is advisable to ensure there is enough spare capacity, by configuring a
+minimum cluster size and/or by using fewer larger nodes. On the other hand, the cluster should have at least a handful
+of nodes (say 5) to make it less likely that a majority of coordinators get scheduled on the same node.
