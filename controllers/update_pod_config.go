@@ -66,6 +66,7 @@ func (updatePodConfig) reconcile(ctx context.Context, r *FoundationDBClusterReco
 		}
 
 		pod, err := r.PodLifecycleManager.GetPod(ctx, r, cluster, processGroup.GetPodName(cluster))
+		originalPod := pod.DeepCopy()
 		// If a Pod is not found ignore it for now.
 		if err != nil {
 			logger.V(1).Info("Could not find Pod for process group ID")
@@ -124,7 +125,7 @@ func (updatePodConfig) reconcile(ctx context.Context, r *FoundationDBClusterReco
 			}
 
 			pod.ObjectMeta.Annotations[api.OutdatedConfigMapAnnotation] = strconv.FormatInt(time.Now().Unix(), 10)
-			err = r.PodLifecycleManager.UpdateMetadata(ctx, r, cluster, pod)
+			err = r.PodLifecycleManager.UpdateMetadata(ctx, r, cluster, pod, originalPod)
 			if err != nil {
 				allSynced = false
 				curLogger.Error(err, "Update Pod ConfigMap annotation")
@@ -137,7 +138,7 @@ func (updatePodConfig) reconcile(ctx context.Context, r *FoundationDBClusterReco
 		if pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey] != configMapHash {
 			pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey] = configMapHash
 			delete(pod.ObjectMeta.Annotations, api.OutdatedConfigMapAnnotation)
-			err = r.PodLifecycleManager.UpdateMetadata(ctx, r, cluster, pod)
+			err = r.PodLifecycleManager.UpdateMetadata(ctx, r, cluster, pod, originalPod)
 			if err != nil {
 				allSynced = false
 				curLogger.Error(err, "Update Pod metadata")

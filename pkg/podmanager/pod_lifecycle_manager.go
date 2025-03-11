@@ -58,7 +58,7 @@ type PodLifecycleManager interface {
 	UpdateImageVersion(context.Context, client.Client, *fdbv1beta2.FoundationDBCluster, *corev1.Pod, int, string) error
 
 	// UpdateMetadata updates a Pod's metadata.
-	UpdateMetadata(context.Context, client.Client, *fdbv1beta2.FoundationDBCluster, *corev1.Pod) error
+	UpdateMetadata(context.Context, client.Client, *fdbv1beta2.FoundationDBCluster, *corev1.Pod, *corev1.Pod) error
 
 	// PodIsUpdated determines whether a Pod is up to date.
 	//
@@ -162,13 +162,14 @@ func (manager StandardPodLifecycleManager) UpdatePods(ctx context.Context, r cli
 
 // UpdateImageVersion updates a Pod container's image.
 func (manager StandardPodLifecycleManager) UpdateImageVersion(ctx context.Context, r client.Client, _ *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod, containerIndex int, image string) error {
+	originalPod := pod.DeepCopy()
 	pod.Spec.Containers[containerIndex].Image = image
-	return r.Update(ctx, pod)
+	return r.Patch(ctx, pod, client.MergeFrom(originalPod))
 }
 
 // UpdateMetadata updates an Pod's metadata.
-func (manager StandardPodLifecycleManager) UpdateMetadata(ctx context.Context, r client.Client, _ *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod) error {
-	return r.Update(ctx, pod)
+func (manager StandardPodLifecycleManager) UpdateMetadata(ctx context.Context, r client.Client, _ *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod, *corev1.Pod) error {
+	return r.Patch(ctx, pod, client.MergeFrom(originalPod))
 }
 
 // PodIsUpdated determines whether a Pod is up to date.
