@@ -2104,8 +2104,7 @@ type RoutingConfig struct {
 
 	// PodIPFamily tells the pod which family of IP addresses to use.
 	// You can use 4 to represent IPv4, and 6 to represent IPv6.
-	// This feature is only supported in FDB 7.0 or later, and requires
-	// dual-stack support in your Kubernetes environment.
+	// This feature requires dual-stack support in your Kubernetes environment.
 	PodIPFamily *int `json:"podIPFamily,omitempty"`
 
 	// UseDNSInClusterFile determines whether to use DNS names rather than IP
@@ -2907,6 +2906,13 @@ func (cluster *FoundationDBCluster) Validate() error {
 		}
 	}
 
+	if cluster.Spec.Routing.PodIPFamily != nil {
+		ipFamily := *cluster.Spec.Routing.PodIPFamily
+		if ipFamily != 4 && ipFamily != 6 {
+			validations = append(validations, fmt.Sprintf("Pod IP Family %d is not valid, only 4 or 6 are allowed.", ipFamily))
+		}
+	}
+
 	if len(validations) == 0 {
 		return nil
 	}
@@ -3052,9 +3058,16 @@ func (cluster *FoundationDBCluster) GetProcessGroupID(processClass ProcessClass,
 	return fmt.Sprintf("%s-%s-%d", cluster.Name, processClass.GetProcessClassForPodName(), idNum), processGroupID
 }
 
+var (
+	// PodIPFamilyIPv4 represents the desired IP family as IPv4.
+	PodIPFamilyIPv4 = 4
+	// PodIPFamilyIPv6 represents the desired IP family as IPv6.
+	PodIPFamilyIPv6 = 6
+)
+
 // IsPodIPFamily6 determines whether the podIPFamily setting in cluster is set to use the IPv6 family.
 func (cluster *FoundationDBCluster) IsPodIPFamily6() bool {
-	return pointer.IntDeref(cluster.Spec.Routing.PodIPFamily, 4) == 6
+	return pointer.IntDeref(cluster.Spec.Routing.PodIPFamily, PodIPFamilyIPv4) == PodIPFamilyIPv6
 }
 
 // ProcessSharesDC returns true if the process's locality matches the cluster's Datacenter.
