@@ -605,19 +605,19 @@ func ConfigurationChangeAllowed(status *fdbv1beta2.FoundationDBStatus, useRecove
 func CheckQosStatus(status *fdbv1beta2.FoundationDBStatus) error {
 	// We picked this value from the FoundationDB implementation, this is the default threshold to report a process as lagging.
 	if status.Cluster.Qos.WorstDataLagStorageServer.Seconds > maximumDataLag {
-		return fmt.Errorf("worst data lag is to high, current worst data lag in seconds: %0.2f, maximum allowed lag:  %0.2f", status.Cluster.Qos.WorstDataLagStorageServer.Seconds, maximumDataLag)
+		return fmt.Errorf("worst data lag is too high, current worst data lag in seconds: %0.2f, maximum allowed lag:  %0.2f", status.Cluster.Qos.WorstDataLagStorageServer.Seconds, maximumDataLag)
 	}
 
 	if status.Cluster.Qos.WorstDurabilityLagStorageServer.Seconds > maximumDataLag {
-		return fmt.Errorf("worst durability lag is to high, current worst durability lag in seconds: %0.2f, maximum allowed lag:  %0.2f", status.Cluster.Qos.WorstDurabilityLagStorageServer.Seconds, maximumDataLag)
+		return fmt.Errorf("worst durability lag is too high, current worst durability lag in seconds: %0.2f, maximum allowed lag:  %0.2f", status.Cluster.Qos.WorstDurabilityLagStorageServer.Seconds, maximumDataLag)
 	}
 
 	if status.Cluster.Qos.WorstQueueBytesLogServer > maximumQueueByteSize {
-		return fmt.Errorf("worst queue bytes for log server is to high, current worst queue bytes: %s, maximum allowed queue bytes: %s", PrettyPrintBytes(status.Cluster.Qos.WorstQueueBytesLogServer), PrettyPrintBytes(maximumQueueByteSize))
+		return fmt.Errorf("worst queue bytes for log server is too high, current worst queue bytes: %s, maximum allowed queue bytes: %s", PrettyPrintBytes(status.Cluster.Qos.WorstQueueBytesLogServer), PrettyPrintBytes(maximumQueueByteSize))
 	}
 
 	if status.Cluster.Qos.WorstQueueBytesStorageServer > maximumQueueByteSize {
-		return fmt.Errorf("worst queue bytes for storage server is to high, current worst queue bytes: %s, maximum allowed queue bytes: %s", PrettyPrintBytes(status.Cluster.Qos.WorstQueueBytesStorageServer), PrettyPrintBytes(maximumQueueByteSize))
+		return fmt.Errorf("worst queue bytes for storage server is too high, current worst queue bytes: %s, maximum allowed queue bytes: %s", PrettyPrintBytes(status.Cluster.Qos.WorstQueueBytesStorageServer), PrettyPrintBytes(maximumQueueByteSize))
 	}
 
 	return nil

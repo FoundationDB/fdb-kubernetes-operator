@@ -2364,7 +2364,7 @@ var _ = Describe("status_checks", func() {
 				},
 			},
 			true,
-			fmt.Errorf("worst data lag is to high, current worst data lag in seconds: 61.00, maximum allowed lag:  60.00"),
+			fmt.Errorf("worst data lag is too high, current worst data lag in seconds: 61.00, maximum allowed lag:  60.00"),
 		),
 	)
 
@@ -2396,7 +2396,7 @@ var _ = Describe("status_checks", func() {
 			},
 			nil,
 		),
-		Entry("worst data lag storage server is to high",
+		Entry("worst data lag storage server is too high",
 			&fdbv1beta2.FoundationDBStatus{
 				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
 					Qos: fdbv1beta2.FoundationDBStatusQosInfo{
@@ -2406,9 +2406,9 @@ var _ = Describe("status_checks", func() {
 					},
 				},
 			},
-			fmt.Errorf("worst data lag is to high, current worst data lag in seconds: 61.00, maximum allowed lag:  60.00"),
+			fmt.Errorf("worst data lag is too high, current worst data lag in seconds: 61.00, maximum allowed lag:  60.00"),
 		),
-		Entry("worst durability lag storage server is to high",
+		Entry("worst durability lag storage server is too high",
 			&fdbv1beta2.FoundationDBStatus{
 				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
 					Qos: fdbv1beta2.FoundationDBStatusQosInfo{
@@ -2418,27 +2418,27 @@ var _ = Describe("status_checks", func() {
 					},
 				},
 			},
-			fmt.Errorf("worst durability lag is to high, current worst durability lag in seconds: 61.00, maximum allowed lag:  60.00"),
+			fmt.Errorf("worst durability lag is too high, current worst durability lag in seconds: 61.00, maximum allowed lag:  60.00"),
 		),
-		Entry("worst queue bytes for log server is to high",
+		Entry("worst queue bytes for log server is too high",
 			&fdbv1beta2.FoundationDBStatus{
 				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
 					Qos: fdbv1beta2.FoundationDBStatusQosInfo{
-						WorstQueueBytesLogServer: 500 * 1024 * 1024,
+						WorstQueueBytesLogServer: 2 * maximumQueueByteSize,
 					},
 				},
 			},
-			fmt.Errorf("worst queue bytes for log server is to high, current worst queue bytes: 500.00Mi, maximum allowed queue bytes: 250.00Mi"),
+			fmt.Errorf("worst queue bytes for log server is too high, current worst queue bytes: 500.00Mi, maximum allowed queue bytes: 250.00Mi"),
 		),
-		Entry("worst queue bytes for storage server is to high",
+		Entry("worst queue bytes for storage server is too high",
 			&fdbv1beta2.FoundationDBStatus{
 				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
 					Qos: fdbv1beta2.FoundationDBStatusQosInfo{
-						WorstQueueBytesStorageServer: 500 * 1024 * 1024,
+						WorstQueueBytesStorageServer: 2 * maximumQueueByteSize,
 					},
 				},
 			},
-			fmt.Errorf("worst queue bytes for storage server is to high, current worst queue bytes: 500.00Mi, maximum allowed queue bytes: 250.00Mi"),
+			fmt.Errorf("worst queue bytes for storage server is too high, current worst queue bytes: 500.00Mi, maximum allowed queue bytes: 250.00Mi"),
 		),
 	)
 })
