@@ -29,6 +29,7 @@ import (
 	"fmt"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbstatus"
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
+	"math/rand/v2"
 	"os"
 	"os/exec"
 	"path"
@@ -72,10 +73,6 @@ type cliAdminClient struct {
 	// Cluster is the reference to the cluster model.
 	Cluster *fdbv1beta2.FoundationDBCluster
 
-	// clusterFilePath is the path to the temp file containing the cluster file
-	// for this session.
-	clusterFilePath string
-
 	// custom parameters that should be set.
 	knobs []string
 
@@ -94,18 +91,18 @@ type cliAdminClient struct {
 	timeout time.Duration
 }
 
-// NewCliAdminClient generates an Admin client for a cluster
+// NewCliAdminClient generates a new Admin client for a cluster, using the seed connection string.
+// Generally use the dtabase provider's GetAdminClient to retrieve the existing admin client for a cluster.
 func NewCliAdminClient(cluster *fdbv1beta2.FoundationDBCluster, _ client.Client, logger logr.Logger) (fdbadminclient.AdminClient, error) {
-	clusterFile, err := createClusterFile(cluster)
+	_, err := ensureClusterFileIsPresent(logger, os.TempDir(), string(cluster.UID), cluster.Spec.SeedConnectionString)
 	if err != nil {
 		return nil, err
 	}
 
 	return &cliAdminClient{
-		Cluster:         cluster,
-		clusterFilePath: clusterFile,
-		log:             logger,
-		cmdRunner:       &realCommandRunner{log: logger},
+		Cluster:   cluster,
+		log:       logger,
+		cmdRunner: &realCommandRunner{log: logger},
 		fdbLibClient: &realFdbLibClient{
 			cluster: cluster,
 			logger:  logger,
@@ -195,16 +192,26 @@ func getBinaryPath(binaryName string, version string) string {
 	return path.Join(os.Getenv("FDB_BINARY_DIR"), parsed.GetBinaryVersion(), binaryName)
 }
 
-func (client *cliAdminClient) getArgsAndTimeout(command cliCommand) ([]string, time.Duration) {
+func (client *cliAdminClient) getArgsAndTimeout(command cliCommand) ([]string, time.Duration, error) {
 	args := make([]string, len(command.args))
 	copy(args, command.args)
 	if len(args) == 0 {
 		args = append(args, "--exec", command.command)
 	}
+	connectionString, err := client.GetConnectionString()
+	if err != nil {
+		return nil, 0, err
+	}
+
+	tempClusterFilePath, err := ensureClusterFileIsPresent(client.log, os.TempDir(), fmt.Sprintf("%06d", rand.Uint32N(1000000)), connectionString)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer func() { _ = os.Remove(tempClusterFilePath) }()
 
 	// If we want to print out the version we don't have to pass the cluster file path
 	if len(args) == 0 || args[0] != "--version" {
-		args = append(args, command.getClusterFileFlag(), client.clusterFilePath)
+		args = append(args, command.getClusterFileFlag(), tempClusterFilePath)
 	}
 
 	// We only want to pass the knobs to fdbbackup and fdbrestore
@@ -234,12 +241,15 @@ func (client *cliAdminClient) getArgsAndTimeout(command cliCommand) ([]string, t
 		hardTimeout += command.getTimeout()
 	}
 
-	return args, hardTimeout
+	return args, hardTimeout, nil
 }
 
 // runCommand executes a command in the CLI.
 func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
-	args, hardTimeout := client.getArgsAndTimeout(command)
+	args, hardTimeout, err := client.getArgsAndTimeout(command)
+	if err != nil {
+		return "", err
+	}
 	timeoutContext, cancelFunction := context.WithTimeout(context.Background(), hardTimeout)
 	defer cancelFunction()
 
@@ -486,16 +496,7 @@ func (client *cliAdminClient) ChangeCoordinators(addresses []fdbv1beta2.ProcessA
 		return "", err
 	}
 
-	connectionStringBytes, err := os.ReadFile(client.clusterFilePath)
-	if err != nil {
-		return "", err
-	}
-
-	connectionString, err := fdbv1beta2.ParseConnectionString(string(connectionStringBytes))
-	if err != nil {
-		return "", err
-	}
-	return connectionString.String(), nil
+	return client.GetConnectionString()
 }
 
 // cleanConnectionStringOutput is a helper method to remove unrelated output from the get command in the connection string
@@ -680,12 +681,6 @@ func (client *cliAdminClient) GetRestoreStatus() (string, error) {
 	})
 }
 
-// Close cleans up any pending resources.
-func (client *cliAdminClient) Close() error {
-	// Allow to reuse the same file.
-	return nil
-}
-
 // GetCoordinatorSet gets the current coordinators from the status
 func (client *cliAdminClient) GetCoordinatorSet() (map[string]fdbv1beta2.None, error) {
 	status, err := client.GetStatus()
@@ -738,7 +733,7 @@ func (client *cliAdminClient) getTimeout() time.Duration {
 // GetProcessesUnderMaintenance will return all process groups that are currently stored to be under maintenance.
 // The result is a map with the process group ID as key and the start of the maintenance as value.
 func (client *cliAdminClient) GetProcessesUnderMaintenance() (map[fdbv1beta2.ProcessGroupID]int64, error) {
-	db, err := getFDBDatabase(client.Cluster)
+	db, err := getFDBDatabase(client.log, client.Cluster)
 	if err != nil {
 		return nil, err
 	}
@@ -794,7 +789,7 @@ func (client *cliAdminClient) GetProcessesUnderMaintenance() (map[fdbv1beta2.Pro
 // RemoveProcessesUnderMaintenance will remove the provided process groups from the list of processes that
 // are planned to be taken down for maintenance.
 func (client *cliAdminClient) RemoveProcessesUnderMaintenance(processGroupIDs []fdbv1beta2.ProcessGroupID) error {
-	db, err := getFDBDatabase(client.Cluster)
+	db, err := getFDBDatabase(client.log, client.Cluster)
 	if err != nil {
 		return err
 	}
@@ -820,7 +815,7 @@ func (client *cliAdminClient) RemoveProcessesUnderMaintenance(processGroupIDs []
 // SetProcessesUnderMaintenance will add the provided process groups to the list of processes that will be taken
 // down for maintenance. The value will be the provided time stamp.
 func (client *cliAdminClient) SetProcessesUnderMaintenance(processGroupIDs []fdbv1beta2.ProcessGroupID, timestamp int64) error {
-	db, err := getFDBDatabase(client.Cluster)
+	db, err := getFDBDatabase(client.log, client.Cluster)
 	if err != nil {
 		return err
 	}
