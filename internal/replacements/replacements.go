@@ -234,6 +234,21 @@ func processGroupNeedsRemovalForPod(cluster *fdbv1beta2.FoundationDBCluster, pod
 		return true, nil
 	}
 
+	podIPFamily, err := internal.GetIPFamilyFromPod(pod)
+	if err != nil {
+		return false, err
+	}
+
+	if !equality.Semantic.DeepEqual(cluster.Spec.Routing.PodIPFamily, podIPFamily) {
+		logger.Info("Replace process group",
+			"reason", "pod IP family has changed",
+			"currentPodIPFamily", podIPFamily,
+			"desiredPodIPFamily", cluster.Spec.Routing.PodIPFamily,
+		)
+
+		return true, nil
+	}
+
 	if cluster.NeedsReplacement(processGroup) {
 		jsonSpec, err := json.Marshal(spec)
 		if err != nil {

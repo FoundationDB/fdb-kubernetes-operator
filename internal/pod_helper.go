@@ -25,72 +25,57 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	monitorapi "github.com/apple/foundationdb/fdbkubernetesmonitor/api"
 	"net"
 	"strconv"
 
-	"github.com/go-logr/logr"
-
-	"k8s.io/utils/pointer"
-
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
+	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // GetPublicIPsForPod returns the public IPs for a Pod
 func GetPublicIPsForPod(pod *corev1.Pod, log logr.Logger) []string {
-	var podIPFamily *int
-
 	if pod == nil {
 		return []string{}
 	}
 
-	for _, container := range pod.Spec.Containers {
-		if container.Name != fdbv1beta2.SidecarContainerName {
+	podIPFamily, err := GetIPFamilyFromPod(pod)
+	if err != nil {
+		log.Error(err, "Could not parse IP family")
+		return []string{pod.Status.PodIP}
+	}
+
+	if podIPFamily == nil {
+		return []string{pod.Status.PodIP}
+	}
+
+	podIPs := pod.Status.PodIPs
+	matchingIPs := make([]string, 0, len(podIPs))
+	for _, podIP := range podIPs {
+		ip := net.ParseIP(podIP.IP)
+		if ip == nil {
+			log.Error(nil, "Failed to parse IP from pod", "ip", podIP)
 			continue
 		}
-		for indexOfArgument, argument := range container.Args {
-			if argument == "--public-ip-family" && indexOfArgument < len(container.Args)-1 {
-				familyString := container.Args[indexOfArgument+1]
-				family, err := strconv.Atoi(familyString)
-				if err != nil {
-					log.Error(err, "Error parsing public IP family", "family", familyString)
-					return nil
-				}
-				podIPFamily = &family
-				break
-			}
+		matches := false
+		switch *podIPFamily {
+		case fdbv1beta2.PodIPFamilyIPv4:
+			matches = ip.To4() != nil
+		case fdbv1beta2.PodIPFamilyIPv6:
+			matches = ip.To4() == nil
+		default:
+			log.Error(nil, "Could not match IP address against IP family", "family", *podIPFamily)
+		}
+		if matches {
+			matchingIPs = append(matchingIPs, podIP.IP)
 		}
 	}
 
-	if podIPFamily != nil {
-		podIPs := pod.Status.PodIPs
-		matchingIPs := make([]string, 0, len(podIPs))
-
-		for _, podIP := range podIPs {
-			ip := net.ParseIP(podIP.IP)
-			if ip == nil {
-				log.Error(nil, "Failed to parse IP from pod", "ip", podIP)
-				continue
-			}
-			matches := false
-			switch *podIPFamily {
-			case 4:
-				matches = ip.To4() != nil
-			case 6:
-				matches = ip.To4() == nil
-			default:
-				log.Error(nil, "Could not match IP address against IP family", "family", *podIPFamily)
-			}
-			if matches {
-				matchingIPs = append(matchingIPs, podIP.IP)
-			}
-		}
-		return matchingIPs
-	}
-
-	return []string{pod.Status.PodIP}
+	return matchingIPs
 }
 
 // GetProcessGroupIDFromMeta fetches the process group ID from an object's metadata.
@@ -236,6 +221,73 @@ func GetPublicIPSource(pod *corev1.Pod) (fdbv1beta2.PublicIPSource, error) {
 	}
 	return fdbv1beta2.PublicIPSource(source), nil
 }
+
+// GetIPFamilyFromPod returns the IP family from the pod configuration.
+func GetIPFamilyFromPod(pod *corev1.Pod) (*int, error) {
+	if GetImageType(pod) == fdbv1beta2.ImageTypeUnified {
+		currentData, present := pod.Annotations[monitorapi.CurrentConfigurationAnnotation]
+		if !present {
+			return nil, fmt.Errorf("could not read current launcher configruations")
+		}
+
+		currentConfiguration := monitorapi.ProcessConfiguration{}
+		err := json.Unmarshal([]byte(currentData), &currentConfiguration)
+		if err != nil {
+			return nil, fmt.Errorf("could not parse current process configuration: %w", err)
+		}
+
+		for _, argument := range currentConfiguration.Arguments {
+			if argument.ArgumentType != monitorapi.IPListArgumentType {
+				continue
+			}
+
+			return pointer.Int(argument.IPFamily), nil
+		}
+
+		// No IP List setting is defined.
+		return nil, nil
+	}
+
+	for _, container := range pod.Spec.Containers {
+		if container.Name != fdbv1beta2.SidecarContainerName {
+			continue
+		}
+
+		for indexOfArgument, argument := range container.Args {
+			if argument == "--public-ip-family" && indexOfArgument < len(container.Args)-1 {
+				familyString := container.Args[indexOfArgument+1]
+				family, err := strconv.Atoi(familyString)
+				if err == nil {
+					return &family, nil
+				}
+				break
+			}
+		}
+	}
+
+	return nil, nil
+}
+
+// GetIPFamily determines the IP family based on the annotation.
+// TODO (johscheuer): Make use of this method once we did the next release 2.2.0. This will ensure that the operator
+// can add the fdbv1beta2.IPFamilyAnnotation to all pods.
+//func GetIPFamily(pod *corev1.Pod) (*int, error) {
+//	if pod == nil {
+//		return nil, fmt.Errorf("failed to fetch IP family from nil Pod")
+//	}
+//
+//	ipFamilyValue := pod.ObjectMeta.Annotations[fdbv1beta2.IPFamilyAnnotation]
+//	if ipFamilyValue != "" {
+//		ipFamily, err := strconv.Atoi(ipFamilyValue)
+//		if err != nil {
+//			return nil, err
+//		}
+//
+//		return pointer.Int(ipFamily), nil
+//	}
+//
+//	return nil, nil
+//}
 
 // PodHasSidecarTLS determines whether a pod currently has TLS enabled for the sidecar process.
 // This method should only be used for split images.

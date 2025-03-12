@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,25 +22,23 @@ package replacements
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/podmanager"
-	ctrlClient "sigs.k8s.io/controller-runtime/pkg/client"
-
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
-	"k8s.io/utils/pointer"
-
-	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
-	"github.com/go-logr/logr"
-
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/podmanager"
+	monitorapi "github.com/apple/foundationdb/fdbkubernetesmonitor/api"
+	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
+	ctrlClient "sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 var _ = Describe("replace_misconfigured_pods", func() {
@@ -529,6 +527,309 @@ var _ = Describe("replace_misconfigured_pods", func() {
 						It("should not need a removal (guard against server-side defaults)", func() {
 							Expect(needsRemoval).To(BeFalse())
 							Expect(err).NotTo(HaveOccurred())
+						})
+					})
+				})
+			})
+
+			When("the pod IP family is checked", func() {
+				When("the pod IP family matches", func() {
+					When("the pod ip family is nil", func() {
+						It("should *not* need a removal", func() {
+							Expect(needsRemoval).To(BeFalse())
+							Expect(err).NotTo(HaveOccurred())
+						})
+					})
+
+					When("the pod ip family is v4", func() {
+						BeforeEach(func() {
+							cluster.Spec.Routing.PodIPFamily = pointer.Int(fdbv1beta2.PodIPFamilyIPv4)
+						})
+
+						When("the image type is split", func() {
+							BeforeEach(func() {
+								for idx, container := range pod.Spec.Containers {
+									if container.Name != fdbv1beta2.SidecarContainerName {
+										continue
+									}
+
+									pod.Spec.Containers[idx].Args = append(pod.Spec.Containers[idx].Args, "--public-ip-family", "4")
+								}
+							})
+
+							It("should *not* need a removal", func() {
+								Expect(needsRemoval).To(BeFalse())
+								Expect(err).NotTo(HaveOccurred())
+							})
+						})
+
+						When("the image type is unified", func() {
+							BeforeEach(func() {
+								unified := fdbv1beta2.ImageTypeUnified
+								cluster.Spec.ImageType = &unified
+								pod.Annotations[fdbv1beta2.ImageTypeAnnotation] = string(fdbv1beta2.ImageTypeUnified)
+
+								currentConfiguration := monitorapi.ProcessConfiguration{
+									Arguments: []monitorapi.Argument{
+										{
+											ArgumentType: monitorapi.IPListArgumentType,
+											IPFamily:     4,
+										},
+									},
+								}
+
+								currentConfig, err := json.Marshal(currentConfiguration)
+								Expect(err).NotTo(HaveOccurred())
+
+								pod.Annotations[monitorapi.CurrentConfigurationAnnotation] = string(currentConfig)
+							})
+
+							It("should *not* need a removal", func() {
+								Expect(needsRemoval).To(BeFalse())
+								Expect(err).NotTo(HaveOccurred())
+							})
+						})
+					})
+
+					When("the pod ip family is v6", func() {
+						BeforeEach(func() {
+							cluster.Spec.Routing.PodIPFamily = pointer.Int(fdbv1beta2.PodIPFamilyIPv6)
+						})
+
+						When("the image type is split", func() {
+							BeforeEach(func() {
+								for idx, container := range pod.Spec.Containers {
+									if container.Name != fdbv1beta2.SidecarContainerName {
+										continue
+									}
+
+									pod.Spec.Containers[idx].Args = append(pod.Spec.Containers[idx].Args, "--public-ip-family", "6")
+								}
+							})
+
+							It("should *not* need a removal", func() {
+								Expect(needsRemoval).To(BeFalse())
+								Expect(err).NotTo(HaveOccurred())
+							})
+						})
+
+						When("the image type is unified", func() {
+							BeforeEach(func() {
+								unified := fdbv1beta2.ImageTypeUnified
+								cluster.Spec.ImageType = &unified
+								pod.Annotations[fdbv1beta2.ImageTypeAnnotation] = string(fdbv1beta2.ImageTypeUnified)
+
+								currentConfiguration := monitorapi.ProcessConfiguration{
+									Arguments: []monitorapi.Argument{
+										{
+											ArgumentType: monitorapi.IPListArgumentType,
+											IPFamily:     6,
+										},
+									},
+								}
+
+								currentConfig, err := json.Marshal(currentConfiguration)
+								Expect(err).NotTo(HaveOccurred())
+
+								pod.Annotations[monitorapi.CurrentConfigurationAnnotation] = string(currentConfig)
+							})
+
+							It("should *not* need a removal", func() {
+								Expect(needsRemoval).To(BeFalse())
+								Expect(err).NotTo(HaveOccurred())
+							})
+						})
+					})
+				})
+
+				When("the pod IP family doesn't match", func() {
+					When("the pod ip family at the pod is nil", func() {
+						When("the pod ip family at cluster level is v4", func() {
+							BeforeEach(func() {
+								cluster.Spec.Routing.PodIPFamily = pointer.Int(fdbv1beta2.PodIPFamilyIPv4)
+							})
+
+							It("should need a removal", func() {
+								Expect(needsRemoval).To(BeTrue())
+								Expect(err).NotTo(HaveOccurred())
+							})
+						})
+
+						When("the pod ip family at cluster level is v6", func() {
+							BeforeEach(func() {
+								cluster.Spec.Routing.PodIPFamily = pointer.Int(fdbv1beta2.PodIPFamilyIPv4)
+							})
+
+							It("should need a removal", func() {
+								Expect(needsRemoval).To(BeTrue())
+								Expect(err).NotTo(HaveOccurred())
+							})
+						})
+					})
+
+					When("the pod ip family at the pod is v4", func() {
+						When("the image type is split", func() {
+							BeforeEach(func() {
+								for idx, container := range pod.Spec.Containers {
+									if container.Name != fdbv1beta2.SidecarContainerName {
+										continue
+									}
+
+									pod.Spec.Containers[idx].Args = append(pod.Spec.Containers[idx].Args, "--public-ip-family", "4")
+								}
+
+								pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] = ""
+							})
+
+							When("the pod ip family at cluster level is nil", func() {
+								BeforeEach(func() {
+									cluster.Spec.Routing.PodIPFamily = nil
+								})
+
+								It("should need a removal", func() {
+									Expect(needsRemoval).To(BeTrue())
+									Expect(err).NotTo(HaveOccurred())
+								})
+							})
+
+							When("the pod ip family at cluster level is v6", func() {
+								BeforeEach(func() {
+									cluster.Spec.Routing.PodIPFamily = pointer.Int(fdbv1beta2.PodIPFamilyIPv6)
+								})
+
+								It("should need a removal", func() {
+									Expect(needsRemoval).To(BeTrue())
+									Expect(err).NotTo(HaveOccurred())
+								})
+							})
+						})
+
+						When("the image type is unified", func() {
+							BeforeEach(func() {
+								unified := fdbv1beta2.ImageTypeUnified
+								cluster.Spec.ImageType = &unified
+								pod.Annotations[fdbv1beta2.ImageTypeAnnotation] = string(fdbv1beta2.ImageTypeUnified)
+
+								currentConfiguration := monitorapi.ProcessConfiguration{
+									Arguments: []monitorapi.Argument{
+										{
+											ArgumentType: monitorapi.IPListArgumentType,
+											IPFamily:     4,
+										},
+									},
+								}
+
+								currentConfig, err := json.Marshal(currentConfiguration)
+								Expect(err).NotTo(HaveOccurred())
+
+								pod.Annotations[monitorapi.CurrentConfigurationAnnotation] = string(currentConfig)
+								pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] = ""
+							})
+
+							When("the pod ip family at cluster level is nil", func() {
+								BeforeEach(func() {
+									cluster.Spec.Routing.PodIPFamily = nil
+								})
+
+								It("should need a removal", func() {
+									Expect(needsRemoval).To(BeTrue())
+									Expect(err).NotTo(HaveOccurred())
+								})
+							})
+
+							When("the pod ip family at cluster level is v6", func() {
+								BeforeEach(func() {
+									cluster.Spec.Routing.PodIPFamily = pointer.Int(fdbv1beta2.PodIPFamilyIPv6)
+								})
+
+								It("should need a removal", func() {
+									Expect(needsRemoval).To(BeTrue())
+									Expect(err).NotTo(HaveOccurred())
+								})
+							})
+						})
+					})
+
+					When("the pod ip family at the pod is v6", func() {
+						When("the image type is split", func() {
+							BeforeEach(func() {
+								for idx, container := range pod.Spec.Containers {
+									if container.Name != fdbv1beta2.SidecarContainerName {
+										continue
+									}
+
+									pod.Spec.Containers[idx].Args = append(pod.Spec.Containers[idx].Args, "--public-ip-family", "6")
+								}
+
+								pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] = ""
+							})
+
+							When("the pod ip family at cluster level is nil", func() {
+								BeforeEach(func() {
+									cluster.Spec.Routing.PodIPFamily = nil
+								})
+
+								It("should need a removal", func() {
+									Expect(needsRemoval).To(BeTrue())
+									Expect(err).NotTo(HaveOccurred())
+								})
+							})
+
+							When("the pod ip family at cluster level is v4", func() {
+								BeforeEach(func() {
+									cluster.Spec.Routing.PodIPFamily = pointer.Int(fdbv1beta2.PodIPFamilyIPv4)
+								})
+
+								It("should need a removal", func() {
+									Expect(needsRemoval).To(BeTrue())
+									Expect(err).NotTo(HaveOccurred())
+								})
+							})
+						})
+
+						When("the image type is unified", func() {
+							BeforeEach(func() {
+								unified := fdbv1beta2.ImageTypeUnified
+								cluster.Spec.ImageType = &unified
+								pod.Annotations[fdbv1beta2.ImageTypeAnnotation] = string(fdbv1beta2.ImageTypeUnified)
+
+								currentConfiguration := monitorapi.ProcessConfiguration{
+									Arguments: []monitorapi.Argument{
+										{
+											ArgumentType: monitorapi.IPListArgumentType,
+											IPFamily:     6,
+										},
+									},
+								}
+
+								currentConfig, err := json.Marshal(currentConfiguration)
+								Expect(err).NotTo(HaveOccurred())
+
+								pod.Annotations[monitorapi.CurrentConfigurationAnnotation] = string(currentConfig)
+								pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] = ""
+							})
+
+							When("the pod ip family at cluster level is nil", func() {
+								BeforeEach(func() {
+									cluster.Spec.Routing.PodIPFamily = nil
+								})
+
+								It("should need a removal", func() {
+									Expect(needsRemoval).To(BeTrue())
+									Expect(err).NotTo(HaveOccurred())
+								})
+							})
+
+							When("the pod ip family at cluster level is v4", func() {
+								BeforeEach(func() {
+									cluster.Spec.Routing.PodIPFamily = pointer.Int(fdbv1beta2.PodIPFamilyIPv4)
+								})
+
+								It("should need a removal", func() {
+									Expect(needsRemoval).To(BeTrue())
+									Expect(err).NotTo(HaveOccurred())
+								})
+							})
 						})
 					})
 				})
