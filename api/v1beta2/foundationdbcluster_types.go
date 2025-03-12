@@ -1744,7 +1744,7 @@ func ParseConnectionString(str string) (ConnectionString, error) {
 	// The description is a logical description of the database using alphanumeric characters (a-z, A-Z, 0-9) and underscores.
 	description := firstSplit[0]
 	if !isAlphanumericWithUnderScore.MatchString(description) {
-		return ConnectionString{}, fmt.Errorf("invalid connection string: %s, only alphanumeric characters (a-z, A-Z, 0-9) and underscores are allowed", str)
+		return ConnectionString{}, fmt.Errorf("invalid connection string: %s, database description can only contain alphanumeric characters (a-z, A-Z, 0-9) and underscores", str)
 	}
 
 	secondSplit := strings.SplitN(firstSplit[1], "@", 2)
@@ -1755,20 +1755,15 @@ func ParseConnectionString(str string) (ConnectionString, error) {
 	// The ID is an arbitrary value containing alphanumeric characters (a-z, A-Z, 0-9).
 	generationID := secondSplit[0]
 	if !isAlphanumeric.MatchString(generationID) {
-		return ConnectionString{}, fmt.Errorf("invalid connection string: %s, only alphanumeric characters (a-z, A-Z, 0-9) are allowed", str)
+		return ConnectionString{}, fmt.Errorf("invalid connection string: %s, generation ID can only contain alphanumeric characters (a-z, A-Z, 0-9)", str)
 	}
 
 	coordinatorsStrings := strings.Split(secondSplit[1], ",")
 	coordinators := make([]string, 0, len(coordinatorsStrings))
 	for _, coordinatorsString := range coordinatorsStrings {
-		// Ignore empty strings
-		if coordinatorsString == "" {
-			continue
-		}
-
 		coordinatorAddress, err := ParseProcessAddress(coordinatorsString)
 		if err != nil {
-			return ConnectionString{}, err
+			return ConnectionString{}, fmt.Errorf("invalid connection string: %s, could not parse coordinator address: %s, got error: %w", str, coordinatorAddress, err)
 		}
 
 		coordinators = append(coordinators, coordinatorAddress.String())

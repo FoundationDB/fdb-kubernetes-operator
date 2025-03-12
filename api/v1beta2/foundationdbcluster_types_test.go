@@ -804,7 +804,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		},
 	}
 
-	coordinatorsStr := []string{
+	coordinatorsList := []string{
 		"127.0.0.1:4500",
 		"127.0.0.2:4500",
 		"127.0.0.3:4500",
@@ -828,7 +828,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(str.DatabaseName).To(Equal("test"))
 				Expect(str.GenerationID).To(Equal("abcd"))
-				Expect(str.Coordinators).To(ConsistOf(coordinatorsStr))
+				Expect(str.Coordinators).To(ConsistOf(coordinatorsList))
 			})
 		})
 
@@ -838,7 +838,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			})
 
 			It("should return an error", func() {
-				Expect(err).To(MatchError(ContainSubstring("invalid connection string: test:abcd, could not split string to get generation ID")))
+				Expect(err).To(MatchError(Equal("invalid connection string: test:abcd, could not split string to get generation ID")))
 			})
 		})
 
@@ -848,7 +848,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			})
 
 			It("should return an error", func() {
-				Expect(err).To(MatchError(ContainSubstring("invalid connection string: te-st:abcd, only alphanumeric characters (a-z, A-Z, 0-9) and underscores are allowed")))
+				Expect(err).To(MatchError(Equal("invalid connection string: te-st:abcd, database description can only contain alphanumeric characters (a-z, A-Z, 0-9) and underscores")))
 			})
 		})
 
@@ -858,17 +858,17 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			})
 
 			It("should return an error", func() {
-				Expect(err).To(MatchError(ContainSubstring("invalid connection string: :abcd@127.0.0.1:4500,127.0.0.2:4500,127.0.0.3:4500, only alphanumeric characters (a-z, A-Z, 0-9) and underscores are allowed")))
+				Expect(err).To(MatchError(Equal("invalid connection string: :abcd@127.0.0.1:4500,127.0.0.2:4500,127.0.0.3:4500, database description can only contain alphanumeric characters (a-z, A-Z, 0-9) and underscores")))
 			})
 		})
 
-		When("the input has an generation description", func() {
+		When("the input has an empty generation ID", func() {
 			BeforeEach(func() {
 				input = "test:@127.0.0.1:4500,127.0.0.2:4500,127.0.0.3:4500"
 			})
 
 			It("should return an error", func() {
-				Expect(err).To(MatchError(ContainSubstring("invalid connection string: test:@127.0.0.1:4500,127.0.0.2:4500,127.0.0.3:4500, only alphanumeric characters (a-z, A-Z, 0-9) are allowed")))
+				Expect(err).To(MatchError(Equal("invalid connection string: test:@127.0.0.1:4500,127.0.0.2:4500,127.0.0.3:4500, generation ID can only contain alphanumeric characters (a-z, A-Z, 0-9)")))
 			})
 		})
 
@@ -878,7 +878,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			})
 
 			It("should return an error", func() {
-				Expect(err).To(MatchError(ContainSubstring("invalid connection string: test:abcd@, connection string must contain at least one coordinator")))
+				Expect(err).To(MatchError(Equal("invalid connection string: test:abcd@, could not parse coordinator address: <nil>, got error: cannot parse empty address")))
 			})
 		})
 
@@ -891,11 +891,11 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(str.DatabaseName).To(Equal("s"))
 				Expect(str.GenerationID).To(Equal("abcd"))
-				Expect(str.Coordinators).To(ConsistOf(coordinatorsStr))
+				Expect(str.Coordinators).To(ConsistOf(coordinatorsList))
 			})
 		})
 
-		When("the input is valid with amultiple underscores", func() {
+		When("the input is valid with multiple underscores", func() {
 			BeforeEach(func() {
 				input = "fdb_cluster_52v1bpr8:rhUbBjrtyweZBQO1U3Td81zyP9d46yEh@100.82.81.253:4500:tls,100.82.71.5:4500:tls,100.82.119.151:4500:tls,100.82.122.125:4500:tls,100.82.76.240:4500:tls"
 			})
@@ -904,7 +904,66 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(str.DatabaseName).To(Equal("fdb_cluster_52v1bpr8"))
 				Expect(str.GenerationID).To(Equal("rhUbBjrtyweZBQO1U3Td81zyP9d46yEh"))
-				Expect(str.Coordinators).To(HaveLen(5))
+				Expect(str.Coordinators).To(ConsistOf([]string{
+					"100.82.81.253:4500:tls",
+					"100.82.71.5:4500:tls",
+					"100.82.119.151:4500:tls",
+					"100.82.122.125:4500:tls",
+					"100.82.76.240:4500:tls",
+				}))
+			})
+		})
+
+		When("the input is valid with DNS entries", func() {
+			BeforeEach(func() {
+				input = "fdb_cluster_52v1bpr8:rhUbBjrtyweZBQO1U3Td81zyP9d46yEh@coordinator1.test.svc.cluster.local:4500:tls,coordinator2.test.svc.cluster.local:4500:tls,coordinator2.test.svc.cluster.local:4500:tls"
+			})
+
+			It("should be parsed correctly", func() {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(str.DatabaseName).To(Equal("fdb_cluster_52v1bpr8"))
+				Expect(str.GenerationID).To(Equal("rhUbBjrtyweZBQO1U3Td81zyP9d46yEh"))
+				Expect(str.Coordinators).To(ConsistOf([]string{
+					"coordinator1.test.svc.cluster.local:4500:tls",
+					"coordinator2.test.svc.cluster.local:4500:tls",
+					"coordinator2.test.svc.cluster.local:4500:tls",
+				}))
+			})
+		})
+
+		When("the input is valid with IPv6 entries", func() {
+			BeforeEach(func() {
+				input = "fdb_cluster_52v1bpr8:rhUbBjrtyweZBQO1U3Td81zyP9d46yEh@[0100::2]:4500:tls,[0100::3]:4500:tls,[0100::4]:4500:tls"
+			})
+
+			It("should be parsed correctly", func() {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(str.DatabaseName).To(Equal("fdb_cluster_52v1bpr8"))
+				Expect(str.GenerationID).To(Equal("rhUbBjrtyweZBQO1U3Td81zyP9d46yEh"))
+				Expect(str.Coordinators).To(ConsistOf([]string{
+					"[100::2]:4500:tls",
+					"[100::3]:4500:tls",
+					"[100::4]:4500:tls",
+				}))
+			})
+		})
+
+		When("the input is valid with IPv6 and IPv4 entries", func() {
+			BeforeEach(func() {
+				input = "fdb_cluster_52v1bpr8:rhUbBjrtyweZBQO1U3Td81zyP9d46yEh@100.82.81.253:4500:tls,100.82.71.5:4500:tls,100.82.119.151:4500:tls,[0100::3]:4500:tls,[0100::4]:4500:tls"
+			})
+
+			It("should be parsed correctly", func() {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(str.DatabaseName).To(Equal("fdb_cluster_52v1bpr8"))
+				Expect(str.GenerationID).To(Equal("rhUbBjrtyweZBQO1U3Td81zyP9d46yEh"))
+				Expect(str.Coordinators).To(ConsistOf([]string{
+					"100.82.81.253:4500:tls",
+					"100.82.71.5:4500:tls",
+					"100.82.119.151:4500:tls",
+					"[100::3]:4500:tls",
+					"[100::4]:4500:tls",
+				}))
 			})
 		})
 	})
@@ -921,7 +980,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			str := ConnectionString{
 				DatabaseName: "test",
 				GenerationID: "abcd",
-				Coordinators: coordinatorsStr,
+				Coordinators: coordinatorsList,
 			}
 			Expect(str.String()).To(Equal("test:abcd@127.0.0.1:4500,127.0.0.2:4500,127.0.0.3:4500"))
 		})
@@ -932,7 +991,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			str := ConnectionString{
 				DatabaseName: "test",
 				GenerationID: "abcd",
-				Coordinators: coordinatorsStr,
+				Coordinators: coordinatorsList,
 			}
 			err := str.GenerateNewGenerationID()
 			Expect(err).NotTo(HaveOccurred())
@@ -945,7 +1004,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			str := ConnectionString{
 				DatabaseName: "test",
 				GenerationID: "abcd",
-				Coordinators: coordinatorsStr,
+				Coordinators: coordinatorsList,
 			}
 			Expect(str.HasCoordinators(coordinators)).To(BeTrue())
 			// We have to copy the slice to prevent to modify the original slice

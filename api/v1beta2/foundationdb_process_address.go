@@ -156,6 +156,10 @@ func (address ProcessAddress) MarshalJSON() ([]byte, error) {
 // representation.
 func ParseProcessAddress(address string) (ProcessAddress, error) {
 	result := ProcessAddress{}
+	if address == "" {
+		return result, fmt.Errorf("cannot parse empty address")
+	}
+
 	if strings.HasSuffix(address, "(fromHostname)") {
 		address = strings.TrimSuffix(address, "(fromHostname)")
 		result.FromHostname = true
