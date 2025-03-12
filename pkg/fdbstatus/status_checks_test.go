@@ -2287,7 +2287,7 @@ var _ = Describe("status_checks", func() {
 				},
 			},
 			true,
-			fmt.Errorf("data distribution is not healhty: primary"),
+			fmt.Errorf("data distribution is not healthy: primary"),
 		),
 
 		Entry(
