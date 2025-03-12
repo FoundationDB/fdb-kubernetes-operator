@@ -95,13 +95,14 @@ func (updateMetadata) reconcile(ctx context.Context, r *FoundationDBClusterRecon
 
 func updatePodMetadata(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, processGroup *fdbv1beta2.ProcessGroupStatus) error {
 	pod, err := r.PodLifecycleManager.GetPod(ctx, r, cluster, processGroup.GetPodName(cluster))
+	originalPod := pod.DeepCopy()
 	if err != nil {
 		return err
 	}
 
 	desiredMetadata := internal.GetPodMetadata(cluster, processGroup.ProcessClass, processGroup.ProcessGroupID, "")
 	if !podMetadataCorrect(desiredMetadata, pod) {
-		return r.PodLifecycleManager.UpdateMetadata(ctx, r, cluster, pod)
+		return r.PodLifecycleManager.UpdateMetadata(ctx, r, cluster, pod, originalPod)
 	}
 
 	return nil
