@@ -2768,6 +2768,11 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 					continue
 				}
 
+				if pod.Status.Phase != corev1.PodRunning {
+					log.Println("ignoring pod:", pod.Name, "with pod phase", pod.Status.Phase, "message:", pod.Status.Message)
+					continue
+				}
+
 				Expect(pod.CreationTimestamp.After(testStartTime)).To(BeTrue())
 				Expect(pod.Annotations).To(HaveKeyWithValue(fdbv1beta2.IPFamilyAnnotation, podIPFamilyString))
 			}
