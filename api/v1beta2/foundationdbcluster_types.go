@@ -1713,10 +1713,6 @@ func (cluster *FoundationDBCluster) GetLogServersPerPod() int {
 // connection string.
 var alphanum = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 
-// connectionStringPattern provides a regular expression for parsing the
-// connection string.
-var connectionStringPattern = regexp.MustCompile("(?m)^([^#][^:@]+):([^:@]+)@(.*)$")
-
 // ConnectionString models the contents of a cluster file in a structured way
 type ConnectionString struct {
 	// DatabaseName provides an identifier for the database which persists
@@ -1731,30 +1727,68 @@ type ConnectionString struct {
 	Coordinators []string `json:"coordinators,omitempty"`
 }
 
+// isAlphanumeric regex to validate: value containing alphanumeric characters (a-z, A-Z, 0-9).
+var isAlphanumeric = regexp.MustCompile(`^[a-zA-Z0-9]+$`)
+
+// isAlphanumericWithUnderScore regex to validate: value containing alphanumeric characters (a-z, A-Z, 0-9) and underscores.
+var isAlphanumericWithUnderScore = regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
+
 // ParseConnectionString parses a connection string from its string
 // representation
 func ParseConnectionString(str string) (ConnectionString, error) {
-	components := connectionStringPattern.FindStringSubmatch(str)
-	if components == nil {
-		return ConnectionString{}, fmt.Errorf("invalid connection string %s", str)
+	firstSplit := strings.SplitN(str, ":", 2)
+	if len(firstSplit) != 2 {
+		return ConnectionString{}, fmt.Errorf("invalid connection string: %s, could not split string to get database description", str)
 	}
 
-	coordinatorsStrings := strings.Split(components[3], ",")
-	coordinators := make([]string, len(coordinatorsStrings))
-	for idx, coordinatorsString := range coordinatorsStrings {
+	// The description is a logical description of the database using alphanumeric characters (a-z, A-Z, 0-9) and underscores.
+	description := firstSplit[0]
+	if !isAlphanumericWithUnderScore.MatchString(description) {
+		return ConnectionString{}, fmt.Errorf("invalid connection string: %s, database description can only contain alphanumeric characters (a-z, A-Z, 0-9) and underscores", str)
+	}
+
+	secondSplit := strings.SplitN(firstSplit[1], "@", 2)
+	if len(secondSplit) != 2 {
+		return ConnectionString{}, fmt.Errorf("invalid connection string: %s, could not split string to get generation ID", str)
+	}
+
+	// The ID is an arbitrary value containing alphanumeric characters (a-z, A-Z, 0-9).
+	generationID := secondSplit[0]
+	if !isAlphanumeric.MatchString(generationID) {
+		return ConnectionString{}, fmt.Errorf("invalid connection string: %s, generation ID can only contain alphanumeric characters (a-z, A-Z, 0-9)", str)
+	}
+
+	coordinatorsStrings := strings.Split(secondSplit[1], ",")
+	coordinators := make([]string, 0, len(coordinatorsStrings))
+	for _, coordinatorsString := range coordinatorsStrings {
 		coordinatorAddress, err := ParseProcessAddress(coordinatorsString)
 		if err != nil {
-			return ConnectionString{}, err
+			return ConnectionString{}, fmt.Errorf("invalid connection string: %s, could not parse coordinator address: %s, got error: %w", str, coordinatorAddress, err)
 		}
 
-		coordinators[idx] = coordinatorAddress.String()
+		coordinators = append(coordinators, coordinatorAddress.String())
+	}
+
+	if len(coordinators) == 0 {
+		return ConnectionString{}, fmt.Errorf("invalid connection string: %s, connection string must contain at least one coordinator", str)
 	}
 
 	return ConnectionString{
-		components[1],
-		components[2],
+		description,
+		generationID,
 		coordinators,
 	}, nil
+}
+
+// SanitizeConnectionStringDescription will replace "-" to "_".
+func SanitizeConnectionStringDescription(str string) string {
+	return strings.ReplaceAll(str, "-", "_")
+}
+
+// Validate will return nil if the connection string is valid or an error if the connection string is not valid.
+func (str *ConnectionString) Validate() error {
+	_, err := ParseConnectionString(str.String())
+	return err
 }
 
 // String formats a connection string as a string

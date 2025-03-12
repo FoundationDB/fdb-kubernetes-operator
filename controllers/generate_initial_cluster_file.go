@@ -97,7 +97,7 @@ func (g generateInitialClusterFile) reconcile(ctx context.Context, r *Foundation
 	if cluster.Spec.PartialConnectionString.DatabaseName != "" {
 		clusterName = cluster.Spec.PartialConnectionString.DatabaseName
 	} else {
-		clusterName = connectionStringNameRegex.ReplaceAllString(cluster.Name, "_")
+		clusterName = fdbv1beta2.SanitizeConnectionStringDescription(cluster.Name)
 	}
 
 	connectionString := fdbv1beta2.ConnectionString{DatabaseName: clusterName}
@@ -149,6 +149,12 @@ func (g generateInitialClusterFile) reconcile(ctx context.Context, r *Foundation
 
 	for _, currentLocality := range coordinators {
 		connectionString.Coordinators = append(connectionString.Coordinators, coordinator.GetCoordinatorAddress(cluster, currentLocality).String())
+	}
+
+	// Ensure that the connection string is in a valid format.
+	err = connectionString.Validate()
+	if err != nil {
+		return &requeue{curError: err}
 	}
 
 	cluster.Status.ConnectionString = connectionString.String()
