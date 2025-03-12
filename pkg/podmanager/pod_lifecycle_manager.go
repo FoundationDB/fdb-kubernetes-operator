@@ -168,7 +168,7 @@ func (manager StandardPodLifecycleManager) UpdateImageVersion(ctx context.Contex
 }
 
 // UpdateMetadata updates an Pod's metadata.
-func (manager StandardPodLifecycleManager) UpdateMetadata(ctx context.Context, r client.Client, _ *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod, *corev1.Pod) error {
+func (manager StandardPodLifecycleManager) UpdateMetadata(ctx context.Context, r client.Client, _ *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod, originalPod *corev1.Pod) error {
 	return r.Patch(ctx, pod, client.MergeFrom(originalPod))
 }
 
