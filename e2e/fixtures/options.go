@@ -57,6 +57,7 @@ type FactoryOptions struct {
 	featureOperatorUnifiedImage    bool
 	featureOperatorServerSideApply bool
 	dumpOperatorState              bool
+	nodeSelector                   string
 }
 
 // BindFlags binds the FactoryOptions flags to the provided FlagSet. This can be used to extend the current test setup
@@ -217,6 +218,7 @@ func (options *FactoryOptions) BindFlags(fs *flag.FlagSet) {
 		"chrislusf/seaweedfs:3.73",
 		"defines the seaweedfs image that should be used for testing. SeaweedFS is used for backup and restore testing to spin up a S3 compatible blobstore.",
 	)
+	fs.StringVar(&options.nodeSelector, "node-selector", "", "if defined, specifies a Kubernetes node selector for the FDB cluster in the format key=value")
 }
 
 func (options *FactoryOptions) validateFlags() error {
@@ -281,6 +283,11 @@ func (options *FactoryOptions) validateFlags() error {
 		options.cloudProvider = strings.ToLower(options.cloudProvider)
 	}
 
+	err := options.validateNodeSelector()
+	if err != nil {
+		return err
+	}
+
 	return options.validateFDBVersionTagMapping()
 }
 
@@ -318,6 +325,17 @@ func (options *FactoryOptions) validateFDBVersionTagMapping() error {
 		}
 	}
 
+	return nil
+}
+
+func (options *FactoryOptions) validateNodeSelector() error {
+	if options.nodeSelector == "" {
+		return nil
+	}
+	splitSelector := strings.Split(options.nodeSelector, "=")
+	if len(splitSelector) != 2 {
+		return fmt.Errorf("node selector must have format key=value, got: %s", options.nodeSelector)
+	}
 	return nil
 }
 

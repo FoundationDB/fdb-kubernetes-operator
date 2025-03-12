@@ -1250,10 +1250,12 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		})
 
 		AfterEach(func() {
-			Expect(fdbCluster.UpdateStorageClass(
-				defaultStorageClass,
-				fdbv1beta2.ProcessClassLog,
-			)).NotTo(HaveOccurred())
+			if defaultStorageClass != "" {
+				Expect(fdbCluster.UpdateStorageClass(
+					defaultStorageClass,
+					fdbv1beta2.ProcessClassLog,
+				)).NotTo(HaveOccurred())
+			}
 		})
 	})
 
