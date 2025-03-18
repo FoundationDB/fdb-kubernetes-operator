@@ -1039,6 +1039,9 @@ func GetPodMetadata(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1b
 	metadata.Annotations[fdbv1beta2.LastSpecKey] = specHash
 	metadata.Annotations[fdbv1beta2.PublicIPSourceAnnotation] = string(cluster.GetPublicIPSource())
 	metadata.Annotations[fdbv1beta2.ImageTypeAnnotation] = string(cluster.DesiredImageType())
+	if cluster.Spec.Routing.PodIPFamily != nil {
+		metadata.Annotations[fdbv1beta2.IPFamilyAnnotation] = strconv.Itoa(*cluster.Spec.Routing.PodIPFamily)
+	}
 
 	return metadata
 }

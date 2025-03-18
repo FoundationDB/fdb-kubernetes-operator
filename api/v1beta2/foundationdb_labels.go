@@ -40,6 +40,9 @@ const (
 	// gets its public IP from.
 	PublicIPSourceAnnotation = "foundationdb.org/public-ip-source"
 
+	// IPFamilyAnnotation is an annotation key that specifies the IP family of the pod.
+	IPFamilyAnnotation = "foundationdb.org/ip-family"
+
 	// PublicIPAnnotation is an annotation key that specifies the current public
 	// IP for a pod.
 	PublicIPAnnotation = "foundationdb.org/public-ip"

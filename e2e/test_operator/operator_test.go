@@ -36,6 +36,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"strconv"
 	"strings"
 	"time"
 
@@ -2735,6 +2736,46 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				Expect(initialExclusionTimestamp.Before(newExclusionTimestamp)).To(BeTrue())
 				Expect(initialExclusionTimestamp).NotTo(Equal(newExclusionTimestamp))
 			})
+		})
+	})
+
+	When("the pod IP family is changed", func() {
+		var testStartTime time.Time
+		// TODO (johscheuer): Make the IP family configurable in the future.
+		var podIPFamily = fdbv1beta2.PodIPFamilyIPv4
+
+		BeforeEach(func() {
+			testStartTime = time.Now()
+			spec := fdbCluster.GetCluster().Spec.DeepCopy()
+			spec.Routing.PodIPFamily = pointer.Int(podIPFamily)
+			fdbCluster.UpdateClusterSpecWithSpec(spec)
+			Expect(fdbCluster.WaitForReconciliation()).To(Succeed())
+		})
+
+		AfterEach(func() {
+			spec := fdbCluster.GetCluster().Spec.DeepCopy()
+			spec.Routing.PodIPFamily = nil
+			fdbCluster.UpdateClusterSpecWithSpec(spec)
+			Expect(fdbCluster.WaitForReconciliation(fixtures.SoftReconcileOption(true))).To(Succeed())
+		})
+
+		It("should replace all pods and configure them properly", func() {
+			pods := fdbCluster.GetPods()
+			podIPFamilyString := strconv.Itoa(podIPFamily)
+
+			for _, pod := range pods.Items {
+				if !pod.DeletionTimestamp.IsZero() {
+					continue
+				}
+
+				if pod.Status.Phase != corev1.PodRunning {
+					log.Println("ignoring pod:", pod.Name, "with pod phase", pod.Status.Phase, "message:", pod.Status.Message)
+					continue
+				}
+
+				Expect(pod.CreationTimestamp.After(testStartTime)).To(BeTrue())
+				Expect(pod.Annotations).To(HaveKeyWithValue(fdbv1beta2.IPFamilyAnnotation, podIPFamilyString))
+			}
 		})
 	})
 })
