@@ -234,7 +234,7 @@ func processGroupNeedsRemovalForPod(cluster *fdbv1beta2.FoundationDBCluster, pod
 		return true, nil
 	}
 
-	podIPFamily, err := internal.GetIPFamilyFromPod(pod)
+	podIPFamily, err := internal.GetIPFamily(pod)
 	if err != nil {
 		return false, err
 	}
