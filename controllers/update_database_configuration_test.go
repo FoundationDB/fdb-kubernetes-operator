@@ -22,7 +22,9 @@ package controllers
 
 import (
 	"context"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient/mock"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbstatus"
 	"k8s.io/utils/pointer"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
@@ -55,10 +57,15 @@ var _ = FDescribe("update_database_configuration", func() {
 				adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(adminClient.DatabaseConfiguration).NotTo(BeNil())
+
+				// Ensure the cluster is seen as configured based on the reported status.
+				status, err := adminClient.GetStatus()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(fdbstatus.ClusterIsConfigured(cluster, status)).To(BeTrue())
 			})
 		})
 
-		When("the operator is allowed to configure the database", func() {
+		When("the operator is not allowed to configure the database", func() {
 			BeforeEach(func() {
 				cluster.Spec.AutomationOptions.ConfigureDatabase = pointer.Bool(false)
 			})
