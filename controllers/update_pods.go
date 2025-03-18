@@ -59,8 +59,8 @@ func (u updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 			return &requeue{curError: err}
 		}
 	}
-	// r.InSimulation
-	updates, err := getPodsToUpdate(ctx, logger, r, cluster, getProcessesForProcessGroup(cluster, status))
+
+	updates, err := getPodsToUpdate(ctx, logger, r, cluster, getProcessesByProcessGroup(cluster, status))
 	if err != nil {
 		return &requeue{curError: err, delay: podSchedulingDelayDuration, delayedRequeue: true}
 	}
@@ -132,7 +132,7 @@ func getFaultDomainsWithUnavailablePods(ctx context.Context, logger logr.Logger,
 	return faultDomainsWithUnavailablePods
 }
 
-func getProcessesForProcessGroup(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) map[string][]fdbv1beta2.FoundationDBStatusProcessInfo {
+func getProcessesByProcessGroup(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) map[string][]fdbv1beta2.FoundationDBStatusProcessInfo {
 	processMap := map[string][]fdbv1beta2.FoundationDBStatusProcessInfo{}
 
 	for _, process := range status.Cluster.Processes {

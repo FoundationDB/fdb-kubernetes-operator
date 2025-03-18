@@ -336,7 +336,7 @@ var _ = Describe("update_pods", func() {
 			status, err := adminClient.GetStatus()
 			Expect(err).NotTo(HaveOccurred())
 
-			updates, updateErr = getPodsToUpdate(context.Background(), globalControllerLogger, clusterReconciler, cluster, getProcessesForProcessGroup(cluster, status))
+			updates, updateErr = getPodsToUpdate(context.Background(), globalControllerLogger, clusterReconciler, cluster, getProcessesByProcessGroup(cluster, status))
 		})
 
 		When("the cluster has no changes", func() {
