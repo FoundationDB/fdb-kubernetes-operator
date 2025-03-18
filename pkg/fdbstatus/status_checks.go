@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2023 Apple Inc. and the FoundationDB project authors
+ * Copyright 2018-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -578,7 +578,7 @@ func ConfigurationChangeAllowed(status *fdbv1beta2.FoundationDBStatus, useRecove
 
 	// Check the health of the data distribution before allowing configuration changes.
 	if !status.Cluster.Data.State.Healthy {
-		return fmt.Errorf("data distribution is not healhty: %s", status.Cluster.Data.State.Name)
+		return fmt.Errorf("data distribution is not healthy: %s", status.Cluster.Data.State.Name)
 	}
 
 	// Check if the cluster status messages contain any messages that provide a signal to assume it's not safe
@@ -681,4 +681,11 @@ func PrettyPrintBytes(bytes int64) string {
 
 	// Fallback will be to printout the bytes.
 	return strconv.FormatInt(bytes, 10)
+}
+
+// ClusterIsConfigured will return true if the cluster is configured based on the machine-readable status of the status of
+// the FoundationDBCLuster resource.
+func ClusterIsConfigured(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) bool {
+	// If we saw at least once that the cluster was configured, we assume that the cluster is always configured.
+	return cluster.Status.Configured || status.Client.DatabaseStatus.Available && status.Cluster.Layers.Error != "configurationMissing"
 }

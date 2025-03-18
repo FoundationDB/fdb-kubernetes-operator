@@ -25,15 +25,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbstatus"
-
-	"github.com/go-logr/logr"
-
-	"k8s.io/utils/pointer"
-
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbstatus"
+	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/utils/pointer"
 )
 
 // updateDatabaseConfiguration provides a reconciliation step for changing the
@@ -62,42 +59,38 @@ func (u updateDatabaseConfiguration) reconcile(_ context.Context, r *FoundationD
 		}
 	}
 
-	initialConfig := !cluster.Status.Configured
-	if !initialConfig && !status.Client.DatabaseStatus.Available {
-		logger.Info("Skipping database configuration change because database is unavailable")
-		return &requeue{message: "cluster is not available", delayedRequeue: true, delay: 5 * time.Second}
-	}
-
+	clusterIsConfigured := fdbstatus.ClusterIsConfigured(cluster, status)
 	desiredConfiguration := cluster.DesiredDatabaseConfiguration()
-	desiredConfiguration.RoleCounts.Storage = 0
 	currentConfiguration := status.Cluster.DatabaseConfiguration.NormalizeConfiguration(cluster)
 
-	runningVersion, err := fdbv1beta2.ParseFdbVersion(cluster.GetRunningVersion())
-	if err != nil {
-		return &requeue{curError: err, delayedRequeue: true}
-	}
-
-	if initialConfig || !equality.Semantic.DeepEqual(desiredConfiguration, currentConfiguration) {
+	if !clusterIsConfigured || !equality.Semantic.DeepEqual(desiredConfiguration, currentConfiguration) {
 		var nextConfiguration fdbv1beta2.DatabaseConfiguration
-		if initialConfig {
-			nextConfiguration = desiredConfiguration
-		} else {
+		if clusterIsConfigured {
 			nextConfiguration = currentConfiguration.GetNextConfigurationChange(desiredConfiguration)
+		} else {
+			nextConfiguration = desiredConfiguration
 		}
-		configurationString, _ := nextConfiguration.GetConfigurationString()
+		configurationString, configErr := nextConfiguration.GetConfigurationString()
+		if configErr != nil {
+			return &requeue{curError: err, delayedRequeue: true}
+		}
 
-		if !initialConfig {
+		// If the cluster is configured run additional safety checks before performing the database configuration change.
+		if clusterIsConfigured {
+			runningVersion, err := fdbv1beta2.ParseFdbVersion(cluster.GetRunningVersion())
+			if err != nil {
+				return &requeue{curError: err, delayedRequeue: true}
+			}
+
 			err = fdbstatus.ConfigurationChangeAllowed(status, runningVersion.SupportsRecoveryState() && r.EnableRecoveryState)
 			if err != nil {
 				logger.Info("Changing current configuration is not safe", "error", err, "current configuration", currentConfiguration, "desired configuration", desiredConfiguration)
 				r.Recorder.Event(cluster, corev1.EventTypeNormal, "NeedsConfigurationChange",
-					fmt.Sprintf("Spec require configuration change to `%s`, but configuration change is not safe: %s", configurationString, err.Error()))
-				return &requeue{message: "Configuration change is not safe, retry later", delayedRequeue: true, delay: 10 * time.Second}
+					fmt.Sprintf("Spec requires configuration change to `%s`, but configuration change is not safe: %s", configurationString, err.Error()))
+				return &requeue{message: fmt.Sprintf("Configuration change is not safe: %s, will retry", err.Error()), delayedRequeue: true, delay: 10 * time.Second}
 			}
-		}
 
-		if !initialConfig {
-			err := r.takeLock(logger, cluster,
+			err = r.takeLock(logger, cluster,
 				fmt.Sprintf("reconfiguring the database to `%s`", configurationString))
 			if err != nil {
 				return &requeue{curError: err, delayedRequeue: true}
@@ -108,18 +101,14 @@ func (u updateDatabaseConfiguration) reconcile(_ context.Context, r *FoundationD
 		r.Recorder.Event(cluster, corev1.EventTypeNormal, "ConfiguringDatabase",
 			fmt.Sprintf("Setting database configuration to `%s`", configurationString),
 		)
-		err = adminClient.ConfigureDatabase(nextConfiguration, initialConfig)
+		err = adminClient.ConfigureDatabase(nextConfiguration, !clusterIsConfigured)
 		if err != nil {
 			return &requeue{curError: err, delayedRequeue: true}
 		}
 
-		if initialConfig {
-			return &requeue{message: "Requeuing for fetching the initial configuration from FDB cluster", delay: 1 * time.Second}
-		}
-
-		logger.Info("Configured database", "initialConfig", initialConfig)
+		logger.Info("Configured database", "clusterIsConfigured", clusterIsConfigured)
 		if !equality.Semantic.DeepEqual(nextConfiguration, desiredConfiguration) {
-			return &requeue{message: "Requeuing for next stage of database configuration change", delayedRequeue: true}
+			return &requeue{message: "Requeuing for next stage of database configuration change", delay: 30 * time.Second, delayedRequeue: true}
 		}
 	}
 
