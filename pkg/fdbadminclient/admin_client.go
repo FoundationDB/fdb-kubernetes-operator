@@ -123,7 +123,7 @@ type AdminClient interface {
 
 	// WithValues will update the logger used by the current AdminClient to contain the provided key value pairs. The provided
 	// arguments must be even.
-	WithValues(keysAndValues ...interface{})
+	WithValues(keysAndValues ...any)
 
 	// SetTimeout will overwrite the default timeout for interacting the FDB cluster.
 	SetTimeout(timeout time.Duration)

@@ -78,7 +78,7 @@ func (factory *Factory) InjectNetworkLoss(lossPercentage string, source chaosmes
 // InjectNetworkLossBetweenPods Injects network loss b/w each combination of podGroups.
 func (factory *Factory) InjectNetworkLossBetweenPods(pods []chaosmesh.PodSelectorSpec, loss string) {
 	count := len(pods)
-	for i := 0; i < count; i++ {
+	for i := range count {
 		for j := i + 1; j < count; j++ {
 			factory.InjectNetworkLoss(loss, pods[i], pods[j], chaosmesh.Both)
 		}

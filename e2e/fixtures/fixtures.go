@@ -43,7 +43,7 @@ func (shutdown *ShutdownHooks) Defer(f func() error) {
 }
 
 // ToJSON tries to convert any object to a string representing the struct as JSON.
-func ToJSON(v interface{}) string {
+func ToJSON(v any) string {
 	s, err := json.Marshal(v)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	return string(s)

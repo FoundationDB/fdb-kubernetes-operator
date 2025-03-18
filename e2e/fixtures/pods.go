@@ -60,7 +60,7 @@ func (factory *Factory) RandomPickPod(input []corev1.Pod, count int) []corev1.Po
 		maxPods = len(input)
 	}
 
-	for i := 0; i < maxPods; i++ {
+	for i := range maxPods {
 		ret[i] = input[perm[i]]
 	}
 
@@ -84,7 +84,7 @@ func (factory *Factory) RandomPickCluster(input []*FdbCluster, count int) []*Fdb
 		maxPods = len(input)
 	}
 
-	for i := 0; i < maxPods; i++ {
+	for i := range maxPods {
 		ret[i] = input[perm[i]]
 	}
 

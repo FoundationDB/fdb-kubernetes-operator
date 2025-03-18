@@ -56,10 +56,7 @@ func (s updateBackupStatus) reconcile(ctx context.Context, r *FoundationDBBackup
 	}
 
 	if currentBackupDeployment != nil && desiredBackupDeployment != nil {
-		status.AgentCount = int(currentBackupDeployment.Status.ReadyReplicas)
-		if status.AgentCount > int(currentBackupDeployment.Status.UpdatedReplicas) {
-			status.AgentCount = int(currentBackupDeployment.Status.UpdatedReplicas)
-		}
+		status.AgentCount = min(int(currentBackupDeployment.Status.ReadyReplicas), int(currentBackupDeployment.Status.UpdatedReplicas))
 		generationsMatch := currentBackupDeployment.Status.ObservedGeneration == currentBackupDeployment.ObjectMeta.Generation
 
 		annotationChange := mergeAnnotations(&currentBackupDeployment.ObjectMeta, desiredBackupDeployment.ObjectMeta)

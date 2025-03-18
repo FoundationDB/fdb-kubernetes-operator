@@ -205,13 +205,13 @@ func (client *MockClient) Delete(ctx context.Context, object ctrlClient.Object, 
 	return client.fakeClient.Delete(ctx, object, options...)
 }
 
-func getMapFromObject(object ctrlClient.Object) (map[string]interface{}, error) {
+func getMapFromObject(object ctrlClient.Object) (map[string]any, error) {
 	jsonData, err := json.Marshal(object)
 	if err != nil {
 		return nil, err
 	}
 
-	newMap := make(map[string]interface{})
+	newMap := make(map[string]any)
 	err = json.Unmarshal(jsonData, &newMap)
 	if err != nil {
 		return nil, err
@@ -353,19 +353,19 @@ func (client *MockClient) Event(object runtime.Object, eventType string, reason 
 }
 
 // Eventf is just like Event, but with Sprintf for the message field.
-func (client *MockClient) Eventf(object runtime.Object, eventType string, reason string, messageFormat string, args ...interface{}) {
+func (client *MockClient) Eventf(object runtime.Object, eventType string, reason string, messageFormat string, args ...any) {
 	client.createEvent(buildEvent(object, eventType, reason, fmt.Sprintf(messageFormat, args...)))
 }
 
 // PastEventf is just like Eventf, but with an option to specify the event's 'timestamp' field.
-func (client *MockClient) PastEventf(object runtime.Object, timestamp metav1.Time, eventType string, reason string, messageFormat string, args ...interface{}) {
+func (client *MockClient) PastEventf(object runtime.Object, timestamp metav1.Time, eventType string, reason string, messageFormat string, args ...any) {
 	event := buildEvent(object, eventType, reason, fmt.Sprintf(messageFormat, args...))
 	event.EventTime = metav1.MicroTime(timestamp)
 	client.createEvent(event)
 }
 
 // AnnotatedEventf is just like eventf, but with annotations attached
-func (client *MockClient) AnnotatedEventf(object runtime.Object, annotations map[string]string, eventType string, reason string, messageFormat string, args ...interface{}) {
+func (client *MockClient) AnnotatedEventf(object runtime.Object, annotations map[string]string, eventType string, reason string, messageFormat string, args ...any) {
 	event := buildEvent(object, eventType, reason, fmt.Sprintf(messageFormat, args...))
 	event.ObjectMeta.Annotations = annotations
 	client.createEvent(event)

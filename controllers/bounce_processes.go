@@ -99,10 +99,7 @@ func (c bounceProcesses) reconcile(_ context.Context, r *FoundationDBClusterReco
 	if err != nil {
 		r.Recorder.Event(cluster, corev1.EventTypeNormal, "NeedsBounce", err.Error())
 		// Retry after we waited the minimum uptime or at least 15 seconds.
-		delayTime := cluster.GetMinimumUptimeSecondsForBounce() - int(currentMinimumUptime)
-		if delayTime < 15 {
-			delayTime = 15
-		}
+		delayTime := max(cluster.GetMinimumUptimeSecondsForBounce()-int(currentMinimumUptime), 15)
 
 		return &requeue{
 			message: err.Error(),

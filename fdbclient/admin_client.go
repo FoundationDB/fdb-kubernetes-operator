@@ -703,7 +703,7 @@ func (client *cliAdminClient) SetKnobs(knobs []string) {
 
 // WithValues will update the logger used by the current AdminClient to contain the provided key value pairs. The provided
 // arguments must be even.
-func (client *cliAdminClient) WithValues(keysAndValues ...interface{}) {
+func (client *cliAdminClient) WithValues(keysAndValues ...any) {
 	newLogger := client.log.WithValues(keysAndValues...)
 	client.log = newLogger
 
@@ -745,7 +745,7 @@ func (client *cliAdminClient) GetProcessesUnderMaintenance() (map[fdbv1beta2.Pro
 
 	maintenancePrefix := client.Cluster.GetMaintenancePrefix() + "/"
 
-	maintenanceProcesses, err := db.Transact(func(tr fdb.Transaction) (interface{}, error) {
+	maintenanceProcesses, err := db.Transact(func(tr fdb.Transaction) (any, error) {
 		err := tr.Options().SetReadSystemKeys()
 		if err != nil {
 			return nil, err
@@ -799,7 +799,7 @@ func (client *cliAdminClient) RemoveProcessesUnderMaintenance(processGroupIDs []
 		return err
 	}
 
-	_, err = db.Transact(func(tr fdb.Transaction) (interface{}, error) {
+	_, err = db.Transact(func(tr fdb.Transaction) (any, error) {
 		err := tr.Options().SetAccessSystemKeys()
 		if err != nil {
 			return nil, err
@@ -831,7 +831,7 @@ func (client *cliAdminClient) SetProcessesUnderMaintenance(processGroupIDs []fdb
 		return err
 	}
 
-	_, err = db.Transact(func(tr fdb.Transaction) (interface{}, error) {
+	_, err = db.Transact(func(tr fdb.Transaction) (any, error) {
 		err := tr.Options().SetAccessSystemKeys()
 		if err != nil {
 			return nil, err

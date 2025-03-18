@@ -55,7 +55,7 @@ func (f dummyFileInfo) IsDir() bool {
 	return f.isDir
 }
 
-func (f dummyFileInfo) Sys() interface{} {
+func (f dummyFileInfo) Sys() any {
 	return nil
 }
 

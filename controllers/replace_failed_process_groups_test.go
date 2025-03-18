@@ -129,7 +129,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 
 			BeforeEach(func() {
 				targetProcessGroups = make([]fdbv1beta2.ProcessGroupID, 2)
-				for i := 0; i < 2; i++ {
+				for i := range 2 {
 					targetProcessGroup := cluster.Status.ProcessGroups[i]
 					timestamp := time.Now().Add(-10 * time.Minute).Unix()
 					targetProcessGroup.UpdateCondition(fdbv1beta2.NodeTaintDetected, true)

@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
+	"slices"
 )
 
 // +kubebuilder:object:root=true
@@ -1799,7 +1800,7 @@ func (str *ConnectionString) String() string {
 // GenerateNewGenerationID builds a new generation ID
 func (str *ConnectionString) GenerateNewGenerationID() error {
 	id := strings.Builder{}
-	for i := 0; i < 32; i++ {
+	for range 32 {
 		err := id.WriteByte(alphanum[rand.Intn(len(alphanum))])
 		if err != nil {
 			return err
@@ -2022,19 +2023,11 @@ func (cluster *FoundationDBCluster) ProcessGroupIsBeingRemoved(processGroupID Pr
 		}
 	}
 
-	for _, id := range cluster.Spec.ProcessGroupsToRemove {
-		if id == processGroupID {
-			return true
-		}
+	if slices.Contains(cluster.Spec.ProcessGroupsToRemove, processGroupID) {
+		return true
 	}
 
-	for _, id := range cluster.Spec.ProcessGroupsToRemoveWithoutExclusion {
-		if id == processGroupID {
-			return true
-		}
-	}
-
-	return false
+	return slices.Contains(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion, processGroupID)
 }
 
 // ShouldUseLocks determine whether we should use locks to coordinator global
@@ -2262,20 +2255,16 @@ const (
 // AddServersPerDisk adds serverPerDisk to the status field to keep track which ConfigMaps should be kept
 func (clusterStatus *FoundationDBClusterStatus) AddServersPerDisk(serversPerDisk int, pClass ProcessClass) {
 	if pClass == ProcessClassStorage {
-		for _, curServersPerDisk := range clusterStatus.StorageServersPerDisk {
-			if curServersPerDisk == serversPerDisk {
-				return
-			}
+		if slices.Contains(clusterStatus.StorageServersPerDisk, serversPerDisk) {
+			return
 		}
 		clusterStatus.StorageServersPerDisk = append(clusterStatus.StorageServersPerDisk, serversPerDisk)
 		return
 	}
 
 	if pClass.SupportsMultipleLogServers() {
-		for _, curServersPerDisk := range clusterStatus.LogServersPerDisk {
-			if curServersPerDisk == serversPerDisk {
-				return
-			}
+		if slices.Contains(clusterStatus.LogServersPerDisk, serversPerDisk) {
+			return
 		}
 		clusterStatus.LogServersPerDisk = append(clusterStatus.LogServersPerDisk, serversPerDisk)
 	}

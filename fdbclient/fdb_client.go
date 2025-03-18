@@ -52,7 +52,7 @@ func (fdbClient *realFdbLibClient) getValueFromDBUsingKey(fdbKey string, timeout
 		return nil, err
 	}
 
-	result, err := database.Transact(func(transaction fdb.Transaction) (interface{}, error) {
+	result, err := database.Transact(func(transaction fdb.Transaction) (any, error) {
 		err := transaction.Options().SetAccessSystemKeys()
 		if err != nil {
 			return nil, err

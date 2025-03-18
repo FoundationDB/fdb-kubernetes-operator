@@ -694,7 +694,7 @@ var _ = Describe("cluster_controller", func() {
 
 					sortPodsByName(pods)
 
-					for i := 0; i < 17; i++ {
+					for i := range 17 {
 						Expect(pods.Items[i].Name).To(Equal(originalPods.Items[i].Name))
 					}
 				})

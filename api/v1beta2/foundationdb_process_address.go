@@ -24,7 +24,7 @@ import (
 	"fmt"
 	"net"
 	"regexp"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -96,9 +96,7 @@ func (address ProcessAddress) SortedFlags() []string {
 		}
 	}
 
-	sort.Slice(flags, func(i int, j int) bool {
-		return flags[i] < flags[j]
-	})
+	slices.Sort(flags)
 
 	return flags
 }
@@ -149,7 +147,7 @@ func (address *ProcessAddress) UnmarshalJSON(data []byte) error {
 
 // MarshalJSON defines the parsing method for the ProcessAddress field from struct to JSON
 func (address ProcessAddress) MarshalJSON() ([]byte, error) {
-	return []byte(fmt.Sprintf("\"%s\"", address.String())), nil
+	return fmt.Appendf(nil, "\"%s\"", address.String()), nil
 }
 
 // ParseProcessAddress parses a structured address from its string

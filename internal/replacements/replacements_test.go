@@ -603,7 +603,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 	When("using MaxConcurrentMisconfiguredReplacements", func() {
 		BeforeEach(func() {
 
-			for i := 0; i < 10; i++ {
+			for i := range 10 {
 				_, id := cluster.GetProcessGroupID(fdbv1beta2.ProcessClassStorage, i)
 				processGroup := &fdbv1beta2.ProcessGroupStatus{
 					ProcessClass:   fdbv1beta2.ProcessClassStorage,
@@ -621,7 +621,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus(id, fdbv1beta2.ProcessClassStorage, nil))
 			}
 
-			for i := 0; i < 1; i++ {
+			for i := range 1 {
 				_, id := cluster.GetProcessGroupID(fdbv1beta2.ProcessClassTransaction, i)
 				processGroup := &fdbv1beta2.ProcessGroupStatus{
 					ProcessClass:   fdbv1beta2.ProcessClassTransaction,
