@@ -56,12 +56,11 @@ RUN set -eux && \
     rpm -i foundationdb-clients-${FDB_VERSION}-1.el7.x86_64.rpm --excludepath=/usr/bin --excludepath=/usr/lib/foundationdb/backup_agent && \
     rm foundationdb-clients-${FDB_VERSION}-1.el7.x86_64.rpm foundationdb-clients-${FDB_VERSION}-1.el7.x86_64.rpm.sha256
 
-# Create user and group here since we don't have the tools
-# in distroless
+
 RUN groupadd --gid 4059 fdb && \
-	useradd --gid 4059 --uid 4059 --create-home --shell /bin/bash fdb && \
+	useradd --gid 4059 --uid 4059 --shell /usr/sbin/nologin fdb && \
 	mkdir -p /var/log/fdb && \
-	touch /var/log/fdb/.keep \
+	touch /var/log/fdb/.keep
 
 COPY --chown=fdb:fdb --from=builder /workspace/bin/manager .
 COPY --chown=fdb:fdb --from=builder /workspace/bin/kubectl-fdb /usr/local/bin/kubectl-fdb
