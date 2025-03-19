@@ -47,7 +47,7 @@ func init() {
 }
 
 func main() {
-	fdb.MustAPIVersion(620)
+	fdb.MustAPIVersion(710)
 	operatorOpts := setup.Options{}
 	operatorOpts.BindFlags(flag.CommandLine)
 

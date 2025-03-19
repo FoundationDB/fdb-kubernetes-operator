@@ -1,21 +1,55 @@
-FROM python:3.9-slim
+ARG FDB_VERSION=7.1.67
+ARG FDB_WEBSITE=https://github.com/apple/foundationdb/releases/download
 
-COPY app.py /usr/local/bin
+# Build the manager binary
+FROM docker.io/library/golang:1.23.7 AS builder
 
-RUN pip install foundationdb==6.2.10
-RUN groupadd --gid 4059 fdb && \
-	useradd --gid 4059 --uid 4059 --shell /usr/sbin/nologin fdb
+ARG FDB_VERSION
+ARG FDB_WEBSITE
+ARG TAG="latest"
 
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends curl && \
-    curl -Ls https://github.com/krallin/tini/releases/download/v0.19.0/tini-amd64 -o tini  && \
-    echo "93dcc18adc78c65a028a84799ecf8ad40c936fdfc5f2a57b1acda5a8117fa82c  tini" > tini-sha.txt && \
-    sha256sum --quiet -c tini-sha.txt && \
-    chmod +x tini && \
-    mv tini /usr/bin/ && \
-    rm -rf /tmp/*
+RUN set -eux && \
+    curl --fail -L "${FDB_WEBSITE}/${FDB_VERSION}/foundationdb-clients_${FDB_VERSION}-1_amd64.deb" -o foundationdb-clients_${FDB_VERSION}-1_amd64.deb && \
+    curl --fail -L "${FDB_WEBSITE}/${FDB_VERSION}/foundationdb-clients_${FDB_VERSION}-1_amd64.deb.sha256" -o foundationdb-clients_${FDB_VERSION}-1_amd64.deb.sha256 && \
+    sha256sum -c foundationdb-clients_${FDB_VERSION}-1_amd64.deb.sha256 && \
+    dpkg -i foundationdb-clients_${FDB_VERSION}-1_amd64.deb && \
+    rm foundationdb-clients_${FDB_VERSION}-1_amd64.deb foundationdb-clients_${FDB_VERSION}-1_amd64.deb.sha256
+
+WORKDIR /workspace
+# Copy the Go Modules manifests
+COPY go.mod go.mod
+COPY go.sum go.sum
+# cache deps before building and copying source so that we don't need to re-download as much
+# and so that source changes don't invalidate our downloaded layer
+RUN go mod download -x
+
+# Copy the go source
+COPY main.go main.go
+
+# Build
+RUN CGO_ENABLED=1 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -o /workspace/bin/data-loader main.go
+
+FROM docker.io/rockylinux/rockylinux:9.5-minimal
+
+ARG FDB_VERSION
+ARG FDB_WEBSITE
+
+VOLUME /usr/lib/fdb
+
+WORKDIR /
+
+RUN set -eux && \
+    curl --fail -L "${FDB_WEBSITE}/${FDB_VERSION}/foundationdb-clients-${FDB_VERSION}-1.el7.x86_64.rpm" -o foundationdb-clients-${FDB_VERSION}-1.el7.x86_64.rpm && \
+    curl --fail -L "${FDB_WEBSITE}/${FDB_VERSION}/foundationdb-clients-${FDB_VERSION}-1.el7.x86_64.rpm.sha256" -o foundationdb-clients-${FDB_VERSION}-1.el7.x86_64.rpm.sha256 && \
+    microdnf install -y glibc pkg-config && \
+    microdnf clean all && \
+    sha256sum -c foundationdb-clients-${FDB_VERSION}-1.el7.x86_64.rpm.sha256 && \
+    rpm -i foundationdb-clients-${FDB_VERSION}-1.el7.x86_64.rpm --excludepath=/usr/bin --excludepath=/usr/lib/foundationdb/backup_agent && \
+    rm foundationdb-clients-${FDB_VERSION}-1.el7.x86_64.rpm foundationdb-clients-${FDB_VERSION}-1.el7.x86_64.rpm.sha256
+
+COPY --chown=fdb:fdb --from=builder /workspace/bin/data-loader /usr/local/bin/data-loader
 
 # Set to the numeric UID of fdb user to satisfy PodSecurityPolices which enforce runAsNonRoot
 USER 4059
 
-ENTRYPOINT [ "/usr/bin/tini", "-g", "--", "python", "/usr/local/bin/app.py" ]
+ENTRYPOINT ["/usr/local/bin/data-loader"]
