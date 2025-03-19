@@ -52,13 +52,6 @@ COPY kubectl-fdb/ kubectl-fdb/
 # Build
 RUN CGO_ENABLED=1 GOOS=linux GOARCH=${TARGETARCH} GO111MODULE=on make manager plugin-go
 
-# Create user and group here since we don't have the tools
-# in distroless
-RUN groupadd --gid 4059 fdb && \
-	useradd --gid 4059 --uid 4059 --create-home --shell /bin/bash fdb && \
-	mkdir -p /var/log/fdb && \
-	touch /var/log/fdb/.keep
-
 FROM docker.io/rockylinux/rockylinux:9.5-minimal
 
 ARG FDB_VERSION
@@ -95,11 +88,15 @@ RUN set -eux && \
     rpm -i foundationdb-clients-${FDB_VERSION}-1.${FDB_OS}.${FDB_ARCH}.rpm --excludepath=/usr/bin --excludepath=/usr/lib/foundationdb/backup_agent && \
     rm foundationdb-clients-${FDB_VERSION}-1.${FDB_OS}.${FDB_ARCH}.rpm foundationdb-clients-${FDB_VERSION}-1.${FDB_OS}.${FDB_ARCH}.rpm.sha256
 
-COPY --from=builder /etc/passwd /etc/passwd
-COPY --from=builder /etc/group /etc/group
+# Create user and group here since we don't have the tools
+# in distroless
+RUN groupadd --gid 4059 fdb && \
+	useradd --gid 4059 --uid 4059 --create-home --shell /bin/bash fdb && \
+	mkdir -p /var/log/fdb && \
+	touch /var/log/fdb/.keep \
+
 COPY --chown=fdb:fdb --from=builder /workspace/bin/manager .
 COPY --chown=fdb:fdb --from=builder /workspace/bin/kubectl-fdb /usr/local/bin/kubectl-fdb
-COPY --chown=fdb:fdb --from=builder /var/log/fdb/.keep /var/log/fdb/.keep
 
 # Set to the numeric UID of fdb user to satisfy PodSecurityPolices which enforce runAsNonRoot
 USER 4059

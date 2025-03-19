@@ -30,6 +30,7 @@ import (
 	"time"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/utils/pointer"
 
 	"github.com/onsi/gomega"
 	batchv1 "k8s.io/api/batch/v1"
@@ -66,7 +67,7 @@ spec:
         name: {{ .Name }}
         # This configuration will load ~1GB per data loader.
         args:
-        - --keys=1000000
+        - --keys={{ .Keys }}
         - --batch-size=50
         - --value-size=1000
         env:
@@ -86,6 +87,8 @@ spec:
             value: /var/dynamic/fdb/primary/lib
           - name: FDB_NETWORK_OPTION_TRACE_LOG_GROUP
             value: {{ .Name }}
+          - name: FDB_NETWORK_OPTION_TRACE_ENABLE
+            value: "/tmp/fdb-trace-logs"
           - name: FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY
             value: /var/dynamic/fdb/libs
           - name: PYTHONUNBUFFERED
@@ -98,6 +101,8 @@ spec:
           - name: fdb-certs
             mountPath: /tmp/fdb-certs
             readOnly: true
+          - name: fdb-logs
+            mountPath: /tmp/fdb-trace-logs
         resources:
          requests:
            cpu: "1"
@@ -162,11 +167,13 @@ spec:
                 path: fdb.cluster
         - name: fdb-libs
           emptyDir: {}
+        - name: fdb-logs
+          emptyDir: {}
         - name: fdb-certs
           secret:
             secretName: {{ .SecretName }}`
 
-	// For now we only load 2GB into the cluster, we can increase this later if we want.
+	// For now, we only load 2GB into the cluster, we can increase this later if we want.
 	dataLoaderJobUnifiedImage = `apiVersion: batch/v1
 kind: Job
 metadata:
@@ -186,7 +193,7 @@ spec:
         name: {{ .Name }}
         # This configuration will load ~1GB per data loader.
         args:
-        - --keys=1000000
+        - --keys={{ .Keys }}
         - --batch-size=50
         - --value-size=1000
         env:
@@ -202,6 +209,8 @@ spec:
           # Consider remove this option once 6.3 is no longer being used.
           - name: FDB_NETWORK_OPTION_IGNORE_EXTERNAL_CLIENT_FAILURES
             value: ""
+          - name: FDB_NETWORK_OPTION_TRACE_ENABLE
+            value: "/tmp/fdb-trace-logs"
           - name: LD_LIBRARY_PATH
             value: /var/dynamic/fdb
           - name: FDB_NETWORK_OPTION_TRACE_LOG_GROUP
@@ -218,6 +227,8 @@ spec:
           - name: fdb-certs
             mountPath: /tmp/fdb-certs
             readOnly: true
+          - name: fdb-logs
+            mountPath: /tmp/fdb-trace-logs
         resources:
          requests:
            cpu: "1"
@@ -279,12 +290,14 @@ spec:
                 path: fdb.cluster
         - name: fdb-libs
           emptyDir: {}
+        - name: fdb-logs
+          emptyDir: {}
         - name: fdb-certs
           secret:
             secretName: {{ .SecretName }}`
 )
 
-// dataLoaderConfig represents the configuration of the Dataloader Job.
+// dataLoaderConfig represents the configuration of the data-loader Job.
 type dataLoaderConfig struct {
 	// Name of the data loader Job.
 	Name string
@@ -299,9 +312,12 @@ type dataLoaderConfig struct {
 	// SecretName represents the Kubernetes secret that contains the certificates for communicating with the FoundationDB
 	// cluster.
 	SecretName string
+	// Keys defines how many keys should be written by the data loader.
+	Keys int
 }
 
-func (factory *Factory) getDataLoaderConfig(cluster *FdbCluster) *dataLoaderConfig {
+func (factory *Factory) getDataLoaderConfig(cluster *FdbCluster, keys *int) *dataLoaderConfig {
+	log.Println("keys:", keys, "deref:", pointer.IntDeref(keys, 1000000))
 	return &dataLoaderConfig{
 		Name:            dataLoaderName,
 		Image:           factory.GetDataLoaderImage(),
@@ -309,17 +325,18 @@ func (factory *Factory) getDataLoaderConfig(cluster *FdbCluster) *dataLoaderConf
 		SidecarVersions: factory.GetSidecarConfigs(),
 		ClusterName:     cluster.Name(),
 		SecretName:      factory.GetSecretName(),
+		Keys:            pointer.IntDeref(keys, 1000000),
 	}
 }
 
 // CreateDataLoaderIfAbsent will create the data loader for the provided cluster and load some random data into the cluster.
 func (factory *Factory) CreateDataLoaderIfAbsent(cluster *FdbCluster) {
-	factory.CreateDataLoaderIfAbsentWithWait(cluster, true)
+	factory.CreateDataLoaderIfAbsentWithWait(cluster, nil, true)
 }
 
 // CreateDataLoaderIfAbsentWithWait will create the data loader for the provided cluster and load some random data into the cluster.
 // If wait is true, the method will wait until the data loader has finished.
-func (factory *Factory) CreateDataLoaderIfAbsentWithWait(cluster *FdbCluster, wait bool) {
+func (factory *Factory) CreateDataLoaderIfAbsentWithWait(cluster *FdbCluster, keys *int, wait bool) {
 	if !factory.options.enableDataLoading {
 		return
 	}
@@ -331,7 +348,8 @@ func (factory *Factory) CreateDataLoaderIfAbsentWithWait(cluster *FdbCluster, wa
 	t, err := template.New("dataLoaderJob").Parse(dataLoaderJobTemplate)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	buf := bytes.Buffer{}
-	gomega.Expect(t.Execute(&buf, factory.getDataLoaderConfig(cluster))).NotTo(gomega.HaveOccurred())
+	log.Println("keys:", keys)
+	gomega.Expect(t.Execute(&buf, factory.getDataLoaderConfig(cluster, keys))).NotTo(gomega.HaveOccurred())
 	decoder := yamlutil.NewYAMLOrJSONDecoder(&buf, 100000)
 	for {
 		var rawObj runtime.RawExtension
