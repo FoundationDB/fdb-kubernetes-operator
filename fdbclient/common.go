@@ -151,12 +151,12 @@ func createClusterFileForCommandLine(cluster *fdbv1beta2.FoundationDBCluster) (*
 		return nil, err
 	}
 
-	randomFile, err := os.CreateTemp(tmpDir, "")
+	tempClusterFile, err := os.CreateTemp(tmpDir, "")
 	if err != nil {
 		return nil, err
 	}
 
-	return randomFile, os.WriteFile(randomFile.Name(), []byte(cluster.Status.ConnectionString), 0777)
+	return tempClusterFile, os.WriteFile(tempClusterFile.Name(), []byte(cluster.Status.ConnectionString), 0777)
 }
 
 // getConnectionStringFromDB gets the database's connection string directly from the system key
