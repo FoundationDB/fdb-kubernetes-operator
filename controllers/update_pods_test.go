@@ -25,6 +25,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient/mock"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
 	ctrlClient "sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -317,7 +319,7 @@ var _ = Describe("update_pods", func() {
 	When("fetching all Pods that needs an update", func() {
 		var cluster *fdbv1beta2.FoundationDBCluster
 		var updates map[string][]*corev1.Pod
-		var err error
+		var updateErr error
 
 		BeforeEach(func() {
 			cluster = internal.CreateDefaultCluster()
@@ -329,13 +331,18 @@ var _ = Describe("update_pods", func() {
 		})
 
 		JustBeforeEach(func() {
-			updates, err = getPodsToUpdate(context.Background(), globalControllerLogger, clusterReconciler, cluster)
+			adminClient, err := mock.NewMockAdminClient(cluster, k8sClient)
+			Expect(err).NotTo(HaveOccurred())
+			status, err := adminClient.GetStatus()
+			Expect(err).NotTo(HaveOccurred())
+
+			updates, updateErr = getPodsToUpdate(context.Background(), globalControllerLogger, clusterReconciler, cluster, getProcessesByProcessGroup(cluster, status))
 		})
 
 		When("the cluster has no changes", func() {
 			It("should return no errors and an empty map", func() {
 				Expect(updates).To(HaveLen(0))
-				Expect(err).NotTo(HaveOccurred())
+				Expect(updateErr).NotTo(HaveOccurred())
 			})
 
 			When("a Pod is missing", func() {
@@ -352,7 +359,7 @@ var _ = Describe("update_pods", func() {
 
 				It("should return no errors and an empty map", func() {
 					Expect(updates).To(HaveLen(0))
-					Expect(err).NotTo(HaveOccurred())
+					Expect(updateErr).NotTo(HaveOccurred())
 				})
 			})
 		})
@@ -368,7 +375,7 @@ var _ = Describe("update_pods", func() {
 			It("should return no errors and a map with one zone", func() {
 				// We only have one zone in this case, the simulation zone
 				Expect(updates).To(HaveLen(1))
-				Expect(err).NotTo(HaveOccurred())
+				Expect(updateErr).NotTo(HaveOccurred())
 			})
 
 			When("a Pod is missing", func() {
@@ -388,7 +395,7 @@ var _ = Describe("update_pods", func() {
 				When("the process group has no MissingPod condition", func() {
 					It("should return an error and an empty map", func() {
 						Expect(updates).To(HaveLen(0))
-						Expect(err).To(HaveOccurred())
+						Expect(updateErr).To(HaveOccurred())
 					})
 				})
 
@@ -400,7 +407,7 @@ var _ = Describe("update_pods", func() {
 
 					It("should return an error and an empty map", func() {
 						Expect(updates).To(HaveLen(0))
-						Expect(err).To(HaveOccurred())
+						Expect(updateErr).To(HaveOccurred())
 					})
 				})
 
@@ -412,7 +419,108 @@ var _ = Describe("update_pods", func() {
 
 					It("should return no error updates", func() {
 						Expect(updates).To(HaveLen(1))
+						Expect(updateErr).NotTo(HaveOccurred())
+					})
+				})
+			})
+
+			When("a Pod was recently created", func() {
+				var picked *fdbv1beta2.ProcessGroupStatus
+
+				BeforeEach(func() {
+					picked = internal.PickProcessGroups(cluster, fdbv1beta2.ProcessClassStorage, 1)[0]
+
+					podList := &corev1.PodList{}
+					Expect(k8sClient.List(context.Background(), podList, ctrlClient.InNamespace(cluster.Namespace), ctrlClient.MatchingLabels(cluster.GetMatchLabels()))).To(Succeed())
+
+					for _, pod := range podList.Items {
+						currentPod := pod.DeepCopy()
+						Expect(k8sClient.Delete(context.Background(), currentPod)).To(Succeed())
+
+						Expect(currentPod.Labels).NotTo(BeNil())
+						processGroupID, ok := currentPod.Labels[fdbv1beta2.FDBProcessGroupIDLabel]
+						Expect(ok).To(BeTrue())
+
+						var creationTimestamp metav1.Time
+						if processGroupID == string(picked.ProcessGroupID) {
+							creationTimestamp = metav1.NewTime(time.Now())
+						} else {
+							// Reset the metadata and ensure that all pods were created 24 hours ago
+							creationTimestamp = metav1.NewTime(time.Now().Add(-24 * time.Hour))
+						}
+
+						// Reset the metadata and ensure that all pods were created 24 hours ago
+						currentPod.ObjectMeta = metav1.ObjectMeta{
+							Name:              pod.Name,
+							Namespace:         pod.Namespace,
+							Annotations:       pod.Annotations,
+							Labels:            pod.Labels,
+							CreationTimestamp: creationTimestamp,
+						}
+
+						// Recreate Pod
+						Expect(k8sClient.Create(context.Background(), currentPod)).To(Succeed())
+
+					}
+
+					clusterReconciler.InSimulation = false
+				})
+
+				AfterEach(func() {
+					clusterReconciler.InSimulation = true
+				})
+
+				When("the process is not yet running", func() {
+					BeforeEach(func() {
+						adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 						Expect(err).NotTo(HaveOccurred())
+						adminClient.MockMissingProcessGroup(picked.ProcessGroupID, true)
+					})
+
+					It("should return an error and an empty map", func() {
+						Expect(updates).To(HaveLen(0))
+						Expect(updateErr).To(MatchError(And(ContainSubstring("was recently created and the processes are not yet running"), ContainSubstring(string(picked.ProcessGroupID)))))
+					})
+				})
+
+				When("the process is running but the uptime seconds is greater than the pod uptime ", func() {
+					It("should return an error and an empty map", func() {
+						Expect(updates).To(HaveLen(0))
+						Expect(updateErr).To(MatchError(And(ContainSubstring("was recently created but the process uptime reports old uptime"), ContainSubstring(string(picked.ProcessGroupID)))))
+					})
+				})
+
+				When("the process is running and the uptime seconds is less than the pod uptime ", func() {
+					BeforeEach(func() {
+						pod := &corev1.Pod{}
+						Expect(k8sClient.Get(context.Background(), ctrlClient.ObjectKey{Name: picked.GetPodName(cluster), Namespace: cluster.Namespace}, pod)).To(Succeed())
+
+						pod.CreationTimestamp = metav1.NewTime(time.Now().Add(-6 * time.Hour))
+						Expect(k8sClient.Delete(context.Background(), pod)).To(Succeed())
+
+						creationTimestamp := time.Now().Add(-24 * time.Hour)
+						// We have to recreate the pod
+						pod.ObjectMeta = metav1.ObjectMeta{
+							Name:        pod.Name,
+							Namespace:   pod.Namespace,
+							Annotations: pod.Annotations,
+							Labels:      pod.Labels,
+							// Default uptime is 60000 seconds.
+							CreationTimestamp: metav1.NewTime(creationTimestamp),
+						}
+
+						// Recreate Pod
+						Expect(k8sClient.Create(context.Background(), pod)).To(Succeed())
+
+						newPod := &corev1.Pod{}
+						Expect(k8sClient.Get(context.Background(), ctrlClient.ObjectKey{Name: picked.GetPodName(cluster), Namespace: cluster.Namespace}, newPod)).To(Succeed())
+						Expect(newPod.CreationTimestamp.Time.Unix()).To(Equal(creationTimestamp.Unix()))
+
+					})
+
+					It("should return not error", func() {
+						Expect(updates).To(HaveLen(4))
+						Expect(updateErr).NotTo(HaveOccurred())
 					})
 				})
 			})
@@ -429,7 +537,7 @@ var _ = Describe("update_pods", func() {
 
 			It("should return no updates", func() {
 				Expect(updates).To(HaveLen(0))
-				Expect(err).NotTo(HaveOccurred())
+				Expect(updateErr).NotTo(HaveOccurred())
 			})
 		})
 
@@ -453,7 +561,7 @@ var _ = Describe("update_pods", func() {
 				It("should return no errors and a map with the zone and all pods to update", func() {
 					Expect(updates).To(HaveLen(1))
 					Expect(updates["simulation"]).To(HaveLen(4))
-					Expect(err).NotTo(HaveOccurred())
+					Expect(updateErr).NotTo(HaveOccurred())
 				})
 			})
 
@@ -470,7 +578,7 @@ var _ = Describe("update_pods", func() {
 				It("should return no errors and a map with the zone and two pods to update", func() {
 					Expect(updates).To(HaveLen(1))
 					Expect(updates["simulation"]).To(HaveLen(2))
-					Expect(err).NotTo(HaveOccurred())
+					Expect(updateErr).NotTo(HaveOccurred())
 				})
 			})
 
@@ -486,7 +594,7 @@ var _ = Describe("update_pods", func() {
 
 				It("should return no errors and a an empty update map", func() {
 					Expect(updates).To(HaveLen(0))
-					Expect(err).NotTo(HaveOccurred())
+					Expect(updateErr).NotTo(HaveOccurred())
 				})
 			})
 		})

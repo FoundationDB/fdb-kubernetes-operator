@@ -24,6 +24,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/utils/pointer"
 	"time"
 
@@ -43,7 +44,23 @@ type updatePods struct{}
 
 // reconcile runs the reconciler's work.
 func (u updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
-	updates, err := getPodsToUpdate(ctx, logger, r, cluster)
+	adminClient, err := r.getAdminClient(logger, cluster)
+	if err != nil {
+		return &requeue{curError: err, delayedRequeue: true}
+	}
+	defer func() {
+		_ = adminClient.Close()
+	}()
+
+	// If the status is not cached, we have to fetch it.
+	if status == nil {
+		status, err = adminClient.GetStatus()
+		if err != nil {
+			return &requeue{curError: err}
+		}
+	}
+
+	updates, err := getPodsToUpdate(ctx, logger, r, cluster, getProcessesByProcessGroup(cluster, status))
 	if err != nil {
 		return &requeue{curError: err, delay: podSchedulingDelayDuration, delayedRequeue: true}
 	}
@@ -63,22 +80,6 @@ func (u updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 
 	if len(updates) == 0 {
 		return nil
-	}
-
-	adminClient, err := r.getAdminClient(logger, cluster)
-	if err != nil {
-		return &requeue{curError: err, delayedRequeue: true}
-	}
-	defer func() {
-		_ = adminClient.Close()
-	}()
-
-	// If the status is not cached, we have to fetch it.
-	if status == nil {
-		status, err = adminClient.GetStatus()
-		if err != nil {
-			return &requeue{curError: err}
-		}
 	}
 
 	return deletePodsForUpdates(ctx, r, cluster, updates, logger, status, adminClient)
@@ -131,8 +132,32 @@ func getFaultDomainsWithUnavailablePods(ctx context.Context, logger logr.Logger,
 	return faultDomainsWithUnavailablePods
 }
 
+func getProcessesByProcessGroup(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) map[string][]fdbv1beta2.FoundationDBStatusProcessInfo {
+	processMap := map[string][]fdbv1beta2.FoundationDBStatusProcessInfo{}
+
+	for _, process := range status.Cluster.Processes {
+		if len(process.Locality) == 0 {
+			continue
+		}
+
+		processGroupID, ok := process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]
+		if !ok {
+			continue
+		}
+
+		// Ignore all processes for the process map that are for a different data center
+		if !cluster.ProcessSharesDC(process) {
+			continue
+		}
+
+		processMap[processGroupID] = append(processMap[processGroupID], process)
+	}
+
+	return processMap
+}
+
 // getPodsToUpdate returns a map of Zone to Pods mapping. The map has the fault domain as key and all Pods in that fault domain will be present as a slice of *corev1.Pod.
-func getPodsToUpdate(ctx context.Context, logger logr.Logger, reconciler *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) (map[string][]*corev1.Pod, error) {
+func getPodsToUpdate(ctx context.Context, logger logr.Logger, reconciler *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, processInformation map[string][]fdbv1beta2.FoundationDBStatusProcessInfo) (map[string][]*corev1.Pod, error) {
 	updates := make(map[string][]*corev1.Pod)
 
 	faultDomainsWithUnavailablePods := getFaultDomainsWithUnavailablePods(ctx, logger, reconciler, cluster)
@@ -182,27 +207,48 @@ func getPodsToUpdate(ctx context.Context, logger logr.Logger, reconciler *Founda
 		pod, err := reconciler.PodLifecycleManager.GetPod(ctx, reconciler, cluster, processGroup.GetPodName(cluster))
 		// If a Pod is not found ignore it for now.
 		if err != nil {
-			logger.V(1).Info("Could not find Pod for process group ID",
-				"processGroupID", processGroup.ProcessGroupID)
+			if k8serrors.IsNotFound(err) {
+				logger.V(1).Info("Could not find Pod for process group ID",
+					"processGroupID", processGroup.ProcessGroupID)
 
-			// Check when the Pod went missing. If the condition is unset the current timestamp will be used, in that case
-			// the fdbv1beta2.MissingPod duration will be smaller than the 90 seconds buffer. The 90 seconds buffer
-			// was chosen as per default the failure detection in FDB takes 60 seconds to detect a failing fdbserver
-			// process (or actually to mark it failed). Without this check there could be a race condition where the
-			// Pod is already removed, so the process group would be skipped here but the fdbserver process is not yet
-			// marked as failed in FDB, which causes FDB to return full replication in the cluster status.
-			//
-			// With the unified image there is support for delaying the shutdown to reduce this risk even further.
-			missingPodDuration := time.Since(time.Unix(pointer.Int64Deref(processGroup.GetConditionTime(fdbv1beta2.MissingPod), time.Now().Unix()), 0))
-			if missingPodDuration < 90*time.Second {
-				podMissingError = fmt.Errorf("ProcessGroup: %s is missing the associated Pod for %s will be blocking until the Pod is missing for at least 90 seconds", processGroup.ProcessGroupID, missingPodDuration.String())
+				// Check when the Pod went missing. If the condition is unset the current timestamp will be used, in that case
+				// the fdbv1beta2.MissingPod duration will be smaller than the 90 seconds buffer. The 90 seconds buffer
+				// was chosen as per default the failure detection in FDB takes 60 seconds to detect a failing fdbserver
+				// process (or actually to mark it failed). Without this check there could be a race condition where the
+				// Pod is already removed, so the process group would be skipped here but the fdbserver process is not yet
+				// marked as failed in FDB, which causes FDB to return full replication in the cluster status.
+				//
+				// With the unified image there is support for delaying the shutdown to reduce this risk even further.
+				missingPodDuration := time.Since(time.Unix(pointer.Int64Deref(processGroup.GetConditionTime(fdbv1beta2.MissingPod), time.Now().Unix()), 0))
+				if missingPodDuration < 90*time.Second {
+					podMissingError = fmt.Errorf("ProcessGroup: %s is missing the associated Pod for %s will be blocking until the Pod is missing for at least 90 seconds", processGroup.ProcessGroupID, missingPodDuration.String())
+				}
+
+				continue
 			}
 
-			continue
+			return nil, err
 		}
 
 		if shouldRequeueDueToTerminatingPod(pod, cluster, processGroup.ProcessGroupID) {
 			return nil, fmt.Errorf("cluster has Pod %s that is pending deletion", pod.Name)
+		}
+
+		// If the pod was recently created, check if the processes are already running, if not return an error.
+		timeSincePodCreation := time.Since(pod.CreationTimestamp.Time)
+		if timeSincePodCreation < 1*time.Minute {
+			processes, ok := processInformation[string(processGroup.ProcessGroupID)]
+			if len(processes) == 0 || !ok {
+				return nil, fmt.Errorf("%s was recently created and the processes are not yet running", pod.Name)
+			}
+
+			for _, process := range processes {
+				// If the uptime is higher than the time since the pod was created, that means the reported process
+				// has some stale data. This could happen in cases where the status is cached in the operator.
+				if process.UptimeSeconds > timeSincePodCreation.Seconds() && !reconciler.InSimulation {
+					return nil, fmt.Errorf("%s was recently created but the process uptime reports old uptime, time since pod was created: %f.2 seconds and process up time: %f.2", pod.Name, timeSincePodCreation.Seconds(), process.UptimeSeconds)
+				}
+			}
 		}
 
 		specHash, err := internal.GetPodSpecHash(cluster, processGroup, nil)
@@ -262,9 +308,6 @@ func getPodsToUpdate(ctx context.Context, logger logr.Logger, reconciler *Founda
 			zone = "simulation"
 		}
 
-		if updates[zone] == nil {
-			updates[zone] = make([]*corev1.Pod, 0)
-		}
 		updates[zone] = append(updates[zone], pod)
 	}
 
