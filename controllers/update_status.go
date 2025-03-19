@@ -28,21 +28,17 @@ import (
 	"sort"
 	"time"
 
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/locality"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/podmanager"
 	"github.com/go-logr/logr"
-
-	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
-
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
-
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/pointer"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // updateStatus provides a reconciliation step for updating the status in the
@@ -55,6 +51,7 @@ func (c updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterRecon
 	clusterStatus := fdbv1beta2.FoundationDBClusterStatus{}
 	clusterStatus.Generations.Reconciled = cluster.Status.Generations.Reconciled
 	clusterStatus.ProcessGroups = cluster.Status.ProcessGroups
+	clusterStatus.ConnectionString = cluster.Status.ConnectionString
 	// Initialize with the current desired storage servers per Pod
 	clusterStatus.StorageServersPerDisk = []int{cluster.GetStorageServersPerPod()}
 	clusterStatus.LogServersPerDisk = []int{cluster.GetLogServersPerPod()}
@@ -90,7 +87,7 @@ func (c updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterRecon
 	if err != nil {
 		return &requeue{curError: fmt.Errorf("update_status skipped due to error in getRunningVersion: %w", err)}
 	}
-	cluster.Status.RunningVersion = version
+	clusterStatus.RunningVersion = version
 
 	clusterStatus.HasListenIPsForAllPods = cluster.NeedsExplicitListenAddress()
 	// Update the configuration if the database is available, otherwise the machine-readable status will contain no information
@@ -101,7 +98,6 @@ func (c updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterRecon
 	}
 
 	clusterStatus.Configured = fdbstatus.ClusterIsConfigured(cluster, databaseStatus)
-
 	if cluster.Spec.MainContainer.EnableTLS {
 		clusterStatus.RequiredAddresses.TLS = true
 	} else {
@@ -148,18 +144,17 @@ func (c updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterRecon
 
 	existingConfigMap := &corev1.ConfigMap{}
 	err = r.Get(ctx, types.NamespacedName{Namespace: configMap.Namespace, Name: configMap.Name}, existingConfigMap)
-	if err != nil && k8serrors.IsNotFound(err) {
+	if err != nil {
+		if !k8serrors.IsNotFound(err) {
+			return &requeue{curError: err}
+		}
 		clusterStatus.HasIncorrectConfigMap = true
-	} else if err != nil {
-		return &requeue{curError: err}
 	}
 
-	clusterStatus.RunningVersion = cluster.Status.RunningVersion
-
 	if clusterStatus.RunningVersion == "" {
-		version, present := existingConfigMap.Data[fdbv1beta2.RunningVersionKey]
+		runningVersion, present := existingConfigMap.Data[fdbv1beta2.RunningVersionKey]
 		if present {
-			clusterStatus.RunningVersion = version
+			clusterStatus.RunningVersion = runningVersion
 		}
 	}
 
@@ -167,13 +162,13 @@ func (c updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterRecon
 		clusterStatus.RunningVersion = cluster.Spec.Version
 	}
 
-	clusterStatus.ConnectionString = cluster.Status.ConnectionString
 	if clusterStatus.ConnectionString == "" {
-		clusterStatus.ConnectionString = existingConfigMap.Data[fdbv1beta2.ClusterFileKey]
-	}
-
-	if clusterStatus.ConnectionString == "" {
-		clusterStatus.ConnectionString = cluster.Spec.SeedConnectionString
+		connectionString, ok := existingConfigMap.Data[fdbv1beta2.ClusterFileKey]
+		if ok {
+			clusterStatus.ConnectionString = connectionString
+		} else {
+			clusterStatus.ConnectionString = cluster.Spec.SeedConnectionString
+		}
 	}
 
 	clusterStatus.HasIncorrectConfigMap = clusterStatus.HasIncorrectConfigMap || !equality.Semantic.DeepEqual(existingConfigMap.Data, configMap.Data) || !metadataMatches(existingConfigMap.ObjectMeta, configMap.ObjectMeta)
@@ -275,61 +270,6 @@ func containsAll(current map[string]string, desired map[string]string) bool {
 	}
 
 	return true
-}
-
-// optionList creates an order-preserved unique list
-func optionList(options ...string) []string {
-	valueMap := make(map[string]bool, len(options))
-	values := make([]string, 0, len(options))
-	for _, option := range options {
-		if option != "" && !valueMap[option] {
-			values = append(values, option)
-			valueMap[option] = true
-		}
-	}
-	return values
-}
-
-// tryConnectionOptions attempts to connect with all the connection strings for this cluster and
-// returns the connection string that allows connecting to the cluster.
-func tryConnectionOptions(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, r *FoundationDBClusterReconciler) (string, error) {
-	connectionStrings := optionList(cluster.Status.ConnectionString, cluster.Spec.SeedConnectionString)
-	logger.Info("Trying connection options", "connectionString", connectionStrings)
-
-	originalConnectionString := cluster.Status.ConnectionString
-	defer func() { cluster.Status.ConnectionString = originalConnectionString }()
-
-	var err error
-	for _, connectionString := range connectionStrings {
-		logger.Info("Attempting to get connection string from cluster", "connectionString", connectionString)
-		cluster.Status.ConnectionString = connectionString
-		adminClient, clientErr := r.getAdminClient(logger, cluster)
-		if clientErr != nil {
-			return originalConnectionString, clientErr
-		}
-
-		// If the cluster is not yet configured, we can reduce the timeout to make sure the initial reconcile steps
-		// are faster.
-		if !cluster.Status.Configured {
-			adminClient.SetTimeout(10 * time.Second)
-		}
-
-		var activeConnectionString string
-		activeConnectionString, err = adminClient.GetConnectionString()
-
-		closeErr := adminClient.Close()
-		if closeErr != nil {
-			logger.V(1).Info("Could not close admin client", "error", closeErr)
-		}
-
-		if err == nil {
-			logger.Info("Chose connection option", "connectionString", activeConnectionString)
-			return activeConnectionString, nil
-		}
-		logger.Error(err, "Error getting connection string from cluster", "connectionString", connectionString)
-	}
-
-	return originalConnectionString, nil
 }
 
 // checkAndSetProcessStatus checks the status of the Process and if missing or incorrect add it to the related status field

@@ -567,19 +567,6 @@ func (r *FoundationDBClusterReconciler) getStatusFromClusterOrDummyStatus(logger
 		}, nil
 	}
 
-	connectionString, err := tryConnectionOptions(logger, cluster, r)
-	if err != nil {
-		return nil, err
-	}
-
-	// Update the connection string if the newly fetched connection string is different from the current one and if the
-	// newly fetched connection string is not empty.
-	if cluster.Status.ConnectionString != connectionString && connectionString != "" {
-		logger.Info("Updating out-of-date connection string", "previousConnectionString", cluster.Status.ConnectionString, "newConnectionString", connectionString)
-		r.Recorder.Event(cluster, corev1.EventTypeNormal, "UpdatingConnectionString", fmt.Sprintf("Setting connection string to %s", connectionString))
-		cluster.Status.ConnectionString = connectionString
-	}
-
 	adminClient, err := r.getAdminClient(logger, cluster)
 	if err != nil {
 		return nil, err
@@ -596,6 +583,14 @@ func (r *FoundationDBClusterReconciler) getStatusFromClusterOrDummyStatus(logger
 
 	status, err := adminClient.GetStatus()
 	if err == nil {
+		// Update the connection string if the newly fetched connection string is different from the current one and if the
+		// newly fetched connection string is not empty.
+		if cluster.Status.ConnectionString != status.Cluster.ConnectionString && status.Cluster.ConnectionString != "" {
+			logger.Info("Updating out-of-date connection string", "previousConnectionString", cluster.Status.ConnectionString, "newConnectionString", status.Cluster.ConnectionString)
+			r.Recorder.Event(cluster, corev1.EventTypeNormal, "UpdatingConnectionString", fmt.Sprintf("Setting connection string to %s", status.Cluster.ConnectionString))
+			cluster.Status.ConnectionString = status.Cluster.ConnectionString
+		}
+
 		return status, nil
 	}
 

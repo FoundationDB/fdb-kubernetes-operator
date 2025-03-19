@@ -21,8 +21,13 @@
 package fdbclient
 
 import (
+	"fmt"
 	"os"
 	"path"
+
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -38,7 +43,7 @@ var _ = Describe("common_test", func() {
 		JustBeforeEach(func() {
 			var err error
 			tmpDir = GinkgoT().TempDir()
-			clusterFile, err = ensureClusterFileIsPresent(tmpDir, uid, connectionString)
+			clusterFile, err = ensureClusterFileIsPresent(path.Join(tmpDir, uid), connectionString)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -53,7 +58,7 @@ var _ = Describe("common_test", func() {
 
 		When("the cluster file exist with the wrong content", func() {
 			BeforeEach(func() {
-				err := os.WriteFile(path.Join(os.TempDir(), uid), []byte("wrong"), 0777)
+				err := os.WriteFile(path.Join(GinkgoT().TempDir(), uid), []byte("wrong"), 0777)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -67,7 +72,7 @@ var _ = Describe("common_test", func() {
 
 		When("the cluster file exist with the correct content", func() {
 			BeforeEach(func() {
-				err := os.WriteFile(path.Join(os.TempDir(), uid), []byte(connectionString), 0777)
+				err := os.WriteFile(path.Join(GinkgoT().TempDir(), uid), []byte(connectionString), 0777)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -77,6 +82,35 @@ var _ = Describe("common_test", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(string(content)).To(Equal(connectionString))
 			})
+		})
+	})
+
+	When("creating the cluster for cli", func() {
+		var tmpDir string
+		uid := "testuid"
+		var file *os.File
+
+		BeforeEach(func() {
+			tmpDir = GinkgoT().TempDir()
+			GinkgoT().Setenv("TMPDIR", tmpDir)
+
+			var err error
+			file, err = createClusterFileForCommandLine(&fdbv1beta2.FoundationDBCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					UID: types.UID(uid),
+				},
+			})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		AfterEach(func() {
+			Expect(file.Close()).To(Succeed())
+		})
+
+		It("should create the temp cluster file for the cli", func() {
+			expectedDir := path.Join(tmpDir, fmt.Sprintf("%s-cli", uid))
+			Expect(expectedDir).To(BeADirectory())
+			Expect(file.Name()).To(BeAnExistingFile())
 		})
 	})
 })

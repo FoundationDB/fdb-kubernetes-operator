@@ -72,10 +72,6 @@ type cliAdminClient struct {
 	// Cluster is the reference to the cluster model.
 	Cluster *fdbv1beta2.FoundationDBCluster
 
-	// clusterFilePath is the path to the temp file containing the cluster file
-	// for this session.
-	clusterFilePath string
-
 	// custom parameters that should be set.
 	knobs []string
 
@@ -96,16 +92,10 @@ type cliAdminClient struct {
 
 // NewCliAdminClient generates an Admin client for a cluster
 func NewCliAdminClient(cluster *fdbv1beta2.FoundationDBCluster, _ client.Client, logger logr.Logger) (fdbadminclient.AdminClient, error) {
-	clusterFile, err := createClusterFile(cluster)
-	if err != nil {
-		return nil, err
-	}
-
 	return &cliAdminClient{
-		Cluster:         cluster,
-		clusterFilePath: clusterFile,
-		log:             logger,
-		cmdRunner:       &realCommandRunner{log: logger},
+		Cluster:   cluster,
+		log:       logger,
+		cmdRunner: &realCommandRunner{log: logger},
 		fdbLibClient: &realFdbLibClient{
 			cluster: cluster,
 			logger:  logger,
@@ -195,7 +185,7 @@ func getBinaryPath(binaryName string, version string) string {
 	return path.Join(os.Getenv("FDB_BINARY_DIR"), parsed.GetBinaryVersion(), binaryName)
 }
 
-func (client *cliAdminClient) getArgsAndTimeout(command cliCommand) ([]string, time.Duration) {
+func (client *cliAdminClient) getArgsAndTimeout(command cliCommand, clusterFile string) ([]string, time.Duration) {
 	args := make([]string, len(command.args))
 	copy(args, command.args)
 	if len(args) == 0 {
@@ -204,7 +194,7 @@ func (client *cliAdminClient) getArgsAndTimeout(command cliCommand) ([]string, t
 
 	// If we want to print out the version we don't have to pass the cluster file path
 	if len(args) == 0 || args[0] != "--version" {
-		args = append(args, command.getClusterFileFlag(), client.clusterFilePath)
+		args = append(args, command.getClusterFileFlag(), clusterFile)
 	}
 
 	// We only want to pass the knobs to fdbbackup and fdbrestore
@@ -239,7 +229,16 @@ func (client *cliAdminClient) getArgsAndTimeout(command cliCommand) ([]string, t
 
 // runCommand executes a command in the CLI.
 func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
-	args, hardTimeout := client.getArgsAndTimeout(command)
+	clusterFile, err := createClusterFileForCommandLine(client.Cluster)
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		_ = clusterFile.Close()
+		_ = os.Remove(clusterFile.Name())
+	}()
+
+	args, hardTimeout := client.getArgsAndTimeout(command, clusterFile.Name())
 	timeoutContext, cancelFunction := context.WithTimeout(context.Background(), hardTimeout)
 	defer cancelFunction()
 
@@ -486,16 +485,7 @@ func (client *cliAdminClient) ChangeCoordinators(addresses []fdbv1beta2.ProcessA
 		return "", err
 	}
 
-	connectionStringBytes, err := os.ReadFile(client.clusterFilePath)
-	if err != nil {
-		return "", err
-	}
-
-	connectionString, err := fdbv1beta2.ParseConnectionString(string(connectionStringBytes))
-	if err != nil {
-		return "", err
-	}
-	return connectionString.String(), nil
+	return getConnectionStringFromDB(client.fdbLibClient, client.getTimeout())
 }
 
 // cleanConnectionStringOutput is a helper method to remove unrelated output from the get command in the connection string
@@ -512,15 +502,13 @@ func cleanConnectionStringOutput(input string) string {
 
 // GetConnectionString fetches the latest connection string.
 func (client *cliAdminClient) GetConnectionString() (string, error) {
-	// This will call directly the database and fetch the connection string
-	// from the system key space.
-	outputBytes, err := getConnectionStringFromDB(client.fdbLibClient, client.getTimeout())
-
+	output, err := client.runCommand(cliCommand{command: "option on ACCESS_SYSTEM_KEYS; get \\xff/coordinators"})
 	if err != nil {
 		return "", err
 	}
+
 	var connectionString fdbv1beta2.ConnectionString
-	connectionString, err = fdbv1beta2.ParseConnectionString(cleanConnectionStringOutput(string(outputBytes)))
+	connectionString, err = fdbv1beta2.ParseConnectionString(cleanConnectionStringOutput(output))
 	if err != nil {
 		return "", err
 	}
