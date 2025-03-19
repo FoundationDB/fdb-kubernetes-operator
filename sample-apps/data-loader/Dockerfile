@@ -75,6 +75,11 @@ RUN set -eux && \
     rpm -i foundationdb-clients-${FDB_VERSION}-1.${FDB_OS}.${FDB_ARCH}.rpm --excludepath=/usr/bin --excludepath=/usr/lib/foundationdb/backup_agent && \
     rm foundationdb-clients-${FDB_VERSION}-1.${FDB_OS}.${FDB_ARCH}.rpm foundationdb-clients-${FDB_VERSION}-1.${FDB_OS}.${FDB_ARCH}.rpm.sha256
 
+RUN groupadd --gid 4059 fdb && \
+	useradd --gid 4059 --uid 4059 --shell /usr/sbin/nologin fdb && \
+	mkdir -p /var/log/fdb && \
+	touch /var/log/fdb/.keep
+
 COPY --chown=fdb:fdb --from=builder /workspace/bin/data-loader /usr/local/bin/data-loader
 
 # Set to the numeric UID of fdb user to satisfy PodSecurityPolices which enforce runAsNonRoot
