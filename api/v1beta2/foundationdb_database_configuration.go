@@ -925,10 +925,10 @@ var versionFlagIndices = make(map[string]int)
 var roleNames = fieldNames(RoleCounts{})
 
 // fieldNames provides the names of fields on a structure.
-func fieldNames(value interface{}) []ProcessClass {
+func fieldNames(value any) []ProcessClass {
 	countType := reflect.TypeOf(value)
 	names := make([]ProcessClass, 0, countType.NumField())
-	for index := 0; index < countType.NumField(); index++ {
+	for index := range countType.NumField() {
 		tag := strings.Split(countType.Field(index).Tag.Get("json"), ",")
 		names = append(names, ProcessClass(tag[0]))
 	}
@@ -951,10 +951,10 @@ func init() {
 
 // fieldIndices provides a map from the names of fields in a structure to the
 // index of each field in the list of fields.
-func fieldIndices(value interface{}, result interface{}, keyType reflect.Type) {
+func fieldIndices(value any, result any, keyType reflect.Type) {
 	countType := reflect.TypeOf(value)
 	resultValue := reflect.ValueOf(result)
-	for index := 0; index < countType.NumField(); index++ {
+	for index := range countType.NumField() {
 		tag := strings.Split(countType.Field(index).Tag.Get("json"), ",")
 		resultValue.SetMapIndex(reflect.ValueOf(tag[0]).Convert(keyType), reflect.ValueOf(index))
 	}

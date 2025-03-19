@@ -53,7 +53,7 @@ var _ = Describe("Operator Stress", Label("e2e"), func() {
 		It("should create a healthy and available cluster", func() {
 			// Since Ginkgo doesn't support what we want, we run this multiple times.
 			// We create and delete a cluster 10 times to ensure we don't have any flaky behaviour in the operator.
-			for i := 0; i < 10; i++ {
+			for range 10 {
 				fdbCluster := factory.CreateFdbCluster(
 					fixtures.DefaultClusterConfig(false),
 					factory.GetClusterOptions()...,
@@ -81,7 +81,7 @@ var _ = Describe("Operator Stress", Label("e2e"), func() {
 
 		It("should replace the targeted Pod", func() {
 			// Since Ginkgo doesn't support what we want, we run this multiple times.
-			for i := 0; i < 10; i++ {
+			for range 10 {
 				Expect(fdbCluster.ClearProcessGroupsToRemove()).ShouldNot(HaveOccurred())
 				pod := factory.ChooseRandomPod(fdbCluster.GetPods())
 				fdbCluster.ReplacePod(*pod, true)

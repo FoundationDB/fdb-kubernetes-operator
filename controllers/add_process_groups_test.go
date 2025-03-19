@@ -234,7 +234,7 @@ var _ = Describe("add_process_groups", func() {
 				excludedCnt := 100
 				exclusions := make([]fdbv1beta2.ProcessAddress, 0, excludedCnt)
 				excludedProcessGroupIDs = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None{}
-				for i := 0; i < excludedCnt; i++ {
+				for i := range excludedCnt {
 					processGroupID := fdbv1beta2.ProcessGroupID(fmt.Sprintf("storage-%d", i))
 					if _, ok := currentProcessGroupIDs[processGroupID]; ok {
 						continue

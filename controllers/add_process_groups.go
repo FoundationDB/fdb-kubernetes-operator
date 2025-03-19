@@ -56,10 +56,7 @@ func (a addProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterR
 
 	hasNewProcessGroups := false
 	for _, processClass := range fdbv1beta2.ProcessClasses {
-		desiredCount := desiredCounts[processClass]
-		if desiredCount < 0 {
-			desiredCount = 0
-		}
+		desiredCount := max(desiredCounts[processClass], 0)
 		newCount := desiredCount - processCounts[processClass]
 		if newCount <= 0 {
 			continue
@@ -73,7 +70,7 @@ func (a addProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterR
 		hasNewProcessGroups = true
 		logger.Info("Adding new Process Groups", "processClass", processClass, "newCount", newCount, "desiredCount", desiredCount, "currentCount", processCounts[processClass])
 		r.Recorder.Event(cluster, corev1.EventTypeNormal, "AddingProcesses", fmt.Sprintf("Adding %d %s processes", newCount, processClass))
-		for i := 0; i < newCount; i++ {
+		for range newCount {
 			processGroupID := cluster.GetNextRandomProcessGroupIDWithExclusions(processClass, processGroupIDs[processClass], exclusions)
 			logger.Info("Adding new Process Group to cluster", "processClass", processClass, "processGroupID", processGroupID, "exclusions", exclusions)
 			cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus(processGroupID, processClass, nil))

@@ -35,9 +35,9 @@ import (
 // CreationTrackerLogger is an interface that can be used to log the time between different creation steps.
 type CreationTrackerLogger interface {
 	// NewEntry adds an entry to the internal map.
-	NewEntry() map[string]interface{}
+	NewEntry() map[string]any
 	// Log will write the values in  the map directly to the logger.
-	Log(values map[string]interface{}) error
+	Log(values map[string]any) error
 	// Flush will write all values from the entry map to the logger.
 	Flush() error
 }
@@ -51,12 +51,12 @@ func NewDefaultCreationTrackerLogger() CreationTrackerLogger {
 type DefaultCreationTrackerLogger struct{}
 
 // NewEntry adds an entry to the internal map.
-func (logger *DefaultCreationTrackerLogger) NewEntry() map[string]interface{} {
-	return map[string]interface{}{}
+func (logger *DefaultCreationTrackerLogger) NewEntry() map[string]any {
+	return map[string]any{}
 }
 
 // Log will write the values in  the map directly to the logger.
-func (logger *DefaultCreationTrackerLogger) Log(_ map[string]interface{}) error {
+func (logger *DefaultCreationTrackerLogger) Log(_ map[string]any) error {
 	return nil
 }
 
@@ -132,7 +132,7 @@ func (tracker *fdbClusterCreationTracker) nextStep() {
 	log.Println("Finished step", tracker.currentStep.String(), "in", duration)
 
 	// Log the duration in milliseconds
-	gomega.Expect(tracker.logger.Log(map[string]interface{}{
+	gomega.Expect(tracker.logger.Log(map[string]any{
 		tracker.currentStep.String(): duration.Milliseconds(),
 	})).NotTo(gomega.HaveOccurred())
 }

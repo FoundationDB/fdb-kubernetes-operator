@@ -213,7 +213,7 @@ func ensureContainerPresent(containers []corev1.Container, name string, insertIn
 	}
 	containerCount := 1 + len(containers)
 	newContainers := make([]corev1.Container, 0, containerCount)
-	for indexToCopy := 0; indexToCopy < len(containers); indexToCopy++ {
+	for indexToCopy := range containers {
 		if indexToCopy == insertIndex {
 			newContainers = append(newContainers, corev1.Container{
 				Name: name,

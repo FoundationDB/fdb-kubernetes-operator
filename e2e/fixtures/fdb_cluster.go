@@ -1825,7 +1825,7 @@ func (fdbCluster *FdbCluster) GenerateRandomValues(
 	res := make([]KeyValue, 0, n)
 	index := []byte{'a'}
 	var err error
-	for i := 0; i < n; i++ {
+	for range n {
 		res = append(res, KeyValue{
 			Key:   append([]byte{prefix}, index...),
 			Value: []byte(fdbCluster.factory.RandStringRunes(4)),

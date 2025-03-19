@@ -43,6 +43,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/pointer"
+	"slices"
 )
 
 // updateStatus provides a reconciliation step for updating the status in the
@@ -561,13 +562,7 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 		status.AddServersPerDisk(processCount, processGroup.ProcessClass)
 
 		imageType := internal.GetImageType(pod)
-		imageTypeFound := false
-		for _, currentImageType := range status.ImageTypes {
-			if imageType == currentImageType {
-				imageTypeFound = true
-				break
-			}
-		}
+		imageTypeFound := slices.Contains(status.ImageTypes, imageType)
 		if !imageTypeFound {
 			status.ImageTypes = append(status.ImageTypes, imageType)
 		}

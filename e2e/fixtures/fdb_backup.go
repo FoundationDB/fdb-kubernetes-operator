@@ -216,14 +216,14 @@ func (fdbBackup *FdbBackup) WaitForRestorableVersion(version uint64) {
 			false,
 		)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
-		var result map[string]interface{}
+		var result map[string]any
 		g.Expect(json.Unmarshal([]byte(out), &result)).NotTo(gomega.HaveOccurred())
 
 		restorable, ok := result["Restorable"].(bool)
 		g.Expect(ok).To(gomega.BeTrue())
 		g.Expect(restorable).To(gomega.BeTrue())
 
-		restorablePoint, ok := result["LatestRestorablePoint"].(map[string]interface{})
+		restorablePoint, ok := result["LatestRestorablePoint"].(map[string]any)
 		g.Expect(ok).To(gomega.BeTrue())
 
 		restorableVersion, ok := restorablePoint["Version"].(float64)

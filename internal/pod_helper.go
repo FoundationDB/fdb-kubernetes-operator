@@ -35,6 +35,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"slices"
 )
 
 // GetPublicIPsForPod returns the public IPs for a Pod
@@ -98,7 +99,7 @@ func GetPodSpecHash(cluster *fdbv1beta2.FoundationDBCluster, processGroup *fdbv1
 
 // GetJSONHash serializes an object to JSON and takes a hash of the resulting
 // JSON.
-func GetJSONHash(object interface{}) (string, error) {
+func GetJSONHash(object any) (string, error) {
 	hash := sha256.New()
 	encoder := json.NewEncoder(hash)
 	err := encoder.Encode(object)
@@ -303,10 +304,8 @@ func GetIPFamily(pod *corev1.Pod) (*int, error) {
 func PodHasSidecarTLS(pod *corev1.Pod) bool {
 	for _, container := range pod.Spec.Containers {
 		if container.Name == fdbv1beta2.SidecarContainerName {
-			for _, arg := range container.Args {
-				if arg == "--tls" {
-					return true
-				}
+			if slices.Contains(container.Args, "--tls") {
+				return true
 			}
 		}
 	}

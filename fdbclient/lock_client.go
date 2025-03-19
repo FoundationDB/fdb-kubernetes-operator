@@ -60,7 +60,7 @@ func (client *realLockClient) TakeLock() error {
 		return nil
 	}
 
-	_, err := client.database.Transact(func(transaction fdb.Transaction) (interface{}, error) {
+	_, err := client.database.Transact(func(transaction fdb.Transaction) (any, error) {
 		lockErr := client.takeLockInTransaction(transaction)
 		return nil, lockErr
 	})
@@ -167,7 +167,7 @@ func (client *realLockClient) updateLock(transaction fdb.Transaction, start int6
 // AddPendingUpgrades registers information about which process groups are
 // pending an upgrade to a new version.
 func (client *realLockClient) AddPendingUpgrades(version fdbv1beta2.Version, processGroupIDs []fdbv1beta2.ProcessGroupID) error {
-	_, err := client.database.Transact(func(tr fdb.Transaction) (interface{}, error) {
+	_, err := client.database.Transact(func(tr fdb.Transaction) (any, error) {
 		err := tr.Options().SetAccessSystemKeys()
 		if err != nil {
 			return nil, err
@@ -184,13 +184,13 @@ func (client *realLockClient) AddPendingUpgrades(version fdbv1beta2.Version, pro
 // GetPendingUpgrades returns the stored information about which process
 // groups are pending an upgrade to a new version.
 func (client *realLockClient) GetPendingUpgrades(version fdbv1beta2.Version) (map[fdbv1beta2.ProcessGroupID]bool, error) {
-	upgrades, err := client.database.Transact(func(tr fdb.Transaction) (interface{}, error) {
+	upgrades, err := client.database.Transact(func(tr fdb.Transaction) (any, error) {
 		err := tr.Options().SetReadSystemKeys()
 		if err != nil {
 			return nil, err
 		}
 
-		keyPrefix := []byte(fmt.Sprintf("%s/upgrades/%s/", client.cluster.GetLockPrefix(), version.String()))
+		keyPrefix := fmt.Appendf(nil, "%s/upgrades/%s/", client.cluster.GetLockPrefix(), version.String())
 		keyRange, err := fdb.PrefixRange(keyPrefix)
 		if err != nil {
 			return nil, err
@@ -219,13 +219,13 @@ func (client *realLockClient) GetPendingUpgrades(version fdbv1beta2.Version) (ma
 // ClearPendingUpgrades clears any stored information about pending
 // upgrades.
 func (client *realLockClient) ClearPendingUpgrades() error {
-	_, err := client.database.Transact(func(tr fdb.Transaction) (interface{}, error) {
+	_, err := client.database.Transact(func(tr fdb.Transaction) (any, error) {
 		err := tr.Options().SetAccessSystemKeys()
 		if err != nil {
 			return nil, err
 		}
 
-		keyPrefix := []byte(fmt.Sprintf("%s/upgrades/", client.cluster.GetLockPrefix()))
+		keyPrefix := fmt.Appendf(nil, "%s/upgrades/", client.cluster.GetLockPrefix())
 		keyRange, err := fdb.PrefixRange(keyPrefix)
 		if err != nil {
 			return nil, err
@@ -240,7 +240,7 @@ func (client *realLockClient) ClearPendingUpgrades() error {
 
 // GetDenyList retrieves the current deny list from the database.
 func (client *realLockClient) GetDenyList() ([]string, error) {
-	list, err := client.database.Transact(func(tr fdb.Transaction) (interface{}, error) {
+	list, err := client.database.Transact(func(tr fdb.Transaction) (any, error) {
 		err := tr.Options().SetReadSystemKeys()
 		if err != nil {
 			return nil, err
@@ -268,7 +268,7 @@ func (client *realLockClient) GetDenyList() ([]string, error) {
 
 // UpdateDenyList updates the deny list to match a list of entries.
 func (client *realLockClient) UpdateDenyList(locks []fdbv1beta2.LockDenyListEntry) error {
-	_, err := client.database.Transact(func(tr fdb.Transaction) (interface{}, error) {
+	_, err := client.database.Transact(func(tr fdb.Transaction) (any, error) {
 		err := tr.Options().SetAccessSystemKeys()
 		if err != nil {
 			return nil, err
@@ -300,7 +300,7 @@ func (client *realLockClient) UpdateDenyList(locks []fdbv1beta2.LockDenyListEntr
 
 // getDenyListKeyRange defines a key range containing the full deny list.
 func (client *realLockClient) getDenyListKeyRange() (fdb.KeyRange, error) {
-	keyPrefix := []byte(fmt.Sprintf("%s/denyList/", client.cluster.GetLockPrefix()))
+	keyPrefix := fmt.Appendf(nil, "%s/denyList/", client.cluster.GetLockPrefix())
 	return fdb.PrefixRange(keyPrefix)
 }
 
@@ -318,7 +318,7 @@ func (client *realLockClient) ReleaseLock() error {
 	}
 
 	lockKey := fdb.Key(fmt.Sprintf("%s/global", client.cluster.GetLockPrefix()))
-	_, err := client.database.Transact(func(transaction fdb.Transaction) (interface{}, error) {
+	_, err := client.database.Transact(func(transaction fdb.Transaction) (any, error) {
 		err := transaction.Options().SetAccessSystemKeys()
 		if err != nil {
 			return false, err
