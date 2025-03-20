@@ -91,6 +91,8 @@ spec:
             value: "/tmp/fdb-trace-logs"
           - name: FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY
             value: /var/dynamic/fdb/libs
+          - name: FDB_NETWORK_OPTION_TRACE_FORMAT
+            value: json
           - name: PYTHONUNBUFFERED
             value: "on"
         volumeMounts:
@@ -217,6 +219,8 @@ spec:
             value: {{ .Name }}
           - name: FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY
             value: /var/dynamic/fdb
+          - name: FDB_NETWORK_OPTION_TRACE_FORMAT
+            value: json
           - name: PYTHONUNBUFFERED
             value: "on"
         volumeMounts:
