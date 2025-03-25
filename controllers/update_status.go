@@ -171,7 +171,7 @@ func (c updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterRecon
 		}
 	}
 
-	clusterStatus.HasIncorrectConfigMap = clusterStatus.HasIncorrectConfigMap || !equality.Semantic.DeepEqual(existingConfigMap.Data, configMap.Data) || !metadataMatches(existingConfigMap.ObjectMeta, configMap.ObjectMeta)
+	clusterStatus.HasIncorrectConfigMap = clusterStatus.HasIncorrectConfigMap || !equality.Semantic.DeepEqual(existingConfigMap.Data, configMap.Data) || !internal.MetadataMatches(existingConfigMap.ObjectMeta, configMap.ObjectMeta)
 
 	service := internal.GetHeadlessService(cluster)
 	existingService := &corev1.Service{}
@@ -258,18 +258,6 @@ func (c updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterRecon
 	}
 
 	return nil
-}
-
-// containsAll determines if one map contains all the keys and matching values
-// from another map.
-func containsAll(current map[string]string, desired map[string]string) bool {
-	for key, value := range desired {
-		if current[key] != value {
-			return false
-		}
-	}
-
-	return true
 }
 
 // checkAndSetProcessStatus checks the status of the Process and if missing or incorrect add it to the related status field
@@ -568,7 +556,9 @@ func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler,
 		return err
 	}
 
-	incorrectPodSpec := !metadataMatches(pod.ObjectMeta, internal.GetPodMetadata(cluster, processGroupStatus.ProcessClass, processGroupStatus.ProcessGroupID, specHash))
+	// TODO (johscheuer): Add an additional check for the metadata with: PodMetadataCorrect
+	// Check here if the Pod spec matches the desired Pod spec. In previous cases we also checked for the metadata.
+	incorrectPodSpec := specHash != pod.Annotations[fdbv1beta2.LastSpecKey]
 	if !incorrectPodSpec {
 		updated, err := r.PodLifecycleManager.PodIsUpdated(ctx, r, cluster, pod)
 		if err != nil {
@@ -576,7 +566,6 @@ func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler,
 		}
 		incorrectPodSpec = !updated
 	}
-
 	processGroupStatus.UpdateCondition(fdbv1beta2.IncorrectPodSpec, incorrectPodSpec)
 
 	// If we do a cluster version incompatible upgrade we use the fdbv1beta2.IncorrectConfigMap to signal when the operator
@@ -603,7 +592,7 @@ func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler,
 
 	incorrectPVC := (currentPVC != nil) != (desiredPvc != nil)
 	if !incorrectPVC && desiredPvc != nil {
-		incorrectPVC = !metadataMatches(currentPVC.ObjectMeta, desiredPvc.ObjectMeta)
+		incorrectPVC = !internal.MetadataMatches(currentPVC.ObjectMeta, desiredPvc.ObjectMeta)
 	}
 	if incorrectPVC {
 		logger.Info("ValidateProcessGroup found incorrectPVC", "CurrentPVC", currentPVC, "DesiredPVC", desiredPvc)

@@ -29,7 +29,6 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -42,50 +41,6 @@ const (
 	// of reconciliation when a pod is not ready.
 	podSchedulingDelayDuration = 15 * time.Second
 )
-
-// metadataMatches determines if the current metadata on an object matches the
-// metadata specified by the cluster spec.
-func metadataMatches(currentMetadata metav1.ObjectMeta, desiredMetadata metav1.ObjectMeta) bool {
-	return containsAll(currentMetadata.Labels, desiredMetadata.Labels) && containsAll(currentMetadata.Annotations, desiredMetadata.Annotations)
-}
-
-// mergeLabels merges the labels specified by the operator into
-// on object's metadata.
-//
-// This will return whether the target's labels have changed.
-func mergeLabelsInMetadata(target *metav1.ObjectMeta, desired metav1.ObjectMeta) bool {
-	if target.Labels == nil && len(desired.Labels) > 0 {
-		target.Labels = map[string]string{}
-	}
-
-	return mergeMap(target.Labels, desired.Labels)
-}
-
-// mergeAnnotations merges the annotations specified by the operator into
-// on object's metadata.
-//
-// This will return whether the target's annotations have changed.
-func mergeAnnotations(target *metav1.ObjectMeta, desired metav1.ObjectMeta) bool {
-	if target.Annotations == nil && len(desired.Annotations) > 0 {
-		target.Annotations = map[string]string{}
-	}
-
-	return mergeMap(target.Annotations, desired.Annotations)
-}
-
-// mergeMap merges a map into another map.
-//
-// This will return whether the target's values have changed.
-func mergeMap(target map[string]string, desired map[string]string) bool {
-	changed := false
-	for key, value := range desired {
-		if target[key] != value {
-			target[key] = value
-			changed = true
-		}
-	}
-	return changed
-}
 
 // requeue provides a wrapper around different results from a subreconciler.
 type requeue struct {

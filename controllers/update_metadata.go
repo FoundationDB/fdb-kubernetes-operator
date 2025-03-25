@@ -27,9 +27,7 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strconv"
 )
 
 // updateMetadata provides a reconciliation step for updating the metadata on Pods.
@@ -45,11 +43,30 @@ func (updateMetadata) reconcile(ctx context.Context, r *FoundationDBClusterRecon
 			continue
 		}
 
-		err := updatePodMetadata(ctx, r, cluster, processGroup)
+		pod, err := r.PodLifecycleManager.GetPod(ctx, r, cluster, processGroup.GetPodName(cluster))
 		if err != nil {
-			logger.Error(err, "Could not update Pod metadata",
+			logger.Error(err, "Could not get Pod",
 				"processGroupID", processGroup.ProcessGroupID)
 			shouldRequeue = true
+			continue
+		}
+
+		correct, err := internal.PodMetadataCorrect(cluster, processGroup, pod)
+		if err != nil {
+			logger.Error(err, "Could not get Pod metadata",
+				"processGroupID", processGroup.ProcessGroupID)
+			shouldRequeue = true
+			continue
+		}
+
+		if !correct {
+			logger.Info("update pod metadata", "processGroupID", processGroup.ProcessGroupID)
+			err = r.PodLifecycleManager.UpdateMetadata(ctx, r, cluster, pod)
+			if err != nil {
+				logger.Error(err, "Could not update Pod metadata",
+					"processGroupID", processGroup.ProcessGroupID)
+				shouldRequeue = true
+			}
 		}
 
 		// We can skip all stateless processes because they won't have a PVC attached.
@@ -74,7 +91,8 @@ func (updateMetadata) reconcile(ctx context.Context, r *FoundationDBClusterRecon
 			metadata.Annotations = make(map[string]string, 1)
 		}
 
-		if !metadataCorrect(metadata, &pvc.ObjectMeta) {
+		if !internal.MetadataCorrect(metadata, &pvc.ObjectMeta) {
+			logger.Info("update pvc metadata", "processGroupID", processGroup.ProcessGroupID)
 			err = r.Update(ctx, pvc)
 			if err != nil {
 				logger.Error(err, "Could not update PVC metadata",
@@ -89,51 +107,4 @@ func (updateMetadata) reconcile(ctx context.Context, r *FoundationDBClusterRecon
 	}
 
 	return nil
-}
-
-func updatePodMetadata(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, processGroup *fdbv1beta2.ProcessGroupStatus) error {
-	pod, err := r.PodLifecycleManager.GetPod(ctx, r, cluster, processGroup.GetPodName(cluster))
-	if err != nil {
-		return err
-	}
-
-	desiredMetadata := internal.GetPodMetadata(cluster, processGroup.ProcessClass, processGroup.ProcessGroupID, "")
-	correct, err := podMetadataCorrect(desiredMetadata, pod)
-	if err != nil {
-		return err
-	}
-
-	if !correct {
-		return r.PodLifecycleManager.UpdateMetadata(ctx, r, cluster, pod)
-	}
-
-	return nil
-}
-
-func podMetadataCorrect(desiredMetadata metav1.ObjectMeta, pod *corev1.Pod) (bool, error) {
-	if desiredMetadata.Annotations == nil {
-		desiredMetadata.Annotations = make(map[string]string, 1)
-	}
-
-	if pod.Spec.NodeName != "" {
-		desiredMetadata.Annotations[fdbv1beta2.NodeAnnotation] = pod.Spec.NodeName
-	}
-
-	desiredMetadata.Annotations[fdbv1beta2.LastSpecKey] = pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey]
-	// Don't change the annotation for the image type, this will require a pod update.
-	desiredMetadata.Annotations[fdbv1beta2.ImageTypeAnnotation] = string(internal.GetImageTypeFromAnnotation(pod.ObjectMeta.Annotations))
-
-	// Don't change the IP family annotation, this will require a pod update.
-	ipFamily, err := internal.GetIPFamily(pod)
-	if err != nil {
-		return false, err
-	}
-	desiredMetadata.Annotations[fdbv1beta2.IPFamilyAnnotation] = strconv.Itoa(ipFamily)
-
-	return metadataCorrect(desiredMetadata, &pod.ObjectMeta), nil
-}
-
-func metadataCorrect(desiredMetadata metav1.ObjectMeta, currentMetadata *metav1.ObjectMeta) bool {
-	// If the annotations or labels have changed the metadata has to be updated.
-	return !mergeLabelsInMetadata(currentMetadata, desiredMetadata) && !mergeAnnotations(currentMetadata, desiredMetadata)
 }
