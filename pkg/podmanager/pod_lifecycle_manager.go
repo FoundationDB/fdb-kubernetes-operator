@@ -77,7 +77,7 @@ type PodUpdateMethod string
 const (
 	// Update is the default way to update pods with the update call.
 	Update PodUpdateMethod = "update"
-	// Patch is will use the path method to update pods.
+	// Patch will use the patch method to update pods.
 	Patch PodUpdateMethod = "patch"
 )
 
