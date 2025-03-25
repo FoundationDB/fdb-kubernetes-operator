@@ -29,11 +29,10 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
 )
 
 var _ = Describe("pod_helper", func() {
-	DescribeTable("when getting the IP family from a pod", func(pod *corev1.Pod, expected *int, expectedErr error) {
+	DescribeTable("when getting the IP family from a pod", func(pod *corev1.Pod, expected int, expectedErr error) {
 		result, err := GetIPFamily(pod)
 		if expectedErr != nil {
 			Expect(err).To(MatchError(expectedErr))
@@ -55,7 +54,7 @@ var _ = Describe("pod_helper", func() {
 					},
 				},
 			},
-			pointer.Int(fdbv1beta2.PodIPFamilyIPv4),
+			fdbv1beta2.PodIPFamilyIPv4,
 			nil,
 		),
 		Entry("pod has IP family annotation for IPv6",
@@ -66,7 +65,7 @@ var _ = Describe("pod_helper", func() {
 					},
 				},
 			},
-			pointer.Int(fdbv1beta2.PodIPFamilyIPv6),
+			fdbv1beta2.PodIPFamilyIPv6,
 			nil,
 		),
 		Entry("pod has IP family annotation with invalid value",
@@ -77,14 +76,14 @@ var _ = Describe("pod_helper", func() {
 					},
 				},
 			},
-			nil,
+			fdbv1beta2.PodIPFamilyUnset,
 			errors.New("unsupported IP family 1337"),
 		),
 		Entry("pod has no IP family annotation and nothing specified in the pod spec",
 			&corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{},
 			},
-			nil,
+			fdbv1beta2.PodIPFamilyUnset,
 			nil,
 		),
 		Entry("pod has no IP family annotation and uses IP family IPv4 with split image",
@@ -106,7 +105,7 @@ var _ = Describe("pod_helper", func() {
 					},
 				},
 			},
-			pointer.Int(fdbv1beta2.PodIPFamilyIPv4),
+			fdbv1beta2.PodIPFamilyIPv4,
 			nil,
 		),
 		Entry("pod has no IP family annotation and uses IP family IPv6 with split image",
@@ -128,7 +127,7 @@ var _ = Describe("pod_helper", func() {
 					},
 				},
 			},
-			pointer.Int(fdbv1beta2.PodIPFamilyIPv6),
+			fdbv1beta2.PodIPFamilyIPv6,
 			nil,
 		),
 		Entry("pod has no IP family annotation and uses unsupported IP family with split image",
@@ -163,7 +162,7 @@ var _ = Describe("pod_helper", func() {
 					},
 				},
 			},
-			pointer.Int(fdbv1beta2.PodIPFamilyIPv4),
+			fdbv1beta2.PodIPFamilyIPv4,
 			nil,
 		),
 		Entry("pod has no IP family annotation and uses IP family IPv6 with unified image",
@@ -175,7 +174,7 @@ var _ = Describe("pod_helper", func() {
 					},
 				},
 			},
-			pointer.Int(fdbv1beta2.PodIPFamilyIPv6),
+			fdbv1beta2.PodIPFamilyIPv6,
 			nil,
 		),
 		Entry("pod has no IP family annotation and uses unsupported IP family with unified image",

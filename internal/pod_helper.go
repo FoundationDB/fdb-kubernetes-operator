@@ -49,7 +49,7 @@ func GetPublicIPsForPod(pod *corev1.Pod, log logr.Logger) []string {
 		return []string{pod.Status.PodIP}
 	}
 
-	if podIPFamily == nil {
+	if podIPFamily == fdbv1beta2.PodIPFamilyUnset {
 		return []string{pod.Status.PodIP}
 	}
 
@@ -62,13 +62,13 @@ func GetPublicIPsForPod(pod *corev1.Pod, log logr.Logger) []string {
 			continue
 		}
 		matches := false
-		switch *podIPFamily {
+		switch podIPFamily {
 		case fdbv1beta2.PodIPFamilyIPv4:
 			matches = ip.To4() != nil
 		case fdbv1beta2.PodIPFamilyIPv6:
 			matches = ip.To4() == nil
 		default:
-			log.Error(nil, "Could not match IP address against IP family", "family", *podIPFamily)
+			log.Error(nil, "Could not match IP address against IP family", "family", podIPFamily)
 		}
 		if matches {
 			matchingIPs = append(matchingIPs, podIP.IP)
@@ -223,17 +223,17 @@ func GetPublicIPSource(pod *corev1.Pod) (fdbv1beta2.PublicIPSource, error) {
 }
 
 // getIPFamilyFromPod returns the IP family from the pod configuration.
-func getIPFamilyFromPod(pod *corev1.Pod) (*int, error) {
+func getIPFamilyFromPod(pod *corev1.Pod) (int, error) {
 	if GetImageType(pod) == fdbv1beta2.ImageTypeUnified {
 		currentData, present := pod.Annotations[monitorapi.CurrentConfigurationAnnotation]
 		if !present {
-			return nil, fmt.Errorf("could not read current launcher configuration")
+			return fdbv1beta2.PodIPFamilyUnset, fmt.Errorf("could not read current launcher configuration")
 		}
 
 		currentConfiguration := monitorapi.ProcessConfiguration{}
 		err := json.Unmarshal([]byte(currentData), &currentConfiguration)
 		if err != nil {
-			return nil, fmt.Errorf("could not parse current process configuration: %w", err)
+			return fdbv1beta2.PodIPFamilyUnset, fmt.Errorf("could not parse current process configuration: %w", err)
 		}
 
 		for _, argument := range currentConfiguration.Arguments {
@@ -245,7 +245,7 @@ func getIPFamilyFromPod(pod *corev1.Pod) (*int, error) {
 		}
 
 		// No IP List setting is defined.
-		return nil, nil
+		return fdbv1beta2.PodIPFamilyUnset, nil
 	}
 
 	for _, container := range pod.Spec.Containers {
@@ -260,23 +260,23 @@ func getIPFamilyFromPod(pod *corev1.Pod) (*int, error) {
 		}
 	}
 
-	return nil, nil
+	return fdbv1beta2.PodIPFamilyUnset, nil
 }
 
 // validateIPFamily will validate that the IP family is valid and return a pointer.
-func validateIPFamily(ipFamily int) (*int, error) {
-	if ipFamily != fdbv1beta2.PodIPFamilyIPv4 && ipFamily != fdbv1beta2.PodIPFamilyIPv6 {
-		return nil, fmt.Errorf("unsupported IP family %d", ipFamily)
+func validateIPFamily(ipFamily int) (int, error) {
+	if ipFamily != fdbv1beta2.PodIPFamilyIPv4 && ipFamily != fdbv1beta2.PodIPFamilyIPv6 && ipFamily != fdbv1beta2.PodIPFamilyUnset {
+		return fdbv1beta2.PodIPFamilyUnset, fmt.Errorf("unsupported IP family %d", ipFamily)
 	}
 
-	return pointer.Int(ipFamily), nil
+	return ipFamily, nil
 }
 
 // parseIPFamily will convert a string into the IP family (int pointer) and validate that the value is a valid IP family.
-func parseIPFamily(ipFamilyValue string) (*int, error) {
+func parseIPFamily(ipFamilyValue string) (int, error) {
 	ipFamily, err := strconv.Atoi(ipFamilyValue)
 	if err != nil {
-		return nil, err
+		return fdbv1beta2.PodIPFamilyUnset, err
 	}
 
 	return validateIPFamily(ipFamily)
@@ -284,9 +284,9 @@ func parseIPFamily(ipFamilyValue string) (*int, error) {
 
 // GetIPFamily determines the IP family based on the annotation. If the annotation is not present the method will try to
 // get the ip family based on the pod spec.
-func GetIPFamily(pod *corev1.Pod) (*int, error) {
+func GetIPFamily(pod *corev1.Pod) (int, error) {
 	if pod == nil {
-		return nil, fmt.Errorf("failed to fetch IP family from nil Pod")
+		return fdbv1beta2.PodIPFamilyUnset, fmt.Errorf("failed to fetch IP family from nil Pod")
 	}
 
 	ipFamilyValue, ok := pod.ObjectMeta.Annotations[fdbv1beta2.IPFamilyAnnotation]

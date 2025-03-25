@@ -21,6 +21,8 @@
 package controllers
 
 import (
+	"strconv"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -38,7 +40,8 @@ var _ = Describe("Update metadata", func() {
 
 	DescribeTable("test pod metadata correctness",
 		func(tc testCase) {
-			result := podMetadataCorrect(tc.metadata, tc.pod)
+			result, err := podMetadataCorrect(tc.metadata, tc.pod)
+			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(Equal(tc.expected))
 			Expect(tc.pod.ObjectMeta.Labels).To(Equal(tc.expectedMeta.Labels))
 			Expect(tc.pod.ObjectMeta.Annotations).To(Equal(tc.expectedMeta.Annotations))
@@ -50,6 +53,7 @@ var _ = Describe("Update metadata", func() {
 						Annotations: map[string]string{
 							fdbv1beta2.LastSpecKey:         "1",
 							fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
+							fdbv1beta2.IPFamilyAnnotation:  strconv.Itoa(fdbv1beta2.PodIPFamilyUnset),
 						},
 					},
 				},
@@ -57,6 +61,7 @@ var _ = Describe("Update metadata", func() {
 					Annotations: map[string]string{
 						fdbv1beta2.LastSpecKey:         "1",
 						fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
+						fdbv1beta2.IPFamilyAnnotation:  strconv.Itoa(fdbv1beta2.PodIPFamilyUnset),
 					},
 				},
 				expected: true,
@@ -64,6 +69,7 @@ var _ = Describe("Update metadata", func() {
 					Annotations: map[string]string{
 						fdbv1beta2.LastSpecKey:         "1",
 						fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
+						fdbv1beta2.IPFamilyAnnotation:  strconv.Itoa(fdbv1beta2.PodIPFamilyUnset),
 					},
 				},
 			},
@@ -75,6 +81,7 @@ var _ = Describe("Update metadata", func() {
 						Annotations: map[string]string{
 							fdbv1beta2.LastSpecKey:         "1",
 							fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
+							fdbv1beta2.IPFamilyAnnotation:  strconv.Itoa(fdbv1beta2.PodIPFamilyUnset),
 						},
 					},
 				},
@@ -82,6 +89,7 @@ var _ = Describe("Update metadata", func() {
 					Annotations: map[string]string{
 						fdbv1beta2.LastSpecKey:         "2",
 						fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
+						fdbv1beta2.IPFamilyAnnotation:  strconv.Itoa(fdbv1beta2.PodIPFamilyUnset),
 					},
 				},
 				expected: true,
@@ -89,6 +97,7 @@ var _ = Describe("Update metadata", func() {
 					Annotations: map[string]string{
 						fdbv1beta2.LastSpecKey:         "1",
 						fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
+						fdbv1beta2.IPFamilyAnnotation:  strconv.Itoa(fdbv1beta2.PodIPFamilyUnset),
 					},
 				},
 			},
@@ -101,6 +110,7 @@ var _ = Describe("Update metadata", func() {
 							fdbv1beta2.LastSpecKey:         "1",
 							"special":                      "43",
 							fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
+							fdbv1beta2.IPFamilyAnnotation:  strconv.Itoa(fdbv1beta2.PodIPFamilyUnset),
 						},
 					},
 				},
@@ -109,6 +119,7 @@ var _ = Describe("Update metadata", func() {
 						fdbv1beta2.LastSpecKey:         "1",
 						"special":                      "42",
 						fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
+						fdbv1beta2.IPFamilyAnnotation:  strconv.Itoa(fdbv1beta2.PodIPFamilyUnset),
 					},
 				},
 				expected: false,
@@ -117,6 +128,7 @@ var _ = Describe("Update metadata", func() {
 						fdbv1beta2.LastSpecKey:         "1",
 						"special":                      "42",
 						fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
+						fdbv1beta2.IPFamilyAnnotation:  strconv.Itoa(fdbv1beta2.PodIPFamilyUnset),
 					},
 				},
 			},
@@ -128,6 +140,7 @@ var _ = Describe("Update metadata", func() {
 						Annotations: map[string]string{
 							fdbv1beta2.LastSpecKey:         "1",
 							fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
+							fdbv1beta2.IPFamilyAnnotation:  strconv.Itoa(fdbv1beta2.PodIPFamilyUnset),
 						},
 					},
 				},
@@ -136,6 +149,7 @@ var _ = Describe("Update metadata", func() {
 						fdbv1beta2.LastSpecKey:         "1",
 						"controller/X":                 "wrong",
 						fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
+						fdbv1beta2.IPFamilyAnnotation:  strconv.Itoa(fdbv1beta2.PodIPFamilyUnset),
 					},
 				},
 				expected: false,
@@ -144,6 +158,7 @@ var _ = Describe("Update metadata", func() {
 						fdbv1beta2.LastSpecKey:         "1",
 						"controller/X":                 "wrong",
 						fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
+						fdbv1beta2.IPFamilyAnnotation:  strconv.Itoa(fdbv1beta2.PodIPFamilyUnset),
 					},
 				},
 			},
@@ -156,6 +171,7 @@ var _ = Describe("Update metadata", func() {
 							fdbv1beta2.LastSpecKey:         "1",
 							"controller/X":                 "wrong",
 							fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
+							fdbv1beta2.IPFamilyAnnotation:  strconv.Itoa(fdbv1beta2.PodIPFamilyUnset),
 						},
 					},
 				},
@@ -163,6 +179,7 @@ var _ = Describe("Update metadata", func() {
 					Annotations: map[string]string{
 						fdbv1beta2.LastSpecKey:         "1",
 						fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
+						fdbv1beta2.IPFamilyAnnotation:  strconv.Itoa(fdbv1beta2.PodIPFamilyUnset),
 					},
 				},
 				expected: true,
@@ -171,6 +188,7 @@ var _ = Describe("Update metadata", func() {
 						fdbv1beta2.LastSpecKey:         "1",
 						"controller/X":                 "wrong",
 						fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
+						fdbv1beta2.IPFamilyAnnotation:  strconv.Itoa(fdbv1beta2.PodIPFamilyUnset),
 					},
 				},
 			},
@@ -199,6 +217,7 @@ var _ = Describe("Update metadata", func() {
 						fdbv1beta2.LastSpecKey:         "1",
 						"controller/X":                 "wrong",
 						fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
+						fdbv1beta2.IPFamilyAnnotation:  strconv.Itoa(fdbv1beta2.PodIPFamilyUnset),
 					},
 				},
 			},
@@ -210,6 +229,7 @@ var _ = Describe("Update metadata", func() {
 						Annotations: map[string]string{
 							fdbv1beta2.LastSpecKey:         "1",
 							fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
+							fdbv1beta2.IPFamilyAnnotation:  strconv.Itoa(fdbv1beta2.PodIPFamilyUnset),
 						},
 						Labels: map[string]string{
 							"test": "test",
@@ -220,6 +240,7 @@ var _ = Describe("Update metadata", func() {
 					Annotations: map[string]string{
 						fdbv1beta2.LastSpecKey:         "1",
 						fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
+						fdbv1beta2.IPFamilyAnnotation:  strconv.Itoa(fdbv1beta2.PodIPFamilyUnset),
 					},
 				},
 				expected: true,
@@ -227,6 +248,7 @@ var _ = Describe("Update metadata", func() {
 					Annotations: map[string]string{
 						fdbv1beta2.LastSpecKey:         "1",
 						fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
+						fdbv1beta2.IPFamilyAnnotation:  strconv.Itoa(fdbv1beta2.PodIPFamilyUnset),
 					},
 					Labels: map[string]string{
 						"test": "test",
@@ -241,6 +263,7 @@ var _ = Describe("Update metadata", func() {
 						Annotations: map[string]string{
 							fdbv1beta2.LastSpecKey:         "1",
 							fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
+							fdbv1beta2.IPFamilyAnnotation:  strconv.Itoa(fdbv1beta2.PodIPFamilyUnset),
 						},
 						Labels: map[string]string{
 							fdbv1beta2.FDBProcessClassLabel: "storage",
@@ -251,6 +274,7 @@ var _ = Describe("Update metadata", func() {
 					Annotations: map[string]string{
 						fdbv1beta2.LastSpecKey:         "1",
 						fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
+						fdbv1beta2.IPFamilyAnnotation:  strconv.Itoa(fdbv1beta2.PodIPFamilyUnset),
 					},
 					Labels: map[string]string{
 						fdbv1beta2.FDBProcessClassLabel: "globalControllerLogger",
@@ -261,8 +285,8 @@ var _ = Describe("Update metadata", func() {
 					Annotations: map[string]string{
 						fdbv1beta2.LastSpecKey:         "1",
 						fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
+						fdbv1beta2.IPFamilyAnnotation:  strconv.Itoa(fdbv1beta2.PodIPFamilyUnset),
 					},
-
 					Labels: map[string]string{
 						fdbv1beta2.FDBProcessClassLabel: "globalControllerLogger",
 					},
@@ -295,6 +319,7 @@ var _ = Describe("Update metadata", func() {
 						fdbv1beta2.LastSpecKey:         "1",
 						fdbv1beta2.NodeAnnotation:      "testing-node",
 						fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
+						fdbv1beta2.IPFamilyAnnotation:  strconv.Itoa(fdbv1beta2.PodIPFamilyUnset),
 					},
 				},
 			},
@@ -325,6 +350,7 @@ var _ = Describe("Update metadata", func() {
 						fdbv1beta2.LastSpecKey:         "1",
 						fdbv1beta2.NodeAnnotation:      "testing-node",
 						fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
+						fdbv1beta2.IPFamilyAnnotation:  strconv.Itoa(fdbv1beta2.PodIPFamilyUnset),
 					},
 				},
 			},

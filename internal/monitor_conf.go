@@ -182,7 +182,7 @@ func GetMonitorProcessConfiguration(cluster *fdbv1beta2.FoundationDBCluster, pro
 	configuration.Arguments = append(configuration.Arguments,
 		monitorapi.Argument{Value: "--cluster_file=/var/fdb/data/fdb.cluster"},
 		monitorapi.Argument{Value: "--seed_cluster_file=/var/dynamic-conf/fdb.cluster"},
-		monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: buildIPArgument("public_address", fdbv1beta2.EnvNamePublicIP, imageType, sampleAddresses, cluster.Spec.Routing.PodIPFamily)},
+		monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: buildIPArgument("public_address", fdbv1beta2.EnvNamePublicIP, imageType, sampleAddresses, cluster.GetPodIPFamily())},
 		monitorapi.Argument{Value: fmt.Sprintf("--class=%s", processClass)},
 		monitorapi.Argument{Value: "--logdir=/var/log/fdb-trace-logs"},
 		monitorapi.Argument{Value: fmt.Sprintf("--loggroup=%s", logGroup)},
@@ -223,7 +223,7 @@ func GetMonitorProcessConfiguration(cluster *fdbv1beta2.FoundationDBCluster, pro
 	)
 
 	if cluster.NeedsExplicitListenAddress() && cluster.Status.HasListenIPsForAllPods {
-		configuration.Arguments = append(configuration.Arguments, monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: buildIPArgument("listen_address", fdbv1beta2.EnvNamePodIP, imageType, sampleAddresses, cluster.Spec.Routing.PodIPFamily)})
+		configuration.Arguments = append(configuration.Arguments, monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: buildIPArgument("listen_address", fdbv1beta2.EnvNamePodIP, imageType, sampleAddresses, cluster.GetPodIPFamily())})
 	}
 
 	if cluster.Spec.MainContainer.PeerVerificationRules != "" {
@@ -313,7 +313,7 @@ func getKnobParameterWithValue(key string, value string, isLocality bool) string
 }
 
 // buildIPArgument builds an argument that takes an IP address from an environment variable
-func buildIPArgument(parameter string, environmentVariable string, imageType fdbv1beta2.ImageType, sampleAddresses []fdbv1beta2.ProcessAddress, podIPFamily *int) []monitorapi.Argument {
+func buildIPArgument(parameter string, environmentVariable string, imageType fdbv1beta2.ImageType, sampleAddresses []fdbv1beta2.ProcessAddress, podIPFamily int) []monitorapi.Argument {
 	var leftIPWrap string
 	var rightIPWrap string
 	if imageType == fdbv1beta2.ImageTypeUnified {
@@ -333,9 +333,9 @@ func buildIPArgument(parameter string, environmentVariable string, imageType fdb
 		ipArgument := monitorapi.Argument{
 			Source: environmentVariable,
 		}
-		if podIPFamily != nil && imageType == fdbv1beta2.ImageTypeUnified {
+		if podIPFamily != fdbv1beta2.PodIPFamilyUnset && imageType == fdbv1beta2.ImageTypeUnified {
 			ipArgument.ArgumentType = monitorapi.IPListArgumentType
-			ipArgument.IPFamily = *podIPFamily
+			ipArgument.IPFamily = podIPFamily
 		} else {
 			ipArgument.ArgumentType = monitorapi.EnvironmentArgumentType
 		}

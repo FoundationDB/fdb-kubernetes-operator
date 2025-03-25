@@ -34,7 +34,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = FDescribe("update_database_configuration", func() {
+var _ = Describe("update_database_configuration", func() {
 	var cluster *fdbv1beta2.FoundationDBCluster
 	var requeue *requeue
 
