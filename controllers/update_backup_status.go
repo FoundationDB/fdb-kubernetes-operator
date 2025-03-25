@@ -62,7 +62,7 @@ func (s updateBackupStatus) reconcile(ctx context.Context, r *FoundationDBBackup
 		}
 		generationsMatch := currentBackupDeployment.Status.ObservedGeneration == currentBackupDeployment.ObjectMeta.Generation
 
-		annotationChange := mergeAnnotations(&currentBackupDeployment.ObjectMeta, desiredBackupDeployment.ObjectMeta)
+		annotationChange := internal.MergeAnnotations(&currentBackupDeployment.ObjectMeta, desiredBackupDeployment.ObjectMeta)
 
 		metadataMatch := !annotationChange &&
 			equality.Semantic.DeepEqual(currentBackupDeployment.ObjectMeta.Labels, desiredBackupDeployment.ObjectMeta.Labels)

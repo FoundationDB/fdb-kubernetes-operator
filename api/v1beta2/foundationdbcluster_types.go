@@ -2941,8 +2941,8 @@ func (cluster *FoundationDBCluster) Validate() error {
 	}
 
 	if cluster.Spec.Routing.PodIPFamily != nil {
-		ipFamily := *cluster.Spec.Routing.PodIPFamily
-		if ipFamily != 4 && ipFamily != 6 {
+		ipFamily := cluster.GetPodIPFamily()
+		if ipFamily != PodIPFamilyIPv4 && ipFamily != PodIPFamilyIPv6 && ipFamily != PodIPFamilyUnset {
 			validations = append(validations, fmt.Sprintf("Pod IP Family %d is not valid, only 4 or 6 are allowed.", ipFamily))
 		}
 	}
@@ -3093,15 +3093,22 @@ func (cluster *FoundationDBCluster) GetProcessGroupID(processClass ProcessClass,
 }
 
 var (
+	// PodIPFamilyUnset represents an unset IP family.
+	PodIPFamilyUnset = 0
 	// PodIPFamilyIPv4 represents the desired IP family as IPv4.
 	PodIPFamilyIPv4 = 4
 	// PodIPFamilyIPv6 represents the desired IP family as IPv6.
 	PodIPFamilyIPv6 = 6
 )
 
+// GetPodIPFamily returns the current desired pod IP family. If no IP family is specified the value will be PodIPFamilyUnset.
+func (cluster *FoundationDBCluster) GetPodIPFamily() int {
+	return pointer.IntDeref(cluster.Spec.Routing.PodIPFamily, PodIPFamilyUnset)
+}
+
 // IsPodIPFamily6 determines whether the podIPFamily setting in cluster is set to use the IPv6 family.
 func (cluster *FoundationDBCluster) IsPodIPFamily6() bool {
-	return pointer.IntDeref(cluster.Spec.Routing.PodIPFamily, PodIPFamilyIPv4) == PodIPFamilyIPv6
+	return cluster.GetPodIPFamily() == PodIPFamilyIPv6
 }
 
 // ProcessSharesDC returns true if the process's locality matches the cluster's Datacenter.

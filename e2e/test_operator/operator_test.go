@@ -2245,11 +2245,11 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 	})
 
 	When("the Pod IP family is set", func() {
-		var initialPodIPFamily *int
+		var initialPodIPFamily int
 
 		BeforeEach(func() {
 			cluster := fdbCluster.GetCluster()
-			initialPodIPFamily = cluster.Spec.Routing.PodIPFamily
+			initialPodIPFamily = cluster.GetPodIPFamily()
 
 			spec := cluster.Spec.DeepCopy()
 			spec.Routing.PodIPFamily = pointer.Int(4)
@@ -2296,7 +2296,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 		AfterEach(func() {
 			spec := fdbCluster.GetCluster().Spec.DeepCopy()
-			spec.Routing.PodIPFamily = initialPodIPFamily
+			spec.Routing.PodIPFamily = pointer.Int(initialPodIPFamily)
 			fdbCluster.UpdateClusterSpecWithSpec(spec)
 			Expect(fdbCluster.WaitForReconciliation()).NotTo(HaveOccurred())
 		})
@@ -2740,12 +2740,15 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 	})
 
 	When("the pod IP family is changed", func() {
-		var testStartTime time.Time
-		// TODO (johscheuer): Make the IP family configurable in the future.
+		var initialPods []string
 		var podIPFamily = fdbv1beta2.PodIPFamilyIPv4
 
 		BeforeEach(func() {
-			testStartTime = time.Now()
+			pods := fdbCluster.GetPods()
+			for _, pod := range pods.Items {
+				initialPods = append(initialPods, pod.Name)
+			}
+
 			spec := fdbCluster.GetCluster().Spec.DeepCopy()
 			spec.Routing.PodIPFamily = pointer.Int(podIPFamily)
 			fdbCluster.UpdateClusterSpecWithSpec(spec)
@@ -2763,6 +2766,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			pods := fdbCluster.GetPods()
 			podIPFamilyString := strconv.Itoa(podIPFamily)
 
+			newPods := make([]string, 0, len(pods.Items))
 			for _, pod := range pods.Items {
 				if !pod.DeletionTimestamp.IsZero() {
 					continue
@@ -2773,9 +2777,11 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 					continue
 				}
 
-				Expect(pod.CreationTimestamp.After(testStartTime)).To(BeTrue())
+				newPods = append(newPods, pod.Name)
 				Expect(pod.Annotations).To(HaveKeyWithValue(fdbv1beta2.IPFamilyAnnotation, podIPFamilyString))
 			}
+
+			Expect(newPods).NotTo(ContainElements(initialPods))
 		})
 	})
 })

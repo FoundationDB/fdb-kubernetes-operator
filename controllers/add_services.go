@@ -123,10 +123,10 @@ func updateService(ctx context.Context, logger logr.Logger, cluster *fdbv1beta2.
 
 	needsUpdate := !equality.Semantic.DeepEqual(currentService.Spec, *originalSpec)
 	metadata := currentService.ObjectMeta
-	if mergeLabelsInMetadata(&metadata, newService.ObjectMeta) {
+	if internal.MergeLabels(&metadata, newService.ObjectMeta) {
 		needsUpdate = true
 	}
-	if mergeAnnotations(&metadata, newService.ObjectMeta) {
+	if internal.MergeAnnotations(&metadata, newService.ObjectMeta) {
 		needsUpdate = true
 	}
 	if needsUpdate {

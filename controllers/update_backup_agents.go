@@ -74,7 +74,7 @@ func (u updateBackupAgents) reconcile(ctx context.Context, r *FoundationDBBackup
 		}
 	}
 	if !needCreation && deployment != nil {
-		annotationChange := mergeAnnotations(&existingDeployment.ObjectMeta, deployment.ObjectMeta)
+		annotationChange := internal.MergeAnnotations(&existingDeployment.ObjectMeta, deployment.ObjectMeta)
 		deployment.ObjectMeta.Annotations = existingDeployment.ObjectMeta.Annotations
 
 		if annotationChange || !reflect.DeepEqual(existingDeployment.ObjectMeta.Labels, deployment.ObjectMeta.Labels) {
