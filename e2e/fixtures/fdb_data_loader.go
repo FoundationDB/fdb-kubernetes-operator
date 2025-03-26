@@ -45,7 +45,7 @@ const (
 	// The name of the data loader Job.
 	dataLoaderName = "fdb-data-loader"
 
-	// For now we only load 2GB into the cluster, we can increase this later if we want.
+	// We load 2GB into the cluster, we can increase this later if we want.
 	dataLoaderJob = `apiVersion: batch/v1
 kind: Job
 metadata:
@@ -369,7 +369,7 @@ func (factory *Factory) getDataLoaderConfig(clusters []*FdbCluster, config *Work
 	}
 	return &dataLoaderConfig{
 		Name:            dataLoaderName,
-		Image:           "112664522426.dkr.ecr.us-west-2.amazonaws.com/foundationdb/fdb-data-loader:jscheuermann", //factory.GetDataLoaderImage(),
+		Image:           factory.GetDataLoaderImage(),
 		Namespace:       clusters[0].Namespace(),
 		SidecarVersions: factory.GetSidecarConfigs(),
 		ClusterNames:    clusterNames,
