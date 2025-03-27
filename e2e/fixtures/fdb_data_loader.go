@@ -348,7 +348,7 @@ func (config *WorkloadConfig) setDefaults() {
 	}
 
 	if config.BatchSize == 0 {
-		config.BatchSize = 50
+		config.BatchSize = 1000
 	}
 
 	if config.ValueSize == 0 {
