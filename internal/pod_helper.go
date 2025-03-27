@@ -333,10 +333,10 @@ func podMetadataCorrect(desiredMetadata metav1.ObjectMeta, pod *corev1.Pod) (boo
 		desiredMetadata.Annotations[fdbv1beta2.NodeAnnotation] = pod.Spec.NodeName
 	}
 
+	// Ignore the fdbv1beta2.LastSpecKey, this value will be updated by replacing or recreating pods.
 	desiredMetadata.Annotations[fdbv1beta2.LastSpecKey] = pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey]
 	// Don't change the annotation for the image type, this will require a pod update.
 	desiredMetadata.Annotations[fdbv1beta2.ImageTypeAnnotation] = string(GetImageTypeFromAnnotation(pod.ObjectMeta.Annotations))
-
 	// Don't change the IP family annotation, this will require a pod update.
 	ipFamily, err := GetIPFamily(pod)
 	if err != nil {

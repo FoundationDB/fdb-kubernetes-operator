@@ -548,8 +548,7 @@ func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler,
 		return err
 	}
 
-	// TODO (johscheuer): Add an additional check for the metadata with: PodMetadataCorrect
-	// Check here if the Pod spec matches the desired Pod spec. In previous cases we also checked for the metadata.
+	// Check here if the Pod spec matches the desired Pod spec.
 	incorrectPodSpec := specHash != pod.Annotations[fdbv1beta2.LastSpecKey]
 	if !incorrectPodSpec {
 		updated, err := r.PodLifecycleManager.PodIsUpdated(ctx, r, cluster, pod)
@@ -557,8 +556,19 @@ func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler,
 			return err
 		}
 		incorrectPodSpec = !updated
+		if incorrectPodSpec {
+			logger.Info("IncorrectPodSpec", "currentSpecHash", pod.Annotations[fdbv1beta2.LastSpecKey], "desiredSpecHash", specHash, "updated", updated, "incorrectPodSpec", incorrectPodSpec)
+		}
 	}
+
 	processGroupStatus.UpdateCondition(fdbv1beta2.IncorrectPodSpec, incorrectPodSpec)
+
+	// Check if the pod metadata is correct.
+	metadataCorrect, err := internal.PodMetadataCorrect(cluster, processGroupStatus, pod)
+	if err != nil {
+		return err
+	}
+	processGroupStatus.UpdateCondition(fdbv1beta2.IncorrectPodMetadata, !metadataCorrect)
 
 	// If we do a cluster version incompatible upgrade we use the fdbv1beta2.IncorrectConfigMap to signal when the operator
 	// can restart fdbserver processes. Since the ConfigMap itself won't change during the upgrade we have to run the updatePodDynamicConf

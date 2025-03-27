@@ -434,13 +434,49 @@ var _ = Describe("update_status", func() {
 				Expect(k8sClient.Update(context.TODO(), storagePod)).NotTo(HaveOccurred())
 			})
 
-			It("should get a condition assigned", func() {
-				err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap, logger, "")
-				Expect(err).NotTo(HaveOccurred())
-
+			It("should get a IncorrectPodSpec condition assigned", func() {
+				Expect(validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap, logger, "")).To(Succeed())
 				incorrectPods := fdbv1beta2.FilterByCondition(cluster.Status.ProcessGroups, fdbv1beta2.IncorrectPodSpec, false)
 				Expect(incorrectPods).To(Equal([]fdbv1beta2.ProcessGroupID{pickedProcessGroup.ProcessGroupID}))
 				Expect(cluster.Status.ProcessGroups).To(HaveLen(17))
+				Expect(fdbv1beta2.FilterByCondition(cluster.Status.ProcessGroups, fdbv1beta2.IncorrectPodMetadata, false)).To(BeEmpty())
+				Expect(fdbv1beta2.FilterByCondition(cluster.Status.ProcessGroups, fdbv1beta2.IncorrectConfigMap, false)).To(BeEmpty())
+			})
+		})
+
+		When("the pod has the wrong metadata", func() {
+			When("an annotation is missing", func() {
+				BeforeEach(func() {
+					delete(storagePod.ObjectMeta.Annotations, fdbv1beta2.NodeAnnotation)
+					Expect(k8sClient.Update(context.TODO(), storagePod)).NotTo(HaveOccurred())
+				})
+
+				It("should get a IncorrectPodMetadata condition assigned", func() {
+					Expect(validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap, logger, "")).NotTo(HaveOccurred())
+					incorrectPods := fdbv1beta2.FilterByCondition(cluster.Status.ProcessGroups, fdbv1beta2.IncorrectPodMetadata, false)
+					Expect(incorrectPods).To(Equal([]fdbv1beta2.ProcessGroupID{pickedProcessGroup.ProcessGroupID}))
+					Expect(cluster.Status.ProcessGroups).To(HaveLen(17))
+					Expect(fdbv1beta2.FilterByCondition(cluster.Status.ProcessGroups, fdbv1beta2.IncorrectPodSpec, false)).To(BeEmpty())
+					Expect(fdbv1beta2.FilterByCondition(cluster.Status.ProcessGroups, fdbv1beta2.IncorrectConfigMap, false)).To(BeEmpty())
+				})
+			})
+		})
+
+		When("the pod has the wrong config map hash", func() {
+			When("an annotation is missing", func() {
+				BeforeEach(func() {
+					storagePod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey] = "bad"
+					Expect(k8sClient.Update(context.TODO(), storagePod)).NotTo(HaveOccurred())
+				})
+
+				It("should get a IncorrectConfigMap condition assigned", func() {
+					Expect(validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap, logger, "")).NotTo(HaveOccurred())
+					incorrectPods := fdbv1beta2.FilterByCondition(cluster.Status.ProcessGroups, fdbv1beta2.IncorrectConfigMap, false)
+					Expect(incorrectPods).To(Equal([]fdbv1beta2.ProcessGroupID{pickedProcessGroup.ProcessGroupID}))
+					Expect(cluster.Status.ProcessGroups).To(HaveLen(17))
+					Expect(fdbv1beta2.FilterByCondition(cluster.Status.ProcessGroups, fdbv1beta2.IncorrectPodSpec, false)).To(BeEmpty())
+					Expect(fdbv1beta2.FilterByCondition(cluster.Status.ProcessGroups, fdbv1beta2.IncorrectPodMetadata, false)).To(BeEmpty())
+				})
 			})
 		})
 

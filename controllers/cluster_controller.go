@@ -415,9 +415,9 @@ func (r *FoundationDBClusterReconciler) updatePodDynamicConf(logger logr.Logger,
 		}
 	}
 
-	syncedFDBcluster, clusterErr := podClient.UpdateFile("fdb.cluster", cluster.Status.ConnectionString)
+	syncedFDBCluster, clusterErr := podClient.UpdateFile("fdb.cluster", cluster.Status.ConnectionString)
 	syncedFDBMonitor, err := podClient.UpdateFile("fdbmonitor.conf", expectedConf)
-	if !syncedFDBcluster || !syncedFDBMonitor {
+	if !syncedFDBCluster || !syncedFDBMonitor {
 		if clusterErr != nil {
 			return false, clusterErr
 		}
