@@ -1029,7 +1029,6 @@ func GetPodMetadata(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1b
 	}
 
 	metadata := GetObjectMetadata(cluster, customMetadata, processClass, id)
-
 	if metadata.Annotations == nil {
 		metadata.Annotations = make(map[string]string)
 	}

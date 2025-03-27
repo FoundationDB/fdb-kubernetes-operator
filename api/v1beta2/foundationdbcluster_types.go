@@ -925,6 +925,8 @@ type ProcessGroupConditionType string
 const (
 	// IncorrectPodSpec represents a process group that has an incorrect Pod spec.
 	IncorrectPodSpec ProcessGroupConditionType = "IncorrectPodSpec"
+	// IncorrectPodMetadata represents a process group that has an incorrect Pod metadata (labels and annotations differ).
+	IncorrectPodMetadata ProcessGroupConditionType = "IncorrectPodMetadata"
 	// IncorrectConfigMap represents a process group that has an incorrect ConfigMap.
 	IncorrectConfigMap ProcessGroupConditionType = "IncorrectConfigMap"
 	// IncorrectCommandLine represents a process group that has an incorrect commandline configuration.
@@ -964,6 +966,7 @@ const (
 func AllProcessGroupConditionTypes() []ProcessGroupConditionType {
 	return []ProcessGroupConditionType{
 		IncorrectPodSpec,
+		IncorrectPodMetadata,
 		IncorrectConfigMap,
 		IncorrectCommandLine,
 		PodFailing,
@@ -986,6 +989,8 @@ func GetProcessGroupConditionType(processGroupConditionType string) (ProcessGrou
 	switch processGroupConditionType {
 	case "IncorrectPodSpec":
 		return IncorrectPodSpec, nil
+	case "IncorrectPodMetadata":
+		return IncorrectPodMetadata, nil
 	case "IncorrectConfigMap":
 		return IncorrectConfigMap, nil
 	case "IncorrectCommandLine":
