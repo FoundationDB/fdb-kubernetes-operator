@@ -24,6 +24,7 @@ import (
 	"errors"
 	"fmt"
 	"path"
+	"strings"
 	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
@@ -278,6 +279,8 @@ type mockFdbLibClient struct {
 	mockedError error
 	// requestedKey will be the key that was used to call getValueFromDBUsingKey.
 	requestedKey string
+	// coordinationState represents the current coordination state.
+	coordinationState map[string]time.Time
 }
 
 var _ fdbLibClient = (*mockFdbLibClient)(nil)
@@ -289,19 +292,48 @@ func (fdbClient *mockFdbLibClient) getValueFromDBUsingKey(fdbKey string, _ time.
 }
 
 // updateGlobalCoordinationKeys will update the provided updates in FDB.
-func (fdbClient *mockFdbLibClient) updateGlobalCoordinationKeys(_ string, _ map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction) error {
-	// TODO(johscheuer) implement for unit testing.
+func (fdbClient *mockFdbLibClient) updateGlobalCoordinationKeys(keyPrefix string, updates map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction) error {
+	for processGroupID, action := range updates {
+		key := path.Join(keyPrefix, string(processGroupID))
+
+		if action == fdbv1beta2.UpdateActionAdd {
+			if _, ok := fdbClient.coordinationState[key]; !ok {
+				fdbClient.coordinationState[key] = time.Now()
+			}
+			continue
+		}
+
+		if action == fdbv1beta2.UpdateActionDelete {
+			delete(fdbClient.coordinationState, key)
+			continue
+		}
+	}
+
 	return nil
 }
 
-// TODO(johscheuer) implement.
 // getGlobalCoordinationKeys will return the entries under the provided prefix.
-func (fdbClient *mockFdbLibClient) getGlobalCoordinationKeys(_ string) (map[fdbv1beta2.ProcessGroupID]time.Time, error) {
-	// TODO(johscheuer) implement for unit testing.
+func (fdbClient *mockFdbLibClient) getGlobalCoordinationKeys(keyPrefix string) (map[fdbv1beta2.ProcessGroupID]time.Time, error) {
+	result := map[fdbv1beta2.ProcessGroupID]time.Time{}
+	for key, timeStamp := range fdbClient.coordinationState {
+		if !strings.HasPrefix(key, keyPrefix) {
+			continue
+		}
+
+		result[fdbv1beta2.ProcessGroupID(path.Base(key))] = timeStamp
+	}
+
 	return nil, nil
 }
 
-func (fdbClient *mockFdbLibClient) clearGlobalCoordinationKeys(_ string) error {
-	//TODO implement me
+func (fdbClient *mockFdbLibClient) clearGlobalCoordinationKeys(keyPrefix string) error {
+	for key := range fdbClient.coordinationState {
+		if !strings.HasPrefix(key, keyPrefix) {
+			continue
+		}
+
+		delete(fdbClient.coordinationState, path.Base(key))
+	}
+
 	return nil
 }

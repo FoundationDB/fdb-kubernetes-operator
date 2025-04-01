@@ -875,7 +875,6 @@ func quorumOfCoordinatorsAreReachable(status *fdbv1beta2.FoundationDBStatus) boo
 	return status.Client.Coordinators.QuorumReachable
 }
 
-// ...
 const (
 	pendingForRemoval   = "pendingForRemoval"
 	pendingForExclusion = "pendingForExclusion"

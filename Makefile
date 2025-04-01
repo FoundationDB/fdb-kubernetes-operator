@@ -163,7 +163,7 @@ fmt: bin/fmt_check
 bin/fmt_check: ${GO_ALL}
 	# $(GO_LINES) -w .
 	@go fmt $$(go list ./...)
-	@$(GO_IMPORTS) -w $(GO_SRC)
+	#@$(GO_IMPORTS) -w $(GO_SRC)
 	#$(GOLANGCI_LINT) run --fix
 	@mkdir -p bin
 	@touch $@
