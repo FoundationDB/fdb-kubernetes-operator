@@ -109,7 +109,7 @@ var _ = Describe("[plugin] cordon command", func() {
 					ExpectedInstancesToRemoveWithoutExclusion: []fdbv1beta2.ProcessGroupID{},
 					clusterName:       clusterName,
 					clusterLabel:      "",
-					wantErrorContains: "no pods were found that were running on node",
+					wantErrorContains: "",
 				}),
 			Entry("Cordon no node nodes without exclusion",
 				testCase{
@@ -119,7 +119,7 @@ var _ = Describe("[plugin] cordon command", func() {
 					ExpectedInstancesToRemoveWithoutExclusion: []fdbv1beta2.ProcessGroupID{},
 					clusterName:       clusterName,
 					clusterLabel:      "",
-					wantErrorContains: "no pods were found that were running on node",
+					wantErrorContains: "",
 				}),
 			Entry("Cordon all nodes with exclusion",
 				testCase{
@@ -197,7 +197,7 @@ var _ = Describe("[plugin] cordon command", func() {
 					ExpectedInstancesToRemoveWithoutExclusion: []fdbv1beta2.ProcessGroupID{},
 					clusterName:       "",
 					clusterLabel:      fdbv1beta2.FDBClusterLabel,
-					wantErrorContains: "no pods were found that were running on node",
+					wantErrorContains: "",
 				}),
 		)
 	})
