@@ -47,17 +47,6 @@ type AdminClient interface {
 	// them to take on roles again.
 	IncludeProcesses(addresses []fdbv1beta2.ProcessAddress) error
 
-	// GetExclusions gets a list of the addresses currently excluded from the
-	// database.
-	GetExclusions() ([]fdbv1beta2.ProcessAddress, error)
-
-	// CanSafelyRemove checks whether it is safe to remove processes from the
-	// cluster.
-	//
-	// The list returned by this method will be the addresses that are *not*
-	// safe to remove.
-	CanSafelyRemove(addresses []fdbv1beta2.ProcessAddress) ([]fdbv1beta2.ProcessAddress, error)
-
 	// KillProcesses restarts processes
 	KillProcesses(addresses []fdbv1beta2.ProcessAddress) error
 
@@ -67,10 +56,6 @@ type AdminClient interface {
 
 	// ChangeCoordinators changes the coordinator set
 	ChangeCoordinators(addresses []fdbv1beta2.ProcessAddress) (string, error)
-
-	// GetConnectionString fetches the latest connection string. This method will make use of fdbcli to ensure that the
-	// cluster file managed by the fdb client library is not changed.
-	GetConnectionString() (string, error)
 
 	// VersionSupported reports whether we can support a cluster with a given
 	// version.
@@ -108,14 +93,8 @@ type AdminClient interface {
 	// needed.
 	Close() error
 
-	// GetCoordinatorSet returns a set of the current coordinators.
-	GetCoordinatorSet() (map[string]fdbv1beta2.None, error)
-
 	// SetKnobs sets the Knobs that should be used for the commandline call.
 	SetKnobs([]string)
-
-	// GetMaintenanceZone gets current maintenance zone, if any.
-	GetMaintenanceZone() (string, error)
 
 	// SetMaintenanceZone places zone into maintenance mode.
 	SetMaintenanceZone(zone string, timeoutSeconds int) error

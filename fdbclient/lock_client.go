@@ -300,8 +300,7 @@ func (client *realLockClient) UpdateDenyList(locks []fdbv1beta2.LockDenyListEntr
 
 // getDenyListKeyRange defines a key range containing the full deny list.
 func (client *realLockClient) getDenyListKeyRange() (fdb.KeyRange, error) {
-	keyPrefix := []byte(fmt.Sprintf("%s/denyList/", client.cluster.GetLockPrefix()))
-	return fdb.PrefixRange(keyPrefix)
+	return fdb.PrefixRange([]byte(fmt.Sprintf("%s/denyList/", client.cluster.GetLockPrefix())))
 }
 
 // getDenyListKeyRange defines a key range containing a potential deny list

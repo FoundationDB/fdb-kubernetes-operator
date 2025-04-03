@@ -23,7 +23,6 @@ package fdbclient
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net"
 	"os"
 	"path"
@@ -763,11 +762,13 @@ protocol fdb00b071010000`,
 		var useNonBlockingExcludes bool
 
 		JustBeforeEach(func() {
+			interactionMode := fdbv1beta2.DatabaseInteractionModeFdbcli
 			cluster := &fdbv1beta2.FoundationDBCluster{
 				Spec: fdbv1beta2.FoundationDBClusterSpec{
 					Version: "6.3.25",
 					AutomationOptions: fdbv1beta2.FoundationDBClusterAutomationOptions{
-						UseNonBlockingExcludes: pointer.Bool(useNonBlockingExcludes),
+						UseNonBlockingExcludes:  pointer.Bool(useNonBlockingExcludes),
+						DatabaseInteractionMode: &interactionMode,
 					},
 				},
 			}
