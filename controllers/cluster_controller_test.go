@@ -559,9 +559,10 @@ var _ = Describe("cluster_controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(adminClient).NotTo(BeNil())
 
-				coordinatorSet, err := adminClient.GetCoordinatorSet()
+				status, err := adminClient.GetStatus()
 				Expect(err).NotTo(HaveOccurred())
 
+				coordinatorSet := fdbstatus.GetCoordinatorsFromStatus(status)
 				for _, processGroup := range cluster.Status.ProcessGroups {
 					if _, ok := coordinatorSet[string(processGroup.ProcessGroupID)]; !ok {
 						continue
