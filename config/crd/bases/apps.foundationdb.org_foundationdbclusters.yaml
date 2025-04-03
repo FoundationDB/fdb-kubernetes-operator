@@ -68,6 +68,9 @@ spec:
                     type: boolean
                   configureDatabase:
                     type: boolean
+                  databaseInteractionMode:
+                    maxLength: 256
+                    type: string
                   deletionMode:
                     default: Zone
                     enum:

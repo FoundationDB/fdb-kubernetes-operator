@@ -27,6 +27,7 @@ import (
 	"io/fs"
 	"os"
 	"path"
+	"strings"
 	"sync"
 	"time"
 
@@ -183,6 +184,18 @@ func getStatusFromDB(libClient fdbLibClient, logger logr.Logger, timeout time.Du
 	}
 
 	return parseMachineReadableStatus(logger, contents, true)
+}
+
+// cleanConnectionStringOutput is a helper method to remove unrelated output from the get command in the connection string
+// output.
+func cleanConnectionStringOutput(input string) string {
+	startIdx := strings.LastIndex(input, "`")
+	endIdx := strings.LastIndex(input, "'")
+	if startIdx == -1 && endIdx == -1 {
+		return input
+	}
+
+	return input[startIdx+1 : endIdx]
 }
 
 type realDatabaseClientProvider struct {
