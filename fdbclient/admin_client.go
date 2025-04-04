@@ -573,7 +573,7 @@ func (client *cliAdminClient) killWithManagementAPI(addresses []fdbv1beta2.Proce
 	client.log.Info("reboot processes with management API")
 	var rebootErrors []error
 	for _, addr := range addresses {
-		err = db.RebootWorker(addr.String(), false, 0)
+		err = db.RebootWorker(addr.StringWithoutFlags(), false, 0)
 		if err != nil {
 			rebootErrors = append(rebootErrors, err)
 		}
