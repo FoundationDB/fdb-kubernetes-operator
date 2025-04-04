@@ -267,28 +267,34 @@ func (haFDBCluster *HaFdbCluster) DumpState() {
 }
 
 // SetCustomParameters sets the custom parameters for the provided process class.
-func (haFDBCluster *HaFdbCluster) SetCustomParameters(processClass fdbv1beta2.ProcessClass,
-	customParameters fdbv1beta2.FoundationDBCustomParameters,
+func (haFDBCluster *HaFdbCluster) SetCustomParameters(customParameters map[fdbv1beta2.ProcessClass]fdbv1beta2.FoundationDBCustomParameters,
 	waitForReconcile bool) error {
+	var wg errgroup.Group
 	for _, cluster := range haFDBCluster.clusters {
-		err := cluster.SetCustomParameters(processClass, customParameters, false)
-		if err != nil {
-			return err
-		}
+		clusterCopy := cluster
+		wg.Go(func() error {
+			return clusterCopy.SetCustomParameters(customParameters, false)
+		})
+	}
+
+	err := wg.Wait()
+	if err != nil {
+		return err
 	}
 
 	if !waitForReconcile {
 		return nil
 	}
 
+	var reconcileWg errgroup.Group
 	for _, cluster := range haFDBCluster.clusters {
-		err := cluster.WaitForReconciliation()
-		if err != nil {
-			return err
-		}
+		clusterCopy := cluster
+		reconcileWg.Go(func() error {
+			return clusterCopy.WaitForReconciliation()
+		})
 	}
 
-	return nil
+	return reconcileWg.Wait()
 }
 
 // VerifyVersion Checks if cluster is running at the expectedVersion. This is done by checking the status of the FoundationDBCluster status.

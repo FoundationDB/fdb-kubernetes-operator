@@ -27,7 +27,6 @@ This test suite contains destructive test cases for a multi-region FDB cluster (
 import (
 	"context"
 	"fmt"
-	"golang.org/x/sync/errgroup"
 	"log"
 	"time"
 
@@ -35,6 +34,7 @@ import (
 	chaosmesh "github.com/chaos-mesh/chaos-mesh/api/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"golang.org/x/sync/errgroup"
 )
 
 var (

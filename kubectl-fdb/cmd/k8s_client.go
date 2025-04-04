@@ -24,12 +24,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
-	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
 	"io"
-	"k8s.io/client-go/rest"
 	"math/rand"
 	"strings"
+
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
+	"k8s.io/client-go/rest"
 
 	"github.com/go-logr/logr"
 	"github.com/spf13/cobra"

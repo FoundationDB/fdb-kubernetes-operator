@@ -1357,8 +1357,9 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 			Expect(
 				fdbCluster.SetCustomParameters(
-					fdbv1beta2.ProcessClassGeneral,
-					newGeneralCustomParameters,
+					map[fdbv1beta2.ProcessClass]fdbv1beta2.FoundationDBCustomParameters{
+						fdbv1beta2.ProcessClassGeneral: newGeneralCustomParameters,
+					},
 					false,
 				),
 			).NotTo(HaveOccurred())
@@ -1366,8 +1367,9 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 		AfterEach(func() {
 			Expect(fdbCluster.SetCustomParameters(
-				fdbv1beta2.ProcessClassGeneral,
-				initialGeneralCustomParameters,
+				map[fdbv1beta2.ProcessClass]fdbv1beta2.FoundationDBCustomParameters{
+					fdbv1beta2.ProcessClassGeneral: initialGeneralCustomParameters,
+				},
 				false,
 			)).NotTo(HaveOccurred())
 			fdbCluster.SetIgnoreDuringRestart(nil)
@@ -2319,8 +2321,9 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 			Expect(
 				fdbCluster.SetCustomParameters(
-					fdbv1beta2.ProcessClassGeneral,
-					newGeneralCustomParameters,
+					map[fdbv1beta2.ProcessClass]fdbv1beta2.FoundationDBCustomParameters{
+						fdbv1beta2.ProcessClassGeneral: newGeneralCustomParameters,
+					},
 					false,
 				),
 			).NotTo(HaveOccurred())
@@ -2328,8 +2331,9 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 		AfterEach(func() {
 			Expect(fdbCluster.SetCustomParameters(
-				fdbv1beta2.ProcessClassGeneral,
-				initialGeneralCustomParameters,
+				map[fdbv1beta2.ProcessClass]fdbv1beta2.FoundationDBCustomParameters{
+					fdbv1beta2.ProcessClassGeneral: initialGeneralCustomParameters,
+				},
 				true,
 			)).NotTo(HaveOccurred())
 		})
@@ -2414,11 +2418,12 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			)
 			Expect(
 				fdbCluster.SetCustomParameters(
-					fdbv1beta2.ProcessClassStorage,
-					append(
-						initialCustomParameters,
-						"knob_max_trace_lines=1000000",
-					),
+					map[fdbv1beta2.ProcessClass]fdbv1beta2.FoundationDBCustomParameters{
+						fdbv1beta2.ProcessClassStorage: append(
+							initialCustomParameters,
+							"knob_max_trace_lines=1000000",
+						),
+					},
 					false,
 				),
 			).NotTo(HaveOccurred())
@@ -2485,8 +2490,9 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		AfterEach(func() {
 			factory.DeleteChaosMeshExperimentSafe(exp)
 			Expect(fdbCluster.SetCustomParameters(
-				fdbv1beta2.ProcessClassStorage,
-				initialCustomParameters,
+				map[fdbv1beta2.ProcessClass]fdbv1beta2.FoundationDBCustomParameters{
+					fdbv1beta2.ProcessClassStorage: initialCustomParameters,
+				},
 				true,
 			)).NotTo(HaveOccurred())
 		})
@@ -2540,11 +2546,12 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 			// Update the storage processes to have the new locality.
 			Expect(fdbCluster.SetCustomParameters(
-				fdbv1beta2.ProcessClassStorage,
-				append(
-					initialParameters,
-					"locality_os=$NODE_LABEL_KUBERNETES_IO_OS",
-				),
+				map[fdbv1beta2.ProcessClass]fdbv1beta2.FoundationDBCustomParameters{
+					fdbv1beta2.ProcessClassStorage: append(
+						initialParameters,
+						"locality_os=$NODE_LABEL_KUBERNETES_IO_OS",
+					),
+				},
 				true,
 			)).NotTo(HaveOccurred())
 
@@ -2564,8 +2571,9 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 		AfterEach(func() {
 			Expect(fdbCluster.SetCustomParameters(
-				fdbv1beta2.ProcessClassStorage,
-				initialParameters,
+				map[fdbv1beta2.ProcessClass]fdbv1beta2.FoundationDBCustomParameters{
+					fdbv1beta2.ProcessClassStorage: initialParameters,
+				},
 				true,
 			)).NotTo(HaveOccurred())
 		})
@@ -2628,11 +2636,12 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 			Expect(
 				fdbCluster.SetCustomParameters(
-					fdbv1beta2.ProcessClassStorage,
-					append(
-						initialCustomParameters,
-						"knob_read_sampling_enabled=true",
-					),
+					map[fdbv1beta2.ProcessClass]fdbv1beta2.FoundationDBCustomParameters{
+						fdbv1beta2.ProcessClassStorage: append(
+							initialCustomParameters,
+							"knob_read_sampling_enabled=true",
+						),
+					},
 					false,
 				),
 			).NotTo(HaveOccurred())
@@ -2640,8 +2649,9 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 		AfterEach(func() {
 			Expect(fdbCluster.SetCustomParameters(
-				fdbv1beta2.ProcessClassStorage,
-				initialCustomParameters,
+				map[fdbv1beta2.ProcessClass]fdbv1beta2.FoundationDBCustomParameters{
+					fdbv1beta2.ProcessClassStorage: initialCustomParameters,
+				},
 				true,
 			)).NotTo(HaveOccurred())
 		})

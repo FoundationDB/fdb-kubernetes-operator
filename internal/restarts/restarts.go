@@ -20,7 +20,12 @@
 
 package restarts
 
-import fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
+import (
+	"time"
+
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
+	"github.com/go-logr/logr"
+)
 
 // GetFilterConditions returns the filter conditions to get the processes that should be restarted.
 func GetFilterConditions(cluster *fdbv1beta2.FoundationDBCluster) map[fdbv1beta2.ProcessGroupConditionType]bool {
@@ -43,4 +48,26 @@ func GetFilterConditions(cluster *fdbv1beta2.FoundationDBCluster) map[fdbv1beta2
 		fdbv1beta2.IncorrectPodSpec:     false,
 		fdbv1beta2.IncorrectConfigMap:   false,
 	}
+}
+
+// ShouldBeIgnoredBecauseMissing checks if the provided process group should be ignored because the process group should
+// be skipped or because the processes of this process group are not reporting.
+func ShouldBeIgnoredBecauseMissing(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, processGroup *fdbv1beta2.ProcessGroupStatus) bool {
+	// Ignore processes that are missing for more than 30 seconds e.g. if the process is network partitioned.
+	// This is required since the update status will not update the SidecarUnreachable setting if a process is
+	// missing in the status.
+	if missingTime := processGroup.GetConditionTime(fdbv1beta2.MissingProcesses); missingTime != nil {
+		if time.Unix(*missingTime, 0).Add(cluster.GetIgnoreMissingProcessesSeconds()).Before(time.Now()) {
+			logger.Info("ignore process group with missing process", "processGroupID", processGroup.ProcessGroupID)
+			return true
+		}
+	}
+
+	// If a Pod is stuck in pending we have to ignore it, as the processes hosted by this Pod will not be running.
+	if cluster.SkipProcessGroup(processGroup) {
+		logger.Info("ignore process group with Pod stuck in pending", "processGroupID", processGroup.ProcessGroupID)
+		return true
+	}
+
+	return false
 }

@@ -23,13 +23,15 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbstatus"
 	"math"
 	"sort"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbstatus"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/coordination"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/locality"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/podmanager"
 	"github.com/go-logr/logr"
@@ -233,6 +235,19 @@ func (c updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterRecon
 		return &requeue{curError: err}
 	}
 
+	// Update the global coordination state if required.
+	if cluster.GetSynchronizationMode() == fdbv1beta2.SynchronizationModeGlobal {
+		adminClient, clientErr := r.getAdminClient(logger, cluster)
+		if clientErr != nil {
+			return &requeue{curError: clientErr}
+		}
+
+		err = coordination.UpdateGlobalCoordinationState(logger, cluster, adminClient)
+		if err != nil {
+			return &requeue{curError: err}
+		}
+	}
+
 	if reconciled && cluster.ShouldUseLocks() {
 		// Once the cluster is reconciled the operator will release any pending locks for this cluster.
 		lockErr := r.releaseLock(logger, cluster)
@@ -254,7 +269,7 @@ func (c updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterRecon
 
 	// If the cluster is not reconciled, make sure we trigger a new reconciliation loop.
 	if !reconciled {
-		return &requeue{message: "cluster is not fully reconciled", delayedRequeue: true}
+		return &requeue{message: "cluster is not fully reconciled", delay: 10 * time.Second, delayedRequeue: true}
 	}
 
 	return nil

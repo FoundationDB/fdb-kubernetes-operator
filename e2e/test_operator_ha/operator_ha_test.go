@@ -30,6 +30,7 @@ This cluster will be used for all tests.
 */
 
 import (
+	"context"
 	"log"
 	"strconv"
 	"time"
@@ -215,6 +216,8 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 
 		It("should not replace too many Pods and bring down the satellite", func() {
 			satellite := fdbCluster.GetPrimarySatellite()
+			primary := fdbCluster.GetPrimary()
+			primaryDCID := primary.GetCluster().Spec.DataCenter
 
 			Consistently(func() int {
 				var runningPods int
@@ -226,9 +229,28 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 					runningPods++
 				}
 
-				// We should add here another check that the cluster stays in the primary.
+				Expect(fdbCluster.GetPrimary().GetStatus().Cluster.DatabaseConfiguration.GetPrimaryDCID()).To(Equal(primaryDCID))
+
 				return runningPods
-			}).WithTimeout(10 * time.Minute).WithPolling(2 * time.Second).Should(BeNumerically(">=", desiredRunningPods))
+			}).WithTimeout(5 * time.Minute).WithPolling(2 * time.Second).Should(BeNumerically(">=", desiredRunningPods))
+
+			// Add enough quota, so that the log processes can be updated after some time.
+			processCounts, err := fdbCluster.GetPrimarySatellite().GetCluster().GetProcessCountsWithDefaults()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(factory.GetControllerRuntimeClient().Update(context.Background(), &corev1.ResourceQuota{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "testing-quota",
+					Namespace: satellite.Namespace(),
+				},
+				Spec: corev1.ResourceQuotaSpec{
+					Hard: corev1.ResourceList{
+						corev1.ResourcePersistentVolumeClaims: resource.MustParse(strconv.Itoa(processCounts.Log)),
+					},
+				},
+			})).To(Succeed())
+
+			// Wait until the cluster has replaced all the log processes.
+			Expect(fdbCluster.WaitForReconciliation()).NotTo(HaveOccurred())
 		})
 	})
 
@@ -335,7 +357,7 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 		PWhen("when a remote side has network latency issues and a pod gets replaced", func() {
 			/*
 
-				TODO (johscheuer): This test should be running with a bigger multi-region cluster e.g.:
+				*Note* This test should be running with a bigger multi-region cluster e.g.:
 
 					config := fixtures.DefaultClusterConfigWithHaMode(fixtures.HaFourZoneSingleSat, false)
 					config.StorageServerPerPod = 8

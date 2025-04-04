@@ -162,8 +162,8 @@ fmt: bin/fmt_check
 # TODO johscheuer: enable those new command in a new PR.
 bin/fmt_check: ${GO_ALL}
 	# $(GO_LINES) -w .
-	go fmt $$(go list ./...)
-	# $(GO_IMPORTS) -w .
+	@go fmt $$(go list ./...)
+	#@$(GO_IMPORTS) -w $(GO_SRC)
 	#$(GOLANGCI_LINT) run --fix
 	@mkdir -p bin
 	@touch $@

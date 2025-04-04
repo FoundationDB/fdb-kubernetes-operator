@@ -53,7 +53,6 @@ func RunGinkgoTests(t *testing.T, name string) {
 		ginkgo.GinkgoLogr.Info("waiting for", waitDuration.String(), "before executing test suite")
 		time.Sleep(waitDuration)
 	}
-
 	ginkgo.RunSpecs(t, name)
 }
 

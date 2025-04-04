@@ -64,6 +64,18 @@ ifndef STORAGE_ENGINE
   endif
 endif
 
+# If the FEATURE_SYNCHRONIZATION_MODE environment variable is not defined the test suite will be randomly enable (1) or disable (0)
+# the the global synchronization mode.
+ifndef FEATURE_SYNCHRONIZATION_MODE
+  RANDOM_INT=$(shell shuf -i 0-1 -n 1)
+  ifeq ($(RANDOM_INT), 0)
+    # Default case
+    FEATURE_SYNCHRONIZATION_MODE="local"
+  else
+    FEATURE_SYNCHRONIZATION_MODE="global"
+  endif
+endif
+
 # Make bash pickier about errors.
 SHELL=/bin/bash -euo pipefail
 
@@ -183,6 +195,7 @@ endif
 	  --fdb-version-tag-mapping=$(FDB_VERSION_TAG_MAPPING) \
 	  --unified-fdb-image=$(UNIFIED_FDB_IMAGE) \
 	  --feature-server-side-apply=$(FEATURE_SERVER_SIDE_APPLY) \
+	  --feature-synchronization-mode=$(FEATURE_SYNCHRONIZATION_MODE) \
 	  --seaweedfs-image=$(SEAWEEDFS_IMAGE) $(FEATURE_LOCALITIES_FLAG) $(FEATURE_DNS) \
 	  --node-selector="$(NODE_SELECTOR)" \
 	  | grep -v 'constructing many client instances from the same exec auth config can cause performance problems during cert rotation' &> $(BASE_DIR)/../logs/$<.log

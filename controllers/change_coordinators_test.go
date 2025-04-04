@@ -22,8 +22,9 @@ package controllers
 
 import (
 	"context"
-	"k8s.io/utils/pointer"
 	"math"
+
+	"k8s.io/utils/pointer"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"

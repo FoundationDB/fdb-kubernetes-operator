@@ -22,18 +22,19 @@ package locality
 
 import (
 	"fmt"
-	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/podclient/mock"
-	"github.com/go-logr/logr"
-	"github.com/onsi/gomega/gmeasure"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
 	"math"
 	"math/rand"
 	"net"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/podclient/mock"
+	"github.com/go-logr/logr"
+	"github.com/onsi/gomega/gmeasure"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"

@@ -312,7 +312,7 @@ spec:
             satellite: 1
 ```
 
-## Coordinating Global Operations
+## Coordinating Global
 
 When running a FoundationDB cluster that is deployed across multiple Kubernetes clusters, each Kubernetes cluster will have its own instance of the operator working on the processes in its cluster.
 There will be some operations that cannot be scoped to a single Kubernetes cluster, such as changing the database configuration.
@@ -336,7 +336,19 @@ The operator will use the locking system to coordinate this.
 Each instance of the operator will store records indicating what processes it is managing and what version they will be running after the restart.
 Each instance will then try to acquire a lock and confirm that every process reporting to the cluster is ready for the upgrade.
 If all processes are prepared, the operator will restart all of them at once.
-If any instance of the operator is stuck and unable to prepare its processes for the upgrade, the restart will not occur.g
+If any instance of the operator is stuck and unable to prepare its processes for the upgrade, the restart will not occur.
+
+
+### Synchronization Mode For Coordination 
+
+The operator supports two different synchronization modes for coordination in mutli-region clusters, `local` (default) and `global`.
+When the synchronization mode is set to `local`, the operator will act only with its local information on actions like a restart, exclude, include and coordinator change.
+With this mode, rolling out a new knob will cause multiple recoveries as each local operator instance will restart the "local" processes independently synchronized by the locking system.
+
+With the synchronization mode set to `global`, the operator tries to coordinate the actions across the Kubernetes clusters.
+The coordination is based on an optimistic coordination system where the operator is adding additional information in FDB to coordinate, for more information see [better coordination for multi-cluster operator](https://github.com/FoundationDB/fdb-kubernetes-operator/blob/main/docs/design/better_coordination_multi_operator.md).
+When doing operations only in a single Kubernetes cluster, e.g. doing a replacement of a single process group, the operation might be slowed down by the coordination overhead, as the operation can not differentiate between a `local` and `global` operation.
+The trade-off here is that `local` actions might be a bit slower but `global` operations, e.g. like a knob rollout, will be faster and less disruptive.
 
 ### Deny List
 

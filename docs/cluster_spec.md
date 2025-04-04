@@ -197,6 +197,7 @@ FoundationDBClusterAutomationOptions provides flags for enabling or disabling op
 | useManagementAPI | UseManagementAPI defines if the operator should make use of the management API instead of using fdbcli to interact with the FoundationDB cluster. | *bool | false |
 | maintenanceModeOptions | MaintenanceModeOptions contains options for maintenance mode related settings. | [MaintenanceModeOptions](#maintenancemodeoptions) | false |
 | ignoreLogGroupsForUpgrade | IgnoreLogGroupsForUpgrade defines the list of LogGroups that should be ignored during fdb version upgrade. The default is a list that includes \"fdb-kubernetes-operator\". | [][LogGroup](#loggroup) | false |
+| synchronizationMode | SynchronizationMode defines the synchronization mode for clusters that are managed by multiple operator instances. The default is \"local\" which means all operator instances are only acting on their local processes, with the exception for cluster upgrades. In the \"global\" mode the operator instances coordinate actions to only issue a single exclude/bounce/include to reduce the disruptions. The global coordination mode is based on an optimistic mode and there are no guarantees that the action will only be executed once, e.g. because of a slow operator instance.  More details: https://github.com/FoundationDB/fdb-kubernetes-operator/blob/main/docs/design/better_coordination_multi_operator.md | *string | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -475,6 +476,12 @@ RoutingConfig allows configuring routing to our pods, and services that sit in f
 
 [Back to TOC](#table-of-contents)
 
+## SynchronizationMode
+
+SynchronizationMode defines the synchronization mode.
+
+[Back to TOC](#table-of-contents)
+
 ## TaintReplacementOption
 
 TaintReplacementOption defines the taint key and taint duration the operator will react to a tainted node Example of TaintReplacementOption   - key: \"example.org/maintenance\"     durationInSeconds: 7200 # Ensure the taint is present for at least 2 hours before replacing Pods on a node with this taint.   - key: \"*\" # The wildcard would allow to define a catch all configuration     durationInSeconds: 3600 # Ensure the taint is present for at least 1 hour before replacing Pods on a node with this taint  Setting durationInSeconds to the maximum of int64 will practically disable the taint key. When a Node taint key matches both an exact TaintReplacementOption key and a wildcard key, the exact matched key will be used.
@@ -483,6 +490,12 @@ TaintReplacementOption defines the taint key and taint duration the operator wil
 | ----- | ----------- | ------ | -------- |
 | key | Tainted key | *string | false |
 | durationInSeconds | The tainted key must be present for DurationInSeconds before operator replaces pods on the node with this taint; DurationInSeconds cannot be a negative number. | *int64 | false |
+
+[Back to TOC](#table-of-contents)
+
+## UpdateAction
+
+UpdateAction defines the update action for an entry in the multi-region coordination key-space.
 
 [Back to TOC](#table-of-contents)
 

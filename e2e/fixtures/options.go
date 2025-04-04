@@ -49,6 +49,7 @@ type FactoryOptions struct {
 	clusterName                    string
 	storageEngine                  string
 	fdbVersionTagMapping           string
+	synchronizationMode            string
 	enableChaosTests               bool
 	enableDataLoading              bool
 	cleanup                        bool
@@ -218,7 +219,18 @@ func (options *FactoryOptions) BindFlags(fs *flag.FlagSet) {
 		"chrislusf/seaweedfs:3.73",
 		"defines the seaweedfs image that should be used for testing. SeaweedFS is used for backup and restore testing to spin up a S3 compatible blobstore.",
 	)
-	fs.StringVar(&options.nodeSelector, "node-selector", "", "if defined, specifies a Kubernetes node selector for the FDB cluster in the format key=value")
+	fs.StringVar(
+		&options.nodeSelector,
+		"node-selector",
+		"",
+		"if defined, specifies a Kubernetes node selector for the FDB cluster in the format key=value",
+	)
+	fs.StringVar(
+		&options.synchronizationMode,
+		"feature-synchronization-mode",
+		"local",
+		"defines the synchronization mode that should be used. Only applies for multi-region clusters.",
+	)
 }
 
 func (options *FactoryOptions) validateFlags() error {
@@ -288,7 +300,27 @@ func (options *FactoryOptions) validateFlags() error {
 		return err
 	}
 
+	err = options.validateSynchronizationMode()
+	if err != nil {
+		return err
+	}
+
 	return options.validateFDBVersionTagMapping()
+}
+
+func (options *FactoryOptions) validateSynchronizationMode() error {
+	if options.synchronizationMode == "" {
+		options.synchronizationMode = string(fdbv1beta2.SynchronizationModeLocal)
+		return nil
+	}
+
+	options.synchronizationMode = strings.ToLower(options.synchronizationMode)
+	mode := fdbv1beta2.SynchronizationMode(options.synchronizationMode)
+	if mode == fdbv1beta2.SynchronizationModeGlobal || mode == fdbv1beta2.SynchronizationModeLocal {
+		return nil
+	}
+
+	return fmt.Errorf("synchronizationMode must be either \"local\" or \"global\", got :\"%s\"", mode)
 }
 
 func validateVersion(label string, version string) error {
