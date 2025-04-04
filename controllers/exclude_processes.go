@@ -206,7 +206,7 @@ func (e excludeProcesses) reconcile(ctx context.Context, r *FoundationDBClusterR
 		return &requeue{curError: err, delayedRequeue: true}
 	}
 
-	// In case of the global synchronization moe we have to perform some additional checks.
+	// In case of the global synchronization mode we have to perform some additional checks.
 	if cluster.GetSynchronizationMode() == fdbv1beta2.SynchronizationModeGlobal {
 		// Fetching all pending exclusions.
 		pendingExclusions, err = adminClient.GetPendingForExclusion("")

@@ -86,13 +86,13 @@ func (c bounceProcesses) reconcile(_ context.Context, r *FoundationDBClusterReco
 		return &requeue{curError: err}
 	}
 
-	addresses, updatesReadyForRestart, updatedPendingForRestart, req := getProcessesReadyForRestart(logger, cluster, addressMap, processesReadyForRestart, processesPendingForRestart)
+	addresses, updatesReadyForRestart, updatesPendingForRestart, req := getProcessesReadyForRestart(logger, cluster, addressMap, processesReadyForRestart, processesPendingForRestart)
 	if req != nil {
 		return req
 	}
 
-	if globalSynchronizationMode && len(updatedPendingForRestart) > 0 {
-		err = adminClient.UpdatePendingForRestart(updatedPendingForRestart)
+	if globalSynchronizationMode && len(updatesPendingForRestart) > 0 {
+		err = adminClient.UpdatePendingForRestart(updatesPendingForRestart)
 		if err != nil {
 			return &requeue{curError: err}
 		}
