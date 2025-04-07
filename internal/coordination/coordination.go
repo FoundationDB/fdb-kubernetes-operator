@@ -170,7 +170,7 @@ func GetAddressesFromStatus(logger logr.Logger, status *fdbv1beta2.FoundationDBS
 		}
 	}
 
-	// If some processes are not part of the machine-readable status print it our.
+	// If some processes are not part of the machine-readable status print it out.
 	if len(visited) != len(processGroups) {
 		missing := map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None{}
 		for processGroupID := range processGroups {

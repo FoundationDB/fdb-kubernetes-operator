@@ -34,6 +34,8 @@ import (
 	"sync"
 	"time"
 
+	"k8s.io/utils/pointer"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/fixtures"
 	chaosmesh "github.com/chaos-mesh/chaos-mesh/api/v1alpha1"
@@ -544,12 +546,12 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 		func(beforeVersion string, targetVersion string) {
 			fdbVersion, err := fdbv1beta2.ParseFdbVersion(beforeVersion)
 			Expect(err).NotTo(HaveOccurred())
-
 			if !fdbVersion.SupportsLocalityBasedExclusions() {
 				Skip("provided FDB version: " + beforeVersion + " doesn't support locality based exclusions")
 			}
 
 			clusterConfig := fixtures.DefaultClusterConfigWithHaMode(fixtures.HaFourZoneSingleSat, false)
+			clusterConfig.UseLocalityBasedExclusions = pointer.Bool(true)
 
 			clusterSetupWithTestConfig(
 				testConfig{
@@ -561,12 +563,15 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 				},
 			)
 
-			Expect(fdbCluster.GetPrimary().GetCluster().UseLocalitiesForExclusion()).To(BeTrue())
-
-			processCounts, err := fdbCluster.GetPrimary().GetCluster().GetProcessCountsWithDefaults()
+			Expect(fdbCluster.GetPrimarySatellite().GetCluster().UseLocalitiesForExclusion()).To(BeTrue())
+			processCounts, err := fdbCluster.GetPrimarySatellite().GetCluster().GetProcessCountsWithDefaults()
 			Expect(err).NotTo(HaveOccurred())
 
-			// Create Quota to limit the additional Pods that can be created to 1, the actual value here is 3 ,because we run
+			currentPods := fdbCluster.GetPrimarySatellite().GetPods()
+			podLimit := processCounts.Total() + 3
+			Expect(currentPods.Items).To(HaveLen(podLimit - 3))
+
+			// Create Quota to limit the additional Pods that can be created to 1, the actual value here is 3, because we run
 			// 2 Operator Pods.
 			Expect(factory.CreateIfAbsent(&corev1.ResourceQuota{
 				ObjectMeta: metav1.ObjectMeta{
@@ -582,10 +587,14 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 
 			// The cluster should still be able to upgrade.
 			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
-			// Verify that the upgrade proceeds
+			// Wait for clusters to be updated.
+			time.Sleep(15 * time.Second)
+			// Wait here for the clusters to reconcile.
+			Expect(fdbCluster.WaitForReconciliation(
+				fixtures.SoftReconcileOption(true),
+			)).NotTo(HaveOccurred())
+			// Verify that the upgrade took place.
 			fdbCluster.VerifyVersion(targetVersion)
-			// Wait here for the primary satellite to reconcile, this means all Pods have been replaced
-			Expect(fdbCluster.GetPrimarySatellite().WaitForReconciliation()).NotTo(HaveOccurred())
 			// Make sure the cluster has no data loss
 			fdbCluster.GetPrimary().EnsureTeamTrackersHaveMinReplicas()
 		},

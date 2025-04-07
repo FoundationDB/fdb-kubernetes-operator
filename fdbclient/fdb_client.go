@@ -109,9 +109,9 @@ func (fdbClient *realFdbLibClient) updateGlobalCoordinationKeys(prefix string, u
 		return nil
 	}
 
-	fdbClient.logger.Info("Updating global coordination keys in FDB", "prefix", prefix, "updates", len(updates))
+	fdbClient.logger.V(1).Info("Updating global coordination keys in FDB", "prefix", prefix, "updates", len(updates))
 	defer func() {
-		fdbClient.logger.Info("Done updating global coordination keys in FDB", "prefix", prefix, "updates", len(updates))
+		fdbClient.logger.V(1).Info("Done updating global coordination keys in FDB", "prefix", prefix, "updates", len(updates))
 	}()
 
 	database, err := getFDBDatabase(fdbClient.cluster)
@@ -132,7 +132,7 @@ func (fdbClient *realFdbLibClient) updateGlobalCoordinationKeys(prefix string, u
 		for processGroupID, action := range updates {
 			key := fdb.Key(path.Join(keyPrefix, string(processGroupID)))
 
-			fdbClient.logger.V(0).Info("updateGlobalCoordinationKeys update process group", "processGroupID", processGroupID, "action", action, "key", key.String())
+			fdbClient.logger.V(1).Info("updateGlobalCoordinationKeys update process group", "processGroupID", processGroupID, "action", action, "key", key.String())
 			if action == fdbv1beta2.UpdateActionAdd {
 				transaction.Set(key, timestampBytes)
 				continue
@@ -153,9 +153,9 @@ func (fdbClient *realFdbLibClient) updateGlobalCoordinationKeys(prefix string, u
 // getGlobalCoordinationKeys will return the entries under the provided prefix.
 func (fdbClient *realFdbLibClient) getGlobalCoordinationKeys(prefix string) (map[fdbv1beta2.ProcessGroupID]time.Time, error) {
 	var mapResult map[fdbv1beta2.ProcessGroupID]time.Time
-	fdbClient.logger.Info("Fetching global coordination keys in FDB", "prefix", prefix)
+	fdbClient.logger.V(1).Info("Fetching global coordination keys in FDB", "prefix", prefix)
 	defer func() {
-		fdbClient.logger.Info("Done fetching global coordination keys in FDB", "prefix", prefix, "results", len(mapResult))
+		fdbClient.logger.V(1).Info("Done fetching global coordination keys in FDB", "prefix", prefix, "results", len(mapResult))
 	}()
 
 	database, err := getFDBDatabase(fdbClient.cluster)
@@ -179,7 +179,7 @@ func (fdbClient *realFdbLibClient) getGlobalCoordinationKeys(prefix string) (map
 		processGroups := make(map[fdbv1beta2.ProcessGroupID]time.Time, len(results))
 		for _, result := range results {
 			processGroupID := path.Base(result.Key.String())
-			fdbClient.logger.V(0).Info("Found result", "processGroupID", processGroupID, "key", result.Key.String())
+			fdbClient.logger.V(1).Info("Found result", "processGroupID", processGroupID, "key", result.Key.String())
 
 			timestampBytes, err := tuple.Unpack(result.Value)
 			if err != nil {
@@ -225,9 +225,9 @@ func (fdbClient *realFdbLibClient) getGlobalCoordinationKeys(prefix string) (map
 
 // getGlobalCoordinationKeys will return the entries under the provided prefix.
 func (fdbClient *realFdbLibClient) clearGlobalCoordinationKeys(prefix string) error {
-	fdbClient.logger.Info("Clearing global coordination keys in FDB", "prefix", prefix)
+	fdbClient.logger.V(1).Info("Clearing global coordination keys in FDB", "prefix", prefix)
 	defer func() {
-		fdbClient.logger.Info("Done clearing global coordination keys in FDB", "prefix", prefix)
+		fdbClient.logger.V(1).Info("Done clearing global coordination keys in FDB", "prefix", prefix)
 	}()
 
 	database, err := getFDBDatabase(fdbClient.cluster)
