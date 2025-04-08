@@ -133,7 +133,8 @@ func (fdbClient *realFdbLibClient) updateGlobalCoordinationKeys(prefix string, u
 			key := fdb.Key(path.Join(keyPrefix, string(processGroupID)))
 
 			fdbClient.logger.V(1).Info("updateGlobalCoordinationKeys update process group", "processGroupID", processGroupID, "action", action, "key", key.String())
-			if action == fdbv1beta2.UpdateActionAdd {
+			// Ignore tester processes, those shouldn't be added as those are not managed by the global coordination system.
+			if action == fdbv1beta2.UpdateActionAdd && processGroupID.GetProcessClass() != fdbv1beta2.ProcessClassTest {
 				transaction.Set(key, timestampBytes)
 				continue
 			}

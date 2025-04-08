@@ -35,6 +35,9 @@ import (
 	"strconv"
 	"time"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	ctrlClient "sigs.k8s.io/controller-runtime/pkg/client"
+
 	"k8s.io/utils/pointer"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
@@ -273,13 +276,14 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 
 		When("when a remote log has network latency issues and gets replaced", func() {
 			var experiment *fixtures.ChaosMeshExperiment
+			var processGroupID fdbv1beta2.ProcessGroupID
+			var replacedPod corev1.Pod
 
 			BeforeEach(func() {
 				dcID := fdbCluster.GetRemote().GetCluster().Spec.DataCenter
 
 				status := fdbCluster.GetPrimary().GetStatus()
 
-				var processGroupID fdbv1beta2.ProcessGroupID
 				for _, process := range status.Cluster.Processes {
 					dc, ok := process.Locality[fdbv1beta2.FDBLocalityDCIDKey]
 					if !ok || dc != dcID {
@@ -303,7 +307,6 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 				}
 
 				log.Println("Will inject chaos into", processGroupID, "and replace it")
-				var replacedPod corev1.Pod
 				for _, pod := range fdbCluster.GetRemote().GetLogPods().Items {
 					if fixtures.GetProcessGroupID(pod) != processGroupID {
 						continue
@@ -337,12 +340,20 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 			})
 
 			It("should exclude and remove the pod", func() {
-				Eventually(func() []fdbv1beta2.ExcludedServers {
+				excludedServer := fdbv1beta2.ExcludedServers{Locality: processGroupID.GetExclusionString()}
+
+				Eventually(func(g Gomega) []fdbv1beta2.ExcludedServers {
 					status := fdbCluster.GetPrimary().GetStatus()
 					excludedServers := status.Cluster.DatabaseConfiguration.ExcludedServers
 					log.Println("excludedServers", excludedServers)
+
+					pod := &corev1.Pod{}
+					err := factory.GetControllerRuntimeClient().Get(context.Background(), ctrlClient.ObjectKeyFromObject(&replacedPod), pod)
+					g.Expect(err).To(HaveOccurred())
+					g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+
 					return excludedServers
-				}).WithTimeout(15 * time.Minute).WithPolling(1 * time.Second).Should(BeEmpty())
+				}).WithTimeout(15 * time.Minute).WithPolling(1 * time.Second).ShouldNot(ContainElement(excludedServer))
 			})
 
 			AfterEach(func() {

@@ -79,8 +79,14 @@ func AllProcessesReady(logger logr.Logger, pendingProcessGroups map[fdbv1beta2.P
 
 func getNotReadyProcesses(logger logr.Logger, pendingProcessGroups map[fdbv1beta2.ProcessGroupID]time.Time, readyProcessGroups map[fdbv1beta2.ProcessGroupID]time.Time, waitTime time.Duration) ([]string, time.Time, error) {
 	timestampLastAdded := time.Time{}
+
 	notReadyProcesses := make([]string, 0, max(len(pendingProcessGroups)-len(readyProcessGroups), 0))
 	for pending, timestamp := range pendingProcessGroups {
+		// Tester processes are not managed over the global coordination.
+		if pending.GetProcessClass() == fdbv1beta2.ProcessClassTest {
+			continue
+		}
+
 		if timestamp.After(timestampLastAdded) {
 			timestampLastAdded = timestamp
 		}
@@ -140,12 +146,11 @@ func AllProcessesReadyForExclusion(logger logr.Logger, pendingProcessGroups map[
 }
 
 // GetAddressesFromStatus will return the process addresses for the provided processGroups based on the provided machine-readable status.
-func GetAddressesFromStatus(logger logr.Logger, status *fdbv1beta2.FoundationDBStatus, processGroups map[fdbv1beta2.ProcessGroupID]time.Time, useLocalities bool) []fdbv1beta2.ProcessAddress {
+func GetAddressesFromStatus(logger logr.Logger, status *fdbv1beta2.FoundationDBStatus, processGroups map[fdbv1beta2.ProcessGroupID]time.Time, includeLocalities bool, includeAddresses bool) []fdbv1beta2.ProcessAddress {
 	addresses := make([]fdbv1beta2.ProcessAddress, 0, len(status.Cluster.Processes))
 	visited := make(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None, len(processGroups))
-
 	for _, process := range status.Cluster.Processes {
-		// Ignore any tester processes as those are not restarted with the kill command.
+		// Ignore any tester processes as those are not managed by the global coordination system.
 		if process.ProcessClass == fdbv1beta2.ProcessClassTest {
 			continue
 		}
@@ -158,15 +163,15 @@ func GetAddressesFromStatus(logger logr.Logger, status *fdbv1beta2.FoundationDBS
 
 		if _, ok := processGroups[fdbv1beta2.ProcessGroupID(processID)]; ok {
 			visited[fdbv1beta2.ProcessGroupID(processID)] = fdbv1beta2.None{}
-			if useLocalities {
+			if includeLocalities {
 				addresses = append(addresses, fdbv1beta2.ProcessAddress{
 					StringAddress: fmt.Sprintf("%s:%s", fdbv1beta2.FDBLocalityExclusionPrefix, processID),
 				})
-				continue
 			}
 
-			addresses = append(addresses, process.Address)
-			continue
+			if includeAddresses {
+				addresses = append(addresses, process.Address)
+			}
 		}
 	}
 
@@ -176,6 +181,13 @@ func GetAddressesFromStatus(logger logr.Logger, status *fdbv1beta2.FoundationDBS
 		for processGroupID := range processGroups {
 			if _, ok := visited[processGroupID]; ok {
 				continue
+			}
+
+			// Since the locality is static (process group ID) we can use it here.
+			if includeAddresses {
+				addresses = append(addresses, fdbv1beta2.ProcessAddress{
+					StringAddress: fmt.Sprintf("%s:%s", fdbv1beta2.FDBLocalityExclusionPrefix, processGroupID),
+				})
 			}
 
 			missing[processGroupID] = fdbv1beta2.None{}
@@ -249,6 +261,11 @@ func UpdateGlobalCoordinationState(logger logr.Logger, cluster *fdbv1beta2.Found
 
 	// Iterate over all process groups to generate the expected state.
 	for _, processGroup := range cluster.Status.ProcessGroups {
+		// Tester processes are not managed over the global coordination.
+		if processGroup.ProcessClass == fdbv1beta2.ProcessClassTest {
+			continue
+		}
+
 		// Keep track of the visited process group to remove entries from removed process groups.
 		visited[processGroup.ProcessGroupID] = fdbv1beta2.None{}
 		if processGroup.IsMarkedForRemoval() {
