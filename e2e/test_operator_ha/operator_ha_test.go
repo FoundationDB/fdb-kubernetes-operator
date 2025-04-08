@@ -329,7 +329,7 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 					})
 
 				// TODO (johscheuer): Allow to have this as a long running task until the test is done.
-				factory.CreateDataLoaderIfAbsentWithWait(fdbCluster.GetPrimary(), false)
+				factory.CreateDataLoaderIfAbsentWithWait(fdbCluster.GetPrimary(), nil, false)
 
 				time.Sleep(1 * time.Minute)
 				log.Println("replacedPod", replacedPod.Name, "useLocalitiesForExclusion", fdbCluster.GetPrimary().GetCluster().UseLocalitiesForExclusion())
@@ -437,7 +437,7 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 					})
 
 				// TODO (johscheuer): Allow to have this as a long running task until the test is done.
-				factory.CreateDataLoaderIfAbsentWithWait(fdbCluster.GetPrimary(), false)
+				factory.CreateDataLoaderIfAbsentWithWait(fdbCluster.GetPrimary(), nil, false)
 
 				time.Sleep(1 * time.Minute)
 				log.Println("replacedPod", replacedPod.Name, "useLocalitiesForExclusion", fdbCluster.GetPrimary().GetCluster().UseLocalitiesForExclusion())
