@@ -280,10 +280,15 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 			var replacedPod corev1.Pod
 
 			BeforeEach(func() {
-				dcID := fdbCluster.GetRemote().GetCluster().Spec.DataCenter
+				// Ensure the other clusters are not interacting.
+				for _, cluster := range fdbCluster.GetAllClusters() {
+					cluster.SetSkipReconciliation(true)
+				}
 
-				status := fdbCluster.GetPrimary().GetStatus()
-
+				remote := fdbCluster.GetRemote()
+				remote.SetSkipReconciliation(false)
+				dcID := remote.GetCluster().Spec.DataCenter
+				status := remote.GetStatus()
 				for _, process := range status.Cluster.Processes {
 					dc, ok := process.Locality[fdbv1beta2.FDBLocalityDCIDKey]
 					if !ok || dc != dcID {
@@ -307,7 +312,7 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 				}
 
 				log.Println("Will inject chaos into", processGroupID, "and replace it")
-				for _, pod := range fdbCluster.GetRemote().GetLogPods().Items {
+				for _, pod := range remote.GetLogPods().Items {
 					if fixtures.GetProcessGroupID(pod) != processGroupID {
 						continue
 					}
@@ -321,8 +326,8 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 					fixtures.PodSelector(&replacedPod),
 					chaosmesh.PodSelectorSpec{
 						GenericSelectorSpec: chaosmesh.GenericSelectorSpec{
-							Namespaces:     []string{fdbCluster.GetRemote().Namespace()},
-							LabelSelectors: fdbCluster.GetRemote().GetCachedCluster().GetMatchLabels(),
+							Namespaces:     []string{remote.Namespace()},
+							LabelSelectors: remote.GetCachedCluster().GetMatchLabels(),
 						},
 					}, chaosmesh.Both,
 					&chaosmesh.DelaySpec{
@@ -336,7 +341,7 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 
 				time.Sleep(1 * time.Minute)
 				log.Println("replacedPod", replacedPod.Name, "useLocalitiesForExclusion", fdbCluster.GetPrimary().GetCluster().UseLocalitiesForExclusion())
-				fdbCluster.GetRemote().ReplacePod(replacedPod, true)
+				remote.ReplacePod(replacedPod, true)
 			})
 
 			It("should exclude and remove the pod", func() {
@@ -357,6 +362,9 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 			})
 
 			AfterEach(func() {
+				for _, cluster := range fdbCluster.GetAllClusters() {
+					cluster.SetSkipReconciliation(false)
+				}
 				Expect(fdbCluster.GetRemote().ClearProcessGroupsToRemove()).NotTo(HaveOccurred())
 				factory.DeleteChaosMeshExperimentSafe(experiment)
 				// Making sure we included back all the process groups after exclusion is complete.

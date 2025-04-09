@@ -362,7 +362,7 @@ func getProcessesToInclude(logger logr.Logger, cluster *fdbv1beta2.FoundationDBC
 	processGroups := cluster.Status.DeepCopy().ProcessGroups
 	idx := 0
 	for _, processGroup := range processGroups {
-		// Tested processes are not excluded, so there is no need to include them.
+		// Tester processes are not excluded, so there is no need to include them.
 		if processGroup.ProcessClass == fdbv1beta2.ProcessClassTest {
 			continue
 		}

@@ -426,7 +426,7 @@ var _ = Describe("operator_coordination", func() {
 		),
 	)
 
-	DescribeTable("validating if all processes are read for exclusion", func(pendingProcessGroups map[fdbv1beta2.ProcessGroupID]time.Time, readyProcessGroups map[fdbv1beta2.ProcessGroupID]time.Time, waitTime time.Duration, expectedErr string, expectedAllowedCount int) {
+	DescribeTable("validating if all processes are ready for exclusion", func(pendingProcessGroups map[fdbv1beta2.ProcessGroupID]time.Time, readyProcessGroups map[fdbv1beta2.ProcessGroupID]time.Time, waitTime time.Duration, expectedErr string, expectedAllowedCount int) {
 		allowed, err := AllProcessesReadyForExclusion(GinkgoLogr, pendingProcessGroups, readyProcessGroups, waitTime)
 		if expectedErr != "" {
 			Expect(err).To(HaveOccurred())
