@@ -321,12 +321,16 @@ func includeProcessGroup(ctx context.Context, logger logr.Logger, r *FoundationD
 			return err
 		}
 
-		// TODO (johscheuer): What if multiple addresses are excluded for a process, e.g. because the pod was recreated during
-		// the exclusion and IPs are used for exclusion.
-		// Since we are here, we should be able to do a "include all", this would clean up all exclusion entries. Since this operator instance
-		// has the lock and all process groups that are marked for removal are ready to be included, this should be a safe option. The only
-		// risk would be exclusions that are not done with the operator.
-		fdbProcessesToInclude = coordination.GetAddressesFromStatus(logger, status, readyForInclusion, true, true)
+		// Since we are here, we are able to do an "include all", this will clean up all exclusion entries. Since this operator instance
+		// has the lock and all process groups that are marked for removal are ready to be included, this will be a safe option.
+		// The only risk would be exclusions that are not done by the operator. Without the `include all` we might miss exclusions based on
+		// IP addresses as those are not present anymore (the pods hosting those processes where removed and we would need to keep track
+		// of those excluded IPs).
+		fdbProcessesToInclude = []fdbv1beta2.ProcessAddress{
+			{
+				StringAddress: "all",
+			},
+		}
 	}
 
 	r.Recorder.Event(cluster, corev1.EventTypeNormal, "IncludingProcesses", fmt.Sprintf("Including removed processes: %v", fdbProcessesToInclude))
