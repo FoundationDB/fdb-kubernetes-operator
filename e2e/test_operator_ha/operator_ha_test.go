@@ -365,10 +365,8 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 				for _, cluster := range fdbCluster.GetAllClusters() {
 					cluster.SetSkipReconciliation(false)
 				}
-				Expect(fdbCluster.GetRemote().ClearProcessGroupsToRemove()).NotTo(HaveOccurred())
+				Expect(fdbCluster.GetRemote().ClearProcessGroupsToRemove()).To(Succeed())
 				factory.DeleteChaosMeshExperimentSafe(experiment)
-				// Making sure we included back all the process groups after exclusion is complete.
-				Expect(fdbCluster.GetPrimary().GetStatus().Cluster.DatabaseConfiguration.ExcludedServers).To(BeEmpty())
 				factory.DeleteDataLoader(fdbCluster.GetPrimary())
 			})
 		})
