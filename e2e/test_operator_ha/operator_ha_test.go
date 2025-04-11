@@ -35,6 +35,9 @@ import (
 	"strconv"
 	"time"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	ctrlClient "sigs.k8s.io/controller-runtime/pkg/client"
+
 	"k8s.io/utils/pointer"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
@@ -273,13 +276,19 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 
 		When("when a remote log has network latency issues and gets replaced", func() {
 			var experiment *fixtures.ChaosMeshExperiment
+			var processGroupID fdbv1beta2.ProcessGroupID
+			var replacedPod corev1.Pod
 
 			BeforeEach(func() {
-				dcID := fdbCluster.GetRemote().GetCluster().Spec.DataCenter
+				// Ensure the other clusters are not interacting.
+				for _, cluster := range fdbCluster.GetAllClusters() {
+					cluster.SetSkipReconciliation(true)
+				}
 
-				status := fdbCluster.GetPrimary().GetStatus()
-
-				var processGroupID fdbv1beta2.ProcessGroupID
+				remote := fdbCluster.GetRemote()
+				remote.SetSkipReconciliation(false)
+				dcID := remote.GetCluster().Spec.DataCenter
+				status := remote.GetStatus()
 				for _, process := range status.Cluster.Processes {
 					dc, ok := process.Locality[fdbv1beta2.FDBLocalityDCIDKey]
 					if !ok || dc != dcID {
@@ -303,8 +312,7 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 				}
 
 				log.Println("Will inject chaos into", processGroupID, "and replace it")
-				var replacedPod corev1.Pod
-				for _, pod := range fdbCluster.GetRemote().GetLogPods().Items {
+				for _, pod := range remote.GetLogPods().Items {
 					if fixtures.GetProcessGroupID(pod) != processGroupID {
 						continue
 					}
@@ -318,8 +326,8 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 					fixtures.PodSelector(&replacedPod),
 					chaosmesh.PodSelectorSpec{
 						GenericSelectorSpec: chaosmesh.GenericSelectorSpec{
-							Namespaces:     []string{fdbCluster.GetRemote().Namespace()},
-							LabelSelectors: fdbCluster.GetRemote().GetCachedCluster().GetMatchLabels(),
+							Namespaces:     []string{remote.Namespace()},
+							LabelSelectors: remote.GetCachedCluster().GetMatchLabels(),
 						},
 					}, chaosmesh.Both,
 					&chaosmesh.DelaySpec{
@@ -333,23 +341,32 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 
 				time.Sleep(1 * time.Minute)
 				log.Println("replacedPod", replacedPod.Name, "useLocalitiesForExclusion", fdbCluster.GetPrimary().GetCluster().UseLocalitiesForExclusion())
-				fdbCluster.GetRemote().ReplacePod(replacedPod, true)
+				remote.ReplacePod(replacedPod, true)
 			})
 
 			It("should exclude and remove the pod", func() {
-				Eventually(func() []fdbv1beta2.ExcludedServers {
+				excludedServer := fdbv1beta2.ExcludedServers{Locality: processGroupID.GetExclusionString()}
+
+				Eventually(func(g Gomega) []fdbv1beta2.ExcludedServers {
 					status := fdbCluster.GetPrimary().GetStatus()
 					excludedServers := status.Cluster.DatabaseConfiguration.ExcludedServers
 					log.Println("excludedServers", excludedServers)
+
+					pod := &corev1.Pod{}
+					err := factory.GetControllerRuntimeClient().Get(context.Background(), ctrlClient.ObjectKeyFromObject(&replacedPod), pod)
+					g.Expect(err).To(HaveOccurred())
+					g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+
 					return excludedServers
-				}).WithTimeout(15 * time.Minute).WithPolling(1 * time.Second).Should(BeEmpty())
+				}).WithTimeout(15 * time.Minute).WithPolling(1 * time.Second).ShouldNot(ContainElement(excludedServer))
 			})
 
 			AfterEach(func() {
-				Expect(fdbCluster.GetRemote().ClearProcessGroupsToRemove()).NotTo(HaveOccurred())
+				for _, cluster := range fdbCluster.GetAllClusters() {
+					cluster.SetSkipReconciliation(false)
+				}
+				Expect(fdbCluster.GetRemote().ClearProcessGroupsToRemove()).To(Succeed())
 				factory.DeleteChaosMeshExperimentSafe(experiment)
-				// Making sure we included back all the process groups after exclusion is complete.
-				Expect(fdbCluster.GetPrimary().GetStatus().Cluster.DatabaseConfiguration.ExcludedServers).To(BeEmpty())
 				factory.DeleteDataLoader(fdbCluster.GetPrimary())
 			})
 		})

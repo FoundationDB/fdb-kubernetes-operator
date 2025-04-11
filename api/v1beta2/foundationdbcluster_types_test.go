@@ -5520,7 +5520,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 		Context("with a custom prefix", func() {
 			It("parses the prefix", func() {
-				id, err := ProcessGroupID("dc-1storage-12").GetIDNumber()
+				id, err := ProcessGroupID("dc1-storage-12").GetIDNumber()
 				Expect(err).NotTo(HaveOccurred())
 				Expect(id).To(Equal(12))
 			})
@@ -5550,6 +5550,23 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			})
 		})
 	})
+
+	DescribeTable("getting the process class from the process group ID", func(input ProcessGroupID, expected ProcessClass) {
+		Expect(input.GetProcessClass()).To(Equal(expected))
+	},
+		Entry("storage ID",
+			ProcessGroupID("storage-12"),
+			ProcessClassStorage,
+		),
+		Entry("cluster controller ID",
+			ProcessGroupID("cluster_controller-12"),
+			ProcessClassClusterController,
+		),
+		Entry("with a custom prefix",
+			ProcessGroupID("dc1-storage-12"),
+			ProcessClassStorage,
+		),
+	)
 
 	DescribeTable("when checking if all addresses are excluded for a process group", func(processGroupStatus *ProcessGroupStatus, remainingMap map[string]bool, expected bool, expectedErr error) {
 		excluded, err := processGroupStatus.AllAddressesExcluded(log, remainingMap)

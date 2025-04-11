@@ -221,24 +221,20 @@ func confirmRemoval(ctx context.Context, logger logr.Logger, r *FoundationDBClus
 		canBeIncluded = false
 	}
 
-	// TODO(johscheuer): https://github.com/FoundationDB/fdb-kubernetes-operator/v2/issues/1638
-	pvcs := &corev1.PersistentVolumeClaimList{}
-	err = r.List(ctx, pvcs, internal.GetSinglePodListOptions(cluster, processGroup.ProcessGroupID)...)
-	if err != nil {
+	pvc := &corev1.PersistentVolumeClaim{}
+	err = r.Get(ctx, client.ObjectKey{Name: processGroup.GetPvcName(cluster), Namespace: cluster.Namespace}, pvc)
+	if err != nil && !k8serrors.IsNotFound(err) {
 		return false, err
 	}
 
-	if len(pvcs.Items) == 1 {
-		pvc := pvcs.Items[0]
-		if pvc.DeletionTimestamp == nil {
-			logger.Info("Waiting for volume claim to get torn down", "processGroupID", processGroup.ProcessGroupID, "pvc", pvc.Name)
-			return false, internal.ResourceNotDeleted{Resource: &pvc}
+	if err == nil {
+		if pvc.DeletionTimestamp.IsZero() {
+			logger.Info("Waiting for process group to get torn down", "processGroupID", processGroup.ProcessGroupID, "pod", podName)
+			return false, internal.ResourceNotDeleted{Resource: pod}
 		}
 
 		// PVC is in terminating state so we don't want to block, but we also don't want to include it
 		canBeIncluded = false
-	} else if len(pvcs.Items) > 1 {
-		return false, fmt.Errorf("multiple PVCs found for cluster %s, processGroupID %s", cluster.Name, processGroup.ProcessGroupID)
 	}
 
 	service := &corev1.Service{}
@@ -303,6 +299,12 @@ func includeProcessGroup(ctx context.Context, logger logr.Logger, r *FoundationD
 		return err
 	}
 
+	// Make sure the inclusion are coordinated across multiple operator instances.
+	err = r.takeLock(logger, cluster, "include removed process groups")
+	if err != nil {
+		return err
+	}
+
 	if cluster.GetSynchronizationMode() == fdbv1beta2.SynchronizationModeGlobal {
 		pendingForInclusion, err := adminClient.GetPendingForInclusion("")
 		if err != nil {
@@ -318,12 +320,17 @@ func includeProcessGroup(ctx context.Context, logger logr.Logger, r *FoundationD
 		if err != nil {
 			return err
 		}
-	}
 
-	// Make sure the inclusion are coordinated across multiple operator instances.
-	err = r.takeLock(logger, cluster, "include removed process groups")
-	if err != nil {
-		return err
+		// Since we are here, we are able to do an "include all", this will clean up all exclusion entries. Since this operator instance
+		// has the lock and all process groups that are marked for removal are ready to be included, this will be a safe option.
+		// The only risk would be exclusions that are not done by the operator. Without the `include all` we might miss exclusions based on
+		// IP addresses as those are not present anymore (the pods hosting those processes where removed and we would need to keep track
+		// of those excluded IPs).
+		fdbProcessesToInclude = []fdbv1beta2.ProcessAddress{
+			{
+				StringAddress: "all",
+			},
+		}
 	}
 
 	r.Recorder.Event(cluster, corev1.EventTypeNormal, "IncludingProcesses", fmt.Sprintf("Including removed processes: %v", fdbProcessesToInclude))
@@ -359,6 +366,11 @@ func getProcessesToInclude(logger logr.Logger, cluster *fdbv1beta2.FoundationDBC
 	processGroups := cluster.Status.DeepCopy().ProcessGroups
 	idx := 0
 	for _, processGroup := range processGroups {
+		// Tester processes are not excluded, so there is no need to include them.
+		if processGroup.ProcessClass == fdbv1beta2.ProcessClassTest {
+			continue
+		}
+
 		if processGroup.IsMarkedForRemoval() && removedProcessGroups[processGroup.ProcessGroupID] {
 			foundInExcludedServerList := false
 			exclusionString := processGroup.GetExclusionString()

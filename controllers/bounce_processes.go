@@ -209,7 +209,7 @@ func (c bounceProcesses) reconcile(_ context.Context, r *FoundationDBClusterReco
 			return &requeue{curError: err, delayedRequeue: true}
 		}
 
-		addresses = coordination.GetAddressesFromStatus(logger, status, readyForRestart, false)
+		addresses = coordination.GetAddressesFromStatus(logger, status, readyForRestart, false, true)
 		logger.Info("Addresses from status", "addresses", addresses)
 	}
 

@@ -147,7 +147,7 @@ type ReconciliationOptions struct {
 type ReconciliationOption func(*ReconciliationOptions)
 
 // SoftReconcileOption specifies that the reconciliation is completed as soon as the Status.Generations.Reconciled reaches the
-// expected generation. Independent of other possible Generations, e.g. it could be still the case that the operator has to
+// expected generation. Independent of other possible generations, e.g. it could be still the case that the operator has to
 // delete additional Process Groups.
 func SoftReconcileOption(enable bool) ReconciliationOption {
 	return func(options *ReconciliationOptions) {
