@@ -140,6 +140,21 @@ type FoundationDBStatusClusterInfo struct {
 
 	// BounceImpact represents the bounce_impact part of the machine-readable status.
 	BounceImpact FoundationDBBounceImpact `json:"bounce_impact,omitempty"`
+
+	// DatabaseAvailable indicates whether the database is currently available.
+	DatabaseAvailable bool `json:"database_available,omitempty"`
+
+	// ActivePrimaryDC indicates which data center is currently the primary.
+	ActivePrimaryDC string `json:"active_primary_dc,omitempty"`
+
+	// DatabaseLockState provides information about the database's locking.
+	DatabaseLockState FoundationDBStatusLockState `json:"database_lock_state,omitempty"`
+}
+
+// FoundationDBStatusLockState provides information about the database's locking.
+type FoundationDBStatusLockState struct {
+	// Locked indicates whether the database is currently locked.
+	Locked bool `json:"locked,omitempty"`
 }
 
 // FoundationDBBounceImpact represents the bounce_impact part of the machine-readable status.
@@ -209,6 +224,51 @@ type FoundationDBStatusProcessRoleInfo struct {
 	StoredBytes int `json:"stored_bytes,omitempty"`
 	// ID represent the role ID.
 	ID string `json:"id,omitempty"`
+
+	// DataLag indicates whether this process is lagging in its writes.
+	DataLag FoundationDBStatusLagInfo `json:"data_lag,omitempty"`
+
+	// KVStoreUsedBytes indicates how much space this process is using on its disk.
+	KVStoreUsedBytes int64 `json:"kvstore_used_bytes"`
+
+	// KVStoreTotalBytes indicates how much space this process's disk has in total.
+	KVStoreTotalBytes int64 `json:"kvstore_total_bytes"`
+
+	// KVStoreFreeBytes indicates how much free space this process's disk has.
+	KVStoreFreeBytes int64 `json:"kvstore_free_bytes"`
+
+	// KVStoreAvailableBytes indicates how much space this process can still use on its disk, inclusive of both free space and unused written space.
+	KVStoreAvailableBytes int64 `json:"kvstore_available_bytes"`
+
+	// ReadLatencyStatistics provides statistics about this process's read latencies.
+	ReadLatencyStatistics FoundationDBStatusPerfStatistics `json:"read_latency_statistics"`
+
+	// ReadLatencyStatistics provides statistics about this process's commit latencies.
+	CommitLatencyStatistics FoundationDBStatusPerfStatistics `json:"commit_latency_statistics"`
+
+	// ReadLatencyStatistics provides statistics about this process's GRV latencies.
+	GRVLatencyStatistics FoundationDBStatusGRVStatistics `json:"grv_latency_statistics"`
+}
+
+// FoundationDBStatusPerfStatistics models information about one dimension of a process's performance.
+type FoundationDBStatusPerfStatistics struct {
+	// Count provides the number of observations for this stat.
+	Count int `json:"count"`
+
+	// Median provides the median value for this stat.
+	Median float64 `json:"median"`
+
+	// P99 provides the 99th percentile value for this stat.
+	P99 float64 `json:"p99"`
+}
+
+// FoundationDBStatusGRVStatistics models information about a process's GRV latencies.
+type FoundationDBStatusGRVStatistics struct {
+	// Batch provides the GRV latencies at batch priority.
+	Batch FoundationDBStatusPerfStatistics `json:"batch"`
+
+	// Default provides the GRV latencies at default priority.
+	Default FoundationDBStatusPerfStatistics `json:"default"`
 }
 
 // FoundationDBStatusDataStatistics provides information about the data in
@@ -225,6 +285,9 @@ type FoundationDBStatusDataStatistics struct {
 
 	// TeamTrackers provides information about (highest priority) teams.
 	TeamTrackers []FoundationDBStatusTeamTracker `json:"team_trackers,omitempty"`
+
+	// TotalDiskUsedBytes provides the total bytes used on disk by the database.
+	TotalDiskUsedBytes int64 `json:"total_disk_used_bytes,omitempty"`
 }
 
 // FoundationDBStatusDataState provides information about the state of data
@@ -268,6 +331,9 @@ type FoundationDBStatusTeamTracker struct {
 	// FoundationDBStatusDataState provides information about the state of the
 	// highest priority team.
 	State FoundationDBStatusDataState `json:"state,omitempty"`
+
+	// UnhealthyServers defines how many unhealthy servers this team has.
+	UnhealthyServers int64 `json:"unhealthy_servers,omitempty"`
 }
 
 // FoundationDBStatusClientDBStatus represents the databaseStatus field in the
@@ -335,6 +401,9 @@ func (client FoundationDBStatusConnectedClient) Description() string {
 // FoundationDBStatusLayerInfo provides information about layers that are
 // running against the cluster.
 type FoundationDBStatusLayerInfo struct {
+	// Valid indicates whether the layer info is valid, meaning that it can be trusted as a full set of information.
+	Valid bool `json:"_valid,omitempty"`
+
 	// Backup provides information about backups that have been started.
 	Backup FoundationDBStatusBackupInfo `json:"backup,omitempty"`
 
@@ -354,9 +423,20 @@ type FoundationDBStatusBackupInfo struct {
 // FoundationDBStatusBackupTag provides information about a backup under a tag
 // in the cluster status.
 type FoundationDBStatusBackupTag struct {
+	// CurrentContainer identifies the container for this backup.
 	CurrentContainer string `json:"current_container,omitempty"`
-	RunningBackup    bool   `json:"running_backup,omitempty"`
-	Restorable       bool   `json:"running_backup_is_restorable,omitempty"`
+
+	// RunningBackup indicates whether the backup is currently running.
+	RunningBackup bool `json:"running_backup,omitempty"`
+
+	// Restorable indicates whether the current backup is restorable.
+	Restorable bool `json:"running_backup_is_restorable,omitempty"`
+
+	// LastRestorableSecondsBehind indicates how long ago the last restorable point-in-time for the backup is.
+	LastRestorableSecondsBehind float64 `json:"last_restorable_seconds_behind,omitempty"`
+
+	// LastRestorableSecondsBehind indicates how many versions behind the last restorable point-in-time for the backup is.
+	LastRestorableVersion int64 `json:"last_restorable_version,omitempty"`
 }
 
 // FoundationDBStatusLogInfo provides information about the fault tolerance metrics

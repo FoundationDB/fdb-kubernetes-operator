@@ -17,6 +17,8 @@ limitations under the License.
 package v1beta2
 
 import (
+	"cmp"
+	"sort"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -26,4 +28,28 @@ import (
 func TestCmd(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "FDB v1beta2 API")
+}
+
+// sortedMapValues gets the values from a map as a list, sorted according to the ordering of the underlying keys.
+func sortedMapValues[K cmp.Ordered, V any](data map[K]V) []V {
+	type kv struct {
+		key   K
+		value V
+	}
+	keyValues := make([]kv, 0, len(data))
+	for key, value := range data {
+		keyValues = append(keyValues, kv{key: key, value: value})
+	}
+
+	sort.Slice(keyValues, func(i, j int) bool {
+		return keyValues[i].key < keyValues[j].key
+	})
+
+	values := make([]V, len(keyValues))
+
+	for index, keyValue := range keyValues {
+		values[index] = keyValue.value
+	}
+
+	return values
 }
