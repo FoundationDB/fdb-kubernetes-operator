@@ -23,12 +23,14 @@ package coordinator
 import (
 	"context"
 	"fmt"
-	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/locality"
-	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient/mock"
-	"github.com/go-logr/logr"
 	"math"
 	"net"
 	"strings"
+	"time"
+
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/locality"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient/mock"
+	"github.com/go-logr/logr"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
@@ -73,7 +75,7 @@ var _ = Describe("Change coordinators", func() {
 				status, err = adminClient.GetStatus()
 				Expect(err).NotTo(HaveOccurred())
 
-				candidates, err = selectCoordinatorsLocalities(logr.Discard(), cluster, status)
+				candidates, err = selectCoordinatorsLocalities(logr.Discard(), cluster, status, nil)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -160,7 +162,7 @@ var _ = Describe("Change coordinators", func() {
 					initialCandidates := candidates
 
 					for i := 0; i < 100; i++ {
-						newCandidates, err := selectCoordinatorsLocalities(logr.Discard(), cluster, status)
+						newCandidates, err := selectCoordinatorsLocalities(logr.Discard(), cluster, status, nil)
 						Expect(err).NotTo(HaveOccurred())
 						Expect(newCandidates).To(Equal(initialCandidates))
 					}
@@ -230,7 +232,7 @@ var _ = Describe("Change coordinators", func() {
 				Expect(err).NotTo(HaveOccurred())
 				status.Cluster.Processes = generateProcessInfoForMultiRegion(cluster.Spec.DatabaseConfiguration, excludes, cluster.GetRunningVersion())
 
-				candidates, err = selectCoordinatorsLocalities(testLogger, cluster, status)
+				candidates, err = selectCoordinatorsLocalities(testLogger, cluster, status, nil)
 				if shouldFail {
 					Expect(err).To(HaveOccurred())
 				} else {
@@ -431,7 +433,7 @@ var _ = Describe("Change coordinators", func() {
 						initialCandidates := candidates
 
 						for i := 0; i < 100; i++ {
-							newCandidates, err := selectCoordinatorsLocalities(logr.Discard(), cluster, status)
+							newCandidates, err := selectCoordinatorsLocalities(logr.Discard(), cluster, status, nil)
 							Expect(err).NotTo(HaveOccurred())
 							Expect(newCandidates).To(Equal(initialCandidates))
 						}
@@ -659,7 +661,7 @@ var _ = Describe("Change coordinators", func() {
 						initialCandidates := candidates
 
 						for i := 0; i < 100; i++ {
-							newCandidates, err := selectCoordinatorsLocalities(logr.Discard(), cluster, status)
+							newCandidates, err := selectCoordinatorsLocalities(logr.Discard(), cluster, status, nil)
 							Expect(err).NotTo(HaveOccurred())
 							Expect(newCandidates).To(Equal(initialCandidates))
 						}
@@ -682,7 +684,7 @@ var _ = Describe("Change coordinators", func() {
 
 				status.Cluster.Processes = generateProcessInfoForThreeDataHall(3, nil, cluster.GetRunningVersion())
 
-				candidates, err = selectCoordinatorsLocalities(logr.Discard(), cluster, status)
+				candidates, err = selectCoordinatorsLocalities(logr.Discard(), cluster, status, nil)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -733,8 +735,8 @@ var _ = Describe("Change coordinators", func() {
 		})
 	})
 
-	DescribeTable("selecting coordinator candidates", func(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, expected []locality.Info) {
-		localities, err := selectCandidates(cluster, status)
+	DescribeTable("selecting coordinator candidates", func(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, expected []locality.Info, pendingRemovals map[fdbv1beta2.ProcessGroupID]time.Time) {
+		localities, err := selectCandidates(cluster, status, pendingRemovals)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(localities).To(ConsistOf(expected))
 	},
@@ -773,6 +775,7 @@ var _ = Describe("Change coordinators", func() {
 					},
 				},
 			},
+			nil,
 		),
 		Entry("No priorities are defined and one processes must be upgraded",
 			&fdbv1beta2.FoundationDBCluster{
@@ -831,6 +834,7 @@ var _ = Describe("Change coordinators", func() {
 					Priority: math.MinInt,
 				},
 			},
+			nil,
 		),
 		Entry("Priorities are defined and one processes must be upgraded",
 			&fdbv1beta2.FoundationDBCluster{
@@ -896,6 +900,7 @@ var _ = Describe("Change coordinators", func() {
 					Priority: math.MinInt + 1000,
 				},
 			},
+			nil,
 		),
 		Entry("No priorities are defined and one processes is using the binary from the shared volume",
 			&fdbv1beta2.FoundationDBCluster{
@@ -953,6 +958,55 @@ var _ = Describe("Change coordinators", func() {
 					},
 					Priority: math.MinInt,
 				},
+			},
+			nil,
+		),
+		Entry("No priorities are defined and one process is pending for removal",
+			&fdbv1beta2.FoundationDBCluster{
+				Spec: fdbv1beta2.FoundationDBClusterSpec{
+					Version: "7.1.57",
+				},
+			},
+			&fdbv1beta2.FoundationDBStatus{
+				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+					Processes: map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{
+						"1": {
+							ProcessClass: fdbv1beta2.ProcessClassStorage,
+							Locality: map[string]string{
+								fdbv1beta2.FDBLocalityInstanceIDKey: "1",
+								fdbv1beta2.FDBLocalityDNSNameKey:    "1",
+							},
+							CommandLine: "--public_address=192.168.0.1:4500",
+							Version:     "7.1.57",
+						},
+						"2": {
+							ProcessClass: fdbv1beta2.ProcessClassStorage,
+							Locality: map[string]string{
+								fdbv1beta2.FDBLocalityInstanceIDKey: "2",
+								fdbv1beta2.FDBLocalityDNSNameKey:    "2",
+							},
+							CommandLine: "--public_address=192.168.0.2:4500",
+							Version:     "7.1.57",
+						},
+					},
+				},
+			},
+			[]locality.Info{
+				{
+					ID: "2",
+					Address: fdbv1beta2.ProcessAddress{
+						IPAddress: net.ParseIP("192.168.0.2"),
+						Port:      4500,
+					},
+					Class: fdbv1beta2.ProcessClassStorage,
+					LocalityData: map[string]string{
+						fdbv1beta2.FDBLocalityInstanceIDKey: "2",
+						fdbv1beta2.FDBLocalityDNSNameKey:    "2",
+					},
+				},
+			},
+			map[fdbv1beta2.ProcessGroupID]time.Time{
+				"1": time.Now(),
 			},
 		),
 	)

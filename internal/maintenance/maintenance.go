@@ -21,9 +21,10 @@
 package maintenance
 
 import (
+	"time"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/go-logr/logr"
-	"time"
 )
 
 // GetMaintenanceInformation returns the information about processes that have finished, stale information in the maintenance list and processes that still must be updated.

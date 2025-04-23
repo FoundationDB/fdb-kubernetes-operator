@@ -23,13 +23,15 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbstatus"
 	"math"
 	"sort"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbstatus"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/coordination"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/locality"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/podmanager"
 	"github.com/go-logr/logr"
@@ -132,12 +134,12 @@ func (c updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterRecon
 	}
 
 	updateFaultDomains(logger, processMap, &clusterStatus)
-	pvcs, err := refreshProcessGroupStatus(ctx, r, cluster, &clusterStatus)
+	err = refreshProcessGroupStatus(ctx, r, cluster, &clusterStatus)
 	if err != nil {
 		return &requeue{curError: fmt.Errorf("update_status skipped due to error in refreshProcessGroupStatus: %w", err)}
 	}
 
-	err = validateProcessGroups(ctx, r, cluster, &clusterStatus, processMap, configMap, pvcs, logger, currentMaintenanceZone)
+	err = validateProcessGroups(ctx, r, cluster, &clusterStatus, processMap, configMap, logger, currentMaintenanceZone)
 	if err != nil {
 		return &requeue{curError: fmt.Errorf("update_status skipped due to error in validateProcessGroups: %w", err)}
 	}
@@ -171,7 +173,7 @@ func (c updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterRecon
 		}
 	}
 
-	clusterStatus.HasIncorrectConfigMap = clusterStatus.HasIncorrectConfigMap || !equality.Semantic.DeepEqual(existingConfigMap.Data, configMap.Data) || !metadataMatches(existingConfigMap.ObjectMeta, configMap.ObjectMeta)
+	clusterStatus.HasIncorrectConfigMap = clusterStatus.HasIncorrectConfigMap || !equality.Semantic.DeepEqual(existingConfigMap.Data, configMap.Data) || !internal.MetadataMatches(existingConfigMap.ObjectMeta, configMap.ObjectMeta)
 
 	service := internal.GetHeadlessService(cluster)
 	existingService := &corev1.Service{}
@@ -233,6 +235,19 @@ func (c updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterRecon
 		return &requeue{curError: err}
 	}
 
+	// Update the global coordination state if required.
+	if cluster.GetSynchronizationMode() == fdbv1beta2.SynchronizationModeGlobal {
+		adminClient, clientErr := r.getAdminClient(logger, cluster)
+		if clientErr != nil {
+			return &requeue{curError: clientErr}
+		}
+
+		err = coordination.UpdateGlobalCoordinationState(logger, cluster, adminClient)
+		if err != nil {
+			return &requeue{curError: err}
+		}
+	}
+
 	if reconciled && cluster.ShouldUseLocks() {
 		// Once the cluster is reconciled the operator will release any pending locks for this cluster.
 		lockErr := r.releaseLock(logger, cluster)
@@ -254,22 +269,10 @@ func (c updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterRecon
 
 	// If the cluster is not reconciled, make sure we trigger a new reconciliation loop.
 	if !reconciled {
-		return &requeue{message: "cluster is not fully reconciled", delayedRequeue: true}
+		return &requeue{message: "cluster is not fully reconciled", delay: 10 * time.Second, delayedRequeue: true}
 	}
 
 	return nil
-}
-
-// containsAll determines if one map contains all the keys and matching values
-// from another map.
-func containsAll(current map[string]string, desired map[string]string) bool {
-	for key, value := range desired {
-		if current[key] != value {
-			return false
-		}
-	}
-
-	return true
 }
 
 // checkAndSetProcessStatus checks the status of the Process and if missing or incorrect add it to the related status field
@@ -414,13 +417,11 @@ func checkProcessMessagesForIOError(messages []fdbv1beta2.FoundationDBStatusProc
 }
 
 // Validate and set progressGroup's status
-func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBClusterStatus, processMap map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo, configMap *corev1.ConfigMap, pvcs *corev1.PersistentVolumeClaimList, logger logr.Logger, maintenanceZone fdbv1beta2.FaultDomain) error {
+func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBClusterStatus, processMap map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo, configMap *corev1.ConfigMap, logger logr.Logger, maintenanceZone fdbv1beta2.FaultDomain) error {
 	processGroupsWithoutExclusion := make(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None, len(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion))
 	for _, processGroupID := range cluster.Spec.ProcessGroupsToRemoveWithoutExclusion {
 		processGroupsWithoutExclusion[processGroupID] = fdbv1beta2.None{}
 	}
-
-	pvcMap := internal.CreatePVCMap(cluster, pvcs)
 
 	disableTaintFeature := cluster.IsTaintFeatureDisabled()
 	if disableTaintFeature {
@@ -538,13 +539,7 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 			return err
 		}
 
-		var pvc *corev1.PersistentVolumeClaim
-		pvcValue, pvcExists := pvcMap[processGroup.ProcessGroupID]
-		if pvcExists {
-			pvc = &pvcValue
-		}
-
-		err = validateProcessGroup(ctx, r, cluster, pod, pvc, configMapHash, processGroup, disableTaintFeature, logger)
+		err = validateProcessGroup(ctx, r, cluster, pod, configMapHash, processGroup, disableTaintFeature, logger)
 		if err != nil {
 			return err
 		}
@@ -556,7 +551,7 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 // validateProcessGroup runs specific checks for the status of a process group.
 // returns failing, incorrect, error
 func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster,
-	pod *corev1.Pod, currentPVC *corev1.PersistentVolumeClaim, configMapHash string, processGroupStatus *fdbv1beta2.ProcessGroupStatus,
+	pod *corev1.Pod, configMapHash string, processGroupStatus *fdbv1beta2.ProcessGroupStatus,
 	disableTaintFeature bool, logger logr.Logger) error {
 	if pod == nil {
 		processGroupStatus.UpdateCondition(fdbv1beta2.MissingPod, true)
@@ -568,16 +563,27 @@ func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler,
 		return err
 	}
 
-	incorrectPod := !metadataMatches(pod.ObjectMeta, internal.GetPodMetadata(cluster, processGroupStatus.ProcessClass, processGroupStatus.ProcessGroupID, specHash))
-	if !incorrectPod {
+	// Check here if the Pod spec matches the desired Pod spec.
+	incorrectPodSpec := specHash != pod.Annotations[fdbv1beta2.LastSpecKey]
+	if !incorrectPodSpec {
 		updated, err := r.PodLifecycleManager.PodIsUpdated(ctx, r, cluster, pod)
 		if err != nil {
 			return err
 		}
-		incorrectPod = !updated
+		incorrectPodSpec = !updated
+		if incorrectPodSpec {
+			logger.Info("IncorrectPodSpec", "currentSpecHash", pod.Annotations[fdbv1beta2.LastSpecKey], "desiredSpecHash", specHash, "updated", updated, "incorrectPodSpec", incorrectPodSpec)
+		}
 	}
 
-	processGroupStatus.UpdateCondition(fdbv1beta2.IncorrectPodSpec, incorrectPod)
+	processGroupStatus.UpdateCondition(fdbv1beta2.IncorrectPodSpec, incorrectPodSpec)
+
+	// Check if the pod metadata is correct.
+	metadataCorrect, err := internal.PodMetadataCorrect(cluster, processGroupStatus, pod)
+	if err != nil {
+		return err
+	}
+	processGroupStatus.UpdateCondition(fdbv1beta2.IncorrectPodMetadata, !metadataCorrect)
 
 	// If we do a cluster version incompatible upgrade we use the fdbv1beta2.IncorrectConfigMap to signal when the operator
 	// can restart fdbserver processes. Since the ConfigMap itself won't change during the upgrade we have to run the updatePodDynamicConf
@@ -596,20 +602,32 @@ func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler,
 
 	processGroupStatus.UpdateCondition(fdbv1beta2.IncorrectConfigMap, !synced)
 
-	desiredPvc, err := internal.GetPvc(cluster, processGroupStatus)
-	if err != nil {
-		return err
-	}
+	if processGroupStatus.ProcessClass.IsStateful() {
+		desiredPvc, err := internal.GetPvc(cluster, processGroupStatus)
+		if err != nil {
+			return err
+		}
 
-	incorrectPVC := (currentPVC != nil) != (desiredPvc != nil)
-	if !incorrectPVC && desiredPvc != nil {
-		incorrectPVC = !metadataMatches(currentPVC.ObjectMeta, desiredPvc.ObjectMeta)
-	}
-	if incorrectPVC {
-		logger.Info("ValidateProcessGroup found incorrectPVC", "CurrentPVC", currentPVC, "DesiredPVC", desiredPvc)
-	}
+		var incorrectPVC bool
+		currentPVC := &corev1.PersistentVolumeClaim{}
+		err = r.Get(ctx, client.ObjectKeyFromObject(desiredPvc), currentPVC)
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				incorrectPVC = true
+			} else {
+				return err
+			}
+		}
 
-	processGroupStatus.UpdateCondition(fdbv1beta2.MissingPVC, incorrectPVC)
+		if !incorrectPVC {
+			incorrectPVC = !internal.MetadataMatches(currentPVC.ObjectMeta, desiredPvc.ObjectMeta)
+		}
+		if incorrectPVC {
+			logger.Info("ValidateProcessGroup found incorrectPVC", "CurrentPVC", currentPVC, "DesiredPVC", desiredPvc)
+		}
+
+		processGroupStatus.UpdateCondition(fdbv1beta2.MissingPVC, incorrectPVC)
+	}
 
 	if pod.Status.Phase == corev1.PodPending {
 		processGroupStatus.UpdateCondition(fdbv1beta2.PodPending, true)
@@ -751,7 +769,7 @@ func checkIfNodeHasTaintsAndUpdateConditions(logger logr.Logger, taints []corev1
 	return hasMatchingTaint
 }
 
-func refreshProcessGroupStatus(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBClusterStatus) (*corev1.PersistentVolumeClaimList, error) {
+func refreshProcessGroupStatus(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBClusterStatus) error {
 	knownProcessGroups := map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None{}
 
 	for _, processGroup := range status.ProcessGroups {
@@ -762,7 +780,7 @@ func refreshProcessGroupStatus(ctx context.Context, r *FoundationDBClusterReconc
 	// even if the process group is currently missing for some reasons.
 	pods, err := r.PodLifecycleManager.GetPods(ctx, r, cluster, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	for _, pod := range pods {
@@ -779,7 +797,7 @@ func refreshProcessGroupStatus(ctx context.Context, r *FoundationDBClusterReconc
 	pvcs := &corev1.PersistentVolumeClaimList{}
 	err = r.List(ctx, pvcs, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	for _, pvc := range pvcs.Items {
@@ -796,7 +814,7 @@ func refreshProcessGroupStatus(ctx context.Context, r *FoundationDBClusterReconc
 	services := &corev1.ServiceList{}
 	err = r.List(ctx, services, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	for _, service := range services.Items {
@@ -814,7 +832,7 @@ func refreshProcessGroupStatus(ctx context.Context, r *FoundationDBClusterReconc
 		status.ProcessGroups = append(status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus(processGroupID, internal.ProcessClassFromLabels(cluster, service.Labels), nil))
 	}
 
-	return pvcs, nil
+	return nil
 }
 
 func getRunningVersion(logger logr.Logger, versionMap map[string]int, currentRunningVersion string) (string, error) {

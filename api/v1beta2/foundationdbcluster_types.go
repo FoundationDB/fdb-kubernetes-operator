@@ -925,6 +925,8 @@ type ProcessGroupConditionType string
 const (
 	// IncorrectPodSpec represents a process group that has an incorrect Pod spec.
 	IncorrectPodSpec ProcessGroupConditionType = "IncorrectPodSpec"
+	// IncorrectPodMetadata represents a process group that has an incorrect Pod metadata (labels and annotations differ).
+	IncorrectPodMetadata ProcessGroupConditionType = "IncorrectPodMetadata"
 	// IncorrectConfigMap represents a process group that has an incorrect ConfigMap.
 	IncorrectConfigMap ProcessGroupConditionType = "IncorrectConfigMap"
 	// IncorrectCommandLine represents a process group that has an incorrect commandline configuration.
@@ -964,6 +966,7 @@ const (
 func AllProcessGroupConditionTypes() []ProcessGroupConditionType {
 	return []ProcessGroupConditionType{
 		IncorrectPodSpec,
+		IncorrectPodMetadata,
 		IncorrectConfigMap,
 		IncorrectCommandLine,
 		PodFailing,
@@ -986,6 +989,8 @@ func GetProcessGroupConditionType(processGroupConditionType string) (ProcessGrou
 	switch processGroupConditionType {
 	case "IncorrectPodSpec":
 		return IncorrectPodSpec, nil
+	case "IncorrectPodMetadata":
+		return IncorrectPodMetadata, nil
 	case "IncorrectConfigMap":
 		return IncorrectConfigMap, nil
 	case "IncorrectCommandLine":
@@ -1205,6 +1210,19 @@ type FoundationDBClusterAutomationOptions struct {
 	// The default is a list that includes "fdb-kubernetes-operator".
 	// +kubebuilder:validation:MaxItems=10
 	IgnoreLogGroupsForUpgrade []LogGroup `json:"ignoreLogGroupsForUpgrade,omitempty"`
+
+	// SynchronizationMode defines the synchronization mode for clusters that are managed by multiple operator instances.
+	// The default is "local" which means all operator instances are only acting on their local processes, with the exception for
+	// cluster upgrades. In the "global" mode the operator instances coordinate actions to only issue a single
+	// exclude/bounce/include to reduce the disruptions. The global coordination mode is based on an optimistic mode
+	// and there are no guarantees that the action will only be executed once, e.g. because of a slow operator instance.
+	//
+	// More details:
+	// https://github.com/FoundationDB/fdb-kubernetes-operator/blob/main/docs/design/better_coordination_multi_operator.md
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Enum=local;global
+	// +kubebuilder:default:=local
+	SynchronizationMode *string `json:"synchronizationMode,omitempty"`
 }
 
 // LogGroup represents a LogGroup used by a FoundationDB process to log trace events. The LogGroup can be used to filter
@@ -2941,8 +2959,8 @@ func (cluster *FoundationDBCluster) Validate() error {
 	}
 
 	if cluster.Spec.Routing.PodIPFamily != nil {
-		ipFamily := *cluster.Spec.Routing.PodIPFamily
-		if ipFamily != 4 && ipFamily != 6 {
+		ipFamily := cluster.GetPodIPFamily()
+		if ipFamily != PodIPFamilyIPv4 && ipFamily != PodIPFamilyIPv6 && ipFamily != PodIPFamilyUnset {
 			validations = append(validations, fmt.Sprintf("Pod IP Family %d is not valid, only 4 or 6 are allowed.", ipFamily))
 		}
 	}
@@ -3093,15 +3111,22 @@ func (cluster *FoundationDBCluster) GetProcessGroupID(processClass ProcessClass,
 }
 
 var (
+	// PodIPFamilyUnset represents an unset IP family.
+	PodIPFamilyUnset = 0
 	// PodIPFamilyIPv4 represents the desired IP family as IPv4.
 	PodIPFamilyIPv4 = 4
 	// PodIPFamilyIPv6 represents the desired IP family as IPv6.
 	PodIPFamilyIPv6 = 6
 )
 
+// GetPodIPFamily returns the current desired pod IP family. If no IP family is specified the value will be PodIPFamilyUnset.
+func (cluster *FoundationDBCluster) GetPodIPFamily() int {
+	return pointer.IntDeref(cluster.Spec.Routing.PodIPFamily, PodIPFamilyUnset)
+}
+
 // IsPodIPFamily6 determines whether the podIPFamily setting in cluster is set to use the IPv6 family.
 func (cluster *FoundationDBCluster) IsPodIPFamily6() bool {
-	return pointer.IntDeref(cluster.Spec.Routing.PodIPFamily, PodIPFamilyIPv4) == PodIPFamilyIPv6
+	return cluster.GetPodIPFamily() == PodIPFamilyIPv6
 }
 
 // ProcessSharesDC returns true if the process's locality matches the cluster's Datacenter.
@@ -3131,4 +3156,34 @@ func (cluster *FoundationDBCluster) GetMaxFaultDomainsWithTaintedProcessGroups(f
 	}
 
 	return maxAllowed, nil
+}
+
+// UpdateAction defines the update action for an entry in the multi-region coordination key-space.
+type UpdateAction string
+
+const (
+	// UpdateActionAdd will add or update the provided information.
+	UpdateActionAdd UpdateAction = "add"
+	// UpdateActionDelete will remove the provided associated information.
+	UpdateActionDelete UpdateAction = "delete"
+)
+
+// SynchronizationMode defines the synchronization mode.
+// +kubebuilder:validation:MaxLength=256
+type SynchronizationMode string
+
+const (
+	// SynchronizationModeLocal defines the local synchronization mode.
+	SynchronizationModeLocal SynchronizationMode = "local"
+	// SynchronizationModeGlobal SynchronizationMode the global synchronization mode.
+	SynchronizationModeGlobal SynchronizationMode = "global"
+)
+
+// GetSynchronizationMode returns the current SynchronizationMode.
+func (cluster *FoundationDBCluster) GetSynchronizationMode() SynchronizationMode {
+	if !cluster.Status.Configured {
+		return SynchronizationModeLocal
+	}
+
+	return SynchronizationMode(pointer.StringDeref(cluster.Spec.AutomationOptions.SynchronizationMode, string(SynchronizationModeLocal)))
 }

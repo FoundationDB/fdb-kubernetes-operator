@@ -22,9 +22,10 @@ package removals
 
 import (
 	"fmt"
-	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbstatus"
 	"math"
 	"net"
+
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbstatus"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient"
 	"github.com/go-logr/logr"

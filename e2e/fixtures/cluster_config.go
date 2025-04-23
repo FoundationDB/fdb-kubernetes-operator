@@ -125,6 +125,8 @@ type ClusterConfig struct {
 	// RedundancyMode defines the redundancy mode that should be used. If undefined the default is triple, except for
 	// the HaFourZoneDoubleSatRF4 configuration.
 	RedundancyMode fdbv1beta2.RedundancyMode
+	// SynchronizationMode defines the fdbv1beta2.SynchronizationMode if not set the default will be \"local\"
+	SynchronizationMode fdbv1beta2.SynchronizationMode
 }
 
 // DefaultClusterConfigWithHaMode returns the default cluster configuration with the provided HA Mode.
@@ -176,8 +178,8 @@ func (config *ClusterConfig) SetDefaults(factory *Factory) {
 	if config.TLSPeerVerification == "" {
 		config.TLSPeerVerification = "I.CN=localhost,I.O=Example Inc.,S.CN=localhost,S.O=Example Inc."
 	}
-	nodeSelector := factory.GetNodeSelector()
-	if nodeSelector != "" {
+
+	if nodeSelector := factory.GetNodeSelector(); nodeSelector != "" {
 		splitSelector := strings.Split(nodeSelector, "=")
 		config.NodeSelector = map[string]string{splitSelector[0]: splitSelector[1]}
 	}
@@ -188,6 +190,10 @@ func (config *ClusterConfig) SetDefaults(factory *Factory) {
 
 	if config.CpusPerPod == "" {
 		config.CpusPerPod = "1"
+	}
+
+	if config.SynchronizationMode == "" {
+		config.SynchronizationMode = factory.GetSynchronizationMode()
 	}
 }
 
@@ -573,5 +579,6 @@ func (config *ClusterConfig) Copy() *ClusterConfig {
 		UseUnifiedImage:            config.UseUnifiedImage,
 		MemoryPerPod:               config.MemoryPerPod,
 		CpusPerPod:                 config.CpusPerPod,
+		SynchronizationMode:        config.SynchronizationMode,
 	}
 }

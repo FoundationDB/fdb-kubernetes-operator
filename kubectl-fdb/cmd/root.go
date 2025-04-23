@@ -23,14 +23,15 @@ package cmd
 import (
 	"bufio"
 	"fmt"
+	"log"
+	"os"
+	"strings"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
-	"log"
-	"os"
-	"strings"
 )
 
 // fdbBOptions provides information required to run different

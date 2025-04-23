@@ -24,6 +24,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
+
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -34,7 +36,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	"time"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/podmanager"
@@ -76,6 +77,11 @@ type FoundationDBClusterReconciler struct {
 	MinimumRequiredUptimeCCBounce               time.Duration
 	MaintenanceListStaleDuration                time.Duration
 	MaintenanceListWaitDuration                 time.Duration
+	// GlobalSynchronizationWaitDuration is the wait time for the operator when the synchronization mode is set to
+	// global. The wait time defines the period where no updates for the according action should happen. Increasing the
+	// wait time will increase the chances that all updates are part of the list but will also delay the rollout of
+	// the change.
+	GlobalSynchronizationWaitDuration time.Duration
 	// MinimumRecoveryTimeForInclusion defines the duration in seconds that a cluster must be up
 	// before new inclusions are allowed. The operator issuing frequent inclusions in a short time window
 	// could cause instability for the cluster as each inclusion will/can cause a recovery. Delaying the inclusion
@@ -169,7 +175,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 		clusterLog.Info("Fetch machine-readable status for reconcilitation loop", "cacheStatus", cacheStatus)
 		status, err = r.getStatusFromClusterOrDummyStatus(clusterLog, cluster)
 		if err != nil {
-			clusterLog.Info("could not fetch machine-readable status and therefore didn't cache the it")
+			clusterLog.Info("could not fetch machine-readable status and therefore didn't cache it")
 		}
 	}
 
@@ -415,9 +421,9 @@ func (r *FoundationDBClusterReconciler) updatePodDynamicConf(logger logr.Logger,
 		}
 	}
 
-	syncedFDBcluster, clusterErr := podClient.UpdateFile("fdb.cluster", cluster.Status.ConnectionString)
+	syncedFDBCluster, clusterErr := podClient.UpdateFile("fdb.cluster", cluster.Status.ConnectionString)
 	syncedFDBMonitor, err := podClient.UpdateFile("fdbmonitor.conf", expectedConf)
-	if !syncedFDBcluster || !syncedFDBMonitor {
+	if !syncedFDBCluster || !syncedFDBMonitor {
 		if clusterErr != nil {
 			return false, clusterErr
 		}
@@ -456,11 +462,7 @@ func (r *FoundationDBClusterReconciler) getDatabaseClientProvider() fdbadminclie
 
 // getAdminClient gets the admin client for a reconciler.
 func (r *FoundationDBClusterReconciler) getAdminClient(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster) (fdbadminclient.AdminClient, error) {
-	if r.DatabaseClientProvider != nil {
-		return r.DatabaseClientProvider.GetAdminClientWithLogger(cluster, r, logger)
-	}
-
-	panic("Cluster reconciler does not have a DatabaseClientProvider defined")
+	return r.getDatabaseClientProvider().GetAdminClientWithLogger(cluster, r, logger)
 }
 
 func (r *FoundationDBClusterReconciler) getLockClient(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster) (fdbadminclient.LockClient, error) {

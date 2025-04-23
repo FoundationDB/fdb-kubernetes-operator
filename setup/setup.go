@@ -25,16 +25,18 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"log"
 	"os"
 	"path"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/podmanager"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 
 	"github.com/go-logr/logr"
 
@@ -73,6 +75,7 @@ type Options struct {
 	LabelSelector                      string
 	ClusterLabelKeyForNodeTrigger      string
 	WatchNamespace                     string
+	PodUpdateMethod                    string
 	CliTimeout                         int
 	MaxCliTimeout                      int
 	MaxConcurrentReconciles            int
@@ -86,6 +89,11 @@ type Options struct {
 	PostTimeout                        time.Duration
 	MaintenanceListStaleDuration       time.Duration
 	MaintenanceListWaitDuration        time.Duration
+	// GlobalSynchronizationWaitDuration is the wait time for the operator when the synchronization mode is set to
+	// global. The wait time defines the period where no updates for the according action should happen. Increasing the
+	// wait time will increase the chances that all updates are part of the list but will also delay the rollout of
+	// the change.
+	GlobalSynchronizationWaitDuration time.Duration
 	// LeaseDuration is the duration that non-leader candidates will
 	// wait to force acquire leadership. This is measured against time of
 	// last observed ack. Default is 15 seconds.
@@ -127,6 +135,7 @@ func (o *Options) BindFlags(fs *flag.FlagSet) {
 	fs.BoolVar(&o.PrintVersion, "version", false, "Prints the version of the operator and exits.")
 	fs.StringVar(&o.LabelSelector, "label-selector", "", "Defines a label-selector that will be used to select resources.")
 	fs.StringVar(&o.WatchNamespace, "watch-namespace", os.Getenv("WATCH_NAMESPACE"), "Defines which namespace the operator should watch.")
+	fs.StringVar(&o.PodUpdateMethod, "pod-update-method", string(podmanager.Update), "Defines how the Pod manager should update pods, possible values are \"update\" and \"patch\".")
 	fs.DurationVar(&o.GetTimeout, "get-timeout", 5*time.Second, "http timeout for get requests to the FDB sidecar.")
 	fs.DurationVar(&o.PostTimeout, "post-timeout", 10*time.Second, "http timeout for post requests to the FDB sidecar.")
 	fs.DurationVar(&o.LeaseDuration, "leader-election-lease-duration", 15*time.Second, "the duration that non-leader candidates will wait to force acquire leadership.")
@@ -135,6 +144,7 @@ func (o *Options) BindFlags(fs *flag.FlagSet) {
 	fs.DurationVar(&o.MaintenanceListStaleDuration, "maintenance-list-stale-duration", 4*time.Hour, "the duration after stale entries will be deleted form the maintenance list. Only has an affect if the operator is allowed to reset the maintenance zone.")
 	fs.DurationVar(&o.MaintenanceListWaitDuration, "maintenance-list-wait-duration", 5*time.Minute, "the duration where a process in the maintenance list in a different zone will be assumed to block the maintenance zone reset. Only has an affect if the operator is allowed to reset the maintenance zone.")
 	fs.DurationVar(&o.MinimumRequiredUptimeCCBounce, "minimum-required-uptime-for-cc-bounce", 1*time.Hour, "the minimum required uptime of the cluster before allowing the operator to restart the CC if there is a failed tester process.")
+	fs.DurationVar(&o.GlobalSynchronizationWaitDuration, "global-synchronization-wait-duration", 30*time.Second, "the wait time for the global synchronization mode in multi-region deployments")
 	fs.BoolVar(&o.EnableRestartIncompatibleProcesses, "enable-restart-incompatible-processes", true, "This flag enables/disables in the operator to restart incompatible fdbserver processes.")
 	fs.BoolVar(&o.ServerSideApply, "server-side-apply", false, "This flag enables server side apply.")
 	fs.BoolVar(&o.EnableRecoveryState, "enable-recovery-state", true, "This flag enables the use of the recovery state for the minimum uptime between bounced if the FDB version supports it.")
@@ -270,7 +280,15 @@ func StartManager(
 		clusterReconciler.MinimumRecoveryTimeForExclusion = operatorOpts.MinimumRecoveryTimeForExclusion
 		clusterReconciler.ClusterLabelKeyForNodeTrigger = strings.Trim(operatorOpts.ClusterLabelKeyForNodeTrigger, "\"")
 		clusterReconciler.Namespace = operatorOpts.WatchNamespace
+		clusterReconciler.GlobalSynchronizationWaitDuration = operatorOpts.GlobalSynchronizationWaitDuration
 
+		// If the provided PodLifecycleManager supports the update method, we can set the desired update method, otherwise the
+		// update method will be ignored.
+		castedPodManager, ok := clusterReconciler.PodLifecycleManager.(podmanager.PodLifecycleManagerWithPodUpdateMethod)
+		if ok {
+			setupLog.Info("Updating pod update method", "podUpdateMethod", operatorOpts.PodUpdateMethod)
+			castedPodManager.SetUpdateMethod(podmanager.PodUpdateMethod(operatorOpts.PodUpdateMethod))
+		}
 		if err := clusterReconciler.SetupWithManager(mgr, operatorOpts.MaxConcurrentReconciles, *labelSelector, watchedObjects...); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "FoundationDBCluster")
 			os.Exit(1)

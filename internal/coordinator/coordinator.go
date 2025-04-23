@@ -22,17 +22,28 @@ package coordinator
 
 import (
 	"fmt"
+	"math"
+	"strings"
+	"time"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/locality"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient"
 	"github.com/go-logr/logr"
-	"math"
-	"strings"
 )
 
 // ChangeCoordinators will change the coordinators and set the new connection string on the FoundationDBCluster resource.
 func ChangeCoordinators(logger logr.Logger, adminClient fdbadminclient.AdminClient, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) error {
-	coordinators, err := SelectCoordinators(logger, cluster, status)
+	var pendingRemovals map[fdbv1beta2.ProcessGroupID]time.Time
+	if cluster.GetSynchronizationMode() == fdbv1beta2.SynchronizationModeGlobal {
+		var err error
+		pendingRemovals, err = adminClient.GetPendingForRemoval("")
+		if err != nil {
+			return err
+		}
+	}
+
+	coordinators, err := SelectCoordinators(logger, cluster, status, pendingRemovals)
 	if err != nil {
 		return err
 	}
@@ -48,7 +59,7 @@ func ChangeCoordinators(logger logr.Logger, adminClient fdbadminclient.AdminClie
 }
 
 // selectCandidates is a helper for Reconcile that picks non-excluded, not-being-removed class-matching process groups.
-func selectCandidates(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) ([]locality.Info, error) {
+func selectCandidates(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, pendingRemovals map[fdbv1beta2.ProcessGroupID]time.Time) ([]locality.Info, error) {
 	candidates := make([]locality.Info, 0, len(status.Cluster.Processes))
 	for _, process := range status.Cluster.Processes {
 		if process.Excluded || process.UnderMaintenance {
@@ -73,6 +84,10 @@ func selectCandidates(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta
 		}
 
 		if cluster.ProcessGroupIsBeingRemoved(fdbv1beta2.ProcessGroupID(process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey])) {
+			continue
+		}
+
+		if _, shouldBeRemoved := pendingRemovals[fdbv1beta2.ProcessGroupID(process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey])]; shouldBeRemoved {
 			continue
 		}
 
@@ -105,11 +120,11 @@ func selectCandidates(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta
 }
 
 // selectCoordinatorsLocalities will return a set of new coordinators.
-func selectCoordinatorsLocalities(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) ([]locality.Info, error) {
+func selectCoordinatorsLocalities(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, pendingRemovals map[fdbv1beta2.ProcessGroupID]time.Time) ([]locality.Info, error) {
 	var err error
 	coordinatorCount := cluster.DesiredCoordinatorCount()
 
-	candidates, err := selectCandidates(cluster, status)
+	candidates, err := selectCandidates(cluster, status, pendingRemovals)
 	if err != nil {
 		return nil, err
 	}
@@ -145,8 +160,8 @@ func selectCoordinatorsLocalities(logger logr.Logger, cluster *fdbv1beta2.Founda
 }
 
 // SelectCoordinators will return a set of new coordinators.
-func SelectCoordinators(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) ([]fdbv1beta2.ProcessAddress, error) {
-	coordinators, err := selectCoordinatorsLocalities(logger, cluster, status)
+func SelectCoordinators(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, pendingRemovals map[fdbv1beta2.ProcessGroupID]time.Time) ([]fdbv1beta2.ProcessAddress, error) {
+	coordinators, err := selectCoordinatorsLocalities(logger, cluster, status, pendingRemovals)
 	if err != nil {
 		return nil, err
 	}

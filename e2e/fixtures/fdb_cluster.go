@@ -1138,17 +1138,21 @@ func (fdbCluster *FdbCluster) HasHeadlessService() bool {
 
 // SetCustomParameters allows to set the custom parameters of the provided process class.
 func (fdbCluster *FdbCluster) SetCustomParameters(
-	processClass fdbv1beta2.ProcessClass,
-	customParameters fdbv1beta2.FoundationDBCustomParameters,
+	customParameters map[fdbv1beta2.ProcessClass]fdbv1beta2.FoundationDBCustomParameters,
 	waitForReconcile bool,
 ) error {
-	setting, ok := fdbCluster.cluster.Spec.Processes[processClass]
-	if !ok {
-		return fmt.Errorf("could not find process settings for process class %s", processClass)
-	}
-	setting.CustomParameters = customParameters
+	cluster := fdbCluster.GetCluster()
 
-	fdbCluster.cluster.Spec.Processes[processClass] = setting
+	for processClass, parameters := range customParameters {
+		setting, ok := cluster.Spec.Processes[processClass]
+		if !ok {
+			return fmt.Errorf("could not find process settings for process class %s", processClass)
+		}
+		setting.CustomParameters = parameters
+
+		cluster.Spec.Processes[processClass] = setting
+	}
+
 	fdbCluster.UpdateClusterSpec()
 	if !waitForReconcile {
 		return nil

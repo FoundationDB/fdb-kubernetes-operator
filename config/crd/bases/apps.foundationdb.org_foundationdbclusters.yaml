@@ -154,6 +154,12 @@ spec:
                       taintReplacementTimeSeconds:
                         type: integer
                     type: object
+                  synchronizationMode:
+                    default: local
+                    enum:
+                    - local
+                    - global
+                    type: string
                   useLocalitiesForExclusion:
                     type: boolean
                   useManagementAPI:

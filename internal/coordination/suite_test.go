@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2023 Apple Inc. and the FoundationDB project authors
+ * Copyright 2018-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,18 +18,16 @@
  * limitations under the License.
  */
 
-package operatorhaupgrades
+package coordination
 
 import (
 	"testing"
-	"time"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/fixtures"
-	"github.com/onsi/gomega"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-func TestOperatorHaUpgrade(t *testing.T) {
-	gomega.SetDefaultEventuallyTimeout(3 * time.Minute)
-	fixtures.SetTestSuiteName("operator-ha-upgrades")
-	fixtures.RunGinkgoTests(t, "FDB Operator HA Upgrade Test Suite")
+func TestCmd(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "FDB Coordination")
 }

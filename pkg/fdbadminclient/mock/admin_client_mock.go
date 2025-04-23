@@ -23,12 +23,13 @@ package mock
 import (
 	"context"
 	"fmt"
-	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbstatus"
-	"k8s.io/utils/pointer"
 	"net"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbstatus"
+	"k8s.io/utils/pointer"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/podclient/mock"
 
@@ -52,6 +53,13 @@ type AdminClient struct {
 	missingLocalities                        map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None
 	missingProcessGroups                     map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None
 	incorrectCommandLines                    map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None
+	pendingForRemoval                        map[fdbv1beta2.ProcessGroupID]time.Time
+	pendingForExclusion                      map[fdbv1beta2.ProcessGroupID]time.Time
+	pendingForInclusion                      map[fdbv1beta2.ProcessGroupID]time.Time
+	pendingForRestart                        map[fdbv1beta2.ProcessGroupID]time.Time
+	readyForExclusion                        map[fdbv1beta2.ProcessGroupID]time.Time
+	readyForInclusion                        map[fdbv1beta2.ProcessGroupID]time.Time
+	readyForRestart                          map[fdbv1beta2.ProcessGroupID]time.Time
 	FrozenStatus                             *fdbv1beta2.FoundationDBStatus
 	Backups                                  map[string]fdbv1beta2.FoundationDBBackupStatusBackupDetails
 	clientVersions                           map[string][]string
@@ -65,6 +73,7 @@ type AdminClient struct {
 	MaintenanceZone                          fdbv1beta2.FaultDomain
 	restoreURL                               string
 	maintenanceZoneStartTimestamp            time.Time
+	MockAdditionTimeForGlobalCoordination    time.Time
 	uptimeSecondsForMaintenanceZone          float64
 	TeamTracker                              []fdbv1beta2.FoundationDBStatusTeamTracker
 	Logs                                     []fdbv1beta2.FoundationDBStatusLogInfo
@@ -72,6 +81,8 @@ type AdminClient struct {
 	LagInfo                                  map[string]fdbv1beta2.FoundationDBStatusLagInfo
 	processesUnderMaintenance                map[fdbv1beta2.ProcessGroupID]int64
 }
+
+var _ fdbadminclient.AdminClient = (*AdminClient)(nil)
 
 // adminClientCache provides a cache of mock admin clients.
 var adminClientCache = make(map[string]*AdminClient)
@@ -101,6 +112,13 @@ func NewMockAdminClientUncast(cluster *fdbv1beta2.FoundationDBCluster, kubeClien
 			missingProcessGroups:      make(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None),
 			missingLocalities:         make(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None),
 			incorrectCommandLines:     make(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None),
+			pendingForRemoval:         make(map[fdbv1beta2.ProcessGroupID]time.Time),
+			pendingForExclusion:       make(map[fdbv1beta2.ProcessGroupID]time.Time),
+			pendingForInclusion:       make(map[fdbv1beta2.ProcessGroupID]time.Time),
+			pendingForRestart:         make(map[fdbv1beta2.ProcessGroupID]time.Time),
+			readyForExclusion:         make(map[fdbv1beta2.ProcessGroupID]time.Time),
+			readyForInclusion:         make(map[fdbv1beta2.ProcessGroupID]time.Time),
+			readyForRestart:           make(map[fdbv1beta2.ProcessGroupID]time.Time),
 			localityInfo:              make(map[fdbv1beta2.ProcessGroupID]map[string]string),
 			currentCommandLines:       make(map[string]string),
 			Knobs:                     make(map[string]fdbv1beta2.None),
@@ -1187,4 +1205,120 @@ func (client *AdminClient) SetProcessesUnderMaintenance(ids []fdbv1beta2.Process
 func (client *AdminClient) GetVersionFromReachableCoordinators() string {
 	// TODO (johscheuer): In the future we could allow to mock another running version.
 	return client.Cluster.Status.RunningVersion
+}
+
+func (client *AdminClient) getAdditionTime() time.Time {
+	if client.MockAdditionTimeForGlobalCoordination.IsZero() {
+		return time.Now()
+	}
+
+	return client.MockAdditionTimeForGlobalCoordination
+}
+
+func (client *AdminClient) handleUpdate(updateMap map[fdbv1beta2.ProcessGroupID]time.Time, updates map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction) error {
+	for processGroupID, action := range updates {
+		if action == fdbv1beta2.UpdateActionAdd {
+			updateMap[processGroupID] = client.getAdditionTime()
+			continue
+		}
+
+		if action == fdbv1beta2.UpdateActionDelete {
+			delete(updateMap, processGroupID)
+			continue
+		}
+
+		return fmt.Errorf("unknown update action: %v", action)
+	}
+
+	return nil
+}
+
+// UpdatePendingForRemoval updates the set of process groups that are marked for removal, an update can be either the addition or removal of a process group.
+func (client *AdminClient) UpdatePendingForRemoval(updates map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction) error {
+	return client.handleUpdate(client.pendingForRemoval, updates)
+}
+
+// UpdatePendingForExclusion updates the set of process groups that should be excluded, an update can be either the addition or removal of a process group.
+func (client *AdminClient) UpdatePendingForExclusion(updates map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction) error {
+	return client.handleUpdate(client.pendingForExclusion, updates)
+}
+
+// UpdatePendingForInclusion updates the set of process groups that should be included, an update can be either the addition or removal of a process group.
+func (client *AdminClient) UpdatePendingForInclusion(updates map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction) error {
+	return client.handleUpdate(client.pendingForInclusion, updates)
+}
+
+// UpdatePendingForRestart updates the set of process groups that should be restarted, an update can be either the addition or removal of a process group.
+func (client *AdminClient) UpdatePendingForRestart(updates map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction) error {
+	return client.handleUpdate(client.pendingForRestart, updates)
+}
+
+// UpdateReadyForExclusion updates the set of process groups that are ready to be excluded, an update can be either the addition or removal of a process group.
+func (client *AdminClient) UpdateReadyForExclusion(updates map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction) error {
+	return client.handleUpdate(client.readyForExclusion, updates)
+}
+
+// UpdateReadyForInclusion updates the set of process groups that are ready to be included, an update can be either the addition or removal of a process group.
+func (client *AdminClient) UpdateReadyForInclusion(updates map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction) error {
+	return client.handleUpdate(client.readyForInclusion, updates)
+}
+
+// UpdateReadyForRestart updates the set of process groups that are ready to be restarted, an update can be either the addition or removal of a process group
+func (client *AdminClient) UpdateReadyForRestart(updates map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction) error {
+	return client.handleUpdate(client.readyForRestart, updates)
+}
+
+// GetPendingForRemoval gets the process group IDs for all process groups that are marked for removal.
+func (client *AdminClient) GetPendingForRemoval(prefix string) (map[fdbv1beta2.ProcessGroupID]time.Time, error) {
+	return client.handleGetReadyOrPending(prefix, client.pendingForRemoval)
+}
+
+// GetPendingForExclusion gets the process group IDs for all process groups that should be excluded.
+func (client *AdminClient) GetPendingForExclusion(prefix string) (map[fdbv1beta2.ProcessGroupID]time.Time, error) {
+	return client.handleGetReadyOrPending(prefix, client.pendingForExclusion)
+}
+
+// GetPendingForInclusion gets the process group IDs for all the process groups that should be included.
+func (client *AdminClient) GetPendingForInclusion(prefix string) (map[fdbv1beta2.ProcessGroupID]time.Time, error) {
+	return client.handleGetReadyOrPending(prefix, client.pendingForInclusion)
+}
+
+// GetPendingForRestart gets the process group IDs for all the process groups that should be restarted.
+func (client *AdminClient) GetPendingForRestart(prefix string) (map[fdbv1beta2.ProcessGroupID]time.Time, error) {
+	return client.handleGetReadyOrPending(prefix, client.pendingForRestart)
+}
+
+// GetReadyForExclusion gets the process group IDs for all the process groups that are ready to be excluded.
+func (client *AdminClient) GetReadyForExclusion(prefix string) (map[fdbv1beta2.ProcessGroupID]time.Time, error) {
+	return client.handleGetReadyOrPending(prefix, client.readyForExclusion)
+}
+
+// GetReadyForInclusion gets the process group IDs for all the process groups that are ready to be included.
+func (client *AdminClient) GetReadyForInclusion(prefix string) (map[fdbv1beta2.ProcessGroupID]time.Time, error) {
+	return client.handleGetReadyOrPending(prefix, client.readyForInclusion)
+}
+
+// GetReadyForRestart gets the process group IDs for all the process groups that are ready to be restarted.
+func (client *AdminClient) GetReadyForRestart(prefix string) (map[fdbv1beta2.ProcessGroupID]time.Time, error) {
+	return client.handleGetReadyOrPending(prefix, client.readyForRestart)
+}
+
+// ClearReadyForRestart removes all the process group IDs for all the process groups that are ready to be restarted.
+func (client *AdminClient) ClearReadyForRestart() error {
+	client.readyForRestart = make(map[fdbv1beta2.ProcessGroupID]time.Time)
+	return nil
+}
+
+func (client *AdminClient) handleGetReadyOrPending(prefix string, processes map[fdbv1beta2.ProcessGroupID]time.Time) (map[fdbv1beta2.ProcessGroupID]time.Time, error) {
+	result := map[fdbv1beta2.ProcessGroupID]time.Time{}
+
+	for processGroupID, timestamp := range processes {
+		if !strings.HasPrefix(string(processGroupID), prefix) {
+			continue
+		}
+
+		result[processGroupID] = timestamp
+	}
+
+	return result, nil
 }

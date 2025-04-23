@@ -25,8 +25,9 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"reflect"
+
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -239,11 +240,11 @@ func processGroupNeedsRemovalForPod(cluster *fdbv1beta2.FoundationDBCluster, pod
 		return false, err
 	}
 
-	if !equality.Semantic.DeepEqual(cluster.Spec.Routing.PodIPFamily, podIPFamily) {
+	if cluster.GetPodIPFamily() != podIPFamily {
 		logger.Info("Replace process group",
 			"reason", "pod IP family has changed",
 			"currentPodIPFamily", podIPFamily,
-			"desiredPodIPFamily", cluster.Spec.Routing.PodIPFamily,
+			"desiredPodIPFamily", cluster.GetPodIPFamily(),
 		)
 
 		return true, nil

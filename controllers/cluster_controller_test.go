@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
@@ -297,7 +298,7 @@ var _ = Describe("cluster_controller", func() {
 				Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
 			})
 
-			It("should update the pods", func() {
+			It("should update the pods and the status", func() {
 				pods := &corev1.PodList{}
 				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 				Expect(len(pods.Items)).To(Equal(len(originalPods.Items)))
@@ -308,9 +309,7 @@ var _ = Describe("cluster_controller", func() {
 					Expect(pod.Spec.Containers[1].Name).To(Equal(fdbv1beta2.SidecarContainerName))
 					Expect(pod.Spec.Containers[1].Image).To(And(HavePrefix(fdbv1beta2.FoundationDBKubernetesBaseImage), HaveSuffix(fdbv1beta2.Versions.Default.String())))
 				}
-			})
 
-			It("should update the status", func() {
 				Expect(cluster.Status.ImageTypes).To(Equal([]fdbv1beta2.ImageType{"unified"}))
 			})
 		})
@@ -1122,6 +1121,7 @@ var _ = Describe("cluster_controller", func() {
 							"fdb-annotation":                       "value1",
 							fdbv1beta2.NodeAnnotation:              pod.Spec.NodeName,
 							fdbv1beta2.ImageTypeAnnotation:         string(fdbv1beta2.ImageTypeSplit),
+							fdbv1beta2.IPFamilyAnnotation:          strconv.Itoa(fdbv1beta2.PodIPFamilyUnset),
 						}))
 						continue
 					}
@@ -1133,6 +1133,7 @@ var _ = Describe("cluster_controller", func() {
 						"fdb-annotation":                    "value1",
 						fdbv1beta2.NodeAnnotation:           pod.Spec.NodeName,
 						fdbv1beta2.ImageTypeAnnotation:      string(fdbv1beta2.ImageTypeSplit),
+						fdbv1beta2.IPFamilyAnnotation:       strconv.Itoa(fdbv1beta2.PodIPFamilyUnset),
 					}))
 				}
 			})
@@ -1261,6 +1262,7 @@ var _ = Describe("cluster_controller", func() {
 							fdbv1beta2.PublicIPSourceAnnotation: "pod",
 							fdbv1beta2.NodeAnnotation:           item.Spec.NodeName,
 							fdbv1beta2.ImageTypeAnnotation:      string(fdbv1beta2.ImageTypeSplit),
+							fdbv1beta2.IPFamilyAnnotation:       strconv.Itoa(fdbv1beta2.PodIPFamilyUnset),
 						}))
 					}
 
@@ -1371,6 +1373,7 @@ var _ = Describe("cluster_controller", func() {
 						fdbv1beta2.PublicIPSourceAnnotation: "pod",
 						fdbv1beta2.NodeAnnotation:           item.Spec.NodeName,
 						fdbv1beta2.ImageTypeAnnotation:      string(fdbv1beta2.ImageTypeSplit),
+						fdbv1beta2.IPFamilyAnnotation:       strconv.Itoa(fdbv1beta2.PodIPFamilyUnset),
 					}))
 				}
 

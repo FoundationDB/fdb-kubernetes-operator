@@ -544,11 +544,10 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, proce
 		)
 
 		cluster := optionalCluster
-
-		if cluster.Spec.Routing.PodIPFamily != nil {
+		if cluster.GetPodIPFamily() != fdbv1beta2.PodIPFamilyUnset {
 			sidecarArgs = append(sidecarArgs, "--public-ip-family")
-			sidecarArgs = append(sidecarArgs, fmt.Sprint(*cluster.Spec.Routing.PodIPFamily))
-			if *cluster.Spec.Routing.PodIPFamily == 6 {
+			sidecarArgs = append(sidecarArgs, strconv.Itoa(cluster.GetPodIPFamily()))
+			if cluster.IsPodIPFamily6() {
 				// this is required to configure the Pods to listen for any incoming connection
 				// from any available IPv6 address on port 8080
 				sidecarArgs = append(sidecarArgs, "--bind-address", "[::]:8080")
@@ -676,8 +675,7 @@ func getEnvForMonitorConfigSubstitution(cluster *fdbv1beta2.FoundationDBCluster,
 	if usePublicIPFromService {
 		publicIPKey = fmt.Sprintf("metadata.annotations['%s']", fdbv1beta2.PublicIPAnnotation)
 	} else {
-		family := cluster.Spec.Routing.PodIPFamily
-		if family == nil {
+		if cluster.GetPodIPFamily() == fdbv1beta2.PodIPFamilyUnset {
 			publicIPKey = "status.podIP"
 		} else {
 			publicIPKey = "status.podIPs"
@@ -689,8 +687,7 @@ func getEnvForMonitorConfigSubstitution(cluster *fdbv1beta2.FoundationDBCluster,
 
 	if cluster.NeedsExplicitListenAddress() {
 		podIPKey := ""
-		family := cluster.Spec.Routing.PodIPFamily
-		if family == nil {
+		if cluster.GetPodIPFamily() == fdbv1beta2.PodIPFamilyUnset {
 			podIPKey = "status.podIP"
 		} else {
 			podIPKey = "status.podIPs"
@@ -906,6 +903,7 @@ func GetBackupDeployment(backup *fdbv1beta2.FoundationDBBackup) (*appsv1.Deploym
 	if err != nil {
 		return nil, err
 	}
+
 	// Right now the main container only starts the backup agent without doing anything special.
 	mainContainer.Image = image
 	mainContainer.Command = []string{"backup_agent"}
@@ -1032,16 +1030,13 @@ func GetPodMetadata(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1b
 	}
 
 	metadata := GetObjectMetadata(cluster, customMetadata, processClass, id)
-
 	if metadata.Annotations == nil {
 		metadata.Annotations = make(map[string]string)
 	}
 	metadata.Annotations[fdbv1beta2.LastSpecKey] = specHash
 	metadata.Annotations[fdbv1beta2.PublicIPSourceAnnotation] = string(cluster.GetPublicIPSource())
 	metadata.Annotations[fdbv1beta2.ImageTypeAnnotation] = string(cluster.DesiredImageType())
-	if cluster.Spec.Routing.PodIPFamily != nil {
-		metadata.Annotations[fdbv1beta2.IPFamilyAnnotation] = strconv.Itoa(*cluster.Spec.Routing.PodIPFamily)
-	}
+	metadata.Annotations[fdbv1beta2.IPFamilyAnnotation] = strconv.Itoa(cluster.GetPodIPFamily())
 
 	return metadata
 }

@@ -22,7 +22,6 @@ package controllers
 
 import (
 	"context"
-	"reflect"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
@@ -45,24 +44,25 @@ func (u updateConfigMap) reconcile(ctx context.Context, r *FoundationDBClusterRe
 	}
 	existing := &corev1.ConfigMap{}
 	err = r.Get(ctx, types.NamespacedName{Namespace: configMap.Namespace, Name: configMap.Name}, existing)
-	if err != nil && k8serrors.IsNotFound(err) {
-		logger.V(1).Info("Creating config map", "name", configMap.Name)
-		err = r.Create(ctx, configMap)
-		if err != nil {
-			return &requeue{curError: err}
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			logger.V(1).Info("Creating config map", "name", configMap.Name)
+			err = r.Create(ctx, configMap)
+			if err != nil {
+				return &requeue{curError: err}
+			}
+			return nil
 		}
-		return nil
-	} else if err != nil {
+
 		return &requeue{curError: err}
 	}
 
 	metadataCorrect := true
-	if !reflect.DeepEqual(existing.ObjectMeta.Labels, configMap.ObjectMeta.Labels) {
-		existing.ObjectMeta.Labels = configMap.ObjectMeta.Labels
+	if internal.MergeLabels(&existing.ObjectMeta, configMap.ObjectMeta) {
 		metadataCorrect = false
 	}
 
-	if mergeAnnotations(&existing.ObjectMeta, configMap.ObjectMeta) {
+	if internal.MergeAnnotations(&existing.ObjectMeta, configMap.ObjectMeta) {
 		metadataCorrect = false
 	}
 

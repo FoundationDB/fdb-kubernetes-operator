@@ -24,12 +24,13 @@ import (
 	"cmp"
 	"errors"
 	"fmt"
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
-	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/podclient"
-	"github.com/go-logr/logr"
 	"math"
 	"slices"
 	"strings"
+
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/podclient"
+	"github.com/go-logr/logr"
 )
 
 // Info captures information about a process for the purposes of

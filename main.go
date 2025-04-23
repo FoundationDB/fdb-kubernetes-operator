@@ -60,7 +60,7 @@ func main() {
 		operatorOpts,
 		logOpts,
 		controllers.NewFoundationDBClusterReconciler(
-			podmanager.StandardPodLifecycleManager{},
+			&podmanager.StandardPodLifecycleManager{},
 		),
 		&controllers.FoundationDBBackupReconciler{},
 		&controllers.FoundationDBRestoreReconciler{},

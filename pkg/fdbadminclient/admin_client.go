@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2018-2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2018-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,8 +21,9 @@
 package fdbadminclient
 
 import (
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"time"
+
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 )
 
 // AdminClient describes an interface for running administrative commands on a
@@ -147,4 +148,53 @@ type AdminClient interface {
 	// assume the current running version of the cluster. If the fdbcli calls for none of the provided version return
 	// a majority of reachable coordinators, the default version from the cluster.Status.RunningVersion will be returned.
 	GetVersionFromReachableCoordinators() string
+
+	// Functionality for the better multi-region coordination, see:
+	// https://github.com/FoundationDB/fdb-kubernetes-operator/blob/main/docs/design/better_coordination_multi_operator.md
+	// for more details
+
+	// UpdatePendingForRemoval updates the set of process groups that are marked for removal, an update can be either the addition or removal of a process group.
+	UpdatePendingForRemoval(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction) error
+
+	// UpdatePendingForExclusion updates the set of process groups that should be excluded, an update can be either the addition or removal of a process group.
+	UpdatePendingForExclusion(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction) error
+
+	// UpdatePendingForInclusion updates the set of process groups that should be included, an update can be either the addition or removal of a process group.
+	UpdatePendingForInclusion(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction) error
+
+	// UpdatePendingForRestart updates the set of process groups that should be restarted, an update can be either the addition or removal of a process group.
+	UpdatePendingForRestart(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction) error
+
+	// UpdateReadyForExclusion updates the set of process groups that are ready to be excluded, an update can be either the addition or removal of a process group.
+	UpdateReadyForExclusion(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction) error
+
+	// UpdateReadyForInclusion updates the set of process groups that are ready to be included, an update can be either the addition or removal of a process group.
+	UpdateReadyForInclusion(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction) error
+
+	// UpdateReadyForRestart updates the set of process groups that are ready to be restarted, an update can be either the addition or removal of a process group
+	UpdateReadyForRestart(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction) error
+
+	// GetPendingForRemoval gets the process group IDs for all process groups that are marked for removal.
+	GetPendingForRemoval(prefix string) (map[fdbv1beta2.ProcessGroupID]time.Time, error)
+
+	// GetPendingForExclusion gets the process group IDs for all process groups that should be excluded.
+	GetPendingForExclusion(prefix string) (map[fdbv1beta2.ProcessGroupID]time.Time, error)
+
+	// GetPendingForInclusion gets the process group IDs for all the process groups that should be included.
+	GetPendingForInclusion(prefix string) (map[fdbv1beta2.ProcessGroupID]time.Time, error)
+
+	// GetPendingForRestart gets the process group IDs for all the process groups that should be restarted.
+	GetPendingForRestart(prefix string) (map[fdbv1beta2.ProcessGroupID]time.Time, error)
+
+	// GetReadyForExclusion gets the process group IDs for all the process groups that are ready to be excluded.
+	GetReadyForExclusion(prefix string) (map[fdbv1beta2.ProcessGroupID]time.Time, error)
+
+	// GetReadyForInclusion gets the process group IDs for all the process groups that are ready to be included.
+	GetReadyForInclusion(prefix string) (map[fdbv1beta2.ProcessGroupID]time.Time, error)
+
+	// GetReadyForRestart gets the process group IDs for all the process groups that are ready to be restarted.
+	GetReadyForRestart(prefix string) (map[fdbv1beta2.ProcessGroupID]time.Time, error)
+
+	// ClearReadyForRestart removes all the process group IDs for all the process groups that are ready to be restarted.
+	ClearReadyForRestart() error
 }

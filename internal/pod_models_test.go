@@ -22,6 +22,8 @@ package internal
 
 import (
 	"fmt"
+	"strconv"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -142,6 +144,7 @@ var _ = Describe("pod_models", func() {
 						fdbv1beta2.LastSpecKey:              hash,
 						fdbv1beta2.PublicIPSourceAnnotation: "pod",
 						fdbv1beta2.ImageTypeAnnotation:      string(fdbv1beta2.ImageTypeSplit),
+						fdbv1beta2.IPFamilyAnnotation:       strconv.Itoa(fdbv1beta2.PodIPFamilyUnset),
 					}))
 				})
 			})

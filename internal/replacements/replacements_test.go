@@ -952,7 +952,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			})
 
 			It("should not have a replacements", func() {
-				hasReplacement, err := ReplaceMisconfiguredProcessGroups(context.Background(), podmanager.StandardPodLifecycleManager{}, k8sClient, log, cluster, true)
+				hasReplacement, err := ReplaceMisconfiguredProcessGroups(context.Background(), &podmanager.StandardPodLifecycleManager{}, k8sClient, log, cluster, true)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(hasReplacement).To(BeFalse())
 
@@ -975,7 +975,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			})
 
 			It("should have two replacements", func() {
-				hasReplacement, err := ReplaceMisconfiguredProcessGroups(context.Background(), podmanager.StandardPodLifecycleManager{}, k8sClient, log, cluster, true)
+				hasReplacement, err := ReplaceMisconfiguredProcessGroups(context.Background(), &podmanager.StandardPodLifecycleManager{}, k8sClient, log, cluster, true)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(hasReplacement).To(BeTrue())
 
@@ -994,7 +994,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 		When("Setting is unset", func() {
 			It("should replace all process groups", func() {
-				hasReplacement, err := ReplaceMisconfiguredProcessGroups(context.Background(), podmanager.StandardPodLifecycleManager{}, k8sClient, log, cluster, true)
+				hasReplacement, err := ReplaceMisconfiguredProcessGroups(context.Background(), &podmanager.StandardPodLifecycleManager{}, k8sClient, log, cluster, true)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(hasReplacement).To(BeTrue())
 
@@ -1039,7 +1039,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				})
 
 				It("should not have any replacements", func() {
-					hasReplacement, err := ReplaceMisconfiguredProcessGroups(context.Background(), podmanager.StandardPodLifecycleManager{}, k8sClient, log, cluster, true)
+					hasReplacement, err := ReplaceMisconfiguredProcessGroups(context.Background(), &podmanager.StandardPodLifecycleManager{}, k8sClient, log, cluster, true)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(hasReplacement).To(BeFalse())
 

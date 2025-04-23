@@ -129,22 +129,26 @@ func cordonNode(cmd *cobra.Command, kubeClient client.Client, inputClusterName s
 		return errors.New("no nodes were provided for cordoning")
 	}
 
-	var totalRemoved int
-
+	statistics := map[string]int{}
+	var observedErrors []error
 	for _, node := range nodes {
 		pods, err := fetchPodsOnNode(kubeClient, inputClusterName, namespace, node, clusterLabel)
 		if err != nil {
-			return fmt.Errorf("issue fetching Pods running on node %s. Error: %w", node, err)
+			observedErrors = append(observedErrors, fmt.Errorf("error fetching Pods from node: %s", node))
+			continue
 		}
+
 		if len(pods.Items) == 0 {
-			return fmt.Errorf("no pods were found that were running on node %s", node)
+			cmd.PrintErrln("Cordoning node:", node, "has no running pods")
+			continue
 		}
+
 		var podNames []string
 		for _, pod := range pods.Items {
 			podNames = append(podNames, pod.Name)
 		}
 
-		cmd.Printf("\nCordoning node: %s\n", node)
+		cmd.Println("Cordoning node:", node)
 		removedFromNode, err := replaceProcessGroups(cmd, kubeClient,
 			processGroupSelectionOptions{
 				ids:               podNames,
@@ -160,10 +164,20 @@ func cordonNode(cmd *cobra.Command, kubeClient client.Client, inputClusterName s
 				removeAllFailed: false,
 			})
 		if err != nil {
-			return fmt.Errorf("unable to cordon all Pods running on node %s. Error: %s", node, err.Error())
+			observedErrors = append(observedErrors, fmt.Errorf("unable to cordon all Pods on node %s", node))
+			continue
 		}
-		totalRemoved += removedFromNode
+
+		statistics[node] = removedFromNode
 	}
-	cmd.Printf("\nCompleted removal of %d Pods\n", totalRemoved)
-	return nil
+
+	cmd.Println("Completed removal cordoning, printing summary:")
+	var total int
+	for _, node := range nodes {
+		cmd.Println("Removed:", statistics[node], "pods from node:", node)
+		total += statistics[node]
+	}
+	cmd.Println("Removed:", total, "pods from", len(nodes), "nodes")
+
+	return errors.Join(observedErrors...)
 }

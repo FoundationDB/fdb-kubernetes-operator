@@ -22,12 +22,13 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbstatus"
-
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/buggify"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/coordination"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbstatus"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/restarts"
 
@@ -38,8 +39,7 @@ import (
 	"k8s.io/utils/pointer"
 )
 
-// bounceProcesses provides a reconciliation step for bouncing fdbserver
-// processes.
+// bounceProcesses provides a reconciliation step for bouncing fdbserver processes.
 type bounceProcesses struct{}
 
 // reconcile runs the reconciler's work.
@@ -64,14 +64,38 @@ func (c bounceProcesses) reconcile(_ context.Context, r *FoundationDBClusterReco
 		}
 	}
 
+	// Fetch the processes that are ready for restart for the current cluster, we use that information to determine which
+	// processes must be added to the set.
+	var processesReadyForRestart map[fdbv1beta2.ProcessGroupID]time.Time
+	var processesPendingForRestart map[fdbv1beta2.ProcessGroupID]time.Time
+	globalSynchronizationMode := cluster.GetSynchronizationMode() == fdbv1beta2.SynchronizationModeGlobal
+	if globalSynchronizationMode {
+		processesReadyForRestart, err = adminClient.GetReadyForRestart(cluster.Spec.ProcessGroupIDPrefix)
+		if err != nil {
+			return &requeue{curError: err}
+		}
+
+		processesPendingForRestart, err = adminClient.GetPendingForRestart(cluster.Spec.ProcessGroupIDPrefix)
+		if err != nil {
+			return &requeue{curError: err}
+		}
+	}
+
 	currentMinimumUptime, addressMap, err := fdbstatus.GetMinimumUptimeAndAddressMap(logger, cluster, status, r.EnableRecoveryState)
 	if err != nil {
 		return &requeue{curError: err}
 	}
 
-	addresses, req := getProcessesReadyForRestart(logger, cluster, addressMap)
+	addresses, updatesReadyForRestart, updatesPendingForRestart, req := getProcessesReadyForRestart(logger, cluster, addressMap, processesReadyForRestart, processesPendingForRestart)
 	if req != nil {
 		return req
+	}
+
+	if globalSynchronizationMode && len(updatesPendingForRestart) > 0 {
+		err = adminClient.UpdatePendingForRestart(updatesPendingForRestart)
+		if err != nil {
+			return &requeue{curError: err}
+		}
 	}
 
 	// Only perform the check if the cluster controller must be restarted if the cluster was up long enough. This is an
@@ -118,6 +142,7 @@ func (c bounceProcesses) reconcile(_ context.Context, r *FoundationDBClusterReco
 			return &requeue{curError: err}
 		}
 	}
+
 	version, err := fdbv1beta2.ParseFdbVersion(cluster.Spec.Version)
 	if err != nil {
 		return &requeue{curError: err}
@@ -137,9 +162,18 @@ func (c bounceProcesses) reconcile(_ context.Context, r *FoundationDBClusterReco
 		}
 	}
 
-	err = r.takeLock(logger, cluster, fmt.Sprintf("bouncing processes: %v", addresses))
-	if err != nil {
-		return &requeue{curError: err}
+	if globalSynchronizationMode && len(updatesReadyForRestart) > 0 {
+		err = adminClient.UpdateReadyForRestart(updatesReadyForRestart)
+		if err != nil {
+			return &requeue{curError: err}
+		}
+	}
+
+	if useLocks {
+		lockErr := lockClient.TakeLock()
+		if lockErr != nil {
+			return &requeue{curError: lockErr, delayedRequeue: true}
+		}
 	}
 
 	if useLocks && upgrading {
@@ -151,6 +185,32 @@ func (c bounceProcesses) reconcile(_ context.Context, r *FoundationDBClusterReco
 		if addresses == nil {
 			return &requeue{curError: fmt.Errorf("unknown error when getting addresses that are ready for upgrade")}
 		}
+	}
+
+	// When the cluster is being upgraded, we use the same synchronization mode as before.
+	if globalSynchronizationMode && !upgrading {
+		pendingForRestart, err := adminClient.GetPendingForRestart("")
+		if err != nil {
+			return &requeue{curError: err, delayedRequeue: true}
+		}
+
+		readyForRestart, err := adminClient.GetReadyForRestart("")
+		if err != nil {
+			return &requeue{curError: err, delayedRequeue: true}
+		}
+
+		err = coordination.AllProcessesReady(logger, pendingForRestart, readyForRestart, r.GlobalSynchronizationWaitDuration)
+		if err != nil {
+			waitTimeError := &coordination.WaitTimeError{}
+			if errors.As(err, waitTimeError) {
+				return &requeue{curError: err, delayedRequeue: true, delay: waitTimeError.GetWaitTime()}
+			}
+
+			return &requeue{curError: err, delayedRequeue: true}
+		}
+
+		addresses = coordination.GetAddressesFromStatus(logger, status, readyForRestart, false)
+		logger.Info("Addresses from status", "addresses", addresses)
 	}
 
 	filteredAddresses, removedAddresses := buggify.FilterIgnoredProcessGroups(cluster, addresses, status)
@@ -169,8 +229,13 @@ func (c bounceProcesses) reconcile(_ context.Context, r *FoundationDBClusterReco
 		// processes in the cluster.
 		err = adminClient.KillProcessesForUpgrade(addresses)
 	} else {
+		clearErr := adminClient.ClearReadyForRestart()
+		if clearErr != nil {
+			logger.Info("Could not remove ready entries for restart, will continue with restart", "error", clearErr.Error())
+		}
 		err = adminClient.KillProcesses(addresses)
 	}
+
 	if err != nil {
 		return &requeue{curError: err}
 	}
@@ -191,11 +256,13 @@ func (c bounceProcesses) reconcile(_ context.Context, r *FoundationDBClusterReco
 
 // getProcessesReadyForRestart returns a slice of process addresses that can be restarted. If addresses are missing or not all processes
 // have the latest configuration this method will return a requeue struct with more details.
-func getProcessesReadyForRestart(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, addressMap map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.ProcessAddress) ([]fdbv1beta2.ProcessAddress, *requeue) {
+func getProcessesReadyForRestart(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, addressMap map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.ProcessAddress, processesReadyForRestart map[fdbv1beta2.ProcessGroupID]time.Time, processesPendingForRestart map[fdbv1beta2.ProcessGroupID]time.Time) ([]fdbv1beta2.ProcessAddress, map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction, map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction, *requeue) {
 	addresses := make([]fdbv1beta2.ProcessAddress, 0, len(cluster.Status.ProcessGroups))
 	allSynced := true
 	versionIncompatibleUpgrade := cluster.IsBeingUpgradedWithVersionIncompatibleVersion()
 	var missingAddress []fdbv1beta2.ProcessGroupID
+	updatesReadyForRestart := map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{}
+	updatesPendingForRestart := map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{}
 
 	filterConditions := restarts.GetFilterConditions(cluster)
 	missingProcesses := map[fdbv1beta2.ProcessClass]int{}
@@ -224,24 +291,19 @@ func getProcessesReadyForRestart(logger logr.Logger, cluster *fdbv1beta2.Foundat
 			if versionIncompatibleUpgrade && processGroup.IsExcluded() {
 				logger.Info("adding process group that is marked for exclusion to list of restarted processes", "processGroupID", processGroup.ProcessGroupID)
 				addresses = append(addresses, addressMap[processGroup.ProcessGroupID]...)
+				if _, ok := processesReadyForRestart[processGroup.ProcessGroupID]; !ok {
+					updatesReadyForRestart[processGroup.ProcessGroupID] = fdbv1beta2.UpdateActionAdd
+				}
+				if _, ok := processesPendingForRestart[processGroup.ProcessGroupID]; !ok {
+					updatesPendingForRestart[processGroup.ProcessGroupID] = fdbv1beta2.UpdateActionAdd
+				}
+
 				continue
 			}
 		}
 
-		// Ignore processes that are missing for more than 30 seconds e.mg. if the process is network partitioned.
-		// This is required since the update status will not update the SidecarUnreachable setting if a process is
-		// missing in the status.
-		if missingTime := processGroup.GetConditionTime(fdbv1beta2.MissingProcesses); missingTime != nil {
-			if time.Unix(*missingTime, 0).Add(cluster.GetIgnoreMissingProcessesSeconds()).Before(time.Now()) {
-				logger.Info("ignore process group with missing process", "processGroupID", processGroup.ProcessGroupID)
-				missingProcesses[processGroup.ProcessClass]++
-				continue
-			}
-		}
-
-		// If a Pod is stuck in pending we have to ignore it, as the processes hosted by this Pod will not be running.
-		if cluster.SkipProcessGroup(processGroup) {
-			logger.Info("ignore process group with Pod stuck in pending", "processGroupID", processGroup.ProcessGroupID)
+		// Check if the processes should be ignored.
+		if restarts.ShouldBeIgnoredBecauseMissing(logger, cluster, processGroup) {
 			missingProcesses[processGroup.ProcessClass]++
 			continue
 		}
@@ -258,20 +320,27 @@ func getProcessesReadyForRestart(logger logr.Logger, cluster *fdbv1beta2.Foundat
 			continue
 		}
 
+		if _, ok := processesPendingForRestart[processGroup.ProcessGroupID]; !ok {
+			updatesPendingForRestart[processGroup.ProcessGroupID] = fdbv1beta2.UpdateActionAdd
+		}
+
 		if addressMap[processGroup.ProcessGroupID] == nil {
 			missingAddress = append(missingAddress, processGroup.ProcessGroupID)
 			continue
 		}
 
 		addresses = append(addresses, addressMap[processGroup.ProcessGroupID]...)
+		if _, ok := processesReadyForRestart[processGroup.ProcessGroupID]; !ok {
+			updatesReadyForRestart[processGroup.ProcessGroupID] = fdbv1beta2.UpdateActionAdd
+		}
 	}
 
 	if len(missingAddress) > 0 {
-		return nil, &requeue{message: fmt.Sprintf("could not find address for processes: %s", missingAddress), delayedRequeue: true}
+		return nil, nil, updatesPendingForRestart, &requeue{message: fmt.Sprintf("could not find address for processes: %s", missingAddress), delayedRequeue: true}
 	}
 
 	if !allSynced {
-		return nil, &requeue{message: "Waiting for config map to sync to all pods", delayedRequeue: true}
+		return nil, nil, updatesPendingForRestart, &requeue{message: "Waiting for config map to sync to all pods", delayedRequeue: true}
 	}
 
 	// Only if the cluster is upgraded with an incompatible version we have to make sure that all processes are ready to be restarted.
@@ -280,7 +349,7 @@ func getProcessesReadyForRestart(logger logr.Logger, cluster *fdbv1beta2.Foundat
 		err := checkIfEnoughProcessesAreRunning(logger, cluster, len(addresses), missingProcesses, markedForRemoval)
 		// If not all processes are ready to restart we will block the upgrade and delay it.
 		if err != nil {
-			return nil, &requeue{
+			return nil, nil, nil, &requeue{
 				message:        err.Error(),
 				delay:          5 * time.Second,
 				delayedRequeue: true,
@@ -288,7 +357,7 @@ func getProcessesReadyForRestart(logger logr.Logger, cluster *fdbv1beta2.Foundat
 		}
 	}
 
-	return addresses, nil
+	return addresses, updatesReadyForRestart, updatesPendingForRestart, nil
 }
 
 // getUpgradeAddressesFromStatus will return the processes that can be upgraded and all the processes that are not ready to be upgraded.

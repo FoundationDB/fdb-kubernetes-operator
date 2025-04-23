@@ -1357,8 +1357,9 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 			Expect(
 				fdbCluster.SetCustomParameters(
-					fdbv1beta2.ProcessClassGeneral,
-					newGeneralCustomParameters,
+					map[fdbv1beta2.ProcessClass]fdbv1beta2.FoundationDBCustomParameters{
+						fdbv1beta2.ProcessClassGeneral: newGeneralCustomParameters,
+					},
 					false,
 				),
 			).NotTo(HaveOccurred())
@@ -1366,8 +1367,9 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 		AfterEach(func() {
 			Expect(fdbCluster.SetCustomParameters(
-				fdbv1beta2.ProcessClassGeneral,
-				initialGeneralCustomParameters,
+				map[fdbv1beta2.ProcessClass]fdbv1beta2.FoundationDBCustomParameters{
+					fdbv1beta2.ProcessClassGeneral: initialGeneralCustomParameters,
+				},
 				false,
 			)).NotTo(HaveOccurred())
 			fdbCluster.SetIgnoreDuringRestart(nil)
@@ -2245,11 +2247,11 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 	})
 
 	When("the Pod IP family is set", func() {
-		var initialPodIPFamily *int
+		var initialPodIPFamily int
 
 		BeforeEach(func() {
 			cluster := fdbCluster.GetCluster()
-			initialPodIPFamily = cluster.Spec.Routing.PodIPFamily
+			initialPodIPFamily = cluster.GetPodIPFamily()
 
 			spec := cluster.Spec.DeepCopy()
 			spec.Routing.PodIPFamily = pointer.Int(4)
@@ -2296,7 +2298,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 		AfterEach(func() {
 			spec := fdbCluster.GetCluster().Spec.DeepCopy()
-			spec.Routing.PodIPFamily = initialPodIPFamily
+			spec.Routing.PodIPFamily = pointer.Int(initialPodIPFamily)
 			fdbCluster.UpdateClusterSpecWithSpec(spec)
 			Expect(fdbCluster.WaitForReconciliation()).NotTo(HaveOccurred())
 		})
@@ -2319,8 +2321,9 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 			Expect(
 				fdbCluster.SetCustomParameters(
-					fdbv1beta2.ProcessClassGeneral,
-					newGeneralCustomParameters,
+					map[fdbv1beta2.ProcessClass]fdbv1beta2.FoundationDBCustomParameters{
+						fdbv1beta2.ProcessClassGeneral: newGeneralCustomParameters,
+					},
 					false,
 				),
 			).NotTo(HaveOccurred())
@@ -2328,8 +2331,9 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 		AfterEach(func() {
 			Expect(fdbCluster.SetCustomParameters(
-				fdbv1beta2.ProcessClassGeneral,
-				initialGeneralCustomParameters,
+				map[fdbv1beta2.ProcessClass]fdbv1beta2.FoundationDBCustomParameters{
+					fdbv1beta2.ProcessClassGeneral: initialGeneralCustomParameters,
+				},
 				true,
 			)).NotTo(HaveOccurred())
 		})
@@ -2414,11 +2418,12 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			)
 			Expect(
 				fdbCluster.SetCustomParameters(
-					fdbv1beta2.ProcessClassStorage,
-					append(
-						initialCustomParameters,
-						"knob_max_trace_lines=1000000",
-					),
+					map[fdbv1beta2.ProcessClass]fdbv1beta2.FoundationDBCustomParameters{
+						fdbv1beta2.ProcessClassStorage: append(
+							initialCustomParameters,
+							"knob_max_trace_lines=1000000",
+						),
+					},
 					false,
 				),
 			).NotTo(HaveOccurred())
@@ -2485,8 +2490,9 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		AfterEach(func() {
 			factory.DeleteChaosMeshExperimentSafe(exp)
 			Expect(fdbCluster.SetCustomParameters(
-				fdbv1beta2.ProcessClassStorage,
-				initialCustomParameters,
+				map[fdbv1beta2.ProcessClass]fdbv1beta2.FoundationDBCustomParameters{
+					fdbv1beta2.ProcessClassStorage: initialCustomParameters,
+				},
 				true,
 			)).NotTo(HaveOccurred())
 		})
@@ -2540,11 +2546,12 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 			// Update the storage processes to have the new locality.
 			Expect(fdbCluster.SetCustomParameters(
-				fdbv1beta2.ProcessClassStorage,
-				append(
-					initialParameters,
-					"locality_os=$NODE_LABEL_KUBERNETES_IO_OS",
-				),
+				map[fdbv1beta2.ProcessClass]fdbv1beta2.FoundationDBCustomParameters{
+					fdbv1beta2.ProcessClassStorage: append(
+						initialParameters,
+						"locality_os=$NODE_LABEL_KUBERNETES_IO_OS",
+					),
+				},
 				true,
 			)).NotTo(HaveOccurred())
 
@@ -2564,8 +2571,9 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 		AfterEach(func() {
 			Expect(fdbCluster.SetCustomParameters(
-				fdbv1beta2.ProcessClassStorage,
-				initialParameters,
+				map[fdbv1beta2.ProcessClass]fdbv1beta2.FoundationDBCustomParameters{
+					fdbv1beta2.ProcessClassStorage: initialParameters,
+				},
 				true,
 			)).NotTo(HaveOccurred())
 		})
@@ -2628,11 +2636,12 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 			Expect(
 				fdbCluster.SetCustomParameters(
-					fdbv1beta2.ProcessClassStorage,
-					append(
-						initialCustomParameters,
-						"knob_read_sampling_enabled=true",
-					),
+					map[fdbv1beta2.ProcessClass]fdbv1beta2.FoundationDBCustomParameters{
+						fdbv1beta2.ProcessClassStorage: append(
+							initialCustomParameters,
+							"knob_read_sampling_enabled=true",
+						),
+					},
 					false,
 				),
 			).NotTo(HaveOccurred())
@@ -2640,8 +2649,9 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 		AfterEach(func() {
 			Expect(fdbCluster.SetCustomParameters(
-				fdbv1beta2.ProcessClassStorage,
-				initialCustomParameters,
+				map[fdbv1beta2.ProcessClass]fdbv1beta2.FoundationDBCustomParameters{
+					fdbv1beta2.ProcessClassStorage: initialCustomParameters,
+				},
 				true,
 			)).NotTo(HaveOccurred())
 		})
@@ -2740,12 +2750,15 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 	})
 
 	When("the pod IP family is changed", func() {
-		var testStartTime time.Time
-		// TODO (johscheuer): Make the IP family configurable in the future.
+		var initialPods []string
 		var podIPFamily = fdbv1beta2.PodIPFamilyIPv4
 
 		BeforeEach(func() {
-			testStartTime = time.Now()
+			pods := fdbCluster.GetPods()
+			for _, pod := range pods.Items {
+				initialPods = append(initialPods, pod.Name)
+			}
+
 			spec := fdbCluster.GetCluster().Spec.DeepCopy()
 			spec.Routing.PodIPFamily = pointer.Int(podIPFamily)
 			fdbCluster.UpdateClusterSpecWithSpec(spec)
@@ -2763,6 +2776,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			pods := fdbCluster.GetPods()
 			podIPFamilyString := strconv.Itoa(podIPFamily)
 
+			newPods := make([]string, 0, len(pods.Items))
 			for _, pod := range pods.Items {
 				if !pod.DeletionTimestamp.IsZero() {
 					continue
@@ -2773,9 +2787,11 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 					continue
 				}
 
-				Expect(pod.CreationTimestamp.After(testStartTime)).To(BeTrue())
+				newPods = append(newPods, pod.Name)
 				Expect(pod.Annotations).To(HaveKeyWithValue(fdbv1beta2.IPFamilyAnnotation, podIPFamilyString))
 			}
+
+			Expect(newPods).NotTo(ContainElements(initialPods))
 		})
 	})
 })

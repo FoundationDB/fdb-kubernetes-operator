@@ -21,10 +21,11 @@
 package controllers
 
 import (
+	"net"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"net"
 )
 
 var _ = Describe("check client compatibility", func() {

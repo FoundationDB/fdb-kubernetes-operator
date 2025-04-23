@@ -22,6 +22,7 @@ package controllers
 
 import (
 	"context"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
 	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -62,7 +63,7 @@ func (s updateBackupStatus) reconcile(ctx context.Context, r *FoundationDBBackup
 		}
 		generationsMatch := currentBackupDeployment.Status.ObservedGeneration == currentBackupDeployment.ObjectMeta.Generation
 
-		annotationChange := mergeAnnotations(&currentBackupDeployment.ObjectMeta, desiredBackupDeployment.ObjectMeta)
+		annotationChange := internal.MergeAnnotations(&currentBackupDeployment.ObjectMeta, desiredBackupDeployment.ObjectMeta)
 
 		metadataMatch := !annotationChange &&
 			equality.Semantic.DeepEqual(currentBackupDeployment.ObjectMeta.Labels, desiredBackupDeployment.ObjectMeta.Labels)

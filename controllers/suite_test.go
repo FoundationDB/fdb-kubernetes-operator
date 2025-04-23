@@ -22,11 +22,11 @@ package controllers
 
 import (
 	"context"
-	"github.com/go-logr/logr"
 	"testing"
 	"time"
 
 	mockpodclient "github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/podclient/mock"
+	"github.com/go-logr/logr"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient/mock"
 
@@ -187,7 +187,7 @@ func createTestClusterReconciler() *FoundationDBClusterReconciler {
 		Log:                          ctrl.Log.WithName("controllers").WithName("FoundationDBCluster"),
 		Recorder:                     k8sClient,
 		InSimulation:                 true,
-		PodLifecycleManager:          podmanager.StandardPodLifecycleManager{},
+		PodLifecycleManager:          &podmanager.StandardPodLifecycleManager{},
 		PodClientProvider:            mockpodclient.NewMockFdbPodClient,
 		DatabaseClientProvider:       mock.DatabaseClientProvider{},
 		MaintenanceListStaleDuration: 4 * time.Hour,
