@@ -224,26 +224,22 @@ func (factory *Factory) GetMainContainerOverrides(debugSymbols bool, unifiedImag
 		image = factory.GetUnifiedFoundationDBImage()
 	}
 
-	mainImage, tag := GetBaseImageAndTag(
-		GetDebugImage(debugSymbols, image),
-	)
+	mainImage, tag := GetBaseImageAndTag(image)
 
 	return fdbv1beta2.ContainerOverrides{
 		EnableTLS:    false,
-		ImageConfigs: factory.options.getImageVersionConfig(mainImage, tag, false),
+		ImageConfigs: factory.options.getImageVersionConfig(mainImage, tag, false, debugSymbols),
 	}
 }
 
 // GetSidecarContainerOverrides will return the sidecar container overrides. If the unified image should be used an empty
 // container override will be returned.
 func (factory *Factory) GetSidecarContainerOverrides(debugSymbols bool) fdbv1beta2.ContainerOverrides {
-	image, tag := GetBaseImageAndTag(
-		GetDebugImage(debugSymbols, factory.GetSidecarImage()),
-	)
+	image, tag := GetBaseImageAndTag(factory.GetSidecarImage())
 
 	return fdbv1beta2.ContainerOverrides{
 		EnableTLS:    false,
-		ImageConfigs: factory.options.getImageVersionConfig(image, tag, true),
+		ImageConfigs: factory.options.getImageVersionConfig(image, tag, true, debugSymbols),
 	}
 }
 

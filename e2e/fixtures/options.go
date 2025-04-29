@@ -372,41 +372,57 @@ func (options *FactoryOptions) validateNodeSelector() error {
 }
 
 // getTagSuffix returns "-1" if the tag suffix should be used for a sidecar image.
-func getTagSuffix(isSidecar bool) string {
+func getTagSuffix(isSidecar bool, debugSymbols bool) string {
+	var tag strings.Builder
+
+	// The sidecar has per default the -1 suffix.
 	if isSidecar {
-		return "-1"
+		tag.WriteString("-1")
 	}
 
-	return ""
+	// If the debug symbols should be used add the debug suffix.
+	if debugSymbols {
+		tag.WriteString("-debug")
+	}
+
+	return tag.String()
 }
 
 // getTagWithSuffix returns the tag with the required suffix if the image is needed for the sidecar image.
-func getTagWithSuffix(tag string, isSidecar bool) string {
-	if tag != "" && isSidecar {
-		tagSuffix := getTagSuffix(isSidecar)
-		// Suffix is already present, so we don't have to add it again.
-		if strings.HasSuffix(tag, tagSuffix) {
-			return tag
-		}
-
-		return tag + getTagSuffix(isSidecar)
+func getTagWithSuffix(tag string, isSidecar bool, debugSymbols bool) string {
+	tagSuffix := getTagSuffix(isSidecar, debugSymbols)
+	// Suffix is already present, so we don't have to add it again.
+	if strings.HasSuffix(tag, tagSuffix) || tagSuffix == "" {
+		return tag
 	}
 
-	return tag
+	return tag + tagSuffix
 }
 
-func (options *FactoryOptions) getImageVersionConfig(baseImage string, versionTag string, isSidecar bool) []fdbv1beta2.ImageConfig {
+func (options *FactoryOptions) getImageVersionConfig(baseImage string, versionTag string, isSidecar bool, debugSymbols bool) []fdbv1beta2.ImageConfig {
 	if options.fdbVersionTagMapping == "" {
-		return []fdbv1beta2.ImageConfig{
-			{
+		var versionMapping fdbv1beta2.ImageConfig
+
+		if versionTag != "" {
+			versionMapping = fdbv1beta2.ImageConfig{
 				BaseImage: baseImage,
 				Version:   options.fdbVersion,
-				Tag:       getTagWithSuffix(versionTag, isSidecar),
-				TagSuffix: getTagSuffix(isSidecar),
-			},
+				// TODO should this really be false? If yes we should add a comment
+				Tag: getTagWithSuffix(versionTag, false, debugSymbols),
+			}
+		} else {
+			versionMapping = fdbv1beta2.ImageConfig{
+				BaseImage: baseImage,
+				Version:   options.fdbVersion,
+				TagSuffix: getTagSuffix(isSidecar, debugSymbols),
+			}
+		}
+
+		return []fdbv1beta2.ImageConfig{
+			versionMapping,
 			{
 				BaseImage: baseImage,
-				TagSuffix: getTagSuffix(isSidecar),
+				TagSuffix: getTagSuffix(isSidecar, debugSymbols),
 			},
 		}
 	}
@@ -419,7 +435,7 @@ func (options *FactoryOptions) getImageVersionConfig(baseImage string, versionTa
 		imageConfig[idx] = fdbv1beta2.ImageConfig{
 			BaseImage: baseImage,
 			Version:   strings.TrimSpace(versionMapping[0]),
-			Tag:       getTagWithSuffix(strings.TrimSpace(versionMapping[1]), isSidecar),
+			Tag:       getTagWithSuffix(strings.TrimSpace(versionMapping[1]), isSidecar, debugSymbols),
 		}
 	}
 
@@ -427,7 +443,7 @@ func (options *FactoryOptions) getImageVersionConfig(baseImage string, versionTa
 	// of versions use a version tag mapping.
 	imageConfig[len(mappings)] = fdbv1beta2.ImageConfig{
 		BaseImage: baseImage,
-		TagSuffix: getTagSuffix(isSidecar),
+		TagSuffix: getTagSuffix(isSidecar, debugSymbols),
 	}
 
 	return imageConfig
