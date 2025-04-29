@@ -22,9 +22,11 @@ package v1beta2
 
 import (
 	"encoding/json"
+	"maps"
 	"net"
 	"os"
 	"path/filepath"
+	"slices"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -78,8 +80,8 @@ var _ = Describe("FoundationDBStatus", func() {
 							Role: string(ProcessRoleGrvProxy),
 							ID:   "0de7f5c5e549cad1",
 							GRVLatencyStatistics: FoundationDBStatusGRVStatistics{
-								Batch:   FoundationDBStatusPerfStatistics{Count: 6, Median: 0.000531435, P99: 0.00130677},
-								Default: FoundationDBStatusPerfStatistics{Count: 225, Median: 0.00062561, P99: 0.010715200000000001},
+								Batch:   FoundationDBStatusPerfStatistics{Count: pointer.Int(6), Median: pointer.Float64(0.000531435), P99: pointer.Float64(0.00130677)},
+								Default: FoundationDBStatusPerfStatistics{Count: pointer.Int(225), Median: pointer.Float64(0.00062561), P99: pointer.Float64(0.010715200000000001)},
 							},
 						},
 						{
@@ -89,11 +91,11 @@ var _ = Describe("FoundationDBStatus", func() {
 								Seconds:  0.19625800000000002,
 								Versions: 196258,
 							},
-							KVStoreUsedBytes:      104878232,
-							KVStoreTotalBytes:     135012552704,
-							KVStoreFreeBytes:      84178223104,
-							KVStoreAvailableBytes: 84178223104,
-							ReadLatencyStatistics: FoundationDBStatusPerfStatistics{Count: 297, Median: 0.000116825, P99: 0.000711441},
+							KVStoreUsedBytes:      pointer.Int64(104878232),
+							KVStoreTotalBytes:     pointer.Int64(135012552704),
+							KVStoreFreeBytes:      pointer.Int64(84178223104),
+							KVStoreAvailableBytes: pointer.Int64(84178223104),
+							ReadLatencyStatistics: FoundationDBStatusPerfStatistics{Count: pointer.Int(297), Median: pointer.Float64(0.000116825), P99: pointer.Float64(0.000711441)},
 						},
 					},
 					Messages: []FoundationDBStatusProcessMessage{},
@@ -120,11 +122,11 @@ var _ = Describe("FoundationDBStatus", func() {
 							Role:                  string(ProcessClassStorage),
 							ID:                    "389c23d59a646e52",
 							DataLag:               FoundationDBStatusLagInfo{Seconds: 2.1227, Versions: 2122697},
-							KVStoreUsedBytes:      104878232,
-							KVStoreTotalBytes:     135012552704,
-							KVStoreFreeBytes:      84178239488,
-							KVStoreAvailableBytes: 84178239488,
-							ReadLatencyStatistics: FoundationDBStatusPerfStatistics{Count: 334, Median: 0.000102282, P99: 0.000386477},
+							KVStoreUsedBytes:      pointer.Int64(104878232),
+							KVStoreTotalBytes:     pointer.Int64(135012552704),
+							KVStoreFreeBytes:      pointer.Int64(84178239488),
+							KVStoreAvailableBytes: pointer.Int64(84178239488),
+							ReadLatencyStatistics: FoundationDBStatusPerfStatistics{Count: pointer.Int(334), Median: pointer.Float64(0.000102282), P99: pointer.Float64(0.000386477)},
 						},
 						{
 							Role: string(ProcessRoleResolver),
@@ -155,9 +157,9 @@ var _ = Describe("FoundationDBStatus", func() {
 							Role: string(ProcessRoleCommitProxy),
 							ID:   "0eb90e4a0ece85b3",
 							CommitLatencyStatistics: FoundationDBStatusPerfStatistics{
-								Count:  31,
-								Median: 0.00794888,
-								P99:    0.09054090000000001,
+								Count:  pointer.Int(31),
+								Median: pointer.Float64(0.00794888),
+								P99:    pointer.Float64(0.09054090000000001),
 							},
 						},
 						{
@@ -167,10 +169,11 @@ var _ = Describe("FoundationDBStatus", func() {
 								Seconds:  0.19625800000000002,
 								Versions: 196258,
 							},
-							KVStoreUsedBytes:      104861752,
-							KVStoreTotalBytes:     135012552704,
-							KVStoreFreeBytes:      84178112512,
-							KVStoreAvailableBytes: 84178112512,
+							KVStoreUsedBytes:      pointer.Int64(104861752),
+							KVStoreTotalBytes:     pointer.Int64(135012552704),
+							KVStoreFreeBytes:      pointer.Int64(84178112512),
+							KVStoreAvailableBytes: pointer.Int64(84178112512),
+							ReadLatencyStatistics: FoundationDBStatusPerfStatistics{Count: pointer.Int(0), Median: pointer.Float64(0), P99: pointer.Float64(0)},
 						},
 					},
 					Messages: []FoundationDBStatusProcessMessage{},
@@ -251,10 +254,10 @@ var _ = Describe("FoundationDBStatus", func() {
 						{
 							Role:                  string(ProcessRoleLog),
 							ID:                    "2c66a861b33b2697",
-							KVStoreUsedBytes:      104861752,
-							KVStoreTotalBytes:     135012552704,
-							KVStoreFreeBytes:      84178214912,
-							KVStoreAvailableBytes: 84178214912,
+							KVStoreUsedBytes:      pointer.Int64(104861752),
+							KVStoreTotalBytes:     pointer.Int64(135012552704),
+							KVStoreFreeBytes:      pointer.Int64(84178214912),
+							KVStoreAvailableBytes: pointer.Int64(84178214912),
 						},
 					},
 					Messages: []FoundationDBStatusProcessMessage{},
@@ -279,10 +282,10 @@ var _ = Describe("FoundationDBStatus", func() {
 						{
 							Role:                  string(ProcessRoleLog),
 							ID:                    "56cf105980ec2b07",
-							KVStoreUsedBytes:      104861752,
-							KVStoreTotalBytes:     135012552704,
-							KVStoreFreeBytes:      84178214912,
-							KVStoreAvailableBytes: 84178214912,
+							KVStoreUsedBytes:      pointer.Int64(104861752),
+							KVStoreTotalBytes:     pointer.Int64(135012552704),
+							KVStoreFreeBytes:      pointer.Int64(84178214912),
+							KVStoreAvailableBytes: pointer.Int64(84178214912),
 						},
 					},
 					Messages: []FoundationDBStatusProcessMessage{},
@@ -307,10 +310,10 @@ var _ = Describe("FoundationDBStatus", func() {
 						{
 							Role:                  string(ProcessRoleLog),
 							ID:                    "31754d1d7d8d6f05",
-							KVStoreUsedBytes:      104861752,
-							KVStoreTotalBytes:     135012552704,
-							KVStoreFreeBytes:      84178202624,
-							KVStoreAvailableBytes: 84178202624,
+							KVStoreUsedBytes:      pointer.Int64(104861752),
+							KVStoreTotalBytes:     pointer.Int64(135012552704),
+							KVStoreFreeBytes:      pointer.Int64(84178202624),
+							KVStoreAvailableBytes: pointer.Int64(84178202624),
 						},
 					},
 					Messages: []FoundationDBStatusProcessMessage{},
@@ -322,11 +325,12 @@ var _ = Describe("FoundationDBStatus", func() {
 				State:      FoundationDBStatusDataState{Description: "", Healthy: true, Name: "healthy", MinReplicasRemaining: 2},
 				TeamTrackers: []FoundationDBStatusTeamTracker{
 					{
-						Primary: true,
-						State:   FoundationDBStatusDataState{Description: "", Healthy: true, Name: "healthy", MinReplicasRemaining: 2},
+						Primary:          true,
+						State:            FoundationDBStatusDataState{Description: "", Healthy: true, Name: "healthy", MinReplicasRemaining: 2},
+						UnhealthyServers: pointer.Int64(0),
 					},
 				},
-				TotalDiskUsedBytes: 629203472,
+				TotalDiskUsedBytes: pointer.Int64(629203472),
 			},
 			FullReplication: true,
 			Clients: FoundationDBStatusClusterClientInfo{
@@ -448,7 +452,7 @@ var _ = Describe("FoundationDBStatus", func() {
 				},
 			},
 			Layers: FoundationDBStatusLayerInfo{
-				Valid:  true,
+				Valid:  pointer.Bool(true),
 				Backup: FoundationDBStatusBackupInfo{Paused: false, Tags: nil},
 				Error:  "",
 			},
@@ -492,7 +496,11 @@ var _ = Describe("FoundationDBStatus", func() {
 			BounceImpact: FoundationDBBounceImpact{
 				CanCleanBounce: pointer.Bool(true),
 			},
-			DatabaseAvailable: true,
+			DatabaseAvailable: pointer.Bool(true),
+			ActivePrimaryDC:   pointer.String(""),
+			DatabaseLockState: FoundationDBStatusLockState{
+				Locked: pointer.Bool(false),
+			},
 		}
 
 		It("should parse all values correctly", func() {
@@ -508,7 +516,7 @@ var _ = Describe("FoundationDBStatus", func() {
 			// the fields one by one.
 			clusterInfoParsed := statusParsed.Cluster
 			Expect(clusterInfoParsed.DatabaseConfiguration).To(Equal(clusterInfo.DatabaseConfiguration))
-			Expect(sortedMapValues(clusterInfoParsed.Processes)).To(HaveExactElements(sortedMapValues(clusterInfo.Processes)))
+			Expect(clusterInfoParsed.Processes).To(ConsistOf(slices.Collect(maps.Values(clusterInfo.Processes))))
 			Expect(clusterInfoParsed.Data).To(Equal(clusterInfo.Data))
 			Expect(clusterInfoParsed.FullReplication).To(Equal(clusterInfo.FullReplication))
 			Expect(clusterInfoParsed.Generation).To(Equal(clusterInfo.Generation))
