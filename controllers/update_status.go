@@ -242,7 +242,7 @@ func (c updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterRecon
 			return &requeue{curError: clientErr}
 		}
 
-		err = coordination.UpdateGlobalCoordinationState(logger, cluster, adminClient)
+		err = coordination.UpdateGlobalCoordinationState(logger, cluster, adminClient, processMap)
 		if err != nil {
 			return &requeue{curError: err}
 		}
@@ -382,6 +382,12 @@ func checkAndSetProcessStatus(logger logr.Logger, r *FoundationDBClusterReconcil
 	// If the processes are absent, we are not able to determine the state of the processes, therefore we won't change it.
 	if hasMissingProcesses {
 		return nil
+	}
+
+	// If the process groups is excluded, ensure that the process is marked as excluded.
+	if excluded {
+		logger.Info("process group is excluded", "processGroupID", processGroupStatus.ProcessGroupID)
+		processGroupStatus.SetExclude()
 	}
 
 	// If the processes of this process group are not being excluded anymore, we will reset the exclusion timestamp.
@@ -920,24 +926,20 @@ func getFaultDomainFromProcesses(processes []fdbv1beta2.FoundationDBStatusProces
 }
 
 // updateFaultDomains will update the process groups fault domain, based on the last seen zone id in the cluster status.
-func updateFaultDomains(logger logr.Logger, processes map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo, status *fdbv1beta2.FoundationDBClusterStatus) {
+func updateFaultDomains(logger logr.Logger, processesMap map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo, status *fdbv1beta2.FoundationDBClusterStatus) {
 	// If the process map is empty we can skip any further steps.
-	if len(processes) == 0 {
+	if len(processesMap) == 0 {
 		return
 	}
 
 	for idx, processGroup := range status.ProcessGroups {
-		process, ok := processes[processGroup.ProcessGroupID]
-		if !ok || len(processes) == 0 {
-			// Fallback for multiple storage or log servers, those will contain the process information with the process number as a suffix.
-			process, ok = processes[processGroup.ProcessGroupID+"-1"]
-			if !ok || len(processes) == 0 {
-				logger.Info("skip updating fault domain for process group with missing process in FoundationDB cluster status", "processGroupID", processGroup.ProcessGroupID)
-				continue
-			}
+		processes := coordination.GetProcessesFromProcessMap(processGroup.ProcessGroupID, processesMap)
+		if len(processes) == 0 {
+			logger.Info("skip updating fault domain for process group with missing process in FoundationDB cluster status", "processGroupID", processGroup.ProcessGroupID)
+			continue
 		}
 
-		faultDomain := getFaultDomainFromProcesses(process)
+		faultDomain := getFaultDomainFromProcesses(processes)
 		if faultDomain == "" {
 			logger.Info("skip updating fault domain for process group with missing zoneid", "processGroupID", processGroup.ProcessGroupID)
 			continue

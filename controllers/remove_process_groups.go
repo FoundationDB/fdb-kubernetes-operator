@@ -73,8 +73,9 @@ func (u removeProcessGroups) reconcile(ctx context.Context, r *FoundationDBClust
 	// If no process groups are marked to remove we have to check if all process groups are excluded.
 	if len(processGroupsToRemove) == 0 {
 		if !allExcluded {
-			return &requeue{message: "Reconciliation needs to exclude more processes"}
+			return &requeue{message: "Reconciliation needs to exclude more processes", delay: 15 * time.Second}
 		}
+
 		return nil
 	}
 

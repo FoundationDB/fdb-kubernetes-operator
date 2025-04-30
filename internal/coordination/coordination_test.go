@@ -59,7 +59,7 @@ var _ = Describe("operator_coordination", func() {
 		JustBeforeEach(func() {
 			adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(UpdateGlobalCoordinationState(logr.Discard(), cluster, adminClient)).To(Succeed())
+			Expect(UpdateGlobalCoordinationState(logr.Discard(), cluster, adminClient, nil)).To(Succeed())
 		})
 
 		When("a process group is marked for removal", func() {

@@ -199,9 +199,27 @@ func GetAddressesFromStatus(logger logr.Logger, status *fdbv1beta2.FoundationDBS
 	return addresses
 }
 
+// GetProcessesFromProcessMap returns the slice of processes matching the process group ID.
+func GetProcessesFromProcessMap(processGroupID fdbv1beta2.ProcessGroupID, processesMap map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo) []fdbv1beta2.FoundationDBStatusProcessInfo {
+	if len(processesMap) == 0 {
+		return nil
+	}
+
+	processes, ok := processesMap[processGroupID]
+	if !ok || len(processes) == 0 {
+		// Fallback for multiple storage or log servers, those will contain the process information with the process number as a suffix.
+		processes, ok = processesMap[processGroupID+"-1"]
+		if !ok || len(processes) == 0 {
+			return nil
+		}
+	}
+
+	return processes
+}
+
 // UpdateGlobalCoordinationState will update the state for global synchronization. If the synchronization mode is local,
 // this method will skip all work.
-func UpdateGlobalCoordinationState(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, adminClient fdbadminclient.AdminClient) error {
+func UpdateGlobalCoordinationState(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, adminClient fdbadminclient.AdminClient, processesMap map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo) error {
 	// If the synchronization mode is local (default) skip all work. If the mode is changed from global to local
 	// the human operator must clean up.
 	if cluster.GetSynchronizationMode() == fdbv1beta2.SynchronizationModeLocal {
@@ -273,8 +291,16 @@ func UpdateGlobalCoordinationState(logger logr.Logger, cluster *fdbv1beta2.Found
 				updatesPendingForRemoval[processGroup.ProcessGroupID] = fdbv1beta2.UpdateActionAdd
 			}
 
-			// Only add the process group if the exclusion is not done yet.
-			if !processGroup.IsExcluded() {
+			processes := GetProcessesFromProcessMap(processGroup.ProcessGroupID, processesMap)
+
+			var excluded bool
+			for _, process := range processes {
+				excluded = excluded || process.Excluded
+			}
+
+			// Only add the process group if the exclusion is not done yet, either because the process group has the
+			// exclusion timestamp set or because the processes are excluded.
+			if !(processGroup.IsExcluded() || excluded) {
 				if _, ok := pendingForExclusion[processGroup.ProcessGroupID]; !ok {
 					updatesPendingForExclusion[processGroup.ProcessGroupID] = fdbv1beta2.UpdateActionAdd
 				}

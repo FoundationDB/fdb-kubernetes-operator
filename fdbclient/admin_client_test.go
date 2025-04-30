@@ -801,7 +801,7 @@ protocol fdb00b071010000`,
 
 		When("the cluster specifies that blocking exclusions should be used", func() {
 			It("should return that the exclusion command is called without no_wait", func() {
-				Expect(mockRunner.receivedArgs[0]).To(ContainElement("exclude 127.0.0.1:4500"))
+				Expect(mockRunner.receivedArgs[0]).To(ContainElement("exclude 127.0.0.1"))
 			})
 		})
 
@@ -811,7 +811,7 @@ protocol fdb00b071010000`,
 			})
 
 			It("should return that the exclusion command is called with no_wait", func() {
-				Expect(mockRunner.receivedArgs[0]).To(ContainElement("exclude no_wait 127.0.0.1:4500"))
+				Expect(mockRunner.receivedArgs[0]).To(ContainElement("exclude no_wait 127.0.0.1"))
 			})
 		})
 	})
@@ -933,7 +933,7 @@ protocol fdb00b071010000`,
 
 			It("should issue an exclude command to verify the exclusion", func() {
 				Expect(mockRunner.receivedBinary[0]).To(HaveSuffix(fdbcliStr))
-				Expect(mockRunner.receivedArgs[0]).To(ContainElements("exclude 192.168.0.1:4500 192.168.0.2:4500"))
+				Expect(mockRunner.receivedArgs[0]).To(ContainElements("exclude 192.168.0.1 192.168.0.2"))
 			})
 		})
 
@@ -965,7 +965,7 @@ protocol fdb00b071010000`,
 
 			It("should issue an exclude command to verify the exclusion", func() {
 				Expect(mockRunner.receivedBinary[0]).To(HaveSuffix(fdbcliStr))
-				Expect(mockRunner.receivedArgs[0]).To(ContainElements("exclude 192.168.0.1:4500 192.168.0.2:4500"))
+				Expect(mockRunner.receivedArgs[0]).To(ContainElements("exclude 192.168.0.1 192.168.0.2"))
 			})
 		})
 
@@ -1107,15 +1107,15 @@ protocol fdb00b071010000`,
 			It("should return the missing address list and no error", func() {
 				Expect(result).To(ConsistOf(fdbv1beta2.ProcessAddress{
 					IPAddress: net.ParseIP("192.168.0.5"),
-					Port:      4500,
+					Port:      0,
 				}))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			It("should issue an exclude command", func() {
 				Expect(mockRunner.receivedBinary[0]).NotTo(BeEmpty())
-				Expect(mockRunner.receivedArgs[0]).To(ContainElements("exclude 192.168.0.5:4500"))
-				Expect(mockRunner.receivedArgs[1]).To(ContainElements("exclude 192.168.0.1:4500 192.168.0.2:4500"))
+				Expect(mockRunner.receivedArgs[0]).To(ContainElements("exclude 192.168.0.5"))
+				Expect(mockRunner.receivedArgs[1]).To(ContainElements("exclude 192.168.0.1 192.168.0.2"))
 			})
 
 			When("the exclude command returns an error different from the timeout error", func() {
@@ -1126,7 +1126,7 @@ protocol fdb00b071010000`,
 				It("should return the missing address and no error", func() {
 					Expect(result).To(ConsistOf(fdbv1beta2.ProcessAddress{
 						IPAddress: net.ParseIP("192.168.0.5"),
-						Port:      4500,
+						Port:      0,
 					}))
 					Expect(err).NotTo(HaveOccurred())
 				})
