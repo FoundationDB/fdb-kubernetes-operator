@@ -493,8 +493,8 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 		for tag, tagStatus := range client.Backups {
 			status.Cluster.Layers.Backup.Tags[tag] = fdbv1beta2.FoundationDBStatusBackupTag{
 				CurrentContainer: tagStatus.URL,
-				RunningBackup:    tagStatus.Running,
-				Restorable:       true,
+				RunningBackup:    &tagStatus.Running,
+				Restorable:       pointer.Bool(true),
 			}
 			status.Cluster.Layers.Backup.Paused = tagStatus.Paused
 		}

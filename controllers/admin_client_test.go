@@ -184,8 +184,8 @@ var _ = Describe("admin_client_test", func() {
 				Expect(status.Cluster.Layers.Backup.Tags).To(Equal(map[string]fdbv1beta2.FoundationDBStatusBackupTag{
 					"default": {
 						CurrentContainer: "blobstore://test@test-service/test-backup",
-						RunningBackup:    true,
-						Restorable:       true,
+						RunningBackup:    pointer.Bool(true),
+						Restorable:       pointer.Bool(true),
 					},
 				}))
 			})
@@ -224,8 +224,8 @@ var _ = Describe("admin_client_test", func() {
 					Expect(status.Cluster.Layers.Backup.Tags).To(Equal(map[string]fdbv1beta2.FoundationDBStatusBackupTag{
 						"default": {
 							CurrentContainer: "blobstore://test@test-service/test-backup",
-							RunningBackup:    false,
-							Restorable:       true,
+							RunningBackup:    pointer.Bool(false),
+							Restorable:       pointer.Bool(true),
 						},
 					}))
 				})
