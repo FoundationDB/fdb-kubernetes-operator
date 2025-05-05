@@ -327,6 +327,8 @@ func includeProcessGroup(ctx context.Context, logger logr.Logger, r *FoundationD
 		// The only risk would be exclusions that are not done by the operator. Without the `include all` we might miss exclusions based on
 		// IP addresses as those are not present anymore (the pods hosting those processes where removed and we would need to keep track
 		// of those excluded IPs).
+		// TODO (johscheuer): Ensure we are include localities and IPs again, even if the processes are not reporting anymore.
+		// See: https://github.com/FoundationDB/fdb-kubernetes-operator/issues/2271
 		fdbProcessesToInclude = []fdbv1beta2.ProcessAddress{
 			{
 				StringAddress: "all",
@@ -387,7 +389,7 @@ func getProcessesToInclude(logger logr.Logger, cluster *fdbv1beta2.FoundationDBC
 			for _, pAddr := range processGroup.Addresses {
 				// Ensure we include the process address if the removed process group is a log process as we are always
 				// excluding the log process with locality and IP address when validating that the log process was
-				// fully excluded. Otherwise we might leave the IP address in the excluded list.
+				// fully excluded. Otherwise, we might leave the IP address in the excluded list.
 				if foundInExcludedServerList && processGroup.ProcessClass.IsLogProcess() {
 					fdbProcessesToInclude = append(fdbProcessesToInclude, fdbv1beta2.ProcessAddress{IPAddress: net.ParseIP(pAddr)})
 					continue
