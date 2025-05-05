@@ -729,7 +729,7 @@ var _ = Describe("bounceProcesses", func() {
 									Address:      fdbv1beta2.ProcessAddress{StringAddress: "192.168.0.2:4500:tls"},
 									Roles: []fdbv1beta2.FoundationDBStatusProcessRoleInfo{
 										{
-											Role: string(fdbv1beta2.ProcessRoleClusterController),
+											Role: fdbv1beta2.ProcessRoleClusterController,
 										},
 									},
 									UptimeSeconds: 61.0,
@@ -829,7 +829,7 @@ var _ = Describe("bounceProcesses", func() {
 									Address:      fdbv1beta2.ProcessAddress{StringAddress: "192.168.0.2:4500:tls"},
 									Roles: []fdbv1beta2.FoundationDBStatusProcessRoleInfo{
 										{
-											Role: string(fdbv1beta2.ProcessRoleClusterController),
+											Role: fdbv1beta2.ProcessRoleClusterController,
 										},
 									},
 								},
@@ -875,7 +875,7 @@ var _ = Describe("bounceProcesses", func() {
 									Address:      fdbv1beta2.ProcessAddress{StringAddress: "192.168.0.2:4500:tls"},
 									Roles: []fdbv1beta2.FoundationDBStatusProcessRoleInfo{
 										{
-											Role: string(fdbv1beta2.ProcessRoleClusterController),
+											Role: fdbv1beta2.ProcessRoleClusterController,
 										},
 									},
 								},

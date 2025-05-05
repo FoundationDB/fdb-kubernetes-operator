@@ -207,7 +207,7 @@ var _ = Describe("status_checks", func() {
 								Excluded: true,
 								Roles: []fdbv1beta2.FoundationDBStatusProcessRoleInfo{
 									{
-										Role: string(fdbv1beta2.ProcessRoleStorage),
+										Role: fdbv1beta2.ProcessRoleStorage,
 									},
 								},
 								Locality: map[string]string{
@@ -287,7 +287,7 @@ var _ = Describe("status_checks", func() {
 								Excluded: false,
 								Roles: []fdbv1beta2.FoundationDBStatusProcessRoleInfo{
 									{
-										Role: string(fdbv1beta2.ProcessRoleStorage),
+										Role: fdbv1beta2.ProcessRoleStorage,
 									},
 								},
 							},
