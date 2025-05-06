@@ -233,7 +233,10 @@ func (e excludeProcesses) reconcile(ctx context.Context, r *FoundationDBClusterR
 
 		// Convert all the process groups that should be excluded to the right addresses based on the cluster status.
 		useLocalities := cluster.UseLocalitiesForExclusion()
-		fdbProcessesToExclude = coordination.GetAddressesFromStatus(logger, status, allowedExclusions, useLocalities, !useLocalities)
+		fdbProcessesToExclude, err = coordination.GetAddressesFromCoordinationState(logger, adminClient, allowedExclusions, useLocalities, !useLocalities)
+		if err != nil {
+			return &requeue{curError: err, delayedRequeue: true}
+		}
 	}
 
 	r.Recorder.Event(cluster, corev1.EventTypeNormal, "ExcludingProcesses", fmt.Sprintf("Excluding %v", fdbProcessesToExclude))

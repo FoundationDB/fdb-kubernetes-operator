@@ -66,17 +66,15 @@ endif
 
 # If the FEATURE_SYNCHRONIZATION_MODE environment variable is not defined the test suite will be randomly enable (1) or disable (0)
 # the the global synchronization mode.
-# TODO (johscuer): Disabled until https://github.com/FoundationDB/fdb-kubernetes-operator/issues/2271 is fixed.
-#ifndef FEATURE_SYNCHRONIZATION_MODE
-#  RANDOM_INT=$(shell shuf -i 0-1 -n 1)
-#  ifeq ($(RANDOM_INT), 0)
-#    # Default case
-#    FEATURE_SYNCHRONIZATION_MODE="local"
-#  else
-#    FEATURE_SYNCHRONIZATION_MODE="global"
-#  endif
-#endif
-FEATURE_SYNCHRONIZATION_MODE="local"
+ifndef FEATURE_SYNCHRONIZATION_MODE
+  RANDOM_INT=$(shell shuf -i 0-1 -n 1)
+  ifeq ($(RANDOM_INT), 0)
+    # Default case
+    FEATURE_SYNCHRONIZATION_MODE="local"
+  else
+    FEATURE_SYNCHRONIZATION_MODE="global"
+  endif
+endif
 
 # Make bash pickier about errors.
 SHELL=/bin/bash -euo pipefail

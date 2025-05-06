@@ -894,6 +894,7 @@ const (
 	readyForExclusion   = "readyForExclusion"
 	readyForInclusion   = "readyForInclusion"
 	readyForRestart     = "readyForRestart"
+	processAddresses    = "processAddresses"
 )
 
 // UpdatePendingForRemoval updates the set of process groups that are marked for removal, an update can be either the addition or removal of a process group.
@@ -969,4 +970,12 @@ func (client *cliAdminClient) GetReadyForRestart(prefix string) (map[fdbv1beta2.
 // ClearReadyForRestart removes all the process group IDs for all the process groups that are ready to be restarted.
 func (client *cliAdminClient) ClearReadyForRestart() error {
 	return client.fdbLibClient.clearGlobalCoordinationKeys(readyForRestart)
+}
+
+func (client *cliAdminClient) UpdateProcessAddresses(updates map[fdbv1beta2.ProcessGroupID][]string) error {
+	return client.fdbLibClient.updateProcessAddresses(updates)
+}
+
+func (client *cliAdminClient) GetProcessAddresses(prefix string) (map[fdbv1beta2.ProcessGroupID][]string, error) {
+	return client.fdbLibClient.getProcessAddresses(prefix)
 }

@@ -336,7 +336,6 @@ func checkAndSetProcessStatus(logger logr.Logger, r *FoundationDBClusterReconcil
 
 			if process.ProcessClass == fdbv1beta2.ProcessClassTest && processGroupStatus.IsMarkedForRemoval() {
 				processGroupStatus.ExclusionSkipped = ok
-				processGroupStatus.SetExclude()
 				excluded = true
 			}
 
@@ -382,12 +381,6 @@ func checkAndSetProcessStatus(logger logr.Logger, r *FoundationDBClusterReconcil
 	// If the processes are absent, we are not able to determine the state of the processes, therefore we won't change it.
 	if hasMissingProcesses {
 		return nil
-	}
-
-	// If the process groups is excluded, ensure that the process is marked as excluded.
-	if excluded {
-		logger.Info("process group is excluded", "processGroupID", processGroupStatus.ProcessGroupID)
-		processGroupStatus.SetExclude()
 	}
 
 	// If the processes of this process group are not being excluded anymore, we will reset the exclusion timestamp.

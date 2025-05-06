@@ -1331,6 +1331,7 @@ var _ = Describe("exclude_processes", func() {
 
 			When("a process from another cluster is pending to be excluded", func() {
 				otherProcessGroupID := fdbv1beta2.ProcessGroupID("another-cluster-log-1")
+				var targetedProcessGroupID fdbv1beta2.ProcessGroupID
 
 				BeforeEach(func() {
 					adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
@@ -1357,6 +1358,7 @@ var _ = Describe("exclude_processes", func() {
 						}
 
 						cluster.Status.ProcessGroups[idx].MarkForRemoval()
+						targetedProcessGroupID = processGroup.ProcessGroupID
 						break
 					}
 				})
@@ -1402,6 +1404,17 @@ var _ = Describe("exclude_processes", func() {
 					When("localities for exclusion are disabled", func() {
 						BeforeEach(func() {
 							cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(false)
+							adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
+							Expect(err).NotTo(HaveOccurred())
+
+							Expect(adminClient.UpdateProcessAddresses(map[fdbv1beta2.ProcessGroupID][]string{
+								otherProcessGroupID: {
+									"192.168.0.2",
+								},
+								targetedProcessGroupID: {
+									"192.168.0.3",
+								},
+							})).To(Succeed())
 						})
 
 						It("should exclude the processes", func() {
