@@ -43,12 +43,3 @@ func GetBaseImageAndTag(image string) (string, string) {
 
 	return parts[0], parts[1]
 }
-
-// GetDebugImage returns the debugging image if enabled.
-func GetDebugImage(debug bool, image string) string {
-	if debug && !strings.Contains(image, "-debug") {
-		return image + "-debug"
-	}
-
-	return image
-}
