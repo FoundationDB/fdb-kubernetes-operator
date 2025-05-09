@@ -318,7 +318,7 @@ func (fdbClient *realFdbLibClient) getProcessAddresses(prefix string) (map[fdbv1
 	var mapResult map[fdbv1beta2.ProcessGroupID][]string
 	fdbClient.logger.V(1).Info("Fetching process addresses for global coordination in FDB", "prefix", prefix)
 	defer func() {
-		fdbClient.logger.V(1).Info("Done process addresses for global coordination in FDB", "prefix", prefix, "results", len(mapResult))
+		fdbClient.logger.V(1).Info("Done fetching process addresses for global coordination in FDB", "prefix", prefix, "results", len(mapResult))
 	}()
 
 	database, err := getFDBDatabase(fdbClient.cluster)

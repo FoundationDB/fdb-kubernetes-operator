@@ -446,7 +446,12 @@ func (processGroupID ProcessGroupID) GetIDNumber() (int, error) {
 // GetProcessClass returns the process class from the process group ID.
 func (processGroupID ProcessGroupID) GetProcessClass() ProcessClass {
 	tmp := strings.Split(string(processGroupID), "-")
-	// The process class will always be the second last item, the last item is the ID number.
+	if len(tmp) < 2 {
+		return ""
+	}
+
+	// The process class will always be the second last item, the last item is the ID number,
+	// e.g. stateless-1 or with a prefix: prefix-stateless-2.
 	return ProcessClass(tmp[len(tmp)-2])
 }
 

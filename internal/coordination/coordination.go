@@ -146,7 +146,7 @@ func AllProcessesReadyForExclusion(logger logr.Logger, pendingProcessGroups map[
 	return readyProcessGroups, nil
 }
 
-// GetAddressesFromCoordinationState will return the addresses based on the coordination state. If addresses should be included, the process address(es) are included and if localities should be included, the localities are included too.
+// GetAddressesFromCoordinationState will return the addresses based on the coordination state. If addresses should be included, the process address(es) are included in the result, and if localities should be included, the localities are included in the result too.
 func GetAddressesFromCoordinationState(logger logr.Logger, adminClient fdbadminclient.AdminClient, processGroups map[fdbv1beta2.ProcessGroupID]time.Time, includeLocalities bool, includeAddresses bool) ([]fdbv1beta2.ProcessAddress, error) {
 	addresses := make([]fdbv1beta2.ProcessAddress, 0, len(processGroups))
 
@@ -365,16 +365,9 @@ func UpdateGlobalCoordinationState(logger logr.Logger, cluster *fdbv1beta2.Found
 			}
 
 			addresses, ok := processAddresses[processGroup.ProcessGroupID]
-			if !ok || len(addresses) == 0 {
-				logger.V(1).Info("found process without process addresses, will be added", "processGroupID", processGroup.ProcessGroupID, "addresses", processGroup.Addresses)
+			if !ok || slices.Compare(addresses, processGroup.Addresses) != 0 {
+				logger.V(1).Info("updating process addresses in coordination state", "processGroupID", processGroup.ProcessGroupID, "addresses", processGroup.Addresses)
 				updatesProcessAddresses[processGroup.ProcessGroupID] = processGroup.Addresses
-				continue
-			}
-
-			if slices.Compare(addresses, processGroup.Addresses) != 0 {
-				logger.V(1).Info("updating process with old process addresses, will be added", "processGroupID", processGroup.ProcessGroupID, "current", addresses, "new", processGroup.Addresses)
-				updatesProcessAddresses[processGroup.ProcessGroupID] = processGroup.Addresses
-				continue
 			}
 
 			continue

@@ -380,10 +380,10 @@ func (client *cliAdminClient) ExcludeProcesses(addresses []fdbv1beta2.ProcessAdd
 	return client.ExcludeProcessesWithNoWait(addresses, client.Cluster.GetUseNonBlockingExcludes())
 }
 
-// getAddressStringForIncludeAndExclude will return a string with addresses or localities that can be used for exclusion
+// getAddressStringsWithoutPorts will return a string with addresses or localities that can be used for exclusion
 // or inclusion. If any of the addresses defines a port, it will be reset by this method to ensure the whole pod gets
 // excluded or included.
-func getAddressStringForIncludeAndExclude(addresses []fdbv1beta2.ProcessAddress) string {
+func getAddressStringsWithoutPorts(addresses []fdbv1beta2.ProcessAddress) string {
 	// Ensure that the ports are set to 0, as the operator will always exclude whole pods.
 	for idx, address := range addresses {
 		if address.Port != 0 {
@@ -407,7 +407,7 @@ func (client *cliAdminClient) ExcludeProcessesWithNoWait(addresses []fdbv1beta2.
 		excludeCommand.WriteString("no_wait ")
 	}
 
-	excludeCommand.WriteString(getAddressStringForIncludeAndExclude(addresses))
+	excludeCommand.WriteString(getAddressStringsWithoutPorts(addresses))
 
 	_, err := client.runCommand(cliCommand{command: excludeCommand.String(), timeout: client.getTimeout()})
 
@@ -419,7 +419,7 @@ func (client *cliAdminClient) IncludeProcesses(addresses []fdbv1beta2.ProcessAdd
 	if len(addresses) == 0 {
 		return nil
 	}
-	_, err := client.runCommand(cliCommand{command: fmt.Sprintf("include %s", getAddressStringForIncludeAndExclude(addresses))})
+	_, err := client.runCommand(cliCommand{command: fmt.Sprintf("include %s", getAddressStringsWithoutPorts(addresses))})
 	return err
 }
 
