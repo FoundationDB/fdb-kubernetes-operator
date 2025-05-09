@@ -155,6 +155,12 @@ CrashLoopContainerObject specifies crash-loop target for specific container.
 
 [Back to TOC](#table-of-contents)
 
+## DatabaseInteractionMode
+
+DatabaseInteractionMode defines how the operator should interact with the FDB cluster.
+
+[Back to TOC](#table-of-contents)
+
 ## FaultDomain
 
 FaultDomain represents the FaultDomain of a process group
@@ -198,6 +204,7 @@ FoundationDBClusterAutomationOptions provides flags for enabling or disabling op
 | maintenanceModeOptions | MaintenanceModeOptions contains options for maintenance mode related settings. | [MaintenanceModeOptions](#maintenancemodeoptions) | false |
 | ignoreLogGroupsForUpgrade | IgnoreLogGroupsForUpgrade defines the list of LogGroups that should be ignored during fdb version upgrade. The default is a list that includes \"fdb-kubernetes-operator\". | [][LogGroup](#loggroup) | false |
 | synchronizationMode | SynchronizationMode defines the synchronization mode for clusters that are managed by multiple operator instances. The default is \"local\" which means all operator instances are only acting on their local processes, with the exception for cluster upgrades. In the \"global\" mode the operator instances coordinate actions to only issue a single exclude/bounce/include to reduce the disruptions. The global coordination mode is based on an optimistic mode and there are no guarantees that the action will only be executed once, e.g. because of a slow operator instance.  More details: https://github.com/FoundationDB/fdb-kubernetes-operator/blob/main/docs/design/better_coordination_multi_operator.md | *string | false |
+| databaseInteractionMode | DatabaseInteractionMode defines how the operator should interact with the FDB cluster. Possible options right now are \"fdbcli\", which is the default way and \"managementapi\" which will make use of the management module in FDB: https://apple.github.io/foundationdb/special-keys.html#management-module. | *[DatabaseInteractionMode](#databaseinteractionmode) | false |
 
 [Back to TOC](#table-of-contents)
 
