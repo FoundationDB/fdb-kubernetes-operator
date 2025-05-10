@@ -34,6 +34,7 @@ import (
 	"github.com/onsi/gomega"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -46,7 +47,7 @@ const (
 	// The name of the data loader Job.
 	dataLoaderName = "fdb-data-loader"
 
-	// For now we only load 2GB into the cluster, we can increase this later if we want.
+	// We load 2GB into the cluster, we can increase this later if we want.
 	dataLoaderJob = `apiVersion: batch/v1
 kind: Job
 metadata:
@@ -66,9 +67,11 @@ spec:
         name: {{ .Name }}
         # This configuration will load ~1GB per data loader.
         args:
-        - --keys=1000000
-        - --batch-size=50
-        - --value-size=1000
+        - --keys={{ .Config.Keys }}
+        - --batch-size={{ .Config.BatchSize }}
+        - --value-size={{ .Config.ValueSize }}
+        - --cluster-file-directory=/var/dynamic/fdb
+        - --read-values={{ .Config.ReadValues }}
         env:
           - name: FDB_CLUSTER_FILE
             value: /var/dynamic/fdb/fdb.cluster
@@ -86,18 +89,22 @@ spec:
             value: /var/dynamic/fdb/primary/lib
           - name: FDB_NETWORK_OPTION_TRACE_LOG_GROUP
             value: {{ .Name }}
+          - name: FDB_NETWORK_OPTION_TRACE_ENABLE
+            value: "/tmp/fdb-trace-logs"
           - name: FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY
             value: /var/dynamic/fdb/libs
-          - name: PYTHONUNBUFFERED
-            value: "on"
+          - name: FDB_NETWORK_OPTION_TRACE_FORMAT
+            value: json
+          - name: FDB_NETWORK_OPTION_CLIENT_THREADS_PER_VERSION
+            value: "10"
         volumeMounts:
-          - name: config-map
-            mountPath: /var/dynamic-conf
           - name: fdb-libs
             mountPath: /var/dynamic/fdb
           - name: fdb-certs
             mountPath: /tmp/fdb-certs
             readOnly: true
+          - name: fdb-logs
+            mountPath: /tmp/fdb-trace-logs
         resources:
          requests:
            cpu: "1"
@@ -121,9 +128,9 @@ spec:
             runAsGroup: 0
         # Install this library in a special location to force the operator to use it as the primary library.
         {{ if .CopyAsPrimary }}
-        - name: foundationdb-kubernetes-init-7-1-primary
+        - name: foundationdb-kubernetes-init-primary
           image: {{ .Image }}
-          imagePullPolicy: {{ .ImagePullPolicy }}
+          imagePullPolicy: Always
           args:
             # Note that we are only copying a library, rather than copying any binaries. 
             - "--copy-library"
@@ -143,9 +150,9 @@ spec:
             - /bin/bash
           args:
             - -c
-            - mkdir -p /var/dynamic/fdb/libs && {{ range $index, $version := .SidecarVersions -}} cp /var/dynamic/fdb/{{ .FDBVersion.Compact }}/lib/libfdb_c.so /var/dynamic/fdb/libs/libfdb_{{ .FDBVersion.Compact }}_c.so && {{ end }} cp /var/dynamic-conf/fdb.cluster /var/dynamic/fdb/fdb.cluster
+            - mkdir -p /var/dynamic/fdb/libs && {{ range $index, $version := .SidecarVersions -}} cp /var/dynamic/fdb/{{ .FDBVersion.Compact }}/lib/libfdb_c.so /var/dynamic/fdb/libs/libfdb_{{ .FDBVersion.Compact }}_c.so && {{ end }} cp /var/dynamic-conf/*.cluster /var/dynamic/fdb/
           volumeMounts:
-          - name: config-map
+          - name: cluster-files
             mountPath: /var/dynamic-conf
           - name: fdb-libs
             mountPath: /var/dynamic/fdb
@@ -154,19 +161,26 @@ spec:
             readOnly: true
       restartPolicy: Never
       volumes:
-        - name: config-map
-          configMap:
-            name: {{ .ClusterName }}-config
-            items:
-              - key: cluster-file
-                path: fdb.cluster
+        - name: cluster-files
+          projected:
+            sources:
+{{- range $index, $clusterName := .ClusterNames }}
+              - name: {{ $clusterName }}-config
+                configMap:
+                  name: {{ $clusterName }}-config
+                  items:
+                    - key: cluster-file
+                      path: {{ $clusterName }}.cluster
+{{- end }}
         - name: fdb-libs
+          emptyDir: {}
+        - name: fdb-logs
           emptyDir: {}
         - name: fdb-certs
           secret:
             secretName: {{ .SecretName }}`
 
-	// For now we only load 2GB into the cluster, we can increase this later if we want.
+	// For now, we only load 2GB into the cluster, we can increase this later if we want.
 	dataLoaderJobUnifiedImage = `apiVersion: batch/v1
 kind: Job
 metadata:
@@ -186,9 +200,11 @@ spec:
         name: {{ .Name }}
         # This configuration will load ~1GB per data loader.
         args:
-        - --keys=1000000
-        - --batch-size=50
-        - --value-size=1000
+        - --keys={{ .Config.Keys }}
+        - --batch-size={{ .Config.BatchSize }}
+        - --value-size={{ .Config.ValueSize }}
+        - --cluster-file-directory=/var/dynamic/fdb
+        - --read-values={{ .Config.ReadValues }}
         env:
           - name: FDB_CLUSTER_FILE
             value: /var/dynamic/fdb/fdb.cluster
@@ -202,31 +218,35 @@ spec:
           # Consider remove this option once 6.3 is no longer being used.
           - name: FDB_NETWORK_OPTION_IGNORE_EXTERNAL_CLIENT_FAILURES
             value: ""
+          - name: FDB_NETWORK_OPTION_TRACE_ENABLE
+            value: "/tmp/fdb-trace-logs"
           - name: LD_LIBRARY_PATH
             value: /var/dynamic/fdb
           - name: FDB_NETWORK_OPTION_TRACE_LOG_GROUP
             value: {{ .Name }}
           - name: FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY
             value: /var/dynamic/fdb
-          - name: PYTHONUNBUFFERED
-            value: "on"
+          - name: FDB_NETWORK_OPTION_TRACE_FORMAT
+            value: json
+          - name: FDB_NETWORK_OPTION_CLIENT_THREADS_PER_VERSION
+            value: "10"
         volumeMounts:
-          - name: config-map
-            mountPath: /var/dynamic-conf
           - name: fdb-libs
             mountPath: /var/dynamic/fdb
           - name: fdb-certs
             mountPath: /tmp/fdb-certs
             readOnly: true
+          - name: fdb-logs
+            mountPath: /tmp/fdb-trace-logs
         resources:
          requests:
            cpu: "1"
            memory: 4Gi
       initContainers:
-        {{ range $index, $version := .SidecarVersions }}
+{{- range $index, $version := .SidecarVersions }}
         - name: foundationdb-kubernetes-init-{{ $index }}
           image: {{ .Image }}
-          imagePullPolicy: {{ .ImagePullPolicy }}
+          imagePullPolicy: Always
           args:
             - --mode
             - init
@@ -234,20 +254,20 @@ spec:
             - /var/output-files
             - --copy-library
             - "{{ .FDBVersion.Compact }}"
-{{ if .CopyAsPrimary }}
+{{- if .CopyAsPrimary }}
             - --copy-primary-library
             - "{{ .FDBVersion.Compact }}"
-{{ end }}
+{{- end }}
           volumeMounts:
             - name: fdb-libs
               mountPath: /var/output-files
           securityContext:
             runAsUser: 0
             runAsGroup: 0
-{{ if .CopyAsPrimary }}
+{{- if .CopyAsPrimary }}
         - name: foundationdb-kubernetes-init-cluster-file
           image: {{ .Image }}
-          imagePullPolicy: {{ .ImagePullPolicy }}
+          imagePullPolicy: Always
           args:
             - --mode
             - init
@@ -255,36 +275,45 @@ spec:
             - /var/dynamic-conf
             - --output-dir
             - /var/output-files
+{{- range $index, $clusterName := $.ClusterNames }}
             - --copy-file
-            - fdb.cluster
+            - {{ $clusterName }}.cluster
             - --require-not-empty
-            - fdb.cluster
+            - {{ $clusterName }}.cluster
+{{- end }}
           volumeMounts:
             - name: fdb-libs
               mountPath: /var/output-files
-            - name: config-map
-              mountPath: /var/dynamic-conf
+            - name: cluster-files
+              mountPath: /var/dynamic-conf/
           securityContext:
             runAsUser: 0
             runAsGroup: 0
-{{ end }}
-        {{ end }}
+{{- end }}
+{{- end }}
       restartPolicy: Never
       volumes:
-        - name: config-map
-          configMap:
-            name: {{ .ClusterName }}-config
-            items:
-              - key: cluster-file
-                path: fdb.cluster
+        - name: cluster-files
+          projected:
+            sources:
+{{- range $index, $clusterName := .ClusterNames }}
+              - name: {{ $clusterName }}-config
+                configMap:
+                  name: {{ $clusterName }}-config
+                  items:
+                    - key: cluster-file
+                      path: {{ $clusterName }}.cluster
+{{- end }}
         - name: fdb-libs
+          emptyDir: {}
+        - name: fdb-logs
           emptyDir: {}
         - name: fdb-certs
           secret:
             secretName: {{ .SecretName }}`
 )
 
-// dataLoaderConfig represents the configuration of the Dataloader Job.
+// dataLoaderConfig represents the configuration of the data-loader Job.
 type dataLoaderConfig struct {
 	// Name of the data loader Job.
 	Name string
@@ -294,32 +323,71 @@ type dataLoaderConfig struct {
 	SidecarVersions []SidecarConfig
 	// Namespace represents the namespace for the Deployment and all associated resources
 	Namespace string
-	// ClusterName the name of the cluster to load data into.
-	ClusterName string
+	// ClusterNames the names of the clusters to load data into.
+	ClusterNames []string
 	// SecretName represents the Kubernetes secret that contains the certificates for communicating with the FoundationDB
 	// cluster.
 	SecretName string
+	// Config defines the workload configuration.
+	Config *WorkloadConfig
 }
 
-func (factory *Factory) getDataLoaderConfig(cluster *FdbCluster) *dataLoaderConfig {
+// WorkloadConfig defines the workload configuration.
+type WorkloadConfig struct {
+	// Keys defines how many keys should be written by the data loader.
+	Keys int
+	// BatchSize defines how many keys should be inserted per batch (transaction).
+	BatchSize int
+	// ValueSize defines the value size in bytes per key-value pair.
+	ValueSize int
+	// ReadValues defines if the data loader should be reading the written values again to add some read load.
+	ReadValues bool
+}
+
+func (config *WorkloadConfig) setDefaults() {
+	if config.Keys == 0 {
+		config.Keys = 1000000
+	}
+
+	if config.BatchSize == 0 {
+		config.BatchSize = 1000
+	}
+
+	if config.ValueSize == 0 {
+		config.ValueSize = 1000
+	}
+}
+
+func (factory *Factory) getDataLoaderConfig(clusters []*FdbCluster, config *WorkloadConfig) *dataLoaderConfig {
+	if config == nil {
+		config = &WorkloadConfig{}
+	}
+
+	config.setDefaults()
+
+	clusterNames := make([]string, 0, len(clusters))
+	for _, cluster := range clusters {
+		clusterNames = append(clusterNames, cluster.Name())
+	}
 	return &dataLoaderConfig{
 		Name:            dataLoaderName,
 		Image:           factory.GetDataLoaderImage(),
-		Namespace:       cluster.Namespace(),
+		Namespace:       clusters[0].Namespace(),
 		SidecarVersions: factory.GetSidecarConfigs(),
-		ClusterName:     cluster.Name(),
+		ClusterNames:    clusterNames,
 		SecretName:      factory.GetSecretName(),
+		Config:          config,
 	}
 }
 
 // CreateDataLoaderIfAbsent will create the data loader for the provided cluster and load some random data into the cluster.
 func (factory *Factory) CreateDataLoaderIfAbsent(cluster *FdbCluster) {
-	factory.CreateDataLoaderIfAbsentWithWait(cluster, true)
+	factory.CreateDataLoaderIfAbsentWithWait(cluster, nil, true)
 }
 
-// CreateDataLoaderIfAbsentWithWait will create the data loader for the provided cluster and load some random data into the cluster.
-// If wait is true, the method will wait until the data loader has finished.
-func (factory *Factory) CreateDataLoaderIfAbsentWithWait(cluster *FdbCluster, wait bool) {
+// CreateDataLoaderIfAbsentWithWaitForMultipleClusters will create a data loader configuration that loads data into multiple
+// FoundationDB clusters.
+func (factory *Factory) CreateDataLoaderIfAbsentWithWaitForMultipleClusters(clusters []*FdbCluster, config *WorkloadConfig, wait bool) {
 	if !factory.options.enableDataLoading {
 		return
 	}
@@ -331,7 +399,7 @@ func (factory *Factory) CreateDataLoaderIfAbsentWithWait(cluster *FdbCluster, wa
 	t, err := template.New("dataLoaderJob").Parse(dataLoaderJobTemplate)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	buf := bytes.Buffer{}
-	gomega.Expect(t.Execute(&buf, factory.getDataLoaderConfig(cluster))).NotTo(gomega.HaveOccurred())
+	gomega.Expect(t.Execute(&buf, factory.getDataLoaderConfig(clusters, config))).NotTo(gomega.HaveOccurred())
 	decoder := yamlutil.NewYAMLOrJSONDecoder(&buf, 100000)
 	for {
 		var rawObj runtime.RawExtension
@@ -359,8 +427,14 @@ func (factory *Factory) CreateDataLoaderIfAbsentWithWait(cluster *FdbCluster, wa
 		return
 	}
 
-	factory.WaitUntilDataLoaderIsDone(cluster)
-	factory.DeleteDataLoader(cluster)
+	factory.WaitUntilDataLoaderIsDone(clusters[0])
+	factory.DeleteDataLoader(clusters[0])
+}
+
+// CreateDataLoaderIfAbsentWithWait will create the data loader for the provided cluster and load some random data into the cluster.
+// If wait is true, the method will wait until the data loader has finished.
+func (factory *Factory) CreateDataLoaderIfAbsentWithWait(cluster *FdbCluster, config *WorkloadConfig, wait bool) {
+	factory.CreateDataLoaderIfAbsentWithWaitForMultipleClusters([]*FdbCluster{cluster}, config, wait)
 }
 
 // DeleteDataLoader will delete the data loader job
