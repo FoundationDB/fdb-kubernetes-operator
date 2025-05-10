@@ -443,9 +443,26 @@ func (processGroupID ProcessGroupID) GetIDNumber() (int, error) {
 	return idNum, nil
 }
 
+// GetProcessClass returns the process class from the process group ID.
+func (processGroupID ProcessGroupID) GetProcessClass() ProcessClass {
+	tmp := strings.Split(string(processGroupID), "-")
+	if len(tmp) < 2 {
+		return ""
+	}
+
+	// The process class will always be the second last item, the last item is the ID number,
+	// e.g. stateless-1 or with a prefix: prefix-stateless-2.
+	return ProcessClass(tmp[len(tmp)-2])
+}
+
+// GetExclusionString returns the exclusion string
+func (processGroupID ProcessGroupID) GetExclusionString() string {
+	return fmt.Sprintf("%s:%s", FDBLocalityExclusionPrefix, processGroupID)
+}
+
 // GetExclusionString returns the exclusion string
 func (processGroupStatus *ProcessGroupStatus) GetExclusionString() string {
-	return fmt.Sprintf("%s:%s", FDBLocalityExclusionPrefix, processGroupStatus.ProcessGroupID)
+	return processGroupStatus.ProcessGroupID.GetExclusionString()
 }
 
 // IsExcluded returns if a process group is excluded
@@ -499,9 +516,8 @@ func (processGroupStatus *ProcessGroupStatus) GetPodName(cluster *FoundationDBCl
 	// in the processGroupStatus without doing any parsing, so we have to use the Process Group ID, which might contain
 	// a prefix, so we take the part after the prefix, which will be ${process-class}-${id}.
 	sanitizedProcessGroup := strings.ReplaceAll(string(processGroupStatus.ProcessGroupID), "_", "-")
-	sanitizedProcessClass := strings.ReplaceAll(string(processGroupStatus.ProcessClass), "_", "-")
 
-	idx := strings.Index(sanitizedProcessGroup, sanitizedProcessClass)
+	idx := strings.Index(sanitizedProcessGroup, processGroupStatus.ProcessClass.GetProcessClassForPodName())
 	sb.WriteString(sanitizedProcessGroup[idx:])
 
 	return sb.String()

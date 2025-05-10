@@ -380,6 +380,20 @@ func (client *cliAdminClient) ExcludeProcesses(addresses []fdbv1beta2.ProcessAdd
 	return client.ExcludeProcessesWithNoWait(addresses, client.Cluster.GetUseNonBlockingExcludes())
 }
 
+// getAddressStringsWithoutPorts will return a string with addresses or localities that can be used for exclusion
+// or inclusion. If any of the addresses defines a port, it will be reset by this method to ensure the whole pod gets
+// excluded or included.
+func getAddressStringsWithoutPorts(addresses []fdbv1beta2.ProcessAddress) string {
+	// Ensure that the ports are set to 0, as the operator will always exclude whole pods.
+	for idx, address := range addresses {
+		if address.Port != 0 {
+			addresses[idx].Port = 0
+		}
+	}
+
+	return fdbv1beta2.ProcessAddressesStringWithoutFlags(addresses, " ")
+}
+
 // ExcludeProcessesWithNoWait starts evacuating processes so that they can be removed from the database. If noWait is
 // set to true, the exclude command will not block until all data is moved away from the processes.
 func (client *cliAdminClient) ExcludeProcessesWithNoWait(addresses []fdbv1beta2.ProcessAddress, noWait bool) error {
@@ -393,7 +407,7 @@ func (client *cliAdminClient) ExcludeProcessesWithNoWait(addresses []fdbv1beta2.
 		excludeCommand.WriteString("no_wait ")
 	}
 
-	excludeCommand.WriteString(fdbv1beta2.ProcessAddressesString(addresses, " "))
+	excludeCommand.WriteString(getAddressStringsWithoutPorts(addresses))
 
 	_, err := client.runCommand(cliCommand{command: excludeCommand.String(), timeout: client.getTimeout()})
 
@@ -405,10 +419,7 @@ func (client *cliAdminClient) IncludeProcesses(addresses []fdbv1beta2.ProcessAdd
 	if len(addresses) == 0 {
 		return nil
 	}
-	_, err := client.runCommand(cliCommand{command: fmt.Sprintf(
-		"include %s",
-		fdbv1beta2.ProcessAddressesString(addresses, " "),
-	)})
+	_, err := client.runCommand(cliCommand{command: fmt.Sprintf("include %s", getAddressStringsWithoutPorts(addresses))})
 	return err
 }
 
@@ -883,6 +894,7 @@ const (
 	readyForExclusion   = "readyForExclusion"
 	readyForInclusion   = "readyForInclusion"
 	readyForRestart     = "readyForRestart"
+	processAddresses    = "processAddresses"
 )
 
 // UpdatePendingForRemoval updates the set of process groups that are marked for removal, an update can be either the addition or removal of a process group.
@@ -958,4 +970,12 @@ func (client *cliAdminClient) GetReadyForRestart(prefix string) (map[fdbv1beta2.
 // ClearReadyForRestart removes all the process group IDs for all the process groups that are ready to be restarted.
 func (client *cliAdminClient) ClearReadyForRestart() error {
 	return client.fdbLibClient.clearGlobalCoordinationKeys(readyForRestart)
+}
+
+func (client *cliAdminClient) UpdateProcessAddresses(updates map[fdbv1beta2.ProcessGroupID][]string) error {
+	return client.fdbLibClient.updateProcessAddresses(updates)
+}
+
+func (client *cliAdminClient) GetProcessAddresses(prefix string) (map[fdbv1beta2.ProcessGroupID][]string, error) {
+	return client.fdbLibClient.getProcessAddresses(prefix)
 }

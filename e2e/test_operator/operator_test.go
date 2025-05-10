@@ -383,7 +383,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		var useLocalitiesForExclusion bool
 
 		JustBeforeEach(func() {
-			initialPods := fdbCluster.GetLogPods()
+			initialPods := fdbCluster.GetPods()
 			coordinators := fdbstatus.GetCoordinatorsFromStatus(fdbCluster.GetStatus())
 
 			for _, pod := range initialPods.Items {

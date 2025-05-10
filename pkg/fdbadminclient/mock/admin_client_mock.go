@@ -60,6 +60,7 @@ type AdminClient struct {
 	readyForExclusion                        map[fdbv1beta2.ProcessGroupID]time.Time
 	readyForInclusion                        map[fdbv1beta2.ProcessGroupID]time.Time
 	readyForRestart                          map[fdbv1beta2.ProcessGroupID]time.Time
+	coordinationStateProcessAddresses        map[fdbv1beta2.ProcessGroupID][]string
 	FrozenStatus                             *fdbv1beta2.FoundationDBStatus
 	Backups                                  map[string]fdbv1beta2.FoundationDBBackupStatusBackupDetails
 	clientVersions                           map[string][]string
@@ -104,27 +105,28 @@ func NewMockAdminClientUncast(cluster *fdbv1beta2.FoundationDBCluster, kubeClien
 
 	if cachedClient == nil {
 		cachedClient = &AdminClient{
-			Cluster:                   cluster.DeepCopy(),
-			KubeClient:                kubeClient,
-			ExcludedAddresses:         make(map[string]fdbv1beta2.None),
-			ReincludedAddresses:       make(map[string]bool),
-			KilledAddresses:           make(map[string]fdbv1beta2.None),
-			missingProcessGroups:      make(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None),
-			missingLocalities:         make(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None),
-			incorrectCommandLines:     make(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None),
-			pendingForRemoval:         make(map[fdbv1beta2.ProcessGroupID]time.Time),
-			pendingForExclusion:       make(map[fdbv1beta2.ProcessGroupID]time.Time),
-			pendingForInclusion:       make(map[fdbv1beta2.ProcessGroupID]time.Time),
-			pendingForRestart:         make(map[fdbv1beta2.ProcessGroupID]time.Time),
-			readyForExclusion:         make(map[fdbv1beta2.ProcessGroupID]time.Time),
-			readyForInclusion:         make(map[fdbv1beta2.ProcessGroupID]time.Time),
-			readyForRestart:           make(map[fdbv1beta2.ProcessGroupID]time.Time),
-			localityInfo:              make(map[fdbv1beta2.ProcessGroupID]map[string]string),
-			currentCommandLines:       make(map[string]string),
-			Knobs:                     make(map[string]fdbv1beta2.None),
-			VersionProcessGroups:      make(map[fdbv1beta2.ProcessGroupID]string),
-			LagInfo:                   make(map[string]fdbv1beta2.FoundationDBStatusLagInfo),
-			processesUnderMaintenance: make(map[fdbv1beta2.ProcessGroupID]int64),
+			Cluster:                           cluster.DeepCopy(),
+			KubeClient:                        kubeClient,
+			ExcludedAddresses:                 make(map[string]fdbv1beta2.None),
+			ReincludedAddresses:               make(map[string]bool),
+			KilledAddresses:                   make(map[string]fdbv1beta2.None),
+			missingProcessGroups:              make(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None),
+			missingLocalities:                 make(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None),
+			incorrectCommandLines:             make(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None),
+			pendingForRemoval:                 make(map[fdbv1beta2.ProcessGroupID]time.Time),
+			pendingForExclusion:               make(map[fdbv1beta2.ProcessGroupID]time.Time),
+			pendingForInclusion:               make(map[fdbv1beta2.ProcessGroupID]time.Time),
+			pendingForRestart:                 make(map[fdbv1beta2.ProcessGroupID]time.Time),
+			readyForExclusion:                 make(map[fdbv1beta2.ProcessGroupID]time.Time),
+			readyForInclusion:                 make(map[fdbv1beta2.ProcessGroupID]time.Time),
+			readyForRestart:                   make(map[fdbv1beta2.ProcessGroupID]time.Time),
+			coordinationStateProcessAddresses: make(map[fdbv1beta2.ProcessGroupID][]string),
+			localityInfo:                      make(map[fdbv1beta2.ProcessGroupID]map[string]string),
+			currentCommandLines:               make(map[string]string),
+			Knobs:                             make(map[string]fdbv1beta2.None),
+			VersionProcessGroups:              make(map[fdbv1beta2.ProcessGroupID]string),
+			LagInfo:                           make(map[string]fdbv1beta2.FoundationDBStatusLagInfo),
+			processesUnderMaintenance:         make(map[fdbv1beta2.ProcessGroupID]int64),
 		}
 		adminClientCache[cluster.Name] = cachedClient
 		cachedClient.Backups = make(map[string]fdbv1beta2.FoundationDBBackupStatusBackupDetails)
@@ -1313,6 +1315,27 @@ func (client *AdminClient) handleGetReadyOrPending(prefix string, processes map[
 	result := map[fdbv1beta2.ProcessGroupID]time.Time{}
 
 	for processGroupID, timestamp := range processes {
+		if !strings.HasPrefix(string(processGroupID), prefix) {
+			continue
+		}
+
+		result[processGroupID] = timestamp
+	}
+
+	return result, nil
+}
+
+// UpdateProcessAddresses updates the process addresses for the specified process group ID. If the provided slice is empty or nil, the entry will be deleted.
+func (client *AdminClient) UpdateProcessAddresses(updates map[fdbv1beta2.ProcessGroupID][]string) error {
+	client.coordinationStateProcessAddresses = updates
+	return nil
+}
+
+// GetProcessAddresses gets the process group IDs and their associated process addresses.
+func (client *AdminClient) GetProcessAddresses(prefix string) (map[fdbv1beta2.ProcessGroupID][]string, error) {
+	result := map[fdbv1beta2.ProcessGroupID][]string{}
+
+	for processGroupID, timestamp := range client.coordinationStateProcessAddresses {
 		if !strings.HasPrefix(string(processGroupID), prefix) {
 			continue
 		}

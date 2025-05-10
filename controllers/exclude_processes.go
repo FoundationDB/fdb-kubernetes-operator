@@ -112,7 +112,7 @@ func (e excludeProcesses) reconcile(ctx context.Context, r *FoundationDBClusterR
 	// Make sure it's safe to exclude processes.
 	err = fdbstatus.CanSafelyExcludeProcessesWithRecoveryState(cluster, status, r.MinimumRecoveryTimeForExclusion)
 	if err != nil {
-		return &requeue{curError: err, delayedRequeue: true}
+		return &requeue{curError: err, delayedRequeue: true, delay: 10 * time.Second}
 	}
 
 	var fdbProcessesToExclude []fdbv1beta2.ProcessAddress
@@ -232,7 +232,11 @@ func (e excludeProcesses) reconcile(ctx context.Context, r *FoundationDBClusterR
 		}
 
 		// Convert all the process groups that should be excluded to the right addresses based on the cluster status.
-		fdbProcessesToExclude = coordination.GetAddressesFromStatus(logger, status, allowedExclusions, cluster.UseLocalitiesForExclusion())
+		useLocalities := cluster.UseLocalitiesForExclusion()
+		fdbProcessesToExclude, err = coordination.GetAddressesFromCoordinationState(logger, adminClient, allowedExclusions, useLocalities, !useLocalities)
+		if err != nil {
+			return &requeue{curError: err, delayedRequeue: true}
+		}
 	}
 
 	r.Recorder.Event(cluster, corev1.EventTypeNormal, "ExcludingProcesses", fmt.Sprintf("Excluding %v", fdbProcessesToExclude))

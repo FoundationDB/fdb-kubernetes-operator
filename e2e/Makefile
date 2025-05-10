@@ -55,8 +55,7 @@ endif
 # storage-engine (sqlite) or RocksDB. In the future we can add more storage engines for testing here, e.g. Redwood or
 # sharded RocksDB.
 ifndef STORAGE_ENGINE
-  RANDOM_INT=$(shell shuf -i 0-1 -n 1)
-  ifeq ($(RANDOM_INT), 0)
+  ifeq ($(shell shuf -i 0-1 -n 1), 0)
     # Default case
     STORAGE_ENGINE="ssd"
   else
@@ -67,13 +66,12 @@ endif
 # If the FEATURE_SYNCHRONIZATION_MODE environment variable is not defined the test suite will be randomly enable (1) or disable (0)
 # the the global synchronization mode.
 ifndef FEATURE_SYNCHRONIZATION_MODE
-  RANDOM_INT=$(shell shuf -i 0-1 -n 1)
-  ifeq ($(RANDOM_INT), 0)
+#  ifeq ($(shell shuf -i 0-1 -n 1), 0)
     # Default case
     FEATURE_SYNCHRONIZATION_MODE="local"
-  else
-    FEATURE_SYNCHRONIZATION_MODE="global"
-  endif
+#  else
+#    FEATURE_SYNCHRONIZATION_MODE="global"
+#  endif
 endif
 
 # Make bash pickier about errors.

@@ -341,7 +341,9 @@ If any instance of the operator is stuck and unable to prepare its processes for
 
 ### Synchronization Mode For Coordination 
 
-The operator supports two different synchronization modes for coordination in mutli-region clusters, `local` (default) and `global`.
+**NOTE**: This feature is experimental and needs further testing. It's not recommended to run this in production right now.
+
+The operator supports two different synchronization modes for coordination in multi-region clusters, `local` (default) and `global`.
 When the synchronization mode is set to `local`, the operator will act only with its local information on actions like a restart, exclude, include and coordinator change.
 With this mode, rolling out a new knob will cause multiple recoveries as each local operator instance will restart the "local" processes independently synchronized by the locking system.
 

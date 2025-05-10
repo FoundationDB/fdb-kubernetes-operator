@@ -59,7 +59,7 @@ var _ = Describe("operator_coordination", func() {
 		JustBeforeEach(func() {
 			adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(UpdateGlobalCoordinationState(logr.Discard(), cluster, adminClient)).To(Succeed())
+			Expect(UpdateGlobalCoordinationState(logr.Discard(), cluster, adminClient, nil)).To(Succeed())
 		})
 
 		When("a process group is marked for removal", func() {
@@ -376,7 +376,7 @@ var _ = Describe("operator_coordination", func() {
 		),
 		Entry("only pending processes provided",
 			map[fdbv1beta2.ProcessGroupID]time.Time{
-				"test-1": time.Now().Add(-1 * time.Minute),
+				"storage-1": time.Now().Add(-1 * time.Minute),
 			},
 			nil,
 			30*time.Second,
@@ -384,49 +384,49 @@ var _ = Describe("operator_coordination", func() {
 		),
 		Entry("pending and ready processes are matching",
 			map[fdbv1beta2.ProcessGroupID]time.Time{
-				"test-1": time.Now().Add(-1 * time.Minute),
+				"storage-1": time.Now().Add(-1 * time.Minute),
 			},
 			map[fdbv1beta2.ProcessGroupID]time.Time{
-				"test-1": time.Now().Add(-1 * time.Minute),
+				"storage-1": time.Now().Add(-1 * time.Minute),
 			},
 			30*time.Second,
 			"",
 		),
 		Entry("pending and ready processes are matching but where added recently",
 			map[fdbv1beta2.ProcessGroupID]time.Time{
-				"test-1": time.Now().Add(-1 * time.Minute),
+				"storage-1": time.Now().Add(-1 * time.Minute),
 			},
 			map[fdbv1beta2.ProcessGroupID]time.Time{
-				"test-1": time.Now(),
+				"storage-1": time.Now(),
 			},
 			30*time.Second,
 			"last pending process group was added:",
 		),
 		Entry("two pending and one ready processes are provided",
 			map[fdbv1beta2.ProcessGroupID]time.Time{
-				"test-1": time.Now().Add(-1 * time.Minute),
-				"test-2": time.Now().Add(-1 * time.Minute),
+				"storage-1": time.Now().Add(-1 * time.Minute),
+				"storage-2": time.Now().Add(-1 * time.Minute),
 			},
 			map[fdbv1beta2.ProcessGroupID]time.Time{
-				"test-1": time.Now().Add(-1 * time.Minute),
+				"storage-1": time.Now().Add(-1 * time.Minute),
 			},
 			30*time.Second,
 			"not all processes are ready:",
 		),
 		Entry("more processes are ready than pending",
 			map[fdbv1beta2.ProcessGroupID]time.Time{
-				"test-1": time.Now().Add(-1 * time.Minute),
+				"storage-1": time.Now().Add(-1 * time.Minute),
 			},
 			map[fdbv1beta2.ProcessGroupID]time.Time{
-				"test-1": time.Now().Add(-1 * time.Minute),
-				"test-2": time.Now().Add(-1 * time.Minute),
+				"storage-1": time.Now().Add(-1 * time.Minute),
+				"storage-2": time.Now().Add(-1 * time.Minute),
 			},
 			30*time.Second,
 			"not all processes are ready:",
 		),
 	)
 
-	DescribeTable("validating if all processes are read for exclusonsy", func(pendingProcessGroups map[fdbv1beta2.ProcessGroupID]time.Time, readyProcessGroups map[fdbv1beta2.ProcessGroupID]time.Time, waitTime time.Duration, expectedErr string, expectedAllowedCount int) {
+	DescribeTable("validating if all processes are ready for exclusion", func(pendingProcessGroups map[fdbv1beta2.ProcessGroupID]time.Time, readyProcessGroups map[fdbv1beta2.ProcessGroupID]time.Time, waitTime time.Duration, expectedErr string, expectedAllowedCount int) {
 		allowed, err := AllProcessesReadyForExclusion(GinkgoLogr, pendingProcessGroups, readyProcessGroups, waitTime)
 		if expectedErr != "" {
 			Expect(err).To(HaveOccurred())
@@ -445,7 +445,7 @@ var _ = Describe("operator_coordination", func() {
 		),
 		Entry("only pending processes provided",
 			map[fdbv1beta2.ProcessGroupID]time.Time{
-				"test-1": time.Now().Add(-1 * time.Minute),
+				"storage-1": time.Now().Add(-1 * time.Minute),
 			},
 			nil,
 			30*time.Second,
@@ -454,10 +454,10 @@ var _ = Describe("operator_coordination", func() {
 		),
 		Entry("pending and ready processes are matching",
 			map[fdbv1beta2.ProcessGroupID]time.Time{
-				"test-1": time.Now().Add(-1 * time.Minute),
+				"storage-1": time.Now().Add(-1 * time.Minute),
 			},
 			map[fdbv1beta2.ProcessGroupID]time.Time{
-				"test-1": time.Now().Add(-1 * time.Minute),
+				"storage-1": time.Now().Add(-1 * time.Minute),
 			},
 			30*time.Second,
 			"",
@@ -465,10 +465,10 @@ var _ = Describe("operator_coordination", func() {
 		),
 		Entry("pending and ready processes are matching but where added recently",
 			map[fdbv1beta2.ProcessGroupID]time.Time{
-				"test-1": time.Now().Add(-1 * time.Minute),
+				"storage-1": time.Now().Add(-1 * time.Minute),
 			},
 			map[fdbv1beta2.ProcessGroupID]time.Time{
-				"test-1": time.Now(),
+				"storage-1": time.Now(),
 			},
 			30*time.Second,
 			"last pending process group was added:",
@@ -476,11 +476,11 @@ var _ = Describe("operator_coordination", func() {
 		),
 		Entry("two pending and one ready processes are provided",
 			map[fdbv1beta2.ProcessGroupID]time.Time{
-				"test-1": time.Now().Add(-1 * time.Minute),
-				"test-2": time.Now().Add(-1 * time.Minute),
+				"storage-1": time.Now().Add(-1 * time.Minute),
+				"storage-2": time.Now().Add(-1 * time.Minute),
 			},
 			map[fdbv1beta2.ProcessGroupID]time.Time{
-				"test-1": time.Now().Add(-1 * time.Minute),
+				"storage-1": time.Now().Add(-1 * time.Minute),
 			},
 			30*time.Second,
 			"not all processes are ready:",
@@ -488,11 +488,11 @@ var _ = Describe("operator_coordination", func() {
 		),
 		Entry("more processes are ready than pending",
 			map[fdbv1beta2.ProcessGroupID]time.Time{
-				"test-1": time.Now().Add(-1 * time.Minute),
+				"storage-1": time.Now().Add(-1 * time.Minute),
 			},
 			map[fdbv1beta2.ProcessGroupID]time.Time{
-				"test-1": time.Now().Add(-1 * time.Minute),
-				"test-2": time.Now().Add(-1 * time.Minute),
+				"storage-1": time.Now().Add(-1 * time.Minute),
+				"storage-2": time.Now().Add(-1 * time.Minute),
 			},
 			30*time.Second,
 			"not all processes are ready:",
@@ -500,11 +500,11 @@ var _ = Describe("operator_coordination", func() {
 		),
 		Entry("two pending and one ready processes are provided and is ready for at least 5 minutes",
 			map[fdbv1beta2.ProcessGroupID]time.Time{
-				"test-1": time.Now().Add(-2 * IgnoreMissingProcessDuration),
-				"test-2": time.Now().Add(-2 * IgnoreMissingProcessDuration),
+				"storage-1": time.Now().Add(-2 * IgnoreMissingProcessDuration),
+				"storage-2": time.Now().Add(-2 * IgnoreMissingProcessDuration),
 			},
 			map[fdbv1beta2.ProcessGroupID]time.Time{
-				"test-1": time.Now().Add(-2 * IgnoreMissingProcessDuration),
+				"storage-1": time.Now().Add(-2 * IgnoreMissingProcessDuration),
 			},
 			30*time.Second,
 			"",

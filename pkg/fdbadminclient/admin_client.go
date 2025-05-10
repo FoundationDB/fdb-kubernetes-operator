@@ -149,7 +149,7 @@ type AdminClient interface {
 	// a majority of reachable coordinators, the default version from the cluster.Status.RunningVersion will be returned.
 	GetVersionFromReachableCoordinators() string
 
-	// Functionality for the better multi-region coordination, see:
+	// Functionality for better multi-region coordination, see:
 	// https://github.com/FoundationDB/fdb-kubernetes-operator/blob/main/docs/design/better_coordination_multi_operator.md
 	// for more details
 
@@ -174,6 +174,9 @@ type AdminClient interface {
 	// UpdateReadyForRestart updates the set of process groups that are ready to be restarted, an update can be either the addition or removal of a process group
 	UpdateReadyForRestart(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction) error
 
+	// UpdateProcessAddresses updates the process addresses for the specified process group ID. If the provided slice is empty or nil, the entry will be deleted.
+	UpdateProcessAddresses(map[fdbv1beta2.ProcessGroupID][]string) error
+
 	// GetPendingForRemoval gets the process group IDs for all process groups that are marked for removal.
 	GetPendingForRemoval(prefix string) (map[fdbv1beta2.ProcessGroupID]time.Time, error)
 
@@ -194,6 +197,9 @@ type AdminClient interface {
 
 	// GetReadyForRestart gets the process group IDs for all the process groups that are ready to be restarted.
 	GetReadyForRestart(prefix string) (map[fdbv1beta2.ProcessGroupID]time.Time, error)
+
+	// GetProcessAddresses gets the process group IDs and their associated process addresses.
+	GetProcessAddresses(prefix string) (map[fdbv1beta2.ProcessGroupID][]string, error)
 
 	// ClearReadyForRestart removes all the process group IDs for all the process groups that are ready to be restarted.
 	ClearReadyForRestart() error
