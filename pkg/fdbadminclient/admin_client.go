@@ -47,6 +47,10 @@ type AdminClient interface {
 	// them to take on roles again.
 	IncludeProcesses(addresses []fdbv1beta2.ProcessAddress) error
 
+	// GetExclusions gets a list of the addresses currently excluded from the
+	// database.
+	GetExclusions() ([]fdbv1beta2.ProcessAddress, error)
+
 	// KillProcesses restarts processes
 	KillProcesses(addresses []fdbv1beta2.ProcessAddress) error
 

@@ -390,6 +390,7 @@ func getProcessesToInclude(logger logr.Logger, cluster *fdbv1beta2.FoundationDBC
 		if processGroup.IsMarkedForRemoval() && removedProcessGroups[processGroup.ProcessGroupID] {
 			foundInExcludedServerList := false
 			exclusionString := processGroup.GetExclusionString()
+			logger.V(1).Info("checking excluded processes", "exclusionString", exclusionString, "excludedServersMap", excludedServersMap)
 			if _, ok := excludedServersMap[exclusionString]; ok {
 				fdbProcessesToInclude = append(fdbProcessesToInclude, fdbv1beta2.ProcessAddress{StringAddress: exclusionString})
 				foundInExcludedServerList = true
@@ -421,7 +422,7 @@ func getProcessesToInclude(logger logr.Logger, cluster *fdbv1beta2.FoundationDBC
 				// This means that the process is marked for exclusion and is also removed in the previous step but is missing
 				// its entry in the excluded servers in the status. This should not throw an error as this will block the
 				// inclusion for other processes, but we should have a record of this event happening in the logs.
-				logger.Info("processGroup should be included but is missing from excluded server list", "processGroup", processGroup)
+				logger.Info("processGroup should be included but is missing from excluded server list", "processGroupID", processGroup.ProcessGroupID)
 			}
 
 			continue
