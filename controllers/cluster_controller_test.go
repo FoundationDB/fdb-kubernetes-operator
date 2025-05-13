@@ -2691,6 +2691,104 @@ var _ = Describe("cluster_controller", func() {
 				})
 			})
 		})
+
+		Context("when finding fdb pods in a node", func() {
+			// All the nodes that are part of the cluster
+			var originalNodeList corev1.NodeList
+			// unrelatedNode is a node that does not hold a pod that is part of the cluster
+			var unrelatedNode *corev1.Node
+
+			BeforeEach(func() {
+				err := k8sClient.List(context.Background(), &originalNodeList)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(originalNodeList.Items).To(HaveLen(len(originalPods.Items)))
+
+				// update the cluster label keys of all pods
+				clusterReconciler.ClusterLabelKeyForNodeTrigger = "fdb-cluster-name"
+				for _, processSetting := range cluster.Spec.Processes {
+					podLabels := processSetting.PodTemplate.Labels
+					if podLabels == nil {
+						podLabels = make(map[string]string)
+					}
+					podLabels[clusterReconciler.ClusterLabelKeyForNodeTrigger] = cluster.Name
+					processSetting.PodTemplate.Labels = podLabels
+				}
+
+				err = k8sClient.Update(context.Background(), cluster)
+				Expect(err).NotTo(HaveOccurred())
+
+				// Create a new node
+				unrelatedNode = &corev1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "test-node",
+					},
+				}
+				err = k8sClient.Create(context.Background(), unrelatedNode)
+				Expect(err).NotTo(HaveOccurred())
+
+			})
+			AfterEach(func() {
+				clusterReconciler = createTestClusterReconciler()
+				err := k8sClient.Delete(context.Background(), unrelatedNode)
+				Expect(err).NotTo(HaveOccurred())
+			})
+			When("watching all namespaces", func() {
+				It("should trigger reconciliation for cluster nodes", func() {
+					Expect(clusterReconciler.Namespace).To(BeZero())
+					Expect(clusterReconciler.ClusterLabelKeyForNodeTrigger).To(Equal("fdb-cluster-name"))
+
+					for _, node := range originalNodeList.Items {
+						requests := clusterReconciler.findFoundationDBClusterForNode(&node)
+						Expect(requests).To(HaveLen(1))
+					}
+				})
+				It("should not trigger reconciliation for unrelated nodes", func() {
+					Expect(clusterReconciler.Namespace).To(BeZero())
+					request := clusterReconciler.findFoundationDBClusterForNode(unrelatedNode)
+					Expect(request).To(BeEmpty())
+				})
+
+			})
+			When("watching specific namespaces", func() {
+				When("the cluster reconciler namespace matches", func() {
+					BeforeEach(func() {
+						clusterReconciler.Namespace = cluster.Namespace
+					})
+					It("should trigger reconciliation for cluster nodes", func() {
+						Expect(clusterReconciler.Namespace).To(Not(BeZero()))
+						Expect(clusterReconciler.ClusterLabelKeyForNodeTrigger).To(Equal("fdb-cluster-name"))
+
+						for _, node := range originalNodeList.Items {
+							requests := clusterReconciler.findFoundationDBClusterForNode(&node)
+							Expect(requests).To(HaveLen(1))
+						}
+					})
+					It("should not trigger reconciliation for unrelated nodes", func() {
+						request := clusterReconciler.findFoundationDBClusterForNode(unrelatedNode)
+						Expect(request).To(BeEmpty())
+					})
+				})
+				When("cluster reconciler namespace does not match", func() {
+					BeforeEach(func() {
+						clusterReconciler.Namespace = "unrelated-namespace"
+					})
+					It("should not trigger reconciliation for cluster nodes", func() {
+						Expect(clusterReconciler.Namespace).To(Not(BeZero()))
+						Expect(clusterReconciler.ClusterLabelKeyForNodeTrigger).To(Equal("fdb-cluster-name"))
+
+						for _, node := range originalNodeList.Items {
+							requests := clusterReconciler.findFoundationDBClusterForNode(&node)
+							Expect(requests).To(BeEmpty())
+						}
+					})
+					It("should not trigger reconciliation for unrelated nodes", func() {
+						request := clusterReconciler.findFoundationDBClusterForNode(unrelatedNode)
+						Expect(request).To(BeEmpty())
+					})
+				})
+			})
+
+		})
 	})
 
 	Describe("GetMonitorConf", func() {
