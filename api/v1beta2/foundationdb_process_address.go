@@ -174,6 +174,12 @@ func ParseProcessAddress(address string) (ProcessAddress, error) {
 		return result, nil
 	}
 
+	// If no port is specified and the passed address is not an IP address, we have a DNS entry without a port.
+	if strings.LastIndex(address, ":") == -1 {
+		result.StringAddress = address
+		return result, nil
+	}
+
 	// In order to find the address port pair we will go over the address stored in a tmp String.
 	// The idea is to split from the right to the left. If we find a Substring that is not a valid host port pair
 	// we can trim the last part and store it as a flag e.g. ":tls" and try the next substring with the flag removed.

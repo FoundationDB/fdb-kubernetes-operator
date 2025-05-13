@@ -693,6 +693,18 @@ func (client *AdminClient) KillProcesses(addresses []fdbv1beta2.ProcessAddress) 
 	return nil
 }
 
+// GetExclusions gets a list of the addresses currently excluded from the database.
+func (client *AdminClient) GetExclusions() ([]fdbv1beta2.ProcessAddress, error) {
+	adminClientMutex.Lock()
+	defer adminClientMutex.Unlock()
+
+	if client.mockError != nil {
+		return nil, client.mockError
+	}
+
+	return client.getExcludedAddresses(), nil
+}
+
 // KillProcessesForUpgrade restarts processes for upgrades, this will issue 2 kill commands to make sure all
 // processes are restarted.
 func (client *AdminClient) KillProcessesForUpgrade(addresses []fdbv1beta2.ProcessAddress) error {

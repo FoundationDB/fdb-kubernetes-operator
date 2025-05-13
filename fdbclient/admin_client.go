@@ -505,13 +505,13 @@ func getAddressesAndLocalities(processAddresses []fdbv1beta2.ProcessAddress) ([]
 	addresses := make([]string, 0, len(processAddresses))
 
 	for _, address := range processAddresses {
+		address.Port = 0
 		addr := address.String()
 		if strings.HasPrefix(addr, fdbv1beta2.FDBLocalityExclusionPrefix) {
 			localities = append(localities, addr)
 			continue
 		}
 
-		addr.Port = 0
 		addresses = append(addresses, addr)
 	}
 
@@ -526,7 +526,7 @@ func (client *cliAdminClient) IncludeProcesses(addresses []fdbv1beta2.ProcessAdd
 
 	if client.Cluster.GetDatabaseInteractionMode() == fdbv1beta2.DatabaseInteractionModeMgmtAPI {
 		localitiesToInclude, addressesToInclude := getAddressesAndLocalities(addresses)
-		client.log.Info("include processes with management API", "addressesToInclude", addressesToInclude, "localitiesToInclude", localitiesToInclude)
+		client.log.V(1).Info("include processes with management API", "addressesToInclude", addressesToInclude, "localitiesToInclude", localitiesToInclude)
 		return client.executeTransactionForManagementAPI(func(tr fdb.Transaction) error {
 			for _, addr := range addressesToInclude {
 				tr.Clear(fdb.Key(path.Join("\xff\xff/management/excluded/", addr)))
@@ -546,6 +546,67 @@ func (client *cliAdminClient) IncludeProcesses(addresses []fdbv1beta2.ProcessAdd
 	)})
 
 	return err
+}
+
+// GetExclusions gets a list of the addresses currently excluded from the
+// database.
+func (client *cliAdminClient) GetExclusions() ([]fdbv1beta2.ProcessAddress, error) {
+	if client.Cluster.GetDatabaseInteractionMode() == fdbv1beta2.DatabaseInteractionModeFdbcli {
+		status, err := client.GetStatus()
+		if err != nil {
+			return nil, err
+		}
+
+		return fdbstatus.GetExclusions(status)
+	}
+
+	var currentExclusions []fdbv1beta2.ProcessAddress
+	client.log.V(1).Info("getting current exclusions with management API")
+	err := client.executeTransactionForManagementAPI(func(tr fdb.Transaction) error {
+		exclusions, err := tr.GetRange(fdb.KeyRange{
+			Begin: fdb.Key("\xff\xff/management/excluded/"),
+			End:   fdb.Key("\xff\xff/management/excluded0"),
+		}, fdb.RangeOptions{}).GetSliceWithError()
+		if err != nil {
+			return err
+		}
+
+		for _, exclusion := range exclusions {
+			addr := path.Base(exclusion.Key.String())
+			client.log.V(1).Info("found excluded addr", "addr", addr)
+			parsed, err := fdbv1beta2.ParseProcessAddress(addr)
+			if err != nil {
+				return err
+			}
+
+			currentExclusions = append(currentExclusions, parsed)
+		}
+
+		exclusions, err = tr.GetRange(fdb.KeyRange{
+			Begin: fdb.Key("\xff\xff/management/excluded_locality/"),
+			End:   fdb.Key("\xff\xff/management/excluded_locality0"),
+		}, fdb.RangeOptions{}).GetSliceWithError()
+		if err != nil {
+			return err
+		}
+
+		for _, exclusion := range exclusions {
+			locality := path.Base(exclusion.Key.String())
+			client.log.V(1).Info("found excluded locality", "locality", locality)
+			currentExclusions = append(currentExclusions, fdbv1beta2.ProcessAddress{
+				StringAddress: locality,
+			})
+		}
+
+		return nil
+	})
+
+	client.log.V(1).Info("done getting current exclusions with management API", "currentExclusions", currentExclusions, "err", err)
+	if err != nil {
+		return nil, err
+	}
+
+	return currentExclusions, nil
 }
 
 func getKillCommand(addresses []fdbv1beta2.ProcessAddress, isUpgrade bool) string {
