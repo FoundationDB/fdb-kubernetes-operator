@@ -13,7 +13,7 @@ ARG TAG="latest"
 
 RUN set -eux && \
     if [ "$TARGETARCH" = "amd64" ]; then \
-         FDB_ARCH=x86_64; \
+         FDB_ARCH=amd64; \
     elif [ "$TARGETARCH" = "arm64" ]; then \
          FDB_ARCH=aarch64; \
     else \
