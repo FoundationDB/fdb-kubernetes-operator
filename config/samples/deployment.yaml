@@ -204,40 +204,6 @@ spec:
       initContainers:
       - args:
         - --copy-library
-        - "6.2"
-        - --copy-binary
-        - fdbcli
-        - --copy-binary
-        - fdbbackup
-        - --copy-binary
-        - fdbrestore
-        - --output-dir
-        - /var/output-files/6.2.30
-        - --init-mode
-        image: foundationdb/foundationdb-kubernetes-sidecar:6.2.30-1
-        name: foundationdb-kubernetes-init-6-2
-        volumeMounts:
-        - mountPath: /var/output-files
-          name: fdb-binaries
-      - args:
-        - --copy-library
-        - "6.3"
-        - --copy-binary
-        - fdbcli
-        - --copy-binary
-        - fdbbackup
-        - --copy-binary
-        - fdbrestore
-        - --output-dir
-        - /var/output-files/6.3.24
-        - --init-mode
-        image: foundationdb/foundationdb-kubernetes-sidecar:6.3.24-1
-        name: foundationdb-kubernetes-init-6-3
-        volumeMounts:
-        - mountPath: /var/output-files
-          name: fdb-binaries
-      - args:
-        - --copy-library
         - "7.1"
         - --copy-binary
         - fdbcli
@@ -246,10 +212,47 @@ spec:
         - --copy-binary
         - fdbrestore
         - --output-dir
-        - /var/output-files/7.1.26
-        - --init-mode
-        image: foundationdb/foundationdb-kubernetes-sidecar:7.1.26-1
+        - /var/output-files
+        - --mode
+        - init
+        image: foundationdb/fdb-kubernetes-monitor:7.1.67
         name: foundationdb-kubernetes-init-7-1
+        volumeMounts:
+        - mountPath: /var/output-files
+          name: fdb-binaries
+      - args:
+        - --copy-library
+        - "7.3"
+        - --copy-binary
+        - fdbcli
+        - --copy-binary
+        - fdbbackup
+        - --copy-binary
+        - fdbrestore
+        - --output-dir
+        - /var/output-files
+        - --mode
+        - init
+        image: foundationdb/fdb-kubernetes-monitor:7.3.63
+        name: foundationdb-kubernetes-init-7-3
+        volumeMounts:
+        - mountPath: /var/output-files
+          name: fdb-binaries
+      - args:
+        - --copy-library
+        - "7.4"
+        - --copy-binary
+        - fdbcli
+        - --copy-binary
+        - fdbbackup
+        - --copy-binary
+        - fdbrestore
+        - --output-dir
+        - /var/output-files
+        - --mode
+        - init
+        image: foundationdb/fdb-kubernetes-monitor:7.4.1
+        name: foundationdb-kubernetes-init-7-4
         volumeMounts:
         - mountPath: /var/output-files
           name: fdb-binaries
