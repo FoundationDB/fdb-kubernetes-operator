@@ -1,3 +1,5 @@
+# NOTE: The arm64 setup only works for FDB versions 7.3.
+# Previous versions are missing the client packages for arm64.
 ARG FDB_VERSION=7.1.67
 ARG FDB_WEBSITE=https://github.com/apple/foundationdb/releases/download
 
@@ -6,14 +8,23 @@ FROM docker.io/library/golang:1.23.7 AS builder
 
 ARG FDB_VERSION
 ARG FDB_WEBSITE
+ARG TARGETARCH
 ARG TAG="latest"
 
 RUN set -eux && \
-    curl --fail -L "${FDB_WEBSITE}/${FDB_VERSION}/foundationdb-clients_${FDB_VERSION}-1_amd64.deb" -o foundationdb-clients_${FDB_VERSION}-1_amd64.deb && \
-    curl --fail -L "${FDB_WEBSITE}/${FDB_VERSION}/foundationdb-clients_${FDB_VERSION}-1_amd64.deb.sha256" -o foundationdb-clients_${FDB_VERSION}-1_amd64.deb.sha256 && \
-    sha256sum -c foundationdb-clients_${FDB_VERSION}-1_amd64.deb.sha256 && \
-    dpkg -i foundationdb-clients_${FDB_VERSION}-1_amd64.deb && \
-    rm foundationdb-clients_${FDB_VERSION}-1_amd64.deb foundationdb-clients_${FDB_VERSION}-1_amd64.deb.sha256
+    if [ "$TARGETARCH" = "amd64" ]; then \
+         FDB_ARCH=x86_64; \
+    elif [ "$TARGETARCH" = "arm64" ]; then \
+         FDB_ARCH=aarch64; \
+    else \
+         echo "ERROR: unsupported architecture $TARGETARCH" 1>&2; \
+         exit 1; \
+    fi; \
+    curl --fail -L "${FDB_WEBSITE}/${FDB_VERSION}/foundationdb-clients_${FDB_VERSION}-1_${FDB_ARCH}.deb" -o foundationdb-clients_${FDB_VERSION}-1_${FDB_ARCH}.deb && \
+    curl --fail -L "${FDB_WEBSITE}/${FDB_VERSION}/foundationdb-clients_${FDB_VERSION}-1_${FDB_ARCH}.deb.sha256" -o foundationdb-clients_${FDB_VERSION}-1_${FDB_ARCH}.deb.sha256 && \
+    sha256sum -c foundationdb-clients_${FDB_VERSION}-1_${FDB_ARCH}.deb.sha256 && \
+    dpkg -i foundationdb-clients_${FDB_VERSION}-1_${FDB_ARCH}.deb && \
+    rm foundationdb-clients_${FDB_VERSION}-1_${FDB_ARCH}.deb foundationdb-clients_${FDB_VERSION}-1_${FDB_ARCH}.deb.sha256
 
 WORKDIR /workspace
 # Copy the Go Modules manifests
@@ -36,7 +47,7 @@ COPY mock-kubernetes-client/ mock-kubernetes-client/
 COPY kubectl-fdb/ kubectl-fdb/
 
 # Build
-RUN CGO_ENABLED=1 GOOS=linux GOARCH=amd64 GO111MODULE=on make manager plugin-go
+RUN CGO_ENABLED=1 GOOS=linux GOARCH=${TARGETARCH} GO111MODULE=on make manager plugin-go
 
 # Create user and group here since we don't have the tools
 # in distroless
@@ -49,19 +60,34 @@ FROM docker.io/rockylinux/rockylinux:9.5-minimal
 
 ARG FDB_VERSION
 ARG FDB_WEBSITE
+ARG TARGETARCH
 
 VOLUME /usr/lib/fdb
 
 WORKDIR /
 
 RUN set -eux && \
-    curl --fail -L "${FDB_WEBSITE}/${FDB_VERSION}/foundationdb-clients-${FDB_VERSION}-1.el7.x86_64.rpm" -o foundationdb-clients-${FDB_VERSION}-1.el7.x86_64.rpm && \
-    curl --fail -L "${FDB_WEBSITE}/${FDB_VERSION}/foundationdb-clients-${FDB_VERSION}-1.el7.x86_64.rpm.sha256" -o foundationdb-clients-${FDB_VERSION}-1.el7.x86_64.rpm.sha256 && \
+    if [ "$TARGETARCH" = "amd64" ]; then \
+         FDB_ARCH=x86_64; \
+    elif [ "$TARGETARCH" = "arm64" ]; then \
+         FDB_ARCH=aarch64; \
+    else \
+         echo "ERROR: unsupported architecture $TARGETARCH" 1>&2; \
+         exit 1; \
+    fi; \
+    if [ "${FDB_VERSION%.*}" = "7.1" ]; then \
+         # FDB 7.1 published the client packages for el7, 7.3 and newer uses el9.
+         FDB_OS=el7; \
+    else \
+         FDB_OS=el9; \
+    fi; \
+    curl --fail -L "${FDB_WEBSITE}/${FDB_VERSION}/foundationdb-clients-${FDB_VERSION}-1.${FDB_OS}.${FDB_ARCH}.rpm" -o foundationdb-clients-${FDB_VERSION}-1.${FDB_OS}.${FDB_ARCH}.rpm && \
+    curl --fail -L "${FDB_WEBSITE}/${FDB_VERSION}/foundationdb-clients-${FDB_VERSION}-1.${FDB_OS}.${FDB_ARCH}.rpm.sha256" -o foundationdb-clients-${FDB_VERSION}-1.${FDB_OS}.${FDB_ARCH}.rpm.sha256 && \
     microdnf install -y glibc pkg-config && \
     microdnf clean all && \
-    sha256sum -c foundationdb-clients-${FDB_VERSION}-1.el7.x86_64.rpm.sha256 && \
-    rpm -i foundationdb-clients-${FDB_VERSION}-1.el7.x86_64.rpm --excludepath=/usr/bin --excludepath=/usr/lib/foundationdb/backup_agent && \
-    rm foundationdb-clients-${FDB_VERSION}-1.el7.x86_64.rpm foundationdb-clients-${FDB_VERSION}-1.el7.x86_64.rpm.sha256
+    sha256sum -c foundationdb-clients-${FDB_VERSION}-1.${FDB_OS}.${FDB_ARCH}.rpm.sha256 && \
+    rpm -i foundationdb-clients-${FDB_VERSION}-1.${FDB_OS}.${FDB_ARCH}.rpm --excludepath=/usr/bin --excludepath=/usr/lib/foundationdb/backup_agent && \
+    rm foundationdb-clients-${FDB_VERSION}-1.${FDB_OS}.${FDB_ARCH}.rpm foundationdb-clients-${FDB_VERSION}-1.${FDB_OS}.${FDB_ARCH}.rpm.sha256
 
 COPY --from=builder /etc/passwd /etc/passwd
 COPY --from=builder /etc/group /etc/group
