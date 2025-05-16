@@ -79,7 +79,11 @@ var _ = BeforeSuite(func() {
 
 var _ = BeforeEach(func() {
 	// +kubebuilder:scaffold:scheme
-	k8sClient = mockclient.NewMockClient(scheme.Scheme)
+	k8sClient = mockclient.NewMockClientWithHooksAndIndexes(
+		scheme.Scheme,
+		nil, /* create hooks */
+		nil, /* update hooks */
+		true /* enable indexing by nodeName */)
 
 	clusterReconciler = createTestClusterReconciler()
 	backupReconciler = &FoundationDBBackupReconciler{
