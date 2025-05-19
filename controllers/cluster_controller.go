@@ -339,17 +339,19 @@ func (r *FoundationDBClusterReconciler) findFoundationDBClusterForNode(node clie
 	podsOnNode := &corev1.PodList{}
 
 	labelSelector := client.HasLabels([]string{r.ClusterLabelKeyForNodeTrigger})
-	var namespaceOption client.ListOption
-	if r.Namespace != "" {
-		namespaceOption = client.InNamespace(r.Namespace)
-	}
 
-	err := r.List(context.Background(), podsOnNode,
+	listOpts := []client.ListOption{
 		client.MatchingFieldsSelector{
 			Selector: fields.OneTermEqualSelector("spec.nodeName", node.GetName()),
 		},
 		labelSelector,
-		namespaceOption)
+	}
+
+	if r.Namespace != "" {
+		listOpts = append(listOpts, client.InNamespace(r.Namespace))
+	}
+
+	err := r.List(context.Background(), podsOnNode, listOpts...)
 
 	if err != nil {
 		logger.Error(err, "Processing findFoundationDBClusterForNode could not fetch Pods on node")
