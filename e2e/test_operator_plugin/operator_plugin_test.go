@@ -124,10 +124,9 @@ var _ = Describe("Operator Plugin", Label("e2e", "pr"), func() {
 			// Wait a short amount of time to let the cluster see that the primary and primary satellite is down.
 			time.Sleep(5 * time.Second)
 
-			// Ensure the cluster is unavailable by checking the status of the cluster resource.
+			// Ensure the cluster is unavailable by checking the machine-readable status.
 			Eventually(func() bool {
-				remote.ForceReconcile()
-				return remote.GetCluster().Status.Health.Available
+				return remote.GetStatus().Client.DatabaseStatus.Available
 			}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(BeFalse())
 		})
 
@@ -218,10 +217,9 @@ var _ = Describe("Operator Plugin", Label("e2e", "pr"), func() {
 				// Wait a short amount of time to let the cluster see that the primary and primary satellite is down.
 				time.Sleep(5 * time.Second)
 
-				// Ensure the cluster is unavailable by checking the status of the cluster resource.
+				// Ensure the cluster is unavailable by checking the machine-readable status.
 				Eventually(func() bool {
-					remote.ForceReconcile()
-					return remote.GetCluster().Status.Health.Available
+					return remote.GetStatus().Client.DatabaseStatus.Available
 				}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(BeFalse())
 			})
 
