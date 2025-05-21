@@ -69,7 +69,7 @@ func (c maintenanceModeChecker) reconcile(_ context.Context, r *FoundationDBClus
 	}
 
 	// Get all the maintenance information from the FDB cluster.
-	finishedMaintenance, staleMaintenanceInformation, processesToUpdate := maintenance.GetMaintenanceInformation(logger, status, processesUnderMaintenance, r.MaintenanceListStaleDuration, r.MaintenanceListWaitDuration)
+	finishedMaintenance, staleMaintenanceInformation, processesToUpdate := maintenance.GetMaintenanceInformation(logger, cluster, status, processesUnderMaintenance, r.MaintenanceListStaleDuration, r.MaintenanceListWaitDuration)
 	logger.Info("maintenance information", "finishedMaintenance", finishedMaintenance, "staleMaintenanceInformation", staleMaintenanceInformation, "processesToUpdate", processesToUpdate)
 
 	// We can remove the information for all the finished maintenance and the stale entries.
