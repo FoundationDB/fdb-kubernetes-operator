@@ -30,6 +30,10 @@ import (
 	"log"
 	"time"
 
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
+	corev1 "k8s.io/api/core/v1"
+	ctrlClient "sigs.k8s.io/controller-runtime/pkg/client"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/fixtures"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -78,7 +82,23 @@ var _ = Describe("Operator Plugin", Label("e2e", "pr"), func() {
 	})
 
 	When("all Pods in the primary and satellites are down", func() {
-		BeforeEach(func() {
+		var useDns bool
+
+		JustBeforeEach(func() {
+			var errGroup errgroup.Group
+			// Enable DNS names in the cluster file for the whole cluster.
+			for _, cluster := range fdbCluster.GetAllClusters() {
+				target := cluster
+				errGroup.Go(func() error {
+					return target.SetUseDNSInClusterFile(useDns)
+				})
+			}
+			Expect(errGroup.Wait()).NotTo(HaveOccurred())
+
+			for _, cluster := range fdbCluster.GetAllClusters() {
+				Expect(cluster.GetCluster().UseDNSInClusterFile()).To(Equal(useDns))
+			}
+
 			// This tests is a destructive test where the cluster will stop working for some period.
 			primary := fdbCluster.GetPrimary()
 			primary.SetSkipReconciliation(true)
@@ -95,29 +115,17 @@ var _ = Describe("Operator Plugin", Label("e2e", "pr"), func() {
 			var wg errgroup.Group
 			log.Println("Delete Pods in primary")
 			wg.Go(func() error {
-				for _, pod := range primary.GetPods().Items {
-					factory.DeletePod(&pod)
-				}
-
-				return nil
+				return factory.GetControllerRuntimeClient().DeleteAllOf(context.Background(), &corev1.Pod{}, ctrlClient.MatchingLabels(primary.GetResourceLabels()), ctrlClient.InNamespace(primary.Namespace()))
 			})
 
 			log.Println("Delete Pods in primary satellite")
 			wg.Go(func() error {
-				for _, pod := range primarySatellite.GetPods().Items {
-					factory.DeletePod(&pod)
-				}
-
-				return nil
+				return factory.GetControllerRuntimeClient().DeleteAllOf(context.Background(), &corev1.Pod{}, ctrlClient.MatchingLabels(primarySatellite.GetResourceLabels()), ctrlClient.InNamespace(primarySatellite.Namespace()))
 			})
 
 			log.Println("Delete Pods in remote satellite")
 			wg.Go(func() error {
-				for _, pod := range remoteSatellite.GetPods().Items {
-					factory.DeletePod(&pod)
-				}
-
-				return nil
+				return factory.GetControllerRuntimeClient().DeleteAllOf(context.Background(), &corev1.Pod{}, ctrlClient.MatchingLabels(remoteSatellite.GetResourceLabels()), ctrlClient.InNamespace(remoteSatellite.Namespace()))
 			})
 
 			Expect(wg.Wait()).NotTo(HaveOccurred())
@@ -130,106 +138,11 @@ var _ = Describe("Operator Plugin", Label("e2e", "pr"), func() {
 			}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(BeFalse())
 		})
 
-		AfterEach(func() {
-			log.Println("Recreate cluster")
-			// Delete the broken cluster.
-			factory.Shutdown()
-			// Recreate the cluster to make sure  the next tests can proceed
-			factory = fixtures.CreateFactory(testOptions)
-			fdbCluster = factory.CreateFdbHaCluster(clusterConfig, clusterOptions...)
-		})
-
-		It("should recover the coordinators", func() {
-			remote := fdbCluster.GetRemote()
-			// Pick one operator pod and execute the recovery command
-			operatorPod := factory.RandomPickOnePod(factory.GetOperatorPods(remote.Namespace()).Items)
-			log.Println("operatorPod:", operatorPod.Name)
-			stdout, stderr, err := factory.ExecuteCmdOnPod(context.Background(), &operatorPod, "manager", fmt.Sprintf("kubectl-fdb -n %s recover-multi-region-cluster --version-check=false --wait=false %s", remote.Namespace(), remote.Name()), false)
-			log.Println("stdout:", stdout, "stderr:", stderr)
-			Expect(err).NotTo(HaveOccurred())
-
-			// Ensure the cluster is available again.
-			Eventually(func() bool {
-				return remote.GetStatus().Client.DatabaseStatus.Available
-			}).WithTimeout(2 * time.Minute).WithPolling(1 * time.Second).Should(BeTrue())
-		})
-	})
-
-	When("all Pods in the primary and satellites are down", func() {
-		When("DNS names in the cluster file are used", func() {
+		// Default case is to run with DNS enabled. The test case with IPs enabled can run into issues when
+		// the underlying Kubernetes cluster deletes pods.
+		PWhen("DNS is disabled", func() {
 			BeforeEach(func() {
-				var errGroup errgroup.Group
-				// Enable DNS names in the cluster file for the whole cluster.
-				for _, cluster := range fdbCluster.GetAllClusters() {
-					target := cluster
-					errGroup.Go(func() error {
-						return target.SetUseDNSInClusterFile(true)
-					})
-				}
-				Expect(errGroup.Wait()).NotTo(HaveOccurred())
-
-				for _, cluster := range fdbCluster.GetAllClusters() {
-					Expect(cluster.GetCluster().UseDNSInClusterFile()).To(BeTrue())
-				}
-
-				// This tests is a destructive test where the cluster will stop working for some period.
-				primary := fdbCluster.GetPrimary()
-				primary.SetSkipReconciliation(true)
-
-				primarySatellite := fdbCluster.GetPrimarySatellite()
-				primarySatellite.SetSkipReconciliation(true)
-
-				remoteSatellite := fdbCluster.GetRemoteSatellite()
-				remoteSatellite.SetSkipReconciliation(true)
-
-				remote := fdbCluster.GetRemote()
-				remote.SetSkipReconciliation(true)
-
-				var wg errgroup.Group
-				log.Println("Delete Pods in primary")
-				wg.Go(func() error {
-					for _, pod := range primary.GetPods().Items {
-						factory.DeletePod(&pod)
-					}
-
-					return nil
-				})
-
-				log.Println("Delete Pods in primary satellite")
-				wg.Go(func() error {
-					for _, pod := range primarySatellite.GetPods().Items {
-						factory.DeletePod(&pod)
-					}
-
-					return nil
-				})
-
-				log.Println("Delete Pods in remote satellite")
-				wg.Go(func() error {
-					for _, pod := range remoteSatellite.GetPods().Items {
-						factory.DeletePod(&pod)
-					}
-
-					return nil
-				})
-
-				Expect(wg.Wait()).NotTo(HaveOccurred())
-				// Wait a short amount of time to let the cluster see that the primary and primary satellite is down.
-				time.Sleep(5 * time.Second)
-
-				// Ensure the cluster is unavailable by checking the machine-readable status.
-				Eventually(func() bool {
-					return remote.GetStatus().Client.DatabaseStatus.Available
-				}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(BeFalse())
-			})
-
-			AfterEach(func() {
-				log.Println("Recreate cluster")
-				// Delete the broken cluster.
-				factory.Shutdown()
-				// Recreate the cluster to make sure  the next tests can proceed
-				factory = fixtures.CreateFactory(testOptions)
-				fdbCluster = factory.CreateFdbHaCluster(clusterConfig, clusterOptions...)
+				useDns = false
 			})
 
 			It("should recover the coordinators", func() {
@@ -245,7 +158,65 @@ var _ = Describe("Operator Plugin", Label("e2e", "pr"), func() {
 				Eventually(func() bool {
 					return remote.GetStatus().Client.DatabaseStatus.Available
 				}).WithTimeout(2 * time.Minute).WithPolling(1 * time.Second).Should(BeTrue())
+
+				remote.SetSkipReconciliation(false)
+				// Recreate the operator pods to ensure they get the new connection string.
+				factory.RecreateOperatorPods(remote.Namespace())
+				// Ensure that the cluster is able to reconcile
+				Expect(remote.WaitForReconciliation()).To(Succeed())
+
+				log.Println("new connection string:", remote.GetCluster().Status.ConnectionString)
+				connectionString, err := fdbv1beta2.ParseConnectionString(remote.GetCluster().Status.ConnectionString)
+				Expect(err).NotTo(HaveOccurred())
+
+				for _, coordinator := range connectionString.Coordinators {
+					address, err := fdbv1beta2.ParseProcessAddress(coordinator)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(address.StringAddress).To(BeEmpty())
+				}
 			})
+		})
+
+		When("DNS names in the cluster file are used", func() {
+			BeforeEach(func() {
+				useDns = true
+			})
+
+			It("should recover the coordinators", func() {
+				remote := fdbCluster.GetRemote()
+				// Pick one operator pod and execute the recovery command
+				operatorPod := factory.RandomPickOnePod(factory.GetOperatorPods(remote.Namespace()).Items)
+				log.Println("operatorPod:", operatorPod.Name)
+				stdout, stderr, err := factory.ExecuteCmdOnPod(context.Background(), &operatorPod, "manager", fmt.Sprintf("kubectl-fdb -n %s recover-multi-region-cluster --version-check=false --wait=false %s", remote.Namespace(), remote.Name()), false)
+				log.Println("stdout:", stdout, "stderr:", stderr)
+				Expect(err).NotTo(HaveOccurred())
+
+				// Ensure the cluster is available again.
+				Eventually(func() bool {
+					return remote.GetStatus().Client.DatabaseStatus.Available
+				}).WithTimeout(2 * time.Minute).WithPolling(1 * time.Second).Should(BeTrue())
+
+				currentConnectionString := remote.GetStatus().Cluster.ConnectionString
+				log.Println("new connection string:", currentConnectionString)
+				connectionString, err := fdbv1beta2.ParseConnectionString(currentConnectionString)
+				Expect(err).NotTo(HaveOccurred())
+
+				for _, coordinator := range connectionString.Coordinators {
+					address, err := fdbv1beta2.ParseProcessAddress(coordinator)
+					log.Println("address", address)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(address.StringAddress).NotTo(BeEmpty())
+				}
+			})
+		})
+
+		AfterEach(func() {
+			log.Println("Recreate cluster")
+			// Delete the broken cluster.
+			factory.Shutdown()
+			// Recreate the cluster to make sure  the next tests can proceed
+			factory = fixtures.CreateFactory(testOptions)
+			fdbCluster = factory.CreateFdbHaCluster(clusterConfig, clusterOptions...)
 		})
 	})
 })

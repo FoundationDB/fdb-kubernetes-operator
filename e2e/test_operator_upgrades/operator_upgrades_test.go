@@ -34,6 +34,8 @@ import (
 	"strings"
 	"time"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
@@ -450,8 +452,7 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 			if !fixtures.VersionsAreProtocolCompatible(beforeVersion, targetVersion) {
 				// The upgrade will be stuck until the coordinators are restarted
 				Consistently(func() bool {
-					cluster := fdbCluster.GetCluster()
-					return cluster.Spec.Version != cluster.Status.RunningVersion
+					return fdbCluster.GetCluster().IsBeingUpgraded()
 				}).WithTimeout(5 * time.Minute).WithPolling(2 * time.Second).Should(BeTrue())
 
 				// Restart the fdbserver processes
@@ -463,6 +464,12 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 							"pkill fdbserver",
 							false,
 						)
+
+						// If the pod is missing ignore the error and let the tests move forward.
+						if k8serrors.IsNotFound(err) {
+							return nil
+						}
+
 						return err
 					}).WithTimeout(1 * time.Minute).WithPolling(5 * time.Second).ShouldNot(HaveOccurred())
 				}
