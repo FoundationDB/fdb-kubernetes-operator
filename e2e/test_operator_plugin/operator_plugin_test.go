@@ -82,7 +82,7 @@ var _ = Describe("Operator Plugin", Label("e2e", "pr"), func() {
 	})
 
 	When("all Pods in the primary and satellites are down", func() {
-		var useDns bool
+		var useDNS bool
 
 		JustBeforeEach(func() {
 			var errGroup errgroup.Group
@@ -90,13 +90,13 @@ var _ = Describe("Operator Plugin", Label("e2e", "pr"), func() {
 			for _, cluster := range fdbCluster.GetAllClusters() {
 				target := cluster
 				errGroup.Go(func() error {
-					return target.SetUseDNSInClusterFile(useDns)
+					return target.SetUseDNSInClusterFile(useDNS)
 				})
 			}
 			Expect(errGroup.Wait()).NotTo(HaveOccurred())
 
 			for _, cluster := range fdbCluster.GetAllClusters() {
-				Expect(cluster.GetCluster().UseDNSInClusterFile()).To(Equal(useDns))
+				Expect(cluster.GetCluster().UseDNSInClusterFile()).To(Equal(useDNS))
 			}
 
 			// This tests is a destructive test where the cluster will stop working for some period.
@@ -142,7 +142,7 @@ var _ = Describe("Operator Plugin", Label("e2e", "pr"), func() {
 		// the underlying Kubernetes cluster deletes pods.
 		PWhen("DNS is disabled", func() {
 			BeforeEach(func() {
-				useDns = false
+				useDNS = false
 			})
 
 			It("should recover the coordinators", func() {
@@ -179,7 +179,7 @@ var _ = Describe("Operator Plugin", Label("e2e", "pr"), func() {
 
 		When("DNS names in the cluster file are used", func() {
 			BeforeEach(func() {
-				useDns = true
+				useDNS = true
 			})
 
 			It("should recover the coordinators", func() {
