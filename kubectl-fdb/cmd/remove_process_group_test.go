@@ -66,12 +66,11 @@ var _ = Describe("[plugin] remove process groups command", func() {
 					cmd := newRemoveProcessGroupCmd(genericclioptions.IOStreams{})
 					_, err := replaceProcessGroups(cmd, k8sClient,
 						processGroupSelectionOptions{
-							ids:               tc.Instances,
-							namespace:         namespace,
-							clusterName:       clusterName,
-							clusterLabel:      "",
-							processClass:      "",
-							useProcessGroupID: false,
+							ids:          tc.Instances,
+							namespace:    namespace,
+							clusterName:  clusterName,
+							clusterLabel: "",
+							processClass: "",
 						},
 						replaceProcessGroupsOptions{
 							withExclusion:   tc.WithExclusion,
@@ -137,12 +136,11 @@ var _ = Describe("[plugin] remove process groups command", func() {
 						cmd := newRemoveProcessGroupCmd(genericclioptions.IOStreams{})
 						_, err := replaceProcessGroups(cmd, k8sClient,
 							processGroupSelectionOptions{
-								ids:               removals,
-								namespace:         namespace,
-								clusterName:       clusterName,
-								clusterLabel:      "",
-								processClass:      "",
-								useProcessGroupID: false,
+								ids:          removals,
+								namespace:    namespace,
+								clusterName:  clusterName,
+								clusterLabel: "",
+								processClass: "",
 							},
 							replaceProcessGroupsOptions{
 								withExclusion:   false,
@@ -171,12 +169,11 @@ var _ = Describe("[plugin] remove process groups command", func() {
 						cmd := newRemoveProcessGroupCmd(genericclioptions.IOStreams{})
 						_, err := replaceProcessGroups(cmd, k8sClient,
 							processGroupSelectionOptions{
-								ids:               removals,
-								namespace:         namespace,
-								clusterName:       clusterName,
-								clusterLabel:      "",
-								processClass:      "",
-								useProcessGroupID: false,
+								ids:          removals,
+								namespace:    namespace,
+								clusterName:  clusterName,
+								clusterLabel: "",
+								processClass: "",
 							},
 							replaceProcessGroupsOptions{
 								withExclusion:   true,
@@ -230,12 +227,11 @@ var _ = Describe("[plugin] remove process groups command", func() {
 						cmd := newRemoveProcessGroupCmd(genericclioptions.IOStreams{})
 						_, err := replaceProcessGroups(cmd, k8sClient,
 							processGroupSelectionOptions{
-								ids:               tc.podNames,
-								namespace:         namespace,
-								clusterName:       tc.clusterNameFilter,
-								clusterLabel:      tc.clusterLabel,
-								processClass:      "",
-								useProcessGroupID: false,
+								ids:          tc.podNames,
+								namespace:    namespace,
+								clusterName:  tc.clusterNameFilter,
+								clusterLabel: tc.clusterLabel,
+								processClass: "",
 							},
 							replaceProcessGroupsOptions{
 								withExclusion:   true,
@@ -411,13 +407,12 @@ var _ = Describe("[plugin] remove process groups command", func() {
 						cmd := newRemoveProcessGroupCmd(genericclioptions.IOStreams{})
 						_, err := replaceProcessGroups(cmd, k8sClient,
 							processGroupSelectionOptions{
-								ids:               tc.ids,
-								namespace:         namespace,
-								clusterName:       tc.clusterName,
-								clusterLabel:      "",
-								processClass:      tc.processClass,
-								useProcessGroupID: false,
-								conditions:        tc.conditions,
+								ids:          tc.ids,
+								namespace:    namespace,
+								clusterName:  tc.clusterName,
+								clusterLabel: "",
+								processClass: tc.processClass,
+								conditions:   tc.conditions,
 							},
 							replaceProcessGroupsOptions{
 								withExclusion:   true,

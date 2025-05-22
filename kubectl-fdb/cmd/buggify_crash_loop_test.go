@@ -192,8 +192,7 @@ var _ = Describe("[plugin] buggify crash-loop process groups command", func() {
 							if crashLoopContainerObj.ContainerName != fdbv1beta2.MainContainerName {
 								continue
 							}
-							Expect(tc.ExpectedProcessGroupsInCrashLoop).To(ContainElements(crashLoopContainerObj.Targets))
-							Expect(tc.ExpectedProcessGroupsInCrashLoop).To(HaveLen(len(crashLoopContainerObj.Targets)))
+							Expect(tc.ExpectedProcessGroupsInCrashLoop).To(ConsistOf(crashLoopContainerObj.Targets))
 						}
 					},
 					Entry("Adding same process group.",
@@ -208,8 +207,8 @@ var _ = Describe("[plugin] buggify crash-loop process groups command", func() {
 						}),
 					Entry("Adding multiple process groups.",
 						testCase{
-							ProcessGroups:                    []string{"test-storage-1", "test-storage-2", "test-storage-3"},
-							ExpectedProcessGroupsInCrashLoop: []fdbv1beta2.ProcessGroupID{"test-storage-1", "test-storage-2", "test-storage-3"},
+							ProcessGroups:                    []string{"test-storage-1", "test-storage-2", "test-stateless-3"},
+							ExpectedProcessGroupsInCrashLoop: []fdbv1beta2.ProcessGroupID{"test-storage-1", "test-storage-2", "test-stateless-3"},
 						}),
 				)
 			})
@@ -251,8 +250,7 @@ var _ = Describe("[plugin] buggify crash-loop process groups command", func() {
 							if crashLoopContainerObj.ContainerName != fdbv1beta2.MainContainerName {
 								continue
 							}
-							Expect(tc.ExpectedProcessGroupsInCrashLoop).To(ContainElements(crashLoopContainerObj.Targets))
-							Expect(tc.ExpectedProcessGroupsInCrashLoop).To(HaveLen(len(crashLoopContainerObj.Targets)))
+							Expect(tc.ExpectedProcessGroupsInCrashLoop).To(ConsistOf(crashLoopContainerObj.Targets))
 						}
 					},
 					Entry("Adding single process group.",
@@ -262,8 +260,8 @@ var _ = Describe("[plugin] buggify crash-loop process groups command", func() {
 						}),
 					Entry("Adding multiple process group.",
 						testCase{
-							ProcessGroups:                    []string{"test-storage-1", "test-storage-2", "test-storage-3"},
-							ExpectedProcessGroupsInCrashLoop: []fdbv1beta2.ProcessGroupID{"test-storage-1", "test-storage-2", "test-storage-3"},
+							ProcessGroups:                    []string{"test-storage-1", "test-storage-2", "test-stateless-3"},
+							ExpectedProcessGroupsInCrashLoop: []fdbv1beta2.ProcessGroupID{"test-storage-1", "test-storage-2", "test-stateless-3"},
 						}),
 				)
 
@@ -279,7 +277,7 @@ var _ = Describe("[plugin] buggify crash-loop process groups command", func() {
 			BeforeEach(func() {
 				crashLoopContainerObj := fdbv1beta2.CrashLoopContainerObject{
 					ContainerName: fdbv1beta2.MainContainerName,
-					Targets:       []fdbv1beta2.ProcessGroupID{"test-storage-1", "test-storage-2", "test-storage-3"},
+					Targets:       []fdbv1beta2.ProcessGroupID{"test-storage-1", "test-storage-2", "test-stateless-3"},
 				}
 				cluster.Spec.Buggify.CrashLoopContainers = append(cluster.Spec.Buggify.CrashLoopContainers, crashLoopContainerObj)
 			})
@@ -311,23 +309,22 @@ var _ = Describe("[plugin] buggify crash-loop process groups command", func() {
 						if crashLoopContainerObj.ContainerName != fdbv1beta2.MainContainerName {
 							continue
 						}
-						Expect(tc.ExpectedProcessGroupsInCrashLoop).To(ContainElements(crashLoopContainerObj.Targets))
-						Expect(tc.ExpectedProcessGroupsInCrashLoop).To(HaveLen(len(crashLoopContainerObj.Targets)))
+						Expect(tc.ExpectedProcessGroupsInCrashLoop).To(ConsistOf(crashLoopContainerObj.Targets))
 					}
 				},
 				Entry("Removing single process group.",
 					testCase{
 						ProcessGroups:                    []string{"test-storage-1"},
-						ExpectedProcessGroupsInCrashLoop: []fdbv1beta2.ProcessGroupID{"test-storage-2", "test-storage-3"},
+						ExpectedProcessGroupsInCrashLoop: []fdbv1beta2.ProcessGroupID{"test-storage-2", "test-stateless-3"},
 					}),
 				Entry("Removing multiple process groups.",
 					testCase{
 						ProcessGroups:                    []string{"test-storage-1", "test-storage-2"},
-						ExpectedProcessGroupsInCrashLoop: []fdbv1beta2.ProcessGroupID{"test-storage-3"},
+						ExpectedProcessGroupsInCrashLoop: []fdbv1beta2.ProcessGroupID{"test-stateless-3"},
 					}),
 				Entry("Removing all process groups.",
 					testCase{
-						ProcessGroups:                    []string{"test-storage-1", "test-storage-2", "test-storage-3"},
+						ProcessGroups:                    []string{"test-storage-1", "test-storage-2", "test-stateless-3"},
 						ExpectedProcessGroupsInCrashLoop: []fdbv1beta2.ProcessGroupID{},
 					}),
 			)

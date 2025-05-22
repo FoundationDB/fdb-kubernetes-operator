@@ -151,12 +151,11 @@ func cordonNode(cmd *cobra.Command, kubeClient client.Client, inputClusterName s
 		cmd.Println("Cordoning node:", node)
 		removedFromNode, err := replaceProcessGroups(cmd, kubeClient,
 			processGroupSelectionOptions{
-				ids:               podNames,
-				namespace:         namespace,
-				clusterName:       inputClusterName,
-				clusterLabel:      clusterLabel,
-				processClass:      "",
-				useProcessGroupID: false,
+				ids:          podNames,
+				namespace:    namespace,
+				clusterName:  inputClusterName,
+				clusterLabel: clusterLabel,
+				processClass: "",
 			},
 			replaceProcessGroupsOptions{
 				withExclusion:   withExclusion,
