@@ -1133,20 +1133,6 @@ var _ = Describe("exclude_processes", func() {
 		When("the synchronization mode is local", func() {
 			BeforeEach(func() {
 				cluster.Spec.AutomationOptions.SynchronizationMode = pointer.String(string(fdbv1beta2.SynchronizationModeLocal))
-				adminClient, err := mock.NewMockAdminClient(cluster, k8sClient)
-				Expect(err).NotTo(HaveOccurred())
-
-				status, err := adminClient.GetStatus()
-				Expect(err).NotTo(HaveOccurred())
-				coordinators := fdbstatus.GetCoordinatorsFromStatus(status)
-				for _, processGroup := range cluster.Status.ProcessGroups {
-					if _, ok := coordinators[string(processGroup.ProcessGroupID)]; !ok {
-						continue
-					}
-
-					processGroup.MarkForRemoval()
-					break
-				}
 			})
 
 			When("a coordinator should be excluded", func() {
