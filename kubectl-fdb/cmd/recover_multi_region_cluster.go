@@ -269,7 +269,6 @@ func RecoverMultiRegionCluster(ctx context.Context, opts RecoverMultiRegionClust
 			}
 		}
 
-		log.Println("Adding pod as new coordinator:", addr.String())
 		if useTLS {
 			addr.Port = 4500
 			addr.Flags = map[string]bool{"tls": true}

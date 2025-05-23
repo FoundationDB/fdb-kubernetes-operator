@@ -3229,7 +3229,7 @@ func (cluster *FoundationDBCluster) GetSynchronizationMode() SynchronizationMode
 // GetDatabaseInteractionMode returns the DatabaseInteractionMode if set, otherwise will return the default interaction mode.
 func (cluster *FoundationDBCluster) GetDatabaseInteractionMode() DatabaseInteractionMode {
 	if cluster.Spec.AutomationOptions.DatabaseInteractionMode == nil {
-		return DatabaseInteractionModeMgmtAPI // TODO change back DatabaseInteractionModeFdbcli
+		return DatabaseInteractionModeFdbcli
 	}
 
 	return *cluster.Spec.AutomationOptions.DatabaseInteractionMode

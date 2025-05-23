@@ -26,9 +26,10 @@ import (
 	"net"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/removals"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
-	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbstatus"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -39,9 +40,8 @@ var _ = Describe("mock_client", func() {
 	When("checking if it's safe to delete a process group", func() {
 		type testCase struct {
 			cluster    *fdbv1beta2.FoundationDBCluster
-			removals   []fdbv1beta2.ProcessAddress
 			exclusions []fdbv1beta2.ProcessAddress
-			remaining  []fdbv1beta2.ProcessAddress
+			remaining  map[string]bool
 		}
 
 		DescribeTable("should return the correct processes that cannot be safely removed",
@@ -65,6 +65,7 @@ var _ = Describe("mock_client", func() {
 							PodIP: pAddr.MachineAddress(),
 						},
 					})).To(Succeed())
+
 				}
 
 				admin, err := NewMockAdminClient(input.cluster, k8sClient)
@@ -73,11 +74,10 @@ var _ = Describe("mock_client", func() {
 				status, err := admin.GetStatus()
 				Expect(err).NotTo(HaveOccurred())
 
-				remaining, err := fdbstatus.CanSafelyRemoveFromStatus(GinkgoLogr, admin, input.removals, status)
+				remaining, err := removals.GetRemainingMap(GinkgoLogr, admin, input.cluster, status, 0)
 				Expect(err).NotTo(HaveOccurred())
 
-				Expect(remaining).To(ContainElements(input.remaining))
-				Expect(len(remaining)).To(Equal(len(input.remaining)))
+				Expect(remaining).To(Equal(input.remaining))
 			},
 			Entry("Empty list of removals",
 				testCase{
@@ -85,21 +85,26 @@ var _ = Describe("mock_client", func() {
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "dev-1",
 						},
+						Spec: fdbv1beta2.FoundationDBClusterSpec{
+							Version: fdbv1beta2.Versions.Default.String(),
+						},
 						Status: fdbv1beta2.FoundationDBClusterStatus{
 							RequiredAddresses: fdbv1beta2.RequiredAddressSet{
 								NonTLS: true,
 							},
 						},
 					},
-					removals:   []fdbv1beta2.ProcessAddress{},
-					exclusions: []fdbv1beta2.ProcessAddress{},
-					remaining:  []fdbv1beta2.ProcessAddress{},
+					exclusions: nil,
+					remaining:  nil,
 				}),
 			Entry("Process group that skips exclusion",
 				testCase{
 					cluster: &fdbv1beta2.FoundationDBCluster{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "dev-1",
+						},
+						Spec: fdbv1beta2.FoundationDBClusterSpec{
+							Version: fdbv1beta2.Versions.Default.String(),
 						},
 						Status: fdbv1beta2.FoundationDBClusterStatus{
 							ProcessGroups: []*fdbv1beta2.ProcessGroupStatus{
@@ -110,6 +115,7 @@ var _ = Describe("mock_client", func() {
 										"1.1.1.1:4500",
 									},
 									ExclusionSkipped: true,
+									RemovalTimestamp: &metav1.Time{Time: time.Now()},
 								},
 								{
 									ProcessGroupID: "storage-2",
@@ -117,6 +123,7 @@ var _ = Describe("mock_client", func() {
 									Addresses: []string{
 										"1.1.1.2:4500",
 									},
+									RemovalTimestamp: &metav1.Time{Time: time.Now()},
 								},
 							},
 							RequiredAddresses: fdbv1beta2.RequiredAddressSet{
@@ -124,26 +131,9 @@ var _ = Describe("mock_client", func() {
 							},
 						},
 					},
-					removals: []fdbv1beta2.ProcessAddress{
-						{
-							IPAddress: net.ParseIP("1.1.1.1"),
-							Port:      4500,
-						},
-						{
-							IPAddress: net.ParseIP("1.1.1.2"),
-							Port:      4500,
-						},
-					},
 					exclusions: []fdbv1beta2.ProcessAddress{},
-					remaining: []fdbv1beta2.ProcessAddress{
-						{
-							IPAddress: net.ParseIP("1.1.1.1"),
-							Port:      4500,
-						},
-						{
-							IPAddress: net.ParseIP("1.1.1.2"),
-							Port:      4500,
-						},
+					remaining: map[string]bool{
+						"locality_instance_id:storage-2": true,
 					},
 				}),
 			Entry("Process group that is excluded by the client",
@@ -151,6 +141,9 @@ var _ = Describe("mock_client", func() {
 					cluster: &fdbv1beta2.FoundationDBCluster{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "dev-1",
+						},
+						Spec: fdbv1beta2.FoundationDBClusterSpec{
+							Version: fdbv1beta2.Versions.Default.String(),
 						},
 						Status: fdbv1beta2.FoundationDBClusterStatus{
 							ProcessGroups: []*fdbv1beta2.ProcessGroupStatus{
@@ -160,6 +153,7 @@ var _ = Describe("mock_client", func() {
 									Addresses: []string{
 										"1.1.1.1:4500",
 									},
+									RemovalTimestamp: &metav1.Time{Time: time.Now()},
 								},
 								{
 									ProcessGroupID: "storage-2",
@@ -167,6 +161,7 @@ var _ = Describe("mock_client", func() {
 									Addresses: []string{
 										"1.1.1.2:4500",
 									},
+									RemovalTimestamp: &metav1.Time{Time: time.Now()},
 								},
 							},
 							RequiredAddresses: fdbv1beta2.RequiredAddressSet{
@@ -174,26 +169,14 @@ var _ = Describe("mock_client", func() {
 							},
 						},
 					},
-					removals: []fdbv1beta2.ProcessAddress{
-						{
-							IPAddress: net.ParseIP("1.1.1.1"),
-							Port:      4500,
-						},
-						{
-							IPAddress: net.ParseIP("1.1.1.2"),
-							Port:      4500,
-						},
-					},
 					exclusions: []fdbv1beta2.ProcessAddress{
 						{
 							IPAddress: net.ParseIP("1.1.1.1"),
 						},
 					},
-					remaining: []fdbv1beta2.ProcessAddress{
-						{
-							IPAddress: net.ParseIP("1.1.1.2"),
-							Port:      4500,
-						},
+					remaining: map[string]bool{
+						"locality_instance_id:storage-1": false, // Already excluded
+						"locality_instance_id:storage-2": true,
 					},
 				}),
 		)

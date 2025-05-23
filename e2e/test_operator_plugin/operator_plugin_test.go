@@ -140,6 +140,8 @@ var _ = Describe("Operator Plugin", Label("e2e", "pr"), func() {
 
 		// Default case is to run with DNS enabled. The test case with IPs enabled can run into issues when
 		// the underlying Kubernetes cluster deletes pods.
+		// Because of the above issues the test case is currently disabled (marked as pending) and can be used
+		// to run the test manually if needed.
 		PWhen("DNS is disabled", func() {
 			BeforeEach(func() {
 				useDNS = false
