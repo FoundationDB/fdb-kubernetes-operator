@@ -57,6 +57,39 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// addPodsReconciler is the reconciler for addPods.
+var addPodsReconciler = addPods{}
+
+// subReconcilers has the orded list of all subreconcilers that should be used by the cluster controller.
+var subReconcilers = []clusterSubReconciler{
+	updateStatus{},
+	updateLockConfiguration{},
+	updateConfigMap{},
+	checkClientCompatibility{},
+	deletePodsForBuggification{},
+	replaceMisconfiguredProcessGroups{},
+	replaceFailedProcessGroups{},
+	addProcessGroups{},
+	addServices{},
+	addPVCs{},
+	addPodsReconciler,
+	generateInitialClusterFile{},
+	removeIncompatibleProcesses{},
+	updateSidecarVersions{},
+	updatePodConfig{},
+	updateMetadata{},
+	updateDatabaseConfiguration{},
+	chooseRemovals{},
+	excludeProcesses{},
+	changeCoordinators{},
+	bounceProcesses{},
+	maintenanceModeChecker{},
+	updatePods{},
+	removeProcessGroups{},
+	removeServices{},
+	updateStatus{},
+}
+
 // FoundationDBClusterReconciler reconciles a FoundationDBCluster object
 type FoundationDBClusterReconciler struct {
 	client.Client
@@ -174,9 +207,9 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 	// go bindings (or rather the C client). To prevent those case we run the addPods reconciler before interacting with
 	// the FoundationDB cluster.
 	if cluster.UseDNSInClusterFile() {
-		req := runClusterSubReconciler(ctx, clusterLog, addPods{}, r, cluster, nil)
+		req := runClusterSubReconciler(ctx, clusterLog, addPodsReconciler, r, cluster, nil)
 		if req != nil {
-			clusterLog.Info("ran the initial add Pods reconciler", "message", req.message, "error", req.curError)
+			return processRequeue(req, addPodsReconciler, cluster, r.Recorder, clusterLog)
 		}
 	}
 
@@ -187,35 +220,6 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 		if err != nil {
 			clusterLog.Info("could not fetch machine-readable status and therefore didn't cache it")
 		}
-	}
-
-	subReconcilers := []clusterSubReconciler{
-		updateStatus{},
-		updateLockConfiguration{},
-		updateConfigMap{},
-		checkClientCompatibility{},
-		deletePodsForBuggification{},
-		replaceMisconfiguredProcessGroups{},
-		replaceFailedProcessGroups{},
-		addProcessGroups{},
-		addServices{},
-		addPVCs{},
-		addPods{},
-		generateInitialClusterFile{},
-		removeIncompatibleProcesses{},
-		updateSidecarVersions{},
-		updatePodConfig{},
-		updateMetadata{},
-		updateDatabaseConfiguration{},
-		chooseRemovals{},
-		excludeProcesses{},
-		changeCoordinators{},
-		bounceProcesses{},
-		maintenanceModeChecker{},
-		updatePods{},
-		removeProcessGroups{},
-		removeServices{},
-		updateStatus{},
 	}
 
 	originalGeneration := cluster.ObjectMeta.Generation
