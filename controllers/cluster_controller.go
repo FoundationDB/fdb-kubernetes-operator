@@ -148,6 +148,12 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 		return ctrl.Result{}, err
 	}
 
+	err = cluster.Validate()
+	if err != nil {
+		r.Recorder.Event(cluster, corev1.EventTypeWarning, "ClusterSpec not valid", err.Error())
+		return ctrl.Result{}, fmt.Errorf("ClusterSpec is not valid: %w", err)
+	}
+
 	adminClient, err := r.getAdminClient(clusterLog, cluster)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -155,19 +161,23 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 	defer func() {
 		_ = adminClient.Close()
 	}()
-
-	err = cluster.Validate()
-	if err != nil {
-		r.Recorder.Event(cluster, corev1.EventTypeWarning, "ClusterSpec not valid", err.Error())
-		return ctrl.Result{}, fmt.Errorf("ClusterSpec is not valid: %w", err)
-	}
-
 	supportedVersion, err := adminClient.VersionSupported(cluster.Spec.Version)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 	if !supportedVersion {
 		return ctrl.Result{}, fmt.Errorf("version %s is not supported", cluster.Spec.Version)
+	}
+
+	// When using DNS entries in the cluster file, we want to make sure to create pods if required before doing any
+	// interaction with the FDB cluster. If none of the coordinator pods is running, this will cause a crash in the FDB
+	// go bindings (or rather the C client). To prevent those case we run the addPods reconciler before interacting with
+	// the FoundationDB cluster.
+	if cluster.UseDNSInClusterFile() {
+		req := runClusterSubReconciler(ctx, clusterLog, addPods{}, r, cluster, nil)
+		if req != nil {
+			clusterLog.Info("ran the initial add Pods reconciler", "message", req.message, "error", req.curError)
+		}
 	}
 
 	var status *fdbv1beta2.FoundationDBStatus
