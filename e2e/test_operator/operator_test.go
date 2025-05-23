@@ -2076,13 +2076,8 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				// Make sure the operator is not taking any action to prevent any race condition.
 				fdbCluster.SetSkipReconciliation(true)
 
-				// Delete all Pods
-				pods := fdbCluster.GetPods()
-				initialPodsCnt = len(pods.Items)
-				for _, pod := range pods.Items {
-					podToDelete := &pod
-					factory.Delete(podToDelete)
-				}
+				// Delete all Pods, including the operator pods.
+				Expect(factory.GetControllerRuntimeClient().DeleteAllOf(context.Background(), &corev1.Pod{}, ctrlClient.InNamespace(fdbCluster.Namespace()))).To(Succeed())
 
 				// Make sure the Pods are all deleted.
 				Eventually(func() []corev1.Pod {
