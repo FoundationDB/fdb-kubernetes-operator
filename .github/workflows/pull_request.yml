@@ -18,7 +18,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: 1.23.7
+          go-version: 1.23.9
       - name: Get dependencies
         run: curl -L --fail "https://github.com/apple/foundationdb/releases/download/${FDB_VER}/foundationdb-clients_${FDB_VER}-1_amd64.deb" -o fdb.deb
       - name: Install dependencies
@@ -33,7 +33,7 @@ jobs:
       matrix:
         # With a new supported Kubernetes version we should adjust the version
         # See https://kubernetes.io/releases for the current releases
-        kubever: [ "v1.21.1", "v1.22.0", "v1.23.0" ]
+        kubever: [ "v1.30.0", "v1.31.0", "v1.32.0", "v1.33.0"  ]
     steps:
     - name: Check out code into the Go module directory
       uses: actions/checkout@v4
@@ -42,12 +42,12 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v4
       with:
-        go-version: 1.23.7
+        go-version: 1.23.9
     - name: Fetch all tags
       run: git fetch --force --tags
     - name: Get dependencies
       env:
-        KIND_VER: "v0.11.1"
+        KIND_VER: "v0.29.0"
       run: |
         # Only download all dependencies
         curl -L --fail "https://github.com/apple/foundationdb/releases/download/${FDB_VER}/foundationdb-clients_${FDB_VER}-1_amd64.deb" -o fdb.deb
@@ -103,7 +103,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v4
       with:
-        go-version: 1.23.7
+        go-version: 1.23.9
     - name: Fetch all tags
       run: git fetch --force --tags
     - name: Get dependencies
