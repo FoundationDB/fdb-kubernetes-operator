@@ -75,9 +75,9 @@ var _ = Describe("FoundationDBStatus", func() {
 					Version:       "7.1.0-rc1",
 					UptimeSeconds: 85.0026,
 					Roles: []FoundationDBStatusProcessRoleInfo{
-						{Role: string(ProcessRoleCoordinator)},
+						{Role: ProcessRoleCoordinator},
 						{
-							Role: string(ProcessRoleGrvProxy),
+							Role: ProcessRoleGrvProxy,
 							ID:   "0de7f5c5e549cad1",
 							GRVLatencyStatistics: FoundationDBStatusGRVStatistics{
 								Batch:   FoundationDBStatusPerfStatistics{Count: pointer.Int(6), Median: pointer.Float64(0.000531435), P99: pointer.Float64(0.00130677)},
@@ -85,7 +85,7 @@ var _ = Describe("FoundationDBStatus", func() {
 							},
 						},
 						{
-							Role: string(ProcessRoleStorage),
+							Role: ProcessRoleStorage,
 							ID:   "9941616400759d37",
 							DataLag: FoundationDBStatusLagInfo{
 								Seconds:  0.19625800000000002,
@@ -117,9 +117,9 @@ var _ = Describe("FoundationDBStatus", func() {
 					Version:       "7.1.0-rc1",
 					UptimeSeconds: 85.0031,
 					Roles: []FoundationDBStatusProcessRoleInfo{
-						{Role: string(ProcessRoleCoordinator)},
+						{Role: ProcessRoleCoordinator},
 						{
-							Role:                  string(ProcessClassStorage),
+							Role:                  ProcessRoleStorage,
 							ID:                    "389c23d59a646e52",
 							DataLag:               FoundationDBStatusLagInfo{Seconds: 2.1227, Versions: 2122697},
 							KVStoreUsedBytes:      pointer.Int64(104878232),
@@ -129,7 +129,7 @@ var _ = Describe("FoundationDBStatus", func() {
 							ReadLatencyStatistics: FoundationDBStatusPerfStatistics{Count: pointer.Int(334), Median: pointer.Float64(0.000102282), P99: pointer.Float64(0.000386477)},
 						},
 						{
-							Role: string(ProcessRoleResolver),
+							Role: ProcessRoleResolver,
 							ID:   "dfd679875a386d06",
 						},
 					},
@@ -152,9 +152,9 @@ var _ = Describe("FoundationDBStatus", func() {
 					Version:       "7.1.0-rc1",
 					UptimeSeconds: 85.0029,
 					Roles: []FoundationDBStatusProcessRoleInfo{
-						{Role: string(ProcessRoleCoordinator)},
+						{Role: ProcessRoleCoordinator},
 						{
-							Role: string(ProcessRoleCommitProxy),
+							Role: ProcessRoleCommitProxy,
 							ID:   "0eb90e4a0ece85b3",
 							CommitLatencyStatistics: FoundationDBStatusPerfStatistics{
 								Count:  pointer.Int(31),
@@ -163,7 +163,7 @@ var _ = Describe("FoundationDBStatus", func() {
 							},
 						},
 						{
-							Role: string(ProcessRoleStorage),
+							Role: ProcessRoleStorage,
 							ID:   "b5e42e100018bf11",
 							DataLag: FoundationDBStatusLagInfo{
 								Seconds:  0.19625800000000002,
@@ -196,15 +196,15 @@ var _ = Describe("FoundationDBStatus", func() {
 					UptimeSeconds: 85.0027,
 					Roles: []FoundationDBStatusProcessRoleInfo{
 						{
-							Role: string(ProcessRoleMaster),
+							Role: ProcessRoleMaster,
 							ID:   "b05dfb13cf568dfd",
 						},
 						{
-							Role: string(ProcessRoleDataDistributor),
+							Role: ProcessRoleDataDistributor,
 							ID:   "cfdd8010b58eda01",
 						},
 						{
-							Role: string(ProcessRoleRatekeeper),
+							Role: ProcessRoleRatekeeper,
 							ID:   "cbeb915c6cceb4a9",
 						},
 					},
@@ -228,7 +228,7 @@ var _ = Describe("FoundationDBStatus", func() {
 					UptimeSeconds: 85.0029,
 					Roles: []FoundationDBStatusProcessRoleInfo{
 						{
-							Role: string(ProcessClassClusterController),
+							Role: ProcessRoleClusterController,
 							ID:   "1f953018ad2e746f",
 						},
 					},
@@ -252,7 +252,7 @@ var _ = Describe("FoundationDBStatus", func() {
 					UptimeSeconds: 85.0029,
 					Roles: []FoundationDBStatusProcessRoleInfo{
 						{
-							Role:                  string(ProcessRoleLog),
+							Role:                  ProcessRoleLog,
 							ID:                    "2c66a861b33b2697",
 							KVStoreUsedBytes:      pointer.Int64(104861752),
 							KVStoreTotalBytes:     pointer.Int64(135012552704),
@@ -280,7 +280,7 @@ var _ = Describe("FoundationDBStatus", func() {
 					UptimeSeconds: 85.003,
 					Roles: []FoundationDBStatusProcessRoleInfo{
 						{
-							Role:                  string(ProcessRoleLog),
+							Role:                  ProcessRoleLog,
 							ID:                    "56cf105980ec2b07",
 							KVStoreUsedBytes:      pointer.Int64(104861752),
 							KVStoreTotalBytes:     pointer.Int64(135012552704),
@@ -308,7 +308,7 @@ var _ = Describe("FoundationDBStatus", func() {
 					UptimeSeconds: 85.0027,
 					Roles: []FoundationDBStatusProcessRoleInfo{
 						{
-							Role:                  string(ProcessRoleLog),
+							Role:                  ProcessRoleLog,
 							ID:                    "31754d1d7d8d6f05",
 							KVStoreUsedBytes:      pointer.Int64(104861752),
 							KVStoreTotalBytes:     pointer.Int64(135012552704),

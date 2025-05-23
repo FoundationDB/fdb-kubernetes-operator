@@ -267,7 +267,7 @@ func GetCoordinatorsFromStatus(status *fdbv1beta2.FoundationDBStatus) map[string
 
 	for _, pInfo := range status.Cluster.Processes {
 		for _, roleInfo := range pInfo.Roles {
-			if roleInfo.Role != string(fdbv1beta2.ProcessRoleCoordinator) {
+			if roleInfo.Role != fdbv1beta2.ProcessRoleCoordinator {
 				continue
 			}
 
