@@ -21,6 +21,7 @@
 package maintenance
 
 import (
+	"strings"
 	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
@@ -28,7 +29,7 @@ import (
 )
 
 // GetMaintenanceInformation returns the information about processes that have finished, stale information in the maintenance list and processes that still must be updated.
-func GetMaintenanceInformation(logger logr.Logger, status *fdbv1beta2.FoundationDBStatus, processesUnderMaintenance map[fdbv1beta2.ProcessGroupID]int64, staleDuration time.Duration, differentZoneWaitDuration time.Duration) ([]fdbv1beta2.ProcessGroupID, []fdbv1beta2.ProcessGroupID, []fdbv1beta2.ProcessGroupID) {
+func GetMaintenanceInformation(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, processesUnderMaintenance map[fdbv1beta2.ProcessGroupID]int64, staleDuration time.Duration, differentZoneWaitDuration time.Duration) ([]fdbv1beta2.ProcessGroupID, []fdbv1beta2.ProcessGroupID, []fdbv1beta2.ProcessGroupID) {
 	finishedMaintenance := make([]fdbv1beta2.ProcessGroupID, 0, len(processesUnderMaintenance))
 	staleMaintenanceInformation := make([]fdbv1beta2.ProcessGroupID, 0, len(processesUnderMaintenance))
 	processesToUpdate := make([]fdbv1beta2.ProcessGroupID, 0, len(processesUnderMaintenance))
@@ -111,6 +112,19 @@ func GetMaintenanceInformation(logger logr.Logger, status *fdbv1beta2.Foundation
 		processesToUpdate = append(processesToUpdate, fdbv1beta2.ProcessGroupID(processGroupID))
 	}
 
+	// Create a map for all the storage process groups, to validate if any stale maintenance entries exist for removed
+	// process groups.
+	storageProcessGroups := map[fdbv1beta2.ProcessGroupID]*fdbv1beta2.ProcessGroupStatus{}
+	if len(processesUnderMaintenance) > 0 {
+		for _, processGroup := range cluster.Status.ProcessGroups {
+			if processGroup.ProcessClass != fdbv1beta2.ProcessClassStorage {
+				continue
+			}
+
+			storageProcessGroups[processGroup.ProcessGroupID] = processGroup
+		}
+	}
+
 	// After we checked above the processes that are done with their maintenance and the processes that still must be
 	// restarted we have to filter out all stale entries. We filter out those stale entries to make sure the entries
 	// are eventually cleaned up.
@@ -120,6 +134,17 @@ func GetMaintenanceInformation(logger logr.Logger, status *fdbv1beta2.Foundation
 		if time.Since(time.Unix(maintenanceStart, 0)) > staleDuration {
 			staleMaintenanceInformation = append(staleMaintenanceInformation, processGroupID)
 			continue
+		}
+
+		// If the process group is managed by this operator instance and no associated process group exists, we can
+		// assume that the process group was removed and the maintenance information is stale.
+		if strings.HasPrefix(string(processGroupID), cluster.Spec.ProcessGroupIDPrefix) {
+			logger.V(1).Info("found stale maintenance information for removed process group", "processGroupID", processGroupID)
+			_, ok := storageProcessGroups[processGroupID]
+			if !ok {
+				staleMaintenanceInformation = append(staleMaintenanceInformation, processGroupID)
+				continue
+			}
 		}
 
 		processesToUpdate = append(processesToUpdate, processGroupID)
