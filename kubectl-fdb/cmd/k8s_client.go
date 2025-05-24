@@ -614,5 +614,7 @@ func updateConnectionString(ctx context.Context, kubeClient client.Client, clust
 func updateDatabaseConfiguration(ctx context.Context, kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluster, configuration fdbv1beta2.DatabaseConfiguration) error {
 	patch := client.MergeFrom(cluster.DeepCopy())
 	cluster.Spec.DatabaseConfiguration = configuration
+	// Reset the seed connecting string in this case.
+	cluster.Spec.SeedConnectionString = ""
 	return kubeClient.Patch(ctx, cluster, patch)
 }

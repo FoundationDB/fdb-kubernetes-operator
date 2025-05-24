@@ -28,7 +28,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbstatus"
 	"k8s.io/utils/pointer"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/podclient/mock"
@@ -635,51 +634,6 @@ func (client *AdminClient) IncludeProcesses(addresses []fdbv1beta2.ProcessAddres
 	return nil
 }
 
-// CanSafelyRemove checks whether it is safe to remove the process group from the
-// cluster
-//
-// The list returned by this method will be the addresses that are *not*
-// safe to remove.
-func (client *AdminClient) CanSafelyRemove(addresses []fdbv1beta2.ProcessAddress) ([]fdbv1beta2.ProcessAddress, error) {
-	if client.mockError != nil {
-		return nil, client.mockError
-	}
-
-	skipExclude := map[string]fdbv1beta2.None{}
-
-	// Check which process groups have the skip exclusion flag or are already
-	// excluded
-	for _, pg := range client.Cluster.Status.ProcessGroups {
-		if !(pg.IsExcluded()) {
-			continue
-		}
-
-		for _, addr := range pg.Addresses {
-			skipExclude[addr] = fdbv1beta2.None{}
-		}
-	}
-
-	// Add all process groups that are excluded in the client
-	for addr := range client.ExcludedAddresses {
-		skipExclude[addr] = fdbv1beta2.None{}
-	}
-
-	// Filter out all excluded process groups and also all process groups
-	// that skip exclusion
-	remaining := make([]fdbv1beta2.ProcessAddress, 0, len(addresses))
-
-	for _, addr := range addresses {
-		// Is already excluded or skipped
-		if _, ok := skipExclude[addr.String()]; ok {
-			continue
-		}
-
-		remaining = append(remaining, addr)
-	}
-
-	return remaining, nil
-}
-
 // getExcludedAddresses will return the excluded addresses based on the client.ExcludedAddresses.
 func (client *AdminClient) getExcludedAddresses() []fdbv1beta2.ProcessAddress {
 	if len(client.ExcludedAddresses) == 0 {
@@ -702,18 +656,6 @@ func (client *AdminClient) getExcludedAddresses() []fdbv1beta2.ProcessAddress {
 	}
 
 	return excludedAddresses
-}
-
-// GetExclusions gets a list of the addresses currently excluded from the database.
-func (client *AdminClient) GetExclusions() ([]fdbv1beta2.ProcessAddress, error) {
-	adminClientMutex.Lock()
-	defer adminClientMutex.Unlock()
-
-	if client.mockError != nil {
-		return nil, client.mockError
-	}
-
-	return client.getExcludedAddresses(), nil
 }
 
 // KillProcesses restarts processes
@@ -751,6 +693,18 @@ func (client *AdminClient) KillProcesses(addresses []fdbv1beta2.ProcessAddress) 
 	return nil
 }
 
+// GetExclusions gets a list of the addresses currently excluded from the database.
+func (client *AdminClient) GetExclusions() ([]fdbv1beta2.ProcessAddress, error) {
+	adminClientMutex.Lock()
+	defer adminClientMutex.Unlock()
+
+	if client.mockError != nil {
+		return nil, client.mockError
+	}
+
+	return client.getExcludedAddresses(), nil
+}
+
 // KillProcessesForUpgrade restarts processes for upgrades, this will issue 2 kill commands to make sure all
 // processes are restarted.
 func (client *AdminClient) KillProcessesForUpgrade(addresses []fdbv1beta2.ProcessAddress) error {
@@ -781,14 +735,6 @@ func (client *AdminClient) ChangeCoordinators(addresses []fdbv1beta2.ProcessAddr
 
 	connectionString.Coordinators = newCoord
 	return connectionString.String(), err
-}
-
-// GetConnectionString fetches the latest connection string.
-func (client *AdminClient) GetConnectionString() (string, error) {
-	adminClientMutex.Lock()
-	defer adminClientMutex.Unlock()
-
-	return client.Cluster.Status.ConnectionString, nil
 }
 
 // VersionSupported reports whether we can support a cluster with a given
@@ -1046,35 +992,12 @@ func (client *AdminClient) UnfreezeStatus() {
 	client.FrozenStatus = nil
 }
 
-// GetCoordinatorSet gets the current coordinators from the status
-func (client *AdminClient) GetCoordinatorSet() (map[string]fdbv1beta2.None, error) {
-	if client.mockError != nil {
-		return nil, client.mockError
-	}
-
-	status, err := client.GetStatus()
-	if err != nil {
-		return nil, err
-	}
-
-	return fdbstatus.GetCoordinatorsFromStatus(status), nil
-}
-
 // SetKnobs sets the knobs that should be used for the commandline call.
 func (client *AdminClient) SetKnobs(knobs []string) {
 	client.Knobs = make(map[string]fdbv1beta2.None, len(knobs))
 	for _, knob := range knobs {
 		client.Knobs[knob] = fdbv1beta2.None{}
 	}
-}
-
-// GetMaintenanceZone gets current maintenance zone, if any
-func (client *AdminClient) GetMaintenanceZone() (string, error) {
-	if client.mockError != nil {
-		return "", client.mockError
-	}
-
-	return string(client.MaintenanceZone), nil
 }
 
 // SetMaintenanceZone places zone into maintenance mode

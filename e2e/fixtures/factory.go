@@ -843,10 +843,9 @@ func (factory *Factory) UseUnifiedImage() bool {
 
 // UpdateNode update node definition
 func (fdbCluster *FdbCluster) UpdateNode(node *corev1.Node) {
-	gomega.Eventually(func() bool {
-		err := fdbCluster.getClient().Update(context.Background(), node)
-		return err == nil
-	}).WithTimeout(time.Duration(2) * time.Minute).WithPolling(2 * time.Second).Should(gomega.BeTrue())
+	gomega.Eventually(func() error {
+		return fdbCluster.getClient().Update(context.Background(), node)
+	}).WithTimeout(time.Duration(2) * time.Minute).WithPolling(2 * time.Second).Should(gomega.Succeed())
 }
 
 // GetNode return Node with the given name
