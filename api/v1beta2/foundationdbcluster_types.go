@@ -1239,7 +1239,24 @@ type FoundationDBClusterAutomationOptions struct {
 	// +kubebuilder:validation:Enum=local;global
 	// +kubebuilder:default:=local
 	SynchronizationMode *string `json:"synchronizationMode,omitempty"`
+
+	// DatabaseInteractionMode defines how the operator should interact with the FDB cluster. Possible options right now
+	// are "fdbcli", which is the default way and "managementapi" which will make use of the management module in FDB:
+	// https://apple.github.io/foundationdb/special-keys.html#management-module.
+	DatabaseInteractionMode *DatabaseInteractionMode `json:"databaseInteractionMode,omitempty"`
 }
+
+// DatabaseInteractionMode defines how the operator should interact with the FDB cluster.
+// +kubebuilder:validation:MaxLength=256
+type DatabaseInteractionMode string
+
+const (
+	// DatabaseInteractionModeFdbcli defines the interaction mode with fdbcli.
+	DatabaseInteractionModeFdbcli DatabaseInteractionMode = "fdbcli"
+
+	// DatabaseInteractionModeMgmtAPI defines the interaction mode with the management API.
+	DatabaseInteractionModeMgmtAPI DatabaseInteractionMode = "managementapi"
+)
 
 // LogGroup represents a LogGroup used by a FoundationDB process to log trace events. The LogGroup can be used to filter
 // clients during an upgrade.
@@ -2981,6 +2998,11 @@ func (cluster *FoundationDBCluster) Validate() error {
 		}
 	}
 
+	currentMode := cluster.GetDatabaseInteractionMode()
+	if currentMode != DatabaseInteractionModeMgmtAPI && currentMode != DatabaseInteractionModeFdbcli {
+		validations = append(validations, fmt.Sprintf("database interaction mode: \"%s\" is not supported allowed values: [%s, %s].", currentMode, DatabaseInteractionModeFdbcli, DatabaseInteractionModeMgmtAPI))
+	}
+
 	if len(validations) == 0 {
 		return nil
 	}
@@ -3202,4 +3224,13 @@ func (cluster *FoundationDBCluster) GetSynchronizationMode() SynchronizationMode
 	}
 
 	return SynchronizationMode(pointer.StringDeref(cluster.Spec.AutomationOptions.SynchronizationMode, string(SynchronizationModeLocal)))
+}
+
+// GetDatabaseInteractionMode returns the DatabaseInteractionMode if set, otherwise will return the default interaction mode.
+func (cluster *FoundationDBCluster) GetDatabaseInteractionMode() DatabaseInteractionMode {
+	if cluster.Spec.AutomationOptions.DatabaseInteractionMode == nil {
+		return DatabaseInteractionModeFdbcli
+	}
+
+	return *cluster.Spec.AutomationOptions.DatabaseInteractionMode
 }

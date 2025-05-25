@@ -2961,6 +2961,39 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					expectedStr: "127.0.0.1:4501(fromHostname)",
 					err:         nil,
 				}),
+			Entry("DNS entry with port and flag",
+				testCase{
+					input: "host.example.org:4500:tls",
+					expectedAddr: ProcessAddress{
+						StringAddress: "host.example.org",
+						Port:          4500,
+						Flags:         map[string]bool{"tls": true},
+					},
+					expectedStr: "host.example.org:4500:tls",
+					err:         nil,
+				}),
+			Entry("DNS entry with port",
+				testCase{
+					input: "host.example.org:4500",
+					expectedAddr: ProcessAddress{
+						StringAddress: "host.example.org",
+						Port:          4500,
+						Flags:         nil,
+					},
+					expectedStr: "host.example.org:4500",
+					err:         nil,
+				}),
+			Entry("DNS entry without port",
+				testCase{
+					input: "host.example.org",
+					expectedAddr: ProcessAddress{
+						StringAddress: "host.example.org",
+						Port:          0,
+						Flags:         nil,
+					},
+					expectedStr: "host.example.org",
+					err:         nil,
+				}),
 		)
 	})
 

@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbstatus"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -72,9 +73,9 @@ var _ = Describe("remove_process_groups", func() {
 
 				adminClient, err := mock.NewMockAdminClient(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
-				coordinatorSet, err = adminClient.GetCoordinatorSet()
+				status, err := adminClient.GetStatus()
 				Expect(err).NotTo(HaveOccurred())
-
+				coordinatorSet = fdbstatus.GetCoordinatorsFromStatus(status)
 				for _, processGroup := range cluster.Status.ProcessGroups {
 					if _, ok := coordinatorSet[string(processGroup.ProcessGroupID)]; !ok {
 						continue

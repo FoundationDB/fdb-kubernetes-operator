@@ -130,9 +130,9 @@ var _ = Describe("maintenance_mode_checker", func() {
 			// then for some reason the operator crashes/stops. In this case we want to make sure that the operator resets
 			// the maintenance mode.
 			It("should reset the maintenance", func() {
-				maintenanceZone, err := adminClient.GetMaintenanceZone()
+				status, err := adminClient.GetStatus()
 				Expect(err).NotTo(HaveOccurred())
-				Expect(maintenanceZone).To(BeEmpty())
+				Expect(status.Cluster.MaintenanceZone).To(BeEmpty())
 			})
 
 			It("should remove the entry from the maintenance list", func() {
@@ -155,9 +155,9 @@ var _ = Describe("maintenance_mode_checker", func() {
 			})
 
 			It("shouldn't reset the maintenance", func() {
-				maintenanceZone, err := adminClient.GetMaintenanceZone()
+				status, err := adminClient.GetStatus()
 				Expect(err).NotTo(HaveOccurred())
-				Expect(maintenanceZone).To(Equal(string(currentMaintenanceZone)))
+				Expect(status.Cluster.MaintenanceZone).To(Equal(currentMaintenanceZone))
 			})
 
 			It("shouldn't remove the entry from the maintenance list", func() {
@@ -181,9 +181,9 @@ var _ = Describe("maintenance_mode_checker", func() {
 			})
 
 			It("shouldn't reset the maintenance", func() {
-				maintenanceZone, err := adminClient.GetMaintenanceZone()
+				status, err := adminClient.GetStatus()
 				Expect(err).NotTo(HaveOccurred())
-				Expect(maintenanceZone).To(Equal(string(currentMaintenanceZone)))
+				Expect(status.Cluster.MaintenanceZone).To(Equal(currentMaintenanceZone))
 			})
 
 			It("shouldn't remove the entry from the maintenance list", func() {
@@ -204,9 +204,9 @@ var _ = Describe("maintenance_mode_checker", func() {
 			})
 
 			It("should reset the maintenance", func() {
-				maintenanceZone, err := adminClient.GetMaintenanceZone()
+				status, err := adminClient.GetStatus()
 				Expect(err).NotTo(HaveOccurred())
-				Expect(maintenanceZone).To(BeEmpty())
+				Expect(status.Cluster.MaintenanceZone).To(BeEmpty())
 			})
 
 			It("should remove the entry from the maintenance list", func() {
@@ -229,9 +229,9 @@ var _ = Describe("maintenance_mode_checker", func() {
 			})
 
 			It("shouldn't reset the maintenance", func() {
-				maintenanceZone, err := adminClient.GetMaintenanceZone()
+				status, err := adminClient.GetStatus()
 				Expect(err).NotTo(HaveOccurred())
-				Expect(maintenanceZone).To(Equal(string(currentMaintenanceZone)))
+				Expect(status.Cluster.MaintenanceZone).To(Equal(currentMaintenanceZone))
 			})
 
 			It("shouldn't remove the entry from the maintenance list", func() {
@@ -256,9 +256,9 @@ var _ = Describe("maintenance_mode_checker", func() {
 			})
 
 			It("shouldn't reset the maintenance", func() {
-				maintenanceZone, err := adminClient.GetMaintenanceZone()
+				status, err := adminClient.GetStatus()
 				Expect(err).NotTo(HaveOccurred())
-				Expect(maintenanceZone).To(Equal(string(currentMaintenanceZone)))
+				Expect(status.Cluster.MaintenanceZone).To(Equal(currentMaintenanceZone))
 			})
 
 			It("shouldn't remove the entry from the maintenance list for the second entry", func() {
@@ -283,9 +283,9 @@ var _ = Describe("maintenance_mode_checker", func() {
 			})
 
 			It("shouldn't reset the maintenance", func() {
-				maintenanceZone, err := adminClient.GetMaintenanceZone()
+				status, err := adminClient.GetStatus()
 				Expect(err).NotTo(HaveOccurred())
-				Expect(maintenanceZone).To(Equal(string(currentMaintenanceZone)))
+				Expect(status.Cluster.MaintenanceZone).To(Equal(currentMaintenanceZone))
 			})
 
 			It("shouldn't remove the entry from the maintenance list", func() {
@@ -308,9 +308,9 @@ var _ = Describe("maintenance_mode_checker", func() {
 			})
 
 			It("should reset the maintenance", func() {
-				maintenanceZone, err := adminClient.GetMaintenanceZone()
+				status, err := adminClient.GetStatus()
 				Expect(err).NotTo(HaveOccurred())
-				Expect(maintenanceZone).To(BeEmpty())
+				Expect(status.Cluster.MaintenanceZone).To(BeEmpty())
 			})
 
 			It("shouldn't remove the entry from the maintenance list", func() {
@@ -331,9 +331,9 @@ var _ = Describe("maintenance_mode_checker", func() {
 			})
 
 			It("should reset the maintenance", func() {
-				maintenanceZone, err := adminClient.GetMaintenanceZone()
+				status, err := adminClient.GetStatus()
 				Expect(err).NotTo(HaveOccurred())
-				Expect(maintenanceZone).To(BeEmpty())
+				Expect(status.Cluster.MaintenanceZone).To(BeEmpty())
 			})
 
 			It("should remove the entry from the maintenance list", func() {

@@ -95,9 +95,15 @@ func NewMockClientWithHooksAndIndexes(scheme *runtime.Scheme, createHooks []func
 			return nil
 		}
 
-		v4Address := client.generatePodIPv4()
-		pod.Status.PodIP = v4Address
-		pod.Status.PodIPs = []corev1.PodIP{{IP: v4Address}, {IP: client.generatePodIPv6()}}
+		if pod.Status.PodIP == "" {
+			v4Address := client.generatePodIPv4()
+			pod.Status.PodIP = v4Address
+		}
+
+		if len(pod.Status.PodIPs) == 0 {
+			// TODO (johscheuer) We should check here if the added address was IPv4 or not.
+			pod.Status.PodIPs = []corev1.PodIP{{IP: pod.Status.PodIP}, {IP: client.generatePodIPv6()}}
+		}
 
 		if pod.Status.Phase == "" {
 			pod.Status.Phase = corev1.PodRunning

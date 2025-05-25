@@ -31,6 +31,7 @@ import (
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient/mock"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbstatus"
 	"k8s.io/utils/pointer"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
@@ -1139,8 +1140,9 @@ var _ = Describe("exclude_processes", func() {
 					adminClient, err := mock.NewMockAdminClient(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
 
-					coordinators, err := adminClient.GetCoordinatorSet()
+					status, err := adminClient.GetStatus()
 					Expect(err).NotTo(HaveOccurred())
+					coordinators := fdbstatus.GetCoordinatorsFromStatus(status)
 
 					for _, processGroup := range cluster.Status.ProcessGroups {
 						if _, ok := coordinators[string(processGroup.ProcessGroupID)]; !ok {
@@ -1285,8 +1287,9 @@ var _ = Describe("exclude_processes", func() {
 					adminClient, err := mock.NewMockAdminClient(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
 
-					coordinators, err := adminClient.GetCoordinatorSet()
+					status, err := adminClient.GetStatus()
 					Expect(err).NotTo(HaveOccurred())
+					coordinators := fdbstatus.GetCoordinatorsFromStatus(status)
 
 					for _, processGroup := range cluster.Status.ProcessGroups {
 						if _, ok := coordinators[string(processGroup.ProcessGroupID)]; !ok {

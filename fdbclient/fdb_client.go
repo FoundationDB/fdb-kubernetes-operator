@@ -49,9 +49,14 @@ type fdbLibClient interface {
 	updateProcessAddresses(updates map[fdbv1beta2.ProcessGroupID][]string) error
 	// getProcessAddresses gets the process group IDs and their associated process addresses.
 	getProcessAddresses(prefix string) (map[fdbv1beta2.ProcessGroupID][]string, error)
+	// executeTransactionForManagementAPI will run an operation for the management API. This method handles all the common
+	// options.
+	executeTransactionForManagementAPI(operation func(tr fdb.Transaction) error, timeout time.Duration) error
+	// executeTransaction will run a transaction for the target cluster. This method will handle all the common options.
+	executeTransaction(operation func(tr fdb.Transaction) error, timeout time.Duration) error
 }
 
-var _ fdbLibClient = (*realFdbLibClient)(nil)
+var _ fdbLibClient = &realFdbLibClient{}
 
 // realFdbLibClient represents the actual FDB client that will interact with FDB.
 type realFdbLibClient struct {
@@ -395,6 +400,66 @@ func checkError(err error) error {
 	return nil
 }
 
+func (fdbClient *realFdbLibClient) executeTransaction(operation func(tr fdb.Transaction) error, timeout time.Duration) error {
+	db, err := getFDBDatabase(fdbClient.cluster)
+	if err != nil {
+		return err
+	}
+
+	_, err = db.Transact(func(tr fdb.Transaction) (interface{}, error) {
+		err := tr.Options().SetAccessSystemKeys()
+		if err != nil {
+			return nil, err
+		}
+		err = tr.Options().SetTimeout(timeout.Milliseconds())
+		if err != nil {
+			return nil, err
+		}
+
+		err = operation(tr)
+		if err != nil {
+			return nil, err
+		}
+
+		return nil, nil
+	})
+
+	return err
+}
+
+// executeTransactionForManagementAPI will run an operation for the management API. This method handles all the common
+// options.
+func (fdbClient *realFdbLibClient) executeTransactionForManagementAPI(operation func(tr fdb.Transaction) error, timeout time.Duration) error {
+	db, err := getFDBDatabase(fdbClient.cluster)
+	if err != nil {
+		return err
+	}
+
+	_, err = db.Transact(func(tr fdb.Transaction) (interface{}, error) {
+		err := tr.Options().SetReadSystemKeys()
+		if err != nil {
+			return nil, err
+		}
+		err = tr.Options().SetSpecialKeySpaceEnableWrites()
+		if err != nil {
+			return nil, err
+		}
+		err = tr.Options().SetTimeout(timeout.Milliseconds())
+		if err != nil {
+			return nil, err
+		}
+
+		err = operation(tr)
+		if err != nil {
+			return nil, err
+		}
+
+		return nil, nil
+	})
+
+	return err
+}
+
 // mockFdbLibClient is a mock for unit testing.
 type mockFdbLibClient struct {
 	// mockedOutput is the output returned by getValueFromDBUsingKey.
@@ -470,4 +535,14 @@ func (fdbClient *mockFdbLibClient) updateProcessAddresses(_ map[fdbv1beta2.Proce
 func (fdbClient *mockFdbLibClient) getProcessAddresses(_ string) (map[fdbv1beta2.ProcessGroupID][]string, error) {
 	// TODO (johscheuer)
 	return nil, nil
+}
+
+func (fdbClient *mockFdbLibClient) executeTransactionForManagementAPI(_ func(tr fdb.Transaction) error, _ time.Duration) error {
+	// TODO implement and add unit tests.
+	return nil
+}
+
+func (fdbClient *mockFdbLibClient) executeTransaction(_ func(tr fdb.Transaction) error, _ time.Duration) error {
+	// TODO implement and add unit tests.
+	return nil
 }

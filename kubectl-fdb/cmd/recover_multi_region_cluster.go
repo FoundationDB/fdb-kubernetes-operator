@@ -156,10 +156,9 @@ func RecoverMultiRegionCluster(ctx context.Context, opts RecoverMultiRegionClust
 	lastConnectionString := cluster.Status.ConnectionString
 	lastConnectionStringParts := strings.Split(lastConnectionString, "@")
 	addresses := strings.Split(lastConnectionStringParts[1], ",")
-
-	log.Println("current connection string", lastConnectionString)
-
 	usesDNSInClusterFile := cluster.UseDNSInClusterFile()
+
+	log.Println("current connection string", lastConnectionString, "cluster uses DNS:", usesDNSInClusterFile)
 	var useTLS bool
 	coordinators := map[string]fdbv1beta2.ProcessAddress{}
 	for _, addr := range addresses {
@@ -212,7 +211,6 @@ func RecoverMultiRegionCluster(ctx context.Context, opts RecoverMultiRegionClust
 		}
 
 		log.Println("Checking pod", pod.Name, "address", addr.MachineAddress())
-
 		loopPod := pod
 		if coordinatorAddr, ok := coordinators[addr.MachineAddress()]; ok {
 			log.Println("Found coordinator for cluster", pod.Name, "address", addr.MachineAddress())
@@ -258,17 +256,27 @@ func RecoverMultiRegionCluster(ctx context.Context, opts RecoverMultiRegionClust
 	for len(newCoordinators) < cluster.DesiredCoordinatorCount() {
 		log.Println("Current coordinators:", len(newCoordinators))
 		candidate := candidates[len(newCoordinators)]
-		addr, parseErr := fdbv1beta2.ParseProcessAddress(candidate.Status.PodIP)
-		if parseErr != nil {
-			return parseErr
+
+		var addr fdbv1beta2.ProcessAddress
+		if usesDNSInClusterFile {
+			dnsName := internal.GetPodDNSName(cluster, candidate.GetName())
+			addr = fdbv1beta2.ProcessAddress{StringAddress: dnsName}
+		} else {
+			var parseErr error
+			addr, parseErr = fdbv1beta2.ParseProcessAddress(candidate.Status.PodIP)
+			if parseErr != nil {
+				return parseErr
+			}
 		}
-		log.Println("Adding pod as new coordinator:", candidate.Name)
+
 		if useTLS {
 			addr.Port = 4500
 			addr.Flags = map[string]bool{"tls": true}
 		} else {
 			addr.Port = 4501
 		}
+
+		log.Println("Adding new coordinator:", addr.String())
 		newCoordinators = append(newCoordinators, addr)
 		needsUpload = append(needsUpload, candidate)
 	}
