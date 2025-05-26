@@ -60,7 +60,7 @@ import (
 // addPodsReconciler is the reconciler for addPods.
 var addPodsReconciler = addPods{}
 
-// subReconcilers has the orded list of all subreconcilers that should be used by the cluster controller.
+// subReconcilers has the ordered list of all reconcilers that should be used by the cluster controller.
 var subReconcilers = []clusterSubReconciler{
 	updateStatus{},
 	updateLockConfiguration{},
