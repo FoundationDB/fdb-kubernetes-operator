@@ -255,7 +255,7 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, cluster *fdbv1
 	}
 
 	// We could add here more fields from cluster.Status.Generations and check if they are present.
-	var failedProcessGroups []string
+	var failedPods []string
 	processGroupMap := map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None{}
 	removedProcessGroups := map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None{}
 
@@ -303,7 +303,7 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, cluster *fdbv1
 		if autoFix {
 			_, failureTime := processGroup.NeedsReplacement(0, 0)
 			if failureTime > 0 {
-				failedProcessGroups = append(failedProcessGroups, string(processGroup.ProcessGroupID))
+				failedPods = append(failedPods, processGroup.GetPodName(cluster))
 			}
 		}
 	}
@@ -349,7 +349,7 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, cluster *fdbv1
 
 			// The process groups that should be deleted, so we can safely replace it
 			if autoFix {
-				failedProcessGroups = append(failedProcessGroups, pod.Labels[cluster.GetProcessGroupIDLabel()])
+				failedPods = append(failedPods, pod.Name)
 			}
 
 			continue
@@ -399,15 +399,14 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, cluster *fdbv1
 	if autoFix {
 		confirmed := false
 
-		if len(failedProcessGroups) > 0 {
+		if len(failedPods) > 0 {
 			_, err := replaceProcessGroups(cmd, kubeClient,
 				processGroupSelectionOptions{
-					ids:               failedProcessGroups,
-					namespace:         cluster.Namespace,
-					clusterName:       cluster.Name,
-					clusterLabel:      "",
-					processClass:      "",
-					useProcessGroupID: true,
+					ids:          failedPods,
+					namespace:    cluster.Namespace,
+					clusterName:  cluster.Name,
+					clusterLabel: "",
+					processClass: "",
 				},
 				replaceProcessGroupsOptions{
 					withExclusion:   true,
@@ -419,7 +418,7 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, cluster *fdbv1
 			}
 		}
 
-		pods := filterDeletePods(failedProcessGroups, killPods)
+		pods := filterDeletePods(failedPods, killPods)
 		if wait && len(pods) > 0 {
 			podNames := make([]string, 0, len(killPods))
 			for _, pod := range killPods {
