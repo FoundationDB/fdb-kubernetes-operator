@@ -146,7 +146,9 @@ The `UpdateConfigMap` subreconciler creates a `ConfigMap` object for the cluster
 
 The `CheckClientCompatibility` subreconciler is used during upgrades to ensure that every client is compatible with the new version of FoundationDB. When it detects that the `version` in the cluster spec is protocol-compatible with the `runningVersion` in the cluster status, this will do nothing. When these are different, it means there is a pending upgrade. This subreconciler will check the `connected_clients` field in the database status, and if it finds any clients whose max supported protocol version is not the same as the `version` from the cluster spec, it will fail reconciliation. This prevents upgrading a database until all clients have been updated with a compatible client library.
 
-You can skip this check by setting the `ignoreUpgradabilityChecks` flag in the cluster spec.
+This subreconciler will also ensure that if the versions are protocol-incompatible, the new version is more recent than the cluster's current version. The level of support for protocol-incompatible downgrades is more nuanced than the path for upgrades, and the [FoundationDB docs](https://apple.github.io/foundationdb/administration.html#version-specific-notes-on-downgrading) have more details on this path.
+
+You can skip these checks by setting the `ignoreUpgradabilityChecks` flag in the cluster spec.
 
 ### DeletePodsForBuggification
 

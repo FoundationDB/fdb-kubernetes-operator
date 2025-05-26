@@ -43,6 +43,10 @@ func (c checkClientCompatibility) reconcile(_ context.Context, r *FoundationDBCl
 		return nil
 	}
 
+	if cluster.Spec.IgnoreUpgradabilityChecks {
+		return nil
+	}
+
 	runningVersion, err := fdbv1beta2.ParseFdbVersion(cluster.Status.RunningVersion)
 	if err != nil {
 		return &requeue{curError: err}
@@ -58,10 +62,6 @@ func (c checkClientCompatibility) reconcile(_ context.Context, r *FoundationDBCl
 	}
 
 	if version.IsProtocolCompatible(runningVersion) {
-		return nil
-	}
-
-	if cluster.Spec.IgnoreUpgradabilityChecks {
 		return nil
 	}
 
