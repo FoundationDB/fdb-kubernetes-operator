@@ -208,7 +208,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 	// the FoundationDB cluster.
 	if cluster.UseDNSInClusterFile() {
 		req := runClusterSubReconciler(ctx, clusterLog, addPodsReconciler, r, cluster, nil)
-		if req != nil {
+		if req != nil && !req.delayedRequeue {
 			return processRequeue(req, addPodsReconciler, cluster, r.Recorder, clusterLog)
 		}
 	}
