@@ -57,6 +57,39 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// addPodsReconciler is the reconciler for addPods.
+var addPodsReconciler = addPods{}
+
+// subReconcilers has the ordered list of all reconcilers that should be used by the cluster controller.
+var subReconcilers = []clusterSubReconciler{
+	updateStatus{},
+	updateLockConfiguration{},
+	updateConfigMap{},
+	checkClientCompatibility{},
+	deletePodsForBuggification{},
+	replaceMisconfiguredProcessGroups{},
+	replaceFailedProcessGroups{},
+	addProcessGroups{},
+	addServices{},
+	addPVCs{},
+	addPodsReconciler,
+	generateInitialClusterFile{},
+	removeIncompatibleProcesses{},
+	updateSidecarVersions{},
+	updatePodConfig{},
+	updateMetadata{},
+	updateDatabaseConfiguration{},
+	chooseRemovals{},
+	excludeProcesses{},
+	changeCoordinators{},
+	bounceProcesses{},
+	maintenanceModeChecker{},
+	updatePods{},
+	removeProcessGroups{},
+	removeServices{},
+	updateStatus{},
+}
+
 // FoundationDBClusterReconciler reconciles a FoundationDBCluster object
 type FoundationDBClusterReconciler struct {
 	client.Client
@@ -148,6 +181,12 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 		return ctrl.Result{}, err
 	}
 
+	err = cluster.Validate()
+	if err != nil {
+		r.Recorder.Event(cluster, corev1.EventTypeWarning, "ClusterSpec not valid", err.Error())
+		return ctrl.Result{}, fmt.Errorf("ClusterSpec is not valid: %w", err)
+	}
+
 	adminClient, err := r.getAdminClient(clusterLog, cluster)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -155,19 +194,23 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 	defer func() {
 		_ = adminClient.Close()
 	}()
-
-	err = cluster.Validate()
-	if err != nil {
-		r.Recorder.Event(cluster, corev1.EventTypeWarning, "ClusterSpec not valid", err.Error())
-		return ctrl.Result{}, fmt.Errorf("ClusterSpec is not valid: %w", err)
-	}
-
 	supportedVersion, err := adminClient.VersionSupported(cluster.Spec.Version)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 	if !supportedVersion {
 		return ctrl.Result{}, fmt.Errorf("version %s is not supported", cluster.Spec.Version)
+	}
+
+	// When using DNS entries in the cluster file, we want to make sure to create pods if required before doing any
+	// interaction with the FDB cluster. If none of the coordinator pods is running, this will cause a crash in the FDB
+	// go bindings (or rather the C client). To prevent those case we run the addPods reconciler before interacting with
+	// the FoundationDB cluster.
+	if cluster.UseDNSInClusterFile() {
+		req := runClusterSubReconciler(ctx, clusterLog, addPodsReconciler, r, cluster, nil)
+		if req != nil && !req.delayedRequeue {
+			return processRequeue(req, addPodsReconciler, cluster, r.Recorder, clusterLog)
+		}
 	}
 
 	var status *fdbv1beta2.FoundationDBStatus
@@ -177,35 +220,6 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 		if err != nil {
 			clusterLog.Info("could not fetch machine-readable status and therefore didn't cache it")
 		}
-	}
-
-	subReconcilers := []clusterSubReconciler{
-		updateStatus{},
-		updateLockConfiguration{},
-		updateConfigMap{},
-		checkClientCompatibility{},
-		deletePodsForBuggification{},
-		replaceMisconfiguredProcessGroups{},
-		replaceFailedProcessGroups{},
-		addProcessGroups{},
-		addServices{},
-		addPVCs{},
-		addPods{},
-		generateInitialClusterFile{},
-		removeIncompatibleProcesses{},
-		updateSidecarVersions{},
-		updatePodConfig{},
-		updateMetadata{},
-		updateDatabaseConfiguration{},
-		chooseRemovals{},
-		excludeProcesses{},
-		changeCoordinators{},
-		bounceProcesses{},
-		maintenanceModeChecker{},
-		updatePods{},
-		removeProcessGroups{},
-		removeServices{},
-		updateStatus{},
 	}
 
 	originalGeneration := cluster.ObjectMeta.Generation

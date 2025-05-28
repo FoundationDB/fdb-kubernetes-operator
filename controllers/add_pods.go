@@ -114,7 +114,7 @@ func (a addPods) reconcile(ctx context.Context, r *FoundationDBClusterReconciler
 				return &requeue{curError: err, delayedRequeue: true}
 			}
 
-			return &requeue{curError: err}
+			return &requeue{curError: err, delayedRequeue: true}
 		}
 	}
 

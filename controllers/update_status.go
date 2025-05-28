@@ -166,7 +166,8 @@ func (c updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterRecon
 
 	if clusterStatus.ConnectionString == "" {
 		connectionString, ok := existingConfigMap.Data[fdbv1beta2.ClusterFileKey]
-		if ok {
+		// Only update the connection string if the connection string value is not empty.
+		if ok && connectionString != "" {
 			clusterStatus.ConnectionString = connectionString
 		} else {
 			clusterStatus.ConnectionString = cluster.Spec.SeedConnectionString
