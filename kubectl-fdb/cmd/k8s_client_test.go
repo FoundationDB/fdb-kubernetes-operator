@@ -211,14 +211,21 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 	When("getting the process groups IDs from Pods", func() {
 		When("the cluster doesn't have a prefix", func() {
 			BeforeEach(func() {
+				previousPrefix := cluster.Spec.ProcessGroupIDPrefix + "-"
 				cluster.Spec.ProcessGroupIDPrefix = ""
+
+				// Remove the process group prefix from the ID.
+				for idx, processGroup := range cluster.Status.ProcessGroups {
+					newID := strings.TrimPrefix(string(processGroup.ProcessGroupID), previousPrefix)
+					cluster.Status.ProcessGroups[idx].ProcessGroupID = fdbv1beta2.ProcessGroupID(newID)
+				}
 			})
+
 			DescribeTable("should get all process groups IDs",
 				func(podNames []string, expected []fdbv1beta2.ProcessGroupID) {
-					instances, err := getProcessGroupIDsFromPodName(cluster, podNames)
+					instances, err := getProcessGroupIDsFromPodName(GinkgoWriter, cluster, podNames)
 					Expect(err).NotTo(HaveOccurred())
-					Expect(instances).To(ContainElements(expected))
-					Expect(len(instances)).To(BeNumerically("==", len(expected)))
+					Expect(instances).To(ConsistOf(expected))
 				},
 				Entry("Filter one instance",
 					[]string{"test-storage-1"},
@@ -243,9 +250,19 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 						Namespace: namespace,
 					},
 					Spec: fdbv1beta2.FoundationDBClusterSpec{
-						ProcessGroupIDPrefix: "banana",
+						ProcessGroupIDPrefix: "test",
 						ProcessCounts: fdbv1beta2.ProcessCounts{
 							Storage: 1,
+						},
+					},
+					Status: fdbv1beta2.FoundationDBClusterStatus{
+						ProcessGroups: []*fdbv1beta2.ProcessGroupStatus{
+							{
+								ProcessGroupID: "test-storage-1",
+							},
+							{
+								ProcessGroupID: "test-storage-2",
+							},
 						},
 					},
 				}
@@ -253,18 +270,18 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 
 			DescribeTable("should get all process groups IDs",
 				func(podNames []string, expected []fdbv1beta2.ProcessGroupID) {
-					instances, err := getProcessGroupIDsFromPodName(cluster, podNames)
+					instances, err := getProcessGroupIDsFromPodName(GinkgoWriter, cluster, podNames)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(instances).To(ContainElements(expected))
 					Expect(len(instances)).To(BeNumerically("==", len(expected)))
 				},
 				Entry("Filter one instance",
 					[]string{"test-storage-1"},
-					[]fdbv1beta2.ProcessGroupID{"banana-storage-1"},
+					[]fdbv1beta2.ProcessGroupID{"test-storage-1"},
 				),
 				Entry("Filter two instances",
 					[]string{"test-storage-1", "test-storage-2"},
-					[]fdbv1beta2.ProcessGroupID{"banana-storage-1", "banana-storage-2"},
+					[]fdbv1beta2.ProcessGroupID{"test-storage-1", "test-storage-2"},
 				),
 				Entry("Filter no instance",
 					[]string{""},
@@ -350,17 +367,6 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 					wantErrContains: "found no processGroups meeting the selection criteria",
 				},
 			),
-			Entry("does not find processGroups from clusterLabel when useProcessGroupID is set",
-				testCase{
-					opts: processGroupSelectionOptions{
-						ids:               []string{fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage)},
-						clusterLabel:      fdbv1beta2.FDBClusterLabel,
-						useProcessGroupID: true,
-					},
-					wantResult:      nil,
-					wantErrContains: "selection of process groups by cluster-label (cross-cluster selection) is incompatible with use-process-group-id, process-class",
-				},
-			),
 			Entry("gets processGroups from podNames and clusterLabel",
 				testCase{
 					opts: processGroupSelectionOptions{
@@ -401,21 +407,6 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 					opts: processGroupSelectionOptions{
 						ids:         []string{fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage), fmt.Sprintf("%s-%s-2", clusterName, fdbv1beta2.ProcessClassStorage)},
 						clusterName: clusterName,
-					},
-					wantResult: map[string][]fdbv1beta2.ProcessGroupID{
-						clusterName: {
-							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage)),
-							fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-2", clusterName, fdbv1beta2.ProcessClassStorage)),
-						},
-					},
-				},
-			),
-			Entry("gets processGroups from processGroupIDs (with useProcessGroupID)",
-				testCase{
-					opts: processGroupSelectionOptions{
-						clusterName:       clusterName,
-						useProcessGroupID: true,
-						ids:               []string{fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage), fmt.Sprintf("%s-%s-2", clusterName, fdbv1beta2.ProcessClassStorage)},
 					},
 					wantResult: map[string][]fdbv1beta2.ProcessGroupID{
 						clusterName: {
@@ -637,17 +628,6 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 					wantErrContains: "found no pods meeting the selection criteria",
 				},
 			),
-			Entry("does not find pods from clusterLabel when useProcessGroupID is set",
-				testCase{
-					opts: processGroupSelectionOptions{
-						ids:               []string{fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage)},
-						clusterLabel:      fdbv1beta2.FDBClusterLabel,
-						useProcessGroupID: true,
-					},
-					wantResult:      nil,
-					wantErrContains: "useProcessGroupID is not supported",
-				},
-			),
 			Entry("gets pods from podNames and clusterLabel",
 				testCase{
 					opts: processGroupSelectionOptions{
@@ -695,16 +675,6 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 							fmt.Sprintf("%s-%s-2", clusterName, fdbv1beta2.ProcessClassStorage),
 						},
 					},
-				},
-			),
-			Entry("errors when useProcessGroupID is set",
-				testCase{
-					opts: processGroupSelectionOptions{
-						clusterName:       clusterName,
-						useProcessGroupID: true,
-						ids:               []string{fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage), fmt.Sprintf("%s-%s-2", clusterName, fdbv1beta2.ProcessClassStorage)},
-					},
-					wantErrContains: "useProcessGroupID is not supported",
 				},
 			),
 			Entry("gets pods matching processClassStorage",
