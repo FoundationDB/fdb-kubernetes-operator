@@ -28,6 +28,7 @@ STORAGE_ENGINE?=
 DUMP_OPERATOR_STATE?=true
 SEAWEEDFS_IMAGE?=chrislusf/seaweedfs:3.73
 NODE_SELECTOR?=
+DATA_LOADER_IMAGE?=
 # Defines the cloud provider used for the underlying Kubernetes cluster. Currently only kind is support, other cloud providers
 # should still work but this test framework has no special cases for those.
 CLOUD_PROVIDER?=
@@ -177,6 +178,7 @@ endif
 	  --fdb-image="$(FDB_IMAGE)" \
 	  --sidecar-image="$(SIDECAR_IMAGE)" \
 	  --operator-image="$(OPERATOR_IMAGE)" \
+	  --data-loader-image=$(DATA_LOADER_IMAGE) \
 	  --registry="$(REGISTRY)" \
 	  --fdb-version="$(FDB_VERSION)" \
 	  --cleanup=$(CLEANUP) \
