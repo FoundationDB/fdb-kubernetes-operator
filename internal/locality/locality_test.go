@@ -1171,6 +1171,7 @@ var _ = Describe("Localities", func() {
 			}
 
 			status = generateDefaultStatus(false)
+			cluster.Status.Generations.HasExtraListeners = -1
 		})
 
 		JustBeforeEach(func() {
@@ -1243,7 +1244,21 @@ var _ = Describe("Localities", func() {
 			})
 		})
 
-		When("the coordinators are listening on TLS", func() {
+		When("the coordinators are listening on TLS, and this generation is noted HasExtraListeners", func() {
+			BeforeEach(func() {
+				cluster.Spec.MainContainer.EnableTLS = true
+				cluster.Status.Generations.HasExtraListeners = cluster.Generation
+			})
+
+			It("should report the coordinators as valid", func() {
+				coordinatorsValid, addressesValid, err := CheckCoordinatorValidity(logr.Discard(), cluster, status, coordinatorStatus)
+				Expect(coordinatorsValid).To(BeTrue())
+				Expect(addressesValid).To(BeTrue())
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+
+		When("the coordinators are listening on TLS, HasExtraListeners not set", func() {
 			BeforeEach(func() {
 				cluster.Spec.MainContainer.EnableTLS = true
 			})
