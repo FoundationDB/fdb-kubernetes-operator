@@ -24,6 +24,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -54,9 +56,11 @@ type MockClient struct {
 
 	// createHooks allow to inject custom logic to the creation of objects. See serviceCreateHook and podCreateHook as
 	// examples.
+	// TODO (johscheuer): Evaluate https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.21.0/pkg/client/fake#ClientBuilder.WithInterceptorFuncs
 	createHooks []func(ctx context.Context, client *MockClient, object ctrlClient.Object) error
 
 	// updateHooks allow to inject custom logic to the update of objects.
+	// TODO (johscheuer): Evaluate https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.21.0/pkg/client/fake#ClientBuilder.WithInterceptorFuncs
 	updateHooks []func(ctx context.Context, client *MockClient, object ctrlClient.Object) error
 
 	// createIndexes defines if the MockClient should create a predefined set of Indexer.
@@ -150,6 +154,11 @@ func (client *MockClient) setNewFakeClient() {
 	}
 
 	builder.WithScheme(client.scheme)
+	// See: https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.21.0/pkg/client/fake#ClientBuilder.WithStatusSubresource
+	// otherwise the status update/patch calls will fail.
+	builder.WithStatusSubresource(&fdbv1beta2.FoundationDBCluster{})
+	builder.WithStatusSubresource(&fdbv1beta2.FoundationDBBackup{})
+	builder.WithStatusSubresource(&fdbv1beta2.FoundationDBRestore{})
 	client.fakeClient = builder.Build()
 }
 
@@ -278,13 +287,11 @@ func (client *MockClient) DeleteAllOf(ctx context.Context, object ctrlClient.Obj
 	return client.fakeClient.DeleteAllOf(ctx, object, options...)
 }
 
-// MockStuckTermination sets a flag determining whether an object should get stuck in terminating when it is deleted.
+// MockStuckTermination sets a flag determining whether an object should get stuck in terminating when it is deleted by setting a finalizer.
 func (client *MockClient) MockStuckTermination(object ctrlClient.Object, terminating bool) error {
 	if terminating {
-		object.SetDeletionTimestamp(&metav1.Time{Time: time.Now()})
 		object.SetFinalizers(append(object.GetFinalizers(), "foundationdb.org/testing"))
 	} else {
-		object.SetDeletionTimestamp(nil)
 		object.SetFinalizers(nil)
 	}
 
@@ -392,6 +399,11 @@ func (client *MockClient) SetPodIntoFailed(ctx context.Context, object ctrlClien
 
 	pod.Status.Phase = corev1.PodFailed
 	pod.Status.Reason = reason
+	err = client.Status().Update(ctx, pod)
+	if err != nil {
+		return err
+	}
+
 	pod.CreationTimestamp = metav1.Time{Time: time.Now().Add(-30 * time.Minute)}
 
 	return client.Update(ctx, pod)
@@ -402,7 +414,7 @@ func (client *MockClient) RemovePodIP(pod *corev1.Pod) error {
 	pod.Status.PodIP = ""
 	pod.Status.PodIPs = nil
 
-	return client.Update(context.TODO(), pod)
+	return client.Status().Update(context.TODO(), pod)
 }
 
 // generatePodIPv4 generates a mock IPv4 address for Pods
@@ -423,4 +435,14 @@ func (client *MockClient) generatePodIPv6() string {
 // Watch implements the watch methods of the controller runtime client.
 func (client *MockClient) Watch(ctx context.Context, obj ctrlClient.ObjectList, opts ...ctrlClient.ListOption) (watch.Interface, error) {
 	return client.fakeClient.Watch(ctx, obj, opts...)
+}
+
+// GroupVersionKindFor returns the GroupVersionKind for the given object.
+func (client *MockClient) GroupVersionKindFor(obj runtime.Object) (schema.GroupVersionKind, error) {
+	return client.fakeClient.GroupVersionKindFor(obj)
+}
+
+// IsObjectNamespaced returns true if the GroupVersionKind of the object is namespaced.
+func (client *MockClient) IsObjectNamespaced(obj runtime.Object) (bool, error) {
+	return client.fakeClient.IsObjectNamespaced(obj)
 }

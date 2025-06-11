@@ -34,8 +34,8 @@ import (
 	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
+	chaosmesh "github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/chaos-mesh/api/v1alpha1"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/fixtures"
-	chaosmesh "github.com/chaos-mesh/chaos-mesh/api/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )

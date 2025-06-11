@@ -246,7 +246,7 @@ func getPodsToUpdate(ctx context.Context, logger logr.Logger, reconciler *Founda
 			for _, process := range processes {
 				// If the uptime is higher than the time since the pod was created, that means the reported process
 				// has some stale data. This could happen in cases where the status is cached in the operator.
-				if process.UptimeSeconds > timeSincePodCreation.Seconds() && !reconciler.InSimulation {
+				if process.UptimeSeconds > timeSincePodCreation.Seconds() && !reconciler.SimulationOptions.SimulateTime {
 					return nil, fmt.Errorf("%s was recently created but the process uptime reports old uptime, time since pod was created: %f.2 seconds and process up time: %f.2", pod.Name, timeSincePodCreation.Seconds(), process.UptimeSeconds)
 				}
 			}
@@ -305,7 +305,7 @@ func getPodsToUpdate(ctx context.Context, logger logr.Logger, reconciler *Founda
 		}
 
 		zone := substitutions[fdbv1beta2.EnvNameZoneID]
-		if reconciler.InSimulation {
+		if reconciler.SimulationOptions.SimulateZones {
 			zone = "simulation"
 		}
 

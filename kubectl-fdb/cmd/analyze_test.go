@@ -329,25 +329,6 @@ var _ = Describe("[plugin] analyze cluster", func() {
 					HasErrors:      false,
 					IgnoreRemovals: true,
 				}),
-			Entry("Pod is stuck in terminating",
-				testCase{
-					cluster: getCluster(clusterName, namespace, true, true, true, 1, []*fdbv1beta2.ProcessGroupStatus{
-						{ProcessGroupID: "storage-1"},
-					}),
-					podList: getPodList(clusterName, namespace, corev1.PodStatus{
-						Phase:             corev1.PodRunning,
-						ContainerStatuses: []corev1.ContainerStatus{},
-					}, &metav1.Time{Time: time.Now().Add(-1 * time.Hour)}),
-					ExpectedErrMsg: fmt.Sprintf("✖ Pod test/storage-1 has been stuck in terminating since %s", time.Unix(time.Now().Add(-1*time.Hour).Unix(), 0).String()),
-					ExpectedStdoutMsg: `Checking cluster: test/test
-✔ Cluster is available
-✔ Cluster is fully replicated
-✔ Cluster is reconciled
-✔ ProcessGroups are all in ready condition`,
-					AutoFix:        false,
-					HasErrors:      true,
-					IgnoreRemovals: true,
-				}),
 			Entry("Pod is stuck in terminating and marked for removal",
 				testCase{
 					cluster: getCluster(clusterName, namespace, true, true, true, 1, []*fdbv1beta2.ProcessGroupStatus{

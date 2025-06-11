@@ -154,6 +154,7 @@ var _ = Describe("add_process_groups", func() {
 	Context("with an increase to the desired storage count", func() {
 		BeforeEach(func() {
 			cluster.Spec.ProcessCounts.Storage += 2
+			Expect(k8sClient.Update(context.Background(), cluster)).To(Succeed())
 		})
 
 		It("should not requeue", func() {

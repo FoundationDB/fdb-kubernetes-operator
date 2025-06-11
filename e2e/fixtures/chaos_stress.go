@@ -21,7 +21,7 @@
 package fixtures
 
 import (
-	chaosmesh "github.com/chaos-mesh/chaos-mesh/api/v1alpha1"
+	chaosmesh "github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/chaos-mesh/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 )

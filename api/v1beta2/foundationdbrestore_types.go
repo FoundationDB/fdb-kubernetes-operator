@@ -23,6 +23,7 @@ import (
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:shortName=fdbrestore
 // +kubebuilder:subresource:status
+// +kubebuilder:metadata:annotations="foundationdb.org/release=v2.6.0"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:printcolumn:name="State",type=string,JSONPath=`.status.state`
 // +kubebuilder:storageversion
@@ -111,7 +112,7 @@ type FoundationDBKeyRange struct {
 // This will fill in a default value if the backup name in the spec is empty.
 func (restore *FoundationDBRestore) BackupName() string {
 	if restore.Spec.BlobStoreConfiguration == nil || restore.Spec.BlobStoreConfiguration.BackupName == "" {
-		return restore.ObjectMeta.Name
+		return restore.Name
 	}
 
 	return restore.Spec.BlobStoreConfiguration.BackupName

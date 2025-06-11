@@ -61,6 +61,7 @@ func CreateDefaultCluster() *fdbv1beta2.FoundationDBCluster {
 			MinimumUptimeSecondsForBounce: 1,
 			// TODO (johscheuer): Change this to the default one and adjust all test cases.
 			ImageType: &imageType,
+			Processes: map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{},
 		},
 		Status: fdbv1beta2.FoundationDBClusterStatus{
 			RequiredAddresses: fdbv1beta2.RequiredAddressSet{

@@ -69,23 +69,15 @@ func setupKubeClient(ctx context.Context, config *rest.Config, namespace string)
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(fdbv1beta2.AddToScheme(scheme))
 
-	// Don't printout any log messages from client-go.
+	// Don't print out any log messages from client-go.
 	klog.SetLogger(logr.Discard())
 
-	internalClient, err := client.NewWithWatch(config, client.Options{
+	internalCache, err := cache.New(config, cache.Options{
 		Scheme: scheme,
-		Opts: client.WarningHandlerOptions{
-			SuppressWarnings: true,
+		// Mapper: internalClient.RESTMapper(),
+		DefaultNamespaces: map[string]cache.Config{
+			namespace: {},
 		},
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	cacheBuilder := cache.MultiNamespacedCacheBuilder([]string{namespace})
-	internalCache, err := cacheBuilder(config, cache.Options{
-		Scheme: scheme,
-		Mapper: internalClient.RESTMapper(),
 	})
 	if err != nil {
 		return nil, err
@@ -118,11 +110,12 @@ func setupKubeClient(ctx context.Context, config *rest.Config, namespace string)
 
 	internalCache.WaitForCacheSync(ctx)
 
-	return client.NewDelegatingClient(client.NewDelegatingClientInput{
-		CacheReader:       internalCache,
-		Client:            internalClient,
-		UncachedObjects:   nil,
-		CacheUnstructured: false,
+	return client.NewWithWatch(config, client.Options{
+		Scheme: scheme,
+		Cache: &client.CacheOptions{
+			Reader:       internalCache,
+			Unstructured: false,
+		},
 	})
 }
 

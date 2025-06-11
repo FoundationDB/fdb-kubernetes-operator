@@ -21,36 +21,36 @@
 package fixtures
 
 import (
-	chaosmeshv1alpha1 "github.com/chaos-mesh/chaos-mesh/api/v1alpha1"
+	chaosmesh "github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/chaos-mesh/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 )
 
 // InjectHTTPClientChaosWrongResultFdbMonitorConf  this method can be used to simulate a bad response from the operator to the sidecar. Currently this method returns as body the value "wrong"
 // when the operator does a request against the check_hash/fdbmonitor.conf endpoint, e.g. during upgrades.
-func (factory *Factory) InjectHTTPClientChaosWrongResultFdbMonitorConf(selector chaosmeshv1alpha1.PodSelectorSpec, namespace string) *ChaosMeshExperiment {
-	return factory.CreateExperiment(&chaosmeshv1alpha1.HTTPChaos{
+func (factory *Factory) InjectHTTPClientChaosWrongResultFdbMonitorConf(selector chaosmesh.PodSelectorSpec, namespace string) *ChaosMeshExperiment {
+	return factory.CreateExperiment(&chaosmesh.HTTPChaos{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      factory.RandStringRunes(32),
 			Namespace: factory.GetChaosNamespace(),
 			Labels:    factory.GetDefaultLabels(),
 		},
-		Spec: chaosmeshv1alpha1.HTTPChaosSpec{
-			Target:   chaosmeshv1alpha1.PodHttpResponse,
+		Spec: chaosmesh.HTTPChaosSpec{
+			Target:   chaosmesh.PodHttpResponse,
 			Duration: pointer.String(ChaosDurationForever),
-			PodSelector: chaosmeshv1alpha1.PodSelector{
+			PodSelector: chaosmesh.PodSelector{
 				Selector: selector,
-				Mode:     chaosmeshv1alpha1.AllMode,
+				Mode:     chaosmesh.AllMode,
 			},
 			Port:   8080,
 			Method: pointer.String("GET"),
 			Path:   pointer.String("check_hash/fdbmonitor.conf"),
-			PodHttpChaosActions: chaosmeshv1alpha1.PodHttpChaosActions{
-				Replace: &chaosmeshv1alpha1.PodHttpChaosReplaceActions{
+			PodHttpChaosActions: chaosmesh.PodHttpChaosActions{
+				Replace: &chaosmesh.PodHttpChaosReplaceActions{
 					Body: []byte("wrong"),
 				},
 			},
-			TLS: &chaosmeshv1alpha1.PodHttpChaosTLS{
+			TLS: &chaosmesh.PodHttpChaosTLS{
 				SecretName:      factory.GetSecretName(),
 				SecretNamespace: namespace,
 				CertName:        "tls.crt",

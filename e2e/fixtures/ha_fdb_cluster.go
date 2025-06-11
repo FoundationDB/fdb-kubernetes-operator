@@ -25,7 +25,7 @@ import (
 	"strings"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
-	"github.com/chaos-mesh/chaos-mesh/api/v1alpha1"
+	chaosmesh "github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/chaos-mesh/api/v1alpha1"
 	"github.com/onsi/gomega"
 	"golang.org/x/sync/errgroup"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -158,7 +158,7 @@ func (haFDBCluster *HaFdbCluster) getLabelSelector() []metav1.LabelSelectorRequi
 }
 
 // GetNamespaceSelector returns the chaos mesh selector for this FDB HA cluster and all associated Pods.
-func (haFDBCluster *HaFdbCluster) GetNamespaceSelector() v1alpha1.PodSelectorSpec {
+func (haFDBCluster *HaFdbCluster) GetNamespaceSelector() chaosmesh.PodSelectorSpec {
 	return chaosNamespaceLabelRequirement(
 		haFDBCluster.GetNamespaces(),
 		haFDBCluster.getLabelSelector(),

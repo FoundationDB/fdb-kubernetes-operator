@@ -641,7 +641,7 @@ func (configuration DatabaseConfiguration) getRegionPriorities() map[string]int 
 // commit_proxies are greater than 0 (explicitly set) and Proxies is set
 // to 0
 func (configuration DatabaseConfiguration) AreSeparatedProxiesConfigured() bool {
-	return configuration.RoleCounts.GrvProxies > 0 || configuration.RoleCounts.CommitProxies > 0
+	return configuration.GrvProxies > 0 || configuration.CommitProxies > 0
 }
 
 // GetProxiesString returns a string that contains the correct fdbcli

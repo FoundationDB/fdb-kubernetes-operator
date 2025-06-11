@@ -103,17 +103,8 @@ var _ = Describe("cluster_controller", func() {
 		var shouldCompleteReconciliation bool
 
 		BeforeEach(func() {
-			err = k8sClient.Create(context.TODO(), cluster)
-			Expect(err).NotTo(HaveOccurred())
-
-			result, err := reconcileCluster(cluster)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(result.Requeue).To(BeFalse())
-
-			generation, err := reloadCluster(cluster)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(generation).To(Equal(int64(1)))
-
+			Expect(setupClusterForTest(cluster)).To(Succeed())
+			Expect(cluster.Generation).To(Equal(int64(1)))
 			originalVersion = cluster.ObjectMeta.Generation
 
 			originalPods = &corev1.PodList{}
@@ -129,7 +120,6 @@ var _ = Describe("cluster_controller", func() {
 
 		JustBeforeEach(func() {
 			result, err := reconcileCluster(cluster)
-
 			if err != nil && !shouldCompleteReconciliation {
 				return
 			}
@@ -1101,9 +1091,9 @@ var _ = Describe("cluster_controller", func() {
 			})
 
 			It("should set the annotations on the pod", func() {
+				Expect(internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})).To(Succeed())
 				pods := &corev1.PodList{}
 				Expect(k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)).NotTo(HaveOccurred())
-
 				for _, pod := range pods.Items {
 					hash, err := internal.GetPodSpecHash(cluster, &fdbv1beta2.ProcessGroupStatus{
 						ProcessGroupID: fdbv1beta2.ProcessGroupID(pod.Labels[fdbv1beta2.FDBProcessGroupIDLabel]),
@@ -1244,10 +1234,9 @@ var _ = Describe("cluster_controller", func() {
 				})
 
 				It("should not update the annotations on other resources", func() {
+					Expect(internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})).To(Succeed())
 					pods := &corev1.PodList{}
-
-					err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
-					Expect(err).NotTo(HaveOccurred())
+					Expect(k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)).To(Succeed())
 					for _, item := range pods.Items {
 						hash, err := internal.GetPodSpecHash(cluster, &fdbv1beta2.ProcessGroupStatus{
 							ProcessGroupID: fdbv1beta2.ProcessGroupID(item.Labels[fdbv1beta2.FDBProcessGroupIDLabel]),
@@ -1280,7 +1269,6 @@ var _ = Describe("cluster_controller", func() {
 
 		Context("with a change to config map labels", func() {
 			BeforeEach(func() {
-
 				cluster.Spec.ConfigMap = &corev1.ConfigMap{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{
@@ -1288,8 +1276,7 @@ var _ = Describe("cluster_controller", func() {
 						},
 					},
 				}
-				err := k8sClient.Update(context.TODO(), cluster)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(k8sClient.Update(context.TODO(), cluster)).To(Succeed())
 			})
 
 			It("should update the labels on the config map", func() {
@@ -2306,7 +2293,7 @@ var _ = Describe("cluster_controller", func() {
 				BeforeEach(func() {
 					cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{fdbv1beta2.ProcessClassGeneral: {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
 						Spec: corev1.PersistentVolumeClaimSpec{
-							Resources: corev1.ResourceRequirements{
+							Resources: corev1.VolumeResourceRequirements{
 								Requests: corev1.ResourceList{
 									corev1.ResourceStorage: resource.MustParse("32Gi"),
 								},
@@ -2733,23 +2720,26 @@ var _ = Describe("cluster_controller", func() {
 				err := k8sClient.Delete(context.Background(), unrelatedNode)
 				Expect(err).NotTo(HaveOccurred())
 			})
+
 			When("watching all namespaces", func() {
 				It("should trigger reconciliation for cluster nodes", func() {
 					Expect(clusterReconciler.Namespace).To(BeZero())
 					Expect(clusterReconciler.ClusterLabelKeyForNodeTrigger).To(Equal("fdb-cluster-name"))
 
 					for _, node := range originalNodeList.Items {
-						requests := clusterReconciler.findFoundationDBClusterForNode(&node)
+						requests := clusterReconciler.findFoundationDBClusterForNode(context.Background(), &node)
 						Expect(requests).To(HaveLen(1))
 					}
 				})
+
 				It("should not trigger reconciliation for unrelated nodes", func() {
 					Expect(clusterReconciler.Namespace).To(BeZero())
-					request := clusterReconciler.findFoundationDBClusterForNode(unrelatedNode)
+					request := clusterReconciler.findFoundationDBClusterForNode(context.Background(), unrelatedNode)
 					Expect(request).To(BeEmpty())
 				})
 
 			})
+
 			When("watching specific namespaces", func() {
 				When("the cluster reconciler namespace matches", func() {
 					BeforeEach(func() {
@@ -2760,12 +2750,12 @@ var _ = Describe("cluster_controller", func() {
 						Expect(clusterReconciler.ClusterLabelKeyForNodeTrigger).To(Equal("fdb-cluster-name"))
 
 						for _, node := range originalNodeList.Items {
-							requests := clusterReconciler.findFoundationDBClusterForNode(&node)
+							requests := clusterReconciler.findFoundationDBClusterForNode(context.Background(), &node)
 							Expect(requests).To(HaveLen(1))
 						}
 					})
 					It("should not trigger reconciliation for unrelated nodes", func() {
-						request := clusterReconciler.findFoundationDBClusterForNode(unrelatedNode)
+						request := clusterReconciler.findFoundationDBClusterForNode(context.Background(), unrelatedNode)
 						Expect(request).To(BeEmpty())
 					})
 				})
@@ -2778,12 +2768,12 @@ var _ = Describe("cluster_controller", func() {
 						Expect(clusterReconciler.ClusterLabelKeyForNodeTrigger).To(Equal("fdb-cluster-name"))
 
 						for _, node := range originalNodeList.Items {
-							requests := clusterReconciler.findFoundationDBClusterForNode(&node)
+							requests := clusterReconciler.findFoundationDBClusterForNode(context.Background(), &node)
 							Expect(requests).To(BeEmpty())
 						}
 					})
 					It("should not trigger reconciliation for unrelated nodes", func() {
-						request := clusterReconciler.findFoundationDBClusterForNode(unrelatedNode)
+						request := clusterReconciler.findFoundationDBClusterForNode(context.Background(), unrelatedNode)
 						Expect(request).To(BeEmpty())
 					})
 				})

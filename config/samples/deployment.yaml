@@ -56,45 +56,7 @@ rules:
   - apps.foundationdb.org
   resources:
   - foundationdbbackups
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - apps.foundationdb.org
-  resources:
-  - foundationdbbackups/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - apps.foundationdb.org
-  resources:
   - foundationdbclusters
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - apps.foundationdb.org
-  resources:
-  - foundationdbclusters/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - apps.foundationdb.org
-  resources:
   - foundationdbrestores
   verbs:
   - create
@@ -107,6 +69,8 @@ rules:
 - apiGroups:
   - apps.foundationdb.org
   resources:
+  - foundationdbbackups/status
+  - foundationdbclusters/status
   - foundationdbrestores/status
   verbs:
   - get

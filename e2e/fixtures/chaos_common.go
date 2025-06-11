@@ -31,7 +31,7 @@ import (
 
 	"github.com/onsi/gomega"
 
-	chaosmeshv1alpha1 "github.com/chaos-mesh/chaos-mesh/api/v1alpha1"
+	chaosmesh "github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/chaos-mesh/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -113,7 +113,7 @@ func (factory *Factory) deleteChaosMeshExperiment(experiment *ChaosMeshExperimen
 	if annotations == nil {
 		annotations = map[string]string{}
 	}
-	annotations[chaosmeshv1alpha1.PauseAnnotationKey] = strconv.FormatBool(
+	annotations[chaosmesh.PauseAnnotationKey] = strconv.FormatBool(
 		true,
 	) // verbose compared to "true", but fixes annoying linter warning
 	experiment.chaosObject.SetAnnotations(annotations)
@@ -201,21 +201,21 @@ func (factory *Factory) waitUntilExperimentRunning(
 
 // PodSelector returns the PodSelectorSpec for the provided Pod.
 // TODO(j-scheuermann): This should be merged with the method below (PodsSelector).
-func PodSelector(pod *corev1.Pod) chaosmeshv1alpha1.PodSelectorSpec {
+func PodSelector(pod *corev1.Pod) chaosmesh.PodSelectorSpec {
 	pods := make(map[string][]string)
 	pods[pod.Namespace] = []string{pod.Name}
-	return chaosmeshv1alpha1.PodSelectorSpec{
+	return chaosmesh.PodSelectorSpec{
 		Pods: pods,
 	}
 }
 
 // PodsSelector returns the PodSelectorSpec for the provided Pods.
-func PodsSelector(v1pods []corev1.Pod) chaosmeshv1alpha1.PodSelectorSpec {
+func PodsSelector(v1pods []corev1.Pod) chaosmesh.PodSelectorSpec {
 	pods := make(map[string][]string, len(v1pods))
 	for _, pod := range v1pods {
 		pods[pod.Namespace] = append(pods[pod.Namespace], pod.Name)
 	}
-	return chaosmeshv1alpha1.PodSelectorSpec{
+	return chaosmesh.PodSelectorSpec{
 		Pods: pods,
 	}
 }
@@ -223,9 +223,9 @@ func PodsSelector(v1pods []corev1.Pod) chaosmeshv1alpha1.PodSelectorSpec {
 func chaosNamespaceLabelSelector(
 	namespaces []string,
 	labelSelector map[string]string,
-) chaosmeshv1alpha1.PodSelectorSpec {
-	return chaosmeshv1alpha1.PodSelectorSpec{
-		GenericSelectorSpec: chaosmeshv1alpha1.GenericSelectorSpec{
+) chaosmesh.PodSelectorSpec {
+	return chaosmesh.PodSelectorSpec{
+		GenericSelectorSpec: chaosmesh.GenericSelectorSpec{
 			Namespaces:     namespaces,
 			LabelSelectors: labelSelector,
 		},
@@ -234,17 +234,17 @@ func chaosNamespaceLabelSelector(
 
 func chaosNamespaceLabelRequirement(
 	namespaces []string,
-	labelSelectorRequirement chaosmeshv1alpha1.LabelSelectorRequirements,
-) chaosmeshv1alpha1.PodSelectorSpec {
-	return chaosmeshv1alpha1.PodSelectorSpec{
-		GenericSelectorSpec: chaosmeshv1alpha1.GenericSelectorSpec{
+	labelSelectorRequirement chaosmesh.LabelSelectorRequirements,
+) chaosmesh.PodSelectorSpec {
+	return chaosmesh.PodSelectorSpec{
+		GenericSelectorSpec: chaosmesh.GenericSelectorSpec{
 			Namespaces:          namespaces,
 			ExpressionSelectors: labelSelectorRequirement,
 		},
 	}
 }
 
-func conditionsAreTrue(status *chaosmeshv1alpha1.ChaosStatus, conditions []chaosmeshv1alpha1.ChaosCondition) bool {
+func conditionsAreTrue(status *chaosmesh.ChaosStatus, conditions []chaosmesh.ChaosCondition) bool {
 	var allInjected, allSelected bool
 
 	if status == nil {
@@ -253,11 +253,11 @@ func conditionsAreTrue(status *chaosmeshv1alpha1.ChaosStatus, conditions []chaos
 	}
 
 	for _, condition := range conditions {
-		if condition.Type == chaosmeshv1alpha1.ConditionAllInjected {
+		if condition.Type == chaosmesh.ConditionAllInjected {
 			allInjected = condition.Status == corev1.ConditionTrue
 		}
 
-		if condition.Type == chaosmeshv1alpha1.ConditionSelected {
+		if condition.Type == chaosmesh.ConditionSelected {
 			allSelected = condition.Status == corev1.ConditionTrue
 		}
 	}
@@ -281,28 +281,28 @@ func conditionsAreTrue(status *chaosmeshv1alpha1.ChaosStatus, conditions []chaos
 }
 
 func isRunning(obj runtime.Object) (bool, error) {
-	net, ok := obj.(*chaosmeshv1alpha1.NetworkChaos)
+	net, ok := obj.(*chaosmesh.NetworkChaos)
 	if ok {
 		return conditionsAreTrue(net.GetStatus(), net.GetStatus().Conditions), nil
 	}
-	io, ok := obj.(*chaosmeshv1alpha1.IOChaos)
+	io, ok := obj.(*chaosmesh.IOChaos)
 	if ok {
 		return conditionsAreTrue(io.GetStatus(), io.GetStatus().Conditions), nil
 	}
-	stress, ok := obj.(*chaosmeshv1alpha1.StressChaos)
+	stress, ok := obj.(*chaosmesh.StressChaos)
 	if ok {
 		return conditionsAreTrue(stress.GetStatus(), stress.GetStatus().Conditions), nil
 	}
-	podChaos, ok := obj.(*chaosmeshv1alpha1.PodChaos)
+	podChaos, ok := obj.(*chaosmesh.PodChaos)
 	if ok {
 		return conditionsAreTrue(podChaos.GetStatus(), podChaos.GetStatus().Conditions), nil
 	}
-	httpChaos, ok := obj.(*chaosmeshv1alpha1.HTTPChaos)
+	httpChaos, ok := obj.(*chaosmesh.HTTPChaos)
 	if ok {
 		return conditionsAreTrue(httpChaos.GetStatus(), httpChaos.GetStatus().Conditions), nil
 	}
 
-	_, ok = obj.(*chaosmeshv1alpha1.Schedule)
+	_, ok = obj.(*chaosmesh.Schedule)
 	if ok {
 		// We could also wait for the first schedule but depending on the provided cron we might wait a long time
 		// return !schedule.Status.LastScheduleTime.IsZero(), nil
@@ -316,7 +316,7 @@ func isRunning(obj runtime.Object) (bool, error) {
 }
 
 // GetOperatorSelector returns the operator Pod selector for chaos mesh.
-func GetOperatorSelector(namespace string) chaosmeshv1alpha1.PodSelectorSpec {
+func GetOperatorSelector(namespace string) chaosmesh.PodSelectorSpec {
 	return chaosNamespaceLabelSelector(
 		[]string{namespace},
 		map[string]string{"app": operatorDeploymentName},

@@ -1248,7 +1248,7 @@ var _ = Describe("exclude_processes", func() {
 							missingProcessGroup = fdbv1beta2.NewProcessGroupStatus(cluster.GetNextRandomProcessGroupID(fdbv1beta2.ProcessClassLog, processGroupIDs[fdbv1beta2.ProcessClassLog]), fdbv1beta2.ProcessClassLog, nil)
 							cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, missingProcessGroup)
 							// We have to set InSimulation here to false, otherwise the MissingProcess timestamp will be ignored.
-							clusterReconciler.InSimulation = false
+							clusterReconciler.SimulationOptions.SimulateTime = false
 						})
 
 						It("should not exclude the process", func() {

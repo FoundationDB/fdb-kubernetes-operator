@@ -25,22 +25,17 @@ import (
 	"fmt"
 	"time"
 
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient/mock"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbstatus"
 	"github.com/go-logr/logr"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	ctrlClient "sigs.k8s.io/controller-runtime/pkg/client"
-
-	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient/mock"
-
-	"k8s.io/utils/pointer"
-
-	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
+	ctrlClient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("remove_process_groups", func() {
@@ -50,15 +45,7 @@ var _ = Describe("remove_process_groups", func() {
 	Context("validating process removal", func() {
 		BeforeEach(func() {
 			cluster = internal.CreateDefaultCluster()
-			Expect(k8sClient.Create(context.TODO(), cluster)).NotTo(HaveOccurred())
-
-			result, err := reconcileCluster(cluster)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(result.Requeue).To(BeFalse())
-
-			generation, err := reloadCluster(cluster)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(generation).To(Equal(int64(1)))
+			Expect(setupClusterForTest(cluster)).To(Succeed())
 		})
 
 		JustBeforeEach(func() {
@@ -273,6 +260,7 @@ var _ = Describe("remove_process_groups", func() {
 						Expect(include).To(BeTrue())
 					})
 				})
+
 				When("storage have 2 replicas", func() {
 					BeforeEach(func() {
 						adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
@@ -319,16 +307,18 @@ var _ = Describe("remove_process_groups", func() {
 						}
 					})
 
-					It("should remove only one process group", func() {
-						Expect(result).To(BeNil())
-						Expect(initialCnt - len(cluster.Status.ProcessGroups)).To(BeNumerically("==", 1))
-						// Check if resources are deleted
-						include, errFirst := confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, removedProcessGroup)
-						// Check if resources are deleted
-						includeSecondary, errSecond := confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, secondRemovedProcessGroup)
-						// Make sure only one of the process groups was deleted.
-						Expect(errFirst).NotTo(Equal(errSecond))
-						Expect(include).NotTo(Equal(includeSecondary))
+					When("no process group is marked as terminating", func() {
+						It("should remove only one process group", func() {
+							Expect(result).To(BeNil())
+							Expect(initialCnt - len(cluster.Status.ProcessGroups)).To(BeNumerically("==", 1))
+							// Check if resources are deleted
+							include, errFirst := confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, removedProcessGroup)
+							// Check if resources are deleted
+							includeSecondary, errSecond := confirmRemoval(context.Background(), globalControllerLogger, clusterReconciler, cluster, secondRemovedProcessGroup)
+							// Make sure only one of the process groups was deleted.
+							Expect(errFirst).NotTo(Equal(errSecond))
+							Expect(include).NotTo(Equal(includeSecondary))
+						})
 					})
 
 					When("a process group is marked as terminating and all resources are removed it should be removed", func() {
@@ -373,8 +363,10 @@ var _ = Describe("remove_process_groups", func() {
 					When("a process group is marked as terminating and not fully removed", func() {
 						BeforeEach(func() {
 							secondRemovedProcessGroup.ProcessGroupConditions = append(secondRemovedProcessGroup.ProcessGroupConditions, fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.ResourcesTerminating))
+							Expect(k8sClient.Status().Update(context.Background(), cluster)).To(Succeed())
 							// Set the wait time to the default value
 							cluster.Spec.AutomationOptions.WaitBetweenRemovalsSeconds = pointer.Int(60)
+							Expect(k8sClient.Update(context.Background(), cluster)).To(Succeed())
 						})
 
 						It("should remove only one process group", func() {
@@ -397,10 +389,11 @@ var _ = Describe("remove_process_groups", func() {
 
 				When("the removal mode is PodUpdateModeAll", func() {
 					BeforeEach(func() {
+						// Make sure the status is persisted
+						Expect(k8sClient.Status().Update(context.TODO(), cluster)).To(Succeed())
 						// To allow multiple process groups to be removed we have to use the update mode all
 						cluster.Spec.AutomationOptions.RemovalMode = fdbv1beta2.PodUpdateModeAll
-						err := k8sClient.Update(context.TODO(), cluster)
-						Expect(err).NotTo(HaveOccurred())
+						Expect(k8sClient.Update(context.TODO(), cluster)).To(Succeed())
 
 						initialCnt = len(cluster.Status.ProcessGroups)
 						secondRemovedProcessGroup = cluster.Status.ProcessGroups[6]
@@ -489,10 +482,6 @@ var _ = Describe("remove_process_groups", func() {
 					})
 				})
 			})
-		})
-
-		AfterEach(func() {
-			k8sClient.Clear()
 		})
 	})
 

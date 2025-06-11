@@ -24,12 +24,10 @@ import (
 	"context"
 	"fmt"
 
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbstatus"
 	"github.com/go-logr/logr"
-
 	corev1 "k8s.io/api/core/v1"
-
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 )
 
 // addProcessGroups provides a reconciliation step for adding new pods to a cluster.

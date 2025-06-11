@@ -29,6 +29,7 @@ import (
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:shortName=fdbbackup
 // +kubebuilder:subresource:status
+// +kubebuilder:metadata:annotations="foundationdb.org/release=v2.6.0"
 // +kubebuilder:printcolumn:name="Generation",type="integer",JSONPath=".metadata.generation",description="Latest generation of the spec",priority=0
 // +kubebuilder:printcolumn:name="Reconciled",type="integer",JSONPath=".status.generations.reconciled",description="Last reconciled generation of the spec",priority=0
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
@@ -235,7 +236,7 @@ func (backup *FoundationDBBackup) Bucket() string {
 // This will fill in a default value if the backup name in the spec is empty.
 func (backup *FoundationDBBackup) BackupName() string {
 	if backup.Spec.BlobStoreConfiguration.BackupName == "" {
-		return backup.ObjectMeta.Name
+		return backup.Name
 	}
 
 	return backup.Spec.BlobStoreConfiguration.BackupName
@@ -287,7 +288,7 @@ func (backup *FoundationDBBackup) CheckReconciliation() (bool, error) {
 
 	desiredAgentCount := backup.GetDesiredAgentCount()
 	if backup.Status.AgentCount != desiredAgentCount || !backup.Status.DeploymentConfigured {
-		backup.Status.Generations.NeedsBackupAgentUpdate = backup.ObjectMeta.Generation
+		backup.Status.Generations.NeedsBackupAgentUpdate = backup.Generation
 		reconciled = false
 	}
 
@@ -295,28 +296,28 @@ func (backup *FoundationDBBackup) CheckReconciliation() (bool, error) {
 	isPaused := backup.Status.BackupDetails != nil && backup.Status.BackupDetails.Paused
 
 	if backup.ShouldRun() && !isRunning {
-		backup.Status.Generations.NeedsBackupStart = backup.ObjectMeta.Generation
+		backup.Status.Generations.NeedsBackupStart = backup.Generation
 		reconciled = false
 	}
 
 	if !backup.ShouldRun() && isRunning {
-		backup.Status.Generations.NeedsBackupStop = backup.ObjectMeta.Generation
+		backup.Status.Generations.NeedsBackupStop = backup.Generation
 		reconciled = false
 	}
 
 	if backup.ShouldBePaused() != isPaused {
-		backup.Status.Generations.NeedsBackupPauseToggle = backup.ObjectMeta.Generation
+		backup.Status.Generations.NeedsBackupPauseToggle = backup.Generation
 		reconciled = false
 	}
 
 	if isRunning && backup.SnapshotPeriodSeconds() != backup.Status.BackupDetails.SnapshotPeriodSeconds {
-		backup.Status.Generations.NeedsBackupReconfiguration = backup.ObjectMeta.Generation
+		backup.Status.Generations.NeedsBackupReconfiguration = backup.Generation
 		reconciled = false
 	}
 
 	if reconciled {
 		backup.Status.Generations = BackupGenerationStatus{
-			Reconciled: backup.ObjectMeta.Generation,
+			Reconciled: backup.Generation,
 		}
 	}
 

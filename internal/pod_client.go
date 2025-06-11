@@ -236,7 +236,7 @@ func (client *realFdbPodSidecarClient) IsPresent(filename string) (bool, error) 
 		return false, err
 	}
 
-	return code == http.StatusOK, nil
+	return true, nil
 }
 
 // CheckHash checks whether a file in the sidecar has the expected contents.

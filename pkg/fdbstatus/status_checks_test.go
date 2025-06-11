@@ -1356,7 +1356,7 @@ var _ = Describe("status_checks", func() {
 	})
 
 	When("checking if the cluster has the desired fault tolerance from the status", func() {
-		log := logr.New(logf.NewDelegatingLogSink(logf.NullLogSink{}))
+		log := logr.New(logf.NullLogSink{})
 
 		DescribeTable("should return if the cluster has the desired fault tolerance",
 			func(status *fdbv1beta2.FoundationDBStatus, cluster *fdbv1beta2.FoundationDBCluster, expected bool) {

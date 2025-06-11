@@ -2830,7 +2830,7 @@ var _ = Describe("pod_models", func() {
 			It("should set the spec on the PVC", func() {
 				Expect(pvc.Spec).To(Equal(corev1.PersistentVolumeClaimSpec{
 					AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-					Resources: corev1.ResourceRequirements{
+					Resources: corev1.VolumeResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceStorage: resource.MustParse("128G"),
 						},
@@ -2869,7 +2869,7 @@ var _ = Describe("pod_models", func() {
 			BeforeEach(func() {
 				cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{fdbv1beta2.ProcessClassGeneral: {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
 					Spec: corev1.PersistentVolumeClaimSpec{
-						Resources: corev1.ResourceRequirements{
+						Resources: corev1.VolumeResourceRequirements{
 							Requests: corev1.ResourceList{
 								corev1.ResourceStorage: resource.MustParse("64G"),
 							},
@@ -2881,7 +2881,7 @@ var _ = Describe("pod_models", func() {
 			})
 
 			It("should set the storage size on the resources", func() {
-				Expect(pvc.Spec.Resources).To(Equal(corev1.ResourceRequirements{
+				Expect(pvc.Spec.Resources).To(Equal(corev1.VolumeResourceRequirements{
 					Requests: corev1.ResourceList{
 						corev1.ResourceStorage: resource.MustParse("64G"),
 					},

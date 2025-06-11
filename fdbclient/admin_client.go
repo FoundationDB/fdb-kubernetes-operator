@@ -252,7 +252,7 @@ func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 
 		var exitError *exec.ExitError
 		if errors.As(err, &exitError) {
-			client.log.Error(exitError, "Error from FDB command", "code", exitError.ProcessState.ExitCode(), "stdout", string(output), "stderr", string(exitError.Stderr))
+			client.log.Error(exitError, "Error from FDB command", "code", exitError.ExitCode(), "stdout", string(output), "stderr", string(exitError.Stderr))
 		}
 
 		return "", err
@@ -720,7 +720,7 @@ func (client *cliAdminClient) GetProtocolVersion(version string) (string, error)
 
 	protocolVersionMatch := protocolVersionRegex.FindStringSubmatch(output)
 
-	if protocolVersionMatch == nil || len(protocolVersionMatch) < 2 {
+	if len(protocolVersionMatch) < 2 {
 		return "", fmt.Errorf("failed to parse protocol version for %s. Version output:\n%s", version, output)
 	}
 
