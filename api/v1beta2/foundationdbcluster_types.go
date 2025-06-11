@@ -180,8 +180,8 @@ type FoundationDBClusterSpec struct {
 	// Routing defines the configuration for routing to our pods.
 	Routing RoutingConfig `json:"routing,omitempty"`
 
-	// IgnoreUpgradabilityChecks determines whether we should skip the check for
-	// client compatibility when performing an upgrade.
+	// IgnoreUpgradabilityChecks determines whether we should skip the checks for
+	// version compatibility when performing an upgrade.
 	IgnoreUpgradabilityChecks bool `json:"ignoreUpgradabilityChecks,omitempty"`
 
 	// Buggify defines settings for injecting faults into a cluster for testing.
