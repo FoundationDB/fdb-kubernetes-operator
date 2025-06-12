@@ -364,9 +364,10 @@ func CheckCoordinatorValidity(logger logr.Logger, cluster *fdbv1beta2.Foundation
 			continue
 		}
 
+		mixedTls := cluster.Status.Generations.HasExtraListeners == cluster.Generation
 		var ipAddress fdbv1beta2.ProcessAddress
 		for _, addr := range addresses {
-			if addr.Flags["tls"] == cluster.Spec.MainContainer.EnableTLS {
+			if mixedTls || (addr.Flags["tls"] == cluster.Spec.MainContainer.EnableTLS) {
 				ipAddress = addr
 				break
 			}
