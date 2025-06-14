@@ -29,11 +29,11 @@ GOBIN=$(shell go env GOBIN)
 endif
 
 # Dependencies to fetch through `go`
-CONTROLLER_GEN_PKG?=sigs.k8s.io/controller-tools/cmd/controller-gen@v0.14.0
+CONTROLLER_GEN_PKG?=sigs.k8s.io/controller-tools/cmd/controller-gen@v0.18.0
 CONTROLLER_GEN=$(GOBIN)/controller-gen
 KUSTOMIZE_PKG?=sigs.k8s.io/kustomize/kustomize/v4@v4.5.2
 KUSTOMIZE=$(GOBIN)/kustomize
-GOLANGCI_LINT_PKG=github.com/golangci/golangci-lint/cmd/golangci-lint@v1.63.4
+GOLANGCI_LINT_PKG=github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.1.6
 GOLANGCI_LINT=$(GOBIN)/golangci-lint
 GORELEASER_PKG=github.com/goreleaser/goreleaser@v1.20.0
 GORELEASER=$(GOBIN)/goreleaser
@@ -154,7 +154,7 @@ deploy: install manifests config/development/kustomization.yaml
 manifests: ${MANIFESTS}
 
 ${MANIFESTS}: ${CONTROLLER_GEN} ${GO_SRC}
-	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./api/..." paths="./controllers/..." output:crd:artifacts:config=config/crd/bases
 
 # Run go fmt against code
 fmt: bin/fmt_check
@@ -163,7 +163,7 @@ fmt: bin/fmt_check
 bin/fmt_check: ${GO_ALL}
 	# $(GO_LINES) -w .
 	@go fmt $$(go list ./...)
-	#@$(GO_IMPORTS) -w $(GO_SRC)
+	#$(GO_IMPORTS) -w $(GO_SRC)
 	#$(GOLANGCI_LINT) run --fix
 	@mkdir -p bin
 	@touch $@

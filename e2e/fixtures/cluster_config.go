@@ -214,7 +214,7 @@ func (config *ClusterConfig) generateVolumeClaimTemplate(
 	return &corev1.PersistentVolumeClaim{
 		Spec: corev1.PersistentVolumeClaimSpec{
 			StorageClassName: &storageClass,
-			Resources: corev1.ResourceRequirements{
+			Resources: corev1.VolumeResourceRequirements{
 				Requests: corev1.ResourceList{
 					corev1.ResourceStorage: resource.MustParse(config.getVolumeSize()),
 				},

@@ -42,6 +42,8 @@ var _ = Describe("operator_coordination", func() {
 
 		BeforeEach(func() {
 			cluster = internal.CreateDefaultCluster()
+			Expect(scheme.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
+			Expect(fdbv1beta2.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
 			k8sClient = mockclient.NewMockClient(scheme.Scheme)
 			Expect(internal.SetupClusterForTest(cluster, k8sClient)).To(Succeed())
 			cluster.Status.Configured = true

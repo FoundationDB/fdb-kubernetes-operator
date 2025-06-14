@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2019-2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2019-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -323,11 +323,7 @@ var _ = Describe("update_pods", func() {
 
 		BeforeEach(func() {
 			cluster = internal.CreateDefaultCluster()
-			Expect(k8sClient.Create(context.TODO(), cluster)).NotTo(HaveOccurred())
-			result, err := reconcileCluster(cluster)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(result.Requeue).To(BeFalse())
-			Expect(k8sClient.Get(context.TODO(), ctrlClient.ObjectKeyFromObject(cluster), cluster)).NotTo(HaveOccurred())
+			Expect(setupClusterForTest(cluster)).To(Succeed())
 		})
 
 		JustBeforeEach(func() {
@@ -335,7 +331,7 @@ var _ = Describe("update_pods", func() {
 			Expect(err).NotTo(HaveOccurred())
 			status, err := adminClient.GetStatus()
 			Expect(err).NotTo(HaveOccurred())
-
+			clusterReconciler.SimulationOptions.SimulateZones = false
 			updates, updateErr = getPodsToUpdate(context.Background(), globalControllerLogger, clusterReconciler, cluster, getProcessesByProcessGroup(cluster, status))
 		})
 
@@ -372,9 +368,8 @@ var _ = Describe("update_pods", func() {
 				Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
 			})
 
-			It("should return no errors and a map with one zone", func() {
-				// We only have one zone in this case, the simulation zone
-				Expect(updates).To(HaveLen(1))
+			It("should return no errors and a map with 4 zones to update", func() {
+				Expect(updates).To(HaveLen(4))
 				Expect(updateErr).NotTo(HaveOccurred())
 			})
 
@@ -418,7 +413,7 @@ var _ = Describe("update_pods", func() {
 					})
 
 					It("should return no error updates", func() {
-						Expect(updates).To(HaveLen(1))
+						Expect(updates).To(HaveLen(3))
 						Expect(updateErr).NotTo(HaveOccurred())
 					})
 				})
@@ -460,14 +455,15 @@ var _ = Describe("update_pods", func() {
 
 						// Recreate Pod
 						Expect(k8sClient.Create(context.Background(), currentPod)).To(Succeed())
-
 					}
 
-					clusterReconciler.InSimulation = false
+					clusterReconciler.SimulationOptions.SimulateZones = false
+					clusterReconciler.SimulationOptions.SimulateTime = false
 				})
 
 				AfterEach(func() {
-					clusterReconciler.InSimulation = true
+					clusterReconciler.SimulationOptions.SimulateZones = true
+					clusterReconciler.SimulationOptions.SimulateTime = true
 				})
 
 				When("the process is not yet running", func() {
@@ -515,7 +511,6 @@ var _ = Describe("update_pods", func() {
 						newPod := &corev1.Pod{}
 						Expect(k8sClient.Get(context.Background(), ctrlClient.ObjectKey{Name: picked.GetPodName(cluster), Namespace: cluster.Namespace}, newPod)).To(Succeed())
 						Expect(newPod.CreationTimestamp.Time.Unix()).To(Equal(creationTimestamp.Unix()))
-
 					})
 
 					It("should return not error", func() {
@@ -528,10 +523,10 @@ var _ = Describe("update_pods", func() {
 
 		When("there is a spec change requiring a removal", func() {
 			BeforeEach(func() {
-				storageSettings := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
+				settings := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
 				// Updates to NodeSelector requires a removal
-				storageSettings.PodTemplate.Spec.NodeSelector = map[string]string{"test": "test"}
-				cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral] = storageSettings
+				settings.PodTemplate.Spec.NodeSelector = map[string]string{"test": "test"}
+				cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral] = settings
 				Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
 			})
 
@@ -552,15 +547,14 @@ var _ = Describe("update_pods", func() {
 				BeforeEach(func() {
 					cluster.Spec.MaxZonesWithUnavailablePods = pointer.Int(3)
 					// Update all processes
-					storageSettings := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
-					storageSettings.PodTemplate.Spec.Tolerations = []corev1.Toleration{{Key: "test", Operator: "Exists", Effect: "NoSchedule"}}
-					cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral] = storageSettings
+					settings := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
+					settings.PodTemplate.Spec.Tolerations = []corev1.Toleration{{Key: "test", Operator: "Exists", Effect: "NoSchedule"}}
+					cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral] = settings
 					Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
 				})
 
-				It("should return no errors and a map with the zone and all pods to update", func() {
-					Expect(updates).To(HaveLen(1))
-					Expect(updates["simulation"]).To(HaveLen(4))
+				It("should return no errors and a map with 4 zones to update", func() {
+					Expect(updates).To(HaveLen(4))
 					Expect(updateErr).NotTo(HaveOccurred())
 				})
 			})
@@ -569,15 +563,17 @@ var _ = Describe("update_pods", func() {
 				BeforeEach(func() {
 					cluster.Spec.MaxZonesWithUnavailablePods = pointer.Int(2)
 					// Update all processes
-					storageSettings := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
-					storageSettings.PodTemplate.Spec.Tolerations = []corev1.Toleration{{Key: "test", Operator: "Exists", Effect: "NoSchedule"}}
-					cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral] = storageSettings
+					settings := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
+					if settings.PodTemplate == nil {
+						settings.PodTemplate = &corev1.PodTemplateSpec{}
+					}
+					settings.PodTemplate.Spec.Tolerations = []corev1.Toleration{{Key: "test", Operator: "Exists", Effect: "NoSchedule"}}
+					cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral] = settings
 					Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
 				})
 
-				It("should return no errors and a map with the zone and two pods to update", func() {
-					Expect(updates).To(HaveLen(1))
-					Expect(updates["simulation"]).To(HaveLen(2))
+				It("should return no errors and a map with 4 zones to update", func() {
+					Expect(updates).To(HaveLen(4))
 					Expect(updateErr).NotTo(HaveOccurred())
 				})
 			})
@@ -586,14 +582,14 @@ var _ = Describe("update_pods", func() {
 				BeforeEach(func() {
 					cluster.Spec.MaxZonesWithUnavailablePods = pointer.Int(1)
 					// Update all processes
-					storageSettings := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
-					storageSettings.PodTemplate.Spec.Tolerations = []corev1.Toleration{{Key: "test", Operator: "Exists", Effect: "NoSchedule"}}
-					cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral] = storageSettings
+					settings := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
+					settings.PodTemplate.Spec.Tolerations = []corev1.Toleration{{Key: "test", Operator: "Exists", Effect: "NoSchedule"}}
+					cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral] = settings
 					Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
 				})
 
-				It("should return no errors and a an empty update map", func() {
-					Expect(updates).To(HaveLen(0))
+				It("should return no errors and a map with 4 zones to update", func() {
+					Expect(updates).To(HaveLen(4))
 					Expect(updateErr).NotTo(HaveOccurred())
 				})
 			})

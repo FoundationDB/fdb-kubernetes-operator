@@ -53,7 +53,12 @@ func getRestClient(kubernetesClient client.Client, config *rest.Config) (rest.In
 		Kind:    "Pod",
 	}
 
-	return apiutil.RESTClientForGVK(gvk, false, config, serializer.NewCodecFactory(kubernetesClient.Scheme()))
+	httpClient, err := rest.HTTPClientFor(config)
+	if err != nil {
+		return nil, err
+	}
+
+	return apiutil.RESTClientForGVK(gvk, false, config, serializer.NewCodecFactory(kubernetesClient.Scheme()), httpClient)
 }
 
 // ExecuteCommandRaw will run the command without putting it into a shell.

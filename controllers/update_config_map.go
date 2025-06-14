@@ -57,11 +57,7 @@ func (u updateConfigMap) reconcile(ctx context.Context, r *FoundationDBClusterRe
 		return &requeue{curError: err}
 	}
 
-	metadataCorrect := true
-	if internal.MergeLabels(&existing.ObjectMeta, configMap.ObjectMeta) {
-		metadataCorrect = false
-	}
-
+	metadataCorrect := !internal.MergeLabels(&existing.ObjectMeta, configMap.ObjectMeta)
 	if internal.MergeAnnotations(&existing.ObjectMeta, configMap.ObjectMeta) {
 		metadataCorrect = false
 	}

@@ -111,7 +111,10 @@ var _ = AfterEach(func() {
 	k8sClient.Clear()
 	mock.ClearMockAdminClients()
 	mock.ClearMockLockClients()
-	clusterReconciler.InSimulation = true
+	clusterReconciler.SimulationOptions = SimulationOptions{
+		SimulateZones: true,
+		SimulateTime:  true,
+	}
 })
 
 func createDefaultRestore(cluster *fdbv1beta2.FoundationDBCluster) *fdbv1beta2.FoundationDBRestore {
@@ -187,10 +190,13 @@ func setupClusterForTest(cluster *fdbv1beta2.FoundationDBCluster) error {
 
 func createTestClusterReconciler() *FoundationDBClusterReconciler {
 	return &FoundationDBClusterReconciler{
-		Client:                       k8sClient,
-		Log:                          ctrl.Log.WithName("controllers").WithName("FoundationDBCluster"),
-		Recorder:                     k8sClient,
-		InSimulation:                 true,
+		Client:   k8sClient,
+		Log:      ctrl.Log.WithName("controllers").WithName("FoundationDBCluster"),
+		Recorder: k8sClient,
+		SimulationOptions: SimulationOptions{
+			SimulateZones: true,
+			SimulateTime:  true,
+		},
 		PodLifecycleManager:          &podmanager.StandardPodLifecycleManager{},
 		PodClientProvider:            mockpodclient.NewMockFdbPodClient,
 		DatabaseClientProvider:       mock.DatabaseClientProvider{},

@@ -412,8 +412,8 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Expect(counts.Log).To(Equal(2))
 
 			cluster.Spec.ProcessCounts = ProcessCounts{}
-			cluster.Spec.DatabaseConfiguration.RoleCounts.RemoteLogs = 4
-			cluster.Spec.DatabaseConfiguration.RoleCounts.LogRouters = 8
+			cluster.Spec.DatabaseConfiguration.RemoteLogs = 4
+			cluster.Spec.DatabaseConfiguration.LogRouters = 8
 
 			counts, err = cluster.GetProcessCountsWithDefaults()
 			Expect(err).NotTo(HaveOccurred())
@@ -1089,7 +1089,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			})
 
 			It("should be parsed correctly when no proxies are set", func() {
-				cluster.Spec.DatabaseConfiguration.RoleCounts.Proxies = 0
+				cluster.Spec.DatabaseConfiguration.Proxies = 0
 				Expect(cluster.DesiredDatabaseConfiguration()).To(Equal(DatabaseConfiguration{
 					RedundancyMode: RedundancyModeDouble,
 					StorageEngine:  StorageEngineSSD2,
@@ -1107,8 +1107,8 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			})
 
 			It("should be parsed correctly when only grv_proxies are set", func() {
-				cluster.Spec.DatabaseConfiguration.RoleCounts.Proxies = 0
-				cluster.Spec.DatabaseConfiguration.RoleCounts.GrvProxies = 4
+				cluster.Spec.DatabaseConfiguration.Proxies = 0
+				cluster.Spec.DatabaseConfiguration.GrvProxies = 4
 				Expect(cluster.DesiredDatabaseConfiguration()).To(Equal(DatabaseConfiguration{
 					RedundancyMode: RedundancyModeDouble,
 					StorageEngine:  StorageEngineSSD2,
@@ -1126,8 +1126,8 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			})
 
 			It("should be parsed correctly when only grv_proxies are set", func() {
-				cluster.Spec.DatabaseConfiguration.RoleCounts.Proxies = 0
-				cluster.Spec.DatabaseConfiguration.RoleCounts.CommitProxies = 4
+				cluster.Spec.DatabaseConfiguration.Proxies = 0
+				cluster.Spec.DatabaseConfiguration.CommitProxies = 4
 				Expect(cluster.DesiredDatabaseConfiguration()).To(Equal(DatabaseConfiguration{
 					RedundancyMode: RedundancyModeDouble,
 					StorageEngine:  StorageEngineSSD2,
@@ -1145,9 +1145,9 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			})
 
 			It("should be parsed correctly when both grv_proxies/commit_proxies are set", func() {
-				cluster.Spec.DatabaseConfiguration.RoleCounts.Proxies = 0
-				cluster.Spec.DatabaseConfiguration.RoleCounts.CommitProxies = 4
-				cluster.Spec.DatabaseConfiguration.RoleCounts.GrvProxies = 4
+				cluster.Spec.DatabaseConfiguration.Proxies = 0
+				cluster.Spec.DatabaseConfiguration.CommitProxies = 4
+				cluster.Spec.DatabaseConfiguration.GrvProxies = 4
 				Expect(cluster.DesiredDatabaseConfiguration()).To(Equal(DatabaseConfiguration{
 					RedundancyMode: RedundancyModeDouble,
 					StorageEngine:  StorageEngineSSD2,
@@ -1165,9 +1165,9 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			})
 
 			It("should be parsed correctly when both grv_proxies/commit_proxies and proxies are set", func() {
-				cluster.Spec.DatabaseConfiguration.RoleCounts.Proxies = 12
-				cluster.Spec.DatabaseConfiguration.RoleCounts.CommitProxies = 4
-				cluster.Spec.DatabaseConfiguration.RoleCounts.GrvProxies = 4
+				cluster.Spec.DatabaseConfiguration.Proxies = 12
+				cluster.Spec.DatabaseConfiguration.CommitProxies = 4
+				cluster.Spec.DatabaseConfiguration.GrvProxies = 4
 				Expect(cluster.DesiredDatabaseConfiguration()).To(Equal(DatabaseConfiguration{
 					RedundancyMode: RedundancyModeDouble,
 					StorageEngine:  StorageEngineSSD2,
@@ -1213,7 +1213,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			}}
 			Expect(configuration.GetConfigurationString()).To(Equal("double ssd usable_regions=1 logs=5 resolvers=0 log_routers=0 remote_logs=0 commit_proxies=4 grv_proxies=2 regions=[{\\\"datacenters\\\":[{\\\"id\\\":\\\"iad\\\",\\\"priority\\\":1}],\\\"satellite_logs\\\":2}]"))
 			configuration.Regions = nil
-			configuration.VersionFlags.LogSpill = 3
+			configuration.LogSpill = 3
 			Expect(configuration.GetConfigurationString()).To(Equal("double ssd usable_regions=1 logs=5 resolvers=0 log_routers=0 remote_logs=0 commit_proxies=4 grv_proxies=2 log_spill:=3 regions=[]"))
 		})
 

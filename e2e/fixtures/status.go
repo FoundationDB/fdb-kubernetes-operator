@@ -461,7 +461,8 @@ func FdbPrintable(d []byte) string {
 			buf.WriteString("\\\\")
 			continue
 		}
-		buf.WriteString(fmt.Sprintf("\\x%02x", b))
+
+		_, _ = fmt.Fprintf(buf, "\\x%02x", b)
 	}
 
 	return buf.String()

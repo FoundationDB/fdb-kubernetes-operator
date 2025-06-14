@@ -25,7 +25,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"log"
 	"os"
 	"path"
 	"strconv"
@@ -33,8 +32,6 @@ import (
 	"time"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/podmanager"
-	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 
@@ -50,8 +47,10 @@ import (
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 )
 
 var operatorVersion = "latest"
@@ -98,7 +97,7 @@ type Options struct {
 	// wait to force acquire leadership. This is measured against time of
 	// last observed ack. Default is 15 seconds.
 	LeaseDuration time.Duration
-	// RenewDeadline is the duration that the acting controlplane will retry
+	// RenewDeadline is the duration that the acting control plane will retry
 	// refreshing leadership before giving up. Default is 10 seconds.
 	RenewDeadline time.Duration
 	// RetryPeriod is the duration the LeaderElector clients should wait
@@ -176,13 +175,15 @@ func StartManager(
 
 	logWriter, err := setupLogger(operatorOpts)
 	if err != nil {
-		log.Fatalf("unable to setup logger: %s, got error: %s\n", operatorOpts.LogFile, err.Error())
+		_, _ = fmt.Fprintf(os.Stderr, "unable to setup logger: %s, got error: %s\n", operatorOpts.LogFile, err.Error())
+		os.Exit(1)
 	}
 
 	logger := zap.New(
 		zap.UseFlagOptions(&logOpts),
 		zap.WriteTo(logWriter))
 	ctrl.SetLogger(logger)
+	log.SetLogger(logger)
 
 	// Might be called by controller-runtime in the future: https://github.com/kubernetes-sigs/controller-runtime/issues/1420
 	klog.SetLogger(logger)
@@ -197,50 +198,41 @@ func StartManager(
 	// Only if a label selector is defined we have to update the cache options.
 	if operatorOpts.LabelSelector != "" {
 		// Parse the label selector, if the label selector is not parsable panic.
-		labelSelector, parseErr := labels.Parse(operatorOpts.LabelSelector)
+		selector, parseErr := labels.Parse(operatorOpts.LabelSelector)
 		if parseErr != nil {
-			log.Fatalf("could not parse label selector: %s, got error: %s", operatorOpts.LabelSelector, parseErr)
-		}
-
-		selector := cache.ObjectSelector{
-			Label: labelSelector,
+			_, _ = fmt.Fprintf(os.Stderr, "could not parse label selector: %s, got error: %s", operatorOpts.LabelSelector, parseErr)
+			os.Exit(1)
 		}
 
 		// Set the label selector for all resources that the operator manages, this should reduce the resources that
-		// are cached by the operator if a label selector is provided.s
-		cacheOptions.SelectorsByObject = map[client.Object]cache.ObjectSelector{
-			&fdbv1beta2.FoundationDBCluster{}: selector,
-			&corev1.Pod{}:                     selector,
-			&corev1.PersistentVolumeClaim{}:   selector,
-			&corev1.ConfigMap{}:               selector,
-			&corev1.Service{}:                 selector,
-			&appsv1.Deployment{}:              selector,
-		}
-
-		// Make sure we set the label selector for any additional watched objects.
-		for _, object := range watchedObjects {
-			cacheOptions.SelectorsByObject[object] = selector
-		}
-	}
-
-	options := ctrl.Options{
-		Scheme:             scheme,
-		MetricsBindAddress: operatorOpts.MetricsAddr,
-		LeaderElection:     operatorOpts.EnableLeaderElection,
-		LeaderElectionID:   operatorOpts.LeaderElectionID,
-		LeaseDuration:      &operatorOpts.LeaseDuration,
-		RenewDeadline:      &operatorOpts.RenewDeadline,
-		RetryPeriod:        &operatorOpts.RetryPeriod,
-		Port:               9443,
-		NewCache:           cache.BuilderWithOptions(cacheOptions),
+		// are cached by the operator if a label selector is provided.
+		cacheOptions.DefaultLabelSelector = selector
 	}
 
 	if operatorOpts.WatchNamespace != "" {
-		options.Namespace = operatorOpts.WatchNamespace
-		setupLog.Info("Operator starting in single namespace mode", "namespace", options.Namespace)
-		cacheOptions.Namespace = operatorOpts.WatchNamespace
+		setupLog.Info("Operator starting in single namespace mode", "namespace", operatorOpts.WatchNamespace)
+		cacheOptions.DefaultNamespaces = map[string]cache.Config{
+			operatorOpts.WatchNamespace: {},
+		}
 	} else {
 		setupLog.Info("Operator starting in Global mode")
+	}
+
+	options := ctrl.Options{
+		Scheme: scheme,
+		Metrics: metricsserver.Options{
+			// TODO (johscheuer): Fix: https://github.com/FoundationDB/fdb-kubernetes-operator/issues/1258
+			BindAddress: operatorOpts.MetricsAddr,
+		},
+		LeaderElection:         operatorOpts.EnableLeaderElection,
+		LeaderElectionID:       operatorOpts.LeaderElectionID,
+		LeaseDuration:          &operatorOpts.LeaseDuration,
+		RenewDeadline:          &operatorOpts.RenewDeadline,
+		RetryPeriod:            &operatorOpts.RetryPeriod,
+		Cache:                  cacheOptions,
+		HealthProbeBindAddress: "[::1]:9443",
+		ReadinessEndpointName:  "[::1]:9443",
+		LivenessEndpointName:   "[::1]:9443",
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), options)

@@ -49,9 +49,10 @@ func (version Version) IsSupported() bool {
 
 // IsStorageEngineSupported return true if storage engine is supported by FDB version.
 func (version Version) IsStorageEngineSupported(storageEngine StorageEngine) bool {
-	if storageEngine == StorageEngineShardedRocksDB {
+	switch storageEngine {
+	case StorageEngineShardedRocksDB:
 		return version.IsAtLeast(Versions.SupportsShardedRocksDB)
-	} else if storageEngine == StorageEngineRedwood1 {
+	case StorageEngineRedwood1:
 		return version.IsAtLeast(Versions.SupportsRedwood1)
 	}
 

@@ -26,6 +26,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/podmanager"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -35,11 +38,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
-
-	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient"
-	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/podmanager"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 
@@ -90,12 +88,19 @@ var subReconcilers = []clusterSubReconciler{
 	updateStatus{},
 }
 
+// SimulationOptions are used to define how the cluster reconciler should behave in the unit tests.
+type SimulationOptions struct {
+	// SimulateZones if enabled the zone of pods will be replaced with a "simulation" zone.
+	SimulateZones bool
+	// SimulateTime is enabled the time checks in the exclude and update pods reconciler will be skipped.
+	SimulateTime bool
+}
+
 // FoundationDBClusterReconciler reconciles a FoundationDBCluster object
 type FoundationDBClusterReconciler struct {
 	client.Client
 	Recorder                                    record.EventRecorder
 	Log                                         logr.Logger
-	InSimulation                                bool
 	EnableRestartIncompatibleProcesses          bool
 	ServerSideApply                             bool
 	EnableRecoveryState                         bool
@@ -131,6 +136,7 @@ type FoundationDBClusterReconciler struct {
 	// on the affected node.
 	ClusterLabelKeyForNodeTrigger string
 	decodingSerializer            runtime.Serializer
+	SimulationOptions             SimulationOptions
 }
 
 // NewFoundationDBClusterReconciler creates a new FoundationDBClusterReconciler with defaults.
@@ -311,7 +317,7 @@ func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager, maxCo
 	globalPredicate := builder.WithPredicates(predicate.And(
 		labelSelectorPredicate,
 		predicate.Or(
-			predicate.LabelChangedPredicate{},
+			predicate.TypedLabelChangedPredicate[client.Object]{},
 			predicate.GenerationChangedPredicate{},
 			predicate.AnnotationChangedPredicate{},
 		),
@@ -329,7 +335,7 @@ func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager, maxCo
 
 	if r.ClusterLabelKeyForNodeTrigger != "" {
 		managerBuilder.Watches(
-			&source.Kind{Type: &corev1.Node{}},
+			&corev1.Node{},
 			handler.EnqueueRequestsFromMapFunc(r.findFoundationDBClusterForNode),
 			builder.WithPredicates(
 				internal.NodeTaintChangedPredicate{
@@ -346,9 +352,13 @@ func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager, maxCo
 	return managerBuilder.Complete(r)
 }
 
+// // MapFunc is the signature required for enqueueing requests from a generic function.
+//// This type is usually used with EnqueueRequestsFromMapFunc when registering an event handler.
+//type MapFunc = TypedMapFunc[client.Object, reconcile.Request]
+
 // findFoundationDBClusterForNode will filter out all associated FoundationDBClusters that have a Pod running on that
 // specific node.
-func (r *FoundationDBClusterReconciler) findFoundationDBClusterForNode(node client.Object) []reconcile.Request {
+func (r *FoundationDBClusterReconciler) findFoundationDBClusterForNode(ctx context.Context, node client.Object) []reconcile.Request {
 	logger := r.Log.WithValues("node", node.GetName())
 	podsOnNode := &corev1.PodList{}
 
@@ -365,8 +375,7 @@ func (r *FoundationDBClusterReconciler) findFoundationDBClusterForNode(node clie
 		listOpts = append(listOpts, client.InNamespace(r.Namespace))
 	}
 
-	err := r.List(context.Background(), podsOnNode, listOpts...)
-
+	err := r.List(ctx, podsOnNode, listOpts...)
 	if err != nil {
 		logger.Error(err, "Processing findFoundationDBClusterForNode could not fetch Pods on node")
 		return []reconcile.Request{}

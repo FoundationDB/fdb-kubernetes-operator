@@ -23,11 +23,11 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"github.com/google/go-cmp/cmp"
 	"strings"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
-	"github.com/google/go-cmp/cmp"
 	"github.com/spf13/cobra"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -156,9 +156,6 @@ func checkDeprecation(cmd *cobra.Command, kubeClient client.Client, inputCluster
 		}
 
 		diff := cmp.Diff(originalYAML, normalizedYAML)
-		if err != nil {
-			return err
-		}
 		if diff == "" {
 			if !showClusterSpec {
 				cmd.Printf("Cluster %s has no deprecation\n", cluster.Name)

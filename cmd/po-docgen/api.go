@@ -56,7 +56,7 @@ var (
 
 func toSectionLink(name string) string {
 	name = strings.ToLower(name)
-	name = strings.Replace(name, " ", "-", -1)
+	name = strings.ReplaceAll(name, " ", "-")
 	return name
 }
 
@@ -196,12 +196,12 @@ func fmtRawDoc(rawDoc string) string {
 	}
 
 	postDoc := strings.TrimRight(buffer.String(), "\n")
-	postDoc = strings.Replace(postDoc, "\\\"", "\"", -1) // replace user's \" to "
-	postDoc = strings.Replace(postDoc, "\"", "\\\"", -1) // Escape "
-	postDoc = strings.Replace(postDoc, "\n", " ", -1)
-	postDoc = strings.Replace(postDoc, "\t", "\\t", -1)
-	postDoc = strings.Replace(postDoc, "|", "\\|", -1)
-	postDoc = strings.Replace(postDoc, "Deprecated:", "**Deprecated:", -1)
+	postDoc = strings.ReplaceAll(postDoc, "\\\"", "\"") // replace user's \" to "
+	postDoc = strings.ReplaceAll(postDoc, "\"", "\\\"") // Escape "
+	postDoc = strings.ReplaceAll(postDoc, "\n", " ")
+	postDoc = strings.ReplaceAll(postDoc, "\t", "\\t")
+	postDoc = strings.ReplaceAll(postDoc, "|", "\\|")
+	postDoc = strings.ReplaceAll(postDoc, "Deprecated:", "**Deprecated:")
 	if strings.Contains(postDoc, "Deprecated:") {
 		postDoc = postDoc + "**"
 	}

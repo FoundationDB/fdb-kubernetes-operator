@@ -26,7 +26,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = FDescribe("image setup", func() {
+var _ = Describe("image setup", func() {
 	DescribeTable("when generating the sidecar image configuration", func(factory *Factory, debugSymbols bool, expected fdbv1beta2.ContainerOverrides) {
 		result := factory.GetSidecarContainerOverrides(debugSymbols)
 		Expect(result.ImageConfigs).To(ConsistOf(expected.ImageConfigs))

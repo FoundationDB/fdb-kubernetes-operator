@@ -143,7 +143,7 @@ func (e excludeProcesses) reconcile(ctx context.Context, r *FoundationDBClusterR
 		ongoingExclusions := ongoingExclusionsByClass[processClass]
 		processesToExclude := fdbProcessesToExcludeByClass[processClass]
 
-		allowedExclusions, missingProcesses := getAllowedExclusionsAndMissingProcesses(contextLogger, cluster, processClass, desiredProcessesMap[processClass], ongoingExclusions, r.InSimulation)
+		allowedExclusions, missingProcesses := getAllowedExclusionsAndMissingProcesses(contextLogger, cluster, processClass, desiredProcessesMap[processClass], ongoingExclusions, r.SimulationOptions.SimulateTime)
 		if allowedExclusions <= 0 {
 			if processClass.IsTransaction() {
 				transactionSystemExclusionAllowed = false

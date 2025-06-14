@@ -406,7 +406,7 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 	}
 
 	if status.Cluster.DatabaseConfiguration.LogSpill == 0 {
-		status.Cluster.DatabaseConfiguration.VersionFlags.LogSpill = 2
+		status.Cluster.DatabaseConfiguration.LogSpill = 2
 	}
 
 	exclusions := client.getExcludedAddresses()
