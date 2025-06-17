@@ -174,14 +174,13 @@ func usingLatestPluginVersion(cmd *cobra.Command, pluginVersionChecker VersionCh
 }
 
 type processGroupSelectionOptions struct {
-	ids               []string
-	namespace         string
-	clusterName       string
-	clusterLabel      string
-	matchLabels       map[string]string
-	processClass      string
-	useProcessGroupID bool
-	conditions        []fdbv1beta2.ProcessGroupConditionType
+	ids          []string
+	namespace    string
+	clusterName  string
+	clusterLabel string
+	matchLabels  map[string]string
+	processClass string
+	conditions   []fdbv1beta2.ProcessGroupConditionType
 }
 
 func addProcessSelectionFlags(cmd *cobra.Command) {
@@ -189,8 +188,7 @@ func addProcessSelectionFlags(cmd *cobra.Command) {
 		"Required if not passing cluster-label.")
 	cmd.Flags().String("process-class", "", "Selects process groups matching the provided value in the provided cluster.  Using this option ignores provided ids.")
 	cmd.Flags().StringP("cluster-label", "l", fdbv1beta2.FDBClusterLabel, "cluster label used to identify the cluster for a requested pod. "+
-		"It is incompatible with use-process-group-id, process-class, and process-condition.")
-	cmd.Flags().Bool("use-process-group-id", false, "Selects process groups by process-group ID instead of the Pod name.")
+		"It is incompatible with process-class, and process-condition.")
 	cmd.Flags().StringArray("process-condition", []string{}, "Selects process groups that are in any of the given FDB process group conditions.")
 	cmd.Flags().StringToString("match-labels", map[string]string{}, "Selects process groups running on pods matching the given labels and are in the provided cluster.  Using this option ignores provided ids.")
 }
@@ -221,22 +219,17 @@ func getProcessSelectionOptsFromFlags(cmd *cobra.Command, o *fdbBOptions, ids []
 	if err != nil {
 		return opts, err
 	}
-	useProcessGroupID, err := cmd.Flags().GetBool("use-process-group-id")
-	if err != nil {
-		return opts, err
-	}
 	namespace, err := getNamespace(*o.configFlags.Namespace)
 	if err != nil {
 		return opts, err
 	}
 	return processGroupSelectionOptions{
-		ids:               ids,
-		namespace:         namespace,
-		clusterName:       cluster,
-		matchLabels:       matchLabels,
-		clusterLabel:      clusterLabel,
-		processClass:      processClass,
-		useProcessGroupID: useProcessGroupID,
-		conditions:        conditions,
+		ids:          ids,
+		namespace:    namespace,
+		clusterName:  cluster,
+		matchLabels:  matchLabels,
+		clusterLabel: clusterLabel,
+		processClass: processClass,
+		conditions:   conditions,
 	}, nil
 }

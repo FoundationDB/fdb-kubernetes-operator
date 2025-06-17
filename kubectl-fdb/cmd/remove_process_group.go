@@ -81,10 +81,6 @@ kubectl fdb remove process-groups pod-1-cluster-A pod-2-cluster-B -l your-cluste
 # Remove process groups for a cluster in the namespace default
 kubectl fdb -n default remove process-groups -c cluster pod-1 pod-2
 
-# Remove process groups for a cluster with the process group ID.
-# The process group ID of a Pod can be fetched with "kubectl get po -L foundationdb.org/fdb-process-group-id"
-kubectl fdb -n default remove process-groups --use-process-group-id -c cluster storage-1 storage-2
-
 # Remove all failed process groups for a cluster (all process groups that have a missing process)
 kubectl fdb -n default remove process-groups -c cluster --remove-all-failed
 

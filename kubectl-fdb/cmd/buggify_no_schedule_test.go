@@ -163,8 +163,7 @@ var _ = Describe("[plugin] buggify no-schedule instances command", func() {
 							Name:      clusterName,
 						}, &resCluster)
 						Expect(err).NotTo(HaveOccurred())
-						Expect(tc.ExpectedInstancesInNoSchedule).To(ContainElements(resCluster.Spec.Buggify.NoSchedule))
-						Expect(len(tc.ExpectedInstancesInNoSchedule)).To(BeNumerically("==", len(resCluster.Spec.Buggify.NoSchedule)))
+						Expect(tc.ExpectedInstancesInNoSchedule).To(ConsistOf(resCluster.Spec.Buggify.NoSchedule))
 					},
 					Entry("Adding the same instance.",
 						testCase{
@@ -178,8 +177,8 @@ var _ = Describe("[plugin] buggify no-schedule instances command", func() {
 						}),
 					Entry("Adding multiple instances.",
 						testCase{
-							Instances:                     []string{"test-storage-2", "test-storage-3"},
-							ExpectedInstancesInNoSchedule: []fdbv1beta2.ProcessGroupID{"test-storage-1", "test-storage-2", "test-storage-3"},
+							Instances:                     []string{"test-storage-2", "test-stateless-3"},
+							ExpectedInstancesInNoSchedule: []fdbv1beta2.ProcessGroupID{"test-storage-1", "test-storage-2", "test-stateless-3"},
 						}),
 				)
 			})
@@ -187,7 +186,7 @@ var _ = Describe("[plugin] buggify no-schedule instances command", func() {
 
 		When("removing process group from no-schedule list from a cluster", func() {
 			BeforeEach(func() {
-				cluster.Spec.Buggify.NoSchedule = []fdbv1beta2.ProcessGroupID{"test-storage-1", "test-storage-2", "test-storage-3"}
+				cluster.Spec.Buggify.NoSchedule = []fdbv1beta2.ProcessGroupID{"test-storage-1", "test-storage-2", "test-stateless-3"}
 			})
 
 			type testCase struct {
@@ -217,17 +216,16 @@ var _ = Describe("[plugin] buggify no-schedule instances command", func() {
 						Name:      clusterName,
 					}, &resCluster)
 					Expect(err).NotTo(HaveOccurred())
-					Expect(tc.ExpectedInstancesInNoSchedule).To(Equal(resCluster.Spec.Buggify.NoSchedule))
-					Expect(len(tc.ExpectedInstancesInNoSchedule)).To(BeNumerically("==", len(resCluster.Spec.Buggify.NoSchedule)))
+					Expect(tc.ExpectedInstancesInNoSchedule).To(ConsistOf(resCluster.Spec.Buggify.NoSchedule))
 				},
 				Entry("Removing single instance.",
 					testCase{
 						Instances:                     []string{"test-storage-1"},
-						ExpectedInstancesInNoSchedule: []fdbv1beta2.ProcessGroupID{"test-storage-2", "test-storage-3"},
+						ExpectedInstancesInNoSchedule: []fdbv1beta2.ProcessGroupID{"test-storage-2", "test-stateless-3"},
 					}),
 				Entry("Removing multiple instances.",
 					testCase{
-						Instances:                     []string{"test-storage-2", "test-storage-3"},
+						Instances:                     []string{"test-storage-2", "test-stateless-3"},
 						ExpectedInstancesInNoSchedule: []fdbv1beta2.ProcessGroupID{"test-storage-1"},
 					}),
 			)
