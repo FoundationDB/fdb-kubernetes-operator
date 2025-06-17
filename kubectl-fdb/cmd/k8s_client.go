@@ -571,13 +571,6 @@ func getProcessGroupsByCluster(cmd *cobra.Command, kubeClient client.Client, opt
 		podNames = opts.ids
 	}
 
-	//else if !opts.useProcessGroupID { // match by pod name
-	//	podNames = opts.ids
-	//} else { // match by process group ID
-	//	for _, id := range opts.ids {
-	//		processGroupIDs = append(processGroupIDs, fdbv1beta2.ProcessGroupID(id))
-	//	}
-	//}
 	if err != nil {
 		return nil, err
 	}
