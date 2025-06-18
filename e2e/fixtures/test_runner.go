@@ -28,6 +28,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-logr/logr"
+	ctrl "sigs.k8s.io/controller-runtime"
+
 	"github.com/onsi/ginkgo/v2/types"
 
 	"github.com/onsi/ginkgo/v2"
@@ -44,6 +47,9 @@ func RunGinkgoTests(t *testing.T, name string) {
 	// Setup logging
 	log.SetFlags(log.LstdFlags)
 	log.SetOutput(ginkgo.GinkgoWriter)
+	// Do not output the logs from the controller-runtime. We only use it as a client.
+	// Without this call we get a stack trace.
+	ctrl.SetLogger(logr.Discard())
 	gomega.RegisterFailHandler(ginkgo.Fail)
 	_, inCI := os.LookupEnv("CODEBUILD_SRC_DIR")
 	if inCI {
