@@ -219,7 +219,7 @@ type FoundationDBStatusProcessMessage struct {
 // roles.
 type FoundationDBStatusProcessRoleInfo struct {
 	// Role defines the role a process currently has
-	Role string `json:"role,omitempty"`
+	Role ProcessRole `json:"role,omitempty"`
 	// StoredBytes defines the number of bytes that are currently stored for this process.
 	StoredBytes int `json:"stored_bytes,omitempty"`
 	// ID represent the role ID.
@@ -275,7 +275,7 @@ type FoundationDBStatusGRVStatistics struct {
 // the database
 type FoundationDBStatusDataStatistics struct {
 	// KVBytes provides the total Key Value Bytes in the database.
-	KVBytes int `json:"total_kv_size_bytes,omitempty"`
+	KVBytes int64 `json:"total_kv_size_bytes,omitempty"`
 
 	// MovingData provides information about the current data movement.
 	MovingData FoundationDBStatusMovingData `json:"moving_data,omitempty"`

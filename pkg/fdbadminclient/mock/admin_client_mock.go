@@ -278,7 +278,7 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 			_, isCoordinator := coordinators[fullAddress.String()]
 			if isCoordinator && !excluded && !underMaintenance {
 				coordinators[fullAddress.String()] = true
-				fdbRoles = append(fdbRoles, fdbv1beta2.FoundationDBStatusProcessRoleInfo{Role: string(fdbv1beta2.ProcessRoleCoordinator)})
+				fdbRoles = append(fdbRoles, fdbv1beta2.FoundationDBStatusProcessRoleInfo{Role: fdbv1beta2.ProcessRoleCoordinator})
 			}
 
 			version, ok := client.VersionProcessGroups[processGroupID]
