@@ -731,7 +731,8 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		BeforeEach(func() {
 			podToDelete = factory.RandomPickOnePod(fdbCluster.GetStoragePods().Items)
 			log.Printf("deleting storage pod %s/%s", podToDelete.Namespace, podToDelete.Name)
-			deleteTime = time.Now()
+			// Add some buffer here to reduce the risk of a race condition.
+			deleteTime = time.Now().Add(-15 * time.Second)
 			factory.DeletePod(&podToDelete)
 		})
 
