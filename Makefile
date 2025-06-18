@@ -75,7 +75,7 @@ ifeq "$(TEST_RACE_CONDITIONS)" "1"
 	go_test_flags := $(go_test_flags) -race -timeout=90m
 endif
 
-all: deps generate fmt vet manager plugin snapshot manifests samples documentation test_if_changed
+all: deps generate fmt vet manager snapshot manifests samples documentation test_if_changed
 
 .PHONY: clean all manager samples documentation run install uninstall deploy manifests fmt vet generate container-build container-push container-push-if-remote rebuild-operator bounce lint
 
@@ -247,7 +247,7 @@ snapshot: bin/snapshot
 
 bin/snapshot: ${GO_SRC} $(GORELEASER)
 	$(GORELEASER) check
-	$(GORELEASER) release --snapshot --rm-dist
+	$(GORELEASER) release --snapshot --clean
 	@mkdir -p bin
 	@touch $@
 
