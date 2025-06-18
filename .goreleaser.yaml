@@ -1,6 +1,9 @@
+version: 2
+
 before:
   hooks:
     - go mod tidy
+
 builds:
   - id: kubectl-fdb
     goos:
@@ -10,20 +13,23 @@ builds:
     main: ./kubectl-fdb
     binary: kubectl-fdb
     ldflags:
-      - -s -w -X github.com/FoundationDB/fdb-kubernetes-operator/kubectl-fdb/cmd.pluginVersion={{.Version}}
+      - -s -w -X github.com/FoundationDB/fdb-kubernetes-operator/v2/kubectl-fdb/cmd.pluginVersion={{ .Version }} -X github.com/FoundationDB/fdb-kubernetes-operator/v2/kubectl-fdb/cmd.pluginBuildDate={{ .Date }} -X github.com/FoundationDB/fdb-kubernetes-operator/v2/kubectl-fdb/cmd.pluginBuildCommit={{ .Commit }}
     goarch:
       - amd64
       - arm64
+
 archives:
   - id: kubectl-fdb
-    builds:
+    ids:
       - kubectl-fdb
-    format: binary
+    formats: [ "binary" ]
     name_template: "{{ .Binary }}_v{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}{{ if .Mips }}_{{ .Mips }}{{ end }}"
+
+changelog:
+  disable: true
+
 checksum:
   name_template: 'checksums.txt'
+
 snapshot:
-  name_template: "{{ incpatch .Version }}-next"
-# TODO(johscheuer): evaluate if we want to use this feature
-changelog:
-  skip: true
+  version_template: "{{ incpatch .Version }}-next"

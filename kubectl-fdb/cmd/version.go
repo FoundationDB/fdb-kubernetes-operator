@@ -32,6 +32,8 @@ import (
 )
 
 var pluginVersion = "latest"
+var pluginBuildDate = "now"
+var pluginBuildCommit = "none"
 
 func newVersionCmd(streams genericclioptions.IOStreams) *cobra.Command {
 	o := newFDBOptions(streams)
@@ -72,7 +74,12 @@ func newVersionCmd(streams genericclioptions.IOStreams) *cobra.Command {
 				cmd.Printf("foundationdb-operator: %s\n", operatorVersion)
 			}
 
-			cmd.Printf("kubectl-fdb: %s\n", pluginVersion)
+			cmd.Printf(`kubectl-fdb build information:
+
+version:      %s
+build date:   %s
+build commit: %s
+`, pluginVersion, pluginBuildDate, pluginBuildCommit)
 
 			return nil
 		},

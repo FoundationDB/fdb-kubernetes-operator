@@ -56,7 +56,7 @@ var _ = Describe("[plugin] version command", func() {
 		})
 
 		It("should print out the client version", func() {
-			Expect(outBuffer.String()).To(Equal("kubectl-fdb: latest\n"))
+			Expect(outBuffer.String()).To(HavePrefix("kubectl-fdb build information"))
 		})
 	})
 
@@ -162,6 +162,7 @@ var _ = Describe("[plugin] version command", func() {
 				}),
 		)
 	})
+
 	When("running the version command with old version", func() {
 		var outBuffer bytes.Buffer
 		var errBuffer bytes.Buffer
