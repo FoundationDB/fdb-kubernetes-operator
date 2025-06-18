@@ -24,15 +24,20 @@ spec:
             mountPath: /var/dynamic-conf
       initContainers:
         - name: foundationdb-kubernetes-init
-          image: foundationdb/foundationdb-kubernetes-sidecar:6.3.3-1
+          image: foundationdb/fdb-kubernetes-monitor:7.1.57
           args:
             - "--copy-file"
             - "fdb.cluster"
             - "--copy-library"
-            - "6.3"
+            - "7.1"
             - "--copy-library"
-            - "6.2"
-            - "--init-mode"
+            - "6.3"
+            - "--mode"
+            - "init"
+            - "--input-dir"
+            - "/var/dynamic-conf"
+            - "--output-dir"
+            - "/var/output-files"
             - "--require-not-empty"
             - "fdb.cluster"
           volumeMounts:
