@@ -35,7 +35,7 @@ KUSTOMIZE_PKG?=sigs.k8s.io/kustomize/kustomize/v4@v4.5.2
 KUSTOMIZE=$(GOBIN)/kustomize
 GOLANGCI_LINT_PKG=github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.1.6
 GOLANGCI_LINT=$(GOBIN)/golangci-lint
-GORELEASER_PKG=github.com/goreleaser/goreleaser@v1.20.0
+GORELEASER_PKG=github.com/goreleaser/goreleaser/v2@v2.10.2
 GORELEASER=$(GOBIN)/goreleaser
 GO_LINES_PKG=github.com/segmentio/golines@v0.11.0
 GO_LINES=$(GOBIN)/golines
@@ -75,7 +75,7 @@ ifeq "$(TEST_RACE_CONDITIONS)" "1"
 	go_test_flags := $(go_test_flags) -race -timeout=90m
 endif
 
-all: deps generate fmt vet manager snapshot manifests samples documentation test_if_changed
+all: deps generate fmt vet manager plugin snapshot manifests samples documentation test_if_changed
 
 .PHONY: clean all manager samples documentation run install uninstall deploy manifests fmt vet generate container-build container-push container-push-if-remote rebuild-operator bounce lint
 
@@ -109,18 +109,19 @@ endif
 manager: bin/manager
 
 bin/manager: ${GO_SRC}
-	go build -ldflags="-s -w -X github.com/FoundationDB/fdb-kubernetes-operator/setup.operatorVersion=${TAG}" -o bin/manager main.go
+	go build -ldflags="-s -w -X github.com/FoundationDB/fdb-kubernetes-operator/v2/setup.operatorVersion=${TAG}" -o bin/manager main.go
 
 plugin-go:
-	go build -ldflags="-s -w -X github.com/FoundationDB/fdb-kubernetes-operator/kubectl-fdb/cmd.pluginVersion=${TAG}" -o bin/kubectl-fdb ./kubectl-fdb/main.go
+	go build -ldflags="-s -w -X github.com/FoundationDB/fdb-kubernetes-operator/v2/kubectl-fdb/cmd.pluginVersion=${TAG}" -o bin/kubectl-fdb ./kubectl-fdb/main.go
 
 # Build kubectl-fdb binary
 plugin: bin/kubectl-fdb
 
 bin/kubectl-fdb: ${GO_SRC} $(GORELEASER)
-	$(GORELEASER) build --single-target --skip-validate --rm-dist
+	$(GORELEASER) build --single-target --skip validate --clean
 	@mkdir -p bin
 	@touch $@
+# TODO test here that the tag is set properly
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
 run: generate manifests
