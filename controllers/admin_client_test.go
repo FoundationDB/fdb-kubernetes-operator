@@ -175,7 +175,7 @@ var _ = Describe("admin_client_test", func() {
 
 		Context("with a backup running", func() {
 			BeforeEach(func() {
-				err = mockAdminClient.StartBackup("blobstore://test@test-service/test-backup", 10)
+				err = mockAdminClient.StartBackup("blobstore://test@test-service/test-backup", 10, "")
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -250,7 +250,7 @@ var _ = Describe("admin_client_test", func() {
 
 		Context("with a backup running", func() {
 			BeforeEach(func() {
-				err = mockAdminClient.StartBackup("blobstore://test@test-service/test-backup", 10)
+				err = mockAdminClient.StartBackup("blobstore://test@test-service/test-backup", 10, "")
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -325,7 +325,7 @@ var _ = Describe("admin_client_test", func() {
 
 		Context("with a restore running", func() {
 			BeforeEach(func() {
-				Expect(mockAdminClient.StartRestore("blobstore://test@test-service/test-backup", nil)).To(Succeed())
+				Expect(mockAdminClient.StartRestore("blobstore://test@test-service/test-backup", nil, "")).To(Succeed())
 
 				restoreStatus, err = mockAdminClient.GetRestoreStatus()
 				Expect(err).NotTo(HaveOccurred())

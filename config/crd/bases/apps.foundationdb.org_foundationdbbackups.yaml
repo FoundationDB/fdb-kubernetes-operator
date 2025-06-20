@@ -65,6 +65,8 @@ spec:
                   namespace:
                     type: string
                 type: object
+              encryptionKeyPath:
+                type: string
               backupState:
                 enum:
                 - Running

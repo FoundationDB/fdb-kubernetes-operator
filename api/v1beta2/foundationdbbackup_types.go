@@ -97,6 +97,8 @@ type FoundationDBBackupSpec struct {
 	// This is the configuration of the target blobstore for this backup.
 	BlobStoreConfiguration *BlobStoreConfiguration `json:"blobStoreConfiguration,omitempty"`
 
+	EncryptionKeyPath string `json:"encryptionKeyPath,omitempty"`
+
 	// MainContainer defines customization for the foundationdb container.
 	MainContainer ContainerOverrides `json:"mainContainer,omitempty"`
 
