@@ -77,7 +77,7 @@ var _ = Describe("Operator Plugin", Label("e2e", "pr"), func() {
 				stdout, stderr, err := factory.ExecuteCmdOnPod(context.Background(), &operatorPod, "manager", fmt.Sprintf("kubectl-fdb -n %s --version-check=false version", fdbCluster.GetPrimary().Namespace()), false)
 				g.Expect(err).NotTo(HaveOccurred(), stderr)
 				return stdout
-			}).WithTimeout(10 * time.Minute).WithPolling(2 * time.Second).Should(And(ContainSubstring("kubectl-fdb:"), ContainSubstring("foundationdb-operator:")))
+			}).WithTimeout(10 * time.Minute).WithPolling(2 * time.Second).Should(And(ContainSubstring("kubectl-fdb build information:"), ContainSubstring("foundationdb-operator:")))
 		})
 	})
 
