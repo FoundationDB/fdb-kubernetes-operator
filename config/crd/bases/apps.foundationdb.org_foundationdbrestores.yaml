@@ -4,7 +4,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.18.0
-    foundationdb.org/release: v2.6.0
+    foundationdb.org/release: v2.7.0
   name: foundationdbrestores.apps.foundationdb.org
 spec:
   group: apps.foundationdb.org
