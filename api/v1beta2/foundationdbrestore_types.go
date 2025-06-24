@@ -63,6 +63,7 @@ type FoundationDBRestoreSpec struct {
 	CustomParameters FoundationDBCustomParameters `json:"customParameters,omitempty"`
 
 	// The path to the encryption key used to encrypt the backup.
+	// +kubebuilder:validation:MaxLength=512
 	EncryptionKeyPath string `json:"encryptionKeyPath,omitempty"`
 }
 
