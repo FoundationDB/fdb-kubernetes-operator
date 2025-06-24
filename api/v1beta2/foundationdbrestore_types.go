@@ -62,6 +62,7 @@ type FoundationDBRestoreSpec struct {
 	// agents.
 	CustomParameters FoundationDBCustomParameters `json:"customParameters,omitempty"`
 
+	// The path to the encryption key used to encrypt the backup.
 	EncryptionKeyPath string `json:"encryptionKeyPath,omitempty"`
 }
 
