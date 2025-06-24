@@ -55,6 +55,7 @@ FoundationDBRestoreSpec describes the desired state of the backup for a cluster.
 | keyRanges | The key ranges to restore. | [][FoundationDBKeyRange](#foundationdbkeyrange) | false |
 | blobStoreConfiguration | This is the configuration of the target blobstore for this backup. | *BlobStoreConfiguration | false |
 | customParameters | CustomParameters defines additional parameters to pass to the backup agents. | FoundationDBCustomParameters | false |
+| encryptionKeyPath | The path to the encryption key used to encrypt the backup. | string | false |
 
 [Back to TOC](#table-of-contents)
 
