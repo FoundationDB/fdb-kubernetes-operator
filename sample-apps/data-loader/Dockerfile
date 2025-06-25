@@ -6,6 +6,7 @@ FROM docker.io/library/golang:1.24.4 AS builder
 
 ARG FDB_VERSION
 ARG FDB_WEBSITE
+ARG TARGETARCH
 ARG TAG="latest"
 
 RUN set -eux && \
@@ -44,6 +45,7 @@ FROM docker.io/rockylinux/rockylinux:9.5-minimal
 
 ARG FDB_VERSION
 ARG FDB_WEBSITE
+ARG TARGETARCH
 
 VOLUME /usr/lib/fdb
 

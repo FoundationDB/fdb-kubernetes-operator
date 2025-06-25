@@ -1,6 +1,8 @@
 module github.com/FoundationDB/fdb-data-loader
 
-go 1.22.7
+go 1.24.0
+
+toolchain go1.24.4
 
 require (
 	// Binding version for 7.1.67

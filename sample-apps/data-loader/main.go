@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/binary"
 	"flag"
-	"github.com/google/uuid"
 	"log"
 	"math/rand/v2"
 	"os"
@@ -17,6 +16,7 @@ import (
 
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
 	"github.com/apple/foundationdb/bindings/go/src/fdb/tuple"
+	"github.com/google/uuid"
 )
 
 // initRandomGenerator setup the random generator to generate the values.
