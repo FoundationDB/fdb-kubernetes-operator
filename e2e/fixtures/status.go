@@ -139,10 +139,11 @@ func (fdbCluster *FdbCluster) RunFdbCliCommandInOperatorWithoutRetry(
 			pod.Name,
 			"manager",
 			fmt.Sprintf(
-				"unset %s && unset %s && unset %s && TIMEFORMAT='%%R' && echo '%s' > %s && time %s --log-dir \"/var/log/fdb\" --log --trace_format \"json\" %s -C %s --exec '%s'",
+				"unset %s && unset %s && unset %s && unset %s && TIMEFORMAT='%%R' && echo '%s' > %s && time %s --log-dir \"/var/log/fdb\" --log --trace_format \"json\" %s -C %s --exec '%s'",
 				fdbv1beta2.EnvNameClientThreadsPerVersion,
 				fdbv1beta2.EnvNameFDBExternalClientDir,
 				fdbv1beta2.EnvNameFDBIgnoreExternalClientFailures,
+				fdbv1beta2.EnvNameFDBDisableLocalClient,
 				cluster.Status.ConnectionString,
 				clusterFile,
 				fdbCliPath,
