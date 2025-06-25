@@ -16,6 +16,9 @@ RUN set -eux && \
          FDB_ARCH=amd64; \
     elif [ "$TARGETARCH" = "arm64" ]; then \
          FDB_ARCH=aarch64; \
+         if [ "${FDB_VERSION%.*}" = "7.1" ]; then \
+            FDB_VERSION="7.3.63"; \
+         fi; \
     else \
          echo "ERROR: unsupported architecture $TARGETARCH" 1>&2; \
          exit 1; \
@@ -71,6 +74,9 @@ RUN set -eux && \
          FDB_ARCH=x86_64; \
     elif [ "$TARGETARCH" = "arm64" ]; then \
          FDB_ARCH=aarch64; \
+         if [ "${FDB_VERSION%.*}" = "7.1" ]; then \
+            FDB_VERSION="7.3.63"; \
+         fi; \
     else \
          echo "ERROR: unsupported architecture $TARGETARCH" 1>&2; \
          exit 1; \

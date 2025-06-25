@@ -81,6 +81,9 @@ To get this controller running in a local Kubernetes cluster:
 
 _NOTE_: FoundationDB currently only publishes container images for running on `amd64`/`x64` nodes.
 
+Since the operator version v2.8.0 an experimental arm-based operator image is available.
+The default build FDB version is 7.3.63.
+
 ### Running Locally with nerdctl
 
 Instead of Docker you can also use [nerdctl](https://github.com/containerd/nerdctl) to build and push your images.
