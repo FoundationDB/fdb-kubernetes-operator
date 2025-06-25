@@ -75,6 +75,8 @@ jobs:
       - name: Get the version
         id: get_tag
         run: echo ::set-output name=TAG::${GITHUB_REF/refs\/tags\//}
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       - name: Login to DockerHub
@@ -91,3 +93,4 @@ jobs:
           context: ${{ matrix.context }}
           tags: ${{ matrix.name }}:${{ steps.get_tag.outputs.TAG }}
           file: ${{ matrix.file }}
+          platforms: linux/amd64,linux/arm64

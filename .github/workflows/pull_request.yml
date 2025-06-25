@@ -137,6 +137,8 @@ jobs:
     steps:
       - name: Check out the repo
         uses: actions/checkout@v4
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       - name: Login to DockerHub
@@ -154,6 +156,7 @@ jobs:
           context: ${{ matrix.context }}
           tags: ${{ matrix.name }}:latest
           file: ${{ matrix.file }}
+          platforms: linux/amd64,linux/arm64
 #      Disable trivy for now as it reports already fixed vulnerabilites
 #      - name: Run Trivy vulnerability scanner
 #        if: ${{ matrix.name == 'foundationdb/fdb-kubernetes-operator' }}
