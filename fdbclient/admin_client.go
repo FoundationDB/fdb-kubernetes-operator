@@ -741,9 +741,8 @@ func (client *cliAdminClient) StartBackup(url string, snapshotPeriodSeconds int,
 	if verErr != nil {
 		return verErr
 	}
-	isValidVersion := fdbVersion.Major == 7 && fdbVersion.Minor >= 3
 
-	if encryptionKeyPath != "" || !isValidVersion {
+	if encryptionKeyPath != "" || fdbVersion.SupportsBackupEncryption() {
 		args = append(args, "--encryption-key-file", encryptionKeyPath)
 	}
 
@@ -840,9 +839,8 @@ func (client *cliAdminClient) StartRestore(url string, keyRanges []fdbv1beta2.Fo
 	if verErr != nil {
 		return verErr
 	}
-	isValidVersion := fdbVersion.Major == 7 && fdbVersion.Minor >= 3
 
-	if encryptionKeyPath != "" || !isValidVersion {
+	if encryptionKeyPath != "" || fdbVersion.SupportsBackupEncryption() {
 		args = append(args, "--encryption-key-file", encryptionKeyPath)
 	}
 

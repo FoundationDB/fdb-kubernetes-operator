@@ -90,6 +90,12 @@ func (version Version) SupportsLocalityBasedExclusions() bool {
 	return version.IsAtLeast(Versions.SupportsLocalityBasedExclusions)
 }
 
+// SupportsBackupEncryption returns true if the current version supports encryption of backups.
+func (version Version) SupportsBackupEncryption() bool {
+	return version.IsAtLeast(Versions.SupportsIsPresent)
+
+}
+
 // AutomaticallyRemovesDeadTesterProcesses returns true if the FDB version automatically removes old tester processes
 // from the list of processes.
 func (version Version) AutomaticallyRemovesDeadTesterProcesses() bool {
@@ -140,6 +146,7 @@ var Versions = struct {
 	SupportsIsPresent,
 	SupportsShardedRocksDB,
 	SupportsRedwood1,
+	SupportsBackupEncryption,
 	IncompatibleVersion,
 	PreviousPatchVersion,
 	SupportsRecoveryState,
@@ -159,4 +166,5 @@ var Versions = struct {
 	SupportsRecoveryState:             Version{api.Version{Major: 7, Minor: 1, Patch: 22}},
 	SupportsLocalityBasedExclusions71: Version{api.Version{Major: 7, Minor: 1, Patch: 42}},
 	SupportsLocalityBasedExclusions:   Version{api.Version{Major: 7, Minor: 3, Patch: 26}},
+	SupportsBackupEncryption:          Version{api.Version{Major: 7, Minor: 3, Patch: 0}},
 }
