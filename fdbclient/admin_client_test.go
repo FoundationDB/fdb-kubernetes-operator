@@ -957,4 +957,163 @@ protocol fdb00b071010000`,
 			Expect(getKillCommand(addresses, false)).To(Equal("kill; kill 192.168.0.2:4500; sleep 5"))
 		})
 	})
+
+	When("starting a backup", func() {
+		var mockRunner *mockCommandRunner
+		var client *cliAdminClient
+		var url string
+		var snapshotPeriodSeconds int
+		var encryptionKeyPath string
+		var err error
+
+		BeforeEach(func() {
+			mockRunner = &mockCommandRunner{
+				mockedError:  nil,
+				mockedOutput: []string{""},
+			}
+
+			client = &cliAdminClient{
+				Cluster: &fdbv1beta2.FoundationDBCluster{
+					Spec: fdbv1beta2.FoundationDBClusterSpec{
+						Version: "7.1.25",
+					},
+					Status: fdbv1beta2.FoundationDBClusterStatus{
+						RunningVersion: "7.1.25",
+					},
+				},
+				log:       logr.Discard(),
+				cmdRunner: mockRunner,
+			}
+
+			url = "blobstore://test@test-service/test-backup"
+			snapshotPeriodSeconds = 60
+			encryptionKeyPath = "/path/to/encryption/key"
+		})
+
+		JustBeforeEach(func() {
+			err = client.StartBackup(url, snapshotPeriodSeconds, encryptionKeyPath)
+		})
+
+		When("encryption is enabled", func() {
+			It("should generate the correct command with encryption", func() {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(mockRunner.receivedArgs[0]).To(ContainElements(
+					"start",
+					"-d", url,
+					"-s", "60",
+					"-z",
+					"--encryption-key-file", encryptionKeyPath,
+				))
+			})
+		})
+
+		When("encryption is disabled", func() {
+			BeforeEach(func() {
+				encryptionKeyPath = ""
+			})
+
+			It("should generate the command without encryption", func() {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(mockRunner.receivedArgs[0]).To(ContainElements(
+					"start",
+					"-d", url,
+					"-s", "60",
+					"-z",
+				))
+				for _, arg := range mockRunner.receivedArgs[0] {
+					Expect(arg).NotTo(Equal("--encryption-key-file"))
+				}
+			})
+		})
+	})
+
+	When("starting a restore", func() {
+		var mockRunner *mockCommandRunner
+		var client *cliAdminClient
+		var url string
+		var keyRanges []fdbv1beta2.FoundationDBKeyRange
+		var encryptionKeyPath string
+		var err error
+
+		BeforeEach(func() {
+			mockRunner = &mockCommandRunner{
+				mockedError:  nil,
+				mockedOutput: []string{""},
+			}
+
+			client = &cliAdminClient{
+				Cluster: &fdbv1beta2.FoundationDBCluster{
+					Spec: fdbv1beta2.FoundationDBClusterSpec{
+						Version: "7.1.25",
+					},
+					Status: fdbv1beta2.FoundationDBClusterStatus{
+						RunningVersion: "7.1.25",
+					},
+				},
+				log:       logr.Discard(),
+				cmdRunner: mockRunner,
+			}
+
+			url = "blobstore://test@test-service/test-backup"
+			keyRanges = []fdbv1beta2.FoundationDBKeyRange{
+				{
+					Start: "\\x00",
+					End:   "\\xFF",
+				},
+			}
+			encryptionKeyPath = "/path/to/encryption/key"
+		})
+
+		JustBeforeEach(func() {
+			err = client.StartRestore(url, keyRanges, encryptionKeyPath)
+		})
+
+		When("encryption and key ranges are specified", func() {
+			It("should generate the correct command with encryption and key ranges", func() {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(mockRunner.receivedArgs[0]).To(ContainElements(
+					"start",
+					"-r", url,
+					"--encryption-key-file", encryptionKeyPath,
+					"-k", "\\x00 \\xFF",
+				))
+			})
+		})
+
+		When("encryption is disabled", func() {
+			BeforeEach(func() {
+				encryptionKeyPath = ""
+			})
+
+			It("should generate the command without encryption", func() {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(mockRunner.receivedArgs[0]).To(ContainElements(
+					"start",
+					"-r", url,
+					"-k", "\\x00 \\xFF",
+				))
+				for _, arg := range mockRunner.receivedArgs[0] {
+					Expect(arg).NotTo(Equal("--encryption-key-file"))
+				}
+			})
+		})
+
+		When("key ranges are not specified", func() {
+			BeforeEach(func() {
+				keyRanges = nil
+			})
+
+			It("should generate the command without key ranges", func() {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(mockRunner.receivedArgs[0]).To(ContainElements(
+					"start",
+					"-r", url,
+					"--encryption-key-file", encryptionKeyPath,
+				))
+				for _, arg := range mockRunner.receivedArgs[0] {
+					Expect(arg).NotTo(Equal("-k"))
+				}
+			})
+		})
+	})
 })
