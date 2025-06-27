@@ -66,6 +66,9 @@ const (
 	// EnvNameFDBTraceLogDirPath enables trace logs output to a file in the given directory
 	EnvNameFDBTraceLogDirPath = "FDB_NETWORK_OPTION_TRACE_ENABLE"
 
+	// EnvNameFDBDisableLocalClient the name of the network option that allows to disable the local client.
+	EnvNameFDBDisableLocalClient = "FDB_NETWORK_OPTION_DISABLE_LOCAL_CLIENT"
+
 	// EnvNameFDBExternalClientDir specifies path to search for dynamic libraries and adds them to the list of client
 	// libraries for use by the multi-version client API. Must be set before setting up the network.
 	EnvNameFDBExternalClientDir = "FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY"

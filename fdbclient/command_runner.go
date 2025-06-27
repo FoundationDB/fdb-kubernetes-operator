@@ -49,6 +49,7 @@ func getEnvironmentVariablesWithoutExcludedFdbEnv() []string {
 		fdbv1beta2.EnvNameFDBExternalClientDir:            {},
 		fdbv1beta2.EnvNameFDBIgnoreExternalClientFailures: {},
 		fdbv1beta2.EnvNameClientThreadsPerVersion:         {},
+		fdbv1beta2.EnvNameFDBDisableLocalClient:           {},
 	}
 
 	osVariables := os.Environ()
