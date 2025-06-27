@@ -92,7 +92,7 @@ func (version Version) SupportsLocalityBasedExclusions() bool {
 
 // SupportsBackupEncryption returns true if the current version supports encryption of backups.
 func (version Version) SupportsBackupEncryption() bool {
-	return version.IsAtLeast(Versions.SupportsIsPresent)
+	return version.IsAtLeast(Versions.SupportsBackupEncryption)
 
 }
 
