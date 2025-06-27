@@ -79,6 +79,21 @@ func validateStorageClass(processClass fdbv1beta2.ProcessClass, targetStorageCla
 	}, 5*time.Minute).Should(Equal(map[string]fdbv1beta2.None{targetStorageClass: {}}))
 }
 
+func checkCoordinatorsTLSFlag(cluster *fdbv1beta2.FoundationDBCluster, listenOnTLS bool) {
+	connectionString := cluster.Status.ConnectionString
+	log.Println("connection string after conversion: ", connectionString)
+	parsedConnectionString, err := fdbv1beta2.ParseConnectionString(connectionString)
+	Expect(err).NotTo(HaveOccurred())
+
+	for _, coordinator := range parsedConnectionString.Coordinators {
+		if listenOnTLS {
+			Expect(coordinator).To(HaveSuffix(":tls"))
+		} else {
+			Expect(coordinator).NotTo(HaveSuffix(":tls"))
+		}
+	}
+}
+
 var _ = BeforeSuite(func() {
 	factory = fixtures.CreateFactory(testOptions)
 	fdbCluster = factory.CreateFdbCluster(
@@ -651,17 +666,26 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		})
 	})
 
-	PWhen("Changing the TLS setting", func() {
+	When("Changing the TLS setting", func() {
+		var initialTLSSetting bool
+
+		BeforeEach(func() {
+			initialTLSSetting = fdbCluster.GetCluster().Spec.MainContainer.EnableTLS
+		})
+
+		AfterEach(func() {
+			Expect(fdbCluster.SetTLS(initialTLSSetting, fdbCluster.GetCluster().Spec.SidecarContainer.EnableTLS)).NotTo(HaveOccurred())
+			Expect(fdbCluster.HasTLSEnabled()).To(Equal(initialTLSSetting))
+			checkCoordinatorsTLSFlag(fdbCluster.GetCluster(), initialTLSSetting)
+		})
+
 		// Currently disabled until a new release of the operator is out
-		It("should disable or enable TLS and keep the cluster available", func() {
+		It("should update the TLS setting  and keep the cluster available", func() {
 			// Only change the TLS setting for the cluster and not for the sidecar otherwise we have to recreate
 			// all Pods which takes a long time since we recreate the Pods one by one.
-			log.Println("disable TLS for main container")
-			Expect(fdbCluster.SetTLS(false, true)).NotTo(HaveOccurred())
-			Expect(fdbCluster.HasTLSEnabled()).To(BeFalse())
-			log.Println("enable TLS for main container")
-			Expect(fdbCluster.SetTLS(true, true)).NotTo(HaveOccurred())
-			Expect(fdbCluster.HasTLSEnabled()).To(BeTrue())
+			Expect(fdbCluster.SetTLS(!initialTLSSetting, fdbCluster.GetCluster().Spec.SidecarContainer.EnableTLS)).NotTo(HaveOccurred())
+			Expect(fdbCluster.HasTLSEnabled()).To(Equal(!initialTLSSetting))
+			checkCoordinatorsTLSFlag(fdbCluster.GetCluster(), !initialTLSSetting)
 		})
 	})
 
