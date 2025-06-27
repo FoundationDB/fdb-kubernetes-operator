@@ -70,7 +70,7 @@ type AdminClient interface {
 	GetProtocolVersion(version string) (string, error)
 
 	// StartBackup starts a new backup.
-	StartBackup(url string, snapshotPeriodSeconds int) error
+	StartBackup(url string, snapshotPeriodSeconds int, encyptionKeyPath string) error
 
 	// StopBackup stops a backup.
 	StopBackup(url string) error
@@ -88,7 +88,7 @@ type AdminClient interface {
 	GetBackupStatus() (*fdbv1beta2.FoundationDBLiveBackupStatus, error)
 
 	// StartRestore starts a new restore.
-	StartRestore(url string, keyRanges []fdbv1beta2.FoundationDBKeyRange) error
+	StartRestore(url string, keyRanges []fdbv1beta2.FoundationDBKeyRange, encyptionKeyPath string) error
 
 	// GetRestoreStatus gets the status of the current restore.
 	GetRestoreStatus() (string, error)

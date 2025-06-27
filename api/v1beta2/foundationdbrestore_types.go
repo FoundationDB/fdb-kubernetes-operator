@@ -61,6 +61,10 @@ type FoundationDBRestoreSpec struct {
 	// CustomParameters defines additional parameters to pass to the backup
 	// agents.
 	CustomParameters FoundationDBCustomParameters `json:"customParameters,omitempty"`
+
+	// The path to the encryption key used to encrypt the backup.
+	// +kubebuilder:validation:MaxLength=4096
+	EncryptionKeyPath string `json:"encryptionKeyPath,omitempty"`
 }
 
 // FoundationDBRestoreStatus describes the current status of the restore for a cluster.

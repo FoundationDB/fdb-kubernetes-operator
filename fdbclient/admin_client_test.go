@@ -957,4 +957,98 @@ protocol fdb00b071010000`,
 			Expect(getKillCommand(addresses, false)).To(Equal("kill; kill 192.168.0.2:4500; sleep 5"))
 		})
 	})
+
+	DescribeTable("starting backup with different versions",
+		func(version string, encryptionKeyPath string, shouldHaveEncryptionFlag bool) {
+			mockRunner := &mockCommandRunner{
+				mockedError:  nil,
+				mockedOutput: []string{""},
+			}
+
+			client := &cliAdminClient{
+				Cluster: &fdbv1beta2.FoundationDBCluster{
+					Spec: fdbv1beta2.FoundationDBClusterSpec{
+						Version: version,
+					},
+					Status: fdbv1beta2.FoundationDBClusterStatus{
+						RunningVersion: version,
+					},
+				},
+				log:       logr.Discard(),
+				cmdRunner: mockRunner,
+			}
+
+			url := "blobstore://test@test-service/test-backup"
+			snapshotPeriodSeconds := 60
+
+			err := client.StartBackup(url, snapshotPeriodSeconds, encryptionKeyPath)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Check basic arguments that should always be present
+			Expect(mockRunner.receivedArgs[0]).To(ContainElements(
+				"start",
+				"-d", url,
+				"-s", "60",
+				"-z",
+			))
+
+			if shouldHaveEncryptionFlag {
+				Expect(mockRunner.receivedArgs[0]).To(ContainElements("--encryption-key-file", encryptionKeyPath))
+			} else {
+				Expect(mockRunner.receivedArgs[0]).ToNot(ContainElement("--encryption-key-file"))
+			}
+		},
+		Entry("version that doesn't support backup encryption with key", "7.1.25", "/path/to/key", false),
+		Entry("version that supports backup encryption without key", "7.3.1", "", false),
+		Entry("version that supports backup encryption with key", "7.3.1", "/path/to/key", true),
+	)
+
+	DescribeTable("starting restore with different versions",
+		func(version string, encryptionKeyPath string, keyRanges []fdbv1beta2.FoundationDBKeyRange, shouldHaveEncryptionFlag bool, shouldHaveKeyRanges bool) {
+			mockRunner := &mockCommandRunner{
+				mockedError:  nil,
+				mockedOutput: []string{""},
+			}
+
+			client := &cliAdminClient{
+				Cluster: &fdbv1beta2.FoundationDBCluster{
+					Spec: fdbv1beta2.FoundationDBClusterSpec{
+						Version: version,
+					},
+					Status: fdbv1beta2.FoundationDBClusterStatus{
+						RunningVersion: version,
+					},
+				},
+				log:       logr.Discard(),
+				cmdRunner: mockRunner,
+			}
+
+			url := "blobstore://test@test-service/test-backup"
+
+			err := client.StartRestore(url, keyRanges, encryptionKeyPath)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(mockRunner.receivedArgs[0]).To(ContainElements(
+				"start",
+				"-r", url,
+			))
+
+			if shouldHaveEncryptionFlag {
+				Expect(mockRunner.receivedArgs[0]).To(ContainElements("--encryption-key-file", encryptionKeyPath))
+			} else {
+				Expect(mockRunner.receivedArgs[0]).ToNot(ContainElement("--encryption-key-file"))
+			}
+
+			// Check for key ranges based on the parameter
+			if shouldHaveKeyRanges {
+				Expect(mockRunner.receivedArgs[0]).To(ContainElement("-k"))
+			} else {
+				Expect(mockRunner.receivedArgs[0]).ToNot(ContainElement("-k"))
+			}
+		},
+		Entry("test key ranges", "7.1.25", "", []fdbv1beta2.FoundationDBKeyRange{{Start: "\\x00", End: "\\xFF"}}, false, true),
+		Entry("version that doesn't support backup encryption with encryption key", "7.1.25", "/path/to/key", nil, false, false),
+		Entry("version that supports backup encryption without key", "7.3.1", "", nil, false, false),
+		Entry("version that supports backup encryption with key", "7.3.1", "/path/to/key", nil, true, false),
+	)
 })
