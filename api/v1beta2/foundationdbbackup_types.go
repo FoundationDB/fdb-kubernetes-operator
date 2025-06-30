@@ -97,6 +97,10 @@ type FoundationDBBackupSpec struct {
 	// This is the configuration of the target blobstore for this backup.
 	BlobStoreConfiguration *BlobStoreConfiguration `json:"blobStoreConfiguration,omitempty"`
 
+	// The path to the encryption key used to encrypt the backup.
+	// +kubebuilder:validation:MaxLength=4096
+	EncryptionKeyPath string `json:"encryptionKeyPath,omitempty"`
+
 	// MainContainer defines customization for the foundationdb container.
 	MainContainer ContainerOverrides `json:"mainContainer,omitempty"`
 

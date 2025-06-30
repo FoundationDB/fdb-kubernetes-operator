@@ -727,17 +727,28 @@ func (client *cliAdminClient) GetProtocolVersion(version string) (string, error)
 	return protocolVersionMatch[1], nil
 }
 
-func (client *cliAdminClient) StartBackup(url string, snapshotPeriodSeconds int) error {
+func (client *cliAdminClient) StartBackup(url string, snapshotPeriodSeconds int, encryptionKeyPath string) error {
+	args := []string{
+		"start",
+		"-d",
+		url,
+		"-s",
+		fmt.Sprintf("%d", snapshotPeriodSeconds),
+		"-z",
+	}
+
+	fdbVersion, verErr := fdbv1beta2.ParseFdbVersion(client.Cluster.GetRunningVersion())
+	if verErr != nil {
+		return verErr
+	}
+
+	if encryptionKeyPath != "" && fdbVersion.SupportsBackupEncryption() {
+		args = append(args, "--encryption-key-file", encryptionKeyPath)
+	}
+
 	_, err := client.runCommand(cliCommand{
 		binary: fdbbackupStr,
-		args: []string{
-			"start",
-			"-d",
-			url,
-			"-s",
-			fmt.Sprintf("%d", snapshotPeriodSeconds),
-			"-z",
-		},
+		args:   args,
 	})
 	return err
 }
@@ -817,11 +828,20 @@ func (client *cliAdminClient) GetBackupStatus() (*fdbv1beta2.FoundationDBLiveBac
 }
 
 // StartRestore starts a new restore.
-func (client *cliAdminClient) StartRestore(url string, keyRanges []fdbv1beta2.FoundationDBKeyRange) error {
+func (client *cliAdminClient) StartRestore(url string, keyRanges []fdbv1beta2.FoundationDBKeyRange, encryptionKeyPath string) error {
 	args := []string{
 		"start",
 		"-r",
 		url,
+	}
+
+	fdbVersion, verErr := fdbv1beta2.ParseFdbVersion(client.Cluster.GetRunningVersion())
+	if verErr != nil {
+		return verErr
+	}
+
+	if encryptionKeyPath != "" && fdbVersion.SupportsBackupEncryption() {
+		args = append(args, "--encryption-key-file", encryptionKeyPath)
 	}
 
 	if keyRanges != nil {

@@ -767,7 +767,7 @@ func (client *AdminClient) GetProtocolVersion(version string) (string, error) {
 }
 
 // StartBackup starts a new backup.
-func (client *AdminClient) StartBackup(url string, snapshotPeriodSeconds int) error {
+func (client *AdminClient) StartBackup(url string, snapshotPeriodSeconds int, _ string) error {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
@@ -873,7 +873,7 @@ func (client *AdminClient) GetBackupStatus() (*fdbv1beta2.FoundationDBLiveBackup
 }
 
 // StartRestore starts a new restore.
-func (client *AdminClient) StartRestore(url string, _ []fdbv1beta2.FoundationDBKeyRange) error {
+func (client *AdminClient) StartRestore(url string, _ []fdbv1beta2.FoundationDBKeyRange, _ string) error {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 

@@ -65,6 +65,9 @@ spec:
                 type: array
               destinationClusterName:
                 type: string
+              encryptionKeyPath:
+                maxLength: 4096
+                type: string
               keyRanges:
                 items:
                   properties:

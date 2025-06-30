@@ -44,7 +44,7 @@ func (s startBackup) reconcile(ctx context.Context, r *FoundationDBBackupReconci
 		_ = adminClient.Close()
 	}()
 
-	err = adminClient.StartBackup(backup.BackupURL(), backup.SnapshotPeriodSeconds())
+	err = adminClient.StartBackup(backup.BackupURL(), backup.SnapshotPeriodSeconds(), backup.Spec.EncryptionKeyPath)
 	if err != nil {
 		return &requeue{curError: err}
 	}
