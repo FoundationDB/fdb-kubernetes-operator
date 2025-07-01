@@ -26,13 +26,11 @@ import (
 	"log"
 	"time"
 
-	"github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/api/equality"
-
-	"github.com/onsi/ginkgo/v2"
-
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
+	"github.com/onsi/ginkgo/v2"
+	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -42,26 +40,36 @@ func (factory *Factory) ChooseRandomPod(pods *corev1.PodList) *corev1.Pod {
 	if len(items) == 0 {
 		return nil
 	}
-
 	pickedPod := factory.RandomPickOnePod(pods.Items)
 
 	return &pickedPod
 }
 
 // RandomPickPod randomly picks the number of Pods from the slice. If the slice contains less than count Pods, all Pods
-// will be returned in a random order.
+// will be returned in a random order. This method will ensure that only a Pod with a non-zero deletion timestamp will be picked.
 func (factory *Factory) RandomPickPod(input []corev1.Pod, count int) []corev1.Pod {
-	ret := make([]corev1.Pod, count)
-	perm := factory.randomGenerator.Perm(len(input))
+	candidates := make([]corev1.Pod, 0, len(input))
+	for _, pod := range input {
+		// Skip pods that are marked for deletion
+		if !pod.DeletionTimestamp.IsZero() {
+			log.Println("skipping pod marked for deletion, name:", pod.Name, "namespace:", pod.Namespace, "deletionTimestampL", pod.DeletionTimestamp.String())
+			continue
+		}
 
-	maxPods := count
-	if count > len(input) {
-		log.Println("count", count, "is bigger than the number of Pods provided", len(input))
-		maxPods = len(input)
+		candidates = append(candidates, pod)
 	}
 
+	maxPods := count
+	if count > len(candidates) {
+		log.Println("count", count, "is bigger than the number of Pods provided", len(input))
+		maxPods = len(candidates)
+	}
+
+	// Generate the randomized result
+	ret := make([]corev1.Pod, 0, maxPods)
+	perm := factory.randomGenerator.Perm(len(candidates))
 	for i := 0; i < maxPods; i++ {
-		ret[i] = input[perm[i]]
+		ret = append(ret, candidates[perm[i]])
 	}
 
 	return ret
@@ -69,6 +77,7 @@ func (factory *Factory) RandomPickPod(input []corev1.Pod, count int) []corev1.Po
 
 // RandomPickOnePod will pick one Pods randomly from the Pod slice.
 func (factory *Factory) RandomPickOnePod(input []corev1.Pod) corev1.Pod {
+	// TODO(johscheuer): Handle the case where no pod is available.
 	return factory.RandomPickPod(input, 1)[0]
 }
 
@@ -93,6 +102,7 @@ func (factory *Factory) RandomPickCluster(input []*FdbCluster, count int) []*Fdb
 
 // RandomPickOneCluster will pick one FdbCluster randomly from the FdbCluster slice.
 func (factory *Factory) RandomPickOneCluster(input []*FdbCluster) *FdbCluster {
+	// TODO(johscheuer): Handle the case where no cluster is available.
 	return factory.RandomPickCluster(input, 1)[0]
 }
 
