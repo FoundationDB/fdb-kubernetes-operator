@@ -832,6 +832,7 @@ func (fdbCluster *FdbCluster) SetTLS(
 	enableMainContainerTLS bool,
 	enableSidecarContainerTLS bool,
 ) error {
+	log.Println("updating the TLS setting for main container:", enableMainContainerTLS, "for sidecar container:", enableSidecarContainerTLS)
 	fdbCluster.cluster.Spec.MainContainer.EnableTLS = enableMainContainerTLS
 	fdbCluster.cluster.Spec.SidecarContainer.EnableTLS = enableSidecarContainerTLS
 	fdbCluster.UpdateClusterSpec()
