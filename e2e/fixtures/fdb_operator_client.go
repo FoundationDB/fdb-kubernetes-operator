@@ -702,7 +702,10 @@ func (factory *Factory) GetOperatorPods(namespace string) *corev1.PodList {
 	pods := &corev1.PodList{}
 	gomega.Eventually(func() error {
 		return factory.GetControllerRuntimeClient().
-			List(ctx.TODO(), pods, client.InNamespace(namespace), client.MatchingLabels(map[string]string{"app": operatorDeploymentName}))
+			List(ctx.TODO(), pods,
+				client.InNamespace(namespace),
+				client.MatchingLabels(map[string]string{"app": operatorDeploymentName}),
+				client.MatchingFields(map[string]string{"status.phase": string(corev1.PodRunning)}))
 	}).WithTimeout(1 * time.Minute).WithPolling(1 * time.Second).ShouldNot(gomega.HaveOccurred())
 
 	return pods
