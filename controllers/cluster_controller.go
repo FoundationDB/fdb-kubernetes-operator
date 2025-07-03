@@ -24,6 +24,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
+	"os"
+	"strings"
+	"syscall"
 	"time"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient"
@@ -221,10 +225,67 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 
 	var status *fdbv1beta2.FoundationDBStatus
 	if cacheStatus {
-		clusterLog.Info("Fetch machine-readable status for reconcilitation loop", "cacheStatus", cacheStatus)
+		clusterLog.Info("Fetch machine-readable status for reconciliation loop", "cacheStatus", cacheStatus)
 		status, err = r.getStatusFromClusterOrDummyStatus(clusterLog, cluster)
 		if err != nil {
-			clusterLog.Info("could not fetch machine-readable status and therefore didn't cache it")
+			clusterLog.Info("could not fetch machine-readable status and therefore didn't cache it", "error", err.Error())
+			// In our e2e test cases we have observed cases where the operator got stuck fetching the latest machine-readable status from a cluster
+			// when all coordinator pods got restarted. This only happens when DNS entries are used in the connection string (otherwise the operator
+			// will be stuck). During testing we observed that restarting the operator process resolved the issue.
+			//
+			// See: https://github.com/FoundationDB/fdb-kubernetes-operator/issues/2311
+			if cluster.UseDNSInClusterFile() && strings.Contains(err.Error(), "FoundationDB error code 1512") {
+				clusterLog.V(0).Info("try to resolve addresses")
+				parsedConnectionString, err := fdbv1beta2.ParseConnectionString(cluster.Status.ConnectionString)
+				if err != nil {
+					clusterLog.V(0).Info("could not try to resolve coordinator addresses", "error", err.Error())
+				} else {
+					coordinatorsResolvable := true
+					resolver := net.Resolver{}
+					// Try to resolve the coordinators. If the operator is able to resolve the coordinators but the FDB bindings are not able
+					// to do it, we have to restart the operator process.
+					for _, coordinator := range parsedConnectionString.Coordinators {
+						addr, err := fdbv1beta2.ParseProcessAddress(coordinator)
+						if err != nil {
+							continue
+						}
+
+						// If an IP address is set we ignore this entry. In theory, it's possible that the connection string
+						// contains a mix of DNS entries and IP addresses. For clusters that are manged by the operator, this
+						// shouldn't be the case.
+						if !addr.IsEmpty() {
+							continue
+						}
+
+						// Try to resolve all the coordinators.
+						name := addr.MachineAddress()
+						clusterLog.V(0).Info("trying to resolve coordinator", "coordinator", name)
+
+						ip, err := resolver.LookupIPAddr(ctx, name)
+						clusterLog.V(0).Info("resolved coordinator", "coordinator", name, "ip", ip, "error", err)
+						if err != nil || ip == nil {
+							coordinatorsResolvable = false
+						}
+					}
+
+					// If all coordinators are resolvable shutdown the operator process by sending a SIGTERM to ensure
+					// a graceful shutdown can be initiated.
+					if coordinatorsResolvable {
+						clusterLog.Info("trying to shutdown process because all coordinators are resolvable but the go bindings return a binding error")
+						process, err := os.FindProcess(os.Getpid())
+						if err != nil {
+							fmt.Printf("Error finding process: %v\n", err)
+							return ctrl.Result{RequeueAfter: 5 * time.Second}, err
+						}
+
+						err = process.Signal(syscall.SIGTERM)
+						if err != nil {
+							fmt.Printf("Error sending signal: %v\n", err)
+							return ctrl.Result{RequeueAfter: 5 * time.Second}, err
+						}
+					}
+				}
+			}
 		}
 	}
 

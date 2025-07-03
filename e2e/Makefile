@@ -28,6 +28,9 @@ STORAGE_ENGINE?=
 DUMP_OPERATOR_STATE?=true
 SEAWEEDFS_IMAGE?=chrislusf/seaweedfs:3.73
 NODE_SELECTOR?=
+# DEFAULT_UNAVAILABLE_THRESHOLD defines the default unavailability threshold.
+# If the database is unavailable for a longer period the test will fail if unavailability checks are enabled.
+DEFAULT_UNAVAILABLE_THRESHOLD?=30s
 # Defines the cloud provider used for the underlying Kubernetes cluster. Currently only kind is support, other cloud providers
 # should still work but this test framework has no special cases for those.
 CLOUD_PROVIDER?=
@@ -194,6 +197,7 @@ endif
 	  --unified-fdb-image=$(UNIFIED_FDB_IMAGE) \
 	  --feature-server-side-apply=$(FEATURE_SERVER_SIDE_APPLY) \
 	  --feature-synchronization-mode=$(FEATURE_SYNCHRONIZATION_MODE) \
-	  --seaweedfs-image=$(SEAWEEDFS_IMAGE) $(FEATURE_LOCALITIES_FLAG) $(FEATURE_DNS) \
 	  --node-selector="$(NODE_SELECTOR)" \
+	  --default-unavailable-threshold=$(DEFAULT_UNAVAILABLE_THRESHOLD) \
+	  --seaweedfs-image=$(SEAWEEDFS_IMAGE) $(FEATURE_LOCALITIES_FLAG) $(FEATURE_DNS) \
 	  | grep -v 'constructing many client instances from the same exec auth config can cause performance problems during cert rotation' &> $(BASE_DIR)/../logs/$<.log

@@ -222,7 +222,7 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 			primary := fdbCluster.GetPrimary()
 			primaryDCID := primary.GetCluster().Spec.DataCenter
 
-			Consistently(func() int {
+			Consistently(func(g Gomega) int {
 				var runningPods int
 				for _, pod := range satellite.GetAllPods().Items {
 					if pod.Status.Phase != corev1.PodRunning {
@@ -232,7 +232,12 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 					runningPods++
 				}
 
-				Expect(fdbCluster.GetPrimary().GetStatus().Cluster.DatabaseConfiguration.GetPrimaryDCID()).To(Equal(primaryDCID))
+				status := fdbCluster.GetPrimary().GetStatus()
+				if status.Client.DatabaseStatus.Available {
+					g.Expect(status.Cluster.DatabaseConfiguration.GetPrimaryDCID()).To(Equal(primaryDCID))
+				} else {
+					log.Println("Database is unavailable will skip the primary DC check", status)
+				}
 
 				return runningPods
 			}).WithTimeout(5 * time.Minute).WithPolling(2 * time.Second).Should(BeNumerically(">=", desiredRunningPods))

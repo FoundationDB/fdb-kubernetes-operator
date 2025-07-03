@@ -65,8 +65,7 @@ func CheckKnobRollout(
 	startTime := time.Now()
 	timeoutTime := startTime.Add(time.Duration(knobRolloutTimeoutSeconds) * time.Second)
 
-	Eventually(func(g Gomega) bool {
-		primary = fdbCluster.GetPrimary()
+	Eventually(func(g Gomega) {
 		status := primary.GetStatus()
 		commandLines := primary.GetCommandlineForProcessesPerClassWithStatus(status)
 		var generalProcessCounts, storageProcessCounts int
@@ -103,9 +102,7 @@ func CheckKnobRollout(
 
 		g.Expect(generalProcessCounts).To(BeNumerically("==", totalGeneralProcessCount))
 		g.Expect(storageProcessCounts).To(BeNumerically("==", totalStorageProcessCount))
-
-		return true
-	}).WithTimeout(time.Until(timeoutTime)).WithPolling(15 * time.Second).Should(BeTrue())
+	}).WithTimeout(time.Until(timeoutTime)).WithPolling(15 * time.Second).Should(Succeed())
 
 	rolloutDuration := time.Since(startTime)
 	finalGeneration := primary.GetStatus().Cluster.Generation

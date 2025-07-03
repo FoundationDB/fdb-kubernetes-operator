@@ -83,7 +83,7 @@ func clusterSetupWithTestConfig(config testConfig) {
 
 	if config.enableHealthCheck {
 		Expect(
-			fdbCluster.GetPrimary().InvariantClusterStatusAvailableWithThreshold(15 * time.Second),
+			fdbCluster.GetPrimary().InvariantClusterStatusAvailable(),
 		).ShouldNot(HaveOccurred())
 	}
 

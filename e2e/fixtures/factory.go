@@ -891,3 +891,9 @@ func (factory *Factory) GetSynchronizationMode() fdbv1beta2.SynchronizationMode 
 
 	return fdbv1beta2.SynchronizationMode(factory.options.synchronizationMode)
 }
+
+// GetDefaultUnavailableThreshold returns the default unavailable threshold. If the cluster is unavailable for a longer
+// period the test case will fail.
+func (factory *Factory) GetDefaultUnavailableThreshold() time.Duration {
+	return factory.options.defaultUnavailableThreshold
+}

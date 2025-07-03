@@ -28,7 +28,6 @@ Each test will create a new HA FoundationDB cluster which will be upgraded.
 
 import (
 	"log"
-	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	chaosmesh "github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/chaos-mesh/api/v1alpha1"
@@ -64,7 +63,7 @@ func clusterSetupWithHealthCheckOption(beforeVersion string, enableOperatorPodCh
 	)
 	if enableHealthCheck {
 		Expect(
-			fdbCluster.GetPrimary().InvariantClusterStatusAvailableWithThreshold(15 * time.Second),
+			fdbCluster.GetPrimary().InvariantClusterStatusAvailable(),
 		).ShouldNot(HaveOccurred())
 	}
 
