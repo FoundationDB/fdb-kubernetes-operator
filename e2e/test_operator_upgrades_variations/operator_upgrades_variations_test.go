@@ -77,7 +77,7 @@ func clusterSetupWithConfig(config testConfig) *fixtures.FdbCluster {
 	}
 
 	Expect(
-		cluster.InvariantClusterStatusAvailableWithThreshold(15 * time.Second),
+		cluster.InvariantClusterStatusAvailable(),
 	).ShouldNot(HaveOccurred())
 
 	return cluster

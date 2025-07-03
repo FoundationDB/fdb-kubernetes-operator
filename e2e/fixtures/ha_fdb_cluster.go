@@ -189,7 +189,7 @@ func (haFDBCluster *HaFdbCluster) WaitForReconciliation(
 	return g.Wait()
 }
 
-func (factory Factory) createHaFdbClusterSpec(
+func (factory *Factory) createHaFdbClusterSpec(
 	config *ClusterConfig,
 	dcID string,
 	seedConnection string,
