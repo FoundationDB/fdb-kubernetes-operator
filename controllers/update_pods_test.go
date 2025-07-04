@@ -151,6 +151,21 @@ var _ = Describe("update_pods", func() {
 					expectedErr:          fmt.Errorf("unknown deletion mode: \"banana\""),
 				}),
 		)
+
+		When("a version incompatible upgrade is ongoing", func() {
+			BeforeEach(func() {
+				version, err := fdbv1beta2.ParseFdbVersion(cluster.Spec.Version)
+				Expect(err).NotTo(HaveOccurred())
+				cluster.Spec.Version = version.NextMinorVersion().String()
+			})
+
+			It("should not perform any updates and requeue", func() {
+				result := updatePods{}.reconcile(context.Background(), clusterReconciler, cluster, nil, testLogger)
+				Expect(result).NotTo(BeNil())
+				Expect(result.delayedRequeue).To(BeTrue())
+				Expect(result.message).To(Equal("Pod updates are skipped because of an ongoing version incompatible upgrade"))
+			})
+		})
 	})
 
 	Context("Validating shouldRequeueDueToTerminatingPod", func() {

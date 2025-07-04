@@ -40,13 +40,12 @@ func GetFilterConditions(cluster *fdbv1beta2.FoundationDBCluster) map[fdbv1beta2
 		}
 	}
 
-	// If we perform an upgrade we have to wait until all processes are
-	// ready to be restarted. Therefore we can't ignore process groups with the SidecarUnreachable condition.
-	// We could be less restrictive here in cases where we perform a version compatible upgrade.m
+	// If we perform a version incompatible upgrade, we have to wait until all processes are ready to be restarted.
+	// This means that all the sidecar images are updated to the new desired image that contains the new version.
 	return map[fdbv1beta2.ProcessGroupConditionType]bool{
-		fdbv1beta2.IncorrectCommandLine: true,
-		fdbv1beta2.IncorrectPodSpec:     false,
-		fdbv1beta2.IncorrectConfigMap:   false,
+		fdbv1beta2.IncorrectCommandLine:  true,
+		fdbv1beta2.IncorrectSidecarImage: false,
+		fdbv1beta2.IncorrectConfigMap:    false,
 	}
 }
 

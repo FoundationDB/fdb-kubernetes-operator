@@ -578,6 +578,23 @@ func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler,
 
 	processGroupStatus.UpdateCondition(fdbv1beta2.IncorrectPodSpec, incorrectPodSpec)
 
+	// Check the sidecar image, to ensure the sidecar is running with the desired image.
+	sidecarImage, err := internal.GetSidecarImage(cluster, processGroupStatus.ProcessClass)
+	if err != nil {
+		return err
+	}
+
+	sidecarImageCorrect := true
+	for _, container := range pod.Spec.Containers {
+		if container.Name == fdbv1beta2.SidecarContainerName && container.Image != sidecarImage {
+			logger.Info("IncorrectSidecarImage", "currentImage", container.Image, "desiredImage", sidecarImage)
+			sidecarImageCorrect = false
+			break
+		}
+	}
+
+	processGroupStatus.UpdateCondition(fdbv1beta2.IncorrectSidecarImage, !sidecarImageCorrect)
+
 	// Check if the pod metadata is correct.
 	metadataCorrect, err := internal.PodMetadataCorrect(cluster, processGroupStatus, pod)
 	if err != nil {
