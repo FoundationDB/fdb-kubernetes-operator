@@ -25,18 +25,15 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/utils/pointer"
-
-	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbstatus"
-
-	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/replacements"
-
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/replacements"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbstatus"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/utils/pointer"
 )
 
 // updatePods provides a reconciliation step for recreating pods with new pod
@@ -45,6 +42,14 @@ type updatePods struct{}
 
 // reconcile runs the reconciler's work.
 func (u updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
+	// During an ongoing version incompatible upgrade, we don't want to update process groups because they are misconfigured,
+	// This could lead to some side effects and delay the upgrade process. It's better up perform the updates after
+	// the cluster is upgraded.
+	if cluster.IsBeingUpgradedWithVersionIncompatibleVersion() {
+		logger.Info("Pod updates are skipped because of an ongoing version incompatible upgrade")
+		return &requeue{message: "Pod updates are skipped because of an ongoing version incompatible upgrade", delayedRequeue: true, delay: 5 * time.Second}
+	}
+
 	adminClient, err := r.getAdminClient(logger, cluster)
 	if err != nil {
 		return &requeue{curError: err, delayedRequeue: true}
@@ -265,16 +270,16 @@ func getPodsToUpdate(ctx context.Context, logger logr.Logger, reconciler *Founda
 			continue
 		}
 
-		needsRemoval, err := replacements.ProcessGroupNeedsRemoval(ctx, reconciler.PodLifecycleManager, reconciler, logger, cluster, processGroup, reconciler.ReplaceOnSecurityContextChange)
+		needsReplacement, err := replacements.ProcessGroupNeedsReplacements(ctx, reconciler.PodLifecycleManager, reconciler, logger, cluster, processGroup, reconciler.ReplaceOnSecurityContextChange)
 		// Do not update the Pod if unable to determine if it needs to be removed.
 		if err != nil {
-			logger.V(1).Info("Skip process group, error checking if it requires a removal",
+			logger.V(1).Info("Skip process group, error checking if it requires a replacement",
 				"processGroupID", processGroup.ProcessGroupID,
 				"error", err.Error())
 			continue
 		}
-		if needsRemoval {
-			logger.V(1).Info("Skip process group for deletion, requires a removal",
+		if needsReplacement {
+			logger.V(1).Info("Skip process group for deletion, requires a replacement",
 				"processGroupID", processGroup.ProcessGroupID)
 			continue
 		}

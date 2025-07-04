@@ -56,14 +56,13 @@ func ReplaceMisconfiguredProcessGroups(ctx context.Context, podManager podmanage
 			continue
 		}
 
-		needsRemoval, err := ProcessGroupNeedsRemoval(ctx, podManager, ctrlClient, log, cluster, processGroup, replaceOnSecurityContextChange)
-
+		needsReplacement, err := ProcessGroupNeedsReplacements(ctx, podManager, ctrlClient, log, cluster, processGroup, replaceOnSecurityContextChange)
 		// Do not mark for removal if there is an error
 		if err != nil {
 			continue
 		}
 
-		if needsRemoval {
+		if needsReplacement {
 			processGroup.MarkForRemoval()
 			hasReplacements = true
 			maxReplacements--
@@ -73,8 +72,8 @@ func ReplaceMisconfiguredProcessGroups(ctx context.Context, podManager podmanage
 	return hasReplacements, nil
 }
 
-// ProcessGroupNeedsRemoval checks if a process group needs to be removed.
-func ProcessGroupNeedsRemoval(ctx context.Context, podManager podmanager.PodLifecycleManager, ctrlClient client.Client, log logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, processGroup *fdbv1beta2.ProcessGroupStatus, replaceOnSecurityContextChange bool) (bool, error) {
+// ProcessGroupNeedsReplacements checks if a process group needs to be replaced.
+func ProcessGroupNeedsReplacements(ctx context.Context, podManager podmanager.PodLifecycleManager, ctrlClient client.Client, log logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, processGroup *fdbv1beta2.ProcessGroupStatus, replaceOnSecurityContextChange bool) (bool, error) {
 	pod, podErr := podManager.GetPod(ctx, ctrlClient, cluster, processGroup.GetPodName(cluster))
 	if processGroup.ProcessClass.IsStateful() {
 		pvc := &corev1.PersistentVolumeClaim{}

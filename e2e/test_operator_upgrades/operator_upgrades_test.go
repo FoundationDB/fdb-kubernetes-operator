@@ -739,4 +739,51 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 		EntryDescription("Upgrade from %[1]s to %[2]s"),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
 	)
+
+	DescribeTable(
+		"upgrading a cluster with changes to the Pod spec.",
+		func(beforeVersion string, targetVersion string) {
+			clusterSetup(beforeVersion, false)
+			// Ensure we have pulled that latest state of the cluster.
+			spec := fdbCluster.GetCluster().Spec.DeepCopy()
+
+			log.Printf(
+				"Upgrading cluster from version %s to version %s",
+				spec.Version,
+				targetVersion,
+			)
+
+			// Update the target version to trigger an upgrade,
+			spec.Version = targetVersion
+			// Add a new env variable to ensure this will cause some additional replacements.
+			processSettings := spec.Processes[fdbv1beta2.ProcessClassGeneral]
+			for i, container := range processSettings.PodTemplate.Spec.Containers {
+				if container.Name != fdbv1beta2.MainContainerName {
+					continue
+				}
+
+				container.Env = append(container.Env, corev1.EnvVar{
+					Name:  "TESTING_UPGRADE_WITH_SPEC_CHANGE",
+					Value: "EMPTY",
+				})
+
+				processSettings.PodTemplate.Spec.Containers[i] = container
+				break
+			}
+
+			spec.Processes[fdbv1beta2.ProcessClassGeneral] = processSettings
+			fdbCluster.UpdateClusterSpecWithSpec(spec)
+			// Ensure the version is actually upgraded.
+			Expect(fdbCluster.GetCluster().Spec.Version).To(Equal(targetVersion))
+
+			// Make sure the cluster is upgraded
+			fdbCluster.VerifyVersion(targetVersion)
+
+			// Make sure the cluster has no data loss.
+			fdbCluster.EnsureTeamTrackersHaveMinReplicas()
+		},
+
+		EntryDescription("Upgrade from %[1]s to %[2]s with changes to the Pod spec"),
+		fixtures.GenerateUpgradeTableEntries(testOptions),
+	)
 })

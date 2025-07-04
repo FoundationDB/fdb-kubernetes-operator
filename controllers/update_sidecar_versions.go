@@ -68,12 +68,7 @@ func (updateSidecarVersions) reconcile(ctx context.Context, r *FoundationDBClust
 			continue
 		}
 
-		processClass, err := podmanager.GetProcessClass(cluster, pod)
-		if err != nil {
-			return &requeue{curError: err}
-		}
-
-		image, err := internal.GetSidecarImage(cluster, processClass)
+		image, err := internal.GetSidecarImage(cluster, processGroup.ProcessClass)
 		if err != nil {
 			return &requeue{curError: err}
 		}
@@ -86,6 +81,7 @@ func (updateSidecarVersions) reconcile(ctx context.Context, r *FoundationDBClust
 					return &requeue{curError: err}
 				}
 				upgraded++
+				break
 			}
 		}
 	}
