@@ -22,6 +22,7 @@ package controllers
 
 import (
 	"context"
+	"time"
 
 	"github.com/go-logr/logr"
 
@@ -36,6 +37,14 @@ type replaceMisconfiguredProcessGroups struct{}
 
 // reconcile runs the reconciler's work.
 func (c replaceMisconfiguredProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, _ *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
+	// During an ongoing version incompatible upgrade, we don't want to replace process groups because they are misconfigured,
+	// This could lead to some side effects and delay the upgrade process. It's better up perform the replacements after
+	// the cluster is upgraded.
+	if cluster.IsBeingUpgradedWithVersionIncompatibleVersion() {
+		logger.Info("Replacements because of misconfiguration are skipped because of an ongoing version incompatible upgrade")
+		return &requeue{message: "Replacements because of misconfiguration are skipped because of an ongoing version incompatible upgrade", delayedRequeue: true, delay: 5 * time.Second}
+	}
+
 	hasReplacements, err := replacements.ReplaceMisconfiguredProcessGroups(ctx, r.PodLifecycleManager, r, logger, cluster, r.ReplaceOnSecurityContextChange)
 	if err != nil {
 		return &requeue{curError: err}
@@ -47,7 +56,7 @@ func (c replaceMisconfiguredProcessGroups) reconcile(ctx context.Context, r *Fou
 			return &requeue{curError: err}
 		}
 
-		logger.Info("Removals have been updated in the cluster status")
+		logger.Info("Replacements have been updated in the cluster status")
 	}
 
 	return nil

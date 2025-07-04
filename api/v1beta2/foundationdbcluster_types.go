@@ -977,6 +977,10 @@ const (
 	ProcessIsMarkedAsExcluded ProcessGroupConditionType = "ProcessIsMarkedAsExcluded"
 	// ProcessHasIOError represents a process group that has an I/O error.
 	ProcessHasIOError ProcessGroupConditionType = "ProcessHasIOError"
+	// IncorrectSidecarImage represents a process group where the sidecar image has not the desired image.
+	// This condition can occur during the migration of the image type, the change of the image configuration
+	// for the sidecar or during version incompatible upgrades until the sidecar is updated to the new desired version.
+	IncorrectSidecarImage ProcessGroupConditionType = "IncorrectSidecarImage"
 )
 
 // AllProcessGroupConditionTypes returns all ProcessGroupConditionType
@@ -998,6 +1002,7 @@ func AllProcessGroupConditionTypes() []ProcessGroupConditionType {
 		NodeTaintReplacing,
 		ProcessIsMarkedAsExcluded,
 		ProcessHasIOError,
+		IncorrectSidecarImage,
 	}
 }
 
@@ -1038,6 +1043,8 @@ func GetProcessGroupConditionType(processGroupConditionType string) (ProcessGrou
 		return ProcessIsMarkedAsExcluded, nil
 	case "ProcessHasIOError":
 		return ProcessHasIOError, nil
+	case "IncorrectSidecarImage":
+		return IncorrectSidecarImage, nil
 	}
 
 	return "", fmt.Errorf("unknown process group condition type: %s", processGroupConditionType)
