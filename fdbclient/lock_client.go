@@ -350,10 +350,12 @@ func (client *realLockClient) ReleaseLock() error {
 		}
 
 		ownerID := client.cluster.GetLockID()
+		startTime := time.Unix(currentLockStartTimestamp, 0)
 		logger := client.log.WithValues(
 			"currentLockOwnerID", currentLockOwnerID,
-			"startTime", time.Unix(currentLockStartTimestamp, 0),
-			"endTime", time.Unix(currentLockEndTimestamp, 0))
+			"startTime", startTime,
+			"endTime", time.Unix(currentLockEndTimestamp, 0),
+			"lockDuration", time.Since(startTime).String())
 
 		if currentLockOwnerID != ownerID {
 			logger.Info("cannot release lock from other owner")

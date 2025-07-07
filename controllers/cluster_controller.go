@@ -572,7 +572,6 @@ func (r *FoundationDBClusterReconciler) takeLock(logger logr.Logger, cluster *fd
 
 // releaseLock attempts to release a lock.
 func (r *FoundationDBClusterReconciler) releaseLock(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster) error {
-	logger.Info("Release lock on cluster")
 	lockClient, err := r.getLockClient(logger, cluster)
 	if err != nil {
 		return err

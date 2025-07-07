@@ -360,7 +360,7 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 			log.Println("Restoring connectivity")
 			factory.DeleteChaosMeshExperimentSafe(partitionExperiment)
 
-			// Delete the operator Pods to ensure they pickup the work directly otherwise it could take a long time
+			// Delete the operator Pods to ensure they pick up the work directly otherwise it could take a long time
 			// until the operator tries to reconcile the cluster again. If the operator is not able to reconcile a
 			// cluster it will be put into a queue again, at some time the queue will delay the next reconcile attempt
 			// for a long time and since the network partition is not emitting any events for the operator this won't trigger
