@@ -56,6 +56,7 @@ func (s startRestore) reconcile(
 			restore.BackupURL(),
 			restore.Spec.KeyRanges,
 			restore.Spec.EncryptionKeyPath,
+			restore.Spec.BackupVersion,
 		)
 		if err != nil {
 			return &requeue{curError: err}

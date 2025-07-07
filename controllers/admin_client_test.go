@@ -357,6 +357,7 @@ var _ = Describe("admin_client_test", func() {
 						"blobstore://test@test-service/test-backup",
 						nil,
 						"",
+						"",
 					),
 				).To(Succeed())
 

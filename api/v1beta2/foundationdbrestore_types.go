@@ -65,6 +65,9 @@ type FoundationDBRestoreSpec struct {
 	// The path to the encryption key used to encrypt the backup.
 	// +kubebuilder:validation:MaxLength=4096
 	EncryptionKeyPath string `json:"encryptionKeyPath,omitempty"`
+
+	// Instead of the latest version the backup can be restored to, restore to BackupVersion.
+	BackupVersion string `json:"backupVersion,omitempty"`
 }
 
 // FoundationDBRestoreStatus describes the current status of the restore for a cluster.
