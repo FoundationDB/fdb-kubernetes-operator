@@ -1047,7 +1047,7 @@ protocol fdb00b071010000`,
 
 			url := "blobstore://test@test-service/test-backup"
 
-			err := client.StartRestore(url, keyRanges, encryptionKeyPath, "mock-versionstamp")
+			err := client.StartRestore(url, keyRanges, encryptionKeyPath, "")
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(mockRunner.receivedArgs[0]).To(ContainElements(
@@ -1102,5 +1102,41 @@ protocol fdb00b071010000`,
 			true,
 			false,
 		),
+	)
+
+	DescribeTable("it should properly handle backup versions",
+		func(backupVersion string, shouldHaveBackupVersion bool) {
+			mockRunner := &mockCommandRunner{
+				mockedError:  nil,
+				mockedOutput: []string{""},
+			}
+
+			client := &cliAdminClient{
+				Cluster: &fdbv1beta2.FoundationDBCluster{
+					Spec: fdbv1beta2.FoundationDBClusterSpec{
+						Version: "7.3.1",
+					},
+					Status: fdbv1beta2.FoundationDBClusterStatus{
+						RunningVersion: "7.3.1",
+					},
+				},
+				log:       logr.Discard(),
+				cmdRunner: mockRunner,
+			}
+
+			url := "blobstore://test@test-service/test-backup"
+
+			err := client.StartRestore(url, nil, "", backupVersion)
+			Expect(err).NotTo(HaveOccurred())
+
+			if shouldHaveBackupVersion {
+				Expect(mockRunner.receivedArgs[0]).To(ContainElements("-v", backupVersion))
+			} else {
+				Expect(mockRunner.receivedArgs[0]).ToNot(ContainElement("-v"))
+			}
+
+		},
+		Entry("when it is not passed in", "123456789", true),
+		Entry("when it is passed in", "", false),
 	)
 })
