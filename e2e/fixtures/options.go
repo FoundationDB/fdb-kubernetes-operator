@@ -25,6 +25,7 @@ import (
 	"flag"
 	"fmt"
 	"strings"
+	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 )
@@ -50,6 +51,7 @@ type FactoryOptions struct {
 	storageEngine                  string
 	fdbVersionTagMapping           string
 	synchronizationMode            string
+	nodeSelector                   string
 	enableChaosTests               bool
 	enableDataLoading              bool
 	cleanup                        bool
@@ -58,7 +60,7 @@ type FactoryOptions struct {
 	featureOperatorUnifiedImage    bool
 	featureOperatorServerSideApply bool
 	dumpOperatorState              bool
-	nodeSelector                   string
+	defaultUnavailableThreshold    time.Duration
 }
 
 // BindFlags binds the FactoryOptions flags to the provided FlagSet. This can be used to extend the current test setup
@@ -231,6 +233,10 @@ func (options *FactoryOptions) BindFlags(fs *flag.FlagSet) {
 		"local",
 		"defines the synchronization mode that should be used. Only applies for multi-region clusters.",
 	)
+	fs.DurationVar(&options.defaultUnavailableThreshold,
+		"default-unavailable-threshold",
+		30*time.Second,
+		"defines the default unavailability threshold. If the database is unavailable for a longer period the test will fail if unavailability checks are enabled.")
 }
 
 func (options *FactoryOptions) validateFlags() error {

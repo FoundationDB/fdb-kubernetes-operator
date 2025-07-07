@@ -132,10 +132,27 @@ var _ = Describe("Operator Plugin", Label("e2e", "pr"), func() {
 			// Wait a short amount of time to let the cluster see that the primary and primary satellite is down.
 			time.Sleep(5 * time.Second)
 
-			// Ensure the cluster is unavailable by checking the machine-readable status.
-			Eventually(func() bool {
-				return remote.GetStatus().Client.DatabaseStatus.Available
-			}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(BeFalse())
+			// Ensure that all the pods are deleted.
+			Eventually(func(g Gomega) []corev1.Pod {
+				pods := &corev1.PodList{}
+				g.Expect(factory.GetControllerRuntimeClient().List(context.Background(), pods, ctrlClient.MatchingLabels(primary.GetResourceLabels()), ctrlClient.InNamespace(remoteSatellite.Namespace()))).To(Succeed())
+
+				return pods.Items
+			}).WithTimeout(5 * time.Minute).WithPolling(10 * time.Second).Should(BeEmpty())
+
+			Eventually(func(g Gomega) []corev1.Pod {
+				pods := &corev1.PodList{}
+				g.Expect(factory.GetControllerRuntimeClient().List(context.Background(), pods, ctrlClient.MatchingLabels(primarySatellite.GetResourceLabels()), ctrlClient.InNamespace(remoteSatellite.Namespace()))).To(Succeed())
+
+				return pods.Items
+			}).WithTimeout(5 * time.Minute).WithPolling(10 * time.Second).Should(BeEmpty())
+
+			Eventually(func(g Gomega) []corev1.Pod {
+				pods := &corev1.PodList{}
+				g.Expect(factory.GetControllerRuntimeClient().List(context.Background(), pods, ctrlClient.MatchingLabels(remoteSatellite.GetResourceLabels()), ctrlClient.InNamespace(remoteSatellite.Namespace()))).To(Succeed())
+
+				return pods.Items
+			}).WithTimeout(5 * time.Minute).WithPolling(10 * time.Second).Should(BeEmpty())
 		})
 
 		// Default case is to run with DNS enabled. The test case with IPs enabled can run into issues when

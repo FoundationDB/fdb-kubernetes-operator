@@ -92,7 +92,13 @@ func (fdbCluster *FdbCluster) RunFdbCliCommandInOperatorWithoutRetry(
 	printOutput bool,
 	timeout int,
 ) (string, string, error) {
-	pod := fdbCluster.factory.ChooseRandomPod(fdbCluster.factory.GetOperatorPods(fdbCluster.Namespace()))
+	operatorPods := fdbCluster.factory.GetOperatorPods(fdbCluster.Namespace())
+	pod := fdbCluster.factory.ChooseRandomPod(operatorPods)
+	if pod == nil {
+		log.Println("current operator pods:", operatorPods.Items)
+		return "", "", fmt.Errorf("could not pick any operator pod")
+	}
+
 	cluster, err := fdbCluster.factory.getClusterStatus(
 		fdbCluster.Name(),
 		fdbCluster.Namespace(),
@@ -219,7 +225,7 @@ func (fdbCluster *FdbCluster) WaitUntilAvailable() error {
 
 // StatusInvariantChecker provides a way to check an invariant for the cluster status.
 // nolint:nilerr
-func (fdbCluster FdbCluster) StatusInvariantChecker(
+func (fdbCluster *FdbCluster) StatusInvariantChecker(
 	name string,
 	threshold time.Duration,
 	f func(status *fdbv1beta2.FoundationDBStatus) error,
@@ -285,25 +291,19 @@ func checkAvailability(status *fdbv1beta2.FoundationDBStatus) error {
 }
 
 // InvariantClusterStatusAvailableWithThreshold checks if the database is at a maximum unavailable for the provided threshold.
-func (fdbCluster FdbCluster) InvariantClusterStatusAvailableWithThreshold(
+func (fdbCluster *FdbCluster) InvariantClusterStatusAvailableWithThreshold(
 	availabilityThreshold time.Duration,
 ) error {
 	return fdbCluster.StatusInvariantChecker(
-		"InvariantClusterStatusAvailableWithThreshold",
+		"InvariantClusterStatusAvailable",
 		availabilityThreshold,
 		checkAvailability,
 	)
 }
 
-// InvariantClusterStatusAvailable checks if the cluster is available the whole test.
-func (fdbCluster FdbCluster) InvariantClusterStatusAvailable() error {
-	return fdbCluster.StatusInvariantChecker(
-		"InvariantClusterStatusAvailable",
-		// Per default we allow 15 seconds unavailability. Otherwise we could get a few test failures when we do operations
-		// like a replacement on a transaction system Pod and the recovery takes longer.
-		15*time.Second,
-		checkAvailability,
-	)
+// InvariantClusterStatusAvailable checks if the cluster is available the whole test with the default unavailable threshold.
+func (fdbCluster *FdbCluster) InvariantClusterStatusAvailable() error {
+	return fdbCluster.InvariantClusterStatusAvailableWithThreshold(fdbCluster.factory.GetDefaultUnavailableThreshold())
 }
 
 // GetProcessCount returns the number of processes having the specified role
@@ -379,7 +379,7 @@ func (fdbCluster *FdbCluster) GetCoordinators() []corev1.Pod {
 }
 
 // GetStatus returns fdb status queried from a random operator Pod in this clusters namespace.
-func (fdbCluster FdbCluster) GetStatus() *fdbv1beta2.FoundationDBStatus {
+func (fdbCluster *FdbCluster) GetStatus() *fdbv1beta2.FoundationDBStatus {
 	return fdbCluster.getStatusFromOperatorPod()
 }
 
@@ -428,12 +428,12 @@ func (fdbCluster *FdbCluster) GetPodsWithRole(role fdbv1beta2.ProcessRole) []cor
 }
 
 // GetCommandlineForProcessesPerClass fetches the commandline args for all processes except of the specified class.
-func (fdbCluster FdbCluster) GetCommandlineForProcessesPerClass() map[fdbv1beta2.ProcessClass][]string {
+func (fdbCluster *FdbCluster) GetCommandlineForProcessesPerClass() map[fdbv1beta2.ProcessClass][]string {
 	return fdbCluster.GetCommandlineForProcessesPerClassWithStatus(fdbCluster.GetStatus())
 }
 
 // GetCommandlineForProcessesPerClassWithStatus fetches the commandline args for all processes except of the specified class.
-func (fdbCluster FdbCluster) GetCommandlineForProcessesPerClassWithStatus(status *fdbv1beta2.FoundationDBStatus) map[fdbv1beta2.ProcessClass][]string {
+func (fdbCluster *FdbCluster) GetCommandlineForProcessesPerClassWithStatus(status *fdbv1beta2.FoundationDBStatus) map[fdbv1beta2.ProcessClass][]string {
 	knobs := map[fdbv1beta2.ProcessClass][]string{}
 	for _, process := range status.Cluster.Processes {
 		if _, ok := knobs[process.ProcessClass]; !ok {

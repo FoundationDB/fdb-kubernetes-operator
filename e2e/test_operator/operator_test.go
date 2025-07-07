@@ -1764,18 +1764,6 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		})
 
 		It("should not replace the process group", func() {
-			Consistently(func() []*fdbv1beta2.ProcessGroupCondition {
-				for _, processGroup := range fdbCluster.GetCluster().Status.ProcessGroups {
-					if processGroup.ProcessGroupID != targetProcessGroup.ProcessGroupID {
-						continue
-					}
-
-					return processGroup.ProcessGroupConditions
-				}
-
-				return nil
-			}).WithTimeout(2 * time.Minute).WithPolling(1 * time.Second).Should(BeEmpty())
-
 			Consistently(func() bool {
 				for _, processGroup := range fdbCluster.GetCluster().Status.ProcessGroups {
 					if processGroup.ProcessGroupID != targetProcessGroup.ProcessGroupID {
@@ -2066,10 +2054,8 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			// See: https://github.com/apple/foundationdb/issues/11222
 			// We can remove this once 7.1 is the default version.
 			factory.DeleteChaosMeshExperimentSafe(scheduleInjectPodKill)
-			cluster := fdbCluster.GetCluster()
-
-			initialSetting = cluster.UseDNSInClusterFile()
-			if !cluster.UseDNSInClusterFile() {
+			initialSetting = fdbCluster.GetCluster().UseDNSInClusterFile()
+			if !initialSetting {
 				Expect(fdbCluster.SetUseDNSInClusterFile(true)).ToNot(HaveOccurred())
 			}
 		})

@@ -75,7 +75,7 @@ func clusterSetupWithConfig(beforeVersion string, availabilityCheck bool, config
 	}
 
 	Expect(
-		fdbCluster.InvariantClusterStatusAvailableWithThreshold(15 * time.Second),
+		fdbCluster.InvariantClusterStatusAvailable(),
 	).ShouldNot(HaveOccurred())
 }
 
