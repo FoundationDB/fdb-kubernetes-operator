@@ -197,7 +197,7 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 			)
 
 			// Disable the feature that the operator restarts processes. This allows us to restart the coordinator
-			// once tall new binaries are present.
+			// once all new binaries are present.
 			fdbCluster.SetKillProcesses(false)
 
 			// Start the upgrade.

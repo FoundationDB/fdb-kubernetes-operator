@@ -22,7 +22,7 @@ package fixtures
 
 import (
 	"bytes"
-	ctx "context"
+	"context"
 	"errors"
 	"html/template"
 	"io"
@@ -702,7 +702,7 @@ func (factory *Factory) GetOperatorPods(namespace string) *corev1.PodList {
 	pods := &corev1.PodList{}
 	gomega.Eventually(func() error {
 		return factory.GetControllerRuntimeClient().
-			List(ctx.TODO(), pods,
+			List(context.TODO(), pods,
 				client.InNamespace(namespace),
 				client.MatchingLabels(map[string]string{"app": operatorDeploymentName}),
 				client.MatchingFields(map[string]string{"status.phase": string(corev1.PodRunning)}))
@@ -716,11 +716,18 @@ func (factory *Factory) WaitUntilOperatorPodsRunning(namespace string) {
 	deployment := &appsv1.Deployment{}
 	gomega.Expect(
 		factory.GetControllerRuntimeClient().
-			Get(ctx.TODO(), client.ObjectKey{Name: operatorDeploymentName, Namespace: namespace}, deployment),
+			Get(context.TODO(), client.ObjectKey{Name: operatorDeploymentName, Namespace: namespace}, deployment),
 	).NotTo(gomega.HaveOccurred())
 
 	expectedReplicas := int(pointer.Int32Deref(deployment.Spec.Replicas, 1))
 	gomega.Eventually(func(g gomega.Gomega) int {
+		deployment = &appsv1.Deployment{}
+		g.Expect(
+			factory.GetControllerRuntimeClient().
+				Get(context.TODO(), client.ObjectKey{Name: operatorDeploymentName, Namespace: namespace}, deployment),
+		).To(gomega.Succeed())
+		g.Expect(deployment.Status.UpdatedReplicas).To(gomega.BeNumerically(">=", expectedReplicas))
+
 		pods := factory.GetOperatorPods(namespace)
 		var runningReplicas int
 		for _, pod := range pods.Items {
@@ -732,7 +739,7 @@ func (factory *Factory) WaitUntilOperatorPodsRunning(namespace string) {
 			// If the Pod is not running after 120 seconds we delete it and let the Deployment controller create a new Pod.
 			if time.Since(pod.CreationTimestamp.Time).Seconds() > 120.0 {
 				log.Println("operator Pod", pod.Name, "not running after 120 seconds, going to delete this Pod, status:", pod.Status)
-				err := factory.GetControllerRuntimeClient().Delete(ctx.TODO(), &pod)
+				err := factory.GetControllerRuntimeClient().Delete(context.TODO(), &pod)
 				if k8serrors.IsNotFound(err) {
 					continue
 				}
@@ -748,10 +755,20 @@ func (factory *Factory) WaitUntilOperatorPodsRunning(namespace string) {
 // RecreateOperatorPods will recreate all operator Pods in the specified namespace and wait until the new Pods are
 // up and running.
 func (factory *Factory) RecreateOperatorPods(namespace string) {
-	gomega.Expect(
-		factory.GetControllerRuntimeClient().
-			DeleteAllOf(ctx.TODO(), &corev1.Pod{}, client.InNamespace(namespace), client.MatchingLabels(map[string]string{"app": operatorDeploymentName})),
-	).NotTo(gomega.HaveOccurred())
+	restartAnnotation := "foundationdb.org/restart-deployment"
+
+	gomega.Eventually(func(g gomega.Gomega) {
+		deployment := &appsv1.Deployment{}
+		g.Expect(factory.GetControllerRuntimeClient().Get(context.Background(), client.ObjectKey{Namespace: namespace, Name: operatorDeploymentName}, deployment)).To(gomega.Succeed())
+
+		patch := client.MergeFrom(deployment.DeepCopy())
+		if deployment.Spec.Template.Annotations == nil {
+			deployment.Spec.Template.Annotations = map[string]string{}
+		}
+		deployment.Spec.Template.Annotations[restartAnnotation] = time.Now().String()
+		log.Println("Update deployment")
+		g.Expect(factory.GetControllerRuntimeClient().Patch(context.Background(), deployment, patch)).To(gomega.Succeed())
+	}).WithTimeout(2 * time.Minute).WithPolling(5 * time.Second).Should(gomega.Succeed())
 
 	factory.WaitUntilOperatorPodsRunning(namespace)
 }
