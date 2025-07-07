@@ -36,6 +36,8 @@ spec:
             type: object
           spec:
             properties:
+              backupVersion:
+                type: string
               blobStoreConfiguration:
                 properties:
                   accountName:
