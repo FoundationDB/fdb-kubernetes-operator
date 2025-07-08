@@ -121,7 +121,6 @@ bin/kubectl-fdb: ${GO_SRC} $(GORELEASER)
 	$(GORELEASER) build --single-target --skip validate --clean
 	@mkdir -p bin
 	@touch $@
-# TODO test here that the tag is set properly
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
 run: generate manifests
@@ -161,10 +160,10 @@ ${MANIFESTS}: ${CONTROLLER_GEN} ${GO_SRC}
 fmt: bin/fmt_check
 
 bin/fmt_check: ${GO_ALL}
-	$(GO_LINES) -w $(GO_SRC)
+	@$(GO_LINES) -w $(GO_SRC)
 	@go fmt $$(go list ./...)
-	$(GO_IMPORTS) -w $(GO_SRC)
-	$(GOLANGCI_LINT) run --fix
+	@$(GO_IMPORTS) -w $(GO_SRC)
+	@$(GOLANGCI_LINT) run --fix
 	@mkdir -p bin
 	@touch $@
 
@@ -172,7 +171,7 @@ bin/fmt_check: ${GO_ALL}
 vet: bin/vet_check
 
 bin/vet_check: ${GO_ALL}
-	go vet ./...
+	@go vet ./...
 	@mkdir -p bin
 	@touch $@
 
