@@ -66,7 +66,8 @@ type FoundationDBRestoreSpec struct {
 	// +kubebuilder:validation:MaxLength=4096
 	EncryptionKeyPath string `json:"encryptionKeyPath,omitempty"`
 
-	// Instead of the latest version the backup can be restored to, restore to BackupVersion.
+	// Instead of the latest version the backup can be restored to, restore to the specified version.
+	// +kubebuilder:validation:MaxLength=13
 	BackupVersion string `json:"backupVersion,omitempty"`
 }
 
