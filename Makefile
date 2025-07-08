@@ -93,7 +93,7 @@ clean:
 	find . -name "cover.out" -delete
 
 clean-deps:
-	@rm $(CONTROLLER_GEN) $(KUSTOMIZE) $(GOLANGCI_LINT) $(GORELEASER)
+	@rm $(CONTROLLER_GEN) $(KUSTOMIZE) $(GOLANGCI_LINT) $(GORELEASER) $(GO_LINES) $(GO_IMPORTS)
 
 test_if_changed: cover.out
 
@@ -127,28 +127,28 @@ run: generate manifests
 	go run ./main.go
 
 # Install CRDs into a cluster
-install: manifests
-	kustomize build config/crd | kubectl $(KUBECTL_ARGS) apply -f -
+install: $(KUSTOMIZE) manifests
+	$(KUSTOMIZE) build config/crd | kubectl $(KUBECTL_ARGS) apply -f -
 
 # Uninstall CRDs from a cluster
-uninstall: manifests
-	kustomize build config/crd | kubectl $(KUBECTL_ARGS) delete -f -
+uninstall: $(KUSTOMIZE) manifests
+	$(KUSTOMIZE) build config/crd | kubectl $(KUBECTL_ARGS) delete -f -
 
 # Apply config to the local development environment based on environment
 # variables.
-config/development/kustomization.yaml: config/development/kustomization.yaml.sample
+config/development/kustomization.yaml: $(KUSTOMIZE) config/development/kustomization.yaml.sample
 	cp config/development/kustomization.yaml.sample config/development/kustomization.yaml
-	cd config/development && kustomize edit set image foundationdb/fdb-kubernetes-operator=${IMG}
+	cd config/development && $(KUSTOMIZE) edit set image foundationdb/fdb-kubernetes-operator=${IMG}
 ifneq "$(SIDECAR_IMG)" ""
-	cd config/development && kustomize edit set image foundationdb/foundationdb-kubernetes-sidecar=${SIDECAR_IMG}
+	cd config/development && $(KUSTOMIZE) edit set image foundationdb/foundationdb-kubernetes-sidecar=${SIDECAR_IMG}
 endif
 ifeq "$(REMOTE_BUILD)" "1"
-	cd config/development && kustomize edit add patch --path=remote_build.yaml
+	cd config/development && $(KUSTOMIZE) edit add patch --path=remote_build.yaml
 endif
 
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
-deploy: install manifests config/development/kustomization.yaml
-	kustomize build config/development | kubectl $(KUBECTL_ARGS) apply -f -
+deploy: $(KUSTOMIZE) install manifests config/development/kustomization.yaml
+	$(KUSTOMIZE) build config/development | kubectl $(KUBECTL_ARGS) apply -f -
 
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: ${MANIFESTS}
@@ -157,7 +157,7 @@ ${MANIFESTS}: ${CONTROLLER_GEN} ${GO_SRC}
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./api/..." paths="./controllers/..." output:crd:artifacts:config=config/crd/bases
 
 # Run go fmt against code
-fmt: bin/fmt_check
+fmt: deps bin/fmt_check
 
 bin/fmt_check: ${GO_ALL}
 	# We make use of gofmt with golines because of: https://github.com/segmentio/golines/issues/155
@@ -201,22 +201,22 @@ rebuild-operator: container-build container-push-if-remote deploy bounce
 bounce:
 	kubectl $(KUBECTL_ARGS) delete pod -l app=fdb-kubernetes-operator-controller-manager
 
-samples: kustomize ${SAMPLES}
+samples: $(KUSTOMIZE) ${SAMPLES}
 
-config/samples/deployment.yaml: config/deployment/*.yaml
-	kustomize build ./config/deployment > $@
+config/samples/deployment.yaml: $(KUSTOMIZE) config/deployment/*.yaml
+	$(KUSTOMIZE) build ./config/deployment > $@
 
-config/samples/cluster.yaml: config/tests/base/*.yaml
-	kustomize build ./config/tests/base/ > $@
+config/samples/cluster.yaml: $(KUSTOMIZE) config/tests/base/*.yaml
+	$(KUSTOMIZE) build ./config/tests/base/ > $@
 
-config/samples/backup.yaml: config/tests/backup/base/*.yaml
-	kustomize build ./config/tests/backup/base > $@
+config/samples/backup.yaml: $(KUSTOMIZE) config/tests/backup/base/*.yaml
+	$(KUSTOMIZE) build ./config/tests/backup/base > $@
 
-config/samples/restore.yaml: config/tests/backup/base/*.yaml
-	kustomize build ./config/tests/backup/restore > $@
+config/samples/restore.yaml: $(KUSTOMIZE) config/tests/backup/base/*.yaml
+	$(KUSTOMIZE) build ./config/tests/backup/restore > $@
 
-config/samples/client.yaml: config/tests/client/*.yaml
-	kustomize build ./config/tests/client > $@
+config/samples/client.yaml: $(KUSTOMIZE) config/tests/client/*.yaml
+	$(KUSTOMIZE) build ./config/tests/client > $@
 
 bin/po-docgen: cmd/po-docgen/*.go
 	go build -o bin/po-docgen cmd/po-docgen/main.go  cmd/po-docgen/api.go
