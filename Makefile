@@ -160,8 +160,8 @@ ${MANIFESTS}: ${CONTROLLER_GEN} ${GO_SRC}
 fmt: bin/fmt_check
 
 bin/fmt_check: ${GO_ALL}
-	@$(GO_LINES) -w $(GO_SRC)
-	@go fmt $$(go list ./...)
+	# We make use of gofmt with golines because of: https://github.com/segmentio/golines/issues/155
+	@$(GO_LINES) -w --base-formatter=gofmt --ignored-dirs=./e2e/chaos-mesh --ignore-generated $(GO_SRC)
 	@$(GO_IMPORTS) -w $(GO_SRC)
 	@$(GOLANGCI_LINT) run --fix
 	@mkdir -p bin

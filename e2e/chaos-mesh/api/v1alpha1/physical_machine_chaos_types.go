@@ -143,7 +143,8 @@ func (spec *PhysicalMachineSelectorSpec) Empty() bool {
 	if spec == nil {
 		return true
 	}
-	if len(spec.AnnotationSelectors) != 0 || len(spec.FieldSelectors) != 0 || len(spec.LabelSelectors) != 0 ||
+	if len(spec.AnnotationSelectors) != 0 || len(spec.FieldSelectors) != 0 ||
+		len(spec.LabelSelectors) != 0 ||
 		len(spec.Namespaces) != 0 ||
 		len(spec.PhysicalMachines) != 0 ||
 		len(spec.ExpressionSelectors) != 0 {
