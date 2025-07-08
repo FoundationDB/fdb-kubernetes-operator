@@ -1136,7 +1136,7 @@ protocol fdb00b071010000`,
 			}
 
 		},
-		Entry("when it is not passed in", "123456789", true),
+		Entry("when it is not passed in", "1234567890123", true),
 		Entry("when it is passed in", "", false),
 	)
 })
