@@ -50,7 +50,10 @@ var _ = Describe("pod_models", func() {
 		When("using the split image", func() {
 			Context("with a basic storage process group", func() {
 				BeforeEach(func() {
-					pod, err = GetPod(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+					pod, err = GetPod(
+						cluster,
+						GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+					)
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -65,7 +68,10 @@ var _ = Describe("pod_models", func() {
 				})
 
 				It("should contain the process group's pod spec", func() {
-					spec, err := GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+					spec, err := GetPodSpec(
+						cluster,
+						GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+					)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(pod.Spec).To(Equal(*spec))
 				})
@@ -85,7 +91,10 @@ var _ = Describe("pod_models", func() {
 					err = NormalizeClusterSpec(cluster, DeprecationOptions{})
 					Expect(err).NotTo(HaveOccurred())
 
-					pod, err = GetPod(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+					pod, err = GetPod(
+						cluster,
+						GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+					)
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -104,21 +113,29 @@ var _ = Describe("pod_models", func() {
 
 			Context("with a cluster controller process group", func() {
 				BeforeEach(func() {
-					pod, err = GetPod(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassClusterController, 1))
+					pod, err = GetPod(
+						cluster,
+						GetProcessGroup(cluster, fdbv1beta2.ProcessClassClusterController, 1),
+					)
 					Expect(err).NotTo(HaveOccurred())
 				})
 
 				It("should contain the process group's metadata", func() {
 					Expect(pod.Name).To(Equal(fmt.Sprintf("%s-cluster-controller-1", cluster.Name)))
 					Expect(pod.ObjectMeta.Labels).To(Equal(map[string]string{
-						fdbv1beta2.FDBClusterLabel:        cluster.Name,
-						fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassClusterController),
+						fdbv1beta2.FDBClusterLabel: cluster.Name,
+						fdbv1beta2.FDBProcessClassLabel: string(
+							fdbv1beta2.ProcessClassClusterController,
+						),
 						fdbv1beta2.FDBProcessGroupIDLabel: "cluster_controller-1",
 					}))
 				})
 
 				It("should contain the process group's pod spec", func() {
-					spec, err := GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassClusterController, 1))
+					spec, err := GetPodSpec(
+						cluster,
+						GetProcessGroup(cluster, fdbv1beta2.ProcessClassClusterController, 1),
+					)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(pod.Spec).To(Equal(*spec))
 				})
@@ -132,19 +149,28 @@ var _ = Describe("pod_models", func() {
 						},
 					}
 
-					pod, err = GetPod(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+					pod, err = GetPod(
+						cluster,
+						GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+					)
 					Expect(err).NotTo(HaveOccurred())
 				})
 
 				It("should add the annotations to the metadata", func() {
-					hash, err := GetPodSpecHash(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1), &pod.Spec)
+					hash, err := GetPodSpecHash(
+						cluster,
+						GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+						&pod.Spec,
+					)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(pod.ObjectMeta.Annotations).To(Equal(map[string]string{
 						"fdb-annotation":                    "value1",
 						fdbv1beta2.LastSpecKey:              hash,
 						fdbv1beta2.PublicIPSourceAnnotation: "pod",
 						fdbv1beta2.ImageTypeAnnotation:      string(fdbv1beta2.ImageTypeSplit),
-						fdbv1beta2.IPFamilyAnnotation:       strconv.Itoa(fdbv1beta2.PodIPFamilyUnset),
+						fdbv1beta2.IPFamilyAnnotation: strconv.Itoa(
+							fdbv1beta2.PodIPFamilyUnset,
+						),
 					}))
 				})
 			})
@@ -152,17 +178,22 @@ var _ = Describe("pod_models", func() {
 			Context("with custom labels", func() {
 				BeforeEach(func() {
 					cluster = CreateDefaultCluster()
-					cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{fdbv1beta2.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
-						ObjectMeta: metav1.ObjectMeta{
-							Labels: map[string]string{
-								"fdb-label": "value2",
+					cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{
+						fdbv1beta2.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
+							ObjectMeta: metav1.ObjectMeta{
+								Labels: map[string]string{
+									"fdb-label": "value2",
+								},
 							},
-						},
-					}}}
+						}},
+					}
 					err := NormalizeClusterSpec(cluster, DeprecationOptions{})
 					Expect(err).NotTo(HaveOccurred())
 
-					pod, err = GetPod(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+					pod, err = GetPod(
+						cluster,
+						GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+					)
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -184,18 +215,25 @@ var _ = Describe("pod_models", func() {
 		Context("with a version compatible upgrade in progress", func() {
 			BeforeEach(func() {
 				cluster.Spec.Version = fdbv1beta2.Versions.NextPatchVersion.String()
-				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+				spec, err = GetPodSpec(
+					cluster,
+					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+				)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			It("should use the image tag defined in the desired version", func() {
 				for _, container := range spec.Containers {
 					if container.Name == fdbv1beta2.MainContainerName {
-						Expect(container.Image).To(HaveSuffix(fdbv1beta2.Versions.NextPatchVersion.String()))
+						Expect(
+							container.Image,
+						).To(HaveSuffix(fdbv1beta2.Versions.NextPatchVersion.String()))
 						continue
 					}
 
-					Expect(container.Image).To(HaveSuffix(fdbv1beta2.Versions.NextPatchVersion.String() + "-1"))
+					Expect(
+						container.Image,
+					).To(HaveSuffix(fdbv1beta2.Versions.NextPatchVersion.String() + "-1"))
 				}
 			})
 		})
@@ -203,7 +241,10 @@ var _ = Describe("pod_models", func() {
 		Context("with a version incompatible upgrade in progress", func() {
 			BeforeEach(func() {
 				cluster.Spec.Version = fdbv1beta2.Versions.NextMajorVersion.String()
-				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+				spec, err = GetPodSpec(
+					cluster,
+					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+				)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -221,7 +262,10 @@ var _ = Describe("pod_models", func() {
 
 		Context("with a basic storage process group", func() {
 			BeforeEach(func() {
-				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+				spec, err = GetPodSpec(
+					cluster,
+					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+				)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -229,7 +273,9 @@ var _ = Describe("pod_models", func() {
 				Expect(len(spec.InitContainers)).To(Equal(1))
 				initContainer := spec.InitContainers[0]
 				Expect(initContainer.Name).To(Equal(fdbv1beta2.InitContainerName))
-				Expect(initContainer.Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes-sidecar:%s-1", cluster.Spec.Version)))
+				Expect(
+					initContainer.Image,
+				).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes-sidecar:%s-1", cluster.Spec.Version)))
 				Expect(initContainer.Args).To(Equal([]string{
 					"--copy-file",
 					"fdb.cluster",
@@ -280,7 +326,9 @@ var _ = Describe("pod_models", func() {
 			It("should have the main foundationdb container", func() {
 				mainContainer := spec.Containers[0]
 				Expect(mainContainer.Name).To(Equal(fdbv1beta2.MainContainerName))
-				Expect(mainContainer.Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb:%s", cluster.Spec.Version)))
+				Expect(
+					mainContainer.Image,
+				).To(Equal(fmt.Sprintf("foundationdb/foundationdb:%s", cluster.Spec.Version)))
 				Expect(mainContainer.Command).To(Equal([]string{"sh", "-c"}))
 				Expect(mainContainer.Args).To(Equal([]string{
 					"fdbmonitor --conffile /var/dynamic-conf/fdbmonitor.conf" +
@@ -294,9 +342,13 @@ var _ = Describe("pod_models", func() {
 				}))
 
 				Expect(*mainContainer.Resources.Limits.Cpu()).To(Equal(resource.MustParse("1")))
-				Expect(*mainContainer.Resources.Limits.Memory()).To(Equal(resource.MustParse("8Gi")))
+				Expect(
+					*mainContainer.Resources.Limits.Memory(),
+				).To(Equal(resource.MustParse("8Gi")))
 				Expect(*mainContainer.Resources.Requests.Cpu()).To(Equal(resource.MustParse("1")))
-				Expect(*mainContainer.Resources.Requests.Memory()).To(Equal(resource.MustParse("8Gi")))
+				Expect(
+					*mainContainer.Resources.Requests.Memory(),
+				).To(Equal(resource.MustParse("8Gi")))
 
 				Expect(len(mainContainer.VolumeMounts)).To(Equal(3))
 
@@ -312,7 +364,9 @@ var _ = Describe("pod_models", func() {
 			It("should have the sidecar container", func() {
 				sidecarContainer := spec.Containers[1]
 				Expect(sidecarContainer.Name).To(Equal(fdbv1beta2.SidecarContainerName))
-				Expect(sidecarContainer.Image).To(Equal(fmt.Sprintf("%s:%s-1", fdbv1beta2.FoundationDBSidecarBaseImage, cluster.Spec.Version)))
+				Expect(
+					sidecarContainer.Image,
+				).To(Equal(fmt.Sprintf("%s:%s-1", fdbv1beta2.FoundationDBSidecarBaseImage, cluster.Spec.Version)))
 				Expect(sidecarContainer.Args).To(Equal([]string{
 					"--copy-file",
 					"fdb.cluster",
@@ -372,9 +426,11 @@ var _ = Describe("pod_models", func() {
 				Expect(len(spec.Volumes)).To(Equal(4))
 				Expect(spec.Volumes[0]).To(Equal(corev1.Volume{
 					Name: "data",
-					VolumeSource: corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-						ClaimName: fmt.Sprintf("%s-storage-1-data", cluster.Name),
-					}},
+					VolumeSource: corev1.VolumeSource{
+						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+							ClaimName: fmt.Sprintf("%s-storage-1-data", cluster.Name),
+						},
+					},
 				}))
 				Expect(spec.Volumes[1]).To(Equal(corev1.Volume{
 					Name:         "dynamic-conf",
@@ -383,7 +439,9 @@ var _ = Describe("pod_models", func() {
 				Expect(spec.Volumes[2]).To(Equal(corev1.Volume{
 					Name: "config-map",
 					VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
-						LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", cluster.Name)},
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: fmt.Sprintf("%s-config", cluster.Name),
+						},
 						Items: []corev1.KeyToPath{
 							{Key: "fdbmonitor-conf-storage", Path: "fdbmonitor.conf"},
 							{Key: fdbv1beta2.ClusterFileKey, Path: "fdb.cluster"},
@@ -409,9 +467,11 @@ var _ = Describe("pod_models", func() {
 									Weight: 1,
 									PodAffinityTerm: corev1.PodAffinityTerm{
 										TopologyKey: "test",
-										LabelSelector: &metav1.LabelSelector{MatchLabels: map[string]string{
-											"test": "test",
-										}},
+										LabelSelector: &metav1.LabelSelector{
+											MatchLabels: map[string]string{
+												"test": "test",
+											},
+										},
 									},
 								},
 							},
@@ -423,12 +483,19 @@ var _ = Describe("pod_models", func() {
 						Value: "",
 						Key:   "kubernetes.io/hostname",
 					}
-					spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+					spec, err = GetPodSpec(
+						cluster,
+						GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+					)
 					Expect(err).NotTo(HaveOccurred())
 				})
 
 				It("should have both affinity rules", func() {
-					Expect(len(spec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution)).To(BeNumerically("==", 2))
+					Expect(
+						len(
+							spec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution,
+						),
+					).To(BeNumerically("==", 2))
 				})
 			})
 
@@ -436,7 +503,10 @@ var _ = Describe("pod_models", func() {
 				BeforeEach(func() {
 					enabled := true
 					cluster.Spec.SidecarContainer.EnableLivenessProbe = &enabled
-					spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+					spec, err = GetPodSpec(
+						cluster,
+						GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+					)
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -457,7 +527,10 @@ var _ = Describe("pod_models", func() {
 				BeforeEach(func() {
 					enabled := false
 					cluster.Spec.SidecarContainer.EnableReadinessProbe = &enabled
-					spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+					spec, err = GetPodSpec(
+						cluster,
+						GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+					)
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -478,7 +551,10 @@ var _ = Describe("pod_models", func() {
 				BeforeEach(func() {
 					enabled := true
 					cluster.Spec.SidecarContainer.EnableReadinessProbe = &enabled
-					spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+					spec, err = GetPodSpec(
+						cluster,
+						GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+					)
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -507,7 +583,10 @@ var _ = Describe("pod_models", func() {
 
 			When("running one storage server per disk", func() {
 				BeforeEach(func() {
-					spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+					spec, err = GetPodSpec(
+						cluster,
+						GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+					)
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -522,7 +601,9 @@ var _ = Describe("pod_models", func() {
 				It("should have the main foundationdb container", func() {
 					mainContainer := spec.Containers[0]
 					Expect(mainContainer.Name).To(Equal(fdbv1beta2.MainContainerName))
-					Expect(mainContainer.Image).To(And(HavePrefix(fdbv1beta2.FoundationDBKubernetesBaseImage), HaveSuffix(cluster.Spec.Version)))
+					Expect(
+						mainContainer.Image,
+					).To(And(HavePrefix(fdbv1beta2.FoundationDBKubernetesBaseImage), HaveSuffix(cluster.Spec.Version)))
 					Expect(mainContainer.Command).To(BeNil())
 					Expect(mainContainer.Args).To(Equal([]string{
 						"--input-dir", "/var/dynamic-conf",
@@ -530,7 +611,10 @@ var _ = Describe("pod_models", func() {
 					}))
 
 					Expect(mainContainer.Env).To(ConsistOf([]corev1.EnvVar{
-						{Name: fdbv1beta2.EnvNameClusterFile, Value: "/var/dynamic-conf/fdb.cluster"},
+						{
+							Name:  fdbv1beta2.EnvNameClusterFile,
+							Value: "/var/dynamic-conf/fdb.cluster",
+						},
 						{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 						}},
@@ -555,16 +639,25 @@ var _ = Describe("pod_models", func() {
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"},
 						}},
 						{Name: fdbv1beta2.EnvNameFDBTraceLogGroup, Value: cluster.Name},
-						{Name: fdbv1beta2.EnvNameFDBTraceLogDirPath, Value: "/var/log/fdb-trace-logs"},
+						{
+							Name:  fdbv1beta2.EnvNameFDBTraceLogDirPath,
+							Value: "/var/log/fdb-trace-logs",
+						},
 						{Name: fdbv1beta2.EnvNameNodeName, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
 						}},
 					}))
 
 					Expect(*mainContainer.Resources.Limits.Cpu()).To(Equal(resource.MustParse("1")))
-					Expect(*mainContainer.Resources.Limits.Memory()).To(Equal(resource.MustParse("8Gi")))
-					Expect(*mainContainer.Resources.Requests.Cpu()).To(Equal(resource.MustParse("1")))
-					Expect(*mainContainer.Resources.Requests.Memory()).To(Equal(resource.MustParse("8Gi")))
+					Expect(
+						*mainContainer.Resources.Limits.Memory(),
+					).To(Equal(resource.MustParse("8Gi")))
+					Expect(
+						*mainContainer.Resources.Requests.Cpu(),
+					).To(Equal(resource.MustParse("1")))
+					Expect(
+						*mainContainer.Resources.Requests.Memory(),
+					).To(Equal(resource.MustParse("8Gi")))
 
 					Expect(mainContainer.VolumeMounts).To(Equal([]corev1.VolumeMount{
 						{Name: "data", MountPath: "/var/fdb/data"},
@@ -579,7 +672,9 @@ var _ = Describe("pod_models", func() {
 				It("should have the sidecar container", func() {
 					sidecarContainer := spec.Containers[1]
 					Expect(sidecarContainer.Name).To(Equal(fdbv1beta2.SidecarContainerName))
-					Expect(sidecarContainer.Image).To(And(HavePrefix(fdbv1beta2.FoundationDBKubernetesBaseImage), HaveSuffix(cluster.Spec.Version)))
+					Expect(
+						sidecarContainer.Image,
+					).To(And(HavePrefix(fdbv1beta2.FoundationDBKubernetesBaseImage), HaveSuffix(cluster.Spec.Version)))
 					Expect(sidecarContainer.Args).To(Equal([]string{
 						"--mode", "sidecar",
 						"--output-dir", "/var/fdb/shared-binaries",
@@ -601,9 +696,11 @@ var _ = Describe("pod_models", func() {
 					Expect(len(spec.Volumes)).To(Equal(4))
 					Expect(spec.Volumes[0]).To(Equal(corev1.Volume{
 						Name: "data",
-						VolumeSource: corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-							ClaimName: fmt.Sprintf("%s-storage-1-data", cluster.Name),
-						}},
+						VolumeSource: corev1.VolumeSource{
+							PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+								ClaimName: fmt.Sprintf("%s-storage-1-data", cluster.Name),
+							},
+						},
 					}))
 					Expect(spec.Volumes[1]).To(Equal(corev1.Volume{
 						Name:         "shared-binaries",
@@ -612,7 +709,9 @@ var _ = Describe("pod_models", func() {
 					Expect(spec.Volumes[2]).To(Equal(corev1.Volume{
 						Name: "config-map",
 						VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
-							LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", cluster.Name)},
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: fmt.Sprintf("%s-config", cluster.Name),
+							},
 							Items: []corev1.KeyToPath{
 								{Key: "fdbmonitor-conf-storage-json", Path: "config.json"},
 								{Key: fdbv1beta2.ClusterFileKey, Path: "fdb.cluster"},
@@ -633,7 +732,10 @@ var _ = Describe("pod_models", func() {
 			When("running multiple storage servers per disk", func() {
 				BeforeEach(func() {
 					cluster.Spec.StorageServersPerPod = 2
-					spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+					spec, err = GetPodSpec(
+						cluster,
+						GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+					)
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -647,7 +749,10 @@ var _ = Describe("pod_models", func() {
 					}))
 
 					Expect(mainContainer.Env).To(ConsistOf([]corev1.EnvVar{
-						{Name: fdbv1beta2.EnvNameClusterFile, Value: "/var/dynamic-conf/fdb.cluster"},
+						{
+							Name:  fdbv1beta2.EnvNameClusterFile,
+							Value: "/var/dynamic-conf/fdb.cluster",
+						},
 						{Name: "STORAGE_SERVERS_PER_POD", Value: "2"},
 						{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
@@ -673,7 +778,10 @@ var _ = Describe("pod_models", func() {
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"},
 						}},
 						{Name: fdbv1beta2.EnvNameFDBTraceLogGroup, Value: cluster.Name},
-						{Name: fdbv1beta2.EnvNameFDBTraceLogDirPath, Value: "/var/log/fdb-trace-logs"},
+						{
+							Name:  fdbv1beta2.EnvNameFDBTraceLogDirPath,
+							Value: "/var/log/fdb-trace-logs",
+						},
 						{Name: fdbv1beta2.EnvNameNodeName, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
 						}},
@@ -684,7 +792,9 @@ var _ = Describe("pod_models", func() {
 					Expect(spec.Volumes[2]).To(Equal(corev1.Volume{
 						Name: "config-map",
 						VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
-							LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", cluster.Name)},
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: fmt.Sprintf("%s-config", cluster.Name),
+							},
 							Items: []corev1.KeyToPath{
 								{Key: "fdbmonitor-conf-storage-json", Path: "config.json"},
 								{Key: fdbv1beta2.ClusterFileKey, Path: "fdb.cluster"},
@@ -697,7 +807,10 @@ var _ = Describe("pod_models", func() {
 			When("creating a log with multiple storage servers per disk", func() {
 				BeforeEach(func() {
 					cluster.Spec.StorageServersPerPod = 2
-					spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassLog, 1))
+					spec, err = GetPodSpec(
+						cluster,
+						GetProcessGroup(cluster, fdbv1beta2.ProcessClassLog, 1),
+					)
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -710,7 +823,10 @@ var _ = Describe("pod_models", func() {
 					}))
 
 					Expect(mainContainer.Env).To(ConsistOf([]corev1.EnvVar{
-						{Name: fdbv1beta2.EnvNameClusterFile, Value: "/var/dynamic-conf/fdb.cluster"},
+						{
+							Name:  fdbv1beta2.EnvNameClusterFile,
+							Value: "/var/dynamic-conf/fdb.cluster",
+						},
 						{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 						}},
@@ -735,7 +851,10 @@ var _ = Describe("pod_models", func() {
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"},
 						}},
 						{Name: fdbv1beta2.EnvNameFDBTraceLogGroup, Value: cluster.Name},
-						{Name: fdbv1beta2.EnvNameFDBTraceLogDirPath, Value: "/var/log/fdb-trace-logs"},
+						{
+							Name:  fdbv1beta2.EnvNameFDBTraceLogDirPath,
+							Value: "/var/log/fdb-trace-logs",
+						},
 						{Name: fdbv1beta2.EnvNameNodeName, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
 						}},
@@ -746,7 +865,9 @@ var _ = Describe("pod_models", func() {
 					Expect(spec.Volumes[2]).To(Equal(corev1.Volume{
 						Name: "config-map",
 						VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
-							LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", cluster.Name)},
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: fmt.Sprintf("%s-config", cluster.Name),
+							},
 							Items: []corev1.KeyToPath{
 								{Key: "fdbmonitor-conf-log-json", Path: "config.json"},
 								{Key: fdbv1beta2.ClusterFileKey, Path: "fdb.cluster"},
@@ -759,7 +880,10 @@ var _ = Describe("pod_models", func() {
 			When("running multiple log servers per disk", func() {
 				BeforeEach(func() {
 					cluster.Spec.LogServersPerPod = 2
-					spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassLog, 1))
+					spec, err = GetPodSpec(
+						cluster,
+						GetProcessGroup(cluster, fdbv1beta2.ProcessClassLog, 1),
+					)
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -773,7 +897,10 @@ var _ = Describe("pod_models", func() {
 					}))
 
 					Expect(mainContainer.Env).To(ConsistOf([]corev1.EnvVar{
-						{Name: fdbv1beta2.EnvNameClusterFile, Value: "/var/dynamic-conf/fdb.cluster"},
+						{
+							Name:  fdbv1beta2.EnvNameClusterFile,
+							Value: "/var/dynamic-conf/fdb.cluster",
+						},
 						{Name: "LOG_SERVERS_PER_POD", Value: "2"},
 						{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
@@ -799,7 +926,10 @@ var _ = Describe("pod_models", func() {
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"},
 						}},
 						{Name: fdbv1beta2.EnvNameFDBTraceLogGroup, Value: cluster.Name},
-						{Name: fdbv1beta2.EnvNameFDBTraceLogDirPath, Value: "/var/log/fdb-trace-logs"},
+						{
+							Name:  fdbv1beta2.EnvNameFDBTraceLogDirPath,
+							Value: "/var/log/fdb-trace-logs",
+						},
 						{Name: fdbv1beta2.EnvNameNodeName, ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
 						}},
@@ -810,7 +940,9 @@ var _ = Describe("pod_models", func() {
 					Expect(spec.Volumes[2]).To(Equal(corev1.Volume{
 						Name: "config-map",
 						VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
-							LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", cluster.Name)},
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: fmt.Sprintf("%s-config", cluster.Name),
+							},
 							Items: []corev1.KeyToPath{
 								{Key: "fdbmonitor-conf-log-json", Path: "config.json"},
 								{Key: fdbv1beta2.ClusterFileKey, Path: "fdb.cluster"},
@@ -825,7 +957,10 @@ var _ = Describe("pod_models", func() {
 					cluster.Spec.Buggify.CrashLoop = []fdbv1beta2.ProcessGroupID{"storage-1"}
 					err := NormalizeClusterSpec(cluster, DeprecationOptions{})
 					Expect(err).NotTo(HaveOccurred())
-					spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+					spec, err = GetPodSpec(
+						cluster,
+						GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+					)
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -846,7 +981,10 @@ var _ = Describe("pod_models", func() {
 					}
 					err := NormalizeClusterSpec(cluster, DeprecationOptions{})
 					Expect(err).NotTo(HaveOccurred())
-					spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+					spec, err = GetPodSpec(
+						cluster,
+						GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+					)
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -868,7 +1006,9 @@ var _ = Describe("pod_models", func() {
 
 				BeforeEach(func() {
 					cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(true)
-					Expect(NormalizeClusterSpec(cluster, DeprecationOptions{})).NotTo(HaveOccurred())
+					Expect(
+						NormalizeClusterSpec(cluster, DeprecationOptions{}),
+					).NotTo(HaveOccurred())
 					processGroup := GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1)
 					podName = processGroup.GetPodName(cluster)
 					spec, err = GetPodSpec(cluster, processGroup)
@@ -878,7 +1018,9 @@ var _ = Describe("pod_models", func() {
 				It("should set the FDB_DNS_NAME env variable on the main container", func() {
 					mainContainer := spec.Containers[0]
 
-					Expect(mainContainer.Env).To(ContainElements(corev1.EnvVar{Name: fdbv1beta2.EnvNameDNSName, Value: GetPodDNSName(cluster, podName)}))
+					Expect(
+						mainContainer.Env,
+					).To(ContainElements(corev1.EnvVar{Name: fdbv1beta2.EnvNameDNSName, Value: GetPodDNSName(cluster, podName)}))
 				})
 
 				It("should set the correct crash loop arg in sidecar container", func() {
@@ -888,33 +1030,41 @@ var _ = Describe("pod_models", func() {
 				})
 			})
 
-			When("a init container with the name foundationdb-kubernetes-init is specified", func() {
-				BeforeEach(func() {
-					Expect(NormalizeClusterSpec(cluster, DeprecationOptions{})).NotTo(HaveOccurred())
-					processSettings := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
-					processSettings.PodTemplate.Spec.InitContainers = []corev1.Container{
-						{
-							Name: fdbv1beta2.InitContainerName,
-						},
-					}
-					cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral] = processSettings
+			When(
+				"a init container with the name foundationdb-kubernetes-init is specified",
+				func() {
+					BeforeEach(func() {
+						Expect(
+							NormalizeClusterSpec(cluster, DeprecationOptions{}),
+						).NotTo(HaveOccurred())
+						processSettings := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
+						processSettings.PodTemplate.Spec.InitContainers = []corev1.Container{
+							{
+								Name: fdbv1beta2.InitContainerName,
+							},
+						}
+						cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral] = processSettings
 
-					processGroup := GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1)
-					spec, err = GetPodSpec(cluster, processGroup)
-					Expect(err).NotTo(HaveOccurred())
-				})
+						processGroup := GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1)
+						spec, err = GetPodSpec(cluster, processGroup)
+						Expect(err).NotTo(HaveOccurred())
+					})
 
-				It("should not generate an init container container", func() {
-					Expect(spec.InitContainers).To(BeEmpty())
-				})
-			})
+					It("should not generate an init container container", func() {
+						Expect(spec.InitContainers).To(BeEmpty())
+					})
+				},
+			)
 		})
 
 		Context("with a pod IP family defined", func() {
 			BeforeEach(func() {
 				family := 6
 				cluster.Spec.Routing.PodIPFamily = &family
-				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+				spec, err = GetPodSpec(
+					cluster,
+					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+				)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -1013,7 +1163,10 @@ var _ = Describe("pod_models", func() {
 		When("enabling DNS in the cluster file", func() {
 			BeforeEach(func() {
 				cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(true)
-				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+				spec, err = GetPodSpec(
+					cluster,
+					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+				)
 			})
 
 			It("should set an additional environment variable on the init container", func() {
@@ -1091,7 +1244,10 @@ var _ = Describe("pod_models", func() {
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
 					{Name: fdbv1beta2.EnvNameInstanceID, Value: "storage-1"},
-					{Name: fdbv1beta2.EnvNameDNSName, Value: "operator-test-1-storage-1.operator-test-1.my-ns.svc.cluster.local"},
+					{
+						Name:  fdbv1beta2.EnvNameDNSName,
+						Value: "operator-test-1-storage-1.operator-test-1.my-ns.svc.cluster.local",
+					},
 					{Name: fdbv1beta2.EnvNameTLSVerifyPeers, Value: ""},
 				}))
 			})
@@ -1100,7 +1256,10 @@ var _ = Describe("pod_models", func() {
 		When("enabling DNS in the locality fields", func() {
 			BeforeEach(func() {
 				cluster.Spec.Routing.DefineDNSLocalityFields = pointer.Bool(true)
-				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+				spec, err = GetPodSpec(
+					cluster,
+					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+				)
 			})
 
 			It("should set an additional environment variable on the init container", func() {
@@ -1138,7 +1297,10 @@ var _ = Describe("pod_models", func() {
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
 					{Name: fdbv1beta2.EnvNameInstanceID, Value: "storage-1"},
-					{Name: fdbv1beta2.EnvNameDNSName, Value: "operator-test-1-storage-1.operator-test-1.my-ns.svc.cluster.local"},
+					{
+						Name:  fdbv1beta2.EnvNameDNSName,
+						Value: "operator-test-1-storage-1.operator-test-1.my-ns.svc.cluster.local",
+					},
 				}))
 			})
 
@@ -1175,7 +1337,10 @@ var _ = Describe("pod_models", func() {
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 					}},
 					{Name: fdbv1beta2.EnvNameInstanceID, Value: "storage-1"},
-					{Name: fdbv1beta2.EnvNameDNSName, Value: "operator-test-1-storage-1.operator-test-1.my-ns.svc.cluster.local"},
+					{
+						Name:  fdbv1beta2.EnvNameDNSName,
+						Value: "operator-test-1-storage-1.operator-test-1.my-ns.svc.cluster.local",
+					},
 					{Name: fdbv1beta2.EnvNameTLSVerifyPeers, Value: ""},
 				}))
 			})
@@ -1205,13 +1370,22 @@ var _ = Describe("pod_models", func() {
 					Value: "",
 					Key:   "kubernetes.io/hostname",
 				}
-				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+				spec, err = GetPodSpec(
+					cluster,
+					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+				)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			It("should have both affinity rules", func() {
-				Expect(len(spec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution)).To(BeNumerically("==", 1))
-				Expect(len(spec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution)).To(BeNumerically("==", 1))
+				Expect(
+					len(
+						spec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution,
+					),
+				).To(BeNumerically("==", 1))
+				Expect(
+					len(spec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution),
+				).To(BeNumerically("==", 1))
 			})
 		})
 
@@ -1220,7 +1394,10 @@ var _ = Describe("pod_models", func() {
 				cluster.Spec.Buggify.CrashLoop = []fdbv1beta2.ProcessGroupID{"storage-1"}
 				err := NormalizeClusterSpec(cluster, DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
-				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+				spec, err = GetPodSpec(
+					cluster,
+					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+				)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -1236,7 +1413,10 @@ var _ = Describe("pod_models", func() {
 				cluster.Spec.Buggify.CrashLoop = []fdbv1beta2.ProcessGroupID{"*"}
 				err := NormalizeClusterSpec(cluster, DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
-				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+				spec, err = GetPodSpec(
+					cluster,
+					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+				)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -1252,7 +1432,10 @@ var _ = Describe("pod_models", func() {
 				cluster.Spec.Buggify.CrashLoop = []fdbv1beta2.ProcessGroupID{"storage-2"}
 				err := NormalizeClusterSpec(cluster, DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
-				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+				spec, err = GetPodSpec(
+					cluster,
+					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+				)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -1276,7 +1459,10 @@ var _ = Describe("pod_models", func() {
 						Targets:       []fdbv1beta2.ProcessGroupID{"storage-2"},
 					},
 				}
-				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+				spec, err = GetPodSpec(
+					cluster,
+					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+				)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -1300,7 +1486,10 @@ var _ = Describe("pod_models", func() {
 						Targets:       []fdbv1beta2.ProcessGroupID{"storage-1"},
 					},
 				}
-				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+				spec, err = GetPodSpec(
+					cluster,
+					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+				)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -1317,239 +1506,282 @@ var _ = Describe("pod_models", func() {
 			})
 		})
 
-		Context("with a process group that defines crash looping for the sidecar container", func() {
-			BeforeEach(func() {
-				cluster.Spec.Buggify.CrashLoopContainers = []fdbv1beta2.CrashLoopContainerObject{
-					{
-						ContainerName: fdbv1beta2.SidecarContainerName,
-						Targets:       []fdbv1beta2.ProcessGroupID{"storage-1"},
-					},
-				}
-				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
-				Expect(err).NotTo(HaveOccurred())
-			})
+		Context(
+			"with a process group that defines crash looping for the sidecar container",
+			func() {
+				BeforeEach(func() {
+					cluster.Spec.Buggify.CrashLoopContainers = []fdbv1beta2.CrashLoopContainerObject{
+						{
+							ContainerName: fdbv1beta2.SidecarContainerName,
+							Targets:       []fdbv1beta2.ProcessGroupID{"storage-1"},
+						},
+					}
+					spec, err = GetPodSpec(
+						cluster,
+						GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+					)
+					Expect(err).NotTo(HaveOccurred())
+				})
 
-			It("should set the correct start command in main container", func() {
-				mainContainer := spec.Containers[0]
-				Expect(mainContainer.Name).To(Equal(fdbv1beta2.MainContainerName))
-				Expect(mainContainer.Args).NotTo(Equal([]string{"crash-loop"}))
-			})
+				It("should set the correct start command in main container", func() {
+					mainContainer := spec.Containers[0]
+					Expect(mainContainer.Name).To(Equal(fdbv1beta2.MainContainerName))
+					Expect(mainContainer.Args).NotTo(Equal([]string{"crash-loop"}))
+				})
 
-			It("should set the correct start command in sidecar container", func() {
-				sidecarContainer := spec.Containers[1]
-				Expect(sidecarContainer.Name).To(Equal(fdbv1beta2.SidecarContainerName))
-				Expect(sidecarContainer.Args).To(Equal([]string{"crash-loop"}))
-			})
-		})
+				It("should set the correct start command in sidecar container", func() {
+					sidecarContainer := spec.Containers[1]
+					Expect(sidecarContainer.Name).To(Equal(fdbv1beta2.SidecarContainerName))
+					Expect(sidecarContainer.Args).To(Equal([]string{"crash-loop"}))
+				})
+			},
+		)
 
 		Context("with an process group with scheduling broken", func() {
 			BeforeEach(func() {
 				cluster.Spec.Buggify.NoSchedule = []fdbv1beta2.ProcessGroupID{"storage-1"}
-				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+				spec, err = GetPodSpec(
+					cluster,
+					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+				)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			It("should have an affinity rule for a custom label on the node", func() {
 				Expect(spec.Affinity).NotTo(BeNil())
-				Expect(spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms).To(Equal([]corev1.NodeSelectorTerm{
+				Expect(
+					spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms,
+				).To(Equal([]corev1.NodeSelectorTerm{
 					{
 						MatchExpressions: []corev1.NodeSelectorRequirement{
-							{Key: "foundationdb.org/no-schedule-allowed", Operator: corev1.NodeSelectorOpIn, Values: []string{"true"}},
+							{
+								Key:      "foundationdb.org/no-schedule-allowed",
+								Operator: corev1.NodeSelectorOpIn,
+								Values:   []string{"true"},
+							},
 						},
 					},
 				}))
 			})
 		})
 
-		Context("with a basic storage process group with multiple storage servers per disk", func() {
-			BeforeEach(func() {
-				cluster.Spec.StorageServersPerPod = 2
-				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
-				Expect(err).NotTo(HaveOccurred())
-			})
+		Context(
+			"with a basic storage process group with multiple storage servers per disk",
+			func() {
+				BeforeEach(func() {
+					cluster.Spec.StorageServersPerPod = 2
+					spec, err = GetPodSpec(
+						cluster,
+						GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+					)
+					Expect(err).NotTo(HaveOccurred())
+				})
 
-			It("should have the built-in init container", func() {
-				Expect(len(spec.InitContainers)).To(Equal(1))
-				initContainer := spec.InitContainers[0]
-				Expect(initContainer.Name).To(Equal(fdbv1beta2.InitContainerName))
-				Expect(initContainer.Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes-sidecar:%s-1", cluster.Spec.Version)))
-				Expect(initContainer.Args).To(Equal([]string{
-					"--copy-file",
-					"fdb.cluster",
-					"--input-monitor-conf",
-					"fdbmonitor.conf",
-					"--copy-binary",
-					"fdbserver",
-					"--copy-binary",
-					"fdbcli",
-					"--main-container-version",
-					cluster.Spec.Version,
-					"--substitute-variable",
-					fdbv1beta2.EnvNamePodIP,
-					"--substitute-variable",
-					fdbv1beta2.EnvNameDNSName,
-					"--init-mode",
-				}))
-				Expect(initContainer.Env).To(Equal([]corev1.EnvVar{
-					{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
-						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
-					}},
-					{Name: fdbv1beta2.EnvNamePodIP, ValueFrom: &corev1.EnvVarSource{
-						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
-					}},
-					{Name: fdbv1beta2.EnvNameMachineID, ValueFrom: &corev1.EnvVarSource{
-						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
-					}},
-					{Name: fdbv1beta2.EnvNameZoneID, ValueFrom: &corev1.EnvVarSource{
-						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
-					}},
-					{Name: fdbv1beta2.EnvNameInstanceID, Value: "storage-1"},
-					{
-						Name:  fdbv1beta2.EnvNameDNSName,
-						Value: "operator-test-1-storage-1.operator-test-1.my-ns.svc.cluster.local",
-					},
-				}))
-				Expect(initContainer.VolumeMounts).To(Equal([]corev1.VolumeMount{
-					{Name: "config-map", MountPath: "/var/input-files"},
-					{Name: "dynamic-conf", MountPath: "/var/output-files"},
-				}))
-				Expect(initContainer.ReadinessProbe).To(BeNil())
-			})
-
-			It("should have two containers", func() {
-				Expect(len(spec.Containers)).To(Equal(2))
-			})
-
-			It("should have the main foundationdb container", func() {
-				mainContainer := spec.Containers[0]
-				Expect(mainContainer.Name).To(Equal(fdbv1beta2.MainContainerName))
-				Expect(mainContainer.Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb:%s", cluster.Spec.Version)))
-				Expect(mainContainer.Command).To(Equal([]string{"sh", "-c"}))
-				Expect(mainContainer.Args).To(Equal([]string{
-					"fdbmonitor --conffile /var/dynamic-conf/fdbmonitor.conf" +
-						" --lockfile /var/dynamic-conf/fdbmonitor.lockfile" +
-						" --loggroup operator-test-1" +
-						" >> /var/log/fdb-trace-logs/fdbmonitor-$(date '+%Y-%m-%d').log 2>&1",
-				}))
-
-				Expect(mainContainer.Env).To(Equal([]corev1.EnvVar{
-					{Name: fdbv1beta2.EnvNameClusterFile, Value: "/var/dynamic-conf/fdb.cluster"},
-				}))
-
-				Expect(*mainContainer.Resources.Limits.Cpu()).To(Equal(resource.MustParse("1")))
-				Expect(*mainContainer.Resources.Limits.Memory()).To(Equal(resource.MustParse("8Gi")))
-				Expect(*mainContainer.Resources.Requests.Cpu()).To(Equal(resource.MustParse("1")))
-				Expect(*mainContainer.Resources.Requests.Memory()).To(Equal(resource.MustParse("8Gi")))
-
-				Expect(len(mainContainer.VolumeMounts)).To(Equal(3))
-
-				Expect(mainContainer.VolumeMounts).To(Equal([]corev1.VolumeMount{
-					{Name: "data", MountPath: "/var/fdb/data"},
-					{Name: "dynamic-conf", MountPath: "/var/dynamic-conf"},
-					{Name: "fdb-trace-logs", MountPath: "/var/log/fdb-trace-logs"},
-				}))
-
-				Expect(*mainContainer.SecurityContext.ReadOnlyRootFilesystem).To(BeTrue())
-			})
-
-			It("should have the sidecar container", func() {
-				sidecarContainer := spec.Containers[1]
-				Expect(sidecarContainer.Name).To(Equal(fdbv1beta2.SidecarContainerName))
-				Expect(sidecarContainer.Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes-sidecar:%s-1", cluster.Spec.Version)))
-				Expect(sidecarContainer.Args).To(Equal([]string{
-					"--copy-file",
-					"fdb.cluster",
-					"--input-monitor-conf",
-					"fdbmonitor.conf",
-					"--copy-binary",
-					"fdbserver",
-					"--copy-binary",
-					"fdbcli",
-					"--main-container-version",
-					cluster.Spec.Version,
-					"--substitute-variable",
-					fdbv1beta2.EnvNamePodIP,
-					"--substitute-variable",
-					fdbv1beta2.EnvNameDNSName,
-				}))
-				Expect(sidecarContainer.Env).To(Equal([]corev1.EnvVar{
-					{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
-						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
-					}},
-					{Name: fdbv1beta2.EnvNamePodIP, ValueFrom: &corev1.EnvVarSource{
-						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
-					}},
-					{Name: fdbv1beta2.EnvNameMachineID, ValueFrom: &corev1.EnvVarSource{
-						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
-					}},
-					{Name: fdbv1beta2.EnvNameZoneID, ValueFrom: &corev1.EnvVarSource{
-						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
-					}},
-					{Name: fdbv1beta2.EnvNameInstanceID, Value: "storage-1"},
-					{
-						Name:  fdbv1beta2.EnvNameDNSName,
-						Value: "operator-test-1-storage-1.operator-test-1.my-ns.svc.cluster.local",
-					},
-					{Name: fdbv1beta2.EnvNameTLSVerifyPeers, Value: ""},
-					{Name: "STORAGE_SERVERS_PER_POD", Value: "2"},
-				}))
-				Expect(sidecarContainer.VolumeMounts).To(Equal([]corev1.VolumeMount{
-					{Name: "config-map", MountPath: "/var/input-files"},
-					{Name: "dynamic-conf", MountPath: "/var/output-files"},
-				}))
-				Expect(sidecarContainer.LivenessProbe).To(Equal(&corev1.Probe{
-					ProbeHandler: corev1.ProbeHandler{
-						TCPSocket: &corev1.TCPSocketAction{
-							Port: intstr.IntOrString{IntVal: 8080},
+				It("should have the built-in init container", func() {
+					Expect(len(spec.InitContainers)).To(Equal(1))
+					initContainer := spec.InitContainers[0]
+					Expect(initContainer.Name).To(Equal(fdbv1beta2.InitContainerName))
+					Expect(
+						initContainer.Image,
+					).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes-sidecar:%s-1", cluster.Spec.Version)))
+					Expect(initContainer.Args).To(Equal([]string{
+						"--copy-file",
+						"fdb.cluster",
+						"--input-monitor-conf",
+						"fdbmonitor.conf",
+						"--copy-binary",
+						"fdbserver",
+						"--copy-binary",
+						"fdbcli",
+						"--main-container-version",
+						cluster.Spec.Version,
+						"--substitute-variable",
+						fdbv1beta2.EnvNamePodIP,
+						"--substitute-variable",
+						fdbv1beta2.EnvNameDNSName,
+						"--init-mode",
+					}))
+					Expect(initContainer.Env).To(Equal([]corev1.EnvVar{
+						{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
+							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
+						}},
+						{Name: fdbv1beta2.EnvNamePodIP, ValueFrom: &corev1.EnvVarSource{
+							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
+						}},
+						{Name: fdbv1beta2.EnvNameMachineID, ValueFrom: &corev1.EnvVarSource{
+							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+						}},
+						{Name: fdbv1beta2.EnvNameZoneID, ValueFrom: &corev1.EnvVarSource{
+							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+						}},
+						{Name: fdbv1beta2.EnvNameInstanceID, Value: "storage-1"},
+						{
+							Name:  fdbv1beta2.EnvNameDNSName,
+							Value: "operator-test-1-storage-1.operator-test-1.my-ns.svc.cluster.local",
 						},
-					},
-					PeriodSeconds:    30,
-					FailureThreshold: 5,
-					TimeoutSeconds:   1,
-				}))
-				Expect(sidecarContainer.ReadinessProbe).To(BeNil())
+					}))
+					Expect(initContainer.VolumeMounts).To(Equal([]corev1.VolumeMount{
+						{Name: "config-map", MountPath: "/var/input-files"},
+						{Name: "dynamic-conf", MountPath: "/var/output-files"},
+					}))
+					Expect(initContainer.ReadinessProbe).To(BeNil())
+				})
 
-				Expect(*sidecarContainer.SecurityContext.ReadOnlyRootFilesystem).To(BeTrue())
-			})
+				It("should have two containers", func() {
+					Expect(len(spec.Containers)).To(Equal(2))
+				})
 
-			It("should have the built-in volumes", func() {
-				Expect(len(spec.Volumes)).To(Equal(4))
-				Expect(spec.Volumes[0]).To(Equal(corev1.Volume{
-					Name: "data",
-					VolumeSource: corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-						ClaimName: fmt.Sprintf("%s-storage-1-data", cluster.Name),
-					}},
-				}))
-				Expect(spec.Volumes[1]).To(Equal(corev1.Volume{
-					Name:         "dynamic-conf",
-					VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
-				}))
-				Expect(spec.Volumes[2]).To(Equal(corev1.Volume{
-					Name: "config-map",
-					VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
-						LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", cluster.Name)},
-						Items: []corev1.KeyToPath{
-							{Key: "fdbmonitor-conf-storage-density-2", Path: "fdbmonitor.conf"},
-							{Key: fdbv1beta2.ClusterFileKey, Path: "fdb.cluster"},
+				It("should have the main foundationdb container", func() {
+					mainContainer := spec.Containers[0]
+					Expect(mainContainer.Name).To(Equal(fdbv1beta2.MainContainerName))
+					Expect(
+						mainContainer.Image,
+					).To(Equal(fmt.Sprintf("foundationdb/foundationdb:%s", cluster.Spec.Version)))
+					Expect(mainContainer.Command).To(Equal([]string{"sh", "-c"}))
+					Expect(mainContainer.Args).To(Equal([]string{
+						"fdbmonitor --conffile /var/dynamic-conf/fdbmonitor.conf" +
+							" --lockfile /var/dynamic-conf/fdbmonitor.lockfile" +
+							" --loggroup operator-test-1" +
+							" >> /var/log/fdb-trace-logs/fdbmonitor-$(date '+%Y-%m-%d').log 2>&1",
+					}))
+
+					Expect(mainContainer.Env).To(Equal([]corev1.EnvVar{
+						{
+							Name:  fdbv1beta2.EnvNameClusterFile,
+							Value: "/var/dynamic-conf/fdb.cluster",
 						},
-					}},
-				}))
-				Expect(spec.Volumes[3]).To(Equal(corev1.Volume{
-					Name:         "fdb-trace-logs",
-					VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
-				}))
-			})
+					}))
 
-			It("should have no affinity rules", func() {
-				Expect(spec.Affinity).To(BeNil())
-			})
-		})
+					Expect(*mainContainer.Resources.Limits.Cpu()).To(Equal(resource.MustParse("1")))
+					Expect(
+						*mainContainer.Resources.Limits.Memory(),
+					).To(Equal(resource.MustParse("8Gi")))
+					Expect(
+						*mainContainer.Resources.Requests.Cpu(),
+					).To(Equal(resource.MustParse("1")))
+					Expect(
+						*mainContainer.Resources.Requests.Memory(),
+					).To(Equal(resource.MustParse("8Gi")))
+
+					Expect(len(mainContainer.VolumeMounts)).To(Equal(3))
+
+					Expect(mainContainer.VolumeMounts).To(Equal([]corev1.VolumeMount{
+						{Name: "data", MountPath: "/var/fdb/data"},
+						{Name: "dynamic-conf", MountPath: "/var/dynamic-conf"},
+						{Name: "fdb-trace-logs", MountPath: "/var/log/fdb-trace-logs"},
+					}))
+
+					Expect(*mainContainer.SecurityContext.ReadOnlyRootFilesystem).To(BeTrue())
+				})
+
+				It("should have the sidecar container", func() {
+					sidecarContainer := spec.Containers[1]
+					Expect(sidecarContainer.Name).To(Equal(fdbv1beta2.SidecarContainerName))
+					Expect(
+						sidecarContainer.Image,
+					).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes-sidecar:%s-1", cluster.Spec.Version)))
+					Expect(sidecarContainer.Args).To(Equal([]string{
+						"--copy-file",
+						"fdb.cluster",
+						"--input-monitor-conf",
+						"fdbmonitor.conf",
+						"--copy-binary",
+						"fdbserver",
+						"--copy-binary",
+						"fdbcli",
+						"--main-container-version",
+						cluster.Spec.Version,
+						"--substitute-variable",
+						fdbv1beta2.EnvNamePodIP,
+						"--substitute-variable",
+						fdbv1beta2.EnvNameDNSName,
+					}))
+					Expect(sidecarContainer.Env).To(Equal([]corev1.EnvVar{
+						{Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
+							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
+						}},
+						{Name: fdbv1beta2.EnvNamePodIP, ValueFrom: &corev1.EnvVarSource{
+							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
+						}},
+						{Name: fdbv1beta2.EnvNameMachineID, ValueFrom: &corev1.EnvVarSource{
+							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+						}},
+						{Name: fdbv1beta2.EnvNameZoneID, ValueFrom: &corev1.EnvVarSource{
+							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+						}},
+						{Name: fdbv1beta2.EnvNameInstanceID, Value: "storage-1"},
+						{
+							Name:  fdbv1beta2.EnvNameDNSName,
+							Value: "operator-test-1-storage-1.operator-test-1.my-ns.svc.cluster.local",
+						},
+						{Name: fdbv1beta2.EnvNameTLSVerifyPeers, Value: ""},
+						{Name: "STORAGE_SERVERS_PER_POD", Value: "2"},
+					}))
+					Expect(sidecarContainer.VolumeMounts).To(Equal([]corev1.VolumeMount{
+						{Name: "config-map", MountPath: "/var/input-files"},
+						{Name: "dynamic-conf", MountPath: "/var/output-files"},
+					}))
+					Expect(sidecarContainer.LivenessProbe).To(Equal(&corev1.Probe{
+						ProbeHandler: corev1.ProbeHandler{
+							TCPSocket: &corev1.TCPSocketAction{
+								Port: intstr.IntOrString{IntVal: 8080},
+							},
+						},
+						PeriodSeconds:    30,
+						FailureThreshold: 5,
+						TimeoutSeconds:   1,
+					}))
+					Expect(sidecarContainer.ReadinessProbe).To(BeNil())
+
+					Expect(*sidecarContainer.SecurityContext.ReadOnlyRootFilesystem).To(BeTrue())
+				})
+
+				It("should have the built-in volumes", func() {
+					Expect(len(spec.Volumes)).To(Equal(4))
+					Expect(spec.Volumes[0]).To(Equal(corev1.Volume{
+						Name: "data",
+						VolumeSource: corev1.VolumeSource{
+							PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+								ClaimName: fmt.Sprintf("%s-storage-1-data", cluster.Name),
+							},
+						},
+					}))
+					Expect(spec.Volumes[1]).To(Equal(corev1.Volume{
+						Name:         "dynamic-conf",
+						VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
+					}))
+					Expect(spec.Volumes[2]).To(Equal(corev1.Volume{
+						Name: "config-map",
+						VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: fmt.Sprintf("%s-config", cluster.Name),
+							},
+							Items: []corev1.KeyToPath{
+								{Key: "fdbmonitor-conf-storage-density-2", Path: "fdbmonitor.conf"},
+								{Key: fdbv1beta2.ClusterFileKey, Path: "fdb.cluster"},
+							},
+						}},
+					}))
+					Expect(spec.Volumes[3]).To(Equal(corev1.Volume{
+						Name:         "fdb-trace-logs",
+						VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
+					}))
+				})
+
+				It("should have no affinity rules", func() {
+					Expect(spec.Affinity).To(BeNil())
+				})
+			},
+		)
 
 		Context("with a the public IP from the pod", func() {
 			BeforeEach(func() {
 				var source = fdbv1beta2.PublicIPSourcePod
 				cluster.Spec.Routing.PublicIPSource = &source
-				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+				spec, err = GetPodSpec(
+					cluster,
+					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+				)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -1598,19 +1830,26 @@ var _ = Describe("pod_models", func() {
 				}))
 			})
 
-			It("should have the environment variables for the IPs in the sidecar container", func() {
-				sidecarEnv := GetEnvVars(spec.Containers[1])
-				Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP]).NotTo(BeNil())
-				Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP].ValueFrom).NotTo(BeNil())
-				Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP].ValueFrom.FieldRef.FieldPath).To(Equal("status.podIP"))
-				Expect(sidecarEnv[fdbv1beta2.EnvNamePodIP]).NotTo(BeNil())
-			})
+			It(
+				"should have the environment variables for the IPs in the sidecar container",
+				func() {
+					sidecarEnv := GetEnvVars(spec.Containers[1])
+					Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP]).NotTo(BeNil())
+					Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP].ValueFrom).NotTo(BeNil())
+					Expect(
+						sidecarEnv[fdbv1beta2.EnvNamePublicIP].ValueFrom.FieldRef.FieldPath,
+					).To(Equal("status.podIP"))
+					Expect(sidecarEnv[fdbv1beta2.EnvNamePodIP]).NotTo(BeNil())
+				},
+			)
 
 			It("should have the environment variables for the IPs in the init container", func() {
 				sidecarEnv := GetEnvVars(spec.InitContainers[0])
 				Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP]).NotTo(BeNil())
 				Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP].ValueFrom).NotTo(BeNil())
-				Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP].ValueFrom.FieldRef.FieldPath).To(Equal("status.podIP"))
+				Expect(
+					sidecarEnv[fdbv1beta2.EnvNamePublicIP].ValueFrom.FieldRef.FieldPath,
+				).To(Equal("status.podIP"))
 				Expect(sidecarEnv[fdbv1beta2.EnvNamePodIP]).NotTo(BeNil())
 			})
 		})
@@ -1621,7 +1860,10 @@ var _ = Describe("pod_models", func() {
 				cluster.Spec.Routing.PublicIPSource = &source
 				enabled := true
 				cluster.Spec.UseExplicitListenAddress = &enabled
-				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+				spec, err = GetPodSpec(
+					cluster,
+					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+				)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -1670,24 +1912,35 @@ var _ = Describe("pod_models", func() {
 				}))
 			})
 
-			It("should have the environment variables for the IPs in the sidecar container", func() {
-				sidecarEnv := GetEnvVars(spec.Containers[1])
-				Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP]).NotTo(BeNil())
-				Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP].ValueFrom).NotTo(BeNil())
-				Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP].ValueFrom.FieldRef.FieldPath).To(Equal("status.podIP"))
-				Expect(sidecarEnv[fdbv1beta2.EnvNamePodIP]).NotTo(BeNil())
-				Expect(sidecarEnv[fdbv1beta2.EnvNamePodIP].ValueFrom).NotTo(BeNil())
-				Expect(sidecarEnv[fdbv1beta2.EnvNamePodIP].ValueFrom.FieldRef.FieldPath).To(Equal("status.podIP"))
-			})
+			It(
+				"should have the environment variables for the IPs in the sidecar container",
+				func() {
+					sidecarEnv := GetEnvVars(spec.Containers[1])
+					Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP]).NotTo(BeNil())
+					Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP].ValueFrom).NotTo(BeNil())
+					Expect(
+						sidecarEnv[fdbv1beta2.EnvNamePublicIP].ValueFrom.FieldRef.FieldPath,
+					).To(Equal("status.podIP"))
+					Expect(sidecarEnv[fdbv1beta2.EnvNamePodIP]).NotTo(BeNil())
+					Expect(sidecarEnv[fdbv1beta2.EnvNamePodIP].ValueFrom).NotTo(BeNil())
+					Expect(
+						sidecarEnv[fdbv1beta2.EnvNamePodIP].ValueFrom.FieldRef.FieldPath,
+					).To(Equal("status.podIP"))
+				},
+			)
 
 			It("should have the environment variables for the IPs in the init container", func() {
 				sidecarEnv := GetEnvVars(spec.InitContainers[0])
 				Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP]).NotTo(BeNil())
 				Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP].ValueFrom).NotTo(BeNil())
-				Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP].ValueFrom.FieldRef.FieldPath).To(Equal("status.podIP"))
+				Expect(
+					sidecarEnv[fdbv1beta2.EnvNamePublicIP].ValueFrom.FieldRef.FieldPath,
+				).To(Equal("status.podIP"))
 				Expect(sidecarEnv[fdbv1beta2.EnvNamePodIP]).NotTo(BeNil())
 				Expect(sidecarEnv[fdbv1beta2.EnvNamePodIP].ValueFrom).NotTo(BeNil())
-				Expect(sidecarEnv[fdbv1beta2.EnvNamePodIP].ValueFrom.FieldRef.FieldPath).To(Equal("status.podIP"))
+				Expect(
+					sidecarEnv[fdbv1beta2.EnvNamePodIP].ValueFrom.FieldRef.FieldPath,
+				).To(Equal("status.podIP"))
 			})
 		})
 
@@ -1695,28 +1948,42 @@ var _ = Describe("pod_models", func() {
 			BeforeEach(func() {
 				var source = fdbv1beta2.PublicIPSourceService
 				cluster.Spec.Routing.PublicIPSource = &source
-				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+				spec, err = GetPodSpec(
+					cluster,
+					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+				)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			It("should have the environment variables for the IPs in the sidecar container", func() {
-				sidecarEnv := GetEnvVars(spec.Containers[1])
-				Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP]).NotTo(BeNil())
-				Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP].ValueFrom).NotTo(BeNil())
-				Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP].ValueFrom.FieldRef.FieldPath).To(Equal("metadata.annotations['foundationdb.org/public-ip']"))
-				Expect(sidecarEnv[fdbv1beta2.EnvNamePodIP]).NotTo(BeNil())
-				Expect(sidecarEnv[fdbv1beta2.EnvNamePodIP].ValueFrom).NotTo(BeNil())
-				Expect(sidecarEnv[fdbv1beta2.EnvNamePodIP].ValueFrom.FieldRef.FieldPath).To(Equal("status.podIP"))
-			})
+			It(
+				"should have the environment variables for the IPs in the sidecar container",
+				func() {
+					sidecarEnv := GetEnvVars(spec.Containers[1])
+					Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP]).NotTo(BeNil())
+					Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP].ValueFrom).NotTo(BeNil())
+					Expect(
+						sidecarEnv[fdbv1beta2.EnvNamePublicIP].ValueFrom.FieldRef.FieldPath,
+					).To(Equal("metadata.annotations['foundationdb.org/public-ip']"))
+					Expect(sidecarEnv[fdbv1beta2.EnvNamePodIP]).NotTo(BeNil())
+					Expect(sidecarEnv[fdbv1beta2.EnvNamePodIP].ValueFrom).NotTo(BeNil())
+					Expect(
+						sidecarEnv[fdbv1beta2.EnvNamePodIP].ValueFrom.FieldRef.FieldPath,
+					).To(Equal("status.podIP"))
+				},
+			)
 
 			It("should have the environment variables for the IPs in the init container", func() {
 				sidecarEnv := GetEnvVars(spec.InitContainers[0])
 				Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP]).NotTo(BeNil())
 				Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP].ValueFrom).NotTo(BeNil())
-				Expect(sidecarEnv[fdbv1beta2.EnvNamePublicIP].ValueFrom.FieldRef.FieldPath).To(Equal("metadata.annotations['foundationdb.org/public-ip']"))
+				Expect(
+					sidecarEnv[fdbv1beta2.EnvNamePublicIP].ValueFrom.FieldRef.FieldPath,
+				).To(Equal("metadata.annotations['foundationdb.org/public-ip']"))
 				Expect(sidecarEnv[fdbv1beta2.EnvNamePodIP]).NotTo(BeNil())
 				Expect(sidecarEnv[fdbv1beta2.EnvNamePodIP].ValueFrom).NotTo(BeNil())
-				Expect(sidecarEnv[fdbv1beta2.EnvNamePodIP].ValueFrom.FieldRef.FieldPath).To(Equal("status.podIP"))
+				Expect(
+					sidecarEnv[fdbv1beta2.EnvNamePodIP].ValueFrom.FieldRef.FieldPath,
+				).To(Equal("status.podIP"))
 			})
 
 			It("should have the pod IP in the init container args", func() {
@@ -1767,7 +2034,10 @@ var _ = Describe("pod_models", func() {
 
 		Context("with a headless service", func() {
 			BeforeEach(func() {
-				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+				spec, err = GetPodSpec(
+					cluster,
+					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+				)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -1781,7 +2051,10 @@ var _ = Describe("pod_models", func() {
 			BeforeEach(func() {
 				cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(false)
 				cluster.Spec.Routing.HeadlessService = pointer.Bool(false)
-				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+				spec, err = GetPodSpec(
+					cluster,
+					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+				)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -1794,29 +2067,34 @@ var _ = Describe("pod_models", func() {
 		Context("with custom resources", func() {
 			BeforeEach(func() {
 				cluster = CreateDefaultCluster()
-				cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{fdbv1beta2.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
-					Spec: corev1.PodSpec{
-						Containers: []corev1.Container{
-							{
-								Name: fdbv1beta2.MainContainerName,
-								Resources: corev1.ResourceRequirements{
-									Requests: corev1.ResourceList{
-										"cpu":    resource.MustParse("2"),
-										"memory": resource.MustParse("8Gi"),
-									},
-									Limits: corev1.ResourceList{
-										"cpu":    resource.MustParse("4"),
-										"memory": resource.MustParse("16Gi"),
+				cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{
+					fdbv1beta2.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name: fdbv1beta2.MainContainerName,
+									Resources: corev1.ResourceRequirements{
+										Requests: corev1.ResourceList{
+											"cpu":    resource.MustParse("2"),
+											"memory": resource.MustParse("8Gi"),
+										},
+										Limits: corev1.ResourceList{
+											"cpu":    resource.MustParse("4"),
+											"memory": resource.MustParse("16Gi"),
+										},
 									},
 								},
 							},
 						},
-					},
-				}}}
+					}},
+				}
 				err := NormalizeClusterSpec(cluster, DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
-				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+				spec, err = GetPodSpec(
+					cluster,
+					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+				)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -1824,16 +2102,23 @@ var _ = Describe("pod_models", func() {
 				mainContainer := spec.Containers[0]
 				Expect(mainContainer.Name).To(Equal(fdbv1beta2.MainContainerName))
 				Expect(*mainContainer.Resources.Limits.Cpu()).To(Equal(resource.MustParse("4")))
-				Expect(*mainContainer.Resources.Limits.Memory()).To(Equal(resource.MustParse("16Gi")))
+				Expect(
+					*mainContainer.Resources.Limits.Memory(),
+				).To(Equal(resource.MustParse("16Gi")))
 				Expect(*mainContainer.Resources.Requests.Cpu()).To(Equal(resource.MustParse("2")))
-				Expect(*mainContainer.Resources.Requests.Memory()).To(Equal(resource.MustParse("8Gi")))
+				Expect(
+					*mainContainer.Resources.Requests.Memory(),
+				).To(Equal(resource.MustParse("8Gi")))
 			})
 		})
 
 		Context("with a host-based fault domain", func() {
 			BeforeEach(func() {
 				cluster.Spec.FaultDomain = fdbv1beta2.FoundationDBClusterFaultDomain{}
-				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+				spec, err = GetPodSpec(
+					cluster,
+					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+				)
 			})
 
 			It("should set the fault domain information in the sidecar environment", func() {
@@ -1871,8 +2156,10 @@ var _ = Describe("pod_models", func() {
 									TopologyKey: "kubernetes.io/hostname",
 									LabelSelector: &metav1.LabelSelector{
 										MatchLabels: map[string]string{
-											fdbv1beta2.FDBClusterLabel:      cluster.Name,
-											fdbv1beta2.FDBProcessClassLabel: string(fdbv1beta2.ProcessClassStorage),
+											fdbv1beta2.FDBClusterLabel: cluster.Name,
+											fdbv1beta2.FDBProcessClassLabel: string(
+												fdbv1beta2.ProcessClassStorage,
+											),
 										},
 									},
 								},
@@ -1886,14 +2173,20 @@ var _ = Describe("pod_models", func() {
 		Context("with custom resource labels", func() {
 			BeforeEach(func() {
 				cluster.Spec.LabelConfig = fdbv1beta2.LabelConfig{
-					MatchLabels:    map[string]string{"fdb-custom-name": cluster.Name, "fdb-managed-by-operator": "true"},
+					MatchLabels: map[string]string{
+						"fdb-custom-name":         cluster.Name,
+						"fdb-managed-by-operator": "true",
+					},
 					ResourceLabels: map[string]string{"fdb-new-custom-name": cluster.Name},
 				}
 				cluster.Spec.FaultDomain = fdbv1beta2.FoundationDBClusterFaultDomain{}
 				err = NormalizeClusterSpec(cluster, DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
-				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+				spec, err = GetPodSpec(
+					cluster,
+					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+				)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -1907,9 +2200,11 @@ var _ = Describe("pod_models", func() {
 									TopologyKey: "kubernetes.io/hostname",
 									LabelSelector: &metav1.LabelSelector{
 										MatchLabels: map[string]string{
-											"fdb-custom-name":               cluster.Name,
-											fdbv1beta2.FDBProcessClassLabel: string(fdbv1beta2.ProcessClassStorage),
-											"fdb-managed-by-operator":       "true",
+											"fdb-custom-name": cluster.Name,
+											fdbv1beta2.FDBProcessClassLabel: string(
+												fdbv1beta2.ProcessClassStorage,
+											),
+											"fdb-managed-by-operator": "true",
 										},
 									},
 								},
@@ -1927,7 +2222,10 @@ var _ = Describe("pod_models", func() {
 					Key:       "rack",
 					ValueFrom: "$RACK",
 				}
-				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+				spec, err = GetPodSpec(
+					cluster,
+					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+				)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -1963,8 +2261,10 @@ var _ = Describe("pod_models", func() {
 									TopologyKey: "rack",
 									LabelSelector: &metav1.LabelSelector{
 										MatchLabels: map[string]string{
-											fdbv1beta2.FDBClusterLabel:      cluster.Name,
-											fdbv1beta2.FDBProcessClassLabel: string(fdbv1beta2.ProcessClassStorage),
+											fdbv1beta2.FDBClusterLabel: cluster.Name,
+											fdbv1beta2.FDBProcessClassLabel: string(
+												fdbv1beta2.ProcessClassStorage,
+											),
 										},
 									},
 								},
@@ -1981,7 +2281,10 @@ var _ = Describe("pod_models", func() {
 					Key:   "foundationdb.org/kubernetes-cluster",
 					Value: "kc2",
 				}
-				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+				spec, err = GetPodSpec(
+					cluster,
+					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+				)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2018,24 +2321,29 @@ var _ = Describe("pod_models", func() {
 		Context("with custom containers", func() {
 			BeforeEach(func() {
 				cluster = CreateDefaultCluster()
-				cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{fdbv1beta2.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
-					Spec: corev1.PodSpec{
-						InitContainers: []corev1.Container{{
-							Name:    "test-container",
-							Image:   "foundationdb/" + cluster.Name,
-							Command: []string{"echo", "test1"},
-						}},
-						Containers: []corev1.Container{{
-							Name:    "test-container",
-							Image:   "foundationdb/" + cluster.Name,
-							Command: []string{"echo", "test2"},
-						}},
-					},
-				}}}
+				cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{
+					fdbv1beta2.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							InitContainers: []corev1.Container{{
+								Name:    "test-container",
+								Image:   "foundationdb/" + cluster.Name,
+								Command: []string{"echo", "test1"},
+							}},
+							Containers: []corev1.Container{{
+								Name:    "test-container",
+								Image:   "foundationdb/" + cluster.Name,
+								Command: []string{"echo", "test2"},
+							}},
+						},
+					}},
+				}
 				err = NormalizeClusterSpec(cluster, DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
-				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+				spec, err = GetPodSpec(
+					cluster,
+					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+				)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2049,7 +2357,9 @@ var _ = Describe("pod_models", func() {
 
 				initContainer := spec.InitContainers[1]
 				Expect(initContainer.Name).To(Equal(fdbv1beta2.InitContainerName))
-				Expect(initContainer.Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes-sidecar:%s-1", cluster.Spec.Version)))
+				Expect(
+					initContainer.Image,
+				).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes-sidecar:%s-1", cluster.Spec.Version)))
 			})
 
 			It("should have all three containers", func() {
@@ -2057,7 +2367,9 @@ var _ = Describe("pod_models", func() {
 
 				mainContainer := spec.Containers[0]
 				Expect(mainContainer.Name).To(Equal(fdbv1beta2.MainContainerName))
-				Expect(mainContainer.Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb:%s", cluster.Spec.Version)))
+				Expect(
+					mainContainer.Image,
+				).To(Equal(fmt.Sprintf("foundationdb/foundationdb:%s", cluster.Spec.Version)))
 
 				testContainer := spec.Containers[1]
 				Expect(testContainer.Name).To(Equal("test-container"))
@@ -2066,70 +2378,97 @@ var _ = Describe("pod_models", func() {
 
 				sidecarContainer := spec.Containers[2]
 				Expect(sidecarContainer.Name).To(Equal(fdbv1beta2.SidecarContainerName))
-				Expect(sidecarContainer.Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes-sidecar:%s-1", cluster.Spec.Version)))
+				Expect(
+					sidecarContainer.Image,
+				).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes-sidecar:%s-1", cluster.Spec.Version)))
 			})
 		})
 
 		Context("with custom container images with tag", func() {
 			BeforeEach(func() {
 				cluster = CreateDefaultCluster()
-				cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{fdbv1beta2.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
-					Spec: corev1.PodSpec{
-						InitContainers: []corev1.Container{{
-							Name:  fdbv1beta2.InitContainerName,
-							Image: "test/foundationdb-kubernetes-sidecar:dummy",
-						}},
-						Containers: []corev1.Container{{
-							Name:  fdbv1beta2.MainContainerName,
-							Image: "test/foundationdb:dummy",
-						}, {
-							Name:  fdbv1beta2.SidecarContainerName,
-							Image: "test/foundationdb-kubernetes-sidecar:dummy",
-						}},
-					},
-				}}}
+				cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{
+					fdbv1beta2.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							InitContainers: []corev1.Container{{
+								Name:  fdbv1beta2.InitContainerName,
+								Image: "test/foundationdb-kubernetes-sidecar:dummy",
+							}},
+							Containers: []corev1.Container{{
+								Name:  fdbv1beta2.MainContainerName,
+								Image: "test/foundationdb:dummy",
+							}, {
+								Name:  fdbv1beta2.SidecarContainerName,
+								Image: "test/foundationdb-kubernetes-sidecar:dummy",
+							}},
+						},
+					}},
+				}
 				err = NormalizeClusterSpec(cluster, DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			It("should return an error since a tag is specified", func() {
-				_, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+				_, err = GetPodSpec(
+					cluster,
+					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+				)
 				Expect(err).To(HaveOccurred())
 			})
 		})
 
 		Context("with custom environment", func() {
 			BeforeEach(func() {
-				cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{fdbv1beta2.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
-					Spec: corev1.PodSpec{
-						Containers: []corev1.Container{
-							{
-								Name: fdbv1beta2.MainContainerName,
-								Env: []corev1.EnvVar{
-									{Name: fdbv1beta2.EnvNameTLSCert, Value: "/var/secrets/cert.pem"},
-									{Name: fdbv1beta2.EnvNameTLSCaFile, Value: "/var/secrets/cert.pem"},
-									{Name: fdbv1beta2.EnvNameTLSKeyFile, Value: "/var/secrets/cert.pem"},
+				cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{
+					fdbv1beta2.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name: fdbv1beta2.MainContainerName,
+									Env: []corev1.EnvVar{
+										{
+											Name:  fdbv1beta2.EnvNameTLSCert,
+											Value: "/var/secrets/cert.pem",
+										},
+										{
+											Name:  fdbv1beta2.EnvNameTLSCaFile,
+											Value: "/var/secrets/cert.pem",
+										},
+										{
+											Name:  fdbv1beta2.EnvNameTLSKeyFile,
+											Value: "/var/secrets/cert.pem",
+										},
+									},
+								},
+								{
+									Name: fdbv1beta2.SidecarContainerName,
+									Env: []corev1.EnvVar{
+										{
+											Name:  fdbv1beta2.EnvNameAdditionalEnvFile,
+											Value: "/var/custom-env",
+										},
+									},
 								},
 							},
-							{
-								Name: fdbv1beta2.SidecarContainerName,
-								Env: []corev1.EnvVar{
-									{Name: fdbv1beta2.EnvNameAdditionalEnvFile, Value: "/var/custom-env"},
+							InitContainers: []corev1.Container{
+								{
+									Name: fdbv1beta2.InitContainerName,
+									Env: []corev1.EnvVar{
+										{
+											Name:  fdbv1beta2.EnvNameAdditionalEnvFile,
+											Value: "/var/custom-env-init",
+										},
+									},
 								},
 							},
 						},
-						InitContainers: []corev1.Container{
-							{
-								Name: fdbv1beta2.InitContainerName,
-								Env: []corev1.EnvVar{
-									{Name: fdbv1beta2.EnvNameAdditionalEnvFile, Value: "/var/custom-env-init"},
-								},
-							},
-						},
-					},
-				}}}
+					}},
+				}
 
-				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+				spec, err = GetPodSpec(
+					cluster,
+					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+				)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2197,7 +2536,10 @@ var _ = Describe("pod_models", func() {
 				cluster.Spec.SidecarContainer.EnableTLS = true
 				cluster.Spec.SidecarContainer.PeerVerificationRules = "S.CN=foundationdb.org"
 
-				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+				spec, err = GetPodSpec(
+					cluster,
+					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+				)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2290,29 +2632,36 @@ var _ = Describe("pod_models", func() {
 		Context("with custom volumes", func() {
 			BeforeEach(func() {
 				cluster = CreateDefaultCluster()
-				cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{fdbv1beta2.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
-					Spec: corev1.PodSpec{
-						Volumes: []corev1.Volume{{
-							Name: "test-secrets",
-							VolumeSource: corev1.VolumeSource{Secret: &corev1.SecretVolumeSource{
-								SecretName: "test-secrets",
+				cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{
+					fdbv1beta2.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							Volumes: []corev1.Volume{{
+								Name: "test-secrets",
+								VolumeSource: corev1.VolumeSource{
+									Secret: &corev1.SecretVolumeSource{
+										SecretName: "test-secrets",
+									},
+								},
 							}},
-						}},
-						Containers: []corev1.Container{
-							{
-								Name: fdbv1beta2.MainContainerName,
-								VolumeMounts: []corev1.VolumeMount{{
-									Name:      "test-secrets",
-									MountPath: "/var/secrets",
-								}},
+							Containers: []corev1.Container{
+								{
+									Name: fdbv1beta2.MainContainerName,
+									VolumeMounts: []corev1.VolumeMount{{
+										Name:      "test-secrets",
+										MountPath: "/var/secrets",
+									}},
+								},
 							},
 						},
-					},
-				}}}
+					}},
+				}
 				err = NormalizeClusterSpec(cluster, DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
-				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+				spec, err = GetPodSpec(
+					cluster,
+					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+				)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2347,9 +2696,11 @@ var _ = Describe("pod_models", func() {
 					}},
 				}))
 				Expect(spec.Volumes[1]).To(Equal(corev1.Volume{
-					VolumeSource: corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-						ClaimName: fmt.Sprintf("%s-storage-1-data", cluster.Name),
-					}},
+					VolumeSource: corev1.VolumeSource{
+						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+							ClaimName: fmt.Sprintf("%s-storage-1-data", cluster.Name),
+						},
+					},
 					Name: "data",
 				}))
 				Expect(spec.Volumes[2]).To(Equal(corev1.Volume{
@@ -2359,7 +2710,9 @@ var _ = Describe("pod_models", func() {
 				Expect(spec.Volumes[3]).To(Equal(corev1.Volume{
 					Name: "config-map",
 					VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
-						LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", cluster.Name)},
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: fmt.Sprintf("%s-config", cluster.Name),
+						},
 						Items: []corev1.KeyToPath{
 							{Key: "fdbmonitor-conf-storage", Path: "fdbmonitor.conf"},
 							{Key: fdbv1beta2.ClusterFileKey, Path: "fdb.cluster"},
@@ -2381,18 +2734,25 @@ var _ = Describe("pod_models", func() {
 				}
 				err = NormalizeClusterSpec(cluster, DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
-				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+				spec, err = GetPodSpec(
+					cluster,
+					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+				)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			It("sets the images on the containers", func() {
 				initContainer := spec.InitContainers[0]
 				Expect(initContainer.Name).To(Equal(fdbv1beta2.InitContainerName))
-				Expect(initContainer.Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes-sidecar:%s-2", cluster.Spec.Version)))
+				Expect(
+					initContainer.Image,
+				).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes-sidecar:%s-2", cluster.Spec.Version)))
 
 				mainContainer := spec.Containers[0]
 				Expect(mainContainer.Name).To(Equal(fdbv1beta2.MainContainerName))
-				Expect(mainContainer.Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb:%s", cluster.Spec.Version)))
+				Expect(
+					mainContainer.Image,
+				).To(Equal(fmt.Sprintf("foundationdb/foundationdb:%s", cluster.Spec.Version)))
 
 				sidecarContainer := spec.Containers[1]
 				Expect(sidecarContainer.Name).To(Equal(fdbv1beta2.SidecarContainerName))
@@ -2405,36 +2765,47 @@ var _ = Describe("pod_models", func() {
 
 				podSecurityContext := &corev1.PodSecurityContext{FSGroup: new(int64)}
 				*podSecurityContext.FSGroup = 5000
-				mainSecurityContext := &corev1.SecurityContext{RunAsGroup: new(int64), RunAsUser: new(int64)}
+				mainSecurityContext := &corev1.SecurityContext{
+					RunAsGroup: new(int64),
+					RunAsUser:  new(int64),
+				}
 				*mainSecurityContext.RunAsGroup = 3000
 				*mainSecurityContext.RunAsUser = 4000
-				sidecarSecurityContext := &corev1.SecurityContext{RunAsGroup: new(int64), RunAsUser: new(int64)}
+				sidecarSecurityContext := &corev1.SecurityContext{
+					RunAsGroup: new(int64),
+					RunAsUser:  new(int64),
+				}
 				*sidecarSecurityContext.RunAsGroup = 1000
 				*sidecarSecurityContext.RunAsUser = 2000
 
-				cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{fdbv1beta2.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
-					Spec: corev1.PodSpec{
-						SecurityContext: podSecurityContext,
-						Containers: []corev1.Container{
-							{
-								Name:            fdbv1beta2.MainContainerName,
-								SecurityContext: mainSecurityContext,
+				cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{
+					fdbv1beta2.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							SecurityContext: podSecurityContext,
+							Containers: []corev1.Container{
+								{
+									Name:            fdbv1beta2.MainContainerName,
+									SecurityContext: mainSecurityContext,
+								},
+								{
+									Name:            fdbv1beta2.SidecarContainerName,
+									SecurityContext: sidecarSecurityContext,
+								},
 							},
-							{
-								Name:            fdbv1beta2.SidecarContainerName,
-								SecurityContext: sidecarSecurityContext,
+							InitContainers: []corev1.Container{
+								{
+									Name:            fdbv1beta2.InitContainerName,
+									SecurityContext: sidecarSecurityContext,
+								},
 							},
 						},
-						InitContainers: []corev1.Container{
-							{
-								Name:            fdbv1beta2.InitContainerName,
-								SecurityContext: sidecarSecurityContext,
-							},
-						},
-					},
-				}}}
+					}},
+				}
 
-				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+				spec, err = GetPodSpec(
+					cluster,
+					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+				)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2460,7 +2831,10 @@ var _ = Describe("pod_models", func() {
 		Context("with an process group ID prefix", func() {
 			BeforeEach(func() {
 				cluster.Spec.ProcessGroupIDPrefix = "dc1"
-				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+				spec, err = GetPodSpec(
+					cluster,
+					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+				)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2490,28 +2864,41 @@ var _ = Describe("pod_models", func() {
 
 		Context("with no custom map", func() {
 			BeforeEach(func() {
-				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+				spec, err = GetPodSpec(
+					cluster,
+					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+				)
 				Expect(err).NotTo(HaveOccurred())
 			})
 			It("adds config-map volume that refers to custom map", func() {
-				Expect(spec.Volumes[2].VolumeSource.ConfigMap.LocalObjectReference.Name).To(Equal(fmt.Sprintf("%s-%s", cluster.Name, "config")))
+				Expect(
+					spec.Volumes[2].VolumeSource.ConfigMap.LocalObjectReference.Name,
+				).To(Equal(fmt.Sprintf("%s-%s", cluster.Name, "config")))
 			})
 		})
 
 		Context("with no custom pvc", func() {
 			BeforeEach(func() {
-				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+				spec, err = GetPodSpec(
+					cluster,
+					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+				)
 				Expect(err).NotTo(HaveOccurred())
 			})
 			It("adds data volume that refers to default pvc", func() {
-				Expect(spec.Volumes[0].VolumeSource.PersistentVolumeClaim.ClaimName).To(Equal(fmt.Sprintf("%s-storage-1-data", cluster.Name)))
+				Expect(
+					spec.Volumes[0].VolumeSource.PersistentVolumeClaim.ClaimName,
+				).To(Equal(fmt.Sprintf("%s-storage-1-data", cluster.Name)))
 			})
 		})
 
 		Context("with a custom CA", func() {
 			BeforeEach(func() {
 				cluster.Spec.TrustedCAs = []string{"Test"}
-				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+				spec, err = GetPodSpec(
+					cluster,
+					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+				)
 			})
 
 			It("should pass the CA file to the main container", func() {
@@ -2612,7 +2999,9 @@ var _ = Describe("pod_models", func() {
 				Expect(spec.Volumes[2]).To(Equal(corev1.Volume{
 					Name: "config-map",
 					VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
-						LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", cluster.Name)},
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: fmt.Sprintf("%s-config", cluster.Name),
+						},
 						Items: []corev1.KeyToPath{
 							{Key: "fdbmonitor-conf-storage", Path: "fdbmonitor.conf"},
 							{Key: fdbv1beta2.ClusterFileKey, Path: "fdb.cluster"},
@@ -2642,7 +3031,10 @@ var _ = Describe("pod_models", func() {
 				}
 				err = NormalizeClusterSpec(cluster, DeprecationOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+				spec, err = GetPodSpec(
+					cluster,
+					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+				)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -2677,7 +3069,10 @@ var _ = Describe("pod_models", func() {
 				}
 				err = NormalizeClusterSpec(cluster, DeprecationOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				spec, err = GetPodSpec(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+				spec, err = GetPodSpec(
+					cluster,
+					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+				)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -2703,7 +3098,10 @@ var _ = Describe("pod_models", func() {
 
 		Context("with a basic storage process group", func() {
 			BeforeEach(func() {
-				service, err = GetService(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+				service, err = GetService(
+					cluster,
+					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+				)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2738,7 +3136,10 @@ var _ = Describe("pod_models", func() {
 		Context("with podIPFamily 6", func() {
 			BeforeEach(func() {
 				cluster.Spec.Routing.PodIPFamily = pointer.Int(6)
-				service, err = GetService(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+				service, err = GetService(
+					cluster,
+					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+				)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2768,13 +3169,19 @@ var _ = Describe("pod_models", func() {
 		Context("with custom resource labels", func() {
 			BeforeEach(func() {
 				cluster.Spec.LabelConfig = fdbv1beta2.LabelConfig{
-					MatchLabels:    map[string]string{"fdb-custom-name": cluster.Name, "fdb-managed-by-operator": "true"},
+					MatchLabels: map[string]string{
+						"fdb-custom-name":         cluster.Name,
+						"fdb-managed-by-operator": "true",
+					},
 					ResourceLabels: map[string]string{"fdb-new-custom-name": cluster.Name},
 				}
 				err = NormalizeClusterSpec(cluster, DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
-				service, err = GetService(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+				service, err = GetService(
+					cluster,
+					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+				)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2813,7 +3220,10 @@ var _ = Describe("pod_models", func() {
 
 		Context("with a basic storage process group", func() {
 			BeforeEach(func() {
-				pvc, err = GetPvc(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+				pvc, err = GetPvc(
+					cluster,
+					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+				)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2842,13 +3252,19 @@ var _ = Describe("pod_models", func() {
 		Context("with custom resource labels", func() {
 			BeforeEach(func() {
 				cluster.Spec.LabelConfig = fdbv1beta2.LabelConfig{
-					MatchLabels:    map[string]string{"fdb-custom-name": cluster.Name, "fdb-managed-by-operator": "true"},
+					MatchLabels: map[string]string{
+						"fdb-custom-name":         cluster.Name,
+						"fdb-managed-by-operator": "true",
+					},
 					ResourceLabels: map[string]string{"fdb-new-custom-name": cluster.Name},
 				}
 				err = NormalizeClusterSpec(cluster, DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
-				pvc, err = GetPvc(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+				pvc, err = GetPvc(
+					cluster,
+					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+				)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2867,16 +3283,23 @@ var _ = Describe("pod_models", func() {
 
 		Context("with a custom storage size", func() {
 			BeforeEach(func() {
-				cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{fdbv1beta2.ProcessClassGeneral: {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
-					Spec: corev1.PersistentVolumeClaimSpec{
-						Resources: corev1.VolumeResourceRequirements{
-							Requests: corev1.ResourceList{
-								corev1.ResourceStorage: resource.MustParse("64G"),
+				cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{
+					fdbv1beta2.ProcessClassGeneral: {
+						VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
+							Spec: corev1.PersistentVolumeClaimSpec{
+								Resources: corev1.VolumeResourceRequirements{
+									Requests: corev1.ResourceList{
+										corev1.ResourceStorage: resource.MustParse("64G"),
+									},
+								},
 							},
 						},
 					},
-				}}}
-				pvc, err = GetPvc(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+				}
+				pvc, err = GetPvc(
+					cluster,
+					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+				)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2891,17 +3314,24 @@ var _ = Describe("pod_models", func() {
 
 		Context("with custom metadata", func() {
 			BeforeEach(func() {
-				cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{fdbv1beta2.ProcessClassGeneral: {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
-					ObjectMeta: metav1.ObjectMeta{
-						Annotations: map[string]string{
-							"fdb-annotation": "value1",
-						},
-						Labels: map[string]string{
-							"fdb-label": "value2",
+				cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{
+					fdbv1beta2.ProcessClassGeneral: {
+						VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
+							ObjectMeta: metav1.ObjectMeta{
+								Annotations: map[string]string{
+									"fdb-annotation": "value1",
+								},
+								Labels: map[string]string{
+									"fdb-label": "value2",
+								},
+							},
 						},
 					},
-				}}}
-				pvc, err = GetPvc(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+				}
+				pvc, err = GetPvc(
+					cluster,
+					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+				)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2923,7 +3353,10 @@ var _ = Describe("pod_models", func() {
 
 		Context("for a stateless process group", func() {
 			BeforeEach(func() {
-				pvc, err = GetPvc(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStateless, 1))
+				pvc, err = GetPvc(
+					cluster,
+					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStateless, 1),
+				)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2935,7 +3368,10 @@ var _ = Describe("pod_models", func() {
 		Context("with an process group ID prefix", func() {
 			BeforeEach(func() {
 				cluster.Spec.ProcessGroupIDPrefix = "dc1"
-				pvc, err = GetPvc(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+				pvc, err = GetPvc(
+					cluster,
+					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+				)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2953,12 +3389,19 @@ var _ = Describe("pod_models", func() {
 			var class string
 			BeforeEach(func() {
 				class = "local"
-				cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{fdbv1beta2.ProcessClassGeneral: {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
-					Spec: corev1.PersistentVolumeClaimSpec{
-						StorageClassName: &class,
+				cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{
+					fdbv1beta2.ProcessClassGeneral: {
+						VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
+							Spec: corev1.PersistentVolumeClaimSpec{
+								StorageClassName: &class,
+							},
+						},
 					},
-				}}}
-				pvc, err = GetPvc(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+				}
+				pvc, err = GetPvc(
+					cluster,
+					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+				)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2970,7 +3413,10 @@ var _ = Describe("pod_models", func() {
 		Context("with an process group ID prefix", func() {
 			BeforeEach(func() {
 				cluster.Spec.ProcessGroupIDPrefix = "dc1"
-				pvc, err = GetPvc(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+				pvc, err = GetPvc(
+					cluster,
+					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+				)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2986,7 +3432,10 @@ var _ = Describe("pod_models", func() {
 
 		Context("with default name in the suffix", func() {
 			BeforeEach(func() {
-				pvc, err = GetPvc(cluster, GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1))
+				pvc, err = GetPvc(
+					cluster,
+					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+				)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -3046,7 +3495,10 @@ var _ = Describe("pod_models", func() {
 		Context("with custom resource labels", func() {
 			BeforeEach(func() {
 				cluster.Spec.LabelConfig = fdbv1beta2.LabelConfig{
-					MatchLabels:    map[string]string{"fdb-custom-name": cluster.Name, "fdb-managed-by-operator": "true"},
+					MatchLabels: map[string]string{
+						"fdb-custom-name":         cluster.Name,
+						"fdb-managed-by-operator": "true",
+					},
 					ResourceLabels: map[string]string{"fdb-new-custom-name": cluster.Name},
 				}
 				err = NormalizeClusterSpec(cluster, DeprecationOptions{})
@@ -3116,7 +3568,9 @@ var _ = Describe("pod_models", func() {
 			It("should set the metadata for the deployment", func() {
 				Expect(deployment.ObjectMeta.Name).To(Equal("operator-test-1-backup-agents"))
 				Expect(len(deployment.ObjectMeta.OwnerReferences)).To(Equal(1))
-				Expect(deployment.ObjectMeta.OwnerReferences[0].UID).To(Equal(cluster.ObjectMeta.UID))
+				Expect(
+					deployment.ObjectMeta.OwnerReferences[0].UID,
+				).To(Equal(cluster.ObjectMeta.UID))
 				Expect(deployment.ObjectMeta.Labels).To(Equal(map[string]string{
 					fdbv1beta2.BackupDeploymentLabel: string(cluster.ObjectMeta.UID),
 				}))
@@ -3131,7 +3585,9 @@ var _ = Describe("pod_models", func() {
 			})
 
 			It("should set the labels for the pod selector", func() {
-				Expect(*deployment.Spec.Selector).To(Equal(metav1.LabelSelector{MatchLabels: map[string]string{
+				Expect(
+					*deployment.Spec.Selector,
+				).To(Equal(metav1.LabelSelector{MatchLabels: map[string]string{
 					fdbv1beta2.BackupDeploymentPodLabel: "operator-test-1-backup-agents",
 				}}))
 				Expect(deployment.Spec.Template.ObjectMeta.Labels).To(Equal(map[string]string{
@@ -3146,12 +3602,20 @@ var _ = Describe("pod_models", func() {
 
 			It("should have the default volumes", func() {
 				Expect(deployment.Spec.Template.Spec.Volumes).To(Equal([]corev1.Volume{
-					{Name: "logs", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
-					{Name: "dynamic-conf", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
+					{
+						Name:         "logs",
+						VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
+					},
+					{
+						Name:         "dynamic-conf",
+						VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
+					},
 					{
 						Name: "config-map",
 						VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
-							LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", cluster.Name)},
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: fmt.Sprintf("%s-config", cluster.Name),
+							},
 							Items: []corev1.KeyToPath{
 								{Key: fdbv1beta2.ClusterFileKey, Path: "fdb.cluster"},
 							},
@@ -3172,7 +3636,9 @@ var _ = Describe("pod_models", func() {
 				})
 
 				It("should set the image and command for the backup agent", func() {
-					Expect(container.Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb:%s", cluster.Spec.Version)))
+					Expect(
+						container.Image,
+					).To(Equal(fmt.Sprintf("foundationdb/foundationdb:%s", cluster.Spec.Version)))
 					Expect(container.Command).To(Equal([]string{"backup_agent"}))
 					Expect(container.Args).To(Equal([]string{
 						"--log",
@@ -3183,7 +3649,10 @@ var _ = Describe("pod_models", func() {
 
 				It("should set the basic environment", func() {
 					Expect(container.Env).To(Equal([]corev1.EnvVar{
-						{Name: fdbv1beta2.EnvNameClusterFile, Value: "/var/dynamic-conf/fdb.cluster"},
+						{
+							Name:  fdbv1beta2.EnvNameClusterFile,
+							Value: "/var/dynamic-conf/fdb.cluster",
+						},
 					}))
 				})
 
@@ -3196,9 +3665,13 @@ var _ = Describe("pod_models", func() {
 
 				It("should set default resource limits", func() {
 					Expect(*container.Resources.Limits.Cpu()).To(Equal(resource.MustParse("1")))
-					Expect(*container.Resources.Limits.Memory()).To(Equal(resource.MustParse("1Gi")))
+					Expect(
+						*container.Resources.Limits.Memory(),
+					).To(Equal(resource.MustParse("1Gi")))
 					Expect(*container.Resources.Requests.Cpu()).To(Equal(resource.MustParse("1")))
-					Expect(*container.Resources.Requests.Memory()).To(Equal(resource.MustParse("1Gi")))
+					Expect(
+						*container.Resources.Requests.Memory(),
+					).To(Equal(resource.MustParse("1Gi")))
 				})
 			})
 
@@ -3214,7 +3687,9 @@ var _ = Describe("pod_models", func() {
 				})
 
 				It("should set the image and command for the container", func() {
-					Expect(container.Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes-sidecar:%s-1", cluster.Spec.Version)))
+					Expect(
+						container.Image,
+					).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes-sidecar:%s-1", cluster.Spec.Version)))
 					Expect(container.Args).To(Equal([]string{
 						"--copy-file",
 						"fdb.cluster",
@@ -3238,13 +3713,23 @@ var _ = Describe("pod_models", func() {
 				backup.Spec.PodTemplateSpec = &corev1.PodTemplateSpec{
 					Spec: corev1.PodSpec{
 						Volumes: []corev1.Volume{
-							{Name: "secrets", VolumeSource: corev1.VolumeSource{Secret: &corev1.SecretVolumeSource{SecretName: "backup-secrets"}}},
+							{
+								Name: "secrets",
+								VolumeSource: corev1.VolumeSource{
+									Secret: &corev1.SecretVolumeSource{
+										SecretName: "backup-secrets",
+									},
+								},
+							},
 						},
 						Containers: []corev1.Container{
 							{
 								Name: fdbv1beta2.MainContainerName,
 								Env: []corev1.EnvVar{
-									{Name: "FDB_BLOB_CREDENTIALS", Value: "/var/secrets/blob_credentials.json"},
+									{
+										Name:  "FDB_BLOB_CREDENTIALS",
+										Value: "/var/secrets/blob_credentials.json",
+									},
 								},
 								VolumeMounts: []corev1.VolumeMount{
 									{Name: "secrets", MountPath: "/var/secrets"},
@@ -3260,13 +3745,26 @@ var _ = Describe("pod_models", func() {
 
 			It("should customize the volumes", func() {
 				Expect(deployment.Spec.Template.Spec.Volumes).To(Equal([]corev1.Volume{
-					{Name: "secrets", VolumeSource: corev1.VolumeSource{Secret: &corev1.SecretVolumeSource{SecretName: "backup-secrets"}}},
-					{Name: "logs", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
-					{Name: "dynamic-conf", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
+					{
+						Name: "secrets",
+						VolumeSource: corev1.VolumeSource{
+							Secret: &corev1.SecretVolumeSource{SecretName: "backup-secrets"},
+						},
+					},
+					{
+						Name:         "logs",
+						VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
+					},
+					{
+						Name:         "dynamic-conf",
+						VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
+					},
 					{
 						Name: "config-map",
 						VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
-							LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", cluster.Name)},
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: fmt.Sprintf("%s-config", cluster.Name),
+							},
 							Items: []corev1.KeyToPath{
 								{Key: fdbv1beta2.ClusterFileKey, Path: "fdb.cluster"},
 							},
@@ -3289,7 +3787,10 @@ var _ = Describe("pod_models", func() {
 				It("should customize the environment", func() {
 					Expect(container.Env).To(Equal([]corev1.EnvVar{
 						{Name: "FDB_BLOB_CREDENTIALS", Value: "/var/secrets/blob_credentials.json"},
-						{Name: fdbv1beta2.EnvNameClusterFile, Value: "/var/dynamic-conf/fdb.cluster"},
+						{
+							Name:  fdbv1beta2.EnvNameClusterFile,
+							Value: "/var/dynamic-conf/fdb.cluster",
+						},
 					}))
 				})
 
@@ -3377,7 +3878,9 @@ var _ = Describe("pod_models", func() {
 
 		Context("with customParameters", func() {
 			BeforeEach(func() {
-				backup.Spec.CustomParameters = []fdbv1beta2.FoundationDBCustomParameter{"customParameter=1337"}
+				backup.Spec.CustomParameters = []fdbv1beta2.FoundationDBCustomParameter{
+					"customParameter=1337",
+				}
 				deployment, err = GetBackupDeployment(backup)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(deployment).NotTo(BeNil())
@@ -3386,7 +3889,9 @@ var _ = Describe("pod_models", func() {
 			It("should set custom parameter in the args", func() {
 				Expect(deployment.ObjectMeta.Name).To(Equal("operator-test-1-backup-agents"))
 				Expect(len(deployment.ObjectMeta.OwnerReferences)).To(Equal(1))
-				Expect(deployment.ObjectMeta.OwnerReferences[0].UID).To(Equal(cluster.ObjectMeta.UID))
+				Expect(
+					deployment.ObjectMeta.OwnerReferences[0].UID,
+				).To(Equal(cluster.ObjectMeta.UID))
 				Expect(deployment.ObjectMeta.Labels).To(Equal(map[string]string{
 					"foundationdb.org/backup-for": string(cluster.ObjectMeta.UID),
 				}))
@@ -3394,7 +3899,9 @@ var _ = Describe("pod_models", func() {
 					"foundationdb.org/last-applied-spec": "879780b88956de7a05e245cdbf16c565b95fe5c956e3a89e7ea259cd9b209d97",
 				}))
 
-				Expect(deployment.Spec.Template.Spec.Containers[0].Args).To(ContainElement("--customParameter=1337"))
+				Expect(
+					deployment.Spec.Template.Spec.Containers[0].Args,
+				).To(ContainElement("--customParameter=1337"))
 			})
 		})
 
@@ -3412,8 +3919,12 @@ var _ = Describe("pod_models", func() {
 			})
 
 			It("should set the image based on the image configs", func() {
-				Expect(deployment.Spec.Template.Spec.Containers[0].Image).To(Equal("foundationdb/foundationdb:dev"))
-				Expect(deployment.Spec.Template.Spec.InitContainers[0].Image).To(Equal("foundationdb/foundationdb-kubernetes-sidecar:dev-1"))
+				Expect(
+					deployment.Spec.Template.Spec.Containers[0].Image,
+				).To(Equal("foundationdb/foundationdb:dev"))
+				Expect(
+					deployment.Spec.Template.Spec.InitContainers[0].Image,
+				).To(Equal("foundationdb/foundationdb-kubernetes-sidecar:dev-1"))
 			})
 		})
 
@@ -3445,7 +3956,9 @@ var _ = Describe("pod_models", func() {
 
 			It("should set the image without validating the tag", func() {
 				Expect(deployment.Spec.Template.Spec.Containers[0].Image).To(Equal("test:main"))
-				Expect(deployment.Spec.Template.Spec.InitContainers[0].Image).To(Equal("test:sidecar"))
+				Expect(
+					deployment.Spec.Template.Spec.InitContainers[0].Image,
+				).To(Equal("test:sidecar"))
 			})
 		})
 
@@ -3462,7 +3975,9 @@ var _ = Describe("pod_models", func() {
 				Expect(deployment.Spec.Template.Spec.InitContainers).To(HaveLen(1))
 				Expect(deployment.Spec.Template.Spec.Containers).To(HaveLen(1))
 
-				Expect(deployment.Spec.Template.Spec.InitContainers[0].Image).To(HavePrefix(fdbv1beta2.FoundationDBKubernetesBaseImage))
+				Expect(
+					deployment.Spec.Template.Spec.InitContainers[0].Image,
+				).To(HavePrefix(fdbv1beta2.FoundationDBKubernetesBaseImage))
 				Expect(deployment.Spec.Template.Spec.InitContainers[0].Args).To(ConsistOf(
 					"--copy-file",
 					"fdb.cluster",
@@ -3474,7 +3989,9 @@ var _ = Describe("pod_models", func() {
 					"/var/output-files",
 					"--input-dir",
 					"/var/input-files"))
-				Expect(deployment.Spec.Template.Spec.Containers[0].Image).To(HavePrefix(fdbv1beta2.FoundationDBKubernetesBaseImage))
+				Expect(
+					deployment.Spec.Template.Spec.Containers[0].Image,
+				).To(HavePrefix(fdbv1beta2.FoundationDBKubernetesBaseImage))
 			})
 		})
 	})
@@ -3488,7 +4005,12 @@ var _ = Describe("pod_models", func() {
 
 		DescribeTable("should return the correct image",
 			func(input testCase, allowTagOverride bool, expected string) {
-				image, _ := GetImage(input.imageName, input.imageConfigs, input.versionString, allowTagOverride)
+				image, _ := GetImage(
+					input.imageName,
+					input.imageConfigs,
+					input.versionString,
+					allowTagOverride,
+				)
 				Expect(image).To(Equal(expected))
 			},
 			Entry("only defaults used",
@@ -3535,7 +4057,14 @@ var _ = Describe("pod_models", func() {
 
 			DescribeTable("should return the correct image",
 				func(input testCase, expected string) {
-					err = configureSidecarContainerForCluster(cluster, "operator-test-storage-1", input.container, input.initMode, input.processGroupID, "6.2.21")
+					err = configureSidecarContainerForCluster(
+						cluster,
+						"operator-test-storage-1",
+						input.container,
+						input.initMode,
+						input.processGroupID,
+						"6.2.21",
+					)
 					if input.hasError {
 						Expect(err).To(HaveOccurred())
 					} else {
@@ -3580,7 +4109,10 @@ var _ = Describe("pod_models", func() {
 					},
 				}
 
-				storageServersPerPod, err := GetServersPerPodForPod(pod, fdbv1beta2.ProcessClassStorage)
+				storageServersPerPod, err := GetServersPerPodForPod(
+					pod,
+					fdbv1beta2.ProcessClassStorage,
+				)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(storageServersPerPod).To(Equal(1))
 			})
@@ -3601,7 +4133,10 @@ var _ = Describe("pod_models", func() {
 					},
 				}
 
-				storageServersPerPod, err := GetServersPerPodForPod(pod, fdbv1beta2.ProcessClassStorage)
+				storageServersPerPod, err := GetServersPerPodForPod(
+					pod,
+					fdbv1beta2.ProcessClassStorage,
+				)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(storageServersPerPod).To(Equal(2))
 			})
@@ -3617,7 +4152,10 @@ var _ = Describe("pod_models", func() {
 					},
 				}
 
-				storageServersPerPod, err := GetServersPerPodForPod(pod, fdbv1beta2.ProcessClassStorage)
+				storageServersPerPod, err := GetServersPerPodForPod(
+					pod,
+					fdbv1beta2.ProcessClassStorage,
+				)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(storageServersPerPod).To(Equal(1))
 			})
@@ -3625,7 +4163,10 @@ var _ = Describe("pod_models", func() {
 
 		Context("when pod is nil", func() {
 			It("should return 1", func() {
-				storageServersPerPod, err := GetServersPerPodForPod(nil, fdbv1beta2.ProcessClassStorage)
+				storageServersPerPod, err := GetServersPerPodForPod(
+					nil,
+					fdbv1beta2.ProcessClassStorage,
+				)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(storageServersPerPod).To(Equal(1))
 			})
@@ -3635,7 +4176,10 @@ var _ = Describe("pod_models", func() {
 			It("should return 1", func() {
 				pod := &corev1.Pod{}
 
-				storageServersPerPod, err := GetServersPerPodForPod(pod, fdbv1beta2.ProcessClassStorage)
+				storageServersPerPod, err := GetServersPerPodForPod(
+					pod,
+					fdbv1beta2.ProcessClassStorage,
+				)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(storageServersPerPod).To(Equal(1))
 			})
@@ -3647,7 +4191,10 @@ var _ = Describe("pod_models", func() {
 					Spec: corev1.PodSpec{},
 				}
 
-				storageServersPerPod, err := GetServersPerPodForPod(pod, fdbv1beta2.ProcessClassStorage)
+				storageServersPerPod, err := GetServersPerPodForPod(
+					pod,
+					fdbv1beta2.ProcessClassStorage,
+				)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(storageServersPerPod).To(Equal(1))
 			})
@@ -3657,13 +4204,17 @@ var _ = Describe("pod_models", func() {
 	Describe("GetPodDNSName", func() {
 		It("builds the DNS name based on the cluster spec", func() {
 			cluster.Spec.Routing.DNSDomain = pointer.String("cluster.example")
-			Expect(GetPodDNSName(cluster, "operator-test-storage-1")).To(Equal("operator-test-storage-1.operator-test-1.my-ns.svc.cluster.example"))
+			Expect(
+				GetPodDNSName(cluster, "operator-test-storage-1"),
+			).To(Equal("operator-test-storage-1.operator-test-1.my-ns.svc.cluster.example"))
 		})
 	})
 
-	DescribeTable("getting the process group ID from the Pod name", func(cluster *fdbv1beta2.FoundationDBCluster, podName string, expected fdbv1beta2.ProcessGroupID) {
-		Expect(GetProcessGroupIDFromPodName(cluster, podName)).To(Equal(expected))
-	},
+	DescribeTable(
+		"getting the process group ID from the Pod name",
+		func(cluster *fdbv1beta2.FoundationDBCluster, podName string, expected fdbv1beta2.ProcessGroupID) {
+			Expect(GetProcessGroupIDFromPodName(cluster, podName)).To(Equal(expected))
+		},
 		Entry("cluster without prefix", &fdbv1beta2.FoundationDBCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "test",
@@ -3676,7 +4227,8 @@ var _ = Describe("pod_models", func() {
 			Spec: fdbv1beta2.FoundationDBClusterSpec{
 				ProcessGroupIDPrefix: "prefix",
 			},
-		}, "test-storage-1", fdbv1beta2.ProcessGroupID("prefix-storage-1")))
+		}, "test-storage-1", fdbv1beta2.ProcessGroupID("prefix-storage-1")),
+	)
 
 	Describe("ContainsPod", func() {
 		var pod1, pod2 *corev1.Pod

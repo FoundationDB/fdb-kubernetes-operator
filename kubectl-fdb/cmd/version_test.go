@@ -46,7 +46,10 @@ var _ = Describe("[plugin] version command", func() {
 			errBuffer = bytes.Buffer{}
 			inBuffer = bytes.Buffer{}
 
-			rootCmd := NewRootCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer}, &MockVersionChecker{})
+			rootCmd := NewRootCmd(
+				genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer},
+				&MockVersionChecker{},
+			)
 
 			args := []string{"version", "--client-only"}
 			rootCmd.SetArgs(args)
@@ -157,8 +160,10 @@ var _ = Describe("[plugin] version command", func() {
 							},
 						},
 					},
-					expectedError: fmt.Errorf("could not find container: manager in default/fdb-operator"),
-					hasError:      true,
+					expectedError: fmt.Errorf(
+						"could not find container: manager in default/fdb-operator",
+					),
+					hasError: true,
 				}),
 		)
 	})
@@ -178,7 +183,10 @@ var _ = Describe("[plugin] version command", func() {
 			errBuffer = bytes.Buffer{}
 			inBuffer = bytes.Buffer{}
 
-			rootCmd := NewRootCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer}, &MockVersionChecker{MockedVersion: "2.0.0"})
+			rootCmd := NewRootCmd(
+				genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer},
+				&MockVersionChecker{MockedVersion: "2.0.0"},
+			)
 
 			args := []string{"version", "--client-only"}
 			rootCmd.SetArgs(args)
@@ -189,7 +197,8 @@ var _ = Describe("[plugin] version command", func() {
 
 		It("should print out the client version", func() {
 			Expect(outBuffer.String()).To(ContainSubstring(
-				"kubectl-fdb plugin is not up-to-date, please install the latest version and try again!"))
+				"kubectl-fdb plugin is not up-to-date, please install the latest version and try again!",
+			))
 		})
 	})
 })

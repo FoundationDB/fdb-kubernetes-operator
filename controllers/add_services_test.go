@@ -60,11 +60,19 @@ var _ = Describe("add_services", func() {
 		initialServices = &corev1.ServiceList{}
 		Expect(k8sClient.List(context.TODO(), initialServices)).NotTo(HaveOccurred())
 
-		Expect(internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})).NotTo(HaveOccurred())
+		Expect(
+			internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{}),
+		).NotTo(HaveOccurred())
 	})
 
 	JustBeforeEach(func() {
-		requeue = addServices{}.reconcile(context.TODO(), clusterReconciler, cluster, nil, globalControllerLogger)
+		requeue = addServices{}.reconcile(
+			context.TODO(),
+			clusterReconciler,
+			cluster,
+			nil,
+			globalControllerLogger,
+		)
 		_, err = reloadCluster(cluster)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -124,8 +132,15 @@ var _ = Describe("add_services", func() {
 		BeforeEach(func() {
 			_, processGroupIDs, err := cluster.GetCurrentProcessGroupsAndProcessCounts()
 			Expect(err).NotTo(HaveOccurred())
-			newProcessGroupID = cluster.GetNextRandomProcessGroupID(fdbv1beta2.ProcessClassStorage, processGroupIDs[fdbv1beta2.ProcessClassStorage])
-			pickedProcessGroup = fdbv1beta2.NewProcessGroupStatus(newProcessGroupID, fdbv1beta2.ProcessClassStorage, nil)
+			newProcessGroupID = cluster.GetNextRandomProcessGroupID(
+				fdbv1beta2.ProcessClassStorage,
+				processGroupIDs[fdbv1beta2.ProcessClassStorage],
+			)
+			pickedProcessGroup = fdbv1beta2.NewProcessGroupStatus(
+				newProcessGroupID,
+				fdbv1beta2.ProcessClassStorage,
+				nil,
+			)
 			cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, pickedProcessGroup)
 		})
 
@@ -143,9 +158,15 @@ var _ = Describe("add_services", func() {
 					continue
 				}
 
-				Expect(svc.Labels[fdbv1beta2.FDBProcessGroupIDLabel]).To(Equal(string(newProcessGroupID)))
-				Expect(svc.Labels[fdbv1beta2.FDBProcessClassLabel]).To(Equal(string(fdbv1beta2.ProcessClassStorage)))
-				Expect(svc.OwnerReferences).To(Equal(internal.BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)))
+				Expect(
+					svc.Labels[fdbv1beta2.FDBProcessGroupIDLabel],
+				).To(Equal(string(newProcessGroupID)))
+				Expect(
+					svc.Labels[fdbv1beta2.FDBProcessClassLabel],
+				).To(Equal(string(fdbv1beta2.ProcessClassStorage)))
+				Expect(
+					svc.OwnerReferences,
+				).To(Equal(internal.BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)))
 				Expect(svc.Spec.ClusterIP).NotTo(Equal("None"))
 				checked = true
 			}
@@ -200,7 +221,13 @@ var _ = Describe("add_services", func() {
 	Context("with no headless service", func() {
 		BeforeEach(func() {
 			service := &corev1.Service{}
-			Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, service)).NotTo(HaveOccurred())
+			Expect(
+				k8sClient.Get(
+					context.TODO(),
+					types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name},
+					service,
+				),
+			).NotTo(HaveOccurred())
 			Expect(k8sClient.Delete(context.TODO(), service)).NotTo(HaveOccurred())
 		})
 

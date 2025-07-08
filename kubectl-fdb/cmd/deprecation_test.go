@@ -62,15 +62,26 @@ var _ = Describe("[plugin] deprecation command", func() {
 				Expect(k8sClient.Delete(context.TODO(), &tc.cluster)).NotTo(HaveOccurred())
 				Expect(k8sClient.Create(context.TODO(), &tc.cluster)).NotTo(HaveOccurred())
 
-				cmd := newDeprecationCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer})
-				err := checkDeprecation(cmd, k8sClient, tc.inputClusters, namespace, tc.deprecationOptions, tc.showClusterSpec)
+				cmd := newDeprecationCmd(
+					genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer},
+				)
+				err := checkDeprecation(
+					cmd,
+					k8sClient,
+					tc.inputClusters,
+					namespace,
+					tc.deprecationOptions,
+					tc.showClusterSpec,
+				)
 				if tc.expectedError != "" {
 					Expect(err).To(HaveOccurred())
 					Expect(err.Error()).To(Equal(tc.expectedError))
 					// We don't compare the diff output since it includes some special
 					// whitespace characters
 					if tc.checkOutput {
-						Expect(strings.TrimSpace(outBuffer.String())).To(Equal(strings.TrimSpace(tc.expectedOutput)))
+						Expect(
+							strings.TrimSpace(outBuffer.String()),
+						).To(Equal(strings.TrimSpace(tc.expectedOutput)))
 					}
 					return
 				}
@@ -209,7 +220,10 @@ var _ = Describe("[plugin] deprecation command", func() {
 			errBuffer := bytes.Buffer{}
 			inBuffer := bytes.Buffer{}
 
-			cmd = NewRootCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer}, &MockVersionChecker{})
+			cmd = NewRootCmd(
+				genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer},
+				&MockVersionChecker{},
+			)
 		})
 
 		It("should print out the help information", func() {

@@ -118,37 +118,71 @@ func performUpgrade(config testConfig, preUpgradeFunction func(cluster *fixtures
 	loggingTime = time.Now()
 	transactionSystemProcessGroups := make(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None)
 	// Wait until the cluster is upgraded and fully reconciled.
-	Expect(fdbCluster.WaitUntilWithForceReconcile(2, 1500, func(cluster *fdbv1beta2.FoundationDBCluster) bool {
-		for _, processGroup := range cluster.Status.ProcessGroups {
-			missingTime := processGroup.GetConditionTime(fdbv1beta2.MissingProcesses)
-			// If the Pod is missing check if the fdbserver processes are running and check the logs of the fdb-kubernetes-monitor.
-			if missingTime != nil && time.Since(time.Unix(*missingTime, 0)) > 120*time.Second && !processGroup.IsMarkedForRemoval() && !processGroup.IsExcluded() {
-				log.Println("Missing process for:", processGroup.ProcessGroupID)
-				stdout, stderr, err := factory.ExecuteCmd(context.Background(), cluster.Namespace, processGroup.GetPodName(cluster), fdbv1beta2.MainContainerName, "ps aufx", true)
-				log.Println("stdout:", stdout, "stderr", stderr, "err", err)
+	Expect(
+		fdbCluster.WaitUntilWithForceReconcile(
+			2,
+			1500,
+			func(cluster *fdbv1beta2.FoundationDBCluster) bool {
+				for _, processGroup := range cluster.Status.ProcessGroups {
+					missingTime := processGroup.GetConditionTime(fdbv1beta2.MissingProcesses)
+					// If the Pod is missing check if the fdbserver processes are running and check the logs of the fdb-kubernetes-monitor.
+					if missingTime != nil &&
+						time.Since(time.Unix(*missingTime, 0)) > 120*time.Second &&
+						!processGroup.IsMarkedForRemoval() &&
+						!processGroup.IsExcluded() {
+						log.Println("Missing process for:", processGroup.ProcessGroupID)
+						stdout, stderr, err := factory.ExecuteCmd(
+							context.Background(),
+							cluster.Namespace,
+							processGroup.GetPodName(cluster),
+							fdbv1beta2.MainContainerName,
+							"ps aufx",
+							true,
+						)
+						log.Println("stdout:", stdout, "stderr", stderr, "err", err)
 
-				pod, err := factory.GetPod(cluster.Namespace, processGroup.GetPodName(cluster))
-				if err != nil {
-					log.Println("logs for", processGroup.ProcessGroupID, ":", factory.GetLogsForPod(pod, fdbv1beta2.MainContainerName, missingTime))
+						pod, err := factory.GetPod(
+							cluster.Namespace,
+							processGroup.GetPodName(cluster),
+						)
+						if err != nil {
+							log.Println(
+								"logs for",
+								processGroup.ProcessGroupID,
+								":",
+								factory.GetLogsForPod(
+									pod,
+									fdbv1beta2.MainContainerName,
+									missingTime,
+								),
+							)
+						}
+					}
+
+					if processGroup.ProcessClass == fdbv1beta2.ProcessClassStorage {
+						continue
+					}
+
+					transactionSystemProcessGroups[processGroup.ProcessGroupID] = fdbv1beta2.None{}
 				}
-			}
 
-			if processGroup.ProcessClass == fdbv1beta2.ProcessClassStorage {
-				continue
-			}
+				// If the cluster is not upgraded after 5 minutes print out the running and the expected version.
+				if time.Since(loggingTime) > 5*time.Minute {
+					log.Println(
+						"current running version:",
+						cluster.Status.RunningVersion,
+						"expected running version:",
+						config.targetVersion,
+					)
+					loggingTime = time.Now()
+				}
 
-			transactionSystemProcessGroups[processGroup.ProcessGroupID] = fdbv1beta2.None{}
-		}
-
-		// If the cluster is not upgraded after 5 minutes print out the running and the expected version.
-		if time.Since(loggingTime) > 5*time.Minute {
-			log.Println("current running version:", cluster.Status.RunningVersion, "expected running version:", config.targetVersion)
-			loggingTime = time.Now()
-		}
-
-		// Allow soft reconciliation and make sure the running version was updated
-		return cluster.Status.Generations.Reconciled == cluster.Generation && cluster.Status.RunningVersion == config.targetVersion
-	})).NotTo(HaveOccurred())
+				// Allow soft reconciliation and make sure the running version was updated
+				return cluster.Status.Generations.Reconciled == cluster.Generation &&
+					cluster.Status.RunningVersion == config.targetVersion
+			},
+		),
+	).NotTo(HaveOccurred())
 
 	log.Println("Upgrade took:", time.Since(startTime).String())
 	// Get the desired process counts based on the current cluster configuration
@@ -313,7 +347,10 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 						ProcessClass: fdbv1beta2.ProcessClassCoordinator,
 					},
 				}
-				spec.ProcessCounts.Coordinator = fdbCluster.GetCachedCluster().DesiredCoordinatorCount() + fdbCluster.GetCachedCluster().DesiredFaultTolerance()
+				spec.ProcessCounts.Coordinator = fdbCluster.GetCachedCluster().
+					DesiredCoordinatorCount() +
+					fdbCluster.GetCachedCluster().
+						DesiredFaultTolerance()
 				fdbCluster.UpdateClusterSpecWithSpec(spec)
 				Expect(fdbCluster.WaitForReconciliation()).NotTo(HaveOccurred())
 			})

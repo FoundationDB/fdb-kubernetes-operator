@@ -50,7 +50,10 @@ func newFDBOptions(streams genericclioptions.IOStreams) *fdbBOptions {
 }
 
 // NewRootCmd provides a cobra command wrapping FDB actions
-func NewRootCmd(streams genericclioptions.IOStreams, pluginVersionChecker VersionChecker) *cobra.Command {
+func NewRootCmd(
+	streams genericclioptions.IOStreams,
+	pluginVersionChecker VersionChecker,
+) *cobra.Command {
 	o := newFDBOptions(streams)
 
 	cmd := &cobra.Command{
@@ -75,10 +78,14 @@ func NewRootCmd(streams genericclioptions.IOStreams, pluginVersionChecker Versio
 	cmd.SetIn(o.In)
 
 	viper.SetDefault("license", "apache 2")
-	cmd.PersistentFlags().StringP("operator-name", "o", "fdb-kubernetes-operator-controller-manager", "Name of the Deployment for the operator.")
-	cmd.PersistentFlags().Bool("version-check", true, "If the plugin should check if a newer release of the plugin exists. If so the command will not be executed.")
-	cmd.PersistentFlags().BoolP("wait", "w", true, "If the plugin should wait for confirmation before executing any action")
-	cmd.PersistentFlags().Uint16P("sleep", "z", 0, "The plugin should sleep between sequential operations for the defined time in seconds (default 0)")
+	cmd.PersistentFlags().
+		StringP("operator-name", "o", "fdb-kubernetes-operator-controller-manager", "Name of the Deployment for the operator.")
+	cmd.PersistentFlags().
+		Bool("version-check", true, "If the plugin should check if a newer release of the plugin exists. If so the command will not be executed.")
+	cmd.PersistentFlags().
+		BoolP("wait", "w", true, "If the plugin should wait for confirmation before executing any action")
+	cmd.PersistentFlags().
+		Uint16P("sleep", "z", 0, "The plugin should sleep between sequential operations for the defined time in seconds (default 0)")
 	o.configFlags.AddFlags(cmd.Flags())
 
 	cmd.AddCommand(
@@ -184,16 +191,25 @@ type processGroupSelectionOptions struct {
 }
 
 func addProcessSelectionFlags(cmd *cobra.Command) {
-	cmd.Flags().StringP("fdb-cluster", "c", "", "Selects process groups from the provided cluster. "+
-		"Required if not passing cluster-label.")
-	cmd.Flags().String("process-class", "", "Selects process groups matching the provided value in the provided cluster.  Using this option ignores provided ids.")
-	cmd.Flags().StringP("cluster-label", "l", fdbv1beta2.FDBClusterLabel, "cluster label used to identify the cluster for a requested pod. "+
-		"It is incompatible with process-class, and process-condition.")
-	cmd.Flags().StringArray("process-condition", []string{}, "Selects process groups that are in any of the given FDB process group conditions.")
-	cmd.Flags().StringToString("match-labels", map[string]string{}, "Selects process groups running on pods matching the given labels and are in the provided cluster.  Using this option ignores provided ids.")
+	cmd.Flags().
+		StringP("fdb-cluster", "c", "", "Selects process groups from the provided cluster. "+
+			"Required if not passing cluster-label.")
+	cmd.Flags().
+		String("process-class", "", "Selects process groups matching the provided value in the provided cluster.  Using this option ignores provided ids.")
+	cmd.Flags().
+		StringP("cluster-label", "l", fdbv1beta2.FDBClusterLabel, "cluster label used to identify the cluster for a requested pod. "+
+			"It is incompatible with process-class, and process-condition.")
+	cmd.Flags().
+		StringArray("process-condition", []string{}, "Selects process groups that are in any of the given FDB process group conditions.")
+	cmd.Flags().
+		StringToString("match-labels", map[string]string{}, "Selects process groups running on pods matching the given labels and are in the provided cluster.  Using this option ignores provided ids.")
 }
 
-func getProcessSelectionOptsFromFlags(cmd *cobra.Command, o *fdbBOptions, ids []string) (processGroupSelectionOptions, error) {
+func getProcessSelectionOptsFromFlags(
+	cmd *cobra.Command,
+	o *fdbBOptions,
+	ids []string,
+) (processGroupSelectionOptions, error) {
 	opts := processGroupSelectionOptions{}
 	cluster, err := cmd.Flags().GetString("fdb-cluster")
 	if err != nil {

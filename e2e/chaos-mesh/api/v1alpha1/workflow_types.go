@@ -104,7 +104,7 @@ type Template struct {
 	// ConditionalBranches describes the conditional branches of custom tasks. Only used when Type is TypeTask.
 	ConditionalBranches []ConditionalBranch `json:"conditionalBranches,omitempty"`
 	// EmbedChaos describe the chaos to be injected with chaos nodes. Only used when Type is Type<Something>Chaos.
-	*EmbedChaos `json:",inline"`
+	*EmbedChaos `                       json:",inline"`
 	// Schedule describe the Schedule(describing scheduled chaos) to be injected with chaos nodes. Only used when Type is TypeSchedule.
 	Schedule *ChaosOnlyScheduleSpec `json:"schedule,omitempty"`
 	// StatusCheck describe the behavior of StatusCheck. Only used when Type is TypeStatusCheck.
@@ -145,8 +145,8 @@ type Task struct {
 }
 
 type WorkflowList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.TypeMeta `           json:",inline"`
+	metav1.ListMeta `           json:"metadata,omitempty"`
 	Items           []Workflow `json:"items"`
 }
 

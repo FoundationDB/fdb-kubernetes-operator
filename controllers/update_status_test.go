@@ -76,23 +76,49 @@ var _ = Describe("update_status", func() {
 			}
 
 			pickedProcessGroup = internal.PickProcessGroups(cluster, fdbv1beta2.ProcessClassStorage, 1)[0]
-			pod, err = clusterReconciler.PodLifecycleManager.GetPod(context.TODO(), clusterReconciler, cluster, pickedProcessGroup.GetPodName(cluster))
+			pod, err = clusterReconciler.PodLifecycleManager.GetPod(
+				context.TODO(),
+				clusterReconciler,
+				cluster,
+				pickedProcessGroup.GetPodName(cluster),
+			)
 			Expect(err).NotTo(HaveOccurred())
 			node = &corev1.Node{
 				ObjectMeta: metav1.ObjectMeta{Name: pod.Spec.NodeName},
 			}
 
-			globalControllerLogger.Info("Target processGroupStatus Info", "ProcessGroupID", pickedProcessGroup.ProcessGroupID,
-				"Conditions size", len(pickedProcessGroup.ProcessGroupConditions),
-				"Conditions", pickedProcessGroup.ProcessGroupConditions)
+			globalControllerLogger.Info(
+				"Target processGroupStatus Info",
+				"ProcessGroupID",
+				pickedProcessGroup.ProcessGroupID,
+				"Conditions size",
+				len(pickedProcessGroup.ProcessGroupConditions),
+				"Conditions",
+				pickedProcessGroup.ProcessGroupConditions,
+			)
 		})
 
 		When("process group's node is tainted", func() {
 			JustBeforeEach(func() {
-				globalControllerLogger.Info("Taint node", "Node name", pod.Name, "Node taints", node.Spec.Taints)
+				globalControllerLogger.Info(
+					"Taint node",
+					"Node name",
+					pod.Name,
+					"Node taints",
+					node.Spec.Taints,
+				)
 				Expect(k8sClient.Update(context.TODO(), node)).NotTo(HaveOccurred())
 
-				err = validateProcessGroup(context.TODO(), clusterReconciler, cluster, pod, pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey], pickedProcessGroup, cluster.IsTaintFeatureDisabled(), logger)
+				err = validateProcessGroup(
+					context.TODO(),
+					clusterReconciler,
+					cluster,
+					pod,
+					pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey],
+					pickedProcessGroup,
+					cluster.IsTaintFeatureDisabled(),
+					logger,
+				)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -110,7 +136,9 @@ var _ = Describe("update_status", func() {
 
 				It("should get NodeTaintDetected condition", func() {
 					Expect(len(pickedProcessGroup.ProcessGroupConditions)).To(Equal(1))
-					Expect(pickedProcessGroup.GetCondition(fdbv1beta2.NodeTaintDetected)).NotTo(Equal(nil))
+					Expect(
+						pickedProcessGroup.GetCondition(fdbv1beta2.NodeTaintDetected),
+					).NotTo(Equal(nil))
 				})
 			})
 
@@ -118,18 +146,25 @@ var _ = Describe("update_status", func() {
 				BeforeEach(func() {
 					node.Spec.Taints = []corev1.Taint{
 						{
-							Key:       taintKeyMaintenance,
-							Value:     "rack_maintenance",
-							Effect:    corev1.TaintEffectNoExecute,
-							TimeAdded: &metav1.Time{Time: time.Now().Add(-time.Second * time.Duration(taintKeyMaintenanceDuration+1))},
+							Key:    taintKeyMaintenance,
+							Value:  "rack_maintenance",
+							Effect: corev1.TaintEffectNoExecute,
+							TimeAdded: &metav1.Time{
+								Time: time.Now().
+									Add(-time.Second * time.Duration(taintKeyMaintenanceDuration+1)),
+							},
 						},
 					}
 				})
 
 				It("should get both NodeTaintDetected and NodeTaintReplacing condition", func() {
 					Expect(pickedProcessGroup.ProcessGroupConditions).To(HaveLen(2))
-					Expect(pickedProcessGroup.GetCondition(fdbv1beta2.NodeTaintDetected)).NotTo(Equal(nil))
-					Expect(pickedProcessGroup.GetCondition(fdbv1beta2.NodeTaintReplacing)).NotTo(Equal(nil))
+					Expect(
+						pickedProcessGroup.GetCondition(fdbv1beta2.NodeTaintDetected),
+					).NotTo(Equal(nil))
+					Expect(
+						pickedProcessGroup.GetCondition(fdbv1beta2.NodeTaintReplacing),
+					).NotTo(Equal(nil))
 				})
 			})
 
@@ -137,10 +172,13 @@ var _ = Describe("update_status", func() {
 				BeforeEach(func() {
 					node.Spec.Taints = []corev1.Taint{
 						{
-							Key:       taintKeyMaintenance,
-							Value:     "rack_maintenance",
-							Effect:    corev1.TaintEffectNoExecute,
-							TimeAdded: &metav1.Time{Time: time.Now().Add(-time.Second * time.Duration(taintKeyMaintenanceDuration+1))},
+							Key:    taintKeyMaintenance,
+							Value:  "rack_maintenance",
+							Effect: corev1.TaintEffectNoExecute,
+							TimeAdded: &metav1.Time{
+								Time: time.Now().
+									Add(-time.Second * time.Duration(taintKeyMaintenanceDuration+1)),
+							},
 						},
 					}
 					// Disable cluster's taint mechanism
@@ -163,11 +201,24 @@ var _ = Describe("update_status", func() {
 						},
 					}
 
-					err = validateProcessGroup(context.TODO(), clusterReconciler, cluster, pod, pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey], pickedProcessGroup, cluster.IsTaintFeatureDisabled(), logger)
+					err = validateProcessGroup(
+						context.TODO(),
+						clusterReconciler,
+						cluster,
+						pod,
+						pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey],
+						pickedProcessGroup,
+						cluster.IsTaintFeatureDisabled(),
+						logger,
+					)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(pickedProcessGroup.ProcessGroupConditions).To(HaveLen(2))
-					Expect(pickedProcessGroup.GetCondition(fdbv1beta2.NodeTaintDetected)).NotTo(Equal(nil))
-					Expect(pickedProcessGroup.GetCondition(fdbv1beta2.NodeTaintReplacing)).NotTo(Equal(nil))
+					Expect(
+						pickedProcessGroup.GetCondition(fdbv1beta2.NodeTaintDetected),
+					).NotTo(Equal(nil))
+					Expect(
+						pickedProcessGroup.GetCondition(fdbv1beta2.NodeTaintReplacing),
+					).NotTo(Equal(nil))
 				})
 			})
 
@@ -175,10 +226,13 @@ var _ = Describe("update_status", func() {
 				BeforeEach(func() {
 					node.Spec.Taints = []corev1.Taint{
 						{
-							Key:       taintKeyWildcard,
-							Value:     "rack_maintenance",
-							Effect:    corev1.TaintEffectNoExecute,
-							TimeAdded: &metav1.Time{Time: time.Now().Add(-time.Second * time.Duration(taintKeyWildcardDuration+1))},
+							Key:    taintKeyWildcard,
+							Value:  "rack_maintenance",
+							Effect: corev1.TaintEffectNoExecute,
+							TimeAdded: &metav1.Time{
+								Time: time.Now().
+									Add(-time.Second * time.Duration(taintKeyWildcardDuration+1)),
+							},
 						},
 					}
 					// Disable cluster's taint mechanism
@@ -195,10 +249,13 @@ var _ = Describe("update_status", func() {
 				BeforeEach(func() {
 					node.Spec.Taints = []corev1.Taint{
 						{
-							Key:       taintKeyUnhealthy,
-							Value:     "rack_maintenance",
-							Effect:    corev1.TaintEffectNoExecute,
-							TimeAdded: &metav1.Time{Time: time.Now().Add(-time.Second * time.Duration(taintKeyUnhealthyDuration+1))},
+							Key:    taintKeyUnhealthy,
+							Value:  "rack_maintenance",
+							Effect: corev1.TaintEffectNoExecute,
+							TimeAdded: &metav1.Time{
+								Time: time.Now().
+									Add(-time.Second * time.Duration(taintKeyUnhealthyDuration+1)),
+							},
 						},
 					}
 					// Only handle taintKeyMaintenance taint key
@@ -224,11 +281,24 @@ var _ = Describe("update_status", func() {
 						},
 					}
 
-					err = validateProcessGroup(context.TODO(), clusterReconciler, cluster, pod, pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey], pickedProcessGroup, cluster.IsTaintFeatureDisabled(), logger)
+					err = validateProcessGroup(
+						context.TODO(),
+						clusterReconciler,
+						cluster,
+						pod,
+						pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey],
+						pickedProcessGroup,
+						cluster.IsTaintFeatureDisabled(),
+						logger,
+					)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(pickedProcessGroup.ProcessGroupConditions).To(HaveLen(2))
-					Expect(pickedProcessGroup.GetCondition(fdbv1beta2.NodeTaintDetected)).NotTo(BeNil())
-					Expect(pickedProcessGroup.GetCondition(fdbv1beta2.NodeTaintReplacing)).NotTo(BeNil())
+					Expect(
+						pickedProcessGroup.GetCondition(fdbv1beta2.NodeTaintDetected),
+					).NotTo(BeNil())
+					Expect(
+						pickedProcessGroup.GetCondition(fdbv1beta2.NodeTaintReplacing),
+					).NotTo(BeNil())
 				})
 			})
 
@@ -236,25 +306,51 @@ var _ = Describe("update_status", func() {
 				BeforeEach(func() {
 					node.Spec.Taints = []corev1.Taint{
 						{
-							Key:       taintKeyMaintenance,
-							Value:     taintValue,
-							Effect:    corev1.TaintEffectNoExecute,
-							TimeAdded: &metav1.Time{Time: time.Now().Add(-time.Second * time.Duration(taintKeyMaintenanceDuration+1))},
+							Key:    taintKeyMaintenance,
+							Value:  taintValue,
+							Effect: corev1.TaintEffectNoExecute,
+							TimeAdded: &metav1.Time{
+								Time: time.Now().
+									Add(-time.Second * time.Duration(taintKeyMaintenanceDuration+1)),
+							},
 						},
 					}
 				})
 
 				It("shouldn't keep NodeTaintReplacing condition", func() {
 					Expect(len(pickedProcessGroup.ProcessGroupConditions)).To(Equal(2))
-					Expect(pickedProcessGroup.GetCondition(fdbv1beta2.NodeTaintDetected)).NotTo(BeNil())
-					Expect(pickedProcessGroup.GetCondition(fdbv1beta2.NodeTaintReplacing)).NotTo(BeNil())
+					Expect(
+						pickedProcessGroup.GetCondition(fdbv1beta2.NodeTaintDetected),
+					).NotTo(BeNil())
+					Expect(
+						pickedProcessGroup.GetCondition(fdbv1beta2.NodeTaintReplacing),
+					).NotTo(BeNil())
 
 					// Remove the node taint
 					node.Spec.Taints = nil
 					Expect(k8sClient.Update(context.TODO(), node)).NotTo(HaveOccurred())
-					globalControllerLogger.Info("Remove node taint", "Node name", pod.Name, "Node taints", node.Spec.Taints, "Now", time.Now())
+					globalControllerLogger.Info(
+						"Remove node taint",
+						"Node name",
+						pod.Name,
+						"Node taints",
+						node.Spec.Taints,
+						"Now",
+						time.Now(),
+					)
 
-					Expect(validateProcessGroup(context.TODO(), clusterReconciler, cluster, pod, pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey], pickedProcessGroup, cluster.IsTaintFeatureDisabled(), logger)).NotTo(HaveOccurred())
+					Expect(
+						validateProcessGroup(
+							context.TODO(),
+							clusterReconciler,
+							cluster,
+							pod,
+							pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey],
+							pickedProcessGroup,
+							cluster.IsTaintFeatureDisabled(),
+							logger,
+						),
+					).NotTo(HaveOccurred())
 					Expect(pickedProcessGroup.ProcessGroupConditions).To(BeEmpty())
 				})
 			})
@@ -274,48 +370,102 @@ var _ = Describe("update_status", func() {
 			Expect(setupClusterForTest(cluster)).NotTo(HaveOccurred())
 
 			pickedProcessGroup = internal.PickProcessGroups(cluster, fdbv1beta2.ProcessClassStorage, 1)[0]
-			storagePod, err = clusterReconciler.PodLifecycleManager.GetPod(context.TODO(), clusterReconciler, cluster, pickedProcessGroup.GetPodName(cluster))
+			storagePod, err = clusterReconciler.PodLifecycleManager.GetPod(
+				context.TODO(),
+				clusterReconciler,
+				cluster,
+				pickedProcessGroup.GetPodName(cluster),
+			)
 			Expect(err).NotTo(HaveOccurred())
 			for _, container := range storagePod.Spec.Containers {
-				storagePod.Status.ContainerStatuses = append(storagePod.Status.ContainerStatuses, corev1.ContainerStatus{Ready: true, Name: container.Name})
+				storagePod.Status.ContainerStatuses = append(
+					storagePod.Status.ContainerStatuses,
+					corev1.ContainerStatus{Ready: true, Name: container.Name},
+				)
 			}
 
 			adminClient, err = mock.NewMockAdminClientUncast(cluster, k8sClient)
 			Expect(err).NotTo(HaveOccurred())
 
 			configMap = &corev1.ConfigMap{}
-			Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name + "-config"}, configMap)).NotTo(HaveOccurred())
+			Expect(
+				k8sClient.Get(
+					context.TODO(),
+					types.NamespacedName{
+						Namespace: cluster.Namespace,
+						Name:      cluster.Name + "-config",
+					},
+					configMap,
+				),
+			).NotTo(HaveOccurred())
 		})
 
 		JustBeforeEach(func() {
 			databaseStatus, err := adminClient.GetStatus()
 			Expect(err).NotTo(HaveOccurred())
-			processMap = make(map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo)
+			processMap = make(
+				map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo,
+			)
 			for _, process := range databaseStatus.Cluster.Processes {
 				processID, ok := process.Locality[fdbv1beta2.FDBLocalityProcessIDKey]
 				// if the processID is not set we fall back to the instanceID
 				if !ok {
 					processID = process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]
 				}
-				processMap[fdbv1beta2.ProcessGroupID(processID)] = append(processMap[fdbv1beta2.ProcessGroupID(processID)], process)
+				processMap[fdbv1beta2.ProcessGroupID(processID)] = append(
+					processMap[fdbv1beta2.ProcessGroupID(processID)],
+					process,
+				)
 			}
 		})
 
 		When("process group has no Pod", func() {
 			BeforeEach(func() {
-				Expect(k8sClient.Delete(context.Background(), &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: pickedProcessGroup.GetPodName(cluster), Namespace: cluster.Namespace}})).NotTo(HaveOccurred())
+				Expect(
+					k8sClient.Delete(
+						context.Background(),
+						&corev1.Pod{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      pickedProcessGroup.GetPodName(cluster),
+								Namespace: cluster.Namespace,
+							},
+						},
+					),
+				).NotTo(HaveOccurred())
 			})
 
 			It("should be added to the failing Pods", func() {
-				Expect(validateProcessGroup(context.TODO(), clusterReconciler, cluster, nil, "", pickedProcessGroup, cluster.IsTaintFeatureDisabled(), logger)).NotTo(HaveOccurred())
+				Expect(
+					validateProcessGroup(
+						context.TODO(),
+						clusterReconciler,
+						cluster,
+						nil,
+						"",
+						pickedProcessGroup,
+						cluster.IsTaintFeatureDisabled(),
+						logger,
+					),
+				).NotTo(HaveOccurred())
 				Expect(pickedProcessGroup.ProcessGroupConditions).To(HaveLen(1))
-				Expect(pickedProcessGroup.ProcessGroupConditions[0].ProcessGroupConditionType).To(Equal(fdbv1beta2.MissingPod))
+				Expect(
+					pickedProcessGroup.ProcessGroupConditions[0].ProcessGroupConditionType,
+				).To(Equal(fdbv1beta2.MissingPod))
 			})
 		})
 
 		When("a process group is fine", func() {
 			It("should not get any condition assigned", func() {
-				err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap, logger, "")
+				err := validateProcessGroups(
+					context.TODO(),
+					clusterReconciler,
+					cluster,
+					&cluster.Status,
+					processMap,
+					configMap,
+					logger,
+					"",
+				)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(cluster.Status.ProcessGroups).To(HaveLen(17))
 				for _, processGroup := range cluster.Status.ProcessGroups {
@@ -327,11 +477,22 @@ var _ = Describe("update_status", func() {
 		When("the command line is too long", func() {
 			BeforeEach(func() {
 				// Generate a random long string
-				cluster.Spec.MainContainer.PeerVerificationRules = internal.GenerateRandomString(10000)
+				cluster.Spec.MainContainer.PeerVerificationRules = internal.GenerateRandomString(
+					10000,
+				)
 			})
 
 			It("should not get any condition assigned", func() {
-				err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap, logger, "")
+				err := validateProcessGroups(
+					context.TODO(),
+					clusterReconciler,
+					cluster,
+					&cluster.Status,
+					processMap,
+					configMap,
+					logger,
+					"",
+				)
 				Expect(err).To(HaveOccurred())
 				Expect(cluster.Status.ProcessGroups).To(HaveLen(17))
 				// We expect that no conditions are added in this case.
@@ -348,12 +509,33 @@ var _ = Describe("update_status", func() {
 
 			It("should get a condition assigned", func() {
 				dummyPod := &corev1.Pod{}
-				Expect(k8sClient.Get(context.TODO(), ctrlClient.ObjectKeyFromObject(storagePod), dummyPod)).To(HaveOccurred())
-				err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap, logger, "")
+				Expect(
+					k8sClient.Get(
+						context.TODO(),
+						ctrlClient.ObjectKeyFromObject(storagePod),
+						dummyPod,
+					),
+				).To(HaveOccurred())
+				err := validateProcessGroups(
+					context.TODO(),
+					clusterReconciler,
+					cluster,
+					&cluster.Status,
+					processMap,
+					configMap,
+					logger,
+					"",
+				)
 				Expect(err).NotTo(HaveOccurred())
 
-				missingProcesses := fdbv1beta2.FilterByCondition(cluster.Status.ProcessGroups, fdbv1beta2.MissingPod, false)
-				Expect(missingProcesses).To(ConsistOf([]fdbv1beta2.ProcessGroupID{pickedProcessGroup.ProcessGroupID}))
+				missingProcesses := fdbv1beta2.FilterByCondition(
+					cluster.Status.ProcessGroups,
+					fdbv1beta2.MissingPod,
+					false,
+				)
+				Expect(
+					missingProcesses,
+				).To(ConsistOf([]fdbv1beta2.ProcessGroupID{pickedProcessGroup.ProcessGroupID}))
 				Expect(cluster.Status.ProcessGroups).To(HaveLen(17))
 			})
 		})
@@ -364,11 +546,26 @@ var _ = Describe("update_status", func() {
 			})
 
 			It("should get the ProcessIsMarkedAsExcluded condition", func() {
-				err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap, logger, "")
+				err := validateProcessGroups(
+					context.TODO(),
+					clusterReconciler,
+					cluster,
+					&cluster.Status,
+					processMap,
+					configMap,
+					logger,
+					"",
+				)
 				Expect(err).NotTo(HaveOccurred())
 
-				incorrectProcesses := fdbv1beta2.FilterByCondition(cluster.Status.ProcessGroups, fdbv1beta2.ProcessIsMarkedAsExcluded, false)
-				Expect(incorrectProcesses).To(ConsistOf([]fdbv1beta2.ProcessGroupID{pickedProcessGroup.ProcessGroupID}))
+				incorrectProcesses := fdbv1beta2.FilterByCondition(
+					cluster.Status.ProcessGroups,
+					fdbv1beta2.ProcessIsMarkedAsExcluded,
+					false,
+				)
+				Expect(
+					incorrectProcesses,
+				).To(ConsistOf([]fdbv1beta2.ProcessGroupID{pickedProcessGroup.ProcessGroupID}))
 				Expect(cluster.Status.ProcessGroups).To(HaveLen(17))
 			})
 		})
@@ -379,25 +576,57 @@ var _ = Describe("update_status", func() {
 			})
 
 			It("should get a condition assigned", func() {
-				err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap, logger, "")
+				err := validateProcessGroups(
+					context.TODO(),
+					clusterReconciler,
+					cluster,
+					&cluster.Status,
+					processMap,
+					configMap,
+					logger,
+					"",
+				)
 				Expect(err).NotTo(HaveOccurred())
 
-				incorrectProcesses := fdbv1beta2.FilterByCondition(cluster.Status.ProcessGroups, fdbv1beta2.IncorrectCommandLine, false)
-				Expect(incorrectProcesses).To(ConsistOf([]fdbv1beta2.ProcessGroupID{pickedProcessGroup.ProcessGroupID}))
+				incorrectProcesses := fdbv1beta2.FilterByCondition(
+					cluster.Status.ProcessGroups,
+					fdbv1beta2.IncorrectCommandLine,
+					false,
+				)
+				Expect(
+					incorrectProcesses,
+				).To(ConsistOf([]fdbv1beta2.ProcessGroupID{pickedProcessGroup.ProcessGroupID}))
 				Expect(cluster.Status.ProcessGroups).To(HaveLen(17))
 			})
 
 			When("the process group is marked for removal", func() {
 				BeforeEach(func() {
-					cluster.Spec.ProcessGroupsToRemove = []fdbv1beta2.ProcessGroupID{pickedProcessGroup.ProcessGroupID}
+					cluster.Spec.ProcessGroupsToRemove = []fdbv1beta2.ProcessGroupID{
+						pickedProcessGroup.ProcessGroupID,
+					}
 				})
 
 				It("should get a condition assigned", func() {
-					err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap, logger, "")
+					err := validateProcessGroups(
+						context.TODO(),
+						clusterReconciler,
+						cluster,
+						&cluster.Status,
+						processMap,
+						configMap,
+						logger,
+						"",
+					)
 					Expect(err).NotTo(HaveOccurred())
 
-					incorrectProcesses := fdbv1beta2.FilterByCondition(cluster.Status.ProcessGroups, fdbv1beta2.IncorrectCommandLine, false)
-					Expect(incorrectProcesses).To(ConsistOf([]fdbv1beta2.ProcessGroupID{pickedProcessGroup.ProcessGroupID}))
+					incorrectProcesses := fdbv1beta2.FilterByCondition(
+						cluster.Status.ProcessGroups,
+						fdbv1beta2.IncorrectCommandLine,
+						false,
+					)
+					Expect(
+						incorrectProcesses,
+					).To(ConsistOf([]fdbv1beta2.ProcessGroupID{pickedProcessGroup.ProcessGroupID}))
 					Expect(pickedProcessGroup.IsMarkedForRemoval()).To(BeTrue())
 					Expect(cluster.Status.ProcessGroups).To(HaveLen(17))
 				})
@@ -410,20 +639,46 @@ var _ = Describe("update_status", func() {
 			})
 
 			It("should get a condition assigned", func() {
-				err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap, logger, "")
+				err := validateProcessGroups(
+					context.TODO(),
+					clusterReconciler,
+					cluster,
+					&cluster.Status,
+					processMap,
+					configMap,
+					logger,
+					"",
+				)
 				Expect(err).NotTo(HaveOccurred())
 
-				missingProcesses := fdbv1beta2.FilterByCondition(cluster.Status.ProcessGroups, fdbv1beta2.MissingProcesses, false)
+				missingProcesses := fdbv1beta2.FilterByCondition(
+					cluster.Status.ProcessGroups,
+					fdbv1beta2.MissingProcesses,
+					false,
+				)
 				Expect(missingProcesses).To(ConsistOf(pickedProcessGroup.ProcessGroupID))
 				Expect(cluster.Status.ProcessGroups).To(HaveLen(17))
 			})
 
 			When("no processes are provided in the process map", func() {
 				It("should not get a condition assigned", func() {
-					err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo{}, configMap, logger, "")
+					err := validateProcessGroups(
+						context.TODO(),
+						clusterReconciler,
+						cluster,
+						&cluster.Status,
+						map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo{},
+						configMap,
+						logger,
+						"",
+					)
 					Expect(err).NotTo(HaveOccurred())
 
-					missingProcesses := fdbv1beta2.FilterByCondition(cluster.Status.ProcessGroups, fdbv1beta2.MissingProcesses, false)
+					missingProcesses := fdbv1beta2.FilterByCondition(
+						cluster.Status.ProcessGroups,
+						fdbv1beta2.MissingProcesses,
+						false,
+					)
 					Expect(missingProcesses).To(BeEmpty())
 				})
 			})
@@ -436,12 +691,41 @@ var _ = Describe("update_status", func() {
 			})
 
 			It("should get a IncorrectPodSpec condition assigned", func() {
-				Expect(validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap, logger, "")).To(Succeed())
-				incorrectPods := fdbv1beta2.FilterByCondition(cluster.Status.ProcessGroups, fdbv1beta2.IncorrectPodSpec, false)
-				Expect(incorrectPods).To(Equal([]fdbv1beta2.ProcessGroupID{pickedProcessGroup.ProcessGroupID}))
+				Expect(
+					validateProcessGroups(
+						context.TODO(),
+						clusterReconciler,
+						cluster,
+						&cluster.Status,
+						processMap,
+						configMap,
+						logger,
+						"",
+					),
+				).To(Succeed())
+				incorrectPods := fdbv1beta2.FilterByCondition(
+					cluster.Status.ProcessGroups,
+					fdbv1beta2.IncorrectPodSpec,
+					false,
+				)
+				Expect(
+					incorrectPods,
+				).To(Equal([]fdbv1beta2.ProcessGroupID{pickedProcessGroup.ProcessGroupID}))
 				Expect(cluster.Status.ProcessGroups).To(HaveLen(17))
-				Expect(fdbv1beta2.FilterByCondition(cluster.Status.ProcessGroups, fdbv1beta2.IncorrectPodMetadata, false)).To(BeEmpty())
-				Expect(fdbv1beta2.FilterByCondition(cluster.Status.ProcessGroups, fdbv1beta2.IncorrectConfigMap, false)).To(BeEmpty())
+				Expect(
+					fdbv1beta2.FilterByCondition(
+						cluster.Status.ProcessGroups,
+						fdbv1beta2.IncorrectPodMetadata,
+						false,
+					),
+				).To(BeEmpty())
+				Expect(
+					fdbv1beta2.FilterByCondition(
+						cluster.Status.ProcessGroups,
+						fdbv1beta2.IncorrectConfigMap,
+						false,
+					),
+				).To(BeEmpty())
 			})
 		})
 
@@ -453,12 +737,41 @@ var _ = Describe("update_status", func() {
 				})
 
 				It("should get a IncorrectPodMetadata condition assigned", func() {
-					Expect(validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap, logger, "")).NotTo(HaveOccurred())
-					incorrectPods := fdbv1beta2.FilterByCondition(cluster.Status.ProcessGroups, fdbv1beta2.IncorrectPodMetadata, false)
-					Expect(incorrectPods).To(Equal([]fdbv1beta2.ProcessGroupID{pickedProcessGroup.ProcessGroupID}))
+					Expect(
+						validateProcessGroups(
+							context.TODO(),
+							clusterReconciler,
+							cluster,
+							&cluster.Status,
+							processMap,
+							configMap,
+							logger,
+							"",
+						),
+					).NotTo(HaveOccurred())
+					incorrectPods := fdbv1beta2.FilterByCondition(
+						cluster.Status.ProcessGroups,
+						fdbv1beta2.IncorrectPodMetadata,
+						false,
+					)
+					Expect(
+						incorrectPods,
+					).To(Equal([]fdbv1beta2.ProcessGroupID{pickedProcessGroup.ProcessGroupID}))
 					Expect(cluster.Status.ProcessGroups).To(HaveLen(17))
-					Expect(fdbv1beta2.FilterByCondition(cluster.Status.ProcessGroups, fdbv1beta2.IncorrectPodSpec, false)).To(BeEmpty())
-					Expect(fdbv1beta2.FilterByCondition(cluster.Status.ProcessGroups, fdbv1beta2.IncorrectConfigMap, false)).To(BeEmpty())
+					Expect(
+						fdbv1beta2.FilterByCondition(
+							cluster.Status.ProcessGroups,
+							fdbv1beta2.IncorrectPodSpec,
+							false,
+						),
+					).To(BeEmpty())
+					Expect(
+						fdbv1beta2.FilterByCondition(
+							cluster.Status.ProcessGroups,
+							fdbv1beta2.IncorrectConfigMap,
+							false,
+						),
+					).To(BeEmpty())
 				})
 			})
 		})
@@ -471,12 +784,41 @@ var _ = Describe("update_status", func() {
 				})
 
 				It("should get a IncorrectConfigMap condition assigned", func() {
-					Expect(validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap, logger, "")).NotTo(HaveOccurred())
-					incorrectPods := fdbv1beta2.FilterByCondition(cluster.Status.ProcessGroups, fdbv1beta2.IncorrectConfigMap, false)
-					Expect(incorrectPods).To(Equal([]fdbv1beta2.ProcessGroupID{pickedProcessGroup.ProcessGroupID}))
+					Expect(
+						validateProcessGroups(
+							context.TODO(),
+							clusterReconciler,
+							cluster,
+							&cluster.Status,
+							processMap,
+							configMap,
+							logger,
+							"",
+						),
+					).NotTo(HaveOccurred())
+					incorrectPods := fdbv1beta2.FilterByCondition(
+						cluster.Status.ProcessGroups,
+						fdbv1beta2.IncorrectConfigMap,
+						false,
+					)
+					Expect(
+						incorrectPods,
+					).To(Equal([]fdbv1beta2.ProcessGroupID{pickedProcessGroup.ProcessGroupID}))
 					Expect(cluster.Status.ProcessGroups).To(HaveLen(17))
-					Expect(fdbv1beta2.FilterByCondition(cluster.Status.ProcessGroups, fdbv1beta2.IncorrectPodSpec, false)).To(BeEmpty())
-					Expect(fdbv1beta2.FilterByCondition(cluster.Status.ProcessGroups, fdbv1beta2.IncorrectPodMetadata, false)).To(BeEmpty())
+					Expect(
+						fdbv1beta2.FilterByCondition(
+							cluster.Status.ProcessGroups,
+							fdbv1beta2.IncorrectPodSpec,
+							false,
+						),
+					).To(BeEmpty())
+					Expect(
+						fdbv1beta2.FilterByCondition(
+							cluster.Status.ProcessGroups,
+							fdbv1beta2.IncorrectPodMetadata,
+							false,
+						),
+					).To(BeEmpty())
 				})
 			})
 		})
@@ -486,16 +828,33 @@ var _ = Describe("update_status", func() {
 			BeforeEach(func() {
 				// We cannot use the k8sClient.MockStuckTermination() method because the deletionTimestamp must be
 				// older than 5 minutes to detect the Pod as PodFailed.
-				storagePod.SetDeletionTimestamp(&metav1.Time{Time: time.Now().Add(-10 * time.Minute)})
+				storagePod.SetDeletionTimestamp(
+					&metav1.Time{Time: time.Now().Add(-10 * time.Minute)},
+				)
 				Expect(k8sClient.Update(context.Background(), storagePod)).NotTo(HaveOccurred())
 			})
 
 			It("should get a condition assigned", func() {
-				err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap, logger, "")
+				err := validateProcessGroups(
+					context.TODO(),
+					clusterReconciler,
+					cluster,
+					&cluster.Status,
+					processMap,
+					configMap,
+					logger,
+					"",
+				)
 				Expect(err).NotTo(HaveOccurred())
 
-				missingProcesses := fdbv1beta2.FilterByCondition(cluster.Status.ProcessGroups, fdbv1beta2.PodFailing, false)
-				Expect(missingProcesses).To(Equal([]fdbv1beta2.ProcessGroupID{pickedProcessGroup.ProcessGroupID}))
+				missingProcesses := fdbv1beta2.FilterByCondition(
+					cluster.Status.ProcessGroups,
+					fdbv1beta2.PodFailing,
+					false,
+				)
+				Expect(
+					missingProcesses,
+				).To(Equal([]fdbv1beta2.ProcessGroupID{pickedProcessGroup.ProcessGroupID}))
 				Expect(cluster.Status.ProcessGroups).To(HaveLen(17))
 			})
 		})
@@ -507,11 +866,26 @@ var _ = Describe("update_status", func() {
 			})
 
 			It("should get a condition assigned", func() {
-				err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap, logger, "")
+				err := validateProcessGroups(
+					context.TODO(),
+					clusterReconciler,
+					cluster,
+					&cluster.Status,
+					processMap,
+					configMap,
+					logger,
+					"",
+				)
 				Expect(err).NotTo(HaveOccurred())
 
-				failingPods := fdbv1beta2.FilterByCondition(cluster.Status.ProcessGroups, fdbv1beta2.PodFailing, false)
-				Expect(failingPods).To(Equal([]fdbv1beta2.ProcessGroupID{pickedProcessGroup.ProcessGroupID}))
+				failingPods := fdbv1beta2.FilterByCondition(
+					cluster.Status.ProcessGroups,
+					fdbv1beta2.PodFailing,
+					false,
+				)
+				Expect(
+					failingPods,
+				).To(Equal([]fdbv1beta2.ProcessGroupID{pickedProcessGroup.ProcessGroupID}))
 				Expect(cluster.Status.ProcessGroups).To(HaveLen(17))
 			})
 		})
@@ -523,20 +897,50 @@ var _ = Describe("update_status", func() {
 			})
 
 			It("should get a condition assigned", func() {
-				err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap, logger, "")
+				err := validateProcessGroups(
+					context.TODO(),
+					clusterReconciler,
+					cluster,
+					&cluster.Status,
+					processMap,
+					configMap,
+					logger,
+					"",
+				)
 				Expect(err).NotTo(HaveOccurred())
 
-				failingPods := fdbv1beta2.FilterByCondition(cluster.Status.ProcessGroups, fdbv1beta2.PodFailing, false)
-				Expect(failingPods).To(Equal([]fdbv1beta2.ProcessGroupID{pickedProcessGroup.ProcessGroupID}))
+				failingPods := fdbv1beta2.FilterByCondition(
+					cluster.Status.ProcessGroups,
+					fdbv1beta2.PodFailing,
+					false,
+				)
+				Expect(
+					failingPods,
+				).To(Equal([]fdbv1beta2.ProcessGroupID{pickedProcessGroup.ProcessGroupID}))
 				Expect(cluster.Status.ProcessGroups).To(HaveLen(17))
 			})
 
 			When("the process group is under maintenance", func() {
 				It("should not set the conditions", func() {
 					processGroup := cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-4]
-					Expect(validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap, logger, processGroup.FaultDomain)).NotTo(HaveOccurred())
+					Expect(
+						validateProcessGroups(
+							context.TODO(),
+							clusterReconciler,
+							cluster,
+							&cluster.Status,
+							processMap,
+							configMap,
+							logger,
+							processGroup.FaultDomain,
+						),
+					).NotTo(HaveOccurred())
 
-					failingPods := fdbv1beta2.FilterByCondition(cluster.Status.ProcessGroups, fdbv1beta2.PodFailing, false)
+					failingPods := fdbv1beta2.FilterByCondition(
+						cluster.Status.ProcessGroups,
+						fdbv1beta2.PodFailing,
+						false,
+					)
 					Expect(failingPods).To(BeEmpty())
 					Expect(cluster.Status.ProcessGroups).To(HaveLen(17))
 				})
@@ -547,11 +951,22 @@ var _ = Describe("update_status", func() {
 			BeforeEach(func() {
 				storagePod.Status.Phase = corev1.PodFailed
 				Expect(k8sClient.Update(context.TODO(), storagePod)).NotTo(HaveOccurred())
-				cluster.Spec.ProcessGroupsToRemove = []fdbv1beta2.ProcessGroupID{pickedProcessGroup.ProcessGroupID}
+				cluster.Spec.ProcessGroupsToRemove = []fdbv1beta2.ProcessGroupID{
+					pickedProcessGroup.ProcessGroupID,
+				}
 			})
 
 			It("should mark the process group for removal", func() {
-				err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap, logger, "")
+				err := validateProcessGroups(
+					context.TODO(),
+					clusterReconciler,
+					cluster,
+					&cluster.Status,
+					processMap,
+					configMap,
+					logger,
+					"",
+				)
 				Expect(err).NotTo(HaveOccurred())
 
 				removalCount := 0
@@ -575,11 +990,22 @@ var _ = Describe("update_status", func() {
 				storagePod.Status.Phase = corev1.PodFailed
 				err = k8sClient.Update(context.TODO(), storagePod)
 				Expect(err).NotTo(HaveOccurred())
-				cluster.Spec.ProcessGroupsToRemoveWithoutExclusion = []fdbv1beta2.ProcessGroupID{pickedProcessGroup.ProcessGroupID}
+				cluster.Spec.ProcessGroupsToRemoveWithoutExclusion = []fdbv1beta2.ProcessGroupID{
+					pickedProcessGroup.ProcessGroupID,
+				}
 			})
 
 			It("should be mark the process group for removal without exclusion", func() {
-				err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap, logger, "")
+				err := validateProcessGroups(
+					context.TODO(),
+					clusterReconciler,
+					cluster,
+					&cluster.Status,
+					processMap,
+					configMap,
+					logger,
+					"",
+				)
 				Expect(err).NotTo(HaveOccurred())
 
 				removalCount := 0
@@ -610,13 +1036,24 @@ var _ = Describe("update_status", func() {
 			})
 
 			It("should mark the process group as unreachable", func() {
-				err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap, logger, "")
+				err := validateProcessGroups(
+					context.TODO(),
+					clusterReconciler,
+					cluster,
+					&cluster.Status,
+					processMap,
+					configMap,
+					logger,
+					"",
+				)
 				Expect(err).NotTo(HaveOccurred())
 
 				unreachableCount := 0
 				for _, processGroup := range cluster.Status.ProcessGroups {
 					if processGroup.ProcessGroupID == unreachableProcessGroup {
-						Expect(processGroup.GetConditionTime(fdbv1beta2.SidecarUnreachable)).NotTo(BeNil())
+						Expect(
+							processGroup.GetConditionTime(fdbv1beta2.SidecarUnreachable),
+						).NotTo(BeNil())
 						unreachableCount++
 						continue
 					}
@@ -634,7 +1071,16 @@ var _ = Describe("update_status", func() {
 				})
 
 				It("should remove the condition", func() {
-					err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap, logger, "")
+					err := validateProcessGroups(
+						context.TODO(),
+						clusterReconciler,
+						cluster,
+						&cluster.Status,
+						processMap,
+						configMap,
+						logger,
+						"",
+					)
 					Expect(err).NotTo(HaveOccurred())
 
 					unreachableCount := 0
@@ -643,7 +1089,9 @@ var _ = Describe("update_status", func() {
 							unreachableCount++
 							continue
 						}
-						Expect(processGroup.GetConditionTime(fdbv1beta2.SidecarUnreachable)).To(BeNil())
+						Expect(
+							processGroup.GetConditionTime(fdbv1beta2.SidecarUnreachable),
+						).To(BeNil())
 					}
 
 					Expect(unreachableCount).To(BeNumerically("==", 0))
@@ -661,7 +1109,16 @@ var _ = Describe("update_status", func() {
 			})
 
 			It("should mark the process group as Pod pending", func() {
-				err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap, logger, "")
+				err := validateProcessGroups(
+					context.TODO(),
+					clusterReconciler,
+					cluster,
+					&cluster.Status,
+					processMap,
+					configMap,
+					logger,
+					"",
+				)
 				Expect(err).NotTo(HaveOccurred())
 
 				pendingCount := 0
@@ -687,7 +1144,16 @@ var _ = Describe("update_status", func() {
 			})
 
 			It("should remove the exclusion", func() {
-				err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap, logger, "")
+				err := validateProcessGroups(
+					context.TODO(),
+					clusterReconciler,
+					cluster,
+					&cluster.Status,
+					processMap,
+					configMap,
+					logger,
+					"",
+				)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(cluster.Status.ProcessGroups).To(HaveLen(17))
 				for _, processGroup := range cluster.Status.ProcessGroups {
@@ -707,13 +1173,26 @@ var _ = Describe("update_status", func() {
 				})
 
 				It("should update the incorrect sidecar image condition", func() {
-					err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap, logger, "")
+					err := validateProcessGroups(
+						context.TODO(),
+						clusterReconciler,
+						cluster,
+						&cluster.Status,
+						processMap,
+						configMap,
+						logger,
+						"",
+					)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(cluster.Status.ProcessGroups).To(HaveLen(17))
 					for _, processGroup := range cluster.Status.ProcessGroups {
 						Expect(processGroup.ProcessGroupConditions).To(HaveLen(2))
-						Expect(processGroup.ProcessGroupConditions[0].ProcessGroupConditionType).To(Equal(fdbv1beta2.IncorrectCommandLine))
-						Expect(processGroup.ProcessGroupConditions[1].ProcessGroupConditionType).To(Equal(fdbv1beta2.IncorrectSidecarImage))
+						Expect(
+							processGroup.ProcessGroupConditions[0].ProcessGroupConditionType,
+						).To(Equal(fdbv1beta2.IncorrectCommandLine))
+						Expect(
+							processGroup.ProcessGroupConditions[1].ProcessGroupConditionType,
+						).To(Equal(fdbv1beta2.IncorrectSidecarImage))
 					}
 				})
 			})
@@ -726,14 +1205,29 @@ var _ = Describe("update_status", func() {
 				})
 
 				It("should update the incorrect sidecar image condition", func() {
-					err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap, logger, "")
+					err := validateProcessGroups(
+						context.TODO(),
+						clusterReconciler,
+						cluster,
+						&cluster.Status,
+						processMap,
+						configMap,
+						logger,
+						"",
+					)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(cluster.Status.ProcessGroups).To(HaveLen(17))
 					for _, processGroup := range cluster.Status.ProcessGroups {
 						Expect(processGroup.ProcessGroupConditions).To(HaveLen(3))
-						Expect(processGroup.ProcessGroupConditions[0].ProcessGroupConditionType).To(Equal(fdbv1beta2.IncorrectCommandLine))
-						Expect(processGroup.ProcessGroupConditions[1].ProcessGroupConditionType).To(Equal(fdbv1beta2.IncorrectPodSpec))
-						Expect(processGroup.ProcessGroupConditions[2].ProcessGroupConditionType).To(Equal(fdbv1beta2.IncorrectSidecarImage))
+						Expect(
+							processGroup.ProcessGroupConditions[0].ProcessGroupConditionType,
+						).To(Equal(fdbv1beta2.IncorrectCommandLine))
+						Expect(
+							processGroup.ProcessGroupConditions[1].ProcessGroupConditionType,
+						).To(Equal(fdbv1beta2.IncorrectPodSpec))
+						Expect(
+							processGroup.ProcessGroupConditions[2].ProcessGroupConditionType,
+						).To(Equal(fdbv1beta2.IncorrectSidecarImage))
 					}
 				})
 			})
@@ -749,13 +1243,26 @@ var _ = Describe("update_status", func() {
 				})
 
 				It("should update the incorrect sidecar image condition", func() {
-					err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap, logger, "")
+					err := validateProcessGroups(
+						context.TODO(),
+						clusterReconciler,
+						cluster,
+						&cluster.Status,
+						processMap,
+						configMap,
+						logger,
+						"",
+					)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(cluster.Status.ProcessGroups).To(HaveLen(17))
 					for _, processGroup := range cluster.Status.ProcessGroups {
 						Expect(processGroup.ProcessGroupConditions).To(HaveLen(2))
-						Expect(processGroup.ProcessGroupConditions[0].ProcessGroupConditionType).To(Equal(fdbv1beta2.IncorrectPodSpec))
-						Expect(processGroup.ProcessGroupConditions[1].ProcessGroupConditionType).To(Equal(fdbv1beta2.IncorrectSidecarImage))
+						Expect(
+							processGroup.ProcessGroupConditions[0].ProcessGroupConditionType,
+						).To(Equal(fdbv1beta2.IncorrectPodSpec))
+						Expect(
+							processGroup.ProcessGroupConditions[1].ProcessGroupConditionType,
+						).To(Equal(fdbv1beta2.IncorrectSidecarImage))
 					}
 				})
 			})
@@ -785,7 +1292,13 @@ var _ = Describe("update_status", func() {
 		JustBeforeEach(func() {
 			err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			requeue = updateStatus{}.reconcile(context.TODO(), clusterReconciler, cluster, nil, globalControllerLogger)
+			requeue = updateStatus{}.reconcile(
+				context.TODO(),
+				clusterReconciler,
+				cluster,
+				nil,
+				globalControllerLogger,
+			)
 			if requeue != nil {
 				Expect(requeue.curError).NotTo(HaveOccurred())
 			}
@@ -840,9 +1353,13 @@ var _ = Describe("update_status", func() {
 		})
 	})
 
-	DescribeTable("when getting the running version from the running processes", func(versionMap map[string]int, fallback string, expected string) {
-		Expect(getRunningVersion(globalControllerLogger, versionMap, fallback)).To(Equal(expected))
-	},
+	DescribeTable(
+		"when getting the running version from the running processes",
+		func(versionMap map[string]int, fallback string, expected string) {
+			Expect(
+				getRunningVersion(globalControllerLogger, versionMap, fallback),
+			).To(Equal(expected))
+		},
 		Entry("when nearly all processes running on the new version", map[string]int{
 			"7.1.11": 1,
 			"7.1.15": 99,
@@ -854,7 +1371,8 @@ var _ = Describe("update_status", func() {
 			"7.1.11": 50,
 			"7.1.15": 50,
 		}, "0", "7.1.15"),
-		Entry("when the versionMap is empty", map[string]int{}, "7.1.15", "7.1.15"))
+		Entry("when the versionMap is empty", map[string]int{}, "7.1.15", "7.1.15"),
+	)
 
 	When("updating the fault domains based on the cluster status", func() {
 		var processes map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessInfo
@@ -915,7 +1433,9 @@ var _ = Describe("update_status", func() {
 						continue
 					}
 
-					Expect(string(processGroup.FaultDomain)).To(And(HavePrefix(string(processGroup.ProcessGroupID)), HaveSuffix("zone")))
+					Expect(
+						string(processGroup.FaultDomain),
+					).To(And(HavePrefix(string(processGroup.ProcessGroupID)), HaveSuffix("zone")))
 				}
 			})
 		})
@@ -954,7 +1474,9 @@ var _ = Describe("update_status", func() {
 						continue
 					}
 
-					Expect(string(processGroup.FaultDomain)).To(And(HavePrefix(string(processGroup.ProcessGroupID)), HaveSuffix("zone")))
+					Expect(
+						string(processGroup.FaultDomain),
+					).To(And(HavePrefix(string(processGroup.ProcessGroupID)), HaveSuffix("zone")))
 				}
 			})
 		})
@@ -1002,7 +1524,9 @@ var _ = Describe("update_status", func() {
 						continue
 					}
 
-					Expect(string(processGroup.FaultDomain)).To(And(HavePrefix(string(processGroup.ProcessGroupID)), HaveSuffix("zone")))
+					Expect(
+						string(processGroup.FaultDomain),
+					).To(And(HavePrefix(string(processGroup.ProcessGroupID)), HaveSuffix("zone")))
 				}
 			})
 		})

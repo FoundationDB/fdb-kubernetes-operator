@@ -41,13 +41,28 @@ import (
 type updateBackupAgents struct{}
 
 // reconcile runs the reconciler's work.
-func (u updateBackupAgents) reconcile(ctx context.Context, r *FoundationDBBackupReconciler, backup *fdbv1beta2.FoundationDBBackup) *requeue {
-	logger := globalControllerLogger.WithValues("namespace", backup.Namespace, "cluster", backup.Name, "reconciler", "updateBackupAgents")
+func (u updateBackupAgents) reconcile(
+	ctx context.Context,
+	r *FoundationDBBackupReconciler,
+	backup *fdbv1beta2.FoundationDBBackup,
+) *requeue {
+	logger := globalControllerLogger.WithValues(
+		"namespace",
+		backup.Namespace,
+		"cluster",
+		backup.Name,
+		"reconciler",
+		"updateBackupAgents",
+	)
 	deploymentName := internal.GetBackupDeploymentName(backup)
 	existingDeployment := &appsv1.Deployment{}
 	needCreation := false
 
-	err := r.Get(ctx, client.ObjectKey{Name: deploymentName, Namespace: backup.Namespace}, existingDeployment)
+	err := r.Get(
+		ctx,
+		client.ObjectKey{Name: deploymentName, Namespace: backup.Namespace},
+		existingDeployment,
+	)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			needCreation = true
@@ -63,7 +78,13 @@ func (u updateBackupAgents) reconcile(ctx context.Context, r *FoundationDBBackup
 	}
 
 	if deployment != nil && deployment.ObjectMeta.Name != deploymentName {
-		return &requeue{curError: fmt.Errorf("inconsistent deployment names: %s != %s", deployment.ObjectMeta.Name, deploymentName)}
+		return &requeue{
+			curError: fmt.Errorf(
+				"inconsistent deployment names: %s != %s",
+				deployment.ObjectMeta.Name,
+				deploymentName,
+			),
+		}
 	}
 
 	if needCreation && deployment != nil {
@@ -74,10 +95,14 @@ func (u updateBackupAgents) reconcile(ctx context.Context, r *FoundationDBBackup
 		}
 	}
 	if !needCreation && deployment != nil {
-		annotationChange := internal.MergeAnnotations(&existingDeployment.ObjectMeta, deployment.ObjectMeta)
+		annotationChange := internal.MergeAnnotations(
+			&existingDeployment.ObjectMeta,
+			deployment.ObjectMeta,
+		)
 		deployment.ObjectMeta.Annotations = existingDeployment.ObjectMeta.Annotations
 
-		if annotationChange || !reflect.DeepEqual(existingDeployment.ObjectMeta.Labels, deployment.ObjectMeta.Labels) {
+		if annotationChange ||
+			!reflect.DeepEqual(existingDeployment.ObjectMeta.Labels, deployment.ObjectMeta.Labels) {
 			err = r.Update(ctx, deployment)
 			if err != nil {
 				return &requeue{curError: err}

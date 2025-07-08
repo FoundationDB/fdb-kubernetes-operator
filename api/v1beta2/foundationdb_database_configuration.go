@@ -188,7 +188,9 @@ func (configuration *DatabaseConfiguration) FailOver() DatabaseConfiguration {
 //
 // This will fill in defaults of -1 for some fields that have a default of 0,
 // and will ensure that the region configuration is ordered consistently.
-func (configuration DatabaseConfiguration) NormalizeConfiguration(cluster *FoundationDBCluster) DatabaseConfiguration {
+func (configuration DatabaseConfiguration) NormalizeConfiguration(
+	cluster *FoundationDBCluster,
+) DatabaseConfiguration {
 	result := configuration.DeepCopy()
 
 	if result.RemoteLogs == 0 {
@@ -273,7 +275,10 @@ func (configuration DatabaseConfiguration) getRegion(id string, priority int) Re
 	}
 
 	if len(matchingRegion.DataCenters) == 0 {
-		matchingRegion.DataCenters = append(matchingRegion.DataCenters, DataCenter{ID: id, Priority: priority})
+		matchingRegion.DataCenters = append(
+			matchingRegion.DataCenters,
+			DataCenter{ID: id, Priority: priority},
+		)
 	}
 
 	return matchingRegion
@@ -298,7 +303,9 @@ func (configuration DatabaseConfiguration) getRegion(id string, priority int) Re
 // The default LogRouters value will be equal to 3 times the Logs value when
 // the UsableRegions is greater than 1. It will be equal to -1 when the
 // UsableRegions is less than or equal to 1.
-func (configuration *DatabaseConfiguration) GetRoleCountsWithDefaults(faultTolerance int) RoleCounts {
+func (configuration *DatabaseConfiguration) GetRoleCountsWithDefaults(
+	faultTolerance int,
+) RoleCounts {
 	counts := configuration.RoleCounts.DeepCopy()
 	if counts.Storage == 0 {
 		counts.Storage = 2*faultTolerance + 1
@@ -356,7 +363,9 @@ func (configuration *DatabaseConfiguration) GetRoleCountsWithDefaults(faultToler
 // converge on the final configuration.
 //
 // See: https://apple.github.io/foundationdb/configuration.html#migrating-a-database-to-use-a-region-configuration
-func (configuration DatabaseConfiguration) GetNextConfigurationChange(finalConfiguration DatabaseConfiguration) DatabaseConfiguration {
+func (configuration DatabaseConfiguration) GetNextConfigurationChange(
+	finalConfiguration DatabaseConfiguration,
+) DatabaseConfiguration {
 	if !reflect.DeepEqual(configuration.Regions, finalConfiguration.Regions) {
 		result := configuration.DeepCopy()
 		currentPriorities := configuration.getRegionPriorities()
@@ -368,7 +377,10 @@ func (configuration DatabaseConfiguration) GetNextConfigurationChange(finalConfi
 		for regionIndex, region := range result.Regions {
 			for _, dataCenter := range region.DataCenters {
 				if dataCenter.Satellite == 0 {
-					result.Regions[regionIndex] = finalConfiguration.getRegion(dataCenter.ID, dataCenter.Priority)
+					result.Regions[regionIndex] = finalConfiguration.getRegion(
+						dataCenter.ID,
+						dataCenter.Priority,
+					)
 					break
 				}
 			}
@@ -397,7 +409,10 @@ func (configuration DatabaseConfiguration) GetNextConfigurationChange(finalConfi
 				if len(result.Regions) == 0 {
 					priority = 1
 				}
-				result.Regions = append(result.Regions, finalConfiguration.getRegion(regionToAdd, priority))
+				result.Regions = append(
+					result.Regions,
+					finalConfiguration.getRegion(regionToAdd, priority),
+				)
 				currentPriorities[regionToAdd] = priority
 			}
 		}
@@ -653,9 +668,15 @@ func (configuration DatabaseConfiguration) AreSeparatedProxiesConfigured() bool 
 // string "commit_proxies=%d grv_proxies=%d", otherwise just
 // "proxies=%d" using the correct counts of the configuration object.
 func (configuration DatabaseConfiguration) GetProxiesString() string {
-	counts := configuration.GetRoleCountsWithDefaults(DesiredFaultTolerance(configuration.RedundancyMode))
+	counts := configuration.GetRoleCountsWithDefaults(
+		DesiredFaultTolerance(configuration.RedundancyMode),
+	)
 	if configuration.AreSeparatedProxiesConfigured() {
-		return fmt.Sprintf(" commit_proxies=%d grv_proxies=%d", counts.CommitProxies, counts.GrvProxies)
+		return fmt.Sprintf(
+			" commit_proxies=%d grv_proxies=%d",
+			counts.CommitProxies,
+			counts.GrvProxies,
+		)
 	}
 
 	return fmt.Sprintf(" proxies=%d", counts.Proxies)
@@ -757,7 +778,9 @@ func (configuration DatabaseConfiguration) GetConfigurationString() (string, err
 //
 // Deprecated: Use ClearMissingVersionFlags instead on the live configuration
 // instead.
-func (configuration *DatabaseConfiguration) FillInDefaultVersionFlags(liveConfiguration DatabaseConfiguration) {
+func (configuration *DatabaseConfiguration) FillInDefaultVersionFlags(
+	liveConfiguration DatabaseConfiguration,
+) {
 	if configuration.LogSpill == 0 {
 		configuration.LogSpill = liveConfiguration.LogSpill
 	}

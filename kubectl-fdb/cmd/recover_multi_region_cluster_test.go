@@ -38,9 +38,11 @@ var _ = Describe("[plugin] running the recover multi-region cluster command", fu
 		expected string
 	}
 
-	DescribeTable("when getting the data dir for uploading files", func(test dataDirTest) {
-		Expect(getDataDir(test.input, test.pod, test.cluster)).To(Equal(test.expected))
-	},
+	DescribeTable(
+		"when getting the data dir for uploading files",
+		func(test dataDirTest) {
+			Expect(getDataDir(test.input, test.pod, test.cluster)).To(Equal(test.expected))
+		},
 		Entry("data dir is already correct",
 			dataDirTest{
 				input: "/var/fdb/data",
@@ -114,7 +116,8 @@ var _ = Describe("[plugin] running the recover multi-region cluster command", fu
 				expected: "/var/fdb/data/1",
 			},
 		),
-		Entry("data dir has process directory and target pod has multiple processes with unified image",
+		Entry(
+			"data dir has process directory and target pod has multiple processes with unified image",
 			dataDirTest{
 				input: "/var/fdb/data/2",
 				pod: &corev1.Pod{

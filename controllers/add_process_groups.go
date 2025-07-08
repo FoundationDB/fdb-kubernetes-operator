@@ -34,7 +34,13 @@ import (
 type addProcessGroups struct{}
 
 // reconcile runs the reconciler's work.
-func (a addProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
+func (a addProcessGroups) reconcile(
+	ctx context.Context,
+	r *FoundationDBClusterReconciler,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	status *fdbv1beta2.FoundationDBStatus,
+	logger logr.Logger,
+) *requeue {
 	desiredCountStruct, err := cluster.GetProcessCountsWithDefaults()
 	if err != nil {
 		return &requeue{curError: err}
@@ -48,7 +54,12 @@ func (a addProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterR
 
 	// Fetch the excluded localities from the provided machine-readable status. If the status is not available, e.g. because
 	// the cluster is unavailable, return an empty map and continue with adding new process groups if required.
-	exclusions, getLocalitiesErr := fdbstatus.GetExcludedLocalitiesFromStatus(logger, cluster, status, r.getAdminClient)
+	exclusions, getLocalitiesErr := fdbstatus.GetExcludedLocalitiesFromStatus(
+		logger,
+		cluster,
+		status,
+		r.getAdminClient,
+	)
 	if getLocalitiesErr != nil {
 		logger.Error(err, "Error getting exclusion list")
 	}
@@ -70,12 +81,42 @@ func (a addProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterR
 		}
 
 		hasNewProcessGroups = true
-		logger.Info("Adding new Process Groups", "processClass", processClass, "newCount", newCount, "desiredCount", desiredCount, "currentCount", processCounts[processClass])
-		r.Recorder.Event(cluster, corev1.EventTypeNormal, "AddingProcesses", fmt.Sprintf("Adding %d %s processes", newCount, processClass))
+		logger.Info(
+			"Adding new Process Groups",
+			"processClass",
+			processClass,
+			"newCount",
+			newCount,
+			"desiredCount",
+			desiredCount,
+			"currentCount",
+			processCounts[processClass],
+		)
+		r.Recorder.Event(
+			cluster,
+			corev1.EventTypeNormal,
+			"AddingProcesses",
+			fmt.Sprintf("Adding %d %s processes", newCount, processClass),
+		)
 		for i := 0; i < newCount; i++ {
-			processGroupID := cluster.GetNextRandomProcessGroupIDWithExclusions(processClass, processGroupIDs[processClass], exclusions)
-			logger.Info("Adding new Process Group to cluster", "processClass", processClass, "processGroupID", processGroupID, "exclusions", exclusions)
-			cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus(processGroupID, processClass, nil))
+			processGroupID := cluster.GetNextRandomProcessGroupIDWithExclusions(
+				processClass,
+				processGroupIDs[processClass],
+				exclusions,
+			)
+			logger.Info(
+				"Adding new Process Group to cluster",
+				"processClass",
+				processClass,
+				"processGroupID",
+				processGroupID,
+				"exclusions",
+				exclusions,
+			)
+			cluster.Status.ProcessGroups = append(
+				cluster.Status.ProcessGroups,
+				fdbv1beta2.NewProcessGroupStatus(processGroupID, processClass, nil),
+			)
 		}
 	}
 

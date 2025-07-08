@@ -89,7 +89,13 @@ func newExecCmd(streams genericclioptions.IOStreams) *cobra.Command {
 	return cmd
 }
 
-func runExec(cmd *cobra.Command, kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluster, config *rest.Config, commandArgs []string) error {
+func runExec(
+	cmd *cobra.Command,
+	kubeClient client.Client,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	config *rest.Config,
+	commandArgs []string,
+) error {
 	pods, err := getRunningPodsForCluster(cmd.Context(), kubeClient, cluster)
 	if err != nil {
 		return err
@@ -100,5 +106,17 @@ func runExec(cmd *cobra.Command, kubeClient client.Client, cluster *fdbv1beta2.F
 		return err
 	}
 
-	return kubeHelper.ExecuteCommandRaw(cmd.Context(), kubeClient, config, clientPod.Namespace, clientPod.Name, fdbv1beta2.MainContainerName, commandArgs, cmd.InOrStdin(), cmd.OutOrStdout(), cmd.OutOrStderr(), true)
+	return kubeHelper.ExecuteCommandRaw(
+		cmd.Context(),
+		kubeClient,
+		config,
+		clientPod.Namespace,
+		clientPod.Name,
+		fdbv1beta2.MainContainerName,
+		commandArgs,
+		cmd.InOrStdin(),
+		cmd.OutOrStdout(),
+		cmd.OutOrStderr(),
+		true,
+	)
 }

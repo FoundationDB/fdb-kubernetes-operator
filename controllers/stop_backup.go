@@ -31,8 +31,13 @@ type stopBackup struct {
 }
 
 // reconcile runs the reconciler's work.
-func (s stopBackup) reconcile(ctx context.Context, r *FoundationDBBackupReconciler, backup *fdbv1beta2.FoundationDBBackup) *requeue {
-	if backup.ShouldRun() || backup.Status.BackupDetails == nil || !backup.Status.BackupDetails.Running {
+func (s stopBackup) reconcile(
+	ctx context.Context,
+	r *FoundationDBBackupReconciler,
+	backup *fdbv1beta2.FoundationDBBackup,
+) *requeue {
+	if backup.ShouldRun() || backup.Status.BackupDetails == nil ||
+		!backup.Status.BackupDetails.Running {
 		return nil
 	}
 

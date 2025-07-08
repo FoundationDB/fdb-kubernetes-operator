@@ -62,13 +62,22 @@ type FoundationDBCluster struct {
 
 // FoundationDBClusterList contains a list of FoundationDBCluster objects
 type FoundationDBClusterList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.TypeMeta `                      json:",inline"`
+	metav1.ListMeta `                      json:"metadata,omitempty"`
 	Items           []FoundationDBCluster `json:"items"`
 }
 
-var conditionsThatNeedReplacement = []ProcessGroupConditionType{MissingProcesses, PodFailing, MissingPod, MissingPVC,
-	MissingService, PodPending, NodeTaintReplacing, ProcessIsMarkedAsExcluded, ProcessHasIOError}
+var conditionsThatNeedReplacement = []ProcessGroupConditionType{
+	MissingProcesses,
+	PodFailing,
+	MissingPod,
+	MissingPVC,
+	MissingService,
+	PodPending,
+	NodeTaintReplacing,
+	ProcessIsMarkedAsExcluded,
+	ProcessHasIOError,
+}
 
 const (
 	oneHourDuration = 1 * time.Hour
@@ -518,7 +527,10 @@ func (processGroupStatus *ProcessGroupStatus) GetPodName(cluster *FoundationDBCl
 	// a prefix, so we take the part after the prefix, which will be ${process-class}-${id}.
 	sanitizedProcessGroup := strings.ReplaceAll(string(processGroupStatus.ProcessGroupID), "_", "-")
 
-	idx := strings.Index(sanitizedProcessGroup, processGroupStatus.ProcessClass.GetProcessClassForPodName())
+	idx := strings.Index(
+		sanitizedProcessGroup,
+		processGroupStatus.ProcessClass.GetProcessClassForPodName(),
+	)
 	sb.WriteString(sanitizedProcessGroup[idx:])
 
 	return sb.String()
@@ -537,7 +549,10 @@ func (processGroupStatus *ProcessGroupStatus) GetPvcName(cluster *FoundationDBCl
 // NeedsReplacement checks if the ProcessGroupStatus has conditions that require a replacement of the failed Process Group.
 // The method will return the failure condition and the timestamp. If no failure is detected an empty condition and a 0
 // will be returned.
-func (processGroupStatus *ProcessGroupStatus) NeedsReplacement(failureTime int, taintReplacementTime int) (ProcessGroupConditionType, int64) {
+func (processGroupStatus *ProcessGroupStatus) NeedsReplacement(
+	failureTime int,
+	taintReplacementTime int,
+) (ProcessGroupConditionType, int64) {
 	var earliestFailureTime int64 = math.MaxInt64
 	var earliestTaintReplacementTime int64 = math.MaxInt64
 
@@ -574,7 +589,9 @@ func (processGroupStatus *ProcessGroupStatus) NeedsReplacement(failureTime int, 
 		return failureCondition, earliestFailureTime
 	}
 
-	taintWindowStart := time.Now().Add(-1 * time.Duration(taintReplacementTime) * time.Second).Unix()
+	taintWindowStart := time.Now().
+		Add(-1 * time.Duration(taintReplacementTime) * time.Second).
+		Unix()
 	if earliestTaintReplacementTime < taintWindowStart {
 		return failureCondition, earliestTaintReplacementTime
 	}
@@ -585,7 +602,10 @@ func (processGroupStatus *ProcessGroupStatus) NeedsReplacement(failureTime int, 
 
 // AddAddresses adds the new address to the ProcessGroupStatus and removes duplicates and old addresses
 // if the process group is not marked as removal.
-func (processGroupStatus *ProcessGroupStatus) AddAddresses(addresses []string, includeOldAddresses bool) {
+func (processGroupStatus *ProcessGroupStatus) AddAddresses(
+	addresses []string,
+	includeOldAddresses bool,
+) {
 	newAddresses := make([]string, 0, len(addresses))
 	// Currently this only contains one address but might include in the future multiple addresses
 	// e.g. for dual stack
@@ -606,7 +626,9 @@ func (processGroupStatus *ProcessGroupStatus) AddAddresses(addresses []string, i
 	}
 
 	if includeOldAddresses {
-		processGroupStatus.Addresses = cleanAddressList(append(processGroupStatus.Addresses, newAddresses...))
+		processGroupStatus.Addresses = cleanAddressList(
+			append(processGroupStatus.Addresses, newAddresses...),
+		)
 		return
 	}
 }
@@ -628,7 +650,10 @@ func cleanAddressList(addresses []string) []string {
 
 // AllAddressesExcluded checks if the process group is excluded or if there are still addresses included in the remainingMap.
 // This will return true if the process group skips exclusion or has no remaining addresses.
-func (processGroupStatus *ProcessGroupStatus) AllAddressesExcluded(logger logr.Logger, remainingMap map[string]bool) (bool, error) {
+func (processGroupStatus *ProcessGroupStatus) AllAddressesExcluded(
+	logger logr.Logger,
+	remainingMap map[string]bool,
+) (bool, error) {
 	if processGroupStatus.IsExcluded() {
 		return true, nil
 	}
@@ -636,9 +661,13 @@ func (processGroupStatus *ProcessGroupStatus) AllAddressesExcluded(logger logr.L
 	localityExclusionString := processGroupStatus.GetExclusionString()
 	if isRemaining, isPresent := remainingMap[localityExclusionString]; isPresent {
 		if isRemaining {
-			return false, fmt.Errorf("process has missing exclusion string in exclusion results: %s", localityExclusionString)
+			return false, fmt.Errorf(
+				"process has missing exclusion string in exclusion results: %s",
+				localityExclusionString,
+			)
 		}
-		logger.V(1).Info("process group is fully excluded based on locality based exclusions", "processGroupID", processGroupStatus.ProcessGroupID, "exclusionString", localityExclusionString)
+		logger.V(1).
+			Info("process group is fully excluded based on locality based exclusions", "processGroupID", processGroupStatus.ProcessGroupID, "exclusionString", localityExclusionString)
 		return true, nil
 	}
 
@@ -647,11 +676,17 @@ func (processGroupStatus *ProcessGroupStatus) AllAddressesExcluded(logger logr.L
 		pendingTime := processGroupStatus.GetConditionTime(PodPending)
 		// If the process group has the PodPending condition for more than 1 hour we allow to remove this process group.
 		if pendingTime != nil && time.Since(time.Unix(*pendingTime, 0)) > oneHourDuration {
-			logger.Info("allow removal of process group without address that is stuck in pending over 1 hour", "processGroupID", processGroupStatus.ProcessGroupID)
+			logger.Info(
+				"allow removal of process group without address that is stuck in pending over 1 hour",
+				"processGroupID",
+				processGroupStatus.ProcessGroupID,
+			)
 			return true, nil
 		}
 
-		return false, fmt.Errorf("process has no addresses, cannot safely determine if process can be removed")
+		return false, fmt.Errorf(
+			"process has no addresses, cannot safely determine if process can be removed",
+		)
 	}
 
 	// If a process group has more than one address we have to make sure that all the provided addresses are part
@@ -659,7 +694,10 @@ func (processGroupStatus *ProcessGroupStatus) AllAddressesExcluded(logger logr.L
 	for _, address := range processGroupStatus.Addresses {
 		isRemaining, isPresent := remainingMap[address]
 		if !isPresent || isRemaining {
-			return false, fmt.Errorf("process has missing address in exclusion results: %s", address)
+			return false, fmt.Errorf(
+				"process has missing address in exclusion results: %s",
+				address,
+			)
 		}
 	}
 
@@ -667,7 +705,11 @@ func (processGroupStatus *ProcessGroupStatus) AllAddressesExcluded(logger logr.L
 }
 
 // NewProcessGroupStatus returns a new GroupStatus for the given processGroupID and processClass.
-func NewProcessGroupStatus(processGroupID ProcessGroupID, processClass ProcessClass, addresses []string) *ProcessGroupStatus {
+func NewProcessGroupStatus(
+	processGroupID ProcessGroupID,
+	processClass ProcessClass,
+	addresses []string,
+) *ProcessGroupStatus {
 	initialConditions := []*ProcessGroupCondition{
 		NewProcessGroupCondition(MissingProcesses),
 		NewProcessGroupCondition(MissingPod),
@@ -686,7 +728,10 @@ func NewProcessGroupStatus(processGroupID ProcessGroupID, processClass ProcessCl
 }
 
 // FindProcessGroupByID finds a process group status for a given processGroupID.
-func FindProcessGroupByID(processGroups []*ProcessGroupStatus, processGroupID ProcessGroupID) *ProcessGroupStatus {
+func FindProcessGroupByID(
+	processGroups []*ProcessGroupStatus,
+	processGroupID ProcessGroupID,
+) *ProcessGroupStatus {
 	for _, processGroup := range processGroups {
 		if processGroup.ProcessGroupID == processGroupID {
 			return processGroup
@@ -697,12 +742,20 @@ func FindProcessGroupByID(processGroups []*ProcessGroupStatus, processGroupID Pr
 }
 
 // ContainsProcessGroupID evaluates if the ProcessGroupStatus contains a given processGroupID.
-func ContainsProcessGroupID(processGroups []*ProcessGroupStatus, processGroupID ProcessGroupID) bool {
+func ContainsProcessGroupID(
+	processGroups []*ProcessGroupStatus,
+	processGroupID ProcessGroupID,
+) bool {
 	return FindProcessGroupByID(processGroups, processGroupID) != nil
 }
 
 // MarkProcessGroupForRemoval sets the remove flag for the given process and ensures that the address is added.
-func MarkProcessGroupForRemoval(processGroups []*ProcessGroupStatus, processGroupID ProcessGroupID, processClass ProcessClass, address string) (bool, *ProcessGroupStatus) {
+func MarkProcessGroupForRemoval(
+	processGroups []*ProcessGroupStatus,
+	processGroupID ProcessGroupID,
+	processClass ProcessClass,
+	address string,
+) (bool, *ProcessGroupStatus) {
 	for _, processGroup := range processGroups {
 		if processGroup.ProcessGroupID != processGroupID {
 			continue
@@ -740,7 +793,10 @@ func MarkProcessGroupForRemoval(processGroups []*ProcessGroupStatus, processGrou
 }
 
 // UpdateCondition will add or remove a condition in the ProcessGroupStatus.
-func (processGroupStatus *ProcessGroupStatus) UpdateCondition(conditionType ProcessGroupConditionType, set bool) {
+func (processGroupStatus *ProcessGroupStatus) UpdateCondition(
+	conditionType ProcessGroupConditionType,
+	set bool,
+) {
 	if set {
 		processGroupStatus.addCondition(conditionType)
 		return
@@ -751,7 +807,10 @@ func (processGroupStatus *ProcessGroupStatus) UpdateCondition(conditionType Proc
 
 // UpdateConditionTime will update the conditionType's condition time to newTime
 // If the conditionType does not exist, the function is no-op
-func (processGroupStatus *ProcessGroupStatus) UpdateConditionTime(conditionType ProcessGroupConditionType, newTime int64) {
+func (processGroupStatus *ProcessGroupStatus) UpdateConditionTime(
+	conditionType ProcessGroupConditionType,
+	newTime int64,
+) {
 	for i, condition := range processGroupStatus.ProcessGroupConditions {
 		if condition.ProcessGroupConditionType == conditionType {
 			processGroupStatus.ProcessGroupConditions[i].Timestamp = newTime
@@ -763,7 +822,9 @@ func (processGroupStatus *ProcessGroupStatus) UpdateConditionTime(conditionType 
 // addCondition will add the condition to the ProcessGroupStatus. If the condition is already present this method will not
 // change the timestamp. If a process group is marked for removal and exclusion only the ResourcesTerminating can be added
 // and all other conditions will be reset.
-func (processGroupStatus *ProcessGroupStatus) addCondition(conditionType ProcessGroupConditionType) {
+func (processGroupStatus *ProcessGroupStatus) addCondition(
+	conditionType ProcessGroupConditionType,
+) {
 	// Check if we already got this condition in the current ProcessGroupStatus.
 	for _, condition := range processGroupStatus.ProcessGroupConditions {
 		if condition.ProcessGroupConditionType == conditionType {
@@ -779,12 +840,17 @@ func (processGroupStatus *ProcessGroupStatus) addCondition(conditionType Process
 	}
 
 	// We didn't find any condition so we create a new one
-	processGroupStatus.ProcessGroupConditions = append(processGroupStatus.ProcessGroupConditions, NewProcessGroupCondition(conditionType))
+	processGroupStatus.ProcessGroupConditions = append(
+		processGroupStatus.ProcessGroupConditions,
+		NewProcessGroupCondition(conditionType),
+	)
 }
 
 // removeCondition will remove a condition from the ProcessGroupStatus, if it is
 // present.
-func (processGroupStatus *ProcessGroupStatus) removeCondition(conditionType ProcessGroupConditionType) {
+func (processGroupStatus *ProcessGroupStatus) removeCondition(
+	conditionType ProcessGroupConditionType,
+) {
 	conditions := make([]*ProcessGroupCondition, 0, len(processGroupStatus.ProcessGroupConditions))
 	for _, condition := range processGroupStatus.ProcessGroupConditions {
 		if condition.ProcessGroupConditionType != conditionType {
@@ -795,7 +861,10 @@ func (processGroupStatus *ProcessGroupStatus) removeCondition(conditionType Proc
 }
 
 // CreateProcessCountsFromProcessGroupStatus creates a ProcessCounts struct from the current ProcessGroupStatus.
-func CreateProcessCountsFromProcessGroupStatus(processGroupStatus []*ProcessGroupStatus, includeRemovals bool) ProcessCounts {
+func CreateProcessCountsFromProcessGroupStatus(
+	processGroupStatus []*ProcessGroupStatus,
+	includeRemovals bool,
+) ProcessCounts {
 	processCounts := ProcessCounts{}
 
 	for _, groupStatus := range processGroupStatus {
@@ -808,8 +877,16 @@ func CreateProcessCountsFromProcessGroupStatus(processGroupStatus []*ProcessGrou
 }
 
 // FilterByCondition returns a string slice of all ProcessGroupIDs that contains a condition with the given type.
-func FilterByCondition(processGroupStatus []*ProcessGroupStatus, conditionType ProcessGroupConditionType, ignoreRemoved bool) []ProcessGroupID {
-	return FilterByConditions(processGroupStatus, map[ProcessGroupConditionType]bool{conditionType: true}, ignoreRemoved)
+func FilterByCondition(
+	processGroupStatus []*ProcessGroupStatus,
+	conditionType ProcessGroupConditionType,
+	ignoreRemoved bool,
+) []ProcessGroupID {
+	return FilterByConditions(
+		processGroupStatus,
+		map[ProcessGroupConditionType]bool{conditionType: true},
+		ignoreRemoved,
+	)
 }
 
 // FilterByConditions returns a string slice of all ProcessGroupIDs whose
@@ -819,7 +896,11 @@ func FilterByCondition(processGroupStatus []*ProcessGroupStatus, conditionType P
 // groups with that condition will be returned. If a condition is mapped to
 // false in the conditionRules map, only process groups without that condition
 // will be returned.
-func FilterByConditions(processGroupStatus []*ProcessGroupStatus, conditionRules map[ProcessGroupConditionType]bool, ignoreRemoved bool) []ProcessGroupID {
+func FilterByConditions(
+	processGroupStatus []*ProcessGroupStatus,
+	conditionRules map[ProcessGroupConditionType]bool,
+	ignoreRemoved bool,
+) []ProcessGroupID {
 	result := make([]ProcessGroupID, 0, len(processGroupStatus))
 
 	for _, groupStatus := range processGroupStatus {
@@ -839,7 +920,9 @@ func FilterByConditions(processGroupStatus []*ProcessGroupStatus, conditionRules
 //
 // If a condition is mapped to true in the conditionRules map, this condition must be present in the process group.
 // If a condition is mapped to false in the conditionRules map, the condition must be absent in the process group.
-func (processGroupStatus *ProcessGroupStatus) MatchesConditions(conditionRules map[ProcessGroupConditionType]bool) bool {
+func (processGroupStatus *ProcessGroupStatus) MatchesConditions(
+	conditionRules map[ProcessGroupConditionType]bool,
+) bool {
 	matchingConditions := make(map[ProcessGroupConditionType]bool, len(conditionRules))
 
 	for conditionRule := range conditionRules {
@@ -856,7 +939,9 @@ func (processGroupStatus *ProcessGroupStatus) MatchesConditions(conditionRules m
 }
 
 // ProcessGroupsByProcessClass returns a slice of all Process Groups that contains a given process class.
-func (clusterStatus FoundationDBClusterStatus) ProcessGroupsByProcessClass(processClass ProcessClass) []*ProcessGroupStatus {
+func (clusterStatus FoundationDBClusterStatus) ProcessGroupsByProcessClass(
+	processClass ProcessClass,
+) []*ProcessGroupStatus {
 	result := make([]*ProcessGroupStatus, 0)
 
 	for _, groupStatus := range clusterStatus.ProcessGroups {
@@ -871,7 +956,9 @@ func (clusterStatus FoundationDBClusterStatus) ProcessGroupsByProcessClass(proce
 // GetConditionTime returns the timestamp when we detected a condition on a
 // process group.
 // If there is no matching condition this will return nil.
-func (processGroupStatus *ProcessGroupStatus) GetConditionTime(conditionType ProcessGroupConditionType) *int64 {
+func (processGroupStatus *ProcessGroupStatus) GetConditionTime(
+	conditionType ProcessGroupConditionType,
+) *int64 {
 	for _, condition := range processGroupStatus.ProcessGroupConditions {
 		if condition.ProcessGroupConditionType == conditionType {
 			return &condition.Timestamp
@@ -898,7 +985,9 @@ func (processGroupStatus *ProcessGroupStatus) IsUnderMaintenance(maintenanceZone
 
 // GetCondition returns the ProcessGroupStatus's ProcessGroupCondition that matches the conditionType;
 // It returns nil if the ProcessGroupStatus doesn't have a matching condition
-func (processGroupStatus *ProcessGroupStatus) GetCondition(conditionType ProcessGroupConditionType) *ProcessGroupCondition {
+func (processGroupStatus *ProcessGroupStatus) GetCondition(
+	conditionType ProcessGroupConditionType,
+) *ProcessGroupCondition {
 	for _, condition := range processGroupStatus.ProcessGroupConditions {
 		if condition.ProcessGroupConditionType == conditionType {
 			return condition
@@ -1007,7 +1096,9 @@ func AllProcessGroupConditionTypes() []ProcessGroupConditionType {
 }
 
 // GetProcessGroupConditionType returns the ProcessGroupConditionType for the matching string or an error
-func GetProcessGroupConditionType(processGroupConditionType string) (ProcessGroupConditionType, error) {
+func GetProcessGroupConditionType(
+	processGroupConditionType string,
+) (ProcessGroupConditionType, error) {
 	switch processGroupConditionType {
 	case "IncorrectPodSpec":
 		return IncorrectPodSpec, nil
@@ -1396,7 +1487,8 @@ func (cluster *FoundationDBCluster) GetProcessSettings(processClass ProcessClass
 		if merged.PodTemplate == nil {
 			merged.PodTemplate = entry.PodTemplate
 		}
-		if merged.VolumeClaimTemplate == nil && processClass.IsStateful() { // stateless pods will not use a PVC
+		if merged.VolumeClaimTemplate == nil &&
+			processClass.IsStateful() { // stateless pods will not use a PVC
 			merged.VolumeClaimTemplate = entry.VolumeClaimTemplate
 		}
 		if merged.CustomParameters == nil {
@@ -1427,7 +1519,9 @@ func (cluster *FoundationDBCluster) GetProcessSettings(processClass ProcessClass
 // the UsableRegions is greater than 1. It will be equal to -1 when the
 // UsableRegions is less than or equal to 1.
 func (cluster *FoundationDBCluster) GetRoleCountsWithDefaults() RoleCounts {
-	return cluster.Spec.DatabaseConfiguration.GetRoleCountsWithDefaults(cluster.DesiredFaultTolerance())
+	return cluster.Spec.DatabaseConfiguration.GetRoleCountsWithDefaults(
+		cluster.DesiredFaultTolerance(),
+	)
 }
 
 // calculateProcessCount determines the process count from a given role count.
@@ -1435,7 +1529,10 @@ func (cluster *FoundationDBCluster) GetRoleCountsWithDefaults() RoleCounts {
 // alternatives provides a list of other process counts that can fulfill this
 // role instead. If any of those process counts is positive, then this will
 // return 0.
-func (cluster *FoundationDBCluster) calculateProcessCountFromRole(count int, alternatives ...int) int {
+func (cluster *FoundationDBCluster) calculateProcessCountFromRole(
+	count int,
+	alternatives ...int,
+) int {
 	for _, value := range alternatives {
 		if value > 0 {
 			return 0
@@ -1456,7 +1553,10 @@ func (cluster *FoundationDBCluster) calculateProcessCountFromRole(count int, alt
 //
 // If the cluster is using multi-KC replication, this will divide the total
 // count across the number of KCs in the data center.
-func (cluster *FoundationDBCluster) calculateProcessCount(addFaultTolerance bool, counts ...int) int {
+func (cluster *FoundationDBCluster) calculateProcessCount(
+	addFaultTolerance bool,
+	counts ...int,
+) int {
 	var count = 0
 
 	if cluster.Spec.FaultDomain.ZoneIndex < 0 {
@@ -1538,12 +1638,24 @@ func (cluster *FoundationDBCluster) GetProcessCountsWithDefaults() (ProcessCount
 		primaryStatelessCount := cluster.calculateProcessCountFromRole(1, processCounts.Master) +
 			cluster.calculateProcessCountFromRole(1, processCounts.ClusterController) +
 			cluster.calculateProcessCountFromRole(roleCounts.Resolvers, processCounts.Resolution)
-		primaryStatelessCount += cluster.calculateProcessCountFromRole(1, processCounts.Ratekeeper) +
-			cluster.calculateProcessCountFromRole(1, processCounts.DataDistributor)
+		primaryStatelessCount += cluster.calculateProcessCountFromRole(
+			1,
+			processCounts.Ratekeeper,
+		) +
+			cluster.calculateProcessCountFromRole(
+				1,
+				processCounts.DataDistributor,
+			)
 
 		if cluster.Spec.DatabaseConfiguration.AreSeparatedProxiesConfigured() {
-			primaryStatelessCount += cluster.calculateProcessCountFromRole(roleCounts.GrvProxies, processCounts.GrvProxy)
-			primaryStatelessCount += cluster.calculateProcessCountFromRole(roleCounts.CommitProxies, processCounts.CommitProxy)
+			primaryStatelessCount += cluster.calculateProcessCountFromRole(
+				roleCounts.GrvProxies,
+				processCounts.GrvProxy,
+			)
+			primaryStatelessCount += cluster.calculateProcessCountFromRole(
+				roleCounts.CommitProxies,
+				processCounts.CommitProxy,
+			)
 		} else {
 			primaryStatelessCount += cluster.calculateProcessCountFromRole(roleCounts.Proxies, processCounts.Proxy)
 		}
@@ -1571,7 +1683,8 @@ func (cluster *FoundationDBCluster) MinimumFaultDomains() int {
 
 // DesiredCoordinatorCount returns the number of coordinators to recruit for a cluster.
 func (cluster *FoundationDBCluster) DesiredCoordinatorCount() int {
-	if cluster.Spec.DatabaseConfiguration.UsableRegions > 1 || cluster.Spec.DatabaseConfiguration.RedundancyMode == RedundancyModeThreeDataHall {
+	if cluster.Spec.DatabaseConfiguration.UsableRegions > 1 ||
+		cluster.Spec.DatabaseConfiguration.RedundancyMode == RedundancyModeThreeDataHall {
 		return 9
 	}
 
@@ -1581,7 +1694,14 @@ func (cluster *FoundationDBCluster) DesiredCoordinatorCount() int {
 // CheckReconciliation compares the spec and the status to determine if
 // reconciliation is complete.
 func (cluster *FoundationDBCluster) CheckReconciliation(log logr.Logger) (bool, error) {
-	logger := log.WithValues("method", "CheckReconciliation", "namespace", cluster.Namespace, "cluster", cluster.Name)
+	logger := log.WithValues(
+		"method",
+		"CheckReconciliation",
+		"namespace",
+		cluster.Namespace,
+		"cluster",
+		cluster.Name,
+	)
 	var reconciled = true
 	if !cluster.Status.Configured {
 		logger.Info("Pending initial database configuration", "state", "NeedsConfigurationChange")
@@ -1615,7 +1735,13 @@ func (cluster *FoundationDBCluster) CheckReconciliation(log logr.Logger) (bool, 
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup.IsMarkedForRemoval() {
 			if processGroup.GetConditionTime(ResourcesTerminating) != nil {
-				logger.Info("Has process group pending to remove", "processGroupID", processGroup.ProcessGroupID, "state", "HasPendingRemoval")
+				logger.Info(
+					"Has process group pending to remove",
+					"processGroupID",
+					processGroup.ProcessGroupID,
+					"state",
+					"HasPendingRemoval",
+				)
 				cluster.Status.Generations.HasPendingRemoval = cluster.Generation
 			} else {
 				logger.Info("Has process group with pending shrink", "processGroupID", processGroup.ProcessGroupID, "state", "NeedsShrink")
@@ -1627,25 +1753,41 @@ func (cluster *FoundationDBCluster) CheckReconciliation(log logr.Logger) (bool, 
 		}
 
 		if len(processGroup.ProcessGroupConditions) > 0 {
-			conditions := make([]ProcessGroupConditionType, 0, len(processGroup.ProcessGroupConditions))
+			conditions := make(
+				[]ProcessGroupConditionType,
+				0,
+				len(processGroup.ProcessGroupConditions),
+			)
 			for _, condition := range processGroup.ProcessGroupConditions {
 				// If there is at least one process with an incorrect command line, that means the operator has to restart
 				// processes.
-				if condition.ProcessGroupConditionType == IncorrectCommandLine && cluster.Status.Generations.NeedsBounce == 0 {
-					logger.V(1).Info("Pending restart of fdbserver processes", "state", "NeedsBounce")
+				if condition.ProcessGroupConditionType == IncorrectCommandLine &&
+					cluster.Status.Generations.NeedsBounce == 0 {
+					logger.V(1).
+						Info("Pending restart of fdbserver processes", "state", "NeedsBounce")
 					cluster.Status.Generations.NeedsBounce = cluster.Generation
 				}
 
 				// If there is at least one Pod with a IncorrectPodSpec condition we have to delete/recreate that Pod.
-				if condition.ProcessGroupConditionType == IncorrectPodSpec && cluster.Status.Generations.NeedsPodDeletion == 0 {
-					logger.V(1).Info("Pending restart of fdbserver processes", "state", "NeedsPodDeletion")
+				if condition.ProcessGroupConditionType == IncorrectPodSpec &&
+					cluster.Status.Generations.NeedsPodDeletion == 0 {
+					logger.V(1).
+						Info("Pending restart of fdbserver processes", "state", "NeedsPodDeletion")
 					cluster.Status.Generations.NeedsPodDeletion = cluster.Generation
 				}
 
 				conditions = append(conditions, condition.ProcessGroupConditionType)
 			}
 
-			logger.Info("Has unhealthy process group", "processGroupID", processGroup.ProcessGroupID, "state", "HasUnhealthyProcess", "conditions", conditions)
+			logger.Info(
+				"Has unhealthy process group",
+				"processGroupID",
+				processGroup.ProcessGroupID,
+				"state",
+				"HasUnhealthyProcess",
+				"conditions",
+				conditions,
+			)
 			cluster.Status.Generations.HasUnhealthyProcess = cluster.Generation
 			reconciled = false
 			continue
@@ -1655,7 +1797,13 @@ func (cluster *FoundationDBCluster) CheckReconciliation(log logr.Logger) (bool, 
 	}
 
 	if cluster.Status.DesiredProcessGroups != cluster.Status.ReconciledProcessGroups {
-		logger.Info("Not all process groups are reconciled", "desiredProcessGroups", cluster.Status.DesiredProcessGroups, "reconciledProcessGroups", cluster.Status.ReconciledProcessGroups)
+		logger.Info(
+			"Not all process groups are reconciled",
+			"desiredProcessGroups",
+			cluster.Status.DesiredProcessGroups,
+			"reconciledProcessGroups",
+			cluster.Status.ReconciledProcessGroups,
+		)
 	}
 
 	if !cluster.Status.Health.Available {
@@ -1666,13 +1814,25 @@ func (cluster *FoundationDBCluster) CheckReconciliation(log logr.Logger) (bool, 
 
 	desiredConfiguration := cluster.DesiredDatabaseConfiguration()
 	if !equality.Semantic.DeepEqual(cluster.Status.DatabaseConfiguration, desiredConfiguration) {
-		logger.Info("Pending database configuration change", "state", "NeedsConfigurationChange", "current", cluster.Status.DatabaseConfiguration, "desired", desiredConfiguration)
+		logger.Info(
+			"Pending database configuration change",
+			"state",
+			"NeedsConfigurationChange",
+			"current",
+			cluster.Status.DatabaseConfiguration,
+			"desired",
+			desiredConfiguration,
+		)
 		cluster.Status.Generations.NeedsConfigurationChange = cluster.Generation
 		reconciled = false
 	}
 
 	if cluster.Status.HasIncorrectConfigMap {
-		logger.Info("Pending ConfigMap (Monitor config) configuration change", "state", "NeedsMonitorConfUpdate")
+		logger.Info(
+			"Pending ConfigMap (Monitor config) configuration change",
+			"state",
+			"NeedsMonitorConfUpdate",
+		)
 		cluster.Status.Generations.NeedsMonitorConfUpdate = cluster.Generation
 		reconciled = false
 	}
@@ -1713,7 +1873,13 @@ func (cluster *FoundationDBCluster) CheckReconciliation(log logr.Logger) (bool, 
 			continue
 		}
 		if allow {
-			logger.Info("Pending lock acquire for configuration changes", "state", "NeedsLockConfigurationChanges", "allowed", allow)
+			logger.Info(
+				"Pending lock acquire for configuration changes",
+				"state",
+				"NeedsLockConfigurationChanges",
+				"allowed",
+				allow,
+			)
 			cluster.Status.Generations.NeedsLockConfigurationChanges = cluster.Generation
 			reconciled = false
 		} else {
@@ -1723,7 +1889,13 @@ func (cluster *FoundationDBCluster) CheckReconciliation(log logr.Logger) (bool, 
 
 	for _, allow := range lockDenyMap {
 		if !allow {
-			logger.Info("Pending lock acquire for configuration changes", "state", "NeedsLockConfigurationChanges", "allowed", allow)
+			logger.Info(
+				"Pending lock acquire for configuration changes",
+				"state",
+				"NeedsLockConfigurationChanges",
+				"allowed",
+				allow,
+			)
 			cluster.Status.Generations.NeedsLockConfigurationChanges = cluster.Generation
 			reconciled = false
 			break
@@ -1797,24 +1969,36 @@ var isAlphanumericWithUnderScore = regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
 func ParseConnectionString(str string) (ConnectionString, error) {
 	firstSplit := strings.SplitN(str, ":", 2)
 	if len(firstSplit) != 2 {
-		return ConnectionString{}, fmt.Errorf("invalid connection string: %s, could not split string to get database description", str)
+		return ConnectionString{}, fmt.Errorf(
+			"invalid connection string: %s, could not split string to get database description",
+			str,
+		)
 	}
 
 	// The description is a logical description of the database using alphanumeric characters (a-z, A-Z, 0-9) and underscores.
 	description := firstSplit[0]
 	if !isAlphanumericWithUnderScore.MatchString(description) {
-		return ConnectionString{}, fmt.Errorf("invalid connection string: %s, database description can only contain alphanumeric characters (a-z, A-Z, 0-9) and underscores", str)
+		return ConnectionString{}, fmt.Errorf(
+			"invalid connection string: %s, database description can only contain alphanumeric characters (a-z, A-Z, 0-9) and underscores",
+			str,
+		)
 	}
 
 	secondSplit := strings.SplitN(firstSplit[1], "@", 2)
 	if len(secondSplit) != 2 {
-		return ConnectionString{}, fmt.Errorf("invalid connection string: %s, could not split string to get generation ID", str)
+		return ConnectionString{}, fmt.Errorf(
+			"invalid connection string: %s, could not split string to get generation ID",
+			str,
+		)
 	}
 
 	// The ID is an arbitrary value containing alphanumeric characters (a-z, A-Z, 0-9).
 	generationID := secondSplit[0]
 	if !isAlphanumeric.MatchString(generationID) {
-		return ConnectionString{}, fmt.Errorf("invalid connection string: %s, generation ID can only contain alphanumeric characters (a-z, A-Z, 0-9)", str)
+		return ConnectionString{}, fmt.Errorf(
+			"invalid connection string: %s, generation ID can only contain alphanumeric characters (a-z, A-Z, 0-9)",
+			str,
+		)
 	}
 
 	coordinatorsStrings := strings.Split(secondSplit[1], ",")
@@ -1822,14 +2006,22 @@ func ParseConnectionString(str string) (ConnectionString, error) {
 	for _, coordinatorsString := range coordinatorsStrings {
 		coordinatorAddress, err := ParseProcessAddress(coordinatorsString)
 		if err != nil {
-			return ConnectionString{}, fmt.Errorf("invalid connection string: %s, could not parse coordinator address: %s, got error: %w", str, coordinatorAddress, err)
+			return ConnectionString{}, fmt.Errorf(
+				"invalid connection string: %s, could not parse coordinator address: %s, got error: %w",
+				str,
+				coordinatorAddress,
+				err,
+			)
 		}
 
 		coordinators = append(coordinators, coordinatorAddress.String())
 	}
 
 	if len(coordinators) == 0 {
-		return ConnectionString{}, fmt.Errorf("invalid connection string: %s, connection string must contain at least one coordinator", str)
+		return ConnectionString{}, fmt.Errorf(
+			"invalid connection string: %s, connection string must contain at least one coordinator",
+			str,
+		)
 	}
 
 	return ConnectionString{
@@ -1852,7 +2044,12 @@ func (str *ConnectionString) Validate() error {
 
 // String formats a connection string as a string
 func (str *ConnectionString) String() string {
-	return fmt.Sprintf("%s:%s@%s", str.DatabaseName, str.GenerationID, strings.Join(str.Coordinators, ","))
+	return fmt.Sprintf(
+		"%s:%s@%s",
+		str.DatabaseName,
+		str.GenerationID,
+		strings.Join(str.Coordinators, ","),
+	)
 }
 
 // GenerateNewGenerationID builds a new generation ID
@@ -1870,7 +2067,10 @@ func (str *ConnectionString) GenerateNewGenerationID() error {
 
 // GetFullAddress gets the full public address we should use for a process.
 // This will include the IP address, the port, and any additional flags.
-func (cluster *FoundationDBCluster) GetFullAddress(address string, processNumber int) ProcessAddress {
+func (cluster *FoundationDBCluster) GetFullAddress(
+	address string,
+	processNumber int,
+) ProcessAddress {
 	addresses := cluster.GetFullAddressList(address, true, processNumber)
 	if len(addresses) < 1 {
 		return ProcessAddress{}
@@ -1888,7 +2088,11 @@ func (cluster *FoundationDBCluster) GetFullAddress(address string, processNumber
 // If a process needs multiple addresses, this will include all of them,
 // separated by commas. If you pass false for primaryOnly, this will return only
 // the primary address.
-func (cluster *FoundationDBCluster) GetFullAddressList(address string, primaryOnly bool, processNumber int) []ProcessAddress {
+func (cluster *FoundationDBCluster) GetFullAddressList(
+	address string,
+	primaryOnly bool,
+	processNumber int,
+) []ProcessAddress {
 	return GetFullAddressList(
 		address,
 		primaryOnly,
@@ -1993,7 +2197,9 @@ func (cluster *FoundationDBCluster) DesiredDatabaseConfiguration() DatabaseConfi
 
 // ClearUnsetDatabaseConfigurationKnobs clears any knobs that are not set in the FoundationDBCluster spec
 // but which are present in the DatabaseConfiguration returned from the FoundationDBStatus.
-func (cluster *FoundationDBCluster) ClearUnsetDatabaseConfigurationKnobs(configuration *DatabaseConfiguration) {
+func (cluster *FoundationDBCluster) ClearUnsetDatabaseConfigurationKnobs(
+	configuration *DatabaseConfiguration,
+) {
 	// We have to reset the excluded servers here otherwise we will trigger a reconfiguration if one or more servers
 	// are excluded.
 	configuration.ExcludedServers = nil
@@ -2041,7 +2247,8 @@ func (cluster *FoundationDBCluster) ClearMissingVersionFlags(configuration *Data
 
 // IsBeingUpgraded determines whether the cluster has a pending upgrade.
 func (cluster *FoundationDBCluster) IsBeingUpgraded() bool {
-	return cluster.Status.RunningVersion != "" && cluster.Status.RunningVersion != cluster.Spec.Version
+	return cluster.Status.RunningVersion != "" &&
+		cluster.Status.RunningVersion != cluster.Spec.Version
 }
 
 // IsBeingUpgradedWithVersionIncompatibleVersion determines whether the cluster has a pending upgrade to a version incompatible version.
@@ -2104,7 +2311,8 @@ func (cluster *FoundationDBCluster) ShouldUseLocks() bool {
 		return !*disabled
 	}
 
-	return cluster.Spec.FaultDomain.ZoneCount > 1 || len(cluster.Spec.DatabaseConfiguration.Regions) > 1 ||
+	return cluster.Spec.FaultDomain.ZoneCount > 1 ||
+		len(cluster.Spec.DatabaseConfiguration.Regions) > 1 ||
 		cluster.Spec.DatabaseConfiguration.RedundancyMode == RedundancyModeThreeDataHall
 }
 
@@ -2142,7 +2350,8 @@ func (cluster *FoundationDBCluster) GetLockID() string {
 // NeedsExplicitListenAddress determines whether we pass a listen address
 // parameter to fdbserver.
 func (cluster *FoundationDBCluster) NeedsExplicitListenAddress() bool {
-	return cluster.GetPublicIPSource() == PublicIPSourceService || cluster.GetUseExplicitListenAddress()
+	return cluster.GetPublicIPSource() == PublicIPSourceService ||
+		cluster.GetUseExplicitListenAddress()
 }
 
 // GetPublicIPSource returns the set PublicIPSource or the default PublicIPSourcePod
@@ -2318,14 +2527,20 @@ const (
 )
 
 // AddServersPerDisk adds serverPerDisk to the status field to keep track which ConfigMaps should be kept
-func (clusterStatus *FoundationDBClusterStatus) AddServersPerDisk(serversPerDisk int, pClass ProcessClass) {
+func (clusterStatus *FoundationDBClusterStatus) AddServersPerDisk(
+	serversPerDisk int,
+	pClass ProcessClass,
+) {
 	if pClass == ProcessClassStorage {
 		for _, curServersPerDisk := range clusterStatus.StorageServersPerDisk {
 			if curServersPerDisk == serversPerDisk {
 				return
 			}
 		}
-		clusterStatus.StorageServersPerDisk = append(clusterStatus.StorageServersPerDisk, serversPerDisk)
+		clusterStatus.StorageServersPerDisk = append(
+			clusterStatus.StorageServersPerDisk,
+			serversPerDisk,
+		)
 		return
 	}
 
@@ -2341,13 +2556,19 @@ func (clusterStatus *FoundationDBClusterStatus) AddServersPerDisk(serversPerDisk
 
 // GetMaxConcurrentAutomaticReplacements returns the cluster setting for MaxConcurrentReplacements, defaults to 1 if unset.
 func (cluster *FoundationDBCluster) GetMaxConcurrentAutomaticReplacements() int {
-	return pointer.IntDeref(cluster.Spec.AutomationOptions.Replacements.MaxConcurrentReplacements, 1)
+	return pointer.IntDeref(
+		cluster.Spec.AutomationOptions.Replacements.MaxConcurrentReplacements,
+		1,
+	)
 }
 
 // FaultDomainBasedReplacements returns true if the operator is allowed to replace all failed process groups of a
 // fault domain. Default is false
 func (cluster *FoundationDBCluster) FaultDomainBasedReplacements() bool {
-	return pointer.BoolDeref(cluster.Spec.AutomationOptions.Replacements.FaultDomainBasedReplacements, false)
+	return pointer.BoolDeref(
+		cluster.Spec.AutomationOptions.Replacements.FaultDomainBasedReplacements,
+		false,
+	)
 }
 
 // CoordinatorSelectionSetting defines the process class and the priority of it.
@@ -2440,12 +2661,16 @@ func (cluster *FoundationDBCluster) GetIgnorePendingPodsDuration() time.Duration
 
 // GetIgnoreMissingProcessesSeconds returns the value of IgnoreMissingProcessesSecond or 30 seconds if unset.
 func (cluster *FoundationDBCluster) GetIgnoreMissingProcessesSeconds() time.Duration {
-	return time.Duration(pointer.IntDeref(cluster.Spec.AutomationOptions.IgnoreMissingProcessesSeconds, 30)) * time.Second
+	return time.Duration(
+		pointer.IntDeref(cluster.Spec.AutomationOptions.IgnoreMissingProcessesSeconds, 30),
+	) * time.Second
 }
 
 // GetFailedPodDuration returns the value of FailedPodDuration or 5 minutes if unset.
 func (cluster *FoundationDBCluster) GetFailedPodDuration() time.Duration {
-	return time.Duration(pointer.IntDeref(cluster.Spec.AutomationOptions.FailedPodDurationSeconds, 300)) * time.Second
+	return time.Duration(
+		pointer.IntDeref(cluster.Spec.AutomationOptions.FailedPodDurationSeconds, 300),
+	) * time.Second
 }
 
 // GetUseNonBlockingExcludes returns the value of useNonBlockingExcludes or false if unset.
@@ -2462,7 +2687,8 @@ func (cluster *FoundationDBCluster) UseLocalitiesForExclusion() bool {
 		return false
 	}
 
-	return fdbVersion.SupportsLocalityBasedExclusions() && pointer.BoolDeref(cluster.Spec.AutomationOptions.UseLocalitiesForExclusion, true)
+	return fdbVersion.SupportsLocalityBasedExclusions() &&
+		pointer.BoolDeref(cluster.Spec.AutomationOptions.UseLocalitiesForExclusion, true)
 }
 
 // GetProcessClassLabel provides the label that this cluster is using for the
@@ -2512,7 +2738,8 @@ const (
 // NeedsHeadlessService determines whether we need to create a headless service
 // for this cluster.
 func (cluster *FoundationDBCluster) NeedsHeadlessService() bool {
-	return cluster.DefineDNSLocalityFields() || pointer.BoolDeref(cluster.Spec.Routing.HeadlessService, false)
+	return cluster.DefineDNSLocalityFields() ||
+		pointer.BoolDeref(cluster.Spec.Routing.HeadlessService, false)
 }
 
 // UseDNSInClusterFile determines whether we need to use DNS entries in the cluster file for this cluster.
@@ -2523,7 +2750,8 @@ func (cluster *FoundationDBCluster) UseDNSInClusterFile() bool {
 // DefineDNSLocalityFields determines whether we need to put DNS entries in the
 // pod spec and process locality.
 func (cluster *FoundationDBCluster) DefineDNSLocalityFields() bool {
-	return pointer.BoolDeref(cluster.Spec.Routing.DefineDNSLocalityFields, false) || cluster.UseDNSInClusterFile()
+	return pointer.BoolDeref(cluster.Spec.Routing.DefineDNSLocalityFields, false) ||
+		cluster.UseDNSInClusterFile()
 }
 
 // GetDNSDomain gets the domain used when forming DNS names generated for a
@@ -2553,18 +2781,31 @@ func (cluster *FoundationDBCluster) GetWaitBetweenRemovalsSeconds() int {
 
 // UseMaintenaceMode returns true if UseMaintenanceModeChecker is set.
 func (cluster *FoundationDBCluster) UseMaintenaceMode() bool {
-	return pointer.BoolDeref(cluster.Spec.AutomationOptions.MaintenanceModeOptions.UseMaintenanceModeChecker, false)
+	return pointer.BoolDeref(
+		cluster.Spec.AutomationOptions.MaintenanceModeOptions.UseMaintenanceModeChecker,
+		false,
+	)
 }
 
 // ResetMaintenanceMode returns true if the operator should reset the maintenance mode once all processes in the fault domain
 // have been restarted. This method will return true if either ResetMaintenanceMode or UseMaintenaceMode is set to true.
 func (cluster *FoundationDBCluster) ResetMaintenanceMode() bool {
-	return pointer.BoolDeref(cluster.Spec.AutomationOptions.MaintenanceModeOptions.UseMaintenanceModeChecker, false) || pointer.BoolDeref(cluster.Spec.AutomationOptions.MaintenanceModeOptions.ResetMaintenanceMode, false)
+	return pointer.BoolDeref(
+		cluster.Spec.AutomationOptions.MaintenanceModeOptions.UseMaintenanceModeChecker,
+		false,
+	) ||
+		pointer.BoolDeref(
+			cluster.Spec.AutomationOptions.MaintenanceModeOptions.ResetMaintenanceMode,
+			false,
+		)
 }
 
 // GetMaintenaceModeTimeoutSeconds returns the timeout for maintenance zone after which it will be reset.
 func (cluster *FoundationDBCluster) GetMaintenaceModeTimeoutSeconds() int {
-	return pointer.IntDeref(cluster.Spec.AutomationOptions.MaintenanceModeOptions.MaintenanceModeTimeSeconds, 600)
+	return pointer.IntDeref(
+		cluster.Spec.AutomationOptions.MaintenanceModeOptions.MaintenanceModeTimeSeconds,
+		600,
+	)
 }
 
 // PodUpdateStrategy defines how Pod spec changes should be applied.
@@ -2663,12 +2904,18 @@ func (cluster *FoundationDBCluster) GetEnableAutomaticReplacements() bool {
 
 // GetFailureDetectionTimeSeconds returns cluster.Spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds or if unset the default 7200
 func (cluster *FoundationDBCluster) GetFailureDetectionTimeSeconds() int {
-	return pointer.IntDeref(cluster.Spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds, 7200)
+	return pointer.IntDeref(
+		cluster.Spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds,
+		7200,
+	)
 }
 
 // GetTaintReplacementTimeSeconds returns cluster.Spec.AutomationOptions.Replacements.TaintReplacementTimeSeconds or if unset the default 1800
 func (cluster *FoundationDBCluster) GetTaintReplacementTimeSeconds() int {
-	return pointer.IntDeref(cluster.Spec.AutomationOptions.Replacements.TaintReplacementTimeSeconds, 1800)
+	return pointer.IntDeref(
+		cluster.Spec.AutomationOptions.Replacements.TaintReplacementTimeSeconds,
+		1800,
+	)
 }
 
 // GetSidecarContainerEnableLivenessProbe returns cluster.Spec.SidecarContainer.EnableLivenessProbe or if unset the default true
@@ -2701,13 +2948,18 @@ func (cluster *FoundationDBCluster) DesiredImageType() ImageType {
 
 // GetIgnoreTerminatingPodsSeconds returns the value of IgnoreTerminatingPodsSeconds or defaults to 10 minutes.
 func (cluster *FoundationDBCluster) GetIgnoreTerminatingPodsSeconds() int {
-	return pointer.IntDeref(cluster.Spec.AutomationOptions.IgnoreTerminatingPodsSeconds, int((10 * time.Minute).Seconds()))
+	return pointer.IntDeref(
+		cluster.Spec.AutomationOptions.IgnoreTerminatingPodsSeconds,
+		int((10 * time.Minute).Seconds()),
+	)
 }
 
 // GetProcessGroupsToRemove will return the list of Process Group IDs that must be added to the ProcessGroupsToRemove
 // it will filter out all Process Group IDs that are already marked for removal to make sure those are clean up. If a
 // provided process group ID doesn't exit it will be ignored.
-func (cluster *FoundationDBCluster) GetProcessGroupsToRemove(processGroupIDs []ProcessGroupID) []ProcessGroupID {
+func (cluster *FoundationDBCluster) GetProcessGroupsToRemove(
+	processGroupIDs []ProcessGroupID,
+) []ProcessGroupID {
 	currentProcessGroupsToRemove := map[ProcessGroupID]None{}
 
 	for _, id := range cluster.Spec.ProcessGroupsToRemove {
@@ -2728,7 +2980,10 @@ func (cluster *FoundationDBCluster) GetProcessGroupsToRemove(processGroupIDs []P
 			continue
 		}
 
-		filteredProcessGroupsToRemove = append(filteredProcessGroupsToRemove, processGroup.ProcessGroupID)
+		filteredProcessGroupsToRemove = append(
+			filteredProcessGroupsToRemove,
+			processGroup.ProcessGroupID,
+		)
 	}
 
 	return filteredProcessGroupsToRemove
@@ -2737,7 +2992,9 @@ func (cluster *FoundationDBCluster) GetProcessGroupsToRemove(processGroupIDs []P
 // GetProcessGroupsToRemoveWithoutExclusion will returns the list of Process Group IDs that must be added to the ProcessGroupsToRemove
 // it will filter out all Process Group IDs that are already marked for removal and are marked as excluded to make sure those are clean up.
 // If a provided process group ID doesn't exit it will be ignored.
-func (cluster *FoundationDBCluster) GetProcessGroupsToRemoveWithoutExclusion(processGroupIDs []ProcessGroupID) []ProcessGroupID {
+func (cluster *FoundationDBCluster) GetProcessGroupsToRemoveWithoutExclusion(
+	processGroupIDs []ProcessGroupID,
+) []ProcessGroupID {
 	currentProcessGroupsToRemove := map[ProcessGroupID]None{}
 
 	for _, id := range cluster.Spec.ProcessGroupsToRemoveWithoutExclusion {
@@ -2758,7 +3015,10 @@ func (cluster *FoundationDBCluster) GetProcessGroupsToRemoveWithoutExclusion(pro
 			continue
 		}
 
-		filteredProcessGroupsToRemove = append(filteredProcessGroupsToRemove, processGroup.ProcessGroupID)
+		filteredProcessGroupsToRemove = append(
+			filteredProcessGroupsToRemove,
+			processGroup.ProcessGroupID,
+		)
 	}
 
 	return filteredProcessGroupsToRemove
@@ -2767,7 +3027,9 @@ func (cluster *FoundationDBCluster) GetProcessGroupsToRemoveWithoutExclusion(pro
 // AddProcessGroupsToRemovalList adds the provided process group IDs to the remove list.
 // If a process group ID is already present on that list it won't be added a second time.
 // Deprecated: Use GetProcessGroupsToRemove instead and set the cluster.Spec.ProcessGroupsToRemove value to the return value.
-func (cluster *FoundationDBCluster) AddProcessGroupsToRemovalList(processGroupIDs []ProcessGroupID) {
+func (cluster *FoundationDBCluster) AddProcessGroupsToRemovalList(
+	processGroupIDs []ProcessGroupID,
+) {
 	removals := map[ProcessGroupID]None{}
 
 	for _, id := range cluster.Spec.ProcessGroupsToRemove {
@@ -2779,13 +3041,18 @@ func (cluster *FoundationDBCluster) AddProcessGroupsToRemovalList(processGroupID
 			continue
 		}
 
-		cluster.Spec.ProcessGroupsToRemove = append(cluster.Spec.ProcessGroupsToRemove, processGroupID)
+		cluster.Spec.ProcessGroupsToRemove = append(
+			cluster.Spec.ProcessGroupsToRemove,
+			processGroupID,
+		)
 	}
 }
 
 // AddProcessGroupsToNoScheduleList adds the provided process group IDs to the no-schedule list.
 // If a process group ID is already present on that list it won't be added a second time.
-func (cluster *FoundationDBCluster) AddProcessGroupsToNoScheduleList(processGroupIDs []ProcessGroupID) {
+func (cluster *FoundationDBCluster) AddProcessGroupsToNoScheduleList(
+	processGroupIDs []ProcessGroupID,
+) {
 	noScheduleProcesses := map[ProcessGroupID]None{}
 
 	for _, id := range cluster.Spec.Buggify.NoSchedule {
@@ -2802,7 +3069,9 @@ func (cluster *FoundationDBCluster) AddProcessGroupsToNoScheduleList(processGrou
 }
 
 // RemoveProcessGroupsFromNoScheduleList removes the provided process group IDs from the no-schedule list.
-func (cluster *FoundationDBCluster) RemoveProcessGroupsFromNoScheduleList(processGroupIDs []ProcessGroupID) {
+func (cluster *FoundationDBCluster) RemoveProcessGroupsFromNoScheduleList(
+	processGroupIDs []ProcessGroupID,
+) {
 	processGroupIDsToRemove := make(map[ProcessGroupID]None)
 	for _, processGroupID := range processGroupIDs {
 		processGroupIDsToRemove[processGroupID] = None{}
@@ -2823,7 +3092,9 @@ func (cluster *FoundationDBCluster) RemoveProcessGroupsFromNoScheduleList(proces
 // AddProcessGroupsToCrashLoopList adds the provided process group IDs to the crash-loop list.
 // If a process group ID is already present on that list or all the processes are set into crash-loop
 // it won't be added a second time.
-func (cluster *FoundationDBCluster) AddProcessGroupsToCrashLoopList(processGroupIDs []ProcessGroupID) {
+func (cluster *FoundationDBCluster) AddProcessGroupsToCrashLoopList(
+	processGroupIDs []ProcessGroupID,
+) {
 	crashLoop, _ := cluster.GetCrashLoopProcessGroups()
 
 	for _, processGroupID := range processGroupIDs {
@@ -2837,7 +3108,10 @@ func (cluster *FoundationDBCluster) AddProcessGroupsToCrashLoopList(processGroup
 
 // AddProcessGroupsToCrashLoopContainerList adds the provided process group IDs to the crash-loop list.
 // If a process group ID is already present on that list it won't be added a second time.
-func (cluster *FoundationDBCluster) AddProcessGroupsToCrashLoopContainerList(processGroupIDs []ProcessGroupID, containerName string) {
+func (cluster *FoundationDBCluster) AddProcessGroupsToCrashLoopContainerList(
+	processGroupIDs []ProcessGroupID,
+	containerName string,
+) {
 	crashLoopProcessIDs := cluster.GetCrashLoopContainerProcessGroups()[containerName]
 
 	if len(crashLoopProcessIDs) == 0 {
@@ -2845,7 +3119,10 @@ func (cluster *FoundationDBCluster) AddProcessGroupsToCrashLoopContainerList(pro
 			ContainerName: containerName,
 			Targets:       processGroupIDs,
 		}
-		cluster.Spec.Buggify.CrashLoopContainers = append(cluster.Spec.Buggify.CrashLoopContainers, containerObj)
+		cluster.Spec.Buggify.CrashLoopContainers = append(
+			cluster.Spec.Buggify.CrashLoopContainers,
+			containerObj,
+		)
 		return
 	}
 
@@ -2867,7 +3144,9 @@ func (cluster *FoundationDBCluster) AddProcessGroupsToCrashLoopContainerList(pro
 }
 
 // RemoveProcessGroupsFromCrashLoopList removes the provided process group IDs from the crash-loop list.
-func (cluster *FoundationDBCluster) RemoveProcessGroupsFromCrashLoopList(processGroupIDs []ProcessGroupID) {
+func (cluster *FoundationDBCluster) RemoveProcessGroupsFromCrashLoopList(
+	processGroupIDs []ProcessGroupID,
+) {
 	processGroupIDsToRemove := make(map[ProcessGroupID]None)
 	for _, processGroupID := range processGroupIDs {
 		processGroupIDsToRemove[processGroupID] = None{}
@@ -2885,7 +3164,10 @@ func (cluster *FoundationDBCluster) RemoveProcessGroupsFromCrashLoopList(process
 }
 
 // RemoveProcessGroupsFromCrashLoopContainerList removes the provided process group IDs from the crash-loop container list.
-func (cluster *FoundationDBCluster) RemoveProcessGroupsFromCrashLoopContainerList(processGroupIDs []ProcessGroupID, containerName string) {
+func (cluster *FoundationDBCluster) RemoveProcessGroupsFromCrashLoopContainerList(
+	processGroupIDs []ProcessGroupID,
+	containerName string,
+) {
 	processGroupIDsToRemove := make(map[ProcessGroupID]None)
 	for _, processGroupID := range processGroupIDs {
 		processGroupIDsToRemove[processGroupID] = None{}
@@ -2913,7 +3195,9 @@ func (cluster *FoundationDBCluster) RemoveProcessGroupsFromCrashLoopContainerLis
 // AddProcessGroupsToRemovalWithoutExclusionList adds the provided process group IDs to the remove without exclusion list.
 // If a process group ID is already present on that list it won't be added a second time.
 // Deprecated: Use GetProcessGroupsToRemoveWithoutExclusion instead and set the cluster.Spec.ProcessGroupsToRemoveWithoutExclusion value to the return value.
-func (cluster *FoundationDBCluster) AddProcessGroupsToRemovalWithoutExclusionList(processGroupIDs []ProcessGroupID) {
+func (cluster *FoundationDBCluster) AddProcessGroupsToRemovalWithoutExclusionList(
+	processGroupIDs []ProcessGroupID,
+) {
 	removals := map[ProcessGroupID]None{}
 
 	for _, id := range cluster.Spec.ProcessGroupsToRemoveWithoutExclusion {
@@ -2925,7 +3209,10 @@ func (cluster *FoundationDBCluster) AddProcessGroupsToRemovalWithoutExclusionLis
 			continue
 		}
 
-		cluster.Spec.ProcessGroupsToRemoveWithoutExclusion = append(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion, processGroupID)
+		cluster.Spec.ProcessGroupsToRemoveWithoutExclusion = append(
+			cluster.Spec.ProcessGroupsToRemoveWithoutExclusion,
+			processGroupID,
+		)
 	}
 }
 
@@ -2985,30 +3272,60 @@ func (cluster *FoundationDBCluster) Validate() error {
 	}
 
 	if !version.IsSupported() {
-		return fmt.Errorf("version: %s is not supported, minimum supported version is: %s", version.String(), Versions.MinimumVersion.String())
+		return fmt.Errorf(
+			"version: %s is not supported, minimum supported version is: %s",
+			version.String(),
+			Versions.MinimumVersion.String(),
+		)
 	}
 
 	if !version.IsStorageEngineSupported(cluster.Spec.DatabaseConfiguration.StorageEngine) {
-		validations = append(validations, fmt.Sprintf("storage engine %s is not supported on version %s", cluster.Spec.DatabaseConfiguration.StorageEngine, cluster.Spec.Version))
+		validations = append(
+			validations,
+			fmt.Sprintf(
+				"storage engine %s is not supported on version %s",
+				cluster.Spec.DatabaseConfiguration.StorageEngine,
+				cluster.Spec.Version,
+			),
+		)
 	}
 
 	// Check if all coordinator processes are stateful
 	for _, selection := range cluster.Spec.CoordinatorSelection {
 		if !selection.ProcessClass.IsStateful() {
-			validations = append(validations, fmt.Sprintf("%s is not a valid process class for coordinators", selection.ProcessClass))
+			validations = append(
+				validations,
+				fmt.Sprintf(
+					"%s is not a valid process class for coordinators",
+					selection.ProcessClass,
+				),
+			)
 		}
 	}
 
 	if cluster.Spec.Routing.PodIPFamily != nil {
 		ipFamily := cluster.GetPodIPFamily()
-		if ipFamily != PodIPFamilyIPv4 && ipFamily != PodIPFamilyIPv6 && ipFamily != PodIPFamilyUnset {
-			validations = append(validations, fmt.Sprintf("Pod IP Family %d is not valid, only 4 or 6 are allowed.", ipFamily))
+		if ipFamily != PodIPFamilyIPv4 && ipFamily != PodIPFamilyIPv6 &&
+			ipFamily != PodIPFamilyUnset {
+			validations = append(
+				validations,
+				fmt.Sprintf("Pod IP Family %d is not valid, only 4 or 6 are allowed.", ipFamily),
+			)
 		}
 	}
 
 	currentMode := cluster.GetDatabaseInteractionMode()
-	if currentMode != DatabaseInteractionModeMgmtAPI && currentMode != DatabaseInteractionModeFdbcli {
-		validations = append(validations, fmt.Sprintf("database interaction mode: \"%s\" is not supported allowed values: [%s, %s].", currentMode, DatabaseInteractionModeFdbcli, DatabaseInteractionModeMgmtAPI))
+	if currentMode != DatabaseInteractionModeMgmtAPI &&
+		currentMode != DatabaseInteractionModeFdbcli {
+		validations = append(
+			validations,
+			fmt.Sprintf(
+				"database interaction mode: \"%s\" is not supported allowed values: [%s, %s].",
+				currentMode,
+				DatabaseInteractionModeFdbcli,
+				DatabaseInteractionModeMgmtAPI,
+			),
+		)
 	}
 
 	if len(validations) == 0 {
@@ -3033,7 +3350,10 @@ func (cluster *FoundationDBCluster) GetMaxZonesWithUnavailablePods() int {
 // enabled the machine-readable status will be fetched only once per reconciliation loop and not multiple times. If the
 // value is unset the provided default value will be returned.
 func (cluster *FoundationDBCluster) CacheDatabaseStatusForReconciliation(defaultValue bool) bool {
-	return pointer.BoolDeref(cluster.Spec.AutomationOptions.CacheDatabaseStatusForReconciliation, defaultValue)
+	return pointer.BoolDeref(
+		cluster.Spec.AutomationOptions.CacheDatabaseStatusForReconciliation,
+		defaultValue,
+	)
 }
 
 // GetIgnoreLogGroupsForUpgrade will return the IgnoreLogGroupsForUpgrade, if the value is not set it will include the default `fdb-kubernetes-operator`
@@ -3076,7 +3396,10 @@ func (cluster *FoundationDBCluster) GetCurrentProcessGroupsAndProcessCounts() (m
 // This method makes sure that the returned ProcessGroupID is not in use and not marked to be removed.
 // Using a randomized ProcessGroupID will reduce the risk of reusing the same ProcessGroupID for different process groups, see:
 // https://github.com/FoundationDB/fdb-kubernetes-operator/v2/issues/2071
-func (cluster *FoundationDBCluster) GetNextRandomProcessGroupID(processClass ProcessClass, processGroupIDs map[int]bool) ProcessGroupID {
+func (cluster *FoundationDBCluster) GetNextRandomProcessGroupID(
+	processClass ProcessClass,
+	processGroupIDs map[int]bool,
+) ProcessGroupID {
 	return cluster.GetNextRandomProcessGroupIDWithExclusions(processClass, processGroupIDs, nil)
 }
 
@@ -3084,7 +3407,11 @@ func (cluster *FoundationDBCluster) GetNextRandomProcessGroupID(processClass Pro
 // This method makes sure that the returned ProcessGroupID is not in use and not marked to be removed and is not excluded.
 // Using a randomized ProcessGroupID will reduce the risk of reusing the same ProcessGroupID for different process groups, see:
 // https://github.com/FoundationDB/fdb-kubernetes-operator/v2/issues/2071
-func (cluster *FoundationDBCluster) GetNextRandomProcessGroupIDWithExclusions(processClass ProcessClass, processGroupIDs map[int]bool, exclusions map[ProcessGroupID]None) ProcessGroupID {
+func (cluster *FoundationDBCluster) GetNextRandomProcessGroupIDWithExclusions(
+	processClass ProcessClass,
+	processGroupIDs map[int]bool,
+	exclusions map[ProcessGroupID]None,
+) ProcessGroupID {
 	var processGroupID ProcessGroupID
 	for {
 		idNum := rand.Intn(MaxProcessGroupIDNum) + 1
@@ -3109,7 +3436,10 @@ func (cluster *FoundationDBCluster) GetNextRandomProcessGroupIDWithExclusions(pr
 
 // newProcessGroupIDAllowed checks if the provided ProcessGroupID can be used and is not marked for removal or is part
 // of the excluded localities.
-func (cluster *FoundationDBCluster) newProcessGroupIDAllowed(processGroupID ProcessGroupID, exclusions map[ProcessGroupID]None) bool {
+func (cluster *FoundationDBCluster) newProcessGroupIDAllowed(
+	processGroupID ProcessGroupID,
+	exclusions map[ProcessGroupID]None,
+) bool {
 	// If the randomly picked process group is marked for removal, pick another one.
 	if cluster.ProcessGroupIsBeingRemoved(processGroupID) {
 		return false
@@ -3127,7 +3457,11 @@ func (cluster *FoundationDBCluster) newProcessGroupIDAllowed(processGroupID Proc
 // GetNextProcessGroupID will return the next unused ProcessGroupID and the ID number based on the provided ProcessClass
 // and the mapping of used ProcessGroupID.
 // Deprecated: This method shouldn't be used anymore and GetNextRandomProcessGroupID is favoured.
-func (cluster *FoundationDBCluster) GetNextProcessGroupID(processClass ProcessClass, processGroupIDs map[int]bool, idNum int) (ProcessGroupID, int) {
+func (cluster *FoundationDBCluster) GetNextProcessGroupID(
+	processClass ProcessClass,
+	processGroupIDs map[int]bool,
+	idNum int,
+) (ProcessGroupID, int) {
 	var processGroupID ProcessGroupID
 
 	for idNum > 0 {
@@ -3145,15 +3479,25 @@ func (cluster *FoundationDBCluster) GetNextProcessGroupID(processClass ProcessCl
 // GetProcessGroupID generates a ProcessGroupID for a process group.
 //
 // This will return the Pod name and the ProcessGroupID.
-func (cluster *FoundationDBCluster) GetProcessGroupID(processClass ProcessClass, idNum int) (string, ProcessGroupID) {
+func (cluster *FoundationDBCluster) GetProcessGroupID(
+	processClass ProcessClass,
+	idNum int,
+) (string, ProcessGroupID) {
 	var processGroupID ProcessGroupID
 	if cluster.Spec.ProcessGroupIDPrefix != "" {
-		processGroupID = ProcessGroupID(fmt.Sprintf("%s-%s-%d", cluster.Spec.ProcessGroupIDPrefix, processClass, idNum))
+		processGroupID = ProcessGroupID(
+			fmt.Sprintf("%s-%s-%d", cluster.Spec.ProcessGroupIDPrefix, processClass, idNum),
+		)
 	} else {
 		processGroupID = ProcessGroupID(fmt.Sprintf("%s-%d", processClass, idNum))
 	}
 
-	return fmt.Sprintf("%s-%s-%d", cluster.Name, processClass.GetProcessClassForPodName(), idNum), processGroupID
+	return fmt.Sprintf(
+		"%s-%s-%d",
+		cluster.Name,
+		processClass.GetProcessClassForPodName(),
+		idNum,
+	), processGroupID
 }
 
 var (
@@ -3191,8 +3535,17 @@ func (cluster *FoundationDBCluster) ProcessSharesDC(process FoundationDBStatusPr
 
 // GetMaxFaultDomainsWithTaintedProcessGroups returns the maximum fault domains that can hold pods on tainted nodes to still
 // allow the operator to automatically replace those pods on the tainted nodes automatically.
-func (cluster *FoundationDBCluster) GetMaxFaultDomainsWithTaintedProcessGroups(faultDomainCnt int) (int, error) {
-	maxAllowed, err := intstr.GetScaledValueFromIntOrPercent(intstr.ValueOrDefault(cluster.Spec.AutomationOptions.Replacements.MaxFaultDomainsWithTaintedProcessGroups, intstr.IntOrString{Type: intstr.String, StrVal: "10%"}), faultDomainCnt, false)
+func (cluster *FoundationDBCluster) GetMaxFaultDomainsWithTaintedProcessGroups(
+	faultDomainCnt int,
+) (int, error) {
+	maxAllowed, err := intstr.GetScaledValueFromIntOrPercent(
+		intstr.ValueOrDefault(
+			cluster.Spec.AutomationOptions.Replacements.MaxFaultDomainsWithTaintedProcessGroups,
+			intstr.IntOrString{Type: intstr.String, StrVal: "10%"},
+		),
+		faultDomainCnt,
+		false,
+	)
 	if err != nil {
 		return -1, err
 	}
@@ -3231,7 +3584,12 @@ func (cluster *FoundationDBCluster) GetSynchronizationMode() SynchronizationMode
 		return SynchronizationModeLocal
 	}
 
-	return SynchronizationMode(pointer.StringDeref(cluster.Spec.AutomationOptions.SynchronizationMode, string(SynchronizationModeLocal)))
+	return SynchronizationMode(
+		pointer.StringDeref(
+			cluster.Spec.AutomationOptions.SynchronizationMode,
+			string(SynchronizationModeLocal),
+		),
+	)
 }
 
 // GetDatabaseInteractionMode returns the DatabaseInteractionMode if set, otherwise will return the default interaction mode.

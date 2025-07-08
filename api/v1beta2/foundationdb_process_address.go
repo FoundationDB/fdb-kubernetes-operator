@@ -40,7 +40,12 @@ type ProcessAddress struct {
 
 // NewProcessAddress creates a new ProcessAddress if the provided string address is a valid IP address it will be set as
 // IPAddress.
-func NewProcessAddress(address net.IP, stringAddress string, port int, flags map[string]bool) ProcessAddress {
+func NewProcessAddress(
+	address net.IP,
+	stringAddress string,
+	port int,
+	flags map[string]bool,
+) ProcessAddress {
 	pAddr := ProcessAddress{
 		IPAddress:     address,
 		StringAddress: stringAddress,
@@ -313,7 +318,13 @@ func GetProcessPort(processNumber int, tls bool) int {
 // If a process needs multiple addresses, this will include all of them,
 // separated by commas. If you pass false for primaryOnly, this will return only
 // the primary address.
-func GetFullAddressList(address string, primaryOnly bool, processNumber int, requireTLS bool, requireNonTLS bool) []ProcessAddress {
+func GetFullAddressList(
+	address string,
+	primaryOnly bool,
+	processNumber int,
+	requireTLS bool,
+	requireNonTLS bool,
+) []ProcessAddress {
 	addrs := make([]ProcessAddress, 0, 2)
 
 	// If the address is already enclosed in brackets, remove them since they
@@ -323,7 +334,12 @@ func GetFullAddressList(address string, primaryOnly bool, processNumber int, req
 	// When a TLS address is provided the TLS address will always be the primary address
 	// see: https://github.com/apple/foundationdb/blob/master/fdbrpc/FlowTransport.h#L49-L56
 	if requireTLS {
-		pAddr := NewProcessAddress(nil, address, GetProcessPort(processNumber, true), map[string]bool{"tls": true})
+		pAddr := NewProcessAddress(
+			nil,
+			address,
+			GetProcessPort(processNumber, true),
+			map[string]bool{"tls": true},
+		)
 		addrs = append(addrs, pAddr)
 
 		if primaryOnly {

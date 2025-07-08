@@ -27,10 +27,16 @@ import (
 )
 
 var _ = Describe("update_restore_status_test", func() {
-	DescribeTable("when parsing the status from the restore status output", func(input string, expected fdbv1beta2.FoundationDBRestoreState) {
-		Expect(parseRestoreStatus(input)).To(Equal(expected))
-	},
+	DescribeTable(
+		"when parsing the status from the restore status output",
+		func(input string, expected fdbv1beta2.FoundationDBRestoreState) {
+			Expect(parseRestoreStatus(input)).To(Equal(expected))
+		},
 		Entry("empty status", "", fdbv1beta2.UnknownFoundationDBRestoreState),
-		Entry("completed status", "Tag: default  UID: 3213  State: completed  Blocks: 5/5  BlocksInProgress: 0  Files: 74  BytesWritten: 2303  CurrentVersion: 123 FirstConsistentVersion: 321  ApplyVersionLag: 0  LastError: None  URL: blobstore://.. Range: ''-'\xff'  Range: '\xff\x02/blobRange/'-'\xff\x02/blobRange0'  Range: '\xff/metacluster/clusterRegistration'-'\xff/metacluster/clusterRegistration\x00'  Range: '\xff/tagQuota/'-'\xff/tagQuota0'  Range: '\xff/tenant/'-'\xff/tenant0'  AddPrefix: ''  RemovePrefix: ''  Version: 123", fdbv1beta2.CompletedFoundationDBRestoreState),
+		Entry(
+			"completed status",
+			"Tag: default  UID: 3213  State: completed  Blocks: 5/5  BlocksInProgress: 0  Files: 74  BytesWritten: 2303  CurrentVersion: 123 FirstConsistentVersion: 321  ApplyVersionLag: 0  LastError: None  URL: blobstore://.. Range: ''-'\xff'  Range: '\xff\x02/blobRange/'-'\xff\x02/blobRange0'  Range: '\xff/metacluster/clusterRegistration'-'\xff/metacluster/clusterRegistration\x00'  Range: '\xff/tagQuota/'-'\xff/tagQuota0'  Range: '\xff/tenant/'-'\xff/tenant0'  AddPrefix: ''  RemovePrefix: ''  Version: 123",
+			fdbv1beta2.CompletedFoundationDBRestoreState,
+		),
 	)
 })

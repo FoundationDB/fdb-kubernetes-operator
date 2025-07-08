@@ -175,7 +175,8 @@ type blobstoreConfig struct {
 
 // CreateBlobstoreIfAbsent creates the blobstore Deployment based on the template.
 func (factory *Factory) CreateBlobstoreIfAbsent(namespace string) {
-	seaweedFSDeploymentTemplate, err := template.New("seaweedFSDeployment").Parse(seaweedFSDeployment)
+	seaweedFSDeploymentTemplate, err := template.New("seaweedFSDeployment").
+		Parse(seaweedFSDeployment)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	buf := bytes.Buffer{}
 	gomega.Expect(seaweedFSDeploymentTemplate.Execute(&buf, &blobstoreConfig{
@@ -230,7 +231,12 @@ func (factory *Factory) waitUntilBlobstorePodsRunning(namespace string) {
 
 			// If the Pod is not running after 120 seconds we delete it and let the Deployment controller create a new Pod.
 			if time.Since(pod.CreationTimestamp.Time).Seconds() > 120.0 {
-				log.Println("seaweedfs Pod", pod.Name, "not running after 120 seconds, going to delete this Pod, status:", pod.Status)
+				log.Println(
+					"seaweedfs Pod",
+					pod.Name,
+					"not running after 120 seconds, going to delete this Pod, status:",
+					pod.Status,
+				)
 				err := factory.GetControllerRuntimeClient().Delete(context.Background(), &pod)
 				if k8serrors.IsNotFound(err) {
 					continue

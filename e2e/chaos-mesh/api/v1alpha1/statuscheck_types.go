@@ -191,8 +191,8 @@ type HTTPStatusCheck struct {
 
 // StatusCheckList contains a list of StatusCheck
 type StatusCheckList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.TypeMeta `              json:",inline"`
+	metav1.ListMeta `              json:"metadata,omitempty"`
 	Items           []StatusCheck `json:"items"`
 }
 

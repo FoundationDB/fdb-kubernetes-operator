@@ -30,7 +30,10 @@ import (
 
 // getReplacementInformation will return the maximum allowed replacements for process group based replacements and the
 // fault domains that have an ongoing replacement.
-func getReplacementInformation(cluster *fdbv1beta2.FoundationDBCluster, maxReplacements int) (int, map[fdbv1beta2.FaultDomain]fdbv1beta2.None) {
+func getReplacementInformation(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	maxReplacements int,
+) (int, map[fdbv1beta2.FaultDomain]fdbv1beta2.None) {
 	faultDomains := map[fdbv1beta2.FaultDomain]fdbv1beta2.None{}
 	// The maximum number of replacements will be the defined number in the cluster spec
 	// minus all currently ongoing replacements e.g. process groups marked for removal but
@@ -48,7 +51,12 @@ func getReplacementInformation(cluster *fdbv1beta2.FoundationDBCluster, maxRepla
 }
 
 // removalAllowed will return true if the removal is allowed based on the clusters automatic replacement configuration.
-func removalAllowed(cluster *fdbv1beta2.FoundationDBCluster, maxReplacements int, faultDomainsWithReplacements map[fdbv1beta2.FaultDomain]fdbv1beta2.None, faultDomain fdbv1beta2.FaultDomain) bool {
+func removalAllowed(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	maxReplacements int,
+	faultDomainsWithReplacements map[fdbv1beta2.FaultDomain]fdbv1beta2.None,
+	faultDomain fdbv1beta2.FaultDomain,
+) bool {
 	if !cluster.FaultDomainBasedReplacements() {
 		// If we are here we target the replacements on a process group level
 		return maxReplacements > 0
@@ -82,7 +90,10 @@ func removalAllowed(cluster *fdbv1beta2.FoundationDBCluster, maxReplacements int
 // The operator will only replace automatically as many process groups as configured with the MaxConcurrentReplacements
 // setting. This function only offers an additional safeguard to reduce the risk of too many replacements when too many
 // nodes are tainted as that will probably signal an issue in the Kubernetes cluster.
-func nodeTaintReplacementsAllowed(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster) (bool, error) {
+func nodeTaintReplacementsAllowed(
+	logger logr.Logger,
+	cluster *fdbv1beta2.FoundationDBCluster,
+) (bool, error) {
 	if cluster.IsTaintFeatureDisabled() {
 		return false, nil
 	}
@@ -113,7 +124,8 @@ func nodeTaintReplacementsAllowed(logger logr.Logger, cluster *fdbv1beta2.Founda
 	}
 
 	allowed := maxAllowed >= len(faultDomainsWithTaint)
-	logger.V(1).Info("node taint replacements allowed information", "faultDomainWithTaint", len(faultDomainsWithTaint), "faultDomains", len(faultDomains), "maxAllowed", maxAllowed, "allowed", allowed)
+	logger.V(1).
+		Info("node taint replacements allowed information", "faultDomainWithTaint", len(faultDomainsWithTaint), "faultDomains", len(faultDomains), "maxAllowed", maxAllowed, "allowed", allowed)
 
 	return allowed, nil
 }
@@ -121,9 +133,15 @@ func nodeTaintReplacementsAllowed(logger logr.Logger, cluster *fdbv1beta2.Founda
 // ReplaceFailedProcessGroups flags failed processes groups for removal. The first return value will indicate if any
 // new Process Group was removed and the second return value will indicate if there are more Process Groups that
 // needs a replacement, but the operator is not allowed to replace those as the limit is reached.
-func ReplaceFailedProcessGroups(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, hasDesiredFaultTolerance bool) (bool, bool) {
+func ReplaceFailedProcessGroups(
+	logger logr.Logger,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	status *fdbv1beta2.FoundationDBStatus,
+	hasDesiredFaultTolerance bool,
+) (bool, bool) {
 	// Automatic replacements are disabled or set to 0, so we don't have to check anything further
-	if !cluster.GetEnableAutomaticReplacements() || cluster.GetMaxConcurrentAutomaticReplacements() == 0 {
+	if !cluster.GetEnableAutomaticReplacements() ||
+		cluster.GetMaxConcurrentAutomaticReplacements() == 0 {
 		return false, false
 	}
 
@@ -138,7 +156,10 @@ func ReplaceFailedProcessGroups(logger logr.Logger, cluster *fdbv1beta2.Foundati
 		ignore = targets
 	}
 
-	maxReplacements, faultDomainsWithReplacements := getReplacementInformation(cluster, cluster.GetMaxConcurrentAutomaticReplacements())
+	maxReplacements, faultDomainsWithReplacements := getReplacementInformation(
+		cluster,
+		cluster.GetMaxConcurrentAutomaticReplacements(),
+	)
 	hasReplacement := false
 	hasMoreFailedProcesses := false
 	localitiesUsedForExclusion := cluster.UseLocalitiesForExclusion()
@@ -148,7 +169,10 @@ func ReplaceFailedProcessGroups(logger logr.Logger, cluster *fdbv1beta2.Foundati
 	// the replacement time to max int.
 	taintReplacementsAllowed, err := nodeTaintReplacementsAllowed(logger, cluster)
 	if err != nil {
-		logger.Error(err, "could not detect if replacements for taints is allowed, will default to false")
+		logger.Error(
+			err,
+			"could not detect if replacements for taints is allowed, will default to false",
+		)
 	}
 
 	if !taintReplacementsAllowed {
@@ -171,7 +195,10 @@ func ReplaceFailedProcessGroups(logger logr.Logger, cluster *fdbv1beta2.Foundati
 			continue
 		}
 
-		failureCondition, failureTime := processGroup.NeedsReplacement(failureDetectionTimeSeconds, taintReplacementTimeSeconds)
+		failureCondition, failureTime := processGroup.NeedsReplacement(
+			failureDetectionTimeSeconds,
+			taintReplacementTimeSeconds,
+		)
 		if failureTime == 0 {
 			continue
 		}
@@ -206,23 +233,46 @@ func ReplaceFailedProcessGroups(logger logr.Logger, cluster *fdbv1beta2.Foundati
 		}
 
 		// We are not allowed to replace additional process groups.
-		if !removalAllowed(cluster, maxReplacements, faultDomainsWithReplacements, processGroup.FaultDomain) {
+		if !removalAllowed(
+			cluster,
+			maxReplacements,
+			faultDomainsWithReplacements,
+			processGroup.FaultDomain,
+		) {
 			// If there are more processes that should be replaced but we hit the replace limit, we want to make sure
 			// the controller queues another reconciliation to eventually replace this failed process group.
 			hasMoreFailedProcesses = true
-			logger.Info("Detected replace process group but cannot replace it because we hit the replacement limit",
-				"processGroupID", processGroup.ProcessGroupID,
-				"failureCondition", failureCondition,
-				"faultDomain", processGroup.FaultDomain,
-				"reason", fmt.Sprintf("automatic replacement detected failure time: %s", time.Unix(failureTime, 0).UTC().String()))
+			logger.Info(
+				"Detected replace process group but cannot replace it because we hit the replacement limit",
+				"processGroupID",
+				processGroup.ProcessGroupID,
+				"failureCondition",
+				failureCondition,
+				"faultDomain",
+				processGroup.FaultDomain,
+				"reason",
+				fmt.Sprintf(
+					"automatic replacement detected failure time: %s",
+					time.Unix(failureTime, 0).UTC().String(),
+				),
+			)
 			continue
 		}
 
-		logger.Info("Replace process group",
-			"processGroupID", processGroup.ProcessGroupID,
-			"failureCondition", failureCondition,
-			"faultDomain", processGroup.FaultDomain,
-			"reason", fmt.Sprintf("automatic replacement detected failure time: %s", time.Unix(failureTime, 0).UTC().String()))
+		logger.Info(
+			"Replace process group",
+			"processGroupID",
+			processGroup.ProcessGroupID,
+			"failureCondition",
+			failureCondition,
+			"faultDomain",
+			processGroup.FaultDomain,
+			"reason",
+			fmt.Sprintf(
+				"automatic replacement detected failure time: %s",
+				time.Unix(failureTime, 0).UTC().String(),
+			),
+		)
 
 		processGroup.MarkForRemoval()
 		hasReplacement = true

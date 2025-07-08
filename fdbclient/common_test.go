@@ -72,7 +72,11 @@ var _ = Describe("common_test", func() {
 
 		When("the cluster file exist with the correct content", func() {
 			BeforeEach(func() {
-				err := os.WriteFile(path.Join(GinkgoT().TempDir(), uid), []byte(connectionString), 0777)
+				err := os.WriteFile(
+					path.Join(GinkgoT().TempDir(), uid),
+					[]byte(connectionString),
+					0777,
+				)
 				Expect(err).NotTo(HaveOccurred())
 			})
 

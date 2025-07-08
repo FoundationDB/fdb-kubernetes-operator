@@ -111,7 +111,9 @@ var _ = Describe("Operator with three data hall", Label("e2e"), func() {
 
 	It("should bring up the cluster with three data hall redundancy", func() {
 		status := fdbCluster.GetStatus()
-		Expect(status.Cluster.DatabaseConfiguration.RedundancyMode).To(Equal(fdbv1beta2.RedundancyModeThreeDataHall))
+		Expect(
+			status.Cluster.DatabaseConfiguration.RedundancyMode,
+		).To(Equal(fdbv1beta2.RedundancyModeThreeDataHall))
 		for _, process := range status.Cluster.Processes {
 			Expect(process.Locality).To(HaveKey(fdbv1beta2.FDBLocalityDataHallKey))
 		}
@@ -154,12 +156,18 @@ var _ = Describe("Operator with three data hall", Label("e2e"), func() {
 			Expect(fdbCluster.ClearProcessGroupsToRemove()).NotTo(HaveOccurred())
 			// Make sure we reset the previous behaviour.
 			spec := fdbCluster.GetCluster().Spec.DeepCopy()
-			spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(useLocalitiesForExclusion)
+			spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(
+				useLocalitiesForExclusion,
+			)
 			fdbCluster.UpdateClusterSpecWithSpec(spec)
-			Expect(fdbCluster.GetCluster().UseLocalitiesForExclusion()).To(Equal(useLocalitiesForExclusion))
+			Expect(
+				fdbCluster.GetCluster().UseLocalitiesForExclusion(),
+			).To(Equal(useLocalitiesForExclusion))
 
 			// Making sure we included back all the process groups after exclusion is complete.
-			Expect(fdbCluster.GetStatus().Cluster.DatabaseConfiguration.ExcludedServers).To(BeEmpty())
+			Expect(
+				fdbCluster.GetStatus().Cluster.DatabaseConfiguration.ExcludedServers,
+			).To(BeEmpty())
 
 			if factory.ChaosTestsEnabled() {
 				scheduleInjectPodKill = factory.ScheduleInjectPodKillWithName(
@@ -192,7 +200,9 @@ var _ = Describe("Operator with three data hall", Label("e2e"), func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				if !fdbVersion.SupportsLocalityBasedExclusions() {
-					Skip("provided FDB version: " + cluster.GetRunningVersion() + " doesn't support locality based exclusions")
+					Skip(
+						"provided FDB version: " + cluster.GetRunningVersion() + " doesn't support locality based exclusions",
+					)
 				}
 
 				spec := cluster.Spec.DeepCopy()
@@ -202,7 +212,12 @@ var _ = Describe("Operator with three data hall", Label("e2e"), func() {
 			})
 
 			It("should remove the targeted Pod", func() {
-				Expect(pointer.BoolDeref(fdbCluster.GetCluster().Spec.AutomationOptions.UseLocalitiesForExclusion, false)).To(BeTrue())
+				Expect(
+					pointer.BoolDeref(
+						fdbCluster.GetCluster().Spec.AutomationOptions.UseLocalitiesForExclusion,
+						false,
+					),
+				).To(BeTrue())
 				fdbCluster.EnsurePodIsDeleted(replacedPod.Name)
 			})
 		})

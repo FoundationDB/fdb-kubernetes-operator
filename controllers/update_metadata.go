@@ -35,7 +35,13 @@ import (
 type updateMetadata struct{}
 
 // reconcile runs the reconciler's work.
-func (updateMetadata) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, _ *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
+func (updateMetadata) reconcile(
+	ctx context.Context,
+	r *FoundationDBClusterReconciler,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	_ *fdbv1beta2.FoundationDBStatus,
+	logger logr.Logger,
+) *requeue {
 	var shouldRequeue bool
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup.IsMarkedForRemoval() {
@@ -76,18 +82,31 @@ func (updateMetadata) reconcile(ctx context.Context, r *FoundationDBClusterRecon
 		}
 
 		pvc := &corev1.PersistentVolumeClaim{}
-		err = r.Get(ctx, client.ObjectKey{Namespace: cluster.Namespace, Name: processGroup.GetPvcName(cluster)}, pvc)
+		err = r.Get(
+			ctx,
+			client.ObjectKey{Namespace: cluster.Namespace, Name: processGroup.GetPvcName(cluster)},
+			pvc,
+		)
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
 				logger.V(1).Info("Could not find PVC for process group ID",
 					"processGroupID", processGroup.ProcessGroupID)
 				continue
 			}
-			logger.Error(err, "Could not get PVC for process group ID", "processGroupID", processGroup.ProcessGroupID)
+			logger.Error(
+				err,
+				"Could not get PVC for process group ID",
+				"processGroupID",
+				processGroup.ProcessGroupID,
+			)
 			continue
 		}
 
-		metadata := internal.GetPvcMetadata(cluster, processGroup.ProcessClass, processGroup.ProcessGroupID)
+		metadata := internal.GetPvcMetadata(
+			cluster,
+			processGroup.ProcessClass,
+			processGroup.ProcessGroupID,
+		)
 		if metadata.Annotations == nil {
 			metadata.Annotations = make(map[string]string, 1)
 		}

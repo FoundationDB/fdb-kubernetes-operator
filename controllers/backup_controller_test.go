@@ -46,8 +46,14 @@ func reloadBackup(backup *fdbv1beta2.FoundationDBBackup) (int64, error) {
 	return generations.Reconciled, err
 }
 
-func reloadBackupGenerations(backup *fdbv1beta2.FoundationDBBackup) (fdbv1beta2.BackupGenerationStatus, error) {
-	err := k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: backup.Namespace, Name: backup.Name}, backup)
+func reloadBackupGenerations(
+	backup *fdbv1beta2.FoundationDBBackup,
+) (fdbv1beta2.BackupGenerationStatus, error) {
+	err := k8sClient.Get(
+		context.TODO(),
+		types.NamespacedName{Namespace: backup.Namespace, Name: backup.Name},
+		backup,
+	)
 	if err != nil {
 		return fdbv1beta2.BackupGenerationStatus{}, err
 	}
@@ -82,7 +88,13 @@ var _ = Describe("backup_controller", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(generation).NotTo(Equal(int64(0)))
 
-			Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)).To(Succeed())
+			Expect(
+				k8sClient.Get(
+					context.TODO(),
+					types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name},
+					cluster,
+				),
+			).To(Succeed())
 
 			Expect(k8sClient.Create(context.TODO(), backup)).To(Succeed())
 
@@ -93,7 +105,13 @@ var _ = Describe("backup_controller", func() {
 			generation, err = reloadBackup(backup)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(generation).NotTo(Equal(int64(0)))
-			Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)).To(Succeed())
+			Expect(
+				k8sClient.Get(
+					context.TODO(),
+					types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name},
+					cluster,
+				),
+			).To(Succeed())
 
 			originalVersion = backup.ObjectMeta.Generation
 			generationGap = 1
@@ -107,7 +125,11 @@ var _ = Describe("backup_controller", func() {
 			generation, err := reloadBackup(backup)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(generation).To(Equal(originalVersion + generationGap))
-			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: backup.Namespace, Name: backup.Name}, cluster)
+			err = k8sClient.Get(
+				context.TODO(),
+				types.NamespacedName{Namespace: backup.Namespace, Name: backup.Name},
+				cluster,
+			)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -120,10 +142,16 @@ var _ = Describe("backup_controller", func() {
 				deployment := &appsv1.Deployment{}
 				deploymentName := fmt.Sprintf("%s-backup-agents", cluster.Name)
 
-				err := k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: deploymentName}, deployment)
+				err := k8sClient.Get(
+					context.TODO(),
+					types.NamespacedName{Namespace: cluster.Namespace, Name: deploymentName},
+					deployment,
+				)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(*deployment.Spec.Replicas).To(Equal(int32(3)))
-				Expect(deployment.Spec.Template.Spec.Containers[0].Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb:%s", cluster.Spec.Version)))
+				Expect(
+					deployment.Spec.Template.Spec.Containers[0].Image,
+				).To(Equal(fmt.Sprintf("foundationdb/foundationdb:%s", cluster.Spec.Version)))
 			})
 
 			It("should update the status on the resource", func() {
@@ -144,7 +172,9 @@ var _ = Describe("backup_controller", func() {
 			It("should start a backup", func() {
 				status, err := adminClient.GetBackupStatus()
 				Expect(err).NotTo(HaveOccurred())
-				Expect(status.DestinationURL).To(Equal("blobstore://test@test-service:443/test-backup?bucket=fdb-backups"))
+				Expect(
+					status.DestinationURL,
+				).To(Equal("blobstore://test@test-service:443/test-backup?bucket=fdb-backups"))
 				Expect(status.Status.Running).To(BeTrue())
 				Expect(status.BackupAgentsPaused).To(BeFalse())
 			})

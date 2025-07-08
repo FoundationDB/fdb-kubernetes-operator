@@ -42,7 +42,12 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func generateDummyProcessInfo(id string, dcID string, port int, tls bool) fdbv1beta2.FoundationDBStatusProcessInfo {
+func generateDummyProcessInfo(
+	id string,
+	dcID string,
+	port int,
+	tls bool,
+) fdbv1beta2.FoundationDBStatusProcessInfo {
 	ipString := "1.1.1." + strings.Split(id, "-")[1]
 
 	var tlsSuffix string
@@ -207,18 +212,21 @@ var _ = Describe("Localities", func() {
 					cluster.Spec.CoordinatorSelection = []fdbv1beta2.CoordinatorSelectionSetting{}
 				})
 
-				It("should sort the localities based on the IDs but prefer transaction system Pods", func() {
-					sortLocalities("", localities)
+				It(
+					"should sort the localities based on the IDs but prefer transaction system Pods",
+					func() {
+						sortLocalities("", localities)
 
-					Expect(localities[0].Class).To(Equal(fdbv1beta2.ProcessClassLog))
-					Expect(localities[0].ID).To(Equal("log-1"))
-					Expect(localities[1].Class).To(Equal(fdbv1beta2.ProcessClassTransaction))
-					Expect(localities[1].ID).To(Equal("tlog-1"))
-					Expect(localities[2].Class).To(Equal(fdbv1beta2.ProcessClassStorage))
-					Expect(localities[2].ID).To(Equal("storage-1"))
-					Expect(localities[3].Class).To(Equal(fdbv1beta2.ProcessClassStorage))
-					Expect(localities[3].ID).To(Equal("storage-51"))
-				})
+						Expect(localities[0].Class).To(Equal(fdbv1beta2.ProcessClassLog))
+						Expect(localities[0].ID).To(Equal("log-1"))
+						Expect(localities[1].Class).To(Equal(fdbv1beta2.ProcessClassTransaction))
+						Expect(localities[1].ID).To(Equal("tlog-1"))
+						Expect(localities[2].Class).To(Equal(fdbv1beta2.ProcessClassStorage))
+						Expect(localities[2].ID).To(Equal("storage-1"))
+						Expect(localities[3].Class).To(Equal(fdbv1beta2.ProcessClassStorage))
+						Expect(localities[3].ID).To(Equal("storage-51"))
+					},
+				)
 			})
 
 			When("when the storage class is preferred", func() {
@@ -370,24 +378,45 @@ var _ = Describe("Localities", func() {
 					cluster.Spec.CoordinatorSelection = []fdbv1beta2.CoordinatorSelectionSetting{}
 				})
 
-				It("should sort the localities based on the IDs but prefer transaction system Pods", func() {
-					Expect(localities[0].Class).To(Equal(fdbv1beta2.ProcessClassLog))
-					Expect(localities[0].LocalityData).To(HaveKeyWithValue(fdbv1beta2.FDBLocalityDCIDKey, primaryID))
-					Expect(localities[1].Class).To(Equal(fdbv1beta2.ProcessClassStorage))
-					Expect(localities[1].LocalityData).To(HaveKeyWithValue(fdbv1beta2.FDBLocalityDCIDKey, primaryID))
-					Expect(localities[2].Class).To(Equal(fdbv1beta2.ProcessClassStorage))
-					Expect(localities[2].LocalityData).To(HaveKeyWithValue(fdbv1beta2.FDBLocalityDCIDKey, primaryID))
-					// The rest of the clusters are ordered by priority and the process ID.
-					Expect(localities[3].Class).To(Equal(fdbv1beta2.ProcessClassLog))
-					Expect(localities[3].LocalityData).To(HaveKey(fdbv1beta2.FDBLocalityDCIDKey))
-					Expect(localities[3].LocalityData[fdbv1beta2.FDBLocalityDCIDKey]).NotTo(Equal(primaryID))
-					Expect(localities[4].Class).To(Equal(fdbv1beta2.ProcessClassLog))
-					Expect(localities[4].LocalityData).To(HaveKey(fdbv1beta2.FDBLocalityDCIDKey))
-					Expect(localities[4].LocalityData[fdbv1beta2.FDBLocalityDCIDKey]).NotTo(Equal(primaryID))
-					Expect(localities[5].Class).To(Equal(fdbv1beta2.ProcessClassLog))
-					Expect(localities[5].LocalityData).To(HaveKey(fdbv1beta2.FDBLocalityDCIDKey))
-					Expect(localities[5].LocalityData[fdbv1beta2.FDBLocalityDCIDKey]).NotTo(Equal(primaryID))
-				})
+				It(
+					"should sort the localities based on the IDs but prefer transaction system Pods",
+					func() {
+						Expect(localities[0].Class).To(Equal(fdbv1beta2.ProcessClassLog))
+						Expect(
+							localities[0].LocalityData,
+						).To(HaveKeyWithValue(fdbv1beta2.FDBLocalityDCIDKey, primaryID))
+						Expect(localities[1].Class).To(Equal(fdbv1beta2.ProcessClassStorage))
+						Expect(
+							localities[1].LocalityData,
+						).To(HaveKeyWithValue(fdbv1beta2.FDBLocalityDCIDKey, primaryID))
+						Expect(localities[2].Class).To(Equal(fdbv1beta2.ProcessClassStorage))
+						Expect(
+							localities[2].LocalityData,
+						).To(HaveKeyWithValue(fdbv1beta2.FDBLocalityDCIDKey, primaryID))
+						// The rest of the clusters are ordered by priority and the process ID.
+						Expect(localities[3].Class).To(Equal(fdbv1beta2.ProcessClassLog))
+						Expect(
+							localities[3].LocalityData,
+						).To(HaveKey(fdbv1beta2.FDBLocalityDCIDKey))
+						Expect(
+							localities[3].LocalityData[fdbv1beta2.FDBLocalityDCIDKey],
+						).NotTo(Equal(primaryID))
+						Expect(localities[4].Class).To(Equal(fdbv1beta2.ProcessClassLog))
+						Expect(
+							localities[4].LocalityData,
+						).To(HaveKey(fdbv1beta2.FDBLocalityDCIDKey))
+						Expect(
+							localities[4].LocalityData[fdbv1beta2.FDBLocalityDCIDKey],
+						).NotTo(Equal(primaryID))
+						Expect(localities[5].Class).To(Equal(fdbv1beta2.ProcessClassLog))
+						Expect(
+							localities[5].LocalityData,
+						).To(HaveKey(fdbv1beta2.FDBLocalityDCIDKey))
+						Expect(
+							localities[5].LocalityData[fdbv1beta2.FDBLocalityDCIDKey],
+						).NotTo(Equal(primaryID))
+					},
+				)
 			})
 
 			When("when the storage class is preferred", func() {
@@ -402,21 +431,33 @@ var _ = Describe("Localities", func() {
 
 				It("should sort the localities based on the provided config", func() {
 					Expect(localities[0].Class).To(Equal(fdbv1beta2.ProcessClassStorage))
-					Expect(localities[0].LocalityData).To(HaveKeyWithValue(fdbv1beta2.FDBLocalityDCIDKey, primaryID))
+					Expect(
+						localities[0].LocalityData,
+					).To(HaveKeyWithValue(fdbv1beta2.FDBLocalityDCIDKey, primaryID))
 					Expect(localities[1].Class).To(Equal(fdbv1beta2.ProcessClassStorage))
-					Expect(localities[1].LocalityData).To(HaveKeyWithValue(fdbv1beta2.FDBLocalityDCIDKey, primaryID))
+					Expect(
+						localities[1].LocalityData,
+					).To(HaveKeyWithValue(fdbv1beta2.FDBLocalityDCIDKey, primaryID))
 					Expect(localities[2].Class).To(Equal(fdbv1beta2.ProcessClassLog))
-					Expect(localities[2].LocalityData).To(HaveKeyWithValue(fdbv1beta2.FDBLocalityDCIDKey, primaryID))
+					Expect(
+						localities[2].LocalityData,
+					).To(HaveKeyWithValue(fdbv1beta2.FDBLocalityDCIDKey, primaryID))
 					// The rest of the clusters are ordered by priority and the process ID.
 					Expect(localities[3].Class).To(Equal(fdbv1beta2.ProcessClassStorage))
 					Expect(localities[3].LocalityData).To(HaveKey(fdbv1beta2.FDBLocalityDCIDKey))
-					Expect(localities[3].LocalityData[fdbv1beta2.FDBLocalityDCIDKey]).NotTo(Equal(primaryID))
+					Expect(
+						localities[3].LocalityData[fdbv1beta2.FDBLocalityDCIDKey],
+					).NotTo(Equal(primaryID))
 					Expect(localities[4].Class).To(Equal(fdbv1beta2.ProcessClassStorage))
 					Expect(localities[4].LocalityData).To(HaveKey(fdbv1beta2.FDBLocalityDCIDKey))
-					Expect(localities[4].LocalityData[fdbv1beta2.FDBLocalityDCIDKey]).NotTo(Equal(primaryID))
+					Expect(
+						localities[4].LocalityData[fdbv1beta2.FDBLocalityDCIDKey],
+					).NotTo(Equal(primaryID))
 					Expect(localities[5].Class).To(Equal(fdbv1beta2.ProcessClassStorage))
 					Expect(localities[5].LocalityData).To(HaveKey(fdbv1beta2.FDBLocalityDCIDKey))
-					Expect(localities[5].LocalityData[fdbv1beta2.FDBLocalityDCIDKey]).NotTo(Equal(primaryID))
+					Expect(
+						localities[5].LocalityData[fdbv1beta2.FDBLocalityDCIDKey],
+					).NotTo(Equal(primaryID))
 				})
 			})
 		})
@@ -430,15 +471,41 @@ var _ = Describe("Localities", func() {
 		Context("with a flat set of processes", func() {
 			BeforeEach(func() {
 				candidates = []Info{
-					{ID: "p1", LocalityData: map[string]string{fdbv1beta2.FDBLocalityZoneIDKey: "z1"}},
-					{ID: "p2", LocalityData: map[string]string{fdbv1beta2.FDBLocalityZoneIDKey: "z1"}},
-					{ID: "p3", LocalityData: map[string]string{fdbv1beta2.FDBLocalityZoneIDKey: "z2"}},
-					{ID: "p4", LocalityData: map[string]string{fdbv1beta2.FDBLocalityZoneIDKey: "z3"}},
-					{ID: "p5", LocalityData: map[string]string{fdbv1beta2.FDBLocalityZoneIDKey: "z2"}},
-					{ID: "p6", LocalityData: map[string]string{fdbv1beta2.FDBLocalityZoneIDKey: "z4"}},
-					{ID: "p7", LocalityData: map[string]string{fdbv1beta2.FDBLocalityZoneIDKey: "z5"}},
+					{
+						ID:           "p1",
+						LocalityData: map[string]string{fdbv1beta2.FDBLocalityZoneIDKey: "z1"},
+					},
+					{
+						ID:           "p2",
+						LocalityData: map[string]string{fdbv1beta2.FDBLocalityZoneIDKey: "z1"},
+					},
+					{
+						ID:           "p3",
+						LocalityData: map[string]string{fdbv1beta2.FDBLocalityZoneIDKey: "z2"},
+					},
+					{
+						ID:           "p4",
+						LocalityData: map[string]string{fdbv1beta2.FDBLocalityZoneIDKey: "z3"},
+					},
+					{
+						ID:           "p5",
+						LocalityData: map[string]string{fdbv1beta2.FDBLocalityZoneIDKey: "z2"},
+					},
+					{
+						ID:           "p6",
+						LocalityData: map[string]string{fdbv1beta2.FDBLocalityZoneIDKey: "z4"},
+					},
+					{
+						ID:           "p7",
+						LocalityData: map[string]string{fdbv1beta2.FDBLocalityZoneIDKey: "z5"},
+					},
 				}
-				result, err = ChooseDistributedProcesses(cluster, candidates, 5, ProcessSelectionConstraint{})
+				result, err = ChooseDistributedProcesses(
+					cluster,
+					candidates,
+					5,
+					ProcessSelectionConstraint{},
+				)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -455,18 +522,41 @@ var _ = Describe("Localities", func() {
 		Context("with fewer zones than desired processes", func() {
 			BeforeEach(func() {
 				candidates = []Info{
-					{ID: "p1", LocalityData: map[string]string{fdbv1beta2.FDBLocalityZoneIDKey: "z1"}},
-					{ID: "p2", LocalityData: map[string]string{fdbv1beta2.FDBLocalityZoneIDKey: "z1"}},
-					{ID: "p3", LocalityData: map[string]string{fdbv1beta2.FDBLocalityZoneIDKey: "z2"}},
-					{ID: "p4", LocalityData: map[string]string{fdbv1beta2.FDBLocalityZoneIDKey: "z3"}},
-					{ID: "p5", LocalityData: map[string]string{fdbv1beta2.FDBLocalityZoneIDKey: "z2"}},
-					{ID: "p6", LocalityData: map[string]string{fdbv1beta2.FDBLocalityZoneIDKey: "z4"}},
+					{
+						ID:           "p1",
+						LocalityData: map[string]string{fdbv1beta2.FDBLocalityZoneIDKey: "z1"},
+					},
+					{
+						ID:           "p2",
+						LocalityData: map[string]string{fdbv1beta2.FDBLocalityZoneIDKey: "z1"},
+					},
+					{
+						ID:           "p3",
+						LocalityData: map[string]string{fdbv1beta2.FDBLocalityZoneIDKey: "z2"},
+					},
+					{
+						ID:           "p4",
+						LocalityData: map[string]string{fdbv1beta2.FDBLocalityZoneIDKey: "z3"},
+					},
+					{
+						ID:           "p5",
+						LocalityData: map[string]string{fdbv1beta2.FDBLocalityZoneIDKey: "z2"},
+					},
+					{
+						ID:           "p6",
+						LocalityData: map[string]string{fdbv1beta2.FDBLocalityZoneIDKey: "z4"},
+					},
 				}
 			})
 
 			Context("with no hard limit", func() {
 				It("should only re-use zones as necessary", func() {
-					result, err = ChooseDistributedProcesses(cluster, candidates, 5, ProcessSelectionConstraint{})
+					result, err = ChooseDistributedProcesses(
+						cluster,
+						candidates,
+						5,
+						ProcessSelectionConstraint{},
+					)
 					Expect(err).NotTo(HaveOccurred())
 
 					Expect(len(result)).To(Equal(5))
@@ -480,11 +570,18 @@ var _ = Describe("Localities", func() {
 
 			Context("with a hard limit", func() {
 				It("should give an error", func() {
-					result, err = ChooseDistributedProcesses(cluster, candidates, 5, ProcessSelectionConstraint{
-						HardLimits: map[string]int{fdbv1beta2.FDBLocalityZoneIDKey: 1},
-					})
+					result, err = ChooseDistributedProcesses(
+						cluster,
+						candidates,
+						5,
+						ProcessSelectionConstraint{
+							HardLimits: map[string]int{fdbv1beta2.FDBLocalityZoneIDKey: 1},
+						},
+					)
 					Expect(err).To(HaveOccurred())
-					Expect(err.Error()).To(Equal("Could only select 4 processes, but 5 are required"))
+					Expect(
+						err.Error(),
+					).To(Equal("Could only select 4 processes, but 5 are required"))
 				})
 			})
 		})
@@ -492,22 +589,87 @@ var _ = Describe("Localities", func() {
 		Context("with multiple data centers", func() {
 			BeforeEach(func() {
 				candidates = []Info{
-					{ID: "p1", LocalityData: map[string]string{fdbv1beta2.FDBLocalityZoneIDKey: "z1", fdbv1beta2.FDBLocalityDCIDKey: "dc1"}},
-					{ID: "p2", LocalityData: map[string]string{fdbv1beta2.FDBLocalityZoneIDKey: "z1", fdbv1beta2.FDBLocalityDCIDKey: "dc1"}},
-					{ID: "p3", LocalityData: map[string]string{fdbv1beta2.FDBLocalityZoneIDKey: "z2", fdbv1beta2.FDBLocalityDCIDKey: "dc1"}},
-					{ID: "p4", LocalityData: map[string]string{fdbv1beta2.FDBLocalityZoneIDKey: "z3", fdbv1beta2.FDBLocalityDCIDKey: "dc1"}},
-					{ID: "p5", LocalityData: map[string]string{fdbv1beta2.FDBLocalityZoneIDKey: "z2", fdbv1beta2.FDBLocalityDCIDKey: "dc1"}},
-					{ID: "p6", LocalityData: map[string]string{fdbv1beta2.FDBLocalityZoneIDKey: "z4", fdbv1beta2.FDBLocalityDCIDKey: "dc1"}},
-					{ID: "p7", LocalityData: map[string]string{fdbv1beta2.FDBLocalityZoneIDKey: "z5", fdbv1beta2.FDBLocalityDCIDKey: "dc1"}},
-					{ID: "p8", LocalityData: map[string]string{fdbv1beta2.FDBLocalityZoneIDKey: "z6", fdbv1beta2.FDBLocalityDCIDKey: "dc2"}},
-					{ID: "p9", LocalityData: map[string]string{fdbv1beta2.FDBLocalityZoneIDKey: "z7", fdbv1beta2.FDBLocalityDCIDKey: "dc2"}},
-					{ID: "p10", LocalityData: map[string]string{fdbv1beta2.FDBLocalityZoneIDKey: "z8", fdbv1beta2.FDBLocalityDCIDKey: "dc2"}},
+					{
+						ID: "p1",
+						LocalityData: map[string]string{
+							fdbv1beta2.FDBLocalityZoneIDKey: "z1",
+							fdbv1beta2.FDBLocalityDCIDKey:   "dc1",
+						},
+					},
+					{
+						ID: "p2",
+						LocalityData: map[string]string{
+							fdbv1beta2.FDBLocalityZoneIDKey: "z1",
+							fdbv1beta2.FDBLocalityDCIDKey:   "dc1",
+						},
+					},
+					{
+						ID: "p3",
+						LocalityData: map[string]string{
+							fdbv1beta2.FDBLocalityZoneIDKey: "z2",
+							fdbv1beta2.FDBLocalityDCIDKey:   "dc1",
+						},
+					},
+					{
+						ID: "p4",
+						LocalityData: map[string]string{
+							fdbv1beta2.FDBLocalityZoneIDKey: "z3",
+							fdbv1beta2.FDBLocalityDCIDKey:   "dc1",
+						},
+					},
+					{
+						ID: "p5",
+						LocalityData: map[string]string{
+							fdbv1beta2.FDBLocalityZoneIDKey: "z2",
+							fdbv1beta2.FDBLocalityDCIDKey:   "dc1",
+						},
+					},
+					{
+						ID: "p6",
+						LocalityData: map[string]string{
+							fdbv1beta2.FDBLocalityZoneIDKey: "z4",
+							fdbv1beta2.FDBLocalityDCIDKey:   "dc1",
+						},
+					},
+					{
+						ID: "p7",
+						LocalityData: map[string]string{
+							fdbv1beta2.FDBLocalityZoneIDKey: "z5",
+							fdbv1beta2.FDBLocalityDCIDKey:   "dc1",
+						},
+					},
+					{
+						ID: "p8",
+						LocalityData: map[string]string{
+							fdbv1beta2.FDBLocalityZoneIDKey: "z6",
+							fdbv1beta2.FDBLocalityDCIDKey:   "dc2",
+						},
+					},
+					{
+						ID: "p9",
+						LocalityData: map[string]string{
+							fdbv1beta2.FDBLocalityZoneIDKey: "z7",
+							fdbv1beta2.FDBLocalityDCIDKey:   "dc2",
+						},
+					},
+					{
+						ID: "p10",
+						LocalityData: map[string]string{
+							fdbv1beta2.FDBLocalityZoneIDKey: "z8",
+							fdbv1beta2.FDBLocalityDCIDKey:   "dc2",
+						},
+					},
 				}
 			})
 
 			Context("with the default constraints", func() {
 				BeforeEach(func() {
-					result, err = ChooseDistributedProcesses(cluster, candidates, 5, ProcessSelectionConstraint{})
+					result, err = ChooseDistributedProcesses(
+						cluster,
+						candidates,
+						5,
+						ProcessSelectionConstraint{},
+					)
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -523,9 +685,14 @@ var _ = Describe("Localities", func() {
 
 			Context("when only distributing across data centers", func() {
 				BeforeEach(func() {
-					result, err = ChooseDistributedProcesses(cluster, candidates, 5, ProcessSelectionConstraint{
-						Fields: []string{"dcid"},
-					})
+					result, err = ChooseDistributedProcesses(
+						cluster,
+						candidates,
+						5,
+						ProcessSelectionConstraint{
+							Fields: []string{"dcid"},
+						},
+					)
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -603,27 +770,35 @@ var _ = Describe("Localities", func() {
 			When("testing the correct behavior with a small set of candidates", func() {
 				BeforeEach(func() {
 					candidates = generateCandidates(dcIDs, 5, 5)
-					result, err = ChooseDistributedProcesses(cluster, candidates, cluster.DesiredCoordinatorCount(), ProcessSelectionConstraint{
-						HardLimits: GetHardLimits(cluster),
-					})
+					result, err = ChooseDistributedProcesses(
+						cluster,
+						candidates,
+						cluster.DesiredCoordinatorCount(),
+						ProcessSelectionConstraint{
+							HardLimits: GetHardLimits(cluster),
+						},
+					)
 					Expect(err).NotTo(HaveOccurred())
 				})
 
-				It("should recruit the processes across multiple dcs and prefer the primary", func() {
-					Expect(len(result)).To(Equal(9))
+				It(
+					"should recruit the processes across multiple dcs and prefer the primary",
+					func() {
+						Expect(len(result)).To(Equal(9))
 
-					dcCount := map[string]int{}
-					for _, process := range result {
-						dcCount[process.LocalityData[fdbv1beta2.FDBLocalityDCIDKey]]++
-					}
+						dcCount := map[string]int{}
+						for _, process := range result {
+							dcCount[process.LocalityData[fdbv1beta2.FDBLocalityDCIDKey]]++
+						}
 
-					Expect(dcCount).To(Equal(map[string]int{
-						primaryID:          3,
-						remoteID:           2,
-						remoteSatelliteID:  2,
-						primarySatelliteID: 2,
-					}))
-				})
+						Expect(dcCount).To(Equal(map[string]int{
+							primaryID:          3,
+							remoteID:           2,
+							remoteSatelliteID:  2,
+							primarySatelliteID: 2,
+						}))
+					},
+				)
 			})
 
 			// Adding a benchmark test for the ChooseDistributedProcesses. In order to print the set use FIt.
@@ -644,9 +819,14 @@ var _ = Describe("Localities", func() {
 						})
 						// Only measure the actual execution of ChooseDistributedProcesses.
 						experiment.MeasureDuration("ChooseDistributedProcesses", func() {
-							_, _ = ChooseDistributedProcesses(cluster, candidates, cluster.DesiredCoordinatorCount(), ProcessSelectionConstraint{
-								HardLimits: GetHardLimits(cluster),
-							})
+							_, _ = ChooseDistributedProcesses(
+								cluster,
+								candidates,
+								cluster.DesiredCoordinatorCount(),
+								ProcessSelectionConstraint{
+									HardLimits: GetHardLimits(cluster),
+								},
+							)
 						})
 						// We'll sample the function up to 50 times or up to a minute, whichever comes first.
 					}, gmeasure.SamplingConfig{N: 50, Duration: time.Minute})
@@ -654,144 +834,161 @@ var _ = Describe("Localities", func() {
 			})
 		})
 
-		When("a multi-region cluster is used with 4 dcs and storage processes should be preferred", func() {
-			var primaryID, remoteID, primarySatelliteID, remoteSatelliteID string
+		When(
+			"a multi-region cluster is used with 4 dcs and storage processes should be preferred",
+			func() {
+				var primaryID, remoteID, primarySatelliteID, remoteSatelliteID string
 
-			BeforeEach(func() {
-				// Generate random names to make sure we test different alphabetical orderings.
-				primaryID = internal.GenerateRandomString(10)
-				remoteID = internal.GenerateRandomString(10)
-				primarySatelliteID = internal.GenerateRandomString(10)
-				remoteSatelliteID = internal.GenerateRandomString(10)
+				BeforeEach(func() {
+					// Generate random names to make sure we test different alphabetical orderings.
+					primaryID = internal.GenerateRandomString(10)
+					remoteID = internal.GenerateRandomString(10)
+					primarySatelliteID = internal.GenerateRandomString(10)
+					remoteSatelliteID = internal.GenerateRandomString(10)
 
-				cluster.Spec.CoordinatorSelection = []fdbv1beta2.CoordinatorSelectionSetting{
-					{
-						ProcessClass: fdbv1beta2.ProcessClassStorage,
-						Priority:     math.MaxInt32,
-					},
-					{
-						ProcessClass: fdbv1beta2.ProcessClassLog,
-						Priority:     0,
-					},
-				}
-				candidates = make([]Info, 18)
-				idx := 0
-				for _, dcID := range []string{primaryID, primarySatelliteID, remoteID, remoteSatelliteID} {
-					for i := 0; i < 3; i++ {
-						candidates[idx] = Info{
-							ID:    strconv.Itoa(idx),
-							Class: fdbv1beta2.ProcessClassLog,
-							LocalityData: map[string]string{
-								fdbv1beta2.FDBLocalityZoneIDKey: dcID + "-z1" + strconv.Itoa(i),
-								fdbv1beta2.FDBLocalityDCIDKey:   dcID,
-							},
-							Priority: cluster.GetClassCandidatePriority(fdbv1beta2.ProcessClassLog),
-						}
-
-						idx++
-					}
-
-					if dcID == primarySatelliteID || dcID == remoteSatelliteID {
-						continue
-					}
-
-					for i := 0; i < 3; i++ {
-						candidates[idx] = Info{
-							ID:    strconv.Itoa(idx),
-							Class: fdbv1beta2.ProcessClassStorage,
-							LocalityData: map[string]string{
-								fdbv1beta2.FDBLocalityZoneIDKey: dcID + "-z2" + strconv.Itoa(i),
-								fdbv1beta2.FDBLocalityDCIDKey:   dcID,
-							},
-							Priority: cluster.GetClassCandidatePriority(fdbv1beta2.ProcessClassStorage),
-						}
-
-						idx++
-					}
-				}
-
-				cluster.Spec.DatabaseConfiguration = fdbv1beta2.DatabaseConfiguration{
-					UsableRegions: 2,
-					Regions: []fdbv1beta2.Region{
+					cluster.Spec.CoordinatorSelection = []fdbv1beta2.CoordinatorSelectionSetting{
 						{
-							DataCenters: []fdbv1beta2.DataCenter{
-								{
-									ID:       primaryID,
-									Priority: 1,
+							ProcessClass: fdbv1beta2.ProcessClassStorage,
+							Priority:     math.MaxInt32,
+						},
+						{
+							ProcessClass: fdbv1beta2.ProcessClassLog,
+							Priority:     0,
+						},
+					}
+					candidates = make([]Info, 18)
+					idx := 0
+					for _, dcID := range []string{primaryID, primarySatelliteID, remoteID, remoteSatelliteID} {
+						for i := 0; i < 3; i++ {
+							candidates[idx] = Info{
+								ID:    strconv.Itoa(idx),
+								Class: fdbv1beta2.ProcessClassLog,
+								LocalityData: map[string]string{
+									fdbv1beta2.FDBLocalityZoneIDKey: dcID + "-z1" + strconv.Itoa(i),
+									fdbv1beta2.FDBLocalityDCIDKey:   dcID,
 								},
-								{
-									ID:        primarySatelliteID,
-									Priority:  1,
-									Satellite: 1,
+								Priority: cluster.GetClassCandidatePriority(
+									fdbv1beta2.ProcessClassLog,
+								),
+							}
+
+							idx++
+						}
+
+						if dcID == primarySatelliteID || dcID == remoteSatelliteID {
+							continue
+						}
+
+						for i := 0; i < 3; i++ {
+							candidates[idx] = Info{
+								ID:    strconv.Itoa(idx),
+								Class: fdbv1beta2.ProcessClassStorage,
+								LocalityData: map[string]string{
+									fdbv1beta2.FDBLocalityZoneIDKey: dcID + "-z2" + strconv.Itoa(i),
+									fdbv1beta2.FDBLocalityDCIDKey:   dcID,
 								},
-								{
-									ID:        remoteSatelliteID,
-									Priority:  0,
-									Satellite: 1,
+								Priority: cluster.GetClassCandidatePriority(
+									fdbv1beta2.ProcessClassStorage,
+								),
+							}
+
+							idx++
+						}
+					}
+
+					cluster.Spec.DatabaseConfiguration = fdbv1beta2.DatabaseConfiguration{
+						UsableRegions: 2,
+						Regions: []fdbv1beta2.Region{
+							{
+								DataCenters: []fdbv1beta2.DataCenter{
+									{
+										ID:       primaryID,
+										Priority: 1,
+									},
+									{
+										ID:        primarySatelliteID,
+										Priority:  1,
+										Satellite: 1,
+									},
+									{
+										ID:        remoteSatelliteID,
+										Priority:  0,
+										Satellite: 1,
+									},
+								},
+							},
+							{
+								DataCenters: []fdbv1beta2.DataCenter{
+									{
+										ID:       remoteID,
+										Priority: 0,
+									},
+									{
+										ID:        remoteSatelliteID,
+										Priority:  1,
+										Satellite: 1,
+									},
+									{
+										ID:        primarySatelliteID,
+										Priority:  0,
+										Satellite: 1,
+									},
 								},
 							},
 						},
-						{
-							DataCenters: []fdbv1beta2.DataCenter{
-								{
-									ID:       remoteID,
-									Priority: 0,
-								},
-								{
-									ID:        remoteSatelliteID,
-									Priority:  1,
-									Satellite: 1,
-								},
-								{
-									ID:        primarySatelliteID,
-									Priority:  0,
-									Satellite: 1,
-								},
-							},
-						},
-					},
-				}
+					}
 
-				result, err = ChooseDistributedProcesses(cluster, candidates, cluster.DesiredCoordinatorCount(), ProcessSelectionConstraint{
-					HardLimits: GetHardLimits(cluster),
+					result, err = ChooseDistributedProcesses(
+						cluster,
+						candidates,
+						cluster.DesiredCoordinatorCount(),
+						ProcessSelectionConstraint{
+							HardLimits: GetHardLimits(cluster),
+						},
+					)
+					Expect(err).NotTo(HaveOccurred())
 				})
-				Expect(err).NotTo(HaveOccurred())
-			})
 
-			It("should recruit the processes across multiple dcs and prefer the primary", func() {
-				Expect(len(result)).To(Equal(9))
-				var storageCnt int
-				var logCnt int
+				It(
+					"should recruit the processes across multiple dcs and prefer the primary",
+					func() {
+						Expect(len(result)).To(Equal(9))
+						var storageCnt int
+						var logCnt int
 
-				dcCount := map[string]int{}
-				for _, process := range result {
-					dcCount[process.LocalityData[fdbv1beta2.FDBLocalityDCIDKey]]++
-					if process.Class == fdbv1beta2.ProcessClassLog {
-						logCnt++
-						continue
-					}
+						dcCount := map[string]int{}
+						for _, process := range result {
+							dcCount[process.LocalityData[fdbv1beta2.FDBLocalityDCIDKey]]++
+							if process.Class == fdbv1beta2.ProcessClassLog {
+								logCnt++
+								continue
+							}
 
-					storageCnt++
-				}
+							storageCnt++
+						}
 
-				Expect(dcCount).To(Equal(map[string]int{
-					primaryID:          3,
-					remoteID:           2,
-					remoteSatelliteID:  2,
-					primarySatelliteID: 2,
-				}))
+						Expect(dcCount).To(Equal(map[string]int{
+							primaryID:          3,
+							remoteID:           2,
+							remoteSatelliteID:  2,
+							primarySatelliteID: 2,
+						}))
 
-				// 5 storage processes should be recruited in the main and remote dc
-				Expect(storageCnt).To(BeNumerically("==", 5))
-				// the satellites only have logs, so only logs are recruited
-				Expect(logCnt).To(BeNumerically("==", 4))
-			})
-		})
+						// 5 storage processes should be recruited in the main and remote dc
+						Expect(storageCnt).To(BeNumerically("==", 5))
+						// the satellites only have logs, so only logs are recruited
+						Expect(logCnt).To(BeNumerically("==", 4))
+					},
+				)
+			},
+		)
 	})
 
-	DescribeTable("when getting the hard limits", func(cluster *fdbv1beta2.FoundationDBCluster, expected map[string]int) {
-		Expect(GetHardLimits(cluster)).To(Equal(expected))
-	},
+	DescribeTable(
+		"when getting the hard limits",
+		func(cluster *fdbv1beta2.FoundationDBCluster, expected map[string]int) {
+			Expect(GetHardLimits(cluster)).To(Equal(expected))
+		},
 		Entry("default cluster with one usable region",
 			&fdbv1beta2.FoundationDBCluster{},
 			map[string]int{
@@ -883,16 +1080,18 @@ var _ = Describe("Localities", func() {
 		),
 	)
 
-	DescribeTable("when getting the locality info from a process", func(process fdbv1beta2.FoundationDBStatusProcessInfo, mainContainerTLS bool, expected Info, expectedError bool) {
-		info, err := InfoForProcess(process, mainContainerTLS)
-		if expectedError {
-			Expect(err).To(HaveOccurred())
-			return
-		}
+	DescribeTable(
+		"when getting the locality info from a process",
+		func(process fdbv1beta2.FoundationDBStatusProcessInfo, mainContainerTLS bool, expected Info, expectedError bool) {
+			info, err := InfoForProcess(process, mainContainerTLS)
+			if expectedError {
+				Expect(err).To(HaveOccurred())
+				return
+			}
 
-		Expect(err).NotTo(HaveOccurred())
-		Expect(info).To(Equal(expected))
-	},
+			Expect(err).NotTo(HaveOccurred())
+			Expect(info).To(Equal(expected))
+		},
 		Entry("a process info without tls",
 			fdbv1beta2.FoundationDBStatusProcessInfo{
 				CommandLine: "... --public_address=1.1.1.1:4501,1.1.1.1:4500:tls ...",
@@ -967,19 +1166,21 @@ var _ = Describe("Localities", func() {
 		),
 	)
 
-	DescribeTable("when getting the locality info from a sidecar", func(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod, expected Info, expectedError bool) {
-		client, err := mock.NewMockFdbPodClient(cluster, pod)
-		Expect(err).NotTo(HaveOccurred())
+	DescribeTable(
+		"when getting the locality info from a sidecar",
+		func(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod, expected Info, expectedError bool) {
+			client, err := mock.NewMockFdbPodClient(cluster, pod)
+			Expect(err).NotTo(HaveOccurred())
 
-		info, err := InfoFromSidecar(cluster, client)
-		if expectedError {
-			Expect(err).To(HaveOccurred())
-			return
-		}
+			info, err := InfoFromSidecar(cluster, client)
+			if expectedError {
+				Expect(err).To(HaveOccurred())
+				return
+			}
 
-		Expect(err).NotTo(HaveOccurred())
-		Expect(info).To(Equal(expected))
-	},
+			Expect(err).NotTo(HaveOccurred())
+			Expect(info).To(Equal(expected))
+		},
 		Entry("a Pod with all fields set",
 			&fdbv1beta2.FoundationDBCluster{
 				Spec: fdbv1beta2.FoundationDBClusterSpec{
@@ -1182,7 +1383,12 @@ var _ = Describe("Localities", func() {
 
 		Context("with the default configuration", func() {
 			It("should report the coordinators as valid", func() {
-				coordinatorsValid, addressesValid, err := CheckCoordinatorValidity(logr.Discard(), cluster, status, coordinatorStatus)
+				coordinatorsValid, addressesValid, err := CheckCoordinatorValidity(
+					logr.Discard(),
+					cluster,
+					status,
+					coordinatorStatus,
+				)
 				Expect(coordinatorsValid).To(BeTrue())
 				Expect(addressesValid).To(BeTrue())
 				Expect(err).NotTo(HaveOccurred())
@@ -1191,7 +1397,12 @@ var _ = Describe("Localities", func() {
 
 		When("an empty coordinator status is passed down", func() {
 			It("should report the coordinators as invalid", func() {
-				coordinatorsValid, addressesValid, err := CheckCoordinatorValidity(logr.Discard(), cluster, status, nil)
+				coordinatorsValid, addressesValid, err := CheckCoordinatorValidity(
+					logr.Discard(),
+					cluster,
+					status,
+					nil,
+				)
 				Expect(coordinatorsValid).To(BeFalse())
 				Expect(addressesValid).To(BeFalse())
 				Expect(err).To(HaveOccurred())
@@ -1208,7 +1419,12 @@ var _ = Describe("Localities", func() {
 			})
 
 			It("should report the coordinators as invalid", func() {
-				coordinatorsValid, addressesValid, err := CheckCoordinatorValidity(logr.Discard(), cluster, status, coordinatorStatus)
+				coordinatorsValid, addressesValid, err := CheckCoordinatorValidity(
+					logr.Discard(),
+					cluster,
+					status,
+					coordinatorStatus,
+				)
 				Expect(coordinatorsValid).To(BeFalse())
 				Expect(addressesValid).To(BeTrue())
 				Expect(err).To(BeNil())
@@ -1223,7 +1439,12 @@ var _ = Describe("Localities", func() {
 			})
 
 			It("should report the coordinators as invalid", func() {
-				coordinatorsValid, addressesValid, err := CheckCoordinatorValidity(logr.Discard(), cluster, status, coordinatorStatus)
+				coordinatorsValid, addressesValid, err := CheckCoordinatorValidity(
+					logr.Discard(),
+					cluster,
+					status,
+					coordinatorStatus,
+				)
 				Expect(coordinatorsValid).To(BeFalse())
 				Expect(addressesValid).To(BeTrue())
 				Expect(err).NotTo(HaveOccurred())
@@ -1236,7 +1457,12 @@ var _ = Describe("Localities", func() {
 			})
 
 			It("should ignore the process", func() {
-				coordinatorsValid, addressesValid, err := CheckCoordinatorValidity(logr.Discard(), cluster, status, coordinatorStatus)
+				coordinatorsValid, addressesValid, err := CheckCoordinatorValidity(
+					logr.Discard(),
+					cluster,
+					status,
+					coordinatorStatus,
+				)
 				Expect(coordinatorsValid).To(BeTrue())
 				Expect(addressesValid).To(BeTrue())
 				Expect(err).To(BeNil())
@@ -1249,7 +1475,12 @@ var _ = Describe("Localities", func() {
 			})
 
 			It("should report the coordinators as invalid", func() {
-				coordinatorsValid, addressesValid, err := CheckCoordinatorValidity(logr.Discard(), cluster, status, coordinatorStatus)
+				coordinatorsValid, addressesValid, err := CheckCoordinatorValidity(
+					logr.Discard(),
+					cluster,
+					status,
+					coordinatorStatus,
+				)
 				Expect(coordinatorsValid).To(BeFalse())
 				Expect(addressesValid).To(BeFalse())
 				Expect(err).NotTo(HaveOccurred())
@@ -1266,7 +1497,12 @@ var _ = Describe("Localities", func() {
 			})
 
 			It("should report that not all addresses and coordinators are valid", func() {
-				coordinatorsValid, addressesValid, err := CheckCoordinatorValidity(logr.Discard(), cluster, status, coordinatorStatus)
+				coordinatorsValid, addressesValid, err := CheckCoordinatorValidity(
+					logr.Discard(),
+					cluster,
+					status,
+					coordinatorStatus,
+				)
 				Expect(coordinatorsValid).To(BeFalse())
 				Expect(addressesValid).To(BeFalse())
 				Expect(err).To(BeNil())
@@ -1284,7 +1520,12 @@ var _ = Describe("Localities", func() {
 			})
 
 			It("should be ignored", func() {
-				coordinatorsValid, addressesValid, err := CheckCoordinatorValidity(logr.Discard(), cluster, status, coordinatorStatus)
+				coordinatorsValid, addressesValid, err := CheckCoordinatorValidity(
+					logr.Discard(),
+					cluster,
+					status,
+					coordinatorStatus,
+				)
 				Expect(coordinatorsValid).To(BeTrue())
 				Expect(addressesValid).To(BeTrue())
 				Expect(err).To(BeNil())
@@ -1304,7 +1545,12 @@ var _ = Describe("Localities", func() {
 			})
 
 			It("should ignore the test process and report the coordinators as valid", func() {
-				coordinatorsValid, addressesValid, err := CheckCoordinatorValidity(logr.Discard(), cluster, status, coordinatorStatus)
+				coordinatorsValid, addressesValid, err := CheckCoordinatorValidity(
+					logr.Discard(),
+					cluster,
+					status,
+					coordinatorStatus,
+				)
 				Expect(coordinatorsValid).To(BeTrue())
 				Expect(addressesValid).To(BeTrue())
 				Expect(err).To(BeNil())
@@ -1317,7 +1563,12 @@ var _ = Describe("Localities", func() {
 			})
 
 			It("should report the coordinators as not valid", func() {
-				coordinatorsValid, addressesValid, err := CheckCoordinatorValidity(logr.Discard(), cluster, status, coordinatorStatus)
+				coordinatorsValid, addressesValid, err := CheckCoordinatorValidity(
+					logr.Discard(),
+					cluster,
+					status,
+					coordinatorStatus,
+				)
 				Expect(coordinatorsValid).To(BeFalse())
 				Expect(addressesValid).To(BeTrue())
 				Expect(err).To(BeNil())
@@ -1340,7 +1591,12 @@ var _ = Describe("Localities", func() {
 			})
 
 			It("should report the coordinators as not valid", func() {
-				coordinatorsValid, addressesValid, err := CheckCoordinatorValidity(logr.Discard(), cluster, status, coordinatorStatus)
+				coordinatorsValid, addressesValid, err := CheckCoordinatorValidity(
+					logr.Discard(),
+					cluster,
+					status,
+					coordinatorStatus,
+				)
 				Expect(coordinatorsValid).To(BeFalse())
 				Expect(addressesValid).To(BeTrue())
 				Expect(err).To(BeNil())
@@ -1385,14 +1641,45 @@ var _ = Describe("Localities", func() {
 					},
 				}
 
-				status.Cluster.Processes["4"] = generateDummyProcessInfo("test-4", "dc2", 4501, false)
-				status.Cluster.Processes["5"] = generateDummyProcessInfo("test-5", "dc2", 4501, false)
-				status.Cluster.Processes["6"] = generateDummyProcessInfo("test-6", "dc2", 4501, false)
-				status.Cluster.Processes["7"] = generateDummyProcessInfo("test-7", "dc3", 4501, false)
-				status.Cluster.Processes["8"] = generateDummyProcessInfo("test-8", "dc3", 4501, false)
-				status.Cluster.Processes["9"] = generateDummyProcessInfo("test-9", "dc3", 4501, false)
+				status.Cluster.Processes["4"] = generateDummyProcessInfo(
+					"test-4",
+					"dc2",
+					4501,
+					false,
+				)
+				status.Cluster.Processes["5"] = generateDummyProcessInfo(
+					"test-5",
+					"dc2",
+					4501,
+					false,
+				)
+				status.Cluster.Processes["6"] = generateDummyProcessInfo(
+					"test-6",
+					"dc2",
+					4501,
+					false,
+				)
+				status.Cluster.Processes["7"] = generateDummyProcessInfo(
+					"test-7",
+					"dc3",
+					4501,
+					false,
+				)
+				status.Cluster.Processes["8"] = generateDummyProcessInfo(
+					"test-8",
+					"dc3",
+					4501,
+					false,
+				)
+				status.Cluster.Processes["9"] = generateDummyProcessInfo(
+					"test-9",
+					"dc3",
+					4501,
+					false,
+				)
 
-				status.Client.Coordinators.Coordinators = append(status.Client.Coordinators.Coordinators,
+				status.Client.Coordinators.Coordinators = append(
+					status.Client.Coordinators.Coordinators,
 					fdbv1beta2.FoundationDBStatusCoordinator{
 						Address: fdbv1beta2.ProcessAddress{
 							IPAddress: net.ParseIP("1.1.1.4"),
@@ -1440,7 +1727,12 @@ var _ = Describe("Localities", func() {
 
 			Context("with coordinators divided across three DCs", func() {
 				It("should report the coordinators as valid", func() {
-					coordinatorsValid, addressesValid, err := CheckCoordinatorValidity(logr.Discard(), cluster, status, coordinatorStatus)
+					coordinatorsValid, addressesValid, err := CheckCoordinatorValidity(
+						logr.Discard(),
+						cluster,
+						status,
+						coordinatorStatus,
+					)
 					Expect(coordinatorsValid).To(BeTrue())
 					Expect(addressesValid).To(BeTrue())
 					Expect(err).To(BeNil())
@@ -1457,7 +1749,12 @@ var _ = Describe("Localities", func() {
 				})
 
 				It("should report the coordinators as not valid", func() {
-					coordinatorsValid, addressesValid, err := CheckCoordinatorValidity(logr.Discard(), cluster, status, coordinatorStatus)
+					coordinatorsValid, addressesValid, err := CheckCoordinatorValidity(
+						logr.Discard(),
+						cluster,
+						status,
+						coordinatorStatus,
+					)
 					Expect(coordinatorsValid).To(BeFalse())
 					Expect(addressesValid).To(BeTrue())
 					Expect(err).To(BeNil())
@@ -1484,7 +1781,12 @@ var _ = Describe("Localities", func() {
 				})
 
 				It("should report the coordinators addresses as valid", func() {
-					_, addressesValid, err := CheckCoordinatorValidity(logr.Discard(), cluster, status, coordinatorStatus)
+					_, addressesValid, err := CheckCoordinatorValidity(
+						logr.Discard(),
+						cluster,
+						status,
+						coordinatorStatus,
+					)
 					Expect(addressesValid).To(BeTrue())
 					Expect(err).To(BeNil())
 				})
@@ -1502,7 +1804,12 @@ var _ = Describe("Localities", func() {
 					})
 
 					It("should report the coordinators addresses as valid", func() {
-						_, addressesValid, err := CheckCoordinatorValidity(logr.Discard(), cluster, status, coordinatorStatus)
+						_, addressesValid, err := CheckCoordinatorValidity(
+							logr.Discard(),
+							cluster,
+							status,
+							coordinatorStatus,
+						)
 						Expect(addressesValid).To(BeTrue())
 						Expect(err).To(BeNil())
 					})
@@ -1522,7 +1829,12 @@ var _ = Describe("Localities", func() {
 				})
 
 				It("should report the coordinators addresses as valid", func() {
-					_, addressesValid, err := CheckCoordinatorValidity(logr.Discard(), cluster, status, coordinatorStatus)
+					_, addressesValid, err := CheckCoordinatorValidity(
+						logr.Discard(),
+						cluster,
+						status,
+						coordinatorStatus,
+					)
 					Expect(addressesValid).To(BeTrue())
 					Expect(err).To(BeNil())
 				})
@@ -1541,7 +1853,12 @@ var _ = Describe("Localities", func() {
 					})
 
 					It("should report the coordinators addresses as valid", func() {
-						_, addressesValid, err := CheckCoordinatorValidity(logr.Discard(), cluster, status, coordinatorStatus)
+						_, addressesValid, err := CheckCoordinatorValidity(
+							logr.Discard(),
+							cluster,
+							status,
+							coordinatorStatus,
+						)
 						Expect(addressesValid).To(BeTrue())
 						Expect(err).To(BeNil())
 					})
@@ -1552,7 +1869,12 @@ var _ = Describe("Localities", func() {
 		When("enabling DNS names in the cluster file", func() {
 			When("the pods do not have DNS names assigned", func() {
 				It("should report valid coordinators", func() {
-					coordinatorsValid, addressesValid, err := CheckCoordinatorValidity(logr.Discard(), cluster, status, coordinatorStatus)
+					coordinatorsValid, addressesValid, err := CheckCoordinatorValidity(
+						logr.Discard(),
+						cluster,
+						status,
+						coordinatorStatus,
+					)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(coordinatorsValid).To(BeTrue())
 					Expect(addressesValid).To(BeTrue())
@@ -1567,7 +1889,12 @@ var _ = Describe("Localities", func() {
 				})
 
 				It("should reject coordinators based on IP addresses", func() {
-					coordinatorsValid, addressesValid, err := CheckCoordinatorValidity(logr.Discard(), cluster, status, coordinatorStatus)
+					coordinatorsValid, addressesValid, err := CheckCoordinatorValidity(
+						logr.Discard(),
+						cluster,
+						status,
+						coordinatorStatus,
+					)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(coordinatorsValid).To(BeFalse())
 					Expect(addressesValid).To(BeTrue())
@@ -1580,49 +1907,66 @@ var _ = Describe("Localities", func() {
 
 					for _, process := range status.Cluster.Processes {
 						process.Locality[fdbv1beta2.FDBLocalityDNSNameKey] = process.Locality[fdbv1beta2.FDBLocalityZoneIDKey]
-						status.Client.Coordinators.Coordinators = append(status.Client.Coordinators.Coordinators,
+						status.Client.Coordinators.Coordinators = append(
+							status.Client.Coordinators.Coordinators,
 							fdbv1beta2.FoundationDBStatusCoordinator{
 								Address: fdbv1beta2.ProcessAddress{
 									StringAddress: process.Locality[fdbv1beta2.FDBLocalityZoneIDKey],
 									Port:          4501,
 								},
-							})
+							},
+						)
 					}
 				})
 
 				It("should return that the coordinators are valid", func() {
-					coordinatorsValid, addressesValid, err := CheckCoordinatorValidity(logr.Discard(), cluster, status, coordinatorStatus)
+					coordinatorsValid, addressesValid, err := CheckCoordinatorValidity(
+						logr.Discard(),
+						cluster,
+						status,
+						coordinatorStatus,
+					)
 					Expect(coordinatorsValid).To(BeTrue())
 					Expect(addressesValid).To(BeTrue())
 					Expect(err).NotTo(HaveOccurred())
 				})
 			})
 
-			When("the pods have DNS names assigned and the coordinator have DNS names but DNS is disabled", func() {
-				BeforeEach(func() {
-					status.Client.Coordinators.Coordinators = nil
+			When(
+				"the pods have DNS names assigned and the coordinator have DNS names but DNS is disabled",
+				func() {
+					BeforeEach(func() {
+						status.Client.Coordinators.Coordinators = nil
 
-					for _, process := range status.Cluster.Processes {
-						process.Locality[fdbv1beta2.FDBLocalityDNSNameKey] = process.Locality[fdbv1beta2.FDBLocalityZoneIDKey]
-						status.Client.Coordinators.Coordinators = append(status.Client.Coordinators.Coordinators,
-							fdbv1beta2.FoundationDBStatusCoordinator{
-								Address: fdbv1beta2.ProcessAddress{
-									StringAddress: process.Locality[fdbv1beta2.FDBLocalityZoneIDKey],
-									Port:          4501,
+						for _, process := range status.Cluster.Processes {
+							process.Locality[fdbv1beta2.FDBLocalityDNSNameKey] = process.Locality[fdbv1beta2.FDBLocalityZoneIDKey]
+							status.Client.Coordinators.Coordinators = append(
+								status.Client.Coordinators.Coordinators,
+								fdbv1beta2.FoundationDBStatusCoordinator{
+									Address: fdbv1beta2.ProcessAddress{
+										StringAddress: process.Locality[fdbv1beta2.FDBLocalityZoneIDKey],
+										Port:          4501,
+									},
 								},
-							})
-					}
+							)
+						}
 
-					cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(false)
-				})
+						cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(false)
+					})
 
-				It("should return that the coordinators are invalid", func() {
-					coordinatorsValid, addressesValid, err := CheckCoordinatorValidity(logr.Discard(), cluster, status, coordinatorStatus)
-					Expect(coordinatorsValid).To(BeFalse())
-					Expect(addressesValid).To(BeTrue())
-					Expect(err).NotTo(HaveOccurred())
-				})
-			})
+					It("should return that the coordinators are invalid", func() {
+						coordinatorsValid, addressesValid, err := CheckCoordinatorValidity(
+							logr.Discard(),
+							cluster,
+							status,
+							coordinatorStatus,
+						)
+						Expect(coordinatorsValid).To(BeFalse())
+						Expect(addressesValid).To(BeTrue())
+						Expect(err).NotTo(HaveOccurred())
+					})
+				},
+			)
 		})
 	})
 })

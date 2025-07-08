@@ -36,9 +36,11 @@ import (
 )
 
 var _ = Describe("restart_incompatible_pods", func() {
-	DescribeTable("when running check if process groups contain incompatible connections", func(incompatibleConnections map[string]fdbv1beta2.None, processGroup *fdbv1beta2.ProcessGroupStatus, expected bool) {
-		Expect(isIncompatible(incompatibleConnections, processGroup)).To(Equal(expected))
-	},
+	DescribeTable(
+		"when running check if process groups contain incompatible connections",
+		func(incompatibleConnections map[string]fdbv1beta2.None, processGroup *fdbv1beta2.ProcessGroupStatus, expected bool) {
+			Expect(isIncompatible(incompatibleConnections, processGroup)).To(Equal(expected))
+		},
 		Entry("empty incompatible map",
 			map[string]fdbv1beta2.None{},
 			&fdbv1beta2.ProcessGroupStatus{
@@ -69,9 +71,11 @@ var _ = Describe("restart_incompatible_pods", func() {
 			true),
 	)
 
-	DescribeTable("when parsing incompatible connections", func(status *fdbv1beta2.FoundationDBStatus, expected map[string]fdbv1beta2.None) {
-		Expect(parseIncompatibleConnections(logr.Discard(), status, nil)).To(Equal(expected))
-	},
+	DescribeTable(
+		"when parsing incompatible connections",
+		func(status *fdbv1beta2.FoundationDBStatus, expected map[string]fdbv1beta2.None) {
+			Expect(parseIncompatibleConnections(logr.Discard(), status, nil)).To(Equal(expected))
+		},
 		Entry("empty incompatible map",
 			&fdbv1beta2.FoundationDBStatus{
 				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{},
@@ -146,7 +150,13 @@ var _ = Describe("restart_incompatible_pods", func() {
 		})
 
 		JustBeforeEach(func() {
-			err := processIncompatibleProcesses(context.TODO(), clusterReconciler, logr.Discard(), cluster, nil)
+			err := processIncompatibleProcesses(
+				context.TODO(),
+				clusterReconciler,
+				logr.Discard(),
+				cluster,
+				nil,
+			)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -231,26 +241,31 @@ var _ = Describe("restart_incompatible_pods", func() {
 					Expect(len(pods.Items)).To(BeNumerically("==", initialCount-1))
 				})
 
-				When("matching incompatible processes are reported but are reported as processes", func() {
-					BeforeEach(func() {
-						adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
-						Expect(err).NotTo(HaveOccurred())
-						adminClient.FrozenStatus.Cluster.Processes = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{
-							"1": {
-								Address: fdbv1beta2.ProcessAddress{
-									IPAddress: net.ParseIP(cluster.Status.ProcessGroups[0].Addresses[0]),
+				When(
+					"matching incompatible processes are reported but are reported as processes",
+					func() {
+						BeforeEach(func() {
+							adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
+							Expect(err).NotTo(HaveOccurred())
+							adminClient.FrozenStatus.Cluster.Processes = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{
+								"1": {
+									Address: fdbv1beta2.ProcessAddress{
+										IPAddress: net.ParseIP(
+											cluster.Status.ProcessGroups[0].Addresses[0],
+										),
+									},
 								},
-							},
-						}
-					})
+							}
+						})
 
-					It("should have no deletions", func() {
-						pods := &corev1.PodList{}
-						err := k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
-						Expect(err).NotTo(HaveOccurred())
-						Expect(len(pods.Items)).To(BeNumerically("==", initialCount))
-					})
-				})
+						It("should have no deletions", func() {
+							pods := &corev1.PodList{}
+							err := k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+							Expect(err).NotTo(HaveOccurred())
+							Expect(len(pods.Items)).To(BeNumerically("==", initialCount))
+						})
+					},
+				)
 
 				When("the cluster is currently upgraded", func() {
 					BeforeEach(func() {
@@ -269,35 +284,38 @@ var _ = Describe("restart_incompatible_pods", func() {
 			})
 		})
 
-		When("matching incompatible processes are reported and the subreconciler is disabled", func() {
-			BeforeEach(func() {
-				clusterReconciler.EnableRestartIncompatibleProcesses = false
-				adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
-				Expect(err).NotTo(HaveOccurred())
-				adminClient.FrozenStatus = &fdbv1beta2.FoundationDBStatus{
-					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
-						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
-							Available: true,
+		When(
+			"matching incompatible processes are reported and the subreconciler is disabled",
+			func() {
+				BeforeEach(func() {
+					clusterReconciler.EnableRestartIncompatibleProcesses = false
+					adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
+					Expect(err).NotTo(HaveOccurred())
+					adminClient.FrozenStatus = &fdbv1beta2.FoundationDBStatus{
+						Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+							DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+								Available: true,
+							},
 						},
-					},
-					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
-						FaultTolerance: fdbv1beta2.FaultTolerance{
-							MaxZoneFailuresWithoutLosingAvailability: 2,
-							MaxZoneFailuresWithoutLosingData:         2,
+						Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+							FaultTolerance: fdbv1beta2.FaultTolerance{
+								MaxZoneFailuresWithoutLosingAvailability: 2,
+								MaxZoneFailuresWithoutLosingData:         2,
+							},
+							IncompatibleConnections: []string{
+								cluster.Status.ProcessGroups[0].Addresses[0] + ":4500:tls",
+							},
 						},
-						IncompatibleConnections: []string{
-							cluster.Status.ProcessGroups[0].Addresses[0] + ":4500:tls",
-						},
-					},
-				}
-			})
+					}
+				})
 
-			It("should have no deletions", func() {
-				pods := &corev1.PodList{}
-				err := k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(len(pods.Items)).To(BeNumerically("==", initialCount))
-			})
-		})
+				It("should have no deletions", func() {
+					pods := &corev1.PodList{}
+					err := k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(len(pods.Items)).To(BeNumerically("==", initialCount))
+				})
+			},
+		)
 	})
 })

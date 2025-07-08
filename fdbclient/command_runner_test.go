@@ -67,8 +67,12 @@ var _ = Describe("command_runner", func() {
 
 		It("should exclude the listed FDB variables but include all others", func() {
 			Expect(envVariablesKeys).NotTo(ContainElement(fdbv1beta2.EnvNameFDBExternalClientDir))
-			Expect(envVariablesKeys).NotTo(ContainElement(fdbv1beta2.EnvNameFDBIgnoreExternalClientFailures))
-			Expect(envVariablesKeys).NotTo(ContainElement(fdbv1beta2.EnvNameClientThreadsPerVersion))
+			Expect(
+				envVariablesKeys,
+			).NotTo(ContainElement(fdbv1beta2.EnvNameFDBIgnoreExternalClientFailures))
+			Expect(
+				envVariablesKeys,
+			).NotTo(ContainElement(fdbv1beta2.EnvNameClientThreadsPerVersion))
 			Expect(envVariablesKeys).To(ContainElement(fdbv1beta2.EnvNameTLSCert))
 		})
 	})

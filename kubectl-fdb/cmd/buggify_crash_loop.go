@@ -94,7 +94,8 @@ See help for even more process group selection options, such as by processClass,
 `,
 	}
 	addProcessSelectionFlags(cmd)
-	cmd.Flags().String("container-name", fdbv1beta2.MainContainerName, "container name to which we want to add/remove process groups.")
+	cmd.Flags().
+		String("container-name", fdbv1beta2.MainContainerName, "container name to which we want to add/remove process groups.")
 	cmd.Flags().Bool("clear", false, "removes the process groups from the crash-loop list.")
 	cmd.Flags().Bool("clean", false, "removes all process groups from the crash-loop list.")
 	cmd.SetOut(o.Out)
@@ -115,12 +116,23 @@ type buggifyProcessGroupOptions struct {
 
 // updateCrashLoopContainerList updates the crash-loop container-list of the respective cluster(s) to include the
 // processGroups selected based on the provided options.
-func updateCrashLoopContainerList(cmd *cobra.Command, kubeClient client.Client, opts buggifyProcessGroupOptions, processGroupOpts processGroupSelectionOptions) error {
+func updateCrashLoopContainerList(
+	cmd *cobra.Command,
+	kubeClient client.Client,
+	opts buggifyProcessGroupOptions,
+	processGroupOpts processGroupSelectionOptions,
+) error {
 	if opts.clean {
 		if processGroupOpts.clusterName == "" {
 			return fmt.Errorf("clean option requires cluster-name argument")
 		}
-		return cleanCrashLoopContainerList(kubeClient, opts.containerName, processGroupOpts.clusterName, processGroupOpts.namespace, opts)
+		return cleanCrashLoopContainerList(
+			kubeClient,
+			opts.containerName,
+			processGroupOpts.clusterName,
+			processGroupOpts.namespace,
+			opts,
+		)
 	}
 
 	processGroupsByCluster, err := getProcessGroupsByCluster(cmd, kubeClient, processGroupOpts)
@@ -134,10 +146,22 @@ func updateCrashLoopContainerList(cmd *cobra.Command, kubeClient client.Client, 
 		}
 
 		if opts.clear {
-			if opts.wait && !confirmAction(fmt.Sprintf("Removing %v from container: %s in crash-loop container list of the cluster %s/%s", processGroupIDs, opts.containerName, processGroupOpts.namespace, cluster.Name)) {
+			if opts.wait &&
+				!confirmAction(
+					fmt.Sprintf(
+						"Removing %v from container: %s in crash-loop container list of the cluster %s/%s",
+						processGroupIDs,
+						opts.containerName,
+						processGroupOpts.namespace,
+						cluster.Name,
+					),
+				) {
 				return fmt.Errorf("user aborted the removal")
 			}
-			cluster.RemoveProcessGroupsFromCrashLoopContainerList(processGroupIDs, opts.containerName)
+			cluster.RemoveProcessGroupsFromCrashLoopContainerList(
+				processGroupIDs,
+				opts.containerName,
+			)
 		} else {
 			if opts.wait && !confirmAction(fmt.Sprintf("Adding %v to container: %s in crash-loop container list of the cluster %s/%s", processGroupIDs, opts.containerName, processGroupOpts.namespace, cluster.Name)) {
 				return fmt.Errorf("user aborted the removal")
@@ -152,7 +176,11 @@ func updateCrashLoopContainerList(cmd *cobra.Command, kubeClient client.Client, 
 	return nil
 }
 
-func cleanCrashLoopContainerList(kubeClient client.Client, containerName, clusterName, namespace string, opts buggifyProcessGroupOptions) error {
+func cleanCrashLoopContainerList(
+	kubeClient client.Client,
+	containerName, clusterName, namespace string,
+	opts buggifyProcessGroupOptions,
+) error {
 	cluster, err := loadCluster(kubeClient, namespace, clusterName)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -163,7 +191,14 @@ func cleanCrashLoopContainerList(kubeClient client.Client, containerName, cluste
 	patch := client.MergeFrom(cluster.DeepCopy())
 
 	if opts.wait {
-		if !confirmAction(fmt.Sprintf("Clearing crash-loop list for %s from cluster %s/%s", containerName, namespace, cluster.Name)) {
+		if !confirmAction(
+			fmt.Sprintf(
+				"Clearing crash-loop list for %s from cluster %s/%s",
+				containerName,
+				namespace,
+				cluster.Name,
+			),
+		) {
 			return fmt.Errorf("user aborted the removal")
 		}
 	}

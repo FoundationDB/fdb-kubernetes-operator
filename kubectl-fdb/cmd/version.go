@@ -99,13 +99,19 @@ kubectl fdb version --client-only
 	cmd.SetIn(o.In)
 
 	o.configFlags.AddFlags(cmd.Flags())
-	cmd.Flags().Bool("client-only", false, "Prints out the plugin version only without checking the operator version.")
+	cmd.Flags().
+		Bool("client-only", false, "Prints out the plugin version only without checking the operator version.")
 	cmd.Flags().String("container-name", "manager", "The container name of Kubernetes Deployment.")
 
 	return cmd
 }
 
-func version(kubeClient client.Client, operatorName string, namespace string, containerName string) (string, error) {
+func version(
+	kubeClient client.Client,
+	operatorName string,
+	namespace string,
+	containerName string,
+) (string, error) {
 	operatorDeployment, err := getOperator(kubeClient, operatorName, namespace)
 	if err != nil {
 		return "", err
@@ -120,5 +126,10 @@ func version(kubeClient client.Client, operatorName string, namespace string, co
 		return imageName[len(imageName)-1], nil
 	}
 
-	return "", fmt.Errorf("could not find container: %s in %s/%s", containerName, namespace, operatorName)
+	return "", fmt.Errorf(
+		"could not find container: %s in %s/%s",
+		containerName,
+		namespace,
+		operatorName,
+	)
 }

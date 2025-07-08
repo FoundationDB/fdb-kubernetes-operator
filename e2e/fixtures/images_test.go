@@ -27,10 +27,12 @@ import (
 )
 
 var _ = Describe("image setup", func() {
-	DescribeTable("when generating the sidecar image configuration", func(factory *Factory, debugSymbols bool, expected fdbv1beta2.ContainerOverrides) {
-		result := factory.GetSidecarContainerOverrides(debugSymbols)
-		Expect(result.ImageConfigs).To(ConsistOf(expected.ImageConfigs))
-	},
+	DescribeTable(
+		"when generating the sidecar image configuration",
+		func(factory *Factory, debugSymbols bool, expected fdbv1beta2.ContainerOverrides) {
+			result := factory.GetSidecarContainerOverrides(debugSymbols)
+			Expect(result.ImageConfigs).To(ConsistOf(expected.ImageConfigs))
+		},
 		Entry("no version mapping and no debug symbols",
 			&Factory{
 				options: &FactoryOptions{
@@ -232,10 +234,12 @@ var _ = Describe("image setup", func() {
 		),
 	)
 
-	DescribeTable("when generating the main image configuration", func(factory *Factory, debugSymbols bool, unifiedImage bool, expected fdbv1beta2.ContainerOverrides) {
-		result := factory.GetMainContainerOverrides(debugSymbols, unifiedImage)
-		Expect(result.ImageConfigs).To(ConsistOf(expected.ImageConfigs))
-	},
+	DescribeTable(
+		"when generating the main image configuration",
+		func(factory *Factory, debugSymbols bool, unifiedImage bool, expected fdbv1beta2.ContainerOverrides) {
+			result := factory.GetMainContainerOverrides(debugSymbols, unifiedImage)
+			Expect(result.ImageConfigs).To(ConsistOf(expected.ImageConfigs))
+		},
 		Entry("no version mapping and no debug symbols",
 			&Factory{
 				options: &FactoryOptions{

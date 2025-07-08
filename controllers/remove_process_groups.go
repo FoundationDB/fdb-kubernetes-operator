@@ -46,7 +46,13 @@ import (
 type removeProcessGroups struct{}
 
 // reconcile runs the reconciler's work.
-func (u removeProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
+func (u removeProcessGroups) reconcile(
+	ctx context.Context,
+	r *FoundationDBClusterReconciler,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	status *fdbv1beta2.FoundationDBStatus,
+	logger logr.Logger,
+) *requeue {
 	adminClient, err := r.getAdminClient(logger, cluster)
 	if err != nil {
 		return &requeue{curError: err}
@@ -63,17 +69,31 @@ func (u removeProcessGroups) reconcile(ctx context.Context, r *FoundationDBClust
 		}
 	}
 
-	remainingMap, err := removals.GetRemainingMap(logger, adminClient, cluster, status, r.MinimumRecoveryTimeForExclusion)
+	remainingMap, err := removals.GetRemainingMap(
+		logger,
+		adminClient,
+		cluster,
+		status,
+		r.MinimumRecoveryTimeForExclusion,
+	)
 	if err != nil {
 		return &requeue{curError: err}
 	}
 
 	coordinators := fdbstatus.GetCoordinatorsFromStatus(status)
-	allExcluded, newExclusions, processGroupsToRemove := r.getProcessGroupsToRemove(logger, cluster, remainingMap, coordinators)
+	allExcluded, newExclusions, processGroupsToRemove := r.getProcessGroupsToRemove(
+		logger,
+		cluster,
+		remainingMap,
+		coordinators,
+	)
 	// If no process groups are marked to remove we have to check if all process groups are excluded.
 	if len(processGroupsToRemove) == 0 {
 		if !allExcluded {
-			return &requeue{message: "Reconciliation needs to exclude more processes", delay: 15 * time.Second}
+			return &requeue{
+				message: "Reconciliation needs to exclude more processes",
+				delay:   15 * time.Second,
+			}
 		}
 
 		return nil
@@ -99,7 +119,11 @@ func (u removeProcessGroups) reconcile(ctx context.Context, r *FoundationDBClust
 	// query the cluster gets into a degraded state.
 	// We could be smarter here and only block removals that target stateful processes by e.g. filtering those out of the
 	// processGroupsToRemove slice.
-	hasDesiredFaultTolerance := fdbstatus.HasDesiredFaultToleranceFromStatus(logger, status, cluster)
+	hasDesiredFaultTolerance := fdbstatus.HasDesiredFaultToleranceFromStatus(
+		logger,
+		status,
+		cluster,
+	)
 	if !hasDesiredFaultTolerance {
 		return &requeue{
 			message: "Removals cannot proceed because cluster has degraded fault tolerance",
@@ -119,20 +143,47 @@ func (u removeProcessGroups) reconcile(ctx context.Context, r *FoundationDBClust
 		// To ensure we are not deletion zones faster than Kubernetes actually removes Pods we are adding a wait time
 		// if we have resources in the terminating state. We will only block if the terminating state was recently (in the
 		// last minute).
-		waitTime, allowed := removals.RemovalAllowed(lastDeletion, time.Now().Unix(), cluster.GetWaitBetweenRemovalsSeconds())
+		waitTime, allowed := removals.RemovalAllowed(
+			lastDeletion,
+			time.Now().Unix(),
+			cluster.GetWaitBetweenRemovalsSeconds(),
+		)
 		if !allowed {
-			return &requeue{message: fmt.Sprintf("not allowed to remove process groups, waiting: %vs", waitTime), delay: time.Duration(waitTime) * time.Second}
+			return &requeue{
+				message: fmt.Sprintf(
+					"not allowed to remove process groups, waiting: %vs",
+					waitTime,
+				),
+				delay: time.Duration(waitTime) * time.Second,
+			}
 		}
 	}
 
-	zone, zoneRemovals, err := removals.GetProcessGroupsToRemove(cluster.GetRemovalMode(), zonedRemovals)
+	zone, zoneRemovals, err := removals.GetProcessGroupsToRemove(
+		cluster.GetRemovalMode(),
+		zonedRemovals,
+	)
 	if err != nil {
 		return &requeue{curError: err}
 	}
 
-	logger.Info("Removing process groups", "zone", zone, "count", len(zoneRemovals), "deletionMode", cluster.GetRemovalMode())
+	logger.Info(
+		"Removing process groups",
+		"zone",
+		zone,
+		"count",
+		len(zoneRemovals),
+		"deletionMode",
+		cluster.GetRemovalMode(),
+	)
 	// This will return a map of the newly removed ProcessGroups and the ProcessGroups with the ResourcesTerminating condition
-	removedProcessGroups := r.removeProcessGroups(ctx, logger, cluster, zoneRemovals, zonedRemovals[removals.TerminatingZone])
+	removedProcessGroups := r.removeProcessGroups(
+		ctx,
+		logger,
+		cluster,
+		zoneRemovals,
+		zonedRemovals[removals.TerminatingZone],
+	)
 	err = includeProcessGroup(ctx, logger, r, status, cluster, removedProcessGroups, adminClient)
 	if err != nil {
 		// If the inclusion is blocked or another issues happened we will retry in 60 seconds.
@@ -142,7 +193,12 @@ func (u removeProcessGroups) reconcile(ctx context.Context, r *FoundationDBClust
 	return nil
 }
 
-func removeProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, processGroup *fdbv1beta2.ProcessGroupStatus) error {
+func removeProcessGroup(
+	ctx context.Context,
+	r *FoundationDBClusterReconciler,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	processGroup *fdbv1beta2.ProcessGroupStatus,
+) error {
 	podName := processGroup.GetPodName(cluster)
 	var deletionError error
 
@@ -157,7 +213,9 @@ func removeProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, c
 			// Ignore the parsing error here and assume the pod was not isolated.
 			isolated, _ := strconv.ParseBool(value)
 			if isolated {
-				return fmt.Errorf("not allowed to delete Pod and the assosicated resources as the Pod is isolated")
+				return fmt.Errorf(
+					"not allowed to delete Pod and the assosicated resources as the Pod is isolated",
+				)
 			}
 		}
 
@@ -171,7 +229,10 @@ func removeProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, c
 
 	// TODO(johscheuer): https://github.com/FoundationDB/fdb-kubernetes-operator/v2/issues/1638
 	pvcs := &corev1.PersistentVolumeClaimList{}
-	err = r.List(ctx, pvcs, internal.GetSinglePodListOptions(cluster, processGroup.ProcessGroupID)...)
+	err = r.List(
+		ctx,
+		pvcs,
+		internal.GetSinglePodListOptions(cluster, processGroup.ProcessGroupID)...)
 	if err != nil {
 		return err
 	}
@@ -194,14 +255,23 @@ func removeProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, c
 	if err == nil && service.DeletionTimestamp.IsZero() {
 		err = r.Delete(ctx, service)
 		if err != nil {
-			deletionError = errors.Join(deletionError, fmt.Errorf("could not delete Service: %w", err))
+			deletionError = errors.Join(
+				deletionError,
+				fmt.Errorf("could not delete Service: %w", err),
+			)
 		}
 	}
 
 	return deletionError
 }
 
-func confirmRemoval(ctx context.Context, logger logr.Logger, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, processGroup *fdbv1beta2.ProcessGroupStatus) (bool, error) {
+func confirmRemoval(
+	ctx context.Context,
+	logger logr.Logger,
+	r *FoundationDBClusterReconciler,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	processGroup *fdbv1beta2.ProcessGroupStatus,
+) (bool, error) {
 	canBeIncluded := true
 
 	podName := processGroup.GetPodName(cluster)
@@ -214,7 +284,13 @@ func confirmRemoval(ctx context.Context, logger logr.Logger, r *FoundationDBClus
 	// The Pod resource still exists, so we have to validate the deletion timestamp.
 	if err == nil {
 		if pod.DeletionTimestamp.IsZero() {
-			logger.Info("Waiting for process group to get torn down", "processGroupID", processGroup.ProcessGroupID, "pod", podName)
+			logger.Info(
+				"Waiting for process group to get torn down",
+				"processGroupID",
+				processGroup.ProcessGroupID,
+				"pod",
+				podName,
+			)
 			return false, internal.ResourceNotDeleted{Resource: pod}
 		}
 
@@ -223,14 +299,24 @@ func confirmRemoval(ctx context.Context, logger logr.Logger, r *FoundationDBClus
 	}
 
 	pvc := &corev1.PersistentVolumeClaim{}
-	err = r.Get(ctx, client.ObjectKey{Name: processGroup.GetPvcName(cluster), Namespace: cluster.Namespace}, pvc)
+	err = r.Get(
+		ctx,
+		client.ObjectKey{Name: processGroup.GetPvcName(cluster), Namespace: cluster.Namespace},
+		pvc,
+	)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return false, err
 	}
 
 	if err == nil {
 		if pvc.DeletionTimestamp.IsZero() {
-			logger.Info("Waiting for process group to get torn down", "processGroupID", processGroup.ProcessGroupID, "pod", podName)
+			logger.Info(
+				"Waiting for process group to get torn down",
+				"processGroupID",
+				processGroup.ProcessGroupID,
+				"pod",
+				podName,
+			)
 			return false, internal.ResourceNotDeleted{Resource: pod}
 		}
 
@@ -248,7 +334,13 @@ func confirmRemoval(ctx context.Context, logger logr.Logger, r *FoundationDBClus
 	// The Pod resource still exists, so we have to validate the deletion timestamp.
 	if err == nil {
 		if service.DeletionTimestamp.IsZero() {
-			logger.Info("Waiting for process group to get torn down", "processGroupID", processGroup.ProcessGroupID, "service", podName)
+			logger.Info(
+				"Waiting for process group to get torn down",
+				"processGroupID",
+				processGroup.ProcessGroupID,
+				"service",
+				podName,
+			)
 			return false, internal.ResourceNotDeleted{Resource: service}
 		}
 
@@ -259,7 +351,15 @@ func confirmRemoval(ctx context.Context, logger logr.Logger, r *FoundationDBClus
 	return canBeIncluded, nil
 }
 
-func includeProcessGroup(ctx context.Context, logger logr.Logger, r *FoundationDBClusterReconciler, status *fdbv1beta2.FoundationDBStatus, cluster *fdbv1beta2.FoundationDBCluster, removedProcessGroups map[fdbv1beta2.ProcessGroupID]bool, adminClient fdbadminclient.AdminClient) error {
+func includeProcessGroup(
+	ctx context.Context,
+	logger logr.Logger,
+	r *FoundationDBClusterReconciler,
+	status *fdbv1beta2.FoundationDBStatus,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	removedProcessGroups map[fdbv1beta2.ProcessGroupID]bool,
+	adminClient fdbadminclient.AdminClient,
+) error {
 	// Fetch the latest status to ensure the excluded server list is the latest one.
 	currentExclusions, err := adminClient.GetExclusions()
 	if err != nil {
@@ -278,7 +378,14 @@ func includeProcessGroup(ctx context.Context, logger logr.Logger, r *FoundationD
 	}
 
 	// In this step we will check if any of the "local" processes should be included.
-	fdbProcessesToInclude, newProcessGroups := getProcessesToInclude(logger, cluster, removedProcessGroups, currentExclusions, readyForInclusion, readyForInclusionUpdates)
+	fdbProcessesToInclude, newProcessGroups := getProcessesToInclude(
+		logger,
+		cluster,
+		removedProcessGroups,
+		currentExclusions,
+		readyForInclusion,
+		readyForInclusionUpdates,
+	)
 	if cluster.GetSynchronizationMode() == fdbv1beta2.SynchronizationModeGlobal {
 		err = adminClient.UpdateReadyForInclusion(readyForInclusionUpdates)
 		if err != nil {
@@ -320,12 +427,23 @@ func includeProcessGroup(ctx context.Context, logger logr.Logger, r *FoundationD
 			return err
 		}
 
-		err = coordination.AllProcessesReady(logger, pendingForInclusion, readyForInclusion, r.GlobalSynchronizationWaitDuration)
+		err = coordination.AllProcessesReady(
+			logger,
+			pendingForInclusion,
+			readyForInclusion,
+			r.GlobalSynchronizationWaitDuration,
+		)
 		if err != nil {
 			return err
 		}
 
-		fdbProcessesToInclude, err = coordination.GetAddressesFromCoordinationState(logger, adminClient, readyForInclusion, true, true)
+		fdbProcessesToInclude, err = coordination.GetAddressesFromCoordinationState(
+			logger,
+			adminClient,
+			readyForInclusion,
+			true,
+			true,
+		)
 		if err != nil {
 			return err
 		}
@@ -333,7 +451,12 @@ func includeProcessGroup(ctx context.Context, logger logr.Logger, r *FoundationD
 		fdbProcessesToInclude = filterAddressesToInclude(fdbProcessesToInclude, currentExclusions)
 	}
 
-	r.Recorder.Event(cluster, corev1.EventTypeNormal, "IncludingProcesses", fmt.Sprintf("Including removed processes: %v", fdbProcessesToInclude))
+	r.Recorder.Event(
+		cluster,
+		corev1.EventTypeNormal,
+		"IncludingProcesses",
+		fmt.Sprintf("Including removed processes: %v", fdbProcessesToInclude),
+	)
 	err = adminClient.IncludeProcesses(fdbProcessesToInclude)
 	if err != nil {
 		return err
@@ -348,7 +471,10 @@ func includeProcessGroup(ctx context.Context, logger logr.Logger, r *FoundationD
 }
 
 // filterAddressesToInclude will remove all addresses that are part of the fdbProcessesToInclude slice but are not excluded in FDB itself.
-func filterAddressesToInclude(fdbProcessesToInclude []fdbv1beta2.ProcessAddress, excludedServers []fdbv1beta2.ProcessAddress) []fdbv1beta2.ProcessAddress {
+func filterAddressesToInclude(
+	fdbProcessesToInclude []fdbv1beta2.ProcessAddress,
+	excludedServers []fdbv1beta2.ProcessAddress,
+) []fdbv1beta2.ProcessAddress {
 	excludedServersMap := make(map[string]fdbv1beta2.None, len(excludedServers))
 	for _, excludedServer := range excludedServers {
 		excludedServersMap[excludedServer.String()] = fdbv1beta2.None{}
@@ -367,7 +493,14 @@ func filterAddressesToInclude(fdbProcessesToInclude []fdbv1beta2.ProcessAddress,
 	return result
 }
 
-func getProcessesToInclude(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, removedProcessGroups map[fdbv1beta2.ProcessGroupID]bool, excludedServers []fdbv1beta2.ProcessAddress, readyForInclusion map[fdbv1beta2.ProcessGroupID]time.Time, readyForInclusionUpdates map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction) ([]fdbv1beta2.ProcessAddress, []*fdbv1beta2.ProcessGroupStatus) {
+func getProcessesToInclude(
+	logger logr.Logger,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	removedProcessGroups map[fdbv1beta2.ProcessGroupID]bool,
+	excludedServers []fdbv1beta2.ProcessAddress,
+	readyForInclusion map[fdbv1beta2.ProcessGroupID]time.Time,
+	readyForInclusionUpdates map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction,
+) ([]fdbv1beta2.ProcessAddress, []*fdbv1beta2.ProcessGroupStatus) {
 	fdbProcessesToInclude := make([]fdbv1beta2.ProcessAddress, 0)
 
 	if len(removedProcessGroups) == 0 {
@@ -390,9 +523,13 @@ func getProcessesToInclude(logger logr.Logger, cluster *fdbv1beta2.FoundationDBC
 		if processGroup.IsMarkedForRemoval() && removedProcessGroups[processGroup.ProcessGroupID] {
 			foundInExcludedServerList := false
 			exclusionString := processGroup.GetExclusionString()
-			logger.V(1).Info("checking excluded processes", "exclusionString", exclusionString, "excludedServersMap", excludedServersMap)
+			logger.V(1).
+				Info("checking excluded processes", "exclusionString", exclusionString, "excludedServersMap", excludedServersMap)
 			if _, ok := excludedServersMap[exclusionString]; ok {
-				fdbProcessesToInclude = append(fdbProcessesToInclude, fdbv1beta2.ProcessAddress{StringAddress: exclusionString})
+				fdbProcessesToInclude = append(
+					fdbProcessesToInclude,
+					fdbv1beta2.ProcessAddress{StringAddress: exclusionString},
+				)
 				foundInExcludedServerList = true
 
 				if _, ok := readyForInclusion[processGroup.ProcessGroupID]; !ok {
@@ -405,12 +542,18 @@ func getProcessesToInclude(logger logr.Logger, cluster *fdbv1beta2.FoundationDBC
 				// excluding the log process with locality and IP address when validating that the log process was
 				// fully excluded. Otherwise, we might leave the IP address in the excluded list.
 				if foundInExcludedServerList && processGroup.ProcessClass.IsLogProcess() {
-					fdbProcessesToInclude = append(fdbProcessesToInclude, fdbv1beta2.ProcessAddress{IPAddress: net.ParseIP(pAddr)})
+					fdbProcessesToInclude = append(
+						fdbProcessesToInclude,
+						fdbv1beta2.ProcessAddress{IPAddress: net.ParseIP(pAddr)},
+					)
 					continue
 				}
 
 				if _, ok := excludedServersMap[pAddr]; ok {
-					fdbProcessesToInclude = append(fdbProcessesToInclude, fdbv1beta2.ProcessAddress{IPAddress: net.ParseIP(pAddr)})
+					fdbProcessesToInclude = append(
+						fdbProcessesToInclude,
+						fdbv1beta2.ProcessAddress{IPAddress: net.ParseIP(pAddr)},
+					)
 					foundInExcludedServerList = true
 					if _, ok := readyForInclusion[processGroup.ProcessGroupID]; !ok {
 						readyForInclusionUpdates[processGroup.ProcessGroupID] = fdbv1beta2.UpdateActionAdd
@@ -422,7 +565,11 @@ func getProcessesToInclude(logger logr.Logger, cluster *fdbv1beta2.FoundationDBC
 				// This means that the process is marked for exclusion and is also removed in the previous step but is missing
 				// its entry in the excluded servers in the status. This should not throw an error as this will block the
 				// inclusion for other processes, but we should have a record of this event happening in the logs.
-				logger.Info("processGroup should be included but is missing from excluded server list", "processGroupID", processGroup.ProcessGroupID)
+				logger.Info(
+					"processGroup should be included but is missing from excluded server list",
+					"processGroupID",
+					processGroup.ProcessGroupID,
+				)
 			}
 
 			continue
@@ -435,10 +582,19 @@ func getProcessesToInclude(logger logr.Logger, cluster *fdbv1beta2.FoundationDBC
 	return fdbProcessesToInclude, processGroups[:idx]
 }
 
-func (r *FoundationDBClusterReconciler) getProcessGroupsToRemove(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, remainingMap map[string]bool, cordSet map[string]fdbv1beta2.None) (bool, bool, []*fdbv1beta2.ProcessGroupStatus) {
+func (r *FoundationDBClusterReconciler) getProcessGroupsToRemove(
+	logger logr.Logger,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	remainingMap map[string]bool,
+	cordSet map[string]fdbv1beta2.None,
+) (bool, bool, []*fdbv1beta2.ProcessGroupStatus) {
 	allExcluded := true
 	newExclusions := false
-	processGroupsToRemove := make([]*fdbv1beta2.ProcessGroupStatus, 0, len(cluster.Status.ProcessGroups))
+	processGroupsToRemove := make(
+		[]*fdbv1beta2.ProcessGroupStatus,
+		0,
+		len(cluster.Status.ProcessGroups),
+	)
 	logger.V(1).Info("Get ProcessGroups to be removed.", "remainingMap", remainingMap)
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
@@ -447,7 +603,11 @@ func (r *FoundationDBClusterReconciler) getProcessGroupsToRemove(logger logr.Log
 		}
 
 		if _, ok := cordSet[string(processGroup.ProcessGroupID)]; ok {
-			logger.Info("Block removal of Coordinator", "processGroupID", processGroup.ProcessGroupID)
+			logger.Info(
+				"Block removal of Coordinator",
+				"processGroupID",
+				processGroup.ProcessGroupID,
+			)
 			allExcluded = false
 			continue
 		}
@@ -460,12 +620,24 @@ func (r *FoundationDBClusterReconciler) getProcessGroupsToRemove(logger logr.Log
 
 		excluded, err := processGroup.AllAddressesExcluded(logger, remainingMap)
 		if processGroup.ProcessClass != fdbv1beta2.ProcessClassTest && (!excluded || err != nil) {
-			logger.Info("Incomplete exclusion still present in removeProcessGroups step", "processGroupID", processGroup.ProcessGroupID, "error", err)
+			logger.Info(
+				"Incomplete exclusion still present in removeProcessGroups step",
+				"processGroupID",
+				processGroup.ProcessGroupID,
+				"error",
+				err,
+			)
 			allExcluded = false
 			continue
 		}
 
-		logger.Info("Marking exclusion complete", "processGroupID", processGroup.ProcessGroupID, "addresses", processGroup.Addresses)
+		logger.Info(
+			"Marking exclusion complete",
+			"processGroupID",
+			processGroup.ProcessGroupID,
+			"addresses",
+			processGroup.Addresses,
+		)
 		processGroup.SetExclude()
 		processGroupsToRemove = append(processGroupsToRemove, processGroup)
 		newExclusions = true
@@ -474,19 +646,35 @@ func (r *FoundationDBClusterReconciler) getProcessGroupsToRemove(logger logr.Log
 	return allExcluded, newExclusions, processGroupsToRemove
 }
 
-func (r *FoundationDBClusterReconciler) removeProcessGroups(ctx context.Context, logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, processGroupsToRemove []*fdbv1beta2.ProcessGroupStatus, terminatingProcessGroups []*fdbv1beta2.ProcessGroupStatus) map[fdbv1beta2.ProcessGroupID]bool {
+func (r *FoundationDBClusterReconciler) removeProcessGroups(
+	ctx context.Context,
+	logger logr.Logger,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	processGroupsToRemove []*fdbv1beta2.ProcessGroupStatus,
+	terminatingProcessGroups []*fdbv1beta2.ProcessGroupStatus,
+) map[fdbv1beta2.ProcessGroupID]bool {
 	processGroupNames := make([]fdbv1beta2.ProcessGroupID, len(processGroupsToRemove))
 	for i, processGroup := range processGroupsToRemove {
 		processGroupNames[i] = processGroup.ProcessGroupID
 	}
 
-	r.Recorder.Event(cluster, corev1.EventTypeNormal, "RemovingProcesses", fmt.Sprintf("Removing process groups: %v", processGroupNames))
+	r.Recorder.Event(
+		cluster,
+		corev1.EventTypeNormal,
+		"RemovingProcesses",
+		fmt.Sprintf("Removing process groups: %v", processGroupNames),
+	)
 
 	processGroups := append(processGroupsToRemove, terminatingProcessGroups...)
 	for _, processGroup := range processGroups {
 		err := removeProcessGroup(logr.NewContext(ctx, logger), r, cluster, processGroup)
 		if err != nil {
-			logger.Error(err, "Error during remove process group", "processGroupID", processGroup.ProcessGroupID)
+			logger.Error(
+				err,
+				"Error during remove process group",
+				"processGroupID",
+				processGroup.ProcessGroupID,
+			)
 			continue
 		}
 	}
@@ -497,7 +685,12 @@ func (r *FoundationDBClusterReconciler) removeProcessGroups(ctx context.Context,
 	for _, processGroup := range processGroups {
 		include, err := confirmRemoval(ctx, logger, r, cluster, processGroup)
 		if err != nil && !internal.IsResourceNotDeleted(err) {
-			logger.Error(err, "Error during confirm process group removal", "processGroupID", processGroup.ProcessGroupID)
+			logger.Error(
+				err,
+				"Error during confirm process group removal",
+				"processGroupID",
+				processGroup.ProcessGroupID,
+			)
 			continue
 		}
 

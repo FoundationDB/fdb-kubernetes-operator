@@ -26,11 +26,17 @@ import (
 )
 
 // ProcessClassFromLabels extracts the ProcessClass label from the metav1.ObjectMeta.Labels map
-func ProcessClassFromLabels(cluster *fdbv1beta2.FoundationDBCluster, labels map[string]string) fdbv1beta2.ProcessClass {
+func ProcessClassFromLabels(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	labels map[string]string,
+) fdbv1beta2.ProcessClass {
 	return fdbv1beta2.ProcessClass(labels[cluster.GetProcessClassLabel()])
 }
 
 // GetProcessClassFromMeta fetches the process class from an object's metadata.
-func GetProcessClassFromMeta(cluster *fdbv1beta2.FoundationDBCluster, metadata v1.ObjectMeta) fdbv1beta2.ProcessClass {
+func GetProcessClassFromMeta(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	metadata v1.ObjectMeta,
+) fdbv1beta2.ProcessClass {
 	return ProcessClassFromLabels(cluster, metadata.Labels)
 }

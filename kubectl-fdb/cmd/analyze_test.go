@@ -35,7 +35,15 @@ import (
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 )
 
-func getCluster(clusterName string, namespace string, available bool, healthy bool, fullReplication bool, reconciled int64, processGroups []*fdbv1beta2.ProcessGroupStatus) *fdbv1beta2.FoundationDBCluster {
+func getCluster(
+	clusterName string,
+	namespace string,
+	available bool,
+	healthy bool,
+	fullReplication bool,
+	reconciled int64,
+	processGroups []*fdbv1beta2.ProcessGroupStatus,
+) *fdbv1beta2.FoundationDBCluster {
 	return &fdbv1beta2.FoundationDBCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:       clusterName,
@@ -61,7 +69,12 @@ func getCluster(clusterName string, namespace string, available bool, healthy bo
 	}
 }
 
-func getPodList(clusterName string, namespace string, status corev1.PodStatus, deletionTimestamp *metav1.Time) *corev1.PodList {
+func getPodList(
+	clusterName string,
+	namespace string,
+	status corev1.PodStatus,
+	deletionTimestamp *metav1.Time,
+) *corev1.PodList {
 	return &corev1.PodList{
 		Items: []corev1.Pod{
 			{
@@ -106,21 +119,43 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				errBuffer := bytes.Buffer{}
 				inBuffer := bytes.Buffer{}
 
-				cmd := newAnalyzeCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer})
-				err := analyzeCluster(cmd, k8sClient, tc.cluster, tc.AutoFix, tc.NoWait, tc.IgnoredConditions, tc.IgnoreRemovals)
+				cmd := newAnalyzeCmd(
+					genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer},
+				)
+				err := analyzeCluster(
+					cmd,
+					k8sClient,
+					tc.cluster,
+					tc.AutoFix,
+					tc.NoWait,
+					tc.IgnoredConditions,
+					tc.IgnoreRemovals,
+				)
 
 				if err != nil && !tc.HasErrors {
 					Expect(err).To(HaveOccurred())
 				}
 
-				Expect(strings.TrimSpace(tc.ExpectedErrMsg)).To(Equal(strings.TrimSpace(errBuffer.String())))
-				Expect(strings.TrimSpace(tc.ExpectedStdoutMsg)).To(Equal(strings.TrimSpace(outBuffer.String())))
+				Expect(
+					strings.TrimSpace(tc.ExpectedErrMsg),
+				).To(Equal(strings.TrimSpace(errBuffer.String())))
+				Expect(
+					strings.TrimSpace(tc.ExpectedStdoutMsg),
+				).To(Equal(strings.TrimSpace(outBuffer.String())))
 			},
 			Entry("Cluster is fine",
 				testCase{
-					cluster: getCluster(clusterName, namespace, true, true, true, 1, []*fdbv1beta2.ProcessGroupStatus{
-						{ProcessGroupID: "storage-1"},
-					}),
+					cluster: getCluster(
+						clusterName,
+						namespace,
+						true,
+						true,
+						true,
+						1,
+						[]*fdbv1beta2.ProcessGroupStatus{
+							{ProcessGroupID: "storage-1"},
+						},
+					),
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
 						Phase: corev1.PodRunning,
 					}, nil),
@@ -137,9 +172,17 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				}),
 			Entry("Cluster is unavailable",
 				testCase{
-					cluster: getCluster(clusterName, namespace, false, true, true, 1, []*fdbv1beta2.ProcessGroupStatus{
-						{ProcessGroupID: "storage-1"},
-					}),
+					cluster: getCluster(
+						clusterName,
+						namespace,
+						false,
+						true,
+						true,
+						1,
+						[]*fdbv1beta2.ProcessGroupStatus{
+							{ProcessGroupID: "storage-1"},
+						},
+					),
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
 						Phase: corev1.PodRunning,
 					}, nil),
@@ -155,9 +198,17 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				}),
 			Entry("Cluster is unhealthy",
 				testCase{
-					cluster: getCluster(clusterName, namespace, true, false, true, 1, []*fdbv1beta2.ProcessGroupStatus{
-						{ProcessGroupID: "storage-1"},
-					}),
+					cluster: getCluster(
+						clusterName,
+						namespace,
+						true,
+						false,
+						true,
+						1,
+						[]*fdbv1beta2.ProcessGroupStatus{
+							{ProcessGroupID: "storage-1"},
+						},
+					),
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
 						Phase: corev1.PodRunning,
 					}, nil),
@@ -174,9 +225,17 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				}),
 			Entry("Cluster is not fully replicated",
 				testCase{
-					cluster: getCluster(clusterName, namespace, true, true, false, 1, []*fdbv1beta2.ProcessGroupStatus{
-						{ProcessGroupID: "storage-1"},
-					}),
+					cluster: getCluster(
+						clusterName,
+						namespace,
+						true,
+						true,
+						false,
+						1,
+						[]*fdbv1beta2.ProcessGroupStatus{
+							{ProcessGroupID: "storage-1"},
+						},
+					),
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
 						Phase: corev1.PodRunning,
 					}, nil),
@@ -192,9 +251,17 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				}),
 			Entry("Cluster is not reconciled",
 				testCase{
-					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbv1beta2.ProcessGroupStatus{
-						{ProcessGroupID: "storage-1"},
-					}),
+					cluster: getCluster(
+						clusterName,
+						namespace,
+						true,
+						true,
+						true,
+						0,
+						[]*fdbv1beta2.ProcessGroupStatus{
+							{ProcessGroupID: "storage-1"},
+						},
+					),
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
 						Phase: corev1.PodRunning,
 					}, nil),
@@ -210,18 +277,31 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				}),
 			Entry("ProcessGroup has a missing process",
 				testCase{
-					cluster: getCluster(clusterName, namespace, true, true, true, 1, []*fdbv1beta2.ProcessGroupStatus{
-						{
-							ProcessGroupID: "storage-1",
-							ProcessGroupConditions: []*fdbv1beta2.ProcessGroupCondition{
-								fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.MissingProcesses),
+					cluster: getCluster(
+						clusterName,
+						namespace,
+						true,
+						true,
+						true,
+						1,
+						[]*fdbv1beta2.ProcessGroupStatus{
+							{
+								ProcessGroupID: "storage-1",
+								ProcessGroupConditions: []*fdbv1beta2.ProcessGroupCondition{
+									fdbv1beta2.NewProcessGroupCondition(
+										fdbv1beta2.MissingProcesses,
+									),
+								},
 							},
 						},
-					}),
+					),
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
 						Phase: corev1.PodRunning,
 					}, nil),
-					ExpectedErrMsg: fmt.Sprintf("✖ ProcessGroup: storage-1 has the following condition: MissingProcesses since %s", time.Unix(time.Now().Unix(), 0).String()),
+					ExpectedErrMsg: fmt.Sprintf(
+						"✖ ProcessGroup: storage-1 has the following condition: MissingProcesses since %s",
+						time.Unix(time.Now().Unix(), 0).String(),
+					),
 					ExpectedStdoutMsg: `Checking cluster: test/test
 ✔ Cluster is available
 ✔ Cluster is fully replicated
@@ -233,15 +313,25 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				}),
 			Entry("ProcessGroup has a missing process but is marked for removal",
 				testCase{
-					cluster: getCluster(clusterName, namespace, true, true, true, 1, []*fdbv1beta2.ProcessGroupStatus{
-						{
-							ProcessGroupID: "storage-1",
-							ProcessGroupConditions: []*fdbv1beta2.ProcessGroupCondition{
-								fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.MissingProcesses),
+					cluster: getCluster(
+						clusterName,
+						namespace,
+						true,
+						true,
+						true,
+						1,
+						[]*fdbv1beta2.ProcessGroupStatus{
+							{
+								ProcessGroupID: "storage-1",
+								ProcessGroupConditions: []*fdbv1beta2.ProcessGroupCondition{
+									fdbv1beta2.NewProcessGroupCondition(
+										fdbv1beta2.MissingProcesses,
+									),
+								},
+								RemovalTimestamp: &metav1.Time{Time: time.Now()},
 							},
-							RemovalTimestamp: &metav1.Time{Time: time.Now()},
 						},
-					}),
+					),
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
 						Phase: corev1.PodRunning,
 					}, nil),
@@ -258,9 +348,17 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				}),
 			Entry("Pod is in Pending phase",
 				testCase{
-					cluster: getCluster(clusterName, namespace, true, true, true, 1, []*fdbv1beta2.ProcessGroupStatus{
-						{ProcessGroupID: "storage-1"},
-					}),
+					cluster: getCluster(
+						clusterName,
+						namespace,
+						true,
+						true,
+						true,
+						1,
+						[]*fdbv1beta2.ProcessGroupStatus{
+							{ProcessGroupID: "storage-1"},
+						},
+					),
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
 						Phase: corev1.PodPending,
 					}, nil),
@@ -276,9 +374,17 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				}),
 			Entry("Container is in terminated state",
 				testCase{
-					cluster: getCluster(clusterName, namespace, true, true, true, 1, []*fdbv1beta2.ProcessGroupStatus{
-						{ProcessGroupID: "storage-1"},
-					}),
+					cluster: getCluster(
+						clusterName,
+						namespace,
+						true,
+						true,
+						true,
+						1,
+						[]*fdbv1beta2.ProcessGroupStatus{
+							{ProcessGroupID: "storage-1"},
+						},
+					),
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
 						Phase: corev1.PodRunning,
 						ContainerStatuses: []corev1.ContainerStatus{
@@ -287,8 +393,10 @@ var _ = Describe("[plugin] analyze cluster", func() {
 								Ready: false,
 								State: corev1.ContainerState{
 									Terminated: &corev1.ContainerStateTerminated{
-										ExitCode:   137,
-										FinishedAt: metav1.Time{Time: time.Now().Add(-1 * time.Hour)},
+										ExitCode: 137,
+										FinishedAt: metav1.Time{
+											Time: time.Now().Add(-1 * time.Hour),
+										},
 									},
 								},
 							},
@@ -306,9 +414,17 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				}),
 			Entry("Container is in ready state",
 				testCase{
-					cluster: getCluster(clusterName, namespace, true, true, true, 1, []*fdbv1beta2.ProcessGroupStatus{
-						{ProcessGroupID: "storage-1"},
-					}),
+					cluster: getCluster(
+						clusterName,
+						namespace,
+						true,
+						true,
+						true,
+						1,
+						[]*fdbv1beta2.ProcessGroupStatus{
+							{ProcessGroupID: "storage-1"},
+						},
+					),
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
 						Phase: corev1.PodRunning,
 						ContainerStatuses: []corev1.ContainerStatus{
@@ -331,13 +447,21 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				}),
 			Entry("Pod is stuck in terminating and marked for removal",
 				testCase{
-					cluster: getCluster(clusterName, namespace, true, true, true, 1, []*fdbv1beta2.ProcessGroupStatus{
-						{
-							ProcessGroupID:     "storage-1",
-							RemovalTimestamp:   &metav1.Time{Time: time.Now()},
-							ExclusionTimestamp: &metav1.Time{Time: time.Now()},
+					cluster: getCluster(
+						clusterName,
+						namespace,
+						true,
+						true,
+						true,
+						1,
+						[]*fdbv1beta2.ProcessGroupStatus{
+							{
+								ProcessGroupID:     "storage-1",
+								RemovalTimestamp:   &metav1.Time{Time: time.Now()},
+								ExclusionTimestamp: &metav1.Time{Time: time.Now()},
+							},
 						},
-					}),
+					),
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
 						Phase: corev1.PodRunning,
 						ContainerStatuses: []corev1.ContainerStatus{
@@ -346,8 +470,10 @@ var _ = Describe("[plugin] analyze cluster", func() {
 								Ready: false,
 								State: corev1.ContainerState{
 									Terminated: &corev1.ContainerStateTerminated{
-										ExitCode:   127,
-										FinishedAt: metav1.Time{Time: time.Now().Add(-1 * time.Hour)},
+										ExitCode: 127,
+										FinishedAt: metav1.Time{
+											Time: time.Now().Add(-1 * time.Hour),
+										},
 									},
 								},
 							},
@@ -366,13 +492,21 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				}),
 			Entry("Pod is stuck in terminating and marked for removal and removals are ignored",
 				testCase{
-					cluster: getCluster(clusterName, namespace, true, true, true, 1, []*fdbv1beta2.ProcessGroupStatus{
-						{
-							ProcessGroupID:     "storage-1",
-							RemovalTimestamp:   &metav1.Time{Time: time.Now()},
-							ExclusionTimestamp: &metav1.Time{Time: time.Now()},
+					cluster: getCluster(
+						clusterName,
+						namespace,
+						true,
+						true,
+						true,
+						1,
+						[]*fdbv1beta2.ProcessGroupStatus{
+							{
+								ProcessGroupID:     "storage-1",
+								RemovalTimestamp:   &metav1.Time{Time: time.Now()},
+								ExclusionTimestamp: &metav1.Time{Time: time.Now()},
+							},
 						},
-					}),
+					),
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
 						Phase: corev1.PodRunning,
 						ContainerStatuses: []corev1.ContainerStatus{
@@ -381,8 +515,10 @@ var _ = Describe("[plugin] analyze cluster", func() {
 								Ready: false,
 								State: corev1.ContainerState{
 									Terminated: &corev1.ContainerStateTerminated{
-										ExitCode:   127,
-										FinishedAt: metav1.Time{Time: time.Now().Add(-1 * time.Hour)},
+										ExitCode: 127,
+										FinishedAt: metav1.Time{
+											Time: time.Now().Add(-1 * time.Hour),
+										},
 									},
 								},
 							},
@@ -401,9 +537,17 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				}),
 			Entry("Missing Pods",
 				testCase{
-					cluster: getCluster(clusterName, namespace, true, true, true, 1, []*fdbv1beta2.ProcessGroupStatus{
-						{ProcessGroupID: "storage-1"},
-					}),
+					cluster: getCluster(
+						clusterName,
+						namespace,
+						true,
+						true,
+						true,
+						1,
+						[]*fdbv1beta2.ProcessGroupStatus{
+							{ProcessGroupID: "storage-1"},
+						},
+					),
 					podList:        &corev1.PodList{},
 					ExpectedErrMsg: "✖ Found no Pods for this cluster",
 					ExpectedStdoutMsg: `Checking cluster: test/test
@@ -418,7 +562,15 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				}),
 			Entry("Missing entry in status",
 				testCase{
-					cluster: getCluster(clusterName, namespace, true, true, true, 1, []*fdbv1beta2.ProcessGroupStatus{}),
+					cluster: getCluster(
+						clusterName,
+						namespace,
+						true,
+						true,
+						true,
+						1,
+						[]*fdbv1beta2.ProcessGroupStatus{},
+					),
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
 						Phase: corev1.PodRunning,
 					}, nil),
@@ -434,19 +586,34 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				}),
 			Entry("ProcessGroup has a two conditions and we ignore one.",
 				testCase{
-					cluster: getCluster(clusterName, namespace, true, true, true, 1, []*fdbv1beta2.ProcessGroupStatus{
-						{
-							ProcessGroupID: "storage-1",
-							ProcessGroupConditions: []*fdbv1beta2.ProcessGroupCondition{
-								fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.MissingProcesses),
-								fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.IncorrectPodSpec),
+					cluster: getCluster(
+						clusterName,
+						namespace,
+						true,
+						true,
+						true,
+						1,
+						[]*fdbv1beta2.ProcessGroupStatus{
+							{
+								ProcessGroupID: "storage-1",
+								ProcessGroupConditions: []*fdbv1beta2.ProcessGroupCondition{
+									fdbv1beta2.NewProcessGroupCondition(
+										fdbv1beta2.MissingProcesses,
+									),
+									fdbv1beta2.NewProcessGroupCondition(
+										fdbv1beta2.IncorrectPodSpec,
+									),
+								},
 							},
 						},
-					}),
+					),
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
 						Phase: corev1.PodRunning,
 					}, nil),
-					ExpectedErrMsg: fmt.Sprintf("✖ ProcessGroup: storage-1 has the following condition: MissingProcesses since %s\n⚠ Ignored 1 conditions", time.Unix(time.Now().Unix(), 0).String()),
+					ExpectedErrMsg: fmt.Sprintf(
+						"✖ ProcessGroup: storage-1 has the following condition: MissingProcesses since %s\n⚠ Ignored 1 conditions",
+						time.Unix(time.Now().Unix(), 0).String(),
+					),
 					ExpectedStdoutMsg: `Checking cluster: test/test
 ✔ Cluster is available
 ✔ Cluster is fully replicated
@@ -467,7 +634,10 @@ var _ = Describe("[plugin] analyze cluster", func() {
 			errBuffer := bytes.Buffer{}
 			inBuffer := bytes.Buffer{}
 
-			rootCmd := NewRootCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer}, &MockVersionChecker{})
+			rootCmd := NewRootCmd(
+				genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer},
+				&MockVersionChecker{},
+			)
 			rootCmd.SetArgs([]string{"analyze"})
 
 			err := rootCmd.Execute()

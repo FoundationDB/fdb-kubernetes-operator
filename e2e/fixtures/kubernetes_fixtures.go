@@ -46,7 +46,8 @@ const (
 // factory.getRandomizedNamespaceName() checks if the username is valid to be used in the namespace name. If so this
 // method will return the namespace name as the username a hyphen and 8 random chars.
 func (factory *Factory) getRandomizedNamespaceName() string {
-	gomega.Expect(factory.userName).To(gomega.MatchRegexp(namespaceRegEx), "user name contains invalid characters")
+	gomega.Expect(factory.userName).
+		To(gomega.MatchRegexp(namespaceRegEx), "user name contains invalid characters")
 	name := factory.userName + "-" + testSuiteName + "-" + factory.RandStringRunes(8)
 	log.Println("namespace:", name, "length:", len(name))
 	return name
@@ -106,11 +107,20 @@ func (factory *Factory) createNamespace(suffix string) string {
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		namespaceResource := &corev1.Namespace{}
-		err = factory.controllerRuntimeClient.Get(ctx.Background(), client.ObjectKey{Namespace: "", Name: namespace}, namespaceResource)
+		err = factory.controllerRuntimeClient.Get(
+			ctx.Background(),
+			client.ObjectKey{Namespace: "", Name: namespace},
+			namespaceResource,
+		)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		if namespaceResource.Annotations[testSuiteNameAnnotation] != testSuiteName {
-			err = fmt.Errorf("namespace %s already in use by test suite: %s, current test suite: %s", namespace, namespaceResource.Annotations[testSuiteNameAnnotation], testSuiteName)
+			err = fmt.Errorf(
+				"namespace %s already in use by test suite: %s, current test suite: %s",
+				namespace,
+				namespaceResource.Annotations[testSuiteNameAnnotation],
+				testSuiteName,
+			)
 			log.Println(err.Error())
 			return err
 		}
@@ -154,7 +164,11 @@ func (factory *Factory) createNamespace(suffix string) string {
 
 		gomega.Eventually(func() error {
 			podList := &corev1.PodList{}
-			err := factory.controllerRuntimeClient.List(ctx.Background(), podList, client.InNamespace(namespace))
+			err := factory.controllerRuntimeClient.List(
+				ctx.Background(),
+				podList,
+				client.InNamespace(namespace),
+			)
 			if err != nil {
 				return err
 			}
@@ -209,7 +223,11 @@ func (factory *Factory) checkIfNamespaceIsTerminating(name string) error {
 	}
 
 	// If the namespace is in terminating, we have to check if any pods are stuck in terminating with a finalizer set.
-	log.Printf("Namespace: %s is in terminating state since: %s will wait until the namespace is deleted", namespace.Name, deletionTimestamp.String())
+	log.Printf(
+		"Namespace: %s is in terminating state since: %s will wait until the namespace is deleted",
+		namespace.Name,
+		deletionTimestamp.String(),
+	)
 	podList := &corev1.PodList{}
 	err = controllerClient.List(ctx.Background(), podList, client.InNamespace(name))
 	if err != nil {
@@ -223,7 +241,11 @@ func (factory *Factory) checkIfNamespaceIsTerminating(name string) error {
 		}
 	}
 
-	return fmt.Errorf("namespace %s is still in terminating state since %s", name, deletionTimestamp.String())
+	return fmt.Errorf(
+		"namespace %s is still in terminating state since %s",
+		name,
+		deletionTimestamp.String(),
+	)
 }
 
 func (factory *Factory) ensureNamespaceExists(namespace string) error {
@@ -356,7 +378,10 @@ func (factory *Factory) ensureRBACSetupExists(namespace string) {
 
 // LoadControllerRuntimeFromContext will load a client.Client from the provided context. The context must be existing in the
 // kube config.
-func LoadControllerRuntimeFromContext(context string, configScheme *runtime.Scheme) (client.Client, error) {
+func LoadControllerRuntimeFromContext(
+	context string,
+	configScheme *runtime.Scheme,
+) (client.Client, error) {
 	kubeConfig, err := config.GetConfigWithContext(context)
 	if err != nil {
 		return nil, err

@@ -331,7 +331,8 @@ func (factory *Factory) CreateDataLoaderIfAbsentWithWait(cluster *FdbCluster, wa
 	t, err := template.New("dataLoaderJob").Parse(dataLoaderJobTemplate)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	buf := bytes.Buffer{}
-	gomega.Expect(t.Execute(&buf, factory.getDataLoaderConfig(cluster))).NotTo(gomega.HaveOccurred())
+	gomega.Expect(t.Execute(&buf, factory.getDataLoaderConfig(cluster))).
+		NotTo(gomega.HaveOccurred())
 	decoder := yamlutil.NewYAMLOrJSONDecoder(&buf, 100000)
 	for {
 		var rawObj runtime.RawExtension
@@ -413,14 +414,28 @@ func (factory *Factory) WaitUntilDataLoaderIsDone(cluster *FdbCluster) {
 			).NotTo(gomega.HaveOccurred())
 
 			for _, condition := range job.Status.Conditions {
-				log.Println("Type:", condition.Type, "Reason", condition.Reason, "Message", condition.Message)
+				log.Println(
+					"Type:",
+					condition.Type,
+					"Reason",
+					condition.Reason,
+					"Message",
+					condition.Message,
+				)
 			}
 		}
 
 		var runningPods int
 		for _, pod := range pods.Items {
 			if shouldPrint {
-				log.Println("Pod:", pod.Name, "Phase:", pod.Status.Phase, "Messages:", pod.Status.Message)
+				log.Println(
+					"Pod:",
+					pod.Name,
+					"Phase:",
+					pod.Status.Phase,
+					"Messages:",
+					pod.Status.Message,
+				)
 			}
 
 			if pod.Status.Phase == corev1.PodRunning {

@@ -109,51 +109,211 @@ type Options struct {
 
 // BindFlags will parse the given flagset for the operator option flags
 func (o *Options) BindFlags(fs *flag.FlagSet) {
-	fs.StringVar(&o.MetricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
-	fs.BoolVar(&o.EnableLeaderElection, "enable-leader-election", true,
-		"Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
-	fs.StringVar(&o.LeaderElectionID, "leader-election-id", "fdb-kubernetes-operator",
-		"LeaderElectionID determines the name of the resource that leader election will use for holding the leader lock.")
-	fs.BoolVar(&o.DeprecationOptions.UseFutureDefaults, "use-future-defaults", false,
+	fs.StringVar(
+		&o.MetricsAddr,
+		"metrics-addr",
+		":8080",
+		"The address the metric endpoint binds to.",
+	)
+	fs.BoolVar(
+		&o.EnableLeaderElection,
+		"enable-leader-election",
+		true,
+		"Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.",
+	)
+	fs.StringVar(
+		&o.LeaderElectionID,
+		"leader-election-id",
+		"fdb-kubernetes-operator",
+		"LeaderElectionID determines the name of the resource that leader election will use for holding the leader lock.",
+	)
+	fs.BoolVar(
+		&o.DeprecationOptions.UseFutureDefaults,
+		"use-future-defaults",
+		false,
 		"Apply defaults from the next major version of the operator. This is only intended for use in development.",
 	)
 	fs.StringVar(&o.LogFile, "log-file", "", "The path to a file to write logs to.")
 	fs.IntVar(&o.CliTimeout, "cli-timeout", 10, "The timeout to use for CLI commands in seconds.")
-	fs.IntVar(&o.MaxCliTimeout, "max-cli-timeout", 40, "The maximum timeout to use for CLI commands in seconds. This timeout is used for CLI requests that are known to be potentially slow like get status or exclude.")
-	fs.IntVar(&o.MaxConcurrentReconciles, "max-concurrent-reconciles", 1, "Defines the maximum number of concurrent reconciles for all controllers.")
-	fs.BoolVar(&o.CleanUpOldLogFile, "cleanup-old-cli-logs", true, "Defines if the operator should delete old fdbcli log files.")
-	fs.DurationVar(&o.LogFileMinAge, "log-file-min-age", 5*time.Minute, "Defines the minimum age of fdbcli log files before removing when \"--cleanup-old-cli-logs\" is set.")
-	fs.IntVar(&o.LogFileMaxAge, "log-file-max-age", 28, "Defines the maximum age to retain old operator log file in number of days.")
-	fs.IntVar(&o.LogFileMaxSize, "log-file-max-size", 250, "Defines the maximum size in megabytes of the operator log file before it gets rotated.")
-	fs.StringVar(&o.LogFilePermission, "log-file-permission", "0644",
-		"The file permission for the log file. Only used if log-file is set. Only the octal representation is supported.")
+	fs.IntVar(
+		&o.MaxCliTimeout,
+		"max-cli-timeout",
+		40,
+		"The maximum timeout to use for CLI commands in seconds. This timeout is used for CLI requests that are known to be potentially slow like get status or exclude.",
+	)
+	fs.IntVar(
+		&o.MaxConcurrentReconciles,
+		"max-concurrent-reconciles",
+		1,
+		"Defines the maximum number of concurrent reconciles for all controllers.",
+	)
+	fs.BoolVar(
+		&o.CleanUpOldLogFile,
+		"cleanup-old-cli-logs",
+		true,
+		"Defines if the operator should delete old fdbcli log files.",
+	)
+	fs.DurationVar(
+		&o.LogFileMinAge,
+		"log-file-min-age",
+		5*time.Minute,
+		"Defines the minimum age of fdbcli log files before removing when \"--cleanup-old-cli-logs\" is set.",
+	)
+	fs.IntVar(
+		&o.LogFileMaxAge,
+		"log-file-max-age",
+		28,
+		"Defines the maximum age to retain old operator log file in number of days.",
+	)
+	fs.IntVar(
+		&o.LogFileMaxSize,
+		"log-file-max-size",
+		250,
+		"Defines the maximum size in megabytes of the operator log file before it gets rotated.",
+	)
+	fs.StringVar(
+		&o.LogFilePermission,
+		"log-file-permission",
+		"0644",
+		"The file permission for the log file. Only used if log-file is set. Only the octal representation is supported.",
+	)
 	fs.StringVar(&o.ClusterLabelKeyForNodeTrigger, "cluster-label-key-for-node-trigger", "",
 		"The label key to use to trigger a reconciliation if a node resources changes.")
-	fs.IntVar(&o.MaxNumberOfOldLogFiles, "max-old-log-files", 3, "Defines the maximum number of old operator log files to retain.")
-	fs.BoolVar(&o.CompressOldFiles, "compress", false, "Defines whether the rotated log files should be compressed using gzip or not.")
+	fs.IntVar(
+		&o.MaxNumberOfOldLogFiles,
+		"max-old-log-files",
+		3,
+		"Defines the maximum number of old operator log files to retain.",
+	)
+	fs.BoolVar(
+		&o.CompressOldFiles,
+		"compress",
+		false,
+		"Defines whether the rotated log files should be compressed using gzip or not.",
+	)
 	fs.BoolVar(&o.PrintVersion, "version", false, "Prints the version of the operator and exits.")
-	fs.StringVar(&o.LabelSelector, "label-selector", "", "Defines a label-selector that will be used to select resources.")
-	fs.StringVar(&o.WatchNamespace, "watch-namespace", os.Getenv("WATCH_NAMESPACE"), "Defines which namespace the operator should watch.")
-	fs.StringVar(&o.PodUpdateMethod, "pod-update-method", string(podmanager.Update), "Defines how the Pod manager should update pods, possible values are \"update\" and \"patch\".")
-	fs.DurationVar(&o.GetTimeout, "get-timeout", 5*time.Second, "http timeout for get requests to the FDB sidecar.")
-	fs.DurationVar(&o.PostTimeout, "post-timeout", 10*time.Second, "http timeout for post requests to the FDB sidecar.")
-	fs.DurationVar(&o.LeaseDuration, "leader-election-lease-duration", 15*time.Second, "the duration that non-leader candidates will wait to force acquire leadership.")
-	fs.DurationVar(&o.RenewDeadline, "leader-election-renew-deadline", 10*time.Second, "the duration that the acting controlplane will retry refreshing leadership before giving up.")
-	fs.DurationVar(&o.RetryPeriod, "leader-election-retry-period", 2*time.Second, "the duration the LeaderElector clients should wait between tries of action.")
-	fs.DurationVar(&o.MaintenanceListStaleDuration, "maintenance-list-stale-duration", 4*time.Hour, "the duration after stale entries will be deleted form the maintenance list. Only has an affect if the operator is allowed to reset the maintenance zone.")
-	fs.DurationVar(&o.MaintenanceListWaitDuration, "maintenance-list-wait-duration", 5*time.Minute, "the duration where a process in the maintenance list in a different zone will be assumed to block the maintenance zone reset. Only has an affect if the operator is allowed to reset the maintenance zone.")
-	fs.DurationVar(&o.MinimumRequiredUptimeCCBounce, "minimum-required-uptime-for-cc-bounce", 1*time.Hour, "the minimum required uptime of the cluster before allowing the operator to restart the CC if there is a failed tester process.")
-	fs.DurationVar(&o.GlobalSynchronizationWaitDuration, "global-synchronization-wait-duration", 30*time.Second, "the wait time for the global synchronization mode in multi-region deployments")
-	fs.BoolVar(&o.EnableRestartIncompatibleProcesses, "enable-restart-incompatible-processes", true, "This flag enables/disables in the operator to restart incompatible fdbserver processes.")
-	fs.BoolVar(&o.ServerSideApply, "server-side-apply", false, "This flag enables server side apply.")
-	fs.BoolVar(&o.EnableRecoveryState, "enable-recovery-state", true, "This flag enables the use of the recovery state for the minimum uptime between bounced if the FDB version supports it.")
-	fs.BoolVar(&o.CacheDatabaseStatus, "cache-database-status", true, "Defines the default value for caching the database status.")
-	fs.BoolVar(&o.EnableNodeIndex, "enable-node-index", false, "Deprecated, not used anymore. Defines if the operator should add an index for accessing node objects. This requires a ClusterRoleBinding with node access. If the taint feature should be used, this setting should be set to true.")
-	fs.BoolVar(&o.ReplaceOnSecurityContextChange, "replace-on-security-context-change", false, "This flag enables the operator"+
-		" to automatically replace pods whose effective security context has one of the following fields change: "+
-		"FSGroup, FSGroupChangePolicy, RunAsGroup, RunAsUser")
-	fs.Float64Var(&o.MinimumRecoveryTimeForInclusion, "minimum-recovery-time-for-inclusion", 600.0, "Defines the minimum uptime of the cluster before inclusions are allowed. For clusters after 7.1 this will use the recovery state. This should reduce the risk of frequent recoveries because of inclusions.")
-	fs.Float64Var(&o.MinimumRecoveryTimeForExclusion, "minimum-recovery-time-for-exclusion", 120.0, "Defines the minimum uptime of the cluster before exclusions are allowed. For clusters after 7.1 this will use the recovery state. This should reduce the risk of frequent recoveries because of exclusions.")
+	fs.StringVar(
+		&o.LabelSelector,
+		"label-selector",
+		"",
+		"Defines a label-selector that will be used to select resources.",
+	)
+	fs.StringVar(
+		&o.WatchNamespace,
+		"watch-namespace",
+		os.Getenv("WATCH_NAMESPACE"),
+		"Defines which namespace the operator should watch.",
+	)
+	fs.StringVar(
+		&o.PodUpdateMethod,
+		"pod-update-method",
+		string(podmanager.Update),
+		"Defines how the Pod manager should update pods, possible values are \"update\" and \"patch\".",
+	)
+	fs.DurationVar(
+		&o.GetTimeout,
+		"get-timeout",
+		5*time.Second,
+		"http timeout for get requests to the FDB sidecar.",
+	)
+	fs.DurationVar(
+		&o.PostTimeout,
+		"post-timeout",
+		10*time.Second,
+		"http timeout for post requests to the FDB sidecar.",
+	)
+	fs.DurationVar(
+		&o.LeaseDuration,
+		"leader-election-lease-duration",
+		15*time.Second,
+		"the duration that non-leader candidates will wait to force acquire leadership.",
+	)
+	fs.DurationVar(
+		&o.RenewDeadline,
+		"leader-election-renew-deadline",
+		10*time.Second,
+		"the duration that the acting controlplane will retry refreshing leadership before giving up.",
+	)
+	fs.DurationVar(
+		&o.RetryPeriod,
+		"leader-election-retry-period",
+		2*time.Second,
+		"the duration the LeaderElector clients should wait between tries of action.",
+	)
+	fs.DurationVar(
+		&o.MaintenanceListStaleDuration,
+		"maintenance-list-stale-duration",
+		4*time.Hour,
+		"the duration after stale entries will be deleted form the maintenance list. Only has an affect if the operator is allowed to reset the maintenance zone.",
+	)
+	fs.DurationVar(
+		&o.MaintenanceListWaitDuration,
+		"maintenance-list-wait-duration",
+		5*time.Minute,
+		"the duration where a process in the maintenance list in a different zone will be assumed to block the maintenance zone reset. Only has an affect if the operator is allowed to reset the maintenance zone.",
+	)
+	fs.DurationVar(
+		&o.MinimumRequiredUptimeCCBounce,
+		"minimum-required-uptime-for-cc-bounce",
+		1*time.Hour,
+		"the minimum required uptime of the cluster before allowing the operator to restart the CC if there is a failed tester process.",
+	)
+	fs.DurationVar(
+		&o.GlobalSynchronizationWaitDuration,
+		"global-synchronization-wait-duration",
+		30*time.Second,
+		"the wait time for the global synchronization mode in multi-region deployments",
+	)
+	fs.BoolVar(
+		&o.EnableRestartIncompatibleProcesses,
+		"enable-restart-incompatible-processes",
+		true,
+		"This flag enables/disables in the operator to restart incompatible fdbserver processes.",
+	)
+	fs.BoolVar(
+		&o.ServerSideApply,
+		"server-side-apply",
+		false,
+		"This flag enables server side apply.",
+	)
+	fs.BoolVar(
+		&o.EnableRecoveryState,
+		"enable-recovery-state",
+		true,
+		"This flag enables the use of the recovery state for the minimum uptime between bounced if the FDB version supports it.",
+	)
+	fs.BoolVar(
+		&o.CacheDatabaseStatus,
+		"cache-database-status",
+		true,
+		"Defines the default value for caching the database status.",
+	)
+	fs.BoolVar(
+		&o.EnableNodeIndex,
+		"enable-node-index",
+		false,
+		"Deprecated, not used anymore. Defines if the operator should add an index for accessing node objects. This requires a ClusterRoleBinding with node access. If the taint feature should be used, this setting should be set to true.",
+	)
+	fs.BoolVar(
+		&o.ReplaceOnSecurityContextChange,
+		"replace-on-security-context-change",
+		false,
+		"This flag enables the operator"+
+			" to automatically replace pods whose effective security context has one of the following fields change: "+
+			"FSGroup, FSGroupChangePolicy, RunAsGroup, RunAsUser",
+	)
+	fs.Float64Var(
+		&o.MinimumRecoveryTimeForInclusion,
+		"minimum-recovery-time-for-inclusion",
+		600.0,
+		"Defines the minimum uptime of the cluster before inclusions are allowed. For clusters after 7.1 this will use the recovery state. This should reduce the risk of frequent recoveries because of inclusions.",
+	)
+	fs.Float64Var(
+		&o.MinimumRecoveryTimeForExclusion,
+		"minimum-recovery-time-for-exclusion",
+		120.0,
+		"Defines the minimum uptime of the cluster before exclusions are allowed. For clusters after 7.1 this will use the recovery state. This should reduce the risk of frequent recoveries because of exclusions.",
+	)
 }
 
 // StartManager will start the FoundationDB operator manager.
@@ -175,7 +335,12 @@ func StartManager(
 
 	logWriter, err := setupLogger(operatorOpts)
 	if err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "unable to setup logger: %s, got error: %s\n", operatorOpts.LogFile, err.Error())
+		_, _ = fmt.Fprintf(
+			os.Stderr,
+			"unable to setup logger: %s, got error: %s\n",
+			operatorOpts.LogFile,
+			err.Error(),
+		)
 		os.Exit(1)
 	}
 
@@ -200,7 +365,12 @@ func StartManager(
 		// Parse the label selector, if the label selector is not parsable panic.
 		selector, parseErr := labels.Parse(operatorOpts.LabelSelector)
 		if parseErr != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "could not parse label selector: %s, got error: %s", operatorOpts.LabelSelector, parseErr)
+			_, _ = fmt.Fprintf(
+				os.Stderr,
+				"could not parse label selector: %s, got error: %s",
+				operatorOpts.LabelSelector,
+				parseErr,
+			)
 			os.Exit(1)
 		}
 
@@ -210,7 +380,11 @@ func StartManager(
 	}
 
 	if operatorOpts.WatchNamespace != "" {
-		setupLog.Info("Operator starting in single namespace mode", "namespace", operatorOpts.WatchNamespace)
+		setupLog.Info(
+			"Operator starting in single namespace mode",
+			"namespace",
+			operatorOpts.WatchNamespace,
+		)
 		cacheOptions.DefaultNamespaces = map[string]cache.Config{
 			operatorOpts.WatchNamespace: {},
 		}
@@ -246,7 +420,9 @@ func StartManager(
 		os.Exit(1)
 	}
 
-	labelSelector, err := metav1.ParseToLabelSelector(strings.Trim(operatorOpts.LabelSelector, "\""))
+	labelSelector, err := metav1.ParseToLabelSelector(
+		strings.Trim(operatorOpts.LabelSelector, "\""),
+	)
 	if err != nil {
 		setupLog.Error(err, "unable to parse provided label selector")
 		os.Exit(1)
@@ -270,7 +446,10 @@ func StartManager(
 		clusterReconciler.MaintenanceListWaitDuration = operatorOpts.MaintenanceListWaitDuration
 		clusterReconciler.MinimumRecoveryTimeForInclusion = operatorOpts.MinimumRecoveryTimeForInclusion
 		clusterReconciler.MinimumRecoveryTimeForExclusion = operatorOpts.MinimumRecoveryTimeForExclusion
-		clusterReconciler.ClusterLabelKeyForNodeTrigger = strings.Trim(operatorOpts.ClusterLabelKeyForNodeTrigger, "\"")
+		clusterReconciler.ClusterLabelKeyForNodeTrigger = strings.Trim(
+			operatorOpts.ClusterLabelKeyForNodeTrigger,
+			"\"",
+		)
 		clusterReconciler.Namespace = operatorOpts.WatchNamespace
 		clusterReconciler.GlobalSynchronizationWaitDuration = operatorOpts.GlobalSynchronizationWaitDuration
 
@@ -278,8 +457,14 @@ func StartManager(
 		// update method will be ignored.
 		castedPodManager, ok := clusterReconciler.PodLifecycleManager.(podmanager.PodLifecycleManagerWithPodUpdateMethod)
 		if ok {
-			setupLog.Info("Updating pod update method", "podUpdateMethod", operatorOpts.PodUpdateMethod)
-			castedPodManager.SetUpdateMethod(podmanager.PodUpdateMethod(operatorOpts.PodUpdateMethod))
+			setupLog.Info(
+				"Updating pod update method",
+				"podUpdateMethod",
+				operatorOpts.PodUpdateMethod,
+			)
+			castedPodManager.SetUpdateMethod(
+				podmanager.PodUpdateMethod(operatorOpts.PodUpdateMethod),
+			)
 		}
 		if err := clusterReconciler.SetupWithManager(mgr, operatorOpts.MaxConcurrentReconciles, *labelSelector, watchedObjects...); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "FoundationDBCluster")
@@ -318,7 +503,8 @@ func StartManager(
 	}
 
 	if operatorOpts.CleanUpOldLogFile {
-		setupLog.V(1).Info("setup log file cleaner", "LogFileMinAge", operatorOpts.LogFileMinAge.String())
+		setupLog.V(1).
+			Info("setup log file cleaner", "LogFileMinAge", operatorOpts.LogFileMinAge.String())
 		cleaner := internal.NewCliLogFileCleaner(logger, operatorOpts.LogFileMinAge)
 		ticker := time.NewTicker(operatorOpts.LogFileMinAge)
 		go func() {
@@ -346,7 +532,10 @@ func moveFDBBinaries(log logr.Logger) error {
 	libDir, err := os.Open(os.Getenv(fdbv1beta2.EnvNameFDBExternalClientDir))
 	if err != nil {
 		if os.IsNotExist(err) {
-			err = os.MkdirAll(os.Getenv(fdbv1beta2.EnvNameFDBExternalClientDir), os.ModeDir|os.ModePerm)
+			err = os.MkdirAll(
+				os.Getenv(fdbv1beta2.EnvNameFDBExternalClientDir),
+				os.ModeDir|os.ModePerm,
+			)
 			if err != nil {
 				return err
 			}
@@ -371,7 +560,9 @@ func moveFDBBinaries(log logr.Logger) error {
 			continue
 		}
 
-		versionBinFile, err := os.Open(path.Join(binFile.Name(), binEntry.Name(), "bin", binEntry.Name()))
+		versionBinFile, err := os.Open(
+			path.Join(binFile.Name(), binEntry.Name(), "bin", binEntry.Name()),
+		)
 		if err != nil && !os.IsNotExist(err) {
 			return err
 		}
@@ -399,7 +590,9 @@ func moveFDBBinaries(log logr.Logger) error {
 		}
 		_ = versionBinFile.Close()
 
-		versionLibFile, err := os.Open(path.Join(binFile.Name(), binEntry.Name(), "lib", "libfdb_c.so"))
+		versionLibFile, err := os.Open(
+			path.Join(binFile.Name(), binEntry.Name(), "lib", "libfdb_c.so"),
+		)
 		if err != nil && !os.IsNotExist(err) {
 			return err
 		}

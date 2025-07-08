@@ -24,12 +24,18 @@ import fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta
 
 // FilterBlockedRemovals will remove all matching process groups from the processGroupsToRemove slice that are defined in
 // the BlockRemoval.
-func FilterBlockedRemovals(cluster *fdbv1beta2.FoundationDBCluster, processGroupsToRemove []*fdbv1beta2.ProcessGroupStatus) []*fdbv1beta2.ProcessGroupStatus {
+func FilterBlockedRemovals(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	processGroupsToRemove []*fdbv1beta2.ProcessGroupStatus,
+) []*fdbv1beta2.ProcessGroupStatus {
 	if len(cluster.Spec.Buggify.BlockRemoval) == 0 {
 		return processGroupsToRemove
 	}
 
-	blockedProcessGroups := make(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None, len(cluster.Spec.Buggify.BlockRemoval))
+	blockedProcessGroups := make(
+		map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None,
+		len(cluster.Spec.Buggify.BlockRemoval),
+	)
 	for _, blockedProcessGroup := range cluster.Spec.Buggify.BlockRemoval {
 		blockedProcessGroups[blockedProcessGroup] = fdbv1beta2.None{}
 	}
@@ -48,13 +54,23 @@ func FilterBlockedRemovals(cluster *fdbv1beta2.FoundationDBCluster, processGroup
 
 // FilterIgnoredProcessGroups removes all addresses from the addresses slice that are associated with a process group that should be ignored
 // during a restart.
-func FilterIgnoredProcessGroups(cluster *fdbv1beta2.FoundationDBCluster, addresses []fdbv1beta2.ProcessAddress, status *fdbv1beta2.FoundationDBStatus) ([]fdbv1beta2.ProcessAddress, bool) {
+func FilterIgnoredProcessGroups(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	addresses []fdbv1beta2.ProcessAddress,
+	status *fdbv1beta2.FoundationDBStatus,
+) ([]fdbv1beta2.ProcessAddress, bool) {
 	if len(cluster.Spec.Buggify.IgnoreDuringRestart) == 0 {
 		return addresses, false
 	}
 
-	ignoredIDs := make(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None, len(cluster.Spec.Buggify.IgnoreDuringRestart))
-	ignoredAddresses := make(map[string]fdbv1beta2.None, len(cluster.Spec.Buggify.IgnoreDuringRestart))
+	ignoredIDs := make(
+		map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None,
+		len(cluster.Spec.Buggify.IgnoreDuringRestart),
+	)
+	ignoredAddresses := make(
+		map[string]fdbv1beta2.None,
+		len(cluster.Spec.Buggify.IgnoreDuringRestart),
+	)
 
 	for _, id := range cluster.Spec.Buggify.IgnoreDuringRestart {
 		ignoredIDs[id] = fdbv1beta2.None{}

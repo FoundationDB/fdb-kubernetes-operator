@@ -147,7 +147,11 @@ func reconcileRestore(restore *fdbv1beta2.FoundationDBRestore) (reconcile.Result
 	return reconcileObject(restoreReconciler, restore.ObjectMeta, requeueLimit)
 }
 
-func reconcileObject(reconciler reconcile.Reconciler, metadata metav1.ObjectMeta, requeueLimit int) (reconcile.Result, error) {
+func reconcileObject(
+	reconciler reconcile.Reconciler,
+	metadata metav1.ObjectMeta,
+	requeueLimit int,
+) (reconcile.Result, error) {
 	attempts := requeueLimit + 1
 	result := reconcile.Result{Requeue: true}
 	var err error
@@ -155,7 +159,15 @@ func reconcileObject(reconciler reconcile.Reconciler, metadata metav1.ObjectMeta
 		globalControllerLogger.Info("Running test reconciliation", "Attempts", attempts)
 		attempts--
 
-		result, err = reconciler.Reconcile(context.TODO(), reconcile.Request{NamespacedName: types.NamespacedName{Namespace: metadata.Namespace, Name: metadata.Name}})
+		result, err = reconciler.Reconcile(
+			context.TODO(),
+			reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Namespace: metadata.Namespace,
+					Name:      metadata.Name,
+				},
+			},
+		)
 		if err != nil {
 			globalControllerLogger.Error(err, "Error in reconciliation")
 			break

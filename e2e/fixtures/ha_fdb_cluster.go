@@ -170,7 +170,8 @@ func (haFDBCluster *HaFdbCluster) SetDatabaseConfiguration(
 	config fdbv1beta2.DatabaseConfiguration,
 ) {
 	for _, fdbCluster := range haFDBCluster.clusters {
-		gomega.Expect(fdbCluster.SetDatabaseConfiguration(config, false)).NotTo(gomega.HaveOccurred())
+		gomega.Expect(fdbCluster.SetDatabaseConfiguration(config, false)).
+			NotTo(gomega.HaveOccurred())
 	}
 }
 
@@ -252,7 +253,11 @@ func (haFDBCluster *HaFdbCluster) UpgradeClusterWithTimeout(
 	for _, cluster := range haFDBCluster.GetAllClusters() {
 		singleCluster := cluster // https://golang.org/doc/faq#closures_and_goroutines
 		g.Go(func() error {
-			return singleCluster.WaitForReconciliation(MinimumGenerationOption(expectedGenerations[singleCluster.Name()]), TimeOutInSecondsOption(timeout), PollTimeInSecondsOption(30))
+			return singleCluster.WaitForReconciliation(
+				MinimumGenerationOption(expectedGenerations[singleCluster.Name()]),
+				TimeOutInSecondsOption(timeout),
+				PollTimeInSecondsOption(30),
+			)
 		})
 	}
 
@@ -267,8 +272,10 @@ func (haFDBCluster *HaFdbCluster) DumpState() {
 }
 
 // SetCustomParameters sets the custom parameters for the provided process class.
-func (haFDBCluster *HaFdbCluster) SetCustomParameters(customParameters map[fdbv1beta2.ProcessClass]fdbv1beta2.FoundationDBCustomParameters,
-	waitForReconcile bool) error {
+func (haFDBCluster *HaFdbCluster) SetCustomParameters(
+	customParameters map[fdbv1beta2.ProcessClass]fdbv1beta2.FoundationDBCustomParameters,
+	waitForReconcile bool,
+) error {
 	var wg errgroup.Group
 	for _, cluster := range haFDBCluster.clusters {
 		clusterCopy := cluster
@@ -306,16 +313,24 @@ func (haFDBCluster *HaFdbCluster) VerifyVersion(version string) {
 	for _, cluster := range haFDBCluster.GetAllClusters() {
 		singleCluster := cluster // https://golang.org/doc/faq#closures_and_goroutines
 		g.Go(func() error {
-			return singleCluster.WaitUntilWithForceReconcile(2, 600, func(cluster *fdbv1beta2.FoundationDBCluster) bool {
-				return cluster.Status.RunningVersion == version
-			})
+			return singleCluster.WaitUntilWithForceReconcile(
+				2,
+				600,
+				func(cluster *fdbv1beta2.FoundationDBCluster) bool {
+					return cluster.Status.RunningVersion == version
+				},
+			)
 		})
 	}
 
 	// Add more context to the error.
 	err := g.Wait()
 	if err != nil {
-		err = fmt.Errorf("timeout waiting for all clusters to be upgraded to %s, original error: %w", version, err)
+		err = fmt.Errorf(
+			"timeout waiting for all clusters to be upgraded to %s, original error: %w",
+			version,
+			err,
+		)
 	}
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 }

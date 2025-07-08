@@ -64,7 +64,9 @@ var _ = Describe("[api] ImageConfig", func() {
 				TagSuffix: "-2",
 			}
 			image := config.Image()
-			Expect(image).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes-sidecar:%s-2", Versions.Default)))
+			Expect(
+				image,
+			).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes-sidecar:%s-2", Versions.Default)))
 		})
 
 		It("uses the tag to override the version and tag suffix", func() {

@@ -100,21 +100,40 @@ See help for even more process group selection options, such as by processClass,
 }
 
 // updateNoScheduleList updates the removal list of the cluster
-func updateNoScheduleList(cmd *cobra.Command, kubeClient client.Client, opts buggifyProcessGroupOptions, processGroupOpts processGroupSelectionOptions) error {
+func updateNoScheduleList(
+	cmd *cobra.Command,
+	kubeClient client.Client,
+	opts buggifyProcessGroupOptions,
+	processGroupOpts processGroupSelectionOptions,
+) error {
 	if opts.clean {
 		if processGroupOpts.clusterName == "" {
 			return fmt.Errorf("clean option requires cluster-name argument")
 		}
-		cluster, err := loadCluster(kubeClient, processGroupOpts.namespace, processGroupOpts.clusterName)
+		cluster, err := loadCluster(
+			kubeClient,
+			processGroupOpts.namespace,
+			processGroupOpts.clusterName,
+		)
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
-				return fmt.Errorf("could not get cluster: %s/%s", processGroupOpts.namespace, processGroupOpts.clusterName)
+				return fmt.Errorf(
+					"could not get cluster: %s/%s",
+					processGroupOpts.namespace,
+					processGroupOpts.clusterName,
+				)
 			}
 			return err
 		}
 		patch := client.MergeFrom(cluster.DeepCopy())
 		if opts.wait {
-			if !confirmAction(fmt.Sprintf("Clearing no-schedule list from cluster %s/%s", processGroupOpts.namespace, processGroupOpts.clusterName)) {
+			if !confirmAction(
+				fmt.Sprintf(
+					"Clearing no-schedule list from cluster %s/%s",
+					processGroupOpts.namespace,
+					processGroupOpts.clusterName,
+				),
+			) {
 				return fmt.Errorf("user aborted the removal")
 			}
 		}
@@ -134,7 +153,15 @@ func updateNoScheduleList(cmd *cobra.Command, kubeClient client.Client, opts bug
 		}
 
 		if opts.clear {
-			if opts.wait && !confirmAction(fmt.Sprintf("Removing %v from no-schedule from cluster %s/%s", processGroupIDs, processGroupOpts.namespace, processGroupOpts.clusterName)) {
+			if opts.wait &&
+				!confirmAction(
+					fmt.Sprintf(
+						"Removing %v from no-schedule from cluster %s/%s",
+						processGroupIDs,
+						processGroupOpts.namespace,
+						processGroupOpts.clusterName,
+					),
+				) {
 				return fmt.Errorf("user aborted the removal")
 			}
 			cluster.RemoveProcessGroupsFromNoScheduleList(processGroupIDs)

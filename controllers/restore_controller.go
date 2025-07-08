@@ -52,7 +52,10 @@ type FoundationDBRestoreReconciler struct {
 // +kubebuilder:rbac:groups="coordination.k8s.io",resources=leases,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile runs the reconciliation logic.
-func (r *FoundationDBRestoreReconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
+func (r *FoundationDBRestoreReconciler) Reconcile(
+	ctx context.Context,
+	request ctrl.Request,
+) (ctrl.Result, error) {
 	restore := &fdbv1beta2.FoundationDBRestore{}
 	err := r.Get(ctx, request.NamespacedName, restore)
 
@@ -66,7 +69,14 @@ func (r *FoundationDBRestoreReconciler) Reconcile(ctx context.Context, request c
 		return ctrl.Result{}, err
 	}
 
-	restoreLog := globalControllerLogger.WithValues("namespace", restore.Namespace, "restore", restore.Name, "traceID", uuid.NewUUID())
+	restoreLog := globalControllerLogger.WithValues(
+		"namespace",
+		restore.Namespace,
+		"restore",
+		restore.Name,
+		"traceID",
+		uuid.NewUUID(),
+	)
 
 	subReconcilers := []restoreSubReconciler{
 		updateRestoreStatus{},
@@ -109,9 +119,19 @@ func (r *FoundationDBRestoreReconciler) getDatabaseClientProvider() fdbadminclie
 }
 
 // adminClientForRestore provides an admin client for a restore reconciler.
-func (r *FoundationDBRestoreReconciler) adminClientForRestore(ctx context.Context, restore *fdbv1beta2.FoundationDBRestore) (fdbadminclient.AdminClient, error) {
+func (r *FoundationDBRestoreReconciler) adminClientForRestore(
+	ctx context.Context,
+	restore *fdbv1beta2.FoundationDBRestore,
+) (fdbadminclient.AdminClient, error) {
 	cluster := &fdbv1beta2.FoundationDBCluster{}
-	err := r.Get(ctx, types.NamespacedName{Namespace: restore.ObjectMeta.Namespace, Name: restore.Spec.DestinationClusterName}, cluster)
+	err := r.Get(
+		ctx,
+		types.NamespacedName{
+			Namespace: restore.ObjectMeta.Namespace,
+			Name:      restore.Spec.DestinationClusterName,
+		},
+		cluster,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +147,11 @@ func (r *FoundationDBRestoreReconciler) adminClientForRestore(ctx context.Contex
 }
 
 // SetupWithManager prepares a reconciler for use.
-func (r *FoundationDBRestoreReconciler) SetupWithManager(mgr ctrl.Manager, maxConcurrentReconciles int, selector metav1.LabelSelector) error {
+func (r *FoundationDBRestoreReconciler) SetupWithManager(
+	mgr ctrl.Manager,
+	maxConcurrentReconciles int,
+	selector metav1.LabelSelector,
+) error {
 	labelSelectorPredicate, err := predicate.LabelSelectorPredicate(selector)
 	if err != nil {
 		return err
@@ -165,11 +189,18 @@ type restoreSubReconciler interface {
 	If reconciliation cannot proceed, this should return a `requeue` object with
 	a `Message` field.
 	*/
-	reconcile(ctx context.Context, r *FoundationDBRestoreReconciler, restore *fdbv1beta2.FoundationDBRestore) *requeue
+	reconcile(
+		ctx context.Context,
+		r *FoundationDBRestoreReconciler,
+		restore *fdbv1beta2.FoundationDBRestore,
+	) *requeue
 }
 
 // updateOrApply updates the status either with server-side apply or if disabled with the normal update call.
-func (r *FoundationDBRestoreReconciler) updateOrApply(ctx context.Context, restore *fdbv1beta2.FoundationDBRestore) error {
+func (r *FoundationDBRestoreReconciler) updateOrApply(
+	ctx context.Context,
+	restore *fdbv1beta2.FoundationDBRestore,
+) error {
 	if r.ServerSideApply {
 		// TODO(johscheuer): We have to set the TypeMeta otherwise the Patch command will fail. This is the rudimentary
 		// support for server side apply which should be enough for the status use case. The controller runtime will
@@ -186,7 +217,9 @@ func (r *FoundationDBRestoreReconciler) updateOrApply(ctx context.Context, resto
 			Status: restore.Status,
 		}
 
-		return r.Status().Patch(ctx, patch, client.Apply, client.FieldOwner("fdb-operator")) //, client.ForceOwnership)
+		return r.Status().
+			Patch(ctx, patch, client.Apply, client.FieldOwner("fdb-operator"))
+		//, client.ForceOwnership)
 	}
 
 	return r.Status().Update(ctx, restore)

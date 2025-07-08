@@ -61,7 +61,10 @@ var _ = Describe("Internal error helper", func() {
 				}),
 			Entry("wrapped network error",
 				testCase{
-					err:      fmt.Errorf("test : %w", &net.OpError{Op: "mock", Err: fmt.Errorf("not reachable")}),
+					err: fmt.Errorf(
+						"test : %w",
+						&net.OpError{Op: "mock", Err: fmt.Errorf("not reachable")},
+					),
 					expected: true,
 				}),
 		)
@@ -79,12 +82,20 @@ var _ = Describe("Internal error helper", func() {
 			},
 			Entry("Admission error",
 				testCase{
-					err:      apierrors.NewForbidden(schema.GroupResource{}, "test", fmt.Errorf("exceeded quota: todo")),
+					err: apierrors.NewForbidden(
+						schema.GroupResource{},
+						"test",
+						fmt.Errorf("exceeded quota: todo"),
+					),
 					expected: true,
 				}),
 			Entry("Different forbidden error",
 				testCase{
-					err:      apierrors.NewForbidden(schema.GroupResource{}, "test", fmt.Errorf("not allowed")),
+					err: apierrors.NewForbidden(
+						schema.GroupResource{},
+						"test",
+						fmt.Errorf("not allowed"),
+					),
 					expected: false,
 				}),
 			Entry("simple error",
@@ -117,7 +128,10 @@ var _ = Describe("Internal error helper", func() {
 				}),
 			Entry("wrapped timeout error",
 				testCase{
-					err:      fmt.Errorf("test : %w", fdbv1beta2.TimeoutError{Err: fmt.Errorf("not reachable")}),
+					err: fmt.Errorf(
+						"test : %w",
+						fdbv1beta2.TimeoutError{Err: fmt.Errorf("not reachable")},
+					),
 					expected: true,
 				}),
 		)

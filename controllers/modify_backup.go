@@ -32,7 +32,11 @@ type modifyBackup struct {
 }
 
 // reconcile runs the reconciler's work.
-func (s modifyBackup) reconcile(ctx context.Context, r *FoundationDBBackupReconciler, backup *fdbv1beta2.FoundationDBBackup) *requeue {
+func (s modifyBackup) reconcile(
+	ctx context.Context,
+	r *FoundationDBBackupReconciler,
+	backup *fdbv1beta2.FoundationDBBackup,
+) *requeue {
 	if backup.Status.BackupDetails == nil || !backup.ShouldRun() {
 		return nil
 	}

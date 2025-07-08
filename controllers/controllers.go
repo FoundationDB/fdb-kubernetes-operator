@@ -58,8 +58,19 @@ type requeue struct {
 }
 
 // processRequeue interprets a requeue result from a subreconciler.
-func processRequeue(requeue *requeue, subReconciler interface{}, object runtime.Object, recorder record.EventRecorder, logger logr.Logger) (ctrl.Result, error) {
-	curLog := logger.WithValues("reconciler", fmt.Sprintf("%T", subReconciler), "requeueAfter", requeue.delay)
+func processRequeue(
+	requeue *requeue,
+	subReconciler interface{},
+	object runtime.Object,
+	recorder record.EventRecorder,
+	logger logr.Logger,
+) (ctrl.Result, error) {
+	curLog := logger.WithValues(
+		"reconciler",
+		fmt.Sprintf("%T", subReconciler),
+		"requeueAfter",
+		requeue.delay,
+	)
 	if requeue.message == "" && requeue.curError != nil {
 		requeue.message = requeue.curError.Error()
 	}

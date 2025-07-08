@@ -43,7 +43,12 @@ func ensurePodPhaseSelectorIsSet(selector *chaosmesh.PodSelectorSpec) {
 }
 
 // InjectNetworkLoss injects network loss between the source and the target.
-func (factory *Factory) InjectNetworkLoss(lossPercentage string, source chaosmesh.PodSelectorSpec, target chaosmesh.PodSelectorSpec, direction chaosmesh.Direction) *ChaosMeshExperiment {
+func (factory *Factory) InjectNetworkLoss(
+	lossPercentage string,
+	source chaosmesh.PodSelectorSpec,
+	target chaosmesh.PodSelectorSpec,
+	direction chaosmesh.Direction,
+) *ChaosMeshExperiment {
 	ensurePodPhaseSelectorIsSet(&source)
 	ensurePodPhaseSelectorIsSet(&target)
 
@@ -76,7 +81,10 @@ func (factory *Factory) InjectNetworkLoss(lossPercentage string, source chaosmes
 }
 
 // InjectNetworkLossBetweenPods Injects network loss b/w each combination of podGroups.
-func (factory *Factory) InjectNetworkLossBetweenPods(pods []chaosmesh.PodSelectorSpec, loss string) {
+func (factory *Factory) InjectNetworkLossBetweenPods(
+	pods []chaosmesh.PodSelectorSpec,
+	loss string,
+) {
 	count := len(pods)
 	for i := 0; i < count; i++ {
 		for j := i + 1; j < count; j++ {
@@ -103,7 +111,10 @@ func (factory *Factory) InjectPartition(selector chaosmesh.PodSelectorSpec) *Cha
 }
 
 // InjectPartitionWithExternalTargets injects a partition to the provided selector with the external targets
-func (factory *Factory) InjectPartitionWithExternalTargets(selector chaosmesh.PodSelectorSpec, externalTargets []string) *ChaosMeshExperiment {
+func (factory *Factory) InjectPartitionWithExternalTargets(
+	selector chaosmesh.PodSelectorSpec,
+	externalTargets []string,
+) *ChaosMeshExperiment {
 	return factory.injectPartitionBetween(selector, nil, chaosmesh.Both, externalTargets)
 }
 
@@ -173,7 +184,12 @@ func (factory *Factory) InjectPartitionOnSomeTargetPods(
 }
 
 // InjectNetworkLatency injects network latency between the source and the target.
-func (factory *Factory) InjectNetworkLatency(source chaosmesh.PodSelectorSpec, target chaosmesh.PodSelectorSpec, direction chaosmesh.Direction, delay *chaosmesh.DelaySpec) *ChaosMeshExperiment {
+func (factory *Factory) InjectNetworkLatency(
+	source chaosmesh.PodSelectorSpec,
+	target chaosmesh.PodSelectorSpec,
+	direction chaosmesh.Direction,
+	delay *chaosmesh.DelaySpec,
+) *ChaosMeshExperiment {
 	ensurePodPhaseSelectorIsSet(&source)
 	ensurePodPhaseSelectorIsSet(&target)
 

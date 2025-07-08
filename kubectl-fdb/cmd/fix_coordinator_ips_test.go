@@ -83,7 +83,10 @@ var _ = Describe("[plugin] fix-coordinator-ips command", func() {
 				errBuffer := bytes.Buffer{}
 				inBuffer := bytes.Buffer{}
 
-				rootCmd := NewRootCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer}, &MockVersionChecker{})
+				rootCmd := NewRootCmd(
+					genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer},
+					&MockVersionChecker{},
+				)
 				err := updateIPsInConnectionString(rootCmd, cluster, k8sClient)
 
 				if input.ExpectedError != "" {

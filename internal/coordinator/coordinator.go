@@ -33,7 +33,12 @@ import (
 )
 
 // ChangeCoordinators will change the coordinators and set the new connection string on the FoundationDBCluster resource.
-func ChangeCoordinators(logger logr.Logger, adminClient fdbadminclient.AdminClient, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) error {
+func ChangeCoordinators(
+	logger logr.Logger,
+	adminClient fdbadminclient.AdminClient,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	status *fdbv1beta2.FoundationDBStatus,
+) error {
 	var pendingRemovals map[fdbv1beta2.ProcessGroupID]time.Time
 	if cluster.GetSynchronizationMode() == fdbv1beta2.SynchronizationModeGlobal {
 		var err error
@@ -59,7 +64,11 @@ func ChangeCoordinators(logger logr.Logger, adminClient fdbadminclient.AdminClie
 }
 
 // selectCandidates is a helper for Reconcile that picks non-excluded, not-being-removed class-matching process groups.
-func selectCandidates(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, pendingRemovals map[fdbv1beta2.ProcessGroupID]time.Time) ([]locality.Info, error) {
+func selectCandidates(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	status *fdbv1beta2.FoundationDBStatus,
+	pendingRemovals map[fdbv1beta2.ProcessGroupID]time.Time,
+) ([]locality.Info, error) {
 	candidates := make([]locality.Info, 0, len(status.Cluster.Processes))
 	for _, process := range status.Cluster.Processes {
 		if process.Excluded || process.UnderMaintenance {
@@ -83,7 +92,9 @@ func selectCandidates(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta
 			}
 		}
 
-		if cluster.ProcessGroupIsBeingRemoved(fdbv1beta2.ProcessGroupID(process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey])) {
+		if cluster.ProcessGroupIsBeingRemoved(
+			fdbv1beta2.ProcessGroupID(process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]),
+		) {
 			continue
 		}
 
@@ -91,7 +102,10 @@ func selectCandidates(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta
 			continue
 		}
 
-		currentLocality, err := locality.InfoForProcess(process, cluster.Spec.MainContainer.EnableTLS)
+		currentLocality, err := locality.InfoForProcess(
+			process,
+			cluster.Spec.MainContainer.EnableTLS,
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -102,7 +116,8 @@ func selectCandidates(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta
 		// We reduce the priority in this case to reduce the risk of successive coordinator changes. Reducing the
 		// priority should help in reducing the overall coordinator changes.
 		// See: https://github.com/FoundationDB/fdb-kubernetes-operator/v2/issues/2015
-		if process.Version != cluster.Spec.Version || strings.HasPrefix(process.CommandLine, "/var/") {
+		if process.Version != cluster.Spec.Version ||
+			strings.HasPrefix(process.CommandLine, "/var/") {
 			// math.MinInt64 is the lowest possible priority. By adding the actual priority we make sure that we
 			// still keep the priorities, even if all processes are not yet upgraded.
 			if priority < 0 {
@@ -120,7 +135,12 @@ func selectCandidates(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta
 }
 
 // selectCoordinatorsLocalities will return a set of new coordinators.
-func selectCoordinatorsLocalities(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, pendingRemovals map[fdbv1beta2.ProcessGroupID]time.Time) ([]locality.Info, error) {
+func selectCoordinatorsLocalities(
+	logger logr.Logger,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	status *fdbv1beta2.FoundationDBStatus,
+	pendingRemovals map[fdbv1beta2.ProcessGroupID]time.Time,
+) ([]locality.Info, error) {
 	var err error
 	coordinatorCount := cluster.DesiredCoordinatorCount()
 
@@ -129,9 +149,14 @@ func selectCoordinatorsLocalities(logger logr.Logger, cluster *fdbv1beta2.Founda
 		return nil, err
 	}
 
-	coordinators, err := locality.ChooseDistributedProcesses(cluster, candidates, coordinatorCount, locality.ProcessSelectionConstraint{
-		HardLimits: locality.GetHardLimits(cluster),
-	})
+	coordinators, err := locality.ChooseDistributedProcesses(
+		cluster,
+		candidates,
+		coordinatorCount,
+		locality.ProcessSelectionConstraint{
+			HardLimits: locality.GetHardLimits(cluster),
+		},
+	)
 
 	logger.Info("Current coordinators", "coordinators", coordinators, "error", err)
 	if err != nil {
@@ -143,7 +168,12 @@ func selectCoordinatorsLocalities(logger logr.Logger, cluster *fdbv1beta2.Founda
 		coordinatorStatus[GetCoordinatorAddress(cluster, coordinator).String()] = false
 	}
 
-	hasValidCoordinators, allAddressesValid, err := locality.CheckCoordinatorValidity(logger, cluster, status, coordinatorStatus)
+	hasValidCoordinators, allAddressesValid, err := locality.CheckCoordinatorValidity(
+		logger,
+		cluster,
+		status,
+		coordinatorStatus,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +190,12 @@ func selectCoordinatorsLocalities(logger logr.Logger, cluster *fdbv1beta2.Founda
 }
 
 // SelectCoordinators will return a set of new coordinators.
-func SelectCoordinators(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, pendingRemovals map[fdbv1beta2.ProcessGroupID]time.Time) ([]fdbv1beta2.ProcessAddress, error) {
+func SelectCoordinators(
+	logger logr.Logger,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	status *fdbv1beta2.FoundationDBStatus,
+	pendingRemovals map[fdbv1beta2.ProcessGroupID]time.Time,
+) ([]fdbv1beta2.ProcessAddress, error) {
 	coordinators, err := selectCoordinatorsLocalities(logger, cluster, status, pendingRemovals)
 	if err != nil {
 		return nil, err
@@ -175,7 +210,10 @@ func SelectCoordinators(logger logr.Logger, cluster *fdbv1beta2.FoundationDBClus
 }
 
 // GetCoordinatorAddress returns the coordinator address.
-func GetCoordinatorAddress(cluster *fdbv1beta2.FoundationDBCluster, locality locality.Info) fdbv1beta2.ProcessAddress {
+func GetCoordinatorAddress(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	locality locality.Info,
+) fdbv1beta2.ProcessAddress {
 	dnsName := locality.LocalityData[fdbv1beta2.FDBLocalityDNSNameKey]
 
 	address := locality.Address

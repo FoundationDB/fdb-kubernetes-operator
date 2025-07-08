@@ -82,7 +82,8 @@ var _ = Describe("status_checks", func() {
 				},
 			},
 		}
-		DescribeTable("fetching the excluded and remaining processes from the status",
+		DescribeTable(
+			"fetching the excluded and remaining processes from the status",
 			func(status *fdbv1beta2.FoundationDBStatus,
 				addresses []fdbv1beta2.ProcessAddress,
 				expectedInProgress []fdbv1beta2.ProcessAddress,
@@ -432,7 +433,8 @@ var _ = Describe("status_checks", func() {
 				nil,
 				nil,
 			),
-			Entry("when the machine-readable status contains the \"unreadable_configuration\" message",
+			Entry(
+				"when the machine-readable status contains the \"unreadable_configuration\" message",
 				&fdbv1beta2.FoundationDBStatus{
 					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
 						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
@@ -478,7 +480,8 @@ var _ = Describe("status_checks", func() {
 				nil,
 				nil,
 			),
-			Entry("when the machine-readable status contains the \"full_replication_timeout\" message",
+			Entry(
+				"when the machine-readable status contains the \"full_replication_timeout\" message",
 				&fdbv1beta2.FoundationDBStatus{
 					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
 						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
@@ -570,44 +573,80 @@ var _ = Describe("status_checks", func() {
 				nil,
 				nil,
 			),
-			Entry("when the process is excluded and locality based exclusions are used",
+			Entry(
+				"when the process is excluded and locality based exclusions are used",
 				status,
-				[]fdbv1beta2.ProcessAddress{fdbv1beta2.NewProcessAddress(net.IP{}, "locality_instance_id:4", 0, nil)},
-				[]fdbv1beta2.ProcessAddress{fdbv1beta2.NewProcessAddress(net.IP{}, "locality_instance_id:4", 0, nil)},
+				[]fdbv1beta2.ProcessAddress{
+					fdbv1beta2.NewProcessAddress(net.IP{}, "locality_instance_id:4", 0, nil),
+				},
+				[]fdbv1beta2.ProcessAddress{
+					fdbv1beta2.NewProcessAddress(net.IP{}, "locality_instance_id:4", 0, nil),
+				},
 				nil,
 				nil,
 				nil,
 			),
-			Entry("when the process is not excluded and locality based exclusions are used",
+			Entry(
+				"when the process is not excluded and locality based exclusions are used",
 				status,
-				[]fdbv1beta2.ProcessAddress{fdbv1beta2.NewProcessAddress(net.IP{}, "locality_instance_id:3", 0, nil)},
+				[]fdbv1beta2.ProcessAddress{
+					fdbv1beta2.NewProcessAddress(net.IP{}, "locality_instance_id:3", 0, nil),
+				},
 				nil,
-				[]fdbv1beta2.ProcessAddress{fdbv1beta2.NewProcessAddress(net.IP{}, "locality_instance_id:3", 0, nil)},
+				[]fdbv1beta2.ProcessAddress{
+					fdbv1beta2.NewProcessAddress(net.IP{}, "locality_instance_id:3", 0, nil),
+				},
 				nil,
 				nil,
 			),
-			Entry("when the process is excluded and locality based exclusions are used and an IP address is provided",
+			Entry(
+				"when the process is excluded and locality based exclusions are used and an IP address is provided",
 				status,
-				[]fdbv1beta2.ProcessAddress{fdbv1beta2.NewProcessAddress(net.IP{}, "locality_instance_id:4", 0, nil), addr4},
-				[]fdbv1beta2.ProcessAddress{fdbv1beta2.NewProcessAddress(net.IP{}, "locality_instance_id:4", 0, nil), addr4},
+				[]fdbv1beta2.ProcessAddress{
+					fdbv1beta2.NewProcessAddress(net.IP{}, "locality_instance_id:4", 0, nil),
+					addr4,
+				},
+				[]fdbv1beta2.ProcessAddress{
+					fdbv1beta2.NewProcessAddress(net.IP{}, "locality_instance_id:4", 0, nil),
+					addr4,
+				},
 				nil,
 				nil,
 				nil,
 			),
-			Entry("when the process is not excluded and locality based exclusions are use and an IP address is provided",
+			Entry(
+				"when the process is not excluded and locality based exclusions are use and an IP address is provided",
 				status,
-				[]fdbv1beta2.ProcessAddress{fdbv1beta2.NewProcessAddress(net.IP{}, "locality_instance_id:3", 0, nil), addr3},
+				[]fdbv1beta2.ProcessAddress{
+					fdbv1beta2.NewProcessAddress(net.IP{}, "locality_instance_id:3", 0, nil),
+					addr3,
+				},
 				nil,
-				[]fdbv1beta2.ProcessAddress{fdbv1beta2.NewProcessAddress(net.IP{}, "locality_instance_id:3", 0, nil), addr3},
+				[]fdbv1beta2.ProcessAddress{
+					fdbv1beta2.NewProcessAddress(net.IP{}, "locality_instance_id:3", 0, nil),
+					addr3,
+				},
 				nil,
 				nil,
 			),
 
-			Entry("when one process is not excluded, one process is excluded and locality based exclusions are use and an IP address is provided",
+			Entry(
+				"when one process is not excluded, one process is excluded and locality based exclusions are use and an IP address is provided",
 				status,
-				[]fdbv1beta2.ProcessAddress{fdbv1beta2.NewProcessAddress(net.IP{}, "locality_instance_id:3", 0, nil), addr3, fdbv1beta2.NewProcessAddress(net.IP{}, "locality_instance_id:4", 0, nil), addr4},
-				[]fdbv1beta2.ProcessAddress{fdbv1beta2.NewProcessAddress(net.IP{}, "locality_instance_id:4", 0, nil), addr4},
-				[]fdbv1beta2.ProcessAddress{fdbv1beta2.NewProcessAddress(net.IP{}, "locality_instance_id:3", 0, nil), addr3},
+				[]fdbv1beta2.ProcessAddress{
+					fdbv1beta2.NewProcessAddress(net.IP{}, "locality_instance_id:3", 0, nil),
+					addr3,
+					fdbv1beta2.NewProcessAddress(net.IP{}, "locality_instance_id:4", 0, nil),
+					addr4,
+				},
+				[]fdbv1beta2.ProcessAddress{
+					fdbv1beta2.NewProcessAddress(net.IP{}, "locality_instance_id:4", 0, nil),
+					addr4,
+				},
+				[]fdbv1beta2.ProcessAddress{
+					fdbv1beta2.NewProcessAddress(net.IP{}, "locality_instance_id:3", 0, nil),
+					addr3,
+				},
 				nil,
 				nil,
 			),
@@ -801,15 +840,22 @@ var _ = Describe("status_checks", func() {
 		)
 	})
 
-	DescribeTable("when getting the minimum uptime and the address map", func(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, useRecoveryState bool, expectedMinimumUptime float64, expectedAddressMap map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.ProcessAddress) {
-		minimumUptime, addressMap, err := GetMinimumUptimeAndAddressMap(logr.Discard(), cluster, status, useRecoveryState)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(minimumUptime).To(BeNumerically("==", expectedMinimumUptime))
-		Expect(len(addressMap)).To(BeNumerically("==", len(expectedAddressMap)))
-		for key, value := range expectedAddressMap {
-			Expect(addressMap).To(HaveKeyWithValue(key, value))
-		}
-	},
+	DescribeTable(
+		"when getting the minimum uptime and the address map",
+		func(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, useRecoveryState bool, expectedMinimumUptime float64, expectedAddressMap map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.ProcessAddress) {
+			minimumUptime, addressMap, err := GetMinimumUptimeAndAddressMap(
+				logr.Discard(),
+				cluster,
+				status,
+				useRecoveryState,
+			)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(minimumUptime).To(BeNumerically("==", expectedMinimumUptime))
+			Expect(len(addressMap)).To(BeNumerically("==", len(expectedAddressMap)))
+			for key, value := range expectedAddressMap {
+				Expect(addressMap).To(HaveKeyWithValue(key, value))
+			}
+		},
 		Entry("when recovered since is not available",
 			&fdbv1beta2.FoundationDBCluster{
 				Spec: fdbv1beta2.FoundationDBClusterSpec{
@@ -842,12 +888,14 @@ var _ = Describe("status_checks", func() {
 					},
 				},
 			}),
-		Entry("when recovered since is enabled and version supports it, it should use the minimum of recovered since or process uptime",
+		Entry(
+			"when recovered since is enabled and version supports it, it should use the minimum of recovered since or process uptime",
 			&fdbv1beta2.FoundationDBCluster{
 				Spec: fdbv1beta2.FoundationDBClusterSpec{
 					Version: fdbv1beta2.Versions.SupportsRecoveryState.String(),
 				},
-			}, &fdbv1beta2.FoundationDBStatus{
+			},
+			&fdbv1beta2.FoundationDBStatus{
 				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
 					Processes: map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{
 						"test": {
@@ -873,7 +921,8 @@ var _ = Describe("status_checks", func() {
 						IPAddress: net.ParseIP("127.0.0.1"),
 					},
 				},
-			}),
+			},
+		),
 		Entry("when recovered since is disabled and version supports it",
 			&fdbv1beta2.FoundationDBCluster{
 				Spec: fdbv1beta2.FoundationDBClusterSpec{
@@ -903,12 +952,14 @@ var _ = Describe("status_checks", func() {
 					},
 				},
 			}),
-		Entry("when recovered since is not available and multiple processes are reporting but one is missing localities",
+		Entry(
+			"when recovered since is not available and multiple processes are reporting but one is missing localities",
 			&fdbv1beta2.FoundationDBCluster{
 				Spec: fdbv1beta2.FoundationDBClusterSpec{
 					Version: fdbv1beta2.Versions.Default.String(),
 				},
-			}, &fdbv1beta2.FoundationDBStatus{
+			},
+			&fdbv1beta2.FoundationDBStatus{
 				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
 					Processes: map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{
 						"test": {
@@ -940,7 +991,8 @@ var _ = Describe("status_checks", func() {
 						IPAddress: net.ParseIP("127.0.0.1"),
 					},
 				},
-			}),
+			},
+		),
 	)
 
 	Context("fault domain checks on status object", func() {
@@ -967,7 +1019,12 @@ var _ = Describe("status_checks", func() {
 							TeamTrackers: []fdbv1beta2.FoundationDBStatusTeamTracker{
 								{
 									Primary: true,
-									State:   fdbv1beta2.FoundationDBStatusDataState{Description: "", Healthy: true, Name: "healthy", MinReplicasRemaining: 4},
+									State: fdbv1beta2.FoundationDBStatusDataState{
+										Description:          "",
+										Healthy:              true,
+										Name:                 "healthy",
+										MinReplicasRemaining: 4,
+									},
 								},
 							},
 						},
@@ -983,11 +1040,21 @@ var _ = Describe("status_checks", func() {
 							TeamTrackers: []fdbv1beta2.FoundationDBStatusTeamTracker{
 								{
 									Primary: true,
-									State:   fdbv1beta2.FoundationDBStatusDataState{Description: "", Healthy: false, Name: "healthy", MinReplicasRemaining: 4},
+									State: fdbv1beta2.FoundationDBStatusDataState{
+										Description:          "",
+										Healthy:              false,
+										Name:                 "healthy",
+										MinReplicasRemaining: 4,
+									},
 								},
 								{
 									Primary: false,
-									State:   fdbv1beta2.FoundationDBStatusDataState{Description: "", Healthy: true, Name: "healthy", MinReplicasRemaining: 0},
+									State: fdbv1beta2.FoundationDBStatusDataState{
+										Description:          "",
+										Healthy:              true,
+										Name:                 "healthy",
+										MinReplicasRemaining: 0,
+									},
 								},
 							},
 						},
@@ -1005,11 +1072,21 @@ var _ = Describe("status_checks", func() {
 							TeamTrackers: []fdbv1beta2.FoundationDBStatusTeamTracker{
 								{
 									Primary: true,
-									State:   fdbv1beta2.FoundationDBStatusDataState{Description: "", Healthy: true, Name: "healthy", MinReplicasRemaining: 4},
+									State: fdbv1beta2.FoundationDBStatusDataState{
+										Description:          "",
+										Healthy:              true,
+										Name:                 "healthy",
+										MinReplicasRemaining: 4,
+									},
 								},
 								{
 									Primary: false,
-									State:   fdbv1beta2.FoundationDBStatusDataState{Description: "", Healthy: false, Name: "healthy", MinReplicasRemaining: 0},
+									State: fdbv1beta2.FoundationDBStatusDataState{
+										Description:          "",
+										Healthy:              false,
+										Name:                 "healthy",
+										MinReplicasRemaining: 0,
+									},
 								},
 							},
 						},
@@ -1073,7 +1150,9 @@ var _ = Describe("status_checks", func() {
 
 				err := DoLogServerFaultDomainCheckOnStatus(status)
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal("primary log fault tolerance is not satisfied, replication factor: 2, current fault tolerance: 0"))
+				Expect(
+					err.Error(),
+				).To(Equal("primary log fault tolerance is not satisfied, replication factor: 2, current fault tolerance: 0"))
 			})
 
 			It("not enough replicas in remote", func() {
@@ -1095,7 +1174,9 @@ var _ = Describe("status_checks", func() {
 
 				err := DoLogServerFaultDomainCheckOnStatus(status)
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal("remote log fault tolerance is not satisfied, replication factor: 4, current fault tolerance: 1"))
+				Expect(
+					err.Error(),
+				).To(Equal("remote log fault tolerance is not satisfied, replication factor: 4, current fault tolerance: 1"))
 			})
 
 			It("not enough replicas in the satellite", func() {
@@ -1117,7 +1198,9 @@ var _ = Describe("status_checks", func() {
 
 				err := DoLogServerFaultDomainCheckOnStatus(status)
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal("satellite log fault tolerance is not satisfied, replication factor: 4, current fault tolerance: 1"))
+				Expect(
+					err.Error(),
+				).To(Equal("satellite log fault tolerance is not satisfied, replication factor: 4, current fault tolerance: 1"))
 			})
 
 			It("multiple log server sets", func() {
@@ -1212,7 +1295,9 @@ var _ = Describe("status_checks", func() {
 				It("should report an error", func() {
 					err := DoCoordinatorFaultDomainCheckOnStatus(status)
 					Expect(err).To(HaveOccurred())
-					Expect(err.Error()).To(ContainSubstring(status.Client.Coordinators.Coordinators[0].Address.String()))
+					Expect(
+						err.Error(),
+					).To(ContainSubstring(status.Client.Coordinators.Coordinators[0].Address.String()))
 				})
 			})
 
@@ -1225,7 +1310,9 @@ var _ = Describe("status_checks", func() {
 				It("should report an error", func() {
 					err := DoCoordinatorFaultDomainCheckOnStatus(status)
 					Expect(err).To(HaveOccurred())
-					Expect(err.Error()).To(And(ContainSubstring(status.Client.Coordinators.Coordinators[0].Address.String()), ContainSubstring(status.Client.Coordinators.Coordinators[1].Address.String())))
+					Expect(
+						err.Error(),
+					).To(And(ContainSubstring(status.Client.Coordinators.Coordinators[0].Address.String()), ContainSubstring(status.Client.Coordinators.Coordinators[1].Address.String())))
 				})
 			})
 
@@ -1295,11 +1382,21 @@ var _ = Describe("status_checks", func() {
 							TeamTrackers: []fdbv1beta2.FoundationDBStatusTeamTracker{
 								{
 									Primary: true,
-									State:   fdbv1beta2.FoundationDBStatusDataState{Description: "", Healthy: true, Name: "healthy", MinReplicasRemaining: 4},
+									State: fdbv1beta2.FoundationDBStatusDataState{
+										Description:          "",
+										Healthy:              true,
+										Name:                 "healthy",
+										MinReplicasRemaining: 4,
+									},
 								},
 								{
 									Primary: false,
-									State:   fdbv1beta2.FoundationDBStatusDataState{Description: "", Healthy: false, Name: "healthy", MinReplicasRemaining: 0},
+									State: fdbv1beta2.FoundationDBStatusDataState{
+										Description:          "",
+										Healthy:              false,
+										Name:                 "healthy",
+										MinReplicasRemaining: 0,
+									},
 								},
 							},
 						},
@@ -1334,11 +1431,15 @@ var _ = Describe("status_checks", func() {
 			})
 
 			It("do log server fault domain check", func() {
-				Expect(DoFaultDomainChecksOnStatus(status, false, true, false)).NotTo(HaveOccurred())
+				Expect(
+					DoFaultDomainChecksOnStatus(status, false, true, false),
+				).NotTo(HaveOccurred())
 			})
 
 			It("do coordinator fault domain check", func() {
-				Expect(DoFaultDomainChecksOnStatus(status, false, false, true)).NotTo(HaveOccurred())
+				Expect(
+					DoFaultDomainChecksOnStatus(status, false, false, true),
+				).NotTo(HaveOccurred())
 			})
 
 			It("do storage server and log server fault domain checks", func() {
@@ -1358,7 +1459,8 @@ var _ = Describe("status_checks", func() {
 	When("checking if the cluster has the desired fault tolerance from the status", func() {
 		log := logr.New(logf.NullLogSink{})
 
-		DescribeTable("should return if the cluster has the desired fault tolerance",
+		DescribeTable(
+			"should return if the cluster has the desired fault tolerance",
 			func(status *fdbv1beta2.FoundationDBStatus, cluster *fdbv1beta2.FoundationDBCluster, expected bool) {
 				Expect(HasDesiredFaultToleranceFromStatus(log, status, cluster)).To(Equal(expected))
 			},
@@ -1735,7 +1837,8 @@ var _ = Describe("status_checks", func() {
 	})
 
 	When("performing the default safety check.", func() {
-		DescribeTable("should return if the safety check is satisfied or not",
+		DescribeTable(
+			"should return if the safety check is satisfied or not",
 			func(status *fdbv1beta2.FoundationDBStatus, maximumActiveGeneration int, expected error) {
 				err := DefaultSafetyChecks(status, maximumActiveGeneration, "test")
 				if expected == nil {
@@ -1777,7 +1880,8 @@ var _ = Describe("status_checks", func() {
 				1,
 				fmt.Errorf("cluster is unavailable, cannot test"),
 			),
-			Entry("cluster has too many active generations",
+			Entry(
+				"cluster has too many active generations",
 				&fdbv1beta2.FoundationDBStatus{
 					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
 						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
@@ -1791,7 +1895,9 @@ var _ = Describe("status_checks", func() {
 					},
 				},
 				1,
-				fmt.Errorf("cluster has 10 active generations, but only 1 active generations are allowed to safely test"),
+				fmt.Errorf(
+					"cluster has 10 active generations, but only 1 active generations are allowed to safely test",
+				),
 			),
 			Entry("cluster has more than one active generations",
 				&fdbv1beta2.FoundationDBStatus{
@@ -1813,7 +1919,8 @@ var _ = Describe("status_checks", func() {
 	})
 
 	When("performing the exclude safety check.", func() {
-		DescribeTable("should return if the safety check is satisfied or not",
+		DescribeTable(
+			"should return if the safety check is satisfied or not",
 			func(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, expected error) {
 				err := CanSafelyExcludeProcessesWithRecoveryState(cluster, status, 120.0)
 				if expected == nil {
@@ -1883,7 +1990,8 @@ var _ = Describe("status_checks", func() {
 				},
 				nil,
 			),
-			Entry("cluster has more than one active generations",
+			Entry(
+				"cluster has more than one active generations",
 				&fdbv1beta2.FoundationDBCluster{
 					Status: fdbv1beta2.FoundationDBClusterStatus{
 						RunningVersion: "7.1.20",
@@ -1901,9 +2009,12 @@ var _ = Describe("status_checks", func() {
 						},
 					},
 				},
-				fmt.Errorf("cluster has 11 active generations, but only 10 active generations are allowed to safely exclude processes"),
+				fmt.Errorf(
+					"cluster has 11 active generations, but only 10 active generations are allowed to safely exclude processes",
+				),
 			),
-			Entry("cluster's last recovery is 10 seconds ago",
+			Entry(
+				"cluster's last recovery is 10 seconds ago",
 				&fdbv1beta2.FoundationDBCluster{
 					Status: fdbv1beta2.FoundationDBClusterStatus{
 						RunningVersion: "7.1.57",
@@ -1922,7 +2033,9 @@ var _ = Describe("status_checks", func() {
 						},
 					},
 				},
-				fmt.Errorf("cannot: exclude processes, clusters last recovery was 10.00 seconds ago, wait until the last recovery was 120 seconds ago"),
+				fmt.Errorf(
+					"cannot: exclude processes, clusters last recovery was 10.00 seconds ago, wait until the last recovery was 120 seconds ago",
+				),
 			),
 			Entry("cluster's last recovery is 120 seconds ago",
 				&fdbv1beta2.FoundationDBCluster{
@@ -1949,7 +2062,8 @@ var _ = Describe("status_checks", func() {
 	})
 
 	When("performing the include safety check.", func() {
-		DescribeTable("should return if the safety check is satisfied or not",
+		DescribeTable(
+			"should return if the safety check is satisfied or not",
 			func(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, expected error) {
 				err := CanSafelyIncludeProcesses(cluster, status, 300.0)
 				if expected == nil {
@@ -1980,7 +2094,8 @@ var _ = Describe("status_checks", func() {
 				},
 				nil,
 			),
-			Entry("cluster is not fully reconciled",
+			Entry(
+				"cluster is not fully reconciled",
 				&fdbv1beta2.FoundationDBCluster{
 					Status: fdbv1beta2.FoundationDBClusterStatus{
 						RunningVersion: "7.1.20",
@@ -1999,7 +2114,9 @@ var _ = Describe("status_checks", func() {
 						},
 					},
 				},
-				fmt.Errorf("cannot: include processes, cluster recovery state is recovery_transaction, but it must be \"fully_recovered\" or \"all_logs_recruited\""),
+				fmt.Errorf(
+					"cannot: include processes, cluster recovery state is recovery_transaction, but it must be \"fully_recovered\" or \"all_logs_recruited\"",
+				),
 			),
 			Entry("cluster is unavailable",
 				&fdbv1beta2.FoundationDBCluster{
@@ -2043,7 +2160,8 @@ var _ = Describe("status_checks", func() {
 				},
 				nil,
 			),
-			Entry("cluster has more than ten active generations",
+			Entry(
+				"cluster has more than ten active generations",
 				&fdbv1beta2.FoundationDBCluster{
 					Status: fdbv1beta2.FoundationDBClusterStatus{
 						RunningVersion: "7.1.20",
@@ -2062,9 +2180,12 @@ var _ = Describe("status_checks", func() {
 						},
 					},
 				},
-				fmt.Errorf("cluster has 11 active generations, but only 10 active generations are allowed to safely include processes"),
+				fmt.Errorf(
+					"cluster has 11 active generations, but only 10 active generations are allowed to safely include processes",
+				),
 			),
-			Entry("cluster's last recovery is 10 seconds ago",
+			Entry(
+				"cluster's last recovery is 10 seconds ago",
 				&fdbv1beta2.FoundationDBCluster{
 					Status: fdbv1beta2.FoundationDBClusterStatus{
 						RunningVersion: "7.1.57",
@@ -2084,7 +2205,9 @@ var _ = Describe("status_checks", func() {
 						},
 					},
 				},
-				fmt.Errorf("cannot: include processes, clusters last recovery was 10.00 seconds ago, wait until the last recovery was 300 seconds ago"),
+				fmt.Errorf(
+					"cannot: include processes, clusters last recovery was 10.00 seconds ago, wait until the last recovery was 300 seconds ago",
+				),
 			),
 			Entry("cluster's last recovery is 320 seconds ago",
 				&fdbv1beta2.FoundationDBCluster{
@@ -2112,7 +2235,8 @@ var _ = Describe("status_checks", func() {
 	})
 
 	When("performing the bounce safety check.", func() {
-		DescribeTable("should return if the safety check is satisfied or not",
+		DescribeTable(
+			"should return if the safety check is satisfied or not",
 			func(status *fdbv1beta2.FoundationDBStatus, currentUptime float64, minimumUptime float64, expected error) {
 				err := CanSafelyBounceProcesses(currentUptime, minimumUptime, status)
 				if expected == nil {
@@ -2176,7 +2300,8 @@ var _ = Describe("status_checks", func() {
 				10.0,
 				nil,
 			),
-			Entry("cluster has more than one active generations",
+			Entry(
+				"cluster has more than one active generations",
 				&fdbv1beta2.FoundationDBStatus{
 					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
 						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
@@ -2191,9 +2316,12 @@ var _ = Describe("status_checks", func() {
 				},
 				42.0,
 				10.0,
-				fmt.Errorf("cluster has 11 active generations, but only 10 active generations are allowed to safely bounce processes"),
+				fmt.Errorf(
+					"cluster has 11 active generations, but only 10 active generations are allowed to safely bounce processes",
+				),
 			),
-			Entry("cluster is not up for long enough",
+			Entry(
+				"cluster is not up for long enough",
 				&fdbv1beta2.FoundationDBStatus{
 					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
 						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
@@ -2208,9 +2336,12 @@ var _ = Describe("status_checks", func() {
 				},
 				42.0,
 				60.0,
-				fmt.Errorf("cluster has only been up for 42.00 seconds, but must be up for 60.00 seconds to safely bounce"),
+				fmt.Errorf(
+					"cluster has only been up for 42.00 seconds, but must be up for 60.00 seconds to safely bounce",
+				),
 			),
-			Entry("cluster cannot clean bounce",
+			Entry(
+				"cluster cannot clean bounce",
 				&fdbv1beta2.FoundationDBStatus{
 					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
 						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
@@ -2229,21 +2360,25 @@ var _ = Describe("status_checks", func() {
 				},
 				42.0,
 				10.0,
-				fmt.Errorf("cannot perform a clean bounce based on cluster status, current recovery state: exploding"),
+				fmt.Errorf(
+					"cannot perform a clean bounce based on cluster status, current recovery state: exploding",
+				),
 			),
 		)
 	})
 
-	DescribeTable("when testing if a configuration change is allowed", func(status *fdbv1beta2.FoundationDBStatus, useRecoveryState bool, expected error) {
-		err := ConfigurationChangeAllowed(status, useRecoveryState)
-		if expected == nil {
-			Expect(err).NotTo(HaveOccurred())
-			return
-		}
+	DescribeTable(
+		"when testing if a configuration change is allowed",
+		func(status *fdbv1beta2.FoundationDBStatus, useRecoveryState bool, expected error) {
+			err := ConfigurationChangeAllowed(status, useRecoveryState)
+			if expected == nil {
+				Expect(err).NotTo(HaveOccurred())
+				return
+			}
 
-		Expect(err).To(HaveOccurred())
-		Expect(err).To(Equal(expected))
-	},
+			Expect(err).To(HaveOccurred())
+			Expect(err).To(Equal(expected))
+		},
 		Entry(
 			"status is healthy",
 			&fdbv1beta2.FoundationDBStatus{
@@ -2310,7 +2445,9 @@ var _ = Describe("status_checks", func() {
 				},
 			},
 			true,
-			fmt.Errorf("clusters last recovery was 5.00 seconds ago, wait until the last recovery was 60 seconds ago"),
+			fmt.Errorf(
+				"clusters last recovery was 5.00 seconds ago, wait until the last recovery was 60 seconds ago",
+			),
 		),
 		Entry(
 			"status contains error message",
@@ -2364,7 +2501,9 @@ var _ = Describe("status_checks", func() {
 				},
 			},
 			true,
-			fmt.Errorf("worst data lag is too high, current worst data lag in seconds: 61.00, maximum allowed lag:  60.00"),
+			fmt.Errorf(
+				"worst data lag is too high, current worst data lag in seconds: 61.00, maximum allowed lag:  60.00",
+			),
 		),
 	)
 
@@ -2380,14 +2519,16 @@ var _ = Describe("status_checks", func() {
 		Entry("six Pib", int64(6*1024*1024*1024*1024*1024), "6.00Pi"),
 	)
 
-	DescribeTable("checking the QoS status", func(input *fdbv1beta2.FoundationDBStatus, expected error) {
-		result := CheckQosStatus(input)
-		if expected == nil {
-			Expect(result).To(Succeed())
-		} else {
-			Expect(result).To(MatchError(expected))
-		}
-	},
+	DescribeTable(
+		"checking the QoS status",
+		func(input *fdbv1beta2.FoundationDBStatus, expected error) {
+			result := CheckQosStatus(input)
+			if expected == nil {
+				Expect(result).To(Succeed())
+			} else {
+				Expect(result).To(MatchError(expected))
+			}
+		},
 		Entry("all values are below threshold",
 			&fdbv1beta2.FoundationDBStatus{
 				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
@@ -2396,7 +2537,8 @@ var _ = Describe("status_checks", func() {
 			},
 			nil,
 		),
-		Entry("worst data lag storage server is too high",
+		Entry(
+			"worst data lag storage server is too high",
 			&fdbv1beta2.FoundationDBStatus{
 				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
 					Qos: fdbv1beta2.FoundationDBStatusQosInfo{
@@ -2406,9 +2548,12 @@ var _ = Describe("status_checks", func() {
 					},
 				},
 			},
-			fmt.Errorf("worst data lag is too high, current worst data lag in seconds: 61.00, maximum allowed lag:  60.00"),
+			fmt.Errorf(
+				"worst data lag is too high, current worst data lag in seconds: 61.00, maximum allowed lag:  60.00",
+			),
 		),
-		Entry("worst durability lag storage server is too high",
+		Entry(
+			"worst durability lag storage server is too high",
 			&fdbv1beta2.FoundationDBStatus{
 				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
 					Qos: fdbv1beta2.FoundationDBStatusQosInfo{
@@ -2418,9 +2563,12 @@ var _ = Describe("status_checks", func() {
 					},
 				},
 			},
-			fmt.Errorf("worst durability lag is too high, current worst durability lag in seconds: 61.00, maximum allowed lag:  60.00"),
+			fmt.Errorf(
+				"worst durability lag is too high, current worst durability lag in seconds: 61.00, maximum allowed lag:  60.00",
+			),
 		),
-		Entry("worst queue bytes for log server is too high",
+		Entry(
+			"worst queue bytes for log server is too high",
 			&fdbv1beta2.FoundationDBStatus{
 				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
 					Qos: fdbv1beta2.FoundationDBStatusQosInfo{
@@ -2428,9 +2576,12 @@ var _ = Describe("status_checks", func() {
 					},
 				},
 			},
-			fmt.Errorf("worst queue bytes for log server is too high, current worst queue bytes: 500.00Mi, maximum allowed queue bytes: 250.00Mi"),
+			fmt.Errorf(
+				"worst queue bytes for log server is too high, current worst queue bytes: 500.00Mi, maximum allowed queue bytes: 250.00Mi",
+			),
 		),
-		Entry("worst queue bytes for storage server is too high",
+		Entry(
+			"worst queue bytes for storage server is too high",
 			&fdbv1beta2.FoundationDBStatus{
 				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
 					Qos: fdbv1beta2.FoundationDBStatusQosInfo{
@@ -2438,7 +2589,9 @@ var _ = Describe("status_checks", func() {
 					},
 				},
 			},
-			fmt.Errorf("worst queue bytes for storage server is too high, current worst queue bytes: 500.00Mi, maximum allowed queue bytes: 250.00Mi"),
+			fmt.Errorf(
+				"worst queue bytes for storage server is too high, current worst queue bytes: 500.00Mi, maximum allowed queue bytes: 250.00Mi",
+			),
 		),
 	)
 })

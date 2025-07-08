@@ -75,9 +75,13 @@ var _ = Describe("configmap_helper", func() {
 				expectedConf, err := GetMonitorConf(cluster, fdbv1beta2.ProcessClassStorage, nil, 1)
 				Expect(err).NotTo(HaveOccurred())
 
-				Expect(configMap.Data[fdbv1beta2.ClusterFileKey]).To(Equal("operator-test:asdfasf@127.0.0.1:4501"))
+				Expect(
+					configMap.Data[fdbv1beta2.ClusterFileKey],
+				).To(Equal("operator-test:asdfasf@127.0.0.1:4501"))
 				Expect(configMap.Data["fdbmonitor-conf-storage"]).To(Equal(expectedConf))
-				Expect(configMap.Data[fdbv1beta2.RunningVersionKey]).To(Equal(fdbv1beta2.Versions.Default.String()))
+				Expect(
+					configMap.Data[fdbv1beta2.RunningVersionKey],
+				).To(Equal(fdbv1beta2.Versions.Default.String()))
 				Expect(configMap.Data[fdbv1beta2.SidecarConfKey]).To(Equal(""))
 			})
 		})
@@ -93,7 +97,12 @@ var _ = Describe("configmap_helper", func() {
 				config := monitorapi.ProcessConfiguration{}
 				err = json.Unmarshal([]byte(jsonData), &config)
 				Expect(err).NotTo(HaveOccurred())
-				expectedConfig := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 1, fdbv1beta2.ImageTypeUnified)
+				expectedConfig := GetMonitorProcessConfiguration(
+					cluster,
+					fdbv1beta2.ProcessClassStorage,
+					1,
+					fdbv1beta2.ImageTypeUnified,
+				)
 				Expect(config).To(Equal(expectedConfig))
 			})
 
@@ -143,13 +152,25 @@ var _ = Describe("configmap_helper", func() {
 					cluster.Status.ImageTypes = []fdbv1beta2.ImageType{"split"}
 				})
 				It("includes the data for both configurations", func() {
-					expectedConf, err := GetMonitorConf(cluster, fdbv1beta2.ProcessClassStorage, nil, 1)
+					expectedConf, err := GetMonitorConf(
+						cluster,
+						fdbv1beta2.ProcessClassStorage,
+						nil,
+						1,
+					)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(configMap.Data["fdbmonitor-conf-storage"]).To(Equal(expectedConf))
 
-					expectedConf, err = GetMonitorConf(cluster, fdbv1beta2.ProcessClassStorage, nil, 2)
+					expectedConf, err = GetMonitorConf(
+						cluster,
+						fdbv1beta2.ProcessClassStorage,
+						nil,
+						2,
+					)
 					Expect(err).NotTo(HaveOccurred())
-					Expect(configMap.Data["fdbmonitor-conf-storage-density-2"]).To(Equal(expectedConf))
+					Expect(
+						configMap.Data["fdbmonitor-conf-storage-density-2"],
+					).To(Equal(expectedConf))
 				})
 			})
 
@@ -166,7 +187,12 @@ var _ = Describe("configmap_helper", func() {
 					config := monitorapi.ProcessConfiguration{}
 					err = json.Unmarshal([]byte(jsonData), &config)
 					Expect(err).NotTo(HaveOccurred())
-					expectedConfig := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 1, fdbv1beta2.ImageTypeUnified)
+					expectedConfig := GetMonitorProcessConfiguration(
+						cluster,
+						fdbv1beta2.ProcessClassStorage,
+						1,
+						fdbv1beta2.ImageTypeUnified,
+					)
 					Expect(config).To(Equal(expectedConfig))
 
 					jsonData, present = configMap.Data["fdbmonitor-conf-storage-json"]
@@ -174,7 +200,12 @@ var _ = Describe("configmap_helper", func() {
 					config = monitorapi.ProcessConfiguration{}
 					err = json.Unmarshal([]byte(jsonData), &config)
 					Expect(err).NotTo(HaveOccurred())
-					expectedConfig = GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 2, fdbv1beta2.ImageTypeUnified)
+					expectedConfig = GetMonitorProcessConfiguration(
+						cluster,
+						fdbv1beta2.ProcessClassStorage,
+						2,
+						fdbv1beta2.ImageTypeUnified,
+					)
 					Expect(config).To(Equal(expectedConfig))
 				})
 			})
@@ -213,7 +244,12 @@ var _ = Describe("configmap_helper", func() {
 					config := monitorapi.ProcessConfiguration{}
 					err = json.Unmarshal([]byte(jsonData), &config)
 					Expect(err).NotTo(HaveOccurred())
-					expectedConfig := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassLog, 1, fdbv1beta2.ImageTypeUnified)
+					expectedConfig := GetMonitorProcessConfiguration(
+						cluster,
+						fdbv1beta2.ProcessClassLog,
+						1,
+						fdbv1beta2.ImageTypeUnified,
+					)
 					Expect(config).To(Equal(expectedConfig))
 
 					jsonData, present = configMap.Data["fdbmonitor-conf-log-json"]
@@ -221,7 +257,12 @@ var _ = Describe("configmap_helper", func() {
 					config = monitorapi.ProcessConfiguration{}
 					err = json.Unmarshal([]byte(jsonData), &config)
 					Expect(err).NotTo(HaveOccurred())
-					expectedConfig = GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassLog, 2, fdbv1beta2.ImageTypeUnified)
+					expectedConfig = GetMonitorProcessConfiguration(
+						cluster,
+						fdbv1beta2.ProcessClassLog,
+						2,
+						fdbv1beta2.ImageTypeUnified,
+					)
 					Expect(config).To(Equal(expectedConfig))
 				})
 
@@ -231,7 +272,10 @@ var _ = Describe("configmap_helper", func() {
 		Context("with custom resource labels", func() {
 			BeforeEach(func() {
 				cluster.Spec.LabelConfig = fdbv1beta2.LabelConfig{
-					MatchLabels:    map[string]string{"fdb-custom-name": cluster.Name, "fdb-managed-by-operator": "true"},
+					MatchLabels: map[string]string{
+						"fdb-custom-name":         cluster.Name,
+						"fdb-managed-by-operator": "true",
+					},
 					ResourceLabels: map[string]string{"fdb-new-custom-name": cluster.Name},
 				}
 			})
@@ -262,7 +306,9 @@ var _ = Describe("configmap_helper", func() {
 				})
 
 				It("should populate the CA file", func() {
-					Expect(configMap.Data[fdbv1beta2.CaFileKey]).To(Equal("-----BEGIN CERTIFICATE-----\nMIIFyDCCA7ACCQDqRnbTl1OkcTANBgkqhkiG9w0BAQsFADCBpTELMAkGA1UEBhMC\n---CERT2----"))
+					Expect(
+						configMap.Data[fdbv1beta2.CaFileKey],
+					).To(Equal("-----BEGIN CERTIFICATE-----\nMIIFyDCCA7ACCQDqRnbTl1OkcTANBgkqhkiG9w0BAQsFADCBpTELMAkGA1UEBhMC\n---CERT2----"))
 				})
 			})
 		})

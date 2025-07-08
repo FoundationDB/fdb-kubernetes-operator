@@ -167,7 +167,12 @@ func (config *ClusterConfig) SetDefaults(factory *Factory) {
 				return
 			}
 
-			log.Println("FoundationDBCluster", fdbCluster.Name(), "successfully created in", fdbCluster.Namespace())
+			log.Println(
+				"FoundationDBCluster",
+				fdbCluster.Name(),
+				"successfully created in",
+				fdbCluster.Namespace(),
+			)
 		}
 	}
 
@@ -305,7 +310,10 @@ func (input *customParameterInput) getCustomParameter() fdbv1beta2.FoundationDBC
 	return fdbv1beta2.FoundationDBCustomParameter(input.key + "=" + input.value)
 }
 
-func addKnobIfMissing(inputs []customParameterInput, customParameters []fdbv1beta2.FoundationDBCustomParameter) fdbv1beta2.FoundationDBCustomParameters {
+func addKnobIfMissing(
+	inputs []customParameterInput,
+	customParameters []fdbv1beta2.FoundationDBCustomParameter,
+) fdbv1beta2.FoundationDBCustomParameters {
 	hasKnob := map[string]fdbv1beta2.None{}
 	// Check which knobs are already set.
 	for _, customParameter := range customParameters {
@@ -330,7 +338,9 @@ func addKnobIfMissing(inputs []customParameterInput, customParameters []fdbv1bet
 	return customParameters
 }
 
-func (config *ClusterConfig) getCustomParametersForProcessClass(processClass fdbv1beta2.ProcessClass) fdbv1beta2.FoundationDBCustomParameters {
+func (config *ClusterConfig) getCustomParametersForProcessClass(
+	processClass fdbv1beta2.ProcessClass,
+) fdbv1beta2.FoundationDBCustomParameters {
 	requiredKnobs := []customParameterInput{
 		{
 			key:   "trace_format",

@@ -28,7 +28,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-func createClusterSpec(sidecarOverrides fdbv1beta2.ContainerOverrides, processes map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings) *fdbv1beta2.FoundationDBCluster {
+func createClusterSpec(
+	sidecarOverrides fdbv1beta2.ContainerOverrides,
+	processes map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings,
+) *fdbv1beta2.FoundationDBCluster {
 	cluster := internal.CreateDefaultCluster()
 
 	cluster.Spec.SidecarContainer = sidecarOverrides
@@ -71,15 +74,20 @@ var _ = Describe("update_sidecar_versions", func() {
 				testCase{
 					pClass: fdbv1beta2.ProcessClassStorage,
 					cluster: createClusterSpec(
-						fdbv1beta2.ContainerOverrides{ImageConfigs: []fdbv1beta2.ImageConfig{{BaseImage: "sidecar-override"}}},
-						map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{}),
+						fdbv1beta2.ContainerOverrides{
+							ImageConfigs: []fdbv1beta2.ImageConfig{{BaseImage: "sidecar-override"}},
+						},
+						map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{},
+					),
 					hasError: false,
 				}, "sidecar-override:7.1.57-1"),
 			Entry("settings override sidecar",
 				testCase{
 					pClass: fdbv1beta2.ProcessClassStorage,
 					cluster: createClusterSpec(
-						fdbv1beta2.ContainerOverrides{ImageConfigs: []fdbv1beta2.ImageConfig{{BaseImage: "sidecar-override"}}},
+						fdbv1beta2.ContainerOverrides{
+							ImageConfigs: []fdbv1beta2.ImageConfig{{BaseImage: "sidecar-override"}},
+						},
 						map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{
 							fdbv1beta2.ProcessClassGeneral: {
 								PodTemplate: &corev1.PodTemplateSpec{
@@ -93,14 +101,17 @@ var _ = Describe("update_sidecar_versions", func() {
 									},
 								},
 							},
-						}),
+						},
+					),
 					hasError: false,
 				}, "settings-override:7.1.57-1"),
 			Entry("settings override sidecar with tag without override",
 				testCase{
 					pClass: fdbv1beta2.ProcessClassStorage,
 					cluster: createClusterSpec(
-						fdbv1beta2.ContainerOverrides{ImageConfigs: []fdbv1beta2.ImageConfig{{BaseImage: "sidecar-override"}}},
+						fdbv1beta2.ContainerOverrides{
+							ImageConfigs: []fdbv1beta2.ImageConfig{{BaseImage: "sidecar-override"}},
+						},
 						map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{
 							fdbv1beta2.ProcessClassGeneral: {
 								PodTemplate: &corev1.PodTemplateSpec{
@@ -114,7 +125,8 @@ var _ = Describe("update_sidecar_versions", func() {
 									},
 								},
 							},
-						}),
+						},
+					),
 					hasError: true,
 				}, ""),
 		)

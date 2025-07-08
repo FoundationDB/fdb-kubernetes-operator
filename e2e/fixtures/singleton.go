@@ -112,7 +112,10 @@ func getSingleton(options *FactoryOptions) (*singleton, error) {
 		}
 
 		var controllerClient client.Client
-		controllerClient, initializedError = LoadControllerRuntimeFromContext(options.context, curScheme)
+		controllerClient, initializedError = LoadControllerRuntimeFromContext(
+			options.context,
+			curScheme,
+		)
 		if initializedError != nil {
 			return
 		}

@@ -78,13 +78,26 @@ var _ = Describe("[internal] deprecations", func() {
 
 		When("the future defaults shouldn't be used", func() {
 			BeforeEach(func() {
-				cluster.Spec.MainContainer.ImageConfigs = append(cluster.Spec.MainContainer.ImageConfigs, fdbv1beta2.ImageConfig{BaseImage: "foundationdb/foundationdb-test"})
-				cluster.Spec.SidecarContainer.ImageConfigs = append(cluster.Spec.SidecarContainer.ImageConfigs, fdbv1beta2.ImageConfig{BaseImage: "foundationdb/foundationdb-kubernetes-sidecar-test"})
+				cluster.Spec.MainContainer.ImageConfigs = append(
+					cluster.Spec.MainContainer.ImageConfigs,
+					fdbv1beta2.ImageConfig{BaseImage: "foundationdb/foundationdb-test"},
+				)
+				cluster.Spec.SidecarContainer.ImageConfigs = append(
+					cluster.Spec.SidecarContainer.ImageConfigs,
+					fdbv1beta2.ImageConfig{
+						BaseImage: "foundationdb/foundationdb-kubernetes-sidecar-test",
+					},
+				)
 			})
 
 			Context("with the current defaults", func() {
 				JustBeforeEach(func() {
-					Expect(NormalizeClusterSpec(cluster, DeprecationOptions{UseFutureDefaults: false, OnlyShowChanges: false})).NotTo(HaveOccurred())
+					Expect(
+						NormalizeClusterSpec(
+							cluster,
+							DeprecationOptions{UseFutureDefaults: false, OnlyShowChanges: false},
+						),
+					).NotTo(HaveOccurred())
 				})
 
 				It("should have a main container defined", func() {
@@ -255,13 +268,17 @@ var _ = Describe("[internal] deprecations", func() {
 							{BaseImage: "foundationdb/foundationdb-test"},
 							{BaseImage: fdbv1beta2.FoundationDBKubernetesBaseImage},
 						}))
-						Expect(spec.SidecarContainer.ImageConfigs).To(Equal([]fdbv1beta2.ImageConfig{
+						Expect(
+							spec.SidecarContainer.ImageConfigs,
+						).To(Equal([]fdbv1beta2.ImageConfig{
 							{BaseImage: "foundationdb/foundationdb-kubernetes-sidecar-test"},
 						}))
 					})
 
 					It("should not have any init containers in the process settings", func() {
-						Expect(spec.Processes[fdbv1beta2.ProcessClassGeneral].PodTemplate.Spec.InitContainers).To(HaveLen(0))
+						Expect(
+							spec.Processes[fdbv1beta2.ProcessClassGeneral].PodTemplate.Spec.InitContainers,
+						).To(HaveLen(0))
 					})
 				})
 			})
@@ -269,13 +286,26 @@ var _ = Describe("[internal] deprecations", func() {
 
 		When("the future defaults should be used", func() {
 			BeforeEach(func() {
-				cluster.Spec.MainContainer.ImageConfigs = append(cluster.Spec.MainContainer.ImageConfigs, fdbv1beta2.ImageConfig{BaseImage: "foundationdb/foundationdb-test"})
-				cluster.Spec.SidecarContainer.ImageConfigs = append(cluster.Spec.SidecarContainer.ImageConfigs, fdbv1beta2.ImageConfig{BaseImage: "foundationdb/foundationdb-kubernetes-sidecar-test"})
+				cluster.Spec.MainContainer.ImageConfigs = append(
+					cluster.Spec.MainContainer.ImageConfigs,
+					fdbv1beta2.ImageConfig{BaseImage: "foundationdb/foundationdb-test"},
+				)
+				cluster.Spec.SidecarContainer.ImageConfigs = append(
+					cluster.Spec.SidecarContainer.ImageConfigs,
+					fdbv1beta2.ImageConfig{
+						BaseImage: "foundationdb/foundationdb-kubernetes-sidecar-test",
+					},
+				)
 			})
 
 			JustBeforeEach(func() {
 				cluster.Spec.Version = fdbv1beta2.Versions.SupportsLocalityBasedExclusions71.String()
-				Expect(NormalizeClusterSpec(cluster, DeprecationOptions{UseFutureDefaults: true, OnlyShowChanges: false})).NotTo(HaveOccurred())
+				Expect(
+					NormalizeClusterSpec(
+						cluster,
+						DeprecationOptions{UseFutureDefaults: true, OnlyShowChanges: false},
+					),
+				).NotTo(HaveOccurred())
 			})
 
 			It("should have the unified image enabled", func() {
@@ -444,7 +474,10 @@ var _ = Describe("[internal] deprecations", func() {
 			When("no image config is set", func() {
 				It("should be added", func() {
 					var imageConfigs []fdbv1beta2.ImageConfig
-					ensureImageConfigPresent(&imageConfigs, fdbv1beta2.ImageConfig{BaseImage: fdbv1beta2.FoundationDBBaseImage})
+					ensureImageConfigPresent(
+						&imageConfigs,
+						fdbv1beta2.ImageConfig{BaseImage: fdbv1beta2.FoundationDBBaseImage},
+					)
 					Expect(imageConfigs).To(HaveLen(1))
 				})
 			})
@@ -453,11 +486,16 @@ var _ = Describe("[internal] deprecations", func() {
 				var imageConfigs []fdbv1beta2.ImageConfig
 
 				BeforeEach(func() {
-					imageConfigs = []fdbv1beta2.ImageConfig{{BaseImage: fdbv1beta2.FoundationDBBaseImage}}
+					imageConfigs = []fdbv1beta2.ImageConfig{
+						{BaseImage: fdbv1beta2.FoundationDBBaseImage},
+					}
 				})
 
 				It("should not be added", func() {
-					ensureImageConfigPresent(&imageConfigs, fdbv1beta2.ImageConfig{BaseImage: fdbv1beta2.FoundationDBBaseImage})
+					ensureImageConfigPresent(
+						&imageConfigs,
+						fdbv1beta2.ImageConfig{BaseImage: fdbv1beta2.FoundationDBBaseImage},
+					)
 					Expect(imageConfigs).To(HaveLen(1))
 				})
 			})

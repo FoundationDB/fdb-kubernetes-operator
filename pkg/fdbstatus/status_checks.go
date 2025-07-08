@@ -78,7 +78,11 @@ type exclusionStatus struct {
 }
 
 // getRemainingAndExcludedFromStatus checks which processes of the input address list are excluded in the cluster and which are not.
-func getRemainingAndExcludedFromStatus(logger logr.Logger, status *fdbv1beta2.FoundationDBStatus, addresses []fdbv1beta2.ProcessAddress) exclusionStatus {
+func getRemainingAndExcludedFromStatus(
+	logger logr.Logger,
+	status *fdbv1beta2.FoundationDBStatus,
+	addresses []fdbv1beta2.ProcessAddress,
+) exclusionStatus {
 	logger.V(1).Info("Verify if exclusions are done", "addresses", addresses)
 	notExcludedAddresses := map[string]fdbv1beta2.None{}
 	fullyExcludedAddresses := map[string]int{}
@@ -90,7 +94,11 @@ func getRemainingAndExcludedFromStatus(logger logr.Logger, status *fdbv1beta2.Fo
 	// popped.
 	err := DefaultSafetyChecks(status, 1, "check exclusion status")
 	if err != nil {
-		logger.Info("Skipping exclusion check as there are issues with the machine-readable status", "error", err.Error())
+		logger.Info(
+			"Skipping exclusion check as there are issues with the machine-readable status",
+			"error",
+			err.Error(),
+		)
 		return exclusionStatus{
 			inProgress:      nil,
 			fullyExcluded:   nil,
@@ -119,7 +127,11 @@ func getRemainingAndExcludedFromStatus(logger logr.Logger, status *fdbv1beta2.Fo
 	// Check in the status output which processes are already marked for exclusion in the cluster
 	for _, process := range status.Cluster.Processes {
 		processAddresses := []string{
-			fmt.Sprintf("%s:%s", fdbv1beta2.FDBLocalityExclusionPrefix, process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]),
+			fmt.Sprintf(
+				"%s:%s",
+				fdbv1beta2.FDBLocalityExclusionPrefix,
+				process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey],
+			),
 			process.Address.IPAddress.String(),
 		}
 
@@ -177,7 +189,15 @@ func getRemainingAndExcludedFromStatus(logger logr.Logger, status *fdbv1beta2.Fo
 				exclusions.fullyExcluded = append(exclusions.fullyExcluded, addr)
 				continue
 			}
-			logger.Info("found excluded addresses for machine, but not all processes are fully excluded", "visitedCount", visitedCount, "excludedCount", excludedCount, "address", address)
+			logger.Info(
+				"found excluded addresses for machine, but not all processes are fully excluded",
+				"visitedCount",
+				visitedCount,
+				"excludedCount",
+				excludedCount,
+				"address",
+				address,
+			)
 		}
 
 		// Those are the processes that are marked as excluded but still serve at least one role.
@@ -189,12 +209,19 @@ func getRemainingAndExcludedFromStatus(logger logr.Logger, status *fdbv1beta2.Fo
 
 // clusterStatusHasValidRoleInformation will check if the cluster part of the machine-readable status contains messages
 // that indicate that not all role information could be fetched.
-func clusterStatusHasValidRoleInformation(logger logr.Logger, status *fdbv1beta2.FoundationDBStatus) bool {
+func clusterStatusHasValidRoleInformation(
+	logger logr.Logger,
+	status *fdbv1beta2.FoundationDBStatus,
+) bool {
 	for _, message := range status.Cluster.Messages {
 		if _, ok := forbiddenStatusMessages[message.Name]; ok {
-			logger.Info("Skipping exclusion check as the machine-readable status includes a message that indicates an potential incomplete status",
-				"messages", status.Cluster.Messages,
-				"forbiddenStatusMessages", forbiddenStatusMessages)
+			logger.Info(
+				"Skipping exclusion check as the machine-readable status includes a message that indicates an potential incomplete status",
+				"messages",
+				status.Cluster.Messages,
+				"forbiddenStatusMessages",
+				forbiddenStatusMessages,
+			)
 			return false
 		}
 	}
@@ -205,7 +232,12 @@ func clusterStatusHasValidRoleInformation(logger logr.Logger, status *fdbv1beta2
 // CanSafelyRemoveFromStatus checks whether it is safe to remove processes from the cluster, based on the provided status.
 //
 // The list returned by this method will be the addresses that are *not* safe to remove.
-func CanSafelyRemoveFromStatus(logger logr.Logger, client fdbadminclient.AdminClient, addresses []fdbv1beta2.ProcessAddress, status *fdbv1beta2.FoundationDBStatus) ([]fdbv1beta2.ProcessAddress, error) {
+func CanSafelyRemoveFromStatus(
+	logger logr.Logger,
+	client fdbadminclient.AdminClient,
+	addresses []fdbv1beta2.ProcessAddress,
+	status *fdbv1beta2.FoundationDBStatus,
+) ([]fdbv1beta2.ProcessAddress, error) {
 	exclusions := getRemainingAndExcludedFromStatus(logger, status, addresses)
 	logger.Info("Filtering excluded processes",
 		"inProgress", exclusions.inProgress,
@@ -284,13 +316,21 @@ func GetCoordinatorsFromStatus(status *fdbv1beta2.FoundationDBStatus) map[string
 // GetMinimumUptimeAndAddressMap returns address map of the processes included the the foundationdb status. The minimum
 // uptime will be either secondsSinceLastRecovered if the recovery state is supported and enabled otherwise we will
 // take the minimum uptime of all processes.
-func GetMinimumUptimeAndAddressMap(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, recoveryStateEnabled bool) (float64, map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.ProcessAddress, error) {
+func GetMinimumUptimeAndAddressMap(
+	logger logr.Logger,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	status *fdbv1beta2.FoundationDBStatus,
+	recoveryStateEnabled bool,
+) (float64, map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.ProcessAddress, error) {
 	runningVersion, err := fdbv1beta2.ParseFdbVersion(cluster.GetRunningVersion())
 	if err != nil {
 		return 0, nil, err
 	}
 
-	addressMap := make(map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.ProcessAddress, len(status.Cluster.Processes))
+	addressMap := make(
+		map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.ProcessAddress,
+		len(status.Cluster.Processes),
+	)
 
 	minimumUptime := math.Inf(1)
 	if runningVersion.SupportsRecoveryState() && recoveryStateEnabled {
@@ -310,7 +350,10 @@ func GetMinimumUptimeAndAddressMap(logger logr.Logger, cluster *fdbv1beta2.Found
 			continue
 		}
 
-		addressMap[fdbv1beta2.ProcessGroupID(processGroupID)] = append(addressMap[fdbv1beta2.ProcessGroupID(process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey])], process.Address)
+		addressMap[fdbv1beta2.ProcessGroupID(processGroupID)] = append(
+			addressMap[fdbv1beta2.ProcessGroupID(process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey])],
+			process.Address,
+		)
 
 		if process.Excluded {
 			continue
@@ -325,7 +368,8 @@ func GetMinimumUptimeAndAddressMap(logger logr.Logger, cluster *fdbv1beta2.Found
 		// If the SecondsSinceLastRecovered is higher than the process uptime, we want to use the process uptime, e.g. in
 		// cases where only storage processes are restarted.
 		if process.UptimeSeconds < minimumUptime {
-			logger.V(1).Info("Process uptime is less than the last recovery", "processGroupID", process.Address, "minimumUptime", minimumUptime, "process.UptimeSeconds", process.UptimeSeconds)
+			logger.V(1).
+				Info("Process uptime is less than the last recovery", "processGroupID", process.Address, "minimumUptime", minimumUptime, "process.UptimeSeconds", process.UptimeSeconds)
 			minimumUptime = process.UptimeSeconds
 		}
 	}
@@ -339,7 +383,9 @@ func DoStorageServerFaultDomainCheckOnStatus(status *fdbv1beta2.FoundationDBStat
 		return fmt.Errorf("no team trackers specified in status")
 	}
 
-	minimumRequiredReplicas := fdbv1beta2.MinimumFaultDomains(status.Cluster.DatabaseConfiguration.RedundancyMode)
+	minimumRequiredReplicas := fdbv1beta2.MinimumFaultDomains(
+		status.Cluster.DatabaseConfiguration.RedundancyMode,
+	)
 	for _, tracker := range status.Cluster.Data.TeamTrackers {
 		region := "primary"
 		if !tracker.Primary {
@@ -351,7 +397,12 @@ func DoStorageServerFaultDomainCheckOnStatus(status *fdbv1beta2.FoundationDBStat
 		}
 
 		if tracker.State.MinReplicasRemaining < minimumRequiredReplicas {
-			return fmt.Errorf("team tracker in %s has %d replicas left but we require more than %d", region, tracker.State.MinReplicasRemaining, minimumRequiredReplicas)
+			return fmt.Errorf(
+				"team tracker in %s has %d replicas left but we require more than %d",
+				region,
+				tracker.State.MinReplicasRemaining,
+				minimumRequiredReplicas,
+			)
 		}
 	}
 
@@ -368,19 +419,31 @@ func DoLogServerFaultDomainCheckOnStatus(status *fdbv1beta2.FoundationDBStatus) 
 		// @todo do we need to do this check only for the current log server set? Revisit this issue later.
 		if log.LogReplicationFactor != 0 {
 			if log.LogFaultTolerance+1 != log.LogReplicationFactor {
-				return fmt.Errorf("primary log fault tolerance is not satisfied, replication factor: %d, current fault tolerance: %d", log.LogReplicationFactor, log.LogFaultTolerance)
+				return fmt.Errorf(
+					"primary log fault tolerance is not satisfied, replication factor: %d, current fault tolerance: %d",
+					log.LogReplicationFactor,
+					log.LogFaultTolerance,
+				)
 			}
 		}
 
 		if log.RemoteLogReplicationFactor != 0 {
 			if log.RemoteLogFaultTolerance+1 != log.RemoteLogReplicationFactor {
-				return fmt.Errorf("remote log fault tolerance is not satisfied, replication factor: %d, current fault tolerance: %d", log.RemoteLogReplicationFactor, log.RemoteLogFaultTolerance)
+				return fmt.Errorf(
+					"remote log fault tolerance is not satisfied, replication factor: %d, current fault tolerance: %d",
+					log.RemoteLogReplicationFactor,
+					log.RemoteLogFaultTolerance,
+				)
 			}
 		}
 
 		if log.SatelliteLogReplicationFactor != 0 {
 			if log.SatelliteLogFaultTolerance+1 != log.SatelliteLogReplicationFactor {
-				return fmt.Errorf("satellite log fault tolerance is not satisfied, replication factor: %d, current fault tolerance: %d", log.SatelliteLogReplicationFactor, log.SatelliteLogFaultTolerance)
+				return fmt.Errorf(
+					"satellite log fault tolerance is not satisfied, replication factor: %d, current fault tolerance: %d",
+					log.SatelliteLogReplicationFactor,
+					log.SatelliteLogFaultTolerance,
+				)
 			}
 		}
 	}
@@ -400,7 +463,10 @@ func DoCoordinatorFaultDomainCheckOnStatus(status *fdbv1beta2.FoundationDBStatus
 	}
 
 	if len(notReachable) > 0 {
-		return fmt.Errorf("not all coordinators are reachable, unreachable coordinators: %s", strings.Join(notReachable, ","))
+		return fmt.Errorf(
+			"not all coordinators are reachable, unreachable coordinators: %s",
+			strings.Join(notReachable, ","),
+		)
 	}
 
 	// If this is the case the statements above should already catch the unreachable coordinators and printout a more
@@ -414,7 +480,12 @@ func DoCoordinatorFaultDomainCheckOnStatus(status *fdbv1beta2.FoundationDBStatus
 
 // DoFaultDomainChecksOnStatus does the specified fault domain check(s) over the given status object.
 // @note this is a wrapper over the above fault domain related functions.
-func DoFaultDomainChecksOnStatus(status *fdbv1beta2.FoundationDBStatus, storageServerCheck bool, logServerCheck bool, coordinatorCheck bool) error {
+func DoFaultDomainChecksOnStatus(
+	status *fdbv1beta2.FoundationDBStatus,
+	storageServerCheck bool,
+	logServerCheck bool,
+	coordinatorCheck bool,
+) error {
 	if storageServerCheck {
 		err := DoStorageServerFaultDomainCheckOnStatus(status)
 		if err != nil {
@@ -437,7 +508,11 @@ func DoFaultDomainChecksOnStatus(status *fdbv1beta2.FoundationDBStatus, storageS
 }
 
 // HasDesiredFaultToleranceFromStatus checks if the cluster has the desired fault tolerance based on the provided status.
-func HasDesiredFaultToleranceFromStatus(log logr.Logger, status *fdbv1beta2.FoundationDBStatus, cluster *fdbv1beta2.FoundationDBCluster) bool {
+func HasDesiredFaultToleranceFromStatus(
+	log logr.Logger,
+	status *fdbv1beta2.FoundationDBStatus,
+	cluster *fdbv1beta2.FoundationDBCluster,
+) bool {
 	if !status.Client.DatabaseStatus.Available {
 		log.Info("Cluster is not available",
 			"namespace", cluster.Namespace,
@@ -471,12 +546,21 @@ func HasDesiredFaultToleranceFromStatus(log logr.Logger, status *fdbv1beta2.Foun
 
 // DefaultSafetyChecks performs a set of default safety checks, e.g. it checks if the cluster is available from the
 // client perspective and it checks that there are not too many active generations.
-func DefaultSafetyChecks(status *fdbv1beta2.FoundationDBStatus, maximumActiveGenerations int, action string) error {
+func DefaultSafetyChecks(
+	status *fdbv1beta2.FoundationDBStatus,
+	maximumActiveGenerations int,
+	action string,
+) error {
 	// If there are more than 10 active generations we should not allow the cluster to bounce processes as this could
 	// cause another recovery increasing the active generations. In general the active generations should be at 1 during
 	// normal operations.
 	if status.Cluster.RecoveryState.ActiveGenerations > maximumActiveGenerations {
-		return fmt.Errorf("cluster has %d active generations, but only %d active generations are allowed to safely %s", status.Cluster.RecoveryState.ActiveGenerations, maximumActiveGenerations, action)
+		return fmt.Errorf(
+			"cluster has %d active generations, but only %d active generations are allowed to safely %s",
+			status.Cluster.RecoveryState.ActiveGenerations,
+			maximumActiveGenerations,
+			action,
+		)
 	}
 
 	// If the database is unavailable we shouldn't perform any action on the cluster.
@@ -489,7 +573,11 @@ func DefaultSafetyChecks(status *fdbv1beta2.FoundationDBStatus, maximumActiveGen
 
 // CanSafelyBounceProcesses returns nil when it is safe to do a bounce on the cluster or returns an error with more information
 // why it's not safe to bounce processes in the cluster.
-func CanSafelyBounceProcesses(currentUptime float64, minimumUptime float64, status *fdbv1beta2.FoundationDBStatus) error {
+func CanSafelyBounceProcesses(
+	currentUptime float64,
+	minimumUptime float64,
+	status *fdbv1beta2.FoundationDBStatus,
+) error {
 	err := DefaultSafetyChecks(status, 10, "bounce processes")
 	if err != nil {
 		return err
@@ -498,14 +586,22 @@ func CanSafelyBounceProcesses(currentUptime float64, minimumUptime float64, stat
 	// If the current uptime of the cluster is below the minimum uptime we should not allow to bounce processes. This is
 	// a safeguard to reduce the risk of repeated bounces in a short timeframe.
 	if currentUptime < minimumUptime {
-		return fmt.Errorf("cluster has only been up for %.2f seconds, but must be up for %.2f seconds to safely bounce", currentUptime, minimumUptime)
+		return fmt.Errorf(
+			"cluster has only been up for %.2f seconds, but must be up for %.2f seconds to safely bounce",
+			currentUptime,
+			minimumUptime,
+		)
 	}
 
 	// If the machine-readable status reports that a clean bounce is not possible, we shouldn't perform a bounce. This
 	// value will be false if the cluster is not fully recovered:
 	// https://github.com/apple/foundationdb/blob/7.3.29/fdbserver/Status.actor.cpp#L437-L448
-	if status.Cluster.BounceImpact.CanCleanBounce != nil && !*status.Cluster.BounceImpact.CanCleanBounce {
-		return fmt.Errorf("cannot perform a clean bounce based on cluster status, current recovery state: %s", status.Cluster.RecoveryState.Name)
+	if status.Cluster.BounceImpact.CanCleanBounce != nil &&
+		!*status.Cluster.BounceImpact.CanCleanBounce {
+		return fmt.Errorf(
+			"cannot perform a clean bounce based on cluster status, current recovery state: %s",
+			status.Cluster.RecoveryState.Name,
+		)
 	}
 
 	return nil
@@ -518,7 +614,12 @@ func CanSafelyExcludeProcesses(status *fdbv1beta2.FoundationDBStatus) error {
 	return DefaultSafetyChecks(status, 10, "exclude processes")
 }
 
-func canSafelyExcludeOrIncludeProcesses(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, inclusion bool, minRecoverySeconds float64) error {
+func canSafelyExcludeOrIncludeProcesses(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	status *fdbv1beta2.FoundationDBStatus,
+	inclusion bool,
+	minRecoverySeconds float64,
+) error {
 	action := "exclude processes"
 	if inclusion {
 		action = "include processes"
@@ -538,14 +639,23 @@ func canSafelyExcludeOrIncludeProcesses(cluster *fdbv1beta2.FoundationDBCluster,
 		// We want to make sure that the cluster is recovered for some time. This should protect the cluster from
 		// getting into a bad state as a result of frequent inclusions/exclusions.
 		if status.Cluster.RecoveryState.SecondsSinceLastRecovered < minRecoverySeconds {
-			return fmt.Errorf("cannot: %s, clusters last recovery was %0.2f seconds ago, wait until the last recovery was %0.0f seconds ago", action, status.Cluster.RecoveryState.SecondsSinceLastRecovered, minRecoverySeconds)
+			return fmt.Errorf(
+				"cannot: %s, clusters last recovery was %0.2f seconds ago, wait until the last recovery was %0.0f seconds ago",
+				action,
+				status.Cluster.RecoveryState.SecondsSinceLastRecovered,
+				minRecoverySeconds,
+			)
 		}
 	}
 
 	// In the case of inclusions we also want to make sure we only change the list of excluded server if the cluster is
 	// in a good shape, otherwise the CC might crash: https://github.com/apple/foundationdb/blob/release-7.1/fdbserver/ClusterRecovery.actor.cpp#L575-L579
 	if inclusion && !recoveryStateAllowsInclusion(status) {
-		return fmt.Errorf("cannot: %s, cluster recovery state is %s, but it must be \"fully_recovered\" or \"all_logs_recruited\"", action, status.Cluster.RecoveryState.Name)
+		return fmt.Errorf(
+			"cannot: %s, cluster recovery state is %s, but it must be \"fully_recovered\" or \"all_logs_recruited\"",
+			action,
+			status.Cluster.RecoveryState.Name,
+		)
 	}
 
 	return nil
@@ -553,24 +663,36 @@ func canSafelyExcludeOrIncludeProcesses(cluster *fdbv1beta2.FoundationDBCluster,
 
 // See: https://github.com/apple/foundationdb/blob/release-7.1/fdbserver/ClusterRecovery.actor.cpp#L575-L579
 func recoveryStateAllowsInclusion(status *fdbv1beta2.FoundationDBStatus) bool {
-	return status.Cluster.RecoveryState.Name == "fully_recovered" || status.Cluster.RecoveryState.Name == "all_logs_recruited"
+	return status.Cluster.RecoveryState.Name == "fully_recovered" ||
+		status.Cluster.RecoveryState.Name == "all_logs_recruited"
 }
 
 // CanSafelyExcludeProcessesWithRecoveryState currently performs the DefaultSafetyChecks and makes sure that the last recovery was at least `minRecoverySeconds` seconds ago.
 // In the future this check might be extended to perform more specific checks.
-func CanSafelyExcludeProcessesWithRecoveryState(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, minRecoverySeconds float64) error {
+func CanSafelyExcludeProcessesWithRecoveryState(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	status *fdbv1beta2.FoundationDBStatus,
+	minRecoverySeconds float64,
+) error {
 	return canSafelyExcludeOrIncludeProcesses(cluster, status, false, minRecoverySeconds)
 }
 
 // CanSafelyIncludeProcesses currently performs the DefaultSafetyChecks and makes sure that the last recovery was at least `minRecoverySeconds` seconds ago.
 // In the future this check might be extended to perform more specific checks.
-func CanSafelyIncludeProcesses(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, minRecoverySeconds float64) error {
+func CanSafelyIncludeProcesses(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	status *fdbv1beta2.FoundationDBStatus,
+	minRecoverySeconds float64,
+) error {
 	return canSafelyExcludeOrIncludeProcesses(cluster, status, true, minRecoverySeconds)
 }
 
 // ConfigurationChangeAllowed will return an error if the configuration change is assumed to be unsafe. If no error
 // is returned the configuration change can be applied.
-func ConfigurationChangeAllowed(status *fdbv1beta2.FoundationDBStatus, useRecoveryState bool) error {
+func ConfigurationChangeAllowed(
+	status *fdbv1beta2.FoundationDBStatus,
+	useRecoveryState bool,
+) error {
 	err := DefaultSafetyChecks(status, 10, "change configuration")
 	if err != nil {
 		return err
@@ -592,7 +714,10 @@ func ConfigurationChangeAllowed(status *fdbv1beta2.FoundationDBStatus, useRecove
 	// We want to wait at least 60 seconds between configuration changes that trigger a recovery, otherwise we might
 	// issue too frequent configuration changes.
 	if useRecoveryState && status.Cluster.RecoveryState.SecondsSinceLastRecovered < 60.0 {
-		return fmt.Errorf("clusters last recovery was %0.2f seconds ago, wait until the last recovery was 60 seconds ago", status.Cluster.RecoveryState.SecondsSinceLastRecovered)
+		return fmt.Errorf(
+			"clusters last recovery was %0.2f seconds ago, wait until the last recovery was 60 seconds ago",
+			status.Cluster.RecoveryState.SecondsSinceLastRecovered,
+		)
 	}
 
 	return CheckQosStatus(status)
@@ -605,26 +730,47 @@ func ConfigurationChangeAllowed(status *fdbv1beta2.FoundationDBStatus, useRecove
 func CheckQosStatus(status *fdbv1beta2.FoundationDBStatus) error {
 	// We picked this value from the FoundationDB implementation, this is the default threshold to report a process as lagging.
 	if status.Cluster.Qos.WorstDataLagStorageServer.Seconds > maximumDataLag {
-		return fmt.Errorf("worst data lag is too high, current worst data lag in seconds: %0.2f, maximum allowed lag:  %0.2f", status.Cluster.Qos.WorstDataLagStorageServer.Seconds, maximumDataLag)
+		return fmt.Errorf(
+			"worst data lag is too high, current worst data lag in seconds: %0.2f, maximum allowed lag:  %0.2f",
+			status.Cluster.Qos.WorstDataLagStorageServer.Seconds,
+			maximumDataLag,
+		)
 	}
 
 	if status.Cluster.Qos.WorstDurabilityLagStorageServer.Seconds > maximumDataLag {
-		return fmt.Errorf("worst durability lag is too high, current worst durability lag in seconds: %0.2f, maximum allowed lag:  %0.2f", status.Cluster.Qos.WorstDurabilityLagStorageServer.Seconds, maximumDataLag)
+		return fmt.Errorf(
+			"worst durability lag is too high, current worst durability lag in seconds: %0.2f, maximum allowed lag:  %0.2f",
+			status.Cluster.Qos.WorstDurabilityLagStorageServer.Seconds,
+			maximumDataLag,
+		)
 	}
 
 	if status.Cluster.Qos.WorstQueueBytesLogServer > maximumQueueByteSize {
-		return fmt.Errorf("worst queue bytes for log server is too high, current worst queue bytes: %s, maximum allowed queue bytes: %s", PrettyPrintBytes(status.Cluster.Qos.WorstQueueBytesLogServer), PrettyPrintBytes(maximumQueueByteSize))
+		return fmt.Errorf(
+			"worst queue bytes for log server is too high, current worst queue bytes: %s, maximum allowed queue bytes: %s",
+			PrettyPrintBytes(status.Cluster.Qos.WorstQueueBytesLogServer),
+			PrettyPrintBytes(maximumQueueByteSize),
+		)
 	}
 
 	if status.Cluster.Qos.WorstQueueBytesStorageServer > maximumQueueByteSize {
-		return fmt.Errorf("worst queue bytes for storage server is too high, current worst queue bytes: %s, maximum allowed queue bytes: %s", PrettyPrintBytes(status.Cluster.Qos.WorstQueueBytesStorageServer), PrettyPrintBytes(maximumQueueByteSize))
+		return fmt.Errorf(
+			"worst queue bytes for storage server is too high, current worst queue bytes: %s, maximum allowed queue bytes: %s",
+			PrettyPrintBytes(status.Cluster.Qos.WorstQueueBytesStorageServer),
+			PrettyPrintBytes(maximumQueueByteSize),
+		)
 	}
 
 	return nil
 }
 
 // GetExcludedLocalitiesFromStatus returns the excluded localities based on the machine-readable status. If the provided status is empty a new status is fetched.
-func GetExcludedLocalitiesFromStatus(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, getAdminClient func(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster) (fdbadminclient.AdminClient, error)) (map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None, error) {
+func GetExcludedLocalitiesFromStatus(
+	logger logr.Logger,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	status *fdbv1beta2.FoundationDBStatus,
+	getAdminClient func(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster) (fdbadminclient.AdminClient, error),
+) (map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None, error) {
 	exclusions := map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None{}
 	if cluster.UseLocalitiesForExclusion() {
 		if status == nil {
@@ -685,7 +831,12 @@ func PrettyPrintBytes(bytes int64) string {
 
 // ClusterIsConfigured will return true if the cluster is configured based on the machine-readable status of the status of
 // the FoundationDBCLuster resource.
-func ClusterIsConfigured(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) bool {
+func ClusterIsConfigured(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	status *fdbv1beta2.FoundationDBStatus,
+) bool {
 	// If we saw at least once that the cluster was configured, we assume that the cluster is always configured.
-	return cluster.Status.Configured || status.Client.DatabaseStatus.Available && status.Cluster.Layers.Error != "configurationMissing"
+	return cluster.Status.Configured ||
+		status.Client.DatabaseStatus.Available &&
+			status.Cluster.Layers.Error != "configurationMissing"
 }

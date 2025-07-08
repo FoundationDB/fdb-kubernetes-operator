@@ -225,7 +225,8 @@ var _ = Describe("[api] FoundationDBBackup", func() {
 	})
 
 	When("getting the backup URL", func() {
-		DescribeTable("should generate the correct backup URL",
+		DescribeTable(
+			"should generate the correct backup URL",
 			func(backup FoundationDBBackup, expected string) {
 				Expect(backup.BackupURL()).To(Equal(expected))
 			},
@@ -269,7 +270,8 @@ var _ = Describe("[api] FoundationDBBackup", func() {
 					},
 				},
 				"blobstore://account@account:443/test?bucket=my-bucket"),
-			Entry("A Backup with a blobstore config with a bucket and backup name and a defined port",
+			Entry(
+				"A Backup with a blobstore config with a bucket and backup name and a defined port",
 				FoundationDBBackup{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "mybackup",
@@ -282,8 +284,10 @@ var _ = Describe("[api] FoundationDBBackup", func() {
 						},
 					},
 				},
-				"blobstore://account@account:931/test?bucket=my-bucket"),
-			Entry("A Backup with a blobstore config with a bucket and backup name and HTTPS parameters",
+				"blobstore://account@account:931/test?bucket=my-bucket",
+			),
+			Entry(
+				"A Backup with a blobstore config with a bucket and backup name and HTTPS parameters",
 				FoundationDBBackup{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "mybackup",
@@ -299,8 +303,10 @@ var _ = Describe("[api] FoundationDBBackup", func() {
 						},
 					},
 				},
-				"blobstore://account@account:443/test?bucket=my-bucket&secure_connection=1"),
-			Entry("A Backup with a blobstore config with a bucket and backup name and HTTPS parameters (shorthand)",
+				"blobstore://account@account:443/test?bucket=my-bucket&secure_connection=1",
+			),
+			Entry(
+				"A Backup with a blobstore config with a bucket and backup name and HTTPS parameters (shorthand)",
 				FoundationDBBackup{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "mybackup",
@@ -316,8 +322,10 @@ var _ = Describe("[api] FoundationDBBackup", func() {
 						},
 					},
 				},
-				"blobstore://account@account:443/test?bucket=my-bucket&sc=1"),
-			Entry("A Backup with a blobstore config with HTTP parameters and backup and bucket name",
+				"blobstore://account@account:443/test?bucket=my-bucket&sc=1",
+			),
+			Entry(
+				"A Backup with a blobstore config with HTTP parameters and backup and bucket name",
 				FoundationDBBackup{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "mybackup",
@@ -333,7 +341,8 @@ var _ = Describe("[api] FoundationDBBackup", func() {
 						},
 					},
 				},
-				"blobstore://account@account:80/test?bucket=my-bucket&secure_connection=0"),
+				"blobstore://account@account:80/test?bucket=my-bucket&secure_connection=0",
+			),
 			Entry("A Backup with a blobstore config with HTTP parameters",
 				FoundationDBBackup{
 					ObjectMeta: metav1.ObjectMeta{
@@ -364,7 +373,8 @@ var _ = Describe("[api] FoundationDBBackup", func() {
 					},
 				},
 				"blobstore://account@account:8453/mybackup?bucket=fdb-backups&secure_connection=0"),
-			Entry("A Backup with a blobstore config with HTTP parameters (shorthand) and a defined port",
+			Entry(
+				"A Backup with a blobstore config with HTTP parameters (shorthand) and a defined port",
 				FoundationDBBackup{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "mybackup",
@@ -378,7 +388,8 @@ var _ = Describe("[api] FoundationDBBackup", func() {
 						},
 					},
 				},
-				"blobstore://account@account:8453/mybackup?bucket=fdb-backups&sc=0"),
+				"blobstore://account@account:8453/mybackup?bucket=fdb-backups&sc=0",
+			),
 			Entry("A Backup with a blobstore config with invalid HTTP parameters",
 				FoundationDBBackup{
 					ObjectMeta: metav1.ObjectMeta{
@@ -394,7 +405,8 @@ var _ = Describe("[api] FoundationDBBackup", func() {
 					},
 				},
 				"blobstore://account@account:443/mybackup?bucket=fdb-backups&secure_con=0"),
-			Entry("A Backup with a blobstore config with invalid HTTP parameters and a defined port",
+			Entry(
+				"A Backup with a blobstore config with invalid HTTP parameters and a defined port",
 				FoundationDBBackup{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "mybackup",
@@ -408,8 +420,10 @@ var _ = Describe("[api] FoundationDBBackup", func() {
 						},
 					},
 				},
-				"blobstore://account@account:633/mybackup?bucket=fdb-backups&secure_con=0"),
-			Entry("A Backup with a blobstore config with IPv6 and a defined port",
+				"blobstore://account@account:633/mybackup?bucket=fdb-backups&secure_con=0",
+			),
+			Entry(
+				"A Backup with a blobstore config with IPv6 and a defined port",
 				FoundationDBBackup{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "mybackup",
@@ -420,8 +434,10 @@ var _ = Describe("[api] FoundationDBBackup", func() {
 						},
 					},
 				},
-				"blobstore://account@[2001:0db8:85a3:0000:0000:8a2e:0370:7334]:633/mybackup?bucket=fdb-backups"),
-			Entry("A Backup with a blobstore config with IPv6 and no defined port",
+				"blobstore://account@[2001:0db8:85a3:0000:0000:8a2e:0370:7334]:633/mybackup?bucket=fdb-backups",
+			),
+			Entry(
+				"A Backup with a blobstore config with IPv6 and no defined port",
 				FoundationDBBackup{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "mybackup",
@@ -432,8 +448,10 @@ var _ = Describe("[api] FoundationDBBackup", func() {
 						},
 					},
 				},
-				"blobstore://account@[2001:0db8:85a3:0000:0000:8a2e:0370:7334]:443/mybackup?bucket=fdb-backups"),
-			Entry("A Backup with a blobstore config with IPv6 and no defined port (sc=0)",
+				"blobstore://account@[2001:0db8:85a3:0000:0000:8a2e:0370:7334]:443/mybackup?bucket=fdb-backups",
+			),
+			Entry(
+				"A Backup with a blobstore config with IPv6 and no defined port (sc=0)",
 				FoundationDBBackup{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "mybackup",
@@ -447,7 +465,8 @@ var _ = Describe("[api] FoundationDBBackup", func() {
 						},
 					},
 				},
-				"blobstore://account@[2001:0db8:85a3:0000:0000:8a2e:0370:7334]:80/mybackup?bucket=fdb-backups&sc=0"),
+				"blobstore://account@[2001:0db8:85a3:0000:0000:8a2e:0370:7334]:80/mybackup?bucket=fdb-backups&sc=0",
+			),
 		)
 	})
 })

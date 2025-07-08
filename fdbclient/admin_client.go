@@ -90,7 +90,11 @@ type cliAdminClient struct {
 }
 
 // NewCliAdminClient generates an Admin client for a cluster
-func NewCliAdminClient(cluster *fdbv1beta2.FoundationDBCluster, _ client.Client, logger logr.Logger) (fdbadminclient.AdminClient, error) {
+func NewCliAdminClient(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	_ client.Client,
+	logger logr.Logger,
+) (fdbadminclient.AdminClient, error) {
 	return &cliAdminClient{
 		Cluster:   cluster,
 		log:       logger,
@@ -184,7 +188,10 @@ func getBinaryPath(binaryName string, version string) string {
 	return path.Join(os.Getenv("FDB_BINARY_DIR"), parsed.GetBinaryVersion(), binaryName)
 }
 
-func (client *cliAdminClient) getArgsAndTimeout(command cliCommand, clusterFile string) ([]string, time.Duration) {
+func (client *cliAdminClient) getArgsAndTimeout(
+	command cliCommand,
+	clusterFile string,
+) ([]string, time.Duration) {
 	args := make([]string, len(command.args))
 	copy(args, command.args)
 	if len(args) == 0 {
@@ -241,7 +248,10 @@ func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 	timeoutContext, cancelFunction := context.WithTimeout(context.Background(), hardTimeout)
 	defer cancelFunction()
 
-	output, err := client.cmdRunner.runCommand(timeoutContext, getBinaryPath(command.getBinary(), command.getVersion(client.Cluster)), args...)
+	output, err := client.cmdRunner.runCommand(
+		timeoutContext,
+		getBinaryPath(command.getBinary(), command.getVersion(client.Cluster)),
+		args...)
 	if err != nil {
 		// If we hit a timeout report it as a timeout error and don't log it, but let the caller take care of logging.
 		if strings.Contains(string(output), "Specified timeout reached") {
@@ -252,7 +262,16 @@ func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 
 		var exitError *exec.ExitError
 		if errors.As(err, &exitError) {
-			client.log.Error(exitError, "Error from FDB command", "code", exitError.ExitCode(), "stdout", string(output), "stderr", string(exitError.Stderr))
+			client.log.Error(
+				exitError,
+				"Error from FDB command",
+				"code",
+				exitError.ExitCode(),
+				"stdout",
+				string(output),
+				"stderr",
+				string(exitError.Stderr),
+			)
 		}
 
 		return "", err
@@ -272,10 +291,14 @@ func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 }
 
 // getStatusFromCli uses the fdbcli to connect to the FDB cluster
-func (client *cliAdminClient) getStatusFromCli(checkForProcesses bool) (*fdbv1beta2.FoundationDBStatus, error) {
+func (client *cliAdminClient) getStatusFromCli(
+	checkForProcesses bool,
+) (*fdbv1beta2.FoundationDBStatus, error) {
 	// Always use the max timeout here. Otherwise we will retry multiple times with an increasing timeout. As the
 	// timeout is only the upper bound using directly the max timeout reduces the calls to a single call.
-	output, err := client.runCommand(cliCommand{command: "status json", timeout: client.getTimeout()})
+	output, err := client.runCommand(
+		cliCommand{command: "status json", timeout: client.getTimeout()},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -295,8 +318,10 @@ func (client *cliAdminClient) getStatus() (*fdbv1beta2.FoundationDBStatus, error
 
 	// If the cluster is under an upgrade and the getStatus call returns an error, we have to retry it with the new version,
 	// as it could be that the wrong version was selected.
-	if client.Cluster.IsBeingUpgradedWithVersionIncompatibleVersion() && internal.IsTimeoutError(err) {
-		client.log.V(1).Info("retry fetching status with version specified in spec.Version", "error", err, "status", status)
+	if client.Cluster.IsBeingUpgradedWithVersionIncompatibleVersion() &&
+		internal.IsTimeoutError(err) {
+		client.log.V(1).
+			Info("retry fetching status with version specified in spec.Version", "error", err, "status", status)
 		// Create a copy of the cluster and make use of the desired version instead of the last observed running version.
 		clusterCopy := client.Cluster.DeepCopy()
 		clusterCopy.Status.RunningVersion = clusterCopy.Spec.Version
@@ -318,19 +343,25 @@ func (client *cliAdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error
 	// to connect to the cluster. This will result in an empty status only reporting the unreachable coordinators.
 	// In this case we want to fall back to use fdbcli which is version specific and will (hopefully) work.
 	// If we hit a timeout we will also use fdbcli to retry the get status command.
-	client.log.V(1).Info("Result from multi version client (bindings)", "error", err, "status", status)
-	if client.Cluster.Status.Configured && internal.IsTimeoutError(err) && client.Cluster.IsBeingUpgradedWithVersionIncompatibleVersion() {
+	client.log.V(1).
+		Info("Result from multi version client (bindings)", "error", err, "status", status)
+	if client.Cluster.Status.Configured && internal.IsTimeoutError(err) &&
+		client.Cluster.IsBeingUpgradedWithVersionIncompatibleVersion() {
 		client.log.Info("retry fetching status with fdbcli instead of using the client library")
 		status, err = client.getStatus()
 	}
 
-	client.log.V(1).Info("Completed GetStatus() call", "error", err, "status", status, "duration", time.Since(startTime).String())
+	client.log.V(1).
+		Info("Completed GetStatus() call", "error", err, "status", status, "duration", time.Since(startTime).String())
 
 	return status, err
 }
 
 // ConfigureDatabase sets the database configuration
-func (client *cliAdminClient) ConfigureDatabase(configuration fdbv1beta2.DatabaseConfiguration, newDatabase bool) error {
+func (client *cliAdminClient) ConfigureDatabase(
+	configuration fdbv1beta2.DatabaseConfiguration,
+	newDatabase bool,
+) error {
 	configurationString, err := configuration.GetConfigurationString()
 	if err != nil {
 		return err
@@ -340,17 +371,28 @@ func (client *cliAdminClient) ConfigureDatabase(configuration fdbv1beta2.Databas
 		configurationString = "new " + configurationString
 	}
 
-	_, err = client.runCommand(cliCommand{command: fmt.Sprintf("configure %s", configurationString)})
+	_, err = client.runCommand(
+		cliCommand{command: fmt.Sprintf("configure %s", configurationString)},
+	)
 	return err
 }
 
 // SetMaintenanceZone places zone into maintenance mode
 func (client *cliAdminClient) SetMaintenanceZone(zone string, timeoutSeconds int) error {
 	if client.Cluster.GetDatabaseInteractionMode() == fdbv1beta2.DatabaseInteractionModeMgmtAPI {
-		client.log.Info("setting maintenance zone with management API", "zone", zone, "timeoutSeconds", timeoutSeconds)
+		client.log.Info(
+			"setting maintenance zone with management API",
+			"zone",
+			zone,
+			"timeoutSeconds",
+			timeoutSeconds,
+		)
 		return client.executeTransactionForManagementAPI(func(tr fdb.Transaction) error {
 			// The value is a literal text of a non-negative double which represents the remaining time for the zone to be in maintenance.
-			tr.Set(fdb.Key(path.Join("\xff\xff/management/maintenance/", zone)), []byte(fmt.Sprintf("%d.0", timeoutSeconds)))
+			tr.Set(
+				fdb.Key(path.Join("\xff\xff/management/maintenance/", zone)),
+				[]byte(fmt.Sprintf("%d.0", timeoutSeconds)),
+			)
 			return nil
 		})
 	}
@@ -408,21 +450,33 @@ func getAddressStringsWithoutPorts(addresses []fdbv1beta2.ProcessAddress) string
 
 // ExcludeProcessesWithNoWait starts evacuating processes so that they can be removed from the database. If noWait is
 // set to true, the exclude command will not block until all data is moved away from the processes.
-func (client *cliAdminClient) ExcludeProcessesWithNoWait(addresses []fdbv1beta2.ProcessAddress, noWait bool) error {
+func (client *cliAdminClient) ExcludeProcessesWithNoWait(
+	addresses []fdbv1beta2.ProcessAddress,
+	noWait bool,
+) error {
 	if len(addresses) == 0 {
 		return nil
 	}
 
 	if client.Cluster.GetDatabaseInteractionMode() == fdbv1beta2.DatabaseInteractionModeMgmtAPI {
 		localitiesToExclude, addressesToExclude := getAddressesAndLocalities(addresses)
-		client.log.Info("exclude processes with management API", "addressesToExclude", addressesToExclude, "localitiesToExclude", localitiesToExclude)
+		client.log.Info(
+			"exclude processes with management API",
+			"addressesToExclude",
+			addressesToExclude,
+			"localitiesToExclude",
+			localitiesToExclude,
+		)
 		err := client.executeTransactionForManagementAPI(func(tr fdb.Transaction) error {
 			for _, addr := range addressesToExclude {
 				tr.Set(fdb.Key(path.Join("\xff\xff/management/excluded/", addr)), []byte{})
 			}
 
 			for _, locality := range localitiesToExclude {
-				tr.Set(fdb.Key(path.Join("\xff\xff/management/excluded_locality/", locality)), []byte{})
+				tr.Set(
+					fdb.Key(path.Join("\xff\xff/management/excluded_locality/", locality)),
+					[]byte{},
+				)
 			}
 
 			return nil
@@ -440,18 +494,22 @@ func (client *cliAdminClient) ExcludeProcessesWithNoWait(addresses []fdbv1beta2.
 		timeout := time.Now().Add(client.timeout)
 		for {
 			err = client.executeTransactionForManagementAPI(func(tr fdb.Transaction) error {
-				inProgressKeyRange, err := fdb.PrefixRange([]byte("\xff\xff/management/in_progress_exclusion/"))
+				inProgressKeyRange, err := fdb.PrefixRange(
+					[]byte("\xff\xff/management/in_progress_exclusion/"),
+				)
 				if err != nil {
 					return err
 				}
 
-				inProgressResults := tr.GetRange(inProgressKeyRange, fdb.RangeOptions{}).GetSliceOrPanic()
+				inProgressResults := tr.GetRange(inProgressKeyRange, fdb.RangeOptions{}).
+					GetSliceOrPanic()
 				inProgressExclusions := map[string]fdbv1beta2.None{}
 				for _, result := range inProgressResults {
 					inProgressExclusions[path.Base(result.Key.String())] = fdbv1beta2.None{}
 				}
 
-				client.log.V(1).Info("found results for in progress exclusions", "inProgressResults", len(inProgressResults), "inProgressExclusions", inProgressExclusions)
+				client.log.V(1).
+					Info("found results for in progress exclusions", "inProgressResults", len(inProgressResults), "inProgressExclusions", inProgressExclusions)
 				var inProgress []string
 				if len(inProgressExclusions) > 0 {
 					for _, addr := range addressesToExclude {
@@ -468,7 +526,10 @@ func (client *cliAdminClient) ExcludeProcessesWithNoWait(addresses []fdbv1beta2.
 				}
 
 				if len(inProgress) > 0 {
-					return fmt.Errorf("exclusion still in progress: %s", strings.Join(inProgress, ","))
+					return fmt.Errorf(
+						"exclusion still in progress: %s",
+						strings.Join(inProgress, ","),
+					)
 				}
 
 				return nil
@@ -495,7 +556,9 @@ func (client *cliAdminClient) ExcludeProcessesWithNoWait(addresses []fdbv1beta2.
 
 	excludeCommand.WriteString(getAddressStringsWithoutPorts(addresses))
 
-	_, err := client.runCommand(cliCommand{command: excludeCommand.String(), timeout: client.getTimeout()})
+	_, err := client.runCommand(
+		cliCommand{command: excludeCommand.String(), timeout: client.getTimeout()},
+	)
 
 	return err
 }
@@ -526,7 +589,8 @@ func (client *cliAdminClient) IncludeProcesses(addresses []fdbv1beta2.ProcessAdd
 
 	if client.Cluster.GetDatabaseInteractionMode() == fdbv1beta2.DatabaseInteractionModeMgmtAPI {
 		localitiesToInclude, addressesToInclude := getAddressesAndLocalities(addresses)
-		client.log.V(1).Info("include processes with management API", "addressesToInclude", addressesToInclude, "localitiesToInclude", localitiesToInclude)
+		client.log.V(1).
+			Info("include processes with management API", "addressesToInclude", addressesToInclude, "localitiesToInclude", localitiesToInclude)
 		return client.executeTransactionForManagementAPI(func(tr fdb.Transaction) error {
 			for _, addr := range addressesToInclude {
 				tr.Clear(fdb.Key(path.Join("\xff\xff/management/excluded/", addr)))
@@ -601,7 +665,8 @@ func (client *cliAdminClient) GetExclusions() ([]fdbv1beta2.ProcessAddress, erro
 		return nil
 	})
 
-	client.log.V(1).Info("done getting current exclusions with management API", "currentExclusions", currentExclusions, "err", err)
+	client.log.V(1).
+		Info("done getting current exclusions with management API", "currentExclusions", currentExclusions, "err", err)
 	if err != nil {
 		return nil, err
 	}
@@ -645,7 +710,9 @@ func (client *cliAdminClient) KillProcesses(addresses []fdbv1beta2.ProcessAddres
 	}
 
 	// Run the kill command once with the max timeout to reduce the risk of multiple recoveries happening.
-	_, err := client.runCommand(cliCommand{command: getKillCommand(addresses, false), timeout: client.getTimeout()})
+	_, err := client.runCommand(
+		cliCommand{command: getKillCommand(addresses, false), timeout: client.getTimeout()},
+	)
 
 	return err
 }
@@ -662,18 +729,29 @@ func (client *cliAdminClient) KillProcessesForUpgrade(addresses []fdbv1beta2.Pro
 	}
 
 	// Run the kill command once with the max timeout to reduce the risk of multiple recoveries happening.
-	_, err := client.runCommand(cliCommand{command: getKillCommand(addresses, true), timeout: client.getTimeout()})
+	_, err := client.runCommand(
+		cliCommand{command: getKillCommand(addresses, true), timeout: client.getTimeout()},
+	)
 
 	return err
 }
 
 // ChangeCoordinators changes the coordinator set
-func (client *cliAdminClient) ChangeCoordinators(addresses []fdbv1beta2.ProcessAddress) (string, error) {
+func (client *cliAdminClient) ChangeCoordinators(
+	addresses []fdbv1beta2.ProcessAddress,
+) (string, error) {
 	if client.Cluster.GetDatabaseInteractionMode() == fdbv1beta2.DatabaseInteractionModeMgmtAPI {
 		coordinatorString := fdbv1beta2.ProcessAddressesString(addresses, ",")
-		client.log.Info("change coordinators with management API", "coordinatorString", coordinatorString)
+		client.log.Info(
+			"change coordinators with management API",
+			"coordinatorString",
+			coordinatorString,
+		)
 		err := client.executeTransactionForManagementAPI(func(tr fdb.Transaction) error {
-			tr.Set(fdb.Key("\xff\xff/configuration/coordinators/processes"), []byte(coordinatorString))
+			tr.Set(
+				fdb.Key("\xff\xff/configuration/coordinators/processes"),
+				[]byte(coordinatorString),
+			)
 			return nil
 		})
 
@@ -721,13 +799,21 @@ func (client *cliAdminClient) GetProtocolVersion(version string) (string, error)
 	protocolVersionMatch := protocolVersionRegex.FindStringSubmatch(output)
 
 	if len(protocolVersionMatch) < 2 {
-		return "", fmt.Errorf("failed to parse protocol version for %s. Version output:\n%s", version, output)
+		return "", fmt.Errorf(
+			"failed to parse protocol version for %s. Version output:\n%s",
+			version,
+			output,
+		)
 	}
 
 	return protocolVersionMatch[1], nil
 }
 
-func (client *cliAdminClient) StartBackup(url string, snapshotPeriodSeconds int, encryptionKeyPath string) error {
+func (client *cliAdminClient) StartBackup(
+	url string,
+	snapshotPeriodSeconds int,
+	encryptionKeyPath string,
+) error {
 	args := []string{
 		"start",
 		"-d",
@@ -828,7 +914,11 @@ func (client *cliAdminClient) GetBackupStatus() (*fdbv1beta2.FoundationDBLiveBac
 }
 
 // StartRestore starts a new restore.
-func (client *cliAdminClient) StartRestore(url string, keyRanges []fdbv1beta2.FoundationDBKeyRange, encryptionKeyPath string) error {
+func (client *cliAdminClient) StartRestore(
+	url string,
+	keyRanges []fdbv1beta2.FoundationDBKeyRange,
+	encryptionKeyPath string,
+) error {
 	args := []string{
 		"start",
 		"-r",
@@ -933,12 +1023,18 @@ func (client *cliAdminClient) GetProcessesUnderMaintenance() (map[fdbv1beta2.Pro
 		for _, result := range results {
 			resStr := result.Key.String()
 			processGroupID := path.Base(resStr)
-			client.log.V(1).Info("found instance under maintenance", "result", resStr, "maintenancePrefix", maintenancePrefix, "processGroupID", processGroupID)
+			client.log.V(1).
+				Info("found instance under maintenance", "result", resStr, "maintenancePrefix", maintenancePrefix, "processGroupID", processGroupID)
 
 			var timestamp int64
 			parseErr := binary.Read(bytes.NewBuffer(result.Value), binary.LittleEndian, &timestamp)
 			if parseErr != nil {
-				client.log.Error(parseErr, "could not parse timestamp, will remove bad entry", "byteValue", string(result.Value))
+				client.log.Error(
+					parseErr,
+					"could not parse timestamp, will remove bad entry",
+					"byteValue",
+					string(result.Value),
+				)
 				// We are setting the value here to 0 to make sure the operator is removing the bad entry.
 				upgrades[fdbv1beta2.ProcessGroupID(processGroupID)] = 0
 				continue
@@ -958,11 +1054,14 @@ func (client *cliAdminClient) GetProcessesUnderMaintenance() (map[fdbv1beta2.Pro
 
 // RemoveProcessesUnderMaintenance will remove the provided process groups from the list of processes that
 // are planned to be taken down for maintenance.
-func (client *cliAdminClient) RemoveProcessesUnderMaintenance(processGroupIDs []fdbv1beta2.ProcessGroupID) error {
+func (client *cliAdminClient) RemoveProcessesUnderMaintenance(
+	processGroupIDs []fdbv1beta2.ProcessGroupID,
+) error {
 	return client.executeTransaction(func(tr fdb.Transaction) error {
 		for _, processGroupID := range processGroupIDs {
 			strKey := path.Join(client.Cluster.GetMaintenancePrefix(), string(processGroupID))
-			client.log.V(1).Info("removing process from maintenance list", "processGroupID", processGroupID, "key", strKey)
+			client.log.V(1).
+				Info("removing process from maintenance list", "processGroupID", processGroupID, "key", strKey)
 			tr.Clear(fdb.Key(strKey))
 		}
 
@@ -972,7 +1071,10 @@ func (client *cliAdminClient) RemoveProcessesUnderMaintenance(processGroupIDs []
 
 // SetProcessesUnderMaintenance will add the provided process groups to the list of processes that will be taken
 // down for maintenance. The value will be the provided time stamp.
-func (client *cliAdminClient) SetProcessesUnderMaintenance(processGroupIDs []fdbv1beta2.ProcessGroupID, timestamp int64) error {
+func (client *cliAdminClient) SetProcessesUnderMaintenance(
+	processGroupIDs []fdbv1beta2.ProcessGroupID,
+	timestamp int64,
+) error {
 	timestampByteBuffer := new(bytes.Buffer)
 	err := binary.Write(timestampByteBuffer, binary.LittleEndian, timestamp)
 	if err != nil {
@@ -982,7 +1084,8 @@ func (client *cliAdminClient) SetProcessesUnderMaintenance(processGroupIDs []fdb
 	return client.executeTransaction(func(tr fdb.Transaction) error {
 		for _, processGroupID := range processGroupIDs {
 			strKey := fmt.Sprintf("%s/%s", client.Cluster.GetMaintenancePrefix(), processGroupID)
-			client.log.V(1).Info("adding process to maintenance list", "processGroupID", processGroupID, "timestamp", timestamp, "key", strKey)
+			client.log.V(1).
+				Info("adding process to maintenance list", "processGroupID", processGroupID, "timestamp", timestamp, "key", strKey)
 			tr.Set(fdb.Key(strKey), timestampByteBuffer.Bytes())
 		}
 		return nil
@@ -1038,72 +1141,100 @@ const (
 )
 
 // UpdatePendingForRemoval updates the set of process groups that are marked for removal, an update can be either the addition or removal of a process group.
-func (client *cliAdminClient) UpdatePendingForRemoval(updates map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction) error {
+func (client *cliAdminClient) UpdatePendingForRemoval(
+	updates map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction,
+) error {
 	return client.fdbLibClient.updateGlobalCoordinationKeys(pendingForRemoval, updates)
 }
 
 // UpdatePendingForExclusion updates the set of process groups that should be excluded, an update can be either the addition or removal of a process group.
-func (client *cliAdminClient) UpdatePendingForExclusion(updates map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction) error {
+func (client *cliAdminClient) UpdatePendingForExclusion(
+	updates map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction,
+) error {
 	return client.fdbLibClient.updateGlobalCoordinationKeys(pendingForExclusion, updates)
 }
 
 // UpdatePendingForInclusion updates the set of process groups that should be included, an update can be either the addition or removal of a process group.
-func (client *cliAdminClient) UpdatePendingForInclusion(updates map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction) error {
+func (client *cliAdminClient) UpdatePendingForInclusion(
+	updates map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction,
+) error {
 	return client.fdbLibClient.updateGlobalCoordinationKeys(pendingForInclusion, updates)
 }
 
 // UpdatePendingForRestart updates the set of process groups that should be restarted, an update can be either the addition or removal of a process group.
-func (client *cliAdminClient) UpdatePendingForRestart(updates map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction) error {
+func (client *cliAdminClient) UpdatePendingForRestart(
+	updates map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction,
+) error {
 	return client.fdbLibClient.updateGlobalCoordinationKeys(pendingForRestart, updates)
 }
 
 // UpdateReadyForExclusion updates the set of process groups that are ready to be excluded, an update can be either the addition or removal of a process group.
-func (client *cliAdminClient) UpdateReadyForExclusion(updates map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction) error {
+func (client *cliAdminClient) UpdateReadyForExclusion(
+	updates map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction,
+) error {
 	return client.fdbLibClient.updateGlobalCoordinationKeys(readyForExclusion, updates)
 }
 
 // UpdateReadyForInclusion updates the set of process groups that are ready to be included, an update can be either the addition or removal of a process group.
-func (client *cliAdminClient) UpdateReadyForInclusion(updates map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction) error {
+func (client *cliAdminClient) UpdateReadyForInclusion(
+	updates map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction,
+) error {
 	return client.fdbLibClient.updateGlobalCoordinationKeys(readyForInclusion, updates)
 }
 
 // UpdateReadyForRestart updates the set of process groups that are ready to be restarted, an update can be either the addition or removal of a process group
-func (client *cliAdminClient) UpdateReadyForRestart(updates map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction) error {
+func (client *cliAdminClient) UpdateReadyForRestart(
+	updates map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction,
+) error {
 	return client.fdbLibClient.updateGlobalCoordinationKeys(readyForRestart, updates)
 }
 
 // GetPendingForRemoval gets the process group IDs for all process groups that are marked for removal.
-func (client *cliAdminClient) GetPendingForRemoval(prefix string) (map[fdbv1beta2.ProcessGroupID]time.Time, error) {
+func (client *cliAdminClient) GetPendingForRemoval(
+	prefix string,
+) (map[fdbv1beta2.ProcessGroupID]time.Time, error) {
 	return client.fdbLibClient.getGlobalCoordinationKeys(path.Join(pendingForRemoval, prefix))
 }
 
 // GetPendingForExclusion gets the process group IDs for all process groups that should be excluded.
-func (client *cliAdminClient) GetPendingForExclusion(prefix string) (map[fdbv1beta2.ProcessGroupID]time.Time, error) {
+func (client *cliAdminClient) GetPendingForExclusion(
+	prefix string,
+) (map[fdbv1beta2.ProcessGroupID]time.Time, error) {
 	return client.fdbLibClient.getGlobalCoordinationKeys(path.Join(pendingForExclusion, prefix))
 }
 
 // GetPendingForInclusion gets the process group IDs for all the process groups that should be included.
-func (client *cliAdminClient) GetPendingForInclusion(prefix string) (map[fdbv1beta2.ProcessGroupID]time.Time, error) {
+func (client *cliAdminClient) GetPendingForInclusion(
+	prefix string,
+) (map[fdbv1beta2.ProcessGroupID]time.Time, error) {
 	return client.fdbLibClient.getGlobalCoordinationKeys(path.Join(pendingForInclusion, prefix))
 }
 
 // GetPendingForRestart gets the process group IDs for all the process groups that should be restarted.
-func (client *cliAdminClient) GetPendingForRestart(prefix string) (map[fdbv1beta2.ProcessGroupID]time.Time, error) {
+func (client *cliAdminClient) GetPendingForRestart(
+	prefix string,
+) (map[fdbv1beta2.ProcessGroupID]time.Time, error) {
 	return client.fdbLibClient.getGlobalCoordinationKeys(path.Join(pendingForRestart, prefix))
 }
 
 // GetReadyForExclusion gets the process group IDs for all the process groups that are ready to be excluded.
-func (client *cliAdminClient) GetReadyForExclusion(prefix string) (map[fdbv1beta2.ProcessGroupID]time.Time, error) {
+func (client *cliAdminClient) GetReadyForExclusion(
+	prefix string,
+) (map[fdbv1beta2.ProcessGroupID]time.Time, error) {
 	return client.fdbLibClient.getGlobalCoordinationKeys(path.Join(readyForExclusion, prefix))
 }
 
 // GetReadyForInclusion gets the process group IDs for all the process groups that are ready to be included.
-func (client *cliAdminClient) GetReadyForInclusion(prefix string) (map[fdbv1beta2.ProcessGroupID]time.Time, error) {
+func (client *cliAdminClient) GetReadyForInclusion(
+	prefix string,
+) (map[fdbv1beta2.ProcessGroupID]time.Time, error) {
 	return client.fdbLibClient.getGlobalCoordinationKeys(path.Join(readyForInclusion, prefix))
 }
 
 // GetReadyForRestart gets the process group IDs fir all the process groups that are ready to be restarted.
-func (client *cliAdminClient) GetReadyForRestart(prefix string) (map[fdbv1beta2.ProcessGroupID]time.Time, error) {
+func (client *cliAdminClient) GetReadyForRestart(
+	prefix string,
+) (map[fdbv1beta2.ProcessGroupID]time.Time, error) {
 	return client.fdbLibClient.getGlobalCoordinationKeys(path.Join(readyForRestart, prefix))
 }
 
@@ -1112,20 +1243,28 @@ func (client *cliAdminClient) ClearReadyForRestart() error {
 	return client.fdbLibClient.clearGlobalCoordinationKeys(readyForRestart)
 }
 
-func (client *cliAdminClient) UpdateProcessAddresses(updates map[fdbv1beta2.ProcessGroupID][]string) error {
+func (client *cliAdminClient) UpdateProcessAddresses(
+	updates map[fdbv1beta2.ProcessGroupID][]string,
+) error {
 	return client.fdbLibClient.updateProcessAddresses(updates)
 }
 
-func (client *cliAdminClient) GetProcessAddresses(prefix string) (map[fdbv1beta2.ProcessGroupID][]string, error) {
+func (client *cliAdminClient) GetProcessAddresses(
+	prefix string,
+) (map[fdbv1beta2.ProcessGroupID][]string, error) {
 	return client.fdbLibClient.getProcessAddresses(prefix)
 }
 
 // executeTransactionForManagementAPI will run an operation for the management API. This method handles all the common options.
-func (client *cliAdminClient) executeTransactionForManagementAPI(operation func(transaction fdb.Transaction) error) error {
+func (client *cliAdminClient) executeTransactionForManagementAPI(
+	operation func(transaction fdb.Transaction) error,
+) error {
 	return client.fdbLibClient.executeTransactionForManagementAPI(operation, client.timeout)
 }
 
 // executeTransaction will run a transaction for the target cluster. This method will handle all the common options.
-func (client *cliAdminClient) executeTransaction(operation func(transaction fdb.Transaction) error) error {
+func (client *cliAdminClient) executeTransaction(
+	operation func(transaction fdb.Transaction) error,
+) error {
 	return client.fdbLibClient.executeTransaction(operation, client.timeout)
 }

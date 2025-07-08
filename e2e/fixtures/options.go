@@ -204,17 +204,21 @@ func (options *FactoryOptions) BindFlags(fs *flag.FlagSet) {
 		false,
 		"defines if the operator should make use of server side apply.",
 	)
-	fs.StringVar(&options.clusterName,
+	fs.StringVar(
+		&options.clusterName,
 		"cluster-name",
 		"",
 		"if defined, the test suite will create a cluster with the specified name or update the setting of an existing cluster."+
-			"For multi-region clusters, this will define the prefix for all clusters.")
-	fs.StringVar(&options.fdbVersionTagMapping,
+			"For multi-region clusters, this will define the prefix for all clusters.",
+	)
+	fs.StringVar(
+		&options.fdbVersionTagMapping,
 		"fdb-version-tag-mapping",
 		"",
 		"if defined, the test suite will use this information to map the image tag to the specified version. Multiple entries can be"+
 			"provided by separating them with a \",\". The mapping must have the format $version:$tag, e.g. 7.1.57:7.1.57-testing."+
-			"This option will only work for the main container with the split image (sidecar).")
+			"This option will only work for the main container with the split image (sidecar).",
+	)
 	fs.StringVar(
 		&options.seaweedFSImage,
 		"seaweedfs-image",
@@ -233,10 +237,12 @@ func (options *FactoryOptions) BindFlags(fs *flag.FlagSet) {
 		"local",
 		"defines the synchronization mode that should be used. Only applies for multi-region clusters.",
 	)
-	fs.DurationVar(&options.defaultUnavailableThreshold,
+	fs.DurationVar(
+		&options.defaultUnavailableThreshold,
 		"default-unavailable-threshold",
 		30*time.Second,
-		"defines the default unavailability threshold. If the database is unavailable for a longer period the test will fail if unavailability checks are enabled.")
+		"defines the default unavailability threshold. If the database is unavailable for a longer period the test will fail if unavailability checks are enabled.",
+	)
 }
 
 func (options *FactoryOptions) validateFlags() error {
@@ -326,7 +332,10 @@ func (options *FactoryOptions) validateSynchronizationMode() error {
 		return nil
 	}
 
-	return fmt.Errorf("synchronizationMode must be either \"local\" or \"global\", got :\"%s\"", mode)
+	return fmt.Errorf(
+		"synchronizationMode must be either \"local\" or \"global\", got :\"%s\"",
+		mode,
+	)
 }
 
 func validateVersion(label string, version string) error {
@@ -359,7 +368,10 @@ func (options *FactoryOptions) validateFDBVersionTagMapping() error {
 	for _, mapping := range mappings {
 		versionMapping := strings.Split(mapping, ":")
 		if len(versionMapping) != 2 {
-			return fmt.Errorf("mapping %s is invalid, expected format is $version:$tag", versionMapping)
+			return fmt.Errorf(
+				"mapping %s is invalid, expected format is $version:$tag",
+				versionMapping,
+			)
 		}
 	}
 
@@ -405,7 +417,12 @@ func getTagWithSuffix(tag string, isSidecar bool, debugSymbols bool) string {
 	return tag + tagSuffix
 }
 
-func (options *FactoryOptions) getImageVersionConfig(baseImage string, versionTag string, isSidecar bool, debugSymbols bool) []fdbv1beta2.ImageConfig {
+func (options *FactoryOptions) getImageVersionConfig(
+	baseImage string,
+	versionTag string,
+	isSidecar bool,
+	debugSymbols bool,
+) []fdbv1beta2.ImageConfig {
 	if options.fdbVersionTagMapping == "" {
 		var versionMapping fdbv1beta2.ImageConfig
 
@@ -441,7 +458,11 @@ func (options *FactoryOptions) getImageVersionConfig(baseImage string, versionTa
 		imageConfig[idx] = fdbv1beta2.ImageConfig{
 			BaseImage: baseImage,
 			Version:   strings.TrimSpace(versionMapping[0]),
-			Tag:       getTagWithSuffix(strings.TrimSpace(versionMapping[1]), isSidecar, debugSymbols),
+			Tag: getTagWithSuffix(
+				strings.TrimSpace(versionMapping[1]),
+				isSidecar,
+				debugSymbols,
+			),
 		}
 	}
 

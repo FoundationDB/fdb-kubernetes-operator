@@ -57,7 +57,13 @@ var _ = Describe("bounceProcesses", func() {
 		})
 
 		JustBeforeEach(func() {
-			requeue = bounceProcesses{}.reconcile(context.TODO(), clusterReconciler, cluster, nil, globalControllerLogger)
+			requeue = bounceProcesses{}.reconcile(
+				context.TODO(),
+				clusterReconciler,
+				cluster,
+				nil,
+				globalControllerLogger,
+			)
 		})
 
 		When("the cluster is reconciled", func() {
@@ -75,7 +81,11 @@ var _ = Describe("bounceProcesses", func() {
 			var pickedProcessGroups []*fdbv1beta2.ProcessGroupStatus
 
 			BeforeEach(func() {
-				pickedProcessGroups = internal.PickProcessGroups(cluster, fdbv1beta2.ProcessClassStorage, 2)
+				pickedProcessGroups = internal.PickProcessGroups(
+					cluster,
+					fdbv1beta2.ProcessClassStorage,
+					2,
+				)
 
 				for _, processGroup := range pickedProcessGroups {
 					processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true)
@@ -119,7 +129,9 @@ var _ = Describe("bounceProcesses", func() {
 			When("one process was manually excluded", func() {
 				BeforeEach(func() {
 					for _, address := range pickedProcessGroups[0].Addresses {
-						err := adminClient.ExcludeProcesses([]fdbv1beta2.ProcessAddress{{StringAddress: address, Port: 4501}})
+						err := adminClient.ExcludeProcesses(
+							[]fdbv1beta2.ProcessAddress{{StringAddress: address, Port: 4501}},
+						)
 						Expect(err).To(BeNil())
 					}
 				})
@@ -144,7 +156,11 @@ var _ = Describe("bounceProcesses", func() {
 			var pickedProcessGroups []*fdbv1beta2.ProcessGroupStatus
 
 			BeforeEach(func() {
-				pickedProcessGroups = internal.PickProcessGroups(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				pickedProcessGroups = internal.PickProcessGroups(
+					cluster,
+					fdbv1beta2.ProcessClassStorage,
+					1,
+				)
 
 				for _, processGroup := range pickedProcessGroups {
 					processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true)
@@ -170,16 +186,23 @@ var _ = Describe("bounceProcesses", func() {
 			var pickedProcessGroups []*fdbv1beta2.ProcessGroupStatus
 
 			BeforeEach(func() {
-				pickedProcessGroups = internal.PickProcessGroups(cluster, fdbv1beta2.ProcessClassStorage, 2)
+				pickedProcessGroups = internal.PickProcessGroups(
+					cluster,
+					fdbv1beta2.ProcessClassStorage,
+					2,
+				)
 
 				for _, processGroup := range pickedProcessGroups {
 					processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true)
 				}
 
-				pickedProcessGroups[0].ProcessGroupConditions = append(pickedProcessGroups[0].ProcessGroupConditions, &fdbv1beta2.ProcessGroupCondition{
-					ProcessGroupConditionType: fdbv1beta2.MissingProcesses,
-					Timestamp:                 time.Now().Add(-2 * time.Minute).Unix(),
-				})
+				pickedProcessGroups[0].ProcessGroupConditions = append(
+					pickedProcessGroups[0].ProcessGroupConditions,
+					&fdbv1beta2.ProcessGroupCondition{
+						ProcessGroupConditionType: fdbv1beta2.MissingProcesses,
+						Timestamp:                 time.Now().Add(-2 * time.Minute).Unix(),
+					},
+				)
 			})
 
 			It("should not requeue", func() {
@@ -207,7 +230,11 @@ var _ = Describe("bounceProcesses", func() {
 				_, err = reloadCluster(cluster)
 				Expect(err).NotTo(HaveOccurred())
 
-				pickedProcessGroups = internal.PickProcessGroups(cluster, fdbv1beta2.ProcessClassStorage, 2)
+				pickedProcessGroups = internal.PickProcessGroups(
+					cluster,
+					fdbv1beta2.ProcessClassStorage,
+					2,
+				)
 				for _, processGroup := range pickedProcessGroups {
 					processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true)
 				}
@@ -242,7 +269,10 @@ var _ = Describe("bounceProcesses", func() {
 					})
 
 					It("should kill all the processes", func() {
-						addresses := make(map[string]fdbv1beta2.None, len(cluster.Status.ProcessGroups))
+						addresses := make(
+							map[string]fdbv1beta2.None,
+							len(cluster.Status.ProcessGroups),
+						)
 						for _, processGroup := range cluster.Status.ProcessGroups {
 							for _, address := range processGroup.Addresses {
 								addresses[fmt.Sprintf("%s:4501", address)] = fdbv1beta2.None{}
@@ -257,15 +287,22 @@ var _ = Describe("bounceProcesses", func() {
 					It("should update the running version in the status", func() {
 						_, err = reloadCluster(cluster)
 						Expect(err).NotTo(HaveOccurred())
-						Expect(cluster.Status.RunningVersion).To(Equal(fdbv1beta2.Versions.NextMajorVersion.String()))
+						Expect(
+							cluster.Status.RunningVersion,
+						).To(Equal(fdbv1beta2.Versions.NextMajorVersion.String()))
 					})
 
 					It("should submit pending upgrade information for all the processes", func() {
-						expectedUpgrades := make(map[fdbv1beta2.ProcessGroupID]bool, len(cluster.Status.ProcessGroups))
+						expectedUpgrades := make(
+							map[fdbv1beta2.ProcessGroupID]bool,
+							len(cluster.Status.ProcessGroups),
+						)
 						for _, processGroup := range cluster.Status.ProcessGroups {
 							expectedUpgrades[processGroup.ProcessGroupID] = true
 						}
-						pendingUpgrades, err := lockClient.GetPendingUpgrades(fdbv1beta2.Versions.NextMajorVersion)
+						pendingUpgrades, err := lockClient.GetPendingUpgrades(
+							fdbv1beta2.Versions.NextMajorVersion,
+						)
 						Expect(err).NotTo(HaveOccurred())
 						Expect(pendingUpgrades).To(Equal(expectedUpgrades))
 					})
@@ -284,8 +321,13 @@ var _ = Describe("bounceProcesses", func() {
 							break
 						}
 
-						Expect(missingProcessGroup.ProcessClass).To(Equal(fdbv1beta2.ProcessClassStorage))
-						adminClient.MockMissingProcessGroup(missingProcessGroup.ProcessGroupID, true)
+						Expect(
+							missingProcessGroup.ProcessClass,
+						).To(Equal(fdbv1beta2.ProcessClassStorage))
+						adminClient.MockMissingProcessGroup(
+							missingProcessGroup.ProcessGroupID,
+							true,
+						)
 						missingProcessGroup.UpdateCondition(fdbv1beta2.MissingProcesses, true)
 					})
 
@@ -296,7 +338,9 @@ var _ = Describe("bounceProcesses", func() {
 
 						It("should requeue", func() {
 							Expect(requeue).NotTo(BeNil())
-							Expect(requeue.message).To(Equal(fmt.Sprintf("could not find address for processes: %s", []fdbv1beta2.ProcessGroupID{missingProcessGroup.ProcessGroupID})))
+							Expect(
+								requeue.message,
+							).To(Equal(fmt.Sprintf("could not find address for processes: %s", []fdbv1beta2.ProcessGroupID{missingProcessGroup.ProcessGroupID})))
 						})
 
 						It("shouldn't kill any processes", func() {
@@ -304,7 +348,9 @@ var _ = Describe("bounceProcesses", func() {
 						})
 
 						It("should not submit pending upgrade information", func() {
-							pendingUpgrades, err := lockClient.GetPendingUpgrades(fdbv1beta2.Versions.NextMajorVersion)
+							pendingUpgrades, err := lockClient.GetPendingUpgrades(
+								fdbv1beta2.Versions.NextMajorVersion,
+							)
 							Expect(err).NotTo(HaveOccurred())
 							Expect(pendingUpgrades).To(BeEmpty())
 						})
@@ -315,7 +361,9 @@ var _ = Describe("bounceProcesses", func() {
 							missingProcessGroup.ProcessGroupConditions = []*fdbv1beta2.ProcessGroupCondition{
 								{
 									ProcessGroupConditionType: fdbv1beta2.MissingProcesses,
-									Timestamp:                 time.Now().Add(-5 * time.Minute).Unix(),
+									Timestamp: time.Now().
+										Add(-5 * time.Minute).
+										Unix(),
 								},
 							}
 						})
@@ -327,11 +375,15 @@ var _ = Describe("bounceProcesses", func() {
 
 						It("should kill the processes except the missing process", func() {
 							Expect(adminClient.KilledAddresses).NotTo(BeEmpty())
-							Expect(adminClient.KilledAddresses).NotTo(ContainElement(missingProcessGroup.Addresses))
+							Expect(
+								adminClient.KilledAddresses,
+							).NotTo(ContainElement(missingProcessGroup.Addresses))
 						})
 
 						It("should not submit pending upgrade information", func() {
-							pendingUpgrades, err := lockClient.GetPendingUpgrades(fdbv1beta2.Versions.NextMajorVersion)
+							pendingUpgrades, err := lockClient.GetPendingUpgrades(
+								fdbv1beta2.Versions.NextMajorVersion,
+							)
 							Expect(err).NotTo(HaveOccurred())
 							Expect(pendingUpgrades).NotTo(BeEmpty())
 						})
@@ -352,7 +404,11 @@ var _ = Describe("bounceProcesses", func() {
 				_, err = reloadCluster(cluster)
 				Expect(err).NotTo(HaveOccurred())
 
-				pickedProcessGroups = internal.PickProcessGroups(cluster, fdbv1beta2.ProcessClassLog, 2)
+				pickedProcessGroups = internal.PickProcessGroups(
+					cluster,
+					fdbv1beta2.ProcessClassLog,
+					2,
+				)
 				for _, processGroup := range pickedProcessGroups {
 					processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true)
 				}
@@ -401,15 +457,22 @@ var _ = Describe("bounceProcesses", func() {
 				It("should update the running version in the status", func() {
 					_, err = reloadCluster(cluster)
 					Expect(err).NotTo(HaveOccurred())
-					Expect(cluster.Status.RunningVersion).To(Equal(fdbv1beta2.Versions.NextMajorVersion.String()))
+					Expect(
+						cluster.Status.RunningVersion,
+					).To(Equal(fdbv1beta2.Versions.NextMajorVersion.String()))
 				})
 
 				It("should submit pending upgrade information for all the processes", func() {
-					expectedUpgrades := make(map[fdbv1beta2.ProcessGroupID]bool, len(cluster.Status.ProcessGroups))
+					expectedUpgrades := make(
+						map[fdbv1beta2.ProcessGroupID]bool,
+						len(cluster.Status.ProcessGroups),
+					)
 					for _, processGroup := range cluster.Status.ProcessGroups {
 						expectedUpgrades[processGroup.ProcessGroupID] = true
 					}
-					pendingUpgrades, err := lockClient.GetPendingUpgrades(fdbv1beta2.Versions.NextMajorVersion)
+					pendingUpgrades, err := lockClient.GetPendingUpgrades(
+						fdbv1beta2.Versions.NextMajorVersion,
+					)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(pendingUpgrades).To(Equal(expectedUpgrades))
 				})
@@ -441,15 +504,22 @@ var _ = Describe("bounceProcesses", func() {
 			It("should update the running version in the status", func() {
 				_, err = reloadCluster(cluster)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(cluster.Status.RunningVersion).To(Equal(fdbv1beta2.Versions.NextMajorVersion.String()))
+				Expect(
+					cluster.Status.RunningVersion,
+				).To(Equal(fdbv1beta2.Versions.NextMajorVersion.String()))
 			})
 
 			It("should submit pending upgrade information for all the processes", func() {
-				expectedUpgrades := make(map[fdbv1beta2.ProcessGroupID]bool, len(cluster.Status.ProcessGroups))
+				expectedUpgrades := make(
+					map[fdbv1beta2.ProcessGroupID]bool,
+					len(cluster.Status.ProcessGroups),
+				)
 				for _, processGroup := range cluster.Status.ProcessGroups {
 					expectedUpgrades[processGroup.ProcessGroupID] = true
 				}
-				pendingUpgrades, err := lockClient.GetPendingUpgrades(fdbv1beta2.Versions.NextMajorVersion)
+				pendingUpgrades, err := lockClient.GetPendingUpgrades(
+					fdbv1beta2.Versions.NextMajorVersion,
+				)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(pendingUpgrades).To(Equal(expectedUpgrades))
 			})
@@ -465,7 +535,9 @@ var _ = Describe("bounceProcesses", func() {
 
 				It("should requeue", func() {
 					Expect(requeue).NotTo(BeNil())
-					Expect(requeue.message).To(Equal("Waiting for processes to be updated: [dc2-storage-1]"))
+					Expect(
+						requeue.message,
+					).To(Equal("Waiting for processes to be updated: [dc2-storage-1]"))
 				})
 
 				It("should not kill any processes", func() {
@@ -475,22 +547,34 @@ var _ = Describe("bounceProcesses", func() {
 				It("should not update the running version in the status", func() {
 					_, err = reloadCluster(cluster)
 					Expect(err).NotTo(HaveOccurred())
-					Expect(cluster.Status.RunningVersion).To(Equal(fdbv1beta2.Versions.Default.String()))
+					Expect(
+						cluster.Status.RunningVersion,
+					).To(Equal(fdbv1beta2.Versions.Default.String()))
 				})
 
 				It("should submit pending upgrade information for all the processes", func() {
-					expectedUpgrades := make(map[fdbv1beta2.ProcessGroupID]bool, len(cluster.Status.ProcessGroups))
+					expectedUpgrades := make(
+						map[fdbv1beta2.ProcessGroupID]bool,
+						len(cluster.Status.ProcessGroups),
+					)
 					for _, processGroup := range cluster.Status.ProcessGroups {
 						expectedUpgrades[processGroup.ProcessGroupID] = true
 					}
-					pendingUpgrades, err := lockClient.GetPendingUpgrades(fdbv1beta2.Versions.NextMajorVersion)
+					pendingUpgrades, err := lockClient.GetPendingUpgrades(
+						fdbv1beta2.Versions.NextMajorVersion,
+					)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(pendingUpgrades).To(Equal(expectedUpgrades))
 				})
 
 				Context("with a pending upgrade for the unknown process", func() {
 					BeforeEach(func() {
-						Expect(lockClient.AddPendingUpgrades(fdbv1beta2.Versions.NextMajorVersion, []fdbv1beta2.ProcessGroupID{"dc2-storage-1"})).NotTo(HaveOccurred())
+						Expect(
+							lockClient.AddPendingUpgrades(
+								fdbv1beta2.Versions.NextMajorVersion,
+								[]fdbv1beta2.ProcessGroupID{"dc2-storage-1"},
+							),
+						).NotTo(HaveOccurred())
 					})
 
 					It("should requeue", func() {
@@ -498,7 +582,10 @@ var _ = Describe("bounceProcesses", func() {
 					})
 
 					It("should kill all the processes", func() {
-						addresses := make(map[string]fdbv1beta2.None, len(cluster.Status.ProcessGroups)+1)
+						addresses := make(
+							map[string]fdbv1beta2.None,
+							len(cluster.Status.ProcessGroups)+1,
+						)
 						for _, processGroup := range cluster.Status.ProcessGroups {
 							for _, address := range processGroup.Addresses {
 								addresses[fmt.Sprintf("%s:4501", address)] = fdbv1beta2.None{}
@@ -511,13 +598,18 @@ var _ = Describe("bounceProcesses", func() {
 
 				Context("with a pending upgrade to an older version", func() {
 					BeforeEach(func() {
-						err = lockClient.AddPendingUpgrades(fdbv1beta2.Versions.NextPatchVersion, []fdbv1beta2.ProcessGroupID{"dc2-storage-1"})
+						err = lockClient.AddPendingUpgrades(
+							fdbv1beta2.Versions.NextPatchVersion,
+							[]fdbv1beta2.ProcessGroupID{"dc2-storage-1"},
+						)
 						Expect(err).NotTo(HaveOccurred())
 					})
 
 					It("should requeue", func() {
 						Expect(requeue).NotTo(BeNil())
-						Expect(requeue.message).To(Equal("Waiting for processes to be updated: [dc2-storage-1]"))
+						Expect(
+							requeue.message,
+						).To(Equal("Waiting for processes to be updated: [dc2-storage-1]"))
 					})
 
 					It("should not kill any processes", func() {
@@ -535,7 +627,10 @@ var _ = Describe("bounceProcesses", func() {
 					})
 
 					It("should kill all the processes", func() {
-						addresses := make(map[string]fdbv1beta2.None, len(cluster.Status.ProcessGroups))
+						addresses := make(
+							map[string]fdbv1beta2.None,
+							len(cluster.Status.ProcessGroups),
+						)
 						for _, processGroup := range cluster.Status.ProcessGroups {
 							for _, address := range processGroup.Addresses {
 								addresses[fmt.Sprintf("%s:4501", address)] = fdbv1beta2.None{}
@@ -545,7 +640,9 @@ var _ = Describe("bounceProcesses", func() {
 					})
 
 					It("should not submit pending upgrade information", func() {
-						pendingUpgrades, err := lockClient.GetPendingUpgrades(fdbv1beta2.Versions.NextMajorVersion)
+						pendingUpgrades, err := lockClient.GetPendingUpgrades(
+							fdbv1beta2.Versions.NextMajorVersion,
+						)
 						Expect(err).NotTo(HaveOccurred())
 						Expect(pendingUpgrades).To(BeEmpty())
 					})
@@ -563,7 +660,9 @@ var _ = Describe("bounceProcesses", func() {
 
 				It("should requeue", func() {
 					Expect(requeue).NotTo(BeNil())
-					Expect(requeue.message).To(Equal(fmt.Sprintf("could not find address for processes: %s", []fdbv1beta2.ProcessGroupID{missingProcessGroup.ProcessGroupID})))
+					Expect(
+						requeue.message,
+					).To(Equal(fmt.Sprintf("could not find address for processes: %s", []fdbv1beta2.ProcessGroupID{missingProcessGroup.ProcessGroupID})))
 				})
 
 				It("shouldn't kill any processes", func() {
@@ -571,7 +670,9 @@ var _ = Describe("bounceProcesses", func() {
 				})
 
 				It("should not submit pending upgrade information", func() {
-					pendingUpgrades, err := lockClient.GetPendingUpgrades(fdbv1beta2.Versions.NextMajorVersion)
+					pendingUpgrades, err := lockClient.GetPendingUpgrades(
+						fdbv1beta2.Versions.NextMajorVersion,
+					)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(pendingUpgrades).To(BeEmpty())
 				})
@@ -598,11 +699,15 @@ var _ = Describe("bounceProcesses", func() {
 
 				It("should kill the processes except the missing process", func() {
 					Expect(adminClient.KilledAddresses).NotTo(BeEmpty())
-					Expect(adminClient.KilledAddresses).NotTo(ContainElement(missingProcessGroup.Addresses))
+					Expect(
+						adminClient.KilledAddresses,
+					).NotTo(ContainElement(missingProcessGroup.Addresses))
 				})
 
 				It("should not submit pending upgrade information", func() {
-					pendingUpgrades, err := lockClient.GetPendingUpgrades(fdbv1beta2.Versions.NextMajorVersion)
+					pendingUpgrades, err := lockClient.GetPendingUpgrades(
+						fdbv1beta2.Versions.NextMajorVersion,
+					)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(pendingUpgrades).NotTo(BeEmpty())
 				})
@@ -614,7 +719,9 @@ var _ = Describe("bounceProcesses", func() {
 
 			BeforeEach(func() {
 				ignoredProcessGroup = cluster.Status.ProcessGroups[0]
-				cluster.Spec.Buggify.IgnoreDuringRestart = []fdbv1beta2.ProcessGroupID{ignoredProcessGroup.ProcessGroupID}
+				cluster.Spec.Buggify.IgnoreDuringRestart = []fdbv1beta2.ProcessGroupID{
+					ignoredProcessGroup.ProcessGroupID,
+				}
 				for _, processGroup := range cluster.Status.ProcessGroups {
 					processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true)
 				}
@@ -632,7 +739,9 @@ var _ = Describe("bounceProcesses", func() {
 					Expect(address).NotTo(HavePrefix(ignoredAddress))
 				}
 
-				Expect(adminClient.KilledAddresses).To(HaveLen(len(cluster.Status.ProcessGroups) - 1))
+				Expect(
+					adminClient.KilledAddresses,
+				).To(HaveLen(len(cluster.Status.ProcessGroups) - 1))
 			})
 
 			When("filtering process groups for buggify", func() {
@@ -642,57 +751,83 @@ var _ = Describe("bounceProcesses", func() {
 				BeforeEach(func() {
 					status, err := adminClient.GetStatus()
 					Expect(err).NotTo(HaveOccurred())
-					processAddresses := make([]fdbv1beta2.ProcessAddress, 0, len(cluster.Status.ProcessGroups))
+					processAddresses := make(
+						[]fdbv1beta2.ProcessAddress,
+						0,
+						len(cluster.Status.ProcessGroups),
+					)
 					for _, process := range status.Cluster.Processes {
 						processAddresses = append(processAddresses, process.Address)
 					}
 
-					filteredAddresses, removed = buggify.FilterIgnoredProcessGroups(cluster, processAddresses, status)
+					filteredAddresses, removed = buggify.FilterIgnoredProcessGroups(
+						cluster,
+						processAddresses,
+						status,
+					)
 				})
 
 				It("should filter the ignored address", func() {
 					Expect(removed).To(BeTrue())
-					Expect(len(filteredAddresses)).To(BeNumerically("==", len(cluster.Status.ProcessGroups)-1))
+					Expect(
+						len(filteredAddresses),
+					).To(BeNumerically("==", len(cluster.Status.ProcessGroups)-1))
 				})
 			})
 
-			When("buggify ignore processes is set and only this process has the IncorrectCommandLine condition", func() {
-				var filteredAddresses []fdbv1beta2.ProcessAddress
-				var removed bool
+			When(
+				"buggify ignore processes is set and only this process has the IncorrectCommandLine condition",
+				func() {
+					var filteredAddresses []fdbv1beta2.ProcessAddress
+					var removed bool
 
-				BeforeEach(func() {
-					for _, processGroup := range cluster.Status.ProcessGroups {
-						processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, processGroup.ProcessGroupID == ignoredProcessGroup.ProcessGroupID)
-					}
-
-					status, err := adminClient.GetStatus()
-					Expect(err).NotTo(HaveOccurred())
-					processAddresses := make([]fdbv1beta2.ProcessAddress, 0, len(cluster.Status.ProcessGroups))
-					for _, process := range status.Cluster.Processes {
-						if fdbv1beta2.ProcessGroupID(process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]) != ignoredProcessGroup.ProcessGroupID {
-							continue
+					BeforeEach(func() {
+						for _, processGroup := range cluster.Status.ProcessGroups {
+							processGroup.UpdateCondition(
+								fdbv1beta2.IncorrectCommandLine,
+								processGroup.ProcessGroupID == ignoredProcessGroup.ProcessGroupID,
+							)
 						}
 
-						processAddresses = append(processAddresses, process.Address)
-					}
+						status, err := adminClient.GetStatus()
+						Expect(err).NotTo(HaveOccurred())
+						processAddresses := make(
+							[]fdbv1beta2.ProcessAddress,
+							0,
+							len(cluster.Status.ProcessGroups),
+						)
+						for _, process := range status.Cluster.Processes {
+							if fdbv1beta2.ProcessGroupID(
+								process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey],
+							) != ignoredProcessGroup.ProcessGroupID {
+								continue
+							}
 
-					filteredAddresses, removed = buggify.FilterIgnoredProcessGroups(cluster, processAddresses, status)
-				})
+							processAddresses = append(processAddresses, process.Address)
+						}
 
-				It("should filter the ignored address", func() {
-					Expect(removed).To(BeTrue())
-					Expect(filteredAddresses).To(BeEmpty())
-				})
+						filteredAddresses, removed = buggify.FilterIgnoredProcessGroups(
+							cluster,
+							processAddresses,
+							status,
+						)
+					})
 
-				It("should not requeue", func() {
-					Expect(err).NotTo(HaveOccurred())
-					Expect(requeue).To(BeNil())
-				})
+					It("should filter the ignored address", func() {
+						Expect(removed).To(BeTrue())
+						Expect(filteredAddresses).To(BeEmpty())
+					})
 
-				It("should not kill any processes", func() {
-					Expect(adminClient.KilledAddresses).To(BeEmpty())
-				})
-			})
+					It("should not requeue", func() {
+						Expect(err).NotTo(HaveOccurred())
+						Expect(requeue).To(BeNil())
+					})
+
+					It("should not kill any processes", func() {
+						Expect(adminClient.KilledAddresses).To(BeEmpty())
+					})
+				},
+			)
 		})
 
 		When("when there are unreachable processes", func() {
@@ -726,7 +861,9 @@ var _ = Describe("bounceProcesses", func() {
 							Processes: map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{
 								"1": {
 									ProcessClass: fdbv1beta2.ProcessClassStateless,
-									Address:      fdbv1beta2.ProcessAddress{StringAddress: "192.168.0.2:4500:tls"},
+									Address: fdbv1beta2.ProcessAddress{
+										StringAddress: "192.168.0.2:4500:tls",
+									},
 									Roles: []fdbv1beta2.FoundationDBStatusProcessRoleInfo{
 										{
 											Role: string(fdbv1beta2.ProcessRoleClusterController),
@@ -738,8 +875,10 @@ var _ = Describe("bounceProcesses", func() {
 									},
 								},
 								"2": {
-									ProcessClass:  fdbv1beta2.ProcessClassTest,
-									Address:       fdbv1beta2.ProcessAddress{StringAddress: "192.168.0.1:4500:tls"},
+									ProcessClass: fdbv1beta2.ProcessClassTest,
+									Address: fdbv1beta2.ProcessAddress{
+										StringAddress: "192.168.0.1:4500:tls",
+									},
 									UptimeSeconds: 61.0,
 									Locality: map[string]string{
 										fdbv1beta2.FDBLocalityInstanceIDKey: "2",
@@ -826,7 +965,9 @@ var _ = Describe("bounceProcesses", func() {
 							Processes: map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{
 								"1": {
 									ProcessClass: fdbv1beta2.ProcessClassStateless,
-									Address:      fdbv1beta2.ProcessAddress{StringAddress: "192.168.0.2:4500:tls"},
+									Address: fdbv1beta2.ProcessAddress{
+										StringAddress: "192.168.0.2:4500:tls",
+									},
 									Roles: []fdbv1beta2.FoundationDBStatusProcessRoleInfo{
 										{
 											Role: string(fdbv1beta2.ProcessRoleClusterController),
@@ -835,7 +976,9 @@ var _ = Describe("bounceProcesses", func() {
 								},
 								"2": {
 									ProcessClass: fdbv1beta2.ProcessClassStorage,
-									Address:      fdbv1beta2.ProcessAddress{StringAddress: "192.168.0.1:4500:tls"},
+									Address: fdbv1beta2.ProcessAddress{
+										StringAddress: "192.168.0.1:4500:tls",
+									},
 								},
 							},
 						},
@@ -872,7 +1015,9 @@ var _ = Describe("bounceProcesses", func() {
 							Processes: map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{
 								"1": {
 									ProcessClass: fdbv1beta2.ProcessClassStateless,
-									Address:      fdbv1beta2.ProcessAddress{StringAddress: "192.168.0.2:4500:tls"},
+									Address: fdbv1beta2.ProcessAddress{
+										StringAddress: "192.168.0.2:4500:tls",
+									},
 									Roles: []fdbv1beta2.FoundationDBStatusProcessRoleInfo{
 										{
 											Role: string(fdbv1beta2.ProcessRoleClusterController),
@@ -881,7 +1026,9 @@ var _ = Describe("bounceProcesses", func() {
 								},
 								"2": {
 									ProcessClass: fdbv1beta2.ProcessClassTest,
-									Address:      fdbv1beta2.ProcessAddress{StringAddress: "192.168.0.1:4500:tls"},
+									Address: fdbv1beta2.ProcessAddress{
+										StringAddress: "192.168.0.1:4500:tls",
+									},
 								},
 							},
 						},
@@ -901,7 +1048,9 @@ var _ = Describe("bounceProcesses", func() {
 
 		When("using the global synchronization mode", func() {
 			BeforeEach(func() {
-				cluster.Spec.AutomationOptions.SynchronizationMode = pointer.String(string(fdbv1beta2.SynchronizationModeGlobal))
+				cluster.Spec.AutomationOptions.SynchronizationMode = pointer.String(
+					string(fdbv1beta2.SynchronizationModeGlobal),
+				)
 				adminClient.MockAdditionTimeForGlobalCoordination = time.Now().Add(-1 * time.Minute)
 			})
 
@@ -917,7 +1066,11 @@ var _ = Describe("bounceProcesses", func() {
 				var pickedProcessGroup *fdbv1beta2.ProcessGroupStatus
 
 				BeforeEach(func() {
-					pickedProcessGroups := internal.PickProcessGroups(cluster, fdbv1beta2.ProcessClassStorage, 1)
+					pickedProcessGroups := internal.PickProcessGroups(
+						cluster,
+						fdbv1beta2.ProcessClassStorage,
+						1,
+					)
 					Expect(pickedProcessGroups).To(HaveLen(1))
 					pickedProcessGroup = pickedProcessGroups[0]
 					pickedProcessGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true)
@@ -929,7 +1082,9 @@ var _ = Describe("bounceProcesses", func() {
 							Expect(requeue).To(BeNil())
 							Expect(adminClient.KilledAddresses).To(HaveLen(1))
 							for _, address := range pickedProcessGroup.Addresses {
-								Expect(adminClient.KilledAddresses).To(HaveKey(fmt.Sprintf("%s:4501", address)))
+								Expect(
+									adminClient.KilledAddresses,
+								).To(HaveKey(fmt.Sprintf("%s:4501", address)))
 							}
 
 							pendingForRestart, err := adminClient.GetPendingForRestart("")
@@ -966,16 +1121,22 @@ var _ = Describe("bounceProcesses", func() {
 
 				When("the process is part of the pending to restart set", func() {
 					BeforeEach(func() {
-						Expect(adminClient.UpdatePendingForRestart(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{
-							pickedProcessGroup.ProcessGroupID: fdbv1beta2.UpdateActionAdd,
-						})).To(Succeed())
+						Expect(
+							adminClient.UpdatePendingForRestart(
+								map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{
+									pickedProcessGroup.ProcessGroupID: fdbv1beta2.UpdateActionAdd,
+								},
+							),
+						).To(Succeed())
 					})
 
 					It("should kill the process", func() {
 						Expect(requeue).To(BeNil())
 						Expect(adminClient.KilledAddresses).To(HaveLen(1))
 						for _, address := range pickedProcessGroup.Addresses {
-							Expect(adminClient.KilledAddresses).To(HaveKey(fmt.Sprintf("%s:4501", address)))
+							Expect(
+								adminClient.KilledAddresses,
+							).To(HaveKey(fmt.Sprintf("%s:4501", address)))
 						}
 
 						pendingForRestart, err := adminClient.GetPendingForRestart("")
@@ -992,11 +1153,18 @@ var _ = Describe("bounceProcesses", func() {
 		})
 	})
 
-	DescribeTable("when getting all the addresses to upgrade from the current status", func(inputStatus *fdbv1beta2.FoundationDBStatus, pendingUpgrades map[fdbv1beta2.ProcessGroupID]bool, version string, expectedAddresses []fdbv1beta2.ProcessAddress, expectedNotReady []string) {
-		addresses, notReady := getUpgradeAddressesFromStatus(GinkgoLogr, inputStatus, pendingUpgrades, version)
-		Expect(addresses).To(ConsistOf(expectedAddresses))
-		Expect(notReady).To(ConsistOf(expectedNotReady))
-	},
+	DescribeTable(
+		"when getting all the addresses to upgrade from the current status",
+		func(inputStatus *fdbv1beta2.FoundationDBStatus, pendingUpgrades map[fdbv1beta2.ProcessGroupID]bool, version string, expectedAddresses []fdbv1beta2.ProcessAddress, expectedNotReady []string) {
+			addresses, notReady := getUpgradeAddressesFromStatus(
+				GinkgoLogr,
+				inputStatus,
+				pendingUpgrades,
+				version,
+			)
+			Expect(addresses).To(ConsistOf(expectedAddresses))
+			Expect(notReady).To(ConsistOf(expectedNotReady))
+		},
 		Entry("no tester processes are present",
 			&fdbv1beta2.FoundationDBStatus{
 				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
@@ -1007,7 +1175,9 @@ var _ = Describe("bounceProcesses", func() {
 								fdbv1beta2.FDBLocalityInstanceIDKey: "1",
 							},
 							Version: "6.3.43",
-							Address: fdbv1beta2.ProcessAddress{StringAddress: "192.168.0.2:4500:tls"},
+							Address: fdbv1beta2.ProcessAddress{
+								StringAddress: "192.168.0.2:4500:tls",
+							},
 						},
 					},
 				},
@@ -1029,7 +1199,9 @@ var _ = Describe("bounceProcesses", func() {
 								fdbv1beta2.FDBLocalityInstanceIDKey: "1",
 							},
 							Version: "6.3.43",
-							Address: fdbv1beta2.ProcessAddress{StringAddress: "192.168.0.2:4500:tls"},
+							Address: fdbv1beta2.ProcessAddress{
+								StringAddress: "192.168.0.2:4500:tls",
+							},
 						},
 						"2": {
 							ProcessClass: fdbv1beta2.ProcessClassTest,
@@ -1037,7 +1209,9 @@ var _ = Describe("bounceProcesses", func() {
 								fdbv1beta2.FDBLocalityInstanceIDKey: "2",
 							},
 							Version: "6.3.43",
-							Address: fdbv1beta2.ProcessAddress{StringAddress: "192.168.0.3:4500:tls"},
+							Address: fdbv1beta2.ProcessAddress{
+								StringAddress: "192.168.0.3:4500:tls",
+							},
 						},
 					},
 				},
@@ -1059,7 +1233,9 @@ var _ = Describe("bounceProcesses", func() {
 								fdbv1beta2.FDBLocalityInstanceIDKey: "1",
 							},
 							Version: "6.3.43",
-							Address: fdbv1beta2.ProcessAddress{StringAddress: "192.168.0.2:4500:tls"},
+							Address: fdbv1beta2.ProcessAddress{
+								StringAddress: "192.168.0.2:4500:tls",
+							},
 						},
 						"2": {
 							ProcessClass: fdbv1beta2.ProcessClassTest,
@@ -1067,13 +1243,17 @@ var _ = Describe("bounceProcesses", func() {
 								fdbv1beta2.FDBLocalityInstanceIDKey: "2",
 							},
 							Version: "6.3.43",
-							Address: fdbv1beta2.ProcessAddress{StringAddress: "192.168.0.3:4500:tls"},
+							Address: fdbv1beta2.ProcessAddress{
+								StringAddress: "192.168.0.3:4500:tls",
+							},
 						},
 						"3": {
 							ProcessClass: fdbv1beta2.ProcessClassStorage,
 							Locality:     map[string]string{},
 							Version:      "6.3.43",
-							Address:      fdbv1beta2.ProcessAddress{StringAddress: "192.168.0.4:4500:tls"},
+							Address: fdbv1beta2.ProcessAddress{
+								StringAddress: "192.168.0.4:4500:tls",
+							},
 						},
 					},
 				},
@@ -1095,7 +1275,9 @@ var _ = Describe("bounceProcesses", func() {
 								fdbv1beta2.FDBLocalityInstanceIDKey: "1",
 							},
 							Version: "6.3.43",
-							Address: fdbv1beta2.ProcessAddress{StringAddress: "192.168.0.2:4500:tls"},
+							Address: fdbv1beta2.ProcessAddress{
+								StringAddress: "192.168.0.2:4500:tls",
+							},
 						},
 						"2": {
 							ProcessClass: fdbv1beta2.ProcessClassTest,
@@ -1103,13 +1285,17 @@ var _ = Describe("bounceProcesses", func() {
 								fdbv1beta2.FDBLocalityInstanceIDKey: "2",
 							},
 							Version: "6.3.43",
-							Address: fdbv1beta2.ProcessAddress{StringAddress: "192.168.0.3:4500:tls"},
+							Address: fdbv1beta2.ProcessAddress{
+								StringAddress: "192.168.0.3:4500:tls",
+							},
 						},
 						"3": {
 							ProcessClass: fdbv1beta2.ProcessClassStorage,
 							Locality:     map[string]string{},
 							Version:      "6.3.43",
-							Address:      fdbv1beta2.ProcessAddress{StringAddress: "192.168.0.4:4500:tls"},
+							Address: fdbv1beta2.ProcessAddress{
+								StringAddress: "192.168.0.4:4500:tls",
+							},
 						},
 						"4": {
 							ProcessClass: fdbv1beta2.ProcessClassStorage,
@@ -1117,7 +1303,9 @@ var _ = Describe("bounceProcesses", func() {
 								fdbv1beta2.FDBLocalityInstanceIDKey: "4",
 							},
 							Version: "7.1.56",
-							Address: fdbv1beta2.ProcessAddress{StringAddress: "192.168.0.5:4500:tls"},
+							Address: fdbv1beta2.ProcessAddress{
+								StringAddress: "192.168.0.5:4500:tls",
+							},
 						},
 					},
 				},
@@ -1139,7 +1327,9 @@ var _ = Describe("bounceProcesses", func() {
 								fdbv1beta2.FDBLocalityInstanceIDKey: "1",
 							},
 							Version: "6.3.43",
-							Address: fdbv1beta2.ProcessAddress{StringAddress: "192.168.0.2:4500:tls"},
+							Address: fdbv1beta2.ProcessAddress{
+								StringAddress: "192.168.0.2:4500:tls",
+							},
 						},
 						"2": {
 							ProcessClass: fdbv1beta2.ProcessClassTest,
@@ -1147,13 +1337,17 @@ var _ = Describe("bounceProcesses", func() {
 								fdbv1beta2.FDBLocalityInstanceIDKey: "2",
 							},
 							Version: "6.3.43",
-							Address: fdbv1beta2.ProcessAddress{StringAddress: "192.168.0.3:4500:tls"},
+							Address: fdbv1beta2.ProcessAddress{
+								StringAddress: "192.168.0.3:4500:tls",
+							},
 						},
 						"3": {
 							ProcessClass: fdbv1beta2.ProcessClassStorage,
 							Locality:     map[string]string{},
 							Version:      "6.3.43",
-							Address:      fdbv1beta2.ProcessAddress{StringAddress: "192.168.0.4:4500:tls"},
+							Address: fdbv1beta2.ProcessAddress{
+								StringAddress: "192.168.0.4:4500:tls",
+							},
 						},
 						"4": {
 							ProcessClass: fdbv1beta2.ProcessClassStorage,
@@ -1161,7 +1355,9 @@ var _ = Describe("bounceProcesses", func() {
 								fdbv1beta2.FDBLocalityInstanceIDKey: "4",
 							},
 							Version: "7.1.56",
-							Address: fdbv1beta2.ProcessAddress{StringAddress: "192.168.0.5:4500:tls"},
+							Address: fdbv1beta2.ProcessAddress{
+								StringAddress: "192.168.0.5:4500:tls",
+							},
 						},
 						"5": {
 							ProcessClass: fdbv1beta2.ProcessClassStorage,
@@ -1169,7 +1365,9 @@ var _ = Describe("bounceProcesses", func() {
 								fdbv1beta2.FDBLocalityInstanceIDKey: "5",
 							},
 							Version: "6.3.43",
-							Address: fdbv1beta2.ProcessAddress{StringAddress: "192.168.0.6:4500:tls"},
+							Address: fdbv1beta2.ProcessAddress{
+								StringAddress: "192.168.0.6:4500:tls",
+							},
 						},
 					},
 				},

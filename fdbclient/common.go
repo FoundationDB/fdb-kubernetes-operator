@@ -48,7 +48,11 @@ const (
 	defaultTransactionTimeout = 5 * time.Second
 )
 
-func parseMachineReadableStatus(logger logr.Logger, contents []byte, checkForProcesses bool) (*fdbv1beta2.FoundationDBStatus, error) {
+func parseMachineReadableStatus(
+	logger logr.Logger,
+	contents []byte,
+	checkForProcesses bool,
+) (*fdbv1beta2.FoundationDBStatus, error) {
 	status := &fdbv1beta2.FoundationDBStatus{}
 	err := json.Unmarshal(contents, status)
 	if err != nil {
@@ -56,7 +60,11 @@ func parseMachineReadableStatus(logger logr.Logger, contents []byte, checkForPro
 	}
 
 	if len(status.Client.Messages) > 0 {
-		logger.Info("found client message(s) in the machine-readable status", "messages", status.Client.Messages)
+		logger.Info(
+			"found client message(s) in the machine-readable status",
+			"messages",
+			status.Client.Messages,
+		)
 		// TODO: Check for client messages that should be validated here.
 	}
 
@@ -66,20 +74,28 @@ func parseMachineReadableStatus(logger logr.Logger, contents []byte, checkForPro
 	}
 
 	if len(status.Cluster.Messages) > 0 {
-		logger.Info("found cluster message(s) in the machine-readable status", "messages", status.Cluster.Messages)
+		logger.Info(
+			"found cluster message(s) in the machine-readable status",
+			"messages",
+			status.Cluster.Messages,
+		)
 		logger.V(1).Info("current status with cluster messages", "status", status)
 
 		// If the status is incomplete because of a timeout, return an error. This will force a new reconciliation.
 		for _, message := range status.Cluster.Messages {
 			if message.Name == "status_incomplete_timeout" {
-				return nil, fdbv1beta2.TimeoutError{Err: fmt.Errorf("found \"status_incomplete_timeout\" in cluster messages")}
+				return nil, fdbv1beta2.TimeoutError{
+					Err: fmt.Errorf("found \"status_incomplete_timeout\" in cluster messages"),
+				}
 			}
 		}
 	}
 
 	if len(status.Cluster.Processes) == 0 && checkForProcesses {
 		logger.Info("machine-readable status is missing process information")
-		return nil, fdbv1beta2.TimeoutError{Err: fmt.Errorf("machine-readable status is missing process information")}
+		return nil, fdbv1beta2.TimeoutError{
+			Err: fmt.Errorf("machine-readable status is missing process information"),
+		}
 	}
 
 	return status, nil
@@ -87,7 +103,10 @@ func parseMachineReadableStatus(logger logr.Logger, contents []byte, checkForPro
 
 // getFDBDatabase opens an FDB database.
 func getFDBDatabase(cluster *fdbv1beta2.FoundationDBCluster) (fdb.Database, error) {
-	clusterFile, err := ensureClusterFileIsPresent(path.Join(os.TempDir(), string(cluster.UID)), cluster.Status.ConnectionString)
+	clusterFile, err := ensureClusterFileIsPresent(
+		path.Join(os.TempDir(), string(cluster.UID)),
+		cluster.Status.ConnectionString,
+	)
 	if err != nil {
 		return fdb.Database{}, err
 	}
@@ -157,7 +176,11 @@ func createClusterFileForCommandLine(cluster *fdbv1beta2.FoundationDBCluster) (*
 		return nil, err
 	}
 
-	return tempClusterFile, os.WriteFile(tempClusterFile.Name(), []byte(cluster.Status.ConnectionString), 0777)
+	return tempClusterFile, os.WriteFile(
+		tempClusterFile.Name(),
+		[]byte(cluster.Status.ConnectionString),
+		0777,
+	)
 }
 
 // getConnectionStringFromDB gets the database's connection string directly from the system key
@@ -168,7 +191,9 @@ func getConnectionStringFromDB(libClient fdbLibClient, timeout time.Duration) (s
 	}
 
 	var connectionString fdbv1beta2.ConnectionString
-	connectionString, err = fdbv1beta2.ParseConnectionString(cleanConnectionStringOutput(string(outputBytes)))
+	connectionString, err = fdbv1beta2.ParseConnectionString(
+		cleanConnectionStringOutput(string(outputBytes)),
+	)
 	if err != nil {
 		return "", err
 	}
@@ -177,7 +202,11 @@ func getConnectionStringFromDB(libClient fdbLibClient, timeout time.Duration) (s
 }
 
 // getStatusFromDB gets the database's status directly from the system key
-func getStatusFromDB(libClient fdbLibClient, logger logr.Logger, timeout time.Duration) (*fdbv1beta2.FoundationDBStatus, error) {
+func getStatusFromDB(
+	libClient fdbLibClient,
+	logger logr.Logger,
+	timeout time.Duration,
+) (*fdbv1beta2.FoundationDBStatus, error) {
 	contents, err := libClient.getValueFromDBUsingKey("\xff\xff/status/json", timeout)
 	if err != nil {
 		return nil, err
@@ -203,24 +232,36 @@ type realDatabaseClientProvider struct {
 	log logr.Logger
 }
 
-func (p *realDatabaseClientProvider) GetAdminClientWithLogger(cluster *fdbv1beta2.FoundationDBCluster, kubernetesClient client.Client, logger logr.Logger) (fdbadminclient.AdminClient, error) {
+func (p *realDatabaseClientProvider) GetAdminClientWithLogger(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	kubernetesClient client.Client,
+	logger logr.Logger,
+) (fdbadminclient.AdminClient, error) {
 	return NewCliAdminClient(cluster, kubernetesClient, logger.WithName("fdbclient"))
 }
 
 // GetLockClient generates a client for working with locks through the database.
-func (p *realDatabaseClientProvider) GetLockClient(cluster *fdbv1beta2.FoundationDBCluster) (fdbadminclient.LockClient, error) {
+func (p *realDatabaseClientProvider) GetLockClient(
+	cluster *fdbv1beta2.FoundationDBCluster,
+) (fdbadminclient.LockClient, error) {
 	return NewRealLockClient(cluster, p.log)
 }
 
 // GetLockClientWithLogger generates a client for working with locks through the database.
 // The provided logger will be used as logger for the LockClient.
-func (p *realDatabaseClientProvider) GetLockClientWithLogger(cluster *fdbv1beta2.FoundationDBCluster, logger logr.Logger) (fdbadminclient.LockClient, error) {
+func (p *realDatabaseClientProvider) GetLockClientWithLogger(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	logger logr.Logger,
+) (fdbadminclient.LockClient, error) {
 	return NewRealLockClient(cluster, logger.WithName("fdbclient"))
 }
 
 // GetAdminClient generates a client for performing administrative actions
 // against the database.
-func (p *realDatabaseClientProvider) GetAdminClient(cluster *fdbv1beta2.FoundationDBCluster, kubernetesClient client.Client) (fdbadminclient.AdminClient, error) {
+func (p *realDatabaseClientProvider) GetAdminClient(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	kubernetesClient client.Client,
+) (fdbadminclient.AdminClient, error) {
 	return NewCliAdminClient(cluster, kubernetesClient, p.log)
 }
 

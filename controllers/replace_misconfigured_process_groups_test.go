@@ -22,6 +22,7 @@ package controllers
 
 import (
 	"context"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
 	ctrlClient "sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -40,7 +41,9 @@ var _ = Describe("replace_misconfigured_process_groups", func() {
 			result, err := reconcileCluster(cluster)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result.Requeue).To(BeFalse())
-			Expect(k8sClient.Get(context.TODO(), ctrlClient.ObjectKeyFromObject(cluster), cluster)).NotTo(HaveOccurred())
+			Expect(
+				k8sClient.Get(context.TODO(), ctrlClient.ObjectKeyFromObject(cluster), cluster),
+			).NotTo(HaveOccurred())
 
 			version, err := fdbv1beta2.ParseFdbVersion(cluster.Spec.Version)
 			Expect(err).NotTo(HaveOccurred())
@@ -48,10 +51,18 @@ var _ = Describe("replace_misconfigured_process_groups", func() {
 		})
 
 		It("should not perform any replacements and requeue", func() {
-			result := replaceMisconfiguredProcessGroups{}.reconcile(context.Background(), clusterReconciler, cluster, nil, testLogger)
+			result := replaceMisconfiguredProcessGroups{}.reconcile(
+				context.Background(),
+				clusterReconciler,
+				cluster,
+				nil,
+				testLogger,
+			)
 			Expect(result).NotTo(BeNil())
 			Expect(result.delayedRequeue).To(BeTrue())
-			Expect(result.message).To(Equal("Replacements because of misconfiguration are skipped because of an ongoing version incompatible upgrade"))
+			Expect(
+				result.message,
+			).To(Equal("Replacements because of misconfiguration are skipped because of an ongoing version incompatible upgrade"))
 		})
 	})
 })

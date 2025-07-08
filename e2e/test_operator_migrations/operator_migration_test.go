@@ -134,7 +134,9 @@ var _ = Describe("Operator Migrations", Label("e2e", "pr"), func() {
 
 		BeforeEach(func() {
 			spec := fdbCluster.GetCluster().Spec.DeepCopy()
-			initialEngine := spec.DatabaseConfiguration.NormalizeConfiguration(fdbCluster.GetCluster()).StorageEngine
+			initialEngine := spec.DatabaseConfiguration.NormalizeConfiguration(
+				fdbCluster.GetCluster(),
+			).StorageEngine
 			log.Println("initialEngine", initialEngine)
 			if initialEngine == fdbv1beta2.StorageEngineSSD2 {
 				newStorageEngine = fdbv1beta2.StorageEngineRocksDbV1

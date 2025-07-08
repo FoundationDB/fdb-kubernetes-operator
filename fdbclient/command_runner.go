@@ -66,7 +66,11 @@ func getEnvironmentVariablesWithoutExcludedFdbEnv() []string {
 	return cmdEnvironmentVariables
 }
 
-func (runner *realCommandRunner) runCommand(ctx context.Context, name string, arg ...string) ([]byte, error) {
+func (runner *realCommandRunner) runCommand(
+	ctx context.Context,
+	name string,
+	arg ...string,
+) ([]byte, error) {
 	execCommand := exec.CommandContext(ctx, name, arg...)
 	execCommand.Env = getEnvironmentVariablesWithoutExcludedFdbEnv()
 	runner.log.Info("Running command", "path", execCommand.Path, "args", execCommand.Args)
@@ -90,7 +94,11 @@ type mockCommandRunner struct {
 	callIdx int
 }
 
-func (runner *mockCommandRunner) runCommand(_ context.Context, name string, arg ...string) ([]byte, error) {
+func (runner *mockCommandRunner) runCommand(
+	_ context.Context,
+	name string,
+	arg ...string,
+) ([]byte, error) {
 	defer func() {
 		runner.callIdx++
 	}()

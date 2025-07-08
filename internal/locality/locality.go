@@ -90,7 +90,10 @@ func sortLocalities(primaryDC string, processes []Info) {
 
 // InfoForProcess converts the process information from the JSON status
 // into locality info for selecting processes.
-func InfoForProcess(process fdbv1beta2.FoundationDBStatusProcessInfo, mainContainerTLS bool) (Info, error) {
+func InfoForProcess(
+	process fdbv1beta2.FoundationDBStatusProcessInfo,
+	mainContainerTLS bool,
+) (Info, error) {
 	addresses, err := fdbv1beta2.ParseProcessAddressesFromCmdline(process.CommandLine)
 	if err != nil {
 		return Info{}, err
@@ -117,7 +120,10 @@ func InfoForProcess(process fdbv1beta2.FoundationDBStatusProcessInfo, mainContai
 // InfoFromSidecar converts the process information from the sidecar's
 // context into locality info for selecting processes.
 // This method is only used during the initial bootstrapping of the cluster when no fdbserver processes are running.
-func InfoFromSidecar(cluster *fdbv1beta2.FoundationDBCluster, client podclient.FdbPodClient) (Info, error) {
+func InfoFromSidecar(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	client podclient.FdbPodClient,
+) (Info, error) {
 	substitutions, err := client.GetVariableSubstitutions()
 	if err != nil {
 		return Info{}, err
@@ -173,7 +179,11 @@ type notEnoughProcessesError struct {
 
 // Error formats an error message.
 func (err notEnoughProcessesError) Error() string {
-	return fmt.Sprintf("Could only select %d processes, but %d are required", err.Chosen, err.Desired)
+	return fmt.Sprintf(
+		"Could only select %d processes, but %d are required",
+		err.Chosen,
+		err.Desired,
+	)
 }
 
 // ProcessSelectionConstraint defines constraints on how we choose processes
@@ -189,7 +199,12 @@ type ProcessSelectionConstraint struct {
 }
 
 // ChooseDistributedProcesses recruits a maximally well-distributed set of processes from a set of potential candidates.
-func ChooseDistributedProcesses(cluster *fdbv1beta2.FoundationDBCluster, processes []Info, count int, constraint ProcessSelectionConstraint) ([]Info, error) {
+func ChooseDistributedProcesses(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	processes []Info,
+	count int,
+	constraint ProcessSelectionConstraint,
+) ([]Info, error) {
 	chosen := make([]Info, 0, count)
 	chosenIDs := make(map[string]bool, count)
 	primaryDC := cluster.DesiredDatabaseConfiguration().GetPrimaryDCID()
@@ -271,13 +286,21 @@ func ChooseDistributedProcesses(cluster *fdbv1beta2.FoundationDBCluster, process
 			}
 
 			if !incrementedLimits {
-				return chosen, notEnoughProcessesError{Desired: count, Chosen: len(chosen), Options: processes}
+				return chosen, notEnoughProcessesError{
+					Desired: count,
+					Chosen:  len(chosen),
+					Options: processes,
+				}
 			}
 		}
 	}
 
 	if len(chosen) != count {
-		return chosen, notEnoughProcessesError{Desired: count, Chosen: len(chosen), Options: processes}
+		return chosen, notEnoughProcessesError{
+			Desired: count,
+			Chosen:  len(chosen),
+			Options: processes,
+		}
 	}
 
 	return chosen, nil
@@ -300,7 +323,15 @@ func GetHardLimits(cluster *fdbv1beta2.FoundationDBCluster) map[string]int {
 		return map[string]int{fdbv1beta2.FDBLocalityZoneIDKey: 1}
 	}
 
-	maxCoordinatorsPerDC := int(math.Ceil(float64(cluster.DesiredCoordinatorCount()) / float64(cluster.Spec.DatabaseConfiguration.CountUniqueDataCenters())))
+	maxCoordinatorsPerDC := int(
+		math.Ceil(
+			float64(
+				cluster.DesiredCoordinatorCount(),
+			) / float64(
+				cluster.Spec.DatabaseConfiguration.CountUniqueDataCenters(),
+			),
+		),
+	)
 	return map[string]int{
 		fdbv1beta2.FDBLocalityDCIDKey:   maxCoordinatorsPerDC,
 		fdbv1beta2.FDBLocalityZoneIDKey: 1,
@@ -315,7 +346,12 @@ func GetHardLimits(cluster *fdbv1beta2.FoundationDBCluster) map[string]int {
 // matching the cluster spec.
 // The third return value will hold any errors encountered when checking the
 // coordinators.
-func CheckCoordinatorValidity(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, coordinatorStatus map[string]bool) (bool, bool, error) {
+func CheckCoordinatorValidity(
+	logger logr.Logger,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	status *fdbv1beta2.FoundationDBStatus,
+	coordinatorStatus map[string]bool,
+) (bool, bool, error) {
 	if len(coordinatorStatus) == 0 {
 		return false, false, errors.New("unable to get coordinator status")
 	}
@@ -360,7 +396,11 @@ func CheckCoordinatorValidity(logger logr.Logger, cluster *fdbv1beta2.Foundation
 			// We will end here in the error case when the address
 			// is not parsable e.g. no IP address is assigned.
 			allAddressesValid = false
-			pLogger.Info("Could not parse address from command_line", "command_line", process.CommandLine)
+			pLogger.Info(
+				"Could not parse address from command_line",
+				"command_line",
+				process.CommandLine,
+			)
 			continue
 		}
 
@@ -397,14 +437,26 @@ func CheckCoordinatorValidity(logger logr.Logger, cluster *fdbv1beta2.Foundation
 
 		if coordinatorAddress != "" {
 			if process.Excluded {
-				pLogger.Info("Coordinator process is excluded, marking it as unhealthy", "class", process.ProcessClass, "address", coordinatorAddress)
+				pLogger.Info(
+					"Coordinator process is excluded, marking it as unhealthy",
+					"class",
+					process.ProcessClass,
+					"address",
+					coordinatorAddress,
+				)
 			} else {
 				// The process is not excluded and has an address, so we assume that the coordinator is healthy.
 				coordinatorStatus[coordinatorAddress] = true
 			}
 
 			if process.UnderMaintenance {
-				pLogger.Info("Coordinator process is under maintenance", "class", process.ProcessClass, "address", coordinatorAddress)
+				pLogger.Info(
+					"Coordinator process is under maintenance",
+					"class",
+					process.ProcessClass,
+					"address",
+					coordinatorAddress,
+				)
 			}
 		}
 
@@ -419,13 +471,29 @@ func CheckCoordinatorValidity(logger logr.Logger, cluster *fdbv1beta2.Foundation
 			}
 
 			if !cluster.IsEligibleAsCandidate(process.ProcessClass) {
-				pLogger.Info("Process class of process is not eligible as coordinator", "class", process.ProcessClass, "address", coordinatorAddress)
+				pLogger.Info(
+					"Process class of process is not eligible as coordinator",
+					"class",
+					process.ProcessClass,
+					"address",
+					coordinatorAddress,
+				)
 				allEligible = false
 			}
 
 			useDNS := cluster.UseDNSInClusterFile() && dnsName != ""
 			if (isCoordinatorWithIP && useDNS) || (isCoordinatorWithDNS && !useDNS) {
-				pLogger.Info("Coordinator is not using the correct address type", "coordinatorList", coordinatorStatus, "address", coordinatorAddress, "expectingDNS", useDNS, "usingDNS", isCoordinatorWithDNS)
+				pLogger.Info(
+					"Coordinator is not using the correct address type",
+					"coordinatorList",
+					coordinatorStatus,
+					"address",
+					coordinatorAddress,
+					"expectingDNS",
+					useDNS,
+					"usingDNS",
+					isCoordinatorWithDNS,
+				)
 				allUsingCorrectAddress = false
 			}
 		}
@@ -441,7 +509,15 @@ func CheckCoordinatorValidity(logger logr.Logger, cluster *fdbv1beta2.Foundation
 	for field, maxValue := range hardLimits {
 		for locality, currentValue := range coordinatorLocalities[field] {
 			if currentValue > maxValue {
-				logger.Info("Cluster does not have coordinators in the correct number of localities", "desiredCount", maxValue, "currentCount", currentValue, "locality", locality)
+				logger.Info(
+					"Cluster does not have coordinators in the correct number of localities",
+					"desiredCount",
+					maxValue,
+					"currentCount",
+					currentValue,
+					"locality",
+					locality,
+				)
 				hasCorrectLocalityDistribution = false
 			}
 		}
@@ -460,8 +536,16 @@ func CheckCoordinatorValidity(logger logr.Logger, cluster *fdbv1beta2.Foundation
 	runningCoordinators := len(coordinatorLocalities[fdbv1beta2.FDBLocalityZoneIDKey])
 	hasEnoughCoordinators := runningCoordinators == desiredCoordinatorCount
 	if !hasEnoughCoordinators {
-		logger.Info("Cluster has not enough running coordinators", "runningCoordinators", runningCoordinators, "desiredCount", desiredCoordinatorCount)
+		logger.Info(
+			"Cluster has not enough running coordinators",
+			"runningCoordinators",
+			runningCoordinators,
+			"desiredCount",
+			desiredCoordinatorCount,
+		)
 	}
 
-	return hasEnoughCoordinators && hasCorrectLocalityDistribution && allHealthy && allUsingCorrectAddress && allEligible, allAddressesValid, nil
+	return hasEnoughCoordinators && hasCorrectLocalityDistribution && allHealthy &&
+		allUsingCorrectAddress &&
+		allEligible, allAddressesValid, nil
 }

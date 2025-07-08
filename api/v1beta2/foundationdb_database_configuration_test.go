@@ -58,7 +58,9 @@ var _ = Describe("DatabaseConfiguration", func() {
 
 		When("the configuration string is calculated", func() {
 			It("should print the correct configuration string", func() {
-				Expect(config.GetConfigurationString()).To(Equal("triple ssd usable_regions=1 logs=3 resolvers=1 log_routers=0 remote_logs=0 proxies=3 regions=[{\\\"datacenters\\\":[{\\\"id\\\":\\\"primary\\\",\\\"priority\\\":1}]}]"))
+				Expect(
+					config.GetConfigurationString(),
+				).To(Equal("triple ssd usable_regions=1 logs=3 resolvers=1 log_routers=0 remote_logs=0 proxies=3 regions=[{\\\"datacenters\\\":[{\\\"id\\\":\\\"primary\\\",\\\"priority\\\":1}]}]"))
 			})
 		})
 
@@ -66,7 +68,9 @@ var _ = Describe("DatabaseConfiguration", func() {
 			It("should not change the config and print the correct configuration string", func() {
 				newConfig := config.FailOver()
 				Expect(newConfig).To(Equal(*config))
-				Expect(newConfig.GetConfigurationString()).To(Equal("triple ssd usable_regions=1 logs=3 resolvers=1 log_routers=0 remote_logs=0 proxies=3 regions=[{\\\"datacenters\\\":[{\\\"id\\\":\\\"primary\\\",\\\"priority\\\":1}]}]"))
+				Expect(
+					newConfig.GetConfigurationString(),
+				).To(Equal("triple ssd usable_regions=1 logs=3 resolvers=1 log_routers=0 remote_logs=0 proxies=3 regions=[{\\\"datacenters\\\":[{\\\"id\\\":\\\"primary\\\",\\\"priority\\\":1}]}]"))
 			})
 		})
 	})
@@ -124,37 +128,48 @@ var _ = Describe("DatabaseConfiguration", func() {
 
 		When("the configuration string is calculated", func() {
 			It("should print the correct configuration string", func() {
-				Expect(config.GetConfigurationString()).To(Equal("triple ssd usable_regions=1 logs=3 resolvers=1 log_routers=0 remote_logs=0 proxies=3 regions=[{\\\"datacenters\\\":[{\\\"id\\\":\\\"primary\\\",\\\"priority\\\":1},{\\\"id\\\":\\\"primary-sat\\\",\\\"priority\\\":1,\\\"satellite\\\":1}],\\\"satellite_logs\\\":3,\\\"satellite_redundancy_mode\\\":\\\"one_satellite_single\\\"},{\\\"datacenters\\\":[{\\\"id\\\":\\\"remote\\\"},{\\\"id\\\":\\\"remote-sat\\\",\\\"priority\\\":1,\\\"satellite\\\":1}],\\\"satellite_logs\\\":3,\\\"satellite_redundancy_mode\\\":\\\"one_satellite_double\\\"}]"))
+				Expect(
+					config.GetConfigurationString(),
+				).To(Equal("triple ssd usable_regions=1 logs=3 resolvers=1 log_routers=0 remote_logs=0 proxies=3 regions=[{\\\"datacenters\\\":[{\\\"id\\\":\\\"primary\\\",\\\"priority\\\":1},{\\\"id\\\":\\\"primary-sat\\\",\\\"priority\\\":1,\\\"satellite\\\":1}],\\\"satellite_logs\\\":3,\\\"satellite_redundancy_mode\\\":\\\"one_satellite_single\\\"},{\\\"datacenters\\\":[{\\\"id\\\":\\\"remote\\\"},{\\\"id\\\":\\\"remote-sat\\\",\\\"priority\\\":1,\\\"satellite\\\":1}],\\\"satellite_logs\\\":3,\\\"satellite_redundancy_mode\\\":\\\"one_satellite_double\\\"}]"))
 			})
 		})
 
 		When("the configuration string is calculated with fail over", func() {
-			It("should change the priority of the primary and the remote DC and print the new configuration string", func() {
-				newConfig := config.FailOver()
-				Expect(newConfig).NotTo(Equal(*config))
+			It(
+				"should change the priority of the primary and the remote DC and print the new configuration string",
+				func() {
+					newConfig := config.FailOver()
+					Expect(newConfig).NotTo(Equal(*config))
 
-				Expect(len(newConfig.Regions)).To(BeNumerically("==", 2))
-				Expect(newConfig.Regions[0].SatelliteLogs).To(Equal(3))
-				Expect(newConfig.Regions[0].SatelliteRedundancyMode).To(Equal(RedundancyModeOneSatelliteSingle))
-				Expect(len(newConfig.Regions[0].DataCenters)).To(BeNumerically("==", 2))
-				Expect(newConfig.Regions[0].DataCenters[0].Priority).To(Equal(0))
-				Expect(newConfig.Regions[0].DataCenters[0].ID).To(Equal("primary"))
-				Expect(newConfig.Regions[0].DataCenters[0].Satellite).To(Equal(0))
-				Expect(newConfig.Regions[0].DataCenters[1].Priority).To(Equal(1))
-				Expect(newConfig.Regions[0].DataCenters[1].ID).To(Equal("primary-sat"))
-				Expect(newConfig.Regions[0].DataCenters[1].Satellite).To(Equal(1))
+					Expect(len(newConfig.Regions)).To(BeNumerically("==", 2))
+					Expect(newConfig.Regions[0].SatelliteLogs).To(Equal(3))
+					Expect(
+						newConfig.Regions[0].SatelliteRedundancyMode,
+					).To(Equal(RedundancyModeOneSatelliteSingle))
+					Expect(len(newConfig.Regions[0].DataCenters)).To(BeNumerically("==", 2))
+					Expect(newConfig.Regions[0].DataCenters[0].Priority).To(Equal(0))
+					Expect(newConfig.Regions[0].DataCenters[0].ID).To(Equal("primary"))
+					Expect(newConfig.Regions[0].DataCenters[0].Satellite).To(Equal(0))
+					Expect(newConfig.Regions[0].DataCenters[1].Priority).To(Equal(1))
+					Expect(newConfig.Regions[0].DataCenters[1].ID).To(Equal("primary-sat"))
+					Expect(newConfig.Regions[0].DataCenters[1].Satellite).To(Equal(1))
 
-				Expect(len(newConfig.Regions[1].DataCenters)).To(BeNumerically("==", 2))
-				Expect(newConfig.Regions[1].SatelliteLogs).To(Equal(3))
-				Expect(newConfig.Regions[1].SatelliteRedundancyMode).To(Equal(RedundancyModeOneSatelliteDouble))
-				Expect(newConfig.Regions[1].DataCenters[0].Priority).To(Equal(1))
-				Expect(newConfig.Regions[1].DataCenters[0].ID).To(Equal("remote"))
-				Expect(newConfig.Regions[1].DataCenters[1].Priority).To(Equal(1))
-				Expect(newConfig.Regions[1].DataCenters[1].ID).To(Equal("remote-sat"))
-				Expect(newConfig.Regions[1].DataCenters[1].Satellite).To(Equal(1))
+					Expect(len(newConfig.Regions[1].DataCenters)).To(BeNumerically("==", 2))
+					Expect(newConfig.Regions[1].SatelliteLogs).To(Equal(3))
+					Expect(
+						newConfig.Regions[1].SatelliteRedundancyMode,
+					).To(Equal(RedundancyModeOneSatelliteDouble))
+					Expect(newConfig.Regions[1].DataCenters[0].Priority).To(Equal(1))
+					Expect(newConfig.Regions[1].DataCenters[0].ID).To(Equal("remote"))
+					Expect(newConfig.Regions[1].DataCenters[1].Priority).To(Equal(1))
+					Expect(newConfig.Regions[1].DataCenters[1].ID).To(Equal("remote-sat"))
+					Expect(newConfig.Regions[1].DataCenters[1].Satellite).To(Equal(1))
 
-				Expect(newConfig.GetConfigurationString()).To(Equal("triple ssd usable_regions=1 logs=3 resolvers=1 log_routers=0 remote_logs=0 proxies=3 regions=[{\\\"datacenters\\\":[{\\\"id\\\":\\\"primary\\\"},{\\\"id\\\":\\\"primary-sat\\\",\\\"priority\\\":1,\\\"satellite\\\":1}],\\\"satellite_logs\\\":3,\\\"satellite_redundancy_mode\\\":\\\"one_satellite_single\\\"},{\\\"datacenters\\\":[{\\\"id\\\":\\\"remote\\\",\\\"priority\\\":1},{\\\"id\\\":\\\"remote-sat\\\",\\\"priority\\\":1,\\\"satellite\\\":1}],\\\"satellite_logs\\\":3,\\\"satellite_redundancy_mode\\\":\\\"one_satellite_double\\\"}]"))
-			})
+					Expect(
+						newConfig.GetConfigurationString(),
+					).To(Equal("triple ssd usable_regions=1 logs=3 resolvers=1 log_routers=0 remote_logs=0 proxies=3 regions=[{\\\"datacenters\\\":[{\\\"id\\\":\\\"primary\\\"},{\\\"id\\\":\\\"primary-sat\\\",\\\"priority\\\":1,\\\"satellite\\\":1}],\\\"satellite_logs\\\":3,\\\"satellite_redundancy_mode\\\":\\\"one_satellite_single\\\"},{\\\"datacenters\\\":[{\\\"id\\\":\\\"remote\\\",\\\"priority\\\":1},{\\\"id\\\":\\\"remote-sat\\\",\\\"priority\\\":1,\\\"satellite\\\":1}],\\\"satellite_logs\\\":3,\\\"satellite_redundancy_mode\\\":\\\"one_satellite_double\\\"}]"))
+				},
+			)
 		})
 	})
 

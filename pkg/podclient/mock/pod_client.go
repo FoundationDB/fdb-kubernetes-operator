@@ -37,7 +37,10 @@ type FdbPodClient struct {
 }
 
 // NewMockFdbPodClient builds a mock client for working with an FDB pod
-func NewMockFdbPodClient(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod) (podclient.FdbPodClient, error) {
+func NewMockFdbPodClient(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	pod *corev1.Pod,
+) (podclient.FdbPodClient, error) {
 	return &FdbPodClient{Cluster: cluster, Pod: pod, logger: logr.New(log.NullLogSink{})}, nil
 }
 

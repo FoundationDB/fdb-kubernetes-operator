@@ -37,7 +37,13 @@ import (
 type chooseRemovals struct{}
 
 // reconcile runs the reconciler's work.
-func (c chooseRemovals) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
+func (c chooseRemovals) reconcile(
+	ctx context.Context,
+	r *FoundationDBClusterReconciler,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	status *fdbv1beta2.FoundationDBStatus,
+	logger logr.Logger,
+) *requeue {
 	hasNewRemovals := false
 
 	var removals = make(map[fdbv1beta2.ProcessGroupID]bool)
@@ -47,7 +53,8 @@ func (c chooseRemovals) reconcile(ctx context.Context, r *FoundationDBClusterRec
 		}
 	}
 
-	currentCounts := fdbv1beta2.CreateProcessCountsFromProcessGroupStatus(cluster.Status.ProcessGroups, true).Map()
+	currentCounts := fdbv1beta2.CreateProcessCountsFromProcessGroupStatus(cluster.Status.ProcessGroups, true).
+		Map()
 	desiredCountStruct, err := cluster.GetProcessCountsWithDefaults()
 	if err != nil {
 		return &requeue{curError: err, delayedRequeue: true}
@@ -76,7 +83,11 @@ func (c chooseRemovals) reconcile(ctx context.Context, r *FoundationDBClusterRec
 			continue
 		}
 		id := process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]
-		localityMap[id] = locality.Info{ID: id, Address: process.Address, LocalityData: process.Locality}
+		localityMap[id] = locality.Info{
+			ID:           id,
+			Address:      process.Address,
+			LocalityData: process.Locality,
+		}
 	}
 
 	remainingProcessMap := make(map[string]bool, len(cluster.Status.ProcessGroups))
@@ -100,9 +111,19 @@ func (c chooseRemovals) reconcile(ctx context.Context, r *FoundationDBClusterRec
 		}
 
 		if excessCount > 0 {
-			r.Recorder.Event(cluster, corev1.EventTypeNormal, "ShrinkingProcesses", fmt.Sprintf("Removing %d %s processes", excessCount, processClass))
+			r.Recorder.Event(
+				cluster,
+				corev1.EventTypeNormal,
+				"ShrinkingProcesses",
+				fmt.Sprintf("Removing %d %s processes", excessCount, processClass),
+			)
 
-			remainingProcesses, err := locality.ChooseDistributedProcesses(cluster, processClassLocality, desiredCount, locality.ProcessSelectionConstraint{})
+			remainingProcesses, err := locality.ChooseDistributedProcesses(
+				cluster,
+				processClassLocality,
+				desiredCount,
+				locality.ProcessSelectionConstraint{},
+			)
 			if err != nil {
 				return &requeue{curError: err, delayedRequeue: true}
 			}

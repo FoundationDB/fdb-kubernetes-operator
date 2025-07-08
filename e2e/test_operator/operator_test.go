@@ -180,7 +180,11 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				},
 			}, pointer.Int(1))
 
-			Expect(len(fdbCluster.GetCluster().Spec.AutomationOptions.Replacements.TaintReplacementOptions)).To(BeNumerically(">=", 1))
+			Expect(
+				len(
+					fdbCluster.GetCluster().Spec.AutomationOptions.Replacements.TaintReplacementOptions,
+				),
+			).To(BeNumerically(">=", 1))
 
 			Expect(*fdbCluster.GetAutomationOptions().Replacements.Enabled).To(BeTrue())
 		})
@@ -188,7 +192,10 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		AfterEach(func() {
 			Expect(fdbCluster.ClearProcessGroupsToRemove()).NotTo(HaveOccurred())
 			// Reset taint related options to default value in e2e test
-			fdbCluster.SetClusterTaintConfig([]fdbv1beta2.TaintReplacementOption{}, pointer.Int(150))
+			fdbCluster.SetClusterTaintConfig(
+				[]fdbv1beta2.TaintReplacementOption{},
+				pointer.Int(150),
+			)
 			// untaint the nodes
 			log.Printf("AfterEach Cleanup: Untaint the single node:%s\n", taintedNode.Name)
 			historyTaintedNodes[taintedNode.Name] = fdbv1beta2.None{}
@@ -212,20 +219,32 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				taintedNode = fdbCluster.GetNode(replacedPod.Spec.NodeName)
 				taintedNode.Spec.Taints = []corev1.Taint{
 					{
-						Key:       taintKeyMaintenance,
-						Value:     "rack_maintenance",
-						Effect:    corev1.TaintEffectPreferNoSchedule,
-						TimeAdded: &metav1.Time{Time: time.Now().Add(-time.Second * time.Duration(taintKeyMaintenanceDuration+1))},
+						Key:    taintKeyMaintenance,
+						Value:  "rack_maintenance",
+						Effect: corev1.TaintEffectPreferNoSchedule,
+						TimeAdded: &metav1.Time{
+							Time: time.Now().
+								Add(-time.Second * time.Duration(taintKeyMaintenanceDuration+1)),
+						},
 					},
 				}
-				log.Printf("Taint node: Pod name:%s Node name:%s Node taints:%+v TaintTime:%+v Now:%+v\n", replacedPod.Name,
-					taintedNode.Name, taintedNode.Spec.Taints, taintedNode.Spec.Taints[0].TimeAdded.Time, time.Now())
+				log.Printf(
+					"Taint node: Pod name:%s Node name:%s Node taints:%+v TaintTime:%+v Now:%+v\n",
+					replacedPod.Name,
+					taintedNode.Name,
+					taintedNode.Spec.Taints,
+					taintedNode.Spec.Taints[0].TimeAdded.Time,
+					time.Now(),
+				)
 				fdbCluster.UpdateNode(taintedNode)
 
 				err := fdbCluster.WaitForReconciliation()
 				Expect(err).NotTo(HaveOccurred())
 
-				fdbCluster.EnsurePodIsDeletedWithCustomTimeout(replacedPod.Name, ensurePodIsDeletedTimeoutMinutes)
+				fdbCluster.EnsurePodIsDeletedWithCustomTimeout(
+					replacedPod.Name,
+					ensurePodIsDeletedTimeoutMinutes,
+				)
 			})
 
 			It("should remove all Pods whose Nodes are tainted", func() {
@@ -235,14 +254,23 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 					node := fdbCluster.GetNode(pod.Spec.NodeName)
 					node.Spec.Taints = []corev1.Taint{
 						{
-							Key:       taintKeyMaintenance,
-							Value:     "rack_maintenance",
-							Effect:    corev1.TaintEffectPreferNoSchedule,
-							TimeAdded: &metav1.Time{Time: time.Now().Add(-time.Millisecond * time.Duration(taintKeyMaintenanceDuration*1000+int64(factory.Intn(1000))))},
+							Key:    taintKeyMaintenance,
+							Value:  "rack_maintenance",
+							Effect: corev1.TaintEffectPreferNoSchedule,
+							TimeAdded: &metav1.Time{
+								Time: time.Now().
+									Add(-time.Millisecond * time.Duration(taintKeyMaintenanceDuration*1000+int64(factory.Intn(1000)))),
+							},
 						},
 					}
-					log.Printf("Taint node: Pod name:%s Node name:%s Node taints:%+v TaintTime:%+v Now:%+v\n", pod.Name,
-						node.Name, node.Spec.Taints, node.Spec.Taints[0].TimeAdded.Time, time.Now())
+					log.Printf(
+						"Taint node: Pod name:%s Node name:%s Node taints:%+v TaintTime:%+v Now:%+v\n",
+						pod.Name,
+						node.Name,
+						node.Spec.Taints,
+						node.Spec.Taints[0].TimeAdded.Time,
+						time.Now(),
+					)
 					fdbCluster.UpdateNode(node)
 					taintedNodes = append(taintedNodes, node)
 				}
@@ -252,7 +280,10 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 				for i, pod := range replacedPods {
 					log.Printf("Ensure %dth pod:%s is deleted\n", i, pod.Name)
-					fdbCluster.EnsurePodIsDeletedWithCustomTimeout(pod.Name, ensurePodIsDeletedTimeoutMinutes)
+					fdbCluster.EnsurePodIsDeletedWithCustomTimeout(
+						pod.Name,
+						ensurePodIsDeletedTimeoutMinutes,
+					)
 				}
 			})
 		})
@@ -272,7 +303,9 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				}, pointer.Int(1))
 
 				automationOptions := fdbCluster.GetAutomationOptions()
-				Expect(len(automationOptions.Replacements.TaintReplacementOptions)).To(BeNumerically(">=", 1))
+				Expect(
+					len(automationOptions.Replacements.TaintReplacementOptions),
+				).To(BeNumerically(">=", 1))
 				Expect(*automationOptions.Replacements.Enabled).To(BeTrue())
 
 			})
@@ -283,20 +316,32 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				node := fdbCluster.GetNode(replacedPod.Spec.NodeName)
 				node.Spec.Taints = []corev1.Taint{
 					{
-						Key:       taintKeyMaintenance,
-						Value:     "rack_maintenance",
-						Effect:    corev1.TaintEffectPreferNoSchedule,
-						TimeAdded: &metav1.Time{Time: time.Now().Add(-time.Second * time.Duration(taintKeyMaintenanceDuration+1))},
+						Key:    taintKeyMaintenance,
+						Value:  "rack_maintenance",
+						Effect: corev1.TaintEffectPreferNoSchedule,
+						TimeAdded: &metav1.Time{
+							Time: time.Now().
+								Add(-time.Second * time.Duration(taintKeyMaintenanceDuration+1)),
+						},
 					},
 				}
-				log.Printf("Taint node: Pod name:%s Node name:%s Node taints:%+v TaintTime:%+v Now:%+v\n", replacedPod.Name,
-					node.Name, node.Spec.Taints, node.Spec.Taints[0].TimeAdded.Time, time.Now())
+				log.Printf(
+					"Taint node: Pod name:%s Node name:%s Node taints:%+v TaintTime:%+v Now:%+v\n",
+					replacedPod.Name,
+					node.Name,
+					node.Spec.Taints,
+					node.Spec.Taints[0].TimeAdded.Time,
+					time.Now(),
+				)
 				fdbCluster.UpdateNode(node)
 
 				err := fdbCluster.WaitForReconciliation()
 				Expect(err).NotTo(HaveOccurred())
 
-				fdbCluster.EnsurePodIsDeletedWithCustomTimeout(replacedPod.Name, ensurePodIsDeletedTimeoutMinutes)
+				fdbCluster.EnsurePodIsDeletedWithCustomTimeout(
+					replacedPod.Name,
+					ensurePodIsDeletedTimeoutMinutes,
+				)
 			})
 
 			It("should eventually remove all Pods whose Nodes are tainted", func() {
@@ -306,14 +351,23 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 					node := fdbCluster.GetNode(pod.Spec.NodeName)
 					node.Spec.Taints = []corev1.Taint{
 						{
-							Key:       taintKeyMaintenance,
-							Value:     "rack_maintenance",
-							Effect:    corev1.TaintEffectPreferNoSchedule,
-							TimeAdded: &metav1.Time{Time: time.Now().Add(-time.Millisecond * time.Duration(taintKeyStarDuration*1000+int64(factory.Intn(1000))))},
+							Key:    taintKeyMaintenance,
+							Value:  "rack_maintenance",
+							Effect: corev1.TaintEffectPreferNoSchedule,
+							TimeAdded: &metav1.Time{
+								Time: time.Now().
+									Add(-time.Millisecond * time.Duration(taintKeyStarDuration*1000+int64(factory.Intn(1000)))),
+							},
 						},
 					}
-					log.Printf("Taint node: Pod name:%s Node name:%s Node taints:%+v TaintTime:%+v Now:%+v\n", pod.Name,
-						node.Name, node.Spec.Taints, node.Spec.Taints[0].TimeAdded.Time, time.Now())
+					log.Printf(
+						"Taint node: Pod name:%s Node name:%s Node taints:%+v TaintTime:%+v Now:%+v\n",
+						pod.Name,
+						node.Name,
+						node.Spec.Taints,
+						node.Spec.Taints[0].TimeAdded.Time,
+						time.Now(),
+					)
 					fdbCluster.UpdateNode(node)
 				}
 
@@ -322,7 +376,10 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 				for i, pod := range replacedPods {
 					log.Printf("Ensure %dth pod:%s is deleted\n", i, pod.Name)
-					fdbCluster.EnsurePodIsDeletedWithCustomTimeout(pod.Name, ensurePodIsDeletedTimeoutMinutes)
+					fdbCluster.EnsurePodIsDeletedWithCustomTimeout(
+						pod.Name,
+						ensurePodIsDeletedTimeoutMinutes,
+					)
 				}
 			})
 		})
@@ -333,10 +390,15 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 			BeforeEach(func() {
 				// Custom TaintReplacementOptions to taintKeyStar
-				fdbCluster.SetClusterTaintConfig([]fdbv1beta2.TaintReplacementOption{}, pointer.Int(1))
+				fdbCluster.SetClusterTaintConfig(
+					[]fdbv1beta2.TaintReplacementOption{},
+					pointer.Int(1),
+				)
 
 				automationOptions := fdbCluster.GetAutomationOptions()
-				Expect(len(automationOptions.Replacements.TaintReplacementOptions)).To(BeNumerically("==", 0))
+				Expect(
+					len(automationOptions.Replacements.TaintReplacementOptions),
+				).To(BeNumerically("==", 0))
 				Expect(*automationOptions.Replacements.Enabled).To(BeTrue())
 
 			})
@@ -345,33 +407,54 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				targetPods := factory.RandomPickPod(initialPods.Items, numNodesTainted)
 				var targetPodProcessGroupIDs []fdbv1beta2.ProcessGroupID
 				for _, pod := range targetPods {
-					targetPodProcessGroupIDs = append(targetPodProcessGroupIDs, internal.GetProcessGroupIDFromMeta(fdbCluster.GetCluster(), pod.ObjectMeta))
+					targetPodProcessGroupIDs = append(
+						targetPodProcessGroupIDs,
+						internal.GetProcessGroupIDFromMeta(fdbCluster.GetCluster(), pod.ObjectMeta),
+					)
 					// Taint replacePod's node
 					node := fdbCluster.GetNode(pod.Spec.NodeName)
 					node.Spec.Taints = []corev1.Taint{
 						{
-							Key:       taintKeyMaintenance,
-							Value:     "rack_maintenance",
-							Effect:    corev1.TaintEffectPreferNoSchedule,
-							TimeAdded: &metav1.Time{Time: time.Now().Add(-time.Millisecond * time.Duration(taintKeyStarDuration*1000+int64(factory.Intn(1000))))},
+							Key:    taintKeyMaintenance,
+							Value:  "rack_maintenance",
+							Effect: corev1.TaintEffectPreferNoSchedule,
+							TimeAdded: &metav1.Time{
+								Time: time.Now().
+									Add(-time.Millisecond * time.Duration(taintKeyStarDuration*1000+int64(factory.Intn(1000)))),
+							},
 						},
 					}
-					log.Printf("Taint node: Pod name:%s Node name:%s Node taints:%+v TaintTime:%+v Now:%+v\n", pod.Name,
-						node.Name, node.Spec.Taints, node.Spec.Taints[0].TimeAdded.Time, time.Now())
+					log.Printf(
+						"Taint node: Pod name:%s Node name:%s Node taints:%+v TaintTime:%+v Now:%+v\n",
+						pod.Name,
+						node.Name,
+						node.Spec.Taints,
+						node.Spec.Taints[0].TimeAdded.Time,
+						time.Now(),
+					)
 					fdbCluster.UpdateNode(node)
 				}
 
 				Consistently(func() bool {
 					for _, groupID := range targetPodProcessGroupIDs {
-						processGroupStatus := fdbv1beta2.FindProcessGroupByID(fdbCluster.GetCluster().Status.ProcessGroups, groupID)
+						processGroupStatus := fdbv1beta2.FindProcessGroupByID(
+							fdbCluster.GetCluster().Status.ProcessGroups,
+							groupID,
+						)
 						Expect(processGroupStatus).NotTo(BeNil())
-						Expect(processGroupStatus.GetCondition(fdbv1beta2.NodeTaintDetected)).To(BeNil())
+						Expect(
+							processGroupStatus.GetCondition(fdbv1beta2.NodeTaintDetected),
+						).To(BeNil())
 					}
 					return true
 				}).WithTimeout(time.Duration(*fdbCluster.GetAutomationOptions().Replacements.TaintReplacementTimeSeconds-1) * time.Second).WithPolling(1 * time.Second).Should(BeTrue())
 
 				// Wait for operator to replace the pod
-				time.Sleep(time.Second * time.Duration(*fdbCluster.GetAutomationOptions().Replacements.TaintReplacementTimeSeconds+1))
+				time.Sleep(
+					time.Second * time.Duration(
+						*fdbCluster.GetAutomationOptions().Replacements.TaintReplacementTimeSeconds+1,
+					),
+				)
 				err := fdbCluster.WaitForReconciliation()
 				Expect(err).NotTo(HaveOccurred())
 
@@ -430,12 +513,18 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			Expect(fdbCluster.ClearProcessGroupsToRemove()).NotTo(HaveOccurred())
 			// Make sure we reset the previous behaviour.
 			spec := fdbCluster.GetCluster().Spec.DeepCopy()
-			spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(useLocalitiesForExclusion)
+			spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(
+				useLocalitiesForExclusion,
+			)
 			fdbCluster.UpdateClusterSpecWithSpec(spec)
-			Expect(fdbCluster.GetCluster().UseLocalitiesForExclusion()).To(Equal(useLocalitiesForExclusion))
+			Expect(
+				fdbCluster.GetCluster().UseLocalitiesForExclusion(),
+			).To(Equal(useLocalitiesForExclusion))
 
 			// Making sure we included back all the process groups after exclusion is complete.
-			Expect(fdbCluster.GetStatus().Cluster.DatabaseConfiguration.ExcludedServers).To(BeEmpty())
+			Expect(
+				fdbCluster.GetStatus().Cluster.DatabaseConfiguration.ExcludedServers,
+			).To(BeEmpty())
 
 			if factory.ChaosTestsEnabled() {
 				scheduleInjectPodKill = factory.ScheduleInjectPodKillWithName(
@@ -467,7 +556,9 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				if !fdbVersion.SupportsLocalityBasedExclusions() {
-					Skip("provided FDB version: " + cluster.GetRunningVersion() + " doesn't support locality based exclusions")
+					Skip(
+						"provided FDB version: " + cluster.GetRunningVersion() + " doesn't support locality based exclusions",
+					)
 				}
 
 				spec := cluster.Spec.DeepCopy()
@@ -477,7 +568,12 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			})
 
 			It("should remove the targeted Pod", func() {
-				Expect(pointer.BoolDeref(fdbCluster.GetCluster().Spec.AutomationOptions.UseLocalitiesForExclusion, false)).To(BeTrue())
+				Expect(
+					pointer.BoolDeref(
+						fdbCluster.GetCluster().Spec.AutomationOptions.UseLocalitiesForExclusion,
+						false,
+					),
+				).To(BeTrue())
 				fdbCluster.EnsurePodIsDeleted(replacedPod.Name)
 			})
 		})
@@ -496,12 +592,18 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				expectedPodCnt,
 				expectedStorageProcessesCnt,
 			)
-			fdbCluster.ValidateProcessesCount(fdbv1beta2.ProcessClassStorage, expectedPodCnt, expectedStorageProcessesCnt)
+			fdbCluster.ValidateProcessesCount(
+				fdbv1beta2.ProcessClassStorage,
+				expectedPodCnt,
+				expectedStorageProcessesCnt,
+			)
 		})
 
 		AfterEach(func() {
 			log.Printf("set storage server per pod to %d", initialStorageServerPerPod)
-			Expect(fdbCluster.SetStorageServerPerPod(initialStorageServerPerPod)).ShouldNot(HaveOccurred())
+			Expect(
+				fdbCluster.SetStorageServerPerPod(initialStorageServerPerPod),
+			).ShouldNot(HaveOccurred())
 			log.Printf(
 				"expectedPodCnt: %d, expectedStorageProcessesCnt: %d",
 				expectedPodCnt,
@@ -523,7 +625,11 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				expectedPodCnt,
 				expectedPodCnt*serverPerPod,
 			)
-			fdbCluster.ValidateProcessesCount(fdbv1beta2.ProcessClassStorage, expectedPodCnt, expectedPodCnt*serverPerPod)
+			fdbCluster.ValidateProcessesCount(
+				fdbv1beta2.ProcessClassStorage,
+				expectedPodCnt,
+				expectedPodCnt*serverPerPod,
+			)
 		})
 	})
 
@@ -674,7 +780,12 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		})
 
 		AfterEach(func() {
-			Expect(fdbCluster.SetTLS(initialTLSSetting, fdbCluster.GetCluster().Spec.SidecarContainer.EnableTLS)).NotTo(HaveOccurred())
+			Expect(
+				fdbCluster.SetTLS(
+					initialTLSSetting,
+					fdbCluster.GetCluster().Spec.SidecarContainer.EnableTLS,
+				),
+			).NotTo(HaveOccurred())
 			Expect(fdbCluster.HasTLSEnabled()).To(Equal(initialTLSSetting))
 			checkCoordinatorsTLSFlag(fdbCluster.GetCluster(), initialTLSSetting)
 		})
@@ -683,7 +794,12 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		It("should update the TLS setting  and keep the cluster available", func() {
 			// Only change the TLS setting for the cluster and not for the sidecar otherwise we have to recreate
 			// all Pods which takes a long time since we recreate the Pods one by one.
-			Expect(fdbCluster.SetTLS(!initialTLSSetting, fdbCluster.GetCluster().Spec.SidecarContainer.EnableTLS)).NotTo(HaveOccurred())
+			Expect(
+				fdbCluster.SetTLS(
+					!initialTLSSetting,
+					fdbCluster.GetCluster().Spec.SidecarContainer.EnableTLS,
+				),
+			).NotTo(HaveOccurred())
 			Expect(fdbCluster.HasTLSEnabled()).To(Equal(!initialTLSSetting))
 			checkCoordinatorsTLSFlag(fdbCluster.GetCluster(), !initialTLSSetting)
 		})
@@ -813,79 +929,95 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			})
 		})
 
-		When("more Pods are partitioned than the automatic replacement can replace concurrently", func() {
-			var partitionedPods []corev1.Pod
-			var concurrentReplacements int
-			var experiments []*fixtures.ChaosMeshExperiment
-			creationTimestamps := map[string]metav1.Time{}
+		When(
+			"more Pods are partitioned than the automatic replacement can replace concurrently",
+			func() {
+				var partitionedPods []corev1.Pod
+				var concurrentReplacements int
+				var experiments []*fixtures.ChaosMeshExperiment
+				creationTimestamps := map[string]metav1.Time{}
 
-			BeforeEach(func() {
-				concurrentReplacements = fdbCluster.GetCluster().GetMaxConcurrentAutomaticReplacements()
-				// Allow to replace 1 Pod concurrently
-				spec := fdbCluster.GetCluster().Spec.DeepCopy()
-				spec.AutomationOptions.Replacements.MaxConcurrentReplacements = pointer.Int(1)
-				fdbCluster.UpdateClusterSpecWithSpec(spec)
+				BeforeEach(func() {
+					concurrentReplacements = fdbCluster.GetCluster().
+						GetMaxConcurrentAutomaticReplacements()
+					// Allow to replace 1 Pod concurrently
+					spec := fdbCluster.GetCluster().Spec.DeepCopy()
+					spec.AutomationOptions.Replacements.MaxConcurrentReplacements = pointer.Int(1)
+					fdbCluster.UpdateClusterSpecWithSpec(spec)
 
-				// Make sure we disable automatic replacements to prevent the case that the operator replaces one Pod
-				// before the partitioned is injected.
-				Expect(fdbCluster.SetAutoReplacements(false, 30*time.Second)).ShouldNot(HaveOccurred())
+					// Make sure we disable automatic replacements to prevent the case that the operator replaces one Pod
+					// before the partitioned is injected.
+					Expect(
+						fdbCluster.SetAutoReplacements(false, 30*time.Second),
+					).ShouldNot(HaveOccurred())
 
-				// Pick 2 Pods, so the operator has to replace them one after another
-				partitionedPods = factory.RandomPickPod(fdbCluster.GetStatelessPods().Items, 3)
-				for _, partitionedPod := range partitionedPods {
-					pod := partitionedPod
-					log.Printf("partition Pod: %s", pod.Name)
-					experiments = append(experiments, factory.InjectPartitionBetween(
-						fixtures.PodSelector(&pod),
-						chaosmesh.PodSelectorSpec{
-							GenericSelectorSpec: chaosmesh.GenericSelectorSpec{
-								Namespaces:     []string{pod.Namespace},
-								LabelSelectors: fdbCluster.GetCachedCluster().GetMatchLabels(),
+					// Pick 2 Pods, so the operator has to replace them one after another
+					partitionedPods = factory.RandomPickPod(fdbCluster.GetStatelessPods().Items, 3)
+					for _, partitionedPod := range partitionedPods {
+						pod := partitionedPod
+						log.Printf("partition Pod: %s", pod.Name)
+						experiments = append(experiments, factory.InjectPartitionBetween(
+							fixtures.PodSelector(&pod),
+							chaosmesh.PodSelectorSpec{
+								GenericSelectorSpec: chaosmesh.GenericSelectorSpec{
+									Namespaces:     []string{pod.Namespace},
+									LabelSelectors: fdbCluster.GetCachedCluster().GetMatchLabels(),
+								},
 							},
-						},
-					))
+						))
 
-					creationTimestamps[pod.Name] = pod.CreationTimestamp
-				}
-
-				// Make sure the status can settle
-				time.Sleep(1 * time.Minute)
-
-				// Now we can enable the replacements.
-				Expect(fdbCluster.SetAutoReplacements(true, 30*time.Second)).ShouldNot(HaveOccurred())
-			})
-
-			AfterEach(func() {
-				spec := fdbCluster.GetCluster().Spec.DeepCopy()
-				spec.AutomationOptions.Replacements.MaxConcurrentReplacements = pointer.Int(concurrentReplacements)
-				fdbCluster.UpdateClusterSpecWithSpec(spec)
-				for _, experiment := range experiments {
-					factory.DeleteChaosMeshExperimentSafe(experiment)
-				}
-			})
-
-			It("should replace the all partitioned Pod", func() {
-				Eventually(func() bool {
-					allUpdatedOrRemoved := true
-					for _, pod := range fdbCluster.GetStatelessPods().Items {
-						creationTime, exists := creationTimestamps[pod.Name]
-						// If the Pod doesn't exist we can assume it was updated.
-						if !exists {
-							continue
-						}
-
-						log.Println(pod.Name, "creation time map:", creationTime.String(), "creation time metadata:", pod.CreationTimestamp.String())
-						// The current creation timestamp of the Pod is after the initial creation
-						// timestamp, so the Pod was replaced.
-						if pod.CreationTimestamp.Compare(creationTime.Time) < 1 {
-							allUpdatedOrRemoved = false
-						}
+						creationTimestamps[pod.Name] = pod.CreationTimestamp
 					}
 
-					return allUpdatedOrRemoved
+					// Make sure the status can settle
+					time.Sleep(1 * time.Minute)
+
+					// Now we can enable the replacements.
+					Expect(
+						fdbCluster.SetAutoReplacements(true, 30*time.Second),
+					).ShouldNot(HaveOccurred())
 				})
-			})
-		})
+
+				AfterEach(func() {
+					spec := fdbCluster.GetCluster().Spec.DeepCopy()
+					spec.AutomationOptions.Replacements.MaxConcurrentReplacements = pointer.Int(
+						concurrentReplacements,
+					)
+					fdbCluster.UpdateClusterSpecWithSpec(spec)
+					for _, experiment := range experiments {
+						factory.DeleteChaosMeshExperimentSafe(experiment)
+					}
+				})
+
+				It("should replace the all partitioned Pod", func() {
+					Eventually(func() bool {
+						allUpdatedOrRemoved := true
+						for _, pod := range fdbCluster.GetStatelessPods().Items {
+							creationTime, exists := creationTimestamps[pod.Name]
+							// If the Pod doesn't exist we can assume it was updated.
+							if !exists {
+								continue
+							}
+
+							log.Println(
+								pod.Name,
+								"creation time map:",
+								creationTime.String(),
+								"creation time metadata:",
+								pod.CreationTimestamp.String(),
+							)
+							// The current creation timestamp of the Pod is after the initial creation
+							// timestamp, so the Pod was replaced.
+							if pod.CreationTimestamp.Compare(creationTime.Time) < 1 {
+								allUpdatedOrRemoved = false
+							}
+						}
+
+						return allUpdatedOrRemoved
+					})
+				})
+			},
+		)
 
 		When("a Pod has a bad disk", func() {
 			var podWithIOError corev1.Pod
@@ -898,7 +1030,10 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				initialPods := fdbCluster.GetStoragePods()
 				podWithIOError = factory.RandomPickOnePod(initialPods.Items)
 				log.Printf("Injecting I/O chaos to %s for 1 minute", podWithIOError.Name)
-				exp = factory.InjectDiskFailureWithDuration(fixtures.PodSelector(&podWithIOError), "1m")
+				exp = factory.InjectDiskFailureWithDuration(
+					fixtures.PodSelector(&podWithIOError),
+					"1m",
+				)
 
 				log.Printf("iochaos injected to %s", podWithIOError.Name)
 				// File creation should fail due to I/O error
@@ -944,36 +1079,50 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			It("should remove the targeted process", func() {
 				processGroupID := fixtures.GetProcessGroupID(podWithIOError)
 				// Wait until the process group is marked to be removed.
-				Expect(fdbCluster.WaitUntilWithForceReconcile(1, 600, func(cluster *fdbv1beta2.FoundationDBCluster) bool {
-					for _, processGroup := range cluster.Status.ProcessGroups {
-						if processGroup.ProcessGroupID != processGroupID {
-							continue
-						}
+				Expect(
+					fdbCluster.WaitUntilWithForceReconcile(
+						1,
+						600,
+						func(cluster *fdbv1beta2.FoundationDBCluster) bool {
+							for _, processGroup := range cluster.Status.ProcessGroups {
+								if processGroup.ProcessGroupID != processGroupID {
+									continue
+								}
 
-						return processGroup.RemovalTimestamp != nil
-					}
+								return processGroup.RemovalTimestamp != nil
+							}
 
-					return false
-				})).NotTo(HaveOccurred())
+							return false
+						},
+					),
+				).NotTo(HaveOccurred())
 
 				// Wait until the process group is removed
-				Expect(fdbCluster.WaitUntilWithForceReconcile(1, 1200, func(cluster *fdbv1beta2.FoundationDBCluster) bool {
-					for _, processGroup := range cluster.Status.ProcessGroups {
-						if processGroup.ProcessGroupID != processGroupID {
-							continue
-						}
+				Expect(
+					fdbCluster.WaitUntilWithForceReconcile(
+						1,
+						1200,
+						func(cluster *fdbv1beta2.FoundationDBCluster) bool {
+							for _, processGroup := range cluster.Status.ProcessGroups {
+								if processGroup.ProcessGroupID != processGroupID {
+									continue
+								}
 
-						// At this point the process group still exists.
-						return false
-					}
+								// At this point the process group still exists.
+								return false
+							}
 
-					return true
-				})).NotTo(HaveOccurred())
+							return true
+						},
+					),
+				).NotTo(HaveOccurred())
 			})
 		})
 
 		AfterEach(func() {
-			Expect(fdbCluster.SetAutoReplacements(true, initialReplaceTime)).ShouldNot(HaveOccurred())
+			Expect(
+				fdbCluster.SetAutoReplacements(true, initialReplaceTime),
+			).ShouldNot(HaveOccurred())
 			factory.DeleteChaosMeshExperimentSafe(exp)
 		})
 	})
@@ -1040,7 +1189,10 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		var replacedPods []corev1.Pod
 
 		BeforeEach(func() {
-			fdbCluster.ReplacePods(factory.RandomPickPod(fdbCluster.GetStatelessPods().Items, 4), true)
+			fdbCluster.ReplacePods(
+				factory.RandomPickPod(fdbCluster.GetStatelessPods().Items, 4),
+				true,
+			)
 		})
 
 		AfterEach(func() {
@@ -1072,7 +1224,9 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		})
 
 		It("should replace the Pod stuck in Terminating state", func() {
-			Expect(fdbCluster.GetPodsNames()).Should(Or(HaveLen(len(podsBeforeReplacement)+1), HaveLen(len(podsBeforeReplacement))))
+			Expect(
+				fdbCluster.GetPodsNames(),
+			).Should(Or(HaveLen(len(podsBeforeReplacement)+1), HaveLen(len(podsBeforeReplacement))))
 		})
 	})
 
@@ -1083,7 +1237,8 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			)).ShouldNot(HaveOccurred())
 		})
 
-		DescribeTable("changing coordinator selection",
+		DescribeTable(
+			"changing coordinator selection",
 			func(setting []fdbv1beta2.CoordinatorSelectionSetting, expectedProcessClassList []fdbv1beta2.ProcessClass) {
 				Expect(fdbCluster.UpdateCoordinatorSelection(setting)).ShouldNot(HaveOccurred())
 				pods := fdbCluster.GetCoordinators()
@@ -1173,7 +1328,9 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 		AfterEach(func() {
 			log.Printf("set log servers per Pod to %d", initialLogServerPerPod)
-			Expect(fdbCluster.SetLogServersPerPod(initialLogServerPerPod, true)).ShouldNot(HaveOccurred())
+			Expect(
+				fdbCluster.SetLogServersPerPod(initialLogServerPerPod, true),
+			).ShouldNot(HaveOccurred())
 			log.Printf(
 				"expectedPodCnt: %d, expectedProcessesCnt: %d",
 				expectedPodCnt,
@@ -1193,7 +1350,11 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				expectedPodCnt,
 				expectedPodCnt*serverPerPod,
 			)
-			fdbCluster.ValidateProcessesCount(fdbv1beta2.ProcessClassLog, expectedPodCnt, expectedPodCnt*serverPerPod)
+			fdbCluster.ValidateProcessesCount(
+				fdbv1beta2.ProcessClassLog,
+				expectedPodCnt,
+				expectedPodCnt*serverPerPod,
+			)
 		})
 	})
 
@@ -1217,7 +1378,13 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 		AfterEach(func() {
 			log.Printf("set log servers per Pod to %d", initialLogServerPerPod)
-			Expect(fdbCluster.SetTransactionServerPerPod(initialLogServerPerPod, expectedLogProcessesCnt, true)).ShouldNot(HaveOccurred())
+			Expect(
+				fdbCluster.SetTransactionServerPerPod(
+					initialLogServerPerPod,
+					expectedLogProcessesCnt,
+					true,
+				),
+			).ShouldNot(HaveOccurred())
 			log.Printf(
 				"expectedPodCnt: %d, expectedProcessesCnt: %d",
 				expectedPodCnt,
@@ -1228,16 +1395,29 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			}).Should(BeNumerically("==", expectedPodCnt))
 		})
 
-		It("should update the log servers to the expected amount and should create transaction Pods", func() {
-			serverPerPod := initialLogServerPerPod * 2
-			Expect(fdbCluster.SetTransactionServerPerPod(serverPerPod, expectedLogProcessesCnt, true)).ShouldNot(HaveOccurred())
-			log.Printf(
-				"expectedPodCnt: %d, expectedProcessesCnt: %d",
-				expectedPodCnt,
-				expectedPodCnt*serverPerPod,
-			)
-			fdbCluster.ValidateProcessesCount(fdbv1beta2.ProcessClassTransaction, expectedPodCnt, expectedPodCnt*serverPerPod)
-		})
+		It(
+			"should update the log servers to the expected amount and should create transaction Pods",
+			func() {
+				serverPerPod := initialLogServerPerPod * 2
+				Expect(
+					fdbCluster.SetTransactionServerPerPod(
+						serverPerPod,
+						expectedLogProcessesCnt,
+						true,
+					),
+				).ShouldNot(HaveOccurred())
+				log.Printf(
+					"expectedPodCnt: %d, expectedProcessesCnt: %d",
+					expectedPodCnt,
+					expectedPodCnt*serverPerPod,
+				)
+				fdbCluster.ValidateProcessesCount(
+					fdbv1beta2.ProcessClassTransaction,
+					expectedPodCnt,
+					expectedPodCnt*serverPerPod,
+				)
+			},
+		)
 	})
 
 	When("Migrating a cluster to a different storage class", func() {
@@ -1428,7 +1608,11 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		BeforeEach(func() {
 			initialPods := fdbCluster.GetStatelessPods()
 			podMarkedForRemoval = factory.RandomPickOnePod(initialPods.Items)
-			log.Println("Setting Pod", podMarkedForRemoval.Name, "to be blocked to be removed and mark it for removal.")
+			log.Println(
+				"Setting Pod",
+				podMarkedForRemoval.Name,
+				"to be blocked to be removed and mark it for removal.",
+			)
 			processGroupID = fixtures.GetProcessGroupID(podMarkedForRemoval)
 			fdbCluster.SetBuggifyBlockRemoval([]fdbv1beta2.ProcessGroupID{processGroupID})
 			fdbCluster.ReplacePod(podMarkedForRemoval, false)
@@ -1448,7 +1632,8 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 						continue
 					}
 
-					return !processGroup.ExclusionTimestamp.IsZero() && !processGroup.RemovalTimestamp.IsZero()
+					return !processGroup.ExclusionTimestamp.IsZero() &&
+						!processGroup.RemovalTimestamp.IsZero()
 				}
 
 				return false
@@ -1465,25 +1650,46 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		var initialReplacementDuration time.Duration
 
 		BeforeEach(func() {
-			initialReplacementDuration = time.Duration(fdbCluster.GetCachedCluster().GetFailureDetectionTimeSeconds()) * time.Second
+			initialReplacementDuration = time.Duration(
+				fdbCluster.GetCachedCluster().GetFailureDetectionTimeSeconds(),
+			) * time.Second
 			// Get the current Process Group ID numbers that are in use.
-			_, processGroupIDs, err := fdbCluster.GetCluster().GetCurrentProcessGroupsAndProcessCounts()
+			_, processGroupIDs, err := fdbCluster.GetCluster().
+				GetCurrentProcessGroupsAndProcessCounts()
 			Expect(err).NotTo(HaveOccurred())
 
 			// Make sure the operator doesn't modify the status.
 			fdbCluster.SetSkipReconciliation(true)
 			cluster := fdbCluster.GetCluster()
 			status := cluster.Status.DeepCopy() // Fetch the current status.
-			processGroupID = cluster.GetNextRandomProcessGroupID(fdbv1beta2.ProcessClassStateless, processGroupIDs[fdbv1beta2.ProcessClassStateless])
-			status.ProcessGroups = append(status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus(processGroupID, fdbv1beta2.ProcessClassStateless, nil))
+			processGroupID = cluster.GetNextRandomProcessGroupID(
+				fdbv1beta2.ProcessClassStateless,
+				processGroupIDs[fdbv1beta2.ProcessClassStateless],
+			)
+			status.ProcessGroups = append(
+				status.ProcessGroups,
+				fdbv1beta2.NewProcessGroupStatus(
+					processGroupID,
+					fdbv1beta2.ProcessClassStateless,
+					nil,
+				),
+			)
 			fdbCluster.UpdateClusterStatusWithStatus(status)
 
-			log.Println("Next process group ID", processGroupID, "current processGroupIDs for stateless processes", processGroupIDs[fdbv1beta2.ProcessClassStateless])
+			log.Println(
+				"Next process group ID",
+				processGroupID,
+				"current processGroupIDs for stateless processes",
+				processGroupIDs[fdbv1beta2.ProcessClassStateless],
+			)
 
 			// Make sure the new Pod will be stuck in unschedulable.
 			fdbCluster.SetProcessGroupsAsUnschedulable([]fdbv1beta2.ProcessGroupID{processGroupID})
 			// Now replace a random Pod for replacement to force the cluster to create a new Pod.
-			fdbCluster.ReplacePod(factory.RandomPickOnePod(fdbCluster.GetStatelessPods().Items), false)
+			fdbCluster.ReplacePod(
+				factory.RandomPickOnePod(fdbCluster.GetStatelessPods().Items),
+				false,
+			)
 
 			// Allow the operator again to reconcile.
 			fdbCluster.SetSkipReconciliation(false)
@@ -1506,16 +1712,25 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			Expect(fdbCluster.ClearBuggifyNoSchedule(true)).NotTo(HaveOccurred())
 			// Make sure we cleaned up the process groups to remove.
 			Expect(fdbCluster.ClearProcessGroupsToRemove())
-			Expect(fdbCluster.SetAutoReplacements(true, initialReplacementDuration)).NotTo(HaveOccurred())
+			Expect(
+				fdbCluster.SetAutoReplacements(true, initialReplacementDuration),
+			).NotTo(HaveOccurred())
 		})
 
 		When("automatic replacements are disabled", func() {
 			BeforeEach(func() {
-				Expect(fdbCluster.SetAutoReplacementsWithWait(false, 10*time.Hour, false)).NotTo(HaveOccurred())
+				Expect(
+					fdbCluster.SetAutoReplacementsWithWait(false, 10*time.Hour, false),
+				).NotTo(HaveOccurred())
 			})
 
 			It("should not remove the Pod as long as it is unschedulable", func() {
-				log.Println("Make sure process group", processGroupID, "is stuck in Pending state with Pod", podName)
+				log.Println(
+					"Make sure process group",
+					processGroupID,
+					"is stuck in Pending state with Pod",
+					podName,
+				)
 				// Make sure the Pod is stuck in pending for 2 minutes
 				Consistently(func() corev1.PodPhase {
 					return fdbCluster.GetPod(podName).Status.Phase
@@ -1525,14 +1740,24 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 		When("automatic replacements are enabled", func() {
 			BeforeEach(func() {
-				Expect(fdbCluster.SetAutoReplacementsWithWait(true, 1*time.Minute, false)).NotTo(HaveOccurred())
+				Expect(
+					fdbCluster.SetAutoReplacementsWithWait(true, 1*time.Minute, false),
+				).NotTo(HaveOccurred())
 			})
 
 			It("should remove the Pod", func() {
-				log.Println("Make sure process group", processGroupID, "gets replaced with Pod", podName)
+				log.Println(
+					"Make sure process group",
+					processGroupID,
+					"gets replaced with Pod",
+					podName,
+				)
 				// Make sure the process group is removed after some time.
 				Eventually(func() *fdbv1beta2.ProcessGroupStatus {
-					return fdbv1beta2.FindProcessGroupByID(fdbCluster.GetCluster().Status.ProcessGroups, processGroupID)
+					return fdbv1beta2.FindProcessGroupByID(
+						fdbCluster.GetCluster().Status.ProcessGroups,
+						processGroupID,
+					)
 				}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(BeNil())
 
 				// Make sure the Pod is actually deleted after some time.
@@ -1544,80 +1769,102 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 	})
 
 	// this test took ~8min to run for me, so I think it is best to just have the one test
-	When("replacing Pods due to securityContext changes (General spec change = log + stateless)", func() {
-		var podsNotToReplace, podsToReplace []string
-		var originalPodSpec, modifiedPodSpec, originalStoragePodSpec *corev1.PodSpec
-		var initialPodUpdateStrategy fdbv1beta2.PodUpdateStrategy
+	When(
+		"replacing Pods due to securityContext changes (General spec change = log + stateless)",
+		func() {
+			var podsNotToReplace, podsToReplace []string
+			var originalPodSpec, modifiedPodSpec, originalStoragePodSpec *corev1.PodSpec
+			var initialPodUpdateStrategy fdbv1beta2.PodUpdateStrategy
 
-		BeforeEach(func() {
-			originalPodSpec = fdbCluster.GetPodTemplateSpec(fdbv1beta2.ProcessClassGeneral)
-			originalStoragePodSpec = fdbCluster.GetPodTemplateSpec(fdbv1beta2.ProcessClassStorage)
-			Expect(originalPodSpec).NotTo(BeNil())
-			modifiedPodSpec = originalPodSpec.DeepCopy()
-			Expect(modifiedPodSpec.SecurityContext).NotTo(BeNil())
-			if originalPodSpec.SecurityContext.FSGroupChangePolicy != nil {
-				Expect(*originalPodSpec.SecurityContext.FSGroupChangePolicy).NotTo(Equal(corev1.FSGroupChangeOnRootMismatch))
-			}
-			modifiedPodSpec.SecurityContext.FSGroupChangePolicy = &[]corev1.PodFSGroupChangePolicy{corev1.FSGroupChangeOnRootMismatch}[0]
-			for _, logPod := range fdbCluster.GetLogPods().Items {
-				podsToReplace = append(podsToReplace, logPod.Name)
-			}
-			for _, statelessPod := range fdbCluster.GetStatelessPods().Items {
-				podsToReplace = append(podsToReplace, statelessPod.Name)
-			}
-			for _, storagePod := range fdbCluster.GetStoragePods().Items {
-				podsToReplace = append(podsToReplace, storagePod.Name)
-			}
-			// if we do not set the PodUpdateStrategy to delete, then the pods will get replaced for the spec change,
-			// meaning we cannot test the security context change on non-storage pods unless we use PodUpdateStrategyDelete
-			// (and storage pod use would make the test take ~5min longer)
-			spec := fdbCluster.GetCluster().Spec.DeepCopy()
-			initialPodUpdateStrategy = spec.AutomationOptions.PodUpdateStrategy
-			spec.AutomationOptions.PodUpdateStrategy = fdbv1beta2.PodUpdateStrategyDelete
-			fdbCluster.UpdateClusterSpecWithSpec(spec)
-			Expect(fdbCluster.SetPodTemplateSpec(fdbv1beta2.ProcessClassGeneral, modifiedPodSpec, false)).NotTo(HaveOccurred())
-		})
+			BeforeEach(func() {
+				originalPodSpec = fdbCluster.GetPodTemplateSpec(fdbv1beta2.ProcessClassGeneral)
+				originalStoragePodSpec = fdbCluster.GetPodTemplateSpec(
+					fdbv1beta2.ProcessClassStorage,
+				)
+				Expect(originalPodSpec).NotTo(BeNil())
+				modifiedPodSpec = originalPodSpec.DeepCopy()
+				Expect(modifiedPodSpec.SecurityContext).NotTo(BeNil())
+				if originalPodSpec.SecurityContext.FSGroupChangePolicy != nil {
+					Expect(
+						*originalPodSpec.SecurityContext.FSGroupChangePolicy,
+					).NotTo(Equal(corev1.FSGroupChangeOnRootMismatch))
+				}
+				modifiedPodSpec.SecurityContext.FSGroupChangePolicy = &[]corev1.PodFSGroupChangePolicy{corev1.FSGroupChangeOnRootMismatch}[0]
+				for _, logPod := range fdbCluster.GetLogPods().Items {
+					podsToReplace = append(podsToReplace, logPod.Name)
+				}
+				for _, statelessPod := range fdbCluster.GetStatelessPods().Items {
+					podsToReplace = append(podsToReplace, statelessPod.Name)
+				}
+				for _, storagePod := range fdbCluster.GetStoragePods().Items {
+					podsToReplace = append(podsToReplace, storagePod.Name)
+				}
+				// if we do not set the PodUpdateStrategy to delete, then the pods will get replaced for the spec change,
+				// meaning we cannot test the security context change on non-storage pods unless we use PodUpdateStrategyDelete
+				// (and storage pod use would make the test take ~5min longer)
+				spec := fdbCluster.GetCluster().Spec.DeepCopy()
+				initialPodUpdateStrategy = spec.AutomationOptions.PodUpdateStrategy
+				spec.AutomationOptions.PodUpdateStrategy = fdbv1beta2.PodUpdateStrategyDelete
+				fdbCluster.UpdateClusterSpecWithSpec(spec)
+				Expect(
+					fdbCluster.SetPodTemplateSpec(
+						fdbv1beta2.ProcessClassGeneral,
+						modifiedPodSpec,
+						false,
+					),
+				).NotTo(HaveOccurred())
+			})
 
-		AfterEach(func() {
-			spec := fdbCluster.GetCluster().Spec.DeepCopy()
-			spec.AutomationOptions.PodUpdateStrategy = initialPodUpdateStrategy
-			fdbCluster.UpdateClusterSpecWithSpec(spec)
-			Expect(fdbCluster.SetPodTemplateSpec(fdbv1beta2.ProcessClassGeneral, originalPodSpec, true)).NotTo(HaveOccurred())
-		})
+			AfterEach(func() {
+				spec := fdbCluster.GetCluster().Spec.DeepCopy()
+				spec.AutomationOptions.PodUpdateStrategy = initialPodUpdateStrategy
+				fdbCluster.UpdateClusterSpecWithSpec(spec)
+				Expect(
+					fdbCluster.SetPodTemplateSpec(
+						fdbv1beta2.ProcessClassGeneral,
+						originalPodSpec,
+						true,
+					),
+				).NotTo(HaveOccurred())
+			})
 
-		It("should replace all the log pods (which had the securityContext change)", func() {
-			lastForcedReconciliationTime := time.Now()
-			forceReconcileDuration := 4 * time.Minute
-			Eventually(func(g Gomega) {
-				// Force a reconcile if needed to make sure we speed up the reconciliation if needed.
-				if time.Since(lastForcedReconciliationTime) >= forceReconcileDuration {
-					fdbCluster.ForceReconcile()
-					lastForcedReconciliationTime = time.Now()
-				}
+			It("should replace all the log pods (which had the securityContext change)", func() {
+				lastForcedReconciliationTime := time.Now()
+				forceReconcileDuration := 4 * time.Minute
+				Eventually(func(g Gomega) {
+					// Force a reconcile if needed to make sure we speed up the reconciliation if needed.
+					if time.Since(lastForcedReconciliationTime) >= forceReconcileDuration {
+						fdbCluster.ForceReconcile()
+						lastForcedReconciliationTime = time.Now()
+					}
 
-				// check that we replaced the pods we should have and did not replace others
-				currentPods := fdbCluster.GetPodsNames()
-				g.Expect(currentPods).NotTo(ContainElements(podsToReplace))
-				g.Expect(currentPods).To(ContainElements(podsNotToReplace))
-				// check that General template pods (Log + Stateless) are replaced with the new security context
-				logPods := fdbCluster.GetLogPods()
-				for _, pod := range logPods.Items {
-					g.Expect(pod.Spec.SecurityContext.FSGroupChangePolicy).ToNot(BeNil())
-					g.Expect(*pod.Spec.SecurityContext.FSGroupChangePolicy).To(Equal(corev1.FSGroupChangeOnRootMismatch))
-				}
-				statelessPods := fdbCluster.GetStatelessPods()
-				for _, pod := range statelessPods.Items {
-					g.Expect(pod.Spec.SecurityContext.FSGroupChangePolicy).ToNot(BeNil())
-					g.Expect(*pod.Spec.SecurityContext.FSGroupChangePolicy).To(Equal(corev1.FSGroupChangeOnRootMismatch))
-				}
-				// ensure that we only changed pods that are expected to be changed (i.e. don't touch storage)
-				storagePods := fdbCluster.GetStoragePods()
-				for _, pod := range storagePods.Items {
-					g.Expect(pod.Spec.SecurityContext).To(Equal(originalStoragePodSpec.SecurityContext))
-				}
-			}).WithTimeout(15 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
-		})
-	})
+					// check that we replaced the pods we should have and did not replace others
+					currentPods := fdbCluster.GetPodsNames()
+					g.Expect(currentPods).NotTo(ContainElements(podsToReplace))
+					g.Expect(currentPods).To(ContainElements(podsNotToReplace))
+					// check that General template pods (Log + Stateless) are replaced with the new security context
+					logPods := fdbCluster.GetLogPods()
+					for _, pod := range logPods.Items {
+						g.Expect(pod.Spec.SecurityContext.FSGroupChangePolicy).ToNot(BeNil())
+						g.Expect(*pod.Spec.SecurityContext.FSGroupChangePolicy).
+							To(Equal(corev1.FSGroupChangeOnRootMismatch))
+					}
+					statelessPods := fdbCluster.GetStatelessPods()
+					for _, pod := range statelessPods.Items {
+						g.Expect(pod.Spec.SecurityContext.FSGroupChangePolicy).ToNot(BeNil())
+						g.Expect(*pod.Spec.SecurityContext.FSGroupChangePolicy).
+							To(Equal(corev1.FSGroupChangeOnRootMismatch))
+					}
+					// ensure that we only changed pods that are expected to be changed (i.e. don't touch storage)
+					storagePods := fdbCluster.GetStoragePods()
+					for _, pod := range storagePods.Items {
+						g.Expect(pod.Spec.SecurityContext).
+							To(Equal(originalStoragePodSpec.SecurityContext))
+					}
+				}).WithTimeout(15 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
+			})
+		},
+	)
 
 	When("migrating a cluster to make use of DNS in the cluster file", func() {
 		BeforeEach(func() {
@@ -1705,7 +1952,11 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			pod = factory.ChooseRandomPod(fdbCluster.GetStatelessPods())
 			log.Printf("exclude Pod: %s", pod.Name)
 			Expect(pod.Status.PodIP).NotTo(BeEmpty())
-			_, _ = fdbCluster.RunFdbCliCommandInOperator(fmt.Sprintf("exclude %s", pod.Status.PodIP), false, 30)
+			_, _ = fdbCluster.RunFdbCliCommandInOperator(
+				fmt.Sprintf("exclude %s", pod.Status.PodIP),
+				false,
+				30,
+			)
 			// Make sure we trigger a reconciliation to speed up the exclusion detection.
 			fdbCluster.ForceReconcile()
 		})
@@ -1719,7 +1970,9 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		})
 
 		AfterEach(func() {
-			Expect(fdbCluster.SetAutoReplacements(true, initialReplaceTime)).ShouldNot(HaveOccurred())
+			Expect(
+				fdbCluster.SetAutoReplacements(true, initialReplaceTime),
+			).ShouldNot(HaveOccurred())
 		})
 	})
 
@@ -1745,7 +1998,11 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				break
 			}
 
-			_, _ = fdbCluster.RunFdbCliCommandInOperator(fmt.Sprintf("maintenance on %s 3600", targetProcessGroup.FaultDomain), false, 30)
+			_, _ = fdbCluster.RunFdbCliCommandInOperator(
+				fmt.Sprintf("maintenance on %s 3600", targetProcessGroup.FaultDomain),
+				false,
+				30,
+			)
 
 			// Partition the Pod
 			pod := fdbCluster.GetPod(targetProcessGroup.GetPodName(fdbCluster.GetCachedCluster()))
@@ -1779,7 +2036,9 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 		AfterEach(func() {
 			factory.DeleteChaosMeshExperimentSafe(exp)
-			Expect(fdbCluster.SetAutoReplacements(true, initialReplaceTime)).ShouldNot(HaveOccurred())
+			Expect(
+				fdbCluster.SetAutoReplacements(true, initialReplaceTime),
+			).ShouldNot(HaveOccurred())
 			fdbCluster.RunFdbCliCommandInOperator("maintenance off", false, 30)
 		})
 	})
@@ -1854,7 +2113,12 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			spec.DatabaseConfiguration.RoleCounts.GrvProxies = 0
 			spec.DatabaseConfiguration.RoleCounts.CommitProxies = 0
 
-			fmt.Println("Original:", fixtures.ToJSON(originalRoleCounts), "new roleCounts:", fixtures.ToJSON(spec.DatabaseConfiguration.RoleCounts))
+			fmt.Println(
+				"Original:",
+				fixtures.ToJSON(originalRoleCounts),
+				"new roleCounts:",
+				fixtures.ToJSON(spec.DatabaseConfiguration.RoleCounts),
+			)
 			fdbCluster.UpdateClusterSpecWithSpec(spec)
 			Expect(fdbCluster.WaitForReconciliation()).NotTo(HaveOccurred())
 		})
@@ -1866,25 +2130,35 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			Expect(fdbCluster.WaitForReconciliation()).NotTo(HaveOccurred())
 		})
 
-		It("should configure the database to run with GRV and commit proxies but keep the proxies in the status field of the FoundationDB resource", func() {
-			// Make sure GRV and commit proxies are configured.
-			status := fdbCluster.GetStatus()
-			Expect(status.Cluster.DatabaseConfiguration.RoleCounts.CommitProxies).To(BeNumerically(">", 0))
-			Expect(status.Cluster.DatabaseConfiguration.RoleCounts.GrvProxies).To(BeNumerically(">", 0))
-			Expect(status.Cluster.DatabaseConfiguration.RoleCounts.Proxies).NotTo(BeZero())
+		It(
+			"should configure the database to run with GRV and commit proxies but keep the proxies in the status field of the FoundationDB resource",
+			func() {
+				// Make sure GRV and commit proxies are configured.
+				status := fdbCluster.GetStatus()
+				Expect(
+					status.Cluster.DatabaseConfiguration.RoleCounts.CommitProxies,
+				).To(BeNumerically(">", 0))
+				Expect(
+					status.Cluster.DatabaseConfiguration.RoleCounts.GrvProxies,
+				).To(BeNumerically(">", 0))
+				Expect(status.Cluster.DatabaseConfiguration.RoleCounts.Proxies).NotTo(BeZero())
 
-			fmt.Println("Status configuration:", fixtures.ToJSON(status.Cluster.DatabaseConfiguration))
-			// Verify the FoundationDB Cluster resource
-			cluster := fdbCluster.GetCluster()
-			// Make sure that the spec of the FoundationDB resource only has proxies defined.
-			Expect(cluster.Spec.DatabaseConfiguration.RoleCounts.GrvProxies).To(BeZero())
-			Expect(cluster.Spec.DatabaseConfiguration.RoleCounts.CommitProxies).To(BeZero())
-			Expect(cluster.Spec.DatabaseConfiguration.RoleCounts.Proxies).NotTo(BeZero())
-			// Make sure that the status of the FoundationDB resource only has proxies defined.
-			Expect(cluster.Status.DatabaseConfiguration.RoleCounts.GrvProxies).To(BeZero())
-			Expect(cluster.Status.DatabaseConfiguration.RoleCounts.CommitProxies).To(BeZero())
-			Expect(cluster.Status.DatabaseConfiguration.RoleCounts.Proxies).NotTo(BeZero())
-		})
+				fmt.Println(
+					"Status configuration:",
+					fixtures.ToJSON(status.Cluster.DatabaseConfiguration),
+				)
+				// Verify the FoundationDB Cluster resource
+				cluster := fdbCluster.GetCluster()
+				// Make sure that the spec of the FoundationDB resource only has proxies defined.
+				Expect(cluster.Spec.DatabaseConfiguration.RoleCounts.GrvProxies).To(BeZero())
+				Expect(cluster.Spec.DatabaseConfiguration.RoleCounts.CommitProxies).To(BeZero())
+				Expect(cluster.Spec.DatabaseConfiguration.RoleCounts.Proxies).NotTo(BeZero())
+				// Make sure that the status of the FoundationDB resource only has proxies defined.
+				Expect(cluster.Status.DatabaseConfiguration.RoleCounts.GrvProxies).To(BeZero())
+				Expect(cluster.Status.DatabaseConfiguration.RoleCounts.CommitProxies).To(BeZero())
+				Expect(cluster.Status.DatabaseConfiguration.RoleCounts.Proxies).NotTo(BeZero())
+			},
+		)
 	})
 
 	When("running with tester processes", func() {
@@ -1974,38 +2248,64 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			})
 		})
 
-		When("there is a unidirectional partition between the tester and the rest of the cluster", func() {
-			var exp *fixtures.ChaosMeshExperiment
+		When(
+			"there is a unidirectional partition between the tester and the rest of the cluster",
+			func() {
+				var exp *fixtures.ChaosMeshExperiment
 
-			BeforeEach(func() {
-				// Make sure the operator is not taking any action as long as we are preparing the setup
-				fdbCluster.SetSkipReconciliation(true)
+				BeforeEach(func() {
+					// Make sure the operator is not taking any action as long as we are preparing the setup
+					fdbCluster.SetSkipReconciliation(true)
 
-				var partitionedPod corev1.Pod
+					var partitionedPod corev1.Pod
 
-				pods := fdbCluster.GetPods()
-				for _, pod := range pods.Items {
-					if fixtures.GetProcessClass(pod) != fdbv1beta2.ProcessClassTest {
-						continue
+					pods := fdbCluster.GetPods()
+					for _, pod := range pods.Items {
+						if fixtures.GetProcessClass(pod) != fdbv1beta2.ProcessClassTest {
+							continue
+						}
+
+						partitionedPod = pod
 					}
 
-					partitionedPod = pod
-				}
-
-				log.Printf("partition Pod: %s", partitionedPod.Name)
-				exp = factory.InjectPartitionBetweenWithDirection(
-					fixtures.PodSelector(&partitionedPod),
-					chaosmesh.PodSelectorSpec{
-						GenericSelectorSpec: chaosmesh.GenericSelectorSpec{
-							Namespaces:     []string{partitionedPod.Namespace},
-							LabelSelectors: fdbCluster.GetCachedCluster().GetMatchLabels(),
+					log.Printf("partition Pod: %s", partitionedPod.Name)
+					exp = factory.InjectPartitionBetweenWithDirection(
+						fixtures.PodSelector(&partitionedPod),
+						chaosmesh.PodSelectorSpec{
+							GenericSelectorSpec: chaosmesh.GenericSelectorSpec{
+								Namespaces:     []string{partitionedPod.Namespace},
+								LabelSelectors: fdbCluster.GetCachedCluster().GetMatchLabels(),
+							},
 						},
-					},
-					chaosmesh.From,
-				)
+						chaosmesh.From,
+					)
 
-				if !fdbAutomaticallyRemoveOldTester {
-					// Wait until the cluster shows the unreachable process.
+					if !fdbAutomaticallyRemoveOldTester {
+						// Wait until the cluster shows the unreachable process.
+						Eventually(func() []string {
+							status := fdbCluster.GetStatus()
+
+							messages := make([]string, 0, len(status.Cluster.Messages))
+							for _, message := range status.Cluster.Messages {
+								messages = append(messages, message.Name)
+							}
+
+							log.Println("current messages:", messages)
+
+							return messages
+						}).WithPolling(1 * time.Second).WithTimeout(2 * time.Minute).MustPassRepeatedly(5).Should(ContainElements("status_incomplete", "unreachable_processes"))
+					}
+
+					// Let the operator fix the issue.
+					fdbCluster.SetSkipReconciliation(false)
+				})
+
+				AfterEach(func() {
+					factory.DeleteChaosMeshExperimentSafe(exp)
+				})
+
+				It("should show the status without any messages", func() {
+					// The operator should be restarting the cluster controller and this should clean the unreachable_processes
 					Eventually(func() []string {
 						status := fdbCluster.GetStatus()
 
@@ -2017,33 +2317,10 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 						log.Println("current messages:", messages)
 
 						return messages
-					}).WithPolling(1 * time.Second).WithTimeout(2 * time.Minute).MustPassRepeatedly(5).Should(ContainElements("status_incomplete", "unreachable_processes"))
-				}
-
-				// Let the operator fix the issue.
-				fdbCluster.SetSkipReconciliation(false)
-			})
-
-			AfterEach(func() {
-				factory.DeleteChaosMeshExperimentSafe(exp)
-			})
-
-			It("should show the status without any messages", func() {
-				// The operator should be restarting the cluster controller and this should clean the unreachable_processes
-				Eventually(func() []string {
-					status := fdbCluster.GetStatus()
-
-					messages := make([]string, 0, len(status.Cluster.Messages))
-					for _, message := range status.Cluster.Messages {
-						messages = append(messages, message.Name)
-					}
-
-					log.Println("current messages:", messages)
-
-					return messages
-				}).WithPolling(1 * time.Second).WithTimeout(5 * time.Minute).MustPassRepeatedly(5).Should(BeEmpty())
-			})
-		})
+					}).WithPolling(1 * time.Second).WithTimeout(5 * time.Minute).MustPassRepeatedly(5).Should(BeEmpty())
+				})
+			},
+		)
 	})
 
 	When("the cluster makes use of DNS in the cluster file", func() {
@@ -2083,12 +2360,17 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 					fdbCluster.GetClusterSpec().AutomationOptions.Replacements.FailureDetectionTimeSeconds,
 					90,
 				)) * time.Second
-				Expect(fdbCluster.SetAutoReplacements(false, 30*time.Hour)).ShouldNot(HaveOccurred())
+				Expect(
+					fdbCluster.SetAutoReplacements(false, 30*time.Hour),
+				).ShouldNot(HaveOccurred())
 				// Make sure the operator is not taking any action to prevent any race condition.
 				fdbCluster.SetSkipReconciliation(true)
 
 				// Delete all Pods, including the operator pods.
-				Expect(factory.GetControllerRuntimeClient().DeleteAllOf(context.Background(), &corev1.Pod{}, ctrlClient.InNamespace(fdbCluster.Namespace()))).To(Succeed())
+				Expect(
+					factory.GetControllerRuntimeClient().
+						DeleteAllOf(context.Background(), &corev1.Pod{}, ctrlClient.InNamespace(fdbCluster.Namespace())),
+				).To(Succeed())
 
 				// Make sure the Pods are all deleted.
 				Eventually(func() []corev1.Pod {
@@ -2113,7 +2395,9 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 			AfterEach(func() {
 				fdbCluster.SetSkipReconciliation(false)
-				Expect(fdbCluster.SetAutoReplacements(true, initialReplaceTime)).ShouldNot(HaveOccurred())
+				Expect(
+					fdbCluster.SetAutoReplacements(true, initialReplaceTime),
+				).ShouldNot(HaveOccurred())
 			})
 		})
 	})
@@ -2150,7 +2434,9 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			var newCPURequest, initialCPURequest resource.Quantity
 
 			BeforeEach(func() {
-				initialVolumeClaims = fdbCluster.GetListOfUIDsFromVolumeClaims(fdbv1beta2.ProcessClassStorage)
+				initialVolumeClaims = fdbCluster.GetListOfUIDsFromVolumeClaims(
+					fdbv1beta2.ProcessClassStorage,
+				)
 				spec := fdbCluster.GetCluster().Spec.DeepCopy()
 				initialCPURequest = spec.Processes[fdbv1beta2.ProcessClassStorage].PodTemplate.Spec.Containers[0].Resources.Requests[corev1.ResourceCPU]
 				newCPURequest = initialCPURequest.DeepCopy()
@@ -2176,7 +2462,9 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 			It("should replace all storage pods", func() {
 				// A replacement of a storage pod will create a new PVC. After reconciliation the set of PVCs should be completely changed.
-				Expect(initialVolumeClaims).NotTo(ContainElements(fdbCluster.GetListOfUIDsFromVolumeClaims(fdbv1beta2.ProcessClassStorage)), "PVC should not be present in the new set of PVCs")
+				Expect(
+					initialVolumeClaims,
+				).NotTo(ContainElements(fdbCluster.GetListOfUIDsFromVolumeClaims(fdbv1beta2.ProcessClassStorage)), "PVC should not be present in the new set of PVCs")
 			})
 		})
 	})
@@ -2190,7 +2478,9 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			cluster := fdbCluster.GetCluster()
 			spec := cluster.Spec.DeepCopy()
 			// TODO (johscheuer): Once the new CRD is available change this to ResetMaintenanceMode.
-			spec.AutomationOptions.MaintenanceModeOptions.UseMaintenanceModeChecker = pointer.Bool(true)
+			spec.AutomationOptions.MaintenanceModeOptions.UseMaintenanceModeChecker = pointer.Bool(
+				true,
+			)
 			fdbCluster.UpdateClusterSpecWithSpec(spec)
 
 			for _, processGroup := range cluster.Status.ProcessGroups {
@@ -2208,9 +2498,14 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			key := cluster.GetMaintenancePrefix() + "/" + string(pickedProcessGroup.ProcessGroupID)
 			Eventually(func(g Gomega) error {
 				timestampByteBuffer := new(bytes.Buffer)
-				g.Expect(binary.Write(timestampByteBuffer, binary.LittleEndian, time.Now().Unix())).NotTo(HaveOccurred())
+				g.Expect(binary.Write(timestampByteBuffer, binary.LittleEndian, time.Now().Unix())).
+					NotTo(HaveOccurred())
 				g.Expect(timestampByteBuffer.Bytes()).NotTo(BeEmpty())
-				cmd := fmt.Sprintf("writemode on; option on ACCESS_SYSTEM_KEYS; set %s %s", fixtures.FdbPrintable([]byte(key)), fixtures.FdbPrintable(timestampByteBuffer.Bytes()))
+				cmd := fmt.Sprintf(
+					"writemode on; option on ACCESS_SYSTEM_KEYS; set %s %s",
+					fixtures.FdbPrintable([]byte(key)),
+					fixtures.FdbPrintable(timestampByteBuffer.Bytes()),
+				)
 				_, _, err := fdbCluster.RunFdbCliCommandInOperatorWithoutRetry(cmd, true, 20)
 
 				return err
@@ -2247,7 +2542,9 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		AfterEach(func() {
 			spec := fdbCluster.GetCluster().Spec.DeepCopy()
 			// TODO (johscheuer): Once the new CRD is available change this to ResetMaintenanceMode.
-			spec.AutomationOptions.MaintenanceModeOptions.UseMaintenanceModeChecker = pointer.Bool(false)
+			spec.AutomationOptions.MaintenanceModeOptions.UseMaintenanceModeChecker = pointer.Bool(
+				false,
+			)
 			fdbCluster.UpdateClusterSpecWithSpec(spec)
 		})
 	})
@@ -2356,7 +2653,8 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 					g.Expect(process.Locality).NotTo(BeEmpty())
 					g.Expect(process.Locality).To(HaveKey(localityKey))
 					g.Expect(process.Locality).To(HaveKey(fdbv1beta2.FDBLocalityInstanceIDKey))
-					g.Expect(process.Locality[localityKey]).To(Equal(process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]))
+					g.Expect(process.Locality[localityKey]).
+						To(Equal(process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]))
 				}
 
 				return true
@@ -2404,7 +2702,10 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				return err
 			}, 5*time.Minute).ShouldNot(HaveOccurred())
 
-			exp = factory.InjectPartitionWithExternalTargets(fixtures.PodSelector(&selectedPod), []string{kubernetesServiceHost})
+			exp = factory.InjectPartitionWithExternalTargets(
+				fixtures.PodSelector(&selectedPod),
+				[]string{kubernetesServiceHost},
+			)
 			// Make sure that the partition takes effect.
 			Eventually(func() error {
 				_, _, err := factory.ExecuteCmdOnPod(
@@ -2457,7 +2758,9 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 				var runningProcesses int
 				for _, process := range status.Cluster.Processes {
-					if process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey] != string(selectedProcessGroupID) {
+					if process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey] != string(
+						selectedProcessGroupID,
+					) {
 						continue
 					}
 
@@ -2479,7 +2782,11 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			Expect(restarts).To(BeNumerically("==", initialRestarts))
 
 			// Restart all the processes, to ensure they are running with the expected parameters.
-			stdout, stderr, err := fdbCluster.RunFdbCliCommandInOperatorWithoutRetry("kill; kill all; sleep 10", true, 60)
+			stdout, stderr, err := fdbCluster.RunFdbCliCommandInOperatorWithoutRetry(
+				"kill; kill all; sleep 10",
+				true,
+				60,
+			)
 			log.Println("stdout", stdout, "stderr", stderr, "err", err)
 
 			// Delete the partition, this allows the partitioned Pod to update its annotations again.
@@ -2542,7 +2849,9 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				}
 			}
 
-			Expect(fdbCluster.SetPodTemplateSpec(fdbv1beta2.ProcessClassStorage, spec, true)).NotTo(HaveOccurred())
+			Expect(
+				fdbCluster.SetPodTemplateSpec(fdbv1beta2.ProcessClassStorage, spec, true),
+			).NotTo(HaveOccurred())
 		})
 
 		It("should have enabled the node watch feature on all Pods", func() {
@@ -2596,7 +2905,9 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 			isolatedPod = factory.RandomPickOnePod(fdbCluster.GetStatelessPods().Items)
 			isolatedPod.Annotations[fdbv1beta2.IsolateProcessGroupAnnotation] = "true"
-			Expect(factory.GetControllerRuntimeClient().Update(context.Background(), &isolatedPod)).NotTo(HaveOccurred())
+			Expect(
+				factory.GetControllerRuntimeClient().Update(context.Background(), &isolatedPod),
+			).NotTo(HaveOccurred())
 			fdbCluster.ReplacePod(isolatedPod, false)
 		})
 
@@ -2610,7 +2921,8 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 						continue
 					}
 
-					g.Expect(process.Locality).NotTo(HaveKeyWithValue(fdbv1beta2.FDBLocalityInstanceIDKey, processGroupID))
+					g.Expect(process.Locality).
+						NotTo(HaveKeyWithValue(fdbv1beta2.FDBLocalityInstanceIDKey, processGroupID))
 				}
 
 				return true
@@ -2626,9 +2938,14 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 		AfterEach(func() {
 			pod := &corev1.Pod{}
-			Expect(factory.GetControllerRuntimeClient().Get(context.Background(), ctrlClient.ObjectKey{Name: isolatedPod.Name, Namespace: isolatedPod.Namespace}, pod)).NotTo(HaveOccurred())
+			Expect(
+				factory.GetControllerRuntimeClient().
+					Get(context.Background(), ctrlClient.ObjectKey{Name: isolatedPod.Name, Namespace: isolatedPod.Namespace}, pod),
+			).NotTo(HaveOccurred())
 			pod.Annotations[fdbv1beta2.IsolateProcessGroupAnnotation] = "false"
-			Expect(factory.GetControllerRuntimeClient().Update(context.Background(), pod)).NotTo(HaveOccurred())
+			Expect(
+				factory.GetControllerRuntimeClient().Update(context.Background(), pod),
+			).NotTo(HaveOccurred())
 		})
 	})
 
@@ -2686,7 +3003,12 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		BeforeEach(func() {
 			pickedPod = factory.RandomPickOnePod(fdbCluster.GetStatelessPods().Items)
 			pickedProcessGroupID = fixtures.GetProcessGroupID(pickedPod)
-			log.Println("pickedProcessGroupID", pickedProcessGroupID, "pickedPod", pickedPod.Status.PodIP)
+			log.Println(
+				"pickedProcessGroupID",
+				pickedProcessGroupID,
+				"pickedPod",
+				pickedPod.Status.PodIP,
+			)
 
 			spec := fdbCluster.GetCluster().Spec.DeepCopy()
 			spec.AutomationOptions.RemovalMode = fdbv1beta2.PodUpdateModeNone
@@ -2694,31 +3016,41 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 			fdbCluster.ReplacePod(pickedPod, false)
 			var pickedProcessGroup *fdbv1beta2.ProcessGroupStatus
-			Expect(fdbCluster.WaitUntilWithForceReconcile(1, 900, func(cluster *fdbv1beta2.FoundationDBCluster) bool {
-				for _, processGroup := range cluster.Status.ProcessGroups {
-					if processGroup.ProcessGroupID != pickedProcessGroupID {
-						continue
-					}
+			Expect(
+				fdbCluster.WaitUntilWithForceReconcile(
+					1,
+					900,
+					func(cluster *fdbv1beta2.FoundationDBCluster) bool {
+						for _, processGroup := range cluster.Status.ProcessGroups {
+							if processGroup.ProcessGroupID != pickedProcessGroupID {
+								continue
+							}
 
-					initialExclusionTimestamp = processGroup.ExclusionTimestamp
-					pickedProcessGroup = processGroup
-					break
-				}
+							initialExclusionTimestamp = processGroup.ExclusionTimestamp
+							pickedProcessGroup = processGroup
+							break
+						}
 
-				log.Println("initialExclusionTimestamp", initialExclusionTimestamp)
-				return initialExclusionTimestamp != nil
-			})).NotTo(HaveOccurred(), "process group is missing the exclusion timestamp")
+						log.Println("initialExclusionTimestamp", initialExclusionTimestamp)
+						return initialExclusionTimestamp != nil
+					},
+				),
+			).NotTo(HaveOccurred(), "process group is missing the exclusion timestamp")
 
 			var excludedServer fdbv1beta2.ExcludedServers
 			if fdbCluster.GetCluster().UseLocalitiesForExclusion() {
 				Expect(pickedProcessGroup).NotTo(BeNil())
-				excludedServer = fdbv1beta2.ExcludedServers{Locality: pickedProcessGroup.GetExclusionString()}
+				excludedServer = fdbv1beta2.ExcludedServers{
+					Locality: pickedProcessGroup.GetExclusionString(),
+				}
 			} else {
 				excludedServer = fdbv1beta2.ExcludedServers{Address: pickedPod.Status.PodIP}
 			}
 
 			// Ensure that the IP is excluded
-			Expect(fdbCluster.GetStatus().Cluster.DatabaseConfiguration.ExcludedServers).To(ContainElements(excludedServer))
+			Expect(
+				fdbCluster.GetStatus().Cluster.DatabaseConfiguration.ExcludedServers,
+			).To(ContainElements(excludedServer))
 		})
 
 		AfterEach(func() {
@@ -2736,19 +3068,26 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			It("should be excluded a second time", func() {
 				var newExclusionTimestamp *metav1.Time
 
-				Expect(fdbCluster.WaitUntilWithForceReconcile(1, 900, func(cluster *fdbv1beta2.FoundationDBCluster) bool {
-					for _, processGroup := range cluster.Status.ProcessGroups {
-						if processGroup.ProcessGroupID != pickedProcessGroupID {
-							continue
-						}
+				Expect(
+					fdbCluster.WaitUntilWithForceReconcile(
+						1,
+						900,
+						func(cluster *fdbv1beta2.FoundationDBCluster) bool {
+							for _, processGroup := range cluster.Status.ProcessGroups {
+								if processGroup.ProcessGroupID != pickedProcessGroupID {
+									continue
+								}
 
-						newExclusionTimestamp = processGroup.ExclusionTimestamp
-						log.Println("ProcessGroup:", processGroup.String())
-						break
-					}
+								newExclusionTimestamp = processGroup.ExclusionTimestamp
+								log.Println("ProcessGroup:", processGroup.String())
+								break
+							}
 
-					return newExclusionTimestamp != nil && !newExclusionTimestamp.Equal(initialExclusionTimestamp)
-				})).NotTo(HaveOccurred(), "process group is missing the exclusion timestamp")
+							return newExclusionTimestamp != nil &&
+								!newExclusionTimestamp.Equal(initialExclusionTimestamp)
+						},
+					),
+				).NotTo(HaveOccurred(), "process group is missing the exclusion timestamp")
 				Expect(initialExclusionTimestamp.Before(newExclusionTimestamp)).To(BeTrue())
 				Expect(initialExclusionTimestamp).NotTo(Equal(newExclusionTimestamp))
 			})
@@ -2775,7 +3114,9 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			spec := fdbCluster.GetCluster().Spec.DeepCopy()
 			spec.Routing.PodIPFamily = nil
 			fdbCluster.UpdateClusterSpecWithSpec(spec)
-			Expect(fdbCluster.WaitForReconciliation(fixtures.SoftReconcileOption(true))).To(Succeed())
+			Expect(
+				fdbCluster.WaitForReconciliation(fixtures.SoftReconcileOption(true)),
+			).To(Succeed())
 		})
 
 		It("should replace all pods and configure them properly", func() {
@@ -2789,12 +3130,21 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				}
 
 				if pod.Status.Phase != corev1.PodRunning {
-					log.Println("ignoring pod:", pod.Name, "with pod phase", pod.Status.Phase, "message:", pod.Status.Message)
+					log.Println(
+						"ignoring pod:",
+						pod.Name,
+						"with pod phase",
+						pod.Status.Phase,
+						"message:",
+						pod.Status.Message,
+					)
 					continue
 				}
 
 				newPods = append(newPods, pod.Name)
-				Expect(pod.Annotations).To(HaveKeyWithValue(fdbv1beta2.IPFamilyAnnotation, podIPFamilyString))
+				Expect(
+					pod.Annotations,
+				).To(HaveKeyWithValue(fdbv1beta2.IPFamilyAnnotation, podIPFamilyString))
 			}
 
 			Expect(newPods).NotTo(ContainElements(initialPods))

@@ -49,7 +49,10 @@ var _ = Describe("[plugin] update connection string command", func() {
 		outBuffer = bytes.Buffer{}
 		errBuffer = bytes.Buffer{}
 		inBuffer = bytes.Buffer{}
-		cmd = NewRootCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer}, &MockVersionChecker{})
+		cmd = NewRootCmd(
+			genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer},
+			&MockVersionChecker{},
+		)
 		initialConnectionString = cluster.Status.ConnectionString
 	})
 
@@ -89,15 +92,32 @@ var _ = Describe("[plugin] update connection string command", func() {
 				Expect(outBuffer.String()).To(BeEmpty())
 
 				fetchedCluster := &fdbv1beta2.FoundationDBCluster{}
-				Expect(k8sClient.Get(context.Background(), ctrlClient.ObjectKeyFromObject(cluster), fetchedCluster)).To(Succeed())
+				Expect(
+					k8sClient.Get(
+						context.Background(),
+						ctrlClient.ObjectKeyFromObject(cluster),
+						fetchedCluster,
+					),
+				).To(Succeed())
 
 				Expect(fetchedCluster.Status.ConnectionString).To(Equal(connectionString))
 				Expect(fetchedCluster.Status.ConnectionString).NotTo(Equal(initialConnectionString))
 
 				fetchedConfigMap := &corev1.ConfigMap{}
-				Expect(k8sClient.Get(context.Background(), ctrlClient.ObjectKey{Namespace: cluster.Namespace, Name: fmt.Sprintf("%s-config", cluster.Name)}, fetchedConfigMap)).To(Succeed())
+				Expect(
+					k8sClient.Get(
+						context.Background(),
+						ctrlClient.ObjectKey{
+							Namespace: cluster.Namespace,
+							Name:      fmt.Sprintf("%s-config", cluster.Name),
+						},
+						fetchedConfigMap,
+					),
+				).To(Succeed())
 				Expect(fetchedConfigMap.Data).To(HaveLen(1))
-				Expect(fetchedConfigMap.Data).To(HaveKeyWithValue(fdbv1beta2.ClusterFileKey, connectionString))
+				Expect(
+					fetchedConfigMap.Data,
+				).To(HaveKeyWithValue(fdbv1beta2.ClusterFileKey, connectionString))
 			})
 		})
 
@@ -106,9 +126,12 @@ var _ = Describe("[plugin] update connection string command", func() {
 				connectionString = "test-invalid@127.0.0.1:4500"
 			})
 
-			It("should return an error with the information that the connection string is invalid", func() {
-				Expect(err).To(MatchError(ContainSubstring("invalid connection string")))
-			})
+			It(
+				"should return an error with the information that the connection string is invalid",
+				func() {
+					Expect(err).To(MatchError(ContainSubstring("invalid connection string")))
+				},
+			)
 		})
 	})
 })

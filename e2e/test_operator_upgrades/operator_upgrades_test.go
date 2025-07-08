@@ -61,7 +61,11 @@ var _ = AfterSuite(func() {
 	}
 })
 
-func clusterSetupWithConfig(beforeVersion string, availabilityCheck bool, config *fixtures.ClusterConfig) {
+func clusterSetupWithConfig(
+	beforeVersion string,
+	availabilityCheck bool,
+	config *fixtures.ClusterConfig,
+) {
 	factory.SetBeforeVersion(beforeVersion)
 	fdbCluster = factory.CreateFdbCluster(
 		config,
@@ -263,7 +267,11 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 			fdbCluster.SetCrashLoopContainers([]fdbv1beta2.CrashLoopContainerObject{
 				{
 					ContainerName: fdbv1beta2.SidecarContainerName,
-					Targets:       []fdbv1beta2.ProcessGroupID{fdbv1beta2.ProcessGroupID(pickedPod.Labels[fdbv1beta2.FDBProcessGroupIDLabel])},
+					Targets: []fdbv1beta2.ProcessGroupID{
+						fdbv1beta2.ProcessGroupID(
+							pickedPod.Labels[fdbv1beta2.FDBProcessGroupIDLabel],
+						),
+					},
 				},
 			}, false)
 			log.Println("Crash injected in pod:", pickedPod.Name)
@@ -273,7 +281,14 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 				pod := fdbCluster.GetPod(pickedPod.Name)
 				for _, container := range pod.Spec.Containers {
 					if container.Name == fdbv1beta2.SidecarContainerName {
-						log.Println("Container:", container.Name, "Args:", container.Args, "Phase:", pod.Status.Phase)
+						log.Println(
+							"Container:",
+							container.Name,
+							"Args:",
+							container.Args,
+							"Phase:",
+							pod.Status.Phase,
+						)
 						g.Expect(container.Args[0]).To(Equal("crash-loop"))
 					}
 				}
@@ -351,7 +366,9 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 			)
 			fdbCluster.SetIgnoreDuringRestart(
 				[]fdbv1beta2.ProcessGroupID{
-					fdbv1beta2.ProcessGroupID(selectedCoordinator.Labels[fdbCluster.GetCachedCluster().GetProcessGroupIDLabel()]),
+					fdbv1beta2.ProcessGroupID(
+						selectedCoordinator.Labels[fdbCluster.GetCachedCluster().GetProcessGroupIDLabel()],
+					),
 				},
 			)
 
@@ -398,14 +415,18 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 			for _, pod := range selectedStatelessPods {
 				ignoreDuringRestart = append(
 					ignoreDuringRestart,
-					fdbv1beta2.ProcessGroupID(pod.Labels[fdbCluster.GetCachedCluster().GetProcessGroupIDLabel()]),
+					fdbv1beta2.ProcessGroupID(
+						pod.Labels[fdbCluster.GetCachedCluster().GetProcessGroupIDLabel()],
+					),
 				)
 			}
 
 			for _, pod := range selectedLogPods {
 				ignoreDuringRestart = append(
 					ignoreDuringRestart,
-					fdbv1beta2.ProcessGroupID(pod.Labels[fdbCluster.GetCachedCluster().GetProcessGroupIDLabel()]),
+					fdbv1beta2.ProcessGroupID(
+						pod.Labels[fdbCluster.GetCachedCluster().GetProcessGroupIDLabel()],
+					),
 				)
 			}
 
@@ -440,7 +461,9 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 			for _, coordinator := range coordinators {
 				ignoreDuringRestart = append(
 					ignoreDuringRestart,
-					fdbv1beta2.ProcessGroupID(coordinator.Labels[fdbCluster.GetCachedCluster().GetProcessGroupIDLabel()]),
+					fdbv1beta2.ProcessGroupID(
+						coordinator.Labels[fdbCluster.GetCachedCluster().GetProcessGroupIDLabel()],
+					),
 				)
 			}
 
@@ -496,7 +519,9 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 			processGroupMarkedForRemoval := fixtures.GetProcessGroupID(podMarkedForRemoval)
 			log.Println("picked Pod", podMarkedForRemoval.Name, "to be marked for removal")
 			// Use the buggify option to block the actual removal.
-			fdbCluster.SetBuggifyBlockRemoval([]fdbv1beta2.ProcessGroupID{processGroupMarkedForRemoval})
+			fdbCluster.SetBuggifyBlockRemoval(
+				[]fdbv1beta2.ProcessGroupID{processGroupMarkedForRemoval},
+			)
 			// Don't wait for reconciliation as the cluster will never reconcile.
 			fdbCluster.ReplacePod(podMarkedForRemoval, false)
 			// Make sure the process group is marked for removal
@@ -596,7 +621,9 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 
 			// Make sure the other processes are updated to the new image and the operator is able to proceed with the upgrade.
 			// We allow soft reconciliation here since the terminating Pod will block the "full" reconciliation
-			Expect(fdbCluster.WaitForReconciliation(fixtures.SoftReconcileOption(true))).NotTo(HaveOccurred())
+			Expect(
+				fdbCluster.WaitForReconciliation(fixtures.SoftReconcileOption(true)),
+			).NotTo(HaveOccurred())
 
 			// Make sure we remove the finalizer to not block the clean up.
 			factory.SetFinalizerForPod(&podMarkedForRemoval, []string{})
@@ -643,8 +670,20 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 
 			Expect(storageProcessGroupUnderMaintenance).NotTo(BeNil())
 			Expect(storageProcessGroupUnderMaintenance.FaultDomain).NotTo(BeEmpty())
-			log.Println("picked process group", storageProcessGroupUnderMaintenance.ProcessGroupID, "to be under maintenance with fault domain:", storageProcessGroupUnderMaintenance.FaultDomain)
-			_, _ = fdbCluster.RunFdbCliCommandInOperator(fmt.Sprintf("maintenance on %s 3600", storageProcessGroupUnderMaintenance.FaultDomain), false, 30)
+			log.Println(
+				"picked process group",
+				storageProcessGroupUnderMaintenance.ProcessGroupID,
+				"to be under maintenance with fault domain:",
+				storageProcessGroupUnderMaintenance.FaultDomain,
+			)
+			_, _ = fdbCluster.RunFdbCliCommandInOperator(
+				fmt.Sprintf(
+					"maintenance on %s 3600",
+					storageProcessGroupUnderMaintenance.FaultDomain,
+				),
+				false,
+				30,
+			)
 
 			// Make sure the machine-readable status reflects the maintenance mode
 			Eventually(func() fdbv1beta2.FaultDomain {
@@ -703,7 +742,10 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 				return err
 			}, 5*time.Minute).ShouldNot(HaveOccurred())
 
-			exp := factory.InjectPartitionWithExternalTargets(fixtures.PodSelector(&selectedPod), []string{kubernetesServiceHost})
+			exp := factory.InjectPartitionWithExternalTargets(
+				fixtures.PodSelector(&selectedPod),
+				[]string{kubernetesServiceHost},
+			)
 			// Make sure that the partition takes effect.
 			Eventually(func() error {
 				_, _, err := factory.ExecuteCmdOnPod(

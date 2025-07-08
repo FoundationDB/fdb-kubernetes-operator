@@ -57,7 +57,9 @@ var _ = Describe("update_pods", func() {
 			result, err := reconcileCluster(cluster)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result.Requeue).To(BeFalse())
-			Expect(k8sClient.Get(context.TODO(), ctrlClient.ObjectKeyFromObject(cluster), cluster)).NotTo(HaveOccurred())
+			Expect(
+				k8sClient.Get(context.TODO(), ctrlClient.ObjectKeyFromObject(cluster), cluster),
+			).NotTo(HaveOccurred())
 
 			updates = map[string][]*corev1.Pod{
 				"zone1": {
@@ -65,7 +67,9 @@ var _ = Describe("update_pods", func() {
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "Pod1",
 							Labels: map[string]string{
-								fdbv1beta2.FDBProcessClassLabel: string(fdbv1beta2.ProcessClassStorage),
+								fdbv1beta2.FDBProcessClassLabel: string(
+									fdbv1beta2.ProcessClassStorage,
+								),
 							},
 						},
 					},
@@ -73,7 +77,9 @@ var _ = Describe("update_pods", func() {
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "Pod2",
 							Labels: map[string]string{
-								fdbv1beta2.FDBProcessClassLabel: string(fdbv1beta2.ProcessClassStorage),
+								fdbv1beta2.FDBProcessClassLabel: string(
+									fdbv1beta2.ProcessClassStorage,
+								),
 							},
 						},
 					},
@@ -83,7 +89,9 @@ var _ = Describe("update_pods", func() {
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "Pod3",
 							Labels: map[string]string{
-								fdbv1beta2.FDBProcessClassLabel: string(fdbv1beta2.ProcessClassStorage),
+								fdbv1beta2.FDBProcessClassLabel: string(
+									fdbv1beta2.ProcessClassStorage,
+								),
 							},
 						},
 					},
@@ -91,7 +99,9 @@ var _ = Describe("update_pods", func() {
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "Pod4",
 							Labels: map[string]string{
-								fdbv1beta2.FDBProcessClassLabel: string(fdbv1beta2.ProcessClassStorage),
+								fdbv1beta2.FDBProcessClassLabel: string(
+									fdbv1beta2.ProcessClassStorage,
+								),
 							},
 						},
 					},
@@ -101,7 +111,12 @@ var _ = Describe("update_pods", func() {
 
 		DescribeTable("should delete the Pods based on the deletion mode",
 			func(input testCase) {
-				_, deletion, err := getPodsToDelete(&fdbv1beta2.FoundationDBCluster{}, input.deletionMode, updates, input.maintenanceZone)
+				_, deletion, err := getPodsToDelete(
+					&fdbv1beta2.FoundationDBCluster{},
+					input.deletionMode,
+					updates,
+					input.maintenanceZone,
+				)
 				if input.expectedErr != nil {
 					Expect(err).To(Equal(input.expectedErr))
 				}
@@ -160,10 +175,18 @@ var _ = Describe("update_pods", func() {
 			})
 
 			It("should not perform any updates and requeue", func() {
-				result := updatePods{}.reconcile(context.Background(), clusterReconciler, cluster, nil, testLogger)
+				result := updatePods{}.reconcile(
+					context.Background(),
+					clusterReconciler,
+					cluster,
+					nil,
+					testLogger,
+				)
 				Expect(result).NotTo(BeNil())
 				Expect(result.delayedRequeue).To(BeTrue())
-				Expect(result.message).To(Equal("Pod updates are skipped because of an ongoing version incompatible upgrade"))
+				Expect(
+					result.message,
+				).To(Equal("Pod updates are skipped because of an ongoing version incompatible upgrade"))
 			})
 		})
 	})
@@ -236,7 +259,9 @@ var _ = Describe("update_pods", func() {
 				cluster = &fdbv1beta2.FoundationDBCluster{
 					Spec: fdbv1beta2.FoundationDBClusterSpec{
 						AutomationOptions: fdbv1beta2.FoundationDBClusterAutomationOptions{
-							IgnoreTerminatingPodsSeconds: pointer.Int(int(5 * time.Minute.Seconds())),
+							IgnoreTerminatingPodsSeconds: pointer.Int(
+								int(5 * time.Minute.Seconds()),
+							),
 						},
 					},
 				}
@@ -266,13 +291,20 @@ var _ = Describe("update_pods", func() {
 			result, err := reconcileCluster(cluster)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result.Requeue).To(BeFalse())
-			Expect(k8sClient.Get(context.TODO(), ctrlClient.ObjectKeyFromObject(cluster), cluster)).NotTo(HaveOccurred())
+			Expect(
+				k8sClient.Get(context.TODO(), ctrlClient.ObjectKeyFromObject(cluster), cluster),
+			).NotTo(HaveOccurred())
 
 			processGroup = internal.PickProcessGroups(cluster, fdbv1beta2.ProcessClassStorage, 1)[0]
 		})
 
 		JustBeforeEach(func() {
-			processGroupsWithFaultDomains = getFaultDomainsWithUnavailablePods(context.Background(), globalControllerLogger, clusterReconciler, cluster)
+			processGroupsWithFaultDomains = getFaultDomainsWithUnavailablePods(
+				context.Background(),
+				globalControllerLogger,
+				clusterReconciler,
+				cluster,
+			)
 		})
 
 		When("a Process Group has a Pod with pending condition", func() {
@@ -307,10 +339,20 @@ var _ = Describe("update_pods", func() {
 
 		When("a Process Group has a Pod marked for deletion", func() {
 			BeforeEach(func() {
-				pods, err := clusterReconciler.PodLifecycleManager.GetPods(context.TODO(), clusterReconciler, cluster, internal.GetSinglePodListOptions(cluster, processGroup.ProcessGroupID)...)
+				pods, err := clusterReconciler.PodLifecycleManager.GetPods(
+					context.TODO(),
+					clusterReconciler,
+					cluster,
+					internal.GetSinglePodListOptions(cluster, processGroup.ProcessGroupID)...)
 				Expect(err).NotTo(HaveOccurred())
 				pods[0].DeletionTimestamp = &metav1.Time{Time: time.Now()}
-				err = clusterReconciler.PodLifecycleManager.UpdatePods(context.TODO(), clusterReconciler, cluster, []*corev1.Pod{pods[0]}, true)
+				err = clusterReconciler.PodLifecycleManager.UpdatePods(
+					context.TODO(),
+					clusterReconciler,
+					cluster,
+					[]*corev1.Pod{pods[0]},
+					true,
+				)
 				Expect(err).NotTo(HaveOccurred())
 			})
 			It("should be marked as unavailable", func() {
@@ -320,9 +362,17 @@ var _ = Describe("update_pods", func() {
 
 		When("a Process Group has no matching Pod", func() {
 			BeforeEach(func() {
-				pods, err := clusterReconciler.PodLifecycleManager.GetPods(context.TODO(), clusterReconciler, cluster, internal.GetSinglePodListOptions(cluster, processGroup.ProcessGroupID)...)
+				pods, err := clusterReconciler.PodLifecycleManager.GetPods(
+					context.TODO(),
+					clusterReconciler,
+					cluster,
+					internal.GetSinglePodListOptions(cluster, processGroup.ProcessGroupID)...)
 				Expect(err).NotTo(HaveOccurred())
-				err = clusterReconciler.PodLifecycleManager.DeletePod(context.TODO(), clusterReconciler, pods[0])
+				err = clusterReconciler.PodLifecycleManager.DeletePod(
+					context.TODO(),
+					clusterReconciler,
+					pods[0],
+				)
 				Expect(err).NotTo(HaveOccurred())
 			})
 			It("should be marked as unavailable", func() {
@@ -347,7 +397,13 @@ var _ = Describe("update_pods", func() {
 			status, err := adminClient.GetStatus()
 			Expect(err).NotTo(HaveOccurred())
 			clusterReconciler.SimulationOptions.SimulateZones = false
-			updates, updateErr = getPodsToUpdate(context.Background(), globalControllerLogger, clusterReconciler, cluster, getProcessesByProcessGroup(cluster, status))
+			updates, updateErr = getPodsToUpdate(
+				context.Background(),
+				globalControllerLogger,
+				clusterReconciler,
+				cluster,
+				getProcessesByProcessGroup(cluster, status),
+			)
 		})
 
 		When("the cluster has no changes", func() {
@@ -378,7 +434,9 @@ var _ = Describe("update_pods", func() {
 		When("there is a spec change for all processes", func() {
 			BeforeEach(func() {
 				storageSettings := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
-				storageSettings.PodTemplate.Spec.Tolerations = []corev1.Toleration{{Key: "test", Operator: "Exists", Effect: "NoSchedule"}}
+				storageSettings.PodTemplate.Spec.Tolerations = []corev1.Toleration{
+					{Key: "test", Operator: "Exists", Effect: "NoSchedule"},
+				}
 				cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral] = storageSettings
 				Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
 			})
@@ -412,7 +470,10 @@ var _ = Describe("update_pods", func() {
 				When("the process group has a MissingPod condition less than 90 seconds", func() {
 					BeforeEach(func() {
 						picked.UpdateCondition(fdbv1beta2.MissingPod, true)
-						picked.UpdateConditionTime(fdbv1beta2.MissingPod, time.Now().Add(-50*time.Second).Unix())
+						picked.UpdateConditionTime(
+							fdbv1beta2.MissingPod,
+							time.Now().Add(-50*time.Second).Unix(),
+						)
 					})
 
 					It("should return an error and an empty map", func() {
@@ -421,17 +482,23 @@ var _ = Describe("update_pods", func() {
 					})
 				})
 
-				When("the process group has a MissingPod condition for more than 90 seconds", func() {
-					BeforeEach(func() {
-						picked.UpdateCondition(fdbv1beta2.MissingPod, true)
-						picked.UpdateConditionTime(fdbv1beta2.MissingPod, time.Now().Add(-120*time.Second).Unix())
-					})
+				When(
+					"the process group has a MissingPod condition for more than 90 seconds",
+					func() {
+						BeforeEach(func() {
+							picked.UpdateCondition(fdbv1beta2.MissingPod, true)
+							picked.UpdateConditionTime(
+								fdbv1beta2.MissingPod,
+								time.Now().Add(-120*time.Second).Unix(),
+							)
+						})
 
-					It("should return no error updates", func() {
-						Expect(updates).To(HaveLen(3))
-						Expect(updateErr).NotTo(HaveOccurred())
-					})
-				})
+						It("should return no error updates", func() {
+							Expect(updates).To(HaveLen(3))
+							Expect(updateErr).NotTo(HaveOccurred())
+						})
+					},
+				)
 			})
 
 			When("a Pod was recently created", func() {
@@ -441,7 +508,14 @@ var _ = Describe("update_pods", func() {
 					picked = internal.PickProcessGroups(cluster, fdbv1beta2.ProcessClassStorage, 1)[0]
 
 					podList := &corev1.PodList{}
-					Expect(k8sClient.List(context.Background(), podList, ctrlClient.InNamespace(cluster.Namespace), ctrlClient.MatchingLabels(cluster.GetMatchLabels()))).To(Succeed())
+					Expect(
+						k8sClient.List(
+							context.Background(),
+							podList,
+							ctrlClient.InNamespace(cluster.Namespace),
+							ctrlClient.MatchingLabels(cluster.GetMatchLabels()),
+						),
+					).To(Succeed())
 
 					for _, pod := range podList.Items {
 						currentPod := pod.DeepCopy()
@@ -490,49 +564,79 @@ var _ = Describe("update_pods", func() {
 
 					It("should return an error and an empty map", func() {
 						Expect(updates).To(HaveLen(0))
-						Expect(updateErr).To(MatchError(And(ContainSubstring("was recently created and the processes are not yet running"), ContainSubstring(string(picked.ProcessGroupID)))))
+						Expect(
+							updateErr,
+						).To(MatchError(And(ContainSubstring("was recently created and the processes are not yet running"), ContainSubstring(string(picked.ProcessGroupID)))))
 					})
 				})
 
-				When("the process is running but the uptime seconds is greater than the pod uptime ", func() {
-					It("should return an error and an empty map", func() {
-						Expect(updates).To(HaveLen(0))
-						Expect(updateErr).To(MatchError(And(ContainSubstring("was recently created but the process uptime reports old uptime"), ContainSubstring(string(picked.ProcessGroupID)))))
-					})
-				})
+				When(
+					"the process is running but the uptime seconds is greater than the pod uptime ",
+					func() {
+						It("should return an error and an empty map", func() {
+							Expect(updates).To(HaveLen(0))
+							Expect(
+								updateErr,
+							).To(MatchError(And(ContainSubstring("was recently created but the process uptime reports old uptime"), ContainSubstring(string(picked.ProcessGroupID)))))
+						})
+					},
+				)
 
-				When("the process is running and the uptime seconds is less than the pod uptime ", func() {
-					BeforeEach(func() {
-						pod := &corev1.Pod{}
-						Expect(k8sClient.Get(context.Background(), ctrlClient.ObjectKey{Name: picked.GetPodName(cluster), Namespace: cluster.Namespace}, pod)).To(Succeed())
+				When(
+					"the process is running and the uptime seconds is less than the pod uptime ",
+					func() {
+						BeforeEach(func() {
+							pod := &corev1.Pod{}
+							Expect(
+								k8sClient.Get(
+									context.Background(),
+									ctrlClient.ObjectKey{
+										Name:      picked.GetPodName(cluster),
+										Namespace: cluster.Namespace,
+									},
+									pod,
+								),
+							).To(Succeed())
 
-						pod.CreationTimestamp = metav1.NewTime(time.Now().Add(-6 * time.Hour))
-						Expect(k8sClient.Delete(context.Background(), pod)).To(Succeed())
+							pod.CreationTimestamp = metav1.NewTime(time.Now().Add(-6 * time.Hour))
+							Expect(k8sClient.Delete(context.Background(), pod)).To(Succeed())
 
-						creationTimestamp := time.Now().Add(-24 * time.Hour)
-						// We have to recreate the pod
-						pod.ObjectMeta = metav1.ObjectMeta{
-							Name:        pod.Name,
-							Namespace:   pod.Namespace,
-							Annotations: pod.Annotations,
-							Labels:      pod.Labels,
-							// Default uptime is 60000 seconds.
-							CreationTimestamp: metav1.NewTime(creationTimestamp),
-						}
+							creationTimestamp := time.Now().Add(-24 * time.Hour)
+							// We have to recreate the pod
+							pod.ObjectMeta = metav1.ObjectMeta{
+								Name:        pod.Name,
+								Namespace:   pod.Namespace,
+								Annotations: pod.Annotations,
+								Labels:      pod.Labels,
+								// Default uptime is 60000 seconds.
+								CreationTimestamp: metav1.NewTime(creationTimestamp),
+							}
 
-						// Recreate Pod
-						Expect(k8sClient.Create(context.Background(), pod)).To(Succeed())
+							// Recreate Pod
+							Expect(k8sClient.Create(context.Background(), pod)).To(Succeed())
 
-						newPod := &corev1.Pod{}
-						Expect(k8sClient.Get(context.Background(), ctrlClient.ObjectKey{Name: picked.GetPodName(cluster), Namespace: cluster.Namespace}, newPod)).To(Succeed())
-						Expect(newPod.CreationTimestamp.Time.Unix()).To(Equal(creationTimestamp.Unix()))
-					})
+							newPod := &corev1.Pod{}
+							Expect(
+								k8sClient.Get(
+									context.Background(),
+									ctrlClient.ObjectKey{
+										Name:      picked.GetPodName(cluster),
+										Namespace: cluster.Namespace,
+									},
+									newPod,
+								),
+							).To(Succeed())
+							Expect(
+								newPod.CreationTimestamp.Time.Unix(),
+							).To(Equal(creationTimestamp.Unix()))
+						})
 
-					It("should return not error", func() {
-						Expect(updates).To(HaveLen(4))
-						Expect(updateErr).NotTo(HaveOccurred())
-					})
-				})
+						It("should return not error", func() {
+							Expect(updates).To(HaveLen(4))
+							Expect(updateErr).NotTo(HaveOccurred())
+						})
+					},
+				)
 			})
 		})
 
@@ -554,7 +658,10 @@ var _ = Describe("update_pods", func() {
 		When("two process groups have with pods in pending state", func() {
 			BeforeEach(func() {
 				for _, processGroup := range internal.PickProcessGroups(cluster, fdbv1beta2.ProcessClassStorage, 2) {
-					processGroup.ProcessGroupConditions = append(processGroup.ProcessGroupConditions, fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.PodPending))
+					processGroup.ProcessGroupConditions = append(
+						processGroup.ProcessGroupConditions,
+						fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.PodPending),
+					)
 				}
 			})
 
@@ -563,7 +670,9 @@ var _ = Describe("update_pods", func() {
 					cluster.Spec.MaxZonesWithUnavailablePods = pointer.Int(3)
 					// Update all processes
 					settings := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
-					settings.PodTemplate.Spec.Tolerations = []corev1.Toleration{{Key: "test", Operator: "Exists", Effect: "NoSchedule"}}
+					settings.PodTemplate.Spec.Tolerations = []corev1.Toleration{
+						{Key: "test", Operator: "Exists", Effect: "NoSchedule"},
+					}
 					cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral] = settings
 					Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
 				})
@@ -582,7 +691,9 @@ var _ = Describe("update_pods", func() {
 					if settings.PodTemplate == nil {
 						settings.PodTemplate = &corev1.PodTemplateSpec{}
 					}
-					settings.PodTemplate.Spec.Tolerations = []corev1.Toleration{{Key: "test", Operator: "Exists", Effect: "NoSchedule"}}
+					settings.PodTemplate.Spec.Tolerations = []corev1.Toleration{
+						{Key: "test", Operator: "Exists", Effect: "NoSchedule"},
+					}
 					cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral] = settings
 					Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
 				})
@@ -598,7 +709,9 @@ var _ = Describe("update_pods", func() {
 					cluster.Spec.MaxZonesWithUnavailablePods = pointer.Int(1)
 					// Update all processes
 					settings := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
-					settings.PodTemplate.Spec.Tolerations = []corev1.Toleration{{Key: "test", Operator: "Exists", Effect: "NoSchedule"}}
+					settings.PodTemplate.Spec.Tolerations = []corev1.Toleration{
+						{Key: "test", Operator: "Exists", Effect: "NoSchedule"},
+					}
 					cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral] = settings
 					Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
 				})

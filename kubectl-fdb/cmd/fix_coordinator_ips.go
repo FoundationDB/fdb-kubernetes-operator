@@ -100,7 +100,11 @@ func newFixCoordinatorIPsCmd(streams genericclioptions.IOStreams) *cobra.Command
 
 // updateIPsInConnectionString updates the connection string in the cluster
 // status by replacing old coordinator IPs with the latest IPs.
-func updateIPsInConnectionString(cmd *cobra.Command, cluster *fdbv1beta2.FoundationDBCluster, kubeClient client.Client) error {
+func updateIPsInConnectionString(
+	cmd *cobra.Command,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	kubeClient client.Client,
+) error {
 	connectionString, err := fdbv1beta2.ParseConnectionString(cluster.Status.ConnectionString)
 	if err != nil {
 		return err
@@ -123,7 +127,11 @@ func updateIPsInConnectionString(cmd *cobra.Command, cluster *fdbv1beta2.Foundat
 				if address == coordinatorAddress.IPAddress.String() {
 					coordinatorProcessGroup[coordinatorAddress.MachineAddress()] = processGroup
 
-					cmd.Println(coordinatorAddress.MachineAddress(), "is associated with process group:", processGroup.ProcessGroupID)
+					cmd.Println(
+						coordinatorAddress.MachineAddress(),
+						"is associated with process group:",
+						processGroup.ProcessGroupID,
+					)
 					processGroupFound = true
 				}
 				break
@@ -143,18 +151,32 @@ func updateIPsInConnectionString(cmd *cobra.Command, cluster *fdbv1beta2.Foundat
 		if !ok {
 			// Keep the old address if the coordinator process group is missing.
 			newCoordinators[coordinatorIndex] = coordinatorAddress.String()
-			cmd.Println("ProcessGroup for", coordinatorAddress.MachineAddress(), "is missing in the FoundationDBCluster status, coordinator address will not be updated")
+			cmd.Println(
+				"ProcessGroup for",
+				coordinatorAddress.MachineAddress(),
+				"is missing in the FoundationDBCluster status, coordinator address will not be updated",
+			)
 			continue
 		}
 
 		// Fetch the IP address from the running Pod, if the Pod doesn't exist or is not running, we fall back to the process group address.
 		pod := &corev1.Pod{}
-		kubeErr := kubeClient.Get(cmd.Context(), client.ObjectKey{Name: processGroup.GetPodName(cluster), Namespace: cluster.Namespace}, pod)
+		kubeErr := kubeClient.Get(
+			cmd.Context(),
+			client.ObjectKey{Name: processGroup.GetPodName(cluster), Namespace: cluster.Namespace},
+			pod,
+		)
 		if k8serrors.IsNotFound(kubeErr) || len(pod.Status.PodIPs) == 0 {
-			cmd.Println("Pod for process group", processGroup.ProcessGroupID, "not found will try to read information from FoundationDBCluster status")
+			cmd.Println(
+				"Pod for process group",
+				processGroup.ProcessGroupID,
+				"not found will try to read information from FoundationDBCluster status",
+			)
 			for _, address := range processGroup.Addresses {
 				if address == coordinatorAddress.IPAddress.String() {
-					coordinatorAddress.IPAddress = net.ParseIP(processGroup.Addresses[len(processGroup.Addresses)-1])
+					coordinatorAddress.IPAddress = net.ParseIP(
+						processGroup.Addresses[len(processGroup.Addresses)-1],
+					)
 				}
 			}
 		} else { // Update the Coordinator address from the running Pod information.
@@ -182,7 +204,13 @@ func updateIPsInConnectionString(cmd *cobra.Command, cluster *fdbv1beta2.Foundat
 	return nil
 }
 
-func runFixCoordinatorIPs(cmd *cobra.Command, kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluster, config *rest.Config, dryRun bool) error {
+func runFixCoordinatorIPs(
+	cmd *cobra.Command,
+	kubeClient client.Client,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	config *rest.Config,
+	dryRun bool,
+) error {
 	cmd.Println("Current connection string:", cluster.Status.ConnectionString)
 	patch := client.MergeFrom(cluster.DeepCopy())
 	err := updateIPsInConnectionString(cmd, cluster, kubeClient)
@@ -196,7 +224,10 @@ func runFixCoordinatorIPs(cmd *cobra.Command, kubeClient client.Client, cluster 
 		return err
 	}
 
-	command := fmt.Sprintf("echo %s > /var/fdb/data/fdb.cluster && pkill fdbserver", cluster.Status.ConnectionString)
+	command := fmt.Sprintf(
+		"echo %s > /var/fdb/data/fdb.cluster && pkill fdbserver",
+		cluster.Status.ConnectionString,
+	)
 	for _, pod := range pods.Items {
 		if dryRun {
 			log.Println("update command:", command, "on Pod:", pod.Name)
@@ -204,7 +235,15 @@ func runFixCoordinatorIPs(cmd *cobra.Command, kubeClient client.Client, cluster 
 		}
 
 		targetPod := pod
-		_, stderr, cmdErr := kubeHelper.ExecuteCommandOnPod(cmd.Context(), kubeClient, config, &targetPod, fdbv1beta2.MainContainerName, command, false)
+		_, stderr, cmdErr := kubeHelper.ExecuteCommandOnPod(
+			cmd.Context(),
+			kubeClient,
+			config,
+			&targetPod,
+			fdbv1beta2.MainContainerName,
+			command,
+			false,
+		)
 
 		if cmdErr != nil {
 			log.Println(stderr)

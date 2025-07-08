@@ -36,13 +36,23 @@ import (
 type addPods struct{}
 
 // reconcile runs the reconciler's work.
-func (a addPods) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, _ *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
+func (a addPods) reconcile(
+	ctx context.Context,
+	r *FoundationDBClusterReconciler,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	_ *fdbv1beta2.FoundationDBStatus,
+	logger logr.Logger,
+) *requeue {
 	configMap, err := internal.GetConfigMap(cluster)
 	if err != nil {
 		return &requeue{curError: err}
 	}
 	existingConfigMap := &corev1.ConfigMap{}
-	err = r.Get(ctx, types.NamespacedName{Namespace: configMap.Namespace, Name: configMap.Name}, existingConfigMap)
+	err = r.Get(
+		ctx,
+		types.NamespacedName{Namespace: configMap.Namespace, Name: configMap.Name},
+		existingConfigMap,
+	)
 	if err != nil && k8serrors.IsNotFound(err) {
 		logger.Info("Creating config map", "name", configMap.Name)
 		err = r.Create(ctx, configMap)
@@ -78,7 +88,16 @@ func (a addPods) reconcile(ctx context.Context, r *FoundationDBClusterReconciler
 
 		pod, err := internal.GetPod(cluster, processGroup)
 		if err != nil {
-			r.Recorder.Event(cluster, corev1.EventTypeWarning, "GetPod", fmt.Sprintf("failed to get the PodSpec for %s with error: %s", processGroup.ProcessGroupID, err))
+			r.Recorder.Event(
+				cluster,
+				corev1.EventTypeWarning,
+				"GetPod",
+				fmt.Sprintf(
+					"failed to get the PodSpec for %s with error: %s",
+					processGroup.ProcessGroupID,
+					err,
+				),
+			)
 			return &requeue{curError: err}
 		}
 
@@ -87,7 +106,12 @@ func (a addPods) reconcile(ctx context.Context, r *FoundationDBClusterReconciler
 			return &requeue{curError: err}
 		}
 
-		configMapHash, err := internal.GetDynamicConfHash(configMap, processGroup.ProcessClass, internal.GetImageType(pod), serverPerPod)
+		configMapHash, err := internal.GetDynamicConfHash(
+			configMap,
+			processGroup.ProcessClass,
+			internal.GetImageType(pod),
+			serverPerPod,
+		)
 		if err != nil {
 			return &requeue{curError: err}
 		}
@@ -96,14 +120,24 @@ func (a addPods) reconcile(ctx context.Context, r *FoundationDBClusterReconciler
 
 		if cluster.GetPublicIPSource() == fdbv1beta2.PublicIPSourceService {
 			service := &corev1.Service{}
-			err = r.Get(ctx, types.NamespacedName{Namespace: pod.Namespace, Name: pod.Name}, service)
+			err = r.Get(
+				ctx,
+				types.NamespacedName{Namespace: pod.Namespace, Name: pod.Name},
+				service,
+			)
 			if err != nil {
 				return &requeue{curError: err}
 			}
 			ip := service.Spec.ClusterIP
 			if ip == "" {
-				logger.Info("Service does not have an IP address", "processGroupID", processGroup.ProcessGroupID)
-				return &requeue{message: fmt.Sprintf("Service %s does not have an IP address", service.Name)}
+				logger.Info(
+					"Service does not have an IP address",
+					"processGroupID",
+					processGroup.ProcessGroupID,
+				)
+				return &requeue{
+					message: fmt.Sprintf("Service %s does not have an IP address", service.Name),
+				}
 			}
 			pod.Annotations[fdbv1beta2.PublicIPAnnotation] = ip
 		}

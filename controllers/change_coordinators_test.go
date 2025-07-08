@@ -65,7 +65,13 @@ var _ = Describe("Change coordinators", func() {
 		})
 
 		JustBeforeEach(func() {
-			requeue = changeCoordinators{}.reconcile(context.TODO(), clusterReconciler, cluster, nil, globalControllerLogger)
+			requeue = changeCoordinators{}.reconcile(
+				context.TODO(),
+				clusterReconciler,
+				cluster,
+				nil,
+				globalControllerLogger,
+			)
 		})
 
 		When("the cluster is healthy", func() {
@@ -96,7 +102,13 @@ var _ = Describe("Change coordinators", func() {
 
 				for _, pod := range pods.Items {
 					container := pod.Spec.Containers[1]
-					container.Env = append(container.Env, corev1.EnvVar{Name: fdbv1beta2.EnvNameDNSName, Value: internal.GetPodDNSName(cluster, pod.Name)})
+					container.Env = append(
+						container.Env,
+						corev1.EnvVar{
+							Name:  fdbv1beta2.EnvNameDNSName,
+							Value: internal.GetPodDNSName(cluster, pod.Name),
+						},
+					)
 					pod.Spec.Containers[1] = container
 					Expect(k8sClient.Update(context.TODO(), &pod)).NotTo(HaveOccurred())
 				}
@@ -108,7 +120,9 @@ var _ = Describe("Change coordinators", func() {
 
 			It("should change the cluster file", func() {
 				Expect(cluster.Status.ConnectionString).NotTo(Equal(originalConnectionString))
-				Expect(cluster.Status.ConnectionString).NotTo(ContainSubstring("my-ns.svc.cluster.local"))
+				Expect(
+					cluster.Status.ConnectionString,
+				).NotTo(ContainSubstring("my-ns.svc.cluster.local"))
 			})
 		})
 
@@ -132,13 +146,23 @@ var _ = Describe("Change coordinators", func() {
 					}
 				}
 
-				adminClient.MockMissingLocalities(fdbv1beta2.ProcessGroupID(badCoordinator.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]), true)
+				adminClient.MockMissingLocalities(
+					fdbv1beta2.ProcessGroupID(
+						badCoordinator.Locality[fdbv1beta2.FDBLocalityInstanceIDKey],
+					),
+					true,
+				)
 			})
 
-			It("should change the coordinators to not include the coordinator with the missing localities", func() {
-				Expect(cluster.Status.ConnectionString).NotTo(Equal(originalConnectionString))
-				Expect(cluster.Status.ConnectionString).NotTo(ContainSubstring(badCoordinator.Address.IPAddress.String()))
-			})
+			It(
+				"should change the coordinators to not include the coordinator with the missing localities",
+				func() {
+					Expect(cluster.Status.ConnectionString).NotTo(Equal(originalConnectionString))
+					Expect(
+						cluster.Status.ConnectionString,
+					).NotTo(ContainSubstring(badCoordinator.Address.IPAddress.String()))
+				},
+			)
 		})
 	})
 })

@@ -48,8 +48,8 @@ type FoundationDBBackup struct {
 
 // FoundationDBBackupList contains a list of FoundationDBBackup objects
 type FoundationDBBackupList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.TypeMeta `                     json:",inline"`
+	metav1.ListMeta `                     json:"metadata,omitempty"`
 	Items           []FoundationDBBackup `json:"items"`
 }
 
@@ -218,7 +218,8 @@ type BlobStoreConfiguration struct {
 
 // ShouldRun determines whether a backup should be running.
 func (backup *FoundationDBBackup) ShouldRun() bool {
-	return backup.Spec.BackupState == "" || backup.Spec.BackupState == BackupStateRunning || backup.Spec.BackupState == BackupStatePaused
+	return backup.Spec.BackupState == "" || backup.Spec.BackupState == BackupStateRunning ||
+		backup.Spec.BackupState == BackupStatePaused
 }
 
 // ShouldBePaused determines whether the backups should be paused.
@@ -314,7 +315,8 @@ func (backup *FoundationDBBackup) CheckReconciliation() (bool, error) {
 		reconciled = false
 	}
 
-	if isRunning && backup.SnapshotPeriodSeconds() != backup.Status.BackupDetails.SnapshotPeriodSeconds {
+	if isRunning &&
+		backup.SnapshotPeriodSeconds() != backup.Status.BackupDetails.SnapshotPeriodSeconds {
 		backup.Status.Generations.NeedsBackupReconfiguration = backup.Generation
 		reconciled = false
 	}
@@ -374,7 +376,14 @@ func (configuration *BlobStoreConfiguration) getURL(backup string, bucket string
 		}
 	}
 
-	return fmt.Sprintf("blobstore://%s%s/%s?bucket=%s%s", configuration.AccountName, defaultPort, backup, bucket, sb.String())
+	return fmt.Sprintf(
+		"blobstore://%s%s/%s?bucket=%s%s",
+		configuration.AccountName,
+		defaultPort,
+		backup,
+		bucket,
+		sb.String(),
+	)
 }
 
 // BucketName gets the bucket this backup will use.

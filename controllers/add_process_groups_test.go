@@ -52,18 +52,30 @@ var _ = Describe("add_process_groups", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(generation).To(Equal(int64(1)))
 
-		initialProcessCounts = fdbv1beta2.CreateProcessCountsFromProcessGroupStatus(cluster.Status.ProcessGroups, true)
+		initialProcessCounts = fdbv1beta2.CreateProcessCountsFromProcessGroupStatus(
+			cluster.Status.ProcessGroups,
+			true,
+		)
 	})
 
 	JustBeforeEach(func() {
-		requeue = addProcessGroups{}.reconcile(context.TODO(), clusterReconciler, cluster, nil, globalControllerLogger)
+		requeue = addProcessGroups{}.reconcile(
+			context.TODO(),
+			clusterReconciler,
+			cluster,
+			nil,
+			globalControllerLogger,
+		)
 		if requeue != nil {
 			Expect(requeue.curError).NotTo(HaveOccurred())
 		}
 
 		_, err = reloadCluster(cluster)
 		Expect(err).NotTo(HaveOccurred())
-		newProcessCounts = fdbv1beta2.CreateProcessCountsFromProcessGroupStatus(cluster.Status.ProcessGroups, true)
+		newProcessCounts = fdbv1beta2.CreateProcessCountsFromProcessGroupStatus(
+			cluster.Status.ProcessGroups,
+			true,
+		)
 	})
 
 	When("the cluster is reconciled", func() {
@@ -182,15 +194,25 @@ var _ = Describe("add_process_groups", func() {
 		var processGroupStatus *fdbv1beta2.ProcessGroupStatus
 
 		BeforeEach(func() {
-			processGroupStatus = fdbv1beta2.NewProcessGroupStatus("1337", fdbv1beta2.ProcessClassStorage, []string{"1.1.1.1"})
+			processGroupStatus = fdbv1beta2.NewProcessGroupStatus(
+				"1337",
+				fdbv1beta2.ProcessClassStorage,
+				[]string{"1.1.1.1"},
+			)
 		})
 
 		It("should have the missing conditions", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(processGroupStatus.ProcessGroupConditions)).To(Equal(3))
-			Expect(processGroupStatus.ProcessGroupConditions[0].ProcessGroupConditionType).To(Equal(fdbv1beta2.MissingProcesses))
-			Expect(processGroupStatus.ProcessGroupConditions[1].ProcessGroupConditionType).To(Equal(fdbv1beta2.MissingPod))
-			Expect(processGroupStatus.ProcessGroupConditions[2].ProcessGroupConditionType).To(Equal(fdbv1beta2.MissingPVC))
+			Expect(
+				processGroupStatus.ProcessGroupConditions[0].ProcessGroupConditionType,
+			).To(Equal(fdbv1beta2.MissingProcesses))
+			Expect(
+				processGroupStatus.ProcessGroupConditions[1].ProcessGroupConditionType,
+			).To(Equal(fdbv1beta2.MissingPod))
+			Expect(
+				processGroupStatus.ProcessGroupConditions[2].ProcessGroupConditionType,
+			).To(Equal(fdbv1beta2.MissingPVC))
 		})
 	})
 
@@ -241,25 +263,44 @@ var _ = Describe("add_process_groups", func() {
 						continue
 					}
 					excludedProcessGroupIDs[processGroupID] = fdbv1beta2.None{}
-					exclusions = append(exclusions, fdbv1beta2.ProcessAddress{StringAddress: fmt.Sprintf("%s:%s", fdbv1beta2.FDBLocalityExclusionPrefix, processGroupID)})
+					exclusions = append(
+						exclusions,
+						fdbv1beta2.ProcessAddress{
+							StringAddress: fmt.Sprintf(
+								"%s:%s",
+								fdbv1beta2.FDBLocalityExclusionPrefix,
+								processGroupID,
+							),
+						},
+					)
 				}
 
 				Expect(adminClient.ExcludeProcesses(exclusions)).To(Succeed())
 			})
 
-			It("should not create duplicate entries and should not pick any entry from the exclusion list", func() {
-				storageProcessGroups := make([]fdbv1beta2.ProcessGroupID, 0, len(cluster.Status.ProcessGroups))
-				for _, processGroup := range cluster.Status.ProcessGroups {
-					if processGroup.ProcessClass != fdbv1beta2.ProcessClassStorage {
-						continue
+			It(
+				"should not create duplicate entries and should not pick any entry from the exclusion list",
+				func() {
+					storageProcessGroups := make(
+						[]fdbv1beta2.ProcessGroupID,
+						0,
+						len(cluster.Status.ProcessGroups),
+					)
+					for _, processGroup := range cluster.Status.ProcessGroups {
+						if processGroup.ProcessClass != fdbv1beta2.ProcessClassStorage {
+							continue
+						}
+
+						Expect(excludedProcessGroupIDs).NotTo(HaveKey(processGroup.ProcessGroupID))
+						storageProcessGroups = append(
+							storageProcessGroups,
+							processGroup.ProcessGroupID,
+						)
 					}
 
-					Expect(excludedProcessGroupIDs).NotTo(HaveKey(processGroup.ProcessGroupID))
-					storageProcessGroups = append(storageProcessGroups, processGroup.ProcessGroupID)
-				}
-
-				Expect(storageProcessGroups).To(HaveLen(storageProcessCount))
-			})
+					Expect(storageProcessGroups).To(HaveLen(storageProcessCount))
+				},
+			)
 		})
 	})
 })

@@ -64,7 +64,11 @@ func getKubeClient(ctx context.Context, o *fdbBOptions) (client.Client, error) {
 	return setupKubeClient(ctx, config, namespace)
 }
 
-func setupKubeClient(ctx context.Context, config *rest.Config, namespace string) (client.Client, error) {
+func setupKubeClient(
+	ctx context.Context,
+	config *rest.Config,
+	namespace string,
+) (client.Client, error) {
 	scheme := runtime.NewScheme()
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(fdbv1beta2.AddToScheme(scheme))
@@ -85,9 +89,14 @@ func setupKubeClient(ctx context.Context, config *rest.Config, namespace string)
 
 	// Setup index field to allow access to the node name more efficiently. The indexer must be created before the
 	// informer is started.
-	err = internalCache.IndexField(ctx, &corev1.Pod{}, "spec.nodeName", func(object client.Object) []string {
-		return []string{object.(*corev1.Pod).Spec.NodeName}
-	})
+	err = internalCache.IndexField(
+		ctx,
+		&corev1.Pod{},
+		"spec.nodeName",
+		func(object client.Object) []string {
+			return []string{object.(*corev1.Pod).Spec.NodeName}
+		},
+	)
 
 	if err != nil {
 		return nil, err
@@ -95,9 +104,14 @@ func setupKubeClient(ctx context.Context, config *rest.Config, namespace string)
 
 	// Setup index field to allow access to the status phase of a Pod more efficiently. The indexer must be created before the
 	// informer is started.
-	err = internalCache.IndexField(ctx, &corev1.Pod{}, "status.phase", func(object client.Object) []string {
-		return []string{string(object.(*corev1.Pod).Status.Phase)}
-	})
+	err = internalCache.IndexField(
+		ctx,
+		&corev1.Pod{},
+		"status.phase",
+		func(object client.Object) []string {
+			return []string{string(object.(*corev1.Pod).Status.Phase)}
+		},
+	)
 
 	if err != nil {
 		return nil, err
@@ -138,15 +152,31 @@ func getNamespace(namespace string) (string, error) {
 	return "default", nil
 }
 
-func getOperator(kubeClient client.Client, operatorName string, namespace string) (*appsv1.Deployment, error) {
+func getOperator(
+	kubeClient client.Client,
+	operatorName string,
+	namespace string,
+) (*appsv1.Deployment, error) {
 	operator := &appsv1.Deployment{}
-	err := kubeClient.Get(context.Background(), client.ObjectKey{Namespace: namespace, Name: operatorName}, operator)
+	err := kubeClient.Get(
+		context.Background(),
+		client.ObjectKey{Namespace: namespace, Name: operatorName},
+		operator,
+	)
 	return operator, err
 }
 
-func loadCluster(kubeClient client.Client, namespace string, clusterName string) (*fdbv1beta2.FoundationDBCluster, error) {
+func loadCluster(
+	kubeClient client.Client,
+	namespace string,
+	clusterName string,
+) (*fdbv1beta2.FoundationDBCluster, error) {
 	cluster := &fdbv1beta2.FoundationDBCluster{}
-	err := kubeClient.Get(context.Background(), types.NamespacedName{Namespace: namespace, Name: clusterName}, cluster)
+	err := kubeClient.Get(
+		context.Background(),
+		types.NamespacedName{Namespace: namespace, Name: clusterName},
+		cluster,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -174,7 +204,11 @@ func getNodes(kubeClient client.Client, nodeSelector map[string]string) ([]strin
 	return nodes, nil
 }
 
-func getPodsForCluster(ctx context.Context, kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluster) (*corev1.PodList, error) {
+func getPodsForCluster(
+	ctx context.Context,
+	kubeClient client.Client,
+	cluster *fdbv1beta2.FoundationDBCluster,
+) (*corev1.PodList, error) {
 	var podList corev1.PodList
 	err := kubeClient.List(
 		ctx,
@@ -185,7 +219,11 @@ func getPodsForCluster(ctx context.Context, kubeClient client.Client, cluster *f
 	return &podList, err
 }
 
-func getRunningPodsForCluster(ctx context.Context, kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluster) (*corev1.PodList, error) {
+func getRunningPodsForCluster(
+	ctx context.Context,
+	kubeClient client.Client,
+	cluster *fdbv1beta2.FoundationDBCluster,
+) (*corev1.PodList, error) {
 	var podList corev1.PodList
 	err := kubeClient.List(
 		ctx,
@@ -197,7 +235,14 @@ func getRunningPodsForCluster(ctx context.Context, kubeClient client.Client, clu
 	return &podList, err
 }
 
-func getAllPodsFromClusterWithCondition(ctx context.Context, stdErr io.Writer, kubeClient client.Client, clusterName string, namespace string, conditions []fdbv1beta2.ProcessGroupConditionType) ([]string, error) {
+func getAllPodsFromClusterWithCondition(
+	ctx context.Context,
+	stdErr io.Writer,
+	kubeClient client.Client,
+	clusterName string,
+	namespace string,
+	conditions []fdbv1beta2.ProcessGroupConditionType,
+) ([]string, error) {
 	cluster, err := loadCluster(kubeClient, namespace, clusterName)
 	if err != nil {
 		return []string{}, err
@@ -228,7 +273,11 @@ func getAllPodsFromClusterWithCondition(ctx context.Context, stdErr io.Writer, k
 
 	for process := range processesSet {
 		if _, ok := podMap[string(process)]; !ok {
-			_, _ = fmt.Fprintf(stdErr, "Skipping Process Group: %s, because it does not have a corresponding Pod.\n", process)
+			_, _ = fmt.Fprintf(
+				stdErr,
+				"Skipping Process Group: %s, because it does not have a corresponding Pod.\n",
+				process,
+			)
 			continue
 		}
 		pod := podMap[string(process)]
@@ -237,7 +286,12 @@ func getAllPodsFromClusterWithCondition(ctx context.Context, stdErr io.Writer, k
 			continue
 		}
 		if pod.Status.Phase != corev1.PodRunning {
-			_, _ = fmt.Fprintf(stdErr, "Skipping Process Group: %s, Pod is not running, current phase: %s\n", process, pod.Status.Phase)
+			_, _ = fmt.Fprintf(
+				stdErr,
+				"Skipping Process Group: %s, Pod is not running, current phase: %s\n",
+				process,
+				pod.Status.Phase,
+			)
 			continue
 		}
 
@@ -248,7 +302,11 @@ func getAllPodsFromClusterWithCondition(ctx context.Context, stdErr io.Writer, k
 }
 
 // getProcessGroupIDsFromPodName returns the process group IDs based on the cluster configuration.
-func getProcessGroupIDsFromPodName(out io.Writer, cluster *fdbv1beta2.FoundationDBCluster, podNames []string) ([]fdbv1beta2.ProcessGroupID, error) {
+func getProcessGroupIDsFromPodName(
+	out io.Writer,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	podNames []string,
+) ([]fdbv1beta2.ProcessGroupID, error) {
 	processGroupIDs := make([]fdbv1beta2.ProcessGroupID, 0, len(podNames))
 	currentProcessGroups := map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None{}
 	for _, processGroup := range cluster.Status.ProcessGroups {
@@ -261,13 +319,21 @@ func getProcessGroupIDsFromPodName(out io.Writer, cluster *fdbv1beta2.Foundation
 		}
 
 		if !strings.HasPrefix(podName, cluster.Name) {
-			return nil, fmt.Errorf("cluster name %s is not set as prefix for Pod name %s, please ensure the specified Pod is part of the cluster", cluster.Name, podName)
+			return nil, fmt.Errorf(
+				"cluster name %s is not set as prefix for Pod name %s, please ensure the specified Pod is part of the cluster",
+				cluster.Name,
+				podName,
+			)
 		}
 
 		processGroupID := internal.GetProcessGroupIDFromPodName(cluster, podName)
 		_, ok := currentProcessGroups[processGroupID]
 		if !ok {
-			_, _ = fmt.Fprintf(out, "Process Group: %s is not part of the cluster, will be ignored", processGroupID)
+			_, _ = fmt.Fprintf(
+				out,
+				"Process Group: %s is not part of the cluster, will be ignored",
+				processGroupID,
+			)
 			continue
 		}
 
@@ -278,7 +344,10 @@ func getProcessGroupIDsFromPodName(out io.Writer, cluster *fdbv1beta2.Foundation
 }
 
 // getPodsWithProcessClass returns a list of pod names in the given cluster which are of the given processClass
-func getPodsWithProcessClass(cluster *fdbv1beta2.FoundationDBCluster, processClass string) []string {
+func getPodsWithProcessClass(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	processClass string,
+) []string {
 	matchingPodNames := []string{}
 	for _, processGroupStatus := range cluster.Status.ProcessGroups {
 		if processGroupStatus.ProcessClass != fdbv1beta2.ProcessClass(processClass) {
@@ -291,7 +360,11 @@ func getPodsWithProcessClass(cluster *fdbv1beta2.FoundationDBCluster, processCla
 }
 
 // getPodListMatchingLabels returns a *corev1.PodList matching the given label selector map
-func getPodListMatchingLabels(kubeClient client.Client, namespace string, matchLabels map[string]string) (*corev1.PodList, error) {
+func getPodListMatchingLabels(
+	kubeClient client.Client,
+	namespace string,
+	matchLabels map[string]string,
+) (*corev1.PodList, error) {
 	pods := &corev1.PodList{}
 	selector := labels.NewSelector()
 
@@ -316,13 +389,22 @@ func getPodListMatchingLabels(kubeClient client.Client, namespace string, matchL
 
 // getPodsMatchingLabels returns a list of pods in the given cluster which have the matching labels and are in the
 // provided cluster
-func getPodsMatchingLabels(kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluster, namespace string, matchLabels map[string]string) ([]string, error) {
+func getPodsMatchingLabels(
+	kubeClient client.Client,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	namespace string,
+	matchLabels map[string]string,
+) ([]string, error) {
 	matchingPodNames := []string{}
 
 	// add the labels to match the specified cluster
 	for label, clusterValue := range cluster.GetMatchLabels() {
 		if specifiedValue, ok := matchLabels[label]; ok && specifiedValue != clusterValue {
-			return nil, fmt.Errorf("value for label %s is incompatible with labels for the specified cluster %s", label, cluster.Name)
+			return nil, fmt.Errorf(
+				"value for label %s is incompatible with labels for the specified cluster %s",
+				label,
+				cluster.Name,
+			)
 		}
 		matchLabels[label] = clusterValue
 	}
@@ -340,11 +422,20 @@ func getPodsMatchingLabels(kubeClient client.Client, cluster *fdbv1beta2.Foundat
 
 // fetchProcessGroupsCrossCluster fetches the list of process groups matching the given podNames and returns the
 // processGroupIDs mapped by clusterName matching the given clusterLabel.
-func fetchProcessGroupsCrossCluster(kubeClient client.Client, namespace string, clusterLabel string, podNames ...string) (map[*fdbv1beta2.FoundationDBCluster][]fdbv1beta2.ProcessGroupID, error) {
+func fetchProcessGroupsCrossCluster(
+	kubeClient client.Client,
+	namespace string,
+	clusterLabel string,
+	podNames ...string,
+) (map[*fdbv1beta2.FoundationDBCluster][]fdbv1beta2.ProcessGroupID, error) {
 	var pod corev1.Pod
 	podsByClusterName := map[string][]string{} // start with grouping by cluster-label values and load clusters later
 	for _, podName := range podNames {
-		err := kubeClient.Get(context.Background(), client.ObjectKey{Name: podName, Namespace: namespace}, &pod)
+		err := kubeClient.Get(
+			context.Background(),
+			client.ObjectKey{Name: podName, Namespace: namespace},
+			&pod,
+		)
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
 				return nil, fmt.Errorf("could not get pod: %s/%s", namespace, podName)
@@ -353,7 +444,11 @@ func fetchProcessGroupsCrossCluster(kubeClient client.Client, namespace string, 
 		}
 		clusterName, ok := pod.Labels[clusterLabel]
 		if !ok {
-			return nil, fmt.Errorf("no cluster-label '%s' found for pod '%s'", clusterLabel, podName)
+			return nil, fmt.Errorf(
+				"no cluster-label '%s' found for pod '%s'",
+				clusterLabel,
+				podName,
+			)
 		}
 		podsByClusterName[clusterName] = append(podsByClusterName[clusterName], podName)
 	}
@@ -368,18 +463,30 @@ func fetchProcessGroupsCrossCluster(kubeClient client.Client, namespace string, 
 			return nil, err
 		}
 		for _, podName := range pods {
-			processGroupsByCluster[cluster] = append(processGroupsByCluster[cluster], internal.GetProcessGroupIDFromPodName(cluster, podName))
+			processGroupsByCluster[cluster] = append(
+				processGroupsByCluster[cluster],
+				internal.GetProcessGroupIDFromPodName(cluster, podName),
+			)
 		}
 	}
 	return processGroupsByCluster, nil
 }
 
 // fetchPodNamesCrossCluster fetches the given podNames and returns them mapped by clusterName from the given clusterLabel.
-func fetchPodNamesCrossCluster(kubeClient client.Client, namespace string, clusterLabel string, podNames ...string) (map[*fdbv1beta2.FoundationDBCluster][]string, error) {
+func fetchPodNamesCrossCluster(
+	kubeClient client.Client,
+	namespace string,
+	clusterLabel string,
+	podNames ...string,
+) (map[*fdbv1beta2.FoundationDBCluster][]string, error) {
 	var pod corev1.Pod
 	podsByClusterName := map[string][]string{} // start with grouping by cluster-label values and load clusters later
 	for _, podName := range podNames {
-		err := kubeClient.Get(context.Background(), client.ObjectKey{Name: podName, Namespace: namespace}, &pod)
+		err := kubeClient.Get(
+			context.Background(),
+			client.ObjectKey{Name: podName, Namespace: namespace},
+			&pod,
+		)
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
 				return nil, fmt.Errorf("could not get pod: %s/%s", namespace, podName)
@@ -388,7 +495,11 @@ func fetchPodNamesCrossCluster(kubeClient client.Client, namespace string, clust
 		}
 		clusterName, ok := pod.Labels[clusterLabel]
 		if !ok {
-			return nil, fmt.Errorf("no cluster-label '%s' found for pod '%s'", clusterLabel, podName)
+			return nil, fmt.Errorf(
+				"no cluster-label '%s' found for pod '%s'",
+				clusterLabel,
+				podName,
+			)
 		}
 		podsByClusterName[clusterName] = append(podsByClusterName[clusterName], podName)
 	}
@@ -423,7 +534,13 @@ func chooseRandomPod(pods *corev1.PodList) (*corev1.Pod, error) {
 	return candidate, nil
 }
 
-func fetchPodsOnNode(kubeClient client.Client, clusterName string, namespace string, node string, clusterLabel string) (corev1.PodList, error) {
+func fetchPodsOnNode(
+	kubeClient client.Client,
+	clusterName string,
+	namespace string,
+	node string,
+	clusterLabel string,
+) (corev1.PodList, error) {
 	var pods corev1.PodList
 	var err error
 
@@ -455,24 +572,34 @@ func fetchPodsOnNode(kubeClient client.Client, clusterName string, namespace str
 
 // getPodNamesByCluster returns a map of pod names (strings) by FDB cluster that match the criteria in the provided
 // processSelectionOptions.
-func getPodNamesByCluster(cmd *cobra.Command, kubeClient client.Client, opts processGroupSelectionOptions) (map[*fdbv1beta2.FoundationDBCluster][]string, error) {
+func getPodNamesByCluster(
+	cmd *cobra.Command,
+	kubeClient client.Client,
+	opts processGroupSelectionOptions,
+) (map[*fdbv1beta2.FoundationDBCluster][]string, error) {
 	// option compatibility checks
 	if opts.clusterName == "" && opts.clusterLabel == "" {
 		return nil, errors.New("podNames will not be selected without cluster specification")
 	}
 	if opts.clusterName == "" { // cli has a default for clusterLabel
 		if opts.processClass != "" || len(opts.conditions) > 0 || len(opts.matchLabels) > 0 {
-			return nil, errors.New("selection of pods / process groups by cluster-label (cross-cluster selection) is " +
-				"incompatible with process-class, process-condition, and match-labels options.  " +
-				"Please specify a cluster")
+			return nil, errors.New(
+				"selection of pods / process groups by cluster-label (cross-cluster selection) is " +
+					"incompatible with process-class, process-condition, and match-labels options.  " +
+					"Please specify a cluster",
+			)
 		}
 	}
 
 	if len(opts.conditions) > 0 && opts.processClass != "" {
-		return nil, errors.New("selection of pods / processGroups by both processClass and conditions is not supported at this time")
+		return nil, errors.New(
+			"selection of pods / processGroups by both processClass and conditions is not supported at this time",
+		)
 	}
 	if len(opts.ids) != 0 && (opts.processClass != "" || len(opts.conditions) > 0) {
-		return nil, fmt.Errorf("process identifiers were provided along with a processClass (or processConditions) and would be ignored, please only provide one or the other")
+		return nil, fmt.Errorf(
+			"process identifiers were provided along with a processClass (or processConditions) and would be ignored, please only provide one or the other",
+		)
 	}
 
 	// cross-cluster logic: given a list of Pod names, we can look up the FDB clusters by pod label, and work across clusters
@@ -517,28 +644,42 @@ func getPodNamesByCluster(cmd *cobra.Command, kubeClient client.Client, opts pro
 
 // getProcessGroupsByCluster returns a map of processGroupIDs by FDB cluster that match the criteria in the provided
 // processSelectionOptions.
-func getProcessGroupsByCluster(cmd *cobra.Command, kubeClient client.Client, opts processGroupSelectionOptions) (map[*fdbv1beta2.FoundationDBCluster][]fdbv1beta2.ProcessGroupID, error) {
+func getProcessGroupsByCluster(
+	cmd *cobra.Command,
+	kubeClient client.Client,
+	opts processGroupSelectionOptions,
+) (map[*fdbv1beta2.FoundationDBCluster][]fdbv1beta2.ProcessGroupID, error) {
 	// option compatibility checks
 	if opts.clusterName == "" && opts.clusterLabel == "" && len(opts.matchLabels) == 0 {
 		return nil, errors.New("processGroups will not be selected without cluster specification")
 	}
 	if opts.clusterName == "" { // cli has a default for clusterLabel
 		if opts.processClass != "" || len(opts.conditions) > 0 {
-			return nil, errors.New("selection of process groups by cluster-label (cross-cluster selection) is " +
-				"incompatible with process-class, process-condition, and match-labels options.  " +
-				"Please specify a cluster")
+			return nil, errors.New(
+				"selection of process groups by cluster-label (cross-cluster selection) is " +
+					"incompatible with process-class, process-condition, and match-labels options.  " +
+					"Please specify a cluster",
+			)
 		}
 	}
 	if len(opts.conditions) > 0 && opts.processClass != "" {
-		return nil, errors.New("selection of processes by both processClass and conditions is not supported at this time")
+		return nil, errors.New(
+			"selection of processes by both processClass and conditions is not supported at this time",
+		)
 	}
 	if len(opts.ids) != 0 && (opts.processClass != "" || len(opts.conditions) > 0) {
-		return nil, fmt.Errorf("process identifiers were provided along with a processClass (or processConditions) and would be ignored, please only provide one or the other")
+		return nil, fmt.Errorf(
+			"process identifiers were provided along with a processClass (or processConditions) and would be ignored, please only provide one or the other",
+		)
 	}
 
 	// cross-cluster logic: given a list of Pod names, we can look up the FDB clusters by pod label, and work across clusters
 	if opts.clusterName == "" {
-		return fetchProcessGroupsCrossCluster(kubeClient, opts.namespace, opts.clusterLabel, opts.ids...)
+		return fetchProcessGroupsCrossCluster(
+			kubeClient,
+			opts.namespace,
+			opts.clusterLabel,
+			opts.ids...)
 	}
 
 	// single-cluster logic
@@ -583,13 +724,23 @@ func getProcessGroupsByCluster(cmd *cobra.Command, kubeClient client.Client, opt
 	}, nil
 }
 
-func setSkipReconciliation(ctx context.Context, kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluster, skip bool) error {
+func setSkipReconciliation(
+	ctx context.Context,
+	kubeClient client.Client,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	skip bool,
+) error {
 	patch := client.MergeFrom(cluster.DeepCopy())
 	cluster.Spec.Skip = skip
 	return kubeClient.Patch(ctx, cluster, patch)
 }
 
-func updateConnectionString(ctx context.Context, kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluster, connectionString string) error {
+func updateConnectionString(
+	ctx context.Context,
+	kubeClient client.Client,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	connectionString string,
+) error {
 	patch := client.MergeFrom(cluster.DeepCopy())
 	cluster.Status.ConnectionString = connectionString
 	err := kubeClient.Status().Patch(ctx, cluster, patch)
@@ -599,7 +750,11 @@ func updateConnectionString(ctx context.Context, kubeClient client.Client, clust
 
 	// In addition to the FoundationDBCluster also update the ConfigMap.
 	cm := &corev1.ConfigMap{}
-	err = kubeClient.Get(ctx, client.ObjectKey{Namespace: cluster.Namespace, Name: cluster.Name + "-config"}, cm)
+	err = kubeClient.Get(
+		ctx,
+		client.ObjectKey{Namespace: cluster.Namespace, Name: cluster.Name + "-config"},
+		cm,
+	)
 	if err != nil {
 		return err
 	}
@@ -608,7 +763,12 @@ func updateConnectionString(ctx context.Context, kubeClient client.Client, clust
 	return kubeClient.Update(ctx, cm)
 }
 
-func updateDatabaseConfiguration(ctx context.Context, kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluster, configuration fdbv1beta2.DatabaseConfiguration) error {
+func updateDatabaseConfiguration(
+	ctx context.Context,
+	kubeClient client.Client,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	configuration fdbv1beta2.DatabaseConfiguration,
+) error {
 	patch := client.MergeFrom(cluster.DeepCopy())
 	cluster.Spec.DatabaseConfiguration = configuration
 	// Reset the seed connecting string in this case.

@@ -56,9 +56,13 @@ var _ = Describe("mock_client", func() {
 							Name:      processGroup.GetPodName(input.cluster),
 							Namespace: input.cluster.GetNamespace(),
 							Labels: map[string]string{
-								fdbv1beta2.FDBClusterLabel:        input.cluster.Name,
-								fdbv1beta2.FDBProcessGroupIDLabel: string(processGroup.ProcessGroupID),
-								fdbv1beta2.FDBProcessClassLabel:   string(processGroup.ProcessClass),
+								fdbv1beta2.FDBClusterLabel: input.cluster.Name,
+								fdbv1beta2.FDBProcessGroupIDLabel: string(
+									processGroup.ProcessGroupID,
+								),
+								fdbv1beta2.FDBProcessClassLabel: string(
+									processGroup.ProcessClass,
+								),
 							},
 						},
 						Status: corev1.PodStatus{
@@ -74,7 +78,13 @@ var _ = Describe("mock_client", func() {
 				status, err := admin.GetStatus()
 				Expect(err).NotTo(HaveOccurred())
 
-				remaining, err := removals.GetRemainingMap(GinkgoLogr, admin, input.cluster, status, 0)
+				remaining, err := removals.GetRemainingMap(
+					GinkgoLogr,
+					admin,
+					input.cluster,
+					status,
+					0,
+				)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(remaining).To(Equal(input.remaining))
@@ -230,7 +240,10 @@ var _ = Describe("mock_client", func() {
 				processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{}
 			}
 			config := processes[fdbv1beta2.ProcessClassGeneral]
-			config.CustomParameters = append(config.CustomParameters, fdbv1beta2.FoundationDBCustomParameter(newKnob))
+			config.CustomParameters = append(
+				config.CustomParameters,
+				fdbv1beta2.FoundationDBCustomParameter(newKnob),
+			)
 			processes[fdbv1beta2.ProcessClassGeneral] = config
 			cluster.Spec.Processes = processes
 			adminClient.Cluster = cluster
@@ -248,7 +261,9 @@ var _ = Describe("mock_client", func() {
 
 		When("the process is restarted", func() {
 			It("should update the command line arguments", func() {
-				Expect(adminClient.KillProcesses([]fdbv1beta2.ProcessAddress{processAddress})).NotTo(HaveOccurred())
+				Expect(
+					adminClient.KillProcesses([]fdbv1beta2.ProcessAddress{processAddress}),
+				).NotTo(HaveOccurred())
 				Expect(adminClient.KilledAddresses).To(HaveLen(1))
 				status, err := adminClient.GetStatus()
 				Expect(err).NotTo(HaveOccurred())
@@ -355,27 +370,42 @@ var _ = Describe("mock_client", func() {
 			When("adding a pending for removal", func() {
 				When("the process group doesn't exist", func() {
 					BeforeEach(func() {
-						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"doesntExist": fdbv1beta2.UpdateActionAdd}
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{
+							"doesntExist": fdbv1beta2.UpdateActionAdd,
+						}
 					})
 
 					It("should add the process group to the map", func() {
-						Expect(adminClient.pendingForRemoval).To(HaveKey(fdbv1beta2.ProcessGroupID("doesntExist")))
+						Expect(
+							adminClient.pendingForRemoval,
+						).To(HaveKey(fdbv1beta2.ProcessGroupID("doesntExist")))
 					})
 				})
 
 				When("the process group exists", func() {
 					BeforeEach(func() {
-						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"storage-1": fdbv1beta2.UpdateActionAdd}
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{
+							"storage-1": fdbv1beta2.UpdateActionAdd,
+						}
 					})
 
 					BeforeEach(func() {
-						cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1", fdbv1beta2.ProcessClassStorage, []string{"192.168.0.2"}))
+						cluster.Status.ProcessGroups = append(
+							cluster.Status.ProcessGroups,
+							fdbv1beta2.NewProcessGroupStatus(
+								"storage-1",
+								fdbv1beta2.ProcessClassStorage,
+								[]string{"192.168.0.2"},
+							),
+						)
 						adminClient.Cluster = cluster
 					})
 
 					It("should add the process group to the map", func() {
 						Expect(adminClient.pendingForRemoval).To(HaveLen(1))
-						Expect(adminClient.pendingForRemoval).To(HaveKey(fdbv1beta2.ProcessGroupID("storage-1")))
+						Expect(
+							adminClient.pendingForRemoval,
+						).To(HaveKey(fdbv1beta2.ProcessGroupID("storage-1")))
 					})
 				})
 			})
@@ -383,7 +413,9 @@ var _ = Describe("mock_client", func() {
 			When("removing a pending for removal", func() {
 				When("the process group doesn't exist", func() {
 					BeforeEach(func() {
-						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"doesntExist": fdbv1beta2.UpdateActionDelete}
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{
+							"doesntExist": fdbv1beta2.UpdateActionDelete,
+						}
 					})
 
 					It("shouldn't change the map", func() {
@@ -393,8 +425,17 @@ var _ = Describe("mock_client", func() {
 
 				When("the process group exists", func() {
 					BeforeEach(func() {
-						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"storage-1": fdbv1beta2.UpdateActionDelete}
-						cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1", fdbv1beta2.ProcessClassStorage, []string{"192.168.0.2"}))
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{
+							"storage-1": fdbv1beta2.UpdateActionDelete,
+						}
+						cluster.Status.ProcessGroups = append(
+							cluster.Status.ProcessGroups,
+							fdbv1beta2.NewProcessGroupStatus(
+								"storage-1",
+								fdbv1beta2.ProcessClassStorage,
+								[]string{"192.168.0.2"},
+							),
+						)
 						adminClient.Cluster = cluster
 					})
 
@@ -406,7 +447,9 @@ var _ = Describe("mock_client", func() {
 
 					When("the process group is in the map", func() {
 						BeforeEach(func() {
-							adminClient.pendingForRemoval = map[fdbv1beta2.ProcessGroupID]time.Time{"storage-1": {}}
+							adminClient.pendingForRemoval = map[fdbv1beta2.ProcessGroupID]time.Time{
+								"storage-1": {},
+							}
 						})
 
 						It("should not remove the process group from the map", func() {
@@ -427,27 +470,42 @@ var _ = Describe("mock_client", func() {
 			When("adding a pending for exclusion", func() {
 				When("the process group doesn't exist", func() {
 					BeforeEach(func() {
-						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"doesntExist": fdbv1beta2.UpdateActionAdd}
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{
+							"doesntExist": fdbv1beta2.UpdateActionAdd,
+						}
 					})
 
 					It("should add the process group to the map", func() {
-						Expect(adminClient.pendingForExclusion).To(HaveKey(fdbv1beta2.ProcessGroupID("doesntExist")))
+						Expect(
+							adminClient.pendingForExclusion,
+						).To(HaveKey(fdbv1beta2.ProcessGroupID("doesntExist")))
 					})
 				})
 
 				When("the process group exists", func() {
 					BeforeEach(func() {
-						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"storage-1": fdbv1beta2.UpdateActionAdd}
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{
+							"storage-1": fdbv1beta2.UpdateActionAdd,
+						}
 					})
 
 					BeforeEach(func() {
-						cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1", fdbv1beta2.ProcessClassStorage, []string{"192.168.0.2"}))
+						cluster.Status.ProcessGroups = append(
+							cluster.Status.ProcessGroups,
+							fdbv1beta2.NewProcessGroupStatus(
+								"storage-1",
+								fdbv1beta2.ProcessClassStorage,
+								[]string{"192.168.0.2"},
+							),
+						)
 						adminClient.Cluster = cluster
 					})
 
 					It("should add the process group to the map", func() {
 						Expect(adminClient.pendingForExclusion).To(HaveLen(1))
-						Expect(adminClient.pendingForExclusion).To(HaveKey(fdbv1beta2.ProcessGroupID("storage-1")))
+						Expect(
+							adminClient.pendingForExclusion,
+						).To(HaveKey(fdbv1beta2.ProcessGroupID("storage-1")))
 					})
 				})
 			})
@@ -455,7 +513,9 @@ var _ = Describe("mock_client", func() {
 			When("removing a pending for exclusion", func() {
 				When("the process group doesn't exist", func() {
 					BeforeEach(func() {
-						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"doesntExist": fdbv1beta2.UpdateActionDelete}
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{
+							"doesntExist": fdbv1beta2.UpdateActionDelete,
+						}
 					})
 
 					It("shouldn't change the map", func() {
@@ -465,8 +525,17 @@ var _ = Describe("mock_client", func() {
 
 				When("the process group exists", func() {
 					BeforeEach(func() {
-						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"storage-1": fdbv1beta2.UpdateActionDelete}
-						cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1", fdbv1beta2.ProcessClassStorage, []string{"192.168.0.2"}))
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{
+							"storage-1": fdbv1beta2.UpdateActionDelete,
+						}
+						cluster.Status.ProcessGroups = append(
+							cluster.Status.ProcessGroups,
+							fdbv1beta2.NewProcessGroupStatus(
+								"storage-1",
+								fdbv1beta2.ProcessClassStorage,
+								[]string{"192.168.0.2"},
+							),
+						)
 						adminClient.Cluster = cluster
 					})
 
@@ -478,7 +547,9 @@ var _ = Describe("mock_client", func() {
 
 					When("the process group is in the map", func() {
 						BeforeEach(func() {
-							adminClient.pendingForExclusion = map[fdbv1beta2.ProcessGroupID]time.Time{"storage-1": {}}
+							adminClient.pendingForExclusion = map[fdbv1beta2.ProcessGroupID]time.Time{
+								"storage-1": {},
+							}
 						})
 
 						It("should not remove the process group from the map", func() {
@@ -499,27 +570,42 @@ var _ = Describe("mock_client", func() {
 			When("adding a pending for inclusion", func() {
 				When("the process group doesn't exist", func() {
 					BeforeEach(func() {
-						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"doesntExist": fdbv1beta2.UpdateActionAdd}
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{
+							"doesntExist": fdbv1beta2.UpdateActionAdd,
+						}
 					})
 
 					It("should add the process group to the map", func() {
-						Expect(adminClient.pendingForInclusion).To(HaveKey(fdbv1beta2.ProcessGroupID("doesntExist")))
+						Expect(
+							adminClient.pendingForInclusion,
+						).To(HaveKey(fdbv1beta2.ProcessGroupID("doesntExist")))
 					})
 				})
 
 				When("the process group exists", func() {
 					BeforeEach(func() {
-						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"storage-1": fdbv1beta2.UpdateActionAdd}
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{
+							"storage-1": fdbv1beta2.UpdateActionAdd,
+						}
 					})
 
 					BeforeEach(func() {
-						cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1", fdbv1beta2.ProcessClassStorage, []string{"192.168.0.2"}))
+						cluster.Status.ProcessGroups = append(
+							cluster.Status.ProcessGroups,
+							fdbv1beta2.NewProcessGroupStatus(
+								"storage-1",
+								fdbv1beta2.ProcessClassStorage,
+								[]string{"192.168.0.2"},
+							),
+						)
 						adminClient.Cluster = cluster
 					})
 
 					It("should add the process group to the map", func() {
 						Expect(adminClient.pendingForInclusion).To(HaveLen(1))
-						Expect(adminClient.pendingForInclusion).To(HaveKey(fdbv1beta2.ProcessGroupID("storage-1")))
+						Expect(
+							adminClient.pendingForInclusion,
+						).To(HaveKey(fdbv1beta2.ProcessGroupID("storage-1")))
 					})
 				})
 			})
@@ -527,7 +613,9 @@ var _ = Describe("mock_client", func() {
 			When("removing a pending for inclusion", func() {
 				When("the process group doesn't exist", func() {
 					BeforeEach(func() {
-						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"doesntExist": fdbv1beta2.UpdateActionDelete}
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{
+							"doesntExist": fdbv1beta2.UpdateActionDelete,
+						}
 					})
 
 					It("shouldn't change the map", func() {
@@ -537,8 +625,17 @@ var _ = Describe("mock_client", func() {
 
 				When("the process group exists", func() {
 					BeforeEach(func() {
-						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"storage-1": fdbv1beta2.UpdateActionDelete}
-						cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1", fdbv1beta2.ProcessClassStorage, []string{"192.168.0.2"}))
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{
+							"storage-1": fdbv1beta2.UpdateActionDelete,
+						}
+						cluster.Status.ProcessGroups = append(
+							cluster.Status.ProcessGroups,
+							fdbv1beta2.NewProcessGroupStatus(
+								"storage-1",
+								fdbv1beta2.ProcessClassStorage,
+								[]string{"192.168.0.2"},
+							),
+						)
 						adminClient.Cluster = cluster
 					})
 
@@ -550,7 +647,9 @@ var _ = Describe("mock_client", func() {
 
 					When("the process group is in the map", func() {
 						BeforeEach(func() {
-							adminClient.pendingForInclusion = map[fdbv1beta2.ProcessGroupID]time.Time{"storage-1": {}}
+							adminClient.pendingForInclusion = map[fdbv1beta2.ProcessGroupID]time.Time{
+								"storage-1": {},
+							}
 						})
 
 						It("should not remove the process group from the map", func() {
@@ -571,27 +670,42 @@ var _ = Describe("mock_client", func() {
 			When("adding a pending for restart", func() {
 				When("the process group doesn't exist", func() {
 					BeforeEach(func() {
-						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"doesntExist": fdbv1beta2.UpdateActionAdd}
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{
+							"doesntExist": fdbv1beta2.UpdateActionAdd,
+						}
 					})
 
 					It("should add the process group to the map", func() {
-						Expect(adminClient.pendingForRestart).To(HaveKey(fdbv1beta2.ProcessGroupID("doesntExist")))
+						Expect(
+							adminClient.pendingForRestart,
+						).To(HaveKey(fdbv1beta2.ProcessGroupID("doesntExist")))
 					})
 				})
 
 				When("the process group exists", func() {
 					BeforeEach(func() {
-						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"storage-1": fdbv1beta2.UpdateActionAdd}
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{
+							"storage-1": fdbv1beta2.UpdateActionAdd,
+						}
 					})
 
 					BeforeEach(func() {
-						cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1", fdbv1beta2.ProcessClassStorage, []string{"192.168.0.2"}))
+						cluster.Status.ProcessGroups = append(
+							cluster.Status.ProcessGroups,
+							fdbv1beta2.NewProcessGroupStatus(
+								"storage-1",
+								fdbv1beta2.ProcessClassStorage,
+								[]string{"192.168.0.2"},
+							),
+						)
 						adminClient.Cluster = cluster
 					})
 
 					It("should add the process group to the map", func() {
 						Expect(adminClient.pendingForRestart).To(HaveLen(1))
-						Expect(adminClient.pendingForRestart).To(HaveKey(fdbv1beta2.ProcessGroupID("storage-1")))
+						Expect(
+							adminClient.pendingForRestart,
+						).To(HaveKey(fdbv1beta2.ProcessGroupID("storage-1")))
 					})
 				})
 			})
@@ -599,7 +713,9 @@ var _ = Describe("mock_client", func() {
 			When("removing a pending for restart", func() {
 				When("the process group doesn't exist", func() {
 					BeforeEach(func() {
-						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"doesntExist": fdbv1beta2.UpdateActionDelete}
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{
+							"doesntExist": fdbv1beta2.UpdateActionDelete,
+						}
 					})
 
 					It("shouldn't change the map", func() {
@@ -609,8 +725,17 @@ var _ = Describe("mock_client", func() {
 
 				When("the process group exists", func() {
 					BeforeEach(func() {
-						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"storage-1": fdbv1beta2.UpdateActionDelete}
-						cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1", fdbv1beta2.ProcessClassStorage, []string{"192.168.0.2"}))
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{
+							"storage-1": fdbv1beta2.UpdateActionDelete,
+						}
+						cluster.Status.ProcessGroups = append(
+							cluster.Status.ProcessGroups,
+							fdbv1beta2.NewProcessGroupStatus(
+								"storage-1",
+								fdbv1beta2.ProcessClassStorage,
+								[]string{"192.168.0.2"},
+							),
+						)
 						adminClient.Cluster = cluster
 					})
 
@@ -622,7 +747,9 @@ var _ = Describe("mock_client", func() {
 
 					When("the process group is in the map", func() {
 						BeforeEach(func() {
-							adminClient.pendingForRestart = map[fdbv1beta2.ProcessGroupID]time.Time{"storage-1": {}}
+							adminClient.pendingForRestart = map[fdbv1beta2.ProcessGroupID]time.Time{
+								"storage-1": {},
+							}
 						})
 
 						It("should not remove the process group from the map", func() {
@@ -643,27 +770,42 @@ var _ = Describe("mock_client", func() {
 			When("adding a ready for exclusion", func() {
 				When("the process group doesn't exist", func() {
 					BeforeEach(func() {
-						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"doesntExist": fdbv1beta2.UpdateActionAdd}
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{
+							"doesntExist": fdbv1beta2.UpdateActionAdd,
+						}
 					})
 
 					It("should add the process group to the map", func() {
-						Expect(adminClient.readyForExclusion).To(HaveKey(fdbv1beta2.ProcessGroupID("doesntExist")))
+						Expect(
+							adminClient.readyForExclusion,
+						).To(HaveKey(fdbv1beta2.ProcessGroupID("doesntExist")))
 					})
 				})
 
 				When("the process group exists", func() {
 					BeforeEach(func() {
-						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"storage-1": fdbv1beta2.UpdateActionAdd}
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{
+							"storage-1": fdbv1beta2.UpdateActionAdd,
+						}
 					})
 
 					BeforeEach(func() {
-						cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1", fdbv1beta2.ProcessClassStorage, []string{"192.168.0.2"}))
+						cluster.Status.ProcessGroups = append(
+							cluster.Status.ProcessGroups,
+							fdbv1beta2.NewProcessGroupStatus(
+								"storage-1",
+								fdbv1beta2.ProcessClassStorage,
+								[]string{"192.168.0.2"},
+							),
+						)
 						adminClient.Cluster = cluster
 					})
 
 					It("should add the process group to the map", func() {
 						Expect(adminClient.readyForExclusion).To(HaveLen(1))
-						Expect(adminClient.readyForExclusion).To(HaveKey(fdbv1beta2.ProcessGroupID("storage-1")))
+						Expect(
+							adminClient.readyForExclusion,
+						).To(HaveKey(fdbv1beta2.ProcessGroupID("storage-1")))
 					})
 				})
 			})
@@ -671,7 +813,9 @@ var _ = Describe("mock_client", func() {
 			When("removing a ready for exclusion", func() {
 				When("the process group doesn't exist", func() {
 					BeforeEach(func() {
-						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"doesntExist": fdbv1beta2.UpdateActionDelete}
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{
+							"doesntExist": fdbv1beta2.UpdateActionDelete,
+						}
 					})
 
 					It("shouldn't change the map", func() {
@@ -681,8 +825,17 @@ var _ = Describe("mock_client", func() {
 
 				When("the process group exists", func() {
 					BeforeEach(func() {
-						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"storage-1": fdbv1beta2.UpdateActionDelete}
-						cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1", fdbv1beta2.ProcessClassStorage, []string{"192.168.0.2"}))
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{
+							"storage-1": fdbv1beta2.UpdateActionDelete,
+						}
+						cluster.Status.ProcessGroups = append(
+							cluster.Status.ProcessGroups,
+							fdbv1beta2.NewProcessGroupStatus(
+								"storage-1",
+								fdbv1beta2.ProcessClassStorage,
+								[]string{"192.168.0.2"},
+							),
+						)
 						adminClient.Cluster = cluster
 					})
 
@@ -694,7 +847,9 @@ var _ = Describe("mock_client", func() {
 
 					When("the process group is in the map", func() {
 						BeforeEach(func() {
-							adminClient.readyForExclusion = map[fdbv1beta2.ProcessGroupID]time.Time{"storage-1": {}}
+							adminClient.readyForExclusion = map[fdbv1beta2.ProcessGroupID]time.Time{
+								"storage-1": {},
+							}
 						})
 
 						It("should remove the process group from the map", func() {
@@ -715,27 +870,42 @@ var _ = Describe("mock_client", func() {
 			When("adding a ready for inclusion", func() {
 				When("the process group doesn't exist", func() {
 					BeforeEach(func() {
-						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"doesntExist": fdbv1beta2.UpdateActionAdd}
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{
+							"doesntExist": fdbv1beta2.UpdateActionAdd,
+						}
 					})
 
 					It("should add the process group to the map", func() {
-						Expect(adminClient.readyForInclusion).To(HaveKey(fdbv1beta2.ProcessGroupID("doesntExist")))
+						Expect(
+							adminClient.readyForInclusion,
+						).To(HaveKey(fdbv1beta2.ProcessGroupID("doesntExist")))
 					})
 				})
 
 				When("the process group exists", func() {
 					BeforeEach(func() {
-						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"storage-1": fdbv1beta2.UpdateActionAdd}
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{
+							"storage-1": fdbv1beta2.UpdateActionAdd,
+						}
 					})
 
 					BeforeEach(func() {
-						cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1", fdbv1beta2.ProcessClassStorage, []string{"192.168.0.2"}))
+						cluster.Status.ProcessGroups = append(
+							cluster.Status.ProcessGroups,
+							fdbv1beta2.NewProcessGroupStatus(
+								"storage-1",
+								fdbv1beta2.ProcessClassStorage,
+								[]string{"192.168.0.2"},
+							),
+						)
 						adminClient.Cluster = cluster
 					})
 
 					It("should add the process group to the map", func() {
 						Expect(adminClient.readyForInclusion).To(HaveLen(1))
-						Expect(adminClient.readyForInclusion).To(HaveKey(fdbv1beta2.ProcessGroupID("storage-1")))
+						Expect(
+							adminClient.readyForInclusion,
+						).To(HaveKey(fdbv1beta2.ProcessGroupID("storage-1")))
 					})
 				})
 			})
@@ -743,7 +913,9 @@ var _ = Describe("mock_client", func() {
 			When("removing a ready for inclusion", func() {
 				When("the process group doesn't exist", func() {
 					BeforeEach(func() {
-						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"doesntExist": fdbv1beta2.UpdateActionDelete}
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{
+							"doesntExist": fdbv1beta2.UpdateActionDelete,
+						}
 					})
 
 					It("shouldn't change map", func() {
@@ -753,8 +925,17 @@ var _ = Describe("mock_client", func() {
 
 				When("the process group exists", func() {
 					BeforeEach(func() {
-						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"storage-1": fdbv1beta2.UpdateActionDelete}
-						cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1", fdbv1beta2.ProcessClassStorage, []string{"192.168.0.2"}))
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{
+							"storage-1": fdbv1beta2.UpdateActionDelete,
+						}
+						cluster.Status.ProcessGroups = append(
+							cluster.Status.ProcessGroups,
+							fdbv1beta2.NewProcessGroupStatus(
+								"storage-1",
+								fdbv1beta2.ProcessClassStorage,
+								[]string{"192.168.0.2"},
+							),
+						)
 						adminClient.Cluster = cluster
 					})
 
@@ -766,7 +947,9 @@ var _ = Describe("mock_client", func() {
 
 					When("the process group is in the map", func() {
 						BeforeEach(func() {
-							adminClient.readyForInclusion = map[fdbv1beta2.ProcessGroupID]time.Time{"storage-1": {}}
+							adminClient.readyForInclusion = map[fdbv1beta2.ProcessGroupID]time.Time{
+								"storage-1": {},
+							}
 						})
 
 						It("should not remove the process group from the map", func() {
@@ -787,27 +970,42 @@ var _ = Describe("mock_client", func() {
 			When("adding a ready for restart", func() {
 				When("the process group doesn't exist", func() {
 					BeforeEach(func() {
-						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"doesntExist": fdbv1beta2.UpdateActionAdd}
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{
+							"doesntExist": fdbv1beta2.UpdateActionAdd,
+						}
 					})
 
 					It("should add the process group to the map", func() {
-						Expect(adminClient.readyForRestart).To(HaveKey(fdbv1beta2.ProcessGroupID("doesntExist")))
+						Expect(
+							adminClient.readyForRestart,
+						).To(HaveKey(fdbv1beta2.ProcessGroupID("doesntExist")))
 					})
 				})
 
 				When("the process group exists", func() {
 					BeforeEach(func() {
-						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"storage-1": fdbv1beta2.UpdateActionAdd}
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{
+							"storage-1": fdbv1beta2.UpdateActionAdd,
+						}
 					})
 
 					BeforeEach(func() {
-						cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1", fdbv1beta2.ProcessClassStorage, []string{"192.168.0.2"}))
+						cluster.Status.ProcessGroups = append(
+							cluster.Status.ProcessGroups,
+							fdbv1beta2.NewProcessGroupStatus(
+								"storage-1",
+								fdbv1beta2.ProcessClassStorage,
+								[]string{"192.168.0.2"},
+							),
+						)
 						adminClient.Cluster = cluster
 					})
 
 					It("should add the process group to the map", func() {
 						Expect(adminClient.readyForRestart).To(HaveLen(1))
-						Expect(adminClient.readyForRestart).To(HaveKey(fdbv1beta2.ProcessGroupID("storage-1")))
+						Expect(
+							adminClient.readyForRestart,
+						).To(HaveKey(fdbv1beta2.ProcessGroupID("storage-1")))
 					})
 				})
 			})
@@ -815,7 +1013,9 @@ var _ = Describe("mock_client", func() {
 			When("removing a ready for restart", func() {
 				When("the process group doesn't exist", func() {
 					BeforeEach(func() {
-						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"doesntExist": fdbv1beta2.UpdateActionDelete}
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{
+							"doesntExist": fdbv1beta2.UpdateActionDelete,
+						}
 					})
 
 					It("should not add the process group to the map", func() {
@@ -825,8 +1025,17 @@ var _ = Describe("mock_client", func() {
 
 				When("the process group exists", func() {
 					BeforeEach(func() {
-						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{"storage-1": fdbv1beta2.UpdateActionDelete}
-						cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1", fdbv1beta2.ProcessClassStorage, []string{"192.168.0.2"}))
+						updates = map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{
+							"storage-1": fdbv1beta2.UpdateActionDelete,
+						}
+						cluster.Status.ProcessGroups = append(
+							cluster.Status.ProcessGroups,
+							fdbv1beta2.NewProcessGroupStatus(
+								"storage-1",
+								fdbv1beta2.ProcessClassStorage,
+								[]string{"192.168.0.2"},
+							),
+						)
 						adminClient.Cluster = cluster
 					})
 
@@ -838,7 +1047,9 @@ var _ = Describe("mock_client", func() {
 
 					When("the process group is in the map", func() {
 						BeforeEach(func() {
-							adminClient.readyForRestart = map[fdbv1beta2.ProcessGroupID]time.Time{"storage-1": {}}
+							adminClient.readyForRestart = map[fdbv1beta2.ProcessGroupID]time.Time{
+								"storage-1": {},
+							}
 						})
 
 						It("should not remove the process group from the map", func() {
@@ -1043,9 +1254,18 @@ var _ = Describe("mock_client", func() {
 						"storage-1":        {},
 						"prefix-storage-1": {},
 					}
-					adminClient.Cluster.Status.ProcessGroups = append(adminClient.Cluster.Status.ProcessGroups,
-						fdbv1beta2.NewProcessGroupStatus("storage-1", fdbv1beta2.ProcessClassStorage, []string{"192.168.0.2"}),
-						fdbv1beta2.NewProcessGroupStatus("prefix-storage-1", fdbv1beta2.ProcessClassStorage, []string{"192.168.0.3"}),
+					adminClient.Cluster.Status.ProcessGroups = append(
+						adminClient.Cluster.Status.ProcessGroups,
+						fdbv1beta2.NewProcessGroupStatus(
+							"storage-1",
+							fdbv1beta2.ProcessClassStorage,
+							[]string{"192.168.0.2"},
+						),
+						fdbv1beta2.NewProcessGroupStatus(
+							"prefix-storage-1",
+							fdbv1beta2.ProcessClassStorage,
+							[]string{"192.168.0.3"},
+						),
 					)
 				})
 
@@ -1090,9 +1310,18 @@ var _ = Describe("mock_client", func() {
 						"storage-1":        {},
 						"prefix-storage-1": {},
 					}
-					adminClient.Cluster.Status.ProcessGroups = append(adminClient.Cluster.Status.ProcessGroups,
-						fdbv1beta2.NewProcessGroupStatus("storage-1", fdbv1beta2.ProcessClassStorage, []string{"192.168.0.2"}),
-						fdbv1beta2.NewProcessGroupStatus("prefix-storage-1", fdbv1beta2.ProcessClassStorage, []string{"192.168.0.3"}),
+					adminClient.Cluster.Status.ProcessGroups = append(
+						adminClient.Cluster.Status.ProcessGroups,
+						fdbv1beta2.NewProcessGroupStatus(
+							"storage-1",
+							fdbv1beta2.ProcessClassStorage,
+							[]string{"192.168.0.2"},
+						),
+						fdbv1beta2.NewProcessGroupStatus(
+							"prefix-storage-1",
+							fdbv1beta2.ProcessClassStorage,
+							[]string{"192.168.0.3"},
+						),
 					)
 				})
 
@@ -1137,9 +1366,18 @@ var _ = Describe("mock_client", func() {
 						"storage-1":        {},
 						"prefix-storage-1": {},
 					}
-					adminClient.Cluster.Status.ProcessGroups = append(adminClient.Cluster.Status.ProcessGroups,
-						fdbv1beta2.NewProcessGroupStatus("storage-1", fdbv1beta2.ProcessClassStorage, []string{"192.168.0.2"}),
-						fdbv1beta2.NewProcessGroupStatus("prefix-storage-1", fdbv1beta2.ProcessClassStorage, []string{"192.168.0.3"}),
+					adminClient.Cluster.Status.ProcessGroups = append(
+						adminClient.Cluster.Status.ProcessGroups,
+						fdbv1beta2.NewProcessGroupStatus(
+							"storage-1",
+							fdbv1beta2.ProcessClassStorage,
+							[]string{"192.168.0.2"},
+						),
+						fdbv1beta2.NewProcessGroupStatus(
+							"prefix-storage-1",
+							fdbv1beta2.ProcessClassStorage,
+							[]string{"192.168.0.3"},
+						),
 					)
 				})
 
@@ -1164,7 +1402,10 @@ var _ = Describe("mock_client", func() {
 	})
 })
 
-func getCommandlineForProcessFromStatus(status *fdbv1beta2.FoundationDBStatus, targetProcess string) string {
+func getCommandlineForProcessFromStatus(
+	status *fdbv1beta2.FoundationDBStatus,
+	targetProcess string,
+) string {
 	for _, process := range status.Cluster.Processes {
 		if process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey] != targetProcess {
 			continue

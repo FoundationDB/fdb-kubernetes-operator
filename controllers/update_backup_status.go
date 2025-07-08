@@ -37,7 +37,11 @@ import (
 type updateBackupStatus struct{}
 
 // reconcile runs the reconciler's work.
-func (s updateBackupStatus) reconcile(ctx context.Context, r *FoundationDBBackupReconciler, backup *fdbv1beta2.FoundationDBBackup) *requeue {
+func (s updateBackupStatus) reconcile(
+	ctx context.Context,
+	r *FoundationDBBackupReconciler,
+	backup *fdbv1beta2.FoundationDBBackup,
+) *requeue {
 	status := fdbv1beta2.FoundationDBBackupStatus{}
 	status.Generations.Reconciled = backup.Status.Generations.Reconciled
 
@@ -47,7 +51,14 @@ func (s updateBackupStatus) reconcile(ctx context.Context, r *FoundationDBBackup
 	}
 
 	currentBackupDeployment := &appsv1.Deployment{}
-	err = r.Get(ctx, client.ObjectKey{Namespace: backup.Namespace, Name: internal.GetBackupDeploymentName(backup)}, currentBackupDeployment)
+	err = r.Get(
+		ctx,
+		client.ObjectKey{
+			Namespace: backup.Namespace,
+			Name:      internal.GetBackupDeploymentName(backup),
+		},
+		currentBackupDeployment,
+	)
 	if err != nil {
 		if !k8serrors.IsNotFound(err) {
 			return &requeue{curError: err}
@@ -63,10 +74,16 @@ func (s updateBackupStatus) reconcile(ctx context.Context, r *FoundationDBBackup
 		}
 		generationsMatch := currentBackupDeployment.Status.ObservedGeneration == currentBackupDeployment.ObjectMeta.Generation
 
-		annotationChange := internal.MergeAnnotations(&currentBackupDeployment.ObjectMeta, desiredBackupDeployment.ObjectMeta)
+		annotationChange := internal.MergeAnnotations(
+			&currentBackupDeployment.ObjectMeta,
+			desiredBackupDeployment.ObjectMeta,
+		)
 
 		metadataMatch := !annotationChange &&
-			equality.Semantic.DeepEqual(currentBackupDeployment.ObjectMeta.Labels, desiredBackupDeployment.ObjectMeta.Labels)
+			equality.Semantic.DeepEqual(
+				currentBackupDeployment.ObjectMeta.Labels,
+				desiredBackupDeployment.ObjectMeta.Labels,
+			)
 
 		status.DeploymentConfigured = generationsMatch && metadataMatch
 
@@ -112,7 +129,14 @@ func (s updateBackupStatus) reconcile(ctx context.Context, r *FoundationDBBackup
 	if !equality.Semantic.DeepEqual(backup.Status, *originalStatus) {
 		err = r.updateOrApply(ctx, backup)
 		if err != nil {
-			globalControllerLogger.Error(err, "Error updating backup status", "namespace", backup.Namespace, "backup", backup.Name)
+			globalControllerLogger.Error(
+				err,
+				"Error updating backup status",
+				"namespace",
+				backup.Namespace,
+				"backup",
+				backup.Name,
+			)
 			return &requeue{curError: err}
 		}
 	}

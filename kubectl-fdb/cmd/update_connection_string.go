@@ -51,7 +51,11 @@ func newUpdateConnectionStringCmd(streams genericclioptions.IOStreams) *cobra.Co
 			}
 
 			cluster := &fdbv1beta2.FoundationDBCluster{}
-			err = kubeClient.Get(cmd.Context(), client.ObjectKey{Name: clusterName, Namespace: namespace}, cluster)
+			err = kubeClient.Get(
+				cmd.Context(),
+				client.ObjectKey{Name: clusterName, Namespace: namespace},
+				cluster,
+			)
 			if err != nil {
 				return err
 			}
@@ -66,8 +70,9 @@ kubectl fdb update connection-string -c cluster test:cluster@192.168.0.1:4500
 kubectl fdb -n default update connection-string -c cluster test:cluster@192.168.0.1:4500`,
 	}
 
-	cmd.Flags().StringP("fdb-cluster", "c", "", "Selects process groups from the provided cluster. "+
-		"Required if not passing cluster-label.")
+	cmd.Flags().
+		StringP("fdb-cluster", "c", "", "Selects process groups from the provided cluster. "+
+			"Required if not passing cluster-label.")
 	cmd.SetOut(o.Out)
 	cmd.SetErr(o.ErrOut)
 	cmd.SetIn(o.In)
@@ -77,9 +82,19 @@ kubectl fdb -n default update connection-string -c cluster test:cluster@192.168.
 }
 
 // updateConnectionStringCmd will update the connection string if the current connection string is outdated in the fdbv1beta2.FoundationDBCluster status.
-func updateConnectionStringCmd(cmd *cobra.Command, kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluster, connectionString string) error {
+func updateConnectionStringCmd(
+	cmd *cobra.Command,
+	kubeClient client.Client,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	connectionString string,
+) error {
 	if cluster.Status.ConnectionString == connectionString {
-		cmd.Printf("cluster %s/%s already has connections string \"%s\" set\n", cluster.Namespace, cluster.Name, connectionString)
+		cmd.Printf(
+			"cluster %s/%s already has connections string \"%s\" set\n",
+			cluster.Namespace,
+			cluster.Name,
+			connectionString,
+		)
 		return nil
 	}
 

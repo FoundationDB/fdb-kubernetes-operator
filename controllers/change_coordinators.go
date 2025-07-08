@@ -37,7 +37,13 @@ import (
 type changeCoordinators struct{}
 
 // reconcile runs the reconciler's work.
-func (c changeCoordinators) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
+func (c changeCoordinators) reconcile(
+	ctx context.Context,
+	r *FoundationDBClusterReconciler,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	status *fdbv1beta2.FoundationDBStatus,
+	logger logr.Logger,
+) *requeue {
 	if !cluster.Status.Configured {
 		return nil
 	}
@@ -63,7 +69,12 @@ func (c changeCoordinators) reconcile(ctx context.Context, r *FoundationDBCluste
 		coordinatorStatus[coord.Address.String()] = false
 	}
 
-	hasValidCoordinators, allAddressesValid, err := locality.CheckCoordinatorValidity(logger, cluster, status, coordinatorStatus)
+	hasValidCoordinators, allAddressesValid, err := locality.CheckCoordinatorValidity(
+		logger,
+		cluster,
+		status,
+		coordinatorStatus,
+	)
 	if err != nil {
 		return &requeue{curError: err, delayedRequeue: true}
 	}
@@ -74,7 +85,12 @@ func (c changeCoordinators) reconcile(ctx context.Context, r *FoundationDBCluste
 
 	if !allAddressesValid {
 		logger.Info("Deferring coordinator change")
-		r.Recorder.Event(cluster, corev1.EventTypeNormal, "DeferringCoordinatorChange", "Deferring coordinator change until all processes have consistent address TLS settings")
+		r.Recorder.Event(
+			cluster,
+			corev1.EventTypeNormal,
+			"DeferringCoordinatorChange",
+			"Deferring coordinator change until all processes have consistent address TLS settings",
+		)
 		return nil
 	}
 
@@ -84,7 +100,12 @@ func (c changeCoordinators) reconcile(ctx context.Context, r *FoundationDBCluste
 	}
 
 	logger.Info("Changing coordinators")
-	r.Recorder.Event(cluster, corev1.EventTypeNormal, "ChangingCoordinators", "Choosing new coordinators")
+	r.Recorder.Event(
+		cluster,
+		corev1.EventTypeNormal,
+		"ChangingCoordinators",
+		"Choosing new coordinators",
+	)
 
 	err = coordinator.ChangeCoordinators(logger, adminClient, cluster, status)
 	if err != nil {

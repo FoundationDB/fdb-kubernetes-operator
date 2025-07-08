@@ -67,7 +67,12 @@ func newConfigurationCmd(streams genericclioptions.IOStreams) *cobra.Command {
 					return updateConfig(kubeClient, clusterName, namespace, failOver, wait)
 				}
 
-				configuration, err := getConfigurationString(kubeClient, clusterName, namespace, failOver)
+				configuration, err := getConfigurationString(
+					kubeClient,
+					clusterName,
+					namespace,
+					failOver,
+				)
 				if err != nil {
 					return err
 				}
@@ -99,14 +104,22 @@ kubectl fdb get configuration --fail-over --update c1
 	cmd.SetErr(o.ErrOut)
 	cmd.SetIn(o.In)
 
-	cmd.Flags().Bool("fail-over", false, "defines if the configuration should be changed to issue a fail over")
-	cmd.Flags().Bool("update", false, "defines if the configuration should be updated in the cluster spec")
+	cmd.Flags().
+		Bool("fail-over", false, "defines if the configuration should be changed to issue a fail over")
+	cmd.Flags().
+		Bool("update", false, "defines if the configuration should be updated in the cluster spec")
 	o.configFlags.AddFlags(cmd.Flags())
 
 	return cmd
 }
 
-func updateConfig(kubeClient client.Client, clusterName string, namespace string, failOver bool, wait bool) error {
+func updateConfig(
+	kubeClient client.Client,
+	clusterName string,
+	namespace string,
+	failOver bool,
+	wait bool,
+) error {
 	cluster, err := loadCluster(kubeClient, namespace, clusterName)
 	if err != nil {
 		return err
@@ -135,7 +148,12 @@ func updateConfig(kubeClient client.Client, clusterName string, namespace string
 }
 
 // getConfigurationString returns the configuration string
-func getConfigurationString(kubeClient client.Client, clusterName string, namespace string, failOver bool) (string, error) {
+func getConfigurationString(
+	kubeClient client.Client,
+	clusterName string,
+	namespace string,
+	failOver bool,
+) (string, error) {
 	cluster, err := loadCluster(kubeClient, namespace, clusterName)
 	if err != nil {
 		return "", err

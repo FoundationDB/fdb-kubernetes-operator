@@ -61,7 +61,9 @@ var _ = Describe("operator_coordination", func() {
 		JustBeforeEach(func() {
 			adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(UpdateGlobalCoordinationState(logr.Discard(), cluster, adminClient, nil)).To(Succeed())
+			Expect(
+				UpdateGlobalCoordinationState(logr.Discard(), cluster, adminClient, nil),
+			).To(Succeed())
 		})
 
 		When("a process group is marked for removal", func() {
@@ -72,7 +74,9 @@ var _ = Describe("operator_coordination", func() {
 
 			When("the synchronization mode is local", func() {
 				BeforeEach(func() {
-					cluster.Spec.AutomationOptions.SynchronizationMode = pointer.String(string(fdbv1beta2.SynchronizationModeLocal))
+					cluster.Spec.AutomationOptions.SynchronizationMode = pointer.String(
+						string(fdbv1beta2.SynchronizationModeLocal),
+					)
 				})
 
 				It("shouldn't update anything", func() {
@@ -87,7 +91,9 @@ var _ = Describe("operator_coordination", func() {
 
 			When("the synchronization mode is global", func() {
 				BeforeEach(func() {
-					cluster.Spec.AutomationOptions.SynchronizationMode = pointer.String(string(fdbv1beta2.SynchronizationModeGlobal))
+					cluster.Spec.AutomationOptions.SynchronizationMode = pointer.String(
+						string(fdbv1beta2.SynchronizationModeGlobal),
+					)
 				})
 
 				When("the process group is not already excluded", func() {
@@ -140,12 +146,20 @@ var _ = Describe("operator_coordination", func() {
 							adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 							Expect(err).NotTo(HaveOccurred())
 
-							Expect(adminClient.UpdateReadyForExclusion(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{
-								processGroup.ProcessGroupID: fdbv1beta2.UpdateActionAdd,
-							})).NotTo(HaveOccurred())
-							Expect(adminClient.UpdatePendingForExclusion(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{
-								processGroup.ProcessGroupID: fdbv1beta2.UpdateActionAdd,
-							})).NotTo(HaveOccurred())
+							Expect(
+								adminClient.UpdateReadyForExclusion(
+									map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{
+										processGroup.ProcessGroupID: fdbv1beta2.UpdateActionAdd,
+									},
+								),
+							).NotTo(HaveOccurred())
+							Expect(
+								adminClient.UpdatePendingForExclusion(
+									map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{
+										processGroup.ProcessGroupID: fdbv1beta2.UpdateActionAdd,
+									},
+								),
+							).NotTo(HaveOccurred())
 						})
 
 						It("should update remove them from the exclusions set", func() {
@@ -176,7 +190,9 @@ var _ = Describe("operator_coordination", func() {
 
 			When("the synchronization mode is local", func() {
 				BeforeEach(func() {
-					cluster.Spec.AutomationOptions.SynchronizationMode = pointer.String(string(fdbv1beta2.SynchronizationModeLocal))
+					cluster.Spec.AutomationOptions.SynchronizationMode = pointer.String(
+						string(fdbv1beta2.SynchronizationModeLocal),
+					)
 				})
 
 				It("shouldn't update anything", func() {
@@ -191,7 +207,9 @@ var _ = Describe("operator_coordination", func() {
 
 			When("the synchronization mode is global", func() {
 				BeforeEach(func() {
-					cluster.Spec.AutomationOptions.SynchronizationMode = pointer.String(string(fdbv1beta2.SynchronizationModeGlobal))
+					cluster.Spec.AutomationOptions.SynchronizationMode = pointer.String(
+						string(fdbv1beta2.SynchronizationModeGlobal),
+					)
 				})
 
 				When("the process group is not already added", func() {
@@ -212,17 +230,27 @@ var _ = Describe("operator_coordination", func() {
 				adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
 
-				Expect(adminClient.UpdateReadyForRestart(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{
-					processGroup.ProcessGroupID: fdbv1beta2.UpdateActionAdd,
-				})).NotTo(HaveOccurred())
-				Expect(adminClient.UpdatePendingForRestart(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{
-					processGroup.ProcessGroupID: fdbv1beta2.UpdateActionAdd,
-				})).NotTo(HaveOccurred())
+				Expect(
+					adminClient.UpdateReadyForRestart(
+						map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{
+							processGroup.ProcessGroupID: fdbv1beta2.UpdateActionAdd,
+						},
+					),
+				).NotTo(HaveOccurred())
+				Expect(
+					adminClient.UpdatePendingForRestart(
+						map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{
+							processGroup.ProcessGroupID: fdbv1beta2.UpdateActionAdd,
+						},
+					),
+				).NotTo(HaveOccurred())
 			})
 
 			When("the synchronization mode is local", func() {
 				BeforeEach(func() {
-					cluster.Spec.AutomationOptions.SynchronizationMode = pointer.String(string(fdbv1beta2.SynchronizationModeLocal))
+					cluster.Spec.AutomationOptions.SynchronizationMode = pointer.String(
+						string(fdbv1beta2.SynchronizationModeLocal),
+					)
 				})
 
 				It("shouldn't update anything", func() {
@@ -241,7 +269,9 @@ var _ = Describe("operator_coordination", func() {
 
 			When("the synchronization mode is global", func() {
 				BeforeEach(func() {
-					cluster.Spec.AutomationOptions.SynchronizationMode = pointer.String(string(fdbv1beta2.SynchronizationModeGlobal))
+					cluster.Spec.AutomationOptions.SynchronizationMode = pointer.String(
+						string(fdbv1beta2.SynchronizationModeGlobal),
+					)
 				})
 
 				When("no other entry exists", func() {
@@ -263,24 +293,38 @@ var _ = Describe("operator_coordination", func() {
 					var pickedProcessGroupID fdbv1beta2.ProcessGroupID
 
 					BeforeEach(func() {
-						cluster.Spec.AutomationOptions.SynchronizationMode = pointer.String(string(fdbv1beta2.SynchronizationModeGlobal))
+						cluster.Spec.AutomationOptions.SynchronizationMode = pointer.String(
+							string(fdbv1beta2.SynchronizationModeGlobal),
+						)
 
 						adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 						Expect(err).NotTo(HaveOccurred())
 
-						processGroups := internal.PickProcessGroups(cluster, fdbv1beta2.ProcessClassStateless, 1)
+						processGroups := internal.PickProcessGroups(
+							cluster,
+							fdbv1beta2.ProcessClassStateless,
+							1,
+						)
 						Expect(processGroups).To(HaveLen(1))
 						pickedProcessGroup := processGroups[0]
 						Expect(pickedProcessGroup).NotTo(BeNil())
 						pickedProcessGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true)
 						pickedProcessGroupID = pickedProcessGroup.ProcessGroupID
 
-						Expect(adminClient.UpdateReadyForRestart(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{
-							pickedProcessGroupID: fdbv1beta2.UpdateActionAdd,
-						})).NotTo(HaveOccurred())
-						Expect(adminClient.UpdatePendingForRestart(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{
-							pickedProcessGroupID: fdbv1beta2.UpdateActionAdd,
-						})).NotTo(HaveOccurred())
+						Expect(
+							adminClient.UpdateReadyForRestart(
+								map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{
+									pickedProcessGroupID: fdbv1beta2.UpdateActionAdd,
+								},
+							),
+						).NotTo(HaveOccurred())
+						Expect(
+							adminClient.UpdatePendingForRestart(
+								map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{
+									pickedProcessGroupID: fdbv1beta2.UpdateActionAdd,
+								},
+							),
+						).NotTo(HaveOccurred())
 					})
 
 					It("should only remove all the entries for the process group", func() {
@@ -306,9 +350,13 @@ var _ = Describe("operator_coordination", func() {
 				adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
 
-				Expect(adminClient.UpdatePendingForRemoval(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{
-					processGroup.ProcessGroupID: fdbv1beta2.UpdateActionAdd,
-				})).NotTo(HaveOccurred())
+				Expect(
+					adminClient.UpdatePendingForRemoval(
+						map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{
+							processGroup.ProcessGroupID: fdbv1beta2.UpdateActionAdd,
+						},
+					),
+				).NotTo(HaveOccurred())
 
 				beforeLen := len(cluster.Status.ProcessGroups)
 				var currentIdx int
@@ -331,7 +379,9 @@ var _ = Describe("operator_coordination", func() {
 
 			When("the synchronization mode is local", func() {
 				BeforeEach(func() {
-					cluster.Spec.AutomationOptions.SynchronizationMode = pointer.String(string(fdbv1beta2.SynchronizationModeLocal))
+					cluster.Spec.AutomationOptions.SynchronizationMode = pointer.String(
+						string(fdbv1beta2.SynchronizationModeLocal),
+					)
 				})
 
 				It("shouldn't update anything", func() {
@@ -346,7 +396,9 @@ var _ = Describe("operator_coordination", func() {
 
 			When("the synchronization mode is global", func() {
 				BeforeEach(func() {
-					cluster.Spec.AutomationOptions.SynchronizationMode = pointer.String(string(fdbv1beta2.SynchronizationModeGlobal))
+					cluster.Spec.AutomationOptions.SynchronizationMode = pointer.String(
+						string(fdbv1beta2.SynchronizationModeGlobal),
+					)
 				})
 
 				It("should remove the entries for the non exiting process group", func() {
@@ -361,15 +413,17 @@ var _ = Describe("operator_coordination", func() {
 		})
 	})
 
-	DescribeTable("validating if all processes are ready", func(pendingProcessGroups map[fdbv1beta2.ProcessGroupID]time.Time, readyProcessGroups map[fdbv1beta2.ProcessGroupID]time.Time, waitTime time.Duration, expectedErr string) {
-		err := AllProcessesReady(GinkgoLogr, pendingProcessGroups, readyProcessGroups, waitTime)
-		if expectedErr != "" {
-			Expect(err).To(HaveOccurred())
-			Expect(err).To(MatchError(HavePrefix(expectedErr)))
-		} else {
-			Expect(err).To(Succeed())
-		}
-	},
+	DescribeTable(
+		"validating if all processes are ready",
+		func(pendingProcessGroups map[fdbv1beta2.ProcessGroupID]time.Time, readyProcessGroups map[fdbv1beta2.ProcessGroupID]time.Time, waitTime time.Duration, expectedErr string) {
+			err := AllProcessesReady(GinkgoLogr, pendingProcessGroups, readyProcessGroups, waitTime)
+			if expectedErr != "" {
+				Expect(err).To(HaveOccurred())
+				Expect(err).To(MatchError(HavePrefix(expectedErr)))
+			} else {
+				Expect(err).To(Succeed())
+			}
+		},
 		Entry("no processes provided",
 			nil,
 			nil,
@@ -428,16 +482,23 @@ var _ = Describe("operator_coordination", func() {
 		),
 	)
 
-	DescribeTable("validating if all processes are ready for exclusion", func(pendingProcessGroups map[fdbv1beta2.ProcessGroupID]time.Time, readyProcessGroups map[fdbv1beta2.ProcessGroupID]time.Time, waitTime time.Duration, expectedErr string, expectedAllowedCount int) {
-		allowed, err := AllProcessesReadyForExclusion(GinkgoLogr, pendingProcessGroups, readyProcessGroups, waitTime)
-		if expectedErr != "" {
-			Expect(err).To(HaveOccurred())
-			Expect(err).To(MatchError(HavePrefix(expectedErr)))
-		} else {
-			Expect(err).To(Succeed())
-			Expect(allowed).To(HaveLen(expectedAllowedCount))
-		}
-	},
+	DescribeTable(
+		"validating if all processes are ready for exclusion",
+		func(pendingProcessGroups map[fdbv1beta2.ProcessGroupID]time.Time, readyProcessGroups map[fdbv1beta2.ProcessGroupID]time.Time, waitTime time.Duration, expectedErr string, expectedAllowedCount int) {
+			allowed, err := AllProcessesReadyForExclusion(
+				GinkgoLogr,
+				pendingProcessGroups,
+				readyProcessGroups,
+				waitTime,
+			)
+			if expectedErr != "" {
+				Expect(err).To(HaveOccurred())
+				Expect(err).To(MatchError(HavePrefix(expectedErr)))
+			} else {
+				Expect(err).To(Succeed())
+				Expect(allowed).To(HaveLen(expectedAllowedCount))
+			}
+		},
 		Entry("no processes provided",
 			nil,
 			nil,
@@ -500,7 +561,8 @@ var _ = Describe("operator_coordination", func() {
 			"not all processes are ready:",
 			0,
 		),
-		Entry("two pending and one ready processes are provided and is ready for at least 5 minutes",
+		Entry(
+			"two pending and one ready processes are provided and is ready for at least 5 minutes",
 			map[fdbv1beta2.ProcessGroupID]time.Time{
 				"storage-1": time.Now().Add(-2 * IgnoreMissingProcessDuration),
 				"storage-2": time.Now().Add(-2 * IgnoreMissingProcessDuration),

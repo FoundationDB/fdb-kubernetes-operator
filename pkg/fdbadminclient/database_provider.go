@@ -34,13 +34,23 @@ type DatabaseClientProvider interface {
 
 	// GetLockClientWithLogger generates a client for working with locks through the database.
 	// The provided logger will be used as logger for the LockClient.
-	GetLockClientWithLogger(cluster *fdbv1beta2.FoundationDBCluster, logger logr.Logger) (LockClient, error)
+	GetLockClientWithLogger(
+		cluster *fdbv1beta2.FoundationDBCluster,
+		logger logr.Logger,
+	) (LockClient, error)
 
 	// GetAdminClient generates a client for performing administrative actions
 	// against the database.
-	GetAdminClient(cluster *fdbv1beta2.FoundationDBCluster, kubernetesClient client.Client) (AdminClient, error)
+	GetAdminClient(
+		cluster *fdbv1beta2.FoundationDBCluster,
+		kubernetesClient client.Client,
+	) (AdminClient, error)
 
 	// GetAdminClientWithLogger generates a client for performing administrative actions
 	// against the database. The provided logger will be used as logger for the AdminClient.
-	GetAdminClientWithLogger(cluster *fdbv1beta2.FoundationDBCluster, kubernetesClient client.Client, logger logr.Logger) (AdminClient, error)
+	GetAdminClientWithLogger(
+		cluster *fdbv1beta2.FoundationDBCluster,
+		kubernetesClient client.Client,
+		logger logr.Logger,
+	) (AdminClient, error)
 }

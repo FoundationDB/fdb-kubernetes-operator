@@ -23,8 +23,9 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"github.com/google/go-cmp/cmp"
 	"strings"
+
+	"github.com/google/go-cmp/cmp"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
@@ -110,7 +111,14 @@ kubectl fdb deprecation --show-cluster-spec`,
 	return cmd
 }
 
-func checkDeprecation(cmd *cobra.Command, kubeClient client.Client, inputClusters []string, namespace string, deprecationOptions internal.DeprecationOptions, showClusterSpec bool) error {
+func checkDeprecation(
+	cmd *cobra.Command,
+	kubeClient client.Client,
+	inputClusters []string,
+	namespace string,
+	deprecationOptions internal.DeprecationOptions,
+	showClusterSpec bool,
+) error {
 	clusters := &fdbv1beta2.FoundationDBClusterList{}
 
 	err := kubeClient.List(context.Background(), clusters, client.InNamespace(namespace))

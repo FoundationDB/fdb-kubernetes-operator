@@ -33,15 +33,17 @@ import (
 )
 
 var _ = Describe("pod_helper", func() {
-	DescribeTable("when getting the IP family from a pod", func(pod *corev1.Pod, expected int, expectedErr error) {
-		result, err := GetIPFamily(pod)
-		if expectedErr != nil {
-			Expect(err).To(MatchError(expectedErr))
-		} else {
-			Expect(err).To(Succeed())
-		}
-		Expect(result).To(Equal(expected))
-	},
+	DescribeTable(
+		"when getting the IP family from a pod",
+		func(pod *corev1.Pod, expected int, expectedErr error) {
+			result, err := GetIPFamily(pod)
+			if expectedErr != nil {
+				Expect(err).To(MatchError(expectedErr))
+			} else {
+				Expect(err).To(Succeed())
+			}
+			Expect(result).To(Equal(expected))
+		},
 		Entry("empty pod",
 			nil,
 			nil,
@@ -158,7 +160,9 @@ var _ = Describe("pod_helper", func() {
 			&corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						fdbv1beta2.ImageTypeAnnotation:            string(fdbv1beta2.ImageTypeUnified),
+						fdbv1beta2.ImageTypeAnnotation: string(
+							fdbv1beta2.ImageTypeUnified,
+						),
 						monitorapi.CurrentConfigurationAnnotation: "{\"arguments\": [{\"type\": \"IPList\", \"ipFamily\": 4}]}",
 					},
 				},
@@ -170,7 +174,9 @@ var _ = Describe("pod_helper", func() {
 			&corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						fdbv1beta2.ImageTypeAnnotation:            string(fdbv1beta2.ImageTypeUnified),
+						fdbv1beta2.ImageTypeAnnotation: string(
+							fdbv1beta2.ImageTypeUnified,
+						),
 						monitorapi.CurrentConfigurationAnnotation: "{\"arguments\": [{\"type\": \"IPList\", \"ipFamily\": 6}]}",
 					},
 				},
@@ -182,7 +188,9 @@ var _ = Describe("pod_helper", func() {
 			&corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						fdbv1beta2.ImageTypeAnnotation:            string(fdbv1beta2.ImageTypeUnified),
+						fdbv1beta2.ImageTypeAnnotation: string(
+							fdbv1beta2.ImageTypeUnified,
+						),
 						monitorapi.CurrentConfigurationAnnotation: "{\"arguments\": [{\"type\": \"IPList\", \"ipFamily\": 1337}]}",
 					},
 				},
@@ -312,31 +320,37 @@ var _ = Describe("pod_helper", func() {
 				})
 			})
 
-			Context("and the desired map is populated with a new value for an existing key", func() {
-				var desired = map[string]string{
-					"test-key": "new-value",
-				}
-
-				It("should add the new value to the target map", func() {
-					Expect(mergeMap(target, desired)).To(Equal(true))
-					Expect(target).To(Equal(map[string]string{
+			Context(
+				"and the desired map is populated with a new value for an existing key",
+				func() {
+					var desired = map[string]string{
 						"test-key": "new-value",
-					}))
-				})
-			})
+					}
 
-			Context("and the desired map is populated with the same value for an existing key", func() {
-				var desired = map[string]string{
-					"test-key": "test-value",
-				}
+					It("should add the new value to the target map", func() {
+						Expect(mergeMap(target, desired)).To(Equal(true))
+						Expect(target).To(Equal(map[string]string{
+							"test-key": "new-value",
+						}))
+					})
+				},
+			)
 
-				It("should not change the target map", func() {
-					Expect(mergeMap(target, desired)).To(Equal(false))
-					Expect(target).To(Equal(map[string]string{
+			Context(
+				"and the desired map is populated with the same value for an existing key",
+				func() {
+					var desired = map[string]string{
 						"test-key": "test-value",
-					}))
-				})
-			})
+					}
+
+					It("should not change the target map", func() {
+						Expect(mergeMap(target, desired)).To(Equal(false))
+						Expect(target).To(Equal(map[string]string{
+							"test-key": "test-value",
+						}))
+					})
+				},
+			)
 
 			Context("and the desired map is empty", func() {
 				var desired = map[string]string{}
@@ -419,7 +433,9 @@ var _ = Describe("pod_helper", func() {
 						Annotations: map[string]string{
 							fdbv1beta2.LastSpecKey:         "1",
 							fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
-							fdbv1beta2.IPFamilyAnnotation:  strconv.Itoa(fdbv1beta2.PodIPFamilyUnset),
+							fdbv1beta2.IPFamilyAnnotation: strconv.Itoa(
+								fdbv1beta2.PodIPFamilyUnset,
+							),
 						},
 					},
 				},
@@ -447,7 +463,9 @@ var _ = Describe("pod_helper", func() {
 						Annotations: map[string]string{
 							fdbv1beta2.LastSpecKey:         "1",
 							fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
-							fdbv1beta2.IPFamilyAnnotation:  strconv.Itoa(fdbv1beta2.PodIPFamilyUnset),
+							fdbv1beta2.IPFamilyAnnotation: strconv.Itoa(
+								fdbv1beta2.PodIPFamilyUnset,
+							),
 						},
 					},
 				},
@@ -476,7 +494,9 @@ var _ = Describe("pod_helper", func() {
 							fdbv1beta2.LastSpecKey:         "1",
 							"special":                      "43",
 							fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
-							fdbv1beta2.IPFamilyAnnotation:  strconv.Itoa(fdbv1beta2.PodIPFamilyUnset),
+							fdbv1beta2.IPFamilyAnnotation: strconv.Itoa(
+								fdbv1beta2.PodIPFamilyUnset,
+							),
 						},
 					},
 				},
@@ -506,7 +526,9 @@ var _ = Describe("pod_helper", func() {
 						Annotations: map[string]string{
 							fdbv1beta2.LastSpecKey:         "1",
 							fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
-							fdbv1beta2.IPFamilyAnnotation:  strconv.Itoa(fdbv1beta2.PodIPFamilyUnset),
+							fdbv1beta2.IPFamilyAnnotation: strconv.Itoa(
+								fdbv1beta2.PodIPFamilyUnset,
+							),
 						},
 					},
 				},
@@ -537,7 +559,9 @@ var _ = Describe("pod_helper", func() {
 							fdbv1beta2.LastSpecKey:         "1",
 							"controller/X":                 "wrong",
 							fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
-							fdbv1beta2.IPFamilyAnnotation:  strconv.Itoa(fdbv1beta2.PodIPFamilyUnset),
+							fdbv1beta2.IPFamilyAnnotation: strconv.Itoa(
+								fdbv1beta2.PodIPFamilyUnset,
+							),
 						},
 					},
 				},
@@ -595,7 +619,9 @@ var _ = Describe("pod_helper", func() {
 						Annotations: map[string]string{
 							fdbv1beta2.LastSpecKey:         "1",
 							fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
-							fdbv1beta2.IPFamilyAnnotation:  strconv.Itoa(fdbv1beta2.PodIPFamilyUnset),
+							fdbv1beta2.IPFamilyAnnotation: strconv.Itoa(
+								fdbv1beta2.PodIPFamilyUnset,
+							),
 						},
 						Labels: map[string]string{
 							"test": "test",
@@ -629,7 +655,9 @@ var _ = Describe("pod_helper", func() {
 						Annotations: map[string]string{
 							fdbv1beta2.LastSpecKey:         "1",
 							fdbv1beta2.ImageTypeAnnotation: string(fdbv1beta2.ImageTypeSplit),
-							fdbv1beta2.IPFamilyAnnotation:  strconv.Itoa(fdbv1beta2.PodIPFamilyUnset),
+							fdbv1beta2.IPFamilyAnnotation: strconv.Itoa(
+								fdbv1beta2.PodIPFamilyUnset,
+							),
 						},
 						Labels: map[string]string{
 							fdbv1beta2.FDBProcessClassLabel: "storage",

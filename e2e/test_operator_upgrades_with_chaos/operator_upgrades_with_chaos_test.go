@@ -266,7 +266,11 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 			// will update the sidecar and then the I/O chaos will be gone. So we prepare the faulty Pod to already
 			// be using the new sidecar image and then we inject IO chaos.
 			sidecarImage := fdbCluster.GetSidecarImageForVersion(targetVersion)
-			fdbCluster.UpdateContainerImage(&faultyPod, fdbv1beta2.SidecarContainerName, sidecarImage)
+			fdbCluster.UpdateContainerImage(
+				&faultyPod,
+				fdbv1beta2.SidecarContainerName,
+				sidecarImage,
+			)
 
 			Eventually(func() bool {
 				pod := fdbCluster.GetPod(faultyPod.Name)
@@ -306,7 +310,8 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 					faultyPod,
 					fdbv1beta2.SidecarContainerName,
 					"cat /var/output-files/fdbmonitor.conf && echo '\n' >> /var/output-files/fdbmonitor.conf",
-					false)
+					false,
+				)
 
 				log.Println(stdout, stderr)
 
@@ -333,7 +338,10 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 					}
 
 					for _, condition := range processGroup.ProcessGroupConditions {
-						log.Println(processGroup.ProcessGroupID, string(condition.ProcessGroupConditionType))
+						log.Println(
+							processGroup.ProcessGroupID,
+							string(condition.ProcessGroupConditionType),
+						)
 					}
 
 					if !processGroup.MatchesConditions(expectedConditions) {
@@ -354,7 +362,9 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 			// Ensure the upgrade proceeds and is able to finish.
 			fdbCluster.VerifyVersion(targetVersion)
 		},
-		EntryDescription("Upgrade from %[1]s to %[2]s and one process has the fdbmonitor.conf file not ready"),
+		EntryDescription(
+			"Upgrade from %[1]s to %[2]s and one process has the fdbmonitor.conf file not ready",
+		),
 		fixtures.GenerateUpgradeTableEntries(testOptions),
 	)
 
@@ -380,7 +390,11 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 			// will update the sidecar and then the sidecar will copy the binaries at start-up. So we prepare the faulty Pod to already
 			// be using the new sidecar image and then we delete he new fdbserver binary.
 			sidecarImage := fdbCluster.GetSidecarImageForVersion(targetVersion)
-			fdbCluster.UpdateContainerImage(&faultyPod, fdbv1beta2.SidecarContainerName, sidecarImage)
+			fdbCluster.UpdateContainerImage(
+				&faultyPod,
+				fdbv1beta2.SidecarContainerName,
+				sidecarImage,
+			)
 
 			Eventually(func() bool {
 				pod := fdbCluster.GetPod(faultyPod.Name)
@@ -448,7 +462,10 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 					}
 
 					for _, condition := range processGroup.ProcessGroupConditions {
-						log.Println(processGroup.ProcessGroupID, string(condition.ProcessGroupConditionType))
+						log.Println(
+							processGroup.ProcessGroupID,
+							string(condition.ProcessGroupConditionType),
+						)
 					}
 
 					if !processGroup.MatchesConditions(expectedConditions) {

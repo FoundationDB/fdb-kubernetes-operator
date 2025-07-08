@@ -89,7 +89,13 @@ kubectl fdb buggify empty-monitor-conf --set-value=false -c cluster
 }
 
 // updateMonitorConf updates the monitor conf of the cluster
-func updateMonitorConf(kubeClient client.Client, clusterName string, namespace string, wait bool, set bool) error {
+func updateMonitorConf(
+	kubeClient client.Client,
+	clusterName string,
+	namespace string,
+	wait bool,
+	set bool,
+) error {
 	cluster, err := loadCluster(kubeClient, namespace, clusterName)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -105,7 +111,14 @@ func updateMonitorConf(kubeClient client.Client, clusterName string, namespace s
 	patch := client.MergeFrom(cluster.DeepCopy())
 
 	if wait {
-		if !confirmAction(fmt.Sprintf("Setting empty-monitor-conf to %v for cluster %s/%s", set, namespace, clusterName)) {
+		if !confirmAction(
+			fmt.Sprintf(
+				"Setting empty-monitor-conf to %v for cluster %s/%s",
+				set,
+				namespace,
+				clusterName,
+			),
+		) {
 			return fmt.Errorf("user aborted the removal")
 		}
 	}

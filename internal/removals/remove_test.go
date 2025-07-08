@@ -162,7 +162,8 @@ var _ = Describe("remove", func() {
 			},
 		}
 
-		DescribeTable("should delete the Pods based on the deletion mode",
+		DescribeTable(
+			"should delete the Pods based on the deletion mode",
 			func(removalMode fdbv1beta2.PodUpdateMode, zones map[fdbv1beta2.FaultDomain][]*fdbv1beta2.ProcessGroupStatus, expected int, expectedErr error) {
 				_, removals, err := GetProcessGroupsToRemove(removalMode, zones)
 				if expectedErr != nil {
@@ -216,7 +217,8 @@ var _ = Describe("remove", func() {
 	})
 
 	When("checking if a removal is allowed", func() {
-		DescribeTable("should return if a removal is allowed and the wait time",
+		DescribeTable(
+			"should return if a removal is allowed and the wait time",
 			func(lastDeletion int64, currentTimestamp int64, waitBetween int, expectedRes bool, expectedWaitTime int64) {
 				waitTime, ok := RemovalAllowed(lastDeletion, currentTimestamp, waitBetween)
 				Expect(ok).To(Equal(expectedRes))
@@ -261,14 +263,16 @@ var _ = Describe("remove", func() {
 		)
 	})
 
-	DescribeTable("when getting the addresses to validate before removal", func(cluster *fdbv1beta2.FoundationDBCluster, expected []fdbv1beta2.ProcessAddress) {
-		remainingMap, addresses := getAddressesToValidateBeforeRemoval(logr.Discard(), cluster)
-		Expect(addresses).To(ConsistOf(expected))
-		for _, address := range addresses {
-			Expect(remainingMap).To(HaveKeyWithValue(address.String(), false))
-		}
-		Expect(remainingMap).To(HaveLen(len(expected)))
-	},
+	DescribeTable(
+		"when getting the addresses to validate before removal",
+		func(cluster *fdbv1beta2.FoundationDBCluster, expected []fdbv1beta2.ProcessAddress) {
+			remainingMap, addresses := getAddressesToValidateBeforeRemoval(logr.Discard(), cluster)
+			Expect(addresses).To(ConsistOf(expected))
+			for _, address := range addresses {
+				Expect(remainingMap).To(HaveKeyWithValue(address.String(), false))
+			}
+			Expect(remainingMap).To(HaveLen(len(expected)))
+		},
 		Entry("when no process groups must be removed",
 			&fdbv1beta2.FoundationDBCluster{},
 			nil,

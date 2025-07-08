@@ -42,13 +42,24 @@ import (
 type generateInitialClusterFile struct{}
 
 // reconcile runs the reconciler's work.
-func (g generateInitialClusterFile) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, _ *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
+func (g generateInitialClusterFile) reconcile(
+	ctx context.Context,
+	r *FoundationDBClusterReconciler,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	_ *fdbv1beta2.FoundationDBStatus,
+	logger logr.Logger,
+) *requeue {
 	if cluster.Status.ConnectionString != "" {
 		return nil
 	}
 
 	logger.Info("Generating initial cluster file")
-	r.Recorder.Event(cluster, corev1.EventTypeNormal, "GenerateInitialCoordinators", "Choosing initial coordinators")
+	r.Recorder.Event(
+		cluster,
+		corev1.EventTypeNormal,
+		"GenerateInitialCoordinators",
+		"Choosing initial coordinators",
+	)
 
 	processCounts, err := cluster.GetProcessCountsWithDefaults()
 	if err != nil {
@@ -89,8 +100,12 @@ func (g generateInitialClusterFile) reconcile(ctx context.Context, r *Foundation
 	count := cluster.DesiredCoordinatorCount()
 	if len(pods) < count {
 		return &requeue{
-			message: fmt.Sprintf("cannot find enough running Pods to recruit coordinators. Require %d, got %d Pods", count, len(pods)),
-			delay:   podSchedulingDelayDuration,
+			message: fmt.Sprintf(
+				"cannot find enough running Pods to recruit coordinators. Require %d, got %d Pods",
+				count,
+				len(pods),
+			),
+			delay: podSchedulingDelayDuration,
 		}
 	}
 
@@ -123,7 +138,11 @@ func (g generateInitialClusterFile) reconcile(ctx context.Context, r *Foundation
 		}
 		if currentLocality.ID == "" {
 			processGroupID := internal.GetProcessGroupIDFromMeta(cluster, pod.ObjectMeta)
-			logger.Info("Pod is ineligible to be a coordinator due to missing locality information", "processGroupID", processGroupID)
+			logger.Info(
+				"Pod is ineligible to be a coordinator due to missing locality information",
+				"processGroupID",
+				processGroupID,
+			)
 			continue
 		}
 		currentLocality.Priority = cluster.GetClassCandidatePriority(currentLocality.Class)
@@ -141,15 +160,23 @@ func (g generateInitialClusterFile) reconcile(ctx context.Context, r *Foundation
 		delete(limits, fdbv1beta2.FDBLocalityDataHallKey)
 	}
 
-	coordinators, err := locality.ChooseDistributedProcesses(cluster, processLocality, count, locality.ProcessSelectionConstraint{
-		HardLimits: limits,
-	})
+	coordinators, err := locality.ChooseDistributedProcesses(
+		cluster,
+		processLocality,
+		count,
+		locality.ProcessSelectionConstraint{
+			HardLimits: limits,
+		},
+	)
 	if err != nil {
 		return &requeue{curError: err}
 	}
 
 	for _, currentLocality := range coordinators {
-		connectionString.Coordinators = append(connectionString.Coordinators, coordinator.GetCoordinatorAddress(cluster, currentLocality).String())
+		connectionString.Coordinators = append(
+			connectionString.Coordinators,
+			coordinator.GetCoordinatorAddress(cluster, currentLocality).String(),
+		)
 	}
 
 	// Ensure that the connection string is in a valid format.

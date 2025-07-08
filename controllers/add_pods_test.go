@@ -61,7 +61,13 @@ var _ = Describe("add_pods", func() {
 	})
 
 	JustBeforeEach(func() {
-		requeue = addPods{}.reconcile(context.TODO(), clusterReconciler, cluster, nil, globalControllerLogger)
+		requeue = addPods{}.reconcile(
+			context.TODO(),
+			clusterReconciler,
+			cluster,
+			nil,
+			globalControllerLogger,
+		)
 		Expect(err).NotTo(HaveOccurred())
 		_, err = reloadCluster(cluster)
 		Expect(err).NotTo(HaveOccurred())
@@ -90,17 +96,27 @@ var _ = Describe("add_pods", func() {
 		BeforeEach(func() {
 			for i := 1; i < 100; i++ {
 				_, processGroupID := cluster.GetProcessGroupID(fdbv1beta2.ProcessClassStorage, i)
-				processGroup := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, processGroupID)
+				processGroup := fdbv1beta2.FindProcessGroupByID(
+					cluster.Status.ProcessGroups,
+					processGroupID,
+				)
 				// If that process group ID is already in use pick another one.
 				if processGroup != nil {
 					continue
 				}
 
-				processGroupWithoutPod = fdbv1beta2.NewProcessGroupStatus(processGroupID, fdbv1beta2.ProcessClassStorage, []string{"100.101.102.103"})
+				processGroupWithoutPod = fdbv1beta2.NewProcessGroupStatus(
+					processGroupID,
+					fdbv1beta2.ProcessClassStorage,
+					[]string{"100.101.102.103"},
+				)
 				newProcessGroupID = processGroupID
 			}
 
-			cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, processGroupWithoutPod)
+			cluster.Status.ProcessGroups = append(
+				cluster.Status.ProcessGroups,
+				processGroupWithoutPod,
+			)
 		})
 
 		It("should not requeue", func() {
@@ -146,7 +162,12 @@ var _ = Describe("add_pods", func() {
 	})
 })
 
-func expectNewPodToHaveBeenCreated(initialPods *corev1.PodList, newPods *corev1.PodList, cluster *fdbv1beta2.FoundationDBCluster, newProcessGroup fdbv1beta2.ProcessGroupID) {
+func expectNewPodToHaveBeenCreated(
+	initialPods *corev1.PodList,
+	newPods *corev1.PodList,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	newProcessGroup fdbv1beta2.ProcessGroupID,
+) {
 	Expect(newPods.Items).To(HaveLen(len(initialPods.Items) + 1))
 	var podHaveBeenChecked bool
 
@@ -158,8 +179,12 @@ func expectNewPodToHaveBeenCreated(initialPods *corev1.PodList, newPods *corev1.
 
 		Expect(pod.Name).To(Equal(expectedPodName))
 		Expect(pod.Labels[fdbv1beta2.FDBProcessGroupIDLabel]).To(Equal(string(newProcessGroup)))
-		Expect(pod.Labels[fdbv1beta2.FDBProcessClassLabel]).To(Equal(string(fdbv1beta2.ProcessClassStorage)))
-		Expect(pod.OwnerReferences).To(Equal(internal.BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)))
+		Expect(
+			pod.Labels[fdbv1beta2.FDBProcessClassLabel],
+		).To(Equal(string(fdbv1beta2.ProcessClassStorage)))
+		Expect(
+			pod.OwnerReferences,
+		).To(Equal(internal.BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)))
 		podHaveBeenChecked = true
 		break
 	}

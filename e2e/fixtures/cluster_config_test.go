@@ -29,12 +29,14 @@ import (
 )
 
 var _ = Describe("Cluster configuration", func() {
-	DescribeTable("when generating the Pod resources", func(config *ClusterConfig, processClass fdbv1beta2.ProcessClass, expected corev1.ResourceList) {
-		config.SetDefaults(&Factory{options: &FactoryOptions{}})
-		generated := config.generatePodResources(processClass)
-		Expect(generated.Cpu().String()).To(Equal(expected.Cpu().String()))
-		Expect(generated.Memory().String()).To(Equal(expected.Memory().String()))
-	},
+	DescribeTable(
+		"when generating the Pod resources",
+		func(config *ClusterConfig, processClass fdbv1beta2.ProcessClass, expected corev1.ResourceList) {
+			config.SetDefaults(&Factory{options: &FactoryOptions{}})
+			generated := config.generatePodResources(processClass)
+			Expect(generated.Cpu().String()).To(Equal(expected.Cpu().String()))
+			Expect(generated.Memory().String()).To(Equal(expected.Memory().String()))
+		},
 		Entry("empty config for general process class",
 			&ClusterConfig{
 				Name:                "test",
@@ -113,7 +115,8 @@ var _ = Describe("Cluster configuration", func() {
 				corev1.ResourceCPU:    resource.MustParse("1"),
 				corev1.ResourceMemory: resource.MustParse("16Gi"),
 			}),
-		Entry("performance config for storage process class with multiple storage servers per disk with custom memory",
+		Entry(
+			"performance config for storage process class with multiple storage servers per disk with custom memory",
 			&ClusterConfig{
 				StorageServerPerPod: 2,
 				Name:                "test",
@@ -126,7 +129,8 @@ var _ = Describe("Cluster configuration", func() {
 			corev1.ResourceList{
 				corev1.ResourceCPU:    resource.MustParse("2"),
 				corev1.ResourceMemory: resource.MustParse("32Gi"),
-			}),
+			},
+		),
 		Entry("empty config for general process class for kind",
 			&ClusterConfig{
 				cloudProvider: "kind",

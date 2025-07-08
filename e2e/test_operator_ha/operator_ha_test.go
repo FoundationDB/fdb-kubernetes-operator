@@ -64,7 +64,9 @@ func init() {
 
 var _ = BeforeSuite(func() {
 	factory = fixtures.CreateFactory(testOptions)
-	fdbCluster = factory.CreateFdbHaCluster(fixtures.DefaultClusterConfigWithHaMode(fixtures.HaFourZoneSingleSat, false), factory.GetClusterOptions()...)
+	fdbCluster = factory.CreateFdbHaCluster(
+		fixtures.DefaultClusterConfigWithHaMode(fixtures.HaFourZoneSingleSat, false),
+		factory.GetClusterOptions()...)
 
 	// Load some data into the cluster.
 	factory.CreateDataLoaderIfAbsent(fdbCluster.GetPrimary())
@@ -128,7 +130,12 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 					continue
 				}
 
-				log.Println("deleting coordinator pod:", pod.Name, "with addresses", pod.Status.PodIPs)
+				log.Println(
+					"deleting coordinator pod:",
+					pod.Name,
+					"with addresses",
+					pod.Status.PodIPs,
+				)
 				// Set Pod as unschedulable to ensure that they are not recreated. Otherwise the Pods might be recreated
 				// fast enough to not result in a new connection string.
 				fdbCluster.GetPrimary().SetPodAsUnschedulable(pod)
@@ -234,7 +241,8 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 
 				status := fdbCluster.GetPrimary().GetStatus()
 				if status.Client.DatabaseStatus.Available {
-					g.Expect(status.Cluster.DatabaseConfiguration.GetPrimaryDCID()).To(Equal(primaryDCID))
+					g.Expect(status.Cluster.DatabaseConfiguration.GetPrimaryDCID()).
+						To(Equal(primaryDCID))
 				} else {
 					log.Println("Database is unavailable will skip the primary DC check", status)
 				}
@@ -243,19 +251,26 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 			}).WithTimeout(5 * time.Minute).WithPolling(2 * time.Second).Should(BeNumerically(">=", desiredRunningPods))
 
 			// Add enough quota, so that the log processes can be updated after some time.
-			processCounts, err := fdbCluster.GetPrimarySatellite().GetCluster().GetProcessCountsWithDefaults()
+			processCounts, err := fdbCluster.GetPrimarySatellite().
+				GetCluster().
+				GetProcessCountsWithDefaults()
 			Expect(err).NotTo(HaveOccurred())
-			Expect(factory.GetControllerRuntimeClient().Update(context.Background(), &corev1.ResourceQuota{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "testing-quota",
-					Namespace: satellite.Namespace(),
-				},
-				Spec: corev1.ResourceQuotaSpec{
-					Hard: corev1.ResourceList{
-						corev1.ResourcePersistentVolumeClaims: resource.MustParse(strconv.Itoa(processCounts.Log)),
-					},
-				},
-			})).To(Succeed())
+			Expect(
+				factory.GetControllerRuntimeClient().
+					Update(context.Background(), &corev1.ResourceQuota{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "testing-quota",
+							Namespace: satellite.Namespace(),
+						},
+						Spec: corev1.ResourceQuotaSpec{
+							Hard: corev1.ResourceList{
+								corev1.ResourcePersistentVolumeClaims: resource.MustParse(
+									strconv.Itoa(processCounts.Log),
+								),
+							},
+						},
+					}),
+			).To(Succeed())
 
 			// Wait until the cluster has replaced all the log processes.
 			Expect(fdbCluster.WaitForReconciliation()).NotTo(HaveOccurred())
@@ -267,7 +282,9 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 
 		BeforeEach(func() {
 			spec := fdbCluster.GetRemote().GetCluster().Spec.DeepCopy()
-			initialUseLocalitiesForExclusion = fdbCluster.GetRemote().GetCluster().UseLocalitiesForExclusion()
+			initialUseLocalitiesForExclusion = fdbCluster.GetRemote().
+				GetCluster().
+				UseLocalitiesForExclusion()
 			spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(true)
 			fdbCluster.GetRemote().UpdateClusterSpecWithSpec(spec)
 			Expect(fdbCluster.GetRemote().GetCluster().UseLocalitiesForExclusion()).To(BeTrue())
@@ -275,7 +292,9 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 
 		AfterEach(func() {
 			spec := fdbCluster.GetRemote().GetCluster().Spec.DeepCopy()
-			spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(initialUseLocalitiesForExclusion)
+			spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(
+				initialUseLocalitiesForExclusion,
+			)
 			fdbCluster.GetRemote().UpdateClusterSpecWithSpec(spec)
 		})
 
@@ -312,7 +331,9 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 						continue
 					}
 
-					processGroupID = fdbv1beta2.ProcessGroupID(process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey])
+					processGroupID = fdbv1beta2.ProcessGroupID(
+						process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey],
+					)
 					break
 				}
 
@@ -345,12 +366,19 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 				factory.CreateDataLoaderIfAbsentWithWait(fdbCluster.GetPrimary(), false)
 
 				time.Sleep(1 * time.Minute)
-				log.Println("replacedPod", replacedPod.Name, "useLocalitiesForExclusion", fdbCluster.GetPrimary().GetCluster().UseLocalitiesForExclusion())
+				log.Println(
+					"replacedPod",
+					replacedPod.Name,
+					"useLocalitiesForExclusion",
+					fdbCluster.GetPrimary().GetCluster().UseLocalitiesForExclusion(),
+				)
 				remote.ReplacePod(replacedPod, true)
 			})
 
 			It("should exclude and remove the pod", func() {
-				excludedServer := fdbv1beta2.ExcludedServers{Locality: processGroupID.GetExclusionString()}
+				excludedServer := fdbv1beta2.ExcludedServers{
+					Locality: processGroupID.GetExclusionString(),
+				}
 
 				Eventually(func(g Gomega) []fdbv1beta2.ExcludedServers {
 					status := fdbCluster.GetPrimary().GetStatus()
@@ -358,7 +386,8 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 					log.Println("excludedServers", excludedServers)
 
 					pod := &corev1.Pod{}
-					err := factory.GetControllerRuntimeClient().Get(context.Background(), ctrlClient.ObjectKeyFromObject(&replacedPod), pod)
+					err := factory.GetControllerRuntimeClient().
+						Get(context.Background(), ctrlClient.ObjectKeyFromObject(&replacedPod), pod)
 					g.Expect(err).To(HaveOccurred())
 					g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
 
@@ -413,7 +442,9 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 						continue
 					}
 
-					processGroupID = fdbv1beta2.ProcessGroupID(process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey])
+					processGroupID = fdbv1beta2.ProcessGroupID(
+						process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey],
+					)
 					break
 				}
 
@@ -432,8 +463,10 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 				experiment = factory.InjectNetworkLatency(
 					chaosmesh.PodSelectorSpec{
 						GenericSelectorSpec: chaosmesh.GenericSelectorSpec{
-							Namespaces:     []string{fdbCluster.GetRemote().Namespace()},
-							LabelSelectors: fdbCluster.GetRemote().GetCachedCluster().GetMatchLabels(),
+							Namespaces: []string{fdbCluster.GetRemote().Namespace()},
+							LabelSelectors: fdbCluster.GetRemote().
+								GetCachedCluster().
+								GetMatchLabels(),
 						},
 					},
 					chaosmesh.PodSelectorSpec{
@@ -462,7 +495,12 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 				factory.CreateDataLoaderIfAbsentWithWait(fdbCluster.GetPrimary(), false)
 
 				time.Sleep(1 * time.Minute)
-				log.Println("replacedPod", replacedPod.Name, "useLocalitiesForExclusion", fdbCluster.GetPrimary().GetCluster().UseLocalitiesForExclusion())
+				log.Println(
+					"replacedPod",
+					replacedPod.Name,
+					"useLocalitiesForExclusion",
+					fdbCluster.GetPrimary().GetCluster().UseLocalitiesForExclusion(),
+				)
 				fdbCluster.GetRemote().ReplacePod(replacedPod, true)
 			})
 
@@ -479,7 +517,11 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 				Expect(fdbCluster.GetRemote().ClearProcessGroupsToRemove()).NotTo(HaveOccurred())
 				factory.DeleteChaosMeshExperimentSafe(experiment)
 				// Making sure we included back all the process groups after exclusion is complete.
-				Expect(fdbCluster.GetPrimary().GetStatus().Cluster.DatabaseConfiguration.ExcludedServers).To(BeEmpty())
+				Expect(
+					fdbCluster.GetPrimary().
+						GetStatus().
+						Cluster.DatabaseConfiguration.ExcludedServers,
+				).To(BeEmpty())
 				factory.DeleteDataLoader(fdbCluster.GetPrimary())
 			})
 		})

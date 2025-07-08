@@ -67,7 +67,7 @@ type StressChaosSpec struct {
 
 // StressChaosStatus defines the observed state of StressChaos
 type StressChaosStatus struct {
-	ChaosStatus `json:",inline"`
+	ChaosStatus `                          json:",inline"`
 	// Instances always specifies stressing instances
 	Instances map[string]StressInstance `json:"instances,omitempty"`
 }
@@ -160,7 +160,7 @@ type MemoryStressor struct {
 
 // CPUStressor defines how to stress CPU out
 type CPUStressor struct {
-	Stressor `json:",inline"`
+	Stressor `     json:",inline"`
 	// Load specifies P percent loading per CPU worker. 0 is effectively a sleep (no load) and 100
 	// is full loading.
 	Load *int `json:"load,omitempty"`

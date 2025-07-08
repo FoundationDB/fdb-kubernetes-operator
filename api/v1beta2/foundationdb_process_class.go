@@ -54,7 +54,8 @@ const (
 
 // IsStateful determines whether a process class should store data.
 func (pClass ProcessClass) IsStateful() bool {
-	return pClass == ProcessClassStorage || pClass.IsLogProcess() || pClass == ProcessClassCoordinator
+	return pClass == ProcessClassStorage || pClass.IsLogProcess() ||
+		pClass == ProcessClassCoordinator
 }
 
 // IsTransaction determines whether a process class could be part of the transaction system.

@@ -33,7 +33,11 @@ import (
 )
 
 func reloadRestore(restore *fdbv1beta2.FoundationDBRestore) error {
-	return k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: restore.Namespace, Name: restore.Name}, restore)
+	return k8sClient.Get(
+		context.TODO(),
+		types.NamespacedName{Namespace: restore.Namespace, Name: restore.Name},
+		restore,
+	)
 }
 
 var _ = Describe("restore_controller", func() {
@@ -61,7 +65,11 @@ var _ = Describe("restore_controller", func() {
 			generation, err := reloadCluster(cluster)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(generation).NotTo(Equal(0))
-			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
+			err = k8sClient.Get(
+				context.TODO(),
+				types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name},
+				cluster,
+			)
 			Expect(err).NotTo(HaveOccurred())
 
 			err = k8sClient.Create(context.TODO(), restore)
@@ -75,7 +83,11 @@ var _ = Describe("restore_controller", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(restore.Status.Running).To(BeTrue())
 
-			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
+			err = k8sClient.Get(
+				context.TODO(),
+				types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name},
+				cluster,
+			)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -84,14 +96,22 @@ var _ = Describe("restore_controller", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result.Requeue).To(BeFalse())
 			Expect(reloadRestore(restore)).To(Succeed())
-			Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: restore.Namespace, Name: restore.Name}, cluster)).To(Succeed())
+			Expect(
+				k8sClient.Get(
+					context.TODO(),
+					types.NamespacedName{Namespace: restore.Namespace, Name: restore.Name},
+					cluster,
+				),
+			).To(Succeed())
 		})
 
 		When("reconciling a new restore", func() {
 			It("should start a restore", func() {
 				status, err := adminClient.GetRestoreStatus()
 				Expect(err).NotTo(HaveOccurred())
-				Expect(status).To(ContainSubstring("blobstore://test@test-service:443/test-backup?bucket=fdb-backups"))
+				Expect(
+					status,
+				).To(ContainSubstring("blobstore://test@test-service:443/test-backup?bucket=fdb-backups"))
 			})
 		})
 

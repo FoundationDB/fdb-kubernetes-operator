@@ -24,9 +24,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -68,18 +69,29 @@ type MockClient struct {
 }
 
 // NewMockClient creates a new MockClient.
-func NewMockClient(scheme *runtime.Scheme, hooks ...func(_ context.Context, client *MockClient, object ctrlClient.Object) error) *MockClient {
+func NewMockClient(
+	scheme *runtime.Scheme,
+	hooks ...func(_ context.Context, client *MockClient, object ctrlClient.Object) error,
+) *MockClient {
 	return NewMockClientWithHooks(scheme, hooks, nil)
 }
 
 // NewMockClientWithHooks creates a new MockClient with hooks.
-func NewMockClientWithHooks(scheme *runtime.Scheme, createHooks []func(ctx context.Context, client *MockClient, object ctrlClient.Object) error, updateHooks []func(ctx context.Context, client *MockClient, object ctrlClient.Object) error) *MockClient {
+func NewMockClientWithHooks(
+	scheme *runtime.Scheme,
+	createHooks []func(ctx context.Context, client *MockClient, object ctrlClient.Object) error,
+	updateHooks []func(ctx context.Context, client *MockClient, object ctrlClient.Object) error,
+) *MockClient {
 	return NewMockClientWithHooksAndIndexes(scheme, createHooks, updateHooks, false)
 }
 
 // NewMockClientWithHooksAndIndexes creates a new MockClient with hooks and indexes.
-func NewMockClientWithHooksAndIndexes(scheme *runtime.Scheme, createHooks []func(ctx context.Context, client *MockClient, object ctrlClient.Object) error,
-	updateHooks []func(ctx context.Context, client *MockClient, object ctrlClient.Object) error, createIndexes bool) *MockClient {
+func NewMockClientWithHooksAndIndexes(
+	scheme *runtime.Scheme,
+	createHooks []func(ctx context.Context, client *MockClient, object ctrlClient.Object) error,
+	updateHooks []func(ctx context.Context, client *MockClient, object ctrlClient.Object) error,
+	createIndexes bool,
+) *MockClient {
 	serviceCreateHook := func(_ context.Context, client *MockClient, object ctrlClient.Object) error {
 		svc, isSvc := object.(*corev1.Service)
 		if !isSvc {
@@ -106,7 +118,10 @@ func NewMockClientWithHooksAndIndexes(scheme *runtime.Scheme, createHooks []func
 
 		if len(pod.Status.PodIPs) == 0 {
 			// TODO (johscheuer) We should check here if the added address was IPv4 or not.
-			pod.Status.PodIPs = []corev1.PodIP{{IP: pod.Status.PodIP}, {IP: client.generatePodIPv6()}}
+			pod.Status.PodIPs = []corev1.PodIP{
+				{IP: pod.Status.PodIP},
+				{IP: client.generatePodIPv6()},
+			}
 		}
 
 		if pod.Status.Phase == "" {
@@ -148,9 +163,10 @@ func (client *MockClient) setNewFakeClient() {
 	if client.createIndexes {
 		builder = builder.WithIndex(&corev1.Pod{}, "spec.nodeName", func(o ctrlClient.Object) []string {
 			return []string{o.(*corev1.Pod).Spec.NodeName}
-		}).WithIndex(&corev1.Pod{}, "status.phase", func(o ctrlClient.Object) []string {
-			return []string{string(o.(*corev1.Pod).Status.Phase)}
-		})
+		}).
+			WithIndex(&corev1.Pod{}, "status.phase", func(o ctrlClient.Object) []string {
+				return []string{string(o.(*corev1.Pod).Status.Phase)}
+			})
 	}
 
 	builder.WithScheme(client.scheme)
@@ -184,7 +200,11 @@ func (client *MockClient) generateIP() string {
 }
 
 // Create creates a new object
-func (client *MockClient) Create(ctx context.Context, object ctrlClient.Object, options ...ctrlClient.CreateOption) error {
+func (client *MockClient) Create(
+	ctx context.Context,
+	object ctrlClient.Object,
+	options ...ctrlClient.CreateOption,
+) error {
 	// Ensure the default values are set if not present.
 	if object.GetCreationTimestamp().Time.IsZero() {
 		object.SetCreationTimestamp(metav1.Time{Time: time.Now()})
@@ -204,19 +224,32 @@ func (client *MockClient) Create(ctx context.Context, object ctrlClient.Object, 
 }
 
 // Get retrieves an object.
-func (client *MockClient) Get(ctx context.Context, key ctrlClient.ObjectKey, object ctrlClient.Object, options ...ctrlClient.GetOption) error {
+func (client *MockClient) Get(
+	ctx context.Context,
+	key ctrlClient.ObjectKey,
+	object ctrlClient.Object,
+	options ...ctrlClient.GetOption,
+) error {
 	return client.fakeClient.Get(ctx, key, object, options...)
 }
 
 // List lists objects.
-func (client *MockClient) List(ctx context.Context, list ctrlClient.ObjectList, options ...ctrlClient.ListOption) error {
+func (client *MockClient) List(
+	ctx context.Context,
+	list ctrlClient.ObjectList,
+	options ...ctrlClient.ListOption,
+) error {
 	// TODO (johscheuer): Once https://github.com/kubernetes-sigs/controller-runtime/pull/2025 is merged and we update the
 	// controller-runtime we will support field selectors.
 	return client.fakeClient.List(ctx, list, options...)
 }
 
 // Delete deletes an object.
-func (client *MockClient) Delete(ctx context.Context, object ctrlClient.Object, options ...ctrlClient.DeleteOption) error {
+func (client *MockClient) Delete(
+	ctx context.Context,
+	object ctrlClient.Object,
+	options ...ctrlClient.DeleteOption,
+) error {
 	return client.fakeClient.Delete(ctx, object, options...)
 }
 
@@ -235,7 +268,10 @@ func getMapFromObject(object ctrlClient.Object) (map[string]interface{}, error) 
 	return newMap, nil
 }
 
-func (client *MockClient) hasSpecChanges(existingObject ctrlClient.Object, newObject ctrlClient.Object) (bool, error) {
+func (client *MockClient) hasSpecChanges(
+	existingObject ctrlClient.Object,
+	newObject ctrlClient.Object,
+) (bool, error) {
 	newObjectMap, err := getMapFromObject(newObject)
 	if err != nil {
 		return false, err
@@ -250,7 +286,11 @@ func (client *MockClient) hasSpecChanges(existingObject ctrlClient.Object, newOb
 }
 
 // Update updates an object.
-func (client *MockClient) Update(ctx context.Context, object ctrlClient.Object, options ...ctrlClient.UpdateOption) error {
+func (client *MockClient) Update(
+	ctx context.Context,
+	object ctrlClient.Object,
+	options ...ctrlClient.UpdateOption,
+) error {
 	existingObject := object.DeepCopyObject().(ctrlClient.Object)
 	err := client.fakeClient.Get(ctx, ctrlClient.ObjectKeyFromObject(object), existingObject)
 	if err != nil {
@@ -277,13 +317,22 @@ func (client *MockClient) Update(ctx context.Context, object ctrlClient.Object, 
 }
 
 // Patch patches an object.
-func (client *MockClient) Patch(ctx context.Context, obj ctrlClient.Object, patch ctrlClient.Patch, options ...ctrlClient.PatchOption) error {
+func (client *MockClient) Patch(
+	ctx context.Context,
+	obj ctrlClient.Object,
+	patch ctrlClient.Patch,
+	options ...ctrlClient.PatchOption,
+) error {
 	// Currently the SSA patch type is not supported in the fake client: https://github.com/kubernetes/client-go/issues/992
 	return client.fakeClient.Patch(ctx, obj, patch, options...)
 }
 
 // DeleteAllOf deletes all objects of the given type matching the given options.
-func (client *MockClient) DeleteAllOf(ctx context.Context, object ctrlClient.Object, options ...ctrlClient.DeleteAllOfOption) error {
+func (client *MockClient) DeleteAllOf(
+	ctx context.Context,
+	object ctrlClient.Object,
+	options ...ctrlClient.DeleteAllOfOption,
+) error {
 	return client.fakeClient.DeleteAllOf(ctx, object, options...)
 }
 
@@ -311,19 +360,33 @@ type MockStatusClient struct {
 }
 
 // Create will create the specified SubResource
-func (client MockStatusClient) Create(ctx context.Context, obj ctrlClient.Object, subResource ctrlClient.Object, opts ...ctrlClient.SubResourceCreateOption) error {
+func (client MockStatusClient) Create(
+	ctx context.Context,
+	obj ctrlClient.Object,
+	subResource ctrlClient.Object,
+	opts ...ctrlClient.SubResourceCreateOption,
+) error {
 	return client.fakeClient.Status().Create(ctx, obj, subResource, opts...)
 }
 
 // Update updates an object.
 // This does not support the options argument yet.
-func (client MockStatusClient) Update(ctx context.Context, object ctrlClient.Object, options ...ctrlClient.SubResourceUpdateOption) error {
+func (client MockStatusClient) Update(
+	ctx context.Context,
+	object ctrlClient.Object,
+	options ...ctrlClient.SubResourceUpdateOption,
+) error {
 	return client.fakeClient.Status().Update(ctx, object, options...)
 }
 
 // Patch patches an object's status.
 // This is not yet implemented.
-func (client MockStatusClient) Patch(ctx context.Context, object ctrlClient.Object, patch ctrlClient.Patch, options ...ctrlClient.SubResourcePatchOption) error {
+func (client MockStatusClient) Patch(
+	ctx context.Context,
+	object ctrlClient.Object,
+	patch ctrlClient.Patch,
+	options ...ctrlClient.SubResourcePatchOption,
+) error {
 	// Currently the SSA patch type is not supported in the fake client: https://github.com/kubernetes/client-go/issues/992
 	return client.fakeClient.Status().Patch(ctx, object, patch, options...)
 }
@@ -340,7 +403,12 @@ func (client *MockClient) createEvent(event *corev1.Event) {
 	}
 }
 
-func buildEvent(object runtime.Object, eventType string, reason string, message string) *corev1.Event {
+func buildEvent(
+	object runtime.Object,
+	eventType string,
+	reason string,
+	message string,
+) *corev1.Event {
 	objectMeta, _ := meta.Accessor(object)
 
 	return &corev1.Event{
@@ -361,31 +429,60 @@ func buildEvent(object runtime.Object, eventType string, reason string, message 
 }
 
 // Event sends an event
-func (client *MockClient) Event(object runtime.Object, eventType string, reason string, message string) {
+func (client *MockClient) Event(
+	object runtime.Object,
+	eventType string,
+	reason string,
+	message string,
+) {
 	client.createEvent(buildEvent(object, eventType, reason, message))
 }
 
 // Eventf is just like Event, but with Sprintf for the message field.
-func (client *MockClient) Eventf(object runtime.Object, eventType string, reason string, messageFormat string, args ...interface{}) {
+func (client *MockClient) Eventf(
+	object runtime.Object,
+	eventType string,
+	reason string,
+	messageFormat string,
+	args ...interface{},
+) {
 	client.createEvent(buildEvent(object, eventType, reason, fmt.Sprintf(messageFormat, args...)))
 }
 
 // PastEventf is just like Eventf, but with an option to specify the event's 'timestamp' field.
-func (client *MockClient) PastEventf(object runtime.Object, timestamp metav1.Time, eventType string, reason string, messageFormat string, args ...interface{}) {
+func (client *MockClient) PastEventf(
+	object runtime.Object,
+	timestamp metav1.Time,
+	eventType string,
+	reason string,
+	messageFormat string,
+	args ...interface{},
+) {
 	event := buildEvent(object, eventType, reason, fmt.Sprintf(messageFormat, args...))
 	event.EventTime = metav1.MicroTime(timestamp)
 	client.createEvent(event)
 }
 
 // AnnotatedEventf is just like eventf, but with annotations attached
-func (client *MockClient) AnnotatedEventf(object runtime.Object, annotations map[string]string, eventType string, reason string, messageFormat string, args ...interface{}) {
+func (client *MockClient) AnnotatedEventf(
+	object runtime.Object,
+	annotations map[string]string,
+	eventType string,
+	reason string,
+	messageFormat string,
+	args ...interface{},
+) {
 	event := buildEvent(object, eventType, reason, fmt.Sprintf(messageFormat, args...))
 	event.ObjectMeta.Annotations = annotations
 	client.createEvent(event)
 }
 
 // SetPodIntoFailed sets a Pod into a failed status with the given reason
-func (client *MockClient) SetPodIntoFailed(ctx context.Context, object ctrlClient.Object, reason string) error {
+func (client *MockClient) SetPodIntoFailed(
+	ctx context.Context,
+	object ctrlClient.Object,
+	reason string,
+) error {
 	existingObject := object.DeepCopyObject().(ctrlClient.Object)
 	err := client.Get(ctx, ctrlClient.ObjectKeyFromObject(object), existingObject)
 	if err != nil {
@@ -433,7 +530,11 @@ func (client *MockClient) generatePodIPv6() string {
 }
 
 // Watch implements the watch methods of the controller runtime client.
-func (client *MockClient) Watch(ctx context.Context, obj ctrlClient.ObjectList, opts ...ctrlClient.ListOption) (watch.Interface, error) {
+func (client *MockClient) Watch(
+	ctx context.Context,
+	obj ctrlClient.ObjectList,
+	opts ...ctrlClient.ListOption,
+) (watch.Interface, error) {
 	return client.fakeClient.Watch(ctx, obj, opts...)
 }
 

@@ -85,7 +85,14 @@ func newExclusionStatusCmd(streams genericclioptions.IOStreams) *cobra.Command {
 				return err
 			}
 
-			return getExclusionStatus(cmd, config, kubeClient, clientPod, ignoreFullyExcluded, interval)
+			return getExclusionStatus(
+				cmd,
+				config,
+				kubeClient,
+				clientPod,
+				ignoreFullyExcluded,
+				interval,
+			)
 		},
 		Example: `
 Experimental feature!
@@ -108,8 +115,10 @@ kubectl fdb get exclusion-status c1 --interval=5m
 	cmd.SetErr(o.ErrOut)
 	cmd.SetIn(o.In)
 
-	cmd.Flags().Bool("ignore-fully-excluded", true, "defines if processes that are fully excluded should be ignored.")
-	cmd.Flags().Duration("interval", 1*time.Minute, "defines in which interval new information should be fetched from the cluster.")
+	cmd.Flags().
+		Bool("ignore-fully-excluded", true, "defines if processes that are fully excluded should be ignored.")
+	cmd.Flags().
+		Duration("interval", 1*time.Minute, "defines in which interval new information should be fetched from the cluster.")
 
 	o.configFlags.AddFlags(cmd.Flags())
 
@@ -123,13 +132,28 @@ type exclusionResult struct {
 	timestamp   time.Time
 }
 
-func getExclusionStatus(cmd *cobra.Command, restConfig *rest.Config, kubeClient client.Client, clientPod *corev1.Pod, ignoreFullyExcluded bool, interval time.Duration) error {
+func getExclusionStatus(
+	cmd *cobra.Command,
+	restConfig *rest.Config,
+	kubeClient client.Client,
+	clientPod *corev1.Pod,
+	ignoreFullyExcluded bool,
+	interval time.Duration,
+) error {
 	timer := time.NewTicker(interval)
 	previousRun := map[string]exclusionResult{}
 
 	for {
 		// TODO: Keeping a stream open is probably more efficient.
-		stdout, stderr, err := kubeHelper.ExecuteCommandOnPod(cmd.Context(), kubeClient, restConfig, clientPod, fdbv1beta2.MainContainerName, "fdbcli --exec 'status json'", false)
+		stdout, stderr, err := kubeHelper.ExecuteCommandOnPod(
+			cmd.Context(),
+			kubeClient,
+			restConfig,
+			clientPod,
+			fdbv1beta2.MainContainerName,
+			"fdbcli --exec 'status json'",
+			false,
+		)
 		if err != nil {
 			// If an error occurs retry
 			cmd.PrintErrln(err)
@@ -182,7 +206,11 @@ func getExclusionStatus(cmd *cobra.Command, restConfig *rest.Config, kubeClient 
 
 					previousResult, ok := previousRun[instance]
 					if ok {
-						estimateDuration := time.Duration(role.StoredBytes/(previousResult.storedBytes-role.StoredBytes)) * timestamp.Sub(previousResult.timestamp)
+						estimateDuration := time.Duration(
+							role.StoredBytes/(previousResult.storedBytes-role.StoredBytes),
+						) * timestamp.Sub(
+							previousResult.timestamp,
+						)
 						estimate = estimateDuration.String()
 					} else {
 						estimate = "N/A"
@@ -212,11 +240,18 @@ func getExclusionStatus(cmd *cobra.Command, restConfig *rest.Config, kubeClient 
 		})
 
 		for _, exclusion := range ongoingExclusions {
-			cmd.Printf("%s:\t %s are left - estimate: %s\n", exclusion.id, fdbstatus.PrettyPrintBytes(int64(exclusion.storedBytes)), exclusion.estimate)
+			cmd.Printf(
+				"%s:\t %s are left - estimate: %s\n",
+				exclusion.id,
+				fdbstatus.PrettyPrintBytes(int64(exclusion.storedBytes)),
+				exclusion.estimate,
+			)
 		}
 
 		cmd.Println("There are", len(ongoingExclusions), "processes that are not fully excluded.")
-		cmd.Println("======================================================================================================")
+		cmd.Println(
+			"======================================================================================================",
+		)
 		<-timer.C
 	}
 

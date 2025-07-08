@@ -286,59 +286,68 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				}))
 			})
 
-			It("should return the correct counts when only proxies are unconfigured and grv_proxies/commit_proxies are configured", func() {
-				cluster.Spec.DatabaseConfiguration.RoleCounts = RoleCounts{
-					Proxies:       0,
-					CommitProxies: 9,
-					GrvProxies:    4,
-				}
-				Expect(cluster.GetRoleCountsWithDefaults()).To(Equal(RoleCounts{
-					Storage:       3,
-					Logs:          3,
-					Proxies:       0,
-					GrvProxies:    4,
-					CommitProxies: 9,
-					Resolvers:     1,
-					RemoteLogs:    -1,
-					LogRouters:    -1,
-				}))
-			})
+			It(
+				"should return the correct counts when only proxies are unconfigured and grv_proxies/commit_proxies are configured",
+				func() {
+					cluster.Spec.DatabaseConfiguration.RoleCounts = RoleCounts{
+						Proxies:       0,
+						CommitProxies: 9,
+						GrvProxies:    4,
+					}
+					Expect(cluster.GetRoleCountsWithDefaults()).To(Equal(RoleCounts{
+						Storage:       3,
+						Logs:          3,
+						Proxies:       0,
+						GrvProxies:    4,
+						CommitProxies: 9,
+						Resolvers:     1,
+						RemoteLogs:    -1,
+						LogRouters:    -1,
+					}))
+				},
+			)
 
-			It("should return the correct counts when proxies, grv_proxies are unconfigured and commit_proxies configured", func() {
-				cluster.Spec.DatabaseConfiguration.RoleCounts = RoleCounts{
-					Proxies:       0,
-					CommitProxies: 3,
-					GrvProxies:    0,
-				}
-				Expect(cluster.GetRoleCountsWithDefaults()).To(Equal(RoleCounts{
-					Storage:       3,
-					Logs:          3,
-					Proxies:       0,
-					GrvProxies:    1,
-					CommitProxies: 3,
-					Resolvers:     1,
-					RemoteLogs:    -1,
-					LogRouters:    -1,
-				}))
-			})
+			It(
+				"should return the correct counts when proxies, grv_proxies are unconfigured and commit_proxies configured",
+				func() {
+					cluster.Spec.DatabaseConfiguration.RoleCounts = RoleCounts{
+						Proxies:       0,
+						CommitProxies: 3,
+						GrvProxies:    0,
+					}
+					Expect(cluster.GetRoleCountsWithDefaults()).To(Equal(RoleCounts{
+						Storage:       3,
+						Logs:          3,
+						Proxies:       0,
+						GrvProxies:    1,
+						CommitProxies: 3,
+						Resolvers:     1,
+						RemoteLogs:    -1,
+						LogRouters:    -1,
+					}))
+				},
+			)
 
-			It("should return the correct counts when proxies, commit_proxies are unconfigured and grv_proxies configured", func() {
-				cluster.Spec.DatabaseConfiguration.RoleCounts = RoleCounts{
-					Proxies:       0,
-					CommitProxies: 0,
-					GrvProxies:    5,
-				}
-				Expect(cluster.GetRoleCountsWithDefaults()).To(Equal(RoleCounts{
-					Storage:       3,
-					Logs:          3,
-					Proxies:       0,
-					GrvProxies:    5,
-					CommitProxies: 2,
-					Resolvers:     1,
-					RemoteLogs:    -1,
-					LogRouters:    -1,
-				}))
-			})
+			It(
+				"should return the correct counts when proxies, commit_proxies are unconfigured and grv_proxies configured",
+				func() {
+					cluster.Spec.DatabaseConfiguration.RoleCounts = RoleCounts{
+						Proxies:       0,
+						CommitProxies: 0,
+						GrvProxies:    5,
+					}
+					Expect(cluster.GetRoleCountsWithDefaults()).To(Equal(RoleCounts{
+						Storage:       3,
+						Logs:          3,
+						Proxies:       0,
+						GrvProxies:    5,
+						CommitProxies: 2,
+						Resolvers:     1,
+						RemoteLogs:    -1,
+						LogRouters:    -1,
+					}))
+				},
+			)
 
 		})
 	})
@@ -674,14 +683,25 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					Expect(configuration.StorageMigrationType).To(BeNil())
 				})
 
-				It("should set the all storage migration related values to the empty defaults", func() {
-					configurationString, err := configuration.GetConfigurationString()
-					Expect(err).NotTo(HaveOccurred())
-					Expect(configurationString).NotTo(ContainSubstring("storage_migration_type=disabled"))
-					Expect(configurationString).NotTo(ContainSubstring("perpetual_storage_wiggle"))
-					Expect(configurationString).NotTo(ContainSubstring("perpetual_storage_wiggle_locality"))
-					Expect(configurationString).NotTo(ContainSubstring("perpetual_storage_wiggle_engine"))
-				})
+				It(
+					"should set the all storage migration related values to the empty defaults",
+					func() {
+						configurationString, err := configuration.GetConfigurationString()
+						Expect(err).NotTo(HaveOccurred())
+						Expect(
+							configurationString,
+						).NotTo(ContainSubstring("storage_migration_type=disabled"))
+						Expect(
+							configurationString,
+						).NotTo(ContainSubstring("perpetual_storage_wiggle"))
+						Expect(
+							configurationString,
+						).NotTo(ContainSubstring("perpetual_storage_wiggle_locality"))
+						Expect(
+							configurationString,
+						).NotTo(ContainSubstring("perpetual_storage_wiggle_engine"))
+					},
+				)
 			})
 
 			When("storage migration settings are set", func() {
@@ -710,18 +730,31 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					Expect(configuration.PerpetualStorageWiggle).NotTo(BeNil())
 					Expect(*configuration.PerpetualStorageWiggle).To(Equal(1))
 					Expect(configuration.StorageMigrationType).NotTo(BeNil())
-					Expect(*configuration.StorageMigrationType).To(Equal(StorageMigrationTypeGradual))
+					Expect(
+						*configuration.StorageMigrationType,
+					).To(Equal(StorageMigrationTypeGradual))
 					Expect(configuration.PerpetualStorageWiggleEngine).To(BeNil())
 				})
 
-				It("should set the all storage migration related values to the empty defaults", func() {
-					configurationString, err := configuration.GetConfigurationString()
-					Expect(err).NotTo(HaveOccurred())
-					Expect(configurationString).To(ContainSubstring("storage_migration_type=gradual"))
-					Expect(configurationString).To(ContainSubstring("perpetual_storage_wiggle=1"))
-					Expect(configurationString).NotTo(ContainSubstring("perpetual_storage_wiggle_locality"))
-					Expect(configurationString).NotTo(ContainSubstring("perpetual_storage_wiggle_engine"))
-				})
+				It(
+					"should set the all storage migration related values to the empty defaults",
+					func() {
+						configurationString, err := configuration.GetConfigurationString()
+						Expect(err).NotTo(HaveOccurred())
+						Expect(
+							configurationString,
+						).To(ContainSubstring("storage_migration_type=gradual"))
+						Expect(
+							configurationString,
+						).To(ContainSubstring("perpetual_storage_wiggle=1"))
+						Expect(
+							configurationString,
+						).NotTo(ContainSubstring("perpetual_storage_wiggle_locality"))
+						Expect(
+							configurationString,
+						).NotTo(ContainSubstring("perpetual_storage_wiggle_engine"))
+					},
+				)
 			})
 
 			When("storage migration settings with perpetual storage engine set", func() {
@@ -753,26 +786,45 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					Expect(configuration.PerpetualStorageWiggle).NotTo(BeNil())
 					Expect(*configuration.PerpetualStorageWiggle).To(Equal(1))
 					Expect(configuration.StorageMigrationType).NotTo(BeNil())
-					Expect(*configuration.StorageMigrationType).To(Equal(StorageMigrationTypeGradual))
+					Expect(
+						*configuration.StorageMigrationType,
+					).To(Equal(StorageMigrationTypeGradual))
 					Expect(configuration.PerpetualStorageWiggleEngine).NotTo(BeNil())
-					Expect(*configuration.PerpetualStorageWiggleEngine).To(Equal(StorageEngineRocksDbV1))
+					Expect(
+						*configuration.PerpetualStorageWiggleEngine,
+					).To(Equal(StorageEngineRocksDbV1))
 				})
 
-				It("should set the all storage migration related values to the empty defaults", func() {
-					configurationString, err := configuration.GetConfigurationString()
-					Expect(err).NotTo(HaveOccurred())
-					Expect(configurationString).To(ContainSubstring("storage_migration_type=gradual"))
-					Expect(configurationString).To(ContainSubstring("perpetual_storage_wiggle=1"))
-					Expect(configurationString).To(ContainSubstring("perpetual_storage_wiggle_locality=dcid:remote"))
-					Expect(configurationString).To(ContainSubstring("perpetual_storage_wiggle_engine=ssd-rocksdb-v1"))
-				})
+				It(
+					"should set the all storage migration related values to the empty defaults",
+					func() {
+						configurationString, err := configuration.GetConfigurationString()
+						Expect(err).NotTo(HaveOccurred())
+						Expect(
+							configurationString,
+						).To(ContainSubstring("storage_migration_type=gradual"))
+						Expect(
+							configurationString,
+						).To(ContainSubstring("perpetual_storage_wiggle=1"))
+						Expect(
+							configurationString,
+						).To(ContainSubstring("perpetual_storage_wiggle_locality=dcid:remote"))
+						Expect(
+							configurationString,
+						).To(ContainSubstring("perpetual_storage_wiggle_engine=ssd-rocksdb-v1"))
+					},
+				)
 			})
 		})
 	})
 
 	When("parsing the backup status for 6.2", func() {
 		It("should be parsed correctly", func() {
-			statusFile, err := os.OpenFile(filepath.Join("testdata", "fdbbackup_status_6_2.json"), os.O_RDONLY, os.ModePerm)
+			statusFile, err := os.OpenFile(
+				filepath.Join("testdata", "fdbbackup_status_6_2.json"),
+				os.O_RDONLY,
+				os.ModePerm,
+			)
 			Expect(err).NotTo(HaveOccurred())
 			defer statusFile.Close()
 			statusDecoder := json.NewDecoder(statusFile)
@@ -838,7 +890,9 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			})
 
 			It("should return an error", func() {
-				Expect(err).To(MatchError(Equal("invalid connection string: test:abcd, could not split string to get generation ID")))
+				Expect(
+					err,
+				).To(MatchError(Equal("invalid connection string: test:abcd, could not split string to get generation ID")))
 			})
 		})
 
@@ -848,7 +902,9 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			})
 
 			It("should return an error", func() {
-				Expect(err).To(MatchError(Equal("invalid connection string: te-st:abcd, database description can only contain alphanumeric characters (a-z, A-Z, 0-9) and underscores")))
+				Expect(
+					err,
+				).To(MatchError(Equal("invalid connection string: te-st:abcd, database description can only contain alphanumeric characters (a-z, A-Z, 0-9) and underscores")))
 			})
 		})
 
@@ -858,7 +914,9 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			})
 
 			It("should return an error", func() {
-				Expect(err).To(MatchError(Equal("invalid connection string: :abcd@127.0.0.1:4500,127.0.0.2:4500,127.0.0.3:4500, database description can only contain alphanumeric characters (a-z, A-Z, 0-9) and underscores")))
+				Expect(
+					err,
+				).To(MatchError(Equal("invalid connection string: :abcd@127.0.0.1:4500,127.0.0.2:4500,127.0.0.3:4500, database description can only contain alphanumeric characters (a-z, A-Z, 0-9) and underscores")))
 			})
 		})
 
@@ -868,7 +926,9 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			})
 
 			It("should return an error", func() {
-				Expect(err).To(MatchError(Equal("invalid connection string: test:@127.0.0.1:4500,127.0.0.2:4500,127.0.0.3:4500, generation ID can only contain alphanumeric characters (a-z, A-Z, 0-9)")))
+				Expect(
+					err,
+				).To(MatchError(Equal("invalid connection string: test:@127.0.0.1:4500,127.0.0.2:4500,127.0.0.3:4500, generation ID can only contain alphanumeric characters (a-z, A-Z, 0-9)")))
 			})
 		})
 
@@ -878,7 +938,9 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			})
 
 			It("should return an error", func() {
-				Expect(err).To(MatchError(Equal("invalid connection string: test:abcd@, could not parse coordinator address: <nil>, got error: cannot parse empty address")))
+				Expect(
+					err,
+				).To(MatchError(Equal("invalid connection string: test:abcd@, could not parse coordinator address: <nil>, got error: cannot parse empty address")))
 			})
 		})
 
@@ -1017,11 +1079,17 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Expect(str.HasCoordinators(newCoord)).To(BeTrue())
 			newCoord = make([]ProcessAddress, len(coordinators))
 			copy(newCoord, coordinators)
-			newCoord = append(newCoord, ProcessAddress{IPAddress: net.ParseIP("127.0.0.4"), Port: 4500})
+			newCoord = append(
+				newCoord,
+				ProcessAddress{IPAddress: net.ParseIP("127.0.0.4"), Port: 4500},
+			)
 			Expect(str.HasCoordinators(newCoord)).To(BeFalse())
 			newCoord = make([]ProcessAddress, len(coordinators))
 			copy(newCoord, coordinators)
-			newCoord = append(newCoord[:2], ProcessAddress{IPAddress: net.ParseIP("127.0.0.4"), Port: 4500})
+			newCoord = append(
+				newCoord[:2],
+				ProcessAddress{IPAddress: net.ParseIP("127.0.0.4"), Port: 4500},
+			)
 			Expect(str.HasCoordinators(newCoord)).To(BeFalse())
 			Expect(str.HasCoordinators(newCoord[:2])).To(BeFalse())
 		})
@@ -1164,25 +1232,28 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				}))
 			})
 
-			It("should be parsed correctly when both grv_proxies/commit_proxies and proxies are set", func() {
-				cluster.Spec.DatabaseConfiguration.Proxies = 12
-				cluster.Spec.DatabaseConfiguration.CommitProxies = 4
-				cluster.Spec.DatabaseConfiguration.GrvProxies = 4
-				Expect(cluster.DesiredDatabaseConfiguration()).To(Equal(DatabaseConfiguration{
-					RedundancyMode: RedundancyModeDouble,
-					StorageEngine:  StorageEngineSSD2,
-					UsableRegions:  1,
-					RoleCounts: RoleCounts{
-						Logs:          4,
-						Proxies:       0,
-						CommitProxies: 4,
-						GrvProxies:    4,
-						Resolvers:     1,
-						LogRouters:    -1,
-						RemoteLogs:    -1,
-					},
-				}))
-			})
+			It(
+				"should be parsed correctly when both grv_proxies/commit_proxies and proxies are set",
+				func() {
+					cluster.Spec.DatabaseConfiguration.Proxies = 12
+					cluster.Spec.DatabaseConfiguration.CommitProxies = 4
+					cluster.Spec.DatabaseConfiguration.GrvProxies = 4
+					Expect(cluster.DesiredDatabaseConfiguration()).To(Equal(DatabaseConfiguration{
+						RedundancyMode: RedundancyModeDouble,
+						StorageEngine:  StorageEngineSSD2,
+						UsableRegions:  1,
+						RoleCounts: RoleCounts{
+							Logs:          4,
+							Proxies:       0,
+							CommitProxies: 4,
+							GrvProxies:    4,
+							Resolvers:     1,
+							LogRouters:    -1,
+							RemoteLogs:    -1,
+						},
+					}))
+				},
+			)
 		})
 	})
 
@@ -1201,7 +1272,9 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			}
 			// This check is not version dependent
 			Expect(configuration.AreSeparatedProxiesConfigured()).To(BeTrue())
-			Expect(configuration.GetConfigurationString()).To(Equal("double ssd usable_regions=1 logs=5 resolvers=0 log_routers=0 remote_logs=0 commit_proxies=4 grv_proxies=2 regions=[]"))
+			Expect(
+				configuration.GetConfigurationString(),
+			).To(Equal("double ssd usable_regions=1 logs=5 resolvers=0 log_routers=0 remote_logs=0 commit_proxies=4 grv_proxies=2 regions=[]"))
 
 			configuration.Regions = []Region{{
 				DataCenters: []DataCenter{{
@@ -1211,10 +1284,14 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				}},
 				SatelliteLogs: 2,
 			}}
-			Expect(configuration.GetConfigurationString()).To(Equal("double ssd usable_regions=1 logs=5 resolvers=0 log_routers=0 remote_logs=0 commit_proxies=4 grv_proxies=2 regions=[{\\\"datacenters\\\":[{\\\"id\\\":\\\"iad\\\",\\\"priority\\\":1}],\\\"satellite_logs\\\":2}]"))
+			Expect(
+				configuration.GetConfigurationString(),
+			).To(Equal("double ssd usable_regions=1 logs=5 resolvers=0 log_routers=0 remote_logs=0 commit_proxies=4 grv_proxies=2 regions=[{\\\"datacenters\\\":[{\\\"id\\\":\\\"iad\\\",\\\"priority\\\":1}],\\\"satellite_logs\\\":2}]"))
 			configuration.Regions = nil
 			configuration.LogSpill = 3
-			Expect(configuration.GetConfigurationString()).To(Equal("double ssd usable_regions=1 logs=5 resolvers=0 log_routers=0 remote_logs=0 commit_proxies=4 grv_proxies=2 log_spill:=3 regions=[]"))
+			Expect(
+				configuration.GetConfigurationString(),
+			).To(Equal("double ssd usable_regions=1 logs=5 resolvers=0 log_routers=0 remote_logs=0 commit_proxies=4 grv_proxies=2 log_spill:=3 regions=[]"))
 		})
 
 		When("CommitProxies and GrvProxies are not configured", func() {
@@ -1228,7 +1305,9 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				},
 			}
 			It("should be parsed correctly", func() {
-				Expect(configuration.GetConfigurationString()).To(Equal("double ssd usable_regions=1 logs=5 resolvers=0 log_routers=0 remote_logs=0 proxies=1 regions=[]"))
+				Expect(
+					configuration.GetConfigurationString(),
+				).To(Equal("double ssd usable_regions=1 logs=5 resolvers=0 log_routers=0 remote_logs=0 proxies=1 regions=[]"))
 			})
 
 			It("should have no proxies configured", func() {
@@ -1251,8 +1330,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			It("should have separated proxies configured with FDB > 7.0.0", func() {
 				Expect(configuration.AreSeparatedProxiesConfigured()).To(BeTrue())
-				Expect(configuration.GetProxiesString()).To(Equal(" commit_proxies=2 grv_proxies=1"))
-				Expect(configuration.GetConfigurationString()).To(Equal("double ssd usable_regions=1 logs=5 resolvers=0 log_routers=0 remote_logs=0 commit_proxies=2 grv_proxies=1 regions=[]"))
+				Expect(
+					configuration.GetProxiesString(),
+				).To(Equal(" commit_proxies=2 grv_proxies=1"))
+				Expect(
+					configuration.GetConfigurationString(),
+				).To(Equal("double ssd usable_regions=1 logs=5 resolvers=0 log_routers=0 remote_logs=0 commit_proxies=2 grv_proxies=1 regions=[]"))
 			})
 		})
 	})
@@ -3181,7 +3264,10 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				}))
 
 				cluster = createCluster()
-				cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, &ProcessGroupStatus{ProcessGroupID: "storage-5", ProcessClass: "storage"})
+				cluster.Status.ProcessGroups = append(
+					cluster.Status.ProcessGroups,
+					&ProcessGroupStatus{ProcessGroupID: "storage-5", ProcessClass: "storage"},
+				)
 				result, err = cluster.CheckReconciliation(log)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(result).To(BeFalse())
@@ -3309,7 +3395,10 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				}))
 
 				cluster = createCluster()
-				cluster.Spec.LockOptions.DenyList = append(cluster.Spec.LockOptions.DenyList, LockDenyListEntry{ID: "dc1"})
+				cluster.Spec.LockOptions.DenyList = append(
+					cluster.Spec.LockOptions.DenyList,
+					LockDenyListEntry{ID: "dc1"},
+				)
 				result, err = cluster.CheckReconciliation(log)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(result).To(BeFalse())
@@ -3319,7 +3408,10 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				}))
 
 				cluster = createCluster()
-				cluster.Spec.LockOptions.DenyList = append(cluster.Spec.LockOptions.DenyList, LockDenyListEntry{ID: "dc1"})
+				cluster.Spec.LockOptions.DenyList = append(
+					cluster.Spec.LockOptions.DenyList,
+					LockDenyListEntry{ID: "dc1"},
+				)
 				cluster.Status.Locks.DenyList = []string{"dc1", "dc2"}
 				result, err = cluster.CheckReconciliation(log)
 				Expect(err).NotTo(HaveOccurred())
@@ -3329,7 +3421,10 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				}))
 
 				cluster = createCluster()
-				cluster.Spec.LockOptions.DenyList = append(cluster.Spec.LockOptions.DenyList, LockDenyListEntry{ID: "dc1", Allow: true})
+				cluster.Spec.LockOptions.DenyList = append(
+					cluster.Spec.LockOptions.DenyList,
+					LockDenyListEntry{ID: "dc1", Allow: true},
+				)
 				cluster.Status.Locks.DenyList = []string{"dc1", "dc2"}
 				result, err = cluster.CheckReconciliation(log)
 				Expect(err).NotTo(HaveOccurred())
@@ -3340,7 +3435,10 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				}))
 
 				cluster = createCluster()
-				cluster.Spec.LockOptions.DenyList = append(cluster.Spec.LockOptions.DenyList, LockDenyListEntry{ID: "dc1", Allow: true})
+				cluster.Spec.LockOptions.DenyList = append(
+					cluster.Spec.LockOptions.DenyList,
+					LockDenyListEntry{ID: "dc1", Allow: true},
+				)
 				result, err = cluster.CheckReconciliation(log)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(result).To(BeTrue())
@@ -3433,7 +3531,10 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				}))
 
 				cluster = createCluster()
-				cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, &ProcessGroupStatus{ProcessGroupID: "storage-5", ProcessClass: "storage"})
+				cluster.Status.ProcessGroups = append(
+					cluster.Status.ProcessGroups,
+					&ProcessGroupStatus{ProcessGroupID: "storage-5", ProcessClass: "storage"},
+				)
 				result, err = cluster.CheckReconciliation(log)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(result).To(BeFalse())
@@ -3561,7 +3662,10 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				}))
 
 				cluster = createCluster()
-				cluster.Spec.LockOptions.DenyList = append(cluster.Spec.LockOptions.DenyList, LockDenyListEntry{ID: "dc1"})
+				cluster.Spec.LockOptions.DenyList = append(
+					cluster.Spec.LockOptions.DenyList,
+					LockDenyListEntry{ID: "dc1"},
+				)
 				result, err = cluster.CheckReconciliation(log)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(result).To(BeFalse())
@@ -3571,7 +3675,10 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				}))
 
 				cluster = createCluster()
-				cluster.Spec.LockOptions.DenyList = append(cluster.Spec.LockOptions.DenyList, LockDenyListEntry{ID: "dc1"})
+				cluster.Spec.LockOptions.DenyList = append(
+					cluster.Spec.LockOptions.DenyList,
+					LockDenyListEntry{ID: "dc1"},
+				)
 				cluster.Status.Locks.DenyList = []string{"dc1", "dc2"}
 				result, err = cluster.CheckReconciliation(log)
 				Expect(err).NotTo(HaveOccurred())
@@ -3581,7 +3688,10 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				}))
 
 				cluster = createCluster()
-				cluster.Spec.LockOptions.DenyList = append(cluster.Spec.LockOptions.DenyList, LockDenyListEntry{ID: "dc1", Allow: true})
+				cluster.Spec.LockOptions.DenyList = append(
+					cluster.Spec.LockOptions.DenyList,
+					LockDenyListEntry{ID: "dc1", Allow: true},
+				)
 				cluster.Status.Locks.DenyList = []string{"dc1", "dc2"}
 				result, err = cluster.CheckReconciliation(log)
 				Expect(err).NotTo(HaveOccurred())
@@ -3592,7 +3702,10 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				}))
 
 				cluster = createCluster()
-				cluster.Spec.LockOptions.DenyList = append(cluster.Spec.LockOptions.DenyList, LockDenyListEntry{ID: "dc1", Allow: true})
+				cluster.Spec.LockOptions.DenyList = append(
+					cluster.Spec.LockOptions.DenyList,
+					LockDenyListEntry{ID: "dc1", Allow: true},
+				)
 				result, err = cluster.CheckReconciliation(log)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(result).To(BeTrue())
@@ -3635,8 +3748,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				},
 			}
 			settings := cluster.GetProcessSettings(ProcessClassStorage)
-			Expect(settings.PodTemplate.ObjectMeta.Labels).To(Equal(map[string]string{"test-label": "label2"}))
-			Expect(settings.CustomParameters).To(Equal(FoundationDBCustomParameters{"test_knob=value1"}))
+			Expect(
+				settings.PodTemplate.ObjectMeta.Labels,
+			).To(Equal(map[string]string{"test-label": "label2"}))
+			Expect(
+				settings.CustomParameters,
+			).To(Equal(FoundationDBCustomParameters{"test_knob=value1"}))
 		})
 	})
 
@@ -3644,7 +3761,9 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		It("should return the correct lock options", func() {
 			cluster := &FoundationDBCluster{}
 
-			Expect(cluster.GetLockPrefix()).To(Equal("\xff\x02/org.foundationdb.kubernetes-operator"))
+			Expect(
+				cluster.GetLockPrefix(),
+			).To(Equal("\xff\x02/org.foundationdb.kubernetes-operator"))
 			Expect(cluster.GetLockDuration()).To(Equal(10 * time.Minute))
 
 			var disabled = true
@@ -3689,7 +3808,13 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			status := &ProcessGroupStatus{}
 
 			timestamp := time.Now().Unix()
-			status.ProcessGroupConditions = append(status.ProcessGroupConditions, &ProcessGroupCondition{ProcessGroupConditionType: MissingProcesses, Timestamp: timestamp})
+			status.ProcessGroupConditions = append(
+				status.ProcessGroupConditions,
+				&ProcessGroupCondition{
+					ProcessGroupConditionType: MissingProcesses,
+					Timestamp:                 timestamp,
+				},
+			)
 
 			result := status.GetConditionTime(MissingProcesses)
 			Expect(result).NotTo(BeNil())
@@ -3706,21 +3831,30 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				ProcessGroupID: "storage-1",
 			})
 			status = append(status, &ProcessGroupStatus{
-				ProcessGroupID:         "storage-2",
-				ProcessGroupConditions: []*ProcessGroupCondition{NewProcessGroupCondition(IncorrectCommandLine)},
+				ProcessGroupID: "storage-2",
+				ProcessGroupConditions: []*ProcessGroupCondition{
+					NewProcessGroupCondition(IncorrectCommandLine),
+				},
 			})
 			status = append(status, &ProcessGroupStatus{
-				ProcessGroupID:         "storage-3",
-				ProcessGroupConditions: []*ProcessGroupCondition{NewProcessGroupCondition(IncorrectPodSpec)},
+				ProcessGroupID: "storage-3",
+				ProcessGroupConditions: []*ProcessGroupCondition{
+					NewProcessGroupCondition(IncorrectPodSpec),
+				},
 			})
 			status = append(status, &ProcessGroupStatus{
-				ProcessGroupID:         "storage-4",
-				ProcessGroupConditions: []*ProcessGroupCondition{NewProcessGroupCondition(IncorrectCommandLine), NewProcessGroupCondition(IncorrectPodSpec)},
+				ProcessGroupID: "storage-4",
+				ProcessGroupConditions: []*ProcessGroupCondition{
+					NewProcessGroupCondition(IncorrectCommandLine),
+					NewProcessGroupCondition(IncorrectPodSpec),
+				},
 			})
 			status = append(status, &ProcessGroupStatus{
-				ProcessGroupID:         "storage-5",
-				ProcessGroupConditions: []*ProcessGroupCondition{NewProcessGroupCondition(IncorrectCommandLine)},
-				RemovalTimestamp:       &metav1.Time{Time: time.Now()},
+				ProcessGroupID: "storage-5",
+				ProcessGroupConditions: []*ProcessGroupCondition{
+					NewProcessGroupCondition(IncorrectCommandLine),
+				},
+				RemovalTimestamp: &metav1.Time{Time: time.Now()},
 			})
 		})
 
@@ -3740,7 +3874,14 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 		Context("with a mix of required and forbidden conditions", func() {
 			It("should return the process groups that match all rules", func() {
-				groups := FilterByConditions(status, map[ProcessGroupConditionType]bool{IncorrectCommandLine: true, IncorrectPodSpec: false}, false)
+				groups := FilterByConditions(
+					status,
+					map[ProcessGroupConditionType]bool{
+						IncorrectCommandLine: true,
+						IncorrectPodSpec:     false,
+					},
+					false,
+				)
 				Expect(groups).To(Equal([]ProcessGroupID{"storage-2", "storage-5"}))
 			})
 		})
@@ -4178,7 +4319,8 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			expected bool
 		}
 
-		DescribeTable("should return the expected result",
+		DescribeTable(
+			"should return the expected result",
 			func(tc testCase) {
 				Expect(tc.cluster.SkipProcessGroup(tc.pStatus)).To(Equal(tc.expected))
 			},
@@ -4207,7 +4349,8 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					},
 					expected: false,
 				}),
-			Entry("process group with a pending condition for only a few seconds should not be skipped",
+			Entry(
+				"process group with a pending condition for only a few seconds should not be skipped",
 				testCase{
 					cluster: &FoundationDBCluster{},
 					pStatus: &ProcessGroupStatus{
@@ -4219,7 +4362,8 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						},
 					},
 					expected: false,
-				}),
+				},
+			),
 			Entry("process group with a pending condition for multiple minutes should be skipped",
 				testCase{
 					cluster: &FoundationDBCluster{},
@@ -4854,11 +4998,16 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			When("a process group is already included in the list", func() {
 				BeforeEach(func() {
-					cluster.Spec.ProcessGroupsToRemove = append(cluster.Spec.ProcessGroupsToRemove, "test1")
+					cluster.Spec.ProcessGroupsToRemove = append(
+						cluster.Spec.ProcessGroupsToRemove,
+						"test1",
+					)
 				})
 
 				It("should only add the missing process groups", func() {
-					Expect(cluster.Spec.ProcessGroupsToRemove).To(ContainElements(ProcessGroupID("test1")))
+					Expect(
+						cluster.Spec.ProcessGroupsToRemove,
+					).To(ContainElements(ProcessGroupID("test1")))
 					removals := []ProcessGroupID{"test1", "test2"}
 					cluster.AddProcessGroupsToRemovalList(removals)
 					Expect(cluster.Spec.ProcessGroupsToRemove).To(ContainElements(removals))
@@ -4873,39 +5022,61 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				It("should add the process group to the removal list", func() {
 					removals := []ProcessGroupID{"test1"}
 					cluster.AddProcessGroupsToRemovalWithoutExclusionList(removals)
-					Expect(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion).To(ContainElements(removals))
-					Expect(len(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion)).To(Equal(len(removals)))
+					Expect(
+						cluster.Spec.ProcessGroupsToRemoveWithoutExclusion,
+					).To(ContainElements(removals))
+					Expect(
+						len(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion),
+					).To(Equal(len(removals)))
 					Expect(len(cluster.Spec.ProcessGroupsToRemove)).To(Equal(0))
 				})
 			})
 
 			When("a process group is already included in the list", func() {
 				BeforeEach(func() {
-					cluster.Spec.ProcessGroupsToRemoveWithoutExclusion = append(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion, "test1")
-					Expect(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion).To(ContainElements(ProcessGroupID("test1")))
+					cluster.Spec.ProcessGroupsToRemoveWithoutExclusion = append(
+						cluster.Spec.ProcessGroupsToRemoveWithoutExclusion,
+						"test1",
+					)
+					Expect(
+						cluster.Spec.ProcessGroupsToRemoveWithoutExclusion,
+					).To(ContainElements(ProcessGroupID("test1")))
 				})
 
 				It("should only add the missing process groups", func() {
 					removals := []ProcessGroupID{"test1", "test2"}
 					cluster.AddProcessGroupsToRemovalWithoutExclusionList(removals)
-					Expect(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion).To(ContainElements(removals))
-					Expect(len(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion)).To(Equal(len(removals)))
+					Expect(
+						cluster.Spec.ProcessGroupsToRemoveWithoutExclusion,
+					).To(ContainElements(removals))
+					Expect(
+						len(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion),
+					).To(Equal(len(removals)))
 					Expect(len(cluster.Spec.ProcessGroupsToRemove)).To(Equal(0))
 				})
 			})
 
 			When("a process group is already included in the with exclusion list", func() {
 				BeforeEach(func() {
-					cluster.Spec.ProcessGroupsToRemove = append(cluster.Spec.ProcessGroupsToRemove, "test1")
-					Expect(cluster.Spec.ProcessGroupsToRemove).To(ContainElements(ProcessGroupID("test1")))
+					cluster.Spec.ProcessGroupsToRemove = append(
+						cluster.Spec.ProcessGroupsToRemove,
+						"test1",
+					)
+					Expect(
+						cluster.Spec.ProcessGroupsToRemove,
+					).To(ContainElements(ProcessGroupID("test1")))
 					Expect(len(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion)).To(Equal(0))
 				})
 
 				It("should only add the missing process groups", func() {
 					removals := []ProcessGroupID{"test1", "test2"}
 					cluster.AddProcessGroupsToRemovalWithoutExclusionList(removals)
-					Expect(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion).To(ContainElements(removals))
-					Expect(len(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion)).To(Equal(len(removals)))
+					Expect(
+						cluster.Spec.ProcessGroupsToRemoveWithoutExclusion,
+					).To(ContainElements(removals))
+					Expect(
+						len(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion),
+					).To(Equal(len(removals)))
 					Expect(len(cluster.Spec.ProcessGroupsToRemove)).To(Equal(1))
 				})
 			})
@@ -4996,7 +5167,8 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				},
 				fmt.Errorf("stateless is not a valid process class for coordinators"),
 			),
-			Entry("multiple validations",
+			Entry(
+				"multiple validations",
 				&FoundationDBCluster{
 					Spec: FoundationDBClusterSpec{
 						Version: Versions.Default.String(),
@@ -5010,7 +5182,9 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						},
 					},
 				},
-				fmt.Errorf("storage engine ssd-sharded-rocksdb is not supported on version 7.1.57, stateless is not a valid process class for coordinators"),
+				fmt.Errorf(
+					"storage engine ssd-sharded-rocksdb is not supported on version 7.1.57, stateless is not a valid process class for coordinators",
+				),
 			),
 			Entry("using invalid version for sharded rocksdb",
 				&FoundationDBCluster{
@@ -5064,8 +5238,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			DescribeTable("should add all targeted processes to the no-schedule list",
 				func(tc testCase) {
 					cluster.AddProcessGroupsToNoScheduleList(tc.Instances)
-					Expect(cluster.Spec.Buggify.NoSchedule).To(ContainElements(tc.ExpectedInstancesInNoSchedule))
-					Expect(len(cluster.Spec.Buggify.NoSchedule)).To(Equal(len(tc.ExpectedInstancesInNoSchedule)))
+					Expect(
+						cluster.Spec.Buggify.NoSchedule,
+					).To(ContainElements(tc.ExpectedInstancesInNoSchedule))
+					Expect(
+						len(cluster.Spec.Buggify.NoSchedule),
+					).To(Equal(len(tc.ExpectedInstancesInNoSchedule)))
 				},
 				Entry("Adding single instance",
 					testCase{
@@ -5093,8 +5271,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			DescribeTable("should add all targeted processes to no-schedule list",
 				func(tc testCase) {
 					cluster.AddProcessGroupsToNoScheduleList(tc.Instances)
-					Expect(cluster.Spec.Buggify.NoSchedule).To(ContainElements(tc.ExpectedInstancesInNoSchedule))
-					Expect(len(cluster.Spec.Buggify.NoSchedule)).To(Equal(len(tc.ExpectedInstancesInNoSchedule)))
+					Expect(
+						cluster.Spec.Buggify.NoSchedule,
+					).To(ContainElements(tc.ExpectedInstancesInNoSchedule))
+					Expect(
+						len(cluster.Spec.Buggify.NoSchedule),
+					).To(Equal(len(tc.ExpectedInstancesInNoSchedule)))
 				},
 				Entry("Adding single instance",
 					testCase{
@@ -5103,8 +5285,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					}),
 				Entry("Adding multiple instances",
 					testCase{
-						Instances:                     []ProcessGroupID{"instance-2", "instance-3"},
-						ExpectedInstancesInNoSchedule: []ProcessGroupID{"instance-1", "instance-2", "instance-3"},
+						Instances: []ProcessGroupID{"instance-2", "instance-3"},
+						ExpectedInstancesInNoSchedule: []ProcessGroupID{
+							"instance-1",
+							"instance-2",
+							"instance-3",
+						},
 					}),
 			)
 		})
@@ -5132,8 +5318,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		DescribeTable("should remove all targeted processes from the no-schedule list",
 			func(tc testCase) {
 				cluster.RemoveProcessGroupsFromNoScheduleList(tc.Instances)
-				Expect(cluster.Spec.Buggify.NoSchedule).To(ContainElements(tc.ExpectedInstancesInNoScheduleList))
-				Expect(len(cluster.Spec.Buggify.NoSchedule)).To(Equal(len(tc.ExpectedInstancesInNoScheduleList)))
+				Expect(
+					cluster.Spec.Buggify.NoSchedule,
+				).To(ContainElements(tc.ExpectedInstancesInNoScheduleList))
+				Expect(
+					len(cluster.Spec.Buggify.NoSchedule),
+				).To(Equal(len(tc.ExpectedInstancesInNoScheduleList)))
 			},
 			Entry("Removing single instance",
 				testCase{
@@ -5165,8 +5355,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			DescribeTable("should add all targeted processes to the crash-loop list",
 				func(tc testCase) {
 					cluster.AddProcessGroupsToCrashLoopList(tc.Instances)
-					Expect(cluster.Spec.Buggify.CrashLoop).To(ContainElements(tc.ExpectedInstancesInCrashLoop))
-					Expect(len(cluster.Spec.Buggify.CrashLoop)).To(Equal(len(tc.ExpectedInstancesInCrashLoop)))
+					Expect(
+						cluster.Spec.Buggify.CrashLoop,
+					).To(ContainElements(tc.ExpectedInstancesInCrashLoop))
+					Expect(
+						len(cluster.Spec.Buggify.CrashLoop),
+					).To(Equal(len(tc.ExpectedInstancesInCrashLoop)))
 				},
 				Entry("Adding single instance",
 					testCase{
@@ -5199,8 +5393,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			DescribeTable("should add all targeted processes to crash-loop list",
 				func(tc testCase) {
 					cluster.AddProcessGroupsToCrashLoopList(tc.Instances)
-					Expect(cluster.Spec.Buggify.CrashLoop).To(ContainElements(tc.ExpectedInstancesInCrashLoop))
-					Expect(len(cluster.Spec.Buggify.CrashLoop)).To(Equal(len(tc.ExpectedInstancesInCrashLoop)))
+					Expect(
+						cluster.Spec.Buggify.CrashLoop,
+					).To(ContainElements(tc.ExpectedInstancesInCrashLoop))
+					Expect(
+						len(cluster.Spec.Buggify.CrashLoop),
+					).To(Equal(len(tc.ExpectedInstancesInCrashLoop)))
 				},
 				Entry("Adding single instance",
 					testCase{
@@ -5209,8 +5407,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					}),
 				Entry("Adding multiple instances",
 					testCase{
-						Instances:                    []ProcessGroupID{"instance-2", "instance-3"},
-						ExpectedInstancesInCrashLoop: []ProcessGroupID{"instance-1", "instance-2", "instance-3"},
+						Instances: []ProcessGroupID{"instance-2", "instance-3"},
+						ExpectedInstancesInCrashLoop: []ProcessGroupID{
+							"instance-1",
+							"instance-2",
+							"instance-3",
+						},
 					}),
 				Entry("Adding all instances",
 					testCase{
@@ -5233,8 +5435,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			DescribeTable("should add all targeted processes to crash-loop list",
 				func(tc testCase) {
 					cluster.AddProcessGroupsToCrashLoopList(tc.Instances)
-					Expect(cluster.Spec.Buggify.CrashLoop).To(ContainElements(tc.ExpectedInstancesInCrashLoop))
-					Expect(len(cluster.Spec.Buggify.CrashLoop)).To(Equal(len(tc.ExpectedInstancesInCrashLoop)))
+					Expect(
+						cluster.Spec.Buggify.CrashLoop,
+					).To(ContainElements(tc.ExpectedInstancesInCrashLoop))
+					Expect(
+						len(cluster.Spec.Buggify.CrashLoop),
+					).To(Equal(len(tc.ExpectedInstancesInCrashLoop)))
 				},
 				Entry("Adding single instance",
 					testCase{
@@ -5243,8 +5449,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					}),
 				Entry("Adding multiple instances",
 					testCase{
-						Instances:                    []ProcessGroupID{"instance-2", "instance-3"},
-						ExpectedInstancesInCrashLoop: []ProcessGroupID{"*", "instance-2", "instance-3"},
+						Instances: []ProcessGroupID{"instance-2", "instance-3"},
+						ExpectedInstancesInCrashLoop: []ProcessGroupID{
+							"*",
+							"instance-2",
+							"instance-3",
+						},
 					}),
 				Entry("Adding all instances",
 					testCase{
@@ -5278,8 +5488,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			DescribeTable("should remove all targeted processes from the crash-loop list",
 				func(tc testCase) {
 					cluster.RemoveProcessGroupsFromCrashLoopList(tc.Instances)
-					Expect(cluster.Spec.Buggify.CrashLoop).To(ContainElements(tc.ExpectedInstancesInCrashLoop))
-					Expect(len(cluster.Spec.Buggify.CrashLoop)).To(Equal(len(tc.ExpectedInstancesInCrashLoop)))
+					Expect(
+						cluster.Spec.Buggify.CrashLoop,
+					).To(ContainElements(tc.ExpectedInstancesInCrashLoop))
+					Expect(
+						len(cluster.Spec.Buggify.CrashLoop),
+					).To(Equal(len(tc.ExpectedInstancesInCrashLoop)))
 				},
 				Entry("Removing single instance",
 					testCase{
@@ -5299,7 +5513,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				cluster = &FoundationDBCluster{
 					Spec: FoundationDBClusterSpec{
 						Buggify: BuggifyConfig{
-							CrashLoop: []ProcessGroupID{"*", "instance-1", "instance-2", "instance-3"},
+							CrashLoop: []ProcessGroupID{
+								"*",
+								"instance-1",
+								"instance-2",
+								"instance-3",
+							},
 						},
 					},
 				}
@@ -5313,13 +5532,21 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			DescribeTable("should remove all targeted processes from the crash-loop list",
 				func(tc testCase) {
 					cluster.RemoveProcessGroupsFromCrashLoopList(tc.Instances)
-					Expect(cluster.Spec.Buggify.CrashLoop).To(ContainElements(tc.ExpectedInstancesInCrashLoop))
-					Expect(len(cluster.Spec.Buggify.CrashLoop)).To(Equal(len(tc.ExpectedInstancesInCrashLoop)))
+					Expect(
+						cluster.Spec.Buggify.CrashLoop,
+					).To(ContainElements(tc.ExpectedInstancesInCrashLoop))
+					Expect(
+						len(cluster.Spec.Buggify.CrashLoop),
+					).To(Equal(len(tc.ExpectedInstancesInCrashLoop)))
 				},
 				Entry("Removing single instance",
 					testCase{
-						Instances:                    []ProcessGroupID{"instance-1"},
-						ExpectedInstancesInCrashLoop: []ProcessGroupID{"*", "instance-2", "instance-3"},
+						Instances: []ProcessGroupID{"instance-1"},
+						ExpectedInstancesInCrashLoop: []ProcessGroupID{
+							"*",
+							"instance-2",
+							"instance-3",
+						},
 					}),
 				Entry("Removing multiple instances",
 					testCase{
@@ -5328,31 +5555,40 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					}),
 				Entry("Removing *",
 					testCase{
-						Instances:                    []ProcessGroupID{"*"},
-						ExpectedInstancesInCrashLoop: []ProcessGroupID{"instance-1", "instance-2", "instance-3"},
+						Instances: []ProcessGroupID{"*"},
+						ExpectedInstancesInCrashLoop: []ProcessGroupID{
+							"instance-1",
+							"instance-2",
+							"instance-3",
+						},
 					}),
 			)
 		})
 	})
 
-	DescribeTable("when checking if the cluster is being upgraded", func(cluster *FoundationDBCluster, isUpgraded bool, isCompatibleUpgrade bool) {
-		Expect(cluster.IsBeingUpgraded()).To(Equal(isUpgraded))
+	DescribeTable(
+		"when checking if the cluster is being upgraded",
+		func(cluster *FoundationDBCluster, isUpgraded bool, isCompatibleUpgrade bool) {
+			Expect(cluster.IsBeingUpgraded()).To(Equal(isUpgraded))
 
-		if !isUpgraded {
-			return
-		}
+			if !isUpgraded {
+				return
+			}
 
-		Expect(cluster.VersionCompatibleUpgradeInProgress()).To(Equal(isCompatibleUpgrade))
-		Expect(cluster.IsBeingUpgradedWithVersionIncompatibleVersion()).To(Equal(!isCompatibleUpgrade))
-	}, Entry("no upgrade in progress",
-		&FoundationDBCluster{
-			Spec: FoundationDBClusterSpec{
-				Version: "7.1.27",
-			},
-			Status: FoundationDBClusterStatus{
-				RunningVersion: "7.1.27",
-			},
-		}, false, false),
+			Expect(cluster.VersionCompatibleUpgradeInProgress()).To(Equal(isCompatibleUpgrade))
+			Expect(
+				cluster.IsBeingUpgradedWithVersionIncompatibleVersion(),
+			).To(Equal(!isCompatibleUpgrade))
+		},
+		Entry("no upgrade in progress",
+			&FoundationDBCluster{
+				Spec: FoundationDBClusterSpec{
+					Version: "7.1.27",
+				},
+				Status: FoundationDBClusterStatus{
+					RunningVersion: "7.1.27",
+				},
+			}, false, false),
 		Entry("patch upgrade",
 			&FoundationDBCluster{
 				Spec: FoundationDBClusterSpec{
@@ -5382,19 +5618,22 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			}, true, false),
 	)
 
-	DescribeTable("when getting the Pod name for a Process group", func(cluster *FoundationDBCluster, processGroup *ProcessGroupStatus, expected string) {
-		Expect(processGroup.GetPodName(cluster)).To(Equal(expected))
-	}, Entry("when the process group has no prefix",
-		&FoundationDBCluster{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "testing-cluster",
+	DescribeTable(
+		"when getting the Pod name for a Process group",
+		func(cluster *FoundationDBCluster, processGroup *ProcessGroupStatus, expected string) {
+			Expect(processGroup.GetPodName(cluster)).To(Equal(expected))
+		},
+		Entry("when the process group has no prefix",
+			&FoundationDBCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "testing-cluster",
+				},
 			},
-		},
-		&ProcessGroupStatus{
-			ProcessGroupID: "storage-1",
-			ProcessClass:   ProcessClassStorage,
-		},
-		"testing-cluster-storage-1"),
+			&ProcessGroupStatus{
+				ProcessGroupID: "storage-1",
+				ProcessClass:   ProcessClassStorage,
+			},
+			"testing-cluster-storage-1"),
 		Entry("when the process group has a prefix",
 			&FoundationDBCluster{
 				ObjectMeta: metav1.ObjectMeta{
@@ -5430,25 +5669,30 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			"testing-cluster-cluster-controller-1"),
 	)
 
-	DescribeTable("when adding a condition to a process group", func(processGroup *ProcessGroupStatus, condition ProcessGroupConditionType, expectedConditions []*ProcessGroupCondition) {
-		processGroup.addCondition(condition)
+	DescribeTable(
+		"when adding a condition to a process group",
+		func(processGroup *ProcessGroupStatus, condition ProcessGroupConditionType, expectedConditions []*ProcessGroupCondition) {
+			processGroup.addCondition(condition)
 
-		Expect(processGroup.ProcessGroupConditions).To(HaveLen(len(expectedConditions)))
-		for _, expectedCondition := range expectedConditions {
-			timestamp := processGroup.GetConditionTime(expectedCondition.ProcessGroupConditionType)
-			Expect(timestamp).NotTo(BeNil())
-			if expectedCondition.Timestamp > 0 {
-				Expect(*timestamp).To(BeNumerically("==", expectedCondition.Timestamp))
+			Expect(processGroup.ProcessGroupConditions).To(HaveLen(len(expectedConditions)))
+			for _, expectedCondition := range expectedConditions {
+				timestamp := processGroup.GetConditionTime(
+					expectedCondition.ProcessGroupConditionType,
+				)
+				Expect(timestamp).NotTo(BeNil())
+				if expectedCondition.Timestamp > 0 {
+					Expect(*timestamp).To(BeNumerically("==", expectedCondition.Timestamp))
+				}
 			}
-		}
-	}, Entry("no conditions are present",
-		&ProcessGroupStatus{},
-		PodPending,
-		[]*ProcessGroupCondition{
-			{
-				ProcessGroupConditionType: PodPending,
-			},
-		}),
+		},
+		Entry("no conditions are present",
+			&ProcessGroupStatus{},
+			PodPending,
+			[]*ProcessGroupCondition{
+				{
+					ProcessGroupConditionType: PodPending,
+				},
+			}),
 		Entry("adding a duplicate condition",
 			&ProcessGroupStatus{
 				ProcessGroupConditions: []*ProcessGroupCondition{
@@ -5482,7 +5726,8 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					ProcessGroupConditionType: PodFailing,
 				},
 			}),
-		Entry("adding the resource terminating condition to process group marked as removed and excluded",
+		Entry(
+			"adding the resource terminating condition to process group marked as removed and excluded",
 			&ProcessGroupStatus{
 				RemovalTimestamp: &metav1.Time{
 					Time: time.Now(),
@@ -5494,7 +5739,8 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				{
 					ProcessGroupConditionType: ResourcesTerminating,
 				},
-			}),
+			},
+		),
 		Entry("adding another condition to process group marked as removed and excluded",
 			&ProcessGroupStatus{
 				RemovalTimestamp: &metav1.Time{
@@ -5506,13 +5752,16 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			[]*ProcessGroupCondition{}),
 	)
 
-	DescribeTable("when marking a process group as excluded", func(processGroup *ProcessGroupStatus) {
-		processGroup.SetExclude()
+	DescribeTable(
+		"when marking a process group as excluded",
+		func(processGroup *ProcessGroupStatus) {
+			processGroup.SetExclude()
 
-		Expect(processGroup.ProcessGroupConditions).To(HaveLen(0))
-		Expect(processGroup.ExclusionTimestamp.IsZero()).To(BeFalse())
-	}, Entry("no conditions are present",
-		&ProcessGroupStatus{}),
+			Expect(processGroup.ProcessGroupConditions).To(HaveLen(0))
+			Expect(processGroup.ExclusionTimestamp.IsZero()).To(BeFalse())
+		},
+		Entry("no conditions are present",
+			&ProcessGroupStatus{}),
 		Entry("one condition is present",
 			&ProcessGroupStatus{
 				ProcessGroupConditions: []*ProcessGroupCondition{
@@ -5584,9 +5833,11 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		})
 	})
 
-	DescribeTable("getting the process class from the process group ID", func(input ProcessGroupID, expected ProcessClass) {
-		Expect(input.GetProcessClass()).To(Equal(expected))
-	},
+	DescribeTable(
+		"getting the process class from the process group ID",
+		func(input ProcessGroupID, expected ProcessClass) {
+			Expect(input.GetProcessClass()).To(Equal(expected))
+		},
 		Entry("storage ID",
 			ProcessGroupID("storage-12"),
 			ProcessClassStorage,
@@ -5601,22 +5852,27 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		),
 	)
 
-	DescribeTable("when checking if all addresses are excluded for a process group", func(processGroupStatus *ProcessGroupStatus, remainingMap map[string]bool, expected bool, expectedErr error) {
-		excluded, err := processGroupStatus.AllAddressesExcluded(log, remainingMap)
-		Expect(excluded).To(Equal(expected))
+	DescribeTable(
+		"when checking if all addresses are excluded for a process group",
+		func(processGroupStatus *ProcessGroupStatus, remainingMap map[string]bool, expected bool, expectedErr error) {
+			excluded, err := processGroupStatus.AllAddressesExcluded(log, remainingMap)
+			Expect(excluded).To(Equal(expected))
 
-		if expectedErr != nil {
-			Expect(err).To(HaveOccurred())
-			Expect(err).To(Equal(expectedErr))
-		} else {
-			Expect(err).NotTo(HaveOccurred())
-		}
-	},
-		Entry("process group has no addresses",
+			if expectedErr != nil {
+				Expect(err).To(HaveOccurred())
+				Expect(err).To(Equal(expectedErr))
+			} else {
+				Expect(err).NotTo(HaveOccurred())
+			}
+		},
+		Entry(
+			"process group has no addresses",
 			&ProcessGroupStatus{},
 			nil,
 			false,
-			fmt.Errorf("process has no addresses, cannot safely determine if process can be removed"),
+			fmt.Errorf(
+				"process has no addresses, cannot safely determine if process can be removed",
+			),
 		),
 		Entry("process group is excluded",
 			&ProcessGroupStatus{
@@ -5695,7 +5951,8 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			false,
 			fmt.Errorf("process has missing address in exclusion results: 192.168.0.2"),
 		),
-		Entry("process group is excluded using locality and it is present in the remaining map as excluded",
+		Entry(
+			"process group is excluded using locality and it is present in the remaining map as excluded",
 			&ProcessGroupStatus{
 				ProcessGroupID: "storage-1",
 			},
@@ -5705,7 +5962,8 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			true,
 			nil,
 		),
-		Entry("process group is excluded using locality and it is present in the remaining map as not excluded",
+		Entry(
+			"process group is excluded using locality and it is present in the remaining map as not excluded",
 			&ProcessGroupStatus{
 				ProcessGroupID: "storage-1",
 			},
@@ -5713,13 +5971,18 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				fmt.Sprintf("%s:storage-1", FDBLocalityExclusionPrefix): true,
 			},
 			false,
-			fmt.Errorf("process has missing exclusion string in exclusion results: %s", fmt.Sprintf("%s:storage-1", FDBLocalityExclusionPrefix)),
+			fmt.Errorf(
+				"process has missing exclusion string in exclusion results: %s",
+				fmt.Sprintf("%s:storage-1", FDBLocalityExclusionPrefix),
+			),
 		),
 	)
 
-	DescribeTable("when getting the removal mode", func(cluster *FoundationDBCluster, expected PodUpdateMode) {
-		Expect(cluster.GetRemovalMode()).To(Equal(expected))
-	},
+	DescribeTable(
+		"when getting the removal mode",
+		func(cluster *FoundationDBCluster, expected PodUpdateMode) {
+			Expect(cluster.GetRemovalMode()).To(Equal(expected))
+		},
 		Entry("no removal mode defined",
 			&FoundationDBCluster{
 				Spec: FoundationDBClusterSpec{

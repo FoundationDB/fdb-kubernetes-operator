@@ -41,13 +41,23 @@ import (
 type updatePods struct{}
 
 // reconcile runs the reconciler's work.
-func (u updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
+func (u updatePods) reconcile(
+	ctx context.Context,
+	r *FoundationDBClusterReconciler,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	status *fdbv1beta2.FoundationDBStatus,
+	logger logr.Logger,
+) *requeue {
 	// During an ongoing version incompatible upgrade, we don't want to update process groups because they are misconfigured,
 	// This could lead to some side effects and delay the upgrade process. It's better up perform the updates after
 	// the cluster is upgraded.
 	if cluster.IsBeingUpgradedWithVersionIncompatibleVersion() {
 		logger.Info("Pod updates are skipped because of an ongoing version incompatible upgrade")
-		return &requeue{message: "Pod updates are skipped because of an ongoing version incompatible upgrade", delayedRequeue: true, delay: 5 * time.Second}
+		return &requeue{
+			message:        "Pod updates are skipped because of an ongoing version incompatible upgrade",
+			delayedRequeue: true,
+			delay:          5 * time.Second,
+		}
 	}
 
 	adminClient, err := r.getAdminClient(logger, cluster)
@@ -66,7 +76,13 @@ func (u updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 		}
 	}
 
-	updates, err := getPodsToUpdate(ctx, logger, r, cluster, getProcessesByProcessGroup(cluster, status))
+	updates, err := getPodsToUpdate(
+		ctx,
+		logger,
+		r,
+		cluster,
+		getProcessesByProcessGroup(cluster, status),
+	)
 	if err != nil {
 		return &requeue{curError: err, delay: podSchedulingDelayDuration, delayedRequeue: true}
 	}
@@ -78,8 +94,12 @@ func (u updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 		}
 
 		if r.PodLifecycleManager.GetDeletionMode(cluster) == fdbv1beta2.PodUpdateModeNone {
-			r.Recorder.Event(cluster, corev1.EventTypeNormal,
-				"NeedsPodsDeletion", "Spec require deleting some pods, but deleting pods is disabled")
+			r.Recorder.Event(
+				cluster,
+				corev1.EventTypeNormal,
+				"NeedsPodsDeletion",
+				"Spec require deleting some pods, but deleting pods is disabled",
+			)
 			return &requeue{message: "Pod deletion is disabled"}
 		}
 	}
@@ -109,7 +129,12 @@ func processGroupIsUnavailable(processGroupStatus *fdbv1beta2.ProcessGroupStatus
 }
 
 // getFaultDomainsWithUnavailablePods returns a map of fault domains with unavailable Pods. The map has the fault domain as key and the value is not used.
-func getFaultDomainsWithUnavailablePods(ctx context.Context, logger logr.Logger, reconciler *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) map[fdbv1beta2.FaultDomain]fdbv1beta2.None {
+func getFaultDomainsWithUnavailablePods(
+	ctx context.Context,
+	logger logr.Logger,
+	reconciler *FoundationDBClusterReconciler,
+	cluster *fdbv1beta2.FoundationDBCluster,
+) map[fdbv1beta2.FaultDomain]fdbv1beta2.None {
 	faultDomainsWithUnavailablePods := make(map[fdbv1beta2.FaultDomain]fdbv1beta2.None)
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
@@ -121,7 +146,12 @@ func getFaultDomainsWithUnavailablePods(ctx context.Context, logger logr.Logger,
 			faultDomainsWithUnavailablePods[processGroup.FaultDomain] = fdbv1beta2.None{}
 			continue
 		}
-		pod, err := reconciler.PodLifecycleManager.GetPod(ctx, reconciler, cluster, processGroup.GetPodName(cluster))
+		pod, err := reconciler.PodLifecycleManager.GetPod(
+			ctx,
+			reconciler,
+			cluster,
+			processGroup.GetPodName(cluster),
+		)
 		if err != nil {
 			logger.V(1).Info("Could not find Pod for process group ID",
 				"processGroupID", processGroup.ProcessGroupID, "error", err)
@@ -138,7 +168,10 @@ func getFaultDomainsWithUnavailablePods(ctx context.Context, logger logr.Logger,
 	return faultDomainsWithUnavailablePods
 }
 
-func getProcessesByProcessGroup(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) map[string][]fdbv1beta2.FoundationDBStatusProcessInfo {
+func getProcessesByProcessGroup(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	status *fdbv1beta2.FoundationDBStatus,
+) map[string][]fdbv1beta2.FoundationDBStatusProcessInfo {
 	processMap := map[string][]fdbv1beta2.FoundationDBStatusProcessInfo{}
 
 	for _, process := range status.Cluster.Processes {
@@ -163,17 +196,29 @@ func getProcessesByProcessGroup(cluster *fdbv1beta2.FoundationDBCluster, status 
 }
 
 // getPodsToUpdate returns a map of Zone to Pods mapping. The map has the fault domain as key and all Pods in that fault domain will be present as a slice of *corev1.Pod.
-func getPodsToUpdate(ctx context.Context, logger logr.Logger, reconciler *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, processInformation map[string][]fdbv1beta2.FoundationDBStatusProcessInfo) (map[string][]*corev1.Pod, error) {
+func getPodsToUpdate(
+	ctx context.Context,
+	logger logr.Logger,
+	reconciler *FoundationDBClusterReconciler,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	processInformation map[string][]fdbv1beta2.FoundationDBStatusProcessInfo,
+) (map[string][]*corev1.Pod, error) {
 	updates := make(map[string][]*corev1.Pod)
 
-	faultDomainsWithUnavailablePods := getFaultDomainsWithUnavailablePods(ctx, logger, reconciler, cluster)
+	faultDomainsWithUnavailablePods := getFaultDomainsWithUnavailablePods(
+		ctx,
+		logger,
+		reconciler,
+		cluster,
+	)
 	maxZonesWithUnavailablePods := cluster.GetMaxZonesWithUnavailablePods()
 
 	// When number of zones with unavailable Pods exceeds the maxZonesWithUnavailablePods skip updates.
 	if len(faultDomainsWithUnavailablePods) > maxZonesWithUnavailablePods {
-		logger.V(1).Info("Skip process groups for update, the number of zones with unavailable Pods exceeds the limit",
-			"maxZonesWithUnavailablePods", maxZonesWithUnavailablePods,
-			"faultDomainsWithUnavailablePods", faultDomainsWithUnavailablePods)
+		logger.V(1).
+			Info("Skip process groups for update, the number of zones with unavailable Pods exceeds the limit",
+				"maxZonesWithUnavailablePods", maxZonesWithUnavailablePods,
+				"faultDomainsWithUnavailablePods", faultDomainsWithUnavailablePods)
 		return updates, nil
 	}
 
@@ -183,11 +228,12 @@ func getPodsToUpdate(ctx context.Context, logger logr.Logger, reconciler *Founda
 		// skip the process group if it does not belong to a zone with unavailable Pods.
 		if len(faultDomainsWithUnavailablePods) == maxZonesWithUnavailablePods {
 			if _, ok := faultDomainsWithUnavailablePods[processGroup.FaultDomain]; !ok {
-				logger.V(1).Info("Skip process group for update, the number zones with unavailable Pods equals the limit but the process group does not belong to a zone with unavailable Pods",
-					"processGroupID", processGroup.ProcessGroupID,
-					"maxZonesWithUnavailablePods", maxZonesWithUnavailablePods,
-					"faultDomain", processGroup.FaultDomain,
-					"faultDomainsWithUnavailablePods", faultDomainsWithUnavailablePods)
+				logger.V(1).
+					Info("Skip process group for update, the number zones with unavailable Pods equals the limit but the process group does not belong to a zone with unavailable Pods",
+						"processGroupID", processGroup.ProcessGroupID,
+						"maxZonesWithUnavailablePods", maxZonesWithUnavailablePods,
+						"faultDomain", processGroup.FaultDomain,
+						"faultDomainsWithUnavailablePods", faultDomainsWithUnavailablePods)
 				continue
 			}
 		}
@@ -210,7 +256,12 @@ func getPodsToUpdate(ctx context.Context, logger logr.Logger, reconciler *Founda
 			continue
 		}
 
-		pod, err := reconciler.PodLifecycleManager.GetPod(ctx, reconciler, cluster, processGroup.GetPodName(cluster))
+		pod, err := reconciler.PodLifecycleManager.GetPod(
+			ctx,
+			reconciler,
+			cluster,
+			processGroup.GetPodName(cluster),
+		)
 		// If a Pod is not found ignore it for now.
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
@@ -225,9 +276,21 @@ func getPodsToUpdate(ctx context.Context, logger logr.Logger, reconciler *Founda
 				// marked as failed in FDB, which causes FDB to return full replication in the cluster status.
 				//
 				// With the unified image there is support for delaying the shutdown to reduce this risk even further.
-				missingPodDuration := time.Since(time.Unix(pointer.Int64Deref(processGroup.GetConditionTime(fdbv1beta2.MissingPod), time.Now().Unix()), 0))
+				missingPodDuration := time.Since(
+					time.Unix(
+						pointer.Int64Deref(
+							processGroup.GetConditionTime(fdbv1beta2.MissingPod),
+							time.Now().Unix(),
+						),
+						0,
+					),
+				)
 				if missingPodDuration < 90*time.Second {
-					podMissingError = fmt.Errorf("ProcessGroup: %s is missing the associated Pod for %s will be blocking until the Pod is missing for at least 90 seconds", processGroup.ProcessGroupID, missingPodDuration.String())
+					podMissingError = fmt.Errorf(
+						"ProcessGroup: %s is missing the associated Pod for %s will be blocking until the Pod is missing for at least 90 seconds",
+						processGroup.ProcessGroupID,
+						missingPodDuration.String(),
+					)
 				}
 
 				continue
@@ -245,14 +308,23 @@ func getPodsToUpdate(ctx context.Context, logger logr.Logger, reconciler *Founda
 		if timeSincePodCreation < 1*time.Minute {
 			processes, ok := processInformation[string(processGroup.ProcessGroupID)]
 			if len(processes) == 0 || !ok {
-				return nil, fmt.Errorf("%s was recently created and the processes are not yet running", pod.Name)
+				return nil, fmt.Errorf(
+					"%s was recently created and the processes are not yet running",
+					pod.Name,
+				)
 			}
 
 			for _, process := range processes {
 				// If the uptime is higher than the time since the pod was created, that means the reported process
 				// has some stale data. This could happen in cases where the status is cached in the operator.
-				if process.UptimeSeconds > timeSincePodCreation.Seconds() && !reconciler.SimulationOptions.SimulateTime {
-					return nil, fmt.Errorf("%s was recently created but the process uptime reports old uptime, time since pod was created: %f.2 seconds and process up time: %f.2", pod.Name, timeSincePodCreation.Seconds(), process.UptimeSeconds)
+				if process.UptimeSeconds > timeSincePodCreation.Seconds() &&
+					!reconciler.SimulationOptions.SimulateTime {
+					return nil, fmt.Errorf(
+						"%s was recently created but the process uptime reports old uptime, time since pod was created: %f.2 seconds and process up time: %f.2",
+						pod.Name,
+						timeSincePodCreation.Seconds(),
+						process.UptimeSeconds,
+					)
 				}
 			}
 		}
@@ -270,7 +342,15 @@ func getPodsToUpdate(ctx context.Context, logger logr.Logger, reconciler *Founda
 			continue
 		}
 
-		needsReplacement, err := replacements.ProcessGroupNeedsReplacements(ctx, reconciler.PodLifecycleManager, reconciler, logger, cluster, processGroup, reconciler.ReplaceOnSecurityContextChange)
+		needsReplacement, err := replacements.ProcessGroupNeedsReplacements(
+			ctx,
+			reconciler.PodLifecycleManager,
+			reconciler,
+			logger,
+			cluster,
+			processGroup,
+			reconciler.ReplaceOnSecurityContextChange,
+		)
 		// Do not update the Pod if unable to determine if it needs to be removed.
 		if err != nil {
 			logger.V(1).Info("Skip process group, error checking if it requires a replacement",
@@ -284,9 +364,17 @@ func getPodsToUpdate(ctx context.Context, logger logr.Logger, reconciler *Founda
 			continue
 		}
 
-		logger.Info("Update Pod",
-			"processGroupID", processGroup.ProcessGroupID,
-			"reason", fmt.Sprintf("specHash has changed from %s to %s", specHash, pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey]))
+		logger.Info(
+			"Update Pod",
+			"processGroupID",
+			processGroup.ProcessGroupID,
+			"reason",
+			fmt.Sprintf(
+				"specHash has changed from %s to %s",
+				specHash,
+				pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey],
+			),
+		)
 
 		podClient, message := reconciler.getPodClient(cluster, pod)
 		if podClient == nil {
@@ -325,13 +413,23 @@ func getPodsToUpdate(ctx context.Context, logger logr.Logger, reconciler *Founda
 	return updates, nil
 }
 
-func shouldRequeueDueToTerminatingPod(pod *corev1.Pod, cluster *fdbv1beta2.FoundationDBCluster, processGroupID fdbv1beta2.ProcessGroupID) bool {
+func shouldRequeueDueToTerminatingPod(
+	pod *corev1.Pod,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	processGroupID fdbv1beta2.ProcessGroupID,
+) bool {
 	return pod.DeletionTimestamp != nil &&
-		pod.DeletionTimestamp.Add(time.Duration(cluster.GetIgnoreTerminatingPodsSeconds())*time.Second).After(time.Now()) &&
+		pod.DeletionTimestamp.Add(time.Duration(cluster.GetIgnoreTerminatingPodsSeconds())*time.Second).
+			After(time.Now()) &&
 		!cluster.ProcessGroupIsBeingRemoved(processGroupID)
 }
 
-func getPodsToDelete(cluster *fdbv1beta2.FoundationDBCluster, deletionMode fdbv1beta2.PodUpdateMode, updates map[string][]*corev1.Pod, currentMaintenanceZone string) (string, []*corev1.Pod, error) {
+func getPodsToDelete(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	deletionMode fdbv1beta2.PodUpdateMode,
+	updates map[string][]*corev1.Pod,
+	currentMaintenanceZone string,
+) (string, []*corev1.Pod, error) {
 	if deletionMode == fdbv1beta2.PodUpdateModeAll {
 		var deletions []*corev1.Pod
 
@@ -361,7 +459,10 @@ func getPodsToDelete(cluster *fdbv1beta2.FoundationDBCluster, deletionMode fdbv1
 			if currentMaintenanceZone != "" && zone != currentMaintenanceZone {
 				var containsStorage bool
 				for _, pod := range zoneProcesses {
-					if internal.GetProcessClassFromMeta(cluster, pod.ObjectMeta) == fdbv1beta2.ProcessClassStorage {
+					if internal.GetProcessClassFromMeta(
+						cluster,
+						pod.ObjectMeta,
+					) == fdbv1beta2.ProcessClassStorage {
 						containsStorage = true
 						break
 					}
@@ -389,7 +490,15 @@ func getPodsToDelete(cluster *fdbv1beta2.FoundationDBCluster, deletionMode fdbv1
 }
 
 // deletePodsForUpdates will delete Pods with the specified deletion mode
-func deletePodsForUpdates(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, updates map[string][]*corev1.Pod, logger logr.Logger, status *fdbv1beta2.FoundationDBStatus, adminClient fdbadminclient.AdminClient) *requeue {
+func deletePodsForUpdates(
+	ctx context.Context,
+	r *FoundationDBClusterReconciler,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	updates map[string][]*corev1.Pod,
+	logger logr.Logger,
+	status *fdbv1beta2.FoundationDBStatus,
+	adminClient fdbadminclient.AdminClient,
+) *requeue {
 	deletionMode := r.PodLifecycleManager.GetDeletionMode(cluster)
 	currentMaintenanceZone := "unknown"
 	if status != nil {
@@ -402,7 +511,10 @@ func deletePodsForUpdates(ctx context.Context, r *FoundationDBClusterReconciler,
 	}
 
 	if len(deletions) == 0 {
-		return &requeue{message: "Reconciliation requires deleting pods, but cannot delete any Pods", delay: podSchedulingDelayDuration}
+		return &requeue{
+			message: "Reconciliation requires deleting pods, but cannot delete any Pods",
+			delay:   podSchedulingDelayDuration,
+		}
 	}
 
 	newContext := logr.NewContext(ctx, logger)
@@ -415,7 +527,10 @@ func deletePodsForUpdates(ctx context.Context, r *FoundationDBClusterReconciler,
 		return &requeue{curError: err}
 	}
 	if !ready {
-		return &requeue{message: "Reconciliation requires deleting pods, but deletion is currently not safe", delay: podSchedulingDelayDuration}
+		return &requeue{
+			message: "Reconciliation requires deleting pods, but deletion is currently not safe",
+			delay:   podSchedulingDelayDuration,
+		}
 	}
 
 	// Only lock the cluster if we are not running in the delete "All" mode.
@@ -432,7 +547,10 @@ func deletePodsForUpdates(ctx context.Context, r *FoundationDBClusterReconciler,
 	if deletionMode == fdbv1beta2.PodUpdateModeZone && cluster.UseMaintenaceMode() {
 		storageProcessIDs := make([]fdbv1beta2.ProcessGroupID, 0, len(deletions))
 		for _, pod := range deletions {
-			if internal.GetProcessClassFromMeta(cluster, pod.ObjectMeta) != fdbv1beta2.ProcessClassStorage {
+			if internal.GetProcessClassFromMeta(
+				cluster,
+				pod.ObjectMeta,
+			) != fdbv1beta2.ProcessClassStorage {
 				continue
 			}
 
@@ -466,10 +584,29 @@ func deletePodsForUpdates(ctx context.Context, r *FoundationDBClusterReconciler,
 		}
 	}
 
-	logger.Info("Deleting pods", "zone", zone, "count", len(deletions), "deletionMode", string(cluster.Spec.AutomationOptions.DeletionMode))
-	r.Recorder.Event(cluster, corev1.EventTypeNormal, "UpdatingPods", fmt.Sprintf("Recreating pods in zone %s", zone))
+	logger.Info(
+		"Deleting pods",
+		"zone",
+		zone,
+		"count",
+		len(deletions),
+		"deletionMode",
+		string(cluster.Spec.AutomationOptions.DeletionMode),
+	)
+	r.Recorder.Event(
+		cluster,
+		corev1.EventTypeNormal,
+		"UpdatingPods",
+		fmt.Sprintf("Recreating pods in zone %s", zone),
+	)
 
-	err = r.PodLifecycleManager.UpdatePods(logr.NewContext(ctx, logger), r, cluster, deletions, false)
+	err = r.PodLifecycleManager.UpdatePods(
+		logr.NewContext(ctx, logger),
+		r,
+		cluster,
+		deletions,
+		false,
+	)
 	if err != nil {
 		return &requeue{curError: err}
 	}
