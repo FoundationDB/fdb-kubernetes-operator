@@ -313,7 +313,7 @@ func (fdbCluster *FdbCluster) GetProcessCount(targetRole fdbv1beta2.ProcessRole)
 
 	for _, process := range status.Cluster.Processes {
 		for _, role := range process.Roles {
-			if role.Role == string(targetRole) {
+			if role.Role == targetRole {
 				pCounter++
 			}
 		}
@@ -385,7 +385,7 @@ func (fdbCluster *FdbCluster) GetStatus() *fdbv1beta2.FoundationDBStatus {
 
 // RoleInfo stores information for one particular worker role.
 type RoleInfo struct {
-	Role string
+	Role fdbv1beta2.ProcessRole
 	ID   string
 }
 
@@ -413,9 +413,9 @@ func (fdbCluster *FdbCluster) GetPodsWithRole(role fdbv1beta2.ProcessRole) []cor
 	var matches []corev1.Pod
 	for _, p := range pods.Items {
 		roles := roleMap[GetProcessGroupID(p)]
-		rolesAdded := map[string]fdbv1beta2.None{}
+		rolesAdded := map[fdbv1beta2.ProcessRole]fdbv1beta2.None{}
 		for _, r := range roles {
-			if r.Role == string(role) {
+			if r.Role == role {
 				_, ok := rolesAdded[r.Role]
 				if !ok {
 					rolesAdded[r.Role] = fdbv1beta2.None{}
