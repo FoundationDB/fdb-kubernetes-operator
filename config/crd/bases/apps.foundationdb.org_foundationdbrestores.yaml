@@ -37,6 +37,7 @@ spec:
           spec:
             properties:
               backupVersion:
+                maxLength: 13
                 type: string
               blobStoreConfiguration:
                 properties:
