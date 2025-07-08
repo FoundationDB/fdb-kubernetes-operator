@@ -696,6 +696,71 @@ var _ = Describe("update_status", func() {
 				}
 			})
 		})
+
+		When("the sidecar image doesn't match", func() {
+			When("the cluster is upgraded", func() {
+				BeforeEach(func() {
+					version, err := fdbv1beta2.ParseFdbVersion(cluster.Spec.Version)
+					Expect(err).NotTo(HaveOccurred())
+
+					cluster.Spec.Version = version.NextMinorVersion().String()
+				})
+
+				It("should update the incorrect sidecar image condition", func() {
+					err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap, logger, "")
+					Expect(err).NotTo(HaveOccurred())
+					Expect(cluster.Status.ProcessGroups).To(HaveLen(17))
+					for _, processGroup := range cluster.Status.ProcessGroups {
+						Expect(processGroup.ProcessGroupConditions).To(HaveLen(2))
+						Expect(processGroup.ProcessGroupConditions[0].ProcessGroupConditionType).To(Equal(fdbv1beta2.IncorrectCommandLine))
+						Expect(processGroup.ProcessGroupConditions[1].ProcessGroupConditionType).To(Equal(fdbv1beta2.IncorrectSidecarImage))
+					}
+				})
+			})
+
+			When("the image type is changed", func() {
+				BeforeEach(func() {
+					imageType := fdbv1beta2.ImageTypeUnified
+					Expect(imageType).NotTo(Equal(cluster.DesiredImageType()))
+					cluster.Spec.ImageType = &imageType
+				})
+
+				It("should update the incorrect sidecar image condition", func() {
+					err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap, logger, "")
+					Expect(err).NotTo(HaveOccurred())
+					Expect(cluster.Status.ProcessGroups).To(HaveLen(17))
+					for _, processGroup := range cluster.Status.ProcessGroups {
+						Expect(processGroup.ProcessGroupConditions).To(HaveLen(3))
+						Expect(processGroup.ProcessGroupConditions[0].ProcessGroupConditionType).To(Equal(fdbv1beta2.IncorrectCommandLine))
+						Expect(processGroup.ProcessGroupConditions[1].ProcessGroupConditionType).To(Equal(fdbv1beta2.IncorrectPodSpec))
+						Expect(processGroup.ProcessGroupConditions[2].ProcessGroupConditionType).To(Equal(fdbv1beta2.IncorrectSidecarImage))
+					}
+				})
+			})
+
+			When("the image config is changed", func() {
+				BeforeEach(func() {
+					cluster.Spec.SidecarContainer.ImageConfigs = []fdbv1beta2.ImageConfig{
+						{
+							BaseImage: fdbv1beta2.FoundationDBSidecarBaseImage,
+							Tag:       "testing",
+						},
+					}
+				})
+
+				It("should update the incorrect sidecar image condition", func() {
+					err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap, logger, "")
+					Expect(err).NotTo(HaveOccurred())
+					Expect(cluster.Status.ProcessGroups).To(HaveLen(17))
+					for _, processGroup := range cluster.Status.ProcessGroups {
+						Expect(processGroup.ProcessGroupConditions).To(HaveLen(2))
+						Expect(processGroup.ProcessGroupConditions[0].ProcessGroupConditionType).To(Equal(fdbv1beta2.IncorrectPodSpec))
+						Expect(processGroup.ProcessGroupConditions[1].ProcessGroupConditionType).To(Equal(fdbv1beta2.IncorrectSidecarImage))
+					}
+				})
+			})
+
+		})
 	})
 
 	Describe("Reconcile", func() {

@@ -1020,7 +1020,7 @@ func (fdbCluster *FdbCluster) UpgradeCluster(version string, waitForReconciliati
 
 	log.Printf(
 		"Upgrading cluster from version %s to version %s",
-		fdbCluster.cluster.Spec.Version,
+		fdbCluster.cluster.GetRunningVersion(),
 		version,
 	)
 
