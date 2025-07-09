@@ -29,9 +29,20 @@ import (
 )
 
 // GetMaintenanceInformation returns the information about processes that have finished, stale information in the maintenance list and processes that still must be updated.
-func GetMaintenanceInformation(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, processesUnderMaintenance map[fdbv1beta2.ProcessGroupID]int64, staleDuration time.Duration, differentZoneWaitDuration time.Duration) ([]fdbv1beta2.ProcessGroupID, []fdbv1beta2.ProcessGroupID, []fdbv1beta2.ProcessGroupID) {
+func GetMaintenanceInformation(
+	logger logr.Logger,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	status *fdbv1beta2.FoundationDBStatus,
+	processesUnderMaintenance map[fdbv1beta2.ProcessGroupID]int64,
+	staleDuration time.Duration,
+	differentZoneWaitDuration time.Duration,
+) ([]fdbv1beta2.ProcessGroupID, []fdbv1beta2.ProcessGroupID, []fdbv1beta2.ProcessGroupID) {
 	finishedMaintenance := make([]fdbv1beta2.ProcessGroupID, 0, len(processesUnderMaintenance))
-	staleMaintenanceInformation := make([]fdbv1beta2.ProcessGroupID, 0, len(processesUnderMaintenance))
+	staleMaintenanceInformation := make(
+		[]fdbv1beta2.ProcessGroupID,
+		0,
+		len(processesUnderMaintenance),
+	)
 	processesToUpdate := make([]fdbv1beta2.ProcessGroupID, 0, len(processesUnderMaintenance))
 
 	// If the provided status is empty return all processes to be updated.
@@ -78,13 +89,30 @@ func GetMaintenanceInformation(logger logr.Logger, cluster *fdbv1beta2.Foundatio
 			continue
 		}
 
-		logger.Info("found process under maintenance", "processGroupID", processGroupID, "zoneID", zoneID, "currentMaintenance", status.Cluster.MaintenanceZone, "startTime", startTime.String(), "maintenanceStartTime", maintenanceStartTime.String(), "UptimeSeconds", process.UptimeSeconds)
+		logger.Info(
+			"found process under maintenance",
+			"processGroupID",
+			processGroupID,
+			"zoneID",
+			zoneID,
+			"currentMaintenance",
+			status.Cluster.MaintenanceZone,
+			"startTime",
+			startTime.String(),
+			"maintenanceStartTime",
+			maintenanceStartTime.String(),
+			"UptimeSeconds",
+			process.UptimeSeconds,
+		)
 		// Remove the process group ID from processesUnderMaintenance as we have found a processes.
 		delete(processesUnderMaintenance, fdbv1beta2.ProcessGroupID(processGroupID))
 
 		// If the start time is after the maintenance start time, we can assume that maintenance for this specific process is done.
 		if startTime.After(maintenanceStartTime) {
-			finishedMaintenance = append(finishedMaintenance, fdbv1beta2.ProcessGroupID(processGroupID))
+			finishedMaintenance = append(
+				finishedMaintenance,
+				fdbv1beta2.ProcessGroupID(processGroupID),
+			)
 			continue
 		}
 
@@ -97,13 +125,19 @@ func GetMaintenanceInformation(logger logr.Logger, cluster *fdbv1beta2.Foundatio
 			// caching the machine-readable status and taking a long time to reconcile.
 			durationSinceMaintenanceStarted := time.Since(maintenanceStartTime)
 			if durationSinceMaintenanceStarted < differentZoneWaitDuration {
-				processesToUpdate = append(processesToUpdate, fdbv1beta2.ProcessGroupID(processGroupID))
+				processesToUpdate = append(
+					processesToUpdate,
+					fdbv1beta2.ProcessGroupID(processGroupID),
+				)
 			}
 
 			// If the maintenance start time is longer ago than the defined stale duration, we can assume that this is
 			// an old entry that should be cleaned up.
 			if durationSinceMaintenanceStarted > staleDuration {
-				staleMaintenanceInformation = append(staleMaintenanceInformation, fdbv1beta2.ProcessGroupID(processGroupID))
+				staleMaintenanceInformation = append(
+					staleMaintenanceInformation,
+					fdbv1beta2.ProcessGroupID(processGroupID),
+				)
 			}
 
 			continue
@@ -139,7 +173,8 @@ func GetMaintenanceInformation(logger logr.Logger, cluster *fdbv1beta2.Foundatio
 		// If the process group is managed by this operator instance and no associated process group exists, we can
 		// assume that the process group was removed and the maintenance information is stale.
 		if strings.HasPrefix(string(processGroupID), cluster.Spec.ProcessGroupIDPrefix) {
-			logger.V(1).Info("found stale maintenance information for removed process group", "processGroupID", processGroupID)
+			logger.V(1).
+				Info("found stale maintenance information for removed process group", "processGroupID", processGroupID)
 			_, ok := storageProcessGroups[processGroupID]
 			if !ok {
 				staleMaintenanceInformation = append(staleMaintenanceInformation, processGroupID)

@@ -58,7 +58,13 @@ func getRestClient(kubernetesClient client.Client, config *rest.Config) (rest.In
 		return nil, err
 	}
 
-	return apiutil.RESTClientForGVK(gvk, false, config, serializer.NewCodecFactory(kubernetesClient.Scheme()), httpClient)
+	return apiutil.RESTClientForGVK(
+		gvk,
+		false,
+		config,
+		serializer.NewCodecFactory(kubernetesClient.Scheme()),
+		httpClient,
+	)
 }
 
 // ExecuteCommandRaw will run the command without putting it into a shell.
@@ -157,7 +163,19 @@ func ExecuteCommand(
 	}
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	err := ExecuteCommandRaw(ctx, kubeClient, config, namespace, name, container, cmd, nil, &stdout, &stderr, false)
+	err := ExecuteCommandRaw(
+		ctx,
+		kubeClient,
+		config,
+		namespace,
+		name,
+		container,
+		cmd,
+		nil,
+		&stdout,
+		&stderr,
+		false,
+	)
 	if printOutput {
 		log.Println("stdout:\n\n", stdout.String())
 		log.Println("stderr:\n\n", stderr.String())
@@ -176,7 +194,16 @@ func ExecuteCommandOnPod(
 	command string,
 	printOutput bool,
 ) (string, string, error) {
-	return ExecuteCommand(ctx, kubeClient, config, pod.Namespace, pod.Name, container, command, printOutput)
+	return ExecuteCommand(
+		ctx,
+		kubeClient,
+		config,
+		pod.Namespace,
+		pod.Name,
+		container,
+		command,
+		printOutput,
+	)
 }
 
 // DownloadFile will download the file from the provided Pod/container into dst.
@@ -205,7 +232,19 @@ func DownloadFile(
 		return err
 	})
 
-	err := ExecuteCommandRaw(ctx, kubeClient, config, target.Namespace, target.Name, container, []string{"/bin/cp", src, "/dev/stdout"}, nil, writer, errOut, false)
+	err := ExecuteCommandRaw(
+		ctx,
+		kubeClient,
+		config,
+		target.Namespace,
+		target.Name,
+		container,
+		[]string{"/bin/cp", src, "/dev/stdout"},
+		nil,
+		writer,
+		errOut,
+		false,
+	)
 	if err != nil {
 		log.Println(errOut.String())
 	}
@@ -249,7 +288,19 @@ func UploadFile(
 		return err
 	})
 
-	err := ExecuteCommandRaw(ctx, kubeClient, config, target.Namespace, target.Name, container, []string{"tee", "-a", dst}, reader, out, errOut, false)
+	err := ExecuteCommandRaw(
+		ctx,
+		kubeClient,
+		config,
+		target.Namespace,
+		target.Name,
+		container,
+		[]string{"tee", "-a", dst},
+		reader,
+		out,
+		errOut,
+		false,
+	)
 	if err != nil {
 		log.Println(errOut.String())
 	}
@@ -348,6 +399,9 @@ func (fakeExecutor *FakeExecutor) Stream(options remotecommand.StreamOptions) er
 
 // StreamWithContext opens a protocol streamer to the server and streams until a client closes
 // the connection or the server disconnects or the context is done.
-func (fakeExecutor *FakeExecutor) StreamWithContext(_ context.Context, options remotecommand.StreamOptions) error {
+func (fakeExecutor *FakeExecutor) StreamWithContext(
+	_ context.Context,
+	options remotecommand.StreamOptions,
+) error {
 	return fakeExecutor.Stream(options)
 }

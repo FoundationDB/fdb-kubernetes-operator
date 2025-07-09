@@ -62,7 +62,11 @@ func parseUpgradeVersionPair(upgradeConfig string) *UpgradeTestConfiguration {
 	}
 
 	if !initialVersion.SupportsVersionChange(targetVersion) {
-		log.Fatalf("version change from \"%s\" to \"%s\" is not supported", versions[0], versions[1])
+		log.Fatalf(
+			"version change from \"%s\" to \"%s\" is not supported",
+			versions[0],
+			versions[1],
+		)
 	}
 
 	return &UpgradeTestConfiguration{
@@ -112,7 +116,14 @@ func GenerateUpgradeTableEntries(options *FactoryOptions) []ginkgo.TableEntry {
 
 	tests := make([]ginkgo.TableEntry, 0, len(upgradeTests))
 	for _, upgradeTest := range getUpgradeVersions(upgradeString) {
-		tests = append(tests, ginkgo.Entry(nil, upgradeTest.InitialVersion.String(), upgradeTest.TargetVersion.String()))
+		tests = append(
+			tests,
+			ginkgo.Entry(
+				nil,
+				upgradeTest.InitialVersion.String(),
+				upgradeTest.TargetVersion.String(),
+			),
+		)
 	}
 
 	return tests

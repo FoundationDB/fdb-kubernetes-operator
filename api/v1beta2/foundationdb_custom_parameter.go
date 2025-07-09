@@ -82,16 +82,31 @@ func (customParameters FoundationDBCustomParameters) ValidateCustomParameters() 
 		}
 
 		if _, ok := protectedParameters[parameterName]; ok {
-			violations = append(violations, fmt.Sprintf("found protected customParameter: %s, please remove this parameter from the customParameters list", parameterName))
+			violations = append(
+				violations,
+				fmt.Sprintf(
+					"found protected customParameter: %s, please remove this parameter from the customParameters list",
+					parameterName,
+				),
+			)
 		}
 
 		if _, ok := fdbMonitorGeneralParameters[parameterName]; ok {
-			violations = append(violations, fmt.Sprintf("found general or fdbmonitor customParameter: %s, please remove this parameter from the customParameters list as they are not supported", parameterName))
+			violations = append(
+				violations,
+				fmt.Sprintf(
+					"found general or fdbmonitor customParameter: %s, please remove this parameter from the customParameters list as they are not supported",
+					parameterName,
+				),
+			)
 		}
 	}
 
 	if len(violations) > 0 {
-		return fmt.Errorf("found the following customParameters violations:\n%s", strings.Join(violations, "\n"))
+		return fmt.Errorf(
+			"found the following customParameters violations:\n%s",
+			strings.Join(violations, "\n"),
+		)
 	}
 
 	return nil

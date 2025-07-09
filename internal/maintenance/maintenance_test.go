@@ -41,12 +41,21 @@ var _ = Describe("maintenance", func() {
 		processesToUpdate           []fdbv1beta2.ProcessGroupID
 	}
 
-	DescribeTable("when getting the maintenance information", func(input maintenanceTest) {
-		finishedMaintenance, staleMaintenanceInformation, processesToUpdate := GetMaintenanceInformation(logr.Discard(), input.cluster, input.status, input.processesUnderMaintenance, input.staleDuration, input.differentZoneWaitDuration)
-		Expect(finishedMaintenance).To(ConsistOf(input.finishedMaintenance))
-		Expect(staleMaintenanceInformation).To(ConsistOf(input.staleMaintenanceInformation))
-		Expect(processesToUpdate).To(ConsistOf(input.processesToUpdate))
-	},
+	DescribeTable(
+		"when getting the maintenance information",
+		func(input maintenanceTest) {
+			finishedMaintenance, staleMaintenanceInformation, processesToUpdate := GetMaintenanceInformation(
+				logr.Discard(),
+				input.cluster,
+				input.status,
+				input.processesUnderMaintenance,
+				input.staleDuration,
+				input.differentZoneWaitDuration,
+			)
+			Expect(finishedMaintenance).To(ConsistOf(input.finishedMaintenance))
+			Expect(staleMaintenanceInformation).To(ConsistOf(input.staleMaintenanceInformation))
+			Expect(processesToUpdate).To(ConsistOf(input.processesToUpdate))
+		},
 		Entry("when no process are under maintenance",
 			maintenanceTest{
 				cluster:                     &fdbv1beta2.FoundationDBCluster{},
@@ -143,7 +152,8 @@ var _ = Describe("maintenance", func() {
 				processesToUpdate:           []fdbv1beta2.ProcessGroupID{"storage-2"},
 			},
 		),
-		Entry("when one process is done with the maintenance but another one is missing in the status",
+		Entry(
+			"when one process is done with the maintenance but another one is missing in the status",
 			maintenanceTest{
 				cluster: &fdbv1beta2.FoundationDBCluster{
 					Status: fdbv1beta2.FoundationDBClusterStatus{
@@ -184,7 +194,8 @@ var _ = Describe("maintenance", func() {
 				processesToUpdate:           []fdbv1beta2.ProcessGroupID{"storage-2"},
 			},
 		),
-		Entry("when one process is done with the maintenance but another one is missing in the status and is removed from the process group list",
+		Entry(
+			"when one process is done with the maintenance but another one is missing in the status and is removed from the process group list",
 			maintenanceTest{
 				cluster: &fdbv1beta2.FoundationDBCluster{
 					Status: fdbv1beta2.FoundationDBClusterStatus{
@@ -221,7 +232,8 @@ var _ = Describe("maintenance", func() {
 				processesToUpdate:           nil,
 			},
 		),
-		Entry("when one process is done with the maintenance and another one from a different fault domain is present",
+		Entry(
+			"when one process is done with the maintenance and another one from a different fault domain is present",
 			maintenanceTest{
 				cluster: &fdbv1beta2.FoundationDBCluster{
 					Status: fdbv1beta2.FoundationDBClusterStatus{
@@ -270,7 +282,8 @@ var _ = Describe("maintenance", func() {
 				processesToUpdate:           nil,
 			},
 		),
-		Entry("when one process is done with the maintenance and another one from a different fault domain is present with an old entry",
+		Entry(
+			"when one process is done with the maintenance and another one from a different fault domain is present with an old entry",
 			maintenanceTest{
 				cluster: &fdbv1beta2.FoundationDBCluster{
 					Status: fdbv1beta2.FoundationDBClusterStatus{

@@ -26,10 +26,12 @@ import (
 )
 
 var _ = Describe("FDB Cluster", func() {
-	DescribeTable("when generating the reconciliation options", func(expected *ReconciliationOptions, options ...func(*ReconciliationOptions)) {
-		reconciliationOptions := MakeReconciliationOptionsStruct(options...)
-		Expect(reconciliationOptions).To(Equal(expected))
-	},
+	DescribeTable(
+		"when generating the reconciliation options",
+		func(expected *ReconciliationOptions, options ...func(*ReconciliationOptions)) {
+			reconciliationOptions := MakeReconciliationOptionsStruct(options...)
+			Expect(reconciliationOptions).To(Equal(expected))
+		},
 		Entry("No options provided",
 			&ReconciliationOptions{
 				timeOutInSeconds:  1800,

@@ -100,7 +100,11 @@ var _ = Describe("Operator maintenance mode tests", Label("e2e"), func() {
 			}
 
 			// Set the maintenance mode for 4 minutes.
-			fdbCluster.RunFdbCliCommandInOperator(fmt.Sprintf("maintenance on %s 240", faultDomain), false, 60)
+			fdbCluster.RunFdbCliCommandInOperator(
+				fmt.Sprintf("maintenance on %s 240", faultDomain),
+				false,
+				60,
+			)
 
 			// Set this Pod as unschedulable to keep it pending.
 			fdbCluster.SetPodAsUnschedulable(failingStoragePod)
@@ -169,7 +173,11 @@ var _ = Describe("Operator maintenance mode tests", Label("e2e"), func() {
 			BeforeEach(func() {
 				// Set the maintenance mode for a long duration, e.g. 2h hours to make sure the mode is not timing out
 				// but actually is being reset.
-				fdbCluster.RunFdbCliCommandInOperator(fmt.Sprintf("maintenance on %s 7200", faultDomain), false, 60)
+				fdbCluster.RunFdbCliCommandInOperator(
+					fmt.Sprintf("maintenance on %s 7200", faultDomain),
+					false,
+					60,
+				)
 			})
 
 			AfterEach(func() {
@@ -205,7 +213,9 @@ var _ = Describe("Operator maintenance mode tests", Label("e2e"), func() {
 				fdbCluster.SetCrashLoopContainers([]fdbv1beta2.CrashLoopContainerObject{
 					{
 						ContainerName: fdbv1beta2.MainContainerName,
-						Targets:       []fdbv1beta2.ProcessGroupID{fixtures.GetProcessGroupID(podToRecreate)},
+						Targets: []fdbv1beta2.ProcessGroupID{
+							fixtures.GetProcessGroupID(podToRecreate),
+						},
 					},
 				}, false)
 				factory.DeletePod(&podToRecreate)
@@ -230,7 +240,11 @@ var _ = Describe("Operator maintenance mode tests", Label("e2e"), func() {
 			BeforeEach(func() {
 				// Set the maintenance mode for a long duration, e.g. 2h hours to make sure the mode is not timing out
 				// but actually is being reset.
-				fdbCluster.RunFdbCliCommandInOperator(fmt.Sprintf("maintenance on %s 7200", faultDomain), false, 60)
+				fdbCluster.RunFdbCliCommandInOperator(
+					fmt.Sprintf("maintenance on %s 7200", faultDomain),
+					false,
+					60,
+				)
 			})
 
 			AfterEach(func() {
@@ -273,7 +287,11 @@ var _ = Describe("Operator maintenance mode tests", Label("e2e"), func() {
 				initialStoragePods = counts.Storage
 				// Set the maintenance mode for a long duration, e.g. 2h hours to make sure the mode is not timing out
 				// but actually is being reset.
-				fdbCluster.RunFdbCliCommandInOperator(fmt.Sprintf("maintenance on %s 7200", faultDomain), false, 60)
+				fdbCluster.RunFdbCliCommandInOperator(
+					fmt.Sprintf("maintenance on %s 7200", faultDomain),
+					false,
+					60,
+				)
 			})
 
 			AfterEach(func() {

@@ -56,7 +56,10 @@ type FoundationDBBackupReconciler struct {
 // +kubebuilder:rbac:groups="coordination.k8s.io",resources=leases,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile runs the reconciliation logic.
-func (r *FoundationDBBackupReconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
+func (r *FoundationDBBackupReconciler) Reconcile(
+	ctx context.Context,
+	request ctrl.Request,
+) (ctrl.Result, error) {
 	backup := &fdbv1beta2.FoundationDBBackup{}
 
 	err := r.Get(ctx, request.NamespacedName, backup)
@@ -73,7 +76,12 @@ func (r *FoundationDBBackupReconciler) Reconcile(ctx context.Context, request ct
 		return ctrl.Result{}, err
 	}
 
-	backupLog := globalControllerLogger.WithValues("namespace", backup.Namespace, "backup", backup.Name)
+	backupLog := globalControllerLogger.WithValues(
+		"namespace",
+		backup.Namespace,
+		"backup",
+		backup.Name,
+	)
 
 	subReconcilers := []backupSubReconciler{
 		updateBackupStatus{},
@@ -113,9 +121,16 @@ func (r *FoundationDBBackupReconciler) getDatabaseClientProvider() fdbadminclien
 }
 
 // adminClientForBackup provides an admin client for a backup reconciler.
-func (r *FoundationDBBackupReconciler) adminClientForBackup(ctx context.Context, backup *fdbv1beta2.FoundationDBBackup) (fdbadminclient.AdminClient, error) {
+func (r *FoundationDBBackupReconciler) adminClientForBackup(
+	ctx context.Context,
+	backup *fdbv1beta2.FoundationDBBackup,
+) (fdbadminclient.AdminClient, error) {
 	cluster := &fdbv1beta2.FoundationDBCluster{}
-	err := r.Get(ctx, types.NamespacedName{Namespace: backup.ObjectMeta.Namespace, Name: backup.Spec.ClusterName}, cluster)
+	err := r.Get(
+		ctx,
+		types.NamespacedName{Namespace: backup.ObjectMeta.Namespace, Name: backup.Spec.ClusterName},
+		cluster,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -131,10 +146,15 @@ func (r *FoundationDBBackupReconciler) adminClientForBackup(ctx context.Context,
 }
 
 // SetupWithManager prepares a reconciler for use.
-func (r *FoundationDBBackupReconciler) SetupWithManager(mgr ctrl.Manager, maxConcurrentReconciles int, selector metav1.LabelSelector) error {
-	err := mgr.GetFieldIndexer().IndexField(context.Background(), &appsv1.Deployment{}, "metadata.name", func(o client.Object) []string {
-		return []string{o.(*appsv1.Deployment).Name}
-	})
+func (r *FoundationDBBackupReconciler) SetupWithManager(
+	mgr ctrl.Manager,
+	maxConcurrentReconciles int,
+	selector metav1.LabelSelector,
+) error {
+	err := mgr.GetFieldIndexer().
+		IndexField(context.Background(), &appsv1.Deployment{}, "metadata.name", func(o client.Object) []string {
+			return []string{o.(*appsv1.Deployment).Name}
+		})
 	if err != nil {
 		return err
 	}
@@ -176,11 +196,18 @@ type backupSubReconciler interface {
 	If reconciliation cannot proceed, this should return a requeue object with a
 	`Message` field.
 	*/
-	reconcile(ctx context.Context, r *FoundationDBBackupReconciler, backup *fdbv1beta2.FoundationDBBackup) *requeue
+	reconcile(
+		ctx context.Context,
+		r *FoundationDBBackupReconciler,
+		backup *fdbv1beta2.FoundationDBBackup,
+	) *requeue
 }
 
 // updateOrApply updates the status either with server-side apply or if disabled with the normal update call.
-func (r *FoundationDBBackupReconciler) updateOrApply(ctx context.Context, backup *fdbv1beta2.FoundationDBBackup) error {
+func (r *FoundationDBBackupReconciler) updateOrApply(
+	ctx context.Context,
+	backup *fdbv1beta2.FoundationDBBackup,
+) error {
 	if r.ServerSideApply {
 		// TODO(johscheuer): We have to set the TypeMeta otherwise the Patch command will fail. This is the rudimentary
 		// support for server side apply which should be enough for the status use case. The controller runtime will
@@ -197,7 +224,9 @@ func (r *FoundationDBBackupReconciler) updateOrApply(ctx context.Context, backup
 			Status: backup.Status,
 		}
 
-		return r.Status().Patch(ctx, patch, client.Apply, client.FieldOwner("fdb-operator")) //, client.ForceOwnership)
+		return r.Status().
+			Patch(ctx, patch, client.Apply, client.FieldOwner("fdb-operator"))
+		//, client.ForceOwnership)
 	}
 
 	return r.Status().Update(ctx, backup)

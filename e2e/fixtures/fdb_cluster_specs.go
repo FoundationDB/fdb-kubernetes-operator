@@ -29,7 +29,9 @@ import (
 )
 
 // GenerateFDBClusterSpec will generate a *fdbv1beta2.FoundationDBCluster based on the input ClusterConfig.
-func (factory *Factory) GenerateFDBClusterSpec(config *ClusterConfig) *fdbv1beta2.FoundationDBCluster {
+func (factory *Factory) GenerateFDBClusterSpec(
+	config *ClusterConfig,
+) *fdbv1beta2.FoundationDBCluster {
 	config.SetDefaults(factory)
 
 	return factory.createFDBClusterSpec(
@@ -75,10 +77,15 @@ func (factory *Factory) createFDBClusterSpec(
 			StorageServersPerPod:          config.StorageServerPerPod,
 			LogServersPerPod:              config.LogServersPerPod,
 			LogGroup:                      config.Namespace + "-" + config.Name,
-			MainContainer:                 factory.GetMainContainerOverrides(config.DebugSymbols, useUnifiedImage),
-			ImageType:                     &imageType,
-			SidecarContainer:              factory.GetSidecarContainerOverrides(config.DebugSymbols),
-			FaultDomain:                   faultDomain,
+			MainContainer: factory.GetMainContainerOverrides(
+				config.DebugSymbols,
+				useUnifiedImage,
+			),
+			ImageType: &imageType,
+			SidecarContainer: factory.GetSidecarContainerOverrides(
+				config.DebugSymbols,
+			),
+			FaultDomain: faultDomain,
 			AutomationOptions: fdbv1beta2.FoundationDBClusterAutomationOptions{
 				// We have to wait long enough to ensure the operator is not recreating too many Pods at the same time.
 				WaitBetweenRemovalsSeconds: pointer.Int(0),
@@ -320,7 +327,9 @@ func (factory *Factory) createProcesses(
 				config,
 			),
 			VolumeClaimTemplate: claimTemplate,
-			CustomParameters:    config.getCustomParametersForProcessClass(fdbv1beta2.ProcessClassGeneral),
+			CustomParameters: config.getCustomParametersForProcessClass(
+				fdbv1beta2.ProcessClassGeneral,
+			),
 		},
 		fdbv1beta2.ProcessClassStorage: {
 			PodTemplate: factory.createPodTemplate(
@@ -328,7 +337,9 @@ func (factory *Factory) createProcesses(
 				config,
 			),
 			VolumeClaimTemplate: claimTemplate,
-			CustomParameters:    config.getCustomParametersForProcessClass(fdbv1beta2.ProcessClassStorage),
+			CustomParameters: config.getCustomParametersForProcessClass(
+				fdbv1beta2.ProcessClassStorage,
+			),
 		},
 	}
 }

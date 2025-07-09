@@ -57,7 +57,9 @@ func newRestartCmd(streams genericclioptions.IOStreams) *cobra.Command {
 				return err
 			}
 			// TODO(nic): consider putting "allProcesses" into the process selection functions to avoid having these checks outside for more sensitive commands
-			if len(args) == 0 && !allProcesses && len(processGroupSelectionOpts.conditions) == 0 && len(processGroupSelectionOpts.matchLabels) == 0 && processGroupSelectionOpts.processClass == "" {
+			if len(args) == 0 && !allProcesses && len(processGroupSelectionOpts.conditions) == 0 &&
+				len(processGroupSelectionOpts.matchLabels) == 0 &&
+				processGroupSelectionOpts.processClass == "" {
 				return cmd.Help()
 			}
 
@@ -76,7 +78,16 @@ func newRestartCmd(streams genericclioptions.IOStreams) *cobra.Command {
 				return err
 			}
 			for cluster, podNames := range podsByCluster {
-				err := restartProcesses(cmd, config, kubeClient, podNames, processGroupSelectionOpts.namespace, cluster.Name, wait, sleep)
+				err := restartProcesses(
+					cmd,
+					config,
+					kubeClient,
+					podNames,
+					processGroupSelectionOpts.namespace,
+					cluster.Name,
+					wait,
+					sleep,
+				)
 				if err != nil {
 					return err
 				}
@@ -129,17 +140,37 @@ func convertConditions(inputConditions []string) ([]fdbv1beta2.ProcessGroupCondi
 	return res, nil
 }
 
+//
 //nolint:interfacer // golint has a false-positive here -> `cmd` can be `github.com/hashicorp/go-retryablehttp.Logger`
-func restartProcesses(cmd *cobra.Command, restConfig *rest.Config, kubeClient client.Client, podNames []string, namespace, clusterName string, wait bool, sleep uint16) error {
+func restartProcesses(
+	cmd *cobra.Command,
+	restConfig *rest.Config,
+	kubeClient client.Client,
+	podNames []string,
+	namespace, clusterName string,
+	wait bool,
+	sleep uint16,
+) error {
 	if wait {
-		if !confirmAction(fmt.Sprintf("Restart %v in cluster %s/%s", podNames, namespace, clusterName)) {
+		if !confirmAction(
+			fmt.Sprintf("Restart %v in cluster %s/%s", podNames, namespace, clusterName),
+		) {
 			return fmt.Errorf("user aborted the removal")
 		}
 	}
 
 	for _, pod := range podNames {
 		cmd.Printf("Restart process: %s\n", podNames)
-		_, _, err := kubeHelper.ExecuteCommand(cmd.Context(), kubeClient, restConfig, pod, namespace, fdbv1beta2.MainContainerName, "pkill fdbserver || true", false)
+		_, _, err := kubeHelper.ExecuteCommand(
+			cmd.Context(),
+			kubeClient,
+			restConfig,
+			pod,
+			namespace,
+			fdbv1beta2.MainContainerName,
+			"pkill fdbserver || true",
+			false,
+		)
 		if err != nil {
 			return err
 		}

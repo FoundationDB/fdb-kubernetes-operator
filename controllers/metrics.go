@@ -141,11 +141,21 @@ func collectMetrics(ch chan<- prometheus.Metric, cluster *fdbv1beta2.FoundationD
 	addGauge(descClusterStatus, boolFloat64(cluster.Status.Health.Healthy), "health")
 	addGauge(descClusterStatus, boolFloat64(cluster.Status.Health.Available), "available")
 	addGauge(descClusterStatus, boolFloat64(cluster.Status.Health.FullReplication), "replication")
-	addGauge(descClusterStatus, float64(cluster.Status.Health.DataMovementPriority), "datamovementpriority")
+	addGauge(
+		descClusterStatus,
+		float64(cluster.Status.Health.DataMovementPriority),
+		"datamovementpriority",
+	)
 	addGauge(descClusterLastReconciled, float64(cluster.Status.Generations.Reconciled))
-	addGauge(descClusterReconciled, boolFloat64(cluster.ObjectMeta.Generation == cluster.Status.Generations.Reconciled))
+	addGauge(
+		descClusterReconciled,
+		boolFloat64(cluster.ObjectMeta.Generation == cluster.Status.Generations.Reconciled),
+	)
 	addGauge(descProcessGroupsToRemove, float64(len(cluster.Spec.ProcessGroupsToRemove)))
-	addGauge(descProcessGroupsToRemoveWithoutExclusion, float64(len(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion)))
+	addGauge(
+		descProcessGroupsToRemoveWithoutExclusion,
+		float64(len(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion)),
+	)
 
 	// Calculate the process group metrics
 	conditionMap, removals, exclusions := getProcessGroupMetrics(cluster)
@@ -169,7 +179,9 @@ func collectMetrics(ch chan<- prometheus.Metric, cluster *fdbv1beta2.FoundationD
 	}
 }
 
-func getProcessGroupMetrics(cluster *fdbv1beta2.FoundationDBCluster) (map[fdbv1beta2.ProcessClass]map[fdbv1beta2.ProcessGroupConditionType]int, map[fdbv1beta2.ProcessClass]int, map[fdbv1beta2.ProcessClass]int) {
+func getProcessGroupMetrics(
+	cluster *fdbv1beta2.FoundationDBCluster,
+) (map[fdbv1beta2.ProcessClass]map[fdbv1beta2.ProcessGroupConditionType]int, map[fdbv1beta2.ProcessClass]int, map[fdbv1beta2.ProcessClass]int) {
 	metricMap := map[fdbv1beta2.ProcessClass]map[fdbv1beta2.ProcessGroupConditionType]int{}
 	removals := map[fdbv1beta2.ProcessClass]int{}
 	exclusions := map[fdbv1beta2.ProcessClass]int{}

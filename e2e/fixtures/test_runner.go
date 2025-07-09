@@ -66,7 +66,13 @@ func RunGinkgoTests(t *testing.T, name string) {
 // take care of including the command line flags from Ginkgo and the testing framework.
 func InitFlags() *FactoryOptions {
 	testing.Init()
-	_, err := types.NewAttachedGinkgoFlagSet(flag.CommandLine, types.GinkgoFlags{}, nil, types.GinkgoFlagSections{}, types.GinkgoFlagSection{})
+	_, err := types.NewAttachedGinkgoFlagSet(
+		flag.CommandLine,
+		types.GinkgoFlags{},
+		nil,
+		types.GinkgoFlagSections{},
+		types.GinkgoFlagSection{},
+	)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -106,7 +106,11 @@ func CreateDefaultBackup(cluster *fdbv1beta2.FoundationDBCluster) *fdbv1beta2.Fo
 }
 
 // GetProcessGroup is a helper method that creates a ProcessGroup based on the provided process class and id number.
-func GetProcessGroup(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, idNum int) *fdbv1beta2.ProcessGroupStatus {
+func GetProcessGroup(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	processClass fdbv1beta2.ProcessClass,
+	idNum int,
+) *fdbv1beta2.ProcessGroupStatus {
 	_, processGroupID := cluster.GetProcessGroupID(processClass, idNum)
 
 	return &fdbv1beta2.ProcessGroupStatus{
@@ -128,7 +132,11 @@ func GenerateRandomString(n int) string {
 }
 
 // PickProcessGroups will pick a number of process groups for the specified process class.
-func PickProcessGroups(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, count int) []*fdbv1beta2.ProcessGroupStatus {
+func PickProcessGroups(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	processClass fdbv1beta2.ProcessClass,
+	count int,
+) []*fdbv1beta2.ProcessGroupStatus {
 	pickedProcessGroups := make([]*fdbv1beta2.ProcessGroupStatus, 0, count)
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
@@ -146,7 +154,10 @@ func PickProcessGroups(cluster *fdbv1beta2.FoundationDBCluster, processClass fdb
 }
 
 // SetupClusterForTest will generate all required resources like Pods for test cases.
-func SetupClusterForTest(cluster *fdbv1beta2.FoundationDBCluster, k8sClient ctrlClient.Client) error {
+func SetupClusterForTest(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	k8sClient ctrlClient.Client,
+) error {
 	counts, err := cluster.GetProcessCountsWithDefaults()
 	if err != nil {
 		return err
@@ -166,7 +177,10 @@ func SetupClusterForTest(cluster *fdbv1beta2.FoundationDBCluster, k8sClient ctrl
 
 		processGroupIDs[processClass] = map[int]bool{}
 		for count > 0 {
-			processGroupID := cluster.GetNextRandomProcessGroupID(processClass, processGroupIDs[processClass])
+			processGroupID := cluster.GetNextRandomProcessGroupID(
+				processClass,
+				processGroupIDs[processClass],
+			)
 			newProcessGroup := fdbv1beta2.NewProcessGroupStatus(processGroupID, processClass, nil)
 			newProcessGroup.ProcessGroupConditions = nil
 

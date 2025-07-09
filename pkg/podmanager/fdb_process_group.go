@@ -45,7 +45,10 @@ func GetProcessGroupIDFromProcessID(id string) string {
 }
 
 // GetProcessGroupID returns the process group ID from the Pods metadata
-func GetProcessGroupID(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod) fdbv1beta2.ProcessGroupID {
+func GetProcessGroupID(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	pod *corev1.Pod,
+) fdbv1beta2.ProcessGroupID {
 	if pod == nil {
 		return ""
 	}
@@ -54,7 +57,10 @@ func GetProcessGroupID(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod)
 }
 
 // GetProcessClass fetches the process class from a Pod's metadata.
-func GetProcessClass(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod) (fdbv1beta2.ProcessClass, error) {
+func GetProcessClass(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	pod *corev1.Pod,
+) (fdbv1beta2.ProcessClass, error) {
 	if pod == nil {
 		return "", fmt.Errorf("failed to fetch process class from nil Pod")
 	}

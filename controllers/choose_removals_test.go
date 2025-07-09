@@ -56,7 +56,13 @@ var _ = Describe("choose_removals", func() {
 	})
 
 	JustBeforeEach(func() {
-		requeue = chooseRemovals{}.reconcile(context.TODO(), clusterReconciler, cluster, nil, globalControllerLogger)
+		requeue = chooseRemovals{}.reconcile(
+			context.TODO(),
+			clusterReconciler,
+			cluster,
+			nil,
+			globalControllerLogger,
+		)
 		Expect(err).NotTo(HaveOccurred())
 		_, err = reloadCluster(cluster)
 		Expect(err).NotTo(HaveOccurred())
@@ -100,7 +106,9 @@ var _ = Describe("choose_removals", func() {
 			BeforeEach(func() {
 				processGroup := internal.PickProcessGroups(cluster, fdbv1beta2.ProcessClassStorage, 1)[0]
 				processGroup.MarkForRemoval()
-				Expect(clusterReconciler.updateOrApply(context.TODO(), cluster)).NotTo(HaveOccurred())
+				Expect(
+					clusterReconciler.updateOrApply(context.TODO(), cluster),
+				).NotTo(HaveOccurred())
 				processGroupID = processGroup.ProcessGroupID
 			})
 
@@ -117,11 +125,24 @@ var _ = Describe("choose_removals", func() {
 			var processGroupIDs []fdbv1beta2.ProcessGroupID
 
 			BeforeEach(func() {
-				processGroups := internal.PickProcessGroups(cluster, fdbv1beta2.ProcessClassStorage, 2)
-				adminClient.MockLocalityInfo(processGroups[0].ProcessGroupID, map[string]string{fdbv1beta2.FDBLocalityZoneIDKey: "r1"})
-				adminClient.MockLocalityInfo(processGroups[1].ProcessGroupID, map[string]string{fdbv1beta2.FDBLocalityZoneIDKey: "r1"})
+				processGroups := internal.PickProcessGroups(
+					cluster,
+					fdbv1beta2.ProcessClassStorage,
+					2,
+				)
+				adminClient.MockLocalityInfo(
+					processGroups[0].ProcessGroupID,
+					map[string]string{fdbv1beta2.FDBLocalityZoneIDKey: "r1"},
+				)
+				adminClient.MockLocalityInfo(
+					processGroups[1].ProcessGroupID,
+					map[string]string{fdbv1beta2.FDBLocalityZoneIDKey: "r1"},
+				)
 
-				processGroupIDs = []fdbv1beta2.ProcessGroupID{processGroups[0].ProcessGroupID, processGroups[1].ProcessGroupID}
+				processGroupIDs = []fdbv1beta2.ProcessGroupID{
+					processGroups[0].ProcessGroupID,
+					processGroups[1].ProcessGroupID,
+				}
 			})
 
 			It("should not requeue", func() {

@@ -245,7 +245,9 @@ func (fdbBackup *FdbBackup) GetBackupPods() *corev1.PodList {
 	gomega.Expect(fdbBackup.fdbCluster.factory.GetControllerRuntimeClient().List(context.Background(), podList,
 		client.InNamespace(fdbBackup.fdbCluster.Namespace()),
 		client.MatchingLabels(map[string]string{fdbv1beta2.BackupDeploymentPodLabel: fdbBackup.fdbCluster.Name() + "-backup-agents"}),
-	)).NotTo(gomega.HaveOccurred())
+	),
+	).
+		NotTo(gomega.HaveOccurred())
 
 	return podList
 }

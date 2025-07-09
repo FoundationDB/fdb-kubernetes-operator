@@ -40,7 +40,13 @@ import (
 type updateSidecarVersions struct{}
 
 // reconcile runs the reconciler's work.
-func (updateSidecarVersions) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, _ *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
+func (updateSidecarVersions) reconcile(
+	ctx context.Context,
+	r *FoundationDBClusterReconciler,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	_ *fdbv1beta2.FoundationDBStatus,
+	logger logr.Logger,
+) *requeue {
 	// We don't need to upgrade the sidecar if no upgrade is in progress, we can skip any further work here.
 	if !cluster.IsBeingUpgradedWithVersionIncompatibleVersion() {
 		return nil
@@ -75,8 +81,23 @@ func (updateSidecarVersions) reconcile(ctx context.Context, r *FoundationDBClust
 
 		for containerIndex, container := range pod.Spec.Containers {
 			if container.Name == fdbv1beta2.SidecarContainerName && container.Image != image {
-				logger.Info("Upgrading sidecar", "processGroupID", podmanager.GetProcessGroupID(cluster, pod), "oldImage", container.Image, "newImage", image)
-				err = r.PodLifecycleManager.UpdateImageVersion(logr.NewContext(ctx, logger), r, cluster, pod, containerIndex, image)
+				logger.Info(
+					"Upgrading sidecar",
+					"processGroupID",
+					podmanager.GetProcessGroupID(cluster, pod),
+					"oldImage",
+					container.Image,
+					"newImage",
+					image,
+				)
+				err = r.PodLifecycleManager.UpdateImageVersion(
+					logr.NewContext(ctx, logger),
+					r,
+					cluster,
+					pod,
+					containerIndex,
+					image,
+				)
 				if err != nil {
 					return &requeue{curError: err}
 				}
@@ -87,7 +108,16 @@ func (updateSidecarVersions) reconcile(ctx context.Context, r *FoundationDBClust
 	}
 
 	if upgraded > 0 {
-		r.Recorder.Event(cluster, corev1.EventTypeNormal, "SidecarUpgraded", fmt.Sprintf("New version: %s, number of sidecars upgraded: %d", cluster.Spec.Version, upgraded))
+		r.Recorder.Event(
+			cluster,
+			corev1.EventTypeNormal,
+			"SidecarUpgraded",
+			fmt.Sprintf(
+				"New version: %s, number of sidecars upgraded: %d",
+				cluster.Spec.Version,
+				upgraded,
+			),
+		)
 	}
 
 	return nil

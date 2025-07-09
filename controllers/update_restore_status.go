@@ -33,7 +33,11 @@ type updateRestoreStatus struct {
 }
 
 // reconcile runs the reconciler's work.
-func (updateRestoreStatus) reconcile(ctx context.Context, r *FoundationDBRestoreReconciler, restore *fdbv1beta2.FoundationDBRestore) *requeue {
+func (updateRestoreStatus) reconcile(
+	ctx context.Context,
+	r *FoundationDBRestoreReconciler,
+	restore *fdbv1beta2.FoundationDBRestore,
+) *requeue {
 	adminClient, err := r.adminClientForRestore(ctx, restore)
 	if err != nil {
 		return &requeue{curError: err}

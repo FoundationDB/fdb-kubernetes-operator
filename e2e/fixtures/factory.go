@@ -144,7 +144,8 @@ func (factory *Factory) DeletePod(pod *corev1.Pod) {
 // GetPod returns the Pod matching the namespace and name
 func (factory *Factory) GetPod(namespace string, name string) (*corev1.Pod, error) {
 	pod := &corev1.Pod{}
-	err := factory.GetControllerRuntimeClient().Get(context.Background(), client.ObjectKey{Name: name, Namespace: namespace}, pod)
+	err := factory.GetControllerRuntimeClient().
+		Get(context.Background(), client.ObjectKey{Name: name, Namespace: namespace}, pod)
 
 	return pod, err
 }
@@ -169,7 +170,10 @@ func (factory *Factory) CreateFdbCluster(
 	config *ClusterConfig,
 	options ...ClusterOption,
 ) *FdbCluster {
-	return factory.CreateFdbClusterFromSpec(factory.GenerateFDBClusterSpec(config), config, options...)
+	return factory.CreateFdbClusterFromSpec(
+		factory.GenerateFDBClusterSpec(config),
+		config,
+		options...)
 }
 
 // CreateFdbClusterFromSpec creates a FDB cluster. This method can be used in combination with the GenerateFDBClusterSpec method.
@@ -218,7 +222,10 @@ func (factory *Factory) CreateFdbHaCluster(
 }
 
 // GetMainContainerOverrides will return the main container overrides.
-func (factory *Factory) GetMainContainerOverrides(debugSymbols bool, unifiedImage bool) fdbv1beta2.ContainerOverrides {
+func (factory *Factory) GetMainContainerOverrides(
+	debugSymbols bool,
+	unifiedImage bool,
+) fdbv1beta2.ContainerOverrides {
 	image := factory.GetFoundationDBImage()
 	if unifiedImage {
 		image = factory.GetUnifiedFoundationDBImage()
@@ -234,7 +241,9 @@ func (factory *Factory) GetMainContainerOverrides(debugSymbols bool, unifiedImag
 
 // GetSidecarContainerOverrides will return the sidecar container overrides. If the unified image should be used an empty
 // container override will be returned.
-func (factory *Factory) GetSidecarContainerOverrides(debugSymbols bool) fdbv1beta2.ContainerOverrides {
+func (factory *Factory) GetSidecarContainerOverrides(
+	debugSymbols bool,
+) fdbv1beta2.ContainerOverrides {
 	image, tag := GetBaseImageAndTag(factory.GetSidecarImage())
 
 	return fdbv1beta2.ContainerOverrides{
@@ -287,7 +296,9 @@ func (factory *Factory) GetContext() string {
 func (factory *Factory) GetStorageClasses(labels map[string]string) *storagev1.StorageClassList {
 	storageClasses := &storagev1.StorageClassList{}
 	gomega.Expect(
-		factory.GetControllerRuntimeClient().List(context.Background(), storageClasses, client.MatchingLabels(labels))).NotTo(gomega.HaveOccurred())
+		factory.GetControllerRuntimeClient().
+			List(context.Background(), storageClasses, client.MatchingLabels(labels)),
+	).NotTo(gomega.HaveOccurred())
 
 	return storageClasses
 }
@@ -492,7 +503,14 @@ func (factory *Factory) UploadFile(
 
 // GetLogsForPod will fetch the logs for the specified Pod and container since the provided seconds.
 func (factory *Factory) GetLogsForPod(pod *corev1.Pod, container string, since *int64) string {
-	logs, err := kubeHelper.GetLogsFromPod(context.Background(), factory.GetControllerRuntimeClient(), factory.getConfig(), pod, container, since)
+	logs, err := kubeHelper.GetLogsFromPod(
+		context.Background(),
+		factory.GetControllerRuntimeClient(),
+		factory.getConfig(),
+		pod,
+		container,
+		since,
+	)
 	if err != nil {
 		log.Println(err)
 	}
@@ -526,8 +544,16 @@ func (factory *Factory) GetAdditionalSidecarVersions() []fdbv1beta2.Version {
 
 	additionalVersions := make([]fdbv1beta2.Version, 0)
 	for _, version := range getUpgradeVersions(factory.options.upgradeString) {
-		updateVersionMapIfVersionIsMissingOrNewer(baseVersion, compactVersionMap, version.InitialVersion)
-		updateVersionMapIfVersionIsMissingOrNewer(baseVersion, compactVersionMap, version.TargetVersion)
+		updateVersionMapIfVersionIsMissingOrNewer(
+			baseVersion,
+			compactVersionMap,
+			version.InitialVersion,
+		)
+		updateVersionMapIfVersionIsMissingOrNewer(
+			baseVersion,
+			compactVersionMap,
+			version.TargetVersion,
+		)
 	}
 
 	for _, version := range compactVersionMap {
@@ -539,7 +565,11 @@ func (factory *Factory) GetAdditionalSidecarVersions() []fdbv1beta2.Version {
 
 // This method will update the provided map if the compact version of newVersion is either missing or the provided newVersion
 // is newer than the current version in the map.
-func updateVersionMapIfVersionIsMissingOrNewer(baseVersion fdbv1beta2.Version, versions map[string]fdbv1beta2.Version, newVersion fdbv1beta2.Version) {
+func updateVersionMapIfVersionIsMissingOrNewer(
+	baseVersion fdbv1beta2.Version,
+	versions map[string]fdbv1beta2.Version,
+	newVersion fdbv1beta2.Version,
+) {
 	// Since we already include the base version we can skip all compatible versions
 	if newVersion.Compact() == baseVersion.Compact() {
 		return
@@ -678,7 +708,11 @@ func (factory *Factory) DumpState(fdbCluster *FdbCluster) {
 	)
 	// Printout all Pods for this namespace
 	pods := &corev1.PodList{}
-	err := factory.controllerRuntimeClient.List(context.Background(), pods, client.InNamespace(cluster.Namespace))
+	err := factory.controllerRuntimeClient.List(
+		context.Background(),
+		pods,
+		client.InNamespace(cluster.Namespace),
+	)
 	if err != nil {
 		log.Println(err)
 		return
@@ -690,7 +724,10 @@ func (factory *Factory) DumpState(fdbCluster *FdbCluster) {
 
 	// Make use of a tabwriter for better output.
 	w := tabwriter.NewWriter(log.Writer(), 0, 0, 1, ' ', tabwriter.Debug)
-	_, _ = fmt.Fprintln(w, "Name\tReady\tSTATUS\tUnschedulable\tRestarts\tMain Image\tSidecar Image\tIPs\tNode\tAge")
+	_, _ = fmt.Fprintln(
+		w,
+		"Name\tReady\tSTATUS\tUnschedulable\tRestarts\tMain Image\tSidecar Image\tIPs\tNode\tAge",
+	)
 	var operatorPods []corev1.Pod
 	for _, pod := range pods.Items {
 		if pod.Labels["app"] == "fdb-kubernetes-operator-controller-manager" {

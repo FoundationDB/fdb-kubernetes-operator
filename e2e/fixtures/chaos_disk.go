@@ -29,35 +29,71 @@ import (
 
 // InjectDiskFailure injects a disk failure for all Pods selected by the selector.
 func (factory *Factory) InjectDiskFailure(selector chaosmesh.PodSelectorSpec) *ChaosMeshExperiment {
-	return factory.InjectDiskFailureWithPath(selector, "/var/fdb/data", "/var/fdb/data/**/*", []chaosmesh.IoMethod{
-		chaosmesh.Write,
-		chaosmesh.Read,
-		chaosmesh.Open,
-		chaosmesh.Flush,
-		chaosmesh.Fsync,
-	}, []string{fdbv1beta2.MainContainerName})
+	return factory.InjectDiskFailureWithPath(
+		selector,
+		"/var/fdb/data",
+		"/var/fdb/data/**/*",
+		[]chaosmesh.IoMethod{
+			chaosmesh.Write,
+			chaosmesh.Read,
+			chaosmesh.Open,
+			chaosmesh.Flush,
+			chaosmesh.Fsync,
+		},
+		[]string{fdbv1beta2.MainContainerName},
+	)
 }
 
 // InjectDiskFailureWithDuration injects a disk failure for all Pods selected by the selector for the specified duration.
-func (factory *Factory) InjectDiskFailureWithDuration(selector chaosmesh.PodSelectorSpec, duration string) *ChaosMeshExperiment {
-	return factory.InjectDiskFailureWithPathAndDuration(selector, "/var/fdb/data", "/var/fdb/data/**/*", []chaosmesh.IoMethod{
-		chaosmesh.Write,
-		chaosmesh.Read,
-		chaosmesh.Open,
-		chaosmesh.Flush,
-		chaosmesh.Fsync,
-	}, []string{fdbv1beta2.MainContainerName}, duration)
+func (factory *Factory) InjectDiskFailureWithDuration(
+	selector chaosmesh.PodSelectorSpec,
+	duration string,
+) *ChaosMeshExperiment {
+	return factory.InjectDiskFailureWithPathAndDuration(
+		selector,
+		"/var/fdb/data",
+		"/var/fdb/data/**/*",
+		[]chaosmesh.IoMethod{
+			chaosmesh.Write,
+			chaosmesh.Read,
+			chaosmesh.Open,
+			chaosmesh.Flush,
+			chaosmesh.Fsync,
+		},
+		[]string{fdbv1beta2.MainContainerName},
+		duration,
+	)
 }
 
 // InjectDiskFailureWithPath injects a disk failure for all Pods selected by the selector. volumePath and path can be used to specify the affected files and methods
 // allow to specify the affected methods.
-func (factory *Factory) InjectDiskFailureWithPath(selector chaosmesh.PodSelectorSpec, volumePath string, path string, methods []chaosmesh.IoMethod, containers []string) *ChaosMeshExperiment {
-	return factory.InjectDiskFailureWithPathAndDuration(selector, volumePath, path, methods, containers, ChaosDurationForever)
+func (factory *Factory) InjectDiskFailureWithPath(
+	selector chaosmesh.PodSelectorSpec,
+	volumePath string,
+	path string,
+	methods []chaosmesh.IoMethod,
+	containers []string,
+) *ChaosMeshExperiment {
+	return factory.InjectDiskFailureWithPathAndDuration(
+		selector,
+		volumePath,
+		path,
+		methods,
+		containers,
+		ChaosDurationForever,
+	)
 }
 
 // InjectDiskFailureWithPathAndDuration injects a disk failure for all Pods selected by the selector. volumePath and path can be used to specify the affected files and methods
 // allow to specify the affected methods. duration will define how long the chaos is injected.
-func (factory *Factory) InjectDiskFailureWithPathAndDuration(selector chaosmesh.PodSelectorSpec, volumePath string, path string, methods []chaosmesh.IoMethod, containers []string, duration string) *ChaosMeshExperiment {
+func (factory *Factory) InjectDiskFailureWithPathAndDuration(
+	selector chaosmesh.PodSelectorSpec,
+	volumePath string,
+	path string,
+	methods []chaosmesh.IoMethod,
+	containers []string,
+	duration string,
+) *ChaosMeshExperiment {
 	return factory.CreateExperiment(&chaosmesh.IOChaos{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      factory.RandStringRunes(32),
@@ -84,7 +120,10 @@ func (factory *Factory) InjectDiskFailureWithPathAndDuration(selector chaosmesh.
 }
 
 // InjectIOLatency injects IOLatency for single pod.
-func (factory *Factory) InjectIOLatency(selector chaosmesh.PodSelectorSpec, delay string) *ChaosMeshExperiment {
+func (factory *Factory) InjectIOLatency(
+	selector chaosmesh.PodSelectorSpec,
+	delay string,
+) *ChaosMeshExperiment {
 	return factory.CreateExperiment(&chaosmesh.IOChaos{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      factory.RandStringRunes(32),

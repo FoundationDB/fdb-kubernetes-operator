@@ -173,7 +173,8 @@ func (factory *Factory) CreateExperiment(chaos client.Object) *ChaosMeshExperime
 	}
 	factory.addChaosExperiment(experiment)
 
-	gomega.Expect(factory.waitUntilExperimentRunning(experiment, chaos)).NotTo(gomega.HaveOccurred())
+	gomega.Expect(factory.waitUntilExperimentRunning(experiment, chaos)).
+		NotTo(gomega.HaveOccurred())
 
 	return &experiment
 }

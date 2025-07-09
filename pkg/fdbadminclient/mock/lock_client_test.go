@@ -46,16 +46,27 @@ var _ = Describe("lock_client_test", func() {
 
 	Describe("AddPendingUpgrades", func() {
 		It("adds the upgrades to the map", func() {
-			err = lockClient.AddPendingUpgrades(fdbv1beta2.Versions.Default, []fdbv1beta2.ProcessGroupID{"storage-1", "storage-2"})
+			err = lockClient.AddPendingUpgrades(
+				fdbv1beta2.Versions.Default,
+				[]fdbv1beta2.ProcessGroupID{"storage-1", "storage-2"},
+			)
 			Expect(err).NotTo(HaveOccurred())
 
-			err = lockClient.AddPendingUpgrades(fdbv1beta2.Versions.Default, []fdbv1beta2.ProcessGroupID{"storage-3"})
+			err = lockClient.AddPendingUpgrades(
+				fdbv1beta2.Versions.Default,
+				[]fdbv1beta2.ProcessGroupID{"storage-3"},
+			)
 			Expect(err).NotTo(HaveOccurred())
 
-			err = lockClient.AddPendingUpgrades(fdbv1beta2.Versions.NextMajorVersion, []fdbv1beta2.ProcessGroupID{"storage-3", "storage-4"})
+			err = lockClient.AddPendingUpgrades(
+				fdbv1beta2.Versions.NextMajorVersion,
+				[]fdbv1beta2.ProcessGroupID{"storage-3", "storage-4"},
+			)
 			Expect(err).NotTo(HaveOccurred())
 
-			Expect(lockClient.pendingUpgrades).To(Equal(map[fdbv1beta2.Version]map[fdbv1beta2.ProcessGroupID]bool{
+			Expect(
+				lockClient.pendingUpgrades,
+			).To(Equal(map[fdbv1beta2.Version]map[fdbv1beta2.ProcessGroupID]bool{
 				fdbv1beta2.Versions.Default: {
 					"storage-1": true,
 					"storage-2": true,

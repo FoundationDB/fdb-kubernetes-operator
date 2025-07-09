@@ -77,7 +77,12 @@ func (fdbCluster *FdbCluster) RunFdbCliCommandInOperator(
 		)
 
 		if err != nil {
-			return fmt.Errorf("could not run the command: \"%s\": got an error: %w, stderr: %s", command, err, stderr)
+			return fmt.Errorf(
+				"could not run the command: \"%s\": got an error: %w, stderr: %s",
+				command,
+				err,
+				stderr,
+			)
 		}
 
 		return nil
@@ -283,7 +288,12 @@ func (fdbCluster *FdbCluster) StatusInvariantChecker(
 // checkAvailability returns nil if the cluster is reachable. If the cluster is unreachable an error will be returned.
 func checkAvailability(status *fdbv1beta2.FoundationDBStatus) error {
 	if !status.Client.DatabaseStatus.Available {
-		log.Println("client messages", status.Client.Messages, "cluster messages", status.Cluster.Messages)
+		log.Println(
+			"client messages",
+			status.Client.Messages,
+			"cluster messages",
+			status.Cluster.Messages,
+		)
 		return fmt.Errorf("cluster is not available")
 	}
 
@@ -303,7 +313,9 @@ func (fdbCluster *FdbCluster) InvariantClusterStatusAvailableWithThreshold(
 
 // InvariantClusterStatusAvailable checks if the cluster is available the whole test with the default unavailable threshold.
 func (fdbCluster *FdbCluster) InvariantClusterStatusAvailable() error {
-	return fdbCluster.InvariantClusterStatusAvailableWithThreshold(fdbCluster.factory.GetDefaultUnavailableThreshold())
+	return fdbCluster.InvariantClusterStatusAvailableWithThreshold(
+		fdbCluster.factory.GetDefaultUnavailableThreshold(),
+	)
 }
 
 // GetProcessCount returns the number of processes having the specified role
@@ -433,7 +445,9 @@ func (fdbCluster *FdbCluster) GetCommandlineForProcessesPerClass() map[fdbv1beta
 }
 
 // GetCommandlineForProcessesPerClassWithStatus fetches the commandline args for all processes except of the specified class.
-func (fdbCluster *FdbCluster) GetCommandlineForProcessesPerClassWithStatus(status *fdbv1beta2.FoundationDBStatus) map[fdbv1beta2.ProcessClass][]string {
+func (fdbCluster *FdbCluster) GetCommandlineForProcessesPerClassWithStatus(
+	status *fdbv1beta2.FoundationDBStatus,
+) map[fdbv1beta2.ProcessClass][]string {
 	knobs := map[fdbv1beta2.ProcessClass][]string{}
 	for _, process := range status.Cluster.Processes {
 		if _, ok := knobs[process.ProcessClass]; !ok {
@@ -502,7 +516,10 @@ func Unprintable(val string) ([]byte, error) {
 			case 'x':
 				{
 					if i+2 >= len(val) {
-						return nil, fmt.Errorf("not have two chars after \\x when unprint [%s]", val)
+						return nil, fmt.Errorf(
+							"not have two chars after \\x when unprint [%s]",
+							val,
+						)
 					}
 					d1, err := unhex(val[i+1])
 					if err != nil {

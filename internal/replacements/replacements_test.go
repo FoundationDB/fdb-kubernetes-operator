@@ -63,7 +63,13 @@ var _ = Describe("replace_misconfigured_pods", func() {
 		replaceOnSecurityContextChange := true
 
 		JustBeforeEach(func() {
-			needsRemoval, err = processGroupNeedsRemovalForPod(cluster, pod, processGroup, log, replaceOnSecurityContextChange)
+			needsRemoval, err = processGroupNeedsRemovalForPod(
+				cluster,
+				pod,
+				processGroup,
+				log,
+				replaceOnSecurityContextChange,
+			)
 		})
 
 		When("a storage Pod is checked", func() {
@@ -87,11 +93,17 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				spec, err := internal.GetPodSpec(cluster, processGroup)
 				Expect(err).NotTo(HaveOccurred())
 
-				pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey], err = internal.GetPodSpecHash(cluster, processGroup, spec)
+				pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey], err = internal.GetPodSpecHash(
+					cluster,
+					processGroup,
+					spec,
+				)
 				Expect(err).NotTo(HaveOccurred())
 
 				pod.Spec = *spec
-				Expect(internal.NormalizeClusterSpec(cluster, deprecationOptions)).NotTo(HaveOccurred())
+				Expect(
+					internal.NormalizeClusterSpec(cluster, deprecationOptions),
+				).NotTo(HaveOccurred())
 			})
 
 			When("process group has no Pod", func() {
@@ -139,7 +151,9 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			When("the public IP source is removed", func() {
 				BeforeEach(func() {
 					pod.ObjectMeta.Annotations = map[string]string{
-						fdbv1beta2.PublicIPSourceAnnotation: string(fdbv1beta2.PublicIPSourceService),
+						fdbv1beta2.PublicIPSourceAnnotation: string(
+							fdbv1beta2.PublicIPSourceService,
+						),
 					}
 					cluster.Spec.Routing.PublicIPSource = nil
 				})
@@ -188,7 +202,11 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 			When("the nodeSelector doesn't match but the PodSpecHash matches", func() {
 				BeforeEach(func() {
-					pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey], err = internal.GetPodSpecHash(cluster, processGroup, nil)
+					pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey], err = internal.GetPodSpecHash(
+						cluster,
+						processGroup,
+						nil,
+					)
 					Expect(err).NotTo(HaveOccurred())
 					pod.Spec.NodeSelector = map[string]string{
 						"dummy": "test",
@@ -226,11 +244,17 @@ var _ = Describe("replace_misconfigured_pods", func() {
 						spec, err := internal.GetPodSpec(cluster, processGroup)
 						Expect(err).NotTo(HaveOccurred())
 
-						pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey], err = internal.GetPodSpecHash(cluster, processGroup, spec)
+						pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey], err = internal.GetPodSpecHash(
+							cluster,
+							processGroup,
+							spec,
+						)
 						Expect(err).NotTo(HaveOccurred())
 
 						pod.Spec = *spec
-						Expect(internal.NormalizeClusterSpec(cluster, deprecationOptions)).NotTo(HaveOccurred())
+						Expect(
+							internal.NormalizeClusterSpec(cluster, deprecationOptions),
+						).NotTo(HaveOccurred())
 					})
 
 					It("should not need a removal", func() {
@@ -265,17 +289,20 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				})
 			})
 
-			When("PodUpdateStrategyTransactionReplacement is set and the PodSpecHash doesn't match", func() {
-				BeforeEach(func() {
-					pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] = "-1"
-					cluster.Spec.AutomationOptions.PodUpdateStrategy = fdbv1beta2.PodUpdateStrategyTransactionReplacement
-				})
+			When(
+				"PodUpdateStrategyTransactionReplacement is set and the PodSpecHash doesn't match",
+				func() {
+					BeforeEach(func() {
+						pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] = "-1"
+						cluster.Spec.AutomationOptions.PodUpdateStrategy = fdbv1beta2.PodUpdateStrategyTransactionReplacement
+					})
 
-				It("should not need a removal", func() {
-					Expect(needsRemoval).To(BeFalse())
-					Expect(err).NotTo(HaveOccurred())
-				})
-			})
+					It("should not need a removal", func() {
+						Expect(needsRemoval).To(BeFalse())
+						Expect(err).NotTo(HaveOccurred())
+					})
+				},
+			)
 
 			When("checking if the PVC requires a replacement", func() {
 				var pvc *corev1.PersistentVolumeClaim
@@ -286,7 +313,12 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				})
 
 				JustBeforeEach(func() {
-					needsRemoval, err = processGroupNeedsRemovalForPVC(cluster, pvc, log, processGroup)
+					needsRemoval, err = processGroupNeedsRemovalForPVC(
+						cluster,
+						pvc,
+						log,
+						processGroup,
+					)
 				})
 
 				When("PVC name doesn't match", func() {
@@ -396,14 +428,16 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					BeforeEach(func() {
 						newCPU, err := resource.ParseQuantity("1000")
 						Expect(err).NotTo(HaveOccurred())
-						cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral].PodTemplate.Spec.Containers = append(cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral].PodTemplate.Spec.Containers,
+						cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral].PodTemplate.Spec.Containers = append(
+							cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral].PodTemplate.Spec.Containers,
 							corev1.Container{
 								Resources: corev1.ResourceRequirements{
 									Requests: corev1.ResourceList{
 										corev1.ResourceCPU: newCPU,
 									},
 								},
-							})
+							},
+						)
 					})
 
 					It("should need a removal", func() {
@@ -495,7 +529,9 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 					When("FSGroup is changed", func() {
 						BeforeEach(func() {
-							pod.Spec.SecurityContext = &corev1.PodSecurityContext{FSGroup: pointer.Int64(1234)}
+							pod.Spec.SecurityContext = &corev1.PodSecurityContext{
+								FSGroup: pointer.Int64(1234),
+							}
 						})
 
 						When("replaceOnSecurityContextChange is true", func() {
@@ -521,13 +557,18 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				When("the last applied spec hash is not different from desired spec hash", func() {
 					When("FSGroup is changed", func() {
 						BeforeEach(func() {
-							pod.Spec.SecurityContext = &corev1.PodSecurityContext{FSGroup: pointer.Int64(1234)}
+							pod.Spec.SecurityContext = &corev1.PodSecurityContext{
+								FSGroup: pointer.Int64(1234),
+							}
 						})
 
-						It("should not need a removal (guard against server-side defaults)", func() {
-							Expect(needsRemoval).To(BeFalse())
-							Expect(err).NotTo(HaveOccurred())
-						})
+						It(
+							"should not need a removal (guard against server-side defaults)",
+							func() {
+								Expect(needsRemoval).To(BeFalse())
+								Expect(err).NotTo(HaveOccurred())
+							},
+						)
 					})
 				})
 			})
@@ -543,7 +584,9 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 					When("the pod ip family is v4", func() {
 						BeforeEach(func() {
-							cluster.Spec.Routing.PodIPFamily = pointer.Int(fdbv1beta2.PodIPFamilyIPv4)
+							cluster.Spec.Routing.PodIPFamily = pointer.Int(
+								fdbv1beta2.PodIPFamilyIPv4,
+							)
 						})
 
 						When("the image type is split", func() {
@@ -553,7 +596,11 @@ var _ = Describe("replace_misconfigured_pods", func() {
 										continue
 									}
 
-									pod.Spec.Containers[idx].Args = append(pod.Spec.Containers[idx].Args, "--public-ip-family", "4")
+									pod.Spec.Containers[idx].Args = append(
+										pod.Spec.Containers[idx].Args,
+										"--public-ip-family",
+										"4",
+									)
 								}
 							})
 
@@ -567,7 +614,9 @@ var _ = Describe("replace_misconfigured_pods", func() {
 							BeforeEach(func() {
 								unified := fdbv1beta2.ImageTypeUnified
 								cluster.Spec.ImageType = &unified
-								pod.Annotations[fdbv1beta2.ImageTypeAnnotation] = string(fdbv1beta2.ImageTypeUnified)
+								pod.Annotations[fdbv1beta2.ImageTypeAnnotation] = string(
+									fdbv1beta2.ImageTypeUnified,
+								)
 
 								currentConfiguration := monitorapi.ProcessConfiguration{
 									Arguments: []monitorapi.Argument{
@@ -581,7 +630,9 @@ var _ = Describe("replace_misconfigured_pods", func() {
 								currentConfig, err := json.Marshal(currentConfiguration)
 								Expect(err).NotTo(HaveOccurred())
 
-								pod.Annotations[monitorapi.CurrentConfigurationAnnotation] = string(currentConfig)
+								pod.Annotations[monitorapi.CurrentConfigurationAnnotation] = string(
+									currentConfig,
+								)
 							})
 
 							It("should *not* need a removal", func() {
@@ -593,7 +644,9 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 					When("the pod ip family is v6", func() {
 						BeforeEach(func() {
-							cluster.Spec.Routing.PodIPFamily = pointer.Int(fdbv1beta2.PodIPFamilyIPv6)
+							cluster.Spec.Routing.PodIPFamily = pointer.Int(
+								fdbv1beta2.PodIPFamilyIPv6,
+							)
 						})
 
 						When("the image type is split", func() {
@@ -603,7 +656,11 @@ var _ = Describe("replace_misconfigured_pods", func() {
 										continue
 									}
 
-									pod.Spec.Containers[idx].Args = append(pod.Spec.Containers[idx].Args, "--public-ip-family", "6")
+									pod.Spec.Containers[idx].Args = append(
+										pod.Spec.Containers[idx].Args,
+										"--public-ip-family",
+										"6",
+									)
 								}
 							})
 
@@ -617,7 +674,9 @@ var _ = Describe("replace_misconfigured_pods", func() {
 							BeforeEach(func() {
 								unified := fdbv1beta2.ImageTypeUnified
 								cluster.Spec.ImageType = &unified
-								pod.Annotations[fdbv1beta2.ImageTypeAnnotation] = string(fdbv1beta2.ImageTypeUnified)
+								pod.Annotations[fdbv1beta2.ImageTypeAnnotation] = string(
+									fdbv1beta2.ImageTypeUnified,
+								)
 
 								currentConfiguration := monitorapi.ProcessConfiguration{
 									Arguments: []monitorapi.Argument{
@@ -631,7 +690,9 @@ var _ = Describe("replace_misconfigured_pods", func() {
 								currentConfig, err := json.Marshal(currentConfiguration)
 								Expect(err).NotTo(HaveOccurred())
 
-								pod.Annotations[monitorapi.CurrentConfigurationAnnotation] = string(currentConfig)
+								pod.Annotations[monitorapi.CurrentConfigurationAnnotation] = string(
+									currentConfig,
+								)
 							})
 
 							It("should *not* need a removal", func() {
@@ -646,7 +707,9 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					When("the pod ip family at the pod is nil", func() {
 						When("the pod ip family at cluster level is v4", func() {
 							BeforeEach(func() {
-								cluster.Spec.Routing.PodIPFamily = pointer.Int(fdbv1beta2.PodIPFamilyIPv4)
+								cluster.Spec.Routing.PodIPFamily = pointer.Int(
+									fdbv1beta2.PodIPFamilyIPv4,
+								)
 							})
 
 							It("should need a removal", func() {
@@ -657,7 +720,9 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 						When("the pod ip family at cluster level is v6", func() {
 							BeforeEach(func() {
-								cluster.Spec.Routing.PodIPFamily = pointer.Int(fdbv1beta2.PodIPFamilyIPv4)
+								cluster.Spec.Routing.PodIPFamily = pointer.Int(
+									fdbv1beta2.PodIPFamilyIPv4,
+								)
 							})
 
 							It("should need a removal", func() {
@@ -675,7 +740,11 @@ var _ = Describe("replace_misconfigured_pods", func() {
 										continue
 									}
 
-									pod.Spec.Containers[idx].Args = append(pod.Spec.Containers[idx].Args, "--public-ip-family", "4")
+									pod.Spec.Containers[idx].Args = append(
+										pod.Spec.Containers[idx].Args,
+										"--public-ip-family",
+										"4",
+									)
 								}
 
 								pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] = ""
@@ -694,7 +763,9 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 							When("the pod ip family at cluster level is v6", func() {
 								BeforeEach(func() {
-									cluster.Spec.Routing.PodIPFamily = pointer.Int(fdbv1beta2.PodIPFamilyIPv6)
+									cluster.Spec.Routing.PodIPFamily = pointer.Int(
+										fdbv1beta2.PodIPFamilyIPv6,
+									)
 								})
 
 								It("should need a removal", func() {
@@ -708,7 +779,9 @@ var _ = Describe("replace_misconfigured_pods", func() {
 							BeforeEach(func() {
 								unified := fdbv1beta2.ImageTypeUnified
 								cluster.Spec.ImageType = &unified
-								pod.Annotations[fdbv1beta2.ImageTypeAnnotation] = string(fdbv1beta2.ImageTypeUnified)
+								pod.Annotations[fdbv1beta2.ImageTypeAnnotation] = string(
+									fdbv1beta2.ImageTypeUnified,
+								)
 
 								currentConfiguration := monitorapi.ProcessConfiguration{
 									Arguments: []monitorapi.Argument{
@@ -722,7 +795,9 @@ var _ = Describe("replace_misconfigured_pods", func() {
 								currentConfig, err := json.Marshal(currentConfiguration)
 								Expect(err).NotTo(HaveOccurred())
 
-								pod.Annotations[monitorapi.CurrentConfigurationAnnotation] = string(currentConfig)
+								pod.Annotations[monitorapi.CurrentConfigurationAnnotation] = string(
+									currentConfig,
+								)
 								pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] = ""
 							})
 
@@ -739,7 +814,9 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 							When("the pod ip family at cluster level is v6", func() {
 								BeforeEach(func() {
-									cluster.Spec.Routing.PodIPFamily = pointer.Int(fdbv1beta2.PodIPFamilyIPv6)
+									cluster.Spec.Routing.PodIPFamily = pointer.Int(
+										fdbv1beta2.PodIPFamilyIPv6,
+									)
 								})
 
 								It("should need a removal", func() {
@@ -758,7 +835,11 @@ var _ = Describe("replace_misconfigured_pods", func() {
 										continue
 									}
 
-									pod.Spec.Containers[idx].Args = append(pod.Spec.Containers[idx].Args, "--public-ip-family", "6")
+									pod.Spec.Containers[idx].Args = append(
+										pod.Spec.Containers[idx].Args,
+										"--public-ip-family",
+										"6",
+									)
 								}
 
 								pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] = ""
@@ -777,7 +858,9 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 							When("the pod ip family at cluster level is v4", func() {
 								BeforeEach(func() {
-									cluster.Spec.Routing.PodIPFamily = pointer.Int(fdbv1beta2.PodIPFamilyIPv4)
+									cluster.Spec.Routing.PodIPFamily = pointer.Int(
+										fdbv1beta2.PodIPFamilyIPv4,
+									)
 								})
 
 								It("should need a removal", func() {
@@ -791,7 +874,9 @@ var _ = Describe("replace_misconfigured_pods", func() {
 							BeforeEach(func() {
 								unified := fdbv1beta2.ImageTypeUnified
 								cluster.Spec.ImageType = &unified
-								pod.Annotations[fdbv1beta2.ImageTypeAnnotation] = string(fdbv1beta2.ImageTypeUnified)
+								pod.Annotations[fdbv1beta2.ImageTypeAnnotation] = string(
+									fdbv1beta2.ImageTypeUnified,
+								)
 
 								currentConfiguration := monitorapi.ProcessConfiguration{
 									Arguments: []monitorapi.Argument{
@@ -805,7 +890,9 @@ var _ = Describe("replace_misconfigured_pods", func() {
 								currentConfig, err := json.Marshal(currentConfiguration)
 								Expect(err).NotTo(HaveOccurred())
 
-								pod.Annotations[monitorapi.CurrentConfigurationAnnotation] = string(currentConfig)
+								pod.Annotations[monitorapi.CurrentConfigurationAnnotation] = string(
+									currentConfig,
+								)
 								pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] = ""
 							})
 
@@ -822,7 +909,9 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 							When("the pod ip family at cluster level is v4", func() {
 								BeforeEach(func() {
-									cluster.Spec.Routing.PodIPFamily = pointer.Int(fdbv1beta2.PodIPFamilyIPv4)
+									cluster.Spec.Routing.PodIPFamily = pointer.Int(
+										fdbv1beta2.PodIPFamilyIPv4,
+									)
 								})
 
 								It("should need a removal", func() {
@@ -857,35 +946,47 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				spec, err := internal.GetPodSpec(cluster, processGroup)
 				Expect(err).NotTo(HaveOccurred())
 
-				pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey], err = internal.GetPodSpecHash(cluster, processGroup, spec)
+				pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey], err = internal.GetPodSpecHash(
+					cluster,
+					processGroup,
+					spec,
+				)
 				Expect(err).NotTo(HaveOccurred())
 
 				pod.Spec = *spec
-				Expect(internal.NormalizeClusterSpec(cluster, deprecationOptions)).NotTo(HaveOccurred())
+				Expect(
+					internal.NormalizeClusterSpec(cluster, deprecationOptions),
+				).NotTo(HaveOccurred())
 			})
 
-			When("the storageServersPerPod is changed for a non storage class process group", func() {
-				BeforeEach(func() {
-					cluster.Spec.StorageServersPerPod = 2
-				})
+			When(
+				"the storageServersPerPod is changed for a non storage class process group",
+				func() {
+					BeforeEach(func() {
+						cluster.Spec.StorageServersPerPod = 2
+					})
 
-				It("should not need a removal", func() {
-					Expect(needsRemoval).To(BeFalse())
-					Expect(err).NotTo(HaveOccurred())
-				})
-			})
+					It("should not need a removal", func() {
+						Expect(needsRemoval).To(BeFalse())
+						Expect(err).NotTo(HaveOccurred())
+					})
+				},
+			)
 
-			When("PodUpdateStrategyTransactionReplacement is set and the PodSpecHash doesn't match for transaction", func() {
-				BeforeEach(func() {
-					pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] = "-1"
-					cluster.Spec.AutomationOptions.PodUpdateStrategy = fdbv1beta2.PodUpdateStrategyTransactionReplacement
-				})
+			When(
+				"PodUpdateStrategyTransactionReplacement is set and the PodSpecHash doesn't match for transaction",
+				func() {
+					BeforeEach(func() {
+						pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] = "-1"
+						cluster.Spec.AutomationOptions.PodUpdateStrategy = fdbv1beta2.PodUpdateStrategyTransactionReplacement
+					})
 
-				It("should need a removal", func() {
-					Expect(needsRemoval).To(BeTrue())
-					Expect(err).NotTo(HaveOccurred())
-				})
-			})
+					It("should need a removal", func() {
+						Expect(needsRemoval).To(BeTrue())
+						Expect(err).NotTo(HaveOccurred())
+					})
+				},
+			)
 
 			When("process group ID prefix changes", func() {
 				BeforeEach(func() {
@@ -919,7 +1020,10 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				Expect(k8sClient.Create(context.Background(), newPod)).To(Succeed())
 
 				// Populate process groups
-				cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus(id, fdbv1beta2.ProcessClassStorage, nil))
+				cluster.Status.ProcessGroups = append(
+					cluster.Status.ProcessGroups,
+					fdbv1beta2.NewProcessGroupStatus(id, fdbv1beta2.ProcessClassStorage, nil),
+				)
 			}
 
 			for i := 0; i < 1; i++ {
@@ -937,7 +1041,10 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(k8sClient.Create(context.Background(), newPod)).To(Succeed())
 				// Populate process groups
-				cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus(id, fdbv1beta2.ProcessClassTransaction, nil))
+				cluster.Status.ProcessGroups = append(
+					cluster.Status.ProcessGroups,
+					fdbv1beta2.NewProcessGroupStatus(id, fdbv1beta2.ProcessClassTransaction, nil),
+				)
 			}
 
 			// Force a replacement of all processes
@@ -952,7 +1059,14 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			})
 
 			It("should not have a replacements", func() {
-				hasReplacement, err := ReplaceMisconfiguredProcessGroups(context.Background(), &podmanager.StandardPodLifecycleManager{}, k8sClient, log, cluster, true)
+				hasReplacement, err := ReplaceMisconfiguredProcessGroups(
+					context.Background(),
+					&podmanager.StandardPodLifecycleManager{},
+					k8sClient,
+					log,
+					cluster,
+					true,
+				)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(hasReplacement).To(BeFalse())
 
@@ -975,7 +1089,14 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			})
 
 			It("should have two replacements", func() {
-				hasReplacement, err := ReplaceMisconfiguredProcessGroups(context.Background(), &podmanager.StandardPodLifecycleManager{}, k8sClient, log, cluster, true)
+				hasReplacement, err := ReplaceMisconfiguredProcessGroups(
+					context.Background(),
+					&podmanager.StandardPodLifecycleManager{},
+					k8sClient,
+					log,
+					cluster,
+					true,
+				)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(hasReplacement).To(BeTrue())
 
@@ -994,7 +1115,14 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 		When("Setting is unset", func() {
 			It("should replace all process groups", func() {
-				hasReplacement, err := ReplaceMisconfiguredProcessGroups(context.Background(), &podmanager.StandardPodLifecycleManager{}, k8sClient, log, cluster, true)
+				hasReplacement, err := ReplaceMisconfiguredProcessGroups(
+					context.Background(),
+					&podmanager.StandardPodLifecycleManager{},
+					k8sClient,
+					log,
+					cluster,
+					true,
+				)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(hasReplacement).To(BeTrue())
 
@@ -1020,7 +1148,13 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				BeforeEach(func() {
 					podName, _ := cluster.GetProcessGroupID(fdbv1beta2.ProcessClassStorage, 0)
 					currentPod := &corev1.Pod{}
-					Expect(k8sClient.Get(context.Background(), ctrlClient.ObjectKey{Name: podName, Namespace: cluster.Namespace}, currentPod)).NotTo(HaveOccurred())
+					Expect(
+						k8sClient.Get(
+							context.Background(),
+							ctrlClient.ObjectKey{Name: podName, Namespace: cluster.Namespace},
+							currentPod,
+						),
+					).NotTo(HaveOccurred())
 
 					spec := currentPod.Spec.DeepCopy()
 					var cIdx int
@@ -1039,7 +1173,14 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				})
 
 				It("should not have any replacements", func() {
-					hasReplacement, err := ReplaceMisconfiguredProcessGroups(context.Background(), &podmanager.StandardPodLifecycleManager{}, k8sClient, log, cluster, true)
+					hasReplacement, err := ReplaceMisconfiguredProcessGroups(
+						context.Background(),
+						&podmanager.StandardPodLifecycleManager{},
+						k8sClient,
+						log,
+						cluster,
+						true,
+					)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(hasReplacement).To(BeFalse())
 
@@ -1116,7 +1257,13 @@ var _ = DescribeTable("file_security_context_changed",
 		&corev1.PodSpec{
 			SecurityContext: &corev1.PodSecurityContext{},
 			Containers: []corev1.Container{
-				{SecurityContext: &corev1.SecurityContext{WindowsOptions: &corev1.WindowsSecurityContextOptions{HostProcess: new(bool)}}},
+				{
+					SecurityContext: &corev1.SecurityContext{
+						WindowsOptions: &corev1.WindowsSecurityContextOptions{
+							HostProcess: new(bool),
+						},
+					},
+				},
 			}},
 		&corev1.PodSpec{
 			SecurityContext: &corev1.PodSecurityContext{},
@@ -1129,7 +1276,13 @@ var _ = DescribeTable("file_security_context_changed",
 		&corev1.PodSpec{
 			SecurityContext: &corev1.PodSecurityContext{},
 			Containers: []corev1.Container{
-				{SecurityContext: &corev1.SecurityContext{WindowsOptions: &corev1.WindowsSecurityContextOptions{HostProcess: new(bool)}}},
+				{
+					SecurityContext: &corev1.SecurityContext{
+						WindowsOptions: &corev1.WindowsSecurityContextOptions{
+							HostProcess: new(bool),
+						},
+					},
+				},
 			}},
 		&corev1.PodSpec{
 			SecurityContext: &corev1.PodSecurityContext{},
@@ -1147,7 +1300,13 @@ var _ = DescribeTable("file_security_context_changed",
 		&corev1.PodSpec{
 			SecurityContext: &corev1.PodSecurityContext{},
 			Containers: []corev1.Container{
-				{SecurityContext: &corev1.SecurityContext{WindowsOptions: &corev1.WindowsSecurityContextOptions{HostProcess: new(bool)}}},
+				{
+					SecurityContext: &corev1.SecurityContext{
+						WindowsOptions: &corev1.WindowsSecurityContextOptions{
+							HostProcess: new(bool),
+						},
+					},
+				},
 			}},
 		false,
 	),
@@ -1193,7 +1352,9 @@ var _ = DescribeTable("file_security_context_changed",
 	Entry("RunAsUser is added to the pod spec",
 		&corev1.PodSpec{
 			SecurityContext: &corev1.PodSecurityContext{RunAsUser: pointer.Int64(42)},
-			Containers:      []corev1.Container{{}}}, // needs a "matching" container to compare effective settings
+			Containers: []corev1.Container{
+				{},
+			}}, // needs a "matching" container to compare effective settings
 		&corev1.PodSpec{
 			SecurityContext: &corev1.PodSecurityContext{},
 			Containers:      []corev1.Container{{}}},

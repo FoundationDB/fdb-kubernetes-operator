@@ -44,16 +44,20 @@ var _ = Describe("admin_client_test", func() {
 	When("parsing the connection string", func() {
 		DescribeTable("it should return the correct connection string",
 			func(input string, expected string) {
-				connectingString, err := fdbv1beta2.ParseConnectionString(cleanConnectionStringOutput(input))
+				connectingString, err := fdbv1beta2.ParseConnectionString(
+					cleanConnectionStringOutput(input),
+				)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(connectingString.String()).To(Equal(expected))
 			},
-			Entry("with a correct response from FDB",
+			Entry(
+				"with a correct response from FDB",
 				">>> option on ACCESS_SYSTEM_KEYS\\nOption enabled for all transactions\\n>>> get \\\\xff/coordinators\\n`\\\\xff/coordinators' is `fdb_cluster_52v1bpr8:rhUbBjrtyweZBQO1U3Td81zyP9d46yEh@100.82.81.253:4500:tls,100.82.71.5:4500:tls,100.82.119.151:4500:tls,100.82.122.125:4500:tls,100.82.76.240:4500:tls'\\n",
 				"fdb_cluster_52v1bpr8:rhUbBjrtyweZBQO1U3Td81zyP9d46yEh@100.82.81.253:4500:tls,100.82.71.5:4500:tls,100.82.119.151:4500:tls,100.82.122.125:4500:tls,100.82.76.240:4500:tls",
 			),
 
-			Entry("without the byte string response",
+			Entry(
+				"without the byte string response",
 				"fdb_cluster_52v1bpr8:rhUbBjrtyweZBQO1U3Td81zyP9d46yEh@100.82.81.253:4500:tls,100.82.71.5:4500:tls,100.82.119.151:4500:tls,100.82.122.125:4500:tls,100.82.76.240:4500:tls",
 				"fdb_cluster_52v1bpr8:rhUbBjrtyweZBQO1U3Td81zyP9d46yEh@100.82.81.253:4500:tls,100.82.71.5:4500:tls,100.82.119.151:4500:tls,100.82.122.125:4500:tls,100.82.76.240:4500:tls",
 			),
@@ -195,19 +199,21 @@ var _ = Describe("admin_client_test", func() {
 		)
 	})
 
-	DescribeTable("getting the args for the command", func(command cliCommand, client *cliAdminClient, traceOption string, traceFormat string, expectedArgs []string, expectedTimeout time.Duration) {
-		Expect(client).NotTo(BeNil())
-		if traceOption != "" {
-			GinkgoT().Setenv(fdbv1beta2.EnvNameFDBTraceLogDirPath, traceOption)
-		}
-		if traceFormat != "" {
-			GinkgoT().Setenv("FDB_NETWORK_OPTION_TRACE_FORMAT", traceFormat)
-		}
+	DescribeTable(
+		"getting the args for the command",
+		func(command cliCommand, client *cliAdminClient, traceOption string, traceFormat string, expectedArgs []string, expectedTimeout time.Duration) {
+			Expect(client).NotTo(BeNil())
+			if traceOption != "" {
+				GinkgoT().Setenv(fdbv1beta2.EnvNameFDBTraceLogDirPath, traceOption)
+			}
+			if traceFormat != "" {
+				GinkgoT().Setenv("FDB_NETWORK_OPTION_TRACE_FORMAT", traceFormat)
+			}
 
-		args, timeout := client.getArgsAndTimeout(command, "test")
-		Expect(timeout).To(Equal(expectedTimeout))
-		Expect(args).To(HaveExactElements(expectedArgs))
-	},
+			args, timeout := client.getArgsAndTimeout(command, "test")
+			Expect(timeout).To(Equal(expectedTimeout))
+			Expect(args).To(HaveExactElements(expectedArgs))
+		},
 		Entry("using fdbcli and trace options are disabled",
 			cliCommand{
 				args:    []string{"--version"},
@@ -883,24 +889,27 @@ protocol fdb00b071010000`,
 			quorumNotReachableStatus = string(quorumNotReachableStatusOut)
 		})
 
-		When("the fdbcli call for the previous version returns that the quorum is reachable", func() {
-			BeforeEach(func() {
-				mockRunner = &mockCommandRunner{
-					mockedError: nil,
-					mockedOutputPerBinary: map[string]string{
-						previousBinary: quorumReachableStatus,
-						newBinary:      quorumNotReachableStatus,
-					},
-				}
-			})
+		When(
+			"the fdbcli call for the previous version returns that the quorum is reachable",
+			func() {
+				BeforeEach(func() {
+					mockRunner = &mockCommandRunner{
+						mockedError: nil,
+						mockedOutputPerBinary: map[string]string{
+							previousBinary: quorumReachableStatus,
+							newBinary:      quorumNotReachableStatus,
+						},
+					}
+				})
 
-			It("should report the previous version", func() {
-				Expect(version).To(Equal(previousVersion))
-				Expect(err).NotTo(HaveOccurred())
-				Expect(mockRunner.receivedBinary).To(HaveLen(1))
-				Expect(mockRunner.receivedBinary[0]).To(HaveSuffix("7.1/" + fdbcliStr))
-			})
-		})
+				It("should report the previous version", func() {
+					Expect(version).To(Equal(previousVersion))
+					Expect(err).NotTo(HaveOccurred())
+					Expect(mockRunner.receivedBinary).To(HaveLen(1))
+					Expect(mockRunner.receivedBinary[0]).To(HaveSuffix("7.1/" + fdbcliStr))
+				})
+			},
+		)
 
 		When("the fdbcli call for the new version returns that the quorum is reachable", func() {
 			BeforeEach(func() {
@@ -950,15 +959,20 @@ protocol fdb00b071010000`,
 		}}
 
 		When("the cluster is upgraded ", func() {
-			Expect(getKillCommand(addresses, true)).To(Equal("kill; kill 192.168.0.2:4500; sleep 1; kill 192.168.0.2:4500; sleep 5"))
+			Expect(
+				getKillCommand(addresses, true),
+			).To(Equal("kill; kill 192.168.0.2:4500; sleep 1; kill 192.168.0.2:4500; sleep 5"))
 		})
 
 		When("the cluster is not upgraded", func() {
-			Expect(getKillCommand(addresses, false)).To(Equal("kill; kill 192.168.0.2:4500; sleep 5"))
+			Expect(
+				getKillCommand(addresses, false),
+			).To(Equal("kill; kill 192.168.0.2:4500; sleep 5"))
 		})
 	})
 
-	DescribeTable("starting backup with different versions",
+	DescribeTable(
+		"starting backup with different versions",
 		func(version string, encryptionKeyPath string, shouldHaveEncryptionFlag bool) {
 			mockRunner := &mockCommandRunner{
 				mockedError:  nil,
@@ -993,17 +1007,25 @@ protocol fdb00b071010000`,
 			))
 
 			if shouldHaveEncryptionFlag {
-				Expect(mockRunner.receivedArgs[0]).To(ContainElements("--encryption-key-file", encryptionKeyPath))
+				Expect(
+					mockRunner.receivedArgs[0],
+				).To(ContainElements("--encryption-key-file", encryptionKeyPath))
 			} else {
 				Expect(mockRunner.receivedArgs[0]).ToNot(ContainElement("--encryption-key-file"))
 			}
 		},
-		Entry("version that doesn't support backup encryption with key", "7.1.25", "/path/to/key", false),
+		Entry(
+			"version that doesn't support backup encryption with key",
+			"7.1.25",
+			"/path/to/key",
+			false,
+		),
 		Entry("version that supports backup encryption without key", "7.3.1", "", false),
 		Entry("version that supports backup encryption with key", "7.3.1", "/path/to/key", true),
 	)
 
-	DescribeTable("starting restore with different versions",
+	DescribeTable(
+		"starting restore with different versions",
 		func(version string, encryptionKeyPath string, keyRanges []fdbv1beta2.FoundationDBKeyRange, shouldHaveEncryptionFlag bool, shouldHaveKeyRanges bool) {
 			mockRunner := &mockCommandRunner{
 				mockedError:  nil,
@@ -1034,7 +1056,9 @@ protocol fdb00b071010000`,
 			))
 
 			if shouldHaveEncryptionFlag {
-				Expect(mockRunner.receivedArgs[0]).To(ContainElements("--encryption-key-file", encryptionKeyPath))
+				Expect(
+					mockRunner.receivedArgs[0],
+				).To(ContainElements("--encryption-key-file", encryptionKeyPath))
 			} else {
 				Expect(mockRunner.receivedArgs[0]).ToNot(ContainElement("--encryption-key-file"))
 			}
@@ -1046,9 +1070,37 @@ protocol fdb00b071010000`,
 				Expect(mockRunner.receivedArgs[0]).ToNot(ContainElement("-k"))
 			}
 		},
-		Entry("test key ranges", "7.1.25", "", []fdbv1beta2.FoundationDBKeyRange{{Start: "\\x00", End: "\\xFF"}}, false, true),
-		Entry("version that doesn't support backup encryption with encryption key", "7.1.25", "/path/to/key", nil, false, false),
-		Entry("version that supports backup encryption without key", "7.3.1", "", nil, false, false),
-		Entry("version that supports backup encryption with key", "7.3.1", "/path/to/key", nil, true, false),
+		Entry(
+			"test key ranges",
+			"7.1.25",
+			"",
+			[]fdbv1beta2.FoundationDBKeyRange{{Start: "\\x00", End: "\\xFF"}},
+			false,
+			true,
+		),
+		Entry(
+			"version that doesn't support backup encryption with encryption key",
+			"7.1.25",
+			"/path/to/key",
+			nil,
+			false,
+			false,
+		),
+		Entry(
+			"version that supports backup encryption without key",
+			"7.3.1",
+			"",
+			nil,
+			false,
+			false,
+		),
+		Entry(
+			"version that supports backup encryption with key",
+			"7.3.1",
+			"/path/to/key",
+			nil,
+			true,
+			false,
+		),
 	)
 })

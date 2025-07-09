@@ -42,7 +42,14 @@ import (
 )
 
 // ReplaceMisconfiguredProcessGroups checks if the cluster has any misconfigured process groups that must be replaced.
-func ReplaceMisconfiguredProcessGroups(ctx context.Context, podManager podmanager.PodLifecycleManager, ctrlClient client.Client, log logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, replaceOnSecurityContextChange bool) (bool, error) {
+func ReplaceMisconfiguredProcessGroups(
+	ctx context.Context,
+	podManager podmanager.PodLifecycleManager,
+	ctrlClient client.Client,
+	log logr.Logger,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	replaceOnSecurityContextChange bool,
+) (bool, error) {
 	hasReplacements := false
 
 	maxReplacements, _ := getReplacementInformation(cluster, cluster.GetMaxConcurrentReplacements())
@@ -56,7 +63,15 @@ func ReplaceMisconfiguredProcessGroups(ctx context.Context, podManager podmanage
 			continue
 		}
 
-		needsReplacement, err := ProcessGroupNeedsReplacements(ctx, podManager, ctrlClient, log, cluster, processGroup, replaceOnSecurityContextChange)
+		needsReplacement, err := ProcessGroupNeedsReplacements(
+			ctx,
+			podManager,
+			ctrlClient,
+			log,
+			cluster,
+			processGroup,
+			replaceOnSecurityContextChange,
+		)
 		// Do not mark for removal if there is an error
 		if err != nil {
 			continue
@@ -73,11 +88,23 @@ func ReplaceMisconfiguredProcessGroups(ctx context.Context, podManager podmanage
 }
 
 // ProcessGroupNeedsReplacements checks if a process group needs to be replaced.
-func ProcessGroupNeedsReplacements(ctx context.Context, podManager podmanager.PodLifecycleManager, ctrlClient client.Client, log logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, processGroup *fdbv1beta2.ProcessGroupStatus, replaceOnSecurityContextChange bool) (bool, error) {
+func ProcessGroupNeedsReplacements(
+	ctx context.Context,
+	podManager podmanager.PodLifecycleManager,
+	ctrlClient client.Client,
+	log logr.Logger,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	processGroup *fdbv1beta2.ProcessGroupStatus,
+	replaceOnSecurityContextChange bool,
+) (bool, error) {
 	pod, podErr := podManager.GetPod(ctx, ctrlClient, cluster, processGroup.GetPodName(cluster))
 	if processGroup.ProcessClass.IsStateful() {
 		pvc := &corev1.PersistentVolumeClaim{}
-		err := ctrlClient.Get(ctx, client.ObjectKey{Namespace: cluster.Namespace, Name: processGroup.GetPvcName(cluster)}, pvc)
+		err := ctrlClient.Get(
+			ctx,
+			client.ObjectKey{Namespace: cluster.Namespace, Name: processGroup.GetPvcName(cluster)},
+			pvc,
+		)
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
 				log.V(1).Info("Could not find PVC for process group ID",
@@ -101,12 +128,32 @@ func ProcessGroupNeedsReplacements(ctx context.Context, podManager podmanager.Po
 		return false, podErr
 	}
 
-	return processGroupNeedsRemovalForPod(cluster, pod, processGroup, log, replaceOnSecurityContextChange)
+	return processGroupNeedsRemovalForPod(
+		cluster,
+		pod,
+		processGroup,
+		log,
+		replaceOnSecurityContextChange,
+	)
 }
 
-func processGroupNeedsRemovalForPVC(cluster *fdbv1beta2.FoundationDBCluster, pvc *corev1.PersistentVolumeClaim, log logr.Logger, processGroup *fdbv1beta2.ProcessGroupStatus) (bool, error) {
+func processGroupNeedsRemovalForPVC(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	pvc *corev1.PersistentVolumeClaim,
+	log logr.Logger,
+	processGroup *fdbv1beta2.ProcessGroupStatus,
+) (bool, error) {
 	processGroupID := internal.GetProcessGroupIDFromMeta(cluster, pvc.ObjectMeta)
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "pvc", pvc.Name, "processGroupID", processGroupID)
+	logger := log.WithValues(
+		"namespace",
+		cluster.Namespace,
+		"cluster",
+		cluster.Name,
+		"pvc",
+		pvc.Name,
+		"processGroupID",
+		processGroupID,
+	)
 
 	ownedByCluster := !cluster.ShouldFilterOnOwnerReferences()
 	if !ownedByCluster {
@@ -132,8 +179,15 @@ func processGroupNeedsRemovalForPVC(cluster *fdbv1beta2.FoundationDBCluster, pvc
 	}
 
 	if pvc.Annotations[fdbv1beta2.LastSpecKey] != pvcHash {
-		logger.Info("Replace process group",
-			"reason", fmt.Sprintf("PVC spec has changed from %s to %s", pvcHash, pvc.Annotations[fdbv1beta2.LastSpecKey]))
+		logger.Info(
+			"Replace process group",
+			"reason",
+			fmt.Sprintf(
+				"PVC spec has changed from %s to %s",
+				pvcHash,
+				pvc.Annotations[fdbv1beta2.LastSpecKey],
+			),
+		)
 		return true, nil
 	}
 	if pvc.Name != desiredPVC.Name {
@@ -145,12 +199,25 @@ func processGroupNeedsRemovalForPVC(cluster *fdbv1beta2.FoundationDBCluster, pvc
 	return false, nil
 }
 
-func processGroupNeedsRemovalForPod(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod, processGroup *fdbv1beta2.ProcessGroupStatus, log logr.Logger, replaceOnSecurityContextChange bool) (bool, error) {
+func processGroupNeedsRemovalForPod(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	pod *corev1.Pod,
+	processGroup *fdbv1beta2.ProcessGroupStatus,
+	log logr.Logger,
+	replaceOnSecurityContextChange bool,
+) (bool, error) {
 	if pod == nil {
 		return false, nil
 	}
 
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", processGroup.ProcessGroupID)
+	logger := log.WithValues(
+		"namespace",
+		cluster.Namespace,
+		"cluster",
+		cluster.Name,
+		"processGroupID",
+		processGroup.ProcessGroupID,
+	)
 
 	if processGroup.IsMarkedForRemoval() {
 		return false, nil
@@ -173,8 +240,15 @@ func processGroupNeedsRemovalForPod(cluster *fdbv1beta2.FoundationDBCluster, pod
 		return false, err
 	}
 	if ipSource != cluster.GetPublicIPSource() {
-		logger.Info("Replace process group",
-			"reason", fmt.Sprintf("publicIP source has changed from %s to %s", ipSource, cluster.GetPublicIPSource()))
+		logger.Info(
+			"Replace process group",
+			"reason",
+			fmt.Sprintf(
+				"publicIP source has changed from %s to %s",
+				ipSource,
+				cluster.GetPublicIPSource(),
+			),
+		)
 		return true, nil
 	}
 	serversPerPod, err := internal.GetServersPerPodForPod(pod, processGroup.ProcessClass)
@@ -185,10 +259,19 @@ func processGroupNeedsRemovalForPod(cluster *fdbv1beta2.FoundationDBCluster, pod
 	desiredServersPerPod := cluster.GetDesiredServersPerPod(processGroup.ProcessClass)
 	// Replace the process group if the expected servers differ from the desired servers
 	if serversPerPod != desiredServersPerPod {
-		logger.Info("Replace process group",
-			"serversPerPod", serversPerPod,
-			"desiredServersPerPod", desiredServersPerPod,
-			"reason", fmt.Sprintf("serversPerPod has changed from current: %d to desired: %d", serversPerPod, desiredServersPerPod))
+		logger.Info(
+			"Replace process group",
+			"serversPerPod",
+			serversPerPod,
+			"desiredServersPerPod",
+			desiredServersPerPod,
+			"reason",
+			fmt.Sprintf(
+				"serversPerPod has changed from current: %d to desired: %d",
+				serversPerPod,
+				desiredServersPerPod,
+			),
+		)
 		return true, nil
 	}
 
@@ -219,16 +302,26 @@ func processGroupNeedsRemovalForPod(cluster *fdbv1beta2.FoundationDBCluster, pod
 		return false, nil
 	}
 
-	expectedNodeSelector := cluster.GetProcessSettings(processGroup.ProcessClass).PodTemplate.Spec.NodeSelector
+	expectedNodeSelector := cluster.GetProcessSettings(
+		processGroup.ProcessClass,
+	).PodTemplate.Spec.NodeSelector
 	if !equality.Semantic.DeepEqual(pod.Spec.NodeSelector, expectedNodeSelector) {
-		logger.Info("Replace process group",
-			"reason", fmt.Sprintf("nodeSelector has changed from %s to %s", pod.Spec.NodeSelector, expectedNodeSelector))
+		logger.Info(
+			"Replace process group",
+			"reason",
+			fmt.Sprintf(
+				"nodeSelector has changed from %s to %s",
+				pod.Spec.NodeSelector,
+				expectedNodeSelector,
+			),
+		)
 		return true, nil
 	}
 
 	// If the image type is changed from split to unified and only a single storage server per pod is used, we have to perform
 	// a replacement as the disk layout has changed.
-	if cluster.GetStorageServersPerPod() == 1 && internal.GetImageType(pod) != cluster.DesiredImageType() {
+	if cluster.GetStorageServersPerPod() == 1 &&
+		internal.GetImageType(pod) != cluster.DesiredImageType() {
 		logger.Info("Replace process group",
 			"reason", "imageType has been changed and only a single storage server per Pod is used")
 		return true, nil
@@ -281,10 +374,13 @@ func resourcesNeedsReplacement(desired []corev1.Container, current []corev1.Cont
 	desiredCPURequests, desiredMemoryRequests := getCPUandMemoryRequests(desired)
 	currentCPURequests, currentMemoryRequests := getCPUandMemoryRequests(current)
 
-	return desiredCPURequests.Cmp(*currentCPURequests) == 1 || desiredMemoryRequests.Cmp(*currentMemoryRequests) == 1
+	return desiredCPURequests.Cmp(*currentCPURequests) == 1 ||
+		desiredMemoryRequests.Cmp(*currentMemoryRequests) == 1
 }
 
-func getCPUandMemoryRequests(containers []corev1.Container) (*resource.Quantity, *resource.Quantity) {
+func getCPUandMemoryRequests(
+	containers []corev1.Container,
+) (*resource.Quantity, *resource.Quantity) {
 	cpuRequests := &resource.Quantity{}
 	memoryRequests := &resource.Quantity{}
 
@@ -318,11 +414,18 @@ func fileSecurityContextChanged(desired, current *corev1.PodSpec, log logr.Logge
 	// first check for FSGroup or FSGroupChangePolicy changes as that cannot be overridden at container level
 	// (if pod security context is identical, skip these checks)
 	if (desired.SecurityContext != nil || current.SecurityContext != nil) &&
-		!equality.Semantic.DeepEqualWithNilDifferentFromEmpty(desired.SecurityContext, current.SecurityContext) {
+		!equality.Semantic.DeepEqualWithNilDifferentFromEmpty(
+			desired.SecurityContext,
+			current.SecurityContext,
+		) {
 		if desired.SecurityContext == nil { // check if changed non-nil -> nil
-			if current.SecurityContext.FSGroup != nil || current.SecurityContext.FSGroupChangePolicy != nil {
-				log.Info("Replace process group",
-					"reason", "either FSGroup or FSGroupChangePolicy have changed from defined to undefined (nil) on pod SecurityContext")
+			if current.SecurityContext.FSGroup != nil ||
+				current.SecurityContext.FSGroupChangePolicy != nil {
+				log.Info(
+					"Replace process group",
+					"reason",
+					"either FSGroup or FSGroupChangePolicy have changed from defined to undefined (nil) on pod SecurityContext",
+				)
 				return true
 			}
 		} else if current.SecurityContext == nil { // check if changed nil -> non-nil
@@ -344,8 +447,14 @@ func fileSecurityContextChanged(desired, current *corev1.PodSpec, log logr.Logge
 	for _, desiredContainer := range desired.Containers {
 		for _, currentContainer := range current.Containers {
 			if desiredContainer.Name == currentContainer.Name {
-				currentFields := getEffectiveFileSecurityContext(current.SecurityContext, currentContainer.SecurityContext)
-				desiredFields := getEffectiveFileSecurityContext(desired.SecurityContext, desiredContainer.SecurityContext)
+				currentFields := getEffectiveFileSecurityContext(
+					current.SecurityContext,
+					currentContainer.SecurityContext,
+				)
+				desiredFields := getEffectiveFileSecurityContext(
+					desired.SecurityContext,
+					desiredContainer.SecurityContext,
+				)
 				if reflect.DeepEqual(desiredFields, currentFields) {
 					break
 				}
@@ -358,7 +467,10 @@ func fileSecurityContextChanged(desired, current *corev1.PodSpec, log logr.Logge
 	return false
 }
 
-func getEffectiveFileSecurityContext(podSc *corev1.PodSecurityContext, containerSc *corev1.SecurityContext) containerFileSecurityContext {
+func getEffectiveFileSecurityContext(
+	podSc *corev1.PodSecurityContext,
+	containerSc *corev1.SecurityContext,
+) containerFileSecurityContext {
 	if containerSc == nil && podSc == nil {
 		return containerFileSecurityContext{}
 	}

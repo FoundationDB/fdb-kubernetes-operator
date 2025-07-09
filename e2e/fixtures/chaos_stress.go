@@ -27,7 +27,12 @@ import (
 )
 
 // InjectPodStress injects pod stress on the target.
-func (factory *Factory) InjectPodStress(target chaosmesh.PodSelectorSpec, containerNames []string, memoryStressor *chaosmesh.MemoryStressor, cpuStressor *chaosmesh.CPUStressor) *ChaosMeshExperiment {
+func (factory *Factory) InjectPodStress(
+	target chaosmesh.PodSelectorSpec,
+	containerNames []string,
+	memoryStressor *chaosmesh.MemoryStressor,
+	cpuStressor *chaosmesh.CPUStressor,
+) *ChaosMeshExperiment {
 	return factory.CreateExperiment(&chaosmesh.StressChaos{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      factory.RandStringRunes(32),

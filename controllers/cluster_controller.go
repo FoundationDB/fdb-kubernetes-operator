@@ -144,7 +144,9 @@ type FoundationDBClusterReconciler struct {
 }
 
 // NewFoundationDBClusterReconciler creates a new FoundationDBClusterReconciler with defaults.
-func NewFoundationDBClusterReconciler(podLifecycleManager podmanager.PodLifecycleManager) *FoundationDBClusterReconciler {
+func NewFoundationDBClusterReconciler(
+	podLifecycleManager podmanager.PodLifecycleManager,
+) *FoundationDBClusterReconciler {
 	r := &FoundationDBClusterReconciler{
 		PodLifecycleManager: podLifecycleManager,
 	}
@@ -160,7 +162,10 @@ func NewFoundationDBClusterReconciler(podLifecycleManager podmanager.PodLifecycl
 // +kubebuilder:rbac:groups="coordination.k8s.io",resources=leases,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile runs the reconciliation logic.
-func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
+func (r *FoundationDBClusterReconciler) Reconcile(
+	ctx context.Context,
+	request ctrl.Request,
+) (ctrl.Result, error) {
 	cluster := &fdbv1beta2.FoundationDBCluster{}
 
 	err := r.Get(ctx, request.NamespacedName, cluster)
@@ -172,12 +177,27 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 		return ctrl.Result{}, err
 	}
 
-	clusterLog := globalControllerLogger.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "traceID", uuid.NewUUID())
-	cacheStatus := cluster.CacheDatabaseStatusForReconciliation(r.CacheDatabaseStatusForReconciliationDefault)
+	clusterLog := globalControllerLogger.WithValues(
+		"namespace",
+		cluster.Namespace,
+		"cluster",
+		cluster.Name,
+		"traceID",
+		uuid.NewUUID(),
+	)
+	cacheStatus := cluster.CacheDatabaseStatusForReconciliation(
+		r.CacheDatabaseStatusForReconciliationDefault,
+	)
 	// Printout the duration of the reconciliation, independent if the reconciliation was successful or had an error.
 	startTime := time.Now()
 	defer func() {
-		clusterLog.Info("Reconciliation run finished", "duration_seconds", time.Since(startTime).Seconds(), "cacheStatus", cacheStatus)
+		clusterLog.Info(
+			"Reconciliation run finished",
+			"duration_seconds",
+			time.Since(startTime).Seconds(),
+			"cacheStatus",
+			cacheStatus,
+		)
 	}()
 
 	if cluster.Spec.Skip {
@@ -225,20 +245,32 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 
 	var status *fdbv1beta2.FoundationDBStatus
 	if cacheStatus {
-		clusterLog.Info("Fetch machine-readable status for reconciliation loop", "cacheStatus", cacheStatus)
+		clusterLog.Info(
+			"Fetch machine-readable status for reconciliation loop",
+			"cacheStatus",
+			cacheStatus,
+		)
 		status, err = r.getStatusFromClusterOrDummyStatus(clusterLog, cluster)
 		if err != nil {
-			clusterLog.Info("could not fetch machine-readable status and therefore didn't cache it", "error", err.Error())
+			clusterLog.Info(
+				"could not fetch machine-readable status and therefore didn't cache it",
+				"error",
+				err.Error(),
+			)
 			// In our e2e test cases we have observed cases where the operator got stuck fetching the latest machine-readable status from a cluster
 			// when all coordinator pods got restarted. This only happens when DNS entries are used in the connection string (otherwise the operator
 			// will be stuck). During testing we observed that restarting the operator process resolved the issue.
 			//
 			// See: https://github.com/FoundationDB/fdb-kubernetes-operator/issues/2311
-			if cluster.UseDNSInClusterFile() && strings.Contains(err.Error(), "FoundationDB error code 1512") {
+			if cluster.UseDNSInClusterFile() &&
+				strings.Contains(err.Error(), "FoundationDB error code 1512") {
 				clusterLog.V(0).Info("try to resolve addresses")
-				parsedConnectionString, err := fdbv1beta2.ParseConnectionString(cluster.Status.ConnectionString)
+				parsedConnectionString, err := fdbv1beta2.ParseConnectionString(
+					cluster.Status.ConnectionString,
+				)
 				if err != nil {
-					clusterLog.V(0).Info("could not try to resolve coordinator addresses", "error", err.Error())
+					clusterLog.V(0).
+						Info("could not try to resolve coordinator addresses", "error", err.Error())
 				} else {
 					coordinatorsResolvable := true
 					resolver := net.Resolver{}
@@ -322,27 +354,50 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 	}
 
 	if cluster.Status.Generations.Reconciled < originalGeneration || delayedRequeue {
-		clusterLog.Info("Cluster was not fully reconciled by reconciliation process", "status", cluster.Status.Generations,
-			"CurrentGeneration", cluster.Status.Generations.Reconciled,
-			"OriginalGeneration", originalGeneration,
-			"DelayedRequeue", delayedRequeueDuration.String())
+		clusterLog.Info(
+			"Cluster was not fully reconciled by reconciliation process",
+			"status",
+			cluster.Status.Generations,
+			"CurrentGeneration",
+			cluster.Status.Generations.Reconciled,
+			"OriginalGeneration",
+			originalGeneration,
+			"DelayedRequeue",
+			delayedRequeueDuration.String(),
+		)
 
 		return ctrl.Result{Requeue: true, RequeueAfter: delayedRequeueDuration}, nil
 	}
 
 	clusterLog.Info("Reconciliation complete", "generation", cluster.Status.Generations.Reconciled)
-	r.Recorder.Event(cluster, corev1.EventTypeNormal, "ReconciliationComplete", fmt.Sprintf("Reconciled generation %d", cluster.Status.Generations.Reconciled))
+	r.Recorder.Event(
+		cluster,
+		corev1.EventTypeNormal,
+		"ReconciliationComplete",
+		fmt.Sprintf("Reconciled generation %d", cluster.Status.Generations.Reconciled),
+	)
 
 	return ctrl.Result{}, nil
 }
 
 // runClusterSubReconciler will start the subReconciler and will log the duration of the subReconciler.
-func runClusterSubReconciler(ctx context.Context, logger logr.Logger, subReconciler clusterSubReconciler, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) *requeue {
+func runClusterSubReconciler(
+	ctx context.Context,
+	logger logr.Logger,
+	subReconciler clusterSubReconciler,
+	r *FoundationDBClusterReconciler,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	status *fdbv1beta2.FoundationDBStatus,
+) *requeue {
 	subReconcileLogger := logger.WithValues("reconciler", fmt.Sprintf("%T", subReconciler))
 	startTime := time.Now()
 	subReconcileLogger.Info("Attempting to run sub-reconciler")
 	defer func() {
-		subReconcileLogger.Info("Subreconciler finished run", "duration_seconds", time.Since(startTime).Seconds())
+		subReconcileLogger.Info(
+			"Subreconciler finished run",
+			"duration_seconds",
+			time.Since(startTime).Seconds(),
+		)
 	}()
 
 	return subReconciler.reconcile(ctx, r, cluster, status, subReconcileLogger)
@@ -354,13 +409,19 @@ func (r *FoundationDBClusterReconciler) updateIndexerForManager(mgr ctrl.Manager
 		return nil
 	}
 
-	return mgr.GetFieldIndexer().IndexField(context.Background(), &corev1.Pod{}, "spec.nodeName", func(o client.Object) []string {
-		return []string{o.(*corev1.Pod).Spec.NodeName}
-	})
+	return mgr.GetFieldIndexer().
+		IndexField(context.Background(), &corev1.Pod{}, "spec.nodeName", func(o client.Object) []string {
+			return []string{o.(*corev1.Pod).Spec.NodeName}
+		})
 }
 
 // SetupWithManager prepares the FoundationDBClusterReconciler for use.
-func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager, maxConcurrentReconciles int, selector metav1.LabelSelector, watchedObjects ...client.Object) error {
+func (r *FoundationDBClusterReconciler) SetupWithManager(
+	mgr ctrl.Manager,
+	maxConcurrentReconciles int,
+	selector metav1.LabelSelector,
+	watchedObjects ...client.Object,
+) error {
 	err := r.updateIndexerForManager(mgr)
 	if err != nil {
 		return err
@@ -419,7 +480,10 @@ func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager, maxCo
 
 // findFoundationDBClusterForNode will filter out all associated FoundationDBClusters that have a Pod running on that
 // specific node.
-func (r *FoundationDBClusterReconciler) findFoundationDBClusterForNode(ctx context.Context, node client.Object) []reconcile.Request {
+func (r *FoundationDBClusterReconciler) findFoundationDBClusterForNode(
+	ctx context.Context,
+	node client.Object,
+) []reconcile.Request {
 	logger := r.Log.WithValues("node", node.GetName())
 	podsOnNode := &corev1.PodList{}
 
@@ -446,7 +510,8 @@ func (r *FoundationDBClusterReconciler) findFoundationDBClusterForNode(ctx conte
 		return []reconcile.Request{}
 	}
 
-	logger.V(1).Info("Processing findFoundationDBClusterForNode, found Pods on node that changed", "labelSelector", r.ClusterLabelKeyForNodeTrigger, "podsOnNode", len(podsOnNode.Items))
+	logger.V(1).
+		Info("Processing findFoundationDBClusterForNode, found Pods on node that changed", "labelSelector", r.ClusterLabelKeyForNodeTrigger, "podsOnNode", len(podsOnNode.Items))
 
 	requests := make([]reconcile.Request, len(podsOnNode.Items))
 	for i, item := range podsOnNode.Items {
@@ -457,7 +522,8 @@ func (r *FoundationDBClusterReconciler) findFoundationDBClusterForNode(ctx conte
 			continue
 		}
 
-		logger.V(1).Info("Processing findFoundationDBClusterForNode, found cluster that needs an update", "triggeringPod", item.Name, "clusterName", clusterName)
+		logger.V(1).
+			Info("Processing findFoundationDBClusterForNode, found cluster that needs an update", "triggeringPod", item.Name, "clusterName", clusterName)
 		requests[i] = reconcile.Request{
 			NamespacedName: types.NamespacedName{
 				Name:      clusterName,
@@ -469,7 +535,11 @@ func (r *FoundationDBClusterReconciler) findFoundationDBClusterForNode(ctx conte
 	return requests
 }
 
-func (r *FoundationDBClusterReconciler) updatePodDynamicConf(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod) (bool, error) {
+func (r *FoundationDBClusterReconciler) updatePodDynamicConf(
+	logger logr.Logger,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	pod *corev1.Pod,
+) (bool, error) {
 	if cluster.ProcessGroupIsBeingRemoved(podmanager.GetProcessGroupID(cluster, pod)) {
 		return true, nil
 	}
@@ -494,7 +564,12 @@ func (r *FoundationDBClusterReconciler) updatePodDynamicConf(logger logr.Logger,
 
 	imageType := internal.GetImageType(pod)
 	if imageType == fdbv1beta2.ImageTypeUnified {
-		config := internal.GetMonitorProcessConfiguration(cluster, processClass, serversPerPod, imageType)
+		config := internal.GetMonitorProcessConfiguration(
+			cluster,
+			processClass,
+			serversPerPod,
+			imageType,
+		)
 		configData, err := json.Marshal(config)
 		if err != nil {
 			return false, err
@@ -507,7 +582,10 @@ func (r *FoundationDBClusterReconciler) updatePodDynamicConf(logger logr.Logger,
 		}
 	}
 
-	syncedFDBCluster, clusterErr := podClient.UpdateFile("fdb.cluster", cluster.Status.ConnectionString)
+	syncedFDBCluster, clusterErr := podClient.UpdateFile(
+		"fdb.cluster",
+		cluster.Status.ConnectionString,
+	)
 	syncedFDBMonitor, err := podClient.UpdateFile("fdbmonitor.conf", expectedConf)
 	if !syncedFDBCluster || !syncedFDBMonitor {
 		if clusterErr != nil {
@@ -524,9 +602,16 @@ func (r *FoundationDBClusterReconciler) updatePodDynamicConf(logger logr.Logger,
 	return true, nil
 }
 
-func (r *FoundationDBClusterReconciler) getPodClient(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod) (podclient.FdbPodClient, string) {
+func (r *FoundationDBClusterReconciler) getPodClient(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	pod *corev1.Pod,
+) (podclient.FdbPodClient, string) {
 	if pod == nil {
-		return nil, fmt.Sprintf("Process group in cluster %s/%s does not have pod defined", cluster.Namespace, cluster.Name)
+		return nil, fmt.Sprintf(
+			"Process group in cluster %s/%s does not have pod defined",
+			cluster.Namespace,
+			cluster.Name,
+		)
 	}
 
 	podClient, err := r.PodClientProvider(cluster, pod)
@@ -547,16 +632,26 @@ func (r *FoundationDBClusterReconciler) getDatabaseClientProvider() fdbadminclie
 }
 
 // getAdminClient gets the admin client for a reconciler.
-func (r *FoundationDBClusterReconciler) getAdminClient(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster) (fdbadminclient.AdminClient, error) {
+func (r *FoundationDBClusterReconciler) getAdminClient(
+	logger logr.Logger,
+	cluster *fdbv1beta2.FoundationDBCluster,
+) (fdbadminclient.AdminClient, error) {
 	return r.getDatabaseClientProvider().GetAdminClientWithLogger(cluster, r, logger)
 }
 
-func (r *FoundationDBClusterReconciler) getLockClient(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster) (fdbadminclient.LockClient, error) {
+func (r *FoundationDBClusterReconciler) getLockClient(
+	logger logr.Logger,
+	cluster *fdbv1beta2.FoundationDBCluster,
+) (fdbadminclient.LockClient, error) {
 	return r.getDatabaseClientProvider().GetLockClientWithLogger(cluster, logger)
 }
 
 // takeLock attempts to acquire a lock.
-func (r *FoundationDBClusterReconciler) takeLock(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, action string) error {
+func (r *FoundationDBClusterReconciler) takeLock(
+	logger logr.Logger,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	action string,
+) error {
 	if !cluster.ShouldUseLocks() {
 		return nil
 	}
@@ -571,7 +666,10 @@ func (r *FoundationDBClusterReconciler) takeLock(logger logr.Logger, cluster *fd
 }
 
 // releaseLock attempts to release a lock.
-func (r *FoundationDBClusterReconciler) releaseLock(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster) error {
+func (r *FoundationDBClusterReconciler) releaseLock(
+	logger logr.Logger,
+	cluster *fdbv1beta2.FoundationDBCluster,
+) error {
 	lockClient, err := r.getLockClient(logger, cluster)
 	if err != nil {
 		return err
@@ -594,16 +692,41 @@ type clusterSubReconciler interface {
 	If reconciliation cannot proceed, this should return a requeue object with
 	a `Message` field.
 	*/
-	reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue
+	reconcile(
+		ctx context.Context,
+		r *FoundationDBClusterReconciler,
+		cluster *fdbv1beta2.FoundationDBCluster,
+		status *fdbv1beta2.FoundationDBStatus,
+		logger logr.Logger,
+	) *requeue
 }
 
 // newFdbPodClient builds a client for working with an FDB Pod
-func (r *FoundationDBClusterReconciler) newFdbPodClient(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod) (podclient.FdbPodClient, error) {
-	return internal.NewFdbPodClient(cluster, pod, globalControllerLogger.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "pod", pod.Name), r.GetTimeout, r.PostTimeout)
+func (r *FoundationDBClusterReconciler) newFdbPodClient(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	pod *corev1.Pod,
+) (podclient.FdbPodClient, error) {
+	return internal.NewFdbPodClient(
+		cluster,
+		pod,
+		globalControllerLogger.WithValues(
+			"namespace",
+			cluster.Namespace,
+			"cluster",
+			cluster.Name,
+			"pod",
+			pod.Name,
+		),
+		r.GetTimeout,
+		r.PostTimeout,
+	)
 }
 
 // updateOrApply updates the status either with server-side apply or if disabled with the normal update call.
-func (r *FoundationDBClusterReconciler) updateOrApply(ctx context.Context, cluster *fdbv1beta2.FoundationDBCluster) error {
+func (r *FoundationDBClusterReconciler) updateOrApply(
+	ctx context.Context,
+	cluster *fdbv1beta2.FoundationDBCluster,
+) error {
 	if r.ServerSideApply {
 		// We have to set the TypeMeta otherwise the Patch command will fail. This is the rudimentary
 		// support for server side apply which should be enough for the status use case. The controller runtime will
@@ -635,7 +758,8 @@ func (r *FoundationDBClusterReconciler) updateOrApply(ctx context.Context, clust
 			return err
 		}
 
-		return r.Status().Patch(ctx, unstructuredPatch, client.Apply, client.FieldOwner("fdb-operator"), client.ForceOwnership)
+		return r.Status().
+			Patch(ctx, unstructuredPatch, client.Apply, client.FieldOwner("fdb-operator"), client.ForceOwnership)
 	}
 
 	return r.Status().Update(ctx, cluster)
@@ -643,7 +767,10 @@ func (r *FoundationDBClusterReconciler) updateOrApply(ctx context.Context, clust
 
 // getStatusFromClusterOrDummyStatus will fetch the machine-readable status from the FoundationDBCluster if the cluster is configured. If not a default status is returned indicating, that
 // some configuration is missing.
-func (r *FoundationDBClusterReconciler) getStatusFromClusterOrDummyStatus(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster) (*fdbv1beta2.FoundationDBStatus, error) {
+func (r *FoundationDBClusterReconciler) getStatusFromClusterOrDummyStatus(
+	logger logr.Logger,
+	cluster *fdbv1beta2.FoundationDBCluster,
+) (*fdbv1beta2.FoundationDBStatus, error) {
 	if cluster.Status.ConnectionString == "" {
 		return &fdbv1beta2.FoundationDBStatus{
 			Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
@@ -672,9 +799,21 @@ func (r *FoundationDBClusterReconciler) getStatusFromClusterOrDummyStatus(logger
 	if err == nil {
 		// Update the connection string if the newly fetched connection string is different from the current one and if the
 		// newly fetched connection string is not empty.
-		if cluster.Status.ConnectionString != status.Cluster.ConnectionString && status.Cluster.ConnectionString != "" {
-			logger.Info("Updating out-of-date connection string", "previousConnectionString", cluster.Status.ConnectionString, "newConnectionString", status.Cluster.ConnectionString)
-			r.Recorder.Event(cluster, corev1.EventTypeNormal, "UpdatingConnectionString", fmt.Sprintf("Setting connection string to %s", status.Cluster.ConnectionString))
+		if cluster.Status.ConnectionString != status.Cluster.ConnectionString &&
+			status.Cluster.ConnectionString != "" {
+			logger.Info(
+				"Updating out-of-date connection string",
+				"previousConnectionString",
+				cluster.Status.ConnectionString,
+				"newConnectionString",
+				status.Cluster.ConnectionString,
+			)
+			r.Recorder.Event(
+				cluster,
+				corev1.EventTypeNormal,
+				"UpdatingConnectionString",
+				fmt.Sprintf("Setting connection string to %s", status.Cluster.ConnectionString),
+			)
 			cluster.Status.ConnectionString = status.Cluster.ConnectionString
 		}
 
@@ -692,8 +831,15 @@ func (r *FoundationDBClusterReconciler) getStatusFromClusterOrDummyStatus(logger
 			// in the cluster.Spec.Version, this will unblock some further steps, to allow the operator to bring the cluster
 			// back into a better state.
 			versionFromReachableCoordinators := adminClient.GetVersionFromReachableCoordinators()
-			if versionFromReachableCoordinators != "" && versionFromReachableCoordinators != cluster.Status.RunningVersion {
-				logger.Info("Update running version in cluster status from reachable coordinators", "versionFromReachableCoordinators", versionFromReachableCoordinators, "currentRunningVersion", cluster.Status.RunningVersion)
+			if versionFromReachableCoordinators != "" &&
+				versionFromReachableCoordinators != cluster.Status.RunningVersion {
+				logger.Info(
+					"Update running version in cluster status from reachable coordinators",
+					"versionFromReachableCoordinators",
+					versionFromReachableCoordinators,
+					"currentRunningVersion",
+					cluster.Status.RunningVersion,
+				)
 				cluster.Status.RunningVersion = versionFromReachableCoordinators
 			}
 		}

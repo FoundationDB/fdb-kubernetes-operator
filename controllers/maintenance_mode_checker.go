@@ -35,7 +35,13 @@ import (
 type maintenanceModeChecker struct{}
 
 // reconcile runs the reconciler's work.
-func (c maintenanceModeChecker) reconcile(_ context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
+func (c maintenanceModeChecker) reconcile(
+	_ context.Context,
+	r *FoundationDBClusterReconciler,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	status *fdbv1beta2.FoundationDBStatus,
+	logger logr.Logger,
+) *requeue {
 	if !cluster.ResetMaintenanceMode() {
 		return nil
 	}
@@ -55,7 +61,11 @@ func (c maintenanceModeChecker) reconcile(_ context.Context, r *FoundationDBClus
 
 	// If the cluster is not available we skip any further checks.
 	if !status.Client.DatabaseStatus.Available {
-		return &requeue{message: "cluster is not available", delayedRequeue: true, delay: 5 * time.Second}
+		return &requeue{
+			message:        "cluster is not available",
+			delayedRequeue: true,
+			delay:          5 * time.Second,
+		}
 	}
 
 	// Get all the processes that are currently under maintenance based on the information stored in FDB.
@@ -65,17 +75,40 @@ func (c maintenanceModeChecker) reconcile(_ context.Context, r *FoundationDBClus
 	}
 
 	if status.Cluster.MaintenanceZone != "" {
-		logger.Info("Cluster in maintenance mode", "zone", status.Cluster.MaintenanceZone, "processesUnderMaintenance", processesUnderMaintenance)
+		logger.Info(
+			"Cluster in maintenance mode",
+			"zone",
+			status.Cluster.MaintenanceZone,
+			"processesUnderMaintenance",
+			processesUnderMaintenance,
+		)
 	}
 
 	// Get all the maintenance information from the FDB cluster.
-	finishedMaintenance, staleMaintenanceInformation, processesToUpdate := maintenance.GetMaintenanceInformation(logger, cluster, status, processesUnderMaintenance, r.MaintenanceListStaleDuration, r.MaintenanceListWaitDuration)
-	logger.Info("maintenance information", "finishedMaintenance", finishedMaintenance, "staleMaintenanceInformation", staleMaintenanceInformation, "processesToUpdate", processesToUpdate)
+	finishedMaintenance, staleMaintenanceInformation, processesToUpdate := maintenance.GetMaintenanceInformation(
+		logger,
+		cluster,
+		status,
+		processesUnderMaintenance,
+		r.MaintenanceListStaleDuration,
+		r.MaintenanceListWaitDuration,
+	)
+	logger.Info(
+		"maintenance information",
+		"finishedMaintenance",
+		finishedMaintenance,
+		"staleMaintenanceInformation",
+		staleMaintenanceInformation,
+		"processesToUpdate",
+		processesToUpdate,
+	)
 
 	// We can remove the information for all the finished maintenance and the stale entries.
 	if len(finishedMaintenance) > 0 || len(staleMaintenanceInformation) > 0 {
 		// Remove all the processes that finished maintenance and all the stale information.
-		err = adminClient.RemoveProcessesUnderMaintenance(append(finishedMaintenance, staleMaintenanceInformation...))
+		err = adminClient.RemoveProcessesUnderMaintenance(
+			append(finishedMaintenance, staleMaintenanceInformation...),
+		)
 		if err != nil {
 			return &requeue{curError: err, delayedRequeue: true}
 		}
@@ -88,7 +121,15 @@ func (c maintenanceModeChecker) reconcile(_ context.Context, r *FoundationDBClus
 
 	// Some of the processes are not yet restarted.
 	if len(processesToUpdate) > 0 {
-		return &requeue{message: fmt.Sprintf("Waiting for %d processes in zone %s to be updated", len(processesToUpdate), status.Cluster.MaintenanceZone), delayedRequeue: true, delay: 5 * time.Second}
+		return &requeue{
+			message: fmt.Sprintf(
+				"Waiting for %d processes in zone %s to be updated",
+				len(processesToUpdate),
+				status.Cluster.MaintenanceZone,
+			),
+			delayedRequeue: true,
+			delay:          5 * time.Second,
+		}
 	}
 
 	// Check if the maintenance mode can be removed.

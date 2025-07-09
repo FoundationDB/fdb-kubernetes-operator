@@ -41,7 +41,9 @@ var _ = Describe("add_pvcs", func() {
 
 	BeforeEach(func() {
 		cluster = internal.CreateDefaultCluster()
-		Expect(internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})).NotTo(HaveOccurred())
+		Expect(
+			internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{}),
+		).NotTo(HaveOccurred())
 		Expect(k8sClient.Create(context.TODO(), cluster)).NotTo(HaveOccurred())
 
 		result, err := reconcileCluster(cluster)
@@ -57,7 +59,13 @@ var _ = Describe("add_pvcs", func() {
 	})
 
 	JustBeforeEach(func() {
-		requeue = addPVCs{}.reconcile(context.TODO(), clusterReconciler, cluster, nil, globalControllerLogger)
+		requeue = addPVCs{}.reconcile(
+			context.TODO(),
+			clusterReconciler,
+			cluster,
+			nil,
+			globalControllerLogger,
+		)
 		Expect(err).NotTo(HaveOccurred())
 		_, err = reloadCluster(cluster)
 		Expect(err).NotTo(HaveOccurred())
@@ -86,8 +94,15 @@ var _ = Describe("add_pvcs", func() {
 		BeforeEach(func() {
 			_, processGroupIDs, err := cluster.GetCurrentProcessGroupsAndProcessCounts()
 			Expect(err).NotTo(HaveOccurred())
-			newProcessGroupID = cluster.GetNextRandomProcessGroupID(fdbv1beta2.ProcessClassStorage, processGroupIDs[fdbv1beta2.ProcessClassStorage])
-			pickedProcessGroup = fdbv1beta2.NewProcessGroupStatus(newProcessGroupID, fdbv1beta2.ProcessClassStorage, nil)
+			newProcessGroupID = cluster.GetNextRandomProcessGroupID(
+				fdbv1beta2.ProcessClassStorage,
+				processGroupIDs[fdbv1beta2.ProcessClassStorage],
+			)
+			pickedProcessGroup = fdbv1beta2.NewProcessGroupStatus(
+				newProcessGroupID,
+				fdbv1beta2.ProcessClassStorage,
+				nil,
+			)
 			cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, pickedProcessGroup)
 		})
 
@@ -103,9 +118,15 @@ var _ = Describe("add_pvcs", func() {
 					continue
 				}
 
-				Expect(pvc.Labels[fdbv1beta2.FDBProcessGroupIDLabel]).To(Equal(string(newProcessGroupID)))
-				Expect(pvc.Labels[fdbv1beta2.FDBProcessClassLabel]).To(Equal(string(fdbv1beta2.ProcessClassStorage)))
-				Expect(pvc.OwnerReferences).To(Equal(internal.BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)))
+				Expect(
+					pvc.Labels[fdbv1beta2.FDBProcessGroupIDLabel],
+				).To(Equal(string(newProcessGroupID)))
+				Expect(
+					pvc.Labels[fdbv1beta2.FDBProcessClassLabel],
+				).To(Equal(string(fdbv1beta2.ProcessClassStorage)))
+				Expect(
+					pvc.OwnerReferences,
+				).To(Equal(internal.BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)))
 				checked = true
 			}
 
@@ -147,8 +168,18 @@ var _ = Describe("add_pvcs", func() {
 		BeforeEach(func() {
 			_, processGroupIDs, err := cluster.GetCurrentProcessGroupsAndProcessCounts()
 			Expect(err).NotTo(HaveOccurred())
-			newProcessGroupID := cluster.GetNextRandomProcessGroupID(fdbv1beta2.ProcessClassStateless, processGroupIDs[fdbv1beta2.ProcessClassStateless])
-			cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus(newProcessGroupID, fdbv1beta2.ProcessClassStateless, nil))
+			newProcessGroupID := cluster.GetNextRandomProcessGroupID(
+				fdbv1beta2.ProcessClassStateless,
+				processGroupIDs[fdbv1beta2.ProcessClassStateless],
+			)
+			cluster.Status.ProcessGroups = append(
+				cluster.Status.ProcessGroups,
+				fdbv1beta2.NewProcessGroupStatus(
+					newProcessGroupID,
+					fdbv1beta2.ProcessClassStateless,
+					nil,
+				),
+			)
 		})
 
 		It("should not requeue", func() {

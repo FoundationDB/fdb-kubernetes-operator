@@ -58,7 +58,16 @@ var _ = Describe("[plugin] cordon command", func() {
 		DescribeTable("should cordon all targeted processes",
 			func(input testCase) {
 				cmd := newCordonCmd(genericclioptions.IOStreams{})
-				err := cordonNode(cmd, k8sClient, input.clusterName, input.nodes, namespace, input.WithExclusion, false, input.clusterLabel)
+				err := cordonNode(
+					cmd,
+					k8sClient,
+					input.clusterName,
+					input.nodes,
+					namespace,
+					input.WithExclusion,
+					false,
+					input.clusterLabel,
+				)
 				if input.wantErrorContains != "" {
 					Expect(err).To(Not(BeNil()))
 					Expect(err.Error()).To(ContainSubstring(input.wantErrorContains))
@@ -76,18 +85,28 @@ var _ = Describe("[plugin] cordon command", func() {
 						Name:      clusterName,
 					}, &resCluster)
 					Expect(err).NotTo(HaveOccurred())
-					instancesToRemove = append(instancesToRemove, resCluster.Spec.ProcessGroupsToRemove...)
-					instancesToRemoveWithoutExclusion = append(instancesToRemoveWithoutExclusion, resCluster.Spec.ProcessGroupsToRemoveWithoutExclusion...)
+					instancesToRemove = append(
+						instancesToRemove,
+						resCluster.Spec.ProcessGroupsToRemove...)
+					instancesToRemoveWithoutExclusion = append(
+						instancesToRemoveWithoutExclusion,
+						resCluster.Spec.ProcessGroupsToRemoveWithoutExclusion...)
 				}
 
 				Expect(input.ExpectedInstancesToRemove).To(ConsistOf(instancesToRemove))
-				Expect(input.ExpectedInstancesToRemoveWithoutExclusion).To(ConsistOf(instancesToRemoveWithoutExclusion))
+				Expect(
+					input.ExpectedInstancesToRemoveWithoutExclusion,
+				).To(ConsistOf(instancesToRemoveWithoutExclusion))
 			},
 			Entry("Cordon node with exclusion",
 				testCase{
-					nodes:                     []string{"node-1"},
-					WithExclusion:             true,
-					ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage))},
+					nodes:         []string{"node-1"},
+					WithExclusion: true,
+					ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{
+						fdbv1beta2.ProcessGroupID(
+							fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage),
+						),
+					},
 					ExpectedInstancesToRemoveWithoutExclusion: []fdbv1beta2.ProcessGroupID{},
 					clusterName:  clusterName,
 					clusterLabel: "",
@@ -97,7 +116,11 @@ var _ = Describe("[plugin] cordon command", func() {
 					nodes:                     []string{"node-1"},
 					WithExclusion:             false,
 					ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{},
-					ExpectedInstancesToRemoveWithoutExclusion: []fdbv1beta2.ProcessGroupID{fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage))},
+					ExpectedInstancesToRemoveWithoutExclusion: []fdbv1beta2.ProcessGroupID{
+						fdbv1beta2.ProcessGroupID(
+							fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage),
+						),
+					},
 					clusterName:  clusterName,
 					clusterLabel: "",
 				}),
@@ -126,8 +149,12 @@ var _ = Describe("[plugin] cordon command", func() {
 					nodes:         []string{"node-1", "node-2"},
 					WithExclusion: true,
 					ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{
-						fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage)),
-						fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-2", clusterName, fdbv1beta2.ProcessClassStorage)),
+						fdbv1beta2.ProcessGroupID(
+							fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage),
+						),
+						fdbv1beta2.ProcessGroupID(
+							fmt.Sprintf("%s-%s-2", clusterName, fdbv1beta2.ProcessClassStorage),
+						),
 					},
 					ExpectedInstancesToRemoveWithoutExclusion: []fdbv1beta2.ProcessGroupID{},
 					clusterName:  clusterName,
@@ -139,26 +166,46 @@ var _ = Describe("[plugin] cordon command", func() {
 					WithExclusion:             false,
 					ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{},
 					ExpectedInstancesToRemoveWithoutExclusion: []fdbv1beta2.ProcessGroupID{
-						fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage)),
-						fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-2", clusterName, fdbv1beta2.ProcessClassStorage)),
+						fdbv1beta2.ProcessGroupID(
+							fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage),
+						),
+						fdbv1beta2.ProcessGroupID(
+							fmt.Sprintf("%s-%s-2", clusterName, fdbv1beta2.ProcessClassStorage),
+						),
 					},
 					clusterName:  clusterName,
 					clusterLabel: "",
 				}),
 			Entry("Cordon node from second cluster without exclusion",
 				testCase{
-					nodes:                     []string{"node-1"},
-					WithExclusion:             true,
-					ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-1", secondClusterName, fdbv1beta2.ProcessClassStorage))},
+					nodes:         []string{"node-1"},
+					WithExclusion: true,
+					ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{
+						fdbv1beta2.ProcessGroupID(
+							fmt.Sprintf(
+								"%s-%s-1",
+								secondClusterName,
+								fdbv1beta2.ProcessClassStorage,
+							),
+						),
+					},
 					ExpectedInstancesToRemoveWithoutExclusion: []fdbv1beta2.ProcessGroupID{},
 					clusterName:  secondClusterName,
 					clusterLabel: "",
 				}),
 			Entry("Cordon node from second cluster without exclusion with cluster label",
 				testCase{
-					nodes:                     []string{"node-1"},
-					WithExclusion:             true,
-					ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-1", secondClusterName, fdbv1beta2.ProcessClassStorage))},
+					nodes:         []string{"node-1"},
+					WithExclusion: true,
+					ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{
+						fdbv1beta2.ProcessGroupID(
+							fmt.Sprintf(
+								"%s-%s-1",
+								secondClusterName,
+								fdbv1beta2.ProcessClassStorage,
+							),
+						),
+					},
 					ExpectedInstancesToRemoveWithoutExclusion: []fdbv1beta2.ProcessGroupID{},
 					clusterName:  secondClusterName,
 					clusterLabel: fdbv1beta2.FDBClusterLabel,
@@ -168,8 +215,16 @@ var _ = Describe("[plugin] cordon command", func() {
 					nodes:         []string{"node-1"},
 					WithExclusion: true,
 					ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{
-						fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage)),
-						fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-1", secondClusterName, fdbv1beta2.ProcessClassStorage)),
+						fdbv1beta2.ProcessGroupID(
+							fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage),
+						),
+						fdbv1beta2.ProcessGroupID(
+							fmt.Sprintf(
+								"%s-%s-1",
+								secondClusterName,
+								fdbv1beta2.ProcessClassStorage,
+							),
+						),
 					},
 					ExpectedInstancesToRemoveWithoutExclusion: []fdbv1beta2.ProcessGroupID{},
 					clusterName:  "",
@@ -181,10 +236,26 @@ var _ = Describe("[plugin] cordon command", func() {
 					WithExclusion:             false,
 					ExpectedInstancesToRemove: []fdbv1beta2.ProcessGroupID{},
 					ExpectedInstancesToRemoveWithoutExclusion: []fdbv1beta2.ProcessGroupID{
-						fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage)),
-						fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-2", clusterName, fdbv1beta2.ProcessClassStorage)),
-						fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-1", secondClusterName, fdbv1beta2.ProcessClassStorage)),
-						fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-2", secondClusterName, fdbv1beta2.ProcessClassStorage)),
+						fdbv1beta2.ProcessGroupID(
+							fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage),
+						),
+						fdbv1beta2.ProcessGroupID(
+							fmt.Sprintf("%s-%s-2", clusterName, fdbv1beta2.ProcessClassStorage),
+						),
+						fdbv1beta2.ProcessGroupID(
+							fmt.Sprintf(
+								"%s-%s-1",
+								secondClusterName,
+								fdbv1beta2.ProcessClassStorage,
+							),
+						),
+						fdbv1beta2.ProcessGroupID(
+							fmt.Sprintf(
+								"%s-%s-2",
+								secondClusterName,
+								fdbv1beta2.ProcessClassStorage,
+							),
+						),
 					},
 					clusterName:  "",
 					clusterLabel: fdbv1beta2.FDBClusterLabel,
@@ -210,9 +281,13 @@ func createPods(clusterName string, namespace string) error {
 				Name:      fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage),
 				Namespace: namespace,
 				Labels: map[string]string{
-					fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStorage),
-					fdbv1beta2.FDBClusterLabel:        clusterName,
-					fdbv1beta2.FDBProcessGroupIDLabel: fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage),
+					fdbv1beta2.FDBProcessClassLabel: string(fdbv1beta2.ProcessClassStorage),
+					fdbv1beta2.FDBClusterLabel:      clusterName,
+					fdbv1beta2.FDBProcessGroupIDLabel: fmt.Sprintf(
+						"%s-%s-1",
+						clusterName,
+						fdbv1beta2.ProcessClassStorage,
+					),
 				},
 			},
 			Spec: corev1.PodSpec{
@@ -224,9 +299,13 @@ func createPods(clusterName string, namespace string) error {
 				Name:      fmt.Sprintf("%s-%s-2", clusterName, fdbv1beta2.ProcessClassStorage),
 				Namespace: namespace,
 				Labels: map[string]string{
-					fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStorage),
-					fdbv1beta2.FDBClusterLabel:        clusterName,
-					fdbv1beta2.FDBProcessGroupIDLabel: fmt.Sprintf("%s-%s-2", clusterName, fdbv1beta2.ProcessClassStorage),
+					fdbv1beta2.FDBProcessClassLabel: string(fdbv1beta2.ProcessClassStorage),
+					fdbv1beta2.FDBClusterLabel:      clusterName,
+					fdbv1beta2.FDBProcessGroupIDLabel: fmt.Sprintf(
+						"%s-%s-2",
+						clusterName,
+						fdbv1beta2.ProcessClassStorage,
+					),
 				},
 			},
 			Spec: corev1.PodSpec{
@@ -238,9 +317,13 @@ func createPods(clusterName string, namespace string) error {
 				Name:      fmt.Sprintf("%s-%s-3", clusterName, fdbv1beta2.ProcessClassStateless),
 				Namespace: namespace,
 				Labels: map[string]string{
-					fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStateless),
-					fdbv1beta2.FDBClusterLabel:        clusterName,
-					fdbv1beta2.FDBProcessGroupIDLabel: fmt.Sprintf("%s-%s-3", clusterName, fdbv1beta2.ProcessClassStateless),
+					fdbv1beta2.FDBProcessClassLabel: string(fdbv1beta2.ProcessClassStateless),
+					fdbv1beta2.FDBClusterLabel:      clusterName,
+					fdbv1beta2.FDBProcessGroupIDLabel: fmt.Sprintf(
+						"%s-%s-3",
+						clusterName,
+						fdbv1beta2.ProcessClassStateless,
+					),
 				},
 			},
 			Spec: corev1.PodSpec{

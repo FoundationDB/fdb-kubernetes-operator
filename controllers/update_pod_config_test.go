@@ -44,16 +44,30 @@ var _ = Describe("updatePodConfig", func() {
 
 		processGroup := internal.PickProcessGroups(cluster, fdbv1beta2.ProcessClassStorage, 1)[0]
 		Expect(processGroup).NotTo(BeNil())
-		pod, err = clusterReconciler.PodLifecycleManager.GetPod(context.TODO(), clusterReconciler, cluster, processGroup.GetPodName(cluster))
+		pod, err = clusterReconciler.PodLifecycleManager.GetPod(
+			context.TODO(),
+			clusterReconciler,
+			cluster,
+			processGroup.GetPodName(cluster),
+		)
 		Expect(err).NotTo(HaveOccurred())
 
 		for _, container := range pod.Spec.Containers {
-			pod.Status.ContainerStatuses = append(pod.Status.ContainerStatuses, corev1.ContainerStatus{Ready: true, Name: container.Name})
+			pod.Status.ContainerStatuses = append(
+				pod.Status.ContainerStatuses,
+				corev1.ContainerStatus{Ready: true, Name: container.Name},
+			)
 		}
 	})
 
 	JustBeforeEach(func() {
-		req = updatePodConfig{}.reconcile(context.TODO(), clusterReconciler, cluster, nil, globalControllerLogger)
+		req = updatePodConfig{}.reconcile(
+			context.TODO(),
+			clusterReconciler,
+			cluster,
+			nil,
+			globalControllerLogger,
+		)
 	})
 
 	Context("with a reconciled cluster", func() {

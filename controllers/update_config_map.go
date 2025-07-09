@@ -37,13 +37,23 @@ import (
 type updateConfigMap struct{}
 
 // reconcile runs the reconciler's work.
-func (u updateConfigMap) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, _ *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
+func (u updateConfigMap) reconcile(
+	ctx context.Context,
+	r *FoundationDBClusterReconciler,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	_ *fdbv1beta2.FoundationDBStatus,
+	logger logr.Logger,
+) *requeue {
 	configMap, err := internal.GetConfigMap(cluster)
 	if err != nil {
 		return &requeue{curError: err}
 	}
 	existing := &corev1.ConfigMap{}
-	err = r.Get(ctx, types.NamespacedName{Namespace: configMap.Namespace, Name: configMap.Name}, existing)
+	err = r.Get(
+		ctx,
+		types.NamespacedName{Namespace: configMap.Namespace, Name: configMap.Name},
+		existing,
+	)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			logger.V(1).Info("Creating config map", "name", configMap.Name)

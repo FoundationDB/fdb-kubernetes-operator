@@ -129,7 +129,11 @@ func CheckInvariant(
 		close(quit)
 		waitGroup.Wait()
 		if testFailed {
-			return fmt.Errorf("invariant %s failed for %s", invariantName, longestFailureDuration.String())
+			return fmt.Errorf(
+				"invariant %s failed for %s",
+				invariantName,
+				longestFailureDuration.String(),
+			)
 		}
 		return nil
 	})

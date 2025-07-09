@@ -70,7 +70,14 @@ var _ = Describe("exclude_processes", func() {
 		JustBeforeEach(func() {
 			processCounts, err := cluster.GetProcessCountsWithDefaults()
 			Expect(err).NotTo(HaveOccurred())
-			allowedExclusions, missingProcesses = getAllowedExclusionsAndMissingProcesses(globalControllerLogger, cluster, processClass, processCounts.Map()[processClass], ongoingExclusions, false)
+			allowedExclusions, missingProcesses = getAllowedExclusionsAndMissingProcesses(
+				globalControllerLogger,
+				cluster,
+				processClass,
+				processCounts.Map()[processClass],
+				ongoingExclusions,
+				false,
+			)
 		})
 
 		When("using a small cluster", func() {
@@ -101,7 +108,9 @@ var _ = Describe("exclude_processes", func() {
 							})
 
 							It("should not allow the exclusion", func() {
-								Expect(allowedExclusions).To(BeNumerically("==", cluster.DesiredFaultTolerance()))
+								Expect(
+									allowedExclusions,
+								).To(BeNumerically("==", cluster.DesiredFaultTolerance()))
 								Expect(missingProcesses).To(BeEmpty())
 							})
 
@@ -115,8 +124,13 @@ var _ = Describe("exclude_processes", func() {
 										}
 
 										processGroupID = processGroup.ProcessGroupID
-										cluster.Status.ProcessGroups[idx].UpdateCondition(fdbv1beta2.MissingProcesses, true)
-										cluster.Status.ProcessGroups[idx].ProcessGroupConditions[0].Timestamp = time.Now().Add(-10 * time.Minute).Unix()
+										cluster.Status.ProcessGroups[idx].UpdateCondition(
+											fdbv1beta2.MissingProcesses,
+											true,
+										)
+										cluster.Status.ProcessGroups[idx].ProcessGroupConditions[0].Timestamp = time.Now().
+											Add(-10 * time.Minute).
+											Unix()
 										break
 									}
 								})
@@ -134,7 +148,9 @@ var _ = Describe("exclude_processes", func() {
 							})
 
 							It("should allow the exclusion", func() {
-								Expect(allowedExclusions).To(BeNumerically("==", cluster.DesiredFaultTolerance()))
+								Expect(
+									allowedExclusions,
+								).To(BeNumerically("==", cluster.DesiredFaultTolerance()))
 								Expect(missingProcesses).To(BeEmpty())
 							})
 
@@ -148,14 +164,21 @@ var _ = Describe("exclude_processes", func() {
 										}
 
 										processGroupID = processGroup.ProcessGroupID
-										cluster.Status.ProcessGroups[idx].UpdateCondition(fdbv1beta2.MissingProcesses, true)
-										cluster.Status.ProcessGroups[idx].ProcessGroupConditions[0].Timestamp = time.Now().Add(-10 * time.Minute).Unix()
+										cluster.Status.ProcessGroups[idx].UpdateCondition(
+											fdbv1beta2.MissingProcesses,
+											true,
+										)
+										cluster.Status.ProcessGroups[idx].ProcessGroupConditions[0].Timestamp = time.Now().
+											Add(-10 * time.Minute).
+											Unix()
 										break
 									}
 								})
 
 								It("should allow the exclusion", func() {
-									Expect(allowedExclusions).To(BeNumerically("==", cluster.DesiredFaultTolerance()-1))
+									Expect(
+										allowedExclusions,
+									).To(BeNumerically("==", cluster.DesiredFaultTolerance()-1))
 									Expect(missingProcesses).To(ConsistOf(processGroupID))
 								})
 							})
@@ -164,7 +187,10 @@ var _ = Describe("exclude_processes", func() {
 
 					When("one additional process is running", func() {
 						BeforeEach(func() {
-							cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1337", processClass, nil))
+							cluster.Status.ProcessGroups = append(
+								cluster.Status.ProcessGroups,
+								fdbv1beta2.NewProcessGroupStatus("storage-1337", processClass, nil),
+							)
 							cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].ProcessGroupConditions = nil
 						})
 
@@ -197,19 +223,22 @@ var _ = Describe("exclude_processes", func() {
 							})
 						})
 
-						When("the additional process is marked for removal and is excluded", func() {
-							BeforeEach(func() {
-								// In this case we have no additional processes running, as the valid processes is the
-								// same as the desired count of processes.
-								cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].MarkForRemoval()
-								cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].SetExclude()
-							})
+						When(
+							"the additional process is marked for removal and is excluded",
+							func() {
+								BeforeEach(func() {
+									// In this case we have no additional processes running, as the valid processes is the
+									// same as the desired count of processes.
+									cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].MarkForRemoval()
+									cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].SetExclude()
+								})
 
-							It("should not allow the exclusion", func() {
-								Expect(allowedExclusions).To(BeNumerically("==", 0))
-								Expect(missingProcesses).To(BeEmpty())
-							})
-						})
+								It("should not allow the exclusion", func() {
+									Expect(allowedExclusions).To(BeNumerically("==", 0))
+									Expect(missingProcesses).To(BeEmpty())
+								})
+							},
+						)
 					})
 				})
 
@@ -227,10 +256,16 @@ var _ = Describe("exclude_processes", func() {
 
 					When("additional processes are running", func() {
 						BeforeEach(func() {
-							cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1337", processClass, nil))
+							cluster.Status.ProcessGroups = append(
+								cluster.Status.ProcessGroups,
+								fdbv1beta2.NewProcessGroupStatus("storage-1337", processClass, nil),
+							)
 							cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].ProcessGroupConditions = nil
 							// Add two process groups
-							cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1338", processClass, nil))
+							cluster.Status.ProcessGroups = append(
+								cluster.Status.ProcessGroups,
+								fdbv1beta2.NewProcessGroupStatus("storage-1338", processClass, nil),
+							)
 							cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].ProcessGroupConditions = nil
 						})
 
@@ -253,12 +288,16 @@ var _ = Describe("exclude_processes", func() {
 						When("the missing timestamp is older than 5 minutes", func() {
 							BeforeEach(func() {
 								for idx, processGroup := range cluster.Status.ProcessGroups {
-									timestamp := processGroup.GetConditionTime(fdbv1beta2.MissingProcesses)
+									timestamp := processGroup.GetConditionTime(
+										fdbv1beta2.MissingProcesses,
+									)
 									if timestamp == nil {
 										continue
 									}
 
-									cluster.Status.ProcessGroups[idx].ProcessGroupConditions[0].Timestamp = time.Now().Add(-10 * time.Minute).Unix()
+									cluster.Status.ProcessGroups[idx].ProcessGroupConditions[0].Timestamp = time.Now().
+										Add(-10 * time.Minute).
+										Unix()
 								}
 							})
 
@@ -315,13 +354,25 @@ var _ = Describe("exclude_processes", func() {
 
 					When("additional processes are running", func() {
 						BeforeEach(func() {
-							cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1337", processClass, nil))
+							cluster.Status.ProcessGroups = append(
+								cluster.Status.ProcessGroups,
+								fdbv1beta2.NewProcessGroupStatus("storage-1337", processClass, nil),
+							)
 							cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].ProcessGroupConditions = nil
-							cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1338", processClass, nil))
+							cluster.Status.ProcessGroups = append(
+								cluster.Status.ProcessGroups,
+								fdbv1beta2.NewProcessGroupStatus("storage-1338", processClass, nil),
+							)
 							cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].ProcessGroupConditions = nil
-							cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1339", processClass, nil))
+							cluster.Status.ProcessGroups = append(
+								cluster.Status.ProcessGroups,
+								fdbv1beta2.NewProcessGroupStatus("storage-1339", processClass, nil),
+							)
 							cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].ProcessGroupConditions = nil
-							cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1340", processClass, nil))
+							cluster.Status.ProcessGroups = append(
+								cluster.Status.ProcessGroups,
+								fdbv1beta2.NewProcessGroupStatus("storage-1340", processClass, nil),
+							)
 							cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].ProcessGroupConditions = nil
 						})
 
@@ -333,12 +384,16 @@ var _ = Describe("exclude_processes", func() {
 						When("the missing timestamps are older than 5 minutes", func() {
 							BeforeEach(func() {
 								for idx, processGroup := range cluster.Status.ProcessGroups {
-									timestamp := processGroup.GetConditionTime(fdbv1beta2.MissingProcesses)
+									timestamp := processGroup.GetConditionTime(
+										fdbv1beta2.MissingProcesses,
+									)
 									if timestamp == nil {
 										continue
 									}
 
-									cluster.Status.ProcessGroups[idx].ProcessGroupConditions[0].Timestamp = time.Now().Add(-10 * time.Minute).Unix()
+									cluster.Status.ProcessGroups[idx].ProcessGroupConditions[0].Timestamp = time.Now().
+										Add(-10 * time.Minute).
+										Unix()
 								}
 							})
 
@@ -381,13 +436,25 @@ var _ = Describe("exclude_processes", func() {
 
 					When("additional processes are running", func() {
 						BeforeEach(func() {
-							cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1337", processClass, nil))
+							cluster.Status.ProcessGroups = append(
+								cluster.Status.ProcessGroups,
+								fdbv1beta2.NewProcessGroupStatus("storage-1337", processClass, nil),
+							)
 							cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].ProcessGroupConditions = nil
-							cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1338", processClass, nil))
+							cluster.Status.ProcessGroups = append(
+								cluster.Status.ProcessGroups,
+								fdbv1beta2.NewProcessGroupStatus("storage-1338", processClass, nil),
+							)
 							cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].ProcessGroupConditions = nil
-							cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1339", processClass, nil))
+							cluster.Status.ProcessGroups = append(
+								cluster.Status.ProcessGroups,
+								fdbv1beta2.NewProcessGroupStatus("storage-1339", processClass, nil),
+							)
 							cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].ProcessGroupConditions = nil
-							cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-1340", processClass, nil))
+							cluster.Status.ProcessGroups = append(
+								cluster.Status.ProcessGroups,
+								fdbv1beta2.NewProcessGroupStatus("storage-1340", processClass, nil),
+							)
 							cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].ProcessGroupConditions = nil
 						})
 
@@ -399,12 +466,16 @@ var _ = Describe("exclude_processes", func() {
 						When("the missing timestamps are older than 5 minutes", func() {
 							BeforeEach(func() {
 								for idx, processGroup := range cluster.Status.ProcessGroups {
-									timestamp := processGroup.GetConditionTime(fdbv1beta2.MissingProcesses)
+									timestamp := processGroup.GetConditionTime(
+										fdbv1beta2.MissingProcesses,
+									)
 									if timestamp == nil {
 										continue
 									}
 
-									cluster.Status.ProcessGroups[idx].ProcessGroupConditions[0].Timestamp = time.Now().Add(-10 * time.Minute).Unix()
+									cluster.Status.ProcessGroups[idx].ProcessGroupConditions[0].Timestamp = time.Now().
+										Add(-10 * time.Minute).
+										Unix()
 								}
 							})
 
@@ -427,22 +498,86 @@ var _ = Describe("exclude_processes", func() {
 			cluster = &fdbv1beta2.FoundationDBCluster{
 				Status: fdbv1beta2.FoundationDBClusterStatus{
 					ProcessGroups: []*fdbv1beta2.ProcessGroupStatus{
-						{ProcessGroupID: "storage-1", ProcessClass: fdbv1beta2.ProcessClassStorage, Addresses: []string{"1.1.1.1"}},
-						{ProcessGroupID: "storage-2", ProcessClass: fdbv1beta2.ProcessClassStorage, Addresses: []string{"1.1.1.2"}},
-						{ProcessGroupID: "storage-3", ProcessClass: fdbv1beta2.ProcessClassStorage, Addresses: []string{"1.1.1.3"}},
-						{ProcessGroupID: "stateless-1", ProcessClass: fdbv1beta2.ProcessClassStateless, Addresses: []string{"1.1.1.4"}},
-						{ProcessGroupID: "stateless-2", ProcessClass: fdbv1beta2.ProcessClassStateless, Addresses: []string{"1.1.1.5"}},
-						{ProcessGroupID: "stateless-3", ProcessClass: fdbv1beta2.ProcessClassStateless, Addresses: []string{"1.1.1.6"}},
-						{ProcessGroupID: "stateless-4", ProcessClass: fdbv1beta2.ProcessClassStateless, Addresses: []string{"1.1.1.7"}},
-						{ProcessGroupID: "stateless-5", ProcessClass: fdbv1beta2.ProcessClassStateless, Addresses: []string{"1.1.1.8"}},
-						{ProcessGroupID: "stateless-6", ProcessClass: fdbv1beta2.ProcessClassStateless, Addresses: []string{"1.1.1.9"}},
-						{ProcessGroupID: "stateless-7", ProcessClass: fdbv1beta2.ProcessClassStateless, Addresses: []string{"1.1.2.1"}},
-						{ProcessGroupID: "stateless-8", ProcessClass: fdbv1beta2.ProcessClassStateless, Addresses: []string{"1.1.2.2"}},
-						{ProcessGroupID: "stateless-9", ProcessClass: fdbv1beta2.ProcessClassStateless, Addresses: []string{"1.1.2.3"}},
-						{ProcessGroupID: "log-1", ProcessClass: fdbv1beta2.ProcessClassLog, Addresses: []string{"1.1.2.4"}},
-						{ProcessGroupID: "log-2", ProcessClass: fdbv1beta2.ProcessClassLog, Addresses: []string{"1.1.2.5"}},
-						{ProcessGroupID: "log-3", ProcessClass: fdbv1beta2.ProcessClassLog, Addresses: []string{"1.1.2.6"}},
-						{ProcessGroupID: "log-4", ProcessClass: fdbv1beta2.ProcessClassLog, Addresses: []string{"1.1.2.7"}},
+						{
+							ProcessGroupID: "storage-1",
+							ProcessClass:   fdbv1beta2.ProcessClassStorage,
+							Addresses:      []string{"1.1.1.1"},
+						},
+						{
+							ProcessGroupID: "storage-2",
+							ProcessClass:   fdbv1beta2.ProcessClassStorage,
+							Addresses:      []string{"1.1.1.2"},
+						},
+						{
+							ProcessGroupID: "storage-3",
+							ProcessClass:   fdbv1beta2.ProcessClassStorage,
+							Addresses:      []string{"1.1.1.3"},
+						},
+						{
+							ProcessGroupID: "stateless-1",
+							ProcessClass:   fdbv1beta2.ProcessClassStateless,
+							Addresses:      []string{"1.1.1.4"},
+						},
+						{
+							ProcessGroupID: "stateless-2",
+							ProcessClass:   fdbv1beta2.ProcessClassStateless,
+							Addresses:      []string{"1.1.1.5"},
+						},
+						{
+							ProcessGroupID: "stateless-3",
+							ProcessClass:   fdbv1beta2.ProcessClassStateless,
+							Addresses:      []string{"1.1.1.6"},
+						},
+						{
+							ProcessGroupID: "stateless-4",
+							ProcessClass:   fdbv1beta2.ProcessClassStateless,
+							Addresses:      []string{"1.1.1.7"},
+						},
+						{
+							ProcessGroupID: "stateless-5",
+							ProcessClass:   fdbv1beta2.ProcessClassStateless,
+							Addresses:      []string{"1.1.1.8"},
+						},
+						{
+							ProcessGroupID: "stateless-6",
+							ProcessClass:   fdbv1beta2.ProcessClassStateless,
+							Addresses:      []string{"1.1.1.9"},
+						},
+						{
+							ProcessGroupID: "stateless-7",
+							ProcessClass:   fdbv1beta2.ProcessClassStateless,
+							Addresses:      []string{"1.1.2.1"},
+						},
+						{
+							ProcessGroupID: "stateless-8",
+							ProcessClass:   fdbv1beta2.ProcessClassStateless,
+							Addresses:      []string{"1.1.2.2"},
+						},
+						{
+							ProcessGroupID: "stateless-9",
+							ProcessClass:   fdbv1beta2.ProcessClassStateless,
+							Addresses:      []string{"1.1.2.3"},
+						},
+						{
+							ProcessGroupID: "log-1",
+							ProcessClass:   fdbv1beta2.ProcessClassLog,
+							Addresses:      []string{"1.1.2.4"},
+						},
+						{
+							ProcessGroupID: "log-2",
+							ProcessClass:   fdbv1beta2.ProcessClassLog,
+							Addresses:      []string{"1.1.2.5"},
+						},
+						{
+							ProcessGroupID: "log-3",
+							ProcessClass:   fdbv1beta2.ProcessClassLog,
+							Addresses:      []string{"1.1.2.6"},
+						},
+						{
+							ProcessGroupID: "log-4",
+							ProcessClass:   fdbv1beta2.ProcessClassLog,
+							Addresses:      []string{"1.1.2.7"},
+						},
 					},
 				},
 				Spec: fdbv1beta2.FoundationDBClusterSpec{
@@ -458,12 +593,19 @@ var _ = Describe("exclude_processes", func() {
 			When("the synchronization mode is local", func() {
 				BeforeEach(func() {
 					cluster.Spec.Version = fdbv1beta2.Versions.MinimumVersion.String()
-					cluster.Spec.AutomationOptions.SynchronizationMode = pointer.String(string(fdbv1beta2.SynchronizationModeLocal))
+					cluster.Spec.AutomationOptions.SynchronizationMode = pointer.String(
+						string(fdbv1beta2.SynchronizationModeLocal),
+					)
 				})
 
 				When("there are no exclusions", func() {
 					It("should not exclude anything", func() {
-						fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(exclusions, cluster, map[fdbv1beta2.ProcessGroupID]time.Time{}, map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{})
+						fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(
+							exclusions,
+							cluster,
+							map[fdbv1beta2.ProcessGroupID]time.Time{},
+							map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{},
+						)
 						Expect(fdbProcessesToExcludeByClass).To(HaveLen(0))
 						Expect(ongoingExclusionsByClass).To(HaveLen(0))
 					})
@@ -472,38 +614,71 @@ var _ = Describe("exclude_processes", func() {
 				When("excluding one process", func() {
 					BeforeEach(func() {
 						processGroup := cluster.Status.ProcessGroups[0]
-						Expect(processGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
+						Expect(
+							processGroup.ProcessGroupID,
+						).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
 						processGroup.MarkForRemoval()
 						cluster.Status.ProcessGroups[0] = processGroup
 					})
 
 					It("should report the excluded process", func() {
-						fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(exclusions, cluster, map[fdbv1beta2.ProcessGroupID]time.Time{}, map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{})
+						fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(
+							exclusions,
+							cluster,
+							map[fdbv1beta2.ProcessGroupID]time.Time{},
+							map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{},
+						)
 						Expect(fdbProcessesToExcludeByClass).To(HaveLen(1))
-						Expect(fdbProcessesToExcludeByClass).To(HaveKey(fdbv1beta2.ProcessClassStorage))
-						Expect(fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage]).To(HaveLen(1))
+						Expect(
+							fdbProcessesToExcludeByClass,
+						).To(HaveKey(fdbv1beta2.ProcessClassStorage))
+						Expect(
+							fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage],
+						).To(HaveLen(1))
 						entry := fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage][0]
-						Expect(entry.processGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
-						Expect(fdbv1beta2.ProcessAddressesString(entry.addresses, " ")).To(Equal("1.1.1.1"))
+						Expect(
+							entry.processGroupID,
+						).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
+						Expect(
+							fdbv1beta2.ProcessAddressesString(entry.addresses, " "),
+						).To(Equal("1.1.1.1"))
 						Expect(ongoingExclusionsByClass).To(HaveLen(0))
 					})
 
 					When("the old IP address of this process group is already excluded", func() {
 						BeforeEach(func() {
 							processGroup := cluster.Status.ProcessGroups[0]
-							exclusions = append(exclusions, fdbv1beta2.ProcessAddress{IPAddress: net.ParseIP(processGroup.Addresses[0])})
+							exclusions = append(
+								exclusions,
+								fdbv1beta2.ProcessAddress{
+									IPAddress: net.ParseIP(processGroup.Addresses[0]),
+								},
+							)
 
 							processGroup.Addresses = append(processGroup.Addresses, "100.1.100.2")
 						})
 
 						It("should report the not yet excluded address of this process", func() {
-							fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(exclusions, cluster, map[fdbv1beta2.ProcessGroupID]time.Time{}, map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{})
+							fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(
+								exclusions,
+								cluster,
+								map[fdbv1beta2.ProcessGroupID]time.Time{},
+								map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{},
+							)
 							Expect(fdbProcessesToExcludeByClass).To(HaveLen(1))
-							Expect(fdbProcessesToExcludeByClass).To(HaveKey(fdbv1beta2.ProcessClassStorage))
-							Expect(fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage]).To(HaveLen(1))
+							Expect(
+								fdbProcessesToExcludeByClass,
+							).To(HaveKey(fdbv1beta2.ProcessClassStorage))
+							Expect(
+								fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage],
+							).To(HaveLen(1))
 							entry := fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage][0]
-							Expect(entry.processGroupID).To(Equal(cluster.Status.ProcessGroups[0].ProcessGroupID))
-							Expect(fdbv1beta2.ProcessAddressesString(entry.addresses, " ")).To(Equal("100.1.100.2"))
+							Expect(
+								entry.processGroupID,
+							).To(Equal(cluster.Status.ProcessGroups[0].ProcessGroupID))
+							Expect(
+								fdbv1beta2.ProcessAddressesString(entry.addresses, " "),
+							).To(Equal("100.1.100.2"))
 							Expect(ongoingExclusionsByClass).To(HaveLen(0))
 						})
 					})
@@ -512,29 +687,46 @@ var _ = Describe("exclude_processes", func() {
 				When("excluding two process", func() {
 					BeforeEach(func() {
 						processGroup1 := cluster.Status.ProcessGroups[0]
-						Expect(processGroup1.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
+						Expect(
+							processGroup1.ProcessGroupID,
+						).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
 						processGroup1.MarkForRemoval()
 						cluster.Status.ProcessGroups[0] = processGroup1
 
 						processGroup2 := cluster.Status.ProcessGroups[1]
-						Expect(processGroup2.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-2")))
+						Expect(
+							processGroup2.ProcessGroupID,
+						).To(Equal(fdbv1beta2.ProcessGroupID("storage-2")))
 						processGroup2.MarkForRemoval()
 						cluster.Status.ProcessGroups[1] = processGroup2
 					})
 
 					It("should report the excluded process", func() {
-						fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(exclusions, cluster, map[fdbv1beta2.ProcessGroupID]time.Time{}, map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{})
+						fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(
+							exclusions,
+							cluster,
+							map[fdbv1beta2.ProcessGroupID]time.Time{},
+							map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{},
+						)
 						Expect(fdbProcessesToExcludeByClass).To(HaveLen(1))
-						Expect(fdbProcessesToExcludeByClass).To(HaveKey(fdbv1beta2.ProcessClassStorage))
-						Expect(fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage]).To(HaveLen(2))
+						Expect(
+							fdbProcessesToExcludeByClass,
+						).To(HaveKey(fdbv1beta2.ProcessClassStorage))
+						Expect(
+							fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage],
+						).To(HaveLen(2))
 
 						var addresses []fdbv1beta2.ProcessAddress
 						for _, entry := range fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage] {
-							Expect(entry.processGroupID).To(Or(Equal(fdbv1beta2.ProcessGroupID("storage-1")), Equal(fdbv1beta2.ProcessGroupID("storage-2"))))
+							Expect(
+								entry.processGroupID,
+							).To(Or(Equal(fdbv1beta2.ProcessGroupID("storage-1")), Equal(fdbv1beta2.ProcessGroupID("storage-2"))))
 							addresses = append(addresses, entry.addresses...)
 						}
 
-						Expect(fdbv1beta2.ProcessAddressesString(addresses, " ")).To(Equal("1.1.1.1 1.1.1.2"))
+						Expect(
+							fdbv1beta2.ProcessAddressesString(addresses, " "),
+						).To(Equal("1.1.1.1 1.1.1.2"))
 						Expect(ongoingExclusionsByClass).To(HaveLen(0))
 					})
 				})
@@ -542,27 +734,49 @@ var _ = Describe("exclude_processes", func() {
 				When("excluding two process with one already excluded", func() {
 					BeforeEach(func() {
 						processGroup1 := cluster.Status.ProcessGroups[0]
-						Expect(processGroup1.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
+						Expect(
+							processGroup1.ProcessGroupID,
+						).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
 						processGroup1.MarkForRemoval()
 						cluster.Status.ProcessGroups[0] = processGroup1
 
 						processGroup2 := cluster.Status.ProcessGroups[1]
-						Expect(processGroup2.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-2")))
+						Expect(
+							processGroup2.ProcessGroupID,
+						).To(Equal(fdbv1beta2.ProcessGroupID("storage-2")))
 						processGroup2.MarkForRemoval()
 						cluster.Status.ProcessGroups[1] = processGroup2
 
-						exclusions = append(exclusions, fdbv1beta2.ProcessAddress{IPAddress: net.ParseIP(processGroup2.Addresses[0])})
+						exclusions = append(
+							exclusions,
+							fdbv1beta2.ProcessAddress{
+								IPAddress: net.ParseIP(processGroup2.Addresses[0]),
+							},
+						)
 					})
 
 					When("the exclusion has not finished", func() {
 						It("should report the excluded process", func() {
-							fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(exclusions, cluster, map[fdbv1beta2.ProcessGroupID]time.Time{}, map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{})
+							fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(
+								exclusions,
+								cluster,
+								map[fdbv1beta2.ProcessGroupID]time.Time{},
+								map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{},
+							)
 							Expect(fdbProcessesToExcludeByClass).To(HaveLen(1))
-							Expect(fdbProcessesToExcludeByClass).To(HaveKey(fdbv1beta2.ProcessClassStorage))
-							Expect(fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage]).To(HaveLen(1))
+							Expect(
+								fdbProcessesToExcludeByClass,
+							).To(HaveKey(fdbv1beta2.ProcessClassStorage))
+							Expect(
+								fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage],
+							).To(HaveLen(1))
 							entry := fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage][0]
-							Expect(entry.processGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
-							Expect(fdbv1beta2.ProcessAddressesString(entry.addresses, " ")).To(Equal("1.1.1.1"))
+							Expect(
+								entry.processGroupID,
+							).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
+							Expect(
+								fdbv1beta2.ProcessAddressesString(entry.addresses, " "),
+							).To(Equal("1.1.1.1"))
 							Expect(ongoingExclusionsByClass).To(HaveLen(1))
 						})
 					})
@@ -570,19 +784,34 @@ var _ = Describe("exclude_processes", func() {
 					When("the exclusion has finished", func() {
 						BeforeEach(func() {
 							processGroup := cluster.Status.ProcessGroups[1]
-							Expect(processGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-2")))
+							Expect(
+								processGroup.ProcessGroupID,
+							).To(Equal(fdbv1beta2.ProcessGroupID("storage-2")))
 							processGroup.SetExclude()
 							cluster.Status.ProcessGroups[1] = processGroup
 						})
 
 						It("should report the excluded process", func() {
-							fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(exclusions, cluster, map[fdbv1beta2.ProcessGroupID]time.Time{}, map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{})
+							fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(
+								exclusions,
+								cluster,
+								map[fdbv1beta2.ProcessGroupID]time.Time{},
+								map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{},
+							)
 							Expect(fdbProcessesToExcludeByClass).To(HaveLen(1))
-							Expect(fdbProcessesToExcludeByClass).To(HaveKey(fdbv1beta2.ProcessClassStorage))
-							Expect(fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage]).To(HaveLen(1))
+							Expect(
+								fdbProcessesToExcludeByClass,
+							).To(HaveKey(fdbv1beta2.ProcessClassStorage))
+							Expect(
+								fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage],
+							).To(HaveLen(1))
 							entry := fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage][0]
-							Expect(entry.processGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
-							Expect(fdbv1beta2.ProcessAddressesString(entry.addresses, " ")).To(Equal("1.1.1.1"))
+							Expect(
+								entry.processGroupID,
+							).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
+							Expect(
+								fdbv1beta2.ProcessAddressesString(entry.addresses, " "),
+							).To(Equal("1.1.1.1"))
 							Expect(ongoingExclusionsByClass).To(HaveLen(0))
 						})
 					})
@@ -592,12 +821,19 @@ var _ = Describe("exclude_processes", func() {
 			When("the synchronization mode is global", func() {
 				BeforeEach(func() {
 					cluster.Spec.Version = fdbv1beta2.Versions.MinimumVersion.String()
-					cluster.Spec.AutomationOptions.SynchronizationMode = pointer.String(string(fdbv1beta2.SynchronizationModeGlobal))
+					cluster.Spec.AutomationOptions.SynchronizationMode = pointer.String(
+						string(fdbv1beta2.SynchronizationModeGlobal),
+					)
 				})
 
 				When("there are no exclusions", func() {
 					It("should not exclude anything", func() {
-						fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(exclusions, cluster, map[fdbv1beta2.ProcessGroupID]time.Time{}, map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{})
+						fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(
+							exclusions,
+							cluster,
+							map[fdbv1beta2.ProcessGroupID]time.Time{},
+							map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{},
+						)
 						Expect(fdbProcessesToExcludeByClass).To(HaveLen(0))
 						Expect(ongoingExclusionsByClass).To(HaveLen(0))
 					})
@@ -606,38 +842,71 @@ var _ = Describe("exclude_processes", func() {
 				When("excluding one process", func() {
 					BeforeEach(func() {
 						processGroup := cluster.Status.ProcessGroups[0]
-						Expect(processGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
+						Expect(
+							processGroup.ProcessGroupID,
+						).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
 						processGroup.MarkForRemoval()
 						cluster.Status.ProcessGroups[0] = processGroup
 					})
 
 					It("should report the excluded process", func() {
-						fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(exclusions, cluster, map[fdbv1beta2.ProcessGroupID]time.Time{}, map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{})
+						fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(
+							exclusions,
+							cluster,
+							map[fdbv1beta2.ProcessGroupID]time.Time{},
+							map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{},
+						)
 						Expect(fdbProcessesToExcludeByClass).To(HaveLen(1))
-						Expect(fdbProcessesToExcludeByClass).To(HaveKey(fdbv1beta2.ProcessClassStorage))
-						Expect(fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage]).To(HaveLen(1))
+						Expect(
+							fdbProcessesToExcludeByClass,
+						).To(HaveKey(fdbv1beta2.ProcessClassStorage))
+						Expect(
+							fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage],
+						).To(HaveLen(1))
 						entry := fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage][0]
-						Expect(entry.processGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
-						Expect(fdbv1beta2.ProcessAddressesString(entry.addresses, " ")).To(Equal("1.1.1.1"))
+						Expect(
+							entry.processGroupID,
+						).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
+						Expect(
+							fdbv1beta2.ProcessAddressesString(entry.addresses, " "),
+						).To(Equal("1.1.1.1"))
 						Expect(ongoingExclusionsByClass).To(HaveLen(0))
 					})
 
 					When("the old IP address of this process group is already excluded", func() {
 						BeforeEach(func() {
 							processGroup := cluster.Status.ProcessGroups[0]
-							exclusions = append(exclusions, fdbv1beta2.ProcessAddress{IPAddress: net.ParseIP(processGroup.Addresses[0])})
+							exclusions = append(
+								exclusions,
+								fdbv1beta2.ProcessAddress{
+									IPAddress: net.ParseIP(processGroup.Addresses[0]),
+								},
+							)
 
 							processGroup.Addresses = append(processGroup.Addresses, "100.1.100.2")
 						})
 
 						It("should report the not yet excluded address of this process", func() {
-							fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(exclusions, cluster, map[fdbv1beta2.ProcessGroupID]time.Time{}, map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{})
+							fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(
+								exclusions,
+								cluster,
+								map[fdbv1beta2.ProcessGroupID]time.Time{},
+								map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{},
+							)
 							Expect(fdbProcessesToExcludeByClass).To(HaveLen(1))
-							Expect(fdbProcessesToExcludeByClass).To(HaveKey(fdbv1beta2.ProcessClassStorage))
-							Expect(fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage]).To(HaveLen(1))
+							Expect(
+								fdbProcessesToExcludeByClass,
+							).To(HaveKey(fdbv1beta2.ProcessClassStorage))
+							Expect(
+								fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage],
+							).To(HaveLen(1))
 							entry := fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage][0]
-							Expect(entry.processGroupID).To(Equal(cluster.Status.ProcessGroups[0].ProcessGroupID))
-							Expect(fdbv1beta2.ProcessAddressesString(entry.addresses, " ")).To(Equal("100.1.100.2"))
+							Expect(
+								entry.processGroupID,
+							).To(Equal(cluster.Status.ProcessGroups[0].ProcessGroupID))
+							Expect(
+								fdbv1beta2.ProcessAddressesString(entry.addresses, " "),
+							).To(Equal("100.1.100.2"))
 							Expect(ongoingExclusionsByClass).To(HaveLen(0))
 						})
 					})
@@ -646,29 +915,46 @@ var _ = Describe("exclude_processes", func() {
 				When("excluding two process", func() {
 					BeforeEach(func() {
 						processGroup1 := cluster.Status.ProcessGroups[0]
-						Expect(processGroup1.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
+						Expect(
+							processGroup1.ProcessGroupID,
+						).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
 						processGroup1.MarkForRemoval()
 						cluster.Status.ProcessGroups[0] = processGroup1
 
 						processGroup2 := cluster.Status.ProcessGroups[1]
-						Expect(processGroup2.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-2")))
+						Expect(
+							processGroup2.ProcessGroupID,
+						).To(Equal(fdbv1beta2.ProcessGroupID("storage-2")))
 						processGroup2.MarkForRemoval()
 						cluster.Status.ProcessGroups[1] = processGroup2
 					})
 
 					It("should report the excluded process", func() {
-						fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(exclusions, cluster, map[fdbv1beta2.ProcessGroupID]time.Time{}, map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{})
+						fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(
+							exclusions,
+							cluster,
+							map[fdbv1beta2.ProcessGroupID]time.Time{},
+							map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{},
+						)
 						Expect(fdbProcessesToExcludeByClass).To(HaveLen(1))
-						Expect(fdbProcessesToExcludeByClass).To(HaveKey(fdbv1beta2.ProcessClassStorage))
-						Expect(fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage]).To(HaveLen(2))
+						Expect(
+							fdbProcessesToExcludeByClass,
+						).To(HaveKey(fdbv1beta2.ProcessClassStorage))
+						Expect(
+							fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage],
+						).To(HaveLen(2))
 
 						var addresses []fdbv1beta2.ProcessAddress
 						for _, entry := range fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage] {
-							Expect(entry.processGroupID).To(Or(Equal(fdbv1beta2.ProcessGroupID("storage-1")), Equal(fdbv1beta2.ProcessGroupID("storage-2"))))
+							Expect(
+								entry.processGroupID,
+							).To(Or(Equal(fdbv1beta2.ProcessGroupID("storage-1")), Equal(fdbv1beta2.ProcessGroupID("storage-2"))))
 							addresses = append(addresses, entry.addresses...)
 						}
 
-						Expect(fdbv1beta2.ProcessAddressesString(addresses, " ")).To(Equal("1.1.1.1 1.1.1.2"))
+						Expect(
+							fdbv1beta2.ProcessAddressesString(addresses, " "),
+						).To(Equal("1.1.1.1 1.1.1.2"))
 						Expect(ongoingExclusionsByClass).To(HaveLen(0))
 					})
 				})
@@ -676,27 +962,49 @@ var _ = Describe("exclude_processes", func() {
 				When("excluding two process with one already excluded", func() {
 					BeforeEach(func() {
 						processGroup1 := cluster.Status.ProcessGroups[0]
-						Expect(processGroup1.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
+						Expect(
+							processGroup1.ProcessGroupID,
+						).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
 						processGroup1.MarkForRemoval()
 						cluster.Status.ProcessGroups[0] = processGroup1
 
 						processGroup2 := cluster.Status.ProcessGroups[1]
-						Expect(processGroup2.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-2")))
+						Expect(
+							processGroup2.ProcessGroupID,
+						).To(Equal(fdbv1beta2.ProcessGroupID("storage-2")))
 						processGroup2.MarkForRemoval()
 						cluster.Status.ProcessGroups[1] = processGroup2
 
-						exclusions = append(exclusions, fdbv1beta2.ProcessAddress{IPAddress: net.ParseIP(processGroup2.Addresses[0])})
+						exclusions = append(
+							exclusions,
+							fdbv1beta2.ProcessAddress{
+								IPAddress: net.ParseIP(processGroup2.Addresses[0]),
+							},
+						)
 					})
 
 					When("the exclusion has not finished", func() {
 						It("should report the excluded process", func() {
-							fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(exclusions, cluster, map[fdbv1beta2.ProcessGroupID]time.Time{}, map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{})
+							fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(
+								exclusions,
+								cluster,
+								map[fdbv1beta2.ProcessGroupID]time.Time{},
+								map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{},
+							)
 							Expect(fdbProcessesToExcludeByClass).To(HaveLen(1))
-							Expect(fdbProcessesToExcludeByClass).To(HaveKey(fdbv1beta2.ProcessClassStorage))
-							Expect(fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage]).To(HaveLen(1))
+							Expect(
+								fdbProcessesToExcludeByClass,
+							).To(HaveKey(fdbv1beta2.ProcessClassStorage))
+							Expect(
+								fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage],
+							).To(HaveLen(1))
 							entry := fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage][0]
-							Expect(entry.processGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
-							Expect(fdbv1beta2.ProcessAddressesString(entry.addresses, " ")).To(Equal("1.1.1.1"))
+							Expect(
+								entry.processGroupID,
+							).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
+							Expect(
+								fdbv1beta2.ProcessAddressesString(entry.addresses, " "),
+							).To(Equal("1.1.1.1"))
 							Expect(ongoingExclusionsByClass).To(HaveLen(1))
 						})
 					})
@@ -704,19 +1012,34 @@ var _ = Describe("exclude_processes", func() {
 					When("the exclusion has finished", func() {
 						BeforeEach(func() {
 							processGroup := cluster.Status.ProcessGroups[1]
-							Expect(processGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-2")))
+							Expect(
+								processGroup.ProcessGroupID,
+							).To(Equal(fdbv1beta2.ProcessGroupID("storage-2")))
 							processGroup.SetExclude()
 							cluster.Status.ProcessGroups[1] = processGroup
 						})
 
 						It("should report the excluded process", func() {
-							fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(exclusions, cluster, map[fdbv1beta2.ProcessGroupID]time.Time{}, map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{})
+							fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(
+								exclusions,
+								cluster,
+								map[fdbv1beta2.ProcessGroupID]time.Time{},
+								map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{},
+							)
 							Expect(fdbProcessesToExcludeByClass).To(HaveLen(1))
-							Expect(fdbProcessesToExcludeByClass).To(HaveKey(fdbv1beta2.ProcessClassStorage))
-							Expect(fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage]).To(HaveLen(1))
+							Expect(
+								fdbProcessesToExcludeByClass,
+							).To(HaveKey(fdbv1beta2.ProcessClassStorage))
+							Expect(
+								fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage],
+							).To(HaveLen(1))
 							entry := fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage][0]
-							Expect(entry.processGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
-							Expect(fdbv1beta2.ProcessAddressesString(entry.addresses, " ")).To(Equal("1.1.1.1"))
+							Expect(
+								entry.processGroupID,
+							).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
+							Expect(
+								fdbv1beta2.ProcessAddressesString(entry.addresses, " "),
+							).To(Equal("1.1.1.1"))
 							Expect(ongoingExclusionsByClass).To(HaveLen(0))
 						})
 					})
@@ -728,12 +1051,19 @@ var _ = Describe("exclude_processes", func() {
 			When("the synchronization mode is local", func() {
 				BeforeEach(func() {
 					cluster.Spec.Version = fdbv1beta2.Versions.SupportsLocalityBasedExclusions.String()
-					cluster.Spec.AutomationOptions.SynchronizationMode = pointer.String(string(fdbv1beta2.SynchronizationModeLocal))
+					cluster.Spec.AutomationOptions.SynchronizationMode = pointer.String(
+						string(fdbv1beta2.SynchronizationModeLocal),
+					)
 				})
 
 				When("there are no exclusions", func() {
 					It("should not exclude anything", func() {
-						fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(exclusions, cluster, map[fdbv1beta2.ProcessGroupID]time.Time{}, map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{})
+						fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(
+							exclusions,
+							cluster,
+							map[fdbv1beta2.ProcessGroupID]time.Time{},
+							map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{},
+						)
 						Expect(fdbProcessesToExcludeByClass).To(HaveLen(0))
 						Expect(ongoingExclusionsByClass).To(HaveLen(0))
 					})
@@ -742,19 +1072,34 @@ var _ = Describe("exclude_processes", func() {
 				When("excluding one process", func() {
 					BeforeEach(func() {
 						processGroup := cluster.Status.ProcessGroups[0]
-						Expect(processGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
+						Expect(
+							processGroup.ProcessGroupID,
+						).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
 						processGroup.MarkForRemoval()
 						cluster.Status.ProcessGroups[0] = processGroup
 					})
 
 					It("should report the excluded process", func() {
-						fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(exclusions, cluster, map[fdbv1beta2.ProcessGroupID]time.Time{}, map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{})
+						fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(
+							exclusions,
+							cluster,
+							map[fdbv1beta2.ProcessGroupID]time.Time{},
+							map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{},
+						)
 						Expect(fdbProcessesToExcludeByClass).To(HaveLen(1))
-						Expect(fdbProcessesToExcludeByClass).To(HaveKey(fdbv1beta2.ProcessClassStorage))
-						Expect(fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage]).To(HaveLen(1))
+						Expect(
+							fdbProcessesToExcludeByClass,
+						).To(HaveKey(fdbv1beta2.ProcessClassStorage))
+						Expect(
+							fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage],
+						).To(HaveLen(1))
 						entry := fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage][0]
-						Expect(entry.processGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
-						Expect(fdbv1beta2.ProcessAddressesString(entry.addresses, " ")).To(Equal(cluster.Status.ProcessGroups[0].GetExclusionString()))
+						Expect(
+							entry.processGroupID,
+						).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
+						Expect(
+							fdbv1beta2.ProcessAddressesString(entry.addresses, " "),
+						).To(Equal(cluster.Status.ProcessGroups[0].GetExclusionString()))
 						Expect(ongoingExclusionsByClass).To(HaveLen(0))
 					})
 				})
@@ -762,28 +1107,45 @@ var _ = Describe("exclude_processes", func() {
 				When("excluding two process", func() {
 					BeforeEach(func() {
 						processGroup1 := cluster.Status.ProcessGroups[0]
-						Expect(processGroup1.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
+						Expect(
+							processGroup1.ProcessGroupID,
+						).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
 						processGroup1.MarkForRemoval()
 						cluster.Status.ProcessGroups[0] = processGroup1
 
 						processGroup2 := cluster.Status.ProcessGroups[1]
-						Expect(processGroup2.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-2")))
+						Expect(
+							processGroup2.ProcessGroupID,
+						).To(Equal(fdbv1beta2.ProcessGroupID("storage-2")))
 						processGroup2.MarkForRemoval()
 						cluster.Status.ProcessGroups[1] = processGroup2
 					})
 
 					It("should report the excluded process", func() {
-						fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(exclusions, cluster, map[fdbv1beta2.ProcessGroupID]time.Time{}, map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{})
+						fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(
+							exclusions,
+							cluster,
+							map[fdbv1beta2.ProcessGroupID]time.Time{},
+							map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{},
+						)
 						Expect(fdbProcessesToExcludeByClass).To(HaveLen(1))
-						Expect(fdbProcessesToExcludeByClass).To(HaveKey(fdbv1beta2.ProcessClassStorage))
-						Expect(fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage]).To(HaveLen(2))
+						Expect(
+							fdbProcessesToExcludeByClass,
+						).To(HaveKey(fdbv1beta2.ProcessClassStorage))
+						Expect(
+							fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage],
+						).To(HaveLen(2))
 						var addresses []fdbv1beta2.ProcessAddress
 						for _, entry := range fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage] {
-							Expect(entry.processGroupID).To(Or(Equal(fdbv1beta2.ProcessGroupID("storage-1")), Equal(fdbv1beta2.ProcessGroupID("storage-2"))))
+							Expect(
+								entry.processGroupID,
+							).To(Or(Equal(fdbv1beta2.ProcessGroupID("storage-1")), Equal(fdbv1beta2.ProcessGroupID("storage-2"))))
 							addresses = append(addresses, entry.addresses...)
 						}
 
-						Expect(fdbv1beta2.ProcessAddressesString(addresses, " ")).To(Equal(fmt.Sprintf("%s %s", cluster.Status.ProcessGroups[0].GetExclusionString(), cluster.Status.ProcessGroups[1].GetExclusionString())))
+						Expect(
+							fdbv1beta2.ProcessAddressesString(addresses, " "),
+						).To(Equal(fmt.Sprintf("%s %s", cluster.Status.ProcessGroups[0].GetExclusionString(), cluster.Status.ProcessGroups[1].GetExclusionString())))
 						Expect(ongoingExclusionsByClass).To(HaveLen(0))
 					})
 				})
@@ -791,31 +1153,53 @@ var _ = Describe("exclude_processes", func() {
 				When("excluding two process with one already excluded using IP", func() {
 					BeforeEach(func() {
 						processGroup1 := cluster.Status.ProcessGroups[0]
-						Expect(processGroup1.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
+						Expect(
+							processGroup1.ProcessGroupID,
+						).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
 						processGroup1.MarkForRemoval()
 						cluster.Status.ProcessGroups[0] = processGroup1
 
 						processGroup2 := cluster.Status.ProcessGroups[1]
-						Expect(processGroup2.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-2")))
+						Expect(
+							processGroup2.ProcessGroupID,
+						).To(Equal(fdbv1beta2.ProcessGroupID("storage-2")))
 						processGroup2.MarkForRemoval()
 						cluster.Status.ProcessGroups[1] = processGroup2
 
-						exclusions = append(exclusions, fdbv1beta2.ProcessAddress{IPAddress: net.ParseIP(processGroup2.Addresses[0])})
+						exclusions = append(
+							exclusions,
+							fdbv1beta2.ProcessAddress{
+								IPAddress: net.ParseIP(processGroup2.Addresses[0]),
+							},
+						)
 					})
 
 					When("the exclusion has not finished", func() {
 						It("should report the excluded process", func() {
-							fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(exclusions, cluster, map[fdbv1beta2.ProcessGroupID]time.Time{}, map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{})
+							fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(
+								exclusions,
+								cluster,
+								map[fdbv1beta2.ProcessGroupID]time.Time{},
+								map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{},
+							)
 							Expect(fdbProcessesToExcludeByClass).To(HaveLen(1))
-							Expect(fdbProcessesToExcludeByClass).To(HaveKey(fdbv1beta2.ProcessClassStorage))
-							Expect(fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage]).To(HaveLen(2))
+							Expect(
+								fdbProcessesToExcludeByClass,
+							).To(HaveKey(fdbv1beta2.ProcessClassStorage))
+							Expect(
+								fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage],
+							).To(HaveLen(2))
 							var addresses []fdbv1beta2.ProcessAddress
 							for _, entry := range fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage] {
-								Expect(entry.processGroupID).To(Or(Equal(fdbv1beta2.ProcessGroupID("storage-1")), Equal(fdbv1beta2.ProcessGroupID("storage-2"))))
+								Expect(
+									entry.processGroupID,
+								).To(Or(Equal(fdbv1beta2.ProcessGroupID("storage-1")), Equal(fdbv1beta2.ProcessGroupID("storage-2"))))
 								addresses = append(addresses, entry.addresses...)
 							}
 
-							Expect(fdbv1beta2.ProcessAddressesString(addresses, " ")).To(Equal(fmt.Sprintf("%s %s", cluster.Status.ProcessGroups[0].GetExclusionString(), cluster.Status.ProcessGroups[1].GetExclusionString())))
+							Expect(
+								fdbv1beta2.ProcessAddressesString(addresses, " "),
+							).To(Equal(fmt.Sprintf("%s %s", cluster.Status.ProcessGroups[0].GetExclusionString(), cluster.Status.ProcessGroups[1].GetExclusionString())))
 							Expect(ongoingExclusionsByClass).To(HaveLen(0))
 						})
 					})
@@ -823,19 +1207,34 @@ var _ = Describe("exclude_processes", func() {
 					When("the exclusion has finished", func() {
 						BeforeEach(func() {
 							processGroup := cluster.Status.ProcessGroups[1]
-							Expect(processGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-2")))
+							Expect(
+								processGroup.ProcessGroupID,
+							).To(Equal(fdbv1beta2.ProcessGroupID("storage-2")))
 							processGroup.SetExclude()
 							cluster.Status.ProcessGroups[1] = processGroup
 						})
 
 						It("should report the excluded process", func() {
-							fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(exclusions, cluster, map[fdbv1beta2.ProcessGroupID]time.Time{}, map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{})
+							fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(
+								exclusions,
+								cluster,
+								map[fdbv1beta2.ProcessGroupID]time.Time{},
+								map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{},
+							)
 							Expect(fdbProcessesToExcludeByClass).To(HaveLen(1))
-							Expect(fdbProcessesToExcludeByClass).To(HaveKey(fdbv1beta2.ProcessClassStorage))
-							Expect(fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage]).To(HaveLen(1))
+							Expect(
+								fdbProcessesToExcludeByClass,
+							).To(HaveKey(fdbv1beta2.ProcessClassStorage))
+							Expect(
+								fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage],
+							).To(HaveLen(1))
 							entry := fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage][0]
-							Expect(entry.processGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
-							Expect(fdbv1beta2.ProcessAddressesString(entry.addresses, " ")).To(Equal(cluster.Status.ProcessGroups[0].GetExclusionString()))
+							Expect(
+								entry.processGroupID,
+							).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
+							Expect(
+								fdbv1beta2.ProcessAddressesString(entry.addresses, " "),
+							).To(Equal(cluster.Status.ProcessGroups[0].GetExclusionString()))
 							Expect(ongoingExclusionsByClass).To(HaveLen(0))
 						})
 					})
@@ -844,27 +1243,49 @@ var _ = Describe("exclude_processes", func() {
 				When("excluding two process with one already excluded using locality", func() {
 					BeforeEach(func() {
 						processGroup1 := cluster.Status.ProcessGroups[0]
-						Expect(processGroup1.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
+						Expect(
+							processGroup1.ProcessGroupID,
+						).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
 						processGroup1.MarkForRemoval()
 						cluster.Status.ProcessGroups[0] = processGroup1
 
 						processGroup2 := cluster.Status.ProcessGroups[1]
-						Expect(processGroup2.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-2")))
+						Expect(
+							processGroup2.ProcessGroupID,
+						).To(Equal(fdbv1beta2.ProcessGroupID("storage-2")))
 						processGroup2.MarkForRemoval()
 						cluster.Status.ProcessGroups[1] = processGroup2
 
-						exclusions = append(exclusions, fdbv1beta2.ProcessAddress{StringAddress: processGroup2.GetExclusionString()})
+						exclusions = append(
+							exclusions,
+							fdbv1beta2.ProcessAddress{
+								StringAddress: processGroup2.GetExclusionString(),
+							},
+						)
 					})
 
 					When("the exclusion has not finished", func() {
 						It("should report the excluded process", func() {
-							fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(exclusions, cluster, map[fdbv1beta2.ProcessGroupID]time.Time{}, map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{})
+							fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(
+								exclusions,
+								cluster,
+								map[fdbv1beta2.ProcessGroupID]time.Time{},
+								map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{},
+							)
 							Expect(fdbProcessesToExcludeByClass).To(HaveLen(1))
-							Expect(fdbProcessesToExcludeByClass).To(HaveKey(fdbv1beta2.ProcessClassStorage))
-							Expect(fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage]).To(HaveLen(1))
+							Expect(
+								fdbProcessesToExcludeByClass,
+							).To(HaveKey(fdbv1beta2.ProcessClassStorage))
+							Expect(
+								fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage],
+							).To(HaveLen(1))
 							entry := fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage][0]
-							Expect(entry.processGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
-							Expect(fdbv1beta2.ProcessAddressesString(entry.addresses, " ")).To(Equal(cluster.Status.ProcessGroups[0].GetExclusionString()))
+							Expect(
+								entry.processGroupID,
+							).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
+							Expect(
+								fdbv1beta2.ProcessAddressesString(entry.addresses, " "),
+							).To(Equal(cluster.Status.ProcessGroups[0].GetExclusionString()))
 							Expect(ongoingExclusionsByClass).To(HaveLen(1))
 						})
 					})
@@ -872,19 +1293,34 @@ var _ = Describe("exclude_processes", func() {
 					When("the exclusion has finished", func() {
 						BeforeEach(func() {
 							processGroup := cluster.Status.ProcessGroups[1]
-							Expect(processGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-2")))
+							Expect(
+								processGroup.ProcessGroupID,
+							).To(Equal(fdbv1beta2.ProcessGroupID("storage-2")))
 							processGroup.SetExclude()
 							cluster.Status.ProcessGroups[1] = processGroup
 						})
 
 						It("should report the excluded process", func() {
-							fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(exclusions, cluster, map[fdbv1beta2.ProcessGroupID]time.Time{}, map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{})
+							fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(
+								exclusions,
+								cluster,
+								map[fdbv1beta2.ProcessGroupID]time.Time{},
+								map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{},
+							)
 							Expect(fdbProcessesToExcludeByClass).To(HaveLen(1))
-							Expect(fdbProcessesToExcludeByClass).To(HaveKey(fdbv1beta2.ProcessClassStorage))
-							Expect(fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage]).To(HaveLen(1))
+							Expect(
+								fdbProcessesToExcludeByClass,
+							).To(HaveKey(fdbv1beta2.ProcessClassStorage))
+							Expect(
+								fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage],
+							).To(HaveLen(1))
 							entry := fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage][0]
-							Expect(entry.processGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
-							Expect(fdbv1beta2.ProcessAddressesString(entry.addresses, " ")).To(Equal(cluster.Status.ProcessGroups[0].GetExclusionString()))
+							Expect(
+								entry.processGroupID,
+							).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
+							Expect(
+								fdbv1beta2.ProcessAddressesString(entry.addresses, " "),
+							).To(Equal(cluster.Status.ProcessGroups[0].GetExclusionString()))
 							Expect(ongoingExclusionsByClass).To(HaveLen(0))
 						})
 					})
@@ -894,12 +1330,19 @@ var _ = Describe("exclude_processes", func() {
 			When("the synchronization mode is global", func() {
 				BeforeEach(func() {
 					cluster.Spec.Version = fdbv1beta2.Versions.SupportsLocalityBasedExclusions.String()
-					cluster.Spec.AutomationOptions.SynchronizationMode = pointer.String(string(fdbv1beta2.SynchronizationModeGlobal))
+					cluster.Spec.AutomationOptions.SynchronizationMode = pointer.String(
+						string(fdbv1beta2.SynchronizationModeGlobal),
+					)
 				})
 
 				When("there are no exclusions", func() {
 					It("should not exclude anything", func() {
-						fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(exclusions, cluster, map[fdbv1beta2.ProcessGroupID]time.Time{}, map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{})
+						fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(
+							exclusions,
+							cluster,
+							map[fdbv1beta2.ProcessGroupID]time.Time{},
+							map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{},
+						)
 						Expect(fdbProcessesToExcludeByClass).To(HaveLen(0))
 						Expect(ongoingExclusionsByClass).To(HaveLen(0))
 					})
@@ -908,19 +1351,34 @@ var _ = Describe("exclude_processes", func() {
 				When("excluding one process", func() {
 					BeforeEach(func() {
 						processGroup := cluster.Status.ProcessGroups[0]
-						Expect(processGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
+						Expect(
+							processGroup.ProcessGroupID,
+						).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
 						processGroup.MarkForRemoval()
 						cluster.Status.ProcessGroups[0] = processGroup
 					})
 
 					It("should report the excluded process", func() {
-						fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(exclusions, cluster, map[fdbv1beta2.ProcessGroupID]time.Time{}, map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{})
+						fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(
+							exclusions,
+							cluster,
+							map[fdbv1beta2.ProcessGroupID]time.Time{},
+							map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{},
+						)
 						Expect(fdbProcessesToExcludeByClass).To(HaveLen(1))
-						Expect(fdbProcessesToExcludeByClass).To(HaveKey(fdbv1beta2.ProcessClassStorage))
-						Expect(fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage]).To(HaveLen(1))
+						Expect(
+							fdbProcessesToExcludeByClass,
+						).To(HaveKey(fdbv1beta2.ProcessClassStorage))
+						Expect(
+							fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage],
+						).To(HaveLen(1))
 						entry := fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage][0]
-						Expect(entry.processGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
-						Expect(fdbv1beta2.ProcessAddressesString(entry.addresses, " ")).To(Equal(cluster.Status.ProcessGroups[0].GetExclusionString()))
+						Expect(
+							entry.processGroupID,
+						).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
+						Expect(
+							fdbv1beta2.ProcessAddressesString(entry.addresses, " "),
+						).To(Equal(cluster.Status.ProcessGroups[0].GetExclusionString()))
 						Expect(ongoingExclusionsByClass).To(HaveLen(0))
 					})
 				})
@@ -928,28 +1386,45 @@ var _ = Describe("exclude_processes", func() {
 				When("excluding two process", func() {
 					BeforeEach(func() {
 						processGroup1 := cluster.Status.ProcessGroups[0]
-						Expect(processGroup1.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
+						Expect(
+							processGroup1.ProcessGroupID,
+						).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
 						processGroup1.MarkForRemoval()
 						cluster.Status.ProcessGroups[0] = processGroup1
 
 						processGroup2 := cluster.Status.ProcessGroups[1]
-						Expect(processGroup2.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-2")))
+						Expect(
+							processGroup2.ProcessGroupID,
+						).To(Equal(fdbv1beta2.ProcessGroupID("storage-2")))
 						processGroup2.MarkForRemoval()
 						cluster.Status.ProcessGroups[1] = processGroup2
 					})
 
 					It("should report the excluded process", func() {
-						fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(exclusions, cluster, map[fdbv1beta2.ProcessGroupID]time.Time{}, map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{})
+						fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(
+							exclusions,
+							cluster,
+							map[fdbv1beta2.ProcessGroupID]time.Time{},
+							map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{},
+						)
 						Expect(fdbProcessesToExcludeByClass).To(HaveLen(1))
-						Expect(fdbProcessesToExcludeByClass).To(HaveKey(fdbv1beta2.ProcessClassStorage))
-						Expect(fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage]).To(HaveLen(2))
+						Expect(
+							fdbProcessesToExcludeByClass,
+						).To(HaveKey(fdbv1beta2.ProcessClassStorage))
+						Expect(
+							fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage],
+						).To(HaveLen(2))
 						var addresses []fdbv1beta2.ProcessAddress
 						for _, entry := range fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage] {
-							Expect(entry.processGroupID).To(Or(Equal(fdbv1beta2.ProcessGroupID("storage-1")), Equal(fdbv1beta2.ProcessGroupID("storage-2"))))
+							Expect(
+								entry.processGroupID,
+							).To(Or(Equal(fdbv1beta2.ProcessGroupID("storage-1")), Equal(fdbv1beta2.ProcessGroupID("storage-2"))))
 							addresses = append(addresses, entry.addresses...)
 						}
 
-						Expect(fdbv1beta2.ProcessAddressesString(addresses, " ")).To(Equal(fmt.Sprintf("%s %s", cluster.Status.ProcessGroups[0].GetExclusionString(), cluster.Status.ProcessGroups[1].GetExclusionString())))
+						Expect(
+							fdbv1beta2.ProcessAddressesString(addresses, " "),
+						).To(Equal(fmt.Sprintf("%s %s", cluster.Status.ProcessGroups[0].GetExclusionString(), cluster.Status.ProcessGroups[1].GetExclusionString())))
 						Expect(ongoingExclusionsByClass).To(HaveLen(0))
 					})
 				})
@@ -957,31 +1432,53 @@ var _ = Describe("exclude_processes", func() {
 				When("excluding two process with one already excluded using IP", func() {
 					BeforeEach(func() {
 						processGroup1 := cluster.Status.ProcessGroups[0]
-						Expect(processGroup1.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
+						Expect(
+							processGroup1.ProcessGroupID,
+						).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
 						processGroup1.MarkForRemoval()
 						cluster.Status.ProcessGroups[0] = processGroup1
 
 						processGroup2 := cluster.Status.ProcessGroups[1]
-						Expect(processGroup2.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-2")))
+						Expect(
+							processGroup2.ProcessGroupID,
+						).To(Equal(fdbv1beta2.ProcessGroupID("storage-2")))
 						processGroup2.MarkForRemoval()
 						cluster.Status.ProcessGroups[1] = processGroup2
 
-						exclusions = append(exclusions, fdbv1beta2.ProcessAddress{IPAddress: net.ParseIP(processGroup2.Addresses[0])})
+						exclusions = append(
+							exclusions,
+							fdbv1beta2.ProcessAddress{
+								IPAddress: net.ParseIP(processGroup2.Addresses[0]),
+							},
+						)
 					})
 
 					When("the exclusion has not finished", func() {
 						It("should report the excluded process", func() {
-							fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(exclusions, cluster, map[fdbv1beta2.ProcessGroupID]time.Time{}, map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{})
+							fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(
+								exclusions,
+								cluster,
+								map[fdbv1beta2.ProcessGroupID]time.Time{},
+								map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{},
+							)
 							Expect(fdbProcessesToExcludeByClass).To(HaveLen(1))
-							Expect(fdbProcessesToExcludeByClass).To(HaveKey(fdbv1beta2.ProcessClassStorage))
-							Expect(fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage]).To(HaveLen(2))
+							Expect(
+								fdbProcessesToExcludeByClass,
+							).To(HaveKey(fdbv1beta2.ProcessClassStorage))
+							Expect(
+								fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage],
+							).To(HaveLen(2))
 							var addresses []fdbv1beta2.ProcessAddress
 							for _, entry := range fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage] {
-								Expect(entry.processGroupID).To(Or(Equal(fdbv1beta2.ProcessGroupID("storage-1")), Equal(fdbv1beta2.ProcessGroupID("storage-2"))))
+								Expect(
+									entry.processGroupID,
+								).To(Or(Equal(fdbv1beta2.ProcessGroupID("storage-1")), Equal(fdbv1beta2.ProcessGroupID("storage-2"))))
 								addresses = append(addresses, entry.addresses...)
 							}
 
-							Expect(fdbv1beta2.ProcessAddressesString(addresses, " ")).To(Equal(fmt.Sprintf("%s %s", cluster.Status.ProcessGroups[0].GetExclusionString(), cluster.Status.ProcessGroups[1].GetExclusionString())))
+							Expect(
+								fdbv1beta2.ProcessAddressesString(addresses, " "),
+							).To(Equal(fmt.Sprintf("%s %s", cluster.Status.ProcessGroups[0].GetExclusionString(), cluster.Status.ProcessGroups[1].GetExclusionString())))
 							Expect(ongoingExclusionsByClass).To(HaveLen(0))
 						})
 					})
@@ -989,19 +1486,34 @@ var _ = Describe("exclude_processes", func() {
 					When("the exclusion has finished", func() {
 						BeforeEach(func() {
 							processGroup := cluster.Status.ProcessGroups[1]
-							Expect(processGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-2")))
+							Expect(
+								processGroup.ProcessGroupID,
+							).To(Equal(fdbv1beta2.ProcessGroupID("storage-2")))
 							processGroup.SetExclude()
 							cluster.Status.ProcessGroups[1] = processGroup
 						})
 
 						It("should report the excluded process", func() {
-							fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(exclusions, cluster, map[fdbv1beta2.ProcessGroupID]time.Time{}, map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{})
+							fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(
+								exclusions,
+								cluster,
+								map[fdbv1beta2.ProcessGroupID]time.Time{},
+								map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{},
+							)
 							Expect(fdbProcessesToExcludeByClass).To(HaveLen(1))
-							Expect(fdbProcessesToExcludeByClass).To(HaveKey(fdbv1beta2.ProcessClassStorage))
-							Expect(fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage]).To(HaveLen(1))
+							Expect(
+								fdbProcessesToExcludeByClass,
+							).To(HaveKey(fdbv1beta2.ProcessClassStorage))
+							Expect(
+								fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage],
+							).To(HaveLen(1))
 							entry := fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage][0]
-							Expect(entry.processGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
-							Expect(fdbv1beta2.ProcessAddressesString(entry.addresses, " ")).To(Equal(cluster.Status.ProcessGroups[0].GetExclusionString()))
+							Expect(
+								entry.processGroupID,
+							).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
+							Expect(
+								fdbv1beta2.ProcessAddressesString(entry.addresses, " "),
+							).To(Equal(cluster.Status.ProcessGroups[0].GetExclusionString()))
 							Expect(ongoingExclusionsByClass).To(HaveLen(0))
 						})
 					})
@@ -1010,27 +1522,49 @@ var _ = Describe("exclude_processes", func() {
 				When("excluding two process with one already excluded using locality", func() {
 					BeforeEach(func() {
 						processGroup1 := cluster.Status.ProcessGroups[0]
-						Expect(processGroup1.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
+						Expect(
+							processGroup1.ProcessGroupID,
+						).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
 						processGroup1.MarkForRemoval()
 						cluster.Status.ProcessGroups[0] = processGroup1
 
 						processGroup2 := cluster.Status.ProcessGroups[1]
-						Expect(processGroup2.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-2")))
+						Expect(
+							processGroup2.ProcessGroupID,
+						).To(Equal(fdbv1beta2.ProcessGroupID("storage-2")))
 						processGroup2.MarkForRemoval()
 						cluster.Status.ProcessGroups[1] = processGroup2
 
-						exclusions = append(exclusions, fdbv1beta2.ProcessAddress{StringAddress: processGroup2.GetExclusionString()})
+						exclusions = append(
+							exclusions,
+							fdbv1beta2.ProcessAddress{
+								StringAddress: processGroup2.GetExclusionString(),
+							},
+						)
 					})
 
 					When("the exclusion has not finished", func() {
 						It("should report the excluded process", func() {
-							fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(exclusions, cluster, map[fdbv1beta2.ProcessGroupID]time.Time{}, map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{})
+							fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(
+								exclusions,
+								cluster,
+								map[fdbv1beta2.ProcessGroupID]time.Time{},
+								map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{},
+							)
 							Expect(fdbProcessesToExcludeByClass).To(HaveLen(1))
-							Expect(fdbProcessesToExcludeByClass).To(HaveKey(fdbv1beta2.ProcessClassStorage))
-							Expect(fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage]).To(HaveLen(1))
+							Expect(
+								fdbProcessesToExcludeByClass,
+							).To(HaveKey(fdbv1beta2.ProcessClassStorage))
+							Expect(
+								fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage],
+							).To(HaveLen(1))
 							entry := fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage][0]
-							Expect(entry.processGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
-							Expect(fdbv1beta2.ProcessAddressesString(entry.addresses, " ")).To(Equal(cluster.Status.ProcessGroups[0].GetExclusionString()))
+							Expect(
+								entry.processGroupID,
+							).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
+							Expect(
+								fdbv1beta2.ProcessAddressesString(entry.addresses, " "),
+							).To(Equal(cluster.Status.ProcessGroups[0].GetExclusionString()))
 							Expect(ongoingExclusionsByClass).To(HaveLen(1))
 						})
 					})
@@ -1038,19 +1572,34 @@ var _ = Describe("exclude_processes", func() {
 					When("the exclusion has finished", func() {
 						BeforeEach(func() {
 							processGroup := cluster.Status.ProcessGroups[1]
-							Expect(processGroup.ProcessGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-2")))
+							Expect(
+								processGroup.ProcessGroupID,
+							).To(Equal(fdbv1beta2.ProcessGroupID("storage-2")))
 							processGroup.SetExclude()
 							cluster.Status.ProcessGroups[1] = processGroup
 						})
 
 						It("should report the excluded process", func() {
-							fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(exclusions, cluster, map[fdbv1beta2.ProcessGroupID]time.Time{}, map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{})
+							fdbProcessesToExcludeByClass, ongoingExclusionsByClass := getProcessesToExclude(
+								exclusions,
+								cluster,
+								map[fdbv1beta2.ProcessGroupID]time.Time{},
+								map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{},
+							)
 							Expect(fdbProcessesToExcludeByClass).To(HaveLen(1))
-							Expect(fdbProcessesToExcludeByClass).To(HaveKey(fdbv1beta2.ProcessClassStorage))
-							Expect(fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage]).To(HaveLen(1))
+							Expect(
+								fdbProcessesToExcludeByClass,
+							).To(HaveKey(fdbv1beta2.ProcessClassStorage))
+							Expect(
+								fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage],
+							).To(HaveLen(1))
 							entry := fdbProcessesToExcludeByClass[fdbv1beta2.ProcessClassStorage][0]
-							Expect(entry.processGroupID).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
-							Expect(fdbv1beta2.ProcessAddressesString(entry.addresses, " ")).To(Equal(cluster.Status.ProcessGroups[0].GetExclusionString()))
+							Expect(
+								entry.processGroupID,
+							).To(Equal(fdbv1beta2.ProcessGroupID("storage-1")))
+							Expect(
+								fdbv1beta2.ProcessAddressesString(entry.addresses, " "),
+							).To(Equal(cluster.Status.ProcessGroups[0].GetExclusionString()))
 							Expect(ongoingExclusionsByClass).To(HaveLen(0))
 						})
 					})
@@ -1059,9 +1608,19 @@ var _ = Describe("exclude_processes", func() {
 		})
 	})
 
-	DescribeTable("when getting the allowed exclusions", func(validProcesses int, desiredProcessCount int, ongoingExclusions int, faultTolerance int, expected int) {
-		Expect(getAllowedExclusions(GinkgoLogr, validProcesses, desiredProcessCount, ongoingExclusions, faultTolerance)).To(BeNumerically("==", expected))
-	},
+	DescribeTable(
+		"when getting the allowed exclusions",
+		func(validProcesses int, desiredProcessCount int, ongoingExclusions int, faultTolerance int, expected int) {
+			Expect(
+				getAllowedExclusions(
+					GinkgoLogr,
+					validProcesses,
+					desiredProcessCount,
+					ongoingExclusions,
+					faultTolerance,
+				),
+			).To(BeNumerically("==", expected))
+		},
 		Entry("when as many valid processes are running as desired",
 			10,
 			10,
@@ -1086,12 +1645,14 @@ var _ = Describe("exclude_processes", func() {
 			0,
 			2,
 			12),
-		Entry("when more valid processes are running than desired but there are 10 exclusions ongoing",
+		Entry(
+			"when more valid processes are running than desired but there are 10 exclusions ongoing",
 			20,
 			10,
 			10,
 			2,
-			2),
+			2,
+		),
 		Entry("when only 8 valid processes are running",
 			8,
 			10,
@@ -1127,12 +1688,20 @@ var _ = Describe("exclude_processes", func() {
 		})
 
 		JustBeforeEach(func() {
-			req = excludeProcesses{}.reconcile(context.Background(), clusterReconciler, cluster, nil, GinkgoLogr)
+			req = excludeProcesses{}.reconcile(
+				context.Background(),
+				clusterReconciler,
+				cluster,
+				nil,
+				GinkgoLogr,
+			)
 		})
 
 		When("the synchronization mode is local", func() {
 			BeforeEach(func() {
-				cluster.Spec.AutomationOptions.SynchronizationMode = pointer.String(string(fdbv1beta2.SynchronizationModeLocal))
+				cluster.Spec.AutomationOptions.SynchronizationMode = pointer.String(
+					string(fdbv1beta2.SynchronizationModeLocal),
+				)
 			})
 
 			When("a coordinator should be excluded", func() {
@@ -1168,7 +1737,9 @@ var _ = Describe("exclude_processes", func() {
 
 				When("using localities", func() {
 					BeforeEach(func() {
-						cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(true)
+						cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(
+							true,
+						)
 					})
 
 					It("should exclude the process and change the coordinators", func() {
@@ -1180,7 +1751,9 @@ var _ = Describe("exclude_processes", func() {
 
 						_, err = reloadCluster(cluster)
 						Expect(err).NotTo(HaveOccurred())
-						Expect(initialConnectionString).NotTo(Equal(cluster.Status.ConnectionString))
+						Expect(
+							initialConnectionString,
+						).NotTo(Equal(cluster.Status.ConnectionString))
 					})
 				})
 			})
@@ -1192,14 +1765,35 @@ var _ = Describe("exclude_processes", func() {
 
 						_, processGroupIDs, err := cluster.GetCurrentProcessGroupsAndProcessCounts()
 						Expect(err).NotTo(HaveOccurred())
-						cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus(cluster.GetNextRandomProcessGroupID(fdbv1beta2.ProcessClassLog, processGroupIDs[fdbv1beta2.ProcessClassLog]), fdbv1beta2.ProcessClassLog, nil))
+						cluster.Status.ProcessGroups = append(
+							cluster.Status.ProcessGroups,
+							fdbv1beta2.NewProcessGroupStatus(
+								cluster.GetNextRandomProcessGroupID(
+									fdbv1beta2.ProcessClassLog,
+									processGroupIDs[fdbv1beta2.ProcessClassLog],
+								),
+								fdbv1beta2.ProcessClassLog,
+								nil,
+							),
+						)
 						cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].ProcessGroupConditions = nil
-						cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus(cluster.GetNextRandomProcessGroupID(fdbv1beta2.ProcessClassStateless, processGroupIDs[fdbv1beta2.ProcessClassStateless]), fdbv1beta2.ProcessClassStateless, nil))
+						cluster.Status.ProcessGroups = append(
+							cluster.Status.ProcessGroups,
+							fdbv1beta2.NewProcessGroupStatus(
+								cluster.GetNextRandomProcessGroupID(
+									fdbv1beta2.ProcessClassStateless,
+									processGroupIDs[fdbv1beta2.ProcessClassStateless],
+								),
+								fdbv1beta2.ProcessClassStateless,
+								nil,
+							),
+						)
 						cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].ProcessGroupConditions = nil
 
 						markedForRemoval := make([]fdbv1beta2.ProcessGroupID, 0, 2)
 						for _, processGroup := range cluster.Status.ProcessGroups {
-							if !processGroup.ProcessClass.IsTransaction() || processGroup.ProcessClass == fdbv1beta2.ProcessClassClusterController {
+							if !processGroup.ProcessClass.IsTransaction() ||
+								processGroup.ProcessClass == fdbv1beta2.ProcessClassClusterController {
 								continue
 							}
 
@@ -1245,8 +1839,18 @@ var _ = Describe("exclude_processes", func() {
 							_, processGroupIDs, err := cluster.GetCurrentProcessGroupsAndProcessCounts()
 							Expect(err).NotTo(HaveOccurred())
 
-							missingProcessGroup = fdbv1beta2.NewProcessGroupStatus(cluster.GetNextRandomProcessGroupID(fdbv1beta2.ProcessClassLog, processGroupIDs[fdbv1beta2.ProcessClassLog]), fdbv1beta2.ProcessClassLog, nil)
-							cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, missingProcessGroup)
+							missingProcessGroup = fdbv1beta2.NewProcessGroupStatus(
+								cluster.GetNextRandomProcessGroupID(
+									fdbv1beta2.ProcessClassLog,
+									processGroupIDs[fdbv1beta2.ProcessClassLog],
+								),
+								fdbv1beta2.ProcessClassLog,
+								nil,
+							)
+							cluster.Status.ProcessGroups = append(
+								cluster.Status.ProcessGroups,
+								missingProcessGroup,
+							)
 							// We have to set InSimulation here to false, otherwise the MissingProcess timestamp will be ignored.
 							clusterReconciler.SimulationOptions.SimulateTime = false
 						})
@@ -1261,11 +1865,16 @@ var _ = Describe("exclude_processes", func() {
 
 						When("the transaction process is missing for more than 10 minutes", func() {
 							BeforeEach(func() {
-								missingProcessGroup.ProcessGroupConditions[0].Timestamp = time.Now().Add(-10 * time.Minute).Unix()
+								missingProcessGroup.ProcessGroupConditions[0].Timestamp = time.Now().
+									Add(-10 * time.Minute).
+									Unix()
 							})
 
 							It("should exclude the process", func() {
-								adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
+								adminClient, err := mock.NewMockAdminClientUncast(
+									cluster,
+									k8sClient,
+								)
 								Expect(err).NotTo(HaveOccurred())
 
 								Expect(req).To(BeNil())
@@ -1279,7 +1888,9 @@ var _ = Describe("exclude_processes", func() {
 
 		When("the synchronization mode is global", func() {
 			BeforeEach(func() {
-				cluster.Spec.AutomationOptions.SynchronizationMode = pointer.String(string(fdbv1beta2.SynchronizationModeGlobal))
+				cluster.Spec.AutomationOptions.SynchronizationMode = pointer.String(
+					string(fdbv1beta2.SynchronizationModeGlobal),
+				)
 			})
 
 			When("a coordinator should be excluded", func() {
@@ -1315,7 +1926,9 @@ var _ = Describe("exclude_processes", func() {
 
 				When("using localities", func() {
 					BeforeEach(func() {
-						cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(true)
+						cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(
+							true,
+						)
 					})
 
 					It("should exclude the process and change the coordinators", func() {
@@ -1327,7 +1940,9 @@ var _ = Describe("exclude_processes", func() {
 
 						_, err = reloadCluster(cluster)
 						Expect(err).NotTo(HaveOccurred())
-						Expect(initialConnectionString).NotTo(Equal(cluster.Status.ConnectionString))
+						Expect(
+							initialConnectionString,
+						).NotTo(Equal(cluster.Status.ConnectionString))
 					})
 				})
 			})
@@ -1340,9 +1955,13 @@ var _ = Describe("exclude_processes", func() {
 					adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
 
-					Expect(adminClient.UpdatePendingForExclusion(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{
-						otherProcessGroupID: fdbv1beta2.UpdateActionAdd,
-					})).To(Succeed())
+					Expect(
+						adminClient.UpdatePendingForExclusion(
+							map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{
+								otherProcessGroupID: fdbv1beta2.UpdateActionAdd,
+							},
+						),
+					).To(Succeed())
 
 					adminClient.MockAdditionalProcesses([]fdbv1beta2.ProcessGroupStatus{
 						{
@@ -1366,30 +1985,41 @@ var _ = Describe("exclude_processes", func() {
 					}
 				})
 
-				When("the process group from the other cluster is not ready to be excluded", func() {
-					It("should not exclude the processes", func() {
-						adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
-						Expect(err).NotTo(HaveOccurred())
+				When(
+					"the process group from the other cluster is not ready to be excluded",
+					func() {
+						It("should not exclude the processes", func() {
+							adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
+							Expect(err).NotTo(HaveOccurred())
 
-						Expect(req).NotTo(BeNil())
-						Expect(req.curError).To(MatchError(Equal("not all processes are ready: another-cluster-log-1")))
-						Expect(adminClient.ExcludedAddresses).To(BeEmpty())
-					})
-				})
+							Expect(req).NotTo(BeNil())
+							Expect(
+								req.curError,
+							).To(MatchError(Equal("not all processes are ready: another-cluster-log-1")))
+							Expect(adminClient.ExcludedAddresses).To(BeEmpty())
+						})
+					},
+				)
 
 				When("the process group from the other cluster is ready to be excluded", func() {
 					BeforeEach(func() {
 						adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 						Expect(err).NotTo(HaveOccurred())
 
-						Expect(adminClient.UpdateReadyForExclusion(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{
-							otherProcessGroupID: fdbv1beta2.UpdateActionAdd,
-						})).To(Succeed())
+						Expect(
+							adminClient.UpdateReadyForExclusion(
+								map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{
+									otherProcessGroupID: fdbv1beta2.UpdateActionAdd,
+								},
+							),
+						).To(Succeed())
 					})
 
 					When("localities are used for exclusion", func() {
 						BeforeEach(func() {
-							cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(true)
+							cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(
+								true,
+							)
 						})
 
 						It("should exclude the processes", func() {
@@ -1399,25 +2029,33 @@ var _ = Describe("exclude_processes", func() {
 							Expect(req).To(BeNil())
 							Expect(adminClient.ExcludedAddresses).To(HaveLen(2))
 							for excludedAddress := range adminClient.ExcludedAddresses {
-								Expect(excludedAddress).To(HavePrefix(fdbv1beta2.FDBLocalityExclusionPrefix))
+								Expect(
+									excludedAddress,
+								).To(HavePrefix(fdbv1beta2.FDBLocalityExclusionPrefix))
 							}
 						})
 					})
 
 					When("localities for exclusion are disabled", func() {
 						BeforeEach(func() {
-							cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(false)
+							cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(
+								false,
+							)
 							adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 							Expect(err).NotTo(HaveOccurred())
 
-							Expect(adminClient.UpdateProcessAddresses(map[fdbv1beta2.ProcessGroupID][]string{
-								otherProcessGroupID: {
-									"192.168.0.2",
-								},
-								targetedProcessGroupID: {
-									"192.168.0.3",
-								},
-							})).To(Succeed())
+							Expect(
+								adminClient.UpdateProcessAddresses(
+									map[fdbv1beta2.ProcessGroupID][]string{
+										otherProcessGroupID: {
+											"192.168.0.2",
+										},
+										targetedProcessGroupID: {
+											"192.168.0.3",
+										},
+									},
+								),
+							).To(Succeed())
 						})
 
 						It("should exclude the processes", func() {
@@ -1427,7 +2065,9 @@ var _ = Describe("exclude_processes", func() {
 							Expect(req).To(BeNil())
 							Expect(adminClient.ExcludedAddresses).To(HaveLen(2))
 							for excludedAddress := range adminClient.ExcludedAddresses {
-								Expect(excludedAddress).NotTo(HavePrefix(fdbv1beta2.FDBLocalityExclusionPrefix))
+								Expect(
+									excludedAddress,
+								).NotTo(HavePrefix(fdbv1beta2.FDBLocalityExclusionPrefix))
 							}
 						})
 					})
@@ -1444,14 +2084,19 @@ var _ = Describe("exclude_processes", func() {
 					adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
 
-					adminClient.MockAdditionTimeForGlobalCoordination = time.Now().Add(-coordination.IgnoreMissingProcessDuration)
+					adminClient.MockAdditionTimeForGlobalCoordination = time.Now().
+						Add(-coordination.IgnoreMissingProcessDuration)
 
-					Expect(adminClient.UpdatePendingForExclusion(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{
-						firstOtherProcessGroupID:  fdbv1beta2.UpdateActionAdd,
-						secondOtherProcessGroupID: fdbv1beta2.UpdateActionAdd,
-						thirdOtherProcessGroupID:  fdbv1beta2.UpdateActionAdd,
-						fourthOtherProcessGroupID: fdbv1beta2.UpdateActionAdd,
-					})).To(Succeed())
+					Expect(
+						adminClient.UpdatePendingForExclusion(
+							map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{
+								firstOtherProcessGroupID:  fdbv1beta2.UpdateActionAdd,
+								secondOtherProcessGroupID: fdbv1beta2.UpdateActionAdd,
+								thirdOtherProcessGroupID:  fdbv1beta2.UpdateActionAdd,
+								fourthOtherProcessGroupID: fdbv1beta2.UpdateActionAdd,
+							},
+						),
+					).To(Succeed())
 
 					adminClient.MockAdditionalProcesses([]fdbv1beta2.ProcessGroupStatus{
 						{
@@ -1494,32 +2139,39 @@ var _ = Describe("exclude_processes", func() {
 					}
 				})
 
-				When("the process group from the other cluster is not ready to be excluded", func() {
-					It("should only exclude one process in the local cluster", func() {
-						adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
-						Expect(err).NotTo(HaveOccurred())
+				When(
+					"the process group from the other cluster is not ready to be excluded",
+					func() {
+						It("should only exclude one process in the local cluster", func() {
+							adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
+							Expect(err).NotTo(HaveOccurred())
 
-						Expect(req).NotTo(BeNil())
-						Expect(req.delayedRequeue).To(BeTrue())
-						Expect(req.delay).To(BeNumerically("==", 5*time.Minute))
-						Expect(adminClient.ExcludedAddresses).To(HaveLen(1))
+							Expect(req).NotTo(BeNil())
+							Expect(req.delayedRequeue).To(BeTrue())
+							Expect(req.delay).To(BeNumerically("==", 5*time.Minute))
+							Expect(adminClient.ExcludedAddresses).To(HaveLen(1))
 
-						for excludedAddress := range adminClient.ExcludedAddresses {
-							splits := strings.Split(excludedAddress, ":")
-							Expect(splits).To(HaveLen(2))
-							Expect(splits[1]).NotTo(HavePrefix("another-cluster"))
-						}
-					})
-				})
+							for excludedAddress := range adminClient.ExcludedAddresses {
+								splits := strings.Split(excludedAddress, ":")
+								Expect(splits).To(HaveLen(2))
+								Expect(splits[1]).NotTo(HavePrefix("another-cluster"))
+							}
+						})
+					},
+				)
 
 				When("only one process in both dcs are ready", func() {
 					BeforeEach(func() {
 						adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 						Expect(err).NotTo(HaveOccurred())
 
-						Expect(adminClient.UpdateReadyForExclusion(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{
-							firstOtherProcessGroupID: fdbv1beta2.UpdateActionAdd,
-						})).To(Succeed())
+						Expect(
+							adminClient.UpdateReadyForExclusion(
+								map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{
+									firstOtherProcessGroupID: fdbv1beta2.UpdateActionAdd,
+								},
+							),
+						).To(Succeed())
 					})
 
 					It("should exclude two processes", func() {
@@ -1532,7 +2184,9 @@ var _ = Describe("exclude_processes", func() {
 						Expect(adminClient.ExcludedAddresses).To(HaveLen(2))
 
 						for excludedAddress := range adminClient.ExcludedAddresses {
-							Expect(excludedAddress).To(HavePrefix(fdbv1beta2.FDBLocalityExclusionPrefix))
+							Expect(
+								excludedAddress,
+							).To(HavePrefix(fdbv1beta2.FDBLocalityExclusionPrefix))
 						}
 					})
 				})
@@ -1541,7 +2195,11 @@ var _ = Describe("exclude_processes", func() {
 	})
 })
 
-func createMissingProcesses(cluster *fdbv1beta2.FoundationDBCluster, count int, processClass fdbv1beta2.ProcessClass) {
+func createMissingProcesses(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	count int,
+	processClass fdbv1beta2.ProcessClass,
+) {
 	missing := 0
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup.ProcessClass == processClass {

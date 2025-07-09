@@ -81,10 +81,28 @@ func newCordonCmd(streams genericclioptions.IOStreams) *cobra.Command {
 					return err
 				}
 
-				return cordonNode(cmd, kubeClient, clusterName, nodes, namespace, withExclusion, wait, clusterLabel)
+				return cordonNode(
+					cmd,
+					kubeClient,
+					clusterName,
+					nodes,
+					namespace,
+					withExclusion,
+					wait,
+					clusterLabel,
+				)
 			}
 
-			return cordonNode(cmd, kubeClient, clusterName, args, namespace, withExclusion, wait, clusterLabel)
+			return cordonNode(
+				cmd,
+				kubeClient,
+				clusterName,
+				args,
+				namespace,
+				withExclusion,
+				wait,
+				clusterLabel,
+			)
 		},
 		Example: `
 # Evacuate all process groups for a cluster in the current namespace that are hosted on node-1
@@ -113,17 +131,30 @@ kubectl fdb cordon --node-selector machine=a,disk=fast -l fdb-cluster-label
 	cmd.SetErr(o.ErrOut)
 	cmd.SetIn(o.In)
 
-	cmd.Flags().StringP("fdb-cluster", "c", "", "evacuate process group(s) from the provided cluster.")
-	cmd.Flags().StringToStringVarP(&nodeSelectors, "node-selector", "", nil, "node-selector to select all nodes that should be cordoned. Can't be used with specific nodes.")
-	cmd.Flags().BoolP("exclusion", "e", true, "define if the process groups should be removed with exclusion.")
-	cmd.Flags().StringP("cluster-label", "l", fdbv1beta2.FDBClusterLabel, "cluster label to fetch the appropriate Pods and identify the according cluster.")
+	cmd.Flags().
+		StringP("fdb-cluster", "c", "", "evacuate process group(s) from the provided cluster.")
+	cmd.Flags().
+		StringToStringVarP(&nodeSelectors, "node-selector", "", nil, "node-selector to select all nodes that should be cordoned. Can't be used with specific nodes.")
+	cmd.Flags().
+		BoolP("exclusion", "e", true, "define if the process groups should be removed with exclusion.")
+	cmd.Flags().
+		StringP("cluster-label", "l", fdbv1beta2.FDBClusterLabel, "cluster label to fetch the appropriate Pods and identify the according cluster.")
 	o.configFlags.AddFlags(cmd.Flags())
 
 	return cmd
 }
 
 // cordonNode gets all process groups of this cluster that run on the given nodes and add them to the remove list
-func cordonNode(cmd *cobra.Command, kubeClient client.Client, inputClusterName string, nodes []string, namespace string, withExclusion bool, wait bool, clusterLabel string) error {
+func cordonNode(
+	cmd *cobra.Command,
+	kubeClient client.Client,
+	inputClusterName string,
+	nodes []string,
+	namespace string,
+	withExclusion bool,
+	wait bool,
+	clusterLabel string,
+) error {
 	cmd.Printf("Starting to cordon %d nodes\n", len(nodes))
 	if len(nodes) == 0 {
 		return errors.New("no nodes were provided for cordoning")
@@ -134,7 +165,10 @@ func cordonNode(cmd *cobra.Command, kubeClient client.Client, inputClusterName s
 	for _, node := range nodes {
 		pods, err := fetchPodsOnNode(kubeClient, inputClusterName, namespace, node, clusterLabel)
 		if err != nil {
-			observedErrors = append(observedErrors, fmt.Errorf("error fetching Pods from node: %s", node))
+			observedErrors = append(
+				observedErrors,
+				fmt.Errorf("error fetching Pods from node: %s", node),
+			)
 			continue
 		}
 
@@ -163,7 +197,10 @@ func cordonNode(cmd *cobra.Command, kubeClient client.Client, inputClusterName s
 				removeAllFailed: false,
 			})
 		if err != nil {
-			observedErrors = append(observedErrors, fmt.Errorf("unable to cordon all Pods on node %s", node))
+			observedErrors = append(
+				observedErrors,
+				fmt.Errorf("unable to cordon all Pods on node %s", node),
+			)
 			continue
 		}
 

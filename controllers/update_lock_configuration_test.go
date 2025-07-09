@@ -61,7 +61,13 @@ var _ = Describe("update_lock_configuration", func() {
 	})
 
 	JustBeforeEach(func() {
-		requeue = updateLockConfiguration{}.reconcile(context.TODO(), clusterReconciler, cluster, nil, globalControllerLogger)
+		requeue = updateLockConfiguration{}.reconcile(
+			context.TODO(),
+			clusterReconciler,
+			cluster,
+			nil,
+			globalControllerLogger,
+		)
 		if requeue != nil {
 			Expect(requeue.curError).NotTo(HaveOccurred())
 		}
@@ -81,7 +87,10 @@ var _ = Describe("update_lock_configuration", func() {
 
 	Context("with an entry in the deny list", func() {
 		BeforeEach(func() {
-			cluster.Spec.LockOptions.DenyList = append(cluster.Spec.LockOptions.DenyList, fdbv1beta2.LockDenyListEntry{ID: "dc2"})
+			cluster.Spec.LockOptions.DenyList = append(
+				cluster.Spec.LockOptions.DenyList,
+				fdbv1beta2.LockDenyListEntry{ID: "dc2"},
+			)
 		})
 
 		It("should not requeue", func() {
@@ -101,9 +110,14 @@ var _ = Describe("update_lock_configuration", func() {
 
 	Context("with an entry to remove from the deny list", func() {
 		BeforeEach(func() {
-			err = lockClient.UpdateDenyList([]fdbv1beta2.LockDenyListEntry{{ID: "dc2"}, {ID: "dc3"}})
+			err = lockClient.UpdateDenyList(
+				[]fdbv1beta2.LockDenyListEntry{{ID: "dc2"}, {ID: "dc3"}},
+			)
 			Expect(err).NotTo(HaveOccurred())
-			cluster.Spec.LockOptions.DenyList = append(cluster.Spec.LockOptions.DenyList, fdbv1beta2.LockDenyListEntry{ID: "dc2", Allow: true})
+			cluster.Spec.LockOptions.DenyList = append(
+				cluster.Spec.LockOptions.DenyList,
+				fdbv1beta2.LockDenyListEntry{ID: "dc2", Allow: true},
+			)
 		})
 
 		It("should not requeue", func() {

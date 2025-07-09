@@ -65,7 +65,9 @@ var _ = Describe("[plugin] buggify crash-loop process groups command", func() {
 							clean:         false,
 						}
 						tc.ProcessGroupOpts.namespace = namespace
-						Expect(updateCrashLoopContainerList(cmd, k8sClient, opts, tc.ProcessGroupOpts)).NotTo(HaveOccurred())
+						Expect(
+							updateCrashLoopContainerList(cmd, k8sClient, opts, tc.ProcessGroupOpts),
+						).NotTo(HaveOccurred())
 
 						for cluster, processGroupsInCrashLoop := range tc.ExpectedProcessGroupsInCrashLoop {
 							var resCluster fdbv1beta2.FoundationDBCluster
@@ -78,9 +80,15 @@ var _ = Describe("[plugin] buggify crash-loop process groups command", func() {
 								if crashLoopContainerObj.ContainerName != fdbv1beta2.MainContainerName {
 									continue
 								}
-								Expect(processGroupsInCrashLoop).To(ContainElements(crashLoopContainerObj.Targets))
-								Expect(crashLoopContainerObj.Targets).To(ContainElements(processGroupsInCrashLoop))
-								Expect(processGroupsInCrashLoop).To(HaveLen(len(crashLoopContainerObj.Targets)))
+								Expect(
+									processGroupsInCrashLoop,
+								).To(ContainElements(crashLoopContainerObj.Targets))
+								Expect(
+									crashLoopContainerObj.Targets,
+								).To(ContainElements(processGroupsInCrashLoop))
+								Expect(
+									processGroupsInCrashLoop,
+								).To(HaveLen(len(crashLoopContainerObj.Targets)))
 							}
 						}
 					},
@@ -109,19 +117,49 @@ var _ = Describe("[plugin] buggify crash-loop process groups command", func() {
 							ProcessGroupOpts: processGroupSelectionOptions{
 								ids: []string{
 									// the helper function to create pods for the k8s client uses "instance" not "storage" processGroup names
-									fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage),
-									fmt.Sprintf("%s-%s-2", clusterName, fdbv1beta2.ProcessClassStorage),
-									fmt.Sprintf("%s-%s-2", secondClusterName, fdbv1beta2.ProcessClassStorage),
+									fmt.Sprintf(
+										"%s-%s-1",
+										clusterName,
+										fdbv1beta2.ProcessClassStorage,
+									),
+									fmt.Sprintf(
+										"%s-%s-2",
+										clusterName,
+										fdbv1beta2.ProcessClassStorage,
+									),
+									fmt.Sprintf(
+										"%s-%s-2",
+										secondClusterName,
+										fdbv1beta2.ProcessClassStorage,
+									),
 								},
 								clusterLabel: fdbv1beta2.FDBClusterLabel,
 							},
 							ExpectedProcessGroupsInCrashLoop: map[string][]fdbv1beta2.ProcessGroupID{
 								clusterName: {
-									fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage)),
-									fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-2", clusterName, fdbv1beta2.ProcessClassStorage)),
+									fdbv1beta2.ProcessGroupID(
+										fmt.Sprintf(
+											"%s-%s-1",
+											clusterName,
+											fdbv1beta2.ProcessClassStorage,
+										),
+									),
+									fdbv1beta2.ProcessGroupID(
+										fmt.Sprintf(
+											"%s-%s-2",
+											clusterName,
+											fdbv1beta2.ProcessClassStorage,
+										),
+									),
 								},
 								secondClusterName: {
-									fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-2", secondClusterName, fdbv1beta2.ProcessClassStorage)),
+									fdbv1beta2.ProcessGroupID(
+										fmt.Sprintf(
+											"%s-%s-2",
+											secondClusterName,
+											fdbv1beta2.ProcessClassStorage,
+										),
+									),
 								},
 							},
 						}),
@@ -134,8 +172,20 @@ var _ = Describe("[plugin] buggify crash-loop process groups command", func() {
 							ExpectedProcessGroupsInCrashLoop: map[string][]fdbv1beta2.ProcessGroupID{
 								clusterName: {
 									// the helper function to create pods for the k8s client uses "instance" not "storage" processGroup names
-									fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-1", clusterName, fdbv1beta2.ProcessClassStorage)),
-									fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-2", clusterName, fdbv1beta2.ProcessClassStorage)),
+									fdbv1beta2.ProcessGroupID(
+										fmt.Sprintf(
+											"%s-%s-1",
+											clusterName,
+											fdbv1beta2.ProcessClassStorage,
+										),
+									),
+									fdbv1beta2.ProcessGroupID(
+										fmt.Sprintf(
+											"%s-%s-2",
+											clusterName,
+											fdbv1beta2.ProcessClassStorage,
+										),
+									),
 								},
 							},
 						}),
@@ -143,12 +193,20 @@ var _ = Describe("[plugin] buggify crash-loop process groups command", func() {
 						processGroupOptionsTestCase{
 							ProcessGroupOpts: processGroupSelectionOptions{
 								clusterName: clusterName,
-								conditions:  []fdbv1beta2.ProcessGroupConditionType{fdbv1beta2.MissingProcesses},
+								conditions: []fdbv1beta2.ProcessGroupConditionType{
+									fdbv1beta2.MissingProcesses,
+								},
 							},
 							ExpectedProcessGroupsInCrashLoop: map[string][]fdbv1beta2.ProcessGroupID{
 								clusterName: {
 									// the helper function to create pods for the k8s client uses "instance" not "storage" processGroup names
-									fdbv1beta2.ProcessGroupID(fmt.Sprintf("%s-%s-2", clusterName, fdbv1beta2.ProcessClassStorage)),
+									fdbv1beta2.ProcessGroupID(
+										fmt.Sprintf(
+											"%s-%s-2",
+											clusterName,
+											fdbv1beta2.ProcessClassStorage,
+										),
+									),
 								},
 							},
 						}),
@@ -162,7 +220,10 @@ var _ = Describe("[plugin] buggify crash-loop process groups command", func() {
 						ContainerName: fdbv1beta2.MainContainerName,
 						Targets:       []fdbv1beta2.ProcessGroupID{"test-storage-1"},
 					}
-					cluster.Spec.Buggify.CrashLoopContainers = append(cluster.Spec.Buggify.CrashLoopContainers, crashLoopContainerObj)
+					cluster.Spec.Buggify.CrashLoopContainers = append(
+						cluster.Spec.Buggify.CrashLoopContainers,
+						crashLoopContainerObj,
+					)
 				})
 
 				DescribeTable("should add all targeted process groups to crash-loop container list",
@@ -180,7 +241,9 @@ var _ = Describe("[plugin] buggify crash-loop process groups command", func() {
 							clusterName: clusterName,
 							namespace:   namespace,
 						}
-						Expect(updateCrashLoopContainerList(cmd, k8sClient, opts, processGroupOpts)).NotTo(HaveOccurred())
+						Expect(
+							updateCrashLoopContainerList(cmd, k8sClient, opts, processGroupOpts),
+						).NotTo(HaveOccurred())
 
 						var resCluster fdbv1beta2.FoundationDBCluster
 						Expect(k8sClient.Get(context.Background(), client.ObjectKey{
@@ -192,23 +255,38 @@ var _ = Describe("[plugin] buggify crash-loop process groups command", func() {
 							if crashLoopContainerObj.ContainerName != fdbv1beta2.MainContainerName {
 								continue
 							}
-							Expect(tc.ExpectedProcessGroupsInCrashLoop).To(ConsistOf(crashLoopContainerObj.Targets))
+							Expect(
+								tc.ExpectedProcessGroupsInCrashLoop,
+							).To(ConsistOf(crashLoopContainerObj.Targets))
 						}
 					},
 					Entry("Adding same process group.",
 						testCase{
-							ProcessGroups:                    []string{"test-storage-1"},
-							ExpectedProcessGroupsInCrashLoop: []fdbv1beta2.ProcessGroupID{"test-storage-1"},
+							ProcessGroups: []string{"test-storage-1"},
+							ExpectedProcessGroupsInCrashLoop: []fdbv1beta2.ProcessGroupID{
+								"test-storage-1",
+							},
 						}),
 					Entry("Adding single but different process group.",
 						testCase{
-							ProcessGroups:                    []string{"test-storage-2"},
-							ExpectedProcessGroupsInCrashLoop: []fdbv1beta2.ProcessGroupID{"test-storage-1", "test-storage-2"},
+							ProcessGroups: []string{"test-storage-2"},
+							ExpectedProcessGroupsInCrashLoop: []fdbv1beta2.ProcessGroupID{
+								"test-storage-1",
+								"test-storage-2",
+							},
 						}),
 					Entry("Adding multiple process groups.",
 						testCase{
-							ProcessGroups:                    []string{"test-storage-1", "test-storage-2", "test-stateless-3"},
-							ExpectedProcessGroupsInCrashLoop: []fdbv1beta2.ProcessGroupID{"test-storage-1", "test-storage-2", "test-stateless-3"},
+							ProcessGroups: []string{
+								"test-storage-1",
+								"test-storage-2",
+								"test-stateless-3",
+							},
+							ExpectedProcessGroupsInCrashLoop: []fdbv1beta2.ProcessGroupID{
+								"test-storage-1",
+								"test-storage-2",
+								"test-stateless-3",
+							},
 						}),
 				)
 			})
@@ -219,8 +297,14 @@ var _ = Describe("[plugin] buggify crash-loop process groups command", func() {
 						ContainerName: fdbv1beta2.SidecarContainerName,
 						Targets:       []fdbv1beta2.ProcessGroupID{"should-be-ignored-storage-1"},
 					}
-					cluster.Spec.Buggify.CrashLoopContainers = append(cluster.Spec.Buggify.CrashLoopContainers, crashLoopContainerObj)
-					secondCluster.Spec.Buggify.CrashLoopContainers = append(cluster.Spec.Buggify.CrashLoopContainers, crashLoopContainerObj)
+					cluster.Spec.Buggify.CrashLoopContainers = append(
+						cluster.Spec.Buggify.CrashLoopContainers,
+						crashLoopContainerObj,
+					)
+					secondCluster.Spec.Buggify.CrashLoopContainers = append(
+						cluster.Spec.Buggify.CrashLoopContainers,
+						crashLoopContainerObj,
+					)
 				})
 
 				DescribeTable("should add all targeted processes to crash-loop container list",
@@ -238,7 +322,9 @@ var _ = Describe("[plugin] buggify crash-loop process groups command", func() {
 							clusterName: clusterName,
 							namespace:   namespace,
 						}
-						Expect(updateCrashLoopContainerList(cmd, k8sClient, opts, processGroupOpts)).NotTo(HaveOccurred())
+						Expect(
+							updateCrashLoopContainerList(cmd, k8sClient, opts, processGroupOpts),
+						).NotTo(HaveOccurred())
 
 						var resCluster fdbv1beta2.FoundationDBCluster
 						Expect(k8sClient.Get(context.Background(), client.ObjectKey{
@@ -250,18 +336,30 @@ var _ = Describe("[plugin] buggify crash-loop process groups command", func() {
 							if crashLoopContainerObj.ContainerName != fdbv1beta2.MainContainerName {
 								continue
 							}
-							Expect(tc.ExpectedProcessGroupsInCrashLoop).To(ConsistOf(crashLoopContainerObj.Targets))
+							Expect(
+								tc.ExpectedProcessGroupsInCrashLoop,
+							).To(ConsistOf(crashLoopContainerObj.Targets))
 						}
 					},
 					Entry("Adding single process group.",
 						testCase{
-							ProcessGroups:                    []string{"test-storage-1"},
-							ExpectedProcessGroupsInCrashLoop: []fdbv1beta2.ProcessGroupID{"test-storage-1"},
+							ProcessGroups: []string{"test-storage-1"},
+							ExpectedProcessGroupsInCrashLoop: []fdbv1beta2.ProcessGroupID{
+								"test-storage-1",
+							},
 						}),
 					Entry("Adding multiple process group.",
 						testCase{
-							ProcessGroups:                    []string{"test-storage-1", "test-storage-2", "test-stateless-3"},
-							ExpectedProcessGroupsInCrashLoop: []fdbv1beta2.ProcessGroupID{"test-storage-1", "test-storage-2", "test-stateless-3"},
+							ProcessGroups: []string{
+								"test-storage-1",
+								"test-storage-2",
+								"test-stateless-3",
+							},
+							ExpectedProcessGroupsInCrashLoop: []fdbv1beta2.ProcessGroupID{
+								"test-storage-1",
+								"test-storage-2",
+								"test-stateless-3",
+							},
 						}),
 				)
 
@@ -277,12 +375,20 @@ var _ = Describe("[plugin] buggify crash-loop process groups command", func() {
 			BeforeEach(func() {
 				crashLoopContainerObj := fdbv1beta2.CrashLoopContainerObject{
 					ContainerName: fdbv1beta2.MainContainerName,
-					Targets:       []fdbv1beta2.ProcessGroupID{"test-storage-1", "test-storage-2", "test-stateless-3"},
+					Targets: []fdbv1beta2.ProcessGroupID{
+						"test-storage-1",
+						"test-storage-2",
+						"test-stateless-3",
+					},
 				}
-				cluster.Spec.Buggify.CrashLoopContainers = append(cluster.Spec.Buggify.CrashLoopContainers, crashLoopContainerObj)
+				cluster.Spec.Buggify.CrashLoopContainers = append(
+					cluster.Spec.Buggify.CrashLoopContainers,
+					crashLoopContainerObj,
+				)
 			})
 
-			DescribeTable("should remove all targeted process groups from crash-loop container list",
+			DescribeTable(
+				"should remove all targeted process groups from crash-loop container list",
 				func(tc testCase) {
 					Expect(cluster.Spec.Buggify.CrashLoopContainers).To(HaveLen(1))
 					cmd := newBuggifyCrashLoop(genericclioptions.IOStreams{})
@@ -297,7 +403,9 @@ var _ = Describe("[plugin] buggify crash-loop process groups command", func() {
 						clusterName: clusterName,
 						namespace:   namespace,
 					}
-					Expect(updateCrashLoopContainerList(cmd, k8sClient, opts, processGroupOpts)).NotTo(HaveOccurred())
+					Expect(
+						updateCrashLoopContainerList(cmd, k8sClient, opts, processGroupOpts),
+					).NotTo(HaveOccurred())
 
 					var resCluster fdbv1beta2.FoundationDBCluster
 					Expect(k8sClient.Get(context.Background(), client.ObjectKey{
@@ -309,22 +417,36 @@ var _ = Describe("[plugin] buggify crash-loop process groups command", func() {
 						if crashLoopContainerObj.ContainerName != fdbv1beta2.MainContainerName {
 							continue
 						}
-						Expect(tc.ExpectedProcessGroupsInCrashLoop).To(ConsistOf(crashLoopContainerObj.Targets))
+						Expect(
+							tc.ExpectedProcessGroupsInCrashLoop,
+						).To(ConsistOf(crashLoopContainerObj.Targets))
 					}
 				},
 				Entry("Removing single process group.",
 					testCase{
-						ProcessGroups:                    []string{"test-storage-1"},
-						ExpectedProcessGroupsInCrashLoop: []fdbv1beta2.ProcessGroupID{"test-storage-2", "test-stateless-3"},
+						ProcessGroups: []string{"test-storage-1"},
+						ExpectedProcessGroupsInCrashLoop: []fdbv1beta2.ProcessGroupID{
+							"test-storage-2",
+							"test-stateless-3",
+						},
 					}),
 				Entry("Removing multiple process groups.",
 					testCase{
-						ProcessGroups:                    []string{"test-storage-1", "test-storage-2"},
-						ExpectedProcessGroupsInCrashLoop: []fdbv1beta2.ProcessGroupID{"test-stateless-3"},
+						ProcessGroups: []string{
+							"test-storage-1",
+							"test-storage-2",
+						},
+						ExpectedProcessGroupsInCrashLoop: []fdbv1beta2.ProcessGroupID{
+							"test-stateless-3",
+						},
 					}),
 				Entry("Removing all process groups.",
 					testCase{
-						ProcessGroups:                    []string{"test-storage-1", "test-storage-2", "test-stateless-3"},
+						ProcessGroups: []string{
+							"test-storage-1",
+							"test-storage-2",
+							"test-stateless-3",
+						},
 						ExpectedProcessGroupsInCrashLoop: []fdbv1beta2.ProcessGroupID{},
 					}),
 			)
@@ -334,9 +456,16 @@ var _ = Describe("[plugin] buggify crash-loop process groups command", func() {
 			BeforeEach(func() {
 				crashLoopContainerObj := fdbv1beta2.CrashLoopContainerObject{
 					ContainerName: fdbv1beta2.MainContainerName,
-					Targets:       []fdbv1beta2.ProcessGroupID{"storage-1", "storage-2", "storage-3"},
+					Targets: []fdbv1beta2.ProcessGroupID{
+						"storage-1",
+						"storage-2",
+						"storage-3",
+					},
 				}
-				cluster.Spec.Buggify.CrashLoopContainers = append(cluster.Spec.Buggify.CrashLoopContainers, crashLoopContainerObj)
+				cluster.Spec.Buggify.CrashLoopContainers = append(
+					cluster.Spec.Buggify.CrashLoopContainers,
+					crashLoopContainerObj,
+				)
 			})
 
 			It("should clear everything from the crash-loop container-list", func() {
@@ -352,7 +481,9 @@ var _ = Describe("[plugin] buggify crash-loop process groups command", func() {
 					clusterName: clusterName,
 					namespace:   namespace,
 				}
-				Expect(updateCrashLoopContainerList(cmd, k8sClient, opts, processGroupOpts)).NotTo(HaveOccurred())
+				Expect(
+					updateCrashLoopContainerList(cmd, k8sClient, opts, processGroupOpts),
+				).NotTo(HaveOccurred())
 
 				var resCluster fdbv1beta2.FoundationDBCluster
 				Expect(k8sClient.Get(context.Background(), client.ObjectKey{
@@ -383,7 +514,9 @@ var _ = Describe("[plugin] buggify crash-loop process groups command", func() {
 				}
 				err := updateCrashLoopContainerList(cmd, k8sClient, opts, processGroupOpts)
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("clean option requires cluster-name argument"))
+				Expect(
+					err.Error(),
+				).To(ContainSubstring("clean option requires cluster-name argument"))
 			})
 		})
 	})

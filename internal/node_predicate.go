@@ -65,7 +65,8 @@ func (n NodeTaintChangedPredicate) Update(event event.UpdateEvent) bool {
 
 	taintsChanged := !equality.Semantic.DeepEqual(oldNode.Spec.Taints, newNode.Spec.Taints)
 	if taintsChanged {
-		n.Logger.V(1).Info("Node taints have changed", "node", oldNode.Name, "taintsChanged", taintsChanged, "oldTaints", oldNode.Spec.Taints, "newTaints", newNode.Spec.Taints)
+		n.Logger.V(1).
+			Info("Node taints have changed", "node", oldNode.Name, "taintsChanged", taintsChanged, "oldTaints", oldNode.Spec.Taints, "newTaints", newNode.Spec.Taints)
 	}
 
 	return taintsChanged

@@ -56,7 +56,10 @@ func (client *LockClient) Disabled() bool {
 
 // AddPendingUpgrades registers information about which process groups are
 // pending an upgrade to a new version.
-func (client *LockClient) AddPendingUpgrades(version fdbv1beta2.Version, processGroupIDs []fdbv1beta2.ProcessGroupID) error {
+func (client *LockClient) AddPendingUpgrades(
+	version fdbv1beta2.Version,
+	processGroupIDs []fdbv1beta2.ProcessGroupID,
+) error {
 	if client.pendingUpgrades[version] == nil {
 		client.pendingUpgrades[version] = make(map[fdbv1beta2.ProcessGroupID]bool)
 	}
@@ -68,7 +71,9 @@ func (client *LockClient) AddPendingUpgrades(version fdbv1beta2.Version, process
 
 // GetPendingUpgrades returns the stored information about which process
 // groups are pending an upgrade to a new version.
-func (client *LockClient) GetPendingUpgrades(version fdbv1beta2.Version) (map[fdbv1beta2.ProcessGroupID]bool, error) {
+func (client *LockClient) GetPendingUpgrades(
+	version fdbv1beta2.Version,
+) (map[fdbv1beta2.ProcessGroupID]bool, error) {
 	upgrades := client.pendingUpgrades[version]
 	if upgrades == nil {
 		return make(map[fdbv1beta2.ProcessGroupID]bool), nil
@@ -131,7 +136,10 @@ func NewMockLockClientUncast(cluster *fdbv1beta2.FoundationDBCluster) *LockClien
 
 	client := lockClientCache[cluster.Name]
 	if client == nil {
-		client = &LockClient{cluster: cluster, pendingUpgrades: make(map[fdbv1beta2.Version]map[fdbv1beta2.ProcessGroupID]bool)}
+		client = &LockClient{
+			cluster:         cluster,
+			pendingUpgrades: make(map[fdbv1beta2.Version]map[fdbv1beta2.ProcessGroupID]bool),
+		}
 		lockClientCache[cluster.Name] = client
 	}
 	return client

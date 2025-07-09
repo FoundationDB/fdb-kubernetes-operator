@@ -82,7 +82,14 @@ func (fdbCluster *FdbCluster) ExecuteCmdOnPod(
 	command string,
 	printOutput bool,
 ) (string, string, error) {
-	return fdbCluster.factory.ExecuteCmd(context.Background(), pod.Namespace, pod.Name, container, command, printOutput)
+	return fdbCluster.factory.ExecuteCmd(
+		context.Background(),
+		pod.Namespace,
+		pod.Name,
+		container,
+		command,
+		printOutput,
+	)
 }
 
 func (factory *Factory) createFdbClusterObject(
@@ -286,7 +293,11 @@ func (fdbCluster *FdbCluster) waitForReconciliationToGeneration(
 		return false
 	}
 
-	err := fdbCluster.WaitUntilWithForceReconcile(pollTimeInSeconds, timeOutInSeconds, checkIfReconciliationIsDone)
+	err := fdbCluster.WaitUntilWithForceReconcile(
+		pollTimeInSeconds,
+		timeOutInSeconds,
+		checkIfReconciliationIsDone,
+	)
 	if creationTracker != nil {
 		creationTracker.report()
 	}
@@ -295,7 +306,11 @@ func (fdbCluster *FdbCluster) waitForReconciliationToGeneration(
 }
 
 // WaitUntilWithForceReconcile will wait either until the checkMethod returns true or until the timeout is hit.
-func (fdbCluster *FdbCluster) WaitUntilWithForceReconcile(pollTimeInSeconds int, timeOutInSeconds int, checkMethod func(cluster *fdbv1beta2.FoundationDBCluster) bool) error {
+func (fdbCluster *FdbCluster) WaitUntilWithForceReconcile(
+	pollTimeInSeconds int,
+	timeOutInSeconds int,
+	checkMethod func(cluster *fdbv1beta2.FoundationDBCluster) bool,
+) error {
 	// Printout the initial state of the cluster before we moving forward waiting for the checkMethod to return true.
 	fdbCluster.factory.DumpState(fdbCluster)
 
@@ -425,7 +440,9 @@ func (fdbCluster *FdbCluster) UpdateClusterStatus() {
 //
 //		// Make sure the operator picks up the work again
 //		fdbCluster.SetSkipReconciliation(false)
-func (fdbCluster *FdbCluster) UpdateClusterStatusWithStatus(desiredStatus *fdbv1beta2.FoundationDBClusterStatus) {
+func (fdbCluster *FdbCluster) UpdateClusterStatusWithStatus(
+	desiredStatus *fdbv1beta2.FoundationDBClusterStatus,
+) {
 	fetchedCluster := &fdbv1beta2.FoundationDBCluster{}
 
 	// This is flaky. It sometimes responds with an error saying that the object has been updated.
@@ -466,7 +483,9 @@ func (fdbCluster *FdbCluster) UpdateClusterSpec() {
 //	spec.Version = "7.1.27" // Make your changes.
 //
 //	fdbCluster.UpdateClusterSpecWithSpec(spec) // Update the spec.
-func (fdbCluster *FdbCluster) UpdateClusterSpecWithSpec(desiredSpec *fdbv1beta2.FoundationDBClusterSpec) {
+func (fdbCluster *FdbCluster) UpdateClusterSpecWithSpec(
+	desiredSpec *fdbv1beta2.FoundationDBClusterSpec,
+) {
 	fetchedCluster := &fdbv1beta2.FoundationDBCluster{}
 
 	// This is flaky. It sometimes responds with an error saying that the object has been updated.
@@ -580,7 +599,9 @@ func (fdbCluster *FdbCluster) GetPod(name string) *corev1.Pod {
 }
 
 // GetPodIDs returns all the process group IDs for all Pods of this cluster that have the matching process class.
-func (fdbCluster *FdbCluster) GetPodIDs(processClass fdbv1beta2.ProcessClass) map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None {
+func (fdbCluster *FdbCluster) GetPodIDs(
+	processClass fdbv1beta2.ProcessClass,
+) map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None {
 	pods := fdbCluster.GetPods()
 
 	podIDs := make(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None, len(pods.Items))
@@ -677,14 +698,17 @@ func (fdbCluster *FdbCluster) SetTransactionServerPerPod(
 // ReplacePod replaces the provided Pod if it's part of the FoundationDBCluster.
 func (fdbCluster *FdbCluster) ReplacePod(pod corev1.Pod, waitForReconcile bool) {
 	cluster := fdbCluster.GetCluster()
-	fdbCluster.cluster.Spec.ProcessGroupsToRemove = []fdbv1beta2.ProcessGroupID{GetProcessGroupID(pod)}
+	fdbCluster.cluster.Spec.ProcessGroupsToRemove = []fdbv1beta2.ProcessGroupID{
+		GetProcessGroupID(pod),
+	}
 	fdbCluster.UpdateClusterSpec()
 
 	if !waitForReconcile {
 		return
 	}
 
-	gomega.Expect(fdbCluster.WaitForReconciliation(SoftReconcileOption(true), MinimumGenerationOption(cluster.Generation+1))).NotTo(gomega.HaveOccurred())
+	gomega.Expect(fdbCluster.WaitForReconciliation(SoftReconcileOption(true), MinimumGenerationOption(cluster.Generation+1))).
+		NotTo(gomega.HaveOccurred())
 }
 
 // ReplacePods replaces the provided Pods in the current FoundationDBCluster.
@@ -798,7 +822,9 @@ func (fdbCluster *FdbCluster) SetPodAsUnschedulable(pod corev1.Pod) {
 
 // SetProcessGroupsAsUnschedulable sets the provided process groups on the NoSchedule list of the current FoundationDBCluster. This will make
 // sure that the Pod is stuck in Pending.
-func (fdbCluster *FdbCluster) SetProcessGroupsAsUnschedulable(processGroups []fdbv1beta2.ProcessGroupID) {
+func (fdbCluster *FdbCluster) SetProcessGroupsAsUnschedulable(
+	processGroups []fdbv1beta2.ProcessGroupID,
+) {
 	fdbCluster.cluster.Spec.Buggify.NoSchedule = processGroups
 	fdbCluster.UpdateClusterSpec()
 }
@@ -832,7 +858,12 @@ func (fdbCluster *FdbCluster) SetTLS(
 	enableMainContainerTLS bool,
 	enableSidecarContainerTLS bool,
 ) error {
-	log.Println("updating the TLS setting for main container:", enableMainContainerTLS, "for sidecar container:", enableSidecarContainerTLS)
+	log.Println(
+		"updating the TLS setting for main container:",
+		enableMainContainerTLS,
+		"for sidecar container:",
+		enableSidecarContainerTLS,
+	)
 	fdbCluster.cluster.Spec.MainContainer.EnableTLS = enableMainContainerTLS
 	fdbCluster.cluster.Spec.SidecarContainer.EnableTLS = enableSidecarContainerTLS
 	fdbCluster.UpdateClusterSpec()
@@ -916,7 +947,11 @@ func (fdbCluster *FdbCluster) WaitForPodRemoval(pod *corev1.Pod) {
 	log.Printf("waiting until the pod %s/%s is deleted", pod.Namespace, pod.Name)
 	counter := 0
 	forceReconcile := 10
-	errDescription := fmt.Sprintf("pod %s/%s was not removed in the expected time", pod.Namespace, pod.Name)
+	errDescription := fmt.Sprintf(
+		"pod %s/%s was not removed in the expected time",
+		pod.Namespace,
+		pod.Name,
+	)
 	fetchedPod := &corev1.Pod{}
 	gomega.Eventually(func() bool {
 		err := fdbCluster.getClient().
@@ -1032,7 +1067,9 @@ func (fdbCluster *FdbCluster) UpgradeCluster(version string, waitForReconciliati
 
 	if waitForReconciliation {
 		log.Println("Waiting for generation:", fdbCluster.cluster.Generation)
-		return fdbCluster.WaitForReconciliation(MinimumGenerationOption(fdbCluster.cluster.Generation))
+		return fdbCluster.WaitForReconciliation(
+			MinimumGenerationOption(fdbCluster.cluster.Generation),
+		)
 	}
 
 	return nil
@@ -1120,7 +1157,10 @@ func (fdbCluster *FdbCluster) SetEmptyMonitorConf(enable bool) error {
 }
 
 // SetClusterTaintConfig set fdbCluster's TaintReplacementOptions
-func (fdbCluster *FdbCluster) SetClusterTaintConfig(taintOption []fdbv1beta2.TaintReplacementOption, taintReplacementTimeSeconds *int) {
+func (fdbCluster *FdbCluster) SetClusterTaintConfig(
+	taintOption []fdbv1beta2.TaintReplacementOption,
+	taintReplacementTimeSeconds *int,
+) {
 	curClusterSpec := fdbCluster.GetCluster().Spec.DeepCopy()
 	curClusterSpec.AutomationOptions.Replacements.TaintReplacementOptions = taintOption
 	curClusterSpec.AutomationOptions.Replacements.TaintReplacementTimeSeconds = taintReplacementTimeSeconds
@@ -1220,7 +1260,10 @@ func (fdbCluster *FdbCluster) CheckPodIsDeleted(podName string) bool {
 
 // EnsurePodIsDeletedWithCustomTimeout validates that a Pod is either not existing or is marked as deleted with a non-zero deletion timestamp.
 // It times out after timeoutMinutes.
-func (fdbCluster *FdbCluster) EnsurePodIsDeletedWithCustomTimeout(podName string, timeoutMinutes int) {
+func (fdbCluster *FdbCluster) EnsurePodIsDeletedWithCustomTimeout(
+	podName string,
+	timeoutMinutes int,
+) {
 	lastForceReconcile := time.Now()
 	gomega.Eventually(func() bool {
 		// Force a reconciliation every minute to ensure the deletion will be done in a more timely manner (without
@@ -1313,11 +1356,16 @@ func (fdbCluster *FdbCluster) SetIgnoreDuringRestart(processes []fdbv1beta2.Proc
 }
 
 // UpdateContainerImage sets the image for the provided Pod for the provided container.
-func (fdbCluster *FdbCluster) UpdateContainerImage(pod *corev1.Pod, containerName string, image string) {
+func (fdbCluster *FdbCluster) UpdateContainerImage(
+	pod *corev1.Pod,
+	containerName string,
+	image string,
+) {
 	gomega.Eventually(func(g gomega.Gomega) error {
 		updatePod := &corev1.Pod{}
 
-		g.Expect(fdbCluster.getClient().Get(context.Background(), client.ObjectKeyFromObject(pod), updatePod)).To(gomega.Succeed())
+		g.Expect(fdbCluster.getClient().Get(context.Background(), client.ObjectKeyFromObject(pod), updatePod)).
+			To(gomega.Succeed())
 
 		for idx, container := range updatePod.Spec.Containers {
 			if container.Name != containerName {
@@ -1327,7 +1375,8 @@ func (fdbCluster *FdbCluster) UpdateContainerImage(pod *corev1.Pod, containerNam
 			updatePod.Spec.Containers[idx].Image = image
 		}
 
-		return fdbCluster.factory.GetControllerRuntimeClient().Update(context.Background(), updatePod)
+		return fdbCluster.factory.GetControllerRuntimeClient().
+			Update(context.Background(), updatePod)
 	}).ShouldNot(gomega.HaveOccurred())
 }
 
@@ -1389,7 +1438,10 @@ func (fdbCluster *FdbCluster) ValidateProcessesCount(
 	fdbCluster.UpdateAnnotationsAndLabels(annotations, labels)
 
 */
-func (fdbCluster *FdbCluster) UpdateAnnotationsAndLabels(annotations map[string]string, labels map[string]string) {
+func (fdbCluster *FdbCluster) UpdateAnnotationsAndLabels(
+	annotations map[string]string,
+	labels map[string]string,
+) {
 	// Update the annotations and labels.
 	gomega.Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		fetchedCluster := &fdbv1beta2.FoundationDBCluster{}
@@ -1420,7 +1472,8 @@ func (fdbCluster *FdbCluster) UpdateAnnotationsAndLabels(annotations map[string]
 func (fdbCluster *FdbCluster) VerifyVersion(version string) {
 	gomega.Expect(fdbCluster.WaitUntilWithForceReconcile(2, 600, func(cluster *fdbv1beta2.FoundationDBCluster) bool {
 		return cluster.Status.RunningVersion == version
-	})).NotTo(gomega.HaveOccurred())
+	})).
+		NotTo(gomega.HaveOccurred())
 }
 
 // UpgradeAndVerify will upgrade the cluster to the new version and perform a check at the end that the running version
@@ -1488,7 +1541,9 @@ func (fdbCluster *FdbCluster) EnsureTeamTrackersHaveMinReplicas() {
 }
 
 // GetListOfUIDsFromVolumeClaims will return of list of UIDs for the current volume claims for the provided processes class.
-func (fdbCluster *FdbCluster) GetListOfUIDsFromVolumeClaims(processClass fdbv1beta2.ProcessClass) []types.UID {
+func (fdbCluster *FdbCluster) GetListOfUIDsFromVolumeClaims(
+	processClass fdbv1beta2.ProcessClass,
+) []types.UID {
 	volumesClaims := fdbCluster.GetVolumeClaimsForProcesses(processClass)
 
 	uids := make([]types.UID, 0, len(volumesClaims.Items))
@@ -1505,10 +1560,12 @@ func (fdbCluster *FdbCluster) UpdateConnectionString(connectionString string) {
 	fdbCluster.UpdateClusterSpec()
 
 	cm := &corev1.ConfigMap{}
-	gomega.Expect(fdbCluster.factory.controllerRuntimeClient.Get(context.Background(), client.ObjectKey{Namespace: fdbCluster.Namespace(), Name: fdbCluster.Name() + "-config"}, cm)).NotTo(gomega.HaveOccurred())
+	gomega.Expect(fdbCluster.factory.controllerRuntimeClient.Get(context.Background(), client.ObjectKey{Namespace: fdbCluster.Namespace(), Name: fdbCluster.Name() + "-config"}, cm)).
+		NotTo(gomega.HaveOccurred())
 	gomega.Expect(cm.Data).To(gomega.HaveKey(fdbv1beta2.ClusterFileKey))
 	cm.Data[fdbv1beta2.ClusterFileKey] = connectionString
-	gomega.Expect(fdbCluster.factory.controllerRuntimeClient.Update(context.Background(), cm)).NotTo(gomega.HaveOccurred())
+	gomega.Expect(fdbCluster.factory.controllerRuntimeClient.Update(context.Background(), cm)).
+		NotTo(gomega.HaveOccurred())
 }
 
 // CreateTesterDeployment will create a deployment that runs tester processes with the specified number of replicas.
@@ -1520,13 +1577,25 @@ func (fdbCluster *FdbCluster) CreateTesterDeployment(replicas int) *appsv1.Deplo
 		fdbv1beta2.FDBProcessClassLabel: string(fdbv1beta2.ProcessClassTest),
 	}
 
-	mainImage := fdbv1beta2.SelectImageConfig(fdbCluster.factory.GetMainContainerOverrides(false, fdbCluster.cluster.UseUnifiedImage()).ImageConfigs, fdbCluster.cluster.Spec.Version).Image()
+	mainImage := fdbv1beta2.SelectImageConfig(fdbCluster.factory.GetMainContainerOverrides(false, fdbCluster.cluster.UseUnifiedImage()).ImageConfigs, fdbCluster.cluster.Spec.Version).
+		Image()
 
 	var initArgs []string
 	var sidecarImage string
 	if fdbCluster.cluster.UseUnifiedImage() {
 		sidecarImage = mainImage
-		initArgs = []string{"--mode", "init", "--input-dir", "/var/input-files", "--output-dir", "/var/output-files", "--require-not-empty", "fdb.cluster", "--copy-file", "fdb.cluster"}
+		initArgs = []string{
+			"--mode",
+			"init",
+			"--input-dir",
+			"/var/input-files",
+			"--output-dir",
+			"/var/output-files",
+			"--require-not-empty",
+			"fdb.cluster",
+			"--copy-file",
+			"fdb.cluster",
+		}
 	} else {
 		sidecarImage = fdbv1beta2.SelectImageConfig(fdbCluster.factory.GetSidecarContainerOverrides(fdbCluster.cluster.UseUnifiedImage()).ImageConfigs, fdbCluster.cluster.Spec.Version).Image()
 		initArgs = []string{"--init-mode", "--require-not-empty", "fdb.cluster", "--copy-file", "fdb.cluster"}
@@ -1563,8 +1632,10 @@ func (fdbCluster *FdbCluster) CreateTesterDeployment(replicas int) *appsv1.Deplo
 							ImagePullPolicy: fdbCluster.factory.getImagePullPolicy(),
 							Image:           sidecarImage,
 							SecurityContext: &corev1.SecurityContext{
-								Privileged:               pointer.Bool(true),
-								AllowPrivilegeEscalation: pointer.Bool(true), // for performance profiling
+								Privileged: pointer.Bool(true),
+								AllowPrivilegeEscalation: pointer.Bool(
+									true,
+								), // for performance profiling
 								ReadOnlyRootFilesystem: pointer.Bool(
 									false,
 								), // to allow I/O chaos to succeed
@@ -1588,8 +1659,10 @@ func (fdbCluster *FdbCluster) CreateTesterDeployment(replicas int) *appsv1.Deplo
 							ImagePullPolicy: fdbCluster.factory.getImagePullPolicy(),
 							Image:           mainImage,
 							SecurityContext: &corev1.SecurityContext{
-								Privileged:               pointer.Bool(true),
-								AllowPrivilegeEscalation: pointer.Bool(true), // for performance profiling
+								Privileged: pointer.Bool(true),
+								AllowPrivilegeEscalation: pointer.Bool(
+									true,
+								), // for performance profiling
 								ReadOnlyRootFilesystem: pointer.Bool(
 									false,
 								), // to allow I/O chaos to succeed
@@ -1721,7 +1794,8 @@ func (fdbCluster *FdbCluster) CreateTesterDeployment(replicas int) *appsv1.Deplo
 		},
 	}
 
-	gomega.Expect(fdbCluster.factory.controllerRuntimeClient.Create(context.Background(), deploy)).NotTo(gomega.HaveOccurred())
+	gomega.Expect(fdbCluster.factory.controllerRuntimeClient.Create(context.Background(), deploy)).
+		NotTo(gomega.HaveOccurred())
 	gomega.Eventually(func(g gomega.Gomega) int {
 		pods := &corev1.PodList{}
 

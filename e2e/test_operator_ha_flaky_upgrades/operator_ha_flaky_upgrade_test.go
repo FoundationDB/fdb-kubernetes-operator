@@ -52,7 +52,11 @@ var _ = AfterSuite(func() {
 	}
 })
 
-func clusterSetupWithHealthCheckOption(beforeVersion string, enableOperatorPodChaos bool, enableHealthCheck bool) {
+func clusterSetupWithHealthCheckOption(
+	beforeVersion string,
+	enableOperatorPodChaos bool,
+	enableHealthCheck bool,
+) {
 	// We set the before version here to overwrite the before version from the specific flag
 	// the specific flag will be removed in the future.
 	factory.SetBeforeVersion(beforeVersion)

@@ -93,9 +93,15 @@ var _ = Describe("[api] FDBVersion", func() {
 	When("getting the next version of the current FDBVersion", func() {
 		It("should return the correct next version", func() {
 			version := Versions.Default
-			Expect(version.NextMajorVersion()).To(Equal(Version{api.Version{Major: 8, Minor: 0, Patch: 0}}))
-			Expect(version.NextMinorVersion()).To(Equal(Version{api.Version{Major: version.Major, Minor: 2, Patch: 0}}))
-			Expect(version.NextPatchVersion()).To(Equal(Version{api.Version{Major: version.Major, Minor: version.Minor, Patch: 58}}))
+			Expect(
+				version.NextMajorVersion(),
+			).To(Equal(Version{api.Version{Major: 8, Minor: 0, Patch: 0}}))
+			Expect(
+				version.NextMinorVersion(),
+			).To(Equal(Version{api.Version{Major: version.Major, Minor: 2, Patch: 0}}))
+			Expect(
+				version.NextPatchVersion(),
+			).To(Equal(Version{api.Version{Major: version.Major, Minor: version.Minor, Patch: 58}}))
 		})
 	})
 
@@ -111,18 +117,34 @@ var _ = Describe("[api] FDBVersion", func() {
 
 		It("should return correct result for IsAtleast", func() {
 			version := Version{api.Version{Major: 7, Minor: 1, Patch: 0, ReleaseCandidate: 2}}
-			Expect(version.IsAtLeast(Version{api.Version{Major: 7, Minor: 1, Patch: 0}})).To(BeFalse())
-			Expect(version.IsAtLeast(Version{api.Version{Major: 7, Minor: 1, Patch: 0, ReleaseCandidate: 1}})).To(BeTrue())
-			Expect(version.IsAtLeast(Version{api.Version{Major: 7, Minor: 1, Patch: 0, ReleaseCandidate: 3}})).To(BeFalse())
+			Expect(
+				version.IsAtLeast(Version{api.Version{Major: 7, Minor: 1, Patch: 0}}),
+			).To(BeFalse())
+			Expect(
+				version.IsAtLeast(
+					Version{api.Version{Major: 7, Minor: 1, Patch: 0, ReleaseCandidate: 1}},
+				),
+			).To(BeTrue())
+			Expect(
+				version.IsAtLeast(
+					Version{api.Version{Major: 7, Minor: 1, Patch: 0, ReleaseCandidate: 3}},
+				),
+			).To(BeFalse())
 
 			version = Version{api.Version{Major: 7, Minor: 1, Patch: 0}}
-			Expect(version.IsAtLeast(Version{api.Version{Major: 7, Minor: 1, Patch: 0, ReleaseCandidate: 1}})).To(BeTrue())
+			Expect(
+				version.IsAtLeast(
+					Version{api.Version{Major: 7, Minor: 1, Patch: 0, ReleaseCandidate: 1}},
+				),
+			).To(BeTrue())
 		})
 	})
 
-	DescribeTable("validating in a version check is allowed", func(version Version, targetVersion Version, expected bool) {
-		Expect(version.SupportsVersionChange(targetVersion)).To(Equal(expected))
-	},
+	DescribeTable(
+		"validating in a version check is allowed",
+		func(version Version, targetVersion Version, expected bool) {
+			Expect(version.SupportsVersionChange(targetVersion)).To(Equal(expected))
+		},
 		Entry("Same version",
 			Version{api.Version{
 				Major: 7,
@@ -216,9 +238,11 @@ var _ = Describe("[api] FDBVersion", func() {
 		),
 	)
 
-	DescribeTable("validating if the provided version supports locality based exclusions", func(version Version, expected bool) {
-		Expect(version.SupportsLocalityBasedExclusions()).To(Equal(expected))
-	},
+	DescribeTable(
+		"validating if the provided version supports locality based exclusions",
+		func(version Version, expected bool) {
+			Expect(version.SupportsLocalityBasedExclusions()).To(Equal(expected))
+		},
 		Entry(
 			"Version is 6.3",
 			Version{api.Version{
@@ -266,9 +290,11 @@ var _ = Describe("[api] FDBVersion", func() {
 		),
 	)
 
-	DescribeTable("validating if the provided version automatically removes dead tester processes", func(version Version, expected bool) {
-		Expect(version.AutomaticallyRemovesDeadTesterProcesses()).To(Equal(expected))
-	},
+	DescribeTable(
+		"validating if the provided version automatically removes dead tester processes",
+		func(version Version, expected bool) {
+			Expect(version.AutomaticallyRemovesDeadTesterProcesses()).To(Equal(expected))
+		},
 		Entry(
 			"Version is 6.3",
 			Version{api.Version{

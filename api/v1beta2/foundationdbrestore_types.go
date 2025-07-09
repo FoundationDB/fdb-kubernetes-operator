@@ -41,8 +41,8 @@ type FoundationDBRestore struct {
 
 // FoundationDBRestoreList contains a list of FoundationDBRestore objects
 type FoundationDBRestoreList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.TypeMeta `                      json:",inline"`
+	metav1.ListMeta `                      json:"metadata,omitempty"`
 	Items           []FoundationDBRestore `json:"items"`
 }
 
@@ -115,7 +115,8 @@ type FoundationDBKeyRange struct {
 // BackupName gets the name of the backup for the source backup.
 // This will fill in a default value if the backup name in the spec is empty.
 func (restore *FoundationDBRestore) BackupName() string {
-	if restore.Spec.BlobStoreConfiguration == nil || restore.Spec.BlobStoreConfiguration.BackupName == "" {
+	if restore.Spec.BlobStoreConfiguration == nil ||
+		restore.Spec.BlobStoreConfiguration.BackupName == "" {
 		return restore.Name
 	}
 
@@ -124,7 +125,10 @@ func (restore *FoundationDBRestore) BackupName() string {
 
 // BackupURL gets the destination url of the backup.
 func (restore *FoundationDBRestore) BackupURL() string {
-	return restore.Spec.BlobStoreConfiguration.getURL(restore.BackupName(), restore.Spec.BlobStoreConfiguration.BucketName())
+	return restore.Spec.BlobStoreConfiguration.getURL(
+		restore.BackupName(),
+		restore.Spec.BlobStoreConfiguration.BucketName(),
+	)
 }
 
 func init() {

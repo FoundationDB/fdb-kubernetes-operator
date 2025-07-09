@@ -28,9 +28,13 @@ import (
 )
 
 var _ = Describe("replace_failed_process_groups", func() {
-	DescribeTable("check if removal is allowed", func(cluster *fdbv1beta2.FoundationDBCluster, maxReplacements int, faultDomainsWithReplacements map[fdbv1beta2.FaultDomain]fdbv1beta2.None, faultDomain fdbv1beta2.FaultDomain, expected bool) {
-		Expect(removalAllowed(cluster, maxReplacements, faultDomainsWithReplacements, faultDomain)).To(Equal(expected))
-	},
+	DescribeTable(
+		"check if removal is allowed",
+		func(cluster *fdbv1beta2.FoundationDBCluster, maxReplacements int, faultDomainsWithReplacements map[fdbv1beta2.FaultDomain]fdbv1beta2.None, faultDomain fdbv1beta2.FaultDomain, expected bool) {
+			Expect(
+				removalAllowed(cluster, maxReplacements, faultDomainsWithReplacements, faultDomain),
+			).To(Equal(expected))
+		},
 		Entry("process group based replacement: with 1 replacement allowed",
 			&fdbv1beta2.FoundationDBCluster{},
 			1,
@@ -114,9 +118,11 @@ var _ = Describe("replace_failed_process_groups", func() {
 		),
 	)
 
-	DescribeTable("when checking if process group replacements because of node taints is allowed", func(cluster *fdbv1beta2.FoundationDBCluster, expected bool) {
-		Expect(nodeTaintReplacementsAllowed(GinkgoLogr, cluster)).To(Equal(expected))
-	},
+	DescribeTable(
+		"when checking if process group replacements because of node taints is allowed",
+		func(cluster *fdbv1beta2.FoundationDBCluster, expected bool) {
+			Expect(nodeTaintReplacementsAllowed(GinkgoLogr, cluster)).To(Equal(expected))
+		},
 		Entry("no process groups with taint condition is present and taint feature is disabled",
 			&fdbv1beta2.FoundationDBCluster{},
 			false,
@@ -173,7 +179,8 @@ var _ = Describe("replace_failed_process_groups", func() {
 			},
 			true,
 		),
-		Entry("two process groups with taint condition in different fault domains are present and taint feature is enabled",
+		Entry(
+			"two process groups with taint condition in different fault domains are present and taint feature is enabled",
 			&fdbv1beta2.FoundationDBCluster{
 				Spec: fdbv1beta2.FoundationDBClusterSpec{
 					AutomationOptions: fdbv1beta2.FoundationDBClusterAutomationOptions{
@@ -216,7 +223,8 @@ var _ = Describe("replace_failed_process_groups", func() {
 			},
 			false,
 		),
-		Entry("two process groups with taint condition in the same fault domain are present and taint feature is enabled",
+		Entry(
+			"two process groups with taint condition in the same fault domain are present and taint feature is enabled",
 			&fdbv1beta2.FoundationDBCluster{
 				Spec: fdbv1beta2.FoundationDBClusterSpec{
 					AutomationOptions: fdbv1beta2.FoundationDBClusterAutomationOptions{

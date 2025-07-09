@@ -538,7 +538,8 @@ func (factory *Factory) getSidecarConfigs(imageConfigs []fdbv1beta2.ImageConfig)
 	pullPolicy := factory.getImagePullPolicy()
 
 	defaultConfig := SidecarConfig{
-		Image:           fdbv1beta2.SelectImageConfig(imageConfigs, factory.GetFDBVersionAsString()).Image(),
+		Image: fdbv1beta2.SelectImageConfig(imageConfigs, factory.GetFDBVersionAsString()).
+			Image(),
 		FDBVersion:      factory.GetFDBVersion(),
 		ImagePullPolicy: pullPolicy,
 		CopyAsPrimary:   true,
@@ -575,7 +576,9 @@ func (factory *Factory) getSidecarConfigs(imageConfigs []fdbv1beta2.ImageConfig)
 // all provided sidecar versions to inject FDB client libraries.
 func (factory *Factory) GetSidecarConfigs() []SidecarConfig {
 	if factory.UseUnifiedImage() {
-		return factory.getSidecarConfigs(factory.GetMainContainerOverrides(false, true).ImageConfigs)
+		return factory.getSidecarConfigs(
+			factory.GetMainContainerOverrides(false, true).ImageConfigs,
+		)
 	}
 
 	return factory.getSidecarConfigs(factory.GetSidecarContainerOverrides(false).ImageConfigs)
@@ -615,7 +618,8 @@ func (factory *Factory) CreateFDBOperatorIfAbsent(namespace string) error {
 	operatorRBACTemplate, err := template.New("operatorRBAC").Parse(operatorRBAC)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	buf := bytes.Buffer{}
-	gomega.Expect(operatorRBACTemplate.Execute(&buf, factory.getOperatorConfig(namespace))).NotTo(gomega.HaveOccurred())
+	gomega.Expect(operatorRBACTemplate.Execute(&buf, factory.getOperatorConfig(namespace))).
+		NotTo(gomega.HaveOccurred())
 	decoder := yamlutil.NewYAMLOrJSONDecoder(&buf, 100000)
 
 	for {
@@ -667,7 +671,8 @@ func (factory *Factory) CreateFDBOperatorIfAbsent(namespace string) error {
 	operatorDeploymentTemplate, err := template.New("operatorDeployment").Parse(deploymentTemplate)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	buf = bytes.Buffer{}
-	gomega.Expect(operatorDeploymentTemplate.Execute(&buf, factory.getOperatorConfig(namespace))).NotTo(gomega.HaveOccurred())
+	gomega.Expect(operatorDeploymentTemplate.Execute(&buf, factory.getOperatorConfig(namespace))).
+		NotTo(gomega.HaveOccurred())
 	decoder = yamlutil.NewYAMLOrJSONDecoder(&buf, 100000)
 
 	for {
@@ -738,7 +743,12 @@ func (factory *Factory) WaitUntilOperatorPodsRunning(namespace string) {
 
 			// If the Pod is not running after 120 seconds we delete it and let the Deployment controller create a new Pod.
 			if time.Since(pod.CreationTimestamp.Time).Seconds() > 120.0 {
-				log.Println("operator Pod", pod.Name, "not running after 120 seconds, going to delete this Pod, status:", pod.Status)
+				log.Println(
+					"operator Pod",
+					pod.Name,
+					"not running after 120 seconds, going to delete this Pod, status:",
+					pod.Status,
+				)
 				err := factory.GetControllerRuntimeClient().Delete(context.TODO(), &pod)
 				if k8serrors.IsNotFound(err) {
 					continue
@@ -759,7 +769,8 @@ func (factory *Factory) RecreateOperatorPods(namespace string) {
 
 	gomega.Eventually(func(g gomega.Gomega) {
 		deployment := &appsv1.Deployment{}
-		g.Expect(factory.GetControllerRuntimeClient().Get(context.Background(), client.ObjectKey{Namespace: namespace, Name: operatorDeploymentName}, deployment)).To(gomega.Succeed())
+		g.Expect(factory.GetControllerRuntimeClient().Get(context.Background(), client.ObjectKey{Namespace: namespace, Name: operatorDeploymentName}, deployment)).
+			To(gomega.Succeed())
 
 		patch := client.MergeFrom(deployment.DeepCopy())
 		if deployment.Spec.Template.Annotations == nil {
@@ -767,7 +778,8 @@ func (factory *Factory) RecreateOperatorPods(namespace string) {
 		}
 		deployment.Spec.Template.Annotations[restartAnnotation] = time.Now().String()
 		log.Println("Update deployment")
-		g.Expect(factory.GetControllerRuntimeClient().Patch(context.Background(), deployment, patch)).To(gomega.Succeed())
+		g.Expect(factory.GetControllerRuntimeClient().Patch(context.Background(), deployment, patch)).
+			To(gomega.Succeed())
 	}).WithTimeout(2 * time.Minute).WithPolling(5 * time.Second).Should(gomega.Succeed())
 
 	factory.WaitUntilOperatorPodsRunning(namespace)

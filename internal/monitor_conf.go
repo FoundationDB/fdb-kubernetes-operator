@@ -32,17 +32,38 @@ import (
 )
 
 // GetStartCommand builds the expected start command for a process group.
-func GetStartCommand(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, podClient podclient.FdbPodClient, processNumber int, processCount int, imageType fdbv1beta2.ImageType) (string, error) {
+func GetStartCommand(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	processClass fdbv1beta2.ProcessClass,
+	podClient podclient.FdbPodClient,
+	processNumber int,
+	processCount int,
+	imageType fdbv1beta2.ImageType,
+) (string, error) {
 	substitutions, err := podClient.GetVariableSubstitutions()
 	if err != nil {
 		return "", err
 	}
 
-	return GetStartCommandWithSubstitutions(cluster, processClass, substitutions, processNumber, processCount, imageType)
+	return GetStartCommandWithSubstitutions(
+		cluster,
+		processClass,
+		substitutions,
+		processNumber,
+		processCount,
+		imageType,
+	)
 }
 
 // GetStartCommandWithSubstitutions will be used by GetStartCommand and for internal testing.
-func GetStartCommandWithSubstitutions(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, substitutions map[string]string, processNumber int, processCount int, imageType fdbv1beta2.ImageType) (string, error) {
+func GetStartCommandWithSubstitutions(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	processClass fdbv1beta2.ProcessClass,
+	substitutions map[string]string,
+	processNumber int,
+	processCount int,
+	imageType fdbv1beta2.ImageType,
+) (string, error) {
 	if substitutions == nil {
 		return "", nil
 	}
@@ -84,7 +105,12 @@ func extractPlaceholderEnvVars(env map[string]string, arguments []monitorapi.Arg
 }
 
 // GetMonitorConf builds the monitor conf template
-func GetMonitorConf(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, podClient podclient.FdbPodClient, serversPerPod int) (string, error) {
+func GetMonitorConf(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	processClass fdbv1beta2.ProcessClass,
+	podClient podclient.FdbPodClient,
+	serversPerPod int,
+) (string, error) {
 	if cluster.Status.ConnectionString == "" {
 		return "", nil
 	}
@@ -110,7 +136,13 @@ func GetMonitorConf(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1b
 	if !cluster.Spec.Buggify.EmptyMonitorConf {
 		for i := 1; i <= serversPerPod; i++ {
 			confLines = append(confLines, fmt.Sprintf("[fdbserver.%d]", i))
-			commands, err := getMonitorConfStartCommandLines(cluster, processClass, substitutions, i, serversPerPod)
+			commands, err := getMonitorConfStartCommandLines(
+				cluster,
+				processClass,
+				substitutions,
+				i,
+				serversPerPod,
+			)
 			if err != nil {
 				return "", err
 			}
@@ -121,10 +153,21 @@ func GetMonitorConf(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1b
 	return strings.Join(confLines, "\n"), nil
 }
 
-func getMonitorConfStartCommandLines(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, substitutions map[string]string, processNumber int, processCount int) ([]string, error) {
+func getMonitorConfStartCommandLines(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	processClass fdbv1beta2.ProcessClass,
+	substitutions map[string]string,
+	processNumber int,
+	processCount int,
+) ([]string, error) {
 	confLines := make([]string, 0, 20)
 
-	config := GetMonitorProcessConfiguration(cluster, processClass, processCount, fdbv1beta2.ImageTypeSplit)
+	config := GetMonitorProcessConfiguration(
+		cluster,
+		processClass,
+		processCount,
+		fdbv1beta2.ImageTypeSplit,
+	)
 
 	if substitutions == nil {
 		substitutions = make(map[string]string)
@@ -146,14 +189,22 @@ func getMonitorConfStartCommandLines(cluster *fdbv1beta2.FoundationDBCluster, pr
 		if err != nil {
 			return nil, err
 		}
-		confLines = append(confLines, strings.Replace(strings.TrimPrefix(command, "--"), "=", " = ", 1))
+		confLines = append(
+			confLines,
+			strings.Replace(strings.TrimPrefix(command, "--"), "=", " = ", 1),
+		)
 	}
 
 	return confLines, nil
 }
 
 // GetMonitorProcessConfiguration builds the monitor conf template for the unified image.
-func GetMonitorProcessConfiguration(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, processCount int, imageType fdbv1beta2.ImageType) monitorapi.ProcessConfiguration {
+func GetMonitorProcessConfiguration(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	processClass fdbv1beta2.ProcessClass,
+	processCount int,
+	imageType fdbv1beta2.ImageType,
+) monitorapi.ProcessConfiguration {
 	version, err := monitorapi.ParseFdbVersion(cluster.Spec.Version)
 	if err != nil {
 		return monitorapi.ProcessConfiguration{}
@@ -179,10 +230,20 @@ func GetMonitorProcessConfiguration(cluster *fdbv1beta2.FoundationDBCluster, pro
 	}
 
 	sampleAddresses := cluster.GetFullAddressList(fdbv1beta2.EnvNamePublicIP, false, 1)
-	configuration.Arguments = append(configuration.Arguments,
+	configuration.Arguments = append(
+		configuration.Arguments,
 		monitorapi.Argument{Value: "--cluster_file=/var/fdb/data/fdb.cluster"},
 		monitorapi.Argument{Value: "--seed_cluster_file=/var/dynamic-conf/fdb.cluster"},
-		monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: buildIPArgument("public_address", fdbv1beta2.EnvNamePublicIP, imageType, sampleAddresses, cluster.GetPodIPFamily())},
+		monitorapi.Argument{
+			ArgumentType: monitorapi.ConcatenateArgumentType,
+			Values: buildIPArgument(
+				"public_address",
+				fdbv1beta2.EnvNamePublicIP,
+				imageType,
+				sampleAddresses,
+				cluster.GetPodIPFamily(),
+			),
+		},
 		monitorapi.Argument{Value: fmt.Sprintf("--class=%s", processClass)},
 		monitorapi.Argument{Value: "--logdir=/var/log/fdb-trace-logs"},
 		monitorapi.Argument{Value: fmt.Sprintf("--loggroup=%s", logGroup)},
@@ -197,37 +258,83 @@ func GetMonitorProcessConfiguration(cluster *fdbv1beta2.FoundationDBCluster, pro
 				{ArgumentType: monitorapi.ProcessNumberArgumentType},
 			},
 		})
-		configuration.Arguments = append(configuration.Arguments, monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
-			{Value: getKnobParameter(fdbv1beta2.FDBLocalityProcessIDKey, true)},
-			{ArgumentType: monitorapi.EnvironmentArgumentType, Source: fdbv1beta2.EnvNameInstanceID},
-			{Value: "-"},
-			{ArgumentType: monitorapi.ProcessNumberArgumentType},
-		}})
+		configuration.Arguments = append(
+			configuration.Arguments,
+			monitorapi.Argument{
+				ArgumentType: monitorapi.ConcatenateArgumentType,
+				Values: []monitorapi.Argument{
+					{Value: getKnobParameter(fdbv1beta2.FDBLocalityProcessIDKey, true)},
+					{
+						ArgumentType: monitorapi.EnvironmentArgumentType,
+						Source:       fdbv1beta2.EnvNameInstanceID,
+					},
+					{Value: "-"},
+					{ArgumentType: monitorapi.ProcessNumberArgumentType},
+				},
+			},
+		)
 	} else {
 		configuration.Arguments = append(configuration.Arguments, monitorapi.Argument{Value: "--datadir=/var/fdb/data"})
 	}
 
-	configuration.Arguments = append(configuration.Arguments,
-		monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
-			{Value: getKnobParameter(fdbv1beta2.FDBLocalityInstanceIDKey, true)},
-			{ArgumentType: monitorapi.EnvironmentArgumentType, Source: fdbv1beta2.EnvNameInstanceID},
-		}},
-		monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
-			{Value: getKnobParameter(fdbv1beta2.FDBLocalityMachineIDKey, true)},
-			{ArgumentType: monitorapi.EnvironmentArgumentType, Source: fdbv1beta2.EnvNameMachineID},
-		}},
-		monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
-			{Value: getKnobParameter(fdbv1beta2.FDBLocalityZoneIDKey, true)},
-			{ArgumentType: monitorapi.EnvironmentArgumentType, Source: zoneVariable},
-		}},
+	configuration.Arguments = append(
+		configuration.Arguments,
+		monitorapi.Argument{
+			ArgumentType: monitorapi.ConcatenateArgumentType,
+			Values: []monitorapi.Argument{
+				{Value: getKnobParameter(fdbv1beta2.FDBLocalityInstanceIDKey, true)},
+				{
+					ArgumentType: monitorapi.EnvironmentArgumentType,
+					Source:       fdbv1beta2.EnvNameInstanceID,
+				},
+			},
+		},
+		monitorapi.Argument{
+			ArgumentType: monitorapi.ConcatenateArgumentType,
+			Values: []monitorapi.Argument{
+				{Value: getKnobParameter(fdbv1beta2.FDBLocalityMachineIDKey, true)},
+				{
+					ArgumentType: monitorapi.EnvironmentArgumentType,
+					Source:       fdbv1beta2.EnvNameMachineID,
+				},
+			},
+		},
+		monitorapi.Argument{
+			ArgumentType: monitorapi.ConcatenateArgumentType,
+			Values: []monitorapi.Argument{
+				{Value: getKnobParameter(fdbv1beta2.FDBLocalityZoneIDKey, true)},
+				{ArgumentType: monitorapi.EnvironmentArgumentType, Source: zoneVariable},
+			},
+		},
 	)
 
 	if cluster.NeedsExplicitListenAddress() && cluster.Status.HasListenIPsForAllPods {
-		configuration.Arguments = append(configuration.Arguments, monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: buildIPArgument("listen_address", fdbv1beta2.EnvNamePodIP, imageType, sampleAddresses, cluster.GetPodIPFamily())})
+		configuration.Arguments = append(
+			configuration.Arguments,
+			monitorapi.Argument{
+				ArgumentType: monitorapi.ConcatenateArgumentType,
+				Values: buildIPArgument(
+					"listen_address",
+					fdbv1beta2.EnvNamePodIP,
+					imageType,
+					sampleAddresses,
+					cluster.GetPodIPFamily(),
+				),
+			},
+		)
 	}
 
 	if cluster.Spec.MainContainer.PeerVerificationRules != "" {
-		configuration.Arguments = append(configuration.Arguments, monitorapi.Argument{Value: getKnobParameterWithValue("tls_verify_peers", cluster.Spec.MainContainer.PeerVerificationRules, false)})
+		configuration.Arguments = append(
+			configuration.Arguments,
+			monitorapi.Argument{
+				Value: getKnobParameterWithValue(
+					"tls_verify_peers",
+					cluster.Spec.MainContainer.PeerVerificationRules,
+					false,
+				),
+			},
+		)
 	}
 
 	podSettings := cluster.GetProcessSettings(processClass)
@@ -248,25 +355,54 @@ func GetMonitorProcessConfiguration(cluster *fdbv1beta2.FoundationDBCluster, pro
 	}
 
 	if cluster.Spec.DataCenter != "" && !hasDCIDLocality {
-		configuration.Arguments = append(configuration.Arguments, monitorapi.Argument{Value: getKnobParameterWithValue(fdbv1beta2.FDBLocalityDCIDKey, cluster.Spec.DataCenter, true)})
+		configuration.Arguments = append(
+			configuration.Arguments,
+			monitorapi.Argument{
+				Value: getKnobParameterWithValue(
+					fdbv1beta2.FDBLocalityDCIDKey,
+					cluster.Spec.DataCenter,
+					true,
+				),
+			},
+		)
 	}
 
 	if cluster.Spec.DataHall != "" && !hasDataHallLocality {
-		configuration.Arguments = append(configuration.Arguments, monitorapi.Argument{Value: getKnobParameterWithValue(fdbv1beta2.FDBLocalityDataHallKey, cluster.Spec.DataHall, true)})
+		configuration.Arguments = append(
+			configuration.Arguments,
+			monitorapi.Argument{
+				Value: getKnobParameterWithValue(
+					fdbv1beta2.FDBLocalityDataHallKey,
+					cluster.Spec.DataHall,
+					true,
+				),
+			},
+		)
 	}
 
 	if cluster.DefineDNSLocalityFields() {
-		configuration.Arguments = append(configuration.Arguments, monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
-			{Value: "--locality_dns_name="},
-			{ArgumentType: monitorapi.EnvironmentArgumentType, Source: fdbv1beta2.EnvNameDNSName},
-		}})
+		configuration.Arguments = append(
+			configuration.Arguments,
+			monitorapi.Argument{
+				ArgumentType: monitorapi.ConcatenateArgumentType,
+				Values: []monitorapi.Argument{
+					{Value: "--locality_dns_name="},
+					{
+						ArgumentType: monitorapi.EnvironmentArgumentType,
+						Source:       fdbv1beta2.EnvNameDNSName,
+					},
+				},
+			},
+		)
 	}
 
 	return configuration
 }
 
 // Generate the monitor API configuration based on the provided custom parameter
-func generateMonitorArgumentFromCustomParameter(argument fdbv1beta2.FoundationDBCustomParameter) []monitorapi.Argument {
+func generateMonitorArgumentFromCustomParameter(
+	argument fdbv1beta2.FoundationDBCustomParameter,
+) []monitorapi.Argument {
 	splitArgument := strings.Split(string(argument), "=")
 	knob := strings.TrimSpace(splitArgument[0])
 	knobValue := strings.TrimSpace(splitArgument[1])
@@ -313,7 +449,13 @@ func getKnobParameterWithValue(key string, value string, isLocality bool) string
 }
 
 // buildIPArgument builds an argument that takes an IP address from an environment variable
-func buildIPArgument(parameter string, environmentVariable string, imageType fdbv1beta2.ImageType, sampleAddresses []fdbv1beta2.ProcessAddress, podIPFamily int) []monitorapi.Argument {
+func buildIPArgument(
+	parameter string,
+	environmentVariable string,
+	imageType fdbv1beta2.ImageType,
+	sampleAddresses []fdbv1beta2.ProcessAddress,
+	podIPFamily int,
+) []monitorapi.Argument {
 	var leftIPWrap string
 	var rightIPWrap string
 	if imageType == fdbv1beta2.ImageTypeUnified {
@@ -327,7 +469,10 @@ func buildIPArgument(parameter string, environmentVariable string, imageType fdb
 
 	for indexOfAddress, address := range sampleAddresses {
 		if indexOfAddress != 0 {
-			arguments = append(arguments, monitorapi.Argument{Value: fmt.Sprintf(",%s", leftIPWrap)})
+			arguments = append(
+				arguments,
+				monitorapi.Argument{Value: fmt.Sprintf(",%s", leftIPWrap)},
+			)
 		}
 
 		ipArgument := monitorapi.Argument{
@@ -340,16 +485,24 @@ func buildIPArgument(parameter string, environmentVariable string, imageType fdb
 			ipArgument.ArgumentType = monitorapi.EnvironmentArgumentType
 		}
 
-		arguments = append(arguments,
+		arguments = append(
+			arguments,
 			ipArgument,
 			monitorapi.Argument{Value: fmt.Sprintf("%s:", rightIPWrap)},
-			monitorapi.Argument{ArgumentType: monitorapi.ProcessNumberArgumentType, Offset: address.Port - 2, Multiplier: 2},
+			monitorapi.Argument{
+				ArgumentType: monitorapi.ProcessNumberArgumentType,
+				Offset:       address.Port - 2,
+				Multiplier:   2,
+			},
 		)
 
 		flags := address.SortedFlags()
 
 		if len(flags) > 0 {
-			arguments = append(arguments, monitorapi.Argument{Value: fmt.Sprintf(":%s", strings.Join(flags, ":"))})
+			arguments = append(
+				arguments,
+				monitorapi.Argument{Value: fmt.Sprintf(":%s", strings.Join(flags, ":"))},
+			)
 		}
 	}
 

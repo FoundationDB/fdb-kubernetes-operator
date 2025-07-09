@@ -27,9 +27,11 @@ import (
 )
 
 var _ = Describe("restarts", func() {
-	DescribeTable("when getting the filter conditions for a cluster", func(cluster *fdbv1beta2.FoundationDBCluster, expected map[fdbv1beta2.ProcessGroupConditionType]bool) {
-		Expect(GetFilterConditions(cluster)).To(Equal(expected))
-	},
+	DescribeTable(
+		"when getting the filter conditions for a cluster",
+		func(cluster *fdbv1beta2.FoundationDBCluster, expected map[fdbv1beta2.ProcessGroupConditionType]bool) {
+			Expect(GetFilterConditions(cluster)).To(Equal(expected))
+		},
 		Entry("when no upgrade is performed",
 			&fdbv1beta2.FoundationDBCluster{
 				Spec: fdbv1beta2.FoundationDBClusterSpec{

@@ -91,17 +91,33 @@ type realFdbPodAnnotationClient struct {
 }
 
 // NewFdbPodClient builds a client for working with an FDB Pod
-func NewFdbPodClient(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod, log logr.Logger, getTimeout time.Duration, postTimeout time.Duration) (podclient.FdbPodClient, error) {
+func NewFdbPodClient(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	pod *corev1.Pod,
+	log logr.Logger,
+	getTimeout time.Duration,
+	postTimeout time.Duration,
+) (podclient.FdbPodClient, error) {
 	if GetImageType(pod) == fdbv1beta2.ImageTypeUnified {
 		return &realFdbPodAnnotationClient{Cluster: cluster, Pod: pod, logger: log}, nil
 	}
 
 	if pod.Status.PodIP == "" {
-		return nil, fmt.Errorf("waiting for pod %s/%s/%s to be assigned an IP", cluster.Namespace, cluster.Name, pod.Name)
+		return nil, fmt.Errorf(
+			"waiting for pod %s/%s/%s to be assigned an IP",
+			cluster.Namespace,
+			cluster.Name,
+			pod.Name,
+		)
 	}
 	for _, container := range pod.Status.ContainerStatuses {
 		if container.Name == fdbv1beta2.SidecarContainerName && !container.Ready {
-			return nil, fmt.Errorf("waiting for pod %s/%s/%s to be ready", cluster.Namespace, cluster.Name, pod.Name)
+			return nil, fmt.Errorf(
+				"waiting for pod %s/%s/%s to be ready",
+				cluster.Namespace,
+				cluster.Name,
+				pod.Name,
+			)
 		}
 	}
 
@@ -114,7 +130,9 @@ func NewFdbPodClient(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod, l
 		caFile := os.Getenv(fdbv1beta2.EnvNameTLSCaFile)
 
 		if certFile == "" || keyFile == "" || caFile == "" {
-			return nil, errors.New("missing one or more TLS env vars: FDB_TLS_CERTIFICATE_FILE, FDB_TLS_KEY_FILE or FDB_TLS_CA_FILE")
+			return nil, errors.New(
+				"missing one or more TLS env vars: FDB_TLS_CERTIFICATE_FILE, FDB_TLS_KEY_FILE or FDB_TLS_CA_FILE",
+			)
 		}
 
 		cert, err := tls.LoadX509KeyPair(
@@ -137,7 +155,15 @@ func NewFdbPodClient(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod, l
 		tlsConfig.RootCAs = certPool
 	}
 
-	return &realFdbPodSidecarClient{Cluster: cluster, Pod: pod, useTLS: useTLS, tlsConfig: tlsConfig, logger: log, getTimeout: getTimeout, postTimeout: postTimeout}, nil
+	return &realFdbPodSidecarClient{
+		Cluster:     cluster,
+		Pod:         pod,
+		useTLS:      useTLS,
+		tlsConfig:   tlsConfig,
+		logger:      log,
+		getTimeout:  getTimeout,
+		postTimeout: postTimeout,
+	}, nil
 }
 
 // getListenIP gets the IP address that a pod listens on.
@@ -152,7 +178,13 @@ func (client *realFdbPodSidecarClient) getListenIP() string {
 
 // generateRequest will generate a retryablehttp.Request for the provided parameters or an error if a request cannot be
 // generated.
-func generateRequest(retryClient *retryablehttp.Client, url string, method string, getTimeout time.Duration, postTimeout time.Duration) (*retryablehttp.Request, error) {
+func generateRequest(
+	retryClient *retryablehttp.Client,
+	url string,
+	method string,
+	getTimeout time.Duration,
+	postTimeout time.Duration,
+) (*retryablehttp.Request, error) {
 	switch method {
 	case http.MethodGet:
 		retryClient.HTTPClient.Timeout = getTimeout
@@ -191,7 +223,13 @@ func (client *realFdbPodSidecarClient) makeRequest(method, path string) (string,
 		target.Scheme = "https"
 	}
 
-	req, err := generateRequest(retryClient, target.String(), method, client.getTimeout, client.postTimeout)
+	req, err := generateRequest(
+		retryClient,
+		target.String(),
+		method,
+		client.getTimeout,
+		client.postTimeout,
+	)
 	if err != nil {
 		return "", 0, err
 	}
@@ -282,15 +320,27 @@ func (client *realFdbPodSidecarClient) GetVariableSubstitutions() (map[string]st
 // UpdateFile checks if a file is up-to-date and tries to update it.
 func (client *realFdbPodSidecarClient) UpdateFile(name string, contents string) (bool, error) {
 	if name == "fdbmonitor.conf" {
-		return client.updateDynamicFiles(name, contents, func(client *realFdbPodSidecarClient) error { return client.generateMonitorConf() })
+		return client.updateDynamicFiles(
+			name,
+			contents,
+			func(client *realFdbPodSidecarClient) error { return client.generateMonitorConf() },
+		)
 	}
-	return client.updateDynamicFiles(name, contents, func(client *realFdbPodSidecarClient) error { return client.copyFiles() })
+	return client.updateDynamicFiles(
+		name,
+		contents,
+		func(client *realFdbPodSidecarClient) error { return client.copyFiles() },
+	)
 }
 
 // updateDynamicFiles checks if the files in the dynamic conf volume match the
 // expected contents, and tries to copy the latest files from the input volume
 // if they do not.
-func (client *realFdbPodSidecarClient) updateDynamicFiles(filename string, contents string, updateFunc func(client *realFdbPodSidecarClient) error) (bool, error) {
+func (client *realFdbPodSidecarClient) updateDynamicFiles(
+	filename string,
+	contents string,
+	updateFunc func(client *realFdbPodSidecarClient) error,
+) (bool, error) {
 	match := false
 	var err error
 
@@ -321,7 +371,11 @@ func (client *realFdbPodSidecarClient) updateDynamicFiles(filename string, conte
 func (client *realFdbPodAnnotationClient) GetVariableSubstitutions() (map[string]string, error) {
 	environmentData, present := client.Pod.Annotations[monitorapi.EnvironmentAnnotation]
 	if !present {
-		client.logger.Info("Waiting for Kubernetes monitor to update annotations", "annotation", monitorapi.EnvironmentAnnotation)
+		client.logger.Info(
+			"Waiting for Kubernetes monitor to update annotations",
+			"annotation",
+			monitorapi.EnvironmentAnnotation,
+		)
 		return nil, nil
 	}
 	environment := make(map[string]string)
@@ -343,18 +397,32 @@ func (client *realFdbPodAnnotationClient) UpdateFile(name string, contents strin
 		desiredConfiguration := monitorapi.ProcessConfiguration{}
 		err := json.Unmarshal([]byte(contents), &desiredConfiguration)
 		if err != nil {
-			client.logger.Error(err, "Error parsing desired process configuration", "input", contents)
+			client.logger.Error(
+				err,
+				"Error parsing desired process configuration",
+				"input",
+				contents,
+			)
 			return false, err
 		}
 		currentConfiguration := monitorapi.ProcessConfiguration{}
 		currentData, present := client.Pod.Annotations[monitorapi.CurrentConfigurationAnnotation]
 		if !present {
-			client.logger.Info("Waiting for Kubernetes monitor to update annotations", "annotation", currentConfiguration)
+			client.logger.Info(
+				"Waiting for Kubernetes monitor to update annotations",
+				"annotation",
+				currentConfiguration,
+			)
 			return false, nil
 		}
 		err = json.Unmarshal([]byte(currentData), &currentConfiguration)
 		if err != nil {
-			client.logger.Error(err, "Error parsing current process configuration", "input", currentData)
+			client.logger.Error(
+				err,
+				"Error parsing current process configuration",
+				"input",
+				currentData,
+			)
 			return false, err
 		}
 		match := reflect.DeepEqual(currentConfiguration, desiredConfiguration)
@@ -396,7 +464,11 @@ func GetImageTypeFromAnnotation(annotations map[string]string) fdbv1beta2.ImageT
 
 // GetSubstitutionsFromClusterAndPod returns a map that contains the substitutions based on the provided cluster and Pod.
 // This method is used for testing and in the MockFdbPodClient.
-func GetSubstitutionsFromClusterAndPod(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod) (map[string]string, error) {
+func GetSubstitutionsFromClusterAndPod(
+	logger logr.Logger,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	pod *corev1.Pod,
+) (map[string]string, error) {
 	substitutions := map[string]string{}
 
 	if pod.Annotations != nil {
@@ -437,10 +509,15 @@ func GetSubstitutionsFromClusterAndPod(logger logr.Logger, cluster *fdbv1beta2.F
 		}
 	}
 
-	substitutions[fdbv1beta2.EnvNameInstanceID] = string(GetProcessGroupIDFromMeta(cluster, pod.ObjectMeta))
+	substitutions[fdbv1beta2.EnvNameInstanceID] = string(
+		GetProcessGroupIDFromMeta(cluster, pod.ObjectMeta),
+	)
 
 	if cluster.IsBeingUpgradedWithVersionIncompatibleVersion() {
-		substitutions[fdbv1beta2.EnvNameBinaryDir] = fmt.Sprintf("/var/dynamic-conf/bin/%s", cluster.Spec.Version)
+		substitutions[fdbv1beta2.EnvNameBinaryDir] = fmt.Sprintf(
+			"/var/dynamic-conf/bin/%s",
+			cluster.Spec.Version,
+		)
 	} else {
 		substitutions[fdbv1beta2.EnvNameBinaryDir] = "/usr/bin"
 	}

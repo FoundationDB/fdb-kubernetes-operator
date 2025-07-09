@@ -31,8 +31,13 @@ type startBackup struct {
 }
 
 // reconcile runs the reconciler's work.
-func (s startBackup) reconcile(ctx context.Context, r *FoundationDBBackupReconciler, backup *fdbv1beta2.FoundationDBBackup) *requeue {
-	if !backup.ShouldRun() || (backup.Status.BackupDetails != nil && backup.Status.BackupDetails.Running) {
+func (s startBackup) reconcile(
+	ctx context.Context,
+	r *FoundationDBBackupReconciler,
+	backup *fdbv1beta2.FoundationDBBackup,
+) *requeue {
+	if !backup.ShouldRun() ||
+		(backup.Status.BackupDetails != nil && backup.Status.BackupDetails.Running) {
 		return nil
 	}
 
@@ -44,7 +49,11 @@ func (s startBackup) reconcile(ctx context.Context, r *FoundationDBBackupReconci
 		_ = adminClient.Close()
 	}()
 
-	err = adminClient.StartBackup(backup.BackupURL(), backup.SnapshotPeriodSeconds(), backup.Spec.EncryptionKeyPath)
+	err = adminClient.StartBackup(
+		backup.BackupURL(),
+		backup.SnapshotPeriodSeconds(),
+		backup.Spec.EncryptionKeyPath,
+	)
 	if err != nil {
 		return &requeue{curError: err}
 	}

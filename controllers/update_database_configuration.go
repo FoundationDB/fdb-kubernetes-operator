@@ -38,7 +38,13 @@ import (
 type updateDatabaseConfiguration struct{}
 
 // reconcile runs the reconciler's work.
-func (u updateDatabaseConfiguration) reconcile(_ context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
+func (u updateDatabaseConfiguration) reconcile(
+	_ context.Context,
+	r *FoundationDBClusterReconciler,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	status *fdbv1beta2.FoundationDBStatus,
+	logger logr.Logger,
+) *requeue {
 	if !pointer.BoolDeref(cluster.Spec.AutomationOptions.ConfigureDatabase, true) {
 		return nil
 	}
@@ -63,10 +69,13 @@ func (u updateDatabaseConfiguration) reconcile(_ context.Context, r *FoundationD
 	desiredConfiguration := cluster.DesiredDatabaseConfiguration()
 	currentConfiguration := status.Cluster.DatabaseConfiguration.NormalizeConfiguration(cluster)
 
-	if !clusterIsConfigured || !equality.Semantic.DeepEqual(desiredConfiguration, currentConfiguration) {
+	if !clusterIsConfigured ||
+		!equality.Semantic.DeepEqual(desiredConfiguration, currentConfiguration) {
 		var nextConfiguration fdbv1beta2.DatabaseConfiguration
 		if clusterIsConfigured {
-			nextConfiguration = currentConfiguration.GetNextConfigurationChange(desiredConfiguration)
+			nextConfiguration = currentConfiguration.GetNextConfigurationChange(
+				desiredConfiguration,
+			)
 		} else {
 			nextConfiguration = desiredConfiguration
 		}
@@ -82,12 +91,38 @@ func (u updateDatabaseConfiguration) reconcile(_ context.Context, r *FoundationD
 				return &requeue{curError: err, delayedRequeue: true}
 			}
 
-			err = fdbstatus.ConfigurationChangeAllowed(status, runningVersion.SupportsRecoveryState() && r.EnableRecoveryState)
+			err = fdbstatus.ConfigurationChangeAllowed(
+				status,
+				runningVersion.SupportsRecoveryState() && r.EnableRecoveryState,
+			)
 			if err != nil {
-				logger.Info("Changing current configuration is not safe", "error", err, "current configuration", currentConfiguration, "desired configuration", desiredConfiguration)
-				r.Recorder.Event(cluster, corev1.EventTypeNormal, "NeedsConfigurationChange",
-					fmt.Sprintf("Spec requires configuration change to `%s`, but configuration change is not safe: %s", configurationString, err.Error()))
-				return &requeue{message: fmt.Sprintf("Configuration change is not safe: %s, will retry", err.Error()), delayedRequeue: true, delay: 10 * time.Second}
+				logger.Info(
+					"Changing current configuration is not safe",
+					"error",
+					err,
+					"current configuration",
+					currentConfiguration,
+					"desired configuration",
+					desiredConfiguration,
+				)
+				r.Recorder.Event(
+					cluster,
+					corev1.EventTypeNormal,
+					"NeedsConfigurationChange",
+					fmt.Sprintf(
+						"Spec requires configuration change to `%s`, but configuration change is not safe: %s",
+						configurationString,
+						err.Error(),
+					),
+				)
+				return &requeue{
+					message: fmt.Sprintf(
+						"Configuration change is not safe: %s, will retry",
+						err.Error(),
+					),
+					delayedRequeue: true,
+					delay:          10 * time.Second,
+				}
 			}
 
 			err = r.takeLock(logger, cluster,
@@ -97,7 +132,13 @@ func (u updateDatabaseConfiguration) reconcile(_ context.Context, r *FoundationD
 			}
 		}
 
-		logger.Info("Configuring database", "current configuration", currentConfiguration, "desired configuration", desiredConfiguration)
+		logger.Info(
+			"Configuring database",
+			"current configuration",
+			currentConfiguration,
+			"desired configuration",
+			desiredConfiguration,
+		)
 		r.Recorder.Event(cluster, corev1.EventTypeNormal, "ConfiguringDatabase",
 			fmt.Sprintf("Setting database configuration to `%s`", configurationString),
 		)
@@ -108,7 +149,11 @@ func (u updateDatabaseConfiguration) reconcile(_ context.Context, r *FoundationD
 
 		logger.Info("Configured database", "clusterIsConfigured", clusterIsConfigured)
 		if !equality.Semantic.DeepEqual(nextConfiguration, desiredConfiguration) {
-			return &requeue{message: "Requeuing for next stage of database configuration change", delay: 30 * time.Second, delayedRequeue: true}
+			return &requeue{
+				message:        "Requeuing for next stage of database configuration change",
+				delay:          30 * time.Second,
+				delayedRequeue: true,
+			}
 		}
 	}
 

@@ -32,7 +32,11 @@ type startRestore struct {
 }
 
 // reconcile runs the reconciler's work.
-func (s startRestore) reconcile(ctx context.Context, r *FoundationDBRestoreReconciler, restore *fdbv1beta2.FoundationDBRestore) *requeue {
+func (s startRestore) reconcile(
+	ctx context.Context,
+	r *FoundationDBRestoreReconciler,
+	restore *fdbv1beta2.FoundationDBRestore,
+) *requeue {
 	adminClient, err := r.adminClientForRestore(ctx, restore)
 	if err != nil {
 		return &requeue{curError: err}
@@ -48,7 +52,11 @@ func (s startRestore) reconcile(ctx context.Context, r *FoundationDBRestoreRecon
 
 	// TODO (johscheuer): Make use of the status.state setting to see if the restore was started.
 	if len(strings.TrimSpace(status)) == 0 {
-		err = adminClient.StartRestore(restore.BackupURL(), restore.Spec.KeyRanges, restore.Spec.EncryptionKeyPath)
+		err = adminClient.StartRestore(
+			restore.BackupURL(),
+			restore.Spec.KeyRanges,
+			restore.Spec.EncryptionKeyPath,
+		)
 		if err != nil {
 			return &requeue{curError: err}
 		}

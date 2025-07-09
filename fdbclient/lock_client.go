@@ -120,7 +120,10 @@ func (client *realLockClient) takeLockInTransaction(transaction fdb.Transaction)
 	newOwnerDenied := transaction.Get(client.getDenyListKey(ownerID)).MustGet() != nil
 	if newOwnerDenied {
 		logger.Info("Failed to get lock due to deny list")
-		return fmt.Errorf("failed to get lock due to deny list, owner ID: %s is on deny list", ownerID)
+		return fmt.Errorf(
+			"failed to get lock due to deny list, owner ID: %s is on deny list",
+			ownerID,
+		)
 	}
 
 	oldOwnerDenied := transaction.Get(client.getDenyListKey(currentLockOwnerID)).MustGet() != nil
@@ -166,14 +169,24 @@ func (client *realLockClient) updateLock(transaction fdb.Transaction, start int6
 
 // AddPendingUpgrades registers information about which process groups are
 // pending an upgrade to a new version.
-func (client *realLockClient) AddPendingUpgrades(version fdbv1beta2.Version, processGroupIDs []fdbv1beta2.ProcessGroupID) error {
+func (client *realLockClient) AddPendingUpgrades(
+	version fdbv1beta2.Version,
+	processGroupIDs []fdbv1beta2.ProcessGroupID,
+) error {
 	_, err := client.database.Transact(func(tr fdb.Transaction) (interface{}, error) {
 		err := tr.Options().SetAccessSystemKeys()
 		if err != nil {
 			return nil, err
 		}
 		for _, processGroupID := range processGroupIDs {
-			key := fdb.Key(fmt.Sprintf("%s/upgrades/%s/%s", client.cluster.GetLockPrefix(), version.String(), processGroupID))
+			key := fdb.Key(
+				fmt.Sprintf(
+					"%s/upgrades/%s/%s",
+					client.cluster.GetLockPrefix(),
+					version.String(),
+					processGroupID,
+				),
+			)
 			tr.Set(key, []byte(processGroupID))
 		}
 		return nil, nil
@@ -183,14 +196,18 @@ func (client *realLockClient) AddPendingUpgrades(version fdbv1beta2.Version, pro
 
 // GetPendingUpgrades returns the stored information about which process
 // groups are pending an upgrade to a new version.
-func (client *realLockClient) GetPendingUpgrades(version fdbv1beta2.Version) (map[fdbv1beta2.ProcessGroupID]bool, error) {
+func (client *realLockClient) GetPendingUpgrades(
+	version fdbv1beta2.Version,
+) (map[fdbv1beta2.ProcessGroupID]bool, error) {
 	upgrades, err := client.database.Transact(func(tr fdb.Transaction) (interface{}, error) {
 		err := tr.Options().SetReadSystemKeys()
 		if err != nil {
 			return nil, err
 		}
 
-		keyPrefix := []byte(fmt.Sprintf("%s/upgrades/%s/", client.cluster.GetLockPrefix(), version.String()))
+		keyPrefix := []byte(
+			fmt.Sprintf("%s/upgrades/%s/", client.cluster.GetLockPrefix(), version.String()),
+		)
 		keyRange, err := fdb.PrefixRange(keyPrefix)
 		if err != nil {
 			return nil, err
@@ -210,7 +227,10 @@ func (client *realLockClient) GetPendingUpgrades(version fdbv1beta2.Version) (ma
 
 	upgradeMap, isMap := upgrades.(map[fdbv1beta2.ProcessGroupID]bool)
 	if !isMap {
-		return nil, fmt.Errorf("invalid return value from transaction in GetPendingUpgrades: %v", upgrades)
+		return nil, fmt.Errorf(
+			"invalid return value from transaction in GetPendingUpgrades: %v",
+			upgrades,
+		)
 	}
 
 	return upgradeMap, nil
@@ -397,7 +417,10 @@ func (err invalidLockValue) Error() string {
 }
 
 // NewRealLockClient creates a lock client.
-func NewRealLockClient(cluster *fdbv1beta2.FoundationDBCluster, log logr.Logger) (fdbadminclient.LockClient, error) {
+func NewRealLockClient(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	log logr.Logger,
+) (fdbadminclient.LockClient, error) {
 	if !cluster.ShouldUseLocks() {
 		return &realLockClient{disableLocks: true}, nil
 	}

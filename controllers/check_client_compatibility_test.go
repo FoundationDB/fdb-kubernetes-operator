@@ -276,7 +276,9 @@ var _ = Describe("check client compatibility", func() {
 
 		When("the fdb-kubernetes-operator log group should be ignored", func() {
 			BeforeEach(func() {
-				ignoredLogGroups = map[fdbv1beta2.LogGroup]fdbv1beta2.None{"fdb-kubernetes-operator": {}}
+				ignoredLogGroups = map[fdbv1beta2.LogGroup]fdbv1beta2.None{
+					"fdb-kubernetes-operator": {},
+				}
 			})
 
 			It("should show all clients as unsupported", func() {
@@ -326,7 +328,9 @@ var _ = Describe("check client compatibility", func() {
 
 				When("the fdb-kubernetes-operator log group should be ignored", func() {
 					BeforeEach(func() {
-						ignoredLogGroups = map[fdbv1beta2.LogGroup]fdbv1beta2.None{"fdb-kubernetes-operator": {}}
+						ignoredLogGroups = map[fdbv1beta2.LogGroup]fdbv1beta2.None{
+							"fdb-kubernetes-operator": {},
+						}
 					})
 
 					It("should show all clients as unsupported", func() {

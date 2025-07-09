@@ -52,7 +52,14 @@ func (factory *Factory) RandomPickPod(input []corev1.Pod, count int) []corev1.Po
 	for _, pod := range input {
 		// Skip pods that are marked for deletion
 		if !pod.DeletionTimestamp.IsZero() {
-			log.Println("skipping pod marked for deletion, name:", pod.Name, "namespace:", pod.Namespace, "deletionTimestampL", pod.DeletionTimestamp.String())
+			log.Println(
+				"skipping pod marked for deletion, name:",
+				pod.Name,
+				"namespace:",
+				pod.Namespace,
+				"deletionTimestampL",
+				pod.DeletionTimestamp.String(),
+			)
 			continue
 		}
 
@@ -125,11 +132,13 @@ func (factory *Factory) SetFinalizerForPod(pod *corev1.Pod, finalizers []string)
 	controllerClient := factory.GetControllerRuntimeClient()
 	gomega.Eventually(func(g gomega.Gomega) bool {
 		fetchedPod := &corev1.Pod{}
-		g.Expect(controllerClient.Get(context.Background(), client.ObjectKeyFromObject(pod), fetchedPod)).NotTo(gomega.HaveOccurred())
+		g.Expect(controllerClient.Get(context.Background(), client.ObjectKeyFromObject(pod), fetchedPod)).
+			NotTo(gomega.HaveOccurred())
 
 		if !equality.Semantic.DeepEqual(finalizers, fetchedPod.Finalizers) {
 			fetchedPod.SetFinalizers(finalizers)
-			g.Expect(controllerClient.Update(context.Background(), fetchedPod)).NotTo(gomega.HaveOccurred())
+			g.Expect(controllerClient.Update(context.Background(), fetchedPod)).
+				NotTo(gomega.HaveOccurred())
 		}
 
 		g.Expect(fetchedPod.Finalizers).To(gomega.ConsistOf(finalizers))

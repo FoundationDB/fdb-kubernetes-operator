@@ -81,7 +81,13 @@ var _ = Describe("pod_client", func() {
 
 		When("generating a http get request", func() {
 			It("should generate the request", func() {
-				req, err := generateRequest(retryClient, target.String(), http.MethodGet, getTimeout, postTimeout)
+				req, err := generateRequest(
+					retryClient,
+					target.String(),
+					http.MethodGet,
+					getTimeout,
+					postTimeout,
+				)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(req.Method).To(Equal(http.MethodGet))
 				Expect(retryClient.HTTPClient.Timeout).To(Equal(getTimeout))
@@ -90,17 +96,31 @@ var _ = Describe("pod_client", func() {
 
 		When("generating a http post request", func() {
 			It("should generate the request", func() {
-				req, err := generateRequest(retryClient, target.String(), http.MethodPost, getTimeout, postTimeout)
+				req, err := generateRequest(
+					retryClient,
+					target.String(),
+					http.MethodPost,
+					getTimeout,
+					postTimeout,
+				)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(req.Method).To(Equal(http.MethodPost))
 				Expect(retryClient.HTTPClient.Timeout).To(Equal(postTimeout))
-				Expect(req.Header).To(HaveKeyWithValue("Content-Type", []string{"application/json"}))
+				Expect(
+					req.Header,
+				).To(HaveKeyWithValue("Content-Type", []string{"application/json"}))
 			})
 		})
 
 		When("generating a http delete request", func() {
 			It("should generate the request", func() {
-				req, err := generateRequest(retryClient, target.String(), http.MethodDelete, getTimeout, postTimeout)
+				req, err := generateRequest(
+					retryClient,
+					target.String(),
+					http.MethodDelete,
+					getTimeout,
+					postTimeout,
+				)
 				Expect(err).To(HaveOccurred())
 				Expect(req).To(BeNil())
 			})

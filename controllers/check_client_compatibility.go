@@ -38,7 +38,13 @@ import (
 type checkClientCompatibility struct{}
 
 // reconcile runs the reconciler's work.
-func (c checkClientCompatibility) reconcile(_ context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
+func (c checkClientCompatibility) reconcile(
+	_ context.Context,
+	r *FoundationDBClusterReconciler,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	status *fdbv1beta2.FoundationDBStatus,
+	logger logr.Logger,
+) *requeue {
 	if !cluster.Status.Configured && !cluster.IsBeingUpgraded() {
 		return nil
 	}
@@ -58,7 +64,13 @@ func (c checkClientCompatibility) reconcile(_ context.Context, r *FoundationDBCl
 	}
 
 	if !runningVersion.SupportsVersionChange(version) {
-		return &requeue{message: fmt.Sprintf("cluster version change from version %s to version %s is not supported", runningVersion, version)}
+		return &requeue{
+			message: fmt.Sprintf(
+				"cluster version change from version %s to version %s is not supported",
+				runningVersion,
+				version,
+			),
+		}
 	}
 
 	if version.IsProtocolCompatible(runningVersion) {
@@ -105,7 +117,11 @@ func (c checkClientCompatibility) reconcile(_ context.Context, r *FoundationDBCl
 	return nil
 }
 
-func getUnsupportedClients(status *fdbv1beta2.FoundationDBStatus, protocolVersion string, ignoredLogGroups map[fdbv1beta2.LogGroup]fdbv1beta2.None) []string {
+func getUnsupportedClients(
+	status *fdbv1beta2.FoundationDBStatus,
+	protocolVersion string,
+	ignoredLogGroups map[fdbv1beta2.LogGroup]fdbv1beta2.None,
+) []string {
 	var unsupportedClients []string
 
 	processAddresses := map[string]fdbv1beta2.None{}

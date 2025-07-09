@@ -73,7 +73,13 @@ func (factory *Factory) GenerateCertificate() (*corev1.Secret, error) {
 		SubjectKeyId:          caKeyID,
 		AuthorityKeyId:        caKeyID,
 	}
-	caBytes, err := x509.CreateCertificate(rand.Reader, ca, ca, &caPrivateKey.PublicKey, caPrivateKey)
+	caBytes, err := x509.CreateCertificate(
+		rand.Reader,
+		ca,
+		ca,
+		&caPrivateKey.PublicKey,
+		caPrivateKey,
+	)
 	if err != nil {
 		return nil, err
 	}

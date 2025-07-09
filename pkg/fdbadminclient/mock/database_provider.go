@@ -31,24 +31,36 @@ import (
 type DatabaseClientProvider struct{}
 
 // GetLockClient generates a client for working with locks through the database.
-func (p DatabaseClientProvider) GetLockClient(cluster *fdbv1beta2.FoundationDBCluster) (fdbadminclient.LockClient, error) {
+func (p DatabaseClientProvider) GetLockClient(
+	cluster *fdbv1beta2.FoundationDBCluster,
+) (fdbadminclient.LockClient, error) {
 	return NewMockLockClient(cluster)
 }
 
 // GetLockClientWithLogger generates a client for working with locks through the database.
 // The provided logger will be used as logger for the LockClient.
-func (p DatabaseClientProvider) GetLockClientWithLogger(cluster *fdbv1beta2.FoundationDBCluster, _ logr.Logger) (fdbadminclient.LockClient, error) {
+func (p DatabaseClientProvider) GetLockClientWithLogger(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	_ logr.Logger,
+) (fdbadminclient.LockClient, error) {
 	return NewMockLockClient(cluster)
 }
 
 // GetAdminClient generates a client for performing administrative actions
 // against the database.
-func (p DatabaseClientProvider) GetAdminClient(cluster *fdbv1beta2.FoundationDBCluster, kubernetesClient client.Client) (fdbadminclient.AdminClient, error) {
+func (p DatabaseClientProvider) GetAdminClient(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	kubernetesClient client.Client,
+) (fdbadminclient.AdminClient, error) {
 	return NewMockAdminClient(cluster, kubernetesClient)
 }
 
 // GetAdminClientWithLogger generates a client for performing administrative actions
 // against the database.
-func (p DatabaseClientProvider) GetAdminClientWithLogger(cluster *fdbv1beta2.FoundationDBCluster, kubernetesClient client.Client, _ logr.Logger) (fdbadminclient.AdminClient, error) {
+func (p DatabaseClientProvider) GetAdminClientWithLogger(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	kubernetesClient client.Client,
+	_ logr.Logger,
+) (fdbadminclient.AdminClient, error) {
 	return NewMockAdminClient(cluster, kubernetesClient)
 }

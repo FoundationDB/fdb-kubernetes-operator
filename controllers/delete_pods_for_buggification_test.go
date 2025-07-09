@@ -56,14 +56,22 @@ var _ = Describe("delete_pods_for_buggification", func() {
 		Expect(generation).To(Equal(int64(1)))
 
 		originalPods = &corev1.PodList{}
-		Expect(k8sClient.List(context.TODO(), originalPods, getListOptions(cluster)...)).NotTo(HaveOccurred())
+		Expect(
+			k8sClient.List(context.TODO(), originalPods, getListOptions(cluster)...),
+		).NotTo(HaveOccurred())
 	})
 
 	JustBeforeEach(func() {
 		err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 		Expect(err).NotTo(HaveOccurred())
 
-		requeue = deletePodsForBuggification{}.reconcile(context.TODO(), clusterReconciler, cluster, nil, globalControllerLogger)
+		requeue = deletePodsForBuggification{}.reconcile(
+			context.TODO(),
+			clusterReconciler,
+			cluster,
+			nil,
+			globalControllerLogger,
+		)
 		if requeue != nil {
 			Expect(requeue.curError).NotTo(HaveOccurred())
 		}
@@ -78,7 +86,9 @@ var _ = Describe("delete_pods_for_buggification", func() {
 
 		It("should not delete any pods", func() {
 			pods := &corev1.PodList{}
-			Expect(k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)).NotTo(HaveOccurred())
+			Expect(
+				k8sClient.List(context.TODO(), pods, getListOptions(cluster)...),
+			).NotTo(HaveOccurred())
 			Expect(pods.Items).To(ConsistOf(originalPods.Items))
 		})
 	})
@@ -92,7 +102,9 @@ var _ = Describe("delete_pods_for_buggification", func() {
 
 		When("using crashLoop", func() {
 			BeforeEach(func() {
-				cluster.Spec.Buggify.CrashLoop = []fdbv1beta2.ProcessGroupID{processGroup.ProcessGroupID}
+				cluster.Spec.Buggify.CrashLoop = []fdbv1beta2.ProcessGroupID{
+					processGroup.ProcessGroupID,
+				}
 			})
 
 			It("should requeue", func() {
@@ -107,7 +119,14 @@ var _ = Describe("delete_pods_for_buggification", func() {
 				Expect(len(pods.Items)).To(Equal(len(originalPods.Items) - 1))
 
 				pod := &corev1.Pod{}
-				err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: processGroup.GetPodName(cluster)}, pod)
+				err = k8sClient.Get(
+					context.TODO(),
+					types.NamespacedName{
+						Namespace: cluster.Namespace,
+						Name:      processGroup.GetPodName(cluster),
+					},
+					pod,
+				)
 				Expect(err).To(HaveOccurred())
 				Expect(k8serrors.IsNotFound(err)).To(BeTrue())
 			})
@@ -115,7 +134,9 @@ var _ = Describe("delete_pods_for_buggification", func() {
 
 		When("using noSchedule", func() {
 			BeforeEach(func() {
-				cluster.Spec.Buggify.NoSchedule = []fdbv1beta2.ProcessGroupID{processGroup.ProcessGroupID}
+				cluster.Spec.Buggify.NoSchedule = []fdbv1beta2.ProcessGroupID{
+					processGroup.ProcessGroupID,
+				}
 			})
 
 			It("should requeue", func() {
@@ -130,7 +151,14 @@ var _ = Describe("delete_pods_for_buggification", func() {
 				Expect(len(pods.Items)).To(Equal(len(originalPods.Items) - 1))
 
 				pod := &corev1.Pod{}
-				err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: processGroup.GetPodName(cluster)}, pod)
+				err = k8sClient.Get(
+					context.TODO(),
+					types.NamespacedName{
+						Namespace: cluster.Namespace,
+						Name:      processGroup.GetPodName(cluster),
+					},
+					pod,
+				)
 				Expect(err).To(HaveOccurred())
 				Expect(k8serrors.IsNotFound(err)).To(BeTrue())
 			})
@@ -149,7 +177,9 @@ var _ = Describe("delete_pods_for_buggification", func() {
 
 		It("should delete the pods", func() {
 			pods := &corev1.PodList{}
-			Expect(k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)).NotTo(HaveOccurred())
+			Expect(
+				k8sClient.List(context.TODO(), pods, getListOptions(cluster)...),
+			).NotTo(HaveOccurred())
 			Expect(len(pods.Items)).To(Equal(0))
 		})
 	})
@@ -164,7 +194,14 @@ var _ = Describe("delete_pods_for_buggification", func() {
 		When("using crashLoop", func() {
 			BeforeEach(func() {
 				pod := &corev1.Pod{}
-				err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: processGroup.GetPodName(cluster)}, pod)
+				err = k8sClient.Get(
+					context.TODO(),
+					types.NamespacedName{
+						Namespace: cluster.Namespace,
+						Name:      processGroup.GetPodName(cluster),
+					},
+					pod,
+				)
 				Expect(err).NotTo(HaveOccurred())
 
 				err = k8sClient.Delete(context.TODO(), pod)
@@ -188,7 +225,14 @@ var _ = Describe("delete_pods_for_buggification", func() {
 				Expect(len(pods.Items)).To(Equal(len(originalPods.Items) - 1))
 
 				pod := &corev1.Pod{}
-				err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: processGroup.GetPodName(cluster)}, pod)
+				err = k8sClient.Get(
+					context.TODO(),
+					types.NamespacedName{
+						Namespace: cluster.Namespace,
+						Name:      processGroup.GetPodName(cluster),
+					},
+					pod,
+				)
 				Expect(err).To(HaveOccurred())
 				Expect(k8serrors.IsNotFound(err)).To(BeTrue())
 			})
@@ -197,7 +241,14 @@ var _ = Describe("delete_pods_for_buggification", func() {
 		When("using noSchedule", func() {
 			BeforeEach(func() {
 				pod := &corev1.Pod{}
-				err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: processGroup.GetPodName(cluster)}, pod)
+				err = k8sClient.Get(
+					context.TODO(),
+					types.NamespacedName{
+						Namespace: cluster.Namespace,
+						Name:      processGroup.GetPodName(cluster),
+					},
+					pod,
+				)
 				Expect(err).NotTo(HaveOccurred())
 
 				err = k8sClient.Delete(context.TODO(), pod)
@@ -236,7 +287,14 @@ var _ = Describe("delete_pods_for_buggification", func() {
 				Expect(len(pods.Items)).To(Equal(len(originalPods.Items) - 1))
 
 				pod := &corev1.Pod{}
-				err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: processGroup.GetPodName(cluster)}, pod)
+				err = k8sClient.Get(
+					context.TODO(),
+					types.NamespacedName{
+						Namespace: cluster.Namespace,
+						Name:      processGroup.GetPodName(cluster),
+					},
+					pod,
+				)
 				Expect(err).To(HaveOccurred())
 				Expect(k8serrors.IsNotFound(err)).To(BeTrue())
 			})
@@ -253,7 +311,14 @@ var _ = Describe("delete_pods_for_buggification", func() {
 		When("using crashLoop", func() {
 			BeforeEach(func() {
 				pod := &corev1.Pod{}
-				err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: processGroup.GetPodName(cluster)}, pod)
+				err = k8sClient.Get(
+					context.TODO(),
+					types.NamespacedName{
+						Namespace: cluster.Namespace,
+						Name:      processGroup.GetPodName(cluster),
+					},
+					pod,
+				)
 				Expect(err).NotTo(HaveOccurred())
 
 				err = k8sClient.Delete(context.TODO(), pod)
@@ -263,7 +328,9 @@ var _ = Describe("delete_pods_for_buggification", func() {
 				pod.Spec.Containers[0].Args = []string{"crash-loop"}
 				err = k8sClient.Create(context.TODO(), pod)
 				Expect(err).NotTo(HaveOccurred())
-				cluster.Spec.Buggify.CrashLoop = []fdbv1beta2.ProcessGroupID{processGroup.ProcessGroupID}
+				cluster.Spec.Buggify.CrashLoop = []fdbv1beta2.ProcessGroupID{
+					processGroup.ProcessGroupID,
+				}
 			})
 
 			It("should not requeue", func() {
@@ -277,7 +344,14 @@ var _ = Describe("delete_pods_for_buggification", func() {
 				Expect(len(pods.Items)).To(Equal(len(originalPods.Items)))
 
 				pod := &corev1.Pod{}
-				err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: processGroup.GetPodName(cluster)}, pod)
+				err = k8sClient.Get(
+					context.TODO(),
+					types.NamespacedName{
+						Namespace: cluster.Namespace,
+						Name:      processGroup.GetPodName(cluster),
+					},
+					pod,
+				)
 				Expect(err).NotTo(HaveOccurred())
 			})
 		})
@@ -285,7 +359,14 @@ var _ = Describe("delete_pods_for_buggification", func() {
 		When("using noSchedule", func() {
 			BeforeEach(func() {
 				pod := &corev1.Pod{}
-				err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: processGroup.GetPodName(cluster)}, pod)
+				err = k8sClient.Get(
+					context.TODO(),
+					types.NamespacedName{
+						Namespace: cluster.Namespace,
+						Name:      processGroup.GetPodName(cluster),
+					},
+					pod,
+				)
 				Expect(err).NotTo(HaveOccurred())
 
 				err = k8sClient.Delete(context.TODO(), pod)
@@ -310,7 +391,9 @@ var _ = Describe("delete_pods_for_buggification", func() {
 				pod.ResourceVersion = ""
 				err = k8sClient.Create(context.TODO(), pod)
 				Expect(err).NotTo(HaveOccurred())
-				cluster.Spec.Buggify.NoSchedule = []fdbv1beta2.ProcessGroupID{processGroup.ProcessGroupID}
+				cluster.Spec.Buggify.NoSchedule = []fdbv1beta2.ProcessGroupID{
+					processGroup.ProcessGroupID,
+				}
 			})
 
 			It("should not requeue", func() {
@@ -324,7 +407,14 @@ var _ = Describe("delete_pods_for_buggification", func() {
 				Expect(len(pods.Items)).To(Equal(len(originalPods.Items)))
 
 				pod := &corev1.Pod{}
-				err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: processGroup.GetPodName(cluster)}, pod)
+				err = k8sClient.Get(
+					context.TODO(),
+					types.NamespacedName{
+						Namespace: cluster.Namespace,
+						Name:      processGroup.GetPodName(cluster),
+					},
+					pod,
+				)
 				Expect(err).NotTo(HaveOccurred())
 			})
 		})
@@ -335,21 +425,23 @@ var _ = Describe("delete_pods_for_buggification", func() {
 
 		BeforeEach(func() {
 			processGroup = internal.PickProcessGroups(cluster, fdbv1beta2.ProcessClassStorage, 1)[0]
-			cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{fdbv1beta2.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Name: fdbv1beta2.MainContainerName,
-							Env: []corev1.EnvVar{
-								{
-									Name:  "TEST_CHANGE",
-									Value: "1",
+			cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{
+				fdbv1beta2.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{
+							{
+								Name: fdbv1beta2.MainContainerName,
+								Env: []corev1.EnvVar{
+									{
+										Name:  "TEST_CHANGE",
+										Value: "1",
+									},
 								},
 							},
 						},
 					},
-				},
-			}}}
+				}},
+			}
 			err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 			Expect(err).NotTo(HaveOccurred())
 		})
@@ -365,7 +457,14 @@ var _ = Describe("delete_pods_for_buggification", func() {
 			Expect(len(pods.Items)).To(Equal(len(originalPods.Items)))
 
 			pod := &corev1.Pod{}
-			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: processGroup.GetPodName(cluster)}, pod)
+			err = k8sClient.Get(
+				context.TODO(),
+				types.NamespacedName{
+					Namespace: cluster.Namespace,
+					Name:      processGroup.GetPodName(cluster),
+				},
+				pod,
+			)
 			Expect(err).NotTo(HaveOccurred())
 		})
 	})

@@ -28,7 +28,8 @@ import (
 
 var _ = Describe("[api] FoundationDBRestore", func() {
 	When("getting the backup URL", func() {
-		DescribeTable("should generate the correct backup URL",
+		DescribeTable(
+			"should generate the correct backup URL",
 			func(restore FoundationDBRestore, expected string) {
 				Expect(restore.BackupURL()).To(Equal(expected))
 			},
@@ -84,7 +85,8 @@ var _ = Describe("[api] FoundationDBRestore", func() {
 					},
 				},
 				"blobstore://account@account:443/test?bucket=my-bucket"),
-			Entry("A restore with a blobstore config with HTTP parameters and backup and bucket name",
+			Entry(
+				"A restore with a blobstore config with HTTP parameters and backup and bucket name",
 				FoundationDBRestore{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "mybackup",
@@ -100,7 +102,8 @@ var _ = Describe("[api] FoundationDBRestore", func() {
 						},
 					},
 				},
-				"blobstore://account@account:80/test?bucket=my-bucket&secure_connection=0"),
+				"blobstore://account@account:80/test?bucket=my-bucket&secure_connection=0",
+			),
 			Entry("A restore with a blobstore config with HTTP parameters",
 				FoundationDBRestore{
 					ObjectMeta: metav1.ObjectMeta{

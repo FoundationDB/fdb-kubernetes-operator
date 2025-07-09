@@ -45,7 +45,13 @@ var _ = Describe("update_database_configuration", func() {
 	})
 
 	JustBeforeEach(func() {
-		requeue = updateDatabaseConfiguration{}.reconcile(context.TODO(), clusterReconciler, cluster, nil, globalControllerLogger)
+		requeue = updateDatabaseConfiguration{}.reconcile(
+			context.TODO(),
+			clusterReconciler,
+			cluster,
+			nil,
+			globalControllerLogger,
+		)
 	})
 
 	When("the cluster is not yet configured", func() {
@@ -115,7 +121,9 @@ var _ = Describe("update_database_configuration", func() {
 					adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(adminClient.DatabaseConfiguration).NotTo(BeNil())
-					Expect(adminClient.DatabaseConfiguration.RedundancyMode).To(Equal(fdbv1beta2.RedundancyModeTriple))
+					Expect(
+						adminClient.DatabaseConfiguration.RedundancyMode,
+					).To(Equal(fdbv1beta2.RedundancyModeTriple))
 					Expect(adminClient.DatabaseConfiguration).NotTo(Equal(initialConfiguration))
 				})
 			})
@@ -138,13 +146,17 @@ var _ = Describe("update_database_configuration", func() {
 
 				It("should not update the configuration", func() {
 					Expect(requeue).NotTo(BeNil())
-					Expect(requeue.message).To(Equal("Configuration change is not safe: cluster is unavailable, cannot change configuration, will retry"))
+					Expect(
+						requeue.message,
+					).To(Equal("Configuration change is not safe: cluster is unavailable, cannot change configuration, will retry"))
 					Expect(cluster.Status.Configured).To(BeTrue())
 
 					adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(adminClient.DatabaseConfiguration).NotTo(BeNil())
-					Expect(adminClient.DatabaseConfiguration.RedundancyMode).To(Equal(fdbv1beta2.RedundancyModeDouble))
+					Expect(
+						adminClient.DatabaseConfiguration.RedundancyMode,
+					).To(Equal(fdbv1beta2.RedundancyModeDouble))
 				})
 			})
 
@@ -172,54 +184,65 @@ var _ = Describe("update_database_configuration", func() {
 
 				It("should not update the configuration", func() {
 					Expect(requeue).NotTo(BeNil())
-					Expect(requeue.message).To(Equal("Configuration change is not safe: data distribution is not healthy: primary, will retry"))
+					Expect(
+						requeue.message,
+					).To(Equal("Configuration change is not safe: data distribution is not healthy: primary, will retry"))
 					Expect(cluster.Status.Configured).To(BeTrue())
 
 					adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(adminClient.DatabaseConfiguration).NotTo(BeNil())
-					Expect(adminClient.DatabaseConfiguration.RedundancyMode).To(Equal(fdbv1beta2.RedundancyModeDouble))
+					Expect(
+						adminClient.DatabaseConfiguration.RedundancyMode,
+					).To(Equal(fdbv1beta2.RedundancyModeDouble))
 				})
 			})
 
-			When("the database contains a message indicating that the configuration is not readable", func() {
-				BeforeEach(func() {
-					adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
-					Expect(err).NotTo(HaveOccurred())
-					adminClient.FrozenStatus = &fdbv1beta2.FoundationDBStatus{
-						Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
-							DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
-								Available: true,
-							},
-						},
-						Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
-							Messages: []fdbv1beta2.FoundationDBStatusMessage{
-								{
-									Name: "unreadable_configuration",
+			When(
+				"the database contains a message indicating that the configuration is not readable",
+				func() {
+					BeforeEach(func() {
+						adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
+						Expect(err).NotTo(HaveOccurred())
+						adminClient.FrozenStatus = &fdbv1beta2.FoundationDBStatus{
+							Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+								DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+									Available: true,
 								},
 							},
-							DatabaseConfiguration: *adminClient.DatabaseConfiguration,
-							Data: fdbv1beta2.FoundationDBStatusDataStatistics{
-								State: fdbv1beta2.FoundationDBStatusDataState{
-									Healthy: true,
-									Name:    "primary",
+							Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+								Messages: []fdbv1beta2.FoundationDBStatusMessage{
+									{
+										Name: "unreadable_configuration",
+									},
+								},
+								DatabaseConfiguration: *adminClient.DatabaseConfiguration,
+								Data: fdbv1beta2.FoundationDBStatusDataStatistics{
+									State: fdbv1beta2.FoundationDBStatusDataState{
+										Healthy: true,
+										Name:    "primary",
+									},
 								},
 							},
-						},
-					}
-				})
+						}
+					})
 
-				It("should not update the configuration", func() {
-					Expect(requeue).NotTo(BeNil())
-					Expect(requeue.message).To(Equal("Configuration change is not safe: status contains error message: unreadable_configuration, will retry"))
-					Expect(cluster.Status.Configured).To(BeTrue())
+					It("should not update the configuration", func() {
+						Expect(requeue).NotTo(BeNil())
+						Expect(
+							requeue.message,
+						).To(Equal("Configuration change is not safe: status contains error message: unreadable_configuration, will retry"))
+						Expect(cluster.Status.Configured).To(BeTrue())
 
-					adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(adminClient.DatabaseConfiguration).NotTo(BeNil())
-					Expect(adminClient.DatabaseConfiguration.RedundancyMode).To(Equal(fdbv1beta2.RedundancyModeDouble))
-				})
-			})
+						adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(adminClient.DatabaseConfiguration).NotTo(BeNil())
+						Expect(
+							adminClient.DatabaseConfiguration.RedundancyMode,
+						).To(Equal(fdbv1beta2.RedundancyModeDouble))
+					})
+				},
+			)
 
 			When("the last recovery was less than 60 seconds ago", func() {
 				BeforeEach(func() {
@@ -253,13 +276,17 @@ var _ = Describe("update_database_configuration", func() {
 
 				It("should not update the configuration", func() {
 					Expect(requeue).NotTo(BeNil())
-					Expect(requeue.message).To(Equal("Configuration change is not safe: clusters last recovery was 0.10 seconds ago, wait until the last recovery was 60 seconds ago, will retry"))
+					Expect(
+						requeue.message,
+					).To(Equal("Configuration change is not safe: clusters last recovery was 0.10 seconds ago, wait until the last recovery was 60 seconds ago, will retry"))
 					Expect(cluster.Status.Configured).To(BeTrue())
 
 					adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(adminClient.DatabaseConfiguration).NotTo(BeNil())
-					Expect(adminClient.DatabaseConfiguration.RedundancyMode).To(Equal(fdbv1beta2.RedundancyModeDouble))
+					Expect(
+						adminClient.DatabaseConfiguration.RedundancyMode,
+					).To(Equal(fdbv1beta2.RedundancyModeDouble))
 				})
 			})
 		})

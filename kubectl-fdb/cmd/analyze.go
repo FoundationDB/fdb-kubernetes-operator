@@ -116,7 +116,11 @@ func newAnalyzeCmd(streams genericclioptions.IOStreams) *cobra.Command {
 			var clusters []string
 			if allClusters {
 				var clusterList fdbv1beta2.FoundationDBClusterList
-				err := kubeClient.List(context.Background(), &clusterList, client.InNamespace(namespace))
+				err := kubeClient.List(
+					context.Background(),
+					&clusterList,
+					client.InNamespace(namespace),
+				)
 				if err != nil {
 					return err
 				}
@@ -132,11 +136,27 @@ func newAnalyzeCmd(streams genericclioptions.IOStreams) *cobra.Command {
 			for _, clusterName := range clusters {
 				cluster, err := loadCluster(kubeClient, namespace, clusterName)
 				if err != nil {
-					errs = append(errs, fmt.Errorf("could not fetch cluster information for: %s/%s, error: %w", namespace, clusterName, err))
+					errs = append(
+						errs,
+						fmt.Errorf(
+							"could not fetch cluster information for: %s/%s, error: %w",
+							namespace,
+							clusterName,
+							err,
+						),
+					)
 					continue
 				}
 
-				err = analyzeCluster(cmd, kubeClient, cluster, autoFix, wait, ignoreConditions, ignoreRemovals)
+				err = analyzeCluster(
+					cmd,
+					kubeClient,
+					cluster,
+					autoFix,
+					wait,
+					ignoreConditions,
+					ignoreRemovals,
+				)
 				if err != nil {
 					errs = append(errs, err)
 				}
@@ -186,13 +206,18 @@ kubectl fdb analyze --ignore-removals=false sample-cluster-1
 	cmd.SetErr(o.ErrOut)
 	cmd.SetIn(o.In)
 
-	cmd.Flags().Bool("auto-fix", false, "defines if the analyze tasks should try to fix the found issues (e.g. replace Pods).")
-	cmd.Flags().Bool("all-clusters", false, "defines all clusters in the given namespace should be analyzed.")
-	cmd.Flags().Bool("analyze-status", false, "defines if the command should also analyze the machine-readable status of the provided cluster(s).")
+	cmd.Flags().
+		Bool("auto-fix", false, "defines if the analyze tasks should try to fix the found issues (e.g. replace Pods).")
+	cmd.Flags().
+		Bool("all-clusters", false, "defines all clusters in the given namespace should be analyzed.")
+	cmd.Flags().
+		Bool("analyze-status", false, "defines if the command should also analyze the machine-readable status of the provided cluster(s).")
 	// We might want to move this into the root cmd if we need this in multiple places
 	cmd.Flags().Bool("no-color", false, "Disable color output.")
-	cmd.Flags().StringArray("ignore-condition", nil, "specify which process group conditions should be ignored and not be printed to stdout.")
-	cmd.Flags().Bool("ignore-removals", true, "specify if process groups marked for removal should be ignored.")
+	cmd.Flags().
+		StringArray("ignore-condition", nil, "specify which process group conditions should be ignored and not be printed to stdout.")
+	cmd.Flags().
+		Bool("ignore-removals", true, "specify if process groups marked for removal should be ignored.")
 
 	o.configFlags.AddFlags(cmd.Flags())
 
@@ -223,7 +248,15 @@ func allConditionsValid(conditions []string) error {
 	return errors.New(errString.String())
 }
 
-func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluster, autoFix bool, wait bool, ignoreConditions []string, ignoreRemovals bool) error {
+func analyzeCluster(
+	cmd *cobra.Command,
+	kubeClient client.Client,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	autoFix bool,
+	wait bool,
+	ignoreConditions []string,
+	ignoreRemovals bool,
+) error {
 	var foundIssues bool
 	if cluster == nil {
 		return fmt.Errorf("error provided cluster is nil")
@@ -270,7 +303,11 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, cluster *fdbv1
 		if processGroup.IsMarkedForRemoval() {
 			removedProcessGroups[processGroup.ProcessGroupID] = fdbv1beta2.None{}
 			if !ignoreRemovals {
-				statement := fmt.Sprintf("ProcessGroup: %s is marked for removal, excluded state: %t", processGroup.ProcessGroupID, processGroup.IsExcluded())
+				statement := fmt.Sprintf(
+					"ProcessGroup: %s is marked for removal, excluded state: %t",
+					processGroup.ProcessGroupID,
+					processGroup.IsExcluded(),
+				)
 				printStatement(cmd, statement, warnMessage)
 			}
 
@@ -285,7 +322,9 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, cluster *fdbv1
 		for _, condition := range processGroup.ProcessGroupConditions {
 			skip := false
 			for _, ignoreCondition := range ignoreConditions {
-				if condition.ProcessGroupConditionType == fdbv1beta2.ProcessGroupConditionType(ignoreCondition) {
+				if condition.ProcessGroupConditionType == fdbv1beta2.ProcessGroupConditionType(
+					ignoreCondition,
+				) {
 					skip = true
 					ignoredConditions++
 					break
@@ -296,7 +335,12 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, cluster *fdbv1
 				continue
 			}
 
-			statement := fmt.Sprintf("ProcessGroup: %s has the following condition: %s since %s", processGroup.ProcessGroupID, condition.ProcessGroupConditionType, time.Unix(condition.Timestamp, 0).String())
+			statement := fmt.Sprintf(
+				"ProcessGroup: %s has the following condition: %s since %s",
+				processGroup.ProcessGroupID,
+				condition.ProcessGroupConditionType,
+				time.Unix(condition.Timestamp, 0).String(),
+			)
 			printStatement(cmd, statement, errorMessage)
 		}
 
@@ -309,7 +353,11 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, cluster *fdbv1
 	}
 
 	if ignoreRemovals && len(removedProcessGroups) > 0 {
-		printStatement(cmd, fmt.Sprintf("Ignored %d process groups marked for removal", len(removedProcessGroups)), warnMessage)
+		printStatement(
+			cmd,
+			fmt.Sprintf("Ignored %d process groups marked for removal", len(removedProcessGroups)),
+			warnMessage,
+		)
 	}
 
 	if ignoredConditions > 0 {
@@ -342,9 +390,15 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, cluster *fdbv1
 			continue
 		}
 
-		if pod.DeletionTimestamp != nil && pod.DeletionTimestamp.Add(5*time.Minute).Before(time.Now()) {
+		if pod.DeletionTimestamp != nil &&
+			pod.DeletionTimestamp.Add(5*time.Minute).Before(time.Now()) {
 			podIssue = true
-			statement := fmt.Sprintf("Pod %s/%s has been stuck in terminating since %s", pod.Namespace, pod.Name, pod.DeletionTimestamp)
+			statement := fmt.Sprintf(
+				"Pod %s/%s has been stuck in terminating since %s",
+				pod.Namespace,
+				pod.Name,
+				pod.DeletionTimestamp,
+			)
 			printStatement(cmd, statement, errorMessage)
 
 			// The process groups that should be deleted, so we can safely replace it
@@ -357,7 +411,13 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, cluster *fdbv1
 
 		if pod.Status.Phase != corev1.PodRunning {
 			podIssue = true
-			statement := fmt.Sprintf("Pod %s/%s has unexpected Phase %s with Reason: %s", pod.Namespace, pod.Name, pod.Status.Phase, pod.Status.Reason)
+			statement := fmt.Sprintf(
+				"Pod %s/%s has unexpected Phase %s with Reason: %s",
+				pod.Namespace,
+				pod.Name,
+				pod.Status.Phase,
+				pod.Status.Reason,
+			)
 			printStatement(cmd, statement, errorMessage)
 		}
 
@@ -368,11 +428,17 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, cluster *fdbv1
 			}
 
 			podIssue = true
-			statement := fmt.Sprintf("Pod %s/%s has an unready container: %s", pod.Namespace, pod.Name, container.Name)
+			statement := fmt.Sprintf(
+				"Pod %s/%s has an unready container: %s",
+				pod.Namespace,
+				pod.Name,
+				container.Name,
+			)
 			printStatement(cmd, statement, errorMessage)
 
 			// Replace the Pod if the container is unready for more then 30 minutes
-			if container.State.Terminated != nil && container.State.Terminated.ExitCode != 0 && container.State.Terminated.FinishedAt.Add(30*time.Minute).Before(time.Now()) {
+			if container.State.Terminated != nil && container.State.Terminated.ExitCode != 0 &&
+				container.State.Terminated.FinishedAt.Add(30*time.Minute).Before(time.Now()) {
 				deletePod = true
 			}
 		}
@@ -384,7 +450,12 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, cluster *fdbv1
 		id := fdbv1beta2.ProcessGroupID(pod.Labels[processGroupIDLabel])
 		if _, ok := processGroupMap[id]; !ok {
 			podIssue = true
-			statement := fmt.Sprintf("Pod %s/%s with the ID %s is not part of the cluster spec status", pod.Namespace, pod.Name, id)
+			statement := fmt.Sprintf(
+				"Pod %s/%s with the ID %s is not part of the cluster spec status",
+				pod.Namespace,
+				pod.Name,
+				id,
+			)
 			printStatement(cmd, statement, errorMessage)
 		}
 	}
@@ -425,7 +496,14 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, cluster *fdbv1
 				podNames = append(podNames, pod.Name)
 			}
 
-			confirmed = confirmAction(fmt.Sprintf("Delete Pods %v in cluster %s/%s", strings.Join(podNames, ","), cluster.Namespace, cluster.Name))
+			confirmed = confirmAction(
+				fmt.Sprintf(
+					"Delete Pods %v in cluster %s/%s",
+					strings.Join(podNames, ","),
+					cluster.Namespace,
+					cluster.Name,
+				),
+			)
 		}
 
 		if !wait || confirmed {
@@ -465,8 +543,21 @@ func filterDeletePods(replacements []string, killPods []corev1.Pod) []corev1.Pod
 	return res
 }
 
-func getStatus(ctx context.Context, kubeClient client.Client, restConfig *rest.Config, pod *corev1.Pod) (*fdbv1beta2.FoundationDBStatus, error) {
-	stdout, stderr, err := kubeHelper.ExecuteCommandOnPod(ctx, kubeClient, restConfig, pod, fdbv1beta2.MainContainerName, "fdbcli --timeout=40 --exec 'status json'", false)
+func getStatus(
+	ctx context.Context,
+	kubeClient client.Client,
+	restConfig *rest.Config,
+	pod *corev1.Pod,
+) (*fdbv1beta2.FoundationDBStatus, error) {
+	stdout, stderr, err := kubeHelper.ExecuteCommandOnPod(
+		ctx,
+		kubeClient,
+		restConfig,
+		pod,
+		fdbv1beta2.MainContainerName,
+		"fdbcli --timeout=40 --exec 'status json'",
+		false,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("error getting status: %s, %w", stderr, err)
 	}
@@ -486,12 +577,23 @@ func getStatus(ctx context.Context, kubeClient client.Client, restConfig *rest.C
 	return status, nil
 }
 
-func analyzeStatus(cmd *cobra.Command, restConfig *rest.Config, kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluster, autoFix bool) error {
+func analyzeStatus(
+	cmd *cobra.Command,
+	restConfig *rest.Config,
+	kubeClient client.Client,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	autoFix bool,
+) error {
 	if cluster == nil {
 		return fmt.Errorf("error provided cluster is nil")
 	}
 
-	cmd.Printf("Checking cluster: %s/%s with auto-fix: %t\n", cluster.Namespace, cluster.Name, autoFix)
+	cmd.Printf(
+		"Checking cluster: %s/%s with auto-fix: %t\n",
+		cluster.Namespace,
+		cluster.Name,
+		autoFix,
+	)
 
 	pods, err := getPodsForCluster(cmd.Context(), kubeClient, cluster)
 	if err != nil {
@@ -524,7 +626,15 @@ func analyzeStatus(cmd *cobra.Command, restConfig *rest.Config, kubeClient clien
 	return analyzeStatusInternal(cmd, restConfig, kubeClient, status, pod, autoFix, cluster.Name)
 }
 
-func analyzeStatusInternal(cmd *cobra.Command, restConfig *rest.Config, kubeClient client.Client, status *fdbv1beta2.FoundationDBStatus, pod *corev1.Pod, autoFix bool, clusterName string) error {
+func analyzeStatusInternal(
+	cmd *cobra.Command,
+	restConfig *rest.Config,
+	kubeClient client.Client,
+	status *fdbv1beta2.FoundationDBStatus,
+	pod *corev1.Pod,
+	autoFix bool,
+	clusterName string,
+) error {
 	var foundIssues bool
 
 	processesWithError := make([]string, 0)
@@ -537,12 +647,16 @@ func analyzeStatusInternal(cmd *cobra.Command, restConfig *rest.Config, kubeClie
 		addr := process.Address.StringWithoutFlags()
 		processesWithError = append(processesWithError, addr)
 		for _, message := range process.Messages {
-			printStatement(cmd, fmt.Sprintf("Process: %s with address: %s error: %s type: %s, time: %s",
-				process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey],
-				addr,
-				message.Name,
-				message.Type,
-				time.Unix(int64(int(message.Time)), 0).String()), errorMessage)
+			printStatement(
+				cmd,
+				fmt.Sprintf("Process: %s with address: %s error: %s type: %s, time: %s",
+					process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey],
+					addr,
+					message.Name,
+					message.Type,
+					time.Unix(int64(int(message.Time)), 0).String()),
+				errorMessage,
+			)
 		}
 	}
 
@@ -552,7 +666,15 @@ func analyzeStatusInternal(cmd *cobra.Command, restConfig *rest.Config, kubeClie
 		for _, process := range processesWithError {
 			cmd.Println("Start killing", process)
 			killCmd := fmt.Sprintf("kill; kill %s; sleep 5; status", process)
-			_, stderr, err := kubeHelper.ExecuteCommandOnPod(cmd.Context(), kubeClient, restConfig, pod, fdbv1beta2.MainContainerName, fmt.Sprintf("fdbcli --exec '%s'", killCmd), false)
+			_, stderr, err := kubeHelper.ExecuteCommandOnPod(
+				cmd.Context(),
+				kubeClient,
+				restConfig,
+				pod,
+				fdbv1beta2.MainContainerName,
+				fmt.Sprintf("fdbcli --exec '%s'", killCmd),
+				false,
+			)
 			if err != nil {
 				return fmt.Errorf("error killing process %s status: %s, %w", process, stderr, err)
 			}
@@ -561,7 +683,10 @@ func analyzeStatusInternal(cmd *cobra.Command, restConfig *rest.Config, kubeClie
 	}
 
 	if foundIssues {
-		return fmt.Errorf("found issues in status json for cluster %s. Please check them", clusterName)
+		return fmt.Errorf(
+			"found issues in status json for cluster %s. Please check them",
+			clusterName,
+		)
 	}
 
 	return nil

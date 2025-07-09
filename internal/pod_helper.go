@@ -80,12 +80,19 @@ func GetPublicIPsForPod(pod *corev1.Pod, log logr.Logger) []string {
 }
 
 // GetProcessGroupIDFromMeta fetches the process group ID from an object's metadata.
-func GetProcessGroupIDFromMeta(cluster *fdbv1beta2.FoundationDBCluster, metadata metav1.ObjectMeta) fdbv1beta2.ProcessGroupID {
+func GetProcessGroupIDFromMeta(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	metadata metav1.ObjectMeta,
+) fdbv1beta2.ProcessGroupID {
 	return fdbv1beta2.ProcessGroupID(metadata.Labels[cluster.GetProcessGroupIDLabel()])
 }
 
 // GetPodSpecHash builds the hash of the expected spec for a pod.
-func GetPodSpecHash(cluster *fdbv1beta2.FoundationDBCluster, processGroup *fdbv1beta2.ProcessGroupStatus, spec *corev1.PodSpec) (string, error) {
+func GetPodSpecHash(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	processGroup *fdbv1beta2.ProcessGroupStatus,
+	spec *corev1.PodSpec,
+) (string, error) {
 	var err error
 	if spec == nil {
 		spec, err = GetPodSpec(cluster, processGroup)
@@ -111,7 +118,11 @@ func GetJSONHash(object interface{}) (string, error) {
 }
 
 // GetPodLabels creates the labels that we will apply to a Pod
-func GetPodLabels(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, id string) map[string]string {
+func GetPodLabels(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	processClass fdbv1beta2.ProcessClass,
+	id string,
+) map[string]string {
 	labels := map[string]string{}
 
 	for key, value := range cluster.GetMatchLabels() {
@@ -134,7 +145,11 @@ func GetPodLabels(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1bet
 }
 
 // GetPodMatchLabels creates the labels that we will use when filtering for a pod.
-func GetPodMatchLabels(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, id string) map[string]string {
+func GetPodMatchLabels(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	processClass fdbv1beta2.ProcessClass,
+	id string,
+) map[string]string {
 	labels := map[string]string{}
 
 	for key, value := range cluster.GetMatchLabels() {
@@ -153,7 +168,10 @@ func GetPodMatchLabels(cluster *fdbv1beta2.FoundationDBCluster, processClass fdb
 }
 
 // BuildOwnerReference returns an OwnerReference for the provided input
-func BuildOwnerReference(ownerType metav1.TypeMeta, ownerMetadata metav1.ObjectMeta) []metav1.OwnerReference {
+func BuildOwnerReference(
+	ownerType metav1.TypeMeta,
+	ownerMetadata metav1.ObjectMeta,
+) []metav1.OwnerReference {
 	return []metav1.OwnerReference{{
 		APIVersion: ownerType.APIVersion,
 		Kind:       ownerType.Kind,
@@ -164,17 +182,34 @@ func BuildOwnerReference(ownerType metav1.TypeMeta, ownerMetadata metav1.ObjectM
 }
 
 // GetSinglePodListOptions returns the listOptions to list a single Pod
-func GetSinglePodListOptions(cluster *fdbv1beta2.FoundationDBCluster, processGroupID fdbv1beta2.ProcessGroupID) []client.ListOption {
-	return []client.ListOption{client.InNamespace(cluster.ObjectMeta.Namespace), client.MatchingLabels(GetPodMatchLabels(cluster, "", string(processGroupID)))}
+func GetSinglePodListOptions(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	processGroupID fdbv1beta2.ProcessGroupID,
+) []client.ListOption {
+	return []client.ListOption{
+		client.InNamespace(cluster.ObjectMeta.Namespace),
+		client.MatchingLabels(GetPodMatchLabels(cluster, "", string(processGroupID))),
+	}
 }
 
 // GetPodListOptions returns the listOptions to list Pods
-func GetPodListOptions(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, id string) []client.ListOption {
-	return []client.ListOption{client.InNamespace(cluster.ObjectMeta.Namespace), client.MatchingLabels(GetPodMatchLabels(cluster, processClass, id))}
+func GetPodListOptions(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	processClass fdbv1beta2.ProcessClass,
+	id string,
+) []client.ListOption {
+	return []client.ListOption{
+		client.InNamespace(cluster.ObjectMeta.Namespace),
+		client.MatchingLabels(GetPodMatchLabels(cluster, processClass, id)),
+	}
 }
 
 // GetPvcMetadata returns the metadata for a PVC
-func GetPvcMetadata(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, id fdbv1beta2.ProcessGroupID) metav1.ObjectMeta {
+func GetPvcMetadata(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	processClass fdbv1beta2.ProcessClass,
+	id fdbv1beta2.ProcessGroupID,
+) metav1.ObjectMeta {
 	var customMetadata *metav1.ObjectMeta
 
 	processSettings := cluster.GetProcessSettings(processClass)
@@ -188,7 +223,10 @@ func GetPvcMetadata(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1b
 }
 
 // GetSidecarImage returns the expected sidecar image for a specific process class
-func GetSidecarImage(cluster *fdbv1beta2.FoundationDBCluster, pClass fdbv1beta2.ProcessClass) (string, error) {
+func GetSidecarImage(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	pClass fdbv1beta2.ProcessClass,
+) (string, error) {
 	settings := cluster.GetProcessSettings(pClass)
 
 	image := ""
@@ -228,13 +266,18 @@ func getIPFamilyFromPod(pod *corev1.Pod) (int, error) {
 	if GetImageType(pod) == fdbv1beta2.ImageTypeUnified {
 		currentData, present := pod.Annotations[monitorapi.CurrentConfigurationAnnotation]
 		if !present {
-			return fdbv1beta2.PodIPFamilyUnset, fmt.Errorf("could not read current launcher configuration")
+			return fdbv1beta2.PodIPFamilyUnset, fmt.Errorf(
+				"could not read current launcher configuration",
+			)
 		}
 
 		currentConfiguration := monitorapi.ProcessConfiguration{}
 		err := json.Unmarshal([]byte(currentData), &currentConfiguration)
 		if err != nil {
-			return fdbv1beta2.PodIPFamilyUnset, fmt.Errorf("could not parse current process configuration: %w", err)
+			return fdbv1beta2.PodIPFamilyUnset, fmt.Errorf(
+				"could not parse current process configuration: %w",
+				err,
+			)
 		}
 
 		for _, argument := range currentConfiguration.Arguments {
@@ -266,7 +309,8 @@ func getIPFamilyFromPod(pod *corev1.Pod) (int, error) {
 
 // validateIPFamily will validate that the IP family is valid and return a pointer.
 func validateIPFamily(ipFamily int) (int, error) {
-	if ipFamily != fdbv1beta2.PodIPFamilyIPv4 && ipFamily != fdbv1beta2.PodIPFamilyIPv6 && ipFamily != fdbv1beta2.PodIPFamilyUnset {
+	if ipFamily != fdbv1beta2.PodIPFamilyIPv4 && ipFamily != fdbv1beta2.PodIPFamilyIPv6 &&
+		ipFamily != fdbv1beta2.PodIPFamilyUnset {
 		return fdbv1beta2.PodIPFamilyUnset, fmt.Errorf("unsupported IP family %d", ipFamily)
 	}
 
@@ -316,8 +360,15 @@ func PodHasSidecarTLS(pod *corev1.Pod) bool {
 }
 
 // PodMetadataCorrect validates if the current pod metadata is correct or if the Pod metadata must be updated.
-func PodMetadataCorrect(cluster *fdbv1beta2.FoundationDBCluster, processGroup *fdbv1beta2.ProcessGroupStatus, pod *corev1.Pod) (bool, error) {
-	correct, err := podMetadataCorrect(GetPodMetadata(cluster, processGroup.ProcessClass, processGroup.ProcessGroupID, ""), pod)
+func PodMetadataCorrect(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	processGroup *fdbv1beta2.ProcessGroupStatus,
+	pod *corev1.Pod,
+) (bool, error) {
+	correct, err := podMetadataCorrect(
+		GetPodMetadata(cluster, processGroup.ProcessClass, processGroup.ProcessGroupID, ""),
+		pod,
+	)
 	if err != nil {
 		return false, err
 	}
@@ -337,7 +388,9 @@ func podMetadataCorrect(desiredMetadata metav1.ObjectMeta, pod *corev1.Pod) (boo
 	// Ignore the fdbv1beta2.LastSpecKey, this value will be updated by replacing or recreating pods.
 	desiredMetadata.Annotations[fdbv1beta2.LastSpecKey] = pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey]
 	// Don't change the annotation for the image type, this will require a pod update.
-	desiredMetadata.Annotations[fdbv1beta2.ImageTypeAnnotation] = string(GetImageTypeFromAnnotation(pod.ObjectMeta.Annotations))
+	desiredMetadata.Annotations[fdbv1beta2.ImageTypeAnnotation] = string(
+		GetImageTypeFromAnnotation(pod.ObjectMeta.Annotations),
+	)
 	// Don't change the IP family annotation, this will require a pod update.
 	ipFamily, err := GetIPFamily(pod)
 	if err != nil {
@@ -351,13 +404,15 @@ func podMetadataCorrect(desiredMetadata metav1.ObjectMeta, pod *corev1.Pod) (boo
 // MetadataCorrect validates if the current metadata has the desired annotations and labels.
 func MetadataCorrect(desiredMetadata metav1.ObjectMeta, currentMetadata *metav1.ObjectMeta) bool {
 	// If the annotations or labels have changed the metadata has to be updated.
-	return !MergeLabels(currentMetadata, desiredMetadata) && !MergeAnnotations(currentMetadata, desiredMetadata)
+	return !MergeLabels(currentMetadata, desiredMetadata) &&
+		!MergeAnnotations(currentMetadata, desiredMetadata)
 }
 
 // MetadataMatches determines if the current metadata on an object matches the
 // metadata specified by the cluster spec.
 func MetadataMatches(currentMetadata metav1.ObjectMeta, desiredMetadata metav1.ObjectMeta) bool {
-	return containsAll(currentMetadata.Labels, desiredMetadata.Labels) && containsAll(currentMetadata.Annotations, desiredMetadata.Annotations)
+	return containsAll(currentMetadata.Labels, desiredMetadata.Labels) &&
+		containsAll(currentMetadata.Annotations, desiredMetadata.Annotations)
 }
 
 // MergeLabels merges the labels specified by the operator into

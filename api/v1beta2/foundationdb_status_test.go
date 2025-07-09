@@ -46,12 +46,21 @@ var _ = Describe("FoundationDBStatus", func() {
 			IncompatibleConnections: []string{},
 			ConnectionString:        "test_cluster:aHeD9ocNXOUxi0dyzU3k7Bhg53SpyrBV@10.1.18.253:4501,10.1.18.254:4501,10.1.19.0:4501",
 			DatabaseConfiguration: DatabaseConfiguration{
-				RedundancyMode:                 "double",
-				StorageEngine:                  StorageEngineSSD2,
-				UsableRegions:                  1,
-				Regions:                        nil,
-				ExcludedServers:                make([]ExcludedServers, 0),
-				RoleCounts:                     RoleCounts{Storage: 0, Logs: 3, Proxies: 3, CommitProxies: 2, GrvProxies: 1, Resolvers: 1, LogRouters: -1, RemoteLogs: -1},
+				RedundancyMode:  "double",
+				StorageEngine:   StorageEngineSSD2,
+				UsableRegions:   1,
+				Regions:         nil,
+				ExcludedServers: make([]ExcludedServers, 0),
+				RoleCounts: RoleCounts{
+					Storage:       0,
+					Logs:          3,
+					Proxies:       3,
+					CommitProxies: 2,
+					GrvProxies:    1,
+					Resolvers:     1,
+					LogRouters:    -1,
+					RemoteLogs:    -1,
+				},
 				VersionFlags:                   VersionFlags{LogSpill: 2, LogVersion: 0},
 				StorageMigrationType:           &migrationType,
 				PerpetualStorageWiggle:         pointer.Int(0),
@@ -80,8 +89,16 @@ var _ = Describe("FoundationDBStatus", func() {
 							Role: string(ProcessRoleGrvProxy),
 							ID:   "0de7f5c5e549cad1",
 							GRVLatencyStatistics: FoundationDBStatusGRVStatistics{
-								Batch:   FoundationDBStatusPerfStatistics{Count: pointer.Int(6), Median: pointer.Float64(0.000531435), P99: pointer.Float64(0.00130677)},
-								Default: FoundationDBStatusPerfStatistics{Count: pointer.Int(225), Median: pointer.Float64(0.00062561), P99: pointer.Float64(0.010715200000000001)},
+								Batch: FoundationDBStatusPerfStatistics{
+									Count:  pointer.Int(6),
+									Median: pointer.Float64(0.000531435),
+									P99:    pointer.Float64(0.00130677),
+								},
+								Default: FoundationDBStatusPerfStatistics{
+									Count:  pointer.Int(225),
+									Median: pointer.Float64(0.00062561),
+									P99:    pointer.Float64(0.010715200000000001),
+								},
 							},
 						},
 						{
@@ -95,7 +112,11 @@ var _ = Describe("FoundationDBStatus", func() {
 							KVStoreTotalBytes:     pointer.Int64(135012552704),
 							KVStoreFreeBytes:      pointer.Int64(84178223104),
 							KVStoreAvailableBytes: pointer.Int64(84178223104),
-							ReadLatencyStatistics: FoundationDBStatusPerfStatistics{Count: pointer.Int(297), Median: pointer.Float64(0.000116825), P99: pointer.Float64(0.000711441)},
+							ReadLatencyStatistics: FoundationDBStatusPerfStatistics{
+								Count:  pointer.Int(297),
+								Median: pointer.Float64(0.000116825),
+								P99:    pointer.Float64(0.000711441),
+							},
 						},
 					},
 					Messages: []FoundationDBStatusProcessMessage{},
@@ -119,14 +140,21 @@ var _ = Describe("FoundationDBStatus", func() {
 					Roles: []FoundationDBStatusProcessRoleInfo{
 						{Role: string(ProcessRoleCoordinator)},
 						{
-							Role:                  string(ProcessClassStorage),
-							ID:                    "389c23d59a646e52",
-							DataLag:               FoundationDBStatusLagInfo{Seconds: 2.1227, Versions: 2122697},
+							Role: string(ProcessClassStorage),
+							ID:   "389c23d59a646e52",
+							DataLag: FoundationDBStatusLagInfo{
+								Seconds:  2.1227,
+								Versions: 2122697,
+							},
 							KVStoreUsedBytes:      pointer.Int64(104878232),
 							KVStoreTotalBytes:     pointer.Int64(135012552704),
 							KVStoreFreeBytes:      pointer.Int64(84178239488),
 							KVStoreAvailableBytes: pointer.Int64(84178239488),
-							ReadLatencyStatistics: FoundationDBStatusPerfStatistics{Count: pointer.Int(334), Median: pointer.Float64(0.000102282), P99: pointer.Float64(0.000386477)},
+							ReadLatencyStatistics: FoundationDBStatusPerfStatistics{
+								Count:  pointer.Int(334),
+								Median: pointer.Float64(0.000102282),
+								P99:    pointer.Float64(0.000386477),
+							},
 						},
 						{
 							Role: string(ProcessRoleResolver),
@@ -173,7 +201,11 @@ var _ = Describe("FoundationDBStatus", func() {
 							KVStoreTotalBytes:     pointer.Int64(135012552704),
 							KVStoreFreeBytes:      pointer.Int64(84178112512),
 							KVStoreAvailableBytes: pointer.Int64(84178112512),
-							ReadLatencyStatistics: FoundationDBStatusPerfStatistics{Count: pointer.Int(0), Median: pointer.Float64(0), P99: pointer.Float64(0)},
+							ReadLatencyStatistics: FoundationDBStatusPerfStatistics{
+								Count:  pointer.Int(0),
+								Median: pointer.Float64(0),
+								P99:    pointer.Float64(0),
+							},
 						},
 					},
 					Messages: []FoundationDBStatusProcessMessage{},
@@ -320,13 +352,27 @@ var _ = Describe("FoundationDBStatus", func() {
 				},
 			},
 			Data: FoundationDBStatusDataStatistics{
-				KVBytes:    0,
-				MovingData: FoundationDBStatusMovingData{HighestPriority: 0, InFlightBytes: 0, InQueueBytes: 0},
-				State:      FoundationDBStatusDataState{Description: "", Healthy: true, Name: "healthy", MinReplicasRemaining: 2},
+				KVBytes: 0,
+				MovingData: FoundationDBStatusMovingData{
+					HighestPriority: 0,
+					InFlightBytes:   0,
+					InQueueBytes:    0,
+				},
+				State: FoundationDBStatusDataState{
+					Description:          "",
+					Healthy:              true,
+					Name:                 "healthy",
+					MinReplicasRemaining: 2,
+				},
 				TeamTrackers: []FoundationDBStatusTeamTracker{
 					{
-						Primary:          true,
-						State:            FoundationDBStatusDataState{Description: "", Healthy: true, Name: "healthy", MinReplicasRemaining: 2},
+						Primary: true,
+						State: FoundationDBStatusDataState{
+							Description:          "",
+							Healthy:              true,
+							Name:                 "healthy",
+							MinReplicasRemaining: 2,
+						},
 						UnhealthyServers: pointer.Int64(0),
 					},
 				},
@@ -504,7 +550,11 @@ var _ = Describe("FoundationDBStatus", func() {
 		}
 
 		It("should parse all values correctly", func() {
-			statusFile, err := os.OpenFile(filepath.Join("testdata", "fdb_status_7_1_rc1.json"), os.O_RDONLY, os.ModePerm)
+			statusFile, err := os.OpenFile(
+				filepath.Join("testdata", "fdb_status_7_1_rc1.json"),
+				os.O_RDONLY,
+				os.ModePerm,
+			)
 			Expect(err).NotTo(HaveOccurred())
 			defer statusFile.Close()
 			statusDecoder := json.NewDecoder(statusFile)
@@ -515,20 +565,28 @@ var _ = Describe("FoundationDBStatus", func() {
 			// Gomega needs some prodding to effectively format diffs between these status objects, so we compare
 			// the fields one by one.
 			clusterInfoParsed := statusParsed.Cluster
-			Expect(clusterInfoParsed.DatabaseConfiguration).To(Equal(clusterInfo.DatabaseConfiguration))
-			Expect(clusterInfoParsed.Processes).To(ConsistOf(slices.Collect(maps.Values(clusterInfo.Processes))))
+			Expect(
+				clusterInfoParsed.DatabaseConfiguration,
+			).To(Equal(clusterInfo.DatabaseConfiguration))
+			Expect(
+				clusterInfoParsed.Processes,
+			).To(ConsistOf(slices.Collect(maps.Values(clusterInfo.Processes))))
 			Expect(clusterInfoParsed.Data).To(Equal(clusterInfo.Data))
 			Expect(clusterInfoParsed.FullReplication).To(Equal(clusterInfo.FullReplication))
 			Expect(clusterInfoParsed.Generation).To(Equal(clusterInfo.Generation))
 			Expect(clusterInfoParsed.MaintenanceZone).To(Equal(clusterInfo.MaintenanceZone))
 			Expect(clusterInfoParsed.Clients.Count).To(Equal(clusterInfo.Clients.Count))
-			Expect(clusterInfoParsed.Clients.SupportedVersions).To(HaveExactElements(clusterInfoParsed.Clients.SupportedVersions))
+			Expect(
+				clusterInfoParsed.Clients.SupportedVersions,
+			).To(HaveExactElements(clusterInfoParsed.Clients.SupportedVersions))
 			Expect(clusterInfoParsed.Layers).To(Equal(clusterInfo.Layers))
 			Expect(clusterInfoParsed.Logs).To(HaveExactElements(clusterInfo.Logs))
 			Expect(clusterInfoParsed.Qos).To(Equal(clusterInfo.Qos))
 			Expect(clusterInfoParsed.FaultTolerance).To(Equal(clusterInfo.FaultTolerance))
 			Expect(clusterInfoParsed.MaintenanceZone).To(Equal(clusterInfo.MaintenanceZone))
-			Expect(clusterInfoParsed.IncompatibleConnections).To(HaveExactElements(clusterInfo.IncompatibleConnections))
+			Expect(
+				clusterInfoParsed.IncompatibleConnections,
+			).To(HaveExactElements(clusterInfo.IncompatibleConnections))
 			Expect(clusterInfoParsed.BounceImpact).To(Equal(clusterInfo.BounceImpact))
 			Expect(clusterInfoParsed.DatabaseAvailable).To(Equal(clusterInfo.DatabaseAvailable))
 			Expect(clusterInfoParsed.ActivePrimaryDC).To(Equal(clusterInfo.ActivePrimaryDC))
@@ -536,20 +594,29 @@ var _ = Describe("FoundationDBStatus", func() {
 		})
 	})
 
-	When("parsing a machine-readable status that contains the unreachable processes message", func() {
-		It("should parse the cluster messages correct", func() {
-			statusFile, err := os.OpenFile(filepath.Join("testdata", "unreachable_test_processes.json"), os.O_RDONLY, os.ModePerm)
-			Expect(err).NotTo(HaveOccurred())
-			defer statusFile.Close()
-			statusDecoder := json.NewDecoder(statusFile)
-			statusParsed := FoundationDBStatus{}
-			Expect(statusDecoder.Decode(&statusParsed)).NotTo(HaveOccurred())
-			Expect(statusParsed.Cluster.Messages).To(HaveLen(2))
-			Expect(statusParsed.Cluster.Messages[0].UnreachableProcesses).To(HaveLen(1))
-			Expect(statusParsed.Cluster.Messages[0].Name).To(Equal("unreachable_processes"))
-			Expect(statusParsed.Cluster.Messages[0].UnreachableProcesses[0].Address).To(Equal("100.82.115.41:4500:tls"))
-			Expect(statusParsed.Cluster.Messages[1].UnreachableProcesses).To(HaveLen(0))
-			Expect(statusParsed.Cluster.Messages[1].Name).To(Equal("status_incomplete"))
-		})
-	})
+	When(
+		"parsing a machine-readable status that contains the unreachable processes message",
+		func() {
+			It("should parse the cluster messages correct", func() {
+				statusFile, err := os.OpenFile(
+					filepath.Join("testdata", "unreachable_test_processes.json"),
+					os.O_RDONLY,
+					os.ModePerm,
+				)
+				Expect(err).NotTo(HaveOccurred())
+				defer statusFile.Close()
+				statusDecoder := json.NewDecoder(statusFile)
+				statusParsed := FoundationDBStatus{}
+				Expect(statusDecoder.Decode(&statusParsed)).NotTo(HaveOccurred())
+				Expect(statusParsed.Cluster.Messages).To(HaveLen(2))
+				Expect(statusParsed.Cluster.Messages[0].UnreachableProcesses).To(HaveLen(1))
+				Expect(statusParsed.Cluster.Messages[0].Name).To(Equal("unreachable_processes"))
+				Expect(
+					statusParsed.Cluster.Messages[0].UnreachableProcesses[0].Address,
+				).To(Equal("100.82.115.41:4500:tls"))
+				Expect(statusParsed.Cluster.Messages[1].UnreachableProcesses).To(HaveLen(0))
+				Expect(statusParsed.Cluster.Messages[1].Name).To(Equal("status_incomplete"))
+			})
+		},
+	)
 })

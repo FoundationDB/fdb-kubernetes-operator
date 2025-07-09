@@ -49,7 +49,9 @@ func init() {
 
 var _ = BeforeSuite(func() {
 	factory = fixtures.CreateFactory(testOptions)
-	fdbCluster = factory.CreateFdbHaCluster(fixtures.DefaultClusterConfigWithHaMode(fixtures.HaFourZoneSingleSat, false), factory.GetClusterOptions()...)
+	fdbCluster = factory.CreateFdbHaCluster(
+		fixtures.DefaultClusterConfigWithHaMode(fixtures.HaFourZoneSingleSat, false),
+		factory.GetClusterOptions()...)
 
 	// In order to test the robustness of the operator we try to kill the operator Pods every minute.
 	if factory.ChaosTestsEnabled() {
@@ -187,9 +189,21 @@ var _ = Describe("Operator HA Failure tests", Label("e2e"), func() {
 		It("should fail-over and cause data loss", func() {
 			remote := fdbCluster.GetRemote()
 			// Pick one operator pod and execute the recovery command
-			operatorPod := factory.RandomPickOnePod(factory.GetOperatorPods(remote.Namespace()).Items)
+			operatorPod := factory.RandomPickOnePod(
+				factory.GetOperatorPods(remote.Namespace()).Items,
+			)
 			log.Println("operatorPod:", operatorPod.Name)
-			stdout, stderr, err := factory.ExecuteCmdOnPod(context.Background(), &operatorPod, "manager", fmt.Sprintf("kubectl-fdb -n %s recover-multi-region-cluster --version-check=false --wait=false %s", remote.Namespace(), remote.Name()), false)
+			stdout, stderr, err := factory.ExecuteCmdOnPod(
+				context.Background(),
+				&operatorPod,
+				"manager",
+				fmt.Sprintf(
+					"kubectl-fdb -n %s recover-multi-region-cluster --version-check=false --wait=false %s",
+					remote.Namespace(),
+					remote.Name(),
+				),
+				false,
+			)
 			log.Println("stdout:", stdout, "stderr:", stderr)
 			Expect(err).NotTo(HaveOccurred())
 

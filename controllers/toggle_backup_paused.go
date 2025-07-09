@@ -31,7 +31,11 @@ import (
 type toggleBackupPaused struct{}
 
 // reconcile runs the reconciler's work.
-func (s toggleBackupPaused) reconcile(ctx context.Context, r *FoundationDBBackupReconciler, backup *fdbv1beta2.FoundationDBBackup) *requeue {
+func (s toggleBackupPaused) reconcile(
+	ctx context.Context,
+	r *FoundationDBBackupReconciler,
+	backup *fdbv1beta2.FoundationDBBackup,
+) *requeue {
 	if backup.Status.BackupDetails == nil {
 		if backup.ShouldRun() {
 			return &requeue{message: "Cannot toggle backup state because backup is not running"}

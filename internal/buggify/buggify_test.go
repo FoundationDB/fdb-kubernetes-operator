@@ -27,9 +27,13 @@ import (
 )
 
 var _ = Describe("Buggify", func() {
-	DescribeTable("filtering blocked removals", func(cluster *fdbv1beta2.FoundationDBCluster, initialProcessGroupsToRemove []*fdbv1beta2.ProcessGroupStatus, expected []*fdbv1beta2.ProcessGroupStatus) {
-		Expect(FilterBlockedRemovals(cluster, initialProcessGroupsToRemove)).To(ConsistOf(expected))
-	},
+	DescribeTable(
+		"filtering blocked removals",
+		func(cluster *fdbv1beta2.FoundationDBCluster, initialProcessGroupsToRemove []*fdbv1beta2.ProcessGroupStatus, expected []*fdbv1beta2.ProcessGroupStatus) {
+			Expect(
+				FilterBlockedRemovals(cluster, initialProcessGroupsToRemove),
+			).To(ConsistOf(expected))
+		},
 		Entry("No process group is defined to be filtered",
 			&fdbv1beta2.FoundationDBCluster{},
 			nil,
@@ -126,7 +130,8 @@ var _ = Describe("Buggify", func() {
 				},
 			},
 		),
-		Entry("One matching process group and one non-matching process group is defined to be filtered",
+		Entry(
+			"One matching process group and one non-matching process group is defined to be filtered",
 			&fdbv1beta2.FoundationDBCluster{
 				Spec: fdbv1beta2.FoundationDBClusterSpec{
 					Buggify: fdbv1beta2.BuggifyConfig{

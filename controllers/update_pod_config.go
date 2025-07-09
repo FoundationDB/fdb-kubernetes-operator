@@ -43,7 +43,13 @@ import (
 type updatePodConfig struct{}
 
 // reconcile runs the reconciler's work.
-func (updatePodConfig) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, _ *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
+func (updatePodConfig) reconcile(
+	ctx context.Context,
+	r *FoundationDBClusterReconciler,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	_ *fdbv1beta2.FoundationDBStatus,
+	logger logr.Logger,
+) *requeue {
 	configMap, err := internal.GetConfigMap(cluster)
 	if err != nil {
 		return &requeue{curError: err}
@@ -92,7 +98,12 @@ func (updatePodConfig) reconcile(ctx context.Context, r *FoundationDBClusterReco
 			continue
 		}
 
-		configMapHash, err := internal.GetDynamicConfHash(configMap, processClass, internal.GetImageType(pod), serverPerPod)
+		configMapHash, err := internal.GetDynamicConfHash(
+			configMap,
+			processClass,
+			internal.GetImageType(pod),
+			serverPerPod,
+		)
 		if err != nil {
 			curLogger.Error(err, "Error when receiving dynamic ConfigMap hash")
 			errs = append(errs, err)
@@ -103,7 +114,8 @@ func (updatePodConfig) reconcile(ctx context.Context, r *FoundationDBClusterReco
 		// can restart fdbserver processes. Since the ConfigMap itself won't change during the upgrade we have to run the updatePodDynamicConf
 		// to make sure all process groups have the required files ready. In the future we will use a different condition to indicate that a
 		// process group si ready to be restarted.
-		if pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey] == configMapHash && !cluster.IsBeingUpgradedWithVersionIncompatibleVersion() {
+		if pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey] == configMapHash &&
+			!cluster.IsBeingUpgradedWithVersionIncompatibleVersion() {
 			continue
 		}
 
@@ -114,7 +126,8 @@ func (updatePodConfig) reconcile(ctx context.Context, r *FoundationDBClusterReco
 				curLogger.Error(err, "Update Pod ConfigMap annotation")
 			}
 
-			if internal.IsNetworkError(err) && processGroup.GetConditionTime(fdbv1beta2.SidecarUnreachable) == nil {
+			if internal.IsNetworkError(err) &&
+				processGroup.GetConditionTime(fdbv1beta2.SidecarUnreachable) == nil {
 				curLogger.Info("process group sidecar is not reachable")
 				processGroup.UpdateCondition(fdbv1beta2.SidecarUnreachable, true)
 			} else if processGroup.GetConditionTime(fdbv1beta2.IncorrectConfigMap) == nil {
@@ -124,7 +137,10 @@ func (updatePodConfig) reconcile(ctx context.Context, r *FoundationDBClusterReco
 				delayedRequeue = false
 			}
 
-			pod.ObjectMeta.Annotations[api.OutdatedConfigMapAnnotation] = strconv.FormatInt(time.Now().Unix(), 10)
+			pod.ObjectMeta.Annotations[api.OutdatedConfigMapAnnotation] = strconv.FormatInt(
+				time.Now().Unix(),
+				10,
+			)
 			err = r.PodLifecycleManager.UpdateMetadata(ctx, r, cluster, pod)
 			if err != nil {
 				allSynced = false
@@ -165,7 +181,11 @@ func (updatePodConfig) reconcile(ctx context.Context, r *FoundationDBClusterReco
 	// If we return an error we don't requeue
 	// So we just return that we can't continue but don't have an error
 	if !allSynced {
-		return &requeue{message: "Waiting for Pod to receive ConfigMap update", delay: podSchedulingDelayDuration, delayedRequeue: delayedRequeue}
+		return &requeue{
+			message:        "Waiting for Pod to receive ConfigMap update",
+			delay:          podSchedulingDelayDuration,
+			delayedRequeue: delayedRequeue,
+		}
 	}
 
 	return nil

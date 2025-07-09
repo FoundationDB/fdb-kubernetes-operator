@@ -65,7 +65,8 @@ func waitForRestoreToComplete(backup *FdbBackup) {
 	lastReconcile := time.Now()
 	gomega.Eventually(func(g gomega.Gomega) fdbv1beta2.FoundationDBRestoreState {
 		restore := &fdbv1beta2.FoundationDBRestore{}
-		g.Expect(ctrlClient.Get(context.Background(), client.ObjectKeyFromObject(backup.backup), restore)).To(gomega.Succeed())
+		g.Expect(ctrlClient.Get(context.Background(), client.ObjectKeyFromObject(backup.backup), restore)).
+			To(gomega.Succeed())
 		log.Println("restore state:", restore.Status.State)
 
 		if time.Since(lastReconcile) > time.Minute {

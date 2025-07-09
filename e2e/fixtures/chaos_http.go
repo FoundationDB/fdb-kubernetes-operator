@@ -28,7 +28,10 @@ import (
 
 // InjectHTTPClientChaosWrongResultFdbMonitorConf  this method can be used to simulate a bad response from the operator to the sidecar. Currently this method returns as body the value "wrong"
 // when the operator does a request against the check_hash/fdbmonitor.conf endpoint, e.g. during upgrades.
-func (factory *Factory) InjectHTTPClientChaosWrongResultFdbMonitorConf(selector chaosmesh.PodSelectorSpec, namespace string) *ChaosMeshExperiment {
+func (factory *Factory) InjectHTTPClientChaosWrongResultFdbMonitorConf(
+	selector chaosmesh.PodSelectorSpec,
+	namespace string,
+) *ChaosMeshExperiment {
 	return factory.CreateExperiment(&chaosmesh.HTTPChaos{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      factory.RandStringRunes(32),

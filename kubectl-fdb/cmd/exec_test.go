@@ -63,17 +63,40 @@ var _ = Describe("[plugin] exec command", func() {
 				errBuffer := bytes.Buffer{}
 				inBuffer := bytes.Buffer{}
 
-				rootCmd := NewRootCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer}, &MockVersionChecker{})
-				Expect(runExec(rootCmd, k8sClient, cluster, &rest.Config{}, input.Command)).NotTo(HaveOccurred())
+				rootCmd := NewRootCmd(
+					genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer},
+					&MockVersionChecker{},
+				)
+				Expect(
+					runExec(rootCmd, k8sClient, cluster, &rest.Config{}, input.Command),
+				).NotTo(HaveOccurred())
 			},
 			Entry("Exec into instance with valid pod",
 				testCase{
-					ExpectedArgs: []string{"--namespace", "test", "exec", "-it", "storage-1", "--", "bash"},
+					ExpectedArgs: []string{
+						"--namespace",
+						"test",
+						"exec",
+						"-it",
+						"storage-1",
+						"--",
+						"bash",
+					},
 				}),
 			Entry("Exec into instance with explicit context",
 				testCase{
-					Context:      "remote-kc",
-					ExpectedArgs: []string{"--context", "remote-kc", "--namespace", "test", "exec", "-it", "storage-1", "--", "bash"},
+					Context: "remote-kc",
+					ExpectedArgs: []string{
+						"--context",
+						"remote-kc",
+						"--namespace",
+						"test",
+						"exec",
+						"-it",
+						"storage-1",
+						"--",
+						"bash",
+					},
 				}),
 		)
 	})

@@ -107,7 +107,16 @@ func CheckKnobRollout(
 	rolloutDuration := time.Since(startTime)
 	finalGeneration := primary.GetStatus().Cluster.Generation
 
-	log.Println("Knob rollout took", rolloutDuration.String(), "initialGeneration", initialGeneration, "finalGeneration", finalGeneration, "recoveryCount", (finalGeneration-initialGeneration)/2)
+	log.Println(
+		"Knob rollout took",
+		rolloutDuration.String(),
+		"initialGeneration",
+		initialGeneration,
+		"finalGeneration",
+		finalGeneration,
+		"recoveryCount",
+		(finalGeneration-initialGeneration)/2,
+	)
 	// If the synchronization mode is global, we expect to see only a single recovery. Since those tests are running on
 	// a real cluster we add some additional buffer of one additional recovery. We check for an increase of 4 generation
 	// because FDB increase the current generation by 2 if a recovery is triggered.
@@ -314,9 +323,12 @@ var _ = Describe("Test Operator Velocity", Label("e2e", "nightly"), func() {
 				fdbCluster,
 				newGeneralCustomParameters,
 				newStorageCustomParameters,
-				normalKnobRolloutTimeoutSeconds+int(fdbCluster.GetPrimary().GetCluster().GetLockDuration().Seconds()),
+				normalKnobRolloutTimeoutSeconds+int(
+					fdbCluster.GetPrimary().GetCluster().GetLockDuration().Seconds(),
+				),
 				totalGeneralProcessCount,
-				totalStorageProcessCount-(1*fdbCluster.GetPrimary().GetStorageServerPerPod()))
+				totalStorageProcessCount-(1*fdbCluster.GetPrimary().GetStorageServerPerPod()),
+			)
 		})
 	})
 
@@ -343,9 +355,12 @@ var _ = Describe("Test Operator Velocity", Label("e2e", "nightly"), func() {
 				fdbCluster,
 				newGeneralCustomParameters,
 				newStorageCustomParameters,
-				normalKnobRolloutTimeoutSeconds+int(fdbCluster.GetPrimary().GetCluster().GetLockDuration().Seconds()),
+				normalKnobRolloutTimeoutSeconds+int(
+					fdbCluster.GetPrimary().GetCluster().GetLockDuration().Seconds(),
+				),
 				totalGeneralProcessCount,
-				totalStorageProcessCount)
+				totalStorageProcessCount,
+			)
 		})
 	})
 })

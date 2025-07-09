@@ -42,7 +42,10 @@ const (
 )
 
 // GetProcessGroupsToRemove returns a list of process groups to be removed based on the removal mode.
-func GetProcessGroupsToRemove(removalMode fdbv1beta2.PodUpdateMode, removals map[fdbv1beta2.FaultDomain][]*fdbv1beta2.ProcessGroupStatus) (fdbv1beta2.FaultDomain, []*fdbv1beta2.ProcessGroupStatus, error) {
+func GetProcessGroupsToRemove(
+	removalMode fdbv1beta2.PodUpdateMode,
+	removals map[fdbv1beta2.FaultDomain][]*fdbv1beta2.ProcessGroupStatus,
+) (fdbv1beta2.FaultDomain, []*fdbv1beta2.ProcessGroupStatus, error) {
 	if removalMode == fdbv1beta2.PodUpdateModeAll {
 		var deletions []*fdbv1beta2.ProcessGroupStatus
 
@@ -60,7 +63,9 @@ func GetProcessGroupsToRemove(removalMode fdbv1beta2.PodUpdateMode, removals map
 			}
 
 			// Fetch the first process group and delete it
-			return zoneProcesses[0].FaultDomain, []*fdbv1beta2.ProcessGroupStatus{zoneProcesses[0]}, nil
+			return zoneProcesses[0].FaultDomain, []*fdbv1beta2.ProcessGroupStatus{
+				zoneProcesses[0],
+			}, nil
 		}
 	}
 
@@ -97,7 +102,9 @@ func GetProcessGroupsToRemove(removalMode fdbv1beta2.PodUpdateMode, removals map
 // GetZonedRemovals returns a map with the zone as key and a list of process groups IDs to be removed.
 // If the process group has not an associated process in the cluster status the zone will be UnknownZone.
 // if the process group has the ResourcesTerminating condition the zone will be TerminatingZone.
-func GetZonedRemovals(processGroupsToRemove []*fdbv1beta2.ProcessGroupStatus) (map[fdbv1beta2.FaultDomain][]*fdbv1beta2.ProcessGroupStatus, int64, error) {
+func GetZonedRemovals(
+	processGroupsToRemove []*fdbv1beta2.ProcessGroupStatus,
+) (map[fdbv1beta2.FaultDomain][]*fdbv1beta2.ProcessGroupStatus, int64, error) {
 	var latestRemovalTimestamp int64
 
 	zoneMap := map[fdbv1beta2.FaultDomain][]*fdbv1beta2.ProcessGroupStatus{}
@@ -105,7 +112,10 @@ func GetZonedRemovals(processGroupsToRemove []*fdbv1beta2.ProcessGroupStatus) (m
 		// Using the ResourcesTerminating is not a complete precise measurement of the time when we
 		// actually removed the process group, but it should be a good indicator to how long the process group is in
 		// that state.
-		removalTimestamp := pointer.Int64Deref(processGroup.GetConditionTime(fdbv1beta2.ResourcesTerminating), 0)
+		removalTimestamp := pointer.Int64Deref(
+			processGroup.GetConditionTime(fdbv1beta2.ResourcesTerminating),
+			0,
+		)
 		if removalTimestamp > 0 {
 			if removalTimestamp > latestRemovalTimestamp {
 				latestRemovalTimestamp = removalTimestamp
@@ -125,7 +135,13 @@ func GetZonedRemovals(processGroupsToRemove []*fdbv1beta2.ProcessGroupStatus) (m
 }
 
 // GetRemainingMap returns a map that indicates if a process group is fully excluded in the cluster.
-func GetRemainingMap(logger logr.Logger, adminClient fdbadminclient.AdminClient, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, minRecoverySeconds float64) (map[string]bool, error) {
+func GetRemainingMap(
+	logger logr.Logger,
+	adminClient fdbadminclient.AdminClient,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	status *fdbv1beta2.FoundationDBStatus,
+	minRecoverySeconds float64,
+) (map[string]bool, error) {
 	remainingMap, addresses := getAddressesToValidateBeforeRemoval(logger, cluster)
 	if len(addresses) == 0 {
 		return nil, nil
@@ -159,7 +175,10 @@ func GetRemainingMap(logger logr.Logger, adminClient fdbadminclient.AdminClient,
 // getAddressesToValidateBeforeRemoval returns the addresses that must be checked before removal. The first return value is
 // a map with the addresses and localities to be checked, the value will always be false. The second return value is a
 // slice containing all addresses and localities that must be checked.
-func getAddressesToValidateBeforeRemoval(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster) (map[string]bool, []fdbv1beta2.ProcessAddress) {
+func getAddressesToValidateBeforeRemoval(
+	logger logr.Logger,
+	cluster *fdbv1beta2.FoundationDBCluster,
+) (map[string]bool, []fdbv1beta2.ProcessAddress) {
 	addresses := make([]fdbv1beta2.ProcessAddress, 0, len(cluster.Status.ProcessGroups))
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if !processGroup.IsMarkedForRemoval() || processGroup.IsExcluded() {
@@ -168,7 +187,10 @@ func getAddressesToValidateBeforeRemoval(logger logr.Logger, cluster *fdbv1beta2
 
 		// If we use localities for exclusions we don't have to care about the addresses.
 		if cluster.UseLocalitiesForExclusion() {
-			addresses = append(addresses, fdbv1beta2.ProcessAddress{StringAddress: processGroup.GetExclusionString()})
+			addresses = append(
+				addresses,
+				fdbv1beta2.ProcessAddress{StringAddress: processGroup.GetExclusionString()},
+			)
 			// If the process is not a potential log server it is enough to make use of the locality based exclusions.
 			// Otherwise, we have to include the IP address to make sure we detect log servers that are currently not
 			// part of the worker list, e.g. because they are partitioned.
@@ -178,7 +200,13 @@ func getAddressesToValidateBeforeRemoval(logger logr.Logger, cluster *fdbv1beta2
 		}
 
 		if len(processGroup.Addresses) == 0 {
-			logger.Info("Getting remaining removals to check for exclusion", "processGroupID", processGroup.ProcessGroupID, "reason", "missing address")
+			logger.Info(
+				"Getting remaining removals to check for exclusion",
+				"processGroupID",
+				processGroup.ProcessGroupID,
+				"reason",
+				"missing address",
+			)
 			continue
 		}
 

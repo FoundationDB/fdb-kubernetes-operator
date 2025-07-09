@@ -46,7 +46,9 @@ var _ = Describe("maintenance_mode_checker", func() {
 
 	BeforeEach(func() {
 		cluster = internal.CreateDefaultCluster()
-		cluster.Spec.AutomationOptions.MaintenanceModeOptions.UseMaintenanceModeChecker = pointer.Bool(true)
+		cluster.Spec.AutomationOptions.MaintenanceModeOptions.UseMaintenanceModeChecker = pointer.Bool(
+			true,
+		)
 		Expect(k8sClient.Create(context.TODO(), cluster)).NotTo(HaveOccurred())
 
 		result, err := reconcileCluster(cluster)
@@ -67,7 +69,13 @@ var _ = Describe("maintenance_mode_checker", func() {
 	})
 
 	JustBeforeEach(func() {
-		requeue = maintenanceModeChecker{}.reconcile(context.TODO(), clusterReconciler, cluster, nil, globalControllerLogger)
+		requeue = maintenanceModeChecker{}.reconcile(
+			context.TODO(),
+			clusterReconciler,
+			cluster,
+			nil,
+			globalControllerLogger,
+		)
 		Expect(err).NotTo(HaveOccurred())
 		_, err = reloadCluster(cluster)
 		Expect(err).NotTo(HaveOccurred())
@@ -80,26 +88,39 @@ var _ = Describe("maintenance_mode_checker", func() {
 			})
 		})
 
-		When("one processes is in the maintenance list with a more recent timestamp than the wait duration defines.", func() {
-			BeforeEach(func() {
-				Expect(adminClient.SetProcessesUnderMaintenance([]fdbv1beta2.ProcessGroupID{targetProcessGroup}, time.Now().Unix())).NotTo(HaveOccurred())
-			})
+		When(
+			"one processes is in the maintenance list with a more recent timestamp than the wait duration defines.",
+			func() {
+				BeforeEach(func() {
+					Expect(
+						adminClient.SetProcessesUnderMaintenance(
+							[]fdbv1beta2.ProcessGroupID{targetProcessGroup},
+							time.Now().Unix(),
+						),
+					).NotTo(HaveOccurred())
+				})
 
-			It("shouldn't requeue", func() {
-				Expect(requeue).To(BeNil())
-			})
+				It("shouldn't requeue", func() {
+					Expect(requeue).To(BeNil())
+				})
 
-			It("shouldn't clear the entry", func() {
-				processesUnderMaintenance, err := adminClient.GetProcessesUnderMaintenance()
-				Expect(err).NotTo(HaveOccurred())
-				Expect(processesUnderMaintenance).To(HaveLen(1))
-				Expect(processesUnderMaintenance).To(HaveKey(targetProcessGroup))
-			})
-		})
+				It("shouldn't clear the entry", func() {
+					processesUnderMaintenance, err := adminClient.GetProcessesUnderMaintenance()
+					Expect(err).NotTo(HaveOccurred())
+					Expect(processesUnderMaintenance).To(HaveLen(1))
+					Expect(processesUnderMaintenance).To(HaveKey(targetProcessGroup))
+				})
+			},
+		)
 
 		When("one stale processes is in the maintenance list", func() {
 			BeforeEach(func() {
-				Expect(adminClient.SetProcessesUnderMaintenance([]fdbv1beta2.ProcessGroupID{targetProcessGroup}, time.Now().Add(-12*time.Hour).Unix())).NotTo(HaveOccurred())
+				Expect(
+					adminClient.SetProcessesUnderMaintenance(
+						[]fdbv1beta2.ProcessGroupID{targetProcessGroup},
+						time.Now().Add(-12*time.Hour).Unix(),
+					),
+				).NotTo(HaveOccurred())
 			})
 
 			It("shouldn't requeue", func() {
@@ -117,7 +138,9 @@ var _ = Describe("maintenance_mode_checker", func() {
 	When("the maintenance mode is active", func() {
 		BeforeEach(func() {
 			Expect(currentMaintenanceZone).NotTo(BeEmpty())
-			Expect(adminClient.SetMaintenanceZone(string(currentMaintenanceZone), 3600)).NotTo(HaveOccurred())
+			Expect(
+				adminClient.SetMaintenanceZone(string(currentMaintenanceZone), 3600),
+			).NotTo(HaveOccurred())
 		})
 
 		When("no processes are in the maintenance list", func() {
@@ -142,61 +165,82 @@ var _ = Describe("maintenance_mode_checker", func() {
 			})
 		})
 
-		When("one processes is in the maintenance list but the process was not yet restarted", func() {
-			BeforeEach(func() {
-				// The maintenance is targeted for the future.
-				Expect(adminClient.SetProcessesUnderMaintenance([]fdbv1beta2.ProcessGroupID{targetProcessGroup}, time.Now().Add(1*time.Minute).Unix())).NotTo(HaveOccurred())
-			})
+		When(
+			"one processes is in the maintenance list but the process was not yet restarted",
+			func() {
+				BeforeEach(func() {
+					// The maintenance is targeted for the future.
+					Expect(
+						adminClient.SetProcessesUnderMaintenance(
+							[]fdbv1beta2.ProcessGroupID{targetProcessGroup},
+							time.Now().Add(1*time.Minute).Unix(),
+						),
+					).NotTo(HaveOccurred())
+				})
 
-			It("should requeue", func() {
-				Expect(requeue).NotTo(BeNil())
-				Expect(requeue.delayedRequeue).To(BeTrue())
-				Expect(requeue.message).To(HavePrefix("Waiting for 1 processes in zone"))
-			})
+				It("should requeue", func() {
+					Expect(requeue).NotTo(BeNil())
+					Expect(requeue.delayedRequeue).To(BeTrue())
+					Expect(requeue.message).To(HavePrefix("Waiting for 1 processes in zone"))
+				})
 
-			It("shouldn't reset the maintenance", func() {
-				status, err := adminClient.GetStatus()
-				Expect(err).NotTo(HaveOccurred())
-				Expect(status.Cluster.MaintenanceZone).To(Equal(currentMaintenanceZone))
-			})
+				It("shouldn't reset the maintenance", func() {
+					status, err := adminClient.GetStatus()
+					Expect(err).NotTo(HaveOccurred())
+					Expect(status.Cluster.MaintenanceZone).To(Equal(currentMaintenanceZone))
+				})
 
-			It("shouldn't remove the entry from the maintenance list", func() {
-				processesUnderMaintenance, err := adminClient.GetProcessesUnderMaintenance()
-				Expect(err).NotTo(HaveOccurred())
-				Expect(processesUnderMaintenance).To(HaveLen(1))
-				Expect(processesUnderMaintenance).To(HaveKey(targetProcessGroup))
-			})
-		})
+				It("shouldn't remove the entry from the maintenance list", func() {
+					processesUnderMaintenance, err := adminClient.GetProcessesUnderMaintenance()
+					Expect(err).NotTo(HaveOccurred())
+					Expect(processesUnderMaintenance).To(HaveLen(1))
+					Expect(processesUnderMaintenance).To(HaveKey(targetProcessGroup))
+				})
+			},
+		)
 
-		When("one processes is in the maintenance list and the process is missing in the machine-readable status", func() {
-			BeforeEach(func() {
-				Expect(adminClient.SetProcessesUnderMaintenance([]fdbv1beta2.ProcessGroupID{targetProcessGroup}, time.Now().Add(-1*time.Minute).Unix())).NotTo(HaveOccurred())
-				adminClient.MockMissingProcessGroup(targetProcessGroup, true)
-			})
+		When(
+			"one processes is in the maintenance list and the process is missing in the machine-readable status",
+			func() {
+				BeforeEach(func() {
+					Expect(
+						adminClient.SetProcessesUnderMaintenance(
+							[]fdbv1beta2.ProcessGroupID{targetProcessGroup},
+							time.Now().Add(-1*time.Minute).Unix(),
+						),
+					).NotTo(HaveOccurred())
+					adminClient.MockMissingProcessGroup(targetProcessGroup, true)
+				})
 
-			It("should requeue", func() {
-				Expect(requeue).NotTo(BeNil())
-				Expect(requeue.delayedRequeue).To(BeTrue())
-				Expect(requeue.message).To(HavePrefix("Waiting for 1 processes in zone"))
-			})
+				It("should requeue", func() {
+					Expect(requeue).NotTo(BeNil())
+					Expect(requeue.delayedRequeue).To(BeTrue())
+					Expect(requeue.message).To(HavePrefix("Waiting for 1 processes in zone"))
+				})
 
-			It("shouldn't reset the maintenance", func() {
-				status, err := adminClient.GetStatus()
-				Expect(err).NotTo(HaveOccurred())
-				Expect(status.Cluster.MaintenanceZone).To(Equal(currentMaintenanceZone))
-			})
+				It("shouldn't reset the maintenance", func() {
+					status, err := adminClient.GetStatus()
+					Expect(err).NotTo(HaveOccurred())
+					Expect(status.Cluster.MaintenanceZone).To(Equal(currentMaintenanceZone))
+				})
 
-			It("shouldn't remove the entry from the maintenance list", func() {
-				processesUnderMaintenance, err := adminClient.GetProcessesUnderMaintenance()
-				Expect(err).NotTo(HaveOccurred())
-				Expect(processesUnderMaintenance).To(HaveLen(1))
-				Expect(processesUnderMaintenance).To(HaveKey(targetProcessGroup))
-			})
-		})
+				It("shouldn't remove the entry from the maintenance list", func() {
+					processesUnderMaintenance, err := adminClient.GetProcessesUnderMaintenance()
+					Expect(err).NotTo(HaveOccurred())
+					Expect(processesUnderMaintenance).To(HaveLen(1))
+					Expect(processesUnderMaintenance).To(HaveKey(targetProcessGroup))
+				})
+			},
+		)
 
 		When("one processes is in the maintenance list and the process was restarted", func() {
 			BeforeEach(func() {
-				Expect(adminClient.SetProcessesUnderMaintenance([]fdbv1beta2.ProcessGroupID{targetProcessGroup}, time.Now().Add(-1*time.Minute).Unix())).NotTo(HaveOccurred())
+				Expect(
+					adminClient.SetProcessesUnderMaintenance(
+						[]fdbv1beta2.ProcessGroupID{targetProcessGroup},
+						time.Now().Add(-1*time.Minute).Unix(),
+					),
+				).NotTo(HaveOccurred())
 			})
 
 			It("shouldn't requeue", func() {
@@ -216,131 +260,179 @@ var _ = Describe("maintenance_mode_checker", func() {
 			})
 		})
 
-		When("one processes for a different zone is in the maintenance list and was recently added", func() {
-			BeforeEach(func() {
-				// The maintenance is targeted for the future.
-				Expect(adminClient.SetProcessesUnderMaintenance([]fdbv1beta2.ProcessGroupID{secondStorageProcess}, time.Now().Add(1*time.Minute).Unix())).NotTo(HaveOccurred())
-			})
+		When(
+			"one processes for a different zone is in the maintenance list and was recently added",
+			func() {
+				BeforeEach(func() {
+					// The maintenance is targeted for the future.
+					Expect(
+						adminClient.SetProcessesUnderMaintenance(
+							[]fdbv1beta2.ProcessGroupID{secondStorageProcess},
+							time.Now().Add(1*time.Minute).Unix(),
+						),
+					).NotTo(HaveOccurred())
+				})
 
-			It("should requeue", func() {
-				Expect(requeue).NotTo(BeNil())
-				Expect(requeue.delayedRequeue).To(BeTrue())
-				Expect(requeue.message).To(HavePrefix("Waiting for 1 processes in zone"))
-			})
+				It("should requeue", func() {
+					Expect(requeue).NotTo(BeNil())
+					Expect(requeue.delayedRequeue).To(BeTrue())
+					Expect(requeue.message).To(HavePrefix("Waiting for 1 processes in zone"))
+				})
 
-			It("shouldn't reset the maintenance", func() {
-				status, err := adminClient.GetStatus()
-				Expect(err).NotTo(HaveOccurred())
-				Expect(status.Cluster.MaintenanceZone).To(Equal(currentMaintenanceZone))
-			})
+				It("shouldn't reset the maintenance", func() {
+					status, err := adminClient.GetStatus()
+					Expect(err).NotTo(HaveOccurred())
+					Expect(status.Cluster.MaintenanceZone).To(Equal(currentMaintenanceZone))
+				})
 
-			It("shouldn't remove the entry from the maintenance list", func() {
-				processesUnderMaintenance, err := adminClient.GetProcessesUnderMaintenance()
-				Expect(err).NotTo(HaveOccurred())
-				Expect(processesUnderMaintenance).To(HaveLen(1))
-				Expect(processesUnderMaintenance).To(HaveKey(secondStorageProcess))
-			})
-		})
+				It("shouldn't remove the entry from the maintenance list", func() {
+					processesUnderMaintenance, err := adminClient.GetProcessesUnderMaintenance()
+					Expect(err).NotTo(HaveOccurred())
+					Expect(processesUnderMaintenance).To(HaveLen(1))
+					Expect(processesUnderMaintenance).To(HaveKey(secondStorageProcess))
+				})
+			},
+		)
 
-		When("one processes is in the maintenance list and the process was restarted and another one is missing", func() {
-			BeforeEach(func() {
-				Expect(adminClient.SetProcessesUnderMaintenance([]fdbv1beta2.ProcessGroupID{targetProcessGroup}, time.Now().Add(-1*time.Minute).Unix())).NotTo(HaveOccurred())
-				Expect(adminClient.SetProcessesUnderMaintenance([]fdbv1beta2.ProcessGroupID{secondStorageProcess}, time.Now().Add(-1*time.Minute).Unix())).NotTo(HaveOccurred())
-				adminClient.MockMissingProcessGroup(secondStorageProcess, true)
-			})
+		When(
+			"one processes is in the maintenance list and the process was restarted and another one is missing",
+			func() {
+				BeforeEach(func() {
+					Expect(
+						adminClient.SetProcessesUnderMaintenance(
+							[]fdbv1beta2.ProcessGroupID{targetProcessGroup},
+							time.Now().Add(-1*time.Minute).Unix(),
+						),
+					).NotTo(HaveOccurred())
+					Expect(
+						adminClient.SetProcessesUnderMaintenance(
+							[]fdbv1beta2.ProcessGroupID{secondStorageProcess},
+							time.Now().Add(-1*time.Minute).Unix(),
+						),
+					).NotTo(HaveOccurred())
+					adminClient.MockMissingProcessGroup(secondStorageProcess, true)
+				})
 
-			It("should requeue", func() {
-				Expect(requeue).NotTo(BeNil())
-				Expect(requeue.delayedRequeue).To(BeTrue())
-				Expect(requeue.message).To(HavePrefix("Waiting for 1 processes in zone"))
-			})
+				It("should requeue", func() {
+					Expect(requeue).NotTo(BeNil())
+					Expect(requeue.delayedRequeue).To(BeTrue())
+					Expect(requeue.message).To(HavePrefix("Waiting for 1 processes in zone"))
+				})
 
-			It("shouldn't reset the maintenance", func() {
-				status, err := adminClient.GetStatus()
-				Expect(err).NotTo(HaveOccurred())
-				Expect(status.Cluster.MaintenanceZone).To(Equal(currentMaintenanceZone))
-			})
+				It("shouldn't reset the maintenance", func() {
+					status, err := adminClient.GetStatus()
+					Expect(err).NotTo(HaveOccurred())
+					Expect(status.Cluster.MaintenanceZone).To(Equal(currentMaintenanceZone))
+				})
 
-			It("shouldn't remove the entry from the maintenance list for the second entry", func() {
-				processesUnderMaintenance, err := adminClient.GetProcessesUnderMaintenance()
-				Expect(err).NotTo(HaveOccurred())
-				Expect(processesUnderMaintenance).To(HaveLen(1))
-				Expect(processesUnderMaintenance).To(HaveKey(secondStorageProcess))
-			})
-		})
+				It(
+					"shouldn't remove the entry from the maintenance list for the second entry",
+					func() {
+						processesUnderMaintenance, err := adminClient.GetProcessesUnderMaintenance()
+						Expect(err).NotTo(HaveOccurred())
+						Expect(processesUnderMaintenance).To(HaveLen(1))
+						Expect(processesUnderMaintenance).To(HaveKey(secondStorageProcess))
+					},
+				)
+			},
+		)
 
-		When("one processes for a different zone is in the maintenance list and was recently added and the process is missing", func() {
-			BeforeEach(func() {
-				// The maintenance is targeted for the future.
-				Expect(adminClient.SetProcessesUnderMaintenance([]fdbv1beta2.ProcessGroupID{secondStorageProcess}, time.Now().Add(1*time.Minute).Unix())).NotTo(HaveOccurred())
-				adminClient.MockMissingProcessGroup(secondStorageProcess, true)
-			})
+		When(
+			"one processes for a different zone is in the maintenance list and was recently added and the process is missing",
+			func() {
+				BeforeEach(func() {
+					// The maintenance is targeted for the future.
+					Expect(
+						adminClient.SetProcessesUnderMaintenance(
+							[]fdbv1beta2.ProcessGroupID{secondStorageProcess},
+							time.Now().Add(1*time.Minute).Unix(),
+						),
+					).NotTo(HaveOccurred())
+					adminClient.MockMissingProcessGroup(secondStorageProcess, true)
+				})
 
-			It("should requeue", func() {
-				Expect(requeue).NotTo(BeNil())
-				Expect(requeue.delayedRequeue).To(BeTrue())
-				Expect(requeue.message).To(HavePrefix("Waiting for 1 processes in zone"))
-			})
+				It("should requeue", func() {
+					Expect(requeue).NotTo(BeNil())
+					Expect(requeue.delayedRequeue).To(BeTrue())
+					Expect(requeue.message).To(HavePrefix("Waiting for 1 processes in zone"))
+				})
 
-			It("shouldn't reset the maintenance", func() {
-				status, err := adminClient.GetStatus()
-				Expect(err).NotTo(HaveOccurred())
-				Expect(status.Cluster.MaintenanceZone).To(Equal(currentMaintenanceZone))
-			})
+				It("shouldn't reset the maintenance", func() {
+					status, err := adminClient.GetStatus()
+					Expect(err).NotTo(HaveOccurred())
+					Expect(status.Cluster.MaintenanceZone).To(Equal(currentMaintenanceZone))
+				})
 
-			It("shouldn't remove the entry from the maintenance list", func() {
-				processesUnderMaintenance, err := adminClient.GetProcessesUnderMaintenance()
-				Expect(err).NotTo(HaveOccurred())
-				Expect(processesUnderMaintenance).To(HaveLen(1))
-				Expect(processesUnderMaintenance).To(HaveKey(secondStorageProcess))
-			})
-		})
+				It("shouldn't remove the entry from the maintenance list", func() {
+					processesUnderMaintenance, err := adminClient.GetProcessesUnderMaintenance()
+					Expect(err).NotTo(HaveOccurred())
+					Expect(processesUnderMaintenance).To(HaveLen(1))
+					Expect(processesUnderMaintenance).To(HaveKey(secondStorageProcess))
+				})
+			},
+		)
 
 		// In this case the process was added long enough ago to not block the removal of the maintenance zone but not
 		// long enough ago to be considered stale.
-		When("one processes for a different zone is in the maintenance list and was added multiple minutes ago", func() {
-			BeforeEach(func() {
-				Expect(adminClient.SetProcessesUnderMaintenance([]fdbv1beta2.ProcessGroupID{secondStorageProcess}, time.Now().Add(-10*time.Minute).Unix())).NotTo(HaveOccurred())
-			})
+		When(
+			"one processes for a different zone is in the maintenance list and was added multiple minutes ago",
+			func() {
+				BeforeEach(func() {
+					Expect(
+						adminClient.SetProcessesUnderMaintenance(
+							[]fdbv1beta2.ProcessGroupID{secondStorageProcess},
+							time.Now().Add(-10*time.Minute).Unix(),
+						),
+					).NotTo(HaveOccurred())
+				})
 
-			It("shouldn't requeue", func() {
-				Expect(requeue).To(BeNil())
-			})
+				It("shouldn't requeue", func() {
+					Expect(requeue).To(BeNil())
+				})
 
-			It("should reset the maintenance", func() {
-				status, err := adminClient.GetStatus()
-				Expect(err).NotTo(HaveOccurred())
-				Expect(status.Cluster.MaintenanceZone).To(BeEmpty())
-			})
+				It("should reset the maintenance", func() {
+					status, err := adminClient.GetStatus()
+					Expect(err).NotTo(HaveOccurred())
+					Expect(status.Cluster.MaintenanceZone).To(BeEmpty())
+				})
 
-			It("shouldn't remove the entry from the maintenance list", func() {
-				processesUnderMaintenance, err := adminClient.GetProcessesUnderMaintenance()
-				Expect(err).NotTo(HaveOccurred())
-				Expect(processesUnderMaintenance).To(HaveLen(1))
-				Expect(processesUnderMaintenance).To(HaveKey(secondStorageProcess))
-			})
-		})
+				It("shouldn't remove the entry from the maintenance list", func() {
+					processesUnderMaintenance, err := adminClient.GetProcessesUnderMaintenance()
+					Expect(err).NotTo(HaveOccurred())
+					Expect(processesUnderMaintenance).To(HaveLen(1))
+					Expect(processesUnderMaintenance).To(HaveKey(secondStorageProcess))
+				})
+			},
+		)
 
-		When("one processes for a different zone is in the maintenance list and is considered a stale entry", func() {
-			BeforeEach(func() {
-				Expect(adminClient.SetProcessesUnderMaintenance([]fdbv1beta2.ProcessGroupID{secondStorageProcess}, time.Now().Add(-10*time.Hour).Unix())).NotTo(HaveOccurred())
-			})
+		When(
+			"one processes for a different zone is in the maintenance list and is considered a stale entry",
+			func() {
+				BeforeEach(func() {
+					Expect(
+						adminClient.SetProcessesUnderMaintenance(
+							[]fdbv1beta2.ProcessGroupID{secondStorageProcess},
+							time.Now().Add(-10*time.Hour).Unix(),
+						),
+					).NotTo(HaveOccurred())
+				})
 
-			It("shouldn't requeue", func() {
-				Expect(requeue).To(BeNil())
-			})
+				It("shouldn't requeue", func() {
+					Expect(requeue).To(BeNil())
+				})
 
-			It("should reset the maintenance", func() {
-				status, err := adminClient.GetStatus()
-				Expect(err).NotTo(HaveOccurred())
-				Expect(status.Cluster.MaintenanceZone).To(BeEmpty())
-			})
+				It("should reset the maintenance", func() {
+					status, err := adminClient.GetStatus()
+					Expect(err).NotTo(HaveOccurred())
+					Expect(status.Cluster.MaintenanceZone).To(BeEmpty())
+				})
 
-			It("should remove the entry from the maintenance list", func() {
-				processesUnderMaintenance, err := adminClient.GetProcessesUnderMaintenance()
-				Expect(err).NotTo(HaveOccurred())
-				Expect(processesUnderMaintenance).To(BeEmpty())
-			})
-		})
+				It("should remove the entry from the maintenance list", func() {
+					processesUnderMaintenance, err := adminClient.GetProcessesUnderMaintenance()
+					Expect(err).NotTo(HaveOccurred())
+					Expect(processesUnderMaintenance).To(BeEmpty())
+				})
+			},
+		)
 	})
 })

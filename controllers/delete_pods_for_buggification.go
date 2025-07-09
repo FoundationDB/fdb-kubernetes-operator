@@ -35,10 +35,19 @@ import (
 type deletePodsForBuggification struct{}
 
 // reconcile runs the reconciler's work.
-func (d deletePodsForBuggification) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, _ *fdbv1beta2.FoundationDBStatus, logger logr.Logger) *requeue {
+func (d deletePodsForBuggification) reconcile(
+	ctx context.Context,
+	r *FoundationDBClusterReconciler,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	_ *fdbv1beta2.FoundationDBStatus,
+	logger logr.Logger,
+) *requeue {
 	crashLoopContainerProcessGroups := cluster.GetCrashLoopContainerProcessGroups()
 
-	noSchedulePods := make(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None, len(cluster.Spec.Buggify.NoSchedule))
+	noSchedulePods := make(
+		map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None,
+		len(cluster.Spec.Buggify.NoSchedule),
+	)
 	for _, processGroupID := range cluster.Spec.Buggify.NoSchedule {
 		noSchedulePods[processGroupID] = fdbv1beta2.None{}
 	}
@@ -128,7 +137,13 @@ func (d deletePodsForBuggification) reconcile(ctx context.Context, r *Foundation
 	if len(updates) > 0 {
 		logger.Info("Deleting pods", "count", len(updates))
 		r.Recorder.Event(cluster, "Normal", "UpdatingPods", "Recreating pods for buggification")
-		err := r.PodLifecycleManager.UpdatePods(logr.NewContext(ctx, logger), r, cluster, updates, true)
+		err := r.PodLifecycleManager.UpdatePods(
+			logr.NewContext(ctx, logger),
+			r,
+			cluster,
+			updates,
+			true,
+		)
 		if err != nil {
 			return &requeue{curError: err}
 		}

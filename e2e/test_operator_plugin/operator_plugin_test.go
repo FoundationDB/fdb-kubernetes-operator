@@ -71,10 +71,21 @@ var _ = Describe("Operator Plugin", Label("e2e", "pr"), func() {
 		It("should print the version", func() {
 			// Pick one operator pod and execute the kubectl version command to ensure that kubectl-fdb is present
 			// and can be executed.
-			operatorPod := factory.RandomPickOnePod(factory.GetOperatorPods(fdbCluster.GetPrimary().Namespace()).Items)
+			operatorPod := factory.RandomPickOnePod(
+				factory.GetOperatorPods(fdbCluster.GetPrimary().Namespace()).Items,
+			)
 			log.Println("operatorPod:", operatorPod.Name)
 			Eventually(func(g Gomega) string {
-				stdout, stderr, err := factory.ExecuteCmdOnPod(context.Background(), &operatorPod, "manager", fmt.Sprintf("kubectl-fdb -n %s --version-check=false version", fdbCluster.GetPrimary().Namespace()), false)
+				stdout, stderr, err := factory.ExecuteCmdOnPod(
+					context.Background(),
+					&operatorPod,
+					"manager",
+					fmt.Sprintf(
+						"kubectl-fdb -n %s --version-check=false version",
+						fdbCluster.GetPrimary().Namespace(),
+					),
+					false,
+				)
 				g.Expect(err).NotTo(HaveOccurred(), stderr)
 				return stdout
 			}).WithTimeout(10 * time.Minute).WithPolling(2 * time.Second).Should(And(ContainSubstring("kubectl-fdb build information:"), ContainSubstring("foundationdb-operator:")))
@@ -115,17 +126,20 @@ var _ = Describe("Operator Plugin", Label("e2e", "pr"), func() {
 			var wg errgroup.Group
 			log.Println("Delete Pods in primary")
 			wg.Go(func() error {
-				return factory.GetControllerRuntimeClient().DeleteAllOf(context.Background(), &corev1.Pod{}, ctrlClient.MatchingLabels(primary.GetResourceLabels()), ctrlClient.InNamespace(primary.Namespace()))
+				return factory.GetControllerRuntimeClient().
+					DeleteAllOf(context.Background(), &corev1.Pod{}, ctrlClient.MatchingLabels(primary.GetResourceLabels()), ctrlClient.InNamespace(primary.Namespace()))
 			})
 
 			log.Println("Delete Pods in primary satellite")
 			wg.Go(func() error {
-				return factory.GetControllerRuntimeClient().DeleteAllOf(context.Background(), &corev1.Pod{}, ctrlClient.MatchingLabels(primarySatellite.GetResourceLabels()), ctrlClient.InNamespace(primarySatellite.Namespace()))
+				return factory.GetControllerRuntimeClient().
+					DeleteAllOf(context.Background(), &corev1.Pod{}, ctrlClient.MatchingLabels(primarySatellite.GetResourceLabels()), ctrlClient.InNamespace(primarySatellite.Namespace()))
 			})
 
 			log.Println("Delete Pods in remote satellite")
 			wg.Go(func() error {
-				return factory.GetControllerRuntimeClient().DeleteAllOf(context.Background(), &corev1.Pod{}, ctrlClient.MatchingLabels(remoteSatellite.GetResourceLabels()), ctrlClient.InNamespace(remoteSatellite.Namespace()))
+				return factory.GetControllerRuntimeClient().
+					DeleteAllOf(context.Background(), &corev1.Pod{}, ctrlClient.MatchingLabels(remoteSatellite.GetResourceLabels()), ctrlClient.InNamespace(remoteSatellite.Namespace()))
 			})
 
 			Expect(wg.Wait()).NotTo(HaveOccurred())
@@ -135,21 +149,24 @@ var _ = Describe("Operator Plugin", Label("e2e", "pr"), func() {
 			// Ensure that all the pods are deleted.
 			Eventually(func(g Gomega) []corev1.Pod {
 				pods := &corev1.PodList{}
-				g.Expect(factory.GetControllerRuntimeClient().List(context.Background(), pods, ctrlClient.MatchingLabels(primary.GetResourceLabels()), ctrlClient.InNamespace(remoteSatellite.Namespace()))).To(Succeed())
+				g.Expect(factory.GetControllerRuntimeClient().List(context.Background(), pods, ctrlClient.MatchingLabels(primary.GetResourceLabels()), ctrlClient.InNamespace(remoteSatellite.Namespace()))).
+					To(Succeed())
 
 				return pods.Items
 			}).WithTimeout(5 * time.Minute).WithPolling(10 * time.Second).Should(BeEmpty())
 
 			Eventually(func(g Gomega) []corev1.Pod {
 				pods := &corev1.PodList{}
-				g.Expect(factory.GetControllerRuntimeClient().List(context.Background(), pods, ctrlClient.MatchingLabels(primarySatellite.GetResourceLabels()), ctrlClient.InNamespace(remoteSatellite.Namespace()))).To(Succeed())
+				g.Expect(factory.GetControllerRuntimeClient().List(context.Background(), pods, ctrlClient.MatchingLabels(primarySatellite.GetResourceLabels()), ctrlClient.InNamespace(remoteSatellite.Namespace()))).
+					To(Succeed())
 
 				return pods.Items
 			}).WithTimeout(5 * time.Minute).WithPolling(10 * time.Second).Should(BeEmpty())
 
 			Eventually(func(g Gomega) []corev1.Pod {
 				pods := &corev1.PodList{}
-				g.Expect(factory.GetControllerRuntimeClient().List(context.Background(), pods, ctrlClient.MatchingLabels(remoteSatellite.GetResourceLabels()), ctrlClient.InNamespace(remoteSatellite.Namespace()))).To(Succeed())
+				g.Expect(factory.GetControllerRuntimeClient().List(context.Background(), pods, ctrlClient.MatchingLabels(remoteSatellite.GetResourceLabels()), ctrlClient.InNamespace(remoteSatellite.Namespace()))).
+					To(Succeed())
 
 				return pods.Items
 			}).WithTimeout(5 * time.Minute).WithPolling(10 * time.Second).Should(BeEmpty())
@@ -167,9 +184,21 @@ var _ = Describe("Operator Plugin", Label("e2e", "pr"), func() {
 			It("should recover the coordinators", func() {
 				remote := fdbCluster.GetRemote()
 				// Pick one operator pod and execute the recovery command
-				operatorPod := factory.RandomPickOnePod(factory.GetOperatorPods(remote.Namespace()).Items)
+				operatorPod := factory.RandomPickOnePod(
+					factory.GetOperatorPods(remote.Namespace()).Items,
+				)
 				log.Println("operatorPod:", operatorPod.Name)
-				stdout, stderr, err := factory.ExecuteCmdOnPod(context.Background(), &operatorPod, "manager", fmt.Sprintf("kubectl-fdb -n %s recover-multi-region-cluster --version-check=false --wait=false %s", remote.Namespace(), remote.Name()), false)
+				stdout, stderr, err := factory.ExecuteCmdOnPod(
+					context.Background(),
+					&operatorPod,
+					"manager",
+					fmt.Sprintf(
+						"kubectl-fdb -n %s recover-multi-region-cluster --version-check=false --wait=false %s",
+						remote.Namespace(),
+						remote.Name(),
+					),
+					false,
+				)
 				log.Println("stdout:", stdout, "stderr:", stderr)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -185,7 +214,9 @@ var _ = Describe("Operator Plugin", Label("e2e", "pr"), func() {
 				Expect(remote.WaitForReconciliation()).To(Succeed())
 
 				log.Println("new connection string:", remote.GetCluster().Status.ConnectionString)
-				connectionString, err := fdbv1beta2.ParseConnectionString(remote.GetCluster().Status.ConnectionString)
+				connectionString, err := fdbv1beta2.ParseConnectionString(
+					remote.GetCluster().Status.ConnectionString,
+				)
 				Expect(err).NotTo(HaveOccurred())
 
 				for _, coordinator := range connectionString.Coordinators {
@@ -204,9 +235,21 @@ var _ = Describe("Operator Plugin", Label("e2e", "pr"), func() {
 			It("should recover the coordinators", func() {
 				remote := fdbCluster.GetRemote()
 				// Pick one operator pod and execute the recovery command
-				operatorPod := factory.RandomPickOnePod(factory.GetOperatorPods(remote.Namespace()).Items)
+				operatorPod := factory.RandomPickOnePod(
+					factory.GetOperatorPods(remote.Namespace()).Items,
+				)
 				log.Println("operatorPod:", operatorPod.Name)
-				stdout, stderr, err := factory.ExecuteCmdOnPod(context.Background(), &operatorPod, "manager", fmt.Sprintf("kubectl-fdb -n %s recover-multi-region-cluster --version-check=false --wait=false %s", remote.Namespace(), remote.Name()), false)
+				stdout, stderr, err := factory.ExecuteCmdOnPod(
+					context.Background(),
+					&operatorPod,
+					"manager",
+					fmt.Sprintf(
+						"kubectl-fdb -n %s recover-multi-region-cluster --version-check=false --wait=false %s",
+						remote.Namespace(),
+						remote.Name(),
+					),
+					false,
+				)
 				log.Println("stdout:", stdout, "stderr:", stderr)
 				Expect(err).NotTo(HaveOccurred())
 

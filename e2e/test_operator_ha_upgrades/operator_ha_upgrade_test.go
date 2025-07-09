@@ -73,7 +73,10 @@ func clusterSetupWithTestConfig(config testConfig) {
 	factory.SetBeforeVersion(config.beforeVersion)
 
 	if config.clusterConfig == nil {
-		config.clusterConfig = fixtures.DefaultClusterConfigWithHaMode(fixtures.HaFourZoneSingleSat, false)
+		config.clusterConfig = fixtures.DefaultClusterConfigWithHaMode(
+			fixtures.HaFourZoneSingleSat,
+			false,
+		)
 	}
 
 	fdbCluster = factory.CreateFdbHaCluster(
@@ -128,7 +131,8 @@ func verifyBouncingIsBlocked() {
 				continue
 			}
 
-			g.Expect(cluster.AllProcessGroupsHaveCondition(fdbv1beta2.IncorrectCommandLine)).To(BeTrue())
+			g.Expect(cluster.AllProcessGroupsHaveCondition(fdbv1beta2.IncorrectCommandLine)).
+				To(BeTrue())
 		}
 
 		return true
@@ -188,7 +192,10 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 						continue
 					}
 
-					transactionSystemProcessGroups.Store(processGroup.ProcessGroupID, fdbv1beta2.None{})
+					transactionSystemProcessGroups.Store(
+						processGroup.ProcessGroupID,
+						fdbv1beta2.None{},
+					)
 				}
 			}
 
@@ -202,21 +209,33 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 				targetCluster := fdbCluster // https://golang.org/doc/faq#closures_and_goroutines
 
 				g.Go(func() error {
-					err := targetCluster.WaitUntilWithForceReconcile(2, 1200, func(cluster *fdbv1beta2.FoundationDBCluster) bool {
-						for _, processGroup := range cluster.Status.ProcessGroups {
-							if processGroup.ProcessClass == fdbv1beta2.ProcessClassStorage {
-								continue
+					err := targetCluster.WaitUntilWithForceReconcile(
+						2,
+						1200,
+						func(cluster *fdbv1beta2.FoundationDBCluster) bool {
+							for _, processGroup := range cluster.Status.ProcessGroups {
+								if processGroup.ProcessClass == fdbv1beta2.ProcessClassStorage {
+									continue
+								}
+
+								transactionSystemProcessGroups.Store(
+									processGroup.ProcessGroupID,
+									fdbv1beta2.None{},
+								)
 							}
 
-							transactionSystemProcessGroups.Store(processGroup.ProcessGroupID, fdbv1beta2.None{})
-						}
-
-						// Allow soft reconciliation and make sure the running version was updated
-						return cluster.Status.Generations.Reconciled == cluster.Generation && cluster.Status.RunningVersion == targetVersion
-					})
+							// Allow soft reconciliation and make sure the running version was updated
+							return cluster.Status.Generations.Reconciled == cluster.Generation &&
+								cluster.Status.RunningVersion == targetVersion
+						},
+					)
 
 					if err != nil {
-						return fmt.Errorf("error during WaitForReconciliation for %s, original error: %w", targetCluster.Name(), err)
+						return fmt.Errorf(
+							"error during WaitForReconciliation for %s, original error: %w",
+							targetCluster.Name(),
+							err,
+						)
 					}
 
 					return err
@@ -246,13 +265,29 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 
 			// Add a small buffer of 5 to allow automatic replacements during an upgrade.
 			expectedProcessCounts += 5
-			log.Println("expectedProcessCounts", expectedProcessCounts, "processCounts", processCounts)
+			log.Println(
+				"expectedProcessCounts",
+				expectedProcessCounts,
+				"processCounts",
+				processCounts,
+			)
 
 			// Make sure we haven't replaced to many transaction processes.
 			Expect(processCounts).To(BeNumerically("<=", expectedProcessCounts))
 
 			finalGeneration := fdbCluster.GetPrimary().GetStatus().Cluster.Generation
-			log.Println("upgrade took:", time.Since(startTime).String(), "initialGeneration:", initialGeneration, "finalGeneration", finalGeneration, "gap", finalGeneration-initialGeneration, "recoveryCount", (finalGeneration-initialGeneration)/2)
+			log.Println(
+				"upgrade took:",
+				time.Since(startTime).String(),
+				"initialGeneration:",
+				initialGeneration,
+				"finalGeneration",
+				finalGeneration,
+				"gap",
+				finalGeneration-initialGeneration,
+				"recoveryCount",
+				(finalGeneration-initialGeneration)/2,
+			)
 
 			// Verify that the cluster generation number didn't increase by more
 			// than 80 (in an ideal case the number of recoveries that should happen
@@ -547,10 +582,15 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 			fdbVersion, err := fdbv1beta2.ParseFdbVersion(beforeVersion)
 			Expect(err).NotTo(HaveOccurred())
 			if !fdbVersion.SupportsLocalityBasedExclusions() {
-				Skip("provided FDB version: " + beforeVersion + " doesn't support locality based exclusions")
+				Skip(
+					"provided FDB version: " + beforeVersion + " doesn't support locality based exclusions",
+				)
 			}
 
-			clusterConfig := fixtures.DefaultClusterConfigWithHaMode(fixtures.HaFourZoneSingleSat, false)
+			clusterConfig := fixtures.DefaultClusterConfigWithHaMode(
+				fixtures.HaFourZoneSingleSat,
+				false,
+			)
 			clusterConfig.UseLocalityBasedExclusions = pointer.Bool(true)
 
 			clusterSetupWithTestConfig(
@@ -563,8 +603,12 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 				},
 			)
 
-			Expect(fdbCluster.GetPrimarySatellite().GetCluster().UseLocalitiesForExclusion()).To(BeTrue())
-			processCounts, err := fdbCluster.GetPrimarySatellite().GetCluster().GetProcessCountsWithDefaults()
+			Expect(
+				fdbCluster.GetPrimarySatellite().GetCluster().UseLocalitiesForExclusion(),
+			).To(BeTrue())
+			processCounts, err := fdbCluster.GetPrimarySatellite().
+				GetCluster().
+				GetProcessCountsWithDefaults()
 			Expect(err).NotTo(HaveOccurred())
 
 			currentPods := fdbCluster.GetPrimarySatellite().GetPods()
@@ -604,7 +648,10 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 
 	DescribeTable("when maintenance feature is enabled",
 		func(beforeVersion string, targetVersion string) {
-			clusterConfig := fixtures.DefaultClusterConfigWithHaMode(fixtures.HaFourZoneSingleSat, false)
+			clusterConfig := fixtures.DefaultClusterConfigWithHaMode(
+				fixtures.HaFourZoneSingleSat,
+				false,
+			)
 			clusterConfig.UseMaintenanceMode = true
 
 			clusterSetupWithTestConfig(
@@ -632,7 +679,10 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 
 	DescribeTable("when tester processes are running in the primary and remote dc",
 		func(beforeVersion string, targetVersion string) {
-			clusterConfig := fixtures.DefaultClusterConfigWithHaMode(fixtures.HaFourZoneSingleSat, false)
+			clusterConfig := fixtures.DefaultClusterConfigWithHaMode(
+				fixtures.HaFourZoneSingleSat,
+				false,
+			)
 
 			clusterSetupWithTestConfig(
 				testConfig{
