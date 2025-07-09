@@ -35,9 +35,9 @@ import (
 )
 
 // ChooseRandomPod returns a random pod from the provided array, passing through the provided error.
+// TODO(johscheuer): Should we merge ChooseRandomPod and RandomPickOnePod?
 func (factory *Factory) ChooseRandomPod(pods *corev1.PodList) *corev1.Pod {
-	items := pods.Items
-	if len(items) == 0 {
+	if len(pods.Items) == 0 {
 		return nil
 	}
 	pickedPod := factory.RandomPickOnePod(pods.Items)
@@ -77,8 +77,13 @@ func (factory *Factory) RandomPickPod(input []corev1.Pod, count int) []corev1.Po
 
 // RandomPickOnePod will pick one Pods randomly from the Pod slice.
 func (factory *Factory) RandomPickOnePod(input []corev1.Pod) corev1.Pod {
-	// TODO(johscheuer): Handle the case where no pod is available.
-	return factory.RandomPickPod(input, 1)[0]
+	gomega.Expect(input).NotTo(gomega.BeEmpty(), "cannot pick a random Pod from an empty slice")
+	randomPods := factory.RandomPickPod(input, 1)
+	if len(randomPods) > 0 {
+		return randomPods[0]
+	}
+
+	return input[0]
 }
 
 // RandomPickCluster randomly picks the number of FdbCluster from the slice. If the slice contains less than count FdbCluster, all FdbCluster
@@ -102,8 +107,13 @@ func (factory *Factory) RandomPickCluster(input []*FdbCluster, count int) []*Fdb
 
 // RandomPickOneCluster will pick one FdbCluster randomly from the FdbCluster slice.
 func (factory *Factory) RandomPickOneCluster(input []*FdbCluster) *FdbCluster {
-	// TODO(johscheuer): Handle the case where no cluster is available.
-	return factory.RandomPickCluster(input, 1)[0]
+	gomega.Expect(input).NotTo(gomega.BeEmpty(), "cannot pick a random FDB cluster from an empty slice")
+	randomClusters := factory.RandomPickCluster(input, 1)
+	if len(randomClusters) > 0 {
+		return randomClusters[0]
+	}
+
+	return input[0]
 }
 
 // SetFinalizerForPod will set the provided finalizer slice for the Pods

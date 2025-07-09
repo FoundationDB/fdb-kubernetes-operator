@@ -131,6 +131,11 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 			Eventually(func() bool {
 				pods := make([]corev1.Pod, 0)
 				for _, pod := range fdbCluster.GetPods().Items {
+					// Ignore pods that are in the deletion process.
+					if !pod.DeletionTimestamp.IsZero() {
+						continue
+					}
+
 					for _, container := range pod.Spec.Containers {
 						if container.Name != fdbv1beta2.MainContainerName {
 							continue
