@@ -69,12 +69,12 @@ endif
 # If the FEATURE_SYNCHRONIZATION_MODE environment variable is not defined the test suite will be randomly enable (1) or disable (0)
 # the the global synchronization mode.
 ifndef FEATURE_SYNCHRONIZATION_MODE
-#  ifeq ($(shell shuf -i 0-1 -n 1), 0)
+  ifeq ($(shell shuf -i 0-1 -n 1), 0)
     # Default case
     FEATURE_SYNCHRONIZATION_MODE="local"
-#  else
-#    FEATURE_SYNCHRONIZATION_MODE="global"
-#  endif
+  else
+    FEATURE_SYNCHRONIZATION_MODE="global"
+  endif
 endif
 
 # Make bash pickier about errors.
@@ -188,13 +188,13 @@ endif
 	  --storage-class="$(STORAGE_CLASS)" \
 	  --enable-chaos-tests=$(ENABLE_CHAOS_TESTS) \
 	  --upgrade-versions=$(UPGRADE_VERSIONS) \
-	  --feature-unified-image=$(FEATURE_UNIFIED_IMAGE) \
 	  --cloud-provider=$(CLOUD_PROVIDER) \
 	  --dump-operator-state=$(DUMP_OPERATOR_STATE) \
 	  --cluster-name=$(CLUSTER_NAME) \
 	  --storage-engine=$(STORAGE_ENGINE) \
 	  --fdb-version-tag-mapping=$(FDB_VERSION_TAG_MAPPING) \
 	  --unified-fdb-image=$(UNIFIED_FDB_IMAGE) \
+	  --feature-unified-image=$(FEATURE_UNIFIED_IMAGE) \
 	  --feature-server-side-apply=$(FEATURE_SERVER_SIDE_APPLY) \
 	  --feature-synchronization-mode=$(FEATURE_SYNCHRONIZATION_MODE) \
 	  --node-selector="$(NODE_SELECTOR)" \
