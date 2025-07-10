@@ -375,6 +375,14 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 				Skip("this test only affects version incompatible upgrades")
 			}
 
+			// Right now the operator doesn't check the binaries during a version incompatible upgrade. When the
+			// sidecar was updated and is running, the operator assumes that the process is ready to be restarted.
+			// In the future we can add some additional signals, so that the operator is able to check if the binary
+			// is present. This requires some changes in the fdb-kubernetes-monitor.
+			if factory.UseUnifiedImage() {
+				Skip("in the unified image setup the operator doesn't validate the binary")
+			}
+
 			clusterSetup(beforeVersion)
 
 			// Update the cluster version.
@@ -388,7 +396,7 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 
 			// We have to update the sidecar before the operator is doing it. If we don't do this here the operator
 			// will update the sidecar and then the sidecar will copy the binaries at start-up. So we prepare the faulty Pod to already
-			// be using the new sidecar image and then we delete he new fdbserver binary.
+			// be using the new sidecar image and then we delete the new fdbserver binary.
 			sidecarImage := fdbCluster.GetSidecarImageForVersion(targetVersion)
 			fdbCluster.UpdateContainerImage(
 				&faultyPod,
