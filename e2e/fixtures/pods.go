@@ -114,7 +114,8 @@ func (factory *Factory) RandomPickCluster(input []*FdbCluster, count int) []*Fdb
 
 // RandomPickOneCluster will pick one FdbCluster randomly from the FdbCluster slice.
 func (factory *Factory) RandomPickOneCluster(input []*FdbCluster) *FdbCluster {
-	gomega.Expect(input).NotTo(gomega.BeEmpty(), "cannot pick a random FDB cluster from an empty slice")
+	gomega.Expect(input).
+		NotTo(gomega.BeEmpty(), "cannot pick a random FDB cluster from an empty slice")
 	randomClusters := factory.RandomPickCluster(input, 1)
 	if len(randomClusters) > 0 {
 		return randomClusters[0]
