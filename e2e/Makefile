@@ -192,12 +192,12 @@ endif
 	  --dump-operator-state=$(DUMP_OPERATOR_STATE) \
 	  --cluster-name=$(CLUSTER_NAME) \
 	  --storage-engine=$(STORAGE_ENGINE) \
-	  --fdb-version-tag-mapping=$(FDB_VERSION_TAG_MAPPING) \
+	  --fdb-version-tag-mapping="$(FDB_VERSION_TAG_MAPPING)" \
 	  --unified-fdb-image=$(UNIFIED_FDB_IMAGE) \
 	  --feature-unified-image=$(FEATURE_UNIFIED_IMAGE) \
 	  --feature-server-side-apply=$(FEATURE_SERVER_SIDE_APPLY) \
 	  --feature-synchronization-mode=$(FEATURE_SYNCHRONIZATION_MODE) \
 	  --node-selector="$(NODE_SELECTOR)" \
 	  --default-unavailable-threshold=$(DEFAULT_UNAVAILABLE_THRESHOLD) \
-	  --seaweedfs-image=$(SEAWEEDFS_IMAGE) $(FEATURE_LOCALITIES_FLAG) $(FEATURE_DNS) \
+	  --seaweedfs-image=$(SEAWEEDFS_IMAGE) $(FEATURE_LOCALITIES_FLAG) $(FEATURE_DNS_FLAG) \
 	  | grep -v 'constructing many client instances from the same exec auth config can cause performance problems during cert rotation' &> $(BASE_DIR)/../logs/$<.log
