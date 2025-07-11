@@ -81,19 +81,26 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 		var keyValues []fixtures.KeyValue
 		var prefix byte = 'a'
 		var backup *fixtures.FdbBackup
+		var restorableVersion uint64
 
 		BeforeEach(func() {
 			log.Println("creating backup for cluster")
 			backup = factory.CreateBackupForCluster(fdbCluster)
 			keyValues = fdbCluster.GenerateRandomValues(10, prefix)
 			fdbCluster.WriteKeyValues(keyValues)
-			backup.WaitForRestorableVersion(fdbCluster.GetClusterVersion())
+			restorableVersion = backup.WaitForRestorableVersion(fdbCluster.GetClusterVersion())
 			backup.Stop()
 		})
 
 		It("should restore the cluster successfully", func() {
 			fdbCluster.ClearRange([]byte{prefix}, 60)
-			factory.CreateRestoreForCluster(backup)
+			factory.CreateRestoreForCluster(backup, "")
+			Expect(fdbCluster.GetRange([]byte{prefix}, 25, 60)).Should(Equal(keyValues))
+		})
+
+		It("should restore the cluster successfully with a restorable version", func() {
+			fdbCluster.ClearRange([]byte{prefix}, 60)
+			factory.CreateRestoreForCluster(backup, string(restorableVersion))
 			Expect(fdbCluster.GetRange([]byte{prefix}, 25, 60)).Should(Equal(keyValues))
 		})
 	})
