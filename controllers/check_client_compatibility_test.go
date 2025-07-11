@@ -349,7 +349,7 @@ var _ = Describe("check client compatibility", func() {
 			})
 		})
 
-		When("the status contains never versions and the desired version is present", func() {
+		When("the status contains newer versions and the desired version is present", func() {
 			BeforeEach(func() {
 				status = &fdbv1beta2.FoundationDBStatus{
 					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
