@@ -29,7 +29,7 @@ import (
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:shortName=fdbbackup
 // +kubebuilder:subresource:status
-// +kubebuilder:metadata:annotations="foundationdb.org/release=v2.8.0"
+// +kubebuilder:metadata:annotations="foundationdb.org/release=v2.9.0"
 // +kubebuilder:printcolumn:name="Generation",type="integer",JSONPath=".metadata.generation",description="Latest generation of the spec",priority=0
 // +kubebuilder:printcolumn:name="Reconciled",type="integer",JSONPath=".status.generations.reconciled",description="Last reconciled generation of the spec",priority=0
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
