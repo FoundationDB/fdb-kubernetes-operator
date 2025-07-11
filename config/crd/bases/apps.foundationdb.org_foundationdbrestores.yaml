@@ -36,6 +36,9 @@ spec:
             type: object
           spec:
             properties:
+              backupVersion:
+                maxLength: 13
+                type: string
               blobStoreConfiguration:
                 properties:
                   accountName:

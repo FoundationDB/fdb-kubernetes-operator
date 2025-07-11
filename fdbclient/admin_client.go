@@ -918,6 +918,7 @@ func (client *cliAdminClient) StartRestore(
 	url string,
 	keyRanges []fdbv1beta2.FoundationDBKeyRange,
 	encryptionKeyPath string,
+	backupVersion string,
 ) error {
 	args := []string{
 		"start",
@@ -932,6 +933,10 @@ func (client *cliAdminClient) StartRestore(
 
 	if encryptionKeyPath != "" && fdbVersion.SupportsBackupEncryption() {
 		args = append(args, "--encryption-key-file", encryptionKeyPath)
+	}
+
+	if backupVersion != "" {
+		args = append(args, "-v", backupVersion)
 	}
 
 	if keyRanges != nil {
