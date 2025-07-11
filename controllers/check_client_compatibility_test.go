@@ -348,5 +348,112 @@ var _ = Describe("check client compatibility", func() {
 				})
 			})
 		})
+
+		When("the status contains newer versions and the desired version is present", func() {
+			BeforeEach(func() {
+				status = &fdbv1beta2.FoundationDBStatus{
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						Clients: fdbv1beta2.FoundationDBStatusClusterClientInfo{
+							SupportedVersions: []fdbv1beta2.FoundationDBStatusSupportedVersion{
+								{
+									ClientVersion: "Unknown",
+									ConnectedClients: []fdbv1beta2.FoundationDBStatusConnectedClient{
+										{
+											Address:  "10.1.38.92:52762",
+											LogGroup: "default",
+										},
+										{
+											Address:  "10.1.38.103:43346",
+											LogGroup: "default",
+										},
+									},
+									MaxProtocolClients: nil,
+									ProtocolVersion:    "Unknown",
+									SourceVersion:      "Unknown",
+								},
+								{
+									ClientVersion: "6.1.8",
+									ConnectedClients: []fdbv1beta2.FoundationDBStatusConnectedClient{
+										{
+											Address:  "10.1.38.92:52762",
+											LogGroup: "default",
+										},
+										{
+											Address:  "10.1.38.103:43346",
+											LogGroup: "default",
+										},
+									},
+									MaxProtocolClients: nil,
+									ProtocolVersion:    "fdb00b061060001",
+									SourceVersion:      "bd6b10cbcee08910667194e6388733acd3b80549",
+								},
+								{
+									ClientVersion: "6.2.15",
+									ConnectedClients: []fdbv1beta2.FoundationDBStatusConnectedClient{
+										{
+											Address:  "10.1.38.92:52762",
+											LogGroup: "default",
+										},
+										{
+											Address:  "10.1.38.103:43346",
+											LogGroup: "default",
+										},
+									},
+									MaxProtocolClients: nil,
+									ProtocolVersion:    "fdb00b062010002",
+									SourceVersion:      "20566f2ff06a7e822b30e8cfd91090fbd863a393",
+								},
+
+								{
+									ClientVersion: "6.3.15",
+									ConnectedClients: []fdbv1beta2.FoundationDBStatusConnectedClient{
+										{
+											Address:  "10.1.38.92:52762",
+											LogGroup: "default",
+										},
+										{
+											Address:  "10.1.38.103:43346",
+											LogGroup: "default",
+										},
+									},
+									MaxProtocolClients: nil,
+									ProtocolVersion:    "fdb00b063010001",
+									SourceVersion:      "20566f2ff06a7e822b30e8cfd91090fbd863a393",
+								},
+								{
+									ClientVersion: "7.4.2",
+									ConnectedClients: []fdbv1beta2.FoundationDBStatusConnectedClient{
+										{
+											Address:  "10.1.38.92:52762",
+											LogGroup: "default",
+										},
+										{
+											Address:  "10.1.38.103:43346",
+											LogGroup: "default",
+										},
+									},
+									MaxProtocolClients: []fdbv1beta2.FoundationDBStatusConnectedClient{
+										{
+											Address:  "10.1.38.92:52762",
+											LogGroup: "default",
+										},
+										{
+											Address:  "10.1.38.103:43346",
+											LogGroup: "default",
+										},
+									},
+									ProtocolVersion: "fdb00b074000000",
+									SourceVersion:   "eb4d3fe30ecf8481e1ab966b7ef6345eb66efcf8",
+								},
+							},
+						},
+					},
+				}
+			})
+
+			It("should detect everything correctly", func() {
+				Expect(unsupportedClients).To(BeEmpty())
+			})
+		})
 	})
 })

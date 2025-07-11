@@ -417,6 +417,7 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 				fdbv1beta2.FoundationDBStatusSupportedVersion{
 					ClientVersion:      version,
 					ProtocolVersion:    protocolVersion,
+					ConnectedClients:   protocolClients,
 					MaxProtocolClients: protocolClients,
 				},
 			)

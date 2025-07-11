@@ -2969,9 +2969,7 @@ var _ = Describe("cluster_controller", func() {
 
 				It("should set the image on the pods", func() {
 					pods := &corev1.PodList{}
-					err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
-					Expect(err).NotTo(HaveOccurred())
-
+					Expect(k8sClient.List(context.TODO(), pods)).To(Succeed())
 					for _, pod := range pods.Items {
 						Expect(
 							pod.Spec.Containers[0].Image,
@@ -2995,9 +2993,7 @@ var _ = Describe("cluster_controller", func() {
 					events := &corev1.EventList{}
 					var matchingEvents []corev1.Event
 
-					err = k8sClient.List(context.TODO(), events)
-					Expect(err).NotTo(HaveOccurred())
-
+					Expect(k8sClient.List(context.TODO(), events)).To(Succeed())
 					for _, event := range events.Items {
 						if event.InvolvedObject.UID == cluster.ObjectMeta.UID &&
 							event.Reason == "UnsupportedClient" {
@@ -3005,7 +3001,6 @@ var _ = Describe("cluster_controller", func() {
 						}
 					}
 					Expect(len(matchingEvents)).NotTo(Equal(0))
-
 					Expect(matchingEvents[0].Message).To(Equal(
 						fmt.Sprintf(
 							"1 clients do not support version 7.2.0: 127.0.0.2:3687 (%s)",
