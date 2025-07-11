@@ -1906,7 +1906,7 @@ func (cluster *FoundationDBCluster) CheckReconciliation(log logr.Logger) (bool, 
 		logger.Info(
 			"Update reconciled generation",
 			"previousGeneration",
-			"cluster.Status.Generations.Reconciled",
+			cluster.Status.Generations.Reconciled,
 			"currentGeneration",
 			cluster.Generation,
 		)
