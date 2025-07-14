@@ -26,6 +26,7 @@ This test suite contains tests related to backup and restore with the operator.
 
 import (
 	"log"
+	"strconv"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/fixtures"
@@ -100,7 +101,7 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 
 		It("should restore the cluster successfully with a restorable version", func() {
 			fdbCluster.ClearRange([]byte{prefix}, 60)
-			factory.CreateRestoreForCluster(backup, string(restorableVersion))
+			factory.CreateRestoreForCluster(backup, strconv.Itoa(int(restorableVersion)))
 			Expect(fdbCluster.GetRange([]byte{prefix}, 25, 60)).Should(Equal(keyValues))
 		})
 	})
