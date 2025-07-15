@@ -791,7 +791,22 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		})
 
 		When("the pod spec stays the same", func() {
-			FIt("should update the TLS setting  and keep the cluster available", func() {
+			It("should update the TLS setting  and keep the cluster available", func() {
+				// Only change the TLS setting for the cluster and not for the sidecar otherwise we have to recreate
+				// all Pods which takes a long time since we recreate the Pods one by one.
+				Expect(
+					fdbCluster.SetTLS(
+						!initialTLSSetting,
+						fdbCluster.GetCluster().Spec.SidecarContainer.EnableTLS,
+					),
+				).NotTo(HaveOccurred())
+				Expect(fdbCluster.HasTLSEnabled()).To(Equal(!initialTLSSetting))
+				checkCoordinatorsTLSFlag(fdbCluster.GetCluster(), !initialTLSSetting)
+			})
+		})
+
+		PWhen("the pod spec is changed", func() {
+			It("should update the TLS setting  and keep the cluster available", func() {
 				spec := fdbCluster.GetCluster().Spec.DeepCopy()
 				spec.MainContainer.EnableTLS = !initialTLSSetting
 
@@ -814,23 +829,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				spec.Processes[fdbv1beta2.ProcessClassGeneral] = processSettings
 
 				fdbCluster.UpdateClusterSpecWithSpec(spec)
-				//	return fdbCluster.WaitForReconciliation()
-
-				Expect(fdbCluster.HasTLSEnabled()).To(Equal(!initialTLSSetting))
-				checkCoordinatorsTLSFlag(fdbCluster.GetCluster(), !initialTLSSetting)
-			})
-		})
-
-		When("the pod spec is changed", func() {
-			FIt("should update the TLS setting  and keep the cluster available", func() {
-				// Only change the TLS setting for the cluster and not for the sidecar otherwise we have to recreate
-				// all Pods which takes a long time since we recreate the Pods one by one.
-				Expect(
-					fdbCluster.SetTLS(
-						!initialTLSSetting,
-						fdbCluster.GetCluster().Spec.SidecarContainer.EnableTLS,
-					),
-				).NotTo(HaveOccurred())
+				Expect(fdbCluster.WaitForReconciliation()).To(Succeed())
 				Expect(fdbCluster.HasTLSEnabled()).To(Equal(!initialTLSSetting))
 				checkCoordinatorsTLSFlag(fdbCluster.GetCluster(), !initialTLSSetting)
 			})

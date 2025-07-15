@@ -341,7 +341,12 @@ func getPodsToUpdate(
 		if pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] == specHash {
 			// Check here if the Pod spec matches the desired Pod spec.
 			var updated bool
-			updated, err = reconciler.PodLifecycleManager.PodIsUpdated(ctx, reconciler, cluster, pod)
+			updated, err = reconciler.PodLifecycleManager.PodIsUpdated(
+				ctx,
+				reconciler,
+				cluster,
+				pod,
+			)
 			if err != nil {
 				logger.Info("Skipping Pod due to error generating spec hash",
 					"processGroupID", processGroup.ProcessGroupID,
