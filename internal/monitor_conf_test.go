@@ -600,7 +600,7 @@ var _ = Describe("monitor_conf", func() {
 					cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{
 						fdbv1beta2.ProcessClassGeneral: {
 							CustomParameters: fdbv1beta2.FoundationDBCustomParameters{
-								"localtiy_my_fancy_ip = $FDB_PUBLIC_IP",
+								"locality_my_fancy_ip = $FDB_PUBLIC_IP",
 							},
 						},
 					}
@@ -619,7 +619,7 @@ var _ = Describe("monitor_conf", func() {
 						Values: []monitorapi.Argument{
 							{
 								ArgumentType: monitorapi.LiteralArgumentType,
-								Value:        "--localtiy_my_fancy_ip=",
+								Value:        "--locality_my_fancy_ip=",
 							},
 							{
 								ArgumentType: monitorapi.EnvironmentArgumentType,
@@ -646,7 +646,7 @@ var _ = Describe("monitor_conf", func() {
 							Values: []monitorapi.Argument{
 								{
 									ArgumentType: monitorapi.LiteralArgumentType,
-									Value:        "--localtiy_my_fancy_ip=",
+									Value:        "--locality_my_fancy_ip=",
 								},
 								{
 									ArgumentType: monitorapi.IPListArgumentType,
@@ -666,7 +666,7 @@ var _ = Describe("monitor_conf", func() {
 						Expect(err).NotTo(HaveOccurred())
 						Expect(
 							commandLineArgs[10],
-						).To(Equal("--localtiy_my_fancy_ip=2001:db8:dead:beef::1"))
+						).To(Equal("--locality_my_fancy_ip=2001:db8:dead:beef::1"))
 					})
 				})
 
@@ -688,7 +688,7 @@ var _ = Describe("monitor_conf", func() {
 							Values: []monitorapi.Argument{
 								{
 									ArgumentType: monitorapi.LiteralArgumentType,
-									Value:        "--localtiy_my_fancy_ip=",
+									Value:        "--locality_my_fancy_ip=",
 								},
 								{
 									ArgumentType: monitorapi.IPListArgumentType,
@@ -706,7 +706,7 @@ var _ = Describe("monitor_conf", func() {
 								"FDB_DNS_NAME":    "test",
 							})
 						Expect(err).NotTo(HaveOccurred())
-						Expect(commandLineArgs[10]).To(Equal("--localtiy_my_fancy_ip=192.168.0.2"))
+						Expect(commandLineArgs[10]).To(Equal("--locality_my_fancy_ip=192.168.0.2"))
 					})
 				})
 			})
