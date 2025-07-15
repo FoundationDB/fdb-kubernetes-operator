@@ -388,12 +388,41 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 				log.Println("Ensure cluster(s) are not upgraded")
 				fdbCluster.VerifyVersion(beforeVersion)
 			} else {
-				// If we do a version compatible upgrade, ensure the partition is present for 2 minutes.
-				time.Sleep(2 * time.Minute)
+				// If we do a version compatible upgrade, ensure the partition is present for 30 seconds.
+				time.Sleep(30 * time.Second)
 			}
 
 			log.Println("Restoring connectivity")
 			factory.DeleteChaosMeshExperimentSafe(partitionExperiment)
+
+			// When using protocol compatible versions, the other operator instances are able to move forward. In some
+			// cases it can happen that new coordinators are selected and all the old coordinators are deleted. In this
+			// case the remote satellite operator with not be able to connect to the cluster anymore and needs an
+			// update to the connection string.
+			if fixtures.VersionsAreProtocolCompatible(beforeVersion, targetVersion) {
+				Eventually(func(g Gomega) {
+					currentConnectionString := fdbCluster.GetPrimary().GetStatus().Cluster.ConnectionString
+					remoteSat := fdbCluster.GetRemoteSatellite()
+					remoteConnectionString := remoteSat.GetCluster().Status.ConnectionString
+
+					// If the connection string is different we have to update it on the remote satellite side
+					// as the operator instances were partitioned.
+					if currentConnectionString != remoteConnectionString {
+						if !remoteSat.GetCluster().Spec.Skip {
+							remoteSat.SetSkipReconciliation(true)
+							// Wait one minute, that should be enough time for the operator to end the reconciliation loop
+							// if started.
+							time.Sleep(1 * time.Minute)
+						}
+
+						remoteSatStatus := remoteSat.GetCluster().Status.DeepCopy()
+						remoteSatStatus.ConnectionString = currentConnectionString
+						fdbCluster.GetRemoteSatellite().UpdateClusterStatusWithStatus(remoteSatStatus)
+					}
+
+					g.Expect(remoteConnectionString).To(Equal(currentConnectionString))
+				}).WithTimeout(5 * time.Minute).WithPolling(15 * time.Second).Should(Succeed())
+			}
 
 			// Delete the operator Pods to ensure they pick up the work directly otherwise it could take a long time
 			// until the operator tries to reconcile the cluster again. If the operator is not able to reconcile a
@@ -401,6 +430,9 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 			// for a long time and since the network partition is not emitting any events for the operator this won't trigger
 			// a reconciliation either. So this step is only to speed up the reconcile process.
 			factory.RecreateOperatorPods(fdbCluster.GetRemoteSatellite().Namespace())
+
+			// Ensure that the remote satellite is not set to skip.
+			fdbCluster.GetRemoteSatellite().SetSkipReconciliation(false)
 
 			// Upgrade should make progress now - wait until all processes have upgraded
 			// to "targetVersion".
