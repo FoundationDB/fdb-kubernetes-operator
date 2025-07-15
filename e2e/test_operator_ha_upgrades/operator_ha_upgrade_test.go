@@ -401,7 +401,9 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 			// update to the connection string.
 			if fixtures.VersionsAreProtocolCompatible(beforeVersion, targetVersion) {
 				Eventually(func(g Gomega) {
-					currentConnectionString := fdbCluster.GetPrimary().GetStatus().Cluster.ConnectionString
+					currentConnectionString := fdbCluster.GetPrimary().
+						GetStatus().
+						Cluster.ConnectionString
 					remoteSat := fdbCluster.GetRemoteSatellite()
 					remoteConnectionString := remoteSat.GetCluster().Status.ConnectionString
 
@@ -417,7 +419,8 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 
 						remoteSatStatus := remoteSat.GetCluster().Status.DeepCopy()
 						remoteSatStatus.ConnectionString = currentConnectionString
-						fdbCluster.GetRemoteSatellite().UpdateClusterStatusWithStatus(remoteSatStatus)
+						fdbCluster.GetRemoteSatellite().
+							UpdateClusterStatusWithStatus(remoteSatStatus)
 					}
 
 					g.Expect(remoteConnectionString).To(Equal(currentConnectionString))
