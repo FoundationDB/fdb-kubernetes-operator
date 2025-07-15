@@ -555,7 +555,6 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 				var processesToUpdate int
 
 				cluster := fdbCluster.GetCluster()
-
 				for _, processGroup := range cluster.Status.ProcessGroups {
 					if processGroup.ProcessGroupID == processGroupMarkedForRemoval {
 						continue

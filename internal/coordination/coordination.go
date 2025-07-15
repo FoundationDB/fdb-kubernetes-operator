@@ -425,25 +425,64 @@ func UpdateGlobalCoordinationState(
 					updatesPendingForInclusion[processGroup.ProcessGroupID] = fdbv1beta2.UpdateActionAdd
 				}
 			} else {
+				reason := "process group is excluded and marked for removal"
 				// Check if the process group is present in pendingForExclusion or readyForExclusion.
 				// If so, add them to the set to remove those entries as the process is already excluded.
 				if _, ok := pendingForExclusion[processGroup.ProcessGroupID]; ok {
+					logger.V(1).
+						Info("Removing from pendingForExclusion", "processGroupID", processGroup.ProcessGroupID, "reason", reason)
 					updatesPendingForExclusion[processGroup.ProcessGroupID] = fdbv1beta2.UpdateActionDelete
 				}
 
 				if _, ok := readyForExclusion[processGroup.ProcessGroupID]; ok {
+					logger.V(1).
+						Info("Removing from readyForExclusion", "processGroupID", processGroup.ProcessGroupID, "reason", reason)
 					updatesReadyForExclusion[processGroup.ProcessGroupID] = fdbv1beta2.UpdateActionDelete
 				}
 
 				// Ensure the process is added to the pending for inclusion list.
 				if _, ok := pendingForInclusion[processGroup.ProcessGroupID]; !ok {
+					logger.V(1).
+						Info("Adding to pendingForInclusion", "processGroupID", processGroup.ProcessGroupID, "reason", reason)
 					updatesPendingForInclusion[processGroup.ProcessGroupID] = fdbv1beta2.UpdateActionAdd
 				}
 
 				if processGroup.ExclusionSkipped {
 					if _, ok := readyForInclusion[processGroup.ProcessGroupID]; !ok {
+						logger.V(1).
+							Info("Adding to readyForInclusion", "processGroupID", processGroup.ProcessGroupID, "reason", reason)
 						updatesReadyForInclusion[processGroup.ProcessGroupID] = fdbv1beta2.UpdateActionAdd
 					}
+				}
+
+				// if the process group is excluded, we don't need to restart it.
+				if _, ok := pendingForRestart[processGroup.ProcessGroupID]; ok {
+					logger.V(1).
+						Info("Removing from pendingForRestart", "processGroupID", processGroup.ProcessGroupID, "reason", reason)
+					updatesPendingForRestart[processGroup.ProcessGroupID] = fdbv1beta2.UpdateActionDelete
+				}
+
+				if _, ok := readyForRestart[processGroup.ProcessGroupID]; ok {
+					logger.V(1).
+						Info("Removing from readyForRestart", "processGroupID", processGroup.ProcessGroupID, "reason", reason)
+					updatesReadyForRestart[processGroup.ProcessGroupID] = fdbv1beta2.UpdateActionDelete
+				}
+			}
+
+			// If the process group is marked for removal and the resources are stuck in terminating or the processes are not running, we should
+			// remove them from the restart list, because there are no processes to restart.
+			if processGroup.GetConditionTime(fdbv1beta2.ResourcesTerminating) != nil ||
+				processGroup.GetConditionTime(fdbv1beta2.MissingProcesses) != nil {
+				if _, ok := pendingForRestart[processGroup.ProcessGroupID]; ok {
+					logger.V(1).
+						Info("Removing from pendingForRestart", "processGroupID", processGroup.ProcessGroupID, "reason", "process group is marked for removal")
+					updatesPendingForRestart[processGroup.ProcessGroupID] = fdbv1beta2.UpdateActionDelete
+				}
+
+				if _, ok := readyForRestart[processGroup.ProcessGroupID]; ok {
+					logger.V(1).
+						Info("Removing from readyForRestart", "processGroupID", processGroup.ProcessGroupID, "reason", "process group is marked for removal")
+					updatesReadyForRestart[processGroup.ProcessGroupID] = fdbv1beta2.UpdateActionDelete
 				}
 			}
 
@@ -457,7 +496,7 @@ func UpdateGlobalCoordinationState(
 			continue
 		}
 
-		// If the process groups is missing long enough to be ignored, ensure that it's removed from the pending
+		// If the process group is missing long enough to be ignored, ensure that it's removed from the pending
 		// and the ready list.
 		if processGroup.GetConditionTime(fdbv1beta2.IncorrectCommandLine) != nil &&
 			!restarts.ShouldBeIgnoredBecauseMissing(logger, cluster, processGroup) {

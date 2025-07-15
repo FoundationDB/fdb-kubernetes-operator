@@ -340,6 +340,11 @@ var _ = Describe("Test Operator Velocity", Label("e2e", "nightly"), func() {
 			fdbCluster.GetPrimary().ReplacePod(*pod, false)
 		})
 
+		AfterEach(func() {
+			// Wait until the replaced process group is removed.
+			Expect(fdbCluster.WaitForReconciliation()).To(Succeed())
+		})
+
 		It("should roll out knob changes within expected time", func() {
 			Expect(
 				fdbCluster.SetCustomParameters(
@@ -351,13 +356,23 @@ var _ = Describe("Test Operator Velocity", Label("e2e", "nightly"), func() {
 				),
 			).To(Succeed())
 
+			knobRolloutTimeout := normalKnobRolloutTimeoutSeconds
+			// In our testing pipeline we see failures due to the fact that the replacement takes a long time, e.g.
+			// when a new node must be created for the replaced pod.
+			if fdbCluster.GetPrimary().
+				GetCluster().
+				GetSynchronizationMode() ==
+				fdbv1beta2.SynchronizationModeLocal {
+				knobRolloutTimeout += int(
+					fdbCluster.GetPrimary().GetCluster().GetLockDuration().Seconds() * 2,
+				)
+			}
+
 			CheckKnobRollout(
 				fdbCluster,
 				newGeneralCustomParameters,
 				newStorageCustomParameters,
-				normalKnobRolloutTimeoutSeconds+int(
-					fdbCluster.GetPrimary().GetCluster().GetLockDuration().Seconds(),
-				),
+				knobRolloutTimeout,
 				totalGeneralProcessCount,
 				totalStorageProcessCount,
 			)
