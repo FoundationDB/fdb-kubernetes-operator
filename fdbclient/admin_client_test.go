@@ -1047,7 +1047,7 @@ protocol fdb00b071010000`,
 
 			url := "blobstore://test@test-service/test-backup"
 
-			err := client.StartRestore(url, keyRanges, encryptionKeyPath, "")
+			err := client.StartRestore(url, keyRanges, encryptionKeyPath, 0)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(mockRunner.receivedArgs[0]).To(ContainElements(
@@ -1105,7 +1105,7 @@ protocol fdb00b071010000`,
 	)
 
 	DescribeTable("it should properly handle backup versions",
-		func(backupVersion string, shouldHaveBackupVersion bool) {
+		func(backupVersion uint64, shouldHaveBackupVersion bool) {
 			mockRunner := &mockCommandRunner{
 				mockedError:  nil,
 				mockedOutput: []string{""},
@@ -1136,7 +1136,7 @@ protocol fdb00b071010000`,
 			}
 
 		},
-		Entry("when it is not passed in", "1234567890123", true),
-		Entry("when it is passed in", "", false),
+		Entry("when it is not passed in", uint64(1234567890123), true),
+		Entry("when it is passed in", uint64(0), false),
 	)
 })
