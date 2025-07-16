@@ -1136,7 +1136,7 @@ protocol fdb00b071010000`,
 			}
 
 		},
-		Entry("when it is not passed in", uint64(1234567890123), true),
+		Entry("when it is not passed in", pointer.Uint64(1234567890123), true),
 		Entry("when it is passed in", nil, false),
 	)
 })
