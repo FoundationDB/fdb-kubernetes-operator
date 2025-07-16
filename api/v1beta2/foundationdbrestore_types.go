@@ -67,7 +67,8 @@ type FoundationDBRestoreSpec struct {
 	EncryptionKeyPath string `json:"encryptionKeyPath,omitempty"`
 
 	// Instead of the latest version the backup can be restored to, restore to the specified version.
-	BackupVersion uint64 `json:"backupVersion,omitempty"`
+	// +nullable
+	BackupVersion *uint64 `json:"backupVersion,omitempty"`
 }
 
 // FoundationDBRestoreStatus describes the current status of the restore for a cluster.

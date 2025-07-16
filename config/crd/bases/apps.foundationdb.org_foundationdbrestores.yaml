@@ -38,6 +38,7 @@ spec:
             properties:
               backupVersion:
                 format: int64
+                nullable: true
                 type: integer
               blobStoreConfiguration:
                 properties:

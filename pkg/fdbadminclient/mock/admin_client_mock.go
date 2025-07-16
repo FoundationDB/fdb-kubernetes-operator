@@ -970,7 +970,7 @@ func (client *AdminClient) StartRestore(
 	url string,
 	_ []fdbv1beta2.FoundationDBKeyRange,
 	_ string,
-	_ uint64,
+	_ *uint64,
 ) error {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
