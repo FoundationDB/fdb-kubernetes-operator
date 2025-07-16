@@ -92,7 +92,7 @@ type AdminClient interface {
 		url string,
 		keyRanges []fdbv1beta2.FoundationDBKeyRange,
 		encyptionKeyPath string,
-		backupVersion string,
+		backupVersion uint64,
 	) error
 
 	// GetRestoreStatus gets the status of the current restore.
