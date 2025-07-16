@@ -1047,7 +1047,7 @@ protocol fdb00b071010000`,
 
 			url := "blobstore://test@test-service/test-backup"
 
-			err := client.StartRestore(url, keyRanges, encryptionKeyPath, 0)
+			err := client.StartRestore(url, keyRanges, encryptionKeyPath, nil)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(mockRunner.receivedArgs[0]).To(ContainElements(
@@ -1126,7 +1126,7 @@ protocol fdb00b071010000`,
 
 			url := "blobstore://test@test-service/test-backup"
 
-			err := client.StartRestore(url, nil, "", backupVersion)
+			err := client.StartRestore(url, nil, "", &backupVersion)
 			Expect(err).NotTo(HaveOccurred())
 
 			if shouldHaveBackupVersion {
