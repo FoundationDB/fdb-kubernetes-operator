@@ -408,7 +408,6 @@ func UpdateGlobalCoordinationState(
 			}
 
 			processes := GetProcessesFromProcessMap(processGroup.ProcessGroupID, processesMap)
-
 			var excluded bool
 			for _, process := range processes {
 				excluded = excluded || process.Excluded
@@ -418,10 +417,14 @@ func UpdateGlobalCoordinationState(
 			// exclusion timestamp set or because the processes are excluded.
 			if !(processGroup.IsExcluded() || excluded) {
 				if _, ok := pendingForExclusion[processGroup.ProcessGroupID]; !ok {
+					logger.V(1).
+						Info("Adding to pendingForExclusion", "processGroupID", processGroup.ProcessGroupID, "reason", "process group is marked for removal but not excluded")
 					updatesPendingForExclusion[processGroup.ProcessGroupID] = fdbv1beta2.UpdateActionAdd
 				}
 
 				if _, ok := pendingForInclusion[processGroup.ProcessGroupID]; !ok {
+					logger.V(1).
+						Info("Adding to pendingForInclusion", "processGroupID", processGroup.ProcessGroupID, "reason", "process group is marked for removal but not excluded")
 					updatesPendingForInclusion[processGroup.ProcessGroupID] = fdbv1beta2.UpdateActionAdd
 				}
 			} else {
@@ -469,20 +472,29 @@ func UpdateGlobalCoordinationState(
 				}
 			}
 
-			// If the process group is marked for removal and the resources are stuck in terminating or the processes are not running, we should
-			// remove them from the restart list, because there are no processes to restart.
-			if processGroup.GetConditionTime(fdbv1beta2.ResourcesTerminating) != nil ||
-				processGroup.GetConditionTime(fdbv1beta2.MissingProcesses) != nil {
-				if _, ok := pendingForRestart[processGroup.ProcessGroupID]; ok {
+			// If the process group is stuck in terminating, we can add it to the ready for inclusion list.
+			if processGroup.GetConditionTime(fdbv1beta2.ResourcesTerminating) != nil {
+				if _, ok := pendingForInclusion[processGroup.ProcessGroupID]; !ok {
 					logger.V(1).
-						Info("Removing from pendingForRestart", "processGroupID", processGroup.ProcessGroupID, "reason", "process group is marked for removal")
-					updatesPendingForRestart[processGroup.ProcessGroupID] = fdbv1beta2.UpdateActionDelete
+						Info("Adding to pendingForInclusion and readyForInclusion", "processGroupID", processGroup.ProcessGroupID, "reason", "process group is marked for removal and in terminating")
+					updatesPendingForInclusion[processGroup.ProcessGroupID] = fdbv1beta2.UpdateActionAdd
+					updatesReadyForInclusion[processGroup.ProcessGroupID] = fdbv1beta2.UpdateActionAdd
 				}
 
-				if _, ok := readyForRestart[processGroup.ProcessGroupID]; ok {
-					logger.V(1).
-						Info("Removing from readyForRestart", "processGroupID", processGroup.ProcessGroupID, "reason", "process group is marked for removal")
-					updatesReadyForRestart[processGroup.ProcessGroupID] = fdbv1beta2.UpdateActionDelete
+				// If the process group is marked for removal and the resources are stuck in terminating or the processes are not running, we should
+				// remove them from the restart list, because there are no processes to restart.
+				if processGroup.GetConditionTime(fdbv1beta2.MissingProcesses) != nil {
+					if _, ok := pendingForRestart[processGroup.ProcessGroupID]; ok {
+						logger.V(1).
+							Info("Removing from pendingForRestart", "processGroupID", processGroup.ProcessGroupID, "reason", "process group is marked for removal")
+						updatesPendingForRestart[processGroup.ProcessGroupID] = fdbv1beta2.UpdateActionDelete
+					}
+
+					if _, ok := readyForRestart[processGroup.ProcessGroupID]; ok {
+						logger.V(1).
+							Info("Removing from readyForRestart", "processGroupID", processGroup.ProcessGroupID, "reason", "process group is marked for removal")
+						updatesReadyForRestart[processGroup.ProcessGroupID] = fdbv1beta2.UpdateActionDelete
+					}
 				}
 			}
 

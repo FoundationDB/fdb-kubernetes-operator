@@ -510,7 +510,7 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 	)
 
 	DescribeTable(
-		"one process is marked for removal",
+		"one process is marked for removal and is stuck in removal",
 		func(beforeVersion string, targetVersion string) {
 			if fixtures.VersionsAreProtocolCompatible(beforeVersion, targetVersion) {
 				Skip("this test only affects version incompatible upgrades")
@@ -561,6 +561,24 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 					}
 
 					if len(processGroup.ProcessGroupConditions) > 0 {
+						// Ignore process groups that are stuck in terminating.If the global synchronization mode is active
+						// this will be the case for all the transaction system process groups as one process groups is
+						// blocked to be removed.
+						if processGroup.GetConditionTime(fdbv1beta2.ResourcesTerminating) != nil {
+							log.Println(
+								"processGroup",
+								processGroup.ProcessGroupID,
+								"will be ignored since the process group is in terminating",
+							)
+							continue
+						}
+
+						log.Println(
+							"processGroup",
+							processGroup.ProcessGroupID,
+							"processes conditions:",
+							processGroup.ProcessGroupConditions,
+						)
 						processesToUpdate++
 					}
 				}
@@ -569,6 +587,17 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 
 				return processesToUpdate
 			}).WithTimeout(30 * time.Minute).WithPolling(5 * time.Second).MustPassRepeatedly(5).Should(BeNumerically("==", 0))
+
+			// Remove the buggify option and make sure that the terminating processes are removed.
+			fdbCluster.SetBuggifyBlockRemoval(nil)
+			Eventually(func(g Gomega) {
+				processGroups := fdbCluster.GetCluster().Status.ProcessGroups
+
+				for _, processGroup := range processGroups {
+					g.Expect(processGroup.GetConditionTime(fdbv1beta2.ResourcesTerminating)).
+						To(BeNil())
+				}
+			}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
 
 			// Make sure the cluster has no data loss.
 			fdbCluster.EnsureTeamTrackersHaveMinReplicas()
