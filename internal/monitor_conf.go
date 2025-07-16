@@ -350,7 +350,11 @@ func GetMonitorProcessConfiguration(
 
 		configuration.Arguments = append(configuration.Arguments, monitorapi.Argument{
 			ArgumentType: monitorapi.ConcatenateArgumentType,
-			Values:       generateMonitorArgumentFromCustomParameter(argument),
+			Values: generateMonitorArgumentFromCustomParameter(
+				argument,
+				cluster.GetPodIPFamily(),
+				imageType,
+			),
 		})
 	}
 
@@ -402,6 +406,8 @@ func GetMonitorProcessConfiguration(
 // Generate the monitor API configuration based on the provided custom parameter
 func generateMonitorArgumentFromCustomParameter(
 	argument fdbv1beta2.FoundationDBCustomParameter,
+	podIPFamily int,
+	imageType fdbv1beta2.ImageType,
 ) []monitorapi.Argument {
 	splitArgument := strings.Split(string(argument), "=")
 	knob := strings.TrimSpace(splitArgument[0])
@@ -414,11 +420,22 @@ func generateMonitorArgumentFromCustomParameter(
 
 	// If the value starts with an $ we assume that the value is an environment variable and should be replaced
 	// with the actual value.
-	if strings.HasPrefix(splitArgument[1], "$") {
-		customParameterArgument[1] = monitorapi.Argument{
+	if strings.HasPrefix(knobValue, "$") {
+		value := strings.Trim(knobValue, "$")
+		newArgument := monitorapi.Argument{
 			ArgumentType: monitorapi.EnvironmentArgumentType,
-			Source:       strings.Trim(knobValue, "$"),
+			Source:       value,
 		}
+
+		// If a user specifies the fdbv1beta2.EnvNamePodIP or fdbv1beta2.EnvNamePublicIP environment variables in the
+		// custom parameters, e.g. to add a new locality, we should pass this as the proper type.
+		if podIPFamily != fdbv1beta2.PodIPFamilyUnset && imageType == fdbv1beta2.ImageTypeUnified &&
+			(value == fdbv1beta2.EnvNamePodIP || value == fdbv1beta2.EnvNamePublicIP) {
+			newArgument.ArgumentType = monitorapi.IPListArgumentType
+			newArgument.IPFamily = podIPFamily
+		}
+
+		customParameterArgument[1] = newArgument
 	} else {
 		customParameterArgument[1] = monitorapi.Argument{
 			ArgumentType: monitorapi.LiteralArgumentType,
@@ -497,7 +514,6 @@ func buildIPArgument(
 		)
 
 		flags := address.SortedFlags()
-
 		if len(flags) > 0 {
 			arguments = append(
 				arguments,

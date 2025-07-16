@@ -53,7 +53,7 @@ var _ = Describe("monitor_conf", func() {
 		})
 
 		When("there is no connection string", func() {
-			It("generates conf with an no processes", func() {
+			It("generates conf with no processes", func() {
 				Expect(cluster).NotTo(BeNil())
 				cluster.Status.ConnectionString = ""
 				config := GetMonitorProcessConfiguration(
@@ -595,9 +595,125 @@ var _ = Describe("monitor_conf", func() {
 				})
 			})
 
+			When("there are parameters in the general section that use the public IP", func() {
+				BeforeEach(func() {
+					cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{
+						fdbv1beta2.ProcessClassGeneral: {
+							CustomParameters: fdbv1beta2.FoundationDBCustomParameters{
+								"locality_my_fancy_ip = $FDB_PUBLIC_IP",
+							},
+						},
+					}
+				})
+
+				It("includes the custom parameters", func() {
+					config := GetMonitorProcessConfiguration(
+						cluster,
+						fdbv1beta2.ProcessClassStorage,
+						1,
+						fdbv1beta2.ImageTypeUnified,
+					)
+					Expect(config.Arguments).To(HaveLen(baseArgumentLength + 1))
+					Expect(config.Arguments[10]).To(Equal(monitorapi.Argument{
+						ArgumentType: monitorapi.ConcatenateArgumentType,
+						Values: []monitorapi.Argument{
+							{
+								ArgumentType: monitorapi.LiteralArgumentType,
+								Value:        "--locality_my_fancy_ip=",
+							},
+							{
+								ArgumentType: monitorapi.EnvironmentArgumentType,
+								Source:       "FDB_PUBLIC_IP",
+							},
+						}}))
+				})
+
+				When("using IPv6 as PodIPFamily", func() {
+					BeforeEach(func() {
+						cluster.Spec.Routing.PodIPFamily = pointer.Int(fdbv1beta2.PodIPFamilyIPv6)
+					})
+
+					It("specifies the IP family for the public address", func() {
+						config := GetMonitorProcessConfiguration(
+							cluster,
+							fdbv1beta2.ProcessClassStorage,
+							1,
+							fdbv1beta2.ImageTypeUnified,
+						)
+						Expect(config.Arguments).To(HaveLen(baseArgumentLength + 1))
+						Expect(config.Arguments[10]).To(Equal(monitorapi.Argument{
+							ArgumentType: monitorapi.ConcatenateArgumentType,
+							Values: []monitorapi.Argument{
+								{
+									ArgumentType: monitorapi.LiteralArgumentType,
+									Value:        "--locality_my_fancy_ip=",
+								},
+								{
+									ArgumentType: monitorapi.IPListArgumentType,
+									Source:       "FDB_PUBLIC_IP",
+									IPFamily:     fdbv1beta2.PodIPFamilyIPv6,
+								},
+							}}))
+
+						commandLineArgs, err := config.GenerateArguments(1,
+							map[string]string{
+								"FDB_PUBLIC_IP":   "2001:db8:dead:beef::1,192.168.0.2",
+								"FDB_INSTANCE_ID": "test",
+								"FDB_MACHINE_ID":  "test",
+								"FDB_ZONE_ID":     "test",
+								"FDB_DNS_NAME":    "test",
+							})
+						Expect(err).NotTo(HaveOccurred())
+						Expect(
+							commandLineArgs[10],
+						).To(Equal("--locality_my_fancy_ip=2001:db8:dead:beef::1"))
+					})
+				})
+
+				When("using IPv4 as PodIPFamily", func() {
+					BeforeEach(func() {
+						cluster.Spec.Routing.PodIPFamily = pointer.Int(fdbv1beta2.PodIPFamilyIPv4)
+					})
+
+					It("specifies the IP family for the public address", func() {
+						config := GetMonitorProcessConfiguration(
+							cluster,
+							fdbv1beta2.ProcessClassStorage,
+							1,
+							fdbv1beta2.ImageTypeUnified,
+						)
+						Expect(config.Arguments).To(HaveLen(baseArgumentLength + 1))
+						Expect(config.Arguments[10]).To(Equal(monitorapi.Argument{
+							ArgumentType: monitorapi.ConcatenateArgumentType,
+							Values: []monitorapi.Argument{
+								{
+									ArgumentType: monitorapi.LiteralArgumentType,
+									Value:        "--locality_my_fancy_ip=",
+								},
+								{
+									ArgumentType: monitorapi.IPListArgumentType,
+									Source:       "FDB_PUBLIC_IP",
+									IPFamily:     fdbv1beta2.PodIPFamilyIPv4,
+								},
+							}}))
+
+						commandLineArgs, err := config.GenerateArguments(1,
+							map[string]string{
+								"FDB_PUBLIC_IP":   "2001:db8:dead:beef::1,192.168.0.2",
+								"FDB_INSTANCE_ID": "test",
+								"FDB_MACHINE_ID":  "test",
+								"FDB_ZONE_ID":     "test",
+								"FDB_DNS_NAME":    "test",
+							})
+						Expect(err).NotTo(HaveOccurred())
+						Expect(commandLineArgs[10]).To(Equal("--locality_my_fancy_ip=192.168.0.2"))
+					})
+				})
+			})
+
 			When("using IPv6 as PodIPFamily", func() {
 				BeforeEach(func() {
-					cluster.Spec.Routing.PodIPFamily = pointer.Int(6)
+					cluster.Spec.Routing.PodIPFamily = pointer.Int(fdbv1beta2.PodIPFamilyIPv6)
 				})
 
 				It("specifies the IP family for the public address", func() {
@@ -629,7 +745,7 @@ var _ = Describe("monitor_conf", func() {
 
 			When("using IPv4 as PodIPFamily", func() {
 				BeforeEach(func() {
-					cluster.Spec.Routing.PodIPFamily = pointer.Int(4)
+					cluster.Spec.Routing.PodIPFamily = pointer.Int(fdbv1beta2.PodIPFamilyIPv4)
 				})
 
 				It("specifies the IP family for the public address", func() {
