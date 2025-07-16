@@ -23,6 +23,7 @@ package fdbclient
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net"
 	"os"
 	"path"
@@ -1130,13 +1131,13 @@ protocol fdb00b071010000`,
 			Expect(err).NotTo(HaveOccurred())
 
 			if shouldHaveBackupVersion {
-				Expect(mockRunner.receivedArgs[0]).To(ContainElements("-v", backupVersion))
+				Expect(mockRunner.receivedArgs[0]).To(ContainElements("-v", fmt.Sprintf("%d", backupVersion)))
 			} else {
 				Expect(mockRunner.receivedArgs[0]).ToNot(ContainElement("-v"))
 			}
 
 		},
-		Entry("when it is not passed in", pointer.Uint64(1234567890123), true),
-		Entry("when it is passed in", nil, false),
+		Entry("when it is passed in", pointer.Uint64(1234567890123), true),
+		Entry("when it is not passed in", nil, false),
 	)
 })
