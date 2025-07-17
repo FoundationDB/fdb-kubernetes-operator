@@ -1129,7 +1129,9 @@ protocol fdb00b071010000`,
 
 			url := "blobstore://test@test-service/test-backup"
 
-			err := client.StartRestore(url, nil, "", backupVersion)
+			err := client.StartRestore(url, fdbv1beta2.FoundationDBRestoreSpec{
+				BackupVersion: backupVersion,
+			})
 			Expect(err).NotTo(HaveOccurred())
 
 			if shouldHaveBackupVersion {
