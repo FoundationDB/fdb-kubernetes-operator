@@ -1138,7 +1138,7 @@ protocol fdb00b071010000`,
 			if shouldHaveBackupVersion {
 				Expect(
 					mockRunner.receivedArgs[0],
-				).To(ContainElements("-v", fmt.Sprintf("%d", backupVersion)))
+				).To(ContainElements("-v", fmt.Sprintf("%d", *backupVersion)))
 			} else {
 				Expect(mockRunner.receivedArgs[0]).ToNot(ContainElement("-v"))
 			}
