@@ -967,9 +967,7 @@ func (client *AdminClient) GetBackupStatus() (*fdbv1beta2.FoundationDBLiveBackup
 // StartRestore starts a new restore.
 func (client *AdminClient) StartRestore(
 	url string,
-	_ []fdbv1beta2.FoundationDBKeyRange,
-	_ string,
-	_ *uint64,
+	_ fdbv1beta2.FoundationDBRestoreSpec,
 ) error {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()

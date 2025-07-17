@@ -355,9 +355,8 @@ var _ = Describe("admin_client_test", func() {
 				Expect(
 					mockAdminClient.StartRestore(
 						"blobstore://test@test-service/test-backup",
-						nil,
-						"",
-						nil,
+						fdbv1beta2.FoundationDBRestoreSpec{
+							DestinationClusterName: cluster.Name},
 					),
 				).To(Succeed())
 

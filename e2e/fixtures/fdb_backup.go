@@ -227,10 +227,11 @@ func (fdbBackup *FdbBackup) WaitForRestorableVersion(version uint64) uint64 {
 		restorablePoint, ok := result["LatestRestorablePoint"].(map[string]interface{})
 		g.Expect(ok).To(gomega.BeTrue())
 
-		restorableVersion, ok := restorablePoint["Version"].(float64)
+		restorableVersionFloat, ok := restorablePoint["Version"].(float64)
 		g.Expect(ok).To(gomega.BeTrue())
 
-		return uint64(restorableVersion)
+		restorableVersion = uint64(restorableVersionFloat)
+		return uint64(restorableVersionFloat)
 	}).WithTimeout(10*time.Minute).WithPolling(2*time.Second).Should(gomega.BeNumerically(">", version), "error waiting for restorable version")
 	return restorableVersion
 }

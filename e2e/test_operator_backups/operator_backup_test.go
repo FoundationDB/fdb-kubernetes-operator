@@ -92,6 +92,12 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 			backup.Stop()
 		})
 
+		AfterEach(func() {
+			log.Println("deleting backup")
+			factory.Delete(backup.GetBackupPod())
+			backup = nil
+		})
+
 		It("should restore the cluster successfully", func() {
 			fdbCluster.ClearRange([]byte{prefix}, 60)
 			factory.CreateRestoreForCluster(backup, nil)
