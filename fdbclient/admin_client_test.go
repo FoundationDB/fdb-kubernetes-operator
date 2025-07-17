@@ -23,7 +23,6 @@ package fdbclient
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net"
 	"os"
 	"path"
@@ -1109,7 +1108,7 @@ protocol fdb00b071010000`,
 	)
 
 	DescribeTable("it should properly handle backup versions",
-		func(backupVersion *uint64, shouldHaveBackupVersion bool) {
+		func(actualBackupVersion *uint64, expectedBackupVersion string) {
 			mockRunner := &mockCommandRunner{
 				mockedError:  nil,
 				mockedOutput: []string{""},
@@ -1131,20 +1130,20 @@ protocol fdb00b071010000`,
 			url := "blobstore://test@test-service/test-backup"
 
 			err := client.StartRestore(url, fdbv1beta2.FoundationDBRestoreSpec{
-				BackupVersion: backupVersion,
+				BackupVersion: actualBackupVersion,
 			})
 			Expect(err).NotTo(HaveOccurred())
 
-			if shouldHaveBackupVersion {
+			if expectedBackupVersion != "" {
 				Expect(
 					mockRunner.receivedArgs[0],
-				).To(ContainElements("-v", fmt.Sprintf("%d", *backupVersion)))
+				).To(ContainElements("-v", expectedBackupVersion))
 			} else {
 				Expect(mockRunner.receivedArgs[0]).ToNot(ContainElement("-v"))
 			}
 
 		},
-		Entry("when it is passed in", pointer.Uint64(1234567890123), true),
-		Entry("when it is not passed in", nil, false),
+		Entry("when it is passed in", pointer.Uint64(1234567890123), "1234567890123"),
+		Entry("when it is not passed in", nil, ""),
 	)
 })
