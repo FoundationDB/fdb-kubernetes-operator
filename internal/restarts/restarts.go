@@ -36,7 +36,6 @@ func GetFilterConditions(
 		// not get any ConfigMap updates.
 		return map[fdbv1beta2.ProcessGroupConditionType]bool{
 			fdbv1beta2.IncorrectCommandLine: true,
-			fdbv1beta2.IncorrectPodSpec:     false,
 			fdbv1beta2.SidecarUnreachable:   false,
 			fdbv1beta2.IncorrectConfigMap:   false,
 		}
