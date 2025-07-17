@@ -404,9 +404,9 @@ func StartManager(
 		RenewDeadline:          &operatorOpts.RenewDeadline,
 		RetryPeriod:            &operatorOpts.RetryPeriod,
 		Cache:                  cacheOptions,
-		HealthProbeBindAddress: "[::1]:9443",
-		ReadinessEndpointName:  "[::1]:9443",
-		LivenessEndpointName:   "[::1]:9443",
+		HealthProbeBindAddress: ":9443",
+		ReadinessEndpointName:  ":9443",
+		LivenessEndpointName:   ":9443",
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), options)
