@@ -104,7 +104,7 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 		})
 
 		It("should restore the cluster successfully with a restorable version", func() {
-			var prefix byte = 'a'
+			var prefix byte = 'b'
 			var keyValues []fixtures.KeyValue = fdbCluster.GenerateRandomValues(10, prefix)
 			fdbCluster.WriteKeyValues(keyValues)
 			var restorableVersion uint64 = backup.WaitForRestorableVersion(fdbCluster.GetClusterVersion())
