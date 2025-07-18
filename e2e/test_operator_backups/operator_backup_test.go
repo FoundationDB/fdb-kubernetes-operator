@@ -94,7 +94,7 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 
 		It("should restore the cluster successfully", func() {
 			var prefix byte = 'a'
-			var keyValues []fixtures.KeyValue = fdbCluster.GenerateRandomValues(10, prefix)
+			var keyValues = fdbCluster.GenerateRandomValues(10, prefix)
 			fdbCluster.WriteKeyValues(keyValues)
 			backup.WaitForRestorableVersion(fdbCluster.GetClusterVersion())
 			backup.Stop()
@@ -105,9 +105,9 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 
 		It("should restore the cluster successfully with a restorable version", func() {
 			var prefix byte = 'b'
-			var keyValues []fixtures.KeyValue = fdbCluster.GenerateRandomValues(10, prefix)
+			var keyValues = fdbCluster.GenerateRandomValues(10, prefix)
 			fdbCluster.WriteKeyValues(keyValues)
-			var restorableVersion uint64 = backup.WaitForRestorableVersion(fdbCluster.GetClusterVersion())
+			var restorableVersion = backup.WaitForRestorableVersion(fdbCluster.GetClusterVersion())
 			backup.Stop()
 			fdbCluster.ClearRange([]byte{prefix}, 60)
 			factory.CreateRestoreForCluster(backup, &restorableVersion)
