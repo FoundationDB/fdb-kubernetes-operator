@@ -247,7 +247,9 @@ var _ = Describe("check client compatibility", func() {
 		})
 
 		JustBeforeEach(func() {
-			unsupportedClients = getUnsupportedClients(status, "fdb00b063010001", ignoredLogGroups)
+			var err error
+			unsupportedClients, err = getUnsupportedClients(status, "6.3.15", ignoredLogGroups)
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		AfterEach(func() {
@@ -349,6 +351,7 @@ var _ = Describe("check client compatibility", func() {
 			})
 		})
 
+		// todo come up with some additional tests?
 		When("the status contains newer versions and the desired version is present", func() {
 			BeforeEach(func() {
 				status = &fdbv1beta2.FoundationDBStatus{
