@@ -916,8 +916,7 @@ func (client *cliAdminClient) GetBackupStatus() (*fdbv1beta2.FoundationDBLiveBac
 // StartRestore starts a new restore.
 func (client *cliAdminClient) StartRestore(
 	url string,
-	keyRanges []fdbv1beta2.FoundationDBKeyRange,
-	encryptionKeyPath string,
+	fdbRestoreSpec fdbv1beta2.FoundationDBRestoreSpec,
 ) error {
 	args := []string{
 		"start",
@@ -930,13 +929,17 @@ func (client *cliAdminClient) StartRestore(
 		return verErr
 	}
 
-	if encryptionKeyPath != "" && fdbVersion.SupportsBackupEncryption() {
-		args = append(args, "--encryption-key-file", encryptionKeyPath)
+	if fdbRestoreSpec.EncryptionKeyPath != "" && fdbVersion.SupportsBackupEncryption() {
+		args = append(args, "--encryption-key-file", fdbRestoreSpec.EncryptionKeyPath)
 	}
 
-	if keyRanges != nil {
+	if fdbRestoreSpec.BackupVersion != nil {
+		args = append(args, "-v", strconv.FormatUint(*fdbRestoreSpec.BackupVersion, 10))
+	}
+
+	if fdbRestoreSpec.KeyRanges != nil {
 		keyRangeString := ""
-		for _, keyRange := range keyRanges {
+		for _, keyRange := range fdbRestoreSpec.KeyRanges {
 			if keyRangeString != "" {
 				keyRangeString += ";"
 			}
