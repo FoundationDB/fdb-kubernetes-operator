@@ -678,8 +678,9 @@ func writePodInformation(pod corev1.Pod) string {
 	return buffer.String()
 }
 
-// DumpState writes the state of the cluster to the log output. Useful for debugging test failures.
-func (factory *Factory) DumpState(fdbCluster *FdbCluster) {
+// DumpStateWithLogsSince writes the state of the cluster to the log output. Useful for debugging test failures.
+// The logsSinceSeconds is used for the manager logs from the operator.
+func (factory *Factory) DumpStateWithLogsSince(fdbCluster *FdbCluster, logsSinceSeconds *int64) {
 	if fdbCluster == nil || !factory.options.dumpOperatorState {
 		return
 	}
@@ -744,15 +745,30 @@ func (factory *Factory) DumpState(fdbCluster *FdbCluster) {
 	// Printout the logs of the operator Pods for the last 300 seconds.
 	for _, pod := range operatorPods {
 		targetPod := pod
-		log.Println(factory.GetLogsForPod(&targetPod, "manager", ptr.To[int64](300)))
+		log.Println(factory.GetLogsForPod(&targetPod, "manager", logsSinceSeconds))
 	}
+}
+
+// DumpState writes the state of the cluster to the log output. Useful for debugging test failures.
+func (factory *Factory) DumpState(fdbCluster *FdbCluster) {
+	factory.DumpStateWithLogsSince(fdbCluster, ptr.To[int64](300))
 }
 
 // DumpStateHaCluster can be used to dump the state of the HA cluster. This includes the Kubernetes custom resource
 // information as well as the operator logs and the Pod state.
 func (factory *Factory) DumpStateHaCluster(fdbCluster *HaFdbCluster) {
+	factory.DumpStateHaClusterWithLogsSince(fdbCluster, ptr.To[int64](300))
+}
+
+// DumpStateHaClusterWithLogsSince can be used to dump the state of the HA cluster. This includes the Kubernetes custom resource
+// information as well as the operator logs and the Pod state.
+// The logsSinceSeconds is used for the manager logs from the operator.
+func (factory *Factory) DumpStateHaClusterWithLogsSince(
+	fdbCluster *HaFdbCluster,
+	logsSinceSeconds *int64,
+) {
 	for _, cluster := range fdbCluster.clusters {
-		factory.DumpState(cluster)
+		factory.DumpStateWithLogsSince(cluster, logsSinceSeconds)
 	}
 }
 

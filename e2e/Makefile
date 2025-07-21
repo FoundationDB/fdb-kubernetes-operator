@@ -36,22 +36,26 @@ DEFAULT_UNAVAILABLE_THRESHOLD?=30s
 CLOUD_PROVIDER?=
 # Multiple versions can be specified for these upgrades by separating them with a, e.g. 6.2.25:7.1.25,7.1.23:7.1.25
 UPGRADE_VERSIONS?="$(FDB_VERSION):$(NEXT_FDB_VERSION)"
-# Those are feature flags for the operator tests. Enable a feature if you want to run the operator tests with a specific
-# feature enabled e.g. like DNS.
-FEATURE_DNS?=
-FEATURE_LOCALITIES?=
 # Allows to specify the tag for a specific FDB version. Format is 7.1.57:7.1.57-testing,7.3.35:7.3.35-debugging
 FDB_VERSION_TAG_MAPPING?=
 # If the FEATURE_SERVER_SIDE_APPLY environment variable is not defined the test suite will be randomly enable (1) or disable (0)
 # the server side apply feature.
 ifndef FEATURE_SERVER_SIDE_APPLY
-  FEATURE_SERVER_SIDE_APPLY=$(shell shuf -i 0-1 -n 1)
+  ifeq ($(shell shuf -i 0-1 -n 1), 0)
+    FEATURE_SERVER_SIDE_APPLY=false
+  else
+    FEATURE_SERVER_SIDE_APPLY=true
+  endif
 endif
 
 # If the FEATURE_UNIFIED_IMAGE environment variable is not defined the test suite will be randomly enable (1) or disable (0)
 # the unified image feature.
 ifndef FEATURE_UNIFIED_IMAGE
-  FEATURE_UNIFIED_IMAGE=$(shell shuf -i 0-1 -n 1)
+  ifeq ($(shell shuf -i 0-1 -n 1), 0)
+    FEATURE_UNIFIED_IMAGE=false
+  else
+    FEATURE_UNIFIED_IMAGE=true
+  endif
 endif
 
 # If the STORAGE_ENGINE environment variable is not defined the test suite will be randomly choosing between the ssd
@@ -77,6 +81,21 @@ ifndef FEATURE_SYNCHRONIZATION_MODE
   endif
 endif
 
+ifndef FEATURE_LOCALITIES
+  ifeq ($(shell shuf -i 0-1 -n 1), 0)
+    FEATURE_LOCALITIES=false
+  else
+    FEATURE_LOCALITIES=true
+  endif
+endif
+
+ifndef FEATURE_DNS
+  ifeq ($(shell shuf -i 0-1 -n 1), 0)
+    FEATURE_DNS=false
+  else
+    FEATURE_DNS=true
+  endif
+endif
 # Make bash pickier about errors.
 SHELL=/bin/bash -euo pipefail
 
@@ -159,14 +178,6 @@ foundationdb-nightly-tests: GINKGO_LABEL_FILTER=--ginkgo.label-filter="foundatio
 # Run the actual foundationdb-nightly tests.
 foundationdb-nightly-tests: run
 
-ifdef FEATURE_LOCALITIES
-  FEATURE_LOCALITIES_FLAG=--feature-localities=$(FEATURE_LOCALITIES)
-endif
-
-ifdef FEATURE_DNS
-  FEATURE_DNS_FLAG=--feature-dns=$(FEATURE_DNS)
-endif
-
 %.run: %
 	@sleep $$(shuf -i 1-10 -n 1)
 	go test -timeout=$(TIMEOUT) $(VERBOSE) ./$< \
@@ -197,7 +208,9 @@ endif
 	  --feature-unified-image=$(FEATURE_UNIFIED_IMAGE) \
 	  --feature-server-side-apply=$(FEATURE_SERVER_SIDE_APPLY) \
 	  --feature-synchronization-mode=$(FEATURE_SYNCHRONIZATION_MODE) \
+	  --feature-dns=$(FEATURE_DNS) \
+	  --feature-localities=$(FEATURE_LOCALITIES) \
 	  --node-selector="$(NODE_SELECTOR)" \
 	  --default-unavailable-threshold=$(DEFAULT_UNAVAILABLE_THRESHOLD) \
-	  --seaweedfs-image=$(SEAWEEDFS_IMAGE) $(FEATURE_LOCALITIES_FLAG) $(FEATURE_DNS_FLAG) \
+	  --seaweedfs-image=$(SEAWEEDFS_IMAGE)  \
 	  | grep -v 'constructing many client instances from the same exec auth config can cause performance problems during cert rotation' &> $(BASE_DIR)/../logs/$<.log
