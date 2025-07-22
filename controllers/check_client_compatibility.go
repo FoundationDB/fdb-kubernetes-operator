@@ -148,29 +148,31 @@ func getUnsupportedClients(
 			return nil, err
 		}
 
-		// If the version is not protocol compatible or newer than the targeted version, then the current client
-		// doesn't support the targeted version.
-		if !clientVersion.IsProtocolCompatible(version) && !clientVersion.IsAtLeast(version) {
-			for _, client := range versionInfo.MaxProtocolClients {
-				if _, ok := ignoredLogGroups[client.LogGroup]; ok {
-					continue
-				}
+		// If the version is protocol compatible or newer than the targeted version, then the current client
+		// supports the targeted version.
+		if clientVersion.IsProtocolCompatible(version) || clientVersion.IsAtLeast(version) {
+			continue
+		}
 
-				addr, err := fdbv1beta2.ParseProcessAddress(client.Address)
-				// In case we are not able to parse the address, we assume it is an unsupported client.
-				if err != nil {
-					unsupportedClients = append(unsupportedClients, client.Description())
-					continue
-				}
-
-				// If the address is from a running process, it's probably something running in one of the FoundationDB
-				// Pods, like someone manually ran `fdbcli`.
-				if _, ok := processAddresses[addr.MachineAddress()]; ok {
-					continue
-				}
-
-				unsupportedClients = append(unsupportedClients, client.Description())
+		for _, client := range versionInfo.MaxProtocolClients {
+			if _, ok := ignoredLogGroups[client.LogGroup]; ok {
+				continue
 			}
+
+			addr, err := fdbv1beta2.ParseProcessAddress(client.Address)
+			// In case we are not able to parse the address, we assume it is an unsupported client.
+			if err != nil {
+				unsupportedClients = append(unsupportedClients, client.Description())
+				continue
+			}
+
+			// If the address is from a running process, it's probably something running in one of the FoundationDB
+			// Pods, like someone manually ran `fdbcli`.
+			if _, ok := processAddresses[addr.MachineAddress()]; ok {
+				continue
+			}
+
+			unsupportedClients = append(unsupportedClients, client.Description())
 		}
 	}
 
