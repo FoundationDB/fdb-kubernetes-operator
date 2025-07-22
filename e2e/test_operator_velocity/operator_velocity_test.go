@@ -33,7 +33,7 @@ import (
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/fixtures"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 )
 
 func init() {
@@ -281,7 +281,7 @@ var _ = Describe("Test Operator Velocity", Label("e2e", "nightly"), func() {
 		var exp *fixtures.ChaosMeshExperiment
 
 		BeforeEach(func() {
-			initialReplaceTime = time.Duration(pointer.IntDeref(
+			initialReplaceTime = time.Duration(ptr.Deref(
 				fdbCluster.GetPrimary().
 					GetClusterSpec().
 					AutomationOptions.Replacements.FailureDetectionTimeSeconds,

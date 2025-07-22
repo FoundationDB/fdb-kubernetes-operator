@@ -366,7 +366,11 @@ func (r *FoundationDBClusterReconciler) Reconcile(
 			delayedRequeueDuration.String(),
 		)
 
-		return ctrl.Result{Requeue: true, RequeueAfter: delayedRequeueDuration}, nil
+		if delayedRequeueDuration == time.Duration(0) {
+			delayedRequeueDuration = 2 * time.Second
+		}
+
+		return ctrl.Result{RequeueAfter: delayedRequeueDuration}, nil
 	}
 
 	clusterLog.Info("Reconciliation complete", "generation", cluster.Status.Generations.Reconciled)

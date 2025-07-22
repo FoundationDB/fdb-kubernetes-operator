@@ -27,14 +27,14 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/utils/ptr"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/coordination"
 
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient/mock"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbstatus"
-	"k8s.io/utils/pointer"
-
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -49,12 +49,12 @@ var _ = Describe("exclude_processes", func() {
 	When("validating if processes can be excluded", func() {
 		BeforeEach(func() {
 			cluster = internal.CreateDefaultCluster()
-			cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(false)
+			cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = ptr.To(false)
 			Expect(k8sClient.Create(context.TODO(), cluster)).NotTo(HaveOccurred())
 
 			result, err := reconcileCluster(cluster)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(result.Requeue).To(BeFalse())
+			Expect(result.RequeueAfter).To(BeZero())
 
 			generation, err := reloadCluster(cluster)
 			Expect(err).NotTo(HaveOccurred())
@@ -329,7 +329,7 @@ var _ = Describe("exclude_processes", func() {
 
 				result, err := reconcileCluster(cluster)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(result.Requeue).To(BeFalse())
+				Expect(result.RequeueAfter).To(BeZero())
 
 				_, err = reloadCluster(cluster)
 				Expect(err).NotTo(HaveOccurred())
@@ -582,7 +582,7 @@ var _ = Describe("exclude_processes", func() {
 				},
 				Spec: fdbv1beta2.FoundationDBClusterSpec{
 					AutomationOptions: fdbv1beta2.FoundationDBClusterAutomationOptions{
-						UseLocalitiesForExclusion: pointer.Bool(true),
+						UseLocalitiesForExclusion: ptr.To(true),
 					},
 				},
 			}
@@ -593,7 +593,7 @@ var _ = Describe("exclude_processes", func() {
 			When("the synchronization mode is local", func() {
 				BeforeEach(func() {
 					cluster.Spec.Version = fdbv1beta2.Versions.MinimumVersion.String()
-					cluster.Spec.AutomationOptions.SynchronizationMode = pointer.String(
+					cluster.Spec.AutomationOptions.SynchronizationMode = ptr.To(
 						string(fdbv1beta2.SynchronizationModeLocal),
 					)
 				})
@@ -821,7 +821,7 @@ var _ = Describe("exclude_processes", func() {
 			When("the synchronization mode is global", func() {
 				BeforeEach(func() {
 					cluster.Spec.Version = fdbv1beta2.Versions.MinimumVersion.String()
-					cluster.Spec.AutomationOptions.SynchronizationMode = pointer.String(
+					cluster.Spec.AutomationOptions.SynchronizationMode = ptr.To(
 						string(fdbv1beta2.SynchronizationModeGlobal),
 					)
 				})
@@ -1051,7 +1051,7 @@ var _ = Describe("exclude_processes", func() {
 			When("the synchronization mode is local", func() {
 				BeforeEach(func() {
 					cluster.Spec.Version = fdbv1beta2.Versions.SupportsLocalityBasedExclusions.String()
-					cluster.Spec.AutomationOptions.SynchronizationMode = pointer.String(
+					cluster.Spec.AutomationOptions.SynchronizationMode = ptr.To(
 						string(fdbv1beta2.SynchronizationModeLocal),
 					)
 				})
@@ -1330,7 +1330,7 @@ var _ = Describe("exclude_processes", func() {
 			When("the synchronization mode is global", func() {
 				BeforeEach(func() {
 					cluster.Spec.Version = fdbv1beta2.Versions.SupportsLocalityBasedExclusions.String()
-					cluster.Spec.AutomationOptions.SynchronizationMode = pointer.String(
+					cluster.Spec.AutomationOptions.SynchronizationMode = ptr.To(
 						string(fdbv1beta2.SynchronizationModeGlobal),
 					)
 				})
@@ -1677,7 +1677,7 @@ var _ = Describe("exclude_processes", func() {
 
 			result, err := reconcileCluster(cluster)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(result.Requeue).To(BeFalse())
+			Expect(result.RequeueAfter).To(BeZero())
 
 			generation, err := reloadCluster(cluster)
 			Expect(err).NotTo(HaveOccurred())
@@ -1699,7 +1699,7 @@ var _ = Describe("exclude_processes", func() {
 
 		When("the synchronization mode is local", func() {
 			BeforeEach(func() {
-				cluster.Spec.AutomationOptions.SynchronizationMode = pointer.String(
+				cluster.Spec.AutomationOptions.SynchronizationMode = ptr.To(
 					string(fdbv1beta2.SynchronizationModeLocal),
 				)
 			})
@@ -1737,7 +1737,7 @@ var _ = Describe("exclude_processes", func() {
 
 				When("using localities", func() {
 					BeforeEach(func() {
-						cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(
+						cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = ptr.To(
 							true,
 						)
 					})
@@ -1888,7 +1888,7 @@ var _ = Describe("exclude_processes", func() {
 
 		When("the synchronization mode is global", func() {
 			BeforeEach(func() {
-				cluster.Spec.AutomationOptions.SynchronizationMode = pointer.String(
+				cluster.Spec.AutomationOptions.SynchronizationMode = ptr.To(
 					string(fdbv1beta2.SynchronizationModeGlobal),
 				)
 			})
@@ -1926,7 +1926,7 @@ var _ = Describe("exclude_processes", func() {
 
 				When("using localities", func() {
 					BeforeEach(func() {
-						cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(
+						cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = ptr.To(
 							true,
 						)
 					})
@@ -2017,7 +2017,7 @@ var _ = Describe("exclude_processes", func() {
 
 					When("localities are used for exclusion", func() {
 						BeforeEach(func() {
-							cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(
+							cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = ptr.To(
 								true,
 							)
 						})
@@ -2038,7 +2038,7 @@ var _ = Describe("exclude_processes", func() {
 
 					When("localities for exclusion are disabled", func() {
 						BeforeEach(func() {
-							cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(
+							cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = ptr.To(
 								false,
 							)
 							adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)

@@ -25,12 +25,12 @@ import (
 	"fmt"
 	"time"
 
+	"k8s.io/utils/ptr"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient/mock"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
 	ctrlClient "sigs.k8s.io/controller-runtime/pkg/client"
-
-	"k8s.io/utils/pointer"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	. "github.com/onsi/ginkgo/v2"
@@ -56,7 +56,7 @@ var _ = Describe("update_pods", func() {
 			Expect(k8sClient.Create(context.TODO(), cluster)).NotTo(HaveOccurred())
 			result, err := reconcileCluster(cluster)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(result.Requeue).To(BeFalse())
+			Expect(result.RequeueAfter).To(BeZero())
 			Expect(
 				k8sClient.Get(context.TODO(), ctrlClient.ObjectKeyFromObject(cluster), cluster),
 			).NotTo(HaveOccurred())
@@ -259,7 +259,7 @@ var _ = Describe("update_pods", func() {
 				cluster = &fdbv1beta2.FoundationDBCluster{
 					Spec: fdbv1beta2.FoundationDBClusterSpec{
 						AutomationOptions: fdbv1beta2.FoundationDBClusterAutomationOptions{
-							IgnoreTerminatingPodsSeconds: pointer.Int(
+							IgnoreTerminatingPodsSeconds: ptr.To(
 								int(5 * time.Minute.Seconds()),
 							),
 						},
@@ -290,7 +290,7 @@ var _ = Describe("update_pods", func() {
 			Expect(k8sClient.Create(context.TODO(), cluster)).NotTo(HaveOccurred())
 			result, err := reconcileCluster(cluster)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(result.Requeue).To(BeFalse())
+			Expect(result.RequeueAfter).To(BeZero())
 			Expect(
 				k8sClient.Get(context.TODO(), ctrlClient.ObjectKeyFromObject(cluster), cluster),
 			).NotTo(HaveOccurred())
@@ -667,7 +667,7 @@ var _ = Describe("update_pods", func() {
 
 			When("max zones with unavailable pods is set to 3", func() {
 				BeforeEach(func() {
-					cluster.Spec.MaxZonesWithUnavailablePods = pointer.Int(3)
+					cluster.Spec.MaxZonesWithUnavailablePods = ptr.To(3)
 					// Update all processes
 					settings := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
 					settings.PodTemplate.Spec.Tolerations = []corev1.Toleration{
@@ -685,7 +685,7 @@ var _ = Describe("update_pods", func() {
 
 			When("max zones with unavailable pods is set to 2", func() {
 				BeforeEach(func() {
-					cluster.Spec.MaxZonesWithUnavailablePods = pointer.Int(2)
+					cluster.Spec.MaxZonesWithUnavailablePods = ptr.To(2)
 					// Update all processes
 					settings := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
 					if settings.PodTemplate == nil {
@@ -706,7 +706,7 @@ var _ = Describe("update_pods", func() {
 
 			When("max zones with unavailable pods is set to 1", func() {
 				BeforeEach(func() {
-					cluster.Spec.MaxZonesWithUnavailablePods = pointer.Int(1)
+					cluster.Spec.MaxZonesWithUnavailablePods = ptr.To(1)
 					// Update all processes
 					settings := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
 					settings.PodTemplate.Spec.Tolerations = []corev1.Toleration{

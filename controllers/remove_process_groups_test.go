@@ -25,6 +25,8 @@ import (
 	"fmt"
 	"time"
 
+	"k8s.io/utils/ptr"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient/mock"
@@ -34,7 +36,6 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
 	ctrlClient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -533,7 +534,7 @@ var _ = Describe("remove_process_groups", func() {
 								k8sClient.Status().Update(context.Background(), cluster),
 							).To(Succeed())
 							// Set the wait time to the default value
-							cluster.Spec.AutomationOptions.WaitBetweenRemovalsSeconds = pointer.Int(
+							cluster.Spec.AutomationOptions.WaitBetweenRemovalsSeconds = ptr.To(
 								60,
 							)
 							Expect(k8sClient.Update(context.Background(), cluster)).To(Succeed())
@@ -731,7 +732,7 @@ var _ = Describe("remove_process_groups", func() {
 								),
 							)
 							// Set the wait time to the default value
-							cluster.Spec.AutomationOptions.WaitBetweenRemovalsSeconds = pointer.Int(
+							cluster.Spec.AutomationOptions.WaitBetweenRemovalsSeconds = ptr.To(
 								60,
 							)
 						})
@@ -864,7 +865,7 @@ var _ = Describe("remove_process_groups", func() {
 				},
 				Spec: fdbv1beta2.FoundationDBClusterSpec{
 					AutomationOptions: fdbv1beta2.FoundationDBClusterAutomationOptions{
-						UseLocalitiesForExclusion: pointer.Bool(true),
+						UseLocalitiesForExclusion: ptr.To(true),
 					},
 				},
 			}

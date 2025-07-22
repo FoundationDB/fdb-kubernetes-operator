@@ -21,9 +21,10 @@ import (
 	"net/url"
 	"strings"
 
+	"k8s.io/utils/ptr"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
 )
 
 // +kubebuilder:object:root=true
@@ -254,7 +255,7 @@ func (backup *FoundationDBBackup) BackupURL() string {
 
 // SnapshotPeriodSeconds gets the period between snapshots for a backup.
 func (backup *FoundationDBBackup) SnapshotPeriodSeconds() int {
-	return pointer.IntDeref(backup.Spec.SnapshotPeriodSeconds, 864000)
+	return ptr.Deref(backup.Spec.SnapshotPeriodSeconds, 864000)
 }
 
 // FoundationDBLiveBackupStatus describes the live status of the backup for a
@@ -283,7 +284,7 @@ type FoundationDBLiveBackupStatusState struct {
 // GetDesiredAgentCount determines how many backup agents we should run
 // for a cluster.
 func (backup *FoundationDBBackup) GetDesiredAgentCount() int {
-	return pointer.IntDeref(backup.Spec.AgentCount, 2)
+	return ptr.Deref(backup.Spec.AgentCount, 2)
 }
 
 // CheckReconciliation compares the spec and the status to determine if
@@ -332,7 +333,7 @@ func (backup *FoundationDBBackup) CheckReconciliation() (bool, error) {
 
 // GetAllowTagOverride returns the bool value for AllowTagOverride
 func (foundationDBBackupSpec *FoundationDBBackupSpec) GetAllowTagOverride() bool {
-	return pointer.BoolDeref(foundationDBBackupSpec.AllowTagOverride, false)
+	return ptr.Deref(foundationDBBackupSpec.AllowTagOverride, false)
 }
 
 // UseUnifiedImage returns true if the unified image should be used.

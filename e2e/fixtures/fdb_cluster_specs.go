@@ -25,7 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 )
 
 // GenerateFDBClusterSpec will generate a *fdbv1beta2.FoundationDBCluster based on the input ClusterConfig.
@@ -44,7 +44,7 @@ func (factory *Factory) createFDBClusterSpec(
 	config *ClusterConfig,
 	databaseConfiguration fdbv1beta2.DatabaseConfiguration,
 ) *fdbv1beta2.FoundationDBCluster {
-	useUnifiedImage := pointer.BoolDeref(config.UseUnifiedImage, factory.UseUnifiedImage())
+	useUnifiedImage := ptr.Deref(config.UseUnifiedImage, factory.UseUnifiedImage())
 	imageType := fdbv1beta2.ImageTypeSplit
 	if useUnifiedImage {
 		imageType = fdbv1beta2.ImageTypeUnified
@@ -88,18 +88,18 @@ func (factory *Factory) createFDBClusterSpec(
 			FaultDomain: faultDomain,
 			AutomationOptions: fdbv1beta2.FoundationDBClusterAutomationOptions{
 				// We have to wait long enough to ensure the operator is not recreating too many Pods at the same time.
-				WaitBetweenRemovalsSeconds: pointer.Int(0),
+				WaitBetweenRemovalsSeconds: ptr.To(0),
 				Replacements: fdbv1beta2.AutomaticReplacementOptions{
-					Enabled: pointer.Bool(true),
+					Enabled: ptr.To(true),
 					// Setting this to 10 minutes is reasonable to prevent the operator recreating Pods when they wait for
 					// new ec2 instances.
-					FailureDetectionTimeSeconds: pointer.Int(600),
+					FailureDetectionTimeSeconds: ptr.To(600),
 					// Setting TaintReplacementTimeSeconds as half of FailureDetectionTimeSeconds to make taint replacement faster
-					TaintReplacementTimeSeconds: pointer.Int(150),
-					MaxConcurrentReplacements:   pointer.Int(2),
+					TaintReplacementTimeSeconds: ptr.To(150),
+					MaxConcurrentReplacements:   ptr.To(2),
 				},
 				MaintenanceModeOptions: fdbv1beta2.MaintenanceModeOptions{
-					UseMaintenanceModeChecker: pointer.Bool(config.UseMaintenanceMode),
+					UseMaintenanceModeChecker: ptr.To(config.UseMaintenanceMode),
 				},
 				// Allow the operator to remove all Pods that are excluded and marked for deletion to remove at once.
 				RemovalMode: fdbv1beta2.PodUpdateModeAll,
@@ -107,11 +107,11 @@ func (factory *Factory) createFDBClusterSpec(
 					"fdb-kubernetes-operator",
 				},
 				UseLocalitiesForExclusion: config.UseLocalityBasedExclusions,
-				SynchronizationMode:       pointer.String(string(config.SynchronizationMode)),
+				SynchronizationMode:       ptr.To(string(config.SynchronizationMode)),
 			},
 			Routing: fdbv1beta2.RoutingConfig{
 				UseDNSInClusterFile: config.UseDNS,
-				HeadlessService: pointer.Bool(
+				HeadlessService: ptr.To(
 					true,
 				), // to make switching between hostname <-> IP smooth
 			},
@@ -213,7 +213,7 @@ func (factory *Factory) createPodTemplate(
 			TopologySpreadConstraints: topologySpreadConstraints,
 			InitContainers:            initContainers,
 			SecurityContext: &corev1.PodSecurityContext{
-				FSGroup: pointer.Int64(4059),
+				FSGroup: ptr.To[int64](4059),
 			},
 			Containers: []corev1.Container{
 				{
@@ -221,9 +221,9 @@ func (factory *Factory) createPodTemplate(
 					ImagePullPolicy: factory.getImagePullPolicy(),
 					Resources:       mainContainerResources,
 					SecurityContext: &corev1.SecurityContext{
-						Privileged:               pointer.Bool(true),
-						AllowPrivilegeEscalation: pointer.Bool(true), // for performance profiling
-						ReadOnlyRootFilesystem: pointer.Bool(
+						Privileged:               ptr.To(true),
+						AllowPrivilegeEscalation: ptr.To(true), // for performance profiling
+						ReadOnlyRootFilesystem: ptr.To(
 							false,
 						), // to allow I/O chaos to succeed
 					},
@@ -265,9 +265,9 @@ func (factory *Factory) createPodTemplate(
 					Name:            fdbv1beta2.SidecarContainerName,
 					ImagePullPolicy: factory.getImagePullPolicy(),
 					SecurityContext: &corev1.SecurityContext{
-						//Privileged:               pointer.Bool(true),
-						//AllowPrivilegeEscalation: pointer.Bool(true), // for performance profiling
-						ReadOnlyRootFilesystem: pointer.Bool(
+						//Privileged:               ptr.To(true),
+						//AllowPrivilegeEscalation: ptr.To(true), // for performance profiling
+						ReadOnlyRootFilesystem: ptr.To(
 							false,
 						), // to allow I/O chaos to succeed
 					},

@@ -28,13 +28,14 @@ import (
 	"net"
 	"strconv"
 
+	"k8s.io/utils/ptr"
+
 	monitorapi "github.com/apple/foundationdb/fdbkubernetesmonitor/api"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -177,7 +178,7 @@ func BuildOwnerReference(
 		Kind:       ownerType.Kind,
 		Name:       ownerMetadata.Name,
 		UID:        ownerMetadata.UID,
-		Controller: pointer.Bool(true),
+		Controller: ptr.To(true),
 	}}
 }
 

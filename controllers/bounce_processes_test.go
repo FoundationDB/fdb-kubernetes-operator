@@ -25,12 +25,12 @@ import (
 	"fmt"
 	"time"
 
+	"k8s.io/utils/ptr"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/buggify"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient/mock"
-	"k8s.io/utils/pointer"
-
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient/mock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -47,7 +47,7 @@ var _ = Describe("bounceProcesses", func() {
 
 		BeforeEach(func() {
 			cluster = internal.CreateDefaultCluster()
-			cluster.Spec.LockOptions.DisableLocks = pointer.Bool(false)
+			cluster.Spec.LockOptions.DisableLocks = ptr.To(false)
 			Expect(setupClusterForTest(cluster)).NotTo(HaveOccurred())
 
 			adminClient, err = mock.NewMockAdminClientUncast(cluster, k8sClient)
@@ -226,7 +226,7 @@ var _ = Describe("bounceProcesses", func() {
 				Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
 				result, err := reconcileCluster(cluster)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(result.Requeue).To(BeFalse())
+				Expect(result.RequeueAfter).To(BeZero())
 				_, err = reloadCluster(cluster)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -400,7 +400,7 @@ var _ = Describe("bounceProcesses", func() {
 				Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
 				result, err := reconcileCluster(cluster)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(result.Requeue).To(BeFalse())
+				Expect(result.RequeueAfter).To(BeZero())
 				_, err = reloadCluster(cluster)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -619,7 +619,7 @@ var _ = Describe("bounceProcesses", func() {
 
 				Context("with locks disabled", func() {
 					BeforeEach(func() {
-						cluster.Spec.LockOptions.DisableLocks = pointer.Bool(true)
+						cluster.Spec.LockOptions.DisableLocks = ptr.To(true)
 					})
 
 					It("should requeue", func() {
@@ -1048,7 +1048,7 @@ var _ = Describe("bounceProcesses", func() {
 
 		When("using the global synchronization mode", func() {
 			BeforeEach(func() {
-				cluster.Spec.AutomationOptions.SynchronizationMode = pointer.String(
+				cluster.Spec.AutomationOptions.SynchronizationMode = ptr.To(
 					string(fdbv1beta2.SynchronizationModeGlobal),
 				)
 				adminClient.MockAdditionTimeForGlobalCoordination = time.Now().Add(-1 * time.Minute)

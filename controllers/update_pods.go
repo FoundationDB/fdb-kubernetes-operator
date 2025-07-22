@@ -25,6 +25,8 @@ import (
 	"fmt"
 	"time"
 
+	"k8s.io/utils/ptr"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/replacements"
@@ -33,7 +35,6 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/utils/pointer"
 )
 
 // updatePods provides a reconciliation step for recreating pods with new pod
@@ -278,7 +279,7 @@ func getPodsToUpdate(
 				// With the unified image there is support for delaying the shutdown to reduce this risk even further.
 				missingPodDuration := time.Since(
 					time.Unix(
-						pointer.Int64Deref(
+						ptr.Deref[int64](
 							processGroup.GetConditionTime(fdbv1beta2.MissingPod),
 							time.Now().Unix(),
 						),

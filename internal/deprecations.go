@@ -25,7 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 )
 
 // DeprecationOptions controls how deprecations and changes to defaults
@@ -283,12 +283,12 @@ func updateFutureDefaults(
 
 	// Locality based exclusions will be the default in the next operator release.
 	if cluster.Spec.AutomationOptions.UseLocalitiesForExclusion == nil {
-		cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(true)
+		cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = ptr.To(true)
 	}
 
 	// The DNS feature will be the default in the next operator release.
 	if cluster.Spec.Routing.UseDNSInClusterFile == nil {
-		cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(true)
+		cluster.Spec.Routing.UseDNSInClusterFile = ptr.To(true)
 	}
 
 	return nil

@@ -31,7 +31,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 )
 
 var _ = Describe("[api] FoundationDBCluster", func() {
@@ -716,7 +716,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 							Version: "7.1.0",
 							DatabaseConfiguration: DatabaseConfiguration{
 								StorageMigrationType:           &migrationType,
-								PerpetualStorageWiggle:         pointer.Int(1),
+								PerpetualStorageWiggle:         ptr.To(1),
 								PerpetualStorageWiggleLocality: nil,
 							},
 						},
@@ -770,8 +770,8 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 							Version: "7.1.0",
 							DatabaseConfiguration: DatabaseConfiguration{
 								StorageMigrationType:           &migrationType,
-								PerpetualStorageWiggle:         pointer.Int(1),
-								PerpetualStorageWiggleLocality: pointer.String("dcid:remote"),
+								PerpetualStorageWiggle:         ptr.To(1),
+								PerpetualStorageWiggleLocality: ptr.To("dcid:remote"),
 								PerpetualStorageWiggleEngine:   &engine,
 							},
 						},
@@ -4302,12 +4302,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		})
 
 		It("is required with the flag set to true", func() {
-			cluster.Spec.UseExplicitListenAddress = pointer.Bool(true)
+			cluster.Spec.UseExplicitListenAddress = ptr.To(true)
 			Expect(cluster.NeedsExplicitListenAddress()).To(BeTrue())
 		})
 
 		It("is not required with the flag set to false", func() {
-			cluster.Spec.UseExplicitListenAddress = pointer.Bool(false)
+			cluster.Spec.UseExplicitListenAddress = ptr.To(false)
 			Expect(cluster.NeedsExplicitListenAddress()).To(BeFalse())
 		})
 	})
@@ -4669,18 +4669,18 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				It("should always return true as the default is using DNS", func() {
 					Expect(cluster.NeedsHeadlessService()).To(BeTrue())
 
-					cluster.Spec.Routing.HeadlessService = pointer.Bool(true)
+					cluster.Spec.Routing.HeadlessService = ptr.To(true)
 					Expect(cluster.NeedsHeadlessService()).To(BeTrue())
 				})
 
 				It("can be overridden by the DNS in cluster file setting", func() {
-					cluster.Spec.Routing.HeadlessService = pointer.Bool(false)
-					cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(true)
+					cluster.Spec.Routing.HeadlessService = ptr.To(false)
+					cluster.Spec.Routing.UseDNSInClusterFile = ptr.To(true)
 					Expect(cluster.NeedsHeadlessService()).To(BeTrue())
 				})
 
 				It("can be overridden by the DNS in locality setting", func() {
-					cluster.Spec.Routing.HeadlessService = pointer.Bool(false)
+					cluster.Spec.Routing.HeadlessService = ptr.To(false)
 					Expect(cluster.NeedsHeadlessService()).To(BeTrue())
 				})
 			})
@@ -4689,23 +4689,23 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				It("respects the value in the flag", func() {
 					Expect(cluster.UseDNSInClusterFile()).To(BeTrue())
 
-					cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(false)
+					cluster.Spec.Routing.UseDNSInClusterFile = ptr.To(false)
 					Expect(cluster.UseDNSInClusterFile()).To(BeFalse())
 				})
 			})
 
 			When("checking whether we use DNS in the locality fields", func() {
 				It("respects the value in the flag", func() {
-					cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(false)
+					cluster.Spec.Routing.UseDNSInClusterFile = ptr.To(false)
 					Expect(cluster.DefineDNSLocalityFields()).To(BeFalse())
 
-					cluster.Spec.Routing.DefineDNSLocalityFields = pointer.Bool(true)
+					cluster.Spec.Routing.DefineDNSLocalityFields = ptr.To(true)
 					Expect(cluster.DefineDNSLocalityFields()).To(BeTrue())
 				})
 
 				It("can be overridden by the DNS in cluster file setting", func() {
-					cluster.Spec.Routing.DefineDNSLocalityFields = pointer.Bool(false)
-					cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(true)
+					cluster.Spec.Routing.DefineDNSLocalityFields = ptr.To(false)
+					cluster.Spec.Routing.UseDNSInClusterFile = ptr.To(true)
 					Expect(cluster.DefineDNSLocalityFields()).To(BeTrue())
 				})
 			})

@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"strings"
 
+	"k8s.io/utils/ptr"
+
 	"github.com/go-logr/logr"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
@@ -31,7 +33,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/utils/pointer"
 )
 
 var _ = Describe("monitor_conf", func() {
@@ -630,7 +631,7 @@ var _ = Describe("monitor_conf", func() {
 
 				When("using IPv6 as PodIPFamily", func() {
 					BeforeEach(func() {
-						cluster.Spec.Routing.PodIPFamily = pointer.Int(fdbv1beta2.PodIPFamilyIPv6)
+						cluster.Spec.Routing.PodIPFamily = ptr.To(fdbv1beta2.PodIPFamilyIPv6)
 					})
 
 					It("specifies the IP family for the public address", func() {
@@ -672,7 +673,7 @@ var _ = Describe("monitor_conf", func() {
 
 				When("using IPv4 as PodIPFamily", func() {
 					BeforeEach(func() {
-						cluster.Spec.Routing.PodIPFamily = pointer.Int(fdbv1beta2.PodIPFamilyIPv4)
+						cluster.Spec.Routing.PodIPFamily = ptr.To(fdbv1beta2.PodIPFamilyIPv4)
 					})
 
 					It("specifies the IP family for the public address", func() {
@@ -713,7 +714,7 @@ var _ = Describe("monitor_conf", func() {
 
 			When("using IPv6 as PodIPFamily", func() {
 				BeforeEach(func() {
-					cluster.Spec.Routing.PodIPFamily = pointer.Int(fdbv1beta2.PodIPFamilyIPv6)
+					cluster.Spec.Routing.PodIPFamily = ptr.To(fdbv1beta2.PodIPFamilyIPv6)
 				})
 
 				It("specifies the IP family for the public address", func() {
@@ -745,7 +746,7 @@ var _ = Describe("monitor_conf", func() {
 
 			When("using IPv4 as PodIPFamily", func() {
 				BeforeEach(func() {
-					cluster.Spec.Routing.PodIPFamily = pointer.Int(fdbv1beta2.PodIPFamilyIPv4)
+					cluster.Spec.Routing.PodIPFamily = ptr.To(fdbv1beta2.PodIPFamilyIPv4)
 				})
 
 				It("specifies the IP family for the public address", func() {
@@ -1494,7 +1495,7 @@ var _ = Describe("monitor_conf", func() {
 
 		Context("with DNS names in locality fields disabled", func() {
 			BeforeEach(func() {
-				cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(false)
+				cluster.Spec.Routing.UseDNSInClusterFile = ptr.To(false)
 				conf, err = GetMonitorConf(
 					cluster,
 					fdbv1beta2.ProcessClassStorage,

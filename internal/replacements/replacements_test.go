@@ -35,7 +35,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	ctrlClient "sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -52,7 +52,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 		cluster = internal.CreateDefaultCluster()
 		deprecationOptions = internal.DeprecationOptions{UseFutureDefaults: false}
 		Expect(internal.NormalizeClusterSpec(cluster, deprecationOptions)).NotTo(HaveOccurred())
-		cluster.Spec.LabelConfig.FilterOnOwnerReferences = pointer.Bool(false)
+		cluster.Spec.LabelConfig.FilterOnOwnerReferences = ptr.To(false)
 	})
 
 	When("checking process groups for replacements", func() {
@@ -353,7 +353,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 			When("replacement for resource changes is activated", func() {
 				BeforeEach(func() {
-					cluster.Spec.ReplaceInstancesWhenResourcesChange = pointer.Bool(true)
+					cluster.Spec.ReplaceInstancesWhenResourcesChange = ptr.To(true)
 				})
 
 				When("the memory is increased", func() {
@@ -449,7 +449,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 			When("replacement for resource changes is deactivated", func() {
 				BeforeEach(func() {
-					cluster.Spec.ReplaceInstancesWhenResourcesChange = pointer.Bool(false)
+					cluster.Spec.ReplaceInstancesWhenResourcesChange = ptr.To(false)
 				})
 
 				When("the memory is increased", func() {
@@ -530,7 +530,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					When("FSGroup is changed", func() {
 						BeforeEach(func() {
 							pod.Spec.SecurityContext = &corev1.PodSecurityContext{
-								FSGroup: pointer.Int64(1234),
+								FSGroup: ptr.To[int64](1234),
 							}
 						})
 
@@ -558,7 +558,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					When("FSGroup is changed", func() {
 						BeforeEach(func() {
 							pod.Spec.SecurityContext = &corev1.PodSecurityContext{
-								FSGroup: pointer.Int64(1234),
+								FSGroup: ptr.To[int64](1234),
 							}
 						})
 
@@ -584,7 +584,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 					When("the pod ip family is v4", func() {
 						BeforeEach(func() {
-							cluster.Spec.Routing.PodIPFamily = pointer.Int(
+							cluster.Spec.Routing.PodIPFamily = ptr.To(
 								fdbv1beta2.PodIPFamilyIPv4,
 							)
 						})
@@ -644,7 +644,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 					When("the pod ip family is v6", func() {
 						BeforeEach(func() {
-							cluster.Spec.Routing.PodIPFamily = pointer.Int(
+							cluster.Spec.Routing.PodIPFamily = ptr.To(
 								fdbv1beta2.PodIPFamilyIPv6,
 							)
 						})
@@ -707,7 +707,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					When("the pod ip family at the pod is nil", func() {
 						When("the pod ip family at cluster level is v4", func() {
 							BeforeEach(func() {
-								cluster.Spec.Routing.PodIPFamily = pointer.Int(
+								cluster.Spec.Routing.PodIPFamily = ptr.To(
 									fdbv1beta2.PodIPFamilyIPv4,
 								)
 							})
@@ -720,7 +720,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 						When("the pod ip family at cluster level is v6", func() {
 							BeforeEach(func() {
-								cluster.Spec.Routing.PodIPFamily = pointer.Int(
+								cluster.Spec.Routing.PodIPFamily = ptr.To(
 									fdbv1beta2.PodIPFamilyIPv4,
 								)
 							})
@@ -763,7 +763,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 							When("the pod ip family at cluster level is v6", func() {
 								BeforeEach(func() {
-									cluster.Spec.Routing.PodIPFamily = pointer.Int(
+									cluster.Spec.Routing.PodIPFamily = ptr.To(
 										fdbv1beta2.PodIPFamilyIPv6,
 									)
 								})
@@ -814,7 +814,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 							When("the pod ip family at cluster level is v6", func() {
 								BeforeEach(func() {
-									cluster.Spec.Routing.PodIPFamily = pointer.Int(
+									cluster.Spec.Routing.PodIPFamily = ptr.To(
 										fdbv1beta2.PodIPFamilyIPv6,
 									)
 								})
@@ -858,7 +858,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 							When("the pod ip family at cluster level is v4", func() {
 								BeforeEach(func() {
-									cluster.Spec.Routing.PodIPFamily = pointer.Int(
+									cluster.Spec.Routing.PodIPFamily = ptr.To(
 										fdbv1beta2.PodIPFamilyIPv4,
 									)
 								})
@@ -909,7 +909,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 							When("the pod ip family at cluster level is v4", func() {
 								BeforeEach(func() {
-									cluster.Spec.Routing.PodIPFamily = pointer.Int(
+									cluster.Spec.Routing.PodIPFamily = ptr.To(
 										fdbv1beta2.PodIPFamilyIPv4,
 									)
 								})
@@ -1055,7 +1055,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 		When("No replacements are allowed", func() {
 			BeforeEach(func() {
-				cluster.Spec.AutomationOptions.MaxConcurrentReplacements = pointer.Int(0)
+				cluster.Spec.AutomationOptions.MaxConcurrentReplacements = ptr.To(0)
 			})
 
 			It("should not have a replacements", func() {
@@ -1085,7 +1085,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 		When("Two replacements are allowed", func() {
 			BeforeEach(func() {
-				cluster.Spec.AutomationOptions.MaxConcurrentReplacements = pointer.Int(2)
+				cluster.Spec.AutomationOptions.MaxConcurrentReplacements = ptr.To(2)
 			})
 
 			It("should have two replacements", func() {
@@ -1229,7 +1229,7 @@ var _ = DescribeTable("file_security_context_changed",
 		true,
 	),
 	Entry("FSGroup is changed",
-		&corev1.PodSpec{SecurityContext: &corev1.PodSecurityContext{FSGroup: pointer.Int64(42)}},
+		&corev1.PodSpec{SecurityContext: &corev1.PodSecurityContext{FSGroup: ptr.To[int64](42)}},
 		&corev1.PodSpec{SecurityContext: &corev1.PodSecurityContext{FSGroup: new(int64)}},
 		true,
 	),
@@ -1351,7 +1351,7 @@ var _ = DescribeTable("file_security_context_changed",
 	),
 	Entry("RunAsUser is added to the pod spec",
 		&corev1.PodSpec{
-			SecurityContext: &corev1.PodSecurityContext{RunAsUser: pointer.Int64(42)},
+			SecurityContext: &corev1.PodSecurityContext{RunAsUser: ptr.To[int64](42)},
 			Containers: []corev1.Container{
 				{},
 			}}, // needs a "matching" container to compare effective settings
@@ -1363,7 +1363,7 @@ var _ = DescribeTable("file_security_context_changed",
 	Entry("RunAsUser is added to the container spec",
 		&corev1.PodSpec{
 			Containers: []corev1.Container{
-				{SecurityContext: &corev1.SecurityContext{RunAsUser: pointer.Int64(42)}}}},
+				{SecurityContext: &corev1.SecurityContext{RunAsUser: ptr.To[int64](42)}}}},
 		&corev1.PodSpec{
 			SecurityContext: &corev1.PodSecurityContext{},
 			Containers:      []corev1.Container{{}}},
@@ -1375,74 +1375,74 @@ var _ = DescribeTable("file_security_context_changed",
 			Containers:      []corev1.Container{{}}},
 		&corev1.PodSpec{
 			Containers: []corev1.Container{
-				{SecurityContext: &corev1.SecurityContext{RunAsUser: pointer.Int64(42)}},
+				{SecurityContext: &corev1.SecurityContext{RunAsUser: ptr.To[int64](42)}},
 			}},
 		true,
 	),
 	Entry("RunAsUser is removed from the container spec but not from the pod (no effective change)",
 		&corev1.PodSpec{
 			Containers: []corev1.Container{
-				{SecurityContext: &corev1.SecurityContext{RunAsUser: pointer.Int64(42)}},
+				{SecurityContext: &corev1.SecurityContext{RunAsUser: ptr.To[int64](42)}},
 			}},
 		&corev1.PodSpec{
-			SecurityContext: &corev1.PodSecurityContext{RunAsUser: pointer.Int64(42)},
+			SecurityContext: &corev1.PodSecurityContext{RunAsUser: ptr.To[int64](42)},
 			Containers: []corev1.Container{
-				{SecurityContext: &corev1.SecurityContext{RunAsUser: pointer.Int64(42)}},
+				{SecurityContext: &corev1.SecurityContext{RunAsUser: ptr.To[int64](42)}},
 			}},
 		false,
 	),
 	Entry("RunAsUser is changed on container spec",
 		&corev1.PodSpec{
 			Containers: []corev1.Container{
-				{SecurityContext: &corev1.SecurityContext{RunAsUser: pointer.Int64(111)}},
+				{SecurityContext: &corev1.SecurityContext{RunAsUser: ptr.To[int64](111)}},
 			}},
 		&corev1.PodSpec{
 			Containers: []corev1.Container{
-				{SecurityContext: &corev1.SecurityContext{RunAsUser: pointer.Int64(42)}},
+				{SecurityContext: &corev1.SecurityContext{RunAsUser: ptr.To[int64](42)}},
 			}},
 		true,
 	),
 	Entry("RunAsGroup is changed on pod spec",
 		&corev1.PodSpec{
-			SecurityContext: &corev1.PodSecurityContext{RunAsGroup: pointer.Int64(111)},
+			SecurityContext: &corev1.PodSecurityContext{RunAsGroup: ptr.To[int64](111)},
 			Containers:      []corev1.Container{{}}},
 		&corev1.PodSpec{
-			SecurityContext: &corev1.PodSecurityContext{RunAsGroup: pointer.Int64(42)},
+			SecurityContext: &corev1.PodSecurityContext{RunAsGroup: ptr.To[int64](42)},
 			Containers:      []corev1.Container{{}}},
 		true,
 	),
 	Entry("RunAsGroup is moved from podSpec to container spec",
 		&corev1.PodSpec{
 			Containers: []corev1.Container{
-				{SecurityContext: &corev1.SecurityContext{RunAsGroup: pointer.Int64(42)}},
+				{SecurityContext: &corev1.SecurityContext{RunAsGroup: ptr.To[int64](42)}},
 			}},
 		&corev1.PodSpec{
-			SecurityContext: &corev1.PodSecurityContext{RunAsGroup: pointer.Int64(42)},
+			SecurityContext: &corev1.PodSecurityContext{RunAsGroup: ptr.To[int64](42)},
 			Containers:      []corev1.Container{{}}},
 		false,
 	),
 	Entry("RunAsGroup is moved from container spec to podSpec",
 		&corev1.PodSpec{
-			SecurityContext: &corev1.PodSecurityContext{RunAsGroup: pointer.Int64(42)},
+			SecurityContext: &corev1.PodSecurityContext{RunAsGroup: ptr.To[int64](42)},
 			Containers:      []corev1.Container{{}}},
 		&corev1.PodSpec{
 			Containers: []corev1.Container{
-				{SecurityContext: &corev1.SecurityContext{RunAsGroup: pointer.Int64(42)}},
+				{SecurityContext: &corev1.SecurityContext{RunAsGroup: ptr.To[int64](42)}},
 			}},
 		false,
 	),
 	Entry("RunAsGroup is moved from podSpec to container spec and FSGroup changes",
 		&corev1.PodSpec{
 			SecurityContext: &corev1.PodSecurityContext{
-				FSGroup: pointer.Int64(42),
+				FSGroup: ptr.To[int64](42),
 			},
 			Containers: []corev1.Container{
 				{SecurityContext: &corev1.SecurityContext{
-					RunAsGroup: pointer.Int64(42)}},
+					RunAsGroup: ptr.To[int64](42)}},
 			}},
 		&corev1.PodSpec{
 			SecurityContext: &corev1.PodSecurityContext{
-				RunAsGroup: pointer.Int64(42)},
+				RunAsGroup: ptr.To[int64](42)},
 			Containers: []corev1.Container{{}}},
 		true,
 	),
@@ -1453,11 +1453,11 @@ var _ = DescribeTable("file_security_context_changed",
 			},
 			Containers: []corev1.Container{
 				{SecurityContext: &corev1.SecurityContext{
-					RunAsGroup: pointer.Int64(42)}},
+					RunAsGroup: ptr.To[int64](42)}},
 			}},
 		&corev1.PodSpec{
 			SecurityContext: &corev1.PodSecurityContext{
-				RunAsGroup: pointer.Int64(42)},
+				RunAsGroup: ptr.To[int64](42)},
 			Containers: []corev1.Container{{}}},
 		false,
 	),
@@ -1469,11 +1469,11 @@ var _ = DescribeTable("file_security_context_changed",
 			},
 			Containers: []corev1.Container{
 				{SecurityContext: &corev1.SecurityContext{
-					RunAsGroup: pointer.Int64(42)}},
+					RunAsGroup: ptr.To[int64](42)}},
 			}},
 		&corev1.PodSpec{
 			SecurityContext: &corev1.PodSecurityContext{
-				RunAsGroup: pointer.Int64(42)},
+				RunAsGroup: ptr.To[int64](42)},
 			Containers: []corev1.Container{{}}},
 		true,
 	),

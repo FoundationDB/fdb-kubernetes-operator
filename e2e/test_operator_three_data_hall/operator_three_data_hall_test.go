@@ -27,12 +27,13 @@ This test suite includes functional tests for FDB clusters running in the three_
 import (
 	"log"
 
+	"k8s.io/utils/ptr"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	chaosmesh "github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/chaos-mesh/api/v1alpha1"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/fixtures"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbstatus"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/utils/pointer"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -53,7 +54,7 @@ var _ = BeforeSuite(func() {
 	factory = fixtures.CreateFactory(testOptions)
 	config := fixtures.DefaultClusterConfig(false)
 	config.RedundancyMode = fdbv1beta2.RedundancyModeThreeDataHall
-	config.UseUnifiedImage = pointer.Bool(true)
+	config.UseUnifiedImage = ptr.To(true)
 
 	fdbCluster = factory.CreateFdbCluster(
 		config,
@@ -156,7 +157,7 @@ var _ = Describe("Operator with three data hall", Label("e2e"), func() {
 			Expect(fdbCluster.ClearProcessGroupsToRemove()).NotTo(HaveOccurred())
 			// Make sure we reset the previous behaviour.
 			spec := fdbCluster.GetCluster().Spec.DeepCopy()
-			spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(
+			spec.AutomationOptions.UseLocalitiesForExclusion = ptr.To(
 				useLocalitiesForExclusion,
 			)
 			fdbCluster.UpdateClusterSpecWithSpec(spec)
@@ -182,7 +183,7 @@ var _ = Describe("Operator with three data hall", Label("e2e"), func() {
 		When("IP addresses are used for exclusion", func() {
 			BeforeEach(func() {
 				spec := fdbCluster.GetCluster().Spec.DeepCopy()
-				spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(false)
+				spec.AutomationOptions.UseLocalitiesForExclusion = ptr.To(false)
 				fdbCluster.UpdateClusterSpecWithSpec(spec)
 				Expect(fdbCluster.GetCluster().UseLocalitiesForExclusion()).To(BeFalse())
 			})
@@ -206,14 +207,14 @@ var _ = Describe("Operator with three data hall", Label("e2e"), func() {
 				}
 
 				spec := cluster.Spec.DeepCopy()
-				spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(true)
+				spec.AutomationOptions.UseLocalitiesForExclusion = ptr.To(true)
 				fdbCluster.UpdateClusterSpecWithSpec(spec)
 				Expect(fdbCluster.GetCluster().UseLocalitiesForExclusion()).To(BeTrue())
 			})
 
 			It("should remove the targeted Pod", func() {
 				Expect(
-					pointer.BoolDeref(
+					ptr.Deref(
 						fdbCluster.GetCluster().Spec.AutomationOptions.UseLocalitiesForExclusion,
 						false,
 					),

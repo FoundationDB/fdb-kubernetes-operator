@@ -30,7 +30,7 @@ import (
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient/mock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 )
 
 var _ = Describe("admin_client_test", func() {
@@ -40,12 +40,12 @@ var _ = Describe("admin_client_test", func() {
 
 	BeforeEach(func() {
 		cluster = internal.CreateDefaultCluster()
-		cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(false)
+		cluster.Spec.Routing.UseDNSInClusterFile = ptr.To(false)
 		Expect(k8sClient.Create(context.TODO(), cluster)).NotTo(HaveOccurred())
 
 		result, err := reconcileCluster(cluster)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(result.Requeue).To(BeFalse())
+		Expect(result.RequeueAfter).To(BeZero())
 
 		generation, err := reloadCluster(cluster)
 		Expect(err).NotTo(HaveOccurred())
@@ -87,7 +87,7 @@ var _ = Describe("admin_client_test", func() {
 							LogSpill: 2,
 						},
 						PerpetualStorageWiggleEngine:   &noneEngine,
-						PerpetualStorageWiggleLocality: pointer.String("0"),
+						PerpetualStorageWiggleLocality: ptr.To("0"),
 						StorageMigrationType:           &migrationTypeDisabled,
 					}))
 
@@ -129,7 +129,7 @@ var _ = Describe("admin_client_test", func() {
 			var processID, podName string
 
 			BeforeEach(func() {
-				cluster.Spec.Routing.DefineDNSLocalityFields = pointer.Bool(true)
+				cluster.Spec.Routing.DefineDNSLocalityFields = ptr.To(true)
 				Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
 				pickedProcessGroup := internal.PickProcessGroups(cluster, fdbv1beta2.ProcessClassStorage, 1)[0]
 				podName = pickedProcessGroup.GetPodName(cluster)
@@ -147,7 +147,7 @@ var _ = Describe("admin_client_test", func() {
 				BeforeEach(func() {
 					result, err := reconcileCluster(cluster)
 					Expect(err).NotTo(HaveOccurred())
-					Expect(result.Requeue).To(BeFalse())
+					Expect(result.RequeueAfter).To(BeZero())
 				})
 
 				It("should have DNS names in the locality", func() {
@@ -205,8 +205,8 @@ var _ = Describe("admin_client_test", func() {
 				).To(Equal(map[string]fdbv1beta2.FoundationDBStatusBackupTag{
 					"default": {
 						CurrentContainer: "blobstore://test@test-service/test-backup",
-						RunningBackup:    pointer.Bool(true),
-						Restorable:       pointer.Bool(true),
+						RunningBackup:    ptr.To(true),
+						Restorable:       ptr.To(true),
 					},
 				}))
 			})
@@ -247,8 +247,8 @@ var _ = Describe("admin_client_test", func() {
 					).To(Equal(map[string]fdbv1beta2.FoundationDBStatusBackupTag{
 						"default": {
 							CurrentContainer: "blobstore://test@test-service/test-backup",
-							RunningBackup:    pointer.Bool(false),
-							Restorable:       pointer.Bool(true),
+							RunningBackup:    ptr.To(false),
+							Restorable:       ptr.To(true),
 						},
 					}))
 				})

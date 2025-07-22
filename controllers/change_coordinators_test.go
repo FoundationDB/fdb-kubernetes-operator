@@ -24,7 +24,7 @@ import (
 	"context"
 	"math"
 
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
@@ -96,7 +96,7 @@ var _ = Describe("Change coordinators", func() {
 
 		When("the connection string shouldn't be using DNS entries", func() {
 			BeforeEach(func() {
-				cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(false)
+				cluster.Spec.Routing.UseDNSInClusterFile = ptr.To(false)
 				pods := &corev1.PodList{}
 				Expect(k8sClient.List(context.TODO(), pods)).NotTo(HaveOccurred())
 

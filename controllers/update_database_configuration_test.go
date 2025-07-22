@@ -23,11 +23,11 @@ package controllers
 import (
 	"context"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient/mock"
-	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbstatus"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient/mock"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbstatus"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	. "github.com/onsi/ginkgo/v2"
@@ -73,7 +73,7 @@ var _ = Describe("update_database_configuration", func() {
 
 		When("the operator is not allowed to configure the database", func() {
 			BeforeEach(func() {
-				cluster.Spec.AutomationOptions.ConfigureDatabase = pointer.Bool(false)
+				cluster.Spec.AutomationOptions.ConfigureDatabase = ptr.To(false)
 			})
 
 			It("should perform the initial configuration", func() {
@@ -91,7 +91,7 @@ var _ = Describe("update_database_configuration", func() {
 		BeforeEach(func() {
 			result, err := reconcileCluster(cluster)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(result.Requeue).To(BeFalse())
+			Expect(result.RequeueAfter).To(BeZero())
 
 			generation, err := reloadCluster(cluster)
 			Expect(err).NotTo(HaveOccurred())

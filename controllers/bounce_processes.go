@@ -26,6 +26,8 @@ import (
 	"fmt"
 	"time"
 
+	"k8s.io/utils/ptr"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/buggify"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/coordination"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbstatus"
@@ -36,7 +38,6 @@ import (
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/utils/pointer"
 )
 
 // bounceProcesses provides a reconciliation step for bouncing fdbserver processes.
@@ -50,7 +51,7 @@ func (c bounceProcesses) reconcile(
 	status *fdbv1beta2.FoundationDBStatus,
 	logger logr.Logger,
 ) *requeue {
-	if !pointer.BoolDeref(cluster.Spec.AutomationOptions.KillProcesses, true) {
+	if !ptr.Deref(cluster.Spec.AutomationOptions.KillProcesses, true) {
 		return nil
 	}
 

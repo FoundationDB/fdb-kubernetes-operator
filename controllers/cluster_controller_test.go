@@ -45,7 +45,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/net"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 )
@@ -127,8 +127,11 @@ var _ = Describe("cluster_controller", func() {
 			}
 
 			Expect(err).NotTo(HaveOccurred())
-
-			Expect(result.Requeue).To(Equal(!shouldCompleteReconciliation))
+			if shouldCompleteReconciliation {
+				Expect(result.RequeueAfter).To(BeZero())
+			} else {
+				Expect(result.RequeueAfter).NotTo(BeZero())
+			}
 
 			if shouldCompleteReconciliation {
 				generation, err := reloadCluster(cluster)
@@ -370,7 +373,7 @@ var _ = Describe("cluster_controller", func() {
 
 		When("disabling the DNS names in the cluster file", func() {
 			BeforeEach(func() {
-				cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(false)
+				cluster.Spec.Routing.UseDNSInClusterFile = ptr.To(false)
 				Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
 			})
 
@@ -922,7 +925,7 @@ var _ = Describe("cluster_controller", func() {
 				// Run a single reconciliation to detect the missing process.
 				result, err := reconcileObject(clusterReconciler, cluster.ObjectMeta, 1)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(result.Requeue).To(BeTrue())
+				Expect(result.RequeueAfter).NotTo(BeZero())
 
 				// Tweak the time on the missing process to make it eligible for replacement.
 				_, err = reloadCluster(cluster)
@@ -1150,7 +1153,7 @@ var _ = Describe("cluster_controller", func() {
 
 					result, err := reconcileCluster(cluster)
 					Expect(err).NotTo(HaveOccurred())
-					Expect(result.Requeue).To(BeFalse())
+					Expect(result.RequeueAfter).To(BeZero())
 
 					generation, err := reloadCluster(cluster)
 					Expect(err).NotTo(HaveOccurred())
@@ -1208,7 +1211,7 @@ var _ = Describe("cluster_controller", func() {
 
 					result, err := reconcileCluster(cluster)
 					Expect(err).NotTo(HaveOccurred())
-					Expect(result.Requeue).To(BeFalse())
+					Expect(result.RequeueAfter).To(BeZero())
 
 					generation, err := reloadCluster(cluster)
 					Expect(err).NotTo(HaveOccurred())
@@ -1862,18 +1865,18 @@ var _ = Describe("cluster_controller", func() {
 
 		Context("when enabling explicit listen addresses", func() {
 			BeforeEach(func() {
-				cluster.Spec.UseExplicitListenAddress = pointer.Bool(false)
+				cluster.Spec.UseExplicitListenAddress = ptr.To(false)
 				err = k8sClient.Update(context.TODO(), cluster)
 				Expect(err).NotTo(HaveOccurred())
 
 				result, err := reconcileCluster(cluster)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(result.Requeue).To(BeFalse())
+				Expect(result.RequeueAfter).To(BeZero())
 
 				err = k8sClient.Get(context.TODO(), client.ObjectKeyFromObject(cluster), cluster)
 				Expect(err).NotTo(HaveOccurred())
 
-				cluster.Spec.UseExplicitListenAddress = pointer.Bool(true)
+				cluster.Spec.UseExplicitListenAddress = ptr.To(true)
 				err = k8sClient.Update(context.TODO(), cluster)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -2065,7 +2068,7 @@ var _ = Describe("cluster_controller", func() {
 
 		Context("with a conversion to IPv6", func() {
 			BeforeEach(func() {
-				cluster.Spec.Routing.PodIPFamily = pointer.Int(6)
+				cluster.Spec.Routing.PodIPFamily = ptr.To(6)
 				Expect(k8sClient.Update(context.TODO(), cluster)).To(Succeed())
 			})
 
@@ -2089,13 +2092,13 @@ var _ = Describe("cluster_controller", func() {
 				mock.ClearMockLockClients()
 
 				cluster = internal.CreateDefaultCluster()
-				cluster.Spec.Routing.PodIPFamily = pointer.Int(6)
+				cluster.Spec.Routing.PodIPFamily = ptr.To(6)
 
 				Expect(k8sClient.Create(context.TODO(), cluster)).To(Succeed())
 
 				result, err := reconcileCluster(cluster)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(result.Requeue).To(BeFalse())
+				Expect(result.RequeueAfter).To(BeZero())
 
 				generation, err := reloadCluster(cluster)
 				Expect(err).NotTo(HaveOccurred())
@@ -2794,7 +2797,7 @@ var _ = Describe("cluster_controller", func() {
 
 		When("enabling a headless service", func() {
 			BeforeEach(func() {
-				cluster.Spec.Routing.HeadlessService = pointer.Bool(true)
+				cluster.Spec.Routing.HeadlessService = ptr.To(true)
 				err = k8sClient.Update(context.TODO(), cluster)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -2815,7 +2818,7 @@ var _ = Describe("cluster_controller", func() {
 
 		When("disabling a headless service", func() {
 			BeforeEach(func() {
-				cluster.Spec.Routing.HeadlessService = pointer.Bool(true)
+				cluster.Spec.Routing.HeadlessService = ptr.To(true)
 				Expect(k8sClient.Update(context.TODO(), cluster)).To(Succeed())
 
 				_, err := reconcileCluster(cluster)
@@ -2825,8 +2828,8 @@ var _ = Describe("cluster_controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(generation).To(Equal(originalVersion + 1))
 
-				cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(false)
-				cluster.Spec.Routing.HeadlessService = pointer.Bool(false)
+				cluster.Spec.Routing.UseDNSInClusterFile = ptr.To(false)
+				cluster.Spec.Routing.HeadlessService = ptr.To(false)
 				generationGap = 2
 				Expect(k8sClient.Update(context.TODO(), cluster)).To(Succeed())
 			})
@@ -2849,7 +2852,7 @@ var _ = Describe("cluster_controller", func() {
 					cluster.Spec.LockOptions.DenyList,
 					fdbv1beta2.LockDenyListEntry{ID: "dc2"},
 				)
-				cluster.Spec.LockOptions.DisableLocks = pointer.Bool(false)
+				cluster.Spec.LockOptions.DisableLocks = ptr.To(false)
 				err = k8sClient.Update(context.TODO(), cluster)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -3962,7 +3965,7 @@ var _ = Describe("cluster_controller", func() {
 
 			result, err := reconcileCluster(cluster)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(result.Requeue).To(BeFalse())
+			Expect(result.RequeueAfter).To(BeZero())
 
 			generation, err := reloadCluster(cluster)
 			Expect(err).NotTo(HaveOccurred())
@@ -4034,7 +4037,7 @@ var _ = Describe("cluster_controller", func() {
 		Context("with a v6 pod IP family configured", func() {
 			BeforeEach(func() {
 				var err error
-				cluster.Spec.Routing.PodIPFamily = pointer.Int(6)
+				cluster.Spec.Routing.PodIPFamily = ptr.To(6)
 				pod, err = internal.GetPod(cluster, &fdbv1beta2.ProcessGroupStatus{
 					ProcessClass:   fdbv1beta2.ProcessClassStorage,
 					ProcessGroupID: "storage-1",
@@ -4075,7 +4078,7 @@ var _ = Describe("cluster_controller", func() {
 		Context("with a v4 pod IP family configured", func() {
 			BeforeEach(func() {
 				var err error
-				cluster.Spec.Routing.PodIPFamily = pointer.Int(4)
+				cluster.Spec.Routing.PodIPFamily = ptr.To(4)
 				pod, err = internal.GetPod(cluster, &fdbv1beta2.ProcessGroupStatus{
 					ProcessClass:   fdbv1beta2.ProcessClassStorage,
 					ProcessGroupID: "storage-1",

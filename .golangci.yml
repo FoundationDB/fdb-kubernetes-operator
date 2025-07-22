@@ -72,9 +72,6 @@ linters:
         path: _test\.go
         text: 'dot-imports: should not use dot imports'
       - linters:
-          - staticcheck
-        text: 'SA1019:'
-      - linters:
           - govet
         text: declaration of "(err|ctx)" shadows declaration at
       - linters:

@@ -40,7 +40,7 @@ var _ = Describe("replace_misconfigured_process_groups", func() {
 			Expect(k8sClient.Create(context.TODO(), cluster)).NotTo(HaveOccurred())
 			result, err := reconcileCluster(cluster)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(result.Requeue).To(BeFalse())
+			Expect(result.RequeueAfter).To(BeZero())
 			Expect(
 				k8sClient.Get(context.TODO(), ctrlClient.ObjectKeyFromObject(cluster), cluster),
 			).NotTo(HaveOccurred())

@@ -25,12 +25,13 @@ import (
 	"net"
 	"time"
 
+	"k8s.io/utils/ptr"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
 )
 
 var _ = Describe("remove", func() {
@@ -378,7 +379,7 @@ var _ = Describe("remove", func() {
 			&fdbv1beta2.FoundationDBCluster{
 				Spec: fdbv1beta2.FoundationDBClusterSpec{
 					AutomationOptions: fdbv1beta2.FoundationDBClusterAutomationOptions{
-						UseLocalitiesForExclusion: pointer.Bool(true),
+						UseLocalitiesForExclusion: ptr.To(true),
 					},
 				},
 				Status: fdbv1beta2.FoundationDBClusterStatus{
@@ -532,7 +533,7 @@ var _ = Describe("remove", func() {
 			&fdbv1beta2.FoundationDBCluster{
 				Spec: fdbv1beta2.FoundationDBClusterSpec{
 					AutomationOptions: fdbv1beta2.FoundationDBClusterAutomationOptions{
-						UseLocalitiesForExclusion: pointer.Bool(true),
+						UseLocalitiesForExclusion: ptr.To(true),
 					},
 				},
 				Status: fdbv1beta2.FoundationDBClusterStatus{

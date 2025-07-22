@@ -28,11 +28,12 @@ This test suite includes tests for migrating between the different image types.
 import (
 	"log"
 
+	"k8s.io/utils/ptr"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/fixtures"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/utils/pointer"
 )
 
 var (
@@ -60,7 +61,7 @@ var _ = PDescribe("Operator Migrate Image Type", Label("e2e"), func() {
 	When("migrating from split to unified", func() {
 		BeforeEach(func() {
 			config := fixtures.DefaultClusterConfig(false)
-			config.UseUnifiedImage = pointer.Bool(false)
+			config.UseUnifiedImage = ptr.To(false)
 			fdbCluster = factory.CreateFdbCluster(
 				config,
 				factory.GetClusterOptions()...,
@@ -109,7 +110,7 @@ var _ = PDescribe("Operator Migrate Image Type", Label("e2e"), func() {
 	When("migrating from split to unified with Pod IP family set", func() {
 		BeforeEach(func() {
 			config := fixtures.DefaultClusterConfig(false)
-			config.UseUnifiedImage = pointer.Bool(false)
+			config.UseUnifiedImage = ptr.To(false)
 			fdbCluster = factory.CreateFdbCluster(
 				config,
 				factory.GetClusterOptions()...,
@@ -117,7 +118,7 @@ var _ = PDescribe("Operator Migrate Image Type", Label("e2e"), func() {
 
 			// Set the Pod IP Family
 			spec := fdbCluster.GetCluster().Spec.DeepCopy()
-			spec.Routing.PodIPFamily = pointer.Int(4)
+			spec.Routing.PodIPFamily = ptr.To(4)
 			fdbCluster.UpdateClusterSpecWithSpec(spec)
 			Expect(fdbCluster.WaitForReconciliation()).NotTo(HaveOccurred())
 
@@ -164,7 +165,7 @@ var _ = PDescribe("Operator Migrate Image Type", Label("e2e"), func() {
 	When("migrating from unified to split", func() {
 		BeforeEach(func() {
 			config := fixtures.DefaultClusterConfig(false)
-			config.UseUnifiedImage = pointer.Bool(true)
+			config.UseUnifiedImage = ptr.To(true)
 			fdbCluster = factory.CreateFdbCluster(
 				config,
 				factory.GetClusterOptions()...,

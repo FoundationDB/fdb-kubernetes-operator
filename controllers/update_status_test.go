@@ -24,6 +24,8 @@ import (
 	"context"
 	"time"
 
+	"k8s.io/utils/ptr"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient/mock"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/podmanager"
 	"k8s.io/apimachinery/pkg/types"
@@ -32,8 +34,6 @@ import (
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-
-	"k8s.io/utils/pointer"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
 
@@ -1282,7 +1282,7 @@ var _ = Describe("update_status", func() {
 
 			result, err := reconcileCluster(cluster)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(result.Requeue).To(BeFalse())
+			Expect(result.RequeueAfter).To(BeZero())
 
 			generation, err := reloadCluster(cluster)
 			Expect(err).NotTo(HaveOccurred())
@@ -1320,8 +1320,8 @@ var _ = Describe("update_status", func() {
 			BeforeEach(func() {
 				result, err := reconcileCluster(cluster)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(result.Requeue).To(BeFalse())
-				cluster.Spec.UseExplicitListenAddress = pointer.Bool(false)
+				Expect(result.RequeueAfter).To(BeZero())
+				cluster.Spec.UseExplicitListenAddress = ptr.To(false)
 			})
 
 			Context("when the cluster has not been reconciled", func() {
@@ -1338,7 +1338,7 @@ var _ = Describe("update_status", func() {
 
 				result, err := reconcileCluster(cluster)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(result.Requeue).To(BeFalse())
+				Expect(result.RequeueAfter).To(BeZero())
 
 				generation, err := reloadCluster(cluster)
 				Expect(err).NotTo(HaveOccurred())

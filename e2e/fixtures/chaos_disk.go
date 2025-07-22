@@ -24,7 +24,7 @@ import (
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	chaosmesh "github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/chaos-mesh/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 )
 
 // InjectDiskFailure injects a disk failure for all Pods selected by the selector.
@@ -102,7 +102,7 @@ func (factory *Factory) InjectDiskFailureWithPathAndDuration(
 		},
 		Spec: chaosmesh.IOChaosSpec{
 			Action:   chaosmesh.IoFaults,
-			Duration: pointer.String(duration),
+			Duration: ptr.To(duration),
 			ContainerSelector: chaosmesh.ContainerSelector{
 				ContainerNames: containers,
 				PodSelector: chaosmesh.PodSelector{
@@ -132,7 +132,7 @@ func (factory *Factory) InjectIOLatency(
 		},
 		Spec: chaosmesh.IOChaosSpec{
 			Action:   chaosmesh.IoLatency,
-			Duration: pointer.String(ChaosDurationForever),
+			Duration: ptr.To(ChaosDurationForever),
 			ContainerSelector: chaosmesh.ContainerSelector{
 				PodSelector: chaosmesh.PodSelector{
 					Selector: selector,

@@ -60,7 +60,7 @@ var _ = Describe("restore_controller", func() {
 
 			result, err := reconcileCluster(cluster)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(result.Requeue).To(BeFalse())
+			Expect(result.RequeueAfter).To(BeZero())
 
 			generation, err := reloadCluster(cluster)
 			Expect(err).NotTo(HaveOccurred())
@@ -77,7 +77,7 @@ var _ = Describe("restore_controller", func() {
 
 			result, err = reconcileRestore(restore)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(result.Requeue).To(BeFalse())
+			Expect(result.RequeueAfter).To(BeZero())
 
 			err = reloadRestore(restore)
 			Expect(err).NotTo(HaveOccurred())
@@ -94,7 +94,7 @@ var _ = Describe("restore_controller", func() {
 		JustBeforeEach(func() {
 			result, err := reconcileRestore(restore)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(result.Requeue).To(BeFalse())
+			Expect(result.RequeueAfter).To(BeZero())
 			Expect(reloadRestore(restore)).To(Succeed())
 			Expect(
 				k8sClient.Get(

@@ -153,9 +153,9 @@ func reconcileObject(
 	requeueLimit int,
 ) (reconcile.Result, error) {
 	attempts := requeueLimit + 1
-	result := reconcile.Result{Requeue: true}
+	result := reconcile.Result{RequeueAfter: 1 * time.Second}
 	var err error
-	for result.Requeue && attempts > 0 {
+	for result.RequeueAfter > 0 && attempts > 0 {
 		globalControllerLogger.Info("Running test reconciliation", "Attempts", attempts)
 		attempts--
 
@@ -173,7 +173,7 @@ func reconcileObject(
 			break
 		}
 
-		if !result.Requeue {
+		if result.RequeueAfter == 0 {
 			globalControllerLogger.Info("Reconciliation successful")
 		}
 	}

@@ -24,13 +24,14 @@ import (
 	ctx "context"
 	"time"
 
+	"k8s.io/utils/ptr"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient/mock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/utils/pointer"
 )
 
 var _ = Describe("replace_failed_process_groups", func() {
@@ -39,14 +40,14 @@ var _ = Describe("replace_failed_process_groups", func() {
 
 	BeforeEach(func() {
 		cluster = internal.CreateDefaultCluster()
-		cluster.Spec.AutomationOptions.Replacements.FaultDomainBasedReplacements = pointer.Bool(
+		cluster.Spec.AutomationOptions.Replacements.FaultDomainBasedReplacements = ptr.To(
 			false,
 		)
 		Expect(k8sClient.Create(ctx.TODO(), cluster)).NotTo(HaveOccurred())
 
 		result, err := reconcileCluster(cluster)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(result.Requeue).To(BeFalse())
+		Expect(result.RequeueAfter).To(BeZero())
 
 		generation, err := reloadCluster(cluster)
 		Expect(err).NotTo(HaveOccurred())
@@ -57,8 +58,8 @@ var _ = Describe("replace_failed_process_groups", func() {
 		BeforeEach(func() {
 			cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions = []fdbv1beta2.TaintReplacementOption{
 				{
-					Key:               pointer.String("foundationdb.org/testing"),
-					DurationInSeconds: pointer.Int64(10),
+					Key:               ptr.To("foundationdb.org/testing"),
+					DurationInSeconds: ptr.To[int64](10),
 				},
 			}
 		})
@@ -234,7 +235,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 				BeforeEach(func() {
 					val := intstr.FromInt(10)
 					cluster.Spec.AutomationOptions.Replacements.MaxFaultDomainsWithTaintedProcessGroups = &val
-					cluster.Spec.AutomationOptions.Replacements.MaxConcurrentReplacements = pointer.Int(
+					cluster.Spec.AutomationOptions.Replacements.MaxConcurrentReplacements = ptr.To(
 						10,
 					)
 					cluster.Spec.AutomationOptions.RemovalMode = fdbv1beta2.PodUpdateModeAll
@@ -498,7 +499,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 
 					When("max concurrent replacements is set to two", func() {
 						BeforeEach(func() {
-							cluster.Spec.AutomationOptions.Replacements.MaxConcurrentReplacements = pointer.Int(
+							cluster.Spec.AutomationOptions.Replacements.MaxConcurrentReplacements = ptr.To(
 								2,
 							)
 						})
@@ -519,7 +520,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 
 					When("max concurrent replacements is set to zero", func() {
 						BeforeEach(func() {
-							cluster.Spec.AutomationOptions.Replacements.MaxConcurrentReplacements = pointer.Int(
+							cluster.Spec.AutomationOptions.Replacements.MaxConcurrentReplacements = ptr.To(
 								0,
 							)
 						})
@@ -563,7 +564,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 
 					When("addresses are used for exclusions", func() {
 						BeforeEach(func() {
-							cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(
+							cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = ptr.To(
 								false,
 							)
 						})
@@ -649,7 +650,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 						BeforeEach(func() {
 							cluster.Spec.Version = fdbv1beta2.Versions.SupportsLocalityBasedExclusions71.String()
 							cluster.Status.RunningVersion = fdbv1beta2.Versions.SupportsLocalityBasedExclusions71.String()
-							cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(
+							cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = ptr.To(
 								true,
 							)
 						})
@@ -801,7 +802,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 			var secondProcessGroup *fdbv1beta2.ProcessGroupStatus
 
 			BeforeEach(func() {
-				cluster.Spec.AutomationOptions.Replacements.FaultDomainBasedReplacements = pointer.Bool(
+				cluster.Spec.AutomationOptions.Replacements.FaultDomainBasedReplacements = ptr.To(
 					true,
 				)
 				Expect(k8sClient.Update(ctx.TODO(), cluster)).NotTo(HaveOccurred())
@@ -1057,7 +1058,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 
 					When("max concurrent replacements is set to two", func() {
 						BeforeEach(func() {
-							cluster.Spec.AutomationOptions.Replacements.MaxConcurrentReplacements = pointer.Int(
+							cluster.Spec.AutomationOptions.Replacements.MaxConcurrentReplacements = ptr.To(
 								2,
 							)
 						})
@@ -1078,7 +1079,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 
 					When("max concurrent replacements is set to zero", func() {
 						BeforeEach(func() {
-							cluster.Spec.AutomationOptions.Replacements.MaxConcurrentReplacements = pointer.Int(
+							cluster.Spec.AutomationOptions.Replacements.MaxConcurrentReplacements = ptr.To(
 								0,
 							)
 						})
@@ -1124,7 +1125,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 
 					When("addresses are used for exclusion", func() {
 						BeforeEach(func() {
-							cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(
+							cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = ptr.To(
 								false,
 							)
 						})
@@ -1209,7 +1210,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 					When("the cluster uses localities for exclusions", func() {
 						BeforeEach(func() {
 							cluster.Spec.Version = fdbv1beta2.Versions.SupportsLocalityBasedExclusions71.String()
-							cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(
+							cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = ptr.To(
 								true,
 							)
 							cluster.Status.RunningVersion = fdbv1beta2.Versions.SupportsLocalityBasedExclusions71.String()

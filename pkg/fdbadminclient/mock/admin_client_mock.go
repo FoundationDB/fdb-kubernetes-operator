@@ -28,7 +28,7 @@ import (
 	"sync"
 	"time"
 
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/podclient/mock"
 
@@ -497,7 +497,7 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 		}
 
 		if status.Cluster.DatabaseConfiguration.PerpetualStorageWiggleLocality == nil {
-			status.Cluster.DatabaseConfiguration.PerpetualStorageWiggleLocality = pointer.String(
+			status.Cluster.DatabaseConfiguration.PerpetualStorageWiggleLocality = ptr.To(
 				"0",
 			)
 		}
@@ -568,7 +568,7 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 			status.Cluster.Layers.Backup.Tags[tag] = fdbv1beta2.FoundationDBStatusBackupTag{
 				CurrentContainer: tagStatus.URL,
 				RunningBackup:    &tagStatus.Running,
-				Restorable:       pointer.Bool(true),
+				Restorable:       ptr.To(true),
 			}
 			status.Cluster.Layers.Backup.Paused = tagStatus.Paused
 		}
@@ -669,7 +669,7 @@ func (client *AdminClient) ConfigureDatabase(
 	}
 
 	if configuration.PerpetualStorageWiggleLocality == nil {
-		client.DatabaseConfiguration.PerpetualStorageWiggleLocality = pointer.String("0")
+		client.DatabaseConfiguration.PerpetualStorageWiggleLocality = ptr.To("0")
 	}
 
 	return nil

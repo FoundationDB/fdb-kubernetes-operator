@@ -30,6 +30,8 @@ import (
 	"strconv"
 	"time"
 
+	"k8s.io/utils/ptr"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/fixtures"
 	. "github.com/onsi/ginkgo/v2"
@@ -37,7 +39,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
 )
 
 var (
@@ -147,7 +148,7 @@ var _ = Describe("Operator Migrations", Label("e2e", "pr"), func() {
 			migrationType := fdbv1beta2.StorageMigrationTypeGradual
 			spec.DatabaseConfiguration.PerpetualStorageWiggleLocality = nil
 			spec.DatabaseConfiguration.StorageMigrationType = &migrationType
-			spec.DatabaseConfiguration.PerpetualStorageWiggle = pointer.Int(1)
+			spec.DatabaseConfiguration.PerpetualStorageWiggle = ptr.To(1)
 			spec.DatabaseConfiguration.StorageEngine = newStorageEngine
 			fdbCluster.UpdateClusterSpecWithSpec(spec)
 		})

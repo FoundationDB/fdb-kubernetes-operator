@@ -34,7 +34,7 @@ import (
 	"sync"
 	"time"
 
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	chaosmesh "github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/chaos-mesh/api/v1alpha1"
@@ -591,7 +591,7 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 				fixtures.HaFourZoneSingleSat,
 				false,
 			)
-			clusterConfig.UseLocalityBasedExclusions = pointer.Bool(true)
+			clusterConfig.UseLocalityBasedExclusions = ptr.To(true)
 
 			clusterSetupWithTestConfig(
 				testConfig{

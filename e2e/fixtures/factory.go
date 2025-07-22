@@ -31,6 +31,8 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"k8s.io/utils/ptr"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	kubeHelper "github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/kubernetes"
 	"github.com/onsi/gomega"
@@ -39,7 +41,6 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/duration"
 	"k8s.io/client-go/rest"
-	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -743,7 +744,7 @@ func (factory *Factory) DumpState(fdbCluster *FdbCluster) {
 	// Printout the logs of the operator Pods for the last 300 seconds.
 	for _, pod := range operatorPods {
 		targetPod := pod
-		log.Println(factory.GetLogsForPod(&targetPod, "manager", pointer.Int64(300)))
+		log.Println(factory.GetLogsForPod(&targetPod, "manager", ptr.To[int64](300)))
 	}
 }
 

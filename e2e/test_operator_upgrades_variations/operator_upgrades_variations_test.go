@@ -31,7 +31,7 @@ import (
 	"log"
 	"time"
 
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -298,7 +298,7 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 				targetVersion: targetVersion,
 				clusterConfig: &fixtures.ClusterConfig{
 					DebugSymbols:               false,
-					UseLocalityBasedExclusions: pointer.Bool(false),
+					UseLocalityBasedExclusions: ptr.To(false),
 				},
 				loadData: false,
 			}, func(cluster *fixtures.FdbCluster) {
@@ -317,7 +317,7 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 				targetVersion: targetVersion,
 				clusterConfig: &fixtures.ClusterConfig{
 					DebugSymbols: false,
-					UseDNS:       pointer.Bool(false),
+					UseDNS:       ptr.To(false),
 				},
 				loadData: false,
 			}, func(cluster *fixtures.FdbCluster) {
