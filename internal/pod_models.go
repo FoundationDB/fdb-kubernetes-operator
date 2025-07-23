@@ -1020,6 +1020,11 @@ func GetBackupDeployment(backup *fdbv1beta2.FoundationDBBackup) (*appsv1.Deploym
 	if agentCount == 0 {
 		return nil, nil
 	}
+
+	if backup.GetBackupType() == fdbv1beta2.BackupTypePartitionedLog {
+		return nil, nil
+	}
+
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:   backup.ObjectMeta.Namespace,
