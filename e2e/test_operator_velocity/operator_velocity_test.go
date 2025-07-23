@@ -29,8 +29,6 @@ import (
 	"strings"
 	"time"
 
-	"k8s.io/utils/ptr"
-
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/fixtures"
 	. "github.com/onsi/ginkgo/v2"
