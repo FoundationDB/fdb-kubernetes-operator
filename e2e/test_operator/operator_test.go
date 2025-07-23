@@ -1789,7 +1789,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 						fdbCluster.GetCluster().Status.ProcessGroups,
 						processGroupID,
 					)
-				}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(BeNil())
+				}).WithTimeout(10 * time.Minute).WithPolling(5 * time.Second).Should(BeNil())
 
 				// Make sure the Pod is actually deleted after some time.
 				Eventually(func() bool {

@@ -83,5 +83,6 @@ func ShouldBeIgnoredBecauseMissing(
 		return true
 	}
 
-	return false
+	// If a process group is stuck in terminating we don't want to block further actions because of that.
+	return processGroup.GetConditionTime(fdbv1beta2.ResourcesTerminating) != nil
 }
