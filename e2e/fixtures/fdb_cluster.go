@@ -30,6 +30,8 @@ import (
 	"sync"
 	"time"
 
+	"k8s.io/utils/ptr"
+
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -45,7 +47,6 @@ import (
 	kubeErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -311,17 +312,18 @@ func (fdbCluster *FdbCluster) WaitUntilWithForceReconcile(
 	timeOutInSeconds int,
 	checkMethod func(cluster *fdbv1beta2.FoundationDBCluster) bool,
 ) error {
-	// Printout the initial state of the cluster before we moving forward waiting for the checkMethod to return true.
+	// Printout the initial state of the cluster before we're moving forward waiting for the checkMethod to return true.
 	fdbCluster.factory.DumpState(fdbCluster)
 
 	lastForcedReconciliationTime := time.Now()
 	forceReconcileDuration := 4 * time.Minute
 
 	// TODO (johscheuer): Convert this into a gomega statement.
-	return wait.PollImmediate(
+	return wait.PollUntilContextTimeout(context.Background(),
 		time.Duration(pollTimeInSeconds)*time.Second,
 		time.Duration(timeOutInSeconds)*time.Second,
-		func() (bool, error) {
+		true,
+		func(_ context.Context) (bool, error) {
 			resCluster := fdbCluster.GetCluster()
 
 			if checkMethod(resCluster) {
@@ -1102,30 +1104,36 @@ func (fdbCluster *FdbCluster) SetEmptyMonitorConf(enable bool) error {
 		podMap.Store(targetPod.Name, struct{}{})
 
 		g.Go(func() error {
-			err := wait.PollImmediate(2*time.Second, 5*time.Minute, func() (bool, error) {
-				output, _, err := fdbCluster.ExecuteCmdOnPod(
-					targetPod,
-					fdbv1beta2.MainContainerName,
-					"ps -e | grep fdbserver | wc -l",
-					false,
-				)
-				if err != nil {
-					log.Printf(
-						"error executing command on %s, error: %s\n",
-						targetPod.Name,
-						err.Error(),
+			err := wait.PollUntilContextTimeout(
+				context.Background(),
+				2*time.Second,
+				5*time.Minute,
+				true,
+				func(_ context.Context) (bool, error) {
+					output, _, err := fdbCluster.ExecuteCmdOnPod(
+						targetPod,
+						fdbv1beta2.MainContainerName,
+						"ps -e | grep fdbserver | wc -l",
+						false,
 					)
+					if err != nil {
+						log.Printf(
+							"error executing command on %s, error: %s\n",
+							targetPod.Name,
+							err.Error(),
+						)
+						return false, nil
+					}
+
+					// If EmptyMonitor is enabled, each pod should has no fdbserver running
+					if strings.TrimSpace(output) == "0" {
+						podMap.Delete(targetPod.Name)
+						return true, nil
+					}
+
 					return false, nil
-				}
-
-				// If EmptyMonitor is enabled, each pod should has no fdbserver running
-				if strings.TrimSpace(output) == "0" {
-					podMap.Delete(targetPod.Name)
-					return true, nil
-				}
-
-				return false, nil
-			})
+				},
+			)
 
 			return err
 		})
@@ -1285,7 +1293,7 @@ func (fdbCluster *FdbCluster) EnsurePodIsDeleted(podName string) {
 // SetUseDNSInClusterFile enables DNS in the cluster file. Enable this setting to use DNS instead of IP addresses in
 // the connection string.
 func (fdbCluster *FdbCluster) SetUseDNSInClusterFile(useDNSInClusterFile bool) error {
-	fdbCluster.cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(useDNSInClusterFile)
+	fdbCluster.cluster.Spec.Routing.UseDNSInClusterFile = ptr.To(useDNSInClusterFile)
 	fdbCluster.UpdateClusterSpec()
 	return fdbCluster.WaitForReconciliation()
 }
@@ -1298,7 +1306,7 @@ func (fdbCluster *FdbCluster) Destroy() error {
 
 // SetIgnoreMissingProcessesSeconds sets the IgnoreMissingProcessesSeconds setting.
 func (fdbCluster *FdbCluster) SetIgnoreMissingProcessesSeconds(duration time.Duration) {
-	fdbCluster.cluster.Spec.AutomationOptions.IgnoreMissingProcessesSeconds = pointer.Int(
+	fdbCluster.cluster.Spec.AutomationOptions.IgnoreMissingProcessesSeconds = ptr.To(
 		int(duration.Seconds()),
 	)
 	fdbCluster.UpdateClusterSpec()
@@ -1306,7 +1314,7 @@ func (fdbCluster *FdbCluster) SetIgnoreMissingProcessesSeconds(duration time.Dur
 
 // SetKillProcesses sets the automation option to allow the operator to restart processes or not.
 func (fdbCluster *FdbCluster) SetKillProcesses(allowKill bool) {
-	fdbCluster.cluster.Spec.AutomationOptions.KillProcesses = pointer.Bool(allowKill)
+	fdbCluster.cluster.Spec.AutomationOptions.KillProcesses = ptr.To(allowKill)
 	fdbCluster.UpdateClusterSpec()
 	gomega.Expect(fdbCluster.WaitForReconciliation()).NotTo(gomega.HaveOccurred())
 }
@@ -1608,7 +1616,7 @@ func (fdbCluster *FdbCluster) CreateTesterDeployment(replicas int) *appsv1.Deplo
 			Labels:    deploymentLabels,
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: pointer.Int32(int32(replicas)),
+			Replicas: ptr.To(int32(replicas)),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"app": deploymentName,
@@ -1624,7 +1632,7 @@ func (fdbCluster *FdbCluster) CreateTesterDeployment(replicas int) *appsv1.Deplo
 				Spec: corev1.PodSpec{
 					ServiceAccountName: foundationdbServiceAccount,
 					SecurityContext: &corev1.PodSecurityContext{
-						FSGroup: pointer.Int64(4059),
+						FSGroup: ptr.To[int64](4059),
 					},
 					InitContainers: []corev1.Container{
 						{
@@ -1632,11 +1640,11 @@ func (fdbCluster *FdbCluster) CreateTesterDeployment(replicas int) *appsv1.Deplo
 							ImagePullPolicy: fdbCluster.factory.getImagePullPolicy(),
 							Image:           sidecarImage,
 							SecurityContext: &corev1.SecurityContext{
-								Privileged: pointer.Bool(true),
-								AllowPrivilegeEscalation: pointer.Bool(
+								Privileged: ptr.To(true),
+								AllowPrivilegeEscalation: ptr.To(
 									true,
 								), // for performance profiling
-								ReadOnlyRootFilesystem: pointer.Bool(
+								ReadOnlyRootFilesystem: ptr.To(
 									false,
 								), // to allow I/O chaos to succeed
 							},
@@ -1659,11 +1667,11 @@ func (fdbCluster *FdbCluster) CreateTesterDeployment(replicas int) *appsv1.Deplo
 							ImagePullPolicy: fdbCluster.factory.getImagePullPolicy(),
 							Image:           mainImage,
 							SecurityContext: &corev1.SecurityContext{
-								Privileged: pointer.Bool(true),
-								AllowPrivilegeEscalation: pointer.Bool(
+								Privileged: ptr.To(true),
+								AllowPrivilegeEscalation: ptr.To(
 									true,
 								), // for performance profiling
-								ReadOnlyRootFilesystem: pointer.Bool(
+								ReadOnlyRootFilesystem: ptr.To(
 									false,
 								), // to allow I/O chaos to succeed
 							},

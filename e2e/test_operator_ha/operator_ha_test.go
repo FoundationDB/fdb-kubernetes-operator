@@ -35,10 +35,10 @@ import (
 	"strconv"
 	"time"
 
+	"k8s.io/utils/ptr"
+
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrlClient "sigs.k8s.io/controller-runtime/pkg/client"
-
-	"k8s.io/utils/pointer"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	chaosmesh "github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/chaos-mesh/api/v1alpha1"
@@ -285,14 +285,14 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 			initialUseLocalitiesForExclusion = fdbCluster.GetRemote().
 				GetCluster().
 				UseLocalitiesForExclusion()
-			spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(true)
+			spec.AutomationOptions.UseLocalitiesForExclusion = ptr.To(true)
 			fdbCluster.GetRemote().UpdateClusterSpecWithSpec(spec)
 			Expect(fdbCluster.GetRemote().GetCluster().UseLocalitiesForExclusion()).To(BeTrue())
 		})
 
 		AfterEach(func() {
 			spec := fdbCluster.GetRemote().GetCluster().Spec.DeepCopy()
-			spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(
+			spec.AutomationOptions.UseLocalitiesForExclusion = ptr.To(
 				initialUseLocalitiesForExclusion,
 			)
 			fdbCluster.GetRemote().UpdateClusterSpecWithSpec(spec)

@@ -33,7 +33,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
@@ -284,7 +284,7 @@ func processGroupNeedsRemovalForPod(
 		return false, err
 	}
 
-	if pointer.BoolDeref(cluster.Spec.ReplaceInstancesWhenResourcesChange, false) {
+	if ptr.Deref(cluster.Spec.ReplaceInstancesWhenResourcesChange, false) {
 		if resourcesNeedsReplacement(spec.Containers, pod.Spec.Containers) {
 			logger.Info("Replace process group",
 				"reason", "Resource requests have changed")

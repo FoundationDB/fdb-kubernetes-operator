@@ -29,6 +29,8 @@ import (
 	"log"
 	"time"
 
+	"k8s.io/utils/ptr"
+
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -42,7 +44,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
-	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -724,7 +725,7 @@ func (factory *Factory) WaitUntilOperatorPodsRunning(namespace string) {
 			Get(context.TODO(), client.ObjectKey{Name: operatorDeploymentName, Namespace: namespace}, deployment),
 	).NotTo(gomega.HaveOccurred())
 
-	expectedReplicas := int(pointer.Int32Deref(deployment.Spec.Replicas, 1))
+	expectedReplicas := int(ptr.Deref(deployment.Spec.Replicas, 1))
 	gomega.Eventually(func(g gomega.Gomega) int {
 		deployment = &appsv1.Deployment{}
 		g.Expect(

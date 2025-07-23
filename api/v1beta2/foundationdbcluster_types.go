@@ -26,13 +26,14 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/utils/ptr"
+
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
 )
 
 // +kubebuilder:object:root=true
@@ -2563,7 +2564,7 @@ func (clusterStatus *FoundationDBClusterStatus) AddServersPerDisk(
 
 // GetMaxConcurrentAutomaticReplacements returns the cluster setting for MaxConcurrentReplacements, defaults to 1 if unset.
 func (cluster *FoundationDBCluster) GetMaxConcurrentAutomaticReplacements() int {
-	return pointer.IntDeref(
+	return ptr.Deref(
 		cluster.Spec.AutomationOptions.Replacements.MaxConcurrentReplacements,
 		1,
 	)
@@ -2572,7 +2573,7 @@ func (cluster *FoundationDBCluster) GetMaxConcurrentAutomaticReplacements() int 
 // FaultDomainBasedReplacements returns true if the operator is allowed to replace all failed process groups of a
 // fault domain. Default is false
 func (cluster *FoundationDBCluster) FaultDomainBasedReplacements() bool {
-	return pointer.BoolDeref(
+	return ptr.Deref(
 		cluster.Spec.AutomationOptions.Replacements.FaultDomainBasedReplacements,
 		false,
 	)
@@ -2640,7 +2641,7 @@ func (cluster *FoundationDBCluster) GetClassCandidatePriority(pClass ProcessClas
 // ShouldFilterOnOwnerReferences determines if we should check owner references
 // when determining if a resource is related to this cluster.
 func (cluster *FoundationDBCluster) ShouldFilterOnOwnerReferences() bool {
-	return pointer.BoolDeref(cluster.Spec.LabelConfig.FilterOnOwnerReferences, false)
+	return ptr.Deref(cluster.Spec.LabelConfig.FilterOnOwnerReferences, false)
 }
 
 // SkipProcessGroup checks if a ProcessGroupStatus should be skipped during reconciliation.
@@ -2669,20 +2670,20 @@ func (cluster *FoundationDBCluster) GetIgnorePendingPodsDuration() time.Duration
 // GetIgnoreMissingProcessesSeconds returns the value of IgnoreMissingProcessesSecond or 30 seconds if unset.
 func (cluster *FoundationDBCluster) GetIgnoreMissingProcessesSeconds() time.Duration {
 	return time.Duration(
-		pointer.IntDeref(cluster.Spec.AutomationOptions.IgnoreMissingProcessesSeconds, 30),
+		ptr.Deref(cluster.Spec.AutomationOptions.IgnoreMissingProcessesSeconds, 30),
 	) * time.Second
 }
 
 // GetFailedPodDuration returns the value of FailedPodDuration or 5 minutes if unset.
 func (cluster *FoundationDBCluster) GetFailedPodDuration() time.Duration {
 	return time.Duration(
-		pointer.IntDeref(cluster.Spec.AutomationOptions.FailedPodDurationSeconds, 300),
+		ptr.Deref(cluster.Spec.AutomationOptions.FailedPodDurationSeconds, 300),
 	) * time.Second
 }
 
 // GetUseNonBlockingExcludes returns the value of useNonBlockingExcludes or false if unset.
 func (cluster *FoundationDBCluster) GetUseNonBlockingExcludes() bool {
-	return pointer.BoolDeref(cluster.Spec.AutomationOptions.UseNonBlockingExcludes, false)
+	return ptr.Deref(cluster.Spec.AutomationOptions.UseNonBlockingExcludes, false)
 }
 
 // UseLocalitiesForExclusion returns the value of UseLocalitiesForExclusion or true if unset.
@@ -2695,7 +2696,7 @@ func (cluster *FoundationDBCluster) UseLocalitiesForExclusion() bool {
 	}
 
 	return fdbVersion.SupportsLocalityBasedExclusions() &&
-		pointer.BoolDeref(cluster.Spec.AutomationOptions.UseLocalitiesForExclusion, true)
+		ptr.Deref(cluster.Spec.AutomationOptions.UseLocalitiesForExclusion, true)
 }
 
 // GetProcessClassLabel provides the label that this cluster is using for the
@@ -2720,12 +2721,12 @@ func (cluster *FoundationDBCluster) GetProcessGroupIDLabel() string {
 
 // GetMaxConcurrentReplacements returns the maxConcurrentReplacements or defaults to math.MaxInt64
 func (cluster *FoundationDBCluster) GetMaxConcurrentReplacements() int {
-	return pointer.IntDeref(cluster.Spec.AutomationOptions.MaxConcurrentReplacements, math.MaxInt64)
+	return ptr.Deref(cluster.Spec.AutomationOptions.MaxConcurrentReplacements, math.MaxInt64)
 }
 
 // UseManagementAPI returns the value of UseManagementAPI or false if unset.
 func (cluster *FoundationDBCluster) UseManagementAPI() bool {
-	return pointer.BoolDeref(cluster.Spec.AutomationOptions.UseManagementAPI, false)
+	return ptr.Deref(cluster.Spec.AutomationOptions.UseManagementAPI, false)
 }
 
 // PodUpdateMode defines the deletion mode for the cluster
@@ -2746,25 +2747,25 @@ const (
 // for this cluster.
 func (cluster *FoundationDBCluster) NeedsHeadlessService() bool {
 	return cluster.DefineDNSLocalityFields() ||
-		pointer.BoolDeref(cluster.Spec.Routing.HeadlessService, false)
+		ptr.Deref(cluster.Spec.Routing.HeadlessService, false)
 }
 
 // UseDNSInClusterFile determines whether we need to use DNS entries in the cluster file for this cluster.
 func (cluster *FoundationDBCluster) UseDNSInClusterFile() bool {
-	return pointer.BoolDeref(cluster.Spec.Routing.UseDNSInClusterFile, true)
+	return ptr.Deref(cluster.Spec.Routing.UseDNSInClusterFile, true)
 }
 
 // DefineDNSLocalityFields determines whether we need to put DNS entries in the
 // pod spec and process locality.
 func (cluster *FoundationDBCluster) DefineDNSLocalityFields() bool {
-	return pointer.BoolDeref(cluster.Spec.Routing.DefineDNSLocalityFields, false) ||
+	return ptr.Deref(cluster.Spec.Routing.DefineDNSLocalityFields, false) ||
 		cluster.UseDNSInClusterFile()
 }
 
 // GetDNSDomain gets the domain used when forming DNS names generated for a
 // service.
 func (cluster *FoundationDBCluster) GetDNSDomain() string {
-	return pointer.StringDeref(cluster.Spec.Routing.DNSDomain, "cluster.local")
+	return ptr.Deref(cluster.Spec.Routing.DNSDomain, "cluster.local")
 }
 
 // GetRemovalMode returns the removal mode of the cluster or default to PodUpdateModeZone if unset.
@@ -2778,7 +2779,7 @@ func (cluster *FoundationDBCluster) GetRemovalMode() PodUpdateMode {
 
 // GetWaitBetweenRemovalsSeconds returns the WaitDurationBetweenRemovals if set or defaults to 60s.
 func (cluster *FoundationDBCluster) GetWaitBetweenRemovalsSeconds() int {
-	duration := pointer.IntDeref(cluster.Spec.AutomationOptions.WaitBetweenRemovalsSeconds, -1)
+	duration := ptr.Deref(cluster.Spec.AutomationOptions.WaitBetweenRemovalsSeconds, -1)
 	if duration < 0 {
 		return 60
 	}
@@ -2788,7 +2789,7 @@ func (cluster *FoundationDBCluster) GetWaitBetweenRemovalsSeconds() int {
 
 // UseMaintenaceMode returns true if UseMaintenanceModeChecker is set.
 func (cluster *FoundationDBCluster) UseMaintenaceMode() bool {
-	return pointer.BoolDeref(
+	return ptr.Deref(
 		cluster.Spec.AutomationOptions.MaintenanceModeOptions.UseMaintenanceModeChecker,
 		false,
 	)
@@ -2797,11 +2798,11 @@ func (cluster *FoundationDBCluster) UseMaintenaceMode() bool {
 // ResetMaintenanceMode returns true if the operator should reset the maintenance mode once all processes in the fault domain
 // have been restarted. This method will return true if either ResetMaintenanceMode or UseMaintenaceMode is set to true.
 func (cluster *FoundationDBCluster) ResetMaintenanceMode() bool {
-	return pointer.BoolDeref(
+	return ptr.Deref(
 		cluster.Spec.AutomationOptions.MaintenanceModeOptions.UseMaintenanceModeChecker,
 		false,
 	) ||
-		pointer.BoolDeref(
+		ptr.Deref(
 			cluster.Spec.AutomationOptions.MaintenanceModeOptions.ResetMaintenanceMode,
 			false,
 		)
@@ -2809,7 +2810,7 @@ func (cluster *FoundationDBCluster) ResetMaintenanceMode() bool {
 
 // GetMaintenaceModeTimeoutSeconds returns the timeout for maintenance zone after which it will be reset.
 func (cluster *FoundationDBCluster) GetMaintenaceModeTimeoutSeconds() int {
-	return pointer.IntDeref(
+	return ptr.Deref(
 		cluster.Spec.AutomationOptions.MaintenanceModeOptions.MaintenanceModeTimeSeconds,
 		600,
 	)
@@ -2892,7 +2893,7 @@ func (cluster *FoundationDBCluster) GetMatchLabels() map[string]string {
 
 // GetUseExplicitListenAddress returns the UseExplicitListenAddress or if unset the default true
 func (cluster *FoundationDBCluster) GetUseExplicitListenAddress() bool {
-	return pointer.BoolDeref(cluster.Spec.UseExplicitListenAddress, true)
+	return ptr.Deref(cluster.Spec.UseExplicitListenAddress, true)
 }
 
 // GetMinimumUptimeSecondsForBounce returns the MinimumUptimeSecondsForBounce if set otherwise 600
@@ -2906,12 +2907,12 @@ func (cluster *FoundationDBCluster) GetMinimumUptimeSecondsForBounce() int {
 
 // GetEnableAutomaticReplacements returns cluster.Spec.AutomationOptions.Replacements.Enabled or if unset the default true
 func (cluster *FoundationDBCluster) GetEnableAutomaticReplacements() bool {
-	return pointer.BoolDeref(cluster.Spec.AutomationOptions.Replacements.Enabled, true)
+	return ptr.Deref(cluster.Spec.AutomationOptions.Replacements.Enabled, true)
 }
 
 // GetFailureDetectionTimeSeconds returns cluster.Spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds or if unset the default 7200
 func (cluster *FoundationDBCluster) GetFailureDetectionTimeSeconds() int {
-	return pointer.IntDeref(
+	return ptr.Deref(
 		cluster.Spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds,
 		7200,
 	)
@@ -2919,7 +2920,7 @@ func (cluster *FoundationDBCluster) GetFailureDetectionTimeSeconds() int {
 
 // GetTaintReplacementTimeSeconds returns cluster.Spec.AutomationOptions.Replacements.TaintReplacementTimeSeconds or if unset the default 1800
 func (cluster *FoundationDBCluster) GetTaintReplacementTimeSeconds() int {
-	return pointer.IntDeref(
+	return ptr.Deref(
 		cluster.Spec.AutomationOptions.Replacements.TaintReplacementTimeSeconds,
 		1800,
 	)
@@ -2927,12 +2928,12 @@ func (cluster *FoundationDBCluster) GetTaintReplacementTimeSeconds() int {
 
 // GetSidecarContainerEnableLivenessProbe returns cluster.Spec.SidecarContainer.EnableLivenessProbe or if unset the default true
 func (cluster *FoundationDBCluster) GetSidecarContainerEnableLivenessProbe() bool {
-	return pointer.BoolDeref(cluster.Spec.SidecarContainer.EnableLivenessProbe, true)
+	return ptr.Deref(cluster.Spec.SidecarContainer.EnableLivenessProbe, true)
 }
 
 // GetSidecarContainerEnableReadinessProbe returns cluster.Spec.SidecarContainer.EnableReadinessProbe or if unset the default false
 func (cluster *FoundationDBCluster) GetSidecarContainerEnableReadinessProbe() bool {
-	return pointer.BoolDeref(cluster.Spec.SidecarContainer.EnableReadinessProbe, false)
+	return ptr.Deref(cluster.Spec.SidecarContainer.EnableReadinessProbe, false)
 }
 
 // UseUnifiedImage returns true if the unified image should be used.
@@ -2955,7 +2956,7 @@ func (cluster *FoundationDBCluster) DesiredImageType() ImageType {
 
 // GetIgnoreTerminatingPodsSeconds returns the value of IgnoreTerminatingPodsSeconds or defaults to 10 minutes.
 func (cluster *FoundationDBCluster) GetIgnoreTerminatingPodsSeconds() int {
-	return pointer.IntDeref(
+	return ptr.Deref(
 		cluster.Spec.AutomationOptions.IgnoreTerminatingPodsSeconds,
 		int((10 * time.Minute).Seconds()),
 	)
@@ -3350,14 +3351,14 @@ func (cluster *FoundationDBCluster) IsTaintFeatureDisabled() bool {
 
 // GetMaxZonesWithUnavailablePods returns the maximum number of zones that can have unavailable pods.
 func (cluster *FoundationDBCluster) GetMaxZonesWithUnavailablePods() int {
-	return pointer.IntDeref(cluster.Spec.MaxZonesWithUnavailablePods, math.MaxInt)
+	return ptr.Deref(cluster.Spec.MaxZonesWithUnavailablePods, math.MaxInt)
 }
 
 // CacheDatabaseStatusForReconciliation returns if the sub-reconcilers should use a cached machine-readable status. If
 // enabled the machine-readable status will be fetched only once per reconciliation loop and not multiple times. If the
 // value is unset the provided default value will be returned.
 func (cluster *FoundationDBCluster) CacheDatabaseStatusForReconciliation(defaultValue bool) bool {
-	return pointer.BoolDeref(
+	return ptr.Deref(
 		cluster.Spec.AutomationOptions.CacheDatabaseStatusForReconciliation,
 		defaultValue,
 	)
@@ -3518,7 +3519,7 @@ var (
 
 // GetPodIPFamily returns the current desired pod IP family. If no IP family is specified the value will be PodIPFamilyUnset.
 func (cluster *FoundationDBCluster) GetPodIPFamily() int {
-	return pointer.IntDeref(cluster.Spec.Routing.PodIPFamily, PodIPFamilyUnset)
+	return ptr.Deref(cluster.Spec.Routing.PodIPFamily, PodIPFamilyUnset)
 }
 
 // IsPodIPFamily6 determines whether the podIPFamily setting in cluster is set to use the IPv6 family.
@@ -3592,7 +3593,7 @@ func (cluster *FoundationDBCluster) GetSynchronizationMode() SynchronizationMode
 	}
 
 	return SynchronizationMode(
-		pointer.StringDeref(
+		ptr.Deref(
 			cluster.Spec.AutomationOptions.SynchronizationMode,
 			string(SynchronizationModeLocal),
 		),

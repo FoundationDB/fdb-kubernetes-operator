@@ -24,12 +24,13 @@ import (
 	"context"
 	"fmt"
 
+	"k8s.io/utils/ptr"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient/mock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/utils/pointer"
 )
 
 var _ = Describe("add_process_groups", func() {
@@ -46,7 +47,7 @@ var _ = Describe("add_process_groups", func() {
 
 		result, err := reconcileCluster(cluster)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(result.Requeue).To(BeFalse())
+		Expect(result.RequeueAfter).To(BeZero())
 
 		generation, err := reloadCluster(cluster)
 		Expect(err).NotTo(HaveOccurred())
@@ -245,7 +246,7 @@ var _ = Describe("add_process_groups", func() {
 			var excludedProcessGroupIDs map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None
 
 			BeforeEach(func() {
-				cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(true)
+				cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = ptr.To(true)
 				adminClient, err := mock.NewMockAdminClient(cluster, k8sClient)
 				Expect(err).To(Succeed())
 

@@ -40,6 +40,8 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/utils/ptr"
+
 	"github.com/apple/foundationdb/fdbkubernetesmonitor/api"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
@@ -53,7 +55,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/pointer"
 	ctrlClient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -178,7 +179,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 					Key:               &taintKeyMaintenance,
 					DurationInSeconds: &taintKeyMaintenanceDuration,
 				},
-			}, pointer.Int(1))
+			}, ptr.To(1))
 
 			Expect(
 				len(
@@ -194,7 +195,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			// Reset taint related options to default value in e2e test
 			fdbCluster.SetClusterTaintConfig(
 				[]fdbv1beta2.TaintReplacementOption{},
-				pointer.Int(150),
+				ptr.To(150),
 			)
 			// untaint the nodes
 			log.Printf("AfterEach Cleanup: Untaint the single node:%s\n", taintedNode.Name)
@@ -300,7 +301,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 						Key:               &taintKeyStar,
 						DurationInSeconds: &taintKeyStarDuration,
 					},
-				}, pointer.Int(1))
+				}, ptr.To(1))
 
 				automationOptions := fdbCluster.GetAutomationOptions()
 				Expect(
@@ -392,7 +393,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				// Custom TaintReplacementOptions to taintKeyStar
 				fdbCluster.SetClusterTaintConfig(
 					[]fdbv1beta2.TaintReplacementOption{},
-					pointer.Int(1),
+					ptr.To(1),
 				)
 
 				automationOptions := fdbCluster.GetAutomationOptions()
@@ -513,7 +514,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			Expect(fdbCluster.ClearProcessGroupsToRemove()).NotTo(HaveOccurred())
 			// Make sure we reset the previous behaviour.
 			spec := fdbCluster.GetCluster().Spec.DeepCopy()
-			spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(
+			spec.AutomationOptions.UseLocalitiesForExclusion = ptr.To(
 				useLocalitiesForExclusion,
 			)
 			fdbCluster.UpdateClusterSpecWithSpec(spec)
@@ -539,7 +540,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		When("IP addresses are used for exclusion", func() {
 			BeforeEach(func() {
 				spec := fdbCluster.GetCluster().Spec.DeepCopy()
-				spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(false)
+				spec.AutomationOptions.UseLocalitiesForExclusion = ptr.To(false)
 				fdbCluster.UpdateClusterSpecWithSpec(spec)
 			})
 
@@ -562,14 +563,14 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				}
 
 				spec := cluster.Spec.DeepCopy()
-				spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(true)
+				spec.AutomationOptions.UseLocalitiesForExclusion = ptr.To(true)
 				fdbCluster.UpdateClusterSpecWithSpec(spec)
 				Expect(fdbCluster.GetCluster().UseLocalitiesForExclusion()).To(BeTrue())
 			})
 
 			It("should remove the targeted Pod", func() {
 				Expect(
-					pointer.BoolDeref(
+					ptr.Deref(
 						fdbCluster.GetCluster().Spec.AutomationOptions.UseLocalitiesForExclusion,
 						false,
 					),
@@ -923,7 +924,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				Skip("Chaos tests are skipped for the operator")
 			}
 			availabilityCheck = false
-			initialReplaceTime = time.Duration(pointer.IntDeref(
+			initialReplaceTime = time.Duration(ptr.Deref(
 				fdbCluster.GetClusterSpec().AutomationOptions.Replacements.FailureDetectionTimeSeconds,
 				90,
 			)) * time.Second
@@ -973,7 +974,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 						GetMaxConcurrentAutomaticReplacements()
 					// Allow to replace 1 Pod concurrently
 					spec := fdbCluster.GetCluster().Spec.DeepCopy()
-					spec.AutomationOptions.Replacements.MaxConcurrentReplacements = pointer.Int(1)
+					spec.AutomationOptions.Replacements.MaxConcurrentReplacements = ptr.To(1)
 					fdbCluster.UpdateClusterSpecWithSpec(spec)
 
 					// Make sure we disable automatic replacements to prevent the case that the operator replaces one Pod
@@ -1011,7 +1012,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 				AfterEach(func() {
 					spec := fdbCluster.GetCluster().Spec.DeepCopy()
-					spec.AutomationOptions.Replacements.MaxConcurrentReplacements = pointer.Int(
+					spec.AutomationOptions.Replacements.MaxConcurrentReplacements = ptr.To(
 						concurrentReplacements,
 					)
 					fdbCluster.UpdateClusterSpecWithSpec(spec)
@@ -1974,7 +1975,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 		BeforeEach(func() {
 			availabilityCheck = false
-			initialReplaceTime = time.Duration(pointer.IntDeref(
+			initialReplaceTime = time.Duration(ptr.Deref(
 				fdbCluster.GetClusterSpec().AutomationOptions.Replacements.FailureDetectionTimeSeconds,
 				90,
 			)) * time.Second
@@ -2015,7 +2016,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 		BeforeEach(func() {
 			availabilityCheck = false
-			initialReplaceTime = time.Duration(pointer.IntDeref(
+			initialReplaceTime = time.Duration(ptr.Deref(
 				fdbCluster.GetClusterSpec().AutomationOptions.Replacements.FailureDetectionTimeSeconds,
 				90,
 			)) * time.Second
@@ -2387,7 +2388,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 			BeforeEach(func() {
 				availabilityCheck = false
-				initialReplaceTime = time.Duration(pointer.IntDeref(
+				initialReplaceTime = time.Duration(ptr.Deref(
 					fdbCluster.GetClusterSpec().AutomationOptions.Replacements.FailureDetectionTimeSeconds,
 					90,
 				)) * time.Second
@@ -2445,9 +2446,9 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			initialReplaceInstancesWhenResourcesChange = fdbCluster.GetCluster().Spec.ReplaceInstancesWhenResourcesChange
 			// Allow to replacement of 3 pods concurrently, as there are 5 storage servers, there need to be at least 2 rounds of replacements to replace all.
 			spec := fdbCluster.GetCluster().Spec.DeepCopy()
-			spec.AutomationOptions.MaxConcurrentReplacements = pointer.Int(3)
+			spec.AutomationOptions.MaxConcurrentReplacements = ptr.To(3)
 			spec.AutomationOptions.PodUpdateStrategy = fdbv1beta2.PodUpdateStrategyDelete
-			spec.ReplaceInstancesWhenResourcesChange = pointer.Bool(true)
+			spec.ReplaceInstancesWhenResourcesChange = ptr.To(true)
 			fdbCluster.UpdateClusterSpecWithSpec(spec)
 		})
 
@@ -2509,7 +2510,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			cluster := fdbCluster.GetCluster()
 			spec := cluster.Spec.DeepCopy()
 			// TODO (johscheuer): Once the new CRD is available change this to ResetMaintenanceMode.
-			spec.AutomationOptions.MaintenanceModeOptions.UseMaintenanceModeChecker = pointer.Bool(
+			spec.AutomationOptions.MaintenanceModeOptions.UseMaintenanceModeChecker = ptr.To(
 				true,
 			)
 			fdbCluster.UpdateClusterSpecWithSpec(spec)
@@ -2573,7 +2574,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		AfterEach(func() {
 			spec := fdbCluster.GetCluster().Spec.DeepCopy()
 			// TODO (johscheuer): Once the new CRD is available change this to ResetMaintenanceMode.
-			spec.AutomationOptions.MaintenanceModeOptions.UseMaintenanceModeChecker = pointer.Bool(
+			spec.AutomationOptions.MaintenanceModeOptions.UseMaintenanceModeChecker = ptr.To(
 				false,
 			)
 			fdbCluster.UpdateClusterSpecWithSpec(spec)
@@ -2588,7 +2589,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			initialPodIPFamily = cluster.GetPodIPFamily()
 
 			spec := cluster.Spec.DeepCopy()
-			spec.Routing.PodIPFamily = pointer.Int(4)
+			spec.Routing.PodIPFamily = ptr.To(4)
 			fdbCluster.UpdateClusterSpecWithSpec(spec)
 			Expect(fdbCluster.WaitForReconciliation()).NotTo(HaveOccurred())
 		})
@@ -2632,7 +2633,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 		AfterEach(func() {
 			spec := fdbCluster.GetCluster().Spec.DeepCopy()
-			spec.Routing.PodIPFamily = pointer.Int(initialPodIPFamily)
+			spec.Routing.PodIPFamily = ptr.To(initialPodIPFamily)
 			fdbCluster.UpdateClusterSpecWithSpec(spec)
 			Expect(fdbCluster.WaitForReconciliation()).NotTo(HaveOccurred())
 		})
@@ -3136,7 +3137,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			}
 
 			spec := fdbCluster.GetCluster().Spec.DeepCopy()
-			spec.Routing.PodIPFamily = pointer.Int(podIPFamily)
+			spec.Routing.PodIPFamily = ptr.To(podIPFamily)
 			fdbCluster.UpdateClusterSpecWithSpec(spec)
 			Expect(fdbCluster.WaitForReconciliation()).To(Succeed())
 		})

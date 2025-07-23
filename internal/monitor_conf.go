@@ -25,10 +25,11 @@ import (
 	"sort"
 	"strings"
 
+	"k8s.io/utils/ptr"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/podclient"
 	monitorapi "github.com/apple/foundationdb/fdbkubernetesmonitor/api"
-	"k8s.io/utils/pointer"
 )
 
 // GetStartCommand builds the expected start command for a process group.
@@ -217,7 +218,7 @@ func GetMonitorProcessConfiguration(
 	if cluster.Status.ConnectionString == "" {
 		// Return a placeholder configuration with the servers off until we
 		// have the initial connection string.
-		configuration.RunServers = pointer.Bool(false)
+		configuration.RunServers = ptr.To(false)
 	}
 
 	logGroup := cluster.GetLogGroup()

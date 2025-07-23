@@ -31,9 +31,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"k8s.io/utils/pointer"
-
 	"github.com/go-logr/logr"
+	"k8s.io/utils/ptr"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	. "github.com/onsi/ginkgo/v2"
@@ -773,7 +772,7 @@ protocol fdb00b071010000`,
 				Spec: fdbv1beta2.FoundationDBClusterSpec{
 					Version: "6.3.25",
 					AutomationOptions: fdbv1beta2.FoundationDBClusterAutomationOptions{
-						UseNonBlockingExcludes:  pointer.Bool(useNonBlockingExcludes),
+						UseNonBlockingExcludes:  ptr.To(useNonBlockingExcludes),
 						DatabaseInteractionMode: &interactionMode,
 					},
 				},

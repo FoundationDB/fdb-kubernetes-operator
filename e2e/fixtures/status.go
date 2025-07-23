@@ -223,9 +223,15 @@ func (fdbCluster *FdbCluster) IsAvailable() bool {
 
 // WaitUntilAvailable waits until the cluster is available.
 func (fdbCluster *FdbCluster) WaitUntilAvailable() error {
-	return wait.PollImmediate(100*time.Millisecond, 60*time.Second, func() (bool, error) {
-		return fdbCluster.IsAvailable(), nil
-	})
+	return wait.PollUntilContextTimeout(
+		context.Background(),
+		100*time.Millisecond,
+		60*time.Second,
+		true,
+		func(_ context.Context) (bool, error) {
+			return fdbCluster.IsAvailable(), nil
+		},
+	)
 }
 
 // StatusInvariantChecker provides a way to check an invariant for the cluster status.

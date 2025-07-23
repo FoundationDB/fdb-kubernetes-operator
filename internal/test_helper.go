@@ -29,7 +29,7 @@ import (
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	ctrlClient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -52,11 +52,11 @@ func CreateDefaultCluster() *fdbv1beta2.FoundationDBCluster {
 			},
 			AutomationOptions: fdbv1beta2.FoundationDBClusterAutomationOptions{
 				Replacements: fdbv1beta2.AutomaticReplacementOptions{
-					Enabled:                     pointer.Bool(true),
-					FailureDetectionTimeSeconds: pointer.Int(1),
-					TaintReplacementTimeSeconds: pointer.Int(1),
+					Enabled:                     ptr.To(true),
+					FailureDetectionTimeSeconds: ptr.To(1),
+					TaintReplacementTimeSeconds: ptr.To(1),
 				},
-				WaitBetweenRemovalsSeconds: pointer.Int(0),
+				WaitBetweenRemovalsSeconds: ptr.To(0),
 			},
 			MinimumUptimeSecondsForBounce: 1,
 			// TODO (johscheuer): Change this to the default one and adjust all test cases.

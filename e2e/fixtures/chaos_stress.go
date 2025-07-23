@@ -23,7 +23,7 @@ package fixtures
 import (
 	chaosmesh "github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/chaos-mesh/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 )
 
 // InjectPodStress injects pod stress on the target.
@@ -40,7 +40,7 @@ func (factory *Factory) InjectPodStress(
 			Labels:    factory.GetDefaultLabels(),
 		},
 		Spec: chaosmesh.StressChaosSpec{
-			Duration: pointer.String(ChaosDurationForever),
+			Duration: ptr.To(ChaosDurationForever),
 			Stressors: &chaosmesh.Stressors{
 				MemoryStressor: memoryStressor,
 				CPUStressor:    cpuStressor,

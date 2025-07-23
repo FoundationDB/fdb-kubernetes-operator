@@ -25,13 +25,13 @@ import (
 	"math"
 	"net"
 
+	"k8s.io/utils/ptr"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbstatus"
 
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient"
 	"github.com/go-logr/logr"
-	"k8s.io/utils/pointer"
-
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 )
 
 const (
@@ -112,7 +112,7 @@ func GetZonedRemovals(
 		// Using the ResourcesTerminating is not a complete precise measurement of the time when we
 		// actually removed the process group, but it should be a good indicator to how long the process group is in
 		// that state.
-		removalTimestamp := pointer.Int64Deref(
+		removalTimestamp := ptr.Deref[int64](
 			processGroup.GetConditionTime(fdbv1beta2.ResourcesTerminating),
 			0,
 		)

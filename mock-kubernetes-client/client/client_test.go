@@ -26,6 +26,8 @@ import (
 	"sort"
 	"time"
 
+	"k8s.io/utils/ptr"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -38,7 +40,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/utils/pointer"
 	ctrlClient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -555,7 +556,7 @@ var _ = Describe("[mock client]", func() {
 						return nil
 					}
 
-					expectedReplicas := pointer.Int32Deref(replicaSet.Spec.Replicas, 1)
+					expectedReplicas := ptr.Deref(replicaSet.Spec.Replicas, 1)
 
 					for i := int32(0); i < expectedReplicas; i++ {
 						err := client.Create(ctx, &corev1.Pod{
@@ -580,7 +581,7 @@ var _ = Describe("[mock client]", func() {
 					Name: "unicorn",
 				},
 				Spec: appsv1.ReplicaSetSpec{
-					Replicas: pointer.Int32(expectedPods),
+					Replicas: ptr.To[int32](expectedPods),
 				},
 			})).NotTo(HaveOccurred())
 		})
@@ -596,7 +597,7 @@ var _ = Describe("[mock client]", func() {
 				mockClient.Get(context.TODO(), ctrlClient.ObjectKey{Name: "unicorn"}, replicaSet),
 			).NotTo(HaveOccurred())
 			Expect(
-				pointer.Int32Deref(replicaSet.Spec.Replicas, -1),
+				ptr.Deref(replicaSet.Spec.Replicas, -1),
 			).To(BeNumerically("==", expectedPods))
 			Expect(replicaSet.Labels).To(HaveKeyWithValue("test", "success"))
 		})
@@ -613,7 +614,7 @@ var _ = Describe("[mock client]", func() {
 					return nil
 				}
 
-				expectedReplicas := pointer.Int32Deref(replicaSet.Spec.Replicas, 1)
+				expectedReplicas := ptr.Deref(replicaSet.Spec.Replicas, 1)
 
 				for i := int32(0); i < expectedReplicas; i++ {
 					err := client.Create(ctx, &corev1.Pod{
@@ -641,7 +642,7 @@ var _ = Describe("[mock client]", func() {
 				podList := &corev1.PodList{}
 				Expect(client.List(context.TODO(), podList)).NotTo(HaveOccurred())
 
-				expectedReplicas := pointer.Int32Deref(replicaSet.Spec.Replicas, 1)
+				expectedReplicas := ptr.Deref(replicaSet.Spec.Replicas, 1)
 				for i := int32(len(podList.Items)); i < expectedReplicas; i++ {
 					err := client.Create(ctx, &corev1.Pod{
 						ObjectMeta: metav1.ObjectMeta{
@@ -674,12 +675,12 @@ var _ = Describe("[mock client]", func() {
 					Name: "unicorn",
 				},
 				Spec: appsv1.ReplicaSetSpec{
-					Replicas: pointer.Int32(expectedPods),
+					Replicas: ptr.To[int32](expectedPods),
 				},
 			}
 			Expect(mockClient.Create(context.TODO(), replicaSet)).NotTo(HaveOccurred())
 
-			replicaSet.Spec.Replicas = pointer.Int32(expectedPods + additionalPods)
+			replicaSet.Spec.Replicas = ptr.To[int32](expectedPods + additionalPods)
 			Expect(mockClient.Update(context.TODO(), replicaSet)).NotTo(HaveOccurred())
 		})
 
@@ -694,7 +695,7 @@ var _ = Describe("[mock client]", func() {
 				mockClient.Get(context.TODO(), ctrlClient.ObjectKey{Name: "unicorn"}, replicaSet),
 			).NotTo(HaveOccurred())
 			Expect(
-				pointer.Int32Deref(replicaSet.Spec.Replicas, -1),
+				ptr.Deref(replicaSet.Spec.Replicas, -1),
 			).To(BeNumerically("==", expectedPods+additionalPods))
 			Expect(replicaSet.Labels).To(HaveKeyWithValue("test", "success"))
 		})

@@ -25,12 +25,13 @@ import (
 	"fmt"
 	"time"
 
+	"k8s.io/utils/ptr"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbstatus"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/utils/pointer"
 )
 
 // updateDatabaseConfiguration provides a reconciliation step for changing the
@@ -45,7 +46,7 @@ func (u updateDatabaseConfiguration) reconcile(
 	status *fdbv1beta2.FoundationDBStatus,
 	logger logr.Logger,
 ) *requeue {
-	if !pointer.BoolDeref(cluster.Spec.AutomationOptions.ConfigureDatabase, true) {
+	if !ptr.Deref(cluster.Spec.AutomationOptions.ConfigureDatabase, true) {
 		return nil
 	}
 

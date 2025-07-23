@@ -27,6 +27,8 @@ import (
 	"sort"
 	"time"
 
+	"k8s.io/utils/ptr"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbstatus"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
@@ -39,7 +41,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -946,9 +947,9 @@ func checkIfNodeHasTaintsAndUpdateConditions(
 			taint.Key,
 		)
 		for _, taintConfiguredKey := range cluster.Spec.AutomationOptions.Replacements.TaintReplacementOptions {
-			taintConfiguredKeyString := pointer.StringDeref(taintConfiguredKey.Key, "")
+			taintConfiguredKeyString := ptr.Deref(taintConfiguredKey.Key, "")
 			if taintConfiguredKeyString == "" ||
-				pointer.Int64Deref(taintConfiguredKey.DurationInSeconds, math.MinInt64) < 0 {
+				ptr.Deref(taintConfiguredKey.DurationInSeconds, math.MinInt64) < 0 {
 				logger.Info("Cluster's TaintReplacementOption is disabled",
 					"Key", taintConfiguredKey.Key,
 					"DurationInSeconds", taintConfiguredKey.DurationInSeconds)
@@ -974,7 +975,7 @@ func checkIfNodeHasTaintsAndUpdateConditions(
 					"TaintValue", taint.Value,
 					"TaintEffect", taint.Effect)
 				// Update nodeTaintDetectedTime here to make sure we are not hitting a nil pointer below.
-				nodeTaintDetectedTime = pointer.Int64(time.Now().Unix())
+				nodeTaintDetectedTime = ptr.To(time.Now().Unix())
 			}
 
 			// Use node taint's timestamp as the NodeTaintDetected condition's starting time.
@@ -990,7 +991,7 @@ func checkIfNodeHasTaintsAndUpdateConditions(
 					taint.TimeAdded.Unix(),
 				)
 				// Update the current timestamp with the new value.
-				nodeTaintDetectedTime = pointer.Int64(taint.TimeAdded.Unix())
+				nodeTaintDetectedTime = ptr.To(taint.TimeAdded.Unix())
 			}
 
 			// If the process group already has the NodeTaintReplacing condition we can skip any further work.
@@ -999,10 +1000,10 @@ func checkIfNodeHasTaintsAndUpdateConditions(
 				return hasMatchingTaint
 			}
 
-			taintDetectedTimestamp := pointer.Int64Deref(nodeTaintDetectedTime, math.MaxInt64)
+			taintDetectedTimestamp := ptr.Deref(nodeTaintDetectedTime, math.MaxInt64)
 			if time.Now().
 				Unix()-
-				taintDetectedTimestamp > pointer.Int64Deref(
+				taintDetectedTimestamp > ptr.Deref(
 				taintConfiguredKey.DurationInSeconds,
 				math.MaxInt64,
 			) {
@@ -1021,7 +1022,7 @@ func checkIfNodeHasTaintsAndUpdateConditions(
 					"TaintEffect",
 					taint.Effect,
 					"ClusterTaintDetectionDuration",
-					(time.Duration(pointer.Int64Deref(taintConfiguredKey.DurationInSeconds, math.MaxInt64)) * time.Second).String(),
+					(time.Duration(ptr.Deref(taintConfiguredKey.DurationInSeconds, math.MaxInt64)) * time.Second).String(),
 				)
 			}
 		}

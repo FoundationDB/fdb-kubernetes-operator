@@ -24,12 +24,13 @@ import (
 	"fmt"
 	"log"
 
+	"k8s.io/utils/ptr"
+
 	"github.com/onsi/gomega"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/utils/pointer"
 )
 
 func (factory *Factory) ensureFdbClusterExists(
@@ -248,7 +249,7 @@ func WithTLSEnabled(_ *Factory, cluster *fdbv1beta2.FoundationDBCluster) {
 
 // WithDNSEnabled is an option that enables DNS for a cluster.
 func WithDNSEnabled(_ *Factory, cluster *fdbv1beta2.FoundationDBCluster) {
-	cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(true)
+	cluster.Spec.Routing.UseDNSInClusterFile = ptr.To(true)
 }
 
 // WithOneMinuteMinimumUptimeSecondsForBounce sets the MinimumUptimeSecondsForBounce setting to 60.
@@ -261,5 +262,5 @@ func WithOneMinuteMinimumUptimeSecondsForBounce(
 
 // WithLocalitiesForExclusion is an option that exclusions based on localities for a cluster.
 func WithLocalitiesForExclusion(_ *Factory, cluster *fdbv1beta2.FoundationDBCluster) {
-	cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = pointer.Bool(true)
+	cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = ptr.To(true)
 }

@@ -21,7 +21,7 @@
 package fixtures
 
 import (
-	ctx "context"
+	"context"
 	"fmt"
 	"log"
 	"strconv"
@@ -118,29 +118,35 @@ func (factory *Factory) deleteChaosMeshExperiment(experiment *ChaosMeshExperimen
 	) // verbose compared to "true", but fixes annoying linter warning
 	experiment.chaosObject.SetAnnotations(annotations)
 
-	err = factory.GetControllerRuntimeClient().Update(ctx.Background(), experiment.chaosObject)
+	err = factory.GetControllerRuntimeClient().Update(context.Background(), experiment.chaosObject)
 	if err != nil {
 		log.Println("Could not update the annotation to set the experiment into pause state", err)
 	}
 
-	err = factory.GetControllerRuntimeClient().Delete(ctx.Background(), experiment.chaosObject)
+	err = factory.GetControllerRuntimeClient().Delete(context.Background(), experiment.chaosObject)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return err
 	}
 
 	log.Println("Chaos", experiment.name, "is deleted.")
-	err = wait.PollImmediate(1*time.Second, 5*time.Minute, func() (done bool, err error) {
-		err = factory.getChaosExperiment(
-			experiment.name,
-			experiment.namespace,
-			experiment.chaosObject,
-		)
-		if err != nil && k8serrors.IsNotFound(err) {
-			return true, nil
-		}
+	err = wait.PollUntilContextTimeout(
+		context.Background(),
+		1*time.Second,
+		5*time.Minute,
+		true,
+		func(_ context.Context) (done bool, err error) {
+			err = factory.getChaosExperiment(
+				experiment.name,
+				experiment.namespace,
+				experiment.chaosObject,
+			)
+			if err != nil && k8serrors.IsNotFound(err) {
+				return true, nil
+			}
 
-		return false, nil
-	})
+			return false, nil
+		},
+	)
 
 	if err != nil {
 		log.Println("error occurred during experiment deletion", experiment.name)
@@ -155,7 +161,7 @@ func (factory *Factory) getChaosExperiment(
 	namespace string,
 	chaosOut client.Object,
 ) error {
-	return factory.GetControllerRuntimeClient().Get(ctx.Background(), client.ObjectKey{
+	return factory.GetControllerRuntimeClient().Get(context.Background(), client.ObjectKey{
 		Name:      name,
 		Namespace: namespace,
 	}, chaosOut)
@@ -183,15 +189,21 @@ func (factory *Factory) waitUntilExperimentRunning(
 	experiment ChaosMeshExperiment,
 	out client.Object,
 ) error {
-	err := wait.PollImmediate(1*time.Second, 20*time.Minute, func() (bool, error) {
-		err := factory.getChaosExperiment(experiment.name, experiment.namespace, out)
-		if err != nil {
-			log.Println("error fetching chaos experiment", err)
-			return false, nil
-		}
+	err := wait.PollUntilContextTimeout(
+		context.Background(),
+		1*time.Second,
+		20*time.Minute,
+		true,
+		func(_ context.Context) (bool, error) {
+			err := factory.getChaosExperiment(experiment.name, experiment.namespace, out)
+			if err != nil {
+				log.Println("error fetching chaos experiment", err)
+				return false, nil
+			}
 
-		return isRunning(out)
-	})
+			return isRunning(out)
+		},
+	)
 	if err != nil {
 		experiment.chaosObject = out
 		return fmt.Errorf("timeout waiting for experiment to be running: %w", err)

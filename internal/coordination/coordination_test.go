@@ -23,6 +23,8 @@ package coordination
 import (
 	"time"
 
+	"k8s.io/utils/ptr"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
 	mockclient "github.com/FoundationDB/fdb-kubernetes-operator/v2/mock-kubernetes-client/client"
@@ -31,7 +33,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/utils/pointer"
 )
 
 var _ = Describe("operator_coordination", func() {
@@ -74,7 +75,7 @@ var _ = Describe("operator_coordination", func() {
 
 			When("the synchronization mode is local", func() {
 				BeforeEach(func() {
-					cluster.Spec.AutomationOptions.SynchronizationMode = pointer.String(
+					cluster.Spec.AutomationOptions.SynchronizationMode = ptr.To(
 						string(fdbv1beta2.SynchronizationModeLocal),
 					)
 				})
@@ -91,7 +92,7 @@ var _ = Describe("operator_coordination", func() {
 
 			When("the synchronization mode is global", func() {
 				BeforeEach(func() {
-					cluster.Spec.AutomationOptions.SynchronizationMode = pointer.String(
+					cluster.Spec.AutomationOptions.SynchronizationMode = ptr.To(
 						string(fdbv1beta2.SynchronizationModeGlobal),
 					)
 				})
@@ -190,7 +191,7 @@ var _ = Describe("operator_coordination", func() {
 
 			When("the synchronization mode is local", func() {
 				BeforeEach(func() {
-					cluster.Spec.AutomationOptions.SynchronizationMode = pointer.String(
+					cluster.Spec.AutomationOptions.SynchronizationMode = ptr.To(
 						string(fdbv1beta2.SynchronizationModeLocal),
 					)
 				})
@@ -207,7 +208,7 @@ var _ = Describe("operator_coordination", func() {
 
 			When("the synchronization mode is global", func() {
 				BeforeEach(func() {
-					cluster.Spec.AutomationOptions.SynchronizationMode = pointer.String(
+					cluster.Spec.AutomationOptions.SynchronizationMode = ptr.To(
 						string(fdbv1beta2.SynchronizationModeGlobal),
 					)
 				})
@@ -248,7 +249,7 @@ var _ = Describe("operator_coordination", func() {
 
 			When("the synchronization mode is local", func() {
 				BeforeEach(func() {
-					cluster.Spec.AutomationOptions.SynchronizationMode = pointer.String(
+					cluster.Spec.AutomationOptions.SynchronizationMode = ptr.To(
 						string(fdbv1beta2.SynchronizationModeLocal),
 					)
 				})
@@ -269,7 +270,7 @@ var _ = Describe("operator_coordination", func() {
 
 			When("the synchronization mode is global", func() {
 				BeforeEach(func() {
-					cluster.Spec.AutomationOptions.SynchronizationMode = pointer.String(
+					cluster.Spec.AutomationOptions.SynchronizationMode = ptr.To(
 						string(fdbv1beta2.SynchronizationModeGlobal),
 					)
 				})
@@ -293,7 +294,7 @@ var _ = Describe("operator_coordination", func() {
 					var pickedProcessGroupID fdbv1beta2.ProcessGroupID
 
 					BeforeEach(func() {
-						cluster.Spec.AutomationOptions.SynchronizationMode = pointer.String(
+						cluster.Spec.AutomationOptions.SynchronizationMode = ptr.To(
 							string(fdbv1beta2.SynchronizationModeGlobal),
 						)
 
@@ -379,7 +380,7 @@ var _ = Describe("operator_coordination", func() {
 
 			When("the synchronization mode is local", func() {
 				BeforeEach(func() {
-					cluster.Spec.AutomationOptions.SynchronizationMode = pointer.String(
+					cluster.Spec.AutomationOptions.SynchronizationMode = ptr.To(
 						string(fdbv1beta2.SynchronizationModeLocal),
 					)
 				})
@@ -396,7 +397,7 @@ var _ = Describe("operator_coordination", func() {
 
 			When("the synchronization mode is global", func() {
 				BeforeEach(func() {
-					cluster.Spec.AutomationOptions.SynchronizationMode = pointer.String(
+					cluster.Spec.AutomationOptions.SynchronizationMode = ptr.To(
 						string(fdbv1beta2.SynchronizationModeGlobal),
 					)
 				})

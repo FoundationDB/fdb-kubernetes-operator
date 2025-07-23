@@ -25,12 +25,13 @@ import (
 	"encoding/json"
 	"time"
 
+	"k8s.io/utils/ptr"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -54,7 +55,7 @@ func (factory *Factory) CreateBackupForCluster(
 			Namespace: fdbCluster.Namespace(),
 		},
 		Spec: fdbv1beta2.FoundationDBBackupSpec{
-			AllowTagOverride: pointer.BoolPtr(true),
+			AllowTagOverride: ptr.To(true),
 			ClusterName:      fdbCluster.Name(),
 			Version:          fdbVersion.String(),
 			BlobStoreConfiguration: &fdbv1beta2.BlobStoreConfiguration{

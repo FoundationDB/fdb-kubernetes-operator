@@ -24,9 +24,8 @@ import (
 	"context"
 	"sort"
 
-	"k8s.io/utils/pointer"
-
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
+	"k8s.io/utils/ptr"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	. "github.com/onsi/ginkgo/v2"
@@ -46,12 +45,12 @@ var _ = Describe("add_services", func() {
 		cluster = internal.CreateDefaultCluster()
 		source := fdbv1beta2.PublicIPSourceService
 		cluster.Spec.Routing.PublicIPSource = &source
-		cluster.Spec.Routing.HeadlessService = pointer.Bool(true)
+		cluster.Spec.Routing.HeadlessService = ptr.To(true)
 		Expect(k8sClient.Create(context.TODO(), cluster)).NotTo(HaveOccurred())
 
 		result, err := reconcileCluster(cluster)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(result.Requeue).To(BeFalse())
+		Expect(result.RequeueAfter).To(BeZero())
 
 		generation, err := reloadCluster(cluster)
 		Expect(err).NotTo(HaveOccurred())
@@ -246,8 +245,8 @@ var _ = Describe("add_services", func() {
 
 		Context("with the headless service disabled", func() {
 			BeforeEach(func() {
-				cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(false)
-				cluster.Spec.Routing.HeadlessService = pointer.Bool(false)
+				cluster.Spec.Routing.UseDNSInClusterFile = ptr.To(false)
+				cluster.Spec.Routing.HeadlessService = ptr.To(false)
 			})
 
 			It("should not requeue", func() {
@@ -262,7 +261,7 @@ var _ = Describe("add_services", func() {
 
 	Context("with the podIPFamily 6", func() {
 		BeforeEach(func() {
-			cluster.Spec.Routing.PodIPFamily = pointer.Int(6)
+			cluster.Spec.Routing.PodIPFamily = ptr.To(6)
 		})
 
 		It("should not requeue", func() {

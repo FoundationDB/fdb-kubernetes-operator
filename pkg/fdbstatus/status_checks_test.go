@@ -24,8 +24,9 @@ import (
 	"fmt"
 	"net"
 
+	"k8s.io/utils/ptr"
+
 	"github.com/go-logr/logr"
-	"k8s.io/utils/pointer"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
@@ -2255,7 +2256,7 @@ var _ = Describe("status_checks", func() {
 					},
 					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
 						BounceImpact: fdbv1beta2.FoundationDBBounceImpact{
-							CanCleanBounce: pointer.Bool(true),
+							CanCleanBounce: ptr.To(true),
 						},
 						RecoveryState: fdbv1beta2.RecoveryState{
 							ActiveGenerations: 1,
@@ -2350,7 +2351,7 @@ var _ = Describe("status_checks", func() {
 					},
 					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
 						BounceImpact: fdbv1beta2.FoundationDBBounceImpact{
-							CanCleanBounce: pointer.Bool(false),
+							CanCleanBounce: ptr.To(false),
 						},
 						RecoveryState: fdbv1beta2.RecoveryState{
 							ActiveGenerations: 1,

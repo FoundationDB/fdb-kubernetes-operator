@@ -29,6 +29,8 @@ import (
 	"text/template"
 	"time"
 
+	"k8s.io/utils/ptr"
+
 	"github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -37,7 +39,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
-	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -219,7 +220,7 @@ func (factory *Factory) waitUntilBlobstorePodsRunning(namespace string) {
 			Get(context.Background(), client.ObjectKey{Name: seaweedFSName, Namespace: namespace}, deployment),
 	).NotTo(gomega.HaveOccurred())
 
-	expectedReplicas := int(pointer.Int32Deref(deployment.Spec.Replicas, 1))
+	expectedReplicas := int(ptr.Deref(deployment.Spec.Replicas, 1))
 	gomega.Eventually(func(g gomega.Gomega) int {
 		pods := factory.getBlobstorePods(namespace)
 		var runningReplicas int

@@ -31,7 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 )
 
 // GetProcessGroupIDFromPodName returns the process group ID for a given Pod name.
@@ -321,7 +321,7 @@ func ensureSecurityContextIsPresent(container *corev1.Container) {
 	}
 
 	if container.SecurityContext.ReadOnlyRootFilesystem == nil {
-		container.SecurityContext.ReadOnlyRootFilesystem = pointer.Bool(true)
+		container.SecurityContext.ReadOnlyRootFilesystem = ptr.To(true)
 	}
 }
 
@@ -653,7 +653,7 @@ func configureSidecarContainerForBackup(
 		backup.Spec.Version,
 		nil,
 		imageConfigs,
-		pointer.BoolDeref(backup.Spec.AllowTagOverride, false),
+		ptr.Deref(backup.Spec.AllowTagOverride, false),
 		backup.UseUnifiedImage(),
 	)
 }
@@ -1105,7 +1105,7 @@ func GetBackupDeployment(backup *fdbv1beta2.FoundationDBBackup) (*appsv1.Deploym
 		mainContainer.Image,
 		backup.Spec.MainContainer.ImageConfigs,
 		backup.Spec.Version,
-		pointer.BoolDeref(backup.Spec.AllowTagOverride, false),
+		ptr.Deref(backup.Spec.AllowTagOverride, false),
 	)
 	if err != nil {
 		return nil, err

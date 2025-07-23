@@ -45,7 +45,7 @@ var _ = Describe("choose_removals", func() {
 
 		result, err := reconcileCluster(cluster)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(result.Requeue).To(BeFalse())
+		Expect(result.RequeueAfter).To(BeZero())
 
 		generation, err := reloadCluster(cluster)
 		Expect(err).NotTo(HaveOccurred())

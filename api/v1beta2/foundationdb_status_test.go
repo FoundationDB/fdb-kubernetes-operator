@@ -31,7 +31,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/format"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 )
 
 var _ = Describe("FoundationDBStatus", func() {
@@ -63,8 +63,8 @@ var _ = Describe("FoundationDBStatus", func() {
 				},
 				VersionFlags:                   VersionFlags{LogSpill: 2, LogVersion: 0},
 				StorageMigrationType:           &migrationType,
-				PerpetualStorageWiggle:         pointer.Int(0),
-				PerpetualStorageWiggleLocality: pointer.String("0"),
+				PerpetualStorageWiggle:         ptr.To(0),
+				PerpetualStorageWiggleLocality: ptr.To("0"),
 			},
 			Processes: map[ProcessGroupID]FoundationDBStatusProcessInfo{
 				"eb48ada3a682e86363f06aa89e1041fa": {
@@ -90,14 +90,14 @@ var _ = Describe("FoundationDBStatus", func() {
 							ID:   "0de7f5c5e549cad1",
 							GRVLatencyStatistics: FoundationDBStatusGRVStatistics{
 								Batch: FoundationDBStatusPerfStatistics{
-									Count:  pointer.Int(6),
-									Median: pointer.Float64(0.000531435),
-									P99:    pointer.Float64(0.00130677),
+									Count:  ptr.To(6),
+									Median: ptr.To(0.000531435),
+									P99:    ptr.To(0.00130677),
 								},
 								Default: FoundationDBStatusPerfStatistics{
-									Count:  pointer.Int(225),
-									Median: pointer.Float64(0.00062561),
-									P99:    pointer.Float64(0.010715200000000001),
+									Count:  ptr.To(225),
+									Median: ptr.To(0.00062561),
+									P99:    ptr.To(0.010715200000000001),
 								},
 							},
 						},
@@ -108,14 +108,14 @@ var _ = Describe("FoundationDBStatus", func() {
 								Seconds:  0.19625800000000002,
 								Versions: 196258,
 							},
-							KVStoreUsedBytes:      pointer.Int64(104878232),
-							KVStoreTotalBytes:     pointer.Int64(135012552704),
-							KVStoreFreeBytes:      pointer.Int64(84178223104),
-							KVStoreAvailableBytes: pointer.Int64(84178223104),
+							KVStoreUsedBytes:      ptr.To[int64](104878232),
+							KVStoreTotalBytes:     ptr.To[int64](135012552704),
+							KVStoreFreeBytes:      ptr.To[int64](84178223104),
+							KVStoreAvailableBytes: ptr.To[int64](84178223104),
 							ReadLatencyStatistics: FoundationDBStatusPerfStatistics{
-								Count:  pointer.Int(297),
-								Median: pointer.Float64(0.000116825),
-								P99:    pointer.Float64(0.000711441),
+								Count:  ptr.To(297),
+								Median: ptr.To(0.000116825),
+								P99:    ptr.To(0.000711441),
 							},
 						},
 					},
@@ -146,14 +146,14 @@ var _ = Describe("FoundationDBStatus", func() {
 								Seconds:  2.1227,
 								Versions: 2122697,
 							},
-							KVStoreUsedBytes:      pointer.Int64(104878232),
-							KVStoreTotalBytes:     pointer.Int64(135012552704),
-							KVStoreFreeBytes:      pointer.Int64(84178239488),
-							KVStoreAvailableBytes: pointer.Int64(84178239488),
+							KVStoreUsedBytes:      ptr.To[int64](104878232),
+							KVStoreTotalBytes:     ptr.To[int64](135012552704),
+							KVStoreFreeBytes:      ptr.To[int64](84178239488),
+							KVStoreAvailableBytes: ptr.To[int64](84178239488),
 							ReadLatencyStatistics: FoundationDBStatusPerfStatistics{
-								Count:  pointer.Int(334),
-								Median: pointer.Float64(0.000102282),
-								P99:    pointer.Float64(0.000386477),
+								Count:  ptr.To(334),
+								Median: ptr.To(0.000102282),
+								P99:    ptr.To(0.000386477),
 							},
 						},
 						{
@@ -185,9 +185,9 @@ var _ = Describe("FoundationDBStatus", func() {
 							Role: string(ProcessRoleCommitProxy),
 							ID:   "0eb90e4a0ece85b3",
 							CommitLatencyStatistics: FoundationDBStatusPerfStatistics{
-								Count:  pointer.Int(31),
-								Median: pointer.Float64(0.00794888),
-								P99:    pointer.Float64(0.09054090000000001),
+								Count:  ptr.To(31),
+								Median: ptr.To(0.00794888),
+								P99:    ptr.To(0.09054090000000001),
 							},
 						},
 						{
@@ -197,14 +197,14 @@ var _ = Describe("FoundationDBStatus", func() {
 								Seconds:  0.19625800000000002,
 								Versions: 196258,
 							},
-							KVStoreUsedBytes:      pointer.Int64(104861752),
-							KVStoreTotalBytes:     pointer.Int64(135012552704),
-							KVStoreFreeBytes:      pointer.Int64(84178112512),
-							KVStoreAvailableBytes: pointer.Int64(84178112512),
+							KVStoreUsedBytes:      ptr.To[int64](104861752),
+							KVStoreTotalBytes:     ptr.To[int64](135012552704),
+							KVStoreFreeBytes:      ptr.To[int64](84178112512),
+							KVStoreAvailableBytes: ptr.To[int64](84178112512),
 							ReadLatencyStatistics: FoundationDBStatusPerfStatistics{
-								Count:  pointer.Int(0),
-								Median: pointer.Float64(0),
-								P99:    pointer.Float64(0),
+								Count:  ptr.To(0),
+								Median: ptr.To(0.0),
+								P99:    ptr.To(0.0),
 							},
 						},
 					},
@@ -286,10 +286,10 @@ var _ = Describe("FoundationDBStatus", func() {
 						{
 							Role:                  string(ProcessRoleLog),
 							ID:                    "2c66a861b33b2697",
-							KVStoreUsedBytes:      pointer.Int64(104861752),
-							KVStoreTotalBytes:     pointer.Int64(135012552704),
-							KVStoreFreeBytes:      pointer.Int64(84178214912),
-							KVStoreAvailableBytes: pointer.Int64(84178214912),
+							KVStoreUsedBytes:      ptr.To[int64](104861752),
+							KVStoreTotalBytes:     ptr.To[int64](135012552704),
+							KVStoreFreeBytes:      ptr.To[int64](84178214912),
+							KVStoreAvailableBytes: ptr.To[int64](84178214912),
 						},
 					},
 					Messages: []FoundationDBStatusProcessMessage{},
@@ -314,10 +314,10 @@ var _ = Describe("FoundationDBStatus", func() {
 						{
 							Role:                  string(ProcessRoleLog),
 							ID:                    "56cf105980ec2b07",
-							KVStoreUsedBytes:      pointer.Int64(104861752),
-							KVStoreTotalBytes:     pointer.Int64(135012552704),
-							KVStoreFreeBytes:      pointer.Int64(84178214912),
-							KVStoreAvailableBytes: pointer.Int64(84178214912),
+							KVStoreUsedBytes:      ptr.To[int64](104861752),
+							KVStoreTotalBytes:     ptr.To[int64](135012552704),
+							KVStoreFreeBytes:      ptr.To[int64](84178214912),
+							KVStoreAvailableBytes: ptr.To[int64](84178214912),
 						},
 					},
 					Messages: []FoundationDBStatusProcessMessage{},
@@ -342,10 +342,10 @@ var _ = Describe("FoundationDBStatus", func() {
 						{
 							Role:                  string(ProcessRoleLog),
 							ID:                    "31754d1d7d8d6f05",
-							KVStoreUsedBytes:      pointer.Int64(104861752),
-							KVStoreTotalBytes:     pointer.Int64(135012552704),
-							KVStoreFreeBytes:      pointer.Int64(84178202624),
-							KVStoreAvailableBytes: pointer.Int64(84178202624),
+							KVStoreUsedBytes:      ptr.To[int64](104861752),
+							KVStoreTotalBytes:     ptr.To[int64](135012552704),
+							KVStoreFreeBytes:      ptr.To[int64](84178202624),
+							KVStoreAvailableBytes: ptr.To[int64](84178202624),
 						},
 					},
 					Messages: []FoundationDBStatusProcessMessage{},
@@ -373,10 +373,10 @@ var _ = Describe("FoundationDBStatus", func() {
 							Name:                 "healthy",
 							MinReplicasRemaining: 2,
 						},
-						UnhealthyServers: pointer.Int64(0),
+						UnhealthyServers: ptr.To[int64](0),
 					},
 				},
-				TotalDiskUsedBytes: pointer.Int64(629203472),
+				TotalDiskUsedBytes: ptr.To[int64](629203472),
 			},
 			FullReplication: true,
 			Clients: FoundationDBStatusClusterClientInfo{
@@ -498,7 +498,7 @@ var _ = Describe("FoundationDBStatus", func() {
 				},
 			},
 			Layers: FoundationDBStatusLayerInfo{
-				Valid:  pointer.Bool(true),
+				Valid:  ptr.To(true),
 				Backup: FoundationDBStatusBackupInfo{Paused: false, Tags: nil},
 				Error:  "",
 			},
@@ -540,12 +540,12 @@ var _ = Describe("FoundationDBStatus", func() {
 			},
 			Generation: 2,
 			BounceImpact: FoundationDBBounceImpact{
-				CanCleanBounce: pointer.Bool(true),
+				CanCleanBounce: ptr.To(true),
 			},
-			DatabaseAvailable: pointer.Bool(true),
-			ActivePrimaryDC:   pointer.String(""),
+			DatabaseAvailable: ptr.To(true),
+			ActivePrimaryDC:   ptr.To(""),
 			DatabaseLockState: FoundationDBStatusLockState{
-				Locked: pointer.Bool(false),
+				Locked: ptr.To(false),
 			},
 		}
 
