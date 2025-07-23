@@ -75,6 +75,8 @@ func CheckKnobRollout(
 				fdbCluster,
 				ptr.To[int64](int64(durationSinceLastStateDump.Seconds())+5),
 			)
+
+			lastStateDump = time.Now()
 		}
 
 		status := primary.GetStatus()
