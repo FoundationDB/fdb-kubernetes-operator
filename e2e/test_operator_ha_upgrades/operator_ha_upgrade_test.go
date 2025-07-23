@@ -397,7 +397,7 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 
 			// When using protocol compatible versions, the other operator instances are able to move forward. In some
 			// cases it can happen that new coordinators are selected and all the old coordinators are deleted. In this
-			// case the remote satellite operator with not be able to connect to the cluster anymore and needs an
+			// case the remote satellite operator will not be able to connect to the cluster anymore and needs an
 			// update to the connection string.
 			if fixtures.VersionsAreProtocolCompatible(beforeVersion, targetVersion) {
 				Eventually(func(g Gomega) {
