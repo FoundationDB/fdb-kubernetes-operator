@@ -28,6 +28,8 @@ import (
 	"path"
 	"time"
 
+	"k8s.io/utils/ptr"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -971,8 +973,8 @@ protocol fdb00b071010000`,
 	})
 
 	DescribeTable(
-		"starting backup with different versions",
-		func(version string, encryptionKeyPath string, shouldHaveEncryptionFlag bool) {
+		"starting backup",
+		func(backup *fdbv1beta2.FoundationDBBackup, expectedArgs []string) {
 			mockRunner := &mockCommandRunner{
 				mockedError:  nil,
 				mockedOutput: []string{""},
@@ -981,46 +983,96 @@ protocol fdb00b071010000`,
 			client := &cliAdminClient{
 				Cluster: &fdbv1beta2.FoundationDBCluster{
 					Spec: fdbv1beta2.FoundationDBClusterSpec{
-						Version: version,
+						Version: backup.Spec.Version,
 					},
 					Status: fdbv1beta2.FoundationDBClusterStatus{
-						RunningVersion: version,
+						RunningVersion: backup.Spec.Version,
 					},
 				},
 				log:       logr.Discard(),
 				cmdRunner: mockRunner,
 			}
 
-			url := "blobstore://test@test-service/test-backup"
-			snapshotPeriodSeconds := 60
-
-			err := client.StartBackup(url, snapshotPeriodSeconds, encryptionKeyPath)
-			Expect(err).NotTo(HaveOccurred())
+			Expect(client.StartBackup(backup)).To(Succeed())
 
 			// Check basic arguments that should always be present
-			Expect(mockRunner.receivedArgs[0]).To(ContainElements(
-				"start",
-				"-d", url,
-				"-s", "60",
-				"-z",
-			))
+			args := mockRunner.receivedArgs[0]
+			// The last 2 args are always the cluster file.
+			Expect(args[:len(args)-2]).To(HaveExactElements(expectedArgs))
 
-			if shouldHaveEncryptionFlag {
-				Expect(
-					mockRunner.receivedArgs[0],
-				).To(ContainElements("--encryption-key-file", encryptionKeyPath))
-			} else {
-				Expect(mockRunner.receivedArgs[0]).ToNot(ContainElement("--encryption-key-file"))
-			}
 		},
 		Entry(
-			"version that doesn't support backup encryption with key",
-			"7.1.25",
-			"/path/to/key",
-			false,
+			"version that doesn't support backup encryption without key",
+			&fdbv1beta2.FoundationDBBackup{
+				Spec: fdbv1beta2.FoundationDBBackupSpec{
+					Version: fdbv1beta2.Versions.Default.String(),
+					BlobStoreConfiguration: &fdbv1beta2.BlobStoreConfiguration{
+						AccountName: "test",
+						BackupName:  "test-backup",
+					},
+					SnapshotPeriodSeconds: ptr.To(60),
+				},
+			}, []string{
+				"start",
+				"-d", "blobstore://test:443/test-backup?bucket=fdb-backups",
+				"-s", "60",
+				"-z",
+			},
 		),
-		Entry("version that supports backup encryption without key", "7.3.1", "", false),
-		Entry("version that supports backup encryption with key", "7.3.1", "/path/to/key", true),
+		Entry(
+			"version that doesn't support backup encryption with key",
+			&fdbv1beta2.FoundationDBBackup{
+				Spec: fdbv1beta2.FoundationDBBackupSpec{
+					Version: fdbv1beta2.Versions.Default.String(),
+					BlobStoreConfiguration: &fdbv1beta2.BlobStoreConfiguration{
+						AccountName: "test",
+						BackupName:  "test-backup",
+					},
+					SnapshotPeriodSeconds: ptr.To(60),
+					EncryptionKeyPath:     "/tmp/test",
+				},
+			}, []string{
+				"start",
+				"-d", "blobstore://test:443/test-backup?bucket=fdb-backups",
+				"-s", "60",
+				"-z",
+			},
+		),
+		Entry("version that supports backup encryption without key",
+			&fdbv1beta2.FoundationDBBackup{
+				Spec: fdbv1beta2.FoundationDBBackupSpec{
+					Version: fdbv1beta2.Versions.SupportsBackupEncryption.String(),
+					BlobStoreConfiguration: &fdbv1beta2.BlobStoreConfiguration{
+						AccountName: "test",
+						BackupName:  "test-backup",
+					},
+					SnapshotPeriodSeconds: ptr.To(60),
+				},
+			}, []string{
+				"start",
+				"-d", "blobstore://test:443/test-backup?bucket=fdb-backups",
+				"-s", "60",
+				"-z",
+			}),
+		Entry("version that supports backup encryption with key",
+			&fdbv1beta2.FoundationDBBackup{
+				Spec: fdbv1beta2.FoundationDBBackupSpec{
+					Version: fdbv1beta2.Versions.SupportsBackupEncryption.String(),
+					BlobStoreConfiguration: &fdbv1beta2.BlobStoreConfiguration{
+						AccountName: "test",
+						BackupName:  "test-backup",
+					},
+					SnapshotPeriodSeconds: ptr.To(60),
+					EncryptionKeyPath:     "/tmp/test",
+				},
+			}, []string{
+				"start",
+				"-d", "blobstore://test:443/test-backup?bucket=fdb-backups",
+				"-s", "60",
+				"-z",
+				"--encryption-key-file",
+				"/tmp/test",
+			}),
 	)
 
 	DescribeTable(
