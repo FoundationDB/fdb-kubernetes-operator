@@ -64,7 +64,6 @@ var _ = PDescribe("Operator Migrate Image Type", Label("e2e"), func() {
 			config.UseUnifiedImage = ptr.To(false)
 			fdbCluster = factory.CreateFdbCluster(
 				config,
-				factory.GetClusterOptions()...,
 			)
 
 			// Load some data async into the cluster. We will only block as long as the Job is created.
@@ -75,7 +74,7 @@ var _ = PDescribe("Operator Migrate Image Type", Label("e2e"), func() {
 			imageType := fdbv1beta2.ImageTypeUnified
 			spec.ImageType = &imageType
 			// Generate the new config to make use of the unified images.
-			overrides := factory.GetMainContainerOverrides(false, true)
+			overrides := factory.GetMainContainerOverrides(config)
 			overrides.EnableTLS = spec.MainContainer.EnableTLS
 			spec.MainContainer = overrides
 			fdbCluster.UpdateClusterSpecWithSpec(spec)
@@ -113,7 +112,6 @@ var _ = PDescribe("Operator Migrate Image Type", Label("e2e"), func() {
 			config.UseUnifiedImage = ptr.To(false)
 			fdbCluster = factory.CreateFdbCluster(
 				config,
-				factory.GetClusterOptions()...,
 			)
 
 			// Set the Pod IP Family
@@ -130,7 +128,7 @@ var _ = PDescribe("Operator Migrate Image Type", Label("e2e"), func() {
 			imageType := fdbv1beta2.ImageTypeUnified
 			spec.ImageType = &imageType
 			// Generate the new config to make use of the unified images.
-			overrides := factory.GetMainContainerOverrides(false, true)
+			overrides := factory.GetMainContainerOverrides(config)
 			overrides.EnableTLS = spec.MainContainer.EnableTLS
 			spec.MainContainer = overrides
 			fdbCluster.UpdateClusterSpecWithSpec(spec)
@@ -168,7 +166,6 @@ var _ = PDescribe("Operator Migrate Image Type", Label("e2e"), func() {
 			config.UseUnifiedImage = ptr.To(true)
 			fdbCluster = factory.CreateFdbCluster(
 				config,
-				factory.GetClusterOptions()...,
 			)
 
 			// Load some data async into the cluster. We will only block as long as the Job is created.
@@ -179,7 +176,7 @@ var _ = PDescribe("Operator Migrate Image Type", Label("e2e"), func() {
 			imageType := fdbv1beta2.ImageTypeSplit
 			spec.ImageType = &imageType
 			// Generate the new config to make use of the split images.
-			overrides := factory.GetMainContainerOverrides(false, false)
+			overrides := factory.GetMainContainerOverrides(config)
 			overrides.EnableTLS = spec.MainContainer.EnableTLS
 			spec.MainContainer = overrides
 			fdbCluster.UpdateClusterSpecWithSpec(spec)

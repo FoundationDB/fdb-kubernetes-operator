@@ -84,7 +84,7 @@ func processRequeue(
 	}
 
 	if requeue.delay == time.Duration(0) {
-		requeue.delay = 2 * time.Second
+		requeue.delay = 100 * time.Millisecond
 	}
 
 	recorder.Event(object, corev1.EventTypeNormal, "ReconciliationTerminatedEarly", requeue.message)

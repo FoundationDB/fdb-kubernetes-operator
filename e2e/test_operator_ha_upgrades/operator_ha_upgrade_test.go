@@ -68,10 +68,6 @@ type testConfig struct {
 }
 
 func clusterSetupWithTestConfig(config testConfig) {
-	// We set the before version here to overwrite the before version from the specific flag
-	// the specific flag will be removed in the future.
-	factory.SetBeforeVersion(config.beforeVersion)
-
 	if config.clusterConfig == nil {
 		config.clusterConfig = fixtures.DefaultClusterConfigWithHaMode(
 			fixtures.HaFourZoneSingleSat,
@@ -79,10 +75,8 @@ func clusterSetupWithTestConfig(config testConfig) {
 		)
 	}
 
-	fdbCluster = factory.CreateFdbHaCluster(
-		config.clusterConfig,
-		factory.GetClusterOptions(fixtures.UseVersionBeforeUpgrade)...,
-	)
+	config.clusterConfig.Version = ptr.To(config.beforeVersion)
+	fdbCluster = factory.CreateFdbHaCluster(config.clusterConfig)
 
 	if config.enableHealthCheck {
 		Expect(

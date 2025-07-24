@@ -64,8 +64,19 @@ func CheckKnobRollout(
 
 	startTime := time.Now()
 	timeoutTime := startTime.Add(time.Duration(knobRolloutTimeoutSeconds) * time.Second)
+	lastStateDump := time.Now()
 
 	Eventually(func(g Gomega) {
+		durationSinceLastStateDump := time.Since(lastStateDump)
+		if durationSinceLastStateDump > 2*time.Minute {
+			factory.DumpStateHaClusterWithLogsSince(
+				fdbCluster,
+				ptr.To[int64](int64(durationSinceLastStateDump.Seconds())+5),
+			)
+
+			lastStateDump = time.Now()
+		}
+
 		status := primary.GetStatus()
 		commandLines := primary.GetCommandlineForProcessesPerClassWithStatus(status)
 		var generalProcessCounts, storageProcessCounts int
@@ -99,6 +110,18 @@ func CheckKnobRollout(
 			"time until timeout",
 			time.Until(timeoutTime).Seconds(),
 		)
+
+		for _, cluster := range fdbCluster.GetAllClusters() {
+			currentCluster := cluster.GetCluster()
+			log.Println(
+				"cluster state:",
+				currentCluster.Name,
+				"generation:",
+				currentCluster.Generation,
+				"reconciled:",
+				currentCluster.Status.Generations.Reconciled,
+			)
+		}
 
 		g.Expect(generalProcessCounts).To(BeNumerically("==", totalGeneralProcessCount))
 		g.Expect(storageProcessCounts).To(BeNumerically("==", totalStorageProcessCount))
@@ -153,7 +176,6 @@ var _ = BeforeSuite(func() {
 	factory = fixtures.CreateFactory(testOptions)
 	fdbCluster = factory.CreateFdbHaCluster(
 		fixtures.DefaultClusterConfigWithHaMode(fixtures.HaFourZoneDoubleSat, false),
-		factory.GetClusterOptions(fixtures.WithOneMinuteMinimumUptimeSecondsForBounce)...,
 	)
 
 	// We only have to fetch the data once

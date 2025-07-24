@@ -50,8 +50,7 @@ func init() {
 var _ = BeforeSuite(func() {
 	factory = fixtures.CreateFactory(testOptions)
 	fdbCluster = factory.CreateFdbHaCluster(
-		fixtures.DefaultClusterConfigWithHaMode(fixtures.HaFourZoneSingleSat, false),
-		factory.GetClusterOptions()...)
+		fixtures.DefaultClusterConfigWithHaMode(fixtures.HaFourZoneSingleSat, false))
 
 	// In order to test the robustness of the operator we try to kill the operator Pods every minute.
 	if factory.ChaosTestsEnabled() {

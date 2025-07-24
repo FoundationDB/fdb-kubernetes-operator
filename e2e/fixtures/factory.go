@@ -54,7 +54,6 @@ type Factory struct {
 	chaosExperiments        []ChaosMeshExperiment
 	invariantShutdownHooks  ShutdownHooks
 	shutdownInProgress      bool
-	beforeVersion           string
 	namespace               string
 	userName                string
 	options                 *FactoryOptions
@@ -156,11 +155,6 @@ func (factory *Factory) GetFDBVersion() fdbv1beta2.Version {
 	return factory.fdbVersion
 }
 
-// GetFDBVersionAsString returns the FDB version as string.
-func (factory *Factory) GetFDBVersionAsString() string {
-	return factory.options.fdbVersion
-}
-
 // ChaosTestsEnabled returns true if chaos tests should be executed.
 func (factory *Factory) ChaosTestsEnabled() bool {
 	return factory.options.enableChaosTests
@@ -169,12 +163,10 @@ func (factory *Factory) ChaosTestsEnabled() bool {
 // CreateFdbCluster creates a FDB cluster.
 func (factory *Factory) CreateFdbCluster(
 	config *ClusterConfig,
-	options ...ClusterOption,
 ) *FdbCluster {
 	return factory.CreateFdbClusterFromSpec(
 		factory.GenerateFDBClusterSpec(config),
-		config,
-		options...)
+		config)
 }
 
 // CreateFdbClusterFromSpec creates a FDB cluster. This method can be used in combination with the GenerateFDBClusterSpec method.
@@ -182,13 +174,12 @@ func (factory *Factory) CreateFdbCluster(
 func (factory *Factory) CreateFdbClusterFromSpec(
 	spec *fdbv1beta2.FoundationDBCluster,
 	config *ClusterConfig,
-	options ...ClusterOption,
 ) *FdbCluster {
 	startTime := time.Now()
 	config.SetDefaults(factory)
 	log.Printf("create cluster: %s", ToJSON(spec))
 
-	cluster := factory.startFDBFromClusterSpec(spec, config, options...)
+	cluster := factory.startFDBFromClusterSpec(spec, config)
 	log.Println(
 		"FoundationDB cluster created (at version",
 		cluster.cluster.Spec.Version,
@@ -202,15 +193,11 @@ func (factory *Factory) CreateFdbClusterFromSpec(
 // CreateFdbHaCluster creates a HA FDB Cluster based on the cluster config and cluster options
 func (factory *Factory) CreateFdbHaCluster(
 	config *ClusterConfig,
-	options ...ClusterOption,
 ) *HaFdbCluster {
 	startTime := time.Now()
 	config.SetDefaults(factory)
 
-	cluster := factory.ensureHAFdbClusterExists(
-		config,
-		options,
-	)
+	cluster := factory.ensureHAFdbClusterExists(config)
 
 	log.Println(
 		"FoundationDB HA cluster created (at version",
@@ -224,32 +211,36 @@ func (factory *Factory) CreateFdbHaCluster(
 
 // GetMainContainerOverrides will return the main container overrides.
 func (factory *Factory) GetMainContainerOverrides(
-	debugSymbols bool,
-	unifiedImage bool,
+	config *ClusterConfig,
 ) fdbv1beta2.ContainerOverrides {
 	image := factory.GetFoundationDBImage()
-	if unifiedImage {
+	if config.GetUseUnifiedImage() {
 		image = factory.GetUnifiedFoundationDBImage()
 	}
 
 	mainImage, tag := GetBaseImageAndTag(image)
 
 	return fdbv1beta2.ContainerOverrides{
-		EnableTLS:    false,
-		ImageConfigs: factory.options.getImageVersionConfig(mainImage, tag, false, debugSymbols),
+		EnableTLS: config.TLSEnabled(),
+		ImageConfigs: factory.options.getImageVersionConfig(
+			mainImage,
+			tag,
+			false,
+			config.DebugSymbols,
+		),
 	}
 }
 
 // GetSidecarContainerOverrides will return the sidecar container overrides. If the unified image should be used an empty
 // container override will be returned.
 func (factory *Factory) GetSidecarContainerOverrides(
-	debugSymbols bool,
+	config *ClusterConfig,
 ) fdbv1beta2.ContainerOverrides {
 	image, tag := GetBaseImageAndTag(factory.GetSidecarImage())
 
 	return fdbv1beta2.ContainerOverrides{
-		EnableTLS:    false,
-		ImageConfigs: factory.options.getImageVersionConfig(image, tag, true, debugSymbols),
+		EnableTLS:    config.TLSEnabled(),
+		ImageConfigs: factory.options.getImageVersionConfig(image, tag, true, config.DebugSymbols),
 	}
 }
 
@@ -380,13 +371,7 @@ func (factory *Factory) logClusterInfo(spec *fdbv1beta2.FoundationDBCluster) {
 func (factory *Factory) startFDBFromClusterSpec(
 	spec *fdbv1beta2.FoundationDBCluster,
 	config *ClusterConfig,
-	options ...ClusterOption,
 ) *FdbCluster {
-	spec = spec.DeepCopy()
-	for _, option := range options {
-		option(factory, spec)
-	}
-
 	factory.logClusterInfo(spec)
 
 	fdbCluster, err := factory.ensureFdbClusterExists(spec, config)
@@ -399,10 +384,6 @@ func (factory *Factory) startFDBFromClusterSpec(
 	gomega.Expect(fdbCluster.WaitUntilAvailable()).ToNot(gomega.HaveOccurred())
 	return fdbCluster
 }
-
-// ClusterOption provides a fluid mechanism for chaining together options for
-// building clusters.
-type ClusterOption func(*Factory, *fdbv1beta2.FoundationDBCluster)
 
 // ExecuteCmdOnPod runs a command on the provided Pod. The command will be executed inside a bash -c ”.
 func (factory *Factory) ExecuteCmdOnPod(
@@ -525,16 +506,6 @@ func (factory *Factory) GetDefaultLabels() map[string]string {
 		"foundationdb.org/testing": "chaos",
 		"foundationdb.org/user":    factory.options.username,
 	}
-}
-
-// SetBeforeVersion allows a user to overwrite the before version that should be used.
-func (factory *Factory) SetBeforeVersion(version string) {
-	factory.beforeVersion = version
-}
-
-// GetBeforeVersion returns the before version if set. This is used during upgrade tests.
-func (factory *Factory) GetBeforeVersion() string {
-	return factory.beforeVersion
 }
 
 // GetAdditionalSidecarVersions returns all additional FoundationDB versions that should be added to the sidecars. This
@@ -678,8 +649,9 @@ func writePodInformation(pod corev1.Pod) string {
 	return buffer.String()
 }
 
-// DumpState writes the state of the cluster to the log output. Useful for debugging test failures.
-func (factory *Factory) DumpState(fdbCluster *FdbCluster) {
+// DumpStateWithLogsSince writes the state of the cluster to the log output. Useful for debugging test failures.
+// The logsSinceSeconds is used for the manager logs from the operator.
+func (factory *Factory) DumpStateWithLogsSince(fdbCluster *FdbCluster, logsSinceSeconds *int64) {
 	if fdbCluster == nil || !factory.options.dumpOperatorState {
 		return
 	}
@@ -744,15 +716,30 @@ func (factory *Factory) DumpState(fdbCluster *FdbCluster) {
 	// Printout the logs of the operator Pods for the last 300 seconds.
 	for _, pod := range operatorPods {
 		targetPod := pod
-		log.Println(factory.GetLogsForPod(&targetPod, "manager", ptr.To[int64](300)))
+		log.Println(factory.GetLogsForPod(&targetPod, "manager", logsSinceSeconds))
 	}
+}
+
+// DumpState writes the state of the cluster to the log output. Useful for debugging test failures.
+func (factory *Factory) DumpState(fdbCluster *FdbCluster) {
+	factory.DumpStateWithLogsSince(fdbCluster, ptr.To[int64](300))
 }
 
 // DumpStateHaCluster can be used to dump the state of the HA cluster. This includes the Kubernetes custom resource
 // information as well as the operator logs and the Pod state.
 func (factory *Factory) DumpStateHaCluster(fdbCluster *HaFdbCluster) {
+	factory.DumpStateHaClusterWithLogsSince(fdbCluster, ptr.To[int64](300))
+}
+
+// DumpStateHaClusterWithLogsSince can be used to dump the state of the HA cluster. This includes the Kubernetes custom resource
+// information as well as the operator logs and the Pod state.
+// The logsSinceSeconds is used for the manager logs from the operator.
+func (factory *Factory) DumpStateHaClusterWithLogsSince(
+	fdbCluster *HaFdbCluster,
+	logsSinceSeconds *int64,
+) {
 	for _, cluster := range fdbCluster.clusters {
-		factory.DumpState(cluster)
+		factory.DumpStateWithLogsSince(cluster, logsSinceSeconds)
 	}
 }
 
@@ -775,22 +762,6 @@ func (factory *Factory) OperatorIsAtLeast(version string) bool {
 
 	log.Println("operator version", parsedOperatorVersion, "minimum version", parsedVersion)
 	return parsedOperatorVersion.IsAtLeast(parsedVersion)
-}
-
-// GetClusterOptions returns the cluster options that should be used for the operator testing. Those options can be changed
-// by changing the according feature flags.
-func (factory *Factory) GetClusterOptions(options ...ClusterOption) []ClusterOption {
-	options = append(options, WithTLSEnabled)
-
-	if factory.options.featureOperatorLocalities {
-		options = append(options, WithLocalitiesForExclusion)
-	}
-
-	if factory.options.featureOperatorDNS {
-		options = append(options, WithDNSEnabled)
-	}
-
-	return options
 }
 
 // PrependRegistry if a registry was provided as flag, the registry will be prepended.

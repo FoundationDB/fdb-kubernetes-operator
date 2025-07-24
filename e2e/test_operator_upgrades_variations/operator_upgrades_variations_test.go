@@ -65,11 +65,9 @@ type testConfig struct {
 }
 
 func clusterSetupWithConfig(config testConfig) *fixtures.FdbCluster {
-	factory.SetBeforeVersion(config.beforeVersion)
-	cluster := factory.CreateFdbCluster(
-		config.clusterConfig,
-		factory.GetClusterOptions(fixtures.UseVersionBeforeUpgrade)...,
-	)
+	config.clusterConfig.Version = ptr.To(config.beforeVersion)
+
+	cluster := factory.CreateFdbCluster(config.clusterConfig)
 
 	if config.loadData {
 		// Load some data into the cluster.

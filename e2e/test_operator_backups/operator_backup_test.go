@@ -56,13 +56,12 @@ var _ = BeforeSuite(func() {
 		Skip("version has a bug in the backup version that prevents tests to succeed")
 	}
 
-	if factory.GetFDBVersionAsString() == "7.1.63" {
+	if factory.GetFDBVersion().String() == "7.1.63" {
 		Skip("Skip backup tests with 7.1.63 as this version has a bug in the fdbbackup agent")
 	}
 
 	fdbCluster = factory.CreateFdbCluster(
 		fixtures.DefaultClusterConfig(false),
-		factory.GetClusterOptions()...,
 	)
 
 	// Create a blobstore for testing backups and restore

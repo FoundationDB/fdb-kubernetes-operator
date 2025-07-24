@@ -1585,7 +1585,7 @@ func (fdbCluster *FdbCluster) CreateTesterDeployment(replicas int) *appsv1.Deplo
 		fdbv1beta2.FDBProcessClassLabel: string(fdbv1beta2.ProcessClassTest),
 	}
 
-	mainImage := fdbv1beta2.SelectImageConfig(fdbCluster.factory.GetMainContainerOverrides(false, fdbCluster.cluster.UseUnifiedImage()).ImageConfigs, fdbCluster.cluster.Spec.Version).
+	mainImage := fdbv1beta2.SelectImageConfig(fdbCluster.cluster.Spec.MainContainer.ImageConfigs, fdbCluster.cluster.Spec.Version).
 		Image()
 
 	var initArgs []string
@@ -1605,7 +1605,7 @@ func (fdbCluster *FdbCluster) CreateTesterDeployment(replicas int) *appsv1.Deplo
 			"fdb.cluster",
 		}
 	} else {
-		sidecarImage = fdbv1beta2.SelectImageConfig(fdbCluster.factory.GetSidecarContainerOverrides(fdbCluster.cluster.UseUnifiedImage()).ImageConfigs, fdbCluster.cluster.Spec.Version).Image()
+		sidecarImage = fdbv1beta2.SelectImageConfig(fdbCluster.cluster.Spec.SidecarContainer.ImageConfigs, fdbCluster.cluster.Spec.Version).Image()
 		initArgs = []string{"--init-mode", "--require-not-empty", "fdb.cluster", "--copy-file", "fdb.cluster"}
 	}
 

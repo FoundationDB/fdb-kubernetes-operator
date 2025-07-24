@@ -56,7 +56,6 @@ var _ = Describe("Operator Stress", Label("e2e"), func() {
 			for i := 0; i < 10; i++ {
 				fdbCluster := factory.CreateFdbCluster(
 					fixtures.DefaultClusterConfig(false),
-					factory.GetClusterOptions()...,
 				)
 				Expect(fdbCluster.IsAvailable()).To(BeTrue())
 				Expect(fdbCluster.Destroy()).NotTo(HaveOccurred())
@@ -70,7 +69,6 @@ var _ = Describe("Operator Stress", Label("e2e"), func() {
 		BeforeEach(func() {
 			fdbCluster = factory.CreateFdbCluster(
 				fixtures.DefaultClusterConfig(false),
-				factory.GetClusterOptions()...,
 			)
 			Expect(fdbCluster.InvariantClusterStatusAvailable()).NotTo(HaveOccurred())
 		})

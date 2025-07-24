@@ -49,10 +49,7 @@ func init() {
 
 var _ = BeforeSuite(func() {
 	factory = fixtures.CreateFactory(testOptions)
-	fdbCluster = factory.CreateFdbCluster(
-		fixtures.DefaultClusterConfig(false),
-		factory.GetClusterOptions()...,
-	)
+	fdbCluster = factory.CreateFdbCluster(fixtures.DefaultClusterConfig(false))
 
 	// Make sure the unschedulable Pod is not removed
 	Expect(fdbCluster.SetAutoReplacements(false, 12*time.Hour)).NotTo(HaveOccurred())

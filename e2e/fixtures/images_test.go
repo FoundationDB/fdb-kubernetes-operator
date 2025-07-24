@@ -24,13 +24,14 @@ import (
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/utils/ptr"
 )
 
 var _ = Describe("image setup", func() {
 	DescribeTable(
 		"when generating the sidecar image configuration",
-		func(factory *Factory, debugSymbols bool, expected fdbv1beta2.ContainerOverrides) {
-			result := factory.GetSidecarContainerOverrides(debugSymbols)
+		func(factory *Factory, config *ClusterConfig, expected fdbv1beta2.ContainerOverrides) {
+			result := factory.GetSidecarContainerOverrides(config)
 			Expect(result.ImageConfigs).To(ConsistOf(expected.ImageConfigs))
 		},
 		Entry("no version mapping and no debug symbols",
@@ -43,7 +44,9 @@ var _ = Describe("image setup", func() {
 					fdbVersionTagMapping: "",
 				},
 			},
-			false,
+			&ClusterConfig{
+				DebugSymbols: false,
+			},
 			fdbv1beta2.ContainerOverrides{
 				ImageConfigs: []fdbv1beta2.ImageConfig{
 					{
@@ -68,7 +71,9 @@ var _ = Describe("image setup", func() {
 					fdbVersionTagMapping: "",
 				},
 			},
-			false,
+			&ClusterConfig{
+				DebugSymbols: false,
+			},
 			fdbv1beta2.ContainerOverrides{
 				ImageConfigs: []fdbv1beta2.ImageConfig{
 					{
@@ -94,7 +99,9 @@ var _ = Describe("image setup", func() {
 					fdbVersionTagMapping: "",
 				},
 			},
-			true,
+			&ClusterConfig{
+				DebugSymbols: true,
+			},
 			fdbv1beta2.ContainerOverrides{
 				ImageConfigs: []fdbv1beta2.ImageConfig{
 					{
@@ -119,7 +126,9 @@ var _ = Describe("image setup", func() {
 					fdbVersionTagMapping: "7.3.63:7.3.63-mytag",
 				},
 			},
-			false,
+			&ClusterConfig{
+				DebugSymbols: false,
+			},
 			fdbv1beta2.ContainerOverrides{
 				ImageConfigs: []fdbv1beta2.ImageConfig{
 					{
@@ -144,7 +153,9 @@ var _ = Describe("image setup", func() {
 					fdbVersionTagMapping: "7.3.63:7.3.63-mytag",
 				},
 			},
-			true,
+			&ClusterConfig{
+				DebugSymbols: true,
+			},
 			fdbv1beta2.ContainerOverrides{
 				ImageConfigs: []fdbv1beta2.ImageConfig{
 					{
@@ -167,7 +178,9 @@ var _ = Describe("image setup", func() {
 					fdbVersionTagMapping: "7.3.63:7.3.63-mytag",
 				},
 			},
-			true,
+			&ClusterConfig{
+				DebugSymbols: true,
+			},
 			fdbv1beta2.ContainerOverrides{
 				ImageConfigs: []fdbv1beta2.ImageConfig{
 					{
@@ -192,7 +205,9 @@ var _ = Describe("image setup", func() {
 					fdbVersionTagMapping: "",
 				},
 			},
-			true,
+			&ClusterConfig{
+				DebugSymbols: true,
+			},
 			fdbv1beta2.ContainerOverrides{
 				ImageConfigs: []fdbv1beta2.ImageConfig{
 					{
@@ -217,7 +232,9 @@ var _ = Describe("image setup", func() {
 					fdbVersionTagMapping: "",
 				},
 			},
-			true,
+			&ClusterConfig{
+				DebugSymbols: true,
+			},
 			fdbv1beta2.ContainerOverrides{
 				ImageConfigs: []fdbv1beta2.ImageConfig{
 					{
@@ -236,8 +253,8 @@ var _ = Describe("image setup", func() {
 
 	DescribeTable(
 		"when generating the main image configuration",
-		func(factory *Factory, debugSymbols bool, unifiedImage bool, expected fdbv1beta2.ContainerOverrides) {
-			result := factory.GetMainContainerOverrides(debugSymbols, unifiedImage)
+		func(factory *Factory, config *ClusterConfig, expected fdbv1beta2.ContainerOverrides) {
+			result := factory.GetMainContainerOverrides(config)
 			Expect(result.ImageConfigs).To(ConsistOf(expected.ImageConfigs))
 		},
 		Entry("no version mapping and no debug symbols",
@@ -250,8 +267,10 @@ var _ = Describe("image setup", func() {
 					fdbVersionTagMapping: "",
 				},
 			},
-			false,
-			false,
+			&ClusterConfig{
+				DebugSymbols:    false,
+				UseUnifiedImage: ptr.To(false),
+			},
 			fdbv1beta2.ContainerOverrides{
 				ImageConfigs: []fdbv1beta2.ImageConfig{
 					{
@@ -276,8 +295,10 @@ var _ = Describe("image setup", func() {
 					fdbVersionTagMapping: "",
 				},
 			},
-			false,
-			false,
+			&ClusterConfig{
+				DebugSymbols:    false,
+				UseUnifiedImage: ptr.To(false),
+			},
 			fdbv1beta2.ContainerOverrides{
 				ImageConfigs: []fdbv1beta2.ImageConfig{
 					{
@@ -303,8 +324,10 @@ var _ = Describe("image setup", func() {
 					fdbVersionTagMapping: "",
 				},
 			},
-			true,
-			false,
+			&ClusterConfig{
+				DebugSymbols:    true,
+				UseUnifiedImage: ptr.To(false),
+			},
 			fdbv1beta2.ContainerOverrides{
 				ImageConfigs: []fdbv1beta2.ImageConfig{
 					{
@@ -329,8 +352,10 @@ var _ = Describe("image setup", func() {
 					fdbVersionTagMapping: "7.3.63:7.3.63-mytag",
 				},
 			},
-			false,
-			false,
+			&ClusterConfig{
+				DebugSymbols:    false,
+				UseUnifiedImage: ptr.To(false),
+			},
 			fdbv1beta2.ContainerOverrides{
 				ImageConfigs: []fdbv1beta2.ImageConfig{
 					{
@@ -355,8 +380,10 @@ var _ = Describe("image setup", func() {
 					fdbVersionTagMapping: "7.3.63:7.3.63-mytag",
 				},
 			},
-			true,
-			false,
+			&ClusterConfig{
+				DebugSymbols:    true,
+				UseUnifiedImage: ptr.To(false),
+			},
 			fdbv1beta2.ContainerOverrides{
 				ImageConfigs: []fdbv1beta2.ImageConfig{
 					{
@@ -381,8 +408,10 @@ var _ = Describe("image setup", func() {
 					fdbVersionTagMapping: "7.3.63:7.3.63-mytag",
 				},
 			},
-			true,
-			false,
+			&ClusterConfig{
+				DebugSymbols:    true,
+				UseUnifiedImage: ptr.To(false),
+			},
 			fdbv1beta2.ContainerOverrides{
 				ImageConfigs: []fdbv1beta2.ImageConfig{
 					{
@@ -407,8 +436,10 @@ var _ = Describe("image setup", func() {
 					fdbVersionTagMapping: "",
 				},
 			},
-			true,
-			false,
+			&ClusterConfig{
+				DebugSymbols:    true,
+				UseUnifiedImage: ptr.To(false),
+			},
 			fdbv1beta2.ContainerOverrides{
 				ImageConfigs: []fdbv1beta2.ImageConfig{
 					{
@@ -433,8 +464,10 @@ var _ = Describe("image setup", func() {
 					fdbVersionTagMapping: "",
 				},
 			},
-			true,
-			false,
+			&ClusterConfig{
+				DebugSymbols:    true,
+				UseUnifiedImage: ptr.To(false),
+			},
 			fdbv1beta2.ContainerOverrides{
 				ImageConfigs: []fdbv1beta2.ImageConfig{
 					{
@@ -460,8 +493,10 @@ var _ = Describe("image setup", func() {
 					fdbVersionTagMapping: "",
 				},
 			},
-			false,
-			true,
+			&ClusterConfig{
+				DebugSymbols:    false,
+				UseUnifiedImage: ptr.To(true),
+			},
 			fdbv1beta2.ContainerOverrides{
 				ImageConfigs: []fdbv1beta2.ImageConfig{
 					{
@@ -486,8 +521,10 @@ var _ = Describe("image setup", func() {
 					fdbVersionTagMapping: "",
 				},
 			},
-			false,
-			true,
+			&ClusterConfig{
+				DebugSymbols:    false,
+				UseUnifiedImage: ptr.To(true),
+			},
 			fdbv1beta2.ContainerOverrides{
 				ImageConfigs: []fdbv1beta2.ImageConfig{
 					{
@@ -513,8 +550,10 @@ var _ = Describe("image setup", func() {
 					fdbVersionTagMapping: "",
 				},
 			},
-			true,
-			true,
+			&ClusterConfig{
+				DebugSymbols:    true,
+				UseUnifiedImage: ptr.To(true),
+			},
 			fdbv1beta2.ContainerOverrides{
 				ImageConfigs: []fdbv1beta2.ImageConfig{
 					{
@@ -539,8 +578,10 @@ var _ = Describe("image setup", func() {
 					fdbVersionTagMapping: "7.3.63:7.3.63-mytag",
 				},
 			},
-			false,
-			true,
+			&ClusterConfig{
+				DebugSymbols:    false,
+				UseUnifiedImage: ptr.To(true),
+			},
 			fdbv1beta2.ContainerOverrides{
 				ImageConfigs: []fdbv1beta2.ImageConfig{
 					{
@@ -565,8 +606,10 @@ var _ = Describe("image setup", func() {
 					fdbVersionTagMapping: "7.3.63:7.3.63-mytag",
 				},
 			},
-			true,
-			true,
+			&ClusterConfig{
+				DebugSymbols:    true,
+				UseUnifiedImage: ptr.To(true),
+			},
 			fdbv1beta2.ContainerOverrides{
 				ImageConfigs: []fdbv1beta2.ImageConfig{
 					{
@@ -591,8 +634,10 @@ var _ = Describe("image setup", func() {
 					fdbVersionTagMapping: "7.3.63:7.3.63-mytag",
 				},
 			},
-			true,
-			true,
+			&ClusterConfig{
+				DebugSymbols:    true,
+				UseUnifiedImage: ptr.To(true),
+			},
 			fdbv1beta2.ContainerOverrides{
 				ImageConfigs: []fdbv1beta2.ImageConfig{
 					{
@@ -617,8 +662,10 @@ var _ = Describe("image setup", func() {
 					fdbVersionTagMapping: "",
 				},
 			},
-			true,
-			true,
+			&ClusterConfig{
+				DebugSymbols:    true,
+				UseUnifiedImage: ptr.To(true),
+			},
 			fdbv1beta2.ContainerOverrides{
 				ImageConfigs: []fdbv1beta2.ImageConfig{
 					{
@@ -643,8 +690,10 @@ var _ = Describe("image setup", func() {
 					fdbVersionTagMapping: "",
 				},
 			},
-			true,
-			true,
+			&ClusterConfig{
+				DebugSymbols:    true,
+				UseUnifiedImage: ptr.To(true),
+			},
 			fdbv1beta2.ContainerOverrides{
 				ImageConfigs: []fdbv1beta2.ImageConfig{
 					{

@@ -81,9 +81,6 @@ var _ = Describe("Test Operator Velocity", Label("e2e"), func() {
 					Namespace:       namespace,
 					CreationTracker: fixtures.NewDefaultCreationTrackerLogger(),
 				},
-				factory.GetClusterOptions(
-					fixtures.WithOneMinuteMinimumUptimeSecondsForBounce,
-				)...,
 			)
 
 			runTime := time.Since(startTime)
@@ -101,7 +98,6 @@ var _ = Describe("Test Operator Velocity", Label("e2e"), func() {
 					HaMode:          fixtures.HaFourZoneSingleSat,
 					CreationTracker: fixtures.NewDefaultCreationTrackerLogger(),
 				},
-				factory.GetClusterOptions()...,
 			)
 
 			runTime := time.Since(startTime)

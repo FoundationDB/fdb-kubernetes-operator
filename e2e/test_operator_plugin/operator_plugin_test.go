@@ -41,11 +41,10 @@ import (
 )
 
 var (
-	factory        *fixtures.Factory
-	fdbCluster     *fixtures.HaFdbCluster
-	testOptions    *fixtures.FactoryOptions
-	clusterConfig  *fixtures.ClusterConfig
-	clusterOptions []fixtures.ClusterOption
+	factory       *fixtures.Factory
+	fdbCluster    *fixtures.HaFdbCluster
+	testOptions   *fixtures.FactoryOptions
+	clusterConfig *fixtures.ClusterConfig
 )
 
 func init() {
@@ -54,9 +53,8 @@ func init() {
 
 var _ = BeforeSuite(func() {
 	factory = fixtures.CreateFactory(testOptions)
-	clusterOptions = factory.GetClusterOptions()
 	clusterConfig = fixtures.DefaultClusterConfigWithHaMode(fixtures.HaFourZoneSingleSat, false)
-	fdbCluster = factory.CreateFdbHaCluster(clusterConfig, clusterOptions...)
+	fdbCluster = factory.CreateFdbHaCluster(clusterConfig)
 })
 
 var _ = AfterSuite(func() {
@@ -278,7 +276,7 @@ var _ = Describe("Operator Plugin", Label("e2e", "pr"), func() {
 			factory.Shutdown()
 			// Recreate the cluster to make sure  the next tests can proceed
 			factory = fixtures.CreateFactory(testOptions)
-			fdbCluster = factory.CreateFdbHaCluster(clusterConfig, clusterOptions...)
+			fdbCluster = factory.CreateFdbHaCluster(clusterConfig)
 		})
 	})
 })

@@ -65,8 +65,7 @@ func init() {
 var _ = BeforeSuite(func() {
 	factory = fixtures.CreateFactory(testOptions)
 	fdbCluster = factory.CreateFdbHaCluster(
-		fixtures.DefaultClusterConfigWithHaMode(fixtures.HaFourZoneSingleSat, false),
-		factory.GetClusterOptions()...)
+		fixtures.DefaultClusterConfigWithHaMode(fixtures.HaFourZoneSingleSat, false))
 
 	// Load some data into the cluster.
 	factory.CreateDataLoaderIfAbsent(fdbCluster.GetPrimary())

@@ -30,19 +30,19 @@ Since FoundationDB is version incompatible for major and minor versions and the 
 import (
 	"context"
 	"fmt"
+
 	"log"
 	"strings"
 	"time"
-
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/fixtures"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 )
 
 var (
@@ -66,10 +66,9 @@ func clusterSetupWithConfig(
 	availabilityCheck bool,
 	config *fixtures.ClusterConfig,
 ) {
-	factory.SetBeforeVersion(beforeVersion)
+	config.Version = ptr.To(beforeVersion)
 	fdbCluster = factory.CreateFdbCluster(
 		config,
-		factory.GetClusterOptions(fixtures.UseVersionBeforeUpgrade)...,
 	)
 
 	// We have some tests where we expect some down time e.g. when no coordinator is restarted during an upgrade.
