@@ -100,7 +100,7 @@ var _ = Describe("image setup", func() {
 				},
 			},
 			&ClusterConfig{
-				DebugSymbols: false,
+				DebugSymbols: true,
 			},
 			fdbv1beta2.ContainerOverrides{
 				ImageConfigs: []fdbv1beta2.ImageConfig{
@@ -154,7 +154,7 @@ var _ = Describe("image setup", func() {
 				},
 			},
 			&ClusterConfig{
-				DebugSymbols: false,
+				DebugSymbols: true,
 			},
 			fdbv1beta2.ContainerOverrides{
 				ImageConfigs: []fdbv1beta2.ImageConfig{
@@ -179,7 +179,7 @@ var _ = Describe("image setup", func() {
 				},
 			},
 			&ClusterConfig{
-				DebugSymbols: false,
+				DebugSymbols: true,
 			},
 			fdbv1beta2.ContainerOverrides{
 				ImageConfigs: []fdbv1beta2.ImageConfig{
@@ -206,7 +206,7 @@ var _ = Describe("image setup", func() {
 				},
 			},
 			&ClusterConfig{
-				DebugSymbols: false,
+				DebugSymbols: true,
 			},
 			fdbv1beta2.ContainerOverrides{
 				ImageConfigs: []fdbv1beta2.ImageConfig{
@@ -233,7 +233,7 @@ var _ = Describe("image setup", func() {
 				},
 			},
 			&ClusterConfig{
-				DebugSymbols: false,
+				DebugSymbols: true,
 			},
 			fdbv1beta2.ContainerOverrides{
 				ImageConfigs: []fdbv1beta2.ImageConfig{
