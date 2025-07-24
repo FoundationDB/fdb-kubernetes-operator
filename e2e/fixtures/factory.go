@@ -155,11 +155,6 @@ func (factory *Factory) GetFDBVersion() fdbv1beta2.Version {
 	return factory.fdbVersion
 }
 
-// GetFDBVersionAsString returns the FDB version as string.
-func (factory *Factory) GetFDBVersionAsString() string {
-	return factory.options.fdbVersion
-}
-
 // ChaosTestsEnabled returns true if chaos tests should be executed.
 func (factory *Factory) ChaosTestsEnabled() bool {
 	return factory.options.enableChaosTests

@@ -223,7 +223,7 @@ func (config *ClusterConfig) SetDefaults(factory *Factory) {
 	}
 
 	if config.Version == nil {
-		config.Version = ptr.To(factory.GetFDBVersionAsString())
+		config.Version = ptr.To(factory.GetFDBVersion().String())
 	}
 }
 
@@ -631,5 +631,6 @@ func (config *ClusterConfig) Copy() *ClusterConfig {
 		CpusPerPod:                 config.CpusPerPod,
 		SynchronizationMode:        config.SynchronizationMode,
 		EnableTLS:                  config.EnableTLS,
+		Version:                    config.Version,
 	}
 }

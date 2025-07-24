@@ -539,7 +539,7 @@ func (factory *Factory) getSidecarConfigs(imageConfigs []fdbv1beta2.ImageConfig)
 	pullPolicy := factory.getImagePullPolicy()
 
 	defaultConfig := SidecarConfig{
-		Image: fdbv1beta2.SelectImageConfig(imageConfigs, factory.GetFDBVersionAsString()).
+		Image: fdbv1beta2.SelectImageConfig(imageConfigs, factory.GetFDBVersion().String()).
 			Image(),
 		FDBVersion:      factory.GetFDBVersion(),
 		ImagePullPolicy: pullPolicy,
