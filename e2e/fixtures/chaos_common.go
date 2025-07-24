@@ -27,6 +27,8 @@ import (
 	"strconv"
 	"time"
 
+	"k8s.io/apimachinery/pkg/util/wait"
+
 	"golang.org/x/sync/errgroup"
 
 	"github.com/onsi/gomega"
@@ -35,7 +37,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -213,13 +214,8 @@ func (factory *Factory) waitUntilExperimentRunning(
 }
 
 // PodSelector returns the PodSelectorSpec for the provided Pod.
-// TODO(j-scheuermann): This should be merged with the method below (PodsSelector).
 func PodSelector(pod *corev1.Pod) chaosmesh.PodSelectorSpec {
-	pods := make(map[string][]string)
-	pods[pod.Namespace] = []string{pod.Name}
-	return chaosmesh.PodSelectorSpec{
-		Pods: pods,
-	}
+	return PodsSelector([]corev1.Pod{*pod})
 }
 
 // PodsSelector returns the PodSelectorSpec for the provided Pods.

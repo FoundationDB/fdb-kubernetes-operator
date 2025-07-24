@@ -27,7 +27,6 @@ import (
 	"math"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"k8s.io/utils/ptr"
@@ -35,7 +34,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"golang.org/x/sync/errgroup"
 	"k8s.io/apimachinery/pkg/types"
 
 	"k8s.io/client-go/util/retry"
@@ -1073,93 +1071,6 @@ func (fdbCluster *FdbCluster) UpgradeCluster(version string, waitForReconciliati
 			MinimumGenerationOption(fdbCluster.cluster.Generation),
 		)
 	}
-
-	return nil
-}
-
-// SetEmptyMonitorConf sets the buggify option EmptyMonitorConf for the current FoundationDBCluster.
-func (fdbCluster *FdbCluster) SetEmptyMonitorConf(enable bool) error {
-	fdbCluster.cluster.Spec.Buggify.EmptyMonitorConf = enable
-	fdbCluster.UpdateClusterSpec()
-
-	if !enable {
-		err := fdbCluster.WaitForReconciliation()
-		if err != nil {
-			return fmt.Errorf(
-				"disabling empty monitor failed in cluster %s: %w",
-				fdbCluster.Name(),
-				err,
-			)
-		}
-		log.Printf("Disabling empty monitor succeeded in cluster: %s", fdbCluster.Name())
-		return nil
-	}
-	// Don't wait for reconciliation when we set empty monitor config to true since the cluster won't reconcile
-	pods := fdbCluster.GetPods().Items
-	podMap := sync.Map{}
-
-	g := new(errgroup.Group)
-	for _, pod := range pods {
-		targetPod := pod // https://golang.org/doc/faq#closures_and_goroutines
-		podMap.Store(targetPod.Name, struct{}{})
-
-		g.Go(func() error {
-			err := wait.PollUntilContextTimeout(
-				context.Background(),
-				2*time.Second,
-				5*time.Minute,
-				true,
-				func(_ context.Context) (bool, error) {
-					output, _, err := fdbCluster.ExecuteCmdOnPod(
-						targetPod,
-						fdbv1beta2.MainContainerName,
-						"ps -e | grep fdbserver | wc -l",
-						false,
-					)
-					if err != nil {
-						log.Printf(
-							"error executing command on %s, error: %s\n",
-							targetPod.Name,
-							err.Error(),
-						)
-						return false, nil
-					}
-
-					// If EmptyMonitor is enabled, each pod should has no fdbserver running
-					if strings.TrimSpace(output) == "0" {
-						podMap.Delete(targetPod.Name)
-						return true, nil
-					}
-
-					return false, nil
-				},
-			)
-
-			return err
-		})
-	}
-
-	err := g.Wait()
-	if err != nil {
-		return err
-	}
-
-	var failedPods strings.Builder
-	podMap.Range(func(key any, _ any) bool {
-		podName, ok := key.(string)
-		if !ok {
-			return false
-		}
-		failedPods.WriteString(podName)
-		failedPods.WriteString(" ")
-
-		return true
-	})
-	if failedPods.Len() > 0 {
-		return fmt.Errorf("enabling empty monitor failed on pods: %s", failedPods.String())
-	}
-
-	log.Printf("Enabling empty monitor succeeded in cluster: %s", fdbCluster.Name())
 
 	return nil
 }
