@@ -24,8 +24,6 @@ import (
 	"fmt"
 	"log"
 
-	"k8s.io/utils/ptr"
-
 	"github.com/onsi/gomega"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
@@ -75,7 +73,6 @@ func (factory *Factory) ensureHaMemberClusterExists(
 	dcID string,
 	seedConnection string,
 	databaseConfiguration *fdbv1beta2.DatabaseConfiguration,
-	options []ClusterOption,
 ) error {
 	var initMode bool
 	if len(databaseConfiguration.Regions) == 1 {
@@ -95,10 +92,6 @@ func (factory *Factory) ensureHaMemberClusterExists(
 		seedConnection,
 		databaseConfiguration,
 	)
-
-	for _, option := range options {
-		option(factory, spec)
-	}
 
 	curCluster := factory.createFdbClusterObject(spec)
 	factory.logClusterInfo(spec)
@@ -148,7 +141,6 @@ func (factory *Factory) ensureHaMemberClusterExists(
 
 func (factory *Factory) ensureHAFdbClusterExists(
 	config *ClusterConfig,
-	options []ClusterOption,
 ) *HaFdbCluster {
 	fdb := &HaFdbCluster{}
 	clusterPrefix := factory.getClusterName()
@@ -180,7 +172,6 @@ func (factory *Factory) ensureHAFdbClusterExists(
 		dcIDs[0],
 		"",
 		initialDatabaseConfiguration,
-		options,
 	)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	gomega.Expect(fdb.WaitForReconciliation(CreationTrackerLoggerOption(config.CreationTracker))).
@@ -201,7 +192,6 @@ func (factory *Factory) ensureHAFdbClusterExists(
 			dcIDs[idx],
 			cluster.Status.ConnectionString,
 			&databaseConfiguration,
-			options,
 		)
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	}
@@ -233,34 +223,4 @@ func GetDcIDsFromConfig(databaseConfiguration fdbv1beta2.DatabaseConfiguration) 
 	}
 
 	return dcIDs
-}
-
-// UseVersionBeforeUpgrade is an option that uses an older version of FDB to prepare a
-// cluster for being upgraded.
-func UseVersionBeforeUpgrade(factory *Factory, cluster *fdbv1beta2.FoundationDBCluster) {
-	cluster.Spec.Version = factory.GetBeforeVersion()
-}
-
-// WithTLSEnabled is an option that enables TLS for a cluster.
-func WithTLSEnabled(_ *Factory, cluster *fdbv1beta2.FoundationDBCluster) {
-	cluster.Spec.MainContainer.EnableTLS = true
-	cluster.Spec.SidecarContainer.EnableTLS = true
-}
-
-// WithDNSEnabled is an option that enables DNS for a cluster.
-func WithDNSEnabled(_ *Factory, cluster *fdbv1beta2.FoundationDBCluster) {
-	cluster.Spec.Routing.UseDNSInClusterFile = ptr.To(true)
-}
-
-// WithOneMinuteMinimumUptimeSecondsForBounce sets the MinimumUptimeSecondsForBounce setting to 60.
-func WithOneMinuteMinimumUptimeSecondsForBounce(
-	_ *Factory,
-	cluster *fdbv1beta2.FoundationDBCluster,
-) {
-	cluster.Spec.MinimumUptimeSecondsForBounce = 60
-}
-
-// WithLocalitiesForExclusion is an option that exclusions based on localities for a cluster.
-func WithLocalitiesForExclusion(_ *Factory, cluster *fdbv1beta2.FoundationDBCluster) {
-	cluster.Spec.AutomationOptions.UseLocalitiesForExclusion = ptr.To(true)
 }

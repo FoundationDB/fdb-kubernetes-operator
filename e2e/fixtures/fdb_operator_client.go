@@ -576,13 +576,18 @@ func (factory *Factory) getSidecarConfigs(imageConfigs []fdbv1beta2.ImageConfig)
 // GetSidecarConfigs returns the sidecar configs. The sidecar configs can be used to template applications that will use
 // all provided sidecar versions to inject FDB client libraries.
 func (factory *Factory) GetSidecarConfigs() []SidecarConfig {
-	if factory.UseUnifiedImage() {
+	config := &ClusterConfig{
+		DebugSymbols:    false,
+		UseUnifiedImage: ptr.To(factory.UseUnifiedImage()),
+	}
+
+	if config.GetUseUnifiedImage() {
 		return factory.getSidecarConfigs(
-			factory.GetMainContainerOverrides(false, true).ImageConfigs,
+			factory.GetMainContainerOverrides(config).ImageConfigs,
 		)
 	}
 
-	return factory.getSidecarConfigs(factory.GetSidecarContainerOverrides(false).ImageConfigs)
+	return factory.getSidecarConfigs(factory.GetSidecarContainerOverrides(config).ImageConfigs)
 }
 
 //nolint:revive

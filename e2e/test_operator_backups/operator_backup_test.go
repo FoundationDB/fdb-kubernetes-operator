@@ -62,7 +62,6 @@ var _ = BeforeSuite(func() {
 
 	fdbCluster = factory.CreateFdbCluster(
 		fixtures.DefaultClusterConfig(false),
-		factory.GetClusterOptions()...,
 	)
 
 	// Create a blobstore for testing backups and restore

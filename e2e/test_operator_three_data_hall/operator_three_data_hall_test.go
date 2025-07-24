@@ -58,7 +58,6 @@ var _ = BeforeSuite(func() {
 
 	fdbCluster = factory.CreateFdbCluster(
 		config,
-		factory.GetClusterOptions()...,
 	)
 
 	// Make sure that the test suite is able to fetch logs from Pods.

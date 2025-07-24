@@ -44,9 +44,8 @@ func (factory *Factory) createFDBClusterSpec(
 	config *ClusterConfig,
 	databaseConfiguration fdbv1beta2.DatabaseConfiguration,
 ) *fdbv1beta2.FoundationDBCluster {
-	useUnifiedImage := ptr.Deref(config.UseUnifiedImage, factory.UseUnifiedImage())
 	imageType := fdbv1beta2.ImageTypeSplit
-	if useUnifiedImage {
+	if config.GetUseUnifiedImage() {
 		imageType = fdbv1beta2.ImageTypeUnified
 	}
 
@@ -71,19 +70,18 @@ func (factory *Factory) createFDBClusterSpec(
 		},
 		Spec: fdbv1beta2.FoundationDBClusterSpec{
 			MinimumUptimeSecondsForBounce: 30,
-			Version:                       factory.GetFDBVersionAsString(),
+			Version:                       config.GetVersion(),
 			Processes:                     factory.createProcesses(config),
 			DatabaseConfiguration:         databaseConfiguration,
 			StorageServersPerPod:          config.StorageServerPerPod,
 			LogServersPerPod:              config.LogServersPerPod,
 			LogGroup:                      config.Namespace + "-" + config.Name,
 			MainContainer: factory.GetMainContainerOverrides(
-				config.DebugSymbols,
-				useUnifiedImage,
+				config,
 			),
 			ImageType: &imageType,
 			SidecarContainer: factory.GetSidecarContainerOverrides(
-				config.DebugSymbols,
+				config,
 			),
 			FaultDomain: faultDomain,
 			AutomationOptions: fdbv1beta2.FoundationDBClusterAutomationOptions{

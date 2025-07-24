@@ -55,7 +55,6 @@ var _ = BeforeSuite(func() {
 	factory = fixtures.CreateFactory(testOptions)
 	fdbCluster = factory.CreateFdbCluster(
 		fixtures.DefaultClusterConfig(false),
-		factory.GetClusterOptions()...,
 	)
 	// Load some data into the cluster.
 	factory.CreateDataLoaderIfAbsent(fdbCluster)

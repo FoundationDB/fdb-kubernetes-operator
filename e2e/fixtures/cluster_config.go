@@ -29,6 +29,7 @@ import (
 	"github.com/onsi/ginkgo/v2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/utils/ptr"
 )
 
 type cloudProvider string
@@ -54,7 +55,7 @@ const (
 )
 
 // GetRedundancyMode returns the redundancy mode based on the cluster configuration.
-func (config ClusterConfig) GetRedundancyMode() fdbv1beta2.RedundancyMode {
+func (config *ClusterConfig) GetRedundancyMode() fdbv1beta2.RedundancyMode {
 	if config.RedundancyMode != "" {
 		return config.RedundancyMode
 	}
@@ -74,6 +75,8 @@ type ClusterConfig struct {
 	DebugSymbols bool
 	// UseMaintenanceMode if enabled the FoundationDBCluster resource will enable the maintenance mode.
 	UseMaintenanceMode bool
+	// EnableTLS when set this value will be used to enable/disable TLS, the default is true.
+	EnableTLS *bool
 	// UseLocalityBasedExclusions if enabled the FoundationDBCluster resource will enable the locality based exclusions.
 	UseLocalityBasedExclusions *bool
 	// UseDNS if enabled the FoundationDBCluster resource will enable the DNS feature.
@@ -109,6 +112,8 @@ type ClusterConfig struct {
 	Name string
 	// TLSPeerVerification represents the TLS peer verification that should be used for the cluster.
 	TLSPeerVerification string
+	// Version used to create the FDB cluster with.
+	Version *string
 	// cloudProvider defines the cloud provider used to create the Kubernetes cluster. This value is set in the SetDefaults
 	// method.
 	cloudProvider cloudProvider
@@ -199,6 +204,26 @@ func (config *ClusterConfig) SetDefaults(factory *Factory) {
 
 	if config.SynchronizationMode == "" {
 		config.SynchronizationMode = factory.GetSynchronizationMode()
+	}
+
+	if config.UseDNS == nil {
+		config.UseDNS = ptr.To(factory.options.featureOperatorDNS)
+	}
+
+	if config.UseLocalityBasedExclusions == nil {
+		config.UseLocalityBasedExclusions = ptr.To(factory.options.featureOperatorLocalities)
+	}
+
+	if config.EnableTLS == nil {
+		config.EnableTLS = ptr.To(true)
+	}
+
+	if config.UseUnifiedImage == nil {
+		config.UseUnifiedImage = ptr.To(factory.UseUnifiedImage())
+	}
+
+	if config.Version == nil {
+		config.Version = ptr.To(factory.GetFDBVersionAsString())
 	}
 }
 
@@ -555,6 +580,21 @@ func (config *ClusterConfig) CalculateRoleCounts() fdbv1beta2.RoleCounts {
 	return roleCounts
 }
 
+// GetUseUnifiedImage returns true when the unified image should be used.
+func (config *ClusterConfig) GetUseUnifiedImage() bool {
+	return ptr.Deref(config.UseUnifiedImage, true)
+}
+
+// TLSEnabled returns true when TLS should be enabled or false if TLS should be disabled.
+func (config *ClusterConfig) TLSEnabled() bool {
+	return ptr.Deref(config.EnableTLS, true)
+}
+
+// GetVersion returns the version to create the cluster with.
+func (config *ClusterConfig) GetVersion() string {
+	return ptr.Deref(config.Version, "")
+}
+
 func calculateProxies(proxies int) (int, int) {
 	// This calculation is only a rough estimate and can change based on the workload.
 	// Use 1/4 of the proxies for GRV or at max 4 processes
@@ -590,5 +630,6 @@ func (config *ClusterConfig) Copy() *ClusterConfig {
 		MemoryPerPod:               config.MemoryPerPod,
 		CpusPerPod:                 config.CpusPerPod,
 		SynchronizationMode:        config.SynchronizationMode,
+		EnableTLS:                  config.EnableTLS,
 	}
 }

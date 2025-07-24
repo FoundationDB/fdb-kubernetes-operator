@@ -176,7 +176,6 @@ var _ = BeforeSuite(func() {
 	factory = fixtures.CreateFactory(testOptions)
 	fdbCluster = factory.CreateFdbHaCluster(
 		fixtures.DefaultClusterConfigWithHaMode(fixtures.HaFourZoneDoubleSat, false),
-		factory.GetClusterOptions(fixtures.WithOneMinuteMinimumUptimeSecondsForBounce)...,
 	)
 
 	// We only have to fetch the data once

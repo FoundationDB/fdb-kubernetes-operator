@@ -29,6 +29,8 @@ Each test will create a new HA FoundationDB cluster which will be upgraded.
 import (
 	"log"
 
+	"k8s.io/utils/ptr"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	chaosmesh "github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/chaos-mesh/api/v1alpha1"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/fixtures"
@@ -57,14 +59,10 @@ func clusterSetupWithHealthCheckOption(
 	enableOperatorPodChaos bool,
 	enableHealthCheck bool,
 ) {
-	// We set the before version here to overwrite the before version from the specific flag
-	// the specific flag will be removed in the future.
-	factory.SetBeforeVersion(beforeVersion)
+	config := fixtures.DefaultClusterConfigWithHaMode(fixtures.HaFourZoneSingleSat, false)
+	config.Version = ptr.To(beforeVersion)
 
-	fdbCluster = factory.CreateFdbHaCluster(
-		fixtures.DefaultClusterConfigWithHaMode(fixtures.HaFourZoneSingleSat, false),
-		factory.GetClusterOptions(fixtures.UseVersionBeforeUpgrade)...,
-	)
+	fdbCluster = factory.CreateFdbHaCluster(config)
 	if enableHealthCheck {
 		Expect(
 			fdbCluster.GetPrimary().InvariantClusterStatusAvailable(),
