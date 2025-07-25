@@ -206,7 +206,7 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 
 			// Disable the feature that the operator restarts processes. This allows us to restart the coordinator
 			// once all new binaries are present.
-			fdbCluster.SetKillProcesses(false)
+			fdbCluster.SetKillProcesses(false, true)
 
 			// Start the upgrade.
 			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
@@ -245,7 +245,10 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 			}).WithTimeout(180 * time.Second).WithPolling(4 * time.Second).Should(And(HaveLen(1), HaveKey(selectedCoordinator.Status.PodIP)))
 
 			// Allow the operator to restart processes and the upgrade should continue and finish.
-			fdbCluster.SetKillProcesses(true)
+			fdbCluster.SetKillProcesses(true, false)
+
+			// Ensure that the cluster was upgraded.
+			fdbCluster.VerifyVersion(targetVersion)
 
 			// Make sure the cluster has no data loss.
 			fdbCluster.EnsureTeamTrackersHaveMinReplicas()

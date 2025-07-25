@@ -381,7 +381,7 @@ func (factory *Factory) startFDBFromClusterSpec(
 		fdbCluster.cluster.Namespace,
 	)
 
-	gomega.Expect(fdbCluster.WaitUntilAvailable()).ToNot(gomega.HaveOccurred())
+	fdbCluster.WaitUntilAvailable()
 	return fdbCluster
 }
 
