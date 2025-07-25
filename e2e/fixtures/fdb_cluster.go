@@ -1224,9 +1224,14 @@ func (fdbCluster *FdbCluster) SetIgnoreMissingProcessesSeconds(duration time.Dur
 }
 
 // SetKillProcesses sets the automation option to allow the operator to restart processes or not.
-func (fdbCluster *FdbCluster) SetKillProcesses(allowKill bool) {
+func (fdbCluster *FdbCluster) SetKillProcesses(allowKill bool, wait bool) {
 	fdbCluster.cluster.Spec.AutomationOptions.KillProcesses = ptr.To(allowKill)
 	fdbCluster.UpdateClusterSpec()
+
+	if !wait {
+		return
+	}
+
 	gomega.Expect(fdbCluster.WaitForReconciliation()).NotTo(gomega.HaveOccurred())
 }
 

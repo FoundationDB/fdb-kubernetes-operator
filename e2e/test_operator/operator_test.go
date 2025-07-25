@@ -1991,7 +1991,6 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		var pickedProcessGroup *fdbv1beta2.ProcessGroupStatus
 
 		BeforeEach(func() {
-			// Make sure we reset the previous behaviour.
 			cluster := fdbCluster.GetCluster()
 			spec := cluster.Spec.DeepCopy()
 			// TODO (johscheuer): Once the new CRD is available change this to ResetMaintenanceMode.
@@ -2038,7 +2037,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			// Make sure the maintenance mode is not reset until the Pod is recreated
 			Consistently(func() fdbv1beta2.FaultDomain {
 				return fdbCluster.GetStatus().Cluster.MaintenanceZone
-			}).WithTimeout(2 * time.Minute).WithPolling(2 * time.Second).Should(Equal(faultDomain))
+			}).WithTimeout(1 * time.Minute).WithPolling(2 * time.Second).Should(Equal(faultDomain))
 
 			podName := pickedProcessGroup.GetPodName(fdbCluster.GetCluster())
 			log.Println("Delete Pod", podName)
