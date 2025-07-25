@@ -154,6 +154,10 @@ func getUnsupportedClients(
 			continue
 		}
 
+		// If we are here, the client has a lower version than the targeted version, so the client doesn't support the
+		// targeted version and wouldn't be able to connect to the cluster. The loop collects additional information
+		// about the client, like the IP address and the log group to help a human operator to update the incompatible
+		// client.
 		for _, client := range versionInfo.MaxProtocolClients {
 			if _, ok := ignoredLogGroups[client.LogGroup]; ok {
 				continue
