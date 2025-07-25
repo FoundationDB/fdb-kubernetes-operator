@@ -70,19 +70,19 @@ type AdminClient interface {
 	GetProtocolVersion(version string) (string, error)
 
 	// StartBackup starts a new backup.
-	StartBackup(url string, snapshotPeriodSeconds int, encyptionKeyPath string) error
+	StartBackup(backup *fdbv1beta2.FoundationDBBackup) error
 
 	// StopBackup stops a backup.
-	StopBackup(url string) error
+	StopBackup(backup *fdbv1beta2.FoundationDBBackup) error
 
-	// PauseBackups pauses the backups.
+	// PauseBackups pauses the backup.
 	PauseBackups() error
 
 	// ResumeBackups resumes the backups.
 	ResumeBackups() error
 
 	// ModifyBackup modifies the configuration of the backup.
-	ModifyBackup(int) error
+	ModifyBackup(backup *fdbv1beta2.FoundationDBBackup) error
 
 	// GetBackupStatus gets the status of the current backup.
 	GetBackupStatus() (*fdbv1beta2.FoundationDBLiveBackupStatus, error)
