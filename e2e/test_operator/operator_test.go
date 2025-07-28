@@ -1823,13 +1823,14 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				break
 			}
 
+			log.Println("targeted process group:", targetProcessGroup.ProcessGroupID)
 			_, _ = fdbCluster.RunFdbCliCommandInOperator(
-				fmt.Sprintf("maintenance on %s 3600", targetProcessGroup.FaultDomain),
+				fmt.Sprintf("maintenance on %s 600", targetProcessGroup.FaultDomain),
 				false,
 				30,
 			)
 
-			// Partition the Pod
+			// Partition the Pod from the rest of the FoundationDB cluster.
 			pod := fdbCluster.GetPod(targetProcessGroup.GetPodName(fdbCluster.GetCachedCluster()))
 			exp = factory.InjectPartitionBetween(
 				fixtures.PodSelector(pod),
@@ -1861,10 +1862,14 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 		AfterEach(func() {
 			factory.DeleteChaosMeshExperimentSafe(exp)
+			// First reset the maintenance zone. Otherwise the reconciliation will be blocked until the maintenance mode
+			// is timed out because the update status reconciler will skip process groups under the maintenance zone to
+			// prevent misleading condition changes.
+			fdbCluster.RunFdbCliCommandInOperator("maintenance off", false, 30)
 			Expect(
 				fdbCluster.SetAutoReplacements(true, initialReplaceTime),
 			).ShouldNot(HaveOccurred())
-			fdbCluster.RunFdbCliCommandInOperator("maintenance off", false, 30)
+
 		})
 	})
 

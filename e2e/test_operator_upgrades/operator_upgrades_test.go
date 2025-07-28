@@ -30,7 +30,6 @@ Since FoundationDB is version incompatible for major and minor versions and the 
 import (
 	"context"
 	"fmt"
-
 	"log"
 	"strings"
 	"time"
@@ -195,7 +194,42 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 			coordinators := fdbCluster.GetCoordinators()
 			Expect(coordinators).NotTo(BeEmpty())
 
-			selectedCoordinator := coordinators[0]
+			var curIdx int
+			for _, coordinator := range coordinators {
+				if fixtures.GetProcessClass(coordinator) != fdbv1beta2.ProcessClassLog {
+					continue
+				}
+
+				coordinators[curIdx] = coordinator
+				curIdx++
+			}
+
+			if curIdx == 0 {
+				pickedPod := factory.RandomPickOnePod(coordinators)
+				factory.DeletePod(&pickedPod)
+				// Wait for new coordinators
+				time.Sleep(1 * time.Minute)
+				// Fetch all coordinators again
+				coordinators = fdbCluster.GetCoordinators()
+				Expect(coordinators).NotTo(BeEmpty())
+				// Try again to select coordinators, but don't fail if no log coordinator is available.
+				for _, coordinator := range coordinators {
+					if fixtures.GetProcessClass(coordinator) != fdbv1beta2.ProcessClassLog {
+						continue
+					}
+
+					coordinators[curIdx] = coordinator
+					curIdx++
+				}
+
+				// In this case we found no log coordinator, so we allow to pick the storage coordinators.
+				if curIdx == 0 {
+					curIdx = len(coordinators)
+				}
+			}
+
+			Expect(curIdx).To(BeNumerically(">=", 0))
+			selectedCoordinator := factory.RandomPickOnePod(coordinators[:curIdx])
 			log.Println(
 				"Selected coordinator:",
 				selectedCoordinator.Name,
