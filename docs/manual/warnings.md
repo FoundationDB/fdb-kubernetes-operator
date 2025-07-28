@@ -5,7 +5,7 @@ You may find that the stock configurations don't work as desired in your environ
 We recommend reading through this entire manual in order to get a feel for how the operator works.
 There are a few sections that are most likely to be relevant before you create a cluster:
 
-- [Customizing Your Pods](customizing.md#customizing-your-pods)
+- [Customizing Your Pods](customization.md#customizing-your-pods)
 - [Controlling Fault Domains](fault_domains.md)
 - [Using Multiple Namespaces](customizing.md#using-multiple-namespaces).
 
