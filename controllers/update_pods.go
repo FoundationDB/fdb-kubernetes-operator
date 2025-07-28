@@ -61,6 +61,17 @@ func (u updatePods) reconcile(
 		}
 	}
 
+	// If the cluster is currently in the process to enable or disable TLS, we wait with pod updates to prevent
+	// additional configuration changes in one step.
+	if cluster.Status.RequiredAddresses.TLS && cluster.Status.RequiredAddresses.NonTLS {
+		logger.Info("Pod updates are skipped because of an ongoing TLS conversion")
+		return &requeue{
+			message:        "Pod updates are skipped because of an ongoing TLS conversion",
+			delayedRequeue: true,
+			delay:          5 * time.Second,
+		}
+	}
+
 	adminClient, err := r.getAdminClient(logger, cluster)
 	if err != nil {
 		return &requeue{curError: err, delayedRequeue: true}

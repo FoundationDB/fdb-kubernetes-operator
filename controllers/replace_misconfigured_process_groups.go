@@ -57,6 +57,19 @@ func (c replaceMisconfiguredProcessGroups) reconcile(
 		}
 	}
 
+	// If the cluster is currently in the process to enable or disable TLS, we wait with pod updates to prevent
+	// additional configuration changes in one step.
+	if cluster.Status.RequiredAddresses.TLS && cluster.Status.RequiredAddresses.NonTLS {
+		logger.Info(
+			"Replacements because of misconfiguration are skipped because of an ongoing TLS conversion",
+		)
+		return &requeue{
+			message:        "Replacements because of misconfiguration are skipped because of an ongoing TLS conversion",
+			delayedRequeue: true,
+			delay:          5 * time.Second,
+		}
+	}
+
 	hasReplacements, err := replacements.ReplaceMisconfiguredProcessGroups(
 		ctx,
 		r.PodLifecycleManager,

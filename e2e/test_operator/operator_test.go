@@ -66,21 +66,6 @@ func init() {
 	testOptions = fixtures.InitFlags()
 }
 
-func checkCoordinatorsTLSFlag(cluster *fdbv1beta2.FoundationDBCluster, listenOnTLS bool) {
-	connectionString := cluster.Status.ConnectionString
-	log.Println("connection string after conversion: ", connectionString)
-	parsedConnectionString, err := fdbv1beta2.ParseConnectionString(connectionString)
-	Expect(err).NotTo(HaveOccurred())
-
-	for _, coordinator := range parsedConnectionString.Coordinators {
-		if listenOnTLS {
-			Expect(coordinator).To(HaveSuffix(":tls"))
-		} else {
-			Expect(coordinator).NotTo(HaveSuffix(":tls"))
-		}
-	}
-}
-
 var _ = BeforeSuite(func() {
 	factory = fixtures.CreateFactory(testOptions)
 	fdbCluster = factory.CreateFdbCluster(
@@ -716,70 +701,6 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 		AfterEach(func() {
 			fdbCluster.SetSkipReconciliation(false)
-		})
-	})
-
-	When("Changing the TLS setting", func() {
-		var initialTLSSetting bool
-
-		BeforeEach(func() {
-			initialTLSSetting = fdbCluster.GetCluster().Spec.MainContainer.EnableTLS
-		})
-
-		AfterEach(func() {
-			Expect(
-				fdbCluster.SetTLS(
-					initialTLSSetting,
-					fdbCluster.GetCluster().Spec.SidecarContainer.EnableTLS,
-				),
-			).NotTo(HaveOccurred())
-			Expect(fdbCluster.HasTLSEnabled()).To(Equal(initialTLSSetting))
-			checkCoordinatorsTLSFlag(fdbCluster.GetCluster(), initialTLSSetting)
-		})
-
-		When("the pod spec stays the same", func() {
-			It("should update the TLS setting  and keep the cluster available", func() {
-				// Only change the TLS setting for the cluster and not for the sidecar otherwise we have to recreate
-				// all Pods which takes a long time since we recreate the Pods one by one.
-				Expect(
-					fdbCluster.SetTLS(
-						!initialTLSSetting,
-						fdbCluster.GetCluster().Spec.SidecarContainer.EnableTLS,
-					),
-				).NotTo(HaveOccurred())
-				Expect(fdbCluster.HasTLSEnabled()).To(Equal(!initialTLSSetting))
-				checkCoordinatorsTLSFlag(fdbCluster.GetCluster(), !initialTLSSetting)
-			})
-		})
-
-		PWhen("the pod spec is changed", func() {
-			It("should update the TLS setting  and keep the cluster available", func() {
-				spec := fdbCluster.GetCluster().Spec.DeepCopy()
-				spec.MainContainer.EnableTLS = !initialTLSSetting
-
-				// Add a new env variable to ensure this will cause some additional replacements.
-				processSettings := spec.Processes[fdbv1beta2.ProcessClassGeneral]
-				for i, container := range processSettings.PodTemplate.Spec.Containers {
-					if container.Name != fdbv1beta2.MainContainerName {
-						continue
-					}
-
-					container.Env = append(container.Env, corev1.EnvVar{
-						Name:  "TESTING_TLS_CHANGE",
-						Value: "EMPTY",
-					})
-
-					processSettings.PodTemplate.Spec.Containers[i] = container
-					break
-				}
-
-				spec.Processes[fdbv1beta2.ProcessClassGeneral] = processSettings
-
-				fdbCluster.UpdateClusterSpecWithSpec(spec)
-				Expect(fdbCluster.WaitForReconciliation()).To(Succeed())
-				Expect(fdbCluster.HasTLSEnabled()).To(Equal(!initialTLSSetting))
-				checkCoordinatorsTLSFlag(fdbCluster.GetCluster(), !initialTLSSetting)
-			})
 		})
 	})
 

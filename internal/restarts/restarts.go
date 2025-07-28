@@ -31,9 +31,20 @@ import (
 func GetFilterConditions(
 	cluster *fdbv1beta2.FoundationDBCluster,
 ) map[fdbv1beta2.ProcessGroupConditionType]bool {
-	if !cluster.IsBeingUpgradedWithVersionIncompatibleVersion() {
-		// If we don't upgrade our cluster we can ignore all process groups that are not reachable and therefore will
-		// not get any ConfigMap updates.
+	if cluster.IsBeingUpgradedWithVersionIncompatibleVersion() {
+		// If we perform a version incompatible upgrade, we have to wait until all processes are ready to be restarted.
+		// This means that all the sidecar images are updated to the new desired image that contains the new version.
+		return map[fdbv1beta2.ProcessGroupConditionType]bool{
+			fdbv1beta2.IncorrectCommandLine:  true,
+			fdbv1beta2.IncorrectSidecarImage: false,
+			fdbv1beta2.IncorrectConfigMap:    false,
+		}
+	}
+
+	// In case of TL/Non-TLS conversion we can ignore the fdbv1beta2.IncorrectPodSpec, otherwise if a user tries
+	// to change the Pod spec and the TLS settings, the operator gets stuck. Because the bounce processes sub-reconciler
+	// would wait for the Pod update and the Pod update sub-reconciler would wait for the process restart.
+	if cluster.Status.RequiredAddresses.NonTLS && cluster.Status.RequiredAddresses.TLS {
 		return map[fdbv1beta2.ProcessGroupConditionType]bool{
 			fdbv1beta2.IncorrectCommandLine: true,
 			fdbv1beta2.SidecarUnreachable:   false,
@@ -41,12 +52,16 @@ func GetFilterConditions(
 		}
 	}
 
-	// If we perform a version incompatible upgrade, we have to wait until all processes are ready to be restarted.
-	// This means that all the sidecar images are updated to the new desired image that contains the new version.
+	// If we don't upgrade our cluster we can ignore all process groups that are not reachable and therefore will
+	// not get any ConfigMap updates.
 	return map[fdbv1beta2.ProcessGroupConditionType]bool{
-		fdbv1beta2.IncorrectCommandLine:  true,
-		fdbv1beta2.IncorrectSidecarImage: false,
-		fdbv1beta2.IncorrectConfigMap:    false,
+		fdbv1beta2.IncorrectCommandLine: true,
+		// We wait here for the fdbv1beta2.IncorrectPodSpec condition to be absent. Otherwise, we could observe
+		// cases where the Pod is not yet updated, which could lead to multiple restarts. For example if a new
+		// environment variable is added and should be used in the command line for a new knob.
+		fdbv1beta2.IncorrectPodSpec:   false,
+		fdbv1beta2.SidecarUnreachable: false,
+		fdbv1beta2.IncorrectConfigMap: false,
 	}
 }
 
