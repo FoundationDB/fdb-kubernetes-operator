@@ -93,17 +93,16 @@ func (c checkClientCompatibility) reconcile(
 		}
 	}
 
-	protocolVersion, err := adminClient.GetProtocolVersion(cluster.Spec.Version)
-	if err != nil {
-		return &requeue{curError: err}
-	}
-
 	ignoredLogGroups := make(map[fdbv1beta2.LogGroup]fdbv1beta2.None)
 	for _, logGroup := range cluster.GetIgnoreLogGroupsForUpgrade() {
 		ignoredLogGroups[logGroup] = fdbv1beta2.None{}
 	}
 
-	unsupportedClients := getUnsupportedClients(status, protocolVersion, ignoredLogGroups)
+	unsupportedClients, err := getUnsupportedClients(status, cluster.Spec.Version, ignoredLogGroups)
+	if err != nil {
+		return &requeue{curError: err}
+	}
+
 	if len(unsupportedClients) > 0 {
 		message := fmt.Sprintf(
 			"%d clients do not support version %s: %s", len(unsupportedClients),
@@ -117,32 +116,49 @@ func (c checkClientCompatibility) reconcile(
 	return nil
 }
 
-// foundationDBClient represents a client of the FoundationDBCluster
-type foundationDBClient struct {
-	// description represents the client description.
-	description string
-	// supportedVersions is a map of all supported versions of this client.
-	supportedVersions map[string]fdbv1beta2.None
-}
-
+// getUnsupportedClients check if all clients supports at least the target version. If a process supports a newer version than
+// the target version, then the assumption is that the client also supports the older version, including the target version.
+// Other checks could fail because the FDB cluster only maintains a list of samples for the client information, that list
+// has an upper limit on how many samples will be tracked. Each list for a specific version has its own limit, so it's
+// possible that clients are in different lists.
 func getUnsupportedClients(
 	status *fdbv1beta2.FoundationDBStatus,
-	protocolVersion string,
+	targetVersion string,
 	ignoredLogGroups map[fdbv1beta2.LogGroup]fdbv1beta2.None,
-) []string {
+) ([]string, error) {
+	var unsupportedClients []string
+
 	processAddresses := map[string]fdbv1beta2.None{}
 	for _, process := range status.Cluster.Processes {
 		processAddresses[process.Address.MachineAddress()] = fdbv1beta2.None{}
 	}
 
-	var unsupportedClients []string
-	clientSupportedVersions := map[string]*foundationDBClient{}
+	version, err := fdbv1beta2.ParseFdbVersion(targetVersion)
+	if err != nil {
+		return nil, err
+	}
+
 	for _, versionInfo := range status.Cluster.Clients.SupportedVersions {
 		if versionInfo.ProtocolVersion == "Unknown" {
 			continue
 		}
 
-		for _, client := range versionInfo.ConnectedClients {
+		clientVersion, err := fdbv1beta2.ParseFdbVersion(versionInfo.ClientVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		// If the version is protocol compatible or newer than the targeted version, then the current client
+		// supports the targeted version.
+		if clientVersion.IsProtocolCompatible(version) || clientVersion.IsAtLeast(version) {
+			continue
+		}
+
+		// If we are here, the client has a lower version than the targeted version, so the client doesn't support the
+		// targeted version and wouldn't be able to connect to the cluster. The loop collects additional information
+		// about the client, like the IP address and the log group to help a human operator to update the incompatible
+		// client.
+		for _, client := range versionInfo.MaxProtocolClients {
 			if _, ok := ignoredLogGroups[client.LogGroup]; ok {
 				continue
 			}
@@ -160,25 +176,9 @@ func getUnsupportedClients(
 				continue
 			}
 
-			if currentClient, ok := clientSupportedVersions[addr.String()]; ok {
-				currentClient.supportedVersions[versionInfo.ProtocolVersion] = fdbv1beta2.None{}
-			} else {
-				clientSupportedVersions[addr.String()] = &foundationDBClient{
-					description: client.Description(),
-					supportedVersions: map[string]fdbv1beta2.None{
-						versionInfo.ProtocolVersion: {},
-					},
-				}
-			}
+			unsupportedClients = append(unsupportedClients, client.Description())
 		}
 	}
 
-	// Validate for all clients that they support the requested version.
-	for _, client := range clientSupportedVersions {
-		if _, ok := client.supportedVersions[protocolVersion]; !ok {
-			unsupportedClients = append(unsupportedClients, client.description)
-		}
-	}
-
-	return unsupportedClients
+	return unsupportedClients, nil
 }
