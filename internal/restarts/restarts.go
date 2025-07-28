@@ -41,7 +41,7 @@ func GetFilterConditions(
 		}
 	}
 
-	// In case of TL/Non-TLS conversion we can ignore the fdbv1beta2.IncorrectPodSpec, otherwise if a user tries
+	// In case of TLS/Non-TLS conversion we can ignore the fdbv1beta2.IncorrectPodSpec, otherwise if a user tries
 	// to change the Pod spec and the TLS settings, the operator gets stuck. Because the bounce processes sub-reconciler
 	// would wait for the Pod update and the Pod update sub-reconciler would wait for the process restart.
 	if cluster.Status.RequiredAddresses.NonTLS && cluster.Status.RequiredAddresses.TLS {

@@ -190,46 +190,16 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 
 			clusterSetup(beforeVersion, false)
 
-			// Select one coordinator that will be restarted during the staging phase.
-			coordinators := fdbCluster.GetCoordinators()
+			// Select one coordinator that will be restarted during the staging phase. We prefer to pick a coordinator
+			// that is running on a log process, if we don't find one we fall back to a coordinator running on
+			// a storage process.
+			coordinators := fdbCluster.GetCoordinatorsOnLogProcesses()
+			if len(coordinators) == 0 {
+				coordinators = fdbCluster.GetCoordinators()
+			}
 			Expect(coordinators).NotTo(BeEmpty())
 
-			var curIdx int
-			for _, coordinator := range coordinators {
-				if fixtures.GetProcessClass(coordinator) != fdbv1beta2.ProcessClassLog {
-					continue
-				}
-
-				coordinators[curIdx] = coordinator
-				curIdx++
-			}
-
-			if curIdx == 0 {
-				pickedPod := factory.RandomPickOnePod(coordinators)
-				factory.DeletePod(&pickedPod)
-				// Wait for new coordinators
-				time.Sleep(1 * time.Minute)
-				// Fetch all coordinators again
-				coordinators = fdbCluster.GetCoordinators()
-				Expect(coordinators).NotTo(BeEmpty())
-				// Try again to select coordinators, but don't fail if no log coordinator is available.
-				for _, coordinator := range coordinators {
-					if fixtures.GetProcessClass(coordinator) != fdbv1beta2.ProcessClassLog {
-						continue
-					}
-
-					coordinators[curIdx] = coordinator
-					curIdx++
-				}
-
-				// In this case we found no log coordinator, so we allow to pick the storage coordinators.
-				if curIdx == 0 {
-					curIdx = len(coordinators)
-				}
-			}
-
-			Expect(curIdx).To(BeNumerically(">=", 0))
-			selectedCoordinator := factory.RandomPickOnePod(coordinators[:curIdx])
+			selectedCoordinator := factory.RandomPickOnePod(coordinators)
 			log.Println(
 				"Selected coordinator:",
 				selectedCoordinator.Name,

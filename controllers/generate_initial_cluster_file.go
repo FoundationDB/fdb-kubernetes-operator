@@ -121,8 +121,9 @@ func (g generateInitialClusterFile) reconcile(
 	if time.Since(newestPendingPod) < cluster.GetIgnorePendingPodsDuration() {
 		return &requeue{
 			message: fmt.Sprintf(
-				"at least one Pod is in pending phase since %s. Will wait for IgnorePendingPodsDuration before proceeding",
+				"at least one Pod is in pending phase since %s. Will wait for IgnorePendingPodsDuration (%s) before proceeding",
 				time.Since(newestPendingPod).String(),
+				cluster.GetIgnorePendingPodsDuration(),
 			),
 			delay: podSchedulingDelayDuration,
 		}

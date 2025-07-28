@@ -389,6 +389,42 @@ func (fdbCluster *FdbCluster) GetCoordinators() []corev1.Pod {
 	return fdbCluster.GetPodsWithRole(fdbv1beta2.ProcessRoleCoordinator)
 }
 
+// GetCoordinatorsOnLogProcesses returns the Pods of the FoundationDBCluster that have the coordinator role and have the
+// process class log.
+func (fdbCluster *FdbCluster) GetCoordinatorsOnLogProcesses() []corev1.Pod {
+	coordinators := fdbCluster.GetPodsWithRole(fdbv1beta2.ProcessRoleCoordinator)
+	gomega.Expect(coordinators).NotTo(gomega.BeEmpty())
+
+	coordinatorsOnLogProcesses := make([]corev1.Pod, 0, len(coordinators))
+	for _, coordinator := range coordinators {
+		if !GetProcessClass(coordinator).IsTransaction() {
+			continue
+		}
+
+		coordinatorsOnLogProcesses = append(coordinatorsOnLogProcesses, coordinator)
+	}
+
+	if len(coordinatorsOnLogProcesses) == 0 {
+		pickedPod := fdbCluster.factory.RandomPickOnePod(coordinators)
+		fdbCluster.factory.DeletePod(&pickedPod)
+		// Wait for new coordinators
+		time.Sleep(1 * time.Minute)
+		// Fetch all coordinators again
+
+		coordinators = fdbCluster.GetPodsWithRole(fdbv1beta2.ProcessRoleCoordinator)
+		gomega.Expect(coordinators).NotTo(gomega.BeEmpty())
+		for _, coordinator := range coordinators {
+			if !GetProcessClass(coordinator).IsTransaction() {
+				continue
+			}
+
+			coordinatorsOnLogProcesses = append(coordinatorsOnLogProcesses, coordinator)
+		}
+	}
+
+	return coordinatorsOnLogProcesses
+}
+
 // GetStatus returns fdb status queried from a random operator Pod in this clusters namespace.
 func (fdbCluster *FdbCluster) GetStatus() *fdbv1beta2.FoundationDBStatus {
 	return fdbCluster.getStatusFromOperatorPod()
