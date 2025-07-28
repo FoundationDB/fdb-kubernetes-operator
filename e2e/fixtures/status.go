@@ -34,7 +34,6 @@ import (
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 // getStatusFromOperatorPod returns fdb status queried through the operator Pod.
@@ -222,16 +221,10 @@ func (fdbCluster *FdbCluster) IsAvailable() bool {
 }
 
 // WaitUntilAvailable waits until the cluster is available.
-func (fdbCluster *FdbCluster) WaitUntilAvailable() error {
-	return wait.PollUntilContextTimeout(
-		context.Background(),
-		100*time.Millisecond,
-		60*time.Second,
-		true,
-		func(_ context.Context) (bool, error) {
-			return fdbCluster.IsAvailable(), nil
-		},
-	)
+func (fdbCluster *FdbCluster) WaitUntilAvailable() {
+	gomega.Eventually(func() bool {
+		return fdbCluster.IsAvailable()
+	}).To(gomega.BeTrue())
 }
 
 // StatusInvariantChecker provides a way to check an invariant for the cluster status.
@@ -394,6 +387,42 @@ func (fdbCluster *FdbCluster) HasTLSEnabled() bool {
 // GetCoordinators returns the Pods of the FoundationDBCluster that are having the coordinator role.
 func (fdbCluster *FdbCluster) GetCoordinators() []corev1.Pod {
 	return fdbCluster.GetPodsWithRole(fdbv1beta2.ProcessRoleCoordinator)
+}
+
+// GetCoordinatorsOnLogProcesses returns the Pods of the FoundationDBCluster that have the coordinator role and have the
+// process class log.
+func (fdbCluster *FdbCluster) GetCoordinatorsOnLogProcesses() []corev1.Pod {
+	coordinators := fdbCluster.GetPodsWithRole(fdbv1beta2.ProcessRoleCoordinator)
+	gomega.Expect(coordinators).NotTo(gomega.BeEmpty())
+
+	coordinatorsOnLogProcesses := make([]corev1.Pod, 0, len(coordinators))
+	for _, coordinator := range coordinators {
+		if !GetProcessClass(coordinator).IsTransaction() {
+			continue
+		}
+
+		coordinatorsOnLogProcesses = append(coordinatorsOnLogProcesses, coordinator)
+	}
+
+	if len(coordinatorsOnLogProcesses) == 0 {
+		pickedPod := fdbCluster.factory.RandomPickOnePod(coordinators)
+		fdbCluster.factory.DeletePod(&pickedPod)
+		// Wait for new coordinators
+		time.Sleep(1 * time.Minute)
+		// Fetch all coordinators again
+
+		coordinators = fdbCluster.GetPodsWithRole(fdbv1beta2.ProcessRoleCoordinator)
+		gomega.Expect(coordinators).NotTo(gomega.BeEmpty())
+		for _, coordinator := range coordinators {
+			if !GetProcessClass(coordinator).IsTransaction() {
+				continue
+			}
+
+			coordinatorsOnLogProcesses = append(coordinatorsOnLogProcesses, coordinator)
+		}
+	}
+
+	return coordinatorsOnLogProcesses
 }
 
 // GetStatus returns fdb status queried from a random operator Pod in this clusters namespace.

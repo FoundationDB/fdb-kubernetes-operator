@@ -44,6 +44,7 @@ var _ = Describe("restarts", func() {
 			map[fdbv1beta2.ProcessGroupConditionType]bool{
 				fdbv1beta2.IncorrectCommandLine: true,
 				fdbv1beta2.SidecarUnreachable:   false,
+				fdbv1beta2.IncorrectPodSpec:     false,
 				fdbv1beta2.IncorrectConfigMap:   false,
 			}),
 		Entry("when the running version is missing",
@@ -55,6 +56,7 @@ var _ = Describe("restarts", func() {
 			map[fdbv1beta2.ProcessGroupConditionType]bool{
 				fdbv1beta2.IncorrectCommandLine: true,
 				fdbv1beta2.SidecarUnreachable:   false,
+				fdbv1beta2.IncorrectPodSpec:     false,
 				fdbv1beta2.IncorrectConfigMap:   false,
 			}),
 		Entry("when a version incompatible upgrade is performed",
@@ -70,6 +72,24 @@ var _ = Describe("restarts", func() {
 				fdbv1beta2.IncorrectCommandLine:  true,
 				fdbv1beta2.IncorrectSidecarImage: false,
 				fdbv1beta2.IncorrectConfigMap:    false,
+			}),
+		Entry("when a TLS migration is ongoing",
+			&fdbv1beta2.FoundationDBCluster{
+				Spec: fdbv1beta2.FoundationDBClusterSpec{
+					Version: "7.1.25",
+				},
+				Status: fdbv1beta2.FoundationDBClusterStatus{
+					RunningVersion: "7.1.25",
+					RequiredAddresses: fdbv1beta2.RequiredAddressSet{
+						TLS:    true,
+						NonTLS: true,
+					},
+				},
+			},
+			map[fdbv1beta2.ProcessGroupConditionType]bool{
+				fdbv1beta2.IncorrectCommandLine: true,
+				fdbv1beta2.SidecarUnreachable:   false,
+				fdbv1beta2.IncorrectConfigMap:   false,
 			}),
 	)
 })

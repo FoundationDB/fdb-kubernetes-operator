@@ -23,6 +23,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/coordinator"
 
@@ -67,6 +68,7 @@ func (g generateInitialClusterFile) reconcile(
 	}
 
 	var pods = make([]*corev1.Pod, 0, processCounts.Total())
+	var newestPendingPod time.Time
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup.IsMarkedForRemoval() {
 			logger.V(1).Info("Ignore process group marked for removal",
@@ -91,6 +93,11 @@ func (g generateInitialClusterFile) reconcile(
 			logger.V(1).Info("Ignore process group with Pod not in running state",
 				"processGroupID", processGroup.ProcessGroupID,
 				"phase", pod.Status.Phase)
+
+			if pod.Status.Phase == corev1.PodPending &&
+				pod.CreationTimestamp.After(newestPendingPod) {
+				newestPendingPod = pod.CreationTimestamp.Time
+			}
 			continue
 		}
 
@@ -104,6 +111,19 @@ func (g generateInitialClusterFile) reconcile(
 				"cannot find enough running Pods to recruit coordinators. Require %d, got %d Pods",
 				count,
 				len(pods),
+			),
+			delay: podSchedulingDelayDuration,
+		}
+	}
+
+	// Wait for the pending pods that are in the pending phase until all pods are running or the operator waited
+	// for IgnorePendingPodsDuration.
+	if time.Since(newestPendingPod) < cluster.GetIgnorePendingPodsDuration() {
+		return &requeue{
+			message: fmt.Sprintf(
+				"at least one Pod is in pending phase since %s. Will wait for IgnorePendingPodsDuration (%s) before proceeding",
+				time.Since(newestPendingPod).String(),
+				cluster.GetIgnorePendingPodsDuration(),
 			),
 			delay: podSchedulingDelayDuration,
 		}

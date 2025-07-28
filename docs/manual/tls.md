@@ -103,6 +103,26 @@ Connections to FDB will use the peer verification logic provided by the FDB clie
 
 Connections to the sidecar will use the peer verification logic provided by go's tls library. This means that the sidecar's certificate must be valid for the pod's IP. You can disable verification for the connections to the sidecar by setting the environment variable `DISABLE_SIDECAR_TLS_CHECK=1` on the operator, but this will also disable the validation of the certificate chain, so it is not recommended to use this in real environments.
 
+## TLS Migration
+
+The operator supports to migrate a non-TLS cluster to TLS and visa versa.
+It is not recommended to perform additional changes outside of the TLS migration, as those could lead to some side effects.
+If the processes are missing the TLS environment variables, it's recommended to first update the `FDB_TLS_CERTIFICATE_FILE`, `FDB_TLS_KEY_FILE` and `FDB_TLS_CA_FILE`.
+Once the cluster is reconciled the TLS conversion can be started by enabling TLS in the main container:
+
+```yaml
+apiVersion: apps.foundationdb.org/v1beta2
+kind: FoundationDBCluster
+metadata:
+  name: sample-cluster
+spec:
+  # Other settings
+  mainContainer:
+    enableTls: true
+    peerVerificationRules: "S.CN=sample-cluster.foundationdb.example|S.CN=sample-cluster-client.foundationdb.example|S.CN=fdb-kubernetes-operator.foundationdb.example"
+  # Other settings
+```
+
 ## Next
 
 You can continue on to the [next section](backup.md) or go back to the [table of contents](index.md).

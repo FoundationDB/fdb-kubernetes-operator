@@ -30,7 +30,6 @@ Since FoundationDB is version incompatible for major and minor versions and the 
 import (
 	"context"
 	"fmt"
-
 	"log"
 	"strings"
 	"time"
@@ -191,11 +190,16 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 
 			clusterSetup(beforeVersion, false)
 
-			// Select one coordinator that will be restarted during the staging phase.
-			coordinators := fdbCluster.GetCoordinators()
+			// Select one coordinator that will be restarted during the staging phase. We prefer to pick a coordinator
+			// that is running on a log process, if we don't find one we fall back to a coordinator running on
+			// a storage process.
+			coordinators := fdbCluster.GetCoordinatorsOnLogProcesses()
+			if len(coordinators) == 0 {
+				coordinators = fdbCluster.GetCoordinators()
+			}
 			Expect(coordinators).NotTo(BeEmpty())
 
-			selectedCoordinator := coordinators[0]
+			selectedCoordinator := factory.RandomPickOnePod(coordinators)
 			log.Println(
 				"Selected coordinator:",
 				selectedCoordinator.Name,
@@ -206,7 +210,7 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 
 			// Disable the feature that the operator restarts processes. This allows us to restart the coordinator
 			// once all new binaries are present.
-			fdbCluster.SetKillProcesses(false)
+			fdbCluster.SetKillProcesses(false, true)
 
 			// Start the upgrade.
 			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
@@ -245,7 +249,10 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 			}).WithTimeout(180 * time.Second).WithPolling(4 * time.Second).Should(And(HaveLen(1), HaveKey(selectedCoordinator.Status.PodIP)))
 
 			// Allow the operator to restart processes and the upgrade should continue and finish.
-			fdbCluster.SetKillProcesses(true)
+			fdbCluster.SetKillProcesses(true, false)
+
+			// Ensure that the cluster was upgraded.
+			fdbCluster.VerifyVersion(targetVersion)
 
 			// Make sure the cluster has no data loss.
 			fdbCluster.EnsureTeamTrackersHaveMinReplicas()

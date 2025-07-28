@@ -2610,7 +2610,7 @@ func (cluster *FoundationDBCluster) IsEligibleAsCandidate(pClass ProcessClass) b
 
 // GetEligibleCandidateClasses returns process classes that are eligible to become coordinators.
 func (cluster *FoundationDBCluster) GetEligibleCandidateClasses() []ProcessClass {
-	candidateClasses := []ProcessClass{}
+	var candidateClasses []ProcessClass
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if cluster.IsEligibleAsCandidate(processGroup.ProcessClass) {
