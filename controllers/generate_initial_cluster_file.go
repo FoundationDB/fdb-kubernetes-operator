@@ -94,7 +94,8 @@ func (g generateInitialClusterFile) reconcile(
 				"processGroupID", processGroup.ProcessGroupID,
 				"phase", pod.Status.Phase)
 
-			if pod.Status.Phase == corev1.PodPending && pod.CreationTimestamp.After(newestPendingPod) {
+			if pod.Status.Phase == corev1.PodPending &&
+				pod.CreationTimestamp.After(newestPendingPod) {
 				newestPendingPod = pod.CreationTimestamp.Time
 			}
 			continue
