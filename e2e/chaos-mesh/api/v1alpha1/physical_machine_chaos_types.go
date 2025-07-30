@@ -523,7 +523,7 @@ type ClockSpec struct {
 }
 
 type RedisCommonSpec struct {
-	// The adress of Redis server
+	// The address of Redis server
 	Addr string `json:"addr,omitempty"`
 	// The password of Redis server
 	Password string `json:"password,omitempty"`

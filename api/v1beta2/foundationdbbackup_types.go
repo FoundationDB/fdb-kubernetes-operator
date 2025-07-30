@@ -117,7 +117,30 @@ type FoundationDBBackupSpec struct {
 	// +kubebuilder:validation:Enum=split;unified
 	// +kubebuilder:default:=split
 	ImageType *ImageType `json:"imageType,omitempty"`
+
+	// BackupType defines the backup type that should be used for the backup. When the BackupType is set to
+	// BackupTypePartitionedLog, the backup reconciler will not create a backup Deployment. it's expected that
+	// the FoundationDBCluster creates and manages the additional backup worker processes.
+	// A migration to a different backup type is not yet supported in the operator.
+	// Default: "backup_agent".
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Enum=backup_agent;partitioned_log
+	// +kubebuilder:default:=backup_agent
+	BackupType *BackupType `json:"backupType,omitempty"`
 }
+
+// BackupType defines the backup type that should be used for the backup.
+// +kubebuilder:validation:MaxLength=64
+type BackupType string
+
+const (
+	// BackupTypeDefault refers to the current default backup type with additional backup agents.
+	BackupTypeDefault BackupType = "backup_agent"
+
+	// BackupTypePartitionedLog refers to the new partitioned log backup system, see
+	// https://github.com/apple/foundationdb/blob/main/design/backup_v2_partitioned_logs.md.
+	BackupTypePartitionedLog BackupType = "partitioned_log"
+)
 
 // FoundationDBBackupStatus describes the current status of the backup for a cluster.
 type FoundationDBBackupStatus struct {
@@ -331,9 +354,32 @@ func (backup *FoundationDBBackup) CheckReconciliation() (bool, error) {
 	return reconciled, nil
 }
 
+// GetBackupType returns the backup type for the backup.
+func (backup *FoundationDBBackup) GetBackupType() BackupType {
+	if backup.Spec.BackupType != nil {
+		return *backup.Spec.BackupType
+	}
+
+	return BackupTypeDefault
+}
+
 // GetAllowTagOverride returns the bool value for AllowTagOverride
 func (foundationDBBackupSpec *FoundationDBBackupSpec) GetAllowTagOverride() bool {
 	return ptr.Deref(foundationDBBackupSpec.AllowTagOverride, false)
+}
+
+// GetEncryptionKey returns the encryption key path if the current version supports encrypted backups.
+func (backup *FoundationDBBackup) GetEncryptionKey() (string, error) {
+	fdbVersion, err := ParseFdbVersion(backup.Spec.Version)
+	if err != nil {
+		return "", err
+	}
+
+	if !fdbVersion.SupportsBackupEncryption() {
+		return "", nil
+	}
+
+	return backup.Spec.EncryptionKeyPath, nil
 }
 
 // UseUnifiedImage returns true if the unified image should be used.

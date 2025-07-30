@@ -131,7 +131,7 @@ func (in *Stressors) Normalize() (cpuStressors string, memoryStressors string, e
 		}
 	}
 
-	return
+	return cpuStressors, memoryStressors, err
 }
 
 // Stressor defines common configurations of a stressor
