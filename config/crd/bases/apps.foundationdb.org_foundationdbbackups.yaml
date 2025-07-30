@@ -71,6 +71,13 @@ spec:
                 - Stopped
                 - Paused
                 type: string
+              backupType:
+                default: backup_agent
+                enum:
+                - backup_agent
+                - partitioned_log
+                maxLength: 64
+                type: string
               blobStoreConfiguration:
                 properties:
                   accountName:

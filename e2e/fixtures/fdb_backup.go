@@ -41,13 +41,25 @@ type FdbBackup struct {
 	fdbCluster *FdbCluster
 }
 
+// FdbBackupConfiguration can be used to configure the created fdbv1beta2.FoundationDBBackup with different options.
+type FdbBackupConfiguration struct {
+	// BackupType defines the backup type that should be used for this backup.
+	BackupType *fdbv1beta2.BackupType
+}
+
 // CreateBackupForCluster will create a FoundationDBBackup for the provided cluster.
 func (factory *Factory) CreateBackupForCluster(
 	fdbCluster *FdbCluster,
+	config *FdbBackupConfiguration,
 ) *FdbBackup {
 	// For more information how the backup system with the operator is working please look at
 	// the operator documentation: https://github.com/FoundationDB/fdb-kubernetes-operator/v2/blob/master/docs/manual/backup.md
 	fdbVersion := factory.GetFDBVersion()
+
+	// If the config is nil, create a default config.
+	if config == nil {
+		config = &FdbBackupConfiguration{}
+	}
 
 	backup := &fdbv1beta2.FoundationDBBackup{
 		ObjectMeta: metav1.ObjectMeta{
@@ -66,6 +78,7 @@ func (factory *Factory) CreateBackupForCluster(
 					"region=us-east-1",
 				},
 			},
+			BackupType:       config.BackupType,
 			CustomParameters: fdbv1beta2.FoundationDBCustomParameters{
 				// Enable if you want to get http debug logs.
 				// "knob_http_verbose_level=10",
@@ -135,19 +148,17 @@ func (factory *Factory) CreateBackupForCluster(
 
 	gomega.Expect(factory.CreateIfAbsent(backup)).NotTo(gomega.HaveOccurred())
 
-	factory.AddShutdownHook(func() error {
-		err := factory.GetControllerRuntimeClient().Delete(context.Background(), backup)
-		if err != nil && !k8serrors.IsNotFound(err) {
-			return err
-		}
-
-		return nil
-	})
-
 	curBackup := &FdbBackup{
 		backup:     backup,
 		fdbCluster: fdbCluster,
 	}
+
+	factory.AddShutdownHook(func() error {
+		curBackup.Destroy()
+
+		return nil
+	})
+
 	curBackup.WaitForReconciliation()
 	return curBackup
 }
@@ -251,4 +262,17 @@ func (fdbBackup *FdbBackup) GetBackupPods() *corev1.PodList {
 		NotTo(gomega.HaveOccurred())
 
 	return podList
+}
+
+// Destroy will remove the underlying backup resources.
+func (fdbBackup *FdbBackup) Destroy() {
+	gomega.Eventually(func(g gomega.Gomega) {
+		err := fdbBackup.fdbCluster.getClient().
+			Delete(context.Background(), fdbBackup.backup)
+		if k8serrors.IsNotFound(err) {
+			return
+		}
+
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+	}).WithTimeout(1 * time.Minute).WithPolling(1 * time.Second).To(gomega.Succeed())
 }
