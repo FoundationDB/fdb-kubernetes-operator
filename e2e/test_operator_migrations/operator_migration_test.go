@@ -147,7 +147,7 @@ var _ = Describe("Operator Migrations", Label("e2e", "pr"), func() {
 			factory.Delete(quota)
 		})
 
-		FIt("should add the new env variable to all log pods", func() {
+		It("should add the new env variable to all log pods", func() {
 			lastForcedReconciliationTime := time.Now()
 			forceReconcileDuration := 4 * time.Minute
 
