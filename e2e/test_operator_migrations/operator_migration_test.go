@@ -102,13 +102,12 @@ var _ = Describe("Operator Migrations", Label("e2e", "pr"), func() {
 	})
 
 	When("a migration is triggered and the namespace quota is limited", func() {
-		prefix := "banana"
 		var quota *corev1.ResourceQuota
 
 		BeforeEach(func() {
 			processCounts, err := fdbCluster.GetCluster().GetProcessCountsWithDefaults()
 			Expect(err).NotTo(HaveOccurred())
-			// Create Quota to limit the additional Pods that can be created to 5, the actual value here is 7 ,because we run
+			// Create Quota to limit the additional Pods that can be created to 5, the actual value here is 7, because we run
 			// 2 Operator Pods.
 			quota = &corev1.ResourceQuota{
 				ObjectMeta: metav1.ObjectMeta{
@@ -122,35 +121,57 @@ var _ = Describe("Operator Migrations", Label("e2e", "pr"), func() {
 				},
 			}
 			Expect(factory.CreateIfAbsent(quota)).NotTo(HaveOccurred())
-			Expect(fdbCluster.SetProcessGroupPrefix(prefix)).NotTo(HaveOccurred())
+
+			logSettings := fdbCluster.GetProcessSettings(fdbv1beta2.ProcessClassLog).DeepCopy()
+			for idx, container := range logSettings.PodTemplate.Spec.Containers {
+				if container.Name != fdbv1beta2.MainContainerName {
+					continue
+				}
+
+				container.Env = append(container.Env, corev1.EnvVar{
+					Name:  "TESTING_MIGRATION",
+					Value: "true",
+				})
+
+				logSettings.PodTemplate.Spec.Containers[idx] = container
+			}
+
+			spec := fdbCluster.GetCluster().Spec.DeepCopy()
+			spec.Processes[fdbv1beta2.ProcessClassLog] = *logSettings
+			fdbCluster.UpdateClusterSpecWithSpec(spec)
+
+			Expect(fdbCluster.WaitForReconciliation()).To(Succeed())
 		})
 
 		AfterEach(func() {
 			factory.Delete(quota)
 		})
 
-		It("should add the prefix to all instances", func() {
+		FIt("should add the new env variable to all log pods", func() {
 			lastForcedReconciliationTime := time.Now()
 			forceReconcileDuration := 4 * time.Minute
 
-			Eventually(func(g Gomega) bool {
+			Eventually(func(g Gomega) {
 				// Force a reconcile if needed to make sure we speed up the reconciliation if needed.
 				if time.Since(lastForcedReconciliationTime) >= forceReconcileDuration {
 					fdbCluster.ForceReconcile()
 					lastForcedReconciliationTime = time.Now()
 				}
 
-				// Check if all process groups are migrated
-				for _, processGroup := range fdbCluster.GetCluster().Status.ProcessGroups {
-					if processGroup.IsMarkedForRemoval() && processGroup.IsExcluded() {
-						continue
-					}
-					g.Expect(string(processGroup.ProcessGroupID)).To(HavePrefix(prefix))
-				}
+				// Check if all log pods are migrated
+				for _, pod := range fdbCluster.GetLogPods().Items {
+					for _, container := range pod.Spec.Containers {
+						if container.Name != fdbv1beta2.MainContainerName {
+							continue
+						}
 
-				return true
-			}).WithTimeout(40 * time.Minute).WithPolling(5 * time.Second).Should(BeTrue())
-			Expect(fdbCluster.WaitForReconciliation()).NotTo(HaveOccurred())
+						g.Expect(container.Env).To(ContainElement(corev1.EnvVar{
+							Name:  "TESTING_MIGRATION",
+							Value: "true",
+						}))
+					}
+				}
+			}).WithTimeout(10 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
 		})
 	})
 

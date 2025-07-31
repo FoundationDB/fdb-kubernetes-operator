@@ -1153,12 +1153,22 @@ func (fdbCluster *FdbCluster) SetPodTemplateSpec(
 func (fdbCluster *FdbCluster) GetPodTemplateSpec(
 	processClass fdbv1beta2.ProcessClass,
 ) *corev1.PodSpec {
-	if classSpec, ok := fdbCluster.cluster.Spec.Processes[processClass]; ok {
-		return &classSpec.PodTemplate.Spec
+	return &fdbCluster.GetProcessSettings(processClass).PodTemplate.Spec
+}
+
+// GetProcessSettings returns the process settings for the process class. If no settings are defined for the specific
+// process class the process settings for the general class will be returned.
+func (fdbCluster *FdbCluster) GetProcessSettings(
+	processClass fdbv1beta2.ProcessClass,
+) *fdbv1beta2.ProcessSettings {
+	if settings, ok := fdbCluster.cluster.Spec.Processes[processClass]; ok {
+		return &settings
 	}
-	if generalSpec, ok := fdbCluster.cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]; ok {
-		return &generalSpec.PodTemplate.Spec
+
+	if settings, ok := fdbCluster.cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]; ok {
+		return &settings
 	}
+
 	return nil
 }
 
