@@ -23,6 +23,7 @@ package fixtures
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"html/template"
 	"io"
@@ -710,13 +711,30 @@ func (factory *Factory) CreateFDBOperatorIfAbsent(namespace string) error {
 
 // GetOperatorPods returns the operator Pods in the provided namespace.
 func (factory *Factory) GetOperatorPods(namespace string) *corev1.PodList {
+	return factory.GetOperatorPodsWithOptions(
+		namespace,
+		client.MatchingFields(map[string]string{"status.phase": string(corev1.PodRunning)}),
+	)
+}
+
+// GetOperatorPodsWithOptions returns the operator Pods in the provided namespace with the additional list options.
+// The default list options contain the namespace selector and the label selector for the operator pods.
+func (factory *Factory) GetOperatorPodsWithOptions(
+	namespace string,
+	options ...client.ListOption,
+) *corev1.PodList {
 	pods := &corev1.PodList{}
+
+	listOptions := []client.ListOption{
+		client.InNamespace(namespace),
+		client.MatchingLabels(map[string]string{"app": operatorDeploymentName})}
+
+	if len(options) > 0 {
+		listOptions = append(listOptions, options...)
+	}
+
 	gomega.Eventually(func() error {
-		return factory.GetControllerRuntimeClient().
-			List(context.TODO(), pods,
-				client.InNamespace(namespace),
-				client.MatchingLabels(map[string]string{"app": operatorDeploymentName}),
-				client.MatchingFields(map[string]string{"status.phase": string(corev1.PodRunning)}))
+		return factory.GetControllerRuntimeClient().List(context.TODO(), pods, listOptions...)
 	}).WithTimeout(1 * time.Minute).WithPolling(1 * time.Second).ShouldNot(gomega.HaveOccurred())
 
 	return pods
@@ -731,7 +749,9 @@ func (factory *Factory) WaitUntilOperatorPodsRunning(namespace string) {
 	).NotTo(gomega.HaveOccurred())
 
 	expectedReplicas := int(ptr.Deref(deployment.Spec.Replicas, 1))
-	gomega.Eventually(func(g gomega.Gomega) int {
+	lastTimePrintedDeploymentStatus := time.Now()
+
+	gomega.Eventually(func(g gomega.Gomega) {
 		deployment = &appsv1.Deployment{}
 		g.Expect(
 			factory.GetControllerRuntimeClient().
@@ -739,7 +759,15 @@ func (factory *Factory) WaitUntilOperatorPodsRunning(namespace string) {
 		).To(gomega.Succeed())
 		g.Expect(deployment.Status.UpdatedReplicas).To(gomega.BeNumerically(">=", expectedReplicas))
 
-		pods := factory.GetOperatorPods(namespace)
+		// Print the deployment status every minute.
+		if time.Since(lastTimePrintedDeploymentStatus) > 1*time.Minute {
+			lastTimePrintedDeploymentStatus = time.Now()
+			statusBytes, err := json.Marshal(deployment.Status)
+			g.Expect(err).NotTo(gomega.HaveOccurred())
+			log.Println("deployment status:", string(statusBytes))
+		}
+
+		pods := factory.GetOperatorPodsWithOptions(namespace)
 		var runningReplicas int
 		for _, pod := range pods.Items {
 			if pod.Status.Phase == corev1.PodRunning && pod.DeletionTimestamp.IsZero() {
@@ -748,14 +776,18 @@ func (factory *Factory) WaitUntilOperatorPodsRunning(namespace string) {
 			}
 
 			// If the Pod is not running after 120 seconds we delete it and let the Deployment controller create a new Pod.
-			if time.Since(pod.CreationTimestamp.Time).Seconds() > 120.0 {
+			if time.Since(pod.CreationTimestamp.Time) > 2*time.Minute {
+				statusBytes, err := json.Marshal(pod.Status)
+				g.Expect(err).NotTo(gomega.HaveOccurred())
+
 				log.Println(
 					"operator Pod",
 					pod.Name,
 					"not running after 120 seconds, going to delete this Pod, status:",
-					pod.Status,
+					string(statusBytes),
 				)
-				err := factory.GetControllerRuntimeClient().Delete(context.TODO(), &pod)
+
+				err = factory.GetControllerRuntimeClient().Delete(context.TODO(), &pod)
 				if k8serrors.IsNotFound(err) {
 					continue
 				}
@@ -764,8 +796,8 @@ func (factory *Factory) WaitUntilOperatorPodsRunning(namespace string) {
 			}
 		}
 
-		return runningReplicas
-	}).WithTimeout(10 * time.Minute).WithPolling(2 * time.Second).Should(gomega.BeNumerically(">=", expectedReplicas))
+		g.Expect(runningReplicas).To(gomega.BeNumerically(">=", expectedReplicas))
+	}).WithTimeout(5 * time.Minute).WithPolling(2 * time.Second).Should(gomega.Succeed())
 }
 
 // RecreateOperatorPods will recreate all operator Pods in the specified namespace and wait until the new Pods are
