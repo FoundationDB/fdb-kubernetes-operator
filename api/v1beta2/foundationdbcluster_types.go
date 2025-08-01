@@ -1745,7 +1745,7 @@ func (cluster *FoundationDBCluster) CheckReconciliation(log logr.Logger) (bool, 
 				)
 				cluster.Status.Generations.HasPendingRemoval = cluster.Generation
 			} else {
-				logger.Info("Has process group with pending shrink", "processGroupID", processGroup.ProcessGroupID, "state", "NeedsShrink")
+				logger.Info("Has process group with pending shrink", "processGroupID", processGroup.ProcessGroupID, "state", "NeedsShrink", "conditions", processGroup.ProcessGroupConditions)
 				cluster.Status.Generations.NeedsShrink = cluster.Generation
 				reconciled = false
 			}
