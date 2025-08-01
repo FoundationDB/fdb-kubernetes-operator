@@ -230,42 +230,51 @@ var _ = Describe("Operator Migrations", Label("e2e", "pr"), func() {
 			if fdbCluster.HasHeadlessService() {
 				expectedSvcCnt = 1
 			}
-			Expect(len(svcList.Items)).To(BeNumerically("==", expectedSvcCnt))
+			Expect(svcList.Items).To(HaveLen(expectedSvcCnt))
 		})
 	})
 
 	When("changing the volume size", func() {
-		var initialPods *corev1.PodList
-		var newSize, initialStorageSize resource.Quantity
+		var initialLogPods []string
+		var newSize resource.Quantity
 
 		BeforeEach(func() {
 			var err error
 
-			initialPods = fdbCluster.GetLogPods()
+			pods := fdbCluster.GetLogPods()
+			for _, pod := range pods.Items {
+				initialLogPods = append(initialLogPods, pod.Name)
+			}
 			// We use ProcessClassGeneral here because we are not setting any specific settings for the Log processes.
-			initialStorageSize, err = fdbCluster.GetVolumeSize(fdbv1beta2.ProcessClassGeneral)
+			initialStorageSize := fdbCluster.GetVolumeSize(fdbv1beta2.ProcessClassLog)
 			Expect(err).NotTo(HaveOccurred())
 			// Add 10G to the current size
 			newSize = initialStorageSize.DeepCopy()
 			newSize.Add(resource.MustParse("10G"))
 			Expect(
-				fdbCluster.SetVolumeSize(fdbv1beta2.ProcessClassGeneral, newSize),
-			).NotTo(HaveOccurred())
-		})
-
-		AfterEach(func() {
-			Expect(
-				fdbCluster.SetVolumeSize(fdbv1beta2.ProcessClassGeneral, initialStorageSize),
+				fdbCluster.SetVolumeSize(fdbv1beta2.ProcessClassLog, newSize),
 			).NotTo(HaveOccurred())
 		})
 
 		It("should replace all the log Pods and use the new volume size", func() {
 			pods := fdbCluster.GetLogPods()
-			Expect(pods.Items).NotTo(ContainElements(initialPods.Items))
+			newLogPods := make([]string, 0, len(pods.Items))
+			for _, pod := range pods.Items {
+				// Ignore pods that are marked for deletion.
+				if !pod.DeletionTimestamp.IsZero() {
+					continue
+				}
+
+				newLogPods = append(newLogPods, pod.Name)
+			}
+
+			Expect(newLogPods).NotTo(ContainElements(initialLogPods))
 			volumeClaims := fdbCluster.GetVolumeClaimsForProcesses(
 				fdbv1beta2.ProcessClassLog,
 			)
-			Expect(len(volumeClaims.Items)).To(Equal(len(initialPods.Items)))
+
+			// Ensure we created the same amount of volume claims that we had before.
+			Expect(volumeClaims.Items).To(HaveLen(len(initialLogPods)))
 			for _, volumeClaim := range volumeClaims.Items {
 				req := volumeClaim.Spec.Resources.Requests[corev1.ResourceStorage]
 				Expect((&req).Value()).To(Equal(newSize.Value()))
@@ -529,7 +538,7 @@ var _ = Describe("Operator Migrations", Label("e2e", "pr"), func() {
 				spec.MainContainer.EnableTLS = !initialTLSSetting
 
 				// Add a new env variable to ensure this will cause some additional replacements.
-				processSettings := spec.Processes[fdbv1beta2.ProcessClassGeneral]
+				processSettings := fdbCluster.GetProcessSettings(fdbv1beta2.ProcessClassLog)
 				for i, container := range processSettings.PodTemplate.Spec.Containers {
 					if container.Name != fdbv1beta2.MainContainerName {
 						continue
@@ -544,7 +553,7 @@ var _ = Describe("Operator Migrations", Label("e2e", "pr"), func() {
 					break
 				}
 
-				spec.Processes[fdbv1beta2.ProcessClassGeneral] = processSettings
+				spec.Processes[fdbv1beta2.ProcessClassLog] = *processSettings
 
 				fdbCluster.UpdateClusterSpecWithSpec(spec)
 				Expect(fdbCluster.WaitForReconciliation()).To(Succeed())

@@ -741,17 +741,11 @@ func (fdbCluster *FdbCluster) SetVolumeSize(
 	processClass fdbv1beta2.ProcessClass,
 	size resource.Quantity,
 ) error {
-	processSettings, ok := fdbCluster.cluster.Spec.Processes[processClass]
-	if !ok || processSettings.VolumeClaimTemplate == nil {
-		processSettings, ok = fdbCluster.cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
-		if !ok {
-			return fmt.Errorf("could not find process setting for %s", processClass)
-		}
-	}
-	setting := fdbCluster.cluster.Spec.Processes[processClass]
+	processSettings := fdbCluster.GetProcessSettings(processClass)
+	gomega.Expect(processSettings).NotTo(gomega.BeNil())
 	// Set the new volume claim template
 	if processSettings.VolumeClaimTemplate == nil {
-		setting.VolumeClaimTemplate = &corev1.PersistentVolumeClaim{
+		processSettings.VolumeClaimTemplate = &corev1.PersistentVolumeClaim{
 			Spec: corev1.PersistentVolumeClaimSpec{
 				Resources: corev1.VolumeResourceRequirements{
 					Requests: corev1.ResourceList{
@@ -761,10 +755,10 @@ func (fdbCluster *FdbCluster) SetVolumeSize(
 			},
 		}
 	} else {
-		setting.VolumeClaimTemplate = processSettings.VolumeClaimTemplate.DeepCopy()
-		setting.VolumeClaimTemplate.Spec.Resources.Requests[corev1.ResourceStorage] = size
+		processSettings.VolumeClaimTemplate = processSettings.VolumeClaimTemplate.DeepCopy()
+		processSettings.VolumeClaimTemplate.Spec.Resources.Requests[corev1.ResourceStorage] = size
 	}
-	fdbCluster.cluster.Spec.Processes[processClass] = setting
+	fdbCluster.cluster.Spec.Processes[processClass] = *processSettings
 	fdbCluster.UpdateClusterSpec()
 	return fdbCluster.WaitForReconciliation()
 }
@@ -772,15 +766,13 @@ func (fdbCluster *FdbCluster) SetVolumeSize(
 // GetVolumeSize returns the volume size for the specified process class.
 func (fdbCluster *FdbCluster) GetVolumeSize(
 	processClass fdbv1beta2.ProcessClass,
-) (resource.Quantity, error) {
-	processSettings, ok := fdbCluster.cluster.Spec.Processes[processClass]
-	if !ok || processSettings.VolumeClaimTemplate == nil {
-		processSettings, ok = fdbCluster.cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral]
-		if !ok || processSettings.VolumeClaimTemplate == nil {
-			return resource.MustParse("128G"), nil
-		}
+) resource.Quantity {
+	processSettings := fdbCluster.GetProcessSettings(processClass)
+	if processSettings == nil || processSettings.VolumeClaimTemplate == nil {
+		return resource.MustParse("128G")
 	}
-	return processSettings.VolumeClaimTemplate.Spec.Resources.Requests[corev1.ResourceStorage], nil
+
+	return processSettings.VolumeClaimTemplate.Spec.Resources.Requests[corev1.ResourceStorage]
 }
 
 func (fdbCluster *FdbCluster) updateLogProcessCount(
