@@ -26,8 +26,9 @@ import (
 	"strings"
 	"time"
 
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/restarts"
+
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient"
 	"github.com/go-logr/logr"
 )
@@ -400,6 +401,29 @@ func UpdateGlobalCoordinationState(
 			continue
 		}
 
+		// If the process group is missing long enough to be ignored, ensure that it's removed from the pending
+		// and the ready list.
+		if processGroup.GetConditionTime(fdbv1beta2.IncorrectCommandLine) != nil &&
+			!restarts.ShouldBeIgnoredBecauseMissing(logger, cluster, processGroup) {
+			// Check if the process group is present in pendingForRestart.
+			// If not add it to the according set.
+			if _, ok := pendingForRestart[processGroup.ProcessGroupID]; !ok {
+				updatesPendingForRestart[processGroup.ProcessGroupID] = fdbv1beta2.UpdateActionAdd
+			}
+		} else {
+			// Check if the process group is present in pendingForRestart or readyForRestart.
+			// If so, add them to the set to remove those entries as the process has the correct command line.
+			if _, ok := pendingForRestart[processGroup.ProcessGroupID]; ok {
+				logger.V(1).Info("Removing from pendingForRestart", "processGroupID", processGroup.ProcessGroupID)
+				updatesPendingForRestart[processGroup.ProcessGroupID] = fdbv1beta2.UpdateActionDelete
+			}
+
+			if _, ok := readyForRestart[processGroup.ProcessGroupID]; ok {
+				logger.V(1).Info("Removing from readyForRestart", "processGroupID", processGroup.ProcessGroupID)
+				updatesReadyForRestart[processGroup.ProcessGroupID] = fdbv1beta2.UpdateActionDelete
+			}
+		}
+
 		// Keep track of the visited process group to remove entries from removed process groups.
 		visited[processGroup.ProcessGroupID] = fdbv1beta2.None{}
 		if processGroup.IsMarkedForRemoval() {
@@ -457,44 +481,29 @@ func UpdateGlobalCoordinationState(
 						updatesReadyForInclusion[processGroup.ProcessGroupID] = fdbv1beta2.UpdateActionAdd
 					}
 				}
-
-				// if the process group is excluded, we don't need to restart it.
-				if _, ok := pendingForRestart[processGroup.ProcessGroupID]; ok {
-					logger.V(1).
-						Info("Removing from pendingForRestart", "processGroupID", processGroup.ProcessGroupID, "reason", reason)
-					updatesPendingForRestart[processGroup.ProcessGroupID] = fdbv1beta2.UpdateActionDelete
-				}
-
-				if _, ok := readyForRestart[processGroup.ProcessGroupID]; ok {
-					logger.V(1).
-						Info("Removing from readyForRestart", "processGroupID", processGroup.ProcessGroupID, "reason", reason)
-					updatesReadyForRestart[processGroup.ProcessGroupID] = fdbv1beta2.UpdateActionDelete
-				}
 			}
 
 			// If the process group is stuck in terminating, we can add it to the ready for inclusion list.
 			if processGroup.GetConditionTime(fdbv1beta2.ResourcesTerminating) != nil {
 				if _, ok := pendingForInclusion[processGroup.ProcessGroupID]; !ok {
 					logger.V(1).
-						Info("Adding to pendingForInclusion and readyForInclusion", "processGroupID", processGroup.ProcessGroupID, "reason", "process group is marked for removal and in terminating")
+						Info("Adding to pendingForInclusion and readyForInclusion", "processGroupID", processGroup.ProcessGroupID, "reason", "process group is in terminating state")
 					updatesPendingForInclusion[processGroup.ProcessGroupID] = fdbv1beta2.UpdateActionAdd
 					updatesReadyForInclusion[processGroup.ProcessGroupID] = fdbv1beta2.UpdateActionAdd
 				}
 
 				// If the process group is marked for removal and the resources are stuck in terminating or the processes are not running, we should
 				// remove them from the restart list, because there are no processes to restart.
-				if processGroup.GetConditionTime(fdbv1beta2.MissingProcesses) != nil {
-					if _, ok := pendingForRestart[processGroup.ProcessGroupID]; ok {
-						logger.V(1).
-							Info("Removing from pendingForRestart", "processGroupID", processGroup.ProcessGroupID, "reason", "process group is marked for removal")
-						updatesPendingForRestart[processGroup.ProcessGroupID] = fdbv1beta2.UpdateActionDelete
-					}
+				if _, ok := pendingForRestart[processGroup.ProcessGroupID]; ok {
+					logger.V(1).
+						Info("Removing from pendingForRestart", "processGroupID", processGroup.ProcessGroupID, "reason", "process group is in terminating state")
+					updatesPendingForRestart[processGroup.ProcessGroupID] = fdbv1beta2.UpdateActionDelete
+				}
 
-					if _, ok := readyForRestart[processGroup.ProcessGroupID]; ok {
-						logger.V(1).
-							Info("Removing from readyForRestart", "processGroupID", processGroup.ProcessGroupID, "reason", "process group is marked for removal")
-						updatesReadyForRestart[processGroup.ProcessGroupID] = fdbv1beta2.UpdateActionDelete
-					}
+				if _, ok := readyForRestart[processGroup.ProcessGroupID]; ok {
+					logger.V(1).
+						Info("Removing from readyForRestart", "processGroupID", processGroup.ProcessGroupID, "reason", "process group is in terminating state")
+					updatesReadyForRestart[processGroup.ProcessGroupID] = fdbv1beta2.UpdateActionDelete
 				}
 			}
 
@@ -506,29 +515,6 @@ func UpdateGlobalCoordinationState(
 			}
 
 			continue
-		}
-
-		// If the process group is missing long enough to be ignored, ensure that it's removed from the pending
-		// and the ready list.
-		if processGroup.GetConditionTime(fdbv1beta2.IncorrectCommandLine) != nil &&
-			!restarts.ShouldBeIgnoredBecauseMissing(logger, cluster, processGroup) {
-			// Check if the process group is present in pendingForRestart.
-			// If not add it to the according set.
-			if _, ok := pendingForRestart[processGroup.ProcessGroupID]; !ok {
-				updatesPendingForRestart[processGroup.ProcessGroupID] = fdbv1beta2.UpdateActionAdd
-			}
-		} else {
-			// Check if the process group is present in pendingForRestart or readyForRestart.
-			// If so, add them to the set to remove those entries as the process has the correct command line.
-			if _, ok := pendingForRestart[processGroup.ProcessGroupID]; ok {
-				logger.V(1).Info("Removing from pendingForRestart", "processGroupID", processGroup.ProcessGroupID)
-				updatesPendingForRestart[processGroup.ProcessGroupID] = fdbv1beta2.UpdateActionDelete
-			}
-
-			if _, ok := readyForRestart[processGroup.ProcessGroupID]; ok {
-				logger.V(1).Info("Removing from readyForRestart", "processGroupID", processGroup.ProcessGroupID)
-				updatesReadyForRestart[processGroup.ProcessGroupID] = fdbv1beta2.UpdateActionDelete
-			}
 		}
 	}
 
