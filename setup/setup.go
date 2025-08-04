@@ -183,7 +183,7 @@ func (o *Options) BindFlags(fs *flag.FlagSet) {
 		&o.HealthProbeBindAddress,
 		"health-probe-bind-address",
 		":9443",
-		"The address the operator binds to for health and readiness probes.",
+		"The address the operator binds to for health / readiness / liveness probes.",
 	)
 	fs.IntVar(
 		&o.MaxNumberOfOldLogFiles,
@@ -412,7 +412,7 @@ func StartManager(
 		Cache:                  cacheOptions,
 		HealthProbeBindAddress: operatorOpts.HealthProbeBindAddress,
 		ReadinessEndpointName:  operatorOpts.HealthProbeBindAddress,
-		LivenessEndpointName:   operatorOpts.HealthProbeBindAddress
+		LivenessEndpointName:   operatorOpts.HealthProbeBindAddress,
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), options)
