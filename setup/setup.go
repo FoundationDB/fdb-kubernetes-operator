@@ -73,6 +73,7 @@ type Options struct {
 	LogFilePermission                  string
 	LabelSelector                      string
 	ClusterLabelKeyForNodeTrigger      string
+	HealthProbeBindAddress             string
 	WatchNamespace                     string
 	PodUpdateMethod                    string
 	CliTimeout                         int
