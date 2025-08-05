@@ -1266,7 +1266,6 @@ var _ = Describe("update_status", func() {
 					}
 				})
 			})
-
 		})
 	})
 
@@ -1277,8 +1276,7 @@ var _ = Describe("update_status", func() {
 
 		BeforeEach(func() {
 			cluster = internal.CreateDefaultCluster()
-			err = k8sClient.Create(context.TODO(), cluster)
-			Expect(err).NotTo(HaveOccurred())
+			Expect(k8sClient.Create(context.TODO(), cluster)).To(Succeed())
 
 			result, err := reconcileCluster(cluster)
 			Expect(err).NotTo(HaveOccurred())
@@ -1290,8 +1288,9 @@ var _ = Describe("update_status", func() {
 		})
 
 		JustBeforeEach(func() {
-			err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
-			Expect(err).NotTo(HaveOccurred())
+			Expect(
+				internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{}),
+			).To(Succeed())
 			requeue = updateStatus{}.reconcile(
 				context.TODO(),
 				clusterReconciler,
@@ -1348,6 +1347,61 @@ var _ = Describe("update_status", func() {
 			It("should set the fault domain for all process groups", func() {
 				for _, processGroup := range cluster.Status.ProcessGroups {
 					Expect(processGroup.FaultDomain).NotTo(BeEmpty())
+				}
+			})
+		})
+
+		When("the cluster was bounced for an upgrade", func() {
+			BeforeEach(func() {
+				version, err := fdbv1beta2.ParseFdbVersion(cluster.Spec.Version)
+				Expect(err).NotTo(HaveOccurred())
+				cluster.Spec.Version = version.NextMajorVersion().String()
+				Expect(k8sClient.Update(context.Background(), cluster)).To(Succeed())
+
+				adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(
+					internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{}),
+				).To(Succeed())
+				// Prepare the sidecar versions and make sure that we bounce the cluster.
+				var addresses []fdbv1beta2.ProcessAddress
+				versions := make(map[fdbv1beta2.ProcessGroupID]string)
+				for _, processGroup := range cluster.Status.ProcessGroups {
+					for _, addr := range processGroup.Addresses {
+						parsedAddr, err := fdbv1beta2.ParseProcessAddress(addr)
+						Expect(err).NotTo(HaveOccurred())
+						addresses = append(addresses, parsedAddr)
+					}
+					versions[processGroup.ProcessGroupID] = cluster.Spec.Version
+
+					pod, err := internal.GetPod(cluster, processGroup)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(
+						updateSidecarImage(
+							context.Background(),
+							clusterReconciler,
+							logger,
+							cluster,
+							processGroup,
+							pod,
+						),
+					).To(Succeed())
+				}
+
+				Expect(adminClient.KillProcesses(addresses)).NotTo(HaveOccurred())
+				adminClient.VersionProcessGroups = versions
+
+				_, err = reloadCluster(cluster)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should update the incorrect sidecar image condition", func() {
+				Expect(requeue).NotTo(BeNil())
+				Expect(cluster.Generation).NotTo(Equal(cluster.Status.Generations.Reconciled))
+
+				for _, processGroup := range cluster.Status.ProcessGroups {
+					Expect(processGroup.ProcessGroupConditions).NotTo(HaveLen(0))
 				}
 			})
 		})
