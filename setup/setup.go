@@ -73,6 +73,7 @@ type Options struct {
 	LogFilePermission                  string
 	LabelSelector                      string
 	ClusterLabelKeyForNodeTrigger      string
+	HealthProbeBindAddress             string
 	WatchNamespace                     string
 	PodUpdateMethod                    string
 	CliTimeout                         int
@@ -179,6 +180,12 @@ func (o *Options) BindFlags(fs *flag.FlagSet) {
 	)
 	fs.StringVar(&o.ClusterLabelKeyForNodeTrigger, "cluster-label-key-for-node-trigger", "",
 		"The label key to use to trigger a reconciliation if a node resources changes.")
+	fs.StringVar(
+		&o.HealthProbeBindAddress,
+		"health-probe-bind-address",
+		"[::1]:9443",
+		"The address the operator binds to for health / readiness / liveness probes.",
+	)
 	fs.IntVar(
 		&o.MaxNumberOfOldLogFiles,
 		"max-old-log-files",
@@ -404,9 +411,9 @@ func StartManager(
 		RenewDeadline:          &operatorOpts.RenewDeadline,
 		RetryPeriod:            &operatorOpts.RetryPeriod,
 		Cache:                  cacheOptions,
-		HealthProbeBindAddress: "[::1]:9443",
-		ReadinessEndpointName:  "[::1]:9443",
-		LivenessEndpointName:   "[::1]:9443",
+		HealthProbeBindAddress: operatorOpts.HealthProbeBindAddress,
+		ReadinessEndpointName:  operatorOpts.HealthProbeBindAddress,
+		LivenessEndpointName:   operatorOpts.HealthProbeBindAddress,
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), options)
