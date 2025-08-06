@@ -83,6 +83,8 @@ type ClusterConfig struct {
 	UseDNS *bool
 	// If enabled the cluster will be setup with the unified image.
 	UseUnifiedImage *bool
+	// ManagementAPI if set to true, the operator will make use of the management API.
+	ManagementAPI *bool
 	// SimulateCustomFaultDomainEnv will simulate the use case that a user has set a custom environment variable to
 	// be used as zone ID.
 	SimulateCustomFaultDomainEnv bool
@@ -224,6 +226,10 @@ func (config *ClusterConfig) SetDefaults(factory *Factory) {
 
 	if config.Version == nil {
 		config.Version = ptr.To(factory.GetFDBVersion().String())
+	}
+
+	if config.ManagementAPI == nil {
+		config.ManagementAPI = ptr.To(factory.options.featureManagementAPI)
 	}
 }
 
@@ -632,5 +638,6 @@ func (config *ClusterConfig) Copy() *ClusterConfig {
 		SynchronizationMode:        config.SynchronizationMode,
 		EnableTLS:                  config.EnableTLS,
 		Version:                    config.Version,
+		ManagementAPI:              config.ManagementAPI,
 	}
 }

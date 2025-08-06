@@ -59,6 +59,7 @@ type FactoryOptions struct {
 	featureOperatorLocalities      bool
 	featureOperatorUnifiedImage    bool
 	featureOperatorServerSideApply bool
+	featureManagementAPI           bool
 	dumpOperatorState              bool
 	defaultUnavailableThreshold    time.Duration
 }
@@ -203,6 +204,12 @@ func (options *FactoryOptions) BindFlags(fs *flag.FlagSet) {
 		"feature-server-side-apply",
 		false,
 		"defines if the operator should make use of server side apply.",
+	)
+	fs.BoolVar(
+		&options.featureManagementAPI,
+		"feature-management-api",
+		false,
+		"defines if the operator should make use of the management API",
 	)
 	fs.StringVar(
 		&options.clusterName,

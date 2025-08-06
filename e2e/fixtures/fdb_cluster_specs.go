@@ -106,6 +106,7 @@ func (factory *Factory) createFDBClusterSpec(
 				},
 				UseLocalitiesForExclusion: config.UseLocalityBasedExclusions,
 				SynchronizationMode:       ptr.To(string(config.SynchronizationMode)),
+				UseManagementAPI:          config.ManagementAPI,
 			},
 			Routing: fdbv1beta2.RoutingConfig{
 				UseDNSInClusterFile: config.UseDNS,
