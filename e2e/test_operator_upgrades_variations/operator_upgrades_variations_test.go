@@ -192,7 +192,7 @@ func performUpgrade(config testConfig, preUpgradeFunction func(cluster *fixtures
 	// replacements during an upgrade.
 	expectedProcessCounts := (processCounts.Total()-processCounts.Storage)*2 + 5
 	Expect(len(transactionSystemProcessGroups)).To(BeNumerically("<=", expectedProcessCounts))
-	// Ensure we have not data loss.
+	// Ensure we have no data loss.
 	fdbCluster.EnsureTeamTrackersAreHealthy()
 	fdbCluster.EnsureTeamTrackersHaveMinReplicas()
 }

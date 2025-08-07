@@ -98,7 +98,7 @@ func (c updateStatus) reconcile(
 	}
 
 	// Update the running version based on the reported version of the FDB processes
-	version, err := getRunningVersion(logger, versionMap, cluster.Status.RunningVersion)
+	version, err := getRunningVersion(logger, versionMap, cluster.GetRunningVersion())
 	if err != nil {
 		return &requeue{
 			curError: fmt.Errorf(
@@ -108,6 +108,14 @@ func (c updateStatus) reconcile(
 		}
 	}
 	clusterStatus.RunningVersion = version
+	// We update the running version of the cluster status here to make sure that the Pod Spec hash and other things
+	// are properly calculated based on the current observed running version. If we don't update the running version
+	// here, we could see a race condition where the updateStatus sub-reconciler runs for the first time after an upgrade
+	// bounce. In this case the running version of the new cluster status (clusterStatus) would be updated but the
+	// status on the cluster struct would be the same. The result of this would be that the operator things the cluster
+	// is reconciled and in the next updateStatus run, it would observe all the required changes after the cluster
+	// wide bounce.
+	cluster.Status.RunningVersion = version
 
 	clusterStatus.HasListenIPsForAllPods = cluster.NeedsExplicitListenAddress()
 	// Update the configuration if the database is available, otherwise the machine-readable status will contain no information

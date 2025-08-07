@@ -1805,6 +1805,7 @@ func (cluster *FoundationDBCluster) CheckReconciliation(log logr.Logger) (bool, 
 			"reconciledProcessGroups",
 			cluster.Status.ReconciledProcessGroups,
 		)
+		reconciled = false
 	}
 
 	if !cluster.Status.Health.Available {
@@ -1901,6 +1902,19 @@ func (cluster *FoundationDBCluster) CheckReconciliation(log logr.Logger) (bool, 
 			reconciled = false
 			break
 		}
+	}
+
+	// If the cluster is currently in the process to be upgraded, don't set the reconciled version.
+	if cluster.IsBeingUpgraded() {
+		logger.Info(
+			"Pending cluster upgrade",
+			"runningVersion",
+			cluster.GetRunningVersion(),
+			"desiredVersion",
+			cluster.Spec.Version,
+		)
+
+		reconciled = false
 	}
 
 	if reconciled && cluster.Status.Generations.Reconciled != cluster.Generation {

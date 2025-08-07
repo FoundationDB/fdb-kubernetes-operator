@@ -22,11 +22,10 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/go-logr/logr"
-
-	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/podmanager"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
 
@@ -53,6 +52,7 @@ func (updateSidecarVersions) reconcile(
 	}
 
 	var upgraded int
+	var errs []error
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup.GetConditionTime(fdbv1beta2.ResourcesTerminating) != nil {
 			logger.V(1).Info("Ignore process group that is stuck terminating",
@@ -74,37 +74,13 @@ func (updateSidecarVersions) reconcile(
 			continue
 		}
 
-		image, err := internal.GetSidecarImage(cluster, processGroup.ProcessClass)
+		err = updateSidecarImage(ctx, r, logger, cluster, processGroup, pod)
 		if err != nil {
-			return &requeue{curError: err}
+			errs = append(errs, err)
+			continue
 		}
 
-		for containerIndex, container := range pod.Spec.Containers {
-			if container.Name == fdbv1beta2.SidecarContainerName && container.Image != image {
-				logger.Info(
-					"Upgrading sidecar",
-					"processGroupID",
-					podmanager.GetProcessGroupID(cluster, pod),
-					"oldImage",
-					container.Image,
-					"newImage",
-					image,
-				)
-				err = r.PodLifecycleManager.UpdateImageVersion(
-					logr.NewContext(ctx, logger),
-					r,
-					cluster,
-					pod,
-					containerIndex,
-					image,
-				)
-				if err != nil {
-					return &requeue{curError: err}
-				}
-				upgraded++
-				break
-			}
-		}
+		upgraded++
 	}
 
 	if upgraded > 0 {
@@ -118,6 +94,55 @@ func (updateSidecarVersions) reconcile(
 				upgraded,
 			),
 		)
+	}
+
+	if len(errs) > 0 {
+		return &requeue{
+			curError: errors.Join(errs...),
+		}
+	}
+
+	return nil
+}
+
+func updateSidecarImage(
+	ctx context.Context,
+	r *FoundationDBClusterReconciler,
+	logger logr.Logger,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	processGroup *fdbv1beta2.ProcessGroupStatus,
+	pod *corev1.Pod,
+) error {
+	image, err := internal.GetSidecarImage(cluster, processGroup.ProcessClass)
+	if err != nil {
+		return err
+	}
+
+	for containerIndex, container := range pod.Spec.Containers {
+		if container.Name == fdbv1beta2.SidecarContainerName && container.Image != image {
+			logger.Info(
+				"Upgrading sidecar",
+				"processGroupID",
+				processGroup.ProcessGroupID,
+				"oldImage",
+				container.Image,
+				"newImage",
+				image,
+			)
+			err = r.PodLifecycleManager.UpdateImageVersion(
+				logr.NewContext(ctx, logger),
+				r,
+				cluster,
+				pod,
+				containerIndex,
+				image,
+			)
+			if err != nil {
+				return err
+			}
+
+			break
+		}
 	}
 
 	return nil
