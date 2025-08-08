@@ -207,7 +207,8 @@ func (fdbBackup *FdbBackup) WaitForReconciliation() {
 }
 
 // WaitForRestorableVersion will wait until the back is restorable.
-func (fdbBackup *FdbBackup) WaitForRestorableVersion(version uint64) {
+func (fdbBackup *FdbBackup) WaitForRestorableVersion(version uint64) uint64 {
+	var restorableVersion uint64
 	gomega.Eventually(func(g gomega.Gomega) uint64 {
 		backupPod := fdbBackup.GetBackupPod()
 		out, _, err := fdbBackup.fdbCluster.ExecuteCmdOnPod(
@@ -227,11 +228,13 @@ func (fdbBackup *FdbBackup) WaitForRestorableVersion(version uint64) {
 		restorablePoint, ok := result["LatestRestorablePoint"].(map[string]interface{})
 		g.Expect(ok).To(gomega.BeTrue())
 
-		restorableVersion, ok := restorablePoint["Version"].(float64)
+		restorableVersionFloat, ok := restorablePoint["Version"].(float64)
 		g.Expect(ok).To(gomega.BeTrue())
 
-		return uint64(restorableVersion)
+		restorableVersion = uint64(restorableVersionFloat)
+		return uint64(restorableVersionFloat)
 	}).WithTimeout(10*time.Minute).WithPolling(2*time.Second).Should(gomega.BeNumerically(">", version), "error waiting for restorable version")
+	return restorableVersion
 }
 
 // GetBackupPod returns a random backup Pod for the provided backup.
