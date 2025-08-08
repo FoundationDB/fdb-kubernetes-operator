@@ -96,6 +96,15 @@ ifndef FEATURE_DNS
     FEATURE_DNS=true
   endif
 endif
+
+ifndef FEATURE_MANAGEMENT_API
+  ifeq ($(shell shuf -i 0-1 -n 1), 0)
+    FEATURE_MANAGEMENT_API=false
+  else
+    FEATURE_MANAGEMENT_API=true
+  endif
+endif
+
 # Make bash pickier about errors.
 SHELL=/bin/bash -euo pipefail
 
@@ -210,6 +219,7 @@ foundationdb-nightly-tests: run
 	  --feature-synchronization-mode=$(FEATURE_SYNCHRONIZATION_MODE) \
 	  --feature-dns=$(FEATURE_DNS) \
 	  --feature-localities=$(FEATURE_LOCALITIES) \
+	  --feature-management-api=$(FEATURE_MANAGEMENT_API) \
 	  --node-selector="$(NODE_SELECTOR)" \
 	  --default-unavailable-threshold=$(DEFAULT_UNAVAILABLE_THRESHOLD) \
 	  --seaweedfs-image=$(SEAWEEDFS_IMAGE)  \
