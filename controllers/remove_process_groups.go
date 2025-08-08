@@ -331,7 +331,7 @@ func confirmRemoval(
 		return false, err
 	}
 
-	// The Pod resource still exists, so we have to validate the deletion timestamp.
+	// The service resource still exists, so we have to validate the deletion timestamp.
 	if err == nil {
 		if service.DeletionTimestamp.IsZero() {
 			logger.Info(

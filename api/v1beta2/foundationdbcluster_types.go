@@ -1904,19 +1904,6 @@ func (cluster *FoundationDBCluster) CheckReconciliation(log logr.Logger) (bool, 
 		}
 	}
 
-	// If the cluster is currently in the process to be upgraded, don't set the reconciled version.
-	if cluster.IsBeingUpgraded() {
-		logger.Info(
-			"Pending cluster upgrade",
-			"runningVersion",
-			cluster.GetRunningVersion(),
-			"desiredVersion",
-			cluster.Spec.Version,
-		)
-
-		reconciled = false
-	}
-
 	if reconciled && cluster.Status.Generations.Reconciled != cluster.Generation {
 		logger.Info(
 			"Update reconciled generation",
