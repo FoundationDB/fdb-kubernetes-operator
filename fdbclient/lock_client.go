@@ -112,10 +112,11 @@ func (client *realLockClient) takeLockInTransaction(transaction fdb.Transaction)
 	// instance holding the lock.
 	ownerID := client.cluster.GetLockID()
 
+	endTime := time.Unix(currentLockEndTime, 0)
 	logger := client.log.WithValues(
 		"currentLockOwnerID", currentLockOwnerID,
 		"startTime", time.Unix(currentLockStartTime, 0),
-		"endTime", time.Unix(currentLockEndTime, 0))
+		"endTime", endTime)
 
 	newOwnerDenied := transaction.Get(client.getDenyListKey(ownerID)).MustGet() != nil
 	if newOwnerDenied {
@@ -127,9 +128,8 @@ func (client *realLockClient) takeLockInTransaction(transaction fdb.Transaction)
 	}
 
 	oldOwnerDenied := transaction.Get(client.getDenyListKey(currentLockOwnerID)).MustGet() != nil
-	shouldClear := currentLockEndTime < time.Now().Unix() || oldOwnerDenied
 
-	if shouldClear {
+	if currentLockEndTime < time.Now().Unix() || oldOwnerDenied {
 		logger.Info("Clearing expired lock")
 		client.updateLock(transaction, currentLockStartTime)
 		return nil
@@ -143,7 +143,11 @@ func (client *realLockClient) takeLockInTransaction(transaction fdb.Transaction)
 
 	logger.Info("Failed to get lock")
 
-	return fmt.Errorf("failed to get the lock")
+	return fmt.Errorf(
+		"failed to get the lock, current lock ower: %s, lock will expire at: %s",
+		currentLockOwnerID,
+		endTime,
+	)
 }
 
 // updateLock sets the keys to acquire a lock.
