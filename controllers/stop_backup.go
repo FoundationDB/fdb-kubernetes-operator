@@ -49,7 +49,7 @@ func (s stopBackup) reconcile(
 		_ = adminClient.Close()
 	}()
 
-	err = adminClient.StopBackup(backup.BackupURL())
+	err = adminClient.StopBackup(backup)
 	if err != nil {
 		return &requeue{curError: err}
 	}
