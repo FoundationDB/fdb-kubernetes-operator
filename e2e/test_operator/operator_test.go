@@ -33,6 +33,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"log"
 	"math"
@@ -2477,4 +2478,116 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			})
 		})
 	})
+
+	When(
+		"a process group should be removed and deletions are disabled and a new knob is rolled out",
+		func() {
+			var processGroupID fdbv1beta2.ProcessGroupID
+			var initialCustomParameters fdbv1beta2.FoundationDBCustomParameters
+
+			BeforeEach(func() {
+				availabilityCheck = false
+
+				spec := fdbCluster.GetCluster().Spec.DeepCopy()
+				spec.AutomationOptions.DeletionMode = fdbv1beta2.PodUpdateModeNone
+				fdbCluster.UpdateClusterSpecWithSpec(spec)
+
+				storagePod := factory.RandomPickOnePod(fdbCluster.GetStoragePods().Items)
+				log.Println("Selected Pod:", storagePod.Name, " to be replaced")
+				fdbCluster.ReplacePod(storagePod, false)
+				processGroupID = fixtures.GetProcessGroupID(storagePod)
+
+				// Wait until the process group is marked for removal.
+				Eventually(func(g Gomega) {
+					processGroup := fdbv1beta2.FindProcessGroupByID(
+						fdbCluster.GetCluster().Status.ProcessGroups,
+						processGroupID,
+					)
+
+					out, err := json.Marshal(processGroup)
+					g.Expect(err).NotTo(HaveOccurred())
+					log.Println("waiting for marked to be removed", string(out))
+					g.Expect(processGroup).NotTo(BeNil())
+					g.Expect(processGroup.RemovalTimestamp).NotTo(BeNil())
+				}).WithTimeout(10 * time.Minute).WithPolling(1 * time.Second).To(Succeed())
+
+				initialCustomParameters = fdbCluster.GetCustomParameters(
+					fdbv1beta2.ProcessClassStorage,
+				)
+				newCustomParameters := append(
+					initialCustomParameters,
+					"knob_max_trace_lines=1000000",
+				)
+
+				// Disable the operator bounce feature to ensure the targeted process group sees the changes.
+				fdbCluster.SetKillProcesses(false, false)
+
+				Expect(
+					fdbCluster.SetCustomParameters(
+						map[fdbv1beta2.ProcessClass]fdbv1beta2.FoundationDBCustomParameters{
+							fdbv1beta2.ProcessClassStorage: newCustomParameters,
+						},
+						false,
+					),
+				).NotTo(HaveOccurred())
+
+				// Wait until the process group has the incorrect command line
+				Eventually(func(g Gomega) {
+					processGroup := fdbv1beta2.FindProcessGroupByID(
+						fdbCluster.GetCluster().Status.ProcessGroups,
+						processGroupID,
+					)
+
+					out, err := json.Marshal(processGroup)
+					g.Expect(err).NotTo(HaveOccurred())
+					log.Println("Waiting for incorrect commandline", string(out))
+					g.Expect(processGroup).NotTo(BeNil())
+					g.Expect(processGroup.GetConditionTime(fdbv1beta2.IncorrectCommandLine)).
+						NotTo(BeNil())
+				}).WithTimeout(10 * time.Minute).WithPolling(1 * time.Second).To(Succeed())
+			})
+
+			AfterEach(func() {
+				spec := fdbCluster.GetCluster().Spec.DeepCopy()
+				spec.AutomationOptions.DeletionMode = fdbv1beta2.PodUpdateModeZone
+				fdbCluster.UpdateClusterSpecWithSpec(spec)
+
+				Expect(fdbCluster.SetCustomParameters(
+					map[fdbv1beta2.ProcessClass]fdbv1beta2.FoundationDBCustomParameters{
+						fdbv1beta2.ProcessClassStorage: initialCustomParameters,
+					},
+					false,
+				)).NotTo(HaveOccurred())
+			})
+
+			It("should update the pod that is marked for removal", func() {
+				log.Println(
+					"Make sure process group",
+					processGroupID,
+					"will be updated",
+				)
+
+				// Enable the kill feature again.
+				fdbCluster.SetKillProcesses(true, false)
+				// Make sure the process group is updated after some time.
+				Eventually(func(g Gomega) {
+					processGroup := fdbv1beta2.FindProcessGroupByID(
+						fdbCluster.GetCluster().Status.ProcessGroups,
+						processGroupID,
+					)
+
+					out, err := json.Marshal(processGroup)
+					g.Expect(err).NotTo(HaveOccurred())
+					log.Println("Waiting for process group to be updated", string(out))
+					// Process group should still exist.
+					g.Expect(processGroup).NotTo(BeNil())
+					// Process group should be marked for removal.
+					g.Expect(processGroup.RemovalTimestamp).NotTo(BeNil())
+					// Process group should be updated with the new knobs.
+					g.Expect(processGroup.GetConditionTime(fdbv1beta2.IncorrectCommandLine)).
+						To(BeNil())
+				}).WithTimeout(10 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
+			})
+		},
+	)
 })
