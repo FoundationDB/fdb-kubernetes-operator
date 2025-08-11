@@ -341,10 +341,26 @@ var _ = Describe("admin_client_test", func() {
 
 				})
 
-				It("should mark the backup as stopped", func() {
+				It("should have modified the snapshot time", func() {
 					Expect(
 						status.SnapshotIntervalSeconds,
 					).To(BeNumerically("==", backup.SnapshotPeriodSeconds()))
+				})
+			})
+
+			Context("with a modification to the backup url", func() {
+				BeforeEach(func() {
+					backup.Spec.BlobStoreConfiguration = &fdbv1beta2.BlobStoreConfiguration{
+						BackupName:  "test-backup-2",
+						AccountName: "test",
+					}
+					Expect(mockAdminClient.ModifyBackup(backup)).NotTo(HaveOccurred())
+				})
+
+				It("should have modified the backup url", func() {
+					Expect(
+						status.DestinationURL,
+					).To(Equal("blobstore://test@test-service/test-backup-2"))
 				})
 			})
 		})
