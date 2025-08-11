@@ -333,7 +333,12 @@ var _ = Describe("admin_client_test", func() {
 			Context("with a modification to the snapshot time", func() {
 				BeforeEach(func() {
 					backup.Spec.SnapshotPeriodSeconds = ptr.To(20)
+					backup.Spec.BlobStoreConfiguration = &fdbv1beta2.BlobStoreConfiguration{
+						BackupName:  "test-backup",
+						AccountName: "test",
+					}
 					Expect(mockAdminClient.ModifyBackup(backup)).NotTo(HaveOccurred())
+
 				})
 
 				It("should mark the backup as stopped", func() {

@@ -41,7 +41,12 @@ func (s modifyBackup) reconcile(
 		return nil
 	}
 
-	if backup.Status.BackupDetails.SnapshotPeriodSeconds != backup.SnapshotPeriodSeconds() {
+	snapshotPeriod := backup.SnapshotPeriodSeconds()
+	backupURL := backup.BackupURL()
+
+	shouldModify := backup.Status.BackupDetails.SnapshotPeriodSeconds != snapshotPeriod ||
+		backup.Status.BackupDetails.URL != backupURL
+	if shouldModify {
 		adminClient, err := r.adminClientForBackup(ctx, backup)
 		if err != nil {
 			return &requeue{curError: err}
