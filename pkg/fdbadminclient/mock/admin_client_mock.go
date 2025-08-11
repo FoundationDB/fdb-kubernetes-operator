@@ -909,7 +909,7 @@ func (client *AdminClient) ResumeBackups() error {
 }
 
 // ModifyBackup reconfigures the backup.
-func (client *AdminClient) ModifyBackup(snapshotPeriodSeconds int) error {
+func (client *AdminClient) ModifyBackup(snapshotPeriodSeconds int, url string) error {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
@@ -919,6 +919,7 @@ func (client *AdminClient) ModifyBackup(snapshotPeriodSeconds int) error {
 
 	backup := client.Backups["default"]
 	backup.SnapshotPeriodSeconds = snapshotPeriodSeconds
+	backup.URL = url
 	client.Backups["default"] = backup
 	return nil
 }

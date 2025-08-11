@@ -325,7 +325,10 @@ var _ = Describe("admin_client_test", func() {
 
 			Context("with a modification to the snapshot time", func() {
 				BeforeEach(func() {
-					err = mockAdminClient.ModifyBackup(20)
+					err = mockAdminClient.ModifyBackup(
+						20,
+						"blobstore://test@test-service/test-backup",
+					)
 					Expect(err).NotTo(HaveOccurred())
 				})
 
