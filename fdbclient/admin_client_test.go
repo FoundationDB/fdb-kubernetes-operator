@@ -1046,10 +1046,11 @@ protocol fdb00b071010000`,
 
 			url := "blobstore://test@test-service/test-backup"
 
-			err := client.StartRestore(url, fdbv1beta2.FoundationDBRestoreSpec{
-				KeyRanges:         keyRanges,
-				EncryptionKeyPath: encryptionKeyPath,
-			})
+			err := client.StartRestore(url, fdbv1beta2.FoundationDBRestore{
+				Spec: fdbv1beta2.FoundationDBRestoreSpec{
+					KeyRanges:         keyRanges,
+					EncryptionKeyPath: encryptionKeyPath,
+				}})
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(mockRunner.receivedArgs[0]).To(ContainElements(
@@ -1128,8 +1129,10 @@ protocol fdb00b071010000`,
 
 			url := "blobstore://test@test-service/test-backup"
 
-			err := client.StartRestore(url, fdbv1beta2.FoundationDBRestoreSpec{
-				BackupVersion: actualBackupVersion,
+			err := client.StartRestore(url, fdbv1beta2.FoundationDBRestore{
+				Spec: fdbv1beta2.FoundationDBRestoreSpec{
+					BackupVersion: actualBackupVersion,
+				},
 			})
 			Expect(err).NotTo(HaveOccurred())
 

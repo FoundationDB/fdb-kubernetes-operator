@@ -90,7 +90,7 @@ type AdminClient interface {
 	// StartRestore starts a new restore.
 	StartRestore(
 		url string,
-		fdbRestoreSpec fdbv1beta2.FoundationDBRestoreSpec,
+		fdbRestore fdbv1beta2.FoundationDBRestore,
 	) error
 
 	// GetRestoreStatus gets the status of the current restore.
