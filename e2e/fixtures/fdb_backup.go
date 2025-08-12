@@ -255,3 +255,16 @@ func (fdbBackup *FdbBackup) GetBackupPods() *corev1.PodList {
 
 	return podList
 }
+
+// DeleteBackup will stop and delete the backup resource.
+func (fdbBackup *FdbBackup) DeleteBackup() {
+	if fdbBackup == nil {
+		return
+	}
+
+	// First stop the backup
+	fdbBackup.Stop()
+
+	// Then delete the backup resource
+	fdbBackup.fdbCluster.factory.Delete(fdbBackup.backup)
+}

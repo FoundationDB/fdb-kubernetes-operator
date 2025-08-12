@@ -85,9 +85,8 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 		})
 
 		AfterEach(func() {
-			backup.Stop()
+			backup.DeleteBackup()
 			log.Println("deleting backup")
-			factory.Delete(backup.GetBackupPod())
 			backup = nil
 		})
 
