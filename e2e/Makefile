@@ -38,15 +38,8 @@ CLOUD_PROVIDER?=
 UPGRADE_VERSIONS?="$(FDB_VERSION):$(NEXT_FDB_VERSION)"
 # Allows to specify the tag for a specific FDB version. Format is 7.1.57:7.1.57-testing,7.3.35:7.3.35-debugging
 FDB_VERSION_TAG_MAPPING?=
-# If the FEATURE_SERVER_SIDE_APPLY environment variable is not defined the test suite will be randomly enable (1) or disable (0)
-# the server side apply feature.
-ifndef FEATURE_SERVER_SIDE_APPLY
-  ifeq ($(shell shuf -i 0-1 -n 1), 0)
-    FEATURE_SERVER_SIDE_APPLY=false
-  else
-    FEATURE_SERVER_SIDE_APPLY=true
-  endif
-endif
+# The FEATURE_SERVER_SIDE_APPLY is enabled per default, but could be set to false if wanted.
+FEATURE_SERVER_SIDE_APPLY=true
 
 # If the FEATURE_UNIFIED_IMAGE environment variable is not defined the test suite will be randomly enable (1) or disable (0)
 # the unified image feature.
