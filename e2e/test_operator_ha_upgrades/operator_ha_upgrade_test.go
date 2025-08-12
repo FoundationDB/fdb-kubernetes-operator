@@ -460,13 +460,12 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 					for _, pod := range coordinators {
 						coordinatorMap[pod.UID] = pod
 					}
-					dbCluster := cluster.GetCluster()
 
-					if dbCluster.Status.RunningVersion == targetVersion {
+					if cluster.GetCluster().GetRunningVersion() == targetVersion {
 						log.Println(
 							"Cluster",
 							cluster.Name(),
-							"is running at version ",
+							"is running at version",
 							targetVersion,
 						)
 						continue
