@@ -298,12 +298,6 @@ func (backup *FoundationDBBackup) CheckReconciliation() (bool, error) {
 		reconciled = false
 	}
 
-	desiredBackupURL := backup.BackupURL()
-	if backup.Status.BackupDetails.URL != desiredBackupURL {
-		backup.Status.Generations.NeedsBackupReconfiguration = backup.Generation
-		reconciled = false
-	}
-
 	isRunning := backup.Status.BackupDetails != nil && backup.Status.BackupDetails.Running
 	isPaused := backup.Status.BackupDetails != nil && backup.Status.BackupDetails.Paused
 
@@ -324,6 +318,11 @@ func (backup *FoundationDBBackup) CheckReconciliation() (bool, error) {
 
 	if isRunning &&
 		backup.SnapshotPeriodSeconds() != backup.Status.BackupDetails.SnapshotPeriodSeconds {
+		backup.Status.Generations.NeedsBackupReconfiguration = backup.Generation
+		reconciled = false
+	}
+
+	if isRunning && backup.BackupURL() != backup.Status.BackupDetails.URL {
 		backup.Status.Generations.NeedsBackupReconfiguration = backup.Generation
 		reconciled = false
 	}
