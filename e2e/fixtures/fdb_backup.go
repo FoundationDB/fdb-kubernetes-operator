@@ -261,10 +261,6 @@ func (fdbBackup *FdbBackup) DeleteBackup() {
 	if fdbBackup == nil {
 		return
 	}
-
-	// First stop the backup
 	fdbBackup.Stop()
-
-	// Then delete the backup resource
 	fdbBackup.fdbCluster.factory.Delete(fdbBackup.backup)
 }
