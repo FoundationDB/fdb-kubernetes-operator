@@ -119,9 +119,8 @@ type FoundationDBBackupSpec struct {
 	ImageType *ImageType `json:"imageType,omitempty"`
 
 	// BackupType defines the backup type that should be used for the backup. When the BackupType is set to
-	// BackupTypePartitionedLog, the backup reconciler will not create a backup Deployment. it's expected that
-	// the FoundationDBCluster creates and manages the additional backup worker processes.
-	// A migration to a different backup type is not yet supported in the operator.
+	// BackupTypePartitionedLog, it's expected that the FoundationDBCluster creates and manages the additional
+	// backup worker processes. A migration to a different backup type is not yet supported in the operator.
 	// Default: "backup_agent".
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:Enum=backup_agent;partitioned_log

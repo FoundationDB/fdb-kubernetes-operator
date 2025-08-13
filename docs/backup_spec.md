@@ -99,7 +99,7 @@ FoundationDBBackupSpec describes the desired state of the backup for a cluster.
 | mainContainer | MainContainer defines customization for the foundationdb container. | ContainerOverrides | false |
 | sidecarContainer | SidecarContainer defines customization for the foundationdb-kubernetes-sidecar container. | ContainerOverrides | false |
 | imageType | ImageType defines the image type that should be used for the FoundationDBCluster deployment. When the type is set to \"unified\" the deployment will use the new fdb-kubernetes-monitor. Otherwise the main container and the sidecar container will use different images. Default: split | *ImageType | false |
-| backupType | BackupType defines the backup type that should be used for the backup. When the BackupType is set to BackupTypePartitionedLog, the backup reconciler will not create a backup Deployment. it's expected that the FoundationDBCluster creates and manages the additional backup worker processes. A migration to a different backup type is not yet supported in the operator. Default: \"backup_agent\". | *[BackupType](#backuptype) | false |
+| backupType | BackupType defines the backup type that should be used for the backup. When the BackupType is set to BackupTypePartitionedLog, it's expected that the FoundationDBCluster creates and manages the additional backup worker processes. A migration to a different backup type is not yet supported in the operator. Default: \"backup_agent\". | *[BackupType](#backuptype) | false |
 
 [Back to TOC](#table-of-contents)
 

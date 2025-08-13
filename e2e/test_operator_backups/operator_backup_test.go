@@ -25,7 +25,6 @@ This test suite contains tests related to backup and restore with the operator.
 */
 
 import (
-	"encoding/json"
 	"log"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
@@ -114,6 +113,8 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 			BeforeEach(func() {
 				log.Println("creating backup for cluster with partitioned log system")
 				// Add additional backup workers to the cluster. Those will be used by the partitioned backup system.
+				// The backup worker(not to be confused with the backup agent) will be used to back up the lof mutations.
+				// We still need the backup agents to back up the key ranges.
 				cluster := fdbCluster.GetCluster()
 				spec := cluster.Spec.DeepCopy()
 				spec.ProcessCounts.BackupWorker = 2
@@ -140,7 +141,7 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 					}
 
 					// Make sure we add the FDB_BLOB_CREDENTIALS to ensure the backup worker has access to the
-					// bloc store.
+					// blob store.
 					container.Env = append(container.Env, corev1.EnvVar{
 						Name:  "FDB_BLOB_CREDENTIALS",
 						Value: "/tmp/backup-credentials/credentials",
@@ -155,13 +156,7 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 					processSpec.PodTemplate.Spec.Containers[idx] = container
 					break
 				}
-
-				// TODO (johscheuer): Onlyhere for debugging purposes.
 				spec.Processes[fdbv1beta2.ProcessClassBackup] = *processSpec
-				out, err := json.Marshal(spec.Processes[fdbv1beta2.ProcessClassBackup])
-				Expect(err).NotTo(HaveOccurred())
-				log.Println("backup spec:\n\n", string(out))
-
 				fdbCluster.UpdateClusterSpecWithSpec(spec)
 				Expect(fdbCluster.WaitForReconciliation()).To(Succeed())
 
@@ -184,6 +179,8 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 			})
 
 			AfterEach(func() {
+				// We have to make sure that the backup is deleted before proceeding.
+				backup.Destroy()
 				// Remove additional backup workers from the cluster.
 				cluster := fdbCluster.GetCluster()
 				spec := cluster.Spec.DeepCopy()

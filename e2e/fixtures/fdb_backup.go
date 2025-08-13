@@ -23,6 +23,8 @@ package fixtures
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"log"
 	"time"
 
 	"k8s.io/utils/ptr"
@@ -39,6 +41,7 @@ import (
 type FdbBackup struct {
 	backup     *fdbv1beta2.FoundationDBBackup
 	fdbCluster *FdbCluster
+	deleted    bool
 }
 
 // FdbBackupConfiguration can be used to configure the created fdbv1beta2.FoundationDBBackup with different options.
@@ -228,9 +231,11 @@ func (fdbBackup *FdbBackup) WaitForRestorableVersion(version uint64) {
 			false,
 		)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
+		// TODO (johscheuer): Add those fields to fdbv1beta2.FoundationDBLiveBackupStatus.
 		var result map[string]interface{}
 		g.Expect(json.Unmarshal([]byte(out), &result)).NotTo(gomega.HaveOccurred())
 
+		log.Println("Backup status:", out)
 		restorable, ok := result["Restorable"].(bool)
 		g.Expect(ok).To(gomega.BeTrue())
 		g.Expect(restorable).To(gomega.BeTrue())
@@ -275,4 +280,24 @@ func (fdbBackup *FdbBackup) Destroy() {
 
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 	}).WithTimeout(1 * time.Minute).WithPolling(1 * time.Second).To(gomega.Succeed())
+
+	// Once we implement a finalizer to remove the backup data we can remove those lines.
+	if fdbBackup.deleted {
+		return
+	}
+	log.Println("abort backup")
+	_, _, err := fdbBackup.fdbCluster.RunFdbBackupCommandInOperatorWithoutRetry(
+		"abort",
+		false,
+	)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+	log.Println("delete backup")
+	_, _, err = fdbBackup.fdbCluster.RunFdbBackupCommandInOperatorWithoutRetry(
+		fmt.Sprintf("delete -d '%s'", fdbBackup.backup.BackupURL()),
+		false,
+	)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+	fdbBackup.deleted = true
 }

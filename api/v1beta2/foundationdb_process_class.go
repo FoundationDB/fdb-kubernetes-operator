@@ -53,7 +53,7 @@ const (
 	// ProcessClassGrvProxy model for FDB grv_proxy processes
 	ProcessClassGrvProxy ProcessClass = "grv_proxy"
 	// ProcessClassBackup model for FDB backup processes
-	ProcessClassBackup ProcessClass = "Backup"
+	ProcessClassBackup ProcessClass = "backup"
 )
 
 // IsStateful determines whether a process class should store data.
