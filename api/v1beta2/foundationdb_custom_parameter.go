@@ -45,6 +45,22 @@ func (customParameters FoundationDBCustomParameters) GetKnobsForCLI() []string {
 	return args
 }
 
+// GetKnobsForBackupRestoreCLI returns the list of knobs that should be provided to the fdbbackup and fdbrestore
+// when running them over the admin client. It filters out the incompatible ones.
+func (customParameters FoundationDBCustomParameters) GetKnobsForBackupRestoreCLI() []string {
+	args := make([]string, 0, len(customParameters))
+
+	for _, arg := range customParameters {
+		parameterName := strings.Split(string(arg), "=")[0]
+		parameterName = strings.TrimSpace(parameterName)
+		if _, ok := backupAgentExclusiveParameters[parameterName]; ok {
+			continue
+		}
+		args = append(args, fmt.Sprintf("--%s", arg))
+	}
+	return args
+}
+
 var (
 	protectedParameters = map[string]None{
 		"datadir": {},
@@ -61,6 +77,11 @@ var (
 		"restart-delay-reset-interval": {},
 		"user":                         {},
 		"group":                        {},
+	}
+	// these parameters are supported by backup_agents but not by fdbbackup and fdbrestore.
+	backupAgentExclusiveParameters = map[string]None{
+		"locality-data_hall":   {},
+		"locality_data_center": {},
 	}
 )
 

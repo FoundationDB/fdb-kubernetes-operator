@@ -47,6 +47,26 @@ var _ = Describe("FoundationDBCustomParameters", func() {
 		})
 	})
 
+	When("getting the custom parameters for the fdbbackup and fdbrestore CLI", func() {
+		var customParameters FoundationDBCustomParameters
+		BeforeEach(func() {
+			customParameters = []FoundationDBCustomParameter{
+				"knob_http_verbose_level=3",
+				"locality-data_hall=az1",
+			}
+		})
+
+		It("", func() {
+			expected := []string{
+				"--knob_http_verbose_level=3",
+			}
+
+			result := customParameters.GetKnobsForBackupRestoreCLI()
+			Expect(result).To(ContainElements(expected))
+			Expect(len(result)).To(Equal(len(expected)))
+		})
+	})
+
 	When("Validating the custom parameters", func() {
 		DescribeTable("should print the correct string",
 			func(customParameters FoundationDBCustomParameters, expected error) {

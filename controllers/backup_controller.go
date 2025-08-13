@@ -140,7 +140,7 @@ func (r *FoundationDBBackupReconciler) adminClientForBackup(
 		return nil, err
 	}
 
-	adminClient.SetKnobs(backup.Spec.CustomParameters.GetKnobsForCLI())
+	adminClient.SetKnobs(backup.Spec.CustomParameters.GetKnobsForBackupRestoreCLI())
 
 	return adminClient, nil
 }
