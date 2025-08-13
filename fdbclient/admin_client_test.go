@@ -1069,6 +1069,41 @@ protocol fdb00b071010000`,
 				"--encryption-key-file",
 				"/tmp/test",
 			}),
+		Entry("with partitioned log backup type",
+			&fdbv1beta2.FoundationDBBackup{
+				Spec: fdbv1beta2.FoundationDBBackupSpec{
+					Version: fdbv1beta2.Versions.SupportsBackupEncryption.String(),
+					BlobStoreConfiguration: &fdbv1beta2.BlobStoreConfiguration{
+						AccountName: "test",
+						BackupName:  "test-backup",
+					},
+					SnapshotPeriodSeconds: ptr.To(60),
+					BackupType:            ptr.To(fdbv1beta2.BackupTypePartitionedLog),
+				},
+			}, []string{
+				"start",
+				"-d", "blobstore://test:443/test-backup?bucket=fdb-backups",
+				"-s", "60",
+				"-z",
+				"--partitioned-log-experimental",
+			}),
+		Entry("with backup agent (default) backup type",
+			&fdbv1beta2.FoundationDBBackup{
+				Spec: fdbv1beta2.FoundationDBBackupSpec{
+					Version: fdbv1beta2.Versions.SupportsBackupEncryption.String(),
+					BlobStoreConfiguration: &fdbv1beta2.BlobStoreConfiguration{
+						AccountName: "test",
+						BackupName:  "test-backup",
+					},
+					SnapshotPeriodSeconds: ptr.To(60),
+					BackupType:            ptr.To(fdbv1beta2.BackupTypeDefault),
+				},
+			}, []string{
+				"start",
+				"-d", "blobstore://test:443/test-backup?bucket=fdb-backups",
+				"-s", "60",
+				"-z",
+			}),
 	)
 
 	DescribeTable(

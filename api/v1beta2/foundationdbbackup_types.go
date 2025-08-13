@@ -301,6 +301,18 @@ type FoundationDBLiveBackupStatus struct {
 type FoundationDBLiveBackupStatusState struct {
 	// Running determines whether the backup is currently running.
 	Running bool `json:"Running,omitempty"`
+
+	// Restorable if true, the backup can be restored
+	Restorable *bool `json:"Restorable,omitempty"`
+
+	// LatestRestorablePoint contains information about the latest restorable point if any exists.
+	LatestRestorablePoint *LatestRestorablePoint `json:"LatestRestorablePoint,omitempty"`
+}
+
+// LatestRestorablePoint contains information about the latest restorable point if any exists.
+type LatestRestorablePoint struct {
+	// Version is the version that can be restored to.
+	Version *uint64 `json:"Version,omitempty"`
 }
 
 // GetDesiredAgentCount determines how many backup agents we should run

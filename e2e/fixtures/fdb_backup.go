@@ -231,22 +231,15 @@ func (fdbBackup *FdbBackup) WaitForRestorableVersion(version uint64) {
 			false,
 		)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
-		// TODO (johscheuer): Add those fields to fdbv1beta2.FoundationDBLiveBackupStatus.
-		var result map[string]interface{}
-		g.Expect(json.Unmarshal([]byte(out), &result)).NotTo(gomega.HaveOccurred())
 
-		log.Println("Backup status:", out)
-		restorable, ok := result["Restorable"].(bool)
-		g.Expect(ok).To(gomega.BeTrue())
-		g.Expect(restorable).To(gomega.BeTrue())
+		status := &fdbv1beta2.FoundationDBLiveBackupStatusState{}
+		g.Expect(json.Unmarshal([]byte(out), status)).NotTo(gomega.HaveOccurred())
 
-		restorablePoint, ok := result["LatestRestorablePoint"].(map[string]interface{})
-		g.Expect(ok).To(gomega.BeTrue())
+		log.Println("Backup status:", status)
+		g.Expect(ptr.Deref(status.Restorable, false)).To(gomega.BeTrue())
+		g.Expect(status.LatestRestorablePoint).NotTo(gomega.BeNil())
 
-		restorableVersion, ok := restorablePoint["Version"].(float64)
-		g.Expect(ok).To(gomega.BeTrue())
-
-		return uint64(restorableVersion)
+		return ptr.Deref(status.LatestRestorablePoint.Version, 0)
 	}).WithTimeout(10*time.Minute).WithPolling(2*time.Second).Should(gomega.BeNumerically(">", version), "error waiting for restorable version")
 }
 
@@ -287,15 +280,15 @@ func (fdbBackup *FdbBackup) Destroy() {
 	}
 	log.Println("abort backup")
 	_, _, err := fdbBackup.fdbCluster.RunFdbBackupCommandInOperatorWithoutRetry(
-		"abort",
-		false,
+		"abort || true",
+		true,
 	)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	log.Println("delete backup")
 	_, _, err = fdbBackup.fdbCluster.RunFdbBackupCommandInOperatorWithoutRetry(
 		fmt.Sprintf("delete -d '%s'", fdbBackup.backup.BackupURL()),
-		false,
+		true,
 	)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
