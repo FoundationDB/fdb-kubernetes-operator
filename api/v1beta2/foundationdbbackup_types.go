@@ -322,6 +322,11 @@ func (backup *FoundationDBBackup) CheckReconciliation() (bool, error) {
 		reconciled = false
 	}
 
+	if isRunning && backup.BackupURL() != backup.Status.BackupDetails.URL {
+		backup.Status.Generations.NeedsBackupReconfiguration = backup.Generation
+		reconciled = false
+	}
+
 	if reconciled {
 		backup.Status.Generations = BackupGenerationStatus{
 			Reconciled: backup.Generation,

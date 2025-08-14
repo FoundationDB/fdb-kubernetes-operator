@@ -82,7 +82,7 @@ type AdminClient interface {
 	ResumeBackups() error
 
 	// ModifyBackup modifies the configuration of the backup.
-	ModifyBackup(int) error
+	ModifyBackup(snapshotPeriodSeconds int, url string) error
 
 	// GetBackupStatus gets the status of the current backup.
 	GetBackupStatus() (*fdbv1beta2.FoundationDBLiveBackupStatus, error)

@@ -873,13 +873,15 @@ func (client *cliAdminClient) ResumeBackups() error {
 }
 
 // ModifyBackup updates the backup parameters.
-func (client *cliAdminClient) ModifyBackup(snapshotPeriodSeconds int) error {
+func (client *cliAdminClient) ModifyBackup(snapshotPeriodSeconds int, url string) error {
 	_, err := client.runCommand(cliCommand{
 		binary: fdbbackupStr,
 		args: []string{
 			"modify",
 			"-s",
 			fmt.Sprintf("%d", snapshotPeriodSeconds),
+			"-d",
+			url,
 		},
 	})
 	return err

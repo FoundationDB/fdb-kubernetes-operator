@@ -325,12 +325,31 @@ var _ = Describe("admin_client_test", func() {
 
 			Context("with a modification to the snapshot time", func() {
 				BeforeEach(func() {
-					err = mockAdminClient.ModifyBackup(20)
+					err = mockAdminClient.ModifyBackup(
+						20,
+						"blobstore://test@test-service/test-backup",
+					)
 					Expect(err).NotTo(HaveOccurred())
 				})
 
-				It("should mark the backup as stopped", func() {
+				It("should have modified the snapshot time", func() {
 					Expect(status.SnapshotIntervalSeconds).To(Equal(20))
+				})
+			})
+
+			Context("with a modification to the backup url", func() {
+				BeforeEach(func() {
+					err = mockAdminClient.ModifyBackup(
+						20,
+						"blobstore://test@test-service/test-backup-2",
+					)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("should have modified the snapshot time", func() {
+					Expect(
+						status.DestinationURL,
+					).To(Equal("blobstore://test@test-service/test-backup-2"))
 				})
 			})
 		})
