@@ -14,6 +14,7 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 * [FoundationDBBackupStatusBackupDetails](#foundationdbbackupstatusbackupdetails)
 * [FoundationDBLiveBackupStatus](#foundationdblivebackupstatus)
 * [FoundationDBLiveBackupStatusState](#foundationdblivebackupstatusstate)
+* [LatestRestorablePoint](#latestrestorablepoint)
 * [ImageConfig](#imageconfig)
 
 ## BackupGenerationStatus
@@ -149,6 +150,18 @@ FoundationDBLiveBackupStatusState provides the state of a backup in the backup s
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
 | Running | Running determines whether the backup is currently running. | bool | false |
+| Restorable | Restorable if true, the backup can be restored | *bool | false |
+| LatestRestorablePoint | LatestRestorablePoint contains information about the latest restorable point if any exists. | *[LatestRestorablePoint](#latestrestorablepoint) | false |
+
+[Back to TOC](#table-of-contents)
+
+## LatestRestorablePoint
+
+LatestRestorablePoint contains information about the latest restorable point if any exists.
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| Version | Version is the version that can be restored to. | *uint64 | false |
 
 [Back to TOC](#table-of-contents)
 
