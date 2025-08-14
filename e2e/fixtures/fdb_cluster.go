@@ -581,11 +581,6 @@ func (fdbCluster *FdbCluster) GetStoragePods() *corev1.PodList {
 	return fdbCluster.getPodsByProcessClass(fdbv1beta2.ProcessClassStorage)
 }
 
-// GetTransactionPods returns all Pods of this cluster that have the process class transaction.
-func (fdbCluster *FdbCluster) GetTransactionPods() *corev1.PodList {
-	return fdbCluster.getPodsByProcessClass(fdbv1beta2.ProcessClassTransaction)
-}
-
 // GetPod returns the Pod with the given name that runs in the same namespace as the FoundationDBCluster.
 func (fdbCluster *FdbCluster) GetPod(name string) *corev1.Pod {
 	pod := &corev1.Pod{}

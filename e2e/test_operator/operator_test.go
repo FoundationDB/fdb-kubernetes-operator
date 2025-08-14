@@ -1149,7 +1149,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 	})
 
 	When("setting 2 logs per disk", func() {
-		var initialLogServerPerPod, expectedPodCnt, expectedLogProcessesCnt int
+		var initialLogServerPerPod, expectedPodCnt, expectedLogProcessesCnt, serverPerPod int
 
 		BeforeEach(func() {
 			initialLogServerPerPod = fdbCluster.GetLogServersPerPod()
@@ -1164,13 +1164,12 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			Eventually(func() int {
 				return len(fdbCluster.GetLogPods().Items)
 			}).Should(BeNumerically("==", expectedPodCnt))
+
+			serverPerPod = initialLogServerPerPod * 2
+			log.Printf("new log servers per Pod: %d", initialLogServerPerPod)
 		})
 
 		AfterEach(func() {
-			log.Printf("set log servers per Pod to %d", initialLogServerPerPod)
-			Expect(
-				fdbCluster.SetLogServersPerPod(initialLogServerPerPod, true),
-			).ShouldNot(HaveOccurred())
 			log.Printf(
 				"expectedPodCnt: %d, expectedProcessesCnt: %d",
 				expectedPodCnt,
@@ -1181,64 +1180,46 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			}).Should(BeNumerically("==", expectedPodCnt))
 		})
 
-		It("should update the log servers to the expected amount", func() {
-			serverPerPod := initialLogServerPerPod * 2
-			log.Printf("set log servers per Pod to %d", initialLogServerPerPod)
-			Expect(fdbCluster.SetLogServersPerPod(serverPerPod, true)).ShouldNot(HaveOccurred())
-			log.Printf(
-				"expectedPodCnt: %d, expectedStorageProcessesCnt: %d",
-				expectedPodCnt,
-				expectedPodCnt*serverPerPod,
-			)
-			fdbCluster.ValidateProcessesCount(
-				fdbv1beta2.ProcessClassLog,
-				expectedPodCnt,
-				expectedPodCnt*serverPerPod,
-			)
-		})
-	})
+		When("when using log servers", func() {
+			AfterEach(func() {
+				log.Printf("set log servers per Pod to %d", initialLogServerPerPod)
+				Expect(
+					fdbCluster.SetLogServersPerPod(initialLogServerPerPod, true),
+				).ShouldNot(HaveOccurred())
+			})
 
-	When("setting 2 logs per disk to use transaction process", func() {
-		var initialLogServerPerPod, expectedPodCnt, expectedLogProcessesCnt int
+			BeforeEach(func() {
+				Expect(fdbCluster.SetLogServersPerPod(serverPerPod, true)).ShouldNot(HaveOccurred())
+			})
 
-		BeforeEach(func() {
-			initialLogServerPerPod = fdbCluster.GetLogServersPerPod()
-			initialPods := fdbCluster.GetLogPods()
-			expectedPodCnt = len(initialPods.Items)
-			expectedLogProcessesCnt = expectedPodCnt * initialLogServerPerPod
-			log.Printf(
-				"expectedPodCnt: %d, expectedProcessesCnt: %d",
-				expectedPodCnt,
-				expectedLogProcessesCnt,
-			)
-			Eventually(func() int {
-				return len(fdbCluster.GetLogPods().Items)
-			}).Should(BeNumerically("==", expectedPodCnt))
+			It("should update the log servers to the expected amount", func() {
+				Expect(fdbCluster.SetLogServersPerPod(serverPerPod, true)).ShouldNot(HaveOccurred())
+				log.Printf(
+					"expectedPodCnt: %d, expectedProcessesCnt: %d",
+					expectedPodCnt,
+					expectedPodCnt*serverPerPod,
+				)
+				fdbCluster.ValidateProcessesCount(
+					fdbv1beta2.ProcessClassLog,
+					expectedPodCnt,
+					expectedPodCnt*serverPerPod,
+				)
+			})
 		})
 
-		AfterEach(func() {
-			log.Printf("set log servers per Pod to %d", initialLogServerPerPod)
-			Expect(
-				fdbCluster.SetTransactionServerPerPod(
-					initialLogServerPerPod,
-					expectedLogProcessesCnt,
-					true,
-				),
-			).ShouldNot(HaveOccurred())
-			log.Printf(
-				"expectedPodCnt: %d, expectedProcessesCnt: %d",
-				expectedPodCnt,
-				expectedPodCnt*initialLogServerPerPod,
-			)
-			Eventually(func() int {
-				return len(fdbCluster.GetLogPods().Items)
-			}).Should(BeNumerically("==", expectedPodCnt))
-		})
+		When("migrating from log processes to transaction processes", func() {
+			AfterEach(func() {
+				log.Printf("set log servers per Pod to %d", initialLogServerPerPod)
+				Expect(
+					fdbCluster.SetTransactionServerPerPod(
+						initialLogServerPerPod,
+						expectedLogProcessesCnt,
+						true,
+					),
+				).ShouldNot(HaveOccurred())
+			})
 
-		It(
-			"should update the log servers to the expected amount and should create transaction Pods",
-			func() {
-				serverPerPod := initialLogServerPerPod * 2
+			BeforeEach(func() {
 				Expect(
 					fdbCluster.SetTransactionServerPerPod(
 						serverPerPod,
@@ -1246,18 +1227,24 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 						true,
 					),
 				).ShouldNot(HaveOccurred())
-				log.Printf(
-					"expectedPodCnt: %d, expectedProcessesCnt: %d",
-					expectedPodCnt,
-					expectedPodCnt*serverPerPod,
-				)
-				fdbCluster.ValidateProcessesCount(
-					fdbv1beta2.ProcessClassTransaction,
-					expectedPodCnt,
-					expectedPodCnt*serverPerPod,
-				)
-			},
-		)
+			})
+
+			It(
+				"should update the log servers to the expected amount and should create transaction Pods",
+				func() {
+					log.Printf(
+						"expectedPodCnt: %d, expectedProcessesCnt: %d",
+						expectedPodCnt,
+						expectedPodCnt*serverPerPod,
+					)
+					fdbCluster.ValidateProcessesCount(
+						fdbv1beta2.ProcessClassTransaction,
+						expectedPodCnt,
+						expectedPodCnt*serverPerPod,
+					)
+				},
+			)
+		})
 	})
 
 	When("Replacing a Pod with PVC stuck in Terminating state", func() {
