@@ -63,7 +63,7 @@ func (updatePodConfig) reconcile(
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		curLogger := logger.WithValues("processGroupID", processGroup.ProcessGroupID)
 		if processGroup.GetConditionTime(fdbv1beta2.ResourcesTerminating) != nil {
-			curLogger.V(1).Info("Ignore process group marked that is stuck terminating")
+			curLogger.V(1).Info("Ignore process group that is stuck terminating")
 			continue
 		}
 

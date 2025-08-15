@@ -26,6 +26,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"path"
 	"strings"
 	"time"
 
@@ -96,6 +97,29 @@ func (fdbCluster *FdbCluster) RunFdbCliCommandInOperatorWithoutRetry(
 	printOutput bool,
 	timeout int,
 ) (string, string, error) {
+	return fdbCluster.runCommandInOperatorWithoutRetry(
+		fmt.Sprintf("--exec '%s'", command),
+		printOutput,
+		timeout,
+		"fdbcli",
+	)
+}
+
+// RunFdbBackupCommandInOperatorWithoutRetry allows to run a command with fdbbackup in the operator Pod without doing any retries.
+func (fdbCluster *FdbCluster) RunFdbBackupCommandInOperatorWithoutRetry(
+	command string,
+	printOutput bool,
+) (string, string, error) {
+	return fdbCluster.runCommandInOperatorWithoutRetry(command, printOutput, 0, "fdbbackup")
+}
+
+// runCommandInOperatorWithoutRetry can be used to run commands with a FDB binary like fdbcli or fdbbackup.
+func (fdbCluster *FdbCluster) runCommandInOperatorWithoutRetry(
+	command string,
+	printOutput bool,
+	timeout int,
+	binary string,
+) (string, string, error) {
 	operatorPods := fdbCluster.factory.GetOperatorPods(fdbCluster.Namespace())
 	pod := fdbCluster.factory.ChooseRandomPod(operatorPods)
 	if pod == nil {
@@ -115,52 +139,64 @@ func (fdbCluster *FdbCluster) RunFdbCliCommandInOperatorWithoutRetry(
 	runningVersion, err := fdbv1beta2.ParseFdbVersion(cluster.GetRunningVersion())
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-	fdbCliPaths := []string{
-		fmt.Sprintf("/usr/bin/fdb/%s/fdbcli", runningVersion.Compact()),
+	binaryPaths := []string{
+		path.Join("/usr/bin/fdb", runningVersion.Compact(), binary),
 	}
 
 	if cluster.IsBeingUpgraded() {
 		desiredVersion, err := fdbv1beta2.ParseFdbVersion(cluster.Spec.Version)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-		fdbCliPaths = append(
-			fdbCliPaths,
-			fmt.Sprintf("/usr/bin/fdb/%s/fdbcli", desiredVersion.Compact()),
+		binaryPaths = append(
+			binaryPaths,
+			path.Join("/usr/bin/fdb", desiredVersion.Compact(), binary),
 		)
 	}
 
-	clusterFile := fmt.Sprintf("/tmp/%s", cluster.Name)
+	clusterFile := fmt.Sprintf("/tmp/%s.%s", cluster.Name, binary)
 
 	var timeoutArgs string
 	if timeout > 0 {
 		timeoutArgs = fmt.Sprintf("--timeout %d", timeout)
 	}
 
-	var stdout, stderr string
+	var logOptions string
+	if binary == "fdbcli" {
+		logOptions = "--log-dir \"/var/log/fdb\" --log --trace_format \"json\""
+	} else {
+		logOptions = ""
+	}
 
-	// If a cluster is currently updated the update of the FoundationDBCluster status is done aysnc. That means there is
+	var stdout, stderr string
+	// If a cluster is currently updated the update of the FoundationDBCluster status is done async. That means there is
 	// a timespan where the cluster is already upgraded but the status.RunningVersion is still pointing to the old version.
-	// In order to catch those cases we try first the fdbcli for the running version and if that doesn't work (an error
+	// In order to catch those cases we try first the binary for the running version and if that doesn't work (an error
 	// is returned) we will try the version for the spec. This should reduce some test flakiness.
-	for _, fdbCliPath := range fdbCliPaths {
+	for _, binaryPath := range binaryPaths {
+		cmd := fmt.Sprintf(
+			"unset %s && unset %s && unset %s && unset %s && export FDB_CLUSTER_FILE=%s TIMEFORMAT='%%R' && echo '%s' > %s && time %s %s %s %s",
+			fdbv1beta2.EnvNameClientThreadsPerVersion,
+			fdbv1beta2.EnvNameFDBExternalClientDir,
+			fdbv1beta2.EnvNameFDBIgnoreExternalClientFailures,
+			fdbv1beta2.EnvNameFDBDisableLocalClient,
+			clusterFile,
+			cluster.Status.ConnectionString,
+			clusterFile,
+			binaryPath,
+			logOptions,
+			timeoutArgs,
+			command,
+		)
+
+		if printOutput {
+			log.Println(cmd)
+		}
 		stdout, stderr, err = fdbCluster.factory.ExecuteCmd(
 			context.Background(),
 			pod.Namespace,
 			pod.Name,
 			"manager",
-			fmt.Sprintf(
-				"unset %s && unset %s && unset %s && unset %s && TIMEFORMAT='%%R' && echo '%s' > %s && time %s --log-dir \"/var/log/fdb\" --log --trace_format \"json\" %s -C %s --exec '%s'",
-				fdbv1beta2.EnvNameClientThreadsPerVersion,
-				fdbv1beta2.EnvNameFDBExternalClientDir,
-				fdbv1beta2.EnvNameFDBIgnoreExternalClientFailures,
-				fdbv1beta2.EnvNameFDBDisableLocalClient,
-				cluster.Status.ConnectionString,
-				clusterFile,
-				fdbCliPath,
-				timeoutArgs,
-				clusterFile,
-				command,
-			),
+			cmd,
 			printOutput,
 		)
 
@@ -168,13 +204,13 @@ func (fdbCluster *FdbCluster) RunFdbCliCommandInOperatorWithoutRetry(
 			return stdout, stderr, err
 		}
 
-		// Only if we do an upgrade we have to check if we actually use the correct fdbcli version
+		// Only if we do an upgrade we have to check if we actually use the correct binary version
 		if !cluster.IsBeingUpgraded() {
 			break
 		}
 
 		// Only try to parse the content to json if the command was "status json".
-		if strings.Contains(command, "status json") {
+		if binary == "fdbcli" && strings.Contains(command, "status json") {
 			var parsedStatus *fdbv1beta2.FoundationDBStatus
 			parsedStatus, err = parseStatusOutput(stdout)
 			// If we cannot parse the status we probably have an error or timeout

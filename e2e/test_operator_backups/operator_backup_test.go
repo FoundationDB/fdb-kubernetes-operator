@@ -31,6 +31,8 @@ import (
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/fixtures"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/utils/ptr"
 )
 
 var (
@@ -81,19 +83,113 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 		var prefix byte = 'a'
 		var backup *fixtures.FdbBackup
 
-		BeforeEach(func() {
-			log.Println("creating backup for cluster")
-			backup = factory.CreateBackupForCluster(fdbCluster)
-			keyValues = fdbCluster.GenerateRandomValues(10, prefix)
-			fdbCluster.WriteKeyValues(keyValues)
-			backup.WaitForRestorableVersion(fdbCluster.GetClusterVersion())
-			backup.Stop()
+		// Delete the backup resource after each test. Note that this will not delete the data
+		// in the backup store.
+		AfterEach(func() {
+			backup.Destroy()
 		})
 
-		It("should restore the cluster successfully", func() {
-			fdbCluster.ClearRange([]byte{prefix}, 60)
-			factory.CreateRestoreForCluster(backup)
-			Expect(fdbCluster.GetRange([]byte{prefix}, 25, 60)).Should(Equal(keyValues))
+		When("the default backup system is used", func() {
+			BeforeEach(func() {
+				log.Println("creating backup for cluster")
+				backup = factory.CreateBackupForCluster(
+					fdbCluster,
+					&fixtures.FdbBackupConfiguration{},
+				)
+				keyValues = fdbCluster.GenerateRandomValues(10, prefix)
+				fdbCluster.WriteKeyValues(keyValues)
+				backup.WaitForRestorableVersion(fdbCluster.GetClusterVersion())
+				backup.Stop()
+			})
+
+			It("should restore the cluster successfully", func() {
+				fdbCluster.ClearRange([]byte{prefix}, 60)
+				factory.CreateRestoreForCluster(backup)
+				Expect(fdbCluster.GetRange([]byte{prefix}, 25, 60)).Should(Equal(keyValues))
+			})
+		})
+
+		PWhen("the partitioned backup system is used", func() {
+			BeforeEach(func() {
+				log.Println("creating backup for cluster with partitioned log system")
+				// Add additional backup workers to the cluster. Those will be used by the partitioned backup system.
+				// The backup worker(not to be confused with the backup agent) will be used to back up the lof mutations.
+				// We still need the backup agents to back up the key ranges.
+				cluster := fdbCluster.GetCluster()
+				spec := cluster.Spec.DeepCopy()
+				spec.ProcessCounts.BackupWorker = 2
+
+				// We take the spec from the general process class as the starting point.
+				generalProcessSpec := spec.Processes[fdbv1beta2.ProcessClassGeneral]
+				processSpec := generalProcessSpec.DeepCopy()
+
+				processSpec.PodTemplate.Spec.Volumes = append(
+					processSpec.PodTemplate.Spec.Volumes,
+					corev1.Volume{
+						Name: "backup-credentials",
+						VolumeSource: corev1.VolumeSource{
+							Secret: &corev1.SecretVolumeSource{
+								SecretName: factory.GetBackupSecretName(),
+							},
+						},
+					},
+				)
+
+				for idx, container := range processSpec.PodTemplate.Spec.Containers {
+					if container.Name != fdbv1beta2.MainContainerName {
+						continue
+					}
+
+					// Make sure we add the FDB_BLOB_CREDENTIALS to ensure the backup worker has access to the
+					// blob store.
+					container.Env = append(container.Env, corev1.EnvVar{
+						Name:  "FDB_BLOB_CREDENTIALS",
+						Value: "/tmp/backup-credentials/credentials",
+					})
+
+					container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+						Name:      "backup-credentials",
+						ReadOnly:  true,
+						MountPath: "/tmp/backup-credentials",
+					})
+
+					processSpec.PodTemplate.Spec.Containers[idx] = container
+					break
+				}
+				spec.Processes[fdbv1beta2.ProcessClassBackup] = *processSpec
+				fdbCluster.UpdateClusterSpecWithSpec(spec)
+				Expect(fdbCluster.WaitForReconciliation()).To(Succeed())
+
+				backup = factory.CreateBackupForCluster(
+					fdbCluster,
+					&fixtures.FdbBackupConfiguration{
+						BackupType: ptr.To(fdbv1beta2.BackupTypePartitionedLog),
+					},
+				)
+				keyValues = fdbCluster.GenerateRandomValues(10, prefix)
+				fdbCluster.WriteKeyValues(keyValues)
+				backup.WaitForRestorableVersion(fdbCluster.GetClusterVersion())
+				backup.Stop()
+			})
+
+			It("should restore the cluster successfully", func() {
+				fdbCluster.ClearRange([]byte{prefix}, 60)
+				factory.CreateRestoreForCluster(backup)
+				Expect(fdbCluster.GetRange([]byte{prefix}, 25, 60)).Should(Equal(keyValues))
+			})
+
+			AfterEach(func() {
+				// We have to make sure that the backup is deleted before proceeding.
+				backup.Destroy()
+				// Remove additional backup workers from the cluster.
+				cluster := fdbCluster.GetCluster()
+				spec := cluster.Spec.DeepCopy()
+				spec.ProcessCounts.BackupWorker = -1
+				delete(spec.Processes, fdbv1beta2.ProcessClassBackup)
+
+				fdbCluster.UpdateClusterSpecWithSpec(spec)
+				Expect(fdbCluster.WaitForReconciliation()).To(Succeed())
+			})
 		})
 	})
 })
