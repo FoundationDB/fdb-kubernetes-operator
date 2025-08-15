@@ -49,11 +49,7 @@ func (s startBackup) reconcile(
 		_ = adminClient.Close()
 	}()
 
-	err = adminClient.StartBackup(
-		backup.BackupURL(),
-		backup.SnapshotPeriodSeconds(),
-		backup.Spec.EncryptionKeyPath,
-	)
+	err = adminClient.StartBackup(backup)
 	if err != nil {
 		return &requeue{curError: err}
 	}

@@ -809,44 +809,46 @@ func (client *cliAdminClient) GetProtocolVersion(version string) (string, error)
 	return protocolVersionMatch[1], nil
 }
 
-func (client *cliAdminClient) StartBackup(
-	url string,
-	snapshotPeriodSeconds int,
-	encryptionKeyPath string,
-) error {
+func (client *cliAdminClient) StartBackup(backup *fdbv1beta2.FoundationDBBackup) error {
 	args := []string{
 		"start",
 		"-d",
-		url,
+		backup.BackupURL(),
 		"-s",
-		fmt.Sprintf("%d", snapshotPeriodSeconds),
+		strconv.Itoa(backup.SnapshotPeriodSeconds()),
 		"-z",
 	}
 
-	fdbVersion, verErr := fdbv1beta2.ParseFdbVersion(client.Cluster.GetRunningVersion())
-	if verErr != nil {
-		return verErr
+	encryptionKeyPath, err := backup.GetEncryptionKey()
+	if err != nil {
+		return err
 	}
 
-	if encryptionKeyPath != "" && fdbVersion.SupportsBackupEncryption() {
+	if encryptionKeyPath != "" {
 		args = append(args, "--encryption-key-file", encryptionKeyPath)
 	}
 
-	_, err := client.runCommand(cliCommand{
+	if backup.GetBackupType() == fdbv1beta2.BackupTypePartitionedLog {
+		args = append(args, "--partitioned-log-experimental")
+	}
+
+	_, err = client.runCommand(cliCommand{
 		binary: fdbbackupStr,
 		args:   args,
 	})
+
 	return err
 }
 
 // StopBackup stops a backup.
-func (client *cliAdminClient) StopBackup(_ string) error {
+func (client *cliAdminClient) StopBackup(_ *fdbv1beta2.FoundationDBBackup) error {
 	_, err := client.runCommand(cliCommand{
 		binary: fdbbackupStr,
 		args: []string{
 			"discontinue",
 		},
 	})
+
 	return err
 }
 
@@ -873,15 +875,16 @@ func (client *cliAdminClient) ResumeBackups() error {
 }
 
 // ModifyBackup updates the backup parameters.
-func (client *cliAdminClient) ModifyBackup(snapshotPeriodSeconds int) error {
+func (client *cliAdminClient) ModifyBackup(backup *fdbv1beta2.FoundationDBBackup) error {
 	_, err := client.runCommand(cliCommand{
 		binary: fdbbackupStr,
 		args: []string{
 			"modify",
 			"-s",
-			fmt.Sprintf("%d", snapshotPeriodSeconds),
+			strconv.Itoa(backup.SnapshotPeriodSeconds()),
 		},
 	})
+
 	return err
 }
 

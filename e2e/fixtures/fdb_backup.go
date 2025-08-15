@@ -23,6 +23,8 @@ package fixtures
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"log"
 	"time"
 
 	"k8s.io/utils/ptr"
@@ -39,15 +41,28 @@ import (
 type FdbBackup struct {
 	backup     *fdbv1beta2.FoundationDBBackup
 	fdbCluster *FdbCluster
+	deleted    bool
+}
+
+// FdbBackupConfiguration can be used to configure the created fdbv1beta2.FoundationDBBackup with different options.
+type FdbBackupConfiguration struct {
+	// BackupType defines the backup type that should be used for this backup.
+	BackupType *fdbv1beta2.BackupType
 }
 
 // CreateBackupForCluster will create a FoundationDBBackup for the provided cluster.
 func (factory *Factory) CreateBackupForCluster(
 	fdbCluster *FdbCluster,
+	config *FdbBackupConfiguration,
 ) *FdbBackup {
 	// For more information how the backup system with the operator is working please look at
 	// the operator documentation: https://github.com/FoundationDB/fdb-kubernetes-operator/v2/blob/master/docs/manual/backup.md
 	fdbVersion := factory.GetFDBVersion()
+
+	// If the config is nil, create a default config.
+	if config == nil {
+		config = &FdbBackupConfiguration{}
+	}
 
 	backup := &fdbv1beta2.FoundationDBBackup{
 		ObjectMeta: metav1.ObjectMeta{
@@ -66,6 +81,7 @@ func (factory *Factory) CreateBackupForCluster(
 					"region=us-east-1",
 				},
 			},
+			BackupType:       config.BackupType,
 			CustomParameters: fdbv1beta2.FoundationDBCustomParameters{
 				// Enable if you want to get http debug logs.
 				// "knob_http_verbose_level=10",
@@ -135,19 +151,17 @@ func (factory *Factory) CreateBackupForCluster(
 
 	gomega.Expect(factory.CreateIfAbsent(backup)).NotTo(gomega.HaveOccurred())
 
-	factory.AddShutdownHook(func() error {
-		err := factory.GetControllerRuntimeClient().Delete(context.Background(), backup)
-		if err != nil && !k8serrors.IsNotFound(err) {
-			return err
-		}
-
-		return nil
-	})
-
 	curBackup := &FdbBackup{
 		backup:     backup,
 		fdbCluster: fdbCluster,
 	}
+
+	factory.AddShutdownHook(func() error {
+		curBackup.Destroy()
+
+		return nil
+	})
+
 	curBackup.WaitForReconciliation()
 	return curBackup
 }
@@ -217,20 +231,15 @@ func (fdbBackup *FdbBackup) WaitForRestorableVersion(version uint64) {
 			false,
 		)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
-		var result map[string]interface{}
-		g.Expect(json.Unmarshal([]byte(out), &result)).NotTo(gomega.HaveOccurred())
 
-		restorable, ok := result["Restorable"].(bool)
-		g.Expect(ok).To(gomega.BeTrue())
-		g.Expect(restorable).To(gomega.BeTrue())
+		status := &fdbv1beta2.FoundationDBLiveBackupStatusState{}
+		g.Expect(json.Unmarshal([]byte(out), status)).NotTo(gomega.HaveOccurred())
 
-		restorablePoint, ok := result["LatestRestorablePoint"].(map[string]interface{})
-		g.Expect(ok).To(gomega.BeTrue())
+		log.Println("Backup status:", status)
+		g.Expect(ptr.Deref(status.Restorable, false)).To(gomega.BeTrue())
+		g.Expect(status.LatestRestorablePoint).NotTo(gomega.BeNil())
 
-		restorableVersion, ok := restorablePoint["Version"].(float64)
-		g.Expect(ok).To(gomega.BeTrue())
-
-		return uint64(restorableVersion)
+		return ptr.Deref(status.LatestRestorablePoint.Version, 0)
 	}).WithTimeout(10*time.Minute).WithPolling(2*time.Second).Should(gomega.BeNumerically(">", version), "error waiting for restorable version")
 }
 
@@ -251,4 +260,37 @@ func (fdbBackup *FdbBackup) GetBackupPods() *corev1.PodList {
 		NotTo(gomega.HaveOccurred())
 
 	return podList
+}
+
+// Destroy will remove the underlying backup resources.
+func (fdbBackup *FdbBackup) Destroy() {
+	gomega.Eventually(func(g gomega.Gomega) {
+		err := fdbBackup.fdbCluster.getClient().
+			Delete(context.Background(), fdbBackup.backup)
+		if k8serrors.IsNotFound(err) {
+			return
+		}
+
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+	}).WithTimeout(1 * time.Minute).WithPolling(1 * time.Second).To(gomega.Succeed())
+
+	// Once we implement a finalizer to remove the backup data we can remove those lines.
+	if fdbBackup.deleted {
+		return
+	}
+	log.Println("abort backup")
+	_, _, err := fdbBackup.fdbCluster.RunFdbBackupCommandInOperatorWithoutRetry(
+		"abort || true",
+		true,
+	)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+	log.Println("delete backup")
+	_, _, err = fdbBackup.fdbCluster.RunFdbBackupCommandInOperatorWithoutRetry(
+		fmt.Sprintf("delete -d '%s'", fdbBackup.backup.BackupURL()),
+		true,
+	)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+	fdbBackup.deleted = true
 }
