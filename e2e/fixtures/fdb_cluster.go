@@ -673,23 +673,6 @@ func (fdbCluster *FdbCluster) SetStorageServerPerPod(serverPerPod int) error {
 	return fdbCluster.setStorageServerPerPod(serverPerPod, true)
 }
 
-// SetTransactionServerPerPod set the LogServersPerPod field in the cluster spec and changes log Pods to transaction Pods.
-func (fdbCluster *FdbCluster) SetTransactionServerPerPod(
-	serverPerPod int,
-	processCount int,
-	waitForReconcile bool,
-) error {
-	fdbCluster.cluster.Spec.LogServersPerPod = serverPerPod
-	fdbCluster.cluster.Spec.ProcessCounts.Transaction = processCount
-	fdbCluster.cluster.Spec.ProcessCounts.Log = 0
-	fdbCluster.UpdateClusterSpec()
-
-	if !waitForReconcile {
-		return nil
-	}
-	return fdbCluster.WaitForReconciliation()
-}
-
 // ReplacePod replaces the provided Pod if it's part of the FoundationDBCluster.
 func (fdbCluster *FdbCluster) ReplacePod(pod corev1.Pod, waitForReconcile bool) {
 	cluster := fdbCluster.GetCluster()
