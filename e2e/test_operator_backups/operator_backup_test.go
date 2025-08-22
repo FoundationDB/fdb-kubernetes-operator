@@ -141,6 +141,34 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 			})
 		})
 
+		When("the default backup system is used with encryption", func() {
+			BeforeEach(func() {
+				log.Println("creating backup for cluster")
+				backup = factory.CreateBackupForCluster(
+					fdbCluster,
+					&fixtures.FdbBackupConfiguration{
+						BackupType:        ptr.To(fdbv1beta2.BackupTypeDefault),
+						EncryptionEnabled: true,
+					},
+				)
+				keyValues = fdbCluster.GenerateRandomValues(10, prefix)
+				fdbCluster.WriteKeyValues(keyValues)
+				backup.WaitForRestorableVersion(fdbCluster.GetClusterVersion())
+				backup.Stop()
+				fdbCluster.ClearRange([]byte{prefix}, 60)
+			})
+
+			When("no restorable version is specified", func() {
+				BeforeEach(func() {
+					restore = factory.CreateRestoreForCluster(backup, nil)
+				})
+
+				It("should restore the cluster successfully with a restorable version", func() {
+					Expect(fdbCluster.GetRange([]byte{prefix}, 25, 60)).Should(Equal(keyValues))
+				})
+			})
+		})
+
 		When("the partitioned backup system is used", func() {
 			BeforeEach(func() {
 				// Versions before 7.4 have a few issues and will not work properly with the experimental feature.
