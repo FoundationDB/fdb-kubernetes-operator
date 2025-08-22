@@ -68,6 +68,8 @@ var _ = BeforeSuite(func() {
 
 	// Create a blobstore for testing backups and restore
 	factory.CreateBlobstoreIfAbsent(fdbCluster.Namespace())
+
+	// Note: Encryption key secret is automatically created during namespace setup
 })
 
 var _ = AfterSuite(func() {

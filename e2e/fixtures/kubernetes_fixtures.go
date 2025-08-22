@@ -156,6 +156,9 @@ func (factory *Factory) createNamespace(suffix string) string {
 	}
 	gomega.Expect(factory.CreateIfAbsent(backupCredentials)).NotTo(gomega.HaveOccurred())
 
+	// Create the encryption key secret for backup encryption operations.
+	factory.CreateEncryptionKeySecret(namespace)
+
 	factory.ensureRBACSetupExists(namespace)
 	gomega.Expect(factory.ensureFDBOperatorExists(namespace)).ToNot(gomega.HaveOccurred())
 	log.Printf("using namespace %s for testing", namespace)
