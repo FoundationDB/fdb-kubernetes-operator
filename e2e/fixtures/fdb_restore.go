@@ -60,6 +60,7 @@ func (factory *Factory) CreateRestoreForCluster(
 				BlobStoreConfiguration: backup.backup.Spec.BlobStoreConfiguration,
 				CustomParameters:       backup.backup.Spec.CustomParameters,
 				BackupVersion:          backupVersion,
+				EncryptionKeyPath:      backup.backup.Spec.EncryptionKeyPath,
 			},
 		},
 		fdbCluster: backup.fdbCluster,
