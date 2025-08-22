@@ -73,6 +73,7 @@ func (factory *Factory) CreateBackupForCluster(
 			AllowTagOverride: ptr.To(true),
 			ClusterName:      fdbCluster.Name(),
 			Version:          fdbVersion.String(),
+			EncryptionKeyPath: "/tmp/encryption-key/key.bin",
 			BlobStoreConfiguration: &fdbv1beta2.BlobStoreConfiguration{
 				AccountName: "seaweedfs@seaweedfs:8333",
 				URLParameters: []fdbv1beta2.URLParameter{
@@ -123,6 +124,11 @@ func (factory *Factory) CreateBackupForCluster(
 									ReadOnly:  true,
 									MountPath: "/tmp/backup-credentials",
 								},
+								{
+									Name:      "encryption-key",
+									ReadOnly:  true,
+									MountPath: "/tmp/encryption-key",
+								},
 							},
 						},
 					},
@@ -140,6 +146,14 @@ func (factory *Factory) CreateBackupForCluster(
 							VolumeSource: corev1.VolumeSource{
 								Secret: &corev1.SecretVolumeSource{
 									SecretName: factory.GetBackupSecretName(),
+								},
+							},
+						},
+						{
+							Name: "encryption-key",
+							VolumeSource: corev1.VolumeSource{
+								Secret: &corev1.SecretVolumeSource{
+									SecretName: factory.GetEncryptionKeySecretName(),
 								},
 							},
 						},
