@@ -54,8 +54,7 @@ func (s startRestore) reconcile(
 	if len(strings.TrimSpace(status)) == 0 {
 		err = adminClient.StartRestore(
 			restore.BackupURL(),
-			restore.Spec.KeyRanges,
-			restore.Spec.EncryptionKeyPath,
+			*restore,
 		)
 		if err != nil {
 			return &requeue{curError: err}
