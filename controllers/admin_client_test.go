@@ -360,7 +360,7 @@ var _ = Describe("admin_client_test", func() {
 				It("should have modified the backup url", func() {
 					Expect(
 						status.DestinationURL,
-					).To(Equal("blobstore://test@test-service/test-backup-2"))
+					).To(Equal("blobstore://test:443/test-backup-2?bucket=fdb-backups"))
 				})
 			})
 		})
