@@ -321,6 +321,13 @@ func (backup *FoundationDBBackup) GetDesiredAgentCount() int {
 	return ptr.Deref(backup.Spec.AgentCount, 2)
 }
 
+func (backup *FoundationDBBackup) NeedsBackupReconfiguration() bool {
+	hasSnapshotSecondsChanged := backup.SnapshotPeriodSeconds() != backup.Status.BackupDetails.SnapshotPeriodSeconds
+	hasBackupUrlChanged := backup.BackupURL() != backup.Status.BackupDetails.URL
+
+	return hasSnapshotSecondsChanged || hasBackupUrlChanged
+}
+
 // CheckReconciliation compares the spec and the status to determine if
 // reconciliation is complete.
 func (backup *FoundationDBBackup) CheckReconciliation() (bool, error) {
@@ -350,13 +357,7 @@ func (backup *FoundationDBBackup) CheckReconciliation() (bool, error) {
 		reconciled = false
 	}
 
-	if isRunning &&
-		backup.SnapshotPeriodSeconds() != backup.Status.BackupDetails.SnapshotPeriodSeconds {
-		backup.Status.Generations.NeedsBackupReconfiguration = backup.Generation
-		reconciled = false
-	}
-
-	if isRunning && backup.BackupURL() != backup.Status.BackupDetails.URL {
+	if isRunning && backup.NeedsBackupReconfiguration() {
 		backup.Status.Generations.NeedsBackupReconfiguration = backup.Generation
 		reconciled = false
 	}
