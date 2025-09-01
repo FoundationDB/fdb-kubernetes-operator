@@ -47,6 +47,7 @@ func (factory *Factory) CreateRestoreForCluster(backup *FdbBackup) {
 			DestinationClusterName: backup.fdbCluster.Name(),
 			BlobStoreConfiguration: backup.backup.Spec.BlobStoreConfiguration,
 			CustomParameters:       backup.backup.Spec.CustomParameters,
+			EncryptionKeyPath:      backup.backup.Spec.EncryptionKeyPath,
 		},
 	}
 	gomega.Expect(factory.CreateIfAbsent(restore)).NotTo(gomega.HaveOccurred())
