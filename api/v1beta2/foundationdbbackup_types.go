@@ -103,6 +103,7 @@ type FoundationDBBackupSpec struct {
 	EncryptionKeyPath string `json:"encryptionKeyPath,omitempty"`
 
 	// MainContainer defines customization for the foundationdb container.
+	// Note: The enableTls setting is ignored for backup agents - use TLS environment variables instead.
 	MainContainer ContainerOverrides `json:"mainContainer,omitempty"`
 
 	// SidecarContainer defines customization for the

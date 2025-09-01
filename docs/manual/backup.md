@@ -93,6 +93,25 @@ By default, the operator assumes you want to use secure connections to your obje
 
 If you are configuring your cluster to use TLS for connections within the cluster, the backup agents will use the same certificate, key, and CA file for the connections to the cluster, so you must make sure the configuration is valid for this purpose as well.
 
+## TLS Configuration for Backup Agents
+
+**Important**: Backup agents act as normal FDB clients and don't use the setting `enableTls` flag in `mainContainer`.
+The [Example Backup](#example-backup) shows how to configure the required environment variables.
+
+### For Backup Agents connecting to TLS clusters:
+
+- **Required**: Set TLS environment variables (`FDB_TLS_CERTIFICATE_FILE`, `FDB_TLS_KEY_FILE`, `FDB_TLS_CA_FILE`) in the backup agent pod template
+- **Not needed**: The `enableTls` flag in `mainContainer` or `sidecarContainer` configurations - this only applies to FDB server processes
+
+### Key Differences:
+
+| Component | TLS Environment Variables | `enableTls` Flag |
+|-----------|--------------------------|------------------|
+| FDB Server Processes | ✓ Required | ✓ Required |
+| Backup Agents | ✓ Required | ✗ Ignored |
+
+The backup agent will automatically use TLS when connecting to a TLS-enabled cluster if the TLS environment variables are present, regardless of the `enableTls` setting in the backup spec.
+
 ## Configuring Your Account
 
 Before you start a backup, you will need to configure an account in your object store. Depending on the implementation details of your object store, you may also need to configure a bucket in advance, but the FDB backup process will attempt to automatically create one. You can specify the bucket name in the `bucket` field of the backup spec. In the example above, we have an account called `account` at the object store `https://object-store.example`, and it has a bucket called `fdb-backups`.
