@@ -387,7 +387,7 @@ The `ToggleBackupPaused` subreconciler is responsible for pausing and unpausing 
 
 The `ModifyBackup` command ensures that any properties that can be configured on a live backup are configured to the values in the backup spec. This will run the `modify` command in `fdbbackup` to set the properties from the spec.
 
-Currently, this only supports the `snapshotPeriodSeconds` property.
+Currently, this only supports the `snapshotPeriodSeconds` and `url` property.
 
 ### UpdateBackupStatus (again)
 
