@@ -82,7 +82,6 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 		var keyValues []fixtures.KeyValue
 		var prefix byte = 'a'
 		var backup *fixtures.FdbBackup
-
 		// Delete the backup resource after each test. Note that this will not delete the data
 		// in the backup store.
 		AfterEach(func() {
@@ -104,7 +103,7 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 
 			It("should restore the cluster successfully", func() {
 				fdbCluster.ClearRange([]byte{prefix}, 60)
-				factory.CreateRestoreForCluster(backup)
+				factory.CreateRestoreForCluster(backup, nil)
 				Expect(fdbCluster.GetRange([]byte{prefix}, 25, 60)).Should(Equal(keyValues))
 			})
 		})
@@ -174,7 +173,18 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 
 			It("should restore the cluster successfully", func() {
 				fdbCluster.ClearRange([]byte{prefix}, 60)
-				factory.CreateRestoreForCluster(backup)
+				factory.CreateRestoreForCluster(backup, nil)
+				Expect(fdbCluster.GetRange([]byte{prefix}, 25, 60)).Should(Equal(keyValues))
+			})
+
+			It("should restore the cluster successfully with a restorable version", func() {
+				var prefix byte = 'b'
+				var keyValues = fdbCluster.GenerateRandomValues(10, prefix)
+				fdbCluster.WriteKeyValues(keyValues)
+				var restorableVersion = backup.WaitForRestorableVersion(fdbCluster.GetClusterVersion())
+				backup.Stop()
+				fdbCluster.ClearRange([]byte{prefix}, 60)
+				factory.CreateRestoreForCluster(backup, &restorableVersion)
 				Expect(fdbCluster.GetRange([]byte{prefix}, 25, 60)).Should(Equal(keyValues))
 			})
 
