@@ -493,6 +493,9 @@ func checkAndSetProcessStatus(
 
 	processGroupStatus.UpdateCondition(fdbv1beta2.MissingProcesses, hasMissingProcesses)
 	processGroupStatus.UpdateCondition(fdbv1beta2.SidecarUnreachable, sidecarUnreachable)
+	// If the processes are not up and running, we will reset the incorrect command line, e.g. in case that the processes
+	// were just restarted by the operator.
+	processGroupStatus.UpdateCondition(fdbv1beta2.IncorrectCommandLine, hasIncorrectCommandLine)
 	// If the processes are absent, we are not able to determine the state of the processes, therefore we won't change it.
 	if hasMissingProcesses {
 		return nil
@@ -520,7 +523,6 @@ func checkAndSetProcessStatus(
 	if sidecarUnreachable {
 		return nil
 	}
-	processGroupStatus.UpdateCondition(fdbv1beta2.IncorrectCommandLine, hasIncorrectCommandLine)
 
 	return nil
 }

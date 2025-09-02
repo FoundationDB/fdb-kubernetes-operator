@@ -14,6 +14,7 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 * [FoundationDBBackupStatusBackupDetails](#foundationdbbackupstatusbackupdetails)
 * [FoundationDBLiveBackupStatus](#foundationdblivebackupstatus)
 * [FoundationDBLiveBackupStatusState](#foundationdblivebackupstatusstate)
+* [LatestRestorablePoint](#latestrestorablepoint)
 * [ImageConfig](#imageconfig)
 
 ## BackupGenerationStatus
@@ -34,6 +35,12 @@ BackupGenerationStatus stores information on which generations have reached diff
 ## BackupState
 
 BackupState defines the desired state of a backup
+
+[Back to TOC](#table-of-contents)
+
+## BackupType
+
+BackupType defines the backup type that should be used for the backup.
 
 [Back to TOC](#table-of-contents)
 
@@ -93,6 +100,7 @@ FoundationDBBackupSpec describes the desired state of the backup for a cluster.
 | mainContainer | MainContainer defines customization for the foundationdb container. | ContainerOverrides | false |
 | sidecarContainer | SidecarContainer defines customization for the foundationdb-kubernetes-sidecar container. | ContainerOverrides | false |
 | imageType | ImageType defines the image type that should be used for the FoundationDBCluster deployment. When the type is set to \"unified\" the deployment will use the new fdb-kubernetes-monitor. Otherwise the main container and the sidecar container will use different images. Default: split | *ImageType | false |
+| backupType | BackupType defines the backup type that should be used for the backup. When the BackupType is set to BackupTypePartitionedLog, it's expected that the FoundationDBCluster creates and manages the additional backup worker processes. A migration to a different backup type is not yet supported in the operator. Default: \"backup_agent\". | *[BackupType](#backuptype) | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -142,6 +150,18 @@ FoundationDBLiveBackupStatusState provides the state of a backup in the backup s
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
 | Running | Running determines whether the backup is currently running. | bool | false |
+| Restorable | Restorable if true, the backup can be restored | *bool | false |
+| LatestRestorablePoint | LatestRestorablePoint contains information about the latest restorable point if any exists. | *[LatestRestorablePoint](#latestrestorablepoint) | false |
+
+[Back to TOC](#table-of-contents)
+
+## LatestRestorablePoint
+
+LatestRestorablePoint contains information about the latest restorable point if any exists.
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| Version | Version is the version that can be restored to. | *uint64 | false |
 
 [Back to TOC](#table-of-contents)
 

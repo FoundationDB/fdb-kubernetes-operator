@@ -860,7 +860,7 @@ func (client *AdminClient) GetProtocolVersion(version string) (string, error) {
 }
 
 // StartBackup starts a new backup.
-func (client *AdminClient) StartBackup(url string, snapshotPeriodSeconds int, _ string) error {
+func (client *AdminClient) StartBackup(backup *fdbv1beta2.FoundationDBBackup) error {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
@@ -869,9 +869,9 @@ func (client *AdminClient) StartBackup(url string, snapshotPeriodSeconds int, _ 
 	}
 
 	client.Backups["default"] = fdbv1beta2.FoundationDBBackupStatusBackupDetails{
-		URL:                   url,
+		URL:                   backup.BackupURL(),
 		Running:               true,
-		SnapshotPeriodSeconds: snapshotPeriodSeconds,
+		SnapshotPeriodSeconds: backup.SnapshotPeriodSeconds(),
 	}
 	return nil
 }
@@ -909,7 +909,7 @@ func (client *AdminClient) ResumeBackups() error {
 }
 
 // ModifyBackup reconfigures the backup.
-func (client *AdminClient) ModifyBackup(snapshotPeriodSeconds int) error {
+func (client *AdminClient) ModifyBackup(backup *fdbv1beta2.FoundationDBBackup) error {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
@@ -917,14 +917,14 @@ func (client *AdminClient) ModifyBackup(snapshotPeriodSeconds int) error {
 		return client.mockError
 	}
 
-	backup := client.Backups["default"]
-	backup.SnapshotPeriodSeconds = snapshotPeriodSeconds
-	client.Backups["default"] = backup
+	currentBackup := client.Backups["default"]
+	currentBackup.SnapshotPeriodSeconds = backup.SnapshotPeriodSeconds()
+	client.Backups["default"] = currentBackup
 	return nil
 }
 
 // StopBackup stops a backup.
-func (client *AdminClient) StopBackup(url string) error {
+func (client *AdminClient) StopBackup(backup *fdbv1beta2.FoundationDBBackup) error {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
@@ -932,14 +932,15 @@ func (client *AdminClient) StopBackup(url string) error {
 		return client.mockError
 	}
 
-	for tag, backup := range client.Backups {
-		if backup.URL == url {
-			backup.Running = false
-			client.Backups[tag] = backup
+	for tag, currentBackup := range client.Backups {
+		if currentBackup.URL == backup.BackupURL() {
+			currentBackup.Running = false
+			client.Backups[tag] = currentBackup
 			return nil
 		}
 	}
-	return fmt.Errorf("no backup found for URL %s", url)
+
+	return fmt.Errorf("no backup found for URL %s", backup.BackupURL())
 }
 
 // GetBackupStatus gets the status of the current backup.

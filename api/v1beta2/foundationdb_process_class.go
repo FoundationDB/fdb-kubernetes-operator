@@ -27,6 +27,8 @@ import (
 // ProcessClass models the class of a pod
 type ProcessClass string
 
+// See https://github.com/apple/foundationdb/blob/release-7.1/fdbrpc/Locality.cpp for additional information regarding the
+// process classes and process roles.
 const (
 	// ProcessClassStorage model for FDB class storage
 	ProcessClassStorage ProcessClass = "storage"
@@ -50,6 +52,8 @@ const (
 	ProcessClassCommitProxy ProcessClass = "commit_proxy"
 	// ProcessClassGrvProxy model for FDB grv_proxy processes
 	ProcessClassGrvProxy ProcessClass = "grv_proxy"
+	// ProcessClassBackup model for FDB backup processes
+	ProcessClassBackup ProcessClass = "backup"
 )
 
 // IsStateful determines whether a process class should store data.

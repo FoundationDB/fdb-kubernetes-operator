@@ -33,6 +33,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"log"
 	"math"
@@ -1149,7 +1150,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 	})
 
 	When("setting 2 logs per disk", func() {
-		var initialLogServerPerPod, expectedPodCnt, expectedLogProcessesCnt int
+		var initialLogServerPerPod, expectedPodCnt, expectedLogProcessesCnt, serverPerPod int
 
 		BeforeEach(func() {
 			initialLogServerPerPod = fdbCluster.GetLogServersPerPod()
@@ -1164,6 +1165,9 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			Eventually(func() int {
 				return len(fdbCluster.GetLogPods().Items)
 			}).Should(BeNumerically("==", expectedPodCnt))
+
+			serverPerPod = initialLogServerPerPod * 2
+			log.Printf("new log servers per Pod: %d", serverPerPod)
 		})
 
 		AfterEach(func() {
@@ -1171,6 +1175,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			Expect(
 				fdbCluster.SetLogServersPerPod(initialLogServerPerPod, true),
 			).ShouldNot(HaveOccurred())
+
 			log.Printf(
 				"expectedPodCnt: %d, expectedProcessesCnt: %d",
 				expectedPodCnt,
@@ -1181,83 +1186,76 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			}).Should(BeNumerically("==", expectedPodCnt))
 		})
 
-		It("should update the log servers to the expected amount", func() {
-			serverPerPod := initialLogServerPerPod * 2
-			log.Printf("set log servers per Pod to %d", initialLogServerPerPod)
-			Expect(fdbCluster.SetLogServersPerPod(serverPerPod, true)).ShouldNot(HaveOccurred())
-			log.Printf(
-				"expectedPodCnt: %d, expectedStorageProcessesCnt: %d",
-				expectedPodCnt,
-				expectedPodCnt*serverPerPod,
-			)
-			fdbCluster.ValidateProcessesCount(
-				fdbv1beta2.ProcessClassLog,
-				expectedPodCnt,
-				expectedPodCnt*serverPerPod,
-			)
-		})
-	})
+		When("when using log servers", func() {
+			BeforeEach(func() {
+				Expect(fdbCluster.SetLogServersPerPod(serverPerPod, true)).ShouldNot(HaveOccurred())
+			})
 
-	When("setting 2 logs per disk to use transaction process", func() {
-		var initialLogServerPerPod, expectedPodCnt, expectedLogProcessesCnt int
-
-		BeforeEach(func() {
-			initialLogServerPerPod = fdbCluster.GetLogServersPerPod()
-			initialPods := fdbCluster.GetLogPods()
-			expectedPodCnt = len(initialPods.Items)
-			expectedLogProcessesCnt = expectedPodCnt * initialLogServerPerPod
-			log.Printf(
-				"expectedPodCnt: %d, expectedProcessesCnt: %d",
-				expectedPodCnt,
-				expectedLogProcessesCnt,
-			)
-			Eventually(func() int {
-				return len(fdbCluster.GetLogPods().Items)
-			}).Should(BeNumerically("==", expectedPodCnt))
-		})
-
-		AfterEach(func() {
-			log.Printf("set log servers per Pod to %d", initialLogServerPerPod)
-			Expect(
-				fdbCluster.SetTransactionServerPerPod(
-					initialLogServerPerPod,
-					expectedLogProcessesCnt,
-					true,
-				),
-			).ShouldNot(HaveOccurred())
-			log.Printf(
-				"expectedPodCnt: %d, expectedProcessesCnt: %d",
-				expectedPodCnt,
-				expectedPodCnt*initialLogServerPerPod,
-			)
-			Eventually(func() int {
-				return len(fdbCluster.GetLogPods().Items)
-			}).Should(BeNumerically("==", expectedPodCnt))
-		})
-
-		It(
-			"should update the log servers to the expected amount and should create transaction Pods",
-			func() {
-				serverPerPod := initialLogServerPerPod * 2
-				Expect(
-					fdbCluster.SetTransactionServerPerPod(
-						serverPerPod,
-						expectedLogProcessesCnt,
-						true,
-					),
-				).ShouldNot(HaveOccurred())
+			It("should update the log servers to the expected amount", func() {
+				Expect(fdbCluster.SetLogServersPerPod(serverPerPod, true)).ShouldNot(HaveOccurred())
 				log.Printf(
 					"expectedPodCnt: %d, expectedProcessesCnt: %d",
 					expectedPodCnt,
 					expectedPodCnt*serverPerPod,
 				)
 				fdbCluster.ValidateProcessesCount(
-					fdbv1beta2.ProcessClassTransaction,
+					fdbv1beta2.ProcessClassLog,
 					expectedPodCnt,
 					expectedPodCnt*serverPerPod,
 				)
-			},
-		)
+			})
+		})
+
+		When("migrating from log processes to transaction processes", func() {
+			BeforeEach(func() {
+				// Change the servers per pod and change the transaction process counts and set the log process counts
+				// to -1.
+				cluster := fdbCluster.GetCluster()
+				spec := cluster.Spec.DeepCopy()
+				spec.LogServersPerPod = serverPerPod
+
+				processCounts, err := cluster.GetProcessCountsWithDefaults()
+				Expect(err).NotTo(HaveOccurred())
+				spec.ProcessCounts.Transaction = processCounts.Log
+				spec.ProcessCounts.Log = -1
+
+				// process counts with default?
+				log.Println(spec.ProcessCounts)
+				fdbCluster.UpdateClusterSpecWithSpec(spec)
+				Expect(fdbCluster.WaitForReconciliation()).NotTo(HaveOccurred())
+			})
+
+			AfterEach(func() {
+				// Reset the transaction process class changes and make sure we create log pods again.
+				cluster := fdbCluster.GetCluster()
+				spec := cluster.Spec.DeepCopy()
+				spec.LogServersPerPod = initialLogServerPerPod
+
+				processCounts, err := cluster.GetProcessCountsWithDefaults()
+				Expect(err).NotTo(HaveOccurred())
+				spec.ProcessCounts.Log = processCounts.Transaction
+				spec.ProcessCounts.Transaction = -1
+				log.Println(spec.ProcessCounts)
+				fdbCluster.UpdateClusterSpecWithSpec(spec)
+				Expect(fdbCluster.WaitForReconciliation()).NotTo(HaveOccurred())
+			})
+
+			It(
+				"should update the log servers to the expected amount and should create transaction Pods",
+				func() {
+					log.Printf(
+						"expectedPodCnt: %d, expectedProcessesCnt: %d",
+						expectedPodCnt,
+						expectedPodCnt*serverPerPod,
+					)
+					fdbCluster.ValidateProcessesCount(
+						fdbv1beta2.ProcessClassTransaction,
+						expectedPodCnt,
+						expectedPodCnt*serverPerPod,
+					)
+				},
+			)
+		})
 	})
 
 	When("Replacing a Pod with PVC stuck in Terminating state", func() {
@@ -2477,4 +2475,116 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			})
 		})
 	})
+
+	When(
+		"a process group should be removed and deletions are disabled and a new knob is rolled out",
+		func() {
+			var processGroupID fdbv1beta2.ProcessGroupID
+			var initialCustomParameters fdbv1beta2.FoundationDBCustomParameters
+
+			BeforeEach(func() {
+				availabilityCheck = false
+
+				spec := fdbCluster.GetCluster().Spec.DeepCopy()
+				spec.AutomationOptions.DeletionMode = fdbv1beta2.PodUpdateModeNone
+				fdbCluster.UpdateClusterSpecWithSpec(spec)
+
+				storagePod := factory.RandomPickOnePod(fdbCluster.GetStoragePods().Items)
+				log.Println("Selected Pod:", storagePod.Name, " to be replaced")
+				fdbCluster.ReplacePod(storagePod, false)
+				processGroupID = fixtures.GetProcessGroupID(storagePod)
+
+				// Wait until the process group is marked for removal.
+				Eventually(func(g Gomega) {
+					processGroup := fdbv1beta2.FindProcessGroupByID(
+						fdbCluster.GetCluster().Status.ProcessGroups,
+						processGroupID,
+					)
+
+					out, err := json.Marshal(processGroup)
+					g.Expect(err).NotTo(HaveOccurred())
+					log.Println("waiting for marked to be removed", string(out))
+					g.Expect(processGroup).NotTo(BeNil())
+					g.Expect(processGroup.RemovalTimestamp).NotTo(BeNil())
+				}).WithTimeout(10 * time.Minute).WithPolling(1 * time.Second).To(Succeed())
+
+				initialCustomParameters = fdbCluster.GetCustomParameters(
+					fdbv1beta2.ProcessClassStorage,
+				)
+				newCustomParameters := append(
+					initialCustomParameters,
+					"knob_max_trace_lines=1000000",
+				)
+
+				// Disable the operator bounce feature to ensure the targeted process group sees the changes.
+				fdbCluster.SetKillProcesses(false, false)
+
+				Expect(
+					fdbCluster.SetCustomParameters(
+						map[fdbv1beta2.ProcessClass]fdbv1beta2.FoundationDBCustomParameters{
+							fdbv1beta2.ProcessClassStorage: newCustomParameters,
+						},
+						false,
+					),
+				).NotTo(HaveOccurred())
+
+				// Wait until the process group has the incorrect command line
+				Eventually(func(g Gomega) {
+					processGroup := fdbv1beta2.FindProcessGroupByID(
+						fdbCluster.GetCluster().Status.ProcessGroups,
+						processGroupID,
+					)
+
+					out, err := json.Marshal(processGroup)
+					g.Expect(err).NotTo(HaveOccurred())
+					log.Println("Waiting for incorrect commandline", string(out))
+					g.Expect(processGroup).NotTo(BeNil())
+					g.Expect(processGroup.GetConditionTime(fdbv1beta2.IncorrectCommandLine)).
+						NotTo(BeNil())
+				}).WithTimeout(10 * time.Minute).WithPolling(1 * time.Second).To(Succeed())
+			})
+
+			AfterEach(func() {
+				spec := fdbCluster.GetCluster().Spec.DeepCopy()
+				spec.AutomationOptions.DeletionMode = fdbv1beta2.PodUpdateModeZone
+				fdbCluster.UpdateClusterSpecWithSpec(spec)
+
+				Expect(fdbCluster.SetCustomParameters(
+					map[fdbv1beta2.ProcessClass]fdbv1beta2.FoundationDBCustomParameters{
+						fdbv1beta2.ProcessClassStorage: initialCustomParameters,
+					},
+					false,
+				)).NotTo(HaveOccurred())
+			})
+
+			It("should update the pod that is marked for removal", func() {
+				log.Println(
+					"Make sure process group",
+					processGroupID,
+					"will be updated",
+				)
+
+				// Enable the kill feature again.
+				fdbCluster.SetKillProcesses(true, false)
+				// Make sure the process group is updated after some time.
+				Eventually(func(g Gomega) {
+					processGroup := fdbv1beta2.FindProcessGroupByID(
+						fdbCluster.GetCluster().Status.ProcessGroups,
+						processGroupID,
+					)
+
+					out, err := json.Marshal(processGroup)
+					g.Expect(err).NotTo(HaveOccurred())
+					log.Println("Waiting for process group to be updated", string(out))
+					// Process group should still exist.
+					g.Expect(processGroup).NotTo(BeNil())
+					// Process group should be marked for removal.
+					g.Expect(processGroup.RemovalTimestamp).NotTo(BeNil())
+					// Process group should be updated with the new knobs.
+					g.Expect(processGroup.GetConditionTime(fdbv1beta2.IncorrectCommandLine)).
+						To(BeNil())
+				}).WithTimeout(10 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
+			})
+		},
+	)
 })

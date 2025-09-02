@@ -26,6 +26,8 @@ import (
 	"log"
 	"time"
 
+	"k8s.io/utils/ptr"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
@@ -40,9 +42,8 @@ func (factory *Factory) ChooseRandomPod(pods *corev1.PodList) *corev1.Pod {
 	if len(pods.Items) == 0 {
 		return nil
 	}
-	pickedPod := factory.RandomPickOnePod(pods.Items)
 
-	return &pickedPod
+	return ptr.To(factory.RandomPickOnePod(pods.Items))
 }
 
 // RandomPickPod randomly picks the number of Pods from the slice. If the slice contains less than count Pods, all Pods

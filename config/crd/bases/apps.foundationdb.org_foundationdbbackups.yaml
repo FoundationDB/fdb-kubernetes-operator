@@ -4,7 +4,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.18.0
-    foundationdb.org/release: v2.11.0
+    foundationdb.org/release: v2.12.0
   name: foundationdbbackups.apps.foundationdb.org
 spec:
   group: apps.foundationdb.org
@@ -70,6 +70,13 @@ spec:
                 - Running
                 - Stopped
                 - Paused
+                type: string
+              backupType:
+                default: backup_agent
+                enum:
+                - backup_agent
+                - partitioned_log
+                maxLength: 64
                 type: string
               blobStoreConfiguration:
                 properties:
