@@ -2958,23 +2958,23 @@ var _ = Describe("pod_models", func() {
 				Expect(sidecarContainer.Env).To(Equal([]corev1.EnvVar{
 					{
 						Name: fdbv1beta2.EnvNamePublicIP, ValueFrom: &corev1.EnvVarSource{
-							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
-						},
+						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
+					},
 					},
 					{
 						Name: fdbv1beta2.EnvNamePodIP, ValueFrom: &corev1.EnvVarSource{
-							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
-						},
+						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
+					},
 					},
 					{
 						Name: fdbv1beta2.EnvNameMachineID, ValueFrom: &corev1.EnvVarSource{
-							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
-						},
+						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+					},
 					},
 					{
 						Name: fdbv1beta2.EnvNameZoneID, ValueFrom: &corev1.EnvVarSource{
-							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
-						},
+						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+					},
 					},
 					{
 						Name:  fdbv1beta2.EnvNameInstanceID,
@@ -3696,7 +3696,12 @@ var _ = Describe("pod_models", func() {
 						"fdb.cluster",
 						"--require-not-empty",
 						"fdb.cluster",
-						"--init-mode",
+						"--mode",
+						"init",
+						"--output-dir",
+						"/var/output-files",
+						"--input-dir",
+						"/var/input-files",
 					}))
 				})
 
@@ -3984,12 +3989,8 @@ var _ = Describe("pod_models", func() {
 					"fdb.cluster",
 					"--require-not-empty",
 					"fdb.cluster",
-					"--mode",
-					"init",
-					"--output-dir",
-					"/var/output-files",
-					"--input-dir",
-					"/var/input-files"))
+					"--init-mode",
+				))
 				Expect(
 					deployment.Spec.Template.Spec.Containers[0].Image,
 				).To(HavePrefix(fdbv1beta2.FoundationDBBaseImage))
