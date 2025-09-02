@@ -3576,7 +3576,7 @@ var _ = Describe("pod_models", func() {
 					fdbv1beta2.BackupDeploymentLabel: string(cluster.ObjectMeta.UID),
 				}))
 				Expect(deployment.ObjectMeta.Annotations).To(Equal(map[string]string{
-					"foundationdb.org/last-applied-spec": "8d2e3abf517313fabdf4e19e50b46f9d5b63e5c5d587a01565008945a2dec87f",
+					"foundationdb.org/last-applied-spec": "946b41ecc6985d5f56d9749e9366132ba4e8cb250eb3bcfe73b037ad1f47c7f4",
 				}))
 			})
 
@@ -3639,7 +3639,7 @@ var _ = Describe("pod_models", func() {
 				It("should set the image and command for the backup agent", func() {
 					Expect(
 						container.Image,
-					).To(Equal(fmt.Sprintf("foundationdb/foundationdb:%s", cluster.Spec.Version)))
+					).To(Equal(fmt.Sprintf("foundationdb/fdb-kubernetes-monitor:%s", cluster.Spec.Version)))
 					Expect(container.Command).To(Equal([]string{"backup_agent"}))
 					Expect(container.Args).To(Equal([]string{
 						"--log",
@@ -3690,7 +3690,7 @@ var _ = Describe("pod_models", func() {
 				It("should set the image and command for the container", func() {
 					Expect(
 						container.Image,
-					).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes-sidecar:%s-1", cluster.Spec.Version)))
+					).To(Equal(fmt.Sprintf("foundationdb/fdb-kubernetes-monitor:%s", cluster.Spec.Version)))
 					Expect(container.Args).To(Equal([]string{
 						"--copy-file",
 						"fdb.cluster",
@@ -3897,7 +3897,7 @@ var _ = Describe("pod_models", func() {
 					"foundationdb.org/backup-for": string(cluster.ObjectMeta.UID),
 				}))
 				Expect(deployment.ObjectMeta.Annotations).To(Equal(map[string]string{
-					"foundationdb.org/last-applied-spec": "879780b88956de7a05e245cdbf16c565b95fe5c956e3a89e7ea259cd9b209d97",
+					"foundationdb.org/last-applied-spec": "23b6a2501f83a4cfcf760f639b1d841203ef4f44d496da072ebd1542870ad53f",
 				}))
 
 				Expect(
@@ -3925,7 +3925,7 @@ var _ = Describe("pod_models", func() {
 				).To(Equal("foundationdb/foundationdb:dev"))
 				Expect(
 					deployment.Spec.Template.Spec.InitContainers[0].Image,
-				).To(Equal("foundationdb/foundationdb-kubernetes-sidecar:dev-1"))
+				).To(Equal("foundationdb/foundationdb:dev"))
 			})
 		})
 
@@ -3963,22 +3963,22 @@ var _ = Describe("pod_models", func() {
 			})
 		})
 
-		When("using the unified image", func() {
+		When("using the split image", func() {
 			BeforeEach(func() {
-				imageType := fdbv1beta2.ImageTypeUnified
+				imageType := fdbv1beta2.ImageTypeSplit
 				backup.Spec.ImageType = &imageType
 				deployment, err = GetBackupDeployment(backup)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(deployment).NotTo(BeNil())
 			})
 
-			It("should use the unified image as main and init container", func() {
+			It("should use the split image as main container and the sidecar image as the init container", func() {
 				Expect(deployment.Spec.Template.Spec.InitContainers).To(HaveLen(1))
 				Expect(deployment.Spec.Template.Spec.Containers).To(HaveLen(1))
 
 				Expect(
 					deployment.Spec.Template.Spec.InitContainers[0].Image,
-				).To(HavePrefix(fdbv1beta2.FoundationDBKubernetesBaseImage))
+				).To(HavePrefix(fdbv1beta2.FoundationDBSidecarBaseImage))
 				Expect(deployment.Spec.Template.Spec.InitContainers[0].Args).To(ConsistOf(
 					"--copy-file",
 					"fdb.cluster",
@@ -3992,7 +3992,7 @@ var _ = Describe("pod_models", func() {
 					"/var/input-files"))
 				Expect(
 					deployment.Spec.Template.Spec.Containers[0].Image,
-				).To(HavePrefix(fdbv1beta2.FoundationDBKubernetesBaseImage))
+				).To(HavePrefix(fdbv1beta2.FoundationDBBaseImage))
 			})
 		})
 	})
