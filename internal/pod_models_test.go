@@ -3977,24 +3977,27 @@ var _ = Describe("pod_models", func() {
 				Expect(deployment).NotTo(BeNil())
 			})
 
-			It("should use the split image as main container and the sidecar image as the init container", func() {
-				Expect(deployment.Spec.Template.Spec.InitContainers).To(HaveLen(1))
-				Expect(deployment.Spec.Template.Spec.Containers).To(HaveLen(1))
+			It(
+				"should use the split image as main container and the sidecar image as the init container",
+				func() {
+					Expect(deployment.Spec.Template.Spec.InitContainers).To(HaveLen(1))
+					Expect(deployment.Spec.Template.Spec.Containers).To(HaveLen(1))
 
-				Expect(
-					deployment.Spec.Template.Spec.InitContainers[0].Image,
-				).To(HavePrefix(fdbv1beta2.FoundationDBSidecarBaseImage))
-				Expect(deployment.Spec.Template.Spec.InitContainers[0].Args).To(ConsistOf(
-					"--copy-file",
-					"fdb.cluster",
-					"--require-not-empty",
-					"fdb.cluster",
-					"--init-mode",
-				))
-				Expect(
-					deployment.Spec.Template.Spec.Containers[0].Image,
-				).To(HavePrefix(fdbv1beta2.FoundationDBBaseImage))
-			})
+					Expect(
+						deployment.Spec.Template.Spec.InitContainers[0].Image,
+					).To(HavePrefix(fdbv1beta2.FoundationDBSidecarBaseImage))
+					Expect(deployment.Spec.Template.Spec.InitContainers[0].Args).To(ConsistOf(
+						"--copy-file",
+						"fdb.cluster",
+						"--require-not-empty",
+						"fdb.cluster",
+						"--init-mode",
+					))
+					Expect(
+						deployment.Spec.Template.Spec.Containers[0].Image,
+					).To(HavePrefix(fdbv1beta2.FoundationDBBaseImage))
+				},
+			)
 		})
 	})
 
