@@ -395,7 +395,7 @@ func (backup *FoundationDBBackup) GetEncryptionKey() (string, error) {
 
 // UseUnifiedImage returns true if the unified image should be used.
 func (backup *FoundationDBBackup) UseUnifiedImage() bool {
-	imageType := ImageTypeSplit
+	imageType := ImageTypeUnified
 	if backup.Spec.ImageType != nil {
 		imageType = *backup.Spec.ImageType
 	}
