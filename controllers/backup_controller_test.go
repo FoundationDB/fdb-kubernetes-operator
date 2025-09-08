@@ -151,7 +151,7 @@ var _ = Describe("backup_controller", func() {
 				Expect(*deployment.Spec.Replicas).To(Equal(int32(3)))
 				Expect(
 					deployment.Spec.Template.Spec.Containers[0].Image,
-				).To(Equal(fmt.Sprintf("foundationdb/foundationdb:%s", cluster.Spec.Version)))
+				).To(Equal(fmt.Sprintf("foundationdb/fdb-kubernetes-monitor:%s", cluster.Spec.Version)))
 			})
 
 			It("should update the status on the resource", func() {
@@ -319,7 +319,7 @@ var _ = Describe("backup_controller", func() {
 				Expect(deployments.Items[0].ObjectMeta.Annotations).To(Equal(map[string]string{
 					"fdb-test-1":                         "test-value-1",
 					"fdb-test-2":                         "test-value-2",
-					"foundationdb.org/last-applied-spec": "8d2e3abf517313fabdf4e19e50b46f9d5b63e5c5d587a01565008945a2dec87f",
+					"foundationdb.org/last-applied-spec": "946b41ecc6985d5f56d9749e9366132ba4e8cb250eb3bcfe73b037ad1f47c7f4",
 				}))
 			})
 		})
