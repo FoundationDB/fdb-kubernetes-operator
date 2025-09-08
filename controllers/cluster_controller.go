@@ -31,6 +31,7 @@ import (
 	"time"
 
 	"k8s.io/utils/ptr"
+	"k8s.io/apimachinery/pkg/api/equality"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/podmanager"
@@ -202,9 +203,23 @@ func (r *FoundationDBClusterReconciler) Reconcile(
 	cacheStatus := cluster.CacheDatabaseStatusForReconciliation(
 		r.CacheDatabaseStatusForReconciliationDefault,
 	)
-	// Printout the duration of the reconciliation, independent if the reconciliation was successful or had an error.
+
+	originalStatus := cluster.Status.DeepCopy()
 	startTime := time.Now()
 	defer func() {
+		// If the cluster.Status has changed compared to the original Status, we have to update the status.
+		// See: https://github.com/kubernetes-sigs/kubebuilder/issues/592
+		// If we use the default reflect.DeepEqual method it will be recreating the clusterStatus multiple times
+		// because the pointers are different.
+		if !equality.Semantic.DeepEqual(cluster.Status, *originalStatus) {
+			clusterLog.Info("cluster status was changed, will be updating the cluster status")
+			err = r.updateOrApply(ctx, cluster)
+			if err != nil {
+				clusterLog.Error(err, "Error updating cluster clusterStatus")
+			}
+		}
+
+		// Printout the duration of the reconciliation, independent if the reconciliation was successful or had an error.
 		clusterLog.Info(
 			"Reconciliation run finished",
 			"duration_seconds",

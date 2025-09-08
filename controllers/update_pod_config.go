@@ -29,8 +29,6 @@ import (
 
 	"github.com/go-logr/logr"
 
-	"k8s.io/apimachinery/pkg/api/equality"
-
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/podmanager"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
@@ -55,7 +53,6 @@ func (updatePodConfig) reconcile(
 		return &requeue{curError: err}
 	}
 
-	originalStatus := cluster.Status.DeepCopy()
 	allSynced := true
 	delayedRequeue := true
 	var errs []error
@@ -163,13 +160,6 @@ func (updatePodConfig) reconcile(
 		}
 
 		processGroup.UpdateCondition(fdbv1beta2.SidecarUnreachable, false)
-	}
-
-	if !equality.Semantic.DeepEqual(cluster.Status, *originalStatus) {
-		err = r.updateOrApply(ctx, cluster)
-		if err != nil {
-			return &requeue{curError: err}
-		}
 	}
 
 	// If any error has happened requeue.

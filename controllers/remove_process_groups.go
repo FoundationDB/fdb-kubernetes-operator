@@ -81,7 +81,7 @@ func (u removeProcessGroups) reconcile(
 	}
 
 	coordinators := fdbstatus.GetCoordinatorsFromStatus(status)
-	allExcluded, newExclusions, processGroupsToRemove := r.getProcessGroupsToRemove(
+	allExcluded, _, processGroupsToRemove := r.getProcessGroupsToRemove(
 		logger,
 		cluster,
 		remainingMap,
@@ -97,14 +97,6 @@ func (u removeProcessGroups) reconcile(
 		}
 
 		return nil
-	}
-
-	// Update the cluster to reflect the new exclusions in our status
-	if newExclusions {
-		err = r.updateOrApply(ctx, cluster)
-		if err != nil {
-			return &requeue{curError: err}
-		}
 	}
 
 	// Ensure we only remove process groups that are not blocked to be removed by the buggify config.
@@ -356,7 +348,7 @@ func confirmRemoval(
 }
 
 func includeProcessGroup(
-	ctx context.Context,
+	_ context.Context,
 	logger logr.Logger,
 	r *FoundationDBClusterReconciler,
 	status *fdbv1beta2.FoundationDBStatus,
@@ -370,11 +362,9 @@ func includeProcessGroup(
 		return err
 	}
 
-	// Update here for ready inclusion --> Check here
 	var readyForInclusion map[fdbv1beta2.ProcessGroupID]time.Time
 	readyForInclusionUpdates := map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction{}
 	if cluster.GetSynchronizationMode() == fdbv1beta2.SynchronizationModeGlobal {
-		var err error
 		readyForInclusion, err = adminClient.GetReadyForInclusion(cluster.Spec.ProcessGroupIDPrefix)
 		if err != nil {
 			return err
@@ -402,7 +392,6 @@ func includeProcessGroup(
 		// We can update the process groups at this stage, as no other processes must be included.
 		if len(cluster.Status.ProcessGroups) != len(newProcessGroups) && len(newProcessGroups) > 0 {
 			cluster.Status.ProcessGroups = newProcessGroups
-			return r.updateOrApply(ctx, cluster)
 		}
 
 		return nil
@@ -471,7 +460,7 @@ func includeProcessGroup(
 	// Update the process group list and remove all removed and included process groups.
 	cluster.Status.ProcessGroups = newProcessGroups
 
-	return r.updateOrApply(ctx, cluster)
+	return nil
 }
 
 // filterAddressesToInclude will remove all addresses that are part of the fdbProcessesToInclude slice but are not excluded in FDB itself.

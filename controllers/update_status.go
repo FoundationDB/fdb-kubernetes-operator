@@ -56,7 +56,6 @@ func (c updateStatus) reconcile(
 	databaseStatus *fdbv1beta2.FoundationDBStatus,
 	logger logr.Logger,
 ) *requeue {
-	originalStatus := cluster.Status.DeepCopy()
 	clusterStatus := fdbv1beta2.FoundationDBClusterStatus{}
 	clusterStatus.Generations.Reconciled = cluster.Status.Generations.Reconciled
 	clusterStatus.ProcessGroups = cluster.Status.ProcessGroups
@@ -71,6 +70,12 @@ func (c updateStatus) reconcile(
 		var err error
 		databaseStatus, err = r.getStatusFromClusterOrDummyStatus(logger, cluster)
 		if err != nil {
+			// If the machine-readable status cannot be fetched we have to update it here.
+			clusterStatus.Health.Available = false
+			clusterStatus.Health.Healthy = false
+			clusterStatus.Health.FullReplication = false
+			clusterStatus.Health.DataMovementPriority = 0
+
 			return &requeue{
 				curError:       fmt.Errorf("update_status error fetching status: %w", err),
 				delayedRequeue: true,
@@ -327,17 +332,6 @@ func (c updateStatus) reconcile(
 		lockErr := r.releaseLock(logger, cluster)
 		if lockErr != nil {
 			return &requeue{curError: lockErr}
-		}
-	}
-
-	// See: https://github.com/kubernetes-sigs/kubebuilder/issues/592
-	// If we use the default reflect.DeepEqual method it will be recreating the
-	// clusterStatus multiple times because the pointers are different.
-	if !equality.Semantic.DeepEqual(cluster.Status, *originalStatus) {
-		err = r.updateOrApply(ctx, cluster)
-		if err != nil {
-			logger.Error(err, "Error updating cluster clusterStatus")
-			return &requeue{curError: err}
 		}
 	}
 

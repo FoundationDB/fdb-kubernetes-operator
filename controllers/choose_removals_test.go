@@ -35,7 +35,6 @@ import (
 var _ = Describe("choose_removals", func() {
 	var cluster *fdbv1beta2.FoundationDBCluster
 	var adminClient *mock.AdminClient
-	var err error
 	var requeue *requeue
 	var removals []fdbv1beta2.ProcessGroupID
 
@@ -63,9 +62,6 @@ var _ = Describe("choose_removals", func() {
 			nil,
 			globalControllerLogger,
 		)
-		Expect(err).NotTo(HaveOccurred())
-		_, err = reloadCluster(cluster)
-		Expect(err).NotTo(HaveOccurred())
 
 		removals = nil
 		for _, processGroup := range cluster.Status.ProcessGroups {
