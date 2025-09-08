@@ -37,7 +37,7 @@ type replaceFailedProcessGroups struct{}
 
 // return non-nil requeue if a process has been replaced
 func (c replaceFailedProcessGroups) reconcile(
-	ctx context.Context,
+	_ context.Context,
 	r *FoundationDBClusterReconciler,
 	cluster *fdbv1beta2.FoundationDBCluster,
 	status *fdbv1beta2.FoundationDBStatus,
@@ -93,11 +93,6 @@ func (c replaceFailedProcessGroups) reconcile(
 	)
 	// If the reconciler replaced at least one process group we want to update the status and requeue.
 	if hasReplacement {
-		err := r.updateOrApply(ctx, cluster)
-		if err != nil {
-			return &requeue{curError: err}
-		}
-
 		return &requeue{message: "Removals have been updated in the cluster status"}
 	}
 
