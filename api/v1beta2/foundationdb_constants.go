@@ -57,4 +57,7 @@ const (
 
 	// RunningVersionKey defines the key name in the ConfigMap whose value is the FDB version that the cluster is currently running.
 	RunningVersionKey = "running-version"
+
+	// FoundationDBBackupFinalizerName is thename of the finalizer for the operator.
+	FoundationDBBackupFinalizerName = "foundationdb.org/fdb-kubernetes-operator"
 )

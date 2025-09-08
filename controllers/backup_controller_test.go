@@ -23,6 +23,8 @@ package controllers
 import (
 	"fmt"
 
+	"k8s.io/utils/ptr"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient/mock"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
@@ -133,7 +135,7 @@ var _ = Describe("backup_controller", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		Context("when reconciling a new backup", func() {
+		When("reconciling a new backup", func() {
 			BeforeEach(func() {
 				generationGap = 0
 			})
@@ -151,7 +153,8 @@ var _ = Describe("backup_controller", func() {
 				Expect(*deployment.Spec.Replicas).To(Equal(int32(3)))
 				Expect(
 					deployment.Spec.Template.Spec.Containers[0].Image,
-				).To(Equal(fmt.Sprintf("foundationdb/fdb-kubernetes-monitor:%s", cluster.Spec.Version)))
+				).To(And(HavePrefix(fdbv1beta2.FoundationDBKubernetesBaseImage), HaveSuffix(cluster.Spec.Version)))
+				Expect(backup.Finalizers).To(BeNil())
 			})
 
 			It("should update the status on the resource", func() {
@@ -212,7 +215,7 @@ var _ = Describe("backup_controller", func() {
 			})
 		})
 
-		Context("when stopping a new backup", func() {
+		When("stopping a new backup", func() {
 			BeforeEach(func() {
 				backup.Spec.BackupState = fdbv1beta2.BackupStateStopped
 				err = k8sClient.Update(context.TODO(), backup)
@@ -226,7 +229,7 @@ var _ = Describe("backup_controller", func() {
 			})
 		})
 
-		Context("when pausing a backup", func() {
+		When("pausing a backup", func() {
 			BeforeEach(func() {
 				backup.Spec.BackupState = fdbv1beta2.BackupStatePaused
 				err = k8sClient.Update(context.TODO(), backup)
@@ -240,7 +243,7 @@ var _ = Describe("backup_controller", func() {
 			})
 		})
 
-		Context("when resuming a backup", func() {
+		When("resuming a backup", func() {
 			BeforeEach(func() {
 				err = adminClient.PauseBackups()
 				Expect(err).NotTo(HaveOccurred())
@@ -257,7 +260,7 @@ var _ = Describe("backup_controller", func() {
 			})
 		})
 
-		Context("when changing a backup snapshot time", func() {
+		When("changing a backup snapshot time", func() {
 			BeforeEach(func() {
 				period := 100000
 				backup.Spec.SnapshotPeriodSeconds = &period
@@ -272,7 +275,7 @@ var _ = Describe("backup_controller", func() {
 			})
 		})
 
-		Context("when changing labels", func() {
+		When("changing labels", func() {
 			BeforeEach(func() {
 				backup.Spec.BackupDeploymentMetadata = &metav1.ObjectMeta{
 					Labels: map[string]string{"fdb-test": "test-value"},
@@ -293,7 +296,7 @@ var _ = Describe("backup_controller", func() {
 			})
 		})
 
-		Context("when changing annotations", func() {
+		When("changing annotations", func() {
 			BeforeEach(func() {
 				deployments := &appsv1.DeploymentList{}
 				err = k8sClient.List(context.TODO(), deployments)
@@ -319,8 +322,20 @@ var _ = Describe("backup_controller", func() {
 				Expect(deployments.Items[0].ObjectMeta.Annotations).To(Equal(map[string]string{
 					"fdb-test-1":                         "test-value-1",
 					"fdb-test-2":                         "test-value-2",
-					"foundationdb.org/last-applied-spec": "946b41ecc6985d5f56d9749e9366132ba4e8cb250eb3bcfe73b037ad1f47c7f4",
+					"foundationdb.org/last-applied-spec": "b9bce4660fcb4ee44469b2df6baadc6aa8572cb84a10c6db7ecacc344c59c058",
 				}))
+			})
+		})
+
+		When("changing the deletion mode", func() {
+			BeforeEach(func() {
+				Expect(backup.Finalizers).To(BeNil())
+				backup.Spec.DeletionPolicy = ptr.To(fdbv1beta2.BackupDeletionPolicyCleanup)
+				Expect(k8sClient.Update(context.TODO(), backup)).To(Succeed())
+			})
+
+			It("should modify the finalizers", func() {
+				Expect(backup.Finalizers).To(ConsistOf(fdbv1beta2.FoundationDBBackupFinalizerName))
 			})
 		})
 
@@ -329,8 +344,7 @@ var _ = Describe("backup_controller", func() {
 				backup.Spec.CustomParameters = fdbv1beta2.FoundationDBCustomParameters{
 					"knob_http_verbose_level=3",
 				}
-				err = k8sClient.Update(context.TODO(), backup)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(k8sClient.Update(context.TODO(), backup)).To(Succeed())
 			})
 
 			It("should append the custom parameters to the command", func() {

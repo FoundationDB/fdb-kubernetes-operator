@@ -17,6 +17,12 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 * [LatestRestorablePoint](#latestrestorablepoint)
 * [ImageConfig](#imageconfig)
 
+## BackupDeletionPolicy
+
+BackupDeletionPolicy defines the deletion policy when the backup is deleted.
+
+[Back to TOC](#table-of-contents)
+
 ## BackupGenerationStatus
 
 BackupGenerationStatus stores information on which generations have reached different stages in reconciliation for the backup.
@@ -101,6 +107,7 @@ FoundationDBBackupSpec describes the desired state of the backup for a cluster.
 | sidecarContainer | SidecarContainer defines customization for the foundationdb-kubernetes-sidecar container. | ContainerOverrides | false |
 | imageType | ImageType defines the image type that should be used for the FoundationDBCluster deployment. When the type is set to \"unified\" the deployment will use the new fdb-kubernetes-monitor. Otherwise the main container and the sidecar container will use different images. Default: split | *ImageType | false |
 | backupType | BackupType defines the backup type that should be used for the backup. When the BackupType is set to BackupTypePartitionedLog, it's expected that the FoundationDBCluster creates and manages the additional backup worker processes. A migration to a different backup type is not yet supported in the operator. Default: \"backup_agent\". | *[BackupType](#backuptype) | false |
+| deletionPolicy | DeletionPolicy defines the deletion policy for this backup. The BackupDeletionPolicy defines the actions that should be taken when the FoundationDBBackup resource has a deletion timestamp. | *[BackupDeletionPolicy](#backupdeletionpolicy) | false |
 
 [Back to TOC](#table-of-contents)
 

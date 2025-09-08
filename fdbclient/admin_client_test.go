@@ -213,9 +213,10 @@ var _ = Describe("admin_client_test", func() {
 		},
 		Entry("using fdbcli and trace options are disabled",
 			cliCommand{
-				args:    []string{"--version"},
-				version: "7.1.25",
-				timeout: 1 * time.Second,
+				args:              []string{"--version"},
+				version:           "7.1.25",
+				timeout:           1 * time.Second,
+				ignoreClusterFile: true,
 			},
 			&cliAdminClient{
 				Cluster: nil,

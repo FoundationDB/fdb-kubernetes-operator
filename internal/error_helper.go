@@ -71,3 +71,9 @@ func IsQuotaExceeded(err error) bool {
 
 	return false
 }
+
+// IsBackupNotfound returns true if the provided error is a backup not found error from fdbbackup.
+func IsBackupNotfound(err error) bool {
+	var backupError fdbv1beta2.BackupDoesNotExist
+	return errors.As(err, &backupError)
+}
