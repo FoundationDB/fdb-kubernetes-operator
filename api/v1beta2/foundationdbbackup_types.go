@@ -358,7 +358,7 @@ func (backup *FoundationDBBackup) CheckReconciliation() (bool, error) {
 		reconciled = false
 	}
 
-	if backup.NeedsBackupReconfiguration() && isRunning {
+	if isRunning && backup.NeedsBackupReconfiguration() {
 		backup.Status.Generations.NeedsBackupReconfiguration = backup.Generation
 		reconciled = false
 	}
