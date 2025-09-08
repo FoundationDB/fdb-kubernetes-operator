@@ -89,6 +89,8 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 		})
 
 		When("the default backup system is used", func() {
+			var restorableVersion *uint64
+
 			BeforeEach(func() {
 				log.Println("creating backup for cluster")
 				backup = factory.CreateBackupForCluster(
@@ -97,13 +99,26 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 				)
 				keyValues = fdbCluster.GenerateRandomValues(10, prefix)
 				fdbCluster.WriteKeyValues(keyValues)
-				backup.WaitForRestorableVersion(fdbCluster.GetClusterVersion())
+				tmpRestorableVersion := backup.WaitForRestorableVersion(
+					fdbCluster.GetClusterVersion(),
+				)
+				restorableVersion = &tmpRestorableVersion
 				backup.Stop()
+			})
+
+			AfterEach(func() {
+				restorableVersion = nil
 			})
 
 			It("should restore the cluster successfully", func() {
 				fdbCluster.ClearRange([]byte{prefix}, 60)
 				factory.CreateRestoreForCluster(backup, nil)
+				Expect(fdbCluster.GetRange([]byte{prefix}, 25, 60)).Should(Equal(keyValues))
+			})
+
+			It("should restore the cluster successfully with a restorable version", func() {
+				fdbCluster.ClearRange([]byte{prefix}, 60)
+				factory.CreateRestoreForCluster(backup, restorableVersion)
 				Expect(fdbCluster.GetRange([]byte{prefix}, 25, 60)).Should(Equal(keyValues))
 			})
 		})
@@ -174,17 +189,6 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 			It("should restore the cluster successfully", func() {
 				fdbCluster.ClearRange([]byte{prefix}, 60)
 				factory.CreateRestoreForCluster(backup, nil)
-				Expect(fdbCluster.GetRange([]byte{prefix}, 25, 60)).Should(Equal(keyValues))
-			})
-
-			It("should restore the cluster successfully with a restorable version", func() {
-				var prefix byte = 'b'
-				var keyValues = fdbCluster.GenerateRandomValues(10, prefix)
-				fdbCluster.WriteKeyValues(keyValues)
-				var restorableVersion = backup.WaitForRestorableVersion(fdbCluster.GetClusterVersion())
-				backup.Stop()
-				fdbCluster.ClearRange([]byte{prefix}, 60)
-				factory.CreateRestoreForCluster(backup, &restorableVersion)
 				Expect(fdbCluster.GetRange([]byte{prefix}, 25, 60)).Should(Equal(keyValues))
 			})
 
