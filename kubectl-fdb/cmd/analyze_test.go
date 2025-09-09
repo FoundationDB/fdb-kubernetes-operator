@@ -32,7 +32,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/cli-runtime/pkg/genericiooptions"
 )
 
 func getCluster(
@@ -120,7 +120,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				inBuffer := bytes.Buffer{}
 
 				cmd := newAnalyzeCmd(
-					genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer},
+					genericiooptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer},
 				)
 				err := analyzeCluster(
 					cmd,
@@ -159,7 +159,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
 						Phase: corev1.PodRunning,
 					}, nil),
-					ExpectedErrMsg: "",
+					ExpectedErrMsg: "⚠ Could not fetch fault domain information for cluster",
 					ExpectedStdoutMsg: `Checking cluster: test/test
 ✔ Cluster is available
 ✔ Cluster is fully replicated
@@ -186,7 +186,8 @@ var _ = Describe("[plugin] analyze cluster", func() {
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
 						Phase: corev1.PodRunning,
 					}, nil),
-					ExpectedErrMsg: "✖ Cluster is not available",
+					ExpectedErrMsg: `✖ Cluster is not available
+⚠ Could not fetch fault domain information for cluster`,
 					ExpectedStdoutMsg: `Checking cluster: test/test
 ✔ Cluster is fully replicated
 ✔ Cluster is reconciled
@@ -212,7 +213,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
 						Phase: corev1.PodRunning,
 					}, nil),
-					ExpectedErrMsg: "",
+					ExpectedErrMsg: "⚠ Could not fetch fault domain information for cluster",
 					ExpectedStdoutMsg: `Checking cluster: test/test
 ✔ Cluster is available
 ✔ Cluster is fully replicated
@@ -239,7 +240,8 @@ var _ = Describe("[plugin] analyze cluster", func() {
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
 						Phase: corev1.PodRunning,
 					}, nil),
-					ExpectedErrMsg: "✖ Cluster is not fully replicated",
+					ExpectedErrMsg: `✖ Cluster is not fully replicated
+⚠ Could not fetch fault domain information for cluster`,
 					ExpectedStdoutMsg: `Checking cluster: test/test
 ✔ Cluster is available
 ✔ Cluster is reconciled
@@ -265,7 +267,8 @@ var _ = Describe("[plugin] analyze cluster", func() {
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
 						Phase: corev1.PodRunning,
 					}, nil),
-					ExpectedErrMsg: "✖ Cluster is not reconciled",
+					ExpectedErrMsg: `✖ Cluster is not reconciled
+⚠ Could not fetch fault domain information for cluster`,
 					ExpectedStdoutMsg: `Checking cluster: test/test
 ✔ Cluster is available
 ✔ Cluster is fully replicated
@@ -299,7 +302,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 						Phase: corev1.PodRunning,
 					}, nil),
 					ExpectedErrMsg: fmt.Sprintf(
-						"✖ ProcessGroup: storage-1 has the following condition: MissingProcesses since %s",
+						"✖ ProcessGroup: storage-1 has the following condition: MissingProcesses since %s\n⚠ Could not fetch fault domain information for cluster",
 						time.Unix(time.Now().Unix(), 0).String(),
 					),
 					ExpectedStdoutMsg: `Checking cluster: test/test
@@ -335,7 +338,8 @@ var _ = Describe("[plugin] analyze cluster", func() {
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
 						Phase: corev1.PodRunning,
 					}, nil),
-					ExpectedErrMsg: "⚠ ProcessGroup: storage-1 is marked for removal, excluded state: false",
+					ExpectedErrMsg: `⚠ ProcessGroup: storage-1 is marked for removal, excluded state: false
+⚠ Could not fetch fault domain information for cluster`,
 					ExpectedStdoutMsg: `Checking cluster: test/test
 ✔ Cluster is available
 ✔ Cluster is fully replicated
@@ -362,7 +366,8 @@ var _ = Describe("[plugin] analyze cluster", func() {
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
 						Phase: corev1.PodPending,
 					}, nil),
-					ExpectedErrMsg: "✖ Pod test/storage-1 has unexpected Phase Pending with Reason:",
+					ExpectedErrMsg: `✖ Pod test/storage-1 has unexpected Phase Pending with Reason: 
+⚠ Could not fetch fault domain information for cluster`,
 					ExpectedStdoutMsg: `Checking cluster: test/test
 ✔ Cluster is available
 ✔ Cluster is fully replicated
@@ -402,7 +407,8 @@ var _ = Describe("[plugin] analyze cluster", func() {
 							},
 						},
 					}, nil),
-					ExpectedErrMsg: "✖ Pod test/storage-1 has an unready container: foundationdb",
+					ExpectedErrMsg: `✖ Pod test/storage-1 has an unready container: foundationdb
+⚠ Could not fetch fault domain information for cluster`,
 					ExpectedStdoutMsg: `Checking cluster: test/test
 ✔ Cluster is available
 ✔ Cluster is fully replicated
@@ -434,7 +440,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 							},
 						},
 					}, nil),
-					ExpectedErrMsg: "",
+					ExpectedErrMsg: "⚠ Could not fetch fault domain information for cluster",
 					ExpectedStdoutMsg: `Checking cluster: test/test
 ✔ Cluster is available
 ✔ Cluster is fully replicated
@@ -479,7 +485,8 @@ var _ = Describe("[plugin] analyze cluster", func() {
 							},
 						},
 					}, &metav1.Time{Time: time.Now().Add(-1 * time.Hour)}),
-					ExpectedErrMsg: "⚠ ProcessGroup: storage-1 is marked for removal, excluded state: true",
+					ExpectedErrMsg: `⚠ ProcessGroup: storage-1 is marked for removal, excluded state: true
+⚠ Could not fetch fault domain information for cluster`,
 					ExpectedStdoutMsg: `Checking cluster: test/test
 ✔ Cluster is available
 ✔ Cluster is fully replicated
@@ -524,7 +531,8 @@ var _ = Describe("[plugin] analyze cluster", func() {
 							},
 						},
 					}, &metav1.Time{Time: time.Now().Add(-1 * time.Hour)}),
-					ExpectedErrMsg: "⚠ Ignored 1 process groups marked for removal",
+					ExpectedErrMsg: `⚠ Ignored 1 process groups marked for removal
+⚠ Could not fetch fault domain information for cluster`,
 					ExpectedStdoutMsg: `Checking cluster: test/test
 ✔ Cluster is available
 ✔ Cluster is fully replicated
@@ -548,8 +556,9 @@ var _ = Describe("[plugin] analyze cluster", func() {
 							{ProcessGroupID: "storage-1"},
 						},
 					),
-					podList:        &corev1.PodList{},
-					ExpectedErrMsg: "✖ Found no Pods for this cluster",
+					podList: &corev1.PodList{},
+					ExpectedErrMsg: `✖ Found no Pods for this cluster
+⚠ Could not fetch fault domain information for cluster`,
 					ExpectedStdoutMsg: `Checking cluster: test/test
 ✔ Cluster is available
 ✔ Cluster is fully replicated
@@ -574,7 +583,8 @@ var _ = Describe("[plugin] analyze cluster", func() {
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
 						Phase: corev1.PodRunning,
 					}, nil),
-					ExpectedErrMsg: "✖ Pod test/storage-1 with the ID storage-1 is not part of the cluster spec status",
+					ExpectedErrMsg: `✖ Pod test/storage-1 with the ID storage-1 is not part of the cluster spec status
+⚠ Could not fetch fault domain information for cluster`,
 					ExpectedStdoutMsg: `Checking cluster: test/test
 ✔ Cluster is available
 ✔ Cluster is fully replicated
@@ -611,7 +621,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 						Phase: corev1.PodRunning,
 					}, nil),
 					ExpectedErrMsg: fmt.Sprintf(
-						"✖ ProcessGroup: storage-1 has the following condition: MissingProcesses since %s\n⚠ Ignored 1 conditions",
+						"✖ ProcessGroup: storage-1 has the following condition: MissingProcesses since %s\n⚠ Ignored 1 conditions\n⚠ Could not fetch fault domain information for cluster",
 						time.Unix(time.Now().Unix(), 0).String(),
 					),
 					ExpectedStdoutMsg: `Checking cluster: test/test
@@ -635,7 +645,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 			inBuffer := bytes.Buffer{}
 
 			rootCmd := NewRootCmd(
-				genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer},
+				genericiooptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer},
 				&MockVersionChecker{},
 			)
 			rootCmd.SetArgs([]string{"analyze"})
@@ -674,6 +684,382 @@ var _ = Describe("[plugin] analyze cluster", func() {
 			Entry("multiple invalid conditions",
 				[]string{"apple pie", "banana pie"},
 				"unknown condition: apple pie\nunknown condition: banana pie\n",
+			),
+		)
+	})
+
+	// Helper function to create ProcessGroupStatus with fault domain
+	getProcessGroupWithFaultDomain := func(
+		id fdbv1beta2.ProcessGroupID,
+		processClass fdbv1beta2.ProcessClass,
+		faultDomain fdbv1beta2.FaultDomain,
+		markedForRemoval bool,
+	) *fdbv1beta2.ProcessGroupStatus {
+		pg := &fdbv1beta2.ProcessGroupStatus{
+			ProcessGroupID: id,
+			ProcessClass:   processClass,
+			FaultDomain:    faultDomain,
+		}
+		if markedForRemoval {
+			pg.RemovalTimestamp = &metav1.Time{Time: time.Now()}
+		}
+		return pg
+	}
+
+	When("testing generateFaultDomainSummary", func() {
+		DescribeTable(
+			"should generate correct fault domain summary",
+			func(processGroups []*fdbv1beta2.ProcessGroupStatus, expectedSummary FaultDomainSummary) {
+				cluster := getCluster("test-cluster", "test", true, true, true, 1, processGroups)
+				summary := generateFaultDomainSummary(cluster)
+				Expect(summary).To(Equal(expectedSummary))
+			},
+			Entry("empty cluster",
+				[]*fdbv1beta2.ProcessGroupStatus{},
+				FaultDomainSummary{},
+			),
+			Entry("single process class with multiple fault domains",
+				[]*fdbv1beta2.ProcessGroupStatus{
+					getProcessGroupWithFaultDomain(
+						"storage-1",
+						fdbv1beta2.ProcessClassStorage,
+						"zone-a",
+						false,
+					),
+					getProcessGroupWithFaultDomain(
+						"storage-2",
+						fdbv1beta2.ProcessClassStorage,
+						"zone-b",
+						false,
+					),
+					getProcessGroupWithFaultDomain(
+						"storage-3",
+						fdbv1beta2.ProcessClassStorage,
+						"zone-a",
+						false,
+					),
+				},
+				FaultDomainSummary{
+					fdbv1beta2.ProcessClassStorage: {
+						"zone-a": 2,
+						"zone-b": 1,
+					},
+				},
+			),
+			Entry("multiple process classes",
+				[]*fdbv1beta2.ProcessGroupStatus{
+					getProcessGroupWithFaultDomain(
+						"storage-1",
+						fdbv1beta2.ProcessClassStorage,
+						"zone-a",
+						false,
+					),
+					getProcessGroupWithFaultDomain(
+						"storage-2",
+						fdbv1beta2.ProcessClassStorage,
+						"zone-b",
+						false,
+					),
+					getProcessGroupWithFaultDomain(
+						"log-1",
+						fdbv1beta2.ProcessClassLog,
+						"zone-a",
+						false,
+					),
+					getProcessGroupWithFaultDomain(
+						"stateless-1",
+						fdbv1beta2.ProcessClassStateless,
+						"zone-c",
+						false,
+					),
+				},
+				FaultDomainSummary{
+					fdbv1beta2.ProcessClassStorage: {
+						"zone-a": 1,
+						"zone-b": 1,
+					},
+					fdbv1beta2.ProcessClassLog: {
+						"zone-a": 1,
+					},
+					fdbv1beta2.ProcessClassStateless: {
+						"zone-c": 1,
+					},
+				},
+			),
+			Entry("process groups marked for removal should be ignored",
+				[]*fdbv1beta2.ProcessGroupStatus{
+					getProcessGroupWithFaultDomain(
+						"storage-1",
+						fdbv1beta2.ProcessClassStorage,
+						"zone-a",
+						false,
+					),
+					getProcessGroupWithFaultDomain(
+						"storage-2",
+						fdbv1beta2.ProcessClassStorage,
+						"zone-b",
+						true,
+					), // marked for removal
+					getProcessGroupWithFaultDomain(
+						"storage-3",
+						fdbv1beta2.ProcessClassStorage,
+						"zone-a",
+						false,
+					),
+				},
+				FaultDomainSummary{
+					fdbv1beta2.ProcessClassStorage: {
+						"zone-a": 2,
+					},
+				},
+			),
+			Entry("empty fault domain names",
+				[]*fdbv1beta2.ProcessGroupStatus{
+					getProcessGroupWithFaultDomain(
+						"storage-1",
+						fdbv1beta2.ProcessClassStorage,
+						"",
+						false,
+					),
+					getProcessGroupWithFaultDomain(
+						"storage-2",
+						fdbv1beta2.ProcessClassStorage,
+						"zone-a",
+						false,
+					),
+				},
+				FaultDomainSummary{
+					fdbv1beta2.ProcessClassStorage: {
+						"zone-a": 1,
+					},
+				},
+			),
+		)
+	})
+
+	When("testing faultDomainDistributionIsValid", func() {
+		DescribeTable(
+			"should print correct fault domain summary",
+			func(cluster *fdbv1beta2.FoundationDBCluster, expectedStdOut string, expectedStdErr string, expectedResult bool) {
+				outBuffer := bytes.Buffer{}
+				errBuffer := bytes.Buffer{}
+				inBuffer := bytes.Buffer{}
+
+				cmd := newAnalyzeCmd(
+					genericiooptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer},
+				)
+
+				Expect(faultDomainDistributionIsValid(cmd, cluster)).To(Equal(expectedResult))
+				Expect(outBuffer.String()).To(Equal(expectedStdOut))
+				Expect(errBuffer.String()).To(Equal(expectedStdErr))
+			},
+			Entry("empty summary",
+				&fdbv1beta2.FoundationDBCluster{},
+				"",
+				"⚠ Could not fetch fault domain information for cluster\n",
+				false,
+			),
+			Entry("single process class",
+				&fdbv1beta2.FoundationDBCluster{
+					Status: fdbv1beta2.FoundationDBClusterStatus{
+						ProcessGroups: []*fdbv1beta2.ProcessGroupStatus{
+							{
+								ProcessGroupID: "storage-1",
+								ProcessClass:   fdbv1beta2.ProcessClassStorage,
+								FaultDomain:    "zone-a",
+							},
+							{
+								ProcessGroupID: "storage-2",
+								ProcessClass:   fdbv1beta2.ProcessClassStorage,
+								FaultDomain:    "zone-a",
+							},
+							{
+								ProcessGroupID: "storage-3",
+								ProcessClass:   fdbv1beta2.ProcessClassStorage,
+								FaultDomain:    "zone-a",
+							},
+							{
+								ProcessGroupID: "storage-4",
+								ProcessClass:   fdbv1beta2.ProcessClassStorage,
+								FaultDomain:    "zone-b",
+							},
+							{
+								ProcessGroupID: "storage-5",
+								ProcessClass:   fdbv1beta2.ProcessClassStorage,
+								FaultDomain:    "zone-b",
+							},
+							{
+								ProcessGroupID: "storage-6",
+								ProcessClass:   fdbv1beta2.ProcessClassStorage,
+								FaultDomain:    "zone-c",
+							},
+						},
+					},
+				},
+				`Fault Domain Summary for cluster:
+✔ storage: Total: 3 fault domains, 6 process groups top 3 fault domains: zone-a: 3 zone-b: 2 zone-c: 1
+`,
+				"",
+				true,
+			),
+			Entry("multiple process classes",
+				&fdbv1beta2.FoundationDBCluster{
+					Status: fdbv1beta2.FoundationDBClusterStatus{
+						ProcessGroups: []*fdbv1beta2.ProcessGroupStatus{
+							{
+								ProcessGroupID: "storage-1",
+								ProcessClass:   fdbv1beta2.ProcessClassStorage,
+								FaultDomain:    "zone-a",
+							},
+							{
+								ProcessGroupID: "storage-2",
+								ProcessClass:   fdbv1beta2.ProcessClassStorage,
+								FaultDomain:    "zone-a",
+							},
+							{
+								ProcessGroupID: "storage-3",
+								ProcessClass:   fdbv1beta2.ProcessClassStorage,
+								FaultDomain:    "zone-a",
+							},
+							{
+								ProcessGroupID: "storage-4",
+								ProcessClass:   fdbv1beta2.ProcessClassStorage,
+								FaultDomain:    "zone-b",
+							},
+							{
+								ProcessGroupID: "storage-5",
+								ProcessClass:   fdbv1beta2.ProcessClassStorage,
+								FaultDomain:    "zone-b",
+							},
+							{
+								ProcessGroupID: "storage-6",
+								ProcessClass:   fdbv1beta2.ProcessClassStorage,
+								FaultDomain:    "zone-c",
+							},
+							{
+								ProcessGroupID: "log-1",
+								ProcessClass:   fdbv1beta2.ProcessClassLog,
+								FaultDomain:    "zone-a",
+							},
+							{
+								ProcessGroupID: "log-2",
+								ProcessClass:   fdbv1beta2.ProcessClassLog,
+								FaultDomain:    "zone-a",
+							},
+							{
+								ProcessGroupID: "log-3",
+								ProcessClass:   fdbv1beta2.ProcessClassLog,
+								FaultDomain:    "zone-a",
+							},
+							{
+								ProcessGroupID: "log-4",
+								ProcessClass:   fdbv1beta2.ProcessClassLog,
+								FaultDomain:    "zone-b",
+							},
+							{
+								ProcessGroupID: "log-5",
+								ProcessClass:   fdbv1beta2.ProcessClassLog,
+								FaultDomain:    "zone-b",
+							},
+							{
+								ProcessGroupID: "log-6",
+								ProcessClass:   fdbv1beta2.ProcessClassLog,
+								FaultDomain:    "zone-c",
+							},
+						},
+					},
+				},
+				`Fault Domain Summary for cluster:
+✔ storage: Total: 3 fault domains, 6 process groups top 3 fault domains: zone-a: 3 zone-b: 2 zone-c: 1
+✔ log: Total: 3 fault domains, 6 process groups top 3 fault domains: zone-a: 3 zone-b: 2 zone-c: 1
+`,
+				"",
+				true,
+			),
+			Entry(
+				"process class with empty fault domain",
+				&fdbv1beta2.FoundationDBCluster{
+					Status: fdbv1beta2.FoundationDBClusterStatus{
+						ProcessGroups: []*fdbv1beta2.ProcessGroupStatus{
+							{
+								ProcessGroupID: "storage-1",
+								ProcessClass:   fdbv1beta2.ProcessClassStorage,
+								FaultDomain:    "zone-a",
+							},
+							{
+								ProcessGroupID: "storage-2",
+								ProcessClass:   fdbv1beta2.ProcessClassStorage,
+								FaultDomain:    "zone-a",
+							},
+							{
+								ProcessGroupID: "storage-3",
+								ProcessClass:   fdbv1beta2.ProcessClassStorage,
+								FaultDomain:    "",
+							},
+						},
+					},
+				},
+				"Fault Domain Summary for cluster:\n",
+				"✖ storage: Total: 1 fault domains, 2 process groups top 3 fault domains: zone-a: 2\n",
+				false,
+			),
+		)
+	})
+
+	When("testing printTopNFaultDomains", func() {
+		DescribeTable("should print top N fault domains correctly",
+			func(faultDomains map[fdbv1beta2.FaultDomain]int, n int, expectedOutput string) {
+				Expect(
+					strings.TrimSpace(printTopNFaultDomains(faultDomains, n)),
+				).To(Equal(strings.TrimSpace(expectedOutput)))
+			},
+			Entry("top 3 with more than 3 domains",
+				map[fdbv1beta2.FaultDomain]int{
+					"zone-a": 5,
+					"zone-b": 3,
+					"zone-c": 2,
+					"zone-d": 4,
+					"zone-e": 1,
+				},
+				3,
+				"top 3 fault domains: zone-a: 5 zone-d: 4 zone-b: 3",
+			),
+			Entry("top 3 with exactly 3 domains",
+				map[fdbv1beta2.FaultDomain]int{
+					"zone-a": 3,
+					"zone-b": 2,
+					"zone-c": 1,
+				},
+				3,
+				"top 3 fault domains: zone-a: 3 zone-b: 2 zone-c: 1",
+			),
+			Entry("top 3 with less than 3 domains",
+				map[fdbv1beta2.FaultDomain]int{
+					"zone-a": 5,
+					"zone-b": 2,
+				},
+				3,
+				"top 3 fault domains: zone-a: 5 zone-b: 2",
+			),
+			Entry("empty fault domains map",
+				map[fdbv1beta2.FaultDomain]int{},
+				3,
+				"top 3 fault domains:",
+			),
+			Entry("single fault domain",
+				map[fdbv1beta2.FaultDomain]int{
+					"zone-a": 10,
+				},
+				3,
+				"top 3 fault domains: zone-a: 10",
+			),
+			Entry("top 0 domains",
+				map[fdbv1beta2.FaultDomain]int{
+					"zone-a": 5,
+					"zone-b": 3,
+				},
+				0,
+				"top 0 fault domains:",
 			),
 		)
 	})
