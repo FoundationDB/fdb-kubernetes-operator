@@ -31,7 +31,7 @@ import (
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/cli-runtime/pkg/genericiooptions"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	. "github.com/onsi/ginkgo/v2"
@@ -62,7 +62,7 @@ var _ = Describe("[plugin] deprecation command", func() {
 				Expect(k8sClient.Create(context.TODO(), &tc.cluster)).NotTo(HaveOccurred())
 
 				cmd := newDeprecationCmd(
-					genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer},
+					genericiooptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer},
 				)
 				err := checkDeprecation(
 					cmd,
@@ -220,7 +220,7 @@ var _ = Describe("[plugin] deprecation command", func() {
 			inBuffer := bytes.Buffer{}
 
 			cmd = NewRootCmd(
-				genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer},
+				genericiooptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer},
 				&MockVersionChecker{},
 			)
 		})

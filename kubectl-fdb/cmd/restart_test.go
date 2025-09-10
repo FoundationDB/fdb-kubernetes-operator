@@ -25,7 +25,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/cli-runtime/pkg/genericiooptions"
 )
 
 var _ = Describe("[plugin] root command", func() {
@@ -43,7 +43,7 @@ var _ = Describe("[plugin] root command", func() {
 
 		It("should not throw an error", func() {
 			cmd := NewRootCmd(
-				genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer},
+				genericiooptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer},
 				&MockVersionChecker{},
 			)
 

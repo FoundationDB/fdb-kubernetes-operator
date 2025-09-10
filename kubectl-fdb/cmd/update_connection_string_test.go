@@ -31,7 +31,7 @@ import (
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/cli-runtime/pkg/genericiooptions"
 	ctrlClient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -50,7 +50,7 @@ var _ = Describe("[plugin] update connection string command", func() {
 		errBuffer = bytes.Buffer{}
 		inBuffer = bytes.Buffer{}
 		cmd = NewRootCmd(
-			genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer},
+			genericiooptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer},
 			&MockVersionChecker{},
 		)
 		initialConnectionString = cluster.Status.ConnectionString
