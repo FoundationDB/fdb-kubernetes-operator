@@ -132,7 +132,7 @@ func (factory *Factory) SetFinalizerForPod(pod *corev1.Pod, finalizers []string)
 	}
 
 	controllerClient := factory.GetControllerRuntimeClient()
-	gomega.Eventually(func(g gomega.Gomega) bool {
+	gomega.Eventually(func(g gomega.Gomega) {
 		fetchedPod := &corev1.Pod{}
 		g.Expect(controllerClient.Get(context.Background(), client.ObjectKeyFromObject(pod), fetchedPod)).
 			NotTo(gomega.HaveOccurred())
@@ -144,9 +144,7 @@ func (factory *Factory) SetFinalizerForPod(pod *corev1.Pod, finalizers []string)
 		}
 
 		g.Expect(fetchedPod.Finalizers).To(gomega.ConsistOf(finalizers))
-
-		return true
-	}).WithTimeout(1 * time.Minute).WithPolling(1 * time.Second).Should(gomega.BeTrue())
+	}).WithTimeout(1 * time.Minute).WithPolling(1 * time.Second).Should(gomega.Succeed())
 }
 
 // GetProcessClass returns the Process class of this Pod.

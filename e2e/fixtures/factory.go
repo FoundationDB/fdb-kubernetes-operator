@@ -784,6 +784,13 @@ func (factory *Factory) CreateIfAbsent(object client.Object) error {
 			objectCopy,
 		)
 
+	if objectCopy.GetDeletionTimestamp() != nil {
+		return fmt.Errorf(
+			"resource is currently under deletion with deletion timestamp: %s",
+			objectCopy.GetDeletionTimestamp().String(),
+		)
+	}
+
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return ctrlClient.Create(context.Background(), object)
