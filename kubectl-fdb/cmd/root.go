@@ -32,17 +32,18 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/cli-runtime/pkg/genericiooptions"
 )
 
 // fdbBOptions provides information required to run different
 // actions on FDB
 type fdbBOptions struct {
 	configFlags *genericclioptions.ConfigFlags
-	genericclioptions.IOStreams
+	genericiooptions.IOStreams
 }
 
 // newFDBOptions provides an instance of fdbBOptions with default values
-func newFDBOptions(streams genericclioptions.IOStreams) *fdbBOptions {
+func newFDBOptions(streams genericiooptions.IOStreams) *fdbBOptions {
 	return &fdbBOptions{
 		configFlags: genericclioptions.NewConfigFlags(true),
 		IOStreams:   streams,
@@ -51,7 +52,7 @@ func newFDBOptions(streams genericclioptions.IOStreams) *fdbBOptions {
 
 // NewRootCmd provides a cobra command wrapping FDB actions
 func NewRootCmd(
-	streams genericclioptions.IOStreams,
+	streams genericiooptions.IOStreams,
 	pluginVersionChecker VersionChecker,
 ) *cobra.Command {
 	o := newFDBOptions(streams)

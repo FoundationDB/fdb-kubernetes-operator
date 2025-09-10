@@ -29,7 +29,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/cli-runtime/pkg/genericiooptions"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -57,7 +57,7 @@ var _ = Describe("[plugin] cordon command", func() {
 
 		DescribeTable("should cordon all targeted processes",
 			func(input testCase) {
-				cmd := newCordonCmd(genericclioptions.IOStreams{})
+				cmd := newCordonCmd(genericiooptions.IOStreams{})
 				err := cordonNode(
 					cmd,
 					k8sClient,

@@ -23,7 +23,7 @@ package cmd
 import (
 	"bytes"
 
-	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/cli-runtime/pkg/genericiooptions"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	. "github.com/onsi/ginkgo/v2"
@@ -84,7 +84,7 @@ var _ = Describe("[plugin] fix-coordinator-ips command", func() {
 				inBuffer := bytes.Buffer{}
 
 				rootCmd := NewRootCmd(
-					genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer},
+					genericiooptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer},
 					&MockVersionChecker{},
 				)
 				err := updateIPsInConnectionString(rootCmd, cluster, k8sClient)

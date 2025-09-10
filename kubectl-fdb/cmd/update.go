@@ -21,12 +21,12 @@
 package cmd
 
 import (
-	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/cli-runtime/pkg/genericiooptions"
 
 	"github.com/spf13/cobra"
 )
 
-func newUpdateCmd(streams genericclioptions.IOStreams) *cobra.Command {
+func newUpdateCmd(streams genericiooptions.IOStreams) *cobra.Command {
 	o := newFDBOptions(streams)
 
 	cmd := &cobra.Command{

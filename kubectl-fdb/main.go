@@ -25,7 +25,7 @@ import (
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/kubectl-fdb/cmd"
 	"github.com/spf13/pflag"
-	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/cli-runtime/pkg/genericiooptions"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 )
 
@@ -33,7 +33,7 @@ func main() {
 	flags := pflag.NewFlagSet("kubectl-fdb", pflag.ExitOnError)
 	pflag.CommandLine = flags
 	root := cmd.NewRootCmd(
-		genericclioptions.IOStreams{In: os.Stdin, Out: os.Stdout, ErrOut: os.Stderr},
+		genericiooptions.IOStreams{In: os.Stdin, Out: os.Stdout, ErrOut: os.Stderr},
 		&cmd.RealVersionChecker{},
 	)
 	if err := root.Execute(); err != nil {
