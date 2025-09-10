@@ -21,24 +21,24 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	kubeHelper "github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/kubernetes"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbstatus"
-
-	"k8s.io/client-go/rest"
-
-	"context"
-
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/client-go/rest"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -112,13 +112,12 @@ func newAnalyzeCmd(streams genericclioptions.IOStreams) *cobra.Command {
 				return err
 			}
 
-			// TODO (jscheuermann): Don't load clusters twice if we check all clusters
-			var clusters []string
+			var clusters []*fdbv1beta2.FoundationDBCluster
 			if allClusters {
-				var clusterList fdbv1beta2.FoundationDBClusterList
+				clusterList := &fdbv1beta2.FoundationDBClusterList{}
 				err := kubeClient.List(
 					context.Background(),
-					&clusterList,
+					clusterList,
 					client.InNamespace(namespace),
 				)
 				if err != nil {
@@ -126,28 +125,21 @@ func newAnalyzeCmd(streams genericclioptions.IOStreams) *cobra.Command {
 				}
 
 				for _, cluster := range clusterList.Items {
-					clusters = append(clusters, cluster.Name)
+					clusters = append(clusters, ptr.To(cluster))
 				}
 			} else {
-				clusters = args
+				for _, clusterName := range args {
+					cluster, err := loadCluster(kubeClient, namespace, clusterName)
+					if err != nil {
+						return err
+					}
+
+					clusters = append(clusters, cluster)
+				}
 			}
 
 			var errs []error
-			for _, clusterName := range clusters {
-				cluster, err := loadCluster(kubeClient, namespace, clusterName)
-				if err != nil {
-					errs = append(
-						errs,
-						fmt.Errorf(
-							"could not fetch cluster information for: %s/%s, error: %w",
-							namespace,
-							clusterName,
-							err,
-						),
-					)
-					continue
-				}
-
+			for _, cluster := range clusters {
 				err = analyzeCluster(
 					cmd,
 					kubeClient,
@@ -466,6 +458,12 @@ func analyzeCluster(
 		foundIssues = true
 	}
 
+	// Check if the fault domain distribution is fine and print out how many fault domains are used by process class.
+	if !faultDomainDistributionIsValid(cmd, cluster) {
+		foundIssues = true
+	}
+	cmd.Println("")
+
 	// We could add more auto fixes in the future.
 	if autoFix {
 		confirmed := false
@@ -521,6 +519,7 @@ func analyzeCluster(
 		return fmt.Errorf("found issues for cluster %s. Please check them", cluster.Name)
 	}
 
+	cmd.Println("")
 	return nil
 }
 
@@ -690,4 +689,138 @@ func analyzeStatusInternal(
 	}
 
 	return nil
+}
+
+// FaultDomainSummary represents the fault domain distribution by process class
+type FaultDomainSummary map[fdbv1beta2.ProcessClass]map[fdbv1beta2.FaultDomain]int
+
+// generateFaultDomainSummary analyzes the process groups and returns a summary of fault domain distribution by process class
+func generateFaultDomainSummary(cluster *fdbv1beta2.FoundationDBCluster) FaultDomainSummary {
+	summary := make(FaultDomainSummary)
+
+	for _, processGroup := range cluster.Status.ProcessGroups {
+		// Skip process groups marked for removal
+		if processGroup.IsMarkedForRemoval() {
+			continue
+		}
+
+		// Ignore process groups that have never been scheduled.
+		if processGroup.FaultDomain == "" {
+			continue
+		}
+
+		// Initialize nested map if needed
+		if _, exists := summary[processGroup.ProcessClass]; !exists {
+			summary[processGroup.ProcessClass] = make(map[fdbv1beta2.FaultDomain]int)
+		}
+
+		// Increment the count for this process class and fault domain combination
+		summary[processGroup.ProcessClass][processGroup.FaultDomain]++
+	}
+
+	return summary
+}
+
+// faultDomainDistributionIsValid prints a formatted summary of fault domain distribution by process class and
+// returns false if the current unique fault domains are less than the required minimum fault domains.
+func faultDomainDistributionIsValid(
+	cmd *cobra.Command,
+	cluster *fdbv1beta2.FoundationDBCluster,
+) bool {
+	summary := generateFaultDomainSummary(cluster)
+	if len(summary) == 0 {
+		printStatement(cmd, "Could not fetch fault domain information for cluster", warnMessage)
+		return false
+	}
+
+	cmd.Println("Fault Domain Summary for cluster:")
+	isValid := true
+
+	// Ensure we get a stable result. Iterating over maps can produce different results.
+	processClassKeys := make([]fdbv1beta2.ProcessClass, 0, len(summary))
+	for processClass := range summary {
+		processClassKeys = append(processClassKeys, processClass)
+	}
+	sort.SliceStable(processClassKeys, func(i, j int) bool {
+		return processClassKeys[i] > processClassKeys[j]
+	})
+
+	// Print summary for each process class
+	for _, processClass := range processClassKeys {
+		faultDomains := summary[processClass]
+		if len(faultDomains) == 0 {
+			continue
+		}
+
+		// Build the fault domain distribution string
+		totalProcessGroups := 0
+
+		for faultDomain, count := range faultDomains {
+			if faultDomain != "" {
+				totalProcessGroups += count
+			}
+		}
+
+		var sb strings.Builder
+		sb.WriteString(string(processClass))
+		sb.WriteString(": Total: ")
+		sb.WriteString(strconv.Itoa(len(faultDomains)))
+		sb.WriteString(" fault domains, ")
+		sb.WriteString(strconv.Itoa(totalProcessGroups))
+		sb.WriteString(" process groups")
+
+		if len(faultDomains) != totalProcessGroups {
+			sb.WriteString(printTopNFaultDomains(faultDomains, 3))
+		}
+
+		minimumFaultDomains := fdbv1beta2.MinimumFaultDomains(
+			cluster.Spec.DatabaseConfiguration.RedundancyMode,
+		)
+		var msgType messageType
+		if len(faultDomains) > minimumFaultDomains {
+			msgType = goodMessage
+		} else if len(faultDomains) == minimumFaultDomains {
+			msgType = warnMessage
+		} else {
+			msgType = errorMessage
+			isValid = false
+		}
+
+		printStatement(cmd, sb.String(), msgType)
+	}
+
+	return isValid
+}
+
+// printTopNFaultDomains prints the top N fault domains.
+func printTopNFaultDomains(faultDomains map[fdbv1beta2.FaultDomain]int, n int) string {
+	// Create slice of key-value pairs for sorting.
+	type kv struct {
+		key   fdbv1beta2.FaultDomain
+		value int
+	}
+
+	pairs := make([]kv, 0, len(faultDomains))
+	for k, v := range faultDomains {
+		pairs = append(pairs, kv{k, v})
+	}
+
+	// Sort by value descending
+	sort.SliceStable(pairs, func(i, j int) bool {
+		return pairs[i].value > pairs[j].value
+	})
+
+	var sb strings.Builder
+	sb.WriteString(" top ")
+	sb.WriteString(strconv.Itoa(n))
+	sb.WriteString(" fault domains:")
+	// Print top n elements
+	for i := 0; i < n && i < len(pairs); i++ {
+		sb.WriteString(" ")
+		sb.WriteString(string(pairs[i].key))
+		sb.WriteString(": ")
+		sb.WriteString(strconv.Itoa(pairs[i].value))
+	}
+
+	return sb.String()
 }
