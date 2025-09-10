@@ -75,6 +75,12 @@ type AdminClient interface {
 	// StopBackup stops a backup.
 	StopBackup(backup *fdbv1beta2.FoundationDBBackup) error
 
+	// AbortBackup will abort a running backup.
+	AbortBackup(backup *fdbv1beta2.FoundationDBBackup) error
+
+	// DeleteBackup deletes all data related to a backup.
+	DeleteBackup(backup *fdbv1beta2.FoundationDBBackup) error
+
 	// PauseBackups pauses the backup.
 	PauseBackups() error
 

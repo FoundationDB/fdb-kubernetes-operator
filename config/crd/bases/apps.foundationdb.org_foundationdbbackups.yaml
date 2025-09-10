@@ -107,6 +107,14 @@ spec:
                   type: string
                 maxItems: 100
                 type: array
+              deletionPolicy:
+                default: noop
+                enum:
+                - noop
+                - stop
+                - cleanup
+                maxLength: 64
+                type: string
               encryptionKeyPath:
                 maxLength: 4096
                 type: string

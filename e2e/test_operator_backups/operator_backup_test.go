@@ -94,7 +94,9 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 				log.Println("creating backup for cluster")
 				backup = factory.CreateBackupForCluster(
 					fdbCluster,
-					&fixtures.FdbBackupConfiguration{},
+					&fixtures.FdbBackupConfiguration{
+						BackupType: ptr.To(fdbv1beta2.BackupTypeDefault),
+					},
 				)
 				keyValues = fdbCluster.GenerateRandomValues(10, prefix)
 				fdbCluster.WriteKeyValues(keyValues)

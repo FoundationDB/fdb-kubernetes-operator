@@ -48,3 +48,4 @@ dist/
 # Used for testing locally build FDB library
 libfdb_c.so
 fdb-kubernetes-operator
+*.local.md

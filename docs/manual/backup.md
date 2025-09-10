@@ -143,6 +143,37 @@ spec:
 The operator will run `fdbbackup` commands to manage the backup, so the operator needs to have access to the object store as well.
 You can configure that access the same way as you do for the backup agents, by defining the environment variables `FDB_BLOB_CREDENTIALS`, `FDB_TLS_CERTIFICATE_FILE`, `FDB_TLS_KEY_FILE`, and `FDB_TLS_CA_FILE`.
 
+## Deletion Policy
+
+Per default the operator will not change the backup when the `FoundationDBBackup` resource is deleted.
+This can be changed by setting the `spec.deletionPolicy`, valid options are:
+
+- `noop` (default): When set the backup state will not be changed. This can cause problems when the `FoundationDBBackup` resource is deleted and the cluster still receives write traffic, as the `backup_agents` are deleted and therefore the backup mutations will not be removed.
+- `stop`: Will [abort](https://apple.github.io/foundationdb/backups.html#abort) the backup when the `FoundationDBBackup` resource is deleted.
+- `cleanup`: Will [abort](https://apple.github.io/foundationdb/backups.html#abort) and [delete](https://apple.github.io/foundationdb/backups.html#delete) the backup and it's data in the blob store when the `FoundationDBBackup` resource is deleted.
+
+When the `stop` or the `cleanup` deletion policy is set the operator will add the `foundationdb.org/fdb-kubernetes-operator` finalizer.
+It is not recommended to remove this finalizer manually, as this could lead to an incomplete removal of data.
+In the current implementation the delete step is implemented in the operator, this step might block for a longer duration (up to 10 minutes before the reconciliation is retried).
+If the operator is only started with a single go routine, this could also block other reconciliation attempts.
+
+Example for the `cleanup` policy:
+
+```yaml
+apiVersion: apps.foundationdb.org/v1beta2
+kind: FoundationDBBackup
+metadata:
+  name: sample-cluster
+spec:
+  version: 7.1.26
+  deletionPolicy: cleanup
+  clusterName: sample-cluster
+  blobStoreConfiguration:
+    accountName: account@object-store.example:443
+    urlParameters:
+    - "secure_connection=0"
+```
+
 ## Restoring a Backup
 
 You can start a restore by creating a restore object.

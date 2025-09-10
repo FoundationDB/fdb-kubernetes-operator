@@ -23,7 +23,6 @@ package fixtures
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 	"time"
 
@@ -41,7 +40,6 @@ import (
 type FdbBackup struct {
 	backup     *fdbv1beta2.FoundationDBBackup
 	fdbCluster *FdbCluster
-	deleted    bool
 }
 
 // FdbBackupConfiguration can be used to configure the created fdbv1beta2.FoundationDBBackup with different options.
@@ -81,6 +79,7 @@ func (factory *Factory) CreateBackupForCluster(
 					"region=us-east-1",
 				},
 			},
+			DeletionPolicy:   ptr.To(fdbv1beta2.BackupDeletionPolicyCleanup),
 			BackupType:       config.BackupType,
 			CustomParameters: fdbv1beta2.FoundationDBCustomParameters{
 				// Enable if you want to get http debug logs.
@@ -272,25 +271,5 @@ func (fdbBackup *FdbBackup) Destroy() {
 		}
 
 		g.Expect(err).NotTo(gomega.HaveOccurred())
-	}).WithTimeout(1 * time.Minute).WithPolling(1 * time.Second).To(gomega.Succeed())
-
-	// Once we implement a finalizer to remove the backup data we can remove those lines.
-	if fdbBackup.deleted {
-		return
-	}
-	log.Println("abort backup")
-	_, _, err := fdbBackup.fdbCluster.RunFdbBackupCommandInOperatorWithoutRetry(
-		"abort || true",
-		true,
-	)
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-
-	log.Println("delete backup")
-	_, _, err = fdbBackup.fdbCluster.RunFdbBackupCommandInOperatorWithoutRetry(
-		fmt.Sprintf("delete -d '%s'", fdbBackup.backup.BackupURL()),
-		true,
-	)
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-
-	fdbBackup.deleted = true
+	}).WithTimeout(10 * time.Minute).WithPolling(1 * time.Second).To(gomega.Succeed())
 }

@@ -127,6 +127,13 @@ type FoundationDBBackupSpec struct {
 	// +kubebuilder:validation:Enum=backup_agent;partitioned_log
 	// +kubebuilder:default:=backup_agent
 	BackupType *BackupType `json:"backupType,omitempty"`
+
+	// DeletionPolicy defines the deletion policy for this backup. The BackupDeletionPolicy defines the actions
+	// that should be taken when the FoundationDBBackup resource has a deletion timestamp.
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Enum=noop;stop;cleanup
+	// +kubebuilder:default:=noop
+	DeletionPolicy *BackupDeletionPolicy `json:"deletionPolicy,omitempty"`
 }
 
 // BackupType defines the backup type that should be used for the backup.
@@ -140,6 +147,22 @@ const (
 	// BackupTypePartitionedLog refers to the new partitioned log backup system, see
 	// https://github.com/apple/foundationdb/blob/main/design/backup_v2_partitioned_logs.md.
 	BackupTypePartitionedLog BackupType = "partitioned_log"
+)
+
+// BackupDeletionPolicy defines the deletion policy when the backup is deleted.
+// +kubebuilder:validation:MaxLength=64
+type BackupDeletionPolicy string
+
+const (
+	// BackupDeletionPolicyNoop is the default deletion policy. The noop deletion policy keeps the backup and
+	// will not delete the data in the blobstore.
+	BackupDeletionPolicyNoop BackupDeletionPolicy = "noop"
+
+	// BackupDeletionPolicyStop will stop the backup but keep the backup data.
+	BackupDeletionPolicyStop BackupDeletionPolicy = "stop"
+
+	// BackupDeletionPolicyCleanup will delete the backup data in the blobstore when the backup is deleted.
+	BackupDeletionPolicyCleanup BackupDeletionPolicy = "cleanup"
 )
 
 // FoundationDBBackupStatus describes the current status of the backup for a cluster.
@@ -399,6 +422,11 @@ func (backup *FoundationDBBackup) GetEncryptionKey() (string, error) {
 	}
 
 	return backup.Spec.EncryptionKeyPath, nil
+}
+
+// GetDeletionPolicy will return the deletion policy for this backup.
+func (backup *FoundationDBBackup) GetDeletionPolicy() BackupDeletionPolicy {
+	return ptr.Deref(backup.Spec.DeletionPolicy, BackupDeletionPolicyNoop)
 }
 
 // UseUnifiedImage returns true if the unified image should be used.
