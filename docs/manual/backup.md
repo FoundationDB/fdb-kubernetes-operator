@@ -154,7 +154,8 @@ This can be changed by setting the `spec.deletionPolicy`, valid options are:
 
 When the `stop` or the `cleanup` deletion policy is set the operator will add the `foundationdb.org/fdb-kubernetes-operator` finalizer.
 It is not recommended to remove this finalizer manually, as this could lead to an incomplete removal of data.
-In the current implementation the delete step is implemented in the operator, this step might block one fo routine for a longer duration (up to 10 minutes before the reconciliation is retried).
+In the current implementation the delete step is implemented in the operator, this step might block for a longer duration (up to 10 minutes before the reconciliation is retried).
+If the operator is only started with a single go routine, this could also block other reconciliation attempts.
 
 Example for the `cleanup` policy:
 

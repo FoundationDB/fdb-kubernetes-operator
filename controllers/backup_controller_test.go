@@ -232,8 +232,7 @@ var _ = Describe("backup_controller", func() {
 		When("pausing a backup", func() {
 			BeforeEach(func() {
 				backup.Spec.BackupState = fdbv1beta2.BackupStatePaused
-				err = k8sClient.Update(context.TODO(), backup)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(k8sClient.Update(context.TODO(), backup)).NotTo(HaveOccurred())
 			})
 
 			It("should pause the backup", func() {

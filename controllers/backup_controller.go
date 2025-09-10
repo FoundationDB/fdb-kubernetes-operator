@@ -249,7 +249,8 @@ func (r *FoundationDBBackupReconciler) updateOrApplySpec(
 	ctx context.Context,
 	backup *fdbv1beta2.FoundationDBBackup,
 ) error {
-	// For now just make use of the update method,during testing I observed some issues with the patch method.
+	// TODO(johscheuer): Implement the server-side apply feature, during testing we observed issues with the server-side
+	// apply.
 	return r.Update(ctx, backup)
 }
 
