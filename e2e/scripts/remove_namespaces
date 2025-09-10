@@ -35,3 +35,4 @@ kubectl -n chaos-testing delete iochaos -l "foundationdb.org/user=$USERNAME,foun
 kubectl -n chaos-testing delete podchaos -l "foundationdb.org/user=$USERNAME,foundationdb.org/testing=chaos" --wait=false --ignore-not-found
 kubectl delete clusterrolebinding -l "foundationdb.org/user=$USERNAME,foundationdb.org/testing=chaos" --wait=false --ignore-not-found
 kubectl delete clusterrole -l "foundationdb.org/user=$USERNAME,foundationdb.org/testing=chaos" --wait=false --ignore-not-found
+# todo clean up finalizers?

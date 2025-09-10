@@ -62,12 +62,8 @@ var _ = BeforeSuite(func() {
 		Skip("Skip backup tests with 7.1.63 as this version has a bug in the fdbbackup agent")
 	}
 
-	fdbCluster = factory.CreateFdbCluster(
-		fixtures.DefaultClusterConfig(false),
-	)
-
-	// Create a blobstore for testing backups and restore
-	factory.CreateBlobstoreIfAbsent(fdbCluster.Namespace())
+	// Create a blobstore for testing backups and restore.
+	factory.CreateBlobstoreIfAbsent(factory.SingleNamespace())
 })
 
 var _ = AfterSuite(func() {
@@ -82,11 +78,25 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 		var keyValues []fixtures.KeyValue
 		var prefix byte = 'a'
 		var backup *fixtures.FdbBackup
+		var restore *fixtures.FdbRestore
 
-		// Delete the backup resource after each test. Note that this will not delete the data
-		// in the backup store.
+		BeforeEach(func() {
+			fdbCluster = factory.CreateFdbCluster(
+				fixtures.DefaultClusterConfig(false),
+			)
+		})
+
+		// Delete the backup and restore resource after each test. And make sure that the data in the cluster is cleared.
 		AfterEach(func() {
-			backup.Destroy()
+			if backup != nil {
+				backup.Destroy()
+			}
+			if restore != nil {
+				restore.Destroy()
+			}
+
+			// Delete the FDB cluster to have a clean start.
+			Expect(fdbCluster.Destroy()).To(Succeed())
 		})
 
 		When("the default backup system is used", func() {
@@ -102,11 +112,15 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 				fdbCluster.WriteKeyValues(keyValues)
 				backup.WaitForRestorableVersion(fdbCluster.GetClusterVersion())
 				backup.Stop()
+				fdbCluster.ClearRange([]byte{prefix}, 60)
+				restore = factory.CreateRestoreForCluster(backup)
 			})
 
 			It("should restore the cluster successfully", func() {
-				fdbCluster.ClearRange([]byte{prefix}, 60)
-				factory.CreateRestoreForCluster(backup)
+				Expect(fdbCluster.GetRange([]byte{prefix}, 25, 60)).Should(Equal(keyValues))
+			})
+
+			It("should restore the cluster successfully a second time", func() {
 				Expect(fdbCluster.GetRange([]byte{prefix}, 25, 60)).Should(Equal(keyValues))
 			})
 		})
