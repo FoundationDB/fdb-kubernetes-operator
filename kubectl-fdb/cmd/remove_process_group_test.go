@@ -27,7 +27,7 @@ import (
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/cli-runtime/pkg/genericiooptions"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -63,7 +63,7 @@ var _ = Describe("[plugin] remove process groups command", func() {
 
 			DescribeTable("should cordon all targeted processes",
 				func(tc testCase) {
-					cmd := newRemoveProcessGroupCmd(genericclioptions.IOStreams{})
+					cmd := newRemoveProcessGroupCmd(genericiooptions.IOStreams{})
 					_, err := replaceProcessGroups(cmd, k8sClient,
 						processGroupSelectionOptions{
 							ids:          tc.Instances,
@@ -147,7 +147,7 @@ var _ = Describe("[plugin] remove process groups command", func() {
 						"should add the process group to the removal without exclusion list",
 						func() {
 							removals := []string{"test-storage-1"}
-							cmd := newRemoveProcessGroupCmd(genericclioptions.IOStreams{})
+							cmd := newRemoveProcessGroupCmd(genericiooptions.IOStreams{})
 							_, err := replaceProcessGroups(cmd, k8sClient,
 								processGroupSelectionOptions{
 									ids:          removals,
@@ -191,7 +191,7 @@ var _ = Describe("[plugin] remove process groups command", func() {
 						"should add the process group to the removal without exclusion list",
 						func() {
 							removals := []string{"test-storage-1"}
-							cmd := newRemoveProcessGroupCmd(genericclioptions.IOStreams{})
+							cmd := newRemoveProcessGroupCmd(genericiooptions.IOStreams{})
 							_, err := replaceProcessGroups(cmd, k8sClient,
 								processGroupSelectionOptions{
 									ids:          removals,
@@ -259,7 +259,7 @@ var _ = Describe("[plugin] remove process groups command", func() {
 
 				DescribeTable("should remove specified processes via clusterLabel and podName(s)",
 					func(tc testCase) {
-						cmd := newRemoveProcessGroupCmd(genericclioptions.IOStreams{})
+						cmd := newRemoveProcessGroupCmd(genericiooptions.IOStreams{})
 						_, err := replaceProcessGroups(cmd, k8sClient,
 							processGroupSelectionOptions{
 								ids:          tc.podNames,
@@ -548,7 +548,7 @@ var _ = Describe("[plugin] remove process groups command", func() {
 				}
 				DescribeTable("should remove specified processes via clusterLabel and podName(s)",
 					func(tc testCase) {
-						cmd := newRemoveProcessGroupCmd(genericclioptions.IOStreams{})
+						cmd := newRemoveProcessGroupCmd(genericiooptions.IOStreams{})
 						_, err := replaceProcessGroups(cmd, k8sClient,
 							processGroupSelectionOptions{
 								ids:          tc.ids,

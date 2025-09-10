@@ -26,7 +26,7 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/cli-runtime/pkg/genericiooptions"
 
 	"github.com/spf13/cobra"
 )
@@ -35,7 +35,7 @@ var pluginVersion = "latest"
 var pluginBuildDate = "now"
 var pluginBuildCommit = "none"
 
-func newVersionCmd(streams genericclioptions.IOStreams) *cobra.Command {
+func newVersionCmd(streams genericiooptions.IOStreams) *cobra.Command {
 	o := newFDBOptions(streams)
 
 	cmd := &cobra.Command{
