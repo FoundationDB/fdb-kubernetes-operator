@@ -96,8 +96,7 @@ type AdminClient interface {
 	// StartRestore starts a new restore.
 	StartRestore(
 		url string,
-		keyRanges []fdbv1beta2.FoundationDBKeyRange,
-		encyptionKeyPath string,
+		fdbRestore fdbv1beta2.FoundationDBRestore,
 	) error
 
 	// GetRestoreStatus gets the status of the current restore.
