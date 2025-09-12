@@ -21,6 +21,11 @@ do
     fi
 
     echo "start deleting namespace ${ns}"
+    for backup in $(kubectl -n ${ns} get fdbbackup --no-headers -o name);
+    do
+      echo "Removing finalizer from ${backup} in namespace ${ns}"
+      kubectl -n ${ns} patch ${backup} -p '{"metadata":{"finalizers":null}}' --type=merge
+    done
 
     kubectl delete ns --ignore-not-found "${ns}"
   ) &
@@ -35,4 +40,3 @@ kubectl -n chaos-testing delete iochaos -l "foundationdb.org/user=$USERNAME,foun
 kubectl -n chaos-testing delete podchaos -l "foundationdb.org/user=$USERNAME,foundationdb.org/testing=chaos" --wait=false --ignore-not-found
 kubectl delete clusterrolebinding -l "foundationdb.org/user=$USERNAME,foundationdb.org/testing=chaos" --wait=false --ignore-not-found
 kubectl delete clusterrole -l "foundationdb.org/user=$USERNAME,foundationdb.org/testing=chaos" --wait=false --ignore-not-found
-# todo clean up finalizers?
