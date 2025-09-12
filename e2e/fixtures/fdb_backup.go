@@ -46,6 +46,8 @@ type FdbBackup struct {
 type FdbBackupConfiguration struct {
 	// BackupType defines the backup type that should be used for this backup.
 	BackupType *fdbv1beta2.BackupType
+	// EncryptionEnabled determines whether backup encryption should be used.
+	EncryptionEnabled bool
 }
 
 // CreateBackupForCluster will create a FoundationDBBackup for the provided cluster.
@@ -71,7 +73,6 @@ func (factory *Factory) CreateBackupForCluster(
 			AllowTagOverride: ptr.To(true),
 			ClusterName:      fdbCluster.Name(),
 			Version:          fdbVersion.String(),
-			EncryptionKeyPath: "/tmp/encryption-key/key.bin",
 			BlobStoreConfiguration: &fdbv1beta2.BlobStoreConfiguration{
 				AccountName: "seaweedfs@seaweedfs:8333",
 				URLParameters: []fdbv1beta2.URLParameter{
@@ -160,6 +161,11 @@ func (factory *Factory) CreateBackupForCluster(
 				},
 			},
 		},
+	}
+
+	// Set encryption key path only if encryption is enabled
+	if config.EncryptionEnabled {
+		backup.Spec.EncryptionKeyPath = "/tmp/encryption-key/key.bin"
 	}
 
 	gomega.Expect(factory.CreateIfAbsent(backup)).NotTo(gomega.HaveOccurred())
