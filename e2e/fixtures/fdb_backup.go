@@ -46,6 +46,8 @@ type FdbBackup struct {
 type FdbBackupConfiguration struct {
 	// BackupType defines the backup type that should be used for this backup.
 	BackupType *fdbv1beta2.BackupType
+	// EncryptionEnabled determines whether backup encryption should be used.
+	EncryptionEnabled bool
 }
 
 // CreateBackupForCluster will create a FoundationDBBackup for the provided cluster.
@@ -122,6 +124,11 @@ func (factory *Factory) CreateBackupForCluster(
 									ReadOnly:  true,
 									MountPath: "/tmp/backup-credentials",
 								},
+								{
+									Name:      "encryption-key",
+									ReadOnly:  true,
+									MountPath: "/tmp/encryption-key",
+								},
 							},
 						},
 					},
@@ -142,10 +149,23 @@ func (factory *Factory) CreateBackupForCluster(
 								},
 							},
 						},
+						{
+							Name: "encryption-key",
+							VolumeSource: corev1.VolumeSource{
+								Secret: &corev1.SecretVolumeSource{
+									SecretName: factory.GetEncryptionKeySecretName(),
+								},
+							},
+						},
 					},
 				},
 			},
 		},
+	}
+
+	// Set encryption key path only if encryption is enabled
+	if config.EncryptionEnabled {
+		backup.Spec.EncryptionKeyPath = "/tmp/encryption-key/key.bin"
 	}
 
 	gomega.Expect(factory.CreateIfAbsent(backup)).NotTo(gomega.HaveOccurred())

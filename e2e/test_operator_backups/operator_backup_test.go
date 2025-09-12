@@ -68,6 +68,8 @@ var _ = BeforeSuite(func() {
 
 	// Create a blobstore for testing backups and restore
 	factory.CreateBlobstoreIfAbsent(fdbCluster.Namespace())
+
+	// Note: Encryption key secret is automatically created during namespace setup
 })
 
 var _ = AfterSuite(func() {
@@ -87,9 +89,10 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 		// in the backup store.
 		AfterEach(func() {
 			backup.Destroy()
+			Expect(fdbCluster.WaitForReconciliation()).To(Succeed())
 		})
 
-		When("the default backup system is used", func() {
+		When("the default backup system is used", Serial, func() {
 			BeforeEach(func() {
 				log.Println("creating backup for cluster")
 				backup = factory.CreateBackupForCluster(
@@ -105,6 +108,29 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 			})
 
 			It("should restore the cluster successfully", func() {
+				fdbCluster.ClearRange([]byte{prefix}, 60)
+				factory.CreateRestoreForCluster(backup)
+				Expect(fdbCluster.GetRange([]byte{prefix}, 25, 60)).Should(Equal(keyValues))
+			})
+		})
+
+		When("the default backup system is used with encryption", Serial, func() {
+			BeforeEach(func() {
+				log.Println("creating encrypted backup for cluster")
+				backup = factory.CreateBackupForCluster(
+					fdbCluster,
+					&fixtures.FdbBackupConfiguration{
+						BackupType:        ptr.To(fdbv1beta2.BackupTypeDefault),
+						EncryptionEnabled: true,
+					},
+				)
+				keyValues = fdbCluster.GenerateRandomValues(10, prefix)
+				fdbCluster.WriteKeyValues(keyValues)
+				backup.WaitForRestorableVersion(fdbCluster.GetClusterVersion())
+				backup.Stop()
+			})
+
+			It("should restore the encrypted cluster successfully", func() {
 				fdbCluster.ClearRange([]byte{prefix}, 60)
 				factory.CreateRestoreForCluster(backup)
 				Expect(fdbCluster.GetRange([]byte{prefix}, 25, 60)).Should(Equal(keyValues))
