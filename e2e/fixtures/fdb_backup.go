@@ -239,7 +239,14 @@ func (fdbBackup *FdbBackup) WaitForRestorableVersion(version uint64) {
 			latestRestorableVersion = ptr.Deref(status.LatestRestorablePoint.Version, 0)
 		}
 
-		log.Println("Backup status running:", status.Running, "restorable:", ptr.Deref(status.Restorable, false), "latestRestorablePoint:", latestRestorableVersion)
+		log.Println(
+			"Backup status running:",
+			status.Running,
+			"restorable:",
+			ptr.Deref(status.Restorable, false),
+			"latestRestorablePoint:",
+			latestRestorableVersion,
+		)
 		g.Expect(ptr.Deref(status.Restorable, false)).To(gomega.BeTrue())
 		g.Expect(status.LatestRestorablePoint).NotTo(gomega.BeNil())
 
