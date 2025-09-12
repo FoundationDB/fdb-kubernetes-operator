@@ -131,15 +131,26 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 			})
 		})
 
-		PWhen("the partitioned backup system is used", func() {
+		When("the partitioned backup system is used", func() {
 			BeforeEach(func() {
+				// Versions before 7.4 have a few issues and will not work properly with the experimental feature.
+				requiredFdbVersion, err := fdbv1beta2.ParseFdbVersion("7.4.0")
+				Expect(err).NotTo(HaveOccurred())
+
+				version := factory.GetFDBVersion()
+				if !version.IsAtLeast(requiredFdbVersion) {
+					Skip("version has a bug in the backup version that prevents tests to succeed")
+				}
 				log.Println("creating backup for cluster with partitioned log system")
 				// Add additional backup workers to the cluster. Those will be used by the partitioned backup system.
 				// The backup worker(not to be confused with the backup agent) will be used to back up the lof mutations.
 				// We still need the backup agents to back up the key ranges.
 				cluster := fdbCluster.GetCluster()
 				spec := cluster.Spec.DeepCopy()
-				spec.ProcessCounts.BackupWorker = 2
+				processCounts, err := cluster.GetProcessCountsWithDefaults()
+				Expect(err).NotTo(HaveOccurred())
+				// We should create the same count of backup worker as we create log processes.
+				spec.ProcessCounts.BackupWorker = processCounts.Log
 
 				// We take the spec from the general process class as the starting point.
 				generalProcessSpec := spec.Processes[fdbv1beta2.ProcessClassGeneral]
