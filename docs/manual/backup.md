@@ -93,6 +93,25 @@ By default, the operator assumes you want to use secure connections to your obje
 
 If you are configuring your cluster to use TLS for connections within the cluster, the backup agents will use the same certificate, key, and CA file for the connections to the cluster, so you must make sure the configuration is valid for this purpose as well.
 
+## TLS Configuration for Backup Agents
+
+**Important**: Backup agents act as normal FDB clients and don't use the setting `enableTls` flag in `mainContainer`.
+The [Example Backup](#example-backup) shows how to configure the required environment variables.
+
+### For Backup Agents connecting to TLS clusters:
+
+- **Required**: Set TLS environment variables (`FDB_TLS_CERTIFICATE_FILE`, `FDB_TLS_KEY_FILE`, `FDB_TLS_CA_FILE`) in the backup agent pod template
+- **Not needed**: The `enableTls` flag in `mainContainer` or `sidecarContainer` configurations - this only applies to FDB server processes
+
+### Key Differences:
+
+| Component | TLS Environment Variables | `enableTls` Flag |
+|-----------|--------------------------|------------------|
+| FDB Server Processes | ✓ Required | ✓ Required |
+| Backup Agents | ✓ Required | ✗ Ignored |
+
+The backup agent will automatically use TLS when connecting to a TLS-enabled cluster if the TLS environment variables are present, regardless of the `enableTls` setting in the backup spec.
+
 ## Configuring Your Account
 
 Before you start a backup, you will need to configure an account in your object store. Depending on the implementation details of your object store, you may also need to configure a bucket in advance, but the FDB backup process will attempt to automatically create one. You can specify the bucket name in the `bucket` field of the backup spec. In the example above, we have an account called `account` at the object store `https://object-store.example`, and it has a bucket called `fdb-backups`.
@@ -123,6 +142,37 @@ spec:
 
 The operator will run `fdbbackup` commands to manage the backup, so the operator needs to have access to the object store as well.
 You can configure that access the same way as you do for the backup agents, by defining the environment variables `FDB_BLOB_CREDENTIALS`, `FDB_TLS_CERTIFICATE_FILE`, `FDB_TLS_KEY_FILE`, and `FDB_TLS_CA_FILE`.
+
+## Deletion Policy
+
+Per default the operator will not change the backup when the `FoundationDBBackup` resource is deleted.
+This can be changed by setting the `spec.deletionPolicy`, valid options are:
+
+- `noop` (default): When set the backup state will not be changed. This can cause problems when the `FoundationDBBackup` resource is deleted and the cluster still receives write traffic, as the `backup_agents` are deleted and therefore the backup mutations will not be removed.
+- `stop`: Will [abort](https://apple.github.io/foundationdb/backups.html#abort) the backup when the `FoundationDBBackup` resource is deleted.
+- `cleanup`: Will [abort](https://apple.github.io/foundationdb/backups.html#abort) and [delete](https://apple.github.io/foundationdb/backups.html#delete) the backup and it's data in the blob store when the `FoundationDBBackup` resource is deleted.
+
+When the `stop` or the `cleanup` deletion policy is set the operator will add the `foundationdb.org/fdb-kubernetes-operator` finalizer.
+It is not recommended to remove this finalizer manually, as this could lead to an incomplete removal of data.
+In the current implementation the delete step is implemented in the operator, this step might block for a longer duration (up to 10 minutes before the reconciliation is retried).
+If the operator is only started with a single go routine, this could also block other reconciliation attempts.
+
+Example for the `cleanup` policy:
+
+```yaml
+apiVersion: apps.foundationdb.org/v1beta2
+kind: FoundationDBBackup
+metadata:
+  name: sample-cluster
+spec:
+  version: 7.1.26
+  deletionPolicy: cleanup
+  clusterName: sample-cluster
+  blobStoreConfiguration:
+    accountName: account@object-store.example:443
+    urlParameters:
+    - "secure_connection=0"
+```
 
 ## Restoring a Backup
 

@@ -17,6 +17,12 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 * [LatestRestorablePoint](#latestrestorablepoint)
 * [ImageConfig](#imageconfig)
 
+## BackupDeletionPolicy
+
+BackupDeletionPolicy defines the deletion policy when the backup is deleted.
+
+[Back to TOC](#table-of-contents)
+
 ## BackupGenerationStatus
 
 BackupGenerationStatus stores information on which generations have reached different stages in reconciliation for the backup.
@@ -97,10 +103,11 @@ FoundationDBBackupSpec describes the desired state of the backup for a cluster.
 | allowTagOverride | This setting defines if a user provided image can have it's own tag rather than getting the provided version appended. You have to ensure that the specified version in the Spec is compatible with the given version in your custom image. **Deprecated: use ImageConfigs instead.** | *bool | false |
 | blobStoreConfiguration | This is the configuration of the target blobstore for this backup. | *[BlobStoreConfiguration](#blobstoreconfiguration) | false |
 | encryptionKeyPath | The path to the encryption key used to encrypt the backup. | string | false |
-| mainContainer | MainContainer defines customization for the foundationdb container. | ContainerOverrides | false |
+| mainContainer | MainContainer defines customization for the foundationdb container. Note: The enableTls setting is ignored for backup agents - use TLS environment variables instead. | ContainerOverrides | false |
 | sidecarContainer | SidecarContainer defines customization for the foundationdb-kubernetes-sidecar container. | ContainerOverrides | false |
 | imageType | ImageType defines the image type that should be used for the FoundationDBCluster deployment. When the type is set to \"unified\" the deployment will use the new fdb-kubernetes-monitor. Otherwise the main container and the sidecar container will use different images. Default: split | *ImageType | false |
 | backupType | BackupType defines the backup type that should be used for the backup. When the BackupType is set to BackupTypePartitionedLog, it's expected that the FoundationDBCluster creates and manages the additional backup worker processes. A migration to a different backup type is not yet supported in the operator. Default: \"backup_agent\". | *[BackupType](#backuptype) | false |
+| deletionPolicy | DeletionPolicy defines the deletion policy for this backup. The BackupDeletionPolicy defines the actions that should be taken when the FoundationDBBackup resource has a deletion timestamp. | *[BackupDeletionPolicy](#backupdeletionpolicy) | false |
 
 [Back to TOC](#table-of-contents)
 

@@ -41,7 +41,7 @@ func (s modifyBackup) reconcile(
 		return nil
 	}
 
-	if backup.Status.BackupDetails.SnapshotPeriodSeconds != backup.SnapshotPeriodSeconds() {
+	if backup.NeedsBackupReconfiguration() {
 		adminClient, err := r.adminClientForBackup(ctx, backup)
 		if err != nil {
 			return &requeue{curError: err}

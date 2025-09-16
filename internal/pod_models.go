@@ -1145,8 +1145,8 @@ func GetBackupDeployment(backup *fdbv1beta2.FoundationDBBackup) (*appsv1.Deploym
 
 	if mainContainer.Resources.Requests == nil {
 		mainContainer.Resources.Requests = corev1.ResourceList{
-			"cpu":    resource.MustParse("1"),
-			"memory": resource.MustParse("1Gi"),
+			corev1.ResourceCPU:    resource.MustParse("1"),
+			corev1.ResourceMemory: resource.MustParse("8Gi"),
 		}
 	}
 

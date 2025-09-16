@@ -22,13 +22,35 @@ package v1beta2
 
 import "fmt"
 
-// TimeoutError represents a timeout for either the fdb client library or fdbcli
+// TimeoutError represents a timeout for either the fdb client library or fdbcli.
 // +k8s:deepcopy-gen=false
 type TimeoutError struct {
 	Err error
 }
 
+// BackupDoesNotExist represents an error for the backup command when the targeted backup doesn't exist.
+// +k8s:deepcopy-gen=false
+type BackupDoesNotExist struct {
+	Err error
+}
+
+// BackupNotRunning represents an error for the backup command when the targeted backup is not running.
+// +k8s:deepcopy-gen=false
+type BackupNotRunning struct {
+	Err error
+}
+
 // Error returns the error message of the internal timeout error.
-func (timeoutErr TimeoutError) Error() string {
-	return fmt.Sprintf("fdb timeout: %s", timeoutErr.Err.Error())
+func (err TimeoutError) Error() string {
+	return fmt.Sprintf("fdb timeout: %s", err.Err.Error())
+}
+
+// Error returns the error message of the internal backup does not exist error.
+func (err BackupDoesNotExist) Error() string {
+	return fmt.Sprintf("fdb backup does not exist: %s", err.Err.Error())
+}
+
+// Error returns the error message of the internal backup not running error.
+func (err BackupNotRunning) Error() string {
+	return fmt.Sprintf("fdb backup does not exist: %s", err.Err.Error())
 }

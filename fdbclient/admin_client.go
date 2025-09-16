@@ -122,6 +122,9 @@ type cliCommand struct {
 
 	// timeout provides a way to overwrite the default cli timeout.
 	timeout time.Duration
+
+	// ignoreClusterFile if set to true, the cluster file will not be added to the arguments.
+	ignoreClusterFile bool
 }
 
 // hasTimeoutArg determines whether a command accepts a timeout argument.
@@ -199,7 +202,7 @@ func (client *cliAdminClient) getArgsAndTimeout(
 	}
 
 	// If we want to print out the version we don't have to pass the cluster file path
-	if len(args) == 0 || args[0] != "--version" {
+	if !command.ignoreClusterFile {
 		args = append(args, command.getClusterFileFlag(), clusterFile)
 	}
 
@@ -258,6 +261,14 @@ func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 			// See: https://apple.github.io/foundationdb/api-error-codes.html
 			// 1031: Operation aborted because the transaction timed out
 			return "", fdbv1beta2.TimeoutError{Err: err}
+		}
+
+		if strings.Contains(string(output), "Backup does not exist") {
+			return "", fdbv1beta2.BackupDoesNotExist{Err: err}
+		}
+
+		if strings.Contains(string(output), "A backup was not running on tag") {
+			return "", fdbv1beta2.BackupNotRunning{Err: err}
 		}
 
 		var exitError *exec.ExitError
@@ -791,7 +802,9 @@ func (client *cliAdminClient) GetProtocolVersion(version string) (string, error)
 	// TODO(johscheuer): In the future make use of GetClientStatus(). Available from 7.4:
 	// https://github.com/apple/foundationdb/blob/release-7.4/bindings/go/src/fdb/database.go#L140-L161
 	// Should we backport this feature to the 7.1 bindings?
-	output, err := client.runCommand(cliCommand{args: []string{"--version"}, version: version})
+	output, err := client.runCommand(
+		cliCommand{args: []string{"--version"}, version: version, ignoreClusterFile: true},
+	)
 	if err != nil {
 		return "", err
 	}
@@ -852,6 +865,36 @@ func (client *cliAdminClient) StopBackup(_ *fdbv1beta2.FoundationDBBackup) error
 	return err
 }
 
+// AbortBackup will abort a running backup.
+func (client *cliAdminClient) AbortBackup(_ *fdbv1beta2.FoundationDBBackup) error {
+	_, err := client.runCommand(cliCommand{
+		binary: fdbbackupStr,
+		args: []string{
+			"abort",
+		},
+	})
+
+	return err
+}
+
+// DeleteBackup deletes all data related to a backup.
+func (client *cliAdminClient) DeleteBackup(backup *fdbv1beta2.FoundationDBBackup) error {
+	_, err := client.runCommand(cliCommand{
+		binary: fdbbackupStr,
+		args: []string{
+			"delete",
+			"-d",
+			backup.BackupURL(),
+		},
+		// Increase the default timeout here, deleting large backups will probably take even more time.
+		timeout: 10 * time.Minute,
+		// The delete command doesn't use the cluster file.
+		ignoreClusterFile: true,
+	})
+
+	return err
+}
+
 // PauseBackups pauses the backups.
 func (client *cliAdminClient) PauseBackups() error {
 	_, err := client.runCommand(cliCommand{
@@ -882,6 +925,8 @@ func (client *cliAdminClient) ModifyBackup(backup *fdbv1beta2.FoundationDBBackup
 			"modify",
 			"-s",
 			strconv.Itoa(backup.SnapshotPeriodSeconds()),
+			"-d",
+			backup.BackupURL(),
 		},
 	})
 

@@ -103,6 +103,12 @@ Connections to FDB will use the peer verification logic provided by the FDB clie
 
 Connections to the sidecar will use the peer verification logic provided by go's tls library. This means that the sidecar's certificate must be valid for the pod's IP. You can disable verification for the connections to the sidecar by setting the environment variable `DISABLE_SIDECAR_TLS_CHECK=1` on the operator, but this will also disable the validation of the certificate chain, so it is not recommended to use this in real environments.
 
+## TLS for Backup Agents
+
+When configuring backup agents to connect to TLS-enabled clusters, note that backup agents act as FDB clients and only require the TLS environment variables (`FDB_TLS_CERTIFICATE_FILE`, `FDB_TLS_KEY_FILE`, `FDB_TLS_CA_FILE`). The `enableTls` flag used for FDB server processes does not apply to backup agents.
+
+See the [backup documentation](backup.md#tls-configuration-for-backup-agents) for detailed configuration examples.
+
 ## TLS Migration
 
 The operator supports to migrate a non-TLS cluster to TLS and visa versa.

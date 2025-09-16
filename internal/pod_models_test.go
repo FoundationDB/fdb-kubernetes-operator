@@ -3576,7 +3576,7 @@ var _ = Describe("pod_models", func() {
 					fdbv1beta2.BackupDeploymentLabel: string(cluster.ObjectMeta.UID),
 				}))
 				Expect(deployment.ObjectMeta.Annotations).To(Equal(map[string]string{
-					"foundationdb.org/last-applied-spec": "946b41ecc6985d5f56d9749e9366132ba4e8cb250eb3bcfe73b037ad1f47c7f4",
+					"foundationdb.org/last-applied-spec": "b9bce4660fcb4ee44469b2df6baadc6aa8572cb84a10c6db7ecacc344c59c058",
 				}))
 			})
 
@@ -3668,11 +3668,11 @@ var _ = Describe("pod_models", func() {
 					Expect(*container.Resources.Limits.Cpu()).To(Equal(resource.MustParse("1")))
 					Expect(
 						*container.Resources.Limits.Memory(),
-					).To(Equal(resource.MustParse("1Gi")))
+					).To(Equal(resource.MustParse("8Gi")))
 					Expect(*container.Resources.Requests.Cpu()).To(Equal(resource.MustParse("1")))
 					Expect(
 						*container.Resources.Requests.Memory(),
-					).To(Equal(resource.MustParse("1Gi")))
+					).To(Equal(resource.MustParse("8Gi")))
 				})
 			})
 
@@ -3902,7 +3902,7 @@ var _ = Describe("pod_models", func() {
 					"foundationdb.org/backup-for": string(cluster.ObjectMeta.UID),
 				}))
 				Expect(deployment.ObjectMeta.Annotations).To(Equal(map[string]string{
-					"foundationdb.org/last-applied-spec": "23b6a2501f83a4cfcf760f639b1d841203ef4f44d496da072ebd1542870ad53f",
+					"foundationdb.org/last-applied-spec": "c1af35c6ba0236fe77ccd589a23c9cb1be3fbddc269ad05a3fb6b895ad26d63f",
 				}))
 
 				Expect(
