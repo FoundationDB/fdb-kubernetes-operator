@@ -795,6 +795,56 @@ var _ = Describe("replace_failed_process_groups", func() {
 					})
 				},
 			)
+
+			When("a process has the ProcessHasHighRunLoopBusy condition",
+				func() {
+					BeforeEach(func() {
+						processGroup.ProcessGroupConditions = append(
+							processGroup.ProcessGroupConditions,
+							&fdbv1beta2.ProcessGroupCondition{
+								ProcessGroupConditionType: fdbv1beta2.ProcessHasHighRunLoopBusy,
+								Timestamp:                 time.Now().Add(-1 * time.Hour).Unix(),
+							},
+						)
+					})
+
+					It("should requeue", func() {
+						Expect(result).NotTo(BeNil())
+					})
+
+					It("should mark the process group to be removed", func() {
+						removedIDs := getRemovedProcessGroupIDs(cluster)
+						Expect(removedIDs).To(HaveLen(1))
+						Expect(
+							removedIDs,
+						).To(ConsistOf([]fdbv1beta2.ProcessGroupID{processGroup.ProcessGroupID}))
+					})
+				})
+
+			When("a process has the SidecarUnreachable condition",
+				func() {
+					BeforeEach(func() {
+						processGroup.ProcessGroupConditions = append(
+							processGroup.ProcessGroupConditions,
+							&fdbv1beta2.ProcessGroupCondition{
+								ProcessGroupConditionType: fdbv1beta2.SidecarUnreachable,
+								Timestamp:                 time.Now().Add(-1 * time.Hour).Unix(),
+							},
+						)
+					})
+
+					It("should requeue", func() {
+						Expect(result).NotTo(BeNil())
+					})
+
+					It("should mark the process group to be removed", func() {
+						removedIDs := getRemovedProcessGroupIDs(cluster)
+						Expect(removedIDs).To(HaveLen(1))
+						Expect(
+							removedIDs,
+						).To(ConsistOf([]fdbv1beta2.ProcessGroupID{processGroup.ProcessGroupID}))
+					})
+				})
 		})
 
 		When("fault domain replacements are enabled", func() {

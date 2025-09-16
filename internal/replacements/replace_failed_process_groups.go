@@ -165,6 +165,7 @@ func ReplaceFailedProcessGroups(
 	localitiesUsedForExclusion := cluster.UseLocalitiesForExclusion()
 	failureDetectionTimeSeconds := cluster.GetFailureDetectionTimeSeconds()
 	taintReplacementTimeSeconds := cluster.GetTaintReplacementTimeSeconds()
+	conditionsThatNeedReplacement := cluster.GetConditionsThatNeedReplacement()
 	// If the operator should not replace any process groups because of the NodeTaintReplacing condition, we simply set
 	// the replacement time to max int.
 	taintReplacementsAllowed, err := nodeTaintReplacementsAllowed(logger, cluster)
@@ -195,16 +196,17 @@ func ReplaceFailedProcessGroups(
 			continue
 		}
 
-		failureCondition, failureTime := processGroup.NeedsReplacement(
-			failureDetectionTimeSeconds,
-			taintReplacementTimeSeconds,
-		)
-		if failureTime == 0 {
+		// If the process is crash looping we can ignore it.
+		if _, ok := ignore[processGroup.ProcessGroupID]; ok {
 			continue
 		}
 
-		// If the process is crash looping we can ignore it.
-		if _, ok := ignore[processGroup.ProcessGroupID]; ok {
+		failureCondition, failureTime := processGroup.NeedsReplacementWithConditions(
+			failureDetectionTimeSeconds,
+			taintReplacementTimeSeconds,
+			conditionsThatNeedReplacement,
+		)
+		if failureTime == 0 {
 			continue
 		}
 

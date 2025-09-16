@@ -141,6 +141,8 @@ type FoundationDBClusterReconciler struct {
 	ClusterLabelKeyForNodeTrigger string
 	decodingSerializer            runtime.Serializer
 	SimulationOptions             SimulationOptions
+	// Defines the threshold for the high run loop busy condition, the default is 1.0.
+	HighRunLoopBusyThreshold float64
 }
 
 // NewFoundationDBClusterReconciler creates a new FoundationDBClusterReconciler with defaults.

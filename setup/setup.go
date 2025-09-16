@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"math"
 	"os"
 	"path"
 	"strconv"
@@ -84,6 +85,7 @@ type Options struct {
 	MaxNumberOfOldLogFiles             int
 	MinimumRecoveryTimeForExclusion    float64
 	MinimumRecoveryTimeForInclusion    float64
+	HighRunLoopBusyThreshold           float64
 	LogFileMinAge                      time.Duration
 	GetTimeout                         time.Duration
 	PostTimeout                        time.Duration
@@ -321,6 +323,12 @@ func (o *Options) BindFlags(fs *flag.FlagSet) {
 		120.0,
 		"Defines the minimum uptime of the cluster before exclusions are allowed. For clusters after 7.1 this will use the recovery state. This should reduce the risk of frequent recoveries because of exclusions.",
 	)
+	fs.Float64Var(
+		&o.HighRunLoopBusyThreshold,
+		"high-run-loop-busy-threshold",
+		math.MaxFloat64,
+		"Defines the threshold when a process will be considered to have a high run loop busy value. The value will be between 0.0 and 1.0. Setting it to a higher value will disable the high run loop busy check.",
+	)
 }
 
 // StartManager will start the FoundationDB operator manager.
@@ -459,6 +467,7 @@ func StartManager(
 		)
 		clusterReconciler.Namespace = operatorOpts.WatchNamespace
 		clusterReconciler.GlobalSynchronizationWaitDuration = operatorOpts.GlobalSynchronizationWaitDuration
+		clusterReconciler.HighRunLoopBusyThreshold = operatorOpts.HighRunLoopBusyThreshold
 
 		// If the provided PodLifecycleManager supports the update method, we can set the desired update method, otherwise the
 		// update method will be ignored.

@@ -119,7 +119,8 @@ var _ = Describe("FoundationDBStatus", func() {
 							},
 						},
 					},
-					Messages: []FoundationDBStatusProcessMessage{},
+					Messages:    []FoundationDBStatusProcessMessage{},
+					RunLoopBusy: 0.024864200000000003,
 				},
 				"eab0db1aa7aae81a50ca97e9814a1b7d": {
 					Address: ProcessAddress{
@@ -161,7 +162,8 @@ var _ = Describe("FoundationDBStatus", func() {
 							ID:   "dfd679875a386d06",
 						},
 					},
-					Messages: []FoundationDBStatusProcessMessage{},
+					Messages:    []FoundationDBStatusProcessMessage{},
+					RunLoopBusy: 0.0080509299999999978,
 				},
 				"f483247d4d5f279ef02c549680cbde64": {
 					Address: ProcessAddress{
@@ -208,7 +210,8 @@ var _ = Describe("FoundationDBStatus", func() {
 							},
 						},
 					},
-					Messages: []FoundationDBStatusProcessMessage{},
+					Messages:    []FoundationDBStatusProcessMessage{},
+					RunLoopBusy: 0.0101502,
 				},
 				"f6e0f7fd80da429d20329ad95d793ca3": {
 					Address: ProcessAddress{
@@ -240,7 +243,8 @@ var _ = Describe("FoundationDBStatus", func() {
 							ID:   "cbeb915c6cceb4a9",
 						},
 					},
-					Messages: []FoundationDBStatusProcessMessage{},
+					Messages:    []FoundationDBStatusProcessMessage{},
+					RunLoopBusy: 0.027578200000000001,
 				},
 				"f75644abdf1b06c803b5c3c124fdd0a0": {
 					Address: ProcessAddress{
@@ -264,7 +268,8 @@ var _ = Describe("FoundationDBStatus", func() {
 							ID:   "1f953018ad2e746f",
 						},
 					},
-					Messages: []FoundationDBStatusProcessMessage{},
+					Messages:    []FoundationDBStatusProcessMessage{},
+					RunLoopBusy: 0.0075524900000000002,
 				},
 				"105bf6c041f8ec315d03e889c2746ecf": {
 					Address: ProcessAddress{
@@ -292,7 +297,8 @@ var _ = Describe("FoundationDBStatus", func() {
 							KVStoreAvailableBytes: ptr.To[int64](84178214912),
 						},
 					},
-					Messages: []FoundationDBStatusProcessMessage{},
+					Messages:    []FoundationDBStatusProcessMessage{},
+					RunLoopBusy: 0.0081051000000000005,
 				},
 				"78c1c84af4481f0df628d40358f0930a": {
 					Address: ProcessAddress{
@@ -320,7 +326,8 @@ var _ = Describe("FoundationDBStatus", func() {
 							KVStoreAvailableBytes: ptr.To[int64](84178214912),
 						},
 					},
-					Messages: []FoundationDBStatusProcessMessage{},
+					Messages:    []FoundationDBStatusProcessMessage{},
+					RunLoopBusy: 0.0088742700000000001,
 				},
 				"83084479b50c9c3a09b0286297be3796": {
 					Address: ProcessAddress{
@@ -348,7 +355,8 @@ var _ = Describe("FoundationDBStatus", func() {
 							KVStoreAvailableBytes: ptr.To[int64](84178202624),
 						},
 					},
-					Messages: []FoundationDBStatusProcessMessage{},
+					Messages:    []FoundationDBStatusProcessMessage{},
+					RunLoopBusy: 0.0089497099999999979,
 				},
 			},
 			Data: FoundationDBStatusDataStatistics{
