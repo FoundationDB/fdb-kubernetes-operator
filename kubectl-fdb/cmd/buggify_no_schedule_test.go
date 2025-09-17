@@ -27,7 +27,7 @@ import (
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/cli-runtime/pkg/genericiooptions"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -49,7 +49,7 @@ var _ = Describe("[plugin] buggify no-schedule instances command", func() {
 
 			DescribeTable("should add all targeted processes to no-schedule list",
 				func(tc processGroupOptionsTestCase) {
-					cmd := newBuggifyNoSchedule(genericclioptions.IOStreams{})
+					cmd := newBuggifyNoSchedule(genericiooptions.IOStreams{})
 					tc.ProcessGroupOpts.namespace = namespace
 					err := updateNoScheduleList(
 						cmd,
@@ -201,7 +201,7 @@ var _ = Describe("[plugin] buggify no-schedule instances command", func() {
 
 				DescribeTable("should add all targeted processes to no-schedule list",
 					func(tc testCase) {
-						cmd := newBuggifyNoSchedule(genericclioptions.IOStreams{})
+						cmd := newBuggifyNoSchedule(genericiooptions.IOStreams{})
 						processGroupOpts := processGroupSelectionOptions{
 							ids:         tc.Instances,
 							clusterName: clusterName,
@@ -272,7 +272,7 @@ var _ = Describe("[plugin] buggify no-schedule instances command", func() {
 
 			DescribeTable("should remove all targeted processes from the no-schedule list",
 				func(tc testCase) {
-					cmd := newBuggifyNoSchedule(genericclioptions.IOStreams{})
+					cmd := newBuggifyNoSchedule(genericiooptions.IOStreams{})
 					processGroupOpts := processGroupSelectionOptions{
 						ids:         tc.Instances,
 						clusterName: clusterName,
@@ -328,7 +328,7 @@ var _ = Describe("[plugin] buggify no-schedule instances command", func() {
 			})
 
 			It("should clear the no-schedule list", func() {
-				cmd := newBuggifyNoSchedule(genericclioptions.IOStreams{})
+				cmd := newBuggifyNoSchedule(genericiooptions.IOStreams{})
 				processGroupOpts := processGroupSelectionOptions{
 					clusterName: clusterName,
 					namespace:   namespace,
@@ -350,7 +350,7 @@ var _ = Describe("[plugin] buggify no-schedule instances command", func() {
 				Expect(len(resCluster.Spec.Buggify.NoSchedule)).To(Equal(0))
 			})
 			It("should error if no cluster name is provided", func() {
-				cmd := newBuggifyNoSchedule(genericclioptions.IOStreams{})
+				cmd := newBuggifyNoSchedule(genericiooptions.IOStreams{})
 				opts := buggifyProcessGroupOptions{
 					containerName: fdbv1beta2.MainContainerName,
 					wait:          false,

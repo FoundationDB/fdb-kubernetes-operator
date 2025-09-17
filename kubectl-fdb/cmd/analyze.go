@@ -36,13 +36,13 @@ import (
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/cli-runtime/pkg/genericiooptions"
 	"k8s.io/client-go/rest"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func newAnalyzeCmd(streams genericclioptions.IOStreams) *cobra.Command {
+func newAnalyzeCmd(streams genericiooptions.IOStreams) *cobra.Command {
 	o := newFDBOptions(streams)
 
 	cmd := &cobra.Command{

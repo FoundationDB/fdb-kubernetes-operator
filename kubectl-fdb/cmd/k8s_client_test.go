@@ -27,7 +27,7 @@ import (
 	"strings"
 	"time"
 
-	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/cli-runtime/pkg/genericiooptions"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	corev1 "k8s.io/api/core/v1"
@@ -352,7 +352,7 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 		DescribeTable("correctly follow various options",
 			func(tc testCase) {
 				tc.opts.namespace = namespace
-				cmd := newRemoveProcessGroupCmd(genericclioptions.IOStreams{})
+				cmd := newRemoveProcessGroupCmd(genericiooptions.IOStreams{})
 				result, err := getProcessGroupsByCluster(cmd, k8sClient, tc.opts)
 				if tc.wantErrContains == "" {
 					Expect(err).To(BeNil())
@@ -724,7 +724,7 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 		DescribeTable("correctly follow various options",
 			func(tc testCase) {
 				tc.opts.namespace = namespace
-				cmd := newRemoveProcessGroupCmd(genericclioptions.IOStreams{})
+				cmd := newRemoveProcessGroupCmd(genericiooptions.IOStreams{})
 				result, err := getPodNamesByCluster(cmd, k8sClient, tc.opts)
 				if tc.wantErrContains == "" {
 					Expect(err).To(BeNil())

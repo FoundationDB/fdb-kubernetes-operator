@@ -33,7 +33,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/cli-runtime/pkg/genericiooptions"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/kubectl/pkg/cmd/exec"
@@ -89,7 +89,7 @@ func ExecuteCommandRaw(
 		ContainerName: container,
 		Stdin:         stdin != nil,
 		TTY:           isTty,
-		IOStreams: genericclioptions.IOStreams{
+		IOStreams: genericiooptions.IOStreams{
 			In:     stdin,
 			Out:    stdout,
 			ErrOut: stderr,

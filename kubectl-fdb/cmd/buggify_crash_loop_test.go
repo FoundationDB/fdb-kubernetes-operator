@@ -24,7 +24,7 @@ import (
 	"context"
 	"fmt"
 
-	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/cli-runtime/pkg/genericiooptions"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	. "github.com/onsi/ginkgo/v2"
@@ -57,7 +57,7 @@ var _ = Describe("[plugin] buggify crash-loop process groups command", func() {
 				DescribeTable("should add all targeted process groups to crash-loop container list",
 					func(tc processGroupOptionsTestCase) {
 						Expect(cluster.Spec.Buggify.CrashLoopContainers).To(HaveLen(0))
-						cmd := newBuggifyCrashLoop(genericclioptions.IOStreams{})
+						cmd := newBuggifyCrashLoop(genericiooptions.IOStreams{})
 						opts := buggifyProcessGroupOptions{
 							containerName: fdbv1beta2.MainContainerName,
 							wait:          false,
@@ -229,7 +229,7 @@ var _ = Describe("[plugin] buggify crash-loop process groups command", func() {
 				DescribeTable("should add all targeted process groups to crash-loop container list",
 					func(tc testCase) {
 						Expect(cluster.Spec.Buggify.CrashLoopContainers).To(HaveLen(1))
-						cmd := newBuggifyCrashLoop(genericclioptions.IOStreams{})
+						cmd := newBuggifyCrashLoop(genericiooptions.IOStreams{})
 						opts := buggifyProcessGroupOptions{
 							containerName: fdbv1beta2.MainContainerName,
 							wait:          false,
@@ -310,7 +310,7 @@ var _ = Describe("[plugin] buggify crash-loop process groups command", func() {
 				DescribeTable("should add all targeted processes to crash-loop container list",
 					func(tc testCase) {
 						Expect(cluster.Spec.Buggify.CrashLoopContainers).To(HaveLen(1))
-						cmd := newBuggifyCrashLoop(genericclioptions.IOStreams{})
+						cmd := newBuggifyCrashLoop(genericiooptions.IOStreams{})
 						opts := buggifyProcessGroupOptions{
 							containerName: fdbv1beta2.MainContainerName,
 							wait:          false,
@@ -391,7 +391,7 @@ var _ = Describe("[plugin] buggify crash-loop process groups command", func() {
 				"should remove all targeted process groups from crash-loop container list",
 				func(tc testCase) {
 					Expect(cluster.Spec.Buggify.CrashLoopContainers).To(HaveLen(1))
-					cmd := newBuggifyCrashLoop(genericclioptions.IOStreams{})
+					cmd := newBuggifyCrashLoop(genericiooptions.IOStreams{})
 					opts := buggifyProcessGroupOptions{
 						containerName: fdbv1beta2.MainContainerName,
 						wait:          false,
@@ -470,7 +470,7 @@ var _ = Describe("[plugin] buggify crash-loop process groups command", func() {
 
 			It("should clear everything from the crash-loop container-list", func() {
 				Expect(cluster.Spec.Buggify.CrashLoopContainers).To(HaveLen(1))
-				cmd := newBuggifyCrashLoop(genericclioptions.IOStreams{})
+				cmd := newBuggifyCrashLoop(genericiooptions.IOStreams{})
 				opts := buggifyProcessGroupOptions{
 					containerName: fdbv1beta2.MainContainerName,
 					wait:          false,
@@ -500,7 +500,7 @@ var _ = Describe("[plugin] buggify crash-loop process groups command", func() {
 			})
 			It("should error if no cluster name is provided", func() {
 				Expect(cluster.Spec.Buggify.CrashLoopContainers).To(HaveLen(1))
-				cmd := newBuggifyCrashLoop(genericclioptions.IOStreams{})
+				cmd := newBuggifyCrashLoop(genericiooptions.IOStreams{})
 				opts := buggifyProcessGroupOptions{
 					containerName: fdbv1beta2.MainContainerName,
 					wait:          false,

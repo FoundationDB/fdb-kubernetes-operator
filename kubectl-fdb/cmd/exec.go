@@ -26,12 +26,12 @@ import (
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	kubeHelper "github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/kubernetes"
 	"github.com/spf13/cobra"
-	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/cli-runtime/pkg/genericiooptions"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func newExecCmd(streams genericclioptions.IOStreams) *cobra.Command {
+func newExecCmd(streams genericiooptions.IOStreams) *cobra.Command {
 	o := newFDBOptions(streams)
 
 	cmd := &cobra.Command{
