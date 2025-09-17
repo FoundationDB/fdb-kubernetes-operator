@@ -59,13 +59,10 @@ func (factory *Factory) CreateRestoreForCluster(
 				DestinationClusterName: backup.fdbCluster.Name(),
 				BlobStoreConfiguration: backup.backup.Spec.BlobStoreConfiguration,
 				CustomParameters:       backup.backup.Spec.CustomParameters,
+				BackupVersion:          backupVersion,
 			},
 		},
 		fdbCluster: backup.fdbCluster,
-	}
-
-	if backupVersion != nil {
-		restore.Spec.BackupVersion = backupVersion
 	}
 
 	gomega.Expect(factory.CreateIfAbsent(restore.restore)).NotTo(gomega.HaveOccurred())

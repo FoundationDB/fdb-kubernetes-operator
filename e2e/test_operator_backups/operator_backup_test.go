@@ -117,17 +117,26 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 				)
 				backup.Stop()
 				fdbCluster.ClearRange([]byte{prefix}, 60)
-				restore = factory.CreateRestoreForCluster(backup, ptr.To(restorableVersion))
 			})
 
-			It("should restore the cluster successfully", func() {
-				Expect(fdbCluster.GetRange([]byte{prefix}, 25, 60)).Should(Equal(keyValues))
+			When("no restorable version is specified", func() {
+				BeforeEach(func() {
+					restore = factory.CreateRestoreForCluster(backup, nil)
+				})
+
+				It("should restore the cluster successfully with a restorable version", func() {
+					Expect(fdbCluster.GetRange([]byte{prefix}, 25, 60)).Should(Equal(keyValues))
+				})
 			})
 
-			It("should restore the cluster successfully with a restorable version", func() {
-				fdbCluster.ClearRange([]byte{prefix}, 60)
-				factory.CreateRestoreForCluster(backup, ptr.To(restorableVersion))
-				Expect(fdbCluster.GetRange([]byte{prefix}, 25, 60)).Should(Equal(keyValues))
+			When("using a restorable version", func() {
+				BeforeEach(func() {
+					factory.CreateRestoreForCluster(backup, ptr.To(restorableVersion))
+				})
+
+				It("should restore the cluster successfully with a restorable version", func() {
+					Expect(fdbCluster.GetRange([]byte{prefix}, 25, 60)).Should(Equal(keyValues))
+				})
 			})
 		})
 
