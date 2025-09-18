@@ -80,6 +80,8 @@ type AdminClient struct {
 	mockError                                error
 	LagInfo                                  map[string]fdbv1beta2.FoundationDBStatusLagInfo
 	processesUnderMaintenance                map[fdbv1beta2.ProcessGroupID]int64
+	RunLoopBusy                              map[fdbv1beta2.ProcessGroupID]float64
+	ProcessMessages                          map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessMessage
 }
 
 var _ fdbadminclient.AdminClient = (*AdminClient)(nil)
@@ -136,6 +138,10 @@ func NewMockAdminClientUncast(
 				map[string]fdbv1beta2.FoundationDBStatusLagInfo,
 			),
 			processesUnderMaintenance: make(map[fdbv1beta2.ProcessGroupID]int64),
+			RunLoopBusy:               make(map[fdbv1beta2.ProcessGroupID]float64),
+			ProcessMessages: make(
+				map[fdbv1beta2.ProcessGroupID][]fdbv1beta2.FoundationDBStatusProcessMessage,
+			),
 		}
 		adminClientCache[cluster.Name] = cachedClient
 		cachedClient.Backups = make(map[string]fdbv1beta2.FoundationDBBackupStatusBackupDetails)
@@ -348,6 +354,8 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 				Version:          version,
 				UptimeSeconds:    uptimeSeconds,
 				Roles:            fdbRoles,
+				RunLoopBusy:      client.RunLoopBusy[processGroupID],
+				Messages:         client.ProcessMessages[processGroupID],
 			}
 		}
 	}

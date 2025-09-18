@@ -372,7 +372,7 @@ func checkAndSetProcessStatus(
 		return nil
 	}
 
-	var excluded, hasIncorrectCommandLine, hasMissingProcesses, sidecarUnreachable, hasIOError bool
+	var excluded, hasIncorrectCommandLine, hasMissingProcesses, sidecarUnreachable, hasIOError, hasHighRunLoopBusy bool
 	var substitutions map[string]string
 	var err error
 
@@ -436,6 +436,13 @@ func checkAndSetProcessStatus(
 				processGroupStatus.IsMarkedForRemoval() {
 				processGroupStatus.ExclusionSkipped = ok
 				excluded = true
+			}
+
+			// Check if the process has a high run loop busy value. If multiple processes are running inside this pod
+			// a one process with a high busy value will be enough to flag this process groups with the fdbv1beta2.ProcessHasHighRunLoopBusy
+			// condition.
+			if process.RunLoopBusy >= r.HighRunLoopBusyThreshold && !hasHighRunLoopBusy {
+				hasHighRunLoopBusy = true
 			}
 
 			if len(substitutions) == 0 {
@@ -519,6 +526,7 @@ func checkAndSetProcessStatus(
 
 	processGroupStatus.UpdateCondition(fdbv1beta2.ProcessIsMarkedAsExcluded, excluded)
 	processGroupStatus.UpdateCondition(fdbv1beta2.ProcessHasIOError, hasIOError)
+	processGroupStatus.UpdateCondition(fdbv1beta2.ProcessHasHighRunLoopBusy, hasHighRunLoopBusy)
 	// If the sidecar is unreachable we are not able to compute the desired commandline.
 	if sidecarUnreachable {
 		return nil

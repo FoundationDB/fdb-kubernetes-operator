@@ -198,6 +198,9 @@ type FoundationDBStatusProcessInfo struct {
 	// The time that the process has been up for.
 	UptimeSeconds float64 `json:"uptime_seconds,omitempty"`
 
+	// RunLoopBusy represents the busyness of the run loop of the fdbserver.
+	RunLoopBusy float64 `json:"run_loop_busy,omitempty"`
+
 	// Roles contains a slice of all roles of the process
 	Roles []FoundationDBStatusProcessRoleInfo `json:"roles,omitempty"`
 

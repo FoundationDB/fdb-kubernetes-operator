@@ -214,5 +214,6 @@ func createTestClusterReconciler() *FoundationDBClusterReconciler {
 		DatabaseClientProvider:       mock.DatabaseClientProvider{},
 		MaintenanceListStaleDuration: 4 * time.Hour,
 		MaintenanceListWaitDuration:  5 * time.Minute,
+		HighRunLoopBusyThreshold:     1.0,
 	}
 }

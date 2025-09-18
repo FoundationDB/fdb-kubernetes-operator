@@ -68,16 +68,20 @@ type FoundationDBClusterList struct {
 	Items           []FoundationDBCluster `json:"items"`
 }
 
-var conditionsThatNeedReplacement = []ProcessGroupConditionType{
-	MissingProcesses,
-	PodFailing,
-	MissingPod,
-	MissingPVC,
-	MissingService,
-	PodPending,
-	NodeTaintReplacing,
-	ProcessIsMarkedAsExcluded,
-	ProcessHasIOError,
+// TODO (johscheuer): I think it would make sense to expose this as a setting in the FoundationDBCluster automation options
+// that way users can define what conditions should be used for the replacement logic.
+var defaultConditionsThatNeedReplacement = map[ProcessGroupConditionType]None{
+	MissingProcesses:          {},
+	PodFailing:                {},
+	MissingPod:                {},
+	MissingPVC:                {},
+	MissingService:            {},
+	PodPending:                {},
+	NodeTaintReplacing:        {},
+	ProcessIsMarkedAsExcluded: {},
+	ProcessHasIOError:         {},
+	SidecarUnreachable:        {},
+	ProcessHasHighRunLoopBusy: {},
 }
 
 const (
@@ -547,12 +551,13 @@ func (processGroupStatus *ProcessGroupStatus) GetPvcName(cluster *FoundationDBCl
 	return fmt.Sprintf("%s-data", processGroupStatus.GetPodName(cluster))
 }
 
-// NeedsReplacement checks if the ProcessGroupStatus has conditions that require a replacement of the failed Process Group.
+// NeedsReplacementWithConditions checks if the ProcessGroupStatus has conditions that require a replacement of the failed Process Group.
 // The method will return the failure condition and the timestamp. If no failure is detected an empty condition and a 0
-// will be returned.
-func (processGroupStatus *ProcessGroupStatus) NeedsReplacement(
+// will be returned. The conditions that should trigger a replacement can be passed to this method.
+func (processGroupStatus *ProcessGroupStatus) NeedsReplacementWithConditions(
 	failureTime int,
 	taintReplacementTime int,
+	conditionsThatNeedReplacement map[ProcessGroupConditionType]None,
 ) (ProcessGroupConditionType, int64) {
 	var earliestFailureTime int64 = math.MaxInt64
 	var earliestTaintReplacementTime int64 = math.MaxInt64
@@ -563,30 +568,38 @@ func (processGroupStatus *ProcessGroupStatus) NeedsReplacement(
 	}
 
 	var failureCondition ProcessGroupConditionType
-	for _, conditionType := range conditionsThatNeedReplacement {
-		conditionTimePtr := processGroupStatus.GetConditionTime(conditionType)
-		if conditionTimePtr == nil {
+
+	// Iterate over all the conditions that the process group has, under normal circumstances the process group
+	// should have no oder a minimal set of conditions. If any of the condition is part of the conditionsThatNeedReplacement
+	// check how long the condition is present and check if the process group should be replaced.
+	var hasConditionThatRequiresReplacement bool
+	for _, condition := range processGroupStatus.ProcessGroupConditions {
+		_, ok := conditionsThatNeedReplacement[condition.ProcessGroupConditionType]
+		if !ok {
 			continue
 		}
 
-		conditionTime := *conditionTimePtr
-		if conditionType == NodeTaintReplacing {
-			if earliestTaintReplacementTime > conditionTime {
-				earliestTaintReplacementTime = conditionTime
+		hasConditionThatRequiresReplacement = true
+		if condition.ProcessGroupConditionType == NodeTaintReplacing {
+			if earliestTaintReplacementTime > condition.Timestamp {
+				earliestTaintReplacementTime = condition.Timestamp
 			}
 
-			failureCondition = conditionType
+			failureCondition = condition.ProcessGroupConditionType
 			continue
 		}
 
-		if earliestFailureTime > conditionTime {
-			earliestFailureTime = conditionTime
-			failureCondition = conditionType
+		if earliestFailureTime > condition.Timestamp {
+			earliestFailureTime = condition.Timestamp
+			failureCondition = condition.ProcessGroupConditionType
 		}
 	}
 
-	failureWindowStart := time.Now().Add(-1 * time.Duration(failureTime) * time.Second).Unix()
-	if earliestFailureTime < failureWindowStart {
+	if !hasConditionThatRequiresReplacement {
+		return "", 0
+	}
+
+	if earliestFailureTime < time.Now().Add(-1*time.Duration(failureTime)*time.Second).Unix() {
 		return failureCondition, earliestFailureTime
 	}
 
@@ -599,6 +612,21 @@ func (processGroupStatus *ProcessGroupStatus) NeedsReplacement(
 
 	// No failure detected.
 	return "", 0
+}
+
+// NeedsReplacement checks if the ProcessGroupStatus has conditions that require a replacement of the failed Process Group.
+// The method will return the failure condition and the timestamp. If no failure is detected an empty condition and a 0
+// will be returned.
+// Deprecated: Use NeedsReplacementWithConditions.
+func (processGroupStatus *ProcessGroupStatus) NeedsReplacement(
+	failureTime int,
+	taintReplacementTime int,
+) (ProcessGroupConditionType, int64) {
+	return processGroupStatus.NeedsReplacementWithConditions(
+		failureTime,
+		taintReplacementTime,
+		defaultConditionsThatNeedReplacement,
+	)
 }
 
 // AddAddresses adds the new address to the ProcessGroupStatus and removes duplicates and old addresses
@@ -1071,6 +1099,9 @@ const (
 	// This condition can occur during the migration of the image type, the change of the image configuration
 	// for the sidecar or during version incompatible upgrades until the sidecar is updated to the new desired version.
 	IncorrectSidecarImage ProcessGroupConditionType = "IncorrectSidecarImage"
+	// ProcessHasHighRunLoopBusy represents a process group that has a high run loop busy value. A high run loop busy
+	// value can be caused by infrastructure issues or by overloaded processes.
+	ProcessHasHighRunLoopBusy ProcessGroupConditionType = "ProcessHasHighRunLoopBusy"
 )
 
 // AllProcessGroupConditionTypes returns all ProcessGroupConditionType
@@ -1093,6 +1124,7 @@ func AllProcessGroupConditionTypes() []ProcessGroupConditionType {
 		ProcessIsMarkedAsExcluded,
 		ProcessHasIOError,
 		IncorrectSidecarImage,
+		ProcessHasHighRunLoopBusy,
 	}
 }
 
@@ -1137,6 +1169,8 @@ func GetProcessGroupConditionType(
 		return ProcessHasIOError, nil
 	case "IncorrectSidecarImage":
 		return IncorrectSidecarImage, nil
+	case "ProcessHasHighRunLoopBusy":
+		return ProcessHasHighRunLoopBusy, nil
 	}
 
 	return "", fmt.Errorf("unknown process group condition type: %s", processGroupConditionType)
@@ -1759,7 +1793,14 @@ func (cluster *FoundationDBCluster) CheckReconciliation(log logr.Logger) (bool, 
 				0,
 				len(processGroup.ProcessGroupConditions),
 			)
+
 			for _, condition := range processGroup.ProcessGroupConditions {
+				// The ProcessHasHighRunLoopBusy is currently only informational and shouldn't block the reconciliation.
+				if condition.ProcessGroupConditionType == ProcessHasHighRunLoopBusy {
+					logger.V(1).
+						Info("Detected process with high run loop busy value", "processGroupID", processGroup.ProcessGroupID)
+				}
+
 				// If there is at least one process with an incorrect command line, that means the operator has to restart
 				// processes.
 				if condition.ProcessGroupConditionType == IncorrectCommandLine &&
@@ -1780,18 +1821,20 @@ func (cluster *FoundationDBCluster) CheckReconciliation(log logr.Logger) (bool, 
 				conditions = append(conditions, condition.ProcessGroupConditionType)
 			}
 
-			logger.Info(
-				"Has unhealthy process group",
-				"processGroupID",
-				processGroup.ProcessGroupID,
-				"state",
-				"HasUnhealthyProcess",
-				"conditions",
-				conditions,
-			)
-			cluster.Status.Generations.HasUnhealthyProcess = cluster.Generation
-			reconciled = false
-			continue
+			if len(conditions) > 0 {
+				logger.Info(
+					"Has unhealthy process group",
+					"processGroupID",
+					processGroup.ProcessGroupID,
+					"state",
+					"HasUnhealthyProcess",
+					"conditions",
+					conditions,
+				)
+				cluster.Status.Generations.HasUnhealthyProcess = cluster.Generation
+				reconciled = false
+				continue
+			}
 		}
 
 		cluster.Status.ReconciledProcessGroups++
@@ -3608,4 +3651,9 @@ func (cluster *FoundationDBCluster) GetDatabaseInteractionMode() DatabaseInterac
 	}
 
 	return *cluster.Spec.AutomationOptions.DatabaseInteractionMode
+}
+
+// GetConditionsThatNeedReplacement returns the conditions that should trigger a replacement.
+func (cluster *FoundationDBCluster) GetConditionsThatNeedReplacement() map[ProcessGroupConditionType]None {
+	return defaultConditionsThatNeedReplacement
 }
