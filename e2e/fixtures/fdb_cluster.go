@@ -1740,10 +1740,10 @@ func (fdbCluster *FdbCluster) ClearRange(prefixBytes []byte, timeout int) {
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	end := FdbPrintable(endBytes)
 	_, stderr, err := fdbCluster.RunFdbCliCommandInOperatorWithoutRetry(fmt.Sprintf(
-		"writemode on; clearrange %s %s",
+		"writemode on; option on ACCESS_SYSTEM_KEYS; clearrange %s %s",
 		begin,
 		end,
-	), false, timeout)
+	), true, timeout)
 
 	gomega.Expect(err).NotTo(gomega.HaveOccurred(), stderr)
 }
@@ -1811,7 +1811,7 @@ func (fdbCluster *FdbCluster) GenerateRandomValues(
 	for i := 0; i < n; i++ {
 		res = append(res, KeyValue{
 			Key:   append([]byte{prefix}, index...),
-			Value: []byte(fdbCluster.factory.RandStringRunes(4)),
+			Value: []byte(fdbCluster.factory.RandStringRunes(24)),
 		})
 		index, err = FdbStrinc(index)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())

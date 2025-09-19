@@ -62,12 +62,8 @@ var _ = BeforeSuite(func() {
 		Skip("Skip backup tests with 7.1.63 as this version has a bug in the fdbbackup agent")
 	}
 
-	fdbCluster = factory.CreateFdbCluster(
-		fixtures.DefaultClusterConfig(false),
-	)
-
-	// Create a blobstore for testing backups and restore
-	factory.CreateBlobstoreIfAbsent(fdbCluster.Namespace())
+	// Create a blobstore for testing backups and restore.
+	factory.CreateBlobstoreIfAbsent(factory.SingleNamespace())
 })
 
 var _ = AfterSuite(func() {
@@ -82,14 +78,29 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 		var keyValues []fixtures.KeyValue
 		var prefix byte = 'a'
 		var backup *fixtures.FdbBackup
-		// Delete the backup resource after each test. Note that this will not delete the data
-		// in the backup store.
+		var restore *fixtures.FdbRestore
+
+		BeforeEach(func() {
+			fdbCluster = factory.CreateFdbCluster(
+				fixtures.DefaultClusterConfig(false),
+			)
+		})
+
+		// Delete the backup and restore resource after each test. And make sure that the data in the cluster is cleared.
 		AfterEach(func() {
-			backup.Destroy()
+			if backup != nil {
+				backup.Destroy()
+			}
+			if restore != nil {
+				restore.Destroy()
+			}
+
+			// Delete the FDB cluster to have a clean start.
+			Expect(fdbCluster.Destroy()).To(Succeed())
 		})
 
 		When("the default backup system is used", func() {
-			var restorableVersion *uint64
+			var restorableVersion uint64
 
 			BeforeEach(func() {
 				log.Println("creating backup for cluster")
@@ -101,39 +112,55 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 				)
 				keyValues = fdbCluster.GenerateRandomValues(10, prefix)
 				fdbCluster.WriteKeyValues(keyValues)
-				tmpRestorableVersion := backup.WaitForRestorableVersion(
+				restorableVersion = backup.WaitForRestorableVersion(
 					fdbCluster.GetClusterVersion(),
 				)
-				restorableVersion = &tmpRestorableVersion
 				backup.Stop()
-			})
-
-			AfterEach(func() {
-				restorableVersion = nil
-			})
-
-			It("should restore the cluster successfully", func() {
 				fdbCluster.ClearRange([]byte{prefix}, 60)
-				factory.CreateRestoreForCluster(backup, nil)
-				Expect(fdbCluster.GetRange([]byte{prefix}, 25, 60)).Should(Equal(keyValues))
 			})
 
-			PIt("should restore the cluster successfully with a restorable version", func() {
-				fdbCluster.ClearRange([]byte{prefix}, 60)
-				factory.CreateRestoreForCluster(backup, restorableVersion)
-				Expect(fdbCluster.GetRange([]byte{prefix}, 25, 60)).Should(Equal(keyValues))
+			When("no restorable version is specified", func() {
+				BeforeEach(func() {
+					restore = factory.CreateRestoreForCluster(backup, nil)
+				})
+
+				It("should restore the cluster successfully with a restorable version", func() {
+					Expect(fdbCluster.GetRange([]byte{prefix}, 25, 60)).Should(Equal(keyValues))
+				})
+			})
+
+			// TODO (johscheuer): Enable test once the CRD in CI is updated.
+			PWhen("using a restorable version", func() {
+				BeforeEach(func() {
+					factory.CreateRestoreForCluster(backup, ptr.To(restorableVersion))
+				})
+
+				It("should restore the cluster successfully with a restorable version", func() {
+					Expect(fdbCluster.GetRange([]byte{prefix}, 25, 60)).Should(Equal(keyValues))
+				})
 			})
 		})
 
-		PWhen("the partitioned backup system is used", func() {
+		When("the partitioned backup system is used", func() {
 			BeforeEach(func() {
+				// Versions before 7.4 have a few issues and will not work properly with the experimental feature.
+				requiredFdbVersion, err := fdbv1beta2.ParseFdbVersion("7.4.0")
+				Expect(err).NotTo(HaveOccurred())
+
+				version := factory.GetFDBVersion()
+				if !version.IsAtLeast(requiredFdbVersion) {
+					Skip("version has a bug in the backup version that prevents tests to succeed")
+				}
 				log.Println("creating backup for cluster with partitioned log system")
 				// Add additional backup workers to the cluster. Those will be used by the partitioned backup system.
 				// The backup worker(not to be confused with the backup agent) will be used to back up the lof mutations.
 				// We still need the backup agents to back up the key ranges.
 				cluster := fdbCluster.GetCluster()
 				spec := cluster.Spec.DeepCopy()
-				spec.ProcessCounts.BackupWorker = 2
+				processCounts, err := cluster.GetProcessCountsWithDefaults()
+				Expect(err).NotTo(HaveOccurred())
+				// We should create the same count of backup worker as we create log processes.
+				spec.ProcessCounts.BackupWorker = processCounts.Log
 
 				// We take the spec from the general process class as the starting point.
 				generalProcessSpec := spec.Processes[fdbv1beta2.ProcessClassGeneral]

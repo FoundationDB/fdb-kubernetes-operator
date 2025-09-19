@@ -21,21 +21,21 @@
 package fixtures
 
 import (
-	ctx "context"
+	"context"
 	"fmt"
 	"log"
 	"time"
 
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-
-	"k8s.io/apimachinery/pkg/runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
-
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
 const (
@@ -108,7 +108,7 @@ func (factory *Factory) createNamespace(suffix string) string {
 
 		namespaceResource := &corev1.Namespace{}
 		err = factory.controllerRuntimeClient.Get(
-			ctx.Background(),
+			context.Background(),
 			client.ObjectKey{Namespace: "", Name: namespace},
 			namespaceResource,
 		)
@@ -162,16 +162,14 @@ func (factory *Factory) createNamespace(suffix string) string {
 	factory.AddShutdownHook(func() error {
 		log.Printf("finished all tests, start deleting namespace %s\n", namespace)
 
-		gomega.Eventually(func() error {
+		gomega.Eventually(func(g gomega.Gomega) {
 			podList := &corev1.PodList{}
 			err := factory.controllerRuntimeClient.List(
-				ctx.Background(),
+				context.Background(),
 				podList,
 				client.InNamespace(namespace),
 			)
-			if err != nil {
-				return err
-			}
+			g.Expect(err).NotTo(gomega.HaveOccurred())
 
 			for _, pod := range podList.Items {
 				if len(pod.Finalizers) > 0 {
@@ -180,8 +178,40 @@ func (factory *Factory) createNamespace(suffix string) string {
 				}
 			}
 
-			return nil
-		}).WithTimeout(2 * time.Minute).WithPolling(1 * time.Second).ShouldNot(gomega.HaveOccurred())
+			backupList := &fdbv1beta2.FoundationDBBackupList{}
+			err = factory.controllerRuntimeClient.List(
+				context.Background(),
+				backupList,
+				client.InNamespace(namespace),
+			)
+			g.Expect(err).NotTo(gomega.HaveOccurred())
+
+			for _, backup := range backupList.Items {
+				if len(backup.Finalizers) > 0 {
+					log.Printf("Removing finalizer from backup %s/%s\n", namespace, backup.Name)
+					gomega.Eventually(func(g gomega.Gomega) {
+						fetchedBackup := &fdbv1beta2.FoundationDBBackup{}
+						err = factory.controllerRuntimeClient.Get(
+							context.Background(),
+							client.ObjectKeyFromObject(ptr.To(backup)),
+							fetchedBackup,
+						)
+						if k8serrors.IsNotFound(err) {
+							return
+						}
+
+						g.Expect(err).NotTo(gomega.HaveOccurred())
+						if len(fetchedBackup.Finalizers) > 0 {
+							fetchedBackup.SetFinalizers([]string{})
+							g.Expect(factory.controllerRuntimeClient.Update(context.Background(), fetchedBackup)).
+								NotTo(gomega.HaveOccurred())
+						}
+
+						g.Expect(fetchedBackup.Finalizers).To(gomega.BeEmpty())
+					}).WithTimeout(1 * time.Minute).WithPolling(1 * time.Second).Should(gomega.Succeed())
+				}
+			}
+		}).WithTimeout(2 * time.Minute).WithPolling(1 * time.Second).Should(gomega.Succeed())
 
 		factory.Delete(&corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
@@ -201,7 +231,7 @@ func (factory *Factory) checkIfNamespaceIsTerminating(name string) error {
 	controllerClient := factory.GetControllerRuntimeClient()
 
 	namespace := &corev1.Namespace{}
-	err := controllerClient.Get(ctx.Background(), client.ObjectKey{Name: name}, namespace)
+	err := controllerClient.Get(context.Background(), client.ObjectKey{Name: name}, namespace)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil
@@ -229,7 +259,7 @@ func (factory *Factory) checkIfNamespaceIsTerminating(name string) error {
 		deletionTimestamp.String(),
 	)
 	podList := &corev1.PodList{}
-	err = controllerClient.List(ctx.Background(), podList, client.InNamespace(name))
+	err = controllerClient.List(context.Background(), podList, client.InNamespace(name))
 	if err != nil {
 		return err
 	}

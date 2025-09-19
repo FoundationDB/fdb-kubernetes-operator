@@ -235,7 +235,19 @@ func (fdbBackup *FdbBackup) WaitForRestorableVersion(version uint64) uint64 {
 		status := &fdbv1beta2.FoundationDBLiveBackupStatusState{}
 		g.Expect(json.Unmarshal([]byte(out), status)).NotTo(gomega.HaveOccurred())
 
-		log.Println("Backup status:", status)
+		var latestRestorableVersion uint64
+		if status.LatestRestorablePoint != nil {
+			latestRestorableVersion = ptr.Deref(status.LatestRestorablePoint.Version, 0)
+		}
+
+		log.Println(
+			"Backup status running:",
+			status.Running,
+			"restorable:",
+			ptr.Deref(status.Restorable, false),
+			"latestRestorablePoint:",
+			latestRestorableVersion,
+		)
 		g.Expect(ptr.Deref(status.Restorable, false)).To(gomega.BeTrue())
 		g.Expect(status.LatestRestorablePoint).NotTo(gomega.BeNil())
 
@@ -273,5 +285,13 @@ func (fdbBackup *FdbBackup) Destroy() {
 		}
 
 		g.Expect(err).NotTo(gomega.HaveOccurred())
+	}).WithTimeout(1 * time.Minute).WithPolling(1 * time.Second).To(gomega.Succeed())
+
+	// Ensure that the resource is removed.
+	gomega.Eventually(func(g gomega.Gomega) {
+		backup := &fdbv1beta2.FoundationDBBackup{}
+		err := fdbBackup.fdbCluster.getClient().
+			Get(context.Background(), client.ObjectKeyFromObject(fdbBackup.backup), backup)
+		g.Expect(k8serrors.IsNotFound(err)).To(gomega.BeTrue())
 	}).WithTimeout(10 * time.Minute).WithPolling(1 * time.Second).To(gomega.Succeed())
 }

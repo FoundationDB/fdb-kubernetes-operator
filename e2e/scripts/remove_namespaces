@@ -21,6 +21,11 @@ do
     fi
 
     echo "start deleting namespace ${ns}"
+    for backup in $(kubectl -n ${ns} get fdbbackup --no-headers -o name);
+    do
+      echo "Removing finalizer from ${backup} in namespace ${ns}"
+      kubectl -n ${ns} patch ${backup} -p '{"metadata":{"finalizers":null}}' --type=merge
+    done
 
     kubectl delete ns --ignore-not-found "${ns}"
   ) &
