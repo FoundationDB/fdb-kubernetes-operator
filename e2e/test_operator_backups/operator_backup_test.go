@@ -129,7 +129,8 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 				})
 			})
 
-			When("using a restorable version", func() {
+			// TODO (johscheuer): Enable test once the CRD in CI is updated.
+			PWhen("using a restorable version", func() {
 				BeforeEach(func() {
 					factory.CreateRestoreForCluster(backup, ptr.To(restorableVersion))
 				})
