@@ -250,6 +250,7 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 					processIndex,
 					processCount,
 					internal.GetImageType(&pod),
+					&pod,
 				)
 				if err != nil {
 					return nil, err

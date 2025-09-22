@@ -25,6 +25,8 @@ import (
 	"sort"
 	"strings"
 
+	corev1 "k8s.io/api/core/v1"
+
 	"k8s.io/utils/ptr"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
@@ -40,6 +42,7 @@ func GetStartCommand(
 	processNumber int,
 	processCount int,
 	imageType fdbv1beta2.ImageType,
+	currentPod *corev1.Pod,
 ) (string, error) {
 	substitutions, err := podClient.GetVariableSubstitutions()
 	if err != nil {
@@ -53,6 +56,7 @@ func GetStartCommand(
 		processNumber,
 		processCount,
 		imageType,
+		currentPod,
 	)
 }
 
@@ -64,12 +68,19 @@ func GetStartCommandWithSubstitutions(
 	processNumber int,
 	processCount int,
 	imageType fdbv1beta2.ImageType,
+	currentPod *corev1.Pod,
 ) (string, error) {
 	if substitutions == nil {
 		return "", nil
 	}
 
-	config := GetMonitorProcessConfiguration(cluster, processClass, processCount, imageType)
+	config := GetMonitorProcessConfiguration(
+		cluster,
+		processClass,
+		processCount,
+		imageType,
+		getIPFamilyFromPodIfPresent(currentPod),
+	)
 	extractPlaceholderEnvVars(substitutions, config.Arguments)
 
 	config.BinaryPath = fmt.Sprintf("%s/fdbserver", substitutions[fdbv1beta2.EnvNameBinaryDir])
@@ -105,12 +116,25 @@ func extractPlaceholderEnvVars(env map[string]string, arguments []monitorapi.Arg
 	}
 }
 
+// getIPFamilyFromPodIfPresent returns the Pod IP Family if present or nil if not present.
+func getIPFamilyFromPodIfPresent(pod *corev1.Pod) *int {
+	if pod != nil {
+		ipFamily, err := getIPFamilyFromPod(pod)
+		if err == nil {
+			return ptr.To(ipFamily)
+		}
+	}
+
+	return nil
+}
+
 // GetMonitorConf builds the monitor conf template
 func GetMonitorConf(
 	cluster *fdbv1beta2.FoundationDBCluster,
 	processClass fdbv1beta2.ProcessClass,
 	podClient podclient.FdbPodClient,
 	serversPerPod int,
+	currentPod *corev1.Pod,
 ) (string, error) {
 	if cluster.Status.ConnectionString == "" {
 		return "", nil
@@ -143,6 +167,7 @@ func GetMonitorConf(
 				substitutions,
 				i,
 				serversPerPod,
+				getIPFamilyFromPodIfPresent(currentPod),
 			)
 			if err != nil {
 				return "", err
@@ -160,6 +185,7 @@ func getMonitorConfStartCommandLines(
 	substitutions map[string]string,
 	processNumber int,
 	processCount int,
+	podIPFamily *int,
 ) ([]string, error) {
 	confLines := make([]string, 0, 20)
 
@@ -168,6 +194,7 @@ func getMonitorConfStartCommandLines(
 		processClass,
 		processCount,
 		fdbv1beta2.ImageTypeSplit,
+		podIPFamily,
 	)
 
 	if substitutions == nil {
@@ -205,6 +232,7 @@ func GetMonitorProcessConfiguration(
 	processClass fdbv1beta2.ProcessClass,
 	processCount int,
 	imageType fdbv1beta2.ImageType,
+	podIPFamily *int,
 ) monitorapi.ProcessConfiguration {
 	version, err := monitorapi.ParseFdbVersion(cluster.Spec.Version)
 	if err != nil {
@@ -230,6 +258,9 @@ func GetMonitorProcessConfiguration(
 		zoneVariable = fdbv1beta2.EnvNameZoneID
 	}
 
+	// currentPodIPFamily will reflect the current IP family of the Pod. If the Pod doesn't exist, we fall back
+	// to the default IP family defined on the cluster level.
+	currentPodIPFamily := ptr.Deref(podIPFamily, cluster.GetPodIPFamily())
 	sampleAddresses := cluster.GetFullAddressList(fdbv1beta2.EnvNamePublicIP, false, 1)
 	configuration.Arguments = append(
 		configuration.Arguments,
@@ -242,7 +273,7 @@ func GetMonitorProcessConfiguration(
 				fdbv1beta2.EnvNamePublicIP,
 				imageType,
 				sampleAddresses,
-				cluster.GetPodIPFamily(),
+				currentPodIPFamily,
 			),
 		},
 		monitorapi.Argument{Value: fmt.Sprintf("--class=%s", processClass)},
@@ -319,7 +350,7 @@ func GetMonitorProcessConfiguration(
 					fdbv1beta2.EnvNamePodIP,
 					imageType,
 					sampleAddresses,
-					cluster.GetPodIPFamily(),
+					currentPodIPFamily,
 				),
 			},
 		)
@@ -353,7 +384,7 @@ func GetMonitorProcessConfiguration(
 			ArgumentType: monitorapi.ConcatenateArgumentType,
 			Values: generateMonitorArgumentFromCustomParameter(
 				argument,
-				cluster.GetPodIPFamily(),
+				currentPodIPFamily,
 				imageType,
 			),
 		})

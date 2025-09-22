@@ -485,10 +485,13 @@ func GetSubstitutionsFromClusterAndPod(
 			return nil, fmt.Errorf("failed to parse IP from pod: %s", ipString)
 		}
 
-		if ip.To4() == nil {
+		// The unified image handles this case in the right way. In the split image this logic would be handled by
+		// the sidecar when generating the monitor conf file.
+		if GetImageType(pod) == fdbv1beta2.ImageTypeSplit && ip.To4() == nil {
 			substitutions[fdbv1beta2.EnvNamePublicIP] = fmt.Sprintf("[%s]", ipString)
 		}
 	}
+
 	substitutions[fdbv1beta2.EnvNamePodIP] = substitutions[fdbv1beta2.EnvNamePublicIP]
 
 	if cluster.Spec.FaultDomain.Key == fdbv1beta2.NoneFaultDomainKey {

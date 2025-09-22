@@ -72,7 +72,13 @@ var _ = Describe("configmap_helper", func() {
 			})
 
 			It("should have the basic files", func() {
-				expectedConf, err := GetMonitorConf(cluster, fdbv1beta2.ProcessClassStorage, nil, 1)
+				expectedConf, err := GetMonitorConf(
+					cluster,
+					fdbv1beta2.ProcessClassStorage,
+					nil,
+					1,
+					nil,
+				)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(
@@ -102,6 +108,7 @@ var _ = Describe("configmap_helper", func() {
 					fdbv1beta2.ProcessClassStorage,
 					1,
 					fdbv1beta2.ImageTypeUnified,
+					nil,
 				)
 				Expect(config).To(Equal(expectedConfig))
 			})
@@ -118,7 +125,13 @@ var _ = Describe("configmap_helper", func() {
 			})
 
 			It("includes the data for the split monitor conf", func() {
-				expectedConf, err := GetMonitorConf(cluster, fdbv1beta2.ProcessClassStorage, nil, 1)
+				expectedConf, err := GetMonitorConf(
+					cluster,
+					fdbv1beta2.ProcessClassStorage,
+					nil,
+					1,
+					nil,
+				)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(configMap.Data["fdbmonitor-conf-storage"]).To(Equal(expectedConf))
 			})
@@ -157,6 +170,7 @@ var _ = Describe("configmap_helper", func() {
 						fdbv1beta2.ProcessClassStorage,
 						nil,
 						1,
+						nil,
 					)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(configMap.Data["fdbmonitor-conf-storage"]).To(Equal(expectedConf))
@@ -166,6 +180,7 @@ var _ = Describe("configmap_helper", func() {
 						fdbv1beta2.ProcessClassStorage,
 						nil,
 						2,
+						nil,
 					)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(
@@ -192,6 +207,7 @@ var _ = Describe("configmap_helper", func() {
 						fdbv1beta2.ProcessClassStorage,
 						1,
 						fdbv1beta2.ImageTypeUnified,
+						nil,
 					)
 					Expect(config).To(Equal(expectedConfig))
 
@@ -205,6 +221,7 @@ var _ = Describe("configmap_helper", func() {
 						fdbv1beta2.ProcessClassStorage,
 						2,
 						fdbv1beta2.ImageTypeUnified,
+						nil,
 					)
 					Expect(config).To(Equal(expectedConfig))
 				})
@@ -221,11 +238,23 @@ var _ = Describe("configmap_helper", func() {
 					cluster.Status.ImageTypes = []fdbv1beta2.ImageType{"split"}
 				})
 				It("includes the data for both configurations", func() {
-					expectedConf, err := GetMonitorConf(cluster, fdbv1beta2.ProcessClassLog, nil, 1)
+					expectedConf, err := GetMonitorConf(
+						cluster,
+						fdbv1beta2.ProcessClassLog,
+						nil,
+						1,
+						nil,
+					)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(configMap.Data["fdbmonitor-conf-log"]).To(Equal(expectedConf))
 
-					expectedConf, err = GetMonitorConf(cluster, fdbv1beta2.ProcessClassLog, nil, 2)
+					expectedConf, err = GetMonitorConf(
+						cluster,
+						fdbv1beta2.ProcessClassLog,
+						nil,
+						2,
+						nil,
+					)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(configMap.Data["fdbmonitor-conf-log-density-2"]).To(Equal(expectedConf))
 				})
@@ -249,6 +278,7 @@ var _ = Describe("configmap_helper", func() {
 						fdbv1beta2.ProcessClassLog,
 						1,
 						fdbv1beta2.ImageTypeUnified,
+						nil,
 					)
 					Expect(config).To(Equal(expectedConfig))
 
@@ -262,6 +292,7 @@ var _ = Describe("configmap_helper", func() {
 						fdbv1beta2.ProcessClassLog,
 						2,
 						fdbv1beta2.ImageTypeUnified,
+						nil,
 					)
 					Expect(config).To(Equal(expectedConfig))
 				})

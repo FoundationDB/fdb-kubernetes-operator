@@ -66,7 +66,7 @@ func (e excludeProcesses) reconcile(
 	if status == nil {
 		status, err = adminClient.GetStatus()
 		if err != nil {
-			return &requeue{curError: err}
+			return &requeue{curError: err, delayedRequeue: true}
 		}
 	}
 
