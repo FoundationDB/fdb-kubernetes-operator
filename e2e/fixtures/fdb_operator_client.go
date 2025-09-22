@@ -621,12 +621,12 @@ func (factory *Factory) getOperatorConfig(namespace string) *operatorConfig {
 		BackupSecretName:        factory.GetBackupSecretName(),
 		EncryptionKeySecretName: factory.GetEncryptionKeySecretName(),
 		Namespace:               namespace,
-		SidecarVersions:       factory.GetSidecarConfigs(),
-		ImagePullPolicy:       factory.getImagePullPolicy(),
-		CPURequests:           cpuRequests,
-		MemoryRequests:        MemoryRequests,
-		User:                  factory.options.username,
-		EnableServerSideApply: factory.options.featureOperatorServerSideApply,
+		SidecarVersions:         factory.GetSidecarConfigs(),
+		ImagePullPolicy:         factory.getImagePullPolicy(),
+		CPURequests:             cpuRequests,
+		MemoryRequests:          MemoryRequests,
+		User:                    factory.options.username,
+		EnableServerSideApply:   factory.options.featureOperatorServerSideApply,
 	}
 }
 
