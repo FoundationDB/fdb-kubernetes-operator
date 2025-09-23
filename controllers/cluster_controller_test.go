@@ -353,7 +353,9 @@ var _ = Describe("cluster_controller", func() {
 
 			It("should update the pods and the status", func() {
 				pods := &corev1.PodList{}
-				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+				Expect(
+					k8sClient.List(context.TODO(), pods, getListOptions(cluster)...),
+				).To(Succeed())
 				Expect(len(pods.Items)).To(Equal(len(originalPods.Items)))
 
 				for _, pod := range pods.Items {
@@ -368,6 +370,27 @@ var _ = Describe("cluster_controller", func() {
 				}
 
 				Expect(cluster.Status.ImageTypes).To(Equal([]fdbv1beta2.ImageType{"unified"}))
+			})
+
+			When("converting a cluster to use IPv6", func() {
+				BeforeEach(func() {
+					generationGap = 2
+					// There is a bug in the fake client that when updating the status the spec is updated.
+					cluster.Spec.Routing.PodIPFamily = ptr.To(6)
+					Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
+				})
+
+				It("should converge the cluster", func() {
+					adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
+					Expect(err).To(Succeed())
+
+					status, err := adminClient.GetStatus()
+					Expect(err).To(Succeed())
+					for _, process := range status.Cluster.Processes {
+						Expect(net.IsIPv6(process.Address.IPAddress)).To(BeTrue())
+					}
+					Expect(cluster.Status.ImageTypes).To(Equal([]fdbv1beta2.ImageType{"unified"}))
+				})
 			})
 		})
 
@@ -3303,6 +3326,7 @@ var _ = Describe("cluster_controller", func() {
 					fdbv1beta2.ProcessClassTest,
 					nil,
 					cluster.GetStorageServersPerPod(),
+					nil,
 				)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -3336,6 +3360,7 @@ var _ = Describe("cluster_controller", func() {
 					fdbv1beta2.ProcessClassStorage,
 					nil,
 					cluster.GetStorageServersPerPod(),
+					nil,
 				)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -3370,6 +3395,7 @@ var _ = Describe("cluster_controller", func() {
 					fdbv1beta2.ProcessClassStorage,
 					nil,
 					cluster.GetStorageServersPerPod(),
+					nil,
 				)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -3419,6 +3445,7 @@ var _ = Describe("cluster_controller", func() {
 					fdbv1beta2.ProcessClassLog,
 					nil,
 					cluster.GetLogServersPerPod(),
+					nil,
 				)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -3464,7 +3491,13 @@ var _ = Describe("cluster_controller", func() {
 			BeforeEach(func() {
 				source := fdbv1beta2.PublicIPSourcePod
 				cluster.Spec.Routing.PublicIPSource = &source
-				conf, err = internal.GetMonitorConf(cluster, fdbv1beta2.ProcessClassStorage, nil, 1)
+				conf, err = internal.GetMonitorConf(
+					cluster,
+					fdbv1beta2.ProcessClassStorage,
+					nil,
+					1,
+					nil,
+				)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -3495,7 +3528,13 @@ var _ = Describe("cluster_controller", func() {
 				source := fdbv1beta2.PublicIPSourceService
 				cluster.Spec.Routing.PublicIPSource = &source
 				cluster.Status.HasListenIPsForAllPods = true
-				conf, err = internal.GetMonitorConf(cluster, fdbv1beta2.ProcessClassStorage, nil, 1)
+				conf, err = internal.GetMonitorConf(
+					cluster,
+					fdbv1beta2.ProcessClassStorage,
+					nil,
+					1,
+					nil,
+				)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -3529,6 +3568,7 @@ var _ = Describe("cluster_controller", func() {
 						fdbv1beta2.ProcessClassStorage,
 						nil,
 						1,
+						nil,
 					)
 					Expect(err).NotTo(HaveOccurred())
 				})
@@ -3566,6 +3606,7 @@ var _ = Describe("cluster_controller", func() {
 					fdbv1beta2.ProcessClassStorage,
 					nil,
 					cluster.GetStorageServersPerPod(),
+					nil,
 				)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -3603,6 +3644,7 @@ var _ = Describe("cluster_controller", func() {
 					fdbv1beta2.ProcessClassStorage,
 					nil,
 					cluster.GetStorageServersPerPod(),
+					nil,
 				)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -3640,6 +3682,7 @@ var _ = Describe("cluster_controller", func() {
 					fdbv1beta2.ProcessClassStorage,
 					nil,
 					cluster.GetStorageServersPerPod(),
+					nil,
 				)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -3681,6 +3724,7 @@ var _ = Describe("cluster_controller", func() {
 						fdbv1beta2.ProcessClassStorage,
 						nil,
 						cluster.GetStorageServersPerPod(),
+						nil,
 					)
 					Expect(err).NotTo(HaveOccurred())
 				})
@@ -3732,6 +3776,7 @@ var _ = Describe("cluster_controller", func() {
 						fdbv1beta2.ProcessClassStorage,
 						nil,
 						cluster.GetStorageServersPerPod(),
+						nil,
 					)
 					Expect(err).NotTo(HaveOccurred())
 				})
@@ -3771,6 +3816,7 @@ var _ = Describe("cluster_controller", func() {
 					fdbv1beta2.ProcessClassStorage,
 					nil,
 					cluster.GetStorageServersPerPod(),
+					nil,
 				)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -3806,6 +3852,7 @@ var _ = Describe("cluster_controller", func() {
 					fdbv1beta2.ProcessClassStorage,
 					nil,
 					cluster.GetStorageServersPerPod(),
+					nil,
 				)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -3841,6 +3888,7 @@ var _ = Describe("cluster_controller", func() {
 					fdbv1beta2.ProcessClassStorage,
 					nil,
 					cluster.GetStorageServersPerPod(),
+					nil,
 				)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -3876,6 +3924,7 @@ var _ = Describe("cluster_controller", func() {
 					fdbv1beta2.ProcessClassStorage,
 					nil,
 					cluster.GetStorageServersPerPod(),
+					nil,
 				)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -3910,6 +3959,7 @@ var _ = Describe("cluster_controller", func() {
 					fdbv1beta2.ProcessClassStorage,
 					nil,
 					cluster.GetStorageServersPerPod(),
+					nil,
 				)
 				Expect(err).NotTo(HaveOccurred())
 			})

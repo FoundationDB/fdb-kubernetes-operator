@@ -30,6 +30,8 @@ import (
 	"syscall"
 	"time"
 
+	"k8s.io/utils/ptr"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/podmanager"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -566,8 +568,15 @@ func (r *FoundationDBClusterReconciler) updatePodDynamicConf(
 		return false, err
 	}
 
-	var expectedConf string
+	var currentPodIPFamily *int
+	currentIPFamily, err := internal.GetIPFamily(pod)
+	if err != nil {
+		currentPodIPFamily = nil
+	} else {
+		currentPodIPFamily = ptr.To(currentIPFamily)
+	}
 
+	var expectedConf string
 	imageType := internal.GetImageType(pod)
 	if imageType == fdbv1beta2.ImageTypeUnified {
 		config := internal.GetMonitorProcessConfiguration(
@@ -575,6 +584,7 @@ func (r *FoundationDBClusterReconciler) updatePodDynamicConf(
 			processClass,
 			serversPerPod,
 			imageType,
+			currentPodIPFamily,
 		)
 		configData, err := json.Marshal(config)
 		if err != nil {
@@ -582,7 +592,7 @@ func (r *FoundationDBClusterReconciler) updatePodDynamicConf(
 		}
 		expectedConf = string(configData)
 	} else {
-		expectedConf, err = internal.GetMonitorConf(cluster, processClass, podClient, serversPerPod)
+		expectedConf, err = internal.GetMonitorConf(cluster, processClass, podClient, serversPerPod, pod)
 		if err != nil {
 			return false, err
 		}

@@ -456,6 +456,7 @@ func checkAndSetProcessStatus(
 				processNumber,
 				processCount,
 				imageType,
+				pod,
 			)
 			if err != nil {
 				return err
