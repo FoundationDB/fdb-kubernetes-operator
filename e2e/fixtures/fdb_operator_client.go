@@ -325,6 +325,9 @@ spec:
         - name: backup-credentials
           mountPath: /tmp/backup-credentials
           readOnly: true
+        - name: encryption-key
+          mountPath: /tmp/encryption-key
+          readOnly: true
       securityContext:
         fsGroup: 4059
         runAsGroup: 4059
@@ -339,6 +342,9 @@ spec:
       - name: backup-credentials
         secret:
           secretName: {{ .BackupSecretName }}
+      - name: encryption-key
+        secret:
+          secretName: {{ .EncryptionKeySecretName }}
       - name: fdb-certs
         secret:
           secretName: {{ .SecretName }}
@@ -459,6 +465,9 @@ spec:
         - name: backup-credentials
           mountPath: /tmp/backup-credentials
           readOnly: true
+        - name: encryption-key
+          mountPath: /tmp/encryption-key
+          readOnly: true
       securityContext:
         fsGroup: 4059
         runAsGroup: 4059
@@ -473,6 +482,9 @@ spec:
       - name: backup-credentials
         secret:
           secretName: {{ .BackupSecretName }}
+      - name: encryption-key
+        secret:
+          secretName: {{ .EncryptionKeySecretName }}
       - name: fdb-certs
         secret:
           secretName: {{ .SecretName }}
@@ -505,6 +517,8 @@ type operatorConfig struct {
 	SecretName string
 	// BackupSecretName represents the secret that should be used to communicate with the backup blobstore.
 	BackupSecretName string
+	// EncryptionKeySecretName represents the secret that contains the encryption key for backup operations.
+	EncryptionKeySecretName string
 	// SidecarVersions represents the sidecar configurations for different FoundationDB versions.
 	SidecarVersions []SidecarConfig
 	// Namespace represents the namespace for the Deployment and all associated resources
@@ -602,16 +616,17 @@ func (factory *Factory) getOperatorConfig(namespace string) *operatorConfig {
 	}
 
 	return &operatorConfig{
-		OperatorImage:         factory.GetOperatorImage(),
-		SecretName:            factory.GetSecretName(),
-		BackupSecretName:      factory.GetBackupSecretName(),
-		Namespace:             namespace,
-		SidecarVersions:       factory.GetSidecarConfigs(),
-		ImagePullPolicy:       factory.getImagePullPolicy(),
-		CPURequests:           cpuRequests,
-		MemoryRequests:        MemoryRequests,
-		User:                  factory.options.username,
-		EnableServerSideApply: factory.options.featureOperatorServerSideApply,
+		OperatorImage:           factory.GetOperatorImage(),
+		SecretName:              factory.GetSecretName(),
+		BackupSecretName:        factory.GetBackupSecretName(),
+		EncryptionKeySecretName: factory.GetEncryptionKeySecretName(),
+		Namespace:               namespace,
+		SidecarVersions:         factory.GetSidecarConfigs(),
+		ImagePullPolicy:         factory.getImagePullPolicy(),
+		CPURequests:             cpuRequests,
+		MemoryRequests:          MemoryRequests,
+		User:                    factory.options.username,
+		EnableServerSideApply:   factory.options.featureOperatorServerSideApply,
 	}
 }
 
