@@ -1374,7 +1374,6 @@ var _ = Describe("update_status", func() {
 
 	Describe("Reconcile", func() {
 		var cluster *fdbv1beta2.FoundationDBCluster
-		var err error
 		var requeue *requeue
 
 		BeforeEach(func() {
@@ -1404,8 +1403,6 @@ var _ = Describe("update_status", func() {
 			if requeue != nil {
 				Expect(requeue.curError).NotTo(HaveOccurred())
 			}
-			_, err = reloadCluster(cluster)
-			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("should mark the cluster as reconciled", func() {
@@ -1494,9 +1491,6 @@ var _ = Describe("update_status", func() {
 
 				Expect(adminClient.KillProcesses(addresses)).NotTo(HaveOccurred())
 				adminClient.VersionProcessGroups = versions
-
-				_, err = reloadCluster(cluster)
-				Expect(err).NotTo(HaveOccurred())
 			})
 
 			It("should update the incorrect sidecar image condition", func() {
