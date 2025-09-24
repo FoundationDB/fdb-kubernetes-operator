@@ -827,9 +827,11 @@ func (client *cliAdminClient) StartBackup(backup *fdbv1beta2.FoundationDBBackup)
 		"start",
 		"-d",
 		backup.BackupURL(),
-		"-s",
-		strconv.Itoa(backup.SnapshotPeriodSeconds()),
-		"-z",
+	}
+
+	// Add continuous backup flags only if backup mode is continuous.
+	if backup.GetBackupMode() == fdbv1beta2.BackupModeContinuous {
+		args = append(args, "-s", strconv.Itoa(backup.SnapshotPeriodSeconds()), "-z")
 	}
 
 	encryptionKeyPath, err := backup.GetEncryptionKey()
@@ -954,6 +956,7 @@ func (client *cliAdminClient) GetBackupStatus() (*fdbv1beta2.FoundationDBLiveBac
 
 	status := &fdbv1beta2.FoundationDBLiveBackupStatus{}
 	err = json.Unmarshal(statusBytes, &status)
+	client.log.V(1).Info("backup status", "status", string(statusBytes), "error", err)
 	if err != nil {
 		return nil, err
 	}

@@ -26,6 +26,10 @@ spec:
       jsonPath: .status.generations.reconciled
       name: Reconciled
       type: integer
+    - description: If the backup is restorable
+      jsonPath: .status.backupDetails.restorable
+      name: Restorable
+      type: boolean
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -65,6 +69,13 @@ spec:
                   namespace:
                     type: string
                 type: object
+              backupMode:
+                default: continuous
+                enum:
+                - continuous
+                - oneTime
+                maxLength: 64
+                type: string
               backupState:
                 enum:
                 - Running
@@ -3868,6 +3879,8 @@ spec:
               backupDetails:
                 properties:
                   paused:
+                    type: boolean
+                  restorable:
                     type: boolean
                   running:
                     type: boolean

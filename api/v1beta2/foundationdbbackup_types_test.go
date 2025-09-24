@@ -471,4 +471,52 @@ var _ = Describe("[api] FoundationDBBackup", func() {
 			),
 		)
 	})
+
+	When("testing backup mode functionality", func() {
+		Context("GetBackupMode method", func() {
+			It("should return continuous as default when BackupMode is nil", func() {
+				backup.Spec.BackupMode = nil
+				Expect(backup.GetBackupMode()).To(Equal(BackupModeContinuous))
+			})
+
+			It("should return continuous when explicitly set", func() {
+				mode := BackupModeContinuous
+				backup.Spec.BackupMode = &mode
+				Expect(backup.GetBackupMode()).To(Equal(BackupModeContinuous))
+			})
+
+			It("should return one-time when explicitly set", func() {
+				mode := BackupModeOneTime
+				backup.Spec.BackupMode = &mode
+				Expect(backup.GetBackupMode()).To(Equal(BackupModeOneTime))
+			})
+		})
+
+		Context("ShouldRun method for different backup modes", func() {
+			It("should run continuous backup by default", func() {
+				backup.Spec.BackupState = BackupStateRunning
+				Expect(backup.ShouldRun()).To(BeTrue())
+			})
+
+			It("should not run completed one-time backup", func() {
+				mode := BackupModeOneTime
+				backup.Spec.BackupMode = &mode
+				backup.Spec.BackupState = BackupStateRunning
+				backup.Status.BackupDetails = &FoundationDBBackupStatusBackupDetails{
+					Restorable: true,
+				}
+				Expect(backup.ShouldRun()).To(BeFalse())
+			})
+
+			It("should run uncompleted one-time backup", func() {
+				mode := BackupModeOneTime
+				backup.Spec.BackupMode = &mode
+				backup.Spec.BackupState = BackupStateRunning
+				backup.Status.BackupDetails = &FoundationDBBackupStatusBackupDetails{
+					Restorable: false,
+				}
+				Expect(backup.ShouldRun()).To(BeTrue())
+			})
+		})
+	})
 })

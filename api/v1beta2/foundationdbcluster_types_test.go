@@ -837,6 +837,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				Status: FoundationDBLiveBackupStatusState{
 					Running: true,
 				},
+				Restorable: ptr.To(false),
 			}))
 		})
 	})
