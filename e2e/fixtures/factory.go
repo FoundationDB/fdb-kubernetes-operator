@@ -22,6 +22,7 @@ package fixtures
 
 import (
 	"context"
+	cryptorand "crypto/rand"
 	"fmt"
 	"io"
 	"log"
@@ -39,6 +40,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/duration"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -130,6 +132,33 @@ func (factory *Factory) GetSecretName() string {
 // GetBackupSecretName returns the name of the backup secret.
 func (factory *Factory) GetBackupSecretName() string {
 	return "backup-credentials"
+}
+
+// GetEncryptionKeySecretName returns the name for the encryption key secret
+func (factory *Factory) GetEncryptionKeySecretName() string {
+	return "backup-encryption-key"
+}
+
+// CreateEncryptionKeySecret creates a 32-byte encryption key secret.
+func (factory *Factory) CreateEncryptionKeySecret(namespace string) {
+	secretName := factory.GetEncryptionKeySecretName()
+
+	// Create 32-byte encryption key.
+	key := make([]byte, 32)
+	_, err := cryptorand.Read(key)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretName,
+			Namespace: namespace,
+		},
+		Data: map[string][]byte{
+			"key.bin": key,
+		},
+	}
+
+	gomega.Expect(factory.CreateIfAbsent(secret)).NotTo(gomega.HaveOccurred())
 }
 
 func (factory *Factory) getConfig() *rest.Config {
@@ -783,6 +812,13 @@ func (factory *Factory) CreateIfAbsent(object client.Object) error {
 			client.ObjectKey{Namespace: object.GetNamespace(), Name: object.GetName()},
 			objectCopy,
 		)
+
+	if objectCopy.GetDeletionTimestamp() != nil {
+		return fmt.Errorf(
+			"resource is currently under deletion with deletion timestamp: %s",
+			objectCopy.GetDeletionTimestamp().String(),
+		)
+	}
 
 	if err != nil {
 		if k8serrors.IsNotFound(err) {

@@ -23,7 +23,7 @@ import (
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:shortName=fdbrestore
 // +kubebuilder:subresource:status
-// +kubebuilder:metadata:annotations="foundationdb.org/release=v2.13.0"
+// +kubebuilder:metadata:annotations="foundationdb.org/release=v2.14.0"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:printcolumn:name="State",type=string,JSONPath=`.status.state`
 // +kubebuilder:storageversion
@@ -65,6 +65,10 @@ type FoundationDBRestoreSpec struct {
 	// The path to the encryption key used to encrypt the backup.
 	// +kubebuilder:validation:MaxLength=4096
 	EncryptionKeyPath string `json:"encryptionKeyPath,omitempty"`
+
+	// Instead of the latest version the backup can be restored to, restore to the specified version.
+	// +nullable
+	BackupVersion *uint64 `json:"backupVersion,omitempty"`
 }
 
 // FoundationDBRestoreStatus describes the current status of the restore for a cluster.

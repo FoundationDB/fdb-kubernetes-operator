@@ -24,10 +24,9 @@ import (
 	"context"
 	"fmt"
 
-	"k8s.io/cli-runtime/pkg/genericclioptions"
-
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/cli-runtime/pkg/genericiooptions"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -47,7 +46,7 @@ var _ = Describe("[plugin] version command", func() {
 			inBuffer = bytes.Buffer{}
 
 			rootCmd := NewRootCmd(
-				genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer},
+				genericiooptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer},
 				&MockVersionChecker{},
 			)
 
@@ -184,7 +183,7 @@ var _ = Describe("[plugin] version command", func() {
 			inBuffer = bytes.Buffer{}
 
 			rootCmd := NewRootCmd(
-				genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer},
+				genericiooptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer},
 				&MockVersionChecker{MockedVersion: "2.0.0"},
 			)
 

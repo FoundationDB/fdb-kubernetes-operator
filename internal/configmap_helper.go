@@ -161,7 +161,7 @@ func getDataForMonitorConf(
 	pClass fdbv1beta2.ProcessClass,
 	serversPerPod int,
 ) (string, []byte, error) {
-	config := GetMonitorProcessConfiguration(cluster, pClass, serversPerPod, imageType)
+	config := GetMonitorProcessConfiguration(cluster, pClass, serversPerPod, imageType, nil)
 	jsonData, err := json.Marshal(config)
 	if err != nil {
 		return "", nil, err
@@ -181,7 +181,7 @@ func setMonitorConfForFilename(
 	if connectionString == "" {
 		data[filename] = ""
 	} else {
-		conf, err := GetMonitorConf(cluster, processClass, nil, serversPerPod)
+		conf, err := GetMonitorConf(cluster, processClass, nil, serversPerPod, nil)
 		if err != nil {
 			return err
 		}

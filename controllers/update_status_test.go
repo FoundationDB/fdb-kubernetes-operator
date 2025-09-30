@@ -22,6 +22,7 @@ package controllers
 
 import (
 	"context"
+	"math"
 	"time"
 
 	"k8s.io/utils/ptr"
@@ -567,6 +568,108 @@ var _ = Describe("update_status", func() {
 					incorrectProcesses,
 				).To(ConsistOf([]fdbv1beta2.ProcessGroupID{pickedProcessGroup.ProcessGroupID}))
 				Expect(cluster.Status.ProcessGroups).To(HaveLen(17))
+			})
+		})
+
+		When("a process group has an I/O error", func() {
+			BeforeEach(func() {
+				adminClient.ProcessMessages[pickedProcessGroup.ProcessGroupID] = []fdbv1beta2.FoundationDBStatusProcessMessage{
+					{
+						Time: float64(time.Now().Unix()),
+						Name: "io_error",
+						Type: "io_error",
+					},
+				}
+			})
+
+			It("should get the ProcessHasIOError condition", func() {
+				err := validateProcessGroups(
+					context.TODO(),
+					clusterReconciler,
+					cluster,
+					&cluster.Status,
+					processMap,
+					configMap,
+					logger,
+					"",
+				)
+				Expect(err).NotTo(HaveOccurred())
+
+				incorrectProcesses := fdbv1beta2.FilterByCondition(
+					cluster.Status.ProcessGroups,
+					fdbv1beta2.ProcessHasIOError,
+					false,
+				)
+				Expect(
+					incorrectProcesses,
+				).To(ConsistOf([]fdbv1beta2.ProcessGroupID{pickedProcessGroup.ProcessGroupID}))
+				Expect(cluster.Status.ProcessGroups).To(HaveLen(17))
+			})
+		})
+
+		When("a process group has a high run loop busy value", func() {
+			BeforeEach(func() {
+				adminClient.RunLoopBusy[pickedProcessGroup.ProcessGroupID] = 1.0
+			})
+
+			When("the operator should act on high process run loop busy values", func() {
+				BeforeEach(func() {
+					clusterReconciler.HighRunLoopBusyThreshold = 1.0
+				})
+
+				It("should get the ProcessIsMarkedAsExcluded condition", func() {
+					err := validateProcessGroups(
+						context.TODO(),
+						clusterReconciler,
+						cluster,
+						&cluster.Status,
+						processMap,
+						configMap,
+						logger,
+						"",
+					)
+					Expect(err).NotTo(HaveOccurred())
+
+					incorrectProcesses := fdbv1beta2.FilterByCondition(
+						cluster.Status.ProcessGroups,
+						fdbv1beta2.ProcessHasHighRunLoopBusy,
+						false,
+					)
+					Expect(
+						incorrectProcesses,
+					).To(ConsistOf([]fdbv1beta2.ProcessGroupID{pickedProcessGroup.ProcessGroupID}))
+					Expect(cluster.Status.ProcessGroups).To(HaveLen(17))
+				})
+			})
+
+			When("the operator should not act on high process run loop busy values", func() {
+				BeforeEach(func() {
+					clusterReconciler.HighRunLoopBusyThreshold = math.MaxFloat64
+				})
+
+				It("should get the ProcessIsMarkedAsExcluded condition", func() {
+					err := validateProcessGroups(
+						context.TODO(),
+						clusterReconciler,
+						cluster,
+						&cluster.Status,
+						processMap,
+						configMap,
+						logger,
+						"",
+					)
+					Expect(err).NotTo(HaveOccurred())
+
+					incorrectProcesses := fdbv1beta2.FilterByCondition(
+						cluster.Status.ProcessGroups,
+						fdbv1beta2.ProcessHasHighRunLoopBusy,
+						false,
+					)
+					Expect(
+						incorrectProcesses,
+					).To(BeEmpty())
+					Expect(cluster.Status.ProcessGroups).To(HaveLen(17))
+				})
 			})
 		})
 

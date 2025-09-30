@@ -24,16 +24,21 @@ import (
 	"os"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/kubectl-fdb/cmd"
+	"github.com/go-logr/logr"
 	"github.com/spf13/pflag"
-	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/cli-runtime/pkg/genericiooptions"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 func main() {
+	// Do not output the logs from the controller-runtime. We only use it as a client.
+	// Without this call we get a stack trace.
+	ctrl.SetLogger(logr.Discard())
 	flags := pflag.NewFlagSet("kubectl-fdb", pflag.ExitOnError)
 	pflag.CommandLine = flags
 	root := cmd.NewRootCmd(
-		genericclioptions.IOStreams{In: os.Stdin, Out: os.Stdout, ErrOut: os.Stderr},
+		genericiooptions.IOStreams{In: os.Stdin, Out: os.Stdout, ErrOut: os.Stderr},
 		&cmd.RealVersionChecker{},
 	)
 	if err := root.Execute(); err != nil {

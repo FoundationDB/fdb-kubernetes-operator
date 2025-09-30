@@ -46,6 +46,8 @@ type FdbBackup struct {
 type FdbBackupConfiguration struct {
 	// BackupType defines the backup type that should be used for this backup.
 	BackupType *fdbv1beta2.BackupType
+	// EncryptionEnabled determines whether backup encryption should be used.
+	EncryptionEnabled bool
 }
 
 // CreateBackupForCluster will create a FoundationDBBackup for the provided cluster.
@@ -122,6 +124,11 @@ func (factory *Factory) CreateBackupForCluster(
 									ReadOnly:  true,
 									MountPath: "/tmp/backup-credentials",
 								},
+								{
+									Name:      "encryption-key",
+									ReadOnly:  true,
+									MountPath: "/tmp/encryption-key",
+								},
 							},
 						},
 					},
@@ -142,10 +149,23 @@ func (factory *Factory) CreateBackupForCluster(
 								},
 							},
 						},
+						{
+							Name: "encryption-key",
+							VolumeSource: corev1.VolumeSource{
+								Secret: &corev1.SecretVolumeSource{
+									SecretName: factory.GetEncryptionKeySecretName(),
+								},
+							},
+						},
 					},
 				},
 			},
 		},
+	}
+
+	// Set encryption key path only if encryption is enabled
+	if config.EncryptionEnabled {
+		backup.Spec.EncryptionKeyPath = "/tmp/encryption-key/key.bin"
 	}
 
 	gomega.Expect(factory.CreateIfAbsent(backup)).NotTo(gomega.HaveOccurred())
@@ -220,7 +240,8 @@ func (fdbBackup *FdbBackup) WaitForReconciliation() {
 }
 
 // WaitForRestorableVersion will wait until the back is restorable.
-func (fdbBackup *FdbBackup) WaitForRestorableVersion(version uint64) {
+func (fdbBackup *FdbBackup) WaitForRestorableVersion(version uint64) uint64 {
+	var restorableVersion uint64
 	gomega.Eventually(func(g gomega.Gomega) uint64 {
 		backupPod := fdbBackup.GetBackupPod()
 		out, _, err := fdbBackup.fdbCluster.ExecuteCmdOnPod(
@@ -234,12 +255,25 @@ func (fdbBackup *FdbBackup) WaitForRestorableVersion(version uint64) {
 		status := &fdbv1beta2.FoundationDBLiveBackupStatusState{}
 		g.Expect(json.Unmarshal([]byte(out), status)).NotTo(gomega.HaveOccurred())
 
-		log.Println("Backup status:", status)
+		var latestRestorableVersion uint64
+		if status.LatestRestorablePoint != nil {
+			latestRestorableVersion = ptr.Deref(status.LatestRestorablePoint.Version, 0)
+		}
+
+		log.Println(
+			"Backup status running:",
+			status.Running,
+			"restorable:",
+			ptr.Deref(status.Restorable, false),
+			"latestRestorablePoint:",
+			latestRestorableVersion,
+		)
 		g.Expect(ptr.Deref(status.Restorable, false)).To(gomega.BeTrue())
 		g.Expect(status.LatestRestorablePoint).NotTo(gomega.BeNil())
 
 		return ptr.Deref(status.LatestRestorablePoint.Version, 0)
 	}).WithTimeout(10*time.Minute).WithPolling(2*time.Second).Should(gomega.BeNumerically(">", version), "error waiting for restorable version")
+	return restorableVersion
 }
 
 // GetBackupPod returns a random backup Pod for the provided backup.
@@ -271,5 +305,13 @@ func (fdbBackup *FdbBackup) Destroy() {
 		}
 
 		g.Expect(err).NotTo(gomega.HaveOccurred())
+	}).WithTimeout(1 * time.Minute).WithPolling(1 * time.Second).To(gomega.Succeed())
+
+	// Ensure that the resource is removed.
+	gomega.Eventually(func(g gomega.Gomega) {
+		backup := &fdbv1beta2.FoundationDBBackup{}
+		err := fdbBackup.fdbCluster.getClient().
+			Get(context.Background(), client.ObjectKeyFromObject(fdbBackup.backup), backup)
+		g.Expect(k8serrors.IsNotFound(err)).To(gomega.BeTrue())
 	}).WithTimeout(10 * time.Minute).WithPolling(1 * time.Second).To(gomega.Succeed())
 }

@@ -62,6 +62,7 @@ var _ = Describe("monitor_conf", func() {
 					fdbv1beta2.ProcessClassStorage,
 					1,
 					fdbv1beta2.ImageTypeUnified,
+					nil,
 				)
 				Expect(config.RunServers).NotTo(BeNil())
 				Expect(*config.RunServers).To(BeFalse())
@@ -76,6 +77,7 @@ var _ = Describe("monitor_conf", func() {
 					fdbv1beta2.ProcessClassStorage,
 					1,
 					fdbv1beta2.ImageTypeUnified,
+					nil,
 				)
 				Expect(config.Version).To(Equal(&fdbv1beta2.Versions.Default.Version))
 				Expect(config.BinaryPath).To(BeEmpty())
@@ -150,6 +152,7 @@ var _ = Describe("monitor_conf", func() {
 					fdbv1beta2.ProcessClassLog,
 					1,
 					fdbv1beta2.ImageTypeUnified,
+					nil,
 				)
 				Expect(config.Version).To(Equal(&fdbv1beta2.Versions.Default.Version))
 				Expect(config.BinaryPath).To(BeEmpty())
@@ -167,6 +170,7 @@ var _ = Describe("monitor_conf", func() {
 					fdbv1beta2.ProcessClassStorage,
 					1,
 					fdbv1beta2.ImageTypeSplit,
+					nil,
 				)
 				Expect(config.Version).To(Equal(&fdbv1beta2.Versions.Default.Version))
 				Expect(config.BinaryPath).To(BeEmpty())
@@ -241,6 +245,7 @@ var _ = Describe("monitor_conf", func() {
 					fdbv1beta2.ProcessClassStorage,
 					2,
 					fdbv1beta2.ImageTypeUnified,
+					nil,
 				)
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength + 1))
 				Expect(
@@ -271,6 +276,7 @@ var _ = Describe("monitor_conf", func() {
 					fdbv1beta2.ProcessClassStorage,
 					2,
 					fdbv1beta2.ImageTypeUnified,
+					nil,
 				)
 				Expect(config.Arguments[6]).To(Equal(monitorapi.Argument{
 					ArgumentType: monitorapi.ConcatenateArgumentType,
@@ -294,6 +300,7 @@ var _ = Describe("monitor_conf", func() {
 					fdbv1beta2.ProcessClassStorage,
 					1,
 					fdbv1beta2.ImageTypeUnified,
+					nil,
 				)
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength))
 				Expect(
@@ -327,6 +334,7 @@ var _ = Describe("monitor_conf", func() {
 					fdbv1beta2.ProcessClassStorage,
 					1,
 					fdbv1beta2.ImageTypeUnified,
+					nil,
 				)
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength + 1))
 				Expect(
@@ -372,6 +380,7 @@ var _ = Describe("monitor_conf", func() {
 						fdbv1beta2.ProcessClassStorage,
 						1,
 						fdbv1beta2.ImageTypeUnified,
+						nil,
 					)
 					Expect(config.Arguments).To(HaveLen(baseArgumentLength))
 					Expect(
@@ -406,6 +415,7 @@ var _ = Describe("monitor_conf", func() {
 					fdbv1beta2.ProcessClassStorage,
 					1,
 					fdbv1beta2.ImageTypeUnified,
+					nil,
 				)
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength))
 				Expect(
@@ -440,6 +450,7 @@ var _ = Describe("monitor_conf", func() {
 					fdbv1beta2.ProcessClassStorage,
 					1,
 					fdbv1beta2.ImageTypeUnified,
+					nil,
 				)
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength))
 				Expect(
@@ -485,6 +496,7 @@ var _ = Describe("monitor_conf", func() {
 					fdbv1beta2.ProcessClassStorage,
 					1,
 					fdbv1beta2.ImageTypeUnified,
+					nil,
 				)
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength))
 				Expect(
@@ -535,6 +547,7 @@ var _ = Describe("monitor_conf", func() {
 						fdbv1beta2.ProcessClassStorage,
 						1,
 						fdbv1beta2.ImageTypeUnified,
+						nil,
 					)
 					Expect(config.Arguments).To(HaveLen(baseArgumentLength + 1))
 					Expect(config.Arguments[10]).To(Equal(monitorapi.Argument{
@@ -579,6 +592,7 @@ var _ = Describe("monitor_conf", func() {
 						fdbv1beta2.ProcessClassStorage,
 						1,
 						fdbv1beta2.ImageTypeUnified,
+						nil,
 					)
 					Expect(config.Arguments).To(HaveLen(baseArgumentLength + 1))
 					Expect(config.Arguments[10]).To(Equal(monitorapi.Argument{
@@ -613,6 +627,7 @@ var _ = Describe("monitor_conf", func() {
 						fdbv1beta2.ProcessClassStorage,
 						1,
 						fdbv1beta2.ImageTypeUnified,
+						nil,
 					)
 					Expect(config.Arguments).To(HaveLen(baseArgumentLength + 1))
 					Expect(config.Arguments[10]).To(Equal(monitorapi.Argument{
@@ -640,6 +655,7 @@ var _ = Describe("monitor_conf", func() {
 							fdbv1beta2.ProcessClassStorage,
 							1,
 							fdbv1beta2.ImageTypeUnified,
+							nil,
 						)
 						Expect(config.Arguments).To(HaveLen(baseArgumentLength + 1))
 						Expect(config.Arguments[10]).To(Equal(monitorapi.Argument{
@@ -682,6 +698,7 @@ var _ = Describe("monitor_conf", func() {
 							fdbv1beta2.ProcessClassStorage,
 							1,
 							fdbv1beta2.ImageTypeUnified,
+							nil,
 						)
 						Expect(config.Arguments).To(HaveLen(baseArgumentLength + 1))
 						Expect(config.Arguments[10]).To(Equal(monitorapi.Argument{
@@ -723,6 +740,7 @@ var _ = Describe("monitor_conf", func() {
 						fdbv1beta2.ProcessClassStorage,
 						1,
 						fdbv1beta2.ImageTypeUnified,
+						nil,
 					)
 					Expect(config.Arguments).To(HaveLen(baseArgumentLength))
 					Expect(
@@ -755,6 +773,7 @@ var _ = Describe("monitor_conf", func() {
 						fdbv1beta2.ProcessClassStorage,
 						1,
 						fdbv1beta2.ImageTypeUnified,
+						nil,
 					)
 					Expect(config.Arguments).To(HaveLen(baseArgumentLength))
 					Expect(
@@ -791,6 +810,7 @@ var _ = Describe("monitor_conf", func() {
 					fdbv1beta2.ProcessClassStorage,
 					1,
 					fdbv1beta2.ImageTypeUnified,
+					nil,
 				)
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength))
 
@@ -814,6 +834,7 @@ var _ = Describe("monitor_conf", func() {
 					fdbv1beta2.ProcessClassStorage,
 					1,
 					fdbv1beta2.ImageTypeUnified,
+					nil,
 				)
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength + 1))
 				Expect(
@@ -833,6 +854,7 @@ var _ = Describe("monitor_conf", func() {
 					fdbv1beta2.ProcessClassStorage,
 					1,
 					fdbv1beta2.ImageTypeUnified,
+					nil,
 				)
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength))
 				Expect(
@@ -852,6 +874,7 @@ var _ = Describe("monitor_conf", func() {
 					fdbv1beta2.ProcessClassStorage,
 					1,
 					fdbv1beta2.ImageTypeUnified,
+					nil,
 				)
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength + 1))
 				Expect(
@@ -871,6 +894,7 @@ var _ = Describe("monitor_conf", func() {
 					fdbv1beta2.ProcessClassStorage,
 					1,
 					fdbv1beta2.ImageTypeUnified,
+					nil,
 				)
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength + 1))
 				Expect(
@@ -917,6 +941,7 @@ var _ = Describe("monitor_conf", func() {
 						1,
 						1,
 						cluster.DesiredImageType(),
+						nil,
 					)
 					Expect(err).NotTo(HaveOccurred())
 
@@ -961,6 +986,7 @@ var _ = Describe("monitor_conf", func() {
 						1,
 						1,
 						cluster.DesiredImageType(),
+						nil,
 					)
 					Expect(err).NotTo(HaveOccurred())
 
@@ -1000,6 +1026,7 @@ var _ = Describe("monitor_conf", func() {
 						1,
 						2,
 						cluster.DesiredImageType(),
+						nil,
 					)
 					Expect(err).NotTo(HaveOccurred())
 
@@ -1030,6 +1057,7 @@ var _ = Describe("monitor_conf", func() {
 						2,
 						2,
 						cluster.DesiredImageType(),
+						nil,
 					)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(command).To(Equal(strings.Join([]string{
@@ -1073,6 +1101,7 @@ var _ = Describe("monitor_conf", func() {
 						1,
 						1,
 						cluster.DesiredImageType(),
+						nil,
 					)
 					Expect(err).NotTo(HaveOccurred())
 				})
@@ -1122,6 +1151,7 @@ var _ = Describe("monitor_conf", func() {
 						1,
 						1,
 						cluster.DesiredImageType(),
+						nil,
 					)
 					Expect(err).NotTo(HaveOccurred())
 				})
@@ -1166,6 +1196,7 @@ var _ = Describe("monitor_conf", func() {
 						1,
 						1,
 						cluster.DesiredImageType(),
+						nil,
 					)
 					Expect(err).NotTo(HaveOccurred())
 				})
@@ -1213,6 +1244,7 @@ var _ = Describe("monitor_conf", func() {
 					1,
 					1,
 					cluster.DesiredImageType(),
+					nil,
 				)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -1248,6 +1280,7 @@ var _ = Describe("monitor_conf", func() {
 						2,
 						3,
 						cluster.DesiredImageType(),
+						nil,
 					)
 					Expect(err).NotTo(HaveOccurred())
 
@@ -1296,6 +1329,7 @@ var _ = Describe("monitor_conf", func() {
 						1,
 						1,
 						cluster.DesiredImageType(),
+						nil,
 					)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(command).To(Equal(strings.Join([]string{
@@ -1345,6 +1379,7 @@ var _ = Describe("monitor_conf", func() {
 						1,
 						1,
 						cluster.DesiredImageType(),
+						nil,
 					)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(command).To(Equal(strings.Join([]string{
@@ -1393,6 +1428,7 @@ var _ = Describe("monitor_conf", func() {
 						1,
 						1,
 						cluster.DesiredImageType(),
+						nil,
 					)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(command).To(Equal(strings.Join([]string{
@@ -1434,6 +1470,7 @@ var _ = Describe("monitor_conf", func() {
 					fdbv1beta2.ProcessClassStorage,
 					nil,
 					cluster.GetStorageServersPerPod(),
+					nil,
 				)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -1467,6 +1504,7 @@ var _ = Describe("monitor_conf", func() {
 					fdbv1beta2.ProcessClassTest,
 					nil,
 					cluster.GetStorageServersPerPod(),
+					nil,
 				)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -1501,6 +1539,7 @@ var _ = Describe("monitor_conf", func() {
 					fdbv1beta2.ProcessClassStorage,
 					nil,
 					cluster.GetStorageServersPerPod(),
+					nil,
 				)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -1534,6 +1573,7 @@ var _ = Describe("monitor_conf", func() {
 					fdbv1beta2.ProcessClassStorage,
 					nil,
 					cluster.GetStorageServersPerPod(),
+					nil,
 				)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -1579,7 +1619,7 @@ var _ = Describe("monitor_conf", func() {
 			BeforeEach(func() {
 				source := fdbv1beta2.PublicIPSourcePod
 				cluster.Spec.Routing.PublicIPSource = &source
-				conf, err = GetMonitorConf(cluster, fdbv1beta2.ProcessClassStorage, nil, 1)
+				conf, err = GetMonitorConf(cluster, fdbv1beta2.ProcessClassStorage, nil, 1, nil)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -1610,7 +1650,7 @@ var _ = Describe("monitor_conf", func() {
 				source := fdbv1beta2.PublicIPSourceService
 				cluster.Spec.Routing.PublicIPSource = &source
 				cluster.Status.HasListenIPsForAllPods = true
-				conf, err = GetMonitorConf(cluster, fdbv1beta2.ProcessClassStorage, nil, 1)
+				conf, err = GetMonitorConf(cluster, fdbv1beta2.ProcessClassStorage, nil, 1, nil)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -1639,7 +1679,7 @@ var _ = Describe("monitor_conf", func() {
 			Context("with pods without the listen IP environment variable", func() {
 				BeforeEach(func() {
 					cluster.Status.HasListenIPsForAllPods = false
-					conf, err = GetMonitorConf(cluster, fdbv1beta2.ProcessClassStorage, nil, 1)
+					conf, err = GetMonitorConf(cluster, fdbv1beta2.ProcessClassStorage, nil, 1, nil)
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -1676,6 +1716,7 @@ var _ = Describe("monitor_conf", func() {
 					fdbv1beta2.ProcessClassStorage,
 					nil,
 					cluster.GetStorageServersPerPod(),
+					nil,
 				)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -1713,6 +1754,7 @@ var _ = Describe("monitor_conf", func() {
 					fdbv1beta2.ProcessClassStorage,
 					nil,
 					cluster.GetStorageServersPerPod(),
+					nil,
 				)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -1754,6 +1796,7 @@ var _ = Describe("monitor_conf", func() {
 					fdbv1beta2.ProcessClassStorage,
 					nil,
 					cluster.GetStorageServersPerPod(),
+					nil,
 				)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -1799,6 +1842,7 @@ var _ = Describe("monitor_conf", func() {
 						fdbv1beta2.ProcessClassStorage,
 						nil,
 						cluster.GetStorageServersPerPod(),
+						nil,
 					)
 					Expect(err).NotTo(HaveOccurred())
 				})
@@ -1850,6 +1894,7 @@ var _ = Describe("monitor_conf", func() {
 						fdbv1beta2.ProcessClassStorage,
 						nil,
 						cluster.GetStorageServersPerPod(),
+						nil,
 					)
 					Expect(err).NotTo(HaveOccurred())
 				})
@@ -1889,6 +1934,7 @@ var _ = Describe("monitor_conf", func() {
 					fdbv1beta2.ProcessClassStorage,
 					nil,
 					cluster.GetStorageServersPerPod(),
+					nil,
 				)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -1923,6 +1969,7 @@ var _ = Describe("monitor_conf", func() {
 					fdbv1beta2.ProcessClassStorage,
 					nil,
 					cluster.GetStorageServersPerPod(),
+					nil,
 				)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -1958,6 +2005,7 @@ var _ = Describe("monitor_conf", func() {
 					fdbv1beta2.ProcessClassStorage,
 					nil,
 					cluster.GetStorageServersPerPod(),
+					nil,
 				)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -1992,6 +2040,7 @@ var _ = Describe("monitor_conf", func() {
 					fdbv1beta2.ProcessClassStorage,
 					nil,
 					cluster.GetStorageServersPerPod(),
+					nil,
 				)
 				Expect(err).NotTo(HaveOccurred())
 			})
