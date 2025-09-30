@@ -41,28 +41,11 @@ FDB_VERSION_TAG_MAPPING?=
 # The FEATURE_SERVER_SIDE_APPLY is enabled per default, but could be set to false if wanted.
 FEATURE_SERVER_SIDE_APPLY=true
 
-# If the FEATURE_UNIFIED_IMAGE environment variable is not defined the test suite will be randomly enable (1) or disable (0)
-# the unified image feature.
-ifndef FEATURE_UNIFIED_IMAGE
-  ifeq ($(shell shuf -i 0-1 -n 1), 0)
-    FEATURE_UNIFIED_IMAGE=false
-  else
-    FEATURE_UNIFIED_IMAGE=true
-  endif
-endif
-
-# If the STORAGE_ENGINE environment variable is not defined the test suite will be randomly choosing between the ssd
-# storage-engine (sqlite) or RocksDB. In the future we can add more storage engines for testing here, e.g. Redwood or
-# sharded RocksDB.
-ifndef STORAGE_ENGINE
-  ifeq ($(shell shuf -i 0-1 -n 1), 0)
-    # Default case
-    STORAGE_ENGINE="ssd"
-  else
-    STORAGE_ENGINE="ssd-rocksdb-v1"
-  endif
-endif
-
+# Per default the unified image is used for the e2e test cases, this can be changed by running the test suite with
+# FEATURE_UNIFIED_IMAGE=false.
+FEATURE_UNIFIED_IMAGE?=true
+# The default storage engine for the operator e2e tests is RocksDB.
+STORAGE_ENGINE?="ssd-rocksdb-v1"
 # If the FEATURE_SYNCHRONIZATION_MODE environment variable is not defined the test suite will be randomly enable (1) or disable (0)
 # the the global synchronization mode.
 ifndef FEATURE_SYNCHRONIZATION_MODE

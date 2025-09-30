@@ -33,6 +33,7 @@ import (
 // +kubebuilder:metadata:annotations="foundationdb.org/release=v2.14.0"
 // +kubebuilder:printcolumn:name="Generation",type="integer",JSONPath=".metadata.generation",description="Latest generation of the spec",priority=0
 // +kubebuilder:printcolumn:name="Reconciled",type="integer",JSONPath=".status.generations.reconciled",description="Last reconciled generation of the spec",priority=0
+// +kubebuilder:printcolumn:name="Restorable",type="boolean",JSONPath=".status.backupDetails.restorable",description="If the backup is restorable",priority=0
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:storageversion
 
@@ -134,6 +135,15 @@ type FoundationDBBackupSpec struct {
 	// +kubebuilder:validation:Enum=noop;stop;cleanup
 	// +kubebuilder:default:=noop
 	DeletionPolicy *BackupDeletionPolicy `json:"deletionPolicy,omitempty"`
+
+	// BackupMode defines the backup mode that should be used for the backup. When the BackupMode is set to
+	// BackupModeOneTime, the backup will create a single snapshot and then stop. When set to BackupModeContinuous,
+	// the backup will run continuously, creating snapshots at regular intervals defined by SnapshotPeriodSeconds.
+	// Default: "Continuous".
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Enum=continuous;oneTime
+	// +kubebuilder:default:=continuous
+	BackupMode *BackupMode `json:"backupMode,omitempty"`
 }
 
 // BackupType defines the backup type that should be used for the backup.
@@ -165,6 +175,18 @@ const (
 	BackupDeletionPolicyCleanup BackupDeletionPolicy = "cleanup"
 )
 
+// BackupMode defines the mode of backup operation.
+// +kubebuilder:validation:MaxLength=64
+type BackupMode string
+
+const (
+	// BackupModeContinuous indicates that the backup should run continuously, taking snapshots at regular intervals.
+	BackupModeContinuous BackupMode = "continuous"
+
+	// BackupModeOneTime indicates that the backup should create a single snapshot and then stop.
+	BackupModeOneTime BackupMode = "oneTime"
+)
+
 // FoundationDBBackupStatus describes the current status of the backup for a cluster.
 type FoundationDBBackupStatus struct {
 	// AgentCount provides the number of agents that are up-to-date, ready,
@@ -191,6 +213,7 @@ type FoundationDBBackupStatusBackupDetails struct {
 	Running               bool   `json:"running,omitempty"`
 	Paused                bool   `json:"paused,omitempty"`
 	SnapshotPeriodSeconds int    `json:"snapshotTime,omitempty"`
+	Restorable            bool   `json:"restorable,omitempty"`
 }
 
 // BackupGenerationStatus stores information on which generations have reached
@@ -265,6 +288,13 @@ type BlobStoreConfiguration struct {
 
 // ShouldRun determines whether a backup should be running.
 func (backup *FoundationDBBackup) ShouldRun() bool {
+	// For one-time backups, don't run if already completed
+	backupDetails := backup.Status.BackupDetails
+	if backup.GetBackupMode() == BackupModeOneTime && backupDetails != nil &&
+		backupDetails.Restorable {
+		return false
+	}
+
 	return backup.Spec.BackupState == "" || backup.Spec.BackupState == BackupStateRunning ||
 		backup.Spec.BackupState == BackupStatePaused
 }
@@ -318,6 +348,12 @@ type FoundationDBLiveBackupStatus struct {
 
 	// BackupAgentsPaused describes whether the backup agents are paused.
 	BackupAgentsPaused bool `json:"BackupAgentsPaused,omitempty"`
+
+	// Restorable if true, the backup can be restored
+	Restorable *bool `json:"Restorable,omitempty"`
+
+	// LatestRestorablePoint contains information about the latest restorable point if any exists.
+	LatestRestorablePoint *LatestRestorablePoint `json:"LatestRestorablePoint,omitempty"`
 }
 
 // FoundationDBLiveBackupStatusState provides the state of a backup in the
@@ -325,12 +361,6 @@ type FoundationDBLiveBackupStatus struct {
 type FoundationDBLiveBackupStatusState struct {
 	// Running determines whether the backup is currently running.
 	Running bool `json:"Running,omitempty"`
-
-	// Restorable if true, the backup can be restored
-	Restorable *bool `json:"Restorable,omitempty"`
-
-	// LatestRestorablePoint contains information about the latest restorable point if any exists.
-	LatestRestorablePoint *LatestRestorablePoint `json:"LatestRestorablePoint,omitempty"`
 }
 
 // LatestRestorablePoint contains information about the latest restorable point if any exists.
@@ -427,6 +457,11 @@ func (backup *FoundationDBBackup) GetEncryptionKey() (string, error) {
 // GetDeletionPolicy will return the deletion policy for this backup.
 func (backup *FoundationDBBackup) GetDeletionPolicy() BackupDeletionPolicy {
 	return ptr.Deref(backup.Spec.DeletionPolicy, BackupDeletionPolicyNoop)
+}
+
+// GetBackupMode will return the backup mode for this backup.
+func (backup *FoundationDBBackup) GetBackupMode() BackupMode {
+	return ptr.Deref(backup.Spec.BackupMode, BackupModeContinuous)
 }
 
 // UseUnifiedImage returns true if the unified image should be used.

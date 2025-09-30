@@ -178,7 +178,7 @@ func (options *FactoryOptions) BindFlags(fs *flag.FlagSet) {
 	fs.BoolVar(
 		&options.featureOperatorUnifiedImage,
 		"feature-unified-image",
-		false,
+		true,
 		"defines if the operator tests should make use of the unified image.",
 	)
 	fs.BoolVar(

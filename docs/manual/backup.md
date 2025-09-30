@@ -1,14 +1,58 @@
 # Managing Backups through the Operator
 
 FoundationDB has out-of-the-box support for backing up to an S3-compatible object store, and the operator supports this through a special resource type for backup and restore.
-These backups run continuously, and simultaneously build new snapshots while backing up new mutations.
-You can restore to any point in time after the end of the first snapshot.
+The operator supports two backup modes: **continuous backups** that run indefinitely, taking snapshots at regular intervals, and **one-time backups** that create a single snapshot and then stop.
+You can restore to any point in time after the end of the first snapshot for continuous backups, or to the specific point in time captured by a one-time backup.
 
 You can find more information about the backup feature in the [FoundationDB Backup documentation](https://apple.github.io/foundationdb/backups.html).
 
 **Warning**: Support for backups in the operator is still in development, and there are some missing features.
 
-## Example Backup
+## Backup Modes
+
+The operator supports two backup modes, controlled by the `backupMode` field in the backup spec:
+
+### Continuous Backups (Default)
+
+Continuous backups run indefinitely, creating snapshots at regular intervals defined by `snapshotPeriodSeconds`.
+This is the default mode and provides continuous protection with point-in-time recovery capabilities.
+
+```yaml
+apiVersion: apps.foundationdb.org/v1beta2
+kind: FoundationDBBackup
+metadata:
+  name: sample-cluster-continuous
+spec:
+  version: 7.1.26
+  clusterName: sample-cluster
+  backupMode: continuous  # Optional - this is the default
+  snapshotPeriodSeconds: 864000  # 10 days (default)
+  # ... other configuration
+```
+
+### One-Time Backups
+
+One-time backups create a single snapshot and then stop.
+They are useful for creating point-in-time backups before major operations or for periodic archival purposes.
+
+```yaml
+apiVersion: apps.foundationdb.org/v1beta2
+kind: FoundationDBBackup
+metadata:
+  name: sample-cluster-snapshot
+spec:
+  version: 7.1.26
+  clusterName: sample-cluster
+  backupMode: oneTime
+  # Note: snapshotPeriodSeconds should NOT be set for one-time backups
+  # ... other configuration
+```
+
+**Important Notes for One-Time Backups:**
+- Once completed, one-time backups will not restart automatically
+- The backup status will show `restorable: true` when finished
+
+## Example Continuous Backup
 
 This is a sample configuration for running a continuous backup of a cluster.
 
@@ -82,7 +126,9 @@ stringData:
 Creating this resource will tell the operator to do the following things:
 
 1. Create a `sample-cluster-backup-agents` deployment running FoundationDB backup agent processes connecting to the cluster.
-2. Run an `fdbbackup start` command to start a backup at `https://object-store.example:443/sample-cluster` using the bucket name `fdb-backups`.
+2. Run an `fdbbackup start` command to start a continuous backup at `https://object-store.example:443/sample-cluster` using the bucket name `fdb-backups`.
+
+For one-time backups, the `fdbbackup start` command will be run without the continuous flags (`-s` and `-z`), creating a single snapshot.
 
 Do note, that if a port is not provided in the `blobStoreConfiguration.accountName`, it will default to `443`,
 or `80` if `secure_connection` is disabled.

@@ -1191,8 +1191,34 @@ func (fdbCluster *FdbCluster) SetUseDNSInClusterFile(useDNSInClusterFile bool) e
 
 // Destroy will remove the underlying cluster.
 func (fdbCluster *FdbCluster) Destroy() error {
-	return fdbCluster.getClient().
+	return fdbCluster.DestroyWithWaitForTearDown(false)
+}
+
+// DestroyWithWaitForTearDown will remove the underlying cluster and wait for the resources to be removed.
+func (fdbCluster *FdbCluster) DestroyWithWaitForTearDown(waitForTearDown bool) error {
+	err := fdbCluster.getClient().
 		Delete(context.Background(), fdbCluster.cluster)
+	if err != nil {
+		return err
+	}
+
+	if !waitForTearDown {
+		return nil
+	}
+
+	// Wait for all pods to be removed.
+	gomega.Eventually(func(g gomega.Gomega) {
+		podList := &corev1.PodList{}
+
+		g.Expect(fdbCluster.getClient().List(context.Background(), podList,
+			client.InNamespace(fdbCluster.cluster.Namespace),
+			client.MatchingLabels(fdbCluster.cluster.GetMatchLabels()),
+		)).To(gomega.Succeed())
+
+		g.Expect(podList.Items).To(gomega.BeEmpty())
+	}).WithTimeout(1 * time.Minute).WithPolling(1 * time.Second).ShouldNot(gomega.Succeed())
+
+	return nil
 }
 
 // SetIgnoreMissingProcessesSeconds sets the IgnoreMissingProcessesSeconds setting.

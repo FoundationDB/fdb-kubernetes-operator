@@ -877,11 +877,17 @@ func (client *AdminClient) StartBackup(backup *fdbv1beta2.FoundationDBBackup) er
 		return client.mockError
 	}
 
-	client.Backups["default"] = fdbv1beta2.FoundationDBBackupStatusBackupDetails{
-		URL:                   backup.BackupURL(),
-		Running:               true,
-		SnapshotPeriodSeconds: backup.SnapshotPeriodSeconds(),
+	backupDetails := fdbv1beta2.FoundationDBBackupStatusBackupDetails{
+		URL:     backup.BackupURL(),
+		Running: true,
 	}
+
+	// Only set snapshot period for continuous backups
+	if backup.GetBackupMode() == fdbv1beta2.BackupModeContinuous {
+		backupDetails.SnapshotPeriodSeconds = backup.SnapshotPeriodSeconds()
+	}
+
+	client.Backups["default"] = backupDetails
 	return nil
 }
 
