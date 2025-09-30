@@ -1105,6 +1105,37 @@ protocol fdb00b071010000`,
 				"-s", "60",
 				"-z",
 			}),
+		Entry("with continuous backup mode (default)",
+			&fdbv1beta2.FoundationDBBackup{
+				Spec: fdbv1beta2.FoundationDBBackupSpec{
+					Version: fdbv1beta2.Versions.SupportsBackupEncryption.String(),
+					BlobStoreConfiguration: &fdbv1beta2.BlobStoreConfiguration{
+						AccountName: "test",
+						BackupName:  "test-backup",
+					},
+					SnapshotPeriodSeconds: ptr.To(60),
+					BackupMode:            ptr.To(fdbv1beta2.BackupModeContinuous),
+				},
+			}, []string{
+				"start",
+				"-d", "blobstore://test:443/test-backup?bucket=fdb-backups",
+				"-s", "60",
+				"-z",
+			}),
+		Entry("with one-time backup mode",
+			&fdbv1beta2.FoundationDBBackup{
+				Spec: fdbv1beta2.FoundationDBBackupSpec{
+					Version: fdbv1beta2.Versions.SupportsBackupEncryption.String(),
+					BlobStoreConfiguration: &fdbv1beta2.BlobStoreConfiguration{
+						AccountName: "test",
+						BackupName:  "test-backup",
+					},
+					BackupMode: ptr.To(fdbv1beta2.BackupModeOneTime),
+				},
+			}, []string{
+				"start",
+				"-d", "blobstore://test:443/test-backup?bucket=fdb-backups",
+			}),
 	)
 
 	DescribeTable(

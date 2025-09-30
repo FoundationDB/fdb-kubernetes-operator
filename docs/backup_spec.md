@@ -38,6 +38,12 @@ BackupGenerationStatus stores information on which generations have reached diff
 
 [Back to TOC](#table-of-contents)
 
+## BackupMode
+
+BackupMode defines the mode of backup operation.
+
+[Back to TOC](#table-of-contents)
+
 ## BackupState
 
 BackupState defines the desired state of a backup
@@ -108,6 +114,7 @@ FoundationDBBackupSpec describes the desired state of the backup for a cluster.
 | imageType | ImageType defines the image type that should be used for the FoundationDBCluster deployment. When the type is set to \"unified\" the deployment will use the new fdb-kubernetes-monitor. Otherwise the main container and the sidecar container will use different images. Default: split | *ImageType | false |
 | backupType | BackupType defines the backup type that should be used for the backup. When the BackupType is set to BackupTypePartitionedLog, it's expected that the FoundationDBCluster creates and manages the additional backup worker processes. A migration to a different backup type is not yet supported in the operator. Default: \"backup_agent\". | *[BackupType](#backuptype) | false |
 | deletionPolicy | DeletionPolicy defines the deletion policy for this backup. The BackupDeletionPolicy defines the actions that should be taken when the FoundationDBBackup resource has a deletion timestamp. | *[BackupDeletionPolicy](#backupdeletionpolicy) | false |
+| backupMode | BackupMode defines the backup mode that should be used for the backup. When the BackupMode is set to BackupModeOneTime, the backup will create a single snapshot and then stop. When set to BackupModeContinuous, the backup will run continuously, creating snapshots at regular intervals defined by SnapshotPeriodSeconds. Default: \"Continuous\". | *[BackupMode](#backupmode) | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -134,6 +141,7 @@ FoundationDBBackupStatusBackupDetails provides information about the state of th
 | running |  | bool | false |
 | paused |  | bool | false |
 | snapshotTime |  | int | false |
+| restorable |  | bool | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -147,6 +155,8 @@ FoundationDBLiveBackupStatus describes the live status of the backup for a clust
 | SnapshotIntervalSeconds | SnapshotIntervalSeconds provides the interval of the snapshots. | int | false |
 | Status | Status provides the current state of the backup. | [FoundationDBLiveBackupStatusState](#foundationdblivebackupstatusstate) | false |
 | BackupAgentsPaused | BackupAgentsPaused describes whether the backup agents are paused. | bool | false |
+| Restorable | Restorable if true, the backup can be restored | *bool | false |
+| LatestRestorablePoint | LatestRestorablePoint contains information about the latest restorable point if any exists. | *[LatestRestorablePoint](#latestrestorablepoint) | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -157,8 +167,6 @@ FoundationDBLiveBackupStatusState provides the state of a backup in the backup s
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
 | Running | Running determines whether the backup is currently running. | bool | false |
-| Restorable | Restorable if true, the backup can be restored | *bool | false |
-| LatestRestorablePoint | LatestRestorablePoint contains information about the latest restorable point if any exists. | *[LatestRestorablePoint](#latestrestorablepoint) | false |
 
 [Back to TOC](#table-of-contents)
 

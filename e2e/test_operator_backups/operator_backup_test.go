@@ -95,76 +95,141 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 				restore.Destroy()
 			}
 
+			namespace := fdbCluster.Namespace()
 			// Delete the FDB cluster to have a clean start.
-			Expect(fdbCluster.Destroy()).To(Succeed())
+			Expect(fdbCluster.DestroyWithWaitForTearDown(true)).To(Succeed())
+			// Restart the operator pods.
+			factory.RecreateOperatorPods(namespace)
 		})
 
 		When("the default backup system is used", func() {
-			var restorableVersion uint64
+			var useRestorableVersion bool
+			var backupConfiguration *fixtures.FdbBackupConfiguration
 
-			BeforeEach(func() {
+			JustBeforeEach(func() {
 				log.Println("creating backup for cluster")
-				backup = factory.CreateBackupForCluster(
-					fdbCluster,
-					&fixtures.FdbBackupConfiguration{
+				var restorableVersion uint64
+
+				if ptr.Deref(
+					backupConfiguration.BackupMode,
+					fdbv1beta2.BackupModeContinuous,
+				) == fdbv1beta2.BackupModeContinuous {
+					// For the continuous backup we want to start the backup first and then write some data.
+					backup = factory.CreateBackupForCluster(fdbCluster, backupConfiguration)
+					keyValues = fdbCluster.GenerateRandomValues(10, prefix)
+					fdbCluster.WriteKeyValues(keyValues)
+					restorableVersion = backup.WaitForRestorableVersion(
+						fdbCluster.GetClusterVersion(),
+					)
+					backup.Stop()
+				} else {
+					// In case of the one time backup we have to first write the keys and then do the backup.
+					keyValues = fdbCluster.GenerateRandomValues(10, prefix)
+					fdbCluster.WriteKeyValues(keyValues)
+					backup = factory.CreateBackupForCluster(fdbCluster, backupConfiguration)
+					restorableVersion = backup.WaitForRestorableVersion(
+						fdbCluster.GetClusterVersion(),
+					)
+				}
+
+				// Delete the data and restore it again.
+				fdbCluster.ClearRange([]byte{prefix}, 60)
+				var currentRestorableVersion *uint64
+				if useRestorableVersion {
+					currentRestorableVersion = ptr.To(restorableVersion)
+				}
+				restore = factory.CreateRestoreForCluster(backup, currentRestorableVersion)
+			})
+
+			When("the continuous backup mode is used", func() {
+				BeforeEach(func() {
+					backupConfiguration = &fixtures.FdbBackupConfiguration{
 						BackupType: ptr.To(fdbv1beta2.BackupTypeDefault),
-					},
-				)
-				keyValues = fdbCluster.GenerateRandomValues(10, prefix)
-				fdbCluster.WriteKeyValues(keyValues)
-				restorableVersion = backup.WaitForRestorableVersion(
-					fdbCluster.GetClusterVersion(),
-				)
-				backup.Stop()
-				fdbCluster.ClearRange([]byte{prefix}, 60)
+						BackupMode: ptr.To(fdbv1beta2.BackupModeContinuous),
+					}
+				})
+
+				When("no restorable version is specified", func() {
+					It("should restore the cluster successfully with a restorable version", func() {
+						Expect(fdbCluster.GetRange([]byte{prefix}, 25, 60)).Should(Equal(keyValues))
+					})
+				})
+
+				When("encryption is enabled", func() {
+					BeforeEach(func() {
+						requiredFdbVersion, err := fdbv1beta2.ParseFdbVersion("7.4.5")
+						Expect(err).NotTo(HaveOccurred())
+
+						version := factory.GetFDBVersion()
+						if !version.IsAtLeast(requiredFdbVersion) {
+							Skip(
+								"version has a bug in the backup version that prevents tests to succeed",
+							)
+						}
+
+						backupConfiguration.EncryptionEnabled = true
+					})
+
+					It("should restore the cluster successfully with a restorable version", func() {
+						Expect(fdbCluster.GetRange([]byte{prefix}, 25, 60)).Should(Equal(keyValues))
+					})
+				})
+
+				// TODO (johscheuer): Enable test once the CRD in CI is updated.
+				PWhen("using a restorable version", func() {
+					BeforeEach(func() {
+						useRestorableVersion = true
+					})
+
+					It("should restore the cluster successfully with a restorable version", func() {
+						Expect(fdbCluster.GetRange([]byte{prefix}, 25, 60)).Should(Equal(keyValues))
+					})
+				})
 			})
 
-			When("no restorable version is specified", func() {
+			When("the one time backup mode is used", func() {
 				BeforeEach(func() {
-					restore = factory.CreateRestoreForCluster(backup, nil)
+					backupConfiguration = &fixtures.FdbBackupConfiguration{
+						BackupType: ptr.To(fdbv1beta2.BackupTypeDefault),
+						BackupMode: ptr.To(fdbv1beta2.BackupModeOneTime),
+					}
 				})
 
-				It("should restore the cluster successfully with a restorable version", func() {
-					Expect(fdbCluster.GetRange([]byte{prefix}, 25, 60)).Should(Equal(keyValues))
-				})
-			})
-
-			// TODO (johscheuer): Enable test once the CRD in CI is updated.
-			PWhen("using a restorable version", func() {
-				BeforeEach(func() {
-					factory.CreateRestoreForCluster(backup, ptr.To(restorableVersion))
+				When("no restorable version is specified", func() {
+					It("should restore the cluster successfully with a restorable version", func() {
+						Expect(fdbCluster.GetRange([]byte{prefix}, 25, 60)).Should(Equal(keyValues))
+					})
 				})
 
-				It("should restore the cluster successfully with a restorable version", func() {
-					Expect(fdbCluster.GetRange([]byte{prefix}, 25, 60)).Should(Equal(keyValues))
-				})
-			})
-		})
+				When("encryption is enabled", func() {
+					BeforeEach(func() {
+						requiredFdbVersion, err := fdbv1beta2.ParseFdbVersion("7.4.5")
+						Expect(err).NotTo(HaveOccurred())
 
-		When("the default backup system is used with encryption", func() {
-			BeforeEach(func() {
-				log.Println("creating backup for cluster")
-				backup = factory.CreateBackupForCluster(
-					fdbCluster,
-					&fixtures.FdbBackupConfiguration{
-						BackupType:        ptr.To(fdbv1beta2.BackupTypeDefault),
-						EncryptionEnabled: true,
-					},
-				)
-				keyValues = fdbCluster.GenerateRandomValues(10, prefix)
-				fdbCluster.WriteKeyValues(keyValues)
-				backup.WaitForRestorableVersion(fdbCluster.GetClusterVersion())
-				backup.Stop()
-				fdbCluster.ClearRange([]byte{prefix}, 60)
-			})
+						version := factory.GetFDBVersion()
+						if !version.IsAtLeast(requiredFdbVersion) {
+							Skip(
+								"version has a bug in the backup version that prevents tests to succeed",
+							)
+						}
 
-			When("no restorable version is specified", func() {
-				BeforeEach(func() {
-					restore = factory.CreateRestoreForCluster(backup, nil)
+						backupConfiguration.EncryptionEnabled = true
+					})
+
+					It("should restore the cluster successfully with a restorable version", func() {
+						Expect(fdbCluster.GetRange([]byte{prefix}, 25, 60)).Should(Equal(keyValues))
+					})
 				})
 
-				It("should restore the cluster successfully with a restorable version", func() {
-					Expect(fdbCluster.GetRange([]byte{prefix}, 25, 60)).Should(Equal(keyValues))
+				// TODO (johscheuer): Enable test once the CRD in CI is updated.
+				PWhen("using a restorable version", func() {
+					BeforeEach(func() {
+						useRestorableVersion = true
+					})
+
+					It("should restore the cluster successfully with a restorable version", func() {
+						Expect(fdbCluster.GetRange([]byte{prefix}, 25, 60)).Should(Equal(keyValues))
+					})
 				})
 			})
 		})
@@ -172,7 +237,7 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 		When("the partitioned backup system is used", func() {
 			BeforeEach(func() {
 				// Versions before 7.4 have a few issues and will not work properly with the experimental feature.
-				requiredFdbVersion, err := fdbv1beta2.ParseFdbVersion("7.4.0")
+				requiredFdbVersion, err := fdbv1beta2.ParseFdbVersion("7.4.5")
 				Expect(err).NotTo(HaveOccurred())
 
 				version := factory.GetFDBVersion()

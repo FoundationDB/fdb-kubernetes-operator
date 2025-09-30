@@ -48,6 +48,8 @@ type FdbBackupConfiguration struct {
 	BackupType *fdbv1beta2.BackupType
 	// EncryptionEnabled determines whether backup encryption should be used.
 	EncryptionEnabled bool
+	//BackupMode defines the backup mode that should be used.
+	BackupMode *fdbv1beta2.BackupMode
 }
 
 // CreateBackupForCluster will create a FoundationDBBackup for the provided cluster.
@@ -87,6 +89,7 @@ func (factory *Factory) CreateBackupForCluster(
 				// Enable if you want to get http debug logs.
 				// "knob_http_verbose_level=10",
 			},
+			BackupMode:       config.BackupMode,
 			ImageType:        fdbCluster.cluster.Spec.ImageType,
 			MainContainer:    fdbCluster.cluster.Spec.MainContainer,
 			SidecarContainer: fdbCluster.cluster.Spec.SidecarContainer,
@@ -252,7 +255,7 @@ func (fdbBackup *FdbBackup) WaitForRestorableVersion(version uint64) uint64 {
 		)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
-		status := &fdbv1beta2.FoundationDBLiveBackupStatusState{}
+		status := &fdbv1beta2.FoundationDBLiveBackupStatus{}
 		g.Expect(json.Unmarshal([]byte(out), status)).NotTo(gomega.HaveOccurred())
 
 		var latestRestorableVersion uint64
@@ -262,7 +265,7 @@ func (fdbBackup *FdbBackup) WaitForRestorableVersion(version uint64) uint64 {
 
 		log.Println(
 			"Backup status running:",
-			status.Running,
+			status.Status.Running,
 			"restorable:",
 			ptr.Deref(status.Restorable, false),
 			"latestRestorablePoint:",

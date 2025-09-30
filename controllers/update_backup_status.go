@@ -23,12 +23,13 @@ package controllers
 import (
 	"context"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
-	"k8s.io/apimachinery/pkg/api/equality"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/utils/ptr"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
 	appsv1 "k8s.io/api/apps/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -115,6 +116,7 @@ func (s updateBackupStatus) reconcile(
 		Running:               liveStatus.Status.Running,
 		Paused:                liveStatus.BackupAgentsPaused,
 		SnapshotPeriodSeconds: liveStatus.SnapshotIntervalSeconds,
+		Restorable:            ptr.Deref(liveStatus.Restorable, false),
 	}
 
 	originalStatus := backup.Status.DeepCopy()
