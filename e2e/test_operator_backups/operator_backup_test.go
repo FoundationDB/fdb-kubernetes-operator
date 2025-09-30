@@ -114,7 +114,7 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 					backupConfiguration.BackupMode,
 					fdbv1beta2.BackupModeContinuous,
 				) == fdbv1beta2.BackupModeContinuous {
-					// For the continuous backup we want tpo start the backup first and then write some data.
+					// For the continuous backup we want to start the backup first and then write some data.
 					backup = factory.CreateBackupForCluster(fdbCluster, backupConfiguration)
 					keyValues = fdbCluster.GenerateRandomValues(10, prefix)
 					fdbCluster.WriteKeyValues(keyValues)
