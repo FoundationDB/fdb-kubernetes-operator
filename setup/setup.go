@@ -105,9 +105,11 @@ type Options struct {
 	RenewDeadline time.Duration
 	// RetryPeriod is the duration the LeaderElector clients should wait
 	// between tries of actions. Default is 2 seconds.
-	RetryPeriod                   time.Duration
-	DeprecationOptions            internal.DeprecationOptions
-	MinimumRequiredUptimeCCBounce time.Duration
+	RetryPeriod                                           time.Duration
+	DeprecationOptions                                    internal.DeprecationOptions
+	MinimumRequiredUptimeCCBounce                         time.Duration
+	MinimumUptimeForCoordinatorChangeWithMissingProcess   time.Duration
+	MinimumUptimeForCoordinatorChangeWithUndesiredProcess time.Duration
 }
 
 // BindFlags will parse the given flagset for the operator option flags
@@ -329,6 +331,18 @@ func (o *Options) BindFlags(fs *flag.FlagSet) {
 		math.MaxFloat64,
 		"Defines the threshold when a process will be considered to have a high run loop busy value. The value will be between 0.0 and 1.0. Setting it to a higher value will disable the high run loop busy check.",
 	)
+	fs.DurationVar(
+		&o.MinimumUptimeForCoordinatorChangeWithUndesiredProcess,
+		"minimum-uptime-for-coordinator-change-with-undesired-process",
+		5*time.Minute,
+		"the minimum uptime for the cluster before coordinator changes are allowed because a coordinator is undesired.",
+	)
+	fs.DurationVar(
+		&o.MinimumUptimeForCoordinatorChangeWithMissingProcess,
+		"minimum-uptime-for-coordinator-change-with-missing-process",
+		2*time.Minute,
+		"the minimum uptime for the cluster before coordinator changes are allowed because a coordinator is missing.",
+	)
 }
 
 // StartManager will start the FoundationDB operator manager.
@@ -468,7 +482,8 @@ func StartManager(
 		clusterReconciler.Namespace = operatorOpts.WatchNamespace
 		clusterReconciler.GlobalSynchronizationWaitDuration = operatorOpts.GlobalSynchronizationWaitDuration
 		clusterReconciler.HighRunLoopBusyThreshold = operatorOpts.HighRunLoopBusyThreshold
-
+		clusterReconciler.MinimumUptimeForCoordinatorChangeWithMissingProcess = operatorOpts.MinimumUptimeForCoordinatorChangeWithMissingProcess
+		clusterReconciler.MinimumUptimeForCoordinatorChangeWithUndesiredProcess = operatorOpts.MinimumUptimeForCoordinatorChangeWithUndesiredProcess
 		// If the provided PodLifecycleManager supports the update method, we can set the desired update method, otherwise the
 		// update method will be ignored.
 		castedPodManager, ok := clusterReconciler.PodLifecycleManager.(podmanager.PodLifecycleManagerWithPodUpdateMethod)
