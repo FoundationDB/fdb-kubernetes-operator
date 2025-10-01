@@ -23,6 +23,7 @@ package fdbstatus
 import (
 	"fmt"
 	"net"
+	"time"
 
 	"k8s.io/utils/ptr"
 
@@ -2595,4 +2596,327 @@ var _ = Describe("status_checks", func() {
 			),
 		),
 	)
+})
+
+var _ = Describe("CanSafelyChangeCoordinators", func() {
+	var cluster *fdbv1beta2.FoundationDBCluster
+	var minimumUptimeForMissing, minimumUptimeForUndesired time.Duration
+
+	BeforeEach(func() {
+		cluster = &fdbv1beta2.FoundationDBCluster{
+			Spec: fdbv1beta2.FoundationDBClusterSpec{
+				Version: fdbv1beta2.Versions.SupportsRecoveryState.String(),
+				DatabaseConfiguration: fdbv1beta2.DatabaseConfiguration{
+					RedundancyMode: fdbv1beta2.RedundancyModeDouble,
+				},
+			},
+			Status: fdbv1beta2.FoundationDBClusterStatus{
+				Configured: true,
+			},
+		}
+		minimumUptimeForMissing = 5 * time.Minute
+		minimumUptimeForUndesired = 10 * time.Minute
+	})
+
+	Context("with basic safety checks", func() {
+		DescribeTable("when cluster status doesn't pass basic safety checks",
+			func(status *fdbv1beta2.FoundationDBStatus, expectedError string) {
+				err := CanSafelyChangeCoordinators(
+					logr.Discard(),
+					cluster,
+					status,
+					minimumUptimeForMissing,
+					minimumUptimeForUndesired,
+					true,
+				)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring(expectedError))
+			},
+			Entry("when cluster is unavailable",
+				&fdbv1beta2.FoundationDBStatus{
+					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+							Available: false,
+						},
+					},
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						RecoveryState: fdbv1beta2.RecoveryState{
+							ActiveGenerations: 1,
+						},
+					},
+				},
+				"cluster is unavailable",
+			),
+			Entry("when too many active generations",
+				&fdbv1beta2.FoundationDBStatus{
+					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+							Available: true,
+						},
+					},
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						RecoveryState: fdbv1beta2.RecoveryState{
+							ActiveGenerations: 15,
+						},
+					},
+				},
+				"active generations",
+			),
+		)
+	})
+
+	Context("with uptime requirements for different coordinator scenarios", func() {
+		var baseStatus *fdbv1beta2.FoundationDBStatus
+
+		BeforeEach(func() {
+			baseStatus = &fdbv1beta2.FoundationDBStatus{
+				Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+					DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+						Available: true,
+					},
+					Coordinators: fdbv1beta2.FoundationDBStatusCoordinatorInfo{
+						QuorumReachable: true,
+						Coordinators: []fdbv1beta2.FoundationDBStatusCoordinator{
+							{
+								Reachable: true,
+								Address: fdbv1beta2.ProcessAddress{
+									IPAddress: net.ParseIP("127.0.0.1"),
+								},
+							},
+						},
+					},
+				},
+				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+					RecoveryState: fdbv1beta2.RecoveryState{
+						ActiveGenerations:         1,
+						SecondsSinceLastRecovered: 1000.0, // Well above both thresholds
+					},
+					Data: fdbv1beta2.FoundationDBStatusDataStatistics{
+						State: fdbv1beta2.FoundationDBStatusDataState{
+							Healthy: true,
+						},
+						TeamTrackers: []fdbv1beta2.FoundationDBStatusTeamTracker{
+							{
+								Primary: true,
+								State: fdbv1beta2.FoundationDBStatusDataState{
+									Healthy:              true,
+									MinReplicasRemaining: 2,
+								},
+							},
+						},
+					},
+					Logs: []fdbv1beta2.FoundationDBStatusLogInfo{
+						{
+							LogReplicationFactor: 2,
+							LogFaultTolerance:    1,
+						},
+					},
+					Processes: map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{
+						"coord1": {
+							Address: fdbv1beta2.ProcessAddress{IPAddress: net.ParseIP("127.0.0.1")},
+							Locality: map[string]string{
+								fdbv1beta2.FDBLocalityInstanceIDKey: "coord1",
+							},
+							Roles: []fdbv1beta2.FoundationDBStatusProcessRoleInfo{
+								{Role: string(fdbv1beta2.ProcessRoleCoordinator)},
+							},
+							UptimeSeconds: 1000.0,
+						},
+					},
+				},
+			}
+		})
+
+		It("should succeed when uptime requirements are met with healthy coordinators", func() {
+			err := CanSafelyChangeCoordinators(
+				logr.Discard(),
+				cluster,
+				baseStatus,
+				minimumUptimeForMissing,
+				minimumUptimeForUndesired,
+				true,
+			)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should fail when uptime is insufficient with excluded coordinators", func() {
+			// Exclude the coordinator
+			baseStatus.Cluster.Processes["coord1"] = fdbv1beta2.FoundationDBStatusProcessInfo{
+				Address:  fdbv1beta2.ProcessAddress{IPAddress: net.ParseIP("127.0.0.1")},
+				Excluded: true,
+				Locality: map[string]string{
+					fdbv1beta2.FDBLocalityInstanceIDKey: "coord1",
+				},
+				Roles: []fdbv1beta2.FoundationDBStatusProcessRoleInfo{
+					{Role: string(fdbv1beta2.ProcessRoleCoordinator)},
+				},
+				UptimeSeconds: 500.0, // Between minimumUptimeForMissing and minimumUptimeForUndesired
+			}
+			// Set cluster uptime to match process uptime
+			baseStatus.Cluster.RecoveryState.SecondsSinceLastRecovered = 500.0
+
+			err := CanSafelyChangeCoordinators(
+				logr.Discard(),
+				cluster,
+				baseStatus,
+				minimumUptimeForMissing,
+				minimumUptimeForUndesired,
+				true,
+			)
+			Expect(err).To(HaveOccurred())
+			Expect(
+				err.Error(),
+			).To(Equal("cannot change coordinators: cluster is not up for long enough, cluster minimum uptime is 500.00 seconds but 600.00 seconds required for safe coordinator change"))
+			Expect(err.Error()).To(ContainSubstring("600.00 seconds required"))
+		})
+
+		It("should succeed when uptime meets requirements for excluded coordinators", func() {
+			// Exclude the coordinator
+			baseStatus.Cluster.Processes["coord1"] = fdbv1beta2.FoundationDBStatusProcessInfo{
+				Address:  fdbv1beta2.ProcessAddress{IPAddress: net.ParseIP("127.0.0.1")},
+				Excluded: true,
+				Locality: map[string]string{
+					fdbv1beta2.FDBLocalityInstanceIDKey: "coord1",
+				},
+				Roles: []fdbv1beta2.FoundationDBStatusProcessRoleInfo{
+					{Role: string(fdbv1beta2.ProcessRoleCoordinator)},
+				},
+				UptimeSeconds: 700.0, // Above minimumUptimeForUndesired
+			}
+			// Set cluster uptime to match process uptime
+			baseStatus.Cluster.RecoveryState.SecondsSinceLastRecovered = 700.0
+
+			err := CanSafelyChangeCoordinators(
+				logr.Discard(),
+				cluster,
+				baseStatus,
+				minimumUptimeForMissing,
+				minimumUptimeForUndesired,
+				true,
+			)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should succeed when uptime meets lower requirements for missing coordinators", func() {
+			// Remove the coordinator from processes (simulate missing coordinator)
+			delete(baseStatus.Cluster.Processes, "coord1")
+			// Set cluster uptime between the two thresholds
+			baseStatus.Cluster.RecoveryState.SecondsSinceLastRecovered = 400.0
+
+			err := CanSafelyChangeCoordinators(
+				logr.Discard(),
+				cluster,
+				baseStatus,
+				minimumUptimeForMissing,
+				minimumUptimeForUndesired,
+				true,
+			)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should fail when uptime is insufficient even for missing coordinators", func() {
+			// Remove the coordinator from processes (simulate missing coordinator)
+			delete(baseStatus.Cluster.Processes, "coord1")
+			// Set cluster uptime below minimumUptimeForMissing
+			baseStatus.Cluster.RecoveryState.SecondsSinceLastRecovered = 200.0
+
+			err := CanSafelyChangeCoordinators(
+				logr.Discard(),
+				cluster,
+				baseStatus,
+				minimumUptimeForMissing,
+				minimumUptimeForUndesired,
+				true,
+			)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("missing coordinators"))
+			Expect(err.Error()).To(ContainSubstring("300.00 seconds required"))
+		})
+	})
+
+	Context("with multiple coordinator scenarios", func() {
+		It(
+			"should prioritize missing coordinators over excluded ones for uptime requirements",
+			func() {
+				status := &fdbv1beta2.FoundationDBStatus{
+					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+							Available: true,
+						},
+						Coordinators: fdbv1beta2.FoundationDBStatusCoordinatorInfo{
+							QuorumReachable: true,
+							Coordinators: []fdbv1beta2.FoundationDBStatusCoordinator{
+								{
+									Reachable: true,
+									Address: fdbv1beta2.ProcessAddress{
+										IPAddress: net.ParseIP("127.0.0.1"),
+									},
+								},
+								{
+									Reachable: true,
+									Address: fdbv1beta2.ProcessAddress{
+										IPAddress: net.ParseIP("127.0.0.2"),
+									},
+								},
+							},
+						},
+					},
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						RecoveryState: fdbv1beta2.RecoveryState{
+							ActiveGenerations:         1,
+							SecondsSinceLastRecovered: 400.0, // Between the two thresholds
+						},
+						Data: fdbv1beta2.FoundationDBStatusDataStatistics{
+							State: fdbv1beta2.FoundationDBStatusDataState{
+								Healthy: true,
+							},
+							TeamTrackers: []fdbv1beta2.FoundationDBStatusTeamTracker{
+								{
+									Primary: true,
+									State: fdbv1beta2.FoundationDBStatusDataState{
+										Healthy:              true,
+										MinReplicasRemaining: 2,
+									},
+								},
+							},
+						},
+						Logs: []fdbv1beta2.FoundationDBStatusLogInfo{
+							{
+								LogReplicationFactor: 2,
+								LogFaultTolerance:    1,
+							},
+						},
+						Processes: map[fdbv1beta2.ProcessGroupID]fdbv1beta2.FoundationDBStatusProcessInfo{
+							"coord2": {
+								Address: fdbv1beta2.ProcessAddress{
+									IPAddress: net.ParseIP("127.0.0.2"),
+								},
+								Excluded: true,
+								Locality: map[string]string{
+									fdbv1beta2.FDBLocalityInstanceIDKey: "coord2",
+								},
+								Roles: []fdbv1beta2.FoundationDBStatusProcessRoleInfo{
+									{Role: string(fdbv1beta2.ProcessRoleCoordinator)},
+								},
+								UptimeSeconds: 400.0,
+							},
+							// coord1 is missing from processes - simulates down coordinator
+						},
+					},
+				}
+
+				// Should succeed because missing coordinators (coord1) have lower requirements
+				// even though there are excluded coordinators (coord2)
+				err := CanSafelyChangeCoordinators(
+					logr.Discard(),
+					cluster,
+					status,
+					minimumUptimeForMissing,
+					minimumUptimeForUndesired,
+					true,
+				)
+				Expect(err).NotTo(HaveOccurred())
+			},
+		)
+	})
 })
