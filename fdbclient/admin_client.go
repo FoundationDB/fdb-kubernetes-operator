@@ -35,6 +35,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/metrics"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient"
@@ -779,6 +781,9 @@ func (client *cliAdminClient) ChangeCoordinators(
 		}
 	}
 
+	// Increment the coordinator changes counter for this cluster
+	metrics.CoordinatorChangesCounter.WithLabelValues(client.Cluster.Namespace, client.Cluster.Name).
+		Inc()
 	return getConnectionStringFromDB(client.fdbLibClient, client.getTimeout())
 }
 

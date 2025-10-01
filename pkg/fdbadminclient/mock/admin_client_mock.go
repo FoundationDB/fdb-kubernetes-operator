@@ -28,6 +28,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/metrics"
+
 	"k8s.io/utils/ptr"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/podclient/mock"
@@ -835,6 +837,9 @@ func (client *AdminClient) ChangeCoordinators(
 		newCoord[idx] = coord.String()
 	}
 
+	// Increment the coordinator changes counter for this cluster
+	metrics.CoordinatorChangesCounter.WithLabelValues(client.Cluster.Namespace, client.Cluster.Name).
+		Inc()
 	connectionString.Coordinators = newCoord
 	return connectionString.String(), err
 }
