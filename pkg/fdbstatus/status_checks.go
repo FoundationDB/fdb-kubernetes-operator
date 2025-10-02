@@ -25,6 +25,7 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient"
@@ -839,4 +840,88 @@ func ClusterIsConfigured(
 	return cluster.Status.Configured ||
 		status.Client.DatabaseStatus.Available &&
 			status.Cluster.Layers.Error != "configurationMissing"
+}
+
+// CanSafelyChangeCoordinators returns nil when it is safe to change coordinators in the cluster or returns an error
+// with more information why it's not safe to change coordinators. This function differentiates between missing (down)
+// processes and processes that are only excluded or undesired, applying different minimum uptime requirements for each case.
+func CanSafelyChangeCoordinators(
+	logger logr.Logger,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	status *fdbv1beta2.FoundationDBStatus,
+	minimumUptimeForMissing time.Duration,
+	minimumUptimeForExcluded time.Duration,
+	recoveryStateEnabled bool,
+) error {
+	// TODO double check setting here + true
+	currentMinimumUptime, _, err := GetMinimumUptimeAndAddressMap(
+		logger,
+		cluster,
+		status,
+		recoveryStateEnabled,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to get minimum uptime: %w", err)
+	}
+
+	// Analyze current coordinators using the coordinator information from status
+	// This gives us the definitive list of coordinators regardless of whether processes are running
+	missingCoordinators := 0
+
+	// Create a map of process addresses to process group IDs for faster lookup
+	coordinators := map[string]bool{}
+	for _, coordinator := range status.Client.Coordinators.Coordinators {
+		// TODO validate if logic will work with DNS names.
+		coordinators[coordinator.Address.String()] = false
+	}
+
+	for _, process := range status.Cluster.Processes {
+		processAddr := process.Address.String()
+		if _, ok := coordinators[processAddr]; !ok {
+			continue
+		}
+
+		coordinators[processAddr] = true
+	}
+
+	for _, isPresent := range coordinators {
+		if !isPresent {
+			missingCoordinators++
+		}
+	}
+
+	// Apply different uptime requirements based on the type of coordinator issues
+	var requiredUptime float64
+	var reason string
+
+	logger.V(1).
+		Info("Checking if it is safe to change coordinators", "missingCoordinators", missingCoordinators, "currentMinimumUptime", currentMinimumUptime)
+	if missingCoordinators > 0 {
+		// Missing coordinators indicate processes that are down, use lower threshold
+		requiredUptime = minimumUptimeForMissing.Seconds()
+		reason = fmt.Sprintf("cluster has %d missing coordinators", missingCoordinators)
+	} else {
+		requiredUptime = minimumUptimeForExcluded.Seconds()
+		reason = "cluster is not up for long enough"
+
+		// Perform the default safet checks in case of "normal" coordinator changes or if processes are exclude. If
+		// the cluster has missing coordinators, we should bypass those checks to ensure we recruit the new coordinators
+		// in a timely manner.
+		err = DefaultSafetyChecks(status, 10, "change coordinators")
+		if err != nil {
+			return err
+		}
+	}
+
+	// Check that the cluster has been stable for the required time
+	if currentMinimumUptime < requiredUptime {
+		return fmt.Errorf(
+			"cannot change coordinators: %s, cluster minimum uptime is %.2f seconds but %.2f seconds required for safe coordinator change",
+			reason,
+			currentMinimumUptime,
+			requiredUptime,
+		)
+	}
+
+	return nil
 }
