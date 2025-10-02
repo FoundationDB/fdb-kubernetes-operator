@@ -29,9 +29,12 @@ import (
 	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/metrics"
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/prometheus/client_golang/prometheus"
+	dto "github.com/prometheus/client_model/go"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
@@ -1263,4 +1266,70 @@ protocol fdb00b071010000`,
 		Entry("when it is passed in", ptr.To(uint64(1234567890123)), "1234567890123"),
 		Entry("when it is not passed in", nil, ""),
 	)
+
+	When("changing the coordinators", func() {
+		var cliClient *cliAdminClient
+		var mockRunner *mockCommandRunner
+
+		BeforeEach(func() {
+			mockRunner = &mockCommandRunner{
+				mockedError:  nil,
+				mockedOutput: []string{""},
+			}
+
+			cliClient = &cliAdminClient{
+				Cluster: &fdbv1beta2.FoundationDBCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test",
+						Namespace: "test",
+					},
+					Spec: fdbv1beta2.FoundationDBClusterSpec{
+						Version: "7.3.1",
+					},
+					Status: fdbv1beta2.FoundationDBClusterStatus{
+						RunningVersion:   "7.3.1",
+						ConnectionString: "abc:dfg@test:4500",
+					},
+				},
+				log:       logr.Discard(),
+				cmdRunner: mockRunner,
+				fdbLibClient: &mockFdbLibClient{
+					mockedOutput: []byte("abc:xyz@127.0.01:4500"),
+				},
+			}
+
+			_, err := cliClient.ChangeCoordinators([]fdbv1beta2.ProcessAddress{
+				{
+					IPAddress: net.ParseIP("127.0.0.1"),
+					Port:      4500,
+				},
+			})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should change the coordinators and increment the counter", func() {
+			Expect(mockRunner.receivedArgs).To(HaveLen(1))
+			Expect(
+				mockRunner.receivedArgs[0][:2],
+			).To(Equal([]string{"--exec", "coordinators 127.0.0.1:4500"}))
+
+			// The counter should have been incremented since a coordinator change occurred
+			// in the JustBeforeEach block above
+			counterValue := getCounterValue(
+				metrics.CoordinatorChangesCounter,
+				"test",
+				"test",
+			)
+			Expect(
+				counterValue,
+			).To(BeNumerically(">", 0), "coordinator changes counter should be incremented after a coordinator change")
+		})
+	})
 })
+
+// getCounterValue extracts the current value of a prometheus counter for specific labels
+func getCounterValue(counter *prometheus.CounterVec, namespace, name string) float64 {
+	metric := &dto.Metric{}
+	Expect(counter.WithLabelValues(namespace, name).Write(metric)).To(Succeed())
+	return metric.Counter.GetValue()
+}
