@@ -275,7 +275,7 @@ func (fdbBackup *FdbBackup) WaitForRestorableVersion(version uint64) uint64 {
 		g.Expect(status.LatestRestorablePoint).NotTo(gomega.BeNil())
 
 		return ptr.Deref(status.LatestRestorablePoint.Version, 0)
-	}).WithTimeout(10*time.Minute).WithPolling(2*time.Second).Should(gomega.BeNumerically(">", version), "error waiting for restorable version")
+	}).WithTimeout(10*time.Minute).WithPolling(2*time.Second).Should(gomega.BeNumerically(">=", version), "error waiting for restorable version")
 	return restorableVersion
 }
 

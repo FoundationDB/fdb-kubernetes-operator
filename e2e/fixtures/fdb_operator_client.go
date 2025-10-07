@@ -400,8 +400,8 @@ spec:
             - name: fdb-binaries
               mountPath: /var/output-files
           securityContext:
-            runAsUser: 0
-            runAsGroup: 0
+            runAsUser: 4059
+            runAsGroup: 4059
         {{ end }}
       containers:
       - command:
