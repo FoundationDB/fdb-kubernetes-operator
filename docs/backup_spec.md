@@ -108,7 +108,7 @@ FoundationDBBackupSpec describes the desired state of the backup for a cluster.
 | customParameters | CustomParameters defines additional parameters to pass to the backup agents. | FoundationDBCustomParameters | false |
 | allowTagOverride | This setting defines if a user provided image can have it's own tag rather than getting the provided version appended. You have to ensure that the specified version in the Spec is compatible with the given version in your custom image. **Deprecated: use ImageConfigs instead.** | *bool | false |
 | blobStoreConfiguration | This is the configuration of the target blobstore for this backup. | *[BlobStoreConfiguration](#blobstoreconfiguration) | false |
-| encryptionKeyPath | The path to the encryption key used to encrypt the backup. | string | false |
+| encryptionKeyPath | The path to the encryption key used to encrypt the backup. This feature is only supported in FDB versions 7.4.6 or newer. Older versions will not use this flag. | string | false |
 | mainContainer | MainContainer defines customization for the foundationdb container. Note: The enableTls setting is ignored for backup agents - use TLS environment variables instead. | ContainerOverrides | false |
 | sidecarContainer | SidecarContainer defines customization for the foundationdb-kubernetes-sidecar container. | ContainerOverrides | false |
 | imageType | ImageType defines the image type that should be used for the FoundationDBCluster deployment. When the type is set to \"unified\" the deployment will use the new fdb-kubernetes-monitor. Otherwise the main container and the sidecar container will use different images. Default: split | *ImageType | false |

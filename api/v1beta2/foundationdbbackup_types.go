@@ -99,7 +99,8 @@ type FoundationDBBackupSpec struct {
 	// This is the configuration of the target blobstore for this backup.
 	BlobStoreConfiguration *BlobStoreConfiguration `json:"blobStoreConfiguration,omitempty"`
 
-	// The path to the encryption key used to encrypt the backup.
+	// The path to the encryption key used to encrypt the backup. This feature is only supported in FDB versions 7.4.6
+	// or newer. Older versions will not use this flag.
 	// +kubebuilder:validation:MaxLength=4096
 	EncryptionKeyPath string `json:"encryptionKeyPath,omitempty"`
 
