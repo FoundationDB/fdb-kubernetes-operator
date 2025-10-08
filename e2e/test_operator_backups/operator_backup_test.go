@@ -36,9 +36,10 @@ import (
 )
 
 var (
-	factory     *fixtures.Factory
-	fdbCluster  *fixtures.FdbCluster
-	testOptions *fixtures.FactoryOptions
+	factory            *fixtures.Factory
+	fdbCluster         *fixtures.FdbCluster
+	testOptions        *fixtures.FactoryOptions
+	supportsEncryption fdbv1beta2.Version
 )
 
 func init() {
@@ -61,6 +62,9 @@ var _ = BeforeSuite(func() {
 	if factory.GetFDBVersion().String() == "7.1.63" {
 		Skip("Skip backup tests with 7.1.63 as this version has a bug in the fdbbackup agent")
 	}
+
+	supportsEncryption, err = fdbv1beta2.ParseFdbVersion("7.4.6")
+	Expect(err).NotTo(HaveOccurred())
 
 	// Create a blobstore for testing backups and restore.
 	factory.CreateBlobstoreIfAbsent(factory.SingleNamespace())
@@ -126,9 +130,10 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 					// In case of the one time backup we have to first write the keys and then do the backup.
 					keyValues = fdbCluster.GenerateRandomValues(10, prefix)
 					fdbCluster.WriteKeyValues(keyValues)
+					currentVersion := fdbCluster.GetClusterVersion()
 					backup = factory.CreateBackupForCluster(fdbCluster, backupConfiguration)
 					restorableVersion = backup.WaitForRestorableVersion(
-						fdbCluster.GetClusterVersion(),
+						currentVersion,
 					)
 				}
 
@@ -157,22 +162,23 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 
 				When("encryption is enabled", func() {
 					BeforeEach(func() {
-						requiredFdbVersion, err := fdbv1beta2.ParseFdbVersion("7.4.5")
-						Expect(err).NotTo(HaveOccurred())
-
-						version := factory.GetFDBVersion()
-						if !version.IsAtLeast(requiredFdbVersion) {
+						if !factory.GetFDBVersion().IsAtLeast(supportsEncryption) {
 							Skip(
-								"version has a bug in the backup version that prevents tests to succeed",
+								"version doesn't support the encryption feature",
 							)
 						}
 
 						backupConfiguration.EncryptionEnabled = true
 					})
 
-					It("should restore the cluster successfully with a restorable version", func() {
-						Expect(fdbCluster.GetRange([]byte{prefix}, 25, 60)).Should(Equal(keyValues))
-					})
+					It(
+						"should restore the cluster successfully with a restorable version",
+						func() {
+							Expect(
+								fdbCluster.GetRange([]byte{prefix}, 25, 60),
+							).Should(Equal(keyValues))
+						},
+					)
 				})
 
 				// TODO (johscheuer): Enable test once the CRD in CI is updated.
@@ -203,13 +209,9 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 
 				When("encryption is enabled", func() {
 					BeforeEach(func() {
-						requiredFdbVersion, err := fdbv1beta2.ParseFdbVersion("7.4.5")
-						Expect(err).NotTo(HaveOccurred())
-
-						version := factory.GetFDBVersion()
-						if !version.IsAtLeast(requiredFdbVersion) {
+						if !factory.GetFDBVersion().IsAtLeast(supportsEncryption) {
 							Skip(
-								"version has a bug in the backup version that prevents tests to succeed",
+								"version doesn't support the encryption feature",
 							)
 						}
 
