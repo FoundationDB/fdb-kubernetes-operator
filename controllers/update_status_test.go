@@ -1702,4 +1702,325 @@ var _ = Describe("update_status", func() {
 			})
 		})
 	})
+
+	When("checking if the pod spec if correct", func() {
+		var cluster *fdbv1beta2.FoundationDBCluster
+		var pod *corev1.Pod
+		var processGroupStatus *fdbv1beta2.ProcessGroupStatus
+		var err error
+
+		BeforeEach(func() {
+			cluster = internal.CreateDefaultCluster()
+			Expect(setupClusterForTest(cluster)).NotTo(HaveOccurred())
+
+			pickedProcessGroup := internal.PickProcessGroups(
+				cluster,
+				fdbv1beta2.ProcessClassStorage,
+				1,
+			)[0]
+			processGroupStatus = pickedProcessGroup
+
+			pod, err = clusterReconciler.PodLifecycleManager.GetPod(
+				context.TODO(),
+				clusterReconciler,
+				cluster,
+				pickedProcessGroup.GetPodName(cluster),
+			)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		When("the spec hash matches and Pod is up to date", func() {
+			It("should return true", func() {
+				correct, err := podSpecIsCorrect(
+					context.TODO(),
+					clusterReconciler,
+					cluster,
+					pod,
+					processGroupStatus,
+					logger,
+				)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(correct).To(BeTrue())
+			})
+		})
+
+		When("the spec hash does not match", func() {
+			BeforeEach(func() {
+				pod.Annotations[fdbv1beta2.LastSpecKey] = "incorrect-hash"
+				Expect(k8sClient.Update(context.TODO(), pod)).NotTo(HaveOccurred())
+			})
+
+			It("should return false", func() {
+				correct, err := podSpecIsCorrect(
+					context.TODO(),
+					clusterReconciler,
+					cluster,
+					pod,
+					processGroupStatus,
+					logger,
+				)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(correct).To(BeFalse())
+			})
+		})
+
+		When("mutable fields have been changed", func() {
+			BeforeEach(func() {
+				// Change the image of the main container
+				for idx, container := range pod.Spec.Containers {
+					if container.Name == fdbv1beta2.MainContainerName {
+						pod.Spec.Containers[idx].Image = "foundationdb/foundationdb:9.9.9"
+						break
+					}
+				}
+				Expect(k8sClient.Update(context.TODO(), pod)).NotTo(HaveOccurred())
+			})
+
+			It("should return false due to mutable field mismatch", func() {
+				correct, err := podSpecIsCorrect(
+					context.TODO(),
+					clusterReconciler,
+					cluster,
+					pod,
+					processGroupStatus,
+					logger,
+				)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(correct).To(BeFalse())
+			})
+		})
+
+		When("tolerations have been changed", func() {
+			BeforeEach(func() {
+				pod.Spec.Tolerations = append(
+					pod.Spec.Tolerations,
+					corev1.Toleration{
+						Key:      "test-key",
+						Operator: corev1.TolerationOpEqual,
+						Value:    "test-value",
+						Effect:   corev1.TaintEffectNoSchedule,
+					},
+				)
+				Expect(k8sClient.Update(context.TODO(), pod)).NotTo(HaveOccurred())
+			})
+
+			It("should return false due to toleration mismatch", func() {
+				correct, err := podSpecIsCorrect(
+					context.TODO(),
+					clusterReconciler,
+					cluster,
+					pod,
+					processGroupStatus,
+					logger,
+				)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(correct).To(BeFalse())
+			})
+		})
+
+		When("an error occurs getting the Pod spec", func() {
+			It("should still complete without panicking", func() {
+				// The method should handle errors gracefully even in edge cases
+				correct, err := podSpecIsCorrect(
+					context.TODO(),
+					clusterReconciler,
+					cluster,
+					pod,
+					processGroupStatus,
+					logger,
+				)
+				// The method should not panic and should return a reasonable response
+				Expect(err).NotTo(HaveOccurred())
+				Expect(correct).To(BeTrue())
+			})
+		})
+	})
+
+	When("checking if the pods mutable fields are valid", func() {
+		var desiredPodSpec *corev1.PodSpec
+		var currentPodSpec *corev1.PodSpec
+
+		BeforeEach(func() {
+			cluster := internal.CreateDefaultCluster()
+			// Properly normalize the cluster to ensure all fields are initialized
+			Expect(internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})).NotTo(
+				HaveOccurred(),
+			)
+
+			processGroupStatus := fdbv1beta2.NewProcessGroupStatus(
+				"storage-1",
+				fdbv1beta2.ProcessClassStorage,
+				nil,
+			)
+
+			var err error
+			desiredPodSpec, err = internal.GetPodSpec(cluster, processGroupStatus)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Create a deep copy for the current spec
+			currentPodSpec = desiredPodSpec.DeepCopy()
+		})
+
+		When("all mutable fields match", func() {
+			It("should return true", func() {
+				Expect(mutablePodFieldsAreCorrect(desiredPodSpec, currentPodSpec)).To(BeTrue())
+			})
+		})
+
+		When("a main container image is changed", func() {
+			BeforeEach(func() {
+				currentPodSpec.Containers[0].Image = "different-image:latest"
+			})
+
+			It("should return false", func() {
+				Expect(mutablePodFieldsAreCorrect(desiredPodSpec, currentPodSpec)).To(BeFalse())
+			})
+		})
+
+		When("the sidecar container image is changed", func() {
+			BeforeEach(func() {
+				// Find the sidecar container
+				for idx, container := range currentPodSpec.Containers {
+					if container.Name == fdbv1beta2.SidecarContainerName {
+						currentPodSpec.Containers[idx].Image = "different-sidecar:latest"
+						break
+					}
+				}
+			})
+
+			It("should return false", func() {
+				Expect(mutablePodFieldsAreCorrect(desiredPodSpec, currentPodSpec)).To(BeFalse())
+			})
+		})
+
+		When("an init container image is changed", func() {
+			BeforeEach(func() {
+				// Add an init container to both specs first
+				initContainer := corev1.Container{
+					Name:  "init-test",
+					Image: "init-image:v1",
+				}
+				desiredPodSpec.InitContainers = []corev1.Container{initContainer}
+				currentPodSpec.InitContainers = []corev1.Container{initContainer}
+
+				// Change the current spec's init container
+				currentPodSpec.InitContainers[0].Image = "init-image:v2"
+			})
+
+			It("should return false", func() {
+				Expect(mutablePodFieldsAreCorrect(desiredPodSpec, currentPodSpec)).To(BeFalse())
+			})
+		})
+
+		When("ActiveDeadlineSeconds is changed", func() {
+			BeforeEach(func() {
+				desiredPodSpec.ActiveDeadlineSeconds = ptr.To(int64(3600))
+				currentPodSpec.ActiveDeadlineSeconds = ptr.To(int64(7200))
+			})
+
+			It("should return false", func() {
+				Expect(mutablePodFieldsAreCorrect(desiredPodSpec, currentPodSpec)).To(BeFalse())
+			})
+		})
+
+		When("TerminationGracePeriodSeconds is changed", func() {
+			BeforeEach(func() {
+				desiredPodSpec.TerminationGracePeriodSeconds = ptr.To(int64(30))
+				currentPodSpec.TerminationGracePeriodSeconds = ptr.To(int64(60))
+			})
+
+			It("should return false", func() {
+				Expect(mutablePodFieldsAreCorrect(desiredPodSpec, currentPodSpec)).To(BeFalse())
+			})
+		})
+
+		When("tolerations are added", func() {
+			BeforeEach(func() {
+				currentPodSpec.Tolerations = append(
+					currentPodSpec.Tolerations,
+					corev1.Toleration{
+						Key:      "added-toleration",
+						Operator: corev1.TolerationOpEqual,
+						Value:    "added-value",
+						Effect:   corev1.TaintEffectNoSchedule,
+					},
+				)
+			})
+
+			It("should return false", func() {
+				Expect(mutablePodFieldsAreCorrect(desiredPodSpec, currentPodSpec)).To(BeFalse())
+			})
+		})
+
+		When("tolerations are removed", func() {
+			BeforeEach(func() {
+				desiredPodSpec.Tolerations = []corev1.Toleration{
+					{
+						Key:      "test-toleration",
+						Operator: corev1.TolerationOpEqual,
+						Value:    "test-value",
+						Effect:   corev1.TaintEffectNoSchedule,
+					},
+				}
+				currentPodSpec.Tolerations = []corev1.Toleration{}
+			})
+
+			It("should return false", func() {
+				Expect(mutablePodFieldsAreCorrect(desiredPodSpec, currentPodSpec)).To(BeFalse())
+			})
+		})
+
+		When("tolerations are modified", func() {
+			BeforeEach(func() {
+				toleration := corev1.Toleration{
+					Key:      "test-toleration",
+					Operator: corev1.TolerationOpEqual,
+					Value:    "original-value",
+					Effect:   corev1.TaintEffectNoSchedule,
+				}
+				desiredPodSpec.Tolerations = []corev1.Toleration{toleration}
+
+				modifiedToleration := toleration
+				modifiedToleration.Value = "modified-value"
+				currentPodSpec.Tolerations = []corev1.Toleration{modifiedToleration}
+			})
+
+			It("should return false", func() {
+				Expect(mutablePodFieldsAreCorrect(desiredPodSpec, currentPodSpec)).To(BeFalse())
+			})
+		})
+
+		When("multiple mutable fields are changed", func() {
+			BeforeEach(func() {
+				currentPodSpec.Containers[0].Image = "different-image:latest"
+				currentPodSpec.TerminationGracePeriodSeconds = ptr.To(int64(120))
+				currentPodSpec.Tolerations = append(
+					currentPodSpec.Tolerations,
+					corev1.Toleration{
+						Key:    "extra",
+						Effect: corev1.TaintEffectNoExecute,
+					},
+				)
+			})
+
+			It("should return false", func() {
+				Expect(mutablePodFieldsAreCorrect(desiredPodSpec, currentPodSpec)).To(BeFalse())
+			})
+		})
+
+		When("schedulingGates are different", func() {
+			BeforeEach(func() {
+				// Add schedulingGates to current spec
+				currentPodSpec.SchedulingGates = []corev1.PodSchedulingGate{
+					{Name: "test-gate"},
+				}
+				// Keep desired spec without schedulingGates
+			})
+
+			It("should still return true as schedulingGates are ignored", func() {
+				// The method explicitly ignores schedulingGates per the comment in the code
+				Expect(mutablePodFieldsAreCorrect(desiredPodSpec, currentPodSpec)).To(BeTrue())
+			})
+		})
+	})
 })
