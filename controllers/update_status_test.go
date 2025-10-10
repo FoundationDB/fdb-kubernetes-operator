@@ -1790,34 +1790,6 @@ var _ = Describe("update_status", func() {
 			})
 		})
 
-		When("tolerations have been changed", func() {
-			BeforeEach(func() {
-				pod.Spec.Tolerations = append(
-					pod.Spec.Tolerations,
-					corev1.Toleration{
-						Key:      "test-key",
-						Operator: corev1.TolerationOpEqual,
-						Value:    "test-value",
-						Effect:   corev1.TaintEffectNoSchedule,
-					},
-				)
-				Expect(k8sClient.Update(context.TODO(), pod)).NotTo(HaveOccurred())
-			})
-
-			It("should return false due to toleration mismatch", func() {
-				correct, err := podSpecIsCorrect(
-					context.TODO(),
-					clusterReconciler,
-					cluster,
-					pod,
-					processGroupStatus,
-					logger,
-				)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(correct).To(BeFalse())
-			})
-		})
-
 		When("an error occurs getting the Pod spec", func() {
 			It("should still complete without panicking", func() {
 				// The method should handle errors gracefully even in edge cases
@@ -1863,7 +1835,9 @@ var _ = Describe("update_status", func() {
 
 		When("all mutable fields match", func() {
 			It("should return true", func() {
-				Expect(mutablePodFieldsAreCorrect(desiredPodSpec, currentPodSpec)).To(BeTrue())
+				Expect(
+					mutablePodFieldsAreCorrect(testLogger, desiredPodSpec, currentPodSpec),
+				).To(BeTrue())
 			})
 		})
 
@@ -1873,7 +1847,9 @@ var _ = Describe("update_status", func() {
 			})
 
 			It("should return false", func() {
-				Expect(mutablePodFieldsAreCorrect(desiredPodSpec, currentPodSpec)).To(BeFalse())
+				Expect(
+					mutablePodFieldsAreCorrect(testLogger, desiredPodSpec, currentPodSpec),
+				).To(BeFalse())
 			})
 		})
 
@@ -1889,7 +1865,9 @@ var _ = Describe("update_status", func() {
 			})
 
 			It("should return false", func() {
-				Expect(mutablePodFieldsAreCorrect(desiredPodSpec, currentPodSpec)).To(BeFalse())
+				Expect(
+					mutablePodFieldsAreCorrect(testLogger, desiredPodSpec, currentPodSpec),
+				).To(BeFalse())
 			})
 		})
 
@@ -1908,85 +1886,9 @@ var _ = Describe("update_status", func() {
 			})
 
 			It("should return false", func() {
-				Expect(mutablePodFieldsAreCorrect(desiredPodSpec, currentPodSpec)).To(BeFalse())
-			})
-		})
-
-		When("ActiveDeadlineSeconds is changed", func() {
-			BeforeEach(func() {
-				desiredPodSpec.ActiveDeadlineSeconds = ptr.To(int64(3600))
-				currentPodSpec.ActiveDeadlineSeconds = ptr.To(int64(7200))
-			})
-
-			It("should return false", func() {
-				Expect(mutablePodFieldsAreCorrect(desiredPodSpec, currentPodSpec)).To(BeFalse())
-			})
-		})
-
-		When("TerminationGracePeriodSeconds is changed", func() {
-			BeforeEach(func() {
-				desiredPodSpec.TerminationGracePeriodSeconds = ptr.To(int64(30))
-				currentPodSpec.TerminationGracePeriodSeconds = ptr.To(int64(60))
-			})
-
-			It("should return false", func() {
-				Expect(mutablePodFieldsAreCorrect(desiredPodSpec, currentPodSpec)).To(BeFalse())
-			})
-		})
-
-		When("tolerations are added", func() {
-			BeforeEach(func() {
-				currentPodSpec.Tolerations = append(
-					currentPodSpec.Tolerations,
-					corev1.Toleration{
-						Key:      "added-toleration",
-						Operator: corev1.TolerationOpEqual,
-						Value:    "added-value",
-						Effect:   corev1.TaintEffectNoSchedule,
-					},
-				)
-			})
-
-			It("should return false", func() {
-				Expect(mutablePodFieldsAreCorrect(desiredPodSpec, currentPodSpec)).To(BeFalse())
-			})
-		})
-
-		When("tolerations are removed", func() {
-			BeforeEach(func() {
-				desiredPodSpec.Tolerations = []corev1.Toleration{
-					{
-						Key:      "test-toleration",
-						Operator: corev1.TolerationOpEqual,
-						Value:    "test-value",
-						Effect:   corev1.TaintEffectNoSchedule,
-					},
-				}
-				currentPodSpec.Tolerations = []corev1.Toleration{}
-			})
-
-			It("should return false", func() {
-				Expect(mutablePodFieldsAreCorrect(desiredPodSpec, currentPodSpec)).To(BeFalse())
-			})
-		})
-
-		When("tolerations are modified", func() {
-			BeforeEach(func() {
-				toleration := corev1.Toleration{
-					Key:      "test-toleration",
-					Operator: corev1.TolerationOpEqual,
-					Value:    "original-value",
-					Effect:   corev1.TaintEffectNoSchedule,
-				}
-				desiredPodSpec.Tolerations = []corev1.Toleration{toleration}
-
-				modifiedToleration := toleration
-				modifiedToleration.Value = "modified-value"
-				currentPodSpec.Tolerations = []corev1.Toleration{modifiedToleration}
-			})
-
-			It("should return false", func() {
-				Expect(mutablePodFieldsAreCorrect(desiredPodSpec, currentPodSpec)).To(BeFalse())
+				Expect(
+					mutablePodFieldsAreCorrect(testLogger, desiredPodSpec, currentPodSpec),
+				).To(BeFalse())
 			})
 		})
 
@@ -2004,7 +1906,9 @@ var _ = Describe("update_status", func() {
 			})
 
 			It("should return false", func() {
-				Expect(mutablePodFieldsAreCorrect(desiredPodSpec, currentPodSpec)).To(BeFalse())
+				Expect(
+					mutablePodFieldsAreCorrect(testLogger, desiredPodSpec, currentPodSpec),
+				).To(BeFalse())
 			})
 		})
 
@@ -2019,7 +1923,9 @@ var _ = Describe("update_status", func() {
 
 			It("should still return true as schedulingGates are ignored", func() {
 				// The method explicitly ignores schedulingGates per the comment in the code
-				Expect(mutablePodFieldsAreCorrect(desiredPodSpec, currentPodSpec)).To(BeTrue())
+				Expect(
+					mutablePodFieldsAreCorrect(testLogger, desiredPodSpec, currentPodSpec),
+				).To(BeTrue())
 			})
 		})
 	})

@@ -1292,7 +1292,7 @@ func podSpecIsCorrect(ctx context.Context,
 
 	// Check if any of the mutable fields of the Pod have been changed outside the operators control, e.g.
 	// by using kubectl.
-	if !mutablePodFieldsAreCorrect(desiredPodSpec, pod.Spec.DeepCopy()) {
+	if !mutablePodFieldsAreCorrect(logger, desiredPodSpec, pod.Spec.DeepCopy()) {
 		logger.Info(
 			"IncorrectPodSpec",
 			"currentSpecHash",
@@ -1332,39 +1332,31 @@ func podSpecIsCorrect(ctx context.Context,
 // mutablePodFieldsAreCorrect checks if any of the pods mutable fields have been changed, see:
 // https://kubernetes.io/docs/concepts/workloads/pods/#pod-update-and-replacement
 func mutablePodFieldsAreCorrect(
+	logger logr.Logger,
 	desiredPodSpec *corev1.PodSpec,
 	currentPodSpec *corev1.PodSpec,
 ) bool {
 	for idx, container := range desiredPodSpec.Containers {
+		logger.V(1).
+			Info("compare images for container", "desiredContainerName", container.Name, "desiredImage", container.Name, "currentContainerName", currentPodSpec.Containers[idx].Name, "currentImage", currentPodSpec.Containers[idx].Image)
 		if !equality.Semantic.DeepEqual(container.Image, currentPodSpec.Containers[idx].Image) {
 			return false
 		}
 	}
 
 	for idx, container := range desiredPodSpec.InitContainers {
+		logger.V(1).
+			Info("compare images for init container", "desiredContainerName", container.Name, "desiredImage", container.Name, "currentContainerName", currentPodSpec.Containers[idx].Name, "currentImage", currentPodSpec.Containers[idx].Image)
 		if !equality.Semantic.DeepEqual(container.Image, currentPodSpec.InitContainers[idx].Image) {
 			return false
 		}
 	}
 
-	if !equality.Semantic.DeepEqual(
-		desiredPodSpec.ActiveDeadlineSeconds,
-		currentPodSpec.ActiveDeadlineSeconds,
-	) {
-		return false
-	}
-
-	if !equality.Semantic.DeepEqual(
-		desiredPodSpec.TerminationGracePeriodSeconds,
-		currentPodSpec.TerminationGracePeriodSeconds,
-	) {
-		return false
-	}
-
 	// We ignore the spec.schedulingGates in the comparison here. Otherwise, a component could make the Pod ready for
 	// being scheduled by removing the scheduling gate which then would case a recreation of the Pod. This would
-	// cause the Pod to be stuck in pending or recreation.
+	// cause the Pod to be stuck in pending or recreation. We also ignore the `Tolerations`, `ActiveDeadlineSeconds`
+	// and `TerminationGracePeriodSeconds`. Those have some restrictions on the update anyway.
 	// We could make use of the mutability of the tolerations field and remove the need for a Pod recreation when only
 	// tolerations are added.
-	return equality.Semantic.DeepEqual(desiredPodSpec.Tolerations, currentPodSpec.Tolerations)
+	return true
 }
