@@ -4,7 +4,7 @@ ARG FDB_VERSION=7.1.67
 ARG FDB_WEBSITE=https://github.com/apple/foundationdb/releases/download
 
 # Build the manager binary
-FROM docker.io/library/golang:1.24.6-bookworm AS builder
+FROM docker.io/library/golang:1.24.9-bookworm AS builder
 
 ARG FDB_VERSION
 ARG FDB_WEBSITE
@@ -17,7 +17,7 @@ RUN set -eux && \
     elif [ "$TARGETARCH" = "arm64" ]; then \
          FDB_ARCH=aarch64; \
          if [ "${FDB_VERSION%.*}" = "7.1" ]; then \
-            FDB_VERSION="7.3.63"; \
+            FDB_VERSION="7.3.71"; \
          fi; \
     else \
          echo "ERROR: unsupported architecture $TARGETARCH" 1>&2; \
@@ -75,7 +75,7 @@ RUN set -eux && \
     elif [ "$TARGETARCH" = "arm64" ]; then \
          FDB_ARCH=aarch64; \
          if [ "${FDB_VERSION%.*}" = "7.1" ]; then \
-            FDB_VERSION="7.3.63"; \
+            FDB_VERSION="7.3.71"; \
          fi; \
     else \
          echo "ERROR: unsupported architecture $TARGETARCH" 1>&2; \
@@ -89,7 +89,9 @@ RUN set -eux && \
     fi; \
     curl --fail -L "${FDB_WEBSITE}/${FDB_VERSION}/foundationdb-clients-${FDB_VERSION}-1.${FDB_OS}.${FDB_ARCH}.rpm" -o foundationdb-clients-${FDB_VERSION}-1.${FDB_OS}.${FDB_ARCH}.rpm && \
     curl --fail -L "${FDB_WEBSITE}/${FDB_VERSION}/foundationdb-clients-${FDB_VERSION}-1.${FDB_OS}.${FDB_ARCH}.rpm.sha256" -o foundationdb-clients-${FDB_VERSION}-1.${FDB_OS}.${FDB_ARCH}.rpm.sha256 && \
-    microdnf install -y glibc pkg-config bind-utils && \
+    # Disable buggy mirrors for RockyLinux.
+    sed -i.bak 's/^#baseurl=/baseurl=/; s/^mirrorlist=/#mirrorlist=/' /etc/yum.repos.d/rocky.repo && \
+    microdnf install --disablerepo=* --enablerepo=baseos --enablerepo=appstream -y glibc pkg-config bind-utils && \
     microdnf clean all && \
     sha256sum -c foundationdb-clients-${FDB_VERSION}-1.${FDB_OS}.${FDB_ARCH}.rpm.sha256 && \
     rpm -i foundationdb-clients-${FDB_VERSION}-1.${FDB_OS}.${FDB_ARCH}.rpm --excludepath=/usr/bin --excludepath=/usr/lib/foundationdb/backup_agent && \
