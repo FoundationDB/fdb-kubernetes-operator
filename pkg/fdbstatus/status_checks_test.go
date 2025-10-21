@@ -2627,7 +2627,6 @@ var _ = Describe("CanSafelyChangeCoordinators", func() {
 					status,
 					minimumUptimeForMissing,
 					minimumUptimeForUndesired,
-					true,
 				)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring(expectedError))
@@ -2734,7 +2733,6 @@ var _ = Describe("CanSafelyChangeCoordinators", func() {
 				baseStatus,
 				minimumUptimeForMissing,
 				minimumUptimeForUndesired,
-				true,
 			)
 			Expect(err).NotTo(HaveOccurred())
 		})
@@ -2761,13 +2759,11 @@ var _ = Describe("CanSafelyChangeCoordinators", func() {
 				baseStatus,
 				minimumUptimeForMissing,
 				minimumUptimeForUndesired,
-				true,
 			)
 			Expect(err).To(HaveOccurred())
 			Expect(
 				err.Error(),
-			).To(Equal("cannot change coordinators: cluster is not up for long enough, cluster minimum uptime is 500.00 seconds but 600.00 seconds required for safe coordinator change"))
-			Expect(err.Error()).To(ContainSubstring("600.00 seconds required"))
+			).To(Equal("cannot: change coordinators: cluster is not up for long enough, clusters last recovery was 500.00 seconds ago, wait until the last recovery was 600 seconds ago"))
 		})
 
 		It("should succeed when uptime meets requirements for excluded coordinators", func() {
@@ -2792,7 +2788,6 @@ var _ = Describe("CanSafelyChangeCoordinators", func() {
 				baseStatus,
 				minimumUptimeForMissing,
 				minimumUptimeForUndesired,
-				true,
 			)
 			Expect(err).NotTo(HaveOccurred())
 		})
@@ -2809,7 +2804,6 @@ var _ = Describe("CanSafelyChangeCoordinators", func() {
 				baseStatus,
 				minimumUptimeForMissing,
 				minimumUptimeForUndesired,
-				true,
 			)
 			Expect(err).NotTo(HaveOccurred())
 		})
@@ -2826,11 +2820,12 @@ var _ = Describe("CanSafelyChangeCoordinators", func() {
 				baseStatus,
 				minimumUptimeForMissing,
 				minimumUptimeForUndesired,
-				true,
 			)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("missing coordinators"))
-			Expect(err.Error()).To(ContainSubstring("300.00 seconds required"))
+			Expect(
+				err.Error(),
+			).To(ContainSubstring("wait until the last recovery was 300 seconds ago"))
 		})
 	})
 
@@ -2913,7 +2908,6 @@ var _ = Describe("CanSafelyChangeCoordinators", func() {
 					status,
 					minimumUptimeForMissing,
 					minimumUptimeForUndesired,
-					true,
 				)
 				Expect(err).NotTo(HaveOccurred())
 			},

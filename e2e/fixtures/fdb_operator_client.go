@@ -505,6 +505,8 @@ spec:
           - --cluster-label-key-for-node-trigger=foundationdb.org/fdb-cluster-name
           - --enable-node-index
           - --replace-on-security-context-change
+          - --minimum-uptime-for-coordinator-change-with-undesired-process=20s
+          - --minimum-uptime-for-coordinator-change-with-missing-process=10s
 `
 )
 

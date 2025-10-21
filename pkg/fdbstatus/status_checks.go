@@ -314,7 +314,7 @@ func GetCoordinatorsFromStatus(status *fdbv1beta2.FoundationDBStatus) map[string
 	return coordinators
 }
 
-// GetMinimumUptimeAndAddressMap returns address map of the processes included the the foundationdb status. The minimum
+// GetMinimumUptimeAndAddressMap returns address map of the processes included the foundationdb status. The minimum
 // uptime will be either secondsSinceLastRecovered if the recovery state is supported and enabled otherwise we will
 // take the minimum uptime of all processes.
 func GetMinimumUptimeAndAddressMap(
@@ -631,22 +631,9 @@ func canSafelyExcludeOrIncludeProcesses(
 		return err
 	}
 
-	version, err := fdbv1beta2.ParseFdbVersion(cluster.GetRunningVersion())
+	err = checkLastClusterRecovery(cluster, status, minRecoverySeconds, action)
 	if err != nil {
 		return err
-	}
-
-	if version.SupportsRecoveryState() {
-		// We want to make sure that the cluster is recovered for some time. This should protect the cluster from
-		// getting into a bad state as a result of frequent inclusions/exclusions.
-		if status.Cluster.RecoveryState.SecondsSinceLastRecovered < minRecoverySeconds {
-			return fmt.Errorf(
-				"cannot: %s, clusters last recovery was %0.2f seconds ago, wait until the last recovery was %0.0f seconds ago",
-				action,
-				status.Cluster.RecoveryState.SecondsSinceLastRecovered,
-				minRecoverySeconds,
-			)
-		}
 	}
 
 	// In the case of inclusions we also want to make sure we only change the list of excluded server if the cluster is
@@ -846,24 +833,12 @@ func ClusterIsConfigured(
 // with more information why it's not safe to change coordinators. This function differentiates between missing (down)
 // processes and processes that are only excluded or undesired, applying different minimum uptime requirements for each case.
 func CanSafelyChangeCoordinators(
-	logger logr.Logger,
+	_ logr.Logger,
 	cluster *fdbv1beta2.FoundationDBCluster,
 	status *fdbv1beta2.FoundationDBStatus,
 	minimumUptimeForMissing time.Duration,
 	minimumUptimeForExcluded time.Duration,
-	recoveryStateEnabled bool,
 ) error {
-	// TODO double check setting here + true
-	currentMinimumUptime, _, err := GetMinimumUptimeAndAddressMap(
-		logger,
-		cluster,
-		status,
-		recoveryStateEnabled,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to get minimum uptime: %w", err)
-	}
-
 	// Analyze current coordinators using the coordinator information from status
 	// This gives us the definitive list of coordinators regardless of whether processes are running
 	missingCoordinators := 0
@@ -871,7 +846,6 @@ func CanSafelyChangeCoordinators(
 	// Create a map of process addresses to process group IDs for faster lookup
 	coordinators := map[string]bool{}
 	for _, coordinator := range status.Client.Coordinators.Coordinators {
-		// TODO validate if logic will work with DNS names.
 		coordinators[coordinator.Address.String()] = false
 	}
 
@@ -894,33 +868,59 @@ func CanSafelyChangeCoordinators(
 	var requiredUptime float64
 	var reason string
 
-	logger.V(1).
-		Info("Checking if it is safe to change coordinators", "missingCoordinators", missingCoordinators, "currentMinimumUptime", currentMinimumUptime)
 	if missingCoordinators > 0 {
-		// Missing coordinators indicate processes that are down, use lower threshold
+		// Missing coordinators indicate processes that are down, and we should be using a lower threshold to recover
+		// from the missing coordinator faster.
 		requiredUptime = minimumUptimeForMissing.Seconds()
 		reason = fmt.Sprintf("cluster has %d missing coordinators", missingCoordinators)
 	} else {
 		requiredUptime = minimumUptimeForExcluded.Seconds()
 		reason = "cluster is not up for long enough"
 
-		// Perform the default safet checks in case of "normal" coordinator changes or if processes are exclude. If
+		// Perform the default safety checks in case of "normal" coordinator changes or if processes are excluded. If
 		// the cluster has missing coordinators, we should bypass those checks to ensure we recruit the new coordinators
 		// in a timely manner.
-		err = DefaultSafetyChecks(status, 10, "change coordinators")
+		err := DefaultSafetyChecks(status, 10, "change coordinators")
 		if err != nil {
 			return err
 		}
 	}
 
 	// Check that the cluster has been stable for the required time
-	if currentMinimumUptime < requiredUptime {
-		return fmt.Errorf(
-			"cannot change coordinators: %s, cluster minimum uptime is %.2f seconds but %.2f seconds required for safe coordinator change",
-			reason,
-			currentMinimumUptime,
-			requiredUptime,
-		)
+	return checkLastClusterRecovery(
+		cluster,
+		status,
+		requiredUptime,
+		fmt.Sprintf("change coordinators: %s", reason),
+	)
+}
+
+// checkLastClusterRecovery checks if the clusters is up long enough to perform the requested change. The uptime of the
+// cluster is calculated based on the status.Cluster.RecoveryState.SecondsSinceLastRecovered value. For clusters before
+// 7.1.22 this check will be ignored.
+// Will return an error with additional details if the cluster is not up long enough.
+func checkLastClusterRecovery(
+	cluster *fdbv1beta2.FoundationDBCluster,
+	status *fdbv1beta2.FoundationDBStatus,
+	minRecoverySeconds float64,
+	action string,
+) error {
+	version, err := fdbv1beta2.ParseFdbVersion(cluster.GetRunningVersion())
+	if err != nil {
+		return err
+	}
+
+	if version.SupportsRecoveryState() {
+		// We want to make sure that the cluster is recovered for some time. This should protect the cluster from
+		// getting into a bad state as a result of frequent inclusions/exclusions.
+		if status.Cluster.RecoveryState.SecondsSinceLastRecovered < minRecoverySeconds {
+			return fmt.Errorf(
+				"cannot: %s, clusters last recovery was %0.2f seconds ago, wait until the last recovery was %0.0f seconds ago",
+				action,
+				status.Cluster.RecoveryState.SecondsSinceLastRecovered,
+				minRecoverySeconds,
+			)
+		}
 	}
 
 	return nil

@@ -110,7 +110,6 @@ func (c changeCoordinators) reconcile(
 		status,
 		r.MinimumUptimeForCoordinatorChangeWithMissingProcess,
 		r.MinimumUptimeForCoordinatorChangeWithUndesiredProcess,
-		r.EnableRecoveryState,
 	)
 	if err != nil {
 		logger.Info("Deferring coordinator change due to safety check", "error", err.Error())
