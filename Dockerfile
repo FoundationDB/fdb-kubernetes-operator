@@ -4,7 +4,7 @@ ARG FDB_VERSION=7.1.67
 ARG FDB_WEBSITE=https://github.com/apple/foundationdb/releases/download
 
 # Build the manager binary
-FROM docker.io/library/golang:1.24.9-bookworm AS builder
+FROM golang:1.24.9-bookworm AS builder
 
 ARG FDB_VERSION
 ARG FDB_WEBSITE
@@ -59,7 +59,7 @@ RUN groupadd --gid 4059 fdb && \
 	mkdir -p /var/log/fdb && \
 	touch /var/log/fdb/.keep
 
-FROM docker.io/rockylinux/rockylinux:9.6-minimal
+FROM rockylinux/rockylinux:9.6-minimal
 
 ARG FDB_VERSION
 ARG FDB_WEBSITE
