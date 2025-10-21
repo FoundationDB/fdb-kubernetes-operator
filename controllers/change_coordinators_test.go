@@ -197,6 +197,9 @@ var _ = Describe("Change coordinators", func() {
 				When("the cluster is up for long enough", func() {
 					It("should change the coordinators", func() {
 						Expect(requeue).To(BeNil())
+						Expect(
+							cluster.Status.ConnectionString,
+						).NotTo(Equal(originalConnectionString))
 					})
 				})
 
@@ -279,6 +282,9 @@ var _ = Describe("Change coordinators", func() {
 				When("the cluster is up for long enough", func() {
 					It("should change the coordinators", func() {
 						Expect(requeue).To(BeNil())
+						Expect(
+							cluster.Status.ConnectionString,
+						).NotTo(Equal(originalConnectionString))
 					})
 				})
 
@@ -297,6 +303,9 @@ var _ = Describe("Change coordinators", func() {
 
 					It("should change the coordinators", func() {
 						Expect(requeue).To(BeNil())
+						Expect(
+							cluster.Status.ConnectionString,
+						).NotTo(Equal(originalConnectionString))
 					})
 				})
 

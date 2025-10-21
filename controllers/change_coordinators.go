@@ -80,13 +80,6 @@ func (c changeCoordinators) reconcile(
 		return &requeue{curError: err, delayedRequeue: true}
 	}
 
-	logger.Info(
-		"all valid",
-		"hasValidCoordinators",
-		hasValidCoordinators,
-		"allAddressesValid",
-		allAddressesValid,
-	)
 	if hasValidCoordinators {
 		return nil
 	}
