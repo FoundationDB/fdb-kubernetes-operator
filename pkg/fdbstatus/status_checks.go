@@ -631,7 +631,7 @@ func canSafelyExcludeOrIncludeProcesses(
 		return err
 	}
 
-	err = checkLastClusterRecovery(cluster, status, minRecoverySeconds, action)
+	err = checkIfClusterUpLongEnough(cluster, status, minRecoverySeconds, action)
 	if err != nil {
 		return err
 	}
@@ -677,8 +677,19 @@ func CanSafelyIncludeProcesses(
 
 // ConfigurationChangeAllowed will return an error if the configuration change is assumed to be unsafe. If no error
 // is returned the configuration change can be applied.
+// deprecated
 func ConfigurationChangeAllowed(
 	status *fdbv1beta2.FoundationDBStatus,
+	useRecoveryState bool,
+) error {
+	return ConfigurationChangeAllowedWithMinimumUptime(status, 60*time.Second, useRecoveryState)
+}
+
+// ConfigurationChangeAllowedWithMinimumUptime will return an error if the configuration change is assumed to be unsafe. If no error
+// is returned the configuration change can be applied.
+func ConfigurationChangeAllowedWithMinimumUptime(
+	status *fdbv1beta2.FoundationDBStatus,
+	minimumUptime time.Duration,
 	useRecoveryState bool,
 ) error {
 	err := DefaultSafetyChecks(status, 10, "change configuration")
@@ -699,13 +710,16 @@ func ConfigurationChangeAllowed(
 		}
 	}
 
-	// We want to wait at least 60 seconds between configuration changes that trigger a recovery, otherwise we might
+	// We want to wait at least minimumUptime seconds between configuration changes that trigger a recovery, otherwise we might
 	// issue too frequent configuration changes.
-	if useRecoveryState && status.Cluster.RecoveryState.SecondsSinceLastRecovered < 60.0 {
-		return fmt.Errorf(
-			"clusters last recovery was %0.2f seconds ago, wait until the last recovery was 60 seconds ago",
-			status.Cluster.RecoveryState.SecondsSinceLastRecovered,
-		)
+	err = checkIfClusterUpLongEnoughWithRecoveryState(
+		status,
+		minimumUptime.Seconds(),
+		"change configuration",
+		useRecoveryState,
+	)
+	if err != nil {
+		return err
 	}
 
 	return CheckQosStatus(status)
@@ -831,13 +845,13 @@ func ClusterIsConfigured(
 
 // CanSafelyChangeCoordinators returns nil when it is safe to change coordinators in the cluster or returns an error
 // with more information why it's not safe to change coordinators. This function differentiates between missing (down)
-// processes and processes that are only excluded or undesired, applying different minimum uptime requirements for each case.
+// processes and processes that are only undesired, applying different minimum uptime requirements for each case.
 func CanSafelyChangeCoordinators(
 	_ logr.Logger,
 	cluster *fdbv1beta2.FoundationDBCluster,
 	status *fdbv1beta2.FoundationDBStatus,
 	minimumUptimeForMissing time.Duration,
-	minimumUptimeForExcluded time.Duration,
+	minimumUptimeForUndesired time.Duration,
 ) error {
 	// Analyze current coordinators using the coordinator information from status
 	// This gives us the definitive list of coordinators regardless of whether processes are running
@@ -874,7 +888,7 @@ func CanSafelyChangeCoordinators(
 		requiredUptime = minimumUptimeForMissing.Seconds()
 		reason = fmt.Sprintf("cluster has %d missing coordinators", missingCoordinators)
 	} else {
-		requiredUptime = minimumUptimeForExcluded.Seconds()
+		requiredUptime = minimumUptimeForUndesired.Seconds()
 		reason = "cluster is not up for long enough"
 
 		// Perform the default safety checks in case of "normal" coordinator changes or if processes are excluded. If
@@ -887,7 +901,7 @@ func CanSafelyChangeCoordinators(
 	}
 
 	// Check that the cluster has been stable for the required time
-	return checkLastClusterRecovery(
+	return checkIfClusterUpLongEnough(
 		cluster,
 		status,
 		requiredUptime,
@@ -895,11 +909,11 @@ func CanSafelyChangeCoordinators(
 	)
 }
 
-// checkLastClusterRecovery checks if the clusters is up long enough to perform the requested change. The uptime of the
+// checkIfClusterUpLongEnough checks if the clusters is up long enough to perform the requested change. The uptime of the
 // cluster is calculated based on the status.Cluster.RecoveryState.SecondsSinceLastRecovered value. For clusters before
 // 7.1.22 this check will be ignored.
 // Will return an error with additional details if the cluster is not up long enough.
-func checkLastClusterRecovery(
+func checkIfClusterUpLongEnough(
 	cluster *fdbv1beta2.FoundationDBCluster,
 	status *fdbv1beta2.FoundationDBStatus,
 	minRecoverySeconds float64,
@@ -910,12 +924,30 @@ func checkLastClusterRecovery(
 		return err
 	}
 
-	if version.SupportsRecoveryState() {
+	return checkIfClusterUpLongEnoughWithRecoveryState(
+		status,
+		minRecoverySeconds,
+		action,
+		version.SupportsRecoveryState(),
+	)
+}
+
+// checkIfClusterUpLongEnoughWithRecoveryState checks if the clusters is up long enough to perform the requested change. The uptime of the
+// cluster is calculated based on the status.Cluster.RecoveryState.SecondsSinceLastRecovered value. When supportsRecoveryState is false
+// the check will be skipped.
+// Will return an error with additional details if the cluster is not up long enough.
+func checkIfClusterUpLongEnoughWithRecoveryState(
+	status *fdbv1beta2.FoundationDBStatus,
+	minRecoverySeconds float64,
+	action string,
+	supportsRecoveryState bool,
+) error {
+	if supportsRecoveryState {
 		// We want to make sure that the cluster is recovered for some time. This should protect the cluster from
 		// getting into a bad state as a result of frequent inclusions/exclusions.
 		if status.Cluster.RecoveryState.SecondsSinceLastRecovered < minRecoverySeconds {
 			return fmt.Errorf(
-				"cannot: %s, clusters last recovery was %0.2f seconds ago, wait until the last recovery was %0.0f seconds ago",
+				"cannot: %s, clusters last recovery was %0.2f seconds ago, waiting until the last recovery was %0.0f seconds ago",
 				action,
 				status.Cluster.RecoveryState.SecondsSinceLastRecovered,
 				minRecoverySeconds,

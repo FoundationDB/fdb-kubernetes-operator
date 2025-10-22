@@ -246,7 +246,7 @@ var _ = Describe("Change coordinators", func() {
 						Expect(requeue.curError).To(HaveOccurred())
 						Expect(
 							requeue.curError.Error(),
-						).To(Equal("cannot: change coordinators: cluster is not up for long enough, clusters last recovery was 10.00 seconds ago, wait until the last recovery was 300 seconds ago"))
+						).To(Equal("cannot: change coordinators: cluster is not up for long enough, clusters last recovery was 10.00 seconds ago, waiting until the last recovery was 300 seconds ago"))
 						Expect(cluster.Status.ConnectionString).To(Equal(originalConnectionString))
 					})
 				})
@@ -328,7 +328,7 @@ var _ = Describe("Change coordinators", func() {
 						Expect(requeue.curError).To(HaveOccurred())
 						Expect(
 							requeue.curError.Error(),
-						).To(Equal("cannot: change coordinators: cluster has 1 missing coordinators, clusters last recovery was 10.00 seconds ago, wait until the last recovery was 600 seconds ago"))
+						).To(Equal("cannot: change coordinators: cluster has 1 missing coordinators, clusters last recovery was 10.00 seconds ago, waiting until the last recovery was 600 seconds ago"))
 						Expect(cluster.Status.ConnectionString).To(Equal(originalConnectionString))
 					})
 				})

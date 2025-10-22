@@ -2036,7 +2036,7 @@ var _ = Describe("status_checks", func() {
 					},
 				},
 				fmt.Errorf(
-					"cannot: exclude processes, clusters last recovery was 10.00 seconds ago, wait until the last recovery was 120 seconds ago",
+					"cannot: exclude processes, clusters last recovery was 10.00 seconds ago, waiting until the last recovery was 120 seconds ago",
 				),
 			),
 			Entry("cluster's last recovery is 120 seconds ago",
@@ -2208,7 +2208,7 @@ var _ = Describe("status_checks", func() {
 					},
 				},
 				fmt.Errorf(
-					"cannot: include processes, clusters last recovery was 10.00 seconds ago, wait until the last recovery was 300 seconds ago",
+					"cannot: include processes, clusters last recovery was 10.00 seconds ago, waiting until the last recovery was 300 seconds ago",
 				),
 			),
 			Entry("cluster's last recovery is 320 seconds ago",
@@ -2448,7 +2448,7 @@ var _ = Describe("status_checks", func() {
 			},
 			true,
 			fmt.Errorf(
-				"clusters last recovery was 5.00 seconds ago, wait until the last recovery was 60 seconds ago",
+				"cannot: change configuration, clusters last recovery was 5.00 seconds ago, waiting until the last recovery was 60 seconds ago",
 			),
 		),
 		Entry(
@@ -2763,7 +2763,7 @@ var _ = Describe("CanSafelyChangeCoordinators", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(
 				err.Error(),
-			).To(Equal("cannot: change coordinators: cluster is not up for long enough, clusters last recovery was 500.00 seconds ago, wait until the last recovery was 600 seconds ago"))
+			).To(Equal("cannot: change coordinators: cluster is not up for long enough, clusters last recovery was 500.00 seconds ago, waiting until the last recovery was 600 seconds ago"))
 		})
 
 		It("should succeed when uptime meets requirements for excluded coordinators", func() {
@@ -2825,7 +2825,7 @@ var _ = Describe("CanSafelyChangeCoordinators", func() {
 			Expect(err.Error()).To(ContainSubstring("missing coordinators"))
 			Expect(
 				err.Error(),
-			).To(ContainSubstring("wait until the last recovery was 300 seconds ago"))
+			).To(ContainSubstring("waiting until the last recovery was 300 seconds ago"))
 		})
 	})
 

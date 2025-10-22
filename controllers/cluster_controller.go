@@ -132,6 +132,9 @@ type FoundationDBClusterReconciler struct {
 	// MinimumUptimeForCoordinatorChangeWithUndesiredProcess defines the minimum uptime of the cluster before coordinator
 	// changes because of an undesired coordinator are allowed.
 	MinimumUptimeForCoordinatorChangeWithUndesiredProcess time.Duration
+	// MinimumUptimeForConfigurationChanges defines the minimum uptime for the cluster before configuration changes
+	// are allowed.
+	MinimumUptimeForConfigurationChanges time.Duration
 
 	// MinimumRecoveryTimeForInclusion defines the duration in seconds that a cluster must be up
 	// before new inclusions are allowed. The operator issuing frequent inclusions in a short time window

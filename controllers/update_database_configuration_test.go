@@ -278,7 +278,7 @@ var _ = Describe("update_database_configuration", func() {
 					Expect(requeue).NotTo(BeNil())
 					Expect(
 						requeue.message,
-					).To(Equal("Configuration change is not safe: clusters last recovery was 0.10 seconds ago, wait until the last recovery was 60 seconds ago, will retry"))
+					).To(Equal("Configuration change is not safe: cannot: change configuration, clusters last recovery was 0.10 seconds ago, waiting until the last recovery was 60 seconds ago, will retry"))
 					Expect(cluster.Status.Configured).To(BeTrue())
 
 					adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)

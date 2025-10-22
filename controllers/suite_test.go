@@ -209,11 +209,12 @@ func createTestClusterReconciler() *FoundationDBClusterReconciler {
 			SimulateZones: true,
 			SimulateTime:  true,
 		},
-		PodLifecycleManager:          &podmanager.StandardPodLifecycleManager{},
-		PodClientProvider:            mockpodclient.NewMockFdbPodClient,
-		DatabaseClientProvider:       mock.DatabaseClientProvider{},
-		MaintenanceListStaleDuration: 4 * time.Hour,
-		MaintenanceListWaitDuration:  5 * time.Minute,
-		HighRunLoopBusyThreshold:     1.0,
+		PodLifecycleManager:                  &podmanager.StandardPodLifecycleManager{},
+		PodClientProvider:                    mockpodclient.NewMockFdbPodClient,
+		DatabaseClientProvider:               mock.DatabaseClientProvider{},
+		MaintenanceListStaleDuration:         4 * time.Hour,
+		MaintenanceListWaitDuration:          5 * time.Minute,
+		HighRunLoopBusyThreshold:             1.0,
+		MinimumUptimeForConfigurationChanges: 1 * time.Minute,
 	}
 }
