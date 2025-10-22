@@ -22,7 +22,10 @@ package fixtures
 
 import (
 	"fmt"
+	"log"
+	"math/rand"
 	"strings"
+	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	chaosmesh "github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/chaos-mesh/api/v1alpha1"
@@ -226,8 +229,15 @@ func (haFDBCluster *HaFdbCluster) UpgradeClusterWithTimeout(
 	waitForReconciliation bool,
 	timeout int,
 ) error {
+	startTime := time.Now()
 	expectedGenerations := map[string]int64{}
-	for _, cluster := range haFDBCluster.GetAllClusters() {
+	clusters := haFDBCluster.GetAllClusters()
+	// Randomize the order of the clusters slice.
+	rand.Shuffle(len(clusters), func(i, j int) {
+		clusters[i], clusters[j] = clusters[j], clusters[i]
+	})
+
+	for _, cluster := range clusters {
 		curCluster := cluster.GetCluster()
 
 		generation := curCluster.ObjectMeta.Generation
@@ -249,8 +259,12 @@ func (haFDBCluster *HaFdbCluster) UpgradeClusterWithTimeout(
 		return nil
 	}
 
+	defer func() {
+		log.Println("upgrade took:", time.Since(startTime).String())
+	}()
+
 	g := new(errgroup.Group)
-	for _, cluster := range haFDBCluster.GetAllClusters() {
+	for _, cluster := range clusters {
 		singleCluster := cluster // https://golang.org/doc/faq#closures_and_goroutines
 		g.Go(func() error {
 			return singleCluster.WaitForReconciliation(
