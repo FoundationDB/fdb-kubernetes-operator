@@ -92,8 +92,9 @@ func (u updateDatabaseConfiguration) reconcile(
 				return &requeue{curError: err, delayedRequeue: true}
 			}
 
-			err = fdbstatus.ConfigurationChangeAllowed(
+			err = fdbstatus.ConfigurationChangeAllowedWithMinimumUptime(
 				status,
+				r.MinimumUptimeForConfigurationChanges,
 				runningVersion.SupportsRecoveryState() && r.EnableRecoveryState,
 			)
 			if err != nil {

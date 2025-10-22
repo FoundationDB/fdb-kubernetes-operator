@@ -72,11 +72,13 @@ type AdminClient struct {
 	localityInfo                             map[fdbv1beta2.ProcessGroupID]map[string]string
 	MaxZoneFailuresWithoutLosingData         *int
 	MaxZoneFailuresWithoutLosingAvailability *int
+	ActiveGenerations                        *int
 	MaintenanceZone                          fdbv1beta2.FaultDomain
 	restoreURL                               string
 	maintenanceZoneStartTimestamp            time.Time
 	MockAdditionTimeForGlobalCoordination    time.Time
 	uptimeSecondsForMaintenanceZone          float64
+	SecondsSinceLastRecovered                *float64
 	TeamTracker                              []fdbv1beta2.FoundationDBStatusTeamTracker
 	Logs                                     []fdbv1beta2.FoundationDBStatusLogInfo
 	mockError                                error
@@ -616,8 +618,8 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 
 	status.Cluster.RecoveryState = fdbv1beta2.RecoveryState{
 		Name:                      "fully_recovered",
-		SecondsSinceLastRecovered: 600.0,
-		ActiveGenerations:         1,
+		SecondsSinceLastRecovered: ptr.Deref(client.SecondsSinceLastRecovered, 600.0),
+		ActiveGenerations:         ptr.Deref(client.ActiveGenerations, 1),
 	}
 
 	return status, nil

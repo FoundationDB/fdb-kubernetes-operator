@@ -25,6 +25,7 @@ import (
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/coordinator"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/locality"
+	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbstatus"
 	"github.com/go-logr/logr"
 
 	corev1 "k8s.io/api/core/v1"
@@ -92,6 +93,20 @@ func (c changeCoordinators) reconcile(
 			"Deferring coordinator change until all processes have consistent address TLS settings",
 		)
 		return nil
+	}
+
+	// Perform safety checks before changing coordinators. The minimum uptime should reduce the coordinator changes
+	// if a process is down for a short amount of time, e.g. after a cluster wide bounce.
+	err = fdbstatus.CanSafelyChangeCoordinators(
+		logger,
+		cluster,
+		status,
+		r.MinimumUptimeForCoordinatorChangeWithMissingProcess,
+		r.MinimumUptimeForCoordinatorChangeWithUndesiredProcess,
+	)
+	if err != nil {
+		logger.Info("Deferring coordinator change due to safety check", "error", err.Error())
+		return &requeue{curError: err, delayedRequeue: true}
 	}
 
 	err = r.takeLock(logger, cluster, "changing coordinators")

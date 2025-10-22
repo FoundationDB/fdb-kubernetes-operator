@@ -126,6 +126,16 @@ type FoundationDBClusterReconciler struct {
 	// wait time will increase the chances that all updates are part of the list but will also delay the rollout of
 	// the change.
 	GlobalSynchronizationWaitDuration time.Duration
+	// MinimumUptimeForCoordinatorChangeWithMissingProcess defines the minimum uptime of the cluster before coordinator
+	// changes because of a missing coordinator are allowed.
+	MinimumUptimeForCoordinatorChangeWithMissingProcess time.Duration
+	// MinimumUptimeForCoordinatorChangeWithUndesiredProcess defines the minimum uptime of the cluster before coordinator
+	// changes because of an undesired coordinator are allowed.
+	MinimumUptimeForCoordinatorChangeWithUndesiredProcess time.Duration
+	// MinimumUptimeForConfigurationChanges defines the minimum uptime for the cluster before configuration changes
+	// are allowed.
+	MinimumUptimeForConfigurationChanges time.Duration
+
 	// MinimumRecoveryTimeForInclusion defines the duration in seconds that a cluster must be up
 	// before new inclusions are allowed. The operator issuing frequent inclusions in a short time window
 	// could cause instability for the cluster as each inclusion will/can cause a recovery. Delaying the inclusion

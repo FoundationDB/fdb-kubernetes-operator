@@ -23,6 +23,7 @@ package controllers
 import (
 	"context"
 	"math"
+	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/internal"
@@ -49,10 +50,6 @@ var _ = Describe("Change coordinators", func() {
 			},
 		}
 		Expect(setupClusterForTest(cluster)).NotTo(HaveOccurred())
-
-		var err error
-		_, err = mock.NewMockAdminClientUncast(cluster, k8sClient)
-		Expect(err).NotTo(HaveOccurred())
 	})
 
 	Describe("reconcile", func() {
@@ -69,7 +66,7 @@ var _ = Describe("Change coordinators", func() {
 				clusterReconciler,
 				cluster,
 				nil,
-				globalControllerLogger,
+				testLogger,
 			)
 		})
 
@@ -162,6 +159,180 @@ var _ = Describe("Change coordinators", func() {
 					).NotTo(ContainSubstring(badCoordinator.Address.IPAddress.String()))
 				},
 			)
+		})
+
+		When("safety checks are enabled", func() {
+			BeforeEach(func() {
+				clusterReconciler.MinimumUptimeForCoordinatorChangeWithUndesiredProcess = 5 * time.Minute
+				clusterReconciler.MinimumUptimeForCoordinatorChangeWithMissingProcess = 10 * time.Minute
+				clusterReconciler.EnableRecoveryState = true
+			})
+
+			When("one coordinator is undesired", func() {
+				BeforeEach(func() {
+					adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
+					Expect(err).NotTo(HaveOccurred())
+
+					status, err := adminClient.GetStatus()
+					Expect(err).NotTo(HaveOccurred())
+
+					coordinators := map[string]fdbv1beta2.None{}
+					for _, coordinator := range status.Client.Coordinators.Coordinators {
+						coordinators[coordinator.Address.String()] = fdbv1beta2.None{}
+					}
+
+					for _, process := range status.Cluster.Processes {
+						if _, ok := coordinators[process.Address.String()]; !ok {
+							continue
+						}
+						Expect(adminClient.ExcludeProcesses([]fdbv1beta2.ProcessAddress{
+							{
+								IPAddress: process.Address.IPAddress,
+							},
+						})).To(Succeed())
+						break
+					}
+				})
+
+				When("the cluster is up for long enough", func() {
+					It("should change the coordinators", func() {
+						Expect(requeue).To(BeNil())
+						Expect(
+							cluster.Status.ConnectionString,
+						).NotTo(Equal(originalConnectionString))
+					})
+				})
+
+				When("Too many active generations are present", func() {
+					BeforeEach(func() {
+						adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
+						Expect(err).NotTo(HaveOccurred())
+						adminClient.ActiveGenerations = ptr.To(11)
+					})
+
+					AfterEach(func() {
+						adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
+						Expect(err).NotTo(HaveOccurred())
+						adminClient.ActiveGenerations = nil
+					})
+
+					It("should defer coordinator change and requeue with delay", func() {
+						Expect(requeue).NotTo(BeNil())
+						Expect(requeue.delayedRequeue).To(BeTrue())
+						Expect(requeue.curError).To(HaveOccurred())
+						Expect(
+							requeue.curError.Error(),
+						).To(ContainSubstring("cluster has 11 active generations, but only 10 active generations are allowed to safely change coordinators"))
+						Expect(cluster.Status.ConnectionString).To(Equal(originalConnectionString))
+					})
+				})
+
+				When("the cluster is only up for 10 seconds", func() {
+					BeforeEach(func() {
+						adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
+						Expect(err).NotTo(HaveOccurred())
+						adminClient.SecondsSinceLastRecovered = ptr.To(10.0)
+					})
+
+					AfterEach(func() {
+						adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
+						Expect(err).NotTo(HaveOccurred())
+						adminClient.SecondsSinceLastRecovered = nil
+					})
+
+					It("should defer coordinator change and requeue with delay", func() {
+						Expect(requeue).NotTo(BeNil())
+						Expect(requeue.delayedRequeue).To(BeTrue())
+						Expect(requeue.curError).To(HaveOccurred())
+						Expect(
+							requeue.curError.Error(),
+						).To(Equal("cannot: change coordinators: cluster is not up for long enough, clusters last recovery was 10.00 seconds ago, waiting until the last recovery was 300 seconds ago"))
+						Expect(cluster.Status.ConnectionString).To(Equal(originalConnectionString))
+					})
+				})
+			})
+
+			When("one coordinator is missing", func() {
+				BeforeEach(func() {
+					adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
+					Expect(err).NotTo(HaveOccurred())
+
+					status, err := adminClient.GetStatus()
+					Expect(err).NotTo(HaveOccurred())
+
+					coordinators := map[string]fdbv1beta2.None{}
+					for _, coordinator := range status.Client.Coordinators.Coordinators {
+						coordinators[coordinator.Address.String()] = fdbv1beta2.None{}
+					}
+
+					for _, process := range status.Cluster.Processes {
+						if _, ok := coordinators[process.Address.String()]; !ok {
+							continue
+						}
+						adminClient.MockMissingProcessGroup(
+							fdbv1beta2.ProcessGroupID(
+								process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey],
+							),
+							true,
+						)
+						break
+					}
+				})
+
+				When("the cluster is up for long enough", func() {
+					It("should change the coordinators", func() {
+						Expect(requeue).To(BeNil())
+						Expect(
+							cluster.Status.ConnectionString,
+						).NotTo(Equal(originalConnectionString))
+					})
+				})
+
+				When("Multiple active generations are present", func() {
+					BeforeEach(func() {
+						adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
+						Expect(err).NotTo(HaveOccurred())
+						adminClient.ActiveGenerations = ptr.To(11)
+					})
+
+					AfterEach(func() {
+						adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
+						Expect(err).NotTo(HaveOccurred())
+						adminClient.ActiveGenerations = nil
+					})
+
+					It("should change the coordinators", func() {
+						Expect(requeue).To(BeNil())
+						Expect(
+							cluster.Status.ConnectionString,
+						).NotTo(Equal(originalConnectionString))
+					})
+				})
+
+				When("the cluster is only up for 10 seconds", func() {
+					BeforeEach(func() {
+						adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
+						Expect(err).NotTo(HaveOccurred())
+						adminClient.SecondsSinceLastRecovered = ptr.To(10.0)
+					})
+
+					AfterEach(func() {
+						adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
+						Expect(err).NotTo(HaveOccurred())
+						adminClient.SecondsSinceLastRecovered = nil
+					})
+
+					It("should defer coordinator change and requeue with delay", func() {
+						Expect(requeue).NotTo(BeNil())
+						Expect(requeue.delayedRequeue).To(BeTrue())
+						Expect(requeue.curError).To(HaveOccurred())
+						Expect(
+							requeue.curError.Error(),
+						).To(Equal("cannot: change coordinators: cluster has 1 missing coordinators, clusters last recovery was 10.00 seconds ago, waiting until the last recovery was 600 seconds ago"))
+						Expect(cluster.Status.ConnectionString).To(Equal(originalConnectionString))
+					})
+				})
+			})
 		})
 	})
 })
