@@ -1245,11 +1245,16 @@ func (fdbCluster *FdbCluster) SetKillProcesses(allowKill bool, wait bool) {
 // set to true only this condition is allowed.
 func (fdbCluster *FdbCluster) AllProcessGroupsHaveCondition(
 	condition fdbv1beta2.ProcessGroupConditionType,
+	ignoreMissing bool,
 ) bool {
 	cluster := fdbCluster.GetCluster()
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup.IsMarkedForRemoval() {
+			continue
+		}
+
+		if processGroup.GetConditionTime(fdbv1beta2.MissingProcesses) != nil && ignoreMissing {
 			continue
 		}
 
@@ -1851,13 +1856,15 @@ func (fdbCluster *FdbCluster) WriteKeyValue(
 	keyValue KeyValue,
 	timeout int,
 ) {
-	_, stderr, err := fdbCluster.RunFdbCliCommandInOperatorWithoutRetry(
-		fmt.Sprintf("writemode on; set %s %s", keyValue.GetKey(), keyValue.GetValue()),
-		false,
-		timeout,
-	)
+	gomega.Eventually(func(g gomega.Gomega) {
+		_, stderr, err := fdbCluster.RunFdbCliCommandInOperatorWithoutRetry(
+			fmt.Sprintf("writemode on; set %s %s", keyValue.GetKey(), keyValue.GetValue()),
+			false,
+			timeout,
+		)
 
-	gomega.Expect(err).NotTo(gomega.HaveOccurred(), stderr)
+		g.Expect(err).NotTo(gomega.HaveOccurred(), stderr)
+	}).WithTimeout(2 * time.Minute).WithPolling(2 * time.Second).Should(gomega.Succeed())
 }
 
 // WriteKeyValuesWithTimeout writes multiples key values into FDB with the specified timeout.

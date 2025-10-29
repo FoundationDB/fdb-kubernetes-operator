@@ -116,21 +116,19 @@ func clusterSetup(beforeVersion string, enableOperatorPodChaos bool) {
 // are at "IncorrectCommandLine" state (which means that they have the new binaries and have
 // the new configuration but are not restarted).
 //
-// Note: we tried doing this by polling for  "UpgradeRequeued" event on primary/remote/primary-satellite data centers,
+// Note: we tried doing this by polling for "UpgradeRequeued" event on primary/remote/primary-satellite data centers,
 // but we found that that approach is not very reliable.
 func verifyBouncingIsBlocked() {
-	Eventually(func(g Gomega) bool {
+	Eventually(func(g Gomega) {
 		for _, cluster := range fdbCluster.GetAllClusters() {
 			if strings.HasSuffix(cluster.Name(), fixtures.RemoteSatelliteID) {
 				continue
 			}
 
-			g.Expect(cluster.AllProcessGroupsHaveCondition(fdbv1beta2.IncorrectCommandLine)).
-				To(BeTrue())
+			g.Expect(cluster.AllProcessGroupsHaveCondition(fdbv1beta2.IncorrectCommandLine, true)).
+				To(BeTrue(), fmt.Sprintf("all process groups in cluster %s should have the incorrect command line condition", cluster.Name()))
 		}
-
-		return true
-	}).WithTimeout(10 * time.Minute).WithPolling(5 * time.Second).MustPassRepeatedly(30).Should(BeTrue())
+	}).WithTimeout(10 * time.Minute).WithPolling(5 * time.Second).MustPassRepeatedly(30).Should(Succeed())
 }
 
 var _ = AfterSuite(func() {
@@ -335,7 +333,7 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 
 			// It should block the restart of the processes until the rest of the cluster is upgraded.
 			Eventually(func() bool {
-				return primary.AllProcessGroupsHaveCondition(fdbv1beta2.IncorrectCommandLine)
+				return primary.AllProcessGroupsHaveCondition(fdbv1beta2.IncorrectCommandLine, true)
 			}).WithTimeout(10 * time.Minute).WithPolling(5 * time.Second).MustPassRepeatedly(30).Should(BeTrue())
 
 			Expect(fdbCluster.UpgradeCluster(targetVersion, false)).NotTo(HaveOccurred())
