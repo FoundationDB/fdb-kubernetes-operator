@@ -461,13 +461,15 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 						coordinatorMap[pod.UID] = pod
 					}
 
+					log.Println(
+						"Cluster",
+						cluster.Name(),
+						"is running at version",
+						cluster.GetCluster().GetRunningVersion(),
+						"target version is",
+						targetVersion,
+					)
 					if cluster.GetCluster().GetRunningVersion() == targetVersion {
-						log.Println(
-							"Cluster",
-							cluster.Name(),
-							"is running at version",
-							targetVersion,
-						)
 						continue
 					}
 
@@ -479,11 +481,12 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 					return true
 				}
 
-				randomCluster := factory.RandomPickOneCluster(clusters)
 				// Make sure we are not deleting coordinator Pods
 				var randomPod *corev1.Pod
 				g.Eventually(func() bool {
-					randomPod = factory.ChooseRandomPod(randomCluster.GetPods())
+					randomPod = factory.ChooseRandomPod(
+						factory.RandomPickOneCluster(clusters).GetPods(),
+					)
 					_, ok := coordinatorMap[randomPod.UID]
 					if ok {
 						log.Println("Skipping pod:", randomPod.Name, "as it is a coordinator")
@@ -612,6 +615,13 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 			if !fdbVersion.SupportsLocalityBasedExclusions() {
 				Skip(
 					"provided FDB version: " + beforeVersion + " doesn't support locality based exclusions",
+				)
+			}
+
+			// TODO (johscheuer): https://github.com/FoundationDB/fdb-kubernetes-operator/issues/2383
+			if factory.GetSynchronizationMode() == fdbv1beta2.SynchronizationModeGlobal {
+				Skip(
+					"Test is currently disabled with the global mode because of flakiness, see: https://github.com/FoundationDB/fdb-kubernetes-operator/issues/2383",
 				)
 			}
 
