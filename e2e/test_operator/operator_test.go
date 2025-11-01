@@ -2587,4 +2587,66 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			})
 		},
 	)
+
+	When("the main container image of a pod is changed outside of the operator", func() {
+		var initialReplacementDuration time.Duration
+		var targetPod *corev1.Pod
+		badImage := "broken"
+
+		BeforeEach(func() {
+			availabilityCheck = false
+
+			// Disable automatic replacements.
+			initialReplacementDuration = time.Duration(
+				fdbCluster.GetCachedCluster().GetFailureDetectionTimeSeconds(),
+			) * time.Second
+
+			Expect(
+				fdbCluster.SetAutoReplacementsWithWait(false, 10*time.Hour, false),
+			).NotTo(HaveOccurred())
+
+			targetPod = ptr.To(factory.RandomPickOnePod(fdbCluster.GetStatelessPods().Items))
+			for idx, container := range targetPod.Spec.Containers {
+				if container.Name != fdbv1beta2.MainContainerName {
+					continue
+				}
+
+				targetPod.Spec.Containers[idx].Image = badImage
+				break
+			}
+
+			Expect(
+				factory.GetControllerRuntimeClient().Update(context.Background(), targetPod),
+			).To(Succeed())
+		})
+
+		AfterEach(func() {
+			Expect(
+				fdbCluster.SetAutoReplacements(true, initialReplacementDuration),
+			).NotTo(HaveOccurred())
+		})
+
+		It("should recreate the Pod with the correct image",
+			func() {
+				Eventually(func(g Gomega) {
+					currentPod := &corev1.Pod{}
+					g.Expect(factory.GetControllerRuntimeClient().Get(context.Background(), ctrlClient.ObjectKeyFromObject(targetPod), currentPod)).
+						To(Succeed())
+
+					var checkedMainImage bool
+					for _, container := range currentPod.Spec.Containers {
+						if container.Name != fdbv1beta2.MainContainerName {
+							continue
+						}
+
+						g.Expect(container.Image).NotTo(Equal(badImage))
+						checkedMainImage = true
+						break
+					}
+
+					Expect(checkedMainImage).To(BeTrue())
+				}).To(Succeed())
+			},
+		)
+	})
 })
