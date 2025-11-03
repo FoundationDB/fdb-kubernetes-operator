@@ -217,7 +217,10 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 
 			// Wait until all process groups are in the staging phase and the new binaries are available.
 			Eventually(func() bool {
-				return fdbCluster.AllProcessGroupsHaveCondition(fdbv1beta2.IncorrectCommandLine)
+				return fdbCluster.AllProcessGroupsHaveCondition(
+					fdbv1beta2.IncorrectCommandLine,
+					true,
+				)
 			}).WithTimeout(10 * time.Minute).WithPolling(2 * time.Second).Should(BeTrue())
 
 			// Restart the fdbserver process to pickup the new configuration and run with the newer version.
