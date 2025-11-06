@@ -199,11 +199,6 @@ var _ = Describe("Operator Plugin", Label("e2e", "pr"), func() {
 					false,
 				)
 				log.Println("stdout:", stdout, "stderr:", stderr)
-				if strings.Contains(stderr, "Error determining public address") {
-					Skip(
-						"plugin was not able to determine public address, this means that all coordinators are probably gone",
-					)
-				}
 				Expect(err).NotTo(HaveOccurred())
 
 				// Ensure the cluster is available again.
@@ -255,6 +250,11 @@ var _ = Describe("Operator Plugin", Label("e2e", "pr"), func() {
 					false,
 				)
 				log.Println("stdout:", stdout, "stderr:", stderr)
+				if strings.Contains(stderr, "Error determining public address") {
+					Skip(
+						"plugin was not able to determine public address, this means that all coordinators are probably gone",
+					)
+				}
 				Expect(err).NotTo(HaveOccurred())
 
 				// Ensure the cluster is available again.

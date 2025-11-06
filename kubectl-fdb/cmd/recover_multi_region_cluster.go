@@ -746,7 +746,7 @@ func checkIfClusterIsUnavailableAndMajorityOfCoordinatorsAreUnreachable(
 	//  Error: error getting status: Error determining public address.
 	//  ERROR: Unable to bind to network (1512)
 	if err != nil && strings.Contains(err.Error(), "Error determining public address") {
-		return nil
+		return err
 	}
 
 	return err
