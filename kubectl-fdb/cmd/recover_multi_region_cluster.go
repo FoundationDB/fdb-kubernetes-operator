@@ -732,6 +732,30 @@ func checkIfClusterIsUnavailableAndMajorityOfCoordinatorsAreUnreachable(
 	}
 
 	log.Println("Getting the status from:", clientPod.Name)
+	for retry := 0; retry < 5; retry++ {
+		err = getStatusAndCheckIfClusterShouldBeRecovered(ctx, kubeClient, config, clientPod)
+		if err == nil {
+			break
+		}
+
+		time.Sleep(5 * time.Second)
+	}
+
+	// If DNS is used for the cluster file, we could hit cases where no DNS entry can be resolved, in this case we could
+	// assume that the cluster is also down. The error from the client side is the following:
+	//  Error: error getting status: Error determining public address.
+	//  ERROR: Unable to bind to network (1512)
+	if err != nil && strings.Contains(err.Error(), "Error determining public address") {
+		return err
+	}
+
+	return err
+}
+
+func getStatusAndCheckIfClusterShouldBeRecovered(ctx context.Context,
+	kubeClient client.Client,
+	config *rest.Config,
+	clientPod *corev1.Pod) error {
 	status, err := getStatus(ctx, kubeClient, config, clientPod)
 	if err != nil {
 		return err
