@@ -111,7 +111,7 @@ func (r *FoundationDBBackupReconciler) Reconcile(
 			continue
 		}
 
-		return processRequeue(req, subReconciler, backup, r.Recorder, backupLog)
+		return processResult(processRequeue(req, subReconciler, backup, r.Recorder, backupLog))
 	}
 
 	if backup.Status.Generations.Reconciled < originalGeneration {
