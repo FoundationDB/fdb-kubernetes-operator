@@ -39,7 +39,7 @@ type changeCoordinators struct{}
 
 // reconcile runs the reconciler's work.
 func (c changeCoordinators) reconcile(
-	ctx context.Context,
+	_ context.Context,
 	r *FoundationDBClusterReconciler,
 	cluster *fdbv1beta2.FoundationDBCluster,
 	status *fdbv1beta2.FoundationDBStatus,
@@ -129,11 +129,6 @@ func (c changeCoordinators) reconcile(
 
 	// Reset the SecondsSinceLastRecovered sine the operator just changed the coordinators, which will cause a recovery.
 	status.Cluster.RecoveryState.SecondsSinceLastRecovered = 0.0
-
-	err = r.updateOrApply(ctx, cluster)
-	if err != nil {
-		return &requeue{curError: err, delayedRequeue: true}
-	}
 
 	return nil
 }

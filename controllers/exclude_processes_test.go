@@ -1730,8 +1730,6 @@ var _ = Describe("exclude_processes", func() {
 					Expect(req).To(BeNil())
 					Expect(adminClient.ExcludedAddresses).To(HaveLen(1))
 
-					_, err = reloadCluster(cluster)
-					Expect(err).NotTo(HaveOccurred())
 					Expect(initialConnectionString).NotTo(Equal(cluster.Status.ConnectionString))
 				})
 
@@ -1749,8 +1747,6 @@ var _ = Describe("exclude_processes", func() {
 						Expect(req).To(BeNil())
 						Expect(adminClient.ExcludedAddresses).To(HaveLen(1))
 
-						_, err = reloadCluster(cluster)
-						Expect(err).NotTo(HaveOccurred())
 						Expect(
 							initialConnectionString,
 						).NotTo(Equal(cluster.Status.ConnectionString))
@@ -1918,9 +1914,6 @@ var _ = Describe("exclude_processes", func() {
 
 					Expect(req).To(BeNil())
 					Expect(adminClient.ExcludedAddresses).To(HaveLen(1))
-
-					_, err = reloadCluster(cluster)
-					Expect(err).NotTo(HaveOccurred())
 					Expect(initialConnectionString).NotTo(Equal(cluster.Status.ConnectionString))
 				})
 
@@ -1937,9 +1930,6 @@ var _ = Describe("exclude_processes", func() {
 
 						Expect(req).To(BeNil())
 						Expect(adminClient.ExcludedAddresses).To(HaveLen(1))
-
-						_, err = reloadCluster(cluster)
-						Expect(err).NotTo(HaveOccurred())
 						Expect(
 							initialConnectionString,
 						).NotTo(Equal(cluster.Status.ConnectionString))
