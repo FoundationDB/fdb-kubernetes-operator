@@ -941,7 +941,6 @@ func (client *AdminClient) ModifyBackup(backup *fdbv1beta2.FoundationDBBackup) e
 
 	currentBackup := client.Backups["default"]
 	currentBackup.SnapshotPeriodSeconds = backup.SnapshotPeriodSeconds()
-	currentBackup.URL = backup.BackupURL()
 	client.Backups["default"] = currentBackup
 	return nil
 }

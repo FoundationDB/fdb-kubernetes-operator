@@ -52,9 +52,6 @@ var _ = Describe("[api] FoundationDBBackup", func() {
 					},
 					Spec: FoundationDBBackupSpec{
 						AgentCount: &agentCount,
-						BlobStoreConfiguration: &BlobStoreConfiguration{
-							AccountName: "test@test-service",
-						},
 					},
 					Status: FoundationDBBackupStatus{
 						Generations: BackupGenerationStatus{
@@ -63,7 +60,7 @@ var _ = Describe("[api] FoundationDBBackup", func() {
 						AgentCount:           3,
 						DeploymentConfigured: true,
 						BackupDetails: &FoundationDBBackupStatusBackupDetails{
-							URL:                   "blobstore://test@test-service:443/sample-cluster?bucket=fdb-backups",
+							URL:                   "blobstore://test@test-service/sample-cluster?bucket=fdb-backups",
 							Running:               true,
 							SnapshotPeriodSeconds: 864000,
 						},
@@ -72,6 +69,7 @@ var _ = Describe("[api] FoundationDBBackup", func() {
 			}
 
 			backup = createBackup()
+
 			result, err := backup.CheckReconciliation()
 			Expect(result).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())

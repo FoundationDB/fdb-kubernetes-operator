@@ -41,9 +41,7 @@ func (s modifyBackup) reconcile(
 		return nil
 	}
 
-	// The modify command is only required for continuous backups.
-	if backup.NeedsBackupReconfiguration() &&
-		backup.GetBackupMode() == fdbv1beta2.BackupModeContinuous {
+	if backup.Status.BackupDetails.SnapshotPeriodSeconds != backup.SnapshotPeriodSeconds() || backup.GetBackupMode() == fdbv1beta2.BackupModeContinuous {
 		adminClient, err := r.adminClientForBackup(ctx, backup)
 		if err != nil {
 			return &requeue{curError: err}

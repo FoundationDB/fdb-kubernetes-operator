@@ -932,8 +932,6 @@ func (client *cliAdminClient) ModifyBackup(backup *fdbv1beta2.FoundationDBBackup
 			"modify",
 			"-s",
 			strconv.Itoa(backup.SnapshotPeriodSeconds()),
-			"-d",
-			backup.BackupURL(),
 		},
 	})
 
