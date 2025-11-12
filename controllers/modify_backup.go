@@ -41,6 +41,10 @@ func (s modifyBackup) reconcile(
 		return nil
 	}
 
+	if backup.Spec.EncryptionKeyPath != "" {
+		return nil
+	}
+
 	// The modify command is only required for continuous backups.
 	if backup.NeedsBackupReconfiguration() &&
 		backup.GetBackupMode() == fdbv1beta2.BackupModeContinuous {
