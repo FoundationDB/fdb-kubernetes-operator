@@ -41,6 +41,13 @@ func (s modifyBackup) reconcile(
 		return nil
 	}
 
+	// Modifying backups will remove encryption from previously encrypted backups.
+	// To preserve encryption, skip backup modifications if encryption is enabled.
+	// See FoundationDB issue: https://github.com/apple/foundationdb/issues/12544
+	if backup.Spec.EncryptionKeyPath != "" {
+		return nil
+	}
+
 	// The modify command is only required for continuous backups.
 	if backup.NeedsBackupReconfiguration() &&
 		backup.GetBackupMode() == fdbv1beta2.BackupModeContinuous {
