@@ -40,6 +40,8 @@ jobs:
           fetch-depth: 0
       - name: Fetch all tags
         run: git fetch --force --tags
+      - name: Free disk space
+        run: bash ${GITHUB_WORKSPACE}/scripts/free_disk_space.sh
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
