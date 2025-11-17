@@ -89,7 +89,8 @@ func (r *FoundationDBRestoreReconciler) Reconcile(
 		if req == nil {
 			continue
 		}
-		return processRequeue(req, subReconciler, restore, r.Recorder, restoreLog)
+
+		return processResult(processRequeue(req, subReconciler, restore, r.Recorder, restoreLog))
 	}
 
 	if restore.Status.State != fdbv1beta2.CompletedFoundationDBRestoreState {

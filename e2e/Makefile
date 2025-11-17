@@ -156,7 +156,7 @@ foundationdb-pr-tests: GINKGO_LABEL_FILTER=--ginkgo.label-filter="foundationdb-p
 # Run the actual foundationdb-pr tests.
 foundationdb-pr-tests: run
 
-# Only run tests that are labeled with the "foundationdb-nightly" or "foundationdb-pr"  label, this is used for the cluster tests in the
+# Only run tests that are labeled with the "foundationdb-nightly" or "foundationdb-pr" label, this is used for the cluster tests in the
 # foundationdb repo.
 foundationdb-nightly-tests: GINKGO_LABEL_FILTER=--ginkgo.label-filter="foundationdb-pr || foundationdb-nightly"
 
