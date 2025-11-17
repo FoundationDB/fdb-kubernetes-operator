@@ -45,6 +45,8 @@ jobs:
         go-version: 1.24.9
     - name: Fetch all tags
       run: git fetch --force --tags
+    - name: Free disk space
+      run: bash ${GITHUB_WORKSPACE}/scripts/free_disk_space.sh
     - name: Get dependencies
       env:
         KIND_VER: "v0.29.0"
