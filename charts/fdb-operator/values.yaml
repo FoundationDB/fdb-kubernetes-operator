@@ -47,6 +47,8 @@ nodeSelector: {}
 affinity: {}
 tolerations: {}
 extraEnv: []
+volumes: []
+volumeMounts: []
 resources:
   limits:
     cpu: 500m

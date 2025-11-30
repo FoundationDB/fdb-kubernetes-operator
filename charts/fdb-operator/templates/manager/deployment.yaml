@@ -91,6 +91,9 @@ spec:
           mountPath: /var/log/fdb
         - name: fdb-binaries
           mountPath: /usr/bin/fdb
+        {{- with .Values.volumeMounts }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
         securityContext:
           {{- toYaml .Values.containerSecurityContext | nindent 10 }}
         livenessProbe:
@@ -118,3 +121,6 @@ spec:
         emptyDir: {}
       - name: fdb-binaries
         emptyDir: {}
+      {{- with .Values.volumes }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
