@@ -46,6 +46,7 @@ containerSecurityContext:
 nodeSelector: {}
 affinity: {}
 tolerations: {}
+extraEnv: []
 resources:
   limits:
     cpu: 500m
