@@ -150,5 +150,9 @@ func (c maintenanceModeChecker) reconcile(
 		return &requeue{curError: err, delayedRequeue: true}
 	}
 
+	// Reset the maintenance zone in the cached status for this run. In this code path the maintenance off command
+	// returned without an error, so we can assume that the maintenance zone was reset.
+	status.Cluster.MaintenanceZone = ""
+
 	return nil
 }
