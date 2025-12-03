@@ -2769,6 +2769,7 @@ func (cluster *FoundationDBCluster) GetMaxConcurrentReplacements() int {
 }
 
 // UseManagementAPI returns the value of UseManagementAPI or false if unset.
+// Deprecated: Use DatabaseInteractionMode instead.
 func (cluster *FoundationDBCluster) UseManagementAPI() bool {
 	return ptr.Deref(cluster.Spec.AutomationOptions.UseManagementAPI, false)
 }

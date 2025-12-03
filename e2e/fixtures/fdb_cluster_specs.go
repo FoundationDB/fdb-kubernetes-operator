@@ -63,6 +63,11 @@ func (factory *Factory) createFDBClusterSpec(
 		faultDomain.ValueFrom = ""
 	}
 
+	var databaseInteractionMode *fdbv1beta2.DatabaseInteractionMode
+	if ptr.Deref(config.ManagementAPI, false) {
+		databaseInteractionMode = ptr.To(fdbv1beta2.DatabaseInteractionModeMgmtAPI)
+	}
+
 	return &fdbv1beta2.FoundationDBCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      config.Name,
@@ -106,7 +111,7 @@ func (factory *Factory) createFDBClusterSpec(
 				},
 				UseLocalitiesForExclusion: config.UseLocalityBasedExclusions,
 				SynchronizationMode:       ptr.To(string(config.SynchronizationMode)),
-				UseManagementAPI:          config.ManagementAPI,
+				DatabaseInteractionMode:   databaseInteractionMode,
 			},
 			Routing: fdbv1beta2.RoutingConfig{
 				UseDNSInClusterFile: config.UseDNS,
