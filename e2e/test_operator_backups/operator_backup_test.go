@@ -36,10 +36,9 @@ import (
 )
 
 var (
-	factory            *fixtures.Factory
-	fdbCluster         *fixtures.FdbCluster
-	testOptions        *fixtures.FactoryOptions
-	supportsEncryption fdbv1beta2.Version
+	factory     *fixtures.Factory
+	fdbCluster  *fixtures.FdbCluster
+	testOptions *fixtures.FactoryOptions
 )
 
 func init() {
@@ -62,9 +61,6 @@ var _ = BeforeSuite(func() {
 	if factory.GetFDBVersion().String() == "7.1.63" {
 		Skip("Skip backup tests with 7.1.63 as this version has a bug in the fdbbackup agent")
 	}
-
-	supportsEncryption, err = fdbv1beta2.ParseFdbVersion("7.4.6")
-	Expect(err).NotTo(HaveOccurred())
 
 	// Create a blobstore for testing backups and restore.
 	factory.CreateBlobstoreIfAbsent(factory.SingleNamespace())
@@ -162,7 +158,8 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 
 				When("encryption is enabled", func() {
 					BeforeEach(func() {
-						if !factory.GetFDBVersion().IsAtLeast(supportsEncryption) {
+						if !factory.GetFDBVersion().
+							IsAtLeast(fdbv1beta2.Versions.SupportsBackupEncryption) {
 							Skip(
 								"version doesn't support the encryption feature",
 							)
@@ -209,7 +206,8 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 
 				When("encryption is enabled", func() {
 					BeforeEach(func() {
-						if !factory.GetFDBVersion().IsAtLeast(supportsEncryption) {
+						if !factory.GetFDBVersion().
+							IsAtLeast(fdbv1beta2.Versions.SupportsBackupEncryption) {
 							Skip(
 								"version doesn't support the encryption feature",
 							)
