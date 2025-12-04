@@ -71,8 +71,8 @@ spec:
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         command:
         - /manager
-        {{- if not .Values.globalMode.enabled }}
         env:
+        {{- if not .Values.globalMode.enabled }}
         - name: WATCH_NAMESPACE
           valueFrom:
             fieldRef:
