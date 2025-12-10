@@ -103,7 +103,7 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 			factory.RecreateOperatorPods(namespace)
 		})
 
-		When("the default backup system is used", func() {
+		FWhen("the default backup system is used", func() {
 			DescribeTable("backup modes",
 				func(backupMode fdbv1beta2.BackupMode) {
 					var useRestorableVersion bool

@@ -210,7 +210,6 @@ func (fdbBackup *FdbBackup) setState(state fdbv1beta2.BackupState) {
 // Stop will stop the FdbBackup.
 func (fdbBackup *FdbBackup) Stop() {
 	fdbBackup.setState(fdbv1beta2.BackupStateStopped)
-	fdbBackup.setState(fdbv1beta2.BackupStateStopped)
 }
 
 // Start will start the FdbBackup.
