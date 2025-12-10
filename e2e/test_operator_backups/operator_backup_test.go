@@ -215,7 +215,7 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 			factory.RecreateOperatorPods(namespace)
 		})
 
-		FWhen("the default backup system is used", func() {
+		When("the default backup system is used", func() {
 			describeBackupMode(fdbv1beta2.BackupModeContinuous)
 			describeBackupMode(fdbv1beta2.BackupModeOneTime)
 		})
