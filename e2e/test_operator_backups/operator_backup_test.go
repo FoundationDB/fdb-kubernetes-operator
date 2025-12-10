@@ -31,6 +31,7 @@ import (
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/fixtures"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/tidwall/gjson"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/ptr"
 )
@@ -107,6 +108,7 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 				func(backupMode fdbv1beta2.BackupMode) {
 					var useRestorableVersion bool
 					var backupConfiguration *fixtures.FdbBackupConfiguration
+					var currentRestorableVersion *uint64
 
 					// Helper function to perform backup and setup
 					performBackupSetup := func(shouldEnableEncryption bool, shouldUseRestorableVersion bool) {
@@ -142,16 +144,27 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 
 						// Delete the data and restore it again.
 						fdbCluster.ClearRange([]byte{prefix}, 60)
-						var currentRestorableVersion *uint64
 						if useRestorableVersion {
 							currentRestorableVersion = ptr.To(restorableVersion)
 						}
-						restore = factory.CreateRestoreForCluster(backup, currentRestorableVersion)
 					}
 
 					When("no restorable version is specified", func() {
 						JustBeforeEach(func() {
 							performBackupSetup(false, false)
+							restore = factory.CreateRestoreForCluster(backup, currentRestorableVersion)
+						})
+
+						It("should restore the cluster successfully with a restorable version", func() {
+							Expect(fdbCluster.GetRange([]byte{prefix}, 25, 60)).Should(Equal(keyValues))
+						})
+					})
+
+					// TODO (johscheuer): Enable test once the CRD in CI is updated.
+					PWhen("using a restorable version", func() {
+						JustBeforeEach(func() {
+							performBackupSetup(false, true)
+							restore = factory.CreateRestoreForCluster(backup, currentRestorableVersion)
 						})
 
 						It("should restore the cluster successfully with a restorable version", func() {
@@ -167,15 +180,24 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 							performBackupSetup(true, false)
 						})
 
-						It("should restore the cluster successfully with a restorable version", func() {
-							Expect(fdbCluster.GetRange([]byte{prefix}, 25, 60)).Should(Equal(keyValues))
-						})
-					})
+						When("running describe command", func() {
+							var describeOutput string
 
-					// TODO (johscheuer): Enable test once the CRD in CI is updated.
-					PWhen("using a restorable version", func() {
-						JustBeforeEach(func() {
-							performBackupSetup(false, true)
+							JustBeforeEach(func() {
+								describeOutput = backup.RunDescribeCommand()
+							})
+
+							// TODO (09harsh): Enable this test when we have the fileLevelEncryption in json parser
+							// here: https://github.com/apple/foundationdb/blob/main/fdbclient/BackupContainer.actor.cpp#L193-L250
+							PIt("should have file level encryption enabled", func() {
+								fileLevelEncryption := gjson.Get(describeOutput, "FileLevelEncryption").Bool()
+								Expect(fileLevelEncryption).To(BeTrue())
+							})
+
+							It("should be able to restore the cluster successfully with a restorable version", func() {
+								restore = factory.CreateRestoreForCluster(backup, currentRestorableVersion)
+								Expect(fdbCluster.GetRange([]byte{prefix}, 25, 60)).Should(Equal(keyValues))
+							})
 						})
 
 						It("should restore the cluster successfully with a restorable version", func() {

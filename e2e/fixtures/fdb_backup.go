@@ -23,6 +23,7 @@ package fixtures
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"time"
 
@@ -209,6 +210,7 @@ func (fdbBackup *FdbBackup) setState(state fdbv1beta2.BackupState) {
 // Stop will stop the FdbBackup.
 func (fdbBackup *FdbBackup) Stop() {
 	fdbBackup.setState(fdbv1beta2.BackupStateStopped)
+	fdbBackup.setState(fdbv1beta2.BackupStateStopped)
 }
 
 // Start will start the FdbBackup.
@@ -219,6 +221,21 @@ func (fdbBackup *FdbBackup) Start() {
 // Pause will pause the FdbBackup.
 func (fdbBackup *FdbBackup) Pause() {
 	fdbBackup.setState(fdbv1beta2.BackupStatePaused)
+}
+
+// RunDescribeCommand run the describe command on the backup pod.
+func (fdbBackup *FdbBackup) RunDescribeCommand() string {
+	backupPod := fdbBackup.GetBackupPod()
+	command := fmt.Sprintf(
+		"fdbbackup describe -d \"%s\" --json",
+		fdbBackup.backup.BackupURL())
+	out, _, err := fdbBackup.fdbCluster.ExecuteCmdOnPod(
+		*backupPod,
+		fdbv1beta2.MainContainerName,
+		command,
+		false)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	return out
 }
 
 // WaitForReconciliation waits until the FdbBackup resource is fully reconciled.
