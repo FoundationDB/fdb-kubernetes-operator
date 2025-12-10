@@ -25,6 +25,7 @@ This test suite contains tests related to backup and restore with the operator.
 */
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 
@@ -32,7 +33,6 @@ import (
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/fixtures"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/tidwall/gjson"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/ptr"
 )
@@ -150,7 +150,8 @@ func describeBackupMode(backupMode fdbv1beta2.BackupMode) {
 
 		When("encryption is enabled", func() {
 			JustBeforeEach(func() {
-				if !factory.GetFDBVersion().IsAtLeast(fdbv1beta2.Versions.SupportsBackupEncryption) {
+				if !factory.GetFDBVersion().
+					IsAtLeast(fdbv1beta2.Versions.SupportsBackupEncryption) {
 					Skip("version doesn't support the encryption feature")
 				}
 				performBackupSetup(true, false)
@@ -166,14 +167,20 @@ func describeBackupMode(backupMode fdbv1beta2.BackupMode) {
 				// TODO (09harsh): Enable this test when we have the fileLevelEncryption in json parser
 				// here: https://github.com/apple/foundationdb/blob/main/fdbclient/BackupContainer.actor.cpp#L193-L250
 				PIt("should have file level encryption enabled", func() {
-					fileLevelEncryption := gjson.Get(describeOutput, "FileLevelEncryption").Bool()
+					var describeData map[string]interface{}
+					err := json.Unmarshal([]byte(describeOutput), &describeData)
+					Expect(err).NotTo(HaveOccurred())
+					fileLevelEncryption := describeData["FileLevelEncryption"].(bool)
 					Expect(fileLevelEncryption).To(BeTrue())
 				})
 
-				It("should be able to restore the cluster successfully with a restorable version", func() {
-					restore = factory.CreateRestoreForCluster(backup, currentRestorableVersion)
-					Expect(fdbCluster.GetRange([]byte{prefix}, 25, 60)).Should(Equal(keyValues))
-				})
+				It(
+					"should be able to restore the cluster successfully with a restorable version",
+					func() {
+						restore = factory.CreateRestoreForCluster(backup, currentRestorableVersion)
+						Expect(fdbCluster.GetRange([]byte{prefix}, 25, 60)).Should(Equal(keyValues))
+					},
+				)
 			})
 
 			It("should restore the cluster successfully with a restorable version", func() {
