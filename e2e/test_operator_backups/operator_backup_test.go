@@ -195,8 +195,13 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 						It(
 							"should be able to restore the cluster successfully with a restorable version",
 							func() {
-								restore = factory.CreateRestoreForCluster(backup, currentRestorableVersion)
-								Expect(fdbCluster.GetRange([]byte{prefix}, 25, 60)).Should(Equal(keyValues))
+								restore = factory.CreateRestoreForCluster(
+									backup,
+									currentRestorableVersion,
+								)
+								Expect(
+									fdbCluster.GetRange([]byte{prefix}, 25, 60),
+								).Should(Equal(keyValues))
 							},
 						)
 					})
