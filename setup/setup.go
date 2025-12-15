@@ -188,7 +188,7 @@ func (o *Options) BindFlags(fs *flag.FlagSet) {
 	fs.StringVar(
 		&o.HealthProbeBindAddress,
 		"health-probe-bind-address",
-		"[::1]:9443",
+		"localhost:9443",
 		"The address the operator binds to for health / readiness / liveness probes.",
 	)
 	fs.IntVar(
