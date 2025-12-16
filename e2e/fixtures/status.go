@@ -533,7 +533,7 @@ func (fdbCluster *FdbCluster) GetCommandlineForProcessesPerClassWithStatus(
 }
 
 // FdbPrintable copied from foundationdb bindings/go/src/fdb/fdb.go func Printable(d []byte) string
-// Printable returns a human readable version of a byte array. The bytes that correspond with
+// Printable returns a human-readable version of a byte array. The bytes that correspond with
 // ASCII printable characters [32-127) are passed through. Other bytes are
 // replaced with \x followed by a two character zero-padded hex code for byte.
 func FdbPrintable(d []byte) string {
@@ -543,6 +543,21 @@ func FdbPrintable(d []byte) string {
 			buf.WriteByte(b)
 			continue
 		}
+		if b == '\\' {
+			buf.WriteString("\\\\")
+			continue
+		}
+
+		_, _ = fmt.Fprintf(buf, "\\x%02x", b)
+	}
+
+	return buf.String()
+}
+
+// FdbHexString returns a string where bytes are replaced with \x followed by a two character zero-padded hex code for byte.
+func FdbHexString(d []byte) string {
+	buf := new(bytes.Buffer)
+	for _, b := range d {
 		if b == '\\' {
 			buf.WriteString("\\\\")
 			continue

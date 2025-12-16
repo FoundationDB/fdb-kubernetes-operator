@@ -1944,7 +1944,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				cmd := fmt.Sprintf(
 					"writemode on; option on ACCESS_SYSTEM_KEYS; set %s %s",
 					fixtures.FdbPrintable([]byte(key)),
-					fixtures.FdbPrintable(timestampByteBuffer.Bytes()),
+					fixtures.FdbHexString(timestampByteBuffer.Bytes()),
 				)
 				_, _, err := fdbCluster.RunFdbCliCommandInOperatorWithoutRetry(cmd, true, 20)
 
