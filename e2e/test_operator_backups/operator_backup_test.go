@@ -185,7 +185,7 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 
 							restorable := describeData["Restorable"].(bool)
 							Expect(restorable).To(BeTrue())
-							
+
 							// TODO (09harsh): Uncomment this when we have the fileLevelEncryption in json parser
 							// here: https://github.com/apple/foundationdb/blob/main/fdbclient/BackupContainer.actor.cpp#L193-L250
 							//fileLevelEncryption := describeData["FileLevelEncryption"].(bool)
