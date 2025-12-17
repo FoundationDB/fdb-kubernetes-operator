@@ -35,7 +35,7 @@ type addProcessGroups struct{}
 
 // reconcile runs the reconciler's work.
 func (a addProcessGroups) reconcile(
-	ctx context.Context,
+	_ context.Context,
 	r *FoundationDBClusterReconciler,
 	cluster *fdbv1beta2.FoundationDBCluster,
 	status *fdbv1beta2.FoundationDBStatus,
@@ -64,7 +64,6 @@ func (a addProcessGroups) reconcile(
 		logger.Error(err, "Error getting exclusion list")
 	}
 
-	hasNewProcessGroups := false
 	for _, processClass := range fdbv1beta2.ProcessClasses {
 		desiredCount := desiredCounts[processClass]
 		if desiredCount < 0 {
@@ -80,7 +79,6 @@ func (a addProcessGroups) reconcile(
 			processGroupIDs[processClass] = map[int]bool{}
 		}
 
-		hasNewProcessGroups = true
 		logger.Info(
 			"Adding new Process Groups",
 			"processClass",
@@ -117,13 +115,6 @@ func (a addProcessGroups) reconcile(
 				cluster.Status.ProcessGroups,
 				fdbv1beta2.NewProcessGroupStatus(processGroupID, processClass, nil),
 			)
-		}
-	}
-
-	if hasNewProcessGroups {
-		err = r.updateOrApply(ctx, cluster)
-		if err != nil {
-			return &requeue{curError: err}
 		}
 	}
 
