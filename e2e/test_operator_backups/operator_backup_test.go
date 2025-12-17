@@ -25,6 +25,7 @@ This test suite contains tests related to backup and restore with the operator.
 */
 
 import (
+	"encoding/json"
 	"log"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
@@ -176,12 +177,17 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 						})
 
 						JustBeforeEach(func() {
-							_ = backup.RunDescribeCommand()
+							describeCommandOutput := backup.RunDescribeCommand()
+
+							var describeData map[string]interface{}
+							err := json.Unmarshal([]byte(describeCommandOutput), &describeData)
+							Expect(err).NotTo(HaveOccurred())
+
+							restorable := describeData["Restorable"].(bool)
+							Expect(restorable).To(BeTrue())
+							
 							// TODO (09harsh): Uncomment this when we have the fileLevelEncryption in json parser
 							// here: https://github.com/apple/foundationdb/blob/main/fdbclient/BackupContainer.actor.cpp#L193-L250
-							//var describeData map[string]interface{}
-							//err := json.Unmarshal([]byte(describeCommandOutput), &describeData)
-							//Expect(err).NotTo(HaveOccurred())
 							//fileLevelEncryption := describeData["FileLevelEncryption"].(bool)
 							//Expect(fileLevelEncryption).To(BeTrue())
 						})
