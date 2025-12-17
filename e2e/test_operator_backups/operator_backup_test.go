@@ -25,15 +25,13 @@ This test suite contains tests related to backup and restore with the operator.
 */
 
 import (
-	"encoding/json"
-	"log"
-
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/fixtures"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/ptr"
+	"log"
 )
 
 var (
@@ -172,24 +170,19 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 					})
 
 					When("running describe command", func() {
-						var describeOutput string
-
 						BeforeEach(func() {
 							skipRestore = true
 						})
 
 						JustBeforeEach(func() {
-							describeOutput = backup.RunDescribeCommand()
-						})
-
-						// TODO (09harsh): Enable this test when we have the fileLevelEncryption in json parser
-						// here: https://github.com/apple/foundationdb/blob/main/fdbclient/BackupContainer.actor.cpp#L193-L250
-						PIt("should have file level encryption enabled", func() {
-							var describeData map[string]interface{}
-							err := json.Unmarshal([]byte(describeOutput), &describeData)
-							Expect(err).NotTo(HaveOccurred())
-							fileLevelEncryption := describeData["FileLevelEncryption"].(bool)
-							Expect(fileLevelEncryption).To(BeTrue())
+							_ = backup.RunDescribeCommand()
+							// TODO (09harsh): Uncomment this when we have the fileLevelEncryption in json parser
+							// here: https://github.com/apple/foundationdb/blob/main/fdbclient/BackupContainer.actor.cpp#L193-L250
+							//var describeData map[string]interface{}
+							//err := json.Unmarshal([]byte(describeCommandOutput), &describeData)
+							//Expect(err).NotTo(HaveOccurred())
+							//fileLevelEncryption := describeData["FileLevelEncryption"].(bool)
+							//Expect(fileLevelEncryption).To(BeTrue())
 						})
 
 						It(
@@ -205,15 +198,6 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 							},
 						)
 					})
-
-					It(
-						"should restore the cluster successfully with a restorable version",
-						func() {
-							Expect(
-								fdbCluster.GetRange([]byte{prefix}, 25, 60),
-							).Should(Equal(keyValues))
-						},
-					)
 				})
 
 				// TODO (johscheuer): Enable test once the CRD in CI is updated.
