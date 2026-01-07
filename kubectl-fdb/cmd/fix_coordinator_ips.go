@@ -186,7 +186,12 @@ func updateIPsInConnectionString(
 				cmd.Println("Couldn't find addresses for Pod", pod.Name)
 			}
 
-			cmd.Println("Update the coordinator address for", coordinatorAddress.IPAddress.String(), "to new IP address:", publicIPs[0])
+			cmd.Println(
+				"Update the coordinator address for",
+				coordinatorAddress.IPAddress.String(),
+				"to new IP address:",
+				publicIPs[0],
+			)
 			coordinatorAddress.IPAddress = net.ParseIP(publicIPs[0])
 		}
 

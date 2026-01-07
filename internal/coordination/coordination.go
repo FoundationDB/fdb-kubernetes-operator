@@ -414,12 +414,14 @@ func UpdateGlobalCoordinationState(
 			// Check if the process group is present in pendingForRestart or readyForRestart.
 			// If so, add them to the set to remove those entries as the process has the correct command line.
 			if _, ok := pendingForRestart[processGroup.ProcessGroupID]; ok {
-				logger.V(1).Info("Removing from pendingForRestart", "processGroupID", processGroup.ProcessGroupID)
+				logger.V(1).
+					Info("Removing from pendingForRestart", "processGroupID", processGroup.ProcessGroupID)
 				updatesPendingForRestart[processGroup.ProcessGroupID] = fdbv1beta2.UpdateActionDelete
 			}
 
 			if _, ok := readyForRestart[processGroup.ProcessGroupID]; ok {
-				logger.V(1).Info("Removing from readyForRestart", "processGroupID", processGroup.ProcessGroupID)
+				logger.V(1).
+					Info("Removing from readyForRestart", "processGroupID", processGroup.ProcessGroupID)
 				updatesReadyForRestart[processGroup.ProcessGroupID] = fdbv1beta2.UpdateActionDelete
 			}
 		}

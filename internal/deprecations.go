@@ -162,8 +162,17 @@ func updateImageConfigs(spec *fdbv1beta2.FoundationDBClusterSpec, useUnifiedImag
 			fdbv1beta2.ImageConfig{BaseImage: fdbv1beta2.FoundationDBKubernetesBaseImage},
 		)
 	} else {
-		ensureImageConfigPresent(&spec.MainContainer.ImageConfigs, fdbv1beta2.ImageConfig{BaseImage: fdbv1beta2.FoundationDBBaseImage})
-		ensureImageConfigPresent(&spec.SidecarContainer.ImageConfigs, fdbv1beta2.ImageConfig{BaseImage: fdbv1beta2.FoundationDBSidecarBaseImage, TagSuffix: "-1"})
+		ensureImageConfigPresent(
+			&spec.MainContainer.ImageConfigs,
+			fdbv1beta2.ImageConfig{BaseImage: fdbv1beta2.FoundationDBBaseImage},
+		)
+		ensureImageConfigPresent(
+			&spec.SidecarContainer.ImageConfigs,
+			fdbv1beta2.ImageConfig{
+				BaseImage: fdbv1beta2.FoundationDBSidecarBaseImage,
+				TagSuffix: "-1",
+			},
+		)
 	}
 }
 

@@ -163,7 +163,16 @@ func updateCrashLoopContainerList(
 				opts.containerName,
 			)
 		} else {
-			if opts.wait && !confirmAction(fmt.Sprintf("Adding %v to container: %s in crash-loop container list of the cluster %s/%s", processGroupIDs, opts.containerName, processGroupOpts.namespace, cluster.Name)) {
+			if opts.wait &&
+				!confirmAction(
+					fmt.Sprintf(
+						"Adding %v to container: %s in crash-loop container list of the cluster %s/%s",
+						processGroupIDs,
+						opts.containerName,
+						processGroupOpts.namespace,
+						cluster.Name,
+					),
+				) {
 				return fmt.Errorf("user aborted the removal")
 			}
 			cluster.AddProcessGroupsToCrashLoopContainerList(processGroupIDs, opts.containerName)

@@ -308,7 +308,8 @@ func (r *FoundationDBClusterReconciler) Reconcile(
 						clusterLog.V(0).Info("trying to resolve coordinator", "coordinator", name)
 
 						ip, err := resolver.LookupIPAddr(ctx, name)
-						clusterLog.V(0).Info("resolved coordinator", "coordinator", name, "ip", ip, "error", err)
+						clusterLog.V(0).
+							Info("resolved coordinator", "coordinator", name, "ip", ip, "error", err)
 						if err != nil || ip == nil {
 							coordinatorsResolvable = false
 						}
@@ -317,7 +318,9 @@ func (r *FoundationDBClusterReconciler) Reconcile(
 					// If all coordinators are resolvable shutdown the operator process by sending a SIGTERM to ensure
 					// a graceful shutdown can be initiated.
 					if coordinatorsResolvable {
-						clusterLog.Info("trying to shutdown process because all coordinators are resolvable but the go bindings return a binding error")
+						clusterLog.Info(
+							"trying to shutdown process because all coordinators are resolvable but the go bindings return a binding error",
+						)
 						process, err := os.FindProcess(os.Getpid())
 						if err != nil {
 							fmt.Printf("Error finding process: %v\n", err)
@@ -602,7 +605,13 @@ func (r *FoundationDBClusterReconciler) updatePodDynamicConf(
 		}
 		expectedConf = string(configData)
 	} else {
-		expectedConf, err = internal.GetMonitorConf(cluster, processClass, podClient, serversPerPod, pod)
+		expectedConf, err = internal.GetMonitorConf(
+			cluster,
+			processClass,
+			podClient,
+			serversPerPod,
+			pod,
+		)
 		if err != nil {
 			return false, err
 		}

@@ -119,7 +119,7 @@ type NetworkChaosSpec struct {
 
 // NetworkChaosStatus defines the observed state of NetworkChaos
 type NetworkChaosStatus struct {
-	ChaosStatus `                 json:",inline"`
+	ChaosStatus `json:",inline"`
 	// Instances always specifies podnetworkchaos generation or empty
 	Instances map[string]int64 `json:"instances,omitempty"`
 }
@@ -153,7 +153,7 @@ type CorruptSpec struct {
 // BandwidthSpec defines detail of bandwidth limit.
 type BandwidthSpec struct {
 	// Rate is the speed knob. Allows bps, kbps, mbps, gbps, tbps unit. bps means bytes per second.
-	Rate string `json:"rate"               webhook:"Rate"`
+	Rate string `json:"rate" webhook:"Rate"`
 	// Limit is the number of bytes that can be queued waiting for tokens to become available.
 	Limit uint32 `json:"limit"`
 	// Buffer is the maximum amount of bytes that tokens can be available for instantaneously.

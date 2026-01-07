@@ -75,7 +75,9 @@ func ShouldBeIgnoredBecauseMissing(
 	// Ignore processes that are missing for more than 30 seconds e.g. if the process is network partitioned.
 	// This is required since the update status will not update the SidecarUnreachable setting if a process is
 	// missing in the status.
-	if missingTime := processGroup.GetConditionTime(fdbv1beta2.MissingProcesses); missingTime != nil {
+	if missingTime := processGroup.GetConditionTime(
+		fdbv1beta2.MissingProcesses,
+	); missingTime != nil {
 		if time.Unix(*missingTime, 0).
 			Add(cluster.GetIgnoreMissingProcessesSeconds()).
 			Before(time.Now()) {

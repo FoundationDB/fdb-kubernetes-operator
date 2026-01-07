@@ -243,7 +243,11 @@ func removeProcessGroup(
 			deletionError = errors.Join(deletionError, fmt.Errorf("could not delete PVC: %w", err))
 		}
 	} else if len(pvcs.Items) > 1 {
-		return fmt.Errorf("multiple PVCs found for cluster %s, processGroupID %s", cluster.Name, processGroup.ProcessGroupID)
+		return fmt.Errorf(
+			"multiple PVCs found for cluster %s, processGroupID %s",
+			cluster.Name,
+			processGroup.ProcessGroupID,
+		)
 	}
 
 	service := &corev1.Service{}

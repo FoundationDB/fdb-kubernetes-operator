@@ -138,7 +138,10 @@ func ParseDocumentationFrom(srcs []string) []KubeTypes {
 				docForTypes = append(docForTypes, ks)
 			} else if i, ok := kubType.Decl.Specs[0].(*ast.TypeSpec).Type.(*ast.Ident); ok {
 				// Add documentation for typed string that are not structs.
-				docForTypes = append(docForTypes, KubeTypes{Pair{kubType.Name, fmtRawDoc(kubType.Doc), i.Name, false}})
+				docForTypes = append(
+					docForTypes,
+					KubeTypes{Pair{kubType.Name, fmtRawDoc(kubType.Doc), i.Name, false}},
+				)
 			}
 		}
 	}

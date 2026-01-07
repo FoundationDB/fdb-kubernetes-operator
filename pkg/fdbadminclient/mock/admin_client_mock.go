@@ -297,7 +297,11 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 				}
 
 				if processCount > 1 {
-					locality[fdbv1beta2.FDBLocalityProcessIDKey] = fmt.Sprintf("%s-%d", processGroupID, processIndex)
+					locality[fdbv1beta2.FDBLocalityProcessIDKey] = fmt.Sprintf(
+						"%s-%d",
+						processGroupID,
+						processIndex,
+					)
 				}
 			}
 

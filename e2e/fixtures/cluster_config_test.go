@@ -100,7 +100,6 @@ var _ = Describe("Cluster configuration", func() {
 				corev1.ResourceCPU:    resource.MustParse("2"),
 				corev1.ResourceMemory: resource.MustParse("16Gi"),
 			}),
-
 		Entry("performance config for storage process class with custom memory",
 			&ClusterConfig{
 				Name:                "test",

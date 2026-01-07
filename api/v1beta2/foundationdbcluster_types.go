@@ -1692,7 +1692,10 @@ func (cluster *FoundationDBCluster) GetProcessCountsWithDefaults() (ProcessCount
 				processCounts.CommitProxy,
 			)
 		} else {
-			primaryStatelessCount += cluster.calculateProcessCountFromRole(roleCounts.Proxies, processCounts.Proxy)
+			primaryStatelessCount += cluster.calculateProcessCountFromRole(
+				roleCounts.Proxies,
+				processCounts.Proxy,
+			)
 		}
 
 		processCounts.Stateless = cluster.calculateProcessCount(true,
@@ -1779,7 +1782,15 @@ func (cluster *FoundationDBCluster) CheckReconciliation(log logr.Logger) (bool, 
 				)
 				cluster.Status.Generations.HasPendingRemoval = cluster.Generation
 			} else {
-				logger.Info("Has process group with pending shrink", "processGroupID", processGroup.ProcessGroupID, "state", "NeedsShrink", "conditions", processGroup.ProcessGroupConditions)
+				logger.Info(
+					"Has process group with pending shrink",
+					"processGroupID",
+					processGroup.ProcessGroupID,
+					"state",
+					"NeedsShrink",
+					"conditions",
+					processGroup.ProcessGroupConditions,
+				)
 				cluster.Status.Generations.NeedsShrink = cluster.Generation
 				reconciled = false
 			}

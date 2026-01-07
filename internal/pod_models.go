@@ -419,7 +419,13 @@ func configureVolumesForContainers(
 			},
 		)
 	} else {
-		volumes = append(volumes, corev1.Volume{Name: "dynamic-conf", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}})
+		volumes = append(
+			volumes,
+			corev1.Volume{
+				Name:         "dynamic-conf",
+				VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
+			},
+		)
 	}
 	volumes = append(
 		volumes,
@@ -546,7 +552,8 @@ func GetPodSpec(
 
 		for _, crashObjs := range cluster.Spec.Buggify.CrashLoopContainers {
 			for _, pid := range crashObjs.Targets {
-				if (pid == processGroup.ProcessGroupID || pid == "*") && crashObjs.ContainerName == mainContainer.Name {
+				if (pid == processGroup.ProcessGroupID || pid == "*") &&
+					crashObjs.ContainerName == mainContainer.Name {
 					args = "crash-loop"
 					break
 				}
@@ -560,19 +567,39 @@ func GetPodSpec(
 			corev1.VolumeMount{Name: "fdb-trace-logs", MountPath: "/var/log/fdb-trace-logs"},
 		)
 
-		err = configureSidecarContainerForCluster(cluster, podName, initContainer, true, processGroup.ProcessGroupID, desiredVersion)
+		err = configureSidecarContainerForCluster(
+			cluster,
+			podName,
+			initContainer,
+			true,
+			processGroup.ProcessGroupID,
+			desiredVersion,
+		)
 		if err != nil {
 			return nil, err
 		}
 
-		err = configureSidecarContainerForCluster(cluster, podName, sidecarContainer, false, processGroup.ProcessGroupID, desiredVersion)
+		err = configureSidecarContainerForCluster(
+			cluster,
+			podName,
+			sidecarContainer,
+			false,
+			processGroup.ProcessGroupID,
+			desiredVersion,
+		)
 		if err != nil {
 			return nil, err
 		}
 
 		serversPerPod := cluster.GetDesiredServersPerPod(processGroup.ProcessClass)
 		if serversPerPod > 1 {
-			extendEnv(sidecarContainer, corev1.EnvVar{Name: processGroup.ProcessClass.GetServersPerPodEnvName(), Value: strconv.Itoa(serversPerPod)})
+			extendEnv(
+				sidecarContainer,
+				corev1.EnvVar{
+					Name:  processGroup.ProcessClass.GetServersPerPodEnvName(),
+					Value: strconv.Itoa(serversPerPod),
+				},
+			)
 		}
 	}
 
@@ -786,7 +813,9 @@ func configureSidecarContainer(
 	if len(imageConfigs) > 0 {
 		overrides.ImageConfigs = imageConfigs
 	} else {
-		overrides.ImageConfigs = []fdbv1beta2.ImageConfig{{BaseImage: fdbv1beta2.FoundationDBSidecarBaseImage, TagSuffix: "-1"}}
+		overrides.ImageConfigs = []fdbv1beta2.ImageConfig{
+			{BaseImage: fdbv1beta2.FoundationDBSidecarBaseImage, TagSuffix: "-1"},
+		}
 	}
 
 	if overrides.EnableTLS && !initMode {
@@ -911,18 +940,30 @@ func getEnvForMonitorConfigSubstitution(
 			}},
 		)
 	} else if faultDomainKey == "foundationdb.org/kubernetes-cluster" {
-		env = append(env, corev1.EnvVar{Name: fdbv1beta2.EnvNameMachineID, ValueFrom: &corev1.EnvVarSource{
-			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
-		}})
-		env = append(env, corev1.EnvVar{Name: fdbv1beta2.EnvNameZoneID, Value: cluster.Spec.FaultDomain.Value})
+		env = append(
+			env,
+			corev1.EnvVar{Name: fdbv1beta2.EnvNameMachineID, ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
+			}},
+		)
+		env = append(
+			env,
+			corev1.EnvVar{Name: fdbv1beta2.EnvNameZoneID, Value: cluster.Spec.FaultDomain.Value},
+		)
 	} else {
-		env = append(env, corev1.EnvVar{Name: fdbv1beta2.EnvNameMachineID, ValueFrom: &corev1.EnvVarSource{
-			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
-		}})
+		env = append(
+			env,
+			corev1.EnvVar{Name: fdbv1beta2.EnvNameMachineID, ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
+			}},
+		)
 		if !strings.HasPrefix(faultDomainSource, "$") {
-			env = append(env, corev1.EnvVar{Name: fdbv1beta2.EnvNameZoneID, ValueFrom: &corev1.EnvVarSource{
-				FieldRef: &corev1.ObjectFieldSelector{FieldPath: faultDomainSource},
-			}})
+			env = append(
+				env,
+				corev1.EnvVar{Name: fdbv1beta2.EnvNameZoneID, ValueFrom: &corev1.EnvVarSource{
+					FieldRef: &corev1.ObjectFieldSelector{FieldPath: faultDomainSource},
+				}},
+			)
 		}
 	}
 

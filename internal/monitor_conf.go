@@ -306,7 +306,10 @@ func GetMonitorProcessConfiguration(
 			},
 		)
 	} else {
-		configuration.Arguments = append(configuration.Arguments, monitorapi.Argument{Value: "--datadir=/var/fdb/data"})
+		configuration.Arguments = append(
+			configuration.Arguments,
+			monitorapi.Argument{Value: "--datadir=/var/fdb/data"},
+		)
 	}
 
 	configuration.Arguments = append(
