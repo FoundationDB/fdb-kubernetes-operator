@@ -429,16 +429,29 @@ func fileSecurityContextChanged(desired, current *corev1.PodSpec, log logr.Logge
 				return true
 			}
 		} else if current.SecurityContext == nil { // check if changed nil -> non-nil
-			if desired.SecurityContext.FSGroup != nil || desired.SecurityContext.FSGroupChangePolicy != nil {
-				log.Info("Replace process group",
-					"reason", "either FSGroup or FSGroupChangePolicy are newly defined on pod SecurityContext")
+			if desired.SecurityContext.FSGroup != nil ||
+				desired.SecurityContext.FSGroupChangePolicy != nil {
+				log.Info(
+					"Replace process group",
+					"reason",
+					"either FSGroup or FSGroupChangePolicy are newly defined on pod SecurityContext",
+				)
 				return true
 			}
 		} else { // both pod security contexts are defined so check they are the same
-			if !equality.Semantic.DeepEqualWithNilDifferentFromEmpty(desired.SecurityContext.FSGroup, current.SecurityContext.FSGroup) ||
-				!equality.Semantic.DeepEqualWithNilDifferentFromEmpty(desired.SecurityContext.FSGroupChangePolicy, current.SecurityContext.FSGroupChangePolicy) {
-				log.Info("Replace process group",
-					"reason", "either FSGroup or FSGroupChangePolicy has changed for the pod SecurityContext")
+			if !equality.Semantic.DeepEqualWithNilDifferentFromEmpty(
+				desired.SecurityContext.FSGroup,
+				current.SecurityContext.FSGroup,
+			) ||
+				!equality.Semantic.DeepEqualWithNilDifferentFromEmpty(
+					desired.SecurityContext.FSGroupChangePolicy,
+					current.SecurityContext.FSGroupChangePolicy,
+				) {
+				log.Info(
+					"Replace process group",
+					"reason",
+					"either FSGroup or FSGroupChangePolicy has changed for the pod SecurityContext",
+				)
 				return true
 			}
 		}

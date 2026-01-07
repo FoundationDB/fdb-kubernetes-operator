@@ -113,7 +113,9 @@ func nodeTaintReplacementsAllowed(
 			continue
 		}
 
-		if conditionTime := processGroup.GetConditionTime(fdbv1beta2.NodeTaintReplacing); conditionTime != nil {
+		if conditionTime := processGroup.GetConditionTime(
+			fdbv1beta2.NodeTaintReplacing,
+		); conditionTime != nil {
 			faultDomainsWithTaint[processGroup.FaultDomain] = fdbv1beta2.None{}
 		}
 	}

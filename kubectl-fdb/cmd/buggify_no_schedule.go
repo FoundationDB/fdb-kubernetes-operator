@@ -166,7 +166,15 @@ func updateNoScheduleList(
 			}
 			cluster.RemoveProcessGroupsFromNoScheduleList(processGroupIDs)
 		} else {
-			if opts.wait && !confirmAction(fmt.Sprintf("Adding %v from no-schedule from cluster %s/%s", processGroupIDs, processGroupOpts.namespace, processGroupOpts.clusterName)) {
+			if opts.wait &&
+				!confirmAction(
+					fmt.Sprintf(
+						"Adding %v from no-schedule from cluster %s/%s",
+						processGroupIDs,
+						processGroupOpts.namespace,
+						processGroupOpts.clusterName,
+					),
+				) {
 				return fmt.Errorf("user aborted the removal")
 			}
 			cluster.AddProcessGroupsToNoScheduleList(processGroupIDs)

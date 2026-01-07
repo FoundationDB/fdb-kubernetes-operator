@@ -271,7 +271,9 @@ func (fdbCluster *FdbCluster) waitForReconciliationToGeneration(
 		if softReconciliationAllowed {
 			reconciled = cluster.Status.Generations.Reconciled == cluster.ObjectMeta.Generation
 		} else {
-			reconciled = cluster.Status.Generations == fdbv1beta2.ClusterGenerationStatus{Reconciled: cluster.ObjectMeta.Generation}
+			reconciled = cluster.Status.Generations == fdbv1beta2.ClusterGenerationStatus{
+				Reconciled: cluster.ObjectMeta.Generation,
+			}
 		}
 
 		if minimumGeneration > 0 {
@@ -1532,8 +1534,15 @@ func (fdbCluster *FdbCluster) CreateTesterDeployment(replicas int) *appsv1.Deplo
 			"fdb.cluster",
 		}
 	} else {
-		sidecarImage = fdbv1beta2.SelectImageConfig(fdbCluster.cluster.Spec.SidecarContainer.ImageConfigs, fdbCluster.cluster.Spec.Version).Image()
-		initArgs = []string{"--init-mode", "--require-not-empty", "fdb.cluster", "--copy-file", "fdb.cluster"}
+		sidecarImage = fdbv1beta2.SelectImageConfig(fdbCluster.cluster.Spec.SidecarContainer.ImageConfigs, fdbCluster.cluster.Spec.Version).
+			Image()
+		initArgs = []string{
+			"--init-mode",
+			"--require-not-empty",
+			"fdb.cluster",
+			"--copy-file",
+			"fdb.cluster",
+		}
 	}
 
 	deploy := &appsv1.Deployment{

@@ -94,7 +94,9 @@ var _ = Describe("[plugin] fix-coordinator-ips command", func() {
 					Expect(err.Error()).To(Equal(input.ExpectedError))
 				} else {
 					Expect(err).NotTo(HaveOccurred())
-					Expect(cluster.Status.ConnectionString).To(Equal(input.ExpectedConnectionString))
+					Expect(
+						cluster.Status.ConnectionString,
+					).To(Equal(input.ExpectedConnectionString))
 				}
 			},
 			Entry("healthy cluster",

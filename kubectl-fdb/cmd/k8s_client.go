@@ -625,7 +625,14 @@ func getPodNamesByCluster(
 			return nil, err
 		}
 	} else if len(opts.conditions) > 0 {
-		podNames, err = getAllPodsFromClusterWithCondition(cmd.Context(), cmd.ErrOrStderr(), kubeClient, opts.clusterName, opts.namespace, opts.conditions)
+		podNames, err = getAllPodsFromClusterWithCondition(
+			cmd.Context(),
+			cmd.ErrOrStderr(),
+			kubeClient,
+			opts.clusterName,
+			opts.namespace,
+			opts.conditions,
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -700,7 +707,14 @@ func getProcessGroupsByCluster(
 	} else if len(opts.matchLabels) > 0 {
 		podNames, err = getPodsMatchingLabels(kubeClient, cluster, opts.namespace, opts.matchLabels)
 	} else if len(opts.conditions) > 0 {
-		podNames, err = getAllPodsFromClusterWithCondition(cmd.Context(), cmd.ErrOrStderr(), kubeClient, opts.clusterName, opts.namespace, opts.conditions)
+		podNames, err = getAllPodsFromClusterWithCondition(
+			cmd.Context(),
+			cmd.ErrOrStderr(),
+			kubeClient,
+			opts.clusterName,
+			opts.namespace,
+			opts.conditions,
+		)
 	} else {
 		podNames = opts.ids
 	}

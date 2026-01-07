@@ -198,7 +198,9 @@ func replaceProcessGroupsFromCluster(
 			processGroupIDsForRemoval = cluster.GetProcessGroupsToRemove(processGroupIDs)
 			cluster.Spec.ProcessGroupsToRemove = processGroupIDsForRemoval
 		} else {
-			processGroupIDsForRemoval = cluster.GetProcessGroupsToRemoveWithoutExclusion(processGroupIDs)
+			processGroupIDsForRemoval = cluster.GetProcessGroupsToRemoveWithoutExclusion(
+				processGroupIDs,
+			)
 			cluster.Spec.ProcessGroupsToRemoveWithoutExclusion = processGroupIDsForRemoval
 		}
 

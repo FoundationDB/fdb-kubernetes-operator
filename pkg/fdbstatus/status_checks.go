@@ -286,7 +286,10 @@ func GetExclusions(status *fdbv1beta2.FoundationDBStatus) ([]fdbv1beta2.ProcessA
 			}
 			exclusions = append(exclusions, pAddr)
 		} else {
-			exclusions = append(exclusions, fdbv1beta2.ProcessAddress{StringAddress: excludedServer.Locality})
+			exclusions = append(
+				exclusions,
+				fdbv1beta2.ProcessAddress{StringAddress: excludedServer.Locality},
+			)
 		}
 	}
 

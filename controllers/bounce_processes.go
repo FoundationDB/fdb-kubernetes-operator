@@ -282,7 +282,11 @@ func (c bounceProcesses) reconcile(
 	} else {
 		clearErr := adminClient.ClearReadyForRestart()
 		if clearErr != nil {
-			logger.Info("Could not remove ready entries for restart, will continue with restart", "error", clearErr.Error())
+			logger.Info(
+				"Could not remove ready entries for restart, will continue with restart",
+				"error",
+				clearErr.Error(),
+			)
 		}
 		err = adminClient.KillProcesses(addresses)
 	}

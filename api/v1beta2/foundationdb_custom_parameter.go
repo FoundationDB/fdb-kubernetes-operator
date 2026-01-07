@@ -99,7 +99,10 @@ func (customParameters FoundationDBCustomParameters) ValidateCustomParameters() 
 		if _, ok := parameters[parameterName]; !ok {
 			parameters[parameterName] = None{}
 		} else {
-			violations = append(violations, fmt.Sprintf("found duplicated customParameter: %s", parameterName))
+			violations = append(
+				violations,
+				fmt.Sprintf("found duplicated customParameter: %s", parameterName),
+			)
 		}
 
 		if _, ok := protectedParameters[parameterName]; ok {

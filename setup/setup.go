@@ -505,7 +505,11 @@ func StartManager(
 				podmanager.PodUpdateMethod(operatorOpts.PodUpdateMethod),
 			)
 		}
-		if err := clusterReconciler.SetupWithManager(mgr, operatorOpts.MaxConcurrentReconciles, *labelSelector, watchedObjects...); err != nil {
+		if err := clusterReconciler.SetupWithManager(
+			mgr,
+			operatorOpts.MaxConcurrentReconciles,
+			*labelSelector,
+			watchedObjects...); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "FoundationDBCluster")
 			os.Exit(1)
 		}
@@ -522,7 +526,11 @@ func StartManager(
 		backupReconciler.Log = logr.WithName("controllers").WithName("FoundationDBBackup")
 		backupReconciler.ServerSideApply = operatorOpts.ServerSideApply
 
-		if err := backupReconciler.SetupWithManager(mgr, operatorOpts.MaxConcurrentReconciles, *labelSelector); err != nil {
+		if err := backupReconciler.SetupWithManager(
+			mgr,
+			operatorOpts.MaxConcurrentReconciles,
+			*labelSelector,
+		); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "FoundationDBBackup")
 			os.Exit(1)
 		}
@@ -535,7 +543,11 @@ func StartManager(
 		restoreReconciler.Log = logr.WithName("controllers").WithName("FoundationDBRestore")
 		restoreReconciler.ServerSideApply = operatorOpts.ServerSideApply
 
-		if err := restoreReconciler.SetupWithManager(mgr, operatorOpts.MaxConcurrentReconciles, *labelSelector); err != nil {
+		if err := restoreReconciler.SetupWithManager(
+			mgr,
+			operatorOpts.MaxConcurrentReconciles,
+			*labelSelector,
+		); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "FoundationDBRestore")
 			os.Exit(1)
 		}
