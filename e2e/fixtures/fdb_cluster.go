@@ -785,7 +785,8 @@ func (fdbCluster *FdbCluster) SetPodAsUnschedulable(pod corev1.Pod) {
 
 		// Try deleting the Pod as a workaround until the operator handle all cases.
 		if fetchedPod.Spec.NodeName != "" && fetchedPod.DeletionTimestamp.IsZero() {
-			_ = fdbCluster.getClient().Delete(context.Background(), &pod)
+			g.Expect(fdbCluster.getClient().Delete(context.Background(), &pod)).
+				NotTo(gomega.HaveOccurred())
 		}
 
 		return fetchedPod.Spec.NodeName

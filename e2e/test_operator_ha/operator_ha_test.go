@@ -111,7 +111,7 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 		}
 	})
 
-	When("deleting all Pods in the primary", func() {
+	When("deleting all coordinator pods in the primary", func() {
 		var initialConnectionString string
 		var initialCoordinators map[string]fdbv1beta2.None
 
@@ -123,21 +123,28 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 			initialCoordinators = fdbstatus.GetCoordinatorsFromStatus(status)
 			primaryPods := primary.GetPods()
 
+			processGroupIDs := make([]fdbv1beta2.ProcessGroupID, 0, len(initialCoordinators))
+			coordinatorPods := make([]corev1.Pod, 0, len(initialCoordinators))
 			for _, pod := range primaryPods.Items {
 				processGroupID := fixtures.GetProcessGroupID(pod)
 				if _, ok := initialCoordinators[string(processGroupID)]; !ok {
 					continue
 				}
 
+				processGroupIDs = append(processGroupIDs, processGroupID)
+				coordinatorPods = append(coordinatorPods, pod)
+			}
+
+			// Set the ProcessGroups as unschedulable to ensure that they are not recreated. Otherwise, the Pods might
+			// be recreated fast enough to not result in a new connection string.
+			fdbCluster.GetPrimary().SetProcessGroupsAsUnschedulable(processGroupIDs)
+			for _, pod := range coordinatorPods {
 				log.Println(
 					"deleting coordinator pod:",
 					pod.Name,
 					"with addresses",
 					pod.Status.PodIPs,
 				)
-				// Set Pod as unschedulable to ensure that they are not recreated. Otherwise the Pods might be recreated
-				// fast enough to not result in a new connection string.
-				fdbCluster.GetPrimary().SetPodAsUnschedulable(pod)
 				factory.DeletePod(&pod)
 			}
 		})
