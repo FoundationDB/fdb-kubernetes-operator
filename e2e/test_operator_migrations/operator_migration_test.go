@@ -188,7 +188,7 @@ var _ = Describe("Operator Migrations", Label("e2e", "pr"), func() {
 		})
 
 		It("should change the public IP source and create/delete services", func() {
-			Eventually(func() bool {
+			Eventually(func(g Gomega) {
 				pods := fdbCluster.GetPods()
 				svcList := fdbCluster.GetServices()
 
@@ -204,19 +204,18 @@ var _ = Describe("Operator Migrations", Label("e2e", "pr"), func() {
 						continue
 					}
 
-					if _, ok := svcMap[pod.Name]; !ok {
-						return false
-					}
-
+					g.Expect(svcMap).To(HaveKey(pod.Name))
 					delete(svcMap, pod.Name)
 				}
 
 				// We only expect one service here at the end since we run the cluster with a headless service.
 				if fdbCluster.HasHeadlessService() {
-					return len(svcMap) == 1
+					g.Expect(svcMap).To(HaveLen(1))
+					return
 				}
-				return len(svcMap) == 0
-			}).Should(BeTrue())
+
+				g.Expect(svcMap).To(BeEmpty())
+			}).Should(Succeed())
 		})
 
 		AfterEach(func() {
@@ -224,13 +223,11 @@ var _ = Describe("Operator Migrations", Label("e2e", "pr"), func() {
 			Expect(
 				fdbCluster.SetPublicIPSource(fdbv1beta2.PublicIPSourcePod),
 			).ShouldNot(HaveOccurred())
-			svcList := fdbCluster.GetServices()
-
 			var expectedSvcCnt int
 			if fdbCluster.HasHeadlessService() {
 				expectedSvcCnt = 1
 			}
-			Expect(svcList.Items).To(HaveLen(expectedSvcCnt))
+			Expect(fdbCluster.GetServices().Items).To(HaveLen(expectedSvcCnt))
 		})
 	})
 

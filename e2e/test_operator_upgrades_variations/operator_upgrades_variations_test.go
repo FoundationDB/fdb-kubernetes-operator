@@ -86,6 +86,9 @@ func performUpgrade(config testConfig, preUpgradeFunction func(cluster *fixtures
 	startTime := time.Now()
 	loggingTime := time.Now()
 	preUpgradeFunction(fdbCluster)
+	// Block the restart of the fdbserver processes. If we don't block the restart, it will be hard to observe the condition
+	// changes.
+	fdbCluster.SetKillProcesses(false, false)
 	Expect(fdbCluster.UpgradeCluster(config.targetVersion, false)).NotTo(HaveOccurred())
 
 	if !fixtures.VersionsAreProtocolCompatible(config.beforeVersion, config.targetVersion) {
@@ -104,6 +107,7 @@ func performUpgrade(config testConfig, preUpgradeFunction func(cluster *fixtures
 			}
 
 			for _, processGroup := range fdbCluster.GetCluster().Status.ProcessGroups {
+				// Ensure that at least one process group has the expected conditions.
 				if processGroup.MatchesConditions(expectedConditions) {
 					return true
 				}
@@ -112,6 +116,9 @@ func performUpgrade(config testConfig, preUpgradeFunction func(cluster *fixtures
 			return false
 		}).WithTimeout(10 * time.Minute).WithPolling(5 * time.Second).Should(BeTrue())
 	}
+
+	// Allow the restart of the fdbserver processes again, now the upgrade should be proceeding
+	fdbCluster.SetKillProcesses(true, false)
 
 	loggingTime = time.Now()
 	transactionSystemProcessGroups := make(map[fdbv1beta2.ProcessGroupID]fdbv1beta2.None)
