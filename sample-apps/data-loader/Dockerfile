@@ -7,7 +7,6 @@ FROM golang:1.25.5-bookworm AS builder
 ARG FDB_VERSION
 ARG FDB_WEBSITE
 ARG TARGETARCH
-ARG TAG="latest"
 
 RUN set -eux && \
     if [ "$TARGETARCH" = "amd64" ]; then \
@@ -80,11 +79,16 @@ RUN set -eux && \
 RUN groupadd --gid 4059 fdb && \
 	useradd --gid 4059 --uid 4059 --shell /usr/sbin/nologin fdb && \
 	mkdir -p /var/log/fdb && \
-	touch /var/log/fdb/.keep
+	touch /var/log/fdb/.keep && \
+	chown -R fdb:fdb /var/log/fdb
 
 COPY --chown=fdb:fdb --from=builder /workspace/bin/data-loader /usr/local/bin/data-loader
 
 # Set to the numeric UID of fdb user to satisfy PodSecurityPolices which enforce runAsNonRoot
 USER 4059
+
+# Enable tracing per default.
+ENV FDB_NETWORK_OPTION_TRACE_ENABLE=/var/log/fdb
+ENV FDB_NETWORK_OPTION_TRACE_LOG_GROUP=fdb-data-loader
 
 ENTRYPOINT ["/usr/local/bin/data-loader"]

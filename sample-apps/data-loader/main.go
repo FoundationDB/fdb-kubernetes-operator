@@ -13,7 +13,6 @@ import (
 
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
 	"github.com/apple/foundationdb/bindings/go/src/fdb/tuple"
-	"github.com/google/uuid"
 )
 
 // initRandomGenerator setup the random generator to generate the values.
@@ -46,6 +45,11 @@ func loadData(ctx context.Context, keys int, batchSize int, valueSize int, clust
 		log.Fatalf("could not open database: %s", err)
 	}
 
+	err = db.Options().SetTransactionTimeout(10 * time.Second.Milliseconds())
+	if err != nil {
+		log.Fatalf("could not set default timeout: %s", err)
+	}
+
 	randomGen := initRandomGenerator()
 	for i := 0; i < batchCount; i++ {
 		select {
@@ -56,7 +60,12 @@ func loadData(ctx context.Context, keys int, batchSize int, valueSize int, clust
 		default:
 			log.Println("Writing batch", i)
 
-			prefix := uuid.NewString()
+			prefix, err := getUuid(randomGen)
+			if err != nil {
+				log.Fatalf("could not generate UUID for prefix: %s", err)
+				return
+			}
+
 			_, err = db.Transact(func(transaction fdb.Transaction) (interface{}, error) {
 				for idx := 0; idx < batchSize; idx++ {
 					token := make([]byte, valueSize)
@@ -76,6 +85,19 @@ func loadData(ctx context.Context, keys int, batchSize int, valueSize int, clust
 			}
 		}
 	}
+}
+
+func getUuid(randomGen *rand.ChaCha8) (tuple.UUID, error) {
+	buf := make([]byte, 16)
+	_, err := randomGen.Read(buf)
+	if err != nil {
+		return tuple.UUID{}, err
+	}
+
+	buf[6] = (buf[6] & 0x0f) | 0x40 // Version 4
+	buf[8] = (buf[8] & 0x3f) | 0x80 // Variant is 10
+
+	return tuple.UUID(buf), nil
 }
 
 func main() {
