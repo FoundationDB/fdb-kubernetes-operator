@@ -40,6 +40,10 @@ import (
 	"k8s.io/client-go/rest"
 )
 
+// Format: "ProcessID (30 chars) [bar] BytesLeft (15 chars) (ETA: time) (20 chars)"
+// Total non-bar space: ~65 chars, plus some padding
+const overhead = 90
+
 func newExclusionStatusCmd(streams genericiooptions.IOStreams) *cobra.Command {
 	o := newFDBOptions(streams)
 
@@ -129,14 +133,9 @@ kubectl fdb get exclusion-status c1 --interval=5m
 	return cmd
 }
 
-// moveCursorUp moves cursor up by n lines
-func moveCursorUp(n int) {
-	fmt.Printf("\033[%dA", n)
-}
-
-// clearFromCursor clears from cursor to end of screen
-func clearFromCursor() {
-	fmt.Print("\033[J")
+// clearScreen clears the entire terminal screen and moves cursor to home
+func clearScreen() {
+	fmt.Print("\033[2J\033[H")
 }
 
 // isTerminal checks if output is to a terminal (not piped)
@@ -144,7 +143,40 @@ func isTerminal(out interface{}) bool {
 	if f, ok := out.(*os.File); ok {
 		return term.IsTerminal(int(f.Fd()))
 	}
+
 	return false
+}
+
+// getTerminalWidth returns the width of the terminal, or a default if unavailable
+func getTerminalWidth(out interface{}) int {
+	if f, ok := out.(*os.File); ok {
+		width, _, err := term.GetSize(int(f.Fd()))
+		if err != nil || width <= 0 {
+			// Default width if terminal size cannot be determined
+			return 120
+		}
+
+		return width
+	}
+
+	return 120
+}
+
+// calculateProgressBarWidth calculates the appropriate progress bar width
+// based on terminal width, accounting for other text on the line
+func calculateProgressBarWidth(terminalWidth int) int {
+	barWidth := terminalWidth - overhead
+
+	// Ensure minimum and maximum bar widths
+	if barWidth < 20 {
+		return 20
+	}
+
+	if barWidth > 60 {
+		return 120
+	}
+
+	return barWidth
 }
 
 // renderProgressBar creates a visual progress bar
@@ -204,7 +236,9 @@ func getExclusionStatus(
 	previousRun := map[string]exclusionResult{}
 	firstRun := true
 	useBarChart := isTerminal(cmd.OutOrStdout())
-	linesPrinted := 0
+	// Get terminal width and calculate progress bar width
+	progressBarWidth := calculateProgressBarWidth(getTerminalWidth(cmd.OutOrStdout()))
+	separator := strings.Repeat("=", progressBarWidth)
 
 	for {
 		// TODO: Keeping a stream open is probably more efficient.
@@ -314,24 +348,25 @@ func getExclusionStatus(
 			return ongoingExclusions[i].id < ongoingExclusions[j].id
 		})
 
-		// Clear previous output if using bar chart and not first run
+		// Clear screen if using bar chart and not first run
 		if useBarChart && !firstRun {
-			moveCursorUp(linesPrinted)
-			clearFromCursor()
+			clearScreen()
 		}
 
 		// Print header
 		cmd.Println("Exclusion Status - Last updated:", timestamp.Format("15:04:05"))
-		cmd.Println(strings.Repeat("=", 100))
-		lineCount := 2
+		cmd.Println(separator)
 
 		// Print each process with progress bar
 		for _, exclusion := range ongoingExclusions {
 			if useBarChart {
-				// TODO(j-scheuermann): Get the size from the terminal instead of hard coding it.
-				bar := renderProgressBar(exclusion.storedBytes, exclusion.initialBytes, 40)
+				bar := renderProgressBar(
+					exclusion.storedBytes,
+					exclusion.initialBytes,
+					progressBarWidth,
+				)
 				cmd.Printf(
-					"%-30s %s %s (ETA: %s)\n",
+					"%-30s\t%s %s (ETA: %s)\n",
 					exclusion.id,
 					bar,
 					fdbstatus.PrettyPrintBytes(int64(exclusion.storedBytes)),
@@ -346,19 +381,16 @@ func getExclusionStatus(
 					exclusion.estimate,
 				)
 			}
-			lineCount++
 		}
 
 		// Print summary
-		cmd.Println(strings.Repeat("=", 100))
+		cmd.Println(separator)
 		cmd.Printf(
 			"Total processes being excluded: %d | Next update in: %s\n",
 			len(ongoingExclusions),
 			interval,
 		)
-		lineCount += 2
 
-		linesPrinted = lineCount
 		firstRun = false
 
 		<-timer.C
