@@ -55,6 +55,7 @@ linters:
             - github.com/prometheus
             - github.com/go-logr
             - golang.org/x/sync/errgroup
+            - golang.org/x/term
             - gopkg.in/natefinch/lumberjack.v2
     errcheck:
       exclude-functions:

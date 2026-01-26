@@ -22,7 +22,10 @@ package cmd
 
 import (
 	"encoding/json"
+	"fmt"
+	"os"
 	"sort"
+	"strings"
 	"time"
 
 	kubeHelper "github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/kubernetes"
@@ -32,6 +35,7 @@ import (
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 	"k8s.io/cli-runtime/pkg/genericiooptions"
 	"k8s.io/client-go/rest"
 )
@@ -125,11 +129,67 @@ kubectl fdb get exclusion-status c1 --interval=5m
 	return cmd
 }
 
+// moveCursorUp moves cursor up by n lines
+func moveCursorUp(n int) {
+	fmt.Printf("\033[%dA", n)
+}
+
+// clearFromCursor clears from cursor to end of screen
+func clearFromCursor() {
+	fmt.Print("\033[J")
+}
+
+// isTerminal checks if output is to a terminal (not piped)
+func isTerminal(out interface{}) bool {
+	if f, ok := out.(*os.File); ok {
+		return term.IsTerminal(int(f.Fd()))
+	}
+	return false
+}
+
+// renderProgressBar creates a visual progress bar
+func renderProgressBar(storedBytes int, maxBytes int, width int) string {
+	if maxBytes == 0 {
+		return strings.Repeat("━", width)
+	}
+
+	percentage := float64(maxBytes-storedBytes) / float64(maxBytes)
+	if percentage < 0 {
+		percentage = 0
+	}
+	if percentage > 1 {
+		percentage = 1
+	}
+
+	filled := int(float64(width) * percentage)
+	empty := width - filled
+
+	bar := strings.Repeat("█", filled) + strings.Repeat("░", empty)
+	return fmt.Sprintf("[%s] %.1f%%", bar, percentage*100)
+}
+
+// trackInitialBytes stores the initial stored bytes for each process
+func trackInitialBytes(
+	previousRun map[string]exclusionResult,
+	instance string,
+	storedBytes int,
+) int {
+	if prev, ok := previousRun[instance]; ok {
+		// If we have a previous run and it has an initial value, use that
+		if prev.initialBytes > 0 {
+			return prev.initialBytes
+		}
+	}
+	// Otherwise, this is the first time seeing this process
+	return storedBytes
+}
+
 type exclusionResult struct {
-	id          string
-	estimate    string
-	storedBytes int
-	timestamp   time.Time
+	id           string
+	estimate     string
+	storedBytes  int
+	initialBytes int
+	timestamp    time.Time
 }
 
 func getExclusionStatus(
@@ -142,6 +202,9 @@ func getExclusionStatus(
 ) error {
 	timer := time.NewTicker(interval)
 	previousRun := map[string]exclusionResult{}
+	firstRun := true
+	useBarChart := isTerminal(cmd.OutOrStdout())
+	linesPrinted := 0
 
 	for {
 		// TODO: Keeping a stream open is probably more efficient.
@@ -181,6 +244,7 @@ func getExclusionStatus(
 
 		var ongoingExclusions []exclusionResult
 		timestamp := time.Now()
+
 		for _, process := range status.Cluster.Processes {
 			if !process.Excluded {
 				continue
@@ -202,11 +266,11 @@ func getExclusionStatus(
 				continue
 			}
 
-			// TODO: Add progress bars
 			for _, role := range process.Roles {
 				roleClass := fdbv1beta2.ProcessClass(role.Role)
 				if roleClass.IsStateful() {
 					var estimate string
+					initialBytes := trackInitialBytes(previousRun, instance, role.StoredBytes)
 
 					previousResult, ok := previousRun[instance]
 					if ok {
@@ -215,10 +279,8 @@ func getExclusionStatus(
 							estimate = "N/A"
 						} else {
 							estimateDuration := time.Duration(
-								role.StoredBytes/(divider),
-							) * timestamp.Sub(
-								previousResult.timestamp,
-							)
+								role.StoredBytes/divider,
+							) * timestamp.Sub(previousResult.timestamp)
 							estimate = estimateDuration.String()
 						}
 					} else {
@@ -226,10 +288,11 @@ func getExclusionStatus(
 					}
 
 					result := exclusionResult{
-						id:          instance,
-						storedBytes: role.StoredBytes,
-						estimate:    estimate,
-						timestamp:   timestamp,
+						id:           instance,
+						storedBytes:  role.StoredBytes,
+						initialBytes: initialBytes,
+						estimate:     estimate,
+						timestamp:    timestamp,
 					}
 					// TODO: Check if StoredBytes is the correct value
 					ongoingExclusions = append(ongoingExclusions, result)
@@ -241,6 +304,9 @@ func getExclusionStatus(
 
 		if len(ongoingExclusions) == 0 {
 			timer.Stop()
+			if useBarChart && !firstRun {
+				cmd.Println("\nAll exclusions completed!")
+			}
 			break
 		}
 
@@ -248,19 +314,53 @@ func getExclusionStatus(
 			return ongoingExclusions[i].id < ongoingExclusions[j].id
 		})
 
-		for _, exclusion := range ongoingExclusions {
-			cmd.Printf(
-				"%s:\t %s are left - estimate: %s\n",
-				exclusion.id,
-				fdbstatus.PrettyPrintBytes(int64(exclusion.storedBytes)),
-				exclusion.estimate,
-			)
+		// Clear previous output if using bar chart and not first run
+		if useBarChart && !firstRun {
+			moveCursorUp(linesPrinted)
+			clearFromCursor()
 		}
 
-		cmd.Println("There are", len(ongoingExclusions), "processes that are not fully excluded.")
-		cmd.Println(
-			"======================================================================================================",
+		// Print header
+		cmd.Println("Exclusion Status - Last updated:", timestamp.Format("15:04:05"))
+		cmd.Println(strings.Repeat("=", 100))
+		lineCount := 2
+
+		// Print each process with progress bar
+		for _, exclusion := range ongoingExclusions {
+			if useBarChart {
+				// TODO(j-scheuermann): Get the size from the terminal instead of hard coding it.
+				bar := renderProgressBar(exclusion.storedBytes, exclusion.initialBytes, 40)
+				cmd.Printf(
+					"%-30s %s %s (ETA: %s)\n",
+					exclusion.id,
+					bar,
+					fdbstatus.PrettyPrintBytes(int64(exclusion.storedBytes)),
+					exclusion.estimate,
+				)
+			} else {
+				// Fallback to original format for non-terminal output
+				cmd.Printf(
+					"%s:\t %s are left - estimate: %s\n",
+					exclusion.id,
+					fdbstatus.PrettyPrintBytes(int64(exclusion.storedBytes)),
+					exclusion.estimate,
+				)
+			}
+			lineCount++
+		}
+
+		// Print summary
+		cmd.Println(strings.Repeat("=", 100))
+		cmd.Printf(
+			"Total processes being excluded: %d | Next update in: %s\n",
+			len(ongoingExclusions),
+			interval,
 		)
+		lineCount += 2
+
+		linesPrinted = lineCount
+		firstRun = false
+
 		<-timer.C
 	}
 
