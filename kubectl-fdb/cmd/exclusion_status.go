@@ -193,6 +193,10 @@ func getExclusionStatus(
 				instance = process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]
 			}
 
+			if instance == "" {
+				continue
+			}
+
 			if !ignoreFullyExcluded && len(process.Roles) == 0 {
 				cmd.Println(instance, "is fully excluded")
 				continue
@@ -206,12 +210,17 @@ func getExclusionStatus(
 
 					previousResult, ok := previousRun[instance]
 					if ok {
-						estimateDuration := time.Duration(
-							role.StoredBytes/(previousResult.storedBytes-role.StoredBytes),
-						) * timestamp.Sub(
-							previousResult.timestamp,
-						)
-						estimate = estimateDuration.String()
+						divider := previousResult.storedBytes - role.StoredBytes
+						if divider == 0 {
+							estimate = "N/A"
+						} else {
+							estimateDuration := time.Duration(
+								role.StoredBytes/(divider),
+							) * timestamp.Sub(
+								previousResult.timestamp,
+							)
+							estimate = estimateDuration.String()
+						}
 					} else {
 						estimate = "N/A"
 					}
