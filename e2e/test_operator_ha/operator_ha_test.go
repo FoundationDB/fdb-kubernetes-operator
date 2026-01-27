@@ -31,6 +31,7 @@ This cluster will be used for all tests.
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"strconv"
 	"time"
@@ -111,7 +112,7 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 		}
 	})
 
-	When("deleting all coordinator pods in the primary", func() {
+	When("partition all coordinator pods in the primary", func() {
 		var initialConnectionString string
 		var initialCoordinators map[string]fdbv1beta2.None
 
@@ -123,34 +124,29 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 			initialCoordinators = fdbstatus.GetCoordinatorsFromStatus(status)
 			primaryPods := primary.GetPods()
 
-			processGroupIDs := make([]fdbv1beta2.ProcessGroupID, 0, len(initialCoordinators))
 			coordinatorPods := make([]corev1.Pod, 0, len(initialCoordinators))
 			for _, pod := range primaryPods.Items {
 				processGroupID := fixtures.GetProcessGroupID(pod)
 				if _, ok := initialCoordinators[string(processGroupID)]; !ok {
 					continue
 				}
-
-				processGroupIDs = append(processGroupIDs, processGroupID)
 				coordinatorPods = append(coordinatorPods, pod)
-			}
-
-			// Set the ProcessGroups as unschedulable to ensure that they are not recreated. Otherwise, the Pods might
-			// be recreated fast enough to not result in a new connection string.
-			fdbCluster.GetPrimary().SetProcessGroupsAsUnschedulable(processGroupIDs)
-			for _, pod := range coordinatorPods {
 				log.Println(
-					"deleting coordinator pod:",
+					"partition coordinator pod:",
 					pod.Name,
 					"with addresses",
 					pod.Status.PodIPs,
 				)
-				factory.DeletePod(&pod)
 			}
+
+			_ = factory.InjectPartitionBetween(
+				fdbCluster.GetNamespaceSelector(),
+				fixtures.PodsSelector(coordinatorPods),
+			)
 		})
 
 		AfterEach(func() {
-			Expect(fdbCluster.GetPrimary().ClearBuggifyNoSchedule(true)).To(Succeed())
+			Expect(factory.CleanupChaosMeshExperiments()).To(Succeed())
 		})
 
 		It("should change the coordinators", func() {
@@ -176,20 +172,23 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 				return status.Cluster.ConnectionString
 			}).WithTimeout(10 * time.Minute).WithPolling(2 * time.Second).ShouldNot(Equal(initialConnectionString))
 
-			// Make sure the new connection string is propagated in time to all FoundationDBCLuster resources.
-			for _, cluster := range fdbCluster.GetAllClusters() {
-				tmpCluster := cluster
-				Eventually(func() string {
+			lastForceReconcile = time.Now()
+			// Make sure the new connection string is propagated in time to all FoundationDBCluster resources.
+			Eventually(func(g Gomega) {
+				for _, cluster := range fdbCluster.GetAllClusters() {
 					// The unified image has a mechanism to propagate changes in the cluster file, this allows multi-region
 					// clusters to reconcile faster. In the case of the split image we need "external" events in Kubernetes
 					// to trigger a reconciliation.
-					if !tmpCluster.GetCluster().UseUnifiedImage() {
-						tmpCluster.ForceReconcile()
+					if !cluster.GetCluster().UseUnifiedImage() ||
+						time.Since(lastForceReconcile) > 3*time.Minute {
+						cluster.ForceReconcile()
+						lastForceReconcile = time.Now()
 					}
 
-					return tmpCluster.GetCluster().Status.ConnectionString
-				}).WithTimeout(5 * time.Minute).WithPolling(2 * time.Second).ShouldNot(Equal(initialConnectionString))
-			}
+					g.Expect(cluster.GetCluster().Status.ConnectionString).
+						NotTo(Equal(initialConnectionString), fmt.Sprintf("expected for cluster \"%s\" to get the updated connection string in time", cluster.Name()))
+				}
+			}).WithTimeout(5 * time.Minute).WithPolling(2 * time.Second).Should(Succeed())
 		})
 	})
 
