@@ -57,29 +57,9 @@ ifndef FEATURE_SYNCHRONIZATION_MODE
   endif
 endif
 
-ifndef FEATURE_LOCALITIES
-  ifeq ($(shell shuf -i 0-1 -n 1), 0)
-    FEATURE_LOCALITIES=false
-  else
-    FEATURE_LOCALITIES=true
-  endif
-endif
-
-ifndef FEATURE_DNS
-  ifeq ($(shell shuf -i 0-1 -n 1), 0)
-    FEATURE_DNS=false
-  else
-    FEATURE_DNS=true
-  endif
-endif
-
-ifndef FEATURE_MANAGEMENT_API
-  ifeq ($(shell shuf -i 0-1 -n 1), 0)
-    FEATURE_MANAGEMENT_API=false
-  else
-    FEATURE_MANAGEMENT_API=true
-  endif
-endif
+FEATURE_LOCALITIES?=true
+FEATURE_DNS?=true
+FEATURE_MANAGEMENT_API?=true
 
 # Make bash pickier about errors.
 SHELL=/bin/bash -euo pipefail
