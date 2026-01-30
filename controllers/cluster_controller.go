@@ -30,6 +30,7 @@ import (
 	"syscall"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/utils/ptr"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbadminclient"
@@ -180,15 +181,23 @@ func (r *FoundationDBClusterReconciler) Reconcile(
 	ctx context.Context,
 	request ctrl.Request,
 ) (ctrl.Result, error) {
+	return processResult(r.doReconcile(ctx, request))
+}
+
+// doReconcile will run the reconcile logic for the FoundationDBClusterReconciler.
+func (r *FoundationDBClusterReconciler) doReconcile(
+	ctx context.Context,
+	request ctrl.Request,
+) (*ctrl.Result, error) {
 	cluster := &fdbv1beta2.FoundationDBCluster{}
 
 	err := r.Get(ctx, request.NamespacedName, cluster)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			return ctrl.Result{}, nil
+			return nil, nil
 		}
 		// Error reading the object - requeue the request.
-		return ctrl.Result{}, err
+		return nil, err
 	}
 
 	clusterLog := globalControllerLogger.WithValues(
@@ -202,9 +211,28 @@ func (r *FoundationDBClusterReconciler) Reconcile(
 	cacheStatus := cluster.CacheDatabaseStatusForReconciliation(
 		r.CacheDatabaseStatusForReconciliationDefault,
 	)
-	// Printout the duration of the reconciliation, independent if the reconciliation was successful or had an error.
+
+	originalStatus := cluster.Status.DeepCopy()
 	startTime := time.Now()
+	result := &ctrl.Result{}
 	defer func() {
+		// If the cluster.Status has changed compared to the original Status, we have to update the status.
+		// See: https://github.com/kubernetes-sigs/kubebuilder/issues/592
+		// If we use the default reflect.DeepEqual method it will be recreating the clusterStatus multiple times
+		// because the pointers are different.
+		if !equality.Semantic.DeepEqual(cluster.Status, *originalStatus) {
+			clusterLog.Info("cluster status was changed, will be updating the cluster status")
+			err = r.updateOrApply(ctx, cluster)
+			if err != nil {
+				clusterLog.Error(err, "Error updating cluster clusterStatus")
+				// If no requeue is planned, we should target a requeue to ensure that the status will be updated.
+				if result.IsZero() || result.RequeueAfter == 0 {
+					result.RequeueAfter = 2 * time.Second
+				}
+			}
+		}
+
+		// Printout the duration of the reconciliation, independent if the reconciliation was successful or had an error.
 		clusterLog.Info(
 			"Reconciliation run finished",
 			"duration_seconds",
@@ -217,33 +245,33 @@ func (r *FoundationDBClusterReconciler) Reconcile(
 	if cluster.Spec.Skip {
 		clusterLog.Info("Skipping cluster with skip value true", "skip", cluster.Spec.Skip)
 		// Don't requeue
-		return ctrl.Result{}, nil
+		return nil, nil
 	}
 
 	err = internal.NormalizeClusterSpec(cluster, r.DeprecationOptions)
 	if err != nil {
-		return ctrl.Result{}, err
+		return nil, nil
 	}
 
 	err = cluster.Validate()
 	if err != nil {
 		r.Recorder.Event(cluster, corev1.EventTypeWarning, "ClusterSpec not valid", err.Error())
-		return ctrl.Result{}, fmt.Errorf("ClusterSpec is not valid: %w", err)
+		return nil, fmt.Errorf("ClusterSpec is not valid: %w", err)
 	}
 
 	adminClient, err := r.getAdminClient(clusterLog, cluster)
 	if err != nil {
-		return ctrl.Result{}, err
+		return nil, err
 	}
 	defer func() {
 		_ = adminClient.Close()
 	}()
 	supportedVersion, err := adminClient.VersionSupported(cluster.Spec.Version)
 	if err != nil {
-		return ctrl.Result{}, err
+		return nil, err
 	}
 	if !supportedVersion {
-		return ctrl.Result{}, fmt.Errorf("version %s is not supported", cluster.Spec.Version)
+		return nil, fmt.Errorf("version %s is not supported", cluster.Spec.Version)
 	}
 
 	// When using DNS entries in the cluster file, we want to make sure to create pods if required before doing any
@@ -324,13 +352,13 @@ func (r *FoundationDBClusterReconciler) Reconcile(
 						process, err := os.FindProcess(os.Getpid())
 						if err != nil {
 							fmt.Printf("Error finding process: %v\n", err)
-							return ctrl.Result{RequeueAfter: 5 * time.Second}, err
+							return &ctrl.Result{RequeueAfter: 5 * time.Second}, err
 						}
 
 						err = process.Signal(syscall.SIGTERM)
 						if err != nil {
 							fmt.Printf("Error sending signal: %v\n", err)
-							return ctrl.Result{RequeueAfter: 5 * time.Second}, err
+							return &ctrl.Result{RequeueAfter: 5 * time.Second}, err
 						}
 					}
 				}
@@ -387,7 +415,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(
 			delayedRequeueDuration = 2 * time.Second
 		}
 
-		return ctrl.Result{RequeueAfter: delayedRequeueDuration}, nil
+		return &ctrl.Result{RequeueAfter: delayedRequeueDuration}, nil
 	}
 
 	clusterLog.Info("Reconciliation complete", "generation", cluster.Status.Generations.Reconciled)
@@ -398,7 +426,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(
 		fmt.Sprintf("Reconciled generation %d", cluster.Status.Generations.Reconciled),
 	)
 
-	return ctrl.Result{}, nil
+	return result, nil
 }
 
 // runClusterSubReconciler will start the subReconciler and will log the duration of the subReconciler.

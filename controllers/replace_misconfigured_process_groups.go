@@ -70,7 +70,7 @@ func (c replaceMisconfiguredProcessGroups) reconcile(
 		}
 	}
 
-	hasReplacements, err := replacements.ReplaceMisconfiguredProcessGroups(
+	_, err := replacements.ReplaceMisconfiguredProcessGroups(
 		ctx,
 		r.PodLifecycleManager,
 		r,
@@ -80,15 +80,6 @@ func (c replaceMisconfiguredProcessGroups) reconcile(
 	)
 	if err != nil {
 		return &requeue{curError: err}
-	}
-
-	if hasReplacements {
-		err = r.updateOrApply(ctx, cluster)
-		if err != nil {
-			return &requeue{curError: err}
-		}
-
-		logger.Info("Replacements have been updated in the cluster status")
 	}
 
 	return nil

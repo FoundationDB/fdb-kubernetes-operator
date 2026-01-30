@@ -64,7 +64,7 @@ func processRequeue(
 	object runtime.Object,
 	recorder record.EventRecorder,
 	logger logr.Logger,
-) (ctrl.Result, error) {
+) (*ctrl.Result, error) {
 	curLog := logger.WithValues(
 		"reconciler",
 		fmt.Sprintf("%T", subReconciler),
@@ -90,9 +90,23 @@ func processRequeue(
 	recorder.Event(object, corev1.EventTypeNormal, "ReconciliationTerminatedEarly", requeue.message)
 	if err != nil {
 		curLog.Error(err, "Error in reconciliation")
-		return ctrl.Result{}, err
+		return nil, err
 	}
 	curLog.Info("Reconciliation terminated early", "message", requeue.message)
 
-	return ctrl.Result{RequeueAfter: requeue.delay}, nil
+	return &ctrl.Result{RequeueAfter: requeue.delay}, nil
+}
+
+// processResult will return a ctrl.Result and error based on the input, e.g. if the result is nil, it will ensure
+// that an empty ctrl.Result is returned.
+func processResult(result *ctrl.Result, err error) (ctrl.Result, error) {
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if result.IsZero() {
+		return ctrl.Result{}, nil
+	}
+
+	return *result, nil
 }

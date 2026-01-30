@@ -47,7 +47,7 @@ type excludeEntry struct {
 
 // reconcile runs the reconciler's work.
 func (e excludeProcesses) reconcile(
-	ctx context.Context,
+	_ context.Context,
 	r *FoundationDBClusterReconciler,
 	cluster *fdbv1beta2.FoundationDBCluster,
 	status *fdbv1beta2.FoundationDBStatus,
@@ -335,11 +335,6 @@ func (e excludeProcesses) reconcile(
 		coordinatorErr := coordinator.ChangeCoordinators(logger, adminClient, cluster, status)
 		if coordinatorErr != nil {
 			return &requeue{curError: coordinatorErr, delayedRequeue: true}
-		}
-
-		err = r.updateOrApply(ctx, cluster)
-		if err != nil {
-			return &requeue{curError: err, delayedRequeue: true}
 		}
 	}
 
