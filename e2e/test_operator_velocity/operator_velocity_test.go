@@ -319,7 +319,7 @@ var _ = Describe("Test Operator Velocity", Label("e2e", "nightly"), func() {
 		})
 
 		AfterEach(func() {
-			factory.DeleteChaosMeshExperimentSafe(exp)
+			factory.DeleteChaosMeshExperiment(exp)
 			Expect(
 				fdbCluster.GetPrimary().SetAutoReplacements(true, initialReplaceTime),
 			).NotTo(HaveOccurred())

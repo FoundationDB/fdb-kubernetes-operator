@@ -385,7 +385,7 @@ var _ = Describe("Operator HA Upgrades", Label("e2e", "pr"), func() {
 			}
 
 			log.Println("Restoring connectivity")
-			factory.DeleteChaosMeshExperimentSafe(partitionExperiment)
+			factory.DeleteChaosMeshExperiment(partitionExperiment)
 
 			// When using protocol compatible versions, the other operator instances are able to move forward. In some
 			// cases it can happen that new coordinators are selected and all the old coordinators are deleted. In this

@@ -127,7 +127,7 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 
 			// 3. Delete the partition, and the upgrade should proceed.
 			log.Println("deleting chaos experiment and cluster should upgrade")
-			factory.DeleteChaosMeshExperimentSafe(exp)
+			factory.DeleteChaosMeshExperiment(exp)
 			fdbCluster.VerifyVersion(targetVersion)
 		},
 
@@ -358,7 +358,7 @@ var _ = Describe("Operator Upgrades with chaos-mesh", Label("e2e", "pr"), func()
 			Expect(cluster.Spec.Version).NotTo(Equal(cluster.Status.RunningVersion))
 
 			// Remove the IO chaos, the cluster should proceed.
-			factory.DeleteChaosMeshExperimentSafe(exp)
+			factory.DeleteChaosMeshExperiment(exp)
 
 			// Ensure the upgrade proceeds and is able to finish.
 			fdbCluster.VerifyVersion(targetVersion)

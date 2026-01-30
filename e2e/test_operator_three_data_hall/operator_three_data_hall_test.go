@@ -148,7 +148,7 @@ var _ = Describe("Operator with three data hall", Label("e2e"), func() {
 			// Until the race condition is resolved in the FDB go bindings make sure the operator is not restarted.
 			// See: https://github.com/apple/foundationdb/issues/11222
 			// We can remove this once 7.1 is the default version.
-			factory.DeleteChaosMeshExperimentSafe(scheduleInjectPodKill)
+			factory.DeleteChaosMeshExperiment(scheduleInjectPodKill)
 			useLocalitiesForExclusion = fdbCluster.GetCluster().UseLocalitiesForExclusion()
 		})
 

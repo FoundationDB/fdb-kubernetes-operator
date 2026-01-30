@@ -448,6 +448,55 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		// fields that we expect are actually set.
 	})
 
+	When("the cluster is unavailable", func() {
+		BeforeEach(func() {
+			if factory.ChaosTestsEnabled() {
+				Skip("test needs chaos mesh for fault injection")
+			}
+			// Prevent chaos-mesh from deleting the operator pods, this would remove the partition.
+			factory.DeleteChaosMeshExperiment(scheduleInjectPodKill)
+			// Partition the operator pods from the cluster, so that the cluster seems unavailable from the operator
+			// perspective.
+			factory.InjectPartitionBetween(
+				fixtures.GetOperatorSelector(fdbCluster.GetCachedCluster().GetNamespace()),
+				chaosmesh.PodSelectorSpec{
+					GenericSelectorSpec: chaosmesh.GenericSelectorSpec{
+						Namespaces:     []string{fdbCluster.GetCachedCluster().GetNamespace()},
+						LabelSelectors: fdbCluster.GetCachedCluster().GetMatchLabels(),
+					},
+				},
+			)
+		})
+
+		AfterEach(func() {
+			Expect(factory.CleanupChaosMeshExperiments()).To(Succeed())
+			// Ensure that the status is reset after the partition is deleted.
+			fdbCluster.ForceReconcile()
+			Eventually(func(g Gomega) {
+				cluster := fdbCluster.GetCluster()
+				g.Expect(cluster.Status.Health.Available).To(BeTrue())
+				g.Expect(cluster.Status.Health.Healthy).To(BeTrue())
+			}).WithTimeout(5 * time.Minute).WithPolling(1 * time.Second).Should(Succeed())
+
+			scheduleInjectPodKill = factory.ScheduleInjectPodKillWithName(
+				fixtures.GetOperatorSelector(fdbCluster.Namespace()),
+				"*/2 * * * *",
+				chaosmesh.OneMode,
+				fdbCluster.Namespace()+"-"+fdbCluster.Name(),
+			)
+		})
+
+		It("should set the cluster.status.health to false", func() {
+			// Start a force reconcile to ensure the operator picks up the "change".
+			fdbCluster.ForceReconcile()
+			Eventually(func(g Gomega) {
+				cluster := fdbCluster.GetCluster()
+				g.Expect(cluster.Status.Health.Available).To(BeFalse())
+				g.Expect(cluster.Status.Health.Healthy).To(BeFalse())
+			}).WithTimeout(5 * time.Minute).WithPolling(1 * time.Second).Should(Succeed())
+		})
+	})
+
 	When("replacing a coordinator Pod", func() {
 		var replacedPod corev1.Pod
 		var useLocalitiesForExclusion bool
@@ -477,7 +526,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			// Until the race condition is resolved in the FDB go bindings make sure the operator is not restarted.
 			// See: https://github.com/apple/foundationdb/issues/11222
 			// We can remove this once 7.1 is the default version.
-			factory.DeleteChaosMeshExperimentSafe(scheduleInjectPodKill)
+			factory.DeleteChaosMeshExperiment(scheduleInjectPodKill)
 			useLocalitiesForExclusion = fdbCluster.GetCluster().UseLocalitiesForExclusion()
 		})
 
@@ -826,7 +875,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 					)
 					fdbCluster.UpdateClusterSpecWithSpec(spec)
 					for _, experiment := range experiments {
-						factory.DeleteChaosMeshExperimentSafe(experiment)
+						factory.DeleteChaosMeshExperiment(experiment)
 					}
 				})
 
@@ -964,7 +1013,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			Expect(
 				fdbCluster.SetAutoReplacements(true, initialReplaceTime),
 			).ShouldNot(HaveOccurred())
-			factory.DeleteChaosMeshExperimentSafe(exp)
+			factory.DeleteChaosMeshExperiment(exp)
 		})
 	})
 
@@ -986,7 +1035,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 		AfterEach(func() {
 			Expect(fdbCluster.ClearProcessGroupsToRemove()).NotTo(HaveOccurred())
-			factory.DeleteChaosMeshExperimentSafe(exp)
+			factory.DeleteChaosMeshExperiment(exp)
 		})
 
 		It("should remove the targeted process", func() {
@@ -1780,7 +1829,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		})
 
 		AfterEach(func() {
-			factory.DeleteChaosMeshExperimentSafe(exp)
+			factory.DeleteChaosMeshExperiment(exp)
 			// First reset the maintenance zone. Otherwise the reconciliation will be blocked until the maintenance mode
 			// is timed out because the update status reconciler will skip process groups under the maintenance zone to
 			// prevent misleading condition changes.
@@ -2172,7 +2221,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 			log.Println("stdout", stdout, "stderr", stderr, "err", err)
 
 			// Delete the partition, this allows the partitioned Pod to update its annotations again.
-			factory.DeleteChaosMeshExperimentSafe(exp)
+			factory.DeleteChaosMeshExperiment(exp)
 
 			fdbCluster.ForceReconcile()
 
@@ -2183,7 +2232,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 		})
 
 		AfterEach(func() {
-			factory.DeleteChaosMeshExperimentSafe(exp)
+			factory.DeleteChaosMeshExperiment(exp)
 			Expect(fdbCluster.SetCustomParameters(
 				map[fdbv1beta2.ProcessClass]fdbv1beta2.FoundationDBCustomParameters{
 					fdbv1beta2.ProcessClassStorage: initialCustomParameters,

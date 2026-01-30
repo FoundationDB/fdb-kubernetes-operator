@@ -71,6 +71,17 @@ func (c updateStatus) reconcile(
 		var err error
 		databaseStatus, err = r.getStatusFromClusterOrDummyStatus(logger, cluster)
 		if err != nil {
+			// When the status cannot be fetched, we have to assume that the cluster is unavailable and unhealthy.
+			cluster.Status.Health.Available = false
+			cluster.Status.Health.Healthy = false
+			// Only update the status if it was changed.
+			if originalStatus.Health.Available != cluster.Status.Health.Available ||
+				originalStatus.Health.Healthy != cluster.Status.Health.Healthy {
+				logger.Info("database was marked as unavailable.")
+				// We ignore the error here since the controller will requeue anyways.
+				_ = r.updateOrApply(ctx, cluster)
+			}
+
 			return &requeue{
 				curError:       fmt.Errorf("update_status error fetching status: %w", err),
 				delayedRequeue: true,
