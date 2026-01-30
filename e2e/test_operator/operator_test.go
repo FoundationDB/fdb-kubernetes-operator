@@ -450,6 +450,9 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 
 	When("the cluster is unavailable", func() {
 		BeforeEach(func() {
+			if factory.ChaosTestsEnabled() {
+				Skip("test needs chaos mesh for fault injection")
+			}
 			// Prevent chaos-mesh from deleting the operator pods, this would remove the partition.
 			factory.DeleteChaosMeshExperiment(scheduleInjectPodKill)
 			// Partition the operator pods from the cluster, so that the cluster seems unavailable from the operator
