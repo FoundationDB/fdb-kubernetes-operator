@@ -811,7 +811,7 @@ var _ = Describe("Operator Upgrades", Label("e2e", "pr"), func() {
 					return fdbCluster.GetCluster().Status.RunningVersion == beforeVersion
 				}).WithTimeout(3 * time.Minute).WithPolling(2 * time.Second).Should(BeTrue())
 
-				factory.DeleteChaosMeshExperimentSafe(exp)
+				factory.DeleteChaosMeshExperiment(exp)
 			}
 
 			// Make sure the cluster is upgraded

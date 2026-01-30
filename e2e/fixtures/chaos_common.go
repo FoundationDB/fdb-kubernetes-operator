@@ -88,8 +88,8 @@ func (factory *Factory) CleanupChaosMeshExperiments() error {
 	return err
 }
 
-// DeleteChaosMeshExperimentSafe will delete a running Chaos Mesh experiment.
-func (factory *Factory) DeleteChaosMeshExperimentSafe(experiment *ChaosMeshExperiment) {
+// DeleteChaosMeshExperiment will delete a running Chaos Mesh experiment.
+func (factory *Factory) DeleteChaosMeshExperiment(experiment *ChaosMeshExperiment) {
 	gomega.Expect(factory.deleteChaosMeshExperiment(experiment)).ToNot(gomega.HaveOccurred())
 }
 

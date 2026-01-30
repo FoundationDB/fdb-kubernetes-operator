@@ -181,7 +181,7 @@ var _ = Describe("Operator HA Failure tests", Label("e2e"), func() {
 
 		AfterEach(func() {
 			for _, experiment := range experiments {
-				factory.DeleteChaosMeshExperimentSafe(experiment)
+				factory.DeleteChaosMeshExperiment(experiment)
 			}
 		})
 
