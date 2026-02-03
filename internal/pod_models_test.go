@@ -2577,7 +2577,9 @@ var _ = Describe("pod_models", func() {
 				Expect(traceVolume.VolumeSource.EmptyDir).To(BeNil())
 				Expect(traceVolume.VolumeSource.HostPath).NotTo(BeNil())
 				Expect(traceVolume.VolumeSource.HostPath.Path).To(Equal("/var/log/fdb-trace-logs"))
-				Expect(traceVolume.VolumeSource.HostPath.Type).To(Equal(ptr.To(corev1.HostPathDirectoryOrCreate)))
+				Expect(
+					traceVolume.VolumeSource.HostPath.Type,
+				).To(Equal(ptr.To(corev1.HostPathDirectoryOrCreate)))
 			})
 		})
 
