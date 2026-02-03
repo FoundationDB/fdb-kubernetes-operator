@@ -366,6 +366,15 @@ func setAffinityForFaultDomain(
 	}
 }
 
+func addVolumeIfMissing(podSpec *corev1.PodSpec, volume corev1.Volume) {
+	for _, existing := range podSpec.Volumes {
+		if existing.Name == volume.Name {
+			return
+		}
+	}
+	podSpec.Volumes = append(podSpec.Volumes, volume)
+}
+
 func configureVolumesForContainers(
 	cluster *fdbv1beta2.FoundationDBCluster,
 	podSpec *corev1.PodSpec,
@@ -444,7 +453,9 @@ func configureVolumesForContainers(
 		},
 	)
 
-	podSpec.Volumes = append(podSpec.Volumes, volumes...)
+	for _, volume := range volumes {
+		addVolumeIfMissing(podSpec, volume)
+	}
 }
 
 func configureNoSchedule(
