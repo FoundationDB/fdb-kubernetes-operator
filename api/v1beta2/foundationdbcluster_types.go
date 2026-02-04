@@ -20,7 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"math/rand"
+	"math/rand/v2"
 	"regexp"
 	"strconv"
 	"strings"
@@ -2119,7 +2119,7 @@ func (str *ConnectionString) String() string {
 func (str *ConnectionString) GenerateNewGenerationID() error {
 	id := strings.Builder{}
 	for i := 0; i < 32; i++ {
-		err := id.WriteByte(alphanum[rand.Intn(len(alphanum))])
+		err := id.WriteByte(alphanum[rand.IntN(len(alphanum))])
 		if err != nil {
 			return err
 		}
@@ -3478,7 +3478,7 @@ func (cluster *FoundationDBCluster) GetNextRandomProcessGroupIDWithExclusions(
 ) ProcessGroupID {
 	var processGroupID ProcessGroupID
 	for {
-		idNum := rand.Intn(MaxProcessGroupIDNum) + 1
+		idNum := rand.IntN(MaxProcessGroupIDNum) + 1
 		// If the randomly picked id number is already is use, pick another one.
 		if _, ok := processGroupIDs[idNum]; ok {
 			continue

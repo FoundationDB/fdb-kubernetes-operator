@@ -26,7 +26,7 @@ var letterRunes = []rune("abcdefghijklmnopqrstuvwxyz123456789")
 func (factory *Factory) RandStringRunes(n int) string {
 	b := make([]rune, n)
 	for i := range b {
-		b[i] = letterRunes[factory.randomGenerator.Intn(len(letterRunes))]
+		b[i] = letterRunes[factory.randomGenerator.IntN(len(letterRunes))]
 	}
 	return string(b)
 }
