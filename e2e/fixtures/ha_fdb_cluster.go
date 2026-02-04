@@ -23,7 +23,7 @@ package fixtures
 import (
 	"fmt"
 	"log"
-	"math/rand"
+	"math/rand/v2"
 	"strings"
 	"time"
 

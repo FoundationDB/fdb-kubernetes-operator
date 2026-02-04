@@ -23,10 +23,11 @@ package fixtures
 import (
 	"context"
 	cryptorand "crypto/rand"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"log"
-	"math/rand"
+	"math/rand/v2"
 	"strconv"
 	"strings"
 	"text/tabwriter"
@@ -72,19 +73,39 @@ func CreateFactory(options *FactoryOptions) *Factory {
 	configuration, err := getSingleton(options)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-	seed := time.Now().Unix()
-	log.Println("using seed:", seed, "for factory")
 	return &Factory{
 		options:                 options,
 		shutdownHooks:           ShutdownHooks{},
 		invariantShutdownHooks:  ShutdownHooks{},
-		randomGenerator:         rand.New(rand.NewSource(seed)),
+		randomGenerator:         initRandomGenerator(),
 		namespace:               options.namespace,
 		userName:                configuration.userName,
 		controllerRuntimeClient: configuration.controllerRuntimeClient,
 		fdbVersion:              configuration.fdbVersion,
 		config:                  configuration.config,
 	}
+}
+
+func initRandomGenerator() *rand.Rand {
+	bs := make([]byte, 8)
+	timestamp := time.Now().Unix()
+	log.Println("using seed:", timestamp, "for factory")
+	binary.LittleEndian.PutUint64(bs, uint64(time.Now().UnixMilli()))
+
+	seed := [32]byte(make([]byte, 32))
+	var idx int
+	for idx < 32 {
+		for _, b := range bs {
+			seed[idx] = b
+			idx++
+
+			if idx == 32 {
+				break
+			}
+		}
+	}
+
+	return rand.New(rand.NewChaCha8(seed))
 }
 
 func (factory *Factory) addChaosExperiment(chaosExperiment ChaosMeshExperiment) {
@@ -916,7 +937,7 @@ func (factory *Factory) getStorageEngine() fdbv1beta2.StorageEngine {
 
 // Intn wrapper around Intn with the current random generator of the factory.
 func (factory *Factory) Intn(n int) int {
-	return factory.randomGenerator.Intn(n)
+	return factory.randomGenerator.IntN(n)
 }
 
 // GetNodeSelector returns the node selector, which is an empty string or has the format key=value.

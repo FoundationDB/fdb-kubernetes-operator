@@ -22,7 +22,7 @@ package internal
 
 import (
 	"context"
-	"math/rand"
+	"math/rand/v2"
 	"sort"
 	"strings"
 
@@ -125,7 +125,7 @@ const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 func GenerateRandomString(n int) string {
 	var res strings.Builder
 	for i := 0; i < n; i++ {
-		res.WriteByte(letterBytes[rand.Intn(len(letterBytes))])
+		res.WriteByte(letterBytes[rand.IntN(len(letterBytes))])
 	}
 
 	return res.String()
