@@ -158,8 +158,7 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 
 				When("encryption is enabled", func() {
 					BeforeEach(func() {
-						if !factory.GetFDBVersion().
-							IsAtLeast(fdbv1beta2.Versions.SupportsBackupEncryption) {
+						if !factory.GetFDBVersion().SupportsBackupEncryption() {
 							Skip(
 								"version doesn't support the encryption feature",
 							)
@@ -206,8 +205,7 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 
 				When("encryption is enabled", func() {
 					BeforeEach(func() {
-						if !factory.GetFDBVersion().
-							IsAtLeast(fdbv1beta2.Versions.SupportsBackupEncryption) {
+						if !factory.GetFDBVersion().SupportsBackupEncryption() {
 							Skip(
 								"version doesn't support the encryption feature",
 							)

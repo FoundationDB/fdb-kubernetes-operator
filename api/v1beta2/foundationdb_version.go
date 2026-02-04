@@ -92,6 +92,10 @@ func (version Version) SupportsLocalityBasedExclusions() bool {
 
 // SupportsBackupEncryption returns true if the current version supports encryption of backups.
 func (version Version) SupportsBackupEncryption() bool {
+	if version.IsProtocolCompatible(Versions.SupportsBackupEncryption73) {
+		return version.IsAtLeast(Versions.SupportsBackupEncryption73)
+	}
+
 	return version.IsAtLeast(Versions.SupportsBackupEncryption)
 }
 
@@ -146,6 +150,7 @@ var Versions = struct {
 	SupportsShardedRocksDB,
 	SupportsRedwood1,
 	SupportsBackupEncryption,
+	SupportsBackupEncryption73,
 	IncompatibleVersion,
 	PreviousPatchVersion,
 	SupportsRecoveryState,
@@ -166,4 +171,5 @@ var Versions = struct {
 	SupportsLocalityBasedExclusions71: Version{api.Version{Major: 7, Minor: 1, Patch: 42}},
 	SupportsLocalityBasedExclusions:   Version{api.Version{Major: 7, Minor: 3, Patch: 26}},
 	SupportsBackupEncryption:          Version{api.Version{Major: 7, Minor: 4, Patch: 6}},
+	SupportsBackupEncryption73:        Version{api.Version{Major: 7, Minor: 3, Patch: 72}},
 }
