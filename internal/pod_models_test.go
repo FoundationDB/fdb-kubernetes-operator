@@ -2532,6 +2532,57 @@ var _ = Describe("pod_models", func() {
 			})
 		})
 
+		Context("with a custom trace log volume", func() {
+			BeforeEach(func() {
+				cluster = CreateDefaultCluster()
+				cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{
+					fdbv1beta2.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							Volumes: []corev1.Volume{
+								{
+									Name: "fdb-trace-logs",
+									VolumeSource: corev1.VolumeSource{
+										HostPath: &corev1.HostPathVolumeSource{
+											Path: "/var/log/fdb-trace-logs",
+											Type: ptr.To(corev1.HostPathDirectoryOrCreate),
+										},
+									},
+								},
+							},
+						},
+					}},
+				}
+				err = NormalizeClusterSpec(cluster, DeprecationOptions{})
+				Expect(err).NotTo(HaveOccurred())
+
+				spec, err = GetPodSpec(
+					cluster,
+					GetProcessGroup(cluster, fdbv1beta2.ProcessClassStorage, 1),
+				)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should use the custom trace log volume", func() {
+				traceVolumeCount := 0
+				var traceVolume *corev1.Volume
+				for idx := range spec.Volumes {
+					if spec.Volumes[idx].Name == "fdb-trace-logs" {
+						traceVolumeCount++
+						traceVolume = &spec.Volumes[idx]
+					}
+				}
+
+				Expect(traceVolumeCount).To(Equal(1))
+				Expect(traceVolume).NotTo(BeNil())
+				Expect(traceVolume.VolumeSource.EmptyDir).To(BeNil())
+				Expect(traceVolume.VolumeSource.HostPath).NotTo(BeNil())
+				Expect(traceVolume.VolumeSource.HostPath.Path).To(Equal("/var/log/fdb-trace-logs"))
+				Expect(
+					traceVolume.VolumeSource.HostPath.Type,
+				).To(Equal(ptr.To(corev1.HostPathDirectoryOrCreate)))
+			})
+		})
+
 		Context("with TLS for the sidecar", func() {
 			BeforeEach(func() {
 				cluster.Spec.SidecarContainer.EnableTLS = true
