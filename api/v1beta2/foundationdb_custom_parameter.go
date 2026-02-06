@@ -33,18 +33,6 @@ type FoundationDBCustomParameter string
 // +kubebuilder:validation:MaxItems=100
 type FoundationDBCustomParameters []FoundationDBCustomParameter
 
-// GetKnobsForCLI returns the list of knobs that should be provided to the commandline when running
-// an command over the admin client.
-func (customParameters FoundationDBCustomParameters) GetKnobsForCLI() []string {
-	args := make([]string, 0, len(customParameters))
-
-	for _, arg := range customParameters {
-		args = append(args, fmt.Sprintf("--%s", arg))
-	}
-
-	return args
-}
-
 // GetKnobsForBackupRestoreCLI returns the list of knobs that should be provided to the fdbbackup and fdbrestore
 // when running them over the admin client. It filters out the incompatible ones.
 func (customParameters FoundationDBCustomParameters) GetKnobsForBackupRestoreCLI() []string {
@@ -53,9 +41,12 @@ func (customParameters FoundationDBCustomParameters) GetKnobsForBackupRestoreCLI
 	for _, arg := range customParameters {
 		parameterName := strings.Split(string(arg), "=")[0]
 		parameterName = strings.TrimSpace(parameterName)
-		if _, ok := backupAgentExclusiveParameters[parameterName]; ok {
+
+		// Ignore all `locality` parameters, those can be used by the backup_agent but not the fabbackup command
+		if strings.HasPrefix(parameterName, "locality_") {
 			continue
 		}
+
 		args = append(args, fmt.Sprintf("--%s", arg))
 	}
 	return args
@@ -77,11 +68,6 @@ var (
 		"restart-delay-reset-interval": {},
 		"user":                         {},
 		"group":                        {},
-	}
-	// these parameters are supported by backup_agents but not by fdbbackup and fdbrestore.
-	backupAgentExclusiveParameters = map[string]None{
-		"locality-data_hall":   {},
-		"locality_data_center": {},
 	}
 )
 
