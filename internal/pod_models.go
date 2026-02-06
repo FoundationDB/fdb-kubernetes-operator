@@ -1169,6 +1169,11 @@ func GetBackupDeployment(backup *fdbv1beta2.FoundationDBBackup) (*appsv1.Deploym
 	mainContainer.Command = []string{"backup_agent"}
 	args := []string{"--log", "--logdir", "/var/log/fdb-trace-logs"}
 
+	// Add locality flags so backup agents don't appear at LB Distance=2.
+	// Without locality, backup task transactions can time out.
+	args = append(args, "--locality_zoneid=$(FDB_ZONE_ID)")
+	args = append(args, "--locality_machineid=$(FDB_MACHINE_ID)")
+
 	if len(backup.Spec.CustomParameters) > 0 {
 		err := backup.Spec.CustomParameters.ValidateCustomParameters()
 		if err != nil {
@@ -1188,6 +1193,20 @@ func GetBackupDeployment(backup *fdbv1beta2.FoundationDBBackup) (*appsv1.Deploym
 	extendEnv(
 		mainContainer,
 		corev1.EnvVar{Name: fdbv1beta2.EnvNameClusterFile, Value: "/var/dynamic-conf/fdb.cluster"},
+		// Locality environment variables for backup agents.
+		// Zone ID is static so all backup agents are logically grouped together.
+		// Machine ID uses pod name for uniqueness.
+		// This gives LB Distance=1 which prevents transaction timeouts.
+		corev1.EnvVar{
+			Name:  fdbv1beta2.EnvNameZoneID,
+			Value: "backup-agent",
+		},
+		corev1.EnvVar{
+			Name: fdbv1beta2.EnvNameMachineID,
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+			},
+		},
 	)
 
 	mainContainer.VolumeMounts = append(mainContainer.VolumeMounts,
