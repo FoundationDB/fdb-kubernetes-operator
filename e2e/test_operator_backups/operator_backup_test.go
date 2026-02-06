@@ -25,6 +25,7 @@ This test suite contains tests related to backup and restore with the operator.
 */
 
 import (
+	"encoding/json"
 	"log"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
@@ -105,6 +106,8 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 		When("the default backup system is used", func() {
 			var useRestorableVersion bool
 			var backupConfiguration *fixtures.FdbBackupConfiguration
+			var currentRestorableVersion *uint64
+			var skipRestore bool
 
 			JustBeforeEach(func() {
 				log.Println("creating backup for cluster")
@@ -135,11 +138,12 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 
 				// Delete the data and restore it again.
 				fdbCluster.ClearRange([]byte{prefix}, 60)
-				var currentRestorableVersion *uint64
 				if useRestorableVersion {
 					currentRestorableVersion = ptr.To(restorableVersion)
 				}
-				restore = factory.CreateRestoreForCluster(backup, currentRestorableVersion)
+				if !skipRestore {
+					restore = factory.CreateRestoreForCluster(backup, currentRestorableVersion)
+				}
 			})
 
 			When("the continuous backup mode is used", func() {
@@ -167,14 +171,35 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 						backupConfiguration.EncryptionEnabled = true
 					})
 
-					It(
-						"should restore the cluster successfully with a restorable version",
-						func() {
-							Expect(
-								fdbCluster.GetRange([]byte{prefix}, 25, 60),
-							).Should(Equal(keyValues))
-						},
-					)
+					When("running describe command", func() {
+						BeforeEach(func() {
+							skipRestore = true
+						})
+
+						JustBeforeEach(func() {
+							describeCommandOutput := backup.RunDescribeCommand()
+
+							var describeData map[string]interface{}
+							err := json.Unmarshal([]byte(describeCommandOutput), &describeData)
+							Expect(err).NotTo(HaveOccurred())
+
+							fileLevelEncryption := describeData["FileLevelEncryption"].(bool)
+							Expect(fileLevelEncryption).To(BeTrue())
+						})
+
+						It(
+							"should be able to restore the cluster successfully with a restorable version",
+							func() {
+								restore = factory.CreateRestoreForCluster(
+									backup,
+									currentRestorableVersion,
+								)
+								Expect(
+									fdbCluster.GetRange([]byte{prefix}, 25, 60),
+								).Should(Equal(keyValues))
+							},
+						)
+					})
 				})
 
 				// TODO (johscheuer): Enable test once the CRD in CI is updated.
