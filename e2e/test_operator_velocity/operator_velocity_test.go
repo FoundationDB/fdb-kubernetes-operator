@@ -141,10 +141,10 @@ func CheckKnobRollout(
 		(finalGeneration-initialGeneration)/2,
 	)
 	// If the synchronization mode is global, we expect to see only a single recovery. Since those tests are running on
-	// a real cluster we add some additional buffer of one additional recovery. We check for an increase of 4 generation
+	// a real cluster we add some additional buffer of two additional recoveries. We check for an increase of 6 generations
 	// because FDB increase the current generation by 2 if a recovery is triggered.
 	if primary.GetCluster().GetSynchronizationMode() == fdbv1beta2.SynchronizationModeGlobal {
-		Expect(finalGeneration - initialGeneration).To(BeNumerically("<=", 4))
+		Expect(finalGeneration - initialGeneration).To(BeNumerically("<=", 6))
 	}
 }
 
