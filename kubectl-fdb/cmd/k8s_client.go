@@ -25,7 +25,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/rand"
+	"math/rand/v2"
 	"strings"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
@@ -527,7 +527,7 @@ func chooseRandomPod(pods *corev1.PodList) (*corev1.Pod, error) {
 
 	var tries int
 	for candidate == nil || !candidate.GetDeletionTimestamp().IsZero() || tries > 10 {
-		candidate = &items[rand.Intn(len(items))]
+		candidate = &items[rand.IntN(len(items))]
 		tries++
 	}
 

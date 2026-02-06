@@ -23,7 +23,7 @@ package locality
 import (
 	"fmt"
 	"math"
-	"math/rand"
+	"math/rand/v2"
 	"net"
 	"strconv"
 	"strings"

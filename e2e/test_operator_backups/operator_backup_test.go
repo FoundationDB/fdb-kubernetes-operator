@@ -139,7 +139,7 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 				if useRestorableVersion {
 					currentRestorableVersion = ptr.To(restorableVersion)
 				}
-				restore = factory.CreateRestoreForCluster(backup, currentRestorableVersion)
+				_ = factory.CreateRestoreForCluster(backup, currentRestorableVersion)
 			})
 
 			When("the continuous backup mode is used", func() {

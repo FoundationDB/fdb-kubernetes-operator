@@ -26,7 +26,7 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"math/rand"
+	"math/rand/v2"
 	"net/url"
 
 	"golang.org/x/sync/errgroup"
@@ -370,7 +370,7 @@ func PickRandomPod(pods *corev1.PodList) (*corev1.Pod, error) {
 		return nil, fmt.Errorf("pod list has no items")
 	}
 
-	chosen := pods.Items[rand.Intn(len(pods.Items))]
+	chosen := pods.Items[rand.IntN(len(pods.Items))]
 	return &chosen, nil
 }
 
