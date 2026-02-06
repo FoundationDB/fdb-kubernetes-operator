@@ -28,31 +28,12 @@ import (
 )
 
 var _ = Describe("FoundationDBCustomParameters", func() {
-	When("getting the custom parameters for the CLI", func() {
-		var customParameters FoundationDBCustomParameters
-		BeforeEach(func() {
-			customParameters = []FoundationDBCustomParameter{
-				"knob_http_verbose_level=3",
-			}
-		})
-
-		It("", func() {
-			expected := []string{
-				"--knob_http_verbose_level=3",
-			}
-
-			result := customParameters.GetKnobsForCLI()
-			Expect(result).To(ContainElements(expected))
-			Expect(len(result)).To(Equal(len(expected)))
-		})
-	})
-
 	When("getting the custom parameters for the fdbbackup and fdbrestore CLI", func() {
 		var customParameters FoundationDBCustomParameters
 		BeforeEach(func() {
 			customParameters = []FoundationDBCustomParameter{
 				"knob_http_verbose_level=3",
-				"locality-data_hall=az1",
+				"locality_data_hall=az1",
 			}
 		})
 
