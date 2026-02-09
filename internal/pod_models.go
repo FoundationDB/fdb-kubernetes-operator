@@ -1166,11 +1166,34 @@ func GetBackupDeployment(backup *fdbv1beta2.FoundationDBBackup) (*appsv1.Deploym
 
 	// Right now the main container only starts the backup agent without doing anything special.
 	mainContainer.Image = image
+	// Add locality flags so backup agents don't appear at LB Distance=2.
+	// Without locality, backup task transactions can time out.
 	mainContainer.Command = []string{"backup_agent"}
-	args := []string{"--log", "--logdir", "/var/log/fdb-trace-logs"}
+	args := []string{
+		"--log",
+		"--logdir",
+		"/var/log/fdb-trace-logs",
+		// TODO (johscheuer): We should make this more flexible and allow users to define the one they want.
+		"--locality_zoneid=$(FDB_ZONE_ID)",
+		"--locality_machineid=$(FDB_MACHINE_ID)",
+	}
+
+	// Locality environment variables for backup agents.
+	// Zone ID is static so all backup agents are logically grouped together.
+	// Machine ID uses pod name for uniqueness.
+	// This gives LB Distance=1 which prevents transaction timeouts.
+	if backup.Spec.DataCenter != "" {
+		args = append(args, fmt.Sprintf("--locality_dcid=%s", backup.Spec.DataCenter))
+	}
 
 	if len(backup.Spec.CustomParameters) > 0 {
-		err := backup.Spec.CustomParameters.ValidateCustomParameters()
+		err := backup.Spec.CustomParameters.ValidateCustomParametersWithProtectedParameters(
+			map[string]fdbv1beta2.None{
+				"locality_zoneid":    {},
+				"locality_machineid": {},
+				"locality_dcid":      {},
+			},
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -1187,7 +1210,26 @@ func GetBackupDeployment(backup *fdbv1beta2.FoundationDBBackup) (*appsv1.Deploym
 
 	extendEnv(
 		mainContainer,
-		corev1.EnvVar{Name: fdbv1beta2.EnvNameClusterFile, Value: "/var/dynamic-conf/fdb.cluster"},
+		corev1.EnvVar{
+			Name:  fdbv1beta2.EnvNameClusterFile,
+			Value: "/var/dynamic-conf/fdb.cluster",
+		},
+	)
+
+	extendEnv(
+		mainContainer,
+		corev1.EnvVar{
+			Name:  fdbv1beta2.EnvNameZoneID,
+			Value: backup.Name,
+		},
+		corev1.EnvVar{
+			Name: fdbv1beta2.EnvNameMachineID,
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "metadata.name",
+				},
+			},
+		},
 	)
 
 	mainContainer.VolumeMounts = append(mainContainer.VolumeMounts,

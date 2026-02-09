@@ -87,6 +87,7 @@ spec:
                 enum:
                 - backup_agent
                 - partitioned_log
+                - unmanaged
                 maxLength: 64
                 type: string
               blobStoreConfiguration:
@@ -118,6 +119,8 @@ spec:
                   type: string
                 maxItems: 100
                 type: array
+              dataCenter:
+                type: string
               deletionPolicy:
                 default: noop
                 enum:

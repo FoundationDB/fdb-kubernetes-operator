@@ -321,7 +321,7 @@ var _ = Describe("backup_controller", func() {
 				Expect(deployments.Items[0].ObjectMeta.Annotations).To(Equal(map[string]string{
 					"fdb-test-1":                         "test-value-1",
 					"fdb-test-2":                         "test-value-2",
-					"foundationdb.org/last-applied-spec": "b9bce4660fcb4ee44469b2df6baadc6aa8572cb84a10c6db7ecacc344c59c058",
+					"foundationdb.org/last-applied-spec": "dc5dd30ffaff204b86233b106e8521c1164e4297a5806f8ad172caf449e9e285",
 				}))
 			})
 		})
@@ -349,6 +349,112 @@ var _ = Describe("backup_controller", func() {
 			It("should append the custom parameters to the command", func() {
 				Expect(adminClient.Knobs).To(HaveLen(1))
 				Expect(adminClient.Knobs).To(HaveKey("--knob_http_verbose_level=3"))
+			})
+		})
+
+		When("the backup type is unmanaged", func() {
+			BeforeEach(func() {
+				backup.Spec.BackupType = ptr.To(fdbv1beta2.BackupTypeUnmanaged)
+				Expect(k8sClient.Update(context.TODO(), backup)).To(Succeed())
+			})
+
+			When("reconciling a new unmanaged backup", func() {
+				It("should create deployment and leave existing backup running", func() {
+					deployment := &appsv1.Deployment{}
+					deploymentName := fmt.Sprintf("%s-backup-agents", cluster.Name)
+
+					Expect(k8sClient.Get(
+						context.TODO(),
+						types.NamespacedName{Namespace: cluster.Namespace, Name: deploymentName},
+						deployment,
+					)).To(Succeed())
+					Expect(*deployment.Spec.Replicas).To(Equal(int32(3)))
+
+					// Backup should still be running (was started before switching to unmanaged)
+					// but operator won't manage it anymore
+					status, err := adminClient.GetBackupStatus()
+					Expect(err).NotTo(HaveOccurred())
+					Expect(status.Status.Running).To(BeTrue())
+				})
+			})
+
+			When("changing snapshot time", func() {
+				BeforeEach(func() {
+					// Now change the snapshot period
+					backup.Spec.SnapshotPeriodSeconds = ptr.To(100000)
+					Expect(k8sClient.Update(context.TODO(), backup)).To(Succeed())
+					generationGap = 2
+				})
+
+				It("should not modify the backup", func() {
+					status, err := adminClient.GetBackupStatus()
+					Expect(err).NotTo(HaveOccurred())
+					// Should still be the original default value
+					Expect(status.SnapshotIntervalSeconds).To(Equal(864000))
+				})
+			})
+
+			When("changing backup URL", func() {
+				BeforeEach(func() {
+					// Change the backup URL
+					backup.Spec.BlobStoreConfiguration.BackupName = "different-backup"
+					Expect(k8sClient.Update(context.TODO(), backup)).To(Succeed())
+					generationGap = 2
+				})
+
+				It("should not modify the backup URL", func() {
+					status, err := adminClient.GetBackupStatus()
+					Expect(err).NotTo(HaveOccurred())
+					// Should still be the original URL
+					Expect(
+						status.DestinationURL,
+					).To(Equal("blobstore://test@test-service:443/test-backup?bucket=fdb-backups"))
+				})
+			})
+
+			When("stopping the backup", func() {
+				BeforeEach(func() {
+					backup.Spec.BackupState = fdbv1beta2.BackupStateStopped
+					Expect(k8sClient.Update(context.TODO(), backup)).To(Succeed())
+					generationGap = 2
+				})
+
+				It("should not stop the backup", func() {
+					status, err := adminClient.GetBackupStatus()
+					Expect(err).NotTo(HaveOccurred())
+					// Backup state should not be affected
+					Expect(status.Status.Running).To(BeTrue())
+				})
+			})
+
+			When("pausing the backup", func() {
+				BeforeEach(func() {
+					backup.Spec.BackupState = fdbv1beta2.BackupStatePaused
+					Expect(k8sClient.Update(context.TODO(), backup)).To(Succeed())
+					generationGap = 2
+				})
+
+				It("should not pause the backup", func() {
+					status, err := adminClient.GetBackupStatus()
+					Expect(err).NotTo(HaveOccurred())
+					Expect(status.BackupAgentsPaused).To(BeFalse())
+				})
+			})
+
+			When("changing agent count", func() {
+				BeforeEach(func() {
+					agentCount := 5
+					backup.Spec.AgentCount = &agentCount
+					Expect(k8sClient.Update(context.TODO(), backup)).To(Succeed())
+					generationGap = 2
+				})
+
+				It("should still manage the backup deployment", func() {
+					deployments := &appsv1.DeploymentList{}
+					Expect(k8sClient.List(context.TODO(), deployments)).To(Succeed())
+					Expect(len(deployments.Items)).To(Equal(1))
+					Expect(*deployments.Items[0].Spec.Replicas).To(Equal(int32(5)))
+				})
 			})
 		})
 	})

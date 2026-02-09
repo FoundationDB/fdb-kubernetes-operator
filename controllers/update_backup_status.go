@@ -122,7 +122,6 @@ func (s updateBackupStatus) reconcile(
 	originalStatus := backup.Status.DeepCopy()
 
 	backup.Status = status
-
 	_, err = backup.CheckReconciliation()
 	if err != nil {
 		return &requeue{curError: err}

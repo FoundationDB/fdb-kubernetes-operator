@@ -215,7 +215,7 @@ FoundationDBClusterFaultDomain describes the fault domain that a cluster is repl
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
 | key | Key provides a topology key for the fault domain to replicate across. | string | false |
-| value | Value provides a harcoded value to use for the zoneid for the pods. | string | false |
+| value | Value provides a hardcoded value to use for the zoneid for the pods. | string | false |
 | valueFrom | ValueFrom provides a field selector to use as the source of the fault domain. | string | false |
 | zoneCount | ZoneCount provides the number of fault domains in the data center where these processes are running. This is only used in the `kubernetes-cluster` fault domain strategy. | int | false |
 | zoneIndex | ZoneIndex provides the index of this Kubernetes cluster in the list of KCs in the data center. This is only used in the `kubernetes-cluster` fault domain strategy. | int | false |

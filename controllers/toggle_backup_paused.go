@@ -36,6 +36,10 @@ func (s toggleBackupPaused) reconcile(
 	r *FoundationDBBackupReconciler,
 	backup *fdbv1beta2.FoundationDBBackup,
 ) *requeue {
+	if backup.GetBackupType() == fdbv1beta2.BackupTypeUnmanaged {
+		return nil
+	}
+
 	if backup.Status.BackupDetails == nil {
 		if backup.ShouldRun() {
 			return &requeue{message: "Cannot toggle backup state because backup is not running"}

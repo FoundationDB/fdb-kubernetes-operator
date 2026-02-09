@@ -75,6 +75,14 @@ var (
 // protected/forbidden parameters are set. Theoretically we could also check if FDB
 // supports the given parameter.
 func (customParameters FoundationDBCustomParameters) ValidateCustomParameters() error {
+	return customParameters.ValidateCustomParametersWithProtectedParameters(protectedParameters)
+}
+
+// ValidateCustomParametersWithProtectedParameters ensures that no duplicate values are set and that no
+// protected/forbidden parameters are set. Theoretically we could also check if FDB supports the given parameter.
+func (customParameters FoundationDBCustomParameters) ValidateCustomParametersWithProtectedParameters(
+	protected map[string]None,
+) error {
 	parameters := make(map[string]None)
 	violations := make([]string, 0)
 
@@ -91,7 +99,7 @@ func (customParameters FoundationDBCustomParameters) ValidateCustomParameters() 
 			)
 		}
 
-		if _, ok := protectedParameters[parameterName]; ok {
+		if _, ok := protected[parameterName]; ok {
 			violations = append(
 				violations,
 				fmt.Sprintf(

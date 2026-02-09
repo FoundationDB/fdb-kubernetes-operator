@@ -100,6 +100,7 @@ FoundationDBBackupSpec describes the desired state of the backup for a cluster.
 | ----- | ----------- | ------ | -------- |
 | version | The version of FoundationDB that the backup agents should run. | string | true |
 | clusterName | The cluster this backup is for. | string | true |
+| dataCenter | DataCenter defines the data center where these processes are running. | string | false |
 | backupState | The desired state of the backup. The default is Running. | [BackupState](#backupstate) | false |
 | agentCount | AgentCount defines the number of backup agents to run. The default is run 2 agents. | *int | false |
 | snapshotPeriodSeconds | The time window between new snapshots. This is measured in seconds. The default is 864,000, or 10 days. | *int | false |

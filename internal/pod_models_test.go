@@ -3627,7 +3627,7 @@ var _ = Describe("pod_models", func() {
 					fdbv1beta2.BackupDeploymentLabel: string(cluster.ObjectMeta.UID),
 				}))
 				Expect(deployment.ObjectMeta.Annotations).To(Equal(map[string]string{
-					"foundationdb.org/last-applied-spec": "b9bce4660fcb4ee44469b2df6baadc6aa8572cb84a10c6db7ecacc344c59c058",
+					"foundationdb.org/last-applied-spec": "dc5dd30ffaff204b86233b106e8521c1164e4297a5806f8ad172caf449e9e285",
 				}))
 			})
 
@@ -3696,6 +3696,8 @@ var _ = Describe("pod_models", func() {
 						"--log",
 						"--logdir",
 						"/var/log/fdb-trace-logs",
+						"--locality_zoneid=$(FDB_ZONE_ID)",
+						"--locality_machineid=$(FDB_MACHINE_ID)",
 					}))
 				})
 
@@ -3704,6 +3706,18 @@ var _ = Describe("pod_models", func() {
 						{
 							Name:  fdbv1beta2.EnvNameClusterFile,
 							Value: "/var/dynamic-conf/fdb.cluster",
+						},
+						{
+							Name:  "FDB_ZONE_ID",
+							Value: "operator-test-1",
+						},
+						{
+							Name: "FDB_MACHINE_ID",
+							ValueFrom: &corev1.EnvVarSource{
+								FieldRef: &corev1.ObjectFieldSelector{
+									FieldPath: "metadata.name",
+								},
+							},
 						},
 					}))
 				})
@@ -3843,10 +3857,25 @@ var _ = Describe("pod_models", func() {
 
 				It("should customize the environment", func() {
 					Expect(container.Env).To(Equal([]corev1.EnvVar{
-						{Name: "FDB_BLOB_CREDENTIALS", Value: "/var/secrets/blob_credentials.json"},
+						{
+							Name:  "FDB_BLOB_CREDENTIALS",
+							Value: "/var/secrets/blob_credentials.json",
+						},
 						{
 							Name:  fdbv1beta2.EnvNameClusterFile,
 							Value: "/var/dynamic-conf/fdb.cluster",
+						},
+						{
+							Name:  "FDB_ZONE_ID",
+							Value: "operator-test-1",
+						},
+						{
+							Name: "FDB_MACHINE_ID",
+							ValueFrom: &corev1.EnvVarSource{
+								FieldRef: &corev1.ObjectFieldSelector{
+									FieldPath: "metadata.name",
+								},
+							},
 						},
 					}))
 				})
@@ -3927,8 +3956,26 @@ var _ = Describe("pod_models", func() {
 			It("should respect the custom CA", func() {
 				container := deployment.Spec.Template.Spec.Containers[0]
 				Expect(container.Env).To(Equal([]corev1.EnvVar{
-					{Name: "FDB_TLS_CA_FILE", Value: "/tmp/ca.pem"},
-					{Name: fdbv1beta2.EnvNameClusterFile, Value: "/var/dynamic-conf/fdb.cluster"},
+					{
+						Name:  "FDB_TLS_CA_FILE",
+						Value: "/tmp/ca.pem",
+					},
+					{
+						Name:  fdbv1beta2.EnvNameClusterFile,
+						Value: "/var/dynamic-conf/fdb.cluster",
+					},
+					{
+						Name:  "FDB_ZONE_ID",
+						Value: "operator-test-1",
+					},
+					{
+						Name: "FDB_MACHINE_ID",
+						ValueFrom: &corev1.EnvVarSource{
+							FieldRef: &corev1.ObjectFieldSelector{
+								FieldPath: "metadata.name",
+							},
+						},
+					},
 				}))
 			})
 		})
@@ -3953,12 +4000,27 @@ var _ = Describe("pod_models", func() {
 					"foundationdb.org/backup-for": string(cluster.ObjectMeta.UID),
 				}))
 				Expect(deployment.ObjectMeta.Annotations).To(Equal(map[string]string{
-					"foundationdb.org/last-applied-spec": "c1af35c6ba0236fe77ccd589a23c9cb1be3fbddc269ad05a3fb6b895ad26d63f",
+					"foundationdb.org/last-applied-spec": "4d34d88c10a159ce110efa6ab01ea1a8a04ad2bf10bd2ad6c1c81a02a94b075f",
 				}))
 
 				Expect(
 					deployment.Spec.Template.Spec.Containers[0].Args,
 				).To(ContainElement("--customParameter=1337"))
+			})
+		})
+
+		Context("with datacenter set", func() {
+			BeforeEach(func() {
+				backup.Spec.DataCenter = "dc1"
+				deployment, err = GetBackupDeployment(backup)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(deployment).NotTo(BeNil())
+			})
+
+			It("should set the locality_dcid knob", func() {
+				Expect(
+					deployment.Spec.Template.Spec.Containers[0].Args,
+				).To(ContainElement("--locality_dcid=dc1"))
 			})
 		})
 
