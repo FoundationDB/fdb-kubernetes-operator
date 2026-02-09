@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"strings"
 	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
@@ -273,7 +274,7 @@ func (fdbBackup *FdbBackup) Pause() {
 }
 
 // RunDescribeCommand run the describe command on the backup pod.
-func (fdbBackup *FdbBackup) RunDescribeCommand() string {
+func (fdbBackup *FdbBackup) RunDescribeCommand() fdbv1beta2.FDBBackupDescribe {
 	backupURL, err := fdbBackup.backup.BackupURL()
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	backupPod := fdbBackup.GetBackupPod()
@@ -286,7 +287,27 @@ func (fdbBackup *FdbBackup) RunDescribeCommand() string {
 		command,
 		false)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	return out
+
+	var desc fdbv1beta2.FDBBackupDescribe
+	err = json.Unmarshal([]byte(out), &desc)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+	return desc
+}
+
+// RunListCommand run the list command on the backup pod.
+func (fdbBackup *FdbBackup) RunListCommand() []string {
+	backupUrl, err := fdbBackup.backup.ShortenedBackupURL()
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	command := fmt.Sprintf("fdbbackup list -b \"%s\"", backupUrl)
+	backupPod := fdbBackup.GetBackupPod()
+	out, _, err := fdbBackup.fdbCluster.ExecuteCmdOnPod(
+		*backupPod,
+		fdbv1beta2.MainContainerName,
+		command,
+		false)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	return strings.Split(out, "\\n")
 }
 
 // WaitForReconciliation waits until the FdbBackup resource is fully reconciled.

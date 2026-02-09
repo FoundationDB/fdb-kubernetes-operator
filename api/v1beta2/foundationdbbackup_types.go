@@ -337,9 +337,22 @@ func (backup *FoundationDBBackup) BackupURL() (string, error) {
 	return backup.Spec.BlobStoreConfiguration.getURL(backup.BackupName(), backup.Bucket())
 }
 
+// ShortenedBackupURL gets the shortened destination url of the backup.
+func (backup *FoundationDBBackup) ShortenedBackupURL() (string, error) {
+	return backup.Spec.BlobStoreConfiguration.getURL("", backup.Bucket())
+}
+
 // SnapshotPeriodSeconds gets the period between snapshots for a backup.
 func (backup *FoundationDBBackup) SnapshotPeriodSeconds() int {
 	return ptr.Deref(backup.Spec.SnapshotPeriodSeconds, 864000)
+}
+
+type FDBBackupDescribe struct {
+	SchemaVersion       string `json:"SchemaVersion,omitempty"`
+	URL                 string `json:"URL,omitempty"`
+	Restorable          bool   `json:"Restorable,omitempty"`
+	Partitioned         bool   `json:"Partitioned,omitempty"`
+	FileLevelEncryption bool   `json:"FileLevelEncryption,omitempty"`
 }
 
 // FoundationDBLiveBackupStatus describes the live status of the backup for a
