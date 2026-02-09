@@ -347,6 +347,7 @@ func (backup *FoundationDBBackup) SnapshotPeriodSeconds() int {
 	return ptr.Deref(backup.Spec.SnapshotPeriodSeconds, 864000)
 }
 
+// FDBBackupDescribe represents the JSON output of the `fdbbackup describe` command.
 type FDBBackupDescribe struct {
 	SchemaVersion       string `json:"SchemaVersion,omitempty"`
 	URL                 string `json:"URL,omitempty"`
