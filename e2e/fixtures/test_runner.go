@@ -23,7 +23,7 @@ package fixtures
 import (
 	"flag"
 	"log"
-	"math/rand"
+	"math/rand/v2"
 	"os"
 	"testing"
 	"time"
@@ -55,7 +55,7 @@ func RunGinkgoTests(t *testing.T, name string) {
 	if inCI {
 		// We wait up to 300 seconds before executing the code. In CI all tests will run in parallel and adding some
 		// random wait time should help in making those tests more stable.
-		waitDuration := time.Duration(rand.Intn(300)) * time.Second
+		waitDuration := time.Duration(rand.IntN(300)) * time.Second
 		ginkgo.GinkgoLogr.Info("waiting for", waitDuration.String(), "before executing test suite")
 		time.Sleep(waitDuration)
 	}
