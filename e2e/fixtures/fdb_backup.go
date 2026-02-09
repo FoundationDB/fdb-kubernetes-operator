@@ -295,10 +295,8 @@ func (fdbBackup *FdbBackup) RunDescribeCommand() fdbv1beta2.FDBBackupDescribe {
 
 // RunListCommand run the list command on the backup pod.
 func (fdbBackup *FdbBackup) RunListCommand() []string {
-	backupUrl := fdbBackup.backup.ShortenedBackupURL()
-	command := fmt.Sprintf("fdbbackup list -b \"%s\"", backupUrl)
-
 	backupPod := fdbBackup.GetBackupPod()
+	command := fmt.Sprintf("fdbbackup list -b \"%s\"", fdbBackup.backup.ShortenedBackupURL())
 	out, _, err := fdbBackup.fdbCluster.ExecuteCmdOnPod(
 		*backupPod,
 		fdbv1beta2.MainContainerName,
