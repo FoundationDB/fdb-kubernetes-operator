@@ -76,11 +76,11 @@ FDBBackupDescribe represents the JSON output of the `fdbbackup describe` command
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
-| SchemaVersion |  | string | false |
-| URL |  | string | false |
-| Restorable |  | bool | false |
-| Partitioned |  | bool | false |
-| FileLevelEncryption |  | bool | false |
+| SchemaVersion | SchemaVersion is the version of the backup metadata schema. | *string | false |
+| URL | URL is the backup destination being described. | *string | false |
+| Restorable | Restorable indicates whether the backup is in a valid state and can be used to restore a database. | *bool | false |
+| Partitioned | Partitioned indicates whether the backup is partitioned. Partitioned backups store data across multiple subdirectories or shards for scalability. | *bool | false |
+| FileLevelEncryption | FileLevelEncryption indicates whether file-level encryption is enabled for the backup data. | *bool | false |
 
 [Back to TOC](#table-of-contents)
 

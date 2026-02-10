@@ -337,8 +337,9 @@ func (backup *FoundationDBBackup) BackupURL() (string, error) {
 	return backup.Spec.BlobStoreConfiguration.getURL(backup.BackupName(), backup.Bucket())
 }
 
-// ShortenedBackupURL gets the shortened destination url of the backup.
-func (backup *FoundationDBBackup) ShortenedBackupURL() (string, error) {
+// BaseURL This a shortened Backup URL which looks just like a Backup URL but without
+// the backup <name> so that the list command will discover and list all the backups in the bucket.
+func (backup *FoundationDBBackup) BaseURL() (string, error) {
 	return backup.Spec.BlobStoreConfiguration.getURL("", backup.Bucket())
 }
 
@@ -349,11 +350,24 @@ func (backup *FoundationDBBackup) SnapshotPeriodSeconds() int {
 
 // FDBBackupDescribe represents the JSON output of the `fdbbackup describe` command.
 type FDBBackupDescribe struct {
-	SchemaVersion       string `json:"SchemaVersion,omitempty"`
-	URL                 string `json:"URL,omitempty"`
-	Restorable          bool   `json:"Restorable,omitempty"`
-	Partitioned         bool   `json:"Partitioned,omitempty"`
-	FileLevelEncryption bool   `json:"FileLevelEncryption,omitempty"`
+	// SchemaVersion is the version of the backup metadata schema.
+	SchemaVersion *string `json:"SchemaVersion,omitempty"`
+
+	// URL is the backup destination being described.
+	URL *string `json:"URL,omitempty"`
+
+	// Restorable indicates whether the backup is in a valid state
+	// and can be used to restore a database.
+	Restorable *bool `json:"Restorable,omitempty"`
+
+	// Partitioned indicates whether the backup is partitioned.
+	// Partitioned backups store data across multiple subdirectories
+	// or shards for scalability.
+	Partitioned *bool `json:"Partitioned,omitempty"`
+
+	// FileLevelEncryption indicates whether file-level encryption
+	// is enabled for the backup data.
+	FileLevelEncryption *bool `json:"FileLevelEncryption,omitempty"`
 }
 
 // FoundationDBLiveBackupStatus describes the live status of the backup for a
