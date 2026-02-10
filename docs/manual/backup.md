@@ -8,6 +8,38 @@ You can find more information about the backup feature in the [FoundationDB Back
 
 **Warning**: Support for backups in the operator is still in development, and there are some missing features.
 
+## Backup Types
+
+The operator supports three backup types, controlled by the `backupType` field in the backup spec:
+
+### Migration Notes
+
+**Warning**: Migration between backup types is not currently supported/tested.
+Do not change the `backupType` field on an existing backup resource. If you need to switch types:
+
+1. Stop and clean up the existing backup
+2. Delete the `FoundationDBBackup` resource
+3. Create a new `FoundationDBBackup` resource with the desired type
+
+### Standard Backup Agent (Default)
+
+The default backup type (`backup_agent`) uses the [file backup system](https://github.com/apple/foundationdb/blob/main/design/backup.md) with backup agents managed by the operator.
+The operator handles all aspects of the backup lifecycle including starting, stopping, pausing, and reconfiguring backups.
+
+### Partitioned Log Backup
+
+The partitioned log backup type (`partitioned_log`) uses the [partitioned log backup system](https://github.com/apple/foundationdb/blob/main/design/backup_v2_partitioned_logs.md).
+With this type the operator will manage backup agents for the key-range backups (snapshots) and the cluster must create backup workers for mutation backups.
+Migration between backup types is currently not supported.
+
+### Unmanaged Backup
+
+The unmanaged backup type (`unmanaged`) provides a hybrid approach where:
+- **The operator manages**: Backup agent pod deployment.
+- **You manually manage**: All backup operations (start, stop, pause, modify) using `fdbbackup` commands
+
+This is useful when you want Kubernetes-managed infrastructure but need manual control over backup operations, or when integrating with external backup management tooling.
+
 ## Backup Modes
 
 The operator supports two backup modes, controlled by the `backupMode` field in the backup spec:
@@ -197,6 +229,10 @@ This can be changed by setting the `spec.deletionPolicy`, valid options are:
 - `noop` (default): When set the backup state will not be changed. This can cause problems when the `FoundationDBBackup` resource is deleted and the cluster still receives write traffic, as the `backup_agents` are deleted and therefore the backup mutations will not be removed.
 - `stop`: Will [abort](https://apple.github.io/foundationdb/backups.html#abort) the backup when the `FoundationDBBackup` resource is deleted.
 - `cleanup`: Will [abort](https://apple.github.io/foundationdb/backups.html#abort) and [delete](https://apple.github.io/foundationdb/backups.html#delete) the backup and it's data in the blob store when the `FoundationDBBackup` resource is deleted.
+
+**Note for Unmanaged Backups**: When using `backupType: unmanaged`, the deletion policies `stop` and `cleanup` do NOT automatically stop or clean up backups.
+You must manually run `fdbbackup abort` and cleanup commands before deleting the resource.
+The operator will only remove the backup agent deployment.
 
 When the `stop` or the `cleanup` deletion policy is set the operator will add the `foundationdb.org/fdb-kubernetes-operator` finalizer.
 It is not recommended to remove this finalizer manually, as this could lead to an incomplete removal of data.

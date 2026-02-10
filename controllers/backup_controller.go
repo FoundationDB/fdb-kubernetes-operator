@@ -90,6 +90,8 @@ func (r *FoundationDBBackupReconciler) Reconcile(
 		backup.Namespace,
 		"backup",
 		backup.Name,
+		"backupType",
+		backup.GetBackupType(),
 	)
 
 	// Check if the finalizer is added or should be removed. If the FoundationDBBackup resource is being deleted (has
@@ -265,7 +267,8 @@ func (r *FoundationDBBackupReconciler) updateFinalizerIfNeeded(ctx context.Conte
 	logger.V(1).Info("checking finalizer state", "deletionPolicy", deletionPolicy)
 
 	// If the deletion policy is noop we can remove the finalizer if one is present.
-	if deletionPolicy == fdbv1beta2.BackupDeletionPolicyNoop {
+	if deletionPolicy == fdbv1beta2.BackupDeletionPolicyNoop ||
+		backup.GetBackupType() == fdbv1beta2.BackupTypeUnmanaged {
 		if controllerutil.RemoveFinalizer(backup, fdbv1beta2.FoundationDBBackupFinalizerName) {
 			logger.V(1).Info("removing the finalizer for backup resource")
 			return r.updateOrApplySpec(ctx, backup)

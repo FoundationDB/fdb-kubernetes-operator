@@ -26,7 +26,6 @@ import (
 	"fmt"
 	"log"
 	"strconv"
-	"strings"
 	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
@@ -56,50 +55,6 @@ type FdbBackupConfiguration struct {
 	BackupMode *fdbv1beta2.BackupMode
 	// CustomParameters defines the custom parameters to add to the backup deployment.
 	CustomParameters fdbv1beta2.FoundationDBCustomParameters
-}
-
-// getCustomParameters returns the custom parameters for this FdbBackup. If the locality_zoneid and locality_machineid
-// knobs are missing, those will be added.
-func (config *FdbBackupConfiguration) getCustomParameters(
-	fdbCluster *FdbCluster,
-) fdbv1beta2.FoundationDBCustomParameters {
-	var hasZoneLocality, hasMachineLocality bool
-
-	for _, customParameter := range config.CustomParameters {
-		parameterName := strings.Split(string(customParameter), "=")[0]
-		parameterName = strings.TrimSpace(parameterName)
-
-		if parameterName == "locality_zoneid" {
-			hasZoneLocality = true
-		}
-
-		if parameterName == "locality_machineid" {
-			hasMachineLocality = true
-		}
-	}
-
-	if !hasZoneLocality {
-		// Use the data center is present, if not use the name of the FDB cluster.
-		zoneID := fdbCluster.GetCachedCluster().Spec.DataCenter
-		if zoneID == "" {
-			zoneID = fdbCluster.Name()
-		}
-		config.CustomParameters = append(
-			config.CustomParameters,
-			fdbv1beta2.FoundationDBCustomParameter(fmt.Sprintf("locality_zoneid=%s", zoneID)),
-		)
-	}
-
-	if !hasMachineLocality {
-		config.CustomParameters = append(
-			config.CustomParameters,
-			fdbv1beta2.FoundationDBCustomParameter(
-				fmt.Sprintf("locality_machineid=$(%s)", fdbv1beta2.EnvNameMachineID),
-			),
-		)
-	}
-
-	return config.CustomParameters
 }
 
 // CreateBackupForCluster will create a FoundationDBBackup for the provided cluster.
@@ -148,7 +103,7 @@ func (factory *Factory) GenerateBackupSpecForCluster(
 			DeletionPolicy:   ptr.To(fdbv1beta2.BackupDeletionPolicyCleanup),
 			BackupType:       config.BackupType,
 			BackupState:      ptr.Deref(config.BackupState, fdbv1beta2.BackupStateRunning),
-			CustomParameters: config.getCustomParameters(fdbCluster),
+			CustomParameters: config.CustomParameters,
 			BackupMode:       config.BackupMode,
 			ImageType:        fdbCluster.cluster.Spec.ImageType,
 			MainContainer:    fdbCluster.cluster.Spec.MainContainer,

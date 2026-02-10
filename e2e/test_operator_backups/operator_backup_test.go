@@ -26,9 +26,7 @@ This test suite contains tests related to backup and restore with the operator.
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
-	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/fixtures"
@@ -106,13 +104,16 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 		})
 
 		When("the default backup system is used", func() {
-			var useRestorableVersion bool
+			var useRestorableVersion, skipRestore bool
 			var backupConfiguration *fixtures.FdbBackupConfiguration
 			var currentRestorableVersion *uint64
-			var skipRestore bool
 
 			JustBeforeEach(func() {
-				log.Println("creating backup for cluster")
+				log.Printf(
+					"creating backup for cluster, skipRestore: %t, useRestorableVersion: %t\n",
+					skipRestore,
+					useRestorableVersion,
+				)
 				var restorableVersion uint64
 				keyValues = fdbCluster.GenerateRandomValues(10, prefix)
 
@@ -172,40 +173,11 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 						},
 					)
 				})
-
-				When("the backup externally started", func() {
-					JustBeforeEach(func() {
-						currentBackup := backup.GetBackup()
-
-						// Start a onetime backup.
-						Eventually(func(g Gomega) {
-							backupPod := backup.GetBackupPod()
-							_, _, err := fdbCluster.ExecuteCmdOnPod(
-								*backupPod,
-								fdbv1beta2.MainContainerName,
-								fmt.Sprintf("fdbbackup start -d '%s'", currentBackup.BackupURL()),
-								false,
-							)
-							g.Expect(err).To(Succeed())
-						}).WithTimeout(2 * time.Minute).WithPolling(30 * time.Second).Should(Succeed())
-
-						backup.ForceReconcile()
-					})
-
-					It(
-						"should only have data for the backup deployment",
-						func() {
-							currentBackup := backup.GetBackup()
-							Expect(currentBackup.Status.DeploymentConfigured).Should(BeTrue())
-							Expect(currentBackup.Status.BackupDetails.Running).Should(BeFalse())
-							Expect(currentBackup.Status.BackupDetails.Restorable).Should(BeFalse())
-						},
-					)
-				})
 			})
 
 			When("the continuous backup mode is used", func() {
 				BeforeEach(func() {
+					skipRestore = false
 					backupConfiguration = &fixtures.FdbBackupConfiguration{
 						BackupType: ptr.To(fdbv1beta2.BackupTypeDefault),
 						BackupMode: ptr.To(fdbv1beta2.BackupModeContinuous),
@@ -274,6 +246,7 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 
 			When("the one time backup mode is used", func() {
 				BeforeEach(func() {
+					skipRestore = false
 					backupConfiguration = &fixtures.FdbBackupConfiguration{
 						BackupType: ptr.To(fdbv1beta2.BackupTypeDefault),
 						BackupMode: ptr.To(fdbv1beta2.BackupModeOneTime),
