@@ -273,8 +273,8 @@ func (fdbBackup *FdbBackup) Pause() {
 	fdbBackup.setState(fdbv1beta2.BackupStatePaused)
 }
 
-// RunDescribeCommand run the describe command on the backup pod.
-func (fdbBackup *FdbBackup) RunDescribeCommand() fdbv1beta2.FDBBackupDescribe {
+// RunDescribeCommand runs the describe command on a backup pod.
+func (fdbBackup *FdbBackup) RunDescribeCommand() *fdbv1beta2.FDBBackupDescribe {
 	backupPod := fdbBackup.GetBackupPod()
 	command := fmt.Sprintf(
 		"fdbbackup describe -d \"%s\" --json",
@@ -286,17 +286,15 @@ func (fdbBackup *FdbBackup) RunDescribeCommand() fdbv1beta2.FDBBackupDescribe {
 		false)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-	var desc fdbv1beta2.FDBBackupDescribe
-	err = json.Unmarshal([]byte(out), &desc)
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-
+	desc := &fdbv1beta2.FDBBackupDescribe{}
+	gomega.Expect(json.Unmarshal([]byte(out), desc)).To(gomega.Succeed())
 	return desc
 }
 
-// RunListCommand run the list command on the backup pod.
+// RunListCommand runs the list command on a backup pod.
 func (fdbBackup *FdbBackup) RunListCommand() []string {
 	backupPod := fdbBackup.GetBackupPod()
-	command := fmt.Sprintf("fdbbackup list -b \"%s\"", fdbBackup.backup.ShortenedBackupURL())
+	command := fmt.Sprintf("fdbbackup list -b \"%s\"", fdbBackup.backup.BaseURL())
 	out, _, err := fdbBackup.fdbCluster.ExecuteCmdOnPod(
 		*backupPod,
 		fdbv1beta2.MainContainerName,
