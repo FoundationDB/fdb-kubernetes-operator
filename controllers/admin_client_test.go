@@ -196,7 +196,7 @@ var _ = Describe("admin_client_test", func() {
 					Spec: fdbv1beta2.FoundationDBBackupSpec{
 						BlobStoreConfiguration: &fdbv1beta2.BlobStoreConfiguration{
 							BackupName:  "test-backup",
-							AccountName: "test",
+							AccountName: "@test",
 						},
 						SnapshotPeriodSeconds: ptr.To(10),
 					},
@@ -206,12 +206,14 @@ var _ = Describe("admin_client_test", func() {
 			})
 
 			It("should put the backup in the layer status", func() {
+				backupURL, err := backup.BackupURL()
+				Expect(err).NotTo(HaveOccurred())
 				Expect(status.Cluster.Layers.Backup.Paused).To(BeFalse())
 				Expect(
 					status.Cluster.Layers.Backup.Tags,
 				).To(Equal(map[string]fdbv1beta2.FoundationDBStatusBackupTag{
 					"default": {
-						CurrentContainer: backup.BackupURL(),
+						CurrentContainer: backupURL,
 						RunningBackup:    ptr.To(true),
 						Restorable:       ptr.To(true),
 					},
@@ -245,11 +247,13 @@ var _ = Describe("admin_client_test", func() {
 				})
 
 				It("should mark the backup as stopped", func() {
+					backupURL, err := backup.BackupURL()
+					Expect(err).NotTo(HaveOccurred())
 					Expect(
 						status.Cluster.Layers.Backup.Tags,
 					).To(Equal(map[string]fdbv1beta2.FoundationDBStatusBackupTag{
 						"default": {
-							CurrentContainer: backup.BackupURL(),
+							CurrentContainer: backupURL,
 							RunningBackup:    ptr.To(false),
 							Restorable:       ptr.To(true),
 						},
@@ -282,7 +286,7 @@ var _ = Describe("admin_client_test", func() {
 					Spec: fdbv1beta2.FoundationDBBackupSpec{
 						BlobStoreConfiguration: &fdbv1beta2.BlobStoreConfiguration{
 							BackupName:  "test-backup",
-							AccountName: "test",
+							AccountName: "@test",
 						},
 						SnapshotPeriodSeconds: ptr.To(10),
 					},
@@ -292,7 +296,9 @@ var _ = Describe("admin_client_test", func() {
 			})
 
 			It("should put the backup in the status", func() {
-				Expect(status.DestinationURL).To(Equal(backup.BackupURL()))
+				backupURL, err := backup.BackupURL()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(status.DestinationURL).To(Equal(backupURL))
 				Expect(status.Status.Running).To(BeTrue())
 				Expect(status.BackupAgentsPaused).To(BeFalse())
 				Expect(status.SnapshotIntervalSeconds).To(Equal(10))
@@ -335,7 +341,7 @@ var _ = Describe("admin_client_test", func() {
 					backup.Spec.SnapshotPeriodSeconds = ptr.To(20)
 					backup.Spec.BlobStoreConfiguration = &fdbv1beta2.BlobStoreConfiguration{
 						BackupName:  "test-backup",
-						AccountName: "test",
+						AccountName: "@test",
 					}
 					Expect(mockAdminClient.ModifyBackup(backup)).NotTo(HaveOccurred())
 
@@ -352,7 +358,7 @@ var _ = Describe("admin_client_test", func() {
 				BeforeEach(func() {
 					backup.Spec.BlobStoreConfiguration = &fdbv1beta2.BlobStoreConfiguration{
 						BackupName:  "test-backup-2",
-						AccountName: "test",
+						AccountName: "@test",
 					}
 					Expect(mockAdminClient.ModifyBackup(backup)).NotTo(HaveOccurred())
 				})
@@ -360,7 +366,7 @@ var _ = Describe("admin_client_test", func() {
 				It("should have modified the backup url", func() {
 					Expect(
 						status.DestinationURL,
-					).To(Equal("blobstore://test:443/test-backup-2?bucket=fdb-backups"))
+					).To(Equal("blobstore://@test:443/test-backup-2?bucket=fdb-backups"))
 				})
 			})
 		})

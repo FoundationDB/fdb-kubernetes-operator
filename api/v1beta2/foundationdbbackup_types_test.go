@@ -230,7 +230,9 @@ var _ = Describe("[api] FoundationDBBackup", func() {
 		DescribeTable(
 			"should generate the correct backup URL",
 			func(backup FoundationDBBackup, expected string) {
-				Expect(backup.BackupURL()).To(Equal(expected))
+				backupURL, err := backup.BackupURL()
+				Expect(backupURL).To(Equal(expected))
+				Expect(err).NotTo(HaveOccurred())
 			},
 			Entry("A Backup with a blobstore config with backup name",
 				FoundationDBBackup{
@@ -245,6 +247,21 @@ var _ = Describe("[api] FoundationDBBackup", func() {
 					},
 				},
 				"blobstore://account@account:443/test?bucket=fdb-backups"),
+			Entry(
+				"A Backup with a blobstore config with backup name without user and password information",
+				FoundationDBBackup{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "mybackup",
+					},
+					Spec: FoundationDBBackupSpec{
+						BlobStoreConfiguration: &BlobStoreConfiguration{
+							AccountName: "@account",
+							BackupName:  "test",
+						},
+					},
+				},
+				"blobstore://@account:443/test?bucket=fdb-backups",
+			),
 			Entry("A Backup with a blobstore config with a bucket name",
 				FoundationDBBackup{
 					ObjectMeta: metav1.ObjectMeta{

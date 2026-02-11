@@ -828,10 +828,15 @@ func (client *cliAdminClient) GetProtocolVersion(version string) (string, error)
 }
 
 func (client *cliAdminClient) StartBackup(backup *fdbv1beta2.FoundationDBBackup) error {
+	backupURL, err := backup.BackupURL()
+	if err != nil {
+		return err
+	}
+
 	args := []string{
 		"start",
 		"-d",
-		backup.BackupURL(),
+		backupURL,
 	}
 
 	// Add continuous backup flags only if backup mode is continuous.
@@ -886,12 +891,17 @@ func (client *cliAdminClient) AbortBackup(_ *fdbv1beta2.FoundationDBBackup) erro
 
 // DeleteBackup deletes all data related to a backup.
 func (client *cliAdminClient) DeleteBackup(backup *fdbv1beta2.FoundationDBBackup) error {
-	_, err := client.runCommand(cliCommand{
+	backupURL, err := backup.BackupURL()
+	if err != nil {
+		return err
+	}
+
+	_, err = client.runCommand(cliCommand{
 		binary: fdbbackupStr,
 		args: []string{
 			"delete",
 			"-d",
-			backup.BackupURL(),
+			backupURL,
 		},
 		// Increase the default timeout here, deleting large backups will probably take even more time.
 		timeout: 10 * time.Minute,
@@ -926,14 +936,19 @@ func (client *cliAdminClient) ResumeBackups() error {
 
 // ModifyBackup updates the backup parameters.
 func (client *cliAdminClient) ModifyBackup(backup *fdbv1beta2.FoundationDBBackup) error {
-	_, err := client.runCommand(cliCommand{
+	backupURL, err := backup.BackupURL()
+	if err != nil {
+		return err
+	}
+
+	_, err = client.runCommand(cliCommand{
 		binary: fdbbackupStr,
 		args: []string{
 			"modify",
 			"-s",
 			strconv.Itoa(backup.SnapshotPeriodSeconds()),
 			"-d",
-			backup.BackupURL(),
+			backupURL,
 		},
 	})
 

@@ -52,8 +52,14 @@ func (s startRestore) reconcile(
 
 	// TODO (johscheuer): Make use of the status.state setting to see if the restore was started.
 	if len(strings.TrimSpace(status)) == 0 {
+		var backupURL string
+		backupURL, err = restore.BackupURL()
+		if err != nil {
+			return &requeue{curError: err}
+		}
+
 		err = adminClient.StartRestore(
-			restore.BackupURL(),
+			backupURL,
 			*restore,
 		)
 		if err != nil {

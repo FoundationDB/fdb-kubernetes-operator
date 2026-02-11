@@ -887,9 +887,13 @@ func (client *AdminClient) StartBackup(backup *fdbv1beta2.FoundationDBBackup) er
 	if client.mockError != nil {
 		return client.mockError
 	}
+	backupURL, err := backup.BackupURL()
+	if err != nil {
+		return err
+	}
 
 	backupDetails := fdbv1beta2.FoundationDBBackupStatusBackupDetails{
-		URL:     backup.BackupURL(),
+		URL:     backupURL,
 		Running: true,
 	}
 
@@ -945,7 +949,11 @@ func (client *AdminClient) ModifyBackup(backup *fdbv1beta2.FoundationDBBackup) e
 
 	currentBackup := client.Backups["default"]
 	currentBackup.SnapshotPeriodSeconds = backup.SnapshotPeriodSeconds()
-	currentBackup.URL = backup.BackupURL()
+	backupURL, err := backup.BackupURL()
+	if err != nil {
+		return err
+	}
+	currentBackup.URL = backupURL
 	client.Backups["default"] = currentBackup
 	return nil
 }
@@ -960,14 +968,22 @@ func (client *AdminClient) StopBackup(backup *fdbv1beta2.FoundationDBBackup) err
 	}
 
 	for tag, currentBackup := range client.Backups {
-		if currentBackup.URL == backup.BackupURL() {
+		backupURL, err := backup.BackupURL()
+		if err != nil {
+			return err
+		}
+		if currentBackup.URL == backupURL {
 			currentBackup.Running = false
 			client.Backups[tag] = currentBackup
 			return nil
 		}
 	}
 
-	return fmt.Errorf("no backup found for URL %s", backup.BackupURL())
+	backupURL, err := backup.BackupURL()
+	if err != nil {
+		return err
+	}
+	return fmt.Errorf("no backup found for URL %s", backupURL)
 }
 
 // GetBackupStatus gets the status of the current backup.

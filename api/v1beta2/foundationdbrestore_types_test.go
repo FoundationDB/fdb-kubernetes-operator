@@ -31,7 +31,9 @@ var _ = Describe("[api] FoundationDBRestore", func() {
 		DescribeTable(
 			"should generate the correct backup URL",
 			func(restore FoundationDBRestore, expected string) {
-				Expect(restore.BackupURL()).To(Equal(expected))
+				backupURL, err := restore.BackupURL()
+				Expect(backupURL).To(Equal(expected))
+				Expect(err).NotTo(HaveOccurred())
 			},
 			Entry("A restore with a blobstore config",
 				FoundationDBRestore{
