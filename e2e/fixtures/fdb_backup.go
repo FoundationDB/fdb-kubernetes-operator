@@ -274,10 +274,12 @@ func (fdbBackup *FdbBackup) Pause() {
 
 // RunDescribeCommand run the describe command on the backup pod.
 func (fdbBackup *FdbBackup) RunDescribeCommand() string {
+	backupURL, err := fdbBackup.backup.BackupURL()
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	backupPod := fdbBackup.GetBackupPod()
 	command := fmt.Sprintf(
-		"fdbbackup describe -d \"%s\" --json",
-		fdbBackup.backup.BackupURL())
+		"fdbbackup describe -d \"%s\" --json", backupURL,
+	)
 	out, _, err := fdbBackup.fdbCluster.ExecuteCmdOnPod(
 		*backupPod,
 		fdbv1beta2.MainContainerName,
