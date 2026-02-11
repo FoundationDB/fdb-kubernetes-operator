@@ -54,17 +54,6 @@ BackupState defines the desired state of a backup
 
 BackupType defines the backup type that should be used for the backup.
 
-**Valid values:**
-- `backup_agent` (default): Traditional backup agents fully managed by the operator. The operator handles all backup lifecycle operations including start, stop, pause, and configuration changes.
-- `partitioned_log`: Uses the new partitioned log backup system. The FoundationDBCluster resource creates and manages backup worker processes instead of separate backup agent pods. See the [FDB design doc](https://github.com/apple/foundationdb/blob/main/design/backup_v2_partitioned_logs.md) for details.
-- `unmanaged`: Hybrid mode where the operator manages the backup agent deployment and infrastructure, but you manually control all backup operations (start, stop, pause, modify) using `fdbbackup` commands. Useful for custom workflows or integration with external backup management tools.
-
-**Important notes:**
-- Migration between backup types is not currently supported
-- When using `unmanaged` type, fields like `backupState`, `snapshotPeriodSeconds`, and `backupMode` are ignored
-
-See the [Backup Types documentation](./manual/backup.md#backup-types) for detailed usage information.
-
 [Back to TOC](#table-of-contents)
 
 ## BlobStoreConfiguration
@@ -124,7 +113,7 @@ FoundationDBBackupSpec describes the desired state of the backup for a cluster.
 | mainContainer | MainContainer defines customization for the foundationdb container. Note: The enableTls setting is ignored for backup agents - use TLS environment variables instead. | ContainerOverrides | false |
 | sidecarContainer | SidecarContainer defines customization for the foundationdb-kubernetes-sidecar container. | ContainerOverrides | false |
 | imageType | ImageType defines the image type that should be used for the FoundationDBCluster deployment. When the type is set to \"unified\" the deployment will use the new fdb-kubernetes-monitor. Otherwise the main container and the sidecar container will use different images. Default: split | *ImageType | false |
-| backupType | BackupType defines the backup type that should be used for the backup. Valid values: `backup_agent` (default - fully managed), `partitioned_log` (cluster-managed workers), or `unmanaged` (operator manages infrastructure only, you control backup operations manually). When set to `partitioned_log`, the FoundationDBCluster creates and manages the additional backup worker processes. When set to `unmanaged`, the operator only manages the backup agent pods while you manually control all backup operations using fdbbackup commands. A migration to a different backup type is not yet supported in the operator. Default: \"backup_agent\". | *[BackupType](#backuptype) | false |
+| backupType | BackupType defines the backup type that should be used for the backup. When the BackupType is set to BackupTypePartitionedLog, it's expected that the FoundationDBCluster creates and manages the additional backup worker processes. A migration to a different backup type is not yet supported in the operator. Default: \"backup_agent\". | *[BackupType](#backuptype) | false |
 | deletionPolicy | DeletionPolicy defines the deletion policy for this backup. The BackupDeletionPolicy defines the actions that should be taken when the FoundationDBBackup resource has a deletion timestamp. | *[BackupDeletionPolicy](#backupdeletionpolicy) | false |
 | backupMode | BackupMode defines the backup mode that should be used for the backup. When the BackupMode is set to BackupModeOneTime, the backup will create a single snapshot and then stop. When set to BackupModeContinuous, the backup will run continuously, creating snapshots at regular intervals defined by SnapshotPeriodSeconds. Default: \"Continuous\". | *[BackupMode](#backupmode) | false |
 
