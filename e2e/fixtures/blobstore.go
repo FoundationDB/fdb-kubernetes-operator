@@ -220,6 +220,19 @@ func (factory *Factory) waitUntilBlobstorePodsRunning(namespace string) {
 			Get(context.Background(), client.ObjectKey{Name: seaweedFSName, Namespace: namespace}, deployment),
 	).NotTo(gomega.HaveOccurred())
 
+	factory.AddShutdownHook(func() error {
+		err := factory.GetControllerRuntimeClient().Delete(context.Background(), deployment)
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				return nil
+			}
+
+			return err
+		}
+
+		return nil
+	})
+
 	expectedReplicas := int(ptr.Deref(deployment.Spec.Replicas, 1))
 	gomega.Eventually(func(g gomega.Gomega) int {
 		pods := factory.getBlobstorePods(namespace)

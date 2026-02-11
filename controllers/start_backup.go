@@ -36,6 +36,10 @@ func (s startBackup) reconcile(
 	r *FoundationDBBackupReconciler,
 	backup *fdbv1beta2.FoundationDBBackup,
 ) *requeue {
+	if backup.GetBackupType() == fdbv1beta2.BackupTypeUnmanaged {
+		return nil
+	}
+
 	if !backup.ShouldRun() ||
 		(backup.Status.BackupDetails != nil && backup.Status.BackupDetails.Running) {
 		return nil

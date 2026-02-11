@@ -25,15 +25,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strconv"
 	"time"
-
-	"k8s.io/utils/ptr"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -47,10 +47,14 @@ type FdbBackup struct {
 type FdbBackupConfiguration struct {
 	// BackupType defines the backup type that should be used for this backup.
 	BackupType *fdbv1beta2.BackupType
+	// BackupState defines the state the backup should be started with.
+	BackupState *fdbv1beta2.BackupState
 	// EncryptionEnabled determines whether backup encryption should be used.
 	EncryptionEnabled bool
-	//BackupMode defines the backup mode that should be used.
+	// BackupMode defines the backup mode that should be used.
 	BackupMode *fdbv1beta2.BackupMode
+	// CustomParameters defines the custom parameters to add to the backup deployment.
+	CustomParameters fdbv1beta2.FoundationDBCustomParameters
 }
 
 // CreateBackupForCluster will create a FoundationDBBackup for the provided cluster.
@@ -58,6 +62,18 @@ func (factory *Factory) CreateBackupForCluster(
 	fdbCluster *FdbCluster,
 	config *FdbBackupConfiguration,
 ) *FdbBackup {
+	return factory.CreateBackupForClusterFromSpec(
+		factory.GenerateBackupSpecForCluster(fdbCluster, config),
+		fdbCluster,
+	)
+}
+
+// GenerateBackupSpecForCluster will generate the fdbv1beta2.FoundationDBBackup spec for the provided configuration
+// and FdbCluster.
+func (factory *Factory) GenerateBackupSpecForCluster(
+	fdbCluster *FdbCluster,
+	config *FdbBackupConfiguration,
+) *fdbv1beta2.FoundationDBBackup {
 	// For more information how the backup system with the operator is working please look at
 	// the operator documentation: https://github.com/FoundationDB/fdb-kubernetes-operator/v2/blob/master/docs/manual/backup.md
 	fdbVersion := factory.GetFDBVersion()
@@ -86,10 +102,8 @@ func (factory *Factory) CreateBackupForCluster(
 			},
 			DeletionPolicy:   ptr.To(fdbv1beta2.BackupDeletionPolicyCleanup),
 			BackupType:       config.BackupType,
-			CustomParameters: fdbv1beta2.FoundationDBCustomParameters{
-				// Enable if you want to get http debug logs.
-				// "knob_http_verbose_level=10",
-			},
+			BackupState:      ptr.Deref(config.BackupState, fdbv1beta2.BackupStateRunning),
+			CustomParameters: config.CustomParameters,
 			BackupMode:       config.BackupMode,
 			ImageType:        fdbCluster.cluster.Spec.ImageType,
 			MainContainer:    fdbCluster.cluster.Spec.MainContainer,
@@ -115,6 +129,14 @@ func (factory *Factory) CreateBackupForCluster(
 								{
 									Name:  "FDB_BLOB_CREDENTIALS",
 									Value: "/tmp/backup-credentials/credentials",
+								},
+								{
+									Name: fdbv1beta2.EnvNameMachineID,
+									ValueFrom: &corev1.EnvVarSource{
+										FieldRef: &corev1.ObjectFieldSelector{
+											FieldPath: "metadata.name",
+										},
+									},
 								},
 							},
 							VolumeMounts: []corev1.VolumeMount{
@@ -172,10 +194,26 @@ func (factory *Factory) CreateBackupForCluster(
 		backup.Spec.EncryptionKeyPath = "/tmp/encryption-key/key.bin"
 	}
 
-	gomega.Expect(factory.CreateIfAbsent(backup)).NotTo(gomega.HaveOccurred())
+	return backup
+}
 
+// CreateBackupForClusterFromSpec creates a FdbBackup. This method can be used in combination with the GenerateBackupSpecForCluster method.
+// In general this should only be used for special cases that are not covered by changing the FdbBackupConfiguration.
+func (factory *Factory) CreateBackupForClusterFromSpec(
+	spec *fdbv1beta2.FoundationDBBackup,
+	fdbCluster *FdbCluster,
+) *FdbBackup {
+	startTime := time.Now()
+	defer func() {
+		log.Println(
+			"FoundationDB backup created in",
+			time.Since(startTime).String(),
+		)
+	}()
+
+	gomega.Expect(factory.CreateIfAbsent(spec)).NotTo(gomega.HaveOccurred())
 	curBackup := &FdbBackup{
-		backup:     backup,
+		backup:     spec,
 		fdbCluster: fdbCluster,
 	}
 
@@ -186,7 +224,19 @@ func (factory *Factory) CreateBackupForCluster(
 	})
 
 	curBackup.WaitForReconciliation()
+
 	return curBackup
+}
+
+// GetBackup fetch the current state of the fdbv1beta2.FoundationDBBackup and return it.
+func (fdbBackup *FdbBackup) GetBackup() *fdbv1beta2.FoundationDBBackup {
+	objectKey := client.ObjectKeyFromObject(fdbBackup.backup)
+	foundationDBBackup := &fdbv1beta2.FoundationDBBackup{}
+	gomega.Expect(fdbBackup.fdbCluster.factory.GetControllerRuntimeClient().
+		Get(context.Background(), objectKey, foundationDBBackup)).NotTo(gomega.HaveOccurred())
+
+	fdbBackup.backup = foundationDBBackup
+	return fdbBackup.backup
 }
 
 func (fdbBackup *FdbBackup) setState(state fdbv1beta2.BackupState) {
@@ -333,4 +383,31 @@ func (fdbBackup *FdbBackup) Destroy() {
 			Get(context.Background(), client.ObjectKeyFromObject(fdbBackup.backup), backup)
 		g.Expect(k8serrors.IsNotFound(err)).To(gomega.BeTrue())
 	}).WithTimeout(10 * time.Minute).WithPolling(1 * time.Second).To(gomega.Succeed())
+}
+
+// ForceReconcile will add an annotation with the current timestamp on the FoundationDBBackup resource to make sure
+// the operator reconciliation loop is triggered. This is used to speed up some test cases.
+func (fdbBackup *FdbBackup) ForceReconcile() {
+	log.Printf("ForceReconcile: Status Generations=%s, Metadata Generation=%d",
+		ToJSON(fdbBackup.backup.Status.Generations),
+		fdbBackup.backup.ObjectMeta.Generation)
+
+	patch := client.MergeFrom(fdbBackup.backup.DeepCopy())
+	if fdbBackup.backup.Annotations == nil {
+		fdbBackup.backup.Annotations = make(map[string]string)
+	}
+	fdbBackup.backup.Annotations["foundationdb.org/reconcile"] = strconv.FormatInt(
+		time.Now().UnixNano(),
+		10,
+	)
+
+	// This will apply an Annotation to the object which will trigger the reconcile loop.
+	// This should speed up the reconcile phase.
+	err := fdbBackup.fdbCluster.getClient().Patch(
+		context.Background(),
+		fdbBackup.backup,
+		patch)
+	if err != nil {
+		log.Println("error patching annotation to force reconcile, error:", err.Error())
+	}
 }

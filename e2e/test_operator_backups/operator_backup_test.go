@@ -104,36 +104,43 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 		})
 
 		When("the default backup system is used", func() {
-			var useRestorableVersion bool
+			var useRestorableVersion, skipRestore bool
 			var backupConfiguration *fixtures.FdbBackupConfiguration
 			var currentRestorableVersion *uint64
-			var skipRestore bool
 
 			JustBeforeEach(func() {
-				log.Println("creating backup for cluster")
+				log.Printf(
+					"creating backup for cluster, skipRestore: %t, useRestorableVersion: %t\n",
+					skipRestore,
+					useRestorableVersion,
+				)
 				var restorableVersion uint64
+				keyValues = fdbCluster.GenerateRandomValues(10, prefix)
 
-				if ptr.Deref(
+				switch ptr.Deref(
 					backupConfiguration.BackupMode,
 					fdbv1beta2.BackupModeContinuous,
-				) == fdbv1beta2.BackupModeContinuous {
+				) {
+				case fdbv1beta2.BackupModeContinuous:
 					// For the continuous backup we want to start the backup first and then write some data.
 					backup = factory.CreateBackupForCluster(fdbCluster, backupConfiguration)
-					keyValues = fdbCluster.GenerateRandomValues(10, prefix)
 					fdbCluster.WriteKeyValues(keyValues)
-					restorableVersion = backup.WaitForRestorableVersion(
-						fdbCluster.GetClusterVersion(),
-					)
-					backup.Stop()
-				} else {
+					if backup.GetBackup().GetBackupType() != fdbv1beta2.BackupTypeUnmanaged {
+						restorableVersion = backup.WaitForRestorableVersion(
+							fdbCluster.GetClusterVersion(),
+						)
+						backup.Stop()
+					}
+				case fdbv1beta2.BackupModeOneTime:
 					// In case of the one time backup we have to first write the keys and then do the backup.
-					keyValues = fdbCluster.GenerateRandomValues(10, prefix)
 					fdbCluster.WriteKeyValues(keyValues)
 					currentVersion := fdbCluster.GetClusterVersion()
 					backup = factory.CreateBackupForCluster(fdbCluster, backupConfiguration)
-					restorableVersion = backup.WaitForRestorableVersion(
-						currentVersion,
-					)
+					if backup.GetBackup().GetBackupType() != fdbv1beta2.BackupTypeUnmanaged {
+						restorableVersion = backup.WaitForRestorableVersion(
+							currentVersion,
+						)
+					}
 				}
 
 				// Delete the data and restore it again.
@@ -146,8 +153,31 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 				}
 			})
 
+			When("the backup should not be managed", func() {
+				BeforeEach(func() {
+					// The backup is not managed by the operator, so we can skip it.
+					skipRestore = true
+					backupConfiguration = &fixtures.FdbBackupConfiguration{
+						BackupType: ptr.To(fdbv1beta2.BackupTypeUnmanaged),
+					}
+				})
+
+				When("the backup was not started externally", func() {
+					It(
+						"should only have data for the backup deployment",
+						func() {
+							currentBackup := backup.GetBackup()
+							Expect(currentBackup.Status.DeploymentConfigured).Should(BeTrue())
+							Expect(currentBackup.Status.BackupDetails.Running).Should(BeFalse())
+							Expect(currentBackup.Status.BackupDetails.Restorable).Should(BeFalse())
+						},
+					)
+				})
+			})
+
 			When("the continuous backup mode is used", func() {
 				BeforeEach(func() {
+					skipRestore = false
 					backupConfiguration = &fixtures.FdbBackupConfiguration{
 						BackupType: ptr.To(fdbv1beta2.BackupTypeDefault),
 						BackupMode: ptr.To(fdbv1beta2.BackupModeContinuous),
@@ -216,6 +246,7 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 
 			When("the one time backup mode is used", func() {
 				BeforeEach(func() {
+					skipRestore = false
 					backupConfiguration = &fixtures.FdbBackupConfiguration{
 						BackupType: ptr.To(fdbv1beta2.BackupTypeDefault),
 						BackupMode: ptr.To(fdbv1beta2.BackupModeOneTime),

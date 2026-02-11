@@ -2197,7 +2197,7 @@ type FoundationDBClusterFaultDomain struct {
 	// Key provides a topology key for the fault domain to replicate across.
 	Key string `json:"key,omitempty"`
 
-	// Value provides a harcoded value to use for the zoneid for the pods.
+	// Value provides a hardcoded value to use for the zoneid for the pods.
 	Value string `json:"value,omitempty"`
 
 	// ValueFrom provides a field selector to use as the source of the fault

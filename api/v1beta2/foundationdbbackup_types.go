@@ -63,6 +63,9 @@ type FoundationDBBackupSpec struct {
 	// The cluster this backup is for.
 	ClusterName string `json:"clusterName"`
 
+	// DataCenter defines the data center where these processes are running.
+	DataCenter string `json:"dataCenter,omitempty"`
+
 	// +kubebuilder:validation:Enum=Running;Stopped;Paused
 	// The desired state of the backup.
 	// The default is Running.
@@ -126,7 +129,7 @@ type FoundationDBBackupSpec struct {
 	// backup worker processes. A migration to a different backup type is not yet supported in the operator.
 	// Default: "backup_agent".
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:validation:Enum=backup_agent;partitioned_log
+	// +kubebuilder:validation:Enum=backup_agent;partitioned_log;unmanaged
 	// +kubebuilder:default:=backup_agent
 	BackupType *BackupType `json:"backupType,omitempty"`
 
@@ -158,6 +161,10 @@ const (
 	// BackupTypePartitionedLog refers to the new partitioned log backup system, see
 	// https://github.com/apple/foundationdb/blob/main/design/backup_v2_partitioned_logs.md.
 	BackupTypePartitionedLog BackupType = "partitioned_log"
+
+	// BackupTypeUnmanaged is a special backup type. If this backup type is used the operator will only manage
+	// the backup agent pods but not manage the actual backup.
+	BackupTypeUnmanaged BackupType = "unmanaged"
 )
 
 // BackupDeletionPolicy defines the deletion policy when the backup is deleted.
@@ -395,27 +402,30 @@ func (backup *FoundationDBBackup) CheckReconciliation() (bool, error) {
 		reconciled = false
 	}
 
-	isRunning := backup.Status.BackupDetails != nil && backup.Status.BackupDetails.Running
-	isPaused := backup.Status.BackupDetails != nil && backup.Status.BackupDetails.Paused
+	// Only check the backup state if the operator should manage the backups.
+	if backup.GetBackupType() != BackupTypeUnmanaged {
+		isRunning := backup.Status.BackupDetails != nil && backup.Status.BackupDetails.Running
+		isPaused := backup.Status.BackupDetails != nil && backup.Status.BackupDetails.Paused
 
-	if backup.ShouldRun() && !isRunning {
-		backup.Status.Generations.NeedsBackupStart = backup.Generation
-		reconciled = false
-	}
+		if backup.ShouldRun() && !isRunning {
+			backup.Status.Generations.NeedsBackupStart = backup.Generation
+			reconciled = false
+		}
 
-	if !backup.ShouldRun() && isRunning {
-		backup.Status.Generations.NeedsBackupStop = backup.Generation
-		reconciled = false
-	}
+		if !backup.ShouldRun() && isRunning {
+			backup.Status.Generations.NeedsBackupStop = backup.Generation
+			reconciled = false
+		}
 
-	if backup.ShouldBePaused() != isPaused {
-		backup.Status.Generations.NeedsBackupPauseToggle = backup.Generation
-		reconciled = false
-	}
+		if backup.ShouldBePaused() != isPaused {
+			backup.Status.Generations.NeedsBackupPauseToggle = backup.Generation
+			reconciled = false
+		}
 
-	if isRunning && backup.NeedsBackupReconfiguration() {
-		backup.Status.Generations.NeedsBackupReconfiguration = backup.Generation
-		reconciled = false
+		if isRunning && backup.NeedsBackupReconfiguration() {
+			backup.Status.Generations.NeedsBackupReconfiguration = backup.Generation
+			reconciled = false
+		}
 	}
 
 	if reconciled {
@@ -429,11 +439,7 @@ func (backup *FoundationDBBackup) CheckReconciliation() (bool, error) {
 
 // GetBackupType returns the backup type for the backup.
 func (backup *FoundationDBBackup) GetBackupType() BackupType {
-	if backup.Spec.BackupType != nil {
-		return *backup.Spec.BackupType
-	}
-
-	return BackupTypeDefault
+	return ptr.Deref(backup.Spec.BackupType, BackupTypeDefault)
 }
 
 // GetAllowTagOverride returns the bool value for AllowTagOverride
@@ -467,12 +473,7 @@ func (backup *FoundationDBBackup) GetBackupMode() BackupMode {
 
 // UseUnifiedImage returns true if the unified image should be used.
 func (backup *FoundationDBBackup) UseUnifiedImage() bool {
-	imageType := ImageTypeUnified
-	if backup.Spec.ImageType != nil {
-		imageType = *backup.Spec.ImageType
-	}
-
-	return imageType == ImageTypeUnified
+	return ptr.Deref(backup.Spec.ImageType, ImageTypeUnified) == ImageTypeUnified
 }
 
 // getURL returns the blobstore URL for the specific configuration
