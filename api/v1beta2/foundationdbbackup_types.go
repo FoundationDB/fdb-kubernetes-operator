@@ -337,7 +337,7 @@ func (backup *FoundationDBBackup) BackupURL() (string, error) {
 	return backup.Spec.BlobStoreConfiguration.getURL(backup.BackupName(), backup.Bucket())
 }
 
-// BaseURL This a shortened Backup URL which looks just like a Backup URL but without
+// BaseURL returns the base URL. This a shortened Backup URL which looks just like a Backup URL but without
 // the backup <name> so that the list command will discover and list all the backups in the bucket.
 func (backup *FoundationDBBackup) BaseURL() (string, error) {
 	return backup.Spec.BlobStoreConfiguration.getURL("", backup.Bucket())
@@ -360,9 +360,7 @@ type FDBBackupDescribe struct {
 	// and can be used to restore a database.
 	Restorable *bool `json:"Restorable,omitempty"`
 
-	// Partitioned indicates whether the backup is partitioned.
-	// Partitioned backups store data across multiple subdirectories
-	// or shards for scalability.
+	// Partitioned indicates if the portioned_log backup system is used.
 	Partitioned *bool `json:"Partitioned,omitempty"`
 
 	// FileLevelEncryption indicates whether file-level encryption
