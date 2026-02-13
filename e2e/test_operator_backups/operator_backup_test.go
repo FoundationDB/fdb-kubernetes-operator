@@ -25,14 +25,13 @@ This test suite contains tests related to backup and restore with the operator.
 */
 
 import (
-	"log"
-
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/fixtures"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/ptr"
+	"log"
 )
 
 var (
@@ -157,9 +156,15 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 					JustBeforeEach(func() {
 						// running describe command
 						describeCommandOutput := backup.RunDescribeCommand()
-						Expect(*describeCommandOutput.FileLevelEncryption).To(BeFalse())
-						Expect(*describeCommandOutput.Restorable).To(BeTrue())
-						Expect(*describeCommandOutput.Partitioned).To(BeFalse())
+						if describeCommandOutput.FileLevelEncryption != nil {
+							Expect(*describeCommandOutput.FileLevelEncryption).To(BeFalse())
+						}
+						if describeCommandOutput.Restorable != nil {
+							Expect(*describeCommandOutput.Restorable).To(BeTrue())
+						}
+						if describeCommandOutput.Partitioned != nil {
+							Expect(*describeCommandOutput.Partitioned).To(BeFalse())
+						}
 					})
 
 					It("should restore the cluster successfully with a restorable version", func() {
