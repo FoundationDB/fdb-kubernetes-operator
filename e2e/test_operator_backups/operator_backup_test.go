@@ -187,15 +187,9 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 					JustBeforeEach(func() {
 						// running describe command
 						describeCommandOutput := backup.RunDescribeCommand()
-						if describeCommandOutput.FileLevelEncryption != nil {
-							Expect(*describeCommandOutput.FileLevelEncryption).To(BeFalse())
-						}
-						if describeCommandOutput.Restorable != nil {
-							Expect(*describeCommandOutput.Restorable).To(BeTrue())
-						}
-						if describeCommandOutput.Partitioned != nil {
-							Expect(*describeCommandOutput.Partitioned).To(BeFalse())
-						}
+						Expect(*describeCommandOutput.FileLevelEncryption).To(BeFalse())
+						Expect(*describeCommandOutput.Restorable).To(BeTrue())
+						Expect(*describeCommandOutput.Partitioned).To(BeFalse())
 					})
 
 					It("should restore the cluster successfully with a restorable version", func() {
