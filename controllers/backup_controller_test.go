@@ -321,7 +321,7 @@ var _ = Describe("backup_controller", func() {
 				Expect(deployments.Items[0].ObjectMeta.Annotations).To(Equal(map[string]string{
 					"fdb-test-1":                         "test-value-1",
 					"fdb-test-2":                         "test-value-2",
-					"foundationdb.org/last-applied-spec": "dc5dd30ffaff204b86233b106e8521c1164e4297a5806f8ad172caf449e9e285",
+					"foundationdb.org/last-applied-spec": "5250c19ca170acf598f0e1437383ac279876e5d08db4d9dfd2b8121dac05e419",
 				}))
 			})
 		})

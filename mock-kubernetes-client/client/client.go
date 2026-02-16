@@ -268,6 +268,15 @@ func getMapFromObject(object ctrlClient.Object) (map[string]interface{}, error) 
 	return newMap, nil
 }
 
+// Apply applies the given apply configuration to the Kubernetes cluster.
+func (client *MockClient) Apply(
+	ctx context.Context,
+	obj runtime.ApplyConfiguration,
+	opts ...ctrlClient.ApplyOption,
+) error {
+	return client.fakeClient.Apply(ctx, obj, opts...)
+}
+
 func (client *MockClient) hasSpecChanges(
 	existingObject ctrlClient.Object,
 	newObject ctrlClient.Object,
@@ -389,6 +398,15 @@ func (client MockStatusClient) Patch(
 ) error {
 	// Currently the SSA patch type is not supported in the fake client: https://github.com/kubernetes/client-go/issues/992
 	return client.fakeClient.Status().Patch(ctx, object, patch, options...)
+}
+
+// Apply applies the given apply configurations subresource.
+func (client MockStatusClient) Apply(
+	ctx context.Context,
+	object runtime.ApplyConfiguration,
+	options ...ctrlClient.SubResourceApplyOption,
+) error {
+	return client.fakeClient.Status().Apply(ctx, object, options...)
 }
 
 // Status returns a writer for updating status.
