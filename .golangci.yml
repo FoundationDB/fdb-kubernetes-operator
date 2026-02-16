@@ -99,6 +99,11 @@ linters:
         linters:
           - staticcheck
         text: 'QF1001: could apply De Morgan'
+      # TODO (j-scheuermann): https://github.com/FoundationDB/fdb-kubernetes-operator/issues/2428
+      - path: (.+)\.go$
+        linters:
+          - staticcheck
+        text: 'SA1019: client.Apply is deprecated'
     paths:
       - zz_generated.*\.go$
       - third_party$
