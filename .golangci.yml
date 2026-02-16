@@ -104,6 +104,11 @@ linters:
         linters:
           - staticcheck
         text: 'SA1019: client.Apply is deprecated'
+      # TODO (j-scheuermann): https://github.com/FoundationDB/fdb-kubernetes-operator/issues/2428
+      - path: (.+)\.go$
+        linters:
+          - staticcheck
+        text: 'SA1019: mgr.GetEventRecorderFor is deprecated'
     paths:
       - zz_generated.*\.go$
       - third_party$
