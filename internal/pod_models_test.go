@@ -3627,7 +3627,7 @@ var _ = Describe("pod_models", func() {
 					fdbv1beta2.BackupDeploymentLabel: string(cluster.ObjectMeta.UID),
 				}))
 				Expect(deployment.ObjectMeta.Annotations).To(Equal(map[string]string{
-					"foundationdb.org/last-applied-spec": "dc5dd30ffaff204b86233b106e8521c1164e4297a5806f8ad172caf449e9e285",
+					"foundationdb.org/last-applied-spec": "5250c19ca170acf598f0e1437383ac279876e5d08db4d9dfd2b8121dac05e419",
 				}))
 			})
 
@@ -4000,7 +4000,7 @@ var _ = Describe("pod_models", func() {
 					"foundationdb.org/backup-for": string(cluster.ObjectMeta.UID),
 				}))
 				Expect(deployment.ObjectMeta.Annotations).To(Equal(map[string]string{
-					"foundationdb.org/last-applied-spec": "4d34d88c10a159ce110efa6ab01ea1a8a04ad2bf10bd2ad6c1c81a02a94b075f",
+					"foundationdb.org/last-applied-spec": "a8b98f7f18dc54eda28869efedf2718393b73fb8b0980cd2e88fb5153fbcd33b",
 				}))
 
 				Expect(
