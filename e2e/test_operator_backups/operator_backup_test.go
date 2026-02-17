@@ -187,7 +187,9 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 					JustBeforeEach(func() {
 						// running describe command
 						describeCommandOutput := backup.RunDescribeCommand()
-						Expect(*describeCommandOutput.FileLevelEncryption).To(BeFalse())
+						if factory.GetFDBVersion().SupportsBackupEncryption() {
+							Expect(*describeCommandOutput.FileLevelEncryption).To(BeFalse())
+						}
 						Expect(*describeCommandOutput.Restorable).To(BeTrue())
 						Expect(*describeCommandOutput.Partitioned).To(BeFalse())
 					})
