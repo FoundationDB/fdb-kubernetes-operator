@@ -760,35 +760,12 @@ func validateProcessGroup(
 		return nil
 	}
 
-	specHash, err := internal.GetPodSpecHash(cluster, processGroupStatus, nil)
+	correctPodSpec, err := podSpecIsCorrect(ctx, r, cluster, pod, processGroupStatus, logger)
 	if err != nil {
 		return err
 	}
 
-	// Check here if the Pod spec matches the desired Pod spec.
-	incorrectPodSpec := specHash != pod.Annotations[fdbv1beta2.LastSpecKey]
-	if !incorrectPodSpec {
-		updated, err := r.PodLifecycleManager.PodIsUpdated(ctx, r, cluster, pod)
-		if err != nil {
-			return err
-		}
-		incorrectPodSpec = !updated
-		if incorrectPodSpec {
-			logger.Info(
-				"IncorrectPodSpec",
-				"currentSpecHash",
-				pod.Annotations[fdbv1beta2.LastSpecKey],
-				"desiredSpecHash",
-				specHash,
-				"updated",
-				updated,
-				"incorrectPodSpec",
-				incorrectPodSpec,
-			)
-		}
-	}
-
-	processGroupStatus.UpdateCondition(fdbv1beta2.IncorrectPodSpec, incorrectPodSpec)
+	processGroupStatus.UpdateCondition(fdbv1beta2.IncorrectPodSpec, !correctPodSpec)
 
 	// Check the sidecar image, to ensure the sidecar is running with the desired image.
 	sidecarImage, err := internal.GetSidecarImage(cluster, processGroupStatus.ProcessClass)
@@ -1287,4 +1264,110 @@ func updateFaultDomains(
 
 		status.ProcessGroups[idx].FaultDomain = fdbv1beta2.FaultDomain(faultDomain)
 	}
+}
+
+// podSpecIsCorrect returns if the desired Pod spec and the current Pod spec are matching.
+func podSpecIsCorrect(ctx context.Context,
+	r *FoundationDBClusterReconciler,
+	cluster *fdbv1beta2.FoundationDBCluster,
+	pod *corev1.Pod,
+	processGroupStatus *fdbv1beta2.ProcessGroupStatus,
+	logger logr.Logger,
+) (bool, error) {
+	desiredPodSpec, err := internal.GetPodSpec(cluster, processGroupStatus)
+	if err != nil {
+		return false, err
+	}
+
+	specHash, err := internal.GetPodSpecHash(cluster, processGroupStatus, desiredPodSpec)
+	if err != nil {
+		return false, err
+	}
+
+	// Check here if the Pod spec matches the desired Pod spec, if not we know that change are pending, and we don't
+	// have to preform additional checks.
+	correctPodSpec := specHash == pod.Annotations[fdbv1beta2.LastSpecKey]
+	if !correctPodSpec {
+		logger.Info(
+			"IncorrectPodSpec",
+			"currentSpecHash",
+			pod.Annotations[fdbv1beta2.LastSpecKey],
+			"desiredSpecHash",
+			specHash,
+			"reason",
+			"pod spec hash mismatch",
+		)
+
+		return false, nil
+	}
+
+	// Check if any of the mutable fields of the Pod have been changed outside the operators control, e.g.
+	// by using kubectl.
+	if !mutablePodFieldsAreCorrect(logger, desiredPodSpec, pod.Spec.DeepCopy()) {
+		logger.Info(
+			"IncorrectPodSpec",
+			"currentSpecHash",
+			pod.Annotations[fdbv1beta2.LastSpecKey],
+			"desiredSpecHash",
+			specHash,
+			"reason",
+			"mutable field in pod spec was updated",
+		)
+
+		return false, nil
+	}
+
+	// Check if the Pod is pending updates, this method will return true in the default implementation.
+	updated, err := r.PodLifecycleManager.PodIsUpdated(ctx, r, cluster, pod)
+	if err != nil {
+		return updated, err
+	}
+
+	if !updated {
+		logger.Info(
+			"IncorrectPodSpec",
+			"currentSpecHash",
+			pod.Annotations[fdbv1beta2.LastSpecKey],
+			"desiredSpecHash",
+			specHash,
+			"reason",
+			"pod is pending updates",
+		)
+
+		return false, nil
+	}
+
+	return true, nil
+}
+
+// mutablePodFieldsAreCorrect checks if any of the pods mutable fields have been changed, see:
+// https://kubernetes.io/docs/concepts/workloads/pods/#pod-update-and-replacement
+func mutablePodFieldsAreCorrect(
+	logger logr.Logger,
+	desiredPodSpec *corev1.PodSpec,
+	currentPodSpec *corev1.PodSpec,
+) bool {
+	for idx, container := range desiredPodSpec.Containers {
+		logger.V(1).
+			Info("compare images for container", "desiredContainerName", container.Name, "desiredImage", container.Name, "currentContainerName", currentPodSpec.Containers[idx].Name, "currentImage", currentPodSpec.Containers[idx].Image)
+		if !equality.Semantic.DeepEqual(container.Image, currentPodSpec.Containers[idx].Image) {
+			return false
+		}
+	}
+
+	for idx, container := range desiredPodSpec.InitContainers {
+		logger.V(1).
+			Info("compare images for init container", "desiredContainerName", container.Name, "desiredImage", container.Name, "currentContainerName", currentPodSpec.Containers[idx].Name, "currentImage", currentPodSpec.Containers[idx].Image)
+		if !equality.Semantic.DeepEqual(container.Image, currentPodSpec.InitContainers[idx].Image) {
+			return false
+		}
+	}
+
+	// We ignore the spec.schedulingGates in the comparison here. Otherwise, a component could make the Pod ready for
+	// being scheduled by removing the scheduling gate which then would case a recreation of the Pod. This would
+	// cause the Pod to be stuck in pending or recreation. We also ignore the `Tolerations`, `ActiveDeadlineSeconds`
+	// and `TerminationGracePeriodSeconds`. Those have some restrictions on the update anyway.
+	// We could make use of the mutability of the tolerations field and remove the need for a Pod recreation when only
+	// tolerations are added.
+	return true
 }
