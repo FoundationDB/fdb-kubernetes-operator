@@ -25,7 +25,6 @@ This test suite contains tests related to backup and restore with the operator.
 */
 
 import (
-	"encoding/json"
 	"log"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
@@ -185,6 +184,16 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 				})
 
 				When("no restorable version is specified", func() {
+					JustBeforeEach(func() {
+						// running describe command
+						describeCommandOutput := backup.RunDescribeCommand()
+						if factory.GetFDBVersion().SupportsBackupEncryption() {
+							Expect(*describeCommandOutput.FileLevelEncryption).To(BeFalse())
+						}
+						Expect(*describeCommandOutput.Restorable).To(BeTrue())
+						Expect(*describeCommandOutput.Partitioned).To(BeFalse())
+					})
+
 					It("should restore the cluster successfully with a restorable version", func() {
 						Expect(fdbCluster.GetRange([]byte{prefix}, 25, 60)).Should(Equal(keyValues))
 					})
@@ -201,20 +210,21 @@ var _ = Describe("Operator Backup", Label("e2e", "pr"), func() {
 						backupConfiguration.EncryptionEnabled = true
 					})
 
-					When("running describe command", func() {
+					When("running fdbbackup commands", func() {
 						BeforeEach(func() {
 							skipRestore = true
 						})
 
 						JustBeforeEach(func() {
+							// running describe command
 							describeCommandOutput := backup.RunDescribeCommand()
+							Expect(*describeCommandOutput.FileLevelEncryption).To(BeTrue())
+							Expect(*describeCommandOutput.Restorable).To(BeTrue())
+							Expect(*describeCommandOutput.Partitioned).To(BeFalse())
 
-							var describeData map[string]interface{}
-							err := json.Unmarshal([]byte(describeCommandOutput), &describeData)
-							Expect(err).NotTo(HaveOccurred())
-
-							fileLevelEncryption := describeData["FileLevelEncryption"].(bool)
-							Expect(fileLevelEncryption).To(BeTrue())
+							// running list command
+							listCommandOutput := backup.RunListCommand()
+							Expect(listCommandOutput).To(HaveLen(1))
 						})
 
 						It(
