@@ -128,7 +128,7 @@ func (restore *FoundationDBRestore) BackupName() string {
 }
 
 // BackupURL gets the destination url of the backup.
-func (restore *FoundationDBRestore) BackupURL() string {
+func (restore *FoundationDBRestore) BackupURL() (string, error) {
 	return restore.Spec.BlobStoreConfiguration.getURL(
 		restore.BackupName(),
 		restore.Spec.BlobStoreConfiguration.BucketName(),

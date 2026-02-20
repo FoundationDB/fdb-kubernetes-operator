@@ -333,7 +333,7 @@ func (backup *FoundationDBBackup) BackupName() string {
 }
 
 // BackupURL gets the destination url of the backup.
-func (backup *FoundationDBBackup) BackupURL() string {
+func (backup *FoundationDBBackup) BackupURL() (string, error) {
 	return backup.Spec.BlobStoreConfiguration.getURL(backup.BackupName(), backup.Bucket())
 }
 
@@ -386,9 +386,14 @@ func (backup *FoundationDBBackup) GetDesiredAgentCount() int {
 // NeedsBackupReconfiguration determines if the backup needs to be reconfigured.
 func (backup *FoundationDBBackup) NeedsBackupReconfiguration() bool {
 	hasSnapshotSecondsChanged := backup.SnapshotPeriodSeconds() != backup.Status.BackupDetails.SnapshotPeriodSeconds
-	hasBackupURLChanged := backup.BackupURL() != backup.Status.BackupDetails.URL
+	currentBackupURL, err := backup.BackupURL()
+	// In case that the backup URL cannot be parsed, we opt to return false here to not cause a constant reconfiguration
+	// of the backup.
+	if err != nil {
+		return false
+	}
 
-	return hasSnapshotSecondsChanged || hasBackupURLChanged
+	return hasSnapshotSecondsChanged || currentBackupURL != backup.Status.BackupDetails.URL
 }
 
 // CheckReconciliation compares the spec and the status to determine if
@@ -476,45 +481,69 @@ func (backup *FoundationDBBackup) UseUnifiedImage() bool {
 	return ptr.Deref(backup.Spec.ImageType, ImageTypeUnified) == ImageTypeUnified
 }
 
+// parseAccountName will parse the accountName and return a *url.URL for the getURL method.
+func parseAccountName(accountName string) (*url.URL, error) {
+	accountParts := strings.SplitN(accountName, "@", 2)
+	if len(accountParts) < 2 {
+		return nil, fmt.Errorf(
+			"account must be in the format [<api_key>][:<secret>[:<security_token>]]@<hostname>[:<port>]",
+		)
+	}
+
+	backupURL := &url.URL{
+		Scheme: "blobstore",
+		Host:   accountParts[1],
+	}
+
+	parts := strings.SplitN(accountParts[0], ":", 2)
+	if len(parts) < 2 {
+		backupURL.User = url.User(parts[0])
+	} else {
+		backupURL.User = url.UserPassword(parts[0], parts[1])
+	}
+
+	return backupURL, nil
+}
+
 // getURL returns the blobstore URL for the specific configuration
-func (configuration *BlobStoreConfiguration) getURL(backup string, bucket string) string {
+func (configuration *BlobStoreConfiguration) getURL(backup string, bucket string) (string, error) {
 	if configuration.AccountName == "" {
-		return ""
+		return "", fmt.Errorf("account configuration is missing for backup")
 	}
-	var (
-		defaultPort string
-		sb          strings.Builder
-	)
-	backupURL := &url.URL{Host: configuration.AccountName}
-	if backupURL.Port() == "" {
-		defaultPort = ":443"
+
+	backupURL, err := parseAccountName(configuration.AccountName)
+	if err != nil {
+		return "", err
 	}
+	backupURL.Path = backup
+
+	query := backupURL.Query()
+	query.Set("bucket", bucket)
+
+	defaultPort := 443
 	for _, param := range configuration.URLParameters {
-		sb.WriteString("&")
-		sb.WriteString(string(param))
-		// check if default port should be 80 instead of 443; see https://apple.github.io/foundationdb/backups.html#backup-urls
-		suffix, exists := strings.CutPrefix(string(param), "sc")
-		if !exists {
-			suffix, exists = strings.CutPrefix(string(param), "secure_connection")
-			if !exists { // then it's not setting secure connection
-				continue
-			}
+		paramParts := strings.Split(string(param), "=")
+		if len(paramParts) < 2 {
+			continue
 		}
-		if suffix == "=0" {
-			if defaultPort != "" { // i.e. if a port was not provided
-				defaultPort = ":80"
+
+		query.Set(paramParts[0], paramParts[1])
+
+		// check if default port should be 80 instead of 443; see https://apple.github.io/foundationdb/backups.html#backup-urls
+		if paramParts[0] == "sc" || paramParts[0] == "secure_connection" {
+			if paramParts[1] == "0" {
+				defaultPort = 80
 			}
 		}
 	}
 
-	return fmt.Sprintf(
-		"blobstore://%s%s/%s?bucket=%s%s",
-		configuration.AccountName,
-		defaultPort,
-		backup,
-		bucket,
-		sb.String(),
-	)
+	backupURL.RawQuery = query.Encode()
+	// Set the default port if absent.
+	if backupURL.Port() == "" {
+		backupURL.Host = fmt.Sprintf("%s:%d", backupURL.Host, defaultPort)
+	}
+
+	return backupURL.String(), nil
 }
 
 // BucketName gets the bucket this backup will use.
