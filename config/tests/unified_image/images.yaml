@@ -1,8 +1,0 @@
-- op: add
-  path: "/spec/imageType"
-  value: unified
-- op: remove
-  path: "/spec/processes/general/podTemplate/spec/initContainers/0"
-- op: add
-  path: "/spec/processes/general/podTemplate/spec/serviceAccount"
-  value: "fdb-kubernetes"

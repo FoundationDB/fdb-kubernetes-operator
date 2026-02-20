@@ -3,10 +3,10 @@ kind: FoundationDBBackup
 metadata:
   name: test-cluster
 spec:
-  version: 7.1.26
+  version: 7.3.69
   clusterName: test-cluster
   snapshotPeriodSeconds: 3600
-  imageType: split
+  imageType: unified
   blobStoreConfiguration:
     accountName: seaweedfs@seaweedfs:8333
     urlParameters:

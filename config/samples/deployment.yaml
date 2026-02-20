@@ -6,7 +6,6 @@ metadata:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  creationTimestamp: null
   name: fdb-kubernetes-operator-manager-clusterrole
 rules:
 - apiGroups:
@@ -92,7 +91,6 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  creationTimestamp: null
   name: fdb-kubernetes-operator-manager-rolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -105,7 +103,6 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  creationTimestamp: null
   name: fdb-kubernetes-operator-manager-clusterrolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -168,24 +165,6 @@ spec:
       initContainers:
       - args:
         - --copy-library
-        - "7.1"
-        - --copy-binary
-        - fdbcli
-        - --copy-binary
-        - fdbbackup
-        - --copy-binary
-        - fdbrestore
-        - --output-dir
-        - /var/output-files
-        - --mode
-        - init
-        image: foundationdb/fdb-kubernetes-monitor:7.1.67
-        name: foundationdb-kubernetes-init-7-1
-        volumeMounts:
-        - mountPath: /var/output-files
-          name: fdb-binaries
-      - args:
-        - --copy-library
         - "7.3"
         - --copy-binary
         - fdbcli
@@ -197,7 +176,7 @@ spec:
         - /var/output-files
         - --mode
         - init
-        image: foundationdb/fdb-kubernetes-monitor:7.3.63
+        image: foundationdb/fdb-kubernetes-monitor:7.3.69
         name: foundationdb-kubernetes-init-7-3
         volumeMounts:
         - mountPath: /var/output-files
@@ -215,7 +194,7 @@ spec:
         - /var/output-files
         - --mode
         - init
-        image: foundationdb/fdb-kubernetes-monitor:7.4.1
+        image: foundationdb/fdb-kubernetes-monitor:7.4.5
         name: foundationdb-kubernetes-init-7-4
         volumeMounts:
         - mountPath: /var/output-files

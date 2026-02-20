@@ -1,17 +1,4 @@
 ---
-# To access the test application use port-forwarding: https://kubernetes.io/docs/tasks/access-application-cluster/port-forward-access-application-cluster/#forward-a-local-port-to-a-port-on-the-pod
-# e.g. kubectl port-forward deploy/test-cluster-client 5000:5000
-#
-# Now you can follow the curl steps from the example: https://github.com/apple/foundationdb/tree/main/packaging/docker/samples/python#python-sample-using-docker-compose
-# retrieve counter:
-# curl http://localhost:5000/counter # 0
-#
-# increment counter:
-# curl -X POST http://localhost:5000/counter/increment # 1
-# curl -X POST http://localhost:5000/counter/increment # 2
-#
-# retrieve counter:
-# curl http://localhost:5000/counter # 2
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -28,19 +15,23 @@ spec:
       name: test-cluster-client
     spec:
       automountServiceAccountToken: false
+      serviceAccountName: fdb-kubernetes
       initContainers:
         - name: foundationdb-kubernetes-init
-          image: foundationdb/foundationdb-kubernetes-sidecar:7.1.26-1
+          image: foundationdb/fdb-kubernetes-monitor:7.3.69
           args:
             - "--copy-file"
             - "fdb.cluster"
             - "--copy-library"
-            - "6.3"
-            - "--copy-library"
-            - "7.1"
-            - "--init-mode"
+            - "7.3"
             - "--require-not-empty"
             - "fdb.cluster"
+            - "--output-dir"
+            - "/var/output-files"
+            - "--input-dir"
+            - "/var/input-files"
+            - "--mode"
+            - "init"
           volumeMounts:
             - name: config-map
               mountPath: /var/input-files
@@ -48,13 +39,13 @@ spec:
               mountPath: /var/output-files
       containers:
         - name: client
-          image: foundationdb/foundationdb-sample-python-app:latest
+          image: foundationdb/fdb-data-loader:latest
           imagePullPolicy: Always
           env:
             - name: FDB_CLUSTER_FILE
               value: /var/dynamic-conf/fdb.cluster
             - name: FDB_API_VERSION
-              value: "630"
+              value: "730"
             - name: FDB_NETWORK_OPTION_TRACE_LOG_GROUP
               value: test-cluster-client
             - name: FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY

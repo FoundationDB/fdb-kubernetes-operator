@@ -1,7 +1,7 @@
 .DEFAULT_GOAL=all
 
 # Image URL to use all building/pushing image targets
-IMG ?= fdb-kubernetes-operator:latest
+IMG ?= foundationdb/fdb-kubernetes-operator:latest
 SIDECAR_IMG ?=
 REMOTE_BUILD ?= 0
 CRD_OPTIONS ?= "crd:maxDescLen=0,crdVersions=v1,generateEmbeddedObjectMeta=true"
@@ -128,11 +128,11 @@ run: generate manifests
 
 # Install CRDs into a cluster
 install: $(KUSTOMIZE) manifests
-	$(KUSTOMIZE) build config/crd | kubectl $(KUBECTL_ARGS) apply -f -
+	kubectl $(KUBECTL_ARGS) apply -f config/crd/bases
 
 # Uninstall CRDs from a cluster
 uninstall: $(KUSTOMIZE) manifests
-	$(KUSTOMIZE) build config/crd | kubectl $(KUBECTL_ARGS) delete -f -
+	kubectl $(KUBECTL_ARGS) delete -f config/crd/bases
 
 # Apply config to the local development environment based on environment
 # variables.
