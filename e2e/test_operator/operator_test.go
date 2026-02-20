@@ -1026,7 +1026,7 @@ var _ = Describe("Operator", Label("e2e", "pr"), func() {
 				Skip("Chaos tests are skipped for the operator")
 			}
 			availabilityCheck = false
-			initialPods := fdbCluster.GetLogPods()
+			initialPods := fdbCluster.GetStoragePods()
 			podWithIOError = factory.RandomPickOnePod(initialPods.Items)
 			log.Printf("injecting iochaos to %s", podWithIOError.Name)
 			exp = factory.InjectIOLatency(fixtures.PodSelector(&podWithIOError), "2s")

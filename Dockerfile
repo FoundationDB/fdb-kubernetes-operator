@@ -4,7 +4,7 @@ ARG FDB_VERSION=7.1.67
 ARG FDB_WEBSITE=https://github.com/apple/foundationdb/releases/download
 
 # Build the manager binary
-FROM golang:1.25.5-bookworm AS builder
+FROM golang:1.25.7-bookworm AS builder
 
 ARG FDB_VERSION
 ARG FDB_WEBSITE
