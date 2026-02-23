@@ -10,8 +10,8 @@ metadata:
     cluster-group: test-cluster
   name: test-cluster-$zone
 spec:
-  imageType: split
-  version: 7.1.26
+  imageType: unified
+  version: 7.3.69
   faultDomain:
     key: foundationdb.org/kubernetes-cluster
     value: $zone

@@ -8,7 +8,7 @@ spec:
   # The unified image supports to make use of node labels, so setting up a three data hall cluster
   # is easier with the unified image.
   imageType: unified
-  version: 7.1.63
+  version: 7.3.69
   faultDomain:
     key: kubernetes.io/hostname
   processCounts:

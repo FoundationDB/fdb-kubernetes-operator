@@ -1,3 +1,36 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: fdb-kubernetes
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: fdb-kubernetes
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - get
+  - watch
+  - update
+  - patch
+  - list
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: fdb-kubernetes
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: fdb-kubernetes
+subjects:
+- kind: ServiceAccount
+  name: fdb-kubernetes
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -19,14 +52,14 @@ spec:
         - name: FDB_CLUSTER_FILE
           value: /var/dynamic-conf/fdb.cluster
         - name: FDB_API_VERSION
-          value: "630"
+          value: "730"
         - name: FDB_NETWORK_OPTION_TRACE_LOG_GROUP
           value: test-cluster-client
         - name: FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY
           value: /var/dynamic-conf/lib/multiversion
         - name: LD_LIBRARY_PATH
           value: /var/dynamic-conf/lib
-        image: foundationdb/foundationdb-sample-python-app:latest
+        image: foundationdb/fdb-data-loader:latest
         imagePullPolicy: Always
         name: client
         resources:
@@ -44,19 +77,23 @@ spec:
         - --copy-file
         - fdb.cluster
         - --copy-library
-        - "6.3"
-        - --copy-library
-        - "7.1"
-        - --init-mode
+        - "7.3"
         - --require-not-empty
         - fdb.cluster
-        image: foundationdb/foundationdb-kubernetes-sidecar:7.1.26-1
+        - --output-dir
+        - /var/output-files
+        - --input-dir
+        - /var/input-files
+        - --mode
+        - init
+        image: foundationdb/fdb-kubernetes-monitor:7.3.69
         name: foundationdb-kubernetes-init
         volumeMounts:
         - mountPath: /var/input-files
           name: config-map
         - mountPath: /var/output-files
           name: dynamic-conf
+      serviceAccountName: fdb-kubernetes
       volumes:
       - configMap:
           items:
@@ -77,7 +114,6 @@ spec:
       enabled: true
   faultDomain:
     key: foundationdb.org/none
-  imageType: split
   labels:
     filterOnOwnerReference: false
     matchLabels:
@@ -114,17 +150,7 @@ spec:
                 memory: 128Mi
             securityContext:
               runAsUser: 0
-          initContainers:
-          - name: foundationdb-kubernetes-init
-            resources:
-              limits:
-                cpu: 100m
-                memory: 128Mi
-              requests:
-                cpu: 100m
-                memory: 128Mi
-            securityContext:
-              runAsUser: 0
+          serviceAccountName: fdb-kubernetes
       volumeClaimTemplate:
         spec:
           resources:
@@ -136,4 +162,4 @@ spec:
     enableLivenessProbe: true
     enableReadinessProbe: false
   useExplicitListenAddress: true
-  version: 7.1.26
+  version: 7.3.69

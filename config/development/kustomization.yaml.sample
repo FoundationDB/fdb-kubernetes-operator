@@ -13,5 +13,5 @@ resources:
 
 images:
 - name: foundationdb/fdb-kubernetes-operator
-  newName: fdb-kubernetes-operator
+  newName: foundationdb/fdb-kubernetes-operator
   newTag: latest

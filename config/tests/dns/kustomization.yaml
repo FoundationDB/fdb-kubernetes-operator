@@ -6,6 +6,7 @@
 # image tag.
 bases:
 - "../base"
+- "../client"
 patchesJson6902:
 - path: dns.yaml
   target:
