@@ -360,7 +360,7 @@ type FDBBackupDescribe struct {
 	// and can be used to restore a database.
 	Restorable *bool `json:"Restorable,omitempty"`
 
-	// Partitioned indicates if the partioned_log backup system is used.
+	// Partitioned indicates if the partitioned_log backup system is used.
 	Partitioned *bool `json:"Partitioned,omitempty"`
 
 	// FileLevelEncryption indicates whether file-level encryption
