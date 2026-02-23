@@ -295,9 +295,9 @@ func (fdbBackup *FdbBackup) RunDescribeCommand() *fdbv1beta2.FDBBackupDescribe {
 
 // RunListCommand runs the list command on a backup pod.
 func (fdbBackup *FdbBackup) RunListCommand() []string {
-	backupUrl, err := fdbBackup.backup.BaseURL()
+	backupURL, err := fdbBackup.backup.BaseURL()
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	command := fmt.Sprintf("fdbbackup list -b \"%s\"", backupUrl)
+	command := fmt.Sprintf("fdbbackup list -b \"%s\"", backupURL)
 	backupPod := fdbBackup.GetBackupPod()
 	out, _, err := fdbBackup.fdbCluster.ExecuteCmdOnPod(
 		*backupPod,
