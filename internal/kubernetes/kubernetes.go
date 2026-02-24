@@ -61,6 +61,7 @@ func getRestClient(kubernetesClient client.Client, config *rest.Config) (rest.In
 	return apiutil.RESTClientForGVK(
 		gvk,
 		false,
+		false,
 		config,
 		serializer.NewCodecFactory(kubernetesClient.Scheme()),
 		httpClient,
