@@ -7,6 +7,7 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 
 * [BackupGenerationStatus](#backupgenerationstatus)
 * [BlobStoreConfiguration](#blobstoreconfiguration)
+* [FDBBackupDescribe](#fdbbackupdescribe)
 * [FoundationDBBackup](#foundationdbbackup)
 * [FoundationDBBackupList](#foundationdbbackuplist)
 * [FoundationDBBackupSpec](#foundationdbbackupspec)
@@ -66,6 +67,20 @@ BlobStoreConfiguration describes the blob store configuration.
 | accountName | The account name to use with the backup destination. If no port is included, it will default to 443, or 80 if secure_connection URL Parameter is set to 0. | string | true |
 | bucket | The backup bucket to write to. The default is \"fdb-backups\". | string | false |
 | urlParameters | Additional URL parameters passed to the blobstore URL. See: https://apple.github.io/foundationdb/backups.html#backup-urls | [][URLParameter](#urlparameter) | false |
+
+[Back to TOC](#table-of-contents)
+
+## FDBBackupDescribe
+
+FDBBackupDescribe represents the JSON output of the `fdbbackup describe` command.
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| SchemaVersion | SchemaVersion is the version of the backup metadata schema. | *string | false |
+| URL | URL is the backup destination being described. | *string | false |
+| Restorable | Restorable indicates whether the backup is in a valid state and can be used to restore a database. | *bool | false |
+| Partitioned | Partitioned indicates if the partitioned_log backup system is used. | *bool | false |
+| FileLevelEncryption | FileLevelEncryption indicates whether file-level encryption is enabled for the backup data. | *bool | false |
 
 [Back to TOC](#table-of-contents)
 

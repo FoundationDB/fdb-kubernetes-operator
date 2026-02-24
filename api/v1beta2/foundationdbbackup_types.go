@@ -337,9 +337,35 @@ func (backup *FoundationDBBackup) BackupURL() (string, error) {
 	return backup.Spec.BlobStoreConfiguration.getURL(backup.BackupName(), backup.Bucket())
 }
 
+// BaseURL returns the base URL. This a shortened Backup URL which looks just like a Backup URL but without
+// the backup <name> so that the list command will discover and list all the backups in the bucket.
+func (backup *FoundationDBBackup) BaseURL() (string, error) {
+	return backup.Spec.BlobStoreConfiguration.getURL("", backup.Bucket())
+}
+
 // SnapshotPeriodSeconds gets the period between snapshots for a backup.
 func (backup *FoundationDBBackup) SnapshotPeriodSeconds() int {
 	return ptr.Deref(backup.Spec.SnapshotPeriodSeconds, 864000)
+}
+
+// FDBBackupDescribe represents the JSON output of the `fdbbackup describe` command.
+type FDBBackupDescribe struct {
+	// SchemaVersion is the version of the backup metadata schema.
+	SchemaVersion *string `json:"SchemaVersion,omitempty"`
+
+	// URL is the backup destination being described.
+	URL *string `json:"URL,omitempty"`
+
+	// Restorable indicates whether the backup is in a valid state
+	// and can be used to restore a database.
+	Restorable *bool `json:"Restorable,omitempty"`
+
+	// Partitioned indicates if the partitioned_log backup system is used.
+	Partitioned *bool `json:"Partitioned,omitempty"`
+
+	// FileLevelEncryption indicates whether file-level encryption
+	// is enabled for the backup data.
+	FileLevelEncryption *bool `json:"FileLevelEncryption,omitempty"`
 }
 
 // FoundationDBLiveBackupStatus describes the live status of the backup for a
