@@ -403,12 +403,19 @@ func analyzeCluster(
 
 		if pod.Status.Phase != corev1.PodRunning {
 			podIssue = true
+
+			events, err := getEventsForPendingPod(cmd.Context(), kubeClient, &pod)
+			if err != nil {
+				cmd.PrintErrln(err)
+			}
+
 			statement := fmt.Sprintf(
-				"Pod %s/%s has unexpected Phase %s with Reason: %s",
+				"Pod %s/%s has unexpected Phase %s with Reason: %s, found events: %v",
 				pod.Namespace,
 				pod.Name,
 				pod.Status.Phase,
 				pod.Status.Reason,
+				events,
 			)
 			printStatement(cmd, statement, errorMessage)
 		}
@@ -689,6 +696,48 @@ func analyzeStatusInternal(
 	}
 
 	return nil
+}
+
+// getEventsForPendingPod will return a slice that contains all the reasons from all the warning events for the specified
+// pod.
+func getEventsForPendingPod(
+	ctx context.Context,
+	kubeClient client.Client,
+	pod *corev1.Pod,
+) ([]string, error) {
+	events := &corev1.EventList{}
+	err := kubeClient.List(ctx, events,
+		client.InNamespace(pod.Namespace),
+		client.MatchingFields{
+			"involvedObject.name": pod.Name,
+			"involvedObject.kind": "Pod",
+		},
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get events for pod %s: %w", pod.Name, err)
+	}
+
+	// Find all the observed warning events for this pod.
+	observedReasons := map[string]fdbv1beta2.None{}
+	for _, event := range events.Items {
+		if event.Type != corev1.EventTypeWarning {
+			continue
+		}
+
+		observedReasons[event.Reason] = fdbv1beta2.None{}
+	}
+
+	if len(observedReasons) == 0 {
+		return []string{"(no events)"}, nil
+	}
+
+	reasons := make([]string, 0, len(observedReasons))
+	for observedReason := range observedReasons {
+		reasons = append(reasons, observedReason)
+	}
+
+	return reasons, nil
 }
 
 // FaultDomainSummary represents the fault domain distribution by process class

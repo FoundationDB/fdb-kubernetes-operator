@@ -161,11 +161,18 @@ func (client *MockClient) setNewFakeClient() {
 	// We have to create those indexes, otherwise the fake client is complaining. This is only the case for the
 	// kubectl-fdb plugin tests.
 	if client.createIndexes {
-		builder = builder.WithIndex(&corev1.Pod{}, "spec.nodeName", func(o ctrlClient.Object) []string {
-			return []string{o.(*corev1.Pod).Spec.NodeName}
-		}).
+		builder = builder.
+			WithIndex(&corev1.Pod{}, "spec.nodeName", func(o ctrlClient.Object) []string {
+				return []string{o.(*corev1.Pod).Spec.NodeName}
+			}).
 			WithIndex(&corev1.Pod{}, "status.phase", func(o ctrlClient.Object) []string {
 				return []string{string(o.(*corev1.Pod).Status.Phase)}
+			}).
+			WithIndex(&corev1.Event{}, "involvedObject.kind", func(o ctrlClient.Object) []string {
+				return []string{o.(*corev1.Event).InvolvedObject.Kind}
+			}).
+			WithIndex(&corev1.Event{}, "involvedObject.name", func(o ctrlClient.Object) []string {
+				return []string{o.(*corev1.Event).InvolvedObject.Name}
 			})
 	}
 

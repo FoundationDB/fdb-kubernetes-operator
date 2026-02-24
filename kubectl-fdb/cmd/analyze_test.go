@@ -366,7 +366,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
 						Phase: corev1.PodPending,
 					}, nil),
-					ExpectedErrMsg: `✖ Pod test/storage-1 has unexpected Phase Pending with Reason: 
+					ExpectedErrMsg: `✖ Pod test/storage-1 has unexpected Phase Pending with Reason: , found events: [(no events)]
 ⚠ Could not fetch fault domain information for cluster`,
 					ExpectedStdoutMsg: `Checking cluster: test/test
 ✔ Cluster is available
