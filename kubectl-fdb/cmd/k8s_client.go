@@ -117,6 +117,36 @@ func setupKubeClient(
 		return nil, err
 	}
 
+	// Setup index field to allow access to the involvedObject.kind more efficiently. The indexer must be created before the
+	// informer is started.
+	err = internalCache.IndexField(
+		ctx,
+		&corev1.Event{},
+		"involvedObject.kind",
+		func(object client.Object) []string {
+			return []string{object.(*corev1.Event).InvolvedObject.Kind}
+		},
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Setup index field to allow access to the involvedObject.name more efficiently. The indexer must be created before the
+	// informer is started.
+	err = internalCache.IndexField(
+		ctx,
+		&corev1.Event{},
+		"involvedObject.name",
+		func(object client.Object) []string {
+			return []string{object.(*corev1.Event).InvolvedObject.Name}
+		},
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
 	// Make sure the internal cache is started.
 	go func() {
 		_ = internalCache.Start(ctx)
