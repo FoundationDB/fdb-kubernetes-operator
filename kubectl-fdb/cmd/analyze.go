@@ -414,7 +414,7 @@ func analyzeCluster(
 				pod.Namespace,
 				pod.Name,
 				pod.Status.Phase,
-				pod.Status.Reason,
+				getReasonForPendingPod(&pod),
 				events,
 			)
 			printStatement(cmd, statement, errorMessage)
@@ -738,6 +738,25 @@ func getEventsForPendingPod(
 	}
 
 	return reasons, nil
+}
+
+// geReasonForPendingPod will return the reason why the pod is in pending. If set the pod.Status.Reason will be returned.
+// If pod.Status.Reason is not set, the first reason from the pod.Status.Conditions is returned. If no conditions with
+// a reason are present "unknown" will be returned.
+func getReasonForPendingPod(
+	pod *corev1.Pod,
+) string {
+	if pod.Status.Reason != "" {
+		return pod.Status.Reason
+	}
+
+	for _, condition := range pod.Status.Conditions {
+		if condition.Reason != "" {
+			return condition.Reason
+		}
+	}
+
+	return "unknown"
 }
 
 // FaultDomainSummary represents the fault domain distribution by process class
