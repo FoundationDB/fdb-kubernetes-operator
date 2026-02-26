@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,9 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -31,6 +33,7 @@ import (
 	kubeHelper "github.com/FoundationDB/fdb-kubernetes-operator/v2/internal/kubernetes"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/pkg/fdbstatus"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
@@ -133,11 +136,6 @@ kubectl fdb get exclusion-status c1 --interval=5m
 	return cmd
 }
 
-// clearScreen clears the entire terminal screen and moves cursor to home
-func clearScreen() {
-	fmt.Print("\033[2J\033[H")
-}
-
 // isTerminal checks if output is to a terminal (not piped)
 func isTerminal(out interface{}) bool {
 	if f, ok := out.(*os.File); ok {
@@ -182,7 +180,8 @@ func calculateProgressBarWidth(terminalWidth int) int {
 // renderProgressBar creates a visual progress bar
 func renderProgressBar(storedBytes int, maxBytes int, width int) string {
 	if maxBytes == 0 {
-		return strings.Repeat("━", width)
+		// In this case print out a a full bar with 100% since the process is fully excluded.
+		return fmt.Sprintf("[%s] 100.0%%", strings.Repeat("█", width))
 	}
 
 	percentage := float64(maxBytes-storedBytes) / float64(maxBytes)
@@ -196,8 +195,11 @@ func renderProgressBar(storedBytes int, maxBytes int, width int) string {
 	filled := int(float64(width) * percentage)
 	empty := width - filled
 
-	bar := strings.Repeat("█", filled) + strings.Repeat("░", empty)
-	return fmt.Sprintf("[%s] %.1f%%", bar, percentage*100)
+	return fmt.Sprintf(
+		"[%s] %.1f%%",
+		strings.Repeat("█", filled)+strings.Repeat("░", empty),
+		percentage*100,
+	)
 }
 
 // trackInitialBytes stores the initial stored bytes for each process
@@ -224,6 +226,263 @@ type exclusionResult struct {
 	timestamp    time.Time
 }
 
+// getOngoingExclusions will check the provided *fdbv1beta2.FoundationDBStatus and return a slice that contains all the ongoing exclusions and the total number of excluded servers.
+func getOngoingExclusions(
+	status *fdbv1beta2.FoundationDBStatus,
+	ignoreFullyExcluded bool,
+	previousRun map[string]exclusionResult,
+	timestamp time.Time,
+) ([]exclusionResult, int) {
+	var totalExcludedServers int
+	var ongoingExclusions []exclusionResult
+
+	for _, process := range status.Cluster.Processes {
+		if !process.Excluded {
+			continue
+		}
+
+		// If more than one storage server per Pod is running we have to differentiate those processes. If the
+		// process ID is not set, fall back to the instance ID.
+		instance, ok := process.Locality[fdbv1beta2.FDBLocalityProcessIDKey]
+		if !ok {
+			instance = process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]
+		}
+
+		if instance == "" {
+			continue
+		}
+
+		if !ignoreFullyExcluded && len(process.Roles) == 0 {
+			continue
+		}
+
+		if process.Excluded {
+			totalExcludedServers++
+		}
+
+		for _, role := range process.Roles {
+			roleClass := fdbv1beta2.ProcessClass(role.Role)
+			if !roleClass.IsStateful() {
+				continue
+			}
+			var estimate string
+			initialBytes := trackInitialBytes(previousRun, instance, role.StoredBytes)
+
+			previousResult, ok := previousRun[instance]
+			if ok {
+				divider := previousResult.storedBytes - role.StoredBytes
+				if divider == 0 {
+					estimate = "N/A"
+				} else {
+					estimateDuration := time.Duration(
+						role.StoredBytes/divider,
+					) * timestamp.Sub(previousResult.timestamp)
+					estimate = estimateDuration.String()
+				}
+			} else {
+				estimate = "N/A"
+			}
+
+			result := exclusionResult{
+				id:           instance,
+				storedBytes:  role.StoredBytes,
+				initialBytes: initialBytes,
+				estimate:     estimate,
+				timestamp:    timestamp,
+			}
+			// TODO: Check if StoredBytes is the correct value
+			ongoingExclusions = append(ongoingExclusions, result)
+
+			previousRun[instance] = result
+		}
+	}
+
+	return ongoingExclusions, totalExcludedServers
+}
+
+// printSummaryOngoingExclusion will print the summary of the ongoing exclusion in the cluster.
+func printSummaryOngoingExclusion(
+	printer outputPrinter,
+	status *fdbv1beta2.FoundationDBStatus,
+	ongoingExclusions []exclusionResult,
+	timestamp time.Time,
+	totalExcludedServers int,
+) {
+	sort.SliceStable(ongoingExclusions, func(i, j int) bool {
+		return ongoingExclusions[i].id < ongoingExclusions[j].id
+	})
+
+	printer.clearScreen()
+	printer.printerHeader(timestamp)
+
+	// Sort the ongoingExclusions based on the current stored bytes.
+	slices.SortStableFunc(ongoingExclusions, func(a, b exclusionResult) int {
+		// should return a negative number when a < b
+		if a.storedBytes < b.storedBytes {
+			return -1
+		}
+
+		// a positive number when a > b
+		if a.storedBytes > b.storedBytes {
+			return 1
+		}
+
+		// zero when a == b or a and b
+		return 0
+	})
+
+	// Print the exclusion result for all ongoing exclusions.
+	for _, exclusion := range ongoingExclusions {
+		printer.printExclusionResult(exclusion)
+	}
+
+	teamTrackerInfo := make([]string, 0, len(status.Cluster.Data.TeamTrackers))
+	for _, teamTracker := range status.Cluster.Data.TeamTrackers {
+		region := "primary"
+		if !teamTracker.Primary {
+			region = "remote"
+		}
+
+		teamTrackerInfo = append(
+			teamTrackerInfo,
+			fmt.Sprintf(
+				"region: %s, unhealthy servers %d, min replicas remaining %d",
+				region,
+				ptr.Deref(teamTracker.UnhealthyServers, 0),
+				teamTracker.State.MinReplicasRemaining,
+			),
+		)
+	}
+
+	printer.printerSummary(teamTrackerInfo, totalExcludedServers, len(ongoingExclusions))
+}
+
+// outputPrinter defines the interface for printing out the status of the ongoing results.
+type outputPrinter interface {
+	// printerHeader prints the header.
+	printerHeader(timestamp time.Time)
+	// printExclusionResult prints the status of the exclusionResult.
+	printExclusionResult(result exclusionResult)
+	// printerSummary prints the summary of the exclusion status.
+	printerSummary(teamTrackerInfo []string, totalExcludedServers int, ongoingExclusions int)
+	// clearScreen clears the entire terminal screen and moves cursor to home
+	clearScreen()
+}
+
+// Ensure interface is implemented.
+var _ outputPrinter = (*barChartPrinter)(nil)
+
+// barChartPrinter is the default printer and will print the exclusionResult as a bar chart.
+type barChartPrinter struct {
+	// output is the io.Writer used for writing output to stdout.
+	output io.Writer
+	// separator used to separate the header and the summary.
+	separator string
+	// progressBarWidth is the width of the progress bar.
+	progressBarWidth int
+	// interval to fetch the latest exclusion status.
+	interval time.Duration
+}
+
+// printerHeader prints the header.
+func (b barChartPrinter) printerHeader(timestamp time.Time) {
+	_, _ = fmt.Fprintln(b.output, "Exclusion Status - Last updated:", timestamp.Format("15:04:05"))
+	_, _ = fmt.Fprintln(b.output, b.separator)
+}
+
+// printExclusionResult prints the status of the exclusionResult.
+func (b barChartPrinter) printExclusionResult(exclusion exclusionResult) {
+	bar := renderProgressBar(
+		exclusion.storedBytes,
+		exclusion.initialBytes,
+		b.progressBarWidth,
+	)
+	prettyPrintedBytes := fdbstatus.PrettyPrintBytes(int64(exclusion.storedBytes))
+	if exclusion.storedBytes == 0 {
+		prettyPrintedBytes = "fully excluded"
+	}
+	_, _ = fmt.Fprintf(
+		b.output,
+		"%-30s\t%s %s (ETA: %s)\n",
+		exclusion.id,
+		bar,
+		prettyPrintedBytes,
+		exclusion.estimate,
+	)
+}
+
+// printerSummary prints the summary of the exclusion status.
+func (b barChartPrinter) printerSummary(
+	teamTrackerInfo []string,
+	totalExcludedServers int,
+	ongoingExclusions int,
+) {
+	_, _ = fmt.Fprintln(b.output, b.separator)
+	_, _ = fmt.Fprintf(
+		b.output,
+		"Total processes being excluded: %d, ongoing exclusions: %d, team tracker info: [%s] | Next update in: %s\n",
+		totalExcludedServers,
+		ongoingExclusions,
+		strings.Join(teamTrackerInfo, "-"),
+		b.interval,
+	)
+}
+
+// clearScreen clears the entire terminal screen and moves cursor to home
+func (b barChartPrinter) clearScreen() {
+	fmt.Print("\033[2J\033[H")
+}
+
+// Ensure interface is implemented.
+var _ outputPrinter = (*textPrinter)(nil)
+
+// textPrinter is the fallback printer and will print the exclusionResult as text-only.
+type textPrinter struct {
+	// output is the io.Writer used for writing output to stdout.
+	output io.Writer
+	// separator used to separate the header and the summary.
+	separator string
+	// interval to fetch the latest exclusion status.
+	interval time.Duration
+}
+
+// printerHeader prints the header.
+func (t textPrinter) printerHeader(timestamp time.Time) {
+	_, _ = fmt.Fprintln(t.output, "Exclusion Status - Last updated:", timestamp.Format("15:04:05"))
+	_, _ = fmt.Fprintln(t.output, t.separator)
+}
+
+// printExclusionResult prints the status of the exclusionResult.
+func (t textPrinter) printExclusionResult(exclusion exclusionResult) {
+	_, _ = fmt.Fprintf(
+		t.output,
+		"%s:\t %s are left - estimate: %s\n",
+		exclusion.id,
+		fdbstatus.PrettyPrintBytes(int64(exclusion.storedBytes)),
+		exclusion.estimate,
+	)
+}
+
+// printerSummary prints the summary of the exclusion status.
+func (t textPrinter) printerSummary(
+	teamTrackerInfo []string,
+	totalExcludedServers int,
+	ongoingExclusions int,
+) {
+	_, _ = fmt.Fprintln(t.output, t.separator)
+	_, _ = fmt.Fprintf(
+		t.output,
+		"Total processes being excluded: %d, ongoing exclusions: %d, team tracker info: [%s] | Next update in: %s\n",
+		totalExcludedServers,
+		ongoingExclusions,
+		strings.Join(teamTrackerInfo, "-"),
+		t.interval,
+	)
+}
+
+// clearScreen is a noop for the textPrinter
+func (t textPrinter) clearScreen() {}
+
 func getExclusionStatus(
 	cmd *cobra.Command,
 	restConfig *rest.Config,
@@ -234,11 +493,23 @@ func getExclusionStatus(
 ) error {
 	timer := time.NewTicker(interval)
 	previousRun := map[string]exclusionResult{}
-	firstRun := true
-	useBarChart := isTerminal(cmd.OutOrStdout())
-	// Get terminal width and calculate progress bar width
-	progressBarWidth := calculateProgressBarWidth(getTerminalWidth(cmd.OutOrStdout()))
-	separator := strings.Repeat("=", progressBarWidth)
+	var printer outputPrinter
+	// If we can assume that a terminal is available we will always make use of the bar chart printer.
+	if isTerminal(cmd.OutOrStdout()) {
+		progressBarWidth := calculateProgressBarWidth(getTerminalWidth(cmd.OutOrStdout()))
+		printer = &barChartPrinter{
+			output:           cmd.OutOrStdout(),
+			separator:        strings.Repeat("=", progressBarWidth),
+			progressBarWidth: progressBarWidth,
+			interval:         interval,
+		}
+	} else {
+		printer = &textPrinter{
+			output:    cmd.OutOrStdout(),
+			separator: strings.Repeat("=", 120),
+			interval:  interval,
+		}
+	}
 
 	for {
 		// TODO: Keeping a stream open is probably more efficient.
@@ -276,122 +547,26 @@ func getExclusionStatus(
 			continue
 		}
 
-		var ongoingExclusions []exclusionResult
 		timestamp := time.Now()
-
-		for _, process := range status.Cluster.Processes {
-			if !process.Excluded {
-				continue
-			}
-
-			// If more than one storage server per Pod is running we have to differentiate those processes. If the
-			// process ID is not set, fall back to the instance ID.
-			instance, ok := process.Locality[fdbv1beta2.FDBLocalityProcessIDKey]
-			if !ok {
-				instance = process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]
-			}
-
-			if instance == "" {
-				continue
-			}
-
-			if !ignoreFullyExcluded && len(process.Roles) == 0 {
-				cmd.Println(instance, "is fully excluded")
-				continue
-			}
-
-			for _, role := range process.Roles {
-				roleClass := fdbv1beta2.ProcessClass(role.Role)
-				if roleClass.IsStateful() {
-					var estimate string
-					initialBytes := trackInitialBytes(previousRun, instance, role.StoredBytes)
-
-					previousResult, ok := previousRun[instance]
-					if ok {
-						divider := previousResult.storedBytes - role.StoredBytes
-						if divider == 0 {
-							estimate = "N/A"
-						} else {
-							estimateDuration := time.Duration(
-								role.StoredBytes/divider,
-							) * timestamp.Sub(previousResult.timestamp)
-							estimate = estimateDuration.String()
-						}
-					} else {
-						estimate = "N/A"
-					}
-
-					result := exclusionResult{
-						id:           instance,
-						storedBytes:  role.StoredBytes,
-						initialBytes: initialBytes,
-						estimate:     estimate,
-						timestamp:    timestamp,
-					}
-					// TODO: Check if StoredBytes is the correct value
-					ongoingExclusions = append(ongoingExclusions, result)
-
-					previousRun[instance] = result
-				}
-			}
-		}
-
+		ongoingExclusions, totalExcludedServers := getOngoingExclusions(
+			status,
+			ignoreFullyExcluded,
+			previousRun,
+			timestamp,
+		)
 		if len(ongoingExclusions) == 0 {
 			timer.Stop()
-			if useBarChart && !firstRun {
-				cmd.Println("\nAll exclusions completed!")
-			}
+			cmd.Println("\nAll exclusions completed!")
 			break
 		}
 
-		sort.SliceStable(ongoingExclusions, func(i, j int) bool {
-			return ongoingExclusions[i].id < ongoingExclusions[j].id
-		})
-
-		// Clear screen if using bar chart and not first run
-		if useBarChart && !firstRun {
-			clearScreen()
-		}
-
-		// Print header
-		cmd.Println("Exclusion Status - Last updated:", timestamp.Format("15:04:05"))
-		cmd.Println(separator)
-
-		// Print each process with progress bar
-		for _, exclusion := range ongoingExclusions {
-			if useBarChart {
-				bar := renderProgressBar(
-					exclusion.storedBytes,
-					exclusion.initialBytes,
-					progressBarWidth,
-				)
-				cmd.Printf(
-					"%-30s\t%s %s (ETA: %s)\n",
-					exclusion.id,
-					bar,
-					fdbstatus.PrettyPrintBytes(int64(exclusion.storedBytes)),
-					exclusion.estimate,
-				)
-			} else {
-				// Fallback to original format for non-terminal output
-				cmd.Printf(
-					"%s:\t %s are left - estimate: %s\n",
-					exclusion.id,
-					fdbstatus.PrettyPrintBytes(int64(exclusion.storedBytes)),
-					exclusion.estimate,
-				)
-			}
-		}
-
-		// Print summary
-		cmd.Println(separator)
-		cmd.Printf(
-			"Total processes being excluded: %d | Next update in: %s\n",
-			len(ongoingExclusions),
-			interval,
+		printSummaryOngoingExclusion(
+			printer,
+			status,
+			ongoingExclusions,
+			timestamp,
+			totalExcludedServers,
 		)
-
-		firstRun = false
 
 		<-timer.C
 	}
