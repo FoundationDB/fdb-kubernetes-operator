@@ -48,14 +48,16 @@ FEATURE_UNIFIED_IMAGE?=true
 STORAGE_ENGINE?="ssd-rocksdb-v1"
 # If the FEATURE_SYNCHRONIZATION_MODE environment variable is not defined the test suite will be randomly enable (1) or disable (0)
 # the the global synchronization mode.
-ifndef FEATURE_SYNCHRONIZATION_MODE
-  ifeq ($(shell shuf -i 0-1 -n 1), 0)
-    # Default case
-    FEATURE_SYNCHRONIZATION_MODE="local"
-  else
-    FEATURE_SYNCHRONIZATION_MODE="global"
-  endif
-endif
+FEATURE_SYNCHRONIZATION_MODE?="local"
+# TODO(j-scheuermann): Enable this in the future again.
+#ifndef FEATURE_SYNCHRONIZATION_MODE
+#  ifeq ($(shell shuf -i 0-1 -n 1), 0)
+#    # Default case
+#    FEATURE_SYNCHRONIZATION_MODE="local"
+#  else
+#    FEATURE_SYNCHRONIZATION_MODE="global"
+#  endif
+#endif
 
 FEATURE_LOCALITIES?=true
 FEATURE_DNS?=true
