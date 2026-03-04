@@ -506,6 +506,8 @@ func getProcessesToInclude(
 	readyForInclusionUpdates map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction,
 ) ([]fdbv1beta2.ProcessAddress, []*fdbv1beta2.ProcessGroupStatus) {
 	fdbProcessesToInclude := make([]fdbv1beta2.ProcessAddress, 0)
+	logger.V(1).
+		Info("Get ProcessGroups to be included", "removedProcessGroups", removedProcessGroups, "excludedServers", excludedServers)
 
 	if len(removedProcessGroups) == 0 {
 		return fdbProcessesToInclude, cluster.Status.ProcessGroups
@@ -519,12 +521,12 @@ func getProcessesToInclude(
 	processGroups := cluster.Status.DeepCopy().ProcessGroups
 	idx := 0
 	for _, processGroup := range processGroups {
-		// Tester processes are not excluded, so there is no need to include them.
-		if processGroup.ProcessClass == fdbv1beta2.ProcessClassTest {
-			continue
-		}
-
 		if processGroup.IsMarkedForRemoval() && removedProcessGroups[processGroup.ProcessGroupID] {
+			// Tester processes are not excluded, so there is no need to include them.
+			if processGroup.ProcessClass == fdbv1beta2.ProcessClassTest {
+				continue
+			}
+
 			foundInExcludedServerList := false
 			exclusionString := processGroup.GetExclusionString()
 			logger.V(1).
