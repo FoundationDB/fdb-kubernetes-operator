@@ -220,6 +220,7 @@ func trackInitialBytes(
 
 type exclusionResult struct {
 	id           string
+	roleID       string
 	estimate     string
 	storedBytes  int
 	initialBytes int
@@ -285,6 +286,7 @@ func getOngoingExclusions(
 
 			result := exclusionResult{
 				id:           instance,
+				roleID:       role.ID,
 				storedBytes:  role.StoredBytes,
 				initialBytes: initialBytes,
 				estimate:     estimate,
@@ -403,8 +405,9 @@ func (b barChartPrinter) printExclusionResult(exclusion exclusionResult) {
 	}
 	_, _ = fmt.Fprintf(
 		b.output,
-		"%-30s\t%s %s (ETA: %s)\n",
+		"%-30s (%s) \t%s %s (ETA: %s)\n",
 		exclusion.id,
+		exclusion.roleID,
 		bar,
 		prettyPrintedBytes,
 		exclusion.estimate,
