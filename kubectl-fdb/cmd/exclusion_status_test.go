@@ -299,7 +299,7 @@ var _ = Describe("[plugin] exclusion status", func() {
 					expectedExcludedCnt: 1,
 				}),
 			Entry(
-				"excluded process with no roles and ignoreFullyExcluded=false is included in count but not in exclusion list",
+				"excluded process with no roles and ignoreFullyExcluded=false is included in count and in exclusion list",
 				testCase{
 					status: &fdbv1beta2.FoundationDBStatus{
 						Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
@@ -316,8 +316,8 @@ var _ = Describe("[plugin] exclusion status", func() {
 					},
 					ignoreFullyExcluded:  false,
 					previousRun:          map[string]exclusionResult{},
-					expectedExclusionIDs: nil,
-					expectedExcludedCnt:  0,
+					expectedExclusionIDs: []string{"storage-1"},
+					expectedExcludedCnt:  1,
 				},
 			),
 			Entry("excluded process with stateless role produces no ongoing exclusion entry",

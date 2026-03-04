@@ -253,12 +253,38 @@ func getOngoingExclusions(
 			continue
 		}
 
-		if !ignoreFullyExcluded && len(process.Roles) == 0 {
-			continue
-		}
-
 		if process.Excluded {
 			totalExcludedServers++
+		}
+
+		// Once a storage server is excluded and doesn't serve any roles, we can assume it is "fully excluded".
+		// In theory there could be a process that still serves other roles, e.g. the coordinator role. This case is
+		// ignored here since the operator would select new coordinators in this case.
+		if !ignoreFullyExcluded && len(process.Roles) == 0 && process.Excluded {
+			// If we don't want to ignore fully excluded processes, we have to add the information from the previousRun
+			// if present.
+			previousResult, ok := previousRun[instance]
+			if ok {
+				ongoingExclusions = append(ongoingExclusions, exclusionResult{
+					id:           instance,
+					roleID:       previousResult.roleID,
+					storedBytes:  0,
+					initialBytes: previousResult.initialBytes,
+					estimate:     "N/A",
+					timestamp:    timestamp,
+				})
+			} else {
+				ongoingExclusions = append(ongoingExclusions, exclusionResult{
+					id:           instance,
+					roleID:       "unknown",
+					storedBytes:  0,
+					initialBytes: 0,
+					estimate:     "N/A",
+					timestamp:    timestamp,
+				})
+			}
+
+			continue
 		}
 
 		for _, role := range process.Roles {
@@ -292,9 +318,12 @@ func getOngoingExclusions(
 				estimate:     estimate,
 				timestamp:    timestamp,
 			}
-			// TODO: Check if StoredBytes is the correct value
 			ongoingExclusions = append(ongoingExclusions, result)
 
+			// The estimate is calculated based on the previousRun of this instance, so we have to set it here.
+			// The estimate calculation happens before we set the previousRun to the current value.
+			// The previousRun map is only used to calculate the estimate and in case that fully excluded processes should
+			// be shown.
 			previousRun[instance] = result
 		}
 	}
@@ -317,20 +346,10 @@ func printSummaryOngoingExclusion(
 	printer.clearScreen()
 	printer.printerHeader(timestamp)
 
-	// Sort the ongoingExclusions based on the current stored bytes.
+	// NOTE (johscheuer): In the future we could support additional different sorting types.
+	// Sort the ongoingExclusions based on the process locality.
 	slices.SortStableFunc(ongoingExclusions, func(a, b exclusionResult) int {
-		// should return a negative number when a < b
-		if a.storedBytes < b.storedBytes {
-			return -1
-		}
-
-		// a positive number when a > b
-		if a.storedBytes > b.storedBytes {
-			return 1
-		}
-
-		// zero when a == b or a and b
-		return 0
+		return strings.Compare(a.id, b.id)
 	})
 
 	// Print the exclusion result for all ongoing exclusions.
