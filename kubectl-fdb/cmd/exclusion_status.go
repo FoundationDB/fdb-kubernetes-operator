@@ -26,7 +26,6 @@ import (
 	"io"
 	"os"
 	"slices"
-	"sort"
 	"strings"
 	"time"
 
@@ -228,6 +227,7 @@ type exclusionResult struct {
 }
 
 // getOngoingExclusions will check the provided *fdbv1beta2.FoundationDBStatus and return a slice that contains all the ongoing exclusions and the total number of excluded servers.
+// NOTE: previousRun will be modified with the current results.
 func getOngoingExclusions(
 	status *fdbv1beta2.FoundationDBStatus,
 	ignoreFullyExcluded bool,
@@ -339,18 +339,14 @@ func printSummaryOngoingExclusion(
 	timestamp time.Time,
 	totalExcludedServers int,
 ) {
-	sort.SliceStable(ongoingExclusions, func(i, j int) bool {
-		return ongoingExclusions[i].id < ongoingExclusions[j].id
-	})
-
-	printer.clearScreen()
-	printer.printerHeader(timestamp)
-
 	// NOTE (johscheuer): In the future we could support additional different sorting types.
 	// Sort the ongoingExclusions based on the process locality.
 	slices.SortStableFunc(ongoingExclusions, func(a, b exclusionResult) int {
 		return strings.Compare(a.id, b.id)
 	})
+
+	printer.clearScreen()
+	printer.printerHeader(timestamp)
 
 	// Print the exclusion result for all ongoing exclusions.
 	for _, exclusion := range ongoingExclusions {
