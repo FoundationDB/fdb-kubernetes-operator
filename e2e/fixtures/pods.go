@@ -58,7 +58,7 @@ func (factory *Factory) RandomPickPod(input []corev1.Pod, count int) []corev1.Po
 				pod.Name,
 				"namespace:",
 				pod.Namespace,
-				"deletionTimestampL",
+				"deletionTimestamp",
 				pod.DeletionTimestamp.String(),
 			)
 			continue
