@@ -1193,32 +1193,35 @@ var _ = Describe("remove_process_groups", func() {
 					removedProcessGroups[processGroup.ProcessGroupID] = true
 				})
 
-				When("the process is missing in the readyForInclusion map", func() {
-					It(
-						"should only include the storage process and add it to the update list",
-						func() {
-							processesToInclude, newProcessGroups := getProcessesToInclude(
-								logr.Logger{},
-								cluster,
-								removedProcessGroups,
-								exclusions,
-								readyForInclusion,
-								readyForInclusionUpdates,
-							)
-							Expect(processesToInclude).To(HaveLen(1))
-							Expect(
-								fdbv1beta2.ProcessAddressesString(processesToInclude, " "),
-							).To(Equal("1.1.1.1"))
-							// The storage and the test process should be removed.
-							Expect(newProcessGroups).To(HaveLen(17))
-							Expect(cluster.Status.ProcessGroups).To(HaveLen(19))
-							Expect(readyForInclusionUpdates).To(HaveLen(1))
-							Expect(
-								readyForInclusionUpdates,
-							).To(HaveKeyWithValue(fdbv1beta2.ProcessGroupID("storage-1"), fdbv1beta2.UpdateActionAdd))
-						},
-					)
-				})
+				When(
+					"the test process is missing in the readyForInclusion map and the storage process is present",
+					func() {
+						It(
+							"should only include the storage process and add it to the update list",
+							func() {
+								processesToInclude, newProcessGroups := getProcessesToInclude(
+									logr.Logger{},
+									cluster,
+									removedProcessGroups,
+									exclusions,
+									readyForInclusion,
+									readyForInclusionUpdates,
+								)
+								Expect(processesToInclude).To(HaveLen(1))
+								Expect(
+									fdbv1beta2.ProcessAddressesString(processesToInclude, " "),
+								).To(Equal("1.1.1.1"))
+								// The storage and the test process should be removed.
+								Expect(newProcessGroups).To(HaveLen(17))
+								Expect(cluster.Status.ProcessGroups).To(HaveLen(19))
+								Expect(readyForInclusionUpdates).To(HaveLen(1))
+								Expect(
+									readyForInclusionUpdates,
+								).To(HaveKeyWithValue(fdbv1beta2.ProcessGroupID("storage-1"), fdbv1beta2.UpdateActionAdd))
+							},
+						)
+					},
+				)
 			})
 		})
 	})
