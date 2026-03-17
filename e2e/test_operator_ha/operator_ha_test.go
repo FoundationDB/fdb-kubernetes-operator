@@ -303,7 +303,7 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 			fdbCluster.GetRemote().UpdateClusterSpecWithSpec(spec)
 		})
 
-		When("when a remote log has network latency issues and gets replaced", func() {
+		When("a remote log has network latency issues and gets replaced", func() {
 			var experiment *fixtures.ChaosMeshExperiment
 			var processGroupID fdbv1beta2.ProcessGroupID
 			var replacedPod corev1.Pod
@@ -372,7 +372,7 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 
 				time.Sleep(1 * time.Minute)
 				log.Println(
-					"replacedPod",
+					"replace Pod",
 					replacedPod.Name,
 					"useLocalitiesForExclusion",
 					fdbCluster.GetPrimary().GetCluster().UseLocalitiesForExclusion(),
@@ -410,7 +410,7 @@ var _ = Describe("Operator HA tests", Label("e2e", "pr"), func() {
 			})
 		})
 
-		PWhen("when a remote side has network latency issues and a pod gets replaced", func() {
+		PWhen("a remote side has network latency issues and a pod gets replaced", func() {
 			/*
 
 				*Note* This test should be running with a bigger multi-region cluster e.g.:
