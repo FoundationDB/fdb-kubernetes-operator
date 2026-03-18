@@ -1351,6 +1351,7 @@ type FoundationDBClusterAutomationOptions struct {
 
 	// UseManagementAPI defines if the operator should make use of the management API instead of
 	// using fdbcli to interact with the FoundationDB cluster.
+	// Deprecated: Use DatabaseInteractionMode instead.
 	UseManagementAPI *bool `json:"useManagementAPI,omitempty"`
 
 	// MaintenanceModeOptions contains options for maintenance mode related settings.
