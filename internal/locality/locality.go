@@ -387,7 +387,7 @@ func CheckCoordinatorValidity(
 		}
 
 		if process.ProcessClass == fdbv1beta2.ProcessClassTest {
-			pLogger.V(1).Info("Ignoring tester process")
+			pLogger.V(1).Info("Ignoring tester process", "processGroupID", processGroupID)
 			continue
 		}
 
