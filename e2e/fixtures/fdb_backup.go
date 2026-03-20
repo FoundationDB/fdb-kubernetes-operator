@@ -293,6 +293,24 @@ func (fdbBackup *FdbBackup) RunDescribeCommand() *fdbv1beta2.FDBBackupDescribe {
 	return desc
 }
 
+// RunModifyCommand runs the modify command on a backup pod to change the snapshot period.
+func (fdbBackup *FdbBackup) RunModifyCommand(snapshotPeriodSeconds int) {
+	backupURL, err := fdbBackup.backup.BackupURL()
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	backupPod := fdbBackup.GetBackupPod()
+	command := fmt.Sprintf(
+		"fdbbackup modify -s %d -d \"%s\"",
+		snapshotPeriodSeconds,
+		backupURL,
+	)
+	_, _, err = fdbBackup.fdbCluster.ExecuteCmdOnPod(
+		*backupPod,
+		fdbv1beta2.MainContainerName,
+		command,
+		true)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+}
+
 // RunListCommand runs the list command on a backup pod.
 func (fdbBackup *FdbBackup) RunListCommand() []string {
 	backupURL, err := fdbBackup.backup.BaseURL()

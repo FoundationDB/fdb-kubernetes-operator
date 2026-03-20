@@ -25,14 +25,13 @@ This test suite contains tests related to backup and restore with the operator.
 */
 
 import (
-	"log"
-
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/v2/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/v2/e2e/fixtures"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/ptr"
+	"log"
 )
 
 var (
@@ -216,15 +215,22 @@ var _ = Describe("Operator Backup", Label("e2e", "pr", "foundationdb-pr"), func(
 						})
 
 						JustBeforeEach(func() {
+							// running list command
+							listCommandOutput := backup.RunListCommand()
+							Expect(listCommandOutput).To(HaveLen(1))
+
+							// running modify command to change the snapshot period
+							// restart the backup before modifying since the backup is stopped
+							backup.Start()
+							modifiedSnapshotPeriod := 7200
+							backup.RunModifyCommand(modifiedSnapshotPeriod)
+							backup.Stop()
+
 							// running describe command
 							describeCommandOutput := backup.RunDescribeCommand()
 							Expect(*describeCommandOutput.FileLevelEncryption).To(BeTrue())
 							Expect(*describeCommandOutput.Restorable).To(BeTrue())
 							Expect(*describeCommandOutput.Partitioned).To(BeFalse())
-
-							// running list command
-							listCommandOutput := backup.RunListCommand()
-							Expect(listCommandOutput).To(HaveLen(1))
 						})
 
 						It(
