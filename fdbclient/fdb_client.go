@@ -42,16 +42,26 @@ type fdbLibClient interface {
 	updateGlobalCoordinationKeys(
 		prefix string,
 		updates map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction,
+		timeout time.Duration,
 	) error
 	// getGlobalCoordinationKeys will return the entries under the provided prefix.
-	getGlobalCoordinationKeys(prefix string) (map[fdbv1beta2.ProcessGroupID]time.Time, error)
+	getGlobalCoordinationKeys(
+		prefix string,
+		timeout time.Duration,
+	) (map[fdbv1beta2.ProcessGroupID]time.Time, error)
 	// clearGlobalCoordinationKeys will remove all the ready information for the provided prefix.
-	clearGlobalCoordinationKeys(prefix string) error
+	clearGlobalCoordinationKeys(prefix string, timeout time.Duration) error
 	// updateProcessAddresses will update the provided addresses associated with the provided process group. If the address slice
 	// is empty or nil, the entry will be removed.
-	updateProcessAddresses(updates map[fdbv1beta2.ProcessGroupID][]string) error
+	updateProcessAddresses(
+		updates map[fdbv1beta2.ProcessGroupID][]string,
+		timeout time.Duration,
+	) error
 	// getProcessAddresses gets the process group IDs and their associated process addresses.
-	getProcessAddresses(prefix string) (map[fdbv1beta2.ProcessGroupID][]string, error)
+	getProcessAddresses(
+		prefix string,
+		timeout time.Duration,
+	) (map[fdbv1beta2.ProcessGroupID][]string, error)
 	// executeTransactionForManagementAPI will run an operation for the management API. This method handles all the common
 	// options.
 	executeTransactionForManagementAPI(
@@ -78,55 +88,28 @@ func (fdbClient *realFdbLibClient) getValueFromDBUsingKey(
 	defer func() {
 		fdbClient.logger.Info("Done fetching values from FDB", "key", fdbKey)
 	}()
-	database, err := getFDBDatabase(fdbClient.cluster)
-	if err != nil {
-		return nil, err
-	}
 
-	result, err := database.Transact(func(transaction fdb.Transaction) (interface{}, error) {
-		err := transaction.Options().SetAccessSystemKeys()
-		if err != nil {
-			return nil, err
-		}
-		err = transaction.Options().SetTimeout(timeout.Milliseconds())
-		if err != nil {
-			return nil, err
-		}
-
-		rawResult := transaction.Get(fdb.Key(fdbKey)).MustGet()
+	var result []byte
+	err := fdbClient.executeTransaction(func(tr fdb.Transaction) error {
+		rawResult := tr.Get(fdb.Key(fdbKey)).MustGet()
 		// If the value is empty return an empty byte slice. Otherwise, an error will be thrown.
 		if len(rawResult) == 0 {
-			return []byte{}, err
+			result = []byte{}
+			return nil
 		}
 
-		return rawResult, err
-	})
+		result = rawResult
+		return nil
+	}, timeout)
 
-	if err != nil {
-		var fdbError *fdb.Error
-		if errors.As(err, &fdbError) {
-			// See: https://apple.github.io/foundationdb/api-error-codes.html
-			// 1031: Operation aborted because the transaction timed out
-			if fdbError.Code == 1031 {
-				return nil, fdbv1beta2.TimeoutError{Err: err}
-			}
-		}
-
-		return nil, err
-	}
-
-	byteResult, ok := result.([]byte)
-	if !ok {
-		return nil, fmt.Errorf("could not cast result into byte slice")
-	}
-
-	return byteResult, nil
+	return result, checkError(err)
 }
 
 // updateGlobalCoordinationKeys will update the provided updates in FDB.
 func (fdbClient *realFdbLibClient) updateGlobalCoordinationKeys(
 	prefix string,
 	updates map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction,
+	timeout time.Duration,
 ) error {
 	if len(updates) == 0 {
 		return nil
@@ -139,22 +122,13 @@ func (fdbClient *realFdbLibClient) updateGlobalCoordinationKeys(
 			Info("Done updating global coordination keys in FDB", "prefix", prefix, "updates", len(updates))
 	}()
 
-	database, err := getFDBDatabase(fdbClient.cluster)
-	if err != nil {
-		return err
-	}
-
 	keyPrefix := path.Join(
 		fdbClient.cluster.GetLockPrefix(),
 		prefix,
 		fdbClient.cluster.Spec.ProcessGroupIDPrefix,
 	)
-	_, err = database.Transact(func(transaction fdb.Transaction) (interface{}, error) {
-		err := transaction.Options().SetAccessSystemKeys()
-		if err != nil {
-			return nil, err
-		}
 
+	err := fdbClient.executeTransaction(func(tr fdb.Transaction) error {
 		timestampTuple := tuple.Tuple{time.Now().Unix()}
 		timestampBytes := timestampTuple.Pack()
 
@@ -166,18 +140,17 @@ func (fdbClient *realFdbLibClient) updateGlobalCoordinationKeys(
 			// Ignore tester processes, those shouldn't be added as those are not managed by the global coordination system.
 			if action == fdbv1beta2.UpdateActionAdd &&
 				processGroupID.GetProcessClass() != fdbv1beta2.ProcessClassTest {
-				transaction.Set(key, timestampBytes)
+				tr.Set(key, timestampBytes)
 				continue
 			}
 
 			if action == fdbv1beta2.UpdateActionDelete {
-				transaction.Clear(key)
+				tr.Clear(key)
 				continue
 			}
 		}
-
-		return nil, nil
-	})
+		return nil
+	}, timeout)
 
 	return checkError(err)
 }
@@ -185,6 +158,7 @@ func (fdbClient *realFdbLibClient) updateGlobalCoordinationKeys(
 // getGlobalCoordinationKeys will return the entries under the provided prefix.
 func (fdbClient *realFdbLibClient) getGlobalCoordinationKeys(
 	prefix string,
+	timeout time.Duration,
 ) (map[fdbv1beta2.ProcessGroupID]time.Time, error) {
 	var mapResult map[fdbv1beta2.ProcessGroupID]time.Time
 	fdbClient.logger.V(1).Info("Fetching global coordination keys in FDB", "prefix", prefix)
@@ -193,24 +167,15 @@ func (fdbClient *realFdbLibClient) getGlobalCoordinationKeys(
 			Info("Done fetching global coordination keys in FDB", "prefix", prefix, "results", len(mapResult))
 	}()
 
-	database, err := getFDBDatabase(fdbClient.cluster)
-	if err != nil {
-		return nil, err
-	}
-
-	result, err := database.Transact(func(transaction fdb.Transaction) (interface{}, error) {
-		err := transaction.Options().SetReadSystemKeys()
-		if err != nil {
-			return nil, err
-		}
-
+	var resultProcessGroups map[fdbv1beta2.ProcessGroupID]time.Time
+	trErr := fdbClient.executeTransaction(func(tr fdb.Transaction) error {
 		keyPrefix := path.Join(fdbClient.cluster.GetLockPrefix(), prefix)
 		keyRange, err := fdb.PrefixRange([]byte(keyPrefix))
 		if err != nil {
-			return nil, err
+			return err
 		}
 
-		results := transaction.GetRange(keyRange, fdb.RangeOptions{}).GetSliceOrPanic()
+		results := tr.GetRange(keyRange, fdb.RangeOptions{}).GetSliceOrPanic()
 		processGroups := make(map[fdbv1beta2.ProcessGroupID]time.Time, len(results))
 		for _, result := range results {
 			processGroupID := path.Base(result.Key.String())
@@ -219,11 +184,11 @@ func (fdbClient *realFdbLibClient) getGlobalCoordinationKeys(
 
 			timestampBytes, err := tuple.Unpack(result.Value)
 			if err != nil {
-				return nil, err
+				return err
 			}
 
 			if len(timestampBytes) < 1 {
-				return false, fmt.Errorf(
+				return fmt.Errorf(
 					"expected that the tuple contains one element, got %d elements",
 					len(timestampBytes),
 				)
@@ -231,71 +196,47 @@ func (fdbClient *realFdbLibClient) getGlobalCoordinationKeys(
 
 			timestamp, valid := timestampBytes[0].(int64)
 			if !valid {
-				return false, fmt.Errorf("could not cast timestamp bytes into timestamp")
+				return fmt.Errorf("could not cast timestamp bytes into timestamp")
 			}
 
 			processGroups[fdbv1beta2.ProcessGroupID(processGroupID)] = time.Unix(timestamp, 0)
 		}
 
-		return processGroups, nil
-	})
+		resultProcessGroups = processGroups
+		return nil
+	}, timeout)
 
-	if err != nil {
-		var fdbError *fdb.Error
-		if errors.As(err, &fdbError) {
-			// See: https://apple.github.io/foundationdb/api-error-codes.html
-			// 1031: Operation aborted because the transaction timed out
-			if fdbError.Code == 1031 {
-				return nil, fdbv1beta2.TimeoutError{Err: err}
-			}
-		}
-
-		return nil, err
-	}
-
-	var ok bool
-	mapResult, ok = result.(map[fdbv1beta2.ProcessGroupID]time.Time)
-	if !ok {
-		return nil, fmt.Errorf("could not cast result into map")
-	}
-
-	return mapResult, nil
+	return resultProcessGroups, checkError(trErr)
 }
 
 // getGlobalCoordinationKeys will return the entries under the provided prefix.
-func (fdbClient *realFdbLibClient) clearGlobalCoordinationKeys(prefix string) error {
+func (fdbClient *realFdbLibClient) clearGlobalCoordinationKeys(
+	prefix string,
+	timeout time.Duration,
+) error {
 	fdbClient.logger.V(1).Info("Clearing global coordination keys in FDB", "prefix", prefix)
 	defer func() {
 		fdbClient.logger.V(1).
 			Info("Done clearing global coordination keys in FDB", "prefix", prefix)
 	}()
 
-	database, err := getFDBDatabase(fdbClient.cluster)
-	if err != nil {
-		return err
-	}
-
-	_, err = database.Transact(func(transaction fdb.Transaction) (interface{}, error) {
-		err := transaction.Options().SetAccessSystemKeys()
-		if err != nil {
-			return nil, err
-		}
-
+	err := fdbClient.executeTransaction(func(tr fdb.Transaction) error {
 		keyPrefix := path.Join(fdbClient.cluster.GetLockPrefix(), prefix)
 		keyRange, err := fdb.PrefixRange([]byte(keyPrefix))
 		if err != nil {
-			return nil, err
+			return err
 		}
 
-		transaction.ClearRange(keyRange)
-		return nil, nil
-	})
+		tr.ClearRange(keyRange)
+		return nil
+	}, timeout)
 
 	return checkError(err)
 }
 
 func (fdbClient *realFdbLibClient) updateProcessAddresses(
 	updates map[fdbv1beta2.ProcessGroupID][]string,
+	timeout time.Duration,
 ) error {
 	if len(updates) == 0 {
 		return nil
@@ -308,22 +249,13 @@ func (fdbClient *realFdbLibClient) updateProcessAddresses(
 			Info("Done updating process addresses for global coordination in FDB", "prefix", processAddresses, "updates", len(updates))
 	}()
 
-	database, err := getFDBDatabase(fdbClient.cluster)
-	if err != nil {
-		return err
-	}
-
 	keyPrefix := path.Join(
 		fdbClient.cluster.GetLockPrefix(),
 		processAddresses,
 		fdbClient.cluster.Spec.ProcessGroupIDPrefix,
 	)
-	_, err = database.Transact(func(transaction fdb.Transaction) (interface{}, error) {
-		err := transaction.Options().SetAccessSystemKeys()
-		if err != nil {
-			return nil, err
-		}
 
+	err := fdbClient.executeTransaction(func(tr fdb.Transaction) error {
 		for processGroupID, addresses := range updates {
 			if processGroupID.GetProcessClass() == fdbv1beta2.ProcessClassTest {
 				continue
@@ -336,21 +268,21 @@ func (fdbClient *realFdbLibClient) updateProcessAddresses(
 				addressesBytes, parseError := json.Marshal(addresses)
 				// Should we continue here?
 				if parseError != nil {
-					return nil, parseError
+					return parseError
 				}
 
-				transaction.Set(key, addressesBytes)
+				tr.Set(key, addressesBytes)
 				continue
 			}
 
 			if len(addresses) == 0 {
-				transaction.Clear(key)
+				tr.Clear(key)
 				continue
 			}
 		}
 
-		return nil, nil
-	})
+		return nil
+	}, timeout)
 
 	return checkError(err)
 }
@@ -358,71 +290,44 @@ func (fdbClient *realFdbLibClient) updateProcessAddresses(
 // getProcessAddresses gets the process group IDs and their associated process addresses.
 func (fdbClient *realFdbLibClient) getProcessAddresses(
 	prefix string,
+	timeout time.Duration,
 ) (map[fdbv1beta2.ProcessGroupID][]string, error) {
-	var mapResult map[fdbv1beta2.ProcessGroupID][]string
+	var result map[fdbv1beta2.ProcessGroupID][]string
 	fdbClient.logger.V(1).
 		Info("Fetching process addresses for global coordination in FDB", "prefix", prefix)
 	defer func() {
 		fdbClient.logger.V(1).
-			Info("Done fetching process addresses for global coordination in FDB", "prefix", prefix, "results", len(mapResult))
+			Info("Done fetching process addresses for global coordination in FDB", "prefix", prefix, "results", len(result))
 	}()
 
-	database, err := getFDBDatabase(fdbClient.cluster)
-	if err != nil {
-		return nil, err
-	}
-
-	result, err := database.Transact(func(transaction fdb.Transaction) (interface{}, error) {
-		err := transaction.Options().SetReadSystemKeys()
-		if err != nil {
-			return nil, err
-		}
-
+	err := fdbClient.executeTransaction(func(tr fdb.Transaction) error {
 		keyPrefix := path.Join(fdbClient.cluster.GetLockPrefix(), processAddresses, prefix)
 		keyRange, err := fdb.PrefixRange([]byte(keyPrefix))
 		if err != nil {
-			return nil, err
+			return err
 		}
 
-		results := transaction.GetRange(keyRange, fdb.RangeOptions{}).GetSliceOrPanic()
-		processGroups := make(map[fdbv1beta2.ProcessGroupID][]string, len(results))
-		for _, result := range results {
-			processGroupID := path.Base(result.Key.String())
+		slice := tr.GetRange(keyRange, fdb.RangeOptions{}).GetSliceOrPanic()
+		processGroups := make(map[fdbv1beta2.ProcessGroupID][]string, len(slice))
+		for _, sliceResult := range slice {
+			processGroupID := path.Base(sliceResult.Key.String())
 			fdbClient.logger.V(1).
-				Info("Found result", "processGroupID", processGroupID, "key", result.Key.String())
+				Info("Found result", "processGroupID", processGroupID, "key", sliceResult.Key.String())
 
 			var addresses []string
-			parseErr := json.Unmarshal(result.Value, &addresses)
+			parseErr := json.Unmarshal(sliceResult.Value, &addresses)
 			if parseErr != nil {
-				return nil, parseErr
+				return parseErr
 			}
 
 			processGroups[fdbv1beta2.ProcessGroupID(processGroupID)] = addresses
 		}
 
-		return processGroups, nil
-	})
+		result = processGroups
+		return nil
+	}, timeout)
 
-	if err != nil {
-		var fdbError *fdb.Error
-		if errors.As(err, &fdbError) {
-			// See: https://apple.github.io/foundationdb/api-error-codes.html
-			// 1031: Operation aborted because the transaction timed out
-			if fdbError.Code == 1031 {
-				return nil, fdbv1beta2.TimeoutError{Err: err}
-			}
-		}
-
-		return nil, err
-	}
-
-	var ok bool
-	mapResult, ok = result.(map[fdbv1beta2.ProcessGroupID][]string)
-	if !ok {
-		return nil, fmt.Errorf("could not cast result into map")
-	}
-
-	return mapResult, nil
+	return result, checkError(err)
 }
 
 func checkError(err error) error {
@@ -552,6 +457,7 @@ func (fdbClient *mockFdbLibClient) getValueFromDBUsingKey(
 func (fdbClient *mockFdbLibClient) updateGlobalCoordinationKeys(
 	keyPrefix string,
 	updates map[fdbv1beta2.ProcessGroupID]fdbv1beta2.UpdateAction,
+	_ time.Duration,
 ) error {
 	for processGroupID, action := range updates {
 		key := path.Join(keyPrefix, string(processGroupID))
@@ -575,6 +481,7 @@ func (fdbClient *mockFdbLibClient) updateGlobalCoordinationKeys(
 // getGlobalCoordinationKeys will return the entries under the provided prefix.
 func (fdbClient *mockFdbLibClient) getGlobalCoordinationKeys(
 	keyPrefix string,
+	_ time.Duration,
 ) (map[fdbv1beta2.ProcessGroupID]time.Time, error) {
 	result := map[fdbv1beta2.ProcessGroupID]time.Time{}
 	for key, timeStamp := range fdbClient.coordinationState {
@@ -588,7 +495,10 @@ func (fdbClient *mockFdbLibClient) getGlobalCoordinationKeys(
 	return nil, nil
 }
 
-func (fdbClient *mockFdbLibClient) clearGlobalCoordinationKeys(keyPrefix string) error {
+func (fdbClient *mockFdbLibClient) clearGlobalCoordinationKeys(
+	keyPrefix string,
+	_ time.Duration,
+) error {
 	for key := range fdbClient.coordinationState {
 		if !strings.HasPrefix(key, keyPrefix) {
 			continue
@@ -602,6 +512,7 @@ func (fdbClient *mockFdbLibClient) clearGlobalCoordinationKeys(keyPrefix string)
 
 func (fdbClient *mockFdbLibClient) updateProcessAddresses(
 	_ map[fdbv1beta2.ProcessGroupID][]string,
+	_ time.Duration,
 ) error {
 	// TODO (johscheuer)
 	return nil
@@ -609,6 +520,7 @@ func (fdbClient *mockFdbLibClient) updateProcessAddresses(
 
 func (fdbClient *mockFdbLibClient) getProcessAddresses(
 	_ string,
+	_ time.Duration,
 ) (map[fdbv1beta2.ProcessGroupID][]string, error) {
 	// TODO (johscheuer)
 	return nil, nil
