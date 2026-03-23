@@ -442,6 +442,31 @@ func checkError(err error) error {
 	return nil
 }
 
+// setCommonOptions sets the common FDB transaction options.
+func setCommonOptions(
+	tr *fdb.Transaction,
+	timeout time.Duration,
+) error {
+	err := tr.Options().SetAccessSystemKeys()
+	if err != nil {
+		return err
+	}
+	err = tr.Options().SetTimeout(timeout.Milliseconds())
+	if err != nil {
+		return err
+	}
+
+	// We set a low retry limit as the operator will retry the reconciliation process anyways.
+	err = tr.Options().SetRetryLimit(1)
+	if err != nil {
+		return err
+	}
+
+	// Allow the operator to read from a locked database e.g. in cases where a restore is ongoing. This allows
+	// the operator to read from the FDB cluster.
+	return tr.Options().SetReadLockAware()
+}
+
 func (fdbClient *realFdbLibClient) executeTransaction(
 	operation func(tr fdb.Transaction) error,
 	timeout time.Duration,
@@ -452,11 +477,7 @@ func (fdbClient *realFdbLibClient) executeTransaction(
 	}
 
 	_, err = db.Transact(func(tr fdb.Transaction) (interface{}, error) {
-		err := tr.Options().SetAccessSystemKeys()
-		if err != nil {
-			return nil, err
-		}
-		err = tr.Options().SetTimeout(timeout.Milliseconds())
+		err = setCommonOptions(&tr, timeout)
 		if err != nil {
 			return nil, err
 		}
@@ -484,15 +505,11 @@ func (fdbClient *realFdbLibClient) executeTransactionForManagementAPI(
 	}
 
 	_, err = db.Transact(func(tr fdb.Transaction) (interface{}, error) {
-		err := tr.Options().SetReadSystemKeys()
+		err = setCommonOptions(&tr, timeout)
 		if err != nil {
 			return nil, err
 		}
 		err = tr.Options().SetSpecialKeySpaceEnableWrites()
-		if err != nil {
-			return nil, err
-		}
-		err = tr.Options().SetTimeout(timeout.Milliseconds())
 		if err != nil {
 			return nil, err
 		}
