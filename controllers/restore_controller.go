@@ -99,10 +99,10 @@ func (r *FoundationDBRestoreReconciler) Reconcile(
 
 		// Check the status of the restore every 5 minutes, otherwise check the status every minute.
 		if restore.Status.State != fdbv1beta2.RunningFoundationDBRestoreState {
-			return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Minute}, nil
+			return ctrl.Result{RequeueAfter: 5 * time.Minute}, nil
 		}
 
-		return ctrl.Result{Requeue: true, RequeueAfter: 1 * time.Minute}, nil
+		return ctrl.Result{RequeueAfter: 1 * time.Minute}, nil
 	}
 
 	restoreLog.Info("Reconciliation complete")
@@ -202,9 +202,9 @@ func (r *FoundationDBRestoreReconciler) updateOrApply(
 	restore *fdbv1beta2.FoundationDBRestore,
 ) error {
 	if r.ServerSideApply {
-		// TODO(johscheuer): We have to set the TypeMeta otherwise the Patch command will fail. This is the rudimentary
-		// support for server side apply which should be enough for the status use case. The controller runtime will
-		// add some additional support in the future: https://github.com/kubernetes-sigs/controller-runtime/issues/347.
+		// We have to set the TypeMeta otherwise the Patch command will fail. This is the rudimentary
+		// support for server side apply which should be enough for the status use case. The controller runtime added
+		// support for typed ApplyConfiguration, we could transition this setup to make use of the typed ApplyConfiguration.
 		patch := &fdbv1beta2.FoundationDBRestore{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       restore.Kind,
@@ -217,9 +217,7 @@ func (r *FoundationDBRestoreReconciler) updateOrApply(
 			Status: restore.Status,
 		}
 
-		return r.Status().
-			Patch(ctx, patch, client.Apply, client.FieldOwner("fdb-operator"))
-		//, client.ForceOwnership)
+		return applyResource(ctx, r, patch)
 	}
 
 	return r.Status().Update(ctx, restore)
