@@ -376,6 +376,7 @@ func (fdbClient *realFdbLibClient) executeTransaction(
 	if err != nil {
 		return err
 	}
+	defer db.Close()
 
 	_, err = db.Transact(func(tr fdb.Transaction) (interface{}, error) {
 		err = setCommonOptions(&tr, timeout)
@@ -404,6 +405,7 @@ func (fdbClient *realFdbLibClient) executeTransactionForManagementAPI(
 	if err != nil {
 		return err
 	}
+	defer db.Close()
 
 	_, err = db.Transact(func(tr fdb.Transaction) (interface{}, error) {
 		err = setCommonOptions(&tr, timeout)
